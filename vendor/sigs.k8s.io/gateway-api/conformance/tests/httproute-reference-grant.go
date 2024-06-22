@@ -24,10 +24,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -37,10 +38,10 @@ func init() {
 var HTTPRouteReferenceGrant = suite.ConformanceTest{
 	ShortName:   "HTTPRouteReferenceGrant",
 	Description: "A single HTTPRoute in the gateway-conformance-infra namespace, with a backendRef in the gateway-conformance-web-backend namespace, should attach to Gateway in the gateway-conformance-infra namespace",
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportHTTPRoute,
-		suite.SupportReferenceGrant,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportHTTPRoute,
+		features.SupportReferenceGrant,
 	},
 	Manifests: []string{"tests/httproute-reference-grant.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {

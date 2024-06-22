@@ -7,6 +7,7 @@ spec:
   gatewayClassName: "{GATEWAY_CLASS_NAME}"
   listeners:
     - name: http
+      hostname: "bar.com"
       port: 80
       protocol: HTTP
       allowedRoutes:

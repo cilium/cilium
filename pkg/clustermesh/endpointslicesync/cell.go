@@ -7,65 +7,44 @@ import (
 	"time"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/clustermesh/common"
-	"github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/clustermesh/wait"
+	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
 const subsystem = "clustermesh"
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
-
 // Cell is the cell for the Operator ClusterMesh
 var Cell = cell.Module(
 	"endpointslicesync-clustermesh",
 	"EndpointSlice clustermesh synchronization in the Cilium operator",
-	cell.Config(ClusterMeshConfig{}),
-	cell.Provide(
-		newClusterMesh,
-		newAPIClustersHandler,
-	),
-	// Invoke an empty function which takes a ClusterMesh to force its construction.
-	cell.Invoke(func(ClusterMesh) {}),
-
-	cell.Config(common.Config{}),
-	cell.Config(wait.TimeoutConfigDefault),
+	cell.Config(EndpointSliceSyncConfig{}),
+	cell.Invoke(registerEndpointSliceSync),
 
 	metrics.Metric(NewMetrics),
-	metrics.Metric(common.MetricsProvider(subsystem)),
 )
 
-type clusterMeshParams struct {
+type endpointSliceSyncParams struct {
 	cell.In
 
-	common.Config
-	wait.TimeoutConfig
-	Cfg ClusterMeshConfig
+	operator.ClusterMeshConfig
+	EndpointSliceSyncConfig
+	Logger   logrus.FieldLogger
+	JobGroup job.Group
 
-	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
-	ClusterInfo types.ClusterInfo
-
-	Clientset k8sClient.Clientset
-	Services  resource.Resource[*slim_corev1.Service]
-
-	Metrics       Metrics
-	CommonMetrics common.Metrics
-	StoreFactory  store.Factory
+	Clientset   k8sClient.Clientset
+	Services    resource.Resource[*slim_corev1.Service]
+	ClusterMesh operator.ClusterMesh
 }
 
-// ClusterMeshConfig contains the configuration for ClusterMesh inside the operator.
-type ClusterMeshConfig struct {
-	// ClusterMeshEnableEndpointSync enables the EndpointSlice Cluster Mesh synchronization
-	ClusterMeshEnableEndpointSync bool `mapstructure:"clustermesh-enable-endpoint-sync"`
+// EndpointSliceSyncConfig contains the configuration for endpointSliceSync inside the operator.
+type EndpointSliceSyncConfig struct {
 	// ClusterMeshConcurrentEndpointSync the number of service endpoint syncing operations
 	// that will be done concurrently by the EndpointSlice Cluster Mesh controller.
 	ClusterMeshConcurrentEndpointSync int `mapstructure:"clustermesh-concurrent-service-endpoint-syncs"`
@@ -80,12 +59,7 @@ type ClusterMeshConfig struct {
 }
 
 // Flags adds the flags used by ClientConfig.
-func (cfg ClusterMeshConfig) Flags(flags *pflag.FlagSet) {
-	flags.BoolVar(&cfg.ClusterMeshEnableEndpointSync,
-		"clustermesh-enable-endpoint-sync",
-		false,
-		"Whether or not the endpoint slice cluster mesh synchronization is enabled.",
-	)
+func (cfg EndpointSliceSyncConfig) Flags(flags *pflag.FlagSet) {
 	flags.IntVar(&cfg.ClusterMeshConcurrentEndpointSync,
 		"clustermesh-concurrent-service-endpoint-syncs",
 		5, // This currently mirrors the same default value as the endpointslice Kubernetes controller https://github.com/kubernetes/kubernetes/blob/v1.29.0/cmd/kube-controller-manager/app/options/endpointslicecontroller.go#L45

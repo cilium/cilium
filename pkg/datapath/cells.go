@@ -4,7 +4,9 @@
 package datapath
 
 import (
+	"fmt"
 	"log"
+	"log/slog"
 	"path/filepath"
 
 	"github.com/cilium/hive/cell"
@@ -178,6 +180,10 @@ func newDatapath(params datapathParams) types.Datapath {
 
 	params.LC.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
+			if err := linuxdatapath.CheckRequirements(params.Log); err != nil {
+				return fmt.Errorf("requirements failed: %w", err)
+			}
+
 			datapath.NodeIDs().RestoreNodeIDs()
 			return nil
 		},
@@ -188,6 +194,8 @@ func newDatapath(params datapathParams) types.Datapath {
 
 type datapathParams struct {
 	cell.In
+
+	Log *slog.Logger
 
 	LC      cell.Lifecycle
 	WgAgent *wg.Agent

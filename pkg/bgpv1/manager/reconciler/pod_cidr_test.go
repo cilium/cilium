@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -96,7 +96,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			}
 			oldc := &v2alpha1api.CiliumBGPVirtualRouter{
 				LocalASN:      64125,
-				ExportPodCIDR: pointer.Bool(tt.enabled),
+				ExportPodCIDR: ptr.To[bool](tt.enabled),
 				Neighbors:     []v2alpha1api.CiliumBGPNeighbor{},
 			}
 			testSC, err := instance.NewServerWithConfig(context.Background(), log, srvParams)
@@ -119,7 +119,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 
 			newc := &v2alpha1api.CiliumBGPVirtualRouter{
 				LocalASN:      64125,
-				ExportPodCIDR: pointer.Bool(tt.shouldEnable),
+				ExportPodCIDR: ptr.To[bool](tt.shouldEnable),
 				Neighbors:     []v2alpha1api.CiliumBGPNeighbor{},
 			}
 

@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_FIB_H_
-#define __LIB_FIB_H_
+#pragma once
 
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
@@ -304,4 +303,3 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 			       fib_err, oif);
 }
 #endif /* ENABLE_IPV4 */
-#endif /* __LIB_FIB_H_ */

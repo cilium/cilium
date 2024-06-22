@@ -17,6 +17,8 @@ import (
 // Resources maps resource names to channels that are closed upon initial
 // sync with k8s.
 type Resources struct {
+	CacheStatus CacheStatus
+
 	lock.RWMutex
 	// resourceChannels maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
@@ -66,6 +68,12 @@ func (r *Resources) BlockWaitGroupToSyncResources(
 	hasSyncedFunc cache.InformerSynced,
 	resourceName string,
 ) {
+	// Log an error caches have already synchronized, as the caller is making this call too late
+	// and the resource in question was missed in the initial cache sync.
+	if r.CacheStatus.Synchronized() {
+		log.WithField("kubernetesResource", resourceName).Errorf("BlockWaitGroupToSyncResources called after Caches have already synced")
+		return
+	}
 	ch := make(chan struct{})
 	r.Lock()
 	if r.resources == nil {

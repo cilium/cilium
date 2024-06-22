@@ -661,12 +661,16 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 		}
 
 		// Compile and install BPF programs for this endpoint
-		err = e.owner.Datapath().Loader().ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
+		templateHash, err := e.owner.Datapath().Loader().ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 		if err != nil {
 			if !errors.Is(err, context.Canceled) {
 				e.getLogger().WithError(err).Error("Error while reloading endpoint BPF program")
 			}
 			return err
+		}
+
+		if err := os.WriteFile(filepath.Join(datapathRegenCtxt.nextDir, defaults.TemplateIDPath), []byte(templateHash+"\n"), 0644); err != nil {
+			return fmt.Errorf("unable to write template id: %w", err)
 		}
 
 		e.getLogger().Info("Reloaded endpoint BPF program")
@@ -916,10 +920,6 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 	if datapathRegenCtxt.regenerationLevel >= regeneration.RegenerateWithDatapath {
 		if err := e.writeHeaderfile(nextDir); err != nil {
 			return fmt.Errorf("unable to write header file: %w", err)
-		}
-
-		if err := os.WriteFile(filepath.Join(nextDir, defaults.TemplateIDPath), []byte(datapathRegenCtxt.bpfHeaderfilesHash+"\n"), 0644); err != nil {
-			return fmt.Errorf("unable to write template id: %w", err)
 		}
 
 		datapathRegenCtxt.epInfoCache = e.createEpInfoCache(nextDir)
@@ -1305,34 +1305,51 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) 
 	errors := 0
 
 	// Add policy map entries before deleting to avoid transient drops
-
+	var adds []policy.MapChange
 	e.desiredPolicy.GetPolicyMap().ForEach(func(keyToAdd policy.Key, entry policy.MapStateEntry) bool {
 		if oldEntry, ok := realized.Get(keyToAdd); !ok || !oldEntry.DatapathEqual(&entry) {
-			if !e.addPolicyKey(keyToAdd, entry, false) {
+			adds = append(adds, policy.MapChange{
+				Add:   true,
+				Key:   keyToAdd,
+				Value: entry,
+			})
+		}
+		return true
+	})
+	for _, add := range adds {
+		if oldEntry, ok := realized.Get(add.Key); !ok || !oldEntry.DatapathEqual(&add.Value) {
+			if !e.addPolicyKey(add.Key, add.Value, false) {
 				errors++
 			}
 			diffCount++
 			if withDiffs {
-				diffs = append(diffs, policy.MapChange{Add: true, Key: keyToAdd, Value: entry})
+				diffs = append(diffs, add)
 			}
 		}
-		return true
-	})
-
+	}
+	var deletes []policy.MapChange
 	// Delete policy keys present in the realized state, but not present in the desired state
 	realized.ForEach(func(keyToDelete policy.Key, _ policy.MapStateEntry) bool {
 		// If key that is in realized state is not in desired state, just remove it.
 		if entry, ok := e.desiredPolicy.GetPolicyMap().Get(keyToDelete); !ok {
-			if !e.deletePolicyKey(keyToDelete, false) {
+			deletes = append(deletes, policy.MapChange{
+				Key:   keyToDelete,
+				Value: entry,
+			})
+		}
+		return true
+	})
+	for _, del := range deletes {
+		if _, ok := e.desiredPolicy.GetPolicyMap().Get(del.Key); !ok {
+			if !e.deletePolicyKey(del.Key, false) {
 				errors++
 			}
 			diffCount++
 			if withDiffs {
-				diffs = append(diffs, policy.MapChange{Add: false, Key: keyToDelete, Value: entry})
+				diffs = append(diffs, del)
 			}
 		}
-		return true
-	})
+	}
 
 	if errors > 0 {
 		err = fmt.Errorf("syncPolicyMap failed")
@@ -1349,6 +1366,7 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 		policyKey := policy.Key{
 			Identity:         policymapKey.Identity,
 			DestPort:         policymapKey.GetDestPort(),
+			InvertedPortMask: ^policymapKey.GetPortMask(),
 			Nexthdr:          policymapKey.Nexthdr,
 			TrafficDirection: policymapKey.TrafficDirection,
 		}

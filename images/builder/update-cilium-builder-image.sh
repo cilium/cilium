@@ -30,7 +30,7 @@ done
 
 do_check="${CHECK:-false}"
 if [ "${do_check}" = "true" ] ; then
-  git diff --exit-code "${used_by[@]}" || (echo "Runtime images out of date, " \
+  git diff --exit-code "${used_by[@]}" || (echo "Builder images out of date, " \
     "see https://docs.cilium.io/en/latest/contributing/development/images/#update-cilium-builder-runtime-images." && \
     exit 1)
 fi

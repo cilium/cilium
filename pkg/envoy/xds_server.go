@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	_ "github.com/cilium/cilium/pkg/envoy/resource"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/lock"
@@ -45,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -190,6 +192,8 @@ type xdsServer struct {
 	// them to the proxy via NPHDS in the cases described
 	ipCache IPCacheEventSource
 
+	restorerPromise promise.Promise[endpointstate.Restorer]
+
 	localEndpointStore *LocalEndpointStore
 }
 
@@ -216,8 +220,9 @@ type xdsServerConfig struct {
 }
 
 // newXDSServer creates a new xDS GRPC server.
-func newXDSServer(ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig) (*xdsServer, error) {
+func newXDSServer(restorerPromise promise.Promise[endpointstate.Restorer], ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig) (*xdsServer, error) {
 	return &xdsServer{
+		restorerPromise:    restorerPromise,
 		listeners:          make(map[string]*Listener),
 		ipCache:            ipCache,
 		localEndpointStore: localEndpointStore,
@@ -237,7 +242,7 @@ func (s *xdsServer) start() error {
 
 	resourceConfig := s.initializeXdsConfigs()
 
-	s.stopFunc = startXDSGRPCServer(socketListener, resourceConfig)
+	s.stopFunc = s.startXDSGRPCServer(socketListener, resourceConfig)
 
 	return nil
 }
@@ -772,12 +777,19 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 	listener.mutex.Lock() // needed for other than 'count'
 	if listener.count > 1 && !listener.nacked {
 		log.Debugf("Envoy: Reusing listener: %s", name)
+		call := true
 		if !listener.acked {
 			// Listener not acked yet, add a completion to the waiter's list
 			log.Debugf("Envoy: Waiting for a non-acknowledged reused listener: %s", name)
-			listener.waiters = append(listener.waiters, wg.AddCompletion())
+			listener.waiters = append(listener.waiters, wg.AddCompletionWithCallback(cb))
+			call = false
 		}
 		listener.mutex.Unlock()
+
+		// call the callback with nil error if the listener was acked already
+		if call && cb != nil {
+			cb(nil)
+		}
 		return
 	}
 	// Try again after a NACK, potentially with a different port number, etc.
@@ -796,6 +808,9 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 	}
 	if err := listenerConfig.Validate(); err != nil {
 		log.Errorf("Envoy: Could not validate Listener (%s): %s", err, listenerConfig.String())
+		if cb != nil {
+			cb(err)
+		}
 		return
 	}
 

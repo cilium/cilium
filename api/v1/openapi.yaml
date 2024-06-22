@@ -2065,6 +2065,9 @@ definitions:
       kubernetes:
         description: Status of Kubernetes integration
         "$ref": "#/definitions/K8sStatus"
+      datapath-mode:
+        description: Status of datapath mode
+        "$ref": "#/definitions/DatapathMode"
       attach-mode:
         description: Status of core datapath attachment mode
         "$ref": "#/definitions/AttachMode"
@@ -2719,6 +2722,8 @@ definitions:
     type: string
     enum:
       - veth
+      - netkit
+      - netkit-l2
   AttachMode:
     description: Core datapath attachment mode
     type: string

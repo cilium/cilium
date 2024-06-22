@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_SRV6_H_
-#define __LIB_SRV6_H_
+#pragma once
 
 #include "lib/common.h"
 #include "lib/fib.h"
@@ -405,4 +404,3 @@ error_drop:
 }
 # endif /* SKIP_SRV6_HANDLING */
 #endif /* ENABLE_SRV6 */
-#endif /* __LIB_SRV6_H_ */

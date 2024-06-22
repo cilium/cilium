@@ -16,8 +16,7 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  */
-#ifndef _LINUX_UDP_H
-#define _LINUX_UDP_H
+#pragma once
 
 #include <linux/types.h>
 
@@ -38,6 +37,3 @@ struct udphdr {
 #define UDP_ENCAP_ESPINUDP_NON_IKE	1 /* draft-ietf-ipsec-nat-t-ike-00/01 */
 #define UDP_ENCAP_ESPINUDP	2 /* draft-ietf-ipsec-udp-encaps-06 */
 #define UDP_ENCAP_L2TPINUDP	3 /* rfc2661 */
-
-
-#endif /* _LINUX_UDP_H */

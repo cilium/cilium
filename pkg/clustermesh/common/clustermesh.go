@@ -12,7 +12,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -53,8 +53,8 @@ type Configuration struct {
 	// ClusterSizeDependantInterval allows to calculate intervals based on cluster size.
 	ClusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc
 
-	// ServiceIPGetter, if not nil, is used to create a custom dialer for service resolution.
-	ServiceIPGetter k8s.ServiceIPGetter
+	// ServiceResolver, if not nil, is used to create a custom dialer for service resolution.
+	ServiceResolver *dial.ServiceResolver
 
 	// Metrics holds the different clustermesh metrics.
 	Metrics Metrics
@@ -128,7 +128,13 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		name:                         name,
 		configPath:                   path,
 		clusterSizeDependantInterval: cm.conf.ClusterSizeDependantInterval,
-		serviceIPGetter:              cm.conf.ServiceIPGetter,
+
+		resolvers: func() []dial.Resolver {
+			if cm.conf.ServiceResolver != nil {
+				return []dial.Resolver{cm.conf.ServiceResolver}
+			}
+			return nil
+		}(),
 
 		changed:     make(chan bool, configNotificationsChannelSize),
 		controllers: controller.NewManager(),
@@ -148,6 +154,11 @@ func (cm *clusterMesh) add(name, path string) {
 	if name == cm.conf.ClusterInfo.Name {
 		log.WithField(fieldClusterName, name).Debug("Ignoring configuration for own cluster")
 		return
+	}
+
+	if err := types.ValidateClusterName(name); err != nil {
+		log.WithField(fieldClusterName, name).WithError(err).
+			Error("Remote cluster name is invalid. The connection will be forbidden starting from Cilium v1.17")
 	}
 
 	inserted := false

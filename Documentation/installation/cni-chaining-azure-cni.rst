@@ -21,6 +21,11 @@ Azure CNI (Legacy)
 
 .. include:: cni-chaining-limitations.rst
 
+.. admonition:: Video
+ :class: attention
+
+  If you'd like a video explanation of the Azure CNI Powered by Cilium, check out `eCHO episode 70: Azure CNI Powered by Cilium <https://www.youtube.com/watch?v=8it8Hm2F_GM>`__.
+
 This guide explains how to set up Cilium in combination with Azure CNI in a
 chaining configuration. In this hybrid mode, the Azure CNI plugin is
 responsible for setting up the virtual network devices as well as address

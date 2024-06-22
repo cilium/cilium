@@ -25,6 +25,7 @@ import (
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -34,8 +35,8 @@ func init() {
 var GatewayInvalidTLSConfiguration = suite.ConformanceTest{
 	ShortName:   "GatewayInvalidTLSConfiguration",
 	Description: "A Gateway should fail to become ready if the Gateway has an invalid TLS configuration",
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
 	},
 	Manifests: []string{"tests/gateway-invalid-tls-configuration.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {

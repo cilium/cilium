@@ -11,6 +11,7 @@ import (
 	"sort"
 	"unsafe"
 
+	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
@@ -483,9 +484,14 @@ func (c *DNSCache) lookupIPByTime(now time.Time, ip netip.Addr) (names []string)
 	return names
 }
 
-// ipExistsLocked returns true if the IP is known to the cache.
-func (c *DNSCache) ipExistsLocked(ip netip.Addr) bool {
-	_, exists := c.reverse[ip]
+// entryExistsLocked returns true if this (name, IP) pair is known to the cache.
+func (c *DNSCache) entryExistsLocked(name string, ip netip.Addr) bool {
+	names, exists := c.reverse[ip]
+	if !exists {
+		return false
+	}
+
+	_, exists = names[name]
 	return exists
 }
 
@@ -581,14 +587,14 @@ func (c *DNSCache) removeReverse(ip netip.Addr, entry *cacheEntry) {
 }
 
 // GetIPs takes a snapshot of all IPs in the reverse cache.
-func (c *DNSCache) GetIPs() sets.Set[netip.Addr] {
+func (c *DNSCache) GetIPs() map[netip.Addr][]string {
 	c.RWMutex.RLock()
 	defer c.RWMutex.RUnlock()
 
-	out := make(sets.Set[netip.Addr], len(c.reverse))
+	out := make(map[netip.Addr][]string, len(c.reverse))
 
-	for ip := range c.reverse {
-		out.Insert(ip)
+	for ip, names := range c.reverse {
+		out[ip] = maps.Keys(names)
 	}
 
 	return out

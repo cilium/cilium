@@ -27,16 +27,28 @@ Security identities span over several ranges, depending on the context:
 3) Identities generated from CIDR-based policies
 4) Identities generated for remote nodes (optional)
 
+Cluster-local
+~~~~~~~~~~~~~
+.. _local_scoped_identity:
+
 Cluster-local identities (1) range from ``1`` to ``2^16 - 1``. The lowest
 values, from ``1`` to ``255``, correspond to the reserved identity range.  See
 the `internal code documentation
 <https://pkg.go.dev/github.com/cilium/cilium/pkg/identity#NumericIdentity>`__
 for details.
 
+Clustermesh
+~~~~~~~~~~~
+.. _clustermesh_identity:
+
 For ClusterMesh (2), 8 bits are used as the ``cluster-id`` which identifies the
 cluster in the ClusterMesh, into the 3rd octet as shown by ``0x00FF0000``. The
 4th octet (uppermost bits) must be set to ``0`` as well. Neither of these
 constraints apply CIDR identities however, see (3).
+
+CIDR-based identity
+~~~~~~~~~~~~~~~~~~~
+.. _cidr_based_identity:
 
 CIDR identities (3) are local to each node. CIDR identities begin from ``1``
 and end at ``16777215``, however since they're shifted by ``24``, this makes
@@ -45,10 +57,15 @@ their effective range ``1 | (1 << 24)`` to ``16777215 | (1 << 24)`` or from
 generated is local to each node. In other words, the identity may not be the
 same for the same CIDR policy across two nodes.
 
+Node-local identity
+~~~~~~~~~~~~~~~~~~~
+.. _remote_node_scoped_identity:
+
 Remote-node identities (4) are also local to each node. Functionally, they
 work much the same as CIDR identities: they are local to each node, potentially
-differing across nodes on the cluster. They are only used when the option
-``policy-cidr-match-mode`` includes ``nodes``.
+differing across nodes on the cluster. They are used when the option
+``policy-cidr-match-mode`` includes ``nodes`` or when ``enable-node-selector-labels``
+is set to ``true``.
 
 Node-local identities (CIDR or remote-node) are never used for traffic
 between Cilium-managed nodes, so they do not need to fit inside of a

@@ -7,143 +7,180 @@ import (
 	"context"
 	"net"
 	"net/netip"
-	"sync"
+	"regexp"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/fqdn/dns"
-	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipcache"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
+	"github.com/cilium/cilium/pkg/time"
 )
 
-// TestNameManagerCIDRGeneration tests rule generation output:
-// add a rule, get correct IP4/6 in ToCIDRSet
-// add a rule, lookup twice, get correct IP4/6 in TOCIDRSet after change
-// add a rule w/ToCIDRSet, get correct IP4/6 and old rules
-// add a rule, get same UUID label on repeat generations
-func TestNameManagerCIDRGeneration(t *testing.T) {
-	var (
-		selIPMap map[api.FQDNSelector][]netip.Addr
-
-		nameManager = NewNameManager(Config{
-			MinTTL:  1,
-			Cache:   NewDNSCache(0),
-			IPCache: testipcache.NewMockIPCache(),
-
-			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]netip.Addr, _ uint64) *sync.WaitGroup {
-				for k, v := range selectorIPMapping {
-					selIPMap[k] = v
-				}
-				return &sync.WaitGroup{}
-			},
-		})
-	)
-
-	// add rules
-	nameManager.Lock()
-	nameManager.RegisterForIPUpdatesLocked(ciliumIOSel)
-	nameManager.Unlock()
-
-	// poll DNS once, check that we only generate 1 rule (for 1 IP) and that we
-	// still have 1 ToFQDN rule, and that the IP is correct
-	selIPMap = make(map[api.FQDNSelector][]netip.Addr)
-	nameManager.UpdateGenerateDNS(context.Background(), time.Now(), map[string]*DNSIPRecords{dns.FQDN("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("1.1.1.1")}}})
-	require.Len(t, selIPMap, 1, "Incorrect length for testCase with single ToFQDNs entry")
-
-	expectedIPs := []netip.Addr{netip.MustParseAddr("1.1.1.1")}
-	ips := selIPMap[ciliumIOSel]
-	require.Equal(t, expectedIPs[0], ips[0])
-
-	// poll DNS once, check that we only generate 1 rule (for 2 IPs that we
-	// inserted) and that we still have 1 ToFQDN rule, and that the IP, now
-	// different, is correct
-	selIPMap = make(map[api.FQDNSelector][]netip.Addr)
-	nameManager.UpdateGenerateDNS(context.Background(), time.Now(), map[string]*DNSIPRecords{dns.FQDN("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("10.0.0.2")}}})
-	require.Len(t, selIPMap, 1, "Only one entry per FQDNSelector should be present")
-	expectedIPs = []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("10.0.0.2")}
-	cips := selIPMap[ciliumIOSel]
-	ip.SortAddrList(cips)
-	require.EqualValues(t, expectedIPs, cips)
+type mockIPCache struct {
+	metadata map[netip.Prefix]map[ipcacheTypes.ResourceID]labels.Labels
 }
 
-// Test that all IPs are updated when one is
-func TestNameManagerMultiIPUpdate(t *testing.T) {
-	var (
-		selIPMap map[api.FQDNSelector][]netip.Addr
-
-		nameManager = NewNameManager(Config{
-			MinTTL:  1,
-			Cache:   NewDNSCache(0),
-			IPCache: testipcache.NewMockIPCache(),
-
-			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]netip.Addr, _ uint64) *sync.WaitGroup {
-				for k, v := range selectorIPMapping {
-					selIPMap[k] = v
-				}
-				return &sync.WaitGroup{}
-			},
-		})
-	)
-
-	// add rules
-	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, githubSel}
-	nameManager.Lock()
-	for _, sel := range selectorsToAdd {
-		nameManager.RegisterForIPUpdatesLocked(sel)
+func newMockIPCache() *mockIPCache {
+	return &mockIPCache{
+		metadata: make(map[netip.Prefix]map[ipcacheTypes.ResourceID]labels.Labels),
 	}
-	nameManager.Unlock()
+}
 
-	// poll DNS once, check that we only generate 1 IP for cilium.io
-	selIPMap = make(map[api.FQDNSelector][]netip.Addr)
-	nameManager.UpdateGenerateDNS(context.Background(), time.Now(), map[string]*DNSIPRecords{dns.FQDN("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("1.1.1.1")}}})
-	require.Len(t, selIPMap, 1, "Incorrect number of plumbed FQDN selectors")
-	require.Equal(t, netip.MustParseAddr("1.1.1.1"), selIPMap[ciliumIOSel][0])
+func (m *mockIPCache) labelsForPrefix(prefix netip.Prefix) labels.Labels {
+	lbls := labels.Labels{}
+	for _, l := range m.metadata[prefix] {
+		lbls.MergeLabels(l)
+	}
+	return lbls
+}
 
-	// poll DNS once, check that we only generate 3 IPs, 2 cached from before and 1 new one for github.com
-	selIPMap = make(map[api.FQDNSelector][]netip.Addr)
-	nameManager.UpdateGenerateDNS(context.Background(), time.Now(), map[string]*DNSIPRecords{
-		dns.FQDN("cilium.io"):  {TTL: 60, IPs: []net.IP{net.ParseIP("10.0.0.2")}},
-		dns.FQDN("github.com"): {TTL: 60, IPs: []net.IP{net.ParseIP("10.0.0.3")}}})
-	require.Len(t, selIPMap, 2, "More than 2 FQDN selectors while only 2 were added")
-	require.Len(t, selIPMap[ciliumIOSel], 2, "Incorrect number of IPs for cilium.io selector")
-	require.Len(t, selIPMap[githubSel], 1, "Incorrect number of IPs for github.com selector")
-	cips := selIPMap[ciliumIOSel]
-	ip.SortAddrList(cips)
-	require.Equal(t, cips[0], netip.MustParseAddr("1.1.1.1"), "Incorrect IP mapping to FQDN")
-	require.Equal(t, cips[1], netip.MustParseAddr("10.0.0.2"), "Incorrect IP mapping to FQDN")
-	require.Equal(t, selIPMap[githubSel][0], netip.MustParseAddr("10.0.0.3"), "Incorrect IP mapping to FQDN")
+func (m *mockIPCache) UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64) {
+	for _, mu := range updates {
+		prefixMetadata, ok := m.metadata[mu.Prefix]
+		if !ok {
+			prefixMetadata = make(map[ipcacheTypes.ResourceID]labels.Labels)
+		}
 
-	// poll DNS once, check that we only generate 4 IPs, 2 cilium.io cached IPs, 1 cached github.com IP, 1 new github.com IP
-	selIPMap = make(map[api.FQDNSelector][]netip.Addr)
-	nameManager.UpdateGenerateDNS(context.Background(), time.Now(), map[string]*DNSIPRecords{
-		dns.FQDN("cilium.io"):  {TTL: 60, IPs: []net.IP{net.ParseIP("10.0.0.2")}},
-		dns.FQDN("github.com"): {TTL: 60, IPs: []net.IP{net.ParseIP("10.0.0.4")}}})
-	require.Len(t, selIPMap[ciliumIOSel], 2, "Incorrect number of IPs for cilium.io selector")
-	require.Len(t, selIPMap[githubSel], 2, "Incorrect number of IPs for github.com selector")
-	cips = selIPMap[ciliumIOSel]
-	ip.SortAddrList(cips)
-	require.Equal(t, netip.MustParseAddr("1.1.1.1"), cips[0], "Incorrect IP mapping to FQDN")
-	require.Equal(t, netip.MustParseAddr("10.0.0.2"), cips[1], "Incorrect IP mapping to FQDN")
+		for _, aux := range mu.Metadata {
+			if lbls, ok := aux.(labels.Labels); ok {
+				prefixMetadata[mu.Resource] = lbls
+				break
+			}
+		}
 
-	ghips := selIPMap[githubSel]
-	ip.SortAddrList(ghips)
-	require.Equal(t, netip.MustParseAddr("10.0.0.3"), ghips[0], "Incorrect IP mapping to FQDN")
-	require.Equal(t, netip.MustParseAddr("10.0.0.4"), ghips[1], "Incorrect IP mapping to FQDN")
+		m.metadata[mu.Prefix] = prefixMetadata
+	}
 
-	// Second registration fails because IdentityAllocator is not initialized
-	nameManager.Lock()
-	nameManager.RegisterForIPUpdatesLocked(githubSel)
+	return 0
+}
 
-	nameManager.UnregisterForIPUpdatesLocked(githubSel)
-	_, exists := nameManager.allSelectors[githubSel]
-	require.Equal(t, false, exists)
+func (m *mockIPCache) RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64) {
+	for _, mu := range updates {
+		for _, aux := range mu.Metadata {
+			if _, ok := aux.(labels.Labels); ok {
+				delete(m.metadata[mu.Prefix], mu.Resource)
+				break
+			}
+		}
 
-	nameManager.UnregisterForIPUpdatesLocked(ciliumIOSel)
-	_, exists = nameManager.allSelectors[ciliumIOSel]
-	require.Equal(t, false, exists)
-	nameManager.Unlock()
+		if len(m.metadata[mu.Prefix]) == 0 {
+			delete(m.metadata, mu.Prefix)
+		}
+	}
 
+	return 0
+}
+
+func (m *mockIPCache) WaitForRevision(ctx context.Context, rev uint64) error {
+	return nil
+}
+
+func ipsFromPrefixes(t *testing.T, prefixes ...netip.Prefix) (ips []net.IP) {
+	t.Helper()
+
+	for _, p := range prefixes {
+		if !p.IsSingleIP() {
+			t.Fatalf("invalid prefix: %s", p)
+		}
+
+		ips = append(ips, p.Addr().AsSlice())
+	}
+
+	return ips
+}
+
+func TestNameManagerIPCacheUpdates(t *testing.T) {
+	ipc := newMockIPCache()
+	nameManager := NewNameManager(Config{
+		MinTTL:  1,
+		Cache:   NewDNSCache(0),
+		IPCache: ipc,
+	})
+
+	nameManager.RegisterFQDNSelector(ciliumIOSel)
+
+	// Simulate lookup for single selector
+	prefix := netip.MustParsePrefix("1.1.1.1/32")
+	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), map[string]*DNSIPRecords{dns.FQDN("cilium.io"): {TTL: 60, IPs: ipsFromPrefixes(t, prefix)}})
+	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}))
+
+	// Add match pattern
+	nameManager.RegisterFQDNSelector(ciliumIOSelMatchPattern)
+	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), ciliumIOSelMatchPattern.IdentityLabel()}))
+
+	// Remove cilium.io matchname, add github.com match name
+	nameManager.RegisterFQDNSelector(githubSel)
+	nameManager.UnregisterFQDNSelector(ciliumIOSel)
+	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel()}))
+
+	// Same IP matched by two selectors
+	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), map[string]*DNSIPRecords{dns.FQDN("github.com"): {TTL: 60, IPs: ipsFromPrefixes(t, prefix)}})
+	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel(), githubSel.IdentityLabel()}))
+
+	// Additional unique IPs for each selector
+	githubPrefix := netip.MustParsePrefix("10.0.0.2/32")
+	awesomePrefix := netip.MustParsePrefix("10.0.0.3/32")
+	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), map[string]*DNSIPRecords{
+		dns.FQDN("github.com"):       {TTL: 60, IPs: ipsFromPrefixes(t, githubPrefix)},
+		dns.FQDN("awesomecilium.io"): {TTL: 60, IPs: ipsFromPrefixes(t, awesomePrefix)},
+	})
+	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel(), githubSel.IdentityLabel()}))
+	require.Equal(t, ipc.labelsForPrefix(githubPrefix), labels.FromSlice([]labels.Label{githubSel.IdentityLabel()}))
+	require.Equal(t, ipc.labelsForPrefix(awesomePrefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel()}))
+
+	// Removing selector should remove from IPCache
+	nameManager.UnregisterFQDNSelector(ciliumIOSelMatchPattern)
+	require.NotContains(t, ipc.metadata, awesomePrefix)
+	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{githubSel.IdentityLabel()}))
+	require.Equal(t, ipc.labelsForPrefix(githubPrefix), labels.FromSlice([]labels.Label{githubSel.IdentityLabel()}))
+}
+
+func Test_deriveLabelsForNames(t *testing.T) {
+	ciliumIORe, err := ciliumIOSel.ToRegex()
+	require.NoError(t, err)
+	githubRe, err := githubSel.ToRegex()
+	require.NoError(t, err)
+	ciliumIOSelMatchPatternRe, err := ciliumIOSelMatchPattern.ToRegex()
+	require.NoError(t, err)
+
+	selectors := map[api.FQDNSelector]*regexp.Regexp{
+		ciliumIOSel:             ciliumIORe,
+		githubSel:               githubRe,
+		ciliumIOSelMatchPattern: ciliumIOSelMatchPatternRe,
+	}
+
+	nomatchIP := netip.MustParseAddr("10.10.0.1")
+	githubIP := netip.MustParseAddr("10.20.0.1")
+	ciliumIP1 := netip.MustParseAddr("10.30.0.1")
+	ciliumIP2 := netip.MustParseAddr("10.30.0.2")
+
+	names := map[string][]netip.Addr{
+		"nomatch.local.":    {nomatchIP},
+		"github.com.":       {githubIP},
+		"cilium.io.":        {ciliumIP1},
+		"awesomecilium.io.": {ciliumIP1, ciliumIP2},
+	}
+
+	require.Equal(t, deriveLabelsForNames(names, selectors), map[string]nameMetadata{
+		"nomatch.local.": {
+			addrs:  []netip.Addr{nomatchIP},
+			labels: labels.Labels{},
+		},
+		"github.com.": {
+			addrs:  []netip.Addr{githubIP},
+			labels: labels.NewLabelsFromSortedList("fqdn:github.com"),
+		},
+		"cilium.io.": {
+			addrs:  []netip.Addr{ciliumIP1},
+			labels: labels.NewLabelsFromSortedList("fqdn:*cilium.io.;fqdn:cilium.io"),
+		},
+		"awesomecilium.io.": {
+			addrs:  []netip.Addr{ciliumIP1, ciliumIP2},
+			labels: labels.NewLabelsFromSortedList("fqdn:*cilium.io."),
+		},
+	})
 }

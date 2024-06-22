@@ -6,6 +6,7 @@ package maps
 import (
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/maps/act"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/configmap"
@@ -55,6 +56,9 @@ var Cell = cell.Module(
 	// Bandwidth (cilium_throttle) map contains the per-endpoint bandwidth limits.
 	// Provides RWTable[bwmap.Edt] for configuring the limits.
 	bwmap.Cell,
+
+	// Provides access to ActiveConnectionTracking map.
+	act.Cell,
 
 	// Provides access to NAT maps.
 	nat.Cell,

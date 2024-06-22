@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_CONNTRACK_H_
-#define __LIB_CONNTRACK_H_
+#pragma once
 
 #include <linux/icmpv6.h>
 #include <linux/icmp.h>
@@ -345,6 +344,8 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 			} else {
 				entry->tx_closing = 1;
 			}
+			if (ct_state)
+				ct_state->closing = 1;
 
 			*monitor = TRACE_PAYLOAD_LEN;
 			if (ct_entry_alive(entry))
@@ -1192,4 +1193,3 @@ ct_update_dsr(const void *map, const void *tuple, const bool dsr)
 
 	entry->dsr_internal = dsr;
 }
-#endif /* __LIB_CONNTRACK_H_ */

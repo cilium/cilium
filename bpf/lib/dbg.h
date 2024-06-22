@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_DBG__
-#define __LIB_DBG__
+#pragma once
 
 /* Trace types */
 enum {
@@ -267,4 +266,3 @@ void cilium_dbg_capture2(struct __ctx_buff *ctx __maybe_unused,
 }
 
 #endif
-#endif /* __LIB_DBG__ */

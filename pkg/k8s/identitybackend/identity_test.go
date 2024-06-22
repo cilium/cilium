@@ -77,7 +77,7 @@ func TestSanitizeK8sLabels(t *testing.T) {
 	}
 
 	for _, test := range testCases {
-		selected, skipped := sanitizeK8sLabels(test.input)
+		selected, skipped := SanitizeK8sLabels(test.input)
 		require.EqualValues(t, test.selected, selected)
 		require.EqualValues(t, test.skipped, skipped)
 		require.EqualValues(t, test.validationErrors, validation.ValidateLabels(selected, path))

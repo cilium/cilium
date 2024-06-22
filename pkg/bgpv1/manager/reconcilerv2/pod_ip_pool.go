@@ -121,7 +121,7 @@ func (r *PodIPPoolReconciler) reconcilePaths(ctx context.Context, p ReconcilePar
 					types.PodIPPoolLogField: poolKey,
 				}),
 			Ctx:          ctx,
-			Instance:     p.BGPInstance,
+			Router:       p.BGPInstance.Router,
 			DesiredPaths: desiredPoolAFPaths,
 			CurrentPaths: currentPoolAFPaths,
 		})
@@ -197,7 +197,7 @@ func (r *PodIPPoolReconciler) reconcileRoutePolicies(ctx context.Context, p Reco
 					types.PodIPPoolLogField: poolKey,
 				}),
 			Ctx:             ctx,
-			Instance:        p.BGPInstance,
+			Router:          p.BGPInstance.Router,
 			DesiredPolicies: desiredRPs,
 			CurrentPolicies: currentRPs,
 		})

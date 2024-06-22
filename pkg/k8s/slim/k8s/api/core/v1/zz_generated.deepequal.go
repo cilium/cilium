@@ -1296,6 +1296,14 @@ func (in *ServiceSpec) DeepEqual(other *ServiceSpec) bool {
 		}
 	}
 
+	if (in.TrafficDistribution == nil) != (other.TrafficDistribution == nil) {
+		return false
+	} else if in.TrafficDistribution != nil {
+		if *in.TrafficDistribution != *other.TrafficDistribution {
+			return false
+		}
+	}
+
 	return true
 }
 

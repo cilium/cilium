@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_EPS_H_
-#define __LIB_EPS_H_
+#pragma once
 
 #include <linux/ip.h>
 #include <linux/ipv6.h>
@@ -96,4 +95,3 @@ ipcache_lookup4(const void *map, __be32 addr, __u32 prefix, __u32 cluster_id)
 	ipcache_lookup6(&IPCACHE_MAP, addr, V6_CACHE_KEY_LEN, cluster_id)
 #define lookup_ip4_remote_endpoint(addr, cluster_id) \
 	ipcache_lookup4(&IPCACHE_MAP, addr, V4_CACHE_KEY_LEN, cluster_id)
-#endif /* __LIB_EPS_H_ */

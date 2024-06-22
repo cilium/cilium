@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_OVERLOADABLE_SKB_H_
-#define __LIB_OVERLOADABLE_SKB_H_
+#pragma once
 
 #include "lib/common.h"
 #include "linux/ip.h"
@@ -237,12 +236,6 @@ static __always_inline bool ctx_snat_done(const struct __sk_buff *ctx)
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_SNAT_DONE;
 }
 
-static __always_inline void ctx_set_overlay_mark(struct __sk_buff *ctx)
-{
-	ctx->mark &= ~MARK_MAGIC_HOST_MASK;
-	ctx->mark |= MARK_MAGIC_OVERLAY;
-}
-
 static __always_inline bool ctx_is_overlay(const struct __sk_buff *ctx)
 {
 	if (!is_defined(HAVE_ENCAP))
@@ -269,7 +262,7 @@ static __always_inline __maybe_unused int
 ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
 		   __be16 src_port __maybe_unused, __u32 node_id,
 		   __u32 seclabel, __u32 vni __maybe_unused,
-		   void *opt, __u32 opt_len, int *ifindex)
+		   void *opt, __u32 opt_len)
 {
 	struct bpf_tunnel_key key = {};
 	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
@@ -299,10 +292,6 @@ ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
 			return DROP_WRITE_ERROR;
 	}
 
-	*ifindex = ENCAP_IFINDEX;
-
 	return CTX_ACT_REDIRECT;
 }
 #endif /* HAVE_ENCAP */
-
-#endif /* __LIB_OVERLOADABLE_SKB_H_ */

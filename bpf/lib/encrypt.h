@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_ENCRYPT_H_
-#define __LIB_ENCRYPT_H_
+#pragma once
 
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
@@ -228,13 +227,16 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
  *   - net.ipv4.conf.default.accept_local = 1
  */
 static __always_inline int
-encrypt_overlay_and_redirect(struct __ctx_buff *ctx, void *data,
-			     void *data_end, struct iphdr *ip4)
+encrypt_overlay_and_redirect(struct __ctx_buff *ctx)
 {
+	struct iphdr *ip4, *inner_ipv4 = NULL;
 	struct endpoint_info *ep_info = NULL;
-	struct iphdr *inner_ipv4 = NULL;
+	void *data, *data_end;
 	__u8 dst_mac = 0;
 	int ret = 0;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
 
 	ret = vxlan_get_inner_ipv4(data, data_end, ip4, &inner_ipv4);
 	if (!ret)
@@ -288,5 +290,3 @@ do_decrypt(struct __ctx_buff __maybe_unused *ctx, __u16 __maybe_unused proto)
 	return CTX_ACT_OK;
 }
 #endif /* ENABLE_IPSEC */
-#endif /* __LIB_ENCRYPT_H_ */
-

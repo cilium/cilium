@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   creationTimestamp: null
   name: ciliumloadbalancerippools.cilium.io
 spec:
@@ -70,23 +70,6 @@ spec:
                 type: string
               blocks:
                 description: Blocks is a list of CIDRs comprising this IP Pool
-                items:
-                  description: CiliumLoadBalancerIPPoolIPBlock describes a single
-                    IP block.
-                  properties:
-                    cidr:
-                      format: cidr
-                      type: string
-                    start:
-                      type: string
-                    stop:
-                      type: string
-                  type: object
-                type: array
-              cidrs:
-                description: 'Cidrs is a list of CIDRs comprising this IP Pool Deprecated:
-                  please use the `blocks` field instead. This field will be removed
-                  in a future release. https://github.com/cilium/cilium/issues/28590'
                 items:
                   description: CiliumLoadBalancerIPPoolIPBlock describes a single
                     IP block.

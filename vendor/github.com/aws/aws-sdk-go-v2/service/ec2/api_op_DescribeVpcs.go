@@ -17,7 +17,9 @@ import (
 	"time"
 )
 
-// Describes one or more of your VPCs.
+// Describes your VPCs. The default is to describe all your VPCs. Alternatively,
+// you can specify specific VPC IDs or filter the results to include only the VPCs
+// that match specific criteria.
 func (c *Client) DescribeVpcs(ctx context.Context, params *DescribeVpcsInput, optFns ...func(*Options)) (*DescribeVpcsOutput, error) {
 	if params == nil {
 		params = &DescribeVpcsInput{}
@@ -99,8 +101,6 @@ type DescribeVpcsInput struct {
 	NextToken *string
 
 	// The IDs of the VPCs.
-	//
-	// Default: Describes all your VPCs.
 	VpcIds []string
 
 	noSmithyDocumentSerde
@@ -112,7 +112,7 @@ type DescribeVpcsOutput struct {
 	// value is null when there are no more items to return.
 	NextToken *string
 
-	// Information about one or more VPCs.
+	// Information about the VPCs.
 	Vpcs []types.Vpc
 
 	// Metadata pertaining to the operation's result.
@@ -174,6 +174,9 @@ func (c *Client) addOperationDescribeVpcsMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVpcs(options.Region), middleware.Before); err != nil {

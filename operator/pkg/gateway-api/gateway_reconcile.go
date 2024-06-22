@@ -24,6 +24,7 @@ import (
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -67,12 +68,13 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		scopedLog.WithField(gatewayClass, gw.Spec.GatewayClassName).
 			WithError(err).
 			Error("Unable to get GatewayClass")
-		if k8serrors.IsNotFound(err) {
-			setGatewayAccepted(gw, false, "GatewayClass does not exist")
-			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
-		}
-		setGatewayAccepted(gw, false, "Unable to get GatewayClass")
-		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+		// Doing nothing till the GatewayClass is available and matching controller name
+		return controllerruntime.Success()
+	}
+
+	if string(gwc.Spec.ControllerName) != controllerName {
+		scopedLog.Debug("GatewayClass does not have matching controller name, doing nothing")
+		return controllerruntime.Success()
 	}
 
 	httpRouteList := &gatewayv1.HTTPRouteList{}
@@ -81,7 +83,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 	}
 
-	grpcRouteList := &gatewayv1alpha2.GRPCRouteList{}
+	grpcRouteList := &gatewayv1.GRPCRouteList{}
 	if err := r.Client.List(ctx, grpcRouteList); err != nil {
 		scopedLog.WithError(err).Error("Unable to list GRPCRoutes")
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
@@ -225,18 +227,21 @@ func (r *gatewayReconciler) updateStatus(ctx context.Context, original *gatewayv
 
 func (r *gatewayReconciler) filterHTTPRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1.HTTPRoute) []gatewayv1.HTTPRoute {
 	var filtered []gatewayv1.HTTPRoute
+	allListenerHostNames := routechecks.GetAllListenerHostNames(gw.Spec.Listeners)
 	for _, route := range routes {
-		if isAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) && len(computeHosts(gw, route.Spec.Hostnames)) > 0 {
+		if isAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) && len(computeHosts(gw, route.Spec.Hostnames, allListenerHostNames)) > 0 {
 			filtered = append(filtered, route)
 		}
 	}
 	return filtered
 }
 
-func (r *gatewayReconciler) filterGRPCRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1alpha2.GRPCRoute) []gatewayv1alpha2.GRPCRoute {
-	var filtered []gatewayv1alpha2.GRPCRoute
+func (r *gatewayReconciler) filterGRPCRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1.GRPCRoute) []gatewayv1.GRPCRoute {
+	var filtered []gatewayv1.GRPCRoute
+	allListenerHostNames := routechecks.GetAllListenerHostNames(gw.Spec.Listeners)
+
 	for _, route := range routes {
-		if isAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) && len(computeHosts(gw, route.Spec.Hostnames)) > 0 {
+		if isAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) && len(computeHosts(gw, route.Spec.Hostnames, allListenerHostNames)) > 0 {
 			filtered = append(filtered, route)
 		}
 	}
@@ -248,7 +253,7 @@ func (r *gatewayReconciler) filterHTTPRoutesByListener(ctx context.Context, gw *
 	for _, route := range routes {
 		if isAttachable(ctx, gw, &route, route.Status.Parents) &&
 			isAllowed(ctx, r.Client, gw, &route) &&
-			len(computeHostsForListener(listener, route.Spec.Hostnames)) > 0 &&
+			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
 			parentRefMatched(gw, listener, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
 		}
@@ -275,7 +280,8 @@ func parentRefMatched(gw *gatewayv1.Gateway, listener *gatewayv1.Listener, route
 func (r *gatewayReconciler) filterTLSRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1alpha2.TLSRoute) []gatewayv1alpha2.TLSRoute {
 	var filtered []gatewayv1alpha2.TLSRoute
 	for _, route := range routes {
-		if isAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) && len(computeHosts(gw, route.Spec.Hostnames)) > 0 {
+		if isAttachable(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) &&
+			len(computeHosts(gw, route.Spec.Hostnames, nil)) > 0 {
 			filtered = append(filtered, route)
 		}
 	}
@@ -287,7 +293,7 @@ func (r *gatewayReconciler) filterTLSRoutesByListener(ctx context.Context, gw *g
 	for _, route := range routes {
 		if isAttachable(ctx, gw, &route, route.Status.Parents) &&
 			isAllowed(ctx, r.Client, gw, &route) &&
-			len(computeHostsForListener(listener, route.Spec.Hostnames)) > 0 &&
+			len(computeHostsForListener(listener, route.Spec.Hostnames, nil)) > 0 &&
 			parentRefMatched(gw, listener, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
 		}

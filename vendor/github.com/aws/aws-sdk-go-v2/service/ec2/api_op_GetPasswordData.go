@@ -33,8 +33,8 @@ import (
 // returns an empty string. We recommend that you wait up to 15 minutes after
 // launching an instance before trying to retrieve the generated password.
 //
-// [EC2Launch]: https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ec2launch.html
-// [EC2Config]: https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/UsingConfig_WinAMI.html
+// [EC2Launch]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2launch.html
+// [EC2Config]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/UsingConfig_WinAMI.html
 func (c *Client) GetPasswordData(ctx context.Context, params *GetPasswordDataInput, optFns ...func(*Options)) (*GetPasswordDataOutput, error) {
 	if params == nil {
 		params = &GetPasswordDataInput{}
@@ -137,6 +137,9 @@ func (c *Client) addOperationGetPasswordDataMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpGetPasswordDataValidationMiddleware(stack); err != nil {

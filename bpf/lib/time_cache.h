@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_TIME_CACHE_H_
-#define __LIB_TIME_CACHE_H_
+#pragma once
 
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
@@ -42,5 +41,3 @@ struct {
 			__ktime = *__cache;				     \
 		__ktime;						     \
 	})
-
-#endif /* __LIB_TIME_CACHE_H_ */

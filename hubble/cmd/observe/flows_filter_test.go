@@ -454,12 +454,13 @@ func TestLabels(t *testing.T) {
 	err := cmd.Flags().Parse([]string{
 		"--label", "k1=v1,k2=v2",
 		"-l", "k3",
+		"--node-label", "io.cilium.egress-gateway",
 	})
 	require.NoError(t, err)
 	if diff := cmp.Diff(
 		[]*flowpb.FlowFilter{
-			{SourceLabel: []string{"k1=v1,k2=v2", "k3"}},
-			{DestinationLabel: []string{"k1=v1,k2=v2", "k3"}},
+			{SourceLabel: []string{"k1=v1,k2=v2", "k3"}, NodeLabels: []string{"io.cilium.egress-gateway"}},
+			{DestinationLabel: []string{"k1=v1,k2=v2", "k3"}, NodeLabels: []string{"io.cilium.egress-gateway"}},
 		},
 		f.whitelist.flowFilters(),
 		cmpopts.IgnoreUnexported(flowpb.FlowFilter{}),

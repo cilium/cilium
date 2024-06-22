@@ -26,13 +26,15 @@ const (
 type gatewayAPITranslator struct {
 	cecTranslator translation.CECTranslator
 
-	hostNetworkEnabled bool
+	hostNetworkEnabled    bool
+	externalTrafficPolicy string
 }
 
-func NewTranslator(cecTranslator translation.CECTranslator, hostNetworkEnabled bool) translation.Translator {
+func NewTranslator(cecTranslator translation.CECTranslator, hostNetworkEnabled bool, externalTrafficPolicy string) translation.Translator {
 	return &gatewayAPITranslator{
-		cecTranslator:      cecTranslator,
-		hostNetworkEnabled: hostNetworkEnabled,
+		cecTranslator:         cecTranslator,
+		hostNetworkEnabled:    hostNetworkEnabled,
+		externalTrafficPolicy: externalTrafficPolicy,
 	}
 }
 
@@ -101,7 +103,7 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 		allLabels = mergeMap(allLabels, l.GetLabels())
 	}
 
-	lbSvc := getService(source, ports, allLabels, allAnnotations)
+	lbSvc := getService(source, ports, allLabels, allAnnotations, t.externalTrafficPolicy)
 
 	if t.hostNetworkEnabled {
 		lbSvc.Spec.Type = corev1.ServiceTypeClusterIP
@@ -110,7 +112,7 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 	return cec, lbSvc, getEndpoints(*source), err
 }
 
-func getService(resource *model.FullyQualifiedResource, allPorts []uint32, labels, annotations map[string]string) *corev1.Service {
+func getService(resource *model.FullyQualifiedResource, allPorts []uint32, labels, annotations map[string]string, externalTrafficPolicy string) *corev1.Service {
 	uniquePorts := map[uint32]struct{}{}
 	for _, p := range allPorts {
 		uniquePorts[p] = struct{}{}
@@ -142,8 +144,9 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32, label
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type:  corev1.ServiceTypeLoadBalancer,
-			Ports: ports,
+			Type:                  corev1.ServiceTypeLoadBalancer,
+			ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicy(externalTrafficPolicy),
+			Ports:                 ports,
 		},
 	}
 }

@@ -22,6 +22,7 @@ on:
     branches:
       - main
       - ft/main/**
+      - 'renovate/main-**'
     paths-ignore:
       - 'Documentation/**'
 
@@ -75,7 +76,6 @@ jobs:
           echo '${{ tojson(inputs) }}'
 
   commit-status-start:
-    if: ${{ github.event_name != 'push' }}
     name: Commit Status Start
     runs-on: ubuntu-latest
     steps:
@@ -139,7 +139,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -222,7 +222,7 @@ jobs:
           echo "connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS}" >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@d86ae1ca5755139d6ca9423b9606cb047fc8e00f # v0.16.9
+        uses: cilium/cilium-cli@511f0173c21db1c3c959b96fd68eef18f83a0a9f # v0.16.10
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -354,7 +354,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ steps.newest-vars.outputs.sha }}
           persist-credentials: false
@@ -363,7 +363,7 @@ jobs:
             install/kubernetes/cilium
 
       - name: Checkout ${{ steps.vars.outputs.downgrade_version }} branch
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ steps.vars.outputs.downgrade_version }}
           persist-credentials: false
@@ -431,8 +431,8 @@ jobs:
 
       - name: Wait for cluster mesh status to be ready
         run: |
-          cilium --context ${{ env.contextName1 }} status --wait
-          cilium --context ${{ env.contextName2 }} status --wait
+          cilium --context ${{ env.contextName1 }} status --wait --wait-duration=10m
+          cilium --context ${{ env.contextName2 }} status --wait --wait-duration=10m
           cilium --context ${{ env.contextName1 }} clustermesh status --wait --wait-duration=5m
           cilium --context ${{ env.contextName2 }} clustermesh status --wait --wait-duration=5m
 
@@ -536,8 +536,8 @@ jobs:
       - name: Wait for cluster mesh status to be ready
         if: ${{ !matrix.external-kvstore }}
         run: |
-          cilium --context ${{ env.contextName1 }} status --wait
-          cilium --context ${{ env.contextName2 }} status --wait
+          cilium --context ${{ env.contextName1 }} status --wait --wait-duration=10m
+          cilium --context ${{ env.contextName2 }} status --wait --wait-duration=10m
           cilium --context ${{ env.contextName1 }} clustermesh status --wait --wait-duration=5m
           cilium --context ${{ env.contextName2 }} clustermesh status --wait --wait-duration=5m
 
@@ -615,8 +615,8 @@ jobs:
 
       - name: Wait for cluster mesh status to be ready
         run: |
-          cilium --context ${{ env.contextName1 }} status --wait
-          cilium --context ${{ env.contextName2 }} status --wait
+          cilium --context ${{ env.contextName1 }} status --wait --wait-duration=10m
+          cilium --context ${{ env.contextName2 }} status --wait --wait-duration=10m
           cilium --context ${{ env.contextName1 }} clustermesh status --wait --wait-duration=5m
           cilium --context ${{ env.contextName2 }} clustermesh status --wait --wait-duration=5m
 
@@ -662,8 +662,8 @@ jobs:
 
       - name: Wait for cluster mesh status to be ready
         run: |
-          cilium --context ${{ env.contextName1 }} status --wait
-          cilium --context ${{ env.contextName2 }} status --wait
+          cilium --context ${{ env.contextName1 }} status --wait --wait-duration=10m
+          cilium --context ${{ env.contextName2 }} status --wait --wait-duration=10m
           cilium --context ${{ env.contextName1 }} clustermesh status --wait --wait-duration=5m
           cilium --context ${{ env.contextName2 }} clustermesh status --wait --wait-duration=5m
 
@@ -754,7 +754,7 @@ jobs:
           delete-merged: true
 
   commit-status-final:
-    if: ${{ always() && github.event_name != 'push' }}
+    if: ${{ always() }}
     name: Commit Status Final
     needs: upgrade-and-downgrade
     runs-on: ubuntu-latest

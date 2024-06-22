@@ -93,7 +93,7 @@ int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
 
 	/* add local backend */
-	endpoint_v4_add_entry(BACKEND_IP, 0, 0, 0, NULL, NULL);
+	endpoint_v4_add_entry(BACKEND_IP, 0, 0, 0, 0, NULL, NULL);
 
 	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
 

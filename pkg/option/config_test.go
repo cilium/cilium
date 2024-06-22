@@ -4,11 +4,13 @@
 package option
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,28 +23,46 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 func TestValidateIPv6ClusterAllocCIDR(t *testing.T) {
-	valid1 := &DaemonConfig{IPv6ClusterAllocCIDR: "fdfd::/64"}
+	valid1 := &DaemonConfig{
+		ConfigPatchMutex:     new(lock.RWMutex),
+		IPv6ClusterAllocCIDR: "fdfd::/64",
+	}
 
 	require.Nil(t, valid1.validateIPv6ClusterAllocCIDR())
 	require.Equal(t, "fdfd::", valid1.IPv6ClusterAllocCIDRBase)
 
-	valid2 := &DaemonConfig{IPv6ClusterAllocCIDR: "fdfd:fdfd:fdfd:fdfd:aaaa::/64"}
+	valid2 := &DaemonConfig{
+		ConfigPatchMutex:     new(lock.RWMutex),
+		IPv6ClusterAllocCIDR: "fdfd:fdfd:fdfd:fdfd:aaaa::/64",
+	}
 	require.Nil(t, valid2.validateIPv6ClusterAllocCIDR())
 	require.Equal(t, "fdfd:fdfd:fdfd:fdfd::", valid2.IPv6ClusterAllocCIDRBase)
 
-	invalid1 := &DaemonConfig{IPv6ClusterAllocCIDR: "foo"}
+	invalid1 := &DaemonConfig{
+		ConfigPatchMutex:     new(lock.RWMutex),
+		IPv6ClusterAllocCIDR: "foo",
+	}
 	require.NotNil(t, invalid1.validateIPv6ClusterAllocCIDR())
 
-	invalid2 := &DaemonConfig{IPv6ClusterAllocCIDR: "fdfd"}
+	invalid2 := &DaemonConfig{
+		ConfigPatchMutex:     new(lock.RWMutex),
+		IPv6ClusterAllocCIDR: "fdfd",
+	}
 	require.NotNil(t, invalid2.validateIPv6ClusterAllocCIDR())
 
-	invalid3 := &DaemonConfig{IPv6ClusterAllocCIDR: "fdfd::/32"}
+	invalid3 := &DaemonConfig{
+		ConfigPatchMutex:     new(lock.RWMutex),
+		IPv6ClusterAllocCIDR: "fdfd::/32",
+	}
 	require.NotNil(t, invalid3.validateIPv6ClusterAllocCIDR())
 
-	invalid4 := &DaemonConfig{}
+	invalid4 := &DaemonConfig{
+		ConfigPatchMutex: new(lock.RWMutex),
+	}
 	require.NotNil(t, invalid4.validateIPv6ClusterAllocCIDR())
 }
 
@@ -206,30 +226,44 @@ func TestBindEnv(t *testing.T) {
 }
 
 func TestEnabledFunctions(t *testing.T) {
-	d := &DaemonConfig{}
+	d := &DaemonConfig{ConfigPatchMutex: new(lock.RWMutex)}
 	assert.False(t, d.IPv4Enabled())
 	assert.False(t, d.IPv6Enabled())
 	assert.False(t, d.SCTPEnabled())
-	d = &DaemonConfig{EnableIPv4: true}
+	d = &DaemonConfig{
+		ConfigPatchMutex: new(lock.RWMutex),
+		EnableIPv4:       true,
+	}
 	assert.True(t, d.IPv4Enabled())
 	assert.False(t, d.IPv6Enabled())
 	assert.False(t, d.SCTPEnabled())
-	d = &DaemonConfig{EnableIPv6: true}
+	d = &DaemonConfig{
+		ConfigPatchMutex: new(lock.RWMutex),
+		EnableIPv6:       true,
+	}
 	assert.False(t, d.IPv4Enabled())
 	assert.True(t, d.IPv6Enabled())
 	assert.False(t, d.SCTPEnabled())
-	d = &DaemonConfig{EnableSCTP: true}
+	d = &DaemonConfig{
+		ConfigPatchMutex: new(lock.RWMutex),
+		EnableSCTP:       true,
+	}
 	assert.False(t, d.IPv4Enabled())
 	assert.False(t, d.IPv6Enabled())
 	assert.True(t, d.SCTPEnabled())
-	d = &DaemonConfig{}
+	d = &DaemonConfig{
+		ConfigPatchMutex: new(lock.RWMutex),
+	}
 	require.Empty(t, d.IPAMMode())
-	d = &DaemonConfig{IPAM: ipamOption.IPAMENI}
+	d = &DaemonConfig{
+		ConfigPatchMutex: new(lock.RWMutex),
+		IPAM:             ipamOption.IPAMENI,
+	}
 	require.Equal(t, ipamOption.IPAMENI, d.IPAMMode())
 }
 
 func TestLocalAddressExclusion(t *testing.T) {
-	d := &DaemonConfig{}
+	d := &DaemonConfig{ConfigPatchMutex: new(lock.RWMutex)}
 	err := d.parseExcludedLocalAddresses([]string{"1.1.1.1/32", "3.3.3.0/24", "f00d::1/128"})
 	require.NoError(t, err)
 
@@ -261,6 +295,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "default map sizes",
 			d: &DaemonConfig{
+				ConfigPatchMutex:      new(lock.RWMutex),
 				AuthMapEntries:        AuthMapEntriesDefault,
 				CTMapEntriesGlobalTCP: CTMapEntriesGlobalTCPDefault,
 				CTMapEntriesGlobalAny: CTMapEntriesGlobalAnyDefault,
@@ -287,6 +322,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "arbitrary map sizes within range",
 			d: &DaemonConfig{
+				ConfigPatchMutex:      new(lock.RWMutex),
 				AuthMapEntries:        20000,
 				CTMapEntriesGlobalTCP: 20000,
 				CTMapEntriesGlobalAny: 18000,
@@ -311,7 +347,8 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "Auth map size below range",
 			d: &DaemonConfig{
-				AuthMapEntries: AuthMapEntriesMin - 1,
+				ConfigPatchMutex: new(lock.RWMutex),
+				AuthMapEntries:   AuthMapEntriesMin - 1,
 			},
 			want: sizes{
 				AuthMapEntries: AuthMapEntriesMin - 1,
@@ -321,7 +358,8 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "Auth map size above range",
 			d: &DaemonConfig{
-				AuthMapEntries: AuthMapEntriesMax + 1,
+				ConfigPatchMutex: new(lock.RWMutex),
+				AuthMapEntries:   AuthMapEntriesMax + 1,
 			},
 			want: sizes{
 				AuthMapEntries: AuthMapEntriesMax + 1,
@@ -331,6 +369,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "CT TCP map size below range",
 			d: &DaemonConfig{
+				ConfigPatchMutex:      new(lock.RWMutex),
 				CTMapEntriesGlobalTCP: LimitTableMin - 1,
 			},
 			want: sizes{
@@ -341,6 +380,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "CT TCP map size above range",
 			d: &DaemonConfig{
+				ConfigPatchMutex:      new(lock.RWMutex),
 				CTMapEntriesGlobalTCP: LimitTableMax + 1,
 			},
 			want: sizes{
@@ -351,6 +391,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "CT Any map size below range",
 			d: &DaemonConfig{
+				ConfigPatchMutex:      new(lock.RWMutex),
 				CTMapEntriesGlobalAny: LimitTableMin - 1,
 			},
 			want: sizes{
@@ -361,6 +402,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "CT Any map size above range",
 			d: &DaemonConfig{
+				ConfigPatchMutex:      new(lock.RWMutex),
 				CTMapEntriesGlobalAny: LimitTableMax + 1,
 			},
 			want: sizes{
@@ -371,6 +413,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "NAT map size below range",
 			d: &DaemonConfig{
+				ConfigPatchMutex:    new(lock.RWMutex),
 				NATMapEntriesGlobal: LimitTableMin - 1,
 			},
 			want: sizes{
@@ -381,6 +424,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "NAT map size above range",
 			d: &DaemonConfig{
+				ConfigPatchMutex:    new(lock.RWMutex),
 				NATMapEntriesGlobal: LimitTableMax + 1,
 			},
 			want: sizes{
@@ -391,6 +435,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "NAT map auto sizing with default size",
 			d: &DaemonConfig{
+				ConfigPatchMutex:      new(lock.RWMutex),
 				AuthMapEntries:        AuthMapEntriesDefault,
 				CTMapEntriesGlobalTCP: 2048,
 				CTMapEntriesGlobalAny: 4096,
@@ -415,6 +460,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "NAT map auto sizing outside of range",
 			d: &DaemonConfig{
+				ConfigPatchMutex:      new(lock.RWMutex),
 				CTMapEntriesGlobalTCP: 2048,
 				CTMapEntriesGlobalAny: 4096,
 				NATMapEntriesGlobal:   8192,
@@ -429,6 +475,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "Policy map size below range",
 			d: &DaemonConfig{
+				ConfigPatchMutex: new(lock.RWMutex),
 				PolicyMapEntries: PolicyMapMin - 1,
 			},
 			want: sizes{
@@ -439,6 +486,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "Policy map size above range",
 			d: &DaemonConfig{
+				ConfigPatchMutex: new(lock.RWMutex),
 				PolicyMapEntries: PolicyMapMax + 1,
 			},
 			want: sizes{
@@ -449,6 +497,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "Fragments map size below range",
 			d: &DaemonConfig{
+				ConfigPatchMutex:    new(lock.RWMutex),
 				FragmentsMapEntries: FragmentsMapMin - 1,
 			},
 			want: sizes{
@@ -459,6 +508,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "Fragments map size above range",
 			d: &DaemonConfig{
+				ConfigPatchMutex:    new(lock.RWMutex),
 				FragmentsMapEntries: FragmentsMapMax + 1,
 			},
 			want: sizes{
@@ -504,6 +554,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 		{
 			name: "with native routing cidr",
 			d: &DaemonConfig{
+				ConfigPatchMutex:      new(lock.RWMutex),
 				EnableIPv4Masquerade:  true,
 				EnableIPv6Masquerade:  true,
 				RoutingMode:           RoutingModeNative,
@@ -516,6 +567,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 		{
 			name: "without native routing cidr and no masquerade",
 			d: &DaemonConfig{
+				ConfigPatchMutex:     new(lock.RWMutex),
 				EnableIPv4Masquerade: false,
 				EnableIPv6Masquerade: false,
 				RoutingMode:          RoutingModeNative,
@@ -527,6 +579,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 		{
 			name: "without native routing cidr and tunnel enabled",
 			d: &DaemonConfig{
+				ConfigPatchMutex:     new(lock.RWMutex),
 				EnableIPv4Masquerade: true,
 				EnableIPv6Masquerade: true,
 				RoutingMode:          RoutingModeTunnel,
@@ -538,6 +591,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 		{
 			name: "without native routing cidr and tunnel disabled",
 			d: &DaemonConfig{
+				ConfigPatchMutex:     new(lock.RWMutex),
 				EnableIPv4Masquerade: true,
 				EnableIPv6Masquerade: true,
 				RoutingMode:          RoutingModeNative,
@@ -549,6 +603,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 		{
 			name: "without native routing cidr and with masquerade and tunnel disabled and ipam not eni",
 			d: &DaemonConfig{
+				ConfigPatchMutex:     new(lock.RWMutex),
 				EnableIPv4Masquerade: true,
 				EnableIPv6Masquerade: true,
 				RoutingMode:          RoutingModeNative,
@@ -560,6 +615,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 		{
 			name: "without native routing cidr and tunnel disabled, but ipmasq-agent",
 			d: &DaemonConfig{
+				ConfigPatchMutex:     new(lock.RWMutex),
 				EnableIPv4Masquerade: true,
 				EnableIPv6Masquerade: true,
 				RoutingMode:          RoutingModeNative,
@@ -593,6 +649,7 @@ func TestCheckIPv6NativeRoutingCIDR(t *testing.T) {
 		{
 			name: "with native routing cidr",
 			d: &DaemonConfig{
+				ConfigPatchMutex:      new(lock.RWMutex),
 				EnableIPv4Masquerade:  true,
 				EnableIPv6Masquerade:  true,
 				RoutingMode:           RoutingModeNative,
@@ -604,6 +661,7 @@ func TestCheckIPv6NativeRoutingCIDR(t *testing.T) {
 		{
 			name: "without native routing cidr and no masquerade",
 			d: &DaemonConfig{
+				ConfigPatchMutex:     new(lock.RWMutex),
 				EnableIPv4Masquerade: false,
 				EnableIPv6Masquerade: false,
 				RoutingMode:          RoutingModeNative,
@@ -614,6 +672,7 @@ func TestCheckIPv6NativeRoutingCIDR(t *testing.T) {
 		{
 			name: "without native routing cidr and tunnel enabled",
 			d: &DaemonConfig{
+				ConfigPatchMutex:     new(lock.RWMutex),
 				EnableIPv4Masquerade: true,
 				EnableIPv6Masquerade: true,
 				RoutingMode:          RoutingModeTunnel,
@@ -624,6 +683,7 @@ func TestCheckIPv6NativeRoutingCIDR(t *testing.T) {
 		{
 			name: "without native routing cidr and tunnel disabled",
 			d: &DaemonConfig{
+				ConfigPatchMutex:     new(lock.RWMutex),
 				EnableIPv4Masquerade: true,
 				EnableIPv6Masquerade: true,
 				RoutingMode:          RoutingModeNative,
@@ -634,6 +694,7 @@ func TestCheckIPv6NativeRoutingCIDR(t *testing.T) {
 		{
 			name: "without native routing cidr and tunnel disabled, but ipmasq-agent",
 			d: &DaemonConfig{
+				ConfigPatchMutex:     new(lock.RWMutex),
 				EnableIPv4Masquerade: true,
 				EnableIPv6Masquerade: true,
 				RoutingMode:          RoutingModeNative,
@@ -666,24 +727,27 @@ func TestCheckIPAMDelegatedPlugin(t *testing.T) {
 		{
 			name: "IPAMDelegatedPlugin with local router IPv4 set and endpoint health checking disabled",
 			d: &DaemonConfig{
-				IPAM:            ipamOption.IPAMDelegatedPlugin,
-				EnableIPv4:      true,
-				LocalRouterIPv4: "169.254.0.0",
+				ConfigPatchMutex: new(lock.RWMutex),
+				IPAM:             ipamOption.IPAMDelegatedPlugin,
+				EnableIPv4:       true,
+				LocalRouterIPv4:  "169.254.0.0",
 			},
 			expectErr: nil,
 		},
 		{
 			name: "IPAMDelegatedPlugin with local router IPv6 set and endpoint health checking disabled",
 			d: &DaemonConfig{
-				IPAM:            ipamOption.IPAMDelegatedPlugin,
-				EnableIPv6:      true,
-				LocalRouterIPv6: "fe80::1",
+				ConfigPatchMutex: new(lock.RWMutex),
+				IPAM:             ipamOption.IPAMDelegatedPlugin,
+				EnableIPv6:       true,
+				LocalRouterIPv6:  "fe80::1",
 			},
 			expectErr: nil,
 		},
 		{
 			name: "IPAMDelegatedPlugin with health checking enabled",
 			d: &DaemonConfig{
+				ConfigPatchMutex:             new(lock.RWMutex),
 				IPAM:                         ipamOption.IPAMDelegatedPlugin,
 				EnableHealthChecking:         true,
 				EnableEndpointHealthChecking: true,
@@ -693,22 +757,25 @@ func TestCheckIPAMDelegatedPlugin(t *testing.T) {
 		{
 			name: "IPAMDelegatedPlugin without local router IPv4",
 			d: &DaemonConfig{
-				IPAM:       ipamOption.IPAMDelegatedPlugin,
-				EnableIPv4: true,
+				ConfigPatchMutex: new(lock.RWMutex),
+				IPAM:             ipamOption.IPAMDelegatedPlugin,
+				EnableIPv4:       true,
 			},
 			expectErr: fmt.Errorf("--local-router-ipv4 must be provided when IPv4 is enabled with --ipam=delegated-plugin"),
 		},
 		{
 			name: "IPAMDelegatedPlugin without local router IPv6",
 			d: &DaemonConfig{
-				IPAM:       ipamOption.IPAMDelegatedPlugin,
-				EnableIPv6: true,
+				ConfigPatchMutex: new(lock.RWMutex),
+				IPAM:             ipamOption.IPAMDelegatedPlugin,
+				EnableIPv6:       true,
 			},
 			expectErr: fmt.Errorf("--local-router-ipv6 must be provided when IPv6 is enabled with --ipam=delegated-plugin"),
 		},
 		{
 			name: "IPAMDelegatedPlugin with envoy config enabled",
 			d: &DaemonConfig{
+				ConfigPatchMutex:  new(lock.RWMutex),
 				IPAM:              ipamOption.IPAMDelegatedPlugin,
 				EnableEnvoyConfig: true,
 			},
@@ -1108,6 +1175,7 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			}
 
 			d := &DaemonConfig{
+				ConfigPatchMutex:      new(lock.RWMutex),
 				CTMapEntriesGlobalTCP: vp.GetInt(CTMapEntriesGlobalTCPName),
 				CTMapEntriesGlobalAny: vp.GetInt(CTMapEntriesGlobalAnyName),
 				NATMapEntriesGlobal:   vp.GetInt(NATMapEntriesGlobalName),
@@ -1291,4 +1359,38 @@ func TestDaemonConfig_validateContainerIPLocalReservedPorts(t *testing.T) {
 			tt.wantErr(t, c.validateContainerIPLocalReservedPorts(), "validateContainerIPLocalReservedPorts()")
 		})
 	}
+}
+
+func TestDaemonConfig_StoreInFile(t *testing.T) {
+	err := Config.StoreInFile(".")
+	assert.NoError(t, err)
+
+	err = Config.ValidateUnchanged(context.Background())
+	assert.NoError(t, err)
+
+	// minor change
+	Config.DryMode = true
+	err = Config.ValidateUnchanged(context.Background())
+	assert.Error(t, err)
+	strErr := strings.ReplaceAll(err.Error(), "\u00a0", " ")
+	assert.Equal(t, strErr, `Config differs:
+  &option.DaemonConfig{
+  	... // 1 ignored and 15 identical fields
+  	DatapathMode: "",
+  	RoutingMode:  "",
+- 	DryMode:      false,
++ 	DryMode:      true,
+  	RestoreState: false,
+  	KeepConfig:   false,
+  	... // 5 ignored and 312 identical fields
+  }
+`)
+	Config.DryMode = false
+
+	// IntOptions changes are ignored
+	assert.False(t, Config.Opts.IsEnabled("unit-test-key-only")) // make sure not used
+	Config.Opts.SetBool("unit-test-key-only", true)
+	err = Config.ValidateUnchanged(context.Background())
+	assert.NoError(t, err)
+	Config.Opts.Delete("unit-test-key-only")
 }

@@ -103,7 +103,7 @@ func xdpCompileArgs(xdpDev string, extraCArgs []string) ([]string, error) {
 	args := []string{
 		fmt.Sprintf("-DSECLABEL=%d", identity.ReservedIdentityWorld),
 		fmt.Sprintf("-DTHIS_INTERFACE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
-		"-DCALLS_MAP=cilium_calls_xdp",
+		fmt.Sprintf("-DCALLS_MAP=cilium_calls_xdp_%d", link.Attrs().Index),
 	}
 	args = append(args, extraCArgs...)
 	if option.Config.EnableNodePort {
@@ -162,7 +162,7 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}
 
-	coll, finalize, err := loadDatapath(spec, nil, nil)
+	coll, commit, err := loadDatapath(spec, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,9 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 		return fmt.Errorf("interface %s: %w", xdpDev, err)
 	}
 
-	finalize()
+	if err := commit(); err != nil {
+		return fmt.Errorf("committing bpf pins: %w", err)
+	}
 
 	return nil
 }

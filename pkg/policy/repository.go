@@ -405,11 +405,7 @@ func (p *Repository) SearchRLocked(lbls labels.LabelArray) api.Rules {
 func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
 	newRules := make(ruleSlice, 0, len(rules))
 	for _, r := range rules {
-		newRule := &rule{
-			Rule:     *r,
-			key:      ruleKey{idx: p.nextID},
-			metadata: newRuleMetadata(),
-		}
+		newRule := p.newRule(*r, ruleKey{idx: p.nextID})
 		newRules = append(newRules, newRule)
 		p.insert(newRule)
 		p.nextID++
@@ -438,16 +434,10 @@ func (p *Repository) ReplaceByResourceLocked(rules api.Rules, resource ipcachety
 	}
 
 	newRules = make(ruleSlice, 0, len(rules))
-
 	if len(rules) > 0 {
 		p.rulesByResource[resource] = make(map[ruleKey]*rule, len(rules))
-
 		for i, r := range rules {
-			newRule := &rule{
-				Rule:     *r,
-				key:      ruleKey{resource: resource, idx: uint(i)},
-				metadata: newRuleMetadata(),
-			}
+			newRule := p.newRule(*r, ruleKey{resource: resource, idx: uint(i)})
 			newRules = append(newRules, newRule)
 			p.insert(newRule)
 		}
@@ -485,40 +475,25 @@ func (p *Repository) del(key ruleKey) {
 	metrics.Policy.Dec()
 }
 
-// removeIdentityFromRuleCaches removes the identity from the selector cache
-// in each rule in the repository.
-//
-// Returns a sync.WaitGroup that blocks until the policy operation is complete.
-// The repository read lock must be held until the waitgroup is complete.
-func (p *Repository) removeIdentityFromRuleCaches(identity *identity.Identity) *sync.WaitGroup {
-	var wg sync.WaitGroup
-	wg.Add(len(p.rules))
-	for _, r := range p.rules {
-		go func(rr *rule, wgg *sync.WaitGroup) {
-			rr.metadata.delete(identity)
-			wgg.Done()
-		}(r, &wg)
+// newRule allocates a CachedSelector for a given rule.
+func (p *Repository) newRule(apiRule api.Rule, key ruleKey) *rule {
+	r := &rule{
+		Rule: apiRule,
+		key:  key,
 	}
-	return &wg
+	r.subjectSelector, _ = p.selectorCache.AddIdentitySelector(r, r.Labels, *r.getSelector())
+	return r
 }
 
-// LocalEndpointIdentityAdded handles local identity add events.
-func (p *Repository) LocalEndpointIdentityAdded(*identity.Identity) {
-	// no-op for now.
-}
-
-// LocalEndpointIdentityRemoved handles local identity removal events to
-// remove references from rules in the repository to the specified identity.
-func (p *Repository) LocalEndpointIdentityRemoved(identity *identity.Identity) {
-	go func() {
-		scopedLog := log.WithField(logfields.Identity, identity)
-		scopedLog.Debug("Removing identity references from policy cache")
-		p.Mutex.RLock()
-		wg := p.removeIdentityFromRuleCaches(identity)
-		wg.Wait()
-		p.Mutex.RUnlock()
-		scopedLog.Debug("Finished cleaning policy cache")
-	}()
+// Release releases resources owned by a given rule slice.
+// This is needed because we need to evaluate deleted rules after they
+// are removed from the repository, so we must allow for a specific lifecycle
+func (p *Repository) Release(rs ruleSlice) {
+	for _, r := range rs {
+		if r.subjectSelector != nil {
+			p.selectorCache.RemoveSelector(r.subjectSelector, r)
+		}
+	}
 }
 
 // MustAddList inserts a rule into the policy repository. It is used for
@@ -546,28 +521,21 @@ func (p *Repository) Iterate(f func(rule *api.Rule)) {
 	}
 }
 
-// UpdateRulesEndpointsCaches updates the caches within each rule in r that
-// specify whether the rule selects the endpoints in eps. If any rule matches
-// the endpoints, it is added to the provided IDSet, and removed from the
-// provided EndpointSet. The provided WaitGroup is signaled for a given endpoint
-// when it is finished being processed.
-func (r ruleSlice) UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegenerate *EndpointSet, policySelectionWG *sync.WaitGroup) {
+// FindSelectedEndpoints finds all endpoints selected by a given ruleSlice.
+// All endpoints that are selected will be added to endpointsToRegenerate; all
+// endpoints that are *not* selected (but still valid) remain in endpointsToBumpRevision.
+// policySelectionWG is done when all endpoints have been considered.
+func (r ruleSlice) FindSelectedEndpoints(endpointsToBumpRevision, endpointsToRegenerate *EndpointSet, policySelectionWG *sync.WaitGroup) {
 	endpointsToBumpRevision.ForEachGo(policySelectionWG, func(epp Endpoint) {
-		endpointSelected, err := r.updateEndpointsCaches(epp)
-		if endpointSelected {
-			endpointsToRegenerate.Insert(epp)
+		securityIdentity, err := epp.GetSecurityIdentity()
+		if err != nil || securityIdentity == nil {
+			// The endpoint is no longer alive, or it does not have a security identity.
+			// We should remove it from the set of endpoints that will be bumped
+			endpointsToBumpRevision.Delete(epp)
+			return
 		}
-		// If we could not evaluate the rules against the current endpoint, or
-		// the endpoint is selected by the rules, remove it from the set of
-		// endpoints to bump the revision. If the error is non-nil, the
-		// endpoint is no longer in either set (endpointsToBumpRevision or
-		// endpointsToRegenerate, as we could not determine what to do for the
-		// endpoint). This is usually the case when the endpoint is no longer
-		// alive (i.e., it has been marked to be deleted).
-		if endpointSelected || err != nil {
-			if err != nil {
-				log.WithError(err).Debug("could not determine whether endpoint was selected by rule")
-			}
+		if r.matchesSubject(securityIdentity) {
+			endpointsToRegenerate.Insert(epp)
 			endpointsToBumpRevision.Delete(epp)
 		}
 	})
@@ -807,7 +775,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 
 	matchingRules = []*rule{}
 	for _, r := range p.rules {
-		if r.matches(securityIdentity) {
+		if r.matchesSubject(securityIdentity) {
 			matchingRules = append(matchingRules, r)
 		}
 	}
@@ -878,9 +846,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 
 // wildcardRule generates a wildcard rule that only selects the given identity.
 func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
-	r := &rule{
-		metadata: newRuleMetadata(),
-	}
+	r := &rule{}
 
 	if ingress {
 		r.Ingress = []api.IngressRule{

@@ -25,6 +25,7 @@ import (
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -34,8 +35,8 @@ func init() {
 var GatewayInvalidRouteKind = suite.ConformanceTest{
 	ShortName:   "GatewayInvalidRouteKind",
 	Description: "A Gateway in the gateway-conformance-infra namespace should fail to become ready an invalid Route kind is specified.",
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
 	},
 	Manifests: []string{"tests/gateway-invalid-route-kind.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {

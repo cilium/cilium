@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/echo"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -31,10 +32,10 @@ func init() {
 var MeshFrontend = suite.ConformanceTest{
 	ShortName:   "MeshFrontend",
 	Description: "Mesh rules should only apply to the associated frontend",
-	Features: []suite.SupportedFeature{
-		suite.SupportMesh,
-		suite.SupportHTTPRoute,
-		suite.SupportHTTPRouteResponseHeaderModification,
+	Features: []features.SupportedFeature{
+		features.SupportMesh,
+		features.SupportHTTPRoute,
+		features.SupportHTTPRouteResponseHeaderModification,
 	},
 	Manifests: []string{"tests/mesh-frontend.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {

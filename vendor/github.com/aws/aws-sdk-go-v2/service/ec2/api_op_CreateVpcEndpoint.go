@@ -47,7 +47,7 @@ type CreateVpcEndpointInput struct {
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see [How to ensure idempotency].
 	//
-	// [How to ensure idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
+	// [How to ensure idempotency]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
 	ClientToken *string
 
 	// The DNS options for the endpoint.
@@ -177,6 +177,9 @@ func (c *Client) addOperationCreateVpcEndpointMiddlewares(stack *middleware.Stac
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpCreateVpcEndpointValidationMiddleware(stack); err != nil {

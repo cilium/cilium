@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -34,11 +35,11 @@ var HTTPRouteRequestMultipleMirrors = suite.ConformanceTest{
 	ShortName:   "HTTPRouteRequestMultipleMirrors",
 	Description: "An HTTPRoute with multiple request mirror filters",
 	Manifests:   []string{"tests/httproute-request-multiple-mirrors.yaml"},
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportHTTPRoute,
-		suite.SupportHTTPRouteRequestMirror,
-		suite.SupportHTTPRouteRequestMultipleMirrors,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportHTTPRoute,
+		features.SupportHTTPRouteRequestMirror,
+		features.SupportHTTPRouteRequestMultipleMirrors,
 	},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		ns := "gateway-conformance-infra"

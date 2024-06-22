@@ -77,6 +77,9 @@ func newNPHDSCache(ipcache IPCacheEventSource) NPHDSCache {
 
 var observerOnce = sync.Once{}
 
+func (cache *NPHDSCache) MarkRestorePending()   {}
+func (cache *NPHDSCache) MarkRestoreCompleted() {}
+
 // HandleResourceVersionAck is required to implement ResourceVersionAckObserver.
 // We use this to start the IP Cache listener on the first ACK so that we only
 // start the IP Cache listener if there is an Envoy node that uses NPHDS

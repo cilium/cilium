@@ -24,10 +24,10 @@ import (
 // operating system is configured to perform the required diagnostic tasks.
 //
 // For more information about configuring your operating system to generate a
-// crash dump when a kernel panic or stop error occurs, see [Send a diagnostic interrupt (for advanced users)](Linux instances) or [Send a diagnostic interrupt (for advanced users)]
-// (Windows instances).
+// crash dump when a kernel panic or stop error occurs, see [Send a diagnostic interrupt (for advanced users)]in the Amazon EC2 User
+// Guide.
 //
-// [Send a diagnostic interrupt (for advanced users)]: https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/diagnostic-interrupt.html
+// [Send a diagnostic interrupt (for advanced users)]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/diagnostic-interrupt.html
 func (c *Client) SendDiagnosticInterrupt(ctx context.Context, params *SendDiagnosticInterruptInput, optFns ...func(*Options)) (*SendDiagnosticInterruptOutput, error) {
 	if params == nil {
 		params = &SendDiagnosticInterruptInput{}
@@ -119,6 +119,9 @@ func (c *Client) addOperationSendDiagnosticInterruptMiddlewares(stack *middlewar
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpSendDiagnosticInterruptValidationMiddleware(stack); err != nil {

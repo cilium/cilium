@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_PCAP_H_
-#define __LIB_PCAP_H_
+#pragma once
 
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
@@ -489,4 +488,3 @@ cilium_capture_out(struct __ctx_buff *ctx __maybe_unused)
 }
 
 #endif /* ENABLE_CAPTURE */
-#endif /* __LIB_PCAP_H_ */

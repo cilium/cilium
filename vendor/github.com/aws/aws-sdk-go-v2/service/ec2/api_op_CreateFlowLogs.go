@@ -16,7 +16,7 @@ import (
 //
 // Flow log data for a monitored network interface is recorded as flow log
 // records, which are log events consisting of fields that describe the traffic
-// flow. For more information, see [Flow log records]in the Amazon Virtual Private Cloud User Guide.
+// flow. For more information, see [Flow log records]in the Amazon VPC User Guide.
 //
 // When publishing to CloudWatch Logs, flow log records are published to a log
 // group, and each network interface has a unique log stream in the log group. When
@@ -24,7 +24,7 @@ import (
 // interfaces are published to a single log file object that is stored in the
 // specified bucket.
 //
-// For more information, see [VPC Flow Logs] in the Amazon Virtual Private Cloud User Guide.
+// For more information, see [VPC Flow Logs] in the Amazon VPC User Guide.
 //
 // [Flow log records]: https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html#flow-log-records
 // [VPC Flow Logs]: https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html
@@ -62,7 +62,7 @@ type CreateFlowLogsInput struct {
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see [How to ensure idempotency].
 	//
-	// [How to ensure idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html
+	// [How to ensure idempotency]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
 	ClientToken *string
 
 	// The ARN of the IAM role that allows Amazon EC2 to publish flow logs across
@@ -141,7 +141,7 @@ type CreateFlowLogsInput struct {
 	//
 	// Default: 600
 	//
-	// [Nitro-based instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances
+	// [Nitro-based instance]: https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
 	MaxAggregationInterval *int32
 
 	// The tags to apply to the flow logs.
@@ -226,6 +226,9 @@ func (c *Client) addOperationCreateFlowLogsMiddlewares(stack *middleware.Stack, 
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpCreateFlowLogsValidationMiddleware(stack); err != nil {

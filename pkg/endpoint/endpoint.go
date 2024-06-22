@@ -230,8 +230,8 @@ type Endpoint struct {
 	// Constant after endpoint creation / restoration.
 	IPv4IPAMPool string
 
-	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
-	// Constant after endpoint creation / restoration.
+	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint (veth),
+	// or it may be all zeroes (netkit). Constant after endpoint creation / restoration.
 	nodeMAC mac.MAC
 
 	// SecurityIdentity is the security identity of this endpoint. This is computed from
@@ -776,6 +776,7 @@ func (e *Endpoint) Allows(id identity.NumericIdentity) bool {
 
 	keyToLookup := policy.Key{
 		Identity:         uint32(id),
+		InvertedPortMask: 0xffff, // this is a wildcard
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 
@@ -2186,6 +2187,11 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 	// this endpoint, trigger the early notification via this call. If the
 	// identity is new, then this will start updating the policy for other
 	// co-located endpoints without having to wait for that RTT.
+	//
+	// This must happen before triggering regeration, as this ID must be
+	// plumbed in to the SelectorCache in order for policy to correctly apply
+	// to this endpoint. Fortunately AllocateIdentity() will synchronously
+	// update the SelectorCache, so there are no problems here.
 	notifySelectorCache := true
 	allocatedIdentity, _, err := e.allocator.AllocateIdentity(allocateCtx, newLabels, notifySelectorCache, identity.InvalidIdentity)
 	if err != nil {

@@ -11,11 +11,14 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes one or more of your DHCP options sets.
+// Describes your DHCP option sets. The default is to describe all your DHCP
+// option sets. Alternatively, you can specify specific DHCP option set IDs or
+// filter the results to include only the DHCP option sets that match specific
+// criteria.
 //
-// For more information, see [DHCP options sets] in the Amazon VPC User Guide.
+// For more information, see [DHCP option sets] in the Amazon VPC User Guide.
 //
-// [DHCP options sets]: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_DHCP_Options.html
+// [DHCP option sets]: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_DHCP_Options.html
 func (c *Client) DescribeDhcpOptions(ctx context.Context, params *DescribeDhcpOptionsInput, optFns ...func(*Options)) (*DescribeDhcpOptionsOutput, error) {
 	if params == nil {
 		params = &DescribeDhcpOptionsInput{}
@@ -33,9 +36,7 @@ func (c *Client) DescribeDhcpOptions(ctx context.Context, params *DescribeDhcpOp
 
 type DescribeDhcpOptionsInput struct {
 
-	// The IDs of one or more DHCP options sets.
-	//
-	// Default: Describes all your DHCP options sets.
+	// The IDs of DHCP option sets.
 	DhcpOptionsIds []string
 
 	// Checks whether you have the required permissions for the action, without
@@ -80,7 +81,7 @@ type DescribeDhcpOptionsInput struct {
 
 type DescribeDhcpOptionsOutput struct {
 
-	// Information about one or more DHCP options sets.
+	// Information about the DHCP options sets.
 	DhcpOptions []types.DhcpOptions
 
 	// The token to include in another request to get the next page of items. This
@@ -146,6 +147,9 @@ func (c *Client) addOperationDescribeDhcpOptionsMiddlewares(stack *middleware.St
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeDhcpOptions(options.Region), middleware.Before); err != nil {

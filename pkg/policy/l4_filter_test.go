@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	stdlog "log"
+	"sync"
 	"testing"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/re"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -82,6 +84,15 @@ func (td *testData) resetRepo() *Repository {
 	td.repo = NewPolicyRepository(nil, nil, nil)
 	td.repo.selectorCache = td.sc
 	return td.repo
+}
+
+func (td *testData) addIdentity(id *identity.Identity) {
+	wg := &sync.WaitGroup{}
+	td.sc.UpdateIdentities(
+		identity.IdentityMap{
+			id.ID: id.LabelArray,
+		}, nil, wg)
+	wg.Wait()
 }
 
 // testPolicyContexttype is a dummy context used when evaluating rules.

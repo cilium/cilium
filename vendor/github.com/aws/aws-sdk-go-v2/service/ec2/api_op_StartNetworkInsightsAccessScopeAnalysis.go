@@ -32,7 +32,7 @@ type StartNetworkInsightsAccessScopeAnalysisInput struct {
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see [How to ensure idempotency].
 	//
-	// [How to ensure idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
+	// [How to ensure idempotency]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
 	//
 	// This member is required.
 	ClientToken *string
@@ -118,6 +118,9 @@ func (c *Client) addOperationStartNetworkInsightsAccessScopeAnalysisMiddlewares(
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addIdempotencyToken_opStartNetworkInsightsAccessScopeAnalysisMiddleware(stack, options); err != nil {

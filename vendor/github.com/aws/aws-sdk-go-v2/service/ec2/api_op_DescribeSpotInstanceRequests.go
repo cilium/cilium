@@ -141,7 +141,7 @@ type DescribeSpotInstanceRequestsInput struct {
 	//   - state - The state of the Spot Instance request ( open | active | closed |
 	//   cancelled | failed ). Spot request status information can help you track your
 	//   Amazon EC2 Spot Instance requests. For more information, see [Spot request status]in the Amazon
-	//   EC2 User Guide for Linux Instances.
+	//   EC2 User Guide.
 	//
 	//   - status-code - The short code describing the most recent evaluation of your
 	//   Spot Instance request.
@@ -252,6 +252,9 @@ func (c *Client) addOperationDescribeSpotInstanceRequestsMiddlewares(stack *midd
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeSpotInstanceRequests(options.Region), middleware.Before); err != nil {

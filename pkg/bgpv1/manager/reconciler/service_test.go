@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
@@ -83,10 +83,10 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 	svc1IPv6ETPLocal.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyLocal
 
 	svc1LbClass := svc1.DeepCopy()
-	svc1LbClass.Spec.LoadBalancerClass = pointer.String(v2alpha1api.BGPLoadBalancerClass)
+	svc1LbClass.Spec.LoadBalancerClass = ptr.To[string](v2alpha1api.BGPLoadBalancerClass)
 
 	svc1UnsupportedClass := svc1LbClass.DeepCopy()
-	svc1UnsupportedClass.Spec.LoadBalancerClass = pointer.String("io.vendor/unsupported-class")
+	svc1UnsupportedClass.Spec.LoadBalancerClass = ptr.To[string]("io.vendor/unsupported-class")
 
 	svc2NonDefault := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -782,10 +782,10 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 	svc1IPv6ITPLocal.Spec.InternalTrafficPolicy = &internalTrafficPolicyLocal
 
 	svc1LbClass := svc1.DeepCopy()
-	svc1LbClass.Spec.LoadBalancerClass = pointer.String(v2alpha1api.BGPLoadBalancerClass)
+	svc1LbClass.Spec.LoadBalancerClass = ptr.To[string](v2alpha1api.BGPLoadBalancerClass)
 
 	svc1UnsupportedClass := svc1LbClass.DeepCopy()
-	svc1UnsupportedClass.Spec.LoadBalancerClass = pointer.String("io.vendor/unsupported-class")
+	svc1UnsupportedClass.Spec.LoadBalancerClass = ptr.To[string]("io.vendor/unsupported-class")
 
 	svc2NonDefault := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -1437,10 +1437,10 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 	svc1IPv6ETPLocal.Spec.ExternalTrafficPolicy = slim_corev1.ServiceExternalTrafficPolicyLocal
 
 	svc1LbClass := svc1.DeepCopy()
-	svc1LbClass.Spec.LoadBalancerClass = pointer.String(v2alpha1api.BGPLoadBalancerClass)
+	svc1LbClass.Spec.LoadBalancerClass = ptr.To[string](v2alpha1api.BGPLoadBalancerClass)
 
 	svc1UnsupportedClass := svc1LbClass.DeepCopy()
-	svc1UnsupportedClass.Spec.LoadBalancerClass = pointer.String("io.vendor/unsupported-class")
+	svc1UnsupportedClass.Spec.LoadBalancerClass = ptr.To[string]("io.vendor/unsupported-class")
 
 	svc2NonDefault := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{

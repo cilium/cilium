@@ -23,7 +23,6 @@ func setupTunnelMapTestSuite(tb testing.TB) {
 func TestClusterAwareAddressing(t *testing.T) {
 	setupTunnelMapTestSuite(t)
 	m := NewTunnelMap("test_cilium_tunnel_map")
-	defer m.Unpin()
 
 	err := m.OpenOrCreate()
 	require.Nil(t, err)
@@ -66,4 +65,7 @@ func TestClusterAwareAddressing(t *testing.T) {
 
 	_, err = m.GetTunnelEndpoint(prefix1)
 	require.Error(t, err)
+
+	err = m.Unpin()
+	require.Nil(t, err)
 }

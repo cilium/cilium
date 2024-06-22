@@ -54,9 +54,9 @@ type AuthorizeClientVpnIngressInput struct {
 	AuthorizeAllGroups *bool
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see [How to ensure idempotency].
+	// the request. For more information, see [Ensuring idempotency].
 	//
-	// [How to ensure idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
+	// [Ensuring idempotency]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
 	ClientToken *string
 
 	// A brief description of the authorization rule.
@@ -135,6 +135,9 @@ func (c *Client) addOperationAuthorizeClientVpnIngressMiddlewares(stack *middlew
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addIdempotencyToken_opAuthorizeClientVpnIngressMiddleware(stack, options); err != nil {

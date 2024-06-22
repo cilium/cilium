@@ -16,6 +16,11 @@ Enabling
 ========
 Pass ``--set sctp.enabled=true`` to helm.
 
+.. admonition:: Video
+ :class: attention
+
+  You can also watch a video explanation of Cilium's SCTP support in `eCHO episode 78: Stream Control Transmission Protocol (SCTP) <https://www.youtube.com/watch?v=2lD86qNHXXI>`__.
+
 Limitations
 ===========
 Cilium supports basic SCTP support. Specifically, the following is supported:

@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestClusterInfoValidate(t *testing.T) {
+	log := logrus.New()
+
 	// this test involves changing the global ClusterIDMax variable, so we need
 	// to save its value and restore it at the end of the test
 	oldMaxClusterID := ClusterIDMax
@@ -63,6 +66,11 @@ func TestClusterInfoValidate(t *testing.T) {
 			wantErr:       true,
 			wantStrictErr: true,
 		},
+		{
+			cinfo:         ClusterInfo{ID: 10, Name: "invAlid", MaxConnectedClusters: 511},
+			wantErr:       false, // Cluster name validation is not yet enforced in Cilium v1.16.
+			wantStrictErr: false, // Cluster name validation is not yet enforced in Cilium v1.16.
+		},
 	}
 
 	for _, tt := range tests {
@@ -75,15 +83,15 @@ func TestClusterInfoValidate(t *testing.T) {
 			}
 
 			if tt.wantErr {
-				assert.Error(t, tt.cinfo.Validate())
+				assert.Error(t, tt.cinfo.Validate(log))
 			} else {
-				assert.NoError(t, tt.cinfo.Validate())
+				assert.NoError(t, tt.cinfo.Validate(log))
 			}
 
 			if tt.wantStrictErr {
-				assert.Error(t, tt.cinfo.ValidateStrict())
+				assert.Error(t, tt.cinfo.ValidateStrict(log))
 			} else {
-				assert.NoError(t, tt.cinfo.ValidateStrict())
+				assert.NoError(t, tt.cinfo.ValidateStrict(log))
 			}
 		})
 	}

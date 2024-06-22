@@ -120,6 +120,9 @@ func (c *Client) addOperationDescribeTransitGatewayRouteTableAnnouncementsMiddle
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeTransitGatewayRouteTableAnnouncements(options.Region), middleware.Before); err != nil {
 		return err
 	}

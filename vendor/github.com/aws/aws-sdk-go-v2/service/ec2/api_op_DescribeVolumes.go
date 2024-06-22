@@ -104,17 +104,15 @@ type DescribeVolumesInput struct {
 	//   | standard )
 	Filters []types.Filter
 
-	// The maximum number of volumes to return for this request. This value can be
-	// between 5 and 500; if you specify a value larger than 500, only 500 items are
-	// returned. If this parameter is not used, then all items are returned. You cannot
-	// specify this parameter and the volume IDs parameter in the same request. For
-	// more information, see [Pagination].
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see [Pagination].
 	//
 	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
 
 	// The token returned from a previous paginated request. Pagination continues from
-	// the end of the items returned from the previous request.
+	// the end of the items returned by the previous request.
 	NextToken *string
 
 	// The volume IDs.
@@ -193,6 +191,9 @@ func (c *Client) addOperationDescribeVolumesMiddlewares(stack *middleware.Stack,
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVolumes(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -224,11 +225,9 @@ var _ DescribeVolumesAPIClient = (*Client)(nil)
 
 // DescribeVolumesPaginatorOptions is the paginator options for DescribeVolumes
 type DescribeVolumesPaginatorOptions struct {
-	// The maximum number of volumes to return for this request. This value can be
-	// between 5 and 500; if you specify a value larger than 500, only 500 items are
-	// returned. If this parameter is not used, then all items are returned. You cannot
-	// specify this parameter and the volume IDs parameter in the same request. For
-	// more information, see [Pagination].
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see [Pagination].
 	//
 	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	Limit int32

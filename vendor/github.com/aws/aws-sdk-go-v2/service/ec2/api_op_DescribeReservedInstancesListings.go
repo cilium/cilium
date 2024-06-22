@@ -30,13 +30,13 @@ import (
 // is met. You are charged based on the total price of all of the listings that you
 // purchase.
 //
-// For more information, see [Reserved Instance Marketplace] in the Amazon EC2 User Guide.
+// For more information, see [Sell in the Reserved Instance Marketplace] in the Amazon EC2 User Guide.
 //
 // The order of the elements in the response, including those within nested
 // structures, might vary. Applications should not assume the elements appear in a
 // particular order.
 //
-// [Reserved Instance Marketplace]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html
+// [Sell in the Reserved Instance Marketplace]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html
 func (c *Client) DescribeReservedInstancesListings(ctx context.Context, params *DescribeReservedInstancesListingsInput, optFns ...func(*Options)) (*DescribeReservedInstancesListingsOutput, error) {
 	if params == nil {
 		params = &DescribeReservedInstancesListingsInput{}
@@ -141,6 +141,9 @@ func (c *Client) addOperationDescribeReservedInstancesListingsMiddlewares(stack 
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeReservedInstancesListings(options.Region), middleware.Before); err != nil {

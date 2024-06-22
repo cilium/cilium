@@ -20,7 +20,7 @@ import (
 // All EC2 API actions follow an [eventual consistency] model.
 //
 // [Release an allocation]: https://docs.aws.amazon.com/vpc/latest/ipam/release-alloc-ipam.html
-// [eventual consistency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/query-api-troubleshooting.html#eventual-consistency
+// [eventual consistency]: https://docs.aws.amazon.com/ec2/latest/devguide/eventual-consistency.html
 // [ModifyIpamResourceCidr]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyIpamResourceCidr.html
 func (c *Client) ReleaseIpamPoolAllocation(ctx context.Context, params *ReleaseIpamPoolAllocationInput, optFns ...func(*Options)) (*ReleaseIpamPoolAllocationOutput, error) {
 	if params == nil {
@@ -127,6 +127,9 @@ func (c *Client) addOperationReleaseIpamPoolAllocationMiddlewares(stack *middlew
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpReleaseIpamPoolAllocationValidationMiddleware(stack); err != nil {

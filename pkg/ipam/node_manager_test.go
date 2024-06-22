@@ -181,7 +181,7 @@ func (n *nodeOperationsMock) IsPrefixDelegated() bool {
 func TestGetNodeNames(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false, false)
 	require.Nil(t, err)
 	require.NotNil(t, mngr)
 
@@ -207,7 +207,7 @@ func TestGetNodeNames(t *testing.T) {
 func TestNodeManagerGet(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false, false)
 	require.Nil(t, err)
 	require.NotNil(t, mngr)
 
@@ -226,7 +226,7 @@ func TestNodeManagerDelete(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	metrics := metricsmock.NewMockMetrics()
-	mngr, err := NewNodeManager(am, k8sapi, metrics, 10, false, false)
+	mngr, err := NewNodeManager(am, k8sapi, metrics, 10, false, false, false)
 	require.Nil(t, err)
 	require.NotNil(t, mngr)
 
@@ -325,7 +325,7 @@ func reachedAddressesNeeded(mngr *NodeManager, nodeName string, needed int) (suc
 func TestNodeManagerDefaultAllocation(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false, false)
 	require.Nil(t, err)
 	require.NotNil(t, mngr)
 
@@ -356,7 +356,7 @@ func TestNodeManagerDefaultAllocation(t *testing.T) {
 func TestNodeManagerMinAllocate20(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false, false)
 	require.Nil(t, err)
 	require.NotNil(t, mngr)
 
@@ -396,7 +396,7 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false, false)
 	require.Nil(t, err)
 	require.NotNil(t, mngr)
 
@@ -445,7 +445,7 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 	operatorOption.Config.ExcessIPReleaseDelay = 2
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false, false)
 	require.Nil(t, err)
 	require.NotNil(t, mngr)
 
@@ -516,7 +516,7 @@ func TestNodeManagerAbortRelease(t *testing.T) {
 	operatorOption.Config.ExcessIPReleaseDelay = 2
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false, false)
 	require.Nil(t, err)
 	require.NotNil(t, mngr)
 
@@ -603,7 +603,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	metricsapi := metricsmock.NewMockMetrics()
-	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsapi, 10, false, false, false)
 	require.Nil(t, err)
 	require.NotNil(t, mngr)
 
@@ -647,7 +647,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rateLimit float64, burst int) {
 	am := newAllocationImplementationMock()
 	require.NotNil(b, am)
-	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false, false)
 	require.Nil(b, err)
 	require.NotNil(b, mngr)
 

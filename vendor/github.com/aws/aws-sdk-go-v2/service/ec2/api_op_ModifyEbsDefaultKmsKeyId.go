@@ -43,9 +43,9 @@ func (c *Client) ModifyEbsDefaultKmsKeyId(ctx context.Context, params *ModifyEbs
 
 type ModifyEbsDefaultKmsKeyIdInput struct {
 
-	// The identifier of the Key Management Service (KMS) KMS key to use for Amazon
-	// EBS encryption. If this parameter is not specified, your KMS key for Amazon EBS
-	// is used. If KmsKeyId is specified, the encrypted state must be true .
+	// The identifier of the KMS key to use for Amazon EBS encryption. If this
+	// parameter is not specified, your KMS key for Amazon EBS is used. If KmsKeyId is
+	// specified, the encrypted state must be true .
 	//
 	// You can specify the KMS key using any of the following:
 	//
@@ -141,6 +141,9 @@ func (c *Client) addOperationModifyEbsDefaultKmsKeyIdMiddlewares(stack *middlewa
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpModifyEbsDefaultKmsKeyIdValidationMiddleware(stack); err != nil {

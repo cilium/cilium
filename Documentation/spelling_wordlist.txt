@@ -183,6 +183,7 @@ bcc
 behaviour
 benchmarking
 bgp
+blackholing
 blockedConfigOverrides
 bnxt
 bookinfo
@@ -540,6 +541,7 @@ netdevices
 netdevsim
 netfilter
 netfront
+netkit
 netns
 netperf
 netsec
@@ -600,6 +602,7 @@ prerequirement
 prestop
 printf
 priori
+proc
 profiler
 programmability
 prometheus

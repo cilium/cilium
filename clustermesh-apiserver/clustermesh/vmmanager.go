@@ -69,6 +69,7 @@ func externalWorkloadsProvider(
 	clusterInfo cmtypes.ClusterInfo,
 
 	clientset k8sClient.Clientset,
+	crdSyncPromise promise.Promise[synced.CRDSync],
 	ciliumExternalWorkloads resource.Resource[*ciliumv2.CiliumExternalWorkload],
 	backendPromise promise.Promise[kvstore.BackendOperations],
 ) *VMManager {
@@ -87,7 +88,10 @@ func externalWorkloadsProvider(
 
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			synced.SyncCRDs(ctx, clientset, synced.ClusterMeshAPIServerResourceNames(), &synced.Resources{}, &synced.APIGroups{})
+			_, err := crdSyncPromise.Await(ctx)
+			if err != nil {
+				return fmt.Errorf("Wait for CRD resources failed: %w", err)
+			}
 
 			ewstore, err := ciliumExternalWorkloads.Store(ctx)
 			if err != nil {

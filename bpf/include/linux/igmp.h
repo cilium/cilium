@@ -14,8 +14,7 @@
  *	2 of the License, or (at your option) any later version.
  */
 
-#ifndef _UAPI_LINUX_IGMP_H
-#define _UAPI_LINUX_IGMP_H
+#pragma once
 
 #include <linux/types.h>
 
@@ -121,9 +120,3 @@ struct igmpv3_query {
 #define IGMPV3_ALL_MCR	 	htonl(0xE0000016L)
 #define IGMP_LOCAL_GROUP	htonl(0xE0000000L)
 #define IGMP_LOCAL_GROUP_MASK	htonl(0xFFFFFF00L)
-
-/*
- * struct for keeping the multicast list in
- */
-
-#endif /* _UAPI_LINUX_IGMP_H */

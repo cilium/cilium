@@ -15,7 +15,9 @@ import (
 	"time"
 )
 
-// Describes one or more of your subnets.
+// Describes your subnets. The default is to describe all your subnets.
+// Alternatively, you can specify specific subnet IDs or filter the results to
+// include only the subnets that match specific criteria.
 //
 // For more information, see [Subnets] in the Amazon VPC User Guide.
 //
@@ -151,7 +153,7 @@ type DescribeSubnetsOutput struct {
 	// value is null when there are no more items to return.
 	NextToken *string
 
-	// Information about one or more subnets.
+	// Information about the subnets.
 	Subnets []types.Subnet
 
 	// Metadata pertaining to the operation's result.
@@ -213,6 +215,9 @@ func (c *Client) addOperationDescribeSubnetsMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeSubnets(options.Region), middleware.Before); err != nil {

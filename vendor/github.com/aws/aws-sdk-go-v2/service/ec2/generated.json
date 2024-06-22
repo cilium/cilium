@@ -345,6 +345,7 @@
         "api_op_DescribeStoreImageTasks.go",
         "api_op_DescribeSubnets.go",
         "api_op_DescribeTags.go",
+        "api_op_DescribeTrafficMirrorFilterRules.go",
         "api_op_DescribeTrafficMirrorFilters.go",
         "api_op_DescribeTrafficMirrorSessions.go",
         "api_op_DescribeTrafficMirrorTargets.go",

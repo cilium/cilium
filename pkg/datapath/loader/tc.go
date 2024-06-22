@@ -6,6 +6,8 @@ package loader
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/vishvananda/netlink"
@@ -14,6 +16,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -25,6 +28,16 @@ func attachSKBProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDi
 	}
 
 	if tcxEnabled {
+		// If the device is a netkit device, we know that netkit links are
+		// supported, therefore use netkit instead of tcx. For all others like
+		// host devices, rely on tcx.
+		if device.Type() == "netkit" {
+			if err := upsertNetkitProgram(device, prog, progName, bpffsDir, parent); err != nil {
+				return fmt.Errorf("attaching netkit program %s: %w", progName, err)
+			}
+			return nil
+		}
+
 		// Attach using tcx if available. This is seamless on interfaces with
 		// existing tc programs since attaching tcx disables legacy tc evaluation.
 		err := upsertTCXProgram(device, prog, progName, bpffsDir, parent)
@@ -48,17 +61,40 @@ func attachSKBProgram(device netlink.Link, prog *ebpf.Program, progName, bpffsDi
 	}
 
 	// Legacy tc attached, make sure tcx is detached in case of downgrade.
-	if err := detachTCX(bpffsDir, progName); err != nil {
+	// netkit can only be used in combination with tcx, but never legacy tc,
+	// hence for netkit detaching here would be irrelevant.
+	if err := detachGeneric(bpffsDir, progName, "tcx"); err != nil {
 		return fmt.Errorf("tcx cleanup after attaching legacy tc program %s: %w", progName, err)
 	}
 
 	return nil
 }
 
-// detachSKBProgram attempts to remove an existing tcx and legacy tc link with
-// the given properties. Always attempts to remove both tcx and tc attachments.
+func detachGeneric(bpffsDir, progName, what string) error {
+	pin := filepath.Join(bpffsDir, progName)
+	err := bpf.UnpinLink(pin)
+	if err == nil {
+		log.Infof("Removed %s link at %s", what, pin)
+		return nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+
+	// The pinned link exists, something went wrong unpinning it.
+	return fmt.Errorf("unpinning %s link: %w", what, err)
+}
+
+// detachSKBProgram attempts to remove an existing tcx, netkit and legacy tc link
+// with the given properties. Always attempts to remove all three attachments.
 func detachSKBProgram(device netlink.Link, progName, bpffsDir string, parent uint32) error {
-	if err := detachTCX(bpffsDir, progName); err != nil {
+	what := "tcx"
+	if device.Type() == "netkit" {
+		what = "netkit"
+	}
+	// Both tcx and netkit have pinned links which only need to be removed.
+	// Approach is exactly the same.
+	if err := detachGeneric(bpffsDir, progName, what); err != nil {
 		return err
 	}
 

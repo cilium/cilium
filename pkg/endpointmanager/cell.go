@@ -87,7 +87,7 @@ type EndpointsLookup interface {
 
 type EndpointsModify interface {
 	// AddEndpoint takes the prepared endpoint object and starts managing it.
-	AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint, reason string) (err error)
+	AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint) (err error)
 
 	// AddIngressEndpoint creates an Endpoint representing Cilium Ingress on this node without a
 	// corresponding container necessarily existing. This is needed to be able to ingest and
@@ -99,7 +99,6 @@ type EndpointsModify interface {
 		ipcache *ipcache.IPCache,
 		proxy endpoint.EndpointProxy,
 		allocator cache.IdentityAllocator,
-		reason string,
 	) error
 
 	AddHostEndpoint(
@@ -109,7 +108,6 @@ type EndpointsModify interface {
 		ipcache *ipcache.IPCache,
 		proxy endpoint.EndpointProxy,
 		allocator cache.IdentityAllocator,
-		reason, nodeName string,
 	) error
 
 	// RestoreEndpoint exposes the specified endpoint to other subsystems via the

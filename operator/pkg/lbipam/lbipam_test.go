@@ -48,7 +48,7 @@ func TestConflictResolution(t *testing.T) {
 	// Phase 2, resolving the conflict
 
 	// Remove the conflicting range
-	poolB.Spec.Cidrs = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+	poolB.Spec.Blocks = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
 		{
 			Cidr: cilium_api_v2alpha1.IPv4orIPv6CIDR("FF::0/48"),
 		},
@@ -74,7 +74,7 @@ func TestPoolInternalConflict(t *testing.T) {
 		t.Fatal("Pool A should be conflicting")
 	}
 
-	poolA.Spec.Cidrs = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+	poolA.Spec.Blocks = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
 		{
 			Cidr: "10.0.10.0/24",
 		},
@@ -1117,6 +1117,7 @@ func TestAllowFirstLastIPs(t *testing.T) {
 func TestUpdateAllowFirstAndLastIPs(t *testing.T) {
 	// Add pool which does not allow first and last IPs
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.16/30"})
+	poolA.Spec.AllowFirstLastIPs = cilium_api_v2alpha1.AllowFirstLastIPNo
 	fixture := mkTestFixture(true, true)
 	fixture.UpsertPool(t, poolA)
 
@@ -1360,7 +1361,7 @@ func TestAddRange(t *testing.T) {
 	}
 
 	poolA = fixture.GetPool("pool-a")
-	poolA.Spec.Cidrs = append(poolA.Spec.Cidrs, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+	poolA.Spec.Blocks = append(poolA.Spec.Blocks, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
 		Cidr: "10.0.20.0/24",
 	})
 	fixture.UpsertPool(t, poolA)
@@ -1522,7 +1523,7 @@ func TestRangeDelete(t *testing.T) {
 
 	poolA = fixture.GetPool("pool-a")
 	// Add a new CIDR, this should not have any effect on the existing service.
-	poolA.Spec.Cidrs = append(poolA.Spec.Cidrs, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+	poolA.Spec.Blocks = append(poolA.Spec.Blocks, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
 		Cidr: "10.0.20.0/24",
 	})
 	fixture.UpsertPool(t, poolA)
@@ -1539,7 +1540,7 @@ func TestRangeDelete(t *testing.T) {
 
 	poolA = fixture.GetPool("pool-a")
 	// Remove the existing range, this should trigger the re-allocation of the existing service
-	poolA.Spec.Cidrs = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
+	poolA.Spec.Blocks = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
 		{
 			Cidr: "10.0.20.0/24",
 		},

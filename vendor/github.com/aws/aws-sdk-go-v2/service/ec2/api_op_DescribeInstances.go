@@ -381,7 +381,10 @@ type DescribeInstancesInput struct {
 	//   - private-dns-name-options.hostname-type - The type of hostname ( ip-name |
 	//   resource-name ).
 	//
-	//   - private-ip-address - The private IPv4 address of the instance.
+	//   - private-ip-address - The private IPv4 address of the instance. This can only
+	//   be used to filter by the primary IP address of the network interface attached to
+	//   the instance. To filter by additional IP addresses assigned to the network
+	//   interface, use the filter network-interface.addresses.private-ip-address .
 	//
 	//   - product-code - The product code associated with the AMI used to launch the
 	//   instance.
@@ -545,6 +548,9 @@ func (c *Client) addOperationDescribeInstancesMiddlewares(stack *middleware.Stac
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeInstances(options.Region), middleware.Before); err != nil {

@@ -85,15 +85,16 @@ func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileP
 	currentPolicies := r.getMetadata(params.CurrentServer)
 
 	// compile set of desired policies
+	// note: only per-neighbor export policies are supported at this time
 	desiredPolicies := make(map[string]*types.RoutePolicy)
 	for _, n := range params.DesiredConfig.Neighbors {
 		for _, routeAttrs := range n.AdvertisedPathAttributes {
-			policy, err := r.pathAttributesToPolicy(routeAttrs, n.PeerAddress, params)
+			exportPolicy, err := r.pathAttributesToPolicy(routeAttrs, n.PeerAddress, params)
 			if err != nil {
 				return fmt.Errorf("failed to convert BGP PathAttributes to a RoutePolicy: %w", err)
 			}
-			if len(policy.Statements) > 0 {
-				desiredPolicies[policy.Name] = policy
+			if len(exportPolicy.Statements) > 0 {
+				desiredPolicies[exportPolicy.Name] = exportPolicy
 			}
 		}
 	}
@@ -189,6 +190,7 @@ func (r *RoutePolicyReconciler) storeMetadata(sc *instance.ServerWithConfig, met
 	sc.ReconcilerMetadata[r.Name()] = meta
 }
 
+// pathAttributesToPolicy prepares an export policy configured by CRD using the Advertised Path Attributes feature
 func (r *RoutePolicyReconciler) pathAttributesToPolicy(attrs v2alpha1api.CiliumBGPPathAttributes, neighborAddress string, params ReconcileParams) (*types.RoutePolicy, error) {
 	var v4Prefixes, v6Prefixes types.PolicyPrefixMatchList
 
@@ -250,24 +252,6 @@ func (r *RoutePolicyReconciler) pathAttributesToPolicy(attrs v2alpha1api.CiliumB
 					v6Prefixes = append(v6Prefixes, &types.RoutePolicyPrefixMatch{CIDR: cidr, PrefixLenMin: maxPrefixLenIPv6, PrefixLenMax: maxPrefixLenIPv6})
 				}
 				prefixesSeen.Insert(cidr)
-			}
-			// Note: CiliumLoadBalancerIPPool.Spec.Cidrs was deprecated as of
-			// https://github.com/cilium/cilium/commit/27322f3959c3fa05b9b1c4f9827527b4a3642687
-			// It was replaced by CiliumLoadBalancerIPPool.Spec.Blocks.
-			for _, cidrBlock := range pool.Spec.Cidrs {
-				cidr, err := netip.ParsePrefix(string(cidrBlock.Cidr))
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse IPAM pool CIDR %s: %w", cidrBlock.Cidr, err)
-				}
-				// If the same prefix was specified in Spec.Blocks and Spec.Cidrs, ignore the duplicate.
-				if prefixesSeen.Has(cidr) {
-					continue
-				}
-				if cidr.Addr().Is4() {
-					v4Prefixes = append(v4Prefixes, &types.RoutePolicyPrefixMatch{CIDR: cidr, PrefixLenMin: maxPrefixLenIPv4, PrefixLenMax: maxPrefixLenIPv4})
-				} else {
-					v6Prefixes = append(v6Prefixes, &types.RoutePolicyPrefixMatch{CIDR: cidr, PrefixLenMin: maxPrefixLenIPv6, PrefixLenMax: maxPrefixLenIPv6})
-				}
 			}
 		}
 	case v2alpha1api.PodCIDRSelectorName:

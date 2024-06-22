@@ -6,6 +6,7 @@ package endpointslicesync
 import (
 	"fmt"
 
+	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -29,9 +30,9 @@ type meshNodeInformer struct {
 	mutex   lock.RWMutex
 }
 
-func newMeshNodeInformer() *meshNodeInformer {
+func newMeshNodeInformer(logger logrus.FieldLogger) *meshNodeInformer {
 	return &meshNodeInformer{
-		dummyInformer: dummyInformer{"meshNodeInformer"},
+		dummyInformer: dummyInformer{name: "meshNodeInformer", logger: logger},
 		nodes:         map[string]*v1.Node{},
 	}
 }
@@ -53,6 +54,13 @@ func createDummyNode(cluster string) *v1.Node {
 			Allocatable: v1.ResourceList{v1.ResourceCPU: *resource.NewQuantity(1, resource.DecimalSI)},
 		},
 	}
+}
+
+func (i *meshNodeInformer) ListClusters() []string {
+	i.mutex.RLock()
+	defer i.mutex.RUnlock()
+
+	return maps.Keys(i.nodes)
 }
 
 func (i *meshNodeInformer) List(selector labels.Selector) ([]*v1.Node, error) {

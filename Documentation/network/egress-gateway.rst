@@ -10,10 +10,6 @@
 Egress Gateway
 **************
 
-.. note::
-
-    Egress Gateway requires a 5.2 or more recent kernel.
-
 The egress gateway feature routes all IPv4 connections originating from pods and
 destined to specific cluster-external CIDRs through particular nodes, from now
 on called "gateway nodes".
@@ -37,6 +33,11 @@ specific workload.
     Kubernetes cluster. Please see :ref:`k8s_quick_install` for more
     information. If unsure, run ``cilium status`` and validate that Cilium is up
     and running.
+
+.. admonition:: Video
+  :class: attention
+
+  For more insights on Cilium's Egress Gateway, check out `eCHO episode 76: Cilium Egress Gateway <https://www.youtube.com/watch?v=zEQdgNGa7bg>`__.
 
 Preliminary Considerations
 ==========================
@@ -105,7 +106,6 @@ The egress gateway feature and all the requirements can be enabled as follow:
 
             enable-bpf-masquerade: true
             enable-ipv4-egress-gateway: true
-            enable-l7-proxy: false
             kube-proxy-replacement: true
 
 Rollout both the agent pods and the operator pods to make the changes effective:

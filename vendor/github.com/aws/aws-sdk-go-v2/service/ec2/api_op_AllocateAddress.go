@@ -20,14 +20,14 @@ import (
 // Services or from an address pool created from a public IPv4 address range that
 // you have brought to Amazon Web Services for use with your Amazon Web Services
 // resources using bring your own IP addresses (BYOIP). For more information, see [Bring Your Own IP Addresses (BYOIP)]
-// in the Amazon Elastic Compute Cloud User Guide.
+// in the Amazon EC2 User Guide.
 //
 // If you release an Elastic IP address, you might be able to recover it. You
 // cannot recover an Elastic IP address that you released after it is allocated to
 // another Amazon Web Services account. To attempt to recover an Elastic IP address
 // that you released, specify it in this operation.
 //
-// For more information, see [Elastic IP Addresses] in the Amazon Elastic Compute Cloud User Guide.
+// For more information, see [Elastic IP Addresses] in the Amazon EC2 User Guide.
 //
 // You can allocate a carrier IP address which is a public IP address from a
 // telecommunication carrier, to a network interface which resides in a subnet in a
@@ -73,10 +73,6 @@ type AllocateAddressInput struct {
 	// which Amazon Web Services advertises IP addresses. Use this parameter to limit
 	// the IP address to this location. IP addresses cannot move between network border
 	// groups.
-	//
-	// Use [DescribeAvailabilityZones] to view the network border groups.
-	//
-	// [DescribeAvailabilityZones]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAvailabilityZones.html
 	NetworkBorderGroup *string
 
 	// The ID of an address pool that you own. Use this parameter to let Amazon EC2
@@ -177,6 +173,9 @@ func (c *Client) addOperationAllocateAddressMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAllocateAddress(options.Region), middleware.Before); err != nil {

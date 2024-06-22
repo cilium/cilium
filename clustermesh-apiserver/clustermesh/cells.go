@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -32,8 +33,8 @@ var Cell = cell.Module(
 	// ClusterName is not the default one), because they are valid in
 	// case we only use the external workloads feature, and not clustermesh.
 	cell.Config(cmtypes.DefaultClusterInfo),
-	cell.Invoke(func(cinfo cmtypes.ClusterInfo) error { return cinfo.InitClusterIDMax() }),
-	cell.Invoke(func(cinfo cmtypes.ClusterInfo) error { return cinfo.Validate() }),
+	cell.Invoke(cmtypes.ClusterInfo.InitClusterIDMax),
+	cell.Invoke(cmtypes.ClusterInfo.Validate),
 
 	pprof.Cell,
 	cell.Config(pprof.Config{
@@ -54,6 +55,18 @@ var Cell = cell.Module(
 		}
 	}),
 	store.Cell,
+
+	// Shared synchronization structures for waiting on K8s resources to
+	// be synced
+	synced.Cell,
+
+	// Provide CRD resource names for 'synced.CRDSyncCell' below.
+	cell.Provide(func() synced.CRDSyncResourceNames { return synced.ClusterMeshAPIServerResourceNames() }),
+
+	// CRDSyncCell provides a promise that is resolved as soon as CRDs used by the
+	// clustermesh-apiserver have synced.
+	// Allows cells to wait for CRDs before trying to list Cilium resources.
+	synced.CRDSyncCell,
 
 	heartbeat.Cell,
 	HealthAPIEndpointsCell,

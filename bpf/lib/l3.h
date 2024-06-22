@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_L3_H_
-#define __LIB_L3_H_
+#pragma once
 
 #include "common.h"
 #include "ipv6.h"
@@ -75,7 +74,7 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 		  __u32 magic __maybe_unused,
 		  const struct endpoint_info *ep __maybe_unused,
 		  __u8 direction __maybe_unused,
-		  bool from_host __maybe_unused, bool hairpin_flow __maybe_unused,
+		  bool from_host __maybe_unused,
 		  bool from_tunnel __maybe_unused, __u32 cluster_id __maybe_unused)
 {
 #ifdef LOCAL_DELIVERY_METRICS
@@ -107,15 +106,6 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 
 	return redirect_ep(ctx, ep->ifindex, from_host, from_tunnel);
 #else
-# ifndef DISABLE_LOOPBACK_LB
-	/* Skip ingress policy enforcement for hairpin traffic. As the hairpin
-	 * traffic is destined to a local pod (more specifically, the same pod
-	 * the traffic originated from) we skip the tail call for ingress policy
-	 * enforcement, and directly redirect it to the endpoint.
-	 */
-	if (unlikely(hairpin_flow))
-		return redirect_ep(ctx, ep->ifindex, from_host, from_tunnel);
-# endif /* DISABLE_LOOPBACK_LB */
 
 	/* Jumps to destination pod's BPF program to enforce ingress policies. */
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
@@ -151,7 +141,7 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 		return ret;
 
 	return l3_local_delivery(ctx, seclabel, magic, ep, direction, from_host,
-				 false, from_tunnel, 0);
+				 from_tunnel, 0);
 }
 #endif /* ENABLE_IPV6 */
 
@@ -165,8 +155,7 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 					       struct iphdr *ip4,
 					       const struct endpoint_info *ep,
 					       __u8 direction, bool from_host,
-					       bool hairpin_flow, bool from_tunnel,
-					       __u32 cluster_id)
+					       bool from_tunnel, __u32 cluster_id)
 {
 	mac_t router_mac = ep->node_mac;
 	mac_t lxc_mac = ep->mac;
@@ -179,8 +168,6 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 		return ret;
 
 	return l3_local_delivery(ctx, seclabel, magic, ep, direction, from_host,
-				 hairpin_flow, from_tunnel, cluster_id);
+				 from_tunnel, cluster_id);
 }
 #endif /* SKIP_POLICY_MAP */
-
-#endif

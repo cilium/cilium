@@ -32,9 +32,9 @@ import (
 // view the details of your Standard Reserved Instance listing, you can use the DescribeReservedInstancesListings
 // operation.
 //
-// For more information, see [Reserved Instance Marketplace] in the Amazon EC2 User Guide.
+// For more information, see [Sell in the Reserved Instance Marketplace] in the Amazon EC2 User Guide.
 //
-// [Reserved Instance Marketplace]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html
+// [Sell in the Reserved Instance Marketplace]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html
 func (c *Client) CreateReservedInstancesListing(ctx context.Context, params *CreateReservedInstancesListingInput, optFns ...func(*Options)) (*CreateReservedInstancesListingOutput, error) {
 	if params == nil {
 		params = &CreateReservedInstancesListingInput{}
@@ -148,6 +148,9 @@ func (c *Client) addOperationCreateReservedInstancesListingMiddlewares(stack *mi
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpCreateReservedInstancesListingValidationMiddleware(stack); err != nil {

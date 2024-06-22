@@ -509,6 +509,9 @@
             "integer"
           ]
         },
+        "datapathMode": {
+          "type": "string"
+        },
         "disableExternalIPMitigation": {
           "type": "boolean"
         },
@@ -792,26 +795,34 @@
               "properties": {
                 "podAntiAffinity": {
                   "properties": {
-                    "requiredDuringSchedulingIgnoredDuringExecution": {
+                    "preferredDuringSchedulingIgnoredDuringExecution": {
                       "items": {
                         "anyOf": [
                           {
                             "properties": {
-                              "labelSelector": {
+                              "podAffinityTerm": {
                                 "properties": {
-                                  "matchLabels": {
+                                  "labelSelector": {
                                     "properties": {
-                                      "k8s-app": {
-                                        "type": "string"
+                                      "matchLabels": {
+                                        "properties": {
+                                          "k8s-app": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "type": "object"
                                       }
                                     },
                                     "type": "object"
+                                  },
+                                  "topologyKey": {
+                                    "type": "string"
                                   }
                                 },
                                 "type": "object"
                               },
-                              "topologyKey": {
-                                "type": "string"
+                              "weight": {
+                                "type": "integer"
                               }
                             }
                           }
@@ -1201,6 +1212,18 @@
                     "Cluster"
                   ]
                 },
+                "loadBalancerClass": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "loadBalancerIP": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
                 "nodePort": {
                   "type": "integer"
                 },
@@ -1305,6 +1328,12 @@
               "properties": {
                 "rollingUpdate": {
                   "properties": {
+                    "maxSurge": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    },
                     "maxUnavailable": {
                       "type": [
                         "integer",
@@ -1495,6 +1524,9 @@
         }
       },
       "type": "object"
+    },
+    "directRoutingSkipUnreachable": {
+      "type": "boolean"
     },
     "disableEndpointCRD": {
       "type": "boolean"
@@ -2171,12 +2203,6 @@
     },
     "etcd": {
       "properties": {
-        "annotations": {
-          "type": "object"
-        },
-        "clusterDomain": {
-          "type": "string"
-        },
         "enabled": {
           "type": "boolean"
         },
@@ -2190,140 +2216,8 @@
           },
           "type": "array"
         },
-        "extraArgs": {
-          "items": {},
-          "type": "array"
-        },
-        "extraVolumeMounts": {
-          "items": {},
-          "type": "array"
-        },
-        "extraVolumes": {
-          "items": {},
-          "type": "array"
-        },
-        "image": {
-          "properties": {
-            "digest": {
-              "type": "string"
-            },
-            "override": {
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "pullPolicy": {
-              "type": "string"
-            },
-            "repository": {
-              "type": "string"
-            },
-            "tag": {
-              "type": "string"
-            },
-            "useDigest": {
-              "type": "boolean"
-            }
-          },
-          "type": "object"
-        },
-        "k8sService": {
-          "type": "boolean"
-        },
-        "nodeSelector": {
-          "properties": {
-            "kubernetes.io/os": {
-              "type": "string"
-            }
-          },
-          "type": "object"
-        },
-        "podAnnotations": {
-          "type": "object"
-        },
-        "podDisruptionBudget": {
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            },
-            "maxUnavailable": {
-              "type": [
-                "null",
-                "integer",
-                "string"
-              ]
-            },
-            "minAvailable": {
-              "type": [
-                "null",
-                "integer",
-                "string"
-              ]
-            }
-          },
-          "type": "object"
-        },
-        "podLabels": {
-          "type": "object"
-        },
-        "podSecurityContext": {
-          "type": "object"
-        },
-        "priorityClassName": {
-          "type": "string"
-        },
-        "resources": {
-          "type": "object"
-        },
-        "securityContext": {
-          "type": "object"
-        },
         "ssl": {
           "type": "boolean"
-        },
-        "tolerations": {
-          "items": {
-            "anyOf": [
-              {
-                "properties": {
-                  "operator": {
-                    "type": "string"
-                  }
-                }
-              }
-            ]
-          },
-          "type": "array"
-        },
-        "topologySpreadConstraints": {
-          "items": {},
-          "type": "array"
-        },
-        "updateStrategy": {
-          "properties": {
-            "rollingUpdate": {
-              "properties": {
-                "maxSurge": {
-                  "type": [
-                    "integer",
-                    "string"
-                  ]
-                },
-                "maxUnavailable": {
-                  "type": [
-                    "integer",
-                    "string"
-                  ]
-                }
-              },
-              "type": "object"
-            },
-            "type": {
-              "type": "string"
-            }
-          },
-          "type": "object"
         }
       },
       "type": "object"
@@ -2391,6 +2285,9 @@
         },
         "enabled": {
           "type": "boolean"
+        },
+        "externalTrafficPolicy": {
+          "type": "string"
         },
         "hostNetwork": {
           "properties": {
@@ -3630,6 +3527,9 @@
             },
             "annotations": {
               "type": "object"
+            },
+            "externalTrafficPolicy": {
+              "type": "string"
             },
             "insecureNodePort": {
               "type": [
@@ -5062,23 +4962,6 @@
           },
           "type": "object"
         },
-        "etcd": {
-          "properties": {
-            "annotations": {
-              "type": "object"
-            },
-            "automount": {
-              "type": "boolean"
-            },
-            "create": {
-              "type": "boolean"
-            },
-            "name": {
-              "type": "string"
-            }
-          },
-          "type": "object"
-        },
         "hubblecertgen": {
           "properties": {
             "annotations": {
@@ -5217,6 +5100,14 @@
     },
     "synchronizeK8sNodes": {
       "type": "boolean"
+    },
+    "sysctlfix": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
     },
     "terminationGracePeriodSeconds": {
       "type": "integer"

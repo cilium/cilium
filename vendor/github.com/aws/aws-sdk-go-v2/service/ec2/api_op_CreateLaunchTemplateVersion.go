@@ -23,7 +23,7 @@ import (
 // modify it. Instead, you can create a new version of the launch template that
 // includes the changes that you require.
 //
-// For more information, see [Modify a launch template (manage launch template versions)] in the Amazon Elastic Compute Cloud User Guide.
+// For more information, see [Modify a launch template (manage launch template versions)] in the Amazon EC2 User Guide.
 //
 // [Modify a launch template (manage launch template versions)]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html#manage-launch-template-versions
 func (c *Client) CreateLaunchTemplateVersion(ctx context.Context, params *CreateLaunchTemplateVersionInput, optFns ...func(*Options)) (*CreateLaunchTemplateVersionOutput, error) {
@@ -76,7 +76,7 @@ type CreateLaunchTemplateVersionInput struct {
 
 	// If true , and if a Systems Manager parameter is specified for ImageId , the AMI
 	// ID is displayed in the response for imageID . For more information, see [Use a Systems Manager parameter instead of an AMI ID] in the
-	// Amazon Elastic Compute Cloud User Guide.
+	// Amazon EC2 User Guide.
 	//
 	// Default: false
 	//
@@ -171,6 +171,9 @@ func (c *Client) addOperationCreateLaunchTemplateVersionMiddlewares(stack *middl
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpCreateLaunchTemplateVersionValidationMiddleware(stack); err != nil {

@@ -518,7 +518,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	}
 
 	// e.ID assigned here
-	err = d.endpointManager.AddEndpoint(owner, ep, "Create endpoint from API PUT")
+	err = d.endpointManager.AddEndpoint(owner, ep)
 	if err != nil {
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %w", err))
 	}

@@ -4,12 +4,10 @@
 package k8s
 
 import (
-	"context"
 	"fmt"
 	"maps"
 	"net"
 	"net/netip"
-	"net/url"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -66,6 +64,12 @@ func getAnnotationServiceAffinity(svc *slim_corev1.Service) string {
 	}
 
 	return serviceAffinityNone
+}
+
+func getTopologyAware(svc *slim_corev1.Service) bool {
+	return getAnnotationTopologyAwareHints(svc) ||
+		(svc.Spec.TrafficDistribution != nil &&
+			*svc.Spec.TrafficDistribution == v1.ServiceTrafficDistributionPreferClose)
 }
 
 func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
@@ -248,7 +252,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 		}
 	}
 
-	svcInfo.TopologyAware = getAnnotationTopologyAwareHints(svc)
+	svcInfo.TopologyAware = getTopologyAware(svc)
 
 	return svcID, svcInfo
 }
@@ -378,7 +382,14 @@ type Service struct {
 	Type loadbalancer.SVCType
 
 	// TopologyAware denotes whether service endpoints might have topology aware
-	// hints
+	// hints. This is used to determine if Services should be reconciled when
+	// Node labels are updated. It is set to true if any of the following are
+	// true:
+	// * TrafficDistribution field is set to "PreferClose"
+	// * service.kubernetes.io/topology-aware-hints annotation is set to "Auto"
+	//   or "auto"
+	// * service.kubernetes.io/topology-mode annotation is set to any value
+	//   other than "Disabled"
 	TopologyAware bool
 }
 
@@ -681,52 +692,4 @@ func (s *Service) EqualsClusterService(svc *serviceStore.ClusterService) bool {
 		return true
 	}
 	return false
-}
-
-type ServiceIPGetter interface {
-	GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr
-}
-
-// CreateCustomDialer returns a custom dialer that picks the service IP,
-// from the given ServiceIPGetter, if the address used to dial is a k8s
-// service. If verboseLogs is set, a log message is output when the
-// address to service IP translation fails.
-func CreateCustomDialer(b ServiceIPGetter, log logrus.FieldLogger, verboseLogs bool) func(ctx context.Context, addr string) (conn net.Conn, e error) {
-	return func(ctx context.Context, s string) (conn net.Conn, e error) {
-		// If the service is available, do the service translation to
-		// the service IP. Otherwise dial with the original service
-		// name `s`.
-		u, err := url.Parse(s)
-		if err == nil {
-			var svc *ServiceID
-			// In etcd v3.5.0, 's' doesn't contain the URL Scheme and the u.Host
-			// will be empty because url.Parse will consider the "host" as the
-			// url Scheme. If 's' doesn't contain the URL Scheme then we will be
-			// able to parse the service ID directly from it without the need
-			// to do url.Parse.
-			if u.Host != "" {
-				svc = ParseServiceIDFrom(u.Host)
-			} else {
-				svc = ParseServiceIDFrom(s)
-			}
-			if svc != nil {
-				svcIP := b.GetServiceIP(*svc)
-				if svcIP != nil {
-					s = svcIP.String()
-				} else if verboseLogs {
-					log.Debug("Service not found in the service IP getter")
-				}
-			} else if verboseLogs {
-				log.WithFields(logrus.Fields{
-					"url-host": u.Host,
-					"url":      s,
-				}).Debug("Unable to parse etcd service URL into a service ID")
-			}
-		} else if verboseLogs {
-			log.WithError(err).Error("Unable to parse etcd service URL")
-		}
-
-		log.Debugf("Custom dialer based on k8s service backend is dialing to %q", s)
-		return (&net.Dialer{}).DialContext(ctx, "tcp", s)
-	}
 }

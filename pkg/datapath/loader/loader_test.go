@@ -90,7 +90,7 @@ func testReloadDatapath(t *testing.T, ep *testutils.TestEndpoint) {
 	stats := &metrics.SpanStat{}
 
 	l := newTestLoader(t)
-	err := l.ReloadDatapath(ctx, ep, stats)
+	_, err := l.ReloadDatapath(ctx, ep, stats)
 	require.NoError(t, err)
 }
 
@@ -137,7 +137,7 @@ func TestReload(t *testing.T) {
 		spec, err := bpf.LoadCollectionSpec(objPath)
 		require.NoError(t, err)
 
-		coll, finalize, err := loadDatapath(spec, nil, nil)
+		coll, commit, err := loadDatapath(spec, nil, nil)
 		require.NoError(t, err)
 
 		require.NoError(t, attachSKBProgram(l, coll.Programs[symbolFromEndpoint],
@@ -145,7 +145,8 @@ func TestReload(t *testing.T) {
 		require.NoError(t, attachSKBProgram(l, coll.Programs[symbolToEndpoint],
 			symbolToEndpoint, linkDir, netlink.HANDLE_MIN_EGRESS, true))
 
-		finalize()
+		require.NoError(t, commit())
+
 		coll.Close()
 	}
 }
@@ -170,7 +171,7 @@ func testCompileFailure(t *testing.T, ep *testutils.TestEndpoint) {
 	var err error
 	stats := &metrics.SpanStat{}
 	for err == nil && time.Now().Before(timeout) {
-		err = l.ReloadDatapath(ctx, ep, stats)
+		_, err = l.ReloadDatapath(ctx, ep, stats)
 	}
 	require.Error(t, err)
 }
@@ -285,11 +286,13 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		coll, finalize, err := loadDatapath(spec, nil, nil)
+		coll, commit, err := loadDatapath(spec, nil, nil)
 		if err != nil {
 			b.Fatal(err)
 		}
-		finalize()
+		if err := commit(); err != nil {
+			b.Fatalf("committing bpf pins: %s", err)
+		}
 		coll.Close()
 	}
 }

@@ -23,13 +23,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"sigs.k8s.io/gateway-api/conformance/utils/tlog"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 // ConformanceTest is used to define each individual conformance test.
 type ConformanceTest struct {
 	ShortName   string
 	Description string
-	Features    []SupportedFeature
+	Features    []features.SupportedFeature
 	Manifests   []string
 	Slow        bool
 	Parallel    bool
@@ -68,14 +69,14 @@ func (test *ConformanceTest) Run(t *testing.T, suite *ConformanceTestSuite) {
 }
 
 // ParseSupportedFeatures parses flag arguments and converts the string to
-// sets.Set[suite.SupportedFeature]
-func ParseSupportedFeatures(f string) sets.Set[SupportedFeature] {
+// sets.Set[features.SupportedFeature]
+func ParseSupportedFeatures(f string) sets.Set[features.SupportedFeature] {
 	if f == "" {
 		return nil
 	}
-	res := sets.Set[SupportedFeature]{}
+	res := sets.Set[features.SupportedFeature]{}
 	for _, value := range strings.Split(f, ",") {
-		res.Insert(SupportedFeature(value))
+		res.Insert(features.SupportedFeature(value))
 	}
 	return res
 }

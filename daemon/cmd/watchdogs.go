@@ -111,8 +111,9 @@ func (d *Daemon) checkEndpointBPFPrograms(ctx context.Context, p epBPFProgWatchd
 		if err != nil {
 			log.WithField(logfields.Endpoint, ep.HostInterface()).
 				WithField(logfields.EndpointID, ep.ID).
+				WithField(logfields.CEPName, ep.GetK8sNamespaceAndCEPName()).
 				WithError(err).
-				Error("Unable to assert if endpoint BPF programs need to be reloaded")
+				Warn("Unable to assert if endpoint BPF programs need to be reloaded")
 			return err
 		}
 		// We've detected missing bpf progs for this endpoint.

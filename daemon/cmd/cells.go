@@ -27,16 +27,18 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointcleanup"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/gops"
-	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
+	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -47,9 +49,11 @@ import (
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
+	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/signal"
@@ -111,6 +115,14 @@ var (
 		// Store cell provides factory for creating watchStore/syncStore/storeManager
 		// useful for synchronizing data from/to kvstore.
 		store.Cell,
+
+		// Provide CRD resource names for 'k8sSynced.CRDSyncCell' below.
+		cell.Provide(func() k8sSynced.CRDSyncResourceNames { return k8sSynced.AgentCRDResourceNames() }),
+		// CRDSyncCell provides a promise that is resolved as soon as CRDs used by the
+		// agent have k8sSynced.
+		// Allows cells to wait for CRDs before trying to list Cilium resources.
+		// This is separate from k8sSynced.Cell as this one needs to be mocked for tests.
+		k8sSynced.CRDSyncCell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure
@@ -201,8 +213,8 @@ var (
 		// IPCache, policy.Repository and CachingIdentityAllocator.
 		cell.Provide(newPolicyTrifecta),
 
-		// IPAM metadata manager, determines which IPAM pool a pod should allocate from
-		ipamMetadata.Cell,
+		// IPAM provides IP address management.
+		ipamcell.Cell,
 
 		// Egress Gateway allows originating traffic from specific IPv4 addresses.
 		egressgateway.Cell,
@@ -210,8 +222,12 @@ var (
 		// ServiceCache holds the list of known services correlated with the matching endpoints.
 		k8s.ServiceCacheCell,
 
-		// K8s policy resource watcher cell.
+		// K8s policy resource watcher cell. It depends on the half-initialized daemon which is
+		// resolved by newDaemonPromise()
 		policyK8s.Cell,
+
+		// Directory policy watcher cell.
+		policyDirectory.Cell,
 
 		// ClusterMesh is the Cilium's multicluster implementation.
 		cell.Config(cmtypes.DefaultClusterInfo),
@@ -240,6 +256,17 @@ var (
 
 		// NAT stats provides stat computation and tables for NAT map bpf maps.
 		natStats.Cell,
+
+		// Provide the logic to map DNS names matching Kubernetes services to the
+		// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
+		// and clustermesh.
+		dial.ServiceResolverCell,
+
+		// K8s Watcher provides the core k8s watchers
+		watchers.Cell,
+
+		// Provide pcap recorder
+		recorder.Cell,
 	)
 )
 

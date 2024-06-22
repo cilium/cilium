@@ -2684,7 +2684,9 @@ func init() {
       "description": "Datapath mode",
       "type": "string",
       "enum": [
-        "veth"
+        "veth",
+        "netkit",
+        "netkit-l2"
       ]
     },
     "DebugInfo": {
@@ -5041,6 +5043,10 @@ func init() {
         "controllers": {
           "description": "Status of all endpoint controllers",
           "$ref": "#/definitions/ControllerStatuses"
+        },
+        "datapath-mode": {
+          "description": "Status of datapath mode",
+          "$ref": "#/definitions/DatapathMode"
         },
         "encryption": {
           "description": "Status of transparent encryption",
@@ -8415,7 +8421,9 @@ func init() {
       "description": "Datapath mode",
       "type": "string",
       "enum": [
-        "veth"
+        "veth",
+        "netkit",
+        "netkit-l2"
       ]
     },
     "DebugInfo": {
@@ -11243,6 +11251,10 @@ func init() {
         "controllers": {
           "description": "Status of all endpoint controllers",
           "$ref": "#/definitions/ControllerStatuses"
+        },
+        "datapath-mode": {
+          "description": "Status of datapath mode",
+          "$ref": "#/definitions/DatapathMode"
         },
         "encryption": {
           "description": "Status of transparent encryption",

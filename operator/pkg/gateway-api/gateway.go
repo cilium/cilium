@@ -59,7 +59,7 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch GatewayClass resources, which are linked to Gateway
 		Watches(&gatewayv1.GatewayClass{},
 			r.enqueueRequestForOwningGatewayClass(),
-			builder.WithPredicates(predicate.NewPredicateFuncs(hasMatchingControllerFn))).
+			builder.WithPredicates(predicate.NewPredicateFuncs(matchesControllerName(controllerName)))).
 		// Watch related LB service for status
 		Watches(&corev1.Service{},
 			r.enqueueRequestForOwningResource(),
@@ -79,7 +79,7 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(onlyStatusChanged())).
 		// Watch GRPCRoute status changes, there is one assumption that any change in spec will
 		// always update status always at least for observedGeneration value.
-		Watches(&gatewayv1alpha2.GRPCRoute{},
+		Watches(&gatewayv1.GRPCRoute{},
 			r.enqueueRequestForOwningGRPCRoute(),
 			builder.WithPredicates(onlyStatusChanged())).
 		// Watch related secrets used to configure TLS
@@ -192,7 +192,7 @@ func (r *gatewayReconciler) enqueueRequestForOwningTLSRoute() handler.EventHandl
 // belonging to the given Gateway
 func (r *gatewayReconciler) enqueueRequestForOwningGRPCRoute() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
-		gr, ok := a.(*gatewayv1alpha2.GRPCRoute)
+		gr, ok := a.(*gatewayv1.GRPCRoute)
 		if !ok {
 			return nil
 		}

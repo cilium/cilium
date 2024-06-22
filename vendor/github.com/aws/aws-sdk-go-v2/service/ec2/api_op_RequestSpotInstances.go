@@ -14,13 +14,13 @@ import (
 
 // Creates a Spot Instance request.
 //
-// For more information, see [Spot Instance requests] in the Amazon EC2 User Guide for Linux Instances.
+// For more information, see [Work with Spot Instance] in the Amazon EC2 User Guide.
 //
 // We strongly discourage using the RequestSpotInstances API because it is a
 // legacy API with no planned investment. For options for requesting Spot
-// Instances, see [Which is the best Spot request method to use?]in the Amazon EC2 User Guide for Linux Instances.
+// Instances, see [Which is the best Spot request method to use?]in the Amazon EC2 User Guide.
 //
-// [Spot Instance requests]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-requests.html
+// [Work with Spot Instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-requests.html
 // [Which is the best Spot request method to use?]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-best-practices.html#which-spot-request-method-to-use
 func (c *Client) RequestSpotInstances(ctx context.Context, params *RequestSpotInstancesInput, optFns ...func(*Options)) (*RequestSpotInstancesOutput, error) {
 	if params == nil {
@@ -66,10 +66,9 @@ type RequestSpotInstancesInput struct {
 	BlockDurationMinutes *int32
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see [How to Ensure Idempotency]in the Amazon EC2 User Guide for Linux
-	// Instances.
+	// the request. For more information, see [Ensuring idempotency in Amazon EC2 API requests]in the Amazon EC2 User Guide.
 	//
-	// [How to Ensure Idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html
+	// [Ensuring idempotency in Amazon EC2 API requests]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html
 	ClientToken *string
 
 	// Checks whether you have the required permissions for the action, without
@@ -208,6 +207,9 @@ func (c *Client) addOperationRequestSpotInstancesMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpRequestSpotInstancesValidationMiddleware(stack); err != nil {

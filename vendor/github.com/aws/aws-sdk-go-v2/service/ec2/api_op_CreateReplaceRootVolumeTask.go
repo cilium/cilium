@@ -16,7 +16,7 @@ import (
 // a specific snapshot taken from the original root volume, or that is restored
 // from an AMI that has the same key characteristics as that of the instance.
 //
-// For more information, see [Replace a root volume] in the Amazon Elastic Compute Cloud User Guide.
+// For more information, see [Replace a root volume] in the Amazon EC2 User Guide.
 //
 // [Replace a root volume]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/replace-root.html
 func (c *Client) CreateReplaceRootVolumeTask(ctx context.Context, params *CreateReplaceRootVolumeTaskInput, optFns ...func(*Options)) (*CreateReplaceRootVolumeTaskOutput, error) {
@@ -45,7 +45,7 @@ type CreateReplaceRootVolumeTaskInput struct {
 	// request. If you do not specify a client token, a randomly generated token is
 	// used for the request to ensure idempotency. For more information, see [Ensuring idempotency].
 	//
-	// [Ensuring idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
+	// [Ensuring idempotency]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
 	ClientToken *string
 
 	// Indicates whether to automatically delete the original root volume after the
@@ -148,6 +148,9 @@ func (c *Client) addOperationCreateReplaceRootVolumeTaskMiddlewares(stack *middl
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addIdempotencyToken_opCreateReplaceRootVolumeTaskMiddleware(stack, options); err != nil {

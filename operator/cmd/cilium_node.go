@@ -5,21 +5,16 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
 
-	"golang.org/x/time/rate"
-	core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/ipam/allocator"
-	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -178,8 +173,8 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				if oldNode := k8s.CastInformerEvent[cilium_v2.CiliumNode](oldObj); oldNode != nil {
-					if newNode := k8s.CastInformerEvent[cilium_v2.CiliumNode](newObj); newNode != nil {
+				if oldNode := informer.CastInformerEvent[cilium_v2.CiliumNode](oldObj); oldNode != nil {
+					if newNode := informer.CastInformerEvent[cilium_v2.CiliumNode](newObj); newNode != nil {
 						if oldNode.DeepEqual(newNode) {
 							return
 						}
@@ -367,123 +362,4 @@ func (c *ciliumNodeUpdateImplementation) Update(origNode, node *cilium_v2.Cilium
 		return c.clientset.CiliumV2().CiliumNodes().Update(context.TODO(), node, meta_v1.UpdateOptions{})
 	}
 	return nil, nil
-}
-
-func RunCNPStatusNodesCleaner(ctx context.Context, clientset k8sClient.Clientset, rateLimit *rate.Limiter) {
-	go clearCNPStatusNodes(ctx, false, clientset, rateLimit)
-	go clearCNPStatusNodes(ctx, true, clientset, rateLimit)
-}
-
-func clearCNPStatusNodes(ctx context.Context, clusterwide bool, clientset k8sClient.Clientset, rateLimit *rate.Limiter) {
-	body, err := json.Marshal([]k8s.JSONPatch{
-		{
-			OP:   "remove",
-			Path: "/status/nodes",
-		},
-	})
-	if err != nil {
-		log.WithError(err).Debug("Unable to json marshal")
-		return
-	}
-
-	continueID := ""
-	nCNPs, nGcCNPs := 0, 0
-	for {
-		if clusterwide {
-			if err := rateLimit.Wait(ctx); err != nil {
-				log.WithError(err).Debug("Error while rate limiting CCNP List requests")
-				return
-			}
-
-			ccnpList, err := clientset.CiliumV2().CiliumClusterwideNetworkPolicies().List(
-				ctx,
-				meta_v1.ListOptions{
-					Limit:    10,
-					Continue: continueID,
-				})
-			if err != nil {
-				log.WithError(err).Debug("Unable to list CCNPs")
-				return
-			}
-			nCNPs += len(ccnpList.Items)
-			continueID = ccnpList.Continue
-
-			for _, cnp := range ccnpList.Items {
-				if len(cnp.Status.Nodes) == 0 {
-					continue
-				}
-
-				if err := rateLimit.Wait(ctx); err != nil {
-					log.WithError(err).Debug("Error while rate limiting CCNP PATCH requests")
-					return
-				}
-
-				_, err = clientset.CiliumV2().CiliumClusterwideNetworkPolicies().Patch(ctx,
-					cnp.Name, types.JSONPatchType, body, meta_v1.PatchOptions{}, "status")
-
-				if err != nil {
-					if errors.IsInvalid(err) {
-						// An "Invalid" error may be returned if /status/nodes path does not exist.
-						// In that case, we simply ignore it, since there are no updates to clean up.
-						continue
-					}
-					log.WithError(err).Debug("Unable to PATCH while clearing status nodes in CCNP")
-				}
-				nGcCNPs++
-			}
-		} else {
-			if err := rateLimit.Wait(ctx); err != nil {
-				log.WithError(err).Debug("Error while rate limiting CNP List requests")
-				return
-			}
-
-			cnpList, err := clientset.CiliumV2().CiliumNetworkPolicies(core_v1.NamespaceAll).List(
-				ctx,
-				meta_v1.ListOptions{
-					Limit:    10,
-					Continue: continueID,
-				})
-			if err != nil {
-				log.WithError(err).Debug("Unable to list CNPs")
-				return
-			}
-			nCNPs += len(cnpList.Items)
-			continueID = cnpList.Continue
-
-			for _, cnp := range cnpList.Items {
-				if len(cnp.Status.Nodes) == 0 {
-					continue
-				}
-
-				namespace := utils.ExtractNamespace(&cnp.ObjectMeta)
-
-				if err := rateLimit.Wait(ctx); err != nil {
-					log.WithError(err).Debug("Error while rate limiting CNP PATCH requests")
-					return
-				}
-
-				_, err = clientset.CiliumV2().CiliumNetworkPolicies(namespace).Patch(ctx,
-					cnp.Name, types.JSONPatchType, body, meta_v1.PatchOptions{}, "status")
-				if err != nil {
-					if errors.IsInvalid(err) {
-						// An "Invalid" error may be returned if /status/nodes path does not exist.
-						// In that case, we simply ignore it, since there are no updates to clean up.
-						continue
-					}
-					log.WithError(err).Debug("Unable to PATCH while clearing status nodes in CNP")
-				}
-				nGcCNPs++
-			}
-		}
-
-		if continueID == "" {
-			break
-		}
-	}
-
-	if clusterwide {
-		log.Infof("Garbage collected status/nodes in Cilium Clusterwide Network Policies found=%d, gc=%d", nCNPs, nGcCNPs)
-	} else {
-		log.Infof("Garbage collected status/nodes in Cilium Network Policies found=%d, gc=%d", nCNPs, nGcCNPs)
-	}
 }

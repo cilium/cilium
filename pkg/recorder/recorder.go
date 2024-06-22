@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -17,18 +19,10 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
-
-const (
-	subsystem = "recorder"
-)
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 
 type ID uint16
 
@@ -72,6 +66,7 @@ type recQueue struct {
 
 type Recorder struct {
 	lock.RWMutex
+	logger  logrus.FieldLogger
 	recByID map[ID]*RecInfo
 	recMask map[string]*RecMask
 	queue   recQueue
@@ -79,13 +74,8 @@ type Recorder struct {
 	loader  types.Loader
 }
 
-// NewRecorder initializes the main recorder infrastructure once upon agent
-// bootstrap for tracking tuple insertions and masks that need to be pushed
-// down into the BPF datapath. Given we currently do not support restore
-// functionality, it also flushes prior existing recorder objects from the
-// BPF maps.
-func NewRecorder(ctx context.Context, loader types.Loader) (*Recorder, error) {
-	rec := &Recorder{
+func newRecorder(ctx context.Context, logger logrus.FieldLogger, loader types.Loader) *Recorder {
+	return &Recorder{
 		recByID: map[ID]*RecInfo{},
 		recMask: map[string]*RecMask{},
 		queue: recQueue{
@@ -93,28 +83,36 @@ func NewRecorder(ctx context.Context, loader types.Loader) (*Recorder, error) {
 			del: []*RecorderTuple{},
 		},
 		ctx:    ctx,
+		logger: logger,
 		loader: loader,
 	}
-	if option.Config.EnableRecorder {
-		maps := []*bpf.Map{}
-		if option.Config.EnableIPv4 {
-			t := &recorder.CaptureWcard4{}
-			maps = append(maps, t.Map())
+}
+
+// enableRecorder initializes the main recorder infrastructure once upon agent
+// bootstrap for tracking tuple insertions and masks that need to be pushed
+// down into the BPF datapath. Given we currently do not support restore
+// functionality, it also flushes prior existing recorder objects from the
+// BPF maps.
+func (r *Recorder) enableRecorder() error {
+	maps := []*bpf.Map{}
+	if option.Config.EnableIPv4 {
+		t := &recorder.CaptureWcard4{}
+		maps = append(maps, t.Map())
+	}
+	if option.Config.EnableIPv6 {
+		t := &recorder.CaptureWcard6{}
+		maps = append(maps, t.Map())
+	}
+	for _, m := range maps {
+		if err := m.OpenOrCreate(); err != nil {
+			return err
 		}
-		if option.Config.EnableIPv6 {
-			t := &recorder.CaptureWcard6{}
-			maps = append(maps, t.Map())
-		}
-		for _, m := range maps {
-			if err := m.OpenOrCreate(); err != nil {
-				return nil, err
-			}
-			if err := m.DeleteAll(); err != nil {
-				return nil, err
-			}
+		if err := m.DeleteAll(); err != nil {
+			return err
 		}
 	}
-	return rec, nil
+
+	return nil
 }
 
 func convertTupleToMask(t RecorderTuple) RecorderMask {
@@ -248,7 +246,7 @@ func (r *Recorder) triggerDatapathRegenerate() error {
 	}
 	err := r.loader.ReinitializeXDP(r.ctx, extraCArgs)
 	if err != nil {
-		log.WithError(err).Warnf("Failed to regenerate datapath with masks: %s / %s",
+		r.logger.WithError(err).Warnf("Failed to regenerate datapath with masks: %s / %s",
 			masks4, masks6)
 	}
 	return err
@@ -326,7 +324,7 @@ func (r *Recorder) applyDatapath(regen bool) error {
 	r.queue.del = []*RecorderTuple{}
 	r.queue.ri = nil
 	if regen {
-		log.Debugf("Recorder Masks: %v", r.recMask)
+		r.logger.Debugf("Recorder Masks: %v", r.recMask)
 		// If datapath masks did not change, then there is of course
 		// also no need to trigger a regeneration since map updates
 		// suffice (which is also much faster).

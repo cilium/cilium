@@ -66,6 +66,78 @@ func TestGetAnnotationServiceType(t *testing.T) {
 	}
 }
 
+func TestGetAnnotationServiceExternalTrafficPolicy(t *testing.T) {
+	type args struct {
+		ingress *networkingv1.Ingress
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "no externalTrafficPolicy annotation",
+			args: args{
+				ingress: &networkingv1.Ingress{},
+			},
+			want: "Cluster",
+		},
+		{
+			name: "externalTrafficPolicy as Cluster",
+			args: args{
+				ingress: &networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"ingress.cilium.io/service-external-traffic-policy": "Cluster",
+						},
+					},
+				},
+			},
+			want: "Cluster",
+		},
+		{
+			name: "externalTrafficPolicy as Local",
+			args: args{
+				ingress: &networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"ingress.cilium.io/service-external-traffic-policy": "Local",
+						},
+					},
+				},
+			},
+			want: "Local",
+		},
+		{
+			name: "externalTrafficPolicy set to invalid value",
+			args: args{
+				ingress: &networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"ingress.cilium.io/service-external-traffic-policy": "invalid-value",
+						},
+					},
+				},
+			},
+			want:    "Cluster",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetAnnotationServiceExternalTrafficPolicy(tt.args.ingress)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetAnnotationServiceExternalTrafficPolicy() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetAnnotationServiceExternalTrafficPolicy() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGetAnnotationRequestTimeout(t *testing.T) {
 	type args struct {
 		ingress *networkingv1.Ingress

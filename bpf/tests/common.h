@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef ____BPF_TEST_COMMON____
-#define ____BPF_TEST_COMMON____
+#pragma once
 
 #include <linux/types.h>
 #include <linux/bpf.h>
@@ -260,21 +259,6 @@ test_result_cursor = 0;
 #define SETUP(progtype, name) __section(progtype "/test/" name "/setup")
 #define CHECK(progtype, name) __section(progtype "/test/" name "/check")
 
-#define LPM_LOOKUP_FN(NAME, IPTYPE, PREFIXES, MAP, LOOKUP_FN)	\
-static __always_inline int __##NAME(IPTYPE addr)		\
-{								\
-	int prefixes[] = { PREFIXES };				\
-	const int size = ARRAY_SIZE(prefixes);			\
-	int i;							\
-								\
-_Pragma("unroll")						\
-	for (i = 0; i < size; i++)				\
-		if (LOOKUP_FN(&(MAP), addr, prefixes[i]))	\
-			return 1;				\
-								\
-	return 0;						\
-}
-
 /* Asserts that the sum of per-cpu metrics map slots for a key equals count */
 #define assert_metrics_count(key, count) \
 ({ \
@@ -291,5 +275,3 @@ _Pragma("unroll")						\
 	} \
 	assert(sum == count); \
 })
-
-#endif /* ____BPF_TEST_COMMON____ */

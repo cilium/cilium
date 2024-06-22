@@ -12,7 +12,7 @@ import (
 )
 
 // Enables Elastic IP address transfer. For more information, see [Transfer Elastic IP addresses] in the Amazon
-// Virtual Private Cloud User Guide.
+// VPC User Guide.
 //
 // [Transfer Elastic IP addresses]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-eips.html#transfer-EIPs-intro
 func (c *Client) EnableAddressTransfer(ctx context.Context, params *EnableAddressTransferInput, optFns ...func(*Options)) (*EnableAddressTransferOutput, error) {
@@ -115,6 +115,9 @@ func (c *Client) addOperationEnableAddressTransferMiddlewares(stack *middleware.
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpEnableAddressTransferValidationMiddleware(stack); err != nil {

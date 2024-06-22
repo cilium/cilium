@@ -5,7 +5,6 @@
 
 /* Set the LXC source address to be the address of pod one */
 #define LXC_IPV4 (__be32)v4_pod_one
-#include "config_replacement.h"
 
 /* Enable CT debug output */
 #undef QUIET_CT
@@ -109,7 +108,7 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	/* Add an IPCache entry for pod 1 */
 	ipcache_v4_add_entry(v4_pod_one, 0, 112233, 0, 0);
 
-	endpoint_v4_add_entry(v4_pod_one, 0, 0, 0, NULL, NULL);
+	endpoint_v4_add_entry(v4_pod_one, 0, 0, 0, 0, NULL, NULL);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, 0);
@@ -367,6 +366,93 @@ int hairpin_flow_rev_check(__maybe_unused const struct __ctx_buff *ctx)
 	status_code = data;
 
 	assert(*status_code == TC_ACT_REDIRECT);
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->saddr != v4_pod_one)
+		test_fatal("src IP changed");
+
+	if (l3->daddr != IPV4_LOOPBACK)
+		test_fatal("dest IP changed");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (l4->source != tcp_dst_one)
+		test_fatal("src TCP port changed");
+
+	if (l4->dest != tcp_src_one)
+		test_fatal("dst TCP port changed");
+
+	test_finish();
+}
+
+PKTGEN("tc", "hairpin_flow_4_reverse_ingress_v4")
+int hairpin_flow_reverse_ingress_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	volatile const __u8 *src = mac_one;
+	volatile const __u8 *dst = mac_two;
+	struct tcphdr *l4;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)src, (__u8 *)dst,
+					  v4_pod_one, IPV4_LOOPBACK,
+					  tcp_dst_one, tcp_src_one);
+	if (!l4)
+		return TEST_ERROR;
+
+	l4->ack = 1;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "hairpin_flow_4_reverse_ingress_v4")
+int hairpin_flow_reverse_ingress_setup(struct __ctx_buff *ctx)
+{
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, 1);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "hairpin_flow_4_reverse_ingress_v4")
+int hairpin_flow_reverse_ingress_check(const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+	struct iphdr *l3;
+	struct tcphdr *l4;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_OK);
 
 	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
 

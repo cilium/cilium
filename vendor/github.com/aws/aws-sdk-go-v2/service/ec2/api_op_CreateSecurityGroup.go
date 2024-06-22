@@ -151,6 +151,9 @@ func (c *Client) addOperationCreateSecurityGroupMiddlewares(stack *middleware.St
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpCreateSecurityGroupValidationMiddleware(stack); err != nil {
 		return err
 	}

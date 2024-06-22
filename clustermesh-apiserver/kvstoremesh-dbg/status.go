@@ -56,7 +56,7 @@ func status(ctx context.Context, writer io.Writer, verbose bool) {
 		verbosity = ciliumdbg.RemoteClustersStatusVerbose
 	}
 
-	fmt.Fprintf(writer, "KVStoreMesh:\t%d/%d clusters ready\n",
+	fmt.Fprintf(writer, "KVStoreMesh:\t%d/%d remote clusters ready\n",
 		ciliumdbg.NumReadyClusters(clusters), len(clusters))
 	ciliumdbg.FormatStatusResponseRemoteClusters(writer, clusters, verbosity)
 }

@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Checkout code
         if: ${{ !github.event.pull_request }}
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -58,11 +58,11 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           persist-credentials: false
       - name: Build HTML
-        uses: docker://quay.io/cilium/docs-builder:7306475aebdfeb02fda727e3f8be9794ab517a38@sha256:3c38eaae90507280ba949cd7f01e18d68532913b35554d39e26cba6d0408e75a
+        uses: docker://quay.io/cilium/docs-builder:9ccbdd04a50d599e9e699face6231e59c0036a51@sha256:6d1a0eaeb32ba98b60df52c69e7c8031a38e8aa6a0d4738bef35bd48a3bfbc0e
         with:
           entrypoint: ./Documentation/check-build.sh
           args: html
@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           persist-credentials: false
       - name: Install Go

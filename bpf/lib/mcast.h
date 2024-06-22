@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_MCAST_H_
-#define __LIB_MCAST_H_
+#pragma once
 
 #include <bpf/api.h>
 #include <linux/ip.h>
@@ -443,4 +442,3 @@ int tail_mcast_ep_delivery(struct __ctx_buff *ctx)
 }
 
 #endif /* ENABLE_MULTICAST */
-#endif /* ___LIB_MCAST_H_ */

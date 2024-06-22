@@ -18,7 +18,7 @@ import (
 // overlapping CIDR blocks.
 //
 // Limitations and rules apply to a VPC peering connection. For more information,
-// see the [limitations]section in the VPC Peering Guide.
+// see the [VPC peering limitations]in the VPC Peering Guide.
 //
 // The owner of the accepter VPC must accept the peering request to activate the
 // peering connection. The VPC peering connection request expires after 7 days,
@@ -27,7 +27,7 @@ import (
 // If you create a VPC peering connection request between VPCs with overlapping
 // CIDR blocks, the VPC peering connection has a status of failed .
 //
-// [limitations]: https://docs.aws.amazon.com/vpc/latest/peering/vpc-peering-basics.html#vpc-peering-limitations
+// [VPC peering limitations]: https://docs.aws.amazon.com/vpc/latest/peering/vpc-peering-basics.html#vpc-peering-limitations
 func (c *Client) CreateVpcPeeringConnection(ctx context.Context, params *CreateVpcPeeringConnectionInput, optFns ...func(*Options)) (*CreateVpcPeeringConnectionOutput, error) {
 	if params == nil {
 		params = &CreateVpcPeeringConnectionInput{}
@@ -141,6 +141,9 @@ func (c *Client) addOperationCreateVpcPeeringConnectionMiddlewares(stack *middle
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpCreateVpcPeeringConnectionValidationMiddleware(stack); err != nil {

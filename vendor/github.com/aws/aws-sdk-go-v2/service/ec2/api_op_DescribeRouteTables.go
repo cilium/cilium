@@ -11,7 +11,9 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes one or more of your route tables.
+// Describes your route tables. The default is to describe all your route tables.
+// Alternatively, you can specify specific route table IDs or filter the results to
+// include only the route tables that match specific criteria.
 //
 // Each subnet in your VPC must be associated with a route table. If a subnet is
 // not explicitly associated with any route table, it is implicitly associated with
@@ -122,8 +124,6 @@ type DescribeRouteTablesInput struct {
 	NextToken *string
 
 	// The IDs of the route tables.
-	//
-	// Default: Describes all your route tables.
 	RouteTableIds []string
 
 	noSmithyDocumentSerde
@@ -136,7 +136,7 @@ type DescribeRouteTablesOutput struct {
 	// value is null when there are no more items to return.
 	NextToken *string
 
-	// Information about one or more route tables.
+	// Information about the route tables.
 	RouteTables []types.RouteTable
 
 	// Metadata pertaining to the operation's result.
@@ -198,6 +198,9 @@ func (c *Client) addOperationDescribeRouteTablesMiddlewares(stack *middleware.St
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeRouteTables(options.Region), middleware.Before); err != nil {

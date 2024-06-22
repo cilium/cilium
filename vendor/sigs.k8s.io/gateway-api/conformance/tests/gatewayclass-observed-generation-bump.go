@@ -19,7 +19,6 @@ package tests
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,6 +27,7 @@ import (
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -36,8 +36,8 @@ func init() {
 
 var GatewayClassObservedGenerationBump = suite.ConformanceTest{
 	ShortName: "GatewayClassObservedGenerationBump",
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
 	},
 	Description: "A GatewayClass should update the observedGeneration in all of it's Status.Conditions after an update to the spec",
 	Manifests:   []string{"tests/gatewayclass-observed-generation-bump.yaml"},
@@ -45,7 +45,7 @@ var GatewayClassObservedGenerationBump = suite.ConformanceTest{
 		gwc := types.NamespacedName{Name: "gatewayclass-observed-generation-bump"}
 
 		t.Run("observedGeneration should increment", func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			ctx, cancel := context.WithTimeout(context.Background(), s.TimeoutConfig.LatestObservedGenerationSet)
 			defer cancel()
 
 			kubernetes.GWCMustHaveAcceptedConditionAny(t, s.Client, s.TimeoutConfig, gwc.Name)

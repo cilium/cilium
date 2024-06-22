@@ -68,7 +68,7 @@ type CreateTrafficMirrorFilterRuleInput struct {
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see [How to ensure idempotency].
 	//
-	// [How to ensure idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
+	// [How to ensure idempotency]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
 	ClientToken *string
 
 	// The description of the Traffic Mirror rule.
@@ -94,6 +94,9 @@ type CreateTrafficMirrorFilterRuleInput struct {
 	// The source port range.
 	SourcePortRange *types.TrafficMirrorPortRangeRequest
 
+	// Traffic Mirroring tags specifications.
+	TagSpecifications []types.TagSpecification
+
 	noSmithyDocumentSerde
 }
 
@@ -102,7 +105,7 @@ type CreateTrafficMirrorFilterRuleOutput struct {
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see [How to ensure idempotency].
 	//
-	// [How to ensure idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
+	// [How to ensure idempotency]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
 	ClientToken *string
 
 	// The Traffic Mirror rule.
@@ -167,6 +170,9 @@ func (c *Client) addOperationCreateTrafficMirrorFilterRuleMiddlewares(stack *mid
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addIdempotencyToken_opCreateTrafficMirrorFilterRuleMiddleware(stack, options); err != nil {

@@ -54,7 +54,7 @@ type AllocateHostsInput struct {
 	// launches that specify its unique host ID. For more information, see [Understanding auto-placement and affinity]in the
 	// Amazon EC2 User Guide.
 	//
-	// Default: on
+	// Default: off
 	//
 	// [Understanding auto-placement and affinity]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/how-dedicated-hosts-work.html#dedicated-hosts-understanding
 	AutoPlacement types.AutoPlacement
@@ -185,6 +185,9 @@ func (c *Client) addOperationAllocateHostsMiddlewares(stack *middleware.Stack, o
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpAllocateHostsValidationMiddleware(stack); err != nil {

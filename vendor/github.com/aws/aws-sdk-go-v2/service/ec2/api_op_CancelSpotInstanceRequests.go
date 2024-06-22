@@ -114,6 +114,9 @@ func (c *Client) addOperationCancelSpotInstanceRequestsMiddlewares(stack *middle
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpCancelSpotInstanceRequestsValidationMiddleware(stack); err != nil {
 		return err
 	}

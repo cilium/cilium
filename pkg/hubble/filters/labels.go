@@ -23,6 +23,11 @@ func destinationLabels(ev *v1.Event) k8sLabels.Labels {
 	return ciliumLabels.ParseLabelArrayFromArray(labels)
 }
 
+func nodeLabels(ev *v1.Event) k8sLabels.Labels {
+	labels := ev.GetFlow().GetNodeLabels()
+	return ciliumLabels.ParseLabelArrayFromArray(labels)
+}
+
 func parseSelector(selector string) (k8sLabels.Selector, error) {
 	// ciliumLabels.LabelArray extends the k8sLabels.Selector logic with
 	// support for Cilium source prefixes such as "k8s:foo" or "any:bar".
@@ -88,6 +93,14 @@ func (l *LabelsFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter)
 			return nil, fmt.Errorf("invalid destination label filter: %w", err)
 		}
 		fs = append(fs, dlf)
+	}
+
+	if ff.GetNodeLabels() != nil {
+		nlf, err := FilterByLabelSelectors(ff.GetNodeLabels(), nodeLabels)
+		if err != nil {
+			return nil, fmt.Errorf("invalid node label filter: %w", err)
+		}
+		fs = append(fs, nlf)
 	}
 
 	return fs, nil

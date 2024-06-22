@@ -127,11 +127,9 @@ type DescribeSnapshotsInput struct {
 	//   - volume-size - The size of the volume, in GiB.
 	Filters []types.Filter
 
-	// The maximum number of snapshots to return for this request. This value can be
-	// between 5 and 1,000; if this value is larger than 1,000, only 1,000 results are
-	// returned. If this parameter is not used, then the request returns all snapshots.
-	// You cannot specify this parameter and the snapshot IDs parameter in the same
-	// request. For more information, see [Pagination].
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see [Pagination].
 	//
 	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
@@ -158,8 +156,8 @@ type DescribeSnapshotsInput struct {
 
 type DescribeSnapshotsOutput struct {
 
-	// The token to include in another request to return the next page of snapshots.
-	// This value is null when there are no more snapshots to return.
+	// The token to include in another request to get the next page of items. This
+	// value is null when there are no more items to return.
 	NextToken *string
 
 	// Information about the snapshots.
@@ -226,6 +224,9 @@ func (c *Client) addOperationDescribeSnapshotsMiddlewares(stack *middleware.Stac
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeSnapshots(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -257,11 +258,9 @@ var _ DescribeSnapshotsAPIClient = (*Client)(nil)
 
 // DescribeSnapshotsPaginatorOptions is the paginator options for DescribeSnapshots
 type DescribeSnapshotsPaginatorOptions struct {
-	// The maximum number of snapshots to return for this request. This value can be
-	// between 5 and 1,000; if this value is larger than 1,000, only 1,000 results are
-	// returned. If this parameter is not used, then the request returns all snapshots.
-	// You cannot specify this parameter and the snapshot IDs parameter in the same
-	// request. For more information, see [Pagination].
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see [Pagination].
 	//
 	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	Limit int32

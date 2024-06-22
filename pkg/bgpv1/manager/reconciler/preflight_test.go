@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
@@ -223,7 +223,7 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 	// Validate pod CIDR and service announcements work as expected
 	newc := &v2alpha1api.CiliumBGPVirtualRouter{
 		LocalASN:        localASN,
-		ExportPodCIDR:   pointer.Bool(true),
+		ExportPodCIDR:   ptr.To[bool](true),
 		Neighbors:       []v2alpha1api.CiliumBGPNeighbor{},
 		ServiceSelector: serviceSelector,
 	}

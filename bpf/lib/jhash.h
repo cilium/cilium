@@ -3,8 +3,7 @@
 /* Copyright (C) 2006-2020 Authors of the Linux kernel */
 /* Copyright Authors of Cilium */
 
-#ifndef __JHASH_H_
-#define __JHASH_H_
+#pragma once
 
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
@@ -106,5 +105,3 @@ static __always_inline __u32 jhash_1word(__u32 a, __u32 initval)
 {
 	return __jhash_nwords(a, 0, 0, initval + JHASH_INITVAL + (1 << 2));
 }
-
-#endif /* __JHASH_H_ */

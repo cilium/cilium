@@ -73,7 +73,9 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		},
 	}
 
-	if err := cmutils.SetClusterConfig(ctx, rc.name, dstcfg, rc.localBackend); err != nil {
+	stopAndWait, err := cmutils.EnforceClusterConfig(ctx, rc.name, dstcfg, rc.localBackend, rc.logger)
+	defer stopAndWait()
+	if err != nil {
 		ready <- fmt.Errorf("failed to propagate cluster configuration: %w", err)
 		close(ready)
 		return

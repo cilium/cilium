@@ -29,11 +29,16 @@ func TestQPush(t *testing.T) {
 				q.push(&u.items[i])
 			}
 			for i := 0; i < len(u.items); i++ {
-				v := q.pop()
+				v, ok := q.pop()
+				assert.True(t, ok)
 				assert.Less(t, i, len(u.e))
 				assert.Equal(t, u.e[i], *v)
 			}
 			assert.True(t, q.isEmpty())
+
+			v, ok := q.pop()
+			assert.False(t, ok)
+			assert.Nil(t, v)
 		})
 	}
 }
@@ -57,7 +62,10 @@ func TestQPop(t *testing.T) {
 			for i := range u.items {
 				q.push(&u.items[i])
 			}
-			for q.pop() != nil {
+			for {
+				if _, ok := q.pop(); !ok {
+					break
+				}
 			}
 			assert.True(t, q.isEmpty())
 		})

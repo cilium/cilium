@@ -167,7 +167,7 @@ SETUP("tc", "tc_nodeport_dsr_backend")
 int nodeport_dsr_backend_setup(struct __ctx_buff *ctx)
 {
 	/* add local backend */
-	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFACE, 0, 0,
+	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFACE, 0, 0, 0,
 			      (__u8 *)backend_mac, (__u8 *)node_mac);
 
 	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);

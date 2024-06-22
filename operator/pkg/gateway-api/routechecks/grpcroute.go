@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
@@ -30,14 +29,14 @@ type GRPCRouteInput struct {
 	Logger    *logrus.Entry
 	Client    client.Client
 	Grants    *gatewayv1beta1.ReferenceGrantList
-	GRPCRoute *gatewayv1alpha2.GRPCRoute
+	GRPCRoute *gatewayv1.GRPCRoute
 
 	gateways map[gatewayv1.ParentReference]*gatewayv1.Gateway
 }
 
 // GRPCRouteRule is used to implement the GenericRule interface for GRPCRoute
 type GRPCRouteRule struct {
-	Rule gatewayv1alpha2.GRPCRouteRule
+	Rule gatewayv1.GRPCRouteRule
 }
 
 func (g *GRPCRouteRule) GetBackendRefs() []gatewayv1.BackendRef {
@@ -47,7 +46,7 @@ func (g *GRPCRouteRule) GetBackendRefs() []gatewayv1.BackendRef {
 	}
 
 	for _, f := range g.Rule.Filters {
-		if f.Type == gatewayv1alpha2.GRPCRouteFilterRequestMirror {
+		if f.Type == gatewayv1.GRPCRouteFilterRequestMirror {
 			if f.RequestMirror == nil {
 				continue
 			}
@@ -81,7 +80,7 @@ func (g *GRPCRouteInput) GetContext() context.Context {
 }
 
 func (g *GRPCRouteInput) GetGVK() schema.GroupVersionKind {
-	return gatewayv1alpha2.SchemeGroupVersion.WithKind("GRPCRoute")
+	return gatewayv1.SchemeGroupVersion.WithKind("GRPCRoute")
 }
 
 func (g *GRPCRouteInput) GetGrants() []gatewayv1beta1.ReferenceGrant {
@@ -147,7 +146,7 @@ func (g *GRPCRouteInput) Log() *logrus.Entry {
 	return g.Logger
 }
 
-func (g *GRPCRouteInput) mergeStatusConditions(parentRef gatewayv1alpha2.ParentReference, updates []metav1.Condition) {
+func (g *GRPCRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReference, updates []metav1.Condition) {
 	index := -1
 	for i, parent := range g.GRPCRoute.Status.RouteStatus.Parents {
 		if reflect.DeepEqual(parent.ParentRef, parentRef) {
@@ -159,7 +158,7 @@ func (g *GRPCRouteInput) mergeStatusConditions(parentRef gatewayv1alpha2.ParentR
 		g.GRPCRoute.Status.RouteStatus.Parents[index].Conditions = merge(g.GRPCRoute.Status.RouteStatus.Parents[index].Conditions, updates...)
 		return
 	}
-	g.GRPCRoute.Status.RouteStatus.Parents = append(g.GRPCRoute.Status.RouteStatus.Parents, gatewayv1alpha2.RouteParentStatus{
+	g.GRPCRoute.Status.RouteStatus.Parents = append(g.GRPCRoute.Status.RouteStatus.Parents, gatewayv1.RouteParentStatus{
 		ParentRef:      parentRef,
 		ControllerName: controllerName,
 		Conditions:     updates,

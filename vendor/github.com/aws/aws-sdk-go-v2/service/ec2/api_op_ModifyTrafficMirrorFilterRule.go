@@ -83,7 +83,9 @@ type ModifyTrafficMirrorFilterRuleInput struct {
 
 type ModifyTrafficMirrorFilterRuleOutput struct {
 
-	// Modifies a Traffic Mirror rule.
+	// Tags are not returned for ModifyTrafficMirrorFilterRule.
+	//
+	// A Traffic Mirror rule.
 	TrafficMirrorFilterRule *types.TrafficMirrorFilterRule
 
 	// Metadata pertaining to the operation's result.
@@ -145,6 +147,9 @@ func (c *Client) addOperationModifyTrafficMirrorFilterRuleMiddlewares(stack *mid
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpModifyTrafficMirrorFilterRuleValidationMiddleware(stack); err != nil {

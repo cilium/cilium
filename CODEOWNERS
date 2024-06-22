@@ -226,7 +226,7 @@
 /CONTRIBUTING.md @cilium/contributing
 /.authors.aux @cilium/contributing
 /.clomonitor.yml @cilium/contributing
-/.devcontainer @cilium/contributing
+/.devcontainer @cilium/ci-structure
 /.gitattributes @cilium/contributing
 /.github/ @cilium/contributing
 /.github/ariane-config.yaml @cilium/github-sec @cilium/ci-structure
@@ -291,7 +291,6 @@ Makefile* @cilium/build
 /daemon/cmd/loadbalancer.go @cilium/sig-lb
 /daemon/cmd/metrics.go @cilium/metrics
 /daemon/cmd/policy* @cilium/sig-policy
-/daemon/cmd/prefilter.go @cilium/sig-datapath
 /daemon/cmd/state.go @cilium/endpoint
 /daemon/cmd/cells*.go @cilium/sig-foundations
 /Documentation/ @cilium/docs-structure
@@ -449,6 +448,7 @@ Makefile* @cilium/build
 /pkg/datapath/ipcache/ @cilium/ipcache
 /pkg/defaults @cilium/sig-agent
 /pkg/debug @cilium/sig-agent
+/pkg/dial @cilium/sig-agent
 /pkg/ebpf @cilium/sig-datapath
 /pkg/egressgateway/ @cilium/egress-gateway
 /pkg/endpoint/ @cilium/endpoint

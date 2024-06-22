@@ -44,9 +44,9 @@ type CreateIpamScopeInput struct {
 	IpamId *string
 
 	// A unique, case-sensitive identifier that you provide to ensure the idempotency
-	// of the request. For more information, see [Ensuring Idempotency].
+	// of the request. For more information, see [Ensuring idempotency].
 	//
-	// [Ensuring Idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
+	// [Ensuring idempotency]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
 	ClientToken *string
 
 	// A description for the scope you're creating.
@@ -131,6 +131,9 @@ func (c *Client) addOperationCreateIpamScopeMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addIdempotencyToken_opCreateIpamScopeMiddleware(stack, options); err != nil {

@@ -6,6 +6,7 @@ package init
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -62,7 +63,7 @@ func ClusterMeshEtcdInit(ctx context.Context, log *logrus.Entry, client *clientv
 	}
 
 	// Admin user
-	adminUsername := adminUsernameForClusterName(ciliumClusterName)
+	adminUsername := usernameForClusterName("admin", ciliumClusterName)
 	log.WithField("etcdUsername", adminUsername).
 		Info("Configuring admin user")
 	err = ic.addNoPasswordUser(ctx, adminUsername)
@@ -104,7 +105,31 @@ func ClusterMeshEtcdInit(ctx context.Context, log *logrus.Entry, client *clientv
 		return err
 	}
 
-	// Remote user
+	// Local user (i.e., local agents accessing information cached by KVStoreMesh)
+	localUsername := usernameForClusterName("local", ciliumClusterName)
+	log.WithField("etcdUsername", localUsername).
+		Info("Configuring local user")
+	localRolename := rolename("local")
+	err = ic.addNoPasswordUser(ctx, localUsername)
+	if err != nil {
+		return err
+	}
+	err = ic.addRole(ctx, localRolename)
+	if err != nil {
+		return err
+	}
+	err = ic.grantRoleToUser(ctx, localRolename, localUsername)
+	if err != nil {
+		return err
+	}
+	for _, keyRange := range rangesForLocalRole() {
+		err = ic.grantPermissionToRole(ctx, readOnly, keyRange, localRolename)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Remote user (i.e., remote clusters accessing state information)
 	remoteUsername := username("remote")
 	log.WithField("etcdUsername", remoteUsername).
 		Info("Configuring remote user")
@@ -121,9 +146,11 @@ func ClusterMeshEtcdInit(ctx context.Context, log *logrus.Entry, client *clientv
 	if err != nil {
 		return err
 	}
-	err = ic.grantPermissionToRole(ctx, readOnly, allKeysRange, remoteRolename)
-	if err != nil {
-		return err
+	for _, keyRange := range rangesForRemoteRole(ciliumClusterName) {
+		err = ic.grantPermissionToRole(ctx, readOnly, keyRange, remoteRolename)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Post setup
@@ -136,13 +163,13 @@ func ClusterMeshEtcdInit(ctx context.Context, log *logrus.Entry, client *clientv
 	return nil
 }
 
-// adminUsernameForClusterName generates the admin account username for a given clusterName. This handles the edge case
+// usernameForClusterName generates the account username for a given clusterName. This handles the edge case
 // where the clusterName is blank, ensuring we don't have a username with a trailing hyphen.
-func adminUsernameForClusterName(clusterName string) username {
+func usernameForClusterName(base, clusterName string) username {
 	if clusterName == "" {
-		return "admin"
+		return username(base)
 	}
-	return username(fmt.Sprintf("admin-%s", clusterName))
+	return username(fmt.Sprintf("%s-%s", base, clusterName))
 }
 
 // initClient is a thin wrapper around the etcd client library that provides functions with more useful error messages,
@@ -226,6 +253,11 @@ type keyRange struct {
 	end   string
 }
 
+// rangeForKey generates a keyRange for a single key.
+func rangeForKey(key string) keyRange {
+	return keyRange{key, ""}
+}
+
 // rangeForPrefix generates a keyRange for a given prefix. This is a wrapper around the client's GetPrefixRangeEnd
 // function.
 func rangeForPrefix(prefix string) keyRange {
@@ -235,10 +267,7 @@ func rangeForPrefix(prefix string) keyRange {
 	if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
-	return keyRange{
-		prefix,
-		clientv3.GetPrefixRangeEnd(prefix),
-	}
+	return keyRange{prefix, clientv3.GetPrefixRangeEnd(prefix)}
 }
 
 // allKeysRange is the range over all keys in etcd. Granting permissions on this range is the same as granting global
@@ -283,4 +312,31 @@ func (ic initClient) enableAuth(ctx context.Context) error {
 		return fmt.Errorf("enabling authentication on etcd: %w", err)
 	}
 	return nil
+}
+
+// rangesForLocalRole returns the set of etcd key ranges allowed to be accessed by the local user.
+func rangesForLocalRole() []keyRange {
+	return []keyRange{
+		rangeForKey(kvstore.HeartbeatPath),
+		rangeForKey(kvstore.HasClusterConfigPath),
+		rangeForPrefix(kvstore.CachePrefix),
+		rangeForPrefix(kvstore.ClusterConfigPrefix),
+		rangeForPrefix(kvstore.SyncedPrefix),
+	}
+}
+
+// rangesForLocalUser returns the set of etcd key ranges allowed to be accessed by the remote user.
+func rangesForRemoteRole(clusterName string) []keyRange {
+	return []keyRange{
+		rangeForKey(kvstore.HeartbeatPath),
+		rangeForKey(kvstore.HasClusterConfigPath),
+		rangeForPrefix(kvstore.StatePrefix),
+		rangeForKey(path.Join(kvstore.ClusterConfigPrefix, clusterName)),
+		rangeForPrefix(path.Join(kvstore.SyncedPrefix, clusterName)),
+
+		// kvstoremesh-specific prefixes still allowed for backward compatibility
+		rangeForPrefix(kvstore.CachePrefix),
+		rangeForPrefix(kvstore.ClusterConfigPrefix),
+		rangeForPrefix(kvstore.SyncedPrefix),
+	}
 }

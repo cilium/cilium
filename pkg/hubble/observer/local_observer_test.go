@@ -30,6 +30,8 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/types"
 )
 
 var (
@@ -487,21 +489,9 @@ func TestLocalObserverServer_GetFlows_Follow_Since(t *testing.T) {
 	assert.Equal(t, err, io.EOF)
 }
 
-type fakeCiliumDaemon struct{}
-
-func (f *fakeCiliumDaemon) DebugEnabled() bool {
-	return true
-}
-
 func TestHooks(t *testing.T) {
 	numFlows := 10
 	queueSize := 0
-
-	ciliumDaemon := &fakeCiliumDaemon{}
-	onServerInit := func(srv observeroption.Server) error {
-		assert.Equal(t, srv.GetOptions().CiliumDaemon, ciliumDaemon)
-		return nil
-	}
 
 	seenFlows := int64(0)
 	skipEveryNFlows := int64(2)
@@ -531,8 +521,6 @@ func TestHooks(t *testing.T) {
 	s, err := NewLocalServer(pp, nsManager, log,
 		observeroption.WithMaxFlows(container.Capacity15),
 		observeroption.WithMonitorBuffer(queueSize),
-		observeroption.WithCiliumDaemon(ciliumDaemon),
-		observeroption.WithOnServerInitFunc(onServerInit),
 		observeroption.WithOnMonitorEventFunc(onMonitorEventFirst),
 		observeroption.WithOnMonitorEventFunc(onMonitorEventSecond),
 		observeroption.WithOnDecodedFlowFunc(onDecodedFlow),
@@ -677,9 +665,78 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 	err = s.GetFlows(req, fakeServer)
 	assert.NoError(t, err)
 	// FIXME:
-	// This should be assert.Equals(t, flowsReceived, numFlows)
+	// This should be assert.Equal(t, numFlows, flowsReceived)
 	// A bug in the ring buffer prevents this from succeeding
 	assert.Greater(t, flowsReceived, 0)
+}
+
+// TestLocalObserverServer_NodeLabels test the LocalNodeWatcher integration
+// with the observer.
+func TestLocalObserverServer_NodeLabels(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// local node stuff setup.
+	localNode := node.LocalNode{
+		Node: types.Node{
+			Name: "ip-1-2-3-4.us-west-2.compute.internal",
+			Labels: map[string]string{
+				"kubernetes.io/arch":            "amd64",
+				"kubernetes.io/os":              "linux",
+				"kubernetes.io/hostname":        "ip-1-2-3-4.us-west-2.compute.internal",
+				"topology.kubernetes.io/region": "us-west-2",
+				"topology.kubernetes.io/zone":   "us-west-2d",
+			},
+		},
+	}
+	localNodeWatcher := NewLocalNodeWatcher(ctx, node.NewTestLocalNodeStore(localNode))
+
+	// fake hubble server setup.
+	flowsReceived := 0
+	req := &observerpb.GetFlowsRequest{Number: uint64(1)}
+	fakeServer := &testutils.FakeGetFlowsServer{
+		OnSend: func(response *observerpb.GetFlowsResponse) error {
+			assert.Equal(t, localNodeWatcher.cache.labels, response.GetFlow().GetNodeLabels())
+			flowsReceived++
+			return nil
+		},
+		FakeGRPCServerStream: &testutils.FakeGRPCServerStream{
+			OnContext: func() context.Context {
+				return ctx
+			},
+		},
+	}
+
+	// local hubble observer setup.
+	s, err := NewLocalServer(noopParser(t), nsManager, log,
+		observeroption.WithOnDecodedFlow(localNodeWatcher),
+	)
+	require.NoError(t, err)
+	go s.Start()
+
+	// simulate a new monitor event.
+	m := s.GetEventsChannel()
+	tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
+	data := testutils.MustCreateL3L4Payload(tn)
+	// NOTE: we need to send an extra event into Hubble's ring buffer to see
+	// the first one sent.
+	for range 2 {
+		m <- &observerTypes.MonitorEvent{
+			Timestamp: time.Now(),
+			NodeName:  localNode.Name,
+			Payload: &observerTypes.PerfEvent{
+				Data: data,
+				CPU:  0,
+			},
+		}
+	}
+	close(s.GetEventsChannel())
+	<-s.GetStopped()
+
+	// ensure that we've seen a flow.
+	err = s.GetFlows(req, fakeServer)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, flowsReceived)
 }
 
 func TestLocalObserverServer_GetNamespaces(t *testing.T) {

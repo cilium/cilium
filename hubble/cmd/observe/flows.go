@@ -349,6 +349,9 @@ func newFlowsCmdHelper(usage cmdUsage, vp *viper.Viper, ofilter *flowFilter) *co
 		"node-name", ofilter,
 		`Show all flows which match the given node names (e.g. "k8s*", "test-cluster/*.company.com")`))
 	filterFlags.Var(filterVar(
+		"node-label", ofilter,
+		`Show only flows observed on nodes matching the given label filter (e.g. "key1=value1", "io.cilium/egress-gateway")`))
+	filterFlags.Var(filterVar(
 		"cluster", ofilter,
 		`Show all flows which match the cluster names (e.g. "test-cluster", "prod-*")`))
 	filterFlags.Var(filterVar(

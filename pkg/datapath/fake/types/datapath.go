@@ -81,15 +81,15 @@ func (f *FakeDatapath) WriteEndpointConfig(io.Writer, *datapath.LocalNodeConfigu
 	return nil
 }
 
-func (f *FakeDatapath) InstallProxyRules(uint16, bool, string) {
+func (f *FakeDatapath) InstallProxyRules(uint16, string) {
 }
 
 func (f *FakeDatapath) SupportsOriginalSourceAddr() bool {
 	return false
 }
 
-func (m *FakeDatapath) GetProxyPort(name string) uint16 {
-	return 0
+func (m *FakeDatapath) GetProxyPorts() map[string]uint16 {
+	return nil
 }
 
 func (m *FakeDatapath) InstallNoTrackRules(ip netip.Addr, port uint16) {
@@ -130,7 +130,7 @@ func (f *FakeLoader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, st
 	panic("implement me")
 }
 
-func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (string, error) {
 	panic("implement me")
 }
 
@@ -159,10 +159,6 @@ func (f *FakeLoader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeCon
 }
 
 func (f *FakeLoader) HostDatapathInitialized() <-chan struct{} {
-	return nil
-}
-
-func (f *FakeLoader) RestoreTemplates(stateDir string) error {
 	return nil
 }
 

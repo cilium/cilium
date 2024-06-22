@@ -18,12 +18,9 @@ import (
 // null. If a volume has been modified more than once, the output includes only the
 // most recent modification request.
 //
-// You can also use CloudWatch Events to check the status of a modification to an
-// EBS volume. For information about CloudWatch Events, see the [Amazon CloudWatch Events User Guide]. For more
-// information, see [Monitor the progress of volume modifications]in the Amazon EBS User Guide.
+// For more information, see [Monitor the progress of volume modifications] in the Amazon EBS User Guide.
 //
 // [Monitor the progress of volume modifications]: https://docs.aws.amazon.com/ebs/latest/userguide/monitoring-volume-modifications.html
-// [Amazon CloudWatch Events User Guide]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/
 func (c *Client) DescribeVolumesModifications(ctx context.Context, params *DescribeVolumesModificationsInput, optFns ...func(*Options)) (*DescribeVolumesModificationsOutput, error) {
 	if params == nil {
 		params = &DescribeVolumesModificationsInput{}
@@ -83,7 +80,7 @@ type DescribeVolumesModificationsInput struct {
 	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
 
-	// The token returned by a previous paginated request. Pagination continues from
+	// The token returned from a previous paginated request. Pagination continues from
 	// the end of the items returned by the previous request.
 	NextToken *string
 
@@ -96,7 +93,7 @@ type DescribeVolumesModificationsInput struct {
 type DescribeVolumesModificationsOutput struct {
 
 	// The token to include in another request to get the next page of items. This
-	// value is null if there are no more items to return.
+	// value is null when there are no more items to return.
 	NextToken *string
 
 	// Information about the volume modifications.
@@ -161,6 +158,9 @@ func (c *Client) addOperationDescribeVolumesModificationsMiddlewares(stack *midd
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVolumesModifications(options.Region), middleware.Before); err != nil {

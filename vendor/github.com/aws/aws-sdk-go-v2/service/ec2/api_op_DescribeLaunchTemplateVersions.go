@@ -113,7 +113,7 @@ type DescribeLaunchTemplateVersionsInput struct {
 	// If false , and if a Systems Manager parameter is specified for ImageId , the
 	// parameter is displayed in the response for imageId .
 	//
-	// For more information, see [Use a Systems Manager parameter instead of an AMI ID] in the Amazon Elastic Compute Cloud User Guide.
+	// For more information, see [Use a Systems Manager parameter instead of an AMI ID] in the Amazon EC2 User Guide.
 	//
 	// Default: false
 	//
@@ -205,6 +205,9 @@ func (c *Client) addOperationDescribeLaunchTemplateVersionsMiddlewares(stack *mi
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeLaunchTemplateVersions(options.Region), middleware.Before); err != nil {

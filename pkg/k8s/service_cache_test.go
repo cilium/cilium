@@ -1603,20 +1603,8 @@ func TestServiceEndpointFiltering(t *testing.T) {
 		return true
 	}, 2*time.Second))
 
-	// Remove the service hint, so that all endpoints all selected again
-	annotations := k8sSvc.ObjectMeta.Annotations
+	// Removing the service annotation should have no effect as long as EndpointSlice hints are set
 	k8sSvc.ObjectMeta.Annotations = nil
-	svcID0 = svcCache.UpdateService(k8sSvc, swg)
-	require.Nil(t, testutils.WaitUntil(func() bool {
-		event := <-svcCache.Events
-		require.Equal(t, UpdateService, event.Action)
-		require.Equal(t, svcID0, event.ID)
-		require.Equal(t, 2, len(event.Endpoints.Backends))
-		return true
-	}, 2*time.Second))
-
-	// Set the hint back and the filtering should be back
-	k8sSvc.ObjectMeta.Annotations = annotations
 	svcID0 = svcCache.UpdateService(k8sSvc, swg)
 	require.Nil(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events

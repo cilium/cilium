@@ -9,25 +9,80 @@ import (
 	"net"
 	"sync/atomic"
 
+	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 
+	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/bgp/speaker"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/redirectpolicy"
+	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func (k *K8sWatcher) servicesInit() {
+type k8sServiceWatcherParams struct {
+	cell.In
+
+	K8sEventReporter *K8sEventReporter
+
+	Resources         agentK8s.Resources
+	K8sResourceSynced *k8sSynced.Resources
+	K8sAPIGroups      *k8sSynced.APIGroups
+
+	ServiceCache      *k8s.ServiceCache
+	ServiceManager    service.ServiceManager
+	LRPManager        *redirectpolicy.Manager
+	MetalLBBgpSpeaker speaker.MetalLBBgpSpeaker
+}
+
+func newK8sServiceWatcher(params k8sServiceWatcherParams) *K8sServiceWatcher {
+	return &K8sServiceWatcher{
+		k8sEventReporter:      params.K8sEventReporter,
+		k8sResourceSynced:     params.K8sResourceSynced,
+		k8sAPIGroups:          params.K8sAPIGroups,
+		resources:             params.Resources,
+		k8sSvcCache:           params.ServiceCache,
+		svcManager:            params.ServiceManager,
+		redirectPolicyManager: params.LRPManager,
+		bgpSpeakerManager:     params.MetalLBBgpSpeaker,
+		stop:                  make(chan struct{}),
+	}
+}
+
+type K8sServiceWatcher struct {
+	k8sEventReporter *K8sEventReporter
+	// k8sResourceSynced maps a resource name to a channel. Once the given
+	// resource name is synchronized with k8s, the channel for which that
+	// resource name maps to is closed.
+	k8sResourceSynced *k8sSynced.Resources
+	// k8sAPIGroups is a set of k8s API in use. They are setup in watchers,
+	// and may be disabled while the agent runs.
+	k8sAPIGroups *k8sSynced.APIGroups
+	resources    agentK8s.Resources
+
+	k8sSvcCache           *k8s.ServiceCache
+	svcManager            svcManager
+	redirectPolicyManager redirectPolicyManager
+	bgpSpeakerManager     bgpSpeakerManager
+
+	stop chan struct{}
+}
+
+func (k *K8sServiceWatcher) servicesInit() {
 	var synced atomic.Bool
 	swgSvcs := lock.NewStoppableWaitGroup()
 
@@ -42,7 +97,11 @@ func (k *K8sWatcher) servicesInit() {
 	k.k8sAPIGroups.AddAPI(resources.K8sAPIGroupServiceV1Core)
 }
 
-func (k *K8sWatcher) serviceEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitGroup) {
+func (k *K8sServiceWatcher) stopWatcher() {
+	close(k.stop)
+}
+
+func (k *K8sServiceWatcher) serviceEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitGroup) {
 	apiGroup := resources.K8sAPIGroupServiceV1Core
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -73,8 +132,8 @@ func (k *K8sWatcher) serviceEventLoop(synced *atomic.Bool, swg *lock.StoppableWa
 	}
 }
 
-func (k *K8sWatcher) upsertK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) {
-	svcID := k.K8sSvcCache.UpdateService(svc, swg)
+func (k *K8sServiceWatcher) upsertK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) {
+	svcID := k.k8sSvcCache.UpdateService(svc, swg)
 	if option.Config.EnableLocalRedirectPolicy {
 		if svc.Spec.Type == slim_corev1.ServiceTypeClusterIP {
 			// The local redirect policies currently support services of type
@@ -85,8 +144,8 @@ func (k *K8sWatcher) upsertK8sServiceV1(svc *slim_corev1.Service, swg *lock.Stop
 	k.bgpSpeakerManager.OnUpdateService(svc)
 }
 
-func (k *K8sWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) {
-	k.K8sSvcCache.DeleteService(svc, swg)
+func (k *K8sServiceWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) {
+	k.k8sSvcCache.DeleteService(svc, swg)
 	svcID := k8s.ParseServiceID(svc)
 	if option.Config.EnableLocalRedirectPolicy {
 		if svc.Spec.Type == slim_corev1.ServiceTypeClusterIP {
@@ -96,11 +155,11 @@ func (k *K8sWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lock.Stop
 	k.bgpSpeakerManager.OnDeleteService(svc)
 }
 
-func (k *K8sWatcher) k8sServiceHandler() {
+func (k *K8sServiceWatcher) k8sServiceHandler() {
 	eventHandler := func(event k8s.ServiceEvent) {
 		defer func(startTime time.Time) {
 			event.SWG.Done()
-			k.K8sServiceEventProcessed(event.Action.String(), startTime)
+			k.k8sServiceEventProcessed(event.Action.String(), startTime)
 		}(time.Now())
 
 		svc := event.Service
@@ -131,7 +190,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 		select {
 		case <-k.stop:
 			return
-		case event, ok := <-k.K8sSvcCache.Events:
+		case event, ok := <-k.k8sSvcCache.Events:
 			if !ok {
 				return
 			}
@@ -140,15 +199,11 @@ func (k *K8sWatcher) k8sServiceHandler() {
 	}
 }
 
-func (k *K8sWatcher) RunK8sServiceHandler() {
+func (k *K8sServiceWatcher) RunK8sServiceHandler() {
 	go k.k8sServiceHandler()
 }
 
-func (k *K8sWatcher) StopK8sServiceHandler() {
-	close(k.stop)
-}
-
-func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service) {
+func (k *K8sServiceWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service) {
 	// Headless services do not need any datapath implementation
 	if svcInfo.IsHeadless {
 		return
@@ -366,7 +421,7 @@ func hashSVCMap(svcs []loadbalancer.SVC) map[string]loadbalancer.L3n4Addr {
 	return m
 }
 
-func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, endpoints *k8s.Endpoints) {
+func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, endpoints *k8s.Endpoints) {
 	// Headless services do not need any datapath implementation
 	if svc.IsHeadless {
 		return
@@ -426,4 +481,10 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 			}
 		}
 	}
+}
+
+// k8sServiceEventProcessed is called to do metrics accounting the duration to program the service.
+func (k *K8sServiceWatcher) k8sServiceEventProcessed(action string, startTime time.Time) {
+	duration, _ := safetime.TimeSinceSafe(startTime, log)
+	metrics.ServiceImplementationDelay.WithLabelValues(action).Observe(duration.Seconds())
 }

@@ -11,7 +11,9 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes your VPC endpoints.
+// Describes your VPC endpoints. The default is to describe all your VPC
+// endpoints. Alternatively, you can specify specific VPC endpoint IDs or filter
+// the results to include only the VPC endpoints that match specific criteria.
 func (c *Client) DescribeVpcEndpoints(ctx context.Context, params *DescribeVpcEndpointsInput, optFns ...func(*Options)) (*DescribeVpcEndpointsOutput, error) {
 	if params == nil {
 		params = &DescribeVpcEndpointsInput{}
@@ -82,7 +84,7 @@ type DescribeVpcEndpointsOutput struct {
 	// additional items to return, the string is empty.
 	NextToken *string
 
-	// Information about the endpoints.
+	// Information about the VPC endpoints.
 	VpcEndpoints []types.VpcEndpoint
 
 	// Metadata pertaining to the operation's result.
@@ -144,6 +146,9 @@ func (c *Client) addOperationDescribeVpcEndpointsMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVpcEndpoints(options.Region), middleware.Before); err != nil {

@@ -7,6 +7,8 @@ import (
 	"context"
 	"path"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
@@ -17,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
@@ -30,8 +33,9 @@ type remoteCluster struct {
 	// clusterID is the clusterID advertized by the remote cluster
 	clusterID uint32
 
-	// mesh is the cluster mesh this remote cluster belongs to
-	mesh *ClusterMesh
+	// clusterConfigValidator validates the cluster configuration advertised
+	// by remote clusters.
+	clusterConfigValidator func(cmtypes.CiliumClusterConfig) error
 
 	usedIDs ClusterIDsManager
 
@@ -53,6 +57,9 @@ type remoteCluster struct {
 	// ipCacheWatcherExtraOpts returns extra options for watching ipcache entries.
 	ipCacheWatcherExtraOpts IPCacheWatcherOptsFn
 
+	// remoteIdentityWatcher allows watching remote identities.
+	remoteIdentityWatcher RemoteIdentityWatcher
+
 	// remoteIdentityCache is a locally cached copy of the identity
 	// allocations in the remote cluster
 	remoteIdentityCache *allocator.RemoteCache
@@ -64,10 +71,12 @@ type remoteCluster struct {
 
 	// synced tracks the initial synchronization with the remote cluster.
 	synced synced
+
+	log logrus.FieldLogger
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config cmtypes.CiliumClusterConfig, ready chan<- error) {
-	if err := rc.mesh.conf.ClusterInfo.ValidateRemoteConfig(config); err != nil {
+	if err := rc.clusterConfigValidator(config); err != nil {
 		ready <- err
 		close(ready)
 		return
@@ -79,7 +88,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		return
 	}
 
-	remoteIdentityCache, err := rc.mesh.conf.RemoteIdentityWatcher.WatchRemoteIdentities(rc.name, rc.clusterID, backend, config.Capabilities.Cached)
+	remoteIdentityCache, err := rc.remoteIdentityWatcher.WatchRemoteIdentities(rc.name, rc.clusterID, backend, config.Capabilities.Cached)
 	if err != nil {
 		ready <- err
 		close(ready)
@@ -134,7 +143,7 @@ func (rc *remoteCluster) Remove() {
 	rc.remoteServices.Drain()
 	rc.ipCacheWatcher.Drain()
 
-	rc.mesh.conf.RemoteIdentityWatcher.RemoveRemoteIdentities(rc.name)
+	rc.remoteIdentityWatcher.RemoveRemoteIdentities(rc.name)
 
 	rc.usedIDs.ReleaseClusterID(rc.clusterID)
 }
@@ -167,6 +176,22 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 func (rc *remoteCluster) onUpdateConfig(newConfig cmtypes.CiliumClusterConfig) error {
 	if newConfig.ID == rc.clusterID {
 		return nil
+	}
+
+	// Let's fully drain all previously known entries if the remote cluster changed
+	// the cluster ID. Although synthetic deletion events would be generated in any
+	// case upon initial listing (as the entries with the incorrect ID would not pass
+	// validation), that would leave a window of time in which there would still be
+	// stale entries for a Cluster ID that has already been released, potentially
+	// leading to inconsistencies if the same ID is acquired again in the meanwhile.
+	if rc.clusterID != cmtypes.ClusterIDUnset {
+		rc.log.WithField(logfields.ClusterID, newConfig.ID).
+			Info("Remote Cluster ID changed: draining all known entries before reconnecting. ",
+				"Expect connectivity disruption towards this cluster")
+		rc.remoteNodes.Drain()
+		rc.remoteServices.Drain()
+		rc.ipCacheWatcher.Drain()
+		rc.remoteIdentityWatcher.RemoveRemoteIdentities(rc.name)
 	}
 
 	if err := rc.usedIDs.ReserveClusterID(newConfig.ID); err != nil {

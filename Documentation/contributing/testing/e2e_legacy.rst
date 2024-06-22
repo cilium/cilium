@@ -9,6 +9,12 @@
 End-To-End Testing Framework (Legacy)
 =====================================
 
+.. warning::
+   The Ginkgo end-to-end testing framework is deprecated. New end-to-end
+   tests should be implemented using the `cilium-cli
+   <https://github.com/cilium/cilium-cli/#connectivity-check>`_ connectivity
+   testing framework. For more information, see :ref:`testsuite`.
+
 Introduction
 ~~~~~~~~~~~~
 

@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/safeio"
 )
 
 // BugtoolRootCmd is the top level command for the bugtool.
@@ -183,6 +184,20 @@ func isValidArchiveType(archiveType string) bool {
 	return false
 }
 
+type postProcessFunc func(output []byte) ([]byte, error)
+
+var envoySecretMask = jsonFieldMaskPostProcess([]string{
+	// Cilium LogEntry -> KafkaLogEntry{l7} -> KafkaLogEntry{api_key}
+	"api_key",
+	// This could be from one of the following:
+	// - Cilium NetworkPolicy -> PortNetworkPolicy{ingress_per_port_policies, egress_per_port_policies}
+	//	-> PortNetworkPolicyRule{rules} -> TLSContext{downstream_tls_context, upstream_tls_context}
+	// - Upstream Envoy tls_certificate
+	"trusted_ca",
+	"certificate_chain",
+	"private_key",
+})
+
 func runTool() {
 	// Validate archive type
 	if !isValidArchiveType(archiveType) {
@@ -239,13 +254,13 @@ func runTool() {
 		}
 	} else {
 		if envoyDump {
-			if err := dumpEnvoy(cmdDir, "http://admin/config_dump?include_eds", "envoy-config.json"); err != nil {
+			if err := dumpEnvoy(cmdDir, "http://admin/config_dump?include_eds", "envoy-config.json", envoySecretMask); err != nil {
 				fmt.Fprintf(os.Stderr, "Unable to dump envoy config: %s\n", err)
 			}
 		}
 
 		if envoyMetrics {
-			if err := dumpEnvoy(cmdDir, "http://admin/stats/prometheus", "envoy-metrics.txt"); err != nil {
+			if err := dumpEnvoy(cmdDir, "http://admin/stats/prometheus", "envoy-metrics.txt", nil); err != nil {
 				fmt.Fprintf(os.Stderr, "Unable to retrieve envoy prometheus metrics: %s\n", err)
 			}
 		}
@@ -527,7 +542,7 @@ func dumpHubbleMetrics(rootDir string) error {
 	return downloadToFile(httpClient, url, filepath.Join(rootDir, "hubble-metrics.txt"))
 }
 
-func dumpEnvoy(rootDir string, resource string, fileName string) error {
+func dumpEnvoy(rootDir string, resource string, fileName string, postProcess postProcessFunc) error {
 	// curl --unix-socket /var/run/cilium/envoy/sockets/admin.sock http:/admin/config_dump\?include_eds > dump.json
 	c := &http.Client{
 		Transport: &http.Transport{
@@ -536,7 +551,11 @@ func dumpEnvoy(rootDir string, resource string, fileName string) error {
 			},
 		},
 	}
-	return downloadToFile(c, resource, filepath.Join(rootDir, fileName))
+
+	if postProcess == nil {
+		return downloadToFile(c, resource, filepath.Join(rootDir, fileName))
+	}
+	return downloadToFileWithPostProcess(c, resource, filepath.Join(rootDir, fileName), postProcess)
 }
 
 func pprofTraces(rootDir string, pprofDebug int) error {
@@ -599,4 +618,28 @@ func downloadToFile(client *http.Client, url, file string) error {
 	}
 	_, err = io.Copy(out, resp.Body)
 	return err
+}
+
+// downloadToFileWithPostProcess downloads the content from the given URL and writes it to the given file.
+// The content is then post-processed using the given postProcess function before being written to the file.
+// Note: Please use downloadToFile instead of this function if no post-processing is required.
+func downloadToFileWithPostProcess(client *http.Client, url, file string, postProcess postProcessFunc) error {
+	resp, err := client.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+	b, err := safeio.ReadAllLimit(resp.Body, safeio.MB)
+	if err != nil {
+		return err
+	}
+
+	b, err = postProcess(b)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(file, b, 0644)
 }

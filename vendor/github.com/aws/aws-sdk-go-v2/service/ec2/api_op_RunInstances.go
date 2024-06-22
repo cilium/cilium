@@ -27,8 +27,8 @@ import (
 //
 //   - Not all instance types support IPv6 addresses. For more information, see [Instance types].
 //
-//   - If you don't specify a security group ID, we use the default security
-//     group. For more information, see [Security groups].
+//   - If you don't specify a security group ID, we use the default security group
+//     for the VPC. For more information, see [Security groups].
 //
 //   - If any of the AMIs have a product code attached for which the user has not
 //     subscribed, the request fails.
@@ -40,6 +40,9 @@ import (
 // To ensure faster instance launches, break up large requests into smaller
 // batches. For example, create five separate launch requests for 100 instances
 // each instead of one launch request for 500 instances.
+//
+// RunInstances is subject to both request rate limiting and resource rate
+// limiting. For more information, see [Request throttling].
 //
 // An instance is ready for you to use when it's in the running state. You can
 // check the state of your instance using DescribeInstances. You can tag instances and EBS volumes
@@ -57,6 +60,7 @@ import (
 // [Tagging your Amazon EC2 resources]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html
 // [launch template]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html
 // [Security groups]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-network-security.html
+// [Request throttling]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-throttling.html
 // [Instance types]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html
 // [Troubleshooting connecting to your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesConnecting.html
 func (c *Client) RunInstances(ctx context.Context, params *RunInstancesInput, optFns ...func(*Options)) (*RunInstancesOutput, error) {
@@ -76,28 +80,27 @@ func (c *Client) RunInstances(ctx context.Context, params *RunInstancesInput, op
 
 type RunInstancesInput struct {
 
-	// The maximum number of instances to launch. If you specify more instances than
-	// Amazon EC2 can launch in the target Availability Zone, Amazon EC2 launches the
-	// largest possible number of instances above MinCount .
+	// The maximum number of instances to launch. If you specify a value that is more
+	// capacity than Amazon EC2 can launch in the target Availability Zone, Amazon EC2
+	// launches the largest possible number of instances above the specified minimum
+	// count.
 	//
-	// Constraints: Between 1 and the maximum number you're allowed for the specified
-	// instance type. For more information about the default limits, and how to request
-	// an increase, see [How many instances can I run in Amazon EC2]in the Amazon EC2 FAQ.
+	// Constraints: Between 1 and the quota for the specified instance type for your
+	// account for this Region. For more information, see [Amazon EC2 instance type quotas].
 	//
-	// [How many instances can I run in Amazon EC2]: http://aws.amazon.com/ec2/faqs/#How_many_instances_can_I_run_in_Amazon_EC2
+	// [Amazon EC2 instance type quotas]: https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-instance-quotas.html
 	//
 	// This member is required.
 	MaxCount *int32
 
-	// The minimum number of instances to launch. If you specify a minimum that is
-	// more instances than Amazon EC2 can launch in the target Availability Zone,
-	// Amazon EC2 launches no instances.
+	// The minimum number of instances to launch. If you specify a value that is more
+	// capacity than Amazon EC2 can provide in the target Availability Zone, Amazon EC2
+	// does not launch any instances.
 	//
-	// Constraints: Between 1 and the maximum number you're allowed for the specified
-	// instance type. For more information about the default limits, and how to request
-	// an increase, see [How many instances can I run in Amazon EC2]in the Amazon EC2 General FAQ.
+	// Constraints: Between 1 and the quota for the specified instance type for your
+	// account for this Region. For more information, see [Amazon EC2 instance type quotas].
 	//
-	// [How many instances can I run in Amazon EC2]: http://aws.amazon.com/ec2/faqs/#How_many_instances_can_I_run_in_Amazon_EC2
+	// [Amazon EC2 instance type quotas]: https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-instance-quotas.html
 	//
 	// This member is required.
 	MinCount *int32
@@ -218,13 +221,13 @@ type RunInstancesInput struct {
 	EnclaveOptions *types.EnclaveOptionsRequest
 
 	// Indicates whether an instance is enabled for hibernation. This parameter is
-	// valid only if the instance meets the [hibernation prerequisites]. For more information, see [Hibernate your instance] in the Amazon
+	// valid only if the instance meets the [hibernation prerequisites]. For more information, see [Hibernate your Amazon EC2 instance] in the Amazon
 	// EC2 User Guide.
 	//
 	// You can't enable hibernation and Amazon Web Services Nitro Enclaves on the same
 	// instance.
 	//
-	// [Hibernate your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html
+	// [Hibernate your Amazon EC2 instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html
 	// [hibernation prerequisites]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/hibernating-prerequisites.html
 	HibernationOptions *types.HibernationOptionsRequest
 
@@ -247,9 +250,9 @@ type RunInstancesInput struct {
 	// InstanceInterruptionBehavior is set to either hibernate or stop .
 	InstanceMarketOptions *types.InstanceMarketOptionsRequest
 
-	// The instance type. For more information, see [Instance types] in the Amazon EC2 User Guide.
+	// The instance type. For more information, see [Amazon EC2 instance types] in the Amazon EC2 User Guide.
 	//
-	// [Instance types]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html
+	// [Amazon EC2 instance types]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html
 	InstanceType types.InstanceType
 
 	// The number of IPv6 addresses to associate with the primary network interface.
@@ -380,12 +383,11 @@ type RunInstancesInput struct {
 	TagSpecifications []types.TagSpecification
 
 	// The user data script to make available to the instance. For more information,
-	// see [Run commands on your Linux instance at launch]and [Run commands on your Windows instance at launch]. If you are using a command line tool, base64-encoding is performed
-	// for you, and you can load the text from a file. Otherwise, you must provide
-	// base64-encoded text. User data is limited to 16 KB.
+	// see [Run commands on your Amazon EC2 instance at launch]in the Amazon EC2 User Guide. If you are using a command line tool,
+	// base64-encoding is performed for you, and you can load the text from a file.
+	// Otherwise, you must provide base64-encoded text. User data is limited to 16 KB.
 	//
-	// [Run commands on your Linux instance at launch]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html
-	// [Run commands on your Windows instance at launch]: https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ec2-windows-user-data.html
+	// [Run commands on your Amazon EC2 instance at launch]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html
 	UserData *string
 
 	noSmithyDocumentSerde
@@ -471,6 +473,9 @@ func (c *Client) addOperationRunInstancesMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addIdempotencyToken_opRunInstancesMiddleware(stack, options); err != nil {

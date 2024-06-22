@@ -17,10 +17,10 @@ import (
 //
 // The sourceDestCheck attribute controls whether source/destination checking is
 // enabled. The default value is true , which means checking is enabled. This value
-// must be false for a NAT instance to perform NAT. For more information, see [NAT Instances] in
+// must be false for a NAT instance to perform NAT. For more information, see [NAT instances] in
 // the Amazon VPC User Guide.
 //
-// [NAT Instances]: https://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_NAT_Instance.html
+// [NAT instances]: https://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_NAT_Instance.html
 func (c *Client) ResetInstanceAttribute(ctx context.Context, params *ResetInstanceAttributeInput, optFns ...func(*Options)) (*ResetInstanceAttributeOutput, error) {
 	if params == nil {
 		params = &ResetInstanceAttributeInput{}
@@ -119,6 +119,9 @@ func (c *Client) addOperationResetInstanceAttributeMiddlewares(stack *middleware
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpResetInstanceAttributeValidationMiddleware(stack); err != nil {

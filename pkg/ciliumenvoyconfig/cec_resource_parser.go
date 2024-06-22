@@ -99,7 +99,7 @@ func newCECResourceParser(params parserParams) *cecResourceParser {
 }
 
 type PortAllocator interface {
-	AllocateProxyPort(name string, ingress, localOnly bool) (uint16, error)
+	AllocateCRDProxyPort(name string) (uint16, error)
 	AckProxyPort(ctx context.Context, name string) error
 	ReleaseProxyPort(name string) error
 }
@@ -408,7 +408,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 		if !isInternalListener {
 			if listener.GetAddress() == nil {
 				listenerName := listener.Name
-				port, err := r.portAllocator.AllocateProxyPort(listenerName, false, true)
+				port, err := r.portAllocator.AllocateCRDProxyPort(listenerName)
 				if err != nil || port == 0 {
 					return envoy.Resources{}, fmt.Errorf("listener port allocation for %q failed: %w", listenerName, err)
 				}

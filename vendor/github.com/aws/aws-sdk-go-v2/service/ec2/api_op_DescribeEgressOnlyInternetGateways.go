@@ -11,7 +11,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes one or more of your egress-only internet gateways.
+// Describes your egress-only internet gateways. The default is to describe all
+// your egress-only internet gateways. Alternatively, you can specify specific
+// egress-only internet gateway IDs or filter the results to include only the
+// egress-only internet gateways that match specific criteria.
 func (c *Client) DescribeEgressOnlyInternetGateways(ctx context.Context, params *DescribeEgressOnlyInternetGatewaysInput, optFns ...func(*Options)) (*DescribeEgressOnlyInternetGatewaysOutput, error) {
 	if params == nil {
 		params = &DescribeEgressOnlyInternetGatewaysInput{}
@@ -131,6 +134,9 @@ func (c *Client) addOperationDescribeEgressOnlyInternetGatewaysMiddlewares(stack
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeEgressOnlyInternetGateways(options.Region), middleware.Before); err != nil {

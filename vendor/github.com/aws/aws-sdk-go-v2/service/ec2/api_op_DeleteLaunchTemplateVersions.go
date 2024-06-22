@@ -22,7 +22,7 @@ import (
 // delete more than 200 versions in a single request, use DeleteLaunchTemplate, which deletes the
 // launch template and all of its versions.
 //
-// For more information, see [Delete a launch template version] in the EC2 User Guide.
+// For more information, see [Delete a launch template version] in the Amazon EC2 User Guide.
 //
 // [Delete a launch template version]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-launch-template-versions.html#delete-launch-template-version
 func (c *Client) DeleteLaunchTemplateVersions(ctx context.Context, params *DeleteLaunchTemplateVersionsInput, optFns ...func(*Options)) (*DeleteLaunchTemplateVersionsOutput, error) {
@@ -136,6 +136,9 @@ func (c *Client) addOperationDeleteLaunchTemplateVersionsMiddlewares(stack *midd
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpDeleteLaunchTemplateVersionsValidationMiddleware(stack); err != nil {

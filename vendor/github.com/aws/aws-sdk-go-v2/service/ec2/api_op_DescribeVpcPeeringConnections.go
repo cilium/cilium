@@ -17,7 +17,10 @@ import (
 	"time"
 )
 
-// Describes one or more of your VPC peering connections.
+// Describes your VPC peering connections. The default is to describe all your VPC
+// peering connections. Alternatively, you can specify specific VPC peering
+// connection IDs or filter the results to include only the VPC peering connections
+// that match specific criteria.
 func (c *Client) DescribeVpcPeeringConnections(ctx context.Context, params *DescribeVpcPeeringConnectionsInput, optFns ...func(*Options)) (*DescribeVpcPeeringConnectionsOutput, error) {
 	if params == nil {
 		params = &DescribeVpcPeeringConnectionsInput{}
@@ -164,6 +167,9 @@ func (c *Client) addOperationDescribeVpcPeeringConnectionsMiddlewares(stack *mid
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVpcPeeringConnections(options.Region), middleware.Before); err != nil {

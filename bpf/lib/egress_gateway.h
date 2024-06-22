@@ -1,15 +1,13 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_EGRESS_GATEWAY_H_
-#define __LIB_EGRESS_GATEWAY_H_
+#pragma once
 
 #include "lib/fib.h"
 #include "lib/identity.h"
 #include "lib/overloadable.h"
 
 #include "encap.h"
-#include "maps.h"
 
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
 
@@ -58,6 +56,15 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 }
 
 #ifdef ENABLE_EGRESS_GATEWAY
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct egress_gw_policy_key);
+	__type(value, struct egress_gw_policy_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} EGRESS_POLICY_MAP __section_maps_btf;
+
 static __always_inline
 struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
 {
@@ -257,4 +264,3 @@ int egress_gw_handle_packet(struct __ctx_buff *ctx,
 }
 
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
-#endif /* __LIB_EGRESS_GATEWAY_H_ */

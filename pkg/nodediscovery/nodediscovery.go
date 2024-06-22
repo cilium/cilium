@@ -29,6 +29,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -78,6 +79,7 @@ func NewNodeDiscovery(
 	clientset client.Clientset,
 	lns *node.LocalNodeStore,
 	cniConfigManager cni.CNIConfigManager,
+	k8sNodeWatcher *watchers.K8sCiliumNodeWatcher,
 ) *NodeDiscovery {
 	return &NodeDiscovery{
 		Manager:               manager,
@@ -87,6 +89,7 @@ func NewNodeDiscovery(
 		cniConfigManager:      cniConfigManager,
 		clientset:             clientset,
 		ctrlmgr:               controller.NewManager(),
+		k8sGetters:            k8sNodeWatcher,
 	}
 }
 
@@ -572,10 +575,6 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 	}
 
 	return nil
-}
-
-func (n *NodeDiscovery) RegisterK8sGetters(k8sGetters k8sGetters) {
-	n.k8sGetters = k8sGetters
 }
 
 func getInt(i int) *int {

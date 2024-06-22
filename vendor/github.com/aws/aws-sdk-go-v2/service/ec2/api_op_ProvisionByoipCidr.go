@@ -19,8 +19,8 @@ import (
 // Amazon Web Services verifies that you own the address range and are authorized
 // to advertise it. You must ensure that the address range is registered to you and
 // that you created an RPKI ROA to authorize Amazon ASNs 16509 and 14618 to
-// advertise the address range. For more information, see [Bring your own IP addresses (BYOIP)]in the Amazon Elastic
-// Compute Cloud User Guide.
+// advertise the address range. For more information, see [Bring your own IP addresses (BYOIP)]in the Amazon EC2 User
+// Guide.
 //
 // Provisioning an address range is an asynchronous operation, so the call returns
 // immediately, but the address range is not ready to use until its status changes
@@ -168,6 +168,9 @@ func (c *Client) addOperationProvisionByoipCidrMiddlewares(stack *middleware.Sta
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpProvisionByoipCidrValidationMiddleware(stack); err != nil {

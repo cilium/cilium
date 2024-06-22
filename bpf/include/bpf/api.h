@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __BPF_API__
-#define __BPF_API__
+#pragma once
 
 #include <linux/types.h>
 #include <linux/byteorder.h>
@@ -18,5 +17,3 @@
 #include "loader.h"
 #include "csum.h"
 #include "access.h"
-
-#endif /* __BPF_API__ */

@@ -22,6 +22,7 @@ on:
     branches:
       - main
       - ft/main/**
+      - 'renovate/main-**'
     paths-ignore:
       - 'Documentation/**'
 
@@ -60,11 +61,13 @@ env:
   cilium_cli_ci_version:
   clusterName1: cluster1-${{ github.run_id }}
   clusterName2: cluster2-${{ github.run_id }}
+  ciliumClusterName1: c1
+  ciliumClusterName2: cluster2-with-long-name-01234567
   contextName1: kind-cluster1-${{ github.run_id }}
   contextName2: kind-cluster2-${{ github.run_id }}
 
   # renovate: datasource=github-releases depName=cert-manager/cert-manager
-  CERT_MANAGER_VERSION: v1.14.5
+  CERT_MANAGER_VERSION: v1.15.0
 
 jobs:
   echo-inputs:
@@ -77,7 +80,6 @@ jobs:
           echo '${{ tojson(inputs) }}'
 
   commit-status-start:
-    if: ${{ github.event_name != 'push' }}
     name: Commit Status Start
     runs-on: ubuntu-latest
     steps:
@@ -224,7 +226,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -340,7 +342,7 @@ jobs:
           echo kind_svc_cidr_2=${KIND_SVC_CIDR_2} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@d86ae1ca5755139d6ca9423b9606cb047fc8e00f # v0.16.9
+        uses: cilium/cilium-cli@511f0173c21db1c3c959b96fd68eef18f83a0a9f # v0.16.10
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -460,8 +462,8 @@ jobs:
         run: |
           echo "cilium_install_clustermesh= \
             --set=clustermesh.config.enabled=true \
-            --set clustermesh.config.clusters[0].name=${{ env.clusterName1 }} \
-            --set clustermesh.config.clusters[1].name=${{ env.clusterName2 }} \
+            --set clustermesh.config.clusters[0].name=${{ env.ciliumClusterName1 }} \
+            --set clustermesh.config.clusters[1].name=${{ env.ciliumClusterName2 }} \
             ${{ steps.kvstore.outputs.cilium_install_clustermesh }} \
           " >> $GITHUB_OUTPUT
 
@@ -476,7 +478,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -500,7 +502,7 @@ jobs:
           # each cluster, to workaround #24692
           cilium --context ${{ env.contextName1 }} install \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --helm-set cluster.name=${{ env.clusterName1 }} \
+            --helm-set cluster.name=${{ env.ciliumClusterName1 }} \
             --helm-set cluster.id=1 \
             --helm-set clustermesh.apiserver.service.nodePort=32379 \
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-1 }} \
@@ -522,7 +524,7 @@ jobs:
           # each cluster, to workaround #24692
           cilium --context ${{ env.contextName2 }} install \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --helm-set cluster.name=${{ env.clusterName2 }} \
+            --helm-set cluster.name=${{ env.ciliumClusterName2 }} \
             --helm-set cluster.id=${{ matrix.maxConnectedClusters }} \
             --helm-set clustermesh.apiserver.service.nodePort=32380 \
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-2 }} \
@@ -649,7 +651,7 @@ jobs:
           delete-merged: true
 
   commit-status-final:
-    if: ${{ always() && github.event_name != 'push' }}
+    if: ${{ always() }}
     name: Commit Status Final
     needs: installation-and-connectivity
     runs-on: ubuntu-latest

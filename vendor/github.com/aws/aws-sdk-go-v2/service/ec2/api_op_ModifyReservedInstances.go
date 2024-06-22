@@ -16,9 +16,9 @@ import (
 // must be identical, except for Availability Zone, network platform, and instance
 // type.
 //
-// For more information, see [Modifying Reserved Instances] in the Amazon EC2 User Guide.
+// For more information, see [Modify Reserved Instances] in the Amazon EC2 User Guide.
 //
-// [Modifying Reserved Instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-modifying.html
+// [Modify Reserved Instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-modifying.html
 func (c *Client) ModifyReservedInstances(ctx context.Context, params *ModifyReservedInstancesInput, optFns ...func(*Options)) (*ModifyReservedInstancesOutput, error) {
 	if params == nil {
 		params = &ModifyReservedInstancesInput{}
@@ -121,6 +121,9 @@ func (c *Client) addOperationModifyReservedInstancesMiddlewares(stack *middlewar
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpModifyReservedInstancesValidationMiddleware(stack); err != nil {

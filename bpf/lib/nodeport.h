@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __NODEPORT_H_
-#define __NODEPORT_H_
+#pragma once
 
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
@@ -359,7 +358,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 						 int *ifindex, int *ohead)
 {
 	struct remote_endpoint_info *info;
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct geneve_dsr_opt6 gopt;
 	union v6addr *dst;
 	bool need_opt = true;
@@ -763,6 +762,9 @@ nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	ret = ct_lazy_lookup6(get_ct_map6(tuple), tuple, ctx, l4_off,
 			      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_DSR,
 			      NULL, &monitor);
+	if (ret < 0)
+		return ret;
+
 	switch (ret) {
 	case CT_NEW:
 create_ct:
@@ -771,8 +773,6 @@ create_ct:
 
 		ct_state_new.src_sec_id = WORLD_IPV6_ID;
 		ct_state_new.dsr_internal = 1;
-		ct_state_new.proxy_redirect = false;
-		ct_state_new.from_l7lb = false;
 
 		ret = ct_create6(get_ct_map6(tuple), NULL, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, ext_err);
@@ -902,7 +902,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		},
 	};
 	int ret, l4_off;
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct ct_state ct_state = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -1138,7 +1138,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.addr = IPV6_DIRECT_ROUTING,
 	};
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct trace_ctx trace = {
 		.reason = (enum trace_reason)CT_NEW,
 		.monitor = TRACE_PAYLOAD_LEN,
@@ -1283,8 +1283,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 
 		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
 				  bpf_ntohs((__u16)svc->l7_lb_proxy_port),
-				  TRACE_IFINDEX_UNKNOWN,
-				  TRACE_REASON_POLICY, monitor);
+				  NATIVE_DEV_IFINDEX, TRACE_REASON_POLICY, monitor);
 		return ctx_redirect_to_proxy_hairpin_ipv6(ctx,
 							  (__be16)svc->l7_lb_proxy_port);
 	}
@@ -1317,6 +1316,9 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		ret = ct_lazy_lookup6(get_ct_map6(tuple), tuple, ctx, l4_off,
 				      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_NODEPORT,
 				      &ct_state, &monitor);
+		if (ret < 0)
+			return ret;
+
 		switch (ret) {
 		case CT_NEW:
 			ct_state.src_sec_id = WORLD_IPV6_ID;
@@ -1392,7 +1394,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 {
 	bool is_svc_proto __maybe_unused = true;
 	int ret, l3_off = ETH_HLEN, l4_off;
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct lb6_service *svc;
 	struct lb6_key key = {};
 
@@ -1470,7 +1472,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 {
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {};
 	struct lb6_reverse_nat *nat_info;
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	int ret, l4_off;
@@ -2296,6 +2298,9 @@ nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	ret = ct_lazy_lookup4(get_ct_map4(tuple), tuple, ctx, ipv4_is_fragment(ip4),
 			      l4_off, has_l4_header, CT_EGRESS, SCOPE_FORWARD,
 			      CT_ENTRY_DSR, NULL, &monitor);
+	if (ret < 0)
+		return ret;
+
 	switch (ret) {
 	case CT_NEW:
 create_ct:
@@ -2308,8 +2313,6 @@ create_ct:
 
 		ct_state_new.src_sec_id = WORLD_IPV4_ID;
 		ct_state_new.dsr_internal = 1;
-		ct_state_new.proxy_redirect = 0;
-		ct_state_new.from_l7lb = 0;
 
 		ret = ct_create4(get_ct_map4(tuple), NULL, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, ext_err);
@@ -2800,8 +2803,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 
 		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
 				  bpf_ntohs((__u16)svc->l7_lb_proxy_port),
-				  TRACE_IFINDEX_UNKNOWN,
-				  TRACE_REASON_POLICY, monitor);
+				  NATIVE_DEV_IFINDEX, TRACE_REASON_POLICY, monitor);
 		return ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4,
 							  (__be16)svc->l7_lb_proxy_port);
 	}
@@ -2859,6 +2861,9 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		ret = ct_lazy_lookup4(get_ct_map4(tuple), tuple, ctx, is_fragment,
 				      l4_off, has_l4_header, CT_EGRESS, SCOPE_FORWARD,
 				      CT_ENTRY_NODEPORT, &ct_state, &monitor);
+		if (ret < 0)
+			return ret;
+
 		switch (ret) {
 		case CT_NEW:
 			ct_state.src_sec_id = src_sec_identity;
@@ -3269,17 +3274,16 @@ health_encap_v6(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
 }
 
 static __always_inline int
-lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
+lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 {
 	void *data __maybe_unused, *data_end __maybe_unused;
 	__sock_cookie key __maybe_unused;
 	int ret __maybe_unused;
-	__u16 proto = 0;
 
 	if ((ctx->mark & MARK_MAGIC_HEALTH_IPIP_DONE) ==
 	    MARK_MAGIC_HEALTH_IPIP_DONE)
 		return CTX_ACT_OK;
-	validate_ethertype(ctx, &proto);
+
 	switch (proto) {
 #if defined(ENABLE_IPV4) && DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	case bpf_htons(ETH_P_IP): {
@@ -3318,17 +3322,14 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 #endif /* ENABLE_HEALTH_CHECK */
 
 static __always_inline int
-handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id,
+handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __be16 proto,
 	       struct trace_ctx *trace __maybe_unused,
 	       __s8 *ext_err __maybe_unused)
 {
 	int ret = CTX_ACT_OK;
-	__u16 proto;
 
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
 
-	if (!validate_ethertype(ctx, &proto))
-		return CTX_ACT_OK;
 	switch (proto) {
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
@@ -3364,4 +3365,3 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id,
 }
 
 #endif /* ENABLE_NODEPORT */
-#endif /* __NODEPORT_H_ */

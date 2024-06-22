@@ -68,9 +68,9 @@ type ModifyInstanceAttributeInput struct {
 	BlockDeviceMappings []types.InstanceBlockDeviceMappingSpecification
 
 	// Indicates whether an instance is enabled for stop protection. For more
-	// information, see [Stop Protection].
+	// information, see [Enable stop protection for your instance].
 	//
-	// [Stop Protection]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html#Using_StopProtection
+	// [Enable stop protection for your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-stop-protection.html
 	DisableApiStop *types.AttributeBooleanValue
 
 	// If the value is true , you can't terminate the instance using the Amazon EC2
@@ -216,6 +216,9 @@ func (c *Client) addOperationModifyInstanceAttributeMiddlewares(stack *middlewar
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpModifyInstanceAttributeValidationMiddleware(stack); err != nil {

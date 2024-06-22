@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_HOST_FIREWALL_H_
-#define __LIB_HOST_FIREWALL_H_
+#pragma once
 
 /* Only compile in if host firewall is enabled and file is included from
  * bpf_host.
@@ -574,4 +573,3 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 }
 # endif /* ENABLE_IPV4 */
 #endif /* ENABLE_HOST_FIREWALL && IS_BPF_HOST */
-#endif /* __LIB_HOST_FIREWALL_H_ */

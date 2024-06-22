@@ -23,10 +23,9 @@ import (
 // When copying snapshots to a Region, copies of encrypted EBS snapshots remain
 // encrypted. Copies of unencrypted snapshots remain unencrypted, unless you enable
 // encryption for the snapshot copy operation. By default, encrypted snapshot
-// copies use the default Key Management Service (KMS) KMS key; however, you can
-// specify a different KMS key. To copy an encrypted snapshot that has been shared
-// from another account, you must have permissions for the KMS key used to encrypt
-// the snapshot.
+// copies use the default KMS key; however, you can specify a different KMS key. To
+// copy an encrypted snapshot that has been shared from another account, you must
+// have permissions for the KMS key used to encrypt the snapshot.
 //
 // Snapshots copied to an Outpost are encrypted by default using the default
 // encryption key for the Region, or a different key that you specify in the
@@ -96,9 +95,9 @@ type CopySnapshotInput struct {
 	// [Amazon EBS encryption]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html
 	Encrypted *bool
 
-	// The identifier of the Key Management Service (KMS) KMS key to use for Amazon
-	// EBS encryption. If this parameter is not specified, your KMS key for Amazon EBS
-	// is used. If KmsKeyId is specified, the encrypted state must be true .
+	// The identifier of the KMS key to use for Amazon EBS encryption. If this
+	// parameter is not specified, your KMS key for Amazon EBS is used. If KmsKeyId is
+	// specified, the encrypted state must be true .
 	//
 	// You can specify the KMS key using any of the following:
 	//
@@ -125,10 +124,9 @@ type CopySnapshotInput struct {
 	// action, and include the SourceRegion , SourceSnapshotId , and DestinationRegion
 	// parameters. The PresignedUrl must be signed using Amazon Web Services Signature
 	// Version 4. Because EBS snapshots are stored in Amazon S3, the signing algorithm
-	// for this parameter uses the same logic that is described in [Authenticating Requests: Using Query Parameters (Amazon Web Services Signature Version 4)]in the Amazon
-	// Simple Storage Service API Reference. An invalid or improperly signed
-	// PresignedUrl will cause the copy operation to fail asynchronously, and the
-	// snapshot will move to an error state.
+	// for this parameter uses the same logic that is described in [Authenticating Requests: Using Query Parameters (Amazon Web Services Signature Version 4)]in the Amazon S3
+	// API Reference. An invalid or improperly signed PresignedUrl will cause the copy
+	// operation to fail asynchronously, and the snapshot will move to an error state.
 	//
 	// [Authenticating Requests: Using Query Parameters (Amazon Web Services Signature Version 4)]: https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html
 	// [Query requests]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html
@@ -214,6 +212,9 @@ func (c *Client) addOperationCopySnapshotMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpCopySnapshotValidationMiddleware(stack); err != nil {

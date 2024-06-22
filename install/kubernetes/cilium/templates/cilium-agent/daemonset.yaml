@@ -320,7 +320,7 @@ spec:
         - name: etcd-config-path
           mountPath: /var/lib/etcd-config
           readOnly: true
-        {{- if or .Values.etcd.ssl .Values.etcd.managed }}
+        {{- if .Values.etcd.ssl }}
         - name: etcd-secrets
           mountPath: /var/lib/etcd-secrets
           readOnly: true
@@ -519,6 +519,8 @@ spec:
             drop:
               - ALL
           {{- end}}
+      {{- end }}
+      {{- if .Values.sysctlfix.enabled }}
       - name: apply-sysctl-overwrites
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -754,11 +756,7 @@ spec:
       automountServiceAccountToken: {{ .Values.serviceAccounts.cilium.automount }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       hostNetwork: true
-      {{- if and .Values.etcd.managed (not .Values.etcd.k8sService) }}
-      # In managed etcd mode, Cilium must be able to resolve the DNS name of
-      # the etcd service
-      dnsPolicy: ClusterFirstWithHostNet
-      {{- else if .Values.dnsPolicy }}
+      {{- if .Values.dnsPolicy }}
       dnsPolicy: {{ .Values.dnsPolicy }}
       {{- end }}
       {{- with .Values.affinity }}
@@ -798,8 +796,8 @@ spec:
           path: /sys/fs/bpf
           type: DirectoryOrCreate
       {{- end }}
-      {{- if .Values.cgroup.autoMount.enabled }}
-      # To mount cgroup2 filesystem on the host
+      {{- if or .Values.cgroup.autoMount.enabled .Values.sysctlfix.enabled }}
+      # To mount cgroup2 filesystem on the host or apply sysctlfix
       - name: hostproc
         hostPath:
           path: /proc
@@ -865,7 +863,7 @@ spec:
           - key: etcd-config
             path: etcd.config
         # To read the k8s etcd secrets in case the user might want to use TLS
-      {{- if or .Values.etcd.ssl .Values.etcd.managed }}
+      {{- if .Values.etcd.ssl }}
       - name: etcd-secrets
         secret:
           secretName: cilium-etcd-secrets
@@ -905,6 +903,29 @@ spec:
               items:
               - key: {{ .Values.tls.caBundle.key }}
                 path: common-etcd-client-ca.crt
+          {{- end }}
+          # note: we configure the volume for the kvstoremesh-specific certificate
+          # regardless of whether KVStoreMesh is enabled or not, so that it can be
+          # automatically mounted in case KVStoreMesh gets subsequently enabled,
+          # without requiring an agent restart.
+          - secret:
+              name: clustermesh-apiserver-local-cert
+              optional: true
+              items:
+              - key: tls.key
+                path: local-etcd-client.key
+              - key: tls.crt
+                path: local-etcd-client.crt
+          {{- if not .Values.tls.caBundle.enabled }}
+              - key: ca.crt
+                path: local-etcd-client-ca.crt
+          {{- else }}
+          - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
+              name: {{ .Values.tls.caBundle.name }}
+              optional: true
+              items:
+              - key: {{ .Values.tls.caBundle.key }}
+                path: local-etcd-client-ca.crt
           {{- end }}
       {{- if and .Values.ipMasqAgent .Values.ipMasqAgent.enabled }}
       - name: ip-masq-agent

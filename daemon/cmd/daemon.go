@@ -41,19 +41,16 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
-	hiveHealth "github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipam"
-	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -81,7 +78,6 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/recorder"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
@@ -111,8 +107,6 @@ type Daemon struct {
 	svc              service.ServiceManager
 	rec              *recorder.Recorder
 	policy           *policy.Repository
-	policyUpdater    *policy.Updater
-	preFilter        datapath.PreFilter
 
 	statusCollectMutex lock.RWMutex
 	statusResponse     models.StatusResponse
@@ -121,9 +115,8 @@ type Daemon struct {
 	monitorAgent monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
-	deviceManager *linuxdatapath.DeviceManager
-	devices       statedb.Table[*datapathTables.Device]
-	nodeAddrs     statedb.Table[datapathTables.NodeAddress]
+	devices   statedb.Table[*datapathTables.Device]
+	nodeAddrs statedb.Table[datapathTables.NodeAddress]
 
 	// dnsNameManager tracks which api.FQDNSelector are present in policy which
 	// apply to locally running endpoints.
@@ -159,7 +152,8 @@ type Daemon struct {
 
 	ipcache *ipcache.IPCache
 
-	k8sWatcher *watchers.K8sWatcher
+	k8sWatcher  *watchers.K8sWatcher
+	k8sSvcCache *k8s.ServiceCache
 
 	// endpointMetadataFetcher knows how to fetch Kubernetes metadata for endpoints.
 	endpointMetadataFetcher endpointMetadataFetcher
@@ -175,13 +169,7 @@ type Daemon struct {
 	// creation events
 	endpointCreations *endpointCreationManager
 
-	lrpManager *redirectpolicy.Manager
-
-	egressGatewayManager *egressgateway.Manager
-
 	cgroupManager manager.CGroupManager
-
-	ipamMetadata *ipamMetadata.Manager
 
 	apiLimiterSet *rate.APILimiterSet
 
@@ -206,8 +194,6 @@ type Daemon struct {
 	// read-only map of all the hive settings
 	settings cellSettings
 
-	healthProvider hiveHealth.Provider
-
 	// Tunnel-related configuration
 	tunnelConfig tunnel.Config
 	bwManager    datapath.BandwidthManager
@@ -216,16 +202,6 @@ type Daemon struct {
 // GetPolicyRepository returns the policy repository of the daemon
 func (d *Daemon) GetPolicyRepository() *policy.Repository {
 	return d.policy
-}
-
-// DebugEnabled returns if debug mode is enabled.
-func (d *Daemon) DebugEnabled() bool {
-	return option.Config.Opts.IsEnabled(option.Debug)
-}
-
-// GetOptions returns the datapath configuration options of the daemon.
-func (d *Daemon) GetOptions() *option.IntOptions {
-	return option.Config.Opts
 }
 
 // GetCompilationLock returns the mutex responsible for synchronizing compilation
@@ -418,7 +394,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
 		datapath:          params.Datapath,
-		deviceManager:     params.DeviceManager,
 		devices:           params.Devices,
 		nodeAddrs:         params.NodeAddrs,
 		nodeDiscovery:     params.NodeDiscovery,
@@ -429,38 +404,31 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		// **NOTE** The global identity allocator is not yet initialized here; that
 		// happens below via InitIdentityAllocator(). Only the local identity
 		// allocator is initialized here.
-		identityAllocator:    params.IdentityAllocator,
-		ipcache:              params.IPCache,
-		policy:               params.Policy,
-		policyUpdater:        params.PolicyUpdater,
-		egressGatewayManager: params.EgressGatewayManager,
-		ipamMetadata:         params.IPAMMetadataManager,
-		cniConfigManager:     params.CNIConfigManager,
-		clusterInfo:          params.ClusterInfo,
-		clustermesh:          params.ClusterMesh,
-		monitorAgent:         params.MonitorAgent,
-		svc:                  params.ServiceManager,
-		l7Proxy:              params.L7Proxy,
-		envoyXdsServer:       params.EnvoyXdsServer,
-		authManager:          params.AuthManager,
-		settings:             params.Settings,
-		healthProvider:       params.HealthV2Provider,
-		bigTCPConfig:         params.BigTCPConfig,
-		tunnelConfig:         params.TunnelConfig,
-		bwManager:            params.BandwidthManager,
-		lrpManager:           params.LRPManager,
-		cgroupManager:        params.CGroupManager,
-		preFilter:            params.Prefilter,
+		identityAllocator: params.IdentityAllocator,
+		ipcache:           params.IPCache,
+		policy:            params.Policy,
+		cniConfigManager:  params.CNIConfigManager,
+		clusterInfo:       params.ClusterInfo,
+		clustermesh:       params.ClusterMesh,
+		monitorAgent:      params.MonitorAgent,
+		svc:               params.ServiceManager,
+		l7Proxy:           params.L7Proxy,
+		envoyXdsServer:    params.EnvoyXdsServer,
+		authManager:       params.AuthManager,
+		settings:          params.Settings,
+		bigTCPConfig:      params.BigTCPConfig,
+		tunnelConfig:      params.TunnelConfig,
+		bwManager:         params.BandwidthManager,
+		cgroupManager:     params.CGroupManager,
+		endpointManager:   params.EndpointManager,
+		k8sWatcher:        params.K8sWatcher,
+		k8sSvcCache:       params.K8sSvcCache,
+		rec:               params.Recorder,
+		ipam:              params.IPAM,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
 	d.configModifyQueue.Run()
-
-	d.rec, err = recorder.NewRecorder(d.ctx, params.Datapath.Loader())
-	if err != nil {
-		log.WithError(err).Error("error while initializing BPF pcap recorder")
-		return nil, nil, fmt.Errorf("error while initializing BPF pcap recorder: %w", err)
-	}
 
 	// Collect CIDR identities from the "old" bpf ipcache and restore them
 	// in to the metadata layer.
@@ -476,29 +444,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if err := d.initPolicy(); err != nil {
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
-
-	d.endpointManager = params.EndpointManager
-
-	d.k8sWatcher = watchers.NewK8sWatcher(
-		params.Clientset,
-		params.K8sResourceSynced,
-		params.K8sAPIGroups,
-		d.endpointManager,
-		params.NodeManager,
-		&d,
-		d.svc,
-		d.lrpManager,
-		params.MetalLBBgpSpeaker,
-		option.Config,
-		d.ipcache,
-		params.CGroupManager,
-		params.Resources,
-		params.ServiceCache,
-		d.bwManager,
-		d.db,
-		d.nodeAddrs,
-	)
-	params.NodeDiscovery.RegisterK8sGetters(d.k8sWatcher)
 
 	bootstrapStats.daemonInit.End(true)
 
@@ -544,7 +489,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		bootstrapStats.restore.End(true)
 	}
 
-	debug.RegisterStatusObject("k8s-service-cache", d.k8sWatcher.K8sSvcCache)
+	debug.RegisterStatusObject("k8s-service-cache", d.k8sSvcCache)
 	debug.RegisterStatusObject("ipam", d.ipam)
 	debug.RegisterStatusObject("ongoing-endpoint-creations", d.endpointCreations)
 
@@ -557,8 +502,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		// before the relevant subystems are being shut down.
 		cleaner.preCleanupFuncs.Add(func() {
 			// Stop k8s watchers
-			log.Info("Stopping k8s service handler")
-			d.k8sWatcher.StopK8sServiceHandler()
+			log.Info("Stopping k8s watcher")
+			d.k8sWatcher.StopWatcher()
 
 			// Iterate over the policy repository and remove L7 DNS part
 			needsPolicyRegen := false
@@ -627,6 +572,12 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if err != nil {
 		log.WithError(err).Error("Unable to read existing endpoints")
 	}
+	// Restore all proxy ports from datapath, if possible
+	// Must be run before d.bootstrapFQDN(), which depends
+	// on the ports having been restored.
+	if d.l7Proxy != nil {
+		d.l7Proxy.RestoreProxyPorts()
+	}
 	bootstrapStats.restore.End(true)
 
 	bootstrapStats.fqdn.Start()
@@ -650,7 +601,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		// context deadline or if the context has been cancelled, the context's
 		// error will be returned. Otherwise, it succeeded.
 		if !option.Config.DryMode {
-			if err := d.k8sWatcher.WaitForCRDsToRegister(d.ctx); err != nil {
+			_, err := params.CRDSyncPromise.Await(d.ctx)
+			if err != nil {
 				return nil, restoredEndpoints, err
 			}
 		}
@@ -694,8 +646,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
 	var devices []string
-	if d.deviceManager != nil {
-		if devices, err = d.deviceManager.Detect(params.Clientset.IsEnabled()); err != nil {
+	if params.DeviceManager != nil {
+		if devices, err = params.DeviceManager.Detect(params.Clientset.IsEnabled()); err != nil {
 			if option.Config.AreDevicesRequired() {
 				// Fail hard if devices are required to function.
 				return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
@@ -759,16 +711,15 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 	}
 
+	if params.DirectoryPolicyWatcher != nil {
+		params.DirectoryPolicyWatcher.WatchDirectoryPolicyResources(d.ctx, &d)
+	}
+
 	// Some of the k8s watchers rely on option flags set above (specifically
 	// EnableBPFMasquerade), so we should only start them once the flag values
 	// are set.
 	if params.Clientset.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
-
-		// Launch the policy K8s watcher
-		if params.PolicyK8sWatcher != nil {
-			params.PolicyK8sWatcher.WatchK8sPolicyResources(d.ctx, &d)
-		}
 
 		// Launch the K8s watchers in parallel as we continue to process other
 		// daemon options.
@@ -790,7 +741,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		log.Info("Skipping kvstore configuration")
 	} else {
 		bootstrapStats.kvstore.Start()
-		d.initKVStore()
+		d.initKVStore(params.ServiceResolver)
 		bootstrapStats.kvstore.End(true)
 	}
 
@@ -836,11 +787,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 
 		// Start services watcher
-		serviceStore.JoinClusterServices(d.k8sWatcher.K8sSvcCache, option.Config.ClusterName)
+		serviceStore.JoinClusterServices(d.k8sSvcCache, option.Config.ClusterName)
 	}
 
 	// Start IPAM
-	d.startIPAM(params.Resources.LocalCiliumNode)
+	d.startIPAM()
 
 	bootstrapStats.restore.Start()
 	// restore endpoints before any IPs are allocated to avoid eventual IP
@@ -945,15 +896,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, err
 	}
 
-	if err := d.datapath.Loader().RestoreTemplates(option.Config.StateDir); err != nil {
-		log.WithError(err).Error("Unable to restore previous BPF templates")
-	}
-
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
 	d.ipcache.InitIPIdentityWatcher(d.ctx, params.StoreFactory)
-	identitymanager.Subscribe(d.policy)
 
 	if err := params.IPsecKeyCustodian.StartBackgroundJobs(d.Datapath().Node()); err != nil {
 		log.WithError(err).Error("Unable to start IPsec key watcher")
@@ -1020,7 +966,7 @@ func changedOption(key string, value option.OptionSetting, data interface{}) {
 	d := data.(*Daemon)
 	if key == option.Debug {
 		// Set the debug toggle (this can be a no-op)
-		if d.DebugEnabled() {
+		if option.Config.Opts.IsEnabled(option.Debug) {
 			logging.SetLogLevelToDebug()
 		}
 		// Reflect log level change to proxies

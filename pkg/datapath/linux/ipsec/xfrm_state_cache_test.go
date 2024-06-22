@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/option"
@@ -121,4 +122,29 @@ func TestXfrmStateListCacheDisabled(t *testing.T) {
 
 	// And is still expired
 	require.True(t, xfrmStateCache.isExpired(), "Cache should be stil expired as it's disabled")
+}
+
+func cleanIPSecStatesAndPolicies(t *testing.T) {
+	xfrmStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	if err != nil {
+		t.Fatalf("Can't list XFRM states: %v", err)
+	}
+
+	for _, s := range xfrmStateList {
+		if err := netlink.XfrmStateDel(&s); err != nil {
+			t.Fatalf("Can't delete XFRM state: %v", err)
+		}
+
+	}
+
+	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	if err != nil {
+		t.Fatalf("Can't list XFRM policies: %v", err)
+	}
+
+	for _, p := range xfrmPolicyList {
+		if err := netlink.XfrmPolicyDel(&p); err != nil {
+			t.Fatalf("Can't delete XFRM policy: %v", err)
+		}
+	}
 }

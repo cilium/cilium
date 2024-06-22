@@ -2,8 +2,7 @@
 /* Copyright Authors of Cilium */
 
 /* Simple NAT engine in BPF. */
-#ifndef __LIB_NAT__
-#define __LIB_NAT__
+#pragma once
 
 #include <linux/icmp.h>
 #include <linux/tcp.h>
@@ -61,18 +60,9 @@ __snat_lookup(const void *map, const void *tuple)
 }
 
 static __always_inline __maybe_unused int
-__snat_update(const void *map, const void *otuple, const void *ostate,
-	      const void *rtuple, const void *rstate)
+__snat_create(const void *map, const void *tuple, const void *state)
 {
-	int ret;
-
-	ret = map_update_elem(map, rtuple, rstate, BPF_NOEXIST);
-	if (!ret) {
-		ret = map_update_elem(map, otuple, ostate, BPF_NOEXIST);
-		if (ret)
-			map_delete_elem(map, rtuple);
-	}
-	return ret;
+	return map_update_elem(map, tuple, state, BPF_NOEXIST);
 }
 
 struct ipv4_nat_entry {
@@ -202,16 +192,15 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map
 
 	ostate->common.needs_ct = needs_ct;
 	rstate.common.needs_ct = needs_ct;
+	rstate.common.created = bpf_mono_now();
 
 #pragma unroll
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
 		rtuple.dport = bpf_htons(port);
 
-		/* Check if the selected port is already in use by a RevSNAT
-		 * entry for some other connection with the same src/dst:
-		 */
-		if (!__snat_lookup(map, &rtuple))
-			goto create_nat_entries;
+		/* Try to create a RevSNAT entry. */
+		if (__snat_create(map, &rtuple, &rstate) == 0)
+			goto create_nat_entry;
 
 		port = __snat_clamp_port_range(target->min_port,
 					       target->max_port,
@@ -223,17 +212,14 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map
 	ret = DROP_NAT_NO_MAPPING;
 	goto out;
 
-create_nat_entries:
+create_nat_entry:
 	ostate->to_sport = rtuple.dport;
-	ostate->common.created = bpf_mono_now();
-	rstate.common.created = ostate->common.created;
+	ostate->common.created = rstate.common.created;
 
-	/* Create the SNAT and RevSNAT entries. We just confirmed that
-	 * this RevSNAT entry doesn't exist yet, and the caller previously
-	 * checked that no SNAT entry for this connection exists.
-	 */
-	ret = __snat_update(map, otuple, ostate, &rtuple, &rstate);
+	/* Create the SNAT entry. We just created the RevSNAT entry. */
+	ret = __snat_create(map, otuple, ostate);
 	if (ret < 0) {
+		map_delete_elem(map, &rtuple); /* rollback */
 		if (ext_err)
 			*ext_err = (__s8)ret;
 		ret = DROP_NAT_NO_MAPPING;
@@ -1048,15 +1034,6 @@ struct ipv6_nat_entry *snat_v6_lookup(const struct ipv6_ct_tuple *tuple)
 	return __snat_lookup(&SNAT_MAPPING_IPV6, tuple);
 }
 
-static __always_inline int snat_v6_update(struct ipv6_ct_tuple *otuple,
-					  struct ipv6_nat_entry *ostate,
-					  struct ipv6_ct_tuple *rtuple,
-					  struct ipv6_nat_entry *rstate)
-{
-	return __snat_update(&SNAT_MAPPING_IPV6, otuple, ostate,
-			     rtuple, rstate);
-}
-
 static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 					       struct ipv6_ct_tuple *otuple,
 					       struct ipv6_nat_entry *ostate,
@@ -1090,13 +1067,14 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 
 	ostate->common.needs_ct = needs_ct;
 	rstate.common.needs_ct = needs_ct;
+	rstate.common.created = bpf_mono_now();
 
 #pragma unroll
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
 		rtuple.dport = bpf_htons(port);
 
-		if (!snat_v6_lookup(&rtuple))
-			goto create_nat_entries;
+		if (__snat_create(&SNAT_MAPPING_IPV6, &rtuple, &rstate) == 0)
+			goto create_nat_entry;
 
 		port = __snat_clamp_port_range(target->min_port,
 					       target->max_port,
@@ -1107,13 +1085,13 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 	ret = DROP_NAT_NO_MAPPING;
 	goto out;
 
-create_nat_entries:
+create_nat_entry:
 	ostate->to_sport = rtuple.dport;
-	ostate->common.created = bpf_mono_now();
-	rstate.common.created = ostate->common.created;
+	ostate->common.created = rstate.common.created;
 
-	ret = snat_v6_update(otuple, ostate, &rtuple, &rstate);
+	ret = __snat_create(&SNAT_MAPPING_IPV6, otuple, ostate);
 	if (ret < 0) {
+		map_delete_elem(&SNAT_MAPPING_IPV6, &rtuple); /* rollback */
 		if (ext_err)
 			*ext_err = (__s8)ret;
 		ret = DROP_NAT_NO_MAPPING;
@@ -1723,5 +1701,3 @@ snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4 __maybe_unused)
 	return false;
 }
 #endif /* ENABLE_IPV6 && ENABLE_NODEPORT */
-
-#endif /* __LIB_NAT__ */

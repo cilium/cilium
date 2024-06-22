@@ -31,6 +31,8 @@ type policyWatcher struct {
 	svcCache              serviceCache
 	svcCacheNotifications <-chan k8s.ServiceNotification
 
+	knpSynced, cnpSynced, ccnpSynced, cidrGroupSynced atomic.Bool
+
 	ciliumNetworkPolicies            resource.Resource[*cilium_v2.CiliumNetworkPolicy]
 	ciliumClusterwideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
 	ciliumCIDRGroups                 resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup]
@@ -52,7 +54,6 @@ type policyWatcher struct {
 }
 
 func (p *policyWatcher) watchResources(ctx context.Context) {
-	var knpSynced, cnpSynced, ccnpSynced, cidrGroupSynced atomic.Bool
 	go func() {
 		var knpEvents <-chan resource.Event[*slim_networking_v1.NetworkPolicy]
 		if p.config.EnableK8sNetworkPolicy {
@@ -72,7 +73,7 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				}
 
 				if event.Kind == resource.Sync {
-					knpSynced.Store(true)
+					p.knpSynced.Store(true)
 					event.Done(nil)
 					continue
 				}
@@ -92,7 +93,7 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				}
 
 				if event.Kind == resource.Sync {
-					cnpSynced.Store(true)
+					p.cnpSynced.Store(true)
 					event.Done(nil)
 					continue
 				}
@@ -127,7 +128,7 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				}
 
 				if event.Kind == resource.Sync {
-					ccnpSynced.Store(true)
+					p.ccnpSynced.Store(true)
 					event.Done(nil)
 					continue
 				}
@@ -162,7 +163,7 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				}
 
 				if event.Kind == resource.Sync {
-					cidrGroupSynced.Store(true)
+					p.cidrGroupSynced.Store(true)
 					event.Done(nil)
 					continue
 				}
@@ -191,19 +192,4 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 			}
 		}
 	}()
-
-	if p.config.EnableK8sNetworkPolicy {
-		p.registerResourceWithSyncFn(ctx, k8sAPIGroupNetworkingV1Core, func() bool {
-			return knpSynced.Load()
-		})
-	}
-	p.registerResourceWithSyncFn(ctx, k8sAPIGroupCiliumNetworkPolicyV2, func() bool {
-		return cnpSynced.Load() && cidrGroupSynced.Load()
-	})
-	p.registerResourceWithSyncFn(ctx, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, func() bool {
-		return ccnpSynced.Load() && cidrGroupSynced.Load()
-	})
-	p.registerResourceWithSyncFn(ctx, k8sAPIGroupCiliumCIDRGroupV2Alpha1, func() bool {
-		return cidrGroupSynced.Load()
-	})
 }

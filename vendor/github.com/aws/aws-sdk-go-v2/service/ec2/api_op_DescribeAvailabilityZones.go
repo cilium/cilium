@@ -16,7 +16,7 @@ import (
 // request to view the state and any provided messages for that zone.
 //
 // For more information about Availability Zones, Local Zones, and Wavelength
-// Zones, see [Regions and zones]in the Amazon Elastic Compute Cloud User Guide.
+// Zones, see [Regions and zones]in the Amazon EC2 User Guide.
 //
 // The order of the elements in the response, including those within nested
 // structures, might vary. Applications should not assume the elements appear in a
@@ -161,6 +161,9 @@ func (c *Client) addOperationDescribeAvailabilityZonesMiddlewares(stack *middlew
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeAvailabilityZones(options.Region), middleware.Before); err != nil {

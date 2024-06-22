@@ -286,7 +286,7 @@ int from_overlay_synack_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "02_from_overlay_synack")
 int from_overlay_synack_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v4_add_entry(CLIENT_IP, CLIENT_IFINDEX, 0, 0,
+	endpoint_v4_add_entry(CLIENT_IP, CLIENT_IFINDEX, 0, 0, 0,
 			      (__u8 *)CLIENT_MAC, (__u8 *)CLIENT_ROUTER_MAC);
 
 	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);

@@ -68,12 +68,12 @@ type CreateSubnetInput struct {
 	//
 	// To create a subnet in a Local Zone, set this value to the Local Zone ID, for
 	// example us-west-2-lax-1a . For information about the Regions that support Local
-	// Zones, see [Local Zones locations].
+	// Zones, see [Available Local Zones].
 	//
 	// To create a subnet in an Outpost, set this value to the Availability Zone for
 	// the Outpost and specify the Outpost ARN.
 	//
-	// [Local Zones locations]: http://aws.amazon.com/about-aws/global-infrastructure/localzones/locations/
+	// [Available Local Zones]: https://docs.aws.amazon.com/local-zones/latest/ug/available-local-zones.html
 	AvailabilityZone *string
 
 	// The AZ ID or the Local Zone ID of the subnet.
@@ -185,6 +185,9 @@ func (c *Client) addOperationCreateSubnetMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpCreateSubnetValidationMiddleware(stack); err != nil {

@@ -17,7 +17,7 @@ import (
 // The peer address and transit gateway address must be the same IP address family
 // (IPv4 or IPv6).
 //
-// For more information, see [Connect peers] in the Transit Gateways Guide.
+// For more information, see [Connect peers] in the Amazon Web Services Transit Gateways Guide.
 //
 // [Connect peers]: https://docs.aws.amazon.com/vpc/latest/tgw/tgw-connect.html#tgw-connect-peer
 func (c *Client) CreateTransitGatewayConnectPeer(ctx context.Context, params *CreateTransitGatewayConnectPeerInput, optFns ...func(*Options)) (*CreateTransitGatewayConnectPeerOutput, error) {
@@ -142,6 +142,9 @@ func (c *Client) addOperationCreateTransitGatewayConnectPeerMiddlewares(stack *m
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpCreateTransitGatewayConnectPeerValidationMiddleware(stack); err != nil {

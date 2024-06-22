@@ -8,17 +8,17 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 // TroubleshootCmd represents the troubleshoot command. Note that this command
@@ -63,19 +63,24 @@ func newTroubleshootDialer(w io.Writer, disabled bool) kvstore.EtcdDbgDialer {
 
 	dialer := &troubleshootDialer{
 		cs:    cs,
-		cache: make(map[k8s.ServiceID]*loadbalancer.L3n4Addr),
+		cache: make(map[types.NamespacedName]tdCacheEntry),
 	}
 
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
-	dialer.dial = k8s.CreateCustomDialer(dialer, logger, true)
+	dialer.dial = dial.NewContextDialer(logger, dialer)
 	return dialer
 }
 
 type troubleshootDialer struct {
 	cs    kubernetes.Interface
-	cache map[k8s.ServiceID]*loadbalancer.L3n4Addr
+	cache map[types.NamespacedName]tdCacheEntry
 	dial  func(ctx context.Context, addr string) (conn net.Conn, e error)
+}
+
+type tdCacheEntry struct {
+	resolved string
+	err      error
 }
 
 func (td *troubleshootDialer) DialContext(ctx context.Context, addr string) (conn net.Conn, e error) {
@@ -86,43 +91,39 @@ func (td *troubleshootDialer) LookupIP(ctx context.Context, hostname string) ([]
 	// Let's mimic the same behavior of the dialer returned by k8s.CreateCustomDialer,
 	// that is try to first resolve the hostname as a service, and then fallback to
 	// the system resolver.
-	svc := k8s.ParseServiceIDFrom(hostname)
-	if svc == nil {
-		return net.DefaultResolver.LookupIP(ctx, "ip", hostname)
-	}
-
-	addr := td.GetServiceIP(*svc)
-	if addr == nil {
-		return net.DefaultResolver.LookupIP(ctx, "ip", hostname)
-	}
-
-	return []net.IP{addr.AddrCluster.Addr().AsSlice()}, nil
-}
-
-func (td *troubleshootDialer) GetServiceIP(svcID k8s.ServiceID) (addr *loadbalancer.L3n4Addr) {
-	return td.getServiceIP(context.Background(), svcID)
-}
-
-func (td *troubleshootDialer) getServiceIP(ctx context.Context, svcID k8s.ServiceID) (addr *loadbalancer.L3n4Addr) {
-	if addr, ok := td.cache[svcID]; ok {
-		return addr
-	}
-
-	defer func() { td.cache[svcID] = addr }()
-
-	svc, err := td.cs.CoreV1().Services(svcID.Namespace).Get(ctx, svcID.Name, metav1.GetOptions{})
+	addr, err := td.Resolve(ctx, hostname)
 	if err != nil {
-		return nil
+		return net.DefaultResolver.LookupIP(ctx, "ip", hostname)
 	}
 
-	for _, port := range svc.Spec.Ports {
-		return loadbalancer.NewL3n4Addr(
-			string(port.Protocol),
-			cmtypes.MustAddrClusterFromIP(net.ParseIP(svc.Spec.ClusterIP)),
-			uint16(port.Port),
-			loadbalancer.ScopeExternal,
-		)
+	parsed := net.ParseIP(addr)
+	if parsed == nil {
+		return net.DefaultResolver.LookupIP(ctx, "ip", hostname)
 	}
 
-	return nil
+	return []net.IP{parsed}, nil
+}
+
+func (td *troubleshootDialer) Resolve(ctx context.Context, hostname string) (resolved string, err error) {
+	nsname, err := dial.ServiceURLToNamespacedName(hostname)
+	if err != nil {
+		return "", err
+	}
+
+	if entry, ok := td.cache[nsname]; ok {
+		return entry.resolved, entry.err
+	}
+
+	defer func() { td.cache[nsname] = tdCacheEntry{resolved, err} }()
+
+	svc, err := td.cs.CoreV1().Services(nsname.Namespace).Get(ctx, nsname.Name, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	if _, err := netip.ParseAddr(svc.Spec.ClusterIP); err != nil {
+		return "", fmt.Errorf("cannot parse ClusterIP address: %w", err)
+	}
+
+	return svc.Spec.ClusterIP, nil
 }

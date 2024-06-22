@@ -11,9 +11,8 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a subnet CIDR reservation. For more information, see [Subnet CIDR reservations] in the Amazon
-// Virtual Private Cloud User Guide and [Assign prefixes to network interfaces]in the Amazon Elastic Compute Cloud User
-// Guide.
+// Creates a subnet CIDR reservation. For more information, see [Subnet CIDR reservations] in the Amazon VPC
+// User Guide and [Assign prefixes to network interfaces]in the Amazon EC2 User Guide.
 //
 // [Subnet CIDR reservations]: https://docs.aws.amazon.com/vpc/latest/userguide/subnet-cidr-reservation.html
 // [Assign prefixes to network interfaces]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html
@@ -134,6 +133,9 @@ func (c *Client) addOperationCreateSubnetCidrReservationMiddlewares(stack *middl
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpCreateSubnetCidrReservationValidationMiddleware(stack); err != nil {

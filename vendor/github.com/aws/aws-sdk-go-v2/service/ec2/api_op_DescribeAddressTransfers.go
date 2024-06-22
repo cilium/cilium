@@ -12,7 +12,7 @@ import (
 )
 
 // Describes an Elastic IP address transfer. For more information, see [Transfer Elastic IP addresses] in the
-// Amazon Virtual Private Cloud User Guide.
+// Amazon VPC User Guide.
 //
 // When you transfer an Elastic IP address, there is a two-step handshake between
 // the source and transfer Amazon Web Services accounts. When the source account
@@ -128,6 +128,9 @@ func (c *Client) addOperationDescribeAddressTransfersMiddlewares(stack *middlewa
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeAddressTransfers(options.Region), middleware.Before); err != nil {

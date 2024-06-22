@@ -16,7 +16,7 @@ import (
 // existing and newly launched instances in the VPC use this set of DHCP options.
 //
 // The following are the individual DHCP options you can specify. For more
-// information, see [DHCP options sets]in the Amazon VPC User Guide.
+// information, see [DHCP option sets]in the Amazon VPC User Guide.
 //
 //   - domain-name - If you're using AmazonProvidedDNS in us-east-1 , specify
 //     ec2.internal . If you're using AmazonProvidedDNS in any other Region, specify
@@ -53,9 +53,9 @@ import (
 //	increase the lease time and avoid frequent lease renewal requests. Lease renewal
 //	typically occurs when half of the lease time has elapsed.
 //
-// [DHCP options sets]: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_DHCP_Options.html
+// [DHCP option sets]: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_DHCP_Options.html
 //
-// [RFC 2132]: http://www.ietf.org/rfc/rfc2132.txt
+// [RFC 2132]: https://www.ietf.org/rfc/rfc2132.txt
 func (c *Client) CreateDhcpOptions(ctx context.Context, params *CreateDhcpOptionsInput, optFns ...func(*Options)) (*CreateDhcpOptionsOutput, error) {
 	if params == nil {
 		params = &CreateDhcpOptionsInput{}
@@ -154,6 +154,9 @@ func (c *Client) addOperationCreateDhcpOptionsMiddlewares(stack *middleware.Stac
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpCreateDhcpOptionsValidationMiddleware(stack); err != nil {

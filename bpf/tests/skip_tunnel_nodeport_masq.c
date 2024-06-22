@@ -20,7 +20,6 @@
  * Now include testing defaults
  */
 #define ROUTER_IP
-#include "config_replacement.h"
 #undef ROUTER_IP
 #include "node_config.h"
 
@@ -125,12 +124,12 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 	 */
 
 	if (v4) {
-		endpoint_v4_add_entry(SRC_IPV4, 0, 0, 0, (__u8 *)SRC_MAC, (__u8 *)SRC_MAC);
+		endpoint_v4_add_entry(SRC_IPV4, 0, 0, 0, 0, (__u8 *)SRC_MAC, (__u8 *)SRC_MAC);
 		ipcache_v4_add_entry_with_flags(DST_IPV4,
 						0, REMOTE_NODE_ID, 0,
 						0, flag_skip_tunnel);
 	} else {
-		endpoint_v6_add_entry((union v6addr *)SRC_IPV6, 0, 0, 0,
+		endpoint_v6_add_entry((union v6addr *)SRC_IPV6, 0, 0, 0, 0,
 				      (__u8 *)SRC_MAC, (__u8 *)SRC_MAC);
 		ipcache_v6_add_entry_with_flags((union v6addr *)DST_IPV6,
 						0, REMOTE_NODE_ID, 0,

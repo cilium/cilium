@@ -105,6 +105,11 @@ the mutual authentication feature:
 
    mutual-authentication-example
 
+.. admonition:: Video
+ :class: attention
+
+  If you'd like a video explanation and demo of Mutual Authentication in Cilium, check out `eCHO episode 100: Next-gen mutual authentication in Cilium <https://www.youtube.com/watch?v=BWjDlynXhzg>`__.
+
 Limitations
 ###########
 * Cilium Mutual Authentication is still in development and considered beta. Several planned security features have not been implemented yet, see below for details.

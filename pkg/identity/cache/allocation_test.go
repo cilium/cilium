@@ -27,7 +27,8 @@ import (
 )
 
 var fakeConfig = &option.DaemonConfig{
-	K8sNamespace: "kube-system",
+	ConfigPatchMutex: new(lock.RWMutex),
+	K8sNamespace:     "kube-system",
 }
 
 func TestAllocateIdentityReserved(t *testing.T) {
@@ -499,7 +500,8 @@ func TestCheckpointRestore(t *testing.T) {
 	modelBefore := mgr.GetIdentities()
 
 	// Explicitly checkpoint, to ensure we get the latest data
-	mgr.checkpoint(nil)
+	err := mgr.checkpoint(context.TODO())
+	require.NoError(t, err)
 
 	newMgr := NewCachingIdentityAllocator(owner)
 	defer newMgr.Close()

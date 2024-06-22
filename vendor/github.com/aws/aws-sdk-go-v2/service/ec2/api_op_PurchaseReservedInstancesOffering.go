@@ -22,10 +22,10 @@ import (
 // To queue a purchase for a future date and time, specify a purchase time. If you
 // do not specify a purchase time, the default is the current time.
 //
-// For more information, see [Reserved Instances] and [Reserved Instance Marketplace] in the Amazon EC2 User Guide.
+// For more information, see [Reserved Instances] and [Sell in the Reserved Instance Marketplace] in the Amazon EC2 User Guide.
 //
 // [Reserved Instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts-on-demand-reserved-instances.html
-// [Reserved Instance Marketplace]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html
+// [Sell in the Reserved Instance Marketplace]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html
 func (c *Client) PurchaseReservedInstancesOffering(ctx context.Context, params *PurchaseReservedInstancesOfferingInput, optFns ...func(*Options)) (*PurchaseReservedInstancesOfferingOutput, error) {
 	if params == nil {
 		params = &PurchaseReservedInstancesOfferingInput{}
@@ -76,7 +76,7 @@ type PurchaseReservedInstancesOfferingOutput struct {
 
 	// The IDs of the purchased Reserved Instances. If your purchase crosses into a
 	// discounted pricing tier, the final Reserved Instances IDs might change. For more
-	// information, see [Crossing pricing tiers]in the Amazon Elastic Compute Cloud User Guide.
+	// information, see [Crossing pricing tiers]in the Amazon EC2 User Guide.
 	//
 	// [Crossing pricing tiers]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts-reserved-instances-application.html#crossing-pricing-tiers
 	ReservedInstancesId *string
@@ -140,6 +140,9 @@ func (c *Client) addOperationPurchaseReservedInstancesOfferingMiddlewares(stack 
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpPurchaseReservedInstancesOfferingValidationMiddleware(stack); err != nil {

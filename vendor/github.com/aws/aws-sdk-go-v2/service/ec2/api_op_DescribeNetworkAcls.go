@@ -11,7 +11,9 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes one or more of your network ACLs.
+// Describes your network ACLs. The default is to describe all your network ACLs.
+// Alternatively, you can specify specific network ACL IDs or filter the results to
+// include only the network ACLs that match specific criteria.
 //
 // For more information, see [Network ACLs] in the Amazon VPC User Guide.
 //
@@ -97,8 +99,6 @@ type DescribeNetworkAclsInput struct {
 	MaxResults *int32
 
 	// The IDs of the network ACLs.
-	//
-	// Default: Describes all your network ACLs.
 	NetworkAclIds []string
 
 	// The token returned from a previous paginated request. Pagination continues from
@@ -110,7 +110,7 @@ type DescribeNetworkAclsInput struct {
 
 type DescribeNetworkAclsOutput struct {
 
-	// Information about one or more network ACLs.
+	// Information about the network ACLs.
 	NetworkAcls []types.NetworkAcl
 
 	// The token to include in another request to get the next page of items. This
@@ -176,6 +176,9 @@ func (c *Client) addOperationDescribeNetworkAclsMiddlewares(stack *middleware.St
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeNetworkAcls(options.Region), middleware.Before); err != nil {

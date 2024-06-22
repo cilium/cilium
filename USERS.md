@@ -398,6 +398,12 @@ Users (Alphabetically)
       L: https://github.com/xiaods/k8e
       Q: @xds2000
 
+    * N: LinkPool
+      D: LinkPool is a professional Web3 infrastructure provider.
+      U: LinkPool is using Cilium as the CNI for its on-premise production clusters
+      L: https://linkpool.com
+      Q: @jleeh
+
     * N: Liquid Reply
       D: Liquid Reply is a professional service provider and utilizes Cilium on suitable projects and implementations.
       U: Networking, network policy, Hubble for network visibility, Security

@@ -16,8 +16,7 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  */
-#ifndef _LINUX_IP_H
-#define _LINUX_IP_H
+#pragma once
 
 #include <linux/types.h>
 #include <linux/in.h>
@@ -135,5 +134,3 @@ struct ip_beet_phdr {
 	__u8 padlen;
 	__u8 reserved;
 };
-
-#endif /* _LINUX_IP_H */

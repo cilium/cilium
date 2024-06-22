@@ -49,9 +49,9 @@ type AssociateClientVpnTargetNetworkInput struct {
 	SubnetId *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see [How to ensure idempotency].
+	// the request. For more information, see [Ensuring idempotency].
 	//
-	// [How to ensure idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
+	// [Ensuring idempotency]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
 	ClientToken *string
 
 	// Checks whether you have the required permissions for the action, without
@@ -130,6 +130,9 @@ func (c *Client) addOperationAssociateClientVpnTargetNetworkMiddlewares(stack *m
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addIdempotencyToken_opAssociateClientVpnTargetNetworkMiddleware(stack, options); err != nil {

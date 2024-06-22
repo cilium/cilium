@@ -21,10 +21,7 @@ import (
 // volume's file-system size to take advantage of the new storage capacity. For
 // more information, see [Extend the file system].
 //
-// You can use CloudWatch Events to check the status of a modification to an EBS
-// volume. For information about CloudWatch Events, see the [Amazon CloudWatch Events User Guide]. You can also track
-// the status of a modification using DescribeVolumesModifications. For information about tracking status
-// changes using either method, see [Monitor the progress of volume modifications].
+// For more information, see [Monitor the progress of volume modifications] in the Amazon EBS User Guide.
 //
 // With previous-generation instance types, resizing an EBS volume might require
 // detaching and reattaching the volume or stopping and restarting the instance.
@@ -36,7 +33,6 @@ import (
 // [Monitor the progress of volume modifications]: https://docs.aws.amazon.com/ebs/latest/userguide/monitoring-volume-modifications.html
 // [Amazon EBS Elastic Volumes]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modify-volume.html
 // [Extend the file system]: https://docs.aws.amazon.com/ebs/latest/userguide/recognize-expanded-volume-linux.html
-// [Amazon CloudWatch Events User Guide]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/
 func (c *Client) ModifyVolume(ctx context.Context, params *ModifyVolumeInput, optFns ...func(*Options)) (*ModifyVolumeOutput, error) {
 	if params == nil {
 		params = &ModifyVolumeInput{}
@@ -82,7 +78,7 @@ type ModifyVolumeInput struct {
 	// Default: The existing value is retained if you keep the same volume type. If
 	// you change the volume type to io1 , io2 , or gp3 , the default is 3,000.
 	//
-	// [instances built on the Nitro System]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances
+	// [instances built on the Nitro System]: https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
 	Iops *int32
 
 	// Specifies whether to enable Amazon EBS Multi-Attach. If you enable
@@ -91,7 +87,7 @@ type ModifyVolumeInput struct {
 	// information, see [Amazon EBS Multi-Attach]in the Amazon EBS User Guide.
 	//
 	// [Amazon EBS Multi-Attach]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-volumes-multi.html
-	// [Nitro-based instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances
+	// [Nitro-based instances]: https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
 	MultiAttachEnabled *bool
 
 	// The target size of the volume, in GiB. The target volume size must be greater
@@ -196,6 +192,9 @@ func (c *Client) addOperationModifyVolumeMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpModifyVolumeValidationMiddleware(stack); err != nil {

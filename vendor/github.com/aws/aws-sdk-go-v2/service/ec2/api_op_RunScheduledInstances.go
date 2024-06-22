@@ -19,10 +19,7 @@ import (
 // You must launch a Scheduled Instance during its scheduled time period. You
 // can't stop or reboot a Scheduled Instance, but you can terminate it as needed.
 // If you terminate a Scheduled Instance before the current scheduled time period
-// ends, you can launch it again after a few minutes. For more information, see [Scheduled Instances]in
-// the Amazon EC2 User Guide.
-//
-// [Scheduled Instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-scheduled-instances.html
+// ends, you can launch it again after a few minutes.
 func (c *Client) RunScheduledInstances(ctx context.Context, params *RunScheduledInstancesInput, optFns ...func(*Options)) (*RunScheduledInstancesOutput, error) {
 	if params == nil {
 		params = &RunScheduledInstancesInput{}
@@ -137,6 +134,9 @@ func (c *Client) addOperationRunScheduledInstancesMiddlewares(stack *middleware.
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addIdempotencyToken_opRunScheduledInstancesMiddleware(stack, options); err != nil {

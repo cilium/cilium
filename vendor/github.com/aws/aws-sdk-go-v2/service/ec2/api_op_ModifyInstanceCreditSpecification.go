@@ -125,6 +125,9 @@ func (c *Client) addOperationModifyInstanceCreditSpecificationMiddlewares(stack 
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpModifyInstanceCreditSpecificationValidationMiddleware(stack); err != nil {
 		return err
 	}

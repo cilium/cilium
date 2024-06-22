@@ -119,6 +119,9 @@ func (c *Client) addOperationModifyTransitGatewayVpcAttachmentMiddlewares(stack 
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpModifyTransitGatewayVpcAttachmentValidationMiddleware(stack); err != nil {
 		return err
 	}

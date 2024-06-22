@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __BPF_CSUM_H_
-#define __BPF_CSUM_H_
+#pragma once
 
 #include "compiler.h"
 #include "helpers.h"
@@ -50,5 +49,3 @@ static __always_inline __wsum csum_diff(const void *from, __u32 size_from,
 
 	return csum_diff_external(from, size_from, to, size_to, seed);
 }
-
-#endif /* __BPF_CSUM_H_ */

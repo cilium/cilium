@@ -1,23 +1,29 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_ENCAP_H_
-#define __LIB_ENCAP_H_
+#pragma once
 
 #include "common.h"
 #include "dbg.h"
 #include "hash.h"
 #include "trace.h"
-#include "l3.h"
 
 #if __ctx_is == __ctx_skb
 #include "encrypt.h"
-#include "wireguard.h"
 #endif /* __ctx_is == __ctx_skb */
 
 #include "high_scale_ipcache.h"
 
 #ifdef HAVE_ENCAP
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct tunnel_key);
+	__type(value, struct tunnel_value);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, TUNNEL_ENDPOINT_MAP_SIZE);
+	__uint(map_flags, CONDITIONAL_PREALLOC);
+} TUNNEL_MAP __section_maps_btf;
+
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		    __be32 tunnel_endpoint,
@@ -37,11 +43,17 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 
 	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
 
+#if __ctx_is == __ctx_skb
+	*ifindex = ENCAP_IFINDEX;
+#else
+	*ifindex = 0;
+#endif
+
 	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
 			  *ifindex, ct_reason, monitor);
 
 	return ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, vni,
-				  NULL, 0, ifindex);
+				  NULL, 0);
 }
 
 static __always_inline int
@@ -224,11 +236,17 @@ __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 
 	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
 
+#if __ctx_is == __ctx_skb
+	*ifindex = ENCAP_IFINDEX;
+#else
+	*ifindex = 0;
+#endif
+
 	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
 			  *ifindex, ct_reason, monitor);
 
 	return ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, vni, opt,
-				  opt_len, ifindex);
+				  opt_len);
 }
 
 static __always_inline void
@@ -256,4 +274,3 @@ set_geneve_dsr_opt6(__be16 port, const union v6addr *addr,
 }
 #endif
 #endif /* HAVE_ENCAP */
-#endif /* __LIB_ENCAP_H_ */

@@ -18,7 +18,9 @@ import (
 	"time"
 )
 
-// Describes one or more of your internet gateways.
+// Describes your internet gateways. The default is to describe all your internet
+// gateways. Alternatively, you can specify specific internet gateway IDs or filter
+// the results to include only the internet gateways that match specific criteria.
 func (c *Client) DescribeInternetGateways(ctx context.Context, params *DescribeInternetGatewaysInput, optFns ...func(*Options)) (*DescribeInternetGatewaysOutput, error) {
 	if params == nil {
 		params = &DescribeInternetGatewaysInput{}
@@ -84,7 +86,7 @@ type DescribeInternetGatewaysInput struct {
 
 type DescribeInternetGatewaysOutput struct {
 
-	// Information about one or more internet gateways.
+	// Information about the internet gateways.
 	InternetGateways []types.InternetGateway
 
 	// The token to include in another request to get the next page of items. This
@@ -150,6 +152,9 @@ func (c *Client) addOperationDescribeInternetGatewaysMiddlewares(stack *middlewa
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeInternetGateways(options.Region), middleware.Before); err != nil {

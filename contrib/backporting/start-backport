@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Authors of Cilium
 
-source $(dirname $(readlink -ne $BASH_SOURCE))/../release/lib/common.sh
+source $(dirname $(readlink -ne $BASH_SOURCE))/k8s-common.sh
 source $TOOL_LIB_PATH/gitlib.sh
 source $(dirname $(readlink -ne $BASH_SOURCE))/common.sh
 

@@ -6,20 +6,23 @@ package fqdn
 import (
 	"context"
 	"hash/fnv"
-	"net"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
-	"sync"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -50,6 +53,11 @@ type NameManager struct {
 	cache *DNSCache
 
 	bootstrapCompleted bool
+
+	// restoredPrefixes contains all prefixes for which we have restored the
+	// IPCache metadata from previous Cilium v1.15 installation.
+	// Cleared by CompleteBoostrap
+	restoredPrefixes sets.Set[netip.Prefix]
 
 	manager *controller.Manager
 
@@ -166,30 +174,15 @@ func (n *NameManager) GetDNSHistoryModel(endpointID string, prefixMatcher Prefix
 	return lookups, nil
 }
 
-// Lock must be held during any calls to RegisterForIPUpdatesLocked or
-// UnregisterForIPUpdatesLocked.
-// Because the NameManager and SelectorCache have interleaving locks, we
-// must ALWAYS lock the NameManager first before locking the SelectorCache.
-func (n *NameManager) Lock() {
-	n.RWMutex.Lock()
-}
+// RegisterFQDNSelector exposes this FQDNSelector so that the identity labels
+// of IPs contained in a DNS response that matches said selector can be
+// associated with that selector.
+// This function also evaluates if any DNS names in the cache are matched by
+// this new selector and updates the labels for those DNS names accordingly.
+func (n *NameManager) RegisterFQDNSelector(selector api.FQDNSelector) {
+	n.Lock()
+	defer n.Unlock()
 
-// Unlock must be called after calls to RegisterForIPUpdatesLocked or
-// UnregisterForIPUpdatesLocked are done.
-func (n *NameManager) Unlock() {
-	n.RWMutex.Unlock()
-}
-
-// RegisterForIPUpdatesLocked exposes this FQDNSelector so that updates to
-// IPs for names that this selector maches can be
-// propagated back to the SelectorCache via `UpdateFQDNSelector`. All DNS names
-// contained within the NameManager's cache are iterated over to see if they match
-// the FQDNSelector. All already-existing IPs which correspond to the DNS names
-// which match this Selector will be returned so the selector is ready for updates.
-//
-// Because this method is called by the SelectorCache, we cannot make any calls
-// back in to the SelectorCache from this method.
-func (n *NameManager) RegisterForIPUpdatesLocked(selector api.FQDNSelector) []netip.Addr {
 	_, exists := n.allSelectors[selector]
 	if exists {
 		log.WithField("fqdnSelector", selector).Warning("FQDNSelector was already registered for updates.")
@@ -199,26 +192,33 @@ func (n *NameManager) RegisterForIPUpdatesLocked(selector api.FQDNSelector) []ne
 		regex, err := selector.ToRegex()
 		if err != nil {
 			log.WithError(err).WithField("fqdnSelector", selector).Error("FQDNSelector did not compile to valid regex")
-			return nil
+			return
 		}
 
 		n.allSelectors[selector] = regex
 	}
 
-	selectorIPMapping := n.mapSelectorsToIPsLocked(sets.New(selector))
-
-	// We may have skipped inserting these IPs in to the ipcache earlier, if they
-	// were not previously selected. Upsert them now.
-	n.upsertMetadata(selectorIPMapping[selector])
-
-	return selectorIPMapping[selector]
+	// The newly added FQDN selector could match DNS Names in the cache. If
+	// that is the case, we want to update the IPCache metadata for all
+	// associated IPs
+	selectedNamesAndIPs := n.mapSelectorsToNamesLocked(selector)
+	n.updateMetadata(deriveLabelsForNames(selectedNamesAndIPs, n.allSelectors))
 }
 
-// UnregisterForIPUpdatesLocked removes this FQDNSelector from the set of
-// FQDNSelectors which are being tracked by the NameManager. No more updates
-// for IPs which correspond to said selector are propagated.
-func (n *NameManager) UnregisterForIPUpdatesLocked(selector api.FQDNSelector) {
+// UnregisterFQDNSelector removes this FQDNSelector from the set of
+// IPs which are being tracked by the identityNotifier. The result
+// of this is that an IP may be evicted from IPCache if it is no longer
+// selected by any other FQDN selector.
+func (n *NameManager) UnregisterFQDNSelector(selector api.FQDNSelector) {
+	n.Lock()
+	defer n.Unlock()
+
+	// Remove selector
 	delete(n.allSelectors, selector)
+
+	// Re-compute labels for affected names and IPs
+	selectedNamesAndIPs := n.mapSelectorsToNamesLocked(selector)
+	n.updateMetadata(deriveLabelsForNames(selectedNamesAndIPs, n.allSelectors))
 }
 
 // NewNameManager creates an initialized NameManager.
@@ -229,11 +229,6 @@ func NewNameManager(config Config) *NameManager {
 		config.Cache = NewDNSCache(0)
 	}
 
-	if config.UpdateSelectors == nil {
-		config.UpdateSelectors = func(ctx context.Context, selectorsToIPs map[api.FQDNSelector][]netip.Addr, _ uint64) *sync.WaitGroup {
-			return &sync.WaitGroup{}
-		}
-	}
 	if config.GetEndpointsDNSInfo == nil {
 		config.GetEndpointsDNSInfo = func(_ string) []EndpointDNSInfo {
 			return nil
@@ -257,66 +252,64 @@ func NewNameManager(config Config) *NameManager {
 
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name they will be reflected in updatedDNSIPs.
-func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) *sync.WaitGroup {
+func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) *errgroup.Group {
 	n.RWMutex.Lock()
 	defer n.RWMutex.Unlock()
 
 	// Update IPs in n
-	fqdnSelectorsToUpdate, updatedDNSNames, ipcacheRevision := n.updateDNSIPs(lookupTime, updatedDNSIPs)
+	updatedDNSNames, ipcacheRevision := n.updateDNSIPs(lookupTime, updatedDNSIPs)
 	for dnsName, IPs := range updatedDNSNames {
 		log.WithFields(logrus.Fields{
-			"matchName":             dnsName,
-			"IPs":                   IPs,
-			"fqdnSelectorsToUpdate": fqdnSelectorsToUpdate,
+			"matchName": dnsName,
+			"IPs":       IPs,
 		}).Debug("Updated FQDN with new IPs")
 	}
 
-	selectorIPMapping := n.mapSelectorsToIPsLocked(fqdnSelectorsToUpdate)
-
-	// Update SelectorCache selectors and push changes down in to BPF.
-	return n.config.UpdateSelectors(ctx, selectorIPMapping, ipcacheRevision)
-}
-
-// ForceGenerateDNS unconditionally regenerates all rules that refer to DNS
-// names in namesToRegen. These names are FQDNs and toFQDNs.matchPatterns or
-// matchNames that match them will cause these rules to regenerate.
-// Note: This is used only when DNS entries are cleaned up, not when new results
-// are ingested.
-func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []string) *sync.WaitGroup {
-	n.RWMutex.Lock()
-	defer n.RWMutex.Unlock()
-
-	affectedFQDNSels := make(sets.Set[api.FQDNSelector], 0)
-	for _, dnsName := range namesToRegen {
-		for fqdnSel, fqdnRegEx := range n.allSelectors {
-			if fqdnRegEx.MatchString(dnsName) {
-				affectedFQDNSels.Insert(fqdnSel)
-			}
-		}
-	}
-
-	selectorIPMapping := n.mapSelectorsToIPsLocked(affectedFQDNSels)
-
-	// Update SelectorCache selectors and push changes down in to BPF.
-	return n.config.UpdateSelectors(ctx, selectorIPMapping, 0)
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		return n.config.IPCache.WaitForRevision(ctx, ipcacheRevision)
+	})
+	return g
 }
 
 func (n *NameManager) CompleteBootstrap() {
 	n.Lock()
+	defer n.Unlock()
+
 	n.bootstrapCompleted = true
-	n.Unlock()
+	if len(n.restoredPrefixes) > 0 {
+		log.WithField("prefixes", len(n.restoredPrefixes)).Debug("Removing restored IPCache labels")
+
+		// The following logic needs to match the restoration logic in RestoreCaches
+		ipcacheUpdates := make([]ipcache.MU, 0, len(n.restoredPrefixes))
+		for prefix := range n.restoredPrefixes {
+			ipcacheUpdates = append(ipcacheUpdates, ipcache.MU{
+				Prefix:   prefix,
+				Source:   source.Restored,
+				Resource: restorationIPCacheResource,
+				Metadata: []ipcache.IPMetadata{
+					labels.Labels{}, // remove restored labels
+				},
+			})
+		}
+		n.config.IPCache.RemoveMetadataBatch(ipcacheUpdates...)
+		n.restoredPrefixes = nil
+
+		checkpointPath := filepath.Join(option.Config.StateDir, checkpointFile)
+		if err := os.Remove(checkpointPath); err != nil {
+			log.WithError(err).WithField(logfields.Path, checkpointPath).
+				Debug("Failed to remove checkpoint file")
+		}
+	}
 }
 
 // updateDNSIPs updates the IPs for each DNS name in updatedDNSIPs.
 // It returns:
-// affectedSelectors: a set of all FQDNSelectors which match DNS Names whose
-// corresponding set of IPs has changed.
 // updatedNames: a map of DNS names to all the valid IPs we store for each.
 // ipcacheRevision: a revision number to pass to WaitForRevision()
-func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (affectedSelectors sets.Set[api.FQDNSelector], updatedNames map[string][]net.IP, ipcacheRevision uint64) {
-	updatedNames = make(map[string][]net.IP, len(updatedDNSIPs))
-	affectedSelectors = make(sets.Set[api.FQDNSelector], len(updatedDNSIPs))
-	addrsToUpsert := sets.Set[netip.Addr]{}
+func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (updatedNames map[string][]netip.Addr, ipcacheRevision uint64) {
+	updatedNames = make(map[string][]netip.Addr, len(updatedDNSIPs))
+	updatedMetadata := make(map[string]nameMetadata, len(updatedDNSIPs))
 
 	for dnsName, lookupIPs := range updatedDNSIPs {
 		addrs := ip.MustAddrsFromIPs(lookupIPs.IPs)
@@ -331,36 +324,37 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 			continue
 		}
 
-		addrsToUpsert.Insert(addrs...)
-
 		// record the IPs that were different
-		updatedNames[dnsName] = lookupIPs.IPs
+		updatedNames[dnsName] = addrs
 
-		// accumulate the new selectors affected by new IPs
+		// accumulate the new labels affected by new IPs
 		if len(n.allSelectors) == 0 {
 			log.WithFields(logrus.Fields{
 				"dnsName":   dnsName,
 				"lookupIPs": lookupIPs,
 			}).Debug("FQDN: No selectors registered for updates")
+			continue
 		}
-		for fqdnSel, fqdnRegex := range n.allSelectors {
-			matches := fqdnRegex.MatchString(dnsName)
-			if matches {
-				affectedSelectors.Insert(fqdnSel)
-			}
+
+		// derive labels for this DNS name
+		nameLabels := deriveLabelsForName(dnsName, n.allSelectors)
+		if len(nameLabels) == 0 {
+			// If no selectors care about this name, then skip IPCache updates
+			// for this name.
+			// If any selectors/ are added later, ipcache insertion will happen then.
+			continue
+		}
+
+		updatedMetadata[dnsName] = nameMetadata{
+			addrs:  addrs,
+			labels: nameLabels,
 		}
 	}
 
 	// If new IPs were detected, and these IPs are selected by selectors,
 	// then ensure they have an identity allocated to them via the ipcache.
-	//
-	// If no selectors care about this name, then skip this step. If any selectors
-	// are added later, ipcache insertion will happen then.
-	if len(addrsToUpsert) > 0 && affectedSelectors.Len() > 0 {
-		ipcacheRevision = n.upsertMetadata(addrsToUpsert.UnsortedList())
-	}
-
-	return affectedSelectors, updatedNames, ipcacheRevision
+	ipcacheRevision = n.updateMetadata(updatedMetadata)
+	return updatedNames, ipcacheRevision
 }
 
 // updateIPsName will update the IPs for dnsName. It always retains a copy of
@@ -393,37 +387,83 @@ func (n *NameManager) updateIPsForName(lookupTime time.Time, dnsName string, new
 	return !slices.Equal(oldCacheIPs, newCacheIPs)
 }
 
-var ipcacheResource = ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindDaemon, "", "fqdn-name-manager")
-
-// upsertMetadata adds an entry in the ipcache metadata layer for the set of IPs.
-// Returns the ipcache queue revision (to pass to .WaitForRevision()).
-func (n *NameManager) upsertMetadata(ips []netip.Addr) uint64 {
-	prefixes := make([]netip.Prefix, 0, len(ips))
-	for _, ip := range ips {
-		prefixes = append(prefixes, netip.PrefixFrom(ip, ip.BitLen()))
-	}
-	return n.config.IPCache.UpsertPrefixes(prefixes, source.Generated, ipcacheResource)
+func ipcacheResource(dnsName string) ipcacheTypes.ResourceID {
+	return ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindDaemon, "fqdn-name-manager", dnsName)
 }
 
-// maybeRemoveMetadata removes the ipcache metadata from every IP in maybeRemoved,
-// as long as that IP is not still in the dns cache.
-func (n *NameManager) maybeRemoveMetadata(maybeRemoved sets.Set[netip.Addr]) {
+// updateMetadata updates (i.e. upserts or removes) the metadata in IPCache for
+// each (name, IP) pair provided in nameToMetadata.
+func (n *NameManager) updateMetadata(nameToMetadata map[string]nameMetadata) (ipcacheRevision uint64) {
+	var ipcacheUpserts, ipcacheRemovals []ipcache.MU
+
+	for dnsName, metadata := range nameToMetadata {
+		var updates []ipcache.MU
+		resource := ipcacheResource(dnsName)
+
+		if option.Config.Debug {
+			log.WithFields(logrus.Fields{
+				"name":     dnsName,
+				"prefixes": metadata.addrs,
+				"labels":   metadata.labels,
+			}).Debug("Updating prefix labels in IPCache")
+		}
+
+		for _, addr := range metadata.addrs {
+			updates = append(updates, ipcache.MU{
+				Prefix:   netip.PrefixFrom(addr, addr.BitLen()),
+				Source:   source.Generated,
+				Resource: resource,
+				Metadata: []ipcache.IPMetadata{
+					metadata.labels,
+				},
+			})
+		}
+
+		// If labels are empty (i.e. this domain is no longer selected),
+		// then we want to the labels of our resource owner
+		if len(metadata.labels) > 0 {
+			ipcacheUpserts = append(ipcacheUpserts, updates...)
+		} else {
+			ipcacheRemovals = append(ipcacheRemovals, updates...)
+		}
+	}
+
+	if len(ipcacheUpserts) > 0 {
+		ipcacheRevision = n.config.IPCache.UpsertMetadataBatch(ipcacheUpserts...)
+	}
+	if len(ipcacheRemovals) > 0 {
+		ipcacheRevision = n.config.IPCache.RemoveMetadataBatch(ipcacheRemovals...)
+	}
+
+	return ipcacheRevision
+}
+
+// maybeRemoveMetadata removes the ipcache metadata from every (name, IP) pair
+// in maybeRemoved, as long as that (name, IP) is not still in the dns cache.
+func (n *NameManager) maybeRemoveMetadata(maybeRemoved map[netip.Addr][]string) {
 	// Need to take an RLock here so that no DNS updates are processed.
 	// Otherwise, we might accidentally remove an IP that is newly inserted.
 	n.RWMutex.RLock()
 	defer n.RWMutex.RUnlock()
 
 	n.cache.RLock()
-	prefixes := make([]netip.Prefix, 0, len(maybeRemoved))
-	for ip := range maybeRemoved {
-		if !n.cache.ipExistsLocked(ip) {
-			prefixes = append(prefixes, netip.PrefixFrom(ip, ip.BitLen()))
+	ipCacheUpdates := make([]ipcache.MU, 0, len(maybeRemoved))
+	for ip, names := range maybeRemoved {
+		for _, name := range names {
+			if !n.cache.entryExistsLocked(name, ip) {
+				ipCacheUpdates = append(ipCacheUpdates, ipcache.MU{
+					Prefix:   netip.PrefixFrom(ip, ip.BitLen()),
+					Source:   source.Generated,
+					Resource: ipcacheResource(name),
+					Metadata: []ipcache.IPMetadata{
+						labels.Labels{}, // remove all labels for this (ip, name) pair
+					},
+				})
+			}
 		}
 	}
 	n.cache.RUnlock()
-
-	log.WithField(logfields.Prefix, prefixes).Debug("Removing fqdn entry from ipcache metadata layer")
-	n.config.IPCache.RemovePrefixes(prefixes, source.Generated, ipcacheResource)
+	n.config.IPCache.RemoveMetadataBatch(ipCacheUpdates...)
 }
 
 // LockName is used to serialize  parallel end-to-end updates to the same name.
@@ -455,4 +495,35 @@ func nameLockIndex(name string, cnt int) uint32 {
 	h := fnv.New32()
 	_, _ = h.Write([]byte(name)) // cannot return error
 	return h.Sum32() % uint32(cnt)
+}
+
+type nameMetadata struct {
+	addrs  []netip.Addr
+	labels labels.Labels // if empty, metadata will be removed for this name
+}
+
+// deriveLabelsForName derives what `fqdn:` labels we want to associate with
+// IPs for this DNS name, i.e. what selectors match the DNS name.
+func deriveLabelsForName(dnsName string, selectors map[api.FQDNSelector]*regexp.Regexp) labels.Labels {
+	lbls := labels.Labels{}
+	for fqdnSel, fqdnRegex := range selectors {
+		matches := fqdnRegex.MatchString(dnsName)
+		if matches {
+			l := fqdnSel.IdentityLabel()
+			lbls[l.Key] = l
+		}
+	}
+	return lbls
+}
+
+// deriveLabelsForNames derives the labels for all names found in nameToIPs
+func deriveLabelsForNames(nameToIPs map[string][]netip.Addr, selectors map[api.FQDNSelector]*regexp.Regexp) (namesWithMetadata map[string]nameMetadata) {
+	namesWithMetadata = make(map[string]nameMetadata, len(nameToIPs))
+	for dnsName, addrs := range nameToIPs {
+		namesWithMetadata[dnsName] = nameMetadata{
+			addrs:  addrs,
+			labels: deriveLabelsForName(dnsName, selectors),
+		}
+	}
+	return namesWithMetadata
 }

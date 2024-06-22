@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /* Copyright Authors of the Linux kernel */
-#ifndef _IPV6_H
-#define _IPV6_H
+#pragma once
 
 #include <linux/types.h>
 #include <linux/in6.h>
@@ -196,6 +195,3 @@ enum {
 	DEVCONF_ACCEPT_UNTRACKED_NA,
 	DEVCONF_MAX
 };
-
-
-#endif /* _IPV6_H */

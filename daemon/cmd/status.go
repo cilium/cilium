@@ -235,6 +235,17 @@ func (d *Daemon) getAttachModeStatus() models.AttachMode {
 	return mode
 }
 
+func (d *Daemon) getDatapathModeStatus() models.DatapathMode {
+	mode := models.DatapathModeVeth
+	switch option.Config.DatapathMode {
+	case datapathOption.DatapathModeNetkit:
+		mode = models.DatapathModeNetkit
+	case datapathOption.DatapathModeNetkitL2:
+		mode = models.DatapathModeNetkitDashL2
+	}
+	return mode
+}
+
 func (d *Daemon) getCNIChainingStatus() *models.CNIChainingStatus {
 	mode := d.cniConfigManager.GetChainingMode()
 	if len(mode) == 0 {
@@ -290,6 +301,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 			features.NodePort.DsrMode = models.KubeProxyReplacementFeaturesNodePortDsrModeGeneve
 		}
 		if option.Config.NodePortMode == option.NodePortModeHybrid {
+			//nolint:staticcheck
 			features.NodePort.Mode = strings.Title(option.Config.NodePortMode)
 		}
 		features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmRandom
@@ -1119,6 +1131,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 	d.statusResponse.IdentityRange = d.getIdentityRange()
 	d.statusResponse.Srv6 = d.getSRv6Status()
 	d.statusResponse.AttachMode = d.getAttachModeStatus()
+	d.statusResponse.DatapathMode = d.getDatapathModeStatus()
 
 	d.statusCollector = status.NewCollector(probes, status.Config{StackdumpPath: "/run/cilium/state/agent.stack.gz"})
 

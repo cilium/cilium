@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __GHASH_H_
-#define __GHASH_H_
+#pragma once
 
 #define U32MAX_DIV_GOLDEN_RATIO 0x9e3779b9
 
@@ -55,5 +54,3 @@ static __always_inline __u32 hash_32(__u32 key, __u32 bits)
 {
 	return (key * U32MAX_DIV_GOLDEN_RATIO) >> (32 - bits);
 }
-
-#endif /* __GHASH_H_ */

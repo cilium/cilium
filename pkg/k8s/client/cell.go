@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -42,7 +41,6 @@ import (
 	slim_clientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	slim_fake "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -381,12 +379,12 @@ func (c *compositeClientset) waitForConn(ctx context.Context) error {
 }
 
 func setDialer(cfg Config, restConfig *rest.Config) func() {
-	if cfg.K8sHeartbeatTimeout == 0 {
+	if cfg.K8sClientConnectionTimeout == 0 || cfg.K8sClientConnectionKeepAlive == 0 {
 		return func() {}
 	}
 	ctx := (&net.Dialer{
-		Timeout:   cfg.K8sHeartbeatTimeout,
-		KeepAlive: cfg.K8sHeartbeatTimeout,
+		Timeout:   cfg.K8sClientConnectionTimeout,
+		KeepAlive: cfg.K8sClientConnectionKeepAlive,
 	}).DialContext
 	dialer := connrotation.NewDialer(ctx)
 	restConfig.Dial = dialer.DialContext
@@ -501,24 +499,6 @@ func NewFakeClientset() (*FakeClientset, Clientset) {
 	}
 	client.clientsetGetters = clientsetGetters{&client}
 	return &client, &client
-}
-
-// NewStandaloneClientset creates a clientset outside hive. To be removed once
-// remaining uses of k8s.Init()/k8s.Client()/etc. have been converted.
-func NewStandaloneClientset(cfg Config) (Clientset, error) {
-	log := logging.DefaultLogger
-	lc := &cell.DefaultLifecycle{}
-
-	clientset, err := newClientset(lc, log, cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := lc.Start(slog.Default(), context.Background()); err != nil {
-		return nil, err
-	}
-
-	return clientset, err
 }
 
 type ClientBuilderFunc func(name string) (Clientset, error)

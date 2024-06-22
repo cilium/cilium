@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __NODE_CONFIG__
-#define __NODE_CONFIG__
+#pragma once
 
 /*
  *
@@ -167,6 +166,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define LB4_REVERSE_NAT_MAP test_cilium_lb4_reverse_nat
 #define LB4_SERVICES_MAP_V2 test_cilium_lb4_services
 #define LB4_BACKEND_MAP test_cilium_lb4_backends
+#define LB_ACT_MAP test_cilium_lb_act
 #define LB4_REVERSE_NAT_SK_MAP test_cilium_lb4_reverse_sk
 #define LB4_REVERSE_NAT_SK_MAP_SIZE 262144
 #define LB4_AFFINITY_MAP test_cilium_lb4_affinity
@@ -191,6 +191,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES	65536
 #define CILIUM_LB_MAGLEV_MAP_MAX_ENTRIES	65536
 #define CILIUM_LB_SKIP_MAP_MAX_ENTRIES		100
+#define CILIUM_LB_ACT_MAP_MAX_ENTRIES	    65536
 #define POLICY_MAP_SIZE 16384
 #define AUTH_MAP_SIZE 512000
 #define CONFIG_MAP_SIZE 256
@@ -280,6 +281,10 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 
 #ifdef ENABLE_WIREGUARD
 # define WG_IFINDEX	42
+# ifdef ENCRYPTION_STRICT_MODE
+#  define STRICT_IPV4_NET	0
+#  define STRICT_IPV4_NET_SIZE	8
+# endif
 #endif
 
 #ifdef ENABLE_VTEP
@@ -327,5 +332,3 @@ return false;
 #endif
 
 #define CALLS_MAP test_cilium_calls_65535
-
-#endif /* __NODE_CONFIG__ */

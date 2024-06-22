@@ -203,7 +203,7 @@ func (l *loader) reinitializeIPSec() error {
 		return fmt.Errorf("loading eBPF ELF %s: %w", networkObj, err)
 	}
 
-	coll, finalize, err := loadDatapath(spec, nil, nil)
+	coll, commit, err := loadDatapath(spec, nil, nil)
 	if err != nil {
 		return fmt.Errorf("loading %s: %w", networkObj, err)
 	}
@@ -232,8 +232,9 @@ func (l *loader) reinitializeIPSec() error {
 		return fmt.Errorf("failed to load encryption program: %w", errs)
 	}
 
-	// Defer map removal until all interfaces' progs have been replaced.
-	finalize()
+	if err := commit(); err != nil {
+		return fmt.Errorf("committing bpf pins: %w", err)
+	}
 
 	return nil
 }
@@ -298,6 +299,11 @@ func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string,
 			}
 		}
 	}
+
+	// Clean up the legacy cilium_calls_xdp path.
+	// TODO:  Remove in Cilium 1.17.
+	os.Remove(filepath.Join(bpf.TCGlobalsPath(), "cilium_calls_xdp"))
+
 	return nil
 }
 
@@ -330,7 +336,9 @@ func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfigu
 
 	// Store the new LocalNodeConfiguration
 	l.nodeConfig.Store(&cfg)
-	l.initTemplateCache(&cfg)
+	// Startup relies on not returning an error here, maybe something we
+	// can fix in the future.
+	_ = l.templateCache.UpdateDatapathHash(&cfg)
 
 	var internalIPv4, internalIPv6 net.IP
 	if option.Config.EnableIPv4 {

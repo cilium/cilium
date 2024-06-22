@@ -67,8 +67,6 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 
 #define SECCTX_FROM_IPCACHE 1
 
-#include "config_replacement.h"
-
 #include "bpf_host.c"
 
 #include "lib/endpoint.h"
@@ -129,7 +127,7 @@ int tc_nodeport_lb_terminating_backend_0_setup(struct __ctx_buff *ctx)
 			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP, 0);
 
 	/* add local backend */
-	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, 0, 0,
+	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, 0, 0, 0,
 			      (__u8 *)local_backend_mac, (__u8 *)node_mac);
 
 	ipcache_v4_add_entry(BACKEND_IP_LOCAL, 0, 112233, 0, 0);

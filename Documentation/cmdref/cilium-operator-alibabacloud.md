@@ -22,7 +22,7 @@ cilium-operator-alibabacloud [flags]
       --cilium-pod-labels string                             Cilium Pod's labels. Used to detect if a Cilium pod is running to remove the node taints where its running and set NetworkUnavailable to false (default "k8s-app=cilium")
       --cilium-pod-namespace string                          Name of the Kubernetes namespace in which Cilium is deployed in. Defaults to the same namespace defined in k8s-namespace
       --cluster-id uint32                                    Unique identifier of the cluster
-      --cluster-name string                                  Name of the cluster (default "default")
+      --cluster-name string                                  Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character. (default "default")
       --cluster-pool-ipv4-cidr strings                       IPv4 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool' and 'enable-ipv4=true'
       --cluster-pool-ipv4-mask-size int                      Mask size for each IPv4 podCIDR per node. Requires 'ipam=cluster-pool' and 'enable-ipv4=true' (default 24)
       --cluster-pool-ipv6-cidr strings                       IPv6 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool' and 'enable-ipv6=true'
@@ -34,8 +34,6 @@ cilium-operator-alibabacloud [flags]
       --clustermesh-endpoint-updates-batch-period duration   The length of endpoint slice updates batching period for remote cluster services. Processing of pod changes will be delayed by this duration to join them with potential upcoming updates and reduce the overall number of endpoints updates. Larger number = higher endpoint programming latency, but lower number of endpoints revision generated. (default 500ms)
       --clustermesh-endpoints-per-slice int                  The maximum number of endpoints that will be added to a remote cluster's EndpointSlice . More endpoints per slice will result in less endpoint slices, but larger resources. (default 100)
       --clustermesh-sync-timeout duration                    Timeout waiting for the initial synchronization of information from remote clusters (default 1m0s)
-      --cnp-status-cleanup-burst int                         Maximum burst of requests to clean up status nodes updates in CNPs (default 20)
-      --cnp-status-cleanup-qps float                         Rate used for limiting the clean up of the status nodes updates in CNP, expressed as qps (default 10)
       --config string                                        Configuration file (default "$HOME/ciliumd.yaml")
       --config-dir string                                    Configuration directory that contains a file for each option
       --controller-group-metrics strings                     List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
@@ -61,6 +59,7 @@ cilium-operator-alibabacloud [flags]
       --gateway-api-hostnetwork-enabled                      Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string     Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
       --gateway-api-secrets-namespace string                 Namespace having tls secrets used by CEC for Gateway API (default "cilium-secrets")
+      --gateway-api-service-externaltrafficpolicy string     Kubernetes LoadBalancer Service externalTrafficPolicy for all Gateway instances. (default "Cluster")
       --gateway-api-xff-num-trusted-hops uint32              The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
       --gops-port uint16                                     Port for gops server to listen on (default 9891)
   -h, --help                                                 help for cilium-operator-alibabacloud
@@ -84,6 +83,8 @@ cilium-operator-alibabacloud [flags]
       --ipam string                                          Backend to use for IPAM (default "alibabacloud")
       --k8s-api-server string                                Kubernetes API server URL
       --k8s-client-burst int                                 Burst value allowed for the K8s client
+      --k8s-client-connection-keep-alive duration            Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
+      --k8s-client-connection-timeout duration               Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)
       --k8s-client-qps float32                               Queries per second limit for the K8s client
       --k8s-heartbeat-timeout duration                       Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                           Absolute path of the kubernetes kubeconfig file

@@ -111,6 +111,9 @@ func (c *Client) addOperationRejectVpcPeeringConnectionMiddlewares(stack *middle
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpRejectVpcPeeringConnectionValidationMiddleware(stack); err != nil {
 		return err
 	}

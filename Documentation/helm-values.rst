@@ -95,7 +95,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.agent.image`
      - SPIRE agent image
      - object
-     - ``{"digest":"sha256:99405637647968245ff9fe215f8bd2bd0ea9807be9725f8bf19fe1b21471e52b","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-agent","tag":"1.8.5","useDigest":true}``
+     - ``{"digest":"sha256:5106ac601272a88684db14daf7f54b9a45f31f77bb16a906bd5e87756ee7b97c","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-agent","tag":"1.9.6","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.agent.labels`
      - SPIRE agent labels
      - object
@@ -175,7 +175,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.server.image`
      - SPIRE server image
      - object
-     - ``{"digest":"sha256:28269265882048dcf0fed32fe47663cd98613727210b8d1a55618826f9bf5428","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-server","tag":"1.8.5","useDigest":true}``
+     - ``{"digest":"sha256:59a0b92b39773515e25e68a46c40d3b931b9c1860bc445a79ceb45a805cab8b4","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-server","tag":"1.9.6","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.initContainers`
      - SPIRE server init containers
      - list
@@ -304,6 +304,10 @@
      - Configure the maximum number of entries in the TCP connection tracking table.
      - int
      - ``524288``
+   * - :spelling:ignore:`bpf.datapathMode`
+     - Mode for Pod devices for the core datapath (veth, netkit, netkit-l2, lb-only)
+     - string
+     - ``veth``
    * - :spelling:ignore:`bpf.disableExternalIPMitigation`
      - Disable ExternalIP mitigation (CVE-2020-8554)
      - bool
@@ -399,7 +403,7 @@
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"image":{"digest":"sha256:bbc5e65e9dc65bc6b58967fe536b7f3b54e12332908aeb0a96a36866b4372b4e","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.1.12","useDigest":true},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
+     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"image":{"digest":"sha256:169d93fd8f2f9009db3b9d5ccd37c2b753d0989e1e7cd8fe79f9160c459eef4f","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.0","useDigest":true},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
    * - :spelling:ignore:`certgen.affinity`
      - Affinity for certgen
      - object
@@ -465,7 +469,7 @@
      - int
      - ``0``
    * - :spelling:ignore:`cluster.name`
-     - Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
+     - Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE. It must respect the following constraints: * It must contain at most 32 characters; * It must begin and end with a lower case alphanumeric character; * It may contain lower case alphanumeric characters and dashes between. The "default" name cannot be used if the Cluster ID is different from 0.
      - string
      - ``"default"``
    * - :spelling:ignore:`clustermesh.annotations`
@@ -475,7 +479,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.affinity`
      - Affinity for clustermesh.apiserver
      - object
-     - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"clustermesh-apiserver"}},"topologyKey":"kubernetes.io/hostname"}]}}``
+     - ``{"podAntiAffinity":{"preferredDuringSchedulingIgnoredDuringExecution":[{"podAffinityTerm":{"labelSelector":{"matchLabels":{"k8s-app":"clustermesh-apiserver"}},"topologyKey":"kubernetes.io/hostname"},"weight":100}]}}``
    * - :spelling:ignore:`clustermesh.apiserver.etcd.init.extraArgs`
      - Additional arguments to ``clustermesh-apiserver etcdinit``.
      - list
@@ -531,7 +535,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.enabled`
      - Enable KVStoreMesh. KVStoreMesh caches the information retrieved from the remote clusters in the local etcd instance.
      - bool
-     - ``false``
+     - ``true``
    * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.extraArgs`
      - Additional KVStoreMesh arguments.
      - list
@@ -708,6 +712,14 @@
      - The internalTrafficPolicy of service used for apiserver access.
      - string
      - ``"Cluster"``
+   * - :spelling:ignore:`clustermesh.apiserver.service.loadBalancerClass`
+     - Configure a loadBalancerClass. Allows to configure the loadBalancerClass on the clustermesh-apiserver LB service in case the Service type is set to LoadBalancer (requires Kubernetes 1.24+).
+     - string
+     - ``nil``
+   * - :spelling:ignore:`clustermesh.apiserver.service.loadBalancerIP`
+     - Configure a specific loadBalancerIP. Allows to configure a specific loadBalancerIP on the clustermesh-apiserver LB service in case the Service type is set to LoadBalancer.
+     - string
+     - ``nil``
    * - :spelling:ignore:`clustermesh.apiserver.service.nodePort`
      - Optional port to use as the node port for apiserver access.  WARNING: make sure to configure a different NodePort in each cluster if kube-proxy replacement is enabled, as Cilium is currently affected by a known bug (#24692) when NodePorts are handled by the KPR implementation. If a service with the same NodePort exists both in the local and the remote cluster, all traffic originating from inside the cluster and targeting the corresponding NodePort will be redirected to a local backend, regardless of whether the destination node belongs to the local or the remote cluster.
      - int
@@ -779,7 +791,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.updateStrategy`
      - clustermesh-apiserver update strategy
      - object
-     - ``{"rollingUpdate":{"maxUnavailable":1},"type":"RollingUpdate"}``
+     - ``{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}``
    * - :spelling:ignore:`clustermesh.config`
      - Clustermesh explicit configuration.
      - object
@@ -912,6 +924,10 @@
      - Configure verbosity levels for debug logging This option is used to enable debug messages for operations related to such sub-system such as (e.g. kvstore, envoy, datapath or policy), and flow is for enabling debug messages emitted per request, message and connection. Multiple values can be set via a space-separated string (e.g. "datapath envoy").  Applicable values: - flow - kvstore - envoy - datapath - policy
      - string
      - ``nil``
+   * - :spelling:ignore:`directRoutingSkipUnreachable`
+     - Enable skipping of PodCIDR routes between worker nodes if the worker nodes are in a different L2 network segment.
+     - bool
+     - ``false``
    * - :spelling:ignore:`disableEndpointCRD`
      - Disable the usage of CiliumEndpoint CRD.
      - bool
@@ -1356,98 +1372,18 @@
      - The name of the secret namespace to which Cilium agents are given read access.
      - string
      - ``"cilium-secrets"``
-   * - :spelling:ignore:`etcd.annotations`
-     - Annotations to be added to all top-level etcd-operator objects (resources under templates/etcd-operator)
-     - object
-     - ``{}``
-   * - :spelling:ignore:`etcd.clusterDomain`
-     - Cluster domain for cilium-etcd-operator.
-     - string
-     - ``"cluster.local"``
    * - :spelling:ignore:`etcd.enabled`
      - Enable etcd mode for the agent.
      - bool
      - ``false``
    * - :spelling:ignore:`etcd.endpoints`
-     - List of etcd endpoints (not needed when using managed=true).
+     - List of etcd endpoints
      - list
      - ``["https://CHANGE-ME:2379"]``
-   * - :spelling:ignore:`etcd.extraArgs`
-     - Additional cilium-etcd-operator container arguments.
-     - list
-     - ``[]``
-   * - :spelling:ignore:`etcd.extraVolumeMounts`
-     - Additional cilium-etcd-operator volumeMounts.
-     - list
-     - ``[]``
-   * - :spelling:ignore:`etcd.extraVolumes`
-     - Additional cilium-etcd-operator volumes.
-     - list
-     - ``[]``
-   * - :spelling:ignore:`etcd.image`
-     - cilium-etcd-operator image.
-     - object
-     - ``{"digest":"sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-etcd-operator","tag":"v2.0.7","useDigest":true}``
-   * - :spelling:ignore:`etcd.k8sService`
-     - If etcd is behind a k8s service set this option to true so that Cilium does the service translation automatically without requiring a DNS to be running.
-     - bool
-     - ``false``
-   * - :spelling:ignore:`etcd.nodeSelector`
-     - Node labels for cilium-etcd-operator pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
-     - object
-     - ``{"kubernetes.io/os":"linux"}``
-   * - :spelling:ignore:`etcd.podAnnotations`
-     - Annotations to be added to cilium-etcd-operator pods
-     - object
-     - ``{}``
-   * - :spelling:ignore:`etcd.podDisruptionBudget.enabled`
-     - enable PodDisruptionBudget ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
-     - bool
-     - ``false``
-   * - :spelling:ignore:`etcd.podDisruptionBudget.maxUnavailable`
-     - Maximum number/percentage of pods that may be made unavailable
-     - int
-     - ``1``
-   * - :spelling:ignore:`etcd.podDisruptionBudget.minAvailable`
-     - Minimum number/percentage of pods that should remain scheduled. When it's set, maxUnavailable must be disabled by ``maxUnavailable: null``
-     - string
-     - ``nil``
-   * - :spelling:ignore:`etcd.podLabels`
-     - Labels to be added to cilium-etcd-operator pods
-     - object
-     - ``{}``
-   * - :spelling:ignore:`etcd.podSecurityContext`
-     - Security context to be added to cilium-etcd-operator pods
-     - object
-     - ``{}``
-   * - :spelling:ignore:`etcd.priorityClassName`
-     - The priority class to use for cilium-etcd-operator
-     - string
-     - ``""``
-   * - :spelling:ignore:`etcd.resources`
-     - cilium-etcd-operator resource limits & requests ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-     - object
-     - ``{}``
-   * - :spelling:ignore:`etcd.securityContext`
-     - Security context to be added to cilium-etcd-operator pods
-     - object
-     - ``{}``
    * - :spelling:ignore:`etcd.ssl`
-     - Enable use of TLS/SSL for connectivity to etcd. (auto-enabled if managed=true)
+     - Enable use of TLS/SSL for connectivity to etcd.
      - bool
      - ``false``
-   * - :spelling:ignore:`etcd.tolerations`
-     - Node tolerations for cilium-etcd-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-     - list
-     - ``[{"operator":"Exists"}]``
-   * - :spelling:ignore:`etcd.topologySpreadConstraints`
-     - Pod topology spread constraints for cilium-etcd-operator
-     - list
-     - ``[]``
-   * - :spelling:ignore:`etcd.updateStrategy`
-     - cilium-etcd-operator update strategy
-     - object
-     - ``{"rollingUpdate":{"maxSurge":1,"maxUnavailable":1},"type":"RollingUpdate"}``
    * - :spelling:ignore:`externalIPs.enabled`
      - Enable ExternalIPs service support.
      - bool
@@ -1512,6 +1448,10 @@
      - Enable support for Gateway API in cilium This will automatically set enable-envoy-config as well.
      - bool
      - ``false``
+   * - :spelling:ignore:`gatewayAPI.externalTrafficPolicy`
+     - Control how traffic from external sources is routed to the LoadBalancer Kubernetes Service for all Cilium GatewayAPI Gateway instances. Valid values are "Cluster" and "Local". ref: https://kubernetes.io/docs/reference/networking/virtual-ips/#external-traffic-policy
+     - string
+     - ``"Cluster"``
    * - :spelling:ignore:`gatewayAPI.hostNetwork.enabled`
      - Configure whether the Envoy listeners should be exposed on the host network.
      - bool
@@ -2015,7 +1955,7 @@
    * - :spelling:ignore:`hubble.ui.backend.image`
      - Hubble-ui backend image.
      - object
-     - ``{"digest":"sha256:1e7657d997c5a48253bb8dc91ecee75b63018d16ff5e5797e5af367336bc8803","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.13.0","useDigest":true}``
+     - ``{"digest":"sha256:0e0eed917653441fded4e7cdb096b7be6a3bddded5a2dd10812a27b1fc6ed95b","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.13.1","useDigest":true}``
    * - :spelling:ignore:`hubble.ui.backend.livenessProbe.enabled`
      - Enable liveness probe for Hubble-ui backend (requires Hubble-ui 0.12+)
      - bool
@@ -2055,7 +1995,7 @@
    * - :spelling:ignore:`hubble.ui.frontend.image`
      - Hubble-ui frontend image.
      - object
-     - ``{"digest":"sha256:7d663dc16538dd6e29061abd1047013a645e6e69c115e008bee9ea9fef9a6666","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.13.0","useDigest":true}``
+     - ``{"digest":"sha256:e2e9313eb7caf64b0061d9da0efbdad59c6c461f6ca1752768942bfeda0796c6","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.13.1","useDigest":true}``
    * - :spelling:ignore:`hubble.ui.frontend.resources`
      - Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
      - object
@@ -2231,7 +2171,7 @@
    * - :spelling:ignore:`ingressController.service`
      - Load-balancer service in shared mode. This is a single load-balancer service for all Ingress resources.
      - object
-     - ``{"allocateLoadBalancerNodePorts":null,"annotations":{},"insecureNodePort":null,"labels":{},"loadBalancerClass":null,"loadBalancerIP":null,"name":"cilium-ingress","secureNodePort":null,"type":"LoadBalancer"}``
+     - ``{"allocateLoadBalancerNodePorts":null,"annotations":{},"externalTrafficPolicy":"Cluster","insecureNodePort":null,"labels":{},"loadBalancerClass":null,"loadBalancerIP":null,"name":"cilium-ingress","secureNodePort":null,"type":"LoadBalancer"}``
    * - :spelling:ignore:`ingressController.service.allocateLoadBalancerNodePorts`
      - Configure if node port allocation is required for LB service ref: https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-nodeport-allocation
      - string
@@ -2240,6 +2180,10 @@
      - Annotations to be added for the shared LB service
      - object
      - ``{}``
+   * - :spelling:ignore:`ingressController.service.externalTrafficPolicy`
+     - Control how traffic from external sources is routed to the LoadBalancer Kubernetes Service for Cilium Ingress in shared mode. Valid values are "Cluster" and "Local". ref: https://kubernetes.io/docs/reference/networking/virtual-ips/#external-traffic-policy
+     - string
+     - ``"Cluster"``
    * - :spelling:ignore:`ingressController.service.insecureNodePort`
      - Configure a specific nodePort for insecure HTTP traffic on the shared LB service
      - string
@@ -3082,6 +3026,14 @@
      - ``true``
    * - :spelling:ignore:`synchronizeK8sNodes`
      - Synchronize Kubernetes nodes to kvstore and perform CNP GC.
+     - bool
+     - ``true``
+   * - :spelling:ignore:`sysctlfix`
+     - Configure sysctl override described in #20072.
+     - object
+     - ``{"enabled":true}``
+   * - :spelling:ignore:`sysctlfix.enabled`
+     - Enable the sysctl override. When enabled, the init container will mount the /proc of the host so that the ``sysctlfix`` utility can execute.
      - bool
      - ``true``
    * - :spelling:ignore:`terminationGracePeriodSeconds`

@@ -12,13 +12,10 @@ import (
 )
 
 // Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-// that require graphics acceleration, we recommend that you use Amazon EC2 G4ad,
-// G4dn, or G5 instances.
+// that require graphics acceleration, we recommend that you use Amazon EC2 G4, G5,
+// or G6 instances.
 //
-// Describes the Elastic Graphics accelerator associated with your instances. For
-// more information about Elastic Graphics, see [Amazon Elastic Graphics].
-//
-// [Amazon Elastic Graphics]: https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/elastic-graphics.html
+// Describes the Elastic Graphics accelerator associated with your instances.
 func (c *Client) DescribeElasticGpus(ctx context.Context, params *DescribeElasticGpusInput, optFns ...func(*Options)) (*DescribeElasticGpusOutput, error) {
 	if params == nil {
 		params = &DescribeElasticGpusInput{}
@@ -147,6 +144,9 @@ func (c *Client) addOperationDescribeElasticGpusMiddlewares(stack *middleware.St
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeElasticGpus(options.Region), middleware.Before); err != nil {

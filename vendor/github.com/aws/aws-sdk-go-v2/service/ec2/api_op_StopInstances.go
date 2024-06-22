@@ -11,11 +11,11 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Stops an Amazon EBS-backed instance. For more information, see [Stop and start your instance] in the Amazon
+// Stops an Amazon EBS-backed instance. For more information, see [Stop and start Amazon EC2 instances] in the Amazon
 // EC2 User Guide.
 //
 // You can use the Stop action to hibernate an instance if the instance is [enabled for hibernation] and it
-// meets the [hibernation prerequisites]. For more information, see [Hibernate your instance] in the Amazon EC2 User Guide.
+// meets the [hibernation prerequisites]. For more information, see [Hibernate your Amazon EC2 instance] in the Amazon EC2 User Guide.
 //
 // We don't charge usage for a stopped instance, or data transfer fees; however,
 // your root partition Amazon EBS volume remains and continues to persist your
@@ -48,9 +48,9 @@ import (
 // time, there may be an issue with the underlying host computer. For more
 // information, see [Troubleshoot stopping your instance]in the Amazon EC2 User Guide.
 //
-// [Hibernate your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html
+// [Stop and start Amazon EC2 instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html
+// [Hibernate your Amazon EC2 instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html
 // [Troubleshoot stopping your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesStopping.html
-// [Stop and start your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html
 // [Instance lifecycle]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html
 // [enabled for hibernation]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enabling-hibernation.html
 // [Hibernating interrupted Spot Instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html#hibernate-spot-instances
@@ -167,6 +167,9 @@ func (c *Client) addOperationStopInstancesMiddlewares(stack *middleware.Stack, o
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpStopInstancesValidationMiddleware(stack); err != nil {

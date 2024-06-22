@@ -5,21 +5,18 @@ package endpointslicesync
 
 import (
 	"context"
-	"fmt"
-	"reflect"
 	"testing"
 	"time"
-	"unsafe"
 
-	"github.com/cilium/endpointslice-controller/endpointslice"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cache "k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/cilium/cilium/operator/k8s"
@@ -40,23 +37,6 @@ const (
 	remoteClusterName string = "cluster-1"
 	globalSvcIP       string = "42.42.42.42"
 )
-
-func getControllerQueue(controller *endpointslice.Controller) workqueue.RateLimitingInterface {
-	return *(*workqueue.RateLimitingInterface)(unsafe.Pointer(
-		reflect.ValueOf(controller).Elem().FieldByName("queue").UnsafeAddr(),
-	))
-}
-
-func waitEmptyQueue(queue workqueue.RateLimitingInterface) error {
-	for i := 0; i < 20; i++ {
-		time.Sleep(time.Millisecond * 10)
-		if queue.Len() == 0 {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("endpointSlice controller queue has not been emptied after 200ms")
-}
 
 func createService(name string) *slim_corev1.Service {
 	return &slim_corev1.Service{
@@ -79,7 +59,7 @@ func createGlobalService(
 	globalService *common.GlobalServiceCache,
 	podInformer *meshPodInformer,
 	svcName string,
-	updateClusterSvc func(*store.ClusterService)) {
+	updateClusterSvc func(*store.ClusterService)) *store.ClusterService {
 	clusterSvc := &store.ClusterService{
 		Cluster:   remoteClusterName,
 		Namespace: svcName,
@@ -96,7 +76,7 @@ func createGlobalService(
 	globalService.OnUpdate(clusterSvc)
 	// We manually call the rest of the informer for convenience
 	podInformer.onClusterServiceUpdate(clusterSvc)
-
+	return clusterSvc
 }
 
 func getEndpointSlice(clientset k8sClient.Clientset, svcName string) (*discovery.EndpointSliceList, error) {
@@ -111,6 +91,7 @@ func getEndpointSlice(clientset k8sClient.Clientset, svcName string) (*discovery
 func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 	var fakeClient k8sClient.FakeClientset
 	var services resource.Resource[*slim_corev1.Service]
+	logger := logrus.New()
 	hive := hive.New(
 		k8sClient.FakeClientCell,
 		k8s.ResourcesCell,
@@ -131,10 +112,11 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 	defer hive.Stop(tlog, context.Background())
 
 	globalService := common.NewGlobalServiceCache(metric.NewGauge(metric.GaugeOpts{}))
-	podInformer := newMeshPodInformer(globalService)
-	nodeInformer := newMeshNodeInformer()
+	podInformer := newMeshPodInformer(logger, globalService)
+	nodeInformer := newMeshNodeInformer(logger)
 	controller, serviceInformer, endpointsliceInformer := newEndpointSliceMeshController(
-		context.Background(), ClusterMeshConfig{ClusterMeshMaxEndpointsPerSlice: 100},
+		context.Background(), logger,
+		EndpointSliceSyncConfig{ClusterMeshMaxEndpointsPerSlice: 100},
 		podInformer, nodeInformer, &fakeClient, services, globalService,
 	)
 	endpointsliceInformer.Start(context.Background().Done())
@@ -146,6 +128,9 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 
 	svcStore, _ := services.Store(context.Background())
 
+	tick := 10 * time.Millisecond
+	timeout := 200 * time.Millisecond
+
 	t.Run("Create service then global service", func(t *testing.T) {
 		svcName := "local-svc-global-svc"
 		hostname := svcName + "-0"
@@ -156,22 +141,28 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 			clusterSvc.Hostnames = map[string]string{globalSvcIP: hostname}
 		})
 
-		queue := getControllerQueue(controller)
-		require.NoError(t, waitEmptyQueue(queue))
+		var epList *discovery.EndpointSliceList
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			epList, err = getEndpointSlice(&fakeClient, svcName)
+			assert.NoError(c, err)
+			assert.Len(c, epList.Items, 1)
+		}, timeout, tick, "endpointslice is not reconciled correctly")
 
-		epList, err := getEndpointSlice(&fakeClient, svcName)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(epList.Items))
 		require.Equal(t, map[string]string{
 			discovery.LabelServiceName:        svcName,
 			discovery.LabelManagedBy:          utils.EndpointSliceMeshControllerName,
 			mcsapiv1alpha1.LabelSourceCluster: remoteClusterName,
 			corev1.IsHeadlessService:          "",
 		}, epList.Items[0].Labels)
-		require.Equal(t, 1, len(epList.Items[0].Endpoints))
+		require.Len(t, epList.Items[0].Endpoints, 1)
 
-		require.NotNil(t, 1, epList.Items[0].Endpoints[0].Hostname)
-		require.Equal(t, *epList.Items[0].Endpoints[0].Hostname, hostname)
+		require.NotNil(t, epList.Items[0].Endpoints[0].Hostname)
+		require.Equal(t, hostname, *epList.Items[0].Endpoints[0].Hostname)
+
+		require.Len(t, epList.Items[0].OwnerReferences, 1)
+		require.Equal(t, "v1", epList.Items[0].OwnerReferences[0].APIVersion)
+		require.Equal(t, "Service", epList.Items[0].OwnerReferences[0].Kind)
+		require.Equal(t, "local-svc-global-svc", epList.Items[0].OwnerReferences[0].Name)
 	})
 
 	t.Run("Create global service then service", func(t *testing.T) {
@@ -181,44 +172,19 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		svcStore.CacheStore().Add(svc1)
 		serviceInformer.refreshAllCluster(svc1)
 
-		queue := getControllerQueue(controller)
-		require.NoError(t, waitEmptyQueue(queue))
+		var epList *discovery.EndpointSliceList
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			epList, err = getEndpointSlice(&fakeClient, svcName)
+			assert.NoError(t, err)
+			assert.Len(t, epList.Items, 1)
+		}, timeout, tick, "endpointslice is not reconciled correctly")
 
-		epList, err := getEndpointSlice(&fakeClient, svcName)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(epList.Items))
 		require.Equal(t, map[string]string{
 			discovery.LabelServiceName:        svcName,
 			discovery.LabelManagedBy:          utils.EndpointSliceMeshControllerName,
 			mcsapiv1alpha1.LabelSourceCluster: remoteClusterName,
 			corev1.IsHeadlessService:          "",
 		}, epList.Items[0].Labels)
-	})
-
-	t.Run("Create service without global service", func(t *testing.T) {
-		svcName := "local-svc-no-global-svc"
-		svc1 := createService(svcName)
-		svcStore.CacheStore().Add(svc1)
-		serviceInformer.refreshAllCluster(svc1)
-
-		queue := getControllerQueue(controller)
-		require.NoError(t, waitEmptyQueue(queue))
-
-		epList, err := getEndpointSlice(&fakeClient, svcName)
-		require.NoError(t, err)
-		require.Zero(t, len(epList.Items))
-	})
-
-	t.Run("Create global service without service", func(t *testing.T) {
-		svcName := "global-svc-no-local-svc"
-		createGlobalService(globalService, podInformer, svcName, nil)
-
-		queue := getControllerQueue(controller)
-		require.NoError(t, waitEmptyQueue(queue))
-
-		epList, err := getEndpointSlice(&fakeClient, svcName)
-		require.NoError(t, err)
-		require.Zero(t, len(epList.Items))
 	})
 
 	t.Run("Create headless service and global service", func(t *testing.T) {
@@ -230,29 +196,11 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		serviceInformer.refreshAllCluster(svc1)
 		createGlobalService(globalService, podInformer, svcName, nil)
 
-		queue := getControllerQueue(controller)
-		require.NoError(t, waitEmptyQueue(queue))
-
-		epList, err := getEndpointSlice(&fakeClient, svcName)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(epList.Items))
-	})
-
-	t.Run("Create headless service with endpointslice opt-out and global service", func(t *testing.T) {
-		svcName := "local-svc-headless-opt-out-global-svc"
-		svc1 := createService(svcName)
-		svc1.Spec.ClusterIP = corev1.ClusterIPNone
-		svc1.ObjectMeta.Annotations[annotation.GlobalServiceSyncEndpointSlices] = "false"
-		svcStore.CacheStore().Add(svc1)
-		serviceInformer.refreshAllCluster(svc1)
-		createGlobalService(globalService, podInformer, svcName, nil)
-
-		queue := getControllerQueue(controller)
-		require.NoError(t, waitEmptyQueue(queue))
-
-		epList, err := getEndpointSlice(&fakeClient, svcName)
-		require.NoError(t, err)
-		require.Equal(t, 0, len(epList.Items))
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			epList, err := getEndpointSlice(&fakeClient, svcName)
+			assert.NoError(c, err)
+			assert.Len(c, epList.Items, 1)
+		}, timeout, tick, "endpointslice is not reconciled correctly")
 	})
 
 	t.Run("Create service with global annotation and remove it", func(t *testing.T) {
@@ -262,22 +210,48 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		svcStore.CacheStore().Add(svc1)
 		serviceInformer.refreshAllCluster(svc1)
 
-		queue := getControllerQueue(controller)
-		require.NoError(t, waitEmptyQueue(queue))
-
-		// Make sure that we have 1 endpointslice
-		epList, err := getEndpointSlice(&fakeClient, svcName)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(epList.Items))
+		var epList *discovery.EndpointSliceList
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			// Make sure that we have 1 endpointslice
+			epList, err = getEndpointSlice(&fakeClient, svcName)
+			assert.NoError(c, err)
+			assert.Len(c, epList.Items, 1)
+		}, timeout, tick, "endpointslice is not reconciled correctly")
 
 		svc1.Annotations[annotation.GlobalServiceSyncEndpointSlices] = "false"
 		svcStore.CacheStore().Update(svc1)
 		serviceInformer.refreshAllCluster(svc1)
 
-		require.NoError(t, waitEmptyQueue(queue))
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			epList, err := getEndpointSlice(&fakeClient, svcName)
+			assert.NoError(c, err)
+			assert.Len(c, epList.Items, 0)
+		}, timeout, tick, "endpointslice is not reconciled correctly")
+	})
 
-		epList, err = getEndpointSlice(&fakeClient, svcName)
-		require.NoError(t, err)
-		require.Zero(t, len(epList.Items))
+	t.Run("Create service and global service and then delete global svc", func(t *testing.T) {
+		svcName := "local-svc-no-global-svc"
+		clusterSvc := createGlobalService(globalService, podInformer, svcName, nil)
+		svc1 := createService(svcName)
+		svcStore.CacheStore().Add(svc1)
+		serviceInformer.refreshAllCluster(svc1)
+
+		var epList *discovery.EndpointSliceList
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			// Make sure that we have 1 endpointslice
+			epList, err = getEndpointSlice(&fakeClient, svcName)
+			assert.NoError(c, err)
+			assert.Len(c, epList.Items, 1)
+		}, timeout, tick, "endpointslice is not reconciled correctly")
+
+		globalService.OnDelete(clusterSvc)
+		// We manually call the rest of the informer for convenience
+		podInformer.onClusterServiceDelete(clusterSvc)
+
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			epList, err := getEndpointSlice(&fakeClient, svcName)
+			assert.NoError(c, err)
+			assert.Len(c, epList.Items, 0)
+		}, timeout, tick, "endpointslice is not reconciled correctly")
 	})
 }

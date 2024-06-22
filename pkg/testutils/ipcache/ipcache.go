@@ -4,6 +4,7 @@
 package testipcache
 
 import (
+	"context"
 	"net"
 	"net/netip"
 
@@ -56,6 +57,18 @@ func (m *MockIPCache) UpsertPrefixes(prefixes []netip.Prefix, src source.Source,
 }
 
 func (m *MockIPCache) RemovePrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) {
+}
+
+func (m *MockIPCache) UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64) {
+	return 0
+}
+
+func (m *MockIPCache) RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64) {
+	return 0
+}
+
+func (m *MockIPCache) WaitForRevision(ctx context.Context, rev uint64) error {
+	return nil
 }
 
 func NewMockIPCache() *MockIPCache {

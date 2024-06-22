@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
+#pragma once
+
 /*
  * This is just a dummy header with dummy values to allow for test
  * compilation without the full code generation engine backend.
  */
 #include "lib/utils.h"
-
-#ifndef ___EP_CONFIG____
-#define ___EP_CONFIG____
 
 DEFINE_IPV6(LXC_IP, 0xbe, 0xef, 0, 0, 0, 0, 0, 0x1, 0, 0, 0, 0x1, 0x01, 0x65, 0x82, 0xbc);
 
@@ -31,11 +30,12 @@ DEFINE_U32(SECLABEL_IPV4, 0xfffff);
 #define SECLABEL_IPV4 fetch_u32(SECLABEL_IPV4)
 DEFINE_U32(SECLABEL_IPV6, 0xfffff);
 #define SECLABEL_IPV6 fetch_u32(SECLABEL_IPV6)
-DEFINE_U32(SECLABEL_NB, 0xfffff);
-#define SECLABEL_NB fetch_u32(SECLABEL_NB)
 
 DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
 #define POLICY_VERDICT_LOG_FILTER fetch_u32(POLICY_VERDICT_LOG_FILTER)
+
+DEFINE_U32(THIS_INTERFACE_IFINDEX, 0);
+#define THIS_INTERFACE_IFINDEX fetch_u32(THIS_INTERFACE_IFINDEX)
 
 #define HOST_EP_ID 0x1092
 
@@ -58,5 +58,3 @@ DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
 #define CONNTRACK_ACCOUNTING
 #define POLICY_ACCOUNTING
 #define DIRECT_ROUTING_DEV_IFINDEX 0
-
-#endif

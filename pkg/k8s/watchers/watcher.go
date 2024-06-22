@@ -7,18 +7,11 @@ import (
 	"context"
 	"net"
 	"net/netip"
-	"strconv"
 	"sync"
-	"sync/atomic"
 
-	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/tools/cache"
 
-	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -26,23 +19,17 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
-	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
-	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
@@ -56,6 +43,8 @@ const (
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
 	k8sAPIGroupCiliumEndpointSliceV2Alpha1      = "cilium/v2alpha1::CiliumEndpointSlice"
+	k8sAPIGroupCiliumEnvoyConfigV2              = "cilium/v2::CiliumEnvoyConfig"
+	k8sAPIGroupCiliumClusterwideEnvoyConfigV2   = "cilium/v2::CiliumClusterwideEnvoyConfig"
 
 	metricCLRP = "CiliumLocalRedirectPolicy"
 	metricPod  = "Pod"
@@ -134,6 +123,15 @@ type K8sWatcher struct {
 
 	clientset client.Clientset
 
+	k8sEventReporter          *K8sEventReporter
+	k8sPodWatcher             *K8sPodWatcher
+	k8sCiliumNodeWatcher      *K8sCiliumNodeWatcher
+	k8sNamespaceWatcher       *K8sNamespaceWatcher
+	k8sServiceWatcher         *K8sServiceWatcher
+	k8sEndpointsWatcher       *K8sEndpointsWatcher
+	k8sCiliumLRPWatcher       *K8sCiliumLRPWatcher
+	k8sCiliumEndpointsWatcher *K8sCiliumEndpointsWatcher
+
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
 	// resource name maps to is closed.
@@ -143,85 +141,37 @@ type K8sWatcher struct {
 	// and may be disabled while the agent runs.
 	k8sAPIGroups *synced.APIGroups
 
-	// K8sSvcCache is a cache of all Kubernetes services and endpoints
-	K8sSvcCache *k8s.ServiceCache
-
-	endpointManager endpointManager
-
-	nodeManager           nodeManager
-	policyManager         policyManager
-	svcManager            svcManager
-	redirectPolicyManager redirectPolicyManager
-	bgpSpeakerManager     bgpSpeakerManager
-	ipcache               ipcacheManager
-	cgroupManager         cgroupManager
-
-	bandwidthManager datapath.BandwidthManager
-
-	// controllersStarted is a channel that is closed when all watchers that do not depend on
-	// local node configuration have been started
-	controllersStarted chan struct{}
-
-	stop chan struct{}
-
-	podStoreMU lock.RWMutex
-	podStore   cache.Store
-	// podStoreSet is a channel that is closed when the podStore cache is
-	// variable is written for the first time.
-	podStoreSet  chan struct{}
-	podStoreOnce sync.Once
-
-	ciliumNodeStore atomic.Pointer[resource.Store[*cilium_v2.CiliumNode]]
-
 	cfg WatcherConfiguration
-
-	resources agentK8s.Resources
-
-	db        *statedb.DB
-	nodeAddrs statedb.Table[datapathTables.NodeAddress]
 }
 
-func NewK8sWatcher(
+func newWatcher(
 	clientset client.Clientset,
+	k8sPodWatcher *K8sPodWatcher,
+	k8sCiliumNodeWatcher *K8sCiliumNodeWatcher,
+	k8sNamespaceWatcher *K8sNamespaceWatcher,
+	k8sServiceWatcher *K8sServiceWatcher,
+	k8sEndpointsWatcher *K8sEndpointsWatcher,
+	k8sCiliumLRPWatcher *K8sCiliumLRPWatcher,
+	k8sCiliumEndpointsWatcher *K8sCiliumEndpointsWatcher,
+	k8sEventReporter *K8sEventReporter,
 	k8sResourceSynced *synced.Resources,
 	k8sAPIGroups *synced.APIGroups,
-	endpointManager endpointManager,
-	nodeManager nodeManager,
-	policyManager policyManager,
-	svcManager svcManager,
-	redirectPolicyManager redirectPolicyManager,
-	bgpSpeakerManager bgpSpeakerManager,
 	cfg WatcherConfiguration,
-	ipcache ipcacheManager,
-	cgroupManager cgroupManager,
-	resources agentK8s.Resources,
-	serviceCache *k8s.ServiceCache,
-	bandwidthManager datapath.BandwidthManager,
-	db *statedb.DB,
-	nodeAddrs statedb.Table[datapathTables.NodeAddress],
 ) *K8sWatcher {
 	return &K8sWatcher{
-		resourceGroupsFn:      resourceGroups,
-		db:                    db,
-		clientset:             clientset,
-		k8sResourceSynced:     k8sResourceSynced,
-		k8sAPIGroups:          k8sAPIGroups,
-		K8sSvcCache:           serviceCache,
-		endpointManager:       endpointManager,
-		nodeManager:           nodeManager,
-		policyManager:         policyManager,
-		svcManager:            svcManager,
-		ipcache:               ipcache,
-		controllersStarted:    make(chan struct{}),
-		stop:                  make(chan struct{}),
-		podStoreSet:           make(chan struct{}),
-		redirectPolicyManager: redirectPolicyManager,
-		bgpSpeakerManager:     bgpSpeakerManager,
-		cgroupManager:         cgroupManager,
-		bandwidthManager:      bandwidthManager,
-		cfg:                   cfg,
-		resources:             resources,
-		nodeAddrs:             nodeAddrs,
+		resourceGroupsFn:          resourceGroups,
+		clientset:                 clientset,
+		k8sEventReporter:          k8sEventReporter,
+		k8sPodWatcher:             k8sPodWatcher,
+		k8sCiliumNodeWatcher:      k8sCiliumNodeWatcher,
+		k8sNamespaceWatcher:       k8sNamespaceWatcher,
+		k8sServiceWatcher:         k8sServiceWatcher,
+		k8sEndpointsWatcher:       k8sEndpointsWatcher,
+		k8sCiliumLRPWatcher:       k8sCiliumLRPWatcher,
+		k8sCiliumEndpointsWatcher: k8sCiliumEndpointsWatcher,
+		k8sResourceSynced:         k8sResourceSynced,
+		k8sAPIGroups:              k8sAPIGroups,
+		cfg:                       cfg,
 	}
 }
 
@@ -276,16 +226,16 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(cilium_v2.CEWName):           {skip, ""}, // Handled in clustermesh-apiserver/
 	synced.CRDResourceName(cilium_v2.CEGPName):          {skip, ""}, // Handled via Resource[T].
 	synced.CRDResourceName(v2alpha1.CESName):            {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
-	synced.CRDResourceName(cilium_v2.CCECName):          {skip, ""}, // Handled via CiliumEnvoyConfig watcher via Resource[T]
-	synced.CRDResourceName(cilium_v2.CECName):           {skip, ""}, // Handled via CiliumEnvoyConfig watcher via Resource[T]
-	synced.CRDResourceName(v2alpha1.BGPPName):           {skip, ""}, // Handled in BGP control plane
-	synced.CRDResourceName(v2alpha1.BGPCCName):          {skip, ""}, // Handled in BGP control plane
-	synced.CRDResourceName(v2alpha1.BGPAName):           {skip, ""}, // Handled in BGP control plane
-	synced.CRDResourceName(v2alpha1.BGPPCName):          {skip, ""}, // Handled in BGP control plane
-	synced.CRDResourceName(v2alpha1.BGPNCName):          {skip, ""}, // Handled in BGP control plane
-	synced.CRDResourceName(v2alpha1.BGPNCOName):         {skip, ""}, // Handled in BGP control plane
-	synced.CRDResourceName(v2alpha1.LBIPPoolName):       {skip, ""}, // Handled in LB IPAM
-	synced.CRDResourceName(v2alpha1.CNCName):            {skip, ""}, // Handled by init directly
+	synced.CRDResourceName(cilium_v2.CCECName):          {waitOnly, k8sAPIGroupCiliumClusterwideEnvoyConfigV2}, // Handled in pkg/ciliumenvoyconfig/
+	synced.CRDResourceName(cilium_v2.CECName):           {waitOnly, k8sAPIGroupCiliumEnvoyConfigV2},            // Handled in pkg/ciliumenvoyconfig/
+	synced.CRDResourceName(v2alpha1.BGPPName):           {skip, ""},                                            // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.BGPCCName):          {skip, ""},                                            // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.BGPAName):           {skip, ""},                                            // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.BGPPCName):          {skip, ""},                                            // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.BGPNCName):          {skip, ""},                                            // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.BGPNCOName):         {skip, ""},                                            // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.LBIPPoolName):       {skip, ""},                                            // Handled in LB IPAM
+	synced.CRDResourceName(v2alpha1.CNCName):            {skip, ""},                                            // Handled by init directly
 	synced.CRDResourceName(v2alpha1.CCGName):            {waitOnly, k8sAPIGroupCiliumCIDRGroupV2Alpha1},
 	synced.CRDResourceName(v2alpha1.L2AnnouncementName): {skip, ""}, // Handled by L2 announcement directly
 	synced.CRDResourceName(v2alpha1.CPIPName):           {skip, ""}, // Handled by multi-pool IPAM allocator
@@ -350,7 +300,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 
 	log.Info("Enabling k8s event listener")
 	k.enableK8sWatchers(ctx, resources)
-	close(k.controllersStarted)
+	close(k.k8sPodWatcher.controllersStarted)
 
 	go func() {
 		log.Info("Waiting until all pre-existing resources have been received")
@@ -381,22 +331,22 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 		// Core Cilium
 		case resources.K8sAPIGroupPodV1Core:
 			asyncControllers.Add(1)
-			go k.podsInit(k.clientset.Slim(), asyncControllers)
+			go k.k8sPodWatcher.podsInit(asyncControllers)
 		case k8sAPIGroupNamespaceV1Core:
-			k.namespacesInit()
+			k.k8sNamespaceWatcher.namespacesInit()
 		case k8sAPIGroupCiliumNodeV2:
 			asyncControllers.Add(1)
-			go k.ciliumNodeInit(ctx, asyncControllers)
+			go k.k8sCiliumNodeWatcher.ciliumNodeInit(ctx, asyncControllers)
 		case resources.K8sAPIGroupServiceV1Core:
-			k.servicesInit()
+			k.k8sServiceWatcher.servicesInit()
 		case resources.K8sAPIGroupEndpointSliceOrEndpoint:
-			k.endpointsInit()
+			k.k8sEndpointsWatcher.endpointsInit()
 		case k8sAPIGroupCiliumEndpointV2:
-			k.initCiliumEndpointOrSlices(ctx, asyncControllers)
+			k.k8sCiliumEndpointsWatcher.initCiliumEndpointOrSlices(ctx, asyncControllers)
 		case k8sAPIGroupCiliumEndpointSliceV2Alpha1:
 			// no-op; handled in k8sAPIGroupCiliumEndpointV2
 		case k8sAPIGroupCiliumLocalRedirectPolicyV2:
-			k.ciliumLocalRedirectPolicyInit(k.clientset)
+			k.k8sCiliumLRPWatcher.ciliumLocalRedirectPolicyInit()
 		default:
 			log.WithFields(logrus.Fields{
 				logfields.Resource: r,
@@ -407,32 +357,35 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 	asyncControllers.Wait()
 }
 
+func (k *K8sWatcher) StopWatcher() {
+	k.k8sNamespaceWatcher.stopWatcher()
+	k.k8sServiceWatcher.stopWatcher()
+	k.k8sEndpointsWatcher.stopWatcher()
+	k.k8sCiliumLRPWatcher.stopWatcher()
+}
+
 // K8sEventProcessed is called to do metrics accounting for each processed
 // Kubernetes event
 func (k *K8sWatcher) K8sEventProcessed(scope, action string, status bool) {
-	result := "success"
-	if !status {
-		result = "failed"
-	}
-
-	metrics.KubernetesEventProcessed.WithLabelValues(scope, action, result).Inc()
+	k.k8sEventReporter.K8sEventProcessed(scope, action, status)
 }
 
 // K8sEventReceived does metric accounting for each received Kubernetes event, as well
 // as notifying of events for k8s resources synced.
 func (k *K8sWatcher) K8sEventReceived(apiResourceName, scope, action string, valid, equal bool) {
-	k8smetrics.LastInteraction.Reset()
-
-	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s, scope, action).SetToCurrentTime()
-	validStr := strconv.FormatBool(valid)
-	equalStr := strconv.FormatBool(equal)
-	metrics.KubernetesEventReceived.WithLabelValues(scope, action, validStr, equalStr).Inc()
-
-	k.k8sResourceSynced.SetEventTimestamp(apiResourceName)
+	k.k8sEventReporter.K8sEventReceived(apiResourceName, scope, action, valid, equal)
 }
 
-// K8sServiceEventProcessed is called to do metrics accounting the duration to program the service.
-func (k *K8sWatcher) K8sServiceEventProcessed(action string, startTime time.Time) {
-	duration, _ := safetime.TimeSinceSafe(startTime, log)
-	metrics.ServiceImplementationDelay.WithLabelValues(action).Observe(duration.Seconds())
+// GetCachedPod returns a pod from the local store.
+func (k *K8sWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, error) {
+	return k.k8sPodWatcher.GetCachedPod(namespace, name)
+}
+
+// GetCachedNamespace returns a namespace from the local store.
+func (k *K8sWatcher) GetCachedNamespace(namespace string) (*slim_corev1.Namespace, error) {
+	return k.k8sNamespaceWatcher.GetCachedNamespace(namespace)
+}
+
+func (k *K8sWatcher) RunK8sServiceHandler() {
+	k.k8sServiceWatcher.RunK8sServiceHandler()
 }

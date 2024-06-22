@@ -47,7 +47,7 @@ func NewMockPortAllocator() *MockPortAllocator {
 	}
 }
 
-func (m *MockPortAllocator) AllocateProxyPort(name string, ingress, localOnly bool) (uint16, error) {
+func (m *MockPortAllocator) AllocateCRDProxyPort(name string) (uint16, error) {
 	if mp, exists := m.ports[name]; exists {
 		return mp.port, nil
 	}

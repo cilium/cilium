@@ -114,6 +114,9 @@ func (c *Client) addOperationRebootInstancesMiddlewares(stack *middleware.Stack,
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpRebootInstancesValidationMiddleware(stack); err != nil {
 		return err
 	}

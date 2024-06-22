@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_SIGNAL_H_
-#define __LIB_SIGNAL_H_
+#pragma once
 
 #include <bpf/api.h>
 #include <lib/common.h>
@@ -68,5 +67,3 @@ static __always_inline void send_signal_auth_required(struct __ctx_buff *ctx,
 {
 	SEND_SIGNAL(ctx, SIGNAL_AUTH_REQUIRED, auth, *auth);
 }
-
-#endif /* __LIB_SIGNAL_H_ */

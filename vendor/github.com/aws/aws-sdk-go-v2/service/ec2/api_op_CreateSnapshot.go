@@ -44,13 +44,13 @@ import (
 // protected.
 //
 // You can tag your snapshots during creation. For more information, see [Tag your Amazon EC2 resources] in the
-// Amazon Elastic Compute Cloud User Guide.
+// Amazon EC2 User Guide.
 //
-// For more information, see [Amazon Elastic Block Store] and [Amazon EBS encryption] in the Amazon EBS User Guide.
+// For more information, see [Amazon EBS] and [Amazon EBS encryption] in the Amazon EBS User Guide.
 //
+// [Amazon EBS]: https://docs.aws.amazon.com/ebs/latest/userguide/what-is-ebs.html
 // [Amazon EBS encryption]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html
 // [Tag your Amazon EC2 resources]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html
-// [Amazon Elastic Block Store]: https://docs.aws.amazon.com/ebs/latest/userguide/what-is-ebs.html
 func (c *Client) CreateSnapshot(ctx context.Context, params *CreateSnapshotInput, optFns ...func(*Options)) (*CreateSnapshotOutput, error) {
 	if params == nil {
 		params = &CreateSnapshotInput{}
@@ -124,8 +124,8 @@ type CreateSnapshotOutput struct {
 	// Indicates whether the snapshot is encrypted.
 	Encrypted *bool
 
-	// The Amazon Resource Name (ARN) of the Key Management Service (KMS) KMS key that
-	// was used to protect the volume encryption key for the parent volume.
+	// The Amazon Resource Name (ARN) of the KMS key that was used to protect the
+	// volume encryption key for the parent volume.
 	KmsKeyId *string
 
 	// The ARN of the Outpost on which the snapshot is stored. For more information,
@@ -163,9 +163,9 @@ type CreateSnapshotOutput struct {
 	State types.SnapshotState
 
 	// Encrypted Amazon EBS snapshots are copied asynchronously. If a snapshot copy
-	// operation fails (for example, if the proper Key Management Service (KMS)
-	// permissions are not obtained) this field displays error state details to help
-	// you diagnose why the error occurred. This parameter is only returned by DescribeSnapshots.
+	// operation fails (for example, if the proper KMS permissions are not obtained)
+	// this field displays error state details to help you diagnose why the error
+	// occurred. This parameter is only returned by DescribeSnapshots.
 	StateMessage *string
 
 	// The storage tier in which the snapshot is stored. standard indicates that the
@@ -243,6 +243,9 @@ func (c *Client) addOperationCreateSnapshotMiddlewares(stack *middleware.Stack, 
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addOpCreateSnapshotValidationMiddleware(stack); err != nil {

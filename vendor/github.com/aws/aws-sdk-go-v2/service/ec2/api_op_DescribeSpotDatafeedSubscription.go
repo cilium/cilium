@@ -12,7 +12,7 @@ import (
 )
 
 // Describes the data feed for Spot Instances. For more information, see [Spot Instance data feed] in the
-// Amazon EC2 User Guide for Linux Instances.
+// Amazon EC2 User Guide.
 //
 // [Spot Instance data feed]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-data-feeds.html
 func (c *Client) DescribeSpotDatafeedSubscription(ctx context.Context, params *DescribeSpotDatafeedSubscriptionInput, optFns ...func(*Options)) (*DescribeSpotDatafeedSubscriptionOutput, error) {
@@ -107,6 +107,9 @@ func (c *Client) addOperationDescribeSpotDatafeedSubscriptionMiddlewares(stack *
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeSpotDatafeedSubscription(options.Region), middleware.Before); err != nil {

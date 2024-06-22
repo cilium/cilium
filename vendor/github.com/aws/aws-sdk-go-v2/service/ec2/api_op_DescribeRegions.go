@@ -13,17 +13,17 @@ import (
 
 // Describes the Regions that are enabled for your account, or all Regions.
 //
-// For a list of the Regions supported by Amazon EC2, see [Amazon Elastic Compute Cloud endpoints and quotas].
+// For a list of the Regions supported by Amazon EC2, see [Amazon EC2 service endpoints].
 //
-// For information about enabling and disabling Regions for your account, see [Managing Amazon Web Services Regions] in
-// the Amazon Web Services General Reference.
+// For information about enabling and disabling Regions for your account, see [Specify which Amazon Web Services Regions your account can use] in
+// the Amazon Web Services Account Management Reference Guide.
 //
 // The order of the elements in the response, including those within nested
 // structures, might vary. Applications should not assume the elements appear in a
 // particular order.
 //
-// [Managing Amazon Web Services Regions]: https://docs.aws.amazon.com/general/latest/gr/rande-manage.html
-// [Amazon Elastic Compute Cloud endpoints and quotas]: https://docs.aws.amazon.com/general/latest/gr/ec2-service.html
+// [Specify which Amazon Web Services Regions your account can use]: https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-regions.html
+// [Amazon EC2 service endpoints]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-endpoints.html
 func (c *Client) DescribeRegions(ctx context.Context, params *DescribeRegionsInput, optFns ...func(*Options)) (*DescribeRegionsOutput, error) {
 	if params == nil {
 		params = &DescribeRegionsInput{}
@@ -133,6 +133,9 @@ func (c *Client) addOperationDescribeRegionsMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeRegions(options.Region), middleware.Before); err != nil {

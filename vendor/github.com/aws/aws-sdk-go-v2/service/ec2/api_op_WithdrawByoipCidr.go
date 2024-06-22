@@ -115,6 +115,9 @@ func (c *Client) addOperationWithdrawByoipCidrMiddlewares(stack *middleware.Stac
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = addOpWithdrawByoipCidrValidationMiddleware(stack); err != nil {
 		return err
 	}

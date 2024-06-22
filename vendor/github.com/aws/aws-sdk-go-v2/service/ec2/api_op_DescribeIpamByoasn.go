@@ -119,6 +119,9 @@ func (c *Client) addOperationDescribeIpamByoasnMiddlewares(stack *middleware.Sta
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeIpamByoasn(options.Region), middleware.Before); err != nil {
 		return err
 	}

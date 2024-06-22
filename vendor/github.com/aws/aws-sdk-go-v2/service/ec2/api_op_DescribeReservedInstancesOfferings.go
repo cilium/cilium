@@ -21,13 +21,13 @@ import (
 // Instance Marketplace, they will be excluded from these results. This is to
 // ensure that you do not purchase your own Reserved Instances.
 //
-// For more information, see [Reserved Instance Marketplace] in the Amazon EC2 User Guide.
+// For more information, see [Sell in the Reserved Instance Marketplace] in the Amazon EC2 User Guide.
 //
 // The order of the elements in the response, including those within nested
 // structures, might vary. Applications should not assume the elements appear in a
 // particular order.
 //
-// [Reserved Instance Marketplace]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html
+// [Sell in the Reserved Instance Marketplace]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-market-general.html
 func (c *Client) DescribeReservedInstancesOfferings(ctx context.Context, params *DescribeReservedInstancesOfferingsInput, optFns ...func(*Options)) (*DescribeReservedInstancesOfferingsOutput, error) {
 	if params == nil {
 		params = &DescribeReservedInstancesOfferingsInput{}
@@ -101,9 +101,9 @@ type DescribeReservedInstancesOfferingsInput struct {
 	InstanceTenancy types.Tenancy
 
 	// The instance type that the reservation will cover (for example, m1.small ). For
-	// more information, see [Instance types]in the Amazon EC2 User Guide.
+	// more information, see [Amazon EC2 instance types]in the Amazon EC2 User Guide.
 	//
-	// [Instance types]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html
+	// [Amazon EC2 instance types]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html
 	InstanceType types.InstanceType
 
 	// The maximum duration (in seconds) to filter when searching for offerings.
@@ -218,6 +218,9 @@ func (c *Client) addOperationDescribeReservedInstancesOfferingsMiddlewares(stack
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeReservedInstancesOfferings(options.Region), middleware.Before); err != nil {

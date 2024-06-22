@@ -8,7 +8,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
@@ -28,9 +27,8 @@ func newGlobalService() *GlobalService {
 }
 
 type GlobalServiceCache struct {
-	mutex       lock.RWMutex
-	byName      map[types.NamespacedName]*GlobalService
-	byNamespace map[string]sets.Set[*GlobalService]
+	mutex  lock.RWMutex
+	byName map[types.NamespacedName]*GlobalService
 
 	// metricTotalGlobalServices is the gauge metric for total of global services
 	metricTotalGlobalServices metric.Gauge
@@ -39,7 +37,6 @@ type GlobalServiceCache struct {
 func NewGlobalServiceCache(metricTotalGlobalServices metric.Gauge) *GlobalServiceCache {
 	return &GlobalServiceCache{
 		byName:                    map[types.NamespacedName]*GlobalService{},
-		byNamespace:               map[string]sets.Set[*GlobalService]{},
 		metricTotalGlobalServices: metricTotalGlobalServices,
 	}
 }
@@ -89,25 +86,6 @@ func (c *GlobalServiceCache) GetGlobalService(serviceNN types.NamespacedName) *G
 	return nil
 }
 
-// GetServices returns the services for a specific namespace. This function does not
-// make copy of the cluster services objects so those objects should not be mutated.
-func (c *GlobalServiceCache) GetServices(namespace string) []*serviceStore.ClusterService {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	clusterSvcs := []*serviceStore.ClusterService{}
-
-	if globalSvcs, ok := c.byNamespace[namespace]; ok {
-		for globalSvc := range globalSvcs {
-			for _, clusterSvc := range globalSvc.ClusterServices {
-				clusterSvcs = append(clusterSvcs, clusterSvc)
-			}
-		}
-	}
-
-	return clusterSvcs
-}
-
 func (c *GlobalServiceCache) OnUpdate(svc *serviceStore.ClusterService) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceName: svc.String(),
@@ -123,12 +101,6 @@ func (c *GlobalServiceCache) OnUpdate(svc *serviceStore.ClusterService) {
 		c.byName[svc.NamespaceServiceName()] = globalSvc
 		scopedLog.Debugf("Created global service %s", svc.NamespaceServiceName())
 		c.metricTotalGlobalServices.Set(float64(len(c.byName)))
-		globalSvcs, ok := c.byNamespace[svc.Namespace]
-		if !ok {
-			globalSvcs = sets.Set[*GlobalService]{}
-			c.byNamespace[svc.Namespace] = globalSvcs
-		}
-		globalSvcs.Insert(globalSvc)
 	}
 
 	scopedLog.Debugf("Updated service definition of remote cluster %#v", svc)
@@ -155,10 +127,6 @@ func (c *GlobalServiceCache) delete(globalService *GlobalService, clusterName st
 	// After the last cluster service is removed, remove the global service
 	if len(globalService.ClusterServices) == 0 {
 		scopedLog.Debugf("Deleted global service %s", serviceNN.String())
-		c.byNamespace[serviceNN.Namespace].Delete(globalService)
-		if len(c.byNamespace[serviceNN.Namespace]) == 0 {
-			delete(c.byNamespace, serviceNN.Namespace)
-		}
 		delete(c.byName, serviceNN)
 		c.metricTotalGlobalServices.Set(float64(len(c.byName)))
 	}

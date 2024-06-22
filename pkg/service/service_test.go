@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
@@ -24,6 +25,9 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
+	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
+	"github.com/cilium/cilium/pkg/monitor/agent/consumer"
+	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
@@ -214,7 +218,7 @@ func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
 }
 
 func (m *ManagerTestSuite) newServiceMock(lbmap datapathTypes.LBMap) {
-	m.svc = NewService(nil, lbmap, nil)
+	m.svc = newService(&FakeMonitorAgent{}, lbmap, nil)
 	m.svc.backendConnectionHandler = testsockets.NewMockSockets(make([]*testsockets.MockSocket, 0))
 }
 
@@ -724,7 +728,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lbmap := mockmaps.NewLBMockMap()
-			svc := NewService(nil, lbmap, nil)
+			svc := newService(&FakeMonitorAgent{}, lbmap, nil)
 
 			_, id1, err := svc.upsertService(service("foo", "bar", "172.16.0.1", backendAddrs...))
 			require.NoError(t, err, "Failed to upsert service")
@@ -734,7 +738,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 			require.ElementsMatch(t, backendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "lbmap not populated correctly")
 
 			// Recreate the Service structure, but keep the lbmap to restore services from
-			svc = NewService(nil, lbmap, nil)
+			svc = newService(&FakeMonitorAgent{}, lbmap, nil)
 			require.NoError(t, svc.RestoreServices(), "Failed to restore services")
 
 			// Simulate a set of service updates. Until synchronization completes, a given service
@@ -2253,7 +2257,7 @@ func TestRestoreServicesWithLeakedBackends(t *testing.T) {
 	m.svc.lbmap.AddBackend(backend5, backend5.L3n4Addr.IsIPv6())
 	require.Equal(t, len(backends)+4, len(m.lbmap.BackendByID))
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.svc = NewService(nil, lbmap, nil)
+	m.svc = newService(&FakeMonitorAgent{}, lbmap, nil)
 
 	// Restore services from lbmap
 	err := m.svc.RestoreServices()
@@ -2346,5 +2350,33 @@ func (r *FakeBackendSyncer) Sync(svc *lb.SVC) error {
 	r.nrOfBackends = len(svc.Backends)
 	r.nrOfSyncs++
 
+	return nil
+}
+
+type FakeMonitorAgent struct{}
+
+var _ monitorAgent.Agent = &FakeMonitorAgent{}
+
+func (f *FakeMonitorAgent) AttachToEventsMap(nPages int) error {
+	return nil
+}
+
+func (f *FakeMonitorAgent) RegisterNewConsumer(newConsumer consumer.MonitorConsumer) {
+}
+
+func (f *FakeMonitorAgent) RegisterNewListener(newListener listener.MonitorListener) {
+}
+
+func (f *FakeMonitorAgent) RemoveConsumer(mc consumer.MonitorConsumer) {
+}
+
+func (f *FakeMonitorAgent) RemoveListener(ml listener.MonitorListener) {
+}
+
+func (f *FakeMonitorAgent) SendEvent(typ int, event interface{}) error {
+	return nil
+}
+
+func (f *FakeMonitorAgent) State() *models.MonitorStatus {
 	return nil
 }

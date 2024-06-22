@@ -25,6 +25,7 @@ import (
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -34,9 +35,9 @@ func init() {
 var GatewaySecretMissingReferenceGrant = suite.ConformanceTest{
 	ShortName:   "GatewaySecretMissingReferenceGrant",
 	Description: "A Gateway in the gateway-conformance-infra namespace should fail to become programmed if the Gateway has a certificateRef for a Secret in the gateway-conformance-web-backend namespace and a ReferenceGrant granting permission to the Secret does not exist",
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportReferenceGrant,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportReferenceGrant,
 	},
 	Manifests: []string{"tests/gateway-secret-missing-reference-grant.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {

@@ -21,7 +21,8 @@ func IsGateway(parent gatewayv1.ParentReference) bool {
 }
 
 func IsGammaService(parent gatewayv1.ParentReference) bool {
-	return (parent.Kind == nil || *parent.Kind == kindService) && (parent.Group == nil || *parent.Group == corev1.GroupName)
+	return parent.Kind != nil && *parent.Kind == kindService &&
+		parent.Group != nil && *parent.Group == corev1.GroupName
 }
 
 func IsService(be gatewayv1.BackendObjectReference) bool {

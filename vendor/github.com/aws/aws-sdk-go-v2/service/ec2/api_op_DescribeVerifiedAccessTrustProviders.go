@@ -121,6 +121,9 @@ func (c *Client) addOperationDescribeVerifiedAccessTrustProvidersMiddlewares(sta
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVerifiedAccessTrustProviders(options.Region), middleware.Before); err != nil {
 		return err
 	}

@@ -260,4 +260,4 @@ Limitations
 .. admonition:: Video
   :class: attention
 
-  For more insights on Cilium's bandwidth manager, check out this `KubeCon talk on Better Bandwidth Management with eBPF <https://www.youtube.com/watch?v=QTSS6ktK8hY>`__.
+  For more insights on Cilium's bandwidth manager, check out this `KubeCon talk on Better Bandwidth Management with eBPF <https://www.youtube.com/watch?v=QTSS6ktK8hY>`__ and `eCHO episode 98: Exploring the bandwidth manager with Cilium <https://www.youtube.com/watch?v=-JnXe8vAUKQ>`__.
