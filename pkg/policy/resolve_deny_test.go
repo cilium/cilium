@@ -17,7 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
-func GenerateL3IngressDenyRules(numRules int) api.Rules {
+func GenerateL3IngressDenyRules(numRules int) (api.Rules, identity.IdentityMap) {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
 	barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
@@ -39,7 +39,8 @@ func GenerateL3IngressDenyRules(numRules int) api.Rules {
 		rule.Sanitize()
 		rules = append(rules, &rule)
 	}
-	return rules
+
+	return rules, generateNumIdentities(3000)
 }
 
 func TestL3WithIngressDenyWildcard(t *testing.T) {
