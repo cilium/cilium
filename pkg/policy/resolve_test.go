@@ -77,7 +77,7 @@ func generateNumIdentities(numIdentities int) identity.IdentityMap {
 	return c
 }
 
-func GenerateL3IngressRules(numRules int) api.Rules {
+func GenerateL3IngressRules(numRules int) (api.Rules, identity.IdentityMap) {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
 	barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
@@ -101,10 +101,10 @@ func GenerateL3IngressRules(numRules int) api.Rules {
 		rule.Sanitize()
 		rules = append(rules, &rule)
 	}
-	return rules
+	return rules, generateNumIdentities(3000)
 }
 
-func GenerateL3EgressRules(numRules int) api.Rules {
+func GenerateL3EgressRules(numRules int) (api.Rules, identity.IdentityMap) {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
 	barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
@@ -128,10 +128,10 @@ func GenerateL3EgressRules(numRules int) api.Rules {
 		rule.Sanitize()
 		rules = append(rules, &rule)
 	}
-	return rules
+	return rules, generateNumIdentities(3000)
 }
 
-func GenerateCIDRRules(numRules int) api.Rules {
+func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
 	//barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
@@ -166,7 +166,7 @@ func GenerateCIDRRules(numRules int) api.Rules {
 		rule.Sanitize()
 		rules = append(rules, &rule)
 	}
-	return rules
+	return rules, generateNumIdentities(3000)
 }
 
 type DummyOwner struct{}
@@ -202,7 +202,7 @@ func (d DummyOwner) PolicyDebug(fields logrus.Fields, msg string) {
 	log.WithFields(fields).Info(msg)
 }
 
-func (td *testData) bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, tb testing.TB) {
+func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.IdentityMap), numRules int, tb testing.TB) {
 	SetPolicyEnabled(option.DefaultEnforcement)
 	wg := &sync.WaitGroup{}
 	// load in standard reserved identities
@@ -214,9 +214,10 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int,
 	})
 	td.sc.UpdateIdentities(c, nil, wg)
 
-	td.sc.UpdateIdentities(generateNumIdentities(3000), nil, wg)
+	apiRules, ids := ruleGenFunc(numRules)
+	td.sc.UpdateIdentities(ids, nil, wg)
 	wg.Wait()
-	rulez, _ := td.repo.MustAddList(ruleGenFunc(numRules))
+	rulez, _ := td.repo.MustAddList(apiRules)
 
 	epSet := NewEndpointSet(map[Endpoint]struct{}{
 		&dummyEndpoint{
