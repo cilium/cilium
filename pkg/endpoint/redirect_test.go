@@ -393,6 +393,10 @@ func combineL4L7(l4 []api.PortRule, l7 *api.L7Rules) []api.PortRule {
 	return result
 }
 
+func (s *RedirectSuite) testMapState(initMap map[policy.Key]policy.MapStateEntry) policy.MapState {
+	return policy.NewMapState().WithState(initMap)
+}
+
 func TestRedirectWithDeny(t *testing.T) {
 	s := setupRedirectSuite(t)
 	ep := s.NewTestEndpoint(t)
@@ -408,7 +412,7 @@ func TestRedirectWithDeny(t *testing.T) {
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
 
-	expected := policy.NewMapState(map[policy.Key]policy.MapStateEntry{
+	expected := s.testMapState(map[policy.Key]policy.MapStateEntry{
 		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
@@ -437,7 +441,7 @@ func TestRedirectWithDeny(t *testing.T) {
 	// entries and make any conclusions from it.
 	require.Equal(t, 1, len(desiredRedirects))
 
-	expected2 := policy.NewMapState(map[policy.Key]policy.MapStateEntry{
+	expected2 := s.testMapState(map[policy.Key]policy.MapStateEntry{
 		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
@@ -571,7 +575,7 @@ func TestRedirectWithPriority(t *testing.T) {
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
 
-	expected := policy.NewMapState(map[policy.Key]policy.MapStateEntry{
+	expected := s.testMapState(map[policy.Key]policy.MapStateEntry{
 		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
@@ -598,7 +602,7 @@ func TestRedirectWithPriority(t *testing.T) {
 	require.Equal(t, crd1Port, desiredRedirects["12345:ingress:TCP:80:/cec1/listener1"])
 	require.Equal(t, 2, len(desiredRedirects))
 
-	expected2 := policy.NewMapState(map[policy.Key]policy.MapStateEntry{
+	expected2 := s.testMapState(map[policy.Key]policy.MapStateEntry{
 		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
@@ -652,7 +656,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
 
-	expected := policy.NewMapState(map[policy.Key]policy.MapStateEntry{
+	expected := s.testMapState(map[policy.Key]policy.MapStateEntry{
 		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
@@ -679,7 +683,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	require.Equal(t, crd1Port, desiredRedirects["12345:ingress:TCP:80:/cec1/listener1"])
 	require.Equal(t, 2, len(desiredRedirects))
 
-	expected2 := policy.NewMapState(map[policy.Key]policy.MapStateEntry{
+	expected2 := s.testMapState(map[policy.Key]policy.MapStateEntry{
 		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
