@@ -5,6 +5,7 @@ package policy
 
 import (
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -43,13 +44,15 @@ func newIdentity(nid identity.NumericIdentity, lbls labels.LabelArray) scIdentit
 // getLocalScopeNets returns the most specific CIDR for a local scope identity.
 func getLocalScopeNets(id identity.NumericIdentity, lbls labels.LabelArray) []*net.IPNet {
 	if id.HasLocalScope() {
-		var (
-			maskSize         int
-			mostSpecificCidr *net.IPNet
-		)
+		var mostSpecificCidr *net.IPNet
+		maskSize := -1 // allow for 0-length prefix (e.g., "0.0.0.0/0")
 		for _, lbl := range lbls {
 			if lbl.Source == labels.LabelSourceCIDR {
-				_, netIP, err := net.ParseCIDR(lbl.Key)
+				// Reverse the transformation done in labels.maskedIPToLabel()
+				// as ':' is not allowed within a k8s label, colons are represented
+				// with '-'.
+				cidr := strings.ReplaceAll(lbl.Key, "-", ":")
+				_, netIP, err := net.ParseCIDR(cidr)
 				if err == nil {
 					if ms, _ := netIP.Mask.Size(); ms > maskSize {
 						mostSpecificCidr = netIP

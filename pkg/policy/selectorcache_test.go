@@ -4,6 +4,7 @@
 package policy
 
 import (
+	"net"
 	"net/netip"
 	"sync"
 	"testing"
@@ -513,4 +514,32 @@ func testNewSelectorCache(ids identity.IdentityMap) *SelectorCache {
 	sc := NewSelectorCache(ids)
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return sc
+}
+
+func Test_getLocalScopeNets(t *testing.T) {
+	nets := getLocalScopeNets(identity.ReservedIdentityWorld, nil)
+	require.Len(t, nets, 0)
+
+	nets = getLocalScopeNets(identity.ReservedIdentityWorld, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "0.0.0.0/0"}})
+	require.Len(t, nets, 0)
+
+	nets = getLocalScopeNets(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "0.0.0.0/0"}})
+	require.Len(t, nets, 1)
+	require.Equal(t, &net.IPNet{IP: make(net.IP, 4), Mask: make(net.IPMask, 4)}, nets[0])
+
+	nets = getLocalScopeNets(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "::/0"}})
+	require.Len(t, nets, 1)
+	require.Equal(t, &net.IPNet{IP: make(net.IP, 16), Mask: make(net.IPMask, 16)}, nets[0])
+
+	nets = getLocalScopeNets(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "--/0"}})
+	require.Len(t, nets, 1)
+	require.Equal(t, &net.IPNet{IP: make(net.IP, 16), Mask: make(net.IPMask, 16)}, nets[0])
+
+	nets = getLocalScopeNets(identity.IdentityScopeLocal, labels.LabelArray{
+		labels.Label{Source: labels.LabelSourceCIDR, Key: "ff--/8"},
+		labels.Label{Source: labels.LabelSourceCIDR, Key: "--/0"},
+		labels.Label{Source: labels.LabelSourceCIDR, Key: "--1/128"},
+	})
+	require.Len(t, nets, 1)
+	require.Equal(t, &net.IPNet{IP: net.IPv6loopback, Mask: net.CIDRMask(128, 128)}, nets[0])
 }
