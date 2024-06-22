@@ -282,6 +282,9 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, extra SetupHoo
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if err := ct.detectSingleNode(ctx); err != nil {
+		return err
+	}
 	if err := ct.initClients(ctx); err != nil {
 		return err
 	}
@@ -863,58 +866,20 @@ func (ct *ConnectivityTest) detectSingleNode(ctx context.Context) error {
 	return nil
 }
 
-// initClients checks if Cilium is installed on the cluster, whether the cluster
-// has multiple nodes, and whether or not monitor aggregation is enabled.
-// TODO(timo): Split this up, it does a lot.
+// initClients assigns the k8s clients used for connectivity tests.
+// in the event that this is a multi-cluster test scenario the destination k8s
+// client is set to the cluster provided in the MultiCluster parameter.
 func (ct *ConnectivityTest) initClients(ctx context.Context) error {
 	c := &deploymentClients{
 		src: ct.client,
 		dst: ct.client,
 	}
 
-	if ct.params.MultiCluster != "" && ct.params.SingleNode {
-		return fmt.Errorf("single-node test can not be enabled with multi-cluster test")
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 
-	// In single-cluster environment, automatically detect a single-node
-	// environment so we can skip deploying tests which depend on multiple
-	// nodes.
-	if ct.params.MultiCluster == "" && !ct.params.SingleNode {
-		daemonSet, err := ct.client.GetDaemonSet(ctx, ct.params.CiliumNamespace, ct.params.AgentDaemonSetName, metav1.GetOptions{})
-		if err != nil {
-			ct.Fatal("Unable to determine status of Cilium DaemonSet. Run \"cilium status\" for more details")
-			return fmt.Errorf("unable to determine status of Cilium DaemonSet: %w", err)
-		}
-
-		isSingleNode := false
-		if daemonSet.Status.DesiredNumberScheduled == 1 {
-			isSingleNode = true
-		} else {
-			nodes, err := ct.client.ListNodes(ctx, metav1.ListOptions{})
-			if err != nil {
-				ct.Fatal("Unable to list nodes.")
-				return fmt.Errorf("unable to list nodes: %w", err)
-			}
-
-			numWorkerNodes := len(nodes.Items)
-			for _, n := range nodes.Items {
-				for _, t := range n.Spec.Taints {
-					// cannot schedule connectivity test pods on
-					// master node.
-					if t.Key == "node-role.kubernetes.io/master" {
-						numWorkerNodes--
-					}
-				}
-			}
-
-			isSingleNode = numWorkerNodes == 1
-		}
-
-		if isSingleNode {
-			ct.Info("Single-node environment detected, enabling single-node connectivity test")
-			ct.params.SingleNode = true
-		}
-	} else if ct.params.MultiCluster != "" {
+	if ct.params.MultiCluster != "" {
 		multiClusterClientLock.Lock()
 		defer multiClusterClientLock.Unlock()
 		dst, err := k8s.NewClient(ct.params.MultiCluster, "", ct.params.CiliumNamespace)
@@ -923,7 +888,6 @@ func (ct *ConnectivityTest) initClients(ctx context.Context) error {
 		}
 
 		c.dst = dst
-
 	}
 
 	ct.clients = c
