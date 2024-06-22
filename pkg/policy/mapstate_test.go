@@ -3693,3 +3693,21 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		require.EqualValuesf(t, expectedKeys, outcomeKeys, "different traffic directions %s", tt.name)
 	}
 }
+
+func TestMapState_Get_stacktrace(t *testing.T) {
+	ms := newMapState(nil)
+	// This should produce a stacktrace in the error log. It is not validated here but can be
+	// observed manually.
+	// Example log (with newlines expanded):
+	// time="2024-06-22T23:21:27+03:00" level=error msg="mapState.Get: invalid wildcard port with non-zero mask: Identity=0,DestPort=0,Nexthdr=0,TrafficDirection=0. Stacktrace:
+	// github.com/hashicorp/go-hclog.Stacktrace
+	// 	github.com/cilium/cilium/vendor/github.com/hashicorp/go-hclog/stacktrace.go:51
+	// github.com/cilium/cilium/pkg/policy.(*mapState).Get
+	// 	github.com/cilium/cilium/pkg/policy/mapstate.go:355
+	// github.com/cilium/cilium/pkg/policy.TestMapState_Get_stacktrace
+	// 	github.com/cilium/cilium/pkg/policy/mapstate_test.go:3699
+	// testing.tRunner
+	// go/src/testing/testing.go:1689" subsys=policy
+	_, ok := ms.Get(Key{})
+	assert.False(t, ok)
+}
