@@ -125,6 +125,9 @@ func (c *Client) addOperationDescribeIpamScopesMiddlewares(stack *middleware.Sta
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeIpamScopes(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -145,14 +148,6 @@ func (c *Client) addOperationDescribeIpamScopesMiddlewares(stack *middleware.Sta
 	}
 	return nil
 }
-
-// DescribeIpamScopesAPIClient is a client that implements the DescribeIpamScopes
-// operation.
-type DescribeIpamScopesAPIClient interface {
-	DescribeIpamScopes(context.Context, *DescribeIpamScopesInput, ...func(*Options)) (*DescribeIpamScopesOutput, error)
-}
-
-var _ DescribeIpamScopesAPIClient = (*Client)(nil)
 
 // DescribeIpamScopesPaginatorOptions is the paginator options for
 // DescribeIpamScopes
@@ -218,6 +213,9 @@ func (p *DescribeIpamScopesPaginator) NextPage(ctx context.Context, optFns ...fu
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeIpamScopes(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -236,6 +234,14 @@ func (p *DescribeIpamScopesPaginator) NextPage(ctx context.Context, optFns ...fu
 
 	return result, nil
 }
+
+// DescribeIpamScopesAPIClient is a client that implements the DescribeIpamScopes
+// operation.
+type DescribeIpamScopesAPIClient interface {
+	DescribeIpamScopes(context.Context, *DescribeIpamScopesInput, ...func(*Options)) (*DescribeIpamScopesOutput, error)
+}
+
+var _ DescribeIpamScopesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeIpamScopes(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

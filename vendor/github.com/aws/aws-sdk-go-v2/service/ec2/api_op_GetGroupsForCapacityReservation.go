@@ -129,6 +129,9 @@ func (c *Client) addOperationGetGroupsForCapacityReservationMiddlewares(stack *m
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetGroupsForCapacityReservationValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -152,14 +155,6 @@ func (c *Client) addOperationGetGroupsForCapacityReservationMiddlewares(stack *m
 	}
 	return nil
 }
-
-// GetGroupsForCapacityReservationAPIClient is a client that implements the
-// GetGroupsForCapacityReservation operation.
-type GetGroupsForCapacityReservationAPIClient interface {
-	GetGroupsForCapacityReservation(context.Context, *GetGroupsForCapacityReservationInput, ...func(*Options)) (*GetGroupsForCapacityReservationOutput, error)
-}
-
-var _ GetGroupsForCapacityReservationAPIClient = (*Client)(nil)
 
 // GetGroupsForCapacityReservationPaginatorOptions is the paginator options for
 // GetGroupsForCapacityReservation
@@ -231,6 +226,9 @@ func (p *GetGroupsForCapacityReservationPaginator) NextPage(ctx context.Context,
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.GetGroupsForCapacityReservation(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -249,6 +247,14 @@ func (p *GetGroupsForCapacityReservationPaginator) NextPage(ctx context.Context,
 
 	return result, nil
 }
+
+// GetGroupsForCapacityReservationAPIClient is a client that implements the
+// GetGroupsForCapacityReservation operation.
+type GetGroupsForCapacityReservationAPIClient interface {
+	GetGroupsForCapacityReservation(context.Context, *GetGroupsForCapacityReservationInput, ...func(*Options)) (*GetGroupsForCapacityReservationOutput, error)
+}
+
+var _ GetGroupsForCapacityReservationAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opGetGroupsForCapacityReservation(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

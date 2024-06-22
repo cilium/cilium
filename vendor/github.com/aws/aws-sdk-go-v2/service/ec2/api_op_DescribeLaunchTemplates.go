@@ -140,6 +140,9 @@ func (c *Client) addOperationDescribeLaunchTemplatesMiddlewares(stack *middlewar
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeLaunchTemplates(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -160,14 +163,6 @@ func (c *Client) addOperationDescribeLaunchTemplatesMiddlewares(stack *middlewar
 	}
 	return nil
 }
-
-// DescribeLaunchTemplatesAPIClient is a client that implements the
-// DescribeLaunchTemplates operation.
-type DescribeLaunchTemplatesAPIClient interface {
-	DescribeLaunchTemplates(context.Context, *DescribeLaunchTemplatesInput, ...func(*Options)) (*DescribeLaunchTemplatesOutput, error)
-}
-
-var _ DescribeLaunchTemplatesAPIClient = (*Client)(nil)
 
 // DescribeLaunchTemplatesPaginatorOptions is the paginator options for
 // DescribeLaunchTemplates
@@ -236,6 +231,9 @@ func (p *DescribeLaunchTemplatesPaginator) NextPage(ctx context.Context, optFns 
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeLaunchTemplates(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -254,6 +252,14 @@ func (p *DescribeLaunchTemplatesPaginator) NextPage(ctx context.Context, optFns 
 
 	return result, nil
 }
+
+// DescribeLaunchTemplatesAPIClient is a client that implements the
+// DescribeLaunchTemplates operation.
+type DescribeLaunchTemplatesAPIClient interface {
+	DescribeLaunchTemplates(context.Context, *DescribeLaunchTemplatesInput, ...func(*Options)) (*DescribeLaunchTemplatesOutput, error)
+}
+
+var _ DescribeLaunchTemplatesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeLaunchTemplates(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

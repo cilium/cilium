@@ -151,6 +151,9 @@ func (c *Client) addOperationDescribeTagsMiddlewares(stack *middleware.Stack, op
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeTags(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -171,13 +174,6 @@ func (c *Client) addOperationDescribeTagsMiddlewares(stack *middleware.Stack, op
 	}
 	return nil
 }
-
-// DescribeTagsAPIClient is a client that implements the DescribeTags operation.
-type DescribeTagsAPIClient interface {
-	DescribeTags(context.Context, *DescribeTagsInput, ...func(*Options)) (*DescribeTagsOutput, error)
-}
-
-var _ DescribeTagsAPIClient = (*Client)(nil)
 
 // DescribeTagsPaginatorOptions is the paginator options for DescribeTags
 type DescribeTagsPaginatorOptions struct {
@@ -246,6 +242,9 @@ func (p *DescribeTagsPaginator) NextPage(ctx context.Context, optFns ...func(*Op
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeTags(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -264,6 +263,13 @@ func (p *DescribeTagsPaginator) NextPage(ctx context.Context, optFns ...func(*Op
 
 	return result, nil
 }
+
+// DescribeTagsAPIClient is a client that implements the DescribeTags operation.
+type DescribeTagsAPIClient interface {
+	DescribeTags(context.Context, *DescribeTagsInput, ...func(*Options)) (*DescribeTagsOutput, error)
+}
+
+var _ DescribeTagsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeTags(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

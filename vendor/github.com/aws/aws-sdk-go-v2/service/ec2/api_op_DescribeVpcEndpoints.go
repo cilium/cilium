@@ -151,6 +151,9 @@ func (c *Client) addOperationDescribeVpcEndpointsMiddlewares(stack *middleware.S
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVpcEndpoints(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -171,14 +174,6 @@ func (c *Client) addOperationDescribeVpcEndpointsMiddlewares(stack *middleware.S
 	}
 	return nil
 }
-
-// DescribeVpcEndpointsAPIClient is a client that implements the
-// DescribeVpcEndpoints operation.
-type DescribeVpcEndpointsAPIClient interface {
-	DescribeVpcEndpoints(context.Context, *DescribeVpcEndpointsInput, ...func(*Options)) (*DescribeVpcEndpointsOutput, error)
-}
-
-var _ DescribeVpcEndpointsAPIClient = (*Client)(nil)
 
 // DescribeVpcEndpointsPaginatorOptions is the paginator options for
 // DescribeVpcEndpoints
@@ -247,6 +242,9 @@ func (p *DescribeVpcEndpointsPaginator) NextPage(ctx context.Context, optFns ...
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeVpcEndpoints(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -265,6 +263,14 @@ func (p *DescribeVpcEndpointsPaginator) NextPage(ctx context.Context, optFns ...
 
 	return result, nil
 }
+
+// DescribeVpcEndpointsAPIClient is a client that implements the
+// DescribeVpcEndpoints operation.
+type DescribeVpcEndpointsAPIClient interface {
+	DescribeVpcEndpoints(context.Context, *DescribeVpcEndpointsInput, ...func(*Options)) (*DescribeVpcEndpointsOutput, error)
+}
+
+var _ DescribeVpcEndpointsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeVpcEndpoints(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

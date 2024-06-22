@@ -130,6 +130,9 @@ func (c *Client) addOperationGetAwsNetworkPerformanceDataMiddlewares(stack *midd
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetAwsNetworkPerformanceData(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -150,14 +153,6 @@ func (c *Client) addOperationGetAwsNetworkPerformanceDataMiddlewares(stack *midd
 	}
 	return nil
 }
-
-// GetAwsNetworkPerformanceDataAPIClient is a client that implements the
-// GetAwsNetworkPerformanceData operation.
-type GetAwsNetworkPerformanceDataAPIClient interface {
-	GetAwsNetworkPerformanceData(context.Context, *GetAwsNetworkPerformanceDataInput, ...func(*Options)) (*GetAwsNetworkPerformanceDataOutput, error)
-}
-
-var _ GetAwsNetworkPerformanceDataAPIClient = (*Client)(nil)
 
 // GetAwsNetworkPerformanceDataPaginatorOptions is the paginator options for
 // GetAwsNetworkPerformanceData
@@ -226,6 +221,9 @@ func (p *GetAwsNetworkPerformanceDataPaginator) NextPage(ctx context.Context, op
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.GetAwsNetworkPerformanceData(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -244,6 +242,14 @@ func (p *GetAwsNetworkPerformanceDataPaginator) NextPage(ctx context.Context, op
 
 	return result, nil
 }
+
+// GetAwsNetworkPerformanceDataAPIClient is a client that implements the
+// GetAwsNetworkPerformanceData operation.
+type GetAwsNetworkPerformanceDataAPIClient interface {
+	GetAwsNetworkPerformanceData(context.Context, *GetAwsNetworkPerformanceDataInput, ...func(*Options)) (*GetAwsNetworkPerformanceDataOutput, error)
+}
+
+var _ GetAwsNetworkPerformanceDataAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opGetAwsNetworkPerformanceData(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

@@ -135,6 +135,9 @@ func (c *Client) addOperationGetIpamDiscoveredAccountsMiddlewares(stack *middlew
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetIpamDiscoveredAccountsValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -158,14 +161,6 @@ func (c *Client) addOperationGetIpamDiscoveredAccountsMiddlewares(stack *middlew
 	}
 	return nil
 }
-
-// GetIpamDiscoveredAccountsAPIClient is a client that implements the
-// GetIpamDiscoveredAccounts operation.
-type GetIpamDiscoveredAccountsAPIClient interface {
-	GetIpamDiscoveredAccounts(context.Context, *GetIpamDiscoveredAccountsInput, ...func(*Options)) (*GetIpamDiscoveredAccountsOutput, error)
-}
-
-var _ GetIpamDiscoveredAccountsAPIClient = (*Client)(nil)
 
 // GetIpamDiscoveredAccountsPaginatorOptions is the paginator options for
 // GetIpamDiscoveredAccounts
@@ -232,6 +227,9 @@ func (p *GetIpamDiscoveredAccountsPaginator) NextPage(ctx context.Context, optFn
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.GetIpamDiscoveredAccounts(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -250,6 +248,14 @@ func (p *GetIpamDiscoveredAccountsPaginator) NextPage(ctx context.Context, optFn
 
 	return result, nil
 }
+
+// GetIpamDiscoveredAccountsAPIClient is a client that implements the
+// GetIpamDiscoveredAccounts operation.
+type GetIpamDiscoveredAccountsAPIClient interface {
+	GetIpamDiscoveredAccounts(context.Context, *GetIpamDiscoveredAccountsInput, ...func(*Options)) (*GetIpamDiscoveredAccountsOutput, error)
+}
+
+var _ GetIpamDiscoveredAccountsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opGetIpamDiscoveredAccounts(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

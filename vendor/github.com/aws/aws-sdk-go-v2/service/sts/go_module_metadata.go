@@ -3,4 +3,4 @@
 package sts
 
 // goModuleVersion is the tagged release for this module
-const goModuleVersion = "1.28.12"
+const goModuleVersion = "1.29.1"

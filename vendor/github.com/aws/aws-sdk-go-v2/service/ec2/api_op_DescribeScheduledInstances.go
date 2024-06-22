@@ -136,6 +136,9 @@ func (c *Client) addOperationDescribeScheduledInstancesMiddlewares(stack *middle
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeScheduledInstances(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -156,14 +159,6 @@ func (c *Client) addOperationDescribeScheduledInstancesMiddlewares(stack *middle
 	}
 	return nil
 }
-
-// DescribeScheduledInstancesAPIClient is a client that implements the
-// DescribeScheduledInstances operation.
-type DescribeScheduledInstancesAPIClient interface {
-	DescribeScheduledInstances(context.Context, *DescribeScheduledInstancesInput, ...func(*Options)) (*DescribeScheduledInstancesOutput, error)
-}
-
-var _ DescribeScheduledInstancesAPIClient = (*Client)(nil)
 
 // DescribeScheduledInstancesPaginatorOptions is the paginator options for
 // DescribeScheduledInstances
@@ -233,6 +228,9 @@ func (p *DescribeScheduledInstancesPaginator) NextPage(ctx context.Context, optF
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeScheduledInstances(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -251,6 +249,14 @@ func (p *DescribeScheduledInstancesPaginator) NextPage(ctx context.Context, optF
 
 	return result, nil
 }
+
+// DescribeScheduledInstancesAPIClient is a client that implements the
+// DescribeScheduledInstances operation.
+type DescribeScheduledInstancesAPIClient interface {
+	DescribeScheduledInstances(context.Context, *DescribeScheduledInstancesInput, ...func(*Options)) (*DescribeScheduledInstancesOutput, error)
+}
+
+var _ DescribeScheduledInstancesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeScheduledInstances(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

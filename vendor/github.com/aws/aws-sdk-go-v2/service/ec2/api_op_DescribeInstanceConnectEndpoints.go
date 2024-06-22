@@ -152,6 +152,9 @@ func (c *Client) addOperationDescribeInstanceConnectEndpointsMiddlewares(stack *
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeInstanceConnectEndpoints(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -172,14 +175,6 @@ func (c *Client) addOperationDescribeInstanceConnectEndpointsMiddlewares(stack *
 	}
 	return nil
 }
-
-// DescribeInstanceConnectEndpointsAPIClient is a client that implements the
-// DescribeInstanceConnectEndpoints operation.
-type DescribeInstanceConnectEndpointsAPIClient interface {
-	DescribeInstanceConnectEndpoints(context.Context, *DescribeInstanceConnectEndpointsInput, ...func(*Options)) (*DescribeInstanceConnectEndpointsOutput, error)
-}
-
-var _ DescribeInstanceConnectEndpointsAPIClient = (*Client)(nil)
 
 // DescribeInstanceConnectEndpointsPaginatorOptions is the paginator options for
 // DescribeInstanceConnectEndpoints
@@ -251,6 +246,9 @@ func (p *DescribeInstanceConnectEndpointsPaginator) NextPage(ctx context.Context
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeInstanceConnectEndpoints(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -269,6 +267,14 @@ func (p *DescribeInstanceConnectEndpointsPaginator) NextPage(ctx context.Context
 
 	return result, nil
 }
+
+// DescribeInstanceConnectEndpointsAPIClient is a client that implements the
+// DescribeInstanceConnectEndpoints operation.
+type DescribeInstanceConnectEndpointsAPIClient interface {
+	DescribeInstanceConnectEndpoints(context.Context, *DescribeInstanceConnectEndpointsInput, ...func(*Options)) (*DescribeInstanceConnectEndpointsOutput, error)
+}
+
+var _ DescribeInstanceConnectEndpointsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeInstanceConnectEndpoints(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

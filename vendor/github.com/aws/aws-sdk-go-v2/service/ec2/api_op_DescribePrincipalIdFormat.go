@@ -143,6 +143,9 @@ func (c *Client) addOperationDescribePrincipalIdFormatMiddlewares(stack *middlew
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribePrincipalIdFormat(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -163,14 +166,6 @@ func (c *Client) addOperationDescribePrincipalIdFormatMiddlewares(stack *middlew
 	}
 	return nil
 }
-
-// DescribePrincipalIdFormatAPIClient is a client that implements the
-// DescribePrincipalIdFormat operation.
-type DescribePrincipalIdFormatAPIClient interface {
-	DescribePrincipalIdFormat(context.Context, *DescribePrincipalIdFormatInput, ...func(*Options)) (*DescribePrincipalIdFormatOutput, error)
-}
-
-var _ DescribePrincipalIdFormatAPIClient = (*Client)(nil)
 
 // DescribePrincipalIdFormatPaginatorOptions is the paginator options for
 // DescribePrincipalIdFormat
@@ -238,6 +233,9 @@ func (p *DescribePrincipalIdFormatPaginator) NextPage(ctx context.Context, optFn
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribePrincipalIdFormat(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -256,6 +254,14 @@ func (p *DescribePrincipalIdFormatPaginator) NextPage(ctx context.Context, optFn
 
 	return result, nil
 }
+
+// DescribePrincipalIdFormatAPIClient is a client that implements the
+// DescribePrincipalIdFormat operation.
+type DescribePrincipalIdFormatAPIClient interface {
+	DescribePrincipalIdFormat(context.Context, *DescribePrincipalIdFormatInput, ...func(*Options)) (*DescribePrincipalIdFormatOutput, error)
+}
+
+var _ DescribePrincipalIdFormatAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribePrincipalIdFormat(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

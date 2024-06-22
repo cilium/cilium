@@ -125,6 +125,9 @@ func (c *Client) addOperationDescribeIpamPoolsMiddlewares(stack *middleware.Stac
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeIpamPools(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -145,14 +148,6 @@ func (c *Client) addOperationDescribeIpamPoolsMiddlewares(stack *middleware.Stac
 	}
 	return nil
 }
-
-// DescribeIpamPoolsAPIClient is a client that implements the DescribeIpamPools
-// operation.
-type DescribeIpamPoolsAPIClient interface {
-	DescribeIpamPools(context.Context, *DescribeIpamPoolsInput, ...func(*Options)) (*DescribeIpamPoolsOutput, error)
-}
-
-var _ DescribeIpamPoolsAPIClient = (*Client)(nil)
 
 // DescribeIpamPoolsPaginatorOptions is the paginator options for DescribeIpamPools
 type DescribeIpamPoolsPaginatorOptions struct {
@@ -217,6 +212,9 @@ func (p *DescribeIpamPoolsPaginator) NextPage(ctx context.Context, optFns ...fun
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeIpamPools(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -235,6 +233,14 @@ func (p *DescribeIpamPoolsPaginator) NextPage(ctx context.Context, optFns ...fun
 
 	return result, nil
 }
+
+// DescribeIpamPoolsAPIClient is a client that implements the DescribeIpamPools
+// operation.
+type DescribeIpamPoolsAPIClient interface {
+	DescribeIpamPools(context.Context, *DescribeIpamPoolsInput, ...func(*Options)) (*DescribeIpamPoolsOutput, error)
+}
+
+var _ DescribeIpamPoolsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeIpamPools(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

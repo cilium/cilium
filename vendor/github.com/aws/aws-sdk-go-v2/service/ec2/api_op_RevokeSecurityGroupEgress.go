@@ -164,6 +164,9 @@ func (c *Client) addOperationRevokeSecurityGroupEgressMiddlewares(stack *middlew
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpRevokeSecurityGroupEgressValidationMiddleware(stack); err != nil {
 		return err
 	}

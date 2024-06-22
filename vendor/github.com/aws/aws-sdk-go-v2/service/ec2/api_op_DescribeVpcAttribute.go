@@ -131,6 +131,9 @@ func (c *Client) addOperationDescribeVpcAttributeMiddlewares(stack *middleware.S
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDescribeVpcAttributeValidationMiddleware(stack); err != nil {
 		return err
 	}

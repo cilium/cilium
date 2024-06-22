@@ -123,6 +123,9 @@ func (c *Client) addOperationDescribeByoipCidrsMiddlewares(stack *middleware.Sta
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDescribeByoipCidrsValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -146,14 +149,6 @@ func (c *Client) addOperationDescribeByoipCidrsMiddlewares(stack *middleware.Sta
 	}
 	return nil
 }
-
-// DescribeByoipCidrsAPIClient is a client that implements the DescribeByoipCidrs
-// operation.
-type DescribeByoipCidrsAPIClient interface {
-	DescribeByoipCidrs(context.Context, *DescribeByoipCidrsInput, ...func(*Options)) (*DescribeByoipCidrsOutput, error)
-}
-
-var _ DescribeByoipCidrsAPIClient = (*Client)(nil)
 
 // DescribeByoipCidrsPaginatorOptions is the paginator options for
 // DescribeByoipCidrs
@@ -220,6 +215,9 @@ func (p *DescribeByoipCidrsPaginator) NextPage(ctx context.Context, optFns ...fu
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeByoipCidrs(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -238,6 +236,14 @@ func (p *DescribeByoipCidrsPaginator) NextPage(ctx context.Context, optFns ...fu
 
 	return result, nil
 }
+
+// DescribeByoipCidrsAPIClient is a client that implements the DescribeByoipCidrs
+// operation.
+type DescribeByoipCidrsAPIClient interface {
+	DescribeByoipCidrs(context.Context, *DescribeByoipCidrsInput, ...func(*Options)) (*DescribeByoipCidrsOutput, error)
+}
+
+var _ DescribeByoipCidrsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeByoipCidrs(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

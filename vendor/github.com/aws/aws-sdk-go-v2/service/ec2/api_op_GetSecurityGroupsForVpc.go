@@ -142,6 +142,9 @@ func (c *Client) addOperationGetSecurityGroupsForVpcMiddlewares(stack *middlewar
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetSecurityGroupsForVpcValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -165,14 +168,6 @@ func (c *Client) addOperationGetSecurityGroupsForVpcMiddlewares(stack *middlewar
 	}
 	return nil
 }
-
-// GetSecurityGroupsForVpcAPIClient is a client that implements the
-// GetSecurityGroupsForVpc operation.
-type GetSecurityGroupsForVpcAPIClient interface {
-	GetSecurityGroupsForVpc(context.Context, *GetSecurityGroupsForVpcInput, ...func(*Options)) (*GetSecurityGroupsForVpcOutput, error)
-}
-
-var _ GetSecurityGroupsForVpcAPIClient = (*Client)(nil)
 
 // GetSecurityGroupsForVpcPaginatorOptions is the paginator options for
 // GetSecurityGroupsForVpc
@@ -243,6 +238,9 @@ func (p *GetSecurityGroupsForVpcPaginator) NextPage(ctx context.Context, optFns 
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.GetSecurityGroupsForVpc(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -261,6 +259,14 @@ func (p *GetSecurityGroupsForVpcPaginator) NextPage(ctx context.Context, optFns 
 
 	return result, nil
 }
+
+// GetSecurityGroupsForVpcAPIClient is a client that implements the
+// GetSecurityGroupsForVpc operation.
+type GetSecurityGroupsForVpcAPIClient interface {
+	GetSecurityGroupsForVpc(context.Context, *GetSecurityGroupsForVpcInput, ...func(*Options)) (*GetSecurityGroupsForVpcOutput, error)
+}
+
+var _ GetSecurityGroupsForVpcAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opGetSecurityGroupsForVpc(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

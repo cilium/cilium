@@ -141,6 +141,9 @@ func (c *Client) addOperationDescribeLocalGatewayRouteTableVpcAssociationsMiddle
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeLocalGatewayRouteTableVpcAssociations(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -161,14 +164,6 @@ func (c *Client) addOperationDescribeLocalGatewayRouteTableVpcAssociationsMiddle
 	}
 	return nil
 }
-
-// DescribeLocalGatewayRouteTableVpcAssociationsAPIClient is a client that
-// implements the DescribeLocalGatewayRouteTableVpcAssociations operation.
-type DescribeLocalGatewayRouteTableVpcAssociationsAPIClient interface {
-	DescribeLocalGatewayRouteTableVpcAssociations(context.Context, *DescribeLocalGatewayRouteTableVpcAssociationsInput, ...func(*Options)) (*DescribeLocalGatewayRouteTableVpcAssociationsOutput, error)
-}
-
-var _ DescribeLocalGatewayRouteTableVpcAssociationsAPIClient = (*Client)(nil)
 
 // DescribeLocalGatewayRouteTableVpcAssociationsPaginatorOptions is the paginator
 // options for DescribeLocalGatewayRouteTableVpcAssociations
@@ -237,6 +232,9 @@ func (p *DescribeLocalGatewayRouteTableVpcAssociationsPaginator) NextPage(ctx co
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeLocalGatewayRouteTableVpcAssociations(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -255,6 +253,14 @@ func (p *DescribeLocalGatewayRouteTableVpcAssociationsPaginator) NextPage(ctx co
 
 	return result, nil
 }
+
+// DescribeLocalGatewayRouteTableVpcAssociationsAPIClient is a client that
+// implements the DescribeLocalGatewayRouteTableVpcAssociations operation.
+type DescribeLocalGatewayRouteTableVpcAssociationsAPIClient interface {
+	DescribeLocalGatewayRouteTableVpcAssociations(context.Context, *DescribeLocalGatewayRouteTableVpcAssociationsInput, ...func(*Options)) (*DescribeLocalGatewayRouteTableVpcAssociationsOutput, error)
+}
+
+var _ DescribeLocalGatewayRouteTableVpcAssociationsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeLocalGatewayRouteTableVpcAssociations(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

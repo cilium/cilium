@@ -223,6 +223,9 @@ func (c *Client) addOperationDescribeReservedInstancesOfferingsMiddlewares(stack
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeReservedInstancesOfferings(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -243,14 +246,6 @@ func (c *Client) addOperationDescribeReservedInstancesOfferingsMiddlewares(stack
 	}
 	return nil
 }
-
-// DescribeReservedInstancesOfferingsAPIClient is a client that implements the
-// DescribeReservedInstancesOfferings operation.
-type DescribeReservedInstancesOfferingsAPIClient interface {
-	DescribeReservedInstancesOfferings(context.Context, *DescribeReservedInstancesOfferingsInput, ...func(*Options)) (*DescribeReservedInstancesOfferingsOutput, error)
-}
-
-var _ DescribeReservedInstancesOfferingsAPIClient = (*Client)(nil)
 
 // DescribeReservedInstancesOfferingsPaginatorOptions is the paginator options for
 // DescribeReservedInstancesOfferings
@@ -322,6 +317,9 @@ func (p *DescribeReservedInstancesOfferingsPaginator) NextPage(ctx context.Conte
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeReservedInstancesOfferings(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -340,6 +338,14 @@ func (p *DescribeReservedInstancesOfferingsPaginator) NextPage(ctx context.Conte
 
 	return result, nil
 }
+
+// DescribeReservedInstancesOfferingsAPIClient is a client that implements the
+// DescribeReservedInstancesOfferings operation.
+type DescribeReservedInstancesOfferingsAPIClient interface {
+	DescribeReservedInstancesOfferings(context.Context, *DescribeReservedInstancesOfferingsInput, ...func(*Options)) (*DescribeReservedInstancesOfferingsOutput, error)
+}
+
+var _ DescribeReservedInstancesOfferingsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeReservedInstancesOfferings(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

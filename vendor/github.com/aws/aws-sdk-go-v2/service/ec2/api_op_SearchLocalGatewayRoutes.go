@@ -145,6 +145,9 @@ func (c *Client) addOperationSearchLocalGatewayRoutesMiddlewares(stack *middlewa
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpSearchLocalGatewayRoutesValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -168,14 +171,6 @@ func (c *Client) addOperationSearchLocalGatewayRoutesMiddlewares(stack *middlewa
 	}
 	return nil
 }
-
-// SearchLocalGatewayRoutesAPIClient is a client that implements the
-// SearchLocalGatewayRoutes operation.
-type SearchLocalGatewayRoutesAPIClient interface {
-	SearchLocalGatewayRoutes(context.Context, *SearchLocalGatewayRoutesInput, ...func(*Options)) (*SearchLocalGatewayRoutesOutput, error)
-}
-
-var _ SearchLocalGatewayRoutesAPIClient = (*Client)(nil)
 
 // SearchLocalGatewayRoutesPaginatorOptions is the paginator options for
 // SearchLocalGatewayRoutes
@@ -243,6 +238,9 @@ func (p *SearchLocalGatewayRoutesPaginator) NextPage(ctx context.Context, optFns
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.SearchLocalGatewayRoutes(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -261,6 +259,14 @@ func (p *SearchLocalGatewayRoutesPaginator) NextPage(ctx context.Context, optFns
 
 	return result, nil
 }
+
+// SearchLocalGatewayRoutesAPIClient is a client that implements the
+// SearchLocalGatewayRoutes operation.
+type SearchLocalGatewayRoutesAPIClient interface {
+	SearchLocalGatewayRoutes(context.Context, *SearchLocalGatewayRoutesInput, ...func(*Options)) (*SearchLocalGatewayRoutesOutput, error)
+}
+
+var _ SearchLocalGatewayRoutesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opSearchLocalGatewayRoutes(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

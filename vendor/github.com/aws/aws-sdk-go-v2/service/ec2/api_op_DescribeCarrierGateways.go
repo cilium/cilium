@@ -142,6 +142,9 @@ func (c *Client) addOperationDescribeCarrierGatewaysMiddlewares(stack *middlewar
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeCarrierGateways(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -162,14 +165,6 @@ func (c *Client) addOperationDescribeCarrierGatewaysMiddlewares(stack *middlewar
 	}
 	return nil
 }
-
-// DescribeCarrierGatewaysAPIClient is a client that implements the
-// DescribeCarrierGateways operation.
-type DescribeCarrierGatewaysAPIClient interface {
-	DescribeCarrierGateways(context.Context, *DescribeCarrierGatewaysInput, ...func(*Options)) (*DescribeCarrierGatewaysOutput, error)
-}
-
-var _ DescribeCarrierGatewaysAPIClient = (*Client)(nil)
 
 // DescribeCarrierGatewaysPaginatorOptions is the paginator options for
 // DescribeCarrierGateways
@@ -237,6 +232,9 @@ func (p *DescribeCarrierGatewaysPaginator) NextPage(ctx context.Context, optFns 
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeCarrierGateways(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -255,6 +253,14 @@ func (p *DescribeCarrierGatewaysPaginator) NextPage(ctx context.Context, optFns 
 
 	return result, nil
 }
+
+// DescribeCarrierGatewaysAPIClient is a client that implements the
+// DescribeCarrierGateways operation.
+type DescribeCarrierGatewaysAPIClient interface {
+	DescribeCarrierGateways(context.Context, *DescribeCarrierGatewaysInput, ...func(*Options)) (*DescribeCarrierGatewaysOutput, error)
+}
+
+var _ DescribeCarrierGatewaysAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeCarrierGateways(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

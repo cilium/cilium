@@ -151,6 +151,9 @@ func (c *Client) addOperationDescribeTransitGatewayAttachmentsMiddlewares(stack 
 	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeTransitGatewayAttachments(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -171,14 +174,6 @@ func (c *Client) addOperationDescribeTransitGatewayAttachmentsMiddlewares(stack 
 	}
 	return nil
 }
-
-// DescribeTransitGatewayAttachmentsAPIClient is a client that implements the
-// DescribeTransitGatewayAttachments operation.
-type DescribeTransitGatewayAttachmentsAPIClient interface {
-	DescribeTransitGatewayAttachments(context.Context, *DescribeTransitGatewayAttachmentsInput, ...func(*Options)) (*DescribeTransitGatewayAttachmentsOutput, error)
-}
-
-var _ DescribeTransitGatewayAttachmentsAPIClient = (*Client)(nil)
 
 // DescribeTransitGatewayAttachmentsPaginatorOptions is the paginator options for
 // DescribeTransitGatewayAttachments
@@ -247,6 +242,9 @@ func (p *DescribeTransitGatewayAttachmentsPaginator) NextPage(ctx context.Contex
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeTransitGatewayAttachments(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -265,6 +263,14 @@ func (p *DescribeTransitGatewayAttachmentsPaginator) NextPage(ctx context.Contex
 
 	return result, nil
 }
+
+// DescribeTransitGatewayAttachmentsAPIClient is a client that implements the
+// DescribeTransitGatewayAttachments operation.
+type DescribeTransitGatewayAttachmentsAPIClient interface {
+	DescribeTransitGatewayAttachments(context.Context, *DescribeTransitGatewayAttachmentsInput, ...func(*Options)) (*DescribeTransitGatewayAttachmentsOutput, error)
+}
+
+var _ DescribeTransitGatewayAttachmentsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeTransitGatewayAttachments(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
