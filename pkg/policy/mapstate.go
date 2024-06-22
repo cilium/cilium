@@ -97,6 +97,9 @@ type MapState interface {
 	determineAllowLocalhostIngress()
 	denyPreferredInsertWithChanges(newKey Key, newEntry MapStateEntry, identities Identities, features policyFeatures, changes ChangeState)
 	deleteKeyWithChanges(key Key, owner MapStateOwner, changes ChangeState)
+
+	// for testing only
+	WithState(initMap map[Key]MapStateEntry) MapState
 }
 
 // mapState is a state of a policy map.
@@ -339,11 +342,22 @@ func getNets(identities Identities, ident uint32) []netip.Prefix {
 }
 
 // NewMapState creates a new MapState interface
-func NewMapState(initMap map[Key]MapStateEntry) MapState {
-	return newMapState(initMap)
+func NewMapState() MapState {
+	return newMapState()
 }
 
-func newMapState(initMap map[Key]MapStateEntry) *mapState {
+func (ms *mapState) WithState(initMap map[Key]MapStateEntry) MapState {
+	return ms.withState(initMap)
+}
+
+func (ms *mapState) withState(initMap map[Key]MapStateEntry) *mapState {
+	for k, v := range initMap {
+		ms.insert(k, v)
+	}
+	return ms
+}
+
+func newMapState() *mapState {
 	m := &mapState{
 		allows: mapStateMap{
 			entries: make(map[Key]MapStateEntry),
@@ -353,9 +367,6 @@ func newMapState(initMap map[Key]MapStateEntry) *mapState {
 			entries: make(map[Key]MapStateEntry),
 			trie:    bitlpm.NewTrie[Key, map[identity.NumericIdentity]struct{}](policyTypes.MapStatePrefixLen),
 		},
-	}
-	for k, v := range initMap {
-		m.insert(k, v)
 	}
 	return m
 }
@@ -1085,7 +1096,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 			// New entry has a default auth type.
 			// Fill in the AuthType from more generic entries with an explicit auth type
 			maxSpecificity := 0
-			l3l4State := newMapState(nil)
+			l3l4State := newMapState()
 
 			ms.ForEachAllow(func(k Key, v MapStateEntry) bool {
 				// Only consider the same Traffic direction

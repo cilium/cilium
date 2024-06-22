@@ -187,6 +187,10 @@ func (ms *mapState) validatePortProto(t *testing.T) {
 }
 
 func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
+	testMapState := func(initMap map[Key]MapStateEntry) *mapState {
+		return newMapState().withState(initMap)
+	}
+
 	type args struct {
 		key   Key
 		entry MapStateEntry
@@ -200,7 +204,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 	}{
 		{
 			name: "test-1 - no KV added, map should remain the same",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         0,
 					DestPort:         0,
@@ -219,7 +223,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				},
 				entry: MapStateEntry{},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         0,
 					DestPort:         0,
@@ -238,7 +242,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-2a - L3 allow KV should not overwrite deny entry",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -264,7 +268,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           false,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         0,
@@ -301,7 +305,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-2b - L3 port-range allow KV should not overwrite deny entry",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -327,7 +331,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           false,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         64,
@@ -364,7 +368,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-3a - L3-L4 allow KV should not overwrite deny entry",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -389,7 +393,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           false,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -407,7 +411,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-3b - L3-L4 port-range allow KV should not overwrite deny entry",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         64,
@@ -434,7 +438,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           false,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         64,
@@ -453,7 +457,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-4a - L3-L4 deny KV should overwrite allow entry",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -478,7 +482,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           true,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -514,7 +518,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-4b - L3-L4 port-range deny KV should overwrite allow entry",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -540,7 +544,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           true,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         64,
@@ -585,7 +589,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-5a - L3 deny KV should overwrite all L3-L4 allow and L3 allow entries for the same L3",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -643,7 +647,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           true,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         0,
@@ -720,7 +724,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-5b - L3 port-range deny KV should overwrite all L3-L4 allow and L3 allow entries for the same L3",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -778,7 +782,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           true,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         64,
@@ -855,7 +859,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-6a - L3 egress deny KV should not overwrite any existing ingress allow",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -913,7 +917,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           true,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -982,7 +986,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-6b - L3 egress port-range deny KV should not overwrite any existing ingress allow",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -1040,7 +1044,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           true,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -1109,7 +1113,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-7a - L3 ingress deny KV should not be overwritten by a L3-L4 ingress allow",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         0,
@@ -1135,7 +1139,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           false,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         0,
@@ -1154,7 +1158,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-7b - L3 ingress deny KV should not be overwritten by a L3-L4 port-range ingress allow",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         0,
@@ -1181,7 +1185,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           false,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         0,
@@ -1200,7 +1204,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-8a - L3 ingress deny KV should not be overwritten by a L3-L4-L7 ingress allow",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         0,
@@ -1227,7 +1231,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           false,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         0,
@@ -1246,7 +1250,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-8b - L3 ingress deny KV should not be overwritten by a L3-L4-L7 port-range ingress allow",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         0,
@@ -1274,7 +1278,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           false,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         0,
@@ -1293,7 +1297,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-9a - L3 ingress deny KV should overwrite a L3-L4-L7 ingress allow",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -1320,7 +1324,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           true,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         0,
@@ -1366,7 +1370,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-9b - L3 ingress deny KV should overwrite a L3-L4-L7 port-range ingress allow",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         64,
@@ -1394,7 +1398,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           true,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         0,
@@ -1442,7 +1446,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-10a - L3 ingress deny KV should overwrite a L3-L4-L7 ingress allow and a L3-L4 deny",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -1479,7 +1483,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           true,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         0,
@@ -1541,7 +1545,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-10b - L3 ingress deny KV should overwrite a L3-L4-L7 port-range ingress allow and a L3-L4 port-range deny",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         64,
@@ -1580,7 +1584,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           true,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         0,
@@ -1646,7 +1650,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-11a - L3 ingress allow should not be allowed if there is a L3 'all' deny",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -1684,7 +1688,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           false,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -1714,7 +1718,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-11b - L3 ingress allow should not be allowed if there is a L3 'all' deny",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         64,
@@ -1753,7 +1757,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           false,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         64,
@@ -1784,7 +1788,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-12a - inserting a L3 'all' deny should delete all entries for that direction",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -1833,7 +1837,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           true,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         0,
 					DestPort:         0,
@@ -1907,7 +1911,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-12b - inserting a L3 'all' deny should delete all entries for that direction (including port ranges)",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         64,
@@ -1959,7 +1963,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					IsDeny:           true,
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         0,
 					DestPort:         0,
@@ -2038,7 +2042,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-13a - L3-L4-L7 ingress allow should overwrite a L3-L4-L7 ingress allow due to lower priority",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -2063,7 +2067,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					Listener:  "listener2",
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -2099,7 +2103,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-13b - L3-L4-L7 port-range ingress allow should overwrite a L3-L4-L7 port-range ingress allow due to lower priority",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         64,
@@ -2126,7 +2130,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					Listener:  "listener2",
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         64,
@@ -2165,7 +2169,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-14a - L4-L7 ingress allow should overwrite a L3-L4-L7 ingress allow due to lower priority on the same port",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -2190,7 +2194,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					Listener:  "listener1",
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -2219,7 +2223,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		},
 		{
 			name: "test-14b - L4-L7 port-range ingress allow should overwrite a L3-L4-L7 port-range ingress allow due to lower priority on the same port",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         64,
@@ -2246,7 +2250,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					Listener:  "listener1",
 				},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				{
 					Identity:         1,
 					DestPort:         64,
@@ -2283,7 +2287,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 			Old:     make(map[Key]MapStateEntry),
 		}
 		// copy the starting point
-		ms := newMapState(make(map[Key]MapStateEntry, tt.ms.Len()))
+		ms := testMapState(make(map[Key]MapStateEntry, tt.ms.Len()))
 		tt.ms.ForEach(func(k Key, v MapStateEntry) bool {
 			ms.insert(k, v)
 			return true
@@ -2390,6 +2394,10 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 	csFoo := newTestCachedSelector("Foo", false)
 	csBar := newTestCachedSelector("Bar", false)
 
+	testMapState := func(initMap map[Key]MapStateEntry) *mapState {
+		return newMapState().withState(initMap)
+	}
+
 	type args struct {
 		cs       *testCachedSelector
 		adds     []int
@@ -2410,14 +2418,14 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		deletes   Keys
 	}{{
 		name: "test-1a - Adding L3-deny to an existing allow-all with L4-only allow redirect map state entries",
-		setup: newMapState(map[Key]MapStateEntry{
+		setup: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():   allowEntry(0),
 			HttpIngressKey(0): allowEntry(12345, nil),
 		}),
 		args: []args{
 			{cs: csFoo, adds: []int{41}, deletes: []int{}, port: 0, proto: 0, ingress: true, redirect: false, deny: true},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():          allowEntry(0),
 			testIngressKey(41, 0, 0): denyEntry(0, csFoo).WithDependents(HttpIngressKey(41)),
 			HttpIngressKey(0):        allowEntry(12345, nil),
@@ -2434,7 +2442,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		args: []args{
 			{cs: csFoo, adds: []int{42}, deletes: []int{}, port: 0, proto: 0, ingress: true, redirect: false, deny: true},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():          allowEntry(0),
 			testIngressKey(41, 0, 0): denyEntry(0, csFoo).WithDependents(HttpIngressKey(41)),
 			testIngressKey(42, 0, 0): denyEntry(0, csFoo).WithDependents(HttpIngressKey(42)),
@@ -2453,7 +2461,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		args: []args{
 			{cs: csFoo, adds: nil, deletes: []int{42}, port: 0, proto: 0, ingress: true, redirect: false, deny: true},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():          allowEntry(0),
 			testIngressKey(41, 0, 0): denyEntry(0, csFoo).WithDependents(HttpIngressKey(41)),
 			HttpIngressKey(0):        allowEntry(12345, nil),
@@ -2469,7 +2477,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		args: []args{
 			{cs: csFoo, adds: []int{42, 43}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: true},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			HttpIngressKey(42): denyEntry(0, csFoo),
 			HttpIngressKey(43): denyEntry(0, csFoo),
 		}),
@@ -2484,7 +2492,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		args: []args{
 			{cs: csBar, adds: []int{42, 44}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: true},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			HttpIngressKey(42): denyEntry(0, csFoo, csBar),
 			HttpIngressKey(43): denyEntry(0, csFoo),
 			HttpIngressKey(44): denyEntry(0, csBar),
@@ -2499,7 +2507,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		args: []args{
 			{cs: csFoo, adds: []int{}, deletes: []int{42}, port: 80, proto: 6, ingress: true, redirect: false, deny: true},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			HttpIngressKey(42): denyEntry(0, csBar),
 			HttpIngressKey(43): denyEntry(0, csFoo),
 			HttpIngressKey(44): denyEntry(0, csBar),
@@ -2512,7 +2520,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		args: []args{
 			{cs: csFoo, adds: []int{}, deletes: []int{42}, port: 80, proto: 6, ingress: true, redirect: false, deny: true},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			HttpIngressKey(42): denyEntry(0, csBar),
 			HttpIngressKey(43): denyEntry(0, csFoo),
 			HttpIngressKey(44): denyEntry(0, csBar),
@@ -2525,7 +2533,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		args: []args{
 			{cs: csBar, adds: []int{}, deletes: []int{42}, port: 80, proto: 6, ingress: true, redirect: false, deny: true},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			HttpIngressKey(43): denyEntry(0, csFoo),
 			HttpIngressKey(44): denyEntry(0, csBar),
 		}),
@@ -2539,7 +2547,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		args: []args{
 			{cs: csBar, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: true, redirect: false, deny: true},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			HttpIngressKey(43): denyEntry(0, csFoo),
 			HttpIngressKey(44): denyEntry(0, csBar),
 		}),
@@ -2548,7 +2556,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 	}, {
 		continued: false,
 		name:      "test-3a - egress allow with deny-L3",
-		setup: newMapState(map[Key]MapStateEntry{
+		setup: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():         allowEntry(0),
 			HostIngressKey():        allowEntry(0),
 			testEgressKey(42, 0, 0): denyEntry(0, csFoo),
@@ -2557,7 +2565,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			{cs: csBar, adds: []int{42}, deletes: []int{}, port: 53, proto: 17, ingress: false, redirect: false, deny: false},
 			{cs: csBar, adds: []int{42}, deletes: []int{}, port: 53, proto: 6, ingress: false, redirect: false, deny: false},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():         allowEntry(0),
 			HostIngressKey():        allowEntry(0),
 			testEgressKey(42, 0, 0): denyEntry(0, csFoo),
@@ -2571,7 +2579,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			{cs: csBar, adds: []int{43}, deletes: []int{}, port: 53, proto: 17, ingress: false, redirect: false, deny: false},
 			{cs: csBar, adds: []int{43}, deletes: []int{}, port: 53, proto: 6, ingress: false, redirect: false, deny: false},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():         allowEntry(0),
 			HostIngressKey():        allowEntry(0),
 			testEgressKey(42, 0, 0): denyEntry(0, csFoo),
@@ -2589,7 +2597,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		args: []args{
 			{cs: csFoo, adds: []int{43}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():         allowEntry(0),
 			HostIngressKey():        allowEntry(0),
 			testEgressKey(42, 0, 0): denyEntry(0, csFoo),
@@ -2604,7 +2612,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 	}, {
 		continued: false,
 		name:      "test-4a - Add L7 skipped due to covering L3 deny",
-		setup: newMapState(map[Key]MapStateEntry{
+		setup: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():         allowEntry(0),
 			HostIngressKey():        allowEntry(0),
 			testEgressKey(42, 0, 0): denyEntry(0, csFoo),
@@ -2612,7 +2620,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		args: []args{
 			{cs: csFoo, adds: []int{42}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():         allowEntry(0),
 			HostIngressKey():        allowEntry(0),
 			testEgressKey(42, 0, 0): denyEntry(0, csFoo),
@@ -2626,7 +2634,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			{cs: csFoo, adds: []int{42}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
 			{cs: csFoo, adds: []int{}, deletes: []int{42}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():         allowEntry(0),
 			HostIngressKey():        allowEntry(0),
 			testEgressKey(42, 0, 0): denyEntry(0, csFoo),
@@ -2635,13 +2643,13 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		deletes: Keys{},
 	}, {
 		name: "test-5 - Adding L3-deny to an existing allow-all",
-		setup: newMapState(map[Key]MapStateEntry{
+		setup: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey(): allowEntry(0),
 		}),
 		args: []args{
 			{cs: csFoo, adds: []int{41}, deletes: []int{}, port: 0, proto: 0, ingress: true, redirect: false, deny: true},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():          allowEntry(0),
 			testIngressKey(41, 0, 0): denyEntry(0, csFoo),
 		}),
@@ -2651,7 +2659,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		deletes: Keys{},
 	}, {
 		name: "test-6 - Multiple dependent entries",
-		setup: newMapState(map[Key]MapStateEntry{
+		setup: testMapState(map[Key]MapStateEntry{
 			AnyEgressKey():     allowEntry(0),
 			HttpEgressKey(0):   allowEntry(12345, nil),
 			DNSUDPEgressKey(0): allowEntry(12346, nil),
@@ -2659,7 +2667,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		args: []args{
 			{cs: csFoo, adds: []int{41}, deletes: []int{}, port: 0, proto: 0, ingress: false, redirect: false, deny: true},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			AnyEgressKey():          allowEntry(0),
 			testEgressKey(41, 0, 0): denyEntry(0, csFoo).WithDependents(HttpEgressKey(41), DNSUDPEgressKey(41)),
 			HttpEgressKey(0):        allowEntry(12345, nil),
@@ -2679,7 +2687,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		args:      []args{
 			//{cs: csFoo, adds: []int{42, 43}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
 		},
-		state: newMapState(nil),
+		state: newMapState(),
 		adds:  Keys{
 			//HttpIngressKey(42): allowEntry(0),
 		},
@@ -2689,7 +2697,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 	},
 	}
 
-	policyMapState := newMapState(nil)
+	policyMapState := newMapState()
 
 	for _, tt := range tests {
 		policyMaps := MapChanges{}
@@ -2697,7 +2705,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			if tt.setup != nil {
 				policyMapState = tt.setup
 			} else {
-				policyMapState = newMapState(nil)
+				policyMapState = newMapState()
 			}
 		}
 		for _, x := range tt.args {
@@ -2735,6 +2743,10 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 	csFoo := newTestCachedSelector("Foo", false)
 	csBar := newTestCachedSelector("Bar", false)
 
+	testMapState := func(initMap map[Key]MapStateEntry) *mapState {
+		return newMapState().withState(initMap)
+	}
+
 	type args struct {
 		cs       *testCachedSelector
 		adds     []int
@@ -2759,7 +2771,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		args: []args{
 			{cs: csFoo, adds: []int{42, 43}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			HttpIngressKey(42): allowEntry(0, csFoo),
 			HttpIngressKey(43): allowEntry(0, csFoo),
 		}),
@@ -2774,7 +2786,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		args: []args{
 			{cs: csBar, adds: []int{42, 44}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			HttpIngressKey(42): allowEntry(0, csFoo, csBar),
 			HttpIngressKey(43): allowEntry(0, csFoo),
 			HttpIngressKey(44): allowEntry(0, csBar),
@@ -2789,7 +2801,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		args: []args{
 			{cs: csFoo, adds: []int{}, deletes: []int{42}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			HttpIngressKey(42): allowEntry(0, csBar),
 			HttpIngressKey(43): allowEntry(0, csFoo),
 			HttpIngressKey(44): allowEntry(0, csBar),
@@ -2802,7 +2814,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		args: []args{
 			{cs: csFoo, adds: []int{}, deletes: []int{42}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			HttpIngressKey(42): allowEntry(0, csBar),
 			HttpIngressKey(43): allowEntry(0, csFoo),
 			HttpIngressKey(44): allowEntry(0, csBar),
@@ -2815,7 +2827,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		args: []args{
 			{cs: csBar, adds: []int{}, deletes: []int{42}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			HttpIngressKey(43): allowEntry(0, csFoo),
 			HttpIngressKey(44): allowEntry(0, csBar),
 		}),
@@ -2829,7 +2841,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		args: []args{
 			{cs: csBar, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			HttpIngressKey(43): allowEntry(0, csFoo),
 			HttpIngressKey(44): allowEntry(0, csBar),
 		}),
@@ -2844,7 +2856,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{cs: csBar, adds: []int{42}, deletes: []int{}, port: 53, proto: 17, ingress: false, redirect: false, deny: false},
 			{cs: csBar, adds: []int{42}, deletes: []int{}, port: 53, proto: 6, ingress: false, redirect: false, deny: false},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():     allowEntry(0, nil),
 			HostIngressKey():    allowEntry(0, nil),
 			DNSUDPEgressKey(42): allowEntry(0, csBar),
@@ -2863,7 +2875,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		args: []args{
 			{cs: csFoo, adds: []int{43}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():     allowEntry(0, nil),
 			HostIngressKey():    allowEntry(0, nil),
 			DNSUDPEgressKey(42): allowEntry(0, csBar),
@@ -2881,7 +2893,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{cs: csFoo, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
 			{cs: csFoo, adds: []int{}, deletes: []int{44}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
 		},
-		state: newMapState(nil),
+		state: newMapState(),
 		adds:  Keys{},
 		deletes: Keys{
 			// Delete of the key is recoded as the key may have existed already in the (bpf) map
@@ -2895,7 +2907,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{cs: csFoo, adds: []int{}, deletes: []int{44}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
 			{cs: csFoo, adds: []int{44}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: true, deny: false},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			HttpEgressKey(44): allowEntry(1, csFoo),
 		}),
 		adds: Keys{
@@ -2908,7 +2920,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		args:      []args{
 			//{cs: csFoo, adds: []int{42, 43}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
 		},
-		state: newMapState(nil),
+		state: newMapState(),
 		adds:  Keys{
 			//HttpIngressKey(42): allowEntry(0),
 		},
@@ -2918,12 +2930,12 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 	},
 	}
 
-	policyMapState := newMapState(nil)
+	policyMapState := newMapState()
 
 	for _, tt := range tests {
 		policyMaps := MapChanges{}
 		if !tt.continued {
-			policyMapState = newMapState(nil)
+			policyMapState = newMapState()
 		}
 		for _, x := range tt.args {
 			dir := trafficdirection.Egress
@@ -2964,6 +2976,10 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 	csFoo := newTestCachedSelector("Foo", false)
 	csBar := newTestCachedSelector("Bar", false)
 
+	testMapState := func(initMap map[Key]MapStateEntry) *mapState {
+		return newMapState().withState(initMap)
+	}
+
 	type args struct {
 		redirectPort uint16
 		visMeta      VisibilityMetadata
@@ -2975,83 +2991,83 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 	}{
 		{
 			name: "test-1 - Add HTTP ingress visibility - allow-all",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				AnyIngressKey(): allowEntry(0),
 			}),
 			args: args{
 				redirectPort: 12345,
 				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				AnyIngressKey():   allowEntry(0),
 				HttpIngressKey(0): allowEntryD(12345, visibilityDerivedFrom, nil),
 			}),
 		},
 		{
 			name: "test-2 - Add HTTP ingress visibility - no allow-all",
-			ms:   newMapState(nil),
+			ms:   newMapState(),
 			args: args{
 				redirectPort: 12345,
 				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
-			want: newMapState(nil),
+			want: newMapState(),
 		},
 		{
 			name: "test-3 - Add HTTP ingress visibility - L4-allow",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				HttpIngressKey(0): allowEntryD(0, labels.LabelArrayList{testLabels}),
 			}),
 			args: args{
 				redirectPort: 12345,
 				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				HttpIngressKey(0): allowEntryD(12345, labels.LabelArrayList{visibilityDerivedFromLabels, testLabels}, nil),
 			}),
 		},
 		{
 			name: "test-4 - Add HTTP ingress visibility - L3/L4-allow",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				HttpIngressKey(123): allowEntryD(0, labels.LabelArrayList{testLabels}, csBar),
 			}),
 			args: args{
 				redirectPort: 12345,
 				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				HttpIngressKey(123): allowEntryD(12345, labels.LabelArrayList{visibilityDerivedFromLabels, testLabels}, csBar),
 			}),
 		},
 		{
 			name: "test-5 - Add HTTP ingress visibility - L3-allow (host)",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				HostIngressKey(): allowEntry(0),
 			}),
 			args: args{
 				redirectPort: 12345,
 				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				HostIngressKey():  allowEntry(0).WithDependents(HttpIngressKey(1)),
 				HttpIngressKey(1): allowEntryD(12345, labels.LabelArrayList{visibilityDerivedFromLabels}).WithOwners(HostIngressKey()),
 			}),
 		},
 		{
 			name: "test-6 - Add HTTP ingress visibility - L3/L4-allow on different port",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				testIngressKey(123, 88, 6): allowEntryD(0, labels.LabelArrayList{testLabels}, csBar),
 			}),
 			args: args{
 				redirectPort: 12345,
 				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				testIngressKey(123, 88, 6): allowEntryD(0, labels.LabelArrayList{testLabels}, csBar),
 			}),
 		},
 		{
 			name: "test-7 - Add HTTP ingress visibility - allow-all + L4-deny (no change)",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				AnyIngressKey():   allowEntry(0),
 				HttpIngressKey(0): denyEntry(0),
 			}),
@@ -3059,14 +3075,14 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 				redirectPort: 12345,
 				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				AnyIngressKey():   allowEntry(0),
 				HttpIngressKey(0): denyEntry(0),
 			}),
 		},
 		{
 			name: "test-8 - Add HTTP ingress visibility - allow-all + L3-deny",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				AnyIngressKey():           allowEntry(0),
 				testIngressKey(234, 0, 0): denyEntry(0, csFoo),
 			}),
@@ -3074,7 +3090,7 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 				redirectPort: 12345,
 				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				AnyIngressKey():           allowEntry(0),
 				testIngressKey(234, 0, 0): denyEntry(0, csFoo).WithDependents(HttpIngressKey(234)),
 				HttpIngressKey(0):         allowEntryD(12345, visibilityDerivedFrom, nil),
@@ -3083,7 +3099,7 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 		},
 		{
 			name: "test-9 - Add HTTP ingress visibility - allow-all + L3/L4-deny",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				AnyIngressKey():     allowEntry(0),
 				HttpIngressKey(132): denyEntry(0, csBar),
 			}),
@@ -3091,7 +3107,7 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 				redirectPort: 12345,
 				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				AnyIngressKey():     allowEntry(0),
 				HttpIngressKey(132): denyEntry(0, csBar),
 				HttpIngressKey(0):   allowEntryD(12345, visibilityDerivedFrom, nil),
@@ -3099,14 +3115,14 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 		},
 		{
 			name: "test-10 - Add HTTP egress visibility",
-			ms: newMapState(map[Key]MapStateEntry{
+			ms: testMapState(map[Key]MapStateEntry{
 				AnyEgressKey(): allowEntry(0),
 			}),
 			args: args{
 				redirectPort: 12346,
 				visMeta:      VisibilityMetadata{Ingress: false, Port: 80, Proto: u8proto.TCP},
 			},
-			want: newMapState(map[Key]MapStateEntry{
+			want: testMapState(map[Key]MapStateEntry{
 				AnyEgressKey():   allowEntry(0),
 				HttpEgressKey(0): allowEntryD(12346, visibilityDerivedFrom, nil),
 			}),
@@ -3158,6 +3174,10 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 	csFoo := newTestCachedSelector("Foo", false)
 	csBar := newTestCachedSelector("Bar", false)
 
+	testMapState := func(initMap map[Key]MapStateEntry) *mapState {
+		return newMapState().withState(initMap)
+	}
+
 	type args struct {
 		cs       *testCachedSelector
 		adds     []int
@@ -3185,7 +3205,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 		deletes   Keys
 	}{{
 		name: "test-1a - Adding identity to deny with visibilty",
-		setup: newMapState(map[Key]MapStateEntry{
+		setup: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():           allowEntry(0),
 			testIngressKey(234, 0, 0): denyEntry(0, csFoo),
 		}),
@@ -3203,7 +3223,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 		args: []args{
 			{cs: csFoo, adds: []int{235}, deletes: []int{}, port: 0, proto: 0, ingress: true, redirect: false, deny: true},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():           allowEntry(0),
 			testIngressKey(234, 0, 0): denyEntry(0, csFoo).WithDependents(HttpIngressKey(234)),
 			testIngressKey(235, 0, 0): denyEntry(0, csFoo).WithDependents(HttpIngressKey(235)),
@@ -3222,7 +3242,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 		args: []args{
 			{cs: csFoo, adds: nil, deletes: []int{235}, port: 0, proto: 0, ingress: true, redirect: false, deny: true},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():           allowEntry(0),
 			testIngressKey(234, 0, 0): denyEntry(0, csFoo).WithDependents(HttpIngressKey(234)),
 			HttpIngressKey(0):         allowEntryD(12345, visibilityDerivedFrom, nil),
@@ -3242,7 +3262,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			redirectPort: 12345,
 			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			testIngressKey(235, 0, 0): allowEntry(0, csFoo).WithDependents(HttpIngressKey(235)),
 			testIngressKey(236, 0, 0): allowEntry(0, csFoo).WithDependents(HttpIngressKey(236)),
 			HttpIngressKey(235):       allowEntryD(12345, visibilityDerivedFrom).WithOwners(testIngressKey(235, 0, 0)),
@@ -3268,7 +3288,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			redirectPort: 12345,
 			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			testIngressKey(235, 0, 0): allowEntry(0, csFoo, csBar).WithDependents(HttpIngressKey(235)),
 			testIngressKey(236, 0, 0): allowEntry(0, csFoo).WithDependents(HttpIngressKey(236)),
 			HttpIngressKey(235):       allowEntryD(12345, visibilityDerivedFrom).WithOwners(testIngressKey(235, 0, 0)),
@@ -3293,7 +3313,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			redirectPort: 12345,
 			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			testIngressKey(235, 0, 0): allowEntry(0, csBar).WithDependents(HttpIngressKey(235)),
 			testIngressKey(236, 0, 0): allowEntry(0, csFoo).WithDependents(HttpIngressKey(236)),
 			HttpIngressKey(235):       allowEntryD(12345, visibilityDerivedFrom).WithOwners(testIngressKey(235, 0, 0)),
@@ -3313,7 +3333,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			redirectPort: 12345,
 			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			testIngressKey(235, 0, 0): allowEntry(0, csBar).WithDependents(HttpIngressKey(235)),
 			testIngressKey(236, 0, 0): allowEntry(0, csFoo).WithDependents(HttpIngressKey(236)),
 			HttpIngressKey(235):       allowEntryD(12345, visibilityDerivedFrom).WithOwners(testIngressKey(235, 0, 0)),
@@ -3333,7 +3353,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			redirectPort: 12345,
 			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			testIngressKey(236, 0, 0): allowEntry(0, csFoo).WithDependents(HttpIngressKey(236)),
 			HttpIngressKey(236):       allowEntryD(12345, visibilityDerivedFrom).WithOwners(testIngressKey(236, 0, 0)),
 			testIngressKey(237, 0, 0): allowEntry(0, csBar).WithDependents(HttpIngressKey(237)),
@@ -3354,7 +3374,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			redirectPort: 12345,
 			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			testIngressKey(236, 0, 0): allowEntry(0, csFoo).WithDependents(HttpIngressKey(236)),
 			HttpIngressKey(236):       allowEntryD(12345, visibilityDerivedFrom).WithOwners(testIngressKey(236, 0, 0)),
 			testIngressKey(237, 0, 0): allowEntry(0, csBar).WithDependents(HttpIngressKey(237)),
@@ -3365,7 +3385,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 	}, {
 		continued: false,
 		name:      "test-3a - egress HTTP proxy (setup)",
-		setup: newMapState(map[Key]MapStateEntry{
+		setup: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():  allowEntry(0),
 			HostIngressKey(): allowEntry(0),
 			HttpEgressKey(0): allowEntry(0),
@@ -3396,7 +3416,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			{cs: csBar, adds: []int{42}, deletes: []int{}, port: 53, proto: 17, ingress: false, redirect: false, deny: false},
 			{cs: csBar, adds: []int{42}, deletes: []int{}, port: 53, proto: 6, ingress: false, redirect: false, deny: false},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():  allowEntry(0),
 			HostIngressKey(): allowEntry(0),
 			// Entry added solely due to visibility annotation has a 'nil' owner
@@ -3431,7 +3451,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 				visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: false, Port: 53, Proto: u8proto.UDP},
 			},
 		},
-		state: newMapState(map[Key]MapStateEntry{
+		state: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():     allowEntry(0),
 			HostIngressKey():    allowEntry(0),
 			HttpIngressKey(0):   allowEntryD(12345, visibilityDerivedFrom).WithOwners(nil),
@@ -3451,7 +3471,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 		args:      []args{
 			//{cs: csFoo, adds: []int{42, 43}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
 		},
-		state: newMapState(nil),
+		state: newMapState(),
 		adds:  Keys{
 			//HttpIngressKey(42): {},
 		},
@@ -3461,7 +3481,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 	},
 	}
 
-	policyMapState := newMapState(nil)
+	policyMapState := newMapState()
 
 	for _, tt := range tests {
 		// Allow omit empty maps
@@ -3482,7 +3502,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			if tt.setup != nil {
 				policyMapState = tt.setup
 			} else {
-				policyMapState = newMapState(nil)
+				policyMapState = newMapState()
 			}
 		}
 		changes := ChangeState{
@@ -3620,7 +3640,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		aEntry := MapStateEntry{IsDeny: tt.aIsDeny}
 		bKey := key(tt.bIdentity, tt.bPort, tt.bProto, 0)
 		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}
-		expectedKeys := newMapState(nil)
+		expectedKeys := newMapState()
 		if tt.outcome&insertA > 0 {
 			if tt.aIsDeny {
 				expectedKeys.denies.upsert(aKey, aEntry)
@@ -3661,7 +3681,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 				expectedKeys.allows.upsert(bKeyWithBProto, bEntryCpy)
 			}
 		}
-		outcomeKeys := newMapState(nil)
+		outcomeKeys := newMapState()
 		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
 		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
 		outcomeKeys.validatePortProto(t)
@@ -3675,7 +3695,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		aEntry := MapStateEntry{IsDeny: tt.aIsDeny}
 		bKey := key(tt.bIdentity, tt.bPort, tt.bProto, 1)
 		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}
-		expectedKeys := newMapState(nil)
+		expectedKeys := newMapState()
 		if tt.aIsDeny {
 			expectedKeys.denies.upsert(aKey, aEntry)
 		} else {
@@ -3686,7 +3706,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		} else {
 			expectedKeys.allows.upsert(bKey, bEntry)
 		}
-		outcomeKeys := newMapState(nil)
+		outcomeKeys := newMapState()
 		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
 		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
 		outcomeKeys.validatePortProto(t)
@@ -3695,7 +3715,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 }
 
 func TestMapState_Get_stacktrace(t *testing.T) {
-	ms := newMapState(nil)
+	ms := newMapState()
 	// This should produce a stacktrace in the error log. It is not validated here but can be
 	// observed manually.
 	// Example log (with newlines expanded):
