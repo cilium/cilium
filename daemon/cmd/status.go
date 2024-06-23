@@ -777,10 +777,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 		{
 			Name: "check-locks",
 			Probe: func(ctx context.Context) (interface{}, error) {
-				// Try to acquire a couple of global locks to have the status API fail
-				// in case of a deadlock on these locks
-				option.Config.ConfigPatchMutex.Lock()
-				option.Config.ConfigPatchMutex.Unlock()
+				// nothing to do any more.
 				return nil, nil
 			},
 			OnStatusUpdate: func(status status.Status) {

@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/types"
@@ -85,7 +84,6 @@ func TestLocalNodeSync(t *testing.T) {
 		fln  = newFakeLocalNode()
 		sync = newLocalNodeSynchronizer(localNodeSynchronizerParams{
 			Config: &option.DaemonConfig{
-				ConfigPatchMutex:           new(lock.RWMutex),
 				IPv4NodeAddr:               "1.2.3.4",
 				IPv6NodeAddr:               "fd00::1",
 				NodeEncryptionOptOutLabels: k8sLabels.Nothing(),
@@ -135,7 +133,6 @@ func TestInitLocalNode_initFromK8s(t *testing.T) {
 	lni := &localNodeSynchronizer{
 		localNodeSynchronizerParams: localNodeSynchronizerParams{
 			Config: &option.DaemonConfig{
-				ConfigPatchMutex:             new(lock.RWMutex),
 				IPv4NodeAddr:                 "auto",
 				IPv6NodeAddr:                 "auto",
 				IPv6ClusterAllocCIDRBase:     "fd00::",
