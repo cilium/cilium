@@ -627,7 +627,6 @@ func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
 // RestoreEndpoint exposes the specified endpoint to other subsystems via the
 // manager.
 func (mgr *endpointManager) RestoreEndpoint(ep *endpoint.Endpoint) error {
-	ep.SetDefaultConfiguration()
 	err := mgr.expose(ep)
 	if err != nil {
 		return err
