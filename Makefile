@@ -123,7 +123,7 @@ ifeq ($(SKIP_KVSTORES),"false")
 endif
 
 generate-cov: ## Generate HTML coverage report at coverage-all.html.
-	# Remove generated code from coverage
+	-@# Remove generated code from coverage
 	$(QUIET) grep -Ev '(^github.com/cilium/cilium/api/v1)|(generated.deepcopy.go)|(^github.com/cilium/cilium/pkg/k8s/client/)' \
 		coverage.out > coverage.out.tmp
 	$(QUIET)$(GO) tool cover -html=coverage.out.tmp -o=coverage-all.html
