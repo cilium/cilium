@@ -17,7 +17,6 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -60,7 +59,6 @@ func TestIPNotAvailableInPoolError(t *testing.T) {
 }
 
 var testConfigurationCRD = &option.DaemonConfig{
-	ConfigPatchMutex:        new(lock.RWMutex),
 	EnableIPv4:              true,
 	EnableIPv6:              false,
 	EnableHealthChecking:    true,

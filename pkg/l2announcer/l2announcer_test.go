@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -75,7 +74,6 @@ func newFixture(t testing.TB) *fixture {
 		Lifecycle: &cell.DefaultLifecycle{},
 		Health:    h,
 		DaemonConfig: &option.DaemonConfig{
-			ConfigPatchMutex:         new(lock.RWMutex),
 			K8sNamespace:             "kube_system",
 			EnableL2Announcements:    true,
 			L2AnnouncerLeaseDuration: 15 * time.Second,
@@ -1185,7 +1183,6 @@ func TestL2AnnouncerLifecycle(t *testing.T) {
 		cell.Invoke(statedb.RegisterTable[*tables.Device]),
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{
-				ConfigPatchMutex:      new(lock.RWMutex),
 				EnableL2Announcements: true,
 			}
 		}),

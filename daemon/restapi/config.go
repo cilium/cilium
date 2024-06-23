@@ -176,6 +176,8 @@ func (h *ConfigModifyEventHandler) datapathRegen(reasons []string) {
 	h.endpointManager.RegenerateAllEndpoints(regenerationMetadata)
 }
 
+// ConfigModifyEvents are serialized by the event queue, no need for additional locking for
+// changing 'Opts'
 func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigParams, resChan chan interface{}) {
 	cfgSpec := params.Configuration
 
@@ -185,9 +187,6 @@ func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigPara
 		resChan <- api.Error(daemonapi.PatchConfigBadRequestCode, msg)
 		return
 	}
-
-	// Serialize configuration updates to the daemon.
-	option.Config.ConfigPatchMutex.Lock()
 
 	// Track changes to daemon's configuration
 	var changes int
@@ -215,7 +214,6 @@ func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigPara
 		default:
 			msg := fmt.Errorf("invalid option for PolicyEnforcement %s", enforcement)
 			h.logger.Warn(msg)
-			option.Config.ConfigPatchMutex.Unlock()
 			resChan <- api.Error(daemonapi.PatchConfigBadRequestCode, msg)
 			return
 		}
@@ -226,7 +224,6 @@ func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigPara
 	h.endpointManager.OverrideEndpointOpts(om)
 
 	h.logger.WithField("count", changes).Debug("Applied changes to daemon's configuration")
-	option.Config.ConfigPatchMutex.Unlock()
 
 	if changes > 0 {
 		// Only recompile if configuration has changed.
@@ -234,13 +231,11 @@ func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigPara
 		if err := h.datapath.Orchestrator().Reinitialize(h.ctx); err != nil {
 			msg := fmt.Errorf("unable to recompile base programs: %w", err)
 			// Revert configuration changes
-			option.Config.ConfigPatchMutex.Lock()
 			if policyEnforcementChanged {
 				policy.SetPolicyEnabled(oldEnforcementValue)
 			}
 			option.Config.Opts.ApplyValidated(oldConfigOpts, func(string, option.OptionSetting, interface{}) {}, h)
 			h.endpointManager.OverrideEndpointOpts(oldConfigOpts)
-			option.Config.ConfigPatchMutex.Unlock()
 			h.logger.Debug("finished reverting agent configuration changes")
 			resChan <- api.Error(daemonapi.PatchConfigFailureCode, msg)
 			return
@@ -335,19 +330,18 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 	h.logger.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /config request")
 
 	m := make(map[string]interface{})
-	option.Config.ConfigPatchMutex.RLock()
-	e := reflect.ValueOf(option.Config).Elem()
 
+	// Collect config ignoring the mutable options.
+	e := reflect.ValueOf(option.Config).Elem()
 	for i := 0; i < e.NumField(); i++ {
 		if e.Field(i).Kind() != reflect.Func {
 			field := e.Type().Field(i)
 			// Only consider exported fields and ignore the mutable options.
-			if field.IsExported() && field.Name != "Opts" && field.Name != "ConfigPatchMutex" {
+			if field.IsExported() && field.Name != "Opts" {
 				m[e.Type().Field(i).Name] = e.Field(i).Interface()
 			}
 		}
 	}
-	option.Config.ConfigPatchMutex.RUnlock()
 
 	// Manually add fields that are behind accessors.
 	devs, _ := datapathTables.SelectedDevices(h.devices, h.db.ReadTxn())
