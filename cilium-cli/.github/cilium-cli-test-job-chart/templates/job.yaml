@@ -9,7 +9,7 @@ spec:
     spec:
       containers:
       - args:
-        - "sh"
+        - "bash"
         - "/root/test/in-cluster-test-script.sh"
         image: quay.io/cilium/cilium-cli-ci:{{ .Values.tag }}
         imagePullPolicy: Always
