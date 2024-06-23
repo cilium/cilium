@@ -1977,7 +1977,11 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		controller.ControllerParams{
 			Group:  cfgGroup,
 			Health: params.Health,
-			DoFunc: option.Config.ValidateUnchanged,
+			DoFunc: func(context.Context) error {
+				// Validate that Daemon config has not changed, ignoring 'Opts'
+				// that may be modified via config patch events.
+				return option.Config.ValidateUnchanged()
+			},
 			// avoid synhronized run with other
 			// controllers started at same time
 			RunInterval: 61 * time.Second,
