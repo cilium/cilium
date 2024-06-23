@@ -27,7 +27,6 @@ import (
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -126,7 +125,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	k.manager, err = newEgressGatewayManager(Params{
 		Lifecycle:         lc,
 		Config:            Config{1 * time.Millisecond},
-		DaemonConfig:      &option.DaemonConfig{ConfigPatchMutex: new(lock.RWMutex)},
+		DaemonConfig:      &option.DaemonConfig{},
 		IdentityAllocator: identityAllocator,
 		PolicyMap:         policyMap,
 		Policies:          k.policies,
