@@ -1892,6 +1892,47 @@ func TestNonMatchingLBClass(t *testing.T) {
 	}
 }
 
+// TestRequiredLBClass tests that when LBIPAM is configured to only allocate IPs for services with a specific
+// LoadBalancerClass, we leave services without a LoadBalancerClass alone.
+func TestRequiredLBClass(t *testing.T) {
+	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
+	fixture := mkTestFixture(true, true)
+
+	// Enable the requirement for a specific LBClass and set a class to look for
+	fixture.lbipam.config.LBIPAMRequireLBClass = true
+	fixture.lbipam.lbClasses = []string{cilium_api_v2alpha1.BGPLoadBalancerClass}
+
+	fixture.UpsertPool(t, poolA)
+
+	svcA := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-a",
+			Namespace: "default",
+			UID:       serviceAUID,
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+		},
+	}
+	fixture.UpsertSvc(t, svcA)
+	svcA = fixture.GetSvc("default", "service-a")
+
+	if len(svcA.Status.LoadBalancer.Ingress) != 0 {
+		t.Error("Expected service to receive no ingress IPs")
+	}
+
+	lbClass := cilium_api_v2alpha1.BGPLoadBalancerClass
+	svcA.Spec.LoadBalancerClass = &lbClass
+
+	fixture.UpsertSvc(t, svcA)
+
+	svcA = fixture.GetSvc("default", "service-a")
+
+	if len(svcA.Status.LoadBalancer.Ingress) == 0 {
+		t.Error("Expected service to receive ingress IPs")
+	}
+}
+
 // TestChangePoolSelector tests that when the selector of a pool changes, all services which no longer match are
 // stripped of their allocations and assignments
 func TestChangePoolSelector(t *testing.T) {

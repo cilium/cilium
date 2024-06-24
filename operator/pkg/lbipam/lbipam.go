@@ -82,6 +82,8 @@ type lbIPAMParams struct {
 	jobGroup job.Group
 
 	metrics *ipamMetrics
+
+	config lbipamConfig
 }
 
 func newLBIPAM(params lbIPAMParams) *LBIPAM {
@@ -1135,10 +1137,10 @@ func (ipam *LBIPAM) isResponsibleForSVC(svc *slim_core_v1.Service) bool {
 		return false
 	}
 
-	// We will assume that we are the default LB, LB-IPAM shouldn't be enabled clusters that don't support LBClasses
-	// and have multiple LBs.
+	// If no load balancer class is specified, we will assume that we are responsible for the service
+	// unless we have been configured to require a load balancer class.
 	if svc.Spec.LoadBalancerClass == nil {
-		return true
+		return !ipam.lbIPAMParams.config.LBIPAMRequireLBClass
 	}
 
 	if !slices.Contains(ipam.lbClasses, *svc.Spec.LoadBalancerClass) {
