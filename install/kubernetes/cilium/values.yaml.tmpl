@@ -1789,6 +1789,10 @@ nodeIPAM:
   # -- Configure Node IPAM
   # ref: https://docs.cilium.io/en/stable/network/node-ipam/
   enabled: false
+LBIPAM:
+  # -- requireLBClass tells LB-IPAM to only allocate IPs to services with a specific LoadBalancer class.
+  # ref: https://docs.cilium.io/en/stable/network/lb-ipam/#loadbalancerclass
+  requireLBClass: false
 # @schema
 # type: [null, string]
 # @schema

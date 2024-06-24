@@ -637,6 +637,7 @@ repo
 repos
 reproducibility
 requireIPv
+requireLBClass
 resync
 retpoline
 retransmission
