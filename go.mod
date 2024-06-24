@@ -28,7 +28,7 @@ require (
 	github.com/cilium/linters v0.0.0-20240611134452-310e8a3d60a5
 	github.com/cilium/lumberjack/v2 v2.3.0
 	github.com/cilium/proxy v0.0.0-20240418093727-2c7164c53e26
-	github.com/cilium/statedb v0.1.0
+	github.com/cilium/statedb v0.1.1
 	github.com/cilium/stream v0.0.0-20240226091623-f979d32855f8
 	github.com/cilium/workerpool v1.2.0
 	github.com/containernetworking/cni v1.2.0
