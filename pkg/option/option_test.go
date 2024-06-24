@@ -137,7 +137,7 @@ func TestParseKeyValueWithDefaultParseFunc(t *testing.T) {
 		},
 	}
 
-	_, res, err := ParseKeyValue(&l, k, "on")
+	_, res, err := l.parseKeyValue(k, "on")
 	require.Nil(t, err)
 	require.Equal(t, OptionEnabled, res)
 }
@@ -158,14 +158,14 @@ func TestParseKeyValue(t *testing.T) {
 		},
 	}
 
-	_, _, err := ParseKeyValue(&l, k, "true")
+	_, _, err := l.parseKeyValue(k, "true")
 	require.NotNil(t, err)
 
-	_, res, err := ParseKeyValue(&l, k, "yes")
+	_, res, err := l.parseKeyValue(k, "yes")
 	require.Nil(t, err)
 	require.Equal(t, OptionEnabled, res)
 
-	_, _, err = ParseKeyValue(&l, "unknown", "yes")
+	_, _, err = l.parseKeyValue("unknown", "yes")
 	require.NotNil(t, err)
 }
 
@@ -182,18 +182,18 @@ func TestParseOption(t *testing.T) {
 		k: &OptionTest,
 	}
 
-	_, _, err := ParseOption(k+":enabled", &l)
+	_, _, err := l.ParseOption(k + ":enabled")
 	require.NotNil(t, err)
 
-	_, res, err := ParseOption(arg, &l)
+	_, res, err := l.ParseOption(arg)
 	require.Nil(t, err)
 	require.Equal(t, OptionEnabled, res)
 
-	_, _, err = ParseOption("!"+arg, &l)
+	_, _, err = l.ParseOption("!" + arg)
 	require.NotNil(t, err)
 
 	OptionTest.Immutable = true
-	_, _, err = ParseOption(arg, &l)
+	_, _, err = l.ParseOption(arg)
 	require.NotNil(t, err)
 	OptionTest.Immutable = false
 }
