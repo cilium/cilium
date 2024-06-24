@@ -287,7 +287,7 @@ jobs:
 
       - name: Push changes into PR
         env:
-          REF: ${{ github.event.pull_request.head.ref }}
+          REF: ${{ github.event.pull_request.head.ref || github.ref }}
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' || steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
         run: |
           git diff HEAD^
