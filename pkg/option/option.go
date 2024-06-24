@@ -178,9 +178,20 @@ func (o *IntOptions) MarshalJSON() ([]byte, error) {
 func (o *IntOptions) UnmarshalJSON(b []byte) error {
 	o.optsMU.Lock()
 	defer o.optsMU.Unlock()
-	return json.Unmarshal(b, &intOptions{
+	err := json.Unmarshal(b, &intOptions{
 		Opts: o.opts,
 	})
+	if err != nil {
+		return err
+	}
+	// Silently discard unsupported options
+	for k := range o.opts {
+		key, _ := o.library.Lookup(k)
+		if key == "" {
+			delete(o.opts, k)
+		}
+	}
+	return nil
 }
 
 // GetImmutableModel returns the set of immutable options as a ConfigurationMap API model.
