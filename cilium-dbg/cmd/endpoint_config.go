@@ -70,7 +70,7 @@ func configEndpoint(cmd *cobra.Command, args []string) {
 	// modify the configuration we fetched directly since we don't need it
 	modifiedOptsCfg := cfg.Realized
 	for k := range opts {
-		name, value, err := option.ParseOption(opts[k], &endpointMutableOptionLibrary)
+		name, value, err := endpointMutableOptionLibrary.ParseOption(opts[k])
 		if err != nil {
 			Fatalf("Cannot parse option %s: %s", opts[k], err)
 		}
