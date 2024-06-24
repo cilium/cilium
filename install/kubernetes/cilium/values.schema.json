@@ -1,5 +1,13 @@
 {
   "properties": {
+    "LBIPAM": {
+      "properties": {
+        "requireLBClass": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "MTU": {
       "type": "integer"
     },
