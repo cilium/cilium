@@ -4,6 +4,7 @@
 package option
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -148,9 +149,38 @@ func (om OptionMap) DeepCopy() OptionMap {
 // locking by the caller, while functions with internal access presume
 // the caller to have taken care of any locking needed.
 type IntOptions struct {
-	optsMU  lock.RWMutex   // Protects all variables from this structure below this line
-	Opts    OptionMap      `json:"map"`
-	Library *OptionLibrary `json:"-"`
+	optsMU  lock.RWMutex // Protects all variables from this structure below this line
+	opts    OptionMap
+	library *OptionLibrary
+}
+
+// intOptions is only used for JSON
+type intOptions struct {
+	Opts OptionMap `json:"map"`
+}
+
+// ValidateConfigurationMap validates a given configuration map based on the
+// option library
+func (o *IntOptions) ValidateConfigurationMap(n models.ConfigurationMap) (OptionMap, error) {
+	return o.library.ValidateConfigurationMap(n)
+}
+
+// Custom json marshal for unexported 'opts' while holding a read lock
+func (o *IntOptions) MarshalJSON() ([]byte, error) {
+	o.optsMU.RLock()
+	defer o.optsMU.RUnlock()
+	return json.Marshal(&intOptions{
+		Opts: o.opts,
+	})
+}
+
+// Custom json unmarshal for unexported 'opts' while holding a write lock
+func (o *IntOptions) UnmarshalJSON(b []byte) error {
+	o.optsMU.Lock()
+	defer o.optsMU.Unlock()
+	return json.Unmarshal(b, &intOptions{
+		Opts: o.opts,
+	})
 }
 
 // GetImmutableModel returns the set of immutable options as a ConfigurationMap API model.
@@ -163,8 +193,8 @@ func (o *IntOptions) GetImmutableModel() *models.ConfigurationMap {
 func (o *IntOptions) GetMutableModel() *models.ConfigurationMap {
 	mutableCfg := make(models.ConfigurationMap)
 	o.optsMU.RLock()
-	for k, v := range o.Opts {
-		_, config := o.Library.Lookup(k)
+	for k, v := range o.opts {
+		_, config := o.library.Lookup(k)
 
 		// It's possible that an option has since been removed and thus has
 		// no corresponding configuration; need to check if configuration is
@@ -189,8 +219,8 @@ func (o *IntOptions) GetMutableModel() *models.ConfigurationMap {
 func (o *IntOptions) DeepCopy() *IntOptions {
 	o.optsMU.RLock()
 	cpy := &IntOptions{
-		Opts:    o.Opts.DeepCopy(),
-		Library: o.Library,
+		opts:    o.opts.DeepCopy(),
+		library: o.library,
 	}
 	o.optsMU.RUnlock()
 	return cpy
@@ -198,13 +228,13 @@ func (o *IntOptions) DeepCopy() *IntOptions {
 
 func NewIntOptions(lib *OptionLibrary) *IntOptions {
 	return &IntOptions{
-		Opts:    OptionMap{},
-		Library: lib,
+		opts:    OptionMap{},
+		library: lib,
 	}
 }
 
 func (o *IntOptions) getValue(key string) OptionSetting {
-	value, exists := o.Opts[key]
+	value, exists := o.opts[key]
 	if !exists {
 		return OptionDisabled
 	}
@@ -226,7 +256,7 @@ func (o *IntOptions) IsEnabled(key string) bool {
 // expected to have validated the input to this function.
 func (o *IntOptions) SetValidated(key string, value OptionSetting) {
 	o.optsMU.Lock()
-	o.Opts[key] = value
+	o.opts[key] = value
 	o.optsMU.Unlock()
 }
 
@@ -237,27 +267,27 @@ func (o *IntOptions) SetBool(key string, value bool) {
 		intValue = OptionEnabled
 	}
 	o.optsMU.Lock()
-	o.Opts[key] = intValue
+	o.opts[key] = intValue
 	o.optsMU.Unlock()
 }
 
 func (o *IntOptions) Delete(key string) {
 	o.optsMU.Lock()
-	delete(o.Opts, key)
+	delete(o.opts, key)
 	o.optsMU.Unlock()
 }
 
 func (o *IntOptions) SetIfUnset(key string, value OptionSetting) {
 	o.optsMU.Lock()
-	if _, exists := o.Opts[key]; !exists {
-		o.Opts[key] = value
+	if _, exists := o.opts[key]; !exists {
+		o.opts[key] = value
 	}
 	o.optsMU.Unlock()
 }
 
 func (o *IntOptions) InheritDefault(parent *IntOptions, key string) {
 	o.optsMU.RLock()
-	o.Opts[key] = parent.GetValue(key)
+	o.opts[key] = parent.GetValue(key)
 	o.optsMU.RUnlock()
 }
 
@@ -310,24 +340,24 @@ func ParseKeyValue(lib *OptionLibrary, arg, value string) (string, OptionSetting
 // getFmtOpt returns #define name if option exists and is set to true in endpoint's Opts
 // map or #undef name if option does not exist or exists but is set to false
 func (o *IntOptions) getFmtOpt(name string) string {
-	define := o.Library.Define(name)
+	define := o.library.Define(name)
 	if define == "" {
 		return ""
 	}
 
 	value := o.getValue(name)
 	if value != OptionDisabled {
-		return fmt.Sprintf("#define %s %d", o.Library.Define(name), value)
+		return fmt.Sprintf("#define %s %d", o.library.Define(name), value)
 	}
-	return "#undef " + o.Library.Define(name)
+	return "#undef " + o.library.Define(name)
 }
 
 func (o *IntOptions) GetFmtList() string {
 	txt := ""
 
 	o.optsMU.RLock()
-	opts := make([]string, 0, len(o.Opts))
-	for k := range o.Opts {
+	opts := make([]string, 0, len(o.opts))
+	for k := range o.opts {
 		opts = append(opts, k)
 	}
 	sort.Strings(opts)
@@ -349,23 +379,23 @@ func (o *IntOptions) Dump() {
 	}
 
 	o.optsMU.RLock()
-	opts := make([]string, 0, len(o.Opts))
-	for k := range o.Opts {
+	opts := make([]string, 0, len(o.opts))
+	for k := range o.opts {
 		opts = append(opts, k)
 	}
 	sort.Strings(opts)
 
 	for _, k := range opts {
 		var text string
-		_, option := o.Library.Lookup(k)
+		_, option := o.library.Lookup(k)
 		if option == nil || option.Format == nil {
-			if o.Opts[k] == OptionDisabled {
+			if o.opts[k] == OptionDisabled {
 				text = "Disabled"
 			} else {
 				text = "Enabled"
 			}
 		} else {
-			text = option.Format(o.Opts[k])
+			text = option.Format(o.opts[k])
 		}
 
 		fmt.Printf("%-24s %s\n", k, text)
@@ -378,17 +408,17 @@ func (o *IntOptions) Validate(n models.ConfigurationMap) error {
 	o.optsMU.RLock()
 	defer o.optsMU.RUnlock()
 	for k, v := range n {
-		_, newVal, err := ParseKeyValue(o.Library, k, v)
+		_, newVal, err := ParseKeyValue(o.library, k, v)
 		if err != nil {
 			return err
 		}
 
 		// Ignore validation if value is identical
-		if oldVal, ok := o.Opts[k]; ok && oldVal == newVal {
+		if oldVal, ok := o.opts[k]; ok && oldVal == newVal {
 			continue
 		}
 
-		if err := o.Library.Validate(k, v); err != nil {
+		if err := o.library.Validate(k, v); err != nil {
 			return err
 		}
 	}
@@ -401,35 +431,35 @@ type ChangedFunc func(key string, value OptionSetting, data interface{})
 
 // enable enables the option `name` with all its dependencies
 func (o *IntOptions) enable(name string) {
-	if o.Library != nil {
-		if _, opt := o.Library.Lookup(name); opt != nil {
+	if o.library != nil {
+		if _, opt := o.library.Lookup(name); opt != nil {
 			for _, dependency := range opt.Requires {
 				o.enable(dependency)
 			}
 		}
 	}
 
-	o.Opts[name] = OptionEnabled
+	o.opts[name] = OptionEnabled
 }
 
 // set enables the option `name` with all its dependencies, and sets the
 // integer level of the option to `value`.
 func (o *IntOptions) set(name string, value OptionSetting) {
 	o.enable(name)
-	o.Opts[name] = value
+	o.opts[name] = value
 }
 
 // disable disables the option `name`. All options which depend on the option
 // to be disabled will be disabled. Options which have previously been enabled
 // as a dependency will not be automatically disabled.
 func (o *IntOptions) disable(name string) {
-	o.Opts[name] = OptionDisabled
+	o.opts[name] = OptionDisabled
 
-	if o.Library != nil {
+	if o.library != nil {
 		// Disable all options which have a dependency on the option
 		// that was just disabled
-		for key, opt := range *o.Library {
-			if opt.RequiresOption(name) && o.Opts[key] != OptionDisabled {
+		for key, opt := range *o.library {
+			if opt.RequiresOption(name) && o.opts[key] != OptionDisabled {
 				o.disable(key)
 			}
 		}
@@ -453,7 +483,7 @@ func (o *IntOptions) ApplyValidated(n OptionMap, changed ChangedFunc, data inter
 
 	o.optsMU.Lock()
 	for k, optVal := range n {
-		val, ok := o.Opts[k]
+		val, ok := o.opts[k]
 
 		if optVal == OptionDisabled {
 			/* Only disable if enabled already */

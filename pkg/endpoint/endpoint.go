@@ -570,6 +570,7 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 		proxy:            proxy,
 		ifName:           ifName,
 		OpLabels:         labels.NewOpLabels(),
+		Options:          option.NewIntOptions(&EndpointMutableOptionLibrary),
 		DNSRules:         nil,
 		DNSRulesV2:       nil,
 		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
@@ -832,25 +833,15 @@ func (e *Endpoint) forcePolicyComputation() {
 	e.forcePolicyCompute = true
 }
 
-// SetDefaultOpts initializes the endpoint Options and configures the specified
-// options.
+// SetDefaultOpts configures all options for the endpoint, getting the values from 'opts'.
 func (e *Endpoint) SetDefaultOpts(opts *option.IntOptions) {
-	if e.Options == nil {
-		e.Options = option.NewIntOptions(&EndpointMutableOptionLibrary)
-	}
-	if e.Options.Library == nil {
-		e.Options.Library = &EndpointMutableOptionLibrary
-	}
-	if e.Options.Opts == nil {
-		e.Options.Opts = option.OptionMap{}
-	}
-
 	if opts != nil {
-		epOptLib := option.GetEndpointMutableOptionLibrary()
-		for k := range epOptLib {
+		for k := range EndpointMutableOptionLibrary {
 			e.Options.SetValidated(k, opts.GetValue(k))
 		}
 	}
+	// Always set DebugPolicy if Debug is configured, possibly overriding this setting in
+	// 'opts'
 	if option.Config.Debug {
 		e.Options.SetValidated(option.DebugPolicy, option.OptionEnabled)
 	}
@@ -1690,7 +1681,7 @@ func (e *Endpoint) APICanModifyConfig(n models.ConfigurationMap) error {
 	}
 	for config, val := range n {
 		if optionSetting, err := option.NormalizeBool(val); err == nil {
-			if e.Options.Opts[config] == optionSetting {
+			if e.Options.GetValue(config) == optionSetting {
 				// The option won't be changed.
 				continue
 			}
