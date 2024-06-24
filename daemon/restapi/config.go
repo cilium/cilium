@@ -181,7 +181,7 @@ func (h *ConfigModifyEventHandler) datapathRegen(reasons []string) {
 func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigParams, resChan chan interface{}) {
 	cfgSpec := params.Configuration
 
-	om, err := option.Config.Opts.Library.ValidateConfigurationMap(cfgSpec.Options)
+	om, err := option.Config.Opts.ValidateConfigurationMap(cfgSpec.Options)
 	if err != nil {
 		msg := fmt.Errorf("invalid configuration option: %w", err)
 		resChan <- api.Error(daemonapi.PatchConfigBadRequestCode, msg)
@@ -195,7 +195,7 @@ func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigPara
 	oldEnforcementValue := policy.GetPolicyEnabled()
 	oldConfigOpts := make(option.OptionMap, len(om))
 	for k := range om {
-		oldConfigOpts[k] = option.Config.Opts.Opts[k]
+		oldConfigOpts[k] = option.Config.Opts.GetValue(k)
 	}
 
 	// Only update if value provided for PolicyEnforcement.

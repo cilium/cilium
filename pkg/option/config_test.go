@@ -1313,6 +1313,10 @@ func TestDaemonConfig_validateContainerIPLocalReservedPorts(t *testing.T) {
 }
 
 func TestDaemonConfig_StoreInFile(t *testing.T) {
+	// Set an IntOption so that they are also stored in file
+	assert.False(t, Config.Opts.IsEnabled("unit-test-key-only")) // make sure not used
+	Config.Opts.SetBool("unit-test-key-only", true)
+
 	err := Config.StoreInFile(".")
 	assert.NoError(t, err)
 
@@ -1339,8 +1343,7 @@ func TestDaemonConfig_StoreInFile(t *testing.T) {
 	Config.DryMode = false
 
 	// IntOptions changes are ignored
-	assert.False(t, Config.Opts.IsEnabled("unit-test-key-only")) // make sure not used
-	Config.Opts.SetBool("unit-test-key-only", true)
+	Config.Opts.SetBool("unit-test-key-only", false)
 	err = Config.ValidateUnchanged()
 	assert.NoError(t, err)
 	Config.Opts.Delete("unit-test-key-only")
