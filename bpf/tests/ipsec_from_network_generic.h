@@ -159,6 +159,9 @@ int ipv4_not_decrypted_ipsec_from_network_check(__maybe_unused const struct __ct
 	if (l3->daddr != v4_pod_two)
 		test_fatal("dest IP was changed");
 
+	if (l3->check != bpf_htons(0xf948))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+
 	l4 = (void *)l3 + sizeof(struct iphdr);
 
 	if ((void *)l4 + sizeof(struct ip_esp_hdr) > data_end)
@@ -395,6 +398,9 @@ int ipv4_decrypted_ipsec_from_network_check(__maybe_unused const struct __ctx_bu
 
 	if (l3->daddr != v4_pod_two)
 		test_fatal("dest IP was changed");
+
+	if (l3->check != bpf_htons(0xf968))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 

@@ -174,6 +174,9 @@ int ipv4_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ct
 	if (l3->daddr != TEST_IP_LOCAL)
 		test_fatal("dest IP was changed");
 
+	if (l3->check != bpf_htons(0xfa68))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+
 	l4 = (void *)l3 + sizeof(struct iphdr);
 
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
