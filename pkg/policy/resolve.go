@@ -229,8 +229,8 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedir
 // have completed.
 // PolicyOwner (aka Endpoint) is also locked during this call.
 func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
-	p.selectorPolicy.SelectorCache.mutex.Lock()
-	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
+	p.selectorPolicy.SelectorCache.mutex.RLock()
+	defer p.selectorPolicy.SelectorCache.mutex.RUnlock()
 	features := p.selectorPolicy.L4Policy.Ingress.features | p.selectorPolicy.L4Policy.Egress.features
 	return p.policyMapChanges.consumeMapChanges(p.PolicyOwner, p.policyMapState, features, p.SelectorCache)
 }
