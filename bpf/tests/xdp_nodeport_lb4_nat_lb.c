@@ -204,6 +204,9 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 	if (l3->daddr != BACKEND_IP_LOCAL)
 		test_fatal("dst IP hasn't been NATed to local backend IP");
 
+	if (l3->check != bpf_htons(0x4112))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
 
@@ -306,6 +309,9 @@ int nodeport_nat_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l3->daddr != BACKEND_IP_REMOTE)
 		test_fatal("dst IP hasn't been NATed to remote backend IP");
 
+	if (l3->check != bpf_htons(0xa711))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+
 	if (l4->source == CLIENT_PORT)
 		test_fatal("src port hasn't been NATed");
 
@@ -395,6 +401,9 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 
 	if (l3->daddr != CLIENT_IP)
 		test_fatal("dst IP hasn't been RevNATed to client IP");
+
+	if (l3->check != bpf_htons(0x4ca9))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	if (l4->source != FRONTEND_PORT)
 		test_fatal("src port hasn't been RevNATed to frontend port");
