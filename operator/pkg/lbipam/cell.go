@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -27,7 +28,20 @@ var Cell = cell.Module(
 	cell.Invoke(func(*LBIPAM) {}),
 	// Provide LB-IPAM related metrics
 	metrics.Metric(newMetrics),
+	// Register configuration flags
+	cell.Config(lbipamConfig{
+		LBIPAMRequireLBClass: false,
+	}),
 )
+
+type lbipamConfig struct {
+	LBIPAMRequireLBClass bool
+}
+
+func (lc lbipamConfig) Flags(flags *pflag.FlagSet) {
+	flags.BoolVar(&lc.LBIPAMRequireLBClass, "lbipam-require-lb-class", lc.LBIPAMRequireLBClass, "Require the LoadBalancerClass field to "+
+		"be set on services for LB-IPAM to start assigning IPs")
+}
 
 type lbipamCellParams struct {
 	cell.In
@@ -45,6 +59,8 @@ type lbipamCellParams struct {
 	DaemonConfig *option.DaemonConfig
 
 	Metrics *ipamMetrics
+
+	Config lbipamConfig
 }
 
 func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
