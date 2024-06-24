@@ -43,6 +43,12 @@ func NewMetrics() *Metrics {
 			Name:      "identity_gc_runs",
 			Help:      "The number of times identity garbage collector has run",
 		}, []string{LabelOutcome}),
+
+		IdentityGCLatency: metric.NewGauge(metric.GaugeOpts{
+			Namespace: metrics.CiliumOperatorNamespace,
+			Name:      "identity_gc_latency",
+			Help:      "The duration of the last successful identity GC run",
+		}),
 	}
 }
 
@@ -52,4 +58,7 @@ type Metrics struct {
 
 	// IdentityGCRuns records how many times identity GC has run
 	IdentityGCRuns metric.Vec[metric.Gauge]
+
+	// IdentityGCLatency records the duration of the last successful identity GC run
+	IdentityGCLatency metric.Gauge
 }

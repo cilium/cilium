@@ -55,6 +55,7 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 
 			igc.failedRuns++
 			igc.metrics.IdentityGCRuns.WithLabelValues(LabelValueOutcomeFail).Set(float64(igc.failedRuns))
+			igc.metrics.IdentityGCLatency.Set(float64(0))
 		} else {
 			// Best effort to run auth identity GC
 			err = igc.runAuthGC(ctx, keysToDeletePrev)
@@ -71,6 +72,7 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 
 			igc.metrics.IdentityGCSize.WithLabelValues(LabelValueOutcomeAlive).Set(float64(gcStats.Alive))
 			igc.metrics.IdentityGCSize.WithLabelValues(LabelValueOutcomeDeleted).Set(float64(gcStats.Deleted))
+			igc.metrics.IdentityGCLatency.Set(float64(time.Since(now).Milliseconds()))
 		}
 
 		if igc.gcInterval <= gcDuration {
