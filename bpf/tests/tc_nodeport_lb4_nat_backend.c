@@ -153,6 +153,9 @@ int nodeport_nat_backend_check(const struct __ctx_buff *ctx)
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP has changed");
 
+	if (l3->check != bpf_htons(0xa712))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+
 	if (l4->source != LB_PORT)
 		test_fatal("src port has changed");
 

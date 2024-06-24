@@ -148,6 +148,9 @@ int hairpin_flow_forward_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l3->daddr != v4_pod_one)
 		test_fatal("dest IP hasn't been changed to the pod IP");
 
+	if (l3->check != bpf_htons(-0x4f02))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+
 	l4 = (void *)l3 + sizeof(struct iphdr);
 
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
@@ -269,6 +272,9 @@ int hairpin_flow_forward_ingress_check(__maybe_unused const struct __ctx_buff *c
 
 	if (l3->daddr != v4_pod_one)
 		test_fatal("dest IP changed");
+
+	if (l3->check != bpf_htons(-0x5002))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 
@@ -464,6 +470,9 @@ int hairpin_flow_reverse_ingress_check(const struct __ctx_buff *ctx)
 
 	if (l3->daddr != v4_pod_one)
 		test_fatal("dest IP hasn't been NAT'ed to the original source IP");
+
+	if (l3->check != bpf_htons(0x402))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 
