@@ -53,6 +53,7 @@ contributors across the globe, there is almost always someone available to help.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| LBIPAM.requireLBClass | bool | `false` | requireLBClass tells LB-IPAM to only allocate IPs to services with a specific LoadBalancer class. ref: https://docs.cilium.io/en/stable/network/lb-ipam/#loadbalancerclass |
 | MTU | int | `0` | Configure the underlying network MTU to overwrite auto-detected MTU. This value doesn't change the host network interface MTU i.e. eth0 or ens0. It changes the MTU for cilium_net@cilium_host, cilium_host@cilium_net, cilium_vxlan and lxc_health interfaces. |
 | affinity | object | `{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for cilium-agent. |
 | agent | bool | `true` | Install the cilium agent resources. |
