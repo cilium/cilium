@@ -68,7 +68,6 @@ func checkDir(dirPath string) (bool, error) {
 var ifndefRegex = regexp.MustCompile(`#ifndef\s+([A-Za-z0-9_]+)\s*\n#define ([A-Za-z0-9_]+)`)
 
 var exclude = []string{
-	"bpf/tests/config_replacement.h",
 	"bpf/node_config.h",
 	"bpf/lib/clustermesh.h",
 	"bpf/include/linux/byteorder/big_endian.h",
