@@ -17,7 +17,7 @@ func TestGetValue(t *testing.T) {
 	v1 := OptionSetting(7)
 
 	o := IntOptions{
-		Opts: OptionMap{
+		opts: OptionMap{
 			k1: v1,
 			k2: OptionEnabled,
 		},
@@ -32,7 +32,7 @@ func TestIsEnabled(t *testing.T) {
 	k1, k2 := "foo", "bar"
 
 	o := IntOptions{
-		Opts: OptionMap{
+		opts: OptionMap{
 			k1: OptionEnabled,
 			k2: OptionDisabled,
 		},
@@ -47,7 +47,7 @@ func TestSetValidated(t *testing.T) {
 	k1, k2 := "foo", "bar"
 
 	o := IntOptions{
-		Opts: OptionMap{
+		opts: OptionMap{
 			k1: OptionEnabled,
 		},
 	}
@@ -65,7 +65,7 @@ func TestSetBool(t *testing.T) {
 	k1, k2, k3 := "foo", "bar", "baz"
 
 	o := IntOptions{
-		Opts: OptionMap{
+		opts: OptionMap{
 			k1: OptionEnabled,
 			k2: OptionDisabled,
 		},
@@ -83,7 +83,7 @@ func TestDelete(t *testing.T) {
 	k1, k2 := "foo", "bar"
 
 	o := IntOptions{
-		Opts: OptionMap{
+		opts: OptionMap{
 			k1: OptionEnabled,
 			k2: OptionEnabled,
 		},
@@ -99,7 +99,7 @@ func TestSetIfUnset(t *testing.T) {
 	k1, k2 := "foo", "bar"
 
 	o := IntOptions{
-		Opts: OptionMap{
+		opts: OptionMap{
 			k1: OptionDisabled,
 		},
 	}
@@ -115,10 +115,10 @@ func TestInheritDefault(t *testing.T) {
 	k := "foo"
 
 	o := IntOptions{
-		Opts: OptionMap{},
+		opts: OptionMap{},
 	}
 	parent := IntOptions{
-		Opts: OptionMap{
+		opts: OptionMap{
 			k: OptionEnabled,
 		},
 	}
@@ -205,13 +205,13 @@ func TestGetFmtOpts(t *testing.T) {
 	}
 
 	o := IntOptions{
-		Opts: OptionMap{
+		opts: OptionMap{
 			"test": OptionEnabled,
 			"BAR":  OptionDisabled,
 			"foo":  OptionEnabled,
 			"bar":  OptionDisabled,
 		},
-		Library: &OptionLibrary{
+		library: &OptionLibrary{
 			"test": &OptionTest,
 		},
 	}
@@ -223,13 +223,13 @@ func TestGetFmtOpts(t *testing.T) {
 	require.Equal(t, fmtList, fmtList2)
 
 	o2 := IntOptions{
-		Opts: OptionMap{
+		opts: OptionMap{
 			"foo":  OptionEnabled,
 			"BAR":  OptionDisabled,
 			"bar":  OptionDisabled,
 			"test": OptionEnabled,
 		},
-		Library: &OptionLibrary{
+		library: &OptionLibrary{
 			"test": &OptionTest,
 		},
 	}
@@ -248,12 +248,12 @@ func TestGetFmtOpt(t *testing.T) {
 	}
 
 	o := IntOptions{
-		Opts: OptionMap{
+		opts: OptionMap{
 			"test":  OptionEnabled,
 			"BAR":   OptionDisabled,
 			"alice": 2,
 		},
-		Library: &OptionLibrary{
+		library: &OptionLibrary{
 			"test":  &OptionTest,
 			"alice": &OptionTest,
 		},
@@ -275,10 +275,10 @@ func TestGetImmutableModel(t *testing.T) {
 	}
 
 	o := IntOptions{
-		Opts: OptionMap{
+		opts: OptionMap{
 			k: OptionEnabled,
 		},
-		Library: &OptionLibrary{
+		library: &OptionLibrary{
 			k: &OptionTest,
 		},
 	}
@@ -304,12 +304,12 @@ func TestGetMutableModel(t *testing.T) {
 	}
 
 	o := IntOptions{
-		Opts: OptionMap{
+		opts: OptionMap{
 			k1: OptionEnabled,
 			k2: OptionDisabled,
 			k3: OptionEnabled,
 		},
-		Library: &OptionLibrary{
+		library: &OptionLibrary{
 			k1: &OptionDefaultFormat,
 			k2: &OptionDefaultFormat,
 			k3: &OptionCustomFormat,
@@ -352,13 +352,13 @@ func TestValidate(t *testing.T) {
 	}
 
 	o := IntOptions{
-		Opts: OptionMap{
+		opts: OptionMap{
 			k1: OptionEnabled,
 			k2: OptionEnabled,
 			k3: OptionDisabled,
 			k4: OptionEnabled,
 		},
-		Library: &OptionLibrary{
+		library: &OptionLibrary{
 			k1: &OptionTest,
 			k2: &OptionCustomVerify,
 			k3: &OptionCustomVerify,
@@ -392,14 +392,14 @@ func TestApplyValidated(t *testing.T) {
 	}
 
 	o := IntOptions{
-		Opts: OptionMap{
+		opts: OptionMap{
 			k1: OptionEnabled,
 			k2: OptionEnabled,
 			k3: OptionDisabled,
 			k4: OptionDisabled,
 			k5: OptionDisabled,
 		},
-		Library: &OptionLibrary{
+		library: &OptionLibrary{
 			k1: &OptionDefault,
 			k2: &Option2,
 			k3: &Option3,
@@ -428,7 +428,7 @@ func TestApplyValidated(t *testing.T) {
 		actualChanges[key] = value
 	}
 
-	om, err := o.Library.ValidateConfigurationMap(cfg)
+	om, err := o.library.ValidateConfigurationMap(cfg)
 	require.NoError(t, err)
 	require.Equal(t, len(expectedChanges), o.ApplyValidated(om, changed, &cfg))
 	require.Equal(t, expectedChanges, actualChanges)
