@@ -104,7 +104,7 @@ func NormalizeBool(value string) (OptionSetting, error) {
 func (l *OptionLibrary) ValidateConfigurationMap(n models.ConfigurationMap) (OptionMap, error) {
 	o := make(OptionMap)
 	for k, v := range n {
-		_, newVal, err := ParseKeyValue(l, k, v)
+		_, newVal, err := l.parseKeyValue(k, v)
 		if err != nil {
 			return nil, err
 		}
@@ -291,7 +291,7 @@ func (o *IntOptions) InheritDefault(parent *IntOptions, key string) {
 	o.optsMU.RUnlock()
 }
 
-func ParseOption(arg string, lib *OptionLibrary) (string, OptionSetting, error) {
+func (l *OptionLibrary) ParseOption(arg string) (string, OptionSetting, error) {
 	result := OptionEnabled
 
 	if arg[0] == '!' {
@@ -306,16 +306,16 @@ func ParseOption(arg string, lib *OptionLibrary) (string, OptionSetting, error) 
 			return "", OptionDisabled, fmt.Errorf("invalid boolean format")
 		}
 
-		return ParseKeyValue(lib, arg, optionSplit[1])
+		return l.parseKeyValue(arg, optionSplit[1])
 	}
 
 	return "", OptionDisabled, fmt.Errorf("invalid option format")
 }
 
-func ParseKeyValue(lib *OptionLibrary, arg, value string) (string, OptionSetting, error) {
+func (l *OptionLibrary) parseKeyValue(arg, value string) (string, OptionSetting, error) {
 	var result OptionSetting
 
-	key, spec := lib.Lookup(arg)
+	key, spec := l.Lookup(arg)
 	if key == "" {
 		return "", OptionDisabled, fmt.Errorf("unknown option %q", arg)
 	}
@@ -408,7 +408,7 @@ func (o *IntOptions) Validate(n models.ConfigurationMap) error {
 	o.optsMU.RLock()
 	defer o.optsMU.RUnlock()
 	for k, v := range n {
-		_, newVal, err := ParseKeyValue(o.library, k, v)
+		_, newVal, err := o.library.parseKeyValue(k, v)
 		if err != nil {
 			return err
 		}
