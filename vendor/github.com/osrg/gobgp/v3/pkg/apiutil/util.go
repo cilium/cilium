@@ -28,14 +28,16 @@ import (
 
 // workaround. This for the json format compatibility. Once we update senario tests, we can remove this.
 type Path struct {
-	Nlri       bgp.AddrPrefixInterface      `json:"nlri"`
-	Age        int64                        `json:"age"`
-	Best       bool                         `json:"best"`
-	Attrs      []bgp.PathAttributeInterface `json:"attrs"`
-	Stale      bool                         `json:"stale"`
-	Withdrawal bool                         `json:"withdrawal,omitempty"`
-	SourceID   net.IP                       `json:"source-id,omitempty"`
-	NeighborIP net.IP                       `json:"neighbor-ip,omitempty"`
+	Nlri  bgp.AddrPrefixInterface      `json:"nlri"`
+	Age   int64                        `json:"age"`
+	Best  bool                         `json:"best"`
+	Attrs []bgp.PathAttributeInterface `json:"attrs"`
+	Stale bool                         `json:"stale"`
+	// true if the path has been filtered out due to max path count reached
+	SendMaxFiltered bool   `json:"send-max-filtered,omitempty"`
+	Withdrawal      bool   `json:"withdrawal,omitempty"`
+	SourceID        net.IP `json:"source-id,omitempty"`
+	NeighborIP      net.IP `json:"neighbor-ip,omitempty"`
 }
 
 type Destination struct {
@@ -52,14 +54,15 @@ func NewDestination(dst *api.Destination) *Destination {
 		nlri, _ := GetNativeNlri(p)
 		attrs, _ := GetNativePathAttributes(p)
 		l = append(l, &Path{
-			Nlri:       nlri,
-			Age:        p.Age.AsTime().Unix(),
-			Best:       p.Best,
-			Attrs:      attrs,
-			Stale:      p.Stale,
-			Withdrawal: p.IsWithdraw,
-			SourceID:   net.ParseIP(p.SourceId),
-			NeighborIP: net.ParseIP(p.NeighborIp),
+			Nlri:            nlri,
+			Age:             p.Age.AsTime().Unix(),
+			Best:            p.Best,
+			Attrs:           attrs,
+			Stale:           p.Stale,
+			SendMaxFiltered: p.SendMaxFiltered,
+			Withdrawal:      p.IsWithdraw,
+			SourceID:        net.ParseIP(p.SourceId),
+			NeighborIP:      net.ParseIP(p.NeighborIp),
 		})
 	}
 	return &Destination{Paths: l}

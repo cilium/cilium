@@ -142,6 +142,15 @@ type Path struct {
 	IsNexthopInvalid bool
 	IsWithdraw       bool
 }
+type FilteredType uint8
+
+const (
+	NotFiltered FilteredType = 1 << iota
+	PolicyFiltered
+	SendMaxFiltered
+)
+
+type PathLocalKey string
 
 var localSource = &PeerInfo{}
 
@@ -566,7 +575,7 @@ func (path *Path) String() string {
 		s.WriteString(fmt.Sprintf("{ %s EOR | src: %s }", path.GetRouteFamily(), path.GetSource()))
 		return s.String()
 	}
-	s.WriteString(fmt.Sprintf("{ %s | ", path.getPrefix()))
+	s.WriteString(fmt.Sprintf("{ %s | ", path.GetPrefix()))
 	s.WriteString(fmt.Sprintf("src: %s", path.GetSource()))
 	s.WriteString(fmt.Sprintf(", nh: %s", path.GetNexthop()))
 	if path.IsNexthopInvalid {
@@ -579,7 +588,13 @@ func (path *Path) String() string {
 	return s.String()
 }
 
-func (path *Path) getPrefix() string {
+// GetLocalKey identifies the path in the local BGP server.
+func (path *Path) GetLocalKey() PathLocalKey {
+	// return PathLocalKey(path.GetPrefix())
+	return PathLocalKey(fmt.Sprintf("%s:%s:%d", path.GetRouteFamily(), path.GetNlri(), path.GetNlri().PathLocalIdentifier()))
+}
+
+func (path *Path) GetPrefix() string {
 	return path.GetNlri().String()
 }
 
@@ -1243,6 +1258,12 @@ func (p *Path) SetHash(v uint32) {
 
 func (p *Path) GetHash() uint32 {
 	return p.attrsHash
+}
+
+func (p *Path) SetSource(peerInfo *PeerInfo) {
+	if p.info != nil {
+		p.info.source = peerInfo
+	}
 }
 
 func nlriToIPNet(nlri bgp.AddrPrefixInterface) *net.IPNet {

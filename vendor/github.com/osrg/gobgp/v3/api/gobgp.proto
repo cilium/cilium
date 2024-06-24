@@ -125,7 +125,7 @@ message WatchEventRequest {
 
   message Table {
     message Filter {
-      enum Type { BEST = 0; ADJIN = 1; POST_POLICY = 2; }
+      enum Type { BEST = 0; ADJIN = 1; POST_POLICY = 2; EOR = 3; }
       Type type = 1;
       bool init = 2;
       string peer_address = 3;
@@ -134,6 +134,9 @@ message WatchEventRequest {
     repeated Filter filters = 1;
   }
   Table table = 2;
+
+  // Max number of paths to include in a single message. 0 for unlimited.
+  uint32 batch_size = 3;
 }
 
 message WatchEventResponse {
@@ -544,6 +547,7 @@ message Path {
   uint32 local_identifier = 19;
   bytes nlri_binary = 20;
   repeated bytes pattrs_binary = 21;
+  bool send_max_filtered = 22;
 }
 
 message Destination {
@@ -629,6 +633,7 @@ message PeerGroupConf {
   RemovePrivate remove_private = 7;
   bool route_flap_damping = 8;
   uint32 send_community = 9;
+  bool send_software_version = 10;
 }
 
 message PeerGroupState {
@@ -953,6 +958,12 @@ message AsPathLength {
   uint32 length = 2;
 }
 
+message CommunityCount {
+  enum Type { EQ = 0; GE = 1; LE = 2; }
+  Type type = 1;
+  uint32 count = 2;
+}
+
 message Conditions {
   MatchSet prefix_set = 1;
   MatchSet neighbor_set = 2;
@@ -968,6 +979,7 @@ message Conditions {
   MatchSet large_community_set = 9;
   repeated string next_hop_in_list = 10;
   repeated Family afi_safi_in = 11;
+  CommunityCount community_count = 12;
 }
 
 enum RouteAction { NONE = 0; ACCEPT = 1; REJECT = 2; }
