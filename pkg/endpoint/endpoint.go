@@ -908,8 +908,9 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 
 	ep.initDNSHistoryTrigger()
 
-	// Validate the options that were parsed
-	ep.SetDefaultOpts(ep.Options)
+	// Set default options, unsupported options were already dropped by
+	// ep.Options.UnmarshalJSON
+	ep.SetDefaultOpts(nil)
 
 	// Initialize fields to values which are non-nil that are not serialized.
 	ep.hasBPFProgram = make(chan struct{})
