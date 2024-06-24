@@ -395,6 +395,27 @@ loadBalancerClass               Feature
 If the ``.spec.loadBalancerClass`` is set to a class which isn't handled by Cilium's LB IPAM, 
 then Cilium's LB IPAM will ignore the service entirely, not even setting a condition in the status. 
 
+By default, if the ``.spec.loadBalancerClass`` field is not set, Cilium's LB IPAM will assume it can 
+allocate IPs for the service from its configured pools. If this isn't the desired behavior, you can 
+configure LB-IPAM to only allocate IPs for services from its configured pools when it has a recognized 
+load balancer class by setting the following configuration in the Helm chart or ConfigMap:
+
+.. tabs::
+    .. group-tab:: Helm
+
+        .. parsed-literal::
+
+            $ helm upgrade cilium |CHART_RELEASE| \\
+               --namespace kube-system \\
+               --reuse-values \\
+               --set LBIPAM.requireLBClass=true
+
+    .. group-tab:: ConfigMap
+
+        .. code-block:: yaml
+
+            lbipam-require-lb-class: true
+
 Requesting IPs
 --------------
 
