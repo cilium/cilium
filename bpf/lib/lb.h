@@ -1819,7 +1819,8 @@ int __tail_no_service_ipv4(struct __ctx_buff *ctx)
 	/* Redirect ICMP to the interface we received it on. */
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
 			   ctx_get_ifindex(ctx));
-	return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
+	edt_set_aggregate(ctx, 0);
+	return redirect_self(ctx);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NO_SERVICE)
@@ -1991,7 +1992,8 @@ int __tail_no_service_ipv6(struct __ctx_buff *ctx)
 	/* Redirect ICMP to the interface we received it on. */
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
 			   ctx_get_ifindex(ctx));
-	return ctx_redirect(ctx, ctx_get_ifindex(ctx), 0);
+	edt_set_aggregate(ctx, 0);
+	return redirect_self(ctx);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NO_SERVICE)
