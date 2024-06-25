@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -88,15 +89,23 @@ type clusterMesh struct {
 	// asynchronously performing the appropriate tasks, while preventing the
 	// reconnection to the same cluster until the previously cleanup completed.
 	tombstones map[string]string
+
+	// rctx is a context that is used on cluster removal, to allow aborting
+	// the associated process if still running during shutdown (via rcancel).
+	rctx    context.Context
+	rcancel context.CancelFunc
 }
 
 // NewClusterMesh creates a new remote cluster cache based on the
 // provided configuration
 func NewClusterMesh(c Configuration) ClusterMesh {
+	rctx, rcancel := context.WithCancel(context.Background())
 	return &clusterMesh{
 		conf:       c,
 		clusters:   map[string]*remoteCluster{},
 		tombstones: map[string]string{},
+		rctx:       rctx,
+		rcancel:    rcancel,
 	}
 }
 
@@ -124,6 +133,7 @@ func (cm *clusterMesh) Stop(cell.HookContext) error {
 
 	// Wait until all in-progress removal processes have completed, if any.
 	// We must not hold the mutex at this point, as needed by the go routines.
+	cm.rcancel()
 	cm.wg.Wait()
 
 	cm.mutex.Lock()
@@ -233,7 +243,7 @@ func (cm *clusterMesh) remove(name string) {
 
 		// Run onRemove in a separate go routing as potentially slow, to avoid
 		// blocking the processing of further events in the meanwhile.
-		cluster.onRemove()
+		cluster.onRemove(cm.rctx)
 
 		cm.mutex.Lock()
 		path := cm.tombstones[name]
