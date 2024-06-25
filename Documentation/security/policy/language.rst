@@ -365,9 +365,12 @@ all
    Allowing users to define custom entities is on the roadmap but has not been
    implemented yet (see :gh-issue:`3553`).
 
-.. note:: The ``kube-apiserver`` entity is unavailable in some Kubernetes 
-   distributions, such as Azure AKS and GCP GKE for ingress traffic. You could still use ``cluster`` which
-   is broader.
+.. note:: The ``kube-apiserver`` entity may not work for *ingress traffic* in some Kubernetes
+   distributions, such as Azure AKS and GCP GKE. This is due to the fact that ingress
+   control-plane traffic is being tunneled through worker nodes, which does not preserve
+   the original source IP. You may be able to use a broader ``fromEntities: cluster`` rule
+   instead. Restricting *egress traffic* via ``toEntities: kube-apiserver`` however is expected
+   to work on these Kubernetes distributions.
 
 Access to/from local host
 ~~~~~~~~~~~~~~~~~~~~~~~~~
