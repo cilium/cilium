@@ -115,6 +115,9 @@
   {{- if .Values.disableEndpointCRD }}
     {{ fail "The clustermesh-apiserver cannot be enabled in combination with .Values.disableEndpointCRD=true" }}
   {{- end }}
+  {{- if and (or (eq .Values.routingMode "") (eq .Values.routingMode "tunnel")) (and .Values.encryption.enabled (eq .Values.encryption.type "wireguard")) (or .Values.hostFirewall.enabled .Values.encryption.nodeEncryption) (eq .Values.clustermesh.apiserver.service.type "NodePort") }}
+    {{ fail "The clustermesh-apiserver cannot be exposed as a NodePort service when used in combination with tunneling, WireGuard encryption, and any of the Host Firewall or node-to-node encryption. For details, refer to https://github.com/cilium/cilium/issues/31209." }}
+  {{- end }}
 {{- end }}
 {{- if .Values.externalWorkloads.enabled }}
   {{- if ne .Values.identityAllocationMode "crd" }}
