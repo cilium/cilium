@@ -38,7 +38,7 @@ type RemoteCluster interface {
 	Run(ctx context.Context, backend kvstore.BackendOperations, config types.CiliumClusterConfig, ready chan<- error)
 
 	Stop()
-	Remove()
+	Remove(ctx context.Context)
 }
 
 // remoteCluster represents another cluster other than the cluster the agent is
@@ -385,9 +385,9 @@ func (rc *remoteCluster) onStop() {
 // (i.e., its configuration is removed). In this case, we need to drain
 // all known entries, to properly cleanup the status without requiring to
 // restart the agent.
-func (rc *remoteCluster) onRemove() {
+func (rc *remoteCluster) onRemove(ctx context.Context) {
 	rc.onStop()
-	rc.Remove()
+	rc.Remove(ctx)
 
 	rc.logger.Info("Remote cluster disconnected")
 }

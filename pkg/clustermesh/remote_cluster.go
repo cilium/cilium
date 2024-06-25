@@ -135,7 +135,7 @@ func (rc *remoteCluster) Stop() {
 	rc.synced.Stop()
 }
 
-func (rc *remoteCluster) Remove() {
+func (rc *remoteCluster) Remove(context.Context) {
 	// Draining shall occur only when the configuration for the remote cluster
 	// is removed, and not in case the agent is shutting down, otherwise we
 	// would break existing connections on restart.
