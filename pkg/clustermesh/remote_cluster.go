@@ -160,15 +160,19 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 	status.NumEndpoints = int64(rc.ipCacheWatcher.NumEntries())
 
 	status.Synced = &models.RemoteClusterSynced{
-		Nodes:      rc.remoteNodes.Synced(),
-		Services:   rc.remoteServices.Synced(),
-		Identities: rc.remoteIdentityCache.Synced(),
-		Endpoints:  rc.ipCacheWatcher.Synced(),
+		Nodes:    rc.remoteNodes.Synced(),
+		Services: rc.remoteServices.Synced(),
+		// The agent does not watch MCS-API service exports, hence
+		// let's pretend them to be synchronized by default.
+		ServiceExports: true,
+		Identities:     rc.remoteIdentityCache.Synced(),
+		Endpoints:      rc.ipCacheWatcher.Synced(),
 	}
 
 	status.Ready = status.Ready &&
 		status.Synced.Nodes && status.Synced.Services &&
-		status.Synced.Identities && status.Synced.Endpoints
+		status.Synced.ServiceExports && status.Synced.Identities &&
+		status.Synced.Endpoints
 
 	return status
 }
