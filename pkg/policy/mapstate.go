@@ -501,6 +501,34 @@ func (msm *mapStateMap) ForEachBroaderKeyWithNarrowerID(key Key, prefixes []neti
 	})
 }
 
+// ForEachKeyWithBroaderOrEqualPortProto iterates over broader or equal port/proto entries in the trie.
+func (msm *mapStateMap) ForEachKeyWithBroaderOrEqualPortProto(key Key, f func(Key, MapStateEntry) bool) {
+	msm.trie.Ancestors(key.PrefixLength(), key, func(prefix uint, lpmKey bitlpm.Key[Key], idSet IDSet) bool {
+		k := lpmKey.Value()
+		for id := range idSet.ids {
+			k.Identity = uint32(id)
+			if !msm.forKey(k, f) {
+				return false
+			}
+		}
+		return true
+	})
+}
+
+// ForEachKeyWithNarrowerOrEqualPortProto iterates over narrower or equal port/proto entries in the trie.
+func (msm *mapStateMap) ForEachKeyWithNarrowerOrEqualPortProto(key Key, f func(Key, MapStateEntry) bool) {
+	msm.trie.Descendants(key.PrefixLength(), key, func(prefix uint, lpmKey bitlpm.Key[Key], idSet IDSet) bool {
+		k := lpmKey.Value()
+		for id := range idSet.ids {
+			k.Identity = uint32(id)
+			if !msm.forKey(k, f) {
+				return false
+			}
+		}
+		return true
+	})
+}
+
 func (msm *mapStateMap) Len() int {
 	return len(msm.entries)
 }
@@ -1337,12 +1365,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, iden
 			maxSpecificity := 0
 			l3l4State := newMapStateMap()
 
-			ms.ForEachAllow(func(k Key, v MapStateEntry) bool {
-				// Only consider the same Traffic direction
-				if newKey.TrafficDirection != k.TrafficDirection {
-					return true
-				}
-
+			ms.allows.ForEachKeyWithBroaderOrEqualPortProto(newKey, func(k Key, v MapStateEntry) bool {
 				// Nothing to be done if entry has default AuthType
 				if v.hasAuthType == DefaultAuthType {
 					return true
@@ -1401,12 +1424,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, iden
 			explicitSubsetKeys := make(Keys)
 			defaultSubsetKeys := make(map[Key]int)
 
-			ms.ForEachAllow(func(k Key, v MapStateEntry) bool {
-				// Only consider the same Traffic direction
-				if newKey.TrafficDirection != k.TrafficDirection {
-					return true
-				}
-
+			ms.allows.ForEachKeyWithNarrowerOrEqualPortProto(newKey, func(k Key, v MapStateEntry) bool {
 				// Find out if 'newKey' is a superset of 'k'
 				if specificity := IsSuperSetOf(newKey, k); specificity > 0 {
 					if v.hasAuthType == ExplicitAuthType {
