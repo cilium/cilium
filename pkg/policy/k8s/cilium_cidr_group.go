@@ -222,16 +222,34 @@ func translateCIDRGroupRefs(cnp *types.SlimCNP, cidrsSets map[string][]api.CIDR)
 
 func translateSpec(spec *api.Rule, cidrsSets map[string][]api.CIDR) {
 	for i := range spec.Ingress {
-		spec.Ingress[i].FromCIDRSet = translateCIDRRuleSlice(spec.Ingress[i].FromCIDRSet, cidrsSets)
+		cidrSet := translateCIDRRuleSlice(spec.Ingress[i].FromCIDRSet, cidrsSets)
+		// Careful to distinguish between nil (unset, selecting everything) and
+		// empty list (selecting nothing), hence this overly explicit code.
+		if cidrSet == nil {
+			cidrSet = make([]api.CIDRRule, 0)
+		}
+		spec.Ingress[i].FromCIDRSet = cidrSet
 	}
 	for i := range spec.IngressDeny {
-		spec.IngressDeny[i].FromCIDRSet = translateCIDRRuleSlice(spec.IngressDeny[i].FromCIDRSet, cidrsSets)
+		cidrSet := translateCIDRRuleSlice(spec.IngressDeny[i].FromCIDRSet, cidrsSets)
+		if cidrSet == nil {
+			cidrSet = make([]api.CIDRRule, 0)
+		}
+		spec.IngressDeny[i].FromCIDRSet = cidrSet
 	}
 	for i := range spec.Egress {
-		spec.Egress[i].ToCIDRSet = translateCIDRRuleSlice(spec.Egress[i].ToCIDRSet, cidrsSets)
+		cidrSet := translateCIDRRuleSlice(spec.Egress[i].ToCIDRSet, cidrsSets)
+		if cidrSet == nil {
+			cidrSet = make([]api.CIDRRule, 0)
+		}
+		spec.Egress[i].ToCIDRSet = cidrSet
 	}
 	for i := range spec.EgressDeny {
-		spec.EgressDeny[i].ToCIDRSet = translateCIDRRuleSlice(spec.EgressDeny[i].ToCIDRSet, cidrsSets)
+		cidrSet := translateCIDRRuleSlice(spec.EgressDeny[i].ToCIDRSet, cidrsSets)
+		if cidrSet == nil {
+			cidrSet = make([]api.CIDRRule, 0)
+		}
+		spec.EgressDeny[i].ToCIDRSet = cidrSet
 	}
 }
 
