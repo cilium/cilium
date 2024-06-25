@@ -141,6 +141,8 @@ func TestFeatureSet_extractFromConfigMap(t *testing.T) {
 		"ipam":                         "eni",
 		"enable-ipsec":                 "true",
 		"enable-local-redirect-policy": "true",
+		"bpf-lb-external-clusterip":    "true",
+		"enable-bgp-control-plane":     "true",
 	}
 	fs.ExtractFromConfigMap(&cm)
 	assert.True(t, fs[IPv4].Enabled)
@@ -149,5 +151,7 @@ func TestFeatureSet_extractFromConfigMap(t *testing.T) {
 	assert.True(t, fs[EgressGateway].Enabled)
 	assert.True(t, fs[IPsecEnabled].Enabled)
 	assert.True(t, fs[LocalRedirectPolicy].Enabled)
+	assert.True(t, fs[BPFLBExternalClusterIP].Enabled)
+	assert.True(t, fs[BGPControlPlane].Enabled)
 	assert.Equal(t, "eni", fs[CiliumIPAMMode].Mode)
 }

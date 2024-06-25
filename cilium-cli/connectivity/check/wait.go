@@ -16,11 +16,13 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium-cli/utils/wait"
 )
 
 const (
@@ -360,4 +362,24 @@ func validateIPCache(ctx context.Context, agent Pod, pods []Pod) error {
 	}
 
 	return nil
+}
+
+// DeleteK8sResourceWithWait deletes the provided k8s resource and waits until it is deleted.
+func DeleteK8sResourceWithWait[T any](ctx context.Context, t *Test, k8sClient k8s.ResourceClient[T], resourceName string) {
+	w := wait.NewObserver(ctx, wait.Parameters{Timeout: ShortTimeout})
+	defer w.Cancel()
+
+	err := k8sClient.Delete(ctx, resourceName, metav1.DeleteOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		t.Fatalf("Failed to delete k8s resorce %s: %v", resourceName, err)
+	}
+	for {
+		_, err = k8sClient.Get(ctx, resourceName, metav1.GetOptions{})
+		if err != nil && k8serrors.IsNotFound(err) {
+			return // got expected not found
+		}
+		if err = w.Retry(err); err != nil {
+			t.Fatalf("Failed to ensure k8s resorce %s is deleted: %v", resourceName, err)
+		}
+	}
 }

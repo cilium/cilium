@@ -73,6 +73,7 @@ type ConnectivityTest struct {
 	externalWorkloads    map[string]ExternalWorkload
 	lrpClientPods        map[string]Pod
 	lrpBackendPods       map[string]Pod
+	frrPods              []Pod
 
 	hostNetNSPodsByNode      map[string]Pod
 	secondaryNetworkNodeIPv4 map[string]string // node name => secondary ip
@@ -1190,6 +1191,10 @@ func (ct *ConnectivityTest) ExternalEchoPods() map[string]Pod {
 	return ct.echoExternalPods
 }
 
+func (ct *ConnectivityTest) FRRPods() []Pod {
+	return ct.frrPods
+}
+
 func (ct *ConnectivityTest) IngressService() map[string]Service {
 	return ct.ingressService
 }
@@ -1237,4 +1242,50 @@ func (ct *ConnectivityTest) Feature(f features.Feature) (features.Status, bool) 
 
 func (ct *ConnectivityTest) Clients() []*k8s.Client {
 	return ct.clients.clients()
+}
+
+func (ct *ConnectivityTest) InternalNodeIPAddresses(ipFamily features.IPFamily) []netip.Addr {
+	var res []netip.Addr
+	for _, node := range ct.Nodes() {
+		for _, addr := range node.Status.Addresses {
+			if addr.Type != corev1.NodeInternalIP {
+				continue
+			}
+			a, err := netip.ParseAddr(addr.Address)
+			if err != nil {
+				continue
+			}
+			if (ipFamily == features.IPFamilyV4 && a.Is4()) || (ipFamily == features.IPFamilyV6 && a.Is6()) {
+				res = append(res, a)
+			}
+		}
+	}
+	return res
+}
+
+func (ct *ConnectivityTest) PodCIDRPrefixes(ipFamily features.IPFamily) []netip.Prefix {
+	var res []netip.Prefix
+	for _, node := range ct.Nodes() {
+		for _, cidr := range node.Spec.PodCIDRs {
+			p, err := netip.ParsePrefix(cidr)
+			if err != nil {
+				continue
+			}
+			if (ipFamily == features.IPFamilyV4 && p.Addr().Is4()) || (ipFamily == features.IPFamilyV6 && p.Addr().Is6()) {
+				res = append(res, p)
+			}
+		}
+	}
+	return res
+}
+
+func (ct *ConnectivityTest) EchoServicePrefixes(ipFamily features.IPFamily) []netip.Prefix {
+	var res []netip.Prefix
+	for _, svc := range ct.EchoServices() {
+		addr, err := netip.ParseAddr(svc.Address(ipFamily))
+		if err == nil {
+			res = append(res, netip.PrefixFrom(addr, addr.BitLen()))
+		}
+	}
+	return res
 }
