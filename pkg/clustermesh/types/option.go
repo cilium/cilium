@@ -22,6 +22,9 @@ const (
 
 	// OptMaxConnectedClusters is the name of the OptMaxConnectedClusters option
 	OptMaxConnectedClusters = "max-connected-clusters"
+
+	// OptClusterMeshEnableMCSAPI is the name of the OptClusterMeshEnableMCSAPI option
+	OptClusterMeshEnableMCSAPI = "clustermesh-enable-mcs-api"
 )
 
 // ClusterInfo groups together the ClusterID and the ClusterName

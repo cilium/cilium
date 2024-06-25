@@ -2394,6 +2394,9 @@ type DaemonConfig struct {
 	// allocatable identities.
 	MaxConnectedClusters uint32
 
+	// ClusterMeshEnableMCSAPI determines if cluster mesh MCS-API feature is enabled
+	ClusterMeshEnableMCSAPI bool
+
 	// ForceDeviceRequired enforces the attachment of BPF programs on native device.
 	ForceDeviceRequired bool
 
@@ -2450,12 +2453,13 @@ var (
 
 		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 
-		ExternalClusterIP:      defaults.ExternalClusterIP,
-		EnableVTEP:             defaults.EnableVTEP,
-		EnableBGPControlPlane:  defaults.EnableBGPControlPlane,
-		EnableK8sNetworkPolicy: defaults.EnableK8sNetworkPolicy,
-		PolicyCIDRMatchMode:    defaults.PolicyCIDRMatchMode,
-		MaxConnectedClusters:   defaults.MaxConnectedClusters,
+		ExternalClusterIP:       defaults.ExternalClusterIP,
+		EnableVTEP:              defaults.EnableVTEP,
+		EnableBGPControlPlane:   defaults.EnableBGPControlPlane,
+		EnableK8sNetworkPolicy:  defaults.EnableK8sNetworkPolicy,
+		PolicyCIDRMatchMode:     defaults.PolicyCIDRMatchMode,
+		MaxConnectedClusters:    defaults.MaxConnectedClusters,
+		ClusterMeshEnableMCSAPI: defaults.ClusterMeshEnableMCSAPI,
 
 		BPFEventsDropEnabled:          defaults.BPFEventsDropEnabled,
 		BPFEventsPolicyVerdictEnabled: defaults.BPFEventsPolicyVerdictEnabled,
@@ -2965,6 +2969,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.ClusterID = vp.GetUint32(clustermeshTypes.OptClusterID)
 	c.ClusterName = vp.GetString(clustermeshTypes.OptClusterName)
 	c.MaxConnectedClusters = vp.GetUint32(clustermeshTypes.OptMaxConnectedClusters)
+	c.ClusterMeshEnableMCSAPI = vp.GetBool(clustermeshTypes.OptClusterMeshEnableMCSAPI)
 	c.DatapathMode = vp.GetString(DatapathMode)
 	c.Debug = vp.GetBool(DebugArg)
 	c.DebugVerbose = vp.GetStringSlice(DebugVerbose)

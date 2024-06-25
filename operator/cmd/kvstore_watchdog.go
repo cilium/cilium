@@ -105,8 +105,11 @@ func startKvstoreWatchdog() {
 				// The cluster config continues to be enforced also after the initial successful
 				// insertion to prevent issues in case of, e.g., unexpected lease expiration.
 				cfg := cmtypes.CiliumClusterConfig{
-					ID:           option.Config.ClusterID,
-					Capabilities: cmtypes.CiliumClusterConfigCapabilities{MaxConnectedClusters: option.Config.MaxConnectedClusters}}
+					ID: option.Config.ClusterID,
+					Capabilities: cmtypes.CiliumClusterConfigCapabilities{
+						MaxConnectedClusters:  option.Config.MaxConnectedClusters,
+						ServiceExportsEnabled: &option.Config.ClusterMeshEnableMCSAPI,
+					}}
 				if err := cmutils.SetClusterConfig(ctx, option.Config.ClusterName, cfg, kvstore.Client()); err != nil {
 					log.WithError(err).Warning("Unable to set local cluster config")
 				}

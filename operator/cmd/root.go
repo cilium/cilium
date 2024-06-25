@@ -585,6 +585,17 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 				StoreFactory: legacy.storeFactory,
 				SyncCallback: func(_ context.Context) {},
 			})
+			legacy.wg.Add(1)
+			go func() {
+				mcsapi.StartSynchronizingServiceExports(legacy.ctx, &legacy.wg, mcsapi.ServiceExportSyncParameters{
+					ClusterName:    clusterInfo.Name,
+					ServiceExports: legacy.resources.ServiceExports,
+					Services:       legacy.resources.Services,
+					StoreFactory:   legacy.storeFactory,
+					SyncCallback:   func(context.Context) {},
+				})
+				legacy.wg.Done()
+			}()
 		}
 
 		if legacy.clientset.IsEnabled() {
