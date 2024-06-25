@@ -34,6 +34,9 @@ type RemoteClusterSynced struct {
 	// Nodes synchronization status
 	Nodes bool `json:"nodes,omitempty"`
 
+	// MCS-API service exports synchronization status
+	ServiceExports bool `json:"service-exports,omitempty"`
+
 	// Services synchronization status
 	Services bool `json:"services,omitempty"`
 }
