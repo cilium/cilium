@@ -53,6 +53,7 @@ rules:
   resources:
   - customresourcedefinitions
   verbs:
+  - get
   - list
   - watch
 - apiGroups:
@@ -73,4 +74,14 @@ rules:
   - get
   - list
   - watch
+{{- if .Values.clustermesh.enableMCSAPISupport }}
+- apiGroups:
+  - multicluster.x-k8s.io
+  resources:
+  - serviceexports
+  verbs:
+  - get
+  - list
+  - watch
+{{- end }}
 {{- end }}

@@ -192,6 +192,9 @@ spec:
         - --prometheus-serve-addr=:{{ .Values.clustermesh.apiserver.metrics.port }}
         - --controller-group-metrics=all
         {{- end }}
+        {{- if .Values.clustermesh.enableMCSAPISupport }}
+        - --clustermesh-enable-mcs-api
+        {{- end }}
         {{- with .Values.clustermesh.apiserver.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
