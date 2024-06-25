@@ -27,7 +27,7 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 	baseDir := t.TempDir()
 	path := func(name string) string { return filepath.Join(baseDir, name) }
 
-	for i, cluster := range []string{"cluster1", "cluster2", "cluster3"} {
+	for i, cluster := range []string{"cluster1", "cluster2", "cluster3", "cluster4"} {
 		writeFile(t, path(cluster), fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
 		cfg := types.CiliumClusterConfig{ID: uint32(i + 1)}
 		require.NoError(t, utils.SetClusterConfig(context.Background(), cluster, cfg, kvstore.Client()))
@@ -43,16 +43,20 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 	blockRemoval.Store("cluster1", make(chan struct{}))
 	blockRemoval.Store("cluster2", make(chan struct{}))
 	blockRemoval.Store("cluster3", make(chan struct{}))
+	blockRemoval.Store("cluster4", make(chan struct{}))
 
 	gcm := NewClusterMesh(Configuration{
 		Config:      Config{ClusterMeshConfig: baseDir},
 		ClusterInfo: types.ClusterInfo{ID: 255, Name: "local"},
 		NewRemoteCluster: func(name string, _ StatusFunc) RemoteCluster {
 			return &fakeRemoteCluster{
-				onRun: func() { ready.Store(name, true) },
-				onRemove: func() {
+				onRun: func(context.Context) { ready.Store(name, true) },
+				onRemove: func(ctx context.Context) {
 					wait, _ := blockRemoval.Load(name)
-					<-wait
+					select {
+					case <-wait:
+					case <-ctx.Done():
+					}
 				},
 			}
 		},
@@ -111,4 +115,11 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 	// Make sure that the deletion go routine terminated before checking
 	cm.wg.Wait()
 	require.False(t, isReady("cluster3"), "Cluster3 is ready, although it shouldn't")
+
+	cm.add("cluster4", path("cluster4"))
+	require.EventuallyWithT(t, func(c *assert.CollectT) { assert.True(c, isReady("cluster4")) }, timeout, tick, "Cluster4 is not ready")
+
+	// Never unblock the cluster removal, and assert that the stop hook terminates
+	// regardless due to the context being closed.
+	cm.remove("cluster4")
 }

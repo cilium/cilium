@@ -129,7 +129,7 @@ func (rc *remoteCluster) Stop() {
 	rc.wg.Wait()
 }
 
-func (rc *remoteCluster) Remove() {
+func (rc *remoteCluster) Remove(context.Context) {
 	// Cluster specific keys are not explicitly removed, but they will be
 	// disappear once the associated lease expires.
 }
