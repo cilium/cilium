@@ -14,7 +14,7 @@
 {{- $azureUsePrimaryAddress := "true" -}}
 {{- $defaultK8sClientQPS := 5 -}}
 {{- $defaultK8sClientBurst := 10 -}}
-{{- $defaultDNSProxyEnableTransparentMode := "false" -}}
+{{- $defaultDNSProxyEnableTransparentMode := "true" -}}
 {{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
 
 {{- if .Values.ipv4.enabled }}
@@ -23,13 +23,9 @@
   {{- $defaultOperatorApiServeAddr = "[::1]:9234" -}}
 {{- end }}
 
-{{- /* Default values when 1.12 was initially deployed */ -}}
-{{- if semverCompare ">=1.12" (default "1.12" .Values.upgradeCompatibility) -}}
-  {{- if .Values.azure.enabled }}
-      {{- $azureUsePrimaryAddress = "false" -}}
-  {{- end }}
-  {{- $defaultDNSProxyEnableTransparentMode = "true" -}}
-{{- end -}}
+{{- if .Values.azure.enabled }}
+    {{- $azureUsePrimaryAddress = "false" -}}
+{{- end }}
 
 {{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
