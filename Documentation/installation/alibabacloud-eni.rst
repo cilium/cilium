@@ -78,7 +78,8 @@ These keys need to have certain `RAM Permissions
             "ecs:AssignPrivateIpAddresses",
             "ecs:UnassignPrivateIpAddresses",
             "ecs:DescribeInstances",
-            "ecs:DescribeSecurityGroups"
+            "ecs:DescribeSecurityGroups",
+            "ecs:ListTagResources"
           ],
           "Resource": [
             "*"
