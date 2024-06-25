@@ -2533,6 +2533,9 @@ definitions:
       num-shared-services:
         description: Number of services in the cluster
         type: integer
+      num-service-exports:
+        description: Number of MCS-API service exports in the cluster
+        type: integer
       num-identities:
         description: Number of identities in the cluster
         type: integer
@@ -2564,6 +2567,10 @@ definitions:
       services:
         description: Services synchronization status
         type: boolean
+      service-exports:
+        description: MCS-API service exports synchronization status (null means that the component is not watching service exports)
+        type: boolean
+        x-nullable: true
       endpoints:
         description: Endpoints synchronization status
         type: boolean
@@ -2591,6 +2598,10 @@ definitions:
       sync-canaries:
         description: Whether the remote cluster supports per-prefix "synced" canaries
         type: boolean
+      service-exports-enabled:
+        description: Whether or not MCS-API ServiceExports is enabled by the cluster (null means unsupported).
+        type: boolean
+        x-nullable: true
   MonitorStatus:
     description: Status of the node monitor
     properties:

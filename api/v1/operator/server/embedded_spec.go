@@ -262,6 +262,10 @@ func init() {
               "description": "Number of nodes in the cluster",
               "type": "integer"
             },
+            "num-service-exports": {
+              "description": "Number of MCS-API service exports in the cluster",
+              "type": "integer"
+            },
             "num-shared-services": {
               "description": "Number of services in the cluster",
               "type": "integer"
@@ -328,6 +332,11 @@ func init() {
           "description": "Whether the configuration has been correctly retrieved",
           "type": "boolean"
         },
+        "service-exports-enabled": {
+          "description": "Whether or not MCS-API ServiceExports is enabled by the cluster (null means unsupported).",
+          "type": "boolean",
+          "x-nullable": true
+        },
         "sync-canaries": {
           "description": "Whether the remote cluster supports per-prefix \"synced\" canaries",
           "type": "boolean"
@@ -348,6 +357,11 @@ func init() {
         "nodes": {
           "description": "Nodes synchronization status",
           "type": "boolean"
+        },
+        "service-exports": {
+          "description": "MCS-API service exports synchronization status (null means that the component is not watching service exports)",
+          "type": "boolean",
+          "x-nullable": true
         },
         "services": {
           "description": "Services synchronization status",
