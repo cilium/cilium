@@ -25,6 +25,10 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
+// Maximum number of tags for exact search of ECS resources.
+// https://www.alibabacloud.com/help/en/ecs/developer-reference/api-ecs-2014-05-26-listtagresources
+const MaxInstanceTags = 20
+
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-alibaba-cloud")
 
 // AllocatorAlibabaCloud is an implementation of IPAM allocator interface for AlibabaCloud ENI
@@ -43,14 +47,11 @@ func (a *AllocatorAlibabaCloud) Init(ctx context.Context) error {
 		aMetrics = &apiMetrics.NoOpMetrics{}
 	}
 
-	var err error
-	vpcID := operatorOption.Config.AlibabaCloudVPCID
-	if vpcID == "" {
-		vpcID, err = metadata.GetVPCID(ctx)
-		if err != nil {
-			return err
-		}
+	if len(operatorOption.Config.IPAMInstanceTags) > MaxInstanceTags {
+		return fmt.Errorf("number of tags in instance-tags-filter exceeds the limit %d", MaxInstanceTags)
 	}
+
+	var err error
 	regionID, err := metadata.GetRegionID(ctx)
 	if err != nil {
 		return err
@@ -77,7 +78,7 @@ func (a *AllocatorAlibabaCloud) Init(ctx context.Context) error {
 	ecsClient.GetConfig().WithScheme("HTTPS")
 
 	a.client = openapi.NewClient(vpcClient, ecsClient, aMetrics, operatorOption.Config.IPAMAPIQPSLimit,
-		operatorOption.Config.IPAMAPIBurst, map[string]string{openapi.VPCID: vpcID})
+		operatorOption.Config.IPAMAPIBurst, operatorOption.Config.IPAMInstanceTags)
 
 	if err := limits.UpdateFromAPI(ctx, a.client); err != nil {
 		return fmt.Errorf("unable to update instance type to adapter limits from AlibabaCloud API: %w", err)
