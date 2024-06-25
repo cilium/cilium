@@ -306,11 +306,11 @@ Annotations:
 1.16 Upgrade Notes
 ------------------
 
-* Cilium Envoy DaemonSet is now enabled by default, and existing in-container installs
-  will be changed to DaemonSet mode unless specifically opted out of. This can be done by
-  disabling it manually by setting ``envoy.enabled=false`` accordingly. This change adds
-  one additional Pod per Node, therefore Nodes at maximum Pod capacity will face an
-  eviction of a single non-system critical Pod after upgrading.
+* Cilium Envoy DaemonSet is now enabled by default for new installation if the helm attribute
+  ``envoy.enabled`` is not specified, for existing cluster, please set ``upgradeCompatibility``
+  to 1.15 or earlier to keep the previous behavior. This change adds one additional Pod per Node,
+  therefore Nodes at maximum Pod capacity will face an eviction of a single non-system critical
+  Pod after upgrading.
 * For Linux kernels of version 6.6 or newer, Cilium by default switches to tcx BPF links for
   attaching its tc BPF programs in the core datapath for better resiliency and performance.
   If your current setup has third-party old-style tc BPF users, then this option should be

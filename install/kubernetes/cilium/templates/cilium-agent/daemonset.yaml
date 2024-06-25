@@ -9,6 +9,7 @@
 {{- end -}}
 
 {{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement "false") -}}
+{{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
 
 ---
 apiVersion: apps/v1
@@ -236,13 +237,13 @@ spec:
           containerPort: {{ .Values.prometheus.port }}
           hostPort: {{ .Values.prometheus.port }}
           protocol: TCP
-        {{- if and .Values.envoy.prometheus.enabled (not .Values.envoy.enabled) }}
+        {{- if and .Values.envoy.prometheus.enabled (not $envoyDS) }}
         - name: envoy-metrics
           containerPort: {{ .Values.envoy.prometheus.port }}
           hostPort: {{ .Values.envoy.prometheus.port }}
           protocol: TCP
         {{- end }}
-        {{- if and .Values.envoy.debug.admin.port (not .Values.envoy.enabled) }}
+        {{- if and .Values.envoy.debug.admin.port (not $envoyDS) }}
         - name: envoy-admin
           containerPort: {{ .Values.envoy.debug.admin.port }}
           hostPort: {{ .Values.envoy.debug.admin.port }}
@@ -279,7 +280,7 @@ spec:
           mountPath: {{ dir .Values.authentication.mutual.spire.adminSocketPath }}
           readOnly: false
         {{- end }}
-        {{- if .Values.envoy.enabled }}
+        {{- if $envoyDS }}
         - name: envoy-sockets
           mountPath: /var/run/cilium/envoy/sockets
           readOnly: false
@@ -833,7 +834,7 @@ spec:
           path: {{ dir .Values.authentication.mutual.spire.adminSocketPath }}
           type: DirectoryOrCreate
       {{- end }}
-      {{- if .Values.envoy.enabled }}
+      {{- if $envoyDS }}
       # Sharing socket with Cilium Envoy on the same node by using a host path
       - name: envoy-sockets
         hostPath:

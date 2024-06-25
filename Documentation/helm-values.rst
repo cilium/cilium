@@ -1169,9 +1169,9 @@
      - string
      - ``nil``
    * - :spelling:ignore:`envoy.enabled`
-     - Enable Envoy Proxy in standalone DaemonSet.
-     - bool
-     - ``true``
+     - Enable Envoy Proxy in standalone DaemonSet. This field is enabled by default for new installation.
+     - string
+     - ``true`` for new installation
    * - :spelling:ignore:`envoy.extraArgs`
      - Additional envoy container arguments.
      - list
