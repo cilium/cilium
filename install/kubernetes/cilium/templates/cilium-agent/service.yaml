@@ -1,3 +1,4 @@
+{{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
 {{- if and .Values.agent (not .Values.preflight.enabled) .Values.prometheus.enabled }}
 {{- if .Values.prometheus.serviceMonitor.enabled }}
 apiVersion: v1
@@ -23,13 +24,13 @@ spec:
     port: {{ .Values.prometheus.port }}
     protocol: TCP
     targetPort: prometheus
-  {{- if not .Values.envoy.enabled }}
+  {{- if not $envoyDS }}
   - name: envoy-metrics
     port: {{ .Values.envoy.prometheus.port }}
     protocol: TCP
     targetPort: envoy-metrics
   {{- end }}
-{{- else if and .Values.envoy.prometheus.enabled (not .Values.envoy.enabled) }}
+{{- else if and .Values.envoy.prometheus.enabled (not $envoyDS) }}
 apiVersion: v1
 kind: Service
 metadata:
