@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 const (
@@ -81,6 +82,10 @@ type GoBGPServer struct {
 	// a gobgp backed BgpServer configured in accordance to the accompanying
 	// CiliumBGPVirtualRouter configuration.
 	server *server.BgpServer
+
+	// stopping is a flag to indicate if the server is stopping.
+	stopping  bool
+	stopMutex lock.Mutex
 }
 
 // NewGoBGPServer returns instance of go bgp router wrapper.
@@ -112,16 +117,22 @@ func NewGoBGPServer(ctx context.Context, log *logrus.Entry, params types.ServerP
 		return nil, fmt.Errorf("failed starting BGP server: %w", err)
 	}
 
+	gobgpSrv := &GoBGPServer{
+		logger: log,
+		asn:    params.Global.ASN,
+		server: s,
+	}
+
 	// Reject all paths announced toward Cilium from external peers. This first step configures an
 	// "allow" policy for local routes. It was observed during testing that global policies are also
 	// applied to local routes, which we need to permit.
-	if err := s.AddPolicy(ctx, &gobgp.AddPolicyRequest{Policy: allowLocalPolicy}); err != nil {
+	if err := gobgpSrv.server.AddPolicy(ctx, &gobgp.AddPolicyRequest{Policy: allowLocalPolicy}); err != nil {
 		return nil, fmt.Errorf("failed to add %s policy: %w", allowLocalPolicy.Name, err)
 	}
 
 	// Reject all paths announced toward Cilium from external peers. This step configures the actual
 	// import policy.
-	err := s.SetPolicyAssignment(ctx, &gobgp.SetPolicyAssignmentRequest{
+	err := gobgpSrv.server.SetPolicyAssignment(ctx, &gobgp.SetPolicyAssignmentRequest{
 		Assignment: &gobgp.PolicyAssignment{
 			Name:          globalPolicyAssignmentName,
 			Direction:     gobgp.PolicyDirection_IMPORT,
@@ -139,18 +150,69 @@ func NewGoBGPServer(ctx context.Context, log *logrus.Entry, params types.ServerP
 	}
 	err = s.WatchEvent(ctx, watchRequest, func(r *gobgp.WatchEventResponse) {
 		if p := r.GetPeer(); p != nil && p.Type == gobgp.WatchEventResponse_PeerEvent_STATE {
+			gobgpSrv.stopMutex.Lock()
+			defer gobgpSrv.stopMutex.Unlock()
+
+			if gobgpSrv.stopping {
+				return
+			}
+
 			logger.l.Debug(p)
+
+			// if channel is nil (BGPv1) below code will not block and will act as a no-op.
+			select {
+			case params.StateNotification <- struct{}{}:
+			default:
+			}
 		}
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to configure logging for virtual router with local-asn %v: %w", startReq.Global.Asn, err)
+		return nil, fmt.Errorf("failed to configure peer watching for virtual router with local-asn %v: %w", startReq.Global.Asn, err)
 	}
 
-	return &GoBGPServer{
-		logger: log,
-		asn:    params.Global.ASN,
-		server: s,
-	}, nil
+	watchRequestTable := &gobgp.WatchEventRequest{
+		Table: &gobgp.WatchEventRequest_Table{
+			Filters: []*gobgp.WatchEventRequest_Table_Filter{
+				{
+					Type: gobgp.WatchEventRequest_Table_Filter_ADJIN,
+					Init: true,
+				},
+				{
+					Type: gobgp.WatchEventRequest_Table_Filter_BEST,
+					Init: true,
+				},
+				{
+					Type: gobgp.WatchEventRequest_Table_Filter_POST_POLICY,
+					Init: true,
+				},
+				{
+					Type: gobgp.WatchEventRequest_Table_Filter_EOR,
+					Init: true,
+				},
+			},
+		},
+	}
+	err = s.WatchEvent(ctx, watchRequestTable, func(_ *gobgp.WatchEventResponse) {
+		gobgpSrv.stopMutex.Lock()
+		defer gobgpSrv.stopMutex.Unlock()
+
+		if gobgpSrv.stopping {
+			return
+		}
+
+		logger.l.Debug("Route event received")
+
+		// if channel is nil (BGPv1) below code will not block and will act as a no-op.
+		select {
+		case params.StateNotification <- struct{}{}:
+		default:
+		}
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure table watching for virtual router with local-asn %v: %w", startReq.Global.Asn, err)
+	}
+
+	return gobgpSrv, nil
 }
 
 // AdvertisePath will advertise the provided Path to any existing and all
@@ -300,6 +362,11 @@ func (g *GoBGPServer) deleteDefinedSets(ctx context.Context, definedSets []*gobg
 
 // Stop closes gobgp server
 func (g *GoBGPServer) Stop() {
+	g.stopMutex.Lock()
+	defer g.stopMutex.Unlock()
+
+	g.stopping = true
+
 	if g.server != nil {
 		g.server.Stop()
 	}
