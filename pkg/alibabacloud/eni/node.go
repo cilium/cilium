@@ -189,7 +189,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (available ipamTypes.AllocationMap, stats stats.InterfaceStats, err error) {
 	limits, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
-		return nil, stats, fmt.Errorf(errUnableToDetermineLimits)
+		return nil, stats, ipam.LimitsNotFound{}
 	}
 
 	// During preparation of IP allocations, the primary NIC is not considered
