@@ -88,18 +88,18 @@ type MapState interface {
 	//
 	// modifiers are private
 	//
-	delete(Key)
-	insert(Key, MapStateEntry)
-	revertChanges(ChangeState)
+	delete(Key, Identities)
+	insert(Key, MapStateEntry, Identities)
+	revertChanges(Identities, ChangeState)
 
-	addVisibilityKeys(PolicyOwner, uint16, *VisibilityMetadata, ChangeState)
+	addVisibilityKeys(PolicyOwner, uint16, *VisibilityMetadata, Identities, ChangeState)
 	allowAllIdentities(ingress, egress bool)
 	determineAllowLocalhostIngress()
 	denyPreferredInsertWithChanges(newKey Key, newEntry MapStateEntry, identities Identities, features policyFeatures, changes ChangeState)
-	deleteKeyWithChanges(key Key, owner MapStateOwner, changes ChangeState)
+	deleteKeyWithChanges(key Key, owner MapStateOwner, identities Identities, changes ChangeState)
 
 	// for testing only
-	WithState(initMap map[Key]MapStateEntry) MapState
+	WithState(initMap map[Key]MapStateEntry, identities Identities) MapState
 }
 
 // mapState is a state of a policy map.
@@ -112,6 +112,11 @@ type mapState struct {
 // associated with an identity
 type Identities interface {
 	GetPrefix(identity.NumericIdentity) netip.Prefix
+}
+
+type netipPrefixRefCount struct {
+	netip.Prefix
+	refCount uint
 }
 
 // mapStateMap is a convience type representing the actual structure mapping
@@ -137,6 +142,10 @@ type mapStateMap struct {
 	// trie is a Trie that indexes policy Keys without their identity
 	// and stores the identities in an associated builtin map.
 	trie bitlpm.Trie[bitlpm.Key[Key], map[identity.NumericIdentity]struct{}]
+	// CIDR index to keys in 'trie', one for each traffic direction
+	cidrMaps [2]map[identity.NumericIdentity]netipPrefixRefCount
+	// keys with zero identity are not in cidr, index them separately
+	anys map[Key]struct{}
 }
 
 func (msm *mapStateMap) Lookup(k Key) (MapStateEntry, bool) {
@@ -144,8 +153,10 @@ func (msm *mapStateMap) Lookup(k Key) (MapStateEntry, bool) {
 	return v, ok
 }
 
-func (msm *mapStateMap) upsert(k Key, e MapStateEntry) {
-	id := identity.NumericIdentity(k.Identity)
+var ip4ZeroPrefix = netip.MustParsePrefix("0.0.0.0/0")
+var ip6ZeroPrefix = netip.MustParsePrefix("::/0")
+
+func (msm *mapStateMap) upsert(k Key, e MapStateEntry, identities Identities) {
 	_, exists := msm.entries[k]
 
 	// upsert entry
@@ -161,11 +172,38 @@ func (msm *mapStateMap) upsert(k Key, e MapStateEntry) {
 			idMap = make(map[identity.NumericIdentity]struct{})
 			msm.trie.Upsert(k.PrefixLength(), kCpy, idMap)
 		}
+
+		id := identity.NumericIdentity(k.Identity)
 		idMap[id] = struct{}{}
+
+		// update CIDR and ANY indices
+		switch {
+		case id == identity.ReservedIdentityWorldIPv4:
+			msm.insertCidr(k, ip4ZeroPrefix)
+		case id == identity.ReservedIdentityWorldIPv6:
+			msm.insertCidr(k, ip6ZeroPrefix)
+		case id.HasLocalScope() && identities != nil:
+			prefix := identities.GetPrefix(id)
+			if prefix.IsValid() {
+				msm.insertCidr(k, prefix)
+			}
+		case id == 0:
+			msm.anys[k] = struct{}{}
+		}
 	}
 }
 
-func (msm *mapStateMap) delete(k Key) {
+func (msm *mapStateMap) insertCidr(k Key, prefix netip.Prefix) {
+	id := identity.NumericIdentity(k.Identity)
+	netPrefix, ok := msm.cidrMaps[k.TrafficDirection][id]
+	if !ok {
+		netPrefix = netipPrefixRefCount{prefix, 0}
+	}
+	netPrefix.refCount += 1
+	msm.cidrMaps[k.TrafficDirection][id] = netPrefix
+}
+
+func (msm *mapStateMap) delete(k Key, identities Identities) {
 	_, exists := msm.entries[k]
 	if exists {
 		delete(msm.entries, k)
@@ -178,8 +216,28 @@ func (msm *mapStateMap) delete(k Key) {
 				msm.trie.Delete(k.PrefixLength(), k)
 			}
 		}
+
+		// update CIDR and ANY indices
+		if id == 0 {
+			delete(msm.anys, k)
+		} else {
+			msm.deleteCidr(k)
+		}
 	}
-	return
+}
+
+func (msm *mapStateMap) deleteCidr(k Key) {
+	id := identity.NumericIdentity(k.Identity)
+	netPrefix, ok := msm.cidrMaps[k.TrafficDirection][id]
+	if !ok {
+		return
+	}
+	netPrefix.refCount -= 1
+	if netPrefix.refCount == 0 {
+		delete(msm.cidrMaps[k.TrafficDirection], id)
+	} else {
+		msm.cidrMaps[k.TrafficDirection][id] = netPrefix
+	}
 }
 
 func (msm *mapStateMap) ForEach(f func(Key, MapStateEntry) bool) bool {
@@ -346,13 +404,13 @@ func NewMapState() MapState {
 	return newMapState()
 }
 
-func (ms *mapState) WithState(initMap map[Key]MapStateEntry) MapState {
-	return ms.withState(initMap)
+func (ms *mapState) WithState(initMap map[Key]MapStateEntry, identities Identities) MapState {
+	return ms.withState(initMap, identities)
 }
 
-func (ms *mapState) withState(initMap map[Key]MapStateEntry) *mapState {
+func (ms *mapState) withState(initMap map[Key]MapStateEntry, identities Identities) *mapState {
 	for k, v := range initMap {
-		ms.insert(k, v)
+		ms.insert(k, v, identities)
 	}
 	return ms
 }
@@ -362,10 +420,20 @@ func newMapState() *mapState {
 		allows: mapStateMap{
 			entries: make(map[Key]MapStateEntry),
 			trie:    bitlpm.NewTrie[Key, map[identity.NumericIdentity]struct{}](policyTypes.MapStatePrefixLen),
+			cidrMaps: [2]map[identity.NumericIdentity]netipPrefixRefCount{
+				make(map[identity.NumericIdentity]netipPrefixRefCount),
+				make(map[identity.NumericIdentity]netipPrefixRefCount),
+			},
+			anys: make(map[Key]struct{}),
 		},
 		denies: mapStateMap{
 			entries: make(map[Key]MapStateEntry),
 			trie:    bitlpm.NewTrie[Key, map[identity.NumericIdentity]struct{}](policyTypes.MapStatePrefixLen),
+			cidrMaps: [2]map[identity.NumericIdentity]netipPrefixRefCount{
+				make(map[identity.NumericIdentity]netipPrefixRefCount),
+				make(map[identity.NumericIdentity]netipPrefixRefCount),
+			},
+			anys: make(map[Key]struct{}),
 		},
 	}
 	return m
@@ -386,24 +454,24 @@ func (ms *mapState) Get(k Key) (MapStateEntry, bool) {
 
 // insert the Key and matcthing MapStateEntry into the
 // MapState
-func (ms *mapState) insert(k Key, v MapStateEntry) {
+func (ms *mapState) insert(k Key, v MapStateEntry, identities Identities) {
 	if k.DestPort == 0 && k.InvertedPortMask != 0xffff {
 		stacktrace := hclog.Stacktrace()
 		log.Errorf("mapState.Insert: invalid wildcard port with non-zero mask: %v. Stacktrace: %s", k, stacktrace)
 	}
 	if v.IsDeny {
-		ms.allows.delete(k)
-		ms.denies.upsert(k, v)
+		ms.allows.delete(k, identities)
+		ms.denies.upsert(k, v, identities)
 	} else {
-		ms.denies.delete(k)
-		ms.allows.upsert(k, v)
+		ms.denies.delete(k, identities)
+		ms.allows.upsert(k, v, identities)
 	}
 }
 
 // Delete removes the Key an related MapStateEntry.
-func (ms *mapState) delete(k Key) {
-	ms.allows.delete(k)
-	ms.denies.delete(k)
+func (ms *mapState) delete(k Key, identities Identities) {
+	ms.allows.delete(k, identities)
+	ms.denies.delete(k, identities)
 }
 
 // ForEach iterates over every Key MapStateEntry and stops when the function
@@ -467,41 +535,41 @@ func (obtained *mapState) Diff(_ *testing.T, expected MapState) (res string) {
 }
 
 // AddDependent adds 'key' to the set of dependent keys.
-func (ms *mapState) AddDependent(owner Key, dependent Key, changes ChangeState) {
+func (ms *mapState) AddDependent(owner Key, dependent Key, identities Identities, changes ChangeState) {
 	if e, exists := ms.allows.Lookup(owner); exists {
-		ms.addDependentOnEntry(owner, e, dependent, changes)
+		ms.addDependentOnEntry(owner, e, dependent, identities, changes)
 	} else if e, exists := ms.denies.Lookup(owner); exists {
-		ms.addDependentOnEntry(owner, e, dependent, changes)
+		ms.addDependentOnEntry(owner, e, dependent, identities, changes)
 	}
 }
 
 // addDependentOnEntry adds 'dependent' to the set of dependent keys of 'e'.
-func (ms *mapState) addDependentOnEntry(owner Key, e MapStateEntry, dependent Key, changes ChangeState) {
+func (ms *mapState) addDependentOnEntry(owner Key, e MapStateEntry, dependent Key, identities Identities, changes ChangeState) {
 	if _, exists := e.dependents[dependent]; !exists {
 		if changes.Old != nil {
 			changes.Old[owner] = e
 		}
 		e.AddDependent(dependent)
-		ms.insert(owner, e)
+		ms.insert(owner, e, identities)
 	}
 }
 
 // RemoveDependent removes 'key' from the list of dependent keys.
 // This is called when a dependent entry is being deleted.
 // If 'old' is not nil, then old value is added there before any modifications.
-func (ms *mapState) RemoveDependent(owner Key, dependent Key, changes ChangeState) {
+func (ms *mapState) RemoveDependent(owner Key, dependent Key, identities Identities, changes ChangeState) {
 	if e, exists := ms.allows.Lookup(owner); exists {
 		changes.insertOldIfNotExists(owner, e)
 		e.RemoveDependent(dependent)
-		ms.denies.delete(owner)
-		ms.allows.upsert(owner, e)
+		ms.denies.delete(owner, identities)
+		ms.allows.upsert(owner, e, identities)
 		return
 	}
 	if e, exists := ms.denies.Lookup(owner); exists {
 		changes.insertOldIfNotExists(owner, e)
 		e.RemoveDependent(dependent)
-		ms.allows.delete(owner)
-		ms.denies.upsert(owner, e)
+		ms.allows.delete(owner, identities)
+		ms.denies.upsert(owner, e, identities)
 	}
 }
 
@@ -648,7 +716,7 @@ func (ms *mapState) denyPreferredInsert(newKey Key, newEntry MapStateEntry, iden
 }
 
 // addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes', and any changed or removed old values in 'old', if not nil.
-func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes ChangeState) {
+func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, identities Identities, changes ChangeState) {
 	// Keep all owners that need this entry so that it is deleted only if all the owners delete their contribution
 	var datapathEqual bool
 	oldEntry, exists := ms.Get(key)
@@ -672,14 +740,14 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Chan
 		// place!
 		datapathEqual = oldEntry.DatapathEqual(&entry)
 		oldEntry.Merge(&entry)
-		ms.insert(key, oldEntry)
+		ms.insert(key, oldEntry, identities)
 	} else {
 		// Newly inserted entries must have their own containers, so that they
 		// remain separate when new owners/dependents are added to existing entries
 		entry.DerivedFromRules = slices.Clone(entry.DerivedFromRules)
 		entry.owners = maps.Clone(entry.owners)
 		entry.dependents = maps.Clone(entry.dependents)
-		ms.insert(key, entry)
+		ms.insert(key, entry, identities)
 	}
 
 	// Record an incremental Add if desired and entry is new or changed
@@ -694,7 +762,7 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Chan
 
 // deleteKeyWithChanges deletes a 'key' from 'keys' keeping track of incremental changes in 'adds' and 'deletes'.
 // The key is unconditionally deleted if 'cs' is nil, otherwise only the contribution of this 'cs' is removed.
-func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, changes ChangeState) {
+func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, identities Identities, changes ChangeState) {
 	if entry, exists := ms.Get(key); exists {
 		// Save old value before any changes, if desired
 		oldAdded := changes.insertOldIfNotExists(key, entry)
@@ -704,7 +772,7 @@ func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, changes C
 				// Remove the contribution of this selector from the entry
 				delete(entry.owners, owner)
 				if ownerKey, ok := owner.(Key); ok {
-					ms.RemoveDependent(ownerKey, key, changes)
+					ms.RemoveDependent(ownerKey, key, identities, changes)
 				}
 				// key is not deleted if other owners still need it
 				if len(entry.owners) > 0 {
@@ -726,7 +794,7 @@ func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, changes C
 			for owner := range entry.owners {
 				if owner != nil {
 					if ownerKey, ok := owner.(Key); ok {
-						ms.RemoveDependent(ownerKey, key, changes)
+						ms.RemoveDependent(ownerKey, key, identities, changes)
 					}
 				}
 			}
@@ -734,7 +802,7 @@ func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, changes C
 
 		// Check if dependent entries need to be deleted as well
 		for k := range entry.dependents {
-			ms.deleteKeyWithChanges(k, key, changes)
+			ms.deleteKeyWithChanges(k, key, identities, changes)
 		}
 		if changes.Deletes != nil {
 			changes.Deletes[key] = struct{}{}
@@ -744,8 +812,8 @@ func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, changes C
 			}
 		}
 
-		ms.allows.delete(key)
-		ms.denies.delete(key)
+		ms.allows.delete(key, identities)
+		ms.denies.delete(key, identities)
 	}
 }
 
@@ -826,14 +894,14 @@ func protocolsMatch(a, b Key) bool {
 
 // RevertChanges undoes changes to 'keys' as indicated by 'changes.adds' and 'changes.old' collected via
 // denyPreferredInsertWithChanges().
-func (ms *mapState) revertChanges(changes ChangeState) {
+func (ms *mapState) revertChanges(identities Identities, changes ChangeState) {
 	for k := range changes.Adds {
-		ms.allows.delete(k)
-		ms.denies.delete(k)
+		ms.allows.delete(k, identities)
+		ms.denies.delete(k, identities)
 	}
 	// 'old' contains all the original values of both modified and deleted entries
 	for k, v := range changes.Old {
-		ms.insert(k, v)
+		ms.insert(k, v, identities)
 	}
 }
 
@@ -844,7 +912,7 @@ func (ms *mapState) revertChanges(changes ChangeState) {
 func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStateEntry, identities Identities, features policyFeatures, changes ChangeState) {
 	// Skip deny rules processing if the policy in this direction has no deny rules
 	if !features.contains(denyRules) {
-		ms.authPreferredInsert(newKey, newEntry, features, changes)
+		ms.authPreferredInsert(newKey, newEntry, identities, features, changes)
 		return
 	}
 
@@ -902,12 +970,12 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		})
 		for _, delete := range deletes {
 			if !delete.Add {
-				ms.deleteKeyWithChanges(delete.Key, nil, changes)
+				ms.deleteKeyWithChanges(delete.Key, nil, identities, changes)
 			}
 		}
 		for _, update := range updates {
 			if update.Add {
-				ms.addKeyWithChanges(update.Key, update.Value, changes)
+				ms.addKeyWithChanges(update.Key, update.Value, identities, changes)
 				// L3-only entries can be deleted incrementally so we need to track their
 				// effects on other entries so that those effects can be reverted when the
 				// identity is removed.
@@ -960,11 +1028,11 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		})
 		for _, update := range updates {
 			if !update.Add {
-				ms.deleteKeyWithChanges(update.Key, nil, changes)
+				ms.deleteKeyWithChanges(update.Key, nil, identities, changes)
 			}
 		}
 		if !bailed {
-			ms.addKeyWithChanges(newKey, newEntry, changes)
+			ms.addKeyWithChanges(newKey, newEntry, identities, changes)
 		}
 	} else {
 		// NOTE: We do not delete redundant allow entries.
@@ -1016,13 +1084,13 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		})
 		for i, update := range updates {
 			if update.Add {
-				ms.addKeyWithChanges(update.Key, update.Value, changes)
+				ms.addKeyWithChanges(update.Key, update.Value, identities, changes)
 				dep := dependents[i]
-				ms.addDependentOnEntry(dep.Key, dep.Value, update.Key, changes)
+				ms.addDependentOnEntry(dep.Key, dep.Value, update.Key, identities, changes)
 			}
 		}
 		if !bailed {
-			ms.authPreferredInsert(newKey, newEntry, features, changes)
+			ms.authPreferredInsert(newKey, newEntry, identities, features, changes)
 		}
 	}
 }
@@ -1090,7 +1158,7 @@ func IsSuperSetOf(k, other Key) int {
 // This function is expected to be called for a map insertion after deny
 // entry evaluation. If there is a map entry that is a superset of 'newKey'
 // which denies traffic matching 'newKey', then this function should not be called.
-func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, features policyFeatures, changes ChangeState) {
+func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, identities Identities, features policyFeatures, changes ChangeState) {
 	if features.contains(authRules) {
 		if newEntry.hasAuthType == DefaultAuthType {
 			// New entry has a default auth type.
@@ -1136,7 +1204,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 						newKeyCpy.Nexthdr = newKey.Nexthdr
 						l3l4AuthEntry := NewMapStateEntry(k, v.DerivedFromRules, 0, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType)
 						l3l4AuthEntry.DerivedFromRules.MergeSorted(newEntry.DerivedFromRules)
-						l3l4State.allows.upsert(newKeyCpy, l3l4AuthEntry)
+						l3l4State.allows.upsert(newKeyCpy, l3l4AuthEntry, identities)
 					}
 				}
 				return true
@@ -1147,7 +1215,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 			// will be matched before the L3-only entries in the datapath.
 			if maxSpecificity == 0 {
 				l3l4State.ForEach(func(k Key, v MapStateEntry) bool {
-					ms.addKeyWithChanges(k, v, changes)
+					ms.addKeyWithChanges(k, v, identities, changes)
 					// L3-only entries can be deleted incrementally so we need to track their
 					// effects on other entries so that those effects can be reverted when the
 					// identity is removed.
@@ -1190,7 +1258,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 						newKeyCpy.Nexthdr = k.Nexthdr
 						l3l4AuthEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, v.Listener, v.priority, false, DefaultAuthType, newEntry.AuthType)
 						l3l4AuthEntry.DerivedFromRules.MergeSorted(v.DerivedFromRules)
-						ms.addKeyWithChanges(newKeyCpy, l3l4AuthEntry, changes)
+						ms.addKeyWithChanges(newKeyCpy, l3l4AuthEntry, identities, changes)
 						// L3-only entries can be deleted incrementally so we need to track their
 						// effects on other entries so that those effects can be reverted when the
 						// identity is removed.
@@ -1213,11 +1281,11 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 				// propagate auth type from newEntry to the entry of k
 				v, _ := ms.Get(k)
 				v.AuthType = newEntry.AuthType
-				ms.addKeyWithChanges(k, v, changes) // Update the map value
+				ms.addKeyWithChanges(k, v, identities, changes) // Update the map value
 			}
 		}
 	}
-	ms.addKeyWithChanges(newKey, newEntry, changes)
+	ms.addKeyWithChanges(newKey, newEntry, identities, changes)
 }
 
 var visibilityDerivedFromLabels = labels.LabelArray{
@@ -1292,7 +1360,7 @@ func (changes *ChangeState) insertOldIfNotExists(key Key, entry MapStateEntry) b
 // 'adds' and 'oldValues' are updated with the changes made. 'adds' contains both the added and
 // changed keys. 'oldValues' contains the old values for changed keys. This function does not
 // delete any keys.
-func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMeta *VisibilityMetadata, changes ChangeState) {
+func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMeta *VisibilityMetadata, identities Identities, changes ChangeState) {
 	direction := trafficdirection.Egress
 	if visMeta.Ingress {
 		direction = trafficdirection.Ingress
@@ -1321,7 +1389,7 @@ func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 			logfields.BPFMapKey:   key,
 			logfields.BPFMapValue: entry,
 		}, "addVisibilityKeys: Changing L4-only ALLOW key for visibility redirect")
-		ms.addKeyWithChanges(key, entry, changes)
+		ms.addKeyWithChanges(key, entry, identities, changes)
 	}
 	if haveAllowAllKey && !haveL4OnlyKey {
 		// 2. If allow-all policy exists, add L4-only visibility redirect key if the L4-only
@@ -1331,7 +1399,7 @@ func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 			logfields.BPFMapValue: entry,
 		}, "addVisibilityKeys: Adding L4-only ALLOW key for visibility redirect")
 		addL4OnlyKey = true
-		ms.addKeyWithChanges(key, entry, changes)
+		ms.addKeyWithChanges(key, entry, identities, changes)
 	}
 	// We need to make changes to the map
 	// outside of iteration.
@@ -1395,7 +1463,7 @@ func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 						Value: v2,
 					})
 					// Mark the new entry as a dependent of 'v'
-					ms.addDependentOnEntry(k, v, k2, changes)
+					ms.addDependentOnEntry(k, v, k2, identities, changes)
 				}
 			} else if addL4OnlyKey && v.IsDeny {
 				// 5. If a new L4-only key was added: For each L3-only DENY
@@ -1413,14 +1481,14 @@ func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 						Value: v2,
 					})
 					// Mark the new entry as a dependent of 'v'
-					ms.addDependentOnEntry(k, v, k2, changes)
+					ms.addDependentOnEntry(k, v, k2, identities, changes)
 				}
 			}
 		}
 		return true
 	})
 	for _, update := range updates {
-		ms.addKeyWithChanges(update.Key, update.Value, changes)
+		ms.addKeyWithChanges(update.Key, update.Value, identities, changes)
 	}
 }
 
@@ -1451,7 +1519,7 @@ func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
 			},
 		}
-		ms.allows.upsert(allKey[trafficdirection.Ingress], NewMapStateEntry(nil, derivedFrom, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled))
+		ms.allows.upsert(allKey[trafficdirection.Ingress], NewMapStateEntry(nil, derivedFrom, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled), nil)
 	}
 	if egress {
 		derivedFrom := labels.LabelArrayList{
@@ -1459,7 +1527,7 @@ func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
 			},
 		}
-		ms.allows.upsert(allKey[trafficdirection.Egress], NewMapStateEntry(nil, derivedFrom, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled))
+		ms.allows.upsert(allKey[trafficdirection.Egress], NewMapStateEntry(nil, derivedFrom, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled), nil)
 	}
 }
 
@@ -1577,7 +1645,7 @@ func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []id
 
 // consumeMapChanges transfers the incremental changes from MapChanges to the caller,
 // while applying the changes to PolicyMapState.
-func (mc *MapChanges) consumeMapChanges(policyOwner PolicyOwner, policyMapState MapState, features policyFeatures, identities Identities) (adds, deletes Keys) {
+func (mc *MapChanges) consumeMapChanges(policyOwner PolicyOwner, policyMapState MapState, identities Identities, features policyFeatures) (adds, deletes Keys) {
 	mc.mutex.Lock()
 	changes := ChangeState{
 		Adds:    make(Keys, len(mc.changes)),
@@ -1614,7 +1682,7 @@ func (mc *MapChanges) consumeMapChanges(policyOwner PolicyOwner, policyMapState 
 		} else {
 			// Delete the contribution of this cs to the key and collect incremental changes
 			for cs := range mc.changes[i].Value.owners { // get the sole selector
-				policyMapState.deleteKeyWithChanges(mc.changes[i].Key, cs, changes)
+				policyMapState.deleteKeyWithChanges(mc.changes[i].Key, cs, identities, changes)
 			}
 		}
 	}
