@@ -1001,6 +1001,27 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
+	if ct.Features[features.BGPControlPlane].Enabled && ct.Features[features.NodeWithoutCilium].Enabled {
+		_, err = ct.clients.src.GetDaemonSet(ctx, ct.params.TestNamespace, frrDaemonSetNameName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying %s daemonset...", ct.clients.src.ClusterName(), frrDaemonSetNameName)
+			ds := NewFRRDaemonSet(ct.params)
+			_, err = ct.clients.src.CreateDaemonSet(ctx, ct.params.TestNamespace, ds, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create daemonset %s: %w", frrDaemonSetNameName, err)
+			}
+			_, err = ct.clients.src.GetConfigMap(ctx, ct.params.TestNamespace, frrConfigMapName, metav1.GetOptions{})
+			if err != nil {
+				cm := NewFRRConfigMap()
+				ct.Logf("✨ [%s] Deploying %s configmap...", ct.clients.dst.ClusterName(), cm.Name)
+				_, err = ct.clients.dst.CreateConfigMap(ctx, ct.params.TestNamespace, cm, metav1.CreateOptions{})
+				if err != nil {
+					return fmt.Errorf("unable to create configmap %s: %w", cm.Name, err)
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -1357,6 +1378,22 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			ct.echoExternalServices[echoExternalService.Name] = Service{
 				Service: echoExternalService.DeepCopy(),
 			}
+		}
+	}
+
+	if ct.Features[features.BGPControlPlane].Enabled && ct.Features[features.NodeWithoutCilium].Enabled {
+		if err := WaitForDaemonSet(ctx, ct, ct.clients.src, ct.Params().TestNamespace, frrDaemonSetNameName); err != nil {
+			return err
+		}
+		frrPods, err := ct.clients.dst.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "name=" + frrDaemonSetNameName})
+		if err != nil {
+			return fmt.Errorf("unable to list FRR pods: %w", err)
+		}
+		for _, pod := range frrPods.Items {
+			ct.frrPods = append(ct.frrPods, Pod{
+				K8sClient: ct.client,
+				Pod:       pod.DeepCopy(),
+			})
 		}
 	}
 
