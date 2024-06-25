@@ -1538,7 +1538,7 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 								},
 								{
 									IngressCommonRule: api.IngressCommonRule{
-										FromCIDRSet: nil,
+										FromCIDRSet: []api.CIDRRule{}, // Empty list, not nil!
 									},
 								},
 							},
@@ -1560,7 +1560,7 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 								},
 								{
 									EgressCommonRule: api.EgressCommonRule{
-										ToCIDRSet: nil,
+										ToCIDRSet: []api.CIDRRule{}, // Empty list, not nil!
 									},
 								},
 							},
@@ -1671,7 +1671,7 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 								},
 								{
 									IngressCommonRule: api.IngressCommonRule{
-										FromCIDRSet: nil,
+										FromCIDRSet: []api.CIDRRule{}, // Empty list, not nil!
 									},
 								},
 							},
@@ -1782,7 +1782,7 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 								},
 								{
 									EgressCommonRule: api.EgressCommonRule{
-										ToCIDRSet: nil,
+										ToCIDRSet: []api.CIDRRule{}, // Empty list, not nil!
 									},
 								},
 							},
