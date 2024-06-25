@@ -130,12 +130,10 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 	// Must come after the 'insertUser()' above to guarantee
 	// PolicyMapChanges will contain all changes that are applied
 	// after the computation of PolicyMapState has started.
-	p.SelectorCache.mutex.RLock()
 	calculatedPolicy.toMapState()
 	if !isHost {
 		calculatedPolicy.policyMapState.determineAllowLocalhostIngress()
 	}
-	p.SelectorCache.mutex.RUnlock()
 
 	return calculatedPolicy
 }
@@ -205,10 +203,6 @@ func (p *EndpointPolicy) UpdateRedirects(ingress bool, createRedirects createRed
 }
 
 func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedirects createRedirectsFunc, changes ChangeState) {
-	// Selectorcache needs to be locked for toMapState (GetLabels()) call
-	p.SelectorCache.mutex.RLock()
-	defer p.SelectorCache.mutex.RUnlock()
-
 	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
 		if l4.IsRedirect() {
 			// Check if we are denying this specific L4 first regardless the L3, if there are any deny policies
@@ -226,13 +220,13 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedir
 	})
 }
 
-// ConsumeMapChanges transfers the changes from MapChanges to the caller,
-// locking the selector cache to make sure concurrent identity updates
-// have completed.
-// PolicyOwner (aka Endpoint) is also locked during this call.
+// ConsumeMapChanges transfers the changes from MapChanges to the caller.
+// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock.
+// Endpoints explicitly wait for a WaitGroup signaling completion of AccumulatePolicyMapChanges
+// calls before calling ConsumeMapChanges so that if we see any partial changes here, there will be
+// another call after to cover for the rest.
+// PolicyOwner (aka Endpoint) is locked during this call.
 func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
-	p.selectorPolicy.SelectorCache.mutex.RLock()
-	defer p.selectorPolicy.SelectorCache.mutex.RUnlock()
 	features := p.selectorPolicy.L4Policy.Ingress.features | p.selectorPolicy.L4Policy.Egress.features
 	return p.policyMapChanges.consumeMapChanges(p.PolicyOwner, p.policyMapState, features, p.SelectorCache)
 }
