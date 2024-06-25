@@ -49,6 +49,9 @@ type RemoteCluster struct {
 	// Number of nodes in the cluster
 	NumNodes int64 `json:"num-nodes,omitempty"`
 
+	// Number of MCS-API service exports in the cluster
+	NumServiceExports int64 `json:"num-service-exports,omitempty"`
+
 	// Number of services in the cluster
 	NumSharedServices int64 `json:"num-shared-services,omitempty"`
 
