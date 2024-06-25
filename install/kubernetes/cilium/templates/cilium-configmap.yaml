@@ -1,7 +1,7 @@
 {{- if and ( or (.Values.agent) (.Values.operator.enabled) .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) (not .Values.preflight.enabled) }}
 {{- /*  Default values with backwards compatibility */ -}}
 {{- $defaultBpfMapDynamicSizeRatio := 0.0025 -}}
-{{- $defaultBpfMasquerade := "true" -}}
+{{- $defaultBpfMasquerade := "false" -}}
 {{- $defaultBpfClockProbe := "true" -}}
 {{- $defaultBpfTProxy := "false" -}}
 {{- $defaultIPAM := "cluster-pool" -}}
@@ -22,12 +22,6 @@
 {{- else -}}
   {{- $defaultOperatorApiServeAddr = "[::1]:9234" -}}
 {{- end }}
-
-{{- /* Default values when 1.10 was initially deployed */ -}}
-{{- if semverCompare ">=1.10" (default "1.10" .Values.upgradeCompatibility) -}}
-  {{- /* Needs to be explicitly disabled because it was enabled on all versions >=v1.8 above. */ -}}
-  {{- $defaultBpfMasquerade = "false" -}}
-{{- end -}}
 
 {{- /* Default values when 1.12 was initially deployed */ -}}
 {{- if semverCompare ">=1.12" (default "1.12" .Values.upgradeCompatibility) -}}
