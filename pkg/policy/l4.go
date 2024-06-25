@@ -541,7 +541,8 @@ type ChangeState struct {
 // 'p.PolicyMapState' using denyPreferredInsertWithChanges().
 // Keys and old values of any added or deleted entries are added to 'changes'.
 // 'redirects' is the map of currently realized redirects, it is used to find the proxy port for any redirects.
-// SelectorCache is also in read-locked state during this call.
+// p.SelectorCache is used as Identities interface during this call, which only has GetPrefix() that
+// needs no lock.
 func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redirects map[string]uint16, changes ChangeState) {
 	port := l4.Port
 	proto := uint8(l4.U8Proto)
