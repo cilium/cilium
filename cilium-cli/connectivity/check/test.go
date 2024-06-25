@@ -170,6 +170,10 @@ func (t *Test) Name() string {
 	return t.name
 }
 
+func (t *Test) Failed() bool {
+	return t.failed
+}
+
 // ScenarioName returns the Test name and Scenario name concatenated in
 // a standard way. Scenario names are not unique, as they can occur multiple
 // times in the same Test.

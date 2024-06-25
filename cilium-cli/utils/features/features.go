@@ -32,6 +32,8 @@ const (
 	KPRNodePort            Feature = "kpr-nodeport"
 	KPRSessionAffinity     Feature = "kpr-session-affinity"
 
+	BPFLBExternalClusterIP Feature = "bpf-lb-external-clusterip"
+
 	HostPort Feature = "host-port"
 
 	NodeWithoutCilium Feature = "node-without-cilium"
@@ -72,6 +74,8 @@ const (
 	ClusterMeshEnableEndpointSync Feature = "clustermesh-enable-endpoint-sync"
 
 	LocalRedirectPolicy Feature = "enable-local-redirect-policy"
+
+	BGPControlPlane Feature = "enable-bgp-control-plane"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
@@ -295,6 +299,14 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	fs[LocalRedirectPolicy] = Status{
 		Enabled: cm.Data[string(LocalRedirectPolicy)] == "true",
+	}
+
+	fs[BPFLBExternalClusterIP] = Status{
+		Enabled: cm.Data[string(BPFLBExternalClusterIP)] == "true",
+	}
+
+	fs[BGPControlPlane] = Status{
+		Enabled: cm.Data[string(BGPControlPlane)] == "true",
 	}
 }
 
