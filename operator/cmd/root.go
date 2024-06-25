@@ -24,6 +24,8 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
+	"github.com/cilium/cilium/pkg/labelsfilter"
+
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	ciliumdbg "github.com/cilium/cilium/cilium-dbg/cmd"
 	"github.com/cilium/cilium/operator/api"
@@ -696,6 +698,12 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		if err != nil {
 			log.WithError(err).WithField(logfields.LogSubsys, "CCNPWatcher").Fatal(
 				"Cannot connect to Kubernetes apiserver ")
+		}
+	}
+
+	if legacy.clientset.IsEnabled() {
+		if err := labelsfilter.ParseLabelPrefixCfg(option.Config.Labels, option.Config.NodeLabels, option.Config.LabelPrefixFile); err != nil {
+			log.WithError(err).Fatal("Unable to parse Label prefix configuration")
 		}
 	}
 
