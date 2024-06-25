@@ -68,7 +68,7 @@ func (rc *remoteCluster) Stop() {
 	rc.synced.Stop()
 }
 
-func (rc *remoteCluster) Remove() {
+func (rc *remoteCluster) Remove(context.Context) {
 	for _, clusterDeleteHook := range rc.clusterDeleteHooks {
 		clusterDeleteHook(rc.name)
 	}
