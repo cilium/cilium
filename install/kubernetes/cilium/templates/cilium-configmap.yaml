@@ -1,13 +1,13 @@
 {{- if and ( or (.Values.agent) (.Values.operator.enabled) .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) (not .Values.preflight.enabled) }}
 {{- /*  Default values with backwards compatibility */ -}}
-{{- $defaultBpfMapDynamicSizeRatio := 0.0 -}}
-{{- $defaultBpfMasquerade := "false" -}}
-{{- $defaultBpfClockProbe := "false" -}}
+{{- $defaultBpfMapDynamicSizeRatio := 0.0025 -}}
+{{- $defaultBpfMasquerade := "true" -}}
+{{- $defaultBpfClockProbe := "true" -}}
 {{- $defaultBpfTProxy := "false" -}}
 {{- $defaultIPAM := "cluster-pool" -}}
 {{- $defaultOperatorApiServeAddr := "localhost:9234" -}}
-{{- $defaultBpfCtTcpMax := 524288 -}}
-{{- $defaultBpfCtAnyMax := 262144 -}}
+{{- $defaultBpfCtTcpMax := 0 -}}
+{{- $defaultBpfCtAnyMax := 0 -}}
 {{- $enableIdentityMark := "true" -}}
 {{- $fragmentTracking := "true" -}}
 {{- $defaultKubeProxyReplacement := "false" -}}
@@ -17,20 +17,11 @@
 {{- $defaultDNSProxyEnableTransparentMode := "false" -}}
 {{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
 
-{{- /* Default values when 1.8 was initially deployed */ -}}
-{{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
-  {{- $defaultBpfMapDynamicSizeRatio = 0.0025 -}}
-  {{- $defaultBpfMasquerade = "true" -}}
-  {{- $defaultBpfClockProbe = "true" -}}
-  {{- $defaultIPAM = "cluster-pool" -}}
-  {{- if .Values.ipv4.enabled }}
-    {{- $defaultOperatorApiServeAddr = "127.0.0.1:9234" -}}
-  {{- else -}}
-    {{- $defaultOperatorApiServeAddr = "[::1]:9234" -}}
-  {{- end }}
-  {{- $defaultBpfCtTcpMax = 0 -}}
-  {{- $defaultBpfCtAnyMax = 0 -}}
-{{- end -}}
+{{- if .Values.ipv4.enabled }}
+  {{- $defaultOperatorApiServeAddr = "127.0.0.1:9234" -}}
+{{- else -}}
+  {{- $defaultOperatorApiServeAddr = "[::1]:9234" -}}
+{{- end }}
 
 {{- /* Default values when 1.10 was initially deployed */ -}}
 {{- if semverCompare ">=1.10" (default "1.10" .Values.upgradeCompatibility) -}}
