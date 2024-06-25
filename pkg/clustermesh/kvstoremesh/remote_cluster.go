@@ -8,13 +8,16 @@ import (
 	"fmt"
 	"path"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/utils/clock"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
@@ -35,10 +38,11 @@ type remoteCluster struct {
 
 	localBackend kvstore.BackendOperations
 
-	nodes      reflector
-	services   reflector
-	identities reflector
-	ipcache    reflector
+	nodes          reflector
+	services       reflector
+	serviceExports reflector
+	identities     reflector
+	ipcache        reflector
 
 	// status is the function which fills the common part of the status.
 	status common.StatusFunc
@@ -74,9 +78,10 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	dstcfg := types.CiliumClusterConfig{
 		ID: srccfg.ID,
 		Capabilities: types.CiliumClusterConfigCapabilities{
-			SyncedCanaries:       true,
-			Cached:               true,
-			MaxConnectedClusters: srccfg.Capabilities.MaxConnectedClusters,
+			SyncedCanaries:        true,
+			Cached:                true,
+			MaxConnectedClusters:  srccfg.Capabilities.MaxConnectedClusters,
+			ServiceExportsEnabled: srccfg.Capabilities.ServiceExportsEnabled,
 		},
 	}
 
@@ -107,6 +112,20 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	mgr.Register(adapter(serviceStore.ServiceStorePrefix), func(ctx context.Context) {
 		rc.services.watcher.Watch(ctx, backend, path.Join(adapter(serviceStore.ServiceStorePrefix), rc.name))
 	})
+
+	if srccfg.Capabilities.ServiceExportsEnabled != nil {
+		mgr.Register(adapter(mcsapitypes.ServiceExportStorePrefix), func(ctx context.Context) {
+			rc.serviceExports.watcher.Watch(ctx, backend, path.Join(adapter(mcsapitypes.ServiceExportStorePrefix), rc.name))
+		})
+	} else {
+		// Additionnally drain the service exports to remove stale entries if the
+		// service exports was previously supported and is now not supported anymore.
+		rc.serviceExports.watcher.Drain()
+		// Also mimic that the service exports are synced if the remote cluster
+		// doesn't support service exports (remote cluster is running Cilium
+		// version 1.16 or less).
+		rc.serviceExports.syncer.OnSync(ctx)
+	}
 
 	mgr.Register(adapter(ipcache.IPIdentitiesPath), func(ctx context.Context) {
 		suffix := ipcache.DefaultAddressSpace
@@ -188,6 +207,7 @@ func (rc *remoteCluster) drain(ctx context.Context, withGracePeriod bool) (err e
 		path.Join(kvstore.SyncedPrefix, rc.name),
 		path.Join(kvstore.StateToCachePrefix(nodeStore.NodeStorePrefix), rc.name),
 		path.Join(kvstore.StateToCachePrefix(serviceStore.ServiceStorePrefix), rc.name),
+		path.Join(kvstore.StateToCachePrefix(mcsapitypes.ServiceExportStorePrefix), rc.name),
 		path.Join(kvstore.StateToCachePrefix(identityCache.IdentitiesPath), rc.name),
 		path.Join(kvstore.StateToCachePrefix(ipcache.IPIdentitiesPath), rc.name),
 	}
@@ -250,6 +270,7 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 
 	status.NumNodes = int64(rc.nodes.watcher.NumEntries())
 	status.NumSharedServices = int64(rc.services.watcher.NumEntries())
+	status.NumServiceExports = int64(rc.serviceExports.watcher.NumEntries())
 	status.NumIdentities = int64(rc.identities.watcher.NumEntries())
 	status.NumEndpoints = int64(rc.ipcache.watcher.NumEntries())
 
@@ -259,9 +280,13 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 		Identities: rc.identities.watcher.Synced(),
 		Endpoints:  rc.ipcache.watcher.Synced(),
 	}
+	if status.Config != nil && status.Config.ServiceExportsEnabled != nil {
+		status.Synced.ServiceExports = ptr.To(rc.serviceExports.watcher.Synced())
+	}
 
 	status.Ready = status.Ready &&
 		status.Synced.Nodes && status.Synced.Services &&
+		(status.Synced.ServiceExports == nil || *status.Synced.ServiceExports) &&
 		status.Synced.Identities && status.Synced.Endpoints
 
 	return status
@@ -274,7 +299,8 @@ type reflector struct {
 
 type syncer struct {
 	store.SyncStore
-	synced *lock.StoppableWaitGroup
+	synced   *lock.StoppableWaitGroup
+	isSynced *atomic.Bool
 }
 
 func (o *syncer) OnUpdate(key store.Key) {
@@ -286,7 +312,11 @@ func (o *syncer) OnDelete(key store.NamedKey) {
 }
 
 func (o *syncer) OnSync(ctx context.Context) {
-	o.Synced(ctx, func(context.Context) { o.synced.Done() })
+	// As we send fake OnSync when service exports support is disabled we need
+	// to make sure that this is called only once.
+	if o.isSynced.CompareAndSwap(false, true) {
+		o.Synced(ctx, func(context.Context) { o.synced.Done() })
+	}
 }
 
 func newReflector(local kvstore.BackendOperations, cluster, prefix string, factory store.Factory, synced *lock.StoppableWaitGroup) reflector {
@@ -295,7 +325,8 @@ func newReflector(local kvstore.BackendOperations, cluster, prefix string, facto
 	syncer := syncer{
 		SyncStore: factory.NewSyncStore(cluster, local, path.Join(prefix, cluster),
 			store.WSSWithSyncedKeyOverride(prefix)),
-		synced: synced,
+		synced:   synced,
+		isSynced: &atomic.Bool{},
 	}
 
 	watcher := factory.NewWatchStore(cluster, store.KVPairCreator, &syncer,
