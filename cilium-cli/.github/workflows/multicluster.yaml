@@ -157,18 +157,15 @@ jobs:
             echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 10
           done
 
-      - name: Get cluster 2 credentials
-        run: |
-          gcloud container clusters get-credentials ${{ env.clusterName2 }} --zone ${{ env.zone }}
-
-      - name: Create gcloud-free kubeconfig for cluster 2
-        run: |
-          .github/get-kubeconfig.sh
-          mv kubeconfig kubeconfig-cluster2
-
-      - name: Get cluster 1 credentials
+      - name: Get cluster credentials and save context names
+        id: contexts
         run: |
           gcloud container clusters get-credentials ${{ env.clusterName1 }} --zone ${{ env.zone }}
+          gcloud container clusters get-credentials ${{ env.clusterName2 }} --zone ${{ env.zone }}
+          CLUSTER1=$(kubectl config view | grep "${{ env.clusterName1 }}" | head -1 | awk '{print $2}')
+          CLUSTER2=$(kubectl config view | grep "${{ env.clusterName2 }}" | head -1 | awk '{print $2}')
+          echo "cluster1=${CLUSTER1}" >> $GITHUB_OUTPUT
+          echo "cluster2=${CLUSTER2}" >> $GITHUB_OUTPUT
 
       - name: Allow cross-cluster traffic
         run: |
@@ -179,72 +176,99 @@ jobs:
           gcloud compute firewall-rules create ${{ env.firewallRuleName }} --allow tcp,udp,icmp,sctp,esp,ah --priority=999 --source-ranges=10.0.0.0/9 --target-tags=${TAG1/-all/-node},${TAG2/-all/-node}
           gcloud compute firewall-rules describe ${{ env.firewallRuleName }}
 
-      - name: Create gcloud-free kubeconfig for cluster 1, merge kubeconfigs and put them in configmap
+      - name: Install Cilium CLI
+        uses: ./
+        with:
+          skip-build: 'true'
+          image-tag: ${{ steps.vars.outputs.sha }}
+
+      - name: Install Cilium and run tests
+        timeout-minutes: 60
         run: |
-          .github/get-kubeconfig.sh
-          mv kubeconfig kubeconfig-cluster1
-          go run .github/tools/kubeconfig-merger/main.go kubeconfig-cluster1 kubeconfig-cluster2 kubeconfig
-          kubectl create configmap cilium-cli-kubeconfig -n kube-system --from-file kubeconfig
+          # Install Cilium in cluster1
+          cilium install \
+            --version "${{ env.cilium_version }}" \
+            --context "${{ steps.contexts.outputs.cluster1 }}" \
+            --set loadBalancer.l7.backend=envoy \
+            --set tls.secretsBackend=k8s \
+            --set cluster.name="${{ env.clusterName1 }}" \
+            --set cluster.id=1 \
+            --set bpf.monitorAggregation=none \
+            --set ipv4NativeRoutingCIDR=10.0.0.0/9
 
-      - name: Load cilium test script in configmap
-        run: |
-          kubectl create configmap cilium-cli-test-script -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/multicluster.sh
+          # Copy the CA cert from cluster1 to cluster2
+          kubectl --context ${{ steps.contexts.outputs.cluster1 }} get secrets -n kube-system cilium-ca -oyaml \
+            | kubectl --context ${{ steps.contexts.outputs.cluster2 }} apply -f -
 
-      - name: Create cilium-cli test job
-        run: |
-          helm install .github/cilium-cli-test-job-chart \
-            --generate-name \
-            --set tag=${{ steps.vars.outputs.sha }} \
-            --set cilium_version=${{ env.cilium_version }} \
-            --set job_name=cilium-cli \
-            --set test_script_cm=cilium-cli-test-script \
-            --set cluster_name_1=${{ env.clusterName1 }} \
-            --set cluster_name_2=${{ env.clusterName2 }}
+          # This seeds all CAs in cluster2 due to logic in the helm chart found here, e.g. for Hubble
+          # https://github.com/cilium/cilium/blob/8b6aa6eda91927275ae722ac020deeb5a9ce479d/install/kubernetes/cilium/templates/hubble/tls-helm/_helpers.tpl#L24-L33
 
-      - name: Wait for test job
-        env:
-          timeout: 60m
-        run: |
-          # Background wait for job to complete or timeout
-          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=${{ env.timeout }} &
-          complete_pid=$!
+          # Install Cilium in cluster2
+          cilium install \
+            --version "${{ env.cilium_version }}" \
+            --context "${{ steps.contexts.outputs.cluster2 }}" \
+            --set loadBalancer.l7.backend=envoy \
+            --set tls.secretsBackend=k8s \
+            --set cluster.name="${{ env.clusterName2 }}" \
+            --set cluster.id=2 \
+            --set bpf.monitorAggregation=none \
+            --set ipv4NativeRoutingCIDR=10.0.0.0/9
 
-          # Background wait for job to fail
-          (kubectl -n kube-system wait job/cilium-cli --for=condition=failed --timeout=${{ env.timeout }} && exit 1) &
-          failed_pid=$!
+          # Enable Relay
+          cilium --context "${{ steps.contexts.outputs.cluster1 }}" hubble enable
+          cilium --context "${{ steps.contexts.outputs.cluster2 }}" hubble enable --relay=false
 
-          # Active wait for whichever background process ends first
-          wait -n $complete_pid $failed_pid
-          EXIT_CODE=$?
+          # Wait for cilium and hubble relay to be ready
+          # NB: necessary to work against occassional flakes due to https://github.com/cilium/cilium-cli/issues/918
+          cilium --context "${{ steps.contexts.outputs.cluster1 }}" status --wait
+          cilium --context "${{ steps.contexts.outputs.cluster2 }}" status --wait
 
-          # Retrieve job logs
-          kubectl logs --timestamps -n kube-system job/cilium-cli
-          exit ${EXIT_CODE}
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+          # Enable cluster mesh
+          # Test autodetection of service parameters for GKE
+          cilium --context "${{ steps.contexts.outputs.cluster1 }}" clustermesh enable
+          cilium --context "${{ steps.contexts.outputs.cluster2 }}" clustermesh enable
+
+          # Wait for cluster mesh status to be ready
+          cilium --context "${{ steps.contexts.outputs.cluster1 }}" clustermesh status --wait
+          cilium --context "${{ steps.contexts.outputs.cluster2 }}" clustermesh status --wait
+
+          # Print clustermesh Service annotations
+          printf "Service annotations for Cluster 1 %s\n" \
+          $(kubectl --context "${{ steps.contexts.outputs.cluster1 }}" get svc -n kube-system clustermesh-apiserver -o jsonpath='{.metadata.annotations}')
+          printf "Service annotations for Cluster 2 %s\n" \
+          $(kubectl --context "${{ steps.contexts.outputs.cluster2 }}" get svc -n kube-system clustermesh-apiserver -o jsonpath='{.metadata.annotations}')
+
+          # Connect clusters
+          cilium --context "${{ steps.contexts.outputs.cluster1 }}" clustermesh connect --destination-context "${CONTEXT2}"
+
+          # Wait for cluster mesh status to be ready
+          cilium --context "${{ steps.contexts.outputs.cluster1 }}" clustermesh status --wait
+          cilium --context "${{ steps.contexts.outputs.cluster2 }}" clustermesh status --wait
+
+          # Port forward Relay
+          cilium --context "${{ steps.contexts.outputs.cluster1 }}" hubble port-forward&
+          sleep 10s
+          [[ $(pgrep -f "kubectl.*port-forward.*hubble-relay" | wc -l) == 1 ]]
+
+          # Run connectivity test
+          cilium --context "${{ steps.contexts.outputs.cluster1 }}" connectivity test \
+            --multi-cluster "${{ steps.contexts.outputs.cluster2 }}" --test '!/*-deny,!/pod-to-.*-nodeport' \
+            --all-flows --collect-sysdump-on-failure --external-target google.com.
 
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
-          echo "=== Install latest stable CLI ==="
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
-          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
-          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
-          rm cilium-linux-amd64.tar.gz{,.sha256sum}
-          cilium version
-
           echo "=== Retrieve cluster1 state ==="
-          export KUBECONFIG=kubeconfig-cluster1
-          kubectl get pods --all-namespaces -o wide
-          cilium status
-          cilium clustermesh status
-          cilium sysdump --output-filename cilium-sysdump-cluster1
+          kubectl --context "${{ steps.contexts.outputs.cluster1 }}" get pods --all-namespaces -o wide
+          cilium --context "${{ steps.contexts.outputs.cluster1 }}" status
+          cilium --context "${{ steps.contexts.outputs.cluster1 }}" clustermesh status
+          cilium --context "${{ steps.contexts.outputs.cluster1 }}" sysdump --output-filename cilium-sysdump-cluster1
 
           echo "=== Retrieve cluster2 state ==="
-          export KUBECONFIG=kubeconfig-cluster2
-          kubectl get pods --all-namespaces -o wide
-          cilium status
-          cilium clustermesh status
-          cilium sysdump --output-filename cilium-sysdump-cluster2
+          kubectl --context "${{ steps.contexts.outputs.cluster2 }}" get pods --all-namespaces -o wide
+          cilium --context "${{ steps.contexts.outputs.cluster2 }}" status
+          cilium --context "${{ steps.contexts.outputs.cluster2 }}" clustermesh status
+          cilium --context "${{ steps.contexts.outputs.cluster2 }}" sysdump --output-filename cilium-sysdump-cluster2
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up GKE
