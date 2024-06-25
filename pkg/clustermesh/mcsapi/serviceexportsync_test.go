@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -105,6 +106,9 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 		k8sClient.FakeClientCell,
 		k8s.ResourcesCell,
 		cell.Provide(ServiceExportResource),
+		cell.Provide(func() operator.MCSAPIConfig {
+			return operator.MCSAPIConfig{ClusterMeshEnableMCSAPI: true}
+		}),
 		cell.Invoke(func(
 			svc resource.Resource[*slim_corev1.Service],
 			svcExport resource.Resource[*mcsapiv1alpha1.ServiceExport],

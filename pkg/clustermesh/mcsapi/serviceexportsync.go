@@ -12,6 +12,7 @@ import (
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -25,8 +26,8 @@ import (
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "mcsapi")
 
 // ServiceExportResource builds the Resource[ServiceExport] object.
-func ServiceExportResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) resource.Resource[*mcsapiv1alpha1.ServiceExport] {
-	if !cs.IsEnabled() {
+func ServiceExportResource(lc cell.Lifecycle, cfg operator.MCSAPIConfig, cs client.Clientset, opts ...func(*metav1.ListOptions)) resource.Resource[*mcsapiv1alpha1.ServiceExport] {
+	if !cs.IsEnabled() || !cfg.ClusterMeshEnableMCSAPI {
 		return nil
 	}
 	lw := utils.ListerWatcherWithModifiers(
