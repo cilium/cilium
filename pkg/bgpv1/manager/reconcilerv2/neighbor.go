@@ -192,9 +192,12 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 			ok  bool
 		)
 
-		config, err := r.getPeerConfig(n.PeerConfigRef.Name)
+		config, exists, err := r.getPeerConfig(n.PeerConfigRef)
 		if err != nil {
 			return err
+		}
+		if !exists {
+			continue // configured peer config does not exist, skip
 		}
 
 		passwd, err := r.getPeerPassword(p.DesiredConfig.Name, n.Name, config)
@@ -305,24 +308,25 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	return nil
 }
 
-// getPeerConfig returns the CiliumBGPPeerConfigSpec for the given peerConfigName. If config does not exist, nil is returned.
-func (r *NeighborReconciler) getPeerConfig(peerConfigName string) (*v2alpha1.CiliumBGPPeerConfigSpec, error) {
-	config, exists, err := r.PeerConfig.GetByKey(resource.Key{Name: peerConfigName})
-	if err != nil {
-		return nil, err
-	}
-
-	var conf *v2alpha1.CiliumBGPPeerConfigSpec
-	if !exists {
-		// if config does not exist, return default config
+// getPeerConfig returns the CiliumBGPPeerConfigSpec for the given peerConfig.
+// If peerConfig is not specified, returns the default config.
+// If the referenced peerConfig does not exist, exists returns false.
+func (r *NeighborReconciler) getPeerConfig(peerConfig *v2alpha1.PeerConfigReference) (conf *v2alpha1.CiliumBGPPeerConfigSpec, exists bool, err error) {
+	if peerConfig == nil || peerConfig.Name == "" {
+		// if peer config is not specified, return default config
 		conf = &v2alpha1.CiliumBGPPeerConfigSpec{}
-	} else {
-		conf = &config.Spec
+		conf.SetDefaults()
+		return conf, true, nil
 	}
 
-	conf.SetDefaults()
+	config, exists, err := r.PeerConfig.GetByKey(resource.Key{Name: peerConfig.Name})
+	if err != nil || !exists {
+		return nil, exists, err
+	}
 
-	return conf, nil
+	conf = &config.Spec
+	conf.SetDefaults()
+	return conf, true, nil
 }
 
 func (r *NeighborReconciler) getPeerPassword(instanceName, peerName string, config *v2alpha1.CiliumBGPPeerConfigSpec) (string, error) {
