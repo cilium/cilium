@@ -147,55 +147,52 @@ jobs:
         run: |
           gcloud container clusters get-credentials ${{ env.clusterName }} --zone ${{ env.zone }}
 
-      - name: Create gcloud-free kubeconfig and load it in configmap
+      - name: Install Cilium CLI
+        uses: ./
+        with:
+          skip-build: 'true'
+          image-tag: ${{ steps.vars.outputs.sha }}
+
+      - name: Install Cilium
+        timeout-minutes: 10
         run: |
-          .github/get-kubeconfig.sh
-          kubectl create configmap cilium-cli-kubeconfig -n kube-system --from-file kubeconfig
+          # Install Cilium in cluster
+          cilium install \
+            --version "${{ env.cilium_version }}" \
+            --set cluster.name="${{ env.clusterName }}" \
+            --set bpf.monitorAggregation=none \
+            --datapath-mode=tunnel \
+            --set kubeProxyReplacement=true \
+            --set loadBalancer.l7.backend=envoy \
+            --set tls.secretsBackend=k8s \
+            --set ipv4NativeRoutingCIDR="${{ steps.cluster.outputs.cluster_cidr }}"
 
-      - name: Load cilium install script in configmap
-        run: |
-          kubectl create configmap cilium-cli-test-script-install -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/external-workloads-install.sh
+          # Enable Relay
+          cilium hubble enable
 
-      - name: Create cilium-cli install job
-        run: |
-          helm install .github/cilium-cli-test-job-chart \
-            --generate-name \
-            --set tag=${{ steps.vars.outputs.sha }} \
-            --set cilium_version=${{ env.cilium_version }} \
-            --set cluster_name=${{ env.clusterName }} \
-            --set job_name=cilium-cli-install \
-            --set test_script_cm=cilium-cli-test-script-install \
-            --set vm_name=${{ env.vmName }} \
-            --set cluster_cidr=${{ steps.cluster.outputs.cluster_cidr }}
+          # Wait for cilium and hubble relay to be ready
+          # NB: necessary to work against occasional flakes due to https://github.com/cilium/cilium-cli/issues/918
+          cilium status --wait
 
-      - name: Wait for install job
-        env:
-          timeout: 10m
-        run: |
-          # Background wait for job to complete or timeout
-          kubectl -n kube-system wait job/cilium-cli-install --for=condition=complete --timeout=${{ env.timeout }} &
-          complete_pid=$!
+          # Enable cluster mesh
+          # Explicitly specify LoadBalancer service type since the default type is NodePort in helm mode.
+          # Ref: https://github.com/cilium/cilium-cli/pull/1527#discussion_r1177244379
+          #
+          # In Helm mode, externalWorkloads.enabled is set to false by default. You need to pass
+          # --enable-external-workloads flag to enable it.
+          # Ref: https://github.com/cilium/cilium/pull/25259
+          cilium clustermesh enable --service-type LoadBalancer --enable-external-workloads
 
-          # Background wait for job to fail
-          (kubectl -n kube-system wait job/cilium-cli-install --for=condition=failed --timeout=${{ env.timeout }} && exit 1) &
-          failed_pid=$!
+          # Wait for cluster mesh status to be ready
+          cilium clustermesh status --wait
 
-          # Active wait for whichever background process ends first
-          wait -n $complete_pid $failed_pid
-          EXIT_CODE=$?
+          # Add VM to cluster mesh
+          cilium clustermesh vm create ${{ env.vmName }} -n default --ipv4-alloc-cidr 10.192.1.0/30
+          cilium clustermesh vm status
 
-          # Retrieve job logs
-          kubectl logs --timestamps -n kube-system job/cilium-cli-install
-          exit ${EXIT_CODE}
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
-
-      - name: Copy VM install script from cilium-cli-install pod
-        run: |
-          kubectl -n kube-system get configmap install-external-workload-script -o go-template='{{ .data.script }}' > install-external-workload.sh
-          chmod +x install-external-workload.sh
-
-      - name: Finish installing Cilium on VM
-        run: |
+          # Create install script for VMs
+          cilium clustermesh vm install install-external-workload.sh --config debug
+          sudo chmod +x install-external-workload.sh
           gcloud compute scp install-external-workload.sh ${{ env.vmName }}:~/ --zone ${{ env.zone }}
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
             --command "~/install-external-workload.sh"
@@ -213,38 +210,14 @@ jobs:
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
             --command "ping -c 3 \$(sudo cilium service list get -o jsonpath='{[?(@.spec.flags.name==\"clustermesh-apiserver\")].spec.backend-addresses[0].ip}')"
 
-      - name: Load cilium test script in configmap
+      - name: Run Test
+        timeout-minutes: 30
         run: |
-          kubectl create configmap cilium-cli-test-script -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/external-workloads.sh
+          # Run connectivity test
+          cilium connectivity test --all-flows --collect-sysdump-on-failure --external-target google.com.
 
-      - name: Create cilium-cli test job
-        run: |
-          helm install .github/cilium-cli-test-job-chart \
-            --generate-name \
-            --set tag=${{ steps.vars.outputs.sha }} \
-            --set job_name=cilium-cli \
-            --set test_script_cm=cilium-cli-test-script
-
-      - name: Wait for test job
-        env:
-          timeout: 15m
-        run: |
-          # Background wait for job to complete or timeout
-          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=${{ env.timeout }} &
-          complete_pid=$!
-
-          # Background wait for job to fail
-          (kubectl -n kube-system wait job/cilium-cli --for=condition=failed --timeout=${{ env.timeout }} && exit 1) &
-          failed_pid=$!
-
-          # Active wait for whichever background process ends first
-          wait -n $complete_pid $failed_pid
-          EXIT_CODE=$?
-
-          # Retrieve job logs
-          kubectl logs --timestamps -n kube-system job/cilium-cli
-          exit ${EXIT_CODE}
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+          # Run performance test
+          cilium connectivity perf --duration 1s
 
       - name: Post-test information gathering
         if: ${{ !success() }}
@@ -252,13 +225,6 @@ jobs:
           echo "=== Retrieve VM state ==="
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo cilium status"
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo docker logs cilium --timestamps"
-
-          echo "=== Install latest stable CLI ==="
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
-          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
-          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
-          rm cilium-linux-amd64.tar.gz{,.sha256sum}
-          cilium version
 
           echo "=== Retrieve cluster state ==="
           kubectl get pods --all-namespaces -o wide
