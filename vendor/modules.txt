@@ -2285,6 +2285,11 @@ sigs.k8s.io/json/internal/golang/encoding/json
 # sigs.k8s.io/mcs-api v0.1.1-0.20240624222831-d7001fe1d21c
 ## explicit; go 1.22.0
 sigs.k8s.io/mcs-api/pkg/apis/v1alpha1
+sigs.k8s.io/mcs-api/pkg/client/clientset/versioned
+sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake
+sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/scheme
+sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1
+sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1/fake
 sigs.k8s.io/mcs-api/pkg/controllers
 # sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 ## explicit; go 1.13
