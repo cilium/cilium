@@ -30,6 +30,11 @@ NodePorts, it is up to the client to decide to which host to send traffic, and i
 goes down, the IP+Port combo becomes unusable. With L2 announcements the service
 VIP simply migrates to another node and will continue to work.
 
+.. _l2_announcements_settings:
+
+Configuration
+#############
+
 The L2 Announcements feature and all the requirements can be enabled as follows:
 
 .. tabs::
@@ -83,6 +88,9 @@ Limitations
 
 * The feature currently has no traffic balancing mechanism so nodes within the
   same policy might be asymmetrically loaded. For details see :ref:`l2_announcements_leader_election`.
+
+* The feature is incompatible with the ``externalTrafficPolicy: Local`` on services as it may cause 
+  service IPs to be announced on nodes without pods causing traffic drops.
 
 Policies
 ########
@@ -381,6 +389,180 @@ has been reached.
 .. note::
    Since this feature has no IPv6 support yet, only ARP messages are sent, no 
    Unsolicited Neighbor Advertisements are sent.
+
+Troubleshooting
+###############
+
+This section is a step by step guide on how to troubleshoot L2 Announcements,
+hopefully solving your issue or narrowing it down to a specific area.
+
+The first thing we need to do is to check that the feature is enabled, kube proxy replacement
+is active and optionally that external IPs are enabled.
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg config --all | grep EnableL2Announcements
+    EnableL2Announcements             : true
+
+    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg config --all | grep KubeProxyReplacement
+    KubeProxyReplacement              : true
+
+    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg config --all | grep EnableExternalIPs
+    EnableExternalIPs                 : true
+
+If ``EnableL2Announcements`` or ``KubeProxyReplacement`` indicates ``false``, make sure to enable the
+correct settings and deploy the helm chart :ref:`l2_announcements_settings`. ``EnableExternalIPs`` should be set to ``true`` if you intend to use external IPs.
+
+Next, ensure you have at least one policy configured, L2 announcements will not work without a policy.
+
+.. code-block:: shell-session
+
+    $ kubectl get CiliumL2AnnouncementPolicy
+    NAME      AGE
+    policy1   6m16s
+
+L2 announcements should not create a lease for very service matched by the policy. We can check the leases like so:
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system get lease | grep "cilium-l2announce"
+    cilium-l2announce-default-service-red   kind-worker                       34s
+
+If the output is empty, then the policy is not correctly configured or the agent is not running correctly. 
+Check the logs of the agent for error messages:
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system logs ds/cilium | grep "l2"
+
+A common error is that the agent is not able to create leases. 
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system logs ds/cilium | grep "error"
+    time="2024-06-25T12:01:43Z" level=error msg="error retrieving resource lock kube-system/cilium-l2announce-default-service-red: leases.coordination.k8s.io \"cilium-l2announce-default-service-red\" is forbidden: User \"system:serviceaccount:kube-system:cilium\" cannot get resource \"leases\" in API group \"coordination.k8s.io\" in the namespace \"kube-system\"" subsys=klog
+
+This can happen if the cluster role of the agent is not correct. This tends to happen when L2 announcements is enabled
+without using the helm chart. Redeploy the helm chart or manually update the cluster role, by running
+``kubectl edit clusterrole cilium`` and adding the following block to the rules:
+
+.. code-block:: yaml
+
+    - apiGroups:
+      - coordination.k8s.io
+      resources:
+      - leases
+      verbs:
+      - create
+      - get
+      - update
+      - list
+      - delete
+
+Another common error is that the configured client rate limit is too low. 
+This can be seen in the logs as well:
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system logs ds/cilium | grep "l2"
+    2023-07-04T14:59:51.959400310Z level=info msg="Waited for 1.395439596s due to client-side throttling, not priority and fairness, request: GET:https://127.0.0.1:6443/apis/coordination.k8s.io/v1/namespaces/kube-system/leases/cilium-l2announce-default-example" subsys=klog
+    2023-07-04T15:00:12.159409007Z level=info msg="Waited for 1.398748976s due to client-side throttling, not priority and fairness, request: PUT:https://127.0.0.1:6443/apis/coordination.k8s.io/v1/namespaces/kube-system/leases/cilium-l2announce-default-example" subsys=klog
+
+These logs are associated with intermittent failures to renew the lease, connection issues and/or frequent leader changes.
+See :ref:`sizing_client_rate_limit` for more information on how to size the client rate limit.
+
+If you find a different L2 related error, please open a GitHub issue with the error message and the 
+steps you took to get there.
+
+Assuming the leases are created, the next step is to check the agent internal state. Pick a service which isn't working
+and inspect its lease. Take the holder name and find the cilium agent pod for the holder node.
+Finally, take the name of the cilium agent pod and inspect the l2-announce state:
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system get lease cilium-l2announce-default-service-red
+    NAME                                    HOLDER        AGE
+    cilium-l2announce-default-service-red   <node-name>   20m
+
+    $ kubectl -n kube-system get pod -l 'app.kubernetes.io/name=cilium-agent' -o wide | grep <node-name>
+    <agent-pod>   1/1     Running   0          35m   172.19.0.3   kind-worker          <none>           <none>
+
+    $ kubectl -n kube-system exec pod/<agent-pod> -- cilium-dbg statedb l2-announce
+    # IP        NetworkInterface
+    10.0.10.0   eth0
+
+The l2 announce state should contain the IP of the service and the network interface it is announced on.
+If the lease is present but its IP is not in the l2-announce state, or you are missing an entry for a given network device.
+Double check that the device selector in the policy matches the desired network device (values are regular expressions).
+If the filter seems correct or isn't specified, inspect the known devices:
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system exec ds/cilium -- cilium-dbg statedb devices
+    # Name            Index   Selected   Type     MTU     HWAddr              Flags                    Addresses
+    lxc5d23398605f6   10      false      veth     1500    b6:ed:d8:d2:dd:ec   up|broadcast|multicast   fe80::b4ed:d8ff:fed2:ddec
+    lxc3bf03c00d6e3   12      false      veth     1500    8a:d1:0c:91:8a:d3   up|broadcast|multicast   fe80::88d1:cff:fe91:8ad3
+    eth0              50      true       veth     1500    02:42:ac:13:00:03   up|broadcast|multicast   172.19.0.3, fc00:c111::3, fe80::42:acff:fe13:3
+    lo                1       false      device   65536                       up|loopback              127.0.0.1, ::1
+    cilium_net        2       false      veth     1500    1a:a9:2f:4d:d3:3d   up|broadcast|multicast   fe80::18a9:2fff:fe4d:d33d
+    cilium_vxlan      4       false      vxlan    1500    2a:05:26:8d:79:9c   up|broadcast|multicast   fe80::2805:26ff:fe8d:799c
+    lxc611291f1ecbb   8       false      veth     1500    7a:fb:ec:54:e2:5c   up|broadcast|multicast   fe80::78fb:ecff:fe54:e25c
+    lxc_health        16      false      veth     1500    0a:94:bf:49:d5:50   up|broadcast|multicast   fe80::894:bfff:fe49:d550
+    cilium_host       3       false      veth     1500    22:32:e2:80:21:34   up|broadcast|multicast   10.244.1.239, fd00:10:244:1::f58a
+
+Only devices with ``Selected`` set to ``true`` can be used for L2 announcements. Typically all physical devices with IPs
+assigned to them will be considered selected. The ``--devices`` flag or ``devices`` Helm option can be used to filter
+out devices. If your desired device is in the list but not selected, check the devices flag/option to see if it filters it out.
+
+Please open a Github issue if your desired device doesn't appear in the list or it isn't selected while you believe it should be.
+
+If the L2 state contains the IP and device combination but there are still connection issues, it's time to test ARP 
+within the cluster. Pick a cilium agent pod other than the lease holder on the same L2 network.
+Then use the following command to send an ARP request to the service IP:
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system exec pod/cilium-z4ef7 -- sh -c 'apt update && apt install -y arping && arping -i <netdev-on-l2> <service-ip>'
+    [omitting apt output...]
+    ARPING 10.0.10.0
+    58 bytes from 02:42:ac:13:00:03 (10.0.10.0): index=0 time=11.772 usec
+    58 bytes from 02:42:ac:13:00:03 (10.0.10.0): index=1 time=9.234 usec
+    58 bytes from 02:42:ac:13:00:03 (10.0.10.0): index=2 time=10.568 usec
+
+If the output is as above yet the service is still unreachable, from clients within the same L2 network,
+the issue might be client related. If you expect the service to be reachable from outside the L2 network,
+and it is not, check the ARP and routing tables of the gateway device.
+
+If the ARP request fails (the output shows ``Timeout``), check the BPF map of the cilium-agent with the lease:
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system exec pod/cilium-vxz67 -- bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_l2_responder_v4
+    [{
+            "key": {
+                "ip4": 655370,
+                "ifindex": 50
+            },
+            "value": {
+                "responses_sent": 20
+            }
+        }
+    ]
+
+The ``responses_sent`` field is incremented every time the datapath responds to an ARP request. If the field
+is 0, then the ARP request doesn't make it to the node. If the field is greater than 0, the issue is on the
+return path. In both cases, inspect the network and the client.
+
+It is still possible that the service is unreachable even though ARP requests are answered. This can happen 
+for a number of reasons, usually unrelated to L2 announcements, but rather other Cilium features.
+
+One common issue however is caused by the usage of ``.Spec.ExternalTrafficPolicy: Local`` on services. This setting
+normally tells a load balancer to only forward traffic to nodes with at least 1 ready pod to avoid a second hop.
+Unfortunately, L2 announcements isn't currently aware of this setting and will announce the service IP on all nodes
+matching policies. If a node without a pod receives traffic, it will drop it. To fix this, set the policy to 
+``.Spec.ExternalTrafficPolicy: Cluster``.
+
+Please open a Github issue if none of the above steps helped you solve your issue.
 
 .. _l2_pod_announcements:
 
