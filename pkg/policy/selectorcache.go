@@ -4,7 +4,7 @@
 package policy
 
 import (
-	"net"
+	"net/netip"
 	"strings"
 	"sync"
 
@@ -23,9 +23,7 @@ import (
 type scIdentity struct {
 	NID       identity.NumericIdentity
 	lbls      labels.LabelArray
-	nets      []*net.IPNet // Most specific CIDR for the identity, if any.
-	computed  bool         // nets has been computed
-	namespace string       // value of the namespace label, or ""
+	namespace string // value of the namespace label, or ""
 }
 
 // scIdentityCache is a cache of Identities keyed by the numeric identity
@@ -35,16 +33,15 @@ func newIdentity(nid identity.NumericIdentity, lbls labels.LabelArray) scIdentit
 	return scIdentity{
 		NID:       nid,
 		lbls:      lbls,
-		nets:      getLocalScopeNets(nid, lbls),
 		namespace: lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
-		computed:  true,
 	}
 }
 
-// getLocalScopeNets returns the most specific CIDR for a local scope identity.
-func getLocalScopeNets(id identity.NumericIdentity, lbls labels.LabelArray) []*net.IPNet {
+// getLocalScopePrefix returns the most specific CIDR for a local scope identity.
+// WORLD IDs are not considered here.
+func getLocalScopePrefix(id identity.NumericIdentity, lbls labels.LabelArray) netip.Prefix {
+	var mostSpecificCidr netip.Prefix
 	if id.HasLocalScope() {
-		var mostSpecificCidr *net.IPNet
 		maskSize := -1 // allow for 0-length prefix (e.g., "0.0.0.0/0")
 		for _, lbl := range lbls {
 			if lbl.Source == labels.LabelSourceCIDR {
@@ -52,28 +49,19 @@ func getLocalScopeNets(id identity.NumericIdentity, lbls labels.LabelArray) []*n
 				// as ':' is not allowed within a k8s label, colons are represented
 				// with '-'.
 				cidr := strings.ReplaceAll(lbl.Key, "-", ":")
-				_, netIP, err := net.ParseCIDR(cidr)
+				prefix, err := netip.ParsePrefix(cidr)
 				if err == nil {
-					if ms, _ := netIP.Mask.Size(); ms > maskSize {
-						mostSpecificCidr = netIP
-						maskSize = ms
+					if n := prefix.Bits(); n > maskSize {
+						mostSpecificCidr = prefix.Masked()
+						maskSize = n
 					}
+				} else {
+					log.WithError(err).WithField(logfields.Prefix, lbl.Key).Error("getLocalScopePrefix: netip.ParsePrefix failed")
 				}
 			}
 		}
-		if mostSpecificCidr != nil {
-			return []*net.IPNet{mostSpecificCidr}
-		}
 	}
-	return nil
-}
-
-func getIdentityCache(ids identity.IdentityMap) scIdentityCache {
-	idCache := make(map[identity.NumericIdentity]scIdentity, len(ids))
-	for nid, lbls := range ids {
-		idCache[nid] = newIdentity(nid, lbls)
-	}
-	return idCache
+	return mostSpecificCidr
 }
 
 // userNotification stores the information needed to call
@@ -91,6 +79,8 @@ type userNotification struct {
 // SelectorCache caches identities, identity selectors, and the
 // subsets of identities each selector selects.
 type SelectorCache struct {
+	prefixMap lock.Map[identity.NumericIdentity, netip.Prefix]
+
 	mutex lock.RWMutex
 
 	// idCache contains all known identities as informed by the
@@ -191,10 +181,20 @@ func (sc *SelectorCache) queueUserNotification(user CachedSelectionUser, selecto
 // NewSelectorCache creates a new SelectorCache with the given identities.
 func NewSelectorCache(ids identity.IdentityMap) *SelectorCache {
 	sc := &SelectorCache{
-		idCache:   getIdentityCache(ids),
+		idCache:   make(map[identity.NumericIdentity]scIdentity, len(ids)),
 		selectors: make(map[string]*identitySelector),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
+
+	for nid, lbls := range ids {
+		// store prefix into prefix map
+		prefix := getLocalScopePrefix(nid, lbls)
+		if prefix.IsValid() {
+			sc.prefixMap.Store(nid, prefix)
+		}
+		sc.idCache[nid] = newIdentity(nid, lbls)
+	}
+
 	return sc
 }
 
@@ -399,6 +399,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				logfields.Labels:   old.lbls,
 			}).Debug("UpdateIdentities: Deleting identity")
 			delete(sc.idCache, numericID)
+			sc.prefixMap.Delete(numericID)
 		} else {
 			log.WithFields(logrus.Fields{
 				logfields.Identity: numericID,
@@ -440,6 +441,11 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				logfields.Labels:   lbls,
 			}).Debug("UpdateIdentities: Adding a new identity")
 		}
+		// store prefix into prefix map
+		prefix := getLocalScopePrefix(numericID, lbls)
+		if prefix.IsValid() {
+			sc.prefixMap.Store(numericID, prefix)
+		}
 		sc.idCache[numericID] = newIdentity(numericID, lbls)
 	}
 
@@ -474,18 +480,8 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 	}
 }
 
-// GetNetsLocked returns the most specific CIDR for an identity. For the "World" identity
-// it returns both IPv4 and IPv6.
-func (sc *SelectorCache) GetNetsLocked(id identity.NumericIdentity) []*net.IPNet {
-	ident, ok := sc.idCache[id]
-	if !ok {
-		return nil
-	}
-	if !ident.computed {
-		log.WithFields(logrus.Fields{
-			logfields.Identity: id,
-			logfields.Labels:   ident.lbls,
-		}).Warning("GetNetsLocked: Identity with missing nets!")
-	}
-	return ident.nets
+// GetPrefix returns the most specific CIDR for an identity, if any.
+func (sc *SelectorCache) GetPrefix(id identity.NumericIdentity) netip.Prefix {
+	p, _ := sc.prefixMap.Load(id)
+	return p
 }
