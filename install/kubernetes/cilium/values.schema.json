@@ -1886,7 +1886,10 @@
           ]
         },
         "enabled": {
-          "type": "boolean"
+          "type": [
+            "null",
+            "boolean"
+          ]
         },
         "extraArgs": {
           "items": {},
