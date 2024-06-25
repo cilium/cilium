@@ -114,8 +114,6 @@ func registerController(p params) {
 		metrics:             p.Metrics,
 	}
 
-	// TODO Read identity relevant labels from ConfigMap to update the labelsfilter
-
 	cidController.initializeQueues()
 
 	p.Lifecycle.Append(cidController)
