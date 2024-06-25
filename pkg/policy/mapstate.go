@@ -5,7 +5,7 @@ package policy
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"slices"
 	"strconv"
 
@@ -97,7 +97,7 @@ type mapState struct {
 // Identities is a convenience interface for looking up CIDRs
 // associated with an identity
 type Identities interface {
-	GetNetsLocked(identity.NumericIdentity) []*net.IPNet
+	GetPrefix(identity.NumericIdentity) netip.Prefix
 }
 
 // mapStateMap is a convience type representing the actual structure mapping
@@ -304,25 +304,26 @@ func (e *MapStateEntry) HasSameOwners(bEntry *MapStateEntry) bool {
 	return true
 }
 
-var worldNets = map[identity.NumericIdentity][]*net.IPNet{
+var worldNets = map[identity.NumericIdentity][]netip.Prefix{
 	identity.ReservedIdentityWorld: {
-		{IP: net.IPv4zero, Mask: net.CIDRMask(0, net.IPv4len*8)},
-		{IP: net.IPv6zero, Mask: net.CIDRMask(0, net.IPv6len*8)},
+		netip.PrefixFrom(netip.IPv4Unspecified(), 0),
+		netip.PrefixFrom(netip.IPv6Unspecified(), 0),
 	},
 	identity.ReservedIdentityWorldIPv4: {
-		{IP: net.IPv4zero, Mask: net.CIDRMask(0, net.IPv4len*8)},
+		netip.PrefixFrom(netip.IPv4Unspecified(), 0),
 	},
 	identity.ReservedIdentityWorldIPv6: {
-		{IP: net.IPv6zero, Mask: net.CIDRMask(0, net.IPv6len*8)},
+		netip.PrefixFrom(netip.IPv6Unspecified(), 0),
 	},
 }
 
 // getNets returns the most specific CIDR for an identity. For the "World" identity
 // it returns both IPv4 and IPv6.
-func getNets(identities Identities, ident uint32) []*net.IPNet {
+func getNets(identities Identities, ident uint32) []netip.Prefix {
 	// World identities are handled explicitly for two reasons:
 	// 1. 'identities' may be nil, but world identities are still expected to be considered
 	// 2. SelectorCache is not be informed of reserved/world identities in all test cases
+	// 3. identities.GetPrefix() does not return world identities
 	id := identity.NumericIdentity(ident)
 	if id <= identity.ReservedIdentityWorldIPv6 {
 		return worldNets[id]
@@ -331,7 +332,11 @@ func getNets(identities Identities, ident uint32) []*net.IPNet {
 	if !id.HasLocalScope() || identities == nil {
 		return nil
 	}
-	return identities.GetNetsLocked(id)
+	prefix := identities.GetPrefix(id)
+	if prefix.IsValid() {
+		return []netip.Prefix{prefix}
+	}
+	return nil
 }
 
 // NewMapState creates a new MapState interface
@@ -796,7 +801,7 @@ func identityIsSupersetOf(primaryIdentity, compareIdentity uint32, identities Id
 	// account whether the identities may represent CIDRs that have a
 	// superset relationship.
 	return primaryIdentity == 0 && compareIdentity != 0 ||
-		ip.NetsContainsAny(getNets(identities, primaryIdentity),
+		ip.PrefixesContainsAny(getNets(identities, primaryIdentity),
 			getNets(identities, compareIdentity))
 }
 
