@@ -146,3 +146,11 @@ type expirationTimer struct {
 	uuid string
 	stop chan<- struct{}
 }
+
+// LimitsNotFound is an error that signals lack of limits for given instance type
+type LimitsNotFound struct{}
+
+// Error implements error interface
+func (_ LimitsNotFound) Error() string {
+	return "Limits not found"
+}
