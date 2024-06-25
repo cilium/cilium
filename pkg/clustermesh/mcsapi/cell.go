@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -18,7 +17,7 @@ import (
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 
-	"github.com/cilium/cilium/pkg/clustermesh/common"
+	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 )
@@ -26,15 +25,15 @@ import (
 var Cell = cell.Module(
 	"mcsapi",
 	"Multi-Cluster Services API",
-	cell.Config(MCSAPIConfig{}),
 	cell.Invoke(initMCSAPIController),
 )
 
 type mcsAPIParams struct {
 	cell.In
 
-	common.Config
-	Cfg MCSAPIConfig
+	ClusterMesh operator.ClusterMesh
+	Cfg         operator.ClusterMeshConfig
+	CfgMCSAPI   operator.MCSAPIConfig
 
 	// ClusterInfo is the id/name of the local cluster.
 	ClusterInfo types.ClusterInfo
@@ -44,20 +43,6 @@ type mcsAPIParams struct {
 	Scheme             *runtime.Scheme
 
 	Logger logrus.FieldLogger
-}
-
-type MCSAPIConfig struct {
-	// ClusterMeshEnableEndpointSync enables the MCS API support
-	ClusterMeshEnableMCSAPI bool `mapstructure:"clustermesh-enable-mcs-api"`
-}
-
-// Flags adds the flags used by ClientConfig.
-func (cfg MCSAPIConfig) Flags(flags *pflag.FlagSet) {
-	flags.BoolVar(&cfg.ClusterMeshEnableMCSAPI,
-		"clustermesh-enable-mcs-api",
-		false,
-		"Whether or not the MCS API support is enabled.",
-	)
 }
 
 var requiredGVK = []schema.GroupVersionKind{
@@ -100,7 +85,7 @@ func checkRequiredCRDs(ctx context.Context, clientset k8sClient.Clientset) error
 }
 
 func initMCSAPIController(params mcsAPIParams) error {
-	if !params.Clientset.IsEnabled() || params.ClusterMeshConfig == "" || !params.Cfg.ClusterMeshEnableMCSAPI {
+	if !params.Clientset.IsEnabled() || params.ClusterMesh != nil || !params.CfgMCSAPI.ClusterMeshEnableMCSAPI {
 		return nil
 	}
 
