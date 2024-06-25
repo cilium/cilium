@@ -63,23 +63,23 @@ jobs:
           sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
           rm eksctl_$(uname -s)_amd64.tar.gz
 
-      - name: Install helm
-        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
-        with:
-          # Due to the below issue, v3.8.2 is pinned currently to avoid
-          # exec plugin: invalid apiVersion "client.authentication.k8s.io/v1alpha1"
-          # https://github.com/helm/helm/issues/10975
-          version: v3.8.2
-
       - name: Set up AWS CLI credentials
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ env.region }}
 
+      - name: Run aws configure
+        run: |
+          aws configure set aws_access_key_id ${{ env.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws configure set aws_session_token ${{ env.AWS_SESSION_TOKEN }}
+          aws configure set default.region ${{ env.AWS_REGION }}
+
       - name: Set up job variables
         id: vars
         run: |
+          env
           if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
             PR_API_JSON=$(curl \
               -H "Accept: application/vnd.github.v3+json" \
@@ -126,54 +126,48 @@ jobs:
 
           eksctl create cluster -f ./eks-config.yaml
 
-      - name: Create kubeconfig and load it in configmap
+      - name: Install Cilium CLI
+        uses: ./
+        with:
+          skip-build: 'true'
+          image-tag: ${{ steps.vars.outputs.sha }}
+
+      - name: Install Cilium and run tests
+        timeout-minutes: 30
         run: |
-          .github/get-kubeconfig.sh
-          kubectl create configmap cilium-cli-kubeconfig -n kube-system --from-file kubeconfig
+          # Install Cilium
+          cilium install \
+            --version "${{ env.cilium_version }}" \
+            --set cluster.name="${{ env.clusterName }}" \
+            --wait=false \
+            --set loadBalancer.l7.backend=envoy \
+            --set tls.secretsBackend=k8s \
+            --set bpf.monitorAggregation=none
 
-      - name: Load cilium cli script in configmap
-        run: |
-          kubectl create configmap cilium-cli-test-script -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/eks.sh
+          # Enable Relay
+          cilium hubble enable
 
-      - name: Create cilium-cli test job
-        run: |
-          helm install .github/cilium-cli-test-job-chart \
-            --generate-name \
-            --set tag=${{ steps.vars.outputs.sha }} \
-            --set cilium_version=${{ env.cilium_version }} \
-            --set cluster_name=${{ env.clusterName }}
+          # Wait for cilium and hubble relay to be ready
+          # NB: necessary to work against occasional flakes due to https://github.com/cilium/cilium-cli/issues/918
+          cilium status --wait
 
-      - name: Wait for job
-        env:
-          timeout: 30m
-        run: |
-          # Background wait for job to complete or timeout
-          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=${{ env.timeout }} &
-          complete_pid=$!
+          # Make sure the 'aws-node' DaemonSet exists but has no scheduled pods
+          [[ $(kubectl -n kube-system get ds/aws-node -o jsonpath='{.status.currentNumberScheduled}') == 0 ]]
 
-          # Background wait for job to fail
-          (kubectl -n kube-system wait job/cilium-cli --for=condition=failed --timeout=${{ env.timeout }} && exit 1) &
-          failed_pid=$!
+          # Port forward Relay
+          cilium hubble port-forward&
+          sleep 10s
+          [[ $(pgrep -f "kubectl.*port-forward.*hubble-relay" | wc -l) == 1 ]]
 
-          # Active wait for whichever background process ends first
-          wait -n $complete_pid $failed_pid
-          EXIT_CODE=$?
+          # Run connectivity test
+          cilium connectivity test --debug --all-flows --collect-sysdump-on-failure --external-target amazon.com.
 
-          # Retrieve job logs
-          kubectl logs --timestamps -n kube-system job/cilium-cli
-          exit ${EXIT_CODE}
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+          # Run performance test
+          cilium connectivity perf --duration 1s
 
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
-          echo "=== Install latest stable CLI ==="
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
-          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
-          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
-          rm cilium-linux-amd64.tar.gz{,.sha256sum}
-          cilium version
-
           echo "=== Retrieve cluster state ==="
           kubectl get pods --all-namespaces -o wide
           cilium status
@@ -182,33 +176,12 @@ jobs:
 
       - name: Uninstall and make sure the 'aws-node' DaemonSet blocking nodeSelector was removed
         if: ${{ success() }}
-        env:
-          timeout: 5m
+        timeout-minutes: 5
         run: |
-          kubectl create configmap cilium-cli-test-script-uninstall -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/eks-uninstall.sh
-          helm install .github/cilium-cli-test-job-chart \
-            --generate-name \
-            --set tag=${{ steps.vars.outputs.sha }} \
-            --set cluster_name=${{ env.clusterName }} \
-            --set job_name=cilium-cli-uninstall \
-            --set test_script_cm=cilium-cli-test-script-uninstall
+          cilium uninstall --wait
 
-          # Background wait for job to complete or timeout
-          kubectl -n kube-system wait job/cilium-cli-uninstall --for=condition=complete --timeout=${{ env.timeout }} &
-          complete_pid=$!
-
-          # Background wait for job to fail
-          (kubectl -n kube-system wait job/cilium-cli-uninstall --for=condition=failed --timeout=${{ env.timeout }} && exit 1) &
-          failed_pid=$!
-
-          # Active wait for whichever background process ends first
-          wait -n $complete_pid $failed_pid
-          EXIT_CODE=$?
-
-          # Retrieve job logs
-          kubectl logs --timestamps -n kube-system job/cilium-cli-uninstall
-          exit ${EXIT_CODE}
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+          # Make sure the 'aws-node' DaemonSet blocking nodeSelector was removed
+          [[ ! $(kubectl -n kube-system get ds/aws-node -o jsonpath="{.spec.template.spec.nodeSelector['io\.cilium/aws-node-enabled']}") ]]
 
       - name: Clean up EKS
         if: ${{ always() }}
