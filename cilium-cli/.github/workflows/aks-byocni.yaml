@@ -127,88 +127,46 @@ jobs:
             --resource-group ${{ steps.vars.outputs.name }} \
             --name ${{ steps.vars.outputs.name }}
 
-      - name: Create kubeconfig and load it in configmap
+      - name: Install Cilium CLI
+        uses: ./
+        with:
+          skip-build: 'true'
+          image-tag: ${{ steps.vars.outputs.sha }}
+
+      - name: Run test
         run: |
-          .github/get-kubeconfig.sh
-          kubectl create configmap cilium-cli-kubeconfig -n kube-system --from-file kubeconfig
+          cilium install \
+            --version "${{ env.cilium_version }}" \
+            --datapath-mode=aks-byocni \
+            --wait=false \
+            --set loadBalancer.l7.backend=envoy \
+            --set tls.secretsBackend=k8s \
+            --set bpf.monitorAggregation=none \
+            --set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16 # To avoid clashing with the default Service CIDR of AKS (10.0.0.0/16)
+          # Enable Relay
+          cilium hubble enable
 
-      - name: Load cilium install script in configmap
-        run: |
-          kubectl create configmap cilium-cli-test-script-install -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/aks-byocni-install.sh
+          # Wait for cilium and hubble relay to be ready
+          # NB: necessary to work against occassional flakes due to https://github.com/cilium/cilium-cli/issues/918
+          cilium status --wait
 
-      - name: Create cilium-cli install job
-        run: |
-          helm install .github/cilium-cli-test-job-chart \
-            --generate-name \
-            --set job_name=cilium-cli-install \
-            --set test_script_cm=cilium-cli-test-script-install \
-            --set tag=${{ steps.vars.outputs.sha }} \
-            --set cilium_version=${{ env.cilium_version }}
+          # Port forward Relay
+          cilium hubble port-forward&
+          sleep 10s
+          [[ $(pgrep -f "kubectl.*port-forward.*hubble-relay" | wc -l) == 1 ]]
 
-      - name: Wait for install job
-        env:
-          timeout: 5m
-        run: |
-          # Background wait for job to complete or timeout
-          kubectl -n kube-system wait job/cilium-cli-install --for=condition=complete --timeout=${{ env.timeout }} &
-          complete_pid=$!
+          # Run connectivity test
+          cilium connectivity test --all-flows --collect-sysdump-on-failure --external-target bing.com.
 
-          # Background wait for job to fail
-          (kubectl -n kube-system wait job/cilium-cli-install --for=condition=failed --timeout=${{ env.timeout }} && exit 1) &
-          failed_pid=$!
+          # Run performance test
+          cilium connectivity perf --duration 1s
 
-          # Active wait for whichever background process ends first
-          wait -n $complete_pid $failed_pid
-          EXIT_CODE=$?
-
-          # Retrieve job logs
-          kubectl logs --timestamps -n kube-system job/cilium-cli-install
-          exit ${EXIT_CODE}
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
-
-      - name: Load test script in configmap
-        run: |
-          kubectl create configmap cilium-cli-test-script -n kube-system --from-file=in-cluster-test-script.sh=.github/in-cluster-test-scripts/aks.sh
-
-      - name: Create cilium-cli job
-        run: |
-          helm install .github/cilium-cli-test-job-chart \
-            --generate-name \
-            --set job_name=cilium-cli \
-            --set test_script_cm=cilium-cli-test-script \
-            --set tag=${{ steps.vars.outputs.sha }}
-
-      - name: Wait for test job
-        env:
-          timeout: 45m
-        run: |
-          # Background wait for job to complete or timeout
-          kubectl -n kube-system wait job/cilium-cli --for=condition=complete --timeout=${{ env.timeout }} &
-          complete_pid=$!
-
-          # Background wait for job to fail
-          (kubectl -n kube-system wait job/cilium-cli --for=condition=failed --timeout=${{ env.timeout }} && exit 1) &
-          failed_pid=$!
-
-          # Active wait for whichever background process ends first
-          wait -n $complete_pid $failed_pid
-          EXIT_CODE=$?
-
-          # Retrieve job logs
-          kubectl logs --timestamps -n kube-system job/cilium-cli
-          exit ${EXIT_CODE}
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+          # Retrieve Cilium status
+          cilium status
 
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
-          echo "=== Install latest stable CLI ==="
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz{,.sha256sum}
-          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
-          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
-          rm cilium-linux-amd64.tar.gz{,.sha256sum}
-          cilium version
-
           echo "=== Retrieve cluster state ==="
           kubectl get pods --all-namespaces -o wide
           cilium status

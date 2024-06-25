@@ -28,6 +28,14 @@ inputs:
   skip-build:
     description: 'Skip building CLI from source'
     default: 'false'
+  image-repo:
+    description: 'Container image repo to download cilium-cli image from'
+    default: 'quay.io/cilium/cilium-cli-ci'
+  image-tag:
+    description: >
+      Container image tag to use. If this input parameter is specified, this
+      action downloads the container image and sets up Cilium CLI to be executed
+      inside a container.
 runs:
   using: "composite"
   steps:
@@ -65,10 +73,10 @@ runs:
         sudo mv ${TARGET} ${{ inputs.binary-dir }}/${{ inputs.binary-name }}
 
     - name: Check Required Version
-      if: ${{ steps.build-cli.outputs.path == '' && inputs.release-version == '' && inputs.ci-version == '' }}
+      if: ${{ steps.build-cli.outputs.path == '' && inputs.release-version == '' && inputs.ci-version == '' && inputs.image-tag == '' }}
       shell: bash
       run: |
-        echo "'release-version' or 'ci-version' has to be specified!"
+        echo "One of 'release-version', 'ci-version', or 'image-tag' has to be specified!"
         exit 42
 
     - name: Install Released Cilium CLI
@@ -88,6 +96,20 @@ runs:
         cid=$(docker create quay.io/cilium/cilium-cli-ci:${{ inputs.ci-version }} ls)
         docker cp $cid:/usr/local/bin/cilium ${{ inputs.binary-dir }}/${{ inputs.binary-name }}
         docker rm $cid
+
+    - name: Set up Cilium CLI to be executed inside a container
+      if: ${{ steps.build-cli.outputs.path == '' && inputs.image-tag != '' }}
+      shell: bash
+      run: |
+        until docker pull ${{ inputs.image-repo }}:${{ inputs.image-tag }} &> /dev/null
+        do
+          echo "Waiting for ${{ inputs.image-repo }}:${{ inputs.image-tag }} image to become available..."
+          sleep 10
+        done
+        export CILIUM_CLI_IMAGE_REPO=${{ inputs.image-repo }}
+        export CILIUM_CLI_IMAGE_TAG=${{ inputs.image-tag }}
+        cat .github/tools/cilium.sh | envsubst > /tmp/cilium
+        sudo install /tmp/cilium ${{ inputs.binary-dir }}/${{ inputs.binary-name }}
 
     - name: Run Cilium CLI Version
       shell: bash
