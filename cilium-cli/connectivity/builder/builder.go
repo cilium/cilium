@@ -239,6 +239,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		podToK8sOnControlplaneCidr{},
 		localRedirectPolicy{},
 		noFragmentation{},
+		bgpControlPlane{},
 	}
 	return injectTests(tests, connTests...)
 }
