@@ -74,7 +74,8 @@ const (
 	// IPAMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
 	IPAMSubnetsTags = "subnet-tags-filter"
 
-	// IPAMInstanceTagFilter are optional tags used to filter instances for ENI discovery ; only used with AWS IPAM mode for now
+	// IPAMInstanceTags are optional tags used to filter instances for ENI discovery.
+	// Only used with AWS and Alibabacloud IPAM mode for now
 	IPAMInstanceTags = "instance-tags-filter"
 
 	// IPAMAutoCreateCiliumPodIPPools contains pre-defined IP pools to be auto-created on startup.
@@ -273,7 +274,8 @@ type OperatorConfig struct {
 	// IPAMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
 	IPAMSubnetsTags map[string]string
 
-	// IPAMUInstanceTags are optional tags used to filter AWS EC2 instances, and interfaces (ENI) attached to them
+	// IPAMInstanceTags are optional tags used to filter instances for ENI discovery.
+	// Only used with AWS and Alibabacloud IPAM mode for now
 	IPAMInstanceTags map[string]string
 
 	// IPAM Operator options
