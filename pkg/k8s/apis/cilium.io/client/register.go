@@ -401,6 +401,7 @@ func constructV1CRD(
 				Plural:     template.Spec.Names.Plural,
 				ShortNames: template.Spec.Names.ShortNames,
 				Singular:   template.Spec.Names.Singular,
+				Categories: template.Spec.Names.Categories,
 			},
 			Scope:      template.Spec.Scope,
 			Versions:   template.Spec.Versions,
