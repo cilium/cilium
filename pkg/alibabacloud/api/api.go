@@ -8,12 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	httperr "github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
@@ -22,10 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/spanstat"
-)
-
-const (
-	VPCID = "VPCID"
 )
 
 var maxAttachRetries = wait.Backoff{
@@ -38,11 +36,11 @@ var maxAttachRetries = wait.Backoff{
 
 // Client an AlibabaCloud API client
 type Client struct {
-	vpcClient  *vpc.Client
-	ecsClient  *ecs.Client
-	limiter    *helpers.APILimiter
-	metricsAPI MetricsAPI
-	filters    map[string]string
+	vpcClient        *vpc.Client
+	ecsClient        *ecs.Client
+	limiter          *helpers.APILimiter
+	metricsAPI       MetricsAPI
+	instancesFilters map[string]string
 }
 
 // MetricsAPI represents the metrics maintained by the AlibabaCloud API client
@@ -54,11 +52,11 @@ type MetricsAPI interface {
 // NewClient create the client
 func NewClient(vpcClient *vpc.Client, client *ecs.Client, metrics MetricsAPI, rateLimit float64, burst int, filters map[string]string) *Client {
 	return &Client{
-		vpcClient:  vpcClient,
-		ecsClient:  client,
-		limiter:    helpers.NewAPILimiter(metrics, rateLimit, burst),
-		metricsAPI: metrics,
-		filters:    filters,
+		vpcClient:        vpcClient,
+		ecsClient:        client,
+		limiter:          helpers.NewAPILimiter(metrics, rateLimit, burst),
+		metricsAPI:       metrics,
+		instancesFilters: filters,
 	}
 }
 
@@ -90,7 +88,14 @@ func (c *Client) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkM
 func (c *Client) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error) {
 	instances := ipamTypes.NewInstanceMap()
 
-	networkInterfaceSets, err := c.describeNetworkInterfaces(ctx)
+	var networkInterfaceSets []ecs.NetworkInterfaceSet
+	var err error
+
+	if len(c.instancesFilters) > 0 {
+		networkInterfaceSets, err = c.describeNetworkInterfacesFromInstances(ctx)
+	} else {
+		networkInterfaceSets, err = c.describeNetworkInterfaces(ctx)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -424,6 +429,125 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]ecs.NetworkIn
 	return result, nil
 }
 
+// describeNetworkInterfacesFromInstances lists all ENIs matching filtered ECS instances.
+// Due to a limitation in the DescribeInstances API, we can only retrieve up to 1,000 instances
+// when filtering by tags directly. To overcome this limitation, an alternative approach is
+// implemented in 3 steps:
+// 1. Filter out matching instance ids with ListTagResources
+// 2. Split instance ids into batches of 100 and send parallel DescribeInstances requests
+// 3. Split eni ids from the instances and send parallel DescribeNetworkInterfaces requests
+// https://www.alibabacloud.com/help/en/ecs/developer-reference/api-ecs-2014-05-26-listtagresources
+// https://www.alibabacloud.com/help/en/ecs/developer-reference/api-ecs-2014-05-26-describeinstances
+// https://www.alibabacloud.com/help/en/ecs/developer-reference/api-ecs-2014-05-26-describenetworkinterfaces
+func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]ecs.NetworkInterfaceSet, error) {
+	// Get filtered instance IDs
+	instanceIds := []string{}
+	instanceIdMap := make(map[string]struct{})
+	tagResouces, err := c.EcsListTagResources(ctx, c.instancesFilters)
+	if err != nil {
+		return nil, err
+	}
+
+	// The response of ListTagResources can have duplicate instanceId,
+	// remove the duplicates first.
+	for _, t := range tagResouces {
+		if _, exists := instanceIdMap[t.ResourceId]; !exists {
+			instanceIdMap[t.ResourceId] = struct{}{}
+		}
+	}
+
+	for k := range instanceIdMap {
+		instanceIds = append(instanceIds, k)
+	}
+
+	// DescribeInstances and retrieve the ENI id list. DescribeInstances accepts 100 instance IDs
+	// at most, so split instanceIds into batches of 100 and send parallel requests for performance.
+	// Return error if any request fails.
+	g := new(errgroup.Group)
+	respChan := make(chan *ecs.DescribeInstancesResponse, (len(instanceIds)/100)+1)
+
+	for i := 0; i < len(instanceIds); i += 100 {
+		idx := i
+		endIdx := idx + 100
+		if len(instanceIds) < endIdx {
+			endIdx = len(instanceIds)
+		}
+		quotedIds := make([]string, endIdx-idx)
+		for i := idx; i < endIdx; i++ {
+			quotedIds[i-idx] = fmt.Sprintf(`"%s"`, instanceIds[i])
+		}
+
+		g.Go(func() error {
+			req := ecs.CreateDescribeInstancesRequest()
+			// format: ["xxx","xxx","xxx"]
+			req.InstanceIds = fmt.Sprintf("[%s]", strings.Join(quotedIds, ","))
+			req.PageSize = requests.NewInteger(100)
+			c.limiter.Limit(ctx, "DescribeInstances")
+			resp, err := c.ecsClient.DescribeInstances(req)
+			if err != nil {
+				close(respChan)
+				return err
+			}
+			respChan <- resp
+			if endIdx == len(instanceIds) {
+				close(respChan)
+			}
+			return nil
+		})
+	}
+
+	// Collect interface IDs from instance details
+	interfaceIds := []string{}
+	for resp := range respChan {
+		for _, instance := range resp.Instances.Instance {
+			for _, iface := range instance.NetworkInterfaces.NetworkInterface {
+				interfaceIds = append(interfaceIds, iface.NetworkInterfaceId)
+			}
+		}
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	// DescribeNetworkInterfaces accepts 100 interface IDs at most,
+	// so split interfaceIds into batches of 100 and send parallel requests for performance.
+	// Return error if any request fails.
+	g = new(errgroup.Group)
+	ifaceRespChan := make(chan *ecs.DescribeNetworkInterfacesResponse, (len(interfaceIds)/100)+1)
+	for i := 0; i < len(interfaceIds); i += 100 {
+		idx := i
+		endIdx := idx + 100
+		if len(interfaceIds) < endIdx {
+			endIdx = len(interfaceIds)
+		}
+		g.Go(func() error {
+			req := ecs.CreateDescribeNetworkInterfacesRequest()
+			ifaceSlice := interfaceIds[idx:endIdx]
+			req.NetworkInterfaceId = &ifaceSlice
+			req.PageSize = requests.NewInteger(100)
+			c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
+			resp, err := c.ecsClient.DescribeNetworkInterfaces(req)
+			if err != nil {
+				close(ifaceRespChan)
+				return err
+			}
+			ifaceRespChan <- resp
+			if endIdx == len(interfaceIds) {
+				close(ifaceRespChan)
+			}
+			return nil
+		})
+	}
+
+	result := []ecs.NetworkInterfaceSet{}
+	for resp := range ifaceRespChan {
+		result = append(result, resp.NetworkInterfaceSets.NetworkInterfaceSet...)
+	}
+
+	return result, g.Wait()
+}
+
 func (c *Client) describeNetworkInterfacesByInstance(ctx context.Context, instanceID string) ([]ecs.NetworkInterfaceSet, error) {
 	var result []ecs.NetworkInterfaceSet
 
@@ -447,6 +571,37 @@ func (c *Client) describeNetworkInterfacesByInstance(ctx context.Context, instan
 			break
 		}
 		i++
+	}
+
+	return result, nil
+}
+
+func (c *Client) EcsListTagResources(ctx context.Context, tags map[string]string) ([]ecs.TagResource, error) {
+	var result []ecs.TagResource
+
+	req := ecs.CreateListTagResourcesRequest()
+	req.ResourceType = "instance"
+	reqTags := []ecs.ListTagResourcesTag{}
+	for k, v := range tags {
+		reqTags = append(reqTags, ecs.ListTagResourcesTag{
+			Key:   k,
+			Value: v,
+		})
+	}
+	req.Tag = &reqTags
+	c.limiter.Limit(ctx, "ListTagResources")
+
+	for {
+		resp, err := c.ecsClient.ListTagResources(req)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, resp.TagResources.TagResource...)
+		if resp.NextToken == "" {
+			break
+		} else {
+			req.NextToken = resp.NextToken
+		}
 	}
 
 	return result, nil
