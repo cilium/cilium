@@ -153,7 +153,7 @@ func (m *reconcilerMetricsImpl) IncrementalReconciliationErrors(moduleID cell.Fu
 		m.m.IncrementalReconciliationCurrentErrors.WithLabelValues(LabelModuleId, moduleID.String()).Set(float64(currentErrors))
 	}
 	if m.m.IncrementalReconciliationTotalErrors.IsEnabled() {
-		m.m.IncrementalReconciliationCurrentErrors.WithLabelValues(LabelModuleId, moduleID.String()).Add(float64(newErrors))
+		m.m.IncrementalReconciliationTotalErrors.WithLabelValues(LabelModuleId, moduleID.String()).Add(float64(newErrors))
 	}
 }
 
