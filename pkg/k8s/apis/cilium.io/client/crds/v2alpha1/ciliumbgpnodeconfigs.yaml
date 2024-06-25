@@ -178,6 +178,11 @@ spec:
                         description: CiliumBGPNodePeerStatus is the status of a BGP
                           peer.
                         properties:
+                          establishedTime:
+                            description: EstablishedTime is the time when the peering
+                              session was established. It is represented in RFC3339
+                              form and is in UTC.
+                            type: string
                           name:
                             description: Name is the name of the BGP peer.
                             type: string
@@ -192,16 +197,56 @@ spec:
                             description: PeeringState is last known state of the peering
                               session.
                             type: string
-                          routesAdvertised:
-                            description: RoutesAdvertised is the number of routes
-                              advertised to this peer.
-                            format: int32
-                            type: integer
-                          routesReceived:
-                            description: RoutesReceived is the number of routes received
-                              from this peer.
-                            format: int32
-                            type: integer
+                          routeCount:
+                            description: RouteCount is the number of routes exchanged
+                              with this peer per AFI/SAFI.
+                            items:
+                              properties:
+                                advertised:
+                                  description: Advertised is the number of routes
+                                    advertised to this peer.
+                                  format: int32
+                                  type: integer
+                                afi:
+                                  description: Afi is the Address Family Identifier
+                                    (AFI) of the family.
+                                  enum:
+                                  - ipv4
+                                  - ipv6
+                                  - l2vpn
+                                  - ls
+                                  - opaque
+                                  type: string
+                                received:
+                                  description: Received is the number of routes received
+                                    from this peer.
+                                  format: int32
+                                  type: integer
+                                safi:
+                                  description: Safi is the Subsequent Address Family
+                                    Identifier (SAFI) of the family.
+                                  enum:
+                                  - unicast
+                                  - multicast
+                                  - mpls_label
+                                  - encapsulation
+                                  - vpls
+                                  - evpn
+                                  - ls
+                                  - sr_policy
+                                  - mup
+                                  - mpls_vpn
+                                  - mpls_vpn_multicast
+                                  - route_target_constraints
+                                  - flowspec_unicast
+                                  - flowspec_vpn
+                                  - key_value
+                                  type: string
+                              required:
+                              - afi
+                              - safi
+                              type: object
+                            type: array
                           timers:
                             description: Timers is the state of the negotiated BGP
                               timers for this peer.
@@ -217,10 +262,6 @@ spec:
                                 format: int32
                                 type: integer
                             type: object
-                          uptime:
-                            description: Uptime is the time since the last peering
-                              session was established.
-                            type: string
                         required:
                         - name
                         - peerAddress
@@ -243,7 +284,8 @@ spec:
         type: object
     served: true
     storage: true
-    subresources: {}
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""
