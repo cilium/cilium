@@ -32,7 +32,9 @@ type StateReconciler interface {
 	Reconcile(ctx context.Context, params StateReconcileParams) error
 }
 
-var StateReconcilers = cell.ProvidePrivate()
+var StateReconcilers = cell.ProvidePrivate(
+	NewStatusReconciler,
+)
 
 func GetActiveStateReconcilers(log logrus.FieldLogger, reconcilers []StateReconciler) []StateReconciler {
 	recMap := make(map[string]StateReconciler)
