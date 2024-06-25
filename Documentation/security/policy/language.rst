@@ -1438,12 +1438,12 @@ Host Policies known issues
   supported:
 
   - Cilium operating in CRD mode (as opposed to KVstore mode),
-  - Host Policies enabled,
   - tunneling enabled,
-  - kube-proxy-replacement enabled, and
-  - WireGuard enabled.
+  - WireGuard enabled,
+  - Host Policies enabled or node-to-node encryption enabled, and
+  - the clustermesh-apiserver being exposed as a NodePort service.
 
-  This combination results in a failure to connect to the
+  This combination may result in a failure to connect to the
   clustermesh-apiserver. For details, refer to :gh-issue:`31209`.
 
 - Host Policies do not work on host WireGuard interfaces. For details, see

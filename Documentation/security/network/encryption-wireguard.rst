@@ -216,6 +216,19 @@ have WireGuard encryption enabled, i.e. mixed mode is currently not supported.
 In addition, UDP traffic between nodes of different clusters on port ``51871``
 must be allowed.
 
+Known limitations
+-----------------
+
+- When using WireGuard with the ``clustermesh-apiserver``, the following
+  combination of options is not supported:
+
+  - tunneling enabled,
+  - any of the Host Firewall or node-to-node encryption enabled, and
+  - the clustermesh-apiserver being exposed as a NodePort service.
+
+  This combination may result in a failure to establish the connection to the
+  ``clustermesh-apiserver``. For details, refer to :gh-issue:`31209`.
+
 .. _node-node-wg:
 
 Node-to-Node Encryption (beta)
