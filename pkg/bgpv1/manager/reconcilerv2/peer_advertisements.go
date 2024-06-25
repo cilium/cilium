@@ -65,6 +65,10 @@ func (p *CiliumPeerAdvertisement) GetConfiguredAdvertisements(conf *v2alpha1.Cil
 	for _, peer := range conf.Peers {
 		lp := l.WithField(types.PeerLogField, peer.Name)
 
+		if peer.PeerConfigRef == nil || peer.PeerConfigRef.Name == "" {
+			lp.Debug("Peer config not specified, skipping advertisement check")
+			continue
+		}
 		peerConfig, exist, err := p.peerConfig.GetByKey(resource.Key{Name: peer.PeerConfigRef.Name})
 		if err != nil {
 			if errors.Is(err, store.ErrStoreUninitialized) {
@@ -72,7 +76,6 @@ func (p *CiliumPeerAdvertisement) GetConfiguredAdvertisements(conf *v2alpha1.Cil
 			}
 			return nil, err
 		}
-
 		if !exist {
 			lp.Debug("Peer config not found, skipping advertisement check")
 			continue
