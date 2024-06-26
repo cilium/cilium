@@ -360,10 +360,6 @@ var (
 	// CNPs with empty or non-existing CIDRGroupRefs are not considered.
 	CIDRGroupsReferenced = NoOpGauge
 
-	// CIDRGroupTranslationTimeStats is the time taken to translate the policy field `FromCIDRGroupRef`
-	// after the referenced CIDRGroups have been updated or deleted.
-	CIDRGroupTranslationTimeStats = NoOpHistogram
-
 	// Identity
 
 	// Identity is the number of identities currently in use on the node by type
@@ -687,7 +683,6 @@ type LegacyMetrics struct {
 	PolicyEndpointStatus             metric.Vec[metric.Gauge]
 	PolicyImplementationDelay        metric.Vec[metric.Observer]
 	CIDRGroupsReferenced             metric.Gauge
-	CIDRGroupTranslationTimeStats    metric.Histogram
 	Identity                         metric.Vec[metric.Gauge]
 	IdentityLabelSources             metric.Vec[metric.Gauge]
 	EventTS                          metric.Vec[metric.Gauge]
@@ -869,15 +864,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Namespace: Namespace,
 			Name:      "cidrgroups_referenced",
 			Help:      "Number of CNPs and CCNPs referencing at least one CiliumCIDRGroup. CNPs with empty or non-existing CIDRGroupRefs are not considered",
-		}),
-
-		CIDRGroupTranslationTimeStats: metric.NewHistogram(metric.HistogramOpts{
-			ConfigName: Namespace + "cidrgroup_translation_time_stats_seconds",
-			Disabled:   true,
-
-			Namespace: Namespace,
-			Name:      "cidrgroup_translation_time_stats_seconds",
-			Help:      "CIDRGroup translation time stats",
 		}),
 
 		Identity: metric.NewGaugeVec(metric.GaugeOpts{
@@ -1436,7 +1422,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 	PolicyEndpointStatus = lm.PolicyEndpointStatus
 	PolicyImplementationDelay = lm.PolicyImplementationDelay
 	CIDRGroupsReferenced = lm.CIDRGroupsReferenced
-	CIDRGroupTranslationTimeStats = lm.CIDRGroupTranslationTimeStats
 	Identity = lm.Identity
 	IdentityLabelSources = lm.IdentityLabelSources
 	EventTS = lm.EventTS
