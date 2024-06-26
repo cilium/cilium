@@ -112,21 +112,18 @@ type node[K, T any] struct {
 //
 // Note: If the prefix argument exceeds the Trie's maximum
 // prefix, it will be set to the Trie's maximum prefix.
-func (t *trie[K, T]) ExactLookup(prefixLen uint, k Key[K]) (T, bool) {
+func (t *trie[K, T]) ExactLookup(prefixLen uint, k Key[K]) (ret T, found bool) {
 	prefixLen = min(prefixLen, t.maxPrefix)
-	var (
-		empty, ret  T
-		matchPrefix uint
-	)
-	t.traverse(t.maxPrefix, k, func(currentNode *node[K, T], matchLen uint) bool {
-		ret = currentNode.value
-		matchPrefix = matchLen
+	t.traverse(prefixLen, k, func(currentNode *node[K, T], matchLen uint) bool {
+		// Only copy node value if exact prefix length is found
+		if matchLen == prefixLen {
+			ret = currentNode.value
+			found = true
+			return false // no need to continue
+		}
 		return true
 	})
-	if matchPrefix != prefixLen {
-		return empty, false
-	}
-	return ret, true
+	return ret, found
 }
 
 // LongestPrefixMatch returns the value for the key with the
