@@ -2631,9 +2631,9 @@ nodeinit:
     # type: [null, string]
     # @schema
     override: ~
-    repository: "quay.io/cilium/startup-script"
-    tag: "19fb149fb3d5c7a37d3edfaf10a2be3ab7386661"
-    digest: "sha256:820155cb3b7f00c8d61c1cffa68c44440906cb046bdbad8ff544f5deb1103456"
+    repository: "docker.io/learnitall/startup-script"
+    tag: "b74a31086dd8d9fc907bcc69cab0328ab3e52318"
+    digest: "sha256:b6de2aff89726192b59507ce2da25db7961a7a4a9c8591d8b920234dd2aa8052"
     useDigest: true
     pullPolicy: "Always"
   # -- The priority class to use for the nodeinit pod.
