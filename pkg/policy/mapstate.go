@@ -356,18 +356,18 @@ func (ms *mapState) withState(initMap map[Key]MapStateEntry) *mapState {
 	return ms
 }
 
-func newMapState() *mapState {
-	m := &mapState{
-		allows: mapStateMap{
-			entries: make(map[Key]MapStateEntry),
-			trie:    bitlpm.NewTrie[Key, map[identity.NumericIdentity]struct{}](policyTypes.MapStatePrefixLen),
-		},
-		denies: mapStateMap{
-			entries: make(map[Key]MapStateEntry),
-			trie:    bitlpm.NewTrie[Key, map[identity.NumericIdentity]struct{}](policyTypes.MapStatePrefixLen),
-		},
+func newMapStateMap() mapStateMap {
+	return mapStateMap{
+		entries: make(map[Key]MapStateEntry),
+		trie:    bitlpm.NewTrie[Key, map[identity.NumericIdentity]struct{}](policyTypes.MapStatePrefixLen),
 	}
-	return m
+}
+
+func newMapState() *mapState {
+	return &mapState{
+		allows: newMapStateMap(),
+		denies: newMapStateMap(),
+	}
 }
 
 // Get the MapStateEntry that matches the Key.
@@ -1091,7 +1091,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 			// New entry has a default auth type.
 			// Fill in the AuthType from more generic entries with an explicit auth type
 			maxSpecificity := 0
-			l3l4State := newMapState()
+			l3l4State := newMapStateMap()
 
 			ms.ForEachAllow(func(k Key, v MapStateEntry) bool {
 				// Only consider the same Traffic direction
@@ -1129,7 +1129,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 						newKeyCpy.Identity = k.Identity
 						l3l4AuthEntry := NewMapStateEntry(k, v.DerivedFromRules, 0, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType)
 						l3l4AuthEntry.DerivedFromRules.MergeSorted(newEntry.DerivedFromRules)
-						l3l4State.allows.upsert(newKeyCpy, l3l4AuthEntry)
+						l3l4State.upsert(newKeyCpy, l3l4AuthEntry)
 					}
 				}
 				return true
