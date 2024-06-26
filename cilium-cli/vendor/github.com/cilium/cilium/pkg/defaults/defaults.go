@@ -305,6 +305,9 @@ const (
 	// EnableAutoDirectRouting is the default value for EnableAutoDirectRouting
 	EnableAutoDirectRouting = false
 
+	// EnableDirectRoutingSkipUnreachable is the default value for EnableDirectRoutingIgnoreUnreachableName
+	EnableDirectRoutingSkipUnreachable = false
+
 	// EnableHealthChecking is the default value for EnableHealthChecking
 	EnableHealthChecking = true
 
