@@ -19,8 +19,6 @@ import (
 	"sync"
 	"time"
 
-	ciliumdef "github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/workerpool"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -31,6 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+
+	ciliumdef "github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/k8s"
@@ -198,7 +199,7 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 			c.log("🔮 Detected Cilium installation in namespace: %q", ns)
 			c.Options.CiliumNamespace = ns
 		} else {
-			c.log("ℹ️ Failed to detect Cilium installation")
+			c.logWarn("Failed to detect Cilium installation")
 		}
 	} else {
 		c.log("ℹ️  Cilium namespace: %s", c.Options.CiliumNamespace)
@@ -210,7 +211,7 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 			c.log("🔮 Detected Cilium operator in namespace: %q", ns)
 			c.Options.CiliumOperatorNamespace = ns
 		} else {
-			c.log("ℹ️ Failed to detect Cilium operator")
+			c.logWarn("Failed to detect Cilium operator")
 		}
 	} else {
 		c.log("ℹ️  Cilium operator namespace: %s", c.Options.CiliumOperatorNamespace)
@@ -1384,7 +1385,10 @@ func (c *Collector) Run() error {
 		})
 	}
 
-	if c.Options.CiliumNamespace != "" && c.Options.CiliumOperatorNamespace != "" {
+	// TODO(#2645): Ideally we would split ciliumTasks into
+	// operator, agent, generic tasks, ..., etc
+	// and only run then when feasible.
+	if c.Options.CiliumNamespace != "" || c.Options.CiliumOperatorNamespace != "" {
 		tasks = append(tasks, ciliumTasks...)
 
 		serialTasks = append(serialTasks, Task{
