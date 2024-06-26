@@ -148,6 +148,13 @@ func (e MapStateEntry) WithAuthType(authType AuthType) MapStateEntry {
 	return e
 }
 
+// WithDefaultAuthType sets inherited auth type field as indicated.
+func (e MapStateEntry) WithDefaultAuthType(authType AuthType) MapStateEntry {
+	e.hasAuthType = DefaultAuthType
+	e.AuthType = authType
+	return e
+}
+
 // WithoutOwners empties the 'owners' of 'e'.
 // Note: This is used only in unit tests and helps test readability.
 func (e MapStateEntry) WithoutOwners() MapStateEntry {
@@ -2751,6 +2758,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 func TestMapState_AccumulateMapChanges(t *testing.T) {
 	csFoo := newTestCachedSelector("Foo", false)
 	csBar := newTestCachedSelector("Bar", false)
+	csWildcard := newTestCachedSelector("wildcard", true)
 
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
@@ -2929,6 +2937,116 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		deletes: Keys{},
 	}, {
 		continued: false,
+		name:      "test-5a - auth type propagation from the most specific superset",
+		args: []args{
+			{cs: csFoo, adds: []int{43}, hasAuth: ExplicitAuthType, authType: AuthTypeAlwaysFail},
+			{cs: csFoo, adds: []int{43}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
+			{cs: csBar, adds: []int{43}, port: 80, proto: 6, redirect: true},
+		},
+		state: testMapState(map[Key]MapStateEntry{
+			testEgressKey(43, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeAlwaysFail),
+			testEgressKey(43, 0, 6):  allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
+			testEgressKey(43, 80, 6): allowEntry(1, csBar).WithDefaultAuthType(AuthTypeSpire),
+		}),
+		adds: Keys{
+			testEgressKey(43, 0, 0):  {},
+			testEgressKey(43, 0, 6):  {},
+			testEgressKey(43, 80, 6): {},
+		},
+		deletes: Keys{},
+	}, {
+		continued: false,
+		name:      "test-5b - auth type propagation from the most specific superset - reverse",
+		args: []args{
+			{cs: csBar, adds: []int{43}, port: 80, proto: 6, redirect: true},
+			{cs: csFoo, adds: []int{43}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
+			{cs: csFoo, adds: []int{43}, hasAuth: ExplicitAuthType, authType: AuthTypeAlwaysFail},
+		},
+		state: testMapState(map[Key]MapStateEntry{
+			testEgressKey(43, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeAlwaysFail),
+			testEgressKey(43, 0, 6):  allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
+			testEgressKey(43, 80, 6): allowEntry(1, csBar).WithDefaultAuthType(AuthTypeSpire),
+		}),
+		adds: Keys{
+			testEgressKey(43, 0, 0):  {},
+			testEgressKey(43, 0, 6):  {},
+			testEgressKey(43, 80, 6): {},
+		},
+		deletes: Keys{},
+	}, {
+		continued: false,
+		name:      "test-6a - added L3/L4 entry due to L3-only explicit auth type and L4-only without",
+		args: []args{
+			{cs: csFoo, adds: []int{43}, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
+			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: true},
+		},
+		state: testMapState(map[Key]MapStateEntry{
+			testEgressKey(43, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
+			testEgressKey(43, 80, 6): allowEntry(1, csFoo).WithDefaultAuthType(AuthTypeSpire),
+			testEgressKey(0, 80, 6):  allowEntry(1, csWildcard),
+		}),
+		adds: Keys{
+			testEgressKey(43, 0, 0):  {},
+			testEgressKey(0, 80, 6):  {},
+			testEgressKey(43, 80, 6): {},
+		},
+		deletes: Keys{},
+	}, {
+		continued: false,
+		name:      "test-6b - added L3/L4 entry due to L3-only explicit auth type and L4-only without - reverse",
+		args: []args{
+			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: true},
+			{cs: csFoo, adds: []int{43}, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
+		},
+		state: testMapState(map[Key]MapStateEntry{
+			testEgressKey(43, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
+			testEgressKey(43, 80, 6): allowEntry(1, csFoo).WithDefaultAuthType(AuthTypeSpire),
+			testEgressKey(0, 80, 6):  allowEntry(1, csWildcard),
+		}),
+		adds: Keys{
+			testEgressKey(43, 0, 0):  {},
+			testEgressKey(0, 80, 6):  {},
+			testEgressKey(43, 80, 6): {},
+		},
+		deletes: Keys{},
+	}, {
+		continued: false,
+		name:      "test-7a - added L3/L4 entry due to L3/proto explicit auth type and L4-only without",
+		args: []args{
+			{cs: csFoo, adds: []int{43}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
+			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: true},
+		},
+		state: testMapState(map[Key]MapStateEntry{
+			testEgressKey(43, 0, 6):  allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
+			testEgressKey(43, 80, 6): allowEntry(1, csFoo).WithDefaultAuthType(AuthTypeSpire),
+			testEgressKey(0, 80, 6):  allowEntry(1, csWildcard),
+		}),
+		adds: Keys{
+			testEgressKey(43, 0, 6):  {},
+			testEgressKey(0, 80, 6):  {},
+			testEgressKey(43, 80, 6): {},
+		},
+		deletes: Keys{},
+	}, {
+		continued: false,
+		name:      "test-7b - added L3/L4 entry due to L3/proto explicit auth type and L4-only without - reverse",
+		args: []args{
+			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: true},
+			{cs: csFoo, adds: []int{43}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
+		},
+		state: testMapState(map[Key]MapStateEntry{
+			testEgressKey(43, 0, 6):  allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
+			testEgressKey(43, 80, 6): allowEntry(1, csFoo).WithDefaultAuthType(AuthTypeSpire),
+			testEgressKey(0, 80, 6):  allowEntry(1, csWildcard),
+		}),
+		adds: Keys{
+			testEgressKey(43, 0, 6):  {},
+			testEgressKey(0, 80, 6):  {},
+			testEgressKey(43, 80, 6): {},
+		},
+		deletes: Keys{},
+	}, {
+		continued: false,
 		name:      "test-n - title",
 		args:      []args{
 			//{cs: csFoo, adds: []int{42, 43}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
@@ -2973,9 +3091,9 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, x.hasAuth, x.authType)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, nil, policyFeatures(0))
+		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, nil, authRules|denyRules)
 		policyMapState.validatePortProto(t)
-		require.True(t, policyMapState.Equals(tt.state), tt.name+"%s (MapState):\n%s", policyMapState.Diff(tt.state))
+		require.True(t, policyMapState.Equals(tt.state), "%s (MapState):\n%s", tt.name, policyMapState.Diff(tt.state))
 		require.EqualValues(t, tt.adds, adds, tt.name+" (adds)")
 		require.EqualValues(t, tt.deletes, deletes, tt.name+" (deletes)")
 	}
