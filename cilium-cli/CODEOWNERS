@@ -17,10 +17,8 @@
 * @cilium/cli
 /CODEOWNERS @cilium/contributing
 /.github/ @cilium/contributing
-/.github/cilium-cli-test-job-chart/ @cilium/github-sec @cilium/ci-structure
 /.github/gcp-vm-startup.sh @cilium/ci-structure
 /.github/get-kubeconfig.sh @cilium/github-sec @cilium/ci-structure
-/.github/in-cluster-test-scripts/ @cilium/ci-structure
 /.github/kind-config*.yaml @cilium/ci-structure
 /.github/tools/ @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure

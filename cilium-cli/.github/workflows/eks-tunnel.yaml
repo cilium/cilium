@@ -131,14 +131,6 @@ jobs:
           skip-build: 'true'
           image-tag: ${{ steps.vars.outputs.sha }}
 
-      - name: Create cilium-cli test job
-        run: |
-          helm install .github/cilium-cli-test-job-chart \
-            --generate-name \
-            --set tag=${{ steps.vars.outputs.sha }} \
-            --set cilium_version=${{ env.cilium_version }} \
-            --set cluster_name=${{ env.clusterName }}
-
       - name: Install Cilium and run tests
         timeout-minutes: 30
         run: |
