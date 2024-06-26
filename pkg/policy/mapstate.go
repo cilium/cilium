@@ -70,10 +70,6 @@ type MapState interface {
 	// ForEach allows iteration over the MapStateEntries. It returns true if
 	// the iteration was not stopped early by the callback.
 	ForEach(func(Key, MapStateEntry) (cont bool)) (complete bool)
-	// ForEachAllow behaves like ForEach, but only iterates MapStateEntries which are not denies.
-	ForEachAllow(func(Key, MapStateEntry) (cont bool)) (complete bool)
-	// ForEachDeny behaves like ForEach, but only iterates MapStateEntries which are denies.
-	ForEachDeny(func(Key, MapStateEntry) (cont bool)) (complete bool)
 	GetIdentities(*logrus.Logger) ([]int64, []int64)
 	GetDenyIdentities(*logrus.Logger) ([]int64, []int64)
 	Len() int
@@ -747,19 +743,7 @@ func (ms *mapState) delete(k Key, identities Identities) {
 // ForEach iterates over every Key MapStateEntry and stops when the function
 // argument returns false. It returns false iff the iteration was cut short.
 func (ms *mapState) ForEach(f func(Key, MapStateEntry) (cont bool)) (complete bool) {
-	return ms.ForEachAllow(f) && ms.ForEachDeny(f)
-}
-
-// ForEachAllow iterates over every Key MapStateEntry that isn't a deny and
-// stops when the function argument returns false
-func (ms *mapState) ForEachAllow(f func(Key, MapStateEntry) (cont bool)) (complete bool) {
-	return ms.allows.ForEach(f)
-}
-
-// ForEachDeny iterates over every Key MapStateEntry that is a deny and
-// stops when the function argument returns false
-func (ms *mapState) ForEachDeny(f func(Key, MapStateEntry) (cont bool)) (complete bool) {
-	return ms.denies.ForEach(f)
+	return ms.allows.ForEach(f) && ms.denies.ForEach(f)
 }
 
 // Len returns the length of the map
@@ -769,6 +753,7 @@ func (ms *mapState) Len() int {
 
 // Equals determines if this MapState is equal to the
 // argument MapState
+// Only used for testing, but also from the endpoint package!
 func (msA *mapState) Equals(msB MapState) bool {
 	if msA.Len() != msB.Len() {
 		return false
