@@ -240,17 +240,35 @@ func (m *metadata) getLocked(prefix netip.Prefix) prefixInfo {
 	return m.m[canonicalPrefix(prefix)]
 }
 
-// findCIDRParentPrefix returns the closest parent prefix has a parent prefix with a CIDR label
-// in the metadata cache
-func (m *metadata) findCIDRParentPrefix(prefix netip.Prefix) (parent netip.Prefix, ok bool) {
-	for bits := prefix.Bits() - 1; bits > 0; bits-- {
-		parent, _ = prefix.Addr().Unmap().Prefix(bits) // canonical
-		if info, ok := m.m[parent]; ok && info.hasLabelSource(labels.LabelSourceCIDR) {
-			return parent, true
+// mergeParentLabels pulls down all labels from parent prefixes, with "longer" prefixes having
+// preference.
+//
+// Thus, if the ipcache contains:
+// - 10.0.0.0/8 -> "a=b, foo=bar"
+// - 10.1.0.0/16 -> "a=c"
+// - 10.1.1.0/24 -> "d=e"
+// the complete set of labels for 10.1.1.0/24 is [a=c, d=e, foo=bar]
+func (m *metadata) mergeParentLabels(lbls labels.Labels, prefix netip.Prefix) {
+	hasCIDR := lbls.HasSource(labels.LabelSourceCIDR) // we should only merge one CIDR label
+
+	// Iterate over all shorter prefixes, from `prefix` to 0.0.0.0/0 // ::/0.
+	// Merge all labels, preferring those from longer prefixes, but only merge a single "cidr:XXX" label at most.
+	for bits := prefix.Bits() - 1; bits >= 0; bits-- {
+		parent, _ := prefix.Addr().Unmap().Prefix(bits) // canonical
+		if info, ok := m.m[parent]; ok {
+			for k, v := range info.ToLabels() {
+				if v.Source == labels.LabelSourceCIDR && hasCIDR {
+					continue
+				}
+				if _, ok := lbls[k]; !ok {
+					lbls[k] = v
+					if v.Source == labels.LabelSourceCIDR {
+						hasCIDR = true
+					}
+				}
+			}
 		}
 	}
-
-	return netip.Prefix{}, false
 }
 
 func isChildPrefix(parent, child netip.Prefix) bool {
@@ -596,20 +614,8 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 
 	lbls := info.ToLabels()
 
-	// If there is a parent with an explicit CIDR label, then we want to inherit
-	// that - unless prefix already has a CIDR label, has a reserved
-	// label, or is a global identity
-	if !lbls.HasSource(labels.LabelSourceReserved) &&
-		!lbls.HasSource(labels.LabelSourceCIDR) &&
-		identity.ScopeForLabels(lbls) != identity.IdentityScopeGlobal {
-		// Note: We attach the CIDR label of the parent, not prefix. This ensures
-		// that two prefixes with the same identity and the same parent will
-		// have the same identity.
-		if parent, ok := ipc.metadata.findCIDRParentPrefix(prefix); ok {
-			cidrLabels := labels.GetCIDRLabels(parent)
-			lbls.MergeLabels(cidrLabels)
-		}
-	}
+	// unconditionally merge any parent labels down in to this prefix
+	ipc.metadata.mergeParentLabels(lbls, prefix)
 
 	// Enforce certain label invariants, e.g. adding or removing `reserved:world`.
 	lbls = resolveLabels(prefix, lbls)
