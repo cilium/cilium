@@ -18,6 +18,16 @@ Recommendation
 The default out of the box deployment of Cilium is focused on maximum compatibility
 rather than most optimal performance. If you are a performance-conscious user, here
 are the recommended settings for operating Cilium to get the best out of your setup.
+
+.. note::
+    In-place upgrade by just enabling the config settings on an existing
+    cluster is not possible since these tunings change the underlying datapath
+    fundamentals and therefore require Pod or even node restarts.
+
+    The best way to consume this for an existing cluster is to utilize per-node
+    configuration for enabling the tunings only on newly spawned nodes which join
+    the cluster. See the :ref:`per-node-configuration` page for more details.
+
 Each of the settings for the recommended performance profile are described in more
 detail on this page and in this `KubeCon talk <https://sched.co/1R2s5>`__:
 
@@ -90,6 +100,16 @@ To validate whether your installation is running with netkit, run ``cilium statu
 in any of the Cilium Pods and look for the line reporting the status for
 "Device Mode" which should state "netkit". Also, ensure to have eBPF host
 routing enabled - the reporting status under "Host Routing" must state "BPF".
+
+.. note::
+    In-place upgrade by just enabling netkit on an existing cluster is not
+    possible since the CNI plugin cannot simply replace veth with netkit after
+    Pod creation. Also, running both flavors in parallel is currently not
+    supported.
+
+    The best way to consume this for an existing cluster is to utilize per-node
+    configuration for enabling netkit on newly spawned nodes which join the
+    cluster. See the :ref:`per-node-configuration` page for more details.
 
 **Requirements:**
 
@@ -165,6 +185,16 @@ than 64k it will try to decrease them.
 
 BIG TCP doesn't require network interface MTU changes.
 
+.. note::
+    In-place upgrade by just enabling BIG TCP on an existing cluster is currently
+    not possible since Cilium does not have access into Pods after they have been
+    created.
+
+    The best way to consume this for an existing cluster is to either restart Pods
+    or to utilize per-node configuration for enabling BIG TCP on newly spawned nodes
+    which join the cluster. See the :ref:`per-node-configuration` page for more
+    details.
+
 **Requirements:**
 
 * Kernel >= 5.19
@@ -221,6 +251,16 @@ respectively when BIG TCP is disabled and the current maximum values are more
 than 64k it will try to decrease them.
 
 BIG TCP doesn't require network interface MTU changes.
+
+.. note::
+    In-place upgrade by just enabling BIG TCP on an existing cluster is currently
+    not possible since Cilium does not have access into Pods after they have been
+    created.
+
+    The best way to consume this for an existing cluster is to either restart Pods
+    or to utilize per-node configuration for enabling BIG TCP on newly spawned nodes
+    which join the cluster. See the :ref:`per-node-configuration` page for more
+    details.
 
 **Requirements:**
 
@@ -411,6 +451,18 @@ get BBR for Pods working.
 BBR also needs eBPF Host-Routing in order to retain the network packet's socket
 association all the way until the packet hits the FQ queueing discipline on the
 physical device in the host namespace.
+
+.. note::
+    In-place upgrade by just enabling BBR on an existing cluster is not possible
+    since Cilium cannot migrate existing sockets over to BBR congestion control.
+
+    The best way to consume this is to either only enable it on newly built clusters,
+    to restart Pods on existing clusters, or to utilize per-node configuration for
+    enabling BBR on newly spawned nodes which join the cluster. See the
+    :ref:`per-node-configuration` page for more details.
+
+    Note that the use of BBR could lead to a higher amount of TCP retransmissions
+    and more aggressive behavior towards TCP CUBIC connections.
 
 **Requirements:**
 
