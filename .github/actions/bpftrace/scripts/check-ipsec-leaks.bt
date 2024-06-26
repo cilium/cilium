@@ -27,6 +27,15 @@
 #define TYPE_PROXY_DNS_IP4 3
 #define TYPE_PROXY_DNS_IP6 4
 
+struct dnshdr {
+  u16 id;
+  u16 flags;
+  u16 qdcount;
+  u16 ancount;
+  u16 nscount;
+  u16 arcount;
+}
+
 kprobe:br_forward
 {
   $skb = ((struct sk_buff *) arg1);
@@ -91,6 +100,16 @@ kprobe:br_forward
         $skb->encapsulation,
         $skb->dev->ifindex,
         $skb->dev->nd_net.net->ns.inum);
+
+      if ($ip4h->protocol == PROTO_UDP && (bswap($udph->source) == PORT_DNS || bswap($udph->dest) == PORT_DNS)) {
+        $dns = (struct dnshdr*)($udph + 1);
+        $query = (uint8 *)($dns + 1);
+        printf("[%s] Detected DNS message, ID: %04x, flags %04x, QD: %d, AN: %d, NS: %d, AR: %d, query %s\n",
+          strftime("%H:%M:%S:%f", nsecs),
+          bswap($dns->id), bswap($dns->flags), bswap($dns->qdcount),
+          bswap($dns->ancount), bswap($dns->nscount), bswap($dns->arcount),
+          str(kptr($query)));
+      }
     }
   }
 
@@ -111,6 +130,16 @@ kprobe:br_forward
         $skb->encapsulation,
         $skb->dev->ifindex,
         $skb->dev->nd_net.net->ns.inum);
+
+      if ($ip6h->nexthdr == PROTO_UDP && (bswap($udph->source) == PORT_DNS || bswap($udph->dest) == PORT_DNS)) {
+        $dns = (struct dnshdr*)($udph + 1);
+        $query = (uint8 *)($dns + 1);
+        printf("[%s] Detected DNS message, ID: %04x, flags %04x, QD: %d, AN: %d, NS: %d, AR: %d, query %s\n",
+          strftime("%H:%M:%S:%f", nsecs),
+          bswap($dns->id), bswap($dns->flags), bswap($dns->qdcount),
+          bswap($dns->ancount), bswap($dns->nscount), bswap($dns->arcount),
+          str(kptr($query)));
+      }
     }
   }
 }
