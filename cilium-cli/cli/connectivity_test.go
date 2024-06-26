@@ -14,35 +14,63 @@ import (
 
 func TestNewConnectivityTests(t *testing.T) {
 	testCases := []struct {
-		params                 check.Parameters
-		expectedCount          int
-		expectedTestNamespaces []string
+		params                            check.Parameters
+		expectedCount                     int
+		expectedTestNamespaces            []string
+		expectedExternalTargetCANamespace []string
 	}{
 		{
 			params: check.Parameters{
-				FlowValidation: check.FlowValidationModeDisabled,
-				TestNamespace:  "cilium-test",
+				FlowValidation:            check.FlowValidationModeDisabled,
+				TestNamespace:             "cilium-test",
+				ExternalTargetCANamespace: "",
 			},
-			expectedCount:          1,
-			expectedTestNamespaces: []string{"cilium-test"},
+			expectedCount:                     1,
+			expectedTestNamespaces:            []string{"cilium-test"},
+			expectedExternalTargetCANamespace: []string{"cilium-test"},
 		},
 		{
 			params: check.Parameters{
-				FlowValidation:  check.FlowValidationModeDisabled,
-				TestNamespace:   "cilium-test",
-				TestConcurrency: -1,
+				FlowValidation:            check.FlowValidationModeDisabled,
+				TestNamespace:             "cilium-test",
+				ExternalTargetCANamespace: "cilium-test",
 			},
-			expectedCount:          1,
-			expectedTestNamespaces: []string{"cilium-test"},
+			expectedCount:                     1,
+			expectedTestNamespaces:            []string{"cilium-test"},
+			expectedExternalTargetCANamespace: []string{"cilium-test"},
 		},
 		{
 			params: check.Parameters{
-				FlowValidation:  check.FlowValidationModeDisabled,
-				TestNamespace:   "cilium-test",
-				TestConcurrency: 3,
+				FlowValidation:            check.FlowValidationModeDisabled,
+				TestNamespace:             "cilium-test",
+				ExternalTargetCANamespace: "cilium-test",
+				TestConcurrency:           -1,
 			},
-			expectedCount:          3,
-			expectedTestNamespaces: []string{"cilium-test-1", "cilium-test-2", "cilium-test-3"},
+			expectedCount:                     1,
+			expectedTestNamespaces:            []string{"cilium-test"},
+			expectedExternalTargetCANamespace: []string{"cilium-test"},
+		},
+		{
+			params: check.Parameters{
+				FlowValidation:            check.FlowValidationModeDisabled,
+				TestNamespace:             "cilium-test",
+				ExternalTargetCANamespace: "",
+				TestConcurrency:           3,
+			},
+			expectedCount:                     3,
+			expectedTestNamespaces:            []string{"cilium-test-1", "cilium-test-2", "cilium-test-3"},
+			expectedExternalTargetCANamespace: []string{"cilium-test-1", "cilium-test-2", "cilium-test-3"},
+		},
+		{
+			params: check.Parameters{
+				FlowValidation:            check.FlowValidationModeDisabled,
+				TestNamespace:             "cilium-test",
+				ExternalTargetCANamespace: "cilium-test",
+				TestConcurrency:           3,
+			},
+			expectedCount:                     3,
+			expectedTestNamespaces:            []string{"cilium-test-1", "cilium-test-2", "cilium-test-3"},
+			expectedExternalTargetCANamespace: []string{"cilium-test"},
 		},
 	}
 	for _, tt := range testCases {
@@ -53,6 +81,9 @@ func TestNewConnectivityTests(t *testing.T) {
 		require.Equal(t, tt.expectedCount, len(actual))
 		for i, n := range tt.expectedTestNamespaces {
 			require.Equal(t, n, actual[i].Params().TestNamespace)
+		}
+		for i, n := range tt.expectedExternalTargetCANamespace {
+			require.Equal(t, n, actual[i].Params().ExternalTargetCANamespace)
 		}
 	}
 }
