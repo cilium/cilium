@@ -127,6 +127,14 @@ type LocalNodeConfiguration struct {
 	// subsequent calls to NodeConfigurationChanged().
 	EnableAutoDirectRouting bool
 
+	// DirectRoutingSkipUnreachable will skip any direct routes between
+	// nodes if they have different L2 connectivity, only adding L2 routes
+	// if the underlying L2 shares the same gateway.
+	//
+	// This field is immutable at runtime. The value will not change in
+	// subsequent calls to NodeConfigurationChanged().
+	DirectRoutingSkipUnreachable bool
+
 	// EnableLocalNodeRoute enables installation of the route which points
 	// the allocation prefix of the local node. Disabling this option is
 	// useful when another component is responsible for the routing of the
