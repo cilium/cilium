@@ -4,142 +4,136 @@
 package k8s
 
 import (
-	"errors"
-	"fmt"
+	"net/netip"
 
-	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/ipcache"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	cilium_v2_alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/source"
 )
 
+// onUpsertCIDRGroup updates the internal cache and,
+// if this CIDRGroup is referenced by any policies,
+// applies it to the IPCache.
 func (p *policyWatcher) onUpsertCIDRGroup(
 	cidrGroup *cilium_v2_alpha1.CiliumCIDRGroup,
 	apiGroup string,
-) error {
-
+) {
 	defer func() {
 		p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 	}()
+	name := cidrGroup.Name
 
-	oldCidrGroup, ok := p.cidrGroupCache[cidrGroup.Name]
+	oldCidrGroup, ok := p.cidrGroupCache[name]
 	if ok && oldCidrGroup.Spec.DeepEqual(&cidrGroup.Spec) {
-		return nil
+		return
+	}
+	p.cidrGroupCache[name] = cidrGroup
+
+	p.applyCIDRGroup(name)
+}
+
+// applyCIDRGroup inserts / removes prefixes in the ipcache
+// labelled as belonging to the CIDR group.
+//
+// If the CIDRGroup in question is not referenced by any policies,
+// this treats it as being deleted.
+func (p *policyWatcher) applyCIDRGroup(name string) {
+	oldCIDRs, ok := p.cidrGroupCIDRs[name]
+	if !ok {
+		oldCIDRs = make(sets.Set[netip.Prefix])
+	}
+	newCIDRs := make(sets.Set[netip.Prefix])
+
+	// If this CIDR group does not exist, *or* it has no policies referencing it,
+	// then pretend it is an empty cidr group.
+	cidrGroup, ok := p.cidrGroupCache[name]
+	if ok && p.cidrGroupRefs[name] > 0 {
+		for i, c := range cidrGroup.Spec.ExternalCIDRs {
+			pfx, err := netip.ParsePrefix(string(c))
+			if err != nil {
+				p.log.WithField(logfields.CIDRGroupRef, name).WithError(err).Warnf("CIDRGroup has invalid CIDR at index %d", i)
+				continue
+			}
+			newCIDRs.Insert(pfx)
+		}
+	} else if ok {
+		p.log.WithField(logfields.CIDRGroupRef, name).Debug("Skipping unreferenced CIDRGroup")
 	}
 
-	cidrGroupCpy := cidrGroup.DeepCopy()
-	p.cidrGroupCache[cidrGroup.Name] = cidrGroupCpy
+	if newCIDRs.Equal(oldCIDRs) {
+		return
+	}
 
-	err := p.updateCIDRGroupRefPolicies(cidrGroup.Name)
+	if len(newCIDRs) == 0 {
+		delete(p.cidrGroupCIDRs, name)
+	} else {
+		p.cidrGroupCIDRs[name] = newCIDRs
+	}
 
-	return err
+	// Upsert all net-new prefixes in to the ipcache.
+	resourceID := ipcacheTypes.NewResourceID(
+		ipcacheTypes.ResourceKindCIDRGroup,
+		"",
+		name,
+	)
+
+	mu := make([]ipcache.MU, 0, len(newCIDRs))
+	for newCIDR := range newCIDRs {
+		// If we already upserted this, there's no need to do it again.
+		if oldCIDRs.Has(newCIDR) {
+			oldCIDRs.Delete(newCIDR)
+			continue
+		}
+
+		// Label this CIDR with:
+		// - "reserved:world="
+		// - "cidrgroup:io.cilium.groupname/<name>="
+		lbls := labels.FromSlice([]labels.Label{api.LabelForCIDRGroupRef(name)})
+		lbls.AddWorldLabel(newCIDR.Addr())
+		mu = append(mu, ipcache.MU{
+			Prefix:   newCIDR,
+			Source:   source.Generated,
+			Resource: resourceID,
+			Metadata: []ipcache.IPMetadata{lbls},
+		})
+	}
+	if len(mu) > 0 {
+		p.ipCache.UpsertMetadataBatch(mu...)
+	}
+
+	// Remove any CIDRs no longer referenced by this set
+	mu = make([]ipcache.MU, 0, len(oldCIDRs))
+	for oldCIDR := range oldCIDRs {
+		mu = append(mu, ipcache.MU{
+			Prefix:   oldCIDR,
+			Source:   source.Generated,
+			Resource: resourceID,
+			Metadata: []ipcache.IPMetadata{labels.Labels{}},
+		})
+	}
+	if len(mu) > 0 {
+		p.ipCache.RemoveMetadataBatch(mu...)
+	}
 }
 
 func (p *policyWatcher) onDeleteCIDRGroup(
 	cidrGroupName string,
 	apiGroup string,
-) error {
+) {
 	delete(p.cidrGroupCache, cidrGroupName)
 
-	err := p.updateCIDRGroupRefPolicies(cidrGroupName)
+	// Do not delete refcount here; this may be re-added and we will want
+	// to know that it is referenced.
 
+	p.applyCIDRGroup(cidrGroupName)
 	p.k8sResourceSynced.SetEventTimestamp(apiGroup)
-
-	return err
-}
-
-func (p *policyWatcher) updateCIDRGroupRefPolicies(
-	cidrGroup string,
-) error {
-	var errs []error
-	for key, cnp := range p.cnpCache {
-		if !hasCIDRGroupRef(cnp, cidrGroup) {
-			continue
-		}
-
-		p.log.WithFields(logrus.Fields{
-			logfields.CiliumNetworkPolicyName: cnp.Name,
-			logfields.K8sAPIVersion:           cnp.APIVersion,
-			logfields.K8sNamespace:            cnp.Namespace,
-			logfields.CIDRGroupRef:            cidrGroup,
-		}).Info("Referenced CiliumCIDRGroup updated or deleted, recalculating CiliumNetworkPolicy rules")
-
-		initialRecvTime := time.Now()
-
-		resourceID := resourceIDForCiliumNetworkPolicy(key, cnp)
-
-		errs = append(errs, p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID))
-	}
-	return errors.Join(errs...)
-}
-
-func (p *policyWatcher) resolveCIDRGroupRef(cnp *types.SlimCNP) {
-	refs := getCIDRGroupRefs(cnp)
-	if len(refs) == 0 {
-		return
-	}
-
-	cidrsSets, err := p.cidrGroupRefsToCIDRsSets(refs)
-	if err != nil {
-		p.log.WithFields(logrus.Fields{
-			logfields.K8sAPIVersion:           cnp.TypeMeta.APIVersion,
-			logfields.CiliumNetworkPolicyName: cnp.ObjectMeta.Name,
-			logfields.K8sNamespace:            cnp.ObjectMeta.Namespace,
-			logfields.CIDRGroupRef:            refs,
-		}).WithError(err).Warning("Unable to translate all CIDR groups to CIDRs")
-	}
-
-	translateCIDRGroupRefs(cnp, cidrsSets)
-}
-
-func hasCIDRGroupRef(cnp *types.SlimCNP, cidrGroup string) bool {
-	if specHasCIDRGroupRef(cnp.Spec, cidrGroup) {
-		return true
-	}
-	for _, spec := range cnp.Specs {
-		if specHasCIDRGroupRef(spec, cidrGroup) {
-			return true
-		}
-	}
-	return false
-}
-
-func specHasCIDRGroupRef(spec *api.Rule, cidrGroup string) bool {
-	if spec == nil {
-		return false
-	}
-	for _, ingress := range spec.Ingress {
-		for _, rule := range ingress.FromCIDRSet {
-			if string(rule.CIDRGroupRef) == cidrGroup {
-				return true
-			}
-		}
-	}
-	for _, ingress := range spec.IngressDeny {
-		for _, rule := range ingress.FromCIDRSet {
-			if string(rule.CIDRGroupRef) == cidrGroup {
-				return true
-			}
-		}
-	}
-	for _, egress := range spec.Egress {
-		for _, rule := range egress.ToCIDRSet {
-			if string(rule.CIDRGroupRef) == cidrGroup {
-				return true
-			}
-		}
-	}
-	for _, egress := range spec.EgressDeny {
-		for _, rule := range egress.ToCIDRSet {
-			if string(rule.CIDRGroupRef) == cidrGroup {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func getCIDRGroupRefs(cnp *types.SlimCNP) []string {
@@ -188,98 +182,4 @@ func getCIDRGroupRefs(cnp *types.SlimCNP) []string {
 	}
 
 	return cidrGroupRefs
-}
-
-func (p *policyWatcher) cidrGroupRefsToCIDRsSets(cidrGroupRefs []string) (map[string][]api.CIDR, error) {
-	var errs []error
-	cidrsSet := make(map[string][]api.CIDR)
-	for _, cidrGroupRef := range cidrGroupRefs {
-		cidrGroup, found := p.cidrGroupCache[cidrGroupRef]
-		if !found {
-			errs = append(errs, fmt.Errorf("cidr group %q not found, skipping translation", cidrGroupRef))
-			continue
-		}
-
-		cidrs := make([]api.CIDR, 0, len(cidrGroup.Spec.ExternalCIDRs))
-		for _, cidr := range cidrGroup.Spec.ExternalCIDRs {
-			cidrs = append(cidrs, api.CIDR(cidr))
-		}
-		cidrsSet[cidrGroupRef] = cidrs
-	}
-	return cidrsSet, errors.Join(errs...)
-}
-
-func translateCIDRGroupRefs(cnp *types.SlimCNP, cidrsSets map[string][]api.CIDR) {
-	if cnp.Spec != nil {
-		translateSpec(cnp.Spec, cidrsSets)
-	}
-	for i := range cnp.Specs {
-		if cnp.Specs[i] != nil {
-			translateSpec(cnp.Specs[i], cidrsSets)
-		}
-	}
-}
-
-func translateSpec(spec *api.Rule, cidrsSets map[string][]api.CIDR) {
-	for i := range spec.Ingress {
-		cidrSet := translateCIDRRuleSlice(spec.Ingress[i].FromCIDRSet, cidrsSets)
-		// Careful to distinguish between nil (unset, selecting everything) and
-		// empty list (selecting nothing), hence this overly explicit code.
-		if cidrSet == nil {
-			cidrSet = make([]api.CIDRRule, 0)
-		}
-		spec.Ingress[i].FromCIDRSet = cidrSet
-	}
-	for i := range spec.IngressDeny {
-		cidrSet := translateCIDRRuleSlice(spec.IngressDeny[i].FromCIDRSet, cidrsSets)
-		if cidrSet == nil {
-			cidrSet = make([]api.CIDRRule, 0)
-		}
-		spec.IngressDeny[i].FromCIDRSet = cidrSet
-	}
-	for i := range spec.Egress {
-		cidrSet := translateCIDRRuleSlice(spec.Egress[i].ToCIDRSet, cidrsSets)
-		if cidrSet == nil {
-			cidrSet = make([]api.CIDRRule, 0)
-		}
-		spec.Egress[i].ToCIDRSet = cidrSet
-	}
-	for i := range spec.EgressDeny {
-		cidrSet := translateCIDRRuleSlice(spec.EgressDeny[i].ToCIDRSet, cidrsSets)
-		if cidrSet == nil {
-			cidrSet = make([]api.CIDRRule, 0)
-		}
-		spec.EgressDeny[i].ToCIDRSet = cidrSet
-	}
-}
-
-func translateCIDRRuleSlice(cidrRules api.CIDRRuleSlice, cidrsSets map[string][]api.CIDR) api.CIDRRuleSlice {
-	var (
-		oldRules api.CIDRRuleSlice
-		refRules []api.CIDRRule
-	)
-
-	for _, rule := range cidrRules {
-		if rule.CIDRGroupRef == "" {
-			// keep rules without a cidr group reference
-			oldRules = append(oldRules, rule)
-			continue
-		}
-		// collect all rules with references to a cidr group
-		refRules = append(refRules, rule)
-	}
-
-	// add rules for each cidr in the referenced cidr groups
-	var newRules api.CIDRRuleSlice
-	for _, refRule := range refRules {
-		cidrs, found := cidrsSets[string(refRule.CIDRGroupRef)]
-		if !found || len(cidrs) == 0 {
-			continue
-		}
-		for _, cidr := range cidrs {
-			newRules = append(newRules, api.CIDRRule{Cidr: cidr, ExceptCIDRs: refRule.ExceptCIDRs})
-		}
-	}
-
-	return append(oldRules, newRules...)
 }
