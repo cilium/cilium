@@ -45,10 +45,24 @@ var DefaultConfig = Config{
 	EnableK8sEndpointSlice: true,
 }
 
+const (
+	NamespaceIndex = "namespace"
+)
+
 // Flags implements the cell.Flagger interface.
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-k8s-endpoint-slice", def.EnableK8sEndpointSlice, "Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it")
 	flags.String("k8s-service-proxy-name", def.K8sServiceProxyName, "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
+}
+
+// namespaceIndexFunc is an IndexFunc that indexes Namespace of Kubernetes
+// types by their namespace.
+func namespaceIndexFunc(obj any) ([]string, error) {
+	object, ok := obj.(utils.NamespaceNameGetter)
+	if !ok {
+		return nil, fmt.Errorf("unexpected object type: %T", obj)
+	}
+	return []string{object.GetNamespace()}, nil
 }
 
 // ServiceResource builds the Resource[Service] object.
@@ -60,11 +74,18 @@ func ServiceResource(lc cell.Lifecycle, cfg Config, cs client.Clientset, opts ..
 	if err != nil {
 		return nil, err
 	}
+	indexers := cache.Indexers{
+		NamespaceIndex: namespaceIndexFunc,
+	}
 	lw := utils.ListerWatcherWithModifiers(
 		utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](cs.Slim().CoreV1().Services("")),
 		append(opts, optsModifier)...,
 	)
-	return resource.New[*slim_corev1.Service](lc, lw, resource.WithMetric("Service")), nil
+	return resource.New[*slim_corev1.Service](
+		lc, lw,
+		resource.WithMetric("Service"),
+		resource.WithIndexers(indexers),
+	), nil
 }
 
 func NodeResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Node], error) {
