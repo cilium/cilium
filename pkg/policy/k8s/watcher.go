@@ -5,9 +5,11 @@ package k8s
 
 import (
 	"context"
+	"net/netip"
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -30,6 +32,7 @@ type policyWatcher struct {
 	policyManager         PolicyManager
 	svcCache              serviceCache
 	svcCacheNotifications <-chan k8s.ServiceNotification
+	ipCache               ipc
 
 	knpSynced, cnpSynced, ccnpSynced, cidrGroupSynced atomic.Bool
 
@@ -44,11 +47,19 @@ type policyWatcher struct {
 	// avoid key clashing between CNPs and CCNPs.
 	// The cache contains CNPs and CCNPs in their "original form"
 	// (i.e: pre-translation of each CIDRGroupRef to a CIDRSet).
-	cnpCache       map[resource.Key]*types.SlimCNP
+	cnpCache map[resource.Key]*types.SlimCNP
+
 	cidrGroupCache map[string]*cilium_api_v2alpha1.CiliumCIDRGroup
-	// cidrGroupPolicies is the set of policies that are referencing CiliumCIDRGroup objects.
-	cidrGroupPolicies map[resource.Key]struct{}
-	// cidrGroupPolicies is the set of policies that contain ToServices references
+
+	// cidrGroupCIDRs is the set of CIDRs upserted in to the ipcache
+	// for a given cidrgroup
+	cidrGroupCIDRs map[string]sets.Set[netip.Prefix]
+
+	// cidrGroupRefCount is the number of policies that reference a given
+	// cidr group. Groups with no references may not be inserted in to the ipcache.
+	cidrGroupRefCount map[string]int
+
+	// toServicesPolicies is the set of policies that contain ToServices references
 	toServicesPolicies map[resource.Key]struct{}
 	cnpByServiceID     map[k8s.ServiceID]map[resource.Key]struct{}
 }
@@ -168,14 +179,13 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 					continue
 				}
 
-				var err error
 				switch event.Kind {
 				case resource.Upsert:
-					err = p.onUpsertCIDRGroup(event.Object, k8sAPIGroupCiliumCIDRGroupV2Alpha1)
+					p.onUpsertCIDRGroup(event.Object, k8sAPIGroupCiliumCIDRGroupV2Alpha1)
 				case resource.Delete:
-					err = p.onDeleteCIDRGroup(event.Object.Name, k8sAPIGroupCiliumCIDRGroupV2Alpha1)
+					p.onDeleteCIDRGroup(event.Object.Name, k8sAPIGroupCiliumCIDRGroupV2Alpha1)
 				}
-				event.Done(err)
+				event.Done(nil)
 			case event, ok := <-serviceEvents:
 				if !ok {
 					serviceEvents = nil
