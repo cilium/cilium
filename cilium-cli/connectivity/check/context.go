@@ -653,10 +653,21 @@ func (ct *ConnectivityTest) enableHubbleClient(ctx context.Context) error {
 			ct.Fail("In --flow-validation=strict mode, Hubble must be available to validate flows")
 			return fmt.Errorf("hubble is not available: %w", err)
 		}
-	} else {
-		ct.Infof("Hubble is OK, flows: %d/%d", status.NumFlows, status.MaxFlows)
+		return nil
 	}
 
+	for status.GetNumUnavailableNodes().GetValue() > 0 {
+		ct.Infof("Waiting for %d nodes to become available: %s",
+			status.GetNumUnavailableNodes().GetValue(), status.GetUnavailableNodes())
+		time.Sleep(5 * time.Second)
+		status, err = ct.hubbleClient.ServerStatus(ctx, &observer.ServerStatusRequest{})
+		if err != nil {
+			ct.Fail("Not all nodes became available to Hubble Relay: %w", err)
+			return fmt.Errorf("not all nodes became available to Hubble Relay: %w", err)
+		}
+	}
+	ct.Infof("Hubble is OK, flows: %d/%d, connected nodes: %d, unavailable nodes %d",
+		status.NumFlows, status.MaxFlows, status.GetNumConnectedNodes().GetValue(), status.GetNumUnavailableNodes().GetValue())
 	return nil
 }
 
