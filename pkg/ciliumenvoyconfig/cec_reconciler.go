@@ -85,14 +85,14 @@ func (r *ciliumEnvoyConfigReconciler) handleCECEvent(ctx context.Context, event 
 		scopedLogger.Debug("Received CiliumEnvoyConfig upsert event")
 		err = r.configUpserted(ctx, event.Key, &config{meta: event.Object.ObjectMeta, spec: &event.Object.Spec})
 		if err != nil {
-			scopedLogger.WithError(err).Error("failed to handle CEC upsert")
+			scopedLogger.WithError(err).Info("Failed to handle CEC upsert, Hive will retry")
 			err = fmt.Errorf("failed to handle CEC upsert: %w", err)
 		}
 	case resource.Delete:
 		scopedLogger.Debug("Received CiliumEnvoyConfig delete event")
 		err = r.configDeleted(ctx, event.Key)
 		if err != nil {
-			scopedLogger.WithError(err).Error("failed to handle CEC delete")
+			scopedLogger.WithError(err).Info("Failed to handle CEC delete, Hive will retry")
 			err = fmt.Errorf("failed to handle CEC delete: %w", err)
 		}
 	}
@@ -117,14 +117,14 @@ func (r *ciliumEnvoyConfigReconciler) handleCCECEvent(ctx context.Context, event
 		scopedLogger.Debug("Received CiliumClusterwideEnvoyConfig upsert event")
 		err = r.configUpserted(ctx, event.Key, &config{meta: event.Object.ObjectMeta, spec: &event.Object.Spec})
 		if err != nil {
-			scopedLogger.WithError(err).Error("failed to handle CCEC upsert")
+			scopedLogger.WithError(err).Info("Failed to handle CCEC upsert, Hive will retry")
 			err = fmt.Errorf("failed to handle CCEC upsert: %w", err)
 		}
 	case resource.Delete:
 		scopedLogger.Debug("Received CiliumClusterwideEnvoyConfig delete event")
 		err = r.configDeleted(ctx, event.Key)
 		if err != nil {
-			scopedLogger.WithError(err).Error("failed to handle CCEC delete")
+			scopedLogger.WithError(err).Info("Failed to handle CEC delete, Hive will retry")
 			err = fmt.Errorf("failed to handle CCEC delete: %w", err)
 		}
 	}

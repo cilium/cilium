@@ -205,11 +205,6 @@ func (r *cecManager) getServiceNodeports(name, namespace string, servicePorts []
 		return nodePorts, fmt.Errorf("could not retrieve service details for service %s/%s", namespace, name)
 	}
 
-	if kSvc == nil {
-		r.logger.Debugf("Retrieved nil service details for service %s/%s, ignoring Nodeports for this service in this update", namespace, name)
-		return nodePorts, nil
-	}
-
 	for _, servicePort := range servicePorts {
 		for _, port := range kSvc.Spec.Ports {
 			if servicePort == uint16(port.Port) {
@@ -233,6 +228,9 @@ func (r *cecManager) getK8sService(name string, namespace string) (*slim_corev1.
 		Name:      name,
 		Namespace: namespace,
 	})
+	if svc == nil {
+		return nil, fmt.Errorf("retrieved nil details for Service %s/%s", namespace, name)
+	}
 	if !exists || err != nil {
 		return nil, err
 	}
