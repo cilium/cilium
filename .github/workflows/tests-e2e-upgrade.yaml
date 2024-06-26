@@ -155,22 +155,24 @@ jobs:
             # has been resolved.
             # ingress-controller: 'true'
 
-#          Disable until https://github.com/cilium/cilium/issues/32689
-#          is resolved.
-#          - name: '7'
-#            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-#            kernel: 'bpf-next-20240711.013133'
-#            kube-proxy: 'none'
-#            kpr: 'true'
-#            devices: '{eth0,eth1}'
-#            secondary-network: 'true'
-#            tunnel: 'disabled'
-#            lb-mode: 'snat'
-#            egress-gateway: 'true'
-#            lb-acceleration: 'testing-only'
-#            # Disable until https://github.com/cilium/cilium/issues/30717
-#            # has been resolved.
-#            # ingress-controller: 'true'
+          - name: '7'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            # Disable until fix for https://github.com/cilium/cilium/issues/32689
+            # has been backported to v1.16. Seems to affect bpf-next much more
+            # than older kernels.
+            # kernel: 'bpf-next-20240711.013133'
+            kernel: '6.1-20240710.064909'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'disabled'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
+            lb-acceleration: 'testing-only'
+            # Disable until https://github.com/cilium/cilium/issues/30717
+            # has been resolved.
+            # ingress-controller: 'true'
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
