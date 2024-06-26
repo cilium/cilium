@@ -722,10 +722,15 @@ which is defined as follows:
 
         // PortProtocol specifies an L4 port with an optional transport protocol
         type PortProtocol struct {
-                // Port is an L4 port number. For now the string will be strictly
-                // parsed as a single uint16. In the future, this field may support
-                // ranges in the form "1024-2048"
+                // Port can be an L4 port number, or a name in the form of "http"
+                // or "http-8080". EndPort is ignored if Port is a named port.
                 Port string `json:"port"`
+
+                // EndPort can only be an L4 port number. It is ignored when
+                // Port is a named port.
+                //
+                // +optional
+                EndPort int32 `json:"endPort,omitempty"`
 
                 // Protocol is the L4 protocol. If omitted or empty, any protocol
                 // matches. Accepted values: "TCP", "UDP", ""/"ANY"
@@ -755,6 +760,27 @@ only be able to emit packets using TCP on port 80, to any layer 3 destination:
 .. only:: epub or latex
 
         .. literalinclude:: ../../../examples/policies/l4/l4.json
+
+Example Port Ranges
+~~~~~~~~~~~~~~~~~~~
+
+The following rule limits all endpoints with the label ``app=myService`` to
+only be able to emit packets using TCP on ports 80-444, to any layer 3 destination:
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../../examples/policies/l4/l4_port_range.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../../examples/policies/l4/l4_port_range.json
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../../examples/policies/l4/l4_port_range.json
+
 
 Labels-dependent Layer 4 rule
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -931,6 +957,8 @@ latter rule will have no effect.
           protocol specific access denied message is crafted and returned, e.g.
           an *HTTP 403 access denied* is sent back for HTTP requests which
           violate the policy, or a *DNS REFUSED* response for DNS requests.
+
+.. note:: Layer 7 rules do not currently support port ranges.
 
 .. note:: There is currently a max limit of 40 ports with layer 7 policies per
           endpoint. This might change in the future when support for ranges is
