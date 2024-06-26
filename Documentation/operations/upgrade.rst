@@ -316,6 +316,10 @@ Annotations:
   If your current setup has third-party old-style tc BPF users, then this option should be
   disabled via Helm through ``bpf.enableTCX=false`` in order to continue in old-style tc BPF
   attachment mode as before.
+* Starting with Cilium 1.16 netkit is supported as a new datapath mode for Linux kernels of
+  version 6.8 or newer. Cilium still continues to rely on veth devices by default. In case
+  of interest to experiment with netkit, please consider the :ref:`performance_tuning` guide
+  for instructions. An in-place replacement of veth to netkit is not possible.
 * The implementation of ``toFQDNs`` selectors in policies has been overhauled to improve
   performance when many different IPs are observed for a selector: Instead of creating
   ``cidr`` identities for each allowed IP, IPs observed in DNS lookups are now labeled
