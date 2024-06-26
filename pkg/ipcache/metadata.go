@@ -14,6 +14,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache/types"
@@ -73,6 +74,9 @@ type metadata struct {
 	// m is the actual map containing the mappings.
 	m map[netip.Prefix]prefixInfo
 
+	// prefixes is a trie of prefixes, for finding descendants efficiently
+	prefixes *bitlpm.CIDRTrie[struct{}]
+
 	// queued* handle updates into the IPCache. Whenever a label is added
 	// or removed from a specific IP prefix, that prefix is added into
 	// 'queuedPrefixes'. Each time label injection is triggered, it will
@@ -107,6 +111,7 @@ type metadata struct {
 func newMetadata() *metadata {
 	return &metadata{
 		m:              make(map[netip.Prefix]prefixInfo),
+		prefixes:       bitlpm.NewCIDRTrie[struct{}](),
 		queuedPrefixes: make(map[netip.Prefix]struct{}),
 		queuedRevision: 1,
 
@@ -206,6 +211,7 @@ func (m *metadata) upsertLocked(prefix netip.Prefix, src source.Source, resource
 	if _, ok := m.m[prefix]; !ok {
 		changed = true
 		m.m[prefix] = make(prefixInfo)
+		m.prefixes.Upsert(prefix, struct{}{})
 	}
 	if _, ok := m.m[prefix][resource]; !ok {
 		changed = true
@@ -271,14 +277,6 @@ func (m *metadata) mergeParentLabels(lbls labels.Labels, prefix netip.Prefix) {
 	}
 }
 
-func isChildPrefix(parent, child netip.Prefix) bool {
-	if child == parent {
-		return true
-	}
-
-	return parent.Contains(child.Addr()) && child.Bits() >= parent.Bits()
-}
-
 // findAffectedChildPrefixes returns the list of all child prefixes which are
 // affected by an update to the parent prefix
 func (m *metadata) findAffectedChildPrefixes(parent netip.Prefix) (children []netip.Prefix) {
@@ -286,11 +284,10 @@ func (m *metadata) findAffectedChildPrefixes(parent netip.Prefix) (children []ne
 		return []netip.Prefix{parent} // no children
 	}
 
-	for child := range m.m {
-		if isChildPrefix(parent, child) {
-			children = append(children, child)
-		}
-	}
+	m.prefixes.Descendants(parent, func(child netip.Prefix, _ struct{}) bool {
+		children = append(children, child)
+		return true
+	})
 
 	return children
 }
@@ -867,6 +864,7 @@ func (m *metadata) remove(prefix netip.Prefix, resource types.ResourceID, aux ..
 	}
 	if !info.isValid() { // Labels empty, delete
 		delete(m.m, prefix)
+		m.prefixes.Delete(prefix)
 	}
 
 	return affected
