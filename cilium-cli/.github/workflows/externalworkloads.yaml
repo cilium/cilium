@@ -214,7 +214,7 @@ jobs:
         timeout-minutes: 30
         run: |
           # Run connectivity test
-          cilium connectivity test --all-flows --collect-sysdump-on-failure --external-target google.com.
+          cilium connectivity test --test-concurrency=5 --all-flows --collect-sysdump-on-failure --external-target google.com.
 
           # Run performance test
           cilium connectivity perf --duration 1s
