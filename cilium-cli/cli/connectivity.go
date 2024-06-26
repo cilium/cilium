@@ -125,7 +125,7 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().BoolVarP(&params.Timestamp, "timestamp", "t", false, "Show timestamp in messages")
 	cmd.Flags().BoolVarP(&params.PauseOnFail, "pause-on-fail", "p", false, "Pause execution on test failure")
 	cmd.Flags().StringVar(&params.ExternalTarget, "external-target", "one.one.one.one.", "Domain name to use as external target in connectivity tests")
-	cmd.Flags().StringVar(&params.ExternalTargetCANamespace, "external-target-ca-namespace", defaults.ConnectivityCheckNamespace, "Namespace of the CA secret for the external target. Used by client-egress-l7-tls test cases.")
+	cmd.Flags().StringVar(&params.ExternalTargetCANamespace, "external-target-ca-namespace", "", "Namespace of the CA secret for the external target. Used by client-egress-l7-tls test cases.")
 	cmd.Flags().StringVar(&params.ExternalTargetCAName, "external-target-ca-name", "cabundle", "Name of the CA secret for the external target. Used by client-egress-l7-tls test cases.")
 	cmd.Flags().StringVar(&params.ExternalCIDR, "external-cidr", "1.0.0.0/8", "CIDR to use as external target in connectivity tests")
 	cmd.Flags().StringVar(&params.ExternalIP, "external-ip", "1.1.1.1", "IP to use as external target in connectivity tests")
@@ -228,6 +228,9 @@ func newConnectivityTests(params check.Parameters, logger *check.ConcurrentLogge
 		params.TestConcurrency = 1
 	}
 	if params.TestConcurrency < 2 {
+		if params.ExternalTargetCANamespace == "" {
+			params.ExternalTargetCANamespace = defaults.ConnectivityCheckNamespace
+		}
 		cc, err := check.NewConnectivityTest(k8sClient, params, defaults.CLIVersion, logger)
 		if err != nil {
 			return nil, err
@@ -239,6 +242,9 @@ func newConnectivityTests(params check.Parameters, logger *check.ConcurrentLogge
 	for i := 0; i < params.TestConcurrency; i++ {
 		params := params
 		params.TestNamespace = fmt.Sprintf("%s-%d", params.TestNamespace, i+1)
+		if params.ExternalTargetCANamespace == "" {
+			params.ExternalTargetCANamespace = params.TestNamespace
+		}
 		params.ExternalDeploymentPort += i
 		params.EchoServerHostPort += i
 		params.JunitFile = junit.NamespacedFileName(params.TestNamespace, params.JunitFile)
