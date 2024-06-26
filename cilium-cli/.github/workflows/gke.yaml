@@ -155,7 +155,7 @@ jobs:
           [[ $(pgrep -f "kubectl.*port-forward.*hubble-relay" | wc -l) == 1 ]]
 
           # Run connectivity test
-          cilium connectivity test --all-flows --collect-sysdump-on-failure --external-target google.com.
+          cilium connectivity test --test-concurrency=5 --all-flows --collect-sysdump-on-failure --external-target google.com.
 
           # Run performance test
           cilium connectivity perf --duration 1s
