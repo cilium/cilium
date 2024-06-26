@@ -875,10 +875,8 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 					// and it has a more specific port-protocol than the new-entry
 					// then an additional copy of the new-entry with the more
 					// specific port-protocol of the iterated-allow-entry must be inserted.
-					newKeyCpy := newKey
-					newKeyCpy.DestPort = k.DestPort
-					newKeyCpy.InvertedPortMask = k.InvertedPortMask
-					newKeyCpy.Nexthdr = k.Nexthdr
+					newKeyCpy := k
+					newKeyCpy.Identity = newKey.Identity
 					l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
 					updates = append(updates, MapChange{
 						Add:   true,
@@ -983,10 +981,8 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 					// iterated-deny-entry then an additional copy of the iterated-deny-entry
 					// with the more specific port-porotocol of the new-entry must
 					// be added.
-					denyKeyCpy := k
-					denyKeyCpy.DestPort = newKey.DestPort
-					denyKeyCpy.InvertedPortMask = newKey.InvertedPortMask
-					denyKeyCpy.Nexthdr = newKey.Nexthdr
+					denyKeyCpy := newKey
+					denyKeyCpy.Identity = k.Identity
 					l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
 					updates = append(updates, MapChange{
 						Add:   true,
@@ -1129,10 +1125,8 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 					// overridden by a more generic entry and 'max_specificity >
 					// 0' after the loop.
 					if k.Identity != 0 && k.Nexthdr == 0 && newKey.Identity == 0 && newKey.Nexthdr != 0 {
-						newKeyCpy := k
-						newKeyCpy.DestPort = newKey.DestPort
-						newKeyCpy.InvertedPortMask = newKey.InvertedPortMask
-						newKeyCpy.Nexthdr = newKey.Nexthdr
+						newKeyCpy := newKey
+						newKeyCpy.Identity = k.Identity
 						l3l4AuthEntry := NewMapStateEntry(k, v.DerivedFromRules, 0, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType)
 						l3l4AuthEntry.DerivedFromRules.MergeSorted(newEntry.DerivedFromRules)
 						l3l4State.allows.upsert(newKeyCpy, l3l4AuthEntry)
@@ -1183,10 +1177,8 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 					// only override the AuthType for the L3 & L4 combination,
 					// not L4 in general.
 					if newKey.Identity != 0 && newKey.Nexthdr == 0 && k.Identity == 0 && k.Nexthdr != 0 {
-						newKeyCpy := newKey
-						newKeyCpy.DestPort = k.DestPort
-						newKeyCpy.InvertedPortMask = k.InvertedPortMask
-						newKeyCpy.Nexthdr = k.Nexthdr
+						newKeyCpy := k
+						newKeyCpy.Identity = newKey.Identity
 						l3l4AuthEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, v.Listener, v.priority, false, DefaultAuthType, newEntry.AuthType)
 						l3l4AuthEntry.DerivedFromRules.MergeSorted(v.DerivedFromRules)
 						ms.addKeyWithChanges(newKeyCpy, l3l4AuthEntry, changes)
@@ -1372,10 +1364,8 @@ func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 			//
 			// Wildcarded L4, i.e., L3-only
 			//
-			k2 := k
-			k2.DestPort = key.DestPort
-			k2.InvertedPortMask = key.InvertedPortMask
-			k2.Nexthdr = key.Nexthdr
+			k2 := key
+			k2.Identity = k.Identity
 			if !v.IsDeny && !haveL4OnlyKey && !addL4OnlyKey {
 				// 4. For each L3-only ALLOW key add the corresponding L3/L4
 				//    ALLOW redirect if no L3/L4 key already exists and no
