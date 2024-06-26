@@ -10,6 +10,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
@@ -41,6 +43,8 @@ jobs:
         run: |
           if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
             echo "tag=${{ github.event.pull_request.head.sha }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref_type }}" == "tag" ]; then
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           else
             echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
@@ -50,7 +54,7 @@ jobs:
         with:
           ref: ${{ steps.tag.outputs.tag }}
 
-      # main branch pushes
+      # main branch or tag pushes
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
         uses: docker/build-push-action@15560696de535e4014efeff63c48f16952e52dd1 # v6.2.0
