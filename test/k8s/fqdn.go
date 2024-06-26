@@ -4,6 +4,7 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -159,6 +160,22 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentFQDNTest", func() {
 		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
 
 		connectivityTest()
+
+		// Collect numeric identity of worldTargetIP and the worldTarget selector
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		cmdTargetIdentity := fmt.Sprintf(`cilium-dbg ip list -o json | jq -r '.[] | select(.cidr == "%s/32") | .identity'`, worldTargetIP)
+		worldTargetIdentityBefore, err := kubectl.CiliumExecContext(ctx, ciliumPodK8s1, cmdTargetIdentity).IntOutput()
+		Expect(err).To(BeNil(), "Identity of IP %s for ToFQDN selector %s not found in IPCache", worldTargetIP, worldTarget)
+		Expect(worldTargetIdentityBefore).NotTo(BeZero())
+
+		cmdTargetSelector := fmt.Sprintf(`cilium-dbg policy selectors list -o json | jq '.[] | select(.selector | test("%s")) | .identities[] | .'`, worldTarget)
+		worldTargetSelectorBefore, err := kubectl.CiliumExecContext(ctx, ciliumPodK8s1, cmdTargetSelector).IntOutput()
+		Expect(err).To(BeNil(), "ToFQDN selector %s does not seem to select a numeric identity", worldTarget)
+		Expect(worldTargetSelectorBefore).NotTo(BeZero())
+
+		Expect(worldTargetIdentityBefore).To(Equal(worldTargetSelectorBefore), "Identity selected by ToFQDN selector %s does not match identity of IP %s", worldTarget, worldTargetIP)
+
 		By("restarting cilium pods")
 
 		// kill pid 1 in each cilium pod
@@ -228,6 +245,18 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentFQDNTest", func() {
 		// reason to have this piece of code here is to reduce a flaky test.
 		err = kubectl.CiliumEndpointWaitReady()
 		Expect(err).To(BeNil(), "Endpoints are not ready after Cilium restarts")
+
+		// Collect numeric identity of worldTargetIP and the worldTarget selector after restart
+		worldTargetIdentityAfter, err := kubectl.CiliumExecContext(ctx, ciliumPodK8s1, cmdTargetIdentity).IntOutput()
+		Expect(err).To(BeNil(), "Identity of IP %s for ToFQDN selector %s not found in IPCache after restart", worldTargetIP, worldTarget)
+		Expect(worldTargetIdentityAfter).NotTo(BeZero())
+
+		worldTargetSelectorAfter, err := kubectl.CiliumExecContext(ctx, ciliumPodK8s1, cmdTargetSelector).IntOutput()
+		Expect(err).To(BeNil(), "ToFQDN selector %s does not seem to select a numeric identity after restart", worldTarget)
+		Expect(worldTargetSelectorAfter).NotTo(BeZero())
+
+		Expect(worldTargetIdentityAfter).To(Equal(worldTargetSelectorAfter), "Identity selected by ToFQDN selector %s does not match identity of IP %s after restart", worldTarget, worldTargetIP)
+		Expect(worldTargetIdentityAfter).To(Equal(worldTargetIdentityBefore), "Identity IP %s changed after restart", worldTargetIP)
 
 		By("Testing connectivity when cilium is *restored* using IPS without DNS")
 		res = kubectl.ExecPodCmd(
