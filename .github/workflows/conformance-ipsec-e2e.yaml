@@ -132,7 +132,7 @@ jobs:
 
           - name: '4'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240624.013140'
+            kernel: 'bpf-next-20240625.013127'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'geneve'
@@ -187,7 +187,7 @@ jobs:
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240624.013140'
+            kernel: 'bpf-next-20240625.013127'
             kube-proxy: 'none'
             kpr: 'true'
             tunnel: 'vxlan'
