@@ -138,6 +138,9 @@ const (
 	// LabelSourceCIDR is the label source for generated CIDRs.
 	LabelSourceCIDR = "cidr"
 
+	// LabelSourceCIDRGroup is the label source used for labels from CIDRGroups
+	LabelSourceCIDRGroup = "cidrgroup"
+
 	// LabelSourceNode is the label source for remote-nodes.
 	LabelSourceNode = "node"
 

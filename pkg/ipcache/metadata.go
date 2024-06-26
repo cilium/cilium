@@ -668,7 +668,7 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 // At a high level, this function makes it so that in-cluster entities
 // are not selectable by CIDR and CIDR-equivalent policies. By default,
 // in-cluster entities such as remote-node, host, and health should not be
-// selectable by CIDR / ToFQDN policies.
+// selectable by CIDR / ToFQDN / CIDRGroup policies.
 //
 // In-cluster entities are prefixes with any of the labels:
 // - reserved:host
@@ -701,6 +701,7 @@ func resolveLabels(prefix netip.Prefix, lbls labels.Labels) labels.Labels {
 	if isInCluster && !(isNode && option.Config.PolicyCIDRMatchesNodes()) {
 		out = out.RemoveFromSource(labels.LabelSourceCIDR)
 		out = out.RemoveFromSource(labels.LabelSourceFQDN)
+		out = out.RemoveFromSource(labels.LabelSourceCIDRGroup)
 	}
 
 	// Remove all node: labels, unless this is a node *and* node labels are enabled.
