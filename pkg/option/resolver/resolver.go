@@ -50,7 +50,7 @@ func (cs *ConfigSource) String() string {
 
 func ResolveConfigurations(ctx context.Context, client client.Clientset, nodeName string, sources []ConfigSource, allowConfigKeys, denyConfigKeys []string) (map[string]string, error) {
 	config := map[string]string{}
-	sourceDescriptions := []string{} // We want to keep track of which sources we actually use
+	sourceDescriptions := []string{} // We want to keep track of which sources we actually use; this is a sorted list
 
 	// matchKeys is a set of keys that are either allowed or denied
 	var matchKeys sets.Set[string]
