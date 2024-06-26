@@ -42,6 +42,8 @@ message Flow {
 
     // NodeName is the name of the node from which this Flow was captured.
     string node_name = 11;
+    // node labels in `foo=bar` format.
+    repeated string node_labels = 37;
 
     reserved 12; // removed, do not use
 
@@ -583,6 +585,9 @@ message FlowFilter {
     // node_name is a list of patterns to filter on the node name, e.g. "k8s*",
     // "test-cluster/*.domain.com", "cluster-name/" etc.
     repeated string node_name = 24;
+    // node_labels filters on a list of node label selectors. Selectors support
+    // the full Kubernetes label selector syntax.
+    repeated string node_labels = 36;
 
     // filter based on IP version (ipv4 or ipv6)
     repeated IPVersion ip_version = 25;
