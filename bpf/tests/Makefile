@@ -78,6 +78,9 @@ endif
 ifdef DUMPCTX
     BPF_TEST_FLAGS += -dump-ctx
 endif
+ifdef BPF_TEST_FILE
+	BPF_TEST_FLAGS += -test $(BPF_TEST_FILE)
+endif
 
 run: $(TEST_OBJECTS)
 	$(QUIET)$(GO) test ./bpftest -bpf-test-path $(ROOT_DIR)/bpf/tests $(BPF_TEST_FLAGS)

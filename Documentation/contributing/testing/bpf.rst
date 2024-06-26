@@ -10,8 +10,8 @@
 BPF Unit and Integration Testing
 ********************************
 
-Our BPF datapath has its own test framework, which allows us to write unit and integration tests that 
-verify that our BPF code works as intended, independently from the other Cilium components. The 
+Our BPF datapath has its own test framework, which allows us to write unit and integration tests that
+verify that our BPF code works as intended, independently from the other Cilium components. The
 framework uses the ``BPF_PROG_RUN`` feature to run eBPF programs in the kernel without attaching
 them to actual hooks.
 
@@ -29,16 +29,20 @@ To run the tests in your local environment, execute the following command from t
 
     $ make run_bpf_tests
 
-.. note:: 
+.. note::
 
     Running BPF tests requires Docker and is only expected to work on Linux.
+
+To run a single test, specify its name without extension. For example:
+
+    $ make run_bpf_tests BPF_TEST_FILE="xdp_nodeport_lb4_nat_lb"
 
 Writing tests
 =============
 
 All BPF tests live in the ``bpf/tests`` directory. All ``.c`` files in this directory are assumed to
-contain BPF test programs which can be independently compiled, loaded, and executed using 
-``BPF_PROG_RUN``. All files in this directory are automatically picked up, so all you have to do is 
+contain BPF test programs which can be independently compiled, loaded, and executed using
+``BPF_PROG_RUN``. All files in this directory are automatically picked up, so all you have to do is
 create a new ``.c`` file and start writing. All other files like ``.h`` files are ignored and can be
 used for sharing code for example.
 
@@ -46,20 +50,20 @@ Each ``.c`` file must at least have one ``CHECK`` program. The ``CHECK`` macro r
 typically used in BPF programs. The ``CHECK`` macro takes two arguments, the first being the program
 type (for example ``xdp`` or ``tc``. See `the list of recognized types in the Go library
 <https://github.com/cilium/ebpf/blob/v0.13.2/elf_sections.go#L9>`__),
-the second being the name of the test which will appear in the output. All macros are defined in 
+the second being the name of the test which will appear in the output. All macros are defined in
 ``bpf/tests/common.h``, so all programs should start by including this file: ``#include "common.h"``.
 
 Each ``CHECK`` program should start with ``test_init()`` and end with ``test_finish()``, ``CHECK`` programs
 will return implicitly with the result of the test, a user doesn't need to add ``return`` statements
-to the code manually. A test will PASS if it reaches ``test_finish()``, unless it is marked as 
+to the code manually. A test will PASS if it reaches ``test_finish()``, unless it is marked as
 failed(``test_fail()``, ``test_fail_now()``, ``test_fatal()``) or skipped(``test_skip()``, ``test_skip_now()``).
 
 The name of the function has no significance for the tests themselves. The function names are still
-used as indicators in the kernel (at least the first 15 chars), used to populate tail call maps, 
+used as indicators in the kernel (at least the first 15 chars), used to populate tail call maps,
 and should be unique for the purposes of compilation.
 
 .. code-block:: c
-    
+
     #include "common.h"
 
     CHECK("xdp", "nodeport-lb4")
@@ -70,7 +74,7 @@ and should be unique for the purposes of compilation.
         /* ensure preconditions are met */
         /* call the functions you would like to test */
         /* check that everything works as expected */
-        
+
         test_finish();
     }
 
@@ -110,15 +114,15 @@ created with the ``TEST`` macro like so:
         test_finish();
     }
 
-Since all sub-tests are part of the same BPF program they are executed consecutively in one 
+Since all sub-tests are part of the same BPF program they are executed consecutively in one
 ``BPF_PROG_RUN`` invocation and can share setup code which can improve run speed and reduce code duplication.
 The name passed to the ``TEST`` macro for each sub-test serves to self-document the steps and makes it easier to spot what part of a test fails.
 
 Integration tests
 -----------------
 
-Writing tests for a single function or small group of functions should be fairly straightforward, 
-only requiring a ``CHECK`` program. Testing functionality across tail calls requires an additional step: 
+Writing tests for a single function or small group of functions should be fairly straightforward,
+only requiring a ``CHECK`` program. Testing functionality across tail calls requires an additional step:
 given that the program does not return to the ``CHECK`` function after making a tail call, we can't check whether it was successful.
 
 The workaround is to use ``PKTGEN`` and ``SETUP`` programs in addition to a ``CHECK`` program.
@@ -134,7 +138,7 @@ packet data passed to ``CHECK``, meaning that the ``CHECK`` program will find th
 This is an abbreviated example showing the key components:
 
 .. code-block:: c
-    
+
     #include "common.h"
 
     #include "bpf/ctx/xdp.h"
@@ -228,12 +232,12 @@ Function reference
 ------------------
 
 * ``test_log(fmt, args...)`` - writes a log message. The conversion specifiers supported by *fmt* are the same as for
-  ``bpf_trace_printk()``. They are **%d**, **%i**, **%u**, **%x**, **%ld**, **%li**, **%lu**, **%lx**, **%lld**, **%lli**, 
+  ``bpf_trace_printk()``. They are **%d**, **%i**, **%u**, **%x**, **%ld**, **%li**, **%lu**, **%lx**, **%lld**, **%lli**,
   **%llu**, **%llx**. No modifier (size of field, padding with zeroes, etc.) is available.
 
 * ``test_fail()`` - marks the current test or sub-test as failed but will continue execution.
 
-* ``test_fail_now()`` - marks the current test or sub-test as failed and will stop execution of the 
+* ``test_fail_now()`` - marks the current test or sub-test as failed and will stop execution of the
   test or sub-test (If called in a sub-test, the other sub-tests will still run).
 
 * ``test_fatal(fmt, args...)`` - writes a log and then calls ``test_fail_now()``
@@ -243,10 +247,10 @@ Function reference
 
 * ``test_skip()`` - marks the current test or sub-test as skipped but will continue execution.
 
-* ``test_skip_now()`` - marks the current test or sub-test as skipped and will stop execution of the 
+* ``test_skip_now()`` - marks the current test or sub-test as skipped and will stop execution of the
   test or sub-test (If called in a sub-test, the other sub-tests will still run).
 
-* ``test_init()`` - initializes the internal state for the test and must be called before any of the 
+* ``test_init()`` - initializes the internal state for the test and must be called before any of the
   functions above can be called.
 
 * ``test_finish()`` - submits the results and returns from the current function.
@@ -254,14 +258,14 @@ Function reference
 .. warning::
     Functions that halt the execution (``test_fail_now()``, ``test_fatal()``, ``test_skip_now()``) can't be
     used within both a sub-test (``TEST``) and ``for``, ``while``, or ``switch/case`` blocks since they use the ``break`` keyword to stop a
-    sub-test. These functions can still be used from within ``for``, ``while`` and ``switch/case`` blocks if no 
+    sub-test. These functions can still be used from within ``for``, ``while`` and ``switch/case`` blocks if no
     sub-tests are used, because in that case the flow interruption happens via ``return``.
 
 Function mocking
 ----------------
 
-Being able to mock out a function is a great tool to have when creating tests for a number of 
-reasons. You might for example want to test what happens if a specific function returns an error 
+Being able to mock out a function is a great tool to have when creating tests for a number of
+reasons. You might for example want to test what happens if a specific function returns an error
 to see if it is handled gracefully. You might want to proxy function calls to record if the function
 under test actually called specific dependencies. Or you might want to test code that uses helpers
 which rely on a state we can't set in BPF, like the routing table.
@@ -308,16 +312,16 @@ For all its benefits there are some limitations to this way of testing:
 * Code must pass the verifier, so our setup and test code has to obey the same rules as other BPF
   programs. A side effect is that it automatically guarantees that all code that passes will also
   load. The biggest concern is the complexity limit on older kernels, this can be somewhat mitigated
-  by separating heavy setup work into its own ``SETUP`` program and optionally tail calling into the 
+  by separating heavy setup work into its own ``SETUP`` program and optionally tail calling into the
   code to be tested, to ensure the testing harness doesn't push us over the complexity limit.
 
-* Test functions like ``test_log()``, ``test_fail()``, ``test_skip()`` can only be executed within the 
-  scope of the main program or a ``TEST``. These functions rely on local variables set by ``test_init()`` 
-  and will produce errors when used in other functions. 
-  
+* Test functions like ``test_log()``, ``test_fail()``, ``test_skip()`` can only be executed within the
+  scope of the main program or a ``TEST``. These functions rely on local variables set by ``test_init()``
+  and will produce errors when used in other functions.
+
 * Functions that halt the execution (``test_fail_now()``, ``test_fatal()``, ``test_skip_now()``) can't be
   used within both a sub-test (``TEST``) and ``for``, ``while``, or ``switch/case`` blocks since they use the ``break`` keyword to stop a
-  sub-test. These functions can still be used from within ``for``, ``while`` and ``switch/case`` blocks if no 
+  sub-test. These functions can still be used from within ``for``, ``while`` and ``switch/case`` blocks if no
   sub-tests are used, because in that case the flow interruption happens via ``return``.
 
 * Sub-test names can't use more than 127 characters.
