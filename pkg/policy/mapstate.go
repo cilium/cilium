@@ -1503,6 +1503,21 @@ func (changes *ChangeState) insertOldIfNotExists(key Key, entry MapStateEntry) b
 	return false
 }
 
+// ForEachKeyWithPortProto calls 'f' for each Key and MapStateEntry, where the Key has the same traffic direction and and L4 fields (protocol, destination port and mask).
+func (msm *mapStateMap) ForEachKeyWithPortProto(key Key, f func(Key, MapStateEntry) bool) {
+	// 'Identity' field in 'key' is ignored on by ExactLookup
+	idSet, ok := msm.trie.ExactLookup(key.PrefixLength(), key)
+	if ok {
+		for id := range idSet.ids {
+			k := key
+			k.Identity = uint32(id)
+			if !msm.forKey(k, f) {
+				return
+			}
+		}
+	}
+}
+
 // addVisibilityKeys adjusts and expands PolicyMapState keys
 // and values to redirect for visibility on the port of the visibility
 // annotation while still denying traffic on this port for identities
@@ -1594,15 +1609,11 @@ func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 	//
 	// Loop through all L3 keys in the traffic direction of the new key
 	//
-	ms.ForEach(func(k Key, v MapStateEntry) bool {
-		if k.TrafficDirection != key.TrafficDirection || k.Identity == 0 {
-			return true
-		}
-		if k.DestPort == key.DestPort && k.Nexthdr == key.Nexthdr {
-			//
-			// Same L4
-			//
-			if !v.IsDeny && v.ProxyPort == 0 {
+
+	// Find entries with the same L4
+	ms.allows.ForEachKeyWithPortProto(key, func(k Key, v MapStateEntry) bool {
+		if k.Identity != 0 {
+			if v.ProxyPort == 0 {
 				// 3. Change all L3/L4 ALLOW keys on matching port that do not
 				//    already redirect to redirect.
 				v.ProxyPort = redirectPort
@@ -1624,13 +1635,16 @@ func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 					Value: v,
 				})
 			}
-		} else if k.DestPort == 0 && k.Nexthdr == 0 {
-			//
-			// Wildcarded L4, i.e., L3-only
-			//
-			k2 := key
-			k2.Identity = k.Identity
-			if !v.IsDeny && !haveL4OnlyKey && !addL4OnlyKey {
+		}
+		return true
+	})
+
+	// Find Wildcarded L4 allows, i.e., L3-only entries
+	if !haveL4OnlyKey && !addL4OnlyKey {
+		ms.allows.ForEachKeyWithPortProto(allKey[key.TrafficDirection], func(k Key, v MapStateEntry) bool {
+			if k.Identity != 0 {
+				k2 := key
+				k2.Identity = k.Identity
 				// 4. For each L3-only ALLOW key add the corresponding L3/L4
 				//    ALLOW redirect if no L3/L4 key already exists and no
 				//    L4-only key already exists and one is not added.
@@ -1650,7 +1664,19 @@ func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 					// Mark the new entry as a dependent of 'v'
 					ms.addDependentOnEntry(k, v, k2, identities, changes)
 				}
-			} else if addL4OnlyKey && v.IsDeny {
+			}
+			return true
+		})
+	}
+
+	// Find Wildcarded L4 denies, i.e., L3-only entries
+	if addL4OnlyKey {
+		ms.denies.ForEachKeyWithPortProto(allKey[key.TrafficDirection], func(k Key, v MapStateEntry) bool {
+			if k.Identity != 0 {
+				k2 := k
+				k2.DestPort = key.DestPort
+				k2.InvertedPortMask = key.InvertedPortMask
+				k2.Nexthdr = key.Nexthdr
 				// 5. If a new L4-only key was added: For each L3-only DENY
 				//    key add the corresponding L3/L4 DENY key if no L3/L4
 				//    key already exists.
@@ -1669,9 +1695,10 @@ func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 					ms.addDependentOnEntry(k, v, k2, identities, changes)
 				}
 			}
-		}
-		return true
-	})
+			return true
+		})
+	}
+
 	for _, update := range updates {
 		ms.addKeyWithChanges(update.Key, update.Value, identities, changes)
 	}
@@ -1764,6 +1791,7 @@ func (ms *mapState) GetDenyIdentities(log *logrus.Logger) (ingIdentities, egIden
 
 // GetIdentities returns the ingress and egress identities stored in the
 // MapState.
+// Used only for API requests.
 func (ms *mapState) getIdentities(log *logrus.Logger, denied bool) (ingIdentities, egIdentities []int64) {
 	ms.ForEach(func(policyMapKey Key, policyMapValue MapStateEntry) bool {
 		if denied != policyMapValue.IsDeny {
