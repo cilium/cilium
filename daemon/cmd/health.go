@@ -112,8 +112,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup) {
 	)
 
 	// Make sure to clean up the endpoint namespace when cilium-agent terminates
-	cleaner.cleanupFuncs.Add(health.KillEndpoint)
-	cleaner.cleanupFuncs.Add(health.CleanupEndpoint)
+	cleaner.cleanupFuncs.Add(d.cleanupHealthEndpoint)
 }
 
 func (d *Daemon) cleanupHealthEndpoint() {
