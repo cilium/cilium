@@ -4,6 +4,7 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -159,6 +160,20 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentFQDNTest", func() {
 		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
 
 		connectivityTest()
+
+		// Collect numeric identity of worldTargetIP
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		cmdTargetIdentity := fmt.Sprintf(`cilium-dbg ip list -o json | jq -r '.[] | select(.cidr == "%s/32") | .identity'`, worldTargetIP)
+		worldTargetIdentityBefore := kubectl.CiliumExecContext(ctx, ciliumPodK8s2, cmdTargetIdentity).OutputPrettyPrint()
+		Expect(worldTargetIdentityBefore).NotTo(BeEmpty())
+		GinkgoPrint(worldTargetIdentityBefore)
+
+		cmdTargetSelector := fmt.Sprintf(`cilium-dbg policy selectors list -o json | jq '.[] | select(.selector | test("%s")) | .identities[] | .'`, worldTarget)
+		worldTargetSelectorBefore := kubectl.CiliumExecContext(ctx, ciliumPodK8s2, cmdTargetSelector).OutputPrettyPrint()
+		Expect(worldTargetSelectorBefore).NotTo(BeEmpty())
+		GinkgoPrint(worldTargetSelectorBefore)
+
 		By("restarting cilium pods")
 
 		// kill pid 1 in each cilium pod
@@ -228,6 +243,16 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentFQDNTest", func() {
 		// reason to have this piece of code here is to reduce a flaky test.
 		err = kubectl.CiliumEndpointWaitReady()
 		Expect(err).To(BeNil(), "Endpoints are not ready after Cilium restarts")
+
+		worldTargetIdentityAfter := kubectl.CiliumExecContext(ctx, ciliumPodK8s2, cmdTargetIdentity).OutputPrettyPrint()
+		Expect(worldTargetIdentityAfter).NotTo(BeEmpty())
+		Expect(worldTargetIdentityAfter).To(Equal(worldTargetIdentityBefore))
+		GinkgoPrint(worldTargetIdentityAfter)
+
+		worldTargetSelectorAfter := kubectl.CiliumExecContext(ctx, ciliumPodK8s2, cmdTargetSelector).OutputPrettyPrint()
+		Expect(worldTargetSelectorAfter).NotTo(BeEmpty())
+		Expect(worldTargetSelectorAfter).To(Equal(worldTargetSelectorBefore))
+		GinkgoPrint(worldTargetSelectorAfter)
 
 		By("Testing connectivity when cilium is *restored* using IPS without DNS")
 		res = kubectl.ExecPodCmd(
