@@ -175,7 +175,7 @@ func TestResolveConfigurations(t *testing.T) {
 		"cnc-key-2":      "cnc-val-2",
 		"cnc-key-v2":     "cnc-val-v2",
 		"cnc-key-2-v2":   "cnc-val-2-v2",
-		"config-sources": "config-map:test-ns/cm,cilium-node-config:test-ns/test-1-v2,cilium-node-config:test-ns/test-1,node:nodename,cilium-node-config:test-ns/specific,cilium-node-config:test-ns/specific-v2",
+		"config-sources": "cilium-node-config:test-ns/specific,cilium-node-config:test-ns/specific-v2,cilium-node-config:test-ns/test-1,cilium-node-config:test-ns/test-1-v2,config-map:test-ns/cm,node:nodename",
 	}))
 }
 
@@ -245,7 +245,7 @@ func TestWithBlockedFields(t *testing.T) {
 	g.Expect(config).To(gomega.Equal(map[string]string{
 		"cm-key":         "cm-val",
 		"allowed-key":    "allowed-val",
-		"config-sources": "config-map:test-ns/cm,cilium-node-config:test-ns/test-1",
+		"config-sources": "cilium-node-config:test-ns/test-1,config-map:test-ns/cm",
 	}))
 
 	// Test that blocked-key is blocked
@@ -256,7 +256,7 @@ func TestWithBlockedFields(t *testing.T) {
 	g.Expect(config).To(gomega.Equal(map[string]string{
 		"cm-key":         "cm-val",
 		"allowed-key":    "allowed-val",
-		"config-sources": "config-map:test-ns/cm,cilium-node-config:test-ns/test-1",
+		"config-sources": "cilium-node-config:test-ns/test-1,config-map:test-ns/cm",
 	}))
 
 }
