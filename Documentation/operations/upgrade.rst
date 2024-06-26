@@ -335,6 +335,7 @@ Added Metrics
 
 Removed Metrics
 ~~~~~~~~~~~~~~~
+* ``cilium_cidrgroup_translation_time_stats_seconds`` has been removed, as the measured code path no longer exists.
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
