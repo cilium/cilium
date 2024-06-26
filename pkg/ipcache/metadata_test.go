@@ -954,21 +954,37 @@ func TestResolveIdentity(t *testing.T) {
 			cidrMatchNode: true,
 		},
 
-		// case 3: reserved identities must never get CIDR labels
+		// case 3: reserved identities must never get CIDR, CIDRGroup, or FQDN labels
 		{
 			prefixes: sm{
+				"10.0.0.0/8":  "cidrgroup:foo;reserved:world-ipv4",
 				"10.0.0.0/24": "cidr:10.0.0.0/24;reserved:world-ipv4",
 				"10.0.0.1/32": "cidr:10.0.0.1/32;reserved:ingress=",
-				"10.0.0.2/32": "cidr:10.0.0.2/32;reserved:health=",
+				"10.0.0.2/32": "cidr:10.0.0.2/32;fqdn:example.com;reserved:health=",
 			},
 			expected: sm{
-				"10.0.0.0/24": "cidr:10.0.0.0/24=;reserved:world-ipv4",
+				"10.0.0.0/24": "cidrgroup:foo;cidr:10.0.0.0/24=;reserved:world-ipv4",
 				"10.0.0.1/32": "reserved:ingress=",
 				"10.0.0.2/32": "reserved:health=",
 			},
 			expectedIDs: map[string]identity.NumericIdentity{
 				"10.0.0.1/32": identity.ReservedIdentityIngress,
 				"10.0.0.2/32": identity.ReservedIdentityHealth,
+			},
+		},
+
+		// case 4: CIDR groups
+		{
+			prefixes: sm{
+				"10.0.0.0/8":  "cidrgroup:foo;reserved:world-ipv4",
+				"10.0.0.0/24": "cidrgroup:bar;reserved:world-ipv4",
+				"10.0.0.1/32": "fqdn:example.com=",
+				"10.0.1.1/32": "fqdn:example.com=",
+			},
+			expected: sm{
+				"10.0.0.0/24": "cidrgroup:bar;cidrgroup:foo;reserved:world-ipv4",
+				"10.0.0.1/32": "cidrgroup:bar;cidrgroup:foo;fqdn:example.com;reserved:world-ipv4",
+				"10.0.1.1/32": "cidrgroup:foo;fqdn:example.com;reserved:world-ipv4",
 			},
 		},
 	} {
@@ -1008,6 +1024,57 @@ func TestResolveIdentity(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestUpsertMetadataCIDRGroup tests that cidr group labels
+// propagate down to all CIDRs
+func TestUpsertMetadataCIDRGroup(t *testing.T) {
+	p1 := netip.MustParsePrefix("10.0.0.0/8")
+	p2 := netip.MustParsePrefix("10.0.0.0/16")
+	p3 := netip.MustParsePrefix("10.0.0.0/24")
+	p4 := netip.MustParsePrefix("10.0.0.0/25")
+	p5 := netip.MustParsePrefix("10.0.0.0/26")
+	p6 := netip.MustParsePrefix("10.0.0.0/27")
+
+	cancel := setupTest(t)
+	defer cancel()
+
+	ctx := context.Background()
+
+	IPIdentityCache.metadata.upsertLocked(p1, source.Generated, "r1", labels.NewLabelsFromSortedList("cidrgroup:a="))
+	IPIdentityCache.metadata.upsertLocked(p2, source.Generated, "r1", labels.NewLabelsFromSortedList("cidrgroup:b="))
+	IPIdentityCache.metadata.upsertLocked(p3, source.Generated, "r1", labels.NewLabelsFromSortedList("cidrgroup:c="))
+
+	_, err := IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{p1, p2, p3})
+	require.Nil(t, err)
+
+	hasLabels := func(prefix netip.Prefix, wantl string) {
+		t.Helper()
+		nid, ok := IPIdentityCache.LookupByPrefixRLocked(prefix.String())
+		require.True(t, ok)
+		id := IPIdentityCache.LookupIdentityByID(ctx, nid.ID)
+		require.NotNil(t, id)
+
+		wantlbls := labels.NewLabelsFromSortedList(wantl)
+		require.Equal(t, wantlbls, id.Labels)
+	}
+
+	hasLabels(p1, "cidrgroup:a=;reserved:world-ipv4=")
+	hasLabels(p2, "cidrgroup:a=;cidrgroup:b=;reserved:world-ipv4=")
+	hasLabels(p3, "cidrgroup:a=;cidrgroup:b=;cidrgroup:c=;reserved:world-ipv4=")
+
+	// Now, test overlapping CIDR, CIDRGroup, and FQDN labels
+	IPIdentityCache.metadata.upsertLocked(p4, source.Generated, "r1", labels.GetCIDRLabels(p4))
+	IPIdentityCache.metadata.upsertLocked(p5, source.Generated, "r1", labels.GetCIDRLabels(p5))
+	IPIdentityCache.metadata.upsertLocked(p6, source.Generated, "r1", labels.NewLabelsFromSortedList("fqdn:*.cilium.io="))
+
+	_, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{p4, p5, p6})
+	require.Nil(t, err)
+
+	hasLabels(p4, "cidr:10.0.0.0/25=;cidrgroup:a=;cidrgroup:b=;cidrgroup:c=;reserved:world-ipv4=")
+	hasLabels(p5, "cidr:10.0.0.0/26=;cidrgroup:a=;cidrgroup:b=;cidrgroup:c=;reserved:world-ipv4=")
+	hasLabels(p6, "cidr:10.0.0.0/26=;cidrgroup:a=;cidrgroup:b=;cidrgroup:c=;reserved:world-ipv4=;fqdn:*.cilium.io=")
+
 }
 
 func setupTest(t *testing.T) (cleanup func()) {

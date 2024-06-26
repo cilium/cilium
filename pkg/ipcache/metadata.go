@@ -721,6 +721,7 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 // CIDR and CIDR-equivalent labels are labels with source:
 // - cidr:
 // - fqdn:
+// - cidrgroup:
 //
 // A prefix with any of these labels is considered "in-cluster"
 // - reserved:host
@@ -751,6 +752,7 @@ func resolveLabels(prefix netip.Prefix, lbls labels.Labels) labels.Labels {
 	if isInCluster && !(isNode && option.Config.PolicyCIDRMatchesNodes()) {
 		out = out.RemoveFromSource(labels.LabelSourceCIDR)
 		out = out.RemoveFromSource(labels.LabelSourceFQDN)
+		out = out.RemoveFromSource(labels.LabelSourceCIDRGroup)
 	}
 
 	// Remove all labels with source `node:`, unless this is a node *and* node labels are enabled.
