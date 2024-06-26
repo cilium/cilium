@@ -1368,10 +1368,11 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, iden
 					// this case AuthType of the new L4-only entry was
 					// overridden by a more generic entry and 'max_specificity >
 					// 0' after the loop.
-					if k.Identity != 0 && k.Nexthdr == 0 && newKey.Identity == 0 && newKey.Nexthdr != 0 {
+					if newKey.Identity == 0 && newKey.Nexthdr != 0 && newKey.DestPort != 0 &&
+						k.Identity != 0 && (k.Nexthdr == 0 || k.Nexthdr == newKey.Nexthdr && k.DestPort == 0) {
 						newKeyCpy := newKey
 						newKeyCpy.Identity = k.Identity
-						l3l4AuthEntry := NewMapStateEntry(k, v.DerivedFromRules, 0, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType)
+						l3l4AuthEntry := NewMapStateEntry(k, v.DerivedFromRules, newEntry.ProxyPort, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType)
 						l3l4AuthEntry.DerivedFromRules.MergeSorted(newEntry.DerivedFromRules)
 						l3l4State.upsert(newKeyCpy, l3l4AuthEntry, identities)
 					}
@@ -1420,10 +1421,11 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, iden
 					// having an explicit AuthType. In this case AuthType should
 					// only override the AuthType for the L3 & L4 combination,
 					// not L4 in general.
-					if newKey.Identity != 0 && newKey.Nexthdr == 0 && k.Identity == 0 && k.Nexthdr != 0 {
+					if newKey.Identity != 0 && (newKey.Nexthdr == 0 || newKey.Nexthdr == k.Nexthdr && newKey.DestPort == 0) &&
+						k.Identity == 0 && k.Nexthdr != 0 && k.DestPort != 0 {
 						newKeyCpy := k
 						newKeyCpy.Identity = newKey.Identity
-						l3l4AuthEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, v.Listener, v.priority, false, DefaultAuthType, newEntry.AuthType)
+						l3l4AuthEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, v.ProxyPort, v.Listener, v.priority, false, DefaultAuthType, newEntry.AuthType)
 						l3l4AuthEntry.DerivedFromRules.MergeSorted(v.DerivedFromRules)
 						ms.addKeyWithChanges(newKeyCpy, l3l4AuthEntry, identities, changes)
 						// L3-only entries can be deleted incrementally so we need to track their
