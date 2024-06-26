@@ -139,11 +139,11 @@ func (r *ingressReconciler) createOrUpdateDedicatedResources(ctx context.Context
 		return fmt.Errorf("failed to build dedicated resources: %w", err)
 	}
 
-	if err := r.createOrUpdateCiliumEnvoyConfig(ctx, desiredCiliumEnvoyConfig); err != nil {
+	if err := r.createOrUpdateService(ctx, desiredService); err != nil {
 		return err
 	}
 
-	if err := r.createOrUpdateService(ctx, desiredService); err != nil {
+	if err := r.createOrUpdateCiliumEnvoyConfig(ctx, desiredCiliumEnvoyConfig); err != nil {
 		return err
 	}
 
