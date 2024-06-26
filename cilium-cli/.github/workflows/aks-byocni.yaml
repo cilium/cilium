@@ -149,7 +149,7 @@ jobs:
           cilium status --wait
 
           # Run connectivity test
-          cilium connectivity test --collect-sysdump-on-failure --external-target bing.com.
+          cilium connectivity test --test-concurrency=5 --collect-sysdump-on-failure --external-target bing.com.
 
           # Run performance test
           cilium connectivity perf --duration 1s

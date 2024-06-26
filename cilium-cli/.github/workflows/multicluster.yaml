@@ -251,7 +251,7 @@ jobs:
           [[ $(pgrep -f "kubectl.*port-forward.*hubble-relay" | wc -l) == 1 ]]
 
           # Run connectivity test
-          cilium --context "${{ steps.contexts.outputs.cluster1 }}" connectivity test \
+          cilium --context "${{ steps.contexts.outputs.cluster1 }}" connectivity test --test-concurrency=5 \
             --multi-cluster "${{ steps.contexts.outputs.cluster2 }}" --test '!/*-deny,!/pod-to-.*-nodeport' \
             --all-flows --collect-sysdump-on-failure --external-target google.com.
 
