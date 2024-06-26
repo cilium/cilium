@@ -45,6 +45,7 @@ var (
 	noTestCoverage         = flag.String("no-test-coverage", "", "Don't collect coverages for the file matches to the given regex")
 	testInstrumentationLog = flag.String("instrumentation-log", "", "Path to a log file containing details about"+
 		" code coverage instrumentation, needed if code coverage breaks the verifier")
+	testFilePrefix = flag.String("test", "", "Single test file to run (without file extension)")
 
 	dumpCtx = flag.Bool("dump-ctx", false, "If set, the program context will be dumped after a CHECK and SETUP run.")
 )
@@ -84,6 +85,10 @@ func TestBPF(t *testing.T) {
 		}
 
 		if !strings.HasSuffix(entry.Name(), ".o") {
+			continue
+		}
+
+		if *testFilePrefix != "" && !strings.HasPrefix(entry.Name(), *testFilePrefix) {
 			continue
 		}
 
