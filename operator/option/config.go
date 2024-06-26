@@ -132,12 +132,9 @@ const (
 	// Defaults to 180 secs
 	ExcessIPReleaseDelay = "excess-ip-release-delay"
 
-	// AWSEnablePrefixDelegation allows operator to allocate IPv4 prefixes to ENIs on nitro instances instead of individual
+	// AWSEnablePrefixDelegation allows operator to allocate prefixes to ENIs on nitro instances instead of individual
 	// IP addresses. Allows for increased pod density on nodes.
 	AWSEnablePrefixDelegation = "aws-enable-prefix-delegation"
-
-	// AWSEnableIPv6PrefixDelegation allows operator to allocate IPv6 prefixes to ENIs on nitro instances.
-	AWSEnableIPv6PrefixDelegation = "aws-enable-ipv6-prefix-delegation"
 
 	// ENITags are the tags that will be added to every ENI created by the
 	// AWS ENI IPAM.
@@ -347,12 +344,9 @@ type OperatorConfig struct {
 	// the number of API calls to AWS EC2 service.
 	AWSReleaseExcessIPs bool
 
-	// AWSEnablePrefixDelegation allows operator to allocate IPv4 prefixes to ENIs on nitro instances instead of individual
+	// AWSEnablePrefixDelegation allows operator to allocate prefixes to ENIs on nitro instances instead of individual
 	// IP addresses. Allows for increased pod density on nodes.
 	AWSEnablePrefixDelegation bool
-
-	// AWSEnablePrefixDelegation allows operator to allocate IPv6 prefixes to ENIs on nitro instances.
-	AWSEnableIPv6PrefixDelegation bool
 
 	// AWSUsePrimaryAddress specifies whether an interface's primary address should be available for allocations on
 	// node
@@ -483,7 +477,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 
 	c.AWSReleaseExcessIPs = vp.GetBool(AWSReleaseExcessIPs)
 	c.AWSEnablePrefixDelegation = vp.GetBool(AWSEnablePrefixDelegation)
-	c.AWSEnableIPv6PrefixDelegation = vp.GetBool(AWSEnableIPv6PrefixDelegation)
 	c.AWSUsePrimaryAddress = vp.GetBool(AWSUsePrimaryAddress)
 	c.UpdateEC2AdapterLimitViaAPI = vp.GetBool(UpdateEC2AdapterLimitViaAPI)
 	c.EC2APIEndpoint = vp.GetString(EC2APIEndpoint)

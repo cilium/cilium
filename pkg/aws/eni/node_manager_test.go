@@ -67,7 +67,7 @@ func TestGetNodeNames(t *testing.T) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -96,7 +96,7 @@ func TestNodeManagerGet(t *testing.T) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(t, instances)
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -131,7 +131,7 @@ func TestNodeManagerDefaultAllocation(t *testing.T) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	require.NoError(t, err)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -176,7 +176,7 @@ func TestNodeManagerPrefixDelegation(t *testing.T) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	require.NoError(t, err)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, true, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, true)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -245,7 +245,7 @@ func TestNodeManagerENIWithSGTags(t *testing.T) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	require.NoError(t, err)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -305,7 +305,7 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	require.NoError(t, err)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -361,7 +361,7 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	require.NoError(t, err)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -426,7 +426,7 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	require.NoError(t, err)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, true, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, true, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -533,7 +533,7 @@ func TestNodeManagerENIExcludeInterfaceTags(t *testing.T) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	require.NoError(t, err)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -596,7 +596,7 @@ func TestNodeManagerExceedENICapacity(t *testing.T) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	require.NoError(t, err)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -654,7 +654,7 @@ func TestInterfaceCreatedInInitialSubnet(t *testing.T) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	require.NoError(t, err)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -712,7 +712,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 
 	ec2api := ec2mock.NewAPI(subnets, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instancesManager := NewInstancesManager(ec2api)
-	mngr, err := ipam.NewNodeManager(instancesManager, k8sapi, metricsapi, 10, false, false, false)
+	mngr, err := ipam.NewNodeManager(instancesManager, k8sapi, metricsapi, 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -787,7 +787,7 @@ func TestNodeManagerInstanceNotRunning(t *testing.T) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	require.NoError(t, err)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	ec2api.SetMockError(ec2mock.AttachNetworkInterface, errors.New("foo is not 'running' foo"))
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
@@ -836,7 +836,7 @@ func TestInstanceBeenDeleted(t *testing.T) {
 	_, err = ec2api.AttachNetworkInterface(context.TODO(), 1, instanceID, eniID2)
 	require.NoError(t, err)
 	instances.Resync(context.TODO())
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -881,7 +881,7 @@ func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rate
 	ec2api.SetLimiter(rateLimit, burst)
 	instances := NewInstancesManager(ec2api)
 	require.NotNil(b, instances)
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false, false)
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	require.NoError(b, err)
 	require.NotNil(b, mngr)
 
