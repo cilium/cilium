@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"slices"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -253,6 +254,14 @@ type keyRange struct {
 	end   string
 }
 
+// krOpt represents a keyRange option.
+type krOpt int
+
+const (
+	// withoutTrailingSlash disables adding a trailing slash to a prefix.
+	withoutTrailingSlash krOpt = iota
+)
+
 // rangeForKey generates a keyRange for a single key.
 func rangeForKey(key string) keyRange {
 	return keyRange{key, ""}
@@ -260,11 +269,11 @@ func rangeForKey(key string) keyRange {
 
 // rangeForPrefix generates a keyRange for a given prefix. This is a wrapper around the client's GetPrefixRangeEnd
 // function.
-func rangeForPrefix(prefix string) keyRange {
+func rangeForPrefix(prefix string, opts ...krOpt) keyRange {
 	// For a **prefix** range, we need a trailing slash. Without it, the behaviour of clientv3.GetPrefixRangeEnd is
 	// slightly different. For example on `cilium/.initlock` the given range end is `cilium/.initlocl`, while on
 	// `cilium/.initlock/` it's `cilium/.initlock0`.
-	if !strings.HasSuffix(prefix, "/") {
+	if !strings.HasSuffix(prefix, "/") && !slices.Contains(opts, withoutTrailingSlash) {
 		prefix += "/"
 	}
 	return keyRange{prefix, clientv3.GetPrefixRangeEnd(prefix)}
@@ -317,7 +326,7 @@ func (ic initClient) enableAuth(ctx context.Context) error {
 // rangesForLocalRole returns the set of etcd key ranges allowed to be accessed by the local user.
 func rangesForLocalRole() []keyRange {
 	return []keyRange{
-		rangeForKey(kvstore.HeartbeatPath),
+		rangeForPrefix(kvstore.HeartbeatPath, withoutTrailingSlash),
 		rangeForKey(kvstore.HasClusterConfigPath),
 		rangeForPrefix(kvstore.CachePrefix),
 		rangeForPrefix(kvstore.ClusterConfigPrefix),
@@ -328,7 +337,7 @@ func rangesForLocalRole() []keyRange {
 // rangesForLocalUser returns the set of etcd key ranges allowed to be accessed by the remote user.
 func rangesForRemoteRole(clusterName string) []keyRange {
 	return []keyRange{
-		rangeForKey(kvstore.HeartbeatPath),
+		rangeForPrefix(kvstore.HeartbeatPath, withoutTrailingSlash),
 		rangeForKey(kvstore.HasClusterConfigPath),
 		rangeForPrefix(kvstore.StatePrefix),
 		rangeForKey(path.Join(kvstore.ClusterConfigPrefix, clusterName)),
