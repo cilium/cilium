@@ -4,7 +4,7 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 dst_file="${PWD}/$(basename ${dir})/network/kubernetes/compatibility-table.rst"
 
 . "${dir}/../contrib/backporting/common.sh"
-remote="$(get_remote)"
+remote="$(get_remote "${ORG:-}" "${REPO:-}")"
 
 set -e
 set -o nounset
