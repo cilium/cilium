@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
@@ -219,6 +220,9 @@ func (m *mockMetrics) DeleteNode(n string) {
 	delete(m.nodeIPAvailable, n)
 	delete(m.nodeIPUsed, n)
 	delete(m.nodeIPNeeded, n)
+}
+
+func (m *mockMetrics) ObserveBackgroundSync(status string, duration time.Duration) {
 }
 
 func (m *mockMetrics) PoolMaintainerTrigger() trigger.MetricsObserver {
