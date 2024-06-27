@@ -225,10 +225,10 @@ func (k *K8sServiceWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service) 
 	frontends := []*loadbalancer.L3n4Addr{}
 
 	for portName, svcPort := range svcInfo.Ports {
-		if !repPorts[svcPort.Port] {
+		if !repPorts[svcPort.String()] {
 			continue
 		}
-		repPorts[svcPort.Port] = false
+		repPorts[svcPort.String()] = false
 
 		for _, feIP := range svcInfo.FrontendIPs {
 			fe := loadbalancer.NewL3n4Addr(svcPort.Protocol, cmtypes.MustAddrClusterFromIP(feIP), svcPort.Port, loadbalancer.ScopeExternal)
@@ -368,10 +368,10 @@ func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoi
 
 	clusterIPPorts := map[loadbalancer.FEPortName]*loadbalancer.L4Addr{}
 	for fePortName, fePort := range svc.Ports {
-		if !uniqPorts[fePort.Port] {
+		if !uniqPorts[fePort.String()] {
 			continue
 		}
-		uniqPorts[fePort.Port] = false
+		uniqPorts[fePort.String()] = false
 		clusterIPPorts[fePortName] = fePort
 	}
 

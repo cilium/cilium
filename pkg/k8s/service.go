@@ -542,13 +542,10 @@ func NewService(ips []net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRa
 }
 
 // UniquePorts returns a map of all unique ports configured in the service
-func (s *Service) UniquePorts() map[uint16]bool {
-	// We are not discriminating the different L4 protocols on the same L4
-	// port so we create the number of unique sets of service IP + service
-	// port.
-	uniqPorts := map[uint16]bool{}
+func (s *Service) UniquePorts() map[string]bool {
+	uniqPorts := map[string]bool{}
 	for _, p := range s.Ports {
-		uniqPorts[p.Port] = true
+		uniqPorts[p.String()] = true
 	}
 	return uniqPorts
 }
