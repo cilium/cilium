@@ -1579,7 +1579,9 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	int ret;
 
 	ret = nodeport_rev_dnat_fwd_ipv6(ctx, &snat_done, trace, ext_err);
+#if !defined(IS_BPF_WIREGUARD)
 	if (ret != CTX_ACT_OK)
+#endif /* !IS_BPF_WIREGUARD */
 		return ret;
 
 #if !defined(ENABLE_DSR) ||						\
@@ -3196,7 +3198,9 @@ __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
 	int ret;
 
 	ret = nodeport_rev_dnat_fwd_ipv4(ctx, &snat_done, trace, ext_err);
+#if !defined(IS_BPF_WIREGUARD)
 	if (ret != CTX_ACT_OK)
+#endif /* !IS_BPF_WIREGUARD */
 		return ret;
 
 #if !defined(ENABLE_DSR) ||						\
