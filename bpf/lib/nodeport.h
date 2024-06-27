@@ -1580,7 +1580,7 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-#if !defined(ENABLE_DSR) ||						\
+#if !defined(IS_BPF_WIREGUARD) && !defined(ENABLE_DSR) ||						\
     (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||		\
      defined(ENABLE_MASQUERADE_IPV6)
 	if (!snat_done)
@@ -3087,7 +3087,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
 	if (!nat_info)
 		return CTX_ACT_OK;
 
-#if defined(IS_BPF_HOST) && !defined(ENABLE_SKIP_FIB)
+#if defined(IS_BPF_HOST) && !defined(ENABLE_SKIP_FIB) && !defined(IS_BPF_WIREGUARD)
 	/* Perform FIB lookup with post-RevDNAT src IP, and redirect
 	 * packet to the correct egress interface:
 	 */
@@ -3194,7 +3194,7 @@ __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-#if !defined(ENABLE_DSR) ||						\
+#if !defined(IS_BPF_WIREGUARD) && !defined(ENABLE_DSR) ||						\
     (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||		\
      defined(ENABLE_MASQUERADE_IPV4) ||					\
     (defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT))
