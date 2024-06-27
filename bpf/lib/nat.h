@@ -40,12 +40,26 @@ struct nat_entry {
 
 #define snat_v4_needs_masquerade_hook(ctx, target) 0
 
+/* Clamp a port to the range [start, end].
+ *
+ * Introduces a slight bias.
+ *
+ * Adapted from "Integer Multiplication (Biased)" in https://www.pcg-random.org/posts/bounded-rands.html
+ */
 static __always_inline __u16 __snat_clamp_port_range(__u16 start, __u16 end,
 						     __u16 val)
 {
-	return (val % (__u16)(end - start)) + start;
+	/* Account for closed interval. */
+	__u32 n = (__u32)(end - start) + 1;
+	__u32 m = (__u32)(val) * n;
+
+	return start + (m >> 16);
 }
 
+/* Retain a port if it is in range [start, end], otherwise generate a random one.
+ *
+ * The randomly generated port will have a slight bias.
+ */
 static __always_inline __maybe_unused __u16
 __snat_try_keep_port(__u16 start, __u16 end, __u16 val)
 {
