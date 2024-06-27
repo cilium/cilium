@@ -261,9 +261,7 @@ sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
  * backend Pod. When traffic destined to the frontend originates from the kiam
  * Pod in namespace ns1 (host ns when the kiam proxy Pod is deployed in
  * hostNetwork mode or regular Pod ns) and the Pod is selected as a backend, the
- * traffic would get looped back to the proxy Pod. Identify such cases by doing
- * a socket lookup for the backend <ip, port> in its namespace, ns1, and skip
- * service translation.
+ * traffic would get looped back to the proxy Pod.
  */
 static __always_inline bool
 sock4_skip_xlate_from_ctx_to_svc(struct bpf_sock_addr *ctx __maybe_unused,
