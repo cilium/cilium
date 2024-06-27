@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // ErrLocalRedirectServiceExists represents an error when a Local redirect
@@ -1055,6 +1056,7 @@ func (s *Service) UpdateBackendsStateMultiple(svcMapping map[lb.ID]*svcInfo, bac
 		be.State = updatedB.State
 		be.Preferred = updatedB.Preferred
 
+	nextService:
 		for id, info := range svcMapping {
 			var p *datapathTypes.UpsertServiceParams
 			for i, b := range info.backends {
@@ -1069,10 +1071,17 @@ func (s *Service) UpdateBackendsStateMultiple(svcMapping map[lb.ID]*svcInfo, bac
 				found := false
 
 				if p, found = updateSvcs[id]; !found {
+					proto, err := u8proto.ParseProtocol(info.frontend.L4Addr.Protocol)
+					if err != nil {
+						errs = errors.Join(errs, fmt.Errorf("failed to parse service protocol for frontend %+v: %w", info.frontend, err))
+						continue nextService
+					}
+
 					p = &datapathTypes.UpsertServiceParams{
 						ID:                        uint16(id),
 						IP:                        info.frontend.L3n4Addr.AddrCluster.AsNetIP(),
 						Port:                      info.frontend.L3n4Addr.L4Addr.Port,
+						Protocol:                  byte(proto),
 						PrevBackendsCount:         len(info.backends),
 						IPv6:                      info.frontend.IsIPv6(),
 						Type:                      info.svcType,
@@ -1619,11 +1628,16 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 		}
 	}
 	svc.svcNatPolicy = natPolicy
+	protocol, err := u8proto.ParseProtocol(svc.frontend.L3n4Addr.L4Addr.Protocol)
+	if err != nil {
+		return err
+	}
 
 	p := &datapathTypes.UpsertServiceParams{
 		ID:                        uint16(svc.frontend.ID),
 		IP:                        svc.frontend.L3n4Addr.AddrCluster.AsNetIP(),
 		Port:                      svc.frontend.L3n4Addr.L4Addr.Port,
+		Protocol:                  uint8(protocol),
 		PreferredBackends:         preferredBackends,
 		ActiveBackends:            activeBackends,
 		NonActiveBackends:         nonActiveBackends,

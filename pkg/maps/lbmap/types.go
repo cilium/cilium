@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
-// ServiceKey is the interface describing protocol independent key for services map v2.
+// ServiceKey is the interface describing key for services map v2.
 type ServiceKey interface {
 	bpf.MapKey
 
@@ -41,6 +41,9 @@ type ServiceKey interface {
 
 	// Get frontend port
 	GetPort() uint16
+
+	// Get protocol
+	GetProtocol() uint8
 
 	// Returns a RevNatValue matching a ServiceKey
 	RevNatValue() RevNatValue
@@ -119,7 +122,7 @@ type BackendKey interface {
 	GetID() loadbalancer.BackendID
 }
 
-// BackendValue is the interface describing protocol independent backend value.
+// BackendValue is the interface describing backend value.
 type BackendValue interface {
 	bpf.MapValue
 
@@ -131,6 +134,9 @@ type BackendValue interface {
 
 	// Get backend port
 	GetPort() uint16
+
+	// Get backend protocol
+	GetProtocol() uint8
 
 	// Get backend flags
 	GetFlags() uint8
@@ -186,7 +192,8 @@ type RevNatValue interface {
 func svcFrontend(svcKey ServiceKey, svcValue ServiceValue) *loadbalancer.L3n4AddrID {
 	feIP := svcKey.GetAddress()
 	feAddrCluster := cmtypes.MustAddrClusterFromIP(feIP)
-	feL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.NONE, feAddrCluster, svcKey.GetPort(), svcKey.GetScope())
+	p := loadbalancer.NewL4TypeFromNumber(svcKey.GetProtocol())
+	feL3n4Addr := loadbalancer.NewL3n4Addr(p, feAddrCluster, svcKey.GetPort(), svcKey.GetScope())
 	feL3n4AddrID := &loadbalancer.L3n4AddrID{
 		L3n4Addr: *feL3n4Addr,
 		ID:       loadbalancer.ID(svcValue.GetRevNat()),
@@ -198,7 +205,7 @@ func svcBackend(backendID loadbalancer.BackendID, backend BackendValue, backendF
 	beIP := backend.GetAddress()
 	beAddrCluster := cmtypes.MustAddrClusterFromIP(beIP)
 	bePort := backend.GetPort()
-	beProto := loadbalancer.NONE
+	beProto := loadbalancer.NewL4TypeFromNumber(backend.GetProtocol())
 	beState := loadbalancer.GetBackendStateFromFlags(backend.GetFlags())
 	beZone := backend.GetZone()
 	if beState == loadbalancer.BackendStateActive && backendFlags.SVCSlotQuarantined() {
