@@ -1456,6 +1456,10 @@
      - Control how traffic from external sources is routed to the LoadBalancer Kubernetes Service for all Cilium GatewayAPI Gateway instances. Valid values are "Cluster" and "Local". Note that this value will be ignored when ``hostNetwork.enabled == true``. ref: https://kubernetes.io/docs/reference/networking/virtual-ips/#external-traffic-policy
      - string
      - ``"Cluster"``
+   * - :spelling:ignore:`gatewayAPI.gatewayClass.create`
+     - Enable creation of GatewayClass resource The default value is 'auto' which decides according to presence of gateway.networking.k8s.io/v1/GatewayClass in the cluster. Other possible values are 'true' and 'false', which will either always or never create the GatewayClass, respectively.
+     - string
+     - ``"auto"``
    * - :spelling:ignore:`gatewayAPI.hostNetwork.enabled`
      - Configure whether the Envoy listeners should be exposed on the host network.
      - bool
