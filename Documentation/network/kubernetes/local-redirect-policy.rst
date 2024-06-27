@@ -160,9 +160,9 @@ in Cilium pod running on the same node as ``lrp-pod``.
 .. code-block:: shell-session
 
     $ kubectl exec -it -n kube-system cilium-5ngzd -- cilium-dbg service list
-    ID   Frontend               Service Type   Backend
+    ID   Frontend               Service Type       Backend
     [...]
-    4    172.20.0.51:80         ClusterIP      1 => 10.16.70.187:80
+    4    172.20.0.51:80         LocalRedirect      1 => 10.16.70.187:80
 
 Invoke a curl command from the client pod to the IP address and port
 configuration specified in the ``lrp-addr`` custom resource above.
