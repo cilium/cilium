@@ -42,6 +42,19 @@ const (
 	echoServerService = "GrpcEcho"
 )
 
+// Client is an interface used to make requests within conformance tests for grpc scenarios.
+// This can be overridden with custom implementations whenever necessary.
+type Client interface {
+	SendRPC(t *testing.T, address string, expected ExpectedResponse, timeout time.Duration) (*Response, error)
+	Close()
+}
+
+// DefaultClient is the default implementation of Client. It will
+// be used if a custom implementation is not specified.
+type DefaultClient struct {
+	Conn *grpc.ClientConn
+}
+
 type Response struct {
 	Code     codes.Code
 	Headers  *metadata.MD
@@ -136,19 +149,14 @@ func (er *ExpectedResponse) GetTestCaseName(i int) string {
 	return fmt.Sprintf("%s should receive a %s (%d)", reqStr, er.Response.Code.String(), er.Response.Code)
 }
 
-type client struct {
-	Conn            *grpc.ClientConn
-	RequestMetadata *RequestMetadata
-}
-
-func (c *client) ensureConnection(address string) error {
+func (c *DefaultClient) ensureConnection(address string, req *RequestMetadata) error {
 	if c.Conn != nil {
 		return nil
 	}
 	var err error
 	dialOpts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-	if c.RequestMetadata != nil && c.RequestMetadata.Authority != "" {
-		dialOpts = append(dialOpts, grpc.WithAuthority(c.RequestMetadata.Authority))
+	if req != nil && req.Authority != "" {
+		dialOpts = append(dialOpts, grpc.WithAuthority(req.Authority))
 	}
 
 	c.Conn, err = grpc.Dial(address, dialOpts...)
@@ -159,7 +167,7 @@ func (c *client) ensureConnection(address string) error {
 	return nil
 }
 
-func (c *client) resetConnection() {
+func (c *DefaultClient) resetConnection() {
 	if c.Conn == nil {
 		return
 	}
@@ -167,9 +175,12 @@ func (c *client) resetConnection() {
 	c.Conn = nil
 }
 
-func (c *client) SendRPC(t *testing.T, address string, expected ExpectedResponse, timeout time.Duration) (*Response, error) {
+// SendRPC sends a gRPC request to the given address with the expected response.
+// An error will be returned if there is an error running the function but not if an HTTP error status code
+// is received.
+func (c *DefaultClient) SendRPC(t *testing.T, address string, expected ExpectedResponse, timeout time.Duration) (*Response, error) {
 	t.Helper()
-	if err := c.ensureConnection(address); err != nil {
+	if err := c.ensureConnection(address, expected.RequestMetadata); err != nil {
 		return &Response{}, err
 	}
 
@@ -179,8 +190,8 @@ func (c *client) SendRPC(t *testing.T, address string, expected ExpectedResponse
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
-	if c.RequestMetadata != nil && len(c.RequestMetadata.Metadata) > 0 {
-		ctx = metadata.NewOutgoingContext(ctx, metadata.New(c.RequestMetadata.Metadata))
+	if expected.RequestMetadata != nil && len(expected.RequestMetadata.Metadata) > 0 {
+		ctx = metadata.NewOutgoingContext(ctx, metadata.New(expected.RequestMetadata.Metadata))
 	}
 
 	defer cancel()
@@ -215,7 +226,7 @@ func (c *client) SendRPC(t *testing.T, address string, expected ExpectedResponse
 	return resp, nil
 }
 
-func (c *client) Close() {
+func (c *DefaultClient) Close() {
 	if c.Conn != nil {
 		c.Conn.Close()
 	}
@@ -256,12 +267,11 @@ func validateExpectedResponse(t *testing.T, expected ExpectedResponse) {
 	require.Equal(t, 1, requestTypeCount, "expected only one request type to be set, but found %d: %v", requestTypeCount, expected)
 }
 
-func MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T, timeoutConfig config.TimeoutConfig, gwAddr string, expected ExpectedResponse) {
+func MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T, c Client, timeoutConfig config.TimeoutConfig, gwAddr string, expected ExpectedResponse) {
 	t.Helper()
 	validateExpectedResponse(t, expected)
-	c := &client{
-		Conn:            nil,
-		RequestMetadata: expected.RequestMetadata,
+	if c == nil {
+		c = &DefaultClient{Conn: nil}
 	}
 	defer c.Close()
 	sendRPC := func(elapsed time.Duration) bool {
