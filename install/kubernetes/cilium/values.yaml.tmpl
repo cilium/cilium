@@ -854,6 +854,13 @@ gatewayAPI:
   # Note that this value will be ignored when `hostNetwork.enabled == true`.
   # ref: https://kubernetes.io/docs/reference/networking/virtual-ips/#external-traffic-policy
   externalTrafficPolicy: Cluster
+
+  gatewayClass:
+    # -- Enable creation of GatewayClass resource
+    # default value is 'auto' which decides according to presence of gateway.networking.k8s.io/v1/GatewayClass in the cluster
+    # other possible values are 'true' and 'false'
+    create: auto
+
   # -- SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
   secretsNamespace:
     # -- Create secrets namespace for Gateway API.
