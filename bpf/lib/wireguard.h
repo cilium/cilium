@@ -153,6 +153,8 @@ maybe_encrypt: __maybe_unused
 	 */
 	if (dst && dst->key) {
 encrypt: __maybe_unused
+		if (src)
+			set_identity_mark(ctx, src->sec_identity, MARK_MAGIC_IDENTITY);
 		return ctx_redirect(ctx, WG_IFINDEX, 0);
 	}
 

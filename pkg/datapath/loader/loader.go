@@ -51,6 +51,8 @@ const (
 	symbolFromHostEp       = "cil_from_host"
 	symbolToHostEp         = "cil_to_host"
 
+	symbolToWireguard = "cil_to_wireguard"
+
 	symbolFromHostNetdevXDP = "cil_xdp_entry"
 
 	symbolFromOverlay = "cil_from_overlay"
@@ -400,16 +402,16 @@ func (l *loader) reloadHostDatapath(ep datapath.Endpoint, spec *ebpf.CollectionS
 			return fmt.Errorf("interface %s ingress: %w", device, err)
 		}
 
-		if option.Config.AreDevicesRequired() &&
+		if option.Config.AreDevicesRequired() {
 			// Attaching bpf_host to cilium_wg0 is required for encrypting KPR
 			// traffic. Only ingress prog (aka "from-netdev") is needed to handle
 			// the rev-NAT xlations.
-			device != wgTypes.IfaceName {
-
-			// Attach cil_to_netdev to egress.
-			if err := attachSKBProgram(iface, coll.Programs[symbolToHostNetdevEp], symbolToHostNetdevEp,
-				linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
-				return fmt.Errorf("interface %s egress: %w", device, err)
+			if device != wgTypes.IfaceName {
+				// Attach cil_to_netdev to egress.
+				if err := attachSKBProgram(iface, coll.Programs[symbolToHostNetdevEp], symbolToHostNetdevEp,
+					linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
+					return fmt.Errorf("interface %s egress: %w", device, err)
+				}
 			}
 		} else {
 			// Remove any previously attached device from egress path if BPF
@@ -560,6 +562,37 @@ func (l *loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, ifa
 		return fmt.Errorf("committing bpf pins: %w", err)
 	}
 
+	return nil
+}
+
+func (l *loader) replaceWireguardDatapath(ctx context.Context, cArgs []string, iface string) (err error) {
+	if err := compileWireguard(ctx, cArgs); err != nil {
+		return fmt.Errorf("compiling wireguard program: %w", err)
+	}
+	device, err := netlink.LinkByName(iface)
+	if err != nil {
+		return fmt.Errorf("retrieving device %s: %w", iface, err)
+	}
+
+	spec, err := bpf.LoadCollectionSpec(wireguardObj)
+	if err != nil {
+		return fmt.Errorf("loading eBPF ELF %s: %w", wireguardObj, err)
+	}
+
+	coll, commit, err := loadDatapath(spec, nil, nil)
+	if err != nil {
+		return err
+	}
+	defer coll.Close()
+
+	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
+	if err := attachSKBProgram(device, coll.Programs[symbolToWireguard], symbolToWireguard,
+		linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
+		return fmt.Errorf("interface %s egress: %w", device, err)
+	}
+	if err := commit(); err != nil {
+		return fmt.Errorf("committing bpf pins: %w", err)
+	}
 	return nil
 }
 
