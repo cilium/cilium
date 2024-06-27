@@ -93,6 +93,15 @@ WireGuard may also be enabled manually by setting setting the
 ``enable-wireguard: true`` option in the Cilium ``ConfigMap`` and restarting
 each Cilium agent instance.
 
+.. note::
+
+   When running with the CNI chaining (e.g., :ref:`chaining_aws_cni`), set the
+   Helm option ``cni.enableRouteMTUForCNIChaining`` to ``true`` to force Cilium
+   to set a correct MTU for Pods. Otherwise, Pod traffic encrypted with
+   WireGuard might get fragmented, which can lead to a network performance
+   degradation.
+
+
 Validate the Setup
 ==================
 
