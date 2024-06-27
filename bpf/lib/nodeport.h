@@ -975,6 +975,17 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	if (tunnel_endpoint) {
 		__be16 src_port;
 
+#if __ctx_is == __ctx_skb
+		{
+			/* See the corresponding v4 path for details */
+			bool l2_hdr_required = false;
+
+			ret = maybe_add_l2_hdr(ctx, ENCAP_IFINDEX, &l2_hdr_required);
+			if (ret != 0)
+				goto drop_err;
+		}
+#endif
+
 		src_port = tunnel_gen_src_port_v6(&tuple);
 
 		ret = nodeport_add_tunnel_encap(ctx,
@@ -2369,6 +2380,20 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 #ifdef TUNNEL_MODE
 	if (tunnel_endpoint) {
 		__be16 src_port;
+
+#if __ctx_is == __ctx_skb
+		{
+			/* Append L2 hdr before redirecting to tunnel netdev.
+			 * Otherwise, the kernel will drop such request in
+			 * https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/net/core/filter.c?h=v6.7.4#n2147
+			 */
+			bool l2_hdr_required = false;
+
+			ret = maybe_add_l2_hdr(ctx, ENCAP_IFINDEX, &l2_hdr_required);
+			if (ret != 0)
+				goto drop_err;
+		}
+#endif
 
 		src_port = tunnel_gen_src_port_v4(&tuple);
 
