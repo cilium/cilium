@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"net/netip"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -316,11 +317,11 @@ func TestUpdateLocalNode(t *testing.T) {
 	IPIdentityCache.metadata.remove(inClusterPrefix, "node-uid", labels.LabelHost)
 	injectLabels(inClusterPrefix)
 
-	// Verify that .4 now has just kube-apiserver and CIDRs
+	// Verify that .4 now has just kube-apiserver and world
 	idIs(inClusterPrefix, identity.IdentityScopeLocal) // the first CIDR identity
 	id := PolicyHandler.identities[identity.IdentityScopeLocal]
 	assert.True(t, id.Has("reserved.kube-apiserver"))
-	assert.True(t, id.Has("cidr."+inClusterPrefix.String()))
+	assert.True(t, id.Has("reserved.world-ipv4"), id)
 
 	// verify that id 1 is now just reserved:host
 	idIs(inClusterPrefix2, identity.ReservedIdentityHost)
@@ -889,6 +890,124 @@ func TestUpsertMetadataInheritedCIDRPrefix(t *testing.T) {
 
 	ident = IPIdentityCache.IdentityAllocator.LookupIdentity(context.TODO(), ident.Labels)
 	assert.Nil(t, ident)
+}
+
+func TestResolveIdentity(t *testing.T) {
+	type sm map[string]string
+
+	for i, tc := range []struct {
+		prefixes    sm
+		expected    sm
+		expectedIDs map[string]identity.NumericIdentity
+
+		cidrMatchNode bool
+	}{
+		// case 0: a /24 cidr, a /32 fqdn within that cidr, and a /32 fqdn outside that cidr
+		{
+			prefixes: sm{
+				"10.0.0.0/24": "cidr:10.0.0.0/24=;reserved:world-ipv4",
+				"10.0.0.1/32": "fqdn:example.com=",
+				"10.0.1.1/32": "fqdn:example.com=",
+			},
+			expected: sm{
+				"10.0.0.0/24": "cidr:10.0.0.0/24=;reserved:world-ipv4",
+				"10.0.0.1/32": "cidr:10.0.0.0/24=;fqdn:example.com=;reserved:world-ipv4",
+				"10.0.1.1/32": "fqdn:example.com=;reserved:world-ipv4",
+			},
+		},
+
+		// case 1: nodes, node cidr selection disabled
+		// a /24 cidr, a remote node, and some FQDNs that happen to point to that node.
+		// because FQDNs are equivalent to CIDRs, and nodes cannot be selected by CIDRs,
+		// they should not have that label
+		{
+			prefixes: sm{
+				"10.0.0.0/24": "cidr:10.0.0.0/24=;reserved:world-ipv4",
+				"10.0.0.1/32": "reserved:remote-node=",
+				"10.0.1.1/32": "reserved:remote-node=;fqdn:example.com=",
+			},
+			expected: sm{
+				"10.0.0.0/24": "cidr:10.0.0.0/24=;reserved:world-ipv4",
+				"10.0.0.1/32": "reserved:remote-node=",
+				"10.0.1.1/32": "reserved:remote-node=",
+			},
+			expectedIDs: map[string]identity.NumericIdentity{
+				"10.0.0.1/32": identity.ReservedIdentityRemoteNode,
+				"10.0.1.1/32": identity.ReservedIdentityRemoteNode,
+			},
+		},
+
+		// case 2: nodes, node cidr selection enabled
+		{
+			prefixes: sm{
+				"10.0.0.0/24": "cidr:10.0.0.0/24;reserved:world-ipv4",
+				// the CIDR label is injected directly by the NodeManager
+				"10.0.0.1/32": "cidr:10.0.0.1/32;reserved:remote-node",
+				"10.0.1.1/32": "cidr:10.0.1.1/32;reserved:remote-node;fqdn:example.com",
+			},
+			expected: sm{
+				"10.0.0.0/24": "cidr:10.0.0.0/24=;reserved:world-ipv4",
+				"10.0.0.1/32": "cidr:10.0.0.1/32;reserved:remote-node=",
+				"10.0.1.1/32": "cidr:10.0.1.1/32;reserved:remote-node=;fqdn:example.com=",
+			},
+
+			cidrMatchNode: true,
+		},
+
+		// case 3: reserved identities must never get CIDR labels
+		{
+			prefixes: sm{
+				"10.0.0.0/24": "cidr:10.0.0.0/24;reserved:world-ipv4",
+				"10.0.0.1/32": "cidr:10.0.0.1/32;reserved:ingress=",
+				"10.0.0.2/32": "cidr:10.0.0.2/32;reserved:health=",
+			},
+			expected: sm{
+				"10.0.0.0/24": "cidr:10.0.0.0/24=;reserved:world-ipv4",
+				"10.0.0.1/32": "reserved:ingress=",
+				"10.0.0.2/32": "reserved:health=",
+			},
+			expectedIDs: map[string]identity.NumericIdentity{
+				"10.0.0.1/32": identity.ReservedIdentityIngress,
+				"10.0.0.2/32": identity.ReservedIdentityHealth,
+			},
+		},
+	} {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			oldPolicyConfig := option.Config.PolicyCIDRMatchMode
+			t.Cleanup(func() {
+				option.Config.PolicyCIDRMatchMode = oldPolicyConfig
+			})
+			if tc.cidrMatchNode {
+				option.Config.PolicyCIDRMatchMode = []string{"nodes"}
+			} else {
+				option.Config.PolicyCIDRMatchMode = []string{}
+			}
+
+			cancel := setupTest(t)
+			t.Cleanup(cancel)
+
+			for pfx, lstr := range tc.prefixes {
+				lbls := labels.NewLabelsFromSortedList(lstr)
+				prefix := netip.MustParsePrefix(pfx)
+				IPIdentityCache.metadata.upsertLocked(prefix, source.Generated, "tc", lbls)
+			}
+
+			for pfx, lstr := range tc.expected {
+				lbls := labels.NewLabelsFromSortedList(lstr)
+				prefix := netip.MustParsePrefix(pfx)
+				info := IPIdentityCache.metadata.getLocked(prefix)
+				require.NotNil(t, info)
+				id, _, err := IPIdentityCache.resolveIdentity(context.Background(), prefix, info, 0)
+				require.Nil(t, err)
+
+				if expectedNID, ok := tc.expectedIDs[pfx]; ok {
+					require.Equal(t, expectedNID, id.ID)
+				}
+
+				require.Equal(t, lbls, id.Labels, lstr)
+			}
+		})
+	}
 }
 
 func setupTest(t *testing.T) (cleanup func()) {

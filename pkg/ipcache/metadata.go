@@ -611,30 +611,8 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 		}
 	}
 
-	// Ensure any prefix with a FQDN label also has the world label set
-	if lbls.HasSource(labels.LabelSourceFQDN) {
-		labels.AddWorldLabel(prefix.Addr(), lbls)
-	}
-
-	// If the prefix is associated with the host or remote-node, then
-	// force-remove the world label.
-	if lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) ||
-		lbls.Has(labels.LabelHost[labels.IDNameHost]) {
-		n := lbls.Remove(labels.LabelWorld)
-		n = n.Remove(labels.LabelWorldIPv4)
-		n = n.Remove(labels.LabelWorldIPv6)
-
-		// It is not allowed for nodes to have CIDR labels, unless policy-cidr-match-mode
-		// includes "nodes". Then CIDR labels are required.
-		if !option.Config.PolicyCIDRMatchesNodes() {
-			n = n.Remove(labels.GetCIDRLabels(prefix))
-		}
-		if !option.Config.PerNodeLabelsEnabled() {
-			nodeLabels := n.GetFromSource(labels.LabelSourceNode)
-			n = n.Remove(nodeLabels)
-		}
-		lbls = n
-	}
+	// Enforce certain label invariants.
+	lbls = resolveLabels(prefix, lbls)
 
 	if lbls.Has(labels.LabelHost[labels.IDNameHost]) {
 		// Associate any new labels with the host identity.
@@ -660,25 +638,6 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 		return i, false, nil
 	}
 
-	// If no other labels are associated with this IP, we assume that it's
-	// outside of the cluster and hence needs a CIDR identity.
-	//
-	// This is trying to ensure that remote nodes are assigned the reserved
-	// identity "remote-node" (6) or "kube-apiserver" (7). The datapath
-	// later makes assumptions about remote cluster nodes in the function
-	// identity_is_remote_node(). For now, there is no way to associate any
-	// other labels with such IPs, but this assumption will break if/when
-	// we allow more arbitrary labels to be associated with these IPs that
-	// correspond to remote nodes.
-	if !lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) &&
-		!lbls.Has(labels.LabelHealth[labels.IDNameHealth]) &&
-		!lbls.Has(labels.LabelIngress[labels.IDNameIngress]) &&
-		!lbls.HasSource(labels.LabelSourceFQDN) &&
-		!lbls.HasSource(labels.LabelSourceCIDR) {
-		cidrLabels := labels.GetCIDRLabels(prefix)
-		lbls.MergeLabels(cidrLabels)
-	}
-
 	// This should only ever allocate an identity locally on the node,
 	// which could theoretically fail if we ever allocate a very large
 	// number of identities.
@@ -696,6 +655,65 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix.String()})
 	}
 	return id, isNew, err
+}
+
+// resolveLabels applies certain prefix-level invariants to the set of labels.
+//
+// At a high level, this function makes it so that in-cluster entities
+// are not selectable by CIDR and CIDR-equivalent policies. By default,
+// in-cluster entities such as remote-node, host, and health should not be
+// selectable by CIDR / ToFQDN policies.
+//
+// In-cluster entities are prefixes with any of the labels:
+// - reserved:host
+// - reserved:remote-node
+// - reserved:health
+// - reserved:ingress
+//
+// However, nodes *are* allowed to be selectable by CIDR and CIDR equivalents
+// if PolicyCIDRMatchesNodes() is true
+func resolveLabels(prefix netip.Prefix, lbls labels.Labels) labels.Labels {
+	out := labels.NewFrom(lbls)
+
+	isInCluster := (lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) ||
+		lbls.Has(labels.LabelHost[labels.IDNameHost]) ||
+		lbls.Has(labels.LabelHealth[labels.IDNameHealth]) ||
+		lbls.Has(labels.LabelIngress[labels.IDNameIngress]))
+
+	isNode := (lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) ||
+		lbls.Has(labels.LabelHost[labels.IDNameHost]))
+
+	// In-cluster entities must not have reserved:world.
+	if isInCluster {
+		out = out.Remove(labels.LabelWorld)
+		out = out.Remove(labels.LabelWorldIPv4)
+		out = out.Remove(labels.LabelWorldIPv6)
+	}
+
+	// In-cluster entities must not have cidr-style labels,
+	// Exception: nodes may, when PolicyCIDRMatchesNodes() is enabled.
+	if isInCluster && !(isNode && option.Config.PolicyCIDRMatchesNodes()) {
+		out = out.RemoveFromSource(labels.LabelSourceCIDR)
+		out = out.RemoveFromSource(labels.LabelSourceFQDN)
+	}
+
+	// Remove all node: labels, unless this is a node *and* node labels are enabled.
+	if !(isNode && option.Config.PerNodeLabelsEnabled()) {
+		out = out.RemoveFromSource(labels.LabelSourceNode)
+	}
+
+	// No empty labels allowed.
+	// Generate cidr: label as a fallback.
+	if len(out) == 0 {
+		out = labels.GetCIDRLabels(prefix)
+	}
+
+	// add world if not in-cluster.
+	if !isInCluster {
+		labels.AddWorldLabel(prefix.Addr(), out)
+	}
+
+	return out
 }
 
 // updateReservedHostLabels adds or removes labels that apply to the local host.
