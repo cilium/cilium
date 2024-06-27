@@ -382,6 +382,24 @@ jobs:
           config: ./.github/kind-config-cluster2.yaml
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
+      - name: Start the Kubernetes Cloud Provider for Kind
+        run: |
+          BASE_URL=https://github.com/kubernetes-sigs/cloud-provider-kind/releases/download/${KIND_KCP_VERSION}
+          curl -LO "${BASE_URL}/cloud-provider-kind_${KIND_KCP_VERSION/v/}_linux_amd64.tar.gz"
+          curl -LO "${BASE_URL}/cloud-provider-kind_${KIND_KCP_VERSION/v/}_checksums.txt"
+          grep cloud-provider-kind_${KIND_KCP_VERSION/v/}_linux_amd64.tar.gz cloud-provider-kind_${KIND_KCP_VERSION/v/}_checksums.txt | sha256sum --check
+          tar xvf cloud-provider-kind_${KIND_KCP_VERSION/v/}_linux_amd64.tar.gz cloud-provider-kind
+
+          ./cloud-provider-kind &> cloud-provider-kind.log &
+
+          kubectl --context ${{ env.contextName1 }} label node \
+            -l node.kubernetes.io/exclude-from-external-load-balancers \
+            node.kubernetes.io/exclude-from-external-load-balancers-
+
+          kubectl --context ${{ env.contextName2 }} label node \
+            -l node.kubernetes.io/exclude-from-external-load-balancers \
+            node.kubernetes.io/exclude-from-external-load-balancers-
+
       - name: Label one of the nodes as external to the cluster
         run: |
           kubectl --context ${{ env.contextName1 }} label node \
@@ -504,7 +522,7 @@ jobs:
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             --helm-set cluster.name=${{ env.ciliumClusterName1 }} \
             --helm-set cluster.id=1 \
-            --helm-set clustermesh.apiserver.service.nodePort=32379 \
+            --helm-set clustermesh.apiserver.service.type=LoadBalancer \
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-1 }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_clustermesh }} \
@@ -526,6 +544,7 @@ jobs:
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             --helm-set cluster.name=${{ env.ciliumClusterName2 }} \
             --helm-set cluster.id=${{ matrix.maxConnectedClusters }} \
+            --helm-set clustermesh.apiserver.service.type=NodePort \
             --helm-set clustermesh.apiserver.service.nodePort=32380 \
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-2 }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
@@ -605,6 +624,8 @@ jobs:
               docker logs kvstore$i
             done
           fi
+
+          cat cloud-provider-kind.log
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
