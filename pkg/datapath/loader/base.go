@@ -308,6 +308,33 @@ func (l *loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Co
 	return nil
 }
 
+func (l *loader) reinitializeWireguard(ctx context.Context) (err error) {
+	// to-wireguard bpf is only used for rev-DNAT, which is only needed when NodePort, KPR, native routing and L7 proxy are enabled together
+	if !option.Config.EnableWireguard ||
+		!option.Config.EnableNodePort ||
+		!option.Config.EnableL7Proxy ||
+		option.Config.RoutingMode != option.RoutingModeNative ||
+		option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue {
+		return
+	}
+
+	link, err := netlink.LinkByName(wgTypes.IfaceName)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve link for interface %s: %w", wgTypes.IfaceName, err)
+	}
+
+	opts := []string{
+		fmt.Sprintf("-DSECLABEL=%d", identity.ReservedIdentityWorld),
+		fmt.Sprintf("-DTHIS_INTERFACE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
+		fmt.Sprintf("-DCALLS_MAP=cilium_calls_wireguard_%d", identity.ReservedIdentityWorld),
+	}
+
+	if err := l.replaceWireguardDatapath(ctx, opts, wgTypes.IfaceName); err != nil {
+		return fmt.Errorf("failed to load wireguard programs: %w", err)
+	}
+	return
+}
+
 func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string, devices []string) error {
 	l.maybeUnloadObsoleteXDPPrograms(devices, option.Config.XDPMode, bpf.CiliumPath())
 	if option.Config.XDPMode == option.XDPModeDisabled {
@@ -491,6 +518,10 @@ func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfigu
 	}
 
 	if err := l.reinitializeOverlay(ctx, tunnelConfig); err != nil {
+		return err
+	}
+
+	if err := l.reinitializeWireguard(ctx); err != nil {
 		return err
 	}
 
