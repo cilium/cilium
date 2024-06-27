@@ -145,7 +145,9 @@ Enable automatic lookup of k8sServicePort from the cluster-info ConfigMap (kubea
 Return user specify envoy.enabled or default value based on the upgradeCompatibility
 */}}
 {{- define "envoyDaemonSetEnabled" }}
-  {{- if (not (kindIs "invalid" .Values.envoy.enabled)) }}
+  {{- if not .Values.l7Proxy }}
+    {{- false }}
+  {{- else if (not (kindIs "invalid" .Values.envoy.enabled)) }}
     {{- .Values.envoy.enabled }}
   {{- else }}
     {{- if semverCompare ">=1.16" (default "1.16" .Values.upgradeCompatibility) }}
