@@ -80,6 +80,7 @@
   "stopUpdatingLabel": "renovate/stop-updating",
   "allowedPostUpgradeCommands": [
     "^make -C install/kubernetes$",
+    "^make -C images update-envoy-image$",
     "^make -C Documentation update-helm-values$",
     "^make generate-k8s-api$",
     "^make manifests$"
@@ -497,10 +498,12 @@
       ],
       "postUpgradeTasks": {
         "commands": [
+          "make -C images update-envoy-image",
           "make -C install/kubernetes",
           "make -C Documentation update-helm-values"
         ],
         "fileFilters": [
+          "images/cilium/Dockerfile",
           "install/kubernetes/Makefile.values",
           "install/kubernetes/cilium/README.md",
           "install/kubernetes/cilium/values.yaml",
