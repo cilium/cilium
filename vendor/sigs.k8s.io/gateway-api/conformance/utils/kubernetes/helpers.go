@@ -209,24 +209,24 @@ func NamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig config.T
 				gw := gw
 
 				if val, ok := gw.Annotations[GatewayExcludedFromReadinessChecks]; ok && val == "true" {
-					tlog.Logf(t, "Gateway %s/%s is skipped for setup and wont be tested", ns, gw.Name)
+					tlog.Logf(t, "Gateway %s is skipped for setup and wont be tested", client.ObjectKeyFromObject(&gw))
 					continue
 				}
 
 				if err = ConditionsHaveLatestObservedGeneration(&gw, gw.Status.Conditions); err != nil {
-					tlog.Logf(t, "Gateway %s/%s %v", ns, gw.Name, err)
+					tlog.Logf(t, "Gateway %s %v", client.ObjectKeyFromObject(&gw), err)
 					return false, nil
 				}
 
 				// Passing an empty string as the Reason means that any Reason will do.
 				if !findConditionInList(t, gw.Status.Conditions, string(gatewayv1.GatewayConditionAccepted), "True", "") {
-					tlog.Logf(t, "%s/%s Gateway not Accepted yet", ns, gw.Name)
+					tlog.Logf(t, "%s Gateway not Accepted yet", client.ObjectKeyFromObject(&gw))
 					return false, nil
 				}
 
 				// Passing an empty string as the Reason means that any Reason will do.
 				if !findConditionInList(t, gw.Status.Conditions, string(gatewayv1.GatewayConditionProgrammed), "True", "") {
-					tlog.Logf(t, "%s/%s Gateway not Programmed yet", ns, gw.Name)
+					tlog.Logf(t, "%s Gateway not Programmed yet", client.ObjectKeyFromObject(&gw))
 					return false, nil
 				}
 			}
@@ -237,10 +237,11 @@ func NamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig config.T
 				tlog.Errorf(t, "Error listing Pods: %v", err)
 			}
 			for _, pod := range podList.Items {
+				pod := pod
 				if !findPodConditionInList(t, pod.Status.Conditions, "Ready", "True") &&
 					pod.Status.Phase != v1.PodSucceeded &&
 					pod.DeletionTimestamp == nil {
-					tlog.Logf(t, "%s/%s Pod not ready yet", ns, pod.Name)
+					tlog.Logf(t, "Pod %s not ready yet", client.ObjectKeyFromObject(&pod))
 					return false, nil
 				}
 			}
@@ -308,10 +309,11 @@ func MeshNamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig conf
 				tlog.Errorf(t, "Error listing Pods: %v", err)
 			}
 			for _, pod := range podList.Items {
+				pod := pod
 				if !findPodConditionInList(t, pod.Status.Conditions, "Ready", "True") &&
 					pod.Status.Phase != v1.PodSucceeded &&
 					pod.DeletionTimestamp == nil {
-					tlog.Logf(t, "%s/%s Pod not ready yet", ns, pod.Name)
+					tlog.Logf(t, "Pod %s not ready yet", client.ObjectKeyFromObject(&pod))
 					return false, nil
 				}
 			}
@@ -549,7 +551,7 @@ func HTTPRouteMustHaveNoAcceptedParents(t *testing.T, client client.Client, time
 
 		for _, parent := range actual {
 			if err := ConditionsHaveLatestObservedGeneration(route, parent.Conditions); err != nil {
-				tlog.Logf(t, "HTTPRoute(controller=%v,ref=%#v) %v", parent.ControllerName, parent, err)
+				tlog.Logf(t, "HTTPRoute %s (controller=%v,ref=%#v) %v", routeName, parent.ControllerName, parent, err)
 				return false, nil
 			}
 		}
@@ -655,7 +657,7 @@ func parentsForRouteMatch(t *testing.T, routeName types.NamespacedName, expected
 	t.Helper()
 
 	if len(expected) != len(actual) {
-		tlog.Logf(t, "Route %s/%s expected %d Parents got %d", routeName.Namespace, routeName.Name, len(expected), len(actual))
+		tlog.Logf(t, "Route %s expected %d Parents got %d", routeName, len(expected), len(actual))
 		return false
 	}
 
@@ -663,24 +665,24 @@ func parentsForRouteMatch(t *testing.T, routeName types.NamespacedName, expected
 	for i, eParent := range expected {
 		aParent := actual[i]
 		if aParent.ControllerName != eParent.ControllerName {
-			tlog.Logf(t, "Route %s/%s ControllerName doesn't match", routeName.Namespace, routeName.Name)
+			tlog.Logf(t, "Route %s ControllerName doesn't match", routeName)
 			return false
 		}
 		if !reflect.DeepEqual(aParent.ParentRef.Group, eParent.ParentRef.Group) {
-			tlog.Logf(t, "Route %s/%s expected ParentReference.Group to be %v, got %v", routeName.Namespace, routeName.Name, eParent.ParentRef.Group, aParent.ParentRef.Group)
+			tlog.Logf(t, "Route %s expected ParentReference.Group to be %v, got %v", routeName, eParent.ParentRef.Group, aParent.ParentRef.Group)
 			return false
 		}
 		if !reflect.DeepEqual(aParent.ParentRef.Kind, eParent.ParentRef.Kind) {
-			tlog.Logf(t, "Route %s/%s expected ParentReference.Kind to be %v, got %v", routeName.Namespace, routeName.Name, eParent.ParentRef.Kind, aParent.ParentRef.Kind)
+			tlog.Logf(t, "Route %s expected ParentReference.Kind to be %v, got %v", routeName, eParent.ParentRef.Kind, aParent.ParentRef.Kind)
 			return false
 		}
 		if aParent.ParentRef.Name != eParent.ParentRef.Name {
-			tlog.Logf(t, "Route %s/%s ParentReference.Name doesn't match", routeName.Namespace, routeName.Name)
+			tlog.Logf(t, "Route %s ParentReference.Name doesn't match", routeName)
 			return false
 		}
 		if !reflect.DeepEqual(aParent.ParentRef.Namespace, eParent.ParentRef.Namespace) {
 			if namespaceRequired || aParent.ParentRef.Namespace != nil {
-				tlog.Logf(t, "Route %s/%s expected ParentReference.Namespace to be %v, got %v", routeName.Namespace, routeName.Name, eParent.ParentRef.Namespace, aParent.ParentRef.Namespace)
+				tlog.Logf(t, "Route %s expected ParentReference.Namespace to be %v, got %v", routeName, eParent.ParentRef.Namespace, aParent.ParentRef.Namespace)
 				return false
 			}
 		}
@@ -689,26 +691,26 @@ func parentsForRouteMatch(t *testing.T, routeName types.NamespacedName, expected
 		}
 	}
 
-	tlog.Logf(t, "Route %s/%s Parents matched expectations", routeName.Namespace, routeName.Name)
+	tlog.Logf(t, "Route %s Parents matched expectations", routeName)
 	return true
 }
 
 // GatewayStatusMustHaveListeners waits for the specified Gateway to have listeners
 // in status that match the expected listeners. This will cause the test to halt
 // if the specified timeout is exceeded.
-func GatewayStatusMustHaveListeners(t *testing.T, client client.Client, timeoutConfig config.TimeoutConfig, gwNN types.NamespacedName, listeners []gatewayv1.ListenerStatus) {
+func GatewayStatusMustHaveListeners(t *testing.T, cl client.Client, timeoutConfig config.TimeoutConfig, gwNN types.NamespacedName, listeners []gatewayv1.ListenerStatus) {
 	t.Helper()
 
 	var actual []gatewayv1.ListenerStatus
 	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.GatewayStatusMustHaveListeners, true, func(ctx context.Context) (bool, error) {
 		gw := &gatewayv1.Gateway{}
-		err := client.Get(ctx, gwNN, gw)
+		err := cl.Get(ctx, gwNN, gw)
 		if err != nil {
 			return false, fmt.Errorf("error fetching Gateway: %w", err)
 		}
 
 		if err := ConditionsHaveLatestObservedGeneration(gw, gw.Status.Conditions); err != nil {
-			tlog.Log(t, "Gateway", err)
+			tlog.Logf(t, "Gateway %s %v", client.ObjectKeyFromObject(gw), err)
 			return false, nil
 		}
 
@@ -734,7 +736,9 @@ func HTTPRouteMustHaveCondition(t *testing.T, client client.Client, timeoutConfi
 		var conditionFound bool
 		for _, parent := range parents {
 			if err := ConditionsHaveLatestObservedGeneration(route, parent.Conditions); err != nil {
-				tlog.Logf(t, "HTTPRoute(parentRef=%v) %v", parentRefToString(parent.ParentRef), err)
+				tlog.Logf(t, "HTTPRoute %s (parentRef=%v) %v",
+					routeNN, parentRefToString(parent.ParentRef), err,
+				)
 				return false, nil
 			}
 
@@ -832,7 +836,9 @@ func TLSRouteMustHaveCondition(t *testing.T, client client.Client, timeoutConfig
 		var conditionFound bool
 		for _, parent := range parents {
 			if err := ConditionsHaveLatestObservedGeneration(route, parent.Conditions); err != nil {
-				tlog.Logf(t, "TLSRoute(parentRef=%v) %v", parentRefToString(parent.ParentRef), err)
+				tlog.Logf(t, "TLSRoute %s (parentRef=%v) %v",
+					routeNN, parentRefToString(parent.ParentRef), err,
+				)
 				return false, nil
 			}
 
