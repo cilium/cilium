@@ -242,14 +242,14 @@ In this example, services with port ``31940`` were created (one for each of devi
     $ kubectl -n kube-system exec ds/cilium -- cilium-dbg service list
     ID   Frontend               Service Type   Backend
     [...]
-    4    10.104.239.135:80      ClusterIP      1 => 10.217.0.107:80
-                                               2 => 10.217.0.149:80
-    5    0.0.0.0:31940          NodePort       1 => 10.217.0.107:80
-                                               2 => 10.217.0.149:80
-    6    192.168.178.29:31940   NodePort       1 => 10.217.0.107:80
-                                               2 => 10.217.0.149:80
-    7    172.16.0.29:31940      NodePort       1 => 10.217.0.107:80
-                                               2 => 10.217.0.149:80
+    4    10.104.239.135:80/TCP      ClusterIP      1 => 10.217.0.107:80/TCP
+                                                   2 => 10.217.0.149:80/TCP
+    5    0.0.0.0:31940/TCP          NodePort       1 => 10.217.0.107:80/TCP
+                                                   2 => 10.217.0.149:80/TCP
+    6    192.168.178.29:31940/TCP   NodePort       1 => 10.217.0.107:80/TCP
+                                                   2 => 10.217.0.149:80/TCP
+    7    172.16.0.29:31940/TCP      NodePort       1 => 10.217.0.107:80/TCP
+                                                   2 => 10.217.0.149:80/TCP
 
 Create a variable with the node port for testing:
 
