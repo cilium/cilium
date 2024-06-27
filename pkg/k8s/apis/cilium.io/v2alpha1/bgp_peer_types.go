@@ -124,14 +124,17 @@ type CiliumBGPFamilyWithAdverts struct {
 
 // CiliumBGPTransport defines the BGP transport parameters for the peer.
 type CiliumBGPTransport struct {
+	// Deprecated
 	// LocalPort is the local port to be used for the BGP session.
 	//
-	// If not specified, defaults to TCP port 179.
+	// If not specified, ephemeral port will be picked to initiate a connection.
+	//
+	// This field is deprecated and will be removed in a future release.
+	// Local port configuration is unnecessary and is not recommended.
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	// +kubebuilder:default=179
 	LocalPort *int32 `json:"localPort,omitempty"`
 
 	// PeerPort is the peer port to be used for the BGP session.
