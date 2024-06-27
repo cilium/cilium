@@ -15,3 +15,4 @@ External networking
 
    external-workloads
    egress-gateway
+   egress-gateway-troubleshooting
