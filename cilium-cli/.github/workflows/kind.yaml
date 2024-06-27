@@ -24,13 +24,6 @@ jobs:
   installation-and-connectivity:
     name: Kind Installation and Connectivity Test
     runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        include:
-          # run connectivity tests explicitly without concurrency
-          - test-concurrency: 1
-          # run connectivity tests concurrently
-          - test-concurrency: 5
     timeout-minutes: 50
     steps:
       - name: Checkout
@@ -112,16 +105,16 @@ jobs:
           # disruption), but we want to make sure that the command works as expected.
           #
           # Dispatch interval is set to 100ms, b/c otherwise (default is 0), the flow validation might time out.
-          cilium connectivity test --debug --test-namespace test-namespace \
-            --test-concurrency=${{ matrix.test-concurrency }} \
+          cilium connectivity test --test-namespace test-namespace \
+            --test-concurrency=5 \
             --conn-disrupt-dispatch-interval 100ms \
             --include-conn-disrupt-test --conn-disrupt-test-setup
 
           # Run the connectivity test in non-default namespace (i.e. not cilium-test)
-          cilium connectivity test --debug --all-flows --test-namespace test-namespace \
-            --test-concurrency=${{ matrix.test-concurrency }} \
+          cilium connectivity test --all-flows --test-namespace test-namespace \
+            --test-concurrency=5 \
             --include-unsafe-tests --include-conn-disrupt-test \
-            --collect-sysdump-on-failure --junit-file cilium-junit-1-concurrency-${{ matrix.test-concurrency }}.xml \
+            --collect-sysdump-on-failure --junit-file cilium-junit-1.xml \
             --junit-property type=no-tunnel \
             --curl-insecure \
             --external-target chart-testing-worker2 \
@@ -160,10 +153,10 @@ jobs:
 
       - name: Connectivity test
         run: |
-          cilium connectivity test --debug --force-deploy --all-flows --test-namespace test-namespace \
-            --test-concurrency=${{ matrix.test-concurrency }} \
+          cilium connectivity test --force-deploy --all-flows --test-namespace test-namespace \
+            --test-concurrency=5 \
             --include-unsafe-tests \
-            --collect-sysdump-on-failure --junit-file cilium-junit-2-concurrency-${{ matrix.test-concurrency }}.xml \
+            --collect-sysdump-on-failure --junit-file cilium-junit-2.xml \
             --junit-property type=ipsec \
             --curl-insecure \
             --external-target chart-testing-worker2 \
@@ -177,7 +170,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: cilium-junits-concurrency-${{ matrix.test-concurrency }}
+          name: cilium-junits
           path: cilium-junit*.xml
           retention-days: 2
 
@@ -186,27 +179,20 @@ jobs:
         run: |
           cilium status
           kubectl get pods --all-namespaces -o wide
-          cilium sysdump --output-filename cilium-sysdump-out-concurrency-${{ matrix.test-concurrency }} --hubble-flows-count 10000
+          cilium sysdump --output-filename cilium-sysdump-out --hubble-flows-count 10000
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload sysdump
         if: ${{ !success() }}
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: cilium-sysdumps-concurrency-${{ matrix.test-concurrency }}
+          name: cilium-sysdumps
           path: cilium-sysdump-*.zip
           retention-days: 5
 
   helm-upgrade-clustermesh:
     name: Kind Helm Upgrade Clustermesh
     runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        include:
-          # run connectivity tests explicitly without concurrency
-          - test-concurrency: 1
-          # run connectivity tests concurrently
-          - test-concurrency: 5
     timeout-minutes: 50
 
     env:
@@ -331,22 +317,20 @@ jobs:
           # disruption), but we want to make sure that the command works as expected.
           #
           # Dispatch interval is set to 100ms, b/c otherwise (default is 0), the flow validation might time out.
-          cilium connectivity test --context $CLUSTER1 --multi-cluster $CLUSTER2 --debug \
-            --test-concurrency=${{ matrix.test-concurrency }} \
+          cilium connectivity test --context $CLUSTER1 --multi-cluster $CLUSTER2 \
             --conn-disrupt-dispatch-interval 100ms \
             --include-conn-disrupt-test --conn-disrupt-test-setup
 
-          cilium connectivity test --context $CLUSTER1 --multi-cluster $CLUSTER2 --debug \
-            --test-concurrency=${{ matrix.test-concurrency }} \
+          cilium connectivity test --context $CLUSTER1 --multi-cluster $CLUSTER2 \
             --include-unsafe-tests --include-conn-disrupt-test \
-            --collect-sysdump-on-failure --junit-file cilium-junit-clustermesh-1-concurrency-${{ matrix.test-concurrency }}.xml \
+            --collect-sysdump-on-failure --junit-file cilium-junit-clustermesh-1.xml \
             --junit-property mode=clustermesh --junit-property type=ipsec
 
       - name: Upload JUnit
         if: ${{ always() }}
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: cilium-junits-helm-upgrade-clustermesh-concurrency-${{ matrix.test-concurrency }}
+          name: cilium-junits-helm-upgrade-clustermesh
           path: cilium-junit*.xml
           retention-days: 2
 
@@ -355,24 +339,24 @@ jobs:
         run: |
           cilium --context $CLUSTER1 status
           kubectl --context $CLUSTER1 get pods --all-namespaces -o wide
-          cilium --context $CLUSTER1 sysdump --output-filename cilium-sysdump-out-c1-concurrency-${{ matrix.test-concurrency }}
+          cilium --context $CLUSTER1 sysdump --output-filename cilium-sysdump-out-c1
           cilium --context $CLUSTER2 status
           kubectl --context $CLUSTER2 get pods --all-namespaces -o wide
-          cilium --context $CLUSTER2 sysdump --output-filename cilium-sysdump-out-c2-concurrency-${{ matrix.test-concurrency }}
+          cilium --context $CLUSTER2 sysdump --output-filename cilium-sysdump-out-c2
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload sysdump from cluster 1
         if: ${{ !success() }}
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: cilium-sysdump-out-c1-concurrency-${{ matrix.test-concurrency }}.zip
-          path: cilium-sysdump-out-c1-concurrency-${{ matrix.test-concurrency }}.zip
+          name: cilium-sysdump-out-c1.zip
+          path: cilium-sysdump-out-c1.zip
           retention-days: 5
 
       - name: Upload sysdump from cluster 2
         if: ${{ !success() }}
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: cilium-sysdump-out-c2-concurrency-${{ matrix.test-concurrency }}.zip
-          path: cilium-sysdump-out-c2-concurrency-${{ matrix.test-concurrency }}.zip
+          name: cilium-sysdump-out-c2.zip
+          path: cilium-sysdump-out-c2.zip
           retention-days: 5
