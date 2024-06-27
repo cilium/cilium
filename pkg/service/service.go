@@ -798,10 +798,6 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 		backendsCopy = append(backendsCopy, b.DeepCopy())
 	}
 
-	// TODO (Aditi) When we filter backends for LocalRedirect service, there
-	// might be some backend pods with active connections. We may need to
-	// defer filtering the backends list (thereby defer redirecting traffic)
-	// in such cases. GH #12859
 	// Update backends cache and allocate/release backend IDs
 	newBackends, obsoleteBackends, obsoleteSVCBackendIDs, err := s.updateBackendsCacheLocked(svc, backendsCopy)
 	if err != nil {
