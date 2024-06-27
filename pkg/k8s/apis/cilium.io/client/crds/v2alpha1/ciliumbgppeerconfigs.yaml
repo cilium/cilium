@@ -221,9 +221,11 @@ spec:
                   used."
                 properties:
                   localPort:
-                    default: 179
-                    description: "LocalPort is the local port to be used for the BGP
-                      session. \n If not specified, defaults to TCP port 179."
+                    description: "Deprecated LocalPort is the local port to be used
+                      for the BGP session. \n If not specified, ephemeral port will
+                      be picked to initiate a connection. \n This field is deprecated
+                      and will be removed in a future release. Local port configuration
+                      is unnecessary and is not recommended."
                     format: int32
                     maximum: 65535
                     minimum: 1
