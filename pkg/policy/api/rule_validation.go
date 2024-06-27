@@ -528,10 +528,20 @@ func (c CIDR) sanitize() error {
 // valid, and ensuring that all of the exception CIDR prefixes are contained
 // within the allowed CIDR prefix.
 func (c *CIDRRule) sanitize() error {
-	if c.CIDRGroupRef != "" {
-		// When a CIDRGroupRef is set, we don't need to validate the CIDR
-		return nil
+
+	// Either CIDRGroupRef or Cidr is allowed
+	if len(c.CIDRGroupRef) == 0 && len(c.Cidr) == 0 {
+		return fmt.Errorf("either cidrGroupRef or cidr are required")
 	}
+
+	if len(c.CIDRGroupRef) > 0 && len(c.Cidr) > 0 {
+		return fmt.Errorf("both cidrGroupRef and cidr may not be set")
+	}
+
+	if len(c.CIDRGroupRef) > 0 {
+		return nil // this is just a name
+	}
+
 	// Only allow notation <IP address>/<prefix>. Note that this differs from
 	// the logic in api.CIDR.Sanitize().
 	prefix, err := netip.ParsePrefix(string(c.Cidr))
