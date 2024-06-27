@@ -238,7 +238,7 @@ jobs:
         id: default_vars
         uses: ./.github/actions/helm-default
         with:
-          image-tag: ${{ inputs.SHA }}
+          image-tag: af4ebb7b3e5247bb4466865d719978df0e1d3127
           chart-dir: ./untrusted/install/kubernetes/cilium
 
       - name: Set up job variables for GHA environment
@@ -599,7 +599,7 @@ jobs:
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
       - name: Post-test information gathering
-        if: ${{ !success() && steps.install-cilium-cluster1.outcome != 'skipped' }}
+        if: ${{ always() }}
         run: |
           cilium --context ${{ env.contextName1 }} status
           cilium --context ${{ env.contextName1 }} clustermesh status
