@@ -91,8 +91,7 @@ func init() {
 					UpdateObjectsFromFile(abs("init.yaml")).
 					SetupEnvironment().
 					StartAgent(modConfig).
-					EnsureWatchers("nodes").
-					ClearEnvironment()
+					EnsureWatchers("nodes")
 
 				// Run through the test steps
 				for _, step := range steps {
@@ -100,7 +99,8 @@ func init() {
 					test.Eventually(func() error { return validateLabels(test, step.expectedLabels) })
 				}
 
-				test.StopAgent()
+				test.StopAgent().
+					ClearEnvironment()
 			})
 		}
 	})
