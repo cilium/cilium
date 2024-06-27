@@ -2295,6 +2295,14 @@
         "externalTrafficPolicy": {
           "type": "string"
         },
+        "gatewayClass": {
+          "properties": {
+            "create": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "hostNetwork": {
           "properties": {
             "enabled": {

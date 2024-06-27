@@ -1,5 +1,5 @@
 {{- if .Values.gatewayAPI.enabled -}}
-{{- if .Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1/GatewayClass" }}
+{{- if ( or (eq (.Values.gatewayAPI.gatewayClass.create | toString) "true") (and (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1/GatewayClass") (eq (.Values.gatewayAPI.gatewayClass.create | toString) "auto"))) }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
