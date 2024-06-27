@@ -40,6 +40,7 @@ import (
 	confv1 "sigs.k8s.io/gateway-api/conformance/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/config"
 	"sigs.k8s.io/gateway-api/conformance/utils/flags"
+	"sigs.k8s.io/gateway-api/conformance/utils/grpc"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/roundtripper"
 	"sigs.k8s.io/gateway-api/conformance/utils/tlog"
@@ -59,6 +60,7 @@ type ConformanceTestSuite struct {
 	RESTClient               *rest.RESTClient
 	RestConfig               *rest.Config
 	RoundTripper             roundtripper.RoundTripper
+	GRPCClient               grpc.Client
 	GatewayClassName         string
 	ControllerName           string
 	Debug                    bool
@@ -125,6 +127,7 @@ type ConformanceOptions struct {
 	GatewayClassName     string
 	Debug                bool
 	RoundTripper         roundtripper.RoundTripper
+	GRPCClient           grpc.Client
 	BaseManifests        string
 	MeshManifests        string
 	NamespaceLabels      map[string]string
@@ -189,6 +192,8 @@ func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite,
 		roundTripper = &roundtripper.DefaultRoundTripper{Debug: options.Debug, TimeoutConfig: options.TimeoutConfig}
 	}
 
+	grpcClient := options.GRPCClient
+
 	installedCRDs := &apiextensionsv1.CustomResourceDefinitionList{}
 	err := options.Client.List(context.TODO(), installedCRDs)
 	if err != nil {
@@ -229,6 +234,7 @@ func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite,
 		Clientset:        options.Clientset,
 		RestConfig:       options.RestConfig,
 		RoundTripper:     roundTripper,
+		GRPCClient:       grpcClient,
 		GatewayClassName: options.GatewayClassName,
 		Debug:            options.Debug,
 		Cleanup:          options.CleanupBaseResources,
@@ -449,7 +455,7 @@ func (suite *ConformanceTestSuite) Report() (*confv1.ConformanceReport, error) {
 
 	return &confv1.ConformanceReport{
 		TypeMeta: v1.TypeMeta{
-			APIVersion: "gateway.networking.k8s.io/v1alpha1",
+			APIVersion: confv1.GroupVersion.String(),
 			Kind:       "ConformanceReport",
 		},
 		Date:              time.Now().Format(time.RFC3339),

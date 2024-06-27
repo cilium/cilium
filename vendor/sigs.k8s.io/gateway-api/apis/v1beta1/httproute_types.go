@@ -111,7 +111,7 @@ type HeaderMatchType = v1.HeaderMatchType
 //
 // * "/invalid" - "/" is an invalid character
 // +k8s:deepcopy-gen=false
-type HTTPHeaderName = v1.HeaderName
+type HTTPHeaderName = v1.HTTPHeaderName
 
 // HTTPHeaderMatch describes how to select a HTTP route by matching HTTP request
 // headers.
