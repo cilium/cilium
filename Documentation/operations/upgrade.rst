@@ -345,7 +345,7 @@ Annotations:
 * Local Redirect Policy, when enabled with socket-based load-balancing, redirects traffic
   from policy-selected node-local backends destined to the policy's frontend, back to the
   node-local backends. To override this behavior, which is enabled by default, create
-  local redirect policies with the ``skipRedirectFromBackend`` flag set to ``false``.
+  local redirect policies with the ``skipRedirectFromBackend`` flag set to ``true``.
 * Detection and reconfiguration on changes to native network devices and their addresses is now
   the default. Cilium will now load the native device BPF program onto devices that appear after
   Cilium has started. NodePort services are now available on addresses assigned after Cilium has
