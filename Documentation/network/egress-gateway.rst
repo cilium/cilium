@@ -480,3 +480,9 @@ will be the ``egressIP`` from the policy, if specified).
 If the egress list shown does not contain entries as expected to match your
 policy, check that the pod(s) and egress node are labeled correctly to match
 the policy selectors.
+
+Troubleshooting SNAT Connection Limits
+--------------------------------------
+
+For more advanced troubleshooting topics please see advanced egress gateway troubleshooting topic for :ref:`SNAT connection limits<snat_connection_limits>`.
+
