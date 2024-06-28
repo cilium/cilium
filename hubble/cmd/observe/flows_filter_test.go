@@ -1056,21 +1056,17 @@ func TestCluster(t *testing.T) {
 			name:  "Single cluster filter",
 			flags: []string{"--cluster", "foo"},
 			filters: []*flowpb.FlowFilter{
-				{NodeName: []string{"foo/"}},
+				{SourceClusterName: []string{"foo"}},
+				{DestinationClusterName: []string{"foo"}},
 			},
 		},
 		{
 			name:  "Multiple cluster filter",
 			flags: []string{"--cluster", "foo", "--cluster", "bar"},
 			filters: []*flowpb.FlowFilter{
-				{NodeName: []string{"foo/", "bar/"}},
+				{SourceClusterName: []string{"foo", "bar"}},
+				{DestinationClusterName: []string{"foo", "bar"}},
 			},
-		},
-		{
-			name:    "Cluster and node-name conflict",
-			flags:   []string{"--cluster", "foo", "--node-name", "baz"},
-			filters: []*flowpb.FlowFilter{},
-			err:     `invalid argument "baz" for "--node-name" flag: filters --node-name and --cluster cannot be combined`,
 		},
 		{
 			name:  "Source cluster filter",
