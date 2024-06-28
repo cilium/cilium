@@ -162,6 +162,33 @@ func (p *EndpointPolicy) Detach() {
 	p.selectorPolicy.removeUser(p)
 }
 
+// NewMapStateWithInsert returns a new MapState and an insert function that can be used to populate
+// it. We keep general insert functions private so that the caller can only insert to this specific
+// map.
+func NewMapStateWithInsert() (MapState, func(k Key, e MapStateEntry)) {
+	currentMap := NewMapState(nil)
+
+	return currentMap, func(k Key, e MapStateEntry) {
+		currentMap.insert(k, e)
+	}
+}
+
+func (p *EndpointPolicy) InsertMapState(key Key, entry MapStateEntry) {
+	p.policyMapState.insert(key, entry)
+}
+
+func (p *EndpointPolicy) DeleteMapState(key Key) {
+	p.policyMapState.delete(key)
+}
+
+func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
+	p.policyMapState.revertChanges(changes)
+}
+
+func (p *EndpointPolicy) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMeta *VisibilityMetadata, changes ChangeState) {
+	p.policyMapState.addVisibilityKeys(e, redirectPort, visMeta, changes)
+}
+
 // toMapState transforms the EndpointPolicy.L4Policy into
 // the datapath-friendly format inside EndpointPolicy.PolicyMapState.
 // Called with selectorcache locked for reading.
