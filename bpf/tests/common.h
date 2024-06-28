@@ -15,6 +15,8 @@
  */
 #define BPF_TEST
 
+/* clang-format off */
+
 #ifndef ___bpf_concat
 #define ___bpf_concat(a, b) a ## b
 #endif

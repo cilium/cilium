@@ -2021,6 +2021,8 @@ __wsum icmp_wsum_accumulate(void *data_start, void *data_end, int sample_len)
 	 */
 	__wsum wsum = 0;
 
+	/* clang-format off */
+
 	#define body(i) if ((i) > sample_len) \
 		return wsum; \
 	if (data_start + (i) + sizeof(__u16) > data_end) { \
@@ -2044,6 +2046,8 @@ __wsum icmp_wsum_accumulate(void *data_start, void *data_end, int sample_len)
 		body16(i + 32) \
 		body16(i + 64) \
 		body16(i + 96)
+
+	/* clang-format off */
 
 	body128(0)
 	body128(256)

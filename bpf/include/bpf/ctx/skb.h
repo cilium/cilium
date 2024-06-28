@@ -61,6 +61,8 @@
 #define get_hash(ctx)		ctx->hash
 #define get_hash_recalc(ctx)	get_hash(ctx)
 
+/* clang-format off */
+
 #define DEFINE_FUNC_CTX_POINTER(FIELD)						\
 static __always_inline void *							\
 ctx_ ## FIELD(const struct __sk_buff *ctx)					\
@@ -76,6 +78,9 @@ ctx_ ## FIELD(const struct __sk_buff *ctx)					\
 		     : "r"(ctx), "i"(offsetof(struct __sk_buff, FIELD)));	\
 	return ptr;								\
 }
+
+/* clang-format on */
+
 /* This defines ctx_data(). */
 DEFINE_FUNC_CTX_POINTER(data)
 /* This defines ctx_data_end(). */

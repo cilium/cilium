@@ -387,6 +387,8 @@ ct_lookup_select_tuple_type(enum ct_dir dir, enum ct_scope scope)
 	}
 }
 
+/* clang-format off */
+
 /* The function determines whether an egress flow identified by the given
  * tuple is a reply.
  *
@@ -413,6 +415,8 @@ ct_is_reply ## FAMILY(const void *map,						\
 										\
 	return is_reply;							\
 }
+
+/* clang-format on */
 
 static __always_inline int
 ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple)

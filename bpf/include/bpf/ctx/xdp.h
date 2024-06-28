@@ -114,6 +114,8 @@ xdp_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
 #define get_hash(ctx)			({ 0; })
 #define get_hash_recalc(ctx)		get_hash(ctx)
 
+/* clang-format off */
+
 #define DEFINE_FUNC_CTX_POINTER(FIELD)						\
 static __always_inline void *							\
 ctx_ ## FIELD(const struct xdp_md *ctx)						\
@@ -129,6 +131,9 @@ ctx_ ## FIELD(const struct xdp_md *ctx)						\
 		     : "r"(ctx), "i"(offsetof(struct xdp_md, FIELD)));		\
 	return ptr;								\
 }
+
+/* clang-format on */
+
 /* This defines ctx_data(). */
 DEFINE_FUNC_CTX_POINTER(data)
 /* This defines ctx_data_end(). */

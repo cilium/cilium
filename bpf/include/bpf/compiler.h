@@ -5,6 +5,8 @@
 
 # include "stddef.h"
 
+/* clang-format off */
+
 #ifndef __section
 # define __section(X)		__attribute__((section(X), used))
 #endif
@@ -75,6 +77,8 @@
 #ifndef barrier_data
 # define barrier_data(ptr)	asm volatile("": :"r"(ptr) :"memory")
 #endif
+
+/* clang-format on */
 
 static __always_inline void bpf_barrier(void)
 {

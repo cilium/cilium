@@ -263,6 +263,8 @@ static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
 }
 #endif /* ENABLE_IPV4 || ENABLE_IPV6 */
 
+/* clang-format off */
+
 #define TAIL_CT_LOOKUP4(ID, NAME, DIR, CONDITION, TARGET_ID, TARGET_NAME)	\
 __section_tail(CILIUM_MAP_CALLS, ID)						\
 static __always_inline								\
@@ -355,6 +357,8 @@ int NAME(struct __ctx_buff *ctx)						\
 										\
 	return ret;								\
 }
+
+/* clang-format on */
 
 #ifdef ENABLE_CUSTOM_CALLS
 /* Encode return value and identity into cb buffer. This is used before

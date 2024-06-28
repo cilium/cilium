@@ -8,6 +8,8 @@
 
 #include "endian.h"
 
+/* clang-format off */
+
 /* Declare a global configuration variable that can be modified at runtime,
  * without needing to recompile the datapath. Access the variable using the
  * CONFIG() macro.
@@ -74,6 +76,8 @@
 	asm volatile("%[out] = __config_" #name " ll" : [out]"=r"(out)); \
 	(typeof(__config_##name))out; \
 })
+
+/* clang-format on */
 
 /* Deprecated, use CONFIG instead. */
 #define fetch_u16(x) CONFIG(x)

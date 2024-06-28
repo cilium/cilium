@@ -7,6 +7,8 @@
 
 #if defined(__bpf__)
 
+/* clang-format off */
+
 /* Don't gamble, but _guarantee_ that LLVM won't optimize setting
  * r2 and r3 from different paths ending up at the same call insn as
  * otherwise we won't be able to use the jmpq/nopl retpoline-free
@@ -33,6 +35,8 @@
 		:: [ctx]"r"(ctx_ptr), [slot_idx]"i"(slot)	\
 		: "r0", "r1", "r2", "r3", "r4", "r5");		\
 }
+
+/* clang-format on */
 
 static __always_inline __maybe_unused void
 tail_call_dynamic(struct __ctx_buff *ctx, const void *map, __u32 slot)

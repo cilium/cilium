@@ -94,6 +94,8 @@ combine_ports(__u16 dport, __u16 sport)
 	return (bpf_ntohs(dport) << 16) | bpf_ntohs(sport);
 }
 
+/* clang-format off */
+
 #define CTX_REDIRECT_FN(NAME, CT_TUPLE_TYPE, SK_FIELD,				\
 			DBG_LOOKUP_CODE, DADDR_DBG, SADDR_DBG)			\
 /**										\
@@ -155,6 +157,8 @@ NAME(struct __ctx_buff *ctx, const CT_TUPLE_TYPE * ct_tuple,			\
 out:										\
 	return result;								\
 }
+
+/* clang-format on */
 
 #ifdef ENABLE_IPV4
 CTX_REDIRECT_FN(ctx_redirect_to_proxy_ingress4, struct ipv4_ct_tuple, ipv4,
@@ -254,6 +258,8 @@ ctx_redirect_to_proxy6(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 }
 #endif /* ENABLE_IPV6 */
 
+/* clang-format off */
+
 #ifdef ENABLE_TPROXY
 #define IP_TUPLE_EXTRACT_FN(NAME, PREFIX)				\
 /**									\
@@ -277,6 +283,8 @@ NAME(struct __ctx_buff *ctx, struct PREFIX ## _ct_tuple *tuple)		\
 									\
 	return CTX_ACT_OK;						\
 }
+
+/* clang-format off */
 
 #ifdef ENABLE_IPV4
 IP_TUPLE_EXTRACT_FN(extract_tuple4, ipv4)

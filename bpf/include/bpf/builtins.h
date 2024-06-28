@@ -41,6 +41,8 @@ __bpf_memset_builtin(void *d, __u8 c, __u64 len)
 	__builtin_memset(d, c, len);
 }
 
+/* clang-format off */
+
 static __always_inline void __bpf_memzero(void *d, __u64 len)
 {
 #if __clang_major__ >= 10
@@ -127,6 +129,8 @@ static __always_inline void __bpf_memzero(void *d, __u64 len)
 #endif
 }
 
+/* clang-format on */
+
 static __always_inline __maybe_unused void
 __bpf_no_builtin_memset(void *d __maybe_unused, __u8 c __maybe_unused,
 			__u64 len __maybe_unused)
@@ -152,6 +156,8 @@ __bpf_memcpy_builtin(void *d, const void *s, __u64 len)
 	/* Explicit opt-in for __builtin_memcpy(). */
 	__builtin_memcpy(d, s, len);
 }
+
+/* clang-format off */
 
 static __always_inline void __bpf_memcpy(void *d, const void *s, __u64 len)
 {
@@ -240,6 +246,8 @@ static __always_inline void __bpf_memcpy(void *d, const void *s, __u64 len)
 #endif
 }
 
+/* clang-format on */
+
 static __always_inline __maybe_unused void
 __bpf_no_builtin_memcpy(void *d __maybe_unused, const void *s __maybe_unused,
 			__u64 len __maybe_unused)
@@ -270,6 +278,8 @@ __bpf_memcmp_builtin(const void *x, const void *y, __u64 len)
 	 */
 	return __builtin_bcmp(x, y, len);
 }
+
+/* clang-format off */
 
 static __always_inline __u64 __bpf_memcmp(const void *x, const void *y,
 					  __u64 len)
@@ -346,6 +356,8 @@ static __always_inline __u64 __bpf_memcmp(const void *x, const void *y,
 #endif
 }
 
+/* clang-format on */
+
 static __always_inline __maybe_unused __u64
 __bpf_no_builtin_memcmp(const void *x __maybe_unused,
 			const void *y __maybe_unused, __u64 len __maybe_unused)
@@ -379,6 +391,8 @@ static __always_inline void __bpf_memmove_bwd(void *d, const void *s, __u64 len)
 	/* Our internal memcpy implementation walks backwards by default. */
 	__bpf_memcpy(d, s, len);
 }
+
+/* clang-format off */
 
 static __always_inline void __bpf_memmove_fwd(void *d, const void *s, __u64 len)
 {
@@ -458,6 +472,8 @@ static __always_inline void __bpf_memmove_fwd(void *d, const void *s, __u64 len)
 	__bpf_memmove_builtin(d, s, len);
 #endif
 }
+
+/* clang-format on */
 
 static __always_inline __maybe_unused void
 __bpf_no_builtin_memmove(void *d __maybe_unused, const void *s __maybe_unused,

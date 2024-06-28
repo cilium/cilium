@@ -7,7 +7,9 @@
 #define NULL ((void *)0)
 #endif
 
+/* clang-format off */
 #define bool	_Bool
+/* clang-format on */
 
 enum {
 	false	= 0,
