@@ -1617,8 +1617,8 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 		switch l4.Protocol {
 		case api.ProtoTCP:
 			protocol = envoy_config_core.SocketAddress_TCP
-		case api.ProtoUDP, api.ProtoSCTP:
-			// UDP/SCTP rules not sent to Envoy for now.
+		default:
+			// Other protocol rules not sent to Envoy for now.
 			return true
 		}
 
