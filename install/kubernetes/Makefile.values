@@ -30,11 +30,10 @@ export CERTGEN_REPO:=quay.io/cilium/certgen
 export CERTGEN_VERSION:=v0.2.0
 export CERTGEN_DIGEST:=sha256:169d93fd8f2f9009db3b9d5ccd37c2b753d0989e1e7cd8fe79f9160c459eef4f
 
-export CILIUM_NODEINIT_REPO:=quay.io/cilium/startup-script
+export CILIUM_NODEINIT_REPO:=docker.io/learnitall/startup-script
 # renovate: datasource=docker depName=quay.io/cilium/startup-script
-export CILIUM_NODEINIT_VERSION:=19fb149fb3d5c7a37d3edfaf10a2be3ab7386661
-export CILIUM_NODEINIT_DIGEST:=sha256:820155cb3b7f00c8d61c1cffa68c44440906cb046bdbad8ff544f5deb1103456
-
+export CILIUM_NODEINIT_VERSION:=b74a31086dd8d9fc907bcc69cab0328ab3e52318
+export CILIUM_NODEINIT_DIGEST:=sha256:b6de2aff89726192b59507ce2da25db7961a7a4a9c8591d8b920234dd2aa8052
 export CILIUM_ENVOY_REPO:=quay.io/cilium/cilium-envoy
 export CILIUM_ENVOY_VERSION:=v1.29.6-1d6c2a79b0ff543bed0538ed2f9e236ef0d307af
 export CILIUM_ENVOY_DIGEST:=sha256:fb3c4ee29e3db638156ed69e88731f598738ca60f5fda007450d02bb4aea0d6b
