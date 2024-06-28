@@ -577,6 +577,10 @@ var (
 	// processed (successful and failed) requests
 	APILimiterProcessedRequests = NoOpCounterVec
 
+	// ConfigSettingsMismatch tracks the deltas between agent config and cilium configmap.
+	// > 0 indicates a config mismatch
+	ConfigSettingsMismatch = NoOpGaugeVec
+
 	// WorkQueueDepth is the depth of the workqueue
 	//
 	// We set actual metrics here instead of NoOp for the workqueue metrics
@@ -734,6 +738,7 @@ type LegacyMetrics struct {
 	WorkQueueUnfinishedWork          metric.Vec[metric.Gauge]
 	WorkQueueLongestRunningProcessor metric.Vec[metric.Gauge]
 	WorkQueueRetries                 metric.Vec[metric.Counter]
+	ConfigSettingsMismatch           metric.Vec[metric.Gauge]
 }
 
 func NewLegacyMetrics() *LegacyMetrics {
@@ -745,6 +750,14 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:       "bootstrap_seconds",
 			Help:       "Duration of bootstrap sequence",
 		}, []string{LabelScope, LabelOutcome}),
+
+		ConfigSettingsMismatch: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_" + SubsystemAgent + "_config_settings_mismatch_deltas",
+			Namespace:  Namespace,
+			Subsystem:  SubsystemAgent,
+			Name:       "config_settings_mismatch_deltas",
+			Help:       "Total number of deltas found between configmap and agent settings.",
+		}, []string{"checksum"}),
 
 		APIInteractions: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: Namespace + "_" + SubsystemAgent + "_api_process_time_seconds",
@@ -1448,6 +1461,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	APILimiterRateLimit = lm.APILimiterRateLimit
 	APILimiterAdjustmentFactor = lm.APILimiterAdjustmentFactor
 	APILimiterProcessedRequests = lm.APILimiterProcessedRequests
+	ConfigSettingsMismatch = lm.ConfigSettingsMismatch
 
 	return lm
 }
