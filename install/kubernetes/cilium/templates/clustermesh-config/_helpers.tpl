@@ -3,7 +3,11 @@
 {{- $domain := index . 1 -}}
 {{- $override := index . 2 -}}
 {{- /* The parenthesis around $cluster.tls are required, since it can be null: https://stackoverflow.com/a/68807258 */}}
-{{- $prefix := ternary "common-" (printf "%s." $cluster.name) (or (ne $override "") (empty ($cluster.tls).cert) (empty ($cluster.tls).key)) -}}
+{{- $prefix := ternary "common-" (printf "%s." $cluster.name) (or (empty ($cluster.tls).cert) (empty ($cluster.tls).key)) -}}
+{{- /* KVStoreMesh is enabled */}}
+{{- if ne $override "" -}}
+{{- $prefix = "local-" -}}
+{{- end -}}
 
 endpoints:
 {{- if ne $override "" }}
@@ -13,7 +17,7 @@ endpoints:
 {{- else }}
 - https://{{ $cluster.address | required "missing clustermesh.apiserver.config.clusters.address" }}:{{ $cluster.port }}
 {{- end }}
-{{- if not (empty ($cluster.tls).caCert) }}
+{{- if or (ne $override "") (not (empty ($cluster.tls).caCert)) }}
 {{- /* The custom CA configuration takes effect only if a custom certificate and key are also set */}}
 trusted-ca-file: /var/lib/cilium/clustermesh/{{ $prefix }}etcd-client-ca.crt
 {{- else }}
