@@ -372,6 +372,17 @@ Deprecated Metrics
 * ``cilium_node_connectivity_status`` is now deprecated. Please use ``cilium_node_health_connectivity_status`` instead.
 * ``cilium_node_connectivity_latency_seconds`` is now deprecated. Please use ``cilium_node_health_connectivity_latency_seconds`` instead.
 
+Hubble CLI
+~~~~~~~~~~
+
+* the ``--cluster`` behavior changed to show flows emitted from nodes outside of
+  the provided cluster name (either coming from or going to the target cluster).
+  This change brings consistency between the ``--cluster`` and ``--namespace``
+  flags and removed the incompatibility between the ``--cluster`` and
+  ``--node-name`` flags. The previous behavior of ``--cluster foo`` can be
+  reproduced with ``--node-name foo/`` (shows all flows emitted from a node in
+  cluster ``foo``).
+
 Advanced
 ========
 
