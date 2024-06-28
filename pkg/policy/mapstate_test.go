@@ -187,8 +187,12 @@ func (ms *mapState) validatePortProto(t *testing.T) {
 }
 
 func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
+	identityCache := identity.IdentityMap{
+		identity.NumericIdentity(identityFoo): labelsFoo,
+	}
+	selectorCache := testNewSelectorCache(identityCache)
 	testMapState := func(initMap map[Key]MapStateEntry) *mapState {
-		return newMapState().withState(initMap)
+		return newMapState().withState(initMap, selectorCache)
 	}
 
 	type args struct {
@@ -2289,7 +2293,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		// copy the starting point
 		ms := testMapState(make(map[Key]MapStateEntry, tt.ms.Len()))
 		tt.ms.ForEach(func(k Key, v MapStateEntry) bool {
-			ms.insert(k, v)
+			ms.insert(k, v, selectorCache)
 			return true
 		})
 
@@ -2301,7 +2305,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		require.EqualValuesf(t, tt.wantOld, changes.Old, "%s: OldValues mismatch allows", tt.name)
 
 		// Revert changes and check that we get the original mapstate
-		ms.revertChanges(changes)
+		ms.revertChanges(nil, changes)
 		require.Truef(t, ms.Equals(tt.ms), "%s: MapState mismatch:\n%s", tt.name, ms.Diff(tt.ms))
 	}
 }
@@ -2394,8 +2398,12 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 	csFoo := newTestCachedSelector("Foo", false)
 	csBar := newTestCachedSelector("Bar", false)
 
+	identityCache := identity.IdentityMap{
+		identity.NumericIdentity(identityFoo): labelsFoo,
+	}
+	selectorCache := testNewSelectorCache(identityCache)
 	testMapState := func(initMap map[Key]MapStateEntry) *mapState {
-		return newMapState().withState(initMap)
+		return newMapState().withState(initMap, selectorCache)
 	}
 
 	type args struct {
@@ -2731,7 +2739,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, denyRules, nil)
+		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, selectorCache, denyRules)
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equals(tt.state), "%s (MapState):\n%s", tt.name, policyMapState.Diff(tt.state))
 		require.EqualValues(t, tt.adds, adds, tt.name+" (adds)")
@@ -2743,8 +2751,12 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 	csFoo := newTestCachedSelector("Foo", false)
 	csBar := newTestCachedSelector("Bar", false)
 
+	identityCache := identity.IdentityMap{
+		identity.NumericIdentity(identityFoo): labelsFoo,
+	}
+	selectorCache := testNewSelectorCache(identityCache)
 	testMapState := func(initMap map[Key]MapStateEntry) *mapState {
-		return newMapState().withState(initMap)
+		return newMapState().withState(initMap, selectorCache)
 	}
 
 	type args struct {
@@ -2960,7 +2972,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, x.hasAuth, x.authType)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, policyFeatures(0), nil)
+		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, nil, policyFeatures(0))
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equals(tt.state), tt.name+"%s (MapState):\n%s", policyMapState.Diff(tt.state))
 		require.EqualValues(t, tt.adds, adds, tt.name+" (adds)")
@@ -2976,8 +2988,12 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 	csFoo := newTestCachedSelector("Foo", false)
 	csBar := newTestCachedSelector("Bar", false)
 
+	identityCache := identity.IdentityMap{
+		identity.NumericIdentity(identityFoo): labelsFoo,
+	}
+	selectorCache := testNewSelectorCache(identityCache)
 	testMapState := func(initMap map[Key]MapStateEntry) *mapState {
-		return newMapState().withState(initMap)
+		return newMapState().withState(initMap, selectorCache)
 	}
 
 	type args struct {
@@ -3140,7 +3156,7 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 			Adds: make(Keys),
 			Old:  make(map[Key]MapStateEntry),
 		}
-		tt.ms.addVisibilityKeys(DummyOwner{}, tt.args.redirectPort, &tt.args.visMeta, changes)
+		tt.ms.addVisibilityKeys(DummyOwner{}, tt.args.redirectPort, &tt.args.visMeta, selectorCache, changes)
 		tt.ms.validatePortProto(t)
 		require.True(t, tt.ms.Equals(tt.want), "%s:\n%s", tt.name, tt.ms.Diff(tt.want))
 		// Find new and updated entries
@@ -3174,8 +3190,12 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 	csFoo := newTestCachedSelector("Foo", false)
 	csBar := newTestCachedSelector("Bar", false)
 
+	identityCache := identity.IdentityMap{
+		identity.NumericIdentity(identityFoo): labelsFoo,
+	}
+	selectorCache := testNewSelectorCache(identityCache)
 	testMapState := func(initMap map[Key]MapStateEntry) *mapState {
-		return newMapState().withState(initMap)
+		return newMapState().withState(initMap, selectorCache)
 	}
 
 	type args struct {
@@ -3511,7 +3531,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			Old:     make(map[Key]MapStateEntry),
 		}
 		for _, arg := range tt.visArgs {
-			policyMapState.addVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, changes)
+			policyMapState.addVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, selectorCache, changes)
 		}
 		require.EqualValues(t, tt.visAdds, changes.Adds, tt.name+" (visAdds)")
 		require.EqualValues(t, tt.visOld, changes.Old, tt.name+" (visOld)")
@@ -3539,7 +3559,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, denyRules, nil)
+		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, nil, denyRules)
 		changes = ChangeState{
 			Adds:    adds,
 			Deletes: deletes,
@@ -3548,7 +3568,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 
 		// Visibilty redirects need to be re-applied after consumeMapChanges()
 		for _, arg := range tt.visArgs {
-			policyMapState.addVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, changes)
+			policyMapState.addVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, selectorCache, changes)
 		}
 		for k := range changes.Old {
 			changes.Deletes[k] = struct{}{}
@@ -3643,16 +3663,16 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		expectedKeys := newMapState()
 		if tt.outcome&insertA > 0 {
 			if tt.aIsDeny {
-				expectedKeys.denies.upsert(aKey, aEntry)
+				expectedKeys.denies.upsert(aKey, aEntry, selectorCache)
 			} else {
-				expectedKeys.allows.upsert(aKey, aEntry)
+				expectedKeys.allows.upsert(aKey, aEntry, selectorCache)
 			}
 		}
 		if tt.outcome&insertB > 0 {
 			if tt.bIsDeny {
-				expectedKeys.denies.upsert(bKey, bEntry)
+				expectedKeys.denies.upsert(bKey, bEntry, selectorCache)
 			} else {
-				expectedKeys.allows.upsert(bKey, bEntry)
+				expectedKeys.allows.upsert(bKey, bEntry, selectorCache)
 			}
 		}
 		if tt.outcome&insertAWithBProto > 0 {
@@ -3661,11 +3681,11 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			aEntryCpy.owners = map[MapStateOwner]struct{}{aKey: {}}
 			aEntry.AddDependent(aKeyWithBProto)
 			if tt.aIsDeny {
-				expectedKeys.denies.upsert(aKey, aEntry)
-				expectedKeys.denies.upsert(aKeyWithBProto, aEntryCpy)
+				expectedKeys.denies.upsert(aKey, aEntry, selectorCache)
+				expectedKeys.denies.upsert(aKeyWithBProto, aEntryCpy, selectorCache)
 			} else {
-				expectedKeys.allows.upsert(aKey, aEntry)
-				expectedKeys.allows.upsert(aKeyWithBProto, aEntryCpy)
+				expectedKeys.allows.upsert(aKey, aEntry, selectorCache)
+				expectedKeys.allows.upsert(aKeyWithBProto, aEntryCpy, selectorCache)
 			}
 		}
 		if tt.outcome&insertBWithAProto > 0 {
@@ -3674,11 +3694,11 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			bEntryCpy.owners = map[MapStateOwner]struct{}{bKey: {}}
 			bEntry.AddDependent(bKeyWithBProto)
 			if tt.bIsDeny {
-				expectedKeys.denies.upsert(bKey, bEntry)
-				expectedKeys.denies.upsert(bKeyWithBProto, bEntryCpy)
+				expectedKeys.denies.upsert(bKey, bEntry, selectorCache)
+				expectedKeys.denies.upsert(bKeyWithBProto, bEntryCpy, selectorCache)
 			} else {
-				expectedKeys.allows.upsert(bKey, bEntry)
-				expectedKeys.allows.upsert(bKeyWithBProto, bEntryCpy)
+				expectedKeys.allows.upsert(bKey, bEntry, selectorCache)
+				expectedKeys.allows.upsert(bKeyWithBProto, bEntryCpy, selectorCache)
 			}
 		}
 		outcomeKeys := newMapState()
@@ -3697,14 +3717,14 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}
 		expectedKeys := newMapState()
 		if tt.aIsDeny {
-			expectedKeys.denies.upsert(aKey, aEntry)
+			expectedKeys.denies.upsert(aKey, aEntry, selectorCache)
 		} else {
-			expectedKeys.allows.upsert(aKey, aEntry)
+			expectedKeys.allows.upsert(aKey, aEntry, selectorCache)
 		}
 		if tt.bIsDeny {
-			expectedKeys.denies.upsert(bKey, bEntry)
+			expectedKeys.denies.upsert(bKey, bEntry, selectorCache)
 		} else {
-			expectedKeys.allows.upsert(bKey, bEntry)
+			expectedKeys.allows.upsert(bKey, bEntry, selectorCache)
 		}
 		outcomeKeys := newMapState()
 		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)

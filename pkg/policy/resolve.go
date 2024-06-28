@@ -169,24 +169,28 @@ func NewMapStateWithInsert() (MapState, func(k Key, e MapStateEntry)) {
 	currentMap := NewMapState()
 
 	return currentMap, func(k Key, e MapStateEntry) {
-		currentMap.insert(k, e)
+		currentMap.insert(k, e, nil)
 	}
 }
 
 func (p *EndpointPolicy) InsertMapState(key Key, entry MapStateEntry) {
-	p.policyMapState.insert(key, entry)
+	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
+	p.policyMapState.insert(key, entry, p.SelectorCache)
 }
 
 func (p *EndpointPolicy) DeleteMapState(key Key) {
-	p.policyMapState.delete(key)
+	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
+	p.policyMapState.delete(key, p.SelectorCache)
 }
 
 func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
-	p.policyMapState.revertChanges(changes)
+	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
+	p.policyMapState.revertChanges(p.SelectorCache, changes)
 }
 
 func (p *EndpointPolicy) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMeta *VisibilityMetadata, changes ChangeState) {
-	p.policyMapState.addVisibilityKeys(e, redirectPort, visMeta, changes)
+	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
+	p.policyMapState.addVisibilityKeys(e, redirectPort, visMeta, p.SelectorCache, changes)
 }
 
 // toMapState transforms the EndpointPolicy.L4Policy into
@@ -255,7 +259,7 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedir
 // PolicyOwner (aka Endpoint) is locked during this call.
 func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
 	features := p.selectorPolicy.L4Policy.Ingress.features | p.selectorPolicy.L4Policy.Egress.features
-	return p.policyMapChanges.consumeMapChanges(p.PolicyOwner, p.policyMapState, features, p.SelectorCache)
+	return p.policyMapChanges.consumeMapChanges(p.PolicyOwner, p.policyMapState, p.SelectorCache, features)
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
