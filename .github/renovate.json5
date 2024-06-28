@@ -64,6 +64,7 @@
   "pruneStaleBranches": true,
   "baseBranches": [
     "main",
+    "v1.16",
     "v1.15",
     "v1.14",
     "v1.13"
@@ -180,6 +181,7 @@
       ],
       matchBaseBranches: [
         "main",
+        "v1.16",
         "v1.15",
         "v1.14",
         "v1.13"
@@ -195,6 +197,7 @@
         "go.sum"
       ],
       matchBaseBranches: [
+        "v1.16",
         "v1.15",
         "v1.14",
         "v1.13"
@@ -280,6 +283,7 @@
       "allowedVersions": "22.04",
       "matchBaseBranches": [
         "main",
+        "v1.16",
         "v1.15",
         "v1.14",
         "v1.13"
@@ -292,6 +296,7 @@
       ],
       "allowedVersions": "<1.22",
       "matchBaseBranches": [
+        "v1.16",
         "v1.15"
       ]
     },
@@ -312,6 +317,7 @@
       ],
       "allowedVersions": "<3.20",
       "matchBaseBranches": [
+        "v1.16",
         "v1.15"
       ]
     },
@@ -339,6 +345,7 @@
       ],
       "allowedVersions": "<0.2.0",
       "matchBaseBranches": [
+        "v1.16",
         "v1.15",
         "v1.14",
         "v1.13"
@@ -359,6 +366,7 @@
       ],
       "matchBaseBranches": [
         "main",
+        "v1.16",
         "v1.15",
         "v1.14"
       ]
@@ -410,6 +418,7 @@
         "golangci/golangci-lint"
       ],
       "matchBaseBranches": [
+        "v1.16",
         "v1.15",
         "v1.14",
         "v1.13"
@@ -432,6 +441,7 @@
       ],
       "allowedVersions": "!/bpf-next-.*/",
       "matchBaseBranches": [
+        "v1.16",
         "v1.15",
         "v1.14",
         "v1.13"
