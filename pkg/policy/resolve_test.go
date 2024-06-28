@@ -550,7 +550,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 		policyMapState: newMapState().withState(map[Key]MapStateEntry{
 			{TrafficDirection: trafficdirection.Egress.Uint8(), InvertedPortMask: 0xffff}: allowEgressMapStateEntry,
 			{DestPort: 80, Nexthdr: 6}: rule1MapStateEntry,
-		}),
+		}, td.sc),
 	}
 
 	// Add new identity to test accumulation of MapChanges
@@ -723,7 +723,7 @@ func TestMapStateWithIngress(t *testing.T) {
 			{Identity: uint32(identity.ReservedIdentityWorldIPv6), DestPort: 80, Nexthdr: 6}:                     rule1MapStateEntry.WithOwners(cachedSelectorWorld, cachedSelectorWorldV6),
 			{Identity: 192, DestPort: 80, Nexthdr: 6}:                                                            rule1MapStateEntry.WithAuthType(AuthTypeDisabled),
 			{Identity: 194, DestPort: 80, Nexthdr: 6}:                                                            rule1MapStateEntry.WithAuthType(AuthTypeDisabled),
-		}),
+		}, td.sc),
 	}
 
 	// Have to remove circular reference before testing for Equality to avoid an infinite loop
@@ -789,7 +789,9 @@ func (p *EndpointPolicy) allowsIdentity(identity identity.NumericIdentity) (ingr
 	return ingress, egress
 }
 
-func TestEndpointPolicy_allowsIdentity(t *testing.T) {
+func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
+	td := newTestData()
+
 	type fields struct {
 		selectorPolicy *selectorPolicy
 		PolicyMapState *mapState
@@ -849,7 +851,7 @@ func TestEndpointPolicy_allowsIdentity(t *testing.T) {
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Ingress.Uint8(),
 					}: {},
-				}),
+				}, td.sc),
 			},
 			args: args{
 				identity: 0,
@@ -872,7 +874,7 @@ func TestEndpointPolicy_allowsIdentity(t *testing.T) {
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Egress.Uint8(),
 					}: {},
-				}),
+				}, td.sc),
 			},
 			args: args{
 				identity: 0,
@@ -895,7 +897,7 @@ func TestEndpointPolicy_allowsIdentity(t *testing.T) {
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Ingress.Uint8(),
 					}: {IsDeny: true},
-				}),
+				}, td.sc),
 			},
 			args: args{
 				identity: 0,
@@ -918,7 +920,7 @@ func TestEndpointPolicy_allowsIdentity(t *testing.T) {
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Ingress.Uint8(),
 					}: {IsDeny: true},
-				}),
+				}, td.sc),
 			},
 			args: args{
 				identity: 0,
@@ -941,7 +943,7 @@ func TestEndpointPolicy_allowsIdentity(t *testing.T) {
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Egress.Uint8(),
 					}: {IsDeny: true},
-				}),
+				}, td.sc),
 			},
 			args: args{
 				identity: 0,
@@ -964,7 +966,7 @@ func TestEndpointPolicy_allowsIdentity(t *testing.T) {
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Egress.Uint8(),
 					}: {IsDeny: true},
-				}),
+				}, td.sc),
 			},
 			args: args{
 				identity: 0,
