@@ -613,6 +613,15 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	key->backend_slot = 0;
 	svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
+
+#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
+	/* If there are no elements for a specific protocol, check for ANY entries. */
+	if (!svc && key->proto != 0) {
+		key->proto = 0;
+		svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
+	}
+#endif
+
 	if (svc) {
 		if (!scope_switch || !lb6_svc_is_two_scopes(svc))
 			/* Packets for L7 LB are redirected even when there are no backends. */
@@ -1287,6 +1296,15 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	key->backend_slot = 0;
 	svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
+
+#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
+	/* If there are no elements for a specific protocol, check for ANY entries. */
+	if (!svc && key->proto != 0) {
+		key->proto = 0;
+		svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
+	}
+#endif
+
 	if (svc) {
 		if (!scope_switch || !lb4_svc_is_two_scopes(svc))
 			/* Packets for L7 LB are redirected even when there are no backends. */

@@ -533,6 +533,8 @@ func IsValidBackendState(state string) bool {
 
 func NewL4Type(name string) (L4Type, error) {
 	switch strings.ToLower(name) {
+	case "none":
+		return NONE, nil
 	case "tcp":
 		return TCP, nil
 	case "udp":
