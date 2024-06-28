@@ -508,12 +508,14 @@ Changed Metrics
 * The ``CILIUM_PREPEND_IPTABLES_CHAIN`` environment variable has been renamed
   to ``CILIUM_PREPEND_IPTABLES_CHAINS`` (note the trailing ``S``) to more accurately
   match the name of the associated command line flag ``--prepend-iptables-chains``.
-* ``CiliumNetworkPolicy`` changed the semantic of the empty non-nil slice.
+* ``CiliumNetworkPolicy`` changed the semantics of the empty non-nil slice.
   For an Ingress CNP, an empty slice in one of the fields ``fromEndpoints``, ``fromCIDR``,
-  ``fromCIDRSet`` and ``fromEntities`` will not select any identity, thus falling back
-  to default deny for an allow policy. Similarly, for an Egress CNP, an empty slice in
-  one of the fields ``toEndpoints``, ``toCIDR``, ``toCIDRSet`` and ``toEntities`` will
-  not select any identity either.
+  ``fromCIDRSet`` and ``fromEntities`` will not select any identity, thus falling back to
+  default deny for an allow policy. Similarly, for an Egress CNP, an empty slice in one of
+  the fields ``toEndpoints``, ``toCIDR``, ``toCIDRSet`` and ``toEntities`` will not select
+  any identity either. Additionally, the behaviour of a CNP with ``toCIDRSet`` or
+  ``fromCIDRSet`` selectors using ``cidrGroupRef`` targeting only non-existent CIDR groups
+  was changed from allow-all to deny-all to align with the new semantics.
 * If Cilium is configured with BPF masquerade support but the requirements are not
   met (e.g: NodePort service implementation in BPF is disabled or socket load-balancing
   is disabled), it will fail to initialize and will log an error instead of silently
