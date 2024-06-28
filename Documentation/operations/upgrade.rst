@@ -468,6 +468,17 @@ Changed Metrics
 
 * The ``cilium_api_limiter_processed_requests_total`` has now label ``return_code`` to specify the http code of the request.
 
+Hubble CLI
+~~~~~~~~~~
+
+* the ``--cluster`` behavior changed to show flows emitted from nodes outside of
+  the provided cluster name (either coming from or going to the target cluster).
+  This change brings consistency between the ``--cluster`` and ``--namespace``
+  flags and removed the incompatibility between the ``--cluster`` and
+  ``--node-name`` flags. The previous behavior of ``--cluster foo`` can be
+  reproduced with ``--node-name foo/`` (shows all flows emitted from a node in
+  cluster ``foo``).
+
 .. _1.15_upgrade_notes:
 
 1.15 Upgrade Notes
