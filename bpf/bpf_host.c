@@ -536,7 +536,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(srcid_from_ipcache)) {
 		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-		if (info != NULL) {
+		if (info) {
 			*sec_identity = info->sec_identity;
 
 			if (*sec_identity) {

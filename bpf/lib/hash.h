@@ -23,12 +23,12 @@ static __always_inline __u32 hash_from_tuple_v6(const struct ipv6_ct_tuple *tupl
 	a = tuple->saddr.p1;
 	b = tuple->saddr.p2;
 	c = tuple->saddr.p3;
-	__jhash_mix(a, b, c);
+	__jhash_mix(&a, &b, &c);
 	a += tuple->saddr.p4;
 	b += ((__u32)tuple->dport << 16) | tuple->sport;
 	c += tuple->nexthdr;
-	__jhash_mix(a, b, c);
+	__jhash_mix(&a, &b, &c);
 	a += HASH_INIT6_SEED;
-	__jhash_final(a, b, c);
+	__jhash_final(&a, &b, &c);
 	return c;
 }

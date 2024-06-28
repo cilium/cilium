@@ -1138,21 +1138,19 @@ __sock6_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 #ifdef ENABLE_IPV4
 	if (is_v4_in_v6(&addr6)) {
 		return __sock4_health_fwd(ctx);
-	} else
-#endif /* ENABLE_IPV4 */
-    {
-#ifdef ENABLE_IPV6
-		__sock_cookie key = get_socket_cookie(ctx);
-		struct lb6_health *val = NULL;
-
-		if (!lb_skip_l4_dnat())
-			val = map_lookup_elem(&LB6_HEALTH_MAP, &key);
-		if (val) {
-			ctx_set_port(ctx, val->peer.port);
-			ret = SYS_PROCEED;
-		}
-#endif /* ENABLE_IPV6 */
 	}
+#endif /* ENABLE_IPV4 */
+#ifdef ENABLE_IPV6
+	__sock_cookie key = get_socket_cookie(ctx);
+	struct lb6_health *val = NULL;
+
+	if (!lb_skip_l4_dnat())
+		val = map_lookup_elem(&LB6_HEALTH_MAP, &key);
+	if (val) {
+		ctx_set_port(ctx, val->peer.port);
+		ret = SYS_PROCEED;
+	}
+#endif /* ENABLE_IPV6 */
 #endif /* ENABLE_HEALTH_CHECK */
 	return ret;
 }

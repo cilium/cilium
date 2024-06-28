@@ -962,7 +962,7 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	cilium_dbg3(ctx, DBG_CT_CREATED6, entry.rev_nat_index,
 		    entry.src_sec_id, 0);
 
-	if (map_related != NULL) {
+	if (map_related) {
 		/* Create an ICMPv6 entry to relate errors */
 		struct ipv6_ct_tuple icmp_tuple = {
 			.nexthdr = IPPROTO_ICMPV6,
@@ -1019,7 +1019,7 @@ static __always_inline int ct_create4(const void *map_main,
 	cilium_dbg3(ctx, DBG_CT_CREATED4, entry.rev_nat_index,
 		    entry.src_sec_id, 0);
 
-	if (map_related != NULL) {
+	if (map_related) {
 		/* Create an ICMP entry to relate errors */
 		struct ipv4_ct_tuple icmp_tuple = {
 			.daddr = tuple->daddr,

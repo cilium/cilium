@@ -27,7 +27,7 @@ world_cidrs_lookup4(__u32 addr)
 
 	key.ip &= GET_PREFIX(V4_CACHE_KEY_LEN);
 	matches = map_lookup_elem(&WORLD_CIDRS4_MAP, &key);
-	return matches != NULL;
+	return matches;
 }
 
 static __always_inline bool

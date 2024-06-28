@@ -1380,20 +1380,20 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		ctx_store_meta(ctx, CB_ADDR_V6_4, key->address.p4);
 #endif /* DSR_ENCAP_MODE */
 		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_DSR, ext_err);
-	} else {
-		/* This code path is not only hit for NAT64, but also
-		 * for NAT46. For the latter we initially hit the IPv4
-		 * NodePort path, then migrate the request to IPv6 and
-		 * recirculate into the regular IPv6 NodePort path. So
-		 * we need to make sure to not NAT back to IPv4 for
-		 * IPv4-in-IPv6 converted addresses.
-		 */
-		ctx_store_meta(ctx, CB_NAT_46X64,
-			       !is_v4_in_v6(&key->address) &&
-			       lb6_to_lb4_service(svc));
-		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS,
-					  ext_err);
 	}
+
+	/* This code path is not only hit for NAT64, but also
+	 * for NAT46. For the latter we initially hit the IPv4
+	 * NodePort path, then migrate the request to IPv6 and
+	 * recirculate into the regular IPv6 NodePort path. So
+	 * we need to make sure to not NAT back to IPv4 for
+	 * IPv4-in-IPv6 converted addresses.
+	 */
+	ctx_store_meta(ctx, CB_NAT_46X64,
+		       !is_v4_in_v6(&key->address) &&
+		       lb6_to_lb4_service(svc));
+	return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS,
+					ext_err);
 }
 
 /* See nodeport_lb4(). */

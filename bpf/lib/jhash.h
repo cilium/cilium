@@ -15,25 +15,33 @@ static __always_inline __u32 rol32(__u32 word, __u32 shift)
 	return (word << shift) | (word >> ((-shift) & 31));
 }
 
-#define __jhash_mix(a, b, c)			\
-{						\
-	a -= c;  a ^= rol32(c, 4);  c += b;	\
-	b -= a;  b ^= rol32(a, 6);  a += c;	\
-	c -= b;  c ^= rol32(b, 8);  b += a;	\
-	a -= c;  a ^= rol32(c, 16); c += b;	\
-	b -= a;  b ^= rol32(a, 19); a += c;	\
-	c -= b;  c ^= rol32(b, 4);  b += a;	\
+static __always_inline __jhash_mix(__u32 *a_ptr, __u32 *b_ptr, __u32 *c_ptr)
+{
+	__u32 a = *a_ptr;
+	__u32 b = *b_ptr;
+	__u32 c = *c_ptr;
+
+	a -= c;  a ^= rol32(c, 4);  c += b;
+	b -= a;  b ^= rol32(a, 6);  a += c;
+	c -= b;  c ^= rol32(b, 8);  b += a;
+	a -= c;  a ^= rol32(c, 16); c += b;
+	b -= a;  b ^= rol32(a, 19); a += c;
+	c -= b;  c ^= rol32(b, 4);  b += a;
 }
 
-#define __jhash_final(a, b, c)			\
-{						\
-	c ^= b; c -= rol32(b, 14);		\
-	a ^= c; a -= rol32(c, 11);		\
-	b ^= a; b -= rol32(a, 25);		\
-	c ^= b; c -= rol32(b, 16);		\
-	a ^= c; a -= rol32(c, 4);		\
-	b ^= a; b -= rol32(a, 14);		\
-	c ^= b; c -= rol32(b, 24);		\
+static __always_inline __jhash_final(__u32 *a_ptr, __u32 *b_ptr, __u32 *c_ptr)
+{
+	__u32 a = *a_ptr;
+	__u32 b = *b_ptr;
+	__u32 c = *c_ptr;
+
+	c ^= b; c -= rol32(b, 14);
+	a ^= c; a -= rol32(c, 11);
+	b ^= a; b -= rol32(a, 25);
+	c ^= b; c -= rol32(b, 16);
+	a ^= c; a -= rol32(c, 4);
+	b ^= a; b -= rol32(a, 14);
+	c ^= b; c -= rol32(b, 24);
 }
 
 static __always_inline __u32 jhash(const void *key, __u32 length,
@@ -45,14 +53,16 @@ static __always_inline __u32 jhash(const void *key, __u32 length,
 	if (!__builtin_constant_p(length))
 		__throw_build_bug();
 
-	a = b = c = JHASH_INITVAL + length + initval;
+	a = JHASH_INITVAL + length + initval;
+	b = JHASH_INITVAL + length + initval;
+	c = JHASH_INITVAL + length + initval;
 
 	while (length > 12) {
 		a += *(__u32 *)(k);
 		b += *(__u32 *)(k + 4);
 		c += *(__u32 *)(k + 8);
 
-		__jhash_mix(a, b, c);
+		__jhash_mix(&a, &b, &c);
 		length -= 12;
 		k += 12;
 	}
@@ -71,7 +81,7 @@ static __always_inline __u32 jhash(const void *key, __u32 length,
 	case 2:  a +=  (__u32)k[1] <<  8; fallthrough;
 	case 1:  a +=  (__u32)k[0];
 
-		__jhash_final(a, b, c);
+		__jhash_final(&a, &b, &c);
 		break;
 	case 0: /* Nothing left to add */
 		break;
@@ -86,7 +96,7 @@ static __always_inline __u32 __jhash_nwords(__u32 a, __u32 b, __u32 c,
 	a += initval;
 	b += initval;
 	c += initval;
-	__jhash_final(a, b, c);
+	__jhash_final(&a, &b, &c);
 	return c;
 }
 

@@ -119,8 +119,8 @@ static __always_inline int ipv6_addr_in_net(const union v6addr *addr,
 				&& (!mask->p4 || ((addr->p4 & mask->p4) == net->p4))))));
 }
 
-#define GET_PREFIX(PREFIX)						\
-	bpf_htonl(PREFIX <= 0 ? 0 : PREFIX < 32 ? ((1<<PREFIX) - 1) << (32-PREFIX)	\
+#define GET_PREFIX(PREFIX)									\
+	bpf_htonl((PREFIX) <= 0 ? 0 : (PREFIX) < 32 ? ((1 << (PREFIX)) - 1) << (32 - (PREFIX))	\
 			      : 0xFFFFFFFF)
 
 static __always_inline void ipv6_addr_clear_suffix(union v6addr *addr,

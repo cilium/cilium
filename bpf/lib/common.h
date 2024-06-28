@@ -567,7 +567,7 @@ enum {
 # define BPF_F_PSEUDO_HDR                (1ULL << 4)
 #endif
 
-#define IS_ERR(x) (unlikely((x < 0) || (x == CTX_ACT_DROP)))
+#define IS_ERR(x) (unlikely(((x) < 0) || ((x) == CTX_ACT_DROP)))
 
 /* Return value to indicate that proxy redirection is required */
 #define POLICY_ACT_PROXY_REDIRECT (1 << 16)

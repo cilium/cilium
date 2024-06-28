@@ -500,7 +500,7 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	struct lb6_reverse_nat *nat;
 
 	nat = lb6_lookup_rev_nat_entry(ctx, index);
-	if (nat == NULL)
+	if (!nat)
 		return 0;
 
 	return __lb6_rev_nat(ctx, l4_off, tuple, nat);
@@ -761,7 +761,7 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 		ipv6_addr_copy_unaligned(&key.client_id.client_ip, &id->client_ip);
 
 	val = map_lookup_elem(&LB6_AFFINITY_MAP, &key);
-	if (val != NULL) {
+	if (val) {
 		__u32 now = bpf_mono_now();
 		struct lb_affinity_match match = {
 			.rev_nat_id	= svc->rev_nat_index,
@@ -898,7 +898,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			backend_id = lb6_affinity_backend_id_by_addr(svc, &client_id);
 			if (backend_id != 0) {
 				backend = lb6_lookup_backend(ctx, backend_id);
-				if (backend == NULL)
+				if (!backend)
 					backend_id = 0;
 			}
 		}
@@ -906,7 +906,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		if (backend_id == 0) {
 			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
 			backend = lb6_lookup_backend(ctx, backend_id);
-			if (backend == NULL)
+			if (!backend)
 				goto no_service;
 		}
 
@@ -1140,7 +1140,7 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 	struct lb4_reverse_nat *nat;
 
 	nat = lb4_lookup_rev_nat_entry(ctx, index);
-	if (nat == NULL)
+	if (!nat)
 		return 0;
 
 	return __lb4_rev_nat(ctx, l3_off, l4_off, tuple, nat,
@@ -1408,7 +1408,7 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 	struct lb_affinity_val *val;
 
 	val = map_lookup_elem(&LB4_AFFINITY_MAP, &key);
-	if (val != NULL) {
+	if (val) {
 		__u32 now = bpf_mono_now();
 		struct lb_affinity_match match = {
 			.rev_nat_id	= svc->rev_nat_index,
@@ -1551,7 +1551,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			backend_id = lb4_affinity_backend_id_by_addr(svc, &client_id);
 			if (backend_id != 0) {
 				backend = lb4_lookup_backend(ctx, backend_id);
-				if (backend == NULL)
+				if (!backend)
 					backend_id = 0;
 			}
 		}
@@ -1560,7 +1560,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			/* No CT entry has been found, so select a svc endpoint */
 			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
 			backend = lb4_lookup_backend(ctx, backend_id);
-			if (backend == NULL)
+			if (!backend)
 				goto no_service;
 		}
 

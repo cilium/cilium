@@ -1730,7 +1730,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 		struct remote_endpoint_info *info;
 
 		info = lookup_ip6_remote_endpoint(src, 0);
-		if (info != NULL) {
+		if (info) {
 			__u32 sec_identity = info->sec_identity;
 
 			if (sec_identity) {
@@ -2079,7 +2079,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 		struct remote_endpoint_info *info;
 
 		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-		if (info != NULL) {
+		if (info) {
 			__u32 sec_identity = info->sec_identity;
 
 			if (sec_identity) {

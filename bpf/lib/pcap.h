@@ -168,6 +168,8 @@ cilium_capture4_masked_key(const struct capture4_wcard *orig,
 	out->smask = mask->smask;
 }
 
+/* clang-format off */
+
 /* The agent is generating and emitting the PREFIX_MASKS4 and regenerating
  * if a mask was added or removed. The cilium_capture4_rules can have n
  * entries with m different PREFIX_MASKS4 where n >> m. Lookup performance
@@ -222,8 +224,7 @@ cilium_capture4_classify_wcard(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int i;
-	const int size = sizeof(prefix_masks) /
-			 sizeof(prefix_masks[0]);
+	const int size = ARRAY_SIZE(prefix_masks);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return NULL;
@@ -243,7 +244,7 @@ cilium_capture4_classify_wcard(struct __ctx_buff *ctx)
 	okey.flags = 0;
 	lkey.flags = 0;
 
-_Pragma("unroll")
+#pragma unroll
 	for (i = 0; i < size; i++) {
 		cilium_capture4_masked_key(&okey, &prefix_masks[i], &lkey);
 		match = map_lookup_elem(&CAPTURE4_RULES, &lkey);
@@ -343,8 +344,7 @@ cilium_capture6_classify_wcard(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	int i, ret, l3_off = ETH_HLEN;
-	const int size = sizeof(prefix_masks) /
-			 sizeof(prefix_masks[0]);
+	const int size = ARRAY_SIZE(prefix_masks);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return NULL;
@@ -367,7 +367,7 @@ cilium_capture6_classify_wcard(struct __ctx_buff *ctx)
 	okey.flags = 0;
 	lkey.flags = 0;
 
-_Pragma("unroll")
+#pragma unroll
 	for (i = 0; i < size; i++) {
 		cilium_capture6_masked_key(&okey, &prefix_masks[i], &lkey);
 		match = map_lookup_elem(&CAPTURE6_RULES, &lkey);

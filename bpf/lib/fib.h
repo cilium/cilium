@@ -140,29 +140,29 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 			}
 
 			return redirect_neigh(*oif, NULL, 0, 0);
-		} else {
-			union macaddr smac = NATIVE_DEV_MAC_BY_IFINDEX(*oif);
-			union macaddr *dmac = NULL;
-
-			if (allow_neigh_map) {
-				/* The neigh_record_ip{4,6} locations are mainly from
-				 * inbound client traffic on the load-balancer where we
-				 * know that replies need to go back to them.
-				 */
-				dmac = fib_params->l.family == AF_INET ?
-					neigh_lookup_ip4(&fib_params->l.ipv4_dst) :
-					neigh_lookup_ip6((void *)&fib_params->l.ipv6_dst);
-			}
-
-			if (!dmac) {
-				*fib_ret = BPF_FIB_MAP_NO_NEIGH;
-				return DROP_NO_FIB;
-			}
-			if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0)
-				return DROP_WRITE_ERROR;
-			if (eth_store_saddr_aligned(ctx, smac.addr, 0) < 0)
-				return DROP_WRITE_ERROR;
 		}
+
+		union macaddr smac = NATIVE_DEV_MAC_BY_IFINDEX(*oif);
+		union macaddr *dmac = NULL;
+
+		if (allow_neigh_map) {
+			/* The neigh_record_ip{4,6} locations are mainly from
+			 * inbound client traffic on the load-balancer where we
+			 * know that replies need to go back to them.
+			 */
+			dmac = fib_params->l.family == AF_INET ?
+				neigh_lookup_ip4(&fib_params->l.ipv4_dst) :
+				neigh_lookup_ip6((void *)&fib_params->l.ipv6_dst);
+		}
+
+		if (!dmac) {
+			*fib_ret = BPF_FIB_MAP_NO_NEIGH;
+			return DROP_NO_FIB;
+		}
+		if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0)
+			return DROP_WRITE_ERROR;
+		if (eth_store_saddr_aligned(ctx, smac.addr, 0) < 0)
+			return DROP_WRITE_ERROR;
 	};
 out_send:
 	return ctx_redirect(ctx, *oif, 0);
