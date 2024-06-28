@@ -50,6 +50,9 @@ type DaemonConfigurationStatus struct {
 	// Configured compatibility mode for --egress-multi-home-ip-rule-compat
 	EgressMultiHomeIPRuleCompat bool `json:"egress-multi-home-ip-rule-compat,omitempty"`
 
+	// Enable route MTU for pod netns when CNI chaining is used
+	EnableRouteMTUForCNIChaining bool `json:"enableRouteMTUForCNIChaining,omitempty"`
+
 	// Immutable configuration (read-only)
 	Immutable ConfigurationMap `json:"immutable,omitempty"`
 

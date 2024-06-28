@@ -437,7 +437,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 	}
 
 	if sr.ClusterMesh != nil {
-		fmt.Fprintf(w, "ClusterMesh:\t%d/%d clusters ready, %d global-services\n",
+		fmt.Fprintf(w, "ClusterMesh:\t%d/%d remote clusters ready, %d global-services\n",
 			NumReadyClusters(sr.ClusterMesh.Clusters), len(sr.ClusterMesh.Clusters), sr.ClusterMesh.NumGlobalServices)
 
 		verbosity := RemoteClustersStatusNotReadyOnly
@@ -829,7 +829,7 @@ const (
 func FormatStatusResponseRemoteClusters(w io.Writer, clusters []*models.RemoteCluster, verbosity RemoteClustersStatusVerbosity) {
 	for _, cluster := range clusters {
 		if verbosity != RemoteClustersStatusNotReadyOnly || !cluster.Ready {
-			fmt.Fprintf(w, "   %s: %s, %d nodes, %d endpoints, %d identities, %d services, %d failures (last: %s)\n",
+			fmt.Fprintf(w, "   %s: %s, %d nodes, %d endpoints, %d identities, %d services, %d reconnections (last: %s)\n",
 				cluster.Name, clusterReadiness(cluster), cluster.NumNodes,
 				cluster.NumEndpoints, cluster.NumIdentities, cluster.NumSharedServices,
 				cluster.NumFailures, timeSince(time.Time(cluster.LastFailure)))

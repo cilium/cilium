@@ -12,7 +12,7 @@ import (
 
 type Metrics interface {
 	IncrementalReconciliationDuration(moduleID cell.FullModuleID, operation string, duration time.Duration)
-	IncrementalReconciliationErrors(moduleID cell.FullModuleID, errs []error)
+	IncrementalReconciliationErrors(moduleID cell.FullModuleID, newErrors, currentErrors int)
 
 	FullReconciliationErrors(moduleID cell.FullModuleID, errs []error)
 	FullReconciliationDuration(moduleID cell.FullModuleID, operation string, duration time.Duration)
@@ -53,12 +53,12 @@ func (m *ExpVarMetrics) IncrementalReconciliationDuration(moduleID cell.FullModu
 	m.IncrementalReconciliationDurationVar.AddFloat(moduleID.String()+"/"+operation, duration.Seconds())
 }
 
-func (m *ExpVarMetrics) IncrementalReconciliationErrors(moduleID cell.FullModuleID, errs []error) {
+func (m *ExpVarMetrics) IncrementalReconciliationErrors(moduleID cell.FullModuleID, newErrors, currentErrors int) {
 	m.IncrementalReconciliationCountVar.Add(moduleID.String(), 1)
-	m.IncrementalReconciliationTotalErrorsVar.Add(moduleID.String(), int64(len(errs)))
+	m.IncrementalReconciliationTotalErrorsVar.Add(moduleID.String(), int64(newErrors))
 
 	var intVar expvar.Int
-	intVar.Set(int64(len(errs)))
+	intVar.Set(int64(currentErrors))
 	m.IncrementalReconciliationCurrentErrorsVar.Set(moduleID.String(), &intVar)
 }
 

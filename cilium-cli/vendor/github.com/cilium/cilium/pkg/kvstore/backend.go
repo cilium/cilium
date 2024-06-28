@@ -191,7 +191,7 @@ type BackendOperations interface {
 	ListPrefixIfLocked(ctx context.Context, prefix string, lock KVLocker) (KeyValuePairs, error)
 
 	// Close closes the kvstore client
-	Close(ctx context.Context)
+	Close()
 
 	// Encodes a binary slice into a character set that the backend
 	// supports

@@ -1375,23 +1375,6 @@ func (in *CiliumLoadBalancerIPPoolSpec) DeepEqual(other *CiliumLoadBalancerIPPoo
 	if in.AllowFirstLastIPs != other.AllowFirstLastIPs {
 		return false
 	}
-	if ((in.Cidrs != nil) && (other.Cidrs != nil)) || ((in.Cidrs == nil) != (other.Cidrs == nil)) {
-		in, other := &in.Cidrs, &other.Cidrs
-		if other == nil {
-			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
-					return false
-				}
-			}
-		}
-	}
-
 	if ((in.Blocks != nil) && (other.Blocks != nil)) || ((in.Blocks == nil) != (other.Blocks == nil)) {
 		in, other := &in.Blocks, &other.Blocks
 		if other == nil {

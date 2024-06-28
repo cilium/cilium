@@ -5,9 +5,6 @@ package policy
 
 import (
 	"github.com/sirupsen/logrus"
-
-	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
 // selectorPolicy is a structure which contains the resolved policy for a
@@ -185,9 +182,10 @@ func (p *EndpointPolicy) toMapState() {
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
 func (l4policy L4DirectionPolicy) toMapState(p *EndpointPolicy) {
-	for _, l4 := range l4policy.PortRules {
+	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
 		l4.toMapState(p, l4policy.features, p.PolicyOwner.GetRealizedRedirects(), ChangeState{})
-	}
+		return true
+	})
 }
 
 // createRedirectsFunc returns 'nil' if map changes should not be applied immemdiately,
@@ -211,11 +209,11 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedir
 	p.SelectorCache.mutex.RLock()
 	defer p.SelectorCache.mutex.RUnlock()
 
-	for _, l4 := range l4policy.PortRules {
+	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
 		if l4.IsRedirect() {
 			// Check if we are denying this specific L4 first regardless the L3, if there are any deny policies
 			if l4policy.features.contains(denyRules) && p.policyMapState.deniesL4(p.PolicyOwner, l4) {
-				continue
+				return true
 			}
 
 			redirects := createRedirects(l4)
@@ -224,7 +222,8 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedir
 				l4.toMapState(p, l4policy.features, redirects, changes)
 			}
 		}
-	}
+		return true
+	})
 }
 
 // ConsumeMapChanges transfers the changes from MapChanges to the caller,
@@ -232,41 +231,10 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedir
 // have completed.
 // PolicyOwner (aka Endpoint) is also locked during this call.
 func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
-	p.selectorPolicy.SelectorCache.mutex.Lock()
-	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
+	p.selectorPolicy.SelectorCache.mutex.RLock()
+	defer p.selectorPolicy.SelectorCache.mutex.RUnlock()
 	features := p.selectorPolicy.L4Policy.Ingress.features | p.selectorPolicy.L4Policy.Egress.features
 	return p.policyMapChanges.consumeMapChanges(p.PolicyOwner, p.policyMapState, features, p.SelectorCache)
-}
-
-// AllowsIdentity returns whether the specified policy allows
-// ingress and egress traffic for the specified numeric security identity.
-// If the 'secID' is zero, it will check if all traffic is allowed.
-//
-// Returning true for either return value indicates all traffic is allowed.
-func (p *EndpointPolicy) AllowsIdentity(identity identity.NumericIdentity) (ingress, egress bool) {
-	key := Key{
-		Identity: uint32(identity),
-	}
-
-	if !p.IngressPolicyEnabled {
-		ingress = true
-	} else {
-		key.TrafficDirection = trafficdirection.Ingress.Uint8()
-		if v, exists := p.policyMapState.Get(key); exists && !v.IsDeny {
-			ingress = true
-		}
-	}
-
-	if !p.EgressPolicyEnabled {
-		egress = true
-	} else {
-		key.TrafficDirection = trafficdirection.Egress.Uint8()
-		if v, exists := p.policyMapState.Get(key); exists && !v.IsDeny {
-			egress = true
-		}
-	}
-
-	return ingress, egress
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.

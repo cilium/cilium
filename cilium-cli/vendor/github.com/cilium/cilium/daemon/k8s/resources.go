@@ -66,9 +66,9 @@ var (
 					},
 				)
 			},
-			func(lc cell.Lifecycle, cs client.Clientset) (LocalCiliumNodeResource, error) {
+			func(params k8s.CiliumResourceParams) (LocalCiliumNodeResource, error) {
 				return k8s.CiliumNodeResource(
-					lc, cs,
+					params,
 					func(opts *metav1.ListOptions) {
 						opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + nodeTypes.GetName()).String()
 					},

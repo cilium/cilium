@@ -647,7 +647,7 @@ func (c *consulClient) listPrefix(ctx context.Context, prefix string) (KeyValueP
 }
 
 // Close closes the consul session
-func (c *consulClient) Close(ctx context.Context) {
+func (c *consulClient) Close() {
 	close(c.statusCheckErrors)
 	if c.controllers != nil {
 		c.controllers.RemoveAll()

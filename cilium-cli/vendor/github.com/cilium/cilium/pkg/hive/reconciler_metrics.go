@@ -148,12 +148,12 @@ func (m *reconcilerMetricsImpl) IncrementalReconciliationDuration(moduleID cell.
 }
 
 // IncrementalReconciliationErrors implements reconciler.Metrics.
-func (m *reconcilerMetricsImpl) IncrementalReconciliationErrors(moduleID cell.FullModuleID, errs []error) {
+func (m *reconcilerMetricsImpl) IncrementalReconciliationErrors(moduleID cell.FullModuleID, newErrors, currentErrors int) {
 	if m.m.IncrementalReconciliationCurrentErrors.IsEnabled() {
-		m.m.IncrementalReconciliationCurrentErrors.WithLabelValues(LabelModuleId, moduleID.String()).Set(float64(len(errs)))
+		m.m.IncrementalReconciliationCurrentErrors.WithLabelValues(LabelModuleId, moduleID.String()).Set(float64(currentErrors))
 	}
 	if m.m.IncrementalReconciliationTotalErrors.IsEnabled() {
-		m.m.IncrementalReconciliationCurrentErrors.WithLabelValues(LabelModuleId, moduleID.String()).Add(float64(len(errs)))
+		m.m.IncrementalReconciliationTotalErrors.WithLabelValues(LabelModuleId, moduleID.String()).Add(float64(newErrors))
 	}
 }
 
