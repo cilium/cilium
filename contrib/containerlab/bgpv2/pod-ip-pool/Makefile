@@ -1,6 +1,5 @@
 # version of cilium to deploy
-HELM_CHART ?= oci://quay.io/cilium-charts-dev/cilium
-VERSION ?= 1.16.0-dev-dev.247-main-8c97a2119d
+VERSION ?= v1.16.0-rc.0
 
 deploy:
 	kind create cluster --config cluster.yaml
@@ -10,7 +9,7 @@ deploy:
 	# create secret for bgp
 	kubectl -n kube-system create secret generic --type=string bgp-auth-secret --from-literal=password=cilium123
 	# install cilium
-	helm install cilium -n kube-system $(HELM_CHART) --version $(VERSION) -f values.yaml
+	helm install cilium -n kube-system cilium/cilium --version $(VERSION) -f values.yaml
 
 destroy:
 	sudo containerlab -t topo.yaml destroy -c
