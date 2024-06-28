@@ -435,7 +435,7 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 	// because this test suite doesn't have a notion of traffic direction, so
 	// the extra egress allow-all is technically correct, but omitted from the
 	// expected output that's asserted against for the sake of brevity.
-	epp.policyMapState.Delete(mapKeyAllowAllE_)
+	epp.policyMapState.delete(mapKeyAllowAllE_)
 
 	return epp.policyMapState, nil
 }
@@ -759,11 +759,11 @@ func testCaseToMapState(t generatedBPFKey) MapState {
 
 	if t.L3Key.L3 != nil {
 		if t.L3Key.Deny != nil && *t.L3Key.Deny {
-			m.denies.Upsert(mapKeyDeny_Foo__, mapEntryL7Deny_())
+			m.denies.upsert(mapKeyDeny_Foo__, mapEntryL7Deny_())
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L3Key.L7 == nil || !*t.L3Key.L7 {
-				m.allows.Upsert(mapKeyAllowFoo__, mapEntryL7None_())
+				m.allows.upsert(mapKeyAllowFoo__, mapEntryL7None_())
 			}
 			// there's no "else" because we don't support L3L7 policies, i.e.,
 			// a L4 port needs to be specified.
@@ -771,31 +771,31 @@ func testCaseToMapState(t generatedBPFKey) MapState {
 	}
 	if t.L4Key.L3 != nil {
 		if t.L4Key.Deny != nil && *t.L4Key.Deny {
-			m.denies.Upsert(mapKeyDeny____L4, mapEntryL7Deny_())
+			m.denies.upsert(mapKeyDeny____L4, mapEntryL7Deny_())
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L4Key.L7 == nil || !*t.L4Key.L7 {
-				m.allows.Upsert(mapKeyAllow___L4, mapEntryL7None_())
+				m.allows.upsert(mapKeyAllow___L4, mapEntryL7None_())
 			} else {
 				// L7 is set and it's true then we should expected a mapEntry
 				// with L7 redirection.
-				m.allows.Upsert(mapKeyAllow___L4, mapEntryL7Proxy())
+				m.allows.upsert(mapKeyAllow___L4, mapEntryL7Proxy())
 			}
 		}
 	}
 	if t.L3L4Key.L3 != nil {
 		if t.L3L4Key.Deny != nil && *t.L3L4Key.Deny {
-			m.denies.Upsert(mapKeyDeny_FooL4, mapEntryL7Deny_())
+			m.denies.upsert(mapKeyDeny_FooL4, mapEntryL7Deny_())
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L3L4Key.L7 == nil || !*t.L3L4Key.L7 {
-				m.allows.Upsert(mapKeyAllowFooL4, mapEntryL7None_())
+				m.allows.upsert(mapKeyAllowFooL4, mapEntryL7None_())
 			} else {
 				// L7 is set and it's true then we should expected a mapEntry
 				// with L7 redirection only if we haven't set it already
 				// for an existing L4-only.
 				if t.L4Key.L7 == nil || !*t.L4Key.L7 {
-					m.allows.Upsert(mapKeyAllowFooL4, mapEntryL7Proxy())
+					m.allows.upsert(mapKeyAllowFooL4, mapEntryL7Proxy())
 				}
 			}
 		}
@@ -1222,7 +1222,7 @@ func Test_MergeRules(t *testing.T) {
 					return true
 				}
 				v.DerivedFromRules = labels.LabelArrayList(nil).Sort()
-				mapstate.Insert(k, v)
+				mapstate.insert(k, v)
 				return true
 			})
 			if equal := assert.EqualExportedValues(t, expectedMapState[tt.test], mapstate); !equal {
