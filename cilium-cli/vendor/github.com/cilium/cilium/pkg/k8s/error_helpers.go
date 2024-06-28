@@ -4,6 +4,7 @@
 package k8s
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/lock"
@@ -35,6 +36,8 @@ func k8sErrorUpdateCheckUnmuteTime(errstr string, now time.Time) bool {
 
 	return false
 }
+
+var k8sObjDecodeErrRe = regexp.MustCompile("invalid character.*looking for beginning of value")
 
 // K8sErrorHandler handles the error messages in a non verbose way by omitting
 // repeated instances of the same error message for a timeout defined with
@@ -80,6 +83,10 @@ func K8sErrorHandler(e error) {
 			log.WithError(e).Error("Unable to decode k8s watch event")
 		}
 
+	case k8sObjDecodeErrRe.MatchString(errstr):
+		log.WithError(e).Error("K8s client-go error indicates failure to decode k8s objs from apiserver." +
+			" This likely indicate issues with k8s apiserver sending malformed data or errors." +
+			" Such issues may be related to corrupted k8s etcd state.")
 	default:
 		log.WithError(e).Error("k8sError")
 	}
