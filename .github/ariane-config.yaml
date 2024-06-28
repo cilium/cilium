@@ -2,7 +2,7 @@ allowed-teams:
   - organization-members
 
 triggers:
-  /test:
+  /test-backport-1.16:
     workflows:
     - conformance-aks.yaml
     - conformance-aws-cni.yaml

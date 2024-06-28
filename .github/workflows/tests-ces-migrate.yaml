@@ -5,8 +5,8 @@ on:
   pull_request: {}
   push:
     branches:
-    - main
-    - ft/main/**
+    - v1.16
+    - ft/v1.16/**
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.

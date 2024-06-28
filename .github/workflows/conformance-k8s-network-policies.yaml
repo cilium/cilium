@@ -3,8 +3,8 @@ name: Cyclonus Network Policy Test
 on:
   push:
     branches:
-      - main
-      - ft/main/**
+      - v1.16
+      - ft/v1.16/**
     paths-ignore:
       - 'Documentation/**'
 

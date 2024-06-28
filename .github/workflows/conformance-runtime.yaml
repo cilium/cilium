@@ -19,9 +19,9 @@ on:
         default: '{}'
   push:
     branches:
-      - main
-      - ft/main/**
-      - 'renovate/main-**'
+      - v1.16
+      - ft/v1.16/**
+      - 'renovate/v1.16-**'
     paths-ignore:
       - 'Documentation/**'
 
@@ -273,7 +273,7 @@ jobs:
           test-name: runtime-tests
           install-dependencies: true
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          image-version: "bpf-next-20240625.013127@sha256:ef9a0b84c0ccda32fd2693ea35a0fad217935cb19fba00b8a703ca71f6f2ac5d"
+          image-version: "6.6-20240620.102250@sha256:0fb534e415c18d72869d7996254b630c62257f3e1c6f016591dab9cd4ba65351"
           host-mount: ./
           cpu: 4
           mem: 12G
