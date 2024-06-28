@@ -55,8 +55,8 @@ func (c *CIDRTrie[T]) Descendants(cidr netip.Prefix, fn func(k netip.Prefix, v T
 }
 
 // Upsert adds or updates the value for a given prefix.
-func (c *CIDRTrie[T]) Upsert(cidr netip.Prefix, v T) {
-	c.treeForFamily(cidr).Upsert(uint(cidr.Bits()), cidrKey(cidr), v)
+func (c *CIDRTrie[T]) Upsert(cidr netip.Prefix, v T) bool {
+	return c.treeForFamily(cidr).Upsert(uint(cidr.Bits()), cidrKey(cidr), v)
 }
 
 // Delete removes a given prefix from the tree.
