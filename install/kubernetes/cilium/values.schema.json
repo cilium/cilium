@@ -1243,6 +1243,10 @@
                     "string"
                   ]
                 },
+                "loadBalancerSourceRanges": {
+                  "items": {},
+                  "type": "array"
+                },
                 "nodePort": {
                   "type": "integer"
                 },

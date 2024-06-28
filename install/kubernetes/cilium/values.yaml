@@ -3035,6 +3035,10 @@ clustermesh:
       # Allows to configure a specific loadBalancerIP on the clustermesh-apiserver
       # LB service in case the Service type is set to LoadBalancer.
       loadBalancerIP: ~
+      # -- Configure loadBalancerSourceRanges.
+      # Allows to configure the source IP ranges allowed to access the
+      # clustermesh-apiserver LB service in case the Service type is set to LoadBalancer.
+      loadBalancerSourceRanges: []
     # -- Number of replicas run for the clustermesh-apiserver deployment.
     replicas: 1
     # -- lifecycle setting for the apiserver container
