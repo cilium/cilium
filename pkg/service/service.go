@@ -1411,8 +1411,36 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 	prevSessionAffinity := false
 	prevLoadBalancerSourceRanges := []*cidr.CIDR{}
 
+	// when Cilium is upgraded to a version that supports service protocol differentiation, and such feature is
+	// enabled, we may end up in a situation where some existing services do not have the protocol set.
+	//
+	// As in such cases we want to preserve the existing services (in order to not break existing connections to
+	// those services), when trying to create a new one check first if an "old" service without the protocol
+	// already exists, by overwriting its protocol to NONE.
+	// If it doesn't then do a second lookup in the svcByHash map with the protocol set.
+	//
+	// Note that this logic can be removed once we stop supporting services without protocol.
+	proto := p.Frontend.L3n4Addr.L4Addr.Protocol
+	p.Frontend.L3n4Addr.L4Addr.Protocol = "NONE"
+
+	backendProtos := []lb.L4Type{}
+	for _, backend := range p.Backends {
+		backendProtos = append(backendProtos, backend.L3n4Addr.L4Addr.Protocol)
+		backend.L3n4Addr.L4Addr.Protocol = "NONE"
+	}
+
 	hash := p.Frontend.Hash()
 	svc, found := s.svcByHash[hash]
+	if !found {
+		p.Frontend.L3n4Addr.L4Addr.Protocol = proto
+		for i, backend := range p.Backends {
+			backend.L3n4Addr.L4Addr.Protocol = backendProtos[i]
+		}
+
+		hash = p.Frontend.Hash()
+		svc, found = s.svcByHash[hash]
+	}
+
 	if !found {
 		// Allocate service ID for the new service
 		addrID, err := AcquireID(p.Frontend.L3n4Addr, uint32(p.Frontend.ID))
