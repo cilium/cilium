@@ -210,7 +210,6 @@ func newFlowFilter() *flowFilter {
 			{"identity", "from-identity"},
 			{"workload", "to-workload"},
 			{"workload", "from-workload"},
-			{"node-name", "cluster"},
 			{"node-label"},
 			{"tcp-flags"},
 			{"uuid"},
@@ -692,8 +691,11 @@ func (of *flowFilter) set(f *filterTracker, name, val string, track bool) error 
 
 	// cluster name filters
 	case "cluster":
-		f.apply(func(f *flowpb.FlowFilter) {
-			f.NodeName = append(f.GetNodeName(), val+"/")
+		f.applyLeft(func(f *flowpb.FlowFilter) {
+			f.SourceClusterName = append(f.GetSourceClusterName(), val)
+		})
+		f.applyRight(func(f *flowpb.FlowFilter) {
+			f.DestinationClusterName = append(f.GetDestinationClusterName(), val)
 		})
 	case "from-cluster":
 		f.apply(func(f *flowpb.FlowFilter) {
