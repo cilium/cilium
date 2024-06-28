@@ -2285,7 +2285,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		// copy the starting point
 		ms := newMapState(make(map[Key]MapStateEntry, tt.ms.Len()))
 		tt.ms.ForEach(func(k Key, v MapStateEntry) bool {
-			ms.Insert(k, v)
+			ms.insert(k, v)
 			return true
 		})
 
@@ -2297,7 +2297,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		require.EqualValuesf(t, tt.wantOld, changes.Old, "%s: OldValues mismatch allows", tt.name)
 
 		// Revert changes and check that we get the original mapstate
-		ms.RevertChanges(changes)
+		ms.revertChanges(changes)
 		require.Truef(t, ms.Equals(tt.ms), "%s: MapState mismatch:\n%s", tt.name, ms.Diff(tt.ms))
 	}
 }
@@ -3124,7 +3124,7 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 			Adds: make(Keys),
 			Old:  make(map[Key]MapStateEntry),
 		}
-		tt.ms.AddVisibilityKeys(DummyOwner{}, tt.args.redirectPort, &tt.args.visMeta, changes)
+		tt.ms.addVisibilityKeys(DummyOwner{}, tt.args.redirectPort, &tt.args.visMeta, changes)
 		tt.ms.validatePortProto(t)
 		require.True(t, tt.ms.Equals(tt.want), "%s:\n%s", tt.name, tt.ms.Diff(tt.want))
 		// Find new and updated entries
@@ -3491,7 +3491,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			Old:     make(map[Key]MapStateEntry),
 		}
 		for _, arg := range tt.visArgs {
-			policyMapState.AddVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, changes)
+			policyMapState.addVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, changes)
 		}
 		require.EqualValues(t, tt.visAdds, changes.Adds, tt.name+" (visAdds)")
 		require.EqualValues(t, tt.visOld, changes.Old, tt.name+" (visOld)")
@@ -3528,7 +3528,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 
 		// Visibilty redirects need to be re-applied after consumeMapChanges()
 		for _, arg := range tt.visArgs {
-			policyMapState.AddVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, changes)
+			policyMapState.addVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, changes)
 		}
 		for k := range changes.Old {
 			changes.Deletes[k] = struct{}{}
@@ -3623,16 +3623,16 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		expectedKeys := newMapState(nil)
 		if tt.outcome&insertA > 0 {
 			if tt.aIsDeny {
-				expectedKeys.denies.Upsert(aKey, aEntry)
+				expectedKeys.denies.upsert(aKey, aEntry)
 			} else {
-				expectedKeys.allows.Upsert(aKey, aEntry)
+				expectedKeys.allows.upsert(aKey, aEntry)
 			}
 		}
 		if tt.outcome&insertB > 0 {
 			if tt.bIsDeny {
-				expectedKeys.denies.Upsert(bKey, bEntry)
+				expectedKeys.denies.upsert(bKey, bEntry)
 			} else {
-				expectedKeys.allows.Upsert(bKey, bEntry)
+				expectedKeys.allows.upsert(bKey, bEntry)
 			}
 		}
 		if tt.outcome&insertAWithBProto > 0 {
@@ -3641,11 +3641,11 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			aEntryCpy.owners = map[MapStateOwner]struct{}{aKey: {}}
 			aEntry.AddDependent(aKeyWithBProto)
 			if tt.aIsDeny {
-				expectedKeys.denies.Upsert(aKey, aEntry)
-				expectedKeys.denies.Upsert(aKeyWithBProto, aEntryCpy)
+				expectedKeys.denies.upsert(aKey, aEntry)
+				expectedKeys.denies.upsert(aKeyWithBProto, aEntryCpy)
 			} else {
-				expectedKeys.allows.Upsert(aKey, aEntry)
-				expectedKeys.allows.Upsert(aKeyWithBProto, aEntryCpy)
+				expectedKeys.allows.upsert(aKey, aEntry)
+				expectedKeys.allows.upsert(aKeyWithBProto, aEntryCpy)
 			}
 		}
 		if tt.outcome&insertBWithAProto > 0 {
@@ -3654,11 +3654,11 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			bEntryCpy.owners = map[MapStateOwner]struct{}{bKey: {}}
 			bEntry.AddDependent(bKeyWithBProto)
 			if tt.bIsDeny {
-				expectedKeys.denies.Upsert(bKey, bEntry)
-				expectedKeys.denies.Upsert(bKeyWithBProto, bEntryCpy)
+				expectedKeys.denies.upsert(bKey, bEntry)
+				expectedKeys.denies.upsert(bKeyWithBProto, bEntryCpy)
 			} else {
-				expectedKeys.allows.Upsert(bKey, bEntry)
-				expectedKeys.allows.Upsert(bKeyWithBProto, bEntryCpy)
+				expectedKeys.allows.upsert(bKey, bEntry)
+				expectedKeys.allows.upsert(bKeyWithBProto, bEntryCpy)
 			}
 		}
 		outcomeKeys := newMapState(nil)
@@ -3677,14 +3677,14 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}
 		expectedKeys := newMapState(nil)
 		if tt.aIsDeny {
-			expectedKeys.denies.Upsert(aKey, aEntry)
+			expectedKeys.denies.upsert(aKey, aEntry)
 		} else {
-			expectedKeys.allows.Upsert(aKey, aEntry)
+			expectedKeys.allows.upsert(aKey, aEntry)
 		}
 		if tt.bIsDeny {
-			expectedKeys.denies.Upsert(bKey, bEntry)
+			expectedKeys.denies.upsert(bKey, bEntry)
 		} else {
-			expectedKeys.allows.Upsert(bKey, bEntry)
+			expectedKeys.allows.upsert(bKey, bEntry)
 		}
 		outcomeKeys := newMapState(nil)
 		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
