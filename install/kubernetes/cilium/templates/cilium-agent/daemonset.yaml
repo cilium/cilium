@@ -315,11 +315,11 @@ spec:
         {{- end}}
         - name: cilium-run
           mountPath: /var/run/cilium
-        {{- if and .Values.socketLB.enabled (default true .Values.socketLB.terminatePodConnections) }}
+{{/*        {{- if and .Values.socketLB.enabled (default true .Values.socketLB.terminatePodConnections) }}*/}}
         - name: cilium-netns
           mountPath: /run/cilium/netns
           mountPropagation: HostToContainer
-        {{- end}}
+{{/*        {{- end}}*/}}
         - name: etc-cni-netd
           mountPath: {{ .Values.cni.hostConfDirMountPath }}
         {{- if .Values.etcd.enabled }}
@@ -795,13 +795,13 @@ spec:
         hostPath:
           path: {{ .Values.daemon.runPath }}
           type: DirectoryOrCreate
-      {{- if and .Values.socketLB.enabled (default true .Values.socketLB.terminatePodConnections) }}
+{{/*      {{- if and .Values.socketLB.enabled (default true .Values.socketLB.terminatePodConnections) }}*/}}
         # To exec into pod network namespaces
       - name: cilium-netns
         hostPath:
           path: /run/netns
           type: DirectoryOrCreate
-      {{- end }}
+{{/*      {{- end }}*/}}
       {{- if .Values.bpf.autoMount.enabled }}
         # To keep state between restarts / upgrades for bpf maps
       - name: bpf-maps
