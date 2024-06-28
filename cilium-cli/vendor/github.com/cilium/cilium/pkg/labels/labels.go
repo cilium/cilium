@@ -670,6 +670,15 @@ func (l Labels) HasSource(source string) bool {
 	return false
 }
 
+// CollectSources returns all distinct label sources found in l
+func (l Labels) CollectSources() map[string]struct{} {
+	sources := make(map[string]struct{})
+	for _, lbl := range l {
+		sources[lbl.Source] = struct{}{}
+	}
+	return sources
+}
+
 // parseSource returns the parsed source of the given str. It also returns the next piece
 // of text that is after the source.
 // Example:
