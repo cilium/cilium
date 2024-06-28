@@ -78,6 +78,11 @@ repository in the Cilium project:
 - `@cilium/security <https://github.com/orgs/cilium/teams/security>`__:
   Provide feedback on changes that could have security implications for Cilium,
   and maintain security-related documentation.
+- `@cilium/tophat <https://github.com/orgs/cilium/teams/tophat>`__:
+  Top Hat duties rotate between the committer group from week to week, and
+  they may assist in maintenance, triage and backporting duties across
+  different Cilium repositories. Catch-all for code not otherwise owned by a
+  team.
 - `@cilium/vendor <https://github.com/orgs/cilium/teams/vendor>`__:
   Review vendor updates for software dependencies to check for any potential
   upstream breakages / incompatibilities. Discourage the use of unofficial
