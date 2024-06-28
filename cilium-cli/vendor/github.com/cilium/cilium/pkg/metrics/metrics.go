@@ -355,6 +355,11 @@ var (
 	// Identity is the number of identities currently in use on the node by type
 	Identity = NoOpGaugeVec
 
+	// IdentityLabelSources is the number of identities in use on the node with
+	// have a particular label source. Note that an identity may contain labels
+	// from multiple sources and thus might be counted in multiple buckets
+	IdentityLabelSources = NoOpGaugeVec
+
 	// Events
 
 	// EventTS is the time in seconds since epoch that we last received an
@@ -502,6 +507,9 @@ var (
 	// that have expired (by TTL) yet still associated with an active
 	// connection (aka zombie), per endpoint.
 	FQDNAliveZombieConnections = NoOpGaugeVec
+
+	// FQDNSelectors is the total number of registered ToFQDN selectors
+	FQDNSelectors = NoOpGauge
 
 	// FQDNSemaphoreRejectedTotal is the total number of DNS requests rejected
 	// by the DNS proxy because too many requests were in flight, as enforced by
@@ -665,6 +673,7 @@ type LegacyMetrics struct {
 	CIDRGroupsReferenced             metric.Gauge
 	CIDRGroupTranslationTimeStats    metric.Histogram
 	Identity                         metric.Vec[metric.Gauge]
+	IdentityLabelSources             metric.Vec[metric.Gauge]
 	EventTS                          metric.Vec[metric.Gauge]
 	EventLagK8s                      metric.Gauge
 	ProxyRedirects                   metric.Vec[metric.Gauge]
@@ -700,6 +709,7 @@ type LegacyMetrics struct {
 	FQDNActiveNames                  metric.Vec[metric.Gauge]
 	FQDNActiveIPs                    metric.Vec[metric.Gauge]
 	FQDNAliveZombieConnections       metric.Vec[metric.Gauge]
+	FQDNSelectors                    metric.Gauge
 	FQDNSemaphoreRejectedTotal       metric.Counter
 	IPCacheErrorsTotal               metric.Vec[metric.Counter]
 	IPCacheEventsTotal               metric.Vec[metric.Counter]
@@ -861,6 +871,14 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:      "identity",
 			Help:      "Number of identities currently allocated",
 		}, []string{LabelType}),
+
+		IdentityLabelSources: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_identity_label_sources",
+
+			Namespace: Namespace,
+			Name:      "identity_label_sources",
+			Help:      "Number of identities which contain at least one label of the given label source",
+		}, []string{LabelSource}),
 
 		EventTS: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_event_ts",
@@ -1165,6 +1183,14 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Number of IPs associated with domains that have expired (by TTL) yet still associated with an active connection (aka zombie), per endpoint",
 		}, []string{LabelPeerEndpoint}),
 
+		FQDNSelectors: metric.NewGauge(metric.GaugeOpts{
+			ConfigName: Namespace + "_" + SubsystemFQDN + "_selectors",
+			Namespace:  Namespace,
+			Subsystem:  SubsystemFQDN,
+			Name:       "selectors",
+			Help:       "Number of registered ToFQDN selectors",
+		}),
+
 		FQDNSemaphoreRejectedTotal: metric.NewCounter(metric.CounterOpts{
 			ConfigName: Namespace + "_" + SubsystemFQDN + "_semaphore_rejected_total",
 			Disabled:   true,
@@ -1368,6 +1394,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	CIDRGroupsReferenced = lm.CIDRGroupsReferenced
 	CIDRGroupTranslationTimeStats = lm.CIDRGroupTranslationTimeStats
 	Identity = lm.Identity
+	IdentityLabelSources = lm.IdentityLabelSources
 	EventTS = lm.EventTS
 	EventLagK8s = lm.EventLagK8s
 	ProxyRedirects = lm.ProxyRedirects
@@ -1403,6 +1430,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	FQDNActiveNames = lm.FQDNActiveNames
 	FQDNActiveIPs = lm.FQDNActiveIPs
 	FQDNAliveZombieConnections = lm.FQDNAliveZombieConnections
+	FQDNSelectors = lm.FQDNSelectors
 	FQDNSemaphoreRejectedTotal = lm.FQDNSemaphoreRejectedTotal
 	IPCacheErrorsTotal = lm.IPCacheErrorsTotal
 	IPCacheEventsTotal = lm.IPCacheEventsTotal

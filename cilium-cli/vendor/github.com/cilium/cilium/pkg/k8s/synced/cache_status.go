@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package k8s
+package synced
 
 // CacheStatus allows waiting for k8s caches to synchronize.
 type CacheStatus chan struct{}

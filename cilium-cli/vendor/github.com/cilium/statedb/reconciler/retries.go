@@ -8,6 +8,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 )
 
@@ -17,11 +18,11 @@ type exponentialBackoff struct {
 }
 
 func (e *exponentialBackoff) Duration(attempt int) time.Duration {
-	dur := time.Duration(float64(e.min) * math.Pow(2, float64(attempt)))
-	if dur > e.max {
-		dur = e.max
+	dur := float64(e.min) * math.Pow(2, float64(attempt))
+	if dur > float64(e.max) {
+		return e.max
 	}
-	return dur
+	return time.Duration(dur)
 }
 
 func newRetries(minDuration, maxDuration time.Duration, objectToKey func(any) index.Key) *retries {
@@ -50,11 +51,23 @@ type retries struct {
 	waitChan    chan struct{}
 }
 
+func (rq *retries) errors() []error {
+	errs := make([]error, 0, len(rq.items))
+	for _, item := range rq.items {
+		errs = append(errs, item.lastError)
+	}
+	return errs
+}
+
 type retryItem struct {
-	object     any       // the object that is being retried. 'any' to avoid specializing this internal code.
+	object any // the object that is being retried. 'any' to avoid specializing this internal code.
+	rev    statedb.Revision
+	delete bool
+
 	index      int       // item's index in the priority queue
 	retryAt    time.Time // time at which to retry
 	numRetries int       // number of retries attempted (for calculating backoff)
+	lastError  error
 }
 
 // Wait returns a channel that is closed when there is an item to retry.
@@ -63,17 +76,17 @@ func (rq *retries) Wait() <-chan struct{} {
 	return rq.waitChan
 }
 
-func (rq *retries) Top() (object any, retryAt time.Time, ok bool) {
+func (rq *retries) Top() (*retryItem, bool) {
 	if rq.queue.Len() == 0 {
-		return
+		return nil, false
 	}
-	item := rq.queue[0]
-	return item.object, item.retryAt, true
+	return rq.queue[0], true
 }
 
 func (rq *retries) Pop() {
 	// Pop the object from the queue, but leave it into the map until
 	// the object is cleared or re-added.
+	rq.queue[0].index = -1
 	heap.Pop(&rq.queue)
 
 	rq.resetTimer()
@@ -98,7 +111,7 @@ func (rq *retries) resetTimer() {
 	}
 }
 
-func (rq *retries) Add(obj any) {
+func (rq *retries) Add(obj any, rev statedb.Revision, delete bool, lastError error) {
 	var (
 		item *retryItem
 		ok   bool
@@ -107,17 +120,29 @@ func (rq *retries) Add(obj any) {
 	if item, ok = rq.items[string(key)]; !ok {
 		item = &retryItem{
 			numRetries: 0,
+			index:      -1,
 		}
 		rq.items[string(key)] = item
 	}
 	item.object = obj
+	item.rev = rev
+	item.delete = delete
 	item.numRetries += 1
+	item.lastError = lastError
 	duration := rq.backoff.Duration(item.numRetries)
 	item.retryAt = time.Now().Add(duration)
-	heap.Push(&rq.queue, item)
 
-	// New item is at the top of the queue, reset the timer.
-	rq.resetTimer()
+	if item.index >= 0 {
+		// The item was already in the queue, fix up its position.
+		heap.Fix(&rq.queue, item.index)
+	} else {
+		heap.Push(&rq.queue, item)
+	}
+
+	// Item is at the head of the queue, reset the timer.
+	if item.index == 0 {
+		rq.resetTimer()
+	}
 }
 
 func (rq *retries) Clear(obj any) {

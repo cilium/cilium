@@ -30,15 +30,15 @@ func (r *reconciler[Obj]) full(ctx context.Context, txn statedb.ReadTxn) []error
 	iter, _ = r.Config.Table.All(txn) // Grab a new iterator as Prune() may have consumed it.
 	for obj, rev, ok := iter.Next(); ok; obj, rev, ok = iter.Next() {
 		start := time.Now()
+		orig := obj
 		obj = r.Config.CloneObject(obj)
 		err := ops.Update(ctx, txn, obj)
 		r.metrics.FullReconciliationDuration(r.ModuleID, OpUpdate, time.Since(start))
 
+		updateResults[obj] = opResult{rev: rev, err: err, original: orig}
 		if err == nil {
-			updateResults[obj] = opResult{rev: rev, status: StatusDone()}
 			r.retries.Clear(obj)
 		} else {
-			updateResults[obj] = opResult{rev: rev, status: StatusError(err)}
 			errs = append(errs, err)
 		}
 	}
@@ -49,11 +49,19 @@ func (r *reconciler[Obj]) full(ctx context.Context, txn statedb.ReadTxn) []error
 	if len(updateResults) > 0 {
 		wtxn := r.DB.WriteTxn(r.Config.Table)
 		for obj, result := range updateResults {
-			obj = r.Config.SetObjectStatus(obj, result.status)
+			var status Status
+			if result.err == nil {
+				status = StatusDone()
+			} else {
+				status = StatusError(result.err)
+			}
+			obj = r.Config.SetObjectStatus(obj, status)
 			_, _, err := r.Config.Table.CompareAndSwap(wtxn, result.rev, obj)
-			if err == nil && result.status.Kind != StatusKindDone {
-				// Object had not changed in the meantime, queue the retry.
-				r.retries.Add(obj)
+			if err == nil && result.err != nil {
+				// Object had not changed in the meantime, queue the retry for
+				// the failure.
+				newRevision := r.Config.Table.Revision(wtxn)
+				r.retries.Add(result.original.(Obj), newRevision, false, result.err)
 			}
 		}
 		wtxn.Commit()

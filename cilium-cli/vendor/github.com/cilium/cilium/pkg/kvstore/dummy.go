@@ -49,7 +49,7 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 			tb.Fatalf("Unable to delete all kvstore keys: %v", err)
 		}
 
-		Client().Close(context.Background())
+		Client().Close()
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)

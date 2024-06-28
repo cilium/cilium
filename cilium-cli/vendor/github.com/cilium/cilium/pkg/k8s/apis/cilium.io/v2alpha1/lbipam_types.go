@@ -75,12 +75,6 @@ type CiliumLoadBalancerIPPoolSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	AllowFirstLastIPs AllowFirstLastIPType `json:"allowFirstLastIPs,omitempty"`
-	// Cidrs is a list of CIDRs comprising this IP Pool
-	// Deprecated: please use the `blocks` field instead. This field will be removed in a future release.
-	// https://github.com/cilium/cilium/issues/28590
-	//
-	// +kubebuilder:validation:Optional
-	Cidrs []CiliumLoadBalancerIPPoolIPBlock `json:"cidrs,omitempty"`
 	// Blocks is a list of CIDRs comprising this IP Pool
 	//
 	// +kubebuilder:validation:Optional
