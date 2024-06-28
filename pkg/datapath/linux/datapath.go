@@ -30,7 +30,6 @@ type linuxDatapath struct {
 	nodeIDHandler  datapath.NodeIDHandler
 	nodeNeighbors  datapath.NodeNeighbors
 	nodeAddressing datapath.NodeAddressing
-	loader         datapath.Loader
 	wgAgent        datapath.WireguardAgent
 	lbmap          datapath.LBMap
 	bwmgr          datapath.BandwidthManager
@@ -45,7 +44,6 @@ type DatapathParams struct {
 	BWManager      datapath.BandwidthManager
 	NodeAddressing datapath.NodeAddressing
 	MTU            datapath.MTUConfiguration
-	Loader         datapath.Loader
 	NodeManager    manager.NodeManager
 	DB             *statedb.DB
 	Devices        statedb.Table[*tables.Device]
@@ -61,7 +59,6 @@ func NewDatapath(p DatapathParams) datapath.Datapath {
 		ConfigWriter:    p.ConfigWriter,
 		IptablesManager: p.RuleManager,
 		nodeAddressing:  p.NodeAddressing,
-		loader:          p.Loader,
 		wgAgent:         p.WGAgent,
 		lbmap:           lbmap.New(),
 		bwmgr:           p.BWManager,
@@ -95,10 +92,6 @@ func (l *linuxDatapath) NodeNeighbors() datapath.NodeNeighbors {
 // node
 func (l *linuxDatapath) LocalNodeAddressing() datapath.NodeAddressing {
 	return l.nodeAddressing
-}
-
-func (l *linuxDatapath) Loader() datapath.Loader {
-	return l.loader
 }
 
 func (l *linuxDatapath) WireguardAgent() datapath.WireguardAgent {

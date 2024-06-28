@@ -58,6 +58,7 @@ var Cell = cell.Module(
 		func() mtu.MTU { return &fakeTypes.MTU{} },
 		func() *wg.Agent { return nil },
 		func() types.Loader { return &fakeTypes.FakeLoader{} },
+		func() types.Orchestrator { return &fakeTypes.FakeOrchestrator{} },
 		loader.NewCompilationLock,
 		func() sysctl.Sysctl { return &Sysctl{} },
 		func() (promise.Promise[nat.NatMap4], promise.Promise[nat.NatMap6]) {

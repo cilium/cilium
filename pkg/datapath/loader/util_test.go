@@ -63,7 +63,6 @@ func newTestLoader(tb testing.TB) *loader {
 		Config: DefaultConfig,
 		Sysctl: sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 	})
-	l.nodeConfig.Store(&localNodeConfig)
 	cw := configWriterForTest(tb)
 	l.templateCache = newObjectCache(cw, tb.TempDir())
 	return l

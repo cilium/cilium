@@ -66,15 +66,15 @@ type recQueue struct {
 
 type Recorder struct {
 	lock.RWMutex
-	logger  logrus.FieldLogger
-	recByID map[ID]*RecInfo
-	recMask map[string]*RecMask
-	queue   recQueue
-	ctx     context.Context
-	loader  types.Loader
+	logger       logrus.FieldLogger
+	recByID      map[ID]*RecInfo
+	recMask      map[string]*RecMask
+	queue        recQueue
+	ctx          context.Context
+	orchestrator types.Orchestrator
 }
 
-func newRecorder(ctx context.Context, logger logrus.FieldLogger, loader types.Loader) *Recorder {
+func newRecorder(ctx context.Context, logger logrus.FieldLogger, orchestrator types.Orchestrator) *Recorder {
 	return &Recorder{
 		recByID: map[ID]*RecInfo{},
 		recMask: map[string]*RecMask{},
@@ -82,9 +82,9 @@ func newRecorder(ctx context.Context, logger logrus.FieldLogger, loader types.Lo
 			add: []*RecorderTuple{},
 			del: []*RecorderTuple{},
 		},
-		ctx:    ctx,
-		logger: logger,
-		loader: loader,
+		ctx:          ctx,
+		logger:       logger,
+		orchestrator: orchestrator,
 	}
 }
 
@@ -244,7 +244,7 @@ func (r *Recorder) triggerDatapathRegenerate() error {
 			extraCArgs = append(extraCArgs, masks6)
 		}
 	}
-	err := r.loader.ReinitializeXDP(r.ctx, extraCArgs)
+	err := r.orchestrator.ReinitializeXDP(r.ctx, extraCArgs)
 	if err != nil {
 		r.logger.WithError(err).Warnf("Failed to regenerate datapath with masks: %s / %s",
 			masks4, masks6)
