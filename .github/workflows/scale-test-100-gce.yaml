@@ -47,7 +47,7 @@ env:
 
 jobs:
   install-and-scaletest:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4cores-16gb
     name: Install and Scale Test
     timeout-minutes: 360
     steps:
