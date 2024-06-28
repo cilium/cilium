@@ -36,7 +36,7 @@ Single BGP peer is defined in the BGP cluster configuration. This will be applie
     peers:
     - name: "65000"
       peerASN: 65000
-      peerAddress: fd00:10:0:1::1
+      peerAddress: fd00:10::1
       peerConfigRef:
         name: "cilium-peer"
 ```
@@ -91,14 +91,14 @@ Verification
 
 ```
 root@bgpv2-cplane-dev-pod-ip-pool-worker:/home/cilium# cilium bgp routes advertised ipv4 unicast
-VRouter   Peer             Prefix          NextHop          Age     Attrs
-65001     fd00:10:0:1::1   10.100.1.0/24   fd00:10:0:2::2   1m28s   [{Origin: i} {AsPath: 65001} {Communities: 65000:100} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [10.100.1.0/24]}}]
-65001     fd00:10:0:1::1   10.200.0.0/24   fd00:10:0:2::2   1m12s   [{Origin: i} {AsPath: 65001} {Communities: 65000:200} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [10.200.0.0/24]}}]
+VRouter   Peer         Prefix          NextHop          Age     Attrs
+65001     fd00:10::1   10.100.1.0/24   fd00:10:0:2::2   4m14s   [{Origin: i} {AsPath: 65001} {Communities: 65000:100} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [10.100.1.0/24]}}]
+65001     fd00:10::1   10.200.0.0/24   fd00:10:0:2::2   3m57s   [{Origin: i} {AsPath: 65001} {Communities: 65000:200} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [10.200.0.0/24]}}]
 
 root@bgpv2-cplane-dev-pod-ip-pool-worker:/home/cilium# cilium bgp routes advertised ipv6 unicast
-VRouter   Peer             Prefix              NextHop          Age     Attrs
-65001     fd00:10:0:1::1   fd00:100:1:1::/64   fd00:10:0:2::2   1m33s   [{Origin: i} {AsPath: 65001} {Communities: 65000:100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [fd00:100:1:1::/64]}}]
-65001     fd00:10:0:1::1   fd00:200:1:2::/64   fd00:10:0:2::2   1m2s    [{Origin: i} {AsPath: 65001} {Communities: 65000:200} {MpReach(ipv6-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [fd00:200:1:2::/64]}}]
+VRouter   Peer         Prefix              NextHop          Age     Attrs
+65001     fd00:10::1   fd00:100:1:1::/64   fd00:10:0:2::2   4m43s   [{Origin: i} {AsPath: 65001} {Communities: 65000:100} {MpReach(ipv6-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [fd00:100:1:1::/64]}}]
+65001     fd00:10::1   fd00:200:1:2::/64   fd00:10:0:2::2   4m11s   [{Origin: i} {AsPath: 65001} {Communities: 65000:200} {MpReach(ipv6-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [fd00:200:1:2::/64]}}]
 ```
 
 **Router0**
@@ -130,7 +130,7 @@ Paths: (1 available, best #1, table default)
     fd00:10:0:1::2 from fd00:10:0:1::2 (10.0.1.2)
       Origin IGP, valid, external, best (First path received)
       Community: 65000:100
-      Last update: Thu May 16 17:47:20 2024
+      Last update: Fri Jun 28 15:55:08 2024
 
 docker exec -it clab-bgpv2-cplane-dev-pod-ip-pool-router0 vtysh -c 'sh bgp ipv4 10.200.0.0'
 BGP routing table entry for 10.200.0.0/24, version 3
@@ -141,5 +141,5 @@ Paths: (1 available, best #1, table default)
     fd00:10:0:2::2 from fd00:10:0:2::2 (10.0.2.2)
       Origin IGP, valid, external, best (First path received)
       Community: 65000:200
-      Last update: Thu May 16 17:47:13 2024
+      Last update: Fri Jun 28 15:54:59 2024
 ```
