@@ -1116,10 +1116,36 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 	// merged with allows that are set to be
 	// deleted.
 	var (
-		updates, deletes []MapChange
+		updates []MapChange
+		deletes []Key
 	)
 	prefixes := getNets(identities, newKey.Identity)
 	if newEntry.IsDeny {
+		bailed := false
+		ms.denies.ForEachBroaderOrEqualKey(newKey, prefixes, func(k Key, v MapStateEntry) bool {
+			if ms.validator != nil {
+				ms.validator.isBroaderOrEqual(k, newKey)
+				ms.validator.isSupersetOrSame(k, newKey, identities)
+			}
+			if !v.HasDependent(newKey) && v.HasSameOwners(&newEntry) {
+				// If this iterated-deny-entry is a supserset (or equal) of the new-entry and
+				// the iterated-deny-entry has a broader (or equal) port-protocol and
+				// the ownership between the entries is the same then we
+				// should not insert the new entry (as long as it is not one
+				// of the special L4-only denies we created to cover the special
+				// case of a superset-allow with a more specific port-protocol).
+				//
+				// NOTE: This condition could be broader to reject more deny entries,
+				// but there *may* be performance tradeoffs.
+				bailed = true
+				return false
+			}
+			return true
+		})
+		if bailed {
+			return
+		}
+
 		ms.allows.ForEachNarrowerKeyWithBroaderID(newKey, prefixes, func(k Key, v MapStateEntry) bool {
 			if ms.validator != nil {
 				ms.validator.isBroader(newKey, k)
@@ -1148,49 +1174,9 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			// If the new-entry is a superset (or equal) of the iterated-allow-entry and
 			// the new-entry has a broader (or equal) port-protocol then we
 			// should delete the iterated-allow-entry
-			deletes = append(deletes, MapChange{
-				Key: k,
-			})
+			deletes = append(deletes, k)
 			return true
 		})
-		for _, delete := range deletes {
-			if !delete.Add {
-				ms.deleteKeyWithChanges(delete.Key, nil, identities, changes)
-			}
-		}
-		for _, update := range updates {
-			if update.Add {
-				ms.addKeyWithChanges(update.Key, update.Value, identities, changes)
-				// L3-only entries can be deleted incrementally so we need to track their
-				// effects on other entries so that those effects can be reverted when the
-				// identity is removed.
-				newEntry.AddDependent(update.Key)
-			}
-		}
-
-		updates = nil
-		bailed := false
-		ms.denies.ForEachBroaderOrEqualKey(newKey, prefixes, func(k Key, v MapStateEntry) bool {
-			if ms.validator != nil {
-				ms.validator.isBroaderOrEqual(k, newKey)
-				ms.validator.isSupersetOrSame(k, newKey, identities)
-			}
-			if !v.HasDependent(newKey) && v.HasSameOwners(&newEntry) {
-				// If this iterated-deny-entry is a supserset (or equal) of the new-entry and
-				// the iterated-deny-entry has a broader (or equal) port-protocol and
-				// the ownership between the entries is the same then we
-				// should not insert the new entry (as long as it is not one
-				// of the special L4-only denies we created to cover the special
-				// case of a superset-allow with a more specific port-protocol).
-				//
-				// NOTE: This condition could be broader to reject more deny entries,
-				// but there *may* be performance tradeoffs.
-				bailed = true
-				return false
-			}
-			return true
-		})
-
 		ms.denies.ForEachNarrowerOrEqualKey(newKey, prefixes, func(k Key, v MapStateEntry) bool {
 			if ms.validator != nil {
 				ms.validator.isBroaderOrEqual(newKey, k)
@@ -1206,20 +1192,23 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				//
 				// NOTE: This condition could be broader to reject more deny entries,
 				// but there *may* be performance tradeoffs.
-				updates = append(updates, MapChange{
-					Key: k,
-				})
+				deletes = append(deletes, k)
 			}
 			return true
 		})
 		for _, update := range updates {
-			if !update.Add {
-				ms.deleteKeyWithChanges(update.Key, nil, identities, changes)
+			if update.Add {
+				ms.addKeyWithChanges(update.Key, update.Value, identities, changes)
+				// L3-only entries can be deleted incrementally so we need to track their
+				// effects on other entries so that those effects can be reverted when the
+				// identity is removed.
+				newEntry.AddDependent(update.Key)
 			}
 		}
-		if !bailed {
-			ms.addKeyWithChanges(newKey, newEntry, identities, changes)
+		for _, k := range deletes {
+			ms.deleteKeyWithChanges(k, nil, identities, changes)
 		}
+		ms.addKeyWithChanges(newKey, newEntry, identities, changes)
 	} else {
 		// NOTE: We do not delete redundant allow entries.
 		updates = nil
