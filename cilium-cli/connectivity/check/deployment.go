@@ -67,6 +67,12 @@ const (
 	KindTestConnDisrupt                 = "test-conn-disrupt"
 )
 
+var (
+	appLabels = map[string]string{
+		"app.kubernetes.io/name": "cilium-cli",
+	}
+)
+
 type deploymentParameters struct {
 	Name                          string
 	Kind                          string
@@ -409,6 +415,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        ct.params.TestNamespace,
 					Annotations: ct.params.NamespaceAnnotations,
+					Labels:      appLabels,
 				},
 			}
 			_, err = client.CreateNamespace(ctx, namespace, metav1.CreateOptions{})
