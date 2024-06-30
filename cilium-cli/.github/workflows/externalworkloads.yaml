@@ -215,6 +215,7 @@ jobs:
         run: |
           # Run connectivity test
           cilium connectivity test --test-concurrency=5 --all-flows --collect-sysdump-on-failure --external-target google.com.
+          kubectl delete namespace -l "app.kubernetes.io/name=cilium-cli"
 
           # Run performance test
           cilium connectivity perf --duration 1s
