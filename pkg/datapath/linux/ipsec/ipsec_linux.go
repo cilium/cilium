@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -176,8 +177,16 @@ func computeNodeIPsecKey(globalKey, srcNodeIP, dstNodeIP, srcBootID, dstBootID [
 	input = append(input, dstNodeIP...)
 	input = append(input, srcBootID[:36]...)
 	input = append(input, dstBootID[:36]...)
-	output := sha256.Sum256(input)
-	return output[:len(globalKey)]
+
+	var hash []byte
+	if len(globalKey) <= 32 {
+		h := sha256.Sum256(input)
+		hash = h[:]
+	} else {
+		h := sha512.Sum512(input)
+		hash = h[:]
+	}
+	return hash[:len(globalKey)]
 }
 
 // canonicalIP returns a canonical IPv4 address (4 bytes)
