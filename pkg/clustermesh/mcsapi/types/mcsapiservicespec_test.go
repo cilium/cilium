@@ -14,11 +14,14 @@ import (
 )
 
 func TestMCSAPIServiceSpec(t *testing.T) {
+	exportTime := metav1.Now().Rfc3339Copy()
+	exportTime.Time = exportTime.Local()
+
 	mcsAPISvcSpec := MCSAPIServiceSpec{
 		Cluster:                 "cluster1",
 		Name:                    "foo",
 		Namespace:               "bar",
-		ExportCreationTimestamp: metav1.Now().Rfc3339Copy(),
+		ExportCreationTimestamp: exportTime,
 		Ports:                   []mcsapiv1alpha1.ServicePort{},
 		Type:                    mcsapiv1alpha1.ClusterSetIP,
 		SessionAffinity:         corev1.ServiceAffinityNone,
@@ -35,6 +38,9 @@ func TestMCSAPIServiceSpec(t *testing.T) {
 }
 
 func TestMCSAPIServiceSpecValidate(t *testing.T) {
+	exportTime := metav1.Now().Rfc3339Copy()
+	exportTime.Time = exportTime.Local()
+
 	tests := []struct {
 		name          string
 		mcsAPISvcSpec MCSAPIServiceSpec
@@ -49,7 +55,7 @@ func TestMCSAPIServiceSpecValidate(t *testing.T) {
 			name: "minimum information",
 			mcsAPISvcSpec: MCSAPIServiceSpec{
 				Cluster: "foo", Namespace: "bar", Name: "qux",
-				ExportCreationTimestamp: metav1.Now(),
+				ExportCreationTimestamp: exportTime,
 				Type:                    mcsapiv1alpha1.ClusterSetIP,
 				SessionAffinity:         corev1.ServiceAffinityNone,
 			},
@@ -68,7 +74,7 @@ func TestMCSAPIServiceSpecValidate(t *testing.T) {
 			name: "invalid type",
 			mcsAPISvcSpec: MCSAPIServiceSpec{
 				Cluster: "foo", Namespace: "bar", Name: "qux",
-				ExportCreationTimestamp: metav1.Now(),
+				ExportCreationTimestamp: exportTime,
 				SessionAffinity:         corev1.ServiceAffinityNone,
 			},
 			assert: assert.Error,
@@ -77,7 +83,7 @@ func TestMCSAPIServiceSpecValidate(t *testing.T) {
 			name: "invalid session affinity",
 			mcsAPISvcSpec: MCSAPIServiceSpec{
 				Cluster: "foo", Namespace: "bar", Name: "qux",
-				ExportCreationTimestamp: metav1.Now(),
+				ExportCreationTimestamp: exportTime,
 				Type:                    mcsapiv1alpha1.ClusterSetIP,
 			},
 			assert: assert.Error,
@@ -86,7 +92,7 @@ func TestMCSAPIServiceSpecValidate(t *testing.T) {
 			name: "invalid name",
 			mcsAPISvcSpec: MCSAPIServiceSpec{
 				Cluster: "foo", Namespace: "bar",
-				ExportCreationTimestamp: metav1.Now(),
+				ExportCreationTimestamp: exportTime,
 				Type:                    mcsapiv1alpha1.ClusterSetIP,
 			},
 			assert: assert.Error,
@@ -95,7 +101,7 @@ func TestMCSAPIServiceSpecValidate(t *testing.T) {
 			name: "invalid namespace",
 			mcsAPISvcSpec: MCSAPIServiceSpec{
 				Cluster: "foo", Name: "qux",
-				ExportCreationTimestamp: metav1.Now(),
+				ExportCreationTimestamp: exportTime,
 				Type:                    mcsapiv1alpha1.ClusterSetIP,
 				SessionAffinity:         corev1.ServiceAffinityNone,
 			},
@@ -105,7 +111,7 @@ func TestMCSAPIServiceSpecValidate(t *testing.T) {
 			name: "invalid cluster",
 			mcsAPISvcSpec: MCSAPIServiceSpec{
 				Namespace: "bar", Name: "qux",
-				ExportCreationTimestamp: metav1.Now(),
+				ExportCreationTimestamp: exportTime,
 				Type:                    mcsapiv1alpha1.ClusterSetIP,
 				SessionAffinity:         corev1.ServiceAffinityNone,
 			},
@@ -121,9 +127,12 @@ func TestMCSAPIServiceSpecValidate(t *testing.T) {
 }
 
 func TestValidatingClusterService(t *testing.T) {
+	exportTime := metav1.Now().Rfc3339Copy()
+	exportTime.Time = exportTime.Local()
+
 	mcsAPISvcSpec := MCSAPIServiceSpec{
 		Cluster: "foo", Namespace: "bar", Name: "qux",
-		ExportCreationTimestamp: metav1.Now().Rfc3339Copy(),
+		ExportCreationTimestamp: exportTime,
 		Type:                    mcsapiv1alpha1.ClusterSetIP,
 		SessionAffinity:         corev1.ServiceAffinityNone,
 	}
