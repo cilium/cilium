@@ -34,6 +34,7 @@ var (
 	path           = "ipsec_keys_test"
 	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef foobar\n1 digest_null \"\" cipher_null \"\"\n")
 	keysAeadDat    = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
+	keysAeadDat256 = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f144434241343332312423222114131211 128\n")
 	invalidKeysDat = []byte("1 test abcdefghijklmnopqrstuvwzyzABCDEF test abcdefghijklmnopqrstuvwzyzABCDEF\n")
 )
 
@@ -68,16 +69,15 @@ func (p *IPSecSuitePrivileged) TestInvalidLoadKeys(c *C) {
 }
 
 func (p *IPSecSuitePrivileged) TestLoadKeys(c *C) {
-	keys := bytes.NewReader(keysDat)
-	_, spi, err := LoadIPSecKeys(keys)
-	c.Assert(err, IsNil)
-	err = SetIPSecSPI(spi)
-	c.Assert(err, IsNil)
-	keys = bytes.NewReader(keysAeadDat)
-	_, spi, err = LoadIPSecKeys(keys)
-	c.Assert(err, IsNil)
-	err = SetIPSecSPI(spi)
-	c.Assert(err, IsNil)
+
+	testCases := [][]byte{keysDat, keysAeadDat, keysAeadDat256}
+	for _, testCase := range testCases {
+		keys := bytes.NewReader(testCase)
+		_, spi, err := LoadIPSecKeys(keys)
+		c.Assert(err, IsNil)
+		err = SetIPSecSPI(spi)
+		c.Assert(err, IsNil)
+	}
 }
 
 func (p *IPSecSuitePrivileged) TestParseSPI(c *C) {
