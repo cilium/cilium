@@ -168,6 +168,7 @@ jobs:
             # - https://github.com/cilium/cilium/issues/16975 is fixed
             # - fix has been deployed to a stable branch
             # - cilium-cli default cilium version has been updated to pick up the fix
+          kubectl delete namespace -l "app.kubernetes.io/name=cilium-cli"
 
           # Run performance test
           cilium connectivity perf --duration 1s
