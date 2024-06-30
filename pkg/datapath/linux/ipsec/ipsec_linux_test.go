@@ -42,6 +42,7 @@ var (
 	path           = "ipsec_keys_test"
 	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef foobar\n1 digest_null \"\" cipher_null \"\"\n")
 	keysAeadDat    = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
+	keysAeadDat256 = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f144434241343332312423222114131211 128\n")
 	invalidKeysDat = []byte("1 test abcdefghijklmnopqrstuvwzyzABCDEF test abcdefghijklmnopqrstuvwzyzABCDEF\n")
 )
 
@@ -71,16 +72,14 @@ func TestInvalidLoadKeys(t *testing.T) {
 func TestLoadKeys(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
-	keys := bytes.NewReader(keysDat)
-	_, spi, err := LoadIPSecKeys(log, keys)
-	require.NoError(t, err)
-	err = SetIPSecSPI(log, spi)
-	require.NoError(t, err)
-	keys = bytes.NewReader(keysAeadDat)
-	_, spi, err = LoadIPSecKeys(log, keys)
-	require.NoError(t, err)
-	err = SetIPSecSPI(log, spi)
-	require.NoError(t, err)
+	testCases := [][]byte{keysDat, keysAeadDat, keysAeadDat256}
+	for _, testCase := range testCases {
+		keys := bytes.NewReader(testCase)
+		_, spi, err := LoadIPSecKeys(log, keys)
+		require.NoError(t, err)
+		err = SetIPSecSPI(log, spi)
+		require.NoError(t, err)
+	}
 }
 
 func TestParseSPI(t *testing.T) {
