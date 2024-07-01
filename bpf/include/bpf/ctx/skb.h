@@ -52,6 +52,8 @@
 
 #define ctx_event_output	skb_event_output
 
+#define ctx_ecn_set_ce		skb_ecn_set_ce
+
 #define ctx_adjust_meta		({ -ENOTSUPP; })
 
 /* Avoid expensive calls into the kernel flow dissector if it's not an L4

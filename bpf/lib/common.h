@@ -347,7 +347,7 @@ struct edt_info {
 	__u64		bps;
 	__u64		t_last;
 	__u64		t_horizon_drop;
-	__u64		pad[4];
+	__u64		t_horizon_ecn;
 };
 
 struct remote_endpoint_info {
