@@ -1072,13 +1072,6 @@ func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, identitie
 	}
 }
 
-// protocolsMatch checks to see if two given keys match on protocol.
-// This means that either one of them covers all protocols or they
-// are equal.
-func protocolsMatch(a, b Key) bool {
-	return a.Nexthdr == 0 || b.Nexthdr == 0 || a.Nexthdr == b.Nexthdr
-}
-
 // RevertChanges undoes changes to 'keys' as indicated by 'changes.adds' and 'changes.old' collected via
 // denyPreferredInsertWithChanges().
 func (ms *mapState) revertChanges(identities Identities, changes ChangeState) {
@@ -1337,7 +1330,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, iden
 			// New entry has a default auth type.
 			// Fill in the AuthType from more generic entries with an explicit auth type
 			maxSpecificity := 0
-			l3l4State := newMapStateMap()
+			var l3l4State map[Key]MapStateEntry
 
 			ms.allows.ForEachKeyWithBroaderOrEqualPortProto(newKey, func(k Key, v MapStateEntry) bool {
 				// Nothing to be done if entry has default AuthType
@@ -1371,7 +1364,11 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, iden
 						newKeyCpy.Identity = k.Identity
 						l3l4AuthEntry := NewMapStateEntry(k, v.DerivedFromRules, newEntry.ProxyPort, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType)
 						l3l4AuthEntry.DerivedFromRules.MergeSorted(newEntry.DerivedFromRules)
-						l3l4State.upsert(newKeyCpy, l3l4AuthEntry, identities)
+
+						if l3l4State == nil {
+							l3l4State = make(map[Key]MapStateEntry)
+						}
+						l3l4State[newKeyCpy] = l3l4AuthEntry
 					}
 				}
 				return true
@@ -1381,14 +1378,13 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, iden
 			// entries are not needed as the L4-only entry with an overridden AuthType
 			// will be matched before the L3-only entries in the datapath.
 			if maxSpecificity == 0 {
-				l3l4State.ForEach(func(k Key, v MapStateEntry) bool {
+				for k, v := range l3l4State {
 					ms.addKeyWithChanges(k, v, identities, changes)
 					// L3-only entries can be deleted incrementally so we need to track their
 					// effects on other entries so that those effects can be reverted when the
 					// identity is removed.
 					newEntry.AddDependent(k)
-					return true
-				})
+				}
 			}
 		} else {
 			// New entry has an explicit auth type.

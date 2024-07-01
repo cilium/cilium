@@ -3984,6 +3984,13 @@ func (v *validator) isSupersetOrSame(a, d Key, identities Identities) {
 	}
 }
 
+// protocolsMatch checks to see if two given keys match on protocol.
+// This means that either one of them covers all protocols or they
+// are equal.
+func protocolsMatch(a, b Key) bool {
+	return a.Nexthdr == 0 || b.Nexthdr == 0 || a.Nexthdr == b.Nexthdr
+}
+
 func (v *validator) isBroader(a, d Key) {
 	if a.TrafficDirection != d.TrafficDirection {
 		panic("TrafficDirection mismatch")
