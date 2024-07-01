@@ -524,9 +524,18 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 }
 
 static __always_inline void
+lb6_key_set_protocol(struct lb6_key *key __maybe_unused,
+		     __u8 protocol __maybe_unused)
+{
+#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
+	key->proto = protocol;
+#endif
+}
+
+static __always_inline void
 lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
 {
-	key->proto = tuple->nexthdr;
+	lb6_key_set_protocol(key, tuple->nexthdr);
 	ipv6_addr_copy(&key->address, &tuple->daddr);
 	key->dport = tuple->sport;
 }
@@ -1079,6 +1088,12 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key __maybe_unused,
 	return NULL;
 }
 
+static __always_inline void
+lb6_key_set_protocol(struct lb6_key *key __maybe_unused,
+		     __u8 protocol __maybe_unused)
+{
+}
+
 static __always_inline
 struct lb6_service *__lb6_lookup_backend_slot(struct lb6_key *key __maybe_unused)
 {
@@ -1197,9 +1212,18 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 }
 
 static __always_inline void
+lb4_key_set_protocol(struct lb4_key *key __maybe_unused,
+		     __u8 protocol __maybe_unused)
+{
+#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
+	key->proto = protocol;
+#endif
+}
+
+static __always_inline void
 lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
 {
-	key->proto = tuple->nexthdr;
+	lb4_key_set_protocol(key, tuple->nexthdr);
 	key->address = tuple->daddr;
 	/* CT tuple has ports in reverse order: */
 	key->dport = tuple->sport;
