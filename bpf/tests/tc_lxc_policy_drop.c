@@ -6,7 +6,7 @@
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
 
-#define LXC_IPV4 (__be32)v4_pod_one
+#define LXC_IPV4 (__be32) v4_pod_one
 
 /* Set ETH_HLEN to 14 to indicate that the packet has a 14 byte ethernet header */
 #define ETH_HLEN 14
@@ -14,13 +14,13 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4
 
-#define CLIENT_IP		v4_pod_one
-#define CLIENT_PORT		__bpf_htons(111)
+#define CLIENT_IP	    v4_pod_one
+#define CLIENT_PORT	    __bpf_htons(111)
 
-#define SERVER_IP		v4_pod_two
-#define SERVER_PORT		__bpf_htons(222)
+#define SERVER_IP	    v4_pod_two
+#define SERVER_PORT	    __bpf_htons(222)
 
-#define NODE_IP			v4_node_one
+#define NODE_IP		    v4_node_one
 
 #define SECCTX_FROM_IPCACHE 1
 
@@ -56,10 +56,9 @@ int tc_lxc_policy_drop_pktgen(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)client_mac, (__u8 *)server_mac,
-					  CLIENT_IP, SERVER_IP,
-					  CLIENT_PORT, SERVER_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)client_mac, (__u8 *)server_mac, CLIENT_IP,
+		SERVER_IP, CLIENT_PORT, SERVER_PORT);
 	if (!l4)
 		return TEST_ERROR;
 

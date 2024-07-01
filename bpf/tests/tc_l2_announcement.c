@@ -7,12 +7,15 @@
 #define DEBUG
 
 /* Set THIS_INTERFACE_MAC equal to mac_two */
-#define THIS_INTERFACE_MAC { .addr = {0x13, 0x37, 0x13, 0x37, 0x13, 0x37} }
+#define THIS_INTERFACE_MAC                                     \
+	{                                                      \
+		.addr = { 0x13, 0x37, 0x13, 0x37, 0x13, 0x37 } \
+	}
 
 #define SECCTX_FROM_IPCACHE 1
 
 /* Set the LXC source address to be the address of pod one */
-#define LXC_IPV4 (__be32)v4_pod_one
+#define LXC_IPV4	    (__be32) v4_pod_one
 
 /* Enable CT debug output */
 #undef QUIET_CT
@@ -49,7 +52,7 @@ struct {
  *                 +-------------------------------------------------------------------+
  */
 
-static volatile const __u8 mac_bcast[] =   {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+static volatile const __u8 mac_bcast[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
 static __always_inline int build_packet(struct __ctx_buff *ctx)
 {
@@ -160,7 +163,7 @@ SETUP("tc", "1_happy_path")
 int l2_announcement_arp_happy_path_setup(struct __ctx_buff *ctx)
 {
 	struct l2_responder_v4_key key;
-	struct l2_responder_v4_stats value = {0};
+	struct l2_responder_v4_stats value = { 0 };
 	__u32 index;
 	__u64 time;
 
@@ -179,7 +182,8 @@ int l2_announcement_arp_happy_path_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "1_happy_path")
-int l2_announcement_arp_happy_path_check(__maybe_unused const struct __ctx_buff *ctx)
+int l2_announcement_arp_happy_path_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;

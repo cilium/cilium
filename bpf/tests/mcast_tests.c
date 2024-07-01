@@ -11,7 +11,7 @@
 
 #define ENABLE_IPV4
 #define ENABLE_MULTICAST 1
-#define ENCAP_IFINDEX 1
+#define ENCAP_IFINDEX	 1
 
 #include <linux/igmp.h>
 #include <linux/in.h>
@@ -54,12 +54,12 @@ static __always_inline int igmpv3_join_packet(struct __ctx_buff *ctx)
 	iph = pktgen__push_default_iphdr(&builder);
 	if (!iph)
 		return TEST_ERROR;
-	iph->saddr = 0x1010101;/* 1.1.1.1 */
-	iph->daddr = 0x160000e0;/* 224.0.0.22 */
+	iph->saddr = 0x1010101;	 /* 1.1.1.1 */
+	iph->daddr = 0x160000e0; /* 224.0.0.22 */
 	iph->protocol = IPPROTO_IGMP;
 
-	rep = pktgen__push_rawhdr(&builder, sizeof(struct igmpv3_report),
-				  PKT_LAYER_DATA);
+	rep = pktgen__push_rawhdr(
+		&builder, sizeof(struct igmpv3_report), PKT_LAYER_DATA);
 	if (!rep)
 		return TEST_ERROR;
 
@@ -87,13 +87,15 @@ int test1_check(struct __ctx_buff *ctx)
 		void *data = (void *)(long)ctx->data;
 		void *data_end = (void *)(long)ctx->data_end;
 
-		if ((data + sizeof(struct ethhdr) + sizeof(struct iphdr)) > data_end)
+		if ((data + sizeof(struct ethhdr) + sizeof(struct iphdr)) >
+		    data_end)
 			test_fatal("ctx not big enough");
 
 		ip4 = data + sizeof(struct ethhdr);
 
 		if (mcast_ipv4_is_igmp(ip4) != 1)
-			test_fatal("expected true for ipv4 protocol %x", ip4->protocol);
+			test_fatal("expected true for ipv4 protocol %x",
+				   ip4->protocol);
 	});
 
 	/* test we do not incorrectly identify non igmp packets */
@@ -108,13 +110,15 @@ int test1_check(struct __ctx_buff *ctx)
 		void *data = (void *)(long)ctx->data;
 		void *data_end = (void *)(long)ctx->data_end;
 
-		if ((data + sizeof(struct ethhdr) + sizeof(struct iphdr)) > data_end)
+		if ((data + sizeof(struct ethhdr) + sizeof(struct iphdr)) >
+		    data_end)
 			test_fatal("ctx not big enough");
 
 		ip4 = data + sizeof(struct ethhdr);
 
 		if (mcast_ipv4_is_igmp(ip4) == 1)
-			test_fatal("expected false for ipv4 protocol %x", ip4->protocol);
+			test_fatal("expected false for ipv4 protocol %x",
+				   ip4->protocol);
 	});
 
 	/* test we extract the correct IGMP type */
@@ -130,7 +134,8 @@ int test1_check(struct __ctx_buff *ctx)
 		void *data = (void *)(long)ctx->data;
 		void *data_end = (void *)(long)ctx->data_end;
 
-		if ((data + sizeof(struct ethhdr) + sizeof(struct iphdr)) > data_end)
+		if ((data + sizeof(struct ethhdr) + sizeof(struct iphdr)) >
+		    data_end)
 			test_fatal("ctx not big enough");
 
 		ip4 = data + sizeof(struct ethhdr);

@@ -8,11 +8,11 @@
  * Datapath configuration settings to setup tunneling with VXLan
  * and nodeport
  */
-#define ENCAP_IFINDEX 1  /* Set dummy ifindex for tunnel device */
-#define ENABLE_IPV4 1
-#define ENABLE_IPV6 1
-#define TUNNEL_MODE 1
-#define ENABLE_NODEPORT 1
+#define ENCAP_IFINDEX	       1 /* Set dummy ifindex for tunnel device */
+#define ENABLE_IPV4	       1
+#define ENABLE_IPV6	       1
+#define TUNNEL_MODE	       1
+#define ENABLE_NODEPORT	       1
 #define ENABLE_MASQUERADE_IPV4 1
 #define ENABLE_MASQUERADE_IPV6 1
 
@@ -28,11 +28,11 @@
  * node_two. Tests are written from the perspective of node_one,
  * allowing us access to nodeport_snat_fwd_ipv{4,6}.
  */
-#define SRC_MAC mac_one
+#define SRC_MAC	 mac_one
 #define SRC_IPV4 v4_pod_one
 #define SRC_IPV6 v6_pod_one
 #define SRC_PORT tcp_src_one
-#define DST_MAC mac_three
+#define DST_MAC	 mac_three
 #define DST_IPV4 v4_node_two
 #define DST_IPV6 v6_node_two
 #define DST_PORT tcp_svc_one
@@ -62,8 +62,7 @@ struct {
 	},
 };
 
-static __always_inline int
-pktgen(struct __ctx_buff *ctx, bool v4)
+static __always_inline int pktgen(struct __ctx_buff *ctx, bool v4)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
@@ -72,17 +71,13 @@ pktgen(struct __ctx_buff *ctx, bool v4)
 	pktgen__init(&builder, ctx);
 
 	if (v4)
-		l4 = pktgen__push_ipv4_tcp_packet(&builder,
-						  (__u8 *)SRC_MAC,
-						  (__u8 *)DST_MAC,
-						  SRC_IPV4, DST_IPV4,
-						  SRC_PORT, DST_PORT);
+		l4 = pktgen__push_ipv4_tcp_packet(
+			&builder, (__u8 *)SRC_MAC, (__u8 *)DST_MAC, SRC_IPV4,
+			DST_IPV4, SRC_PORT, DST_PORT);
 	else
-		l4 = pktgen__push_ipv6_tcp_packet(&builder,
-						  (__u8 *)SRC_MAC, (__u8 *)DST_MAC,
-						  (__u8 *)SRC_IPV6,
-						  (__u8 *)DST_IPV6,
-						  SRC_PORT, DST_PORT);
+		l4 = pktgen__push_ipv6_tcp_packet(
+			&builder, (__u8 *)SRC_MAC, (__u8 *)DST_MAC,
+			(__u8 *)SRC_IPV6, (__u8 *)DST_IPV6, SRC_PORT, DST_PORT);
 
 	if (!l4)
 		return TEST_ERROR;
@@ -124,16 +119,17 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 	 */
 
 	if (v4) {
-		endpoint_v4_add_entry(SRC_IPV4, 0, 0, 0, 0, (__u8 *)SRC_MAC, (__u8 *)SRC_MAC);
-		ipcache_v4_add_entry_with_flags(DST_IPV4,
-						0, REMOTE_NODE_ID, 0,
-						0, flag_skip_tunnel);
+		endpoint_v4_add_entry(
+			SRC_IPV4, 0, 0, 0, 0, (__u8 *)SRC_MAC, (__u8 *)SRC_MAC);
+		ipcache_v4_add_entry_with_flags(
+			DST_IPV4, 0, REMOTE_NODE_ID, 0, 0, flag_skip_tunnel);
 	} else {
-		endpoint_v6_add_entry((union v6addr *)SRC_IPV6, 0, 0, 0, 0,
-				      (__u8 *)SRC_MAC, (__u8 *)SRC_MAC);
-		ipcache_v6_add_entry_with_flags((union v6addr *)DST_IPV6,
-						0, REMOTE_NODE_ID, 0,
-						0, flag_skip_tunnel);
+		endpoint_v6_add_entry(
+			(union v6addr *)SRC_IPV6, 0, 0, 0, 0, (__u8 *)SRC_MAC,
+			(__u8 *)SRC_MAC);
+		ipcache_v6_add_entry_with_flags(
+			(union v6addr *)DST_IPV6, 0, REMOTE_NODE_ID, 0, 0,
+			flag_skip_tunnel);
 	}
 
 	tail_call_static(ctx, entry_call_map, TO_NETDEV);
@@ -171,7 +167,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, bool snat)
 	if (!entry)
 		test_fatal("metrics entry not found")
 
-	__u64 count = 1;
+			__u64 count = 1;
 
 	assert_metrics_count(key, count);
 
@@ -180,39 +176,42 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, bool snat)
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
 		test_fatal("l2 out of bounds")
 
-	if (v4 && l2->h_proto != bpf_htons(ETH_P_IP))
-		test_fatal("l2 proto hasn't been set to ETH_P_IP")
+			if (v4 && l2->h_proto != bpf_htons(ETH_P_IP)) test_fatal(
+				"l2 proto hasn't been set to ETH_P_IP")
 
-	if (!v4 && l2->h_proto != bpf_htons(ETH_P_IPV6))
-		test_fatal("l2 proto hasn't been set to ETH_P_IPV6")
+				if (!v4 && l2->h_proto != bpf_htons(ETH_P_IPV6)) test_fatal(
+					"l2 proto hasn't been set to ETH_P_IPV6")
 
-	if (memcmp(l2->h_source, (__u8 *)SRC_MAC, ETH_ALEN) != 0)
-		test_fatal("src mac was changed");
+					if (memcmp(l2->h_source,
+						   (__u8 *)SRC_MAC, ETH_ALEN) !=
+					    0) test_fatal("src mac was changed");
 
 	if (memcmp(l2->h_dest, (__u8 *)DST_MAC, ETH_ALEN) != 0)
 		test_fatal("dst mac has changed")
 
-	if (v4) {
-		struct iphdr *l3;
+			if (v4)
+		{
+			struct iphdr *l3;
 
-		l3 = (void *)l2 + sizeof(struct ethhdr);
+			l3 = (void *)l2 + sizeof(struct ethhdr);
 
-		if ((void *)l3 + sizeof(struct iphdr) > data_end)
-			test_fatal("l3 out of bounds");
+			if ((void *)l3 + sizeof(struct iphdr) > data_end)
+				test_fatal("l3 out of bounds");
 
-		if (snat) {
-			if (l3->saddr != IPV4_MASQUERADE)
-				test_fatal("src IP was not snatted");
-		} else {
-			if (l3->saddr != SRC_IPV4)
-				test_fatal("src IP was changed");
+			if (snat) {
+				if (l3->saddr != IPV4_MASQUERADE)
+					test_fatal("src IP was not snatted");
+			} else {
+				if (l3->saddr != SRC_IPV4)
+					test_fatal("src IP was changed");
+			}
+
+			if (l3->daddr != DST_IPV4)
+				test_fatal("dest IP was changed");
+
+			l4 = (void *)l3 + sizeof(struct iphdr);
 		}
-
-		if (l3->daddr != DST_IPV4)
-			test_fatal("dest IP was changed");
-
-		l4 = (void *)l3 + sizeof(struct iphdr);
-	} else {
+	else {
 		struct ipv6hdr *l3;
 		union v6addr masq_addr;
 
@@ -224,7 +223,8 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, bool snat)
 			test_fatal("l3 out of bounds");
 
 		if (snat) {
-			if (memcmp((__u8 *)&l3->saddr, (__u8 *)&masq_addr, 16) != 0)
+			if (memcmp((__u8 *)&l3->saddr, (__u8 *)&masq_addr, 16) !=
+			    0)
 				test_fatal("src IP was not snatted");
 		} else {
 			if (memcmp((__u8 *)&l3->saddr, (__u8 *)SRC_IPV6, 16) != 0)
@@ -260,7 +260,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, bool snat)
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
 		test_fatal("tcp payload was changed")
 
-	test_finish();
+			test_finish();
 }
 
 PKTGEN("tc", "01_ipv4_nodeport_ingress_no_flags")
@@ -276,7 +276,8 @@ int ipv4_nodeport_ingress_no_flags_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "01_ipv4_nodeport_ingress_no_flags")
-int ipv4_nodeport_ingress_no_flags_check(__maybe_unused const struct __ctx_buff *ctx)
+int ipv4_nodeport_ingress_no_flags_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	return check_ctx(ctx, true, true);
 }
@@ -294,7 +295,8 @@ int ipv4_nodeport_ingress_skip_tunnel_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "02_ipv4_nodeport_ingress_skip_tunnel")
-int ipv4_nodeport_ingress_skip_tunnel_check(__maybe_unused const struct __ctx_buff *ctx)
+int ipv4_nodeport_ingress_skip_tunnel_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	return check_ctx(ctx, true, false);
 }
@@ -312,7 +314,8 @@ int ipv6_nodeport_ingress_no_flags_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "03_ipv6_nodeport_ingress_no_flags")
-int ipv6_nodeport_ingress_no_flags_check(__maybe_unused const struct __ctx_buff *ctx)
+int ipv6_nodeport_ingress_no_flags_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	return check_ctx(ctx, false, true);
 }
@@ -330,7 +333,8 @@ int ipv6_nodeport_ingress_skip_tunnel_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "04_ipv6_nodeport_ingress_skip_tunnel")
-int ipv6_nodeport_ingress_skip_tunnel_check(__maybe_unused const struct __ctx_buff *ctx)
+int ipv6_nodeport_ingress_skip_tunnel_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	return check_ctx(ctx, false, false);
 }

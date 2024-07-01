@@ -7,7 +7,7 @@
 /*
  * Datapath configuration settings to setup tunneling with VXLan
  */
-#define ENCAP_IFINDEX 1  /* Set dummy ifindex for tunnel device */
+#define ENCAP_IFINDEX 1 /* Set dummy ifindex for tunnel device */
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define TUNNEL_MODE
@@ -31,15 +31,15 @@
  * CILIUM_NET_MAC is set in node_config.h, so below we pull
  * it into a format that pktgen can use.
  */
-#define SRC_MAC mac_one
-#define SRC_IPV4 v4_node_one
-#define SRC_IPV6 v6_node_one
+#define SRC_MAC	     mac_one
+#define SRC_IPV4     v4_node_one
+#define SRC_IPV6     v6_node_one
 #define SRC_TCP_PORT tcp_src_one
-#define DST_IPV4 v4_pod_two
-#define DST_IPV6 v6_pod_two
+#define DST_IPV4     v4_pod_two
+#define DST_IPV6     v6_pod_two
 #define DST_TCP_PORT tcp_svc_one
-#define TUNNEL_IPV4 v4_node_two
-#define TUNNEL_IPV6 v6_node_two
+#define TUNNEL_IPV4  v4_node_two
+#define TUNNEL_IPV6  v6_node_two
 
 #include "lib/eth.h"
 static volatile const union macaddr __cilium_net_mac = CILIUM_NET_MAC;
@@ -68,8 +68,7 @@ struct {
 	},
 };
 
-static __always_inline int
-pktgen_from_host(struct __ctx_buff *ctx, bool v4)
+static __always_inline int pktgen_from_host(struct __ctx_buff *ctx, bool v4)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
@@ -78,16 +77,14 @@ pktgen_from_host(struct __ctx_buff *ctx, bool v4)
 	pktgen__init(&builder, ctx);
 
 	if (v4)
-		l4 = pktgen__push_ipv4_tcp_packet(&builder,
-						  (__u8 *)SRC_MAC,
-						  (__u8 *)DST_MAC,
-						  SRC_IPV4, DST_IPV4,
-						  SRC_TCP_PORT, DST_TCP_PORT);
+		l4 = pktgen__push_ipv4_tcp_packet(
+			&builder, (__u8 *)SRC_MAC, (__u8 *)DST_MAC, SRC_IPV4,
+			DST_IPV4, SRC_TCP_PORT, DST_TCP_PORT);
 	else
-		l4 = pktgen__push_ipv6_tcp_packet(&builder,
-						  (__u8 *)SRC_MAC, (__u8 *)DST_MAC,
-						  (__u8 *)SRC_IPV6, (__u8 *)DST_IPV6,
-						  SRC_TCP_PORT, DST_TCP_PORT);
+		l4 = pktgen__push_ipv6_tcp_packet(
+			&builder, (__u8 *)SRC_MAC, (__u8 *)DST_MAC,
+			(__u8 *)SRC_IPV6, (__u8 *)DST_IPV6, SRC_TCP_PORT,
+			DST_TCP_PORT);
 
 	if (!l4)
 		return TEST_ERROR;
@@ -118,11 +115,12 @@ setup(struct __ctx_buff *ctx, bool flag_skip_tunnel, bool v4)
 	policy_add_egress_allow_all_entry();
 
 	if (v4)
-		ipcache_v4_add_entry_with_flags(DST_IPV4,
-						0, 1230, v4_node_two, 0, flag_skip_tunnel);
+		ipcache_v4_add_entry_with_flags(
+			DST_IPV4, 0, 1230, v4_node_two, 0, flag_skip_tunnel);
 	else
-		ipcache_v6_add_entry_with_flags((union v6addr *)DST_IPV6,
-						0, 1230, v4_node_two, 0, flag_skip_tunnel);
+		ipcache_v6_add_entry_with_flags(
+			(union v6addr *)DST_IPV6, 0, 1230, v4_node_two, 0,
+			flag_skip_tunnel);
 
 	tail_call_static(ctx, entry_call_map, FROM_HOST);
 	return TEST_ERROR;
@@ -173,7 +171,7 @@ check_ctx(const struct __ctx_buff *ctx, __u32 expected_result, bool v4)
 		if (!entry)
 			test_fatal("metrics entry not found")
 
-		__u64 count = 1;
+				__u64 count = 1;
 
 		assert_metrics_count(key, count);
 	}
@@ -184,37 +182,41 @@ check_ctx(const struct __ctx_buff *ctx, __u32 expected_result, bool v4)
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
 		test_fatal("l2 out of bounds")
 
-	if (v4 && l2->h_proto != bpf_htons(ETH_P_IP))
-		test_fatal("l2 proto hasn't been set to ETH_P_IP")
+			if (v4 && l2->h_proto != bpf_htons(ETH_P_IP)) test_fatal(
+				"l2 proto hasn't been set to ETH_P_IP")
 
-	if (!v4 && l2->h_proto != bpf_htons(ETH_P_IPV6))
-		test_fatal("l2 proto hasn't been set to ETH_P_IPV6")
+				if (!v4 && l2->h_proto != bpf_htons(ETH_P_IPV6)) test_fatal(
+					"l2 proto hasn't been set to ETH_P_IPV6")
 
-	if (memcmp(l2->h_source, (__u8 *)SRC_MAC, ETH_ALEN) != 0)
-		test_fatal("src mac hasn't been set to source ep's mac");
+					if (memcmp(l2->h_source,
+						   (__u8 *)SRC_MAC, ETH_ALEN) !=
+					    0) test_fatal("src mac hasn't been set to source ep's mac");
 
 	if (memcmp(l2->h_dest, (__u8 *)DST_MAC, ETH_ALEN) != 0)
 		test_fatal("dst mac hasn't been set to dest ep's mac")
 
-	if (v4) {
-		struct iphdr *l3;
+			if (v4)
+		{
+			struct iphdr *l3;
 
-		l3 = (void *)l2 + sizeof(struct ethhdr);
+			l3 = (void *)l2 + sizeof(struct ethhdr);
 
-		if ((void *)l3 + sizeof(struct iphdr) > data_end)
-			test_fatal("l3 out of bounds");
+			if ((void *)l3 + sizeof(struct iphdr) > data_end)
+				test_fatal("l3 out of bounds");
 
-		if (l3->saddr != SRC_IPV4)
-			test_fatal("src IP was changed");
+			if (l3->saddr != SRC_IPV4)
+				test_fatal("src IP was changed");
 
-		if (l3->daddr != DST_IPV4)
-			test_fatal("dest IP was changed");
+			if (l3->daddr != DST_IPV4)
+				test_fatal("dest IP was changed");
 
-		if (l3->check != bpf_htons(0xa611))
-			test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+			if (l3->check != bpf_htons(0xa611))
+				test_fatal("L3 checksum is invalid: %d",
+					   bpf_htons(l3->check));
 
-		l4 = (void *)l3 + sizeof(struct iphdr);
-	} else {
+			l4 = (void *)l3 + sizeof(struct iphdr);
+		}
+	else {
 		struct ipv6hdr *l3;
 
 		l3 = (void *)l2 + sizeof(struct ethhdr);
@@ -247,7 +249,7 @@ check_ctx(const struct __ctx_buff *ctx, __u32 expected_result, bool v4)
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
 		test_fatal("tcp payload was changed")
 
-	test_finish();
+			test_finish();
 }
 
 PKTGEN("tc", "01_ipv4_from_host_no_flags")

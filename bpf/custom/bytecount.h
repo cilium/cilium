@@ -8,8 +8,8 @@ struct {
 	__uint(max_entries, 1024);
 } bytecount_map __section_maps_btf;
 
-static __always_inline
-void custom_prog(const struct __ctx_buff *ctx, __u32 identity)
+static __always_inline void
+custom_prog(const struct __ctx_buff *ctx, __u32 identity)
 {
 	__u64 len, *bytecount;
 

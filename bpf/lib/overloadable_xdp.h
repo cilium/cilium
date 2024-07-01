@@ -17,32 +17,31 @@ get_identity(struct xdp_md *ctx __maybe_unused)
 	return 0;
 }
 
-static __always_inline __maybe_unused void
-set_identity_mark(struct xdp_md *ctx __maybe_unused, __u32 identity __maybe_unused,
-		  __u32 magic __maybe_unused)
+static __always_inline __maybe_unused void set_identity_mark(
+	struct xdp_md *ctx __maybe_unused, __u32 identity __maybe_unused,
+	__u32 magic __maybe_unused)
 {
 }
 
 static __always_inline __maybe_unused void
-set_identity_meta(struct xdp_md *ctx __maybe_unused,
-		__u32 identity __maybe_unused)
+set_identity_meta(struct xdp_md *ctx __maybe_unused, __u32 identity __maybe_unused)
 {
 }
 
-static __always_inline __maybe_unused void
-set_encrypt_key_mark(struct xdp_md *ctx __maybe_unused, __u8 key __maybe_unused,
-		     __u32 node_id __maybe_unused)
+static __always_inline __maybe_unused void set_encrypt_key_mark(
+	struct xdp_md *ctx __maybe_unused, __u8 key __maybe_unused,
+	__u32 node_id __maybe_unused)
 {
 }
 
-static __always_inline __maybe_unused void
-set_encrypt_key_meta(struct __sk_buff *ctx __maybe_unused, __u8 key __maybe_unused,
-		     __u32 node_id __maybe_unused)
+static __always_inline __maybe_unused void set_encrypt_key_meta(
+	struct __sk_buff *ctx __maybe_unused, __u8 key __maybe_unused,
+	__u32 node_id __maybe_unused)
 {
 }
 
-static __always_inline __maybe_unused void
-ctx_set_cluster_id_mark(struct xdp_md *ctx __maybe_unused, __u32 cluster_id __maybe_unused)
+static __always_inline __maybe_unused void ctx_set_cluster_id_mark(
+	struct xdp_md *ctx __maybe_unused, __u32 cluster_id __maybe_unused)
 {
 }
 
@@ -58,23 +57,20 @@ redirect_self(struct xdp_md *ctx __maybe_unused)
 	return XDP_TX;
 }
 
-static __always_inline __maybe_unused int
-redirect_neigh(int ifindex __maybe_unused,
-	       struct bpf_redir_neigh *params __maybe_unused,
-	       int plen __maybe_unused,
-	       __u32 flags __maybe_unused)
+static __always_inline __maybe_unused int redirect_neigh(
+	int ifindex __maybe_unused, struct bpf_redir_neigh *params __maybe_unused,
+	int plen __maybe_unused, __u32 flags __maybe_unused)
 {
 	return XDP_DROP;
 }
 
-static __always_inline __maybe_unused bool
-neigh_resolver_available(void)
+static __always_inline __maybe_unused bool neigh_resolver_available(void)
 {
 	return false;
 }
 
-#define RECIRC_MARKER	5 /* tail call recirculation */
-#define XFER_MARKER	6 /* xdp -> skb meta transfer */
+#define RECIRC_MARKER 5 /* tail call recirculation */
+#define XFER_MARKER   6 /* xdp -> skb meta transfer */
 
 static __always_inline __maybe_unused void
 ctx_skip_nodeport_clear(struct xdp_md *ctx __maybe_unused)
@@ -108,8 +104,8 @@ ctx_get_xfer(struct xdp_md *ctx __maybe_unused, __u32 off __maybe_unused)
 	return 0; /* Only intended for SKB context. */
 }
 
-static __always_inline __maybe_unused void ctx_set_xfer(struct xdp_md *ctx,
-							__u32 meta)
+static __always_inline __maybe_unused void
+ctx_set_xfer(struct xdp_md *ctx, __u32 meta)
 {
 	__u32 val = ctx_load_meta(ctx, XFER_MARKER);
 
@@ -137,8 +133,7 @@ static __always_inline __maybe_unused void ctx_move_xfer(struct xdp_md *ctx)
 
 static __always_inline __maybe_unused int
 ctx_change_head(struct xdp_md *ctx __maybe_unused,
-		__u32 head_room __maybe_unused,
-		__u64 flags __maybe_unused)
+		__u32 head_room __maybe_unused, __u64 flags __maybe_unused)
 {
 	return 0; /* Only intended for SKB context. */
 }
@@ -155,10 +150,10 @@ static __always_inline bool ctx_snat_done(struct xdp_md *ctx)
 }
 
 #ifdef HAVE_ENCAP
-static __always_inline __maybe_unused int
-ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
-		   __u32 daddr, __u32 seclabel __maybe_unused,
-		   __u32 vni __maybe_unused, void *opt, __u32 opt_len)
+static __always_inline __maybe_unused int ctx_set_encap_info(
+	struct xdp_md *ctx, __u32 src_ip, __be16 src_port, __u32 daddr,
+	__u32 seclabel __maybe_unused, __u32 vni __maybe_unused, void *opt,
+	__u32 opt_len)
 {
 	__u32 inner_len = ctx_full_len(ctx);
 	__u32 tunnel_hdr_len = 8; /* geneve / vxlan */
@@ -169,9 +164,11 @@ ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 	__u32 outer_len;
 
 	/* Add space in front (50 bytes + options) */
-	outer_len = sizeof(*eth) + sizeof(*ip4) + sizeof(*udp) + tunnel_hdr_len + opt_len;
+	outer_len = sizeof(*eth) + sizeof(*ip4) + sizeof(*udp) +
+		    tunnel_hdr_len + opt_len;
 
-	if (ctx_adjust_hroom(ctx, outer_len, BPF_ADJ_ROOM_NET, ctx_adjust_hroom_flags()))
+	if (ctx_adjust_hroom(
+		    ctx, outer_len, BPF_ADJ_ROOM_NET, ctx_adjust_hroom_flags()))
 		return DROP_INVALID;
 
 	/* validate access to outer headers: */
@@ -185,23 +182,23 @@ ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 	ip4 = (void *)eth + sizeof(*eth);
 	udp = (void *)ip4 + sizeof(*ip4);
 
-	memset(data, 0, sizeof(*eth) + sizeof(*ip4) + sizeof(*udp) + tunnel_hdr_len);
+	memset(data, 0,
+	       sizeof(*eth) + sizeof(*ip4) + sizeof(*udp) + tunnel_hdr_len);
 
 	switch (TUNNEL_PROTOCOL) {
 	case TUNNEL_PROTOCOL_GENEVE:
-		{
-			struct genevehdr *geneve = (void *)udp + sizeof(*udp);
+	{
+		struct genevehdr *geneve = (void *)udp + sizeof(*udp);
 
-			if (opt_len > 0)
-				memcpy((void *)geneve + sizeof(*geneve), opt, opt_len);
+		if (opt_len > 0)
+			memcpy((void *)geneve + sizeof(*geneve), opt, opt_len);
 
-			geneve->opt_len = (__u8)(opt_len >> 2);
-			geneve->protocol_type = bpf_htons(ETH_P_TEB);
+		geneve->opt_len = (__u8)(opt_len >> 2);
+		geneve->protocol_type = bpf_htons(ETH_P_TEB);
 
-			seclabel = bpf_htonl(get_tunnel_id(seclabel) << 8);
-			memcpy(&geneve->vni, &seclabel, sizeof(__u32));
-		}
-		break;
+		seclabel = bpf_htonl(get_tunnel_id(seclabel) << 8);
+		memcpy(&geneve->vni, &seclabel, sizeof(__u32));
+	} break;
 	case TUNNEL_PROTOCOL_VXLAN:
 		if (opt_len > 0)
 			return DROP_INVALID;
@@ -221,7 +218,8 @@ ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 
 	udp->source = src_port;
 	udp->dest = bpf_htons(TUNNEL_PORT);
-	udp->len = bpf_htons((__u16)(sizeof(*udp) + tunnel_hdr_len + opt_len + inner_len));
+	udp->len = bpf_htons(
+		(__u16)(sizeof(*udp) + tunnel_hdr_len + opt_len + inner_len));
 	udp->check = 0; /* we use BPF_F_ZERO_CSUM_TX */
 
 	ip4->ihl = 5;
@@ -241,15 +239,18 @@ ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 static __always_inline __maybe_unused int
 ctx_set_tunnel_opt(struct xdp_md *ctx, void *opt, __u32 opt_len)
 {
-	const __u32 geneve_off = ETH_HLEN + sizeof(struct iphdr) + sizeof(struct udphdr);
+	const __u32 geneve_off =
+		ETH_HLEN + sizeof(struct iphdr) + sizeof(struct udphdr);
 	struct genevehdr geneve;
 
 	/* add free space after GENEVE header: */
-	if (ctx_adjust_hroom(ctx, opt_len, BPF_ADJ_ROOM_MAC, ctx_adjust_hroom_flags()) < 0)
+	if (ctx_adjust_hroom(
+		    ctx, opt_len, BPF_ADJ_ROOM_MAC, ctx_adjust_hroom_flags()) < 0)
 		return DROP_INVALID;
 
 	/* write the options */
-	if (ctx_store_bytes(ctx, geneve_off + sizeof(geneve), opt, opt_len, 0) < 0)
+	if (ctx_store_bytes(ctx, geneve_off + sizeof(geneve), opt, opt_len, 0) <
+	    0)
 		return DROP_WRITE_ERROR;
 
 	/* update the options length in the GENEVE header: */

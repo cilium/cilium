@@ -3,6 +3,6 @@
 
 #define ENABLE_ENDPOINT_ROUTES 1
 
-#define EXPECTED_STATUS_CODE CTX_ACT_OK
+#define EXPECTED_STATUS_CODE   CTX_ACT_OK
 
 #include "ipsec_from_host_generic.h"

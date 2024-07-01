@@ -2,8 +2,8 @@
 /* Copyright Authors of Cilium */
 
 #ifndef SKIP_POLICY_MAP
-static __always_inline void
-policy_add_entry(bool egress, __u32 sec_label, __u8 protocol, __u16 dport, bool deny)
+static __always_inline void policy_add_entry(
+	bool egress, __u32 sec_label, __u8 protocol, __u16 dport, bool deny)
 {
 	struct policy_key key = {
 		.sec_label = sec_label,

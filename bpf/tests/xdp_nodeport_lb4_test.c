@@ -11,11 +11,12 @@
 
 #define fib_lookup mock_fib_lookup
 
-static const char fib_smac[6] = {0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x02};
-static const char fib_dmac[6] = {0x13, 0x37, 0x13, 0x37, 0x13, 0x37};
+static const char fib_smac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x02 };
+static const char fib_dmac[6] = { 0x13, 0x37, 0x13, 0x37, 0x13, 0x37 };
 
-long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
-		     __maybe_unused int plen, __maybe_unused __u32 flags)
+long mock_fib_lookup(
+	__maybe_unused void *ctx, struct bpf_fib_lookup *params,
+	__maybe_unused int plen, __maybe_unused __u32 flags)
 {
 	__bpf_memcpy_builtin(params->smac, fib_smac, ETH_ALEN);
 	__bpf_memcpy_builtin(params->dmac, fib_dmac, ETH_ALEN);
@@ -38,10 +39,10 @@ struct {
 	},
 };
 
-#define FRONTEND_IP 0x0F00010A /* 10.0.1.15 */
+#define FRONTEND_IP   0x0F00010A /* 10.0.1.15 */
 #define FRONTEND_PORT 80
-#define BACKEND_IP 0x0F00020A /* 10.2.0.15 */
-#define BACKEND_PORT 8080
+#define BACKEND_IP    0x0F00020A /* 10.2.0.15 */
+#define BACKEND_PORT  8080
 
 static long (*bpf_xdp_adjust_tail)(struct xdp_md *xdp_md, int delta) = (void *)65;
 
@@ -61,8 +62,8 @@ static __always_inline int build_packet(struct __ctx_buff *ctx)
 		return TEST_ERROR;
 
 	struct ethhdr l2 = {
-		.h_source = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF},
-		.h_dest = {0x12, 0x23, 0x34, 0x45, 0x56, 0x67},
+		.h_source = { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF },
+		.h_dest = { 0x12, 0x23, 0x34, 0x45, 0x56, 0x67 },
 		.h_proto = bpf_htons(ETH_P_IP)
 	};
 	memcpy(data, &l2, sizeof(struct ethhdr));
@@ -124,8 +125,9 @@ int test1_setup(struct __ctx_buff *ctx)
 		return ret;
 
 	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, 1);
-	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
-			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
+	lb_v4_add_backend(
+		FRONTEND_IP, FRONTEND_PORT, 1, 124, BACKEND_IP, BACKEND_PORT,
+		IPPROTO_TCP, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, 0);
@@ -230,7 +232,8 @@ int test2_check(__maybe_unused const struct __ctx_buff *ctx)
 	status_code = data;
 
 	if (*status_code != expected_status)
-		test_fatal("status code is %lu, expected %lu", *status_code, expected_status);
+		test_fatal("status code is %lu, expected %lu", *status_code,
+			   expected_status);
 
 	test_finish();
 }

@@ -22,13 +22,13 @@
 #ifdef DROP_NOTIFY
 struct drop_notify {
 	NOTIFY_CAPTURE_HDR
-	__u32		src_label;
-	__u32		dst_label;
-	__u32		dst_id; /* 0 for egress */
-	__u16		line;
-	__u8		file;
-	__s8		ext_error;
-	__u32		ifindex;
+	__u32 src_label;
+	__u32 dst_label;
+	__u32 dst_id; /* 0 for egress */
+	__u16 line;
+	__u8 file;
+	__s8 ext_error;
+	__u32 ifindex;
 };
 
 /*
@@ -48,8 +48,8 @@ struct drop_notify {
  *
  */
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY)
-int __send_drop_notify(struct __ctx_buff *ctx)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY) int __send_drop_notify(
+	struct __ctx_buff *ctx)
 {
 	/* Mask needed to calm verifier. */
 	__u32 error = ctx_load_meta(ctx, 2) & 0xFFFFFFFF;
@@ -61,20 +61,19 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 	__u8 exitcode = (__u8)meta4;
 	struct drop_notify msg;
 
-	msg = (typeof(msg)) {
+	msg = (typeof(msg)){
 		__notify_common_hdr(CILIUM_NOTIFY_DROP, (__u8)error),
 		__notify_pktcap_hdr(ctx_len, (__u16)cap_len),
-		.src_label	= ctx_load_meta(ctx, 0),
-		.dst_label	= ctx_load_meta(ctx, 1),
-		.dst_id		= ctx_load_meta(ctx, 3),
-		.line           = line,
-		.file           = file,
-		.ext_error      = (__s8)(__u8)(error >> 8),
-		.ifindex        = ctx_get_ifindex(ctx),
+		.src_label = ctx_load_meta(ctx, 0),
+		.dst_label = ctx_load_meta(ctx, 1),
+		.dst_id = ctx_load_meta(ctx, 3),
+		.line = line,
+		.file = file,
+		.ext_error = (__s8)(__u8)(error >> 8),
+		.ifindex = ctx_get_ifindex(ctx),
 	};
 
-	ctx_event_output(ctx, &EVENTS_MAP,
-			 (cap_len << 32) | BPF_F_CURRENT_CPU,
+	ctx_event_output(ctx, &EVENTS_MAP, (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 
 	return exitcode;
@@ -93,10 +92,9 @@ int __send_drop_notify(struct __ctx_buff *ctx)
  *
  * NOTE: This is terminal function and will cause the BPF program to exit
  */
-static __always_inline int
-_send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
-		  __u32 src, __u32 dst, __u32 dst_id,
-		  __u32 reason, __u32 exitcode, enum metric_dir direction)
+static __always_inline int _send_drop_notify(
+	__u8 file, __u16 line, struct __ctx_buff *ctx, __u32 src, __u32 dst,
+	__u32 dst_id, __u32 reason, __u32 exitcode, enum metric_dir direction)
 {
 	int ret __maybe_unused;
 
@@ -107,7 +105,8 @@ _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
 		__throw_build_bug();
 
 	/* Non-zero 'dst_id' is only to be used for ingress. */
-	if (dst_id != 0 && (!__builtin_constant_p(direction) || direction != METRIC_INGRESS))
+	if (dst_id != 0 &&
+	    (!__builtin_constant_p(direction) || direction != METRIC_INGRESS))
 		__throw_build_bug();
 
 	ctx_store_meta(ctx, 0, src);
@@ -123,11 +122,11 @@ _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
 	return exitcode;
 }
 #else
-static __always_inline
-int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
-		      struct __ctx_buff *ctx, __u32 src __maybe_unused,
-		      __u32 dst __maybe_unused, __u32 dst_id __maybe_unused,
-		      __u32 reason, __u32 exitcode, enum metric_dir direction)
+static __always_inline int _send_drop_notify(
+	__u8 file __maybe_unused, __u16 line __maybe_unused,
+	struct __ctx_buff *ctx, __u32 src __maybe_unused,
+	__u32 dst __maybe_unused, __u32 dst_id __maybe_unused, __u32 reason,
+	__u32 exitcode, enum metric_dir direction)
 {
 	_update_metrics(ctx_full_len(ctx), direction, (__u8)reason, line, file);
 	return exitcode;
@@ -145,10 +144,11 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
  * Cilium errors are greater than absolute errno values, so we just pass
  * a positive value here
  */
-#define __DROP_REASON(err) ({ \
-	typeof(err) __err = (err); \
-	(__u8)(__err > 0 ? __err : -__err); \
-})
+#define __DROP_REASON(err)                          \
+	({                                          \
+		typeof(err) __err = (err);          \
+		(__u8)(__err > 0 ? __err : -__err); \
+	})
 
 /*
  * We only have 8 bits here to pass either a small positive value or an errno
@@ -157,23 +157,30 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
  * is >= -128, and set it 0 if it is < -128 (which actually shoudn't happen in
  * our case)
  */
-#define __DROP_REASON_EXT(err, ext_err) ({ \
-	typeof(ext_err) __ext_err = (ext_err); \
-	__DROP_REASON(err) | ((__u8)(__ext_err < -128 ? 0 : __ext_err) << 8); \
-})
+#define __DROP_REASON_EXT(err, ext_err)                                  \
+	({                                                               \
+		typeof(ext_err) __ext_err = (ext_err);                   \
+		__DROP_REASON(err) |                                     \
+			((__u8)(__ext_err < -128 ? 0 : __ext_err) << 8); \
+	})
 
 #define send_drop_notify(ctx, src, dst, dst_id, reason, exitcode, direction) \
-	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, dst, dst_id, \
-			  __DROP_REASON(reason), exitcode, direction)
+	_send_drop_notify(                                                   \
+		__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, dst, dst_id,       \
+		__DROP_REASON(reason), exitcode, direction)
 
 #define send_drop_notify_error(ctx, src, reason, exitcode, direction) \
-	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
-			  __DROP_REASON(reason), exitcode, direction)
+	_send_drop_notify(                                            \
+		__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0,       \
+		__DROP_REASON(reason), exitcode, direction)
 
-#define send_drop_notify_ext(ctx, src, dst, dst_id, reason, ext_err, exitcode, direction) \
-	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, dst, dst_id, \
-			  __DROP_REASON_EXT(reason, ext_err), exitcode, direction)
+#define send_drop_notify_ext(                                          \
+	ctx, src, dst, dst_id, reason, ext_err, exitcode, direction)   \
+	_send_drop_notify(                                             \
+		__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, dst, dst_id, \
+		__DROP_REASON_EXT(reason, ext_err), exitcode, direction)
 
 #define send_drop_notify_error_ext(ctx, src, reason, ext_err, exitcode, direction) \
-	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
-			  __DROP_REASON_EXT(reason, ext_err), exitcode, direction)
+	_send_drop_notify(                                                         \
+		__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0,                    \
+		__DROP_REASON_EXT(reason, ext_err), exitcode, direction)

@@ -19,18 +19,18 @@
  *
  */
 static __always_inline __u32
-vxlan_get_vni(const void *data, const void *data_end,
-	      const struct iphdr *ipv4)
+vxlan_get_vni(const void *data, const void *data_end, const struct iphdr *ipv4)
 {
 	int l3_size = ipv4->ihl * 4;
 	struct vxlanhdr *hdr;
 
-	if (data + sizeof(struct ethhdr) + l3_size + sizeof(struct udphdr)
-	    + sizeof(struct vxlanhdr) > data_end)
+	if (data + sizeof(struct ethhdr) + l3_size + sizeof(struct udphdr) +
+		    sizeof(struct vxlanhdr) >
+	    data_end)
 		return 0;
 
 	hdr = (struct vxlanhdr *)(data + sizeof(struct ethhdr) + l3_size +
-	       sizeof(struct udphdr));
+				  sizeof(struct udphdr));
 
 	return tunnel_vni_to_sec_identity(hdr->vx_vni);
 }
@@ -45,19 +45,21 @@ vxlan_get_vni(const void *data, const void *data_end,
  * Returns 'true' if 'inner' now points to a bounds-checked inner IPv4 header.
  * Returns 'false' if an error occurred.
  */
-static __always_inline bool
-vxlan_get_inner_ipv4(const void *data, const void *data_end,
-		     const struct iphdr *ipv4, struct iphdr **inner) {
+static __always_inline bool vxlan_get_inner_ipv4(
+	const void *data, const void *data_end, const struct iphdr *ipv4,
+	struct iphdr **inner)
+{
 	int l3_size = ipv4->ihl * 4;
 
-	if (data + sizeof(struct ethhdr) + l3_size + sizeof(struct udphdr)
-	    + sizeof(struct vxlanhdr) + sizeof(struct ethhdr) +
-	    sizeof(struct iphdr) > data_end)
+	if (data + sizeof(struct ethhdr) + l3_size + sizeof(struct udphdr) +
+		    sizeof(struct vxlanhdr) + sizeof(struct ethhdr) +
+		    sizeof(struct iphdr) >
+	    data_end)
 		return false;
 
-	*inner = (struct iphdr *)(data + sizeof(struct ethhdr)
-		  + l3_size + sizeof(struct udphdr) + sizeof(struct vxlanhdr)
-		  + sizeof(struct ethhdr));
+	*inner = (struct iphdr *)(data + sizeof(struct ethhdr) + l3_size +
+				  sizeof(struct udphdr) + sizeof(struct vxlanhdr) +
+				  sizeof(struct ethhdr));
 
 	return true;
 }
@@ -73,25 +75,26 @@ vxlan_get_inner_ipv4(const void *data, const void *data_end,
  *
  * This can be done by calling 'vxlan_skb_is_vxlan_v4'
  */
-static __always_inline bool
-vxlan_rewrite_vni(void *ctx, const void *data, const void *data_end,
-		  const struct iphdr *ipv4, __u32 vni)
+static __always_inline bool vxlan_rewrite_vni(
+	void *ctx, const void *data, const void *data_end,
+	const struct iphdr *ipv4, __u32 vni)
 {
-	struct csum_offset csum = {0};
+	struct csum_offset csum = { 0 };
 	int l3_size = ipv4->ihl * 4;
 	int l4_off = sizeof(struct ethhdr) + l3_size;
 	struct udphdr *udp = NULL;
 	struct vxlanhdr *vx = NULL;
 	__be32 old_vni = 0;
 
-	if (data + sizeof(struct ethhdr) + l3_size + sizeof(struct udphdr)
-	    + sizeof(struct vxlanhdr) > data_end)
+	if (data + sizeof(struct ethhdr) + l3_size + sizeof(struct udphdr) +
+		    sizeof(struct vxlanhdr) >
+	    data_end)
 		return false;
 
 	udp = (struct udphdr *)(data + sizeof(struct ethhdr) + l3_size);
 
-	vx = (struct vxlanhdr *)(data + sizeof(struct ethhdr) + l3_size
-	      + sizeof(struct udphdr));
+	vx = (struct vxlanhdr *)(data + sizeof(struct ethhdr) + l3_size +
+				 sizeof(struct udphdr));
 
 	old_vni = vx->vx_vni;
 	vx->vx_vni = bpf_htonl(vni << 8);

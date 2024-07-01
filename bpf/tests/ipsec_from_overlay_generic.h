@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#define NODE_ID 2333
+#define NODE_ID	    2333
 #define ENCRYPT_KEY 3
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define ENABLE_IPSEC
 #define TUNNEL_MODE
 #define ENCAP_IFINDEX 4
-#define DEST_IFINDEX 5
-#define DEST_LXC_ID 200
+#define DEST_IFINDEX  5
+#define DEST_LXC_ID   200
 
 #include "common.h"
 #include <bpf/ctx/skb.h>
@@ -32,10 +32,9 @@ int mock_skb_change_type(__maybe_unused struct __sk_buff *skb, __u32 type)
 }
 
 #define skb_get_tunnel_key mock_skb_get_tunnel_key
-int mock_skb_get_tunnel_key(__maybe_unused struct __sk_buff *skb,
-			    struct bpf_tunnel_key *to,
-			    __maybe_unused __u32 size,
-			    __maybe_unused __u32 flags)
+int mock_skb_get_tunnel_key(
+	__maybe_unused struct __sk_buff *skb, struct bpf_tunnel_key *to,
+	__maybe_unused __u32 size, __maybe_unused __u32 flags)
 {
 	to->remote_ipv4 = v4_node_one;
 	/* 0xfffff is the default SECLABEL */
@@ -43,8 +42,8 @@ int mock_skb_get_tunnel_key(__maybe_unused struct __sk_buff *skb,
 	return 0;
 }
 
-__section("mock-handle-policy")
-int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
+__section("mock-handle-policy") int mock_handle_policy(
+	struct __ctx_buff *ctx __maybe_unused)
 {
 	/* https://github.com/cilium/cilium/blob/v1.16.0-pre.1/bpf/bpf_lxc.c#L2040 */
 #if !defined(ENABLE_ROUTING) && !defined(ENABLE_NODEPORT)
@@ -66,9 +65,9 @@ struct {
 };
 
 #define tail_call_dynamic mock_tail_call_dynamic
-static __always_inline __maybe_unused void
-mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
-		       const void *map __maybe_unused, __u32 slot __maybe_unused)
+static __always_inline __maybe_unused void mock_tail_call_dynamic(
+	struct __ctx_buff *ctx __maybe_unused, const void *map __maybe_unused,
+	__u32 slot __maybe_unused)
 {
 	tail_call(ctx, &mock_policy_call_map, slot);
 }
@@ -145,7 +144,8 @@ int ipv4_not_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "ipv4_not_decrypted_ipsec_from_overlay")
-int ipv4_not_decrypted_ipsec_from_overlay_check(__maybe_unused const struct __ctx_buff *ctx)
+int ipv4_not_decrypted_ipsec_from_overlay_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
@@ -281,7 +281,8 @@ int ipv6_not_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "ipv6_not_decrypted_ipsec_from_overlay")
-int ipv6_not_decrypted_ipsec_from_overlay_check(__maybe_unused const struct __ctx_buff *ctx)
+int ipv6_not_decrypted_ipsec_from_overlay_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
@@ -358,10 +359,9 @@ int ipv4_decrypted_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)mac_one, (__u8 *)mac_two,
-					  v4_pod_one, v4_pod_two,
-					  tcp_src_one, tcp_svc_one);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)mac_one, (__u8 *)mac_two, v4_pod_one,
+		v4_pod_two, tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -376,8 +376,9 @@ int ipv4_decrypted_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv4_decrypted_ipsec_from_overlay")
 int ipv4_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v4_add_entry(v4_pod_two, DEST_IFINDEX, DEST_LXC_ID, 0, 0,
-			      (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
+	endpoint_v4_add_entry(
+		v4_pod_two, DEST_IFINDEX, DEST_LXC_ID, 0, 0,
+		(__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
 
 	ctx->mark = MARK_MAGIC_DECRYPT;
 	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
@@ -385,7 +386,8 @@ int ipv4_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "ipv4_decrypted_ipsec_from_overlay")
-int ipv4_decrypted_ipsec_from_overlay_check(__maybe_unused const struct __ctx_buff *ctx)
+int ipv4_decrypted_ipsec_from_overlay_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
@@ -465,10 +467,9 @@ int ipv6_decrypted_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv6_tcp_packet(&builder,
-					  (__u8 *)mac_one, (__u8 *)mac_two,
-					  (__u8 *)v6_pod_one, (__u8 *)v6_pod_two,
-					  tcp_src_one, tcp_svc_one);
+	l4 = pktgen__push_ipv6_tcp_packet(
+		&builder, (__u8 *)mac_one, (__u8 *)mac_two, (__u8 *)v6_pod_one,
+		(__u8 *)v6_pod_two, tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -483,8 +484,9 @@ int ipv6_decrypted_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv6_decrypted_ipsec_from_overlay")
 int ipv6_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v6_add_entry((union v6addr *)v6_pod_two, DEST_IFINDEX, DEST_LXC_ID,
-			      0, 0, (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
+	endpoint_v6_add_entry(
+		(union v6addr *)v6_pod_two, DEST_IFINDEX, DEST_LXC_ID, 0, 0,
+		(__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
 
 	ctx->mark = MARK_MAGIC_DECRYPT;
 	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
@@ -492,7 +494,8 @@ int ipv6_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "ipv6_decrypted_ipsec_from_overlay")
-int ipv6_decrypted_ipsec_from_overlay_check(__maybe_unused const struct __ctx_buff *ctx)
+int ipv6_decrypted_ipsec_from_overlay_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;

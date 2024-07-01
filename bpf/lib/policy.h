@@ -10,9 +10,9 @@
 #include "eps.h"
 #include "maps.h"
 
-static __always_inline int
-__account_and_check(struct __ctx_buff *ctx __maybe_unused, struct policy_entry *policy,
-		    __s8 *ext_err, __u16 *proxy_port)
+static __always_inline int __account_and_check(
+	struct __ctx_buff *ctx __maybe_unused, struct policy_entry *policy,
+	__s8 *ext_err, __u16 *proxy_port)
 {
 #ifdef POLICY_ACCOUNTING
 	/* FIXME: Use per cpu counters */
@@ -32,12 +32,11 @@ __account_and_check(struct __ctx_buff *ctx __maybe_unused, struct policy_entry *
 	return CTX_ACT_OK;
 }
 
-static __always_inline int
-__policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
-		    __u32 remote_id, __u16 ethertype __maybe_unused, __u16 dport,
-		    __u8 proto, int off __maybe_unused, int dir,
-		    bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
-		    __u16 *proxy_port)
+static __always_inline int __policy_can_access(
+	const void *map, struct __ctx_buff *ctx, __u32 local_id,
+	__u32 remote_id, __u16 ethertype __maybe_unused, __u16 dport,
+	__u8 proto, int off __maybe_unused, int dir, bool is_untracked_fragment,
+	__u8 *match_type, __s8 *ext_err, __u16 *proxy_port)
 {
 	struct policy_entry *policy;
 	struct policy_entry *l4policy;
@@ -56,7 +55,8 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		if (proto == IPPROTO_ICMP) {
 			struct icmphdr icmphdr __align_stack_8;
 
-			if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
+			if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) <
+			    0)
 				return DROP_INVALID;
 
 # if defined(ALLOW_ICMP_FRAG_NEEDED)
@@ -77,7 +77,8 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		if (proto == IPPROTO_ICMPV6) {
 			__u8 icmp_type;
 
-			if (ctx_load_bytes(ctx, off, &icmp_type, sizeof(icmp_type)) < 0)
+			if (ctx_load_bytes(
+				    ctx, off, &icmp_type, sizeof(icmp_type)) < 0)
 				return DROP_INVALID;
 
 			key.dport = bpf_u8_to_be16(icmp_type);
@@ -115,7 +116,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	if (likely(policy && !policy->wildcard_dport)) {
 		cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id,
 			    dport << 16 | proto);
-		*match_type = POLICY_MATCH_L3_L4;		/* 1. id/proto/port */
+		*match_type = POLICY_MATCH_L3_L4; /* 1. id/proto/port */
 		goto check_policy;
 	}
 
@@ -133,27 +134,27 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	l4policy = map_lookup_elem(map, &key);
 
 	if (likely(l4policy && !l4policy->wildcard_dport)) {
-		*match_type = POLICY_MATCH_L4_ONLY;		/* 2. ANY/proto/port */
+		*match_type = POLICY_MATCH_L4_ONLY; /* 2. ANY/proto/port */
 		goto check_l4_policy;
 	}
 
 	if (likely(policy && !policy->wildcard_protocol)) {
-		*match_type = POLICY_MATCH_L3_PROTO;		/* 3. id/proto/ANY */
+		*match_type = POLICY_MATCH_L3_PROTO; /* 3. id/proto/ANY */
 		goto check_policy;
 	}
 
 	if (likely(l4policy && !l4policy->wildcard_protocol)) {
-		*match_type = POLICY_MATCH_PROTO_ONLY;		/* 4. ANY/proto/ANY */
+		*match_type = POLICY_MATCH_PROTO_ONLY; /* 4. ANY/proto/ANY */
 		goto check_l4_policy;
 	}
 
 	if (likely(policy)) {
-		*match_type = POLICY_MATCH_L3_ONLY;		/* 5. id/ANY/ANY */
+		*match_type = POLICY_MATCH_L3_ONLY; /* 5. id/ANY/ANY */
 		goto check_policy;
 	}
 
 	if (likely(l4policy)) {
-		*match_type = POLICY_MATCH_ALL;			/* 6. ANY/ANY/ANY */
+		*match_type = POLICY_MATCH_ALL; /* 6. ANY/ANY/ANY */
 		goto check_l4_policy;
 	}
 
@@ -195,17 +196,18 @@ check_l4_policy:
  *   - CTX_ACT_OK if the policy allows this traffic based only on labels/L3/L4
  *   - Negative error code if the packet should be dropped
  */
-static __always_inline int
-policy_can_ingress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 dst_id,
-		   __u16 ethertype, __u16 dport, __u8 proto, int l4_off,
-		   bool is_untracked_fragment, __u8 *match_type, __u8 *audited,
-		   __s8 *ext_err, __u16 *proxy_port)
+static __always_inline int policy_can_ingress(
+	struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 dst_id,
+	__u16 ethertype, __u16 dport, __u8 proto, int l4_off,
+	bool is_untracked_fragment, __u8 *match_type, __u8 *audited,
+	__s8 *ext_err, __u16 *proxy_port)
 {
 	int ret;
 
-	ret = __policy_can_access(map, ctx, dst_id, src_id, ethertype, dport,
-				  proto, l4_off, CT_INGRESS, is_untracked_fragment,
-				  match_type, ext_err, proxy_port);
+	ret = __policy_can_access(
+		map, ctx, dst_id, src_id, ethertype, dport, proto, l4_off,
+		CT_INGRESS, is_untracked_fragment, match_type, ext_err,
+		proxy_port);
 	if (ret >= CTX_ACT_OK)
 		return ret;
 
@@ -222,28 +224,25 @@ policy_can_ingress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 
 	return ret;
 }
 
-static __always_inline int policy_can_ingress6(struct __ctx_buff *ctx, const void *map,
-					       const struct ipv6_ct_tuple *tuple,
-					       int l4_off,  __u32 src_id, __u32 dst_id,
-					       __u8 *match_type, __u8 *audited,
-					       __s8 *ext_err, __u16 *proxy_port)
+static __always_inline int policy_can_ingress6(
+	struct __ctx_buff *ctx, const void *map,
+	const struct ipv6_ct_tuple *tuple, int l4_off, __u32 src_id, __u32 dst_id,
+	__u8 *match_type, __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
 {
-	return policy_can_ingress(ctx, map, src_id, dst_id, ETH_P_IPV6, tuple->dport,
-				 tuple->nexthdr, l4_off, false, match_type, audited,
-				 ext_err, proxy_port);
+	return policy_can_ingress(
+		ctx, map, src_id, dst_id, ETH_P_IPV6, tuple->dport, tuple->nexthdr,
+		l4_off, false, match_type, audited, ext_err, proxy_port);
 }
 
-static __always_inline int policy_can_ingress4(struct __ctx_buff *ctx,
-		const void *map,
-					       const struct ipv4_ct_tuple *tuple,
-					       int l4_off, bool is_untracked_fragment,
-					       __u32 src_id, __u32 dst_id,
-					       __u8 *match_type, __u8 *audited,
-					       __s8 *ext_err, __u16 *proxy_port)
+static __always_inline int policy_can_ingress4(
+	struct __ctx_buff *ctx, const void *map, const struct ipv4_ct_tuple *tuple,
+	int l4_off, bool is_untracked_fragment, __u32 src_id, __u32 dst_id,
+	__u8 *match_type, __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
 {
-	return policy_can_ingress(ctx, map, src_id, dst_id, ETH_P_IP, tuple->dport,
-				 tuple->nexthdr, l4_off, is_untracked_fragment,
-				 match_type, audited, ext_err, proxy_port);
+	return policy_can_ingress(
+		ctx, map, src_id, dst_id, ETH_P_IP, tuple->dport,
+		tuple->nexthdr, l4_off, is_untracked_fragment, match_type,
+		audited, ext_err, proxy_port);
 }
 
 #ifdef HAVE_ENCAP
@@ -253,10 +252,10 @@ static __always_inline bool is_encap(__u16 dport, __u8 proto)
 }
 #endif
 
-static __always_inline int
-policy_can_egress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 dst_id,
-		  __u16 ethertype, __u16 dport, __u8 proto, int l4_off, __u8 *match_type,
-		  __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
+static __always_inline int policy_can_egress(
+	struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 dst_id,
+	__u16 ethertype, __u16 dport, __u8 proto, int l4_off, __u8 *match_type,
+	__u8 *audited, __s8 *ext_err, __u16 *proxy_port)
 {
 	int ret;
 
@@ -264,9 +263,9 @@ policy_can_egress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 d
 	if (src_id != HOST_ID && is_encap(dport, proto))
 		return DROP_ENCAP_PROHIBITED;
 #endif
-	ret = __policy_can_access(map, ctx, src_id, dst_id, ethertype, dport,
-				  proto, l4_off, CT_EGRESS, false, match_type,
-				  ext_err, proxy_port);
+	ret = __policy_can_access(
+		map, ctx, src_id, dst_id, ethertype, dport, proto, l4_off,
+		CT_EGRESS, false, match_type, ext_err, proxy_port);
 	if (ret >= 0)
 		return ret;
 	cilium_dbg(ctx, DBG_POLICY_DENIED, src_id, dst_id);
@@ -280,26 +279,24 @@ policy_can_egress(struct __ctx_buff *ctx, const void *map, __u32 src_id, __u32 d
 	return ret;
 }
 
-static __always_inline int policy_can_egress6(struct __ctx_buff *ctx, const void *map,
-					      const struct ipv6_ct_tuple *tuple,
-					      int l4_off, __u32 src_id, __u32 dst_id,
-					      __u8 *match_type, __u8 *audited, __s8 *ext_err,
-					      __u16 *proxy_port)
+static __always_inline int policy_can_egress6(
+	struct __ctx_buff *ctx, const void *map,
+	const struct ipv6_ct_tuple *tuple, int l4_off, __u32 src_id, __u32 dst_id,
+	__u8 *match_type, __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
 {
-	return policy_can_egress(ctx, map, src_id, dst_id, ETH_P_IPV6, tuple->dport,
-				 tuple->nexthdr, l4_off, match_type, audited,
-				 ext_err, proxy_port);
+	return policy_can_egress(
+		ctx, map, src_id, dst_id, ETH_P_IPV6, tuple->dport,
+		tuple->nexthdr, l4_off, match_type, audited, ext_err, proxy_port);
 }
 
-static __always_inline int policy_can_egress4(struct __ctx_buff *ctx, const void *map,
-					      const struct ipv4_ct_tuple *tuple,
-					      int l4_off, __u32 src_id, __u32 dst_id,
-					      __u8 *match_type, __u8 *audited, __s8 *ext_err,
-					      __u16 *proxy_port)
+static __always_inline int policy_can_egress4(
+	struct __ctx_buff *ctx, const void *map,
+	const struct ipv4_ct_tuple *tuple, int l4_off, __u32 src_id, __u32 dst_id,
+	__u8 *match_type, __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
 {
-	return policy_can_egress(ctx, map, src_id, dst_id, ETH_P_IP, tuple->dport,
-				 tuple->nexthdr, l4_off, match_type, audited,
-				 ext_err, proxy_port);
+	return policy_can_egress(
+		ctx, map, src_id, dst_id, ETH_P_IP, tuple->dport, tuple->nexthdr,
+		l4_off, match_type, audited, ext_err, proxy_port);
 }
 
 /**

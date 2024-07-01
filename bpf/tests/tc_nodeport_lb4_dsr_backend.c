@@ -12,8 +12,8 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
-#define ENABLE_DSR		1
-#define DSR_ENCAP_GENEVE	3
+#define ENABLE_DSR	 1
+#define DSR_ENCAP_GENEVE 3
 #define ENABLE_HOST_ROUTING
 
 #define DISABLE_LOOPBACK_LB
@@ -22,20 +22,20 @@
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 #undef FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 
-#define CLIENT_IP		v4_ext_one
-#define CLIENT_PORT		__bpf_htons(111)
-#define CLIENT_IP_2		v4_ext_two
+#define CLIENT_IP	   v4_ext_one
+#define CLIENT_PORT	   __bpf_htons(111)
+#define CLIENT_IP_2	   v4_ext_two
 
-#define FRONTEND_IP		v4_svc_one
-#define FRONTEND_PORT		tcp_svc_one
+#define FRONTEND_IP	   v4_svc_one
+#define FRONTEND_PORT	   tcp_svc_one
 
-#define BACKEND_IP		v4_pod_one
-#define BACKEND_PORT		__bpf_htons(8080)
+#define BACKEND_IP	   v4_pod_one
+#define BACKEND_PORT	   __bpf_htons(8080)
 
-#define NATIVE_DEV_IFINDEX	24
-#define DEFAULT_IFACE		NATIVE_DEV_IFINDEX
-#define BACKEND_IFACE		25
-#define SVC_EGRESS_IFACE	26
+#define NATIVE_DEV_IFINDEX 24
+#define DEFAULT_IFACE	   NATIVE_DEV_IFINDEX
+#define BACKEND_IFACE	   25
+#define SVC_EGRESS_IFACE   26
 
 static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *node_mac = mac_three;
@@ -43,8 +43,9 @@ static volatile const __u8 *backend_mac = mac_four;
 
 #define fib_lookup mock_fib_lookup
 
-long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
-		     __maybe_unused int plen, __maybe_unused __u32 flags)
+long mock_fib_lookup(
+	__maybe_unused void *ctx, struct bpf_fib_lookup *params,
+	__maybe_unused int plen, __maybe_unused __u32 flags)
 {
 	params->ifindex = DEFAULT_IFACE;
 
@@ -59,9 +60,9 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 #define ctx_redirect mock_ctx_redirect
 
-static __always_inline __maybe_unused int
-mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
-		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
+static __always_inline __maybe_unused int mock_ctx_redirect(
+	const struct __sk_buff *ctx __maybe_unused, int ifindex __maybe_unused,
+	__u32 flags __maybe_unused)
 {
 	void *data = (void *)(long)ctx_data(ctx);
 	void *data_end = (void *)(long)ctx->data_end;
@@ -91,8 +92,8 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 
-#define FROM_NETDEV	0
-#define TO_NETDEV	1
+#define FROM_NETDEV 0
+#define TO_NETDEV   1
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -167,8 +168,9 @@ SETUP("tc", "tc_nodeport_dsr_backend")
 int nodeport_dsr_backend_setup(struct __ctx_buff *ctx)
 {
 	/* add local backend */
-	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFACE, 0, 0, 0,
-			      (__u8 *)backend_mac, (__u8 *)node_mac);
+	endpoint_v4_add_entry(
+		BACKEND_IP, BACKEND_IFACE, 0, 0, 0, (__u8 *)backend_mac,
+		(__u8 *)node_mac);
 
 	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
 
@@ -217,12 +219,11 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
-	if (memcmp(l2->h_dest, (__u8 *)backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("src MAC is not the node MAC") if (
+			memcmp(l2->h_dest, (__u8 *)backend_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the endpoint MAC")
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
+			if (l3->saddr != CLIENT_IP) test_fatal("src IP has changed");
 
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP has changed");
@@ -231,16 +232,15 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	if (opt->type != DSR_IPV4_OPT_TYPE)
-		test_fatal("type in DSR IP option has changed")
-	if (opt->len != 8)
-		test_fatal("length in DSR IP option has changed")
-	if (opt->port != __bpf_ntohs(FRONTEND_PORT))
-		test_fatal("port in DSR IP option has changed")
-	if (opt->addr != __bpf_ntohl(FRONTEND_IP))
-		test_fatal("addr in DSR IP option has changed")
+		test_fatal("type in DSR IP option has changed") if (opt->len != 8)
+			test_fatal("length in DSR IP option has changed") if (
+				opt->port != __bpf_ntohs(FRONTEND_PORT))
+				test_fatal("port in DSR IP option has changed") if (
+					opt->addr != __bpf_ntohl(FRONTEND_IP))
+					test_fatal("addr in DSR IP option has changed")
 
-	if (l4->source != CLIENT_PORT)
-		test_fatal("src port has changed");
+						if (l4->source != CLIENT_PORT) test_fatal(
+							"src port has changed");
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port has changed");
@@ -249,8 +249,8 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 	struct ct_entry *ct_entry;
 	int l4_off, ret;
 
-	ret = lb4_extract_tuple(ctx, l3, sizeof(*status_code) + ETH_HLEN,
-				&l4_off, &tuple);
+	ret = lb4_extract_tuple(
+		ctx, l3, sizeof(*status_code) + ETH_HLEN, &l4_off, &tuple);
 	assert(!IS_ERR(ret));
 
 	tuple.flags = TUPLE_F_IN;
@@ -287,10 +287,9 @@ static __always_inline int build_reply(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)node_mac, (__u8 *)client_mac,
-					  BACKEND_IP, CLIENT_IP,
-					  BACKEND_PORT, CLIENT_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)node_mac, (__u8 *)client_mac, BACKEND_IP,
+		CLIENT_IP, BACKEND_PORT, CLIENT_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -337,12 +336,12 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
-	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the client MAC")
+		test_fatal("src MAC is not the node MAC") if (
+			memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the client MAC")
 
-	if (l3->saddr != FRONTEND_IP)
-		test_fatal("src IP hasn't been RevNATed to frontend IP");
+			if (l3->saddr != FRONTEND_IP) test_fatal(
+				"src IP hasn't been RevNATed to frontend IP");
 
 	if (l3->daddr != CLIENT_IP)
 		test_fatal("dst IP has changed");
@@ -486,12 +485,12 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
-	if (memcmp(l2->h_dest, (__u8 *)backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("src MAC is not the node MAC") if (
+			memcmp(l2->h_dest, (__u8 *)backend_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the endpoint MAC")
 
-	if (l3->saddr != CLIENT_IP_2)
-		test_fatal("src IP has changed");
+			if (l3->saddr !=
+			    CLIENT_IP_2) test_fatal("src IP has changed");
 
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP has changed");
@@ -500,16 +499,15 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	if (opt->type != DSR_IPV4_OPT_TYPE)
-		test_fatal("type in DSR IP option has changed")
-	if (opt->len != 8)
-		test_fatal("length in DSR IP option has changed")
-	if (opt->port != __bpf_ntohs(FRONTEND_PORT))
-		test_fatal("port in DSR IP option has changed")
-	if (opt->addr != __bpf_ntohl(FRONTEND_IP))
-		test_fatal("addr in DSR IP option has changed")
+		test_fatal("type in DSR IP option has changed") if (opt->len != 8)
+			test_fatal("length in DSR IP option has changed") if (
+				opt->port != __bpf_ntohs(FRONTEND_PORT))
+				test_fatal("port in DSR IP option has changed") if (
+					opt->addr != __bpf_ntohl(FRONTEND_IP))
+					test_fatal("addr in DSR IP option has changed")
 
-	if (l4->source != CLIENT_PORT)
-		test_fatal("src port has changed");
+						if (l4->source != CLIENT_PORT) test_fatal(
+							"src port has changed");
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port has changed");
@@ -518,8 +516,8 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 	struct ct_entry *ct_entry;
 	int l4_off, ret;
 
-	ret = lb4_extract_tuple(ctx, l3, sizeof(*status_code) + ETH_HLEN,
-				&l4_off, &tuple);
+	ret = lb4_extract_tuple(
+		ctx, l3, sizeof(*status_code) + ETH_HLEN, &l4_off, &tuple);
 	assert(!IS_ERR(ret));
 
 	tuple.flags = TUPLE_F_IN;
@@ -557,10 +555,9 @@ int nodeport_dsr_backend_redirect_reply_pktgen(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)node_mac, (__u8 *)client_mac,
-					  BACKEND_IP, CLIENT_IP_2,
-					  BACKEND_PORT, CLIENT_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)node_mac, (__u8 *)client_mac, BACKEND_IP,
+		CLIENT_IP_2, BACKEND_PORT, CLIENT_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -620,12 +617,12 @@ int nodeport_dsr_backend_redirect_reply_check(struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
-	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the client MAC")
+		test_fatal("src MAC is not the node MAC") if (
+			memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the client MAC")
 
-	if (l3->saddr != BACKEND_IP)
-		test_fatal("src IP has changed");
+			if (l3->saddr !=
+			    BACKEND_IP) test_fatal("src IP has changed");
 
 	if (l3->daddr != CLIENT_IP_2)
 		test_fatal("dst IP has changed");

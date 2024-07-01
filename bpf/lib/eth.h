@@ -6,11 +6,11 @@
 #include <linux/if_ether.h>
 
 #ifndef ETH_HLEN
-#define ETH_HLEN __ETH_HLEN
+# define ETH_HLEN __ETH_HLEN
 #endif
 
 #ifndef ETH_ALEN
-#define ETH_ALEN 6
+# define ETH_ALEN 6
 #endif
 
 union macaddr {
@@ -21,8 +21,8 @@ union macaddr {
 	__u8 addr[6];
 };
 
-static __always_inline int eth_addrcmp(const union macaddr *a,
-				       const union macaddr *b)
+static __always_inline int
+eth_addrcmp(const union macaddr *a, const union macaddr *b)
 {
 	int tmp;
 
@@ -52,20 +52,20 @@ static __always_inline bool eth_is_supported_ethertype(__be16 proto)
 	return proto >= bpf_htons(ETH_P_802_3_MIN);
 }
 
-static __always_inline int eth_load_saddr(struct __ctx_buff *ctx, __u8 *mac,
-					  int off)
+static __always_inline int
+eth_load_saddr(struct __ctx_buff *ctx, __u8 *mac, int off)
 {
 	return ctx_load_bytes(ctx, off + ETH_ALEN, mac, ETH_ALEN);
 }
 
-static __always_inline int eth_store_saddr_aligned(struct __ctx_buff *ctx,
-						   const __u8 *mac, int off)
+static __always_inline int
+eth_store_saddr_aligned(struct __ctx_buff *ctx, const __u8 *mac, int off)
 {
 	return ctx_store_bytes(ctx, off + ETH_ALEN, mac, ETH_ALEN, 0);
 }
 
-static __always_inline int eth_store_saddr(struct __ctx_buff *ctx,
-					   const __u8 *mac, int off)
+static __always_inline int
+eth_store_saddr(struct __ctx_buff *ctx, const __u8 *mac, int off)
 {
 #if !CTX_DIRECT_WRITE_OK
 	return eth_store_saddr_aligned(ctx, mac, off);
@@ -83,20 +83,20 @@ static __always_inline int eth_store_saddr(struct __ctx_buff *ctx,
 #endif
 }
 
-static __always_inline int eth_load_daddr(struct __ctx_buff *ctx, __u8 *mac,
-					  int off)
+static __always_inline int
+eth_load_daddr(struct __ctx_buff *ctx, __u8 *mac, int off)
 {
 	return ctx_load_bytes(ctx, off, mac, ETH_ALEN);
 }
 
-static __always_inline int eth_store_daddr_aligned(struct __ctx_buff *ctx,
-						   const __u8 *mac, int off)
+static __always_inline int
+eth_store_daddr_aligned(struct __ctx_buff *ctx, const __u8 *mac, int off)
 {
 	return ctx_store_bytes(ctx, off, mac, ETH_ALEN, 0);
 }
 
-static __always_inline int eth_store_daddr(struct __ctx_buff *ctx,
-					   const __u8 *mac, int off)
+static __always_inline int
+eth_store_daddr(struct __ctx_buff *ctx, const __u8 *mac, int off)
 {
 #if !CTX_DIRECT_WRITE_OK
 	return eth_store_daddr_aligned(ctx, mac, off);
@@ -114,9 +114,9 @@ static __always_inline int eth_store_daddr(struct __ctx_buff *ctx,
 #endif
 }
 
-static __always_inline int eth_store_proto(struct __ctx_buff *ctx,
-					   const __u16 proto, int off)
+static __always_inline int
+eth_store_proto(struct __ctx_buff *ctx, const __u16 proto, int off)
 {
-	return ctx_store_bytes(ctx, off + ETH_ALEN + ETH_ALEN,
-			       &proto, sizeof(proto), 0);
+	return ctx_store_bytes(
+		ctx, off + ETH_ALEN + ETH_ALEN, &proto, sizeof(proto), 0);
 }

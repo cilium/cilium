@@ -15,7 +15,7 @@
 static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr)
 {
 	/* Check for ::FFFF:<IPv4 address>. */
-	union v6addr dprobe  = {
+	union v6addr dprobe = {
 		.addr[10] = 0xff,
 		.addr[11] = 0xff,
 	};
@@ -27,9 +27,10 @@ static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr
 	return ipv6_addr_equals(&dprobe, &dmasked);
 }
 
-static __always_inline __maybe_unused bool is_v4_in_v6_rfc8215(const union v6addr *daddr)
+static __always_inline __maybe_unused bool
+is_v4_in_v6_rfc8215(const union v6addr *daddr)
 {
-	union v6addr dprobe  = {
+	union v6addr dprobe = {
 		.addr[0] = NAT_46X64_PREFIX_0,
 		.addr[1] = NAT_46X64_PREFIX_1,
 		.addr[2] = NAT_46X64_PREFIX_2,
@@ -43,8 +44,8 @@ static __always_inline __maybe_unused bool is_v4_in_v6_rfc8215(const union v6add
 	return ipv6_addr_equals(&dprobe, &dmasked);
 }
 
-static __always_inline __maybe_unused
-void build_v4_in_v6(union v6addr *daddr, __be32 v4)
+static __always_inline __maybe_unused void
+build_v4_in_v6(union v6addr *daddr, __be32 v4)
 {
 	memset(daddr, 0, sizeof(*daddr));
 	daddr->addr[10] = 0xff;
@@ -52,8 +53,8 @@ void build_v4_in_v6(union v6addr *daddr, __be32 v4)
 	daddr->p4 = v4;
 }
 
-static __always_inline __maybe_unused
-void build_v4_in_v6_rfc8215(union v6addr *daddr, __be32 v4)
+static __always_inline __maybe_unused void
+build_v4_in_v6_rfc8215(union v6addr *daddr, __be32 v4)
 {
 	memset(daddr, 0, sizeof(*daddr));
 	daddr->addr[0] = NAT_46X64_PREFIX_0;
@@ -63,8 +64,8 @@ void build_v4_in_v6_rfc8215(union v6addr *daddr, __be32 v4)
 	daddr->p4 = v4;
 }
 
-static __always_inline __maybe_unused
-void build_v4_from_v6(const union v6addr *v6, __be32 *daddr)
+static __always_inline __maybe_unused void
+build_v4_from_v6(const union v6addr *v6, __be32 *daddr)
 {
 	*daddr = v6->p4;
 }
@@ -85,7 +86,7 @@ static __always_inline int get_csum_offset(__u8 protocol)
 		/* See comment in csum.h */
 		csum_off = 0;
 		break;
-#endif  /* ENABLE_SCTP */
+#endif /* ENABLE_SCTP */
 	case IPPROTO_ICMP:
 		csum_off = (offsetof(struct icmphdr, checksum));
 		break;
@@ -138,7 +139,8 @@ static __always_inline int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
 			icmp6.icmp6_code = 0;
 			/* FIXME */
 			if (icmp4.un.frag.mtu)
-				icmp6.icmp6_mtu = bpf_htonl(bpf_ntohs(icmp4.un.frag.mtu));
+				icmp6.icmp6_mtu =
+					bpf_htonl(bpf_ntohs(icmp4.un.frag.mtu));
 			else
 				icmp6.icmp6_mtu = bpf_htonl(1500);
 			break;
@@ -256,9 +258,9 @@ static __always_inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 	return csum_diff(&icmp6, sizeof(icmp6), &icmp4, sizeof(icmp4), 0);
 }
 
-static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, int nh_off,
-					const union v6addr *src6,
-					const union v6addr *dst6)
+static __always_inline int
+ipv4_to_ipv6(struct __ctx_buff *ctx, int nh_off, const union v6addr *src6,
+	     const union v6addr *dst6)
 {
 	__be16 protocol = bpf_htons(ETH_P_IPV6);
 	__u64 csum_flags = BPF_F_PSEUDO_HDR;
@@ -295,8 +297,8 @@ static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, int nh_off,
 		return DROP_WRITE_ERROR;
 	if (v4.protocol == IPPROTO_ICMP) {
 		csum = icmp4_to_icmp6(ctx, nh_off + sizeof(v6));
-		csum = ipv6_pseudohdr_checksum(&v6, IPPROTO_ICMPV6,
-					       bpf_ntohs(v6.payload_len), csum);
+		csum = ipv6_pseudohdr_checksum(
+			&v6, IPPROTO_ICMPV6, bpf_ntohs(v6.payload_len), csum);
 	} else {
 		csum = 0;
 		csum = csum_diff(&v4.saddr, 4, &v6.saddr, 16, csum);
@@ -313,8 +315,8 @@ static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, int nh_off,
 	return 0;
 }
 
-static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx,
-					__be32 src4, __be32 dst4)
+static __always_inline int
+ipv6_to_ipv4(struct __ctx_buff *ctx, __be32 src4, __be32 dst4)
 {
 	__be16 protocol = bpf_htons(ETH_P_IP);
 	__u64 csum_flags = BPF_F_PSEUDO_HDR;
@@ -351,8 +353,8 @@ static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx,
 		__be32 csum1 = 0;
 
 		csum = icmp6_to_icmp4(ctx, nh_off + sizeof(v4));
-		csum1 = ipv6_pseudohdr_checksum(&v6, IPPROTO_ICMPV6,
-						bpf_ntohs(v6.payload_len), 0);
+		csum1 = ipv6_pseudohdr_checksum(
+			&v6, IPPROTO_ICMPV6, bpf_ntohs(v6.payload_len), 0);
 		csum = csum_sub(csum, csum1);
 	} else {
 		csum = 0;
@@ -372,8 +374,7 @@ static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx,
 
 static __always_inline int
 nat46_rfc8215(struct __ctx_buff *ctx __maybe_unused,
-	      const struct iphdr *ip4 __maybe_unused,
-	      int l3_off __maybe_unused)
+	      const struct iphdr *ip4 __maybe_unused, int l3_off __maybe_unused)
 {
 	union v6addr src6, dst6;
 
@@ -395,8 +396,8 @@ nat64_rfc8215(struct __ctx_buff *ctx __maybe_unused,
 	return ipv6_to_ipv4(ctx, src4, dst4);
 }
 
-#define NAT46x64_MODE_XLATE	1
-#define NAT46x64_MODE_ROUTE	2
+#define NAT46x64_MODE_XLATE 1
+#define NAT46x64_MODE_ROUTE 2
 
 static __always_inline bool nat46x64_cb_route(struct __ctx_buff *ctx)
 {

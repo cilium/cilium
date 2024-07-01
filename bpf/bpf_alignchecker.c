@@ -27,9 +27,9 @@
  * the first occurrence of add_type(TYPE) will expand to "TYPE _0", the second
  * to "TYPE _1", etc.
  */
-#define __add_type(TYPE, N) TYPE _ ## N
-#define __expand(TYPE, N) __add_type(TYPE, N)
-#define add_type(TYPE) __expand(TYPE, __COUNTER__)
+#define __add_type(TYPE, N) TYPE _##N
+#define __expand(TYPE, N)   __add_type(TYPE, N)
+#define add_type(TYPE)	    __expand(TYPE, __COUNTER__)
 
 add_type(struct ipv4_ct_tuple);
 add_type(struct ipv6_ct_tuple);

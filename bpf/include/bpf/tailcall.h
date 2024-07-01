@@ -54,6 +54,6 @@ tail_call_dynamic(struct __ctx_buff *ctx, const void *map, __u32 slot)
 /* BPF unit tests compile some BPF code under their native arch. Tail calls
  * won't work in this context. Only compile above under __bpf__ target.
  */
-# define tail_call_static(ctx, map, slot)	__throw_build_bug()
-# define tail_call_dynamic(ctx, map, slot)	__throw_build_bug()
+# define tail_call_static(ctx, map, slot)  __throw_build_bug()
+# define tail_call_dynamic(ctx, map, slot) __throw_build_bug()
 #endif /* __bpf__ */

@@ -9,28 +9,28 @@
 /*
  * Test configurations
  */
-#define CLIENT_MAC		mac_one
-#define CLIENT_ROUTER_MAC	mac_two
-#define BACKEND_ROUTER_MAC	mac_three
-#define CLIENT_IP		v4_pod_one
-#define BACKEND_IP		v4_pod_two
-#define CLIENT_PORT		tcp_src_one
-#define BACKEND_PORT		tcp_src_two
-#define BACKEND_NODE_IP		v4_ext_one
-#define FRONTEND_IP		v4_svc_one
-#define FRONTEND_PORT		tcp_svc_one
-#define BACKEND_CLUSTER_ID	2
-#define BACKEND_IDENTITY	(0x00000000 | (BACKEND_CLUSTER_ID << 16) | 0xff01)
+#define CLIENT_MAC	   mac_one
+#define CLIENT_ROUTER_MAC  mac_two
+#define BACKEND_ROUTER_MAC mac_three
+#define CLIENT_IP	   v4_pod_one
+#define BACKEND_IP	   v4_pod_two
+#define CLIENT_PORT	   tcp_src_one
+#define BACKEND_PORT	   tcp_src_two
+#define BACKEND_NODE_IP	   v4_ext_one
+#define FRONTEND_IP	   v4_svc_one
+#define FRONTEND_PORT	   tcp_svc_one
+#define BACKEND_CLUSTER_ID 2
+#define BACKEND_IDENTITY   (0x00000000 | (BACKEND_CLUSTER_ID << 16) | 0xff01)
 
 /*
  * Datapath configurations
  */
 
 /* Set dummy ifindex for tunnel device */
-#define ENCAP_IFINDEX 1
+#define ENCAP_IFINDEX	   1
 
 /* Set the LXC source address to be the address of pod one */
-#define LXC_IPV4 CLIENT_IP
+#define LXC_IPV4	   CLIENT_IP
 
 /* Overlapping PodCIDR is only supported for IPv4 for now */
 #define ENABLE_IPV4
@@ -70,7 +70,7 @@
  */
 
 #define FROM_CONTAINER 0
-#define HANDLE_POLICY 1
+#define HANDLE_POLICY  1
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -93,10 +93,9 @@ pktgen_from_lxc(struct __ctx_buff *ctx, bool syn, bool ack)
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)CLIENT_MAC, (__u8 *)CLIENT_ROUTER_MAC,
-					  CLIENT_IP, FRONTEND_IP,
-					  CLIENT_PORT, FRONTEND_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)CLIENT_MAC, (__u8 *)CLIENT_ROUTER_MAC,
+		CLIENT_IP, FRONTEND_IP, CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -121,11 +120,9 @@ pktgen_to_lxc(struct __ctx_buff *ctx, bool syn, bool ack)
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)BACKEND_ROUTER_MAC,
-					  (__u8 *)CLIENT_MAC,
-					  BACKEND_IP, CLIENT_IP,
-					  BACKEND_PORT, CLIENT_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)BACKEND_ROUTER_MAC, (__u8 *)CLIENT_MAC,
+		BACKEND_IP, CLIENT_IP, BACKEND_PORT, CLIENT_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -150,14 +147,14 @@ int lxc_to_overlay_syn_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "01_lxc_to_overlay_syn")
 int lxc_to_overlay_syn_setup(struct __ctx_buff *ctx)
 {
-
 	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, 1);
-	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 1,
-			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP,
-			  BACKEND_CLUSTER_ID);
+	lb_v4_add_backend(
+		FRONTEND_IP, FRONTEND_PORT, 1, 1, BACKEND_IP, BACKEND_PORT,
+		IPPROTO_TCP, BACKEND_CLUSTER_ID);
 
-	ipcache_v4_add_entry(BACKEND_IP, BACKEND_CLUSTER_ID, BACKEND_IDENTITY,
-			     BACKEND_NODE_IP, 0);
+	ipcache_v4_add_entry(
+		BACKEND_IP, BACKEND_CLUSTER_ID, BACKEND_IDENTITY,
+		BACKEND_NODE_IP, 0);
 
 	policy_add_egress_allow_entry(BACKEND_IDENTITY, IPPROTO_TCP, BACKEND_PORT);
 
@@ -188,7 +185,8 @@ int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 	status_code = data;
 
 	if (*status_code != CTX_ACT_REDIRECT)
-		test_fatal("unexpected status code %d, want %d", *status_code, CTX_ACT_REDIRECT);
+		test_fatal("unexpected status code %d, want %d", *status_code,
+			   CTX_ACT_REDIRECT);
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
@@ -205,11 +203,11 @@ int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_source, (__u8 *)CLIENT_MAC, ETH_ALEN) != 0)
 		test_fatal("src MAC has changed")
 
-	if (memcmp(l2->h_dest, (__u8 *)CLIENT_ROUTER_MAC, ETH_ALEN) != 0)
-		test_fatal("dst MAC has changed")
+			if (memcmp(l2->h_dest, (__u8 *)CLIENT_ROUTER_MAC, ETH_ALEN) !=
+			    0) test_fatal("dst MAC has changed")
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
+				if (l3->saddr !=
+				    CLIENT_IP) test_fatal("src IP has changed");
 
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP hasn't been NATed to remote backend IP");
@@ -236,12 +234,12 @@ int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 		test_fatal("couldn't find service conntrack entry");
 
 	/* Check egress conntrack state is in the per-cluster CT */
-	tuple.daddr   = CLIENT_IP;
-	tuple.saddr   = BACKEND_IP;
-	tuple.dport   = BACKEND_PORT;
-	tuple.sport   = CLIENT_PORT;
+	tuple.daddr = CLIENT_IP;
+	tuple.saddr = BACKEND_IP;
+	tuple.dport = BACKEND_PORT;
+	tuple.sport = CLIENT_PORT;
 	tuple.nexthdr = IPPROTO_TCP;
-	tuple.flags   = TUPLE_F_OUT;
+	tuple.flags = TUPLE_F_OUT;
 
 	entry = map_lookup_elem(&per_cluster_ct_tcp4_2, &tuple);
 	if (!entry)
@@ -295,7 +293,8 @@ int overlay_to_lxc_synack_check(struct __ctx_buff *ctx)
 	status_code = data;
 
 	if (*status_code != CTX_ACT_REDIRECT)
-		test_fatal("unexpected status code %d, want %d", *status_code, CTX_ACT_REDIRECT);
+		test_fatal("unexpected status code %d, want %d", *status_code,
+			   CTX_ACT_REDIRECT);
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
@@ -312,11 +311,11 @@ int overlay_to_lxc_synack_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_source, (__u8 *)BACKEND_ROUTER_MAC, ETH_ALEN) != 0)
 		test_fatal("src MAC has changed")
 
-	if (memcmp(l2->h_dest, (__u8 *)CLIENT_MAC, ETH_ALEN) != 0)
-		test_fatal("dst MAC has changed")
+			if (memcmp(l2->h_dest, (__u8 *)CLIENT_MAC, ETH_ALEN) !=
+			    0) test_fatal("dst MAC has changed")
 
-	if (l3->saddr != FRONTEND_IP)
-		test_fatal("src IP is not service frontend IP");
+				if (l3->saddr != FRONTEND_IP) test_fatal(
+					"src IP is not service frontend IP");
 
 	if (l3->daddr != CLIENT_IP)
 		test_fatal("dst IP is not client IP");
@@ -331,12 +330,12 @@ int overlay_to_lxc_synack_check(struct __ctx_buff *ctx)
 		test_fatal("dst port is not client port");
 
 	/* Make sure we hit the conntrack entry */
-	tuple.daddr   = CLIENT_IP;
-	tuple.saddr   = BACKEND_IP;
-	tuple.dport   = BACKEND_PORT;
-	tuple.sport   = CLIENT_PORT;
+	tuple.daddr = CLIENT_IP;
+	tuple.saddr = BACKEND_IP;
+	tuple.dport = BACKEND_PORT;
+	tuple.sport = CLIENT_PORT;
 	tuple.nexthdr = IPPROTO_TCP;
-	tuple.flags   = TUPLE_F_OUT;
+	tuple.flags = TUPLE_F_OUT;
 
 	entry = map_lookup_elem(&per_cluster_ct_tcp4_2, &tuple);
 	if (!entry)
@@ -383,7 +382,8 @@ int lxc_to_overlay_ack_check(struct __ctx_buff *ctx)
 	status_code = data;
 
 	if (*status_code != CTX_ACT_REDIRECT)
-		test_fatal("unexpected status code %d, want %d", *status_code, CTX_ACT_REDIRECT);
+		test_fatal("unexpected status code %d, want %d", *status_code,
+			   CTX_ACT_REDIRECT);
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
@@ -400,11 +400,11 @@ int lxc_to_overlay_ack_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_source, (__u8 *)CLIENT_MAC, ETH_ALEN) != 0)
 		test_fatal("src MAC has changed")
 
-	if (memcmp(l2->h_dest, (__u8 *)CLIENT_ROUTER_MAC, ETH_ALEN) != 0)
-		test_fatal("dst MAC has changed")
+			if (memcmp(l2->h_dest, (__u8 *)CLIENT_ROUTER_MAC, ETH_ALEN) !=
+			    0) test_fatal("dst MAC has changed")
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
+				if (l3->saddr !=
+				    CLIENT_IP) test_fatal("src IP has changed");
 
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP hasn't been NATed to remote backend IP");
@@ -419,12 +419,12 @@ int lxc_to_overlay_ack_check(struct __ctx_buff *ctx)
 		test_fatal("dst port hasn't been NATed to backend port");
 
 	/* Make sure we hit the conntrack entry */
-	tuple.daddr   = CLIENT_IP;
-	tuple.saddr   = BACKEND_IP;
-	tuple.dport   = BACKEND_PORT;
-	tuple.sport   = CLIENT_PORT;
+	tuple.daddr = CLIENT_IP;
+	tuple.saddr = BACKEND_IP;
+	tuple.dport = BACKEND_PORT;
+	tuple.sport = CLIENT_PORT;
 	tuple.nexthdr = IPPROTO_TCP;
-	tuple.flags   = TUPLE_F_OUT;
+	tuple.flags = TUPLE_F_OUT;
 
 	entry = map_lookup_elem(&per_cluster_ct_tcp4_2, &tuple);
 	if (!entry)

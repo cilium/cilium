@@ -7,34 +7,34 @@
 #include "pktgen.h"
 
 /* Set ETH_HLEN to 14 to indicate that the packet has a 14 byte ethernet header */
-#define ETH_HLEN 14
+#define ETH_HLEN	    14
 
 /* Enable code paths under test */
-#define ENABLE_IPV4		1
-#define ENABLE_IPV6		1
-#define ENABLE_NODEPORT		1
-#define ENABLE_DSR		1
-#define DSR_ENCAP_IPIP		2
-#define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
-#define ENABLE_HEALTH_CHECK	1
+#define ENABLE_IPV4	    1
+#define ENABLE_IPV6	    1
+#define ENABLE_NODEPORT	    1
+#define ENABLE_DSR	    1
+#define DSR_ENCAP_IPIP	    2
+#define DSR_ENCAP_MODE	    DSR_ENCAP_IPIP
+#define ENABLE_HEALTH_CHECK 1
 
 #define DISABLE_LOOPBACK_LB
 
-#define CLIENT_IP		v4_pod_one
-#define CLIENT_PORT		__bpf_htons(111)
+#define CLIENT_IP      v4_pod_one
+#define CLIENT_PORT    __bpf_htons(111)
 
-#define ENCAP_IFINDEX		25
+#define ENCAP_IFINDEX  25
 
-#define FRONTEND_IP		v4_svc_one
-#define FRONTEND_PORT		__bpf_htons(80)
+#define FRONTEND_IP    v4_svc_one
+#define FRONTEND_PORT  __bpf_htons(80)
 
-#define BACKEND_IP		v4_pod_two
-#define BACKEND_PORT		__bpf_htons(8080)
+#define BACKEND_IP     v4_pod_two
+#define BACKEND_PORT   __bpf_htons(8080)
 
-#define ENCAP4_IFINDEX		42
-#define ENCAP6_IFINDEX		42
+#define ENCAP4_IFINDEX 42
+#define ENCAP6_IFINDEX 42
 
-#define SOCKET_COOKIE		1
+#define SOCKET_COOKIE  1
 
 static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *backend_mac = mac_two;
@@ -48,9 +48,9 @@ __u64 mock_get_socket_cookie(const struct __sk_buff *ctx __maybe_unused)
 
 #define ctx_redirect mock_ctx_redirect
 
-static __always_inline __maybe_unused int
-mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
-		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
+static __always_inline __maybe_unused int mock_ctx_redirect(
+	const struct __sk_buff *ctx __maybe_unused, int ifindex __maybe_unused,
+	__u32 flags __maybe_unused)
 {
 	if (ifindex == ENCAP4_IFINDEX)
 		return CTX_ACT_REDIRECT;
@@ -60,10 +60,10 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 
 #define skb_set_tunnel_key mock_skb_set_tunnel_key
 
-int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
-			    __maybe_unused const struct bpf_tunnel_key *from,
-			    __maybe_unused __u32 size,
-			    __maybe_unused __u32 flags)
+int mock_skb_set_tunnel_key(
+	__maybe_unused struct __sk_buff *skb,
+	__maybe_unused const struct bpf_tunnel_key *from,
+	__maybe_unused __u32 size, __maybe_unused __u32 flags)
 {
 	if (from->tunnel_id != 0)
 		return -1;
@@ -78,7 +78,7 @@ int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 
 #include "bpf_host.c"
 
-#define TO_NETDEV	0
+#define TO_NETDEV 0
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -102,10 +102,9 @@ int l4lb_health_check_host_pktgen(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)client_mac, (__u8 *)backend_mac,
-					  CLIENT_IP, FRONTEND_IP,
-					  CLIENT_PORT, FRONTEND_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)client_mac, (__u8 *)backend_mac, CLIENT_IP,
+		FRONTEND_IP, CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -171,12 +170,11 @@ int l4lb_health_check_host_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the client MAC")
-	if (memcmp(l2->h_dest, (__u8 *)backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the backend MAC")
+		test_fatal("src MAC is not the client MAC") if (
+			memcmp(l2->h_dest, (__u8 *)backend_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the backend MAC")
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
+			if (l3->saddr != CLIENT_IP) test_fatal("src IP has changed");
 
 	if (l3->daddr != FRONTEND_IP)
 		test_fatal("dst IP has changed");

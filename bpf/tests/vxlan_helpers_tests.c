@@ -6,11 +6,11 @@
 #include "pktgen.h"
 
 #define TUNNEL_PROTOCOL TUNNEL_PROTOCOL_VXLAN
-#define TUNNEL_PORT 8472
+#define TUNNEL_PORT	8472
 #define TUNNEL_PORT_BAD 0
-#define VXLAN_VNI 0xDEADBE
-#define VXLAN_VNI_NEW 0xCAFEBE
-#define UDP_CHECK 0xDEAD
+#define VXLAN_VNI	0xDEADBE
+#define VXLAN_VNI_NEW	0xCAFEBE
+#define UDP_CHECK	0xDEAD
 
 #include "node_config.h"
 #include "lib/common.h"
@@ -20,8 +20,8 @@
  * use layer accounting and will fail when pushing an ipv4 header past its
  * assumed layer
  */
-static __always_inline void
-mk_data(const __u8 *buff) {
+static __always_inline void mk_data(const __u8 *buff)
+{
 	struct ethhdr *eth = (struct ethhdr *)buff;
 
 	memcpy(&eth->h_source, (__u8 *)mac_one, sizeof(mac_three));
@@ -34,8 +34,8 @@ mk_data(const __u8 *buff) {
 	ipv4->daddr = v4_pod_two;
 }
 
-static __always_inline int
-mk_packet(struct __ctx_buff *ctx) {
+static __always_inline int mk_packet(struct __ctx_buff *ctx)
+{
 	struct pktgen builder;
 	struct udphdr *l4;
 	struct vxlanhdr *vx;
@@ -45,13 +45,9 @@ mk_packet(struct __ctx_buff *ctx) {
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_udp_packet(&builder,
-					  (__u8 *)mac_one,
-					  (__u8 *)mac_two,
-					  v4_node_one,
-					  v4_node_two,
-					  666,
-					  bpf_htons(TUNNEL_PORT));
+	l4 = pktgen__push_ipv4_udp_packet(
+		&builder, (__u8 *)mac_one, (__u8 *)mac_two, v4_node_one,
+		v4_node_two, 666, bpf_htons(TUNNEL_PORT));
 	if (!l4)
 		return TEST_ERROR;
 
@@ -75,8 +71,8 @@ mk_packet(struct __ctx_buff *ctx) {
 }
 
 PKTGEN("tc", "vxlan_get_vni_success")
-static __always_inline int
-pktgen_vxlan_mock_check3(struct __ctx_buff *ctx) {
+static __always_inline int pktgen_vxlan_mock_check3(struct __ctx_buff *ctx)
+{
 	return mk_packet(ctx);
 }
 
@@ -95,8 +91,8 @@ int check3(struct __ctx_buff *ctx)
 }
 
 PKTGEN("tc", "vxlan_get_inner_ipv4_success")
-static __always_inline int
-pktgen_vxlan_mock_check4(struct __ctx_buff *ctx) {
+static __always_inline int pktgen_vxlan_mock_check4(struct __ctx_buff *ctx)
+{
 	return mk_packet(ctx);
 }
 
@@ -119,8 +115,8 @@ int check4(struct __ctx_buff *ctx)
 }
 
 PKTGEN("tc", "vxlan_rewrite_vni_success")
-static __always_inline int
-pktgen_vxlan_mock_check5(struct __ctx_buff *ctx) {
+static __always_inline int pktgen_vxlan_mock_check5(struct __ctx_buff *ctx)
+{
 	return mk_packet(ctx);
 }
 
@@ -136,8 +132,7 @@ int check5(struct __ctx_buff *ctx)
 
 	assert(revalidate_data(ctx, &data, &data_end, &ipv4));
 
-	assert(vxlan_rewrite_vni(ctx, data, data_end, ipv4,
-				 VXLAN_VNI_NEW));
+	assert(vxlan_rewrite_vni(ctx, data, data_end, ipv4, VXLAN_VNI_NEW));
 
 	/* packet data was touched so revalidate */
 	assert(revalidate_data(ctx, &data, &data_end, &ipv4));

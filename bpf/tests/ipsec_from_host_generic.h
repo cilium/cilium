@@ -7,21 +7,20 @@
 #define ROUTER_IP
 #undef ROUTER_IP
 
-#define NODE_ID 2333
+#define NODE_ID	    2333
 #define ENCRYPT_KEY 3
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define ENABLE_IPSEC
 #define SECCTX_FROM_IPCACHE 1
 
-#define ENCAP_IFINDEX 4
-#define skb_set_tunnel_key mock_skb_set_tunnel_key
-#define ctx_redirect mock_ctx_redirect
+#define ENCAP_IFINDEX	    4
+#define skb_set_tunnel_key  mock_skb_set_tunnel_key
+#define ctx_redirect	    mock_ctx_redirect
 
-int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
-			    const struct bpf_tunnel_key *from,
-			    __maybe_unused __u32 size,
-			    __maybe_unused __u32 flags)
+int mock_skb_set_tunnel_key(
+	__maybe_unused struct __sk_buff *skb, const struct bpf_tunnel_key *from,
+	__maybe_unused __u32 size, __maybe_unused __u32 flags)
 {
 	/* 0xfffff is the default SECLABEL */
 	if (from->tunnel_id != 0xfffff)
@@ -33,7 +32,8 @@ int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 	return 0;
 }
 
-int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
+int mock_ctx_redirect(
+	const struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
 {
 	if (ifindex != ENCAP_IFINDEX)
 		return -1;
@@ -46,7 +46,7 @@ int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused, int ifindex, _
 
 #include "lib/ipcache.h"
 
-#define FROM_HOST 0
+#define FROM_HOST    0
 #define ESP_SEQUENCE 69865
 
 struct {

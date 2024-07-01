@@ -9,14 +9,16 @@
 /* The daddr is explicitly excluded from the hash here in order to allow for
  * backend selection to choose the same backend even on different service VIPs.
  */
-static __always_inline __u32 hash_from_tuple_v4(const struct ipv4_ct_tuple *tuple)
+static __always_inline __u32
+hash_from_tuple_v4(const struct ipv4_ct_tuple *tuple)
 {
-	return jhash_3words(tuple->saddr,
-			    ((__u32)tuple->dport << 16) | tuple->sport,
-			    tuple->nexthdr, HASH_INIT4_SEED);
+	return jhash_3words(
+		tuple->saddr, ((__u32)tuple->dport << 16) | tuple->sport,
+		tuple->nexthdr, HASH_INIT4_SEED);
 }
 
-static __always_inline __u32 hash_from_tuple_v6(const struct ipv6_ct_tuple *tuple)
+static __always_inline __u32
+hash_from_tuple_v6(const struct ipv6_ct_tuple *tuple)
 {
 	__u32 a, b, c;
 

@@ -5,8 +5,8 @@
 
 #include <linux/types.h>
 
-#define __uint(name, val) int(*(name))[val]
-#define __type(name, val) typeof(val) *(name)
+#define __uint(name, val)  int(*(name))[val]
+#define __type(name, val)  typeof(val) *(name)
 #define __array(name, val) typeof(val) *(name)[]
 
 #define LIBBPF_PIN_BY_NAME 1

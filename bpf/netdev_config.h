@@ -7,9 +7,9 @@
  */
 #define DROP_NOTIFY
 #ifndef SKIP_DEBUG
-#define DEBUG
+# define DEBUG
 #endif
-#define SECLABEL 2
+#define SECLABEL      2
 #define SECLABEL_IPV4 2
 #define SECLABEL_IPV6 2
-#define CALLS_MAP test_cilium_calls_65535
+#define CALLS_MAP     test_cilium_calls_65535

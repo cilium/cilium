@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#define NODE_ID 2333
+#define NODE_ID	    2333
 #define ENCRYPT_KEY 3
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define ENABLE_IPSEC
 #define TUNNEL_MODE
 #define ENCAP_IFINDEX 4
-#define DEST_IFINDEX 5
-#define DEST_LXC_ID 200
+#define DEST_IFINDEX  5
+#define DEST_LXC_ID   200
 
 #include "common.h"
 #include <bpf/ctx/skb.h>
@@ -24,7 +24,8 @@
 #undef SECLABEL_IPV6
 
 #define ctx_redirect mock_ctx_redirect
-int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
+int mock_ctx_redirect(
+	const struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
 {
 	if (ifindex != 1)
 		return -1;
@@ -112,7 +113,8 @@ int ipv4_not_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "ipv4_not_decrypted_ipsec_from_network")
-int ipv4_not_decrypted_ipsec_from_network_check(__maybe_unused const struct __ctx_buff *ctx)
+int ipv4_not_decrypted_ipsec_from_network_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
@@ -231,10 +233,7 @@ int ipv6_not_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 		__u32 _;
 		struct node_key k;
 	} node_ip __align_stack_8 = {};
-	struct node_value node_value = {
-		.id = NODE_ID,
-		.spi = 0
-	};
+	struct node_value node_value = { .id = NODE_ID, .spi = 0 };
 
 	/* We need to populate the node ID map because we'll lookup into it on
 	 * ingress to find the node ID to use to match against XFRM IN states.
@@ -248,7 +247,8 @@ int ipv6_not_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "ipv6_not_decrypted_ipsec_from_network")
-int ipv6_not_decrypted_ipsec_from_network_check(__maybe_unused const struct __ctx_buff *ctx)
+int ipv6_not_decrypted_ipsec_from_network_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
@@ -325,10 +325,9 @@ int ipv4_decrypted_ipsec_from_network_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)mac_one, (__u8 *)mac_two,
-					  v4_pod_one, v4_pod_two,
-					  tcp_src_one, tcp_svc_one);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)mac_one, (__u8 *)mac_two, v4_pod_one,
+		v4_pod_two, tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -343,8 +342,9 @@ int ipv4_decrypted_ipsec_from_network_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv4_decrypted_ipsec_from_network")
 int ipv4_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v4_add_entry(v4_pod_two, DEST_IFINDEX, DEST_LXC_ID, 0, 0,
-			      (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
+	endpoint_v4_add_entry(
+		v4_pod_two, DEST_IFINDEX, DEST_LXC_ID, 0, 0,
+		(__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
 
 	ctx->mark = MARK_MAGIC_DECRYPT;
 	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
@@ -352,7 +352,8 @@ int ipv4_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "ipv4_decrypted_ipsec_from_network")
-int ipv4_decrypted_ipsec_from_network_check(__maybe_unused const struct __ctx_buff *ctx)
+int ipv4_decrypted_ipsec_from_network_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
@@ -432,10 +433,9 @@ int ipv6_decrypted_ipsec_from_network_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv6_tcp_packet(&builder,
-					  (__u8 *)mac_one, (__u8 *)mac_two,
-					  (__u8 *)v6_pod_one, (__u8 *)v6_pod_two,
-					  tcp_src_one, tcp_svc_one);
+	l4 = pktgen__push_ipv6_tcp_packet(
+		&builder, (__u8 *)mac_one, (__u8 *)mac_two, (__u8 *)v6_pod_one,
+		(__u8 *)v6_pod_two, tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -450,8 +450,9 @@ int ipv6_decrypted_ipsec_from_network_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv6_decrypted_ipsec_from_network")
 int ipv6_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v6_add_entry((union v6addr *)v6_pod_two, DEST_IFINDEX, DEST_LXC_ID,
-			      0, 0, (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
+	endpoint_v6_add_entry(
+		(union v6addr *)v6_pod_two, DEST_IFINDEX, DEST_LXC_ID, 0, 0,
+		(__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
 
 	ctx->mark = MARK_MAGIC_DECRYPT;
 	tail_call_static(ctx, entry_call_map, FROM_NETWORK);
@@ -459,7 +460,8 @@ int ipv6_decrypted_ipsec_from_network_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "ipv6_decrypted_ipsec_from_network")
-int ipv6_decrypted_ipsec_from_network_check(__maybe_unused const struct __ctx_buff *ctx)
+int ipv6_decrypted_ipsec_from_network_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;

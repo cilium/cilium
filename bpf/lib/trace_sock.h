@@ -58,12 +58,12 @@ struct trace_sock_notify {
 	__u64 sock_cookie;
 	__u64 cgroup_id;
 	__u8 l4_proto;
-	__u8 ipv6 : 1;
-	__u8 pad : 7;
+	__u8 ipv6:1;
+	__u8 pad :7;
 } __packed;
 
-static __always_inline enum l4_protocol
-parse_protocol(__u32 l4_proto) {
+static __always_inline enum l4_protocol parse_protocol(__u32 l4_proto)
+{
 	switch (l4_proto) {
 	case IPPROTO_TCP:
 		return L4_PROTOCOL_TCP;
@@ -74,10 +74,9 @@ parse_protocol(__u32 l4_proto) {
 	}
 }
 
-static __always_inline void
-send_trace_sock_notify4(struct __ctx_sock *ctx,
-			enum xlate_point xlate_point,
-			__u32 dst_ip, __u16 dst_port)
+static __always_inline void send_trace_sock_notify4(
+	struct __ctx_sock *ctx, enum xlate_point xlate_point, __u32 dst_ip,
+	__u16 dst_port)
 {
 	__u64 cgroup_id = 0;
 	struct trace_sock_notify msg __align_stack_8;
@@ -86,24 +85,22 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 		cgroup_id = get_current_cgroup_id();
 
 	msg = (typeof(msg)){
-		.type		= CILIUM_NOTIFY_TRACE_SOCK,
-		.xlate_point	= xlate_point,
-		.dst_ip.ip4	= dst_ip,
-		.dst_port	= dst_port,
-		.sock_cookie	= sock_local_cookie(ctx),
-		.cgroup_id	= cgroup_id,
-		.l4_proto	= parse_protocol(ctx->protocol),
-		.ipv6		= 0,
+		.type = CILIUM_NOTIFY_TRACE_SOCK,
+		.xlate_point = xlate_point,
+		.dst_ip.ip4 = dst_ip,
+		.dst_port = dst_port,
+		.sock_cookie = sock_local_cookie(ctx),
+		.cgroup_id = cgroup_id,
+		.l4_proto = parse_protocol(ctx->protocol),
+		.ipv6 = 0,
 	};
 
 	ctx_event_output(ctx, &EVENTS_MAP, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 
-static __always_inline void
-send_trace_sock_notify6(struct __ctx_sock *ctx,
-			enum xlate_point xlate_point,
-			union v6addr *dst_addr,
-			__u16 dst_port)
+static __always_inline void send_trace_sock_notify6(
+	struct __ctx_sock *ctx, enum xlate_point xlate_point,
+	union v6addr *dst_addr, __u16 dst_port)
 {
 	__u64 cgroup_id = 0;
 	struct trace_sock_notify msg __align_stack_8;
@@ -111,31 +108,30 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 	if (is_defined(HAVE_CGROUP_ID))
 		cgroup_id = get_current_cgroup_id();
 	msg = (typeof(msg)){
-		.type		= CILIUM_NOTIFY_TRACE_SOCK,
-		.xlate_point	= xlate_point,
-		.dst_port	= dst_port,
-		.sock_cookie	= sock_local_cookie(ctx),
-		.cgroup_id	= cgroup_id,
-		.l4_proto	= parse_protocol(ctx->protocol),
-		.ipv6		= 1,
+		.type = CILIUM_NOTIFY_TRACE_SOCK,
+		.xlate_point = xlate_point,
+		.dst_port = dst_port,
+		.sock_cookie = sock_local_cookie(ctx),
+		.cgroup_id = cgroup_id,
+		.l4_proto = parse_protocol(ctx->protocol),
+		.ipv6 = 1,
 	};
 	ipv6_addr_copy_unaligned(&msg.dst_ip.ip6, dst_addr);
 
 	ctx_event_output(ctx, &EVENTS_MAP, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 #else
-static __always_inline void
-send_trace_sock_notify4(struct __ctx_sock *ctx __maybe_unused,
-			enum xlate_point xlate_point __maybe_unused,
-			__u32 dst_ip __maybe_unused, __u16 dst_port __maybe_unused)
+static __always_inline void send_trace_sock_notify4(
+	struct __ctx_sock *ctx __maybe_unused,
+	enum xlate_point xlate_point __maybe_unused,
+	__u32 dst_ip __maybe_unused, __u16 dst_port __maybe_unused)
 {
 }
 
-static __always_inline void
-send_trace_sock_notify6(struct __ctx_sock *ctx __maybe_unused,
-			enum xlate_point xlate_point __maybe_unused,
-			union v6addr *dst_addr __maybe_unused,
-			__u16 dst_port __maybe_unused)
+static __always_inline void send_trace_sock_notify6(
+	struct __ctx_sock *ctx __maybe_unused,
+	enum xlate_point xlate_point __maybe_unused,
+	union v6addr *dst_addr __maybe_unused, __u16 dst_port __maybe_unused)
 {
 }
 #endif /* TRACE_SOCK_NOTIFY */

@@ -80,16 +80,21 @@
 /* clang-format on */
 
 /* Deprecated, use CONFIG instead. */
-#define fetch_u16(x) CONFIG(x)
-#define fetch_u32(x) CONFIG(x)
-#define fetch_ipv6(x) CONFIG(x ## _1), CONFIG(x ## _2)
-#define fetch_mac(x) { { CONFIG(x ## _1), (__u16)CONFIG(x ## _2) } }
+#define fetch_u16(x)  CONFIG(x)
+#define fetch_u32(x)  CONFIG(x)
+#define fetch_ipv6(x) CONFIG(x##_1), CONFIG(x##_2)
+#define fetch_mac(x)                                        \
+	{                                                   \
+		{                                           \
+			CONFIG(x##_1), (__u16)CONFIG(x##_2) \
+		}                                           \
+	}
 
 /* Deprecated, use DECLARE_CONFIG instead. */
-#define DEFINE_U16(name, value) \
+#define DEFINE_U16(name, value)                                                     \
 	DECLARE_CONFIG(__u16, name, "Constant " #name " declared using DEFINE_U16") \
 	ASSIGN_CONFIG(__u16, name, value)
-#define DEFINE_U32(name, value) \
+#define DEFINE_U32(name, value)                                                     \
 	DECLARE_CONFIG(__u32, name, "Constant " #name " declared using DEFINE_U32") \
 	ASSIGN_CONFIG(__u32, name, value)
 
@@ -101,24 +106,31 @@
  * Variables relying on this are THIS_INTERFACE_MAC, LXC_IP, IPV6_MASQUERADE, ROUTER_IP
  * and HOST_IP.
  */
-#define DEFINE_IPV6(name, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16) \
-	DECLARE_CONFIG(__u64, name##_1, "First half of ipv6 address " #name) \
+#define DEFINE_IPV6(                                                          \
+	name, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14,    \
+	a15, a16)                                                             \
+	DECLARE_CONFIG(__u64, name##_1, "First half of ipv6 address " #name)  \
 	DECLARE_CONFIG(__u64, name##_2, "Second half of ipv6 address " #name) \
-	ASSIGN_CONFIG(__u64, name##_1, bpf_cpu_to_be64( \
-			(__u64)(__u8)(a1) << 56 | (__u64)(__u8)(a2) << 48 | \
-			(__u64)(__u8)(a3) << 40 | (__u64)(__u8)(a4) << 32 | \
-			(__u64)(__u8)(a5) << 24 | (__u64)(__u8)(a6) << 16 | \
-			(__u64)(__u8)(a7) << 8  | (__u64)(__u8)(a8))); \
-	ASSIGN_CONFIG(__u64, name##_2, bpf_cpu_to_be64( \
-			(__u64)(__u8)(a9) << 56  | (__u64)(__u8)(a10) << 48 | \
+	ASSIGN_CONFIG(                                                        \
+		__u64, name##_1,                                              \
+		bpf_cpu_to_be64(                                              \
+			(__u64)(__u8)(a1) << 56 | (__u64)(__u8)(a2) << 48 |   \
+			(__u64)(__u8)(a3) << 40 | (__u64)(__u8)(a4) << 32 |   \
+			(__u64)(__u8)(a5) << 24 | (__u64)(__u8)(a6) << 16 |   \
+			(__u64)(__u8)(a7) << 8 | (__u64)(__u8)(a8)));         \
+	ASSIGN_CONFIG(                                                        \
+		__u64, name##_2,                                              \
+		bpf_cpu_to_be64(                                              \
+			(__u64)(__u8)(a9) << 56 | (__u64)(__u8)(a10) << 48 |  \
 			(__u64)(__u8)(a11) << 40 | (__u64)(__u8)(a12) << 32 | \
 			(__u64)(__u8)(a13) << 24 | (__u64)(__u8)(a14) << 16 | \
-			(__u64)(__u8)(a15) << 8  | (__u64)(__u8)(a16)));
+			(__u64)(__u8)(a15) << 8 | (__u64)(__u8)(a16)));
 
-#define DEFINE_MAC(name, a1, a2, a3, a4, a5, a6) \
-	DECLARE_CONFIG(__u32, name##_1, "First 32 bits of mac address " #name) \
+#define DEFINE_MAC(name, a1, a2, a3, a4, a5, a6)                                   \
+	DECLARE_CONFIG(__u32, name##_1, "First 32 bits of mac address " #name)     \
 	DECLARE_CONFIG(__u32, name##_2, "Remaining 16 bits of mac address " #name) \
-	ASSIGN_CONFIG(__u32, name##_1, \
-			(__u32)(__u8)(a1) << 24 | (__u32)(__u8)(a2) << 16 | \
-			(__u32)(__u8)(a3) << 8  | (__u32)(__u8)(a4)) \
-	ASSIGN_CONFIG(__u32, name##_2, (__u32)(__u8)(a5) << 8  | (__u32)(__u8)(a6))
+	ASSIGN_CONFIG(                                                             \
+		__u32, name##_1,                                                   \
+		(__u32)(__u8)(a1) << 24 | (__u32)(__u8)(a2) << 16 |                \
+			(__u32)(__u8)(a3) << 8 | (__u32)(__u8)(a4))                \
+	ASSIGN_CONFIG(__u32, name##_2, (__u32)(__u8)(a5) << 8 | (__u32)(__u8)(a6))

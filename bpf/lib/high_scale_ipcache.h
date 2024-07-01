@@ -11,13 +11,13 @@
 /* WORLD_CIDR_STATIC_PREFIX4 gets sizeof non-IP, non-prefix part of
  * world_cidrs_key4.
  */
-# define WORLD_CIDR_STATIC_PREFIX4						\
-	(8 * (sizeof(struct world_cidrs_key4) - sizeof(struct bpf_lpm_trie_key)	\
-	      - sizeof(__u32)))
-#define WORLD_CIDR_PREFIX_LEN4(PREFIX) (WORLD_CIDR_STATIC_PREFIX4 + (PREFIX))
+# define WORLD_CIDR_STATIC_PREFIX4                                             \
+	 (8 *                                                                  \
+	  (sizeof(struct world_cidrs_key4) - sizeof(struct bpf_lpm_trie_key) - \
+	   sizeof(__u32)))
+# define WORLD_CIDR_PREFIX_LEN4(PREFIX) (WORLD_CIDR_STATIC_PREFIX4 + (PREFIX))
 
-static __always_inline __maybe_unused bool
-world_cidrs_lookup4(__u32 addr)
+static __always_inline __maybe_unused bool world_cidrs_lookup4(__u32 addr)
 {
 	__u8 *matches;
 	struct world_cidrs_key4 key = {
@@ -30,8 +30,7 @@ world_cidrs_lookup4(__u32 addr)
 	return matches;
 }
 
-static __always_inline bool
-needs_encapsulation(__u32 addr)
+static __always_inline bool needs_encapsulation(__u32 addr)
 {
 # ifndef ENABLE_ROUTING
 	/* If endpoint routes are enabled, we need to check if the destination
@@ -83,14 +82,15 @@ decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 
 	switch (TUNNEL_PROTOCOL) {
 	case TUNNEL_PROTOCOL_GENEVE:
-		off = ((void *)ip4 - data) + ipv4_hdrlen(ip4) + sizeof(struct udphdr);
+		off = ((void *)ip4 - data) + ipv4_hdrlen(ip4) +
+		      sizeof(struct udphdr);
 		if (ctx_load_bytes(ctx, off, &geneve, sizeof(geneve)) < 0)
 			return DROP_INVALID;
 
 		opt_len = geneve.opt_len * 4;
 		memcpy(src_id, &geneve.vni, sizeof(__u32));
 
-#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+# if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 		ctx_store_meta(ctx, CB_HSIPC_ADDR_V4, 0);
 
 		if (opt_len && opt_len >= sizeof(dsr_opt)) {
@@ -98,24 +98,23 @@ decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 					   sizeof(dsr_opt)) < 0)
 				return DROP_INVALID;
 
-			if (dsr_opt.hdr.opt_class == bpf_htons(DSR_GENEVE_OPT_CLASS) &&
+			if (dsr_opt.hdr.opt_class ==
+				    bpf_htons(DSR_GENEVE_OPT_CLASS) &&
 			    dsr_opt.hdr.type == DSR_GENEVE_OPT_TYPE) {
 				ctx_store_meta(ctx, CB_HSIPC_ADDR_V4, dsr_opt.addr);
 				ctx_store_meta(ctx, CB_HSIPC_PORT, dsr_opt.port);
 			}
 		}
-#endif /* ENABLE_DSR && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE */
+# endif /* ENABLE_DSR && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE */
 
 		shrink = ipv4_hdrlen(ip4) + sizeof(struct udphdr) +
-			 sizeof(struct genevehdr) + opt_len +
-			 sizeof(struct ethhdr);
+			 sizeof(struct genevehdr) + opt_len + sizeof(struct ethhdr);
 		break;
 	case TUNNEL_PROTOCOL_VXLAN:
 		shrink = ipv4_hdrlen(ip4) + sizeof(struct udphdr) +
 			 sizeof(struct vxlanhdr) + sizeof(struct ethhdr);
 		off = ((void *)ip4 - data) + ipv4_hdrlen(ip4) +
-		      sizeof(struct udphdr) +
-		      offsetof(struct vxlanhdr, vx_vni);
+		      sizeof(struct udphdr) + offsetof(struct vxlanhdr, vx_vni);
 
 		if (ctx_load_bytes(ctx, off, src_id, sizeof(__u32)) < 0)
 			return DROP_INVALID;
@@ -128,7 +127,8 @@ decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 	*src_id = tunnel_vni_to_sec_identity(*src_id);
 	ctx_store_meta(ctx, CB_SRC_LABEL, *src_id);
 
-	if (ctx_adjust_hroom(ctx, -shrink, BPF_ADJ_ROOM_MAC, ctx_adjust_hroom_flags()))
+	if (ctx_adjust_hroom(
+		    ctx, -shrink, BPF_ADJ_ROOM_MAC, ctx_adjust_hroom_flags()))
 		return DROP_INVALID;
 
 	return ctx_redirect(ctx, ENCAP_IFINDEX, BPF_F_INGRESS);

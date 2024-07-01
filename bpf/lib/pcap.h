@@ -7,9 +7,9 @@
 #include <bpf/api.h>
 
 #ifdef ENABLE_CAPTURE
-#include "common.h"
-#include "time_cache.h"
-#include "lb.h"
+# include "common.h"
+# include "time_cache.h"
+# include "lb.h"
 
 struct pcap_timeval {
 	__u32 tv_sec;
@@ -44,15 +44,12 @@ struct capture_msg {
 	struct pcap_pkthdr hdr;
 };
 
-static __always_inline void cilium_capture(struct __ctx_buff *ctx,
-					   const __u8 subtype,
-					   const __u16 rule_id,
-					   const __u64 tstamp,
-					   __u64 __cap_len)
+static __always_inline void
+cilium_capture(struct __ctx_buff *ctx, const __u8 subtype, const __u16 rule_id,
+	       const __u64 tstamp, __u64 __cap_len)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
-	__u64 cap_len = (!__cap_len || ctx_len < __cap_len) ?
-			ctx_len : __cap_len;
+	__u64 cap_len = (!__cap_len || ctx_len < __cap_len) ? ctx_len : __cap_len;
 	/* rule_id is the demuxer for the target pcap file when there are
 	 * multiple capturing rules present.
 	 */
@@ -73,8 +70,8 @@ static __always_inline void cilium_capture(struct __ctx_buff *ctx,
 			 &msg, sizeof(msg));
 }
 
-static __always_inline void __cilium_capture_in(struct __ctx_buff *ctx,
-						__u16 rule_id, __u32 cap_len)
+static __always_inline void
+__cilium_capture_in(struct __ctx_buff *ctx, __u16 rule_id, __u32 cap_len)
 {
 	/* For later pcap file generation, we export boot time to the RB
 	 * such that user space can later reconstruct a real time of day
@@ -84,11 +81,11 @@ static __always_inline void __cilium_capture_in(struct __ctx_buff *ctx,
 		       bpf_ktime_cache_set(boot_ns), cap_len);
 }
 
-static __always_inline void __cilium_capture_out(struct __ctx_buff *ctx,
-						 __u16 rule_id, __u32 cap_len)
+static __always_inline void
+__cilium_capture_out(struct __ctx_buff *ctx, __u16 rule_id, __u32 cap_len)
 {
-	cilium_capture(ctx, CAPTURE_EGRESS, rule_id,
-		       bpf_ktime_cache_get(), cap_len);
+	cilium_capture(
+		ctx, CAPTURE_EGRESS, rule_id, bpf_ktime_cache_get(), cap_len);
 }
 
 /* The capture_enabled integer ({0,1}) is enabled/disabled via BPF based ELF
@@ -96,12 +93,12 @@ static __always_inline void __cilium_capture_out(struct __ctx_buff *ctx,
  * will ensure that there is no overhead when the facility is not used. The
  * below is a fallback definition for when the templating var is not defined.
  */
-#ifndef capture_enabled
-# define capture_enabled (ctx_is_xdp())
-#endif /* capture_enabled */
+# ifndef capture_enabled
+#  define capture_enabled (ctx_is_xdp())
+# endif /* capture_enabled */
 
 struct capture_cache {
-	bool  rule_seen;
+	bool rule_seen;
 	__u16 rule_id;
 	__u16 cap_len;
 };
@@ -122,29 +119,29 @@ struct capture_rule {
 
 /* 5-tuple wildcard key / mask. */
 struct capture4_wcard {
-	__be32 saddr;   /* masking: prefix */
-	__be32 daddr;   /* masking: prefix */
-	__be16 sport;   /* masking: 0 or 0xffff */
-	__be16 dport;   /* masking: 0 or 0xffff */
-	__u8   nexthdr; /* masking: 0 or 0xff */
-	__u8   smask;   /* prefix len: saddr */
-	__u8   dmask;   /* prefix len: daddr */
-	__u8   flags;   /* reserved: 0 */
+	__be32 saddr; /* masking: prefix */
+	__be32 daddr; /* masking: prefix */
+	__be16 sport; /* masking: 0 or 0xffff */
+	__be16 dport; /* masking: 0 or 0xffff */
+	__u8 nexthdr; /* masking: 0 or 0xff */
+	__u8 smask;   /* prefix len: saddr */
+	__u8 dmask;   /* prefix len: daddr */
+	__u8 flags;   /* reserved: 0 */
 };
 
 /* 5-tuple wildcard key / mask. */
 struct capture6_wcard {
 	union v6addr saddr; /* masking: prefix */
 	union v6addr daddr; /* masking: prefix */
-	__be16 sport;       /* masking: 0 or 0xffff */
-	__be16 dport;       /* masking: 0 or 0xffff */
-	__u8   nexthdr;     /* masking: 0 or 0xff */
-	__u8   smask;       /* prefix len: saddr */
-	__u8   dmask;       /* prefix len: daddr */
-	__u8   flags;       /* reserved: 0 */
+	__be16 sport;	    /* masking: 0 or 0xffff */
+	__be16 dport;	    /* masking: 0 or 0xffff */
+	__u8 nexthdr;	    /* masking: 0 or 0xff */
+	__u8 smask;	    /* prefix len: saddr */
+	__u8 dmask;	    /* prefix len: daddr */
+	__u8 flags;	    /* reserved: 0 */
 };
 
-#ifdef ENABLE_IPV4
+# ifdef ENABLE_IPV4
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct capture4_wcard);
@@ -154,10 +151,9 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } CAPTURE4_RULES __section_maps_btf;
 
-static __always_inline void
-cilium_capture4_masked_key(const struct capture4_wcard *orig,
-			   const struct capture4_wcard *mask,
-			   struct capture4_wcard *out)
+static __always_inline void cilium_capture4_masked_key(
+	const struct capture4_wcard *orig, const struct capture4_wcard *mask,
+	struct capture4_wcard *out)
 {
 	out->daddr = orig->daddr & mask->daddr;
 	out->saddr = orig->saddr & mask->saddr;

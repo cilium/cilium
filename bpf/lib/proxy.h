@@ -6,13 +6,13 @@
 #include "conntrack.h"
 
 #if !(__ctx_is == __ctx_skb)
-#error "Proxy redirection is only supported from skb context"
+# error "Proxy redirection is only supported from skb context"
 #endif
 
 #ifdef ENABLE_TPROXY
-static __always_inline int
-assign_socket_tcp(struct __ctx_buff *ctx,
-		  struct bpf_sock_tuple *tuple, __u32 len, bool established)
+static __always_inline int assign_socket_tcp(
+	struct __ctx_buff *ctx, struct bpf_sock_tuple *tuple, __u32 len,
+	bool established)
 {
 	int result = DROP_PROXY_LOOKUP_FAILED;
 	struct bpf_sock *sk;
@@ -40,10 +40,9 @@ out:
 	return result;
 }
 
-static __always_inline int
-assign_socket_udp(struct __ctx_buff *ctx,
-		  struct bpf_sock_tuple *tuple, __u32 len,
-		  bool established __maybe_unused)
+static __always_inline int assign_socket_udp(
+	struct __ctx_buff *ctx, struct bpf_sock_tuple *tuple, __u32 len,
+	bool established __maybe_unused)
 {
 	int result = DROP_PROXY_LOOKUP_FAILED;
 	struct bpf_sock *sk;
@@ -66,8 +65,7 @@ out:
 }
 
 static __always_inline int
-assign_socket(struct __ctx_buff *ctx,
-	      struct bpf_sock_tuple *tuple, __u32 len,
+assign_socket(struct __ctx_buff *ctx, struct bpf_sock_tuple *tuple, __u32 len,
 	      __u8 nexthdr, bool established)
 {
 	/* Workaround: While the below functions are nearly identical in C
@@ -88,8 +86,7 @@ assign_socket(struct __ctx_buff *ctx,
  * combine_ports joins the specified ports in a manner consistent with
  * pkg/monitor/dataapth_debug.go to report the ports ino monitor messages.
  */
-static __always_inline __u32
-combine_ports(__u16 dport, __u16 sport)
+static __always_inline __u32 combine_ports(__u16 dport, __u16 sport)
 {
 	return (bpf_ntohs(dport) << 16) | bpf_ntohs(sport);
 }
@@ -160,15 +157,15 @@ out:										\
 
 /* clang-format on */
 
-#ifdef ENABLE_IPV4
+# ifdef ENABLE_IPV4
 CTX_REDIRECT_FN(ctx_redirect_to_proxy_ingress4, struct ipv4_ct_tuple, ipv4,
 		DBG_SK_LOOKUP4, daddr, saddr)
-#endif
-#ifdef ENABLE_IPV6
+# endif
+# ifdef ENABLE_IPV6
 CTX_REDIRECT_FN(ctx_redirect_to_proxy_ingress6, struct ipv6_ct_tuple, ipv6,
 		DBG_SK_LOOKUP6, daddr[3], saddr[3])
-#endif
-#undef CTX_REDIRECT_FN
+# endif
+# undef CTX_REDIRECT_FN
 #endif /* ENABLE_TPROXY */
 
 /**
@@ -200,10 +197,9 @@ CTX_REDIRECT_FN(ctx_redirect_to_proxy_ingress6, struct ipv6_ct_tuple, ipv6,
  *   a BPF program configured upon ingress to transfer the cb[] to the mark
  *   before passing the traffic up to the stack towards the proxy.
  */
-static __always_inline int
-__ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
-			__be16 proxy_port, bool from_host __maybe_unused,
-			bool ipv4 __maybe_unused)
+static __always_inline int __ctx_redirect_to_proxy(
+	struct __ctx_buff *ctx, void *tuple __maybe_unused, __be16 proxy_port,
+	bool from_host __maybe_unused, bool ipv4 __maybe_unused)
 {
 	int result __maybe_unused = CTX_ACT_OK;
 
@@ -218,41 +214,43 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 
 #ifdef ENABLE_TPROXY
 	if (proxy_port && !from_host) {
-#ifdef ENABLE_IPV4
+# ifdef ENABLE_IPV4
 		if (ipv4) {
 			__be32 ipv4_localhost = bpf_htonl(INADDR_LOOPBACK);
 
-			result =
-			ctx_redirect_to_proxy_ingress4(ctx, tuple, proxy_port, &ipv4_localhost);
+			result = ctx_redirect_to_proxy_ingress4(
+				ctx, tuple, proxy_port, &ipv4_localhost);
 		}
-#endif /* ENABLE_IPV4 */
-#ifdef ENABLE_IPV6
+# endif /* ENABLE_IPV4 */
+# ifdef ENABLE_IPV6
 		if (!ipv4) {
-			union v6addr ipv6_localhost = { .addr[15] = 1,};
+			union v6addr ipv6_localhost = {
+				.addr[15] = 1,
+			};
 
-			result =
-			ctx_redirect_to_proxy_ingress6(ctx, tuple, proxy_port, &ipv6_localhost);
+			result = ctx_redirect_to_proxy_ingress6(
+				ctx, tuple, proxy_port, &ipv6_localhost);
 		}
-#endif /* ENABLE_IPV6 */
+# endif /* ENABLE_IPV6 */
 	}
-#endif /* ENABLE_TPROXY */
+#endif					   /* ENABLE_TPROXY */
 	ctx_change_type(ctx, PACKET_HOST); /* Required for ingress packets from overlay */
 	return result;
 }
 
 #ifdef ENABLE_IPV4
-static __always_inline int
-ctx_redirect_to_proxy4(struct __ctx_buff *ctx, void *tuple __maybe_unused,
-		       __be16 proxy_port, bool from_host __maybe_unused)
+static __always_inline int ctx_redirect_to_proxy4(
+	struct __ctx_buff *ctx, void *tuple __maybe_unused, __be16 proxy_port,
+	bool from_host __maybe_unused)
 {
 	return __ctx_redirect_to_proxy(ctx, tuple, proxy_port, from_host, true);
 }
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
-static __always_inline int
-ctx_redirect_to_proxy6(struct __ctx_buff *ctx, void *tuple __maybe_unused,
-		       __be16 proxy_port, bool from_host __maybe_unused)
+static __always_inline int ctx_redirect_to_proxy6(
+	struct __ctx_buff *ctx, void *tuple __maybe_unused, __be16 proxy_port,
+	bool from_host __maybe_unused)
 {
 	return __ctx_redirect_to_proxy(ctx, tuple, proxy_port, from_host, false);
 }

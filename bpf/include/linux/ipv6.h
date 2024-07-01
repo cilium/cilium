@@ -7,7 +7,7 @@
 
 /* The latest drafts declared increase in minimal mtu up to 1280. */
 
-#define IPV6_MIN_MTU	1280
+#define IPV6_MIN_MTU 1280
 
 /*
  *	Advanced API
@@ -17,38 +17,38 @@
 
 #if __UAPI_DEF_IN6_PKTINFO
 struct in6_pktinfo {
-	struct in6_addr	ipi6_addr;
-	int		ipi6_ifindex;
+	struct in6_addr ipi6_addr;
+	int ipi6_ifindex;
 };
 #endif
 
 #if __UAPI_DEF_IP6_MTUINFO
 struct ip6_mtuinfo {
-	struct sockaddr_in6	ip6m_addr;
-	__u32			ip6m_mtu;
+	struct sockaddr_in6 ip6m_addr;
+	__u32 ip6m_mtu;
 };
 #endif
 
 struct in6_ifreq {
-	struct in6_addr	ifr6_addr;
-	__u32		ifr6_prefixlen;
-	int		ifr6_ifindex; 
+	struct in6_addr ifr6_addr;
+	__u32 ifr6_prefixlen;
+	int ifr6_ifindex;
 };
 
-#define IPV6_SRCRT_STRICT	0x01	/* Deprecated; will be removed */
-#define IPV6_SRCRT_TYPE_0	0	/* Deprecated; will be removed */
-#define IPV6_SRCRT_TYPE_2	2	/* IPv6 type 2 Routing Header	*/
-#define IPV6_SRCRT_TYPE_3	3	/* RPL Segment Routing with IPv6 */
-#define IPV6_SRCRT_TYPE_4	4	/* Segment Routing with IPv6 */
+#define IPV6_SRCRT_STRICT 0x01 /* Deprecated; will be removed */
+#define IPV6_SRCRT_TYPE_0 0    /* Deprecated; will be removed */
+#define IPV6_SRCRT_TYPE_2 2    /* IPv6 type 2 Routing Header	*/
+#define IPV6_SRCRT_TYPE_3 3    /* RPL Segment Routing with IPv6 */
+#define IPV6_SRCRT_TYPE_4 4    /* Segment Routing with IPv6 */
 
 /*
  *	routing header
  */
 struct ipv6_rt_hdr {
-	__u8		nexthdr;
-	__u8		hdrlen;
-	__u8		type;
-	__u8		segments_left;
+	__u8 nexthdr;
+	__u8 hdrlen;
+	__u8 type;
+	__u8 segments_left;
 
 	/*
 	 *	type specific data
@@ -56,31 +56,30 @@ struct ipv6_rt_hdr {
 	 */
 };
 
-
 struct ipv6_opt_hdr {
-	__u8 		nexthdr;
-	__u8 		hdrlen;
+	__u8 nexthdr;
+	__u8 hdrlen;
 	/* 
 	 * TLV encoded option data follows.
 	 */
-} __attribute__((packed));	/* required for some archs */
+} __attribute__((packed)); /* required for some archs */
 
-#define ipv6_destopt_hdr ipv6_opt_hdr
-#define ipv6_hopopt_hdr  ipv6_opt_hdr
+#define ipv6_destopt_hdr	 ipv6_opt_hdr
+#define ipv6_hopopt_hdr		 ipv6_opt_hdr
 
 /* Router Alert option values (RFC2711) */
-#define IPV6_OPT_ROUTERALERT_MLD	0x0000	/* MLD(RFC2710) */
+#define IPV6_OPT_ROUTERALERT_MLD 0x0000 /* MLD(RFC2710) */
 
 /*
  *	routing header type 0 (used in cmsghdr struct)
  */
 
 struct rt0_hdr {
-	struct ipv6_rt_hdr	rt_hdr;
-	__u32			reserved;
-	struct in6_addr		addr[0];
+	struct ipv6_rt_hdr rt_hdr;
+	__u32 reserved;
+	struct in6_addr addr[0];
 
-#define rt0_type		rt_hdr.type
+#define rt0_type rt_hdr.type
 };
 
 /*
@@ -88,11 +87,11 @@ struct rt0_hdr {
  */
 
 struct rt2_hdr {
-	struct ipv6_rt_hdr	rt_hdr;
-	__u32			reserved;
-	struct in6_addr		addr;
+	struct ipv6_rt_hdr rt_hdr;
+	__u32 reserved;
+	struct in6_addr addr;
 
-#define rt2_type		rt_hdr.type
+#define rt2_type rt_hdr.type
 };
 
 /*
@@ -100,9 +99,9 @@ struct rt2_hdr {
  */
 
 struct ipv6_destopt_hao {
-	__u8			type;
-	__u8			length;
-	struct in6_addr		addr;
+	__u8 type;
+	__u8 length;
+	struct in6_addr addr;
 } __attribute__((packed));
 
 /*
@@ -114,24 +113,21 @@ struct ipv6_destopt_hao {
 
 struct ipv6hdr {
 #if defined(__LITTLE_ENDIAN_BITFIELD)
-	__u8			priority:4,
-				version:4;
+	__u8 priority:4, version:4;
 #elif defined(__BIG_ENDIAN_BITFIELD)
-	__u8			version:4,
-				priority:4;
+	__u8 version:4, priority:4;
 #else
-#error	"Please fix <asm/byteorder.h>"
+# error "Please fix <asm/byteorder.h>"
 #endif
-	__u8			flow_lbl[3];
+	__u8 flow_lbl[3];
 
-	__be16			payload_len;
-	__u8			nexthdr;
-	__u8			hop_limit;
+	__be16 payload_len;
+	__u8 nexthdr;
+	__u8 hop_limit;
 
-	struct	in6_addr	saddr;
-	struct	in6_addr	daddr;
+	struct in6_addr saddr;
+	struct in6_addr daddr;
 };
-
 
 /* index values for the variables in ipv6_devconf */
 enum {

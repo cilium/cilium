@@ -20,17 +20,17 @@
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 #undef FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 
-#define CLIENT_IP		v4_ext_one
-#define CLIENT_PORT		__bpf_htons(111)
+#define CLIENT_IP     v4_ext_one
+#define CLIENT_PORT   __bpf_htons(111)
 
-#define FRONTEND_IP		v4_svc_one
-#define FRONTEND_PORT		tcp_svc_one
+#define FRONTEND_IP   v4_svc_one
+#define FRONTEND_PORT tcp_svc_one
 
-#define LB_IP			v4_node_one
-#define LB_PORT			__bpf_htons(222)
+#define LB_IP	      v4_node_one
+#define LB_PORT	      __bpf_htons(222)
 
-#define BACKEND_IP		v4_pod_one
-#define BACKEND_PORT		__bpf_htons(8080)
+#define BACKEND_IP    v4_pod_one
+#define BACKEND_PORT  __bpf_htons(8080)
 
 #include <bpf_xdp.c>
 
@@ -41,7 +41,7 @@
 static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *lb_mac = mac_two;
 
-#define FROM_XDP	0
+#define FROM_XDP 0
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -68,10 +68,9 @@ int nodeport_nat_backend_pktgen(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)client_mac, (__u8 *)lb_mac,
-					  LB_IP, BACKEND_IP,
-					  LB_PORT, BACKEND_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)client_mac, (__u8 *)lb_mac, LB_IP, BACKEND_IP,
+		LB_PORT, BACKEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -89,8 +88,9 @@ SETUP("xdp", "xdp_nodeport_nat_backend")
 int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 {
 	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, 1);
-	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
-			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
+	lb_v4_add_backend(
+		FRONTEND_IP, FRONTEND_PORT, 1, 124, BACKEND_IP, BACKEND_PORT,
+		IPPROTO_TCP, 0);
 
 	/* add local backend */
 	endpoint_v4_add_entry(BACKEND_IP, 0, 0, 0, 0, NULL, NULL);
@@ -143,12 +143,11 @@ int nodeport_nat_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	assert((*meta & XFER_PKT_NO_SVC) == XFER_PKT_NO_SVC);
 
 	if (memcmp(l2->h_source, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the client MAC")
-	if (memcmp(l2->h_dest, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the LB MAC")
+		test_fatal("src MAC is not the client MAC") if (
+			memcmp(l2->h_dest, (__u8 *)lb_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the LB MAC")
 
-	if (l3->saddr != LB_IP)
-		test_fatal("src IP has changed");
+			if (l3->saddr != LB_IP) test_fatal("src IP has changed");
 
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP has changed");

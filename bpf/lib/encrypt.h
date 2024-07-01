@@ -58,8 +58,7 @@ static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 
 #ifdef ENABLE_IPSEC
 # ifdef ENABLE_IPV4
-static __always_inline __u16
-lookup_ip4_node_id(__u32 ip4)
+static __always_inline __u16 lookup_ip4_node_id(__u32 ip4)
 {
 	struct node_key node_ip = {};
 	struct node_value *node_value = NULL;
@@ -76,8 +75,7 @@ lookup_ip4_node_id(__u32 ip4)
 # endif /* ENABLE_IPV4 */
 
 # ifdef ENABLE_IPV6
-static __always_inline __u16
-lookup_ip6_node_id(const union v6addr *ip6)
+static __always_inline __u16 lookup_ip6_node_id(const union v6addr *ip6)
 {
 	struct node_key node_ip = {};
 	struct node_value *node_value = NULL;
@@ -100,9 +98,9 @@ set_ipsec_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
 	ctx->mark = MARK_MAGIC_DECRYPT | node_id << 16;
 }
 
-static __always_inline int
-set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi, __u32 tunnel_endpoint,
-		  __u32 seclabel, bool use_meta, bool use_spi_from_map)
+static __always_inline int set_ipsec_encrypt(
+	struct __ctx_buff *ctx, __u8 spi, __u32 tunnel_endpoint, __u32 seclabel,
+	bool use_meta, bool use_spi_from_map)
 {
 	/* IPSec is performed by the stack on any packets with the
 	 * MARK_MAGIC_ENCRYPT bit set. During the process though we
@@ -132,24 +130,23 @@ set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi, __u32 tunnel_endpoint,
 	return CTX_ACT_OK;
 }
 
-static __always_inline int
-do_decrypt(struct __ctx_buff *ctx, __u16 proto)
+static __always_inline int do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 {
 	void *data, *data_end;
 	__u8 protocol = 0;
 	__u16 node_id = 0;
 	bool decrypted;
-#ifdef ENABLE_IPV6
+# ifdef ENABLE_IPV6
 	struct ipv6hdr *ip6;
-#endif
-#ifdef ENABLE_IPV4
+# endif
+# ifdef ENABLE_IPV4
 	struct iphdr *ip4;
-#endif
+# endif
 
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 
 	switch (proto) {
-#ifdef ENABLE_IPV6
+# ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
 			ctx->mark = 0;
@@ -159,8 +156,8 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 		if (!decrypted)
 			node_id = lookup_ip6_node_id((union v6addr *)&ip6->saddr);
 		break;
-#endif
-#ifdef ENABLE_IPV4
+# endif
+# ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4)) {
 			ctx->mark = 0;
@@ -170,7 +167,7 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 		if (!decrypted)
 			node_id = lookup_ip4_node_id(ip4->saddr);
 		break;
-#endif
+# endif
 	default:
 		return CTX_ACT_OK;
 	}
@@ -183,9 +180,9 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 			return CTX_ACT_OK;
 
 		if (!node_id)
-			return send_drop_notify_error(ctx, UNKNOWN_ID, DROP_NO_NODE_ID,
-						      CTX_ACT_DROP,
-						      METRIC_INGRESS);
+			return send_drop_notify_error(
+				ctx, UNKNOWN_ID, DROP_NO_NODE_ID, CTX_ACT_DROP,
+				METRIC_INGRESS);
 		set_ipsec_decrypt_mark(ctx, node_id);
 
 		/* We are going to pass this up the stack for IPsec decryption
@@ -197,14 +194,14 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 		return CTX_ACT_OK;
 	}
 	ctx->mark = 0;
-#ifdef ENABLE_ENDPOINT_ROUTES
+# ifdef ENABLE_ENDPOINT_ROUTES
 	return CTX_ACT_OK;
-#else
+# else
 	return ctx_redirect(ctx, CILIUM_IFINDEX, 0);
-#endif /* ENABLE_ROUTING */
+# endif /* ENABLE_ROUTING */
 }
 
-#if defined(ENABLE_ENCRYPTED_OVERLAY)
+# if defined(ENABLE_ENCRYPTED_OVERLAY)
 /* Sets the encryption mark on an overlay (VXLAN) packet and redirects the
  * packet to the ingress side of it's associated ifindex.
  *
@@ -226,8 +223,7 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
  *   - net.ipv4.conf.default.rp_filter = 0
  *   - net.ipv4.conf.default.accept_local = 1
  */
-static __always_inline int
-encrypt_overlay_and_redirect(struct __ctx_buff *ctx)
+static __always_inline int encrypt_overlay_and_redirect(struct __ctx_buff *ctx)
 {
 	struct iphdr *ip4, *inner_ipv4 = NULL;
 	struct endpoint_info *ep_info = NULL;
@@ -249,8 +245,7 @@ encrypt_overlay_and_redirect(struct __ctx_buff *ctx)
 	/*
 	 * this is a vxlan packet so ip4->daddr is the tunnel endpoint
 	 */
-	ret = set_ipsec_encrypt(ctx, 0, ip4->daddr, ep_info->sec_id, false,
-				true);
+	ret = set_ipsec_encrypt(ctx, 0, ip4->daddr, ep_info->sec_id, false, true);
 	if (ret != CTX_ACT_OK)
 		return ret;
 
@@ -270,8 +265,7 @@ encrypt_overlay_and_redirect(struct __ctx_buff *ctx)
 	/* right now, the VNI of this packet is ENCRYPTED_OVERLAY_ID, we need
 	 * to rewrite this VNI to the source's sec id before we transmit it
 	 */
-	if (!vxlan_rewrite_vni(ctx, data, data_end, ip4,
-			       ep_info->sec_id))
+	if (!vxlan_rewrite_vni(ctx, data, data_end, ip4, ep_info->sec_id))
 		return DROP_INVALID;
 
 	/* redirect to ingress side of ifindex so the packet has xfrm applied */
@@ -281,7 +275,7 @@ encrypt_overlay_and_redirect(struct __ctx_buff *ctx)
 
 	return ret;
 }
-#endif /* ENABLE_ENCRYPTED_OVERLAY */
+# endif /* ENABLE_ENCRYPTED_OVERLAY */
 
 #else
 static __always_inline int

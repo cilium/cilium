@@ -20,31 +20,33 @@
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 #undef FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 
-#define CLIENT_IP		v4_ext_one
-#define CLIENT_PORT		__bpf_htons(111)
-#define CLIENT_IP_2		v4_ext_two
+#define CLIENT_IP	    v4_ext_one
+#define CLIENT_PORT	    __bpf_htons(111)
+#define CLIENT_IP_2	    v4_ext_two
 
-#define FRONTEND_IP_LOCAL	v4_svc_one
-#define FRONTEND_IP_REMOTE	v4_svc_two
-#define FRONTEND_PORT		tcp_svc_one
+#define FRONTEND_IP_LOCAL   v4_svc_one
+#define FRONTEND_IP_REMOTE  v4_svc_two
+#define FRONTEND_PORT	    tcp_svc_one
 
-#define LB_IP			v4_node_one
-#define IPV4_DIRECT_ROUTING	LB_IP
+#define LB_IP		    v4_node_one
+#define IPV4_DIRECT_ROUTING LB_IP
 
-#define BACKEND_IP_LOCAL	v4_pod_one
-#define BACKEND_IP_REMOTE	v4_pod_two
-#define BACKEND_PORT		__bpf_htons(8080)
+#define BACKEND_IP_LOCAL    v4_pod_one
+#define BACKEND_IP_REMOTE   v4_pod_two
+#define BACKEND_PORT	    __bpf_htons(8080)
 
-#define NATIVE_DEV_IFINDEX	24
-#define DEFAULT_IFACE		NATIVE_DEV_IFINDEX
-#define BACKEND_IFACE		25
-#define SVC_EGRESS_IFACE	26
+#define NATIVE_DEV_IFINDEX  24
+#define DEFAULT_IFACE	    NATIVE_DEV_IFINDEX
+#define BACKEND_IFACE	    25
+#define SVC_EGRESS_IFACE    26
 
-#define fib_lookup mock_fib_lookup
+#define fib_lookup	    mock_fib_lookup
 
 static volatile const __u8 *client_mac = mac_one;
 /* this matches the default node_config.h: */
-static volatile const __u8 lb_mac[ETH_ALEN]	= { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
+static volatile const __u8 lb_mac[ETH_ALEN] = {
+	0xce, 0x72, 0xa7, 0x03, 0x88, 0x56
+};
 static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *local_backend_mac = mac_four;
 static volatile const __u8 *remote_backend_mac = mac_five;
@@ -63,8 +65,9 @@ struct {
 
 #define fib_lookup mock_fib_lookup
 
-long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
-		     __maybe_unused int plen, __maybe_unused __u32 flags)
+long mock_fib_lookup(
+	__maybe_unused void *ctx, struct bpf_fib_lookup *params,
+	__maybe_unused int plen, __maybe_unused __u32 flags)
 {
 	__u32 key = 0;
 	struct mock_settings *settings = map_lookup_elem(&settings_map, &key);
@@ -76,7 +79,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 	if (params->ipv4_dst == BACKEND_IP_REMOTE) {
 		__bpf_memcpy_builtin(params->smac, (__u8 *)lb_mac, ETH_ALEN);
-		__bpf_memcpy_builtin(params->dmac, (__u8 *)remote_backend_mac, ETH_ALEN);
+		__bpf_memcpy_builtin(
+			params->dmac, (__u8 *)remote_backend_mac, ETH_ALEN);
 	} else if (params->ipv4_src == FRONTEND_IP_LOCAL &&
 		   params->ipv4_dst == CLIENT_IP_2) {
 		__bpf_memcpy_builtin(params->smac, (__u8 *)lb_mac, ETH_ALEN);
@@ -92,9 +96,9 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 #define ctx_redirect mock_ctx_redirect
 
-static __always_inline __maybe_unused int
-mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
-		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
+static __always_inline __maybe_unused int mock_ctx_redirect(
+	const struct __sk_buff *ctx __maybe_unused, int ifindex __maybe_unused,
+	__u32 flags __maybe_unused)
 {
 	void *data = (void *)(long)ctx_data(ctx);
 	void *data_end = (void *)(long)ctx->data_end;
@@ -129,8 +133,8 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
-#define FROM_NETDEV	0
-#define TO_NETDEV	1
+#define FROM_NETDEV 0
+#define TO_NETDEV   1
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -158,10 +162,9 @@ int nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)client_mac, (__u8 *)lb_mac,
-					  CLIENT_IP, FRONTEND_IP_LOCAL,
-					  CLIENT_PORT, FRONTEND_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)client_mac, (__u8 *)lb_mac, CLIENT_IP,
+		FRONTEND_IP_LOCAL, CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -181,12 +184,14 @@ int nodeport_local_backend_setup(struct __ctx_buff *ctx)
 	__u16 revnat_id = 1;
 
 	lb_v4_add_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, revnat_id);
-	lb_v4_add_backend(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, 124,
-			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_TCP, 0);
+	lb_v4_add_backend(
+		FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, 124, BACKEND_IP_LOCAL,
+		BACKEND_PORT, IPPROTO_TCP, 0);
 
 	/* add local backend */
-	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, 0, 0, 0,
-			      (__u8 *)local_backend_mac, (__u8 *)node_mac);
+	endpoint_v4_add_entry(
+		BACKEND_IP_LOCAL, BACKEND_IFACE, 0, 0, 0,
+		(__u8 *)local_backend_mac, (__u8 *)node_mac);
 
 	ipcache_v4_add_entry(BACKEND_IP_LOCAL, 0, 112233, 0, 0);
 
@@ -230,12 +235,11 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
-	if (memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("src MAC is not the node MAC") if (
+			memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the endpoint MAC")
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
+			if (l3->saddr != CLIENT_IP) test_fatal("src IP has changed");
 
 	if (l3->daddr != BACKEND_IP_LOCAL)
 		test_fatal("dst IP hasn't been NATed to local backend IP");
@@ -263,10 +267,9 @@ int nodeport_local_backend_reply_pktgen(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)lb_mac, (__u8 *)client_mac,
-					  BACKEND_IP_LOCAL, CLIENT_IP,
-					  BACKEND_PORT, CLIENT_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)lb_mac, (__u8 *)client_mac, BACKEND_IP_LOCAL,
+		CLIENT_IP, BACKEND_PORT, CLIENT_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -323,12 +326,12 @@ int nodeport_local_backend_reply_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the LB MAC")
-	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the client MAC")
+		test_fatal("src MAC is not the LB MAC") if (
+			memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the client MAC")
 
-	if (l3->saddr != FRONTEND_IP_LOCAL)
-		test_fatal("src IP hasn't been revNATed to frontend IP");
+			if (l3->saddr != FRONTEND_IP_LOCAL) test_fatal(
+				"src IP hasn't been revNATed to frontend IP");
 
 	if (l3->daddr != CLIENT_IP)
 		test_fatal("dst IP has changed");
@@ -358,10 +361,9 @@ int nodeport_local_backend_redirect_pktgen(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)client_mac, (__u8 *)lb_mac,
-					  CLIENT_IP_2, FRONTEND_IP_LOCAL,
-					  CLIENT_PORT, FRONTEND_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)client_mac, (__u8 *)lb_mac, CLIENT_IP_2,
+		FRONTEND_IP_LOCAL, CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -418,12 +420,12 @@ int nodeport_local_backend_redirect_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
-	if (memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("src MAC is not the node MAC") if (
+			memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the endpoint MAC")
 
-	if (l3->saddr != CLIENT_IP_2)
-		test_fatal("src IP has changed");
+			if (l3->saddr !=
+			    CLIENT_IP_2) test_fatal("src IP has changed");
 
 	if (l3->daddr != BACKEND_IP_LOCAL)
 		test_fatal("dst IP hasn't been NATed to local backend IP");
@@ -453,10 +455,9 @@ int nodeport_local_backend_redirect_reply_pktgen(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)lb_mac, (__u8 *)client_mac,
-					  BACKEND_IP_LOCAL, CLIENT_IP_2,
-					  BACKEND_PORT, CLIENT_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)lb_mac, (__u8 *)client_mac, BACKEND_IP_LOCAL,
+		CLIENT_IP_2, BACKEND_PORT, CLIENT_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -513,12 +514,12 @@ int nodeport_local_backend_redirect_reply_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the LB MAC")
-	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the client MAC")
+		test_fatal("src MAC is not the LB MAC") if (
+			memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the client MAC")
 
-	if (l3->saddr != BACKEND_IP_LOCAL)
-		test_fatal("src IP has changed");
+			if (l3->saddr !=
+			    BACKEND_IP_LOCAL) test_fatal("src IP has changed");
 
 	if (l3->daddr != CLIENT_IP_2)
 		test_fatal("dst IP has changed");
@@ -549,10 +550,9 @@ int nodeport_udp_local_backend_pktgen(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_udp_packet(&builder,
-					  (__u8 *)client_mac, (__u8 *)lb_mac,
-					  CLIENT_IP, FRONTEND_IP_LOCAL,
-					  CLIENT_PORT, FRONTEND_PORT);
+	l4 = pktgen__push_ipv4_udp_packet(
+		&builder, (__u8 *)client_mac, (__u8 *)lb_mac, CLIENT_IP,
+		FRONTEND_IP_LOCAL, CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -572,8 +572,9 @@ int nodeport_udp_local_backend_setup(struct __ctx_buff *ctx)
 	__u16 revnat_id = 2;
 
 	lb_v4_add_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, revnat_id);
-	lb_v4_add_backend(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, 125,
-			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP, 0);
+	lb_v4_add_backend(
+		FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, 125, BACKEND_IP_LOCAL,
+		BACKEND_PORT, IPPROTO_UDP, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
@@ -615,12 +616,11 @@ int nodeport_udp_local_backend_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
-	if (memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("src MAC is not the node MAC") if (
+			memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the endpoint MAC")
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
+			if (l3->saddr != CLIENT_IP) test_fatal("src IP has changed");
 
 	if (l3->daddr != BACKEND_IP_LOCAL)
 		test_fatal("dst IP hasn't been NATed to local backend IP");
@@ -651,10 +651,9 @@ int nodeport_nat_fwd_pktgen(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)client_mac, (__u8 *)lb_mac,
-					  CLIENT_IP, FRONTEND_IP_REMOTE,
-					  CLIENT_PORT, FRONTEND_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)client_mac, (__u8 *)lb_mac, CLIENT_IP,
+		FRONTEND_IP_REMOTE, CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -674,8 +673,9 @@ int nodeport_nat_fwd_setup(struct __ctx_buff *ctx)
 	__u16 revnat_id = 1;
 
 	lb_v4_add_service(FRONTEND_IP_REMOTE, FRONTEND_PORT, 1, revnat_id);
-	lb_v4_add_backend(FRONTEND_IP_REMOTE, FRONTEND_PORT, 1, 124,
-			  BACKEND_IP_REMOTE, BACKEND_PORT, IPPROTO_TCP, 0);
+	lb_v4_add_backend(
+		FRONTEND_IP_REMOTE, FRONTEND_PORT, 1, 124, BACKEND_IP_REMOTE,
+		BACKEND_PORT, IPPROTO_TCP, 0);
 
 	ipcache_v4_add_entry(BACKEND_IP_REMOTE, 0, 112233, 0, 0);
 
@@ -720,12 +720,12 @@ int nodeport_nat_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the LB MAC")
-	if (memcmp(l2->h_dest, (__u8 *)remote_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the remote backend MAC")
+		test_fatal("src MAC is not the LB MAC") if (
+			memcmp(l2->h_dest, (__u8 *)remote_backend_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the remote backend MAC")
 
-	if (l3->saddr != LB_IP)
-		test_fatal("src IP hasn't been NATed to LB IP");
+			if (l3->saddr != LB_IP)
+				test_fatal("src IP hasn't been NATed to LB IP");
 
 	if (l3->daddr != BACKEND_IP_REMOTE)
 		test_fatal("dst IP hasn't been NATed to remote backend IP");
@@ -763,10 +763,9 @@ static __always_inline int build_reply(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)remote_backend_mac, (__u8 *)lb_mac,
-					  BACKEND_IP_REMOTE, LB_IP,
-					  BACKEND_PORT, nat_source_port);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)remote_backend_mac, (__u8 *)lb_mac,
+		BACKEND_IP_REMOTE, LB_IP, BACKEND_PORT, nat_source_port);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -813,12 +812,12 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the LB MAC")
-	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the client MAC")
+		test_fatal("src MAC is not the LB MAC") if (
+			memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the client MAC")
 
-	if (l3->saddr != FRONTEND_IP_REMOTE)
-		test_fatal("src IP hasn't been RevNATed to frontend IP");
+			if (l3->saddr != FRONTEND_IP_REMOTE) test_fatal(
+				"src IP hasn't been RevNATed to frontend IP");
 
 	if (l3->daddr != CLIENT_IP)
 		test_fatal("dst IP hasn't been RevNATed to client IP");

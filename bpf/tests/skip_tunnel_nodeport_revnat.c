@@ -8,10 +8,10 @@
  * Datapath configuration settings to setup tunneling with VXLan
  * and nodeport
  */
-#define ENCAP_IFINDEX 1  /* Set dummy ifindex for tunnel device */
-#define ENABLE_IPV4 1
-#define ENABLE_IPV6 1
-#define TUNNEL_MODE 1
+#define ENCAP_IFINDEX	1 /* Set dummy ifindex for tunnel device */
+#define ENABLE_IPV4	1
+#define ENABLE_IPV6	1
+#define TUNNEL_MODE	1
 #define ENABLE_NODEPORT 1
 
 /*
@@ -39,27 +39,28 @@
  *
  * The macros below are defined from the perspective of scenario two.
  */
-#define SRC_IPV4 v4_pod_one
-#define SRC_IPV6 v6_pod_one
-#define SRC_TUNNEL_IP v4_node_one
-#define NODEPORT_MAC mac_three
-#define NODEPORT_IPV4 v4_node_three
-#define NODEPORT_IPV6 v6_node_three
+#define SRC_IPV4	  v4_pod_one
+#define SRC_IPV6	  v6_pod_one
+#define SRC_TUNNEL_IP	  v4_node_one
+#define NODEPORT_MAC	  mac_three
+#define NODEPORT_IPV4	  v4_node_three
+#define NODEPORT_IPV6	  v6_node_three
 #define NODEPORT_NAT_PORT tcp_src_two
-#define DST_MAC mac_four
-#define DST_IPV4 v4_pod_two
-#define DST_IPV6 v6_pod_two
-#define DST_PORT tcp_svc_one
+#define DST_MAC		  mac_four
+#define DST_IPV4	  v4_pod_two
+#define DST_IPV6	  v6_pod_two
+#define DST_PORT	  tcp_svc_one
 
 /*
  * Sometimes fib_redirect returns CTX_ACT_REDIRECT, depending on the state of the
  * host. Mock fib_lookup to always return CTX_ACT_DROP.
  */
 
-#define fib_lookup mock_fib_lookup
+#define fib_lookup	  mock_fib_lookup
 
-long mock_fib_lookup(const __maybe_unused void *ctx, const struct bpf_fib_lookup *params,
-		     __maybe_unused int plen, __maybe_unused __u32 flags)
+long mock_fib_lookup(
+	const __maybe_unused void *ctx, const struct bpf_fib_lookup *params,
+	__maybe_unused int plen, __maybe_unused __u32 flags)
 {
 	/* The (void)param lines prevent gcc from complaining about them being unused. */
 	(void)ctx;
@@ -103,8 +104,7 @@ struct {
 	},
 };
 
-static __always_inline int
-pktgen(struct __ctx_buff *ctx, bool v4)
+static __always_inline int pktgen(struct __ctx_buff *ctx, bool v4)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
@@ -113,17 +113,14 @@ pktgen(struct __ctx_buff *ctx, bool v4)
 	pktgen__init(&builder, ctx);
 
 	if (v4)
-		l4 = pktgen__push_ipv4_tcp_packet(&builder,
-						  (__u8 *)DST_MAC,
-						  (__u8 *)NODEPORT_MAC,
-						  DST_IPV4, NODEPORT_IPV4,
-						  DST_PORT, NODEPORT_NAT_PORT);
+		l4 = pktgen__push_ipv4_tcp_packet(
+			&builder, (__u8 *)DST_MAC, (__u8 *)NODEPORT_MAC,
+			DST_IPV4, NODEPORT_IPV4, DST_PORT, NODEPORT_NAT_PORT);
 	else
-		l4 = pktgen__push_ipv6_tcp_packet(&builder,
-						  (__u8 *)DST_MAC, (__u8 *)NODEPORT_MAC,
-						  (__u8 *)DST_IPV6,
-						  (__u8 *)NODEPORT_IPV6,
-						  DST_PORT, NODEPORT_NAT_PORT);
+		l4 = pktgen__push_ipv6_tcp_packet(
+			&builder, (__u8 *)DST_MAC, (__u8 *)NODEPORT_MAC,
+			(__u8 *)DST_IPV6, (__u8 *)NODEPORT_IPV6, DST_PORT,
+			NODEPORT_NAT_PORT);
 
 	if (!l4)
 		return TEST_ERROR;
@@ -219,10 +216,11 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 		 * See bpf/lib/common.h
 		 */
 		ipv4_ct_tuple_swap_addrs(&otuple);
-		ct_create4(get_ct_map4(&otuple), NULL, &otuple, ctx, CT_EGRESS, &ct_state, NULL);
+		ct_create4(get_ct_map4(&otuple), NULL, &otuple, ctx, CT_EGRESS,
+			   &ct_state, NULL);
 
-		ipcache_v4_add_entry_with_flags(SRC_IPV4,
-						0, 1230, SRC_TUNNEL_IP, 0, flag_skip_tunnel);
+		ipcache_v4_add_entry_with_flags(
+			SRC_IPV4, 0, 1230, SRC_TUNNEL_IP, 0, flag_skip_tunnel);
 	} else {
 		struct ipv6_ct_tuple otuple = {
 			.nexthdr = IPPROTO_TCP,
@@ -247,10 +245,12 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 			.rev_nat_index = 123,
 		};
 		ipv6_ct_tuple_swap_addrs(&otuple);
-		ct_create6(get_ct_map6(&otuple), NULL, &otuple, ctx, CT_EGRESS, &ct_state, NULL);
+		ct_create6(get_ct_map6(&otuple), NULL, &otuple, ctx, CT_EGRESS,
+			   &ct_state, NULL);
 
-		ipcache_v6_add_entry_with_flags((union v6addr *)SRC_IPV6,
-						0, 1230, SRC_TUNNEL_IP, 0, flag_skip_tunnel);
+		ipcache_v6_add_entry_with_flags(
+			(union v6addr *)SRC_IPV6, 0, 1230, SRC_TUNNEL_IP, 0,
+			flag_skip_tunnel);
 	}
 
 	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
@@ -304,7 +304,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 		if (!entry)
 			test_fatal("metrics entry not found")
 
-		__u64 count = 1;
+				__u64 count = 1;
 
 		assert_metrics_count(key, count);
 	}
@@ -315,14 +315,15 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
 		test_fatal("l2 out of bounds")
 
-	if (v4 && l2->h_proto != bpf_htons(ETH_P_IP))
-		test_fatal("l2 proto hasn't been set to ETH_P_IP")
+			if (v4 && l2->h_proto != bpf_htons(ETH_P_IP)) test_fatal(
+				"l2 proto hasn't been set to ETH_P_IP")
 
-	if (!v4 && l2->h_proto != bpf_htons(ETH_P_IPV6))
-		test_fatal("l2 proto hasn't been set to ETH_P_IPV6")
+				if (!v4 && l2->h_proto != bpf_htons(ETH_P_IPV6)) test_fatal(
+					"l2 proto hasn't been set to ETH_P_IPV6")
 
-	if (memcmp(l2->h_source, (__u8 *)DST_MAC, ETH_ALEN) != 0)
-		test_fatal("src mac hasn't been set to dst ep's mac");
+					if (memcmp(l2->h_source,
+						   (__u8 *)DST_MAC, ETH_ALEN) !=
+					    0) test_fatal("src mac hasn't been set to dst ep's mac");
 
 	/*
 	 * We rely on the kernel to set the destination mac address, therefore
@@ -331,25 +332,27 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 	if (memcmp(l2->h_dest, (__u8 *)NODEPORT_MAC, ETH_ALEN) != 0)
 		test_fatal("dst mac has changed")
 
-	if (v4) {
-		struct iphdr *l3;
+			if (v4)
+		{
+			struct iphdr *l3;
 
-		l3 = (void *)l2 + sizeof(struct ethhdr);
+			l3 = (void *)l2 + sizeof(struct ethhdr);
 
-		if ((void *)l3 + sizeof(struct iphdr) > data_end)
-			test_fatal("l3 out of bounds");
+			if ((void *)l3 + sizeof(struct iphdr) > data_end)
+				test_fatal("l3 out of bounds");
 
-		/*
+			/*
 		 * We don't have revDNAT, so the reply source should stay the same.
 		 */
-		if (l3->saddr != DST_IPV4)
-			test_fatal("src IP was changed");
+			if (l3->saddr != DST_IPV4)
+				test_fatal("src IP was changed");
 
-		if (l3->daddr != SRC_IPV4)
-			test_fatal("dest IP was not rev snatted");
+			if (l3->daddr != SRC_IPV4)
+				test_fatal("dest IP was not rev snatted");
 
-		l4 = (void *)l3 + sizeof(struct iphdr);
-	} else {
+			l4 = (void *)l3 + sizeof(struct iphdr);
+		}
+	else {
 		struct ipv6hdr *l3;
 
 		l3 = (void *)l2 + sizeof(struct ethhdr);
@@ -385,7 +388,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
 		test_fatal("tcp payload was changed")
 
-	test_finish();
+			test_finish();
 }
 
 PKTGEN("tc", "01_ipv4_nodeport_ingress_no_flags")
@@ -401,7 +404,8 @@ int ipv4_nodeport_ingress_no_flags_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "01_ipv4_nodeport_ingress_no_flags")
-int ipv4_nodeport_ingress_no_flags_check(__maybe_unused const struct __ctx_buff *ctx)
+int ipv4_nodeport_ingress_no_flags_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	return check_ctx(ctx, true, CTX_ACT_REDIRECT);
 }
@@ -419,7 +423,8 @@ int ipv4_nodeport_ingress_skip_tunnel_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "02_ipv4_nodeport_ingress_skip_tunnel")
-int ipv4_nodeport_ingress_skip_tunnel_check(__maybe_unused const struct __ctx_buff *ctx)
+int ipv4_nodeport_ingress_skip_tunnel_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	return check_ctx(ctx, true, CTX_ACT_DROP);
 }
@@ -437,7 +442,8 @@ int ipv6_nodeport_ingress_no_flags_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "03_ipv6_nodeport_ingress_no_flags")
-int ipv6_nodeport_ingress_no_flags_check(__maybe_unused const struct __ctx_buff *ctx)
+int ipv6_nodeport_ingress_no_flags_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	return check_ctx(ctx, false, CTX_ACT_REDIRECT);
 }
@@ -455,7 +461,8 @@ int ipv6_nodeport_ingress_skip_tunnel_setup(struct __ctx_buff *ctx)
 }
 
 CHECK("tc", "04_ipv6_nodeport_ingress_skip_tunnel")
-int ipv6_nodeport_ingress_skip_tunnel_check(__maybe_unused const struct __ctx_buff *ctx)
+int ipv6_nodeport_ingress_skip_tunnel_check(
+	__maybe_unused const struct __ctx_buff *ctx)
 {
 	return check_ctx(ctx, false, CTX_ACT_DROP);
 }

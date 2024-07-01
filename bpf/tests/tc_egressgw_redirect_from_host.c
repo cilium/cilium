@@ -14,7 +14,7 @@
 #define ENABLE_NODEPORT
 #define ENABLE_EGRESS_GATEWAY
 #define ENABLE_MASQUERADE_IPV4
-#define ENCAP_IFINDEX 0
+#define ENCAP_IFINDEX	    0
 
 #define SECCTX_FROM_IPCACHE 1
 
@@ -43,7 +43,9 @@ struct {
 PKTGEN("tc", "tc_egressgw_redirect")
 int egressgw_redirect_pktgen(struct __ctx_buff *ctx)
 {
-	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
+	return egressgw_pktgen(
+		ctx,
+		(struct egressgw_test_ctx){
 			.test = TEST_REDIRECT,
 		});
 }
@@ -53,7 +55,8 @@ int egressgw_redirect_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v4_add_entry_with_mask_size(v4_all, 0, WORLD_IPV4_ID, 0, 0, 0);
 	create_ct_entry(ctx, client_port(TEST_REDIRECT));
-	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP, 0);
+	add_egressgw_policy_entry(
+		CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP, 0);
 
 	/* Avoid policy drop */
 	policy_add_egress_allow_all_entry();
@@ -67,9 +70,11 @@ int egressgw_redirect_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_egressgw_redirect")
 int egressgw_redirect_check(const struct __ctx_buff *ctx)
 {
-	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
+	int ret = egressgw_status_check(
+		ctx,
+		(struct egressgw_test_ctx){
 			.status_code = TC_ACT_REDIRECT,
-	});
+		});
 
 	policy_delete_egress_entry();
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
@@ -83,7 +88,9 @@ int egressgw_redirect_check(const struct __ctx_buff *ctx)
 PKTGEN("tc", "tc_egressgw_skip_excluded_cidr_redirect")
 int egressgw_skip_excluded_cidr_redirect_pktgen(struct __ctx_buff *ctx)
 {
-	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
+	return egressgw_pktgen(
+		ctx,
+		(struct egressgw_test_ctx){
 			.test = TEST_REDIRECT_EXCL_CIDR,
 		});
 }
@@ -93,8 +100,10 @@ int egressgw_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v4_add_entry_with_mask_size(v4_all, 0, WORLD_IPV4_ID, 0, 0, 0);
 	create_ct_entry(ctx, client_port(TEST_REDIRECT_EXCL_CIDR));
-	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP, 0);
-	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_EXCLUDED_CIDR, 0);
+	add_egressgw_policy_entry(
+		CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP, 0);
+	add_egressgw_policy_entry(
+		CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_EXCLUDED_CIDR, 0);
 
 	/* Avoid policy drop */
 	policy_add_egress_allow_all_entry();
@@ -108,9 +117,11 @@ int egressgw_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_egressgw_skip_excluded_cidr_redirect")
 int egressgw_skip_excluded_cidr_redirect_check(const struct __ctx_buff *ctx)
 {
-	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
+	int ret = egressgw_status_check(
+		ctx,
+		(struct egressgw_test_ctx){
 			.status_code = TC_ACT_OK,
-	});
+		});
 
 	policy_delete_egress_entry();
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
@@ -125,7 +136,9 @@ int egressgw_skip_excluded_cidr_redirect_check(const struct __ctx_buff *ctx)
 PKTGEN("tc", "tc_egressgw_skip_no_gateway_redirect")
 int egressgw_skip_no_gateway_redirect_pktgen(struct __ctx_buff *ctx)
 {
-	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
+	return egressgw_pktgen(
+		ctx,
+		(struct egressgw_test_ctx){
 			.test = TEST_REDIRECT_SKIP_NO_GATEWAY,
 		});
 }
@@ -135,7 +148,8 @@ int egressgw_skip_no_gateway_redirect_setup(struct __ctx_buff *ctx)
 {
 	ipcache_v4_add_entry_with_mask_size(v4_all, 0, WORLD_IPV4_ID, 0, 0, 0);
 	create_ct_entry(ctx, client_port(TEST_REDIRECT_SKIP_NO_GATEWAY));
-	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_NO_GATEWAY, 0);
+	add_egressgw_policy_entry(
+		CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_NO_GATEWAY, 0);
 
 	/* Avoid policy drop */
 	policy_add_egress_allow_all_entry();
@@ -152,9 +166,11 @@ int egressgw_skip_no_gateway_redirect_check(const struct __ctx_buff *ctx)
 	struct metrics_value *entry = NULL;
 	struct metrics_key key = {};
 
-	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
+	int ret = egressgw_status_check(
+		ctx,
+		(struct egressgw_test_ctx){
 			.status_code = CTX_ACT_DROP,
-	});
+		});
 	if (ret != TEST_PASS)
 		return ret;
 

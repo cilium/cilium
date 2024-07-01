@@ -40,30 +40,30 @@ struct signal_msg {
  * member (and signal_nr) in message size. Used to avoid referencing
  * uninitialized memory if trying to send the whole msg.
  */
-#define SEND_SIGNAL(CTX, SIGNAL, MEMBER, VALUE)				\
-  {									\
-	struct signal_msg msg = {					\
-		.signal_nr	= (SIGNAL),				\
-		.MEMBER		= (VALUE),				\
-	};								\
-	ctx_event_output((CTX), &SIGNAL_MAP, BPF_F_CURRENT_CPU, &msg,	\
-			 sizeof(msg.signal_nr) + sizeof(msg.MEMBER));	\
-  }
+#define SEND_SIGNAL(CTX, SIGNAL, MEMBER, VALUE)                               \
+	{                                                                     \
+		struct signal_msg msg = {                                     \
+			.signal_nr = (SIGNAL),                                \
+			.MEMBER = (VALUE),                                    \
+		};                                                            \
+		ctx_event_output((CTX), &SIGNAL_MAP, BPF_F_CURRENT_CPU, &msg, \
+				 sizeof(msg.signal_nr) + sizeof(msg.MEMBER)); \
+	}
 
-static __always_inline void send_signal_nat_fill_up(struct __ctx_buff *ctx,
-						    __u32 proto)
+static __always_inline void
+send_signal_nat_fill_up(struct __ctx_buff *ctx, __u32 proto)
 {
 	SEND_SIGNAL(ctx, SIGNAL_NAT_FILL_UP, proto, proto);
 }
 
-static __always_inline void send_signal_ct_fill_up(struct __ctx_buff *ctx,
-						   __u32 proto)
+static __always_inline void
+send_signal_ct_fill_up(struct __ctx_buff *ctx, __u32 proto)
 {
 	SEND_SIGNAL(ctx, SIGNAL_CT_FILL_UP, proto, proto);
 }
 
-static __always_inline void send_signal_auth_required(struct __ctx_buff *ctx,
-						      const struct auth_key *auth)
+static __always_inline void
+send_signal_auth_required(struct __ctx_buff *ctx, const struct auth_key *auth)
 {
 	SEND_SIGNAL(ctx, SIGNAL_AUTH_REQUIRED, auth, *auth);
 }

@@ -2,7 +2,7 @@
 /* Copyright Authors of Cilium */
 
 /* make neigh_resolver_available() return true */
-#define HAVE_FIB_NEIGH 1
+#define HAVE_FIB_NEIGH	 1
 /* assume fib_lookup always returns target oif if available */
 #define HAVE_FIB_IFINDEX 1
 
@@ -16,7 +16,7 @@ struct ctx_redirect_recorder {
 	const struct __sk_buff *ctx;
 	__u32 ifindex;
 	__u64 flags;
-} redir_recorder = {0};
+} redir_recorder = { 0 };
 
 void reset_redir_recorder(struct ctx_redirect_recorder *r)
 {
@@ -27,9 +27,9 @@ void reset_redir_recorder(struct ctx_redirect_recorder *r)
 
 #define ctx_redirect mock_ctx_redirect
 
-long mock_ctx_redirect(__maybe_unused const struct __sk_buff *ctx,
-		       __maybe_unused __u32 ifindex,
-		       __maybe_unused __u64 flags)
+long mock_ctx_redirect(
+	__maybe_unused const struct __sk_buff *ctx,
+	__maybe_unused __u32 ifindex, __maybe_unused __u64 flags)
 {
 	redir_recorder.flags = flags;
 	redir_recorder.ifindex = ifindex;
@@ -44,7 +44,7 @@ struct redir_neigh_recorder {
 	struct bpf_redir_neigh *params;
 	int plen;
 	__u32 flags;
-} redir_neigh_recorder = {0};
+} redir_neigh_recorder = { 0 };
 
 void reset_redir_neigh_recorder(struct redir_neigh_recorder *r)
 {
@@ -56,10 +56,9 @@ void reset_redir_neigh_recorder(struct redir_neigh_recorder *r)
 
 #define redirect_neigh mock_redirect_neigh
 
-long mock_redirect_neigh(__maybe_unused int ifindex,
-			 __maybe_unused struct bpf_redir_neigh *params,
-			 __maybe_unused int plen,
-			 __maybe_unused __u32 flags)
+long mock_redirect_neigh(
+	__maybe_unused int ifindex, __maybe_unused struct bpf_redir_neigh *params,
+	__maybe_unused int plen, __maybe_unused __u32 flags)
 {
 	redir_neigh_recorder.ifindex = ifindex;
 	redir_neigh_recorder.params = params;
@@ -82,16 +81,16 @@ int test1_check(struct __ctx_buff *ctx)
 	 * fib params.
 	 */
 	TEST("lookup_success", {
-		__u32 ifindex_bad  = 0xDEADBEEF;
+		__u32 ifindex_bad = 0xDEADBEEF;
 		__u32 ifindex_good = 0xAAAAAAAA;
 		int ret = -1;
 		__s8 flags = BPF_FIB_LKUP_RET_SUCCESS;
-		struct bpf_fib_lookup_padded params = {0};
+		struct bpf_fib_lookup_padded params = { 0 };
 
 		params.l.ifindex = ifindex_good;
 
-		ret = fib_do_redirect(ctx, false, &params, true, &flags,
-				      (int *)&ifindex_bad);
+		ret = fib_do_redirect(
+			ctx, false, &params, true, &flags, (int *)&ifindex_bad);
 		if (ret != CTX_REDIRECT_ENTERED)
 			test_fatal("did not enter ctx_redirect");
 
@@ -113,18 +112,19 @@ int test1_check(struct __ctx_buff *ctx)
 	 * fib params and a non-nil bpf_redir_neigh
 	 */
 	TEST("lookup_no_neigh", {
-		__u32 ifindex_bad  = 0xDEADBEEF;
+		__u32 ifindex_bad = 0xDEADBEEF;
 		__u32 ifindex_good = 0xAAAAAAAA;
 		int ret = -1;
 		__s8 flags = BPF_FIB_LKUP_RET_NO_NEIGH;
-		struct bpf_fib_lookup_padded params = {0};
+		struct bpf_fib_lookup_padded params = { 0 };
 
 		params.l.ifindex = ifindex_good;
 
 		if (!neigh_resolver_available())
 			test_fatal("expected neigh_resolver_available true");
 
-		ret = fib_do_redirect(ctx, false, &params, true, &flags, (int *)&ifindex_bad);
+		ret = fib_do_redirect(
+			ctx, false, &params, true, &flags, (int *)&ifindex_bad);
 		if (ret != REDIR_NEIGH_ENTERED)
 			test_fatal("did not enter redirect_neigh");
 
@@ -158,7 +158,8 @@ int test1_check(struct __ctx_buff *ctx)
 		if (!neigh_resolver_available())
 			test_fatal("expected neigh_resolver_available true");
 
-		ret = fib_do_redirect(ctx, false, NULL, true, &flags, (int *)&ifindex_good);
+		ret = fib_do_redirect(
+			ctx, false, NULL, true, &flags, (int *)&ifindex_good);
 		if (ret != REDIR_NEIGH_ENTERED)
 			test_fatal("did not enter redirect_neigh");
 
@@ -193,8 +194,10 @@ int test2_check(__maybe_unused struct __ctx_buff *ctx)
 			if (flag == BPF_FIB_LKUP_RET_NO_NEIGH)
 				continue;
 
-			if (fib_do_redirect(NULL, false, NULL, true, &flag, NULL) != DROP_NO_FIB)
-				test_fatal("expected DROP_NO_FIB with flag %d", flag);
+			if (fib_do_redirect(NULL, false, NULL, true, &flag, NULL) !=
+			    DROP_NO_FIB)
+				test_fatal("expected DROP_NO_FIB with flag %d",
+					   flag);
 		}
 	});
 

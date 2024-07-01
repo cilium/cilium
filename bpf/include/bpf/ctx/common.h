@@ -9,8 +9,8 @@
 #include "../compiler.h"
 #include "../errno.h"
 
-#define __ctx_skb		1
-#define __ctx_xdp		2
+#define __ctx_skb 1
+#define __ctx_xdp 2
 
 static __always_inline bool ctx_no_room(const void *needed, const void *limit)
 {

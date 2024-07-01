@@ -3,20 +3,21 @@
 #pragma once
 
 #ifndef BPF_TEST
-#define __MAGIC_FILE__ (__u8)__id_for_file(__FILE_NAME__)
-#define __MAGIC_LINE__ __LINE__
+# define __MAGIC_FILE__ (__u8) __id_for_file(__FILE_NAME__)
+# define __MAGIC_LINE__ __LINE__
 #else
 /* bpf tests assert that metrics get updated by performing a map lookup.
  * This cannot work if the metrics key has dynamic components like line/file
  * info, so disable this during tests.
  */
-#define __MAGIC_FILE__ 0
-#define __MAGIC_LINE__ 0
+# define __MAGIC_FILE__ 0
+# define __MAGIC_LINE__ 0
 #endif
 
-#define _strcase_(id, known_name) do {			\
-	if (!__builtin_strcmp(header_name, known_name))	\
-		return id;				\
+#define _strcase_(id, known_name)                               \
+	do {                                                    \
+		if (!__builtin_strcmp(header_name, known_name)) \
+			return id;                              \
 	} while (0)
 
 /*
@@ -27,8 +28,7 @@
  * The following list of files is static, but it is validated during build with
  * the pkg/datapath/loader/check-sources.sh tool.
  */
-static __always_inline int
-__id_for_file(const char *const header_name)
+static __always_inline int __id_for_file(const char *const header_name)
 {
 	/* @@ source files list begin */
 

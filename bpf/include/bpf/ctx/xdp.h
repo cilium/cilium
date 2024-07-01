@@ -6,10 +6,10 @@
 #include <linux/if_ether.h>
 #include <linux/byteorder.h>
 
-#define __section_entry	__section("xdp")
+#define __section_entry __section("xdp")
 
-#define __ctx_buff			xdp_md
-#define __ctx_is			__ctx_xdp
+#define __ctx_buff	xdp_md
+#define __ctx_is	__ctx_xdp
 
 #include "common.h"
 #include "../helpers_xdp.h"
@@ -18,19 +18,19 @@
 #include "../loader.h"
 #include "../csum.h"
 
-#define CTX_ACT_OK			XDP_PASS
-#define CTX_ACT_DROP			XDP_DROP
-#define CTX_ACT_TX			XDP_TX	/* hairpin only */
-#define CTX_ACT_REDIRECT		XDP_REDIRECT
+#define CTX_ACT_OK	    XDP_PASS
+#define CTX_ACT_DROP	    XDP_DROP
+#define CTX_ACT_TX	    XDP_TX /* hairpin only */
+#define CTX_ACT_REDIRECT    XDP_REDIRECT
 
-#define CTX_DIRECT_WRITE_OK		1
+#define CTX_DIRECT_WRITE_OK 1
 
-					/* cb + RECIRC_MARKER + XFER_MARKER */
-#define META_PIVOT			((int)(field_sizeof(struct __sk_buff, cb) + \
-					       sizeof(__u32) * 2))
+/* cb + RECIRC_MARKER + XFER_MARKER */
+#define META_PIVOT \
+	((int)(field_sizeof(struct __sk_buff, cb) + sizeof(__u32) * 2))
 
 /* This must be a mask and all offsets guaranteed to be less than that. */
-#define __CTX_OFF_MAX			0xff
+#define __CTX_OFF_MAX 0xff
 
 #ifndef HAVE_XDP_LOAD_BYTES
 static __always_inline __maybe_unused int
@@ -42,20 +42,21 @@ xdp_load_bytes(const struct xdp_md *ctx, __u64 off, void *to, const __u64 len)
 	 * so force it the way we want it in order to open up a range
 	 * on the reg.
 	 */
-	asm volatile("r1 = *(u32 *)(%[ctx] +0)\n\t"
-		     "r2 = *(u32 *)(%[ctx] +4)\n\t"
-		     "%[off] &= %[offmax]\n\t"
-		     "r1 += %[off]\n\t"
-		     "%[from] = r1\n\t"
-		     "r1 += %[len]\n\t"
-		     "if r1 > r2 goto +2\n\t"
-		     "%[ret] = 0\n\t"
-		     "goto +1\n\t"
-		     "%[ret] = %[errno]\n\t"
-		     : [ret]"=r"(ret), [from]"=r"(from)
-		     : [ctx]"r"(ctx), [off]"r"(off), [len]"ri"(len),
-		       [offmax]"i"(__CTX_OFF_MAX), [errno]"i"(-EINVAL)
-		     : "r1", "r2");
+	asm volatile(
+		"r1 = *(u32 *)(%[ctx] +0)\n\t"
+		"r2 = *(u32 *)(%[ctx] +4)\n\t"
+		"%[off] &= %[offmax]\n\t"
+		"r1 += %[off]\n\t"
+		"%[from] = r1\n\t"
+		"r1 += %[len]\n\t"
+		"if r1 > r2 goto +2\n\t"
+		"%[ret] = 0\n\t"
+		"goto +1\n\t"
+		"%[ret] = %[errno]\n\t"
+		: [ret] "=r"(ret), [from] "=r"(from)
+		: [ctx] "r"(ctx), [off] "r"(off), [len] "ri"(len),
+		  [offmax] "i"(__CTX_OFF_MAX), [errno] "i"(-EINVAL)
+		: "r1", "r2");
 	if (!ret)
 		memcpy(to, from, len);
 	return ret;
@@ -70,49 +71,52 @@ xdp_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
 	void *to;
 	int ret;
 	/* See xdp_load_bytes(). */
-	asm volatile("r1 = *(u32 *)(%[ctx] +0)\n\t"
-		     "r2 = *(u32 *)(%[ctx] +4)\n\t"
-		     "%[off] &= %[offmax]\n\t"
-		     "r1 += %[off]\n\t"
-		     "%[to] = r1\n\t"
-		     "r1 += %[len]\n\t"
-		     "if r1 > r2 goto +2\n\t"
-		     "%[ret] = 0\n\t"
-		     "goto +1\n\t"
-		     "%[ret] = %[errno]\n\t"
-		     : [ret]"=r"(ret), [to]"=r"(to)
-		     : [ctx]"r"(ctx), [off]"r"(off), [len]"ri"(len),
-		       [offmax]"i"(__CTX_OFF_MAX), [errno]"i"(-EINVAL)
-		     : "r1", "r2");
+	asm volatile(
+		"r1 = *(u32 *)(%[ctx] +0)\n\t"
+		"r2 = *(u32 *)(%[ctx] +4)\n\t"
+		"%[off] &= %[offmax]\n\t"
+		"r1 += %[off]\n\t"
+		"%[to] = r1\n\t"
+		"r1 += %[len]\n\t"
+		"if r1 > r2 goto +2\n\t"
+		"%[ret] = 0\n\t"
+		"goto +1\n\t"
+		"%[ret] = %[errno]\n\t"
+		: [ret] "=r"(ret), [to] "=r"(to)
+		: [ctx] "r"(ctx), [off] "r"(off), [len] "ri"(len),
+		  [offmax] "i"(__CTX_OFF_MAX), [errno] "i"(-EINVAL)
+		: "r1", "r2");
 	if (!ret)
 		memcpy(to, from, len);
 	return ret;
 }
 #endif
 
-#define ctx_load_bytes			xdp_load_bytes
-#define ctx_store_bytes			xdp_store_bytes
+#define ctx_load_bytes	xdp_load_bytes
+#define ctx_store_bytes xdp_store_bytes
 
 /* Fyi, remapping to stubs helps to assert that the code is not in
  * use since it otherwise triggers a verifier error.
  */
 
-#define ctx_change_type			xdp_change_type__stub
-#define ctx_change_tail			xdp_change_tail__stub
+#define ctx_change_type xdp_change_type__stub
+#define ctx_change_tail xdp_change_tail__stub
 
-#define ctx_pull_data(ctx, ...)		do { /* Already linear. */ } while (0)
+#define ctx_pull_data(ctx, ...)    \
+	do { /* Already linear. */ \
+	} while (0)
 
-#define ctx_get_tunnel_key		xdp_get_tunnel_key__stub
-#define ctx_set_tunnel_key		xdp_set_tunnel_key__stub
+#define ctx_get_tunnel_key   xdp_get_tunnel_key__stub
+#define ctx_set_tunnel_key   xdp_set_tunnel_key__stub
 
-#define ctx_get_tunnel_opt		xdp_get_tunnel_opt__stub
+#define ctx_get_tunnel_opt   xdp_get_tunnel_opt__stub
 
-#define ctx_event_output		xdp_event_output
+#define ctx_event_output     xdp_event_output
 
-#define ctx_adjust_meta			xdp_adjust_meta
+#define ctx_adjust_meta	     xdp_adjust_meta
 
-#define get_hash(ctx)			({ 0; })
-#define get_hash_recalc(ctx)		get_hash(ctx)
+#define get_hash(ctx)	     ({ 0; })
+#define get_hash_recalc(ctx) get_hash(ctx)
 
 /* clang-format off */
 
@@ -155,8 +159,7 @@ __csum_replace_by_4(__sum16 *sum, __wsum from, __wsum to)
 }
 
 static __always_inline __maybe_unused int
-l3_csum_replace(const struct xdp_md *ctx, __u64 off, const __u32 from,
-		__u32 to,
+l3_csum_replace(const struct xdp_md *ctx, __u64 off, const __u32 from, __u32 to,
 		__u32 flags)
 {
 	__u32 size = flags & BPF_F_HDR_FIELD_MASK;
@@ -168,31 +171,31 @@ l3_csum_replace(const struct xdp_md *ctx, __u64 off, const __u32 from,
 	if (unlikely(size != 0 && size != 2))
 		return -EINVAL;
 	/* See xdp_load_bytes(). */
-	asm volatile("r1 = *(u32 *)(%[ctx] +0)\n\t"
-		     "r2 = *(u32 *)(%[ctx] +4)\n\t"
-		     "%[off] &= %[offmax]\n\t"
-		     "r1 += %[off]\n\t"
-		     "%[sum] = r1\n\t"
-		     "r1 += 2\n\t"
-		     "if r1 > r2 goto +2\n\t"
-		     "%[ret] = 0\n\t"
-		     "goto +1\n\t"
-		     "%[ret] = %[errno]\n\t"
-		     : [ret]"=r"(ret), [sum]"=r"(sum)
-		     : [ctx]"r"(ctx), [off]"r"(off),
-		       [offmax]"i"(__CTX_OFF_MAX), [errno]"i"(-EINVAL)
-		     : "r1", "r2");
+	asm volatile(
+		"r1 = *(u32 *)(%[ctx] +0)\n\t"
+		"r2 = *(u32 *)(%[ctx] +4)\n\t"
+		"%[off] &= %[offmax]\n\t"
+		"r1 += %[off]\n\t"
+		"%[sum] = r1\n\t"
+		"r1 += 2\n\t"
+		"if r1 > r2 goto +2\n\t"
+		"%[ret] = 0\n\t"
+		"goto +1\n\t"
+		"%[ret] = %[errno]\n\t"
+		: [ret] "=r"(ret), [sum] "=r"(sum)
+		: [ctx] "r"(ctx), [off] "r"(off), [offmax] "i"(__CTX_OFF_MAX),
+		  [errno] "i"(-EINVAL)
+		: "r1", "r2");
 	if (!ret)
 		from ? __csum_replace_by_4(sum, from, to) :
 		       __csum_replace_by_diff(sum, to);
 	return ret;
 }
 
-#define CSUM_MANGLED_0		((__sum16)0xffff)
+#define CSUM_MANGLED_0 ((__sum16)0xffff)
 
-static __always_inline __maybe_unused int
-l4_csum_replace(const struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
-		__u32 flags)
+static __always_inline __maybe_unused int l4_csum_replace(
+	const struct xdp_md *ctx, __u64 off, __u32 from, __u32 to, __u32 flags)
 {
 	bool is_mmzero = flags & BPF_F_MARK_MANGLED_0;
 	__u32 size = flags & BPF_F_HDR_FIELD_MASK;
@@ -205,20 +208,21 @@ l4_csum_replace(const struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
 	if (unlikely(size != 0 && size != 2))
 		return -EINVAL;
 	/* See xdp_load_bytes(). */
-	asm volatile("r1 = *(u32 *)(%[ctx] +0)\n\t"
-		     "r2 = *(u32 *)(%[ctx] +4)\n\t"
-		     "%[off] &= %[offmax]\n\t"
-		     "r1 += %[off]\n\t"
-		     "%[sum] = r1\n\t"
-		     "r1 += 2\n\t"
-		     "if r1 > r2 goto +2\n\t"
-		     "%[ret] = 0\n\t"
-		     "goto +1\n\t"
-		     "%[ret] = %[errno]\n\t"
-		     : [ret]"=r"(ret), [sum]"=r"(sum)
-		     : [ctx]"r"(ctx), [off]"r"(off),
-		       [offmax]"i"(__CTX_OFF_MAX), [errno]"i"(-EINVAL)
-		     : "r1", "r2");
+	asm volatile(
+		"r1 = *(u32 *)(%[ctx] +0)\n\t"
+		"r2 = *(u32 *)(%[ctx] +4)\n\t"
+		"%[off] &= %[offmax]\n\t"
+		"r1 += %[off]\n\t"
+		"%[sum] = r1\n\t"
+		"r1 += 2\n\t"
+		"if r1 > r2 goto +2\n\t"
+		"%[ret] = 0\n\t"
+		"goto +1\n\t"
+		"%[ret] = %[errno]\n\t"
+		: [ret] "=r"(ret), [sum] "=r"(sum)
+		: [ctx] "r"(ctx), [off] "r"(off), [offmax] "i"(__CTX_OFF_MAX),
+		  [errno] "i"(-EINVAL)
+		: "r1", "r2");
 	if (!ret) {
 		if (is_mmzero && !*sum)
 			return 0;
@@ -230,13 +234,12 @@ l4_csum_replace(const struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
 	return ret;
 }
 
-static __always_inline __maybe_unused int
-ctx_change_proto(struct xdp_md *ctx __maybe_unused,
-		 const __be16 proto __maybe_unused,
-		 const __u64 flags __maybe_unused)
+static __always_inline __maybe_unused int ctx_change_proto(
+	struct xdp_md *ctx __maybe_unused, const __be16 proto __maybe_unused,
+	const __u64 flags __maybe_unused)
 {
-	const __s32 len_diff = proto == __constant_htons(ETH_P_IPV6) ?
-			       20 /* 4->6 */ : -20 /* 6->4 */;
+	const __s32 len_diff =
+		proto == __constant_htons(ETH_P_IPV6) ? 20 /* 4->6 */ : -20 /* 6->4 */;
 	const __u32 move_len = 14;
 	void *data, *data_end;
 	int ret;
@@ -274,9 +277,9 @@ ctx_adjust_troom(struct xdp_md *ctx, const __s32 len_diff)
 	return xdp_adjust_tail(ctx, len_diff);
 }
 
-static __always_inline __maybe_unused int
-ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
-		 const __u64 flags __maybe_unused)
+static __always_inline __maybe_unused int ctx_adjust_hroom(
+	struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
+	const __u64 flags __maybe_unused)
 {
 	const __u32 move_len_v4_geneve = 14 + 20 + 8 + 8; /* eth, ipv4, udp, geneve */
 	const __u32 move_len_v4 = 14 + 20;
@@ -310,7 +313,7 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 			move_len = move_len_v4_geneve;
 			break;
 		case 20: /* struct iphdr */
-		case 8:  /* struct dsr_opt_v4 */
+		case 8:	 /* struct dsr_opt_v4 */
 			move_len = move_len_v4;
 			break;
 		case 50: /* struct {ethhdr + iphdr + udphdr + genevehdr / vxlanhdr} */
@@ -353,10 +356,9 @@ ctx_redirect(const struct xdp_md *ctx, int ifindex, const __u32 flags)
 	return redirect(ifindex, flags);
 }
 
-static __always_inline __maybe_unused int
-ctx_redirect_peer(const struct xdp_md *ctx __maybe_unused,
-		  int ifindex __maybe_unused,
-		  const __u32 flags __maybe_unused)
+static __always_inline __maybe_unused int ctx_redirect_peer(
+	const struct xdp_md *ctx __maybe_unused, int ifindex __maybe_unused,
+	const __u32 flags __maybe_unused)
 {
 	/* bpf_redirect_peer() is available only in TC BPF. */
 	return -ENOTSUP;
@@ -377,13 +379,14 @@ ctx_full_len(const struct xdp_md *ctx)
 	 * sometimes reorganizes expressions involving this,
 	 * which leads to "pointer arithmetic on pkt_end prohibited"
 	 */
-	asm volatile("r1 = *(u32 *)(%[ctx] +0)\n\t"
-		     "r2 = *(u32 *)(%[ctx] +4)\n\t"
-		     "%[len] = r2\n\t"
-		     "%[len] -= r1\n\t"
-		     : [len]"=r"(len)
-		     : [ctx]"r"(ctx)
-		     : "r1", "r2");
+	asm volatile(
+		"r1 = *(u32 *)(%[ctx] +0)\n\t"
+		"r2 = *(u32 *)(%[ctx] +4)\n\t"
+		"%[len] = r2\n\t"
+		"%[len] -= r1\n\t"
+		: [len] "=r"(len)
+		: [ctx] "r"(ctx)
+		: "r1", "r2");
 	return len;
 }
 #endif
@@ -426,7 +429,8 @@ ctx_load_meta(const struct xdp_md *ctx __maybe_unused, const __u64 off)
 static __always_inline __maybe_unused __u32
 ctx_load_and_clear_meta(const struct xdp_md *ctx __maybe_unused, const __u64 off)
 {
-	__u32 val, zero = 0, *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
+	__u32 val, zero = 0,
+		   *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
 
 	if (always_succeeds(data_meta)) {
 		val = data_meta[off];

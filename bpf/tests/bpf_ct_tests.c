@@ -27,14 +27,14 @@ __always_inline int mkpkt(void *dst, bool first)
 	l2->h_proto = bpf_htons(ETH_P_IP);
 
 	if (first) {
-		char src[6] = {1, 0, 0, 3, 0, 10};
-		char dest[6] = {1, 0, 0, 3, 0, 20};
+		char src[6] = { 1, 0, 0, 3, 0, 10 };
+		char dest[6] = { 1, 0, 0, 3, 0, 20 };
 
 		memcpy(l2->h_source, src, sizeof(src));
 		memcpy(l2->h_dest, dest, sizeof(dest));
 	} else {
-		char src[6] = {1, 0, 0, 3, 0, 20};
-		char dest[6] = {1, 0, 0, 3, 0, 10};
+		char src[6] = { 1, 0, 0, 3, 0, 20 };
+		char dest[6] = { 1, 0, 0, 3, 0, 10 };
 
 		memcpy(l2->h_source, src, sizeof(src));
 		memcpy(l2->h_dest, dest, sizeof(dest));
@@ -49,11 +49,11 @@ __always_inline int mkpkt(void *dst, bool first)
 	l3->protocol = IPPROTO_TCP;
 
 	if (first) {
-		l3->saddr =  0x0A00030A; /* 10.3.0.10 */
+		l3->saddr = 0x0A00030A; /* 10.3.0.10 */
 		l3->daddr = 0x1400030A; /* 10.3.0.20 */
 	} else {
 		l3->saddr = 0x1400030A; /* 10.3.0.20 */
-		l3->daddr =  0x0A00030A; /* 10.3.0.10 */
+		l3->daddr = 0x0A00030A; /* 10.3.0.10 */
 	}
 
 	dst += sizeof(struct iphdr);
@@ -132,8 +132,9 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 		case CT_NEW:
 			ct_state_new.node_port = ct_state.node_port;
 			ct_state_new.ifindex = ct_state.ifindex;
-			ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple, ctx,
-					 CT_EGRESS, &ct_state_new, NULL);
+			ret = ct_create4(
+				get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple, ctx,
+				CT_EGRESS, &ct_state_new, NULL);
 			break;
 
 		default:
@@ -141,7 +142,8 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 			test_fail();
 		}
 
-		struct ct_entry *entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+		struct ct_entry *entry =
+			map_lookup_elem(get_ct_map4(&tuple), &tuple);
 
 		assert(entry);
 		assert(entry->tx_flags_seen == tcp_flags_to_u8(TCP_FLAG_SYN));
@@ -164,7 +166,7 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 		memcpy(data, pkt, pkt_size);
 	}
 
-	#define TEST_LOG
+#define TEST_LOG
 
 	TEST("ct4_rst", {
 		struct ipv4_ct_tuple tuple = {};
@@ -201,16 +203,18 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 		tuple.dport = __bpf_htons(3020);
 		tuple.flags = 0;
 
-		struct ct_entry *entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+		struct ct_entry *entry =
+			map_lookup_elem(get_ct_map4(&tuple), &tuple);
 
 		assert(entry);
-		assert(entry->rx_flags_seen == tcp_flags_to_u8(TCP_FLAG_SYN | TCP_FLAG_RST));
+		assert(entry->rx_flags_seen ==
+		       tcp_flags_to_u8(TCP_FLAG_SYN | TCP_FLAG_RST));
 
 		__u32 expires = entry->lifetime - bpf_ktime_get_sec();
 
 		if (expires > 10)
-			test_fatal("Expiration is %ds even if RST flag was set", expires);
-
+			test_fatal("Expiration is %ds even if RST flag was set",
+				   expires);
 	});
 
 	test_finish();
