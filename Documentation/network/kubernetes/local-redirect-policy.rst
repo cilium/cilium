@@ -35,9 +35,6 @@ When policies are applied, matched pod traffic is redirected. If desired, RBAC
 configurations can be used such that application developers can not escape
 the redirection.
 
-
-.. include:: ../../beta.rst
-
 Prerequisites
 =============
 
