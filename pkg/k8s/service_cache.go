@@ -525,7 +525,7 @@ func (l FrontendList) LooseMatch(frontend loadbalancer.L3n4Addr) (exists bool) {
 	case loadbalancer.NONE:
 		for _, protocol := range loadbalancer.AllProtocols {
 			frontend.Protocol = protocol
-			_, exists = l[frontend.StringWithProtocol()]
+			_, exists = l[frontend.String()]
 			if exists {
 				return
 			}
@@ -533,7 +533,7 @@ func (l FrontendList) LooseMatch(frontend loadbalancer.L3n4Addr) (exists bool) {
 
 	// If the protocol is set, perform an exact match
 	default:
-		_, exists = l[frontend.StringWithProtocol()]
+		_, exists = l[frontend.String()]
 	}
 	return
 }
@@ -555,14 +555,14 @@ func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
 					L4Addr:      *p,
 					Scope:       loadbalancer.ScopeExternal,
 				}
-				uniqueFrontends[address.StringWithProtocol()] = struct{}{}
+				uniqueFrontends[address.String()] = struct{}{}
 			}
 		}
 
 		for _, nodePortFEs := range svc.NodePorts {
 			for _, fe := range nodePortFEs {
 				if fe.Scope == loadbalancer.ScopeExternal {
-					uniqueFrontends[fe.StringWithProtocol()] = struct{}{}
+					uniqueFrontends[fe.String()] = struct{}{}
 				}
 			}
 		}

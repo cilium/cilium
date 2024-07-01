@@ -87,7 +87,7 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 		backends = append(backends, be)
 	}
 	sort.Slice(backends, func(i, j int) bool {
-		return backends[i].L3n4Addr.StringWithProtocol() < backends[j].StringWithProtocol()
+		return backends[i].L3n4Addr.String() < backends[j].String()
 	})
 	newBackendIds := map[lb.BackendID]int{}
 	for i, be := range backends {
@@ -115,8 +115,8 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 		} else if services[i].Name.Name > services[j].Name.Name {
 			return false
 		}
-		return services[i].Frontend.L3n4Addr.StringWithProtocol() <
-			services[j].Frontend.L3n4Addr.StringWithProtocol()
+		return services[i].Frontend.L3n4Addr.String() <
+			services[j].Frontend.L3n4Addr.String()
 	})
 
 	// Map for linking backend to services that refer to it.
@@ -132,7 +132,7 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 			strconv.FormatInt(int64(i), 10),
 			svc.Name.String(),
 			string(svc.Type),
-			svc.Frontend.StringWithProtocol(),
+			svc.Frontend.String(),
 			showBackendIDs(newBackendIds, svc.Backends),
 		)
 	}
@@ -146,7 +146,7 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 		}
 		tw.AddRow(
 			strconv.FormatInt(int64(i), 10),
-			be.L3n4Addr.StringWithProtocol(),
+			be.L3n4Addr.String(),
 			stateStr,
 			strings.Join(backendToServiceId[i], ", "),
 		)

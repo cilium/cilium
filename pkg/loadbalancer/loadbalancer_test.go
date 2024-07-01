@@ -342,9 +342,9 @@ func TestL3n4AddrID_Strings(t *testing.T) {
 			if string != tt.string {
 				t.Errorf("L3n4AddrID.String() = %s, want %s", string, tt.string)
 			}
-			strWithProtocol := f.StringWithProtocol()
+			strWithProtocol := f.String()
 			if strWithProtocol != tt.stringWithProtocol {
-				t.Errorf("L3n4AddrID.StringWithProtocol() = %s, want %s", strWithProtocol, tt.stringWithProtocol)
+				t.Errorf("L3n4AddrID.String() = %s, want %s", strWithProtocol, tt.stringWithProtocol)
 			}
 		})
 	}
@@ -651,7 +651,7 @@ func benchmarkStringWithProtocol(b *testing.B, addr *L3n4Addr) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		addr.StringWithProtocol()
+		addr.String()
 	}
 }
 

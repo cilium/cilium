@@ -765,12 +765,6 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 // String returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]" format for IPv4 and
 // "[IPv6]:Port/Protocol[/Scope]" format for IPv6.
 func (a *L3n4Addr) String() string {
-	return a.StringWithProtocol()
-}
-
-// StringWithProtocol returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]"
-// format for IPv4 and "[IPv6]:Port/Protocol[/Scope]" format for IPv6.
-func (a *L3n4Addr) StringWithProtocol() string {
 	var scope string
 	if a.Scope == ScopeInternal {
 		scope = "/i"
