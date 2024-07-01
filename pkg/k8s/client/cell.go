@@ -29,6 +29,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/connrotation"
+	mcsapi_clientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
+	mcsapi_fake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
 
 	"github.com/cilium/cilium/pkg/controller"
 	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -68,6 +70,7 @@ var k8sHeartbeatControllerGroup = controller.NewGroup("k8s-heartbeat")
 
 // Type aliases for the clientsets to avoid name collision on 'Clientset' when composing them.
 type (
+	MCSAPIClientset     = mcsapi_clientset.Clientset
 	KubernetesClientset = kubernetes.Clientset
 	SlimClientset       = slim_clientset.Clientset
 	APIExtClientset     = slim_apiext_clientset.Clientset
@@ -76,6 +79,7 @@ type (
 
 // Clientset is a composition of the different client sets used by Cilium.
 type Clientset interface {
+	mcsapi_clientset.Interface
 	kubernetes.Interface
 	apiext_clientset.Interface
 	cilium_clientset.Interface
@@ -106,6 +110,7 @@ type compositeClientset struct {
 	started  bool
 	disabled bool
 
+	*MCSAPIClientset
 	*KubernetesClientset
 	*APIExtClientset
 	*CiliumClientset
@@ -182,6 +187,11 @@ func newClientsetForUserAgent(lc cell.Lifecycle, log logrus.FieldLogger, cfg Con
 	client.APIExtClientset, err = slim_apiext_clientset.NewForConfigAndClient(restConfig, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create apiext k8s client: %w", err)
+	}
+
+	client.MCSAPIClientset, err = mcsapi_clientset.NewForConfigAndClient(restConfig, httpClient)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create mcsapi k8s client: %w", err)
 	}
 
 	client.KubernetesClientset, err = kubernetes.NewForConfigAndClient(restConfig, httpClient)
@@ -444,6 +454,7 @@ func isConnReady(c kubernetes.Interface) error {
 var FakeClientCell = cell.Provide(NewFakeClientset)
 
 type (
+	MCSAPIFakeClientset     = mcsapi_fake.Clientset
 	KubernetesFakeClientset = fake.Clientset
 	SlimFakeClientset       = slim_fake.Clientset
 	CiliumFakeClientset     = cilium_fake.Clientset
@@ -453,6 +464,7 @@ type (
 type FakeClientset struct {
 	disabled bool
 
+	*MCSAPIFakeClientset
 	*KubernetesFakeClientset
 	*CiliumFakeClientset
 	*APIExtFakeClientset
@@ -494,6 +506,7 @@ func NewFakeClientset() (*FakeClientset, Clientset) {
 		SlimFakeClientset:       slim_fake.NewSimpleClientset(),
 		CiliumFakeClientset:     cilium_fake.NewSimpleClientset(),
 		APIExtFakeClientset:     apiext_fake.NewSimpleClientset(),
+		MCSAPIFakeClientset:     mcsapi_fake.NewSimpleClientset(),
 		KubernetesFakeClientset: fake.NewSimpleClientset(),
 		enabled:                 true,
 	}

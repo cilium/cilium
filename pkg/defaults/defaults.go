@@ -576,6 +576,9 @@ const (
 	// allocatable identities.
 	MaxConnectedClusters = 255
 
+	// ClusterMeshEnableMCSAPI is the default value for option.ClusterMeshEnableMCSAPI
+	ClusterMeshEnableMCSAPI = false
+
 	// EnableNodeSelectorLabels is the default value for option.EnableNodeSelectorLabels
 	EnableNodeSelectorLabels = false
 

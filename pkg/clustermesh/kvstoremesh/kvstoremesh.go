@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
@@ -144,15 +145,16 @@ func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) c
 
 		cancel: cancel,
 
-		nodes:        newReflector(km.backend, name, nodeStore.NodeStorePrefix, km.storeFactory, synced.resources),
-		services:     newReflector(km.backend, name, serviceStore.ServiceStorePrefix, km.storeFactory, synced.resources),
-		identities:   newReflector(km.backend, name, identityCache.IdentitiesPath, km.storeFactory, synced.resources),
-		ipcache:      newReflector(km.backend, name, ipcache.IPIdentitiesPath, km.storeFactory, synced.resources),
-		status:       status,
-		storeFactory: km.storeFactory,
-		synced:       synced,
-		readyTimeout: km.config.PerClusterReadyTimeout,
-		logger:       km.logger.WithField(logfields.ClusterName, name),
+		nodes:          newReflector(km.backend, name, nodeStore.NodeStorePrefix, km.storeFactory, synced.resources),
+		services:       newReflector(km.backend, name, serviceStore.ServiceStorePrefix, km.storeFactory, synced.resources),
+		serviceExports: newReflector(km.backend, name, mcsapitypes.ServiceExportStorePrefix, km.storeFactory, synced.resources),
+		identities:     newReflector(km.backend, name, identityCache.IdentitiesPath, km.storeFactory, synced.resources),
+		ipcache:        newReflector(km.backend, name, ipcache.IPIdentitiesPath, km.storeFactory, synced.resources),
+		status:         status,
+		storeFactory:   km.storeFactory,
+		synced:         synced,
+		readyTimeout:   km.config.PerClusterReadyTimeout,
+		logger:         km.logger.WithField(logfields.ClusterName, name),
 	}
 
 	run := func(fn func(context.Context)) {
@@ -165,6 +167,7 @@ func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) c
 
 	run(rc.nodes.syncer.Run)
 	run(rc.services.syncer.Run)
+	run(rc.serviceExports.syncer.Run)
 	run(rc.identities.syncer.Run)
 	run(rc.ipcache.syncer.Run)
 

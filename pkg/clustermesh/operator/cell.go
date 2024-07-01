@@ -23,6 +23,7 @@ var Cell = cell.Module(
 	"clustermesh",
 	"Cell providing clustermesh capabilities in the operator",
 	cell.Config(ClusterMeshConfig{}),
+	cell.Config(MCSAPIConfig{}),
 	cell.Provide(
 		newClusterMesh,
 		newAPIClustersHandler,
@@ -40,8 +41,9 @@ type clusterMeshParams struct {
 
 	common.Config
 	wait.TimeoutConfig
-	Cfg    ClusterMeshConfig
-	Logger logrus.FieldLogger
+	Cfg       ClusterMeshConfig
+	CfgMCSAPI MCSAPIConfig
+	Logger    logrus.FieldLogger
 
 	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
 	ClusterInfo types.ClusterInfo
@@ -66,5 +68,20 @@ func (cfg ClusterMeshConfig) Flags(flags *pflag.FlagSet) {
 		"clustermesh-enable-endpoint-sync",
 		false,
 		"Whether or not the endpoint slice cluster mesh synchronization is enabled.",
+	)
+}
+
+// ClusterMeshConfig contains the configuration for MCS-API
+type MCSAPIConfig struct {
+	// ClusterMeshEnableEndpointSync enables the MCS API support
+	ClusterMeshEnableMCSAPI bool `mapstructure:"clustermesh-enable-mcs-api"`
+}
+
+// Flags adds the flags used by ClientConfig.
+func (cfg MCSAPIConfig) Flags(flags *pflag.FlagSet) {
+	flags.BoolVar(&cfg.ClusterMeshEnableMCSAPI,
+		"clustermesh-enable-mcs-api",
+		false,
+		"Whether or not the MCS API support is enabled.",
 	)
 }
