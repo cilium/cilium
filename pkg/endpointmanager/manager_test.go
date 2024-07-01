@@ -21,8 +21,11 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
@@ -966,4 +969,33 @@ func (s *EndpointManagerSuite) TestWaitForEndpointsAtPolicyRev(c *C) {
 		}
 		tt.postTestRun()
 	}
+}
+
+func (s *EndpointManagerSuite) TestMissingNodeLabelsUpdate(c *C) {
+	// Initialize label filter config.
+	labelsfilter.ParseLabelPrefixCfg(nil, "")
+	mgr := New(&dummyEpSyncher{}, nil, nil)
+	hostEPID := uint16(17)
+
+	// Initialize the local node watcher before the host endpoint is created.
+	// These labels are not propagated to the endpoint manager.
+	mgr.localNodeStore = node.NewTestLocalNodeStore(node.LocalNode{Node: types.Node{}})
+	mgr.startNodeLabelsObserver(nil)
+	mgr.localNodeStore.Update(func(ln *node.LocalNode) { ln.Labels = map[string]string{"k1": "v1"} })
+	_, ok := mgr.endpoints[hostEPID]
+	c.Assert(ok, checker.Equals, false)
+
+	// Create host endpoint and expose it in the endpoint manager.
+	ep := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+	ep.SetIsHost(true)
+	ep.ID = hostEPID
+	c.Assert(mgr.expose(ep), IsNil)
+
+	// Update node labels and verify that the node labels are updated correctly even if the old
+	// labels {k1=v1} are not present in the endpoint manager's state.
+	mgr.localNodeStore.Update(func(ln *node.LocalNode) { ln.Labels = map[string]string{"k2": "v2"} })
+	hostEP, ok := mgr.endpoints[hostEPID]
+	c.Assert(ok, checker.Equals, true)
+	got := hostEP.OpLabels.IdentityLabels().K8sStringMap()
+	c.Assert(map[string]string{"k2": "v2"}, checker.DeepEquals, got)
 }
