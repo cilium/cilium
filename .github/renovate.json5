@@ -87,6 +87,14 @@
   "packageRules": [
     {
       "matchPackageNames": [
+        "github.com/aws/aws-sdk-go-v2/service/ec2",
+        "github.com/aliyun/alibaba-cloud-sdk-go",
+        "renovatebot/github-action"
+      ],
+      "schedule": ["on the 1st day instance on sunday"]
+    },
+    {
+      "matchPackageNames": [
         "go", // golang version directive upgrade in go.mod
         "google/cloud-sdk", // google cloud-sdk official package name
         "grpc-ecosystem/grpc-health-probe", // Grpc ecosystem
