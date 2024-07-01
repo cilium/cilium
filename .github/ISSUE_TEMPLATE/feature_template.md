@@ -2,7 +2,7 @@
 name: Feature Proposal
 about: Suggest a feature to Cilium
 title: 'CFP: '
-labels: 'kind/feature'
+labels: ["kind/feature", "kind/cfp"]
 assignees: ''
 ---
 
