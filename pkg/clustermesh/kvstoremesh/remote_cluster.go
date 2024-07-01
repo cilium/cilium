@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
@@ -33,10 +34,15 @@ type remoteCluster struct {
 
 	localBackend kvstore.BackendOperations
 
-	nodes      reflector
-	services   reflector
-	identities reflector
-	ipcache    reflector
+	// Whether or not MCS-API service exports is supported for this cluster or nil
+	// if this has not been determined yet
+	serviceExportsSupported *bool
+
+	nodes          reflector
+	services       reflector
+	serviceExports reflector
+	identities     reflector
+	ipcache        reflector
 
 	// status is the function which fills the common part of the status.
 	status common.StatusFunc
@@ -67,9 +73,10 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	dstcfg := types.CiliumClusterConfig{
 		ID: srccfg.ID,
 		Capabilities: types.CiliumClusterConfigCapabilities{
-			SyncedCanaries:       true,
-			Cached:               true,
-			MaxConnectedClusters: srccfg.Capabilities.MaxConnectedClusters,
+			SyncedCanaries:        true,
+			Cached:                true,
+			MaxConnectedClusters:  srccfg.Capabilities.MaxConnectedClusters,
+			ServiceExportsEnabled: srccfg.Capabilities.ServiceExportsEnabled,
 		},
 	}
 
@@ -100,6 +107,17 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	mgr.Register(adapter(serviceStore.ServiceStorePrefix), func(ctx context.Context) {
 		rc.services.watcher.Watch(ctx, backend, path.Join(adapter(serviceStore.ServiceStorePrefix), rc.name))
 	})
+
+	serviceExportsSupported := false
+	if srccfg.Capabilities.ServiceExportsEnabled != nil {
+		serviceExportsSupported = true
+		mgr.Register(adapter(mcsapitypes.ServiceExportStorePrefix), func(ctx context.Context) {
+			rc.serviceExports.watcher.Watch(ctx, backend, path.Join(adapter(mcsapitypes.ServiceExportStorePrefix), rc.name))
+		})
+	} else {
+		rc.serviceExports.syncer.OnSync(ctx)
+	}
+	rc.serviceExportsSupported = &serviceExportsSupported
 
 	mgr.Register(adapter(ipcache.IPIdentitiesPath), func(ctx context.Context) {
 		suffix := ipcache.DefaultAddressSpace
@@ -154,24 +172,37 @@ func (rc *remoteCluster) waitForConnection(ctx context.Context) {
 	}
 }
 
+func (rc *remoteCluster) isServiceExportsSynced() bool {
+	if rc.serviceExportsSupported == nil {
+		return false // We don't know the status of service exports yet, assuming not synced
+	}
+	if !*rc.serviceExportsSupported {
+		return true // Service exports are not watched, assuming synced
+	}
+	return rc.serviceExports.watcher.Synced()
+}
+
 func (rc *remoteCluster) Status() *models.RemoteCluster {
 	status := rc.status()
 
 	status.NumNodes = int64(rc.nodes.watcher.NumEntries())
 	status.NumSharedServices = int64(rc.services.watcher.NumEntries())
+	status.NumServiceExports = int64(rc.serviceExports.watcher.NumEntries())
 	status.NumIdentities = int64(rc.identities.watcher.NumEntries())
 	status.NumEndpoints = int64(rc.ipcache.watcher.NumEntries())
 
 	status.Synced = &models.RemoteClusterSynced{
-		Nodes:      rc.nodes.watcher.Synced(),
-		Services:   rc.services.watcher.Synced(),
-		Identities: rc.identities.watcher.Synced(),
-		Endpoints:  rc.ipcache.watcher.Synced(),
+		Nodes:          rc.nodes.watcher.Synced(),
+		Services:       rc.services.watcher.Synced(),
+		ServiceExports: rc.isServiceExportsSynced(),
+		Identities:     rc.identities.watcher.Synced(),
+		Endpoints:      rc.ipcache.watcher.Synced(),
 	}
 
 	status.Ready = status.Ready &&
 		status.Synced.Nodes && status.Synced.Services &&
-		status.Synced.Identities && status.Synced.Endpoints
+		status.Synced.ServiceExports && status.Synced.Identities &&
+		status.Synced.Endpoints
 
 	return status
 }
