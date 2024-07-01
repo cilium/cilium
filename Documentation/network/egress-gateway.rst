@@ -97,8 +97,7 @@ The egress gateway feature and all the requirements can be enabled as follow:
                --reuse-values \\
                --set egressGateway.enabled=true \\
                --set bpf.masquerade=true \\
-               --set kubeProxyReplacement=true \\
-               --set l7Proxy=false
+               --set kubeProxyReplacement=true
 
     .. group-tab:: ConfigMap
 
