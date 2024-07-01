@@ -3946,6 +3946,21 @@ const (
 	InstanceTypeU7in16tb224xlarge InstanceType = "u7in-16tb.224xlarge"
 	InstanceTypeU7in24tb224xlarge InstanceType = "u7in-24tb.224xlarge"
 	InstanceTypeU7in32tb224xlarge InstanceType = "u7in-32tb.224xlarge"
+	InstanceTypeU7ib12tb224xlarge InstanceType = "u7ib-12tb.224xlarge"
+	InstanceTypeC7gnMetal         InstanceType = "c7gn.metal"
+	InstanceTypeR8gMedium         InstanceType = "r8g.medium"
+	InstanceTypeR8gLarge          InstanceType = "r8g.large"
+	InstanceTypeR8gXlarge         InstanceType = "r8g.xlarge"
+	InstanceTypeR8g2xlarge        InstanceType = "r8g.2xlarge"
+	InstanceTypeR8g4xlarge        InstanceType = "r8g.4xlarge"
+	InstanceTypeR8g8xlarge        InstanceType = "r8g.8xlarge"
+	InstanceTypeR8g12xlarge       InstanceType = "r8g.12xlarge"
+	InstanceTypeR8g16xlarge       InstanceType = "r8g.16xlarge"
+	InstanceTypeR8g24xlarge       InstanceType = "r8g.24xlarge"
+	InstanceTypeR8g48xlarge       InstanceType = "r8g.48xlarge"
+	InstanceTypeR8gMetal24xl      InstanceType = "r8g.metal-24xl"
+	InstanceTypeR8gMetal48xl      InstanceType = "r8g.metal-48xl"
+	InstanceTypeMac2M1ultraMetal  InstanceType = "mac2-m1ultra.metal"
 )
 
 // Values returns all known values for InstanceType. Note that this can be
@@ -4759,6 +4774,21 @@ func (InstanceType) Values() []InstanceType {
 		"u7in-16tb.224xlarge",
 		"u7in-24tb.224xlarge",
 		"u7in-32tb.224xlarge",
+		"u7ib-12tb.224xlarge",
+		"c7gn.metal",
+		"r8g.medium",
+		"r8g.large",
+		"r8g.xlarge",
+		"r8g.2xlarge",
+		"r8g.4xlarge",
+		"r8g.8xlarge",
+		"r8g.12xlarge",
+		"r8g.16xlarge",
+		"r8g.24xlarge",
+		"r8g.48xlarge",
+		"r8g.metal-24xl",
+		"r8g.metal-48xl",
+		"mac2-m1ultra.metal",
 	}
 }
 

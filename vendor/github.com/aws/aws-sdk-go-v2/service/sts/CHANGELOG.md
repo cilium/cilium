@@ -1,3 +1,11 @@
+# v1.30.1 (2024-06-28)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.30.0 (2024-06-26)
+
+* **Feature**: Support list-of-string endpoint parameter.
+
 # v1.29.1 (2024-06-19)
 
 * **Dependency Update**: Updated to the latest SDK module versions
