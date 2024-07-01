@@ -26,11 +26,13 @@
 /cmd/ @cilium/cli
 /clustermesh/ @cilium/sig-clustermesh
 /connectivity/ @cilium/ci-structure
+/connectivity/check/frr.go @cilium/sig-bgp
 /connectivity/check/ipcache.go @cilium/ipcache
 /connectivity/check/metrics*.go @cilium/metrics
 /connectivity/check/policy.go @cilium/sig-policy
 /connectivity/builder/** @cilium/ci-structure
 /connectivity/builder/all_ingress_deny_from_outside.go @cilium/sig-encryption
+/connectivity/builder/bgp_control_plane.go @cilium/sig-bgp
 /connectivity/builder/cluster_entity_multi_cluster.go @cilium/sig-clustermesh
 /connectivity/builder/dns_only.go @cilium/sig-clustermesh
 /connectivity/builder/echo_ingress.go @cilium/sig-servicemesh
@@ -47,6 +49,7 @@
 /connectivity/builder/no_ipsec_xfrm_errors.go @cilium/sig-encryption
 /connectivity/builder/node_to_node_encryption.go @cilium/sig-encryption
 /connectivity/builder/pod_to_pod_encryption.go @cilium/sig-encryption
+/connectivity/tests/bgp.go @cilium/sig-bgp
 /connectivity/tests/clustermesh-endpointslice-sync.go @cilium/sig-clustermesh
 /connectivity/tests/egressgateway.go @cilium/egress-gateway
 /connectivity/tests/encryption.go @cilium/sig-encryption
