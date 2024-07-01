@@ -16,6 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/connector"
@@ -33,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
 	"github.com/cilium/cilium/pkg/sysctl"
+	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -77,6 +79,10 @@ const (
 	netdevHeaderFileName = "netdev_config.h"
 	// preFilterHeaderFileName is the name of the header file used for bpf_xdp.c.
 	preFilterHeaderFileName = "filter_config.h"
+	// retry configuration for linkList()
+	linkListMaxTries         = 15
+	linkListMinRetryInterval = 100 * time.Millisecond
+	linkListMaxRetryInterval = 10 * time.Second
 )
 
 func (l *Loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) error {
@@ -175,6 +181,28 @@ func addENIRules(sysSettings []sysctl.Setting) ([]sysctl.Setting, error) {
 	return retSettings, nil
 }
 
+// netlink.LinkList() can return a transient kernel interrupt error.
+// This function will retry the call with a backoff if an error is returned.
+func linkList() ([]netlink.Link, error) {
+	var last_error error
+	for try := 0; try < linkListMaxTries; try++ {
+		links, err := netlink.LinkList()
+		if err == nil {
+			return links, nil
+		}
+		last_error = err
+		sleep := backoff.CalculateDuration(
+			linkListMinRetryInterval,
+			linkListMaxRetryInterval,
+			2.0,
+			false,
+			try)
+		time.Sleep(sleep)
+	}
+
+	return nil, fmt.Errorf("Could not load links: %w", last_error)
+}
+
 // reinitializeIPSec is used to recompile and load encryption network programs.
 func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 	if !option.Config.EnableIPSec {
@@ -191,15 +219,18 @@ func (l *Loader) reinitializeIPSec(ctx context.Context) error {
 		// received encrypted packets. This logic will attach to all
 		// !veth devices.
 		interfaces = nil
-		if links, err := netlink.LinkList(); err == nil {
-			for _, link := range links {
-				isVirtual, err := ethtool.IsVirtualDriver(link.Attrs().Name)
-				if err == nil && !isVirtual {
-					interfaces = append(interfaces, link.Attrs().Name)
-				}
+		links, err := linkList()
+		if err != nil {
+			return err
+		}
+		for _, link := range links {
+			isVirtual, err := ethtool.IsVirtualDriver(link.Attrs().Name)
+			if err == nil && !isVirtual {
+				interfaces = append(interfaces, link.Attrs().Name)
 			}
 		}
 		option.Config.EncryptInterface = interfaces
+
 	}
 
 	// No interfaces is valid in tunnel disabled case
