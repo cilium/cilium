@@ -20,10 +20,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
-
-	"github.com/Masterminds/semver/v3"
 
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/version"
@@ -92,24 +91,20 @@ func ConfListFromBytes(bytes []byte) (*NetworkConfigList, error) {
 	rawVersions, ok := rawList["cniVersions"]
 	if ok {
 		// Parse the current package CNI version
-		currentVersion, err := semver.NewVersion(version.Current())
-		if err != nil {
-			panic("CNI version is invalid semver!")
-		}
-
 		rvs, ok := rawVersions.([]interface{})
 		if !ok {
 			return nil, fmt.Errorf("error parsing configuration list: invalid type for cniVersions: %T", rvs)
 		}
-		vs := make([]*semver.Version, 0, len(rvs))
+		vs := make([]string, 0, len(rvs))
 		for i, rv := range rvs {
 			v, ok := rv.(string)
 			if !ok {
 				return nil, fmt.Errorf("error parsing configuration list: invalid type for cniVersions index %d: %T", i, rv)
 			}
-			if v, err := semver.NewVersion(v); err != nil {
+			gt, err := version.GreaterThan(v, version.Current())
+			if err != nil {
 				return nil, fmt.Errorf("error parsing configuration list: invalid cniVersions entry %s at index %d: %w", v, i, err)
-			} else if !v.GreaterThan(currentVersion) {
+			} else if !gt {
 				// Skip versions "greater" than this implementation of the spec
 				vs = append(vs, v)
 			}
@@ -117,16 +112,25 @@ func ConfListFromBytes(bytes []byte) (*NetworkConfigList, error) {
 
 		// if cniVersion was already set, append it to the list for sorting.
 		if cniVersion != "" {
-			if v, err := semver.NewVersion(cniVersion); err != nil {
+			gt, err := version.GreaterThan(cniVersion, version.Current())
+			if err != nil {
 				return nil, fmt.Errorf("error parsing configuration list: invalid cniVersion %s: %w", cniVersion, err)
-			} else if !v.GreaterThan(currentVersion) {
+			} else if !gt {
 				// ignore any versions higher than the current implemented spec version
-				vs = append(vs, v)
+				vs = append(vs, cniVersion)
 			}
 		}
-		sort.Sort(semver.Collection(vs))
+		slices.SortFunc[[]string](vs, func(v1, v2 string) int {
+			if v1 == v2 {
+				return 0
+			}
+			if gt, _ := version.GreaterThan(v1, v2); gt {
+				return 1
+			}
+			return -1
+		})
 		if len(vs) > 0 {
-			cniVersion = vs[len(vs)-1].String()
+			cniVersion = vs[len(vs)-1]
 		}
 	}
 
