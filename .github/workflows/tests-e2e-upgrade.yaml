@@ -154,6 +154,7 @@ jobs:
             # Disable until https://github.com/cilium/cilium/issues/30717
             # has been resolved.
             # ingress-controller: 'true'
+            bgp-control-plane: 'true'
 
 #          Disable until https://github.com/cilium/cilium/issues/32689
 #          is resolved.
@@ -395,6 +396,7 @@ jobs:
           ingress-controller: ${{ matrix.ingress-controller }}
           misc: ${{ matrix.misc || 'bpfClockProbe=false,cni.uninstall=false' }}
           ciliumendpointslice: ${{ matrix.ciliumendpointslice }}
+          bgp-control-plane: ${{ matrix.bgp-control-plane }}
 
       - name: Derive newest Cilium installation config
         id: cilium-newest-config
@@ -417,6 +419,7 @@ jobs:
           ingress-controller: ${{ matrix.ingress-controller }}
           misc: ${{ matrix.misc || 'bpfClockProbe=false,cni.uninstall=false' }}
           ciliumendpointslice: ${{ matrix.ciliumendpointslice }}
+          bgp-control-plane: ${{ matrix.bgp-control-plane }}
 
       - name: Set Kind params
         id: kind-params

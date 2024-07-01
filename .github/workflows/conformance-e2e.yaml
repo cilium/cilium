@@ -153,6 +153,7 @@ jobs:
             host-fw: 'true'
             lb-acceleration: 'testing-only'
             ingress-controller: 'true'
+            bgp-control-plane: 'true'
 
           - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -390,6 +391,7 @@ jobs:
           misc: ${{ matrix.misc }}
           ciliumendpointslice: ${{ matrix.ciliumendpointslice }}
           local-redirect-policy: ${{ matrix.local-redirect-policy }}
+          bgp-control-plane: ${{ matrix.bgp-control-plane }}
 
       - name: Set Kind params
         id: kind-params
