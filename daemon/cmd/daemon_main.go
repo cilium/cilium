@@ -609,6 +609,9 @@ func initializeFlags() {
 		option.NodePortAccelerationNative, option.NodePortAccelerationDisabled))
 	option.BindEnv(Vp, option.LoadBalancerAcceleration)
 
+	flags.Bool(option.LoadBalancerProtocolDifferentiation, true, "Enable support for service protocol differentiation (TCP, UDP, SCTP)")
+	option.BindEnv(vp, option.LoadBalancerProtocolDifferentiation)
+
 	flags.Uint(option.MaglevTableSize, maglev.DefaultTableSize, "Maglev per service backend table size (parameter M)")
 	option.BindEnv(Vp, option.MaglevTableSize)
 
