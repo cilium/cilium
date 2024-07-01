@@ -19,7 +19,10 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -957,4 +960,34 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 		}
 		tt.postTestRun()
 	}
+}
+
+func TestMissingNodeLabelsUpdate(t *testing.T) {
+	// Initialize label filter config.
+	labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
+	s := setupEndpointManagerSuite(t)
+	mgr := New(&dummyEpSyncher{}, nil, nil)
+	hostEPID := uint16(17)
+
+	// Initialize the local node watcher before the host endpoint is created.
+	// These labels are not propagated to the endpoint manager.
+	mgr.localNodeStore = node.NewTestLocalNodeStore(node.LocalNode{Node: types.Node{}})
+	mgr.startNodeLabelsObserver(nil)
+	mgr.localNodeStore.Update(func(ln *node.LocalNode) { ln.Labels = map[string]string{"k1": "v1"} })
+	_, ok := mgr.endpoints[hostEPID]
+	require.EqualValues(t, ok, false)
+
+	// Create host endpoint and expose it in the endpoint manager.
+	ep := endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
+	ep.SetIsHost(true)
+	ep.ID = hostEPID
+	require.Nil(t, mgr.expose(ep))
+
+	// Update node labels and verify that the node labels are updated correctly even if the old
+	// labels {k1=v1} are not present in the endpoint manager's state.
+	mgr.localNodeStore.Update(func(ln *node.LocalNode) { ln.Labels = map[string]string{"k2": "v2"} })
+	hostEP, ok := mgr.endpoints[hostEPID]
+	require.EqualValues(t, ok, true)
+	got := hostEP.OpLabels.IdentityLabels().K8sStringMap()
+	require.EqualValues(t, map[string]string{"k2": "v2"}, got)
 }
