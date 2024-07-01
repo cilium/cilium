@@ -1696,6 +1696,9 @@
     },
     "eni": {
       "properties": {
+        "awsEnableIPv6PrefixDelegation": {
+          "type": "boolean"
+        },
         "awsEnablePrefixDelegation": {
           "type": "boolean"
         },

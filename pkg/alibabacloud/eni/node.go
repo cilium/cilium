@@ -93,7 +93,10 @@ func (n *Node) PopulateStatusFields(resource *v2.CiliumNode) {
 // attaches it to the instance as specified by the CiliumNode. neededAddresses
 // of secondary IPs are assigned to the interface up to the maximum number of
 // addresses as allowed by the instance.
-func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *logrus.Entry) (int, string, error) {
+func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *logrus.Entry, family ipam.Family) (int, string, error) {
+	if family == ipam.IPv6 {
+		return 0, "", fmt.Errorf("not implemented")
+	}
 	l, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
 		return 0, unableToDetermineLimits, fmt.Errorf(errUnableToDetermineLimits)
@@ -184,9 +187,12 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	return toAllocate, "", nil
 }
 
-// ResyncInterfacesAndIPs is called to retrieve and ENIs and IPs as known to
-// the AlibabaCloud API and return them
-func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (available ipamTypes.AllocationMap, stats stats.InterfaceStats, err error) {
+// ResyncInterfacesAndIPs is called to retrieve and ENIs and IPv4 addresses
+// as known to the AlibabaCloud API and return them
+func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry, family ipam.Family) (available ipamTypes.AllocationMap, stats stats.InterfaceStats, err error) {
+	if family == ipam.IPv6 {
+		return available, stats, fmt.Errorf("not implemented")
+	}
 	limits, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
 		return nil, stats, fmt.Errorf(errUnableToDetermineLimits)
@@ -246,9 +252,13 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 	return available, stats, nil
 }
 
-// PrepareIPAllocation returns the number of ENI IPs and interfaces that can be
+// PrepareIPAllocation returns the number of ENI IPv4 addresses and interfaces that can be
 // allocated/created.
-func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (*ipam.AllocationAction, error) {
+func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry, family ipam.Family) (*ipam.AllocationAction, error) {
+	if family == ipam.IPv6 {
+		return nil, fmt.Errorf("not implemented")
+	}
+
 	l, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
 		return nil, fmt.Errorf(errUnableToDetermineLimits)
@@ -298,15 +308,23 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (*ipam.AllocationAct
 	return a, nil
 }
 
-// AllocateIPs performs the ENI allocation operation
-func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error {
+// AllocateIPs performs the ENI IP address allocation operation based on the provided family.
+func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction, family ipam.Family) error {
+	if family == ipam.IPv6 {
+		return fmt.Errorf("not implemented")
+	}
 	_, err := n.manager.api.AssignPrivateIPAddresses(ctx, a.InterfaceID, a.IPv4.AvailableForAllocation)
 	return err
 }
 
-// PrepareIPRelease prepares the release of ENI IPs.
-func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.ReleaseAction {
+// PrepareIPRelease prepares the release of ENI IP addresses based on the provided family.
+func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry, family ipam.Family) *ipam.ReleaseAction {
 	r := &ipam.ReleaseAction{}
+
+	if family == ipam.IPv6 {
+		scopedLog.Errorf("not implemented")
+		return r
+	}
 
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -363,7 +381,12 @@ func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 
 // GetMaximumAllocatableIPv4 returns the maximum amount of IPv4 addresses
 // that can be allocated to the instance
-func (n *Node) GetMaximumAllocatableIPv4() int {
+func (n *Node) GetMaximumAllocatableIP(family ipam.Family) int {
+	// IPv6 allocation is not implemented.
+	if family == ipam.IPv6 {
+		return 0
+	}
+
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
@@ -378,9 +401,9 @@ func (n *Node) GetMaximumAllocatableIPv4() int {
 	return (l.Adapters - 1) * l.IPv4
 }
 
-// GetMinimumAllocatableIPv4 returns the minimum amount of IPv4 addresses that
-// must be allocated to the instance.
-func (n *Node) GetMinimumAllocatableIPv4() int {
+// GetMinimumAllocatableIPv4 returns the minimum amount of addresses that
+// must be allocated to the instance based on the provided IP family.
+func (n *Node) GetMinimumAllocatableIP(family ipam.Family) int {
 	return defaults.IPAMPreAllocation
 }
 
@@ -392,12 +415,16 @@ func (n *Node) loggerLocked() *logrus.Entry {
 	return log.WithField("instanceID", n.instanceID)
 }
 
-func (n *Node) IsPrefixDelegated() bool {
+func (n *Node) IsPrefixDelegated(family ipam.Family) bool {
 	return false
 }
 
-func (n *Node) GetUsedIPWithPrefixes() int {
+func (n *Node) GetUsedIPWithPrefixes(family ipam.Family) int {
 	if n.k8sObj == nil {
+		return 0
+	}
+	if family == ipam.IPv6 {
+		// IPv6 prefix delegation is not implemented.
 		return 0
 	}
 	return len(n.k8sObj.Status.IPAM.Used)

@@ -13,18 +13,19 @@ import (
 
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/cidrset"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
 
 func TestMock(t *testing.T) {
-	api := NewAPI([]*ipamTypes.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}}, []*types.SecurityGroup{{ID: "sg-1"}})
+	api := NewAPI([]*ipamTypes.Subnet{{ID: "s-1", AvailableAddresses: 100, AvailableIPv6Addresses: 100}}, []*ipamTypes.VirtualNetwork{{ID: "v-1", IPv6CIDRs: []string{"2001:db8::/56"}}}, []*types.SecurityGroup{{ID: "sg-1"}})
 	require.NotNil(t, api)
 
-	eniID1, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	eniID1, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false, ipam.IPv4)
 	require.NoError(t, err)
 
-	eniID2, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	eniID2, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false, ipam.IPv4)
 	require.NoError(t, err)
 
 	_, err = api.AttachNetworkInterface(context.TODO(), 0, "i-1", eniID1)
@@ -90,7 +91,7 @@ func TestSetMockError(t *testing.T) {
 	mockError := errors.New("error")
 
 	api.SetMockError(CreateNetworkInterface, mockError)
-	_, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	_, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false, ipam.IPv4)
 	require.Equal(t, mockError, err)
 
 	api.SetMockError(AttachNetworkInterface, mockError)
@@ -119,7 +120,7 @@ func TestSetLimiter(t *testing.T) {
 	require.NotNil(t, api)
 
 	api.SetLimiter(10.0, 2)
-	_, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false)
+	_, _, err := api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false, ipam.IPv4)
 	require.NoError(t, err)
 }
 
@@ -135,6 +136,7 @@ func TestGetNextSubnet(t *testing.T) {
 }
 
 func TestPrefixToIps(t *testing.T) {
+	// Test IPv4 prefix
 	_, cidrTest, _ := net.ParseCIDR("10.128.0.0/9")
 	cidrSet, _ := cidrset.NewCIDRSet(cidrTest, 28)
 	subnet, err := cidrSet.AllocateNext()
@@ -143,6 +145,15 @@ func TestPrefixToIps(t *testing.T) {
 	ips, _ := ip.PrefixToIps(subnetStr, 0)
 	require.Equal(t, "10.128.0.0", ips[0])
 	require.Equal(t, "10.128.0.15", ips[len(ips)-1])
+	// Test IPv6 prefix
+	_, v6CidrTest, _ := net.ParseCIDR("2001:db8::/56")
+	v6CidrSet, _ := cidrset.NewCIDRSet(v6CidrTest, 64)
+	v6Subnet, err := v6CidrSet.AllocateNext()
+	require.NoError(t, err)
+	v6SubnetStr := v6Subnet.String()
+	v6Ips, _ := ip.PrefixToIps(v6SubnetStr, 64)
+	require.Equal(t, "2001:db8::", v6Ips[0])
+	require.Equal(t, "2001:db8::3f", v6Ips[len(v6Ips)-1]) // 63 in decimal
 }
 
 func TestPrefixCeil(t *testing.T) {

@@ -144,7 +144,7 @@ type IPAMSpec struct {
 	// +optional
 	PodCIDRs []string `json:"podCIDRs,omitempty"`
 
-	// MinAllocate is the minimum number of IPs that must be allocated when
+	// MinAllocate is the minimum number of IPv4 addresses that must be allocated when
 	// the node is first bootstrapped. It defines the minimum base socket
 	// of addresses that must be available. After reaching this watermark,
 	// the PreAllocate and MaxAboveWatermark logic takes over to continue
@@ -153,7 +153,7 @@ type IPAMSpec struct {
 	// +kubebuilder:validation:Minimum=0
 	MinAllocate int `json:"min-allocate,omitempty"`
 
-	// MaxAllocate is the maximum number of IPs that can be allocated to the
+	// MaxAllocate is the maximum number of IPv4 addresses that can be allocated to the
 	// node. When the current amount of allocated IPs will approach this value,
 	// the considered value for PreAllocate will decrease down to 0 in order to
 	// not attempt to allocate more addresses than defined.
@@ -161,7 +161,7 @@ type IPAMSpec struct {
 	// +kubebuilder:validation:Minimum=0
 	MaxAllocate int `json:"max-allocate,omitempty"`
 
-	// PreAllocate defines the number of IP addresses that must be
+	// PreAllocate defines the number of IPv4 addresses that must be
 	// available for allocation in the IPAMspec. It defines the buffer of
 	// addresses available immediately without requiring cilium-operator to
 	// get involved.
@@ -169,7 +169,7 @@ type IPAMSpec struct {
 	// +kubebuilder:validation:Minimum=0
 	PreAllocate int `json:"pre-allocate,omitempty"`
 
-	// MaxAboveWatermark is the maximum number of addresses to allocate
+	// MaxAboveWatermark is the maximum number of IPv4 addresses to allocate
 	// beyond the addresses needed to reach the PreAllocate watermark.
 	// Going above the watermark can help reduce the number of API calls to
 	// allocate IPs, e.g. when a new ENI is allocated, as many secondary
@@ -178,6 +178,41 @@ type IPAMSpec struct {
 	//
 	// +kubebuilder:validation:Minimum=0
 	MaxAboveWatermark int `json:"max-above-watermark,omitempty"`
+
+	// IPv6MinAllocate is the minimum number of IPv6 addresses that must be allocated when
+	// the node is first bootstrapped. It defines the minimum base socket
+	// of IPv6 addresses that must be available. After reaching this watermark,
+	// the IPv6PreAllocate and IPv6MaxAboveWatermark logic takes over to continue
+	// allocating IPv6 addresses.
+	//
+	// +kubebuilder:validation:Minimum=0
+	IPv6MinAllocate int `json:"ipv6-min-allocate,omitempty"`
+
+	// IPv6MaxAllocate is the maximum number of IPv6 addresses that can be allocated
+	// to the node. When the current amount of allocated IPv6 addresses will approach
+	// this value, the considered value for IPv6PreAllocate will decrease down to 0 in
+	// order to not attempt to allocate more IPv6 addresses than defined.
+	//
+	// +kubebuilder:validation:Minimum=0
+	IPv6MaxAllocate int `json:"ipv6-max-allocate,omitempty"`
+
+	// IPv6PreAllocate defines the number of IPv6 addresses that must be
+	// available for allocation in the IPAMspec. It defines the buffer of IPv6
+	// addresses available immediately without requiring cilium-operator to
+	// get involved.
+	//
+	// +kubebuilder:validation:Minimum=0
+	IPv6PreAllocate int `json:"ipv6-pre-allocate,omitempty"`
+
+	// IPv6MaxAboveWatermark is the maximum number of IPv6 addresses to allocate
+	// beyond the addresses needed to reach the IPv6PreAllocate watermark.
+	// Going above the watermark can help reduce the number of API calls to
+	// allocate IPs, e.g. when a new ENI is allocated, as many secondary
+	// IPv6 adresses as possible are allocated. Limiting the amount can help reduce
+	// waste of IPs.
+	//
+	// +kubebuilder:validation:Minimum=0
+	IPv6MaxAboveWatermark int `json:"ipv6-max-above-watermark,omitempty"`
 }
 
 // IPReleaseStatus defines the valid states in IP release handshake

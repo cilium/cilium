@@ -211,6 +211,18 @@ func (in *IPAMSpec) DeepEqual(other *IPAMSpec) bool {
 	if in.MaxAboveWatermark != other.MaxAboveWatermark {
 		return false
 	}
+	if in.IPv6MinAllocate != other.IPv6MinAllocate {
+		return false
+	}
+	if in.IPv6MaxAllocate != other.IPv6MaxAllocate {
+		return false
+	}
+	if in.IPv6PreAllocate != other.IPv6PreAllocate {
+		return false
+	}
+	if in.IPv6MaxAboveWatermark != other.IPv6MaxAboveWatermark {
+		return false
+	}
 
 	return true
 }

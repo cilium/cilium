@@ -19,10 +19,14 @@ func TestParse(t *testing.T) {
 	_, fakeCIDR, err := net.ParseCIDR("192.168.0.0/16")
 	require.Nil(t, err)
 
+	_, fakeV6CIDR, err := net.ParseCIDR("2001:db8::/80")
+	require.Nil(t, err)
+
 	fakeMAC, err := mac.ParseMAC("11:22:33:44:55:66")
 	require.Nil(t, err)
 
 	validCIDRs := []net.IPNet{*fakeCIDR}
+	validV6CIDRs := []net.IPNet{*fakeV6CIDR}
 
 	tests := []struct {
 		name      string
@@ -44,9 +48,18 @@ func TestParse(t *testing.T) {
 			wantErr:   true,
 		},
 		{
-			name:      "invalid cidr",
+			name:      "invalid IPv4 cidr",
 			gateway:   "192.168.1.1",
 			cidrs:     []string{"192.168.0.0/16", "192.168.0.0/33"},
+			macAddr:   "11:22:33:44:55:66",
+			masq:      true,
+			wantRInfo: nil,
+			wantErr:   true,
+		},
+		{
+			name:      "invalid IPv6 cidr",
+			gateway:   "2001:db8::321",
+			cidrs:     []string{"2001:db8::/80", "2001:db8::/129"},
 			macAddr:   "11:22:33:44:55:66",
 			masq:      true,
 			wantRInfo: nil,
@@ -113,7 +126,22 @@ func TestParse(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:     "disabled masquerade",
+			name:     "valid IPv6 input",
+			gateway:  "2001:db8::1",
+			cidrs:    []string{"2001:db8::/80"},
+			macAddr:  "11:22:33:44:55:66",
+			ifaceNum: "1",
+			wantRInfo: &RoutingInfo{
+				IPv6Gateway:     net.ParseIP("2001:db8::1"),
+				IPv6CIDRs:       validV6CIDRs,
+				MasterIfMAC:     fakeMAC,
+				InterfaceNumber: 1,
+				IpamMode:        ipamOption.IPAMENI,
+			},
+			wantErr: false,
+		},
+		{
+			name:     "IPv4 disabled masquerade",
 			gateway:  "192.168.1.1",
 			cidrs:    []string{},
 			macAddr:  "11:22:33:44:55:66",
@@ -121,9 +149,25 @@ func TestParse(t *testing.T) {
 			ifaceNum: "0",
 			wantRInfo: &RoutingInfo{
 				IPv4Gateway: net.ParseIP("192.168.1.1"),
-				IPv4CIDRs:   []net.IPNet{},
+				IPv4CIDRs:   nil,
 				MasterIfMAC: fakeMAC,
 				IpamMode:    ipamOption.IPAMENI,
+			},
+			wantErr: false,
+		},
+		{
+			name:     "IPv6 disabled masquerade",
+			gateway:  "2001:db8::1",
+			cidrs:    []string{"2001:db8::/80"},
+			macAddr:  "11:22:33:44:55:66",
+			masq:     false,
+			ifaceNum: "1",
+			wantRInfo: &RoutingInfo{
+				IPv6Gateway:     net.ParseIP("2001:db8::1"),
+				IPv6CIDRs:       validV6CIDRs,
+				MasterIfMAC:     fakeMAC,
+				InterfaceNumber: 1,
+				IpamMode:        ipamOption.IPAMENI,
 			},
 			wantErr: false,
 		},

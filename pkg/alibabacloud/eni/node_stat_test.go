@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/alibabacloud/eni/limits"
 	eniTypes "github.com/cilium/cilium/pkg/alibabacloud/eni/types"
+	"github.com/cilium/cilium/pkg/ipam"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -49,7 +50,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 			},
 		},
 	}
-	_, stats, err := n.ResyncInterfacesAndIPs(context.Background(), log)
+	_, stats, err := n.ResyncInterfacesAndIPs(context.Background(), log, ipam.IPv4)
 	assert.NoError(err)
 	// 3 ENIs, 10 IPs per ENI, 1 primary IP and one ENI is primary.
 	assert.Equal(19, stats.NodeCapacity)

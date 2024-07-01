@@ -123,7 +123,7 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 	instances := eni.NewInstancesManager(a.client)
 	nodeManager, err := ipam.NewNodeManager(instances, getterUpdater, iMetrics,
 		operatorOption.Config.ParallelAllocWorkers, operatorOption.Config.AWSReleaseExcessIPs,
-		operatorOption.Config.AWSEnablePrefixDelegation)
+		operatorOption.Config.AWSEnablePrefixDelegation, operatorOption.Config.AWSEnableIPv6PrefixDelegation)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize ENI node manager: %w", err)
 	}

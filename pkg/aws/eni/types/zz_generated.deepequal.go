@@ -21,6 +21,9 @@ func (in *AwsSubnet) DeepEqual(other *AwsSubnet) bool {
 	if in.CIDR != other.CIDR {
 		return false
 	}
+	if in.IPv6CIDR != other.IPv6CIDR {
+		return false
+	}
 
 	return true
 }
@@ -40,6 +43,23 @@ func (in *AwsVPC) DeepEqual(other *AwsVPC) bool {
 	}
 	if ((in.CIDRs != nil) && (other.CIDRs != nil)) || ((in.CIDRs == nil) != (other.CIDRs == nil)) {
 		in, other := &in.CIDRs, &other.CIDRs
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
+	if ((in.IPv6CIDRs != nil) && (other.IPv6CIDRs != nil)) || ((in.IPv6CIDRs == nil) != (other.IPv6CIDRs == nil)) {
+		in, other := &in.IPv6CIDRs, &other.IPv6CIDRs
 		if other == nil {
 			return false
 		}
@@ -110,6 +130,43 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 
 	if ((in.Prefixes != nil) && (other.Prefixes != nil)) || ((in.Prefixes == nil) != (other.Prefixes == nil)) {
 		in, other := &in.Prefixes, &other.Prefixes
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
+	if in.IPv6 != other.IPv6 {
+		return false
+	}
+	if ((in.IPv6Addresses != nil) && (other.IPv6Addresses != nil)) || ((in.IPv6Addresses == nil) != (other.IPv6Addresses == nil)) {
+		in, other := &in.IPv6Addresses, &other.IPv6Addresses
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
+	if ((in.IPv6Prefixes != nil) && (other.IPv6Prefixes != nil)) || ((in.IPv6Prefixes == nil) != (other.IPv6Prefixes == nil)) {
+		in, other := &in.IPv6Prefixes, &other.IPv6Prefixes
 		if other == nil {
 			return false
 		}

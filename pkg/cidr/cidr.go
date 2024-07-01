@@ -165,6 +165,21 @@ func ParseCIDR(str string) (*CIDR, error) {
 	return NewCIDR(ipnet), nil
 }
 
+// ParseIPv6CIDR parses the provided CIDR string and ensures it represents an IPv6 CIDR.
+func ParseIPv6CIDR(str string) (*CIDR, error) {
+	_, ipnet, err := net.ParseCIDR(str)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if the IP is an IPv6 address; if IP.To4() is nil, it's an IPv6 address
+	if ipnet.IP.To4() == nil {
+		return NewCIDR(ipnet), nil
+	}
+
+	return nil, fmt.Errorf("the provided CIDR is not a valid IPv6 CIDR")
+}
+
 // MustParseCIDR parses the CIDR string using net.ParseCIDR and panics if the
 // CIDR cannot be parsed
 func MustParseCIDR(str string) *CIDR {

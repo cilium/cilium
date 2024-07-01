@@ -32,6 +32,11 @@ func (in *AwsVPC) DeepCopyInto(out *AwsVPC) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.IPv6CIDRs != nil {
+		in, out := &in.IPv6CIDRs, &out.IPv6CIDRs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
@@ -57,6 +62,16 @@ func (in *ENI) DeepCopyInto(out *ENI) {
 	}
 	if in.Prefixes != nil {
 		in, out := &in.Prefixes, &out.Prefixes
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.IPv6Addresses != nil {
+		in, out := &in.IPv6Addresses, &out.IPv6Addresses
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.IPv6Prefixes != nil {
+		in, out := &in.IPv6Prefixes, &out.IPv6Prefixes
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
