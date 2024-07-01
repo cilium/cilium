@@ -5,6 +5,7 @@ package policy
 
 import (
 	"fmt"
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -2297,7 +2298,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 			return true
 		})
 
-		ms.denyPreferredInsertWithChanges(tt.args.key, tt.args.entry, nil, denyRules, changes)
+		ms.denyPreferredInsertWithChanges(tt.args.key, tt.args.entry, selectorCache, denyRules, changes)
 		ms.validatePortProto(t)
 		require.Truef(t, ms.Equals(tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.Diff(tt.want))
 		require.EqualValuesf(t, tt.wantAdds, changes.Adds, "%s: Adds mismatch", tt.name)
@@ -2305,7 +2306,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		require.EqualValuesf(t, tt.wantOld, changes.Old, "%s: OldValues mismatch allows", tt.name)
 
 		// Revert changes and check that we get the original mapstate
-		ms.revertChanges(nil, changes)
+		ms.revertChanges(selectorCache, changes)
 		require.Truef(t, ms.Equals(tt.ms), "%s: MapState mismatch:\n%s", tt.name, ms.Diff(tt.ms))
 	}
 }
@@ -3559,7 +3560,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, nil, denyRules)
+		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, selectorCache, denyRules)
 		changes = ChangeState{
 			Adds:    adds,
 			Deletes: deletes,
@@ -3750,4 +3751,170 @@ func TestMapState_Get_stacktrace(t *testing.T) {
 	// go/src/testing/testing.go:1689" subsys=policy
 	_, ok := ms.Get(Key{})
 	assert.False(t, ok)
+}
+
+type validator struct{}
+
+// prefixesContainsAny checks that any subnet in the `a` subnet group *fully*
+// contains any of the subnets in the `b` subnet group.
+func prefixesContainsAny(a, b []netip.Prefix) bool {
+	for _, an := range a {
+		aMask := an.Bits()
+		aIsIPv4 := an.Addr().Is4()
+		for _, bn := range b {
+			bIsIPv4 := bn.Addr().Is4()
+			isSameFamily := aIsIPv4 == bIsIPv4
+			if isSameFamily {
+				bMask := bn.Bits()
+				if bMask >= aMask && an.Contains(bn.Addr()) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// identityIsSupersetOf compares two entries and keys to see if the primary identity contains
+// the compared identity. This means that either that primary identity is 0 (i.e. it is a superset
+// of every other identity), or one of the subnets of the primary identity fully contains or is
+// equal to one of the subnets in the compared identity (note:this covers cases like "reserved:world").
+func identityIsSupersetOf(primaryIdentity, compareIdentity uint32, identities Identities) bool {
+	// If the identities are equal then neither is a superset (for the purposes of our business logic).
+	if primaryIdentity == compareIdentity {
+		return false
+	}
+
+	// Consider an identity that selects a broader CIDR as a superset of
+	// an identity that selects a narrower CIDR. For instance, an identity
+	// corresponding to 192.0.0.0/16 is a superset of the identity that
+	// corresponds to 192.0.2.3/32.
+	//
+	// The reasons we need to do this are surprisingly complex, taking into
+	// consideration design decisions around the handling of ToFQDNs policy
+	// and how L4PolicyMap/L4Filter structures cache the policies with
+	// respect to specific CIDRs. More specifically:
+	// - At the time of initial L4Filter creation, it is not known which
+	//   specific CIDRs (or corresponding identities) are selected by a
+	//   toFQDNs rule in the policy engine.
+	// - It is possible to have a CIDR deny rule that should deny peers
+	//   that are allowed by a ToFQDNs statement. The precedence rules in
+	//   the API for such policy conflicts define that the deny should take
+	//   precedence.
+	// - Consider a case where there is a deny rule for 192.0.0.0/16 with
+	//   an allow rule for cilium.io, and one of the IP addresses for
+	//   cilium.io is 192.0.2.3.
+	// - If the IP for cilium.io was known at initial policy computation
+	//   time, then we would calculate the MapState from the L4Filters and
+	//   immediately determine that there is a conflict between the
+	//   L4Filter that denies 192.0.0.0/16 vs. the allow for 192.0.2.3.
+	//   From this we could immediately discard the "allow to 192.0.2.3"
+	//   policymap entry during policy calculation. This would satisfy the
+	//   API constraint that deny rules take precedence over allow rules.
+	//   However, this is not the case for ToFQDNs -- the IPs are not known
+	//   until DNS resolution time by the selected application / endpoint.
+	// - In order to make ToFQDNs policy implementation efficient, it uses
+	//   a shorter incremental policy computation path that attempts to
+	//   directly implement the ToFQDNs allow into a MapState entry without
+	//   reaching back up to the L4Filter layer to iterate all selectors
+	//   to determine traffic reachability for this newly learned IP.
+	// - As such, when the new ToFQDNs allow for the 192.0.2.3 IP address
+	//   is implemented, we must iterate back through all existing MapState
+	//   entries to determine whether any of the other map entries already
+	//   denies this traffic by virtue of the IP prefix being a superset of
+	//   this new allow. This allows us to ensure that the broader CIDR
+	//   deny semantics are correctly applied when there is a combination
+	//   of CIDR deny rules and ToFQDNs allow rules.
+	//
+	// An alternative to this approach might be to change the ToFQDNs
+	// policy calculation layer to reference back to the L4Filter layer,
+	// and perhaps introduce additional CIDR caching somewhere there so
+	// that this policy computation can be efficient while handling DNS
+	// responses. As of the writing of this message, such there is no
+	// active proposal to implement this proposal. As a result, any time
+	// there is an incremental policy update for a new map entry, we must
+	// iterate through all entries in the map and re-evaluate superset
+	// relationships for deny entries to ensure that policy precedence is
+	// correctly implemented between the new and old entries, taking into
+	// account whether the identities may represent CIDRs that have a
+	// superset relationship.
+	return primaryIdentity == 0 && compareIdentity != 0 ||
+		prefixesContainsAny(getNets(identities, primaryIdentity),
+			getNets(identities, compareIdentity))
+}
+
+func (v *validator) isSupersetOf(a, d Key, identities Identities) {
+	if a.TrafficDirection != d.TrafficDirection {
+		panic("TrafficDirection mismatch")
+	}
+	if !identityIsSupersetOf(a.Identity, d.Identity, identities) {
+		panic(fmt.Sprintf("superset mismatch %s !> %s",
+			identities.GetPrefix(identity.NumericIdentity(a.Identity)).String(),
+			identities.GetPrefix(identity.NumericIdentity(d.Identity)).String()))
+	}
+}
+
+func (v *validator) isSupersetOrSame(a, d Key, identities Identities) {
+	if a.TrafficDirection != d.TrafficDirection {
+		panic("TrafficDirection mismatch")
+	}
+	if !(a.Identity == d.Identity ||
+		identityIsSupersetOf(a.Identity, d.Identity, identities)) {
+		panic(fmt.Sprintf("superset or equal mismatch %s !>= %s",
+			identities.GetPrefix(identity.NumericIdentity(a.Identity)).String(),
+			identities.GetPrefix(identity.NumericIdentity(d.Identity)).String()))
+	}
+}
+
+func (v *validator) isBroader(a, d Key) {
+	if a.TrafficDirection != d.TrafficDirection {
+		panic("TrafficDirection mismatch")
+	}
+
+	// Do not consider non-matching protocols
+	if !protocolsMatch(a, d) || !a.PortProtoIsBroader(d) {
+		panic(fmt.Sprintf("descendant (%v) is not narrower than ancestor (%v)", d, a))
+	}
+}
+
+func (v *validator) isBroaderOrEqual(a, d Key) {
+	if a.TrafficDirection != d.TrafficDirection {
+		panic("TrafficDirection mismatch")
+	}
+
+	// Do not consider non-matching protocols
+	if !protocolsMatch(a, d) || !(a.PortProtoIsBroader(d) || a.PortProtoIsEqual(d)) {
+		panic(fmt.Sprintf("descendant (%v) is not narrower than ancestor (%v)", d, a))
+	}
+}
+
+func TestDenyPreferredInsertLogic(t *testing.T) {
+	td := newTestData()
+	td.bootstrapRepo(GenerateCIDRDenyRules, 1000, t)
+	p, _ := td.repo.resolvePolicyLocked(fooIdentity)
+
+	mapState := newMapState()
+	mapState.validator = &validator{} // insert validator
+
+	// This is DistillPolicy, but with MapState validator injected
+	epPolicy := &EndpointPolicy{
+		selectorPolicy: p,
+		policyMapState: mapState,
+		PolicyOwner:    DummyOwner{},
+	}
+
+	if !p.IngressPolicyEnabled || !p.EgressPolicyEnabled {
+		epPolicy.policyMapState.allowAllIdentities(
+			!p.IngressPolicyEnabled, !p.EgressPolicyEnabled)
+	}
+	p.insertUser(epPolicy)
+
+	p.SelectorCache.mutex.RLock()
+	epPolicy.toMapState()
+	epPolicy.policyMapState.determineAllowLocalhostIngress()
+	p.SelectorCache.mutex.RUnlock()
+
+	n := epPolicy.policyMapState.Len()
+	p.Detach()
+	assert.True(t, n > 0)
 }
