@@ -1059,8 +1059,7 @@ err_ct_fill_up:
 
 #ifndef DISABLE_LOOPBACK_LB
 static __always_inline bool
-ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple,
-			      __u16 *rev_nat_index)
+ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple)
 {
 	__u8 flags = tuple->flags;
 	struct ct_entry *entry;
@@ -1069,12 +1068,7 @@ ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple,
 	entry = map_lookup_elem(map, tuple);
 	tuple->flags = flags;
 
-	if (entry && entry->lb_loopback) {
-		*rev_nat_index = entry->rev_nat_index;
-		return true;
-	}
-
-	return false;
+	return entry && entry->lb_loopback;
 }
 #endif
 
