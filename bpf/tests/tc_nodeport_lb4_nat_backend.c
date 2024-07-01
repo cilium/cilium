@@ -20,17 +20,17 @@
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 #undef FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 
-#define CLIENT_IP		v4_ext_one
-#define CLIENT_PORT		__bpf_htons(111)
+#define CLIENT_IP	    v4_ext_one
+#define CLIENT_PORT	    __bpf_htons(111)
 
-#define FRONTEND_IP		v4_svc_one
-#define FRONTEND_PORT		tcp_svc_one
+#define FRONTEND_IP	    v4_svc_one
+#define FRONTEND_PORT	    tcp_svc_one
 
-#define LB_IP			v4_node_one
-#define LB_PORT			__bpf_htons(222)
+#define LB_IP		    v4_node_one
+#define LB_PORT		    __bpf_htons(222)
 
-#define BACKEND_IP		v4_pod_one
-#define BACKEND_PORT		__bpf_htons(8080)
+#define BACKEND_IP	    v4_pod_one
+#define BACKEND_PORT	    __bpf_htons(8080)
 
 #define SECCTX_FROM_IPCACHE 1
 
@@ -43,8 +43,8 @@
 static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *backend_mac = mac_four;
 
-#define FROM_NETDEV	0
-#define TO_NETDEV	1
+#define FROM_NETDEV 0
+#define TO_NETDEV   1
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -74,10 +74,9 @@ int nodeport_nat_backend_pktgen(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)src, (__u8 *)dst,
-					  LB_IP, BACKEND_IP,
-					  LB_PORT, BACKEND_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)src, (__u8 *)dst, LB_IP, BACKEND_IP, LB_PORT,
+		BACKEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -95,11 +94,12 @@ SETUP("tc", "tc_nodeport_nat_backend")
 int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 {
 	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, 1);
-	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
-			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
+	lb_v4_add_backend(
+		FRONTEND_IP, FRONTEND_PORT, 1, 124, BACKEND_IP, BACKEND_PORT,
+		IPPROTO_TCP, 0);
 
-	endpoint_v4_add_entry(BACKEND_IP, 0, 0, 0, 0,
-			      (__u8 *)backend_mac, (__u8 *)node_mac);
+	endpoint_v4_add_entry(
+		BACKEND_IP, 0, 0, 0, 0, (__u8 *)backend_mac, (__u8 *)node_mac);
 
 	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
 
@@ -143,12 +143,11 @@ int nodeport_nat_backend_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
-	if (memcmp(l2->h_dest, (__u8 *)backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("src MAC is not the node MAC") if (
+			memcmp(l2->h_dest, (__u8 *)backend_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the endpoint MAC")
 
-	if (l3->saddr != LB_IP)
-		test_fatal("src IP has changed");
+			if (l3->saddr != LB_IP) test_fatal("src IP has changed");
 
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP has changed");

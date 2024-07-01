@@ -4,7 +4,7 @@
 #include "common.h"
 
 /* Set the LXC source address to be the address of pod one */
-#define LXC_IPV4 (__be32)v4_pod_one
+#define LXC_IPV4 (__be32) v4_pod_one
 
 /* Enable CT debug output */
 #undef QUIET_CT
@@ -24,9 +24,9 @@
 #undef FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 
 #define ctx_redirect_peer mock_ctx_redirect_peer
-static __always_inline __maybe_unused int
-mock_ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex __maybe_unused,
-		       __u32 flags __maybe_unused)
+static __always_inline __maybe_unused int mock_ctx_redirect_peer(
+	const struct __sk_buff *ctx __maybe_unused, int ifindex __maybe_unused,
+	__u32 flags __maybe_unused)
 {
 	return TC_ACT_REDIRECT;
 }
@@ -73,8 +73,8 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l3 = pktgen__push_ipv4_packet(&builder, (__u8 *)src, (__u8 *)dst,
-				      v4_pod_one, v4_svc_one);
+	l3 = pktgen__push_ipv4_packet(
+		&builder, (__u8 *)src, (__u8 *)dst, v4_pod_one, v4_svc_one);
 	if (!l3)
 		return TEST_ERROR;
 
@@ -93,8 +93,9 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	pktgen__finish(&builder);
 
 	lb_v4_add_service(v4_svc_one, tcp_svc_one, 1, revnat_id);
-	lb_v4_add_backend(v4_svc_one, tcp_svc_one, 1, 124,
-			  v4_pod_one, tcp_svc_one, IPPROTO_SCTP, 0);
+	lb_v4_add_backend(
+		v4_svc_one, tcp_svc_one, 1, 124, v4_pod_one, tcp_svc_one,
+		IPPROTO_SCTP, 0);
 
 	/* Add an IPCache entry for pod 1 */
 	ipcache_v4_add_entry(v4_pod_one, 0, 112233, 0, 0);
@@ -169,8 +170,8 @@ int hairpin_flow_forward_ingress_pktgen(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l3 = pktgen__push_ipv4_packet(&builder, (__u8 *)src, (__u8 *)dst,
-				      IPV4_LOOPBACK, v4_pod_one);
+	l3 = pktgen__push_ipv4_packet(
+		&builder, (__u8 *)src, (__u8 *)dst, IPV4_LOOPBACK, v4_pod_one);
 	if (!l3)
 		return TEST_ERROR;
 
@@ -260,8 +261,8 @@ int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l3 = pktgen__push_ipv4_packet(&builder, (__u8 *)src, (__u8 *)dst,
-				      v4_pod_one, IPV4_LOOPBACK);
+	l3 = pktgen__push_ipv4_packet(
+		&builder, (__u8 *)src, (__u8 *)dst, v4_pod_one, IPV4_LOOPBACK);
 	if (!l3)
 		return TEST_ERROR;
 
@@ -341,8 +342,8 @@ int hairpin_sctp_flow_4_reverse_ingress_v4_pktgen(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l3 = pktgen__push_ipv4_packet(&builder, (__u8 *)src, (__u8 *)dst,
-				      v4_pod_one, IPV4_LOOPBACK);
+	l3 = pktgen__push_ipv4_packet(
+		&builder, (__u8 *)src, (__u8 *)dst, v4_pod_one, IPV4_LOOPBACK);
 	if (!l3)
 		return TEST_ERROR;
 

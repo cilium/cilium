@@ -5,12 +5,13 @@
 
 #include "dbg.h"
 
-static __always_inline bool identity_in_range(__u32 identity, __u32 range_start, __u32 range_end)
+static __always_inline bool
+identity_in_range(__u32 identity, __u32 range_start, __u32 range_end)
 {
 	return range_start <= identity && identity <= range_end;
 }
 
-#define IDENTITY_LOCAL_SCOPE_MASK 0xFF000000
+#define IDENTITY_LOCAL_SCOPE_MASK	 0xFF000000
 #define IDENTITY_LOCAL_SCOPE_REMOTE_NODE 0x02000000
 
 static __always_inline bool identity_is_host(__u32 identity)
@@ -39,9 +40,9 @@ static __always_inline bool identity_is_remote_node(__u32 identity)
 	 * the identity as used here. If the apiserver is outside the cluster,
 	 * then the KUBE_APISERVER_NODE_ID case should not ever be hit.
 	 */
-	return identity == REMOTE_NODE_ID ||
-		identity == KUBE_APISERVER_NODE_ID ||
-		(identity & IDENTITY_LOCAL_SCOPE_MASK) == IDENTITY_LOCAL_SCOPE_REMOTE_NODE;
+	return identity == REMOTE_NODE_ID || identity == KUBE_APISERVER_NODE_ID ||
+	       (identity &
+		IDENTITY_LOCAL_SCOPE_MASK) == IDENTITY_LOCAL_SCOPE_REMOTE_NODE;
 }
 
 static __always_inline bool identity_is_node(__u32 identity)
@@ -72,10 +73,10 @@ static __always_inline bool identity_is_node(__u32 identity)
 static __always_inline bool identity_is_reserved(__u32 identity)
 {
 #if defined ENABLE_IPV4 && defined ENABLE_IPV6
-		return identity < UNMANAGED_ID || identity_is_remote_node(identity) ||
-			identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID;
+	return identity < UNMANAGED_ID || identity_is_remote_node(identity) ||
+	       identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID;
 #else
-		return identity < UNMANAGED_ID || identity_is_remote_node(identity);
+	return identity < UNMANAGED_ID || identity_is_remote_node(identity);
 #endif
 }
 
@@ -90,9 +91,9 @@ static __always_inline bool identity_is_reserved(__u32 identity)
 static __always_inline bool identity_is_world_ipv4(__u32 identity)
 {
 #if defined ENABLE_IPV4 && defined ENABLE_IPV6
-		return identity == WORLD_ID || identity == WORLD_IPV4_ID;
+	return identity == WORLD_ID || identity == WORLD_IPV4_ID;
 #else
-		return identity == WORLD_ID;
+	return identity == WORLD_ID;
 #endif
 }
 
@@ -107,9 +108,9 @@ static __always_inline bool identity_is_world_ipv4(__u32 identity)
 static __always_inline bool identity_is_world_ipv6(__u32 identity)
 {
 #if defined ENABLE_IPV4 && defined ENABLE_IPV6
-		return identity == WORLD_ID || identity == WORLD_IPV6_ID;
+	return identity == WORLD_ID || identity == WORLD_IPV6_ID;
 #else
-		return identity == WORLD_ID;
+	return identity == WORLD_ID;
 #endif
 }
 
@@ -119,7 +120,8 @@ static __always_inline bool identity_is_world_ipv6(__u32 identity)
  */
 static __always_inline bool identity_is_cidr_range(__u32 identity)
 {
-	return identity_in_range(identity, CIDR_IDENTITY_RANGE_START, CIDR_IDENTITY_RANGE_END);
+	return identity_in_range(
+		identity, CIDR_IDENTITY_RANGE_START, CIDR_IDENTITY_RANGE_END);
 }
 
 /**
@@ -145,7 +147,8 @@ static __always_inline bool identity_is_cidr_range(__u32 identity)
 static __always_inline bool identity_is_cluster(__u32 identity)
 {
 #if defined ENABLE_IPV4 && defined ENABLE_IPV6
-	if (identity == WORLD_ID || identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID)
+	if (identity == WORLD_ID || identity == WORLD_IPV4_ID ||
+	    identity == WORLD_IPV6_ID)
 		return false;
 #else
 	if (identity == WORLD_ID)
@@ -159,7 +162,8 @@ static __always_inline bool identity_is_cluster(__u32 identity)
 }
 
 #if __ctx_is == __ctx_skb
-static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, __u32 *identity)
+static __always_inline __u32
+inherit_identity_from_host(struct __ctx_buff *ctx, __u32 *identity)
 {
 	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 
@@ -170,7 +174,7 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 	if (magic == MARK_MAGIC_PROXY_INGRESS) {
 		*identity = get_identity(ctx);
 		ctx->tc_index |= TC_INDEX_F_FROM_INGRESS_PROXY;
-	/* (Return) packets from the egress proxy must skip the redirection to
+		/* (Return) packets from the egress proxy must skip the redirection to
 	 * the proxy, as the packet would loop and/or the connection be reset
 	 * otherwise.
 	 */
@@ -201,12 +205,13 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 			 */
 			*identity = get_identity(ctx);
 		}
-#if defined(ENABLE_L7_LB)
+# if defined(ENABLE_L7_LB)
 	} else if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
-		*identity = get_epid(ctx); /* endpoint identity, not security identity! */
-#endif
+		*identity = get_epid(
+			ctx); /* endpoint identity, not security identity! */
+# endif
 	} else {
-#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+# if defined ENABLE_IPV4 && defined ENABLE_IPV6
 		__u16 proto = ctx_get_protocol(ctx);
 
 		if (proto == bpf_htons(ETH_P_IP))
@@ -215,20 +220,20 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 			*identity = WORLD_IPV6_ID;
 		else
 			*identity = WORLD_ID;
-#else
+# else
 		*identity = WORLD_ID;
-#endif
+# endif
 	}
 
 	/* Reset packet mark to avoid hitting routing rules again */
 	ctx->mark = 0;
 
-#if defined(ENABLE_L7_LB)
+# if defined(ENABLE_L7_LB)
 	/* Caller tail calls back to source endpoint egress in this case,
 	 * do not log the (world) identity.
 	 */
 	if (magic != MARK_MAGIC_PROXY_EGRESS_EPID)
-#endif
+# endif
 		cilium_dbg(ctx, DBG_INHERIT_IDENTITY, *identity, 0);
 
 	return magic;

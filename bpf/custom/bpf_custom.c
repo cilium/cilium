@@ -19,18 +19,18 @@
 
 #ifndef BPF_CUSTOM_PROG_FILE
 /* Default to bytecount.h for the included file */
-#define BPF_CUSTOM_PROG_FILE bytecount.h
+# define BPF_CUSTOM_PROG_FILE bytecount.h
 #endif
 
 #ifndef BPF_CUSTOM_PROG_NAME
 /* Default to __section("custom") for the program */
-#define BPF_CUSTOM_PROG_NAME custom
+# define BPF_CUSTOM_PROG_NAME custom
 #endif
 
 #include STRINGIFY(BPF_CUSTOM_PROG_FILE)
 
-__section(STRINGIFY(BPF_CUSTOM_PROG_NAME))
-int custom_hook(const struct __ctx_buff *ctx)
+__section(STRINGIFY(BPF_CUSTOM_PROG_NAME)) int custom_hook(
+	const struct __ctx_buff *ctx)
 {
 	__u32 custom_meta = ctx_load_meta(ctx, CB_CUSTOM_CALLS);
 	__u32 identity = custom_meta & 0xffffff;

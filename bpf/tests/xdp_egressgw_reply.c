@@ -17,22 +17,22 @@
 #define ENABLE_EGRESS_GATEWAY
 #define ENABLE_MASQUERADE
 
-#define TUNNEL_PROTOCOL		TUNNEL_PROTOCOL_VXLAN
-#define ENCAP_IFINDEX		42
+#define TUNNEL_PROTOCOL TUNNEL_PROTOCOL_VXLAN
+#define ENCAP_IFINDEX	42
 
 #define DISABLE_LOOPBACK_LB
 
 /* Skip ingress policy checks, not needed to validate hairpin flow */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 
-#define IPV4_DIRECT_ROUTING	v4_node_one /* gateway node */
-#define MASQ_PORT		__bpf_htons(NODEPORT_PORT_MIN_NAT + 1)
-#define DIRECT_ROUTING_IFINDEX	25
+#define IPV4_DIRECT_ROUTING    v4_node_one /* gateway node */
+#define MASQ_PORT	       __bpf_htons(NODEPORT_PORT_MIN_NAT + 1)
+#define DIRECT_ROUTING_IFINDEX 25
 
-#define ctx_redirect mock_ctx_redirect
-static __always_inline __maybe_unused int
-mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
-		  __u32 flags __maybe_unused);
+#define ctx_redirect	       mock_ctx_redirect
+static __always_inline __maybe_unused int mock_ctx_redirect(
+	const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
+	__u32 flags __maybe_unused);
 
 #define fib_lookup mock_fib_lookup
 static __always_inline __maybe_unused long
@@ -44,9 +44,9 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include "lib/egressgw.h"
 #include "lib/ipcache.h"
 
-static __always_inline __maybe_unused int
-mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
-		  __u32 flags __maybe_unused)
+static __always_inline __maybe_unused int mock_ctx_redirect(
+	const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
+	__u32 flags __maybe_unused)
 {
 	if (ifindex != DIRECT_ROUTING_IFINDEX)
 		return CTX_ACT_DROP;
@@ -70,7 +70,7 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 	return 0;
 }
 
-#define FROM_NETDEV	0
+#define FROM_NETDEV 0
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -91,10 +91,10 @@ int egressgw_reply_pktgen(struct __ctx_buff *ctx)
 {
 	/* Add a new NAT entry so that pktgen can figure out the correct destination port */
 	struct ipv4_ct_tuple tuple = {
-		.saddr   = CLIENT_IP,
-		.daddr   = EXTERNAL_SVC_IP,
-		.dport   = EXTERNAL_SVC_PORT,
-		.sport   = client_port(TEST_XDP_REPLY),
+		.saddr = CLIENT_IP,
+		.daddr = EXTERNAL_SVC_IP,
+		.dport = EXTERNAL_SVC_PORT,
+		.sport = client_port(TEST_XDP_REPLY),
 		.nexthdr = IPPROTO_TCP,
 	};
 
@@ -105,7 +105,9 @@ int egressgw_reply_pktgen(struct __ctx_buff *ctx)
 
 	map_update_elem(&SNAT_MAPPING_IPV4, &tuple, &nat_entry, BPF_ANY);
 
-	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
+	return egressgw_pktgen(
+		ctx,
+		(struct egressgw_test_ctx){
 			.test = TEST_XDP_REPLY,
 			.dir = CT_INGRESS,
 		});
@@ -115,16 +117,17 @@ SETUP("xdp", "xdp_egressgw_reply")
 int egressgw_reply_setup(struct __ctx_buff *ctx)
 {
 	/* install EgressGW policy for the connection: */
-	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP, 0);
+	add_egressgw_policy_entry(
+		CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP, 0);
 
 	/* install RevSNAT entry */
 	struct ipv4_ct_tuple snat_tuple = {
-		.daddr   = EGRESS_IP,
-		.saddr   = EXTERNAL_SVC_IP,
-		.dport   = MASQ_PORT,
-		.sport   = EXTERNAL_SVC_PORT,
+		.daddr = EGRESS_IP,
+		.saddr = EXTERNAL_SVC_IP,
+		.dport = MASQ_PORT,
+		.sport = EXTERNAL_SVC_PORT,
 		.nexthdr = IPPROTO_TCP,
-		.flags   = NAT_DIR_INGRESS,
+		.flags = NAT_DIR_INGRESS,
 	};
 
 	struct ipv4_nat_entry snat_entry = {
@@ -195,42 +198,44 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("inner l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)gateway_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the gateway MAC")
-	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the client node MAC")
+		test_fatal("src MAC is not the gateway MAC") if (
+			memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the client node MAC")
 
-	if (l2->h_proto != bpf_htons(ETH_P_IP))
-		test_fatal("l2 doesn't have correct proto type")
+			if (l2->h_proto != bpf_htons(ETH_P_IP)) test_fatal(
+				"l2 doesn't have correct proto type")
 
-	if (l3->protocol != IPPROTO_UDP)
-		test_fatal("outer IP doesn't have correct L4 protocol")
+				if (l3->protocol != IPPROTO_UDP) test_fatal(
+					"outer IP doesn't have correct L4 protocol")
 
-	if (l3->check != bpf_htons(0x527e))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+					if (l3->check != bpf_htons(0x527e)) test_fatal(
+						"L3 checksum is invalid: %d",
+						bpf_htons(l3->check));
 
 	if (l3->saddr != IPV4_DIRECT_ROUTING)
 		test_fatal("outerSrcIP is not correct")
 
-	if (l3->daddr != CLIENT_NODE_IP)
-		test_fatal("outerDstIP is not correct")
+			if (l3->daddr != CLIENT_NODE_IP) test_fatal(
+				"outerDstIP is not correct")
 
-	if (l4->dest != bpf_htons(TUNNEL_PORT))
-		test_fatal("outerDstPort is not tunnel port")
+				if (l4->dest != bpf_htons(TUNNEL_PORT)) test_fatal(
+					"outerDstPort is not tunnel port")
 
-	if (inner_l2->h_proto != bpf_htons(ETH_P_IP))
-		test_fatal("inner L2 doesn't have correct ethertype")
+					if (inner_l2->h_proto != bpf_htons(ETH_P_IP)) test_fatal(
+						"inner L2 doesn't have correct ethertype")
 
-	if (inner_l3->protocol != IPPROTO_TCP)
-		test_fatal("inner IP doesn't have correct L4 protocol")
+						if (inner_l3->protocol !=
+						    IPPROTO_TCP) test_fatal("inner IP doesn't have correct L4 protocol")
 
-	if (inner_l3->saddr != EXTERNAL_SVC_IP)
-		test_fatal("innerSrcIP is not the external SVC IP");
+							if (inner_l3->saddr != EXTERNAL_SVC_IP)
+								test_fatal("innerSrcIP is not the external SVC IP");
 
 	if (inner_l3->daddr != CLIENT_IP)
 		test_fatal("innerDstIP hasn't been revNATed to the client IP");
 
 	if (inner_l3->check != bpf_htons(0x4212))
-		test_fatal("inner L3 checksum is invalid: %d", bpf_htons(inner_l3->check));
+		test_fatal("inner L3 checksum is invalid: %d",
+			   bpf_htons(inner_l3->check));
 
 	if (inner_l4->source != EXTERNAL_SVC_PORT)
 		test_fatal("innerSrcPort is not the external SVC port");

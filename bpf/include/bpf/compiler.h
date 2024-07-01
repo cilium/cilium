@@ -3,7 +3,9 @@
 
 #pragma once
 
-# include "stddef.h"
+#include "stddef.h"
+
+/* clang-format off */
 
 #ifndef __section
 # define __section(X)		__attribute__((section(X), used))
@@ -76,6 +78,8 @@
 # define barrier_data(ptr)	asm volatile("": :"r"(ptr) :"memory")
 #endif
 
+/* clang-format on */
+
 static __always_inline void bpf_barrier(void)
 {
 	/* Workaround to avoid verifier complaint:
@@ -86,34 +90,38 @@ static __always_inline void bpf_barrier(void)
 }
 
 #ifndef ARRAY_SIZE
-# define ARRAY_SIZE(A)		(sizeof(A) / sizeof((A)[0]))
+# define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 #endif
 
 #ifndef __READ_ONCE
-# define __READ_ONCE(X)		(*(volatile typeof(X) *)&X)
+# define __READ_ONCE(X) (*(volatile typeof(X) *)&X)
 #endif
 
 #ifndef __WRITE_ONCE
-# define __WRITE_ONCE(X, V)	(*(volatile typeof(X) *)&X) = (V)
+# define __WRITE_ONCE(X, V) (*(volatile typeof(X) *)&X) = (V)
 #endif
 
 /* {READ,WRITE}_ONCE() with verifier workaround via bpf_barrier(). */
 
 #ifndef READ_ONCE
-# define READ_ONCE(X)						\
-			({ typeof(X) __val = __READ_ONCE(X);	\
-			   bpf_barrier();			\
-			   __val; })
+# define READ_ONCE(X)                       \
+	 ({                                 \
+	  typeof(X) __val = __READ_ONCE(X); \
+	  bpf_barrier();                    \
+	  __val;                            \
+	 })
 #endif
 
 #ifndef WRITE_ONCE
-# define WRITE_ONCE(X, V)					\
-				({ typeof(X) __val = (V);	\
-				   __WRITE_ONCE(X, __val);	\
-				   bpf_barrier();		\
-				   __val; })
+# define WRITE_ONCE(X, V)         \
+	 ({                       \
+	  typeof(X) __val = (V);  \
+	  __WRITE_ONCE(X, __val); \
+	  bpf_barrier();          \
+	  __val;                  \
+	 })
 #endif
 
 #ifndef fallthrough
-# define fallthrough		__attribute__((fallthrough))
+# define fallthrough __attribute__((fallthrough))
 #endif

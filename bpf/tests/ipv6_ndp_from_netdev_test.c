@@ -40,10 +40,9 @@ int ipv6_from_netdev_ns_for_pod_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv6_icmp6_packet(&builder,
-					    (__u8 *)mac_one, (__u8 *)mac_two,
-					    (__u8 *)v6_pod_one, (__u8 *)v6_pod_two,
-					    ICMP6_NS_MSG_TYPE);
+	l4 = pktgen__push_ipv6_icmp6_packet(
+		&builder, (__u8 *)mac_one, (__u8 *)mac_two, (__u8 *)v6_pod_one,
+		(__u8 *)v6_pod_two, ICMP6_NS_MSG_TYPE);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -51,7 +50,7 @@ int ipv6_from_netdev_ns_for_pod_pktgen(struct __ctx_buff *ctx)
 	if (!data)
 		return TEST_ERROR;
 
-	__u8 options[] = {0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1};
+	__u8 options[] = { 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1 };
 
 	data = pktgen__push_data(&builder, (__u8 *)options, 8);
 
@@ -62,8 +61,9 @@ int ipv6_from_netdev_ns_for_pod_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "01_ipv6_from_netdev_ns_for_pod")
 int ipv6_from_netdev_ns_for_pod_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v6_add_entry((union v6addr *)v6_pod_three, 0, 0, 0, 0,
-			      (__u8 *)mac_three, (__u8 *)mac_two);
+	endpoint_v6_add_entry(
+		(union v6addr *)v6_pod_three, 0, 0, 0, 0, (__u8 *)mac_three,
+		(__u8 *)mac_two);
 	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
 	return TEST_ERROR;
 }
@@ -155,10 +155,9 @@ int ipv6_from_netdev_ns_for_node_ip_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv6_icmp6_packet(&builder,
-					    (__u8 *)mac_one, (__u8 *)mac_two,
-					    (__u8 *)v6_pod_one, (__u8 *)v6_pod_two,
-					    ICMP6_NS_MSG_TYPE);
+	l4 = pktgen__push_ipv6_icmp6_packet(
+		&builder, (__u8 *)mac_one, (__u8 *)mac_two, (__u8 *)v6_pod_one,
+		(__u8 *)v6_pod_two, ICMP6_NS_MSG_TYPE);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -169,7 +168,7 @@ int ipv6_from_netdev_ns_for_node_ip_pktgen(struct __ctx_buff *ctx)
 	if (!data)
 		return TEST_ERROR;
 
-	__u8 options[] = {0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1};
+	__u8 options[] = { 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1 };
 
 	data = pktgen__push_data(&builder, (__u8 *)options, 8);
 
@@ -183,8 +182,9 @@ int ipv6_from_netdev_ns_for_node_ip_setup(struct __ctx_buff *ctx)
 	union v6addr node_ip;
 
 	BPF_V6(node_ip, HOST_IP);
-	endpoint_v6_add_entry((union v6addr *)&node_ip, 0, 0, ENDPOINT_F_HOST, 0,
-			      (__u8 *)mac_three, (__u8 *)mac_two);
+	endpoint_v6_add_entry(
+		(union v6addr *)&node_ip, 0, 0, ENDPOINT_F_HOST, 0,
+		(__u8 *)mac_three, (__u8 *)mac_two);
 	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
 	return TEST_ERROR;
 }

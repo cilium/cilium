@@ -20,10 +20,9 @@ int ipv6_without_extension_header_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv6_tcp_packet(&builder,
-					  (__u8 *)mac_one, (__u8 *)mac_two,
-					  (__u8 *)v6_node_one, (__u8 *)v6_node_two,
-					  tcp_src_one, tcp_svc_one);
+	l4 = pktgen__push_ipv6_tcp_packet(
+		&builder, (__u8 *)mac_one, (__u8 *)mac_two, (__u8 *)v6_node_one,
+		(__u8 *)v6_node_two, tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -118,7 +117,7 @@ int ipv6_with_hop_auth_tcp_pktgen(struct __ctx_buff *ctx)
 		return TEST_ERROR;
 
 	authhdr = (struct ipv6_authhdr *)l3_next;
-	if ((void *) authhdr + sizeof(struct ipv6_authhdr) > ctx_data_end(ctx))
+	if ((void *)authhdr + sizeof(struct ipv6_authhdr) > ctx_data_end(ctx))
 		return TEST_ERROR;
 
 	authhdr->spi = 0x222;

@@ -10,6 +10,6 @@
 /* Only used helpers in Cilium go below. */
 
 /* Events for user space */
-static int BPF_FUNC_REMAP(sock_event_output, struct bpf_sock_addr *sock, void *map,
-			  __u64 index, const void *data, __u32 size) =
-			 (void *)BPF_FUNC_perf_event_output;
+static int BPF_FUNC_REMAP(
+	sock_event_output, struct bpf_sock_addr *sock, void *map, __u64 index,
+	const void *data, __u32 size) = (void *)BPF_FUNC_perf_event_output;

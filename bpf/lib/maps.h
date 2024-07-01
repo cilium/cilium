@@ -27,16 +27,15 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } METRICS_MAP __section_maps_btf;
 
-
 #ifndef SKIP_POLICY_MAP
 /* Global map to jump into policy enforcement of receiving endpoint */
 struct bpf_elf_map __section_maps POLICY_CALL_MAP = {
-	.type		= BPF_MAP_TYPE_PROG_ARRAY,
-	.id		= CILIUM_MAP_POLICY,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u32),
-	.pinning	= LIBBPF_PIN_BY_NAME,
-	.max_elem	= POLICY_PROG_MAP_SIZE,
+	.type = BPF_MAP_TYPE_PROG_ARRAY,
+	.id = CILIUM_MAP_POLICY,
+	.size_key = sizeof(__u32),
+	.size_value = sizeof(__u32),
+	.pinning = LIBBPF_PIN_BY_NAME,
+	.max_elem = POLICY_PROG_MAP_SIZE,
 };
 
 static __always_inline __must_check int
@@ -60,12 +59,12 @@ tail_call_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 #ifdef ENABLE_L7_LB
 /* Global map to jump into policy enforcement of sending endpoint */
 struct bpf_elf_map __section_maps POLICY_EGRESSCALL_MAP = {
-	.type		= BPF_MAP_TYPE_PROG_ARRAY,
-	.id		= CILIUM_MAP_EGRESSPOLICY,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u32),
-	.pinning	= LIBBPF_PIN_BY_NAME,
-	.max_elem	= POLICY_PROG_MAP_SIZE,
+	.type = BPF_MAP_TYPE_PROG_ARRAY,
+	.id = CILIUM_MAP_EGRESSPOLICY,
+	.size_key = sizeof(__u32),
+	.size_value = sizeof(__u32),
+	.pinning = LIBBPF_PIN_BY_NAME,
+	.max_elem = POLICY_PROG_MAP_SIZE,
 };
 
 static __always_inline __must_check int
@@ -122,12 +121,12 @@ struct {
  * time the BPF object is loaded. An existing pinned map is never reused.
  */
 struct bpf_elf_map __section_maps CALLS_MAP = {
-	.type		= BPF_MAP_TYPE_PROG_ARRAY,
-	.id		= CILIUM_MAP_CALLS,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u32),
-	.pinning	= CILIUM_PIN_REPLACE,
-	.max_elem	= CILIUM_CALL_SIZE,
+	.type = BPF_MAP_TYPE_PROG_ARRAY,
+	.id = CILIUM_MAP_CALLS,
+	.size_key = sizeof(__u32),
+	.size_value = sizeof(__u32),
+	.pinning = CILIUM_PIN_REPLACE,
+	.max_elem = CILIUM_CALL_SIZE,
 };
 #endif /* SKIP_CALLS_MAP */
 
@@ -138,18 +137,18 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
  * CUSTOM_CALLS_MAP has not been #define-d.
  */
 struct bpf_elf_map __section_maps CUSTOM_CALLS_MAP = {
-	.type		= BPF_MAP_TYPE_PROG_ARRAY,
-	.id		= CILIUM_MAP_CUSTOM_CALLS,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u32),
-	.pinning	= LIBBPF_PIN_BY_NAME,
-	.max_elem	= 4,	/* ingress and egress, IPv4 and IPv6 */
+	.type = BPF_MAP_TYPE_PROG_ARRAY,
+	.id = CILIUM_MAP_CUSTOM_CALLS,
+	.size_key = sizeof(__u32),
+	.size_value = sizeof(__u32),
+	.pinning = LIBBPF_PIN_BY_NAME,
+	.max_elem = 4, /* ingress and egress, IPv4 and IPv6 */
 };
 
-#define CUSTOM_CALLS_IDX_IPV4_INGRESS	0
-#define CUSTOM_CALLS_IDX_IPV4_EGRESS	1
-#define CUSTOM_CALLS_IDX_IPV6_INGRESS	2
-#define CUSTOM_CALLS_IDX_IPV6_EGRESS	3
+# define CUSTOM_CALLS_IDX_IPV4_INGRESS 0
+# define CUSTOM_CALLS_IDX_IPV4_EGRESS  1
+# define CUSTOM_CALLS_IDX_IPV6_INGRESS 2
+# define CUSTOM_CALLS_IDX_IPV6_EGRESS  3
 #endif /* ENABLE_CUSTOM_CALLS && CUSTOM_CALLS_MAP */
 
 struct ipcache_key {
@@ -159,12 +158,12 @@ struct ipcache_key {
 	__u8 family;
 	union {
 		struct {
-			__u32		ip4;
-			__u32		pad4;
-			__u32		pad5;
-			__u32		pad6;
+			__u32 ip4;
+			__u32 pad4;
+			__u32 pad5;
+			__u32 pad6;
 		};
-		union v6addr	ip6;
+		union v6addr ip6;
 	};
 } __packed;
 
@@ -189,8 +188,8 @@ struct {
 
 struct node_value {
 	__u16 id;
-	__u8  spi;
-	__u8  pad;
+	__u8 spi;
+	__u8 pad;
 };
 
 struct {
@@ -221,25 +220,25 @@ struct {
 } L2_RESPONDER_MAP4 __section_maps_btf;
 
 #ifdef ENABLE_SRV6
-# define SRV6_VRF_MAP(IP_FAMILY)				\
-struct {						\
-	__uint(type, BPF_MAP_TYPE_LPM_TRIE);		\
-	__type(key, struct srv6_vrf_key ## IP_FAMILY);	\
-	__type(value, __u32);				\
-	__uint(pinning, LIBBPF_PIN_BY_NAME);		\
-	__uint(max_entries, SRV6_VRF_MAP_SIZE);		\
-	__uint(map_flags, BPF_F_NO_PREALLOC);		\
-} SRV6_VRF_MAP ## IP_FAMILY __section_maps_btf;
+# define SRV6_VRF_MAP(IP_FAMILY)                              \
+	 struct {                                             \
+		 __uint(type, BPF_MAP_TYPE_LPM_TRIE);         \
+		 __type(key, struct srv6_vrf_key##IP_FAMILY); \
+		 __type(value, __u32);                        \
+		 __uint(pinning, LIBBPF_PIN_BY_NAME);         \
+		 __uint(max_entries, SRV6_VRF_MAP_SIZE);      \
+		 __uint(map_flags, BPF_F_NO_PREALLOC);        \
+	 } SRV6_VRF_MAP##IP_FAMILY __section_maps_btf;
 
-# define SRV6_POLICY_MAP(IP_FAMILY)				\
-struct {							\
-	__uint(type, BPF_MAP_TYPE_LPM_TRIE);			\
-	__type(key, struct srv6_policy_key ## IP_FAMILY);	\
-	__type(value, union v6addr);				\
-	__uint(pinning, LIBBPF_PIN_BY_NAME);			\
-	__uint(max_entries, SRV6_POLICY_MAP_SIZE);		\
-	__uint(map_flags, BPF_F_NO_PREALLOC);			\
-} SRV6_POLICY_MAP ## IP_FAMILY __section_maps_btf;
+# define SRV6_POLICY_MAP(IP_FAMILY)                              \
+	 struct {                                                \
+		 __uint(type, BPF_MAP_TYPE_LPM_TRIE);            \
+		 __type(key, struct srv6_policy_key##IP_FAMILY); \
+		 __type(value, union v6addr);                    \
+		 __uint(pinning, LIBBPF_PIN_BY_NAME);            \
+		 __uint(max_entries, SRV6_POLICY_MAP_SIZE);      \
+		 __uint(map_flags, BPF_F_NO_PREALLOC);           \
+	 } SRV6_POLICY_MAP##IP_FAMILY __section_maps_btf;
 
 # ifdef ENABLE_IPV4
 SRV6_VRF_MAP(4)
@@ -250,12 +249,12 @@ SRV6_VRF_MAP(6)
 SRV6_POLICY_MAP(6)
 
 struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, union v6addr); /* SID */
-    __type(value, __u32);      /* VRF ID */
-    __uint(pinning, LIBBPF_PIN_BY_NAME);
-    __uint(max_entries, SRV6_SID_MAP_SIZE);
-    __uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, union v6addr); /* SID */
+	__type(value, __u32);	   /* VRF ID */
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, SRV6_SID_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 } SRV6_SID_MAP __section_maps_btf;
 #endif /* ENABLE_SRV6 */
 

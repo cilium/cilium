@@ -21,8 +21,8 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } THROTTLE_MAP __section_maps_btf;
 
-static __always_inline void edt_set_aggregate(struct __ctx_buff *ctx,
-					      __u32 aggregate)
+static __always_inline void
+edt_set_aggregate(struct __ctx_buff *ctx, __u32 aggregate)
 {
 	/* 16 bit as current used aggregate, and preserved in host ns. */
 	ctx->queue_mapping = aggregate;
@@ -49,8 +49,7 @@ edt_sched_departure(struct __ctx_buff *ctx, __be16 proto)
 
 	if (!eth_is_supported_ethertype(proto))
 		return CTX_ACT_OK;
-	if (proto != bpf_htons(ETH_P_IP) &&
-	    proto != bpf_htons(ETH_P_IPV6))
+	if (proto != bpf_htons(ETH_P_IP) && proto != bpf_htons(ETH_P_IPV6))
 		return CTX_ACT_OK;
 
 	aggregate.id = edt_get_aggregate(ctx);
@@ -83,9 +82,8 @@ edt_sched_departure(struct __ctx_buff *ctx, __be16 proto)
 	return CTX_ACT_OK;
 }
 #else
-static __always_inline void
-edt_set_aggregate(struct __ctx_buff *ctx __maybe_unused,
-		  __u32 aggregate __maybe_unused)
+static __always_inline void edt_set_aggregate(
+	struct __ctx_buff *ctx __maybe_unused, __u32 aggregate __maybe_unused)
 {
 }
 #endif /* ENABLE_BANDWIDTH_MANAGER */

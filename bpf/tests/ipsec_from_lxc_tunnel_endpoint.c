@@ -3,8 +3,8 @@
 
 #define TUNNEL_MODE
 #define USE_BPF_PROG_FOR_INGRESS_POLICY 1
-#define ENABLE_ENDPOINT_ROUTES 1
+#define ENABLE_ENDPOINT_ROUTES		1
 
-#define EXPECTED_DEST_MAC mac_two
+#define EXPECTED_DEST_MAC		mac_two
 
 #include "ipsec_from_lxc_generic.h"

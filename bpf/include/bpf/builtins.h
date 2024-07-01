@@ -6,7 +6,7 @@
 #include "compiler.h"
 
 #ifndef lock_xadd
-# define lock_xadd(P, V)	((void) __sync_fetch_and_add((P), (V)))
+# define lock_xadd(P, V) ((void)__sync_fetch_and_add((P), (V)))
 #endif
 
 /* Unfortunately verifier forces aligned stack access while other memory
@@ -16,7 +16,7 @@
  * of size <= 8 bytes and in case of > 8 bytes /only/ when 8 byte is not
  * the natural object alignment (e.g. __u8 foo[12]).
  */
-#define __align_stack_8		__aligned(8)
+#define __align_stack_8 __aligned(8)
 
 /* Memory iterators used below. */
 #define __it_bwd(x, op) (x -= sizeof(__u##op))
@@ -24,12 +24,15 @@
 
 /* Memory operators used below. */
 #define __it_set(a, op) (*(__u##op *)__it_bwd(a, op)) = 0
-#define __it_xor(a, b, r, op) r |= (*(__u##op *)__it_bwd(a, op)) ^ (*(__u##op *)__it_bwd(b, op))
-#define __it_mob(a, b, op) (*(__u##op *)__it_bwd(a, op)) = (*(__u##op *)__it_bwd(b, op))
-#define __it_mof(a, b, op)				\
-	do {						\
-		*(__u##op *)a = *(__u##op *)b;		\
-		__it_fwd(a, op); __it_fwd(b, op);	\
+#define __it_xor(a, b, r, op) \
+	r |= (*(__u##op *)__it_bwd(a, op)) ^ (*(__u##op *)__it_bwd(b, op))
+#define __it_mob(a, b, op) \
+	(*(__u##op *)__it_bwd(a, op)) = (*(__u##op *)__it_bwd(b, op))
+#define __it_mof(a, b, op)                     \
+	do {                                   \
+		*(__u##op *)a = *(__u##op *)b; \
+		__it_fwd(a, op);               \
+		__it_fwd(b, op);               \
 	} while (0)
 
 static __always_inline __maybe_unused void
@@ -40,6 +43,8 @@ __bpf_memset_builtin(void *d, __u8 c, __u64 len)
 	 */
 	__builtin_memset(d, c, len);
 }
+
+/* clang-format off */
 
 static __always_inline void __bpf_memzero(void *d, __u64 len)
 {
@@ -127,18 +132,18 @@ static __always_inline void __bpf_memzero(void *d, __u64 len)
 #endif
 }
 
-static __always_inline __maybe_unused void
-__bpf_no_builtin_memset(void *d __maybe_unused, __u8 c __maybe_unused,
-			__u64 len __maybe_unused)
+/* clang-format on */
+
+static __always_inline __maybe_unused void __bpf_no_builtin_memset(
+	void *d __maybe_unused, __u8 c __maybe_unused, __u64 len __maybe_unused)
 {
 	__throw_build_bug();
 }
 
 /* Redirect any direct use in our code to throw an error. */
-#define __builtin_memset	__bpf_no_builtin_memset
+#define __builtin_memset __bpf_no_builtin_memset
 
-static __always_inline __nobuiltin("memset") void memset(void *d, int c,
-							 __u64 len)
+static __always_inline __nobuiltin("memset") void memset(void *d, int c, __u64 len)
 {
 	if (__builtin_constant_p(len) && __builtin_constant_p(c) && c == 0)
 		__bpf_memzero(d, len);
@@ -152,6 +157,8 @@ __bpf_memcpy_builtin(void *d, const void *s, __u64 len)
 	/* Explicit opt-in for __builtin_memcpy(). */
 	__builtin_memcpy(d, s, len);
 }
+
+/* clang-format off */
 
 static __always_inline void __bpf_memcpy(void *d, const void *s, __u64 len)
 {
@@ -240,18 +247,20 @@ static __always_inline void __bpf_memcpy(void *d, const void *s, __u64 len)
 #endif
 }
 
-static __always_inline __maybe_unused void
-__bpf_no_builtin_memcpy(void *d __maybe_unused, const void *s __maybe_unused,
-			__u64 len __maybe_unused)
+/* clang-format on */
+
+static __always_inline __maybe_unused void __bpf_no_builtin_memcpy(
+	void *d __maybe_unused, const void *s __maybe_unused,
+	__u64 len __maybe_unused)
 {
 	__throw_build_bug();
 }
 
 /* Redirect any direct use in our code to throw an error. */
-#define __builtin_memcpy	__bpf_no_builtin_memcpy
+#define __builtin_memcpy __bpf_no_builtin_memcpy
 
-static __always_inline __nobuiltin("memcpy") void memcpy(void *d, const void *s,
-							 __u64 len)
+static __always_inline
+	__nobuiltin("memcpy") void memcpy(void *d, const void *s, __u64 len)
 {
 	return __bpf_memcpy(d, s, len);
 }
@@ -270,6 +279,8 @@ __bpf_memcmp_builtin(const void *x, const void *y, __u64 len)
 	 */
 	return __builtin_bcmp(x, y, len);
 }
+
+/* clang-format off */
 
 static __always_inline __u64 __bpf_memcmp(const void *x, const void *y,
 					  __u64 len)
@@ -346,23 +357,24 @@ static __always_inline __u64 __bpf_memcmp(const void *x, const void *y,
 #endif
 }
 
-static __always_inline __maybe_unused __u64
-__bpf_no_builtin_memcmp(const void *x __maybe_unused,
-			const void *y __maybe_unused, __u64 len __maybe_unused)
+/* clang-format on */
+
+static __always_inline __maybe_unused __u64 __bpf_no_builtin_memcmp(
+	const void *x __maybe_unused, const void *y __maybe_unused,
+	__u64 len __maybe_unused)
 {
 	__throw_build_bug();
 	return 0;
 }
 
 /* Redirect any direct use in our code to throw an error. */
-#define __builtin_memcmp	__bpf_no_builtin_memcmp
+#define __builtin_memcmp __bpf_no_builtin_memcmp
 
 /* Modified for our needs in that we only return either zero (x and y
  * are equal) or non-zero (x and y are non-equal).
  */
-static __always_inline __nobuiltin("memcmp") __u64 memcmp(const void *x,
-							  const void *y,
-							  __u64 len)
+static __always_inline __nobuiltin("memcmp") __u64
+	memcmp(const void *x, const void *y, __u64 len)
 {
 	return __bpf_memcmp(x, y, len);
 }
@@ -379,6 +391,8 @@ static __always_inline void __bpf_memmove_bwd(void *d, const void *s, __u64 len)
 	/* Our internal memcpy implementation walks backwards by default. */
 	__bpf_memcpy(d, s, len);
 }
+
+/* clang-format off */
 
 static __always_inline void __bpf_memmove_fwd(void *d, const void *s, __u64 len)
 {
@@ -459,15 +473,17 @@ static __always_inline void __bpf_memmove_fwd(void *d, const void *s, __u64 len)
 #endif
 }
 
-static __always_inline __maybe_unused void
-__bpf_no_builtin_memmove(void *d __maybe_unused, const void *s __maybe_unused,
-			 __u64 len __maybe_unused)
+/* clang-format on */
+
+static __always_inline __maybe_unused void __bpf_no_builtin_memmove(
+	void *d __maybe_unused, const void *s __maybe_unused,
+	__u64 len __maybe_unused)
 {
 	__throw_build_bug();
 }
 
 /* Redirect any direct use in our code to throw an error. */
-#define __builtin_memmove	__bpf_no_builtin_memmove
+#define __builtin_memmove __bpf_no_builtin_memmove
 
 static __always_inline void __bpf_memmove(void *d, const void *s, __u64 len)
 {
@@ -486,9 +502,8 @@ static __always_inline void __bpf_memmove(void *d, const void *s, __u64 len)
 		return __bpf_memmove_bwd(d, s, len);
 }
 
-static __always_inline __nobuiltin("memmove") void memmove(void *d,
-							   const void *s,
-							   __u64 len)
+static __always_inline
+	__nobuiltin("memmove") void memmove(void *d, const void *s, __u64 len)
 {
 	return __bpf_memmove(d, s, len);
 }

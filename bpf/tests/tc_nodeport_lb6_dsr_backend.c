@@ -12,25 +12,34 @@
 /* Enable code paths under test */
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
-#define ENABLE_DSR		1
-#define DSR_ENCAP_GENEVE	3
+#define ENABLE_DSR	 1
+#define DSR_ENCAP_GENEVE 3
 #define ENABLE_HOST_ROUTING
 
 #define DISABLE_LOOPBACK_LB
-#define ENABLE_SKIP_FIB		1
+#define ENABLE_SKIP_FIB 1
 
 /* Skip ingress policy checks, not needed to validate hairpin flow */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 #undef FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 
-#define CLIENT_IP	{ .addr = { 0x1, 0x0, 0x0, 0x0, 0x0, 0x0 } }
-#define CLIENT_PORT	__bpf_htons(111)
+#define CLIENT_IP                                        \
+	{                                                \
+		.addr = { 0x1, 0x0, 0x0, 0x0, 0x0, 0x0 } \
+	}
+#define CLIENT_PORT __bpf_htons(111)
 
-#define FRONTEND_IP	{ .addr = { 0x2, 0x0, 0x0, 0x0, 0x0, 0x0 } }
-#define FRONTEND_PORT	tcp_svc_one
+#define FRONTEND_IP                                      \
+	{                                                \
+		.addr = { 0x2, 0x0, 0x0, 0x0, 0x0, 0x0 } \
+	}
+#define FRONTEND_PORT tcp_svc_one
 
-#define BACKEND_IP	{ .addr = { 0x3, 0x0, 0x0, 0x0, 0x0, 0x0 } }
-#define BACKEND_PORT	__bpf_htons(8080)
+#define BACKEND_IP                                       \
+	{                                                \
+		.addr = { 0x3, 0x0, 0x0, 0x0, 0x0, 0x0 } \
+	}
+#define BACKEND_PORT __bpf_htons(8080)
 
 static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *node_mac = mac_three;
@@ -43,8 +52,8 @@ static volatile const __u8 *backend_mac = mac_four;
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 
-#define FROM_NETDEV	0
-#define TO_NETDEV	1
+#define FROM_NETDEV 0
+#define TO_NETDEV   1
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -94,9 +103,8 @@ int nodeport_dsr_backend_pktgen(struct __ctx_buff *ctx)
 	ipv6_addr_copy((union v6addr *)&l3->saddr, &client_ip);
 	ipv6_addr_copy((union v6addr *)&l3->daddr, &backend_ip);
 
-	opt = (struct dsr_opt_v6 *)pktgen__append_ipv6_extension_header(&builder,
-									NEXTHDR_DEST,
-									sizeof(*opt));
+	opt = (struct dsr_opt_v6 *)pktgen__append_ipv6_extension_header(
+		&builder, NEXTHDR_DEST, sizeof(*opt));
 	if (!opt)
 		return TEST_ERROR;
 
@@ -129,8 +137,8 @@ int nodeport_dsr_backend_setup(struct __ctx_buff *ctx)
 	union v6addr backend_ip = BACKEND_IP;
 
 	/* add local backend */
-	endpoint_v6_add_entry(&backend_ip, 0, 0, 0, 0,
-			      (__u8 *)backend_mac, (__u8 *)node_mac);
+	endpoint_v6_add_entry(
+		&backend_ip, 0, 0, 0, 0, (__u8 *)backend_mac, (__u8 *)node_mac);
 
 	ipcache_v6_add_entry(&backend_ip, 0, 112233, 0, 0);
 
@@ -182,12 +190,12 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
-	if (memcmp(l2->h_dest, (__u8 *)backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("src MAC is not the node MAC") if (
+			memcmp(l2->h_dest, (__u8 *)backend_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the endpoint MAC")
 
-	if (!ipv6_addr_equals((union v6addr *)&l3->saddr, &client_ip))
-		test_fatal("src IP has changed");
+			if (!ipv6_addr_equals((union v6addr *)&l3->saddr, &client_ip))
+				test_fatal("src IP has changed");
 
 	if (!ipv6_addr_equals((union v6addr *)&l3->daddr, &backend_ip))
 		test_fatal("dst IP has changed");
@@ -195,22 +203,22 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 	if (l3->nexthdr != NEXTHDR_DEST)
 		test_fatal("nexthdr in IPv6 header has changed")
 
-	if (opt->hdr.nexthdr != IPPROTO_TCP)
-		test_fatal("nexthdr in DSR extension has changed")
-	if (opt->hdr.hdrlen != DSR_IPV6_EXT_LEN)
-		test_fatal("length in DSR extension has changed")
-	if (opt->opt_type != DSR_IPV6_OPT_TYPE)
-		test_fatal("opt_type in DSR extension has changed")
-	if (opt->opt_len != DSR_IPV6_OPT_LEN)
-		test_fatal("opt_len in DSR extension has changed")
+			if (opt->hdr.nexthdr != IPPROTO_TCP) test_fatal(
+				"nexthdr in DSR extension has changed") if (opt->hdr.hdrlen != DSR_IPV6_EXT_LEN)
+				test_fatal("length in DSR extension has changed") if (
+					opt->opt_type != DSR_IPV6_OPT_TYPE)
+					test_fatal("opt_type in DSR extension has changed") if (
+						opt->opt_len !=
+						DSR_IPV6_OPT_LEN) test_fatal("opt_len in DSR extension has changed")
 
-	if (opt->port != FRONTEND_PORT)
-		test_fatal("port in DSR extension has changed")
-	if (!ipv6_addr_equals((union v6addr *)&opt->addr, &frontend_ip))
-		test_fatal("addr in DSR extension has changed")
+						if (opt->port != FRONTEND_PORT) test_fatal("port in DSR extension has changed") if (
+							!ipv6_addr_equals(
+								(union v6addr *)&opt
+									->addr,
+								&frontend_ip)) test_fatal("addr in DSR extension has changed")
 
-	if (l4->source != CLIENT_PORT)
-		test_fatal("src port has changed");
+							if (l4->source != CLIENT_PORT)
+								test_fatal("src port has changed");
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port has changed");
@@ -219,8 +227,8 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 	struct ct_entry *ct_entry;
 	int l4_off, ret;
 
-	ret = lb6_extract_tuple(ctx, l3, sizeof(*status_code) + ETH_HLEN,
-				&l4_off, &tuple);
+	ret = lb6_extract_tuple(
+		ctx, l3, sizeof(*status_code) + ETH_HLEN, &l4_off, &tuple);
 	assert(!IS_ERR(ret));
 
 	tuple.flags = TUPLE_F_IN;
@@ -248,8 +256,7 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-static __always_inline
-int build_reply(struct __ctx_buff *ctx)
+static __always_inline int build_reply(struct __ctx_buff *ctx)
 {
 	union v6addr backend_ip = BACKEND_IP;
 	union v6addr client_ip = CLIENT_IP;
@@ -260,10 +267,9 @@ int build_reply(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv6_tcp_packet(&builder,
-					  (__u8 *)node_mac, (__u8 *)client_mac,
-					  (__u8 *)&backend_ip, (__u8 *)&client_ip,
-					  BACKEND_PORT, CLIENT_PORT);
+	l4 = pktgen__push_ipv6_tcp_packet(
+		&builder, (__u8 *)node_mac, (__u8 *)client_mac, (__u8 *)&backend_ip,
+		(__u8 *)&client_ip, BACKEND_PORT, CLIENT_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -277,8 +283,7 @@ int build_reply(struct __ctx_buff *ctx)
 	return 0;
 }
 
-static __always_inline
-int check_reply(const struct __ctx_buff *ctx)
+static __always_inline int check_reply(const struct __ctx_buff *ctx)
 {
 	union v6addr frontend_ip = FRONTEND_IP;
 	union v6addr client_ip = CLIENT_IP;
@@ -313,12 +318,12 @@ int check_reply(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
-	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the client MAC")
+		test_fatal("src MAC is not the node MAC") if (
+			memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the client MAC")
 
-	if (!ipv6_addr_equals((union v6addr *)&l3->saddr, &frontend_ip))
-		test_fatal("src IP hasn't been RevNATed to frontend IP");
+			if (!ipv6_addr_equals((union v6addr *)&l3->saddr, &frontend_ip))
+				test_fatal("src IP hasn't been RevNATed to frontend IP");
 
 	if (!ipv6_addr_equals((union v6addr *)&l3->daddr, &client_ip))
 		test_fatal("dst IP has changed");

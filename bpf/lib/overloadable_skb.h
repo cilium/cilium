@@ -7,9 +7,7 @@
 #include "linux/ip.h"
 #include "lib/clustermesh.h"
 
-
-static __always_inline __maybe_unused void
-bpf_clear_meta(struct __sk_buff *ctx)
+static __always_inline __maybe_unused void bpf_clear_meta(struct __sk_buff *ctx)
 {
 	__u32 zero = 0;
 
@@ -45,7 +43,8 @@ static __always_inline __maybe_unused int
 get_identity(const struct __sk_buff *ctx)
 {
 	__u32 cluster_id_lower = ctx->mark & CLUSTER_ID_LOWER_MASK;
-	__u32 cluster_id_upper = (ctx->mark & get_cluster_id_upper_mask()) >> (8 + IDENTITY_LEN);
+	__u32 cluster_id_upper =
+		(ctx->mark & get_cluster_id_upper_mask()) >> (8 + IDENTITY_LEN);
 	__u32 identity = (ctx->mark >> 16) & IDENTITY_MAX;
 
 	return (cluster_id_lower | cluster_id_upper) << IDENTITY_LEN | identity;
@@ -54,8 +53,7 @@ get_identity(const struct __sk_buff *ctx)
 /**
  * get_epid - returns source endpoint identity from the mark field
  */
-static __always_inline __maybe_unused __u32
-get_epid(const struct __sk_buff *ctx)
+static __always_inline __maybe_unused __u32 get_epid(const struct __sk_buff *ctx)
 {
 	return ctx->mark >> 16;
 }
@@ -86,7 +84,8 @@ set_identity_mark(struct __sk_buff *ctx, __u32 identity, __u32 magic)
 
 	ctx->mark |= magic;
 	ctx->mark &= MARK_MAGIC_KEY_MASK;
-	ctx->mark |= (identity & IDENTITY_MAX) << 16 | cluster_id_lower | cluster_id_upper;
+	ctx->mark |= (identity & IDENTITY_MAX) << 16 | cluster_id_lower |
+		     cluster_id_upper;
 }
 
 static __always_inline __maybe_unused void
@@ -119,7 +118,7 @@ ctx_set_cluster_id_mark(struct __sk_buff *ctx, __u32 cluster_id)
 	__u32 cluster_id_lower = (cluster_id & 0xFF);
 	__u32 cluster_id_upper = ((cluster_id & 0xFFFFFF00) << (8 + IDENTITY_LEN));
 
-	ctx->mark |=  cluster_id_lower | cluster_id_upper | MARK_MAGIC_CLUSTER_ID;
+	ctx->mark |= cluster_id_lower | cluster_id_upper | MARK_MAGIC_CLUSTER_ID;
 }
 
 static __always_inline __maybe_unused __u32
@@ -127,13 +126,15 @@ ctx_get_cluster_id_mark(struct __sk_buff *ctx)
 {
 	__u32 ret = 0;
 	__u32 cluster_id_lower = ctx->mark & CLUSTER_ID_LOWER_MASK;
-	__u32 cluster_id_upper = (ctx->mark & get_cluster_id_upper_mask()) >> (8 + IDENTITY_LEN);
+	__u32 cluster_id_upper =
+		(ctx->mark & get_cluster_id_upper_mask()) >> (8 + IDENTITY_LEN);
 
 	if ((ctx->mark & MARK_MAGIC_CLUSTER_ID) != MARK_MAGIC_CLUSTER_ID)
 		return ret;
 
 	ret = (cluster_id_upper | cluster_id_lower) & CLUSTER_ID_MAX;
-	ctx->mark &= ~(__u32)(MARK_MAGIC_CLUSTER_ID | get_mark_magic_cluster_id_mask());
+	ctx->mark &= ~(
+		__u32)(MARK_MAGIC_CLUSTER_ID | get_mark_magic_cluster_id_mask());
 
 	return ret;
 }
@@ -147,8 +148,7 @@ redirect_self(const struct __sk_buff *ctx)
 	return ctx_redirect(ctx, ctx->ifindex, 0);
 }
 
-static __always_inline __maybe_unused bool
-neigh_resolver_available(void)
+static __always_inline __maybe_unused bool neigh_resolver_available(void)
 {
 	return is_defined(HAVE_FIB_NEIGH);
 }
@@ -182,14 +182,12 @@ ctx_skip_nodeport(struct __sk_buff *ctx __maybe_unused)
 }
 
 #ifdef ENABLE_HOST_FIREWALL
-static __always_inline void
-ctx_skip_host_fw_set(struct __sk_buff *ctx)
+static __always_inline void ctx_skip_host_fw_set(struct __sk_buff *ctx)
 {
 	ctx->tc_index |= TC_INDEX_F_SKIP_HOST_FIREWALL;
 }
 
-static __always_inline bool
-ctx_skip_host_fw(struct __sk_buff *ctx)
+static __always_inline bool ctx_skip_host_fw(struct __sk_buff *ctx)
 {
 	volatile __u32 tc_index = ctx->tc_index;
 
@@ -198,8 +196,8 @@ ctx_skip_host_fw(struct __sk_buff *ctx)
 }
 #endif /* ENABLE_HOST_FIREWALL */
 
-static __always_inline __maybe_unused __u32 ctx_get_xfer(struct __sk_buff *ctx,
-							 __u32 off)
+static __always_inline __maybe_unused __u32
+ctx_get_xfer(struct __sk_buff *ctx, __u32 off)
 {
 	__u32 *data_meta = ctx_data_meta(ctx);
 	void *data = ctx_data(ctx);
@@ -258,21 +256,20 @@ static __always_inline bool ctx_egw_done(const struct __sk_buff *ctx)
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
 
 #ifdef HAVE_ENCAP
-static __always_inline __maybe_unused int
-ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
-		   __be16 src_port __maybe_unused, __u32 node_id,
-		   __u32 seclabel, __u32 vni __maybe_unused,
-		   void *opt, __u32 opt_len)
+static __always_inline __maybe_unused int ctx_set_encap_info(
+	struct __sk_buff *ctx, __u32 src_ip, __be16 src_port __maybe_unused,
+	__u32 node_id, __u32 seclabel, __u32 vni __maybe_unused, void *opt,
+	__u32 opt_len)
 {
 	struct bpf_tunnel_key key = {};
 	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 	int ret;
 
-#ifdef ENABLE_VTEP
+# ifdef ENABLE_VTEP
 	if (vni != NOT_VTEP_DST)
 		key.tunnel_id = get_tunnel_id(vni);
 	else
-#endif /* ENABLE_VTEP */
+# endif /* ENABLE_VTEP */
 		key.tunnel_id = get_tunnel_id(seclabel);
 
 	if (src_ip != 0) {

@@ -11,11 +11,11 @@ enum {
 	DBG_ENCAP,
 	DBG_LXC_FOUND,
 	DBG_POLICY_DENIED,
-	DBG_CT_LOOKUP,		/* unused */
-	DBG_CT_LOOKUP_REV,	/* unused */
+	DBG_CT_LOOKUP,	   /* unused */
+	DBG_CT_LOOKUP_REV, /* unused */
 	DBG_CT_MATCH,
-	DBG_CT_CREATED,		/* unused */
-	DBG_CT_CREATED2,	/* unused */
+	DBG_CT_CREATED,	 /* unused */
+	DBG_CT_CREATED2, /* unused */
 	DBG_ICMP6_HANDLE,
 	DBG_ICMP6_REQUEST,
 	DBG_ICMP6_NS,
@@ -51,33 +51,33 @@ enum {
 	DBG_REV_PROXY_FOUND,
 	DBG_REV_PROXY_UPDATE,
 	DBG_L4_POLICY,
-	DBG_NETDEV_IN_CLUSTER, /* arg1: security-context, arg2: unused */
-	DBG_NETDEV_ENCAP4, /* arg1 encap lookup key, arg2: identity */
-	DBG_CT_LOOKUP4_1,       /* arg1: saddr
+	DBG_NETDEV_IN_CLUSTER,	/* arg1: security-context, arg2: unused */
+	DBG_NETDEV_ENCAP4,	/* arg1 encap lookup key, arg2: identity */
+	DBG_CT_LOOKUP4_1,	/* arg1: saddr
 				 * arg2: daddr
 				 * arg3: (sport << 16) | dport
 				 */
-	DBG_CT_LOOKUP4_2,       /* arg1: (nexthdr << 8) | flags
+	DBG_CT_LOOKUP4_2,	/* arg1: (nexthdr << 8) | flags
 				 * arg2: direction
 				 * arg3: scope
 				 */
-	DBG_CT_CREATED4,        /* arg1: (unused << 16) | rev_nat_index
+	DBG_CT_CREATED4,	/* arg1: (unused << 16) | rev_nat_index
 				 * arg2: src sec-id
 				 * arg3: unused
 				 */
-	DBG_CT_LOOKUP6_1,       /* arg1: saddr (last 4 bytes)
+	DBG_CT_LOOKUP6_1,	/* arg1: saddr (last 4 bytes)
 				 * arg2: daddr (last 4 bytes)
 				 * arg3: (sport << 16) | dport
 				 */
-	DBG_CT_LOOKUP6_2,       /* arg1: (nexthdr << 8) | flags
+	DBG_CT_LOOKUP6_2,	/* arg1: (nexthdr << 8) | flags
 				 * arg2: direction
 				 * arg3: scope
 				 */
-	DBG_CT_CREATED6,        /* arg1: (unused << 16) | rev_nat_index
+	DBG_CT_CREATED6,	/* arg1: (unused << 16) | rev_nat_index
 				 * arg2: src sec-id
 				 * arg3: unused
 				 */
-	DBG_SKIP_PROXY,          /* arg1: ctx->tc_index
+	DBG_SKIP_PROXY,		/* arg1: ctx->tc_index
 				  * arg2: unused
 				  */
 	DBG_L4_CREATE,		/* arg1: src sec-id
@@ -92,11 +92,11 @@ enum {
 				 * arg2: unused
 				 * arg3: unused
 				 */
-	DBG_IP_ID_MAP_SUCCEED4,	/* arg1: daddr
+	DBG_IP_ID_MAP_SUCCEED4, /* arg1: daddr
 				 * arg2: identity
 				 * arg3: unused
 				 */
-	DBG_IP_ID_MAP_SUCCEED6,	/* arg1: daddr (last 4 bytes)
+	DBG_IP_ID_MAP_SUCCEED6, /* arg1: daddr (last 4 bytes)
 				 * arg2: identity
 				 * arg3: unused
 				 */
@@ -142,16 +142,16 @@ enum {
 };
 
 #ifndef EVENT_SOURCE
-#define EVENT_SOURCE 0
+# define EVENT_SOURCE 0
 #endif
 
 #ifdef DEBUG
-#include "events.h"
+# include "events.h"
 #endif
 
 #ifdef DEBUG
-#include "common.h"
-#include "utils.h"
+# include "common.h"
+# include "utils.h"
 
 /* This takes both literals and modifiers, e.g.,
  * printk("hello\n");
@@ -166,102 +166,98 @@ enum {
  * - cannot use more than 3 format specifiers in the format string
  *   because BPF helpers take a maximum of 5 arguments
  */
-# define printk(fmt, ...)					\
-		({						\
-			const char ____fmt[] = fmt;		\
-			trace_printk(____fmt, sizeof(____fmt),	\
-				     ##__VA_ARGS__);		\
-		})
+# define printk(fmt, ...)                                        \
+	 ({                                                      \
+	  const char ____fmt[] = fmt;                            \
+	  trace_printk(____fmt, sizeof(____fmt), ##__VA_ARGS__); \
+	 })
 
 struct debug_msg {
 	NOTIFY_COMMON_HDR
-	__u32		arg1;
-	__u32		arg2;
-	__u32		arg3;
+	__u32 arg1;
+	__u32 arg2;
+	__u32 arg3;
 };
 
-static __always_inline void cilium_dbg(struct __ctx_buff *ctx, __u8 type,
-				       __u32 arg1, __u32 arg2)
+static __always_inline void
+cilium_dbg(struct __ctx_buff *ctx, __u8 type, __u32 arg1, __u32 arg2)
 {
 	struct debug_msg msg = {
 		__notify_common_hdr(CILIUM_NOTIFY_DBG_MSG, type),
-		.arg1	= arg1,
-		.arg2	= arg2,
+		.arg1 = arg1,
+		.arg2 = arg2,
 	};
 
-	ctx_event_output(ctx, &EVENTS_MAP, BPF_F_CURRENT_CPU,
-			 &msg, sizeof(msg));
+	ctx_event_output(ctx, &EVENTS_MAP, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 
-static __always_inline void cilium_dbg3(struct __ctx_buff *ctx, __u8 type,
-					__u32 arg1, __u32 arg2, __u32 arg3)
+static __always_inline void
+cilium_dbg3(struct __ctx_buff *ctx, __u8 type, __u32 arg1, __u32 arg2, __u32 arg3)
 {
 	struct debug_msg msg = {
 		__notify_common_hdr(CILIUM_NOTIFY_DBG_MSG, type),
-		.arg1	= arg1,
-		.arg2	= arg2,
-		.arg3	= arg3,
+		.arg1 = arg1,
+		.arg2 = arg2,
+		.arg3 = arg3,
 	};
 
-	ctx_event_output(ctx, &EVENTS_MAP, BPF_F_CURRENT_CPU,
-			 &msg, sizeof(msg));
+	ctx_event_output(ctx, &EVENTS_MAP, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 
 struct debug_capture_msg {
 	NOTIFY_CAPTURE_HDR
-	__u32		arg1;
-	__u32		arg2;
+	__u32 arg1;
+	__u32 arg2;
 };
 
-static __always_inline void cilium_dbg_capture2(struct __ctx_buff *ctx, __u8 type,
-						__u32 arg1, __u32 arg2)
+static __always_inline void
+cilium_dbg_capture2(struct __ctx_buff *ctx, __u8 type, __u32 arg1, __u32 arg2)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
 	struct debug_capture_msg msg = {
 		__notify_common_hdr(CILIUM_NOTIFY_DBG_CAPTURE, type),
 		__notify_pktcap_hdr(ctx_len, (__u16)cap_len),
-		.arg1	= arg1,
-		.arg2	= arg2,
+		.arg1 = arg1,
+		.arg2 = arg2,
 	};
 
-	ctx_event_output(ctx, &EVENTS_MAP,
-			 (cap_len << 32) | BPF_F_CURRENT_CPU,
+	ctx_event_output(ctx, &EVENTS_MAP, (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
 
-static __always_inline void cilium_dbg_capture(struct __ctx_buff *ctx, __u8 type,
-					       __u32 arg1)
+static __always_inline void
+cilium_dbg_capture(struct __ctx_buff *ctx, __u8 type, __u32 arg1)
 {
 	cilium_dbg_capture2(ctx, type, arg1, 0);
 }
 #else
-# define printk(fmt, ...)					\
-		do { } while (0)
+# define printk(fmt, ...) \
+	 do {             \
+	 } while (0)
 
-static __always_inline
-void cilium_dbg(struct __ctx_buff *ctx __maybe_unused, __u8 type __maybe_unused,
-		__u32 arg1 __maybe_unused, __u32 arg2 __maybe_unused)
+static __always_inline void
+cilium_dbg(struct __ctx_buff *ctx __maybe_unused, __u8 type __maybe_unused,
+	   __u32 arg1 __maybe_unused, __u32 arg2 __maybe_unused)
 {
 }
 
-static __always_inline
-void cilium_dbg3(struct __ctx_buff *ctx __maybe_unused,
-		 __u8 type __maybe_unused, __u32 arg1 __maybe_unused,
-		 __u32 arg2 __maybe_unused, __u32 arg3 __maybe_unused)
+static __always_inline void
+cilium_dbg3(struct __ctx_buff *ctx __maybe_unused, __u8 type __maybe_unused,
+	    __u32 arg1 __maybe_unused, __u32 arg2 __maybe_unused,
+	    __u32 arg3 __maybe_unused)
 {
 }
 
-static __always_inline
-void cilium_dbg_capture(struct __ctx_buff *ctx __maybe_unused,
-			__u8 type __maybe_unused, __u32 arg1 __maybe_unused)
+static __always_inline void cilium_dbg_capture(
+	struct __ctx_buff *ctx __maybe_unused, __u8 type __maybe_unused,
+	__u32 arg1 __maybe_unused)
 {
 }
 
-static __always_inline
-void cilium_dbg_capture2(struct __ctx_buff *ctx __maybe_unused,
-			 __u8 type __maybe_unused, __u32 arg1 __maybe_unused,
-			 __u32 arg2 __maybe_unused)
+static __always_inline void cilium_dbg_capture2(
+	struct __ctx_buff *ctx __maybe_unused, __u8 type __maybe_unused,
+	__u32 arg1 __maybe_unused, __u32 arg2 __maybe_unused)
 {
 }
 

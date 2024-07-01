@@ -11,8 +11,7 @@
 #include "lib/trace.h"
 #include "lib/encrypt.h"
 
-__section_entry
-int cil_from_network(struct __ctx_buff *ctx)
+__section_entry int cil_from_network(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
 
@@ -82,13 +81,13 @@ int cil_from_network(struct __ctx_buff *ctx)
 #endif
 
 out:
-	send_trace_notify(ctx, obs_point_from, UNKNOWN_ID, UNKNOWN_ID,
-			  TRACE_EP_ID_UNKNOWN, ingress_ifindex,
-			  trace.reason, trace.monitor);
+	send_trace_notify(
+		ctx, obs_point_from, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+		ingress_ifindex, trace.reason, trace.monitor);
 
-	send_trace_notify(ctx, obs_point_to, UNKNOWN_ID, UNKNOWN_ID,
-			  TRACE_EP_ID_UNKNOWN, ingress_ifindex,
-			  trace.reason, trace.monitor);
+	send_trace_notify(
+		ctx, obs_point_to, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+		ingress_ifindex, trace.reason, trace.monitor);
 
 	return ret;
 }

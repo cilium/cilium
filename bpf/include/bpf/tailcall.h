@@ -7,6 +7,8 @@
 
 #if defined(__bpf__)
 
+/* clang-format off */
+
 /* Don't gamble, but _guarantee_ that LLVM won't optimize setting
  * r2 and r3 from different paths ending up at the same call insn as
  * otherwise we won't be able to use the jmpq/nopl retpoline-free
@@ -34,6 +36,8 @@
 		: "r0", "r1", "r2", "r3", "r4", "r5");		\
 }
 
+/* clang-format on */
+
 static __always_inline __maybe_unused void
 tail_call_dynamic(struct __ctx_buff *ctx, const void *map, __u32 slot)
 {
@@ -50,6 +54,6 @@ tail_call_dynamic(struct __ctx_buff *ctx, const void *map, __u32 slot)
 /* BPF unit tests compile some BPF code under their native arch. Tail calls
  * won't work in this context. Only compile above under __bpf__ target.
  */
-# define tail_call_static(ctx, map, slot)	__throw_build_bug()
-# define tail_call_dynamic(ctx, map, slot)	__throw_build_bug()
+# define tail_call_static(ctx, map, slot)  __throw_build_bug()
+# define tail_call_dynamic(ctx, map, slot) __throw_build_bug()
 #endif /* __bpf__ */

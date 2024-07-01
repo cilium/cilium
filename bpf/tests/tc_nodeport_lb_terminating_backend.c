@@ -2,36 +2,36 @@
 /* Copyright Authors of Cilium */
 
 /* Set ETH_HLEN to 14 to indicate that the packet has a 14 byte ethernet header */
-#define ETH_HLEN 14
+#define ETH_HLEN	    14
 
 /* Enable code paths under test */
-#define ENABLE_IPV4		1
-#define ENABLE_NODEPORT		1
-#define ENABLE_HOST_ROUTING	1
+#define ENABLE_IPV4	    1
+#define ENABLE_NODEPORT	    1
+#define ENABLE_HOST_ROUTING 1
 
-#define DISABLE_LOOPBACK_LB	1
+#define DISABLE_LOOPBACK_LB 1
 
 /* Skip ingress policy checks, not needed to validate hairpin flow */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 #undef FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 
-#define CLIENT_IP		v4_ext_one
-#define CLIENT_PORT		__bpf_htons(111)
+#define CLIENT_IP	    v4_ext_one
+#define CLIENT_PORT	    __bpf_htons(111)
 
-#define FRONTEND_IP_LOCAL	v4_svc_one
-#define FRONTEND_PORT		tcp_svc_one
+#define FRONTEND_IP_LOCAL   v4_svc_one
+#define FRONTEND_PORT	    tcp_svc_one
 
-#define LB_IP			v4_node_one
-#define IPV4_DIRECT_ROUTING	LB_IP
+#define LB_IP		    v4_node_one
+#define IPV4_DIRECT_ROUTING LB_IP
 
-#define BACKEND_IP_LOCAL	v4_pod_one
-#define BACKEND_PORT		__bpf_htons(8080)
+#define BACKEND_IP_LOCAL    v4_pod_one
+#define BACKEND_PORT	    __bpf_htons(8080)
 
-#define NATIVE_DEV_IFINDEX	24
-#define DEFAULT_IFACE		NATIVE_DEV_IFINDEX
-#define BACKEND_IFACE		25
+#define NATIVE_DEV_IFINDEX  24
+#define DEFAULT_IFACE	    NATIVE_DEV_IFINDEX
+#define BACKEND_IFACE	    25
 
-#define SVC_REV_NAT_ID		2
+#define SVC_REV_NAT_ID	    2
 
 #include "common.h"
 
@@ -40,15 +40,17 @@
 
 static volatile const __u8 *client_mac = mac_one;
 /* this matches the default node_config.h: */
-static volatile const __u8 lb_mac[ETH_ALEN]	= { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
+static volatile const __u8 lb_mac[ETH_ALEN] = {
+	0xce, 0x72, 0xa7, 0x03, 0x88, 0x56
+};
 static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *local_backend_mac = mac_four;
 
 #define ctx_redirect mock_ctx_redirect
 
-static __always_inline __maybe_unused int
-mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
-		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
+static __always_inline __maybe_unused int mock_ctx_redirect(
+	const struct __sk_buff *ctx __maybe_unused, int ifindex __maybe_unused,
+	__u32 flags __maybe_unused)
 {
 	void *data = (void *)(long)ctx_data(ctx);
 	void *data_end = (void *)(long)ctx->data_end;
@@ -73,7 +75,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
-#define FROM_NETDEV	0
+#define FROM_NETDEV 0
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -100,10 +102,9 @@ int tc_nodeport_lb_terminating_backend_0_pktgen(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_udp_packet(&builder,
-					  (__u8 *)client_mac, (__u8 *)lb_mac,
-					  CLIENT_IP, FRONTEND_IP_LOCAL,
-					  CLIENT_PORT, FRONTEND_PORT);
+	l4 = pktgen__push_ipv4_udp_packet(
+		&builder, (__u8 *)client_mac, (__u8 *)lb_mac, CLIENT_IP,
+		FRONTEND_IP_LOCAL, CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -123,12 +124,14 @@ int tc_nodeport_lb_terminating_backend_0_setup(struct __ctx_buff *ctx)
 	__u16 revnat_id = SVC_REV_NAT_ID;
 
 	lb_v4_add_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, revnat_id);
-	lb_v4_add_backend(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, 125,
-			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP, 0);
+	lb_v4_add_backend(
+		FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, 125, BACKEND_IP_LOCAL,
+		BACKEND_PORT, IPPROTO_UDP, 0);
 
 	/* add local backend */
-	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, 0, 0, 0,
-			      (__u8 *)local_backend_mac, (__u8 *)node_mac);
+	endpoint_v4_add_entry(
+		BACKEND_IP_LOCAL, BACKEND_IFACE, 0, 0, 0,
+		(__u8 *)local_backend_mac, (__u8 *)node_mac);
 
 	ipcache_v4_add_entry(BACKEND_IP_LOCAL, 0, 112233, 0, 0);
 
@@ -172,12 +175,11 @@ int tc_nodeport_lb_terminating_backend_0_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
-	if (memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("src MAC is not the node MAC") if (
+			memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the endpoint MAC")
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
+			if (l3->saddr != CLIENT_IP) test_fatal("src IP has changed");
 
 	if (l3->daddr != BACKEND_IP_LOCAL)
 		test_fatal("dst IP hasn't been NATed to local backend IP");
@@ -207,10 +209,9 @@ int tc_nodeport_lb_terminating_backend_1_pktgen(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_udp_packet(&builder,
-					  (__u8 *)client_mac, (__u8 *)lb_mac,
-					  CLIENT_IP, FRONTEND_IP_LOCAL,
-					  CLIENT_PORT, FRONTEND_PORT);
+	l4 = pktgen__push_ipv4_udp_packet(
+		&builder, (__u8 *)client_mac, (__u8 *)lb_mac, CLIENT_IP,
+		FRONTEND_IP_LOCAL, CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -233,8 +234,9 @@ int tc_nodeport_lb_terminating_backend_1_setup(struct __ctx_buff *ctx)
 	 * 'terminating' state.
 	 */
 	lb_v4_upsert_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, 0, revnat_id);
-	lb_v4_upsert_backend(125, BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP,
-			     BE_STATE_TERMINATING, 0);
+	lb_v4_upsert_backend(
+		125, BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP,
+		BE_STATE_TERMINATING, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
@@ -276,12 +278,11 @@ int tc_nodeport_lb_terminating_backend_1_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
-	if (memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("src MAC is not the node MAC") if (
+			memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the endpoint MAC")
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
+			if (l3->saddr != CLIENT_IP) test_fatal("src IP has changed");
 
 	if (l3->daddr != BACKEND_IP_LOCAL)
 		test_fatal("dst IP hasn't been NATed to local backend IP");

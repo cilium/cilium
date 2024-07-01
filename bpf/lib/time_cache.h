@@ -22,22 +22,22 @@ struct {
  * - bpf_ktime_cache_set(ns)      -> CLOCK_MONOTONIC
  * - bpf_ktime_cache_set(boot_ns) -> CLOCK_BOOTTIME
  */
-#define bpf_ktime_cache_set(clock)					     \
-	({								     \
-		__u32 __z = 0;						     \
+#define bpf_ktime_cache_set(clock)                                           \
+	({                                                                   \
+		__u32 __z = 0;                                               \
 		__u64 *__cache = map_lookup_elem(&cilium_ktime_cache, &__z); \
-		__u64 __ktime = ktime_get_##clock();			     \
-		if (always_succeeds(__cache))				     \
-			*__cache = __ktime;				     \
-		__ktime;						     \
+		__u64 __ktime = ktime_get_##clock();                         \
+		if (always_succeeds(__cache))                                \
+			*__cache = __ktime;                                  \
+		__ktime;                                                     \
 	})
 
-#define bpf_ktime_cache_get()						     \
-	({								     \
-		__u32 __z = 0;						     \
+#define bpf_ktime_cache_get()                                                \
+	({                                                                   \
+		__u32 __z = 0;                                               \
 		__u64 *__cache = map_lookup_elem(&cilium_ktime_cache, &__z); \
-		__u64 __ktime = 0;					     \
-		if (always_succeeds(__cache))				     \
-			__ktime = *__cache;				     \
-		__ktime;						     \
+		__u64 __ktime = 0;                                           \
+		if (always_succeeds(__cache))                                \
+			__ktime = *__cache;                                  \
+		__ktime;                                                     \
 	})

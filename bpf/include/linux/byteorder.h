@@ -5,7 +5,7 @@
 #pragma once
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#include <linux/byteorder/little_endian.h>
+# include <linux/byteorder/little_endian.h>
 #else
-#include <linux/byteorder/big_endian.h>
+# include <linux/byteorder/big_endian.h>
 #endif

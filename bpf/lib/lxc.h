@@ -18,39 +18,39 @@
 #define TEMPLATE_LXC_ID 0xffff
 
 #ifdef ENABLE_SIP_VERIFICATION
-static __always_inline
-int is_valid_lxc_src_ip(struct ipv6hdr *ip6 __maybe_unused)
+static __always_inline int
+is_valid_lxc_src_ip(struct ipv6hdr *ip6 __maybe_unused)
 {
-#ifdef ENABLE_IPV6
+# ifdef ENABLE_IPV6
 	union v6addr valid = {};
 
 	BPF_V6(valid, LXC_IP);
 
 	return ipv6_addr_equals((union v6addr *)&ip6->saddr, &valid);
-#else
+# else
 	return 0;
-#endif
+# endif
 }
 
-static __always_inline
-int is_valid_lxc_src_ipv4(const struct iphdr *ip4 __maybe_unused)
+static __always_inline int
+is_valid_lxc_src_ipv4(const struct iphdr *ip4 __maybe_unused)
 {
-#ifdef ENABLE_IPV4
+# ifdef ENABLE_IPV4
 	return ip4->saddr == LXC_IPV4;
-#else
+# else
 	/* Can't send IPv4 if no IPv4 address is configured */
 	return 0;
-#endif
+# endif
 }
-#else /* ENABLE_SIP_VERIFICATION */
-static __always_inline
-int is_valid_lxc_src_ip(struct ipv6hdr *ip6 __maybe_unused)
+#else  /* ENABLE_SIP_VERIFICATION */
+static __always_inline int
+is_valid_lxc_src_ip(struct ipv6hdr *ip6 __maybe_unused)
 {
 	return 1;
 }
 
-static __always_inline
-int is_valid_lxc_src_ipv4(struct iphdr *ip4 __maybe_unused)
+static __always_inline int
+is_valid_lxc_src_ipv4(struct iphdr *ip4 __maybe_unused)
 {
 	return 1;
 }

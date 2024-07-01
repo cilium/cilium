@@ -39,39 +39,40 @@
 #undef NODEPORT_PORT_MAX
 #undef NODEPORT_PORT_MIN_NAT
 #undef NODEPORT_PORT_MAX_NAT
-#define NODEPORT_PORT_MAX 32767
+#define NODEPORT_PORT_MAX     32767
 #define NODEPORT_PORT_MIN_NAT (NODEPORT_PORT_MAX + 1)
 #define NODEPORT_PORT_MAX_NAT (NODEPORT_PORT_MIN_NAT + 1)
 
 /* Overwrite (local) CLUSTER_ID defined in node_config.h */
 #undef CLUSTER_ID
-#define CLUSTER_ID 1
+#define CLUSTER_ID	   1
 
 /*
  * Test configurations
  */
-#define BACKEND_IFINDEX		12345
-#define BACKEND_MAC		mac_one
-#define BACKEND_ROUTER_MAC	mac_two
-#define CLIENT_ROUTER_MAC	mac_three
-#define BACKEND_IP		v4_pod_one
-#define CLIENT_NODE_IP		v4_ext_one
-#define BACKEND_NODE_IP		v4_ext_two
-#define BACKEND_PORT		tcp_svc_one
-#define CLIENT_CLUSTER_ID	1
-#define CLIENT_IDENTITY		(0x00000000 | (CLIENT_CLUSTER_ID << 16) | 0xff01)
+#define BACKEND_IFINDEX	   12345
+#define BACKEND_MAC	   mac_one
+#define BACKEND_ROUTER_MAC mac_two
+#define CLIENT_ROUTER_MAC  mac_three
+#define BACKEND_IP	   v4_pod_one
+#define CLIENT_NODE_IP	   v4_ext_one
+#define BACKEND_NODE_IP	   v4_ext_two
+#define BACKEND_PORT	   tcp_svc_one
+#define CLIENT_CLUSTER_ID  1
+#define CLIENT_IDENTITY	   (0x00000000 | (CLIENT_CLUSTER_ID << 16) | 0xff01)
 
 #undef IPV4_INTER_CLUSTER_SNAT
-#define IPV4_INTER_CLUSTER_SNAT BACKEND_NODE_IP
+#define IPV4_INTER_CLUSTER_SNAT	       BACKEND_NODE_IP
 
 /* SNAT should always select NODEPORT_PORT_MIN_NAT as a source */
 #define CLIENT_INTER_CLUSTER_SNAT_PORT __bpf_htons(NODEPORT_PORT_MIN_NAT)
 
 /* Mock out get_tunnel_key to emulate input from tunnel device */
-#define skb_get_tunnel_key mock_skb_get_tunnel_key
+#define skb_get_tunnel_key	       mock_skb_get_tunnel_key
 
-int mock_skb_get_tunnel_key(struct __ctx_buff *ctx __maybe_unused, struct bpf_tunnel_key *to,
-			    __u32 size __maybe_unused, __u32 flags __maybe_unused)
+int mock_skb_get_tunnel_key(
+	struct __ctx_buff *ctx __maybe_unused, struct bpf_tunnel_key *to,
+	__u32 size __maybe_unused, __u32 flags __maybe_unused)
 {
 	to->remote_ipv4 = CLIENT_NODE_IP;
 	to->tunnel_id = CLIENT_IDENTITY;
@@ -88,11 +89,11 @@ int mock_skb_get_tunnel_key(struct __ctx_buff *ctx __maybe_unused, struct bpf_tu
 
 #define _send_drop_notify mock_send_drop_notify
 
-static __always_inline
-int mock_send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
-			  struct __ctx_buff *ctx, __u32 src __maybe_unused,
-			  __u32 dst __maybe_unused, __u32 dst_id __maybe_unused,
-			  __u32 reason, __u32 exitcode, enum metric_dir direction)
+static __always_inline int mock_send_drop_notify(
+	__u8 file __maybe_unused, __u16 line __maybe_unused,
+	struct __ctx_buff *ctx, __u32 src __maybe_unused,
+	__u32 dst __maybe_unused, __u32 dst_id __maybe_unused, __u32 reason,
+	__u32 exitcode, enum metric_dir direction)
 {
 	cilium_dbg3(ctx, DBG_GENERIC, reason, exitcode, direction);
 	return exitcode;
@@ -107,7 +108,7 @@ int mock_send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
  * Tests
  */
 
-#define TO_OVERLAY 0
+#define TO_OVERLAY   0
 #define FROM_OVERLAY 1
 
 struct {
@@ -131,11 +132,10 @@ pktgen_to_overlay(struct __ctx_buff *ctx, bool syn, bool ack)
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)BACKEND_MAC,
-					  (__u8 *)BACKEND_ROUTER_MAC,
-					  BACKEND_IP, CLIENT_NODE_IP,
-					  BACKEND_PORT, CLIENT_INTER_CLUSTER_SNAT_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)BACKEND_MAC, (__u8 *)BACKEND_ROUTER_MAC,
+		BACKEND_IP, CLIENT_NODE_IP, BACKEND_PORT,
+		CLIENT_INTER_CLUSTER_SNAT_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -160,11 +160,10 @@ pktgen_from_overlay(struct __ctx_buff *ctx, bool syn, bool ack)
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)CLIENT_ROUTER_MAC,
-					  (__u8 *)BACKEND_ROUTER_MAC,
-					  CLIENT_NODE_IP, BACKEND_IP,
-					  CLIENT_INTER_CLUSTER_SNAT_PORT, BACKEND_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)CLIENT_ROUTER_MAC, (__u8 *)BACKEND_ROUTER_MAC,
+		CLIENT_NODE_IP, BACKEND_IP, CLIENT_INTER_CLUSTER_SNAT_PORT,
+		BACKEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -192,8 +191,9 @@ int from_overlay_syn_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "01_from_overlay_syn")
 int from_overlay_syn_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFINDEX, 0, 0, 0,
-			      (__u8 *)BACKEND_MAC, (__u8 *)BACKEND_ROUTER_MAC);
+	endpoint_v4_add_entry(
+		BACKEND_IP, BACKEND_IFINDEX, 0, 0, 0, (__u8 *)BACKEND_MAC,
+		(__u8 *)BACKEND_ROUTER_MAC);
 
 	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
 	return TEST_ERROR;
@@ -223,7 +223,8 @@ int from_overlay_syn_check(struct __ctx_buff *ctx)
 	 * missed tail call since the POLICY_CALL_MAP should be empty.
 	 */
 	if (*status_code != CTX_ACT_DROP)
-		test_fatal("unexpected status code %d, want %d", *status_code, CTX_ACT_OK);
+		test_fatal("unexpected status code %d, want %d", *status_code,
+			   CTX_ACT_OK);
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
@@ -240,11 +241,11 @@ int from_overlay_syn_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_source, (__u8 *)BACKEND_ROUTER_MAC, ETH_ALEN) != 0)
 		test_fatal("src MAC is not the backend router MAC")
 
-	if (memcmp(l2->h_dest, (__u8 *)BACKEND_MAC, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the backend MAC")
+			if (memcmp(l2->h_dest, (__u8 *)BACKEND_MAC, ETH_ALEN) !=
+			    0) test_fatal("dst MAC is not the backend MAC")
 
-	if (l3->saddr != CLIENT_NODE_IP)
-		test_fatal("src IP has changed");
+				if (l3->saddr != CLIENT_NODE_IP)
+					test_fatal("src IP has changed");
 
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP has changed");
@@ -260,11 +261,13 @@ int from_overlay_syn_check(struct __ctx_buff *ctx)
 
 	meta = ctx_load_meta(ctx, CB_IFINDEX);
 	if (meta != BACKEND_IFINDEX)
-		test_fatal("skb->cb[CB_IFINDEX] should be %d, got %d", BACKEND_IFINDEX, meta);
+		test_fatal("skb->cb[CB_IFINDEX] should be %d, got %d",
+			   BACKEND_IFINDEX, meta);
 
 	meta = ctx_load_meta(ctx, CB_SRC_LABEL);
 	if (meta != CLIENT_IDENTITY)
-		test_fatal("skb->cb[CB_SRC_LABEL] should be %d, got %d", CLIENT_IDENTITY, meta);
+		test_fatal("skb->cb[CB_SRC_LABEL] should be %d, got %d",
+			   CLIENT_IDENTITY, meta);
 
 	meta = ctx_load_meta(ctx, CB_FROM_TUNNEL);
 	if (meta != 1)
@@ -276,7 +279,8 @@ int from_overlay_syn_check(struct __ctx_buff *ctx)
 
 	meta = ctx_load_meta(ctx, CB_CLUSTER_ID_INGRESS);
 	if (meta != 0)
-		test_fatal("skb->cb[CB_CLUSTER_ID_INGRESS] should be 0, got %d", meta);
+		test_fatal("skb->cb[CB_CLUSTER_ID_INGRESS] should be 0, got %d",
+			   meta);
 
 	test_finish();
 }
@@ -314,7 +318,8 @@ int to_overlay_synack_check(struct __ctx_buff *ctx)
 	status_code = data;
 
 	if (*status_code != CTX_ACT_OK)
-		test_fatal("unexpected status code %d, want %d", *status_code, CTX_ACT_OK);
+		test_fatal("unexpected status code %d, want %d", *status_code,
+			   CTX_ACT_OK);
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
@@ -331,11 +336,11 @@ int to_overlay_synack_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_source, (__u8 *)BACKEND_MAC, ETH_ALEN) != 0)
 		test_fatal("src MAC has changed")
 
-	if (memcmp(l2->h_dest, (__u8 *)BACKEND_ROUTER_MAC, ETH_ALEN) != 0)
-		test_fatal("dst MAC has changed")
+			if (memcmp(l2->h_dest, (__u8 *)BACKEND_ROUTER_MAC, ETH_ALEN) !=
+			    0) test_fatal("dst MAC has changed")
 
-	if (l3->saddr != BACKEND_IP)
-		test_fatal("src IP has changed");
+				if (l3->saddr !=
+				    BACKEND_IP) test_fatal("src IP has changed");
 
 	if (l3->daddr != CLIENT_NODE_IP)
 		test_fatal("dst IP has changed");
@@ -386,7 +391,8 @@ int from_overlay_ack_check(struct __ctx_buff *ctx)
 	status_code = data;
 
 	if (*status_code != CTX_ACT_DROP)
-		test_fatal("unexpected status code %d, want %d", *status_code, CTX_ACT_DROP);
+		test_fatal("unexpected status code %d, want %d", *status_code,
+			   CTX_ACT_DROP);
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
@@ -403,11 +409,11 @@ int from_overlay_ack_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_source, (__u8 *)BACKEND_ROUTER_MAC, ETH_ALEN) != 0)
 		test_fatal("src MAC is not the backend router MAC")
 
-	if (memcmp(l2->h_dest, (__u8 *)BACKEND_MAC, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the backend MAC")
+			if (memcmp(l2->h_dest, (__u8 *)BACKEND_MAC, ETH_ALEN) !=
+			    0) test_fatal("dst MAC is not the backend MAC")
 
-	if (l3->saddr != CLIENT_NODE_IP)
-		test_fatal("src IP has changed");
+				if (l3->saddr != CLIENT_NODE_IP)
+					test_fatal("src IP has changed");
 
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP has changed");
@@ -423,11 +429,13 @@ int from_overlay_ack_check(struct __ctx_buff *ctx)
 
 	meta = ctx_load_meta(ctx, CB_IFINDEX);
 	if (meta != BACKEND_IFINDEX)
-		test_fatal("skb->cb[CB_IFINDEX] should be %d, got %d", BACKEND_IFINDEX, meta);
+		test_fatal("skb->cb[CB_IFINDEX] should be %d, got %d",
+			   BACKEND_IFINDEX, meta);
 
 	meta = ctx_load_meta(ctx, CB_SRC_LABEL);
 	if (meta != CLIENT_IDENTITY)
-		test_fatal("skb->cb[CB_SRC_LABEL] should be %d, got %d", CLIENT_IDENTITY, meta);
+		test_fatal("skb->cb[CB_SRC_LABEL] should be %d, got %d",
+			   CLIENT_IDENTITY, meta);
 
 	meta = ctx_load_meta(ctx, CB_FROM_TUNNEL);
 	if (meta != 1)
@@ -439,7 +447,8 @@ int from_overlay_ack_check(struct __ctx_buff *ctx)
 
 	meta = ctx_load_meta(ctx, CB_CLUSTER_ID_INGRESS);
 	if (meta != 0)
-		test_fatal("skb->cb[CB_CLUSTER_ID_INGRESS] should be 0, got %d", meta);
+		test_fatal("skb->cb[CB_CLUSTER_ID_INGRESS] should be 0, got %d",
+			   meta);
 
 	test_finish();
 }

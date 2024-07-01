@@ -7,7 +7,7 @@
 #define ROUTER_IP
 #undef ROUTER_IP
 
-#define NODE_ID 2333
+#define NODE_ID	    2333
 #define ENCRYPT_KEY 3
 #define ENABLE_IPV4
 #define ENABLE_IPV6
@@ -33,8 +33,7 @@ struct {
 	},
 };
 
-static __always_inline int
-pktgen_from_lxc(struct __ctx_buff *ctx)
+static __always_inline int pktgen_from_lxc(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
@@ -42,10 +41,9 @@ pktgen_from_lxc(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)mac_one, (__u8 *)mac_two,
-					  v4_pod_one, v4_pod_two,
-					  tcp_src_one, tcp_svc_one);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)mac_one, (__u8 *)mac_two, v4_pod_one,
+		v4_pod_two, tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -149,7 +147,8 @@ int ipv4_from_lxc_encrypt_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
-	assert(ctx->mark == (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
+	assert(ctx->mark ==
+	       (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
 	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL_IPV4);
 
 	l2 = data + sizeof(*status_code);
@@ -235,7 +234,8 @@ int ipv4_from_lxc_new_local_key_check(__maybe_unused const struct __ctx_buff *ct
 
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
-	assert(ctx->mark == (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
+	assert(ctx->mark ==
+	       (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
 	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL_IPV4);
 
 	test_finish();
@@ -280,7 +280,8 @@ int ipv4_from_lxc_new_remote_key_check(__maybe_unused const struct __ctx_buff *c
 
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
-	assert(ctx->mark == (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
+	assert(ctx->mark ==
+	       (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
 	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL_IPV4);
 
 	test_finish();
@@ -295,10 +296,9 @@ int ipv6_from_lxc_encrypt_pktgen(struct __ctx_buff *ctx)
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv6_tcp_packet(&builder,
-					  (__u8 *)mac_one, (__u8 *)mac_two,
-					  (__u8 *)v6_pod_one, (__u8 *)&v6_pod_two,
-					  tcp_src_one, tcp_svc_one);
+	l4 = pktgen__push_ipv6_tcp_packet(
+		&builder, (__u8 *)mac_one, (__u8 *)mac_two, (__u8 *)v6_pod_one,
+		(__u8 *)&v6_pod_two, tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -315,7 +315,8 @@ int ipv6_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 {
 	policy_add_egress_allow_all_entry();
 
-	ipcache_v6_add_entry((union v6addr *)v6_pod_two, 0, 233, v4_node_two, ENCRYPT_KEY);
+	ipcache_v6_add_entry(
+		(union v6addr *)v6_pod_two, 0, 233, v4_node_two, ENCRYPT_KEY);
 
 	__u32 encrypt_key = 0;
 	struct encrypt_config encrypt_value = { .encrypt_key = ENCRYPT_KEY };
@@ -349,7 +350,8 @@ int ipv6_from_lxc_encrypt_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
-	assert(ctx->mark == (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
+	assert(ctx->mark ==
+	       (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
 	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL_IPV6);
 
 	l2 = data + sizeof(*status_code);

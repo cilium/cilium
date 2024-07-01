@@ -9,25 +9,25 @@
 /*
  * Test configurations
  */
-#define BACKEND_MAC			mac_one
-#define BACKEND_ROUTER_MAC		mac_two
-#define CLIENT_IP			v4_pod_one
-#define BACKEND_IP			v4_pod_two
-#define CLIENT_NODE_IP			v4_ext_one
-#define BACKEND_PORT			tcp_src_one
-#define CLIENT_INTER_CLUSTER_SNAT_PORT	tcp_src_two
-#define CLIENT_CLUSTER_ID		1
-#define CLIENT_IDENTITY			(0x00000000 | (CLIENT_CLUSTER_ID << 16) | 0xff01)
+#define BACKEND_MAC		       mac_one
+#define BACKEND_ROUTER_MAC	       mac_two
+#define CLIENT_IP		       v4_pod_one
+#define BACKEND_IP		       v4_pod_two
+#define CLIENT_NODE_IP		       v4_ext_one
+#define BACKEND_PORT		       tcp_src_one
+#define CLIENT_INTER_CLUSTER_SNAT_PORT tcp_src_two
+#define CLIENT_CLUSTER_ID	       1
+#define CLIENT_IDENTITY		       (0x00000000 | (CLIENT_CLUSTER_ID << 16) | 0xff01)
 
 /*
  * Datapath configurations
  */
 
 /* Set dummy ifindex for tunnel device */
-#define ENCAP_IFINDEX 1
+#define ENCAP_IFINDEX		       1
 
 /* Set the LXC source address to be the address of pod one */
-#define LXC_IPV4 BACKEND_IP
+#define LXC_IPV4		       BACKEND_IP
 
 /* Overlapping PodCIDR is only supported for IPv4 for now */
 #define ENABLE_IPV4
@@ -66,7 +66,7 @@
  */
 
 #define FROM_CONTAINER 0
-#define HANDLE_POLICY 1
+#define HANDLE_POLICY  1
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -89,11 +89,10 @@ pktgen_to_lxc(struct __ctx_buff *ctx, bool syn, bool ack)
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)BACKEND_ROUTER_MAC,
-					  (__u8 *)BACKEND_MAC,
-					  CLIENT_NODE_IP, BACKEND_IP,
-					  CLIENT_INTER_CLUSTER_SNAT_PORT, BACKEND_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)BACKEND_ROUTER_MAC, (__u8 *)BACKEND_MAC,
+		CLIENT_NODE_IP, BACKEND_IP, CLIENT_INTER_CLUSTER_SNAT_PORT,
+		BACKEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -118,11 +117,10 @@ pktgen_from_lxc(struct __ctx_buff *ctx, bool syn, bool ack)
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)BACKEND_MAC,
-					  (__u8 *)BACKEND_ROUTER_MAC,
-					  BACKEND_IP, CLIENT_NODE_IP,
-					  BACKEND_PORT, CLIENT_INTER_CLUSTER_SNAT_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)BACKEND_MAC, (__u8 *)BACKEND_ROUTER_MAC,
+		BACKEND_IP, CLIENT_NODE_IP, BACKEND_PORT,
+		CLIENT_INTER_CLUSTER_SNAT_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -187,7 +185,8 @@ int overlay_to_lxc_syn_check(struct __ctx_buff *ctx)
 	status_code = data;
 
 	if (*status_code != CTX_ACT_REDIRECT)
-		test_fatal("unexpected status code %d, want %d", *status_code, CTX_ACT_REDIRECT);
+		test_fatal("unexpected status code %d, want %d", *status_code,
+			   CTX_ACT_REDIRECT);
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
@@ -204,11 +203,11 @@ int overlay_to_lxc_syn_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_source, (__u8 *)BACKEND_ROUTER_MAC, ETH_ALEN) != 0)
 		test_fatal("src MAC has changed")
 
-	if (memcmp(l2->h_dest, (__u8 *)BACKEND_MAC, ETH_ALEN) != 0)
-		test_fatal("dst MAC has changed")
+			if (memcmp(l2->h_dest, (__u8 *)BACKEND_MAC, ETH_ALEN) !=
+			    0) test_fatal("dst MAC has changed")
 
-	if (l3->saddr != CLIENT_NODE_IP)
-		test_fatal("src IP has changed");
+				if (l3->saddr != CLIENT_NODE_IP)
+					test_fatal("src IP has changed");
 
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP has changed");
@@ -223,12 +222,12 @@ int overlay_to_lxc_syn_check(struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	/* Check ingress conntrack state is in the default CT */
-	tuple.daddr   = CLIENT_NODE_IP;
-	tuple.saddr   = BACKEND_IP;
-	tuple.dport   = BACKEND_PORT;
-	tuple.sport   = CLIENT_INTER_CLUSTER_SNAT_PORT;
+	tuple.daddr = CLIENT_NODE_IP;
+	tuple.saddr = BACKEND_IP;
+	tuple.dport = BACKEND_PORT;
+	tuple.sport = CLIENT_INTER_CLUSTER_SNAT_PORT;
 	tuple.nexthdr = IPPROTO_TCP;
-	tuple.flags   = TUPLE_F_IN;
+	tuple.flags = TUPLE_F_IN;
 
 	entry = map_lookup_elem(&CT_MAP_TCP4, &tuple);
 	if (!entry)
@@ -281,7 +280,8 @@ int lxc_to_overlay_ack_check(struct __ctx_buff *ctx)
 	status_code = data;
 
 	if (*status_code != CTX_ACT_REDIRECT)
-		test_fatal("unexpected status code %d, want %d", *status_code, CTX_ACT_REDIRECT);
+		test_fatal("unexpected status code %d, want %d", *status_code,
+			   CTX_ACT_REDIRECT);
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
@@ -317,12 +317,12 @@ int lxc_to_overlay_ack_check(struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	/* Make sure we hit the conntrack entry */
-	tuple.saddr   = BACKEND_IP;
-	tuple.daddr   = CLIENT_NODE_IP;
-	tuple.dport   = BACKEND_PORT;
-	tuple.sport   = CLIENT_INTER_CLUSTER_SNAT_PORT;
+	tuple.saddr = BACKEND_IP;
+	tuple.daddr = CLIENT_NODE_IP;
+	tuple.dport = BACKEND_PORT;
+	tuple.sport = CLIENT_INTER_CLUSTER_SNAT_PORT;
 	tuple.nexthdr = IPPROTO_TCP;
-	tuple.flags   = TUPLE_F_IN;
+	tuple.flags = TUPLE_F_IN;
 
 	entry = map_lookup_elem(&CT_MAP_TCP4, &tuple);
 	if (!entry)
@@ -377,7 +377,8 @@ int overlay_to_lxc_ack_check(struct __ctx_buff *ctx)
 	status_code = data;
 
 	if (*status_code != CTX_ACT_REDIRECT)
-		test_fatal("unexpected status code %d, want %d", *status_code, CTX_ACT_REDIRECT);
+		test_fatal("unexpected status code %d, want %d", *status_code,
+			   CTX_ACT_REDIRECT);
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
@@ -394,11 +395,11 @@ int overlay_to_lxc_ack_check(struct __ctx_buff *ctx)
 	if (memcmp(l2->h_source, (__u8 *)BACKEND_ROUTER_MAC, ETH_ALEN) != 0)
 		test_fatal("src MAC has changed")
 
-	if (memcmp(l2->h_dest, (__u8 *)BACKEND_MAC, ETH_ALEN) != 0)
-		test_fatal("dst MAC has changed")
+			if (memcmp(l2->h_dest, (__u8 *)BACKEND_MAC, ETH_ALEN) !=
+			    0) test_fatal("dst MAC has changed")
 
-	if (l3->saddr != CLIENT_NODE_IP)
-		test_fatal("src IP has changed");
+				if (l3->saddr != CLIENT_NODE_IP)
+					test_fatal("src IP has changed");
 
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP has changed");
@@ -413,12 +414,12 @@ int overlay_to_lxc_ack_check(struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	/* Make sure we hit the conntrack entry */
-	tuple.daddr   = CLIENT_NODE_IP;
-	tuple.saddr   = BACKEND_IP;
-	tuple.dport   = BACKEND_PORT;
-	tuple.sport   = CLIENT_INTER_CLUSTER_SNAT_PORT;
+	tuple.daddr = CLIENT_NODE_IP;
+	tuple.saddr = BACKEND_IP;
+	tuple.dport = BACKEND_PORT;
+	tuple.sport = CLIENT_INTER_CLUSTER_SNAT_PORT;
 	tuple.nexthdr = IPPROTO_TCP;
-	tuple.flags   = TUPLE_F_IN;
+	tuple.flags = TUPLE_F_IN;
 
 	entry = map_lookup_elem(&CT_MAP_TCP4, &tuple);
 	if (!entry)

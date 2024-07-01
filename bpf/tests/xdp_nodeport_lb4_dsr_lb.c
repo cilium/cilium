@@ -21,33 +21,37 @@
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 #undef FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 
-#define CLIENT_IP		v4_ext_one
-#define CLIENT_PORT		__bpf_htons(111)
+#define CLIENT_IP	    v4_ext_one
+#define CLIENT_PORT	    __bpf_htons(111)
 
-#define FRONTEND_IP		v4_svc_two
-#define FRONTEND_PORT		tcp_svc_one
+#define FRONTEND_IP	    v4_svc_two
+#define FRONTEND_PORT	    tcp_svc_one
 
-#define LB_IP			v4_node_one
-#define IPV4_DIRECT_ROUTING	LB_IP
+#define LB_IP		    v4_node_one
+#define IPV4_DIRECT_ROUTING LB_IP
 
-#define BACKEND_IP		v4_pod_two
-#define BACKEND_PORT		__bpf_htons(8080)
+#define BACKEND_IP	    v4_pod_two
+#define BACKEND_PORT	    __bpf_htons(8080)
 
-#define fib_lookup mock_fib_lookup
+#define fib_lookup	    mock_fib_lookup
 
 static volatile const __u8 *client_mac = mac_one;
 /* this matches the default node_config.h: */
-static volatile const __u8 lb_mac[ETH_ALEN] = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
+static volatile const __u8 lb_mac[ETH_ALEN] = {
+	0xce, 0x72, 0xa7, 0x03, 0x88, 0x56
+};
 static volatile const __u8 *remote_backend_mac = mac_five;
 
-long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
-		     __maybe_unused int plen, __maybe_unused __u32 flags)
+long mock_fib_lookup(
+	__maybe_unused void *ctx, struct bpf_fib_lookup *params,
+	__maybe_unused int plen, __maybe_unused __u32 flags)
 {
 	params->ifindex = 0;
 
 	if (params->ipv4_dst == BACKEND_IP) {
 		__bpf_memcpy_builtin(params->smac, (__u8 *)lb_mac, ETH_ALEN);
-		__bpf_memcpy_builtin(params->dmac, (__u8 *)remote_backend_mac, ETH_ALEN);
+		__bpf_memcpy_builtin(
+			params->dmac, (__u8 *)remote_backend_mac, ETH_ALEN);
 	} else {
 		__bpf_memcpy_builtin(params->smac, (__u8 *)lb_mac, ETH_ALEN);
 		__bpf_memcpy_builtin(params->dmac, (__u8 *)client_mac, ETH_ALEN);
@@ -61,7 +65,7 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
-#define FROM_NETDEV	0
+#define FROM_NETDEV 0
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -89,10 +93,9 @@ int nodeport_dsr_fwd_pktgen(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)client_mac, (__u8 *)lb_mac,
-					  CLIENT_IP, FRONTEND_IP,
-					  CLIENT_PORT, FRONTEND_PORT);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)client_mac, (__u8 *)lb_mac, CLIENT_IP,
+		FRONTEND_IP, CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -112,8 +115,9 @@ int nodeport_dsr_fwd_setup(struct __ctx_buff *ctx)
 	__u16 revnat_id = 1;
 
 	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, revnat_id);
-	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
-			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
+	lb_v4_add_backend(
+		FRONTEND_IP, FRONTEND_PORT, 1, 124, BACKEND_IP, BACKEND_PORT,
+		IPPROTO_TCP, 0);
 
 	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
 
@@ -162,12 +166,11 @@ int nodeport_dsr_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the LB MAC")
-	if (memcmp(l2->h_dest, (__u8 *)remote_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the backend MAC")
+		test_fatal("src MAC is not the LB MAC") if (
+			memcmp(l2->h_dest, (__u8 *)remote_backend_mac, ETH_ALEN) !=
+			0) test_fatal("dst MAC is not the backend MAC")
 
-	if (l3->saddr != CLIENT_IP)
-		test_fatal("src IP has changed");
+			if (l3->saddr != CLIENT_IP) test_fatal("src IP has changed");
 
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP hasn't been NATed to remote backend IP");
@@ -176,16 +179,15 @@ int nodeport_dsr_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	if (opt->type != DSR_IPV4_OPT_TYPE)
-		test_fatal("type in DSR IP option is bad")
-	if (opt->len != 8)
-		test_fatal("length in DSR IP option is bad")
-	if (opt->port != __bpf_ntohs(FRONTEND_PORT))
-		test_fatal("port in DSR IP option is bad")
-	if (opt->addr != __bpf_ntohl(FRONTEND_IP))
-		test_fatal("addr in DSR IP option is bad")
+		test_fatal("type in DSR IP option is bad") if (opt->len != 8)
+			test_fatal("length in DSR IP option is bad") if (
+				opt->port != __bpf_ntohs(FRONTEND_PORT))
+				test_fatal("port in DSR IP option is bad") if (
+					opt->addr != __bpf_ntohl(FRONTEND_IP))
+					test_fatal("addr in DSR IP option is bad")
 
-	if (l4->source != CLIENT_PORT)
-		test_fatal("src port has changed");
+						if (l4->source != CLIENT_PORT) test_fatal(
+							"src port has changed");
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port hasn't been NATed to backend port");

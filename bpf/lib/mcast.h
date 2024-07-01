@@ -40,17 +40,17 @@ struct mcast_subscriber_v4 {
 	/* reserved */
 	__u16 pad1;
 	/* reserved */
-	__u8  pad2;
+	__u8 pad2;
 	/* flags for further subscriber description */
-	__u8  flags;
+	__u8 flags;
 };
 
 #ifdef ENABLE_MULTICAST
 
-#define MCAST_MAX_GROUP 1024
-#define MCAST_MAX_SUBSCRIBERS 1024
+# define MCAST_MAX_GROUP       1024
+# define MCAST_MAX_SUBSCRIBERS 1024
 /* used to bound iteration of group records within an igmpv3 membership report */
-#define MCAST_MAX_GREC 24
+# define MCAST_MAX_GREC	       24
 
 /* Multicast group map is a nested hash of maps.
  * The outer map is keyed by a 'mcast_group_v4' multicast group address.
@@ -65,13 +65,14 @@ struct {
 	__uint(max_entries, MCAST_MAX_GROUP);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 	/* Multicast group subscribers inner map definition */
-	__array(values, struct {
-		__uint(type, BPF_MAP_TYPE_HASH);
-		__uint(key_size, sizeof(__be32));
-		__uint(value_size, sizeof(struct mcast_subscriber_v4));
-		__uint(max_entries, MCAST_MAX_SUBSCRIBERS);
-		__uint(map_flags, CONDITIONAL_PREALLOC);
-	});
+	__array(
+		values, struct {
+			__uint(type, BPF_MAP_TYPE_HASH);
+			__uint(key_size, sizeof(__be32));
+			__uint(value_size, sizeof(struct mcast_subscriber_v4));
+			__uint(max_entries, MCAST_MAX_SUBSCRIBERS);
+			__uint(map_flags, CONDITIONAL_PREALLOC);
+		});
 } cilium_mcast_group_outer_v4_map __section_maps_btf;
 
 /* lookup a subscriber map for the given ipv4 multicast group
@@ -94,9 +95,8 @@ static __always_inline bool mcast_ipv4_is_igmp(const struct iphdr *ip4)
  * a call to 'mcast_ipv4_is_igmp' must be used prior to this call to ensure an
  * igmp message follows the ipv4 header
  */
-static __always_inline __s32 mcast_ipv4_igmp_type(const struct iphdr *ip4,
-						  const void *data,
-						  const void *data_end)
+static __always_inline __s32 mcast_ipv4_igmp_type(
+	const struct iphdr *ip4, const void *data, const void *data_end)
 {
 	const struct igmphdr *hdr;
 	int ip_len = ip4->ihl * 4;
@@ -110,8 +110,8 @@ static __always_inline __s32 mcast_ipv4_igmp_type(const struct iphdr *ip4,
 
 /* add a subscriber to a subscriber map */
 /* returns 1 on success or DROP_INVALID for error */
-static __always_inline __s32 mcast_ipv4_add_subscriber(void *map,
-						       struct mcast_subscriber_v4 *sub)
+static __always_inline __s32
+mcast_ipv4_add_subscriber(void *map, struct mcast_subscriber_v4 *sub)
 {
 	if ((map_update_elem(map, &sub->saddr, sub, BPF_ANY) != 0))
 		return DROP_INVALID;
@@ -120,17 +120,15 @@ static __always_inline __s32 mcast_ipv4_add_subscriber(void *map,
 
 /* remove a subscriber to a subscriber map */
 /* always returns 1 */
-static __always_inline void mcast_ipv4_remove_subscriber(void *map,
-							 struct mcast_subscriber_v4 *sub)
+static __always_inline void
+mcast_ipv4_remove_subscriber(void *map, struct mcast_subscriber_v4 *sub)
 {
 	map_delete_elem(map, &sub->saddr);
 }
 
-static __always_inline __s32 mcast_ipv4_handle_v3_membership_report(void *ctx,
-								    void *group_map,
-								    const struct iphdr *ip4,
-								    const void *data,
-								    const void *data_end)
+static __always_inline __s32 mcast_ipv4_handle_v3_membership_report(
+	void *ctx, void *group_map, const struct iphdr *ip4, const void *data,
+	const void *data_end)
 {
 	struct mcast_subscriber_v4 subscriber = {
 		.saddr = ip4->saddr,
@@ -154,12 +152,12 @@ static __always_inline __s32 mcast_ipv4_handle_v3_membership_report(void *ctx,
 	if (ngrec > MCAST_MAX_GREC)
 		return DROP_INVALID;
 
-	/* start a bounded loop which exits when we hit the total number of
+		/* start a bounded loop which exits when we hit the total number of
 	 * group records in the membership report.
 	 *
 	 * add our subscriber into each group advertised in the report.
 	 */
-#pragma unroll
+# pragma unroll
 	for (i = 0; i < MCAST_MAX_GREC; i++) {
 		/* Wrap this in an if, instead of breaking out of the loop,
 		 * so unroll has a constant number of iterations.
@@ -190,7 +188,8 @@ static __always_inline __s32 mcast_ipv4_handle_v3_membership_report(void *ctx,
 			 * sources message
 			 */
 			if (rec->grec_type == IGMPV3_CHANGE_TO_EXCLUDE) {
-				subscribed = mcast_ipv4_add_subscriber(sub_map, &subscriber);
+				subscribed = mcast_ipv4_add_subscriber(
+					sub_map, &subscriber);
 				if (subscribed != 1)
 					return DROP_INVALID;
 				continue;
@@ -211,11 +210,9 @@ static __always_inline __s32 mcast_ipv4_handle_v3_membership_report(void *ctx,
 	return DROP_IGMP_HANDLED;
 }
 
-static __always_inline __s32 mcast_ipv4_handle_v2_membership_report(void *ctx,
-								    void *group_map,
-								    const struct iphdr *ip4,
-								    const void *data,
-								    const void *data_end)
+static __always_inline __s32 mcast_ipv4_handle_v2_membership_report(
+	void *ctx, void *group_map, const struct iphdr *ip4, const void *data,
+	const void *data_end)
 {
 	struct mcast_subscriber_v4 subscriber = {
 		.saddr = ip4->saddr,
@@ -244,10 +241,9 @@ static __always_inline __s32 mcast_ipv4_handle_v2_membership_report(void *ctx,
 	return DROP_IGMP_HANDLED;
 }
 
-static __always_inline __s32 mcast_ipv4_handle_igmp_leave(void *group_map,
-							  const struct iphdr *ip4,
-							  const void *data,
-							  const void *data_end)
+static __always_inline __s32 mcast_ipv4_handle_igmp_leave(
+	void *group_map, const struct iphdr *ip4, const void *data,
+	const void *data_end)
 {
 	struct mcast_subscriber_v4 subscriber = {
 		.saddr = ip4->saddr,
@@ -275,10 +271,8 @@ static __always_inline __s32 mcast_ipv4_handle_igmp_leave(void *group_map,
 }
 
 /* ipv4 igmp handler which dispatches to specific igmp message handlers */
-static __always_inline __s32 mcast_ipv4_handle_igmp(void *ctx,
-						    struct iphdr *ip4,
-						    void *data,
-						    void *data_end)
+static __always_inline __s32
+mcast_ipv4_handle_igmp(void *ctx, struct iphdr *ip4, void *data, void *data_end)
 {
 	__s32 igmp_type = mcast_ipv4_igmp_type(ip4, data, data_end);
 
@@ -287,22 +281,16 @@ static __always_inline __s32 mcast_ipv4_handle_igmp(void *ctx,
 
 	switch (igmp_type) {
 	case IGMPV3_HOST_MEMBERSHIP_REPORT:
-		return mcast_ipv4_handle_v3_membership_report(ctx,
-							      &cilium_mcast_group_outer_v4_map,
-							      ip4,
-							      data,
-							      data_end);
+		return mcast_ipv4_handle_v3_membership_report(
+			ctx, &cilium_mcast_group_outer_v4_map, ip4, data,
+			data_end);
 	case IGMPV2_HOST_MEMBERSHIP_REPORT:
-		return mcast_ipv4_handle_v2_membership_report(ctx,
-							      &cilium_mcast_group_outer_v4_map,
-							      ip4,
-							      data,
-							      data_end);
+		return mcast_ipv4_handle_v2_membership_report(
+			ctx, &cilium_mcast_group_outer_v4_map, ip4, data,
+			data_end);
 	case IGMP_HOST_LEAVE_MESSAGE:
-		return mcast_ipv4_handle_igmp_leave(&cilium_mcast_group_outer_v4_map,
-						    ip4,
-						    data,
-						    data_end);
+		return mcast_ipv4_handle_igmp_leave(
+			&cilium_mcast_group_outer_v4_map, ip4, data, data_end);
 	}
 
 	return DROP_IGMP_HANDLED;
@@ -311,8 +299,8 @@ static __always_inline __s32 mcast_ipv4_handle_igmp(void *ctx,
 /* encodes a multicast mac address given a ipv4 group address
  * results are in big endian format and written directly into 'mac'
  */
-static __always_inline void mcast_encode_ipv4_mac(union macaddr *mac,
-						  const __u8 group[4])
+static __always_inline void
+mcast_encode_ipv4_mac(union macaddr *mac, const __u8 group[4])
 {
 	mac->addr[0] = 0x01;
 	mac->addr[1] = 0x00;
@@ -335,15 +323,15 @@ struct _mcast_ep_delivery_ctx {
  *
  * callback functions must return 1 or 0 to pass eBPF verifier.
  */
-static long __mcast_ep_delivery(__maybe_unused void *sub_map,
-				__maybe_unused const __u32 *key,
-				const struct mcast_subscriber_v4 *sub,
-				struct _mcast_ep_delivery_ctx *cb_ctx)
+static long __mcast_ep_delivery(
+	__maybe_unused void *sub_map, __maybe_unused const __u32 *key,
+	const struct mcast_subscriber_v4 *sub,
+	struct _mcast_ep_delivery_ctx *cb_ctx)
 {
 	int ret = 0;
 	__u32 tunnel_id = WORLD_ID;
 	__u8 from_overlay = 0;
-	struct bpf_tunnel_key tun_key = {0};
+	struct bpf_tunnel_key tun_key = { 0 };
 
 	if (!cb_ctx || !sub)
 		return 1;
@@ -373,20 +361,19 @@ static long __mcast_ep_delivery(__maybe_unused void *sub_map,
 		if (from_overlay)
 			return 0;
 
-#ifdef ENABLE_ENCRYPTED_OVERLAY
+# ifdef ENABLE_ENCRYPTED_OVERLAY
 		/* if encrypted overlay is enabled we'll mark the packet for
 		 * encryption via the tunnel ID.
 		 */
 		tunnel_id = ENCRYPTED_OVERLAY_ID;
-#endif /* ENABLE_ENCRYPTED_OVERLAY */
+# endif /* ENABLE_ENCRYPTED_OVERLAY */
 		tun_key.tunnel_id = tunnel_id;
 		tun_key.remote_ipv4 = bpf_ntohl(sub->saddr);
 		tun_key.tunnel_ttl = IPDEFTTL;
 
-		ret = ctx_set_tunnel_key(cb_ctx->ctx,
-					 &tun_key,
-					 TUNNEL_KEY_WITHOUT_SRC_IP,
-					 BPF_F_ZERO_CSUM_TX);
+		ret = ctx_set_tunnel_key(
+			cb_ctx->ctx, &tun_key, TUNNEL_KEY_WITHOUT_SRC_IP,
+			BPF_F_ZERO_CSUM_TX);
 
 		if (ret < 0) {
 			cb_ctx->ret = ret;
@@ -407,14 +394,11 @@ static long __mcast_ep_delivery(__maybe_unused void *sub_map,
  * for a multicast group and the multicast group exists in
  * cilium_mcast_group_outer_v4_map
  */
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_MULTICAST_EP_DELIVERY)
-int tail_mcast_ep_delivery(struct __ctx_buff *ctx)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_MULTICAST_EP_DELIVERY) int tail_mcast_ep_delivery(
+	struct __ctx_buff *ctx)
 {
-	struct _mcast_ep_delivery_ctx cb_ctx = {
-		.ctx = ctx,
-		.ret = 0
-	};
-	union macaddr mac = {0};
+	struct _mcast_ep_delivery_ctx cb_ctx = { .ctx = ctx, .ret = 0 };
+	union macaddr mac = { 0 };
 	void *data, *data_end;
 	struct iphdr *ip4 = 0;
 	void *sub_map = 0;
@@ -432,13 +416,9 @@ int tail_mcast_ep_delivery(struct __ctx_buff *ctx)
 
 	for_each_map_elem(sub_map, __mcast_ep_delivery, &cb_ctx, 0);
 
-	return send_drop_notify(ctx,
-				UNKNOWN_ID,
-				UNKNOWN_ID,
-				TRACE_EP_ID_UNKNOWN,
-				DROP_MULTICAST_HANDLED,
-				CTX_ACT_DROP,
-				METRIC_INGRESS);
+	return send_drop_notify(
+		ctx, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+		DROP_MULTICAST_HANDLED, CTX_ACT_DROP, METRIC_INGRESS);
 }
 
 #endif /* ENABLE_MULTICAST */

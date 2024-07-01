@@ -12,8 +12,8 @@
 #if defined(ENABLE_NODEPORT) && defined(ENABLE_IPV6)
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
-	__type(key, union v6addr);	/* ipv6 addr */
-	__type(value, union macaddr);	/* hw addr */
+	__type(key, union v6addr);    /* ipv6 addr */
+	__type(value, union macaddr); /* hw addr */
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, NODEPORT_NEIGH6_SIZE);
 } NODEPORT_NEIGH6 __section_maps_btf;
@@ -31,8 +31,7 @@ static __always_inline int neigh_record_ip6(struct __ctx_buff *ctx)
 
 	mac = map_lookup_elem(&NODEPORT_NEIGH6, &ip6->saddr);
 	if (!mac || eth_addrcmp(mac, &smac)) {
-		int ret = map_update_elem(&NODEPORT_NEIGH6, &ip6->saddr,
-					  &smac, 0);
+		int ret = map_update_elem(&NODEPORT_NEIGH6, &ip6->saddr, &smac, 0);
 		if (ret < 0)
 			return ret;
 	}
@@ -55,8 +54,8 @@ neigh_lookup_ip6(const union v6addr *addr __maybe_unused)
 #if defined(ENABLE_NODEPORT) && defined(ENABLE_IPV4)
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
-	__type(key, __be32);		/* ipv4 addr */
-	__type(value, union macaddr);	/* hw addr */
+	__type(key, __be32);	      /* ipv4 addr */
+	__type(value, union macaddr); /* hw addr */
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, NODEPORT_NEIGH4_SIZE);
 } NODEPORT_NEIGH4 __section_maps_btf;
@@ -74,8 +73,7 @@ static __always_inline int neigh_record_ip4(struct __ctx_buff *ctx)
 
 	mac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->saddr);
 	if (!mac || eth_addrcmp(mac, &smac)) {
-		int ret = map_update_elem(&NODEPORT_NEIGH4, &ip4->saddr,
-					  &smac, 0);
+		int ret = map_update_elem(&NODEPORT_NEIGH4, &ip4->saddr, &smac, 0);
 		if (ret < 0)
 			return ret;
 	}

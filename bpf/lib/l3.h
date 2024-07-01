@@ -19,24 +19,24 @@
  * policy (the cil_to_container BPF program) is bypassed.
  */
 #if defined(ENABLE_ENDPOINT_ROUTES) && defined(ENABLE_HOST_ROUTING)
-#  ifndef FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
+# ifndef FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 #  define FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
-#  endif
+# endif
 #endif
 
 #ifdef ENABLE_IPV6
-static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
-				   const __u8 *smac, const __u8 *dmac,
-				   __u8 __maybe_unused direction)
+static __always_inline int
+ipv6_l3(struct __ctx_buff *ctx, int l3_off, const __u8 *smac, const __u8 *dmac,
+	__u8 __maybe_unused direction)
 {
 	int ret;
 
 	ret = ipv6_dec_hoplimit(ctx, l3_off);
 	if (IS_ERR(ret)) {
-#ifndef SKIP_ICMPV6_HOPLIMIT_HANDLING
+# ifndef SKIP_ICMPV6_HOPLIMIT_HANDLING
 		if (ret == DROP_TTL_EXCEEDED)
 			return icmp6_send_time_exceeded(ctx, l3_off, direction);
-#endif
+# endif
 		return ret;
 	}
 
@@ -49,9 +49,9 @@ static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
 }
 #endif /* ENABLE_IPV6 */
 
-static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
-				   const __u8 *smac, const __u8 *dmac,
-				   struct iphdr *ip4)
+static __always_inline int
+ipv4_l3(struct __ctx_buff *ctx, int l3_off, const __u8 *smac, const __u8 *dmac,
+	struct iphdr *ip4)
 {
 	int ret;
 
@@ -69,28 +69,26 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 }
 
 #ifndef SKIP_POLICY_MAP
-static __always_inline int
-l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
-		  __u32 magic __maybe_unused,
-		  const struct endpoint_info *ep __maybe_unused,
-		  __u8 direction __maybe_unused,
-		  bool from_host __maybe_unused,
-		  bool from_tunnel __maybe_unused, __u32 cluster_id __maybe_unused)
+static __always_inline int l3_local_delivery(
+	struct __ctx_buff *ctx, __u32 seclabel, __u32 magic __maybe_unused,
+	const struct endpoint_info *ep __maybe_unused,
+	__u8 direction __maybe_unused, bool from_host __maybe_unused,
+	bool from_tunnel __maybe_unused, __u32 cluster_id __maybe_unused)
 {
-#ifdef LOCAL_DELIVERY_METRICS
+# ifdef LOCAL_DELIVERY_METRICS
 	/*
 	 * Special LXC case for updating egress forwarding metrics.
 	 * Note that the packet could still be dropped but it would show up
 	 * as an ingress drop counter in metrics.
 	 */
 	update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
-#endif
+# endif
 
-#if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
-	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
+# if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
+	 !defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
 	set_identity_mark(ctx, seclabel, magic);
 
-# if !defined(ENABLE_NODEPORT)
+#  if !defined(ENABLE_NODEPORT)
 	/* In tunneling mode, we execute this code to send the packet from
 	 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
 	 * redirect() because that would bypass conntrack and the reverse DNAT.
@@ -102,10 +100,10 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 		ctx_change_type(ctx, PACKET_HOST);
 		return CTX_ACT_OK;
 	}
-# endif /* !ENABLE_NODEPORT */
+#  endif /* !ENABLE_NODEPORT */
 
 	return redirect_ep(ctx, ep->ifindex, from_host, from_tunnel);
-#else
+# else
 
 	/* Jumps to destination pod's BPF program to enforce ingress policies. */
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
@@ -115,20 +113,19 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, cluster_id);
 
 	return tail_call_policy(ctx, ep->lxc_id);
-#endif
+# endif
 }
 
-#ifdef ENABLE_IPV6
+# ifdef ENABLE_IPV6
 /* Performs IPv6 L2/L3 handling and delivers the packet to the destination pod
  * on the same node, either via the stack or via a redirect call.
  * Depending on the configuration, it may also enforce ingress policies for the
  * destination pod via a tail call.
  */
-static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off,
-					       __u32 seclabel, __u32 magic,
-					       const struct endpoint_info *ep,
-					       __u8 direction, bool from_host,
-					       bool from_tunnel)
+static __always_inline int ipv6_local_delivery(
+	struct __ctx_buff *ctx, int l3_off, __u32 seclabel, __u32 magic,
+	const struct endpoint_info *ep, __u8 direction, bool from_host,
+	bool from_tunnel)
 {
 	mac_t router_mac = ep->node_mac;
 	mac_t lxc_mac = ep->mac;
@@ -136,26 +133,25 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
 
-	ret = ipv6_l3(ctx, l3_off, (__u8 *)&router_mac, (__u8 *)&lxc_mac, direction);
+	ret = ipv6_l3(
+		ctx, l3_off, (__u8 *)&router_mac, (__u8 *)&lxc_mac, direction);
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-	return l3_local_delivery(ctx, seclabel, magic, ep, direction, from_host,
-				 from_tunnel, 0);
+	return l3_local_delivery(
+		ctx, seclabel, magic, ep, direction, from_host, from_tunnel, 0);
 }
-#endif /* ENABLE_IPV6 */
+# endif /* ENABLE_IPV6 */
 
 /* Performs IPv4 L2/L3 handling and delivers the packet to the destination pod
  * on the same node, either via the stack or via a redirect call.
  * Depending on the configuration, it may also enforce ingress policies for the
  * destination pod via a tail call.
  */
-static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_off,
-					       __u32 seclabel, __u32 magic,
-					       struct iphdr *ip4,
-					       const struct endpoint_info *ep,
-					       __u8 direction, bool from_host,
-					       bool from_tunnel, __u32 cluster_id)
+static __always_inline int ipv4_local_delivery(
+	struct __ctx_buff *ctx, int l3_off, __u32 seclabel, __u32 magic,
+	struct iphdr *ip4, const struct endpoint_info *ep, __u8 direction,
+	bool from_host, bool from_tunnel, __u32 cluster_id)
 {
 	mac_t router_mac = ep->node_mac;
 	mac_t lxc_mac = ep->mac;
@@ -163,11 +159,12 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
 
-	ret = ipv4_l3(ctx, l3_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac, ip4);
+	ret = ipv4_l3(ctx, l3_off, (__u8 *)&router_mac, (__u8 *)&lxc_mac, ip4);
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-	return l3_local_delivery(ctx, seclabel, magic, ep, direction, from_host,
-				 from_tunnel, cluster_id);
+	return l3_local_delivery(
+		ctx, seclabel, magic, ep, direction, from_host, from_tunnel,
+		cluster_id);
 }
 #endif /* SKIP_POLICY_MAP */

@@ -7,25 +7,25 @@
 #include <bpf/helpers_skb.h>
 #include "pktgen.h"
 
-#define ETH_HLEN		0
-#define SECCTX_FROM_IPCACHE	1
+#define ETH_HLEN	    0
+#define SECCTX_FROM_IPCACHE 1
 #define ENABLE_HOST_ROUTING
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 
-#define TEST_IP_LOCAL		v4_pod_one
-#define TEST_IP_REMOTE		v4_pod_two
-#define TEST_IPV6_LOCAL		v6_pod_one
-#define TEST_IPV6_REMOTE	v6_pod_two
-#define TEST_LXC_ID_LOCAL	233
+#define TEST_IP_LOCAL	  v4_pod_one
+#define TEST_IP_REMOTE	  v4_pod_two
+#define TEST_IPV6_LOCAL	  v6_pod_one
+#define TEST_IPV6_REMOTE  v6_pod_two
+#define TEST_LXC_ID_LOCAL 233
 
 /* We wanted to tail call handle_policy from bpf_lxc, but at present it's
  * impossible to #include both bpf_host.c and bpf_lxc.c at the same time.
  * Therefore, we created a stud, mock_hanle_policy, to simply check if the
  * our skb reaches there.
  */
-__section("mock-handle-policy")
-int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
+__section("mock-handle-policy") int mock_handle_policy(
+	struct __ctx_buff *ctx __maybe_unused)
 {
 	return TC_ACT_REDIRECT;
 }
@@ -42,9 +42,9 @@ struct {
 };
 
 #define tail_call_dynamic mock_tail_call_dynamic
-static __always_inline __maybe_unused void
-mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
-		       const void *map __maybe_unused, __u32 slot __maybe_unused)
+static __always_inline __maybe_unused void mock_tail_call_dynamic(
+	struct __ctx_buff *ctx __maybe_unused, const void *map __maybe_unused,
+	__u32 slot __maybe_unused)
 {
 	tail_call(ctx, &mock_policy_call_map, slot);
 }
@@ -85,10 +85,9 @@ int ipv4_l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx)
 	 * and stripping it in the SETUP.
 	 */
 
-	l4 = pktgen__push_ipv4_tcp_packet(&builder,
-					  (__u8 *)node_mac, (__u8 *)ep_mac,
-					  TEST_IP_REMOTE, TEST_IP_LOCAL,
-					  tcp_src_one, tcp_svc_one);
+	l4 = pktgen__push_ipv4_tcp_packet(
+		&builder, (__u8 *)node_mac, (__u8 *)ep_mac, TEST_IP_REMOTE,
+		TEST_IP_LOCAL, tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -109,8 +108,9 @@ int ipv4_l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx)
 	void *data_end = (void *)(long)ctx->data_end;
 	__u64 flags = BPF_F_ADJ_ROOM_FIXED_GSO;
 
-	endpoint_v4_add_entry(TEST_IP_LOCAL, 0, TEST_LXC_ID_LOCAL, 0, 0,
-			      (__u8 *)ep_mac, (__u8 *)node_mac);
+	endpoint_v4_add_entry(
+		TEST_IP_LOCAL, 0, TEST_LXC_ID_LOCAL, 0, 0, (__u8 *)ep_mac,
+		(__u8 *)node_mac);
 
 	/* As commented in PKTGEN, now we strip the L2 header. Bpf helper
 	 * skb_adjust_room will use L2 header to overwrite L3 header, so we play
@@ -215,11 +215,10 @@ int ipv6_l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx)
 	 * Therefore we workaround the issue by pushing L2 header in the PKTGEN
 	 * and stripping it in the SETUP.
 	 */
-	l4 = pktgen__push_ipv6_tcp_packet(&builder,
-					  (__u8 *)node_mac, (__u8 *)ep_mac,
-					  (__u8 *)TEST_IPV6_REMOTE,
-					  (__u8 *)TEST_IPV6_LOCAL,
-					  tcp_src_one, tcp_svc_one);
+	l4 = pktgen__push_ipv6_tcp_packet(
+		&builder, (__u8 *)node_mac, (__u8 *)ep_mac,
+		(__u8 *)TEST_IPV6_REMOTE, (__u8 *)TEST_IPV6_LOCAL, tcp_src_one,
+		tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -240,8 +239,9 @@ int ipv6_l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx)
 	void *data_end = (void *)(long)ctx->data_end;
 	__u64 flags = BPF_F_ADJ_ROOM_FIXED_GSO;
 
-	endpoint_v6_add_entry((union v6addr *)TEST_IPV6_LOCAL, 0, TEST_LXC_ID_LOCAL, 0, 0,
-			      (__u8 *)ep_mac, (__u8 *)node_mac);
+	endpoint_v6_add_entry(
+		(union v6addr *)TEST_IPV6_LOCAL, 0, TEST_LXC_ID_LOCAL, 0, 0,
+		(__u8 *)ep_mac, (__u8 *)node_mac);
 
 	/* As commented in PKTGEN, now we strip the L2 header. Bpf helper
 	 * skb_adjust_room will use L2 header to overwrite L3 header, so we play

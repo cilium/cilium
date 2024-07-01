@@ -4,12 +4,14 @@
 #pragma once
 
 #ifndef NULL
-#define NULL ((void *)0)
+# define NULL ((void *)0)
 #endif
 
+/* clang-format off */
 #define bool	_Bool
+/* clang-format on */
 
 enum {
-	false	= 0,
-	true	= 1,
+	false = 0,
+	true = 1,
 };

@@ -13,13 +13,14 @@
 /* Make sure we always pick backend slot 1 if we end up in backend selection. */
 #define LB_SELECTION LB_SELECTION_FIRST
 
-#define fib_lookup mock_fib_lookup
+#define fib_lookup   mock_fib_lookup
 
-static const char fib_smac[6] = {0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x02};
-static const char fib_dmac[6] = {0x13, 0x37, 0x13, 0x37, 0x13, 0x37};
+static const char fib_smac[6] = { 0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x02 };
+static const char fib_dmac[6] = { 0x13, 0x37, 0x13, 0x37, 0x13, 0x37 };
 
-long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
-		     __maybe_unused int plen, __maybe_unused __u32 flags)
+long mock_fib_lookup(
+	__maybe_unused void *ctx, struct bpf_fib_lookup *params,
+	__maybe_unused int plen, __maybe_unused __u32 flags)
 {
 	__bpf_memcpy_builtin(params->smac, fib_smac, ETH_ALEN);
 	__bpf_memcpy_builtin(params->dmac, fib_dmac, ETH_ALEN);
@@ -40,15 +41,15 @@ struct {
 	},
 };
 
-#define CLIENT_IP IPV4(10, 0, 0, 1)
-#define FRONTEND_IP IPV4(10, 0, 1, 1)
-#define BACKEND_IP1 IPV4(10, 0, 2, 1)
-#define BACKEND_IP2 IPV4(10, 0, 3, 1)
+#define CLIENT_IP     IPV4(10, 0, 0, 1)
+#define FRONTEND_IP   IPV4(10, 0, 1, 1)
+#define BACKEND_IP1   IPV4(10, 0, 2, 1)
+#define BACKEND_IP2   IPV4(10, 0, 3, 1)
 #define FRONTEND_PORT bpf_htons(80)
-#define BACKEND_PORT bpf_htons(8080)
+#define BACKEND_PORT  bpf_htons(8080)
 #define REV_NAT_INDEX 123
-#define BACKEND_ID1 7
-#define BACKEND_ID2 42
+#define BACKEND_ID1   7
+#define BACKEND_ID2   42
 
 static __always_inline int craft_packet(struct __ctx_buff *ctx)
 {
@@ -62,9 +63,11 @@ static __always_inline int craft_packet(struct __ctx_buff *ctx)
 	eh = pktgen__push_ethhdr(&builder);
 	if (!eh)
 		return TEST_ERROR;
-	*eh = (struct ethhdr){.h_source = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF},
-			      .h_dest = {0x12, 0x23, 0x34, 0x45, 0x56, 0x67},
-			      .h_proto = bpf_htons(ETH_P_IP)};
+	*eh = (struct ethhdr){
+		.h_source = { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF },
+		.h_dest = { 0x12, 0x23, 0x34, 0x45, 0x56, 0x67 },
+		.h_proto = bpf_htons(ETH_P_IP)
+	};
 
 	iph = pktgen__push_default_iphdr(&builder);
 
@@ -89,26 +92,24 @@ static __always_inline int craft_packet(struct __ctx_buff *ctx)
 	return 0;
 }
 
-#define SVC_KEY_VALUE(_beslot, _beid, _scope)				\
-	{								\
-		.key = {.address = FRONTEND_IP,				\
-			.dport = FRONTEND_PORT,				\
-			.scope = (_scope),				\
-			.backend_slot = (_beslot)},			\
-		.value = {						\
+#define SVC_KEY_VALUE(_beslot, _beid, _scope)                           \
+	{                                                               \
+		.key = { .address = FRONTEND_IP,                        \
+			 .dport = FRONTEND_PORT,                        \
+			 .scope = (_scope),                             \
+			 .backend_slot = (_beslot) },                   \
+		.value = {                                              \
 			.flags = SVC_FLAG_ROUTABLE | SVC_FLAG_AFFINITY, \
-			.count = 2,					\
-			.rev_nat_index = REV_NAT_INDEX,			\
-			.backend_id = (_beid)				\
-		}							\
+			.count = 2,                                     \
+			.rev_nat_index = REV_NAT_INDEX,                 \
+			.backend_id = (_beid)                           \
+		}                                                       \
 	}
 
-#define BE_KEY_VALUE(_beid, _beip)		\
-	{					\
-		.key = (_beid),			\
-		.value = {.address = (_beip),	\
-			  .port = BACKEND_PORT, \
-			  .proto = IPPROTO_TCP},\
+#define BE_KEY_VALUE(_beid, _beip)                                                           \
+	{                                                                                    \
+		.key = (_beid),                                                              \
+		.value = { .address = (_beip), .port = BACKEND_PORT, .proto = IPPROTO_TCP }, \
 	}
 
 SETUP("xdp", "session_affinity")
@@ -132,7 +133,7 @@ int test1_setup(struct __ctx_buff *ctx)
 		BE_KEY_VALUE(BACKEND_ID2, BACKEND_IP2),
 	};
 	struct lb4_affinity_key aff_key = {
-		.client_id = {.client_ip = CLIENT_IP},
+		.client_id = { .client_ip = CLIENT_IP },
 		.rev_nat_id = REV_NAT_INDEX,
 		.netns_cookie = 0x0,
 	};
@@ -187,7 +188,8 @@ int test1_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	__u32 *status_code = data;
 
-	if (*status_code != XDP_TX) test_fatal("status code != XDP_TX %u", *status_code);
+	if (*status_code != XDP_TX)
+		test_fatal("status code != XDP_TX %u", *status_code);
 
 	data += sizeof(__u32);
 
@@ -211,7 +213,8 @@ int test1_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	data += sizeof(struct iphdr);
 
-	if (l3->daddr != BACKEND_IP2) test_fatal("dst ip != backend IP");
+	if (l3->daddr != BACKEND_IP2)
+		test_fatal("dst ip != backend IP");
 
 	if (data + sizeof(struct tcphdr) > data_end)
 		test_fatal("ctx doesn't fit tcphdr");

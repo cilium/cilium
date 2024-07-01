@@ -64,7 +64,8 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 
 		/* Set last topup to 1 interval ago */
 		value->tokens = 0;
-		value->last_topup = ktime_get_ns() - (settings.topup_interval_ns + 1);
+		value->last_topup =
+			ktime_get_ns() - (settings.topup_interval_ns + 1);
 
 		if (!ratelimit_check_and_take(&key, &settings))
 			test_fatal("Rate limit not allowed after topup");
@@ -80,7 +81,8 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 
 		/* Set last topup to 100 intervals ago */
 		value->tokens = 0;
-		value->last_topup = ktime_get_ns() - (100 * settings.topup_interval_ns);
+		value->last_topup =
+			ktime_get_ns() - (100 * settings.topup_interval_ns);
 
 		if (!ratelimit_check_and_take(&key, &settings))
 			test_fatal("Rate limit not allowed after topup");
