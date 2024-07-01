@@ -40,7 +40,7 @@ func setupIPSecSuitePrivileged(tb testing.TB) *slog.Logger {
 
 var (
 	path           = "ipsec_keys_test"
-	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef foobar\n1 digest_null \"\" cipher_null \"\"\n")
+	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n1 digest_null \"\" cipher_null \"\"\n")
 	keysAeadDat    = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
 	keysAeadDat256 = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f144434241343332312423222114131211 128\n")
 	invalidKeysDat = []byte("1 test abcdefghijklmnopqrstuvwzyzABCDEF test abcdefghijklmnopqrstuvwzyzABCDEF\n")
@@ -95,7 +95,7 @@ func TestParseSPI(t *testing.T) {
 		{"254", 0, 0, false, true},
 		{"15", 15, 0, false, false},
 		{"3+", 3, 0, true, false},
-		{"abc", 1, -1, false, false},
+		{"abc", 0, 0, false, true},
 		{"0", 0, 0, false, true},
 	}
 	for _, tc := range testCases {
