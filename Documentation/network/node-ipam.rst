@@ -32,8 +32,8 @@ all the Pods selected by the Service (via their EndpointSlices) as candidates.
 
     As a result, you **cannot** set ``.spec.externalTrafficPolicy`` to ``Local``
     with the Cilium implementations for GatewayAPI or Ingress, because Cilium
-    currently uses a dummy Endpoints for the Service LoadBalancer (see
-    <https://github.com/cilium/cilium/blob/495f228ad8791c89f0851e0abbad90f09b136f80/install/kubernetes/cilium/templates/cilium-ingress-service.yaml#L58>`_).
+    currently uses a dummy Endpoints for the Service LoadBalancer (`see here
+    <https://github.com/cilium/cilium/blob/495f228ad8791c89f0851e0abbad90f09b136f80/install/kubernetes/cilium/templates/cilium-ingress-service.yaml#L58>`__).
     Only the Cilium implementation is known to be affected by this limitation.
     Most other implementations are expected to work with this configuration.
     If they don't, check if the matching EndpointSlices look correct and/or
