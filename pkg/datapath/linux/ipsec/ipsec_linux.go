@@ -1249,6 +1249,9 @@ func parseSPI(log *slog.Logger, spiStr string) (uint8, int, bool, error) {
 	if spi == 0 {
 		return 0, 0, false, fmt.Errorf("zero is not a valid key ID. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
 	}
+	if !esn {
+		log.Warn(fmt.Sprintf("global IPsec keys are deprecated and will be removed in v1.17. Use per-tunnel keys instead by adding a '+' sign after the SPI (%d+ in your case).", spi))
+	}
 	return uint8(spi), 0, esn, nil
 }
 
