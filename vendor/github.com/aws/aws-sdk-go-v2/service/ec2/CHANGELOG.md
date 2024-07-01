@@ -1,3 +1,15 @@
+# v1.167.1 (2024-06-28)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.167.0 (2024-06-26)
+
+* **Feature**: Support list-of-string endpoint parameter.
+
+# v1.166.0 (2024-06-25)
+
+* **Feature**: This release is for the launch of the new u7ib-12tb.224xlarge, R8g, c7gn.metal and mac2-m1ultra.metal instance types
+
 # v1.165.1 (2024-06-19)
 
 * **Dependency Update**: Updated to the latest SDK module versions
