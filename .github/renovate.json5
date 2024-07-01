@@ -34,7 +34,7 @@
     "install/kubernetes/Makefile.values",
   ],
   "schedule": [
-    "on monday"
+    "on sunday"
   ],
   postUpdateOptions: [
     "gomodTidy"
