@@ -161,6 +161,7 @@ cilium-agent [flags]
       --enable-recorder                                           Enable BPF datapath pcap recorder
       --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
       --enable-sctp                                               Enable SCTP support (beta)
+      --enable-service-protocol-differentiation                   TODO (default true)
       --enable-service-topology                                   Enable support for service topology aware hints
       --enable-session-affinity                                   Enable support for service session affinity
       --enable-svc-source-range-check                             Enable check of service source ranges (currently, only for LoadBalancer) (default true)

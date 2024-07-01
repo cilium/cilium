@@ -723,6 +723,9 @@ data:
   enable-host-port: {{ .Values.hostPort.enabled | quote }}
 {{- end }}
 {{- end }}
+{{- if hasKey .Values "serviceProtocolDifferentiation" }}
+  enable-service-protocol-differentiation: {{ .Values.serviceProtocolDifferentiation.enabled | quote }}
+{{- end }}
 {{- if hasKey .Values "externalIPs" }}
 {{- if or (eq $kubeProxyReplacement "partial") (eq $kubeProxyReplacement "false") }}
   enable-external-ips: {{ .Values.externalIPs.enabled | quote }}
