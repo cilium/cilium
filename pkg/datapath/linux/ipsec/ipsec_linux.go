@@ -61,8 +61,7 @@ const (
 	offsetAuthKey  = 2
 	offsetEncAlgo  = 3
 	offsetEncKey   = 4
-	offsetIP       = 5
-	maxOffset      = offsetIP
+	maxOffset      = offsetEncKey
 
 	defaultDropPriority      = 100
 	oldXFRMOutPolicyPriority = 50
@@ -1210,19 +1209,10 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 		ipSecKey.Spi = spi
 		ipSecKey.ESN = esn
 
-		if len(s) == offsetBase+offsetIP+1 {
-			// The IPsec secret has the optional IP address field at the end.
-			log.Warn("IPsec secrets with an IP address as the last argument are deprecated and will be unsupported in v1.13.")
-			if ipSecKeysGlobal[s[offsetBase+offsetIP]] != nil {
-				oldSpi = ipSecKeysGlobal[s[offsetBase+offsetIP]].Spi
-			}
-			ipSecKeysGlobal[s[offsetBase+offsetIP]] = ipSecKey
-		} else {
-			if ipSecKeysGlobal[""] != nil {
-				oldSpi = ipSecKeysGlobal[""].Spi
-			}
-			ipSecKeysGlobal[""] = ipSecKey
+		if ipSecKeysGlobal[""] != nil {
+			oldSpi = ipSecKeysGlobal[""].Spi
 		}
+		ipSecKeysGlobal[""] = ipSecKey
 
 		ipSecKeysRemovalTime[oldSpi] = time.Now()
 		ipSecCurrentKeySPI = spi
@@ -1238,10 +1228,7 @@ func parseSPI(log *slog.Logger, spiStr string) (uint8, int, bool, error) {
 	}
 	spi, err := strconv.Atoi(spiStr)
 	if err != nil {
-		// If no version info is provided assume using key format without
-		// versioning and assign SPI.
-		log.Warn("IPsec secrets without an SPI as the first argument are deprecated and will be unsupported in v1.13.")
-		return 1, -1, esn, nil
+		return 0, 0, false, fmt.Errorf("the first argument of the IPsec secret is not a number. Attempted %q", spiStr)
 	}
 	if spi > linux_defaults.IPsecMaxKeyVersion {
 		return 0, 0, false, fmt.Errorf("encryption key space exhausted. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
