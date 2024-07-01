@@ -481,3 +481,12 @@ will be the ``egressIP`` from the policy, if specified).
 If the egress list shown does not contain entries as expected to match your
 policy, check that the pod(s) and egress node are labeled correctly to match
 the policy selectors.
+
+Troubleshooting Guide
+-----------------------------------
+
+.. toctree::
+    :maxdepth: 2
+    :glob:
+
+    egress-gateway-troubleshooting
