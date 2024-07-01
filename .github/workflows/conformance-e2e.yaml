@@ -150,6 +150,7 @@ jobs:
             host-fw: 'true'
             lb-acceleration: 'testing-only'
             ingress-controller: 'true'
+            bgp-control-plane: 'true'
 
           - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -388,6 +389,7 @@ jobs:
           misc: ${{ matrix.misc }}
           ciliumendpointslice: ${{ matrix.ciliumendpointslice }}
           local-redirect-policy: ${{ matrix.local-redirect-policy }}
+          bgp-control-plane: ${{ matrix.bgp-control-plane }}
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13

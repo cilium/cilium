@@ -58,6 +58,9 @@ inputs:
   local-redirect-policy:
     description: 'Enable local redirect policy'
     default: 'false'
+  bgp-control-plane:
+    description: 'Enable BGP Control Plane'
+    default: 'false'
 outputs:
   config:
     description: 'Cilium installation config'
@@ -173,5 +176,10 @@ runs:
             LOCAL_REDIRECT_POLICY="--helm-set=localRedirectPolicy=true"
           fi
 
-          CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${INGRESS_CONTROLLER} ${CILIUMENDPOINTSLICE} ${LOCAL_REDIRECT_POLICY}"
+          BGP_CONTROL_PLANE=""
+          if [ "${{ inputs.bgp-control-plane }}" == "true" ]; then
+            BGP_CONTROL_PLANE="${{ env.BGP_CONTROL_PLANE_HELM_VALUES }}"
+          fi
+
+          CONFIG="${DEFAULTS} ${IMAGE} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${INGRESS_CONTROLLER} ${CILIUMENDPOINTSLICE} ${LOCAL_REDIRECT_POLICY} ${BGP_CONTROL_PLANE}"
           echo "config=${CONFIG}" >> $GITHUB_OUTPUT
