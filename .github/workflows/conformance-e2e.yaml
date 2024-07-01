@@ -274,7 +274,7 @@ jobs:
 
           - name: '17'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240625.013127'
+            kernel: 'bpf-20240628.013131'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -286,7 +286,7 @@ jobs:
 
           - name: '18'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240625.013127'
+            kernel: 'bpf-20240628.013131'
             misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -298,7 +298,7 @@ jobs:
 
           - name: '19'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240625.013127'
+            kernel: 'bpf-20240628.013131'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -309,7 +309,7 @@ jobs:
 
           - name: '20'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240625.013127'
+            kernel: 'bpf-20240628.013131'
             misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -320,7 +320,7 @@ jobs:
 
           - name: '21'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240625.013127'
+            kernel: 'bpf-20240628.013131'
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
@@ -331,7 +331,7 @@ jobs:
 
           - name: '22'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240625.013127'
+            kernel: 'bpf-20240628.013131'
             misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
             kube-proxy: 'none'
             kpr: 'true'
