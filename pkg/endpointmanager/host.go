@@ -35,24 +35,31 @@ func (mgr *endpointManager) startNodeLabelsObserver(old map[string]string) {
 			return
 		}
 
-		mgr.updateHostEndpointLabels(old, ln.Labels)
-		old = ln.Labels
+		if mgr.updateHostEndpointLabels(old, ln.Labels) {
+			// Endpoint's label update logic rejects a request if any of the old labels are
+			// not present in the endpoint manager's state. So, overwrite old labels only if
+			// the update is successful to avoid node labels being outdated indefinitely (GH-29649).
+			old = ln.Labels
+		}
+
 	}, func(error) { /* Executed only when we are shutting down */ })
 }
 
-func (mgr *endpointManager) updateHostEndpointLabels(oldNodeLabels, newNodeLabels map[string]string) {
+// updateHostEndpointLabels updates the local node labels in the endpoint manager.
+// Returns true if the update is successful.
+func (mgr *endpointManager) updateHostEndpointLabels(oldNodeLabels, newNodeLabels map[string]string) bool {
 	nodeEP := mgr.GetHostEndpoint()
 	if nodeEP == nil {
 		log.Error("Host endpoint not found")
-		return
+		return false
 	}
 
-	err := nodeEP.UpdateLabelsFrom(oldNodeLabels, newNodeLabels, labels.LabelSourceK8s)
-	if err != nil {
+	if err := nodeEP.UpdateLabelsFrom(oldNodeLabels, newNodeLabels, labels.LabelSourceK8s); err != nil {
 		// An error can only occur if either the endpoint is terminating, or the
 		// old labels are not found. Both are impossible, hence there's no point
 		// in retrying.
 		log.WithError(err).Error("Unable to update host endpoint labels")
-		return
+		return false
 	}
+	return true
 }
