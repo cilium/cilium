@@ -653,6 +653,13 @@ func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)
 	}
 
+	oldEP := mgr.LookupCEPName(ep.GetK8sNamespaceAndPodName())
+	if oldEP != nil {
+		// This is a container recreation event for an existing Pod.
+		// We want to merge this new endpoint with the existing endpoint.
+		ep.ID = oldEP.ID
+	}
+
 	// Updating logger to re-populate pod fields
 	// when endpoint and its logger are created pod details are not populated
 	// and all subsequent logs have empty pod details like ip addresses, k8sPodName
