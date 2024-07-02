@@ -209,58 +209,62 @@ func (k *K8sServiceWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service) 
 		return
 	}
 
-	// TODO: cleanup related service with protocol NONE
-
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:   svc.Name,
 		logfields.K8sNamespace: svc.Namespace,
 	})
 
-	repPorts := svcInfo.UniquePorts()
-
-	frontends := []*loadbalancer.L3n4Addr{}
-
-	for portName, svcPort := range svcInfo.Ports {
-		if !repPorts[svcPort.String()] {
-			continue
-		}
-		repPorts[svcPort.String()] = false
-
-		for _, feIP := range svcInfo.FrontendIPs {
-			fe := loadbalancer.NewL3n4Addr(svcPort.Protocol, cmtypes.MustAddrClusterFromIP(feIP), svcPort.Port, loadbalancer.ScopeExternal)
-			frontends = append(frontends, fe)
+	for _, checkProtocol := range []bool{true, false} {
+		if !checkProtocol {
+			svcInfo = stripServiceProtocol(svcInfo)
 		}
 
-		for _, nodePortFE := range svcInfo.NodePorts[portName] {
-			frontends = append(frontends, &nodePortFE.L3n4Addr)
-			if svcInfo.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal || svcInfo.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
-				cpFE := nodePortFE.L3n4Addr.DeepCopy()
-				cpFE.Scope = loadbalancer.ScopeInternal
-				frontends = append(frontends, cpFE)
+		repPorts := svcInfo.UniquePorts()
+
+		frontends := []*loadbalancer.L3n4Addr{}
+
+		for portName, svcPort := range svcInfo.Ports {
+			if !repPorts[svcPort.String()] {
+				continue
+			}
+			repPorts[svcPort.String()] = false
+
+			for _, feIP := range svcInfo.FrontendIPs {
+				fe := loadbalancer.NewL3n4Addr(svcPort.Protocol, cmtypes.MustAddrClusterFromIP(feIP), svcPort.Port, loadbalancer.ScopeExternal)
+				frontends = append(frontends, fe)
+			}
+
+			for _, nodePortFE := range svcInfo.NodePorts[portName] {
+				frontends = append(frontends, &nodePortFE.L3n4Addr)
+				if svcInfo.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal || svcInfo.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+					cpFE := nodePortFE.L3n4Addr.DeepCopy()
+					cpFE.Scope = loadbalancer.ScopeInternal
+					frontends = append(frontends, cpFE)
+				}
+			}
+
+			for _, k8sExternalIP := range svcInfo.K8sExternalIPs {
+				frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, cmtypes.MustAddrClusterFromIP(k8sExternalIP), svcPort.Port, loadbalancer.ScopeExternal))
+			}
+
+			for _, ip := range svcInfo.LoadBalancerIPs {
+				addrCluster := cmtypes.MustAddrClusterFromIP(ip)
+				frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, addrCluster, svcPort.Port, loadbalancer.ScopeExternal))
+				if svcInfo.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal || svcInfo.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+					frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, addrCluster, svcPort.Port, loadbalancer.ScopeInternal))
+				}
 			}
 		}
 
-		for _, k8sExternalIP := range svcInfo.K8sExternalIPs {
-			frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, cmtypes.MustAddrClusterFromIP(k8sExternalIP), svcPort.Port, loadbalancer.ScopeExternal))
-		}
-
-		for _, ip := range svcInfo.LoadBalancerIPs {
-			addrCluster := cmtypes.MustAddrClusterFromIP(ip)
-			frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, addrCluster, svcPort.Port, loadbalancer.ScopeExternal))
-			if svcInfo.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal || svcInfo.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
-				frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, addrCluster, svcPort.Port, loadbalancer.ScopeInternal))
+		for _, fe := range frontends {
+			if found, err := k.svcManager.DeleteService(*fe); err != nil {
+				scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(fe)).
+					Warn("Error deleting service by frontend")
+			} else if !found {
+				scopedLog.WithField(logfields.Object, logfields.Repr(fe)).Warn("service not found")
+			} else {
+				scopedLog.Debugf("# cilium lb delete-service %s %d 0", fe.AddrCluster.String(), fe.Port)
 			}
-		}
-	}
-
-	for _, fe := range frontends {
-		if found, err := k.svcManager.DeleteService(*fe); err != nil {
-			scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(fe)).
-				Warn("Error deleting service by frontend")
-		} else if !found {
-			scopedLog.WithField(logfields.Object, logfields.Repr(fe)).Warn("service not found")
-		} else {
-			scopedLog.Debugf("# cilium lb delete-service %s %d 0", fe.AddrCluster.String(), fe.Port)
 		}
 	}
 }
