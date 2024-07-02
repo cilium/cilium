@@ -148,6 +148,7 @@ enum pkt_layer {
 
 	/* IPv6 extension headers */
 	PKT_LAYER_IPV6_HOP_BY_HOP,
+	PKT_LAYER_IPV6_ROUTING,
 	PKT_LAYER_IPV6_AUTH,
 	PKT_LAYER_IPV6_DEST,
 
@@ -327,6 +328,10 @@ struct ipv6_opt_hdr *pktgen__append_ipv6_extension_header(struct pktgen *builder
 	case NEXTHDR_HOP:
 		length = (0 + 1) << 3;
 		hdr = pktgen__push_rawhdr(builder, length, PKT_LAYER_IPV6_HOP_BY_HOP);
+		break;
+	case NEXTHDR_ROUTING:
+		hdr = pktgen__push_rawhdr(builder, length, PKT_LAYER_IPV6_ROUTING);
+		hdrlen = length;
 		break;
 	case NEXTHDR_AUTH:
 		length = (2 + 2) << 2;
@@ -852,6 +857,9 @@ static __always_inline void pktgen__finish_ipv6(const struct pktgen *builder, in
 	case PKT_LAYER_IPV6_HOP_BY_HOP:
 		ipv6_layer->nexthdr = NEXTHDR_HOP;
 		break;
+	case PKT_LAYER_IPV6_ROUTING:
+		ipv6_layer->nexthdr = NEXTHDR_ROUTING;
+		break;
 	case PKT_LAYER_IPV6_AUTH:
 		ipv6_layer->nexthdr = NEXTHDR_AUTH;
 		break;
@@ -903,6 +911,9 @@ static __always_inline void pktgen__finish_ipv6_opt(const struct pktgen *builder
 	switch (builder->layers[i + 1]) {
 	case PKT_LAYER_IPV6_HOP_BY_HOP:
 		ipv6_opt_layer->nexthdr = NEXTHDR_HOP;
+		break;
+	case PKT_LAYER_IPV6_ROUTING:
+		ipv6_opt_layer->nexthdr = NEXTHDR_ROUTING;
 		break;
 	case PKT_LAYER_IPV6_AUTH:
 		ipv6_opt_layer->nexthdr = NEXTHDR_AUTH;
@@ -1040,6 +1051,7 @@ void pktgen__finish(const struct pktgen *builder)
 			break;
 
 		case PKT_LAYER_IPV6_HOP_BY_HOP:
+		case PKT_LAYER_IPV6_ROUTING:
 		case PKT_LAYER_IPV6_AUTH:
 		case PKT_LAYER_IPV6_DEST:
 			pktgen__finish_ipv6_opt(builder, i);
