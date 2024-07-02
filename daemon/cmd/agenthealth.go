@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -33,6 +34,14 @@ func (d *Daemon) startAgentHealthHTTPService() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/healthz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		includeK8sCheck := false
+		if v := r.Header.Get("include-k8s-check"); v != "" {
+			res, err := strconv.ParseBool(v)
+			if err != nil {
+				log.WithError(err).WithFields(logrus.Fields{"value": v}).Warn("include-k8s-check should be bool")
+			}
+			includeK8sCheck = res
+		}
 		isUnhealthy := func(sr *models.StatusResponse) bool {
 			if sr.Cilium != nil {
 				state := sr.Cilium.State
@@ -41,7 +50,7 @@ func (d *Daemon) startAgentHealthHTTPService() {
 			return false
 		}
 		statusCode := http.StatusOK
-		sr := d.getStatus(true)
+		sr := d.getStatus(true, includeK8sCheck)
 		if isUnhealthy(&sr) {
 			log.WithError(errors.New(sr.Cilium.Msg)).WithFields(logrus.Fields{
 				logfields.State: sr.Cilium.State,

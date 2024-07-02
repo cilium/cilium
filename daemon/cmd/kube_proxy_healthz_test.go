@@ -36,7 +36,7 @@ type FakeDaemon struct {
 	injectedStatusResponse models.StatusResponse
 }
 
-func (d *FakeDaemon) getStatus(blah bool) models.StatusResponse {
+func (d *FakeDaemon) getStatus(brief bool, includeK8sCheck bool) models.StatusResponse {
 	return d.injectedStatusResponse
 }
 
