@@ -66,6 +66,8 @@ type reconcilerParams struct {
 	CECResources   resource.Resource[*ciliumv2.CiliumEnvoyConfig]
 	CCECResources  resource.Resource[*ciliumv2.CiliumClusterwideEnvoyConfig]
 	LocalNodeStore *node.LocalNodeStore
+
+	EndpointResources resource.Resource[*k8s.Endpoints]
 }
 
 func registerCECK8sReconciler(params reconcilerParams) {
@@ -113,6 +115,9 @@ func registerCECK8sReconciler(params reconcilerParams) {
 	// Observing local node events for changed labels
 	// Note: LocalNodeStore (in comparison to `resource.Resource`) doesn't provide a retry mechanism
 	params.JobGroup.Add(job.Observer("local-node-events", reconciler.handleLocalNodeEvent, params.LocalNodeStore))
+
+	// Observing service events for headless services
+	params.JobGroup.Add(job.Observer("headless-endpoint-events", reconciler.syncHeadlessEndpoints, params.EndpointResources))
 
 	// TimerJob periodically reconciles all existing configs.
 	// This covers the cases were the reconciliation fails after changing the labels of a node.
