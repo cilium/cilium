@@ -44,7 +44,7 @@ spec:
     peers:
     - name: "65000"
       peerASN: 65000
-      peerAddress: fd00:10:0:1::1
+      peerAddress: fd00:10::1
       peerConfigRef:
         name: "cilium-peer"
 

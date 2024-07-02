@@ -11,6 +11,9 @@ topology:
       - ip addr add 10.0.2.1/24 dev net1
       - ip addr add 10.0.3.1/24 dev net2
       - sysctl net.ipv6.conf.all.forwarding=1
+      - ip link add name loopback type dummy
+      - ip link set dev loopback up
+      - ip addr add fd00:10:0:0::1/128 dev loopback
       - ip addr add fd00:10:0:1::1/64 dev net0
       - ip addr add fd00:10:0:2::1/64 dev net1
       - ip addr add fd00:10:0:3::1/64 dev net2
@@ -59,6 +62,7 @@ topology:
       - ip addr add 10.0.2.2/24 dev net0
       - ip addr add fd00:10:0:2::2/64 dev net0
       # These static routes are needed because Cilium cannot import routes currently.
+      - ip route add fd00:10:0:0::1/128 via fd00:10:0:1::1 dev net0 # loopback of router0
       - ip route add 10.0.0.0/8 via 10.0.2.1 dev net0
       - ip route add fd00::/16 via fd00:10:0:2::1 dev net0
     # Server without Cilium. Useful for testing connectivity.

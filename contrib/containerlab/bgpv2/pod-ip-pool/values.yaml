@@ -10,7 +10,6 @@ ipv6:
 
 bgpControlPlane:
   enabled: true
-  v2Enabled: true
 
 ipv4NativeRoutingCIDR: 10.0.0.0/8
 ipv6NativeRoutingCIDR: fd00::/16
