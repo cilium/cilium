@@ -24,7 +24,6 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	__u16 proto = 0;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
-	bool from_tunnel __maybe_unused = false;
 	__u32 magic __maybe_unused = 0;
 
 	if (!validate_ethertype(ctx, &proto))
@@ -83,10 +82,8 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 				break;
 			}
 
-			if (dport == bpf_htons(TUNNEL_PORT)) {
-				from_tunnel = true;
-				break;
-			}
+			if (dport == bpf_htons(TUNNEL_PORT))
+				goto encrypt;
 		}
 # endif /* TUNNEL_MODE */
 		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
@@ -96,11 +93,6 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	default:
 		goto out;
 	}
-
-#if defined(TUNNEL_MODE)
-	if (from_tunnel)
-		goto encrypt;
-#endif /* TUNNEL_MODE */
 
 #ifndef ENABLE_NODE_ENCRYPTION
 	/* A pkt coming from L7 proxy (i.e., Envoy or the DNS proxy on behalf of
