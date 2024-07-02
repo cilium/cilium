@@ -1402,6 +1402,9 @@ skip_service_lookup:
 		ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
 				      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_NODEPORT,
 				      &ct_state, &monitor);
+		if (ret < 0)
+			return ret;
+
 		switch (ret) {
 		case CT_NEW:
 redo:
@@ -2948,6 +2951,9 @@ skip_service_lookup:
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, is_fragment,
 				      l4_off, has_l4_header, CT_EGRESS, SCOPE_FORWARD,
 				      CT_ENTRY_NODEPORT, &ct_state, &monitor);
+		if (ret < 0)
+			return ret;
+
 		switch (ret) {
 		case CT_NEW:
 redo:
