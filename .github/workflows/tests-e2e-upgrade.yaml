@@ -267,6 +267,7 @@ jobs:
             # has been resolved.
             misc: 'bpfClockProbe=false,cni.uninstall=false'
             ciliumendpointslice: 'true'
+            bgp-control-plane: 'true'
 
           - name: '16'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind

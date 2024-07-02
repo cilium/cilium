@@ -57,7 +57,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: 16c6314b71a2f45c75c8e74a6898b349e72a86ba # TODO: just for testing, remove me
 
 jobs:
   echo-inputs:
@@ -259,6 +259,7 @@ jobs:
             ingress-controller: 'true'
             misc: 'bpf.tproxy=true'
             ciliumendpointslice: 'true'
+            bgp-control-plane: 'true'
 
           - name: '16'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -390,6 +391,7 @@ jobs:
           misc: ${{ matrix.misc }}
           ciliumendpointslice: ${{ matrix.ciliumendpointslice }}
           local-redirect-policy: ${{ matrix.local-redirect-policy }}
+          bgp-control-plane: ${{ matrix.bgp-control-plane }}
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@9d071f99ae32af95cb15c3e0a280d222b569a1cf # v0.16.11
