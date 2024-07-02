@@ -5,14 +5,17 @@ package ciliumidentity
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"reflect"
 	"sync"
 	"testing"
-
-	"github.com/cilium/cilium/pkg/labels"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging"
 
 	cestest "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	"github.com/cilium/cilium/pkg/identity/key"
@@ -34,9 +37,10 @@ func TestMain(m *testing.M) {
 }
 
 func TestCIDState(t *testing.T) {
+	logger := slog.New(logging.SlogNopHandler)
 	// The subtests below share the same state to serially test insert, lookup and
 	// remove operations of CIDState.
-	state := NewCIDState()
+	state := NewCIDState(logger)
 	k1 := key.GetCIDKeyFromLabels(k8sLables_A, labels.LabelSourceK8s)
 	k2 := key.GetCIDKeyFromLabels(k8sLables_B, labels.LabelSourceK8s)
 	k3 := key.GetCIDKeyFromLabels(k8sLables_B_duplicate, labels.LabelSourceK8s)
@@ -142,9 +146,11 @@ func TestCIDState(t *testing.T) {
 }
 
 func TestCIDStateThreadSafety(t *testing.T) {
+	logger := slog.New(logging.SlogNopHandler)
+
 	// This test ensures that no changes to the CID state break its thread safety.
 	// Multiple go routines in parallel continuously keep using CIDState.
-	state := NewCIDState()
+	state := NewCIDState(logger)
 
 	k := key.GetCIDKeyFromLabels(k8sLables_A, labels.LabelSourceK8s)
 	k2 := key.GetCIDKeyFromLabels(k8sLables_B, labels.LabelSourceK8s)
@@ -191,12 +197,12 @@ func TestCIDUsageInPods(t *testing.T) {
 	podName1 := "pod1"
 	assert.Equal(t, 0, state.CIDUsageCount(cidName1), assertTxt)
 
-	usedCID, exists := state.CIDUsedByPod(podName1)
+	usedCID, exists := state.podToCID[podName1]
 	assert.Equal(t, false, exists, assertTxt)
 	assert.Equal(t, "", usedCID, assertTxt)
 
-	prevCID, count, err := state.RemovePod(podName1)
-	assert.Error(t, err)
+	prevCID, count, exists := state.RemovePod(podName1)
+	assert.Equal(t, false, exists)
 	assert.Equal(t, "", prevCID, assertTxt)
 	assert.Equal(t, 0, count, assertTxt)
 
@@ -206,7 +212,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 0, count, assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount(cidName1), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName1)
+	usedCID, exists = state.podToCID[podName1]
 	assert.Equal(t, true, exists, assertTxt)
 	assert.Equal(t, cidName1, usedCID, assertTxt)
 
@@ -217,7 +223,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 0, count, assertTxt)
 	assert.Equal(t, 2, state.CIDUsageCount(cidName1), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName2)
+	usedCID, exists = state.podToCID[podName2]
 	assert.Equal(t, true, exists, assertTxt)
 	assert.Equal(t, cidName1, usedCID, assertTxt)
 
@@ -228,7 +234,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 1, count, assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount(cidName2), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName2)
+	usedCID, exists = state.podToCID[podName2]
 	assert.Equal(t, true, exists, assertTxt)
 	assert.Equal(t, cidName2, usedCID, assertTxt)
 
@@ -239,7 +245,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 2, state.CIDUsageCount(cidName2), assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount(cidName1), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName1)
+	usedCID, exists = state.podToCID[podName1]
 	assert.Equal(t, true, exists, assertTxt)
 	assert.Equal(t, cidName2, usedCID, assertTxt)
 
@@ -251,24 +257,24 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 0, state.CIDUsageCount(cidName1), assertTxt)
 
 	assertTxt = "Remove Pod 1"
-	prevCID, count, err = state.RemovePod(podName1)
-	assert.NoError(t, err)
+	prevCID, count, exists = state.RemovePod(podName1)
+	assert.Equal(t, true, exists)
 	assert.Equal(t, cidName2, prevCID, assertTxt)
 	assert.Equal(t, 1, count, assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount(cidName2), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName1)
+	usedCID, exists = state.podToCID[podName1]
 	assert.Equal(t, false, exists, assertTxt)
 	assert.Equal(t, "", usedCID, assertTxt)
 
 	assertTxt = "Remove Pod 2"
-	prevCID, count, err = state.RemovePod(podName2)
-	assert.NoError(t, err)
+	prevCID, count, exists = state.RemovePod(podName2)
+	assert.Equal(t, true, exists)
 	assert.Equal(t, cidName2, prevCID, assertTxt)
 	assert.Equal(t, 0, count, assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount(cidName2), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName2)
+	usedCID, exists = state.podToCID[podName2]
 	assert.Equal(t, false, exists, assertTxt)
 	assert.Equal(t, "", usedCID, assertTxt)
 }
@@ -322,4 +328,73 @@ func TestCIDUsageInCES(t *testing.T) {
 	assert.Equal(t, 2, len(unusedCIDs), assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount("1000"), assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount("2000"), assertTxt)
+}
+
+func TestEnqueueTimeTracker(t *testing.T) {
+	testCases := []struct {
+		name         string
+		item         string
+		setBeforeGet bool
+	}{
+		{"Set and get", "item1", true},
+		{"Get without set", "item2", false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tracker := &EnqueueTimeTracker{enqueuedAt: make(map[string]time.Time)}
+
+			if tc.setBeforeGet {
+				tracker.SetEnqueueTimeIfNotSet(tc.item)
+			}
+
+			_, exists := tracker.GetEnqueueTimeAndReset(tc.item)
+			if exists != tc.setBeforeGet {
+				t.Errorf("Expected exists to be %v, got %v", tc.setBeforeGet, exists)
+			}
+
+			_, exists = tracker.GetEnqueueTimeAndReset(tc.item)
+			if exists {
+				t.Errorf("Expected exists to be false, got %v", exists)
+			}
+		})
+	}
+}
+
+func TestCIDDeletionTracker(t *testing.T) {
+	logger := slog.New(logging.SlogNopHandler)
+
+	testCases := []struct {
+		name             string
+		cidName          string
+		expectMarkedTime bool
+		unmarkBeforeGet  bool
+	}{
+		{"Mark and retrieve", "cid1", true, false},
+		{"Mark empty CID", "", false, false},
+		{"Unmark existing", "cid2", false, true},
+		{"Unmark non-existing", "cid3", false, true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tracker := NewCIDDeletionTracker(logger)
+
+			tracker.Mark(tc.cidName)
+
+			if tc.unmarkBeforeGet {
+				tracker.Unmark(tc.cidName)
+			}
+
+			markedTime, marked := tracker.MarkedTime(tc.cidName)
+
+			if marked != tc.expectMarkedTime {
+				t.Errorf("Expected marked to be %v, got %v", tc.expectMarkedTime, marked)
+			}
+
+			if marked && tc.expectMarkedTime && markedTime.IsZero() {
+				t.Error("Expected markedTime to be non-zero when marked is true")
+			}
+		})
+	}
 }
