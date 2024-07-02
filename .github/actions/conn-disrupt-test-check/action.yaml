@@ -1,0 +1,39 @@
+name: Cilium Conn Disrupt Check
+description: Check cilium connection disruption status
+
+inputs:
+  job-name:
+    required: false
+    description: 'Job name used in Cilium sysdump filename'
+  cilium-cli:
+    required: false
+    default: "./cilium-cli"
+    description: 'Path to the Cilium CLI binary'
+  extra-connectivity-test-flags:
+    required: false
+    description: 'Cilium CLI connectivity tests extra flags'
+  full-test:
+    required: false
+    default: 'false'
+    description: 'Run full connectivity test suite'
+
+runs:
+  using: composite
+  steps:
+    - name: Perform Conn Disrupt Test
+      shell: bash
+      run: |
+        TEST_ARG="no-interrupted-connections"
+        if [[ "${{ inputs.full-test }}" == "true" ]]; then
+          TEST_ARG=""
+        fi
+        ${{ inputs.cilium-cli }} connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          --include-conn-disrupt-test \
+          --flush-ct \
+          --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+          --sysdump-output-filename "cilium-sysdump-conn-disrupt-test-${{ inputs.job-name }}-<ts>" \
+          --junit-file "cilium-junits/conn-disrupt-test-${{ inputs.job-name }}.xml" \
+          ${{ inputs.extra-connectivity-test-flags }} \
+          --junit-property github_job_step="Run conn disrupt tests (${{ inputs.job-name }})" \
+          --test "$TEST_ARG" \
+          --expected-xfrm-errors "+inbound_no_state"

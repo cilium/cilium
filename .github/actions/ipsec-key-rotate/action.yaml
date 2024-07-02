@@ -1,5 +1,5 @@
-name: IPsec key rotation test
-description: Rotates keys and checks that established connections are not interrupted
+name: IPsec key rotation
+description: Rotates IPsec keys
 inputs:
   key-algo:
     required: true
@@ -13,68 +13,62 @@ inputs:
     required: true
     type: string
     description: "'+' to rotate to the per-tunnel key system"
-  extra-connectivity-test-flags:
-    required: false
-    type: string
 runs:
   using: composite
   steps:
-    - name: Rotate IPsec Key & Test
-      uses: ./.github/actions/conn-disrupt-test
-      with:
-        job-name: conformance-ipsec-e2e-key-rotation
-        extra-connectivity-test-flags: ${{ inputs.extra-connectivity-test-flags }}
-        operation-cmd: |
-          KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | grep -oP "^\d+")
-          if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
+    - name: Rotate IPsec Key
+      shell: bash
+      run: |
+        KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | grep -oP "^\d+")
+        if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
 
-          if [[ "${{ inputs.key-algo }}" == "gcm(aes)" ]]; then
-            key="rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
-          elif [[ "${{ inputs.key-algo }}" == "cbc(aes)" ]]; then
-            key="hmac(sha256) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64) cbc(aes) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64)"
-          else
-            echo "Invalid key type"; exit 1
+        if [[ "${{ inputs.key-algo }}" == "gcm(aes)" ]]; then
+          key="rfc4106(gcm(aes)) $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64) 128"
+        elif [[ "${{ inputs.key-algo }}" == "cbc(aes)" ]]; then
+          key="hmac(sha256) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64) cbc(aes) $(dd if=/dev/urandom count=32 bs=1 2> /dev/null| xxd -p -c 64)"
+        else
+          echo "Invalid key type"; exit 1
+        fi
+        data="{\"stringData\":{\"keys\":\"$((($KEYID+1)))${{ inputs.key-type-two }} ${key}\"}}"
+
+        echo "Updating IPsec secret with $data"
+        kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
+
+        # Compute number of expected keys during key rotation depending on
+        # whether we use the single-key system (1 key) or the per-tunnel
+        # keys system (4 keys).
+        exp_nb_keys=2
+        if [[ "${{ inputs.key-type-one }}" == "+" ]]; then
+          ((exp_nb_keys+=7))
+        fi
+        if [[ "${{ inputs.key-type-two }}" == "+" ]]; then
+          ((exp_nb_keys+=7))
+        fi
+
+        # Wait until key rotation starts
+        # We expect the amount of keys in use to grow during rotation.
+        while true; do
+          keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
+          if [[ $keys_in_use == $exp_nb_keys ]]; then
+            break
           fi
-          data="{\"stringData\":{\"keys\":\"$((($KEYID+1)))${{ inputs.key-type-two }} ${key}\"}}"
+          echo "Waiting until key rotation starts (seeing $keys_in_use keys, expected $exp_nb_keys)"
+          sleep 30s
+        done
 
-          echo "Updating IPsec secret with $data"
-          kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
+        exp_nb_keys=1
+        if [[ "${{ inputs.key-type-two }}" == "+" ]]; then
+          exp_nb_keys=8
+        fi
 
-          # Compute number of expected keys during key rotation depending on
-          # whether we use the single-key system (1 key) or the per-tunnel
-          # keys system (4 keys).
-          exp_nb_keys=2
-          if [[ "${{ inputs.key-type-one }}" == "+" ]]; then
-            ((exp_nb_keys+=7))
+        # Wait until key rotation completes
+        # By default the key rotation cleanup delay is 5min, let's sleep 4min before actively polling
+        sleep $((4*60))
+        while true; do
+          keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
+          if [[ $keys_in_use == $exp_nb_keys ]]; then
+            break
           fi
-          if [[ "${{ inputs.key-type-two }}" == "+" ]]; then
-            ((exp_nb_keys+=7))
-          fi
-
-          # Wait until key rotation starts
-          # We expect the amount of keys in use to grow during rotation.
-          while true; do
-            keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
-            if [[ $keys_in_use == $exp_nb_keys ]]; then
-              break
-            fi
-            echo "Waiting until key rotation starts (seeing $keys_in_use keys, expected $exp_nb_keys)"
-            sleep 30s
-          done
-
-          exp_nb_keys=1
-          if [[ "${{ inputs.key-type-two }}" == "+" ]]; then
-            exp_nb_keys=8
-          fi
-
-          # Wait until key rotation completes
-          # By default the key rotation cleanup delay is 5min, let's sleep 4min before actively polling
-          sleep $((4*60))
-          while true; do
-            keys_in_use=$(kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg encrypt status | awk '/Keys in use/ {print $NF}')
-            if [[ $keys_in_use == $exp_nb_keys ]]; then
-              break
-            fi
-            echo "Waiting until key rotation completes (seeing $keys_in_use keys, expected $exp_nb_keys)"
-            sleep 30s
-          done
+          echo "Waiting until key rotation completes (seeing $keys_in_use keys, expected $exp_nb_keys)"
+          sleep 30s
+        done

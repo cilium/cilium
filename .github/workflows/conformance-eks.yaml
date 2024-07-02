@@ -307,14 +307,24 @@ jobs:
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1.xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
+      - name: Setup conn-disrupt-test before rotating (${{ join(matrix.*, ', ') }})
+        if: ${{ matrix.ipsec == true }}
+        uses: ./.github/actions/conn-disrupt-test-setup
+
       - name: Run IPsec key rotation tests (${{ join(matrix.*, ', ') }})
         if: ${{ matrix.ipsec == true }}
         uses: ./.github/actions/ipsec-key-rotate
         with:
-          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
           key-algo: "gcm(aes)"
           key-type-one: ""
           key-type-two: ""
+
+      - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
+        if: ${{ matrix.ipsec == true }}
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          full-test: 'true'
+          extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
