@@ -1667,7 +1667,8 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 #endif /* !ENABLE_ROUTING && !ENABLE_NODEPORT */
 
 		if (ifindex)
-			ret = redirect_ep(ctx, ifindex, from_host, from_tunnel);
+			ret = redirect_ep(ctx, THIS_INTERFACE_IFINDEX, from_host,
+					  from_tunnel);
 		break;
 	default:
 		break;
@@ -2018,7 +2019,8 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 #endif /* !ENABLE_ROUTING && !ENABLE_NODEPORT */
 
 		if (ifindex)
-			ret = redirect_ep(ctx, ifindex, from_host, from_tunnel);
+			ret = redirect_ep(ctx, THIS_INTERFACE_IFINDEX, from_host,
+					  from_tunnel);
 		break;
 	default:
 		break;
