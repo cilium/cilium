@@ -247,7 +247,7 @@ func deriveVpcCIDRs(node *ciliumv2.CiliumNode) (primaryCIDR *cidr.CIDR, secondar
 func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR(localNodeStore *node.LocalNodeStore) bool {
 	if primaryCIDR, secondaryCIDRs := deriveVpcCIDRs(n.ownNode); primaryCIDR != nil {
 		allCIDRs := append([]*cidr.CIDR{primaryCIDR}, secondaryCIDRs...)
-		if nativeCIDR := n.conf.GetIPv4NativeRoutingCIDR(); nativeCIDR != nil {
+		if nativeCIDR := n.conf.IPv4NativeRoutingCIDR; nativeCIDR != nil {
 			found := false
 			for _, vpcCIDR := range allCIDRs {
 				logFields := logrus.Fields{
@@ -686,8 +686,8 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 				result.CIDRs = []string{eni.VPC.PrimaryCIDR}
 				result.CIDRs = append(result.CIDRs, eni.VPC.CIDRs...)
 				// Add manually configured Native Routing CIDR
-				if a.conf.GetIPv4NativeRoutingCIDR() != nil {
-					result.CIDRs = append(result.CIDRs, a.conf.GetIPv4NativeRoutingCIDR().String())
+				if a.conf.IPv4NativeRoutingCIDR != nil {
+					result.CIDRs = append(result.CIDRs, a.conf.IPv4NativeRoutingCIDR.String())
 				}
 				if eni.Subnet.CIDR != "" {
 					// The gateway for a subnet and VPC is always x.x.x.1

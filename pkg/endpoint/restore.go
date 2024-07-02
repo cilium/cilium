@@ -532,6 +532,7 @@ func (ep *Endpoint) UnmarshalJSON(raw []byte) error {
 	// translation from serializableEndpoint --> Endpoint.
 	restoredEp := &serializableEndpoint{
 		OpLabels:   labels.NewOpLabels(),
+		Options:    option.NewIntOptions(&EndpointMutableOptionLibrary),
 		DNSHistory: fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 		DNSZombies: fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
 	}

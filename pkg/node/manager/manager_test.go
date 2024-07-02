@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -239,7 +238,7 @@ func TestNodeLifecycle(t *testing.T) {
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(&option.DaemonConfig{ConfigPatchMutex: new(lock.RWMutex)}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
 	mngr.Subscribe(dp)
 	require.NoError(t, err)
 
@@ -314,7 +313,7 @@ func TestMultipleSources(t *testing.T) {
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(&option.DaemonConfig{ConfigPatchMutex: new(lock.RWMutex)}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -397,7 +396,7 @@ func BenchmarkUpdateAndDeleteCycle(b *testing.B) {
 	ipcacheMock := newIPcacheMock()
 	dp := fakeTypes.NewNodeHandler()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(&option.DaemonConfig{ConfigPatchMutex: new(lock.RWMutex)}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
 	require.NoError(b, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -421,7 +420,7 @@ func TestClusterSizeDependantInterval(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
 	dp := fakeTypes.NewNodeHandler()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(&option.DaemonConfig{ConfigPatchMutex: new(lock.RWMutex)}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -446,7 +445,7 @@ func TestBackgroundSync(t *testing.T) {
 	signalNodeHandler.EnableNodeValidateImplementationEvent = true
 	ipcacheMock := newIPcacheMock()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(&option.DaemonConfig{ConfigPatchMutex: new(lock.RWMutex)}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
 	mngr.Subscribe(signalNodeHandler)
 	require.NoError(t, err)
 	defer mngr.Stop(context.TODO())
@@ -495,7 +494,7 @@ func TestIpcache(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(&option.DaemonConfig{ConfigPatchMutex: new(lock.RWMutex)}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -572,7 +571,7 @@ func TestIpcacheHealthIP(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(&option.DaemonConfig{ConfigPatchMutex: new(lock.RWMutex)}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -652,9 +651,8 @@ func TestNodeEncryption(t *testing.T) {
 	dp := newSignalNodeHandler()
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(&option.DaemonConfig{
-		ConfigPatchMutex: new(lock.RWMutex),
-		EncryptNode:      true,
-		EnableIPSec:      true,
+		EncryptNode: true,
+		EnableIPSec: true,
 	}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
@@ -748,7 +746,7 @@ func TestNode(t *testing.T) {
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	h, _ := cell.NewSimpleHealth()
-	mngr, err := New(&option.DaemonConfig{ConfigPatchMutex: new(lock.RWMutex)}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	mngr, err := New(&option.DaemonConfig{}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -898,7 +896,7 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 		<-done
 	}
 	ipcacheMock := newIPcacheMock()
-	config := &option.DaemonConfig{ConfigPatchMutex: new(lock.RWMutex)}
+	config := &option.DaemonConfig{}
 	err := hive.New(
 		cell.Provide(func() testParams {
 			return testParams{
@@ -950,8 +948,7 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 	dp.EnableNodeDeleteEvent = true
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(&option.DaemonConfig{
-		ConfigPatchMutex: new(lock.RWMutex),
-		LocalRouterIPv4:  "169.254.4.6",
+		LocalRouterIPv4: "169.254.4.6",
 	}, ipcache, newIPSetMock(), nil, NewNodeMetrics(), h)
 	require.NoError(t, err)
 	mngr.Subscribe(dp)
@@ -1050,7 +1047,6 @@ func TestNodeIpset(t *testing.T) {
 	filter := func(no *nodeTypes.Node) bool { return no.Name != "node1" }
 	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(&option.DaemonConfig{
-		ConfigPatchMutex:     new(lock.RWMutex),
 		RoutingMode:          option.RoutingModeNative,
 		EnableIPv4Masquerade: true,
 	}, newIPcacheMock(), newIPSetMock(), filter, NewNodeMetrics(), h)
