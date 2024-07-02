@@ -109,6 +109,9 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 
 	/* Jumps to destination pod's BPF program to enforce ingress policies. */
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
+	/* With v1.17+, the actual ifindex is unused and this can be just a
+	 * "needs redirect" boolean flag:
+	 */
 	ctx_store_meta(ctx, CB_IFINDEX, ep->ifindex);
 	ctx_store_meta(ctx, CB_FROM_HOST, from_host ? 1 : 0);
 	ctx_store_meta(ctx, CB_FROM_TUNNEL, from_tunnel ? 1 : 0);
