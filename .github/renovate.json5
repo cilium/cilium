@@ -259,27 +259,6 @@
       ],
     },
     {
-      "groupName": "all external docker images dependencies",
-      "groupSlug": "all-external-images-deps-main",
-      "matchFiles": [
-        "install/kubernetes/Makefile.values"
-      ],
-      "matchUpdateTypes": [
-        "major",
-        "minor",
-        "digest",
-        "patch",
-        "pin",
-        "pinDigest"
-      ],
-      "schedule": [
-        "on monday"
-      ],
-      matchBaseBranches: [
-        "main"
-      ]
-    },
-    {
       // Do not allow any major and minor updates into stable branches.
       "enabled": false,
       "groupName": "all external docker images dependencies",
