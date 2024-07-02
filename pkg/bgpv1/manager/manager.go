@@ -8,7 +8,9 @@ import (
 	"fmt"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
@@ -47,10 +49,43 @@ type LocalInstanceMap map[string]*instance.BGPInstance
 
 type bgpRouterManagerParams struct {
 	cell.In
-	Logger        logrus.FieldLogger
-	ConfigMode    *mode.ConfigMode
-	Reconcilers   []reconciler.ConfigReconciler   `group:"bgp-config-reconciler"`
-	ReconcilersV2 []reconcilerv2.ConfigReconciler `group:"bgp-config-reconciler-v2"`
+	Logger           logrus.FieldLogger
+	JobGroup         job.Group
+	ConfigMode       *mode.ConfigMode
+	Reconcilers      []reconciler.ConfigReconciler   `group:"bgp-config-reconciler"`
+	ReconcilersV2    []reconcilerv2.ConfigReconciler `group:"bgp-config-reconciler-v2"`
+	StateReconcilers []reconcilerv2.StateReconciler  `group:"bgp-state-reconciler"`
+}
+
+type State struct {
+	// reconcilers are list of state reconcilers which will be called when instance state changes.
+	reconcilers []reconcilerv2.StateReconciler
+
+	// notifications is a map of instance name to the channel which will be used to get notification
+	// from underlying BGP instance. This map is used for bookkeeping and closing of channel when
+	// instance is deleted.
+	notifications map[string]types.StateNotificationCh
+
+	// pendingInstancesMutex is used to protect the pendingInstances set.
+	//
+	// pendingInstancesMutex in BGPRouterManager is introduced as we can have high number of
+	// state notifications. We do not want to hold the BGPRouterManager.Lock for each
+	// state update.
+	//
+	// Order of locking: pendingInstancesMutex -> BGPRouterManager.Lock
+	// DO NOT take BGPRouterManager.Lock and then State.pendingInstancesMutex.
+	pendingInstancesMutex lock.Mutex
+
+	// pendingInstances set contains the instances which need to be reconciled for state change.
+	pendingInstances sets.Set[string]
+
+	// reconcileSignal is used to signal bgp-state-observer to reconcile the state based on
+	// pendingInstances set.
+	reconcileSignal chan struct{}
+
+	// instanceDeletionSignal is used to signal bgp-state-observer to reconcile the cleanup of
+	// instance. Instance name is signaled on this channel.
+	instanceDeletionSignal chan string
 }
 
 // BGPRouterManager implements the pkg.bgpv1.agent.BGPRouterManager interface.
@@ -103,6 +138,9 @@ type BGPRouterManager struct {
 
 	// running is set when the manager is running, and unset when it is stopped.
 	running bool
+
+	// state management
+	state State
 }
 
 // NewBGPRouterManager constructs a GoBGP-backed BGPRouterManager.
@@ -112,7 +150,7 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 	activeReconcilers := reconciler.GetActiveReconcilers(params.Reconcilers)
 	activeReconcilersV2 := reconcilerv2.GetActiveReconcilers(params.Logger, params.ReconcilersV2)
 
-	return &BGPRouterManager{
+	m := &BGPRouterManager{
 		Logger:      params.Logger,
 		ConfigMode:  params.ConfigMode,
 		Servers:     make(LocalASNMap),
@@ -122,7 +160,33 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 		// BGPv2
 		BGPInstances:      make(LocalInstanceMap),
 		ConfigReconcilers: activeReconcilersV2,
+
+		// state
+		state: State{
+			reconcilers:            reconcilerv2.GetActiveStateReconcilers(params.Logger, params.StateReconcilers),
+			notifications:          make(map[string]types.StateNotificationCh),
+			pendingInstances:       sets.New[string](),
+			reconcileSignal:        make(chan struct{}, 1),
+			instanceDeletionSignal: make(chan string),
+		},
 	}
+
+	params.JobGroup.Add(
+		job.OneShot("bgp-state-observer", func(ctx context.Context, health cell.Health) (err error) {
+			for {
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-m.state.reconcileSignal:
+					m.reconcileState(ctx)
+				case instanceName := <-m.state.instanceDeletionSignal:
+					m.reconcileInstanceDeletion(ctx, instanceName)
+				}
+			}
+		}),
+	)
+
+	return m
 }
 
 // ConfigurePeers is a declarative API for configuring the BGP peering topology
@@ -800,6 +864,7 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 				AdvertiseInactiveRoutes: true,
 			},
 		},
+		StateNotification: make(types.StateNotificationCh, 1),
 	}
 
 	i, err := instance.NewBGPInstance(ctx, m.Logger.WithField(types.InstanceLogField, c.Name), globalConfig)
@@ -809,6 +874,10 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 
 	// register with manager
 	m.BGPInstances[c.Name] = i
+	m.state.notifications[c.Name] = globalConfig.StateNotification
+
+	// start consuming state notifications
+	go m.trackInstanceStateChange(c.Name, globalConfig.StateNotification)
 
 	if err = m.reconcileBGPConfigV2(ctx, i, c, ciliumNode); err != nil {
 		return fmt.Errorf("failed initial reconciliation of BGP instance: %w", err)
@@ -856,7 +925,12 @@ func (m *BGPRouterManager) withdrawV2(ctx context.Context, rd *reconcileDiffV2) 
 			continue
 		}
 		i.Router.Stop()
+		notifCh, exists := m.state.notifications[name]
+		if exists {
+			close(notifCh)
+		}
 		delete(m.BGPInstances, name)
+		delete(m.state.notifications, name)
 		m.Logger.WithField(types.InstanceLogField, name).Info("Removed BGP instance")
 	}
 }

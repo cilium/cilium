@@ -140,10 +140,51 @@ func NewGoBGPServer(ctx context.Context, log *logrus.Entry, params types.ServerP
 	err = s.WatchEvent(ctx, watchRequest, func(r *gobgp.WatchEventResponse) {
 		if p := r.GetPeer(); p != nil && p.Type == gobgp.WatchEventResponse_PeerEvent_STATE {
 			logger.l.Debug(p)
+
+			// if channel is nil (BGPv1) below code will not block and will act as a no-op.
+			select {
+			case params.StateNotification <- struct{}{}:
+			default:
+			}
 		}
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to configure logging for virtual router with local-asn %v: %w", startReq.Global.Asn, err)
+		return nil, fmt.Errorf("failed to configure peer watching for virtual router with local-asn %v: %w", startReq.Global.Asn, err)
+	}
+
+	watchRequestTable := &gobgp.WatchEventRequest{
+		Table: &gobgp.WatchEventRequest_Table{
+			Filters: []*gobgp.WatchEventRequest_Table_Filter{
+				{
+					Type: gobgp.WatchEventRequest_Table_Filter_ADJIN,
+					Init: true,
+				},
+				{
+					Type: gobgp.WatchEventRequest_Table_Filter_BEST,
+					Init: true,
+				},
+				{
+					Type: gobgp.WatchEventRequest_Table_Filter_POST_POLICY,
+					Init: true,
+				},
+				{
+					Type: gobgp.WatchEventRequest_Table_Filter_EOR,
+					Init: true,
+				},
+			},
+		},
+	}
+	err = s.WatchEvent(ctx, watchRequestTable, func(_ *gobgp.WatchEventResponse) {
+		logger.l.Debug("Route event received")
+
+		// if channel is nil (BGPv1) below code will not block and will act as a no-op.
+		select {
+		case params.StateNotification <- struct{}{}:
+		default:
+		}
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure table watching for virtual router with local-asn %v: %w", startReq.Global.Asn, err)
 	}
 
 	return &GoBGPServer{
