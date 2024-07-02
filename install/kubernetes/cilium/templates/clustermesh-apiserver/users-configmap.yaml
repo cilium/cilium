@@ -1,5 +1,6 @@
 {{- if and
   (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer)
+  ( .Values.clustermesh.config.enabled )
   (ne .Values.clustermesh.apiserver.tls.authMode "legacy")
 }}
 ---
