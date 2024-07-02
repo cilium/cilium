@@ -171,6 +171,22 @@ you may perform the following steps to troubleshoot ClusterMesh issues.
     * A firewall between the local cluster and the remote cluster may drop the
       control plane connection. Ensure that port 2379/TCP is allowed.
 
+    * The connection may fail to establish when all the following conditions
+      are met:
+
+      * tunneling is enabled,
+      * WireGuard encryption is enabled,
+      * any of the Host Firewall or node-to-node encryption is enabled, and
+      * a NodePort (and not a LoadBalancer) service is used to expose the clustermesh-apiserver
+
+      In this configuration, the connection may fail to establish because the
+      use of the Host Firewall causes traffic asymmetry (using native routing
+      device in one way, and encapsulation in the other way). If the setup for
+      WireGuard keys does not happen in a synchronous way for the nodes in the
+      different clusters, this asymmetry causes the connection's source node to
+      drop encrypted replies that it cannot process. For more details, see
+      :gh-issue:`31209`.
+
 State Propagation
 -----------------
 
