@@ -144,7 +144,7 @@ spec:
                     selector:
                       description: Selector is a label selector to select objects
                         of the type specified by AdvertisementType. If not specified,
-                        all objects of the type specified by AdvertisementType are
+                        no objects of the type specified by AdvertisementType are
                         selected for advertisement.
                       properties:
                         matchExpressions:
