@@ -107,6 +107,11 @@ type cgroupManager interface {
 	OnDeletePod(pod *slim_corev1.Pod)
 }
 
+type CacheAccessK8SWatcher interface {
+	GetCachedNamespace(namespace string) (*slim_corev1.Namespace, error)
+	GetCachedPod(namespace, name string) (*slim_corev1.Pod, error)
+}
+
 type ipcacheManager interface {
 	// GH-21142: Re-evaluate the need for these APIs
 	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (namedPortsChanged bool, err error)
