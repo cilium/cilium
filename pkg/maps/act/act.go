@@ -14,11 +14,15 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 )
 
 const ActiveConnectionTrackingMapName = "cilium_lb_act"
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "act-bpf")
 
 // Cell provides the ActiveConnectionTrackingMap which contains information about opened
 // and closed connection to each service-zone pair.
@@ -26,8 +30,8 @@ var Cell = cell.Module(
 	"active-connection-tracking",
 	"eBPF map with counts of open-closed connections for each service-zone pair",
 
-	cell.Provide(newActiveConnectionTrackingMap),
 	cell.Config(defaultConfig),
+	cell.Provide(newActiveConnectionTrackingMap),
 )
 
 type Config struct {
@@ -47,6 +51,7 @@ type ActiveConnectionTrackingIterateCallback func(*ActiveConnectionTrackerKey, *
 
 type ActiveConnectionTrackingMap interface {
 	IterateWithCallback(ActiveConnectionTrackingIterateCallback) error
+	Delete(*ActiveConnectionTrackerKey) error
 }
 
 type actMap struct {
@@ -67,8 +72,14 @@ func newActiveConnectionTrackingMap(in struct {
 	if !in.Conf.EnableActiveConnectionTracking {
 		return
 	}
-	size := option.Config.LBServiceMapEntries * len(option.Config.FixedZoneMapping)
+	svcSize := option.Config.LBMapEntries
+	if option.Config.LBServiceMapEntries > 0 {
+		svcSize = option.Config.LBServiceMapEntries
+	}
+	zoneSize := len(option.Config.FixedZoneMapping)
+	size := svcSize * zoneSize
 	if size == 0 {
+		log.Fatalf("Unexpected map size: %d = svc[%d] * zones[%d]", size, svcSize, zoneSize)
 		return
 	}
 
@@ -110,6 +121,11 @@ func (m actMap) IterateWithCallback(cb ActiveConnectionTrackingIterateCallback) 
 
 		cb(key, value)
 	})
+}
+
+func (m actMap) Delete(key *ActiveConnectionTrackerKey) error {
+	_, err := m.m.SilentDelete(key)
+	return err
 }
 
 // ActiveConnectionTrackerKey is the key to ActiveConnectionTrackingMap.
