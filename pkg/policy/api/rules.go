@@ -14,6 +14,7 @@ import (
 // it is sufficient to have a single fromEndpoints rule match, none of
 // the fromRequires may be violated at the same time.
 // +deepequal-gen:private-method=true
+// +kubebuilder:validation:MaxItems=32
 type Rules []*Rule
 
 func (rs Rules) String() string {

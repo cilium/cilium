@@ -165,6 +165,7 @@ type Listener struct {
 
 // PortRule is a list of ports/protocol combinations with optional Layer 7
 // rules which must be met.
+// +kubebuilder:validation:XValidation:message="If a non-TCP protocol is used in any of the ports, then there should not be any HTTP rules set",rule="!has(self.rules) || !has(self.rules.http) || !self.ports.exists_one(p, !has(p.protocol) || p.protocol != 'TCP')"
 type PortRule struct {
 	// Ports is a list of L4 port/protocol
 	//
@@ -292,6 +293,7 @@ func (rules *L7Rules) IsEmpty() bool {
 }
 
 // PortRules is a slice of PortRule.
+// +kubebuilder:validation:MaxItems=32
 type PortRules []PortRule
 
 // Iterate iterates over all elements of PortRules.
