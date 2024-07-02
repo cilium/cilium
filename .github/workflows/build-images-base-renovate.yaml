@@ -15,10 +15,6 @@ permissions:
   # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
   id-token: write
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build-base-images-from-renovate:
     name: "Build Base Images From Renovate"
