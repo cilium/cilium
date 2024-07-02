@@ -32,6 +32,10 @@ spec:
   {{- if and (eq "LoadBalancer" .Values.clustermesh.apiserver.service.type) .Values.clustermesh.apiserver.service.loadBalancerIP }}
   loadBalancerIP: {{ .Values.clustermesh.apiserver.service.loadBalancerIP }}
   {{- end }}
+  {{- if and (eq "LoadBalancer" .Values.clustermesh.apiserver.service.type) .Values.clustermesh.apiserver.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml .Values.clustermesh.apiserver.service.loadBalancerSourceRanges | nindent 4 }}
+  {{- end }}
   {{- if .Values.clustermesh.apiserver.service.externalTrafficPolicy }}
   externalTrafficPolicy: {{ .Values.clustermesh.apiserver.service.externalTrafficPolicy }}
   {{- end }}
