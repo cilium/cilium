@@ -50,6 +50,7 @@ const (
 	ep3IP = "10.0.0.3"
 
 	destCIDR        = "1.1.1.0/24"
+	destCIDR3       = "1.1.3.0/24"
 	allZeroDestCIDR = "0.0.0.0/0"
 	excludedCIDR1   = "1.1.1.22/32"
 	excludedCIDR2   = "1.1.1.240/30"
@@ -64,6 +65,9 @@ const (
 	// Special values for gatewayIP, see pkg/egressgateway/manager.go
 	gatewayNotFoundValue     = "0.0.0.0"
 	gatewayExcludedCIDRValue = "0.0.0.1"
+
+	// Special values for egressIP, see pkg/egressgateway/manager.go
+	egressIPNotFoundValue = "0.0.0.0"
 )
 
 var (
@@ -401,6 +405,22 @@ func TestEgressGatewayManager(t *testing.T) {
 
 	assertEgressRules(t, policyMap, []egressRule{
 		{ep1IP, destCIDR, zeroIP4, gatewayNotFoundValue},
+		{ep2IP, destCIDR, zeroIP4, node2IP},
+	})
+
+	// Test a policy without valid egressIP
+	addPolicy(t, k.policies, &policyParams{
+		name:            "policy-3",
+		endpointLabels:  ep1Labels,
+		destinationCIDR: destCIDR3,
+		nodeLabels:      nodeGroup1Labels,
+		iface:           "no_interface",
+	})
+	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+
+	assertEgressRules(t, policyMap, []egressRule{
+		{ep1IP, destCIDR, zeroIP4, gatewayNotFoundValue},
+		{ep1IP, destCIDR3, egressIPNotFoundValue, node1IP},
 		{ep2IP, destCIDR, zeroIP4, node2IP},
 	})
 
