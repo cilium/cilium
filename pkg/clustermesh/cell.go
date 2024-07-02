@@ -36,5 +36,6 @@ var Cell = cell.Module(
 	metrics.Metric(NewMetrics),
 	metrics.Metric(common.MetricsProvider(subsystem)),
 
-	cell.Invoke(ipsetSyncer),
+	cell.Invoke(ipsetNotifier),
+	cell.Invoke(nodeManagerNotifier),
 )
