@@ -53,10 +53,6 @@ func getEndpointMetadata(endpoint *k8sTypes.CiliumEndpoint, identityLabels label
 		}
 	}
 
-	if endpoint.Identity == nil {
-		return nil, fmt.Errorf("endpoint has no identity metadata")
-	}
-
 	data := &endpointMetadata{
 		ips:    addrs,
 		labels: identityLabels.K8sStringMap(),

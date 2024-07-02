@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
@@ -120,7 +120,7 @@ func TestRegister(t *testing.T) {
 
 		verifyMetricSeriesExists(t, promRegistry, 2)
 
-		handlers.ProcessPodDeletion(&slim_corev1.Pod{
+		handlers.ProcessCiliumEndpointDeletion(&types.CiliumEndpoint{
 			ObjectMeta: slim_metav1.ObjectMeta{
 				Name:      "foo-123",
 				Namespace: "foo",
@@ -130,7 +130,7 @@ func TestRegister(t *testing.T) {
 
 		verifyMetricSeriesExists(t, promRegistry, 1)
 
-		handlers.ProcessPodDeletion(&slim_corev1.Pod{
+		handlers.ProcessCiliumEndpointDeletion(&types.CiliumEndpoint{
 			ObjectMeta: slim_metav1.ObjectMeta{
 				Name:      "bar-123",
 				Namespace: "bar",
@@ -153,7 +153,7 @@ func TestRegister(t *testing.T) {
 
 		verifyMetricSeriesExists(t, promRegistry, 1)
 
-		handlers.ProcessPodDeletion(&slim_corev1.Pod{
+		handlers.ProcessCiliumEndpointDeletion(&types.CiliumEndpoint{
 			ObjectMeta: slim_metav1.ObjectMeta{
 				Name:      "foo-123",
 				Namespace: "foo",
@@ -163,7 +163,7 @@ func TestRegister(t *testing.T) {
 
 		verifyMetricSeriesExists(t, promRegistry, 1)
 
-		handlers.ProcessPodDeletion(&slim_corev1.Pod{
+		handlers.ProcessCiliumEndpointDeletion(&types.CiliumEndpoint{
 			ObjectMeta: slim_metav1.ObjectMeta{
 				Name:      "bar-123",
 				Namespace: "bar",
@@ -186,7 +186,7 @@ func TestRegister(t *testing.T) {
 
 		verifyMetricSeriesExists(t, promRegistry, 2)
 
-		handlers.ProcessPodDeletion(&slim_corev1.Pod{
+		handlers.ProcessCiliumEndpointDeletion(&types.CiliumEndpoint{
 			ObjectMeta: slim_metav1.ObjectMeta{
 				Name:      "foo-123",
 				Namespace: "foo",
@@ -196,7 +196,7 @@ func TestRegister(t *testing.T) {
 
 		verifyMetricSeriesExists(t, promRegistry, 1)
 
-		handlers.ProcessPodDeletion(&slim_corev1.Pod{
+		handlers.ProcessCiliumEndpointDeletion(&types.CiliumEndpoint{
 			ObjectMeta: slim_metav1.ObjectMeta{
 				Name:      "bar-123",
 				Namespace: "bar",
@@ -219,7 +219,7 @@ func TestRegister(t *testing.T) {
 
 		verifyMetricSeriesExists(t, promRegistry, 2)
 
-		handlers.ProcessPodDeletion(&slim_corev1.Pod{
+		handlers.ProcessCiliumEndpointDeletion(&types.CiliumEndpoint{
 			ObjectMeta: slim_metav1.ObjectMeta{
 				Name:      "foo-123",
 				Namespace: "foo",
@@ -229,7 +229,7 @@ func TestRegister(t *testing.T) {
 
 		verifyMetricSeriesExists(t, promRegistry, 2)
 
-		handlers.ProcessPodDeletion(&slim_corev1.Pod{
+		handlers.ProcessCiliumEndpointDeletion(&types.CiliumEndpoint{
 			ObjectMeta: slim_metav1.ObjectMeta{
 				Name:      "bar-123",
 				Namespace: "bar",

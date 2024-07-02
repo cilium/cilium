@@ -27,19 +27,19 @@ import (
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/policy"            // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/port-distribution" // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/tcp"               // invoke init
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-type PodDeletionHandler struct {
+type CiliumEndpointDeletionHandler struct {
 	gracefulPeriod time.Duration
 	queue          workqueue.DelayingInterface
 }
 
 var (
-	enabledMetrics     *api.Handlers
-	registry           = prometheus.NewPedanticRegistry()
-	podDeletionHandler *PodDeletionHandler
+	enabledMetrics          *api.Handlers
+	registry                = prometheus.NewPedanticRegistry()
+	endpointDeletionHandler *CiliumEndpointDeletionHandler
 )
 
 // Additional metrics - they're not counting flows, so are not served via
@@ -61,9 +61,9 @@ func ProcessFlow(ctx context.Context, flow *pb.Flow) error {
 	return nil
 }
 
-func ProcessPodDeletion(pod *slim_corev1.Pod) error {
-	if podDeletionHandler != nil && enabledMetrics != nil {
-		podDeletionHandler.queue.AddAfter(pod, podDeletionHandler.gracefulPeriod)
+func ProcessCiliumEndpointDeletion(pod *types.CiliumEndpoint) error {
+	if endpointDeletionHandler != nil && enabledMetrics != nil {
+		endpointDeletionHandler.queue.AddAfter(pod, endpointDeletionHandler.gracefulPeriod)
 	}
 	return nil
 }
@@ -87,20 +87,20 @@ func initMetricsServer(address string, enableOpenMetrics bool, errChan chan erro
 
 }
 
-func initPodDeletionHandler() {
-	podDeletionHandler = &PodDeletionHandler{
+func initEndpointDeletionHandler() {
+	endpointDeletionHandler = &CiliumEndpointDeletionHandler{
 		gracefulPeriod: time.Minute,
 		queue:          workqueue.NewDelayingQueue(),
 	}
 
 	go func() {
 		for {
-			pod, quit := podDeletionHandler.queue.Get()
+			endpoint, quit := endpointDeletionHandler.queue.Get()
 			if quit {
 				return
 			}
-			enabledMetrics.ProcessPodDeletion(pod.(*slim_corev1.Pod))
-			podDeletionHandler.queue.Done(pod)
+			enabledMetrics.ProcessCiliumEndpointDeletion(endpoint.(*types.CiliumEndpoint))
+			endpointDeletionHandler.queue.Done(endpoint)
 		}
 	}()
 }
@@ -119,7 +119,7 @@ func initMetrics(address string, enabled api.Map, grpcMetrics *grpc_prometheus.S
 	errChan := make(chan error, 1)
 
 	initMetricsServer(address, enableOpenMetrics, errChan)
-	initPodDeletionHandler()
+	initEndpointDeletionHandler()
 
 	return errChan, nil
 }
