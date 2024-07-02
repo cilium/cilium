@@ -309,12 +309,6 @@ jobs:
           cilium status --wait --wait-duration=10m
           kubectl get pods -n kube-system
 
-      - name: Port forward Relay
-        run: |
-          cilium hubble port-forward&
-          sleep 10s
-          [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
-
       - name: Make JUnit report directory
         run: |
           mkdir -p cilium-junits
