@@ -565,6 +565,9 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		goto skip_egress_gateway;
 
 	if (egress_gw_snat_needed_hook(tuple->saddr, tuple->daddr, &target->addr)) {
+		if (target->addr == EGRESS_GATEWAY_NO_EGRESS_IP)
+			return DROP_NO_EGRESS_IP;
+
 		target->egress_gateway = true;
 		/* If the endpoint is local, then the connection is already tracked. */
 		if (!local_ep)

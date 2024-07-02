@@ -17,11 +17,17 @@
 #define EGRESS_STATIC_PREFIX (sizeof(__be32) * 8)
 #define EGRESS_PREFIX_LEN(PREFIX) (EGRESS_STATIC_PREFIX + (PREFIX))
 #define EGRESS_IPV4_PREFIX EGRESS_PREFIX_LEN(32)
+
 /* These are special IP values in the CIDR 0.0.0.0/8 range that map to specific
  * case for in the egress gateway policies handling.
  */
+
+/* Special values in the policy_entry->gateway_ip: */
 #define EGRESS_GATEWAY_NO_GATEWAY (0)
 #define EGRESS_GATEWAY_EXCLUDED_CIDR bpf_htonl(1)
+
+/* Special values in the policy_entry->egress_ip: */
+#define EGRESS_GATEWAY_NO_EGRESS_IP (0)
 
 static __always_inline
 int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, __be32 daddr,
