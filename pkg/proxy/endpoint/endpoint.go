@@ -24,6 +24,10 @@ type EndpointInfoSource interface {
 type EndpointUpdater interface {
 	EndpointInfoSource
 
+	// SyncEndpointHeaderFile is called when we are setting the dns rules for
+	// an endpoint redirect.
+	SyncEndpointHeaderFile()
+
 	// OnProxyPolicyUpdate is called when the proxy acknowledges that it
 	// has applied a policy.
 	OnProxyPolicyUpdate(policyRevision uint64)
