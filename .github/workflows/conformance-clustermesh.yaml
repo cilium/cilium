@@ -547,12 +547,6 @@ jobs:
           cilium --context ${{ env.contextName1 }} clustermesh status --wait
           cilium --context ${{ env.contextName2 }} clustermesh status --wait
 
-      - name: Port forward Relay
-        run: |
-          cilium --context ${{ env.contextName1 }} hubble port-forward &
-          sleep 10s
-          [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
-
       - name: Make JUnit report directory
         run: |
           mkdir -p cilium-junits
