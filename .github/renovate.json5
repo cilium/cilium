@@ -309,7 +309,9 @@
       "matchBaseBranches": [
         "main"
       ],
-      "allowedVersions": ">1.6",
+      // We need to manually fix some regressions caused by spire, thus we won't
+      // be upgrading to 1.10 until we fix it.
+      "allowedVersions": "<1.10",
     },
     {
       "matchFiles": [
