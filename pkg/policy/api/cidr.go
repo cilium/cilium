@@ -4,6 +4,7 @@
 package api
 
 import (
+	"fmt"
 	"net"
 	"net/netip"
 	"strings"
@@ -138,7 +139,16 @@ type CIDRRuleSlice []CIDRRule
 // endpoint selectors
 func (s CIDRRuleSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 	cidrs := ComputeResultantCIDRSet(s)
-	return cidrs.GetAsEndpointSelectors()
+	ces := cidrs.GetAsEndpointSelectors()
+
+	// expand cidrgroup selectors
+	for _, r := range s {
+		if r.CIDRGroupRef != "" {
+			ces = append(ces, NewESFromLabels(LabelForCIDRGroupRef(string(r.CIDRGroupRef))))
+		}
+	}
+
+	return ces
 }
 
 // StringSlice returns the CIDRRuleSlice as a slice of strings.
@@ -199,3 +209,13 @@ func addrsToCIDRRules(addrs []netip.Addr) []CIDRRule {
 // A CIDR Group is a list of CIDRs whose IP addresses should be considered as a
 // same entity when applying fromCIDRGroupRefs policies on incoming network traffic.
 type CIDRGroupRef string
+
+const LabelPrefixGroupName = "io.cilium.groupname"
+
+func LabelForCIDRGroupRef(ref string) labels.Label {
+	return labels.NewLabel(
+		fmt.Sprintf("%s/%s", LabelPrefixGroupName, ref),
+		"",
+		labels.LabelSourceCIDRGroup,
+	)
+}

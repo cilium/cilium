@@ -5,11 +5,14 @@ package k8s
 
 import (
 	"context"
+	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2_alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -54,6 +57,11 @@ type serviceCache interface {
 	ForEachService(func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.Endpoints) bool)
 }
 
+type ipc interface {
+	UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64)
+	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
+}
+
 type PolicyWatcherParams struct {
 	cell.In
 
@@ -68,6 +76,7 @@ type PolicyWatcherParams struct {
 
 	PolicyManager promise.Promise[PolicyManager]
 	ServiceCache  *k8s.ServiceCache
+	IPCache       *ipcache.IPCache
 
 	CiliumNetworkPolicies            resource.Resource[*cilium_v2.CiliumNetworkPolicy]
 	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
@@ -93,6 +102,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		k8sAPIGroups:                     params.K8sAPIGroups,
 		svcCache:                         params.ServiceCache,
 		svcCacheNotifications:            svcCacheNotifications,
+		ipCache:                          params.IPCache,
 		ciliumNetworkPolicies:            params.CiliumNetworkPolicies,
 		ciliumClusterwideNetworkPolicies: params.CiliumClusterwideNetworkPolicies,
 		ciliumCIDRGroups:                 params.CiliumCIDRGroups,
@@ -100,7 +110,8 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 
 		cnpCache:          make(map[resource.Key]*types.SlimCNP),
 		cidrGroupCache:    make(map[string]*cilium_v2_alpha1.CiliumCIDRGroup),
-		cidrGroupPolicies: make(map[resource.Key]struct{}),
+		cidrGroupCIDRs:    make(map[string]sets.Set[netip.Prefix]),
+		cidrGroupRefCount: make(map[string]int),
 
 		toServicesPolicies: make(map[resource.Key]struct{}),
 		cnpByServiceID:     make(map[k8s.ServiceID]map[resource.Key]struct{}),
