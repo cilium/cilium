@@ -50,7 +50,7 @@ const (
 	// StateDirRights are the default access rights of the state directory
 	StateDirRights = 0770
 
-	//StateDir is the default path for the state directory relative to RuntimePath
+	// StateDir is the default path for the state directory relative to RuntimePath
 	StateDir = "state"
 
 	// TemplatesDir is the default path for the compiled template objects relative to StateDir
@@ -166,7 +166,7 @@ const (
 
 	// FQDNProxyResponseMaxDelay The maximum time the DNS proxy holds an allowed
 	// DNS response before sending it along. Responses are sent as soon as the
-	//datapath is updated with the new IP information.
+	// datapath is updated with the new IP information.
 	FQDNProxyResponseMaxDelay = 100 * time.Millisecond
 
 	// ToFQDNsPreCache is a path to a file with DNS cache data to insert into the
@@ -590,6 +590,9 @@ const (
 
 	// EnableEnvoyConfig is the default value for option.EnableEnvoyConfig
 	EnableEnvoyConfig = false
+
+	// NetNsPath is the default path to the mounted network namespaces directory
+	NetNsPath = "/run/cilium/netns"
 )
 
 var (
