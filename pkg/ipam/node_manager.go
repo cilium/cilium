@@ -148,6 +148,7 @@ type MetricsAPI interface {
 	SetAvailableIPsPerSubnet(subnetID string, availabilityZone string, available int)
 	SetNodes(category string, nodes int)
 	IncResyncCount()
+	ObserveBackgroundSync(duration time.Duration)
 	PoolMaintainerTrigger() trigger.MetricsObserver
 	K8sSyncTrigger() trigger.MetricsObserver
 	ResyncTrigger() trigger.MetricsObserver
@@ -234,7 +235,10 @@ func (n *NodeManager) Start(ctx context.Context) error {
 				Group:       ipamNodeIntervalControllerGroup,
 				RunInterval: time.Minute,
 				DoFunc: func(ctx context.Context) error {
-					if syncTime, ok := n.instancesAPIResync(ctx); ok {
+					start := time.Now()
+					syncTime, ok := n.instancesAPIResync(ctx)
+					n.metricsAPI.ObserveBackgroundSync(time.Since(start))
+					if ok {
 						n.Resync(ctx, syncTime)
 					}
 					return nil
