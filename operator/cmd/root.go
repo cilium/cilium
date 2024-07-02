@@ -15,6 +15,9 @@ import (
 	"time"
 
 	"github.com/cilium/hive/cell"
+
+	"github.com/cilium/cilium/operator/doublewrite"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -200,6 +203,10 @@ var (
 			// setup operations. This is a hacky workaround until the kvstore is
 			// refactored into a proper cell.
 			identitygc.Cell,
+
+			// When the Double Write Identity Allocation mode is enabled, the Double Write
+			// Metric Reporter helps with monitoring the state of identities in KVStore and CRD
+			doublewrite.Cell,
 
 			// CiliumEndpointSlice controller depends on the CiliumEndpoint and
 			// CiliumEndpointSlice resources. It reconciles the state of CESs in the
@@ -459,6 +466,8 @@ func kvstoreEnabled() bool {
 	}
 
 	return option.Config.IdentityAllocationMode == option.IdentityAllocationModeKVstore ||
+		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadCRD ||
+		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadKVstore ||
 		operatorOption.Config.SyncK8sServices ||
 		operatorOption.Config.SyncK8sNodes
 }
@@ -653,9 +662,11 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		nodeManager.Resync(legacy.ctx, time.Time{})
 	}
 
-	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD {
+	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD ||
+		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadKVstore ||
+		option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadCRD {
 		if !legacy.clientset.IsEnabled() {
-			log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
+			log.Fatalf("%s Identity allocation mode requires k8s to be configured.", option.Config.IdentityAllocationMode)
 		}
 		if operatorOption.Config.EndpointGCInterval == 0 {
 			log.Fatal("Cilium Identity garbage collector requires the CiliumEndpoint garbage collector to be enabled")

@@ -350,6 +350,21 @@ func getIdentitiesByKeyFunc(keyFunc func(map[string]string) allocator.AllocatorK
 	}
 }
 
+func (c *crdBackend) ListIDs(ctx context.Context) (identityIDs []idpool.ID, err error) {
+	if c.Store == nil {
+		return nil, fmt.Errorf("store is not available yet")
+	}
+
+	for _, identity := range c.Store.List() {
+		idParsed, err := strconv.ParseUint(identity.(*v2.CiliumIdentity).Name, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		identityIDs = append(identityIDs, idpool.ID(idParsed))
+	}
+	return identityIDs, err
+}
+
 func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMutations, stopChan chan struct{}) {
 	c.Store = cache.NewIndexer(
 		cache.DeletionHandlingMetaNamespaceKeyFunc,
