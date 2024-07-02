@@ -5,6 +5,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/cilium/hive/cell"
@@ -233,6 +234,10 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		Name: c.LocalCiliumNode.Name,
 	})
 	if err != nil {
+		if errors.Is(err, store.ErrStoreUninitialized) {
+			log.Debug("BGPNodeConfig store not yet initialized")
+			return nil // skip the reconciliation - once the store is initialized, it will trigger new reconcile event
+		}
 		log.WithError(err).Error("failed to get BGPNodeConfig")
 		return err
 	}
