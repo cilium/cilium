@@ -298,7 +298,7 @@ func (e *EgressCommonRule) getDestinationEndpointSelectorsWithRequirements(
 	// explicitly check for empty non-nil slices, it should not result in any identity being selected.
 	if e.aggregatedSelectors == nil || (e.ToEndpoints != nil && len(e.ToEndpoints) == 0) ||
 		(e.ToNodes != nil && len(e.ToNodes) == 0) {
-		return nil
+		return e.aggregatedSelectors
 	}
 
 	res := make(EndpointSelectorSlice, 0, len(e.ToEndpoints)+len(e.aggregatedSelectors)+len(e.ToNodes))

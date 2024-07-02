@@ -30,9 +30,10 @@ var (
 	fooSelector            = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
 	bazSelector            = api.NewESFromLabels(labels.ParseSelectLabel("baz"))
 
-	selFoo  = api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
-	selBar1 = api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
-	selBar2 = api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
+	selFoo      = api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
+	selBar1     = api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
+	selBar2     = api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
+	selCIDR1111 = api.NewESFromLabels(labels.ParseSelectLabel("cidr:1.1.1.1/32"))
 )
 
 type testData struct {
@@ -51,6 +52,8 @@ type testData struct {
 
 	cachedSelectorBar1 CachedSelector
 	cachedSelectorBar2 CachedSelector
+
+	cachedSelectorCIDR1111 CachedSelector
 }
 
 func newTestData() *testData {
@@ -74,6 +77,8 @@ func newTestData() *testData {
 
 	td.cachedSelectorBar1, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, selBar1)
 	td.cachedSelectorBar2, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, selBar2)
+
+	td.cachedSelectorCIDR1111, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, selCIDR1111)
 
 	return td
 }
@@ -170,6 +175,7 @@ func init() {
 // | 11  | "id=a", "id=c"  |  80/TCP  |      *, *       | Allow at L4 for two distinct labels (disjoint set)   |
 // | 12  |     "id=a",     |  80/TCP  |     "GET /"     | Configure to allow localhost traffic always          |
 // | 13  |      -, -       |  80/TCP  |      *, *       | Deny all with an empty ToEndpoints slice             |
+// | 14  |      -, -       |  80/TCP  |      *, *       | Allow 1.1.1.1/32 80/TCP, empty ToEndpoints GH-33432  |
 // +-----+-----------------+----------+-----------------+------------------------------------------------------+
 
 func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
@@ -2303,4 +2309,52 @@ func TestEgressEmptyToEndpoints(t *testing.T) {
 	require.Nil(t, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 0, state.matchedRules)
+}
+
+// Case 14.
+func Test_GH33432(t *testing.T) {
+	td := newTestData()
+	td.addIdentity(identity.NewIdentity(identity.IdentityScopeLocal, labels.NewLabelsFromSortedList("cidr:1.1.1.1/32")))
+	rule := &rule{
+		Rule: api.Rule{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToCIDR:      []api.CIDR{"1.1.1.1/32"},
+						ToEndpoints: []api.EndpointSelector{},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+		}}
+
+	buffer := new(bytes.Buffer)
+	ctxFromA := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
+	ctxFromA.Logging = stdlog.New(buffer, "", 0)
+	t.Log(buffer)
+
+	state := traceState{}
+	res, err := rule.resolveEgressPolicy(td.testPolicyContext, &ctxFromA, &state, NewL4PolicyMap(), nil, nil)
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
+		"80/TCP": {
+			Port:                80,
+			Protocol:            api.ProtoTCP,
+			U8Proto:             6, // TCP
+			PerSelectorPolicies: L7DataMap{td.cachedSelectorCIDR1111: nil},
+			RuleOrigin:          map[CachedSelector]labels.LabelArrayList{td.cachedSelectorCIDR1111: {nil}},
+		},
+	})
+
+	require.NoError(t, err)
+	require.EqualValues(t, expected, res)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
+
+	require.Equal(t, 1, state.selectedRules)
+	require.Equal(t, 1, state.matchedRules)
 }

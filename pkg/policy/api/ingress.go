@@ -225,7 +225,7 @@ func (i *IngressCommonRule) GetSourceEndpointSelectorsWithRequirements(requireme
 	// explicitly check for empty non-nil slices, it should not result in any identity being selected.
 	if i.aggregatedSelectors == nil || (i.FromEndpoints != nil && len(i.FromEndpoints) == 0) ||
 		(i.FromNodes != nil && len(i.FromNodes) == 0) {
-		return nil
+		return i.aggregatedSelectors
 	}
 
 	res := make(EndpointSelectorSlice, 0, len(i.FromEndpoints)+len(i.aggregatedSelectors)+len(i.FromNodes))
