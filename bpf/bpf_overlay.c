@@ -424,6 +424,9 @@ not_esp:
 
 		daddr = ip4->daddr;
 		if (egress_gw_snat_needed_hook(ip4->saddr, daddr, &snat_addr)) {
+			if (snat_addr == EGRESS_GATEWAY_NO_EGRESS_IP)
+				return DROP_NO_EGRESS_IP;
+
 			ret = ipv4_l3(ctx, ETH_HLEN, NULL, NULL, ip4);
 			if (unlikely(ret != CTX_ACT_OK))
 				return ret;

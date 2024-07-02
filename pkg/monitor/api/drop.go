@@ -99,6 +99,7 @@ var errors = map[uint8]string{
 	201: "Multicast handled",
 	202: "Host datapath not ready",
 	203: "Endpoint policy program not available",
+	204: "No Egress IP configured",
 }
 
 func extendedReason(extError int8) string {
