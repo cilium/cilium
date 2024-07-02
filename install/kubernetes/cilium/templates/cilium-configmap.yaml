@@ -1,63 +1,31 @@
 {{- if and ( or (.Values.agent) (.Values.operator.enabled) .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) (not .Values.preflight.enabled) }}
 {{- /*  Default values with backwards compatibility */ -}}
-{{- $defaultBpfMapDynamicSizeRatio := 0.0 -}}
+{{- $defaultBpfMapDynamicSizeRatio := 0.0025 -}}
 {{- $defaultBpfMasquerade := "false" -}}
-{{- $defaultBpfClockProbe := "false" -}}
+{{- $defaultBpfClockProbe := "true" -}}
 {{- $defaultBpfTProxy := "false" -}}
 {{- $defaultIPAM := "cluster-pool" -}}
 {{- $defaultOperatorApiServeAddr := "localhost:9234" -}}
-{{- $defaultBpfCtTcpMax := 524288 -}}
-{{- $defaultBpfCtAnyMax := 262144 -}}
+{{- $defaultBpfCtTcpMax := 0 -}}
+{{- $defaultBpfCtAnyMax := 0 -}}
 {{- $enableIdentityMark := "true" -}}
 {{- $fragmentTracking := "true" -}}
 {{- $defaultKubeProxyReplacement := "false" -}}
 {{- $azureUsePrimaryAddress := "true" -}}
 {{- $defaultK8sClientQPS := 5 -}}
 {{- $defaultK8sClientBurst := 10 -}}
-{{- $defaultDNSProxyEnableTransparentMode := "false" -}}
+{{- $defaultDNSProxyEnableTransparentMode := "true" -}}
 {{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
 
-{{- /* Default values when 1.8 was initially deployed */ -}}
-{{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
-  {{- $defaultBpfMapDynamicSizeRatio = 0.0025 -}}
-  {{- $defaultBpfMasquerade = "true" -}}
-  {{- $defaultBpfClockProbe = "true" -}}
-  {{- $defaultIPAM = "cluster-pool" -}}
-  {{- if .Values.ipv4.enabled }}
-    {{- $defaultOperatorApiServeAddr = "127.0.0.1:9234" -}}
-  {{- else -}}
-    {{- $defaultOperatorApiServeAddr = "[::1]:9234" -}}
-  {{- end }}
-  {{- $defaultBpfCtTcpMax = 0 -}}
-  {{- $defaultBpfCtAnyMax = 0 -}}
-  {{- $defaultKubeProxyReplacement = "probe" -}}
-{{- end -}}
+{{- if .Values.ipv4.enabled }}
+  {{- $defaultOperatorApiServeAddr = "127.0.0.1:9234" -}}
+{{- else -}}
+  {{- $defaultOperatorApiServeAddr = "[::1]:9234" -}}
+{{- end }}
 
-{{- /* Default values when 1.9 was initially deployed */ -}}
-{{- if semverCompare ">=1.9" (default "1.9" .Values.upgradeCompatibility) -}}
-  {{- $defaultKubeProxyReplacement = "probe" -}}
-{{- end -}}
-
-{{- /* Default values when 1.10 was initially deployed */ -}}
-{{- if semverCompare ">=1.10" (default "1.10" .Values.upgradeCompatibility) -}}
-  {{- /* Needs to be explicitly disabled because it was enabled on all versions >=v1.8 above. */ -}}
-  {{- $defaultBpfMasquerade = "false" -}}
-{{- end -}}
-
-{{- /* Default values when 1.12 was initially deployed */ -}}
-{{- if semverCompare ">=1.12" (default "1.12" .Values.upgradeCompatibility) -}}
-  {{- if .Values.azure.enabled }}
-      {{- $azureUsePrimaryAddress = "false" -}}
-  {{- end }}
-  {{- $defaultKubeProxyReplacement = "disabled" -}}
-  {{- $defaultDNSProxyEnableTransparentMode = "true" -}}
-{{- end -}}
-
-{{- /* Default values when 1.14 was initially deployed */ -}}
-{{- if semverCompare ">=1.14" (default "1.14" .Values.upgradeCompatibility) -}}
-  {{- /* KPR default for 1.14 needed to override earlier version defaults set above when upgradeCompatibility is not specified */ -}}
-  {{- $defaultKubeProxyReplacement = "false" -}}
-{{- end -}}
+{{- if .Values.azure.enabled }}
+    {{- $azureUsePrimaryAddress = "false" -}}
+{{- end }}
 
 {{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
