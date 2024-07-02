@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -673,6 +674,12 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		if err != nil {
 			log.WithError(err).WithField(logfields.LogSubsys, "CCNPWatcher").Fatal(
 				"Cannot connect to Kubernetes apiserver ")
+		}
+	}
+
+	if legacy.clientset.IsEnabled() {
+		if err := labelsfilter.ParseLabelPrefixCfg(option.Config.Labels, option.Config.NodeLabels, option.Config.LabelPrefixFile); err != nil {
+			log.WithError(err).Fatal("Unable to parse Label prefix configuration")
 		}
 	}
 
