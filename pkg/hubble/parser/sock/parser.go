@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"strings"
 
 	"github.com/sirupsen/logrus"
 
@@ -143,16 +142,11 @@ func (p *Parser) decodeEndpointIP(cgroupId uint64, ipVersion flowpb.IPVersion) (
 			})
 
 			for _, podIP := range m.IPs {
-				isIPv6 := strings.Contains(podIP, ":")
+				isIPv6 := len(podIP) == net.IPv6len
 				if isIPv6 && ipVersion == flowpb.IPVersion_IPv6 ||
 					!isIPv6 && ipVersion == flowpb.IPVersion_IPv4 {
-					ip = net.ParseIP(podIP)
-					if ip == nil {
-						scopedLog.WithField(logfields.IPAddr, podIP).Debug("failed to parse pod IP")
-						return nil, false
-					}
 
-					return ip, true
+					return podIP, true
 				}
 			}
 			scopedLog.Debug("no matching IP for pod")
