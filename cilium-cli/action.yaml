@@ -108,7 +108,7 @@ runs:
         done
         export CILIUM_CLI_IMAGE_REPO=${{ inputs.image-repo }}
         export CILIUM_CLI_IMAGE_TAG=${{ inputs.image-tag }}
-        cat .github/tools/cilium.sh | envsubst > /tmp/cilium
+        cat ${{ github.action_path }}/.github/tools/cilium.sh | envsubst > /tmp/cilium
         sudo install /tmp/cilium ${{ inputs.binary-dir }}/${{ inputs.binary-name }}
 
     - name: Run Cilium CLI Version
