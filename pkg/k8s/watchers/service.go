@@ -423,6 +423,34 @@ func hashSVCMap(svcs []loadbalancer.SVC) map[string]loadbalancer.L3n4Addr {
 	return m
 }
 
+func stripServiceProtocol(svc *k8s.Service) *k8s.Service {
+	svc = svc.DeepCopy()
+
+	for _, port := range svc.Ports {
+		port.Protocol = "NONE"
+	}
+
+	for _, nodePort := range svc.NodePorts {
+		for _, port := range nodePort {
+			port.Protocol = "NONE"
+		}
+	}
+
+	return svc
+}
+
+func stripEndpointsProtocol(endpoints *k8s.Endpoints) *k8s.Endpoints {
+	endpoints = endpoints.DeepCopy()
+
+	for _, backend := range endpoints.Backends {
+		for _, port := range backend.Ports {
+			port.Protocol = "NONE"
+		}
+	}
+
+	return endpoints
+}
+
 func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, endpoints *k8s.Endpoints) {
 	// Headless services do not need any datapath implementation
 	if svc.IsHeadless {
@@ -433,6 +461,11 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 		logfields.K8sSvcName:   svcID.Name,
 		logfields.K8sNamespace: svcID.Namespace,
 	})
+
+	if !option.Config.EnableServiceProtocolDifferentiation {
+		svc = stripServiceProtocol(svc)
+		endpoints = stripEndpointsProtocol(endpoints)
+	}
 
 	svcs := datapathSVCs(svc, endpoints)
 	svcMap := hashSVCMap(svcs)
