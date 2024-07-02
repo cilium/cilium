@@ -41,6 +41,10 @@ type RemoteCluster interface {
 	Remove(ctx context.Context)
 }
 
+// backendFactoryFn is the type of the function to create the etcd client.
+type backendFactoryFn func(ctx context.Context, backend string, opts map[string]string,
+	options *kvstore.ExtraOptions) (kvstore.BackendOperations, chan error)
+
 // remoteCluster represents another cluster other than the cluster the agent is
 // running in
 type remoteCluster struct {
@@ -58,10 +62,6 @@ type remoteCluster struct {
 
 	// resolvers are the set of resolvers used to create the custom dialer.
 	resolvers []dial.Resolver
-
-	// changed receives an event when the remote cluster configuration has
-	// changed and is closed when the configuration file was removed
-	changed chan bool
 
 	controllers *controller.Manager
 
@@ -100,15 +100,17 @@ type remoteCluster struct {
 
 	logger logrus.FieldLogger
 
+	// backendFactory allows to override the function to create the etcd client
+	// for testing purposes.
+	backendFactory backendFactoryFn
+	// clusterLockFactory allows to override the function to create the clusterLock
+	// for testing purposes.
+	clusterLockFactory func() *clusterLock
+
 	metricLastFailureTimestamp prometheus.Gauge
 	metricReadinessStatus      prometheus.Gauge
 	metricTotalFailures        prometheus.Gauge
 }
-
-var (
-	// skipKvstoreConnection skips the etcd connection, used for testing
-	skipKvstoreConnection bool
-)
 
 // releaseOldConnection releases the etcd connection to a remote cluster
 func (rc *remoteCluster) releaseOldConnection() {
@@ -137,12 +139,9 @@ func (rc *remoteCluster) restartRemoteConnection() {
 			DoFunc: func(ctx context.Context) error {
 				rc.releaseOldConnection()
 
-				clusterLock := newClusterLock()
-
+				clusterLock := rc.clusterLockFactory()
 				extraOpts := rc.makeExtraOpts(clusterLock)
-
-				backend, errChan := kvstore.NewClient(ctx, kvstore.EtcdBackendName,
-					rc.makeEtcdOpts(), &extraOpts)
+				backend, errChan := rc.backendFactory(ctx, kvstore.EtcdBackendName, rc.makeEtcdOpts(), &extraOpts)
 
 				// Block until either an error is returned or
 				// the channel is closed due to success of the
@@ -348,28 +347,9 @@ func (rc *remoteCluster) makeExtraOpts(clusterLock *clusterLock) kvstore.ExtraOp
 	}
 }
 
-func (rc *remoteCluster) onInsert() {
-	rc.logger.Info("New remote cluster configuration")
-
-	if skipKvstoreConnection {
-		return
-	}
-
-	rc.remoteConnectionControllerName = fmt.Sprintf("remote-etcd-%s", rc.name)
+func (rc *remoteCluster) connect() {
+	rc.logger.Info("Connecting to remote cluster")
 	rc.restartRemoteConnection()
-
-	go func() {
-		for {
-			val := <-rc.changed
-			if val {
-				rc.logger.Info("etcd configuration has changed, re-creating connection")
-				rc.restartRemoteConnection()
-			} else {
-				rc.logger.Info("Closing connection to remote etcd")
-				return
-			}
-		}
-	}()
 }
 
 // onStop is executed when the clustermesh subsystem is being stopped.
@@ -377,7 +357,6 @@ func (rc *remoteCluster) onInsert() {
 // we would break existing connections when the agent gets restarted.
 func (rc *remoteCluster) onStop() {
 	_ = rc.controllers.RemoveControllerAndWait(rc.remoteConnectionControllerName)
-	close(rc.changed)
 	rc.Stop()
 }
 

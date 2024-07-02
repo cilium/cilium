@@ -20,12 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-const (
-	// configNotificationsChannelSize is the size of the channel used to
-	// notify a clustermesh of configuration changes
-	configNotificationsChannelSize = 512
-)
-
 type Config struct {
 	// ClusterMeshConfig is the path to the clustermesh configuration directory.
 	ClusterMeshConfig string
@@ -160,10 +154,13 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 			return nil
 		}(),
 
-		changed:     make(chan bool, configNotificationsChannelSize),
-		controllers: controller.NewManager(),
+		controllers:                    controller.NewManager(),
+		remoteConnectionControllerName: fmt.Sprintf("remote-etcd-%s", name),
 
 		logger: log.WithField(logfields.ClusterName, name),
+
+		backendFactory:     kvstore.NewClient,
+		clusterLockFactory: newClusterLock,
 
 		metricLastFailureTimestamp: cm.conf.Metrics.LastFailureTimestamp.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
 		metricReadinessStatus:      cm.conf.Metrics.ReadinessStatus.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
@@ -199,22 +196,15 @@ func (cm *clusterMesh) addLocked(name, path string) {
 		return
 	}
 
-	inserted := false
 	cluster, ok := cm.clusters[name]
 	if !ok {
 		cluster = cm.newRemoteCluster(name, path)
 		cm.clusters[name] = cluster
-		inserted = true
 	}
 
 	cm.conf.Metrics.TotalRemoteClusters.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName).Set(float64(len(cm.clusters)))
 
-	if inserted {
-		cluster.onInsert()
-	} else {
-		// signal a change in configuration
-		cluster.changed <- true
-	}
+	cluster.connect()
 }
 
 func (cm *clusterMesh) remove(name string) {
