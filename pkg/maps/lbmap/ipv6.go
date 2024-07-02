@@ -167,6 +167,7 @@ func (k *Service6Key) SetScope(scope uint8)    { k.Scope = scope }
 func (k *Service6Key) GetScope() uint8         { return k.Scope }
 func (k *Service6Key) GetAddress() net.IP      { return k.Address.IP() }
 func (k *Service6Key) GetPort() uint16         { return k.Port }
+func (k *Service6Key) GetProtocol() uint8      { return k.Proto }
 func (k *Service6Key) MapDelete() error        { return k.Map().Delete(k.ToNetwork()) }
 
 func (k *Service6Key) RevNatValue() RevNatValue {
@@ -310,9 +311,10 @@ func (b *Backend6Value) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend6Value) GetIPCluster() cmtypes.AddrCluster {
 	return cmtypes.AddrClusterFrom(b.Address.Addr(), 0)
 }
-func (b *Backend6Value) GetPort() uint16 { return b.Port }
-func (b *Backend6Value) GetFlags() uint8 { return b.Flags }
-func (b *Backend6Value) GetZone() uint8  { return 0 }
+func (b *Backend6Value) GetPort() uint16    { return b.Port }
+func (b *Backend6Value) GetProtocol() uint8 { return uint8(b.Proto) }
+func (b *Backend6Value) GetFlags() uint8    { return b.Flags }
+func (b *Backend6Value) GetZone() uint8     { return 0 }
 
 func (v *Backend6Value) ToNetwork() BackendValue {
 	n := *v
@@ -378,9 +380,10 @@ func (b *Backend6ValueV3) GetAddress() net.IP { return b.Address.IP() }
 func (b *Backend6ValueV3) GetIPCluster() cmtypes.AddrCluster {
 	return cmtypes.AddrClusterFrom(b.Address.Addr(), uint32(b.ClusterID))
 }
-func (b *Backend6ValueV3) GetPort() uint16 { return b.Port }
-func (b *Backend6ValueV3) GetFlags() uint8 { return b.Flags }
-func (b *Backend6ValueV3) GetZone() uint8  { return b.Zone }
+func (b *Backend6ValueV3) GetPort() uint16    { return b.Port }
+func (b *Backend6ValueV3) GetProtocol() uint8 { return uint8(b.Proto) }
+func (b *Backend6ValueV3) GetFlags() uint8    { return b.Flags }
+func (b *Backend6ValueV3) GetZone() uint8     { return b.Zone }
 
 func (v *Backend6ValueV3) ToNetwork() BackendValue {
 	n := *v

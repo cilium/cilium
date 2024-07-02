@@ -1220,6 +1220,9 @@ const (
 
 	// BPFEventsTraceEnabled defines the TraceNotification setting for any endpoint
 	BPFEventsTraceEnabled = "bpf-events-trace-enabled"
+
+	// EnableServiceProtocolDifferentiation TODO
+	EnableServiceProtocolDifferentiation = "enable-service-protocol-differentiation"
 )
 
 // Default string arguments
@@ -2414,6 +2417,8 @@ type DaemonConfig struct {
 	// NodeLabels is the list of label prefixes used to determine identity of a node (requires enabling of
 	// EnableNodeSelectorLabels)
 	NodeLabels []string
+
+	EnableServiceProtocolDifferentiation bool
 }
 
 var (
@@ -3541,6 +3546,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	if c.KVStore != "" {
 		c.IdentityRestoreGracePeriod = defaults.IdentityRestoreGracePeriodKvstore
 	}
+
+	c.EnableServiceProtocolDifferentiation = vp.GetBool(EnableServiceProtocolDifferentiation)
 }
 
 func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
