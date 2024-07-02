@@ -58,6 +58,10 @@ const (
 	overlayPrefix = "bpf_overlay"
 	overlayProg   = overlayPrefix + "." + string(outputSource)
 	overlayObj    = overlayPrefix + ".o"
+
+	wireguardPrefix = "bpf_wireguard"
+	wireguardProg   = wireguardPrefix + "." + string(outputSource)
+	wireguardObj    = wireguardPrefix + ".o"
 )
 
 var (
@@ -378,6 +382,39 @@ func compileOverlay(ctx context.Context, opts []string) error {
 	prog := &progInfo{
 		Source:     overlayProg,
 		Output:     overlayObj,
+		OutputType: outputObject,
+		Options:    opts,
+	}
+	// Write out assembly and preprocessing files for debugging purposes
+	if _, err := compile(ctx, prog, dirs); err != nil {
+		scopedLog.WithField(logfields.Params, logfields.Repr(prog)).
+			WithError(err).Warn("Failed to compile")
+		return err
+	}
+	return nil
+}
+
+func compileWireguard(ctx context.Context, opts []string) (err error) {
+	dirs := &directoryInfo{
+		Library: option.Config.BpfDir,
+		Runtime: option.Config.StateDir,
+		Output:  option.Config.StateDir,
+		State:   option.Config.StateDir,
+	}
+	scopedLog := log.WithField(logfields.Debug, true)
+
+	versionCmd := exec.CommandContext(ctx, compiler, "--version")
+	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
+	if err != nil {
+		return err
+	}
+	scopedLog.WithFields(logrus.Fields{
+		compiler: string(compilerVersion),
+	}).Debug("Compiling wireguard programs")
+
+	prog := &progInfo{
+		Source:     wireguardProg,
+		Output:     wireguardObj,
 		OutputType: outputObject,
 		Options:    opts,
 	}
