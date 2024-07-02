@@ -419,7 +419,7 @@ func TestRedirectWithDeny(t *testing.T) {
 	})
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -460,7 +460,7 @@ func TestRedirectWithDeny(t *testing.T) {
 	// that port, as it is shadowed by the deny rule
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected2) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected2))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected2))
 	}
 
 	// Keep only desired redirects
@@ -476,7 +476,7 @@ func TestRedirectWithDeny(t *testing.T) {
 	// Check that the state before addRedirects is restored
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
 	require.Equal(t, 2, ep.desiredPolicy.GetPolicyMap().Len())
 }
@@ -581,7 +581,7 @@ func TestRedirectWithPriority(t *testing.T) {
 	})
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -613,7 +613,7 @@ func TestRedirectWithPriority(t *testing.T) {
 	})
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected2) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected2))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected2))
 	}
 
 	// Keep only desired redirects
@@ -629,7 +629,7 @@ func TestRedirectWithPriority(t *testing.T) {
 	// Check that the state before addRedirects is restored
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
 	require.Equal(t, 2, ep.desiredPolicy.GetPolicyMap().Len())
 }
@@ -662,7 +662,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	})
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -694,7 +694,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	})
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected2) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected2))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected2))
 	}
 
 	// Keep only desired redirects
@@ -710,7 +710,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	// Check that the state before addRedirects is restored
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
 	require.Equal(t, 2, ep.desiredPolicy.GetPolicyMap().Len())
 }
