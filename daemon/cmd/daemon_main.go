@@ -256,9 +256,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkDeprecated(option.EnableRuntimeDeviceDetection, "Runtime device detection and datapath reconfiguration is now the default and only mode of operation")
 
 	flags.String(option.DatapathMode, defaults.DatapathMode,
-		fmt.Sprintf("Datapath mode name (%s, %s, %s, %s)",
+		fmt.Sprintf("Datapath mode name (%s, %s, %s, %s, %s)",
 			datapathOption.DatapathModeVeth, datapathOption.DatapathModeNetkit,
-			datapathOption.DatapathModeNetkitL2, datapathOption.DatapathModeLBOnly))
+			datapathOption.DatapathModeNetkitL2, datapathOption.DatapathModeLBOnly, datapathOption.DatapathModeLBOnlyBare))
 	option.BindEnv(vp, option.DatapathMode)
 
 	flags.Bool(option.EnableEndpointRoutes, defaults.EnableEndpointRoutes, "Use per endpoint routes instead of routing via cilium_host")

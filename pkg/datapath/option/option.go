@@ -21,4 +21,8 @@ const (
 
 	// DatapathModeLBOnly specifies lb-only datapath mode.
 	DatapathModeLBOnly = "lb-only"
+
+	// DatapathModeLBOnlyBare specifies lb-only datapath mode with plain
+	// Docker. No connectivity to kube-apiserver is being established.
+	DatapathModeLBOnlyBare = "lb-only-bare"
 )
