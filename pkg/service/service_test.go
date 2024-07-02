@@ -1836,6 +1836,12 @@ func Test_filterServiceBackends(t *testing.T) {
 			assert.Len(t, backends, 1)
 			assert.Len(t, backends["8080"], 1)
 		})
+		t.Run("named and number ports", func(t *testing.T) {
+			backends := filterServiceBackends(svc, []string{"8080", "http"})
+			assert.Len(t, backends, 2)
+			assert.Len(t, backends["8080"], 1)
+			assert.Len(t, backends["http"], 1)
+		})
 		t.Run("no match", func(t *testing.T) {
 			backends := filterServiceBackends(svc, []string{"8000"})
 			assert.Len(t, backends, 0)
