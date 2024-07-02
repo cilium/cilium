@@ -8,7 +8,7 @@ if [ ! -e "$dst_file" ]; then
 fi
 
 . "${dir}/../contrib/backporting/common.sh"
-remote="$(get_remote)"
+remote="$(get_remote "${ORG:-}" "${REPO:-}")"
 
 set -e
 set -o nounset
