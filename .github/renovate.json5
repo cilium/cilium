@@ -405,7 +405,7 @@
       "matchDepNames": [
         "golang.zx2c4.com/wireguard"
       ],
-      "versioning": "regex:^v0.0.0-(<patch>\\d+)-.*$"
+      "versioning": "regex:^v?0\\.0\\.0-(?<patch>\\d+)-.*$",
     },
     // Ref: https://github.com/cilium/cilium-cli#releases
     {
