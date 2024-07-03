@@ -210,11 +210,6 @@ func (s *Server) collectNodeConnectivityMetrics() {
 			nodeStatuses[connectivityStatusType] += value
 		}
 
-		for i := healthClientPkg.ConnStatusReachable; i <= healthClientPkg.ConnStatusUnknown; i++ {
-			endpointStatuses[i] += isEndpointReachable[i]
-			nodeStatuses[i] += isNodeReachable[i]
-		}
-
 		// HTTP endpoint primary
 		collectConnectivityMetric(endpointPathStatus.PrimaryAddress.HTTP, localClusterName, localNodeName,
 			metrics.LabelPeerEndpoint, metrics.LabelTrafficHTTP, metrics.LabelAddressTypePrimary)
@@ -284,9 +279,13 @@ func (s *Server) collectNodeConnectivityMetrics() {
 }
 
 func collectConnectivityMetric(status *healthModels.ConnectivityStatus, labels ...string) {
-	if status != nil && status.Status == "" {
-		metricValue := float64(status.Latency) / float64(time.Second)
-		metrics.NodeConnectivityLatency.WithLabelValues(labels...).Observe(metricValue)
+	if status != nil {
+		if status.Status == "" {
+			metricValue := float64(status.Latency) / float64(time.Second)
+			metrics.NodeConnectivityLatency.WithLabelValues(labels...).Observe(metricValue)
+		} else {
+			metrics.NodeConnectivityLatency.WithLabelValues(labels...).Observe(60)
+		}
 	}
 }
 

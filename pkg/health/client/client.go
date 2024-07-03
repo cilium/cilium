@@ -164,7 +164,7 @@ func GetPathConnectivityStatusType(cp *models.PathStatus) ConnectivityStatusType
 	return status
 }
 
-// Returns an array with [# of reachable paths, # of unreachable paths, # of unknown paths].
+// Returns a map of ConnectivityStatusType --> # of paths with ConnectivityStatusType
 func SummarizePathConnectivityStatusType(cps []*models.PathStatus) map[ConnectivityStatusType]int {
 	status := make(map[ConnectivityStatusType]int)
 	for _, cp := range cps {

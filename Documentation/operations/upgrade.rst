@@ -329,7 +329,7 @@ Removed Metrics
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
-
+* ``cilium_node_connectivity_latency_seconds`` is now a histogram metric. This metric and ``cilium_node_connectivity_status`` have dropped labels related to the destination cluster/node.
 
 Advanced
 ========
