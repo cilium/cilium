@@ -4,6 +4,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"context"
 	"net/http"
 
@@ -84,6 +86,9 @@ func (a *apiHandler[Params]) Handle(p Params) middleware.Responder {
 	d, err := a.dp.Await(context.Background())
 	if err != nil {
 		return api.Error(http.StatusServiceUnavailable, err)
+	}
+	if a.handler == nil {
+		return api.Error(http.StatusServiceUnavailable, fmt.Errorf("Not implemented!"))
 	}
 	return a.handler(d, p)
 }
