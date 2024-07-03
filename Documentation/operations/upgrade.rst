@@ -301,6 +301,15 @@ Annotations:
 
 .. _current_release_required_changes:
 
+.. _1.17_upgrade_notes:
+
+1.17 Upgrade Notes
+------------------
+
+* Operating Cilium in ``--datapath-mode=lb-only`` for plain Docker mode now requires to
+  add an additional ``--bpf-lb-external-control-plane=true`` to the command line, otherwise
+  it is assumed that Kubernetes is present.
+
 .. _1.16_upgrade_notes:
 
 1.16 Upgrade Notes

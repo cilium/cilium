@@ -295,7 +295,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	bootstrapStats.daemonInit.Start()
 
 	// Validate configuration options that depend on other cells.
-	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !params.Clientset.IsEnabled() {
+	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD &&
+		!option.Config.LoadBalancerExternalControlPlane &&
+		!params.Clientset.IsEnabled() {
 		return nil, nil, fmt.Errorf("CRD Identity allocation mode requires k8s to be configured")
 	}
 
@@ -834,8 +836,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// well known identities have already been initialized above.
 	// Ignore the channel returned by this function, as we want the global
 	// identity allocator to run asynchronously.
-	realIdentityAllocator := d.identityAllocator
-	realIdentityAllocator.InitIdentityAllocator(params.Clientset)
+	if !option.Config.LoadBalancerExternalControlPlane {
+		realIdentityAllocator := d.identityAllocator
+		realIdentityAllocator.InitIdentityAllocator(params.Clientset)
+	}
 
 	// Must be done at least after initializing BPF LB-related maps
 	// (lbmap.Init()).

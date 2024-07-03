@@ -45,6 +45,7 @@ cilium-agent [flags]
       --bpf-lb-dsr-dispatch string                                BPF load balancing DSR dispatch method ("opt", "ipip", "geneve") (default "opt")
       --bpf-lb-dsr-l4-xlate string                                BPF load balancing DSR L4 DNAT method for IPIP ("frontend", "backend") (default "frontend")
       --bpf-lb-external-clusterip                                 Enable external access to ClusterIP services (default false)
+      --bpf-lb-external-control-plane                             BPF load balancer uses an externally-provided control plane
       --bpf-lb-maglev-hash-seed string                            Maglev cluster-wide hash seed (base64 encoded) (default "JLfvgnHc2kaSUFaI")
       --bpf-lb-maglev-table-size uint                             Maglev per service backend table size (parameter M) (default 16381)
       --bpf-lb-map-max int                                        Maximum number of entries in Cilium BPF lbmap (default 65536)

@@ -66,6 +66,7 @@ docker exec -t lb-node \
     --enable-ipv4=true \
     --enable-ipv6=false \
     --datapath-mode=lb-only \
+    --bpf-lb-external-control-plane=true \
     --bpf-lb-algorithm=maglev \
     --bpf-lb-dsr-dispatch=ipip \
     --bpf-lb-acceleration=native \
