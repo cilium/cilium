@@ -279,6 +279,10 @@ const (
 	// Alias to NodePortAcceleration
 	LoadBalancerAcceleration = "bpf-lb-acceleration"
 
+	// LoadBalancerExternalControlPlane switch skips connectivity to kube-apiserver
+	// which is relevant in lb-only mode
+	LoadBalancerExternalControlPlane = "bpf-lb-external-control-plane"
+
 	// MaglevTableSize determines the size of the backend table per service
 	MaglevTableSize = "bpf-lb-maglev-table-size"
 
@@ -1937,6 +1941,10 @@ type DaemonConfig struct {
 	LoadBalancerRSSv6CIDR string
 	LoadBalancerRSSv6     net.IPNet
 
+	// LoadBalancerExternalControlPlane tells whether to not use kube-apiserver as
+	// its control plane in lb-only mode.
+	LoadBalancerExternalControlPlane bool
+
 	// EnablePMTUDiscovery indicates whether to send ICMP fragmentation-needed
 	// replies to the client (when needed).
 	EnablePMTUDiscovery bool
@@ -3099,6 +3107,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.LoadBalancerDSRL4Xlate = vp.GetString(LoadBalancerDSRL4Xlate)
 	c.LoadBalancerRSSv4CIDR = vp.GetString(LoadBalancerRSSv4CIDR)
 	c.LoadBalancerRSSv6CIDR = vp.GetString(LoadBalancerRSSv6CIDR)
+	c.LoadBalancerExternalControlPlane = vp.GetBool(LoadBalancerExternalControlPlane)
 	c.InstallNoConntrackIptRules = vp.GetBool(InstallNoConntrackIptRules)
 	c.ContainerIPLocalReservedPorts = vp.GetString(ContainerIPLocalReservedPorts)
 	c.EnableCustomCalls = vp.GetBool(EnableCustomCallsName)
