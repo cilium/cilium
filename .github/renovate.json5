@@ -578,6 +578,12 @@
         "quay.io/cilium/cilium-envoy"
       ],
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-.*$",
+    },
+    {
+      "matchDepNames": [
+        "grpc/grpc-go"
+      ],
+      "versioning": "regex:cmd/protoc-gen-go-grpc/v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
     }
   ],
   "kubernetes": {
@@ -604,7 +610,8 @@
         // Note that for GitHub release artifact digests, you likely want to use
         // github-release-attachments as the datasource here.
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) digestVersion=(?<currentValue>.*)\\s+.+_sha256.*=\"(?<currentDigest>.*)\"",
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s.+@(?<currentValue>.*)"
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s.+@(?<currentValue>.*)",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s.+_VERSION=(?<currentValue>.*)"
       ]
     },
     {
