@@ -8,8 +8,12 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-# renovate: datasource=github-releases depName=grpc/grpc-go
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1adbea267b837660726952ed6711b348dee87aa5
+# renovate: datasource=github-tags depName=grpc/grpc-go
+GRPC_VERSION=cmd/protoc-gen-go-grpc/v1.4.0
+
+GRPC_VERSION=${GRPC_VERSION#cmd/protoc-gen-go-grpc/}
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@${GRPC_VERSION}
+
 # renovate: datasource=github-releases depName=protocolbuffers/protobuf-go
 go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.31.0
 # renovate: datasource=github-releases depName=mfridman/protoc-gen-go-json
