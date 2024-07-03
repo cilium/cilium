@@ -2570,7 +2570,7 @@ func (c *DaemonConfig) AreDevicesRequired() bool {
 // netdev (otherwise, the WG netdev after decrypting the reply will pass
 // it to the stack which drops the packet).
 func (c *DaemonConfig) NeedBPFHostOnWireGuardDevice() bool {
-	return c.EnableNodePort && c.EnableWireguard && c.EncryptNode
+	return c.EnableNodePort && c.EnableWireguard && (c.EncryptNode || c.EnableL7Proxy)
 }
 
 // MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
