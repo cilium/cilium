@@ -106,6 +106,19 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 	// /healthz/
 	out.DaemonGetHealthzHandler = wrapAPIHandler(dp, getHealthzHandler)
 
+	// /service/
+	out.ServiceGetServiceHandler = wrapAPIHandler(dp, getServiceHandler)
+
+	// /service/{id}/
+	out.ServiceGetServiceIDHandler = wrapAPIHandler(dp, getServiceIDHandler)
+	out.ServiceDeleteServiceIDHandler = wrapAPIHandler(dp, deleteServiceIDHandler)
+	out.ServicePutServiceIDHandler = wrapAPIHandler(dp, putServiceIDHandler)
+
+	// If no control plane is set, we only expose service API to the user for programming.
+	if option.Config.LoadBalancerExternalControlPlane {
+		return
+	}
+
 	// /cluster/nodes
 	out.DaemonGetClusterNodesHandler = NewGetClusterNodesHandler(dp)
 
@@ -147,14 +160,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 		out.PolicyDeletePolicyHandler = wrapAPIHandler(dp, deletePolicyHandler)
 		out.PolicyGetPolicySelectorsHandler = wrapAPIHandler(dp, getPolicySelectorsHandler)
 	}
-
-	// /service/{id}/
-	out.ServiceGetServiceIDHandler = wrapAPIHandler(dp, getServiceIDHandler)
-	out.ServiceDeleteServiceIDHandler = wrapAPIHandler(dp, deleteServiceIDHandler)
-	out.ServicePutServiceIDHandler = wrapAPIHandler(dp, putServiceIDHandler)
-
-	// /service/
-	out.ServiceGetServiceHandler = wrapAPIHandler(dp, getServiceHandler)
 
 	// /debuginfo
 	out.DaemonGetDebuginfoHandler = wrapAPIHandler(dp, getDebugInfoHandler)
