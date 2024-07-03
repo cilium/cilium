@@ -153,14 +153,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 	// /identity/endpoints
 	out.PolicyGetIdentityEndpointsHandler = wrapAPIHandler(dp, getIdentityEndpointsHandler)
 
-	if cfg.DatapathMode != datapathOption.DatapathModeLBOnly {
-		// /policy/
-		out.PolicyGetPolicyHandler = wrapAPIHandler(dp, getPolicyHandler)
-		out.PolicyPutPolicyHandler = wrapAPIHandler(dp, putPolicyHandler)
-		out.PolicyDeletePolicyHandler = wrapAPIHandler(dp, deletePolicyHandler)
-		out.PolicyGetPolicySelectorsHandler = wrapAPIHandler(dp, getPolicySelectorsHandler)
-	}
-
 	// /debuginfo
 	out.DaemonGetDebuginfoHandler = wrapAPIHandler(dp, getDebugInfoHandler)
 
@@ -175,19 +167,28 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 	// metrics
 	out.MetricsGetMetricsHandler = wrapAPIHandler(dp, getMetricsHandler)
 
-	if cfg.DatapathMode != datapathOption.DatapathModeLBOnly {
-		// /fqdn/cache
-		out.PolicyGetFqdnCacheHandler = wrapAPIHandler(dp, getFqdnCacheHandler)
-		out.PolicyDeleteFqdnCacheHandler = wrapAPIHandler(dp, deleteFqdnCacheHandler)
-		out.PolicyGetFqdnCacheIDHandler = wrapAPIHandler(dp, getFqdnCacheIDHandler)
-		out.PolicyGetFqdnNamesHandler = wrapAPIHandler(dp, getFqdnNamesHandler)
-	}
-
 	// /ip/
 	out.PolicyGetIPHandler = wrapAPIHandler(dp, getIPHandler)
 
 	// /node/ids
 	out.DaemonGetNodeIdsHandler = wrapAPIHandler(dp, getNodeIDHandlerHandler)
+
+	// With k8s control plane, we support most except policy
+	if cfg.DatapathMode == datapathOption.DatapathModeLBOnly {
+		return
+	}
+
+	// /policy/
+	out.PolicyGetPolicyHandler = wrapAPIHandler(dp, getPolicyHandler)
+	out.PolicyPutPolicyHandler = wrapAPIHandler(dp, putPolicyHandler)
+	out.PolicyDeletePolicyHandler = wrapAPIHandler(dp, deletePolicyHandler)
+	out.PolicyGetPolicySelectorsHandler = wrapAPIHandler(dp, getPolicySelectorsHandler)
+
+	// /fqdn/cache
+	out.PolicyGetFqdnCacheHandler = wrapAPIHandler(dp, getFqdnCacheHandler)
+	out.PolicyDeleteFqdnCacheHandler = wrapAPIHandler(dp, deleteFqdnCacheHandler)
+	out.PolicyGetFqdnCacheIDHandler = wrapAPIHandler(dp, getFqdnCacheIDHandler)
+	out.PolicyGetFqdnNamesHandler = wrapAPIHandler(dp, getFqdnNamesHandler)
 
 	return
 }
