@@ -75,7 +75,7 @@
 
 #if defined ENABLE_IPV4 || defined ENABLE_IPV6
 static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
-					      enum ct_dir dir, __u32 reason)
+					      enum ct_dir dir, int reason)
 {
 	__u32 dst = 0;
 	__u32 dst_id = 0;
