@@ -251,8 +251,6 @@ jobs:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
           ci-version: ${{ env.cilium_cli_ci_version }}
-          binary-name: cilium-cli
-          binary-dir: ./
 
       - name: Set Kind params
         id: kind-params
@@ -306,11 +304,11 @@ jobs:
           kubectl create -n kube-system secret generic cilium-ipsec-keys \
             --from-literal=keys="3${{ matrix.key-type-one }} ${key}"
 
-          ./cilium-cli install ${{ steps.cilium-config.outputs.config }}
+          cilium install ${{ steps.cilium-config.outputs.config }}
           kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
           kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
-          ./cilium-cli status --wait
+          cilium status --wait
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
@@ -335,7 +333,7 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
-          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
@@ -387,7 +385,7 @@ jobs:
             TEST='--test "!pod-to-pod-no-frag"'
           fi
 
-          ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
@@ -402,9 +400,9 @@ jobs:
         shell: bash
         run: |
           kubectl get pods --all-namespaces -o wide
-          ./cilium-cli status
+          cilium status
           mkdir -p cilium-sysdumps
-          ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+          cilium sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
 
       - name: Upload artifacts
         if: ${{ !success() }}

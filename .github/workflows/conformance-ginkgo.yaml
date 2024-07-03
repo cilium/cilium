@@ -272,11 +272,11 @@ jobs:
           persist-credentials: false
 
       - name: Install cilium-cli
-        shell: bash
-        run: |
-          cid=$(docker create quay.io/cilium/cilium-cli-ci:latest ls)
-          docker cp $cid:/usr/local/bin/cilium ./cilium-cli
-          docker rm $cid
+        uses: cilium/cilium-cli@9d071f99ae32af95cb15c3e0a280d222b569a1cf # v0.16.11
+        with:
+          skip-build: 'true'
+          ci-version: 'latest'
+          binary-dir: '.'
 
       - name: Install helm
         shell: bash
@@ -300,7 +300,7 @@ jobs:
           cmd: |
             git config --global --add safe.directory /host
             mv /host/helm /usr/bin
-            mv /host/cilium-cli /usr/bin
+            mv /host/cilium /usr/bin/cilium-cli
 
       - name: Provision kind
         timeout-minutes: 5

@@ -4,7 +4,7 @@ description: Setup cilium connection disruption test
 inputs:
   cilium-cli:
     required: false
-    default: "./cilium-cli"
+    default: "/usr/local/bin/cilium"
     description: 'Path to the Cilium CLI binary'
 
 runs:

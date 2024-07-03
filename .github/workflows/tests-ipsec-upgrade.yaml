@@ -304,8 +304,6 @@ jobs:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
           ci-version: ${{ env.cilium_cli_ci_version }}
-          binary-name: cilium-cli
-          binary-dir: ./
 
       - name: Set Kind params
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -368,10 +366,10 @@ jobs:
 
           mkdir -p cilium-junits
 
-          ./cilium-cli install \
+          cilium install \
             ${{ steps.cilium-stable-config.outputs.config }}
 
-          ./cilium-cli status --wait
+          cilium status --wait
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
@@ -384,10 +382,10 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
-          ./cilium-cli upgrade \
+          cilium upgrade \
             ${{ steps.cilium-newest-config.outputs.config }}
 
-          ./cilium-cli status --wait
+          cilium status --wait
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
@@ -406,10 +404,10 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
-          ./cilium-cli upgrade \
+          cilium upgrade \
             ${{ steps.cilium-stable-config.outputs.config }}
 
-          ./cilium-cli status --wait
+          cilium status --wait
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
@@ -425,9 +423,9 @@ jobs:
         shell: bash
         run: |
           kubectl get pods --all-namespaces -o wide
-          ./cilium-cli status
+          cilium status
           mkdir -p cilium-sysdumps
-          ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+          cilium sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
 
       - name: Upload artifacts
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
