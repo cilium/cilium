@@ -6,7 +6,7 @@ ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:408dd9633bf6f96af4efb86b7
 #
 # cilium-envoy from github.com/cilium/proxy
 #
-FROM quay.io/cilium/cilium-envoy:v1.28.5-1e0a902a90fa02ca3efa88abf36d145f224e19d9@sha256:87eb5c1bf0888af4871d8bb2827ffb0b81b789e571a163530cc44ec7c45b84c3 as cilium-envoy
+FROM quay.io/cilium/cilium-envoy:v1.28.5-b917023c59137afaec400964234833e605dd3568@sha256:5a25fff80d8d3d96a8d55356982074a6b91ca053b258ea551c65230159ea82df as cilium-envoy
 
 #
 # Hubble CLI
