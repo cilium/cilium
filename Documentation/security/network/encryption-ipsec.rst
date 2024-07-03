@@ -47,6 +47,14 @@ following command:
     $ kubectl create -n kube-system secret generic cilium-ipsec-keys \
         --from-literal=keys="3+ rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
+.. attention::
+
+    The ``+`` sign in the secret is mandatory since v1.16. It will force the
+    use of per-tunnel IPsec keys. The former global IPsec keys are considered
+    insecure (cf. `GHSA-pwqm-x5x6-5586`_).
+
+.. _GHSA-pwqm-x5x6-5586: https://github.com/cilium/cilium/security/advisories/GHSA-pwqm-x5x6-5586
+
 The secret can be seen with ``kubectl -n kube-system get secrets`` and will be
 listed as ``cilium-ipsec-keys``.
 
