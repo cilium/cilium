@@ -465,12 +465,12 @@ func stripServiceProtocol(svc *k8s.Service) *k8s.Service {
 	svc = svc.DeepCopy()
 
 	for _, port := range svc.Ports {
-		port.Protocol = "NONE"
+		port.Protocol = "ANY"
 	}
 
 	for _, nodePort := range svc.NodePorts {
 		for _, port := range nodePort {
-			port.Protocol = "NONE"
+			port.Protocol = "ANY"
 		}
 	}
 
@@ -482,7 +482,7 @@ func stripEndpointsProtocol(endpoints *k8s.Endpoints) *k8s.Endpoints {
 
 	for _, backend := range endpoints.Backends {
 		for _, port := range backend.Ports {
-			port.Protocol = "NONE"
+			port.Protocol = "ANY"
 		}
 	}
 
