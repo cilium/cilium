@@ -233,6 +233,8 @@ func (s ServiceFlags) UInt16() uint16 {
 const (
 	// NONE type.
 	NONE = L4Type("NONE")
+	// ANY type.
+	ANY = L4Type("ANY")
 	// TCP type.
 	TCP = L4Type("TCP")
 	// UDP type.
@@ -535,6 +537,8 @@ func NewL4Type(name string) (L4Type, error) {
 	switch strings.ToLower(name) {
 	case "none":
 		return NONE, nil
+	case "any":
+		return ANY, nil
 	case "tcp":
 		return TCP, nil
 	case "udp":
@@ -555,7 +559,7 @@ func NewL4TypeFromNumber(proto uint8) L4Type {
 	case 132:
 		return SCTP
 	default:
-		return NONE
+		return ANY
 	}
 }
 
