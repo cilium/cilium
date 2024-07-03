@@ -7,7 +7,7 @@ inputs:
     description: 'Job name used in Cilium sysdump filename'
   cilium-cli:
     required: false
-    default: "./cilium-cli"
+    default: "/usr/local/bin/cilium"
     description: 'Path to the Cilium CLI binary'
   extra-connectivity-test-flags:
     required: false
