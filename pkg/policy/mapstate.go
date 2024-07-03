@@ -816,14 +816,13 @@ func (ms *mapState) RemoveDependent(owner Key, dependent Key, identities Identit
 	if e, exists := ms.allows.Lookup(owner); exists {
 		changes.insertOldIfNotExists(owner, e)
 		e.RemoveDependent(dependent)
-		ms.denies.delete(owner, identities)
+		// update the value in the allows map
 		ms.allows.upsert(owner, e, identities)
 		return
 	}
 	if e, exists := ms.denies.Lookup(owner); exists {
 		changes.insertOldIfNotExists(owner, e)
 		e.RemoveDependent(dependent)
-		ms.allows.delete(owner, identities)
 		ms.denies.upsert(owner, e, identities)
 	}
 }
