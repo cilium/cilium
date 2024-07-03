@@ -282,7 +282,6 @@ jobs:
               --gateway-class cilium \
               --all-features \
               --exempt-features "${{ steps.vars.outputs.exempt-features }}" \
-              --allow-crds-mismatch \
               -test.run "TestConformance" \
               -test.skip "${{ steps.vars.outputs.skipped_tests }}" \
               -json \
