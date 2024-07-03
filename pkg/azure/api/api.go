@@ -12,12 +12,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-08-01/compute"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v5"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v2"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-08-01/network"
 	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/azure"
-	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/Azure/go-autorest/autorest/to"
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -39,10 +42,10 @@ var (
 // Client represents an Azure API client
 type Client struct {
 	resourceGroup   string
-	interfaces      network.InterfacesClient
-	virtualnetworks network.VirtualNetworksClient
-	vmss            compute.VirtualMachineScaleSetVMsClient
-	vmscalesets     compute.VirtualMachineScaleSetsClient
+	interfaces      *armnetwork.InterfacesClient
+	virtualnetworks *armnetwork.VirtualNetworksClient
+	vmss            *armcompute.VirtualMachineScaleSetVMsClient
+	vmscalesets     *armcompute.VirtualMachineScaleSetsClient
 	limiter         *helpers.APILimiter
 	metricsAPI      MetricsAPI
 	usePrimary      bool
@@ -54,23 +57,24 @@ type MetricsAPI interface {
 	ObserveRateLimit(operation string, duration time.Duration)
 }
 
-func constructAuthorizer(env azure.Environment, userAssignedIdentityID string) (autorest.Authorizer, error) {
+func constructAuthorizer(env azure.Environment, userAssignedIdentityID string) (azcore.TokenCredential, error) {
 	if userAssignedIdentityID != "" {
-		spToken, err := adal.NewServicePrincipalTokenFromManagedIdentity(env.ServiceManagementEndpoint, &adal.ManagedIdentityOptions{
-			ClientID: userAssignedIdentityID,
+		mic, err := azidentity.NewManagedIdentityCredential(&azidentity.ManagedIdentityCredentialOptions{
+			ID: azidentity.ClientID(userAssignedIdentityID),
 		})
 		if err != nil {
 			return nil, err
 		}
 
-		return autorest.NewBearerAuthorizer(spToken), nil
+		return mic, nil
 	} else {
 		// Authorizer based on file first and then environment variables
-		authorizer, err := auth.NewAuthorizerFromFile(env.ResourceManagerEndpoint)
-		if err == nil {
-			return authorizer, nil
+		authSettings, err := azidentity.NewDefaultAzureCredential(nil)
+		if err != nil {
+			return nil, err
 		}
-		return auth.NewAuthorizerFromEnvironment()
+
+		return authSettings, nil
 	}
 }
 
@@ -81,30 +85,49 @@ func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityID 
 		return nil, err
 	}
 
-	c := &Client{
-		resourceGroup:   resourceGroup,
-		interfaces:      network.NewInterfacesClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
-		virtualnetworks: network.NewVirtualNetworksClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
-		vmss:            compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
-		vmscalesets:     compute.NewVirtualMachineScaleSetsClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
-		metricsAPI:      metrics,
-		limiter:         helpers.NewAPILimiter(metrics, rateLimit, burst),
-		usePrimary:      usePrimary,
-	}
-
-	authorizer, err := constructAuthorizer(azureEnv, userAssignedIdentityID)
+	credential, err := constructAuthorizer(azureEnv, userAssignedIdentityID)
 	if err != nil {
 		return nil, err
 	}
 
-	c.interfaces.Authorizer = authorizer
-	c.interfaces.AddToUserAgent(userAgent)
-	c.virtualnetworks.Authorizer = authorizer
-	c.virtualnetworks.AddToUserAgent(userAgent)
-	c.vmss.Authorizer = authorizer
-	c.vmss.AddToUserAgent(userAgent)
-	c.vmscalesets.Authorizer = authorizer
-	c.vmscalesets.AddToUserAgent(userAgent)
+	clientOptions := &arm.ClientOptions{
+		ClientOptions: azcore.ClientOptions{
+			Telemetry: policy.TelemetryOptions{
+				ApplicationID: userAgent,
+			},
+		},
+	}
+
+	interfaces, err := armnetwork.NewInterfacesClient(subscriptionID, credential, clientOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	virtualnetworks, err := armnetwork.NewVirtualNetworksClient(subscriptionID, credential, clientOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	vmss, err := armcompute.NewVirtualMachineScaleSetVMsClient(subscriptionID, credential, clientOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	vmscalesets, err := armcompute.NewVirtualMachineScaleSetsClient(subscriptionID, credential, clientOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	c := &Client{
+		resourceGroup:   resourceGroup,
+		interfaces:      interfaces,
+		virtualnetworks: virtualnetworks,
+		vmss:            vmss,
+		vmscalesets:     vmscalesets,
+		metricsAPI:      metrics,
+		limiter:         helpers.NewAPILimiter(metrics, rateLimit, burst),
+		usePrimary:      usePrimary,
+	}
 
 	return c, nil
 }
