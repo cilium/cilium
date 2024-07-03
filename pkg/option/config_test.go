@@ -1382,7 +1382,7 @@ func TestDaemonConfig_StoreInFile(t *testing.T) {
 + 	DryMode:      true,
   	RestoreState: false,
   	KeepConfig:   false,
-  	... // 5 ignored and 315 identical fields
+  	... // 5 ignored and 316 identical fields
   }
 `)
 	Config.DryMode = false
