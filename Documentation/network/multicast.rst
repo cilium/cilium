@@ -30,6 +30,8 @@ information. If unsure, run ``cilium status`` and validate that Cilium is up
 and running. This guide also assumes Cilium is configured with vxlan mode,
 which is required when using multicast capability.
 
+Multicast only works on kernels >= 5.10 for AMD64, and on kernels >= 6.0 for AArch64.
+
 
 Enable Multicast Feature
 ========================
