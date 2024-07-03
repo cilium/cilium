@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 )
@@ -114,11 +113,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 	out.ServiceDeleteServiceIDHandler = wrapAPIHandler(dp, deleteServiceIDHandler)
 	out.ServicePutServiceIDHandler = wrapAPIHandler(dp, putServiceIDHandler)
 
-	// If no control plane is set, we only expose service API to the user for programming.
-	if option.Config.LoadBalancerExternalControlPlane {
-		return
-	}
-
 	// /cluster/nodes
 	out.DaemonGetClusterNodesHandler = NewGetClusterNodesHandler(dp)
 
@@ -153,13 +147,11 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 	// /identity/endpoints
 	out.PolicyGetIdentityEndpointsHandler = wrapAPIHandler(dp, getIdentityEndpointsHandler)
 
-	if cfg.DatapathMode != datapathOption.DatapathModeLBOnly {
-		// /policy/
-		out.PolicyGetPolicyHandler = wrapAPIHandler(dp, getPolicyHandler)
-		out.PolicyPutPolicyHandler = wrapAPIHandler(dp, putPolicyHandler)
-		out.PolicyDeletePolicyHandler = wrapAPIHandler(dp, deletePolicyHandler)
-		out.PolicyGetPolicySelectorsHandler = wrapAPIHandler(dp, getPolicySelectorsHandler)
-	}
+	// /policy/
+	out.PolicyGetPolicyHandler = wrapAPIHandler(dp, getPolicyHandler)
+	out.PolicyPutPolicyHandler = wrapAPIHandler(dp, putPolicyHandler)
+	out.PolicyDeletePolicyHandler = wrapAPIHandler(dp, deletePolicyHandler)
+	out.PolicyGetPolicySelectorsHandler = wrapAPIHandler(dp, getPolicySelectorsHandler)
 
 	// /debuginfo
 	out.DaemonGetDebuginfoHandler = wrapAPIHandler(dp, getDebugInfoHandler)
@@ -175,13 +167,11 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 	// metrics
 	out.MetricsGetMetricsHandler = wrapAPIHandler(dp, getMetricsHandler)
 
-	if cfg.DatapathMode != datapathOption.DatapathModeLBOnly {
-		// /fqdn/cache
-		out.PolicyGetFqdnCacheHandler = wrapAPIHandler(dp, getFqdnCacheHandler)
-		out.PolicyDeleteFqdnCacheHandler = wrapAPIHandler(dp, deleteFqdnCacheHandler)
-		out.PolicyGetFqdnCacheIDHandler = wrapAPIHandler(dp, getFqdnCacheIDHandler)
-		out.PolicyGetFqdnNamesHandler = wrapAPIHandler(dp, getFqdnNamesHandler)
-	}
+	// /fqdn/cache
+	out.PolicyGetFqdnCacheHandler = wrapAPIHandler(dp, getFqdnCacheHandler)
+	out.PolicyDeleteFqdnCacheHandler = wrapAPIHandler(dp, deleteFqdnCacheHandler)
+	out.PolicyGetFqdnCacheIDHandler = wrapAPIHandler(dp, getFqdnCacheIDHandler)
+	out.PolicyGetFqdnNamesHandler = wrapAPIHandler(dp, getFqdnNamesHandler)
 
 	// /ip/
 	out.PolicyGetIPHandler = wrapAPIHandler(dp, getIPHandler)
