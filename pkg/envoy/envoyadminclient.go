@@ -33,9 +33,14 @@ func NewEnvoyAdminClientForSocket(envoySocketDir string) *EnvoyAdminClient {
 
 func (a *EnvoyAdminClient) transact(query string) error {
 	// Use a custom dialer to use a Unix domain socket for an HTTP connection.
+	var conn net.Conn
+	var err error
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) { return net.Dial("unix", a.unixPath) },
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				conn, err = net.Dial("unix", a.unixPath)
+				return conn, err
+			},
 		},
 	}
 
@@ -43,6 +48,7 @@ func (a *EnvoyAdminClient) transact(query string) error {
 	if err != nil {
 		return err
 	}
+	defer conn.Close()
 	defer resp.Body.Close()
 	body, err := safeio.ReadAllLimit(resp.Body, safeio.MB)
 	if err != nil {
@@ -78,9 +84,14 @@ func (a *EnvoyAdminClient) quit() error {
 // GetEnvoyVersion returns the envoy binary version string
 func (a *EnvoyAdminClient) GetEnvoyVersion() (string, error) {
 	// Use a custom dialer to use a Unix domain socket for a HTTP connection.
+	var conn net.Conn
+	var err error
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) { return net.Dial("unix", a.unixPath) },
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				conn, err = net.Dial("unix", a.unixPath)
+				return conn, err
+			},
 		},
 	}
 
@@ -88,6 +99,7 @@ func (a *EnvoyAdminClient) GetEnvoyVersion() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to call ServerInfo endpoint: %w", err)
 	}
+	defer conn.Close()
 	defer resp.Body.Close()
 
 	body, err := safeio.ReadAllLimit(resp.Body, safeio.MB)
