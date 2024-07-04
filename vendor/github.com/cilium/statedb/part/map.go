@@ -71,10 +71,11 @@ func (m Map[K, V]) Set(key K, value V) Map[K, V] {
 // without the element pointed to by the key (if found).
 func (m Map[K, V]) Delete(key K) Map[K, V] {
 	if m.tree != nil {
-		_, _, tree := m.tree.Delete(m.bytesFromKey(key))
+		txn := m.tree.Txn()
+		txn.Delete(m.bytesFromKey(key))
 		// Map is a struct passed by value, so we can modify
 		// it without changing the caller's view of it.
-		m.tree = tree
+		m.tree = txn.CommitOnly()
 	}
 	return m
 }

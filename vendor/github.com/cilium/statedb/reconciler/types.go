@@ -4,121 +4,46 @@
 package reconciler
 
 import (
+	"cmp"
 	"context"
+	"encoding/json"
 	"fmt"
+	"log/slog"
+	"slices"
+	"strings"
+	"sync/atomic"
 	"time"
 
-	"golang.org/x/time/rate"
-
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 )
 
 type Reconciler[Obj any] interface {
-	// TriggerFullReconciliation triggers an immediate full reconciliation,
-	// e.g. Prune() of unknown objects and Update() of all objects.
+	// Prune triggers an immediate pruning regardless of [PruneInterval].
 	// Implemented as a select+send to a channel of size 1, so N concurrent
 	// calls of this method may result in less than N full reconciliations.
+	// This still requires the table to be fully initialized to have an effect.
 	//
 	// Primarily useful in tests, but may be of use when there's knowledge
 	// that something has gone wrong in the reconciliation target and full
 	// reconciliation is needed to recover.
-	TriggerFullReconciliation()
+	Prune()
 }
 
-type Config[Obj any] struct {
-	// Table to reconcile.
-	Table statedb.RWTable[Obj]
+// Params are the reconciler dependencies that are independent of the
+// use-case.
+type Params struct {
+	cell.In
 
-	// Metrics to use with this reconciler. The metrics capture the duration
-	// of operations during incremental and full reconcilation and the errors
-	// that occur during either.
-	//
-	// If nil, then the default metrics are used via Params.
-	// A simple implementation of metrics based on the expvar package come
-	// with the reconciler and a custom one can be used by implementing the
-	// Metrics interface.
-	Metrics Metrics
-
-	// FullReconcilationInterval is the amount of time to wait between full
-	// reconciliation rounds. A full reconciliation is Prune() of unexpected
-	// objects and Update() of all objects. With full reconciliation we're
-	// resilient towards outside changes. If FullReconcilationInterval is
-	// 0 then full reconciliation is disabled.
-	FullReconcilationInterval time.Duration
-
-	// RetryBackoffMinDuration is the minimum amount of time to wait before
-	// retrying a failed Update() or Delete() operation on an object.
-	// The retry wait time for an object will increase exponentially on
-	// subsequent failures until RetryBackoffMaxDuration is reached.
-	RetryBackoffMinDuration time.Duration
-
-	// RetryBackoffMaxDuration is the maximum amount of time to wait before
-	// retrying.
-	RetryBackoffMaxDuration time.Duration
-
-	// IncrementalRoundSize is the maximum number objects to reconcile during
-	// incremental reconciliation before updating status and refreshing the
-	// statedb snapshot. This should be tuned based on the cost of each operation
-	// and the rate of expected changes so that health and per-object status
-	// updates are not delayed too much. If in doubt, use a value between 100-1000.
-	IncrementalRoundSize int
-
-	// GetObjectStatus returns the reconciliation status for the object.
-	GetObjectStatus func(Obj) Status
-
-	// SetObjectStatus sets the reconciliation status for the object.
-	// This is called with a copy of the object returned by CloneObject.
-	SetObjectStatus func(Obj, Status) Obj
-
-	// CloneObject returns a shallow copy of the object. This is used to
-	// make it possible for the reconciliation operations to mutate
-	// the object (to for example provide additional information that the
-	// reconciliation produces) and to be able to set the reconciliation
-	// status after the reconciliation.
-	CloneObject func(Obj) Obj
-
-	// RateLimiter is optional and if set will use the limiter to wait between
-	// reconciliation rounds. This allows trading latency with throughput by
-	// waiting longer to collect a batch of objects to reconcile.
-	RateLimiter *rate.Limiter
-
-	// Operations defines how an object is reconciled.
-	Operations Operations[Obj]
-
-	// BatchOperations is optional and if provided these are used instead of normal operations.
-	BatchOperations BatchOperations[Obj]
-}
-
-func (cfg Config[Obj]) validate() error {
-	if cfg.Table == nil {
-		return fmt.Errorf("%T.Table cannot be nil", cfg)
-	}
-	if cfg.GetObjectStatus == nil {
-		return fmt.Errorf("%T.GetObjectStatus cannot be nil", cfg)
-	}
-	if cfg.SetObjectStatus == nil {
-		return fmt.Errorf("%T.SetObjectStatus cannot be nil", cfg)
-	}
-	if cfg.CloneObject == nil {
-		return fmt.Errorf("%T.CloneObject cannot be nil", cfg)
-	}
-	if cfg.IncrementalRoundSize <= 0 {
-		return fmt.Errorf("%T.IncrementalBatchSize needs to be >0", cfg)
-	}
-	if cfg.FullReconcilationInterval < 0 {
-		return fmt.Errorf("%T.FullReconcilationInterval must be >=0", cfg)
-	}
-	if cfg.RetryBackoffMaxDuration <= 0 {
-		return fmt.Errorf("%T.RetryBackoffMaxDuration must be >0", cfg)
-	}
-	if cfg.RetryBackoffMinDuration <= 0 {
-		return fmt.Errorf("%T.RetryBackoffMinDuration must be >0", cfg)
-	}
-	if cfg.Operations == nil {
-		return fmt.Errorf("%T.Operations must be defined", cfg)
-	}
-	return nil
+	Lifecycle      cell.Lifecycle
+	Log            *slog.Logger
+	DB             *statedb.DB
+	Jobs           job.Registry
+	ModuleID       cell.FullModuleID
+	Health         cell.Health
+	DefaultMetrics Metrics `optional:"true"`
 }
 
 // Operations defines how to reconcile an object.
@@ -136,7 +61,8 @@ type Operations[Obj any] interface {
 	// reconciliation is done periodically by calling 'Update' on all objects.
 	//
 	// The object handed to Update is a clone produced by Config.CloneObject
-	// and thus Update can mutate the object.
+	// and thus Update can mutate the object. The mutations are only guaranteed
+	// to be retained if the object has a single reconciler (one Status).
 	Update(ctx context.Context, txn statedb.ReadTxn, obj Obj) error
 
 	// Delete the object in the target. Same semantics as with Update.
@@ -169,9 +95,17 @@ type BatchOperations[Obj any] interface {
 type StatusKind string
 
 const (
-	StatusKindPending StatusKind = "Pending"
-	StatusKindDone    StatusKind = "Done"
-	StatusKindError   StatusKind = "Error"
+	StatusKindPending    StatusKind = "Pending"
+	StatusKindRefreshing StatusKind = "Refreshing"
+	StatusKindDone       StatusKind = "Done"
+	StatusKindError      StatusKind = "Error"
+)
+
+var (
+	pendingKey    = index.Key("P")
+	refreshingKey = index.Key("R")
+	doneKey       = index.Key("D")
+	errorKey      = index.Key("E")
 )
 
 // Key implements an optimized construction of index.Key for StatusKind
@@ -179,11 +113,13 @@ const (
 func (s StatusKind) Key() index.Key {
 	switch s {
 	case StatusKindPending:
-		return index.Key("P")
+		return pendingKey
+	case StatusKindRefreshing:
+		return refreshingKey
 	case StatusKindDone:
-		return index.Key("D")
+		return doneKey
 	case StatusKindError:
-		return index.Key("E")
+		return errorKey
 	}
 	panic("BUG: unmatched StatusKind")
 }
@@ -196,6 +132,17 @@ type Status struct {
 	Kind      StatusKind
 	UpdatedAt time.Time
 	Error     string
+
+	// id is a unique identifier for a pending object.
+	// The reconciler uses this to compare whether the object
+	// has really changed when committing the resulting status.
+	// This allows multiple reconcilers to exist for a single
+	// object without repeating work when status is updated.
+	id uint64
+}
+
+func (s Status) IsPendingOrRefreshing() bool {
+	return s.Kind == StatusKindPending || s.Kind == StatusKindRefreshing
 }
 
 func (s Status) String() string {
@@ -226,6 +173,12 @@ func prettySince(t time.Time) string {
 	return fmt.Sprintf("%.1fh", ago)
 }
 
+var idGen atomic.Uint64
+
+func nextID() uint64 {
+	return idGen.Add(1)
+}
+
 // StatusPending constructs the status for marking the object as
 // requiring reconciliation. The reconciler will perform the
 // Update operation and on success transition to Done status, or
@@ -233,6 +186,23 @@ func prettySince(t time.Time) string {
 func StatusPending() Status {
 	return Status{
 		Kind:      StatusKindPending,
+		UpdatedAt: time.Now(),
+		Error:     "",
+		id:        nextID(),
+	}
+}
+
+// StatusRefreshing constructs the status for marking the object as
+// requiring refreshing. The reconciler will perform the
+// Update operation and on success transition to Done status, or
+// on failure to Error status.
+//
+// This is distinct from the Pending status in order to give a hint
+// to the Update operation that this is a refresh of the object and
+// should be forced.
+func StatusRefreshing() Status {
+	return Status{
+		Kind:      StatusKindRefreshing,
 		UpdatedAt: time.Now(),
 		Error:     "",
 	}
@@ -248,7 +218,7 @@ func StatusDone() Status {
 	}
 }
 
-// StatusError constructs the status that marks the object
+// statusError constructs the status that marks the object
 // as failed to be reconciled.
 func StatusError(err error) Status {
 	return Status{
@@ -256,4 +226,158 @@ func StatusError(err error) Status {
 		UpdatedAt: time.Now(),
 		Error:     err.Error(),
 	}
+}
+
+// StatusSet is a set of named statuses. This allows for the use of
+// multiple reconcilers per object when the reconcilers are not known
+// up front.
+type StatusSet struct {
+	id        uint64
+	createdAt time.Time
+	statuses  []namedStatus
+}
+
+type namedStatus struct {
+	Status
+	name string
+}
+
+func NewStatusSet() StatusSet {
+	return StatusSet{
+		id:        nextID(),
+		createdAt: time.Now(),
+		statuses:  nil,
+	}
+}
+
+// Pending returns a new pending status set.
+// The names of reconcilers are reused to be able to show which
+// are still pending.
+func (s StatusSet) Pending() StatusSet {
+	// Generate a new id. This lets an individual reconciler
+	// differentiate between the status changing in an object
+	// versus the data itself, which is needed when the reconciler
+	// writes back the reconciliation status and the object has
+	// changed.
+	s.id = nextID()
+	s.createdAt = time.Now()
+
+	s.statuses = slices.Clone(s.statuses)
+	for i := range s.statuses {
+		s.statuses[i].Kind = StatusKindPending
+		s.statuses[i].id = s.id
+	}
+	return s
+}
+
+func (s StatusSet) String() string {
+	if len(s.statuses) == 0 {
+		return "Pending"
+	}
+
+	var updatedAt time.Time
+	done := []string{}
+	pending := []string{}
+	errored := []string{}
+
+	for _, status := range s.statuses {
+		if status.UpdatedAt.After(updatedAt) {
+			updatedAt = status.UpdatedAt
+		}
+		switch status.Kind {
+		case StatusKindDone:
+			done = append(done, status.name)
+		case StatusKindError:
+			errored = append(errored, status.name+" ("+status.Error+")")
+		default:
+			pending = append(pending, status.name)
+		}
+	}
+	var b strings.Builder
+	if len(errored) > 0 {
+		b.WriteString("Errored: ")
+		b.WriteString(strings.Join(errored, " "))
+	}
+	if len(pending) > 0 {
+		if b.Len() > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString("Pending: ")
+		b.WriteString(strings.Join(pending, " "))
+	}
+	if len(done) > 0 {
+		if b.Len() > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString("Done: ")
+		b.WriteString(strings.Join(done, " "))
+	}
+	b.WriteString(" (")
+	b.WriteString(prettySince(updatedAt))
+	b.WriteString(" ago)")
+	return b.String()
+}
+
+// Set the reconcilation status of the named reconciler.
+// Use this to implement 'SetObjectStatus' for your reconciler.
+func (s StatusSet) Set(name string, status Status) StatusSet {
+	idx := slices.IndexFunc(
+		s.statuses,
+		func(st namedStatus) bool { return st.name == name })
+
+	s.statuses = slices.Clone(s.statuses)
+	if idx >= 0 {
+		s.statuses[idx] = namedStatus{status, name}
+	} else {
+		s.statuses = append(s.statuses, namedStatus{status, name})
+		slices.SortFunc(s.statuses,
+			func(a, b namedStatus) int { return cmp.Compare(a.name, b.name) })
+	}
+	return s
+}
+
+// Get returns the status for the named reconciler.
+// Use this to implement 'GetObjectStatus' for your reconciler.
+// If this reconciler is new the status is pending.
+func (s StatusSet) Get(name string) Status {
+	idx := slices.IndexFunc(
+		s.statuses,
+		func(st namedStatus) bool { return st.name == name })
+	if idx < 0 {
+		return Status{
+			Kind:      StatusKindPending,
+			UpdatedAt: s.createdAt,
+			id:        s.id,
+		}
+	}
+	return s.statuses[idx].Status
+}
+
+func (s StatusSet) All() map[string]Status {
+	m := make(map[string]Status, len(s.statuses))
+	for _, ns := range s.statuses {
+		m[ns.name] = ns.Status
+	}
+	return m
+}
+
+func (s *StatusSet) UnmarshalJSON(data []byte) error {
+	m := map[string]Status{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		return err
+	}
+	s.statuses = make([]namedStatus, 0, len(m))
+	for name, status := range m {
+		s.statuses = append(s.statuses, namedStatus{status, name})
+	}
+	slices.SortFunc(s.statuses,
+		func(a, b namedStatus) int { return cmp.Compare(a.name, b.name) })
+	return nil
+}
+
+// MarshalJSON marshals the StatusSet as a map[string]Status.
+// It carries enough information over to be able to implement String()
+// so this can be used to implement the TableRow() method.
+func (s StatusSet) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.All())
 }

@@ -18,17 +18,7 @@ import (
 )
 
 func allStatus(db *statedb.DB, statusTable statedb.RWTable[types.Status]) []types.Status {
-	ss := []types.Status{}
-	tx := db.ReadTxn()
-	iter, _ := statusTable.All(tx)
-	for {
-		s, _, ok := iter.Next()
-		if !ok {
-			break
-		}
-		ss = append(ss, s)
-	}
-	return ss
+	return statedb.Collect(statusTable.All(db.ReadTxn()))
 }
 
 func byLevel(db *statedb.DB, statusTable statedb.RWTable[types.Status], l types.Level) []types.Status {

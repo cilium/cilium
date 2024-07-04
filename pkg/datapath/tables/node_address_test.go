@@ -305,7 +305,7 @@ func TestNodeAddress(t *testing.T) {
 	// for the device.
 	db, devices, nodeAddrs, _ := fixture(t, defaults.AddressScopeMax, nil)
 
-	_, watch := nodeAddrs.All(db.ReadTxn())
+	_, watch := nodeAddrs.AllWatch(db.ReadTxn())
 	txn := db.WriteTxn(devices)
 	devices.Insert(txn, &Device{
 		Index: 2,
@@ -331,7 +331,7 @@ func TestNodeAddress(t *testing.T) {
 
 	// Wait for cilium_host addresses to be processed.
 	<-watch
-	iter, _ := nodeAddrs.All(db.ReadTxn())
+	iter := nodeAddrs.All(db.ReadTxn())
 	addrs := statedb.Collect(statedb.Map(iter, func(n NodeAddress) string { return n.String() }))
 	assert.Equal(t, addrs,
 		[]string{"::1 (*)", "9.9.9.8 (cilium_host)", "9.9.9.9 (cilium_host)", "127.0.0.1 (*)"},
@@ -341,7 +341,7 @@ func TestNodeAddress(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			txn := db.WriteTxn(devices)
-			_, watch := nodeAddrs.All(txn)
+			_, watch := nodeAddrs.AllWatch(txn)
 
 			shuffleSlice(tt.addrs) // For extra bit of randomness
 			devices.Insert(txn,
@@ -356,7 +356,7 @@ func TestNodeAddress(t *testing.T) {
 			txn.Commit()
 			<-watch // wait for propagation
 
-			iter, _ := nodeAddrs.All(db.ReadTxn())
+			iter := nodeAddrs.All(db.ReadTxn())
 			addrs := statedb.Collect(iter)
 			local := []string{}
 			nodePort := []string{}
@@ -382,7 +382,7 @@ func TestNodeAddress(t *testing.T) {
 	}
 
 	// Delete the devices and check that node addresses is cleaned up.
-	_, watch = nodeAddrs.All(db.ReadTxn())
+	_, watch = nodeAddrs.AllWatch(db.ReadTxn())
 	txn = db.WriteTxn(devices)
 	devices.Delete(txn, &Device{Index: 1})
 	devices.Delete(txn, &Device{Index: 2})
@@ -402,7 +402,7 @@ func TestNodeAddressHostDevice(t *testing.T) {
 	db, devices, nodeAddrs, _ := fixture(t, int(RT_SCOPE_SITE), nil)
 
 	txn := db.WriteTxn(devices)
-	_, watch := nodeAddrs.All(txn)
+	_, watch := nodeAddrs.AllWatch(txn)
 
 	devices.Insert(txn, &Device{
 		Index: 1,
@@ -422,8 +422,7 @@ func TestNodeAddressHostDevice(t *testing.T) {
 	txn.Commit()
 	<-watch // wait for propagation
 
-	iter, _ := nodeAddrs.All(db.ReadTxn())
-	addrs := statedb.Collect(iter)
+	addrs := statedb.Collect(nodeAddrs.All(db.ReadTxn()))
 
 	if assert.Len(t, addrs, 2) {
 		// The addresses are sorted by IP, so we see the link-scoped address first.
@@ -600,7 +599,7 @@ func TestNodeAddressWhitelist(t *testing.T) {
 				})
 
 			txn := db.WriteTxn(devices)
-			_, watch := nodeAddrs.All(txn)
+			_, watch := nodeAddrs.AllWatch(txn)
 
 			devices.Insert(txn, &Device{
 				Index: 1,
@@ -626,7 +625,7 @@ func TestNodeAddressWhitelist(t *testing.T) {
 			txn.Commit()
 			<-watch // wait for propagation
 
-			iter, _ := nodeAddrs.All(db.ReadTxn())
+			iter := nodeAddrs.All(db.ReadTxn())
 			local := []string{}
 			nodePort := []string{}
 			fallback := []string{}
