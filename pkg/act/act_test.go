@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -221,4 +222,47 @@ func TestCleanup(t *testing.T) {
 	require.Equal(t, 0.0, a.metrics.Active.WithLabelValues("zone-a", "svc-a").Get())
 	require.Equal(t, 0.0, a.metrics.New.WithLabelValues("zone-a", "svc-a").Get())
 	require.Equal(t, 0.0, a.metrics.Failed.WithLabelValues("zone-a", "svc-a").Get())
+}
+
+func TestOverflow(t *testing.T) {
+	m := new(mapMock)
+	a := newAct(hivetest.Logger(t), m, NewActiveConnectionTrackingMetrics(), &option.DaemonConfig{})
+
+	zones := []uint8{123, 124, 125, 126, 127}
+	services := make([]uint16, metricsCountSoftLimit/2)
+	for i := range services {
+		services[i] = uint16(i + 64)
+	}
+
+	ls := make([]int64, 0, len(zones)*len(services))
+	for _, zone := range zones {
+		a.tracker[zone] = make(map[uint16]*actMetric)
+		for _, svc := range services {
+			unix := int64(svc)*1000 + int64(zone)
+			a.tracker[zone][svc] = &actMetric{
+				updated: time.Unix(unix, 0),
+			}
+			ls = append(ls, unix)
+		}
+	}
+
+	total := len(zones) * len(services)
+	require.Equal(t, total, a.trackerLen())
+
+	err := a.removeOverflow(context.Background())
+	require.NoError(t, err)
+
+	require.Equal(t, metricsCountSoftLimit, a.trackerLen())
+	slices.Sort(ls)
+	cutoff := ls[total-metricsCountSoftLimit]
+	for _, zone := range zones {
+		for _, svc := range services {
+			unix := int64(svc)*1000 + int64(zone)
+			if unix < cutoff {
+				require.Nil(t, a.tracker[zone][svc])
+			} else {
+				require.NotNil(t, a.tracker[zone][svc])
+			}
+		}
+	}
 }
