@@ -374,9 +374,9 @@ func (txn *Txn[T]) delete(root *header[T], key []byte) (oldValue T, hadOld bool,
 	oldValue = leaf.value
 	hadOld = true
 
-	// Mark the watch channel of the target node for closing if not mutated already.
-	if this.watch != nil && !txn.mutated.exists(this) {
-		txn.watches[this.watch] = struct{}{}
+	// Mark the watch channel of the target for closing if not mutated already.
+	if leaf.watch != nil {
+		txn.watches[leaf.watch] = struct{}{}
 	}
 
 	if this == root {

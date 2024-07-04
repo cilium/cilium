@@ -102,7 +102,7 @@ func (d *deviceReloader) reload(ctx context.Context) error {
 	// Setup new watch channels.
 	rxn := d.params.DB.ReadTxn()
 	if addrsChanged {
-		_, d.addrsChanged = d.params.NodeAddresses.All(rxn)
+		_, d.addrsChanged = d.params.NodeAddresses.AllWatch(rxn)
 	}
 	devices := d.queryDevices(rxn)
 
