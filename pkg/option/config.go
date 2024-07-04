@@ -501,6 +501,10 @@ const (
 	// DNSProxyLockCount.
 	DNSProxyLockTimeout = "dnsproxy-lock-timeout"
 
+	// DNSProxySocketLingerTimeout defines how many seconds we wait for the connection
+	// between the DNS proxy and the upstream server to be closed.
+	DNSProxySocketLingerTimeout = "dnsproxy-socket-linger-timeout"
+
 	// DNSProxyEnableTransparentMode enables transparent mode for the DNS proxy.
 	DNSProxyEnableTransparentMode = "dnsproxy-enable-transparent-mode"
 
@@ -1793,6 +1797,10 @@ type DaemonConfig struct {
 	// DNSProxyLockTimeout is timeout when acquiring the locks controlled by
 	// DNSProxyLockCount.
 	DNSProxyLockTimeout time.Duration
+
+	// DNSProxySocketLingerTimeout defines how many seconds we wait for the connection
+	// between the DNS proxy and the upstream server to be closed.
+	DNSProxySocketLingerTimeout int
 
 	// EnableXTSocketFallback allows disabling of kernel's ip_early_demux
 	// sysctl option if `xt_socket` kernel module is not available.
@@ -3231,6 +3239,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.DNSProxyInsecureSkipTransparentModeCheck = vp.GetBool(DNSProxyInsecureSkipTransparentModeCheck)
 	c.DNSProxyLockCount = vp.GetInt(DNSProxyLockCount)
 	c.DNSProxyLockTimeout = vp.GetDuration(DNSProxyLockTimeout)
+	c.DNSProxySocketLingerTimeout = vp.GetInt(DNSProxySocketLingerTimeout)
 
 	// Convert IP strings into net.IPNet types
 	subnets, invalid := ip.ParseCIDRs(vp.GetStringSlice(IPv4PodSubnets))
