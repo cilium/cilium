@@ -172,13 +172,7 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "default-drop IPv4", wildcardCIDR, wildcardCIDR, spi, 0))
 
 	if newNode.IsLocal() {
-		if n.subnetEncryption() {
-			// FIXME: Remove the following four lines in Cilium v1.16
-			if localCIDR := n.nodeConfig.AllocCIDRIPv4; localCIDR != nil {
-				// This removes a bogus route that Cilium installed prior to v1.15
-				_ = route.Delete(n.createNodeIPSecInRoute(localCIDR.IPNet))
-			}
-		} else {
+		if !n.subnetEncryption() {
 			localCIDR := n.nodeConfig.AllocCIDRIPv4.IPNet
 			errs = errors.Join(errs, n.replaceNodeIPSecInRoute(localCIDR))
 		}
@@ -316,13 +310,7 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "default-drop IPv6", wildcardCIDR, wildcardCIDR, spi, 0))
 
 	if newNode.IsLocal() {
-		if n.subnetEncryption() {
-			// FIXME: Remove the following four lines in Cilium v1.16
-			if localCIDR := n.nodeConfig.AllocCIDRIPv6; localCIDR != nil {
-				// This removes a bogus route that Cilium installed prior to v1.15
-				_ = route.Delete(n.createNodeIPSecInRoute(localCIDR.IPNet))
-			}
-		} else {
+		if !n.subnetEncryption() {
 			localCIDR := n.nodeConfig.AllocCIDRIPv6.IPNet
 			errs = errors.Join(errs, n.replaceNodeIPSecInRoute(localCIDR))
 		}
