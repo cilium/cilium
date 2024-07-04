@@ -89,11 +89,6 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 	});
 
 	TEST("ct_lookup", {
-		#if __clang_major__ < 11
-			test_log("Skipping ct_lookup test on Clang < 11 due to compiler bug");
-			test_skip_now();
-		#endif
-
 		struct __ctx_buff ctx = {};
 		int res;
 		struct ipv4_ct_tuple tuple = {
