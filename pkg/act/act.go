@@ -170,6 +170,16 @@ func (a *ACT) callback(key *act.ActiveConnectionTrackerKey, value *act.ActiveCon
 
 	entry, ok := a.tracker[key.Zone][key.SvcID]
 	if !ok {
+		if count := a.trackerLen(); count >= metricsCountHardLimit {
+			// Consider replacing with metrics, as this can spam logs.
+			a.log.Warn("Refusing to add new metrics. There are too many!",
+				"limit", metricsCountHardLimit,
+				"count", count,
+				"svc", key.SvcID,
+				"zone", key.Zone,
+			)
+			return
+		}
 		zone, svc, err := a.keyToStrings(key)
 		if err != nil {
 			a.log.Debug("Failed to construct metrics map key in callback", "from-key", key.String())
