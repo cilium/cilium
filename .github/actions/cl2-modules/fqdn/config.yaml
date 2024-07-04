@@ -3,6 +3,8 @@
 {{$qps := 10}}
 {{$dnsBuckets := 10}}
 
+{{$ADDITIONAL_MEASUREMENT_MODULES := DefaultParam .CL2_ADDITIONAL_MEASUREMENT_MODULES nil}}
+
 name: load
 namespace:
   number: {{$namespaces}}
@@ -62,6 +64,15 @@ steps:
     Params:
       action: gather
 
+{{if $ADDITIONAL_MEASUREMENT_MODULES}}
+{{range $ADDITIONAL_MEASUREMENT_MODULES}}
+- module:
+    path: {{.}}
+    params:
+      action: start
+{{end}}
+{{end}}
+
 - module:
     path: ./modules/dns-performance-metrics.yaml
     params:
@@ -90,6 +101,15 @@ steps:
     path: ./modules/dns-performance-metrics.yaml
     params:
       action: gather
+
+{{if $ADDITIONAL_MEASUREMENT_MODULES}}
+{{range $ADDITIONAL_MEASUREMENT_MODULES}}
+- module:
+    path: {{.}}
+    params:
+      action: gather
+{{end}}
+{{end}}
 
 - module:
     path: ./modules/profiles.yaml
