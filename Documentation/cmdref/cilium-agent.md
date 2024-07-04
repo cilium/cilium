@@ -81,6 +81,7 @@ cilium-agent [flags]
       --dnsproxy-concurrency-limit int                          Limit concurrency of DNS message processing
       --dnsproxy-concurrency-processing-grace-period duration   Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing
       --dnsproxy-enable-transparent-mode                        Enable DNS proxy transparent mode
+      --dnsproxy-socket-linger-timeout int                      Timeout (in seconds) when closing the connection between the DNS proxy and the upstream server. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background (default 10)
       --egress-masquerade-interfaces string                     Limit egress masquerading to interface selector
       --egress-multi-home-ip-rule-compat                        Offset routing table IDs under ENI IPAM mode to avoid collisions with reserved table IDs. If false, the offset is performed (new scheme), otherwise, the old scheme stays in-place.
       --enable-auto-protect-node-port-range                     Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port range (net.ipv4.ip_local_port_range) (default true)
