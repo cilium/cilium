@@ -278,6 +278,10 @@ define KIND_VALUES_FILES
 --helm-values=$(ROOT_DIR)/contrib/testing/kind-values.yaml
 endef
 
+ifdef ADDITIONAL_KIND_VALUES_FILE
+	KIND_VALUES_FILES := $(KIND_VALUES_FILES) --helm-values=$(ROOT_DIR)/$(ADDITIONAL_KIND_VALUES_FILE)
+endif
+
 ifneq ("$(wildcard $(ROOT_DIR)/contrib/testing/kind-custom.yaml)","")
 	KIND_VALUES_FILES := $(KIND_VALUES_FILES) --helm-values=$(ROOT_DIR)/contrib/testing/kind-custom.yaml
 endif
