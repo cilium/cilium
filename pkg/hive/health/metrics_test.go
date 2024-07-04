@@ -90,7 +90,7 @@ func Test_Metrics(t *testing.T) {
 
 	// Metrics as they would be published
 	resMetrics := <-resChan
-	it, _ := table.All(db.ReadTxn())
+	it := table.All(db.ReadTxn())
 	ok, degraded, stopped := count(it)
 
 	assert.Equal(t, resMetrics[types.LevelOK], ok)

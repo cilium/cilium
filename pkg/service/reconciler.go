@@ -71,7 +71,7 @@ func (sr serviceReconciler) reconcileLoop(ctx context.Context, health cell.Healt
 	defer periodicSyncTicker.Stop()
 
 	for {
-		iter, watch := sr.NodeAddresses.All(sr.DB.ReadTxn())
+		iter, watch := sr.NodeAddresses.AllWatch(sr.DB.ReadTxn())
 
 		// Collect all NodePort addresses
 		newAddrs := sets.New(statedb.Collect(

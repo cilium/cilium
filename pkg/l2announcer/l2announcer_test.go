@@ -246,7 +246,7 @@ func TestHappyPath(t *testing.T) {
 	}
 
 	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
+	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 0)
 
@@ -257,7 +257,7 @@ func TestHappyPath(t *testing.T) {
 	assert.NoError(t, err)
 
 	rtx = fix.stateDB.ReadTxn()
-	iter, _ = fix.proxyNeighborTable.All(rtx)
+	iter = fix.proxyNeighborTable.All(rtx)
 	entries = statedb.Collect(iter)
 	assert.Len(t, entries, 1)
 	assert.Equal(t, entries[0], &tables.L2AnnounceEntry{
@@ -334,7 +334,7 @@ func TestHappyPathPermutations(t *testing.T) {
 			}
 
 			rtx := fix.stateDB.ReadTxn()
-			iter, _ := fix.proxyNeighborTable.All(rtx)
+			iter := fix.proxyNeighborTable.All(rtx)
 			entries := statedb.Collect(iter)
 			assert.Len(tt, entries, 0)
 
@@ -347,7 +347,7 @@ func TestHappyPathPermutations(t *testing.T) {
 			}
 
 			rtx = fix.stateDB.ReadTxn()
-			iter, _ = fix.proxyNeighborTable.All(rtx)
+			iter = fix.proxyNeighborTable.All(rtx)
 			entries = statedb.Collect(iter)
 			if assert.Len(tt, entries, 1) {
 				assert.Equal(tt, entries[0], &tables.L2AnnounceEntry{
@@ -450,7 +450,7 @@ func TestPolicyRedundancy(t *testing.T) {
 
 	// Assert selected service turned into Proxy Neighbor Entry
 	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
+	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 1)
 	assert.Equal(t, entries[0], &tables.L2AnnounceEntry{
@@ -479,7 +479,7 @@ func TestPolicyRedundancy(t *testing.T) {
 
 	// Assert Proxy Neighbor Entry still exists
 	rtx = fix.stateDB.ReadTxn()
-	iter, _ = fix.proxyNeighborTable.All(rtx)
+	iter = fix.proxyNeighborTable.All(rtx)
 	entries = statedb.Collect(iter)
 	assert.Len(t, entries, 1)
 	assert.Equal(t, entries[0], &tables.L2AnnounceEntry{
@@ -542,7 +542,7 @@ func baseUpdateSetup(t *testing.T) *fixture {
 	require.NoError(t, err)
 
 	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
+	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 
 	require.Len(t, entries, 1)
@@ -571,7 +571,7 @@ func TestUpdateHostLabels_NoMatch(t *testing.T) {
 
 	// Assert Proxy Neighbor Entry is deleted
 	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
+	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 0)
 
@@ -629,7 +629,7 @@ func TestUpdateHostLabels_AdditionalMatch(t *testing.T) {
 
 	// Check that proxy neighbor entries are still 1
 	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
+	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 1)
 
@@ -660,7 +660,7 @@ func TestUpdateHostLabels_AdditionalMatch(t *testing.T) {
 
 	// Check that proxy neighbor entries are now 2
 	rtx = fix.stateDB.ReadTxn()
-	iter, _ = fix.proxyNeighborTable.All(rtx)
+	iter = fix.proxyNeighborTable.All(rtx)
 	entries = statedb.Collect(iter)
 	assert.Len(t, entries, 2)
 
@@ -689,7 +689,7 @@ func TestUpdatePolicy_NoMatch(t *testing.T) {
 
 	// Assert Proxy Neighbor Entry is deleted
 	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
+	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 0)
 
@@ -744,7 +744,7 @@ func TestUpdatePolicy_AdditionalMatch(t *testing.T) {
 
 	// Assert that entries for both are added
 	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
+	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 2)
 
@@ -857,7 +857,7 @@ func TestPolicySelection(t *testing.T) {
 	assert.NoError(t, err)
 
 	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
+	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 1)
 	assert.Contains(t, entries, &tables.L2AnnounceEntry{
@@ -907,7 +907,7 @@ func TestUpdatePolicy_ChangeIPType(t *testing.T) {
 	assert.Len(t, fix.announcer.selectedServices, 0)
 
 	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
+	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 0)
 
@@ -936,7 +936,7 @@ func TestUpdatePolicy_ChangeIPType(t *testing.T) {
 	assert.NoError(t, err)
 
 	rtx = fix.stateDB.ReadTxn()
-	iter, _ = fix.proxyNeighborTable.All(rtx)
+	iter = fix.proxyNeighborTable.All(rtx)
 	entries = statedb.Collect(iter)
 	assert.Len(t, entries, 1)
 	assert.Contains(t, entries, &tables.L2AnnounceEntry{
@@ -964,7 +964,7 @@ func TestUpdatePolicy_ChangeIPType(t *testing.T) {
 	assert.Len(t, fix.announcer.selectedServices, 0)
 
 	rtx = fix.stateDB.ReadTxn()
-	iter, _ = fix.proxyNeighborTable.All(rtx)
+	iter = fix.proxyNeighborTable.All(rtx)
 	entries = statedb.Collect(iter)
 	assert.Len(t, entries, 0)
 
@@ -997,7 +997,7 @@ func TestUpdatePolicy_ChangeInterfaces(t *testing.T) {
 
 	// Check that the old entry is deleted and the new entry added
 	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
+	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 1)
 	assert.Contains(t, entries, &tables.L2AnnounceEntry{
@@ -1030,7 +1030,7 @@ func TestUpdateService_DelIP(t *testing.T) {
 
 	// Check that the entry for the IP was deleted
 	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
+	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 0)
 
@@ -1056,7 +1056,7 @@ func TestUpdateService_AddIP(t *testing.T) {
 
 	// Check that the interface on the proxy neighbor entry changed
 	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
+	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 2)
 
@@ -1082,7 +1082,7 @@ func TestUpdateService_NoMatch(t *testing.T) {
 
 	// Check that the entry got deleted
 	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
+	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 0)
 
@@ -1109,7 +1109,7 @@ func TestUpdateService_LoadBalancerClassMatch(t *testing.T) {
 
 	// Check that the entry got deleted
 	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
+	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 1)
 
@@ -1136,7 +1136,7 @@ func TestUpdateService_LoadBalancerClassNotMatch(t *testing.T) {
 
 	// Check that the entry got deleted
 	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
+	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 0)
 
@@ -1161,7 +1161,7 @@ func TestDelService(t *testing.T) {
 
 	// Check that the entry got deleted
 	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
+	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 0)
 

@@ -132,26 +132,6 @@ func Test_MapOps_ReconcilerExample(t *testing.T) {
 
 	// Create the map operations and the reconciler configuration.
 	ops := NewMapOps[*TestObject](exampleMap)
-	config := reconciler.Config[*TestObject]{
-		Table:                     table,
-		FullReconcilationInterval: time.Minute,
-		RetryBackoffMinDuration:   100 * time.Millisecond,
-		RetryBackoffMaxDuration:   10 * time.Second,
-		IncrementalRoundSize:      1000,
-		GetObjectStatus: func(obj *TestObject) reconciler.Status {
-			return obj.Status
-		},
-		SetObjectStatus: func(obj *TestObject, s reconciler.Status) *TestObject {
-			obj.Status = s
-			return obj
-		},
-		CloneObject: func(obj *TestObject) *TestObject {
-			obj2 := *obj
-			return &obj2
-		},
-		Operations:      ops,
-		BatchOperations: nil,
-	}
 
 	// Silence the hive log output.
 	oldLogLevel := logging.DefaultLogger.GetLevel()
@@ -173,14 +153,27 @@ func Test_MapOps_ReconcilerExample(t *testing.T) {
 					return db.RegisterTable(table)
 				},
 			),
-			cell.Provide(
-				func() reconciler.Config[*TestObject] {
-					return config
-				},
-			),
 			cell.Invoke(
-				reconciler.Register[*TestObject],
-			),
+				func(params reconciler.Params) error {
+					_, err := reconciler.Register[*TestObject](
+						params,
+						table,
+						func(obj *TestObject) *TestObject {
+							obj2 := *obj
+							return &obj2
+						},
+						func(obj *TestObject, s reconciler.Status) *TestObject {
+							obj.Status = s
+							return obj
+						},
+						func(obj *TestObject) reconciler.Status {
+							return obj.Status
+						},
+						ops,
+						nil,
+					)
+					return err
+				}),
 		),
 	)
 

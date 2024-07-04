@@ -210,7 +210,7 @@ func (m *manager) init(ctx context.Context, _ cell.Health) error {
 	}
 
 	m.ops.enablePrune()
-	m.reconciler.TriggerFullReconciliation()
+	m.reconciler.Prune()
 
 	return nil
 }

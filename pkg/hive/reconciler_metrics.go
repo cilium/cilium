@@ -14,15 +14,14 @@ import (
 )
 
 type ReconcilerMetrics struct {
-	IncrementalReconciliationCount         metric.Vec[metric.Counter]
-	IncrementalReconciliationDuration      metric.Vec[metric.Observer]
-	IncrementalReconciliationTotalErrors   metric.Vec[metric.Counter]
-	IncrementalReconciliationCurrentErrors metric.Vec[metric.Gauge]
+	ReconciliationCount         metric.Vec[metric.Counter]
+	ReconciliationDuration      metric.Vec[metric.Observer]
+	ReconciliationTotalErrors   metric.Vec[metric.Counter]
+	ReconciliationCurrentErrors metric.Vec[metric.Gauge]
 
-	FullReconciliationCount          metric.Vec[metric.Counter]
-	FullReconciliationOutOfSyncCount metric.Vec[metric.Counter]
-	FullReconciliationTotalErrors    metric.Vec[metric.Counter]
-	FullReconciliationDuration       metric.Vec[metric.Observer]
+	PruneCount       metric.Vec[metric.Counter]
+	PruneTotalErrors metric.Vec[metric.Counter]
+	PruneDuration    metric.Vec[metric.Observer]
 }
 
 const (
@@ -32,62 +31,53 @@ const (
 
 func NewStateDBReconcilerMetrics() (ReconcilerMetrics, reconciler.Metrics) {
 	m := ReconcilerMetrics{
-		IncrementalReconciliationCount: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: metrics.Namespace + "_reconciler_incremental_total",
+		ReconciliationCount: metric.NewCounterVec(metric.CounterOpts{
+			ConfigName: metrics.Namespace + "_count",
 			Disabled:   true,
 			Namespace:  metrics.Namespace,
 			Subsystem:  "reconciler",
-			Name:       "incremental_total",
-			Help:       "Number of incremental reconciliations performed",
+			Name:       "count",
+			Help:       "Number of reconciliation rounds performed",
 		}, []string{LabelModuleId}),
 
-		IncrementalReconciliationDuration: metric.NewHistogramVec(metric.HistogramOpts{
-			ConfigName: metrics.Namespace + "_reconciler_incremental_duration_seconds",
+		ReconciliationDuration: metric.NewHistogramVec(metric.HistogramOpts{
+			ConfigName: metrics.Namespace + "_reconciler_duration_seconds",
 			Disabled:   true,
 			Namespace:  metrics.Namespace,
 			Subsystem:  "reconciler",
-			Name:       "incremental_duration_seconds",
-			Help:       "Histogram of per-operation duration during incremental reconciliation",
+			Name:       "duration_seconds",
+			Help:       "Histogram of per-operation duration during reconciliation",
 		}, []string{LabelModuleId, LabelOperation}),
 
-		IncrementalReconciliationTotalErrors: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: metrics.Namespace + "_reconciler_incremental_errors_total",
+		ReconciliationTotalErrors: metric.NewCounterVec(metric.CounterOpts{
+			ConfigName: metrics.Namespace + "_reconciler_errors_total",
 			Disabled:   true,
 			Namespace:  metrics.Namespace,
 			Subsystem:  "reconciler",
-			Name:       "incremental_errors_total",
-			Help:       "Total number of errors encountered during incremental reconciliation",
+			Name:       "errors_total",
+			Help:       "Total number of errors encountered during reconciliation",
 		}, []string{LabelModuleId}),
 
-		IncrementalReconciliationCurrentErrors: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: metrics.Namespace + "_reconciler_incremental_errors_current",
+		ReconciliationCurrentErrors: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: metrics.Namespace + "_reconciler_errors_current",
 			Disabled:   true,
 			Namespace:  metrics.Namespace,
 			Subsystem:  "reconciler",
-			Name:       "incremental_errors_current",
+			Name:       "errors_current",
 			Help:       "The number of objects currently failing to be reconciled",
 		}, []string{LabelModuleId}),
 
-		FullReconciliationCount: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: metrics.Namespace + "_reconciler_full_total",
+		PruneCount: metric.NewCounterVec(metric.CounterOpts{
+			ConfigName: metrics.Namespace + "_reconciler_prune_count",
 			Disabled:   true,
 			Namespace:  metrics.Namespace,
 			Subsystem:  "reconciler",
-			Name:       "full_total",
-			Help:       "Number of full reconciliations performed",
+			Name:       "prune_count",
+			Help:       "Number of prunes performed",
 		}, []string{LabelModuleId}),
 
-		FullReconciliationOutOfSyncCount: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: metrics.Namespace + "_reconciler_full_out_of_sync_total",
-			Disabled:   true,
-			Namespace:  metrics.Namespace,
-			Subsystem:  "reconciler",
-			Name:       "full_out_of_sync_total",
-			Help:       "Number of times full reconciliation found objects to reconcile",
-		}, []string{LabelModuleId}),
-
-		FullReconciliationTotalErrors: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: metrics.Namespace + "_reconciler_full_errors_total",
+		PruneTotalErrors: metric.NewCounterVec(metric.CounterOpts{
+			ConfigName: metrics.Namespace + "_reconciler_prune_errors_total",
 			Disabled:   true,
 			Namespace:  metrics.Namespace,
 			Subsystem:  "reconciler",
@@ -95,8 +85,8 @@ func NewStateDBReconcilerMetrics() (ReconcilerMetrics, reconciler.Metrics) {
 			Help:       "Total number of errors encountered during full reconciliation",
 		}, []string{LabelModuleId}),
 
-		FullReconciliationDuration: metric.NewHistogramVec(metric.HistogramOpts{
-			ConfigName: metrics.Namespace + "_reconciler_full_duration_seconds",
+		PruneDuration: metric.NewHistogramVec(metric.HistogramOpts{
+			ConfigName: metrics.Namespace + "_reconciler_prune_duration_seconds",
 			Disabled:   true,
 			Namespace:  metrics.Namespace,
 			Subsystem:  "reconciler",
@@ -111,49 +101,42 @@ type reconcilerMetricsImpl struct {
 	m ReconcilerMetrics
 }
 
-// FullReconciliationDuration implements reconciler.Metrics.
-func (m *reconcilerMetricsImpl) FullReconciliationDuration(moduleID cell.FullModuleID, operation string, duration time.Duration) {
-	if m.m.FullReconciliationDuration.IsEnabled() {
-		m.m.FullReconciliationDuration.WithLabelValues(LabelModuleId, moduleID.String(), LabelOperation, operation).
+// PruneDuration implements reconciler.Metrics.
+func (m *reconcilerMetricsImpl) PruneDuration(moduleID cell.FullModuleID, duration time.Duration) {
+	if m.m.PruneDuration.IsEnabled() {
+		m.m.PruneDuration.WithLabelValues(LabelModuleId, moduleID.String()).
 			Observe(duration.Seconds())
 	}
 }
 
 // FullReconciliationErrors implements reconciler.Metrics.
-func (m *reconcilerMetricsImpl) FullReconciliationErrors(moduleID cell.FullModuleID, errs []error) {
-	if m.m.FullReconciliationCount.IsEnabled() {
-		m.m.FullReconciliationCount.WithLabelValues(LabelModuleId, moduleID.String())
+func (m *reconcilerMetricsImpl) PruneError(moduleID cell.FullModuleID, err error) {
+	if m.m.PruneCount.IsEnabled() {
+		m.m.PruneCount.WithLabelValues(LabelModuleId, moduleID.String())
 	}
-	if m.m.FullReconciliationTotalErrors.IsEnabled() {
-		m.m.FullReconciliationTotalErrors.WithLabelValues(moduleID.String()).Add(float64(len(errs)))
-	}
-}
-
-// FullReconciliationOutOfSync implements reconciler.Metrics.
-func (m *reconcilerMetricsImpl) FullReconciliationOutOfSync(moduleID cell.FullModuleID) {
-	if m.m.FullReconciliationOutOfSyncCount.IsEnabled() {
-		m.m.FullReconciliationOutOfSyncCount.WithLabelValues(LabelModuleId, moduleID.String()).Inc()
+	if m.m.PruneTotalErrors.IsEnabled() {
+		m.m.PruneTotalErrors.WithLabelValues(moduleID.String()).Add(1)
 	}
 }
 
-// IncrementalReconciliationDuration implements reconciler.Metrics.
-func (m *reconcilerMetricsImpl) IncrementalReconciliationDuration(moduleID cell.FullModuleID, operation string, duration time.Duration) {
-	if m.m.IncrementalReconciliationCount.IsEnabled() {
-		m.m.IncrementalReconciliationCount.WithLabelValues(LabelModuleId, moduleID.String()).Inc()
+// ReconciliationDuration implements reconciler.Metrics.
+func (m *reconcilerMetricsImpl) ReconciliationDuration(moduleID cell.FullModuleID, operation string, duration time.Duration) {
+	if m.m.ReconciliationCount.IsEnabled() {
+		m.m.ReconciliationCount.WithLabelValues(LabelModuleId, moduleID.String()).Inc()
 	}
-	if m.m.IncrementalReconciliationDuration.IsEnabled() {
-		m.m.IncrementalReconciliationDuration.WithLabelValues(LabelModuleId, moduleID.String(), LabelOperation, operation).
+	if m.m.ReconciliationDuration.IsEnabled() {
+		m.m.ReconciliationDuration.WithLabelValues(LabelModuleId, moduleID.String(), LabelOperation, operation).
 			Observe(duration.Seconds())
 	}
 }
 
-// IncrementalReconciliationErrors implements reconciler.Metrics.
-func (m *reconcilerMetricsImpl) IncrementalReconciliationErrors(moduleID cell.FullModuleID, newErrors, currentErrors int) {
-	if m.m.IncrementalReconciliationCurrentErrors.IsEnabled() {
-		m.m.IncrementalReconciliationCurrentErrors.WithLabelValues(LabelModuleId, moduleID.String()).Set(float64(currentErrors))
+// ReconciliationErrors implements reconciler.Metrics.
+func (m *reconcilerMetricsImpl) ReconciliationErrors(moduleID cell.FullModuleID, new, current int) {
+	if m.m.ReconciliationCurrentErrors.IsEnabled() {
+		m.m.ReconciliationCurrentErrors.WithLabelValues(LabelModuleId, moduleID.String()).Set(float64(current))
 	}
-	if m.m.IncrementalReconciliationTotalErrors.IsEnabled() {
-		m.m.IncrementalReconciliationTotalErrors.WithLabelValues(LabelModuleId, moduleID.String()).Add(float64(newErrors))
+	if m.m.ReconciliationTotalErrors.IsEnabled() {
+		m.m.ReconciliationCurrentErrors.WithLabelValues(LabelModuleId, moduleID.String()).Add(float64(new))
 	}
 }
 

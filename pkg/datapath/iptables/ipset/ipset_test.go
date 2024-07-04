@@ -67,9 +67,8 @@ func TestManager(t *testing.T) {
 			cell.Provide(
 				newIPSetManager,
 				tables.NewIPSetTable,
-				reconciler.New[*tables.IPSetEntry],
-				newReconcilerConfig,
 				newOps,
+				newReconciler,
 			),
 			cell.Provide(func(ops *ops) reconciler.Operations[*tables.IPSetEntry] {
 				return ops
@@ -303,9 +302,8 @@ func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 			cell.Provide(
 				newIPSetManager,
 				tables.NewIPSetTable,
-				reconciler.New[*tables.IPSetEntry],
-				newReconcilerConfig,
 				newOps,
+				newReconciler,
 			),
 			cell.Provide(func(ops *ops) reconciler.Operations[*tables.IPSetEntry] {
 				return ops
@@ -431,14 +429,14 @@ func TestOpsPruneEnabled(t *testing.T) {
 	ops := newOps(fakeLogger, ipset, config{NodeIPSetNeeded: true})
 
 	// prune operation should be skipped when it is not enabled
-	iter, _ := table.All(db.ReadTxn())
+	iter := table.All(db.ReadTxn())
 	assert.NoError(t, ops.Prune(context.TODO(), db.ReadTxn(), iter))
 	assert.False(t, nCalled.Load())
 
 	ops.enablePrune()
 
 	// prune operation should now be completed
-	iter, _ = table.All(db.ReadTxn())
+	iter = table.All(db.ReadTxn())
 	assert.NoError(t, ops.Prune(context.TODO(), db.ReadTxn(), iter))
 	assert.True(t, nCalled.Load())
 }
@@ -545,9 +543,8 @@ func BenchmarkManager(b *testing.B) {
 			cell.Provide(
 				newIPSetManager,
 				tables.NewIPSetTable,
-				reconciler.New[*tables.IPSetEntry],
-				newReconcilerConfig,
 				newOps,
+				newReconciler,
 			),
 			cell.Provide(func(ops *ops) reconciler.Operations[*tables.IPSetEntry] {
 				return ops

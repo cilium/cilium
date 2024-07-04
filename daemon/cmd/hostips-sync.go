@@ -91,7 +91,7 @@ func (s *syncHostIPs) loop(ctx context.Context, health cell.Health) error {
 
 	for {
 		txn := s.params.DB.ReadTxn()
-		addrs, watch := s.params.NodeAddresses.All(txn)
+		addrs, watch := s.params.NodeAddresses.AllWatch(txn)
 
 		err := s.sync(addrs)
 		if err != nil {

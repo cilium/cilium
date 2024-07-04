@@ -42,9 +42,12 @@ type Table[Obj any] interface {
 	// increments in a write transaction on each Insert and Delete.
 	Revision(ReadTxn) Revision
 
-	// All returns an iterator for all objects in the table and a watch
+	// All returns an iterator for all objects in the table.
+	All(ReadTxn) Iterator[Obj]
+
+	// AllWatch returns an iterator for all objects in the table and a watch
 	// channel that is closed when the table changes.
-	All(ReadTxn) (Iterator[Obj], <-chan struct{})
+	AllWatch(ReadTxn) (Iterator[Obj], <-chan struct{})
 
 	// List returns an iterator for all objects matching the given query.
 	List(ReadTxn, Query[Obj]) Iterator[Obj]
@@ -62,13 +65,21 @@ type Table[Obj any] interface {
 	GetWatch(ReadTxn, Query[Obj]) (obj Obj, rev Revision, watch <-chan struct{}, found bool)
 
 	// LowerBound returns an iterator for objects that have a key
+	// greater or equal to the query.
+	LowerBound(ReadTxn, Query[Obj]) Iterator[Obj]
+
+	// LowerBoundWatch returns an iterator for objects that have a key
 	// greater or equal to the query. The returned watch channel is closed
 	// when anything in the table changes as more fine-grained notifications
 	// are not possible with a lower bound search.
-	LowerBound(ReadTxn, Query[Obj]) (iter Iterator[Obj], watch <-chan struct{})
+	LowerBoundWatch(ReadTxn, Query[Obj]) (iter Iterator[Obj], watch <-chan struct{})
 
 	// Prefix searches the table by key prefix.
-	Prefix(ReadTxn, Query[Obj]) (iter Iterator[Obj], watch <-chan struct{})
+	Prefix(ReadTxn, Query[Obj]) Iterator[Obj]
+
+	// PrefixWatch searches the table by key prefix. Returns an iterator and a watch
+	// channel that closes when the query results have become stale.
+	PrefixWatch(ReadTxn, Query[Obj]) (iter Iterator[Obj], watch <-chan struct{})
 
 	// Changes returns an iterator for changes happening to the table.
 	// This uses the revision index to iterate over the objects in the order

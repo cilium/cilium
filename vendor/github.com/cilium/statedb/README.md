@@ -111,25 +111,30 @@ func example() {
   // Query the objects with a snapshot of the database.
   txn := db.ReadTxn()
 
-  if obj, _, found := myObjects.Get(wtxn, IDIndex.Query(1)); found {
+  if obj, _, found := myObjects.Get(txn, IDIndex.Query(1)); found {
     ...
   }
 
-  iter, watch := myObjects.All()
   // Iterate all objects
-
-  iter, watch = myObjects.LowerBound(IDIndex.Query(2))
-  // Iterate objects with ID >= 2
-  
-  iter, watch = myObjects.Prefix(IDIndex.Query(0x1000_0000))
-  // Iterate objects where ID is between 0x1000_0000 and 0x1fff_ffff
-
+  iter := myObjects.All()
   for obj, revision, ok := iter.Next(); ok; obj, revision, ok = iter.Next() {
     ...
   }
-
-  // Wait until the query results change.
+  
+  // Iterate all objects and then wait until something changes.
+  iter, watch := myObjects.AllWatch(txn)
+  for ... {}
   <-watch
+  // Grab a new snapshot to read the new changes.
+  txn = db.ReadTxn()
+  
+  // Iterate objects with ID >= 2
+  iter, watch = myObjects.LowerBoundWatch(txn, IDIndex.Query(2))
+  for ... {}
+  
+  // Iterate objects where ID is between 0x1000_0000 and 0x1fff_ffff
+  iter, watch = myObjects.PrefixWatch(txn, IDIndex.Query(0x1000_0000))
+  for ... {}
 }
 ```
 
@@ -349,7 +354,7 @@ for obj, revision, ok := iter.Next(); ok; obj, revision, ok = iter.Next() { ... 
 <-watch
 ```
 
-`Prefix` can be used to iterate over objects that match a given prefix.
+`Prefix` or `PrefixWatch` can be used to iterate over objects that match a given prefix.
 
 ```go
 // Prefix does a prefix search on an index. Here it returns an iterator
@@ -362,16 +367,16 @@ for obj, revision, ok := iter.Next(); ok; obj, revision, ok = iter.Next() {
 <-watch
 ```
 
-`LowerBound` can be used to iterate over objects that have a key equal
-to or higher than given key.
+`LowerBound` or `LowerBoundWatch` can be used to iterate over objects that
+have a key equal to or higher than given key.
 
 ```go
-// LowerBound can be used to find all objects with a key equal to or higher
+// LowerBoundWatch can be used to find all objects with a key equal to or higher
 // than specified key. The semantics of it depends on how the indexer works.
 // For example index.Uint32 returns the big-endian or most significant byte
 // first form of the integer, in other words the number 3 is the key
 // []byte{0, 0, 0, 3}, which allows doing a meaningful LowerBound search on it.
-iter, watch = myObjects.LowerBound(txn, IDIndex.Query(3))
+iter, watch = myObjects.LowerBoundWatch(txn, IDIndex.Query(3))
 for obj, revision, ok := iter.Next(); ok; obj, revision, ok = iter.Next() {
   // obj.ID >= 3
 }
@@ -397,7 +402,7 @@ with `ByRevision`.
 // we can use this to wait for new changes!
 lastRevision := statedb.Revision(0)
 for {
-  iter, watch = myObjects.LowerBound(txn, statedb.ByRevision(lastRevision+1))
+  iter, watch = myObjects.LowerBoundWatch(txn, statedb.ByRevision(lastRevision+1))
   for obj, revision, ok := iter.Next(); ok; obj, revision, ok = iter.Next() {
     lastRevision = revision
   }

@@ -249,7 +249,7 @@ func (n *nodeAddressController) register() {
 				}
 
 				// Do an immediate update to populate the table before it is read from.
-				devices, _ := n.Devices.All(txn)
+				devices := n.Devices.All(txn)
 				for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
 					n.update(txn, nil, n.getAddressesFromDevice(dev), nil, dev.Name)
 					n.updateWildcardDevice(txn, dev, false)
@@ -341,7 +341,7 @@ func (n *nodeAddressController) updateFallbacks(txn statedb.ReadTxn, dev *Device
 		// The device that was used for fallback address was removed.
 		// Clear the fallbacks and reprocess from scratch.
 		fallbacks.clear()
-		devices, _ := n.Devices.All(txn)
+		devices := n.Devices.All(txn)
 		for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
 			fallbacks.update(dev)
 		}
