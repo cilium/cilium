@@ -238,10 +238,11 @@ func newCmdClusterMeshEnableWithHelm() *cobra.Command {
 		Use:   "enable",
 		Short: "Enable ClusterMesh ability in a cluster using Helm",
 		Long:  ``,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			params.Namespace = namespace
 			params.HelmReleaseName = helmReleaseName
 			ctx := context.Background()
+			params.EnableKVStoreMeshChanged = cmd.Flags().Changed("enable-kvstoremesh")
 			if err := clustermesh.EnableWithHelm(ctx, k8sClient, params); err != nil {
 				fatalf("Unable to enable ClusterMesh: %s", err)
 			}
