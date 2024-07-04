@@ -305,13 +305,22 @@ jobs:
             CILIUM_INTERNAL_IPS="${CILIUM_INTERNAL_IPS// / ::1 } ::1"
           fi
 
+          # When per-endpoint routes are enabled, CLI doesn't test IPv6 with L7 policies.
+          # Disable the "missing L7 traffic" warning accordingly.
+          if [[ "${{ matrix.endpoint-routes }}" == "true" ]]; then
+            ENABLE_L7_PROXY_CHECK="false"
+          else
+            ENABLE_L7_PROXY_CHECK="true"
+          fi
+
           echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
+          echo "enable_l7_proxy_check=$ENABLE_L7_PROXY_CHECK" >> $GITHUB_OUTPUT
 
       - name: Start unencrypted packets check
         uses: ./.github/actions/bpftrace/start
         with:
           script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "false"
+          args: ${{ steps.bpftrace-params.outputs.params }} ${{ steps.bpftrace-params.outputs.enable_l7_proxy_check }}
 
       - name: Run tests (${{ join(matrix.*, ', ') }})
         shell: bash
@@ -408,7 +417,7 @@ jobs:
         uses: ./.github/actions/bpftrace/start
         with:
           script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "false"
+          args: ${{ steps.bpftrace-params.outputs.params }} ${{ steps.bpftrace-params.outputs.enable_l7_proxy_check }}
 
       - name: Run tests (${{ join(matrix.*, ', ') }})
         shell: bash
