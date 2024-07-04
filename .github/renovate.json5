@@ -390,6 +390,8 @@
       ]
     },
     {
+      // It's returning 500s for git clones.
+      "enabled": false,
       "matchDepNames": [
         "golang.zx2c4.com/wireguard"
       ],
