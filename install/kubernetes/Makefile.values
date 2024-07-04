@@ -50,6 +50,11 @@ export CILIUM_NODEINIT_VERSION:=19fb149fb3d5c7a37d3edfaf10a2be3ab7386661
 export CILIUM_NODEINIT_DIGEST:=sha256:820155cb3b7f00c8d61c1cffa68c44440906cb046bdbad8ff544f5deb1103456
 
 # renovate: datasource=docker
+export ETCD_REPO:=quay.io/coreos/etcd
+export ETCD_VERSION:=v3.5.4
+export ETCD_DIGEST:=sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3
+
+# renovate: datasource=docker
 export HUBBLE_UI_BACKEND_REPO:=quay.io/cilium/hubble-ui-backend
 export HUBBLE_UI_BACKEND_VERSION:=v0.13.1
 export HUBBLE_UI_BACKEND_DIGEST:=sha256:0e0eed917653441fded4e7cdb096b7be6a3bddded5a2dd10812a27b1fc6ed95b
