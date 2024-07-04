@@ -906,6 +906,10 @@ func initializeFlags() {
 	flags.MarkHidden(option.DNSProxyLockTimeout)
 	option.BindEnv(Vp, option.DNSProxyLockTimeout)
 
+	flags.Int(option.DNSProxySocketLingerTimeout, defaults.DNSProxySocketLingerTimeout, "Timeout (in seconds) when closing the connection between the DNS proxy and the upstream server. "+
+		"If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background")
+	option.BindEnv(Vp, option.DNSProxySocketLingerTimeout)
+
 	flags.Bool(option.DNSProxyEnableTransparentMode, defaults.DNSProxyEnableTransparentMode, "Enable DNS proxy transparent mode")
 	option.BindEnv(Vp, option.DNSProxyEnableTransparentMode)
 
