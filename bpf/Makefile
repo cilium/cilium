@@ -5,7 +5,7 @@ include ../Makefile.defs
 
 SUBDIRS = custom
 BPF_SIMPLE = bpf_network.o bpf_alignchecker.o
-BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_xdp.o $(BPF_SIMPLE)
+BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_wireguard.o bpf_xdp.o $(BPF_SIMPLE)
 
 KERNEL ?= netnext
 
@@ -104,6 +104,19 @@ MAX_HOST_OPTIONS += -DENABLE_WIREGUARD=1 -DENCRYPTION_STRICT_MODE=1
 endif
 ifeq ($(KERNEL),netnext)
 MAX_HOST_OPTIONS += -DENABLE_HIGH_SCALE_IPCACHE=1
+endif
+endif
+
+WIREGUARD_OPTIONS = $(HOST_OPTIONS)
+
+ifndef MAX_WIREGUARD_OPTIONS
+MAX_WIREGUARD_OPTIONS = $(MAX_BASE_OPTIONS) -DENCAP_IFINDEX=1 -DTUNNEL_MODE=1 -DENABLE_WIREGUARD=1
+
+ifneq ($(KERNEL),54)
+MAX_WIREGUARD_OPTIONS += -DENABLE_WIREGUARD=1 -DENCRYPTION_STRICT_MODE=1
+endif
+ifeq ($(KERNEL),netnext)
+MAX_WIREGUARD_OPTIONS += -DENABLE_HIGH_SCALE_IPCACHE=1
 endif
 endif
 
@@ -223,6 +236,12 @@ bpf_host.o:: bpf_host.c $(LIB)
 	$(QUIET) ${CLANG} ${MAX_HOST_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
 $(foreach OPTS,$(HOST_OPTIONS),$(eval $(call PERMUTATION_template,bpf_host.o,$(OPTS) -DENCAP_IFINDEX=1)))
+
+bpf_wireguard.o:: bpf_wireguard.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${MAX_WIREGUARD_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+
+$(foreach OPTS,$(WIREGUARD_OPTIONS),$(eval $(call PERMUTATION_template,bpf_wireguard.o,$(OPTS) -DENCAP_IFINDEX=1 -DDIRECT_ROUTING_DEV_IFINDEX=0)))
 
 bpf_xdp.o:: bpf_xdp.c $(LIB)
 	@$(ECHO_CC)
