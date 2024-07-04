@@ -4,6 +4,7 @@
 package act
 
 import (
+	"container/heap"
 	"context"
 	"fmt"
 	"log/slog"
@@ -97,6 +98,9 @@ type ACT struct {
 	// keyToStrings converts (svc, zone) pair to their string versions
 	keyToStrings func(key *act.ActiveConnectionTrackerKey) (zone string, svc string, err error)
 
+	// trig is used to start removeOverflow routine early
+	trig job.Trigger
+
 	// mux protects tracker map
 	mux *lock.Mutex
 	// tracker is a map[zone][svc]metric
@@ -118,9 +122,11 @@ func NewACT(in struct {
 		return nil
 	}
 	a := newAct(in.Log, in.Source, in.Metrics, option.Config)
+	a.trig = job.NewTrigger()
 
 	in.Jobs.Add(job.Timer("act-metrics-update", a.update, metricsUpdateInterval))
 	in.Jobs.Add(job.Timer("act-metrics-cleanup", a.cleanup, metricsTimeout))
+	in.Jobs.Add(job.Timer("act-metrics-remove-overflow", a.removeOverflow, time.Hour, job.WithTrigger(a.trig)))
 	in.Lifecycle.Append(in.Jobs)
 	ctmap.ACT = a
 	return a
@@ -240,6 +246,7 @@ func (a *ACT) _cleanup(ctx context.Context, cutoff time.Time) error {
 	a.mux.Lock()
 	defer a.mux.Unlock()
 
+	n := 0
 	for zone, services := range a.tracker {
 		for svc, entry := range services {
 			select {
@@ -252,6 +259,10 @@ func (a *ACT) _cleanup(ctx context.Context, cutoff time.Time) error {
 				a.dropEntry(zone, svc)
 			}
 		}
+		n += len(services)
+	}
+	if n >= metricsCountSoftLimit {
+		a.trig.Trigger()
 	}
 	return nil
 }
@@ -300,4 +311,76 @@ func (a *ACT) countFailed(svc uint16, key lbmap.BackendKey) {
 		return
 	}
 	old.newFailed++
+}
+
+// trackerLen is the total number of metric series held by ACT.
+//
+// It must be called with lock held to guarantee correctness of the outcome.
+func (a *ACT) trackerLen() int {
+	n := 0
+	for _, services := range a.tracker {
+		n += len(services)
+	}
+	return n
+}
+
+// removeOverflow keeps the number of metrics series at or below
+// metricsCountSoftLimit. It builds a heap of elements to remove by comparing
+// their latest update timestamp. All elements on the heap (metrics that are
+// stale for the longest) are removed.
+func (a *ACT) removeOverflow(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		ctx.Err()
+	default:
+	}
+	a.mux.Lock()
+	defer a.mux.Unlock()
+	n := a.trackerLen()
+	if n < metricsCountSoftLimit {
+		// Nothing to do
+		return nil
+	}
+	target := max(n-metricsCountSoftLimit, 100)
+	scopedLog := a.log.With("start-count", n, "limit", metricsCountSoftLimit, "target", target)
+	scopedLog.Info("Making a sweep of presented metrics")
+	gc := make(gcHeap, 0, target+1)
+	heap.Init(&gc)
+	for zone, services := range a.tracker {
+		for svc, entry := range services {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+			unix := entry.updated.Unix()
+			if gc.Len() == target && unix > gc[0].unix {
+				continue
+			}
+			heap.Push(&gc, gcEntry{unix: unix, svc: svc, zone: zone})
+			if gc.Len() > target {
+				heap.Pop(&gc)
+			}
+		}
+	}
+	tooEarly := 0
+	cutoff := time.Now().Add(-metricsUpdateInterval)
+	for _, entry := range gc {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		scopedLog.Debug("delete", "svc", entry.svc, "zone", entry.zone)
+		if time.Unix(entry.unix, 0).After(cutoff) {
+			tooEarly++
+		}
+		a.dropEntry(entry.zone, entry.svc)
+	}
+	scopedLog.Info("Removed extra metrics", "removed", gc.Len())
+	if tooEarly > 0 {
+		scopedLog.Warn("Removed metrics before they were shown", "count", tooEarly)
+	}
+
+	return nil
 }
