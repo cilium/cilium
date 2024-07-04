@@ -6,6 +6,7 @@ package ciliumidentity
 import (
 	"log/slog"
 	"strconv"
+	"time"
 
 	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -304,4 +305,80 @@ func (c *CIDUsageInCES) decrementUsage(cidName int64) int {
 	}
 
 	return count
+}
+
+// EnqueueTimeTracker provides a thread safe mechanism to record
+// and manage the time when items are enqueued.
+type EnqueueTimeTracker struct {
+	enqueuedAt map[string]time.Time
+	mu         lock.Mutex
+}
+
+func (e *EnqueueTimeTracker) Track(item string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.enqueuedAt[item].IsZero() {
+		e.enqueuedAt[item] = time.Now()
+	}
+}
+
+func (e *EnqueueTimeTracker) GetAndReset(item string) (time.Time, bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	enqueuedTime, exists := e.enqueuedAt[item]
+	if !exists {
+		return time.Time{}, false
+	}
+
+	delete(e.enqueuedAt, item)
+	return enqueuedTime, true
+}
+
+// DeletionTracker tracks which CIDs are marked for deletion.
+// This is required for simultaneous CID management
+// by both cilium-operator and cilium-agent.
+// It addresses scenarios with high pod churn, facilitating CID reuse.
+// It addresses a timing issue where CID where a CEP may not exist
+// for a given CID (according to the operator), in which case the operator
+// marks the CID for deletion. Instead of deleting it immediately,
+// they are marked for later deletion. This will give agents a chance
+// to avoid racing the operator for the identity.
+type DeletionTracker struct {
+	logger            *slog.Logger
+	markedForDeletion map[string]time.Time
+	mu                lock.RWMutex
+}
+
+func NewDeletionTracker(logger *slog.Logger) *DeletionTracker {
+	return &DeletionTracker{
+		markedForDeletion: make(map[string]time.Time),
+		logger:            logger,
+	}
+}
+
+func (c *DeletionTracker) Mark(cidName string) {
+	c.logger.Debug("Add CID deletion mark", logfields.CIDName, cidName)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.markedForDeletion[cidName] = time.Now()
+}
+
+func (c *DeletionTracker) Unmark(cidName string) {
+	c.logger.Debug("Remove CID deletion mark", logfields.CIDName, cidName)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	delete(c.markedForDeletion, cidName)
+}
+
+func (c *DeletionTracker) Get(cidName string) (time.Time, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	markedTime, marked := c.markedForDeletion[cidName]
+	return markedTime, marked
 }

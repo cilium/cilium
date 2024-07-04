@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -327,4 +328,121 @@ func TestCIDUsageInCES(t *testing.T) {
 	assert.Equal(t, 2, len(unusedCIDs), assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount("1000"), assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount("2000"), assertTxt)
+}
+
+func TestEnqueueTimeTracker(t *testing.T) {
+	testCases := []struct {
+		name          string
+		enqueuedItems []string
+		expectItem    string
+		expectExists  bool
+	}{
+		{
+			name:          "set_and_get",
+			enqueuedItems: []string{"item"},
+			expectItem:    "item",
+			expectExists:  true,
+		},
+		{
+			name:          "missing_item",
+			enqueuedItems: []string{"other_item"},
+			expectItem:    "item",
+			expectExists:  false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tracker := &EnqueueTimeTracker{enqueuedAt: make(map[string]time.Time)}
+
+			for _, item := range tc.enqueuedItems {
+				tracker.Track(item)
+			}
+
+			_, exists := tracker.GetAndReset(tc.expectItem)
+			if exists != tc.expectExists {
+				t.Errorf("Expected exists to be %v, got %v", tc.expectExists, exists)
+			}
+
+			_, exists = tracker.GetAndReset(tc.expectItem)
+			if exists {
+				t.Errorf("Expected exists to be false, got %v", exists)
+			}
+		})
+	}
+}
+
+func TestCIDDeletionTracker_Mark(t *testing.T) {
+	logger := slog.New(logging.SlogNopHandler)
+
+	testCases := []struct {
+		name             string
+		cidName          string
+		expectMarkedTime bool
+	}{
+		{
+			name:             "mark_cid",
+			cidName:          "cid",
+			expectMarkedTime: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tracker := NewDeletionTracker(logger)
+
+			tracker.Mark(tc.cidName)
+
+			markedTime, marked := tracker.Get(tc.cidName)
+
+			if marked != tc.expectMarkedTime {
+				t.Errorf("Expected marked to be %v, got %v", tc.expectMarkedTime, marked)
+			}
+
+			if tc.expectMarkedTime && markedTime.IsZero() {
+				t.Error("Expected markedTime to be non-zero when marked is true")
+			}
+		})
+	}
+}
+func TestCIDDeletionTracker_Unmark(t *testing.T) {
+	logger := slog.New(logging.SlogNopHandler)
+
+	testCases := []struct {
+		name       string
+		shouldMark bool
+		cidName    string
+	}{
+		{
+			name:       "unmark_existing",
+			shouldMark: true,
+			cidName:    "cid",
+		},
+		{
+			name:       "unmark_non_existing",
+			shouldMark: false,
+			cidName:    "cid",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tracker := NewDeletionTracker(logger)
+
+			if tc.shouldMark {
+				tracker.Mark(tc.cidName)
+			}
+
+			tracker.Unmark(tc.cidName)
+			markedTime, marked := tracker.Get(tc.cidName)
+
+			if marked {
+				t.Errorf("Expected marked to be %v, got %v", false, marked)
+			}
+
+			if !markedTime.IsZero() {
+				t.Error("Expected markedTime to be zero when unmarked")
+			}
+		})
+	}
 }
