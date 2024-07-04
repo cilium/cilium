@@ -119,7 +119,7 @@ func Test_countNat(t *testing.T) {
 			s.natMap4 = ip4Map
 			s.natMap6 = ip6Map
 			assert.NoError(t, s.countNat(context.Background()))
-			it, _ := s.table.All(s.db.ReadTxn())
+			it := s.table.All(s.db.ReadTxn())
 			freq := map[string]int{}
 			for o, _, ok := it.Next(); ok; o, _, ok = it.Next() {
 				switch o.Type {

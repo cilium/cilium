@@ -59,7 +59,6 @@ func newLocalNodeConfig(
 	}
 
 	nativeDevices, _ := tables.SelectedDevices(devices, txn)
-	nodeAddrsIter, _ := nodeAddresses.All(txn)
 
 	return datapath.LocalNodeConfiguration{
 		NodeIPv4:                     localNode.GetNodeIP(false),
@@ -70,7 +69,7 @@ func newLocalNodeConfig(
 		AllocCIDRIPv6:                localNode.IPv6AllocCIDR,
 		LoopbackIPv4:                 node.GetIPv4Loopback(),
 		Devices:                      nativeDevices,
-		NodeAddresses:                statedb.Collect(nodeAddrsIter),
+		NodeAddresses:                statedb.Collect(nodeAddresses.All(txn)),
 		HostEndpointID:               node.GetEndpointID(),
 		DeviceMTU:                    mtu.GetDeviceMTU(),
 		RouteMTU:                     mtu.GetRouteMTU(),

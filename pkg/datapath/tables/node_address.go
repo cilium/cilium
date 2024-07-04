@@ -256,7 +256,7 @@ func (n *nodeAddressController) register() {
 				}
 
 				// Do an immediate update to populate the table before it is read from.
-				devices, _ := n.Devices.All(txn)
+				devices := n.Devices.All(txn)
 				for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
 					n.update(txn, n.getAddressesFromDevice(dev), nil, dev.Name)
 					n.updateWildcardDevice(txn, dev, false)
@@ -326,7 +326,7 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.Health) e
 				// Recompute the node addresses as the k8s node IP has changed, which
 				// affects the prioritization.
 				txn := n.DB.WriteTxn(n.NodeAddresses)
-				devices, _ := n.Devices.All(txn)
+				devices := n.Devices.All(txn)
 				for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
 					n.update(txn, n.getAddressesFromDevice(dev), nil, dev.Name)
 					n.updateWildcardDevice(txn, dev, false)
@@ -386,7 +386,7 @@ func (n *nodeAddressController) updateFallbacks(txn statedb.ReadTxn, dev *Device
 	fallbacks := &n.fallbackAddresses
 	if deleted && fallbacks.fromDevice(dev) {
 		fallbacks.clear()
-		devices, _ := n.Devices.All(txn)
+		devices := n.Devices.All(txn)
 		for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
 			if strings.HasPrefix(dev.Name, "lxc") {
 				// Never pick the fallback from lxc* devices.

@@ -244,7 +244,7 @@ func (it *changeIterator[Obj]) Watch(txn ReadTxn) <-chan struct{} {
 			return it.watch
 		}
 
-		updateIter, watch := it.table.LowerBound(txn, ByRevision[Obj](it.revision+1))
+		updateIter, watch := it.table.LowerBoundWatch(txn, ByRevision[Obj](it.revision+1))
 		deleteIter := it.dt.deleted(txn, it.revision+1)
 		it.iter = NewDualIterator(deleteIter, updateIter)
 

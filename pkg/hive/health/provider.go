@@ -53,7 +53,7 @@ func (p *provider) Start(ctx cell.HookContext) error {
 func (p *provider) Stop(ctx cell.HookContext) error {
 	p.stopped.Store(true)
 	tx := p.db.ReadTxn()
-	iter, _ := p.statusTable.All(tx)
+	iter := p.statusTable.All(tx)
 	for {
 		s, rev, ok := iter.Next()
 		if !ok {
@@ -111,7 +111,7 @@ func (p *provider) ForModule(mid cell.FullModuleID) cell.Health {
 			tx := p.db.WriteTxn(p.statusTable)
 			defer tx.Abort()
 			q := PrimaryIndex.Query(types.HealthID(i.String()))
-			iter, _ := p.statusTable.Prefix(tx, q)
+			iter := p.statusTable.Prefix(tx, q)
 			var deleted int
 			for {
 				o, _, ok := iter.Next()
