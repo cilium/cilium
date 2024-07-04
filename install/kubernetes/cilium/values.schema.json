@@ -3296,6 +3296,9 @@
               },
               "type": "object"
             },
+            "labels": {
+              "type": "object"
+            },
             "nodeSelector": {
               "properties": {
                 "kubernetes.io/os": {
