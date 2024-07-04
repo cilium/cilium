@@ -48,6 +48,7 @@ func NewTable[Obj any](
 		primaryIndexer:       primaryIndexer,
 		secondaryAnyIndexers: make(map[string]anyIndexer, len(secondaryIndexers)),
 		indexPositions:       make(map[string]int),
+		pos:                  -1,
 	}
 
 	table.indexPositions[primaryIndexer.indexName()] = PrimaryIndexPos
@@ -172,7 +173,7 @@ func (t *genTable[Obj]) Initialized(txn ReadTxn) bool {
 	return len(t.PendingInitializers(txn)) == 0
 }
 func (t *genTable[Obj]) PendingInitializers(txn ReadTxn) []string {
-	return txn.getTxn().root[t.pos].pendingInitializers
+	return txn.getTxn().getTableEntry(t).pendingInitializers
 }
 
 func (t *genTable[Obj]) RegisterInitializer(txn WriteTxn, name string) func(WriteTxn) {
@@ -200,12 +201,12 @@ func (t *genTable[Obj]) RegisterInitializer(txn WriteTxn, name string) func(Writ
 }
 
 func (t *genTable[Obj]) Revision(txn ReadTxn) Revision {
-	return txn.getTxn().getRevision(t)
+	return txn.getTxn().getTableEntry(t).revision
 }
 
 func (t *genTable[Obj]) NumObjects(txn ReadTxn) int {
-	table := &txn.getTxn().root[t.tablePos()]
-	return table.indexes[PrimaryIndexPos].tree.Len()
+	table := txn.getTxn().getTableEntry(t)
+	return table.numObjects()
 }
 
 func (t *genTable[Obj]) Get(txn ReadTxn, q Query[Obj]) (obj Obj, revision uint64, ok bool) {
@@ -250,7 +251,12 @@ func (t *genTable[Obj]) GetWatch(txn ReadTxn, q Query[Obj]) (obj Obj, revision u
 	return
 }
 
-func (t *genTable[Obj]) LowerBound(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-chan struct{}) {
+func (t *genTable[Obj]) LowerBound(txn ReadTxn, q Query[Obj]) Iterator[Obj] {
+	iter, _ := t.LowerBoundWatch(txn, q)
+	return iter
+}
+
+func (t *genTable[Obj]) LowerBoundWatch(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-chan struct{}) {
 	indexTxn := txn.getTxn().mustIndexReadTxn(t, t.indexPos(q.index))
 	// Since LowerBound query may be invalidated by changes in another branch
 	// of the tree, we cannot just simply watch the node we seeked to. Instead
@@ -260,13 +266,23 @@ func (t *genTable[Obj]) LowerBound(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-
 	return &iterator[Obj]{iter}, watch
 }
 
-func (t *genTable[Obj]) Prefix(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-chan struct{}) {
+func (t *genTable[Obj]) Prefix(txn ReadTxn, q Query[Obj]) Iterator[Obj] {
+	iter, _ := t.PrefixWatch(txn, q)
+	return iter
+}
+
+func (t *genTable[Obj]) PrefixWatch(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-chan struct{}) {
 	indexTxn := txn.getTxn().mustIndexReadTxn(t, t.indexPos(q.index))
 	iter, watch := indexTxn.Prefix(q.key)
 	return &iterator[Obj]{iter}, watch
 }
 
-func (t *genTable[Obj]) All(txn ReadTxn) (Iterator[Obj], <-chan struct{}) {
+func (t *genTable[Obj]) All(txn ReadTxn) Iterator[Obj] {
+	iter, _ := t.AllWatch(txn)
+	return iter
+}
+
+func (t *genTable[Obj]) AllWatch(txn ReadTxn) (Iterator[Obj], <-chan struct{}) {
 	indexTxn := txn.getTxn().mustIndexReadTxn(t, PrimaryIndexPos)
 	watch := indexTxn.RootWatch()
 	return &iterator[Obj]{indexTxn.Iterator()}, watch
@@ -323,7 +339,7 @@ func (t *genTable[Obj]) CompareAndDelete(txn WriteTxn, rev Revision, obj Obj) (o
 }
 
 func (t *genTable[Obj]) DeleteAll(txn WriteTxn) error {
-	iter, _ := t.All(txn)
+	iter := t.All(txn)
 	itxn := txn.getTxn()
 	for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
 		_, _, err := itxn.delete(t, Revision(0), obj)
@@ -354,8 +370,8 @@ func (t *genTable[Obj]) Changes(txn WriteTxn) (ChangeIterator[Obj], error) {
 	}
 
 	// Prepare the iterator
-	updateIter, watch := t.LowerBound(txn, ByRevision[Obj](0)) // observe all current objects
-	deleteIter := iter.dt.deleted(txn, iter.dt.getRevision())  // only observe new deletions
+	updateIter, watch := t.LowerBoundWatch(txn, ByRevision[Obj](0)) // observe all current objects
+	deleteIter := iter.dt.deleted(txn, iter.dt.getRevision())       // only observe new deletions
 	iter.iter = NewDualIterator(deleteIter, updateIter)
 	iter.watch = watch
 
