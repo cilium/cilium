@@ -26,11 +26,7 @@
 #endif
 
 #ifndef __nobuiltin
-# if __clang_major__ >= 10
-#  define __nobuiltin(X)	__attribute__((no_builtin(X)))
-# else
-#  define __nobuiltin(X)
-# endif
+# define __nobuiltin(X)	__attribute__((no_builtin(X)))
 #endif
 
 #ifndef likely

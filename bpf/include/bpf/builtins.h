@@ -43,7 +43,6 @@ __bpf_memset_builtin(void *d, __u8 c, __u64 len)
 
 static __always_inline void __bpf_memzero(void *d, __u64 len)
 {
-#if __clang_major__ >= 10
 	if (!__builtin_constant_p(len))
 		__throw_build_bug();
 
@@ -122,9 +121,6 @@ static __always_inline void __bpf_memzero(void *d, __u64 len)
 		 */
 		__throw_build_bug();
 	}
-#else
-	__bpf_memset_builtin(d, 0, len);
-#endif
 }
 
 static __always_inline __maybe_unused void
@@ -155,7 +151,6 @@ __bpf_memcpy_builtin(void *d, const void *s, __u64 len)
 
 static __always_inline void __bpf_memcpy(void *d, const void *s, __u64 len)
 {
-#if __clang_major__ >= 10
 	if (!__builtin_constant_p(len))
 		__throw_build_bug();
 
@@ -235,9 +230,6 @@ static __always_inline void __bpf_memcpy(void *d, const void *s, __u64 len)
 		 */
 		__throw_build_bug();
 	}
-#else
-	__bpf_memcpy_builtin(d, s, len);
-#endif
 }
 
 static __always_inline __maybe_unused void
@@ -274,7 +266,6 @@ __bpf_memcmp_builtin(const void *x, const void *y, __u64 len)
 static __always_inline __u64 __bpf_memcmp(const void *x, const void *y,
 					  __u64 len)
 {
-#if __clang_major__ >= 10
 	__u64 r = 0;
 
 	if (!__builtin_constant_p(len))
@@ -341,9 +332,6 @@ static __always_inline __u64 __bpf_memcmp(const void *x, const void *y,
 	}
 
 	return r;
-#else
-	return __bpf_memcmp_builtin(x, y, len);
-#endif
 }
 
 static __always_inline __maybe_unused __u64
@@ -382,7 +370,6 @@ static __always_inline void __bpf_memmove_bwd(void *d, const void *s, __u64 len)
 
 static __always_inline void __bpf_memmove_fwd(void *d, const void *s, __u64 len)
 {
-#if __clang_major__ >= 10
 	if (!__builtin_constant_p(len))
 		__throw_build_bug();
 
@@ -454,9 +441,6 @@ static __always_inline void __bpf_memmove_fwd(void *d, const void *s, __u64 len)
 		 */
 		__throw_build_bug();
 	}
-#else
-	__bpf_memmove_builtin(d, s, len);
-#endif
 }
 
 static __always_inline __maybe_unused void
