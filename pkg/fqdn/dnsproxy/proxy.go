@@ -873,6 +873,23 @@ func setSoMarks(fd int, ipFamily ipfamily.IPFamily, secId identity.NumericIdenti
 		}
 	}
 
+	// Set SO_LINGER to ensure the TCP socket is closed and ready to be re-used in case
+	// the client reuses the same source port in short succession (this is e.g. the case
+	// with glibc). If SO_LINGER is not used, the old socket might have not yet reached
+	// the TIME_WAIT state by the time we are trying to reuse the port on a new socket.
+	// If that happens, the connect() call will fail with EADDRNOTAVAIL.
+	// Note that the linger timeout can also be set to 0, in which case the socket is
+	// terminated forcefully with a TCP RST and thus can also be reused immediately.
+	if linger := option.Config.DNSProxySocketLingerTimeout; linger >= 0 {
+		err = unix.SetsockoptLinger(fd, unix.SOL_SOCKET, unix.SO_LINGER, &unix.Linger{
+			Onoff:  1,
+			Linger: int32(linger),
+		})
+		if err != nil {
+			return fmt.Errorf("setsockopt(SO_LINGER) failed: %w", err)
+		}
+	}
+
 	return nil
 }
 
