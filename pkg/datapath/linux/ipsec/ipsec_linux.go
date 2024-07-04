@@ -625,35 +625,31 @@ func IPsecDefaultDropPolicy(log *slog.Logger, ipv6 bool) error {
 
 	err := netlink.XfrmPolicyUpdate(defaultDropPolicy)
 
-	// We move the existing XFRM OUT policy to a lower priority to allow the
-	// new priorities to take precedence.
-	// This code can be removed in Cilium v1.15 to instead remove the old XFRM
-	// OUT policy and state.
+	// We move the old XFRM OUT policy. This code can be removed in Cilium v1.17.
 	removeStaleXFRMOnce := &removeStaleIPv4XFRMOnce
 	if ipv6 {
 		removeStaleXFRMOnce = &removeStaleIPv6XFRMOnce
 	}
 	removeStaleXFRMOnce.Do(func() {
-		deprioritizeOldOutPolicy(log, family)
+		removeOldOutPolicy(log, family)
 	})
 
 	return err
 }
 
-// Lowers the priority of the old XFRM OUT policy. We rely on the mark mask to
-// identify it. By lowering the priority, we will allow the new XFRM OUT
-// policies to take precedence. We cannot simply remove and replace the old
-// XFRM OUT configs because that would cause traffic interruptions on upgrades.
-func deprioritizeOldOutPolicy(log *slog.Logger, family int) {
+// Removes the old XFRM OUT policy. We rely on the mark mask and its lower
+// priority to identify it. We can rely on the priority because it was lowered
+// to a specific number in a previous upgrade.
+func removeOldOutPolicy(log *slog.Logger, family int) {
 	policies, err := netlink.XfrmPolicyList(family)
 	if err != nil {
 		log.Error("Cannot get XFRM policies", logfields.Error, err)
 	}
 	for _, p := range policies {
-		if p.Dir == netlink.XFRM_DIR_OUT && p.Mark.Mask == linux_defaults.IPsecOldMarkMaskOut {
-			p.Priority = oldXFRMOutPolicyPriority
-			if err := netlink.XfrmPolicyUpdate(&p); err != nil {
-				log.Error("Failed to deprioritize old XFRM policy",
+		if p.Dir == netlink.XFRM_DIR_OUT && p.Priority == oldXFRMOutPolicyPriority &&
+			p.Mark.Mask == linux_defaults.IPsecOldMarkMaskOut {
+			if err := netlink.XfrmPolicyDel(&p); err != nil {
+				log.Error("Failed to remove old XFRM policy",
 					logfields.Error, err,
 					logfields.SourceCIDR, p.Src,
 					logfields.DestinationCIDR, p.Dst,

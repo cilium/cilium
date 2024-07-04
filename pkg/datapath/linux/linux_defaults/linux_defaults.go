@@ -127,7 +127,7 @@ const (
 	IPsecMarkBitMask = 0x0F00
 
 	// IPsecOldMarkMaskOut is the mask that was previously used. It can be
-	// removed in Cilium v1.15.
+	// removed in Cilium v1.17.
 	IPsecOldMarkMaskOut = 0xFF00
 
 	// IPsecMarkMask is the mask required for the IPsec SPI, node ID, and encrypt/decrypt bits
