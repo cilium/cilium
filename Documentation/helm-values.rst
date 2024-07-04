@@ -2040,6 +2040,10 @@
      - hubble-ui ingress configuration.
      - object
      - ``{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"labels":{},"tls":[]}``
+   * - :spelling:ignore:`hubble.ui.labels`
+     - Additional labels to be added to 'hubble-ui' deployment object
+     - object
+     - ``{}``
    * - :spelling:ignore:`hubble.ui.nodeSelector`
      - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object

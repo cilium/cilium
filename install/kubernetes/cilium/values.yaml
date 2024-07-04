@@ -1611,6 +1611,8 @@ hubble:
     replicas: 1
     # -- Annotations to be added to all top-level hubble-ui objects (resources under templates/hubble-ui)
     annotations: {}
+    # -- Additional labels to be added to 'hubble-ui' deployment object
+    labels: {}
     # -- Annotations to be added to hubble-ui pods
     podAnnotations: {}
     # -- Labels to be added to hubble-ui pods
