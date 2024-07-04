@@ -115,6 +115,9 @@ type Parameters struct {
 	// EnableKVStoreMesh indicates whether kvstoremesh should be enabled.
 	// For Helm mode only.
 	EnableKVStoreMesh bool
+	// Indicates if we should actually set the kvstoremesh.enabled Helm value
+	// or rely on the default value. Default value of kvstoremesh changed in 1.16
+	EnableKVStoreMeshChanged bool
 
 	// HelmReleaseName specifies the Helm release name for the Cilium CLI.
 	// Useful for referencing Cilium installations installed directly through Helm
@@ -1494,10 +1497,12 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 			},
 		}
 
-	helmVals["clustermesh"].(map[string]interface{})["apiserver"].(map[string]interface{})["kvstoremesh"] =
-		map[string]interface{}{
-			"enabled": params.EnableKVStoreMesh,
-		}
+	if params.EnableKVStoreMeshChanged {
+		helmVals["clustermesh"].(map[string]interface{})["apiserver"].(map[string]interface{})["kvstoremesh"] =
+			map[string]interface{}{
+				"enabled": params.EnableKVStoreMesh,
+			}
+	}
 
 	return helmVals, nil
 }
