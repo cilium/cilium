@@ -74,13 +74,11 @@ var _ reconciler.Operations[*tables.IPSetEntry] = &ops{}
 var _ reconciler.BatchOperations[*tables.IPSetEntry] = &ops{}
 
 func (ops *ops) Update(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPSetEntry) error {
-	// Since we're using batch operations Update is only called for full reconciliation.
-	// As we're doing full synchronization in Prune() we don't need to do anything here.
-	return nil
+	panic("Unexpectedly Update() called for reconciliation")
 }
 
 func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPSetEntry) error {
-	panic("Unexpectedly Delete() called from incremental reconciliation")
+	panic("Unexpectedly Delete() called for reconciliation")
 }
 
 func (ops *ops) Prune(ctx context.Context, _ statedb.ReadTxn, iter statedb.Iterator[*tables.IPSetEntry]) error {

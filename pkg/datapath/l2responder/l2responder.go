@@ -193,9 +193,6 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 
 	log.Debug("l2 announcer table full reconciliation")
 
-	// Get all desired entries in the table
-	iter, _ := tbl.All(txn)
-
 	// Prepare index for desired entries based on map key
 	type desiredEntry struct {
 		satisfied bool
@@ -203,7 +200,7 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 	}
 	desiredMap := make(map[l2respondermap.L2ResponderKey]desiredEntry)
 
-	statedb.ProcessEach(iter, func(e *tables.L2AnnounceEntry, _ uint64) error {
+	statedb.ProcessEach(tbl.All(txn), func(e *tables.L2AnnounceEntry, _ uint64) error {
 		// Ignore IPv6 addresses, L2 is IPv4 only
 		if e.IP.Is6() {
 			return nil
