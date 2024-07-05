@@ -222,6 +222,7 @@
 # is not properly picked up in Github.
 * @cilium/tophat
 /.github/ariane-config.yaml @cilium/github-sec @cilium/ci-structure
+/.github/workflows/auto-approve.yaml @cilium/cilium-maintainers
 /.github/workflows/*perf*.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /.github/actions/ @cilium/github-sec @cilium/ci-structure
