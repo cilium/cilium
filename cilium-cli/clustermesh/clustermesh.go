@@ -1441,12 +1441,12 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 	if params.ServiceType == "" {
 		switch flavor.Kind {
 		case k8s.KindGKE:
-			log("🔮 Auto-exposing service within GCP VPC (cloud.google.com/load-balancer-type=Internal)")
+			log("🔮 Auto-exposing service within GCP VPC (networking.gke.io/load-balancer-type=Internal)")
 			helmVals["clustermesh"].(map[string]interface{})["apiserver"] = map[string]interface{}{
 				"service": map[string]interface{}{
 					"type": corev1.ServiceTypeLoadBalancer,
 					"annotations": map[string]interface{}{
-						"cloud.google.com/load-balancer-type": "Internal",
+						"networking.gke.io/load-balancer-type": "Internal",
 						// Allows cross-region access
 						"networking.gke.io/internal-load-balancer-allow-global-access": "true",
 					},
@@ -1463,12 +1463,12 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 				},
 			}
 		case k8s.KindEKS:
-			log("🔮 Auto-exposing service within AWS VPC (service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0")
+			log("🔮 Auto-exposing service within AWS VPC (service.beta.kubernetes.io/aws-load-balancer-scheme: internal")
 			helmVals["clustermesh"].(map[string]interface{})["apiserver"] = map[string]interface{}{
 				"service": map[string]interface{}{
 					"type": corev1.ServiceTypeLoadBalancer,
 					"annotations": map[string]interface{}{
-						"service.beta.kubernetes.io/aws-load-balancer-internal": "0.0.0.0/0",
+						"service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
 					},
 				},
 			}
