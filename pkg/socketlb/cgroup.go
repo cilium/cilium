@@ -198,6 +198,12 @@ func detachAll(attach ebpf.AttachType, cgroupRoot string) error {
 	if errors.Is(err, unix.EINVAL) {
 		err = fmt.Errorf("%w: %w", err, link.ErrNotSupported)
 	}
+	// Even though the cgroup exists, QueryPrograms will return EBADF
+	// on a cgroupv1.
+	if errors.Is(err, unix.EBADF) {
+		log.Debug("The cgroup exists but is a cgroupv1. No detachment necessary")
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("query cgroup %s for type %s: %w", cgroupRoot, attach, err)
 	}
