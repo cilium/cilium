@@ -215,6 +215,7 @@
 * @cilium/tophat
 /.github/ariane-config.yaml @cilium/github-sec @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
+/.github/workflows/auto-approve.yaml @cilium/cilium-maintainers
 /.github/workflows/*datapath*.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*perf*.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /api/ @cilium/api
