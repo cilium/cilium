@@ -131,7 +131,11 @@
       ],
       "automerge": true,
       "automergeType": "pr",
-      "groupName": "auto-merge-trusted-deps"
+      "groupName": "auto-merge-trusted-deps",
+      // Replace the list of reviewers with just ciliumbot
+      "reviewers":[
+        "ciliumbot",
+      ]
     },
     {
       // Try to group all updates for all dependencies in a single PR. More
