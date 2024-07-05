@@ -1478,7 +1478,10 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 	} else {
 		if corev1.ServiceType(params.ServiceType) == corev1.ServiceTypeNodePort {
 			log("⚠️  Using service type NodePort may fail when nodes are removed from the cluster!")
+		} else if corev1.ServiceType(params.ServiceType) != corev1.ServiceTypeLoadBalancer {
+			return nil, fmt.Errorf("service type %q is not valid", params.ServiceType)
 		}
+
 		helmVals["clustermesh"].(map[string]interface{})["apiserver"] = map[string]interface{}{
 			"service": map[string]interface{}{
 				"type": params.ServiceType,
