@@ -131,6 +131,10 @@ func TestVerifier(t *testing.T) {
 			macroName: "MAX_HOST_OPTIONS",
 		},
 		{
+			name:      "bpf_wireguard",
+			macroName: "MAX_WIREGUARD_OPTIONS",
+		},
+		{
 			name:      "bpf_xdp",
 			macroName: "MAX_XDP_OPTIONS",
 		},
