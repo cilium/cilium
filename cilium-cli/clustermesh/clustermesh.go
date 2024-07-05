@@ -1527,13 +1527,18 @@ func DisableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Paramete
 	helmStrValues := []string{
 		"clustermesh.useAPIServer=false",
 		"clustermesh.config.enabled=false",
-		"clustermesh.config.clusters=null",
 		"externalWorkloads.enabled=false",
 	}
 	vals, err := helm.ParseVals(helmStrValues)
 	if err != nil {
 		return err
 	}
+
+	err = unstructured.SetNestedSlice(vals, []interface{}{}, "clustermesh", "config", "clusters")
+	if err != nil {
+		return err
+	}
+
 	upgradeParams := helm.UpgradeParameters{
 		Namespace:   params.Namespace,
 		Name:        params.HelmReleaseName,
