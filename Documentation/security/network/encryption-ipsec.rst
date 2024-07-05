@@ -199,6 +199,25 @@ to all clusters in the mesh. You might need to increase the transition time to
 allow for the new keys to be deployed and applied across all clusters,
 which you can do with the agent flag ``ipsec-key-rotation-duration``.
 
+Downgrade
+=========
+
+.. attention::
+
+   This is a v1.13-only requirement. In v1.14 and later, the Cilium agent can
+   automatically remove stale routing rules.
+
+To ensure connectivity via L7/DNS proxy after downgrade, please run commands
+after downgrade completes:
+
+.. code-block:: shell-session
+
+    cilium_pods=$(kubectl -nkube-system get po -l k8s-app=cilium --no-headers -o custom-columns=":metadata.name")
+    for cilium_pod in $cilium_pods; do
+        kubectl -nkube-system exec $cilium_pod -- ip -4 rule delete fwmark 0xB00/0xF00 lookup 2005 2>/dev/null || true
+        kubectl -nkube-system exec $cilium_pod -- ip -6 rule delete fwmark 0xB00/0xF00 lookup 2005 2>/dev/null || true
+    done
+
 Troubleshooting
 ===============
 

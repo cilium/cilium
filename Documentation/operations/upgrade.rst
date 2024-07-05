@@ -306,6 +306,20 @@ Annotations:
 
 .. _1.13_upgrade_notes:
 
+1.13.18 Upgrade Notes
+---------------------
+
+* For IPsec users, in case of a downgrade to v1.12 or earlier, please run
+  commands after downgrade completes to ensure connectivity via L7/DNS proxy:
+
+.. code-block:: shell-session
+
+    cilium_pods=$(kubectl -nkube-system get po -l k8s-app=cilium --no-headers -o custom-columns=":metadata.name")
+    for cilium_pod in $cilium_pods; do
+        kubectl -nkube-system exec $cilium_pod -- ip -4 rule delete fwmark 0xB00/0xF00 lookup 2005 2>/dev/null || true
+        kubectl -nkube-system exec $cilium_pod -- ip -6 rule delete fwmark 0xB00/0xF00 lookup 2005 2>/dev/null || true
+    done
+
 1.13.7 Upgrade Notes
 --------------------
 
