@@ -14,7 +14,7 @@ replace (
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/cilium/charts v0.0.0-20240617195019-6931c75d0f5f
+	github.com/cilium/charts v0.0.0-20240628222741-d0ce83a2f483
 	github.com/cilium/cilium v1.16.0-rc.1
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.5
@@ -25,7 +25,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8
-	google.golang.org/grpc v1.64.0
+	google.golang.org/grpc v1.65.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	helm.sh/helm/v3 v3.15.2
 	k8s.io/api v0.30.2
@@ -79,7 +79,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240415180920-8c6c420018be // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240528184218-531527333157 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240624140628-dc46fd24d27d // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	sigs.k8s.io/controller-runtime v0.18.4 // indirect
@@ -97,9 +97,9 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
-	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
-	github.com/cncf/xds/go v0.0.0-20240329184929-0c46c01016dc // indirect
+	github.com/cncf/xds/go v0.0.0-20240423153145-555b57ec207b // indirect
 	github.com/containerd/containerd v1.7.14 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
@@ -213,8 +213,8 @@ require (
 	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/sys v0.21.0 // indirect
-	golang.org/x/term v0.21.0
+	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/term v0.22.0
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
