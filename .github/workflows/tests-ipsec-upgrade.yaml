@@ -406,11 +406,13 @@ jobs:
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium status
 
           # 1.12 is EOL, we have to run commands manually to clean up stale routing rules
-          cilium_pods=$(kubectl -nkube-system get po -l k8s-app=cilium --no-headers -o custom-columns=":metadata.name")
-          for cilium_pod in $cilium_pods; do
-            kubectl -nkube-system exec $cilium_pod -- ip -4 rule delete fwmark 0xB00/0xF00 lookup 2005 2>/dev/null || true
-            kubectl -nkube-system exec $cilium_pod -- ip -6 rule delete fwmark 0xB00/0xF00 lookup 2005 2>/dev/null || true
-          done
+          if [ "${{ matrix.mode }}" = "minor" ]; then
+            cilium_pods=$(kubectl -nkube-system get po -l k8s-app=cilium --no-headers -o custom-columns=":metadata.name")
+            for cilium_pod in $cilium_pods; do
+              kubectl -nkube-system exec $cilium_pod -- ip -4 rule delete fwmark 0xB00/0xF00 lookup 2005 2>/dev/null || true
+              kubectl -nkube-system exec $cilium_pod -- ip -6 rule delete fwmark 0xB00/0xF00 lookup 2005 2>/dev/null || true
+            done
+          fi
 
       - name: Check conn-disrupt-test after downgrading
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
