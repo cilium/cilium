@@ -1118,7 +1118,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 	}
 
 	// If we have a deny "all" we don't accept any kind of map entry.
-	if _, ok := ms.denies.Lookup(allKey[newKey.TrafficDirection]); ok {
+	if _, ok := ms.denies.Lookup(allKey[newKey.TrafficDirection()]); ok {
 		return
 	}
 
@@ -1299,7 +1299,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 //  5. ID/proto/*
 //     ( ID/proto/port can not be superset of anything )
 func IsSuperSetOf(k, other Key) int {
-	if k.TrafficDirection != other.TrafficDirection {
+	if k.TrafficDirection() != other.TrafficDirection() {
 		return 0 // TrafficDirection must match for 'k' to be a superset of 'other'
 	}
 	if k.Identity == 0 {
@@ -1622,7 +1622,7 @@ func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 
 	// Find Wildcarded L4 allows, i.e., L3-only entries
 	if !haveL4OnlyKey && !addL4OnlyKey {
-		ms.allows.ForEachKeyWithPortProto(allKey[key.TrafficDirection], func(k Key, v MapStateEntry) bool {
+		ms.allows.ForEachKeyWithPortProto(allKey[key.TrafficDirection()], func(k Key, v MapStateEntry) bool {
 			if k.Identity != 0 {
 				k2 := key
 				k2.Identity = k.Identity
@@ -1652,7 +1652,7 @@ func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 
 	// Find Wildcarded L4 denies, i.e., L3-only entries
 	if addL4OnlyKey {
-		ms.denies.ForEachKeyWithPortProto(allKey[key.TrafficDirection], func(k Key, v MapStateEntry) bool {
+		ms.denies.ForEachKeyWithPortProto(allKey[key.TrafficDirection()], func(k Key, v MapStateEntry) bool {
 			if k.Identity != 0 {
 				k2 := key
 				k2.Identity = k.Identity
@@ -1784,13 +1784,13 @@ func (ms *mapState) getIdentities(log *logrus.Logger, denied bool) (ingIdentitie
 			// not be added to these sets.
 			return true
 		}
-		switch trafficdirection.TrafficDirection(policyMapKey.TrafficDirection) {
+		switch trafficdirection.TrafficDirection(policyMapKey.TrafficDirection()) {
 		case trafficdirection.Ingress:
 			ingIdentities = append(ingIdentities, int64(policyMapKey.Identity))
 		case trafficdirection.Egress:
 			egIdentities = append(egIdentities, int64(policyMapKey.Identity))
 		default:
-			td := trafficdirection.TrafficDirection(policyMapKey.TrafficDirection)
+			td := trafficdirection.TrafficDirection(policyMapKey.TrafficDirection())
 			log.WithField(logfields.TrafficDirection, td).
 				Errorf("Unexpected traffic direction present in policy map state for endpoint")
 		}

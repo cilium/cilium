@@ -135,11 +135,11 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 	case monitorAPI.PolicyMatchL3Only:
 		// Check for L3 policy rules
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(
-			policy.NewL3OnlyKey(key.TrafficDirection, key.Identity))
+			policy.NewL3OnlyKey(key.TrafficDirection(), key.Identity))
 	case monitorAPI.PolicyMatchAll:
 		// Check for allow-all policy rules
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(
-			policy.NewL3OnlyKey(key.TrafficDirection, 0))
+			policy.NewL3OnlyKey(key.TrafficDirection(), 0))
 	}
 
 	return derivedFrom, rev, ok
