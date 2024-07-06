@@ -42,7 +42,7 @@ type Key struct {
 	Nexthdr uint8
 	// TrafficDirection indicates in which direction Identity is allowed
 	// communication (egress or ingress).
-	TrafficDirection uint8
+	trafficDirection uint8
 }
 
 // NewKey returns an ingress key for the given parameters
@@ -54,12 +54,16 @@ func NewKey(direction uint8, identity uint32, proto uint8, port uint16, prefixLe
 		prefixLen = 16
 	}
 	return Key{
-		TrafficDirection: direction,
+		trafficDirection: direction,
 		Identity:         identity,
 		Nexthdr:          proto,
 		DestPort:         port,
 		invertedPortMask: uint16(0xffff) >> prefixLen,
 	}
+}
+
+func (k Key) TrafficDirection() uint8 {
+	return k.trafficDirection
 }
 
 // PortMask returns the bitwise mask that should be applied
@@ -81,17 +85,17 @@ func (k Key) String() string {
 	return "Identity=" + strconv.FormatUint(uint64(k.Identity), 10) +
 		",DestPort=" + dPort +
 		",Nexthdr=" + strconv.FormatUint(uint64(k.Nexthdr), 10) +
-		",TrafficDirection=" + strconv.FormatUint(uint64(k.TrafficDirection), 10)
+		",TrafficDirection=" + strconv.FormatUint(uint64(k.TrafficDirection()), 10)
 }
 
 // IsIngress returns true if the key refers to an ingress policy key
 func (k Key) IsIngress() bool {
-	return k.TrafficDirection == trafficdirection.Ingress.Uint8()
+	return k.TrafficDirection() == trafficdirection.Ingress.Uint8()
 }
 
 // IsEgress returns true if the key refers to an egress policy key
 func (k Key) IsEgress() bool {
-	return k.TrafficDirection == trafficdirection.Egress.Uint8()
+	return k.TrafficDirection() == trafficdirection.Egress.Uint8()
 }
 
 // EndPort returns the end-port of the Key based on the Mask.
@@ -170,7 +174,7 @@ func (k Key) PrefixLength() uint {
 // saved as a simple map per TrafficDirection-Protocol-Port index
 // key.
 func (k Key) CommonPrefix(b Key) uint {
-	v := bits.LeadingZeros8(k.TrafficDirection ^ b.TrafficDirection)
+	v := bits.LeadingZeros8(k.TrafficDirection() ^ b.TrafficDirection())
 	if v != 8 {
 		return uint(v)
 	}
@@ -185,7 +189,7 @@ func (k Key) CommonPrefix(b Key) uint {
 // bitlpm.Key interface.
 func (k Key) BitValueAt(i uint) uint8 {
 	if i < 8 {
-		return min(k.TrafficDirection&(1<<(7-i)), 1)
+		return min(k.TrafficDirection()&(1<<(7-i)), 1)
 	}
 	if i < 16 {
 		return min(k.Nexthdr&(1<<(7-(i-8))), 1)

@@ -156,12 +156,8 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		//  - ports:
 		//    - port: 80
 		//      protocol: TCP // protocol is optional for this match.
-		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
-			Identity:         0,
-			DestPort:         key.DestPort,
-			Nexthdr:          key.Nexthdr,
-			TrafficDirection: key.TrafficDirection,
-		})
+		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(
+			policy.NewKey(key.TrafficDirection(), 0, key.Nexthdr, key.DestPort, 0))
 	case monitorAPI.PolicyMatchProtoOnly:
 		// Check for protocol-only policies.
 		//
@@ -173,7 +169,7 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		//  - ports:
 		//    - protocol: TCP
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(
-			policy.NewKey(key.TrafficDirection, 0, key.Nexthdr, 0, 0))
+			policy.NewKey(key.TrafficDirection(), 0, key.Nexthdr, 0, 0))
 	case monitorAPI.PolicyMatchL3Only:
 		// Check for L3 policy rules.
 		//
@@ -186,7 +182,7 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		//      matchLabels:
 		//        app: client
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(
-			policy.NewL3OnlyKey(key.TrafficDirection, key.Identity))
+			policy.NewL3OnlyKey(key.TrafficDirection(), key.Identity))
 	case monitorAPI.PolicyMatchAll:
 		// Check for allow-all policy rules.
 		//
@@ -197,7 +193,7 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		//  ingress:
 		//  - {}
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(
-			policy.NewL3OnlyKey(key.TrafficDirection, 0))
+			policy.NewL3OnlyKey(key.TrafficDirection(), 0))
 	}
 
 	return derivedFrom, rev, ok

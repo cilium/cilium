@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
 var (
@@ -763,12 +762,10 @@ func TestMapStateWithIngress(t *testing.T) {
 //
 // Returning true for either return value indicates all traffic is allowed.
 func (p *EndpointPolicy) allowsIdentity(identity identity.NumericIdentity) (ingress, egress bool) {
-	key := IngressL3OnlyKey(uint32(identity))
-
 	if !p.IngressPolicyEnabled {
 		ingress = true
 	} else {
-		key.TrafficDirection = trafficdirection.Ingress.Uint8()
+		key := IngressL3OnlyKey(uint32(identity))
 		if v, exists := p.policyMapState.Get(key); exists && !v.IsDeny {
 			ingress = true
 		}
@@ -777,7 +774,7 @@ func (p *EndpointPolicy) allowsIdentity(identity identity.NumericIdentity) (ingr
 	if !p.EgressPolicyEnabled {
 		egress = true
 	} else {
-		key.TrafficDirection = trafficdirection.Egress.Uint8()
+		key := EgressL3OnlyKey(uint32(identity))
 		if v, exists := p.policyMapState.Get(key); exists && !v.IsDeny {
 			egress = true
 		}
