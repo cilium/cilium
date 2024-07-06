@@ -281,6 +281,48 @@ func (m *HealthCheckEvent) validate(all bool) error {
 			}
 		}
 
+	case *HealthCheckEvent_SuccessfulHealthCheckEvent:
+		if v == nil {
+			err := HealthCheckEventValidationError{
+				field:  "Event",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofEventPresent = true
+
+		if all {
+			switch v := interface{}(m.GetSuccessfulHealthCheckEvent()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HealthCheckEventValidationError{
+						field:  "SuccessfulHealthCheckEvent",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HealthCheckEventValidationError{
+						field:  "SuccessfulHealthCheckEvent",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetSuccessfulHealthCheckEvent()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HealthCheckEventValidationError{
+					field:  "SuccessfulHealthCheckEvent",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	case *HealthCheckEvent_HealthCheckFailureEvent:
 		if v == nil {
 			err := HealthCheckEventValidationError{
@@ -715,6 +757,108 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = HealthCheckAddHealthyValidationError{}
+
+// Validate checks the field values on HealthCheckSuccessful with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *HealthCheckSuccessful) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HealthCheckSuccessful with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// HealthCheckSuccessfulMultiError, or nil if none found.
+func (m *HealthCheckSuccessful) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HealthCheckSuccessful) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if len(errors) > 0 {
+		return HealthCheckSuccessfulMultiError(errors)
+	}
+
+	return nil
+}
+
+// HealthCheckSuccessfulMultiError is an error wrapping multiple validation
+// errors returned by HealthCheckSuccessful.ValidateAll() if the designated
+// constraints aren't met.
+type HealthCheckSuccessfulMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HealthCheckSuccessfulMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HealthCheckSuccessfulMultiError) AllErrors() []error { return m }
+
+// HealthCheckSuccessfulValidationError is the validation error returned by
+// HealthCheckSuccessful.Validate if the designated constraints aren't met.
+type HealthCheckSuccessfulValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e HealthCheckSuccessfulValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e HealthCheckSuccessfulValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e HealthCheckSuccessfulValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e HealthCheckSuccessfulValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e HealthCheckSuccessfulValidationError) ErrorName() string {
+	return "HealthCheckSuccessfulValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e HealthCheckSuccessfulValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHealthCheckSuccessful.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = HealthCheckSuccessfulValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = HealthCheckSuccessfulValidationError{}
 
 // Validate checks the field values on HealthCheckFailure with the rules
 // defined in the proto definition for this message. If any rules are
