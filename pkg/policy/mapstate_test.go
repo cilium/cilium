@@ -174,11 +174,11 @@ func (e MapStateEntry) WithDependents(keys ...Key) MapStateEntry {
 }
 
 func TestPolicyKeyTrafficDirection(t *testing.T) {
-	k := Key{TrafficDirection: trafficdirection.Ingress.Uint8()}
+	k := IngressL3OnlyKey(0)
 	require.True(t, k.IsIngress())
 	require.Equal(t, false, k.IsEgress())
 
-	k = Key{TrafficDirection: trafficdirection.Egress.Uint8()}
+	k = EgressL3OnlyKey(0)
 	require.Equal(t, false, k.IsIngress())
 	require.True(t, k.IsEgress())
 }
@@ -3166,7 +3166,7 @@ func identityIsSupersetOf(primaryIdentity, compareIdentity uint32, identities Id
 }
 
 func (v *validator) isSupersetOf(a, d Key, identities Identities) {
-	if a.TrafficDirection != d.TrafficDirection {
+	if a.TrafficDirection() != d.TrafficDirection() {
 		panic("TrafficDirection mismatch")
 	}
 	if !identityIsSupersetOf(a.Identity, d.Identity, identities) {
@@ -3177,7 +3177,7 @@ func (v *validator) isSupersetOf(a, d Key, identities Identities) {
 }
 
 func (v *validator) isSupersetOrSame(a, d Key, identities Identities) {
-	if a.TrafficDirection != d.TrafficDirection {
+	if a.TrafficDirection() != d.TrafficDirection() {
 		panic("TrafficDirection mismatch")
 	}
 	if !(a.Identity == d.Identity ||
@@ -3189,7 +3189,7 @@ func (v *validator) isSupersetOrSame(a, d Key, identities Identities) {
 }
 
 func (v *validator) isAnyOrSame(a, d Key, identities Identities) {
-	if a.TrafficDirection != d.TrafficDirection {
+	if a.TrafficDirection() != d.TrafficDirection() {
 		panic("TrafficDirection mismatch")
 	}
 	if !(a.Identity == d.Identity || a.Identity == 0) {
@@ -3200,7 +3200,7 @@ func (v *validator) isAnyOrSame(a, d Key, identities Identities) {
 }
 
 func (v *validator) isBroader(a, d Key) {
-	if a.TrafficDirection != d.TrafficDirection {
+	if a.TrafficDirection() != d.TrafficDirection() {
 		panic("TrafficDirection mismatch")
 	}
 
@@ -3211,7 +3211,7 @@ func (v *validator) isBroader(a, d Key) {
 }
 
 func (v *validator) isBroaderOrEqual(a, d Key) {
-	if a.TrafficDirection != d.TrafficDirection {
+	if a.TrafficDirection() != d.TrafficDirection() {
 		panic("TrafficDirection mismatch")
 	}
 
