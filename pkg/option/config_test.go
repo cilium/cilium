@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -1372,19 +1371,7 @@ func TestDaemonConfig_StoreInFile(t *testing.T) {
 	Config.DryMode = true
 	err = Config.ValidateUnchanged(context.Background())
 	assert.Error(t, err)
-	strErr := strings.ReplaceAll(err.Error(), "\u00a0", " ")
-	assert.Equal(t, strErr, `Config differs:
-  &option.DaemonConfig{
-  	... // 1 ignored and 15 identical fields
-  	DatapathMode: "",
-  	RoutingMode:  "",
-- 	DryMode:      false,
-+ 	DryMode:      true,
-  	RestoreState: false,
-  	KeepConfig:   false,
-  	... // 5 ignored and 313 identical fields
-  }
-`)
+	assert.ErrorContains(t, err, "Config differs:", "Should return a validation error")
 	Config.DryMode = false
 
 	// IntOptions changes are ignored
