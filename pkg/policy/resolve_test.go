@@ -518,8 +518,8 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	require.NoError(t, err)
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
 
-	rule1MapStateEntry := NewMapStateEntry(td.wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, 0, "", 0, false, DefaultAuthType, AuthTypeDisabled)
-	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
+	rule1MapStateEntry := NewMapStateEntry(td.wildcardCachedSelector, 0, labels.LabelArrayList{ruleLabel}, 0, "", 0, false, DefaultAuthType, AuthTypeDisabled)
+	allowEgressMapStateEntry := NewMapStateEntry(nil, 0, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -673,8 +673,8 @@ func TestMapStateWithIngress(t *testing.T) {
 	cachedSelectorTest := td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.NotNil(t, cachedSelectorTest)
 
-	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, 0, "", 0, false, DefaultAuthType, AuthTypeDisabled)
-	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
+	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, 0, labels.LabelArrayList{ruleLabel}, 0, "", 0, false, DefaultAuthType, AuthTypeDisabled)
+	allowEgressMapStateEntry := NewMapStateEntry(nil, 0, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
