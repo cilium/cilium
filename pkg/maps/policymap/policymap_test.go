@@ -263,8 +263,7 @@ func TestPolicyMapWildcarding(t *testing.T) {
 		}
 
 		// Get key
-		key := newKey(uint32(tt.args.id), uint16(tt.args.dport), SinglePortMask, u8proto.U8proto(tt.args.proto),
-			trafficdirection.TrafficDirection(tt.args.trafficDirection))
+		key := newKey(trafficdirection.TrafficDirection(tt.args.trafficDirection), uint32(tt.args.id), u8proto.U8proto(tt.args.proto), uint16(tt.args.dport), SinglePortPrefixLen)
 
 		// Compure entry & validate key and entry
 		var entry PolicyEntry
