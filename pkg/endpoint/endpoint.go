@@ -54,7 +54,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -779,11 +778,7 @@ func (e *Endpoint) Allows(id identity.NumericIdentity) bool {
 	e.unconditionalRLock()
 	defer e.runlock()
 
-	keyToLookup := policy.Key{
-		Identity:         uint32(id),
-		InvertedPortMask: 0xffff, // this is a wildcard
-		TrafficDirection: trafficdirection.Ingress.Uint8(),
-	}
+	keyToLookup := policy.IngressL3OnlyKey(uint32(id))
 
 	v, ok := e.desiredPolicy.GetPolicyMap().Get(keyToLookup)
 	return ok && !v.IsDeny

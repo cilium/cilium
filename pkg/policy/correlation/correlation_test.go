@@ -19,17 +19,16 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 func TestCorrelatePolicy(t *testing.T) {
 	localIP := "1.2.3.4"
-	localIdentity := uint64(1234)
-	localID := uint64(12)
+	localIdentity := uint32(1234)
+	localID := uint32(12)
 	remoteIP := "5.6.7.8"
-	remoteIdentity := uint64(5678)
-	remoteID := uint64(56)
+	remoteIdentity := uint32(5678)
+	remoteID := uint32(56)
 	dstPort := uint32(443)
 
 	flow := &flowpb.Flow{
@@ -50,25 +49,20 @@ func TestCorrelatePolicy(t *testing.T) {
 			},
 		},
 		Source: &flowpb.Endpoint{
-			ID:       uint32(localID),
-			Identity: uint32(localIdentity),
+			ID:       localID,
+			Identity: localIdentity,
 		},
 		Destination: &flowpb.Endpoint{
-			ID:       uint32(remoteID),
-			Identity: uint32(remoteIdentity),
+			ID:       remoteID,
+			Identity: remoteIdentity,
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
 
 	policyLabel := utils.GetPolicyLabels("foo-namespace", "web-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
-	policyKey := policy.Key{
-		Identity:         uint32(remoteIdentity),
-		DestPort:         uint16(dstPort),
-		Nexthdr:          uint8(u8proto.TCP),
-		TrafficDirection: trafficdirection.Egress.Uint8(),
-	}
+	policyKey := policy.EgressKey(remoteIdentity, uint8(u8proto.TCP), uint16(dstPort), 0)
 	ep := &testutils.FakeEndpointInfo{
-		ID:           localID,
+		ID:           uint64(localID),
 		Identity:     identity.NumericIdentity(localIdentity),
 		IPv4:         net.ParseIP(localIP),
 		PodName:      "xwing",
@@ -133,12 +127,12 @@ func TestCorrelatePolicy(t *testing.T) {
 			},
 		},
 		Source: &flowpb.Endpoint{
-			ID:       uint32(localID),
-			Identity: uint32(localIdentity),
+			ID:       localID,
+			Identity: localIdentity,
 		},
 		Destination: &flowpb.Endpoint{
-			ID:       uint32(remoteID),
-			Identity: uint32(remoteIdentity),
+			ID:       remoteID,
+			Identity: remoteIdentity,
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
 	}
@@ -170,25 +164,19 @@ func TestCorrelatePolicy(t *testing.T) {
 			},
 		},
 		Source: &flowpb.Endpoint{
-			ID:       uint32(localID),
-			Identity: uint32(localIdentity),
+			ID:       localID,
+			Identity: localIdentity,
 		},
 		Destination: &flowpb.Endpoint{
-			ID:       uint32(remoteID),
-			Identity: uint32(remoteIdentity),
+			ID:       remoteID,
+			Identity: remoteIdentity,
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3Only,
 	}
 
-	policyKey = policy.Key{
-		Identity:         uint32(localIdentity),
-		DestPort:         0,
-		InvertedPortMask: 0xffff, // this is a wildcard
-		Nexthdr:          0,
-		TrafficDirection: trafficdirection.Ingress.Uint8(),
-	}
+	policyKey = policy.IngressL3OnlyKey(localIdentity)
 	ep = &testutils.FakeEndpointInfo{
-		ID:           remoteID,
+		ID:           uint64(remoteID),
 		Identity:     identity.NumericIdentity(remoteIdentity),
 		IPv4:         net.ParseIP(remoteIP),
 		PodName:      "xwing",
@@ -237,12 +225,12 @@ func TestCorrelatePolicy(t *testing.T) {
 			},
 		},
 		Source: &flowpb.Endpoint{
-			ID:       uint32(localID),
-			Identity: uint32(localIdentity),
+			ID:       localID,
+			Identity: localIdentity,
 		},
 		Destination: &flowpb.Endpoint{
-			ID:       uint32(remoteID),
-			Identity: uint32(remoteIdentity),
+			ID:       remoteID,
+			Identity: remoteIdentity,
 		},
 		PolicyMatchType: monitorAPI.PolicyMatchL3Only,
 	}
