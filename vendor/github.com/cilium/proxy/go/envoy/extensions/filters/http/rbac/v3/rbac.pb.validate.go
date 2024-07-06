@@ -85,6 +85,8 @@ func (m *RBAC) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for RulesStatPrefix
+
 	if all {
 		switch v := interface{}(m.GetMatcher()).(type) {
 		case interface{ ValidateAll() error }:
@@ -173,6 +175,8 @@ func (m *RBAC) validate(all bool) error {
 	}
 
 	// no validation rules for ShadowRulesStatPrefix
+
+	// no validation rules for TrackPerRuleStats
 
 	if len(errors) > 0 {
 		return RBACMultiError(errors)

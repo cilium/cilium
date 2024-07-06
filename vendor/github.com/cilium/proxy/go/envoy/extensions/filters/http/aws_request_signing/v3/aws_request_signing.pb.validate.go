@@ -68,16 +68,7 @@ func (m *AwsRequestSigning) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	if utf8.RuneCountInString(m.GetRegion()) < 1 {
-		err := AwsRequestSigningValidationError{
-			field:  "Region",
-			reason: "value length must be at least 1 runes",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
+	// no validation rules for Region
 
 	// no validation rules for HostRewrite
 
@@ -118,6 +109,35 @@ func (m *AwsRequestSigning) validate(all bool) error {
 	}
 
 	// no validation rules for SigningAlgorithm
+
+	if all {
+		switch v := interface{}(m.GetQueryString()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, AwsRequestSigningValidationError{
+					field:  "QueryString",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, AwsRequestSigningValidationError{
+					field:  "QueryString",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetQueryString()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AwsRequestSigningValidationError{
+				field:  "QueryString",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	if len(errors) > 0 {
 		return AwsRequestSigningMultiError(errors)
@@ -340,3 +360,137 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = AwsRequestSigningPerRouteValidationError{}
+
+// Validate checks the field values on AwsRequestSigning_QueryString with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *AwsRequestSigning_QueryString) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on AwsRequestSigning_QueryString with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// AwsRequestSigning_QueryStringMultiError, or nil if none found.
+func (m *AwsRequestSigning_QueryString) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *AwsRequestSigning_QueryString) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if d := m.GetExpirationTime(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = AwsRequestSigning_QueryStringValidationError{
+				field:  "ExpirationTime",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			lte := time.Duration(3600*time.Second + 0*time.Nanosecond)
+			gte := time.Duration(1*time.Second + 0*time.Nanosecond)
+
+			if dur < gte || dur > lte {
+				err := AwsRequestSigning_QueryStringValidationError{
+					field:  "ExpirationTime",
+					reason: "value must be inside range [1s, 1h0m0s]",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
+	}
+
+	if len(errors) > 0 {
+		return AwsRequestSigning_QueryStringMultiError(errors)
+	}
+
+	return nil
+}
+
+// AwsRequestSigning_QueryStringMultiError is an error wrapping multiple
+// validation errors returned by AwsRequestSigning_QueryString.ValidateAll()
+// if the designated constraints aren't met.
+type AwsRequestSigning_QueryStringMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m AwsRequestSigning_QueryStringMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m AwsRequestSigning_QueryStringMultiError) AllErrors() []error { return m }
+
+// AwsRequestSigning_QueryStringValidationError is the validation error
+// returned by AwsRequestSigning_QueryString.Validate if the designated
+// constraints aren't met.
+type AwsRequestSigning_QueryStringValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e AwsRequestSigning_QueryStringValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e AwsRequestSigning_QueryStringValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e AwsRequestSigning_QueryStringValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e AwsRequestSigning_QueryStringValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e AwsRequestSigning_QueryStringValidationError) ErrorName() string {
+	return "AwsRequestSigning_QueryStringValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e AwsRequestSigning_QueryStringValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sAwsRequestSigning_QueryString.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = AwsRequestSigning_QueryStringValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = AwsRequestSigning_QueryStringValidationError{}
