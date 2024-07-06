@@ -506,6 +506,14 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	return __lb6_rev_nat(ctx, l4_off, tuple, nat);
 }
 
+static __always_inline int
+lb6_rev_dsr(struct __ctx_buff *ctx, int l4_off,
+            struct lb6_reverse_nat *rev_dsr,
+            struct ipv6_ct_tuple *tuple)
+{
+	return __lb6_rev_nat(ctx, l4_off, tuple, rev_dsr);
+}
+
 static __always_inline void
 lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
 {
@@ -530,8 +538,10 @@ lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
  *   - Negative error code
  */
 static __always_inline int
-lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
-		  int *l4_off, struct ipv6_ct_tuple *tuple)
+lb6_extract_tuple_and_vip(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
+		  int *l4_off, struct ipv6_ct_tuple *tuple,
+          union v6addr *external_vip __maybe_unused,
+          bool *vip_found __maybe_unused)
 {
 	int ret;
 
@@ -554,6 +564,24 @@ lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
 	*l4_off = l3_off + ret;
 
 	switch (tuple->nexthdr) {
+#ifdef ENABLE_DSR_EXTERNAL
+#if __ctx_is == __ctx_skb
+    case IPPROTO_IPV6: {
+        struct ipv6hdr inner;
+
+        /* See lb4_extract_tuple_and_vip() with regards to L4LB. */
+        ctx_load_bytes(ctx, *l4_off, &inner, sizeof(inner));
+        tuple->nexthdr = inner.nexthdr;
+        ipv6_addr_copy(&tuple->saddr, (union v6addr *)&inner.saddr);
+        if (external_vip) {
+            ipv6_addr_copy(external_vip, (union v6addr *)&inner.daddr);
+            *vip_found = true;
+        }
+        *l4_off += sizeof(*ip6);
+        fallthrough;
+    };
+#endif
+#endif
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
 #ifdef ENABLE_SCTP
@@ -567,6 +595,14 @@ lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
 	default:
 		return DROP_UNKNOWN_L4;
 	}
+}
+
+static __always_inline int
+lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
+		  int *l4_off, struct ipv6_ct_tuple *tuple)
+{
+	return lb6_extract_tuple_and_vip(ctx, ip6, l3_off, l4_off, tuple,
+					 NULL, NULL);
 }
 
 static __always_inline
@@ -722,16 +758,19 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx, __u8 nexthdr,
 {
 	const union v6addr *new_dst = &backend->address;
 	struct csum_offset csum_off = {};
+	union v6addr old_dst;
 
 	csum_l4_offset_and_flags(nexthdr, &csum_off);
 
 	if (skip_l3_xlate)
 		goto l4_xlate;
 
-	if (ipv6_store_daddr(ctx, new_dst->addr, l3_off) < 0)
+	if (unlikely(ipv6_load_daddr(ctx, l3_off, &old_dst) < 0))
+		return DROP_READ_ERROR;
+	if (unlikely(ipv6_store_daddr(ctx, new_dst->addr, l3_off) < 0))
 		return DROP_WRITE_ERROR;
 	if (csum_off.offset) {
-		__be32 sum = csum_diff(key->address.addr, 16, new_dst->addr,
+		__be32 sum = csum_diff(old_dst.addr, 16, new_dst->addr,
 				       16, 0);
 
 		if (csum_l4_replace(ctx, l4_off, &csum_off, 0, sum,
@@ -1147,6 +1186,15 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 			     loopback, has_l4_header);
 }
 
+static __always_inline int
+lb4_rev_dsr(struct __ctx_buff *ctx, int l3_off, int l4_off,
+			struct lb4_reverse_nat *rev_dsr, bool loopback,
+			struct ipv4_ct_tuple *tuple, bool has_l4_header)
+{
+	return __lb4_rev_nat(ctx, l3_off, l4_off, tuple, rev_dsr,
+			     loopback, has_l4_header);
+}
+
 static __always_inline void
 lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
 {
@@ -1170,8 +1218,10 @@ lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
  *   - Negative error code
  */
 static __always_inline int
-lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4_off,
-		  struct ipv4_ct_tuple *tuple)
+lb4_extract_tuple_and_vip(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4_off,
+		  struct ipv4_ct_tuple *tuple,
+		  __be32 *external_vip __maybe_unused,
+		  bool *vip_found __maybe_unused)
 {
 	int ret;
 
@@ -1182,6 +1232,36 @@ lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4
 	*l4_off = l3_off + ipv4_hdrlen(ip4);
 
 	switch (tuple->nexthdr) {
+#ifdef ENABLE_DSR_EXTERNAL
+#if __ctx_is == __ctx_skb
+	case IPPROTO_IPIP: {
+		struct iphdr inner;
+
+		/* The initial packets hits the Cilium L4LB as:
+		 * - [ client-ip   -> l4lb-vip ]
+		 *
+		 * The IPIP packet from the Cilium L4LB looks as follows:
+		 * - outer: [ l4lb-rss-ip -> k8s-svc-ip ]
+		 * - inner: [ client-ip   -> l4lb-vip ]
+		 *
+		 * We extract [ client-ip -> k8s-svc-ip ] and later need
+		 * to reply with l4lb-vip as source. The l4lb-vip and
+		 * k8s-svc-ip ports are the same / must match.
+		 */
+		ctx_load_bytes(ctx, *l4_off, &inner, sizeof(inner));
+		tuple->nexthdr = inner.protocol;
+		tuple->saddr = inner.saddr;
+		if (external_vip) {
+			*external_vip = inner.daddr;
+			*vip_found = true;
+		}
+		if (ipv4_hdrlen(&inner) != sizeof(*ip4))
+			return DROP_NAT_UNSUPP_PROTO;
+		*l4_off += sizeof(*ip4);
+		fallthrough;
+	};
+#endif
+#endif
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
 #ifdef ENABLE_SCTP
@@ -1198,6 +1278,14 @@ lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4
 	default:
 		return DROP_UNKNOWN_L4;
 	}
+}
+
+static __always_inline int
+lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4_off,
+		          struct ipv4_ct_tuple *tuple)
+{
+	return lb4_extract_tuple_and_vip(ctx, ip4, l3_off, l4_off, tuple,
+					 NULL, NULL);
 }
 
 static __always_inline
@@ -1354,6 +1442,7 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_saddr __maybe_unused,
 {
 	const __be32 *new_daddr = &backend->address;
 	struct csum_offset csum_off = {};
+	__be32 old_daddr;
 	__be32 sum;
 	int ret;
 
@@ -1363,12 +1452,16 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_saddr __maybe_unused,
 	if (skip_l3_xlate)
 		goto l4_xlate;
 
+	ret = ctx_load_bytes(ctx, l3_off + offsetof(struct iphdr, daddr),
+			     &old_daddr, 4);
+	if (unlikely(ret < 0))
+		return DROP_READ_ERROR;
 	ret = ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, daddr),
 			      new_daddr, 4, 0);
-	if (ret < 0)
+	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
 
-	sum = csum_diff(&key->address, 4, new_daddr, 4, 0);
+	sum = csum_diff(&old_daddr, 4, new_daddr, 4, 0);
 #ifndef DISABLE_LOOPBACK_LB
 	if (new_saddr && *new_saddr) {
 		cilium_dbg_lb(ctx, DBG_LB4_LOOPBACK_SNAT, *old_saddr, *new_saddr);

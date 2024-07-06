@@ -679,6 +679,11 @@ const (
 	// SRv6EncapModeName is the name of the option to specify the SRv6 encapsulation mode
 	SRv6EncapModeName = "srv6-encap-mode"
 
+	// EnableExternalDSR is the name of the option to terminate connections from
+	// an external L4LB in front of the K8s cluster, and to DSR replies back to
+	// the client from the K8s cluster.
+	EnableExternalDSR = "enable-external-dsr"
+
 	// EnableSCTPName is the name of the option to enable SCTP support
 	EnableSCTPName = "enable-sctp"
 
@@ -1686,6 +1691,11 @@ type DaemonConfig struct {
 
 	// WireguardPersistentKeepalive controls Wireguard PersistentKeepalive option.
 	WireguardPersistentKeepalive time.Duration
+
+	// EnableExternalDSR is the name of the option to terminate connections from
+	// an external L4LB in front of the K8s cluster, and to DSR replies back to
+	// the client from the K8s cluster.
+	EnableExternalDSR bool
 
 	// EnableL2Announcements enables L2 announcement of service IPs
 	EnableL2Announcements bool
@@ -3031,6 +3041,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.IPv6MCastDevice = vp.GetString(IPv6MCastDevice)
 	c.EnableIPSec = vp.GetBool(EnableIPSecName)
 	c.EnableWireguard = vp.GetBool(EnableWireguard)
+	c.EnableExternalDSR = vp.GetBool(EnableExternalDSR)
 	c.EnableL2Announcements = vp.GetBool(EnableL2Announcements)
 	c.L2AnnouncerLeaseDuration = vp.GetDuration(L2AnnouncerLeaseDuration)
 	c.L2AnnouncerRenewDeadline = vp.GetDuration(L2AnnouncerRenewDeadline)
