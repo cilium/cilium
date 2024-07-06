@@ -1128,8 +1128,7 @@ func (e *Endpoint) updatePolicyMapPressureMetric() {
 
 func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) bool {
 	// Convert from policy.Key to policymap.Key
-	policymapKey := policymap.NewKey(keyToDelete.Identity, keyToDelete.DestPort, keyToDelete.PortMask(),
-		keyToDelete.Nexthdr, keyToDelete.TrafficDirection())
+	policymapKey := policymap.NewKey(keyToDelete.TrafficDirection(), keyToDelete.Identity, keyToDelete.Nexthdr, keyToDelete.DestPort, keyToDelete.PortPrefixLen())
 
 	// Do not error out if the map entry was already deleted from the bpf map.
 	// Incremental updates depend on this being OK in cases where identity change
@@ -1162,8 +1161,7 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) boo
 
 func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry, incremental bool) bool {
 	// Convert from policy.Key to policymap.Key
-	policymapKey := policymap.NewKey(keyToAdd.Identity, keyToAdd.DestPort, keyToAdd.PortMask(),
-		keyToAdd.Nexthdr, keyToAdd.TrafficDirection())
+	policymapKey := policymap.NewKey(keyToAdd.TrafficDirection(), keyToAdd.Identity, keyToAdd.Nexthdr, keyToAdd.DestPort, keyToAdd.PortPrefixLen())
 
 	var err error
 	if entry.IsDeny {
