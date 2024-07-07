@@ -515,6 +515,70 @@ func (msm *mapStateMap) ForEachBroaderKeyWithNarrowerID(key Key, prefixes []neti
 	})
 }
 
+// ForEachBroaderOrEqualDatapathKey iterates over broader or equal keys in the trie.
+// Visits all keys that datapath would match IF the 'key' was not added to the policy map.
+// NOTE that CIDRs are not considered here as datapath does not support LPM matching in security IDs.
+func (msm *mapStateMap) ForEachBroaderOrEqualDatapathKey(key Key, f func(Key, MapStateEntry) bool) {
+	msm.trie.Ancestors(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.Key], idSet IDSet) bool {
+		// k is the key from trie with 0'ed ID
+		k := lpmKey.Value()
+
+		// ANY identities are ancestors of all identities, visit them first
+		if _, exists := idSet.ids[0]; exists {
+			k.Identity = 0
+			if !msm.forKey(k, f) {
+				return false
+			}
+		}
+
+		// Need to visit all keys with the same identity
+		// ANY identity was already visited above
+		if key.Identity != 0 {
+			_, exists := idSet.ids[identity.NumericIdentity(key.Identity)]
+			if exists {
+				k.Identity = key.Identity
+				if !msm.forKey(k, f) {
+					return false
+				}
+			}
+		}
+		return true
+	})
+}
+
+// ForEachNarrowerOrEqualDatapathKey iterates over narrower or equal keys in the trie.
+// Visits all keys that datapath matches that would match 'key' if those keys were not in the policy map.
+// NOTE that CIDRs are not considered here as datapath does not support LPM matching in security IDs.
+func (msm *mapStateMap) ForEachNarrowerOrEqualDatapathKey(key Key, f func(Key, MapStateEntry) bool) {
+	msm.trie.Descendants(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.Key], idSet IDSet) bool {
+		// k is the key from trie with 0'ed ID
+		k := lpmKey.Value()
+
+		// All identities are descendants of ANY identity.
+		if key.Identity == 0 {
+			for id := range idSet.ids {
+				k.Identity = uint32(id)
+				if !msm.forKey(k, f) {
+					return false
+				}
+			}
+		}
+
+		// Need to visit all keys with the same identity.
+		// ANY identity was already visited above.
+		if key.Identity != 0 {
+			_, exists := idSet.ids[identity.NumericIdentity(key.Identity)]
+			if exists {
+				k.Identity = key.Identity
+				if !msm.forKey(k, f) {
+					return false
+				}
+			}
+		}
+		return true
+	})
+}
+
 // ForEachKeyWithBroaderOrEqualPortProto iterates over broader or equal port/proto entries in the trie.
 func (msm *mapStateMap) ForEachKeyWithBroaderOrEqualPortProto(key Key, f func(Key, MapStateEntry) bool) {
 	msm.trie.Ancestors(key.PrefixLength(), key, func(prefix uint, lpmKey bitlpm.Key[Key], idSet IDSet) bool {
@@ -1120,14 +1184,14 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 	}
 
 	// Since bpf datapath denies by default, we only need to add deny entries to carve out more
-	// specific holes to less specific allow rules.
+	// specific holes to less specific allow rules. But since we don't if allow entries will be
+	// added later (e.g., incrementally due to FQDN rules), we must generally add deny entries
+	// even if there are no allow entries yet.
 
 	// Datapath matches security IDs exactly, or completely wildcards them (ID == 0). Datapath
-	// has no LPM/CIDR logic for security IDs. We use LPM/CIDR logic here to leave off subset
-	// allow if a supoerset deny entry exists, relying on the default-deny behavior on the
-	// datapath when the specific ID mapped from ipcache will not be matched. Note that even in
-	// this case, if a default allow rule exists, we must insert specific deny rules for each
-	// such subset allow rule to not hit the default allow rule instead!
+	// has no LPM/CIDR logic for security IDs. We use LPM/CIDR logic here to find out if allow
+	// entries are "covered" by deny entries and change them to deny entries if so. We can not
+	// rely on the default deny as a broad allow could be added later.
 
 	// We cannot update the map while we are
 	// iterating through it, so we record the
@@ -1143,18 +1207,21 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 	prefixes := getNets(identities, newKey.Identity)
 	if newEntry.IsDeny {
 		bailed := false
-		ms.denies.ForEachBroaderOrEqualKey(newKey, prefixes, func(k Key, v MapStateEntry) bool {
+		// If there is no broader or equal deny key, then do not add a more specific one
+		ms.denies.ForEachBroaderOrEqualDatapathKey(newKey, func(k Key, v MapStateEntry) bool {
 			if ms.validator != nil {
+				// A narrower of two deny keys is redundant in the datapath only if
+				// the broader ID is 0, or the IDs are the same. This is because the
+				// ID will be assigned from the ipcache and datapath has no notion
+				// of one ID being related to another.
+				if !(k.Identity == 0 || k.Identity == newKey.Identity) {
+					panic("unrelated ID")
+				}
 				ms.validator.isBroaderOrEqual(k, newKey)
 				ms.validator.isSupersetOrSame(k, newKey, identities)
 			}
-			// A narrower of two deny keys is redundant in the datapath only if the broader ID is 0,
-			// or the IDs are the same. This is because the ID will be assigned from the ipcache and
-			// datapath has no notion of one ID being related to another.
-			// Identical key needs to be added if owners are different to merge them.
-			// Note that a newKey is added as a dependant after insertion, so no dependant check is needed here
-			if (k.Identity == 0 || k.Identity == newKey.Identity) &&
-				(k != newKey || v.HasSameOwners(&newEntry)) {
+			// Identical key needs to be added if owners are different (to merge them).
+			if k != newKey || v.HasSameOwners(&newEntry) {
 				// If this iterated-deny-entry is a supserset (or equal) of the new-entry and
 				// the iterated-deny-entry has a broader (or equal) port-protocol and
 				// the ownership between the entries is the same then we
@@ -1201,17 +1268,30 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			// If the new-entry is a superset (or equal) of the iterated-allow-entry and
 			// the new-entry has a broader (or equal) port-protocol then we
 			// should delete the iterated-allow-entry
-			deletes = append(deletes, k)
+			if newKey.Identity == 0 || newKey.Identity == k.Identity {
+				deletes = append(deletes, k)
+			} else {
+				// when newKey.Identity is not ANY and is different from the subset
+				// key, we must keep the subset key and make it a deny instead.
+				l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.order, newEntry.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
+				updates = append(updates, MapChange{
+					Add:   true,
+					Key:   k,
+					Value: l3l4DenyEntry,
+				})
+			}
 			return true
 		})
-		ms.denies.ForEachNarrowerOrEqualKey(newKey, prefixes, func(k Key, v MapStateEntry) bool {
+		ms.denies.ForEachNarrowerOrEqualDatapathKey(newKey, func(k Key, v MapStateEntry) bool {
 			if ms.validator != nil {
+				if !(newKey.Identity == 0 || newKey.Identity == k.Identity) {
+					panic("unrelated ID")
+				}
 				ms.validator.isBroaderOrEqual(newKey, k)
 				ms.validator.isSupersetOrSame(newKey, k, identities)
 			}
 			// Identical key needs to be added if owners are different to merge them
-			if (newKey.Identity == 0 || newKey.Identity == k.Identity) &&
-				(newKey != k || newEntry.HasSameOwners(&v)) {
+			if newKey != k || newEntry.HasSameOwners(&v) {
 				// If this iterated-deny-entry is a subset (or equal) of the new-entry and
 				// the new-entry has a broader (or equal) port-protocol and
 				// the ownership between the entries is the same then we
@@ -1270,18 +1350,22 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			})
 			return true
 		})
+		changeToDeny := false
 		ms.denies.ForEachBroaderOrEqualKey(newKey, prefixes, func(k Key, v MapStateEntry) bool {
 			if ms.validator != nil {
 				ms.validator.isBroaderOrEqual(k, newKey)
 				ms.validator.isSupersetOrSame(k, newKey, identities)
 			}
-			if !v.HasDependent(newKey) {
+			// If the iterated-deny-entry is a superset (or equal) of the new-allow-entry we should bail it
+			if k.Identity == 0 || k.Identity == newKey.Identity {
 				// If the iterated-deny-entry is a superset (or equal) of the new-entry and has a
 				// broader (or equal) port-protocol than the new-entry then the new
 				// entry should not be inserted.
 				bailed = true
 				return false
 			}
+			// Change to deny unless bailed out due to ANY or same ID
+			changeToDeny = true
 			return true
 		})
 		for i, update := range updates {
@@ -1292,6 +1376,14 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			}
 		}
 		if !bailed {
+			if changeToDeny {
+				newEntry.IsDeny = true
+				newEntry.ProxyPort = 0
+				newEntry.Listener = ""
+				newEntry.priority = 0
+				newEntry.hasAuthType = DefaultAuthType
+				newEntry.AuthType = AuthTypeDisabled
+			}
 			ms.authPreferredInsert(newKey, newEntry, identities, features, changes)
 		}
 	}

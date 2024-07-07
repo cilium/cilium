@@ -2733,6 +2733,18 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 	}
 }
 
+func (e MapStateEntry) asDeny() MapStateEntry {
+	if !e.IsDeny {
+		e.IsDeny = true
+		e.ProxyPort = 0
+		e.Listener = ""
+		e.priority = 0
+		e.hasAuthType = DefaultAuthType
+		e.AuthType = AuthTypeDisabled
+	}
+	return e
+}
+
 func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 	identityCache := identity.IdentityMap{
 		identity.ReservedIdentityWorld: labels.LabelWorld.LabelArray(),
@@ -2751,7 +2763,8 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		insertB
 		insertAWithBProto
 		insertBWithAProto
-
+		insertAasDeny
+		insertBasDeny
 		insertBoth = insertA | insertB
 	)
 	// these tests are based on the sheet https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw#gid=2109052536
@@ -2766,23 +2779,23 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		outcome              action
 	}{
 		// deny-allow insertions
-		{"deny-allow: a superset a|b L3-only", reservedWorldID, worldSubnetID, true, false, 0, 0, 0, 0, insertA},
+		{"deny-allow: a superset a|b L3-only", reservedWorldID, worldSubnetID, true, false, 0, 0, 0, 0, insertA | insertBasDeny},
 		{"deny-allow: b superset a|b L3-only", worldIPID, worldSubnetID, true, false, 0, 0, 0, 0, insertBoth},
-		{"deny-allow: a superset a L3-only, b L4", reservedWorldID, worldSubnetID, true, false, 0, 0, 0, 6, insertA},
+		{"deny-allow: a superset a L3-only, b L4", reservedWorldID, worldSubnetID, true, false, 0, 0, 0, 6, insertA | insertBasDeny},
 		{"deny-allow: b superset a L3-only, b L4", worldIPID, worldSubnetID, true, false, 0, 0, 0, 6, insertBoth | insertAWithBProto},
-		{"deny-allow: a superset a L3-only, b L3L4", reservedWorldID, worldSubnetID, true, false, 0, 0, 80, 6, insertA},
+		{"deny-allow: a superset a L3-only, b L3L4", reservedWorldID, worldSubnetID, true, false, 0, 0, 80, 6, insertA | insertBasDeny},
 		{"deny-allow: b superset a L3-only, b L3L4", worldIPID, worldSubnetID, true, false, 0, 0, 80, 6, insertBoth | insertAWithBProto},
 		{"deny-allow: a superset a L4, b L3-only", reservedWorldID, worldSubnetID, true, false, 0, 6, 0, 0, insertBoth},
 		{"deny-allow: b superset a L4, b L3-only", worldIPID, worldSubnetID, true, false, 0, 6, 0, 0, insertBoth},
-		{"deny-allow: a superset a L4, b L4", reservedWorldID, worldSubnetID, true, false, 0, 6, 0, 6, insertA},
+		{"deny-allow: a superset a L4, b L4", reservedWorldID, worldSubnetID, true, false, 0, 6, 0, 6, insertA | insertBasDeny},
 		{"deny-allow: b superset a L4, b L4", worldIPID, worldSubnetID, true, false, 0, 6, 0, 6, insertBoth},
-		{"deny-allow: a superset a L4, b L3L4", reservedWorldID, worldSubnetID, true, false, 0, 6, 80, 6, insertA},
+		{"deny-allow: a superset a L4, b L3L4", reservedWorldID, worldSubnetID, true, false, 0, 6, 80, 6, insertA | insertBasDeny},
 		{"deny-allow: b superset a L4, b L3L4", worldIPID, worldSubnetID, true, false, 0, 6, 80, 6, insertBoth | insertAWithBProto},
 		{"deny-allow: a superset a L3L4, b L3-only", reservedWorldID, worldSubnetID, true, false, 80, 6, 0, 0, insertBoth},
 		{"deny-allow: b superset a L3L4, b L3-only", worldIPID, worldSubnetID, true, false, 80, 6, 0, 0, insertBoth},
 		{"deny-allow: a superset a L3L4, b L4", reservedWorldID, worldSubnetID, true, false, 80, 6, 0, 6, insertBoth},
 		{"deny-allow: b superset a L3L4, b L4", worldIPID, worldSubnetID, true, false, 80, 6, 0, 6, insertBoth},
-		{"deny-allow: a superset a L3L4, b L3L4", reservedWorldID, worldSubnetID, true, false, 80, 6, 80, 6, insertA},
+		{"deny-allow: a superset a L3L4, b L3L4", reservedWorldID, worldSubnetID, true, false, 80, 6, 80, 6, insertA | insertBasDeny},
 		{"deny-allow: b superset a L3L4, b L3L4", worldIPID, worldSubnetID, true, false, 80, 6, 80, 6, insertBoth},
 
 		// deny-deny insertions: Note: There is no dedundancy between different non-zero security IDs on the
@@ -2811,11 +2824,15 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		// allow-allow insertions do not need tests as their affect on one another does not matter.
 	}
 	for _, tt := range tests {
+		anyIngressKey := IngressL3OnlyKey(0)
+		allowEntry := MapStateEntry{}
 		aKey := IngressKey(tt.aIdentity, tt.aProto, tt.aPort, 0)
 		aEntry := MapStateEntry{IsDeny: tt.aIsDeny}
 		bKey := IngressKey(tt.bIdentity, tt.bProto, tt.bPort, 0)
 		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}
 		expectedKeys := newMapState()
+		// Always expect to see the any ingress allow key
+		expectedKeys.allows.upsert(anyIngressKey, allowEntry, selectorCache)
 		if tt.outcome&insertA > 0 {
 			if tt.aIsDeny {
 				expectedKeys.denies.upsert(aKey, aEntry, selectorCache)
@@ -2823,12 +2840,18 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 				expectedKeys.allows.upsert(aKey, aEntry, selectorCache)
 			}
 		}
+		if tt.outcome&insertAasDeny > 0 {
+			expectedKeys.denies.upsert(aKey, aEntry.asDeny(), selectorCache)
+		}
 		if tt.outcome&insertB > 0 {
 			if tt.bIsDeny {
 				expectedKeys.denies.upsert(bKey, bEntry, selectorCache)
 			} else {
 				expectedKeys.allows.upsert(bKey, bEntry, selectorCache)
 			}
+		}
+		if tt.outcome&insertBasDeny > 0 {
+			expectedKeys.denies.upsert(bKey, bEntry.asDeny(), selectorCache)
 		}
 		if tt.outcome&insertAWithBProto > 0 {
 			aKeyWithBProto := IngressKey(tt.aIdentity, tt.bProto, tt.bPort, 0)
@@ -2857,6 +2880,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			}
 		}
 		outcomeKeys := newMapState()
+		outcomeKeys.denyPreferredInsert(anyIngressKey, allowEntry, selectorCache, allFeatures)
 		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
 		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
 		outcomeKeys.validatePortProto(t)
@@ -2866,11 +2890,17 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 	// This should result in both entries being inserted with
 	// no changes, as they do not affect one another anymore.
 	for _, tt := range tests {
+		anyIngressKey := IngressL3OnlyKey(0)
+		anyEgressKey := EgressL3OnlyKey(0)
+		allowEntry := MapStateEntry{}
 		aKey := IngressKey(tt.aIdentity, tt.aProto, tt.aPort, 0)
 		aEntry := MapStateEntry{IsDeny: tt.aIsDeny}
 		bKey := EgressKey(tt.bIdentity, tt.bProto, tt.bPort, 0)
 		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}
 		expectedKeys := newMapState()
+		// always expect to see the any allow keys
+		expectedKeys.allows.upsert(anyIngressKey, allowEntry, selectorCache)
+		expectedKeys.allows.upsert(anyEgressKey, allowEntry, selectorCache)
 		if tt.aIsDeny {
 			expectedKeys.denies.upsert(aKey, aEntry, selectorCache)
 		} else {
@@ -2882,6 +2912,8 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			expectedKeys.allows.upsert(bKey, bEntry, selectorCache)
 		}
 		outcomeKeys := newMapState()
+		outcomeKeys.denyPreferredInsert(anyIngressKey, allowEntry, selectorCache, allFeatures)
+		outcomeKeys.denyPreferredInsert(anyEgressKey, allowEntry, selectorCache, allFeatures)
 		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
 		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
 		outcomeKeys.validatePortProto(t)
