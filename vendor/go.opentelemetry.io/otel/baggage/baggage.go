@@ -302,7 +302,7 @@ func parseMember(member string) (Member, error) {
 	// Decode a percent-encoded value.
 	value, err := url.PathUnescape(val)
 	if err != nil {
-		return newInvalidMember(), fmt.Errorf("%w: %v", errInvalidValue, err)
+		return newInvalidMember(), fmt.Errorf("%w: %w", errInvalidValue, err)
 	}
 	return Member{key: key, value: value, properties: props, hasData: true}, nil
 }
@@ -735,7 +735,7 @@ func validateKey(s string) bool {
 }
 
 func validateKeyChar(c int32) bool {
-	return c >= 0 && c <= int32(utf8.RuneSelf) && safeKeyCharset[c]
+	return c >= 0 && c < int32(utf8.RuneSelf) && safeKeyCharset[c]
 }
 
 func validateValue(s string) bool {
@@ -850,7 +850,7 @@ var safeValueCharset = [utf8.RuneSelf]bool{
 }
 
 func validateValueChar(c int32) bool {
-	return c >= 0 && c <= int32(utf8.RuneSelf) && safeValueCharset[c]
+	return c >= 0 && c < int32(utf8.RuneSelf) && safeValueCharset[c]
 }
 
 // valueEscape escapes the string so it can be safely placed inside a baggage value,
