@@ -394,6 +394,24 @@
       ]
     },
     {
+      // Avoid updating patch version for statedb as it might contain breaking changes
+      "enabled": false,
+      "matchPackageNames": [
+        "github.com/cilium/statedb",
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "pin",
+        "pinDigest",
+        "digest",
+        "lockFileMaintenance",
+        "rollback",
+        "bump",
+        "replacement",
+      ],
+    },
+    {
       // It's returning 500s for git clones.
       "enabled": false,
       "matchDepNames": [
