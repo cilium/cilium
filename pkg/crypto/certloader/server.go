@@ -10,6 +10,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var alpnProtocolH2 = "h2"
+
 // ServerConfigBuilder creates tls.Config to be used as TLS server.
 type ServerConfigBuilder interface {
 	IsMutualTLS() bool
@@ -104,6 +106,7 @@ func (c *WatchedServerConfig) ServerConfig(base *tls.Config) *tls.Config {
 			keypair, caCertPool := c.KeypairAndCACertPool()
 			tlsConfig := base.Clone()
 			tlsConfig.Certificates = []tls.Certificate{*keypair}
+			tlsConfig.NextProtos = constructWithH2ProtoIfNeed(tlsConfig.NextProtos)
 			if c.IsMutualTLS() {
 				// We've been configured to serve mTLS, so setup the ClientCAs
 				// accordingly.
@@ -124,4 +127,16 @@ func (c *WatchedServerConfig) ServerConfig(base *tls.Config) *tls.Config {
 		// MinVersion must be set by the provided base TLS configuration.
 		MinVersion: tls.VersionTLS13,
 	}
+}
+
+// constructWithH2ProtoIfNeed constructs a new slice of protocols with h2
+func constructWithH2ProtoIfNeed(existingProtocols []string) []string {
+	for _, p := range existingProtocols {
+		if p == alpnProtocolH2 {
+			return existingProtocols
+		}
+	}
+	ret := make([]string, 0, len(existingProtocols)+1)
+	ret = append(ret, existingProtocols...)
+	return append(ret, alpnProtocolH2)
 }
