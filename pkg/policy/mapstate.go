@@ -1278,6 +1278,10 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		})
 		// Not adding the new L3/L4 deny entries yet so that we do not need to worry about
 		// them below.
+		for _, k := range deletes {
+			ms.deleteKeyWithChanges(k, nil, identities, changes)
+		}
+		deletes = nil
 		ms.denies.ForEachNarrowerOrEqualDatapathKey(newKey, func(k Key, v MapStateEntry) bool {
 			if ms.validator != nil {
 				if !(newKey.Identity == 0 || newKey.Identity == k.Identity) {
@@ -1295,6 +1299,9 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			}
 			return true
 		})
+		for _, k := range deletes {
+			ms.deleteKeyWithChanges(k, nil, identities, changes)
+		}
 		for _, update := range updates {
 			if update.Add {
 				ms.addKeyWithChanges(update.Key, update.Value, identities, changes)
@@ -1303,9 +1310,6 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				// identity is removed.
 				newEntry.AddDependent(update.Key)
 			}
-		}
-		for _, k := range deletes {
-			ms.deleteKeyWithChanges(k, nil, identities, changes)
 		}
 		ms.addKeyWithChanges(newKey, newEntry, identities, changes)
 	} else {
