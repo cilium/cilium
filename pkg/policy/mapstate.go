@@ -648,13 +648,10 @@ func (e *MapStateEntry) HasDependent(key Key) bool {
 // have the same owners as one another (which means that
 // one of the entries is redundant).
 func (e *MapStateEntry) HasSameOwners(bEntry *MapStateEntry) bool {
-	if e == nil && bEntry == nil {
-		return true
-	}
 	if len(e.owners) != len(bEntry.owners) {
 		return false
 	}
-	for _, owner := range e.owners {
+	for owner := range e.owners {
 		if _, ok := bEntry.owners[owner]; !ok {
 			return false
 		}
@@ -1122,6 +1119,16 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		return
 	}
 
+	// Since bpf datapath denies by default, we only need to add deny entries to carve out more
+	// specific holes to less specific allow rules.
+
+	// Datapath matches security IDs exactly, or completely wildcards them (ID == 0). Datapath
+	// has no LPM/CIDR logic for security IDs. We use LPM/CIDR logic here to leave off subset
+	// allow if a supoerset deny entry exists, relying on the default-deny behavior on the
+	// datapath when the specific ID mapped from ipcache will not be matched. Note that even in
+	// this case, if a default allow rule exists, we must insert specific deny rules for each
+	// such subset allow rule to not hit the default allow rule instead!
+
 	// We cannot update the map while we are
 	// iterating through it, so we record the
 	// changes to be made and then apply them.
@@ -1141,7 +1148,13 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				ms.validator.isBroaderOrEqual(k, newKey)
 				ms.validator.isSupersetOrSame(k, newKey, identities)
 			}
-			if !v.HasDependent(newKey) && v.HasSameOwners(&newEntry) {
+			// A narrower of two deny keys is redundant in the datapath only if the broader ID is 0,
+			// or the IDs are the same. This is because the ID will be assigned from the ipcache and
+			// datapath has no notion of one ID being related to another.
+			// Identical key needs to be added if owners are different to merge them.
+			// Note that a newKey is added as a dependant after insertion, so no dependant check is needed here
+			if (k.Identity == 0 || k.Identity == newKey.Identity) &&
+				(k != newKey || v.HasSameOwners(&newEntry)) {
 				// If this iterated-deny-entry is a supserset (or equal) of the new-entry and
 				// the iterated-deny-entry has a broader (or equal) port-protocol and
 				// the ownership between the entries is the same then we
@@ -1196,7 +1209,9 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				ms.validator.isBroaderOrEqual(newKey, k)
 				ms.validator.isSupersetOrSame(newKey, k, identities)
 			}
-			if !newEntry.HasDependent(k) && newEntry.HasSameOwners(&v) {
+			// Identical key needs to be added if owners are different to merge them
+			if (newKey.Identity == 0 || newKey.Identity == k.Identity) &&
+				(newKey != k || newEntry.HasSameOwners(&v)) {
 				// If this iterated-deny-entry is a subset (or equal) of the new-entry and
 				// the new-entry has a broader (or equal) port-protocol and
 				// the ownership between the entries is the same then we
