@@ -2542,6 +2542,7 @@ type HostTenancy string
 
 // Enum values for HostTenancy
 const (
+	HostTenancyDefault   HostTenancy = "default"
 	HostTenancyDedicated HostTenancy = "dedicated"
 	HostTenancyHost      HostTenancy = "host"
 )
@@ -2552,6 +2553,7 @@ const (
 // The ordering of this slice is not guaranteed to be stable across updates.
 func (HostTenancy) Values() []HostTenancy {
 	return []HostTenancy{
+		"default",
 		"dedicated",
 		"host",
 	}

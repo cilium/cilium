@@ -990,7 +990,31 @@ type ByoipCidr struct {
 	// [Local Zones]: https://docs.aws.amazon.com/local-zones/latest/ug/how-local-zones-work.html
 	NetworkBorderGroup *string
 
-	// The state of the address pool.
+	// The state of the address range.
+	//
+	//   - advertised : The address range is being advertised to the internet by Amazon
+	//   Web Services.
+	//
+	//   - deprovisioned : The address range is deprovisioned.
+	//
+	//   - failed-deprovision : The request to deprovision the address range was
+	//   unsuccessful. Ensure that all EIPs from the range have been deallocated and try
+	//   again.
+	//
+	//   - failed-provision : The request to provision the address range was
+	//   unsuccessful.
+	//
+	//   - pending-deprovision : You’ve submitted a request to deprovision an address
+	//   range and it's pending.
+	//
+	//   - pending-provision : You’ve submitted a request to provision an address range
+	//   and it's pending.
+	//
+	//   - provisioned : The address range is provisioned and can be advertised. The
+	//   range is not currently advertised.
+	//
+	//   - provisioned-not-publicly-advertisable : The address range is provisioned and
+	//   cannot be advertised.
 	State ByoipCidrState
 
 	// Upon success, contains the ID of the address pool. Otherwise, contains an error
@@ -7288,7 +7312,7 @@ type InstanceRequirements struct {
 	//
 	// The parameter accepts an integer, which Amazon EC2 interprets as a percentage.
 	//
-	// If you set DesiredCapacityType to vcpu or memory-mib , the price protection
+	// If you set TargetCapacityUnitType to vcpu or memory-mib , the price protection
 	// threshold is based on the per vCPU or per memory price instead of the per
 	// instance price.
 	//
@@ -7647,7 +7671,7 @@ type InstanceRequirementsRequest struct {
 	//
 	// The parameter accepts an integer, which Amazon EC2 interprets as a percentage.
 	//
-	// If you set DesiredCapacityType to vcpu or memory-mib , the price protection
+	// If you set TargetCapacityUnitType to vcpu or memory-mib , the price protection
 	// threshold is based on the per vCPU or per memory price instead of the per
 	// instance price.
 	//
