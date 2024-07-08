@@ -23,10 +23,12 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
+	"github.com/cilium/cilium/pkg/stream"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -178,12 +180,14 @@ type nodeAddressControllerParams struct {
 	Devices         statedb.Table[*Device]
 	NodeAddresses   statedb.RWTable[NodeAddress]
 	AddressScopeMax AddressScopeMax
+	LocalNode       *node.LocalNodeStore
 }
 
 type nodeAddressController struct {
 	nodeAddressControllerParams
 
-	tracker *statedb.DeleteTracker[*Device]
+	tracker          *statedb.DeleteTracker[*Device]
+	k8sIPv4, k8sIPv6 netip.Addr
 }
 
 // newNodeAddressController constructs the node address controller & registers its
@@ -218,6 +222,10 @@ func (n *nodeAddressController) register() {
 					return fmt.Errorf("DeleteTracker: %w", err)
 				}
 
+				if node, err := n.LocalNode.Get(ctx); err == nil {
+					n.updateK8sNodeIPs(node)
+				}
+
 				// Do an immediate update to populate the table before it is read from.
 				devices, _ := n.Devices.All(txn)
 				for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
@@ -233,9 +241,31 @@ func (n *nodeAddressController) register() {
 		})
 
 }
+func (n *nodeAddressController) updateK8sNodeIPs(node node.LocalNode) (updated bool) {
+	if ip := node.GetNodeIP(true); ip != nil {
+		if newIP, ok := netip.AddrFromSlice(ip); ok {
+			if newIP != n.k8sIPv6 {
+				n.k8sIPv6 = newIP
+				updated = true
+			}
+		}
+	}
+	if ip := node.GetNodeIP(false); ip != nil {
+		if newIP, ok := netip.AddrFromSlice(ip); ok {
+			if newIP != n.k8sIPv4 {
+				n.k8sIPv4 = newIP
+				updated = true
+			}
+		}
+	}
+	return
+}
 
 func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthReporter) error {
 	defer n.tracker.Close()
+
+	localNodeChanges := stream.ToChannel(ctx, n.LocalNode)
+	n.updateK8sNodeIPs(<-localNodeChanges)
 
 	limiter := rate.NewLimiter(nodeAddressControllerMinInterval, 1)
 	revision := statedb.Revision(0)
@@ -257,6 +287,21 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthRep
 		case <-ctx.Done():
 			return nil
 		case <-watch:
+		case localNode, ok := <-localNodeChanges:
+			if !ok {
+				localNodeChanges = nil
+				break
+			}
+			if n.updateK8sNodeIPs(localNode) {
+				// Recompute the node addresses as the k8s node IP has changed, which
+				// affects the prioritization.
+				txn := n.DB.WriteTxn(n.NodeAddresses)
+				devices, _ := n.Devices.All(txn)
+				for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
+					n.update(txn, n.getAddressesFromDevice(dev), nil, dev.Name)
+				}
+				txn.Commit()
+			}
 		}
 		if err := limiter.Wait(ctx); err != nil {
 			return err
@@ -318,10 +363,6 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddres
 
 	addrs := make([]NodeAddress, 0, len(dev.Addrs))
 
-	// ipv4Found and ipv6Found are set to true when the primary address is picked
-	// (used for the Primary flag)
-	ipv4Found, ipv6Found := false, false
-
 	// The indexes for the first public and private addresses for picking NodePort
 	// addresses.
 	ipv4PublicIndex, ipv4PrivateIndex := -1, -1
@@ -345,12 +386,13 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddres
 		index := len(addrs)
 
 		isPublic := ip.IsPublicAddr(addr.Addr.AsSlice())
-		primary := false
 		if addr.Addr.Is4() {
-			if !ipv4Found {
-				ipv4Found = true
-				primary = true
+			if addr.Addr.Unmap() == n.k8sIPv4.Unmap() {
+				// Address matches the K8s Node IP. Force this to be picked.
+				ipv4PublicIndex = index
+				ipv4PrivateIndex = index
 			}
+
 			if ipv4PublicIndex < 0 && isPublic {
 				ipv4PublicIndex = index
 			}
@@ -360,9 +402,10 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddres
 		}
 
 		if addr.Addr.Is6() {
-			if !ipv6Found {
-				ipv6Found = true
-				primary = true
+			if addr.Addr == n.k8sIPv6 {
+				// Address matches the K8s Node IP. Force this to be picked.
+				ipv6PublicIndex = index
+				ipv6PrivateIndex = index
 			}
 
 			if ipv6PublicIndex < 0 && isPublic {
@@ -383,7 +426,6 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddres
 		addrs = append(addrs,
 			NodeAddress{
 				Addr:       addr.Addr,
-				Primary:    primary,
 				NodePort:   nodePort,
 				DeviceName: dev.Name,
 			})
@@ -396,12 +438,23 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddres
 		} else if ipv4PublicIndex >= 0 {
 			addrs[ipv4PublicIndex].NodePort = dev.Selected
 		}
-
 		if ipv6PrivateIndex >= 0 {
 			addrs[ipv6PrivateIndex].NodePort = dev.Selected
 		} else if ipv6PublicIndex >= 0 {
 			addrs[ipv6PublicIndex].NodePort = dev.Selected
 		}
+	}
+
+	// Pick the primary address. Prefer public over private.
+	if ipv4PublicIndex >= 0 {
+		addrs[ipv4PublicIndex].Primary = true
+	} else if ipv4PrivateIndex >= 0 {
+		addrs[ipv4PrivateIndex].Primary = true
+	}
+	if ipv6PublicIndex >= 0 {
+		addrs[ipv6PublicIndex].Primary = true
+	} else if ipv6PrivateIndex >= 0 {
+		addrs[ipv6PrivateIndex].Primary = true
 	}
 
 	return addrs
