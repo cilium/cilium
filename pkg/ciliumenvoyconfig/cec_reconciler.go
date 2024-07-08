@@ -304,7 +304,7 @@ func (r *ciliumEnvoyConfigReconciler) syncHeadlessService(_ context.Context) err
 
 	for key, cfg := range r.configs {
 		if err := r.manager.syncCiliumEnvoyConfigService(cfg.meta.Name, cfg.meta.Namespace, cfg.spec); err != nil {
-			r.logger.WithField("key", key).WithError(err).Error("failed to sync headless service")
+			r.logger.WithField("key", key).WithError(err).Info("Failed to sync headless service, Hive will retry")
 			reconcileErr = errors.Join(reconcileErr, fmt.Errorf("failed to reconcile existing config (%s): %w", key, err))
 			continue
 		}
