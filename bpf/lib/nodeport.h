@@ -1345,9 +1345,11 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 				skip_l3_xlate, false, ext_err);
 
 #ifdef SERVICE_NO_BACKEND_RESPONSE
-		if (ret == DROP_NO_SERVICE)
+		if (ret == DROP_NO_SERVICE) {
+			edt_set_aggregate(ctx, 0);
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NO_SERVICE,
 						 ext_err);
+		}
 #endif
 
 		if (IS_ERR(ret))
@@ -2878,9 +2880,12 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 					has_l4_header, skip_l3_xlate, false, &cluster_id,
 					ext_err);
 #ifdef SERVICE_NO_BACKEND_RESPONSE
-			if (ret == DROP_NO_SERVICE)
+			if (ret == DROP_NO_SERVICE) {
+				/* Packet is TX'ed back out, avoid EDT false-positives: */
+				edt_set_aggregate(ctx, 0);
 				ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NO_SERVICE,
 							 ext_err);
+			}
 #endif
 		}
 		if (IS_ERR(ret))
