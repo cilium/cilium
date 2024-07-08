@@ -515,6 +515,7 @@ func NewPeerFromConfigStruct(pconf *Neighbor) *api.Peer {
 			RemoteCap:       remoteCap,
 			LocalCap:        localCap,
 			RouterId:        s.RemoteRouterId,
+			Flops:           s.Flops,
 		},
 		EbgpMultihop: &api.EbgpMultihop{
 			Enabled:     pconf.EbgpMultihop.Config.Enabled,
