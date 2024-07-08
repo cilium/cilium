@@ -632,7 +632,6 @@ IPAM
 ======================================== ================================================================= ========== ========================================================
 Name                                     Labels                                                            Default    Description
 ======================================== ================================================================= ========== ========================================================
-``ipam_ips``                             ``type``                                                          Enabled    Number of IPs allocated
 ``ipam_ip_allocation_ops``               ``subnet_id``                                                     Enabled    Number of IP allocation operations.
 ``ipam_ip_release_ops``                  ``subnet_id``                                                     Enabled    Number of IP release operations.
 ``ipam_interface_creation_ops``          ``subnet_id``                                                     Enabled    Number of interfaces creation operations.

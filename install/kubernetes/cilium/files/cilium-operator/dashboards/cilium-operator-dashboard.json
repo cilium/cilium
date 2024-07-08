@@ -347,7 +347,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "avg(cilium_operator_ipam_ips) by (type)",
+          "expr": "avg(cilium_operator_ipam_used_ips) by (type)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{type}}",
@@ -358,7 +358,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "IP Addresses",
+      "title": "Used IP Addresses",
       "tooltip": {
         "shared": true,
         "sort": 0,
