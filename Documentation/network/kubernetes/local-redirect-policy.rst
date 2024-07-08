@@ -53,10 +53,21 @@ Enable the feature by setting the ``localRedirectPolicy`` value to ``true``.
 
 .. parsed-literal::
 
-   helm install cilium |CHART_RELEASE| \\
+   helm upgrade cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --reuse-values \\
      --set localRedirectPolicy=true
 
-Verify that Cilium agent pod is running.
+
+Rollout the operator and agent pods to make the changes effective:
+
+.. code-block:: shell-session
+
+    $ kubectl rollout restart deploy cilium-operator -n kube-system
+    $ kubectl rollout restart ds cilium -n kube-system
+
+
+Verify that Cilium agent and operator pods are running.
 
 .. code-block:: shell-session
 
@@ -64,6 +75,9 @@ Verify that Cilium agent pod is running.
     NAME           READY   STATUS    RESTARTS   AGE
     cilium-5ngzd   1/1     Running   0          3m19s
 
+    $ kubectl -n kube-system get pods -l name=cilium-operator
+    NAME                               READY   STATUS    RESTARTS   AGE
+    cilium-operator-544b4d5cdd-qxvpv   1/1     Running   0          3m19s
 
 Validate that the Cilium Local Redirect Policy CRD has been registered.
 
