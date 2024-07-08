@@ -1107,6 +1107,9 @@ data:
   # default DNS proxy to transparent mode in non-chaining modes
   dnsproxy-enable-transparent-mode: {{ $defaultDNSProxyEnableTransparentMode | quote }}
   {{- end }}
+  {{- if .Values.dnsProxy.socketLingerTimeout }}
+  dnsproxy-socket-linger-timeout: {{ .Values.dnsProxy.socketLingerTimeout | quote }}
+  {{- end }}
   {{- if .Values.dnsProxy.dnsRejectResponseCode }}
   tofqdns-dns-reject-response-code: {{ .Values.dnsProxy.dnsRejectResponseCode | quote }}
   {{- end }}
