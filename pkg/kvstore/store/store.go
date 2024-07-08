@@ -198,10 +198,6 @@ func (kv *KVPair) Unmarshal(key string, data []byte) error {
 	return nil
 }
 
-func (kv *KVPair) DeepKeyCopy() LocalKey {
-	return NewKVPair(kv.Key, kv.Value)
-}
-
 // JoinSharedStore creates a new shared store based on the provided
 // configuration. An error is returned if the configuration is invalid. The
 // store is initialized with the contents of the kvstore. An error is returned
