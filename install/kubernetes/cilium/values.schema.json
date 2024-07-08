@@ -3830,6 +3830,17 @@
     "name": {
       "type": "string"
     },
+    "nat": {
+      "properties": {
+        "mapStatsEntries": {
+          "type": "integer"
+        },
+        "mapStatsInterval": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "nat46x64Gateway": {
       "properties": {
         "enabled": {
