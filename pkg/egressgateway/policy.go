@@ -147,6 +147,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 		gwc.ifaceName = gc.iface
 		gwc.egressIP, err = netdevice.GetIfaceFirstIPv4Address(gc.iface)
 		if err != nil {
+			gwc.egressIP = EgressIPNotFoundIPv4
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
 		}
 	case gc.egressIP.IsValid():
@@ -162,12 +163,14 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 		// interface with the IPv4 default route
 		iface, err := route.NodeDeviceWithDefaultRoute(true, false)
 		if err != nil {
+			gwc.egressIP = EgressIPNotFoundIPv4
 			return fmt.Errorf("failed to find interface with default route: %w", err)
 		}
 
 		gwc.ifaceName = iface.Attrs().Name
 		gwc.egressIP, err = netdevice.GetIfaceFirstIPv4Address(gwc.ifaceName)
 		if err != nil {
+			gwc.egressIP = EgressIPNotFoundIPv4
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
 		}
 	}
