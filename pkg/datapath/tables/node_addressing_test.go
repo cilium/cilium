@@ -66,6 +66,7 @@ func setupNodeAddressing(t *testing.T, addrs []tables.DeviceAddress) (nodeAddres
 
 		// LocalNodeStore as required by Router(), PrimaryExternal(), etc.
 		node.LocalNodeStoreCell,
+		cell.Provide(func() node.LocalNodeSynchronizer { return testLocalNodeSync{} }),
 
 		// option.DaemonConfig needed for AddressMaxScope. This flag will move into NodeAddressConfig
 		// in a follow-up PR.
