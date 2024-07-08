@@ -84,6 +84,7 @@
     "^make generate-k8s-api$",
     "^make manifests$"
   ],
+  "assignAutomerge": true,
   "packageRules": [
     {
       "matchPackageNames": [
