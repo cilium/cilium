@@ -21,26 +21,6 @@ const (
 	// EndpointGCIntervalDefault is the default time for the CEP GC
 	EndpointGCIntervalDefault = 5 * time.Minute
 
-	// CESMaxCEPsInCESDefault is the maximum number of cilium endpoints allowed in a CES
-	CESMaxCEPsInCESDefault = 100
-
-	// CESSlicingModeDefault is default method for grouping CEP in a CES.
-	CESSlicingModeDefault = "cesSliceModeIdentity"
-
-	// CESWriteQPSLimitDefault is the default rate limit for the CES work queue.
-	CESWriteQPSLimitDefault = 10
-
-	// CESWriteQPSLimitMax is the maximum rate limit for the CES work queue.
-	// CES work queue QPS limit cannot exceed this value, regardless of other config.
-	CESWriteQPSLimitMax = 50
-
-	// CESWriteQPSBurstDefault is the default burst rate for the CES work queue.
-	CESWriteQPSBurstDefault = 20
-
-	// CESWriteQPSBurstMax is the maximum burst rate for the CES work queue.
-	// CES work queue QPS burst cannot exceed this value, regardless of other config.
-	CESWriteQPSBurstMax = 100
-
 	// PprofAddressOperator is the default value for pprof in the operator
 	PprofAddressOperator = "localhost"
 
