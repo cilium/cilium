@@ -334,7 +334,7 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@318a068b7fb62548bd252eecc8123c704b5f0493 # main
+        uses: cilium/scale-tests-action/export-results@dbd0721db1b3c6ef71644a7df205842252fc7c11 # main
         with:
           test_name: ${{ env.test_name }}-${{ matrix.name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
