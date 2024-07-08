@@ -1132,7 +1132,7 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) boo
 	err := e.policyMap.DeleteKey(policymapKey)
 	var errno unix.Errno
 	errors.As(err, &errno)
-	if err != nil && errno != unix.ENOENT {
+	if err != nil && !errors.Is(errno, unix.ENOENT) {
 		e.getLogger().WithError(err).WithField(logfields.BPFMapKey, policymapKey).Error("Failed to delete PolicyMap key")
 		return false
 	}
