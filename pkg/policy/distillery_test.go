@@ -1206,10 +1206,10 @@ func Test_MergeRules(t *testing.T) {
 			// ignore it and test only for the MapState that we are expecting
 			// to be plumbed into the datapath.
 			mapstate.ForEach(func(k Key, v MapStateEntry) bool {
-				if v.DerivedFromRules == nil || len(v.DerivedFromRules) == 0 {
+				if v.derivedFromRules == nil || len(v.derivedFromRules) == 0 {
 					return true
 				}
-				v.DerivedFromRules = labels.LabelArrayList(nil).Sort()
+				v.derivedFromRules = labels.LabelArrayList(nil).Sort()
 				mapstate.insert(k, v, selectorCache)
 				return true
 			})
@@ -1383,19 +1383,16 @@ var (
 	mapKeyL3WorldIngress      = IngressL3OnlyKey(worldReservedID)
 	mapKeyL3WorldEgress       = EgressL3OnlyKey(worldReservedID)
 	mapEntryDeny              = MapStateEntry{
-		ProxyPort:        0,
-		DerivedFromRules: labels.LabelArrayList{nil},
-		IsDeny:           true,
+		ProxyPort: 0,
+		IsDeny:    true,
 	}
 	mapEntryAllow = MapStateEntry{
-		ProxyPort:        0,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		ProxyPort: 0,
 	}
 	worldLabelArrayList         = labels.LabelArrayList{labels.LabelWorld.LabelArray()}
 	mapEntryWorldDenyWithLabels = MapStateEntry{
-		ProxyPort:        0,
-		DerivedFromRules: worldLabelArrayList,
-		IsDeny:           true,
+		ProxyPort: 0,
+		IsDeny:    true,
 	}
 
 	worldIPIdentity = localIdentity(16324)
@@ -1567,9 +1564,8 @@ var (
 	mapKeyL4Port8080ProtoSCTPWorldIPIngress = IngressKey(worldIPIdentity.Uint32(), 132, 8080, 0)
 	mapKeyL4Port8080ProtoSCTPWorldIPEgress  = EgressKey(worldIPIdentity.Uint32(), 132, 8080, 0)
 	mapEntryL4WorldIPDependentsIngressDeny  = MapStateEntry{
-		ProxyPort:        0,
-		IsDeny:           true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		ProxyPort: 0,
+		IsDeny:    true,
 		dependents: Keys{
 			mapKeyL4Port8080ProtoTCPWorldIPIngress:  struct{}{},
 			mapKeyL4Port8080ProtoUDPWorldIPIngress:  struct{}{},
@@ -1577,9 +1573,8 @@ var (
 		},
 	}
 	mapEntryL4WorldIPDependentsEgressDeny = MapStateEntry{
-		ProxyPort:        0,
-		IsDeny:           true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		ProxyPort: 0,
+		IsDeny:    true,
 		dependents: Keys{
 			mapKeyL4Port8080ProtoTCPWorldIPEgress:  struct{}{},
 			mapKeyL4Port8080ProtoUDPWorldIPEgress:  struct{}{},
