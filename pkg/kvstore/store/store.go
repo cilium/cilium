@@ -185,16 +185,19 @@ type LocalKey interface {
 }
 
 // KVPair represents a basic implementation of the LocalKey interface
-type KVPair struct{ Key, Value string }
+type KVPair struct {
+	Key   string
+	Value []byte
+}
 
-func NewKVPair(key, value string) *KVPair { return &KVPair{Key: key, Value: value} }
+func NewKVPair(key, value string) *KVPair { return &KVPair{Key: key, Value: []byte(value)} }
 func KVPairCreator() Key                  { return &KVPair{} }
 
 func (kv *KVPair) GetKeyName() string       { return kv.Key }
-func (kv *KVPair) Marshal() ([]byte, error) { return []byte(kv.Value), nil }
+func (kv *KVPair) Marshal() ([]byte, error) { return kv.Value, nil }
 
 func (kv *KVPair) Unmarshal(key string, data []byte) error {
-	kv.Key, kv.Value = key, string(data)
+	kv.Key, kv.Value = key, data
 	return nil
 }
 
