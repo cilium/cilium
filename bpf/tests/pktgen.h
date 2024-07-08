@@ -18,6 +18,7 @@
 #include <linux/if_ether.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
+#include <linux/icmp.h>
 #include <linux/icmpv6.h>
 
 /* A collection of pre-defined Ethernet MAC addresses, so tests can reuse them
@@ -961,12 +962,15 @@ static __always_inline void pktgen__finish_tcp(const struct pktgen *builder, int
 	}
 
 	tcp_layer->doff = (__u16)hdr_size / 4;
+	tcp_layer->check = 0;
+	tcp_layer->check = csum_fold(csum_diff(NULL, 0, tcp_layer, sizeof(struct tcphdr), 0));
 }
 
 static __always_inline void pktgen__finish_udp(const struct pktgen *builder, int i)
 {
 	struct udphdr *udp_layer;
 	__u64 layer_off;
+	__u16 len;
 
 	layer_off = builder->layer_offsets[i];
 	/* Check that any value within the struct will not exceed a u16 which
@@ -979,6 +983,53 @@ static __always_inline void pktgen__finish_udp(const struct pktgen *builder, int
 	if ((void *)udp_layer + sizeof(struct udphdr) >
 		ctx_data_end(builder->ctx))
 		return;
+
+	udp_layer->check = 0;
+	len = (__be16)(builder->cur_off - builder->layer_offsets[i]);
+	udp_layer->len = __bpf_htons(len);
+	udp_layer->check = csum_fold(csum_diff(NULL, 0, udp_layer, sizeof(struct udphdr), 0));
+}
+
+static __always_inline void pktgen__finish_icmp(const struct pktgen *builder, int i)
+{
+	struct icmphdr *icmp_layer;
+	__u64 layer_off;
+
+	layer_off = builder->layer_offsets[i];
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (layer_off >= MAX_PACKET_OFF - sizeof(struct icmphdr))
+		return;
+
+	icmp_layer = ctx_data(builder->ctx) + layer_off;
+	if ((void *)icmp_layer + sizeof(struct icmphdr) >
+		ctx_data_end(builder->ctx))
+		return;
+
+	icmp_layer->checksum = 0;
+	icmp_layer->checksum = csum_fold(csum_diff(NULL, 0, icmp_layer, sizeof(struct icmphdr), 0));
+}
+
+static __always_inline void pktgen__finish_icmpv6(const struct pktgen *builder, int i)
+{
+	struct icmp6hdr *icmpv6_layer;
+	__u64 layer_off;
+
+	layer_off = builder->layer_offsets[i];
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (layer_off >= MAX_PACKET_OFF - sizeof(struct icmp6hdr))
+		return;
+
+	icmpv6_layer = ctx_data(builder->ctx) + layer_off;
+	if ((void *)icmpv6_layer + sizeof(struct icmp6hdr) >
+		ctx_data_end(builder->ctx))
+		return;
+
+	icmpv6_layer->icmp6_cksum = 0;
+	icmpv6_layer->icmp6_cksum = csum_fold(csum_diff(NULL, 0, icmpv6_layer, sizeof(struct icmp6hdr), 0));
 }
 
 static __always_inline void pktgen__finish_geneve(const struct pktgen *builder, int i)
@@ -1062,11 +1113,11 @@ void pktgen__finish(const struct pktgen *builder)
 			break;
 
 		case PKT_LAYER_ICMP:
-			/* TODO implement checksum calc? */
+			pktgen__finish_icmp(builder, i);
 			break;
 
 		case PKT_LAYER_ICMPV6:
-			/* TODO implement checksum calc? */
+			pktgen__finish_icmpv6(builder, i);
 			break;
 
 		case PKT_LAYER_SCTP:
