@@ -47,6 +47,9 @@ var (
 	// ExcludedCIDRIPv4 is a special IP value used as gatewayIP in the BPF policy map
 	// to indicate the entry is for an excluded CIDR and should skip egress gateway
 	ExcludedCIDRIPv4 = netip.MustParseAddr("0.0.0.1")
+	// EgressIPNotFoundIPv4 is a special IP value used as egressIP in the BPF policy map
+	// to indicate no egressIP was found for the given policy
+	EgressIPNotFoundIPv4 = netip.IPv4Unspecified()
 )
 
 // Cell provides a [Manager] for consumption with hive.
