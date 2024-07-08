@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/sirupsen/logrus"
@@ -305,6 +306,7 @@ func (c *consulClient) LockPath(ctx context.Context, path string) (KVLocker, err
 
 // watch starts watching for changes in a prefix
 func (c *consulClient) watch(ctx context.Context, w *Watcher) {
+	scope := GetScopeFromKey(strings.TrimRight(w.Prefix, "/"))
 	// Last known state of all KVPairs matching the prefix
 	localState := map[string]consulAPI.KVPair{}
 	nextIndex := uint64(0)
@@ -355,7 +357,7 @@ func (c *consulClient) watch(ctx context.Context, w *Watcher) {
 					Key:   newPair.Key,
 					Value: newPair.Value,
 				}
-				trackEventQueued(newPair.Key, EventTypeCreate, queueStart.End(true).Total())
+				trackEventQueued(scope, EventTypeCreate, queueStart.End(true).Total())
 			} else if oldPair.ModifyIndex != newPair.ModifyIndex {
 				queueStart := spanstat.Start()
 				w.Events <- KeyValueEvent{
@@ -363,7 +365,7 @@ func (c *consulClient) watch(ctx context.Context, w *Watcher) {
 					Key:   newPair.Key,
 					Value: newPair.Value,
 				}
-				trackEventQueued(newPair.Key, EventTypeModify, queueStart.End(true).Total())
+				trackEventQueued(scope, EventTypeModify, queueStart.End(true).Total())
 			}
 
 			// Everything left on localState will be assumed to
@@ -379,7 +381,7 @@ func (c *consulClient) watch(ctx context.Context, w *Watcher) {
 				Key:   deletedPair.Key,
 				Value: deletedPair.Value,
 			}
-			trackEventQueued(deletedPair.Key, EventTypeDelete, queueStart.End(true).Total())
+			trackEventQueued(scope, EventTypeDelete, queueStart.End(true).Total())
 			delete(localState, k)
 		}
 

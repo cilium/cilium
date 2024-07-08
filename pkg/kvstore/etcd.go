@@ -763,6 +763,7 @@ func (e *etcdClient) DeletePrefix(ctx context.Context, path string) (err error) 
 
 // watch starts watching for changes in a prefix
 func (e *etcdClient) watch(ctx context.Context, w *Watcher) {
+	scope := GetScopeFromKey(strings.TrimRight(w.Prefix, "/"))
 	localCache := watcherCache{}
 	listSignalSent := false
 
@@ -844,7 +845,7 @@ reList:
 				Value: key.Value,
 				Typ:   t,
 			}
-			trackEventQueued(string(key.Key), t, queueStart.End(true).Total())
+			trackEventQueued(scope, t, queueStart.End(true).Total())
 		}
 
 		nextRev := revision + 1
@@ -864,7 +865,7 @@ reList:
 
 			queueStart := spanstat.Start()
 			w.Events <- event
-			trackEventQueued(k, EventTypeDelete, queueStart.End(true).Total())
+			trackEventQueued(scope, EventTypeDelete, queueStart.End(true).Total())
 		})
 
 		// Only send the list signal once
@@ -954,7 +955,7 @@ reList:
 
 					queueStart := spanstat.Start()
 					w.Events <- event
-					trackEventQueued(string(ev.Kv.Key), event.Typ, queueStart.End(true).Total())
+					trackEventQueued(scope, event.Typ, queueStart.End(true).Total())
 				}
 			}
 		}
