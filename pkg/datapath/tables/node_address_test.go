@@ -541,7 +541,107 @@ func TestNodeAddressWhitelist(t *testing.T) {
 			assert.ElementsMatch(t, fallback, ipStrings(tt.wantFallback), "fallback addresses do not match")
 		})
 	}
+}
 
+// TestNodeAddressUpdate tests incremental updates to the node addresses.
+func TestNodeAddressUpdate(t *testing.T) {
+	db, devices, nodeAddrs := fixture(t, defaults.AddressScopeMax, func(*hive.Hive) {})
+
+	// Insert 10.0.0.1
+	txn := db.WriteTxn(devices)
+	_, watch := nodeAddrs.AllWatch(txn)
+	devices.Insert(txn, &Device{
+		Index: 1,
+		Name:  "test",
+		Flags: net.FlagUp,
+		Addrs: []DeviceAddress{
+			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: RT_SCOPE_UNIVERSE},
+		},
+		Selected: true,
+	})
+	txn.Commit()
+	<-watch // wait for propagation
+
+	addrs := statedb.Collect(nodeAddrs.All(db.ReadTxn()))
+	if assert.Len(t, addrs, 2) {
+		assert.Equal(t, addrs[0].Addr.String(), "10.0.0.1")
+		assert.Equal(t, addrs[0].DeviceName, "*")
+		assert.Equal(t, addrs[1].Addr.String(), "10.0.0.1")
+		assert.Equal(t, addrs[1].DeviceName, "test")
+	}
+
+	// Insert 10.0.0.2 and validate that both present.
+	txn = db.WriteTxn(devices)
+	_, watch = nodeAddrs.AllWatch(txn)
+
+	devices.Insert(txn, &Device{
+		Index: 1,
+		Name:  "test",
+		Flags: net.FlagUp,
+		Addrs: []DeviceAddress{
+			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("10.0.0.2"), Scope: RT_SCOPE_UNIVERSE},
+		},
+		Selected: true,
+	})
+	txn.Commit()
+	<-watch // wait for propagation
+
+	addrs = statedb.Collect(nodeAddrs.All(db.ReadTxn()))
+	if assert.Len(t, addrs, 3) {
+		assert.Equal(t, addrs[0].Addr.String(), "10.0.0.1")
+		assert.Equal(t, addrs[0].DeviceName, "*")
+		assert.Equal(t, addrs[1].Addr.String(), "10.0.0.1")
+		assert.Equal(t, addrs[1].DeviceName, "test")
+		assert.True(t, addrs[1].Primary)
+		assert.True(t, addrs[1].NodePort)
+		assert.Equal(t, addrs[2].Addr.String(), "10.0.0.2")
+		assert.Equal(t, addrs[2].DeviceName, "test")
+		assert.False(t, addrs[2].Primary)
+		assert.False(t, addrs[2].NodePort)
+	}
+
+	// Drop 10.0.0.1
+	txn = db.WriteTxn(devices)
+	_, watch = nodeAddrs.AllWatch(txn)
+
+	devices.Insert(txn, &Device{
+		Index: 1,
+		Name:  "test",
+		Flags: net.FlagUp,
+		Addrs: []DeviceAddress{
+			{Addr: netip.MustParseAddr("10.0.0.2"), Scope: RT_SCOPE_UNIVERSE},
+		},
+		Selected: true,
+	})
+	txn.Commit()
+	<-watch // wait for propagation
+
+	addrs = statedb.Collect(nodeAddrs.All(db.ReadTxn()))
+	if assert.Len(t, addrs, 2) {
+		assert.Equal(t, addrs[0].Addr.String(), "10.0.0.2")
+		assert.Equal(t, addrs[0].DeviceName, "*")
+		assert.Equal(t, addrs[1].Addr.String(), "10.0.0.2")
+		assert.Equal(t, addrs[1].DeviceName, "test")
+		assert.True(t, addrs[1].Primary)
+		assert.True(t, addrs[1].NodePort)
+	}
+
+	// Drop 10.0.0.2
+	txn = db.WriteTxn(devices)
+	_, watch = nodeAddrs.AllWatch(txn)
+
+	devices.Insert(txn, &Device{
+		Index:    1,
+		Name:     "test",
+		Flags:    net.FlagUp,
+		Addrs:    []DeviceAddress{},
+		Selected: true,
+	})
+	txn.Commit()
+	<-watch // wait for propagation
+
+	assert.Zero(t, nodeAddrs.NumObjects(db.ReadTxn()))
 }
 
 func fixture(t *testing.T, addressScopeMax int, beforeStart func(*hive.Hive)) (*statedb.DB, statedb.RWTable[*Device], statedb.Table[NodeAddress]) {
