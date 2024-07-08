@@ -221,7 +221,7 @@ func (n *nodeAddressController) register() {
 				// Do an immediate update to populate the table before it is read from.
 				devices, _ := n.Devices.All(txn)
 				for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
-					n.update(txn, nil, n.getAddressesFromDevice(dev), nil, dev.Name)
+					n.update(txn, n.getAddressesFromDevice(dev), nil, dev.Name)
 				}
 				txn.Commit()
 
@@ -242,15 +242,11 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthRep
 	for {
 		txn := n.DB.WriteTxn(n.NodeAddresses)
 		process := func(dev *Device, deleted bool, rev statedb.Revision) error {
-			// Note: prefix match! existing may contain node addresses from devices with names
-			// prefixed by dev. See https://github.com/cilium/cilium/issues/29324.
-			addrIter, _ := n.NodeAddresses.Get(txn, NodeAddressDeviceNameIndex.Query(dev.Name))
-			existing := statedb.CollectSet[NodeAddress](addrIter)
-			var new sets.Set[NodeAddress]
+			var new []NodeAddress
 			if !deleted {
 				new = n.getAddressesFromDevice(dev)
 			}
-			n.update(txn, existing, new, reporter, dev.Name)
+			n.update(txn, new, reporter, dev.Name)
 			return nil
 		}
 		var watch <-chan struct{}
@@ -269,30 +265,31 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.HealthRep
 }
 
 // updates the node addresses of a single device.
-func (n *nodeAddressController) update(txn statedb.WriteTxn, existing, new sets.Set[NodeAddress], reporter cell.HealthReporter, device string) {
+func (n *nodeAddressController) update(txn statedb.WriteTxn, new []NodeAddress, reporter cell.HealthReporter, device string) {
 	updated := false
-	prefixLen := len(device)
 
-	// Insert new addresses that did not exist.
-	for addr := range new {
-		if !existing.Has(addr) {
+	// Gather the set of currently existing addresses for this device.
+	current := sets.New[netip.Addr]()
+	iter, _ := n.NodeAddresses.Get(txn, NodeAddressDeviceNameIndex.Query(device))
+	for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
+		current.Insert(addr.Addr)
+	}
+
+	// Update the new set of addresses for this device. We try to avoid insertions when nothing has changed
+	// to avoid unnecessary wakeups to watchers of the table.
+	for _, addr := range new {
+		old, _, hadOld := n.NodeAddresses.First(txn, NodeAddressIndex.Query(addr.Addr))
+		if !hadOld || old != addr {
 			updated = true
 			n.NodeAddresses.Insert(txn, addr)
 		}
+		current.Delete(addr.Addr)
 	}
 
-	// Remove addresses that were not part of the new set.
-	for addr := range existing {
-		// Ensure full device name match. 'device' may be a prefix of DeviceName, and we don't want
-		// to delete node addresses of `cilium_host` because they are not on `cilium`.
-		if prefixLen != len(addr.DeviceName) {
-			continue
-		}
-
-		if !new.Has(addr) {
-			updated = true
-			n.NodeAddresses.Delete(txn, addr)
-		}
+	// Delete the addresses no longer associated with the device.
+	for addr := range current {
+		updated = true
+		n.NodeAddresses.Delete(txn, NodeAddress{DeviceName: device, Addr: addr})
 	}
 
 	if updated {
@@ -304,7 +301,7 @@ func (n *nodeAddressController) update(txn statedb.WriteTxn, existing, new sets.
 	}
 }
 
-func (n *nodeAddressController) getAddressesFromDevice(dev *Device) sets.Set[NodeAddress] {
+func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddress {
 	if dev.Flags&net.FlagUp == 0 {
 		return nil
 	}
@@ -407,13 +404,13 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) sets.Set[Nod
 		}
 	}
 
-	return sets.New(addrs...)
+	return addrs
 }
 
-// showAddresses formats a Set[NodeAddress] as "1.2.3.4 (eth0), fe80::1 (eth1)"
-func showAddresses(addrs sets.Set[NodeAddress]) string {
+// showAddresses formats a []NodeAddress as "1.2.3.4 (eth0), fe80::1 (eth1)"
+func showAddresses(addrs []NodeAddress) string {
 	ss := make([]string, 0, len(addrs))
-	for addr := range addrs {
+	for _, addr := range addrs {
 		ss = append(ss, addr.String())
 	}
 	sort.Strings(ss)
