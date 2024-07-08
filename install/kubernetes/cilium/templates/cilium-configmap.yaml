@@ -1315,6 +1315,9 @@ data:
   clustermesh-enable-endpoint-sync: {{ .Values.clustermesh.enableEndpointSliceSynchronization | quote }}
   clustermesh-enable-mcs-api: {{ .Values.clustermesh.enableMCSAPISupport | quote }}
 
+  nat-map-stats-entries: {{ .Values.nat.mapStatsEntries | quote }}
+  nat-map-stats-interval: {{ .Values.nat.mapStatsInterval | quote }}
+
 # Extra config allows adding arbitrary properties to the cilium config.
 # By putting it at the end of the ConfigMap, it's also possible to override existing properties.
 {{- if .Values.extraConfig }}

@@ -2468,6 +2468,14 @@
      - Agent container name.
      - string
      - ``"cilium"``
+   * - :spelling:ignore:`nat.mapStatsEntries`
+     - Number of the top-k SNAT map connections to track in Cilium statedb.
+     - int
+     - ``32``
+   * - :spelling:ignore:`nat.mapStatsInterval`
+     - Interval between how often SNAT map is counted for stats.
+     - string
+     - ``"30s"``
    * - :spelling:ignore:`nat46x64Gateway`
      - Configure standalone NAT46/NAT64 gateway
      - object
