@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/kr/pretty"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -258,8 +257,8 @@ func (a SortablePolicyRules) Less(i, j int) bool { return a[i].Rule < a[j].Rule 
 func TestJSONMarshal(t *testing.T) {
 	td := newTestData()
 	model := &models.L4Policy{}
-	require.EqualValues(t, "[]", pretty.Sprintf("%+ v", model.Egress))
-	require.EqualValues(t, "[]", pretty.Sprintf("%+ v", model.Ingress))
+	require.EqualValues(t, "[]", fmt.Sprintf("%+v", model.Egress))
+	require.EqualValues(t, "[]", fmt.Sprintf("%+v", model.Ingress))
 
 	policy := L4Policy{
 		Egress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
