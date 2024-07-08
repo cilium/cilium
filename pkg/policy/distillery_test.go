@@ -1209,10 +1209,10 @@ func Test_MergeRules(t *testing.T) {
 			// ignore it and test only for the MapState that we are expecting
 			// to be plumbed into the datapath.
 			mapstate.ForEach(func(k Key, v MapStateEntry) bool {
-				if len(v.DerivedFromRules) == 0 {
+				if len(v.derivedFromRules) == 0 {
 					return true
 				}
-				v.DerivedFromRules = labels.LabelArrayList(nil).Sort()
+				v.derivedFromRules = labels.LabelArrayList(nil).Sort()
 				mapstate.insert(k, v)
 				return true
 			})
@@ -1393,17 +1393,17 @@ var (
 	mapKeyL3WorldEgressIPv6   = EgressKey().WithIdentity(worldReservedIDIPv6)
 	mapEntryDeny              = MapStateEntry{
 		ProxyPort:        0,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		derivedFromRules: labels.LabelArrayList{nil},
 		IsDeny:           true,
 	}
 	mapEntryAllow = MapStateEntry{
 		ProxyPort:        0,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		derivedFromRules: labels.LabelArrayList{nil},
 	}
 	worldLabelArrayList         = labels.LabelArrayList{labels.LabelWorld.LabelArray()}
 	mapEntryWorldDenyWithLabels = MapStateEntry{
 		ProxyPort:        0,
-		DerivedFromRules: worldLabelArrayList,
+		derivedFromRules: worldLabelArrayList,
 		IsDeny:           true,
 	}
 
