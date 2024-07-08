@@ -145,6 +145,9 @@ spec:
                 - localEndpointSelector
                 - toPorts
                 type: object
+                x-kubernetes-validations:
+                - message: redirectBackend is immutable
+                  rule: self == oldSelf
               redirectFrontend:
                 description: RedirectFrontend specifies frontend configuration to
                   redirect traffic from. It can not be empty.
@@ -262,7 +265,11 @@ spec:
                     - serviceName
                     type: object
                 type: object
+                x-kubernetes-validations:
+                - message: redirectFrontend is immutable
+                  rule: self == oldSelf
               skipRedirectFromBackend:
+                default: false
                 description: "SkipRedirectFromBackend indicates whether traffic matching
                   RedirectFrontend from RedirectBackend should skip redirection, and
                   hence the traffic will be forwarded as-is. \n The default is false
@@ -275,6 +282,9 @@ spec:
                   Instead, the matched traffic from the backends will be forwarded
                   to the original destination \"169.254.169.254:80\"."
                 type: boolean
+                x-kubernetes-validations:
+                - message: skipRedirectFromBackend is immutable
+                  rule: self == oldSelf
             required:
             - redirectBackend
             - redirectFrontend
