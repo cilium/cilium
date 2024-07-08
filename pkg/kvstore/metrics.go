@@ -38,11 +38,11 @@ func increaseMetric(key, kind, action string, duration time.Duration, err error)
 		WithLabelValues(namespace, kind, action, outcome).Observe(duration.Seconds())
 }
 
-func trackEventQueued(key string, typ EventType, duration time.Duration) {
+func trackEventQueued(scope string, typ EventType, duration time.Duration) {
 	if !metrics.KVStoreEventsQueueDuration.IsEnabled() {
 		return
 	}
-	metrics.KVStoreEventsQueueDuration.WithLabelValues(GetScopeFromKey(key), typ.String()).Observe(duration.Seconds())
+	metrics.KVStoreEventsQueueDuration.WithLabelValues(scope, typ.String()).Observe(duration.Seconds())
 }
 
 func recordQuorumError(err string) {
