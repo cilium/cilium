@@ -1945,6 +1945,13 @@ enableMasqueradeRouteSource: false
 enableIPv4BIGTCP: false
 # -- Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
 enableIPv6BIGTCP: false
+
+nat:
+  # -- Number of the top-k SNAT map connections to track in Cilium statedb.
+  mapStatsEntries: 32
+  # -- Interval between how often SNAT map is counted for stats.
+  mapStatsInterval: 30s
+
 egressGateway:
   # -- Enables egress gateway to redirect and SNAT the traffic that leaves the
   # cluster.
