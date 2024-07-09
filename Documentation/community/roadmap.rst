@@ -32,6 +32,8 @@ Major Feature Status
 ++-------------------------------------------------+----------------------------------------------------------+
 || :ref:`bandwidth-manager`                        | Stable                                                   |
 ++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`local-redirect-policy`                    | Stable                                                   |
+++-------------------------------------------------+----------------------------------------------------------+
 | Cilium Mesh                                      | Stable (:ref:`Roadmap Details<rm-clustermesh>`)          |
 ++-------------------------------------------------+----------------------------------------------------------+
 || :ref:`Multi-Cluster (ClusterMesh)<clustermesh>` | Stable                                                   |
@@ -126,7 +128,6 @@ these are already in production use with a set of adopters. We expect the
 following features to graduate to stable:
 
 * :ref:`BGP<bgp>`
-* :ref:`Local Redirect Policy<local-redirect-policy>`
 * :ref:`CiliumEndpointSlice<CiliumEndpointSlice>`
 * :ref:`Multi-Pool IPAM<ipam_crd_multi_pool>`
 * :ref:`Node-to-node WireGuard encryption<node-node-wg>`
