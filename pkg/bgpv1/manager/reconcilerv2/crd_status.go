@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/lthibault/jitterbug"
 	"github.com/sirupsen/logrus"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -92,7 +93,14 @@ func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
 	in.Job.Add(job.OneShot("bgp-crd-status-update-job", func(ctx context.Context, health cell.Health) (err error) {
 		r.Logger.Debug("Update job running")
 
-		ticker := time.NewTicker(CRDStatusUpdateInterval)
+		// Ticker with jitter is used to avoid all nodes updating API server at the same time.
+		// BGP updates will simultaneously on all nodes ( on external or internal changes),
+		// which will result in status update.
+		// We want to stagger the status updates to avoid thundering herd problem.
+		ticker := jitterbug.New(
+			CRDStatusUpdateInterval,
+			&jitterbug.Norm{Stdev: time.Millisecond * 500},
+		)
 		defer ticker.Stop()
 
 		for {
