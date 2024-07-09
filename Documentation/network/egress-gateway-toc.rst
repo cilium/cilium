@@ -4,13 +4,14 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _external_network_root:
+.. _egress_gateway_root:
 
-External networking
--------------------
+Egress Gateway
+--------------
 
 .. toctree::
    :maxdepth: 2
    :glob:
 
-   external-workloads
+   egress-gateway
+   egress-gateway-troubleshooting

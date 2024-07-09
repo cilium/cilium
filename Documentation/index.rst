@@ -82,6 +82,7 @@ get started and experiment with Cilium.
    network/ebpf/index
    network/clustermesh/index
    network/external-toc
+   network/egress-gateway-toc
    network/servicemesh/index
    network/vtep
    network/l2-announcements
