@@ -7,9 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +26,7 @@ import (
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -93,7 +94,7 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 type gatewayAPIParams struct {
 	cell.In
 
-	Logger             logrus.FieldLogger
+	Logger             *slog.Logger
 	K8sClient          k8sClient.Clientset
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Scheme             *runtime.Scheme
@@ -118,9 +119,9 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return err
 	}
 
-	params.Logger.WithField("requiredGVK", requiredGVK).Info("Checking for required GatewayAPI resources")
+	params.Logger.Info("Checking for required GatewayAPI resources", "requiredGVK", requiredGVK)
 	if err := checkRequiredCRDs(context.Background(), params.K8sClient); err != nil {
-		params.Logger.WithError(err).Error("Required GatewayAPI resources are not found, please refer to docs for installation instructions")
+		params.Logger.Error("Required GatewayAPI resources are not found, please refer to docs for installation instructions", logfields.Error, err)
 		return nil
 	}
 
@@ -128,7 +129,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return err
 	}
 
-	if err := registerMCSAPITypesToScheme(params.K8sClient, params.Scheme); err != nil {
+	if err := registerMCSAPITypesToScheme(params.K8sClient, params.Scheme, params.Logger); err != nil {
 		return err
 	}
 
@@ -156,6 +157,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 	if err := registerReconcilers(
 		params.CtrlRuntimeManager,
 		gatewayAPITranslator,
+		params.Logger,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -186,7 +188,7 @@ func registerSecretSync(params gatewayAPIParams) secretsync.SecretSyncRegistrati
 
 func validateExternalTrafficPolicy(params gatewayAPIParams) error {
 	if params.GatewayApiConfig.GatewayAPIHostnetworkEnabled && params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy != "" {
-		log.Warn("Gateway API host networking is enabled, externalTrafficPolicy will be ignored.")
+		params.Logger.Warn("Gateway API host networking is enabled, externalTrafficPolicy will be ignored.")
 		return nil
 	} else if params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy == string(corev1.ServiceExternalTrafficPolicyCluster) ||
 		params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy == string(corev1.ServiceExternalTrafficPolicyLocal) {
@@ -230,17 +232,17 @@ func checkRequiredCRDs(ctx context.Context, clientset k8sClient.Clientset) error
 }
 
 // registerReconcilers registers the Gateway API reconcilers to the controller-runtime library manager.
-func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator) error {
+func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator, logger *slog.Logger) error {
 	reconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
-		newGatewayClassReconciler(mgr),
-		newGatewayReconciler(mgr, translator),
-		newReferenceGrantReconciler(mgr),
-		newHTTPRouteReconciler(mgr),
-		newGammaHttpRouteReconciler(mgr, translator),
-		newGRPCRouteReconciler(mgr),
-		newTLSRouteReconciler(mgr),
+		newGatewayClassReconciler(mgr, logger),
+		newGatewayReconciler(mgr, translator, logger),
+		newReferenceGrantReconciler(mgr, logger),
+		newHTTPRouteReconciler(mgr, logger),
+		newGammaHttpRouteReconciler(mgr, translator, logger),
+		newGRPCRouteReconciler(mgr, logger),
+		newTLSRouteReconciler(mgr, logger),
 	}
 
 	for _, r := range reconcilers {
@@ -266,10 +268,9 @@ func registerGatewayAPITypesToScheme(scheme *runtime.Scheme) error {
 	return nil
 }
 
-func registerMCSAPITypesToScheme(clientset k8sClient.Clientset, scheme *runtime.Scheme) error {
+func registerMCSAPITypesToScheme(clientset k8sClient.Clientset, scheme *runtime.Scheme, logger *slog.Logger) error {
 	serviceImportSupport := checkCRD(context.Background(), clientset, mcsapiv1alpha1.SchemeGroupVersion.WithKind("serviceimports")) == nil
-	log.WithField("enabled", serviceImportSupport).
-		Info("Multi-cluster Service API ServiceImport GatewayAPI integration")
+	logger.Info("Multi-cluster Service API ServiceImport GatewayAPI integration", "enabled", serviceImportSupport)
 	if serviceImportSupport {
 		return mcsapiv1alpha1.AddToScheme(scheme)
 	}

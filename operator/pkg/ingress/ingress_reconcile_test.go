@@ -5,11 +5,10 @@ package ingress
 
 import (
 	"context"
-	"io"
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -42,8 +41,7 @@ const (
 )
 
 func TestReconcile(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := hivetest.Logger(t)
 
 	t.Run("Reconcile of Cilium Ingress without explicit loadbalancing mode will create the resources for the default loadbalancing mode if they don't exist", func(t *testing.T) {
 		fakeClient := fake.NewClientBuilder().
@@ -1277,8 +1275,7 @@ func TestGetDedicatedListenerPorts(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			logger := logrus.New()
-			logger.SetOutput(io.Discard)
+			logger := hivetest.Logger(t)
 			ir := ingressReconciler{
 				logger:             logger,
 				hostNetworkEnabled: tC.hostNetworkEnabled,

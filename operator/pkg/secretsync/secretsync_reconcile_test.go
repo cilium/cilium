@@ -5,10 +5,9 @@ package secretsync_test
 
 import (
 	"context"
-	"io"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -196,8 +195,7 @@ var secretFixture = []client.Object{
 }
 
 func Test_SecretSync_Reconcile(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := hivetest.Logger(t)
 
 	c := fake.NewClientBuilder().
 		WithScheme(testScheme()).
@@ -356,8 +354,7 @@ var secretFixtureDefaultSecret = []client.Object{
 }
 
 func Test_SecretSync_Reconcile_WithDefaultSecret(t *testing.T) {
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
+	logger := hivetest.Logger(t)
 
 	c := fake.NewClientBuilder().
 		WithScheme(testScheme()).

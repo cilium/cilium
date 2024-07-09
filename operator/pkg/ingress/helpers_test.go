@@ -5,10 +5,9 @@ package ingress
 
 import (
 	"context"
-	"io"
 	"testing"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,8 +76,7 @@ func TestIsIngressClassMarkedAsDefault(t *testing.T) {
 }
 
 func TestIsCiliumManagedIngress(t *testing.T) {
-	fakeLogger := logrus.New()
-	fakeLogger.SetOutput(io.Discard)
+	fakeLogger := hivetest.Logger(t)
 
 	testCases := []struct {
 		desc    string

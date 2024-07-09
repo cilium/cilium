@@ -5,8 +5,8 @@ package routechecks
 
 import (
 	"context"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -37,7 +37,7 @@ type Input interface {
 
 	SetParentCondition(ref gatewayv1.ParentReference, condition metav1.Condition)
 	SetAllParentCondition(condition metav1.Condition)
-	Log() *logrus.Entry
+	Log() *slog.Logger
 }
 
 type (
