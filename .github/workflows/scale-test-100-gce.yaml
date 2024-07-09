@@ -109,6 +109,9 @@ jobs:
             --set pprof.enabled=true \
             --helm-set=prometheus.enabled=true \
             --helm-set=cluster.name=${{ env.cluster_name }} \
+            --helm-set=k8sServiceHost=api.internal.${{ steps.vars.outputs.cluster_name }} \
+            --helm-set=k8sServicePort=443 \
+            --helm-set=kubeProxyReplacement=true \
             --wait=false"
 
           # only add SHA to the image tags if it was set
@@ -193,6 +196,7 @@ jobs:
           node_count: 100
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+          kube_proxy_enabled: false
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
