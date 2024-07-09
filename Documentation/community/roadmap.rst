@@ -87,11 +87,6 @@ courses, testing and more. Check the :ref:`dev_guide` documentation to understan
 involved with code contributions, and the `Get Involved`_ guide for guidance on
 contributing blog posts, training and other resources. 
 
-CNCF Graduation
-~~~~~~~~~~~~~~~
-
-Cilium has applied for `CNCF Graduation`_, please add your support on the PR!
-
 .. _rm-cilium-service-mesh:
 
 Cilium Service Mesh 
