@@ -283,6 +283,17 @@
       ]
     },
     {
+      // Do not upgrade etcd as they have removed bash starting from v3.5.5
+      "matchDepNames": [
+        "quay.io/coreos/etcd"
+      ],
+      "allowedVersions": "<3.5.5",
+      "matchBaseBranches": [
+        "v1.14",
+        "v1.13"
+      ]
+    },
+    {
       "matchFiles": [
         "install/kubernetes/Makefile.values"
       ],
