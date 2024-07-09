@@ -66,6 +66,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/kevinburke/ssh_config v1.2.0
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
+	github.com/lthibault/jitterbug v2.0.0+incompatible
 	github.com/mackerelio/go-osstat v0.2.5
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/mdlayher/arp v0.0.0-20220221190821-c37aaafac7f9
