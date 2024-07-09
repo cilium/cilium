@@ -548,8 +548,6 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		return nil, err
 	}
 
-	errorChan := make(chan error)
-
 	ec := &etcdClient{
 		client:               c,
 		config:               config,
@@ -599,82 +597,98 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	ec.leaseManager = newEtcdLeaseManager(c, leaseTTL, etcdMaxKeysPerLease, ec.expiredLeaseObserver, ec.logger)
 	ec.lockLeaseManager = newEtcdLeaseManager(c, defaults.LockLeaseTTL, etcdMaxKeysPerLease, nil, ec.logger)
 
-	// create session in parallel as this is a blocking operation
-	go func() {
-		ls, err := ec.lockLeaseManager.GetSession(ctx, InitLockPath)
-		if err != nil {
-			errorChan <- err
-			close(errorChan)
-			return
-		}
-
-		ec.logger.Infof("Got lock lease ID %x", ls.Lease())
-		close(errorChan)
-	}()
-
-	handleSessionError := func(err error) {
-		ec.RWMutex.Lock()
-		ec.sessionErr = err
-		ec.RWMutex.Unlock()
-
-		ec.statusLock.Lock()
-		ec.latestStatusSnapshot = "Failed to establish initial connection"
-		ec.latestErrorStatus = err
-		ec.statusLock.Unlock()
-
-		errChan <- err
-		ec.statusCheckErrors <- err
-	}
-
-	// wait for session to be created also in parallel
-	go func() {
-		err := func() (err error) {
-			select {
-			case err = <-errorChan:
-				if err != nil {
-					return err
-				}
-			case <-time.After(initialConnectionTimeout):
-				return fmt.Errorf("timed out while waiting for etcd session. Ensure that etcd is running on %s", config.Endpoints)
-			}
-
-			ec.logger.Info("Initial etcd session established")
-
-			return nil
-		}()
-
-		if err != nil {
-			handleSessionError(err)
-			close(errChan)
-			close(ec.firstSession)
-			close(ec.statusCheckErrors)
-			return
-		}
-
-		close(errChan)
-		close(ec.firstSession)
-
-		go ec.statusChecker()
-
-		watcher := ec.ListAndWatch(ctx, HeartbeatPath, 0)
-		for event := range watcher.Events {
-			switch event.Typ {
-			case EventTypeDelete:
-				// A deletion event is not an heartbeat signal
-				continue
-			}
-
-			// It is tempting to compare against the heartbeat value stored in
-			// the key. However, this would require the time on all nodes to
-			// be synchronized. Instead, let's just assume current time.
-			ec.RWMutex.Lock()
-			ec.lastHeartbeat = time.Now()
-			ec.RWMutex.Unlock()
-			ec.logger.Debug("Received update notification of heartbeat")
-		}
-	}()
+	go ec.asyncConnectEtcdClient(errChan)
 
 	return ec, nil
+}
+
+func (e *etcdClient) asyncConnectEtcdClient(errChan chan<- error) {
+	var (
+		ctx      = e.client.Ctx()
+		listDone = make(chan struct{})
+	)
+
+	propagateError := func(err error) {
+		e.statusLock.Lock()
+		e.latestStatusSnapshot = "Failed to establish initial connection"
+		e.latestErrorStatus = err
+		e.statusLock.Unlock()
+
+		errChan <- err
+		close(errChan)
+
+		e.statusCheckErrors <- err
+		close(e.statusCheckErrors)
+	}
+
+	wctx, wcancel := context.WithTimeout(ctx, initialConnectionTimeout)
+
+	// Don't create a session when running with lock quorum check disabled
+	// (i.e., for clustermesh clients), to not introduce unnecessary overhead
+	// on the target etcd instance, considering that the session would never
+	// be used again. Instead, we'll just rely on the successful synchronization
+	// of the heartbeat watcher as a signal that we successfully connected.
+	if e.extraOptions == nil || !e.extraOptions.NoLockQuorumCheck {
+		_, err := e.lockLeaseManager.GetSession(wctx, InitLockPath)
+		if err != nil {
+			wcancel()
+			if errors.Is(err, context.DeadlineExceeded) {
+				err = fmt.Errorf("timed out while waiting for etcd connection. Ensure that etcd is running on %s", e.config.Endpoints)
+			}
+
+			e.RWMutex.Lock()
+			e.sessionErr = err
+			e.RWMutex.Unlock()
+
+			propagateError(err)
+			close(e.firstSession)
+			return
+		}
+	}
+
+	// This channel needs to be closed here to allow starting the heartbeat
+	// ListAndWatch operation below.
+	close(e.firstSession)
+
+	go func() {
+		// Report connection established to the caller and start the status
+		// checker only after successfully starting the heatbeat watcher, as
+		// additional sanity check. This also guarantees that there's already
+		// been an interaction with the target etcd instance at that point,
+		// and its corresponding cluster ID has been retrieved if using the
+		// "clusterLock" interceptors.
+		select {
+		case <-wctx.Done():
+			propagateError(fmt.Errorf("timed out while starting the heartbeat watcher. Ensure that etcd is running on %s", e.config.Endpoints))
+			return
+		case <-listDone:
+			e.logger.Info("Initial etcd connection established")
+			close(errChan)
+		}
+
+		wcancel()
+		e.statusChecker()
+	}()
+
+	watcher := e.ListAndWatch(ctx, HeartbeatPath, 0)
+	for event := range watcher.Events {
+		switch event.Typ {
+		case EventTypeDelete:
+			// A deletion event is not an heartbeat signal
+			continue
+
+		case EventTypeListDone:
+			close(listDone)
+		}
+
+		// It is tempting to compare against the heartbeat value stored in
+		// the key. However, this would require the time on all nodes to
+		// be synchronized. Instead, let's just assume current time.
+		e.RWMutex.Lock()
+		e.lastHeartbeat = time.Now()
+		e.RWMutex.Unlock()
+		e.logger.Debug("Received update notification of heartbeat")
+	}
 }
 
 // makeSessionName builds up a session/locksession controller name
