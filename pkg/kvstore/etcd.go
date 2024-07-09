@@ -407,44 +407,32 @@ func (e *etcdClient) StatusCheckErrors() <-chan error {
 	return e.statusCheckErrors
 }
 
-func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan error {
-	initLockSucceeded := make(chan error)
+func (e *etcdClient) maybeWaitForInitLock(ctx context.Context) error {
+	if e.extraOptions != nil && e.extraOptions.NoLockQuorumCheck {
+		return nil
+	}
 
-	go func() {
-		for {
-			select {
-			case <-e.client.Ctx().Done():
-				initLockSucceeded <- fmt.Errorf("client context ended: %w", e.client.Ctx().Err())
-				close(initLockSucceeded)
-				return
-			case <-ctx.Done():
-				initLockSucceeded <- fmt.Errorf("caller context ended: %w", ctx.Err())
-				close(initLockSucceeded)
-				return
-			default:
-			}
-
-			if e.extraOptions != nil && e.extraOptions.NoLockQuorumCheck {
-				close(initLockSucceeded)
-				return
-			}
-
-			// Generate a random number so that we can acquire a lock even
-			// if other agents are killed while locking this path.
-			randNumber := strconv.FormatUint(rand.Uint64(), 16)
-			locker, err := e.LockPath(ctx, InitLockPath+"/"+randNumber)
-			if err == nil {
-				locker.Unlock(context.Background())
-				close(initLockSucceeded)
-				e.logger.Debug("Distributed lock successful, etcd has quorum")
-				return
-			}
-
-			time.Sleep(100 * time.Millisecond)
+	for {
+		select {
+		case <-e.client.Ctx().Done():
+			return fmt.Errorf("client context ended: %w", e.client.Ctx().Err())
+		case <-ctx.Done():
+			return fmt.Errorf("caller context ended: %w", ctx.Err())
+		default:
 		}
-	}()
 
-	return initLockSucceeded
+		// Generate a random number so that we can acquire a lock even
+		// if other agents are killed while locking this path.
+		randNumber := strconv.FormatUint(rand.Uint64(), 16)
+		locker, err := e.LockPath(ctx, InitLockPath+"/"+randNumber)
+		if err == nil {
+			locker.Unlock(context.Background())
+			e.logger.Debug("Distributed lock successful, etcd has quorum")
+			return nil
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
@@ -466,8 +454,7 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
 		return fmt.Errorf("timeout while waiting for initial connection")
 	}
 
-	initLockSucceeded := e.waitForInitLock(ctxTimeout)
-	if err := <-initLockSucceeded; err != nil {
+	if err := e.maybeWaitForInitLock(ctxTimeout); err != nil {
 		recordQuorumError("lock timeout")
 		return fmt.Errorf("unable to acquire lock: %w", err)
 	}
