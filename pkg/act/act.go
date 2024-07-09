@@ -50,6 +50,7 @@ var Cell = cell.Module(
 type ActiveConnectionTrackingMetrics struct {
 	New, Active, Failed metric.DeletableVec[metric.Gauge]
 	ProcessingTime      metric.Histogram
+	Errors              metric.Vec[metric.Counter]
 }
 
 func NewActiveConnectionTrackingMetrics() ActiveConnectionTrackingMetrics {
@@ -80,6 +81,12 @@ func NewActiveConnectionTrackingMetrics() ActiveConnectionTrackingMetrics {
 			Name:       "processing_time_seconds",
 			Help:       "time to go over ACT map and update the metrics",
 		}),
+		Errors: metric.NewCounterVec(metric.CounterOpts{
+			ConfigName: metrics.Namespace + "_act_errors",
+			Subsystem:  "act",
+			Namespace:  metrics.Namespace,
+			Name:       "errors",
+		}, []string{"msg"}),
 	}
 }
 
@@ -171,8 +178,15 @@ func (a *ACT) callback(key *act.ActiveConnectionTrackerKey, value *act.ActiveCon
 	entry, ok := a.tracker[key.Zone][key.SvcID]
 	if !ok {
 		if count := a.trackerLen(); count >= metricsCountHardLimit {
-			// Consider replacing with metrics, as this can spam logs.
-			a.log.Warn("Refusing to add new metrics. There are too many!",
+			msg := "hard limit reached"
+			errMetric := a.metrics.Errors.WithLabelValues(msg)
+			errMetric.Inc()
+			// Print an error message to logs only the first time and then every 100 occurrences.
+			if int(errMetric.Get())%100 != 1 {
+				return
+			}
+			a.log.Warn("Skipping adding new metrics",
+				"msg", msg,
 				"limit", metricsCountHardLimit,
 				"count", count,
 				"svc", key.SvcID,
@@ -303,7 +317,18 @@ func (a *ACT) countFailed(svc uint16, key lbmap.BackendKey) {
 
 	val, err := key.Map().Lookup(key)
 	if err != nil {
-		scopedLog.Error("Failed to lookup backend of purged CT entry", "key", key.String(), "err", err)
+		msg := "lookup of purged entry failed"
+		errMetric := a.metrics.Errors.WithLabelValues(msg)
+		errMetric.Inc()
+		// Print an error message to logs only the first time and then every 100 occurrences.
+		if int(errMetric.Get())%100 != 1 {
+			return
+		}
+		scopedLog.Error("Skipping processing",
+			"msg", msg,
+			"key", key.String(),
+			"err", err,
+		)
 		return
 	}
 	zone := val.(lbmap.BackendValue).GetZone()
@@ -317,7 +342,18 @@ func (a *ACT) countFailed(svc uint16, key lbmap.BackendKey) {
 
 	old, ok := a.tracker[zone][svc]
 	if !ok {
-		scopedLog.Debug("Missing ACT entry for purged CT")
+		msg := "purged entry is already deleted from metrics"
+		errMetric := a.metrics.Errors.WithLabelValues(msg)
+		errMetric.Inc()
+		// Print an error message to logs only the first time and then every 100 occurrences.
+		if int(errMetric.Get())%100 != 1 {
+			return
+		}
+		scopedLog.Error("Skipping processing",
+			"msg", msg,
+			"key", key.String(),
+			"err", err,
+		)
 		return
 	}
 	old.newFailed++
@@ -373,24 +409,33 @@ func (a *ACT) removeOverflow(ctx context.Context) error {
 			}
 		}
 	}
-	tooEarly := 0
+
 	cutoff := time.Now().Add(-metricsUpdateInterval)
+	removed := 0
 	for _, entry := range gc {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
-		scopedLog.Debug("delete", "svc", entry.svc, "zone", entry.zone)
 		if time.Unix(entry.unix, 0).After(cutoff) {
-			tooEarly++
+			msg := "entry deleted too early"
+			errMetric := a.metrics.Errors.WithLabelValues(msg)
+			errMetric.Inc()
+			// Print an error message to logs only the first time and then every 100 occurrences.
+			if int(errMetric.Get())%100 == 1 {
+				scopedLog.Warn("Entry missing from metrics",
+					"msg", msg,
+					"svc", entry.svc,
+					"zone", entry.zone,
+				)
+			}
 		}
 		a.dropEntry(entry.zone, entry.svc)
+		scopedLog.Debug("delete", "svc", entry.svc, "zone", entry.zone)
+		removed++
 	}
-	scopedLog.Info("Removed extra metrics", "removed", gc.Len())
-	if tooEarly > 0 {
-		scopedLog.Warn("Removed metrics before they were shown", "count", tooEarly)
-	}
+	scopedLog.Info("Removed extra metrics", "removed", removed)
 
 	return nil
 }
