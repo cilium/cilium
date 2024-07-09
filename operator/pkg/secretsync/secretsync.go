@@ -6,8 +6,8 @@ package secretsync
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/strings/slices"
@@ -28,7 +28,7 @@ const (
 // secretSyncer syncs secrets to dedicated namespace.
 type secretSyncer struct {
 	client client.Client
-	logger logrus.FieldLogger
+	logger *slog.Logger
 
 	registrations    []*SecretSyncRegistration
 	secretNamespaces []string
@@ -42,10 +42,10 @@ type SecretSyncRegistration struct {
 	// RefObjectCheckFunc defines a function that is called to check whether the given K8s Secret
 	// is still referenced by a reference object.
 	// Synced Secrets that origin from K8s Secrets that are no longer referenced by any registration are deleted.
-	RefObjectCheckFunc func(ctx context.Context, c client.Client, logger logrus.FieldLogger, obj *corev1.Secret) bool
+	RefObjectCheckFunc func(ctx context.Context, c client.Client, logger *slog.Logger, obj *corev1.Secret) bool
 	// SecretsNamespace defines the name of the namespace in which the referenced K8s Secrets are to be synchronized.
 	SecretsNamespace string
-	// AdditionalWatches definites additional watches beside watching the directly referencing Kubernetes Object.
+	// AdditionalWatches defines additional watches beside watching the directly referencing Kubernetes Object.
 	AdditionalWatches []AdditionalWatch
 	// DefaultSecret defines an optional reference to a TLS Secret that should be synced regardless of whether it's referenced or not.
 	DefaultSecret *DefaultSecret
@@ -70,7 +70,7 @@ func (r SecretSyncRegistration) IsDefaultSecret(secret *corev1.Secret) bool {
 	return r.DefaultSecret != nil && r.DefaultSecret.Namespace == secret.Namespace && r.DefaultSecret.Name == secret.Name
 }
 
-func NewSecretSyncReconciler(c client.Client, logger logrus.FieldLogger, registrations []*SecretSyncRegistration) *secretSyncer {
+func NewSecretSyncReconciler(c client.Client, logger *slog.Logger, registrations []*SecretSyncRegistration) *secretSyncer {
 	regs := []*SecretSyncRegistration{}
 	secretNamespaces := []string{}
 	for _, r := range registrations {
@@ -91,7 +91,7 @@ func NewSecretSyncReconciler(c client.Client, logger logrus.FieldLogger, registr
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *secretSyncer) SetupWithManager(mgr ctrl.Manager) error {
-	r.logger.WithField("registrations", r.registrations).Info("Setting up Secret synchronization")
+	r.logger.Info("Setting up Secret synchronization", "registrations", r.registrations)
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		// Source Secrets outside of the secrets namespace

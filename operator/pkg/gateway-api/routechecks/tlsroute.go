@@ -6,10 +6,10 @@ package routechecks
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +25,7 @@ import (
 // TLSRouteInput is used to implement the Input interface for TLSRoute
 type TLSRouteInput struct {
 	Ctx      context.Context
-	Logger   *logrus.Entry
+	Logger   *slog.Logger
 	Client   client.Client
 	Grants   *gatewayv1beta1.ReferenceGrantList
 	TLSRoute *gatewayv1alpha2.TLSRoute
@@ -146,6 +146,6 @@ func (t *TLSRouteInput) GetParentGammaService(parent gatewayv1.ParentReference) 
 	return nil, fmt.Errorf("GAMMA support is not implemented in this reconciler")
 }
 
-func (t *TLSRouteInput) Log() *logrus.Entry {
+func (t *TLSRouteInput) Log() *slog.Logger {
 	return t.Logger
 }
