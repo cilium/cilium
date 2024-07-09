@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -134,10 +135,7 @@ func Test_IsSuperSetOf(t *testing.T) {
 // WithOwners replaces owners of 'e' with 'owners'.
 // No owners is represented with a 'nil' map.
 func (e MapStateEntry) WithOwners(owners ...MapStateOwner) MapStateEntry {
-	e.owners = make(map[MapStateOwner]struct{}, len(owners))
-	for _, cs := range owners {
-		e.owners[cs] = struct{}{}
-	}
+	e.owners = types.NewSet(owners...)
 	return e
 }
 
@@ -158,7 +156,7 @@ func (e MapStateEntry) WithDefaultAuthType(authType AuthType) MapStateEntry {
 // WithoutOwners empties the 'owners' of 'e'.
 // Note: This is used only in unit tests and helps test readability.
 func (e MapStateEntry) WithoutOwners() MapStateEntry {
-	e.owners = make(map[MapStateOwner]struct{})
+	e.owners.Clear()
 	return e
 }
 
@@ -1422,19 +1420,14 @@ func denyEntry(proxyPort uint16, owners ...MapStateOwner) MapStateEntry {
 }
 
 func testEntry(proxyPort uint16, deny bool, authType AuthType, owners ...MapStateOwner) MapStateEntry {
-	listener := ""
-	entry := MapStateEntry{
+	return MapStateEntry{
 		ProxyPort: proxyPort,
 		priority:  proxyPort,
-		Listener:  listener,
+		Listener:  "",
 		AuthType:  authType,
 		IsDeny:    deny,
+		owners:    types.NewSet(owners...),
 	}
-	entry.owners = make(map[MapStateOwner]struct{}, len(owners))
-	for _, owner := range owners {
-		entry.owners[owner] = struct{}{}
-	}
-	return entry
 }
 
 func allowEntryD(proxyPort uint16, derivedFrom labels.LabelArrayList, owners ...MapStateOwner) MapStateEntry {
@@ -1549,7 +1542,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		deletes: Keys{},
 	}, {
 		continued: true,
-		name:      "test-2b - Adding Bar also selecting 42",
+		name:      "test-2b - Adding Bar also selecting 42 (and 44)",
 		args: []args{
 			{cs: csBar, adds: []int{42, 44}, deletes: []int{}, port: 80, proto: 6, ingress: true, redirect: false, deny: true},
 		},
@@ -1797,6 +1790,92 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 	}
 }
 
+func TestMapStateEntry(t *testing.T) {
+	csFoo := newTestCachedSelector("Foo", false)
+	csBar := newTestCachedSelector("Bar", false)
+	csWildcard := newTestCachedSelector("wildcard", true)
+
+	entry := allowEntry(0, csFoo, csBar)
+	require.True(t, entry.owners.Has(csFoo))
+	require.True(t, entry.owners.Has(csBar))
+	require.False(t, entry.owners.Has(csWildcard))
+
+	entry.owners.Insert(csWildcard)
+	require.True(t, entry.owners.Has(csFoo))
+	require.True(t, entry.owners.Has(csBar))
+	require.True(t, entry.owners.Has(csWildcard))
+
+	entry.owners.Remove(csBar)
+	require.True(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.True(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 2, entry.owners.Len())
+
+	entry.owners.Remove(csFoo)
+	require.False(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.True(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 1, entry.owners.Len())
+
+	entry.owners.Remove(csWildcard)
+	require.False(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.False(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 0, entry.owners.Len())
+
+	require.Equal(t, types.NewSet(), entry.owners)
+
+	entry = allowEntry(0, csFoo)
+	require.False(t, entry.owners.Has(nil))
+	require.True(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.False(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 1, entry.owners.Len())
+
+	entry.owners.Insert(nil)
+	require.True(t, entry.owners.Has(nil))
+	require.True(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.False(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 2, entry.owners.Len())
+
+	entry.owners.Insert(csWildcard)
+	require.True(t, entry.owners.Has(nil))
+	require.True(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.True(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 3, entry.owners.Len())
+
+	entry.owners.Remove(csBar) // does not exist
+	require.True(t, entry.owners.Has(nil))
+	require.True(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.True(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 3, entry.owners.Len())
+
+	entry.owners.Remove(csFoo)
+	require.True(t, entry.owners.Has(nil))
+	require.False(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.True(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 2, entry.owners.Len())
+
+	entry.owners.Remove(csWildcard)
+	require.True(t, entry.owners.Has(nil))
+	require.False(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.False(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 1, entry.owners.Len())
+
+	entry.owners.Remove(nil)
+	require.False(t, entry.owners.Has(nil))
+	require.False(t, entry.owners.Has(csFoo))
+	require.False(t, entry.owners.Has(csBar))
+	require.False(t, entry.owners.Has(csWildcard))
+	require.Equal(t, 0, entry.owners.Len())
+	require.Equal(t, types.NewSet(), entry.owners)
+}
+
 func TestMapState_AccumulateMapChanges(t *testing.T) {
 	csFoo := newTestCachedSelector("Foo", false)
 	csBar := newTestCachedSelector("Bar", false)
@@ -1847,7 +1926,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		continued: true,
 		name:      "test-2b - Adding Bar also selecting 42",
 		args: []args{
-			{cs: csBar, adds: []int{42, 44}, deletes: []int{50}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+			{cs: csBar, adds: []int{42, 44}, deletes: []int{}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
 		},
 		state: testMapState(MapStateMap{
 			HttpIngressKey(42): allowEntry(0, csFoo, csBar),
@@ -2106,6 +2185,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 	policyMapState := newMapState()
 
 	for _, tt := range tests {
+		fmt.Println(tt.name)
 		policyMaps := MapChanges{}
 		if !tt.continued {
 			policyMapState = newMapState()
@@ -2937,8 +3017,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		}
 		if tt.outcome&insertAWithBProto > 0 {
 			aKeyWithBProto := IngressKey(tt.aIdentity, tt.bProto, tt.bPort, 0)
-			aEntryCpy := MapStateEntry{IsDeny: tt.aIsDeny}
-			aEntryCpy.owners = map[MapStateOwner]struct{}{aKey: {}}
+			aEntryCpy := MapStateEntry{IsDeny: tt.aIsDeny}.WithOwners(aKey)
 			aEntry.AddDependent(aKeyWithBProto)
 			if tt.aIsDeny {
 				expectedKeys.denies.upsert(aKey, aEntry, selectorCache)
@@ -2962,8 +3041,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		}
 		if tt.outcome&insertBWithAProto > 0 {
 			bKeyWithAProto := IngressKey(tt.bIdentity, tt.aProto, tt.aPort, 0)
-			bEntryCpy := MapStateEntry{IsDeny: tt.bIsDeny}
-			bEntryCpy.owners = map[MapStateOwner]struct{}{bKey: {}}
+			bEntryCpy := MapStateEntry{IsDeny: tt.bIsDeny}.WithOwners(bKey)
 			bEntry.AddDependent(bKeyWithAProto)
 			if tt.bIsDeny {
 				expectedKeys.denies.upsert(bKey, bEntry, selectorCache)

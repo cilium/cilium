@@ -1386,19 +1386,16 @@ var (
 		ProxyPort:        0,
 		DerivedFromRules: labels.LabelArrayList{nil},
 		IsDeny:           true,
-		owners:           map[MapStateOwner]struct{}{},
 	}
 	mapEntryAllow = MapStateEntry{
 		ProxyPort:        0,
 		DerivedFromRules: labels.LabelArrayList{nil},
-		owners:           map[MapStateOwner]struct{}{},
 	}
 	worldLabelArrayList         = labels.LabelArrayList{labels.LabelWorld.LabelArray()}
 	mapEntryWorldDenyWithLabels = MapStateEntry{
 		ProxyPort:        0,
 		DerivedFromRules: worldLabelArrayList,
 		IsDeny:           true,
-		owners:           map[MapStateOwner]struct{}{},
 	}
 
 	worldIPIdentity = localIdentity(16324)
@@ -1573,7 +1570,6 @@ var (
 		ProxyPort:        0,
 		IsDeny:           true,
 		DerivedFromRules: labels.LabelArrayList{nil},
-		owners:           map[MapStateOwner]struct{}{},
 		dependents: Keys{
 			mapKeyL4Port8080ProtoTCPWorldIPIngress:  struct{}{},
 			mapKeyL4Port8080ProtoUDPWorldIPIngress:  struct{}{},
@@ -1584,7 +1580,6 @@ var (
 		ProxyPort:        0,
 		IsDeny:           true,
 		DerivedFromRules: labels.LabelArrayList{nil},
-		owners:           map[MapStateOwner]struct{}{},
 		dependents: Keys{
 			mapKeyL4Port8080ProtoTCPWorldIPEgress:  struct{}{},
 			mapKeyL4Port8080ProtoUDPWorldIPEgress:  struct{}{},

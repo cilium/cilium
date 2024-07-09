@@ -31,6 +31,7 @@ import (
 // lest ye find yourself with hundreds of unnecessary imports.
 type Key = policyTypes.Key
 type Keys = policyTypes.Keys
+type MapStateOwner = policyTypes.Member
 
 type MapStateMap map[Key]MapStateEntry
 
@@ -611,8 +612,6 @@ func (msm *mapStateMap) Len() int {
 	return len(msm.entries)
 }
 
-type MapStateOwner interface{}
-
 // MapStateEntry is the configuration associated with a Key in a
 // MapState. This is a minimized version of policymap.PolicyEntry.
 type MapStateEntry struct {
@@ -646,9 +645,9 @@ type MapStateEntry struct {
 	// In sorted order.
 	DerivedFromRules labels.LabelArrayList
 
-	// Owners collects the keys in the map and selectors in the policy that require this key to be present.
+	// owners collects the keys in the map and selectors in the policy that require this key to be present.
 	// TODO: keep track which selector needed the entry to be deny, redirect, or just allow.
-	owners map[MapStateOwner]struct{}
+	owners policyTypes.Set
 
 	// dependents contains the keys for entries create based on this entry. These entries
 	// will be deleted once all of the owners are deleted.
@@ -677,7 +676,7 @@ func NewMapStateEntry(cs MapStateOwner, order uint8, derivedFrom labels.LabelArr
 		IsDeny:           deny,
 		hasAuthType:      hasAuth,
 		AuthType:         authType,
-		owners:           map[MapStateOwner]struct{}{cs: {}},
+		owners:           policyTypes.NewSet(cs),
 	}
 }
 
@@ -706,21 +705,6 @@ func (e *MapStateEntry) HasDependent(key Key) bool {
 	}
 	_, ok := e.dependents[key]
 	return ok
-}
-
-// HasSameOwners returns true if both MapStateEntries
-// have the same owners as one another (which means that
-// one of the entries is redundant).
-func (e *MapStateEntry) HasSameOwners(bEntry *MapStateEntry) bool {
-	if len(e.owners) != len(bEntry.owners) {
-		return false
-	}
-	for owner := range e.owners {
-		if _, ok := bEntry.owners[owner]; !ok {
-			return false
-		}
-	}
-	return true
 }
 
 var worldNets = map[identity.NumericIdentity][]netip.Prefix{
@@ -914,7 +898,7 @@ func (ms *mapState) RemoveDependent(owner Key, dependent Key, identities Identit
 // entry 'e'. 'entry' is not modified.
 // IsDeny, ProxyPort, and AuthType are merged by giving precedence to deny over non-deny, proxy
 // redirection over no proxy redirection, and explicit auth type over default auth type.
-func (e *MapStateEntry) Merge(entry *MapStateEntry) {
+func (e *MapStateEntry) merge(entry *MapStateEntry) {
 	// Deny is sticky
 	if !e.IsDeny {
 		e.IsDeny = entry.IsDeny
@@ -956,12 +940,7 @@ func (e *MapStateEntry) Merge(entry *MapStateEntry) {
 		}
 	}
 
-	if e.owners == nil && len(entry.owners) > 0 {
-		e.owners = make(map[MapStateOwner]struct{}, len(entry.owners))
-	}
-	for k, v := range entry.owners {
-		e.owners[k] = v
-	}
+	e.owners.Insert(entry.owners)
 
 	// merge dependents
 	for k := range entry.dependents {
@@ -1007,13 +986,8 @@ func (e *MapStateEntry) DeepEqual(o *MapStateEntry) bool {
 		return false
 	}
 
-	if len(e.owners) != len(o.owners) {
+	if !e.owners.Equal(o.owners) {
 		return false
-	}
-	for k := range o.owners {
-		if _, exists := e.owners[k]; !exists {
-			return false
-		}
 	}
 
 	if len(e.dependents) != len(o.dependents) {
@@ -1076,13 +1050,13 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, identities I
 		// Compare for datapath equalness before merging, as the old entry is updated in
 		// place!
 		datapathEqual = oldEntry.DatapathEqual(&entry)
-		oldEntry.Merge(&entry)
+		oldEntry.merge(&entry)
 		ms.insert(key, oldEntry, identities)
 	} else {
 		// Newly inserted entries must have their own containers, so that they
 		// remain separate when new owners/dependents are added to existing entries
 		entry.DerivedFromRules = slices.Clone(entry.DerivedFromRules)
-		entry.owners = maps.Clone(entry.owners)
+		entry.owners = entry.owners.Clone()
 		entry.dependents = maps.Clone(entry.dependents)
 		ms.insert(key, entry, identities)
 	}
@@ -1105,14 +1079,22 @@ func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, identitie
 		oldAdded := changes.insertOldIfNotExists(key, entry)
 		if owner != nil {
 			// remove the contribution of the given selector only
-			if _, exists = entry.owners[owner]; exists {
-				// Remove the contribution of this selector from the entry
-				delete(entry.owners, owner)
+			found, changed := entry.owners.Remove(owner)
+			if found {
+				if changed {
+					// re-insert entry due to owner change
+					if entry.IsDeny {
+						ms.denies.entries[key] = entry
+					} else {
+						ms.allows.entries[key] = entry
+					}
+				}
+				// Remove the contribution of this key from the entry
 				if ownerKey, ok := owner.(Key); ok {
 					ms.RemoveDependent(ownerKey, key, identities, changes)
 				}
 				// key is not deleted if other owners still need it
-				if len(entry.owners) > 0 {
+				if entry.owners.Len() > 0 {
 					return
 				}
 			} else {
@@ -1128,13 +1110,12 @@ func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, identitie
 		// Owner is nil when deleting more specific entries (e.g., L3/L4) when
 		// adding deny entries that cover them (e.g., L3-deny).
 		if owner == nil {
-			for owner := range entry.owners {
-				if owner != nil {
-					if ownerKey, ok := owner.(Key); ok {
-						ms.RemoveDependent(ownerKey, key, identities, changes)
-					}
+			entry.owners.ForEach(func(owner MapStateOwner) bool {
+				if ownerKey, ok := owner.(Key); ok {
+					ms.RemoveDependent(ownerKey, key, identities, changes)
 				}
-			}
+				return true
+			})
 		}
 
 		// Check if dependent entries need to be deleted as well
@@ -1149,8 +1130,11 @@ func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, identitie
 			}
 		}
 
-		ms.allows.delete(key, identities)
-		ms.denies.delete(key, identities)
+		if entry.IsDeny {
+			ms.denies.delete(key, identities)
+		} else {
+			ms.allows.delete(key, identities)
+		}
 	}
 }
 
@@ -1221,7 +1205,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				ms.validator.isSupersetOrSame(k, newKey, identities)
 			}
 			// Identical key needs to be added if owners are different (to merge them).
-			if !(k == newKey && !v.HasSameOwners(&newEntry)) {
+			if !(k == newKey && !v.owners.Equal(newEntry.owners)) {
 				// If this iterated-deny-entry is a superset (or equal) of
 				// the new-entry and the iterated-deny-entry has a broader (or
 				// equal) port-protocol then we need not insert the new entry.
@@ -1290,8 +1274,8 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				ms.validator.isBroaderOrEqual(newKey, k)
 				ms.validator.isSupersetOrSame(newKey, k, identities)
 			}
-			// Identical key needs to be added if owners are different to merge them
-			if !(k == newKey && !v.HasSameOwners(&newEntry)) {
+			// Identical key needs to be kept if owners are different to merge them
+			if !(newKey == k && !newEntry.owners.Equal(v.owners)) {
 				// If this iterated-deny-entry is a subset (or equal) of the
 				// new-entry and the new-entry has a broader (or equal)
 				// port-protocol then we can delete the iterated-deny-entry.
@@ -1617,7 +1601,7 @@ func (changes *ChangeState) insertOldIfNotExists(key Key, entry MapStateEntry) b
 		if _, added := changes.Adds[key]; !added {
 			// new containers to keep this entry separate from the one that may remain in 'keys'
 			entry.DerivedFromRules = slices.Clone(entry.DerivedFromRules)
-			entry.owners = maps.Clone(entry.owners)
+			entry.owners = entry.owners.Clone()
 			entry.dependents = maps.Clone(entry.dependents)
 
 			changes.Old[key] = entry
@@ -1730,23 +1714,17 @@ func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 			if v.ProxyPort == 0 {
 				// 3. Change all L3/L4 ALLOW keys on matching port that do not
 				//    already redirect to redirect.
-				v.ProxyPort = redirectPort
-				// redirect port is used as the default priority for tie-breaking
-				// purposes when two different selectors have conflicting
-				// redirects. Explicit listener references in the policy can specify
-				// a priority, but only the default is used for visibility policy,
-				// as visibility will be achieved by any of the redirects.
-				v.priority = redirectPort
-				v.Listener = ""
-				v.DerivedFromRules = visibilityDerivedFrom
+				d2 := labels.LabelArrayList{visibilityDerivedFromLabels}
+				d2.MergeSorted(v.DerivedFromRules)
+				v2 := NewMapStateEntry(k, 0, d2, redirectPort, "", 0, false, v.hasAuthType, v.AuthType)
 				e.PolicyDebug(logrus.Fields{
 					logfields.BPFMapKey:   k,
-					logfields.BPFMapValue: v,
+					logfields.BPFMapValue: v2,
 				}, "addVisibilityKeys: Changing L3/L4 ALLOW key for visibility redirect")
 				updates = append(updates, MapChange{
 					Add:   true,
 					Key:   k,
-					Value: v,
+					Value: v2,
 				})
 			}
 		}
@@ -2006,9 +1984,8 @@ func (mc *MapChanges) consumeMapChanges(policyOwner PolicyOwner, policyMapState 
 			policyMapState.denyPreferredInsertWithChanges(key, entry, identities, features, changes)
 		} else {
 			// Delete the contribution of this cs to the key and collect incremental changes
-			for cs := range mc.changes[i].Value.owners { // get the sole selector
-				policyMapState.deleteKeyWithChanges(mc.changes[i].Key, cs, identities, changes)
-			}
+			cs := mc.changes[i].Value.owners // get the sole selector
+			policyMapState.deleteKeyWithChanges(mc.changes[i].Key, cs, identities, changes)
 		}
 	}
 	mc.changes = nil
