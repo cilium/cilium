@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -59,7 +60,7 @@ func Test_gatewayClassReconciler_Reconcile(t *testing.T) {
 		WithObjects(gwcFixture...).
 		WithStatusSubresource(&gatewayv1.GatewayClass{}).
 		Build()
-	r := &gatewayClassReconciler{Client: c}
+	r := &gatewayClassReconciler{Client: c, logger: hivetest.Logger(t)}
 
 	t.Run("no gateway class", func(t *testing.T) {
 		result, err := r.Reconcile(context.Background(), ctrl.Request{

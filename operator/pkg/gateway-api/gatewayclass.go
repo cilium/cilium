@@ -4,6 +4,8 @@
 package gateway_api
 
 import (
+	"log/slog"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -16,12 +18,15 @@ import (
 type gatewayClassReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	logger *slog.Logger
 }
 
-func newGatewayClassReconciler(mgr ctrl.Manager) *gatewayClassReconciler {
+func newGatewayClassReconciler(mgr ctrl.Manager, logger *slog.Logger) *gatewayClassReconciler {
 	return &gatewayClassReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		logger: logger,
 	}
 }
 

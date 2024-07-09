@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -27,10 +26,7 @@ import (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.2/pkg/reconcile
 func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
-		logfields.Controller: "httpRoute",
-		logfields.Resource:   req.NamespacedName,
-	})
+	scopedLog := r.logger.With(logfields.Controller, httpRoute, logfields.Resource, req.NamespacedName)
 	scopedLog.Info("Reconciling HTTPRoute")
 
 	// Fetch the HTTPRoute instance
@@ -39,7 +35,7 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if k8serrors.IsNotFound(err) {
 			return controllerruntime.Success()
 		}
-		scopedLog.WithError(err).Error("Unable to fetch HTTPRoute")
+		scopedLog.ErrorContext(ctx, "Unable to fetch HTTPRoute", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
 
@@ -59,7 +55,7 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// input for the validators
 	i := &routechecks.HTTPRouteInput{
 		Ctx:       ctx,
-		Logger:    scopedLog.WithField(logfields.Resource, hr),
+		Logger:    scopedLog.With(logfields.Resource, hr),
 		Client:    r.Client,
 		Grants:    grants,
 		HTTPRoute: hr,

@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -28,10 +27,7 @@ import (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.2/pkg/reconcile
 func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
-		logfields.Controller: "tlsRoute",
-		logfields.Resource:   req.NamespacedName,
-	})
+	scopedLog := r.logger.With(logfields.Controller, tlsRoute, logfields.Resource, req.NamespacedName)
 	scopedLog.Info("Reconciling TLSRoute")
 
 	// Fetch the TLSRoute instance
@@ -40,7 +36,7 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if k8serrors.IsNotFound(err) {
 			return controllerruntime.Success()
 		}
-		scopedLog.WithError(err).Error("Unable to fetch TLSRoute")
+		scopedLog.ErrorContext(ctx, "Unable to fetch TLSRoute", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
 
@@ -60,7 +56,7 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// input for the validators
 	i := &routechecks.TLSRouteInput{
 		Ctx:      ctx,
-		Logger:   scopedLog.WithField(logfields.Resource, tr),
+		Logger:   scopedLog.With(logfields.Resource, tr),
 		Client:   r.Client,
 		Grants:   grants,
 		TLSRoute: tr,

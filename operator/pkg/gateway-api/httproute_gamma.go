@@ -5,8 +5,8 @@ package gateway_api
 
 import (
 	"context"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,13 +30,15 @@ type gammaHttpRouteReconciler struct {
 	client.Client
 	Scheme     *runtime.Scheme
 	translator translation.Translator
+	logger     *slog.Logger
 }
 
-func newGammaHttpRouteReconciler(mgr ctrl.Manager, translator translation.Translator) *gammaHttpRouteReconciler {
+func newGammaHttpRouteReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger) *gammaHttpRouteReconciler {
 	return &gammaHttpRouteReconciler{
 		Client:     mgr.GetClient(),
 		Scheme:     mgr.GetScheme(),
 		translator: translator,
+		logger:     logger,
 	}
 }
 
@@ -58,10 +60,10 @@ func (r *gammaHttpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
 					backendServiceName, err := helpers.GetBackendServiceName(r.Client, namespace, backend.BackendObjectReference)
 					if err != nil {
-						log.WithFields(logrus.Fields{
-							logfields.Controller: "gammaHttpRoute",
-							logfields.Resource:   client.ObjectKeyFromObject(rawObj),
-						}).WithError(err).Error("Failed to get backend service name")
+						r.logger.Error("Failed to get backend service name",
+							logfields.Controller, "gammaHttpRoute",
+							logfields.Resource, client.ObjectKeyFromObject(rawObj),
+							logfields.Error, err)
 						continue
 					}
 					backendServices = append(backendServices,
@@ -156,16 +158,13 @@ func (r *gammaHttpRouteReconciler) enqueueRequestForGammaService() handler.Event
 
 func (r *gammaHttpRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Controller: "httpRoute",
-			logfields.Resource:   client.ObjectKeyFromObject(o),
-		})
+		scopedLog := r.logger.With(logfields.Controller, gammaHTTPRoute, logfields.Resource, client.ObjectKeyFromObject(o))
 		hrList := &gatewayv1.HTTPRouteList{}
 
 		if err := r.Client.List(ctx, hrList, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(index, client.ObjectKeyFromObject(o).String()),
 		}); err != nil {
-			scopedLog.WithError(err).Error("Failed to get related HTTPRoutes")
+			scopedLog.Error("Failed to get related HTTPRoutes", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -178,7 +177,7 @@ func (r *gammaHttpRouteReconciler) enqueueFromIndex(index string) handler.MapFun
 			requests = append(requests, reconcile.Request{
 				NamespacedName: route,
 			})
-			scopedLog.WithField("httpRoute", route).Info("Enqueued HTTPRoute for resource")
+			scopedLog.Info("Enqueued HTTPRoute for resource", httpRoute, route)
 		}
 		return requests
 	}
@@ -186,14 +185,12 @@ func (r *gammaHttpRouteReconciler) enqueueFromIndex(index string) handler.MapFun
 
 func (r *gammaHttpRouteReconciler) enqueueAll() handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Controller: "httpRoute",
-			logfields.Resource:   client.ObjectKeyFromObject(o),
-		})
+		scopedLog := r.logger.With(logfields.Controller, gammaHTTPRoute, logfields.Resource, client.ObjectKeyFromObject(o))
+
 		hrList := &gatewayv1.HTTPRouteList{}
 
 		if err := r.Client.List(ctx, hrList, &client.ListOptions{}); err != nil {
-			scopedLog.WithError(err).Error("Failed to get HTTPRoutes")
+			scopedLog.Error("Failed to get HTTPRoutes", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -206,7 +203,7 @@ func (r *gammaHttpRouteReconciler) enqueueAll() handler.MapFunc {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: route,
 			})
-			scopedLog.WithField("httpRoute", route).Info("Enqueued HTTPRoute for resource")
+			scopedLog.Info("Enqueued HTTPRoute for resource", httpRoute, route)
 		}
 		return requests
 	}

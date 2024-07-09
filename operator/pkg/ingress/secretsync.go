@@ -5,8 +5,8 @@ package ingress
 
 import (
 	"context"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -17,12 +17,9 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-func EnqueueReferencedTLSSecrets(c client.Client, logger logrus.FieldLogger) handler.EventHandler {
+func EnqueueReferencedTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-		scopedLog := logger.WithFields(logrus.Fields{
-			logfields.Controller: "secrets",
-			logfields.Resource:   obj.GetName(),
-		})
+		scopedLog := logger.With(logfields.Controller, "secrets", logfields.Resource, obj.GetName())
 
 		ing, ok := obj.(*networkingv1.Ingress)
 		if !ok {
@@ -45,7 +42,7 @@ func EnqueueReferencedTLSSecrets(c client.Client, logger logrus.FieldLogger) han
 				Name:      tls.SecretName,
 			}
 			reqs = append(reqs, reconcile.Request{NamespacedName: s})
-			scopedLog.WithField("secret", s).Debug("Enqueued secret for Ingress")
+			scopedLog.Debug("Enqueued secret for Ingress", "secret", s)
 		}
 		return reqs
 	})
@@ -72,7 +69,7 @@ func enqueueAllSecrets(c client.Client) handler.EventHandler {
 	})
 }
 
-func IsReferencedByCiliumIngress(ctx context.Context, c client.Client, logger logrus.FieldLogger, obj *corev1.Secret) bool {
+func IsReferencedByCiliumIngress(ctx context.Context, c client.Client, logger *slog.Logger, obj *corev1.Secret) bool {
 	ingresses := networkingv1.IngressList{}
 	if err := c.List(ctx, &ingresses, client.InNamespace(obj.GetNamespace())); err != nil {
 		return false

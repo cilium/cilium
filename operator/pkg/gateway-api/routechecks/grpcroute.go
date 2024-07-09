@@ -6,10 +6,10 @@ package routechecks
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,7 +26,7 @@ var _ Input = (*GRPCRouteInput)(nil)
 // GRPCRouteInput is used to implement the Input interface for GRPCRoute
 type GRPCRouteInput struct {
 	Ctx       context.Context
-	Logger    *logrus.Entry
+	Logger    *slog.Logger
 	Client    client.Client
 	Grants    *gatewayv1beta1.ReferenceGrantList
 	GRPCRoute *gatewayv1.GRPCRoute
@@ -142,7 +142,7 @@ func (g *GRPCRouteInput) SetAllParentCondition(condition metav1.Condition) {
 	}
 }
 
-func (g *GRPCRouteInput) Log() *logrus.Entry {
+func (g *GRPCRouteInput) Log() *slog.Logger {
 	return g.Logger
 }
 

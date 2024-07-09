@@ -12,6 +12,7 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 func CheckAgainstCrossNamespaceBackendReferences(input Input) (bool, error) {
@@ -116,7 +117,7 @@ func CheckBackendIsExistingService(input Input) (bool, error) {
 			svc := &corev1.Service{}
 			if err := input.GetClient().Get(input.GetContext(), client.ObjectKey{Name: svcName, Namespace: ns}, svc); err != nil {
 				if !k8serrors.IsNotFound(err) {
-					input.Log().WithError(err).Error("Failed to get Service")
+					input.Log().Error("Failed to get Service", logfields.Error, err)
 					return false, err
 				}
 				// Service does not exist, update the status for all the parents
