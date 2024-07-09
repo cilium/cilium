@@ -656,30 +656,21 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 
 		go ec.statusChecker()
 
-		watcher := ec.ListAndWatch(ctx, HeartbeatPath, 128)
-
-		for {
-			select {
-			case _, ok := <-watcher.Events:
-				if !ok {
-					ec.logger.Debug("Stopping heartbeat watcher")
-					watcher.Stop()
-					return
-				}
-
-				// It is tempting to compare against the
-				// heartbeat value stored in the key. However,
-				// this would require the time on all nodes to
-				// be synchronized. Instead, assume current
-				// time and print the heartbeat value in debug
-				// messages for troubleshooting
-				ec.RWMutex.Lock()
-				ec.lastHeartbeat = time.Now()
-				ec.RWMutex.Unlock()
-				ec.logger.Debug("Received update notification of heartbeat")
-			case <-ctx.Done():
-				return
+		watcher := ec.ListAndWatch(ctx, HeartbeatPath, 0)
+		for event := range watcher.Events {
+			switch event.Typ {
+			case EventTypeDelete:
+				// A deletion event is not an heartbeat signal
+				continue
 			}
+
+			// It is tempting to compare against the heartbeat value stored in
+			// the key. However, this would require the time on all nodes to
+			// be synchronized. Instead, let's just assume current time.
+			ec.RWMutex.Lock()
+			ec.lastHeartbeat = time.Now()
+			ec.RWMutex.Unlock()
+			ec.logger.Debug("Received update notification of heartbeat")
 		}
 	}()
 
