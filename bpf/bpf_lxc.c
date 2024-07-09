@@ -554,18 +554,6 @@ ct_recreate6:
 	case CT_RELATED:
 	case CT_REPLY:
 		policy_mark_skip(ctx);
-
-#ifdef ENABLE_NODEPORT
-		/* See comment in handle_ipv4_from_lxc(). */
-		if (ct_state->node_port && lb_is_svc_proto(tuple->nexthdr)) {
-			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
-					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
-					  TRACE_IFINDEX_UNKNOWN,
-					  trace.reason, trace.monitor);
-			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT,
-						  ext_err);
-		}
-#endif /* ENABLE_NODEPORT */
 		break;
 	default:
 		return DROP_UNKNOWN_CT;
@@ -1016,25 +1004,6 @@ ct_recreate4:
 	case CT_RELATED:
 	case CT_REPLY:
 		policy_mark_skip(ctx);
-
-#ifdef ENABLE_NODEPORT
-		/* This handles reply traffic for the case where the nodeport EP
-		 * is local to the node. We'll do the tail call to perform
-		 * the reverse DNAT.
-		 *
-		 * This codepath currently doesn't support revDNAT for ICMP,
-		 * so make sure that we only send TCP/UDP/SCTP down this way.
-		 */
-		if (ct_state->node_port && lb_is_svc_proto(tuple->nexthdr)) {
-			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
-					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
-					  TRACE_IFINDEX_UNKNOWN,
-					  trace.reason, trace.monitor);
-			return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT,
-						  ext_err);
-		}
-#endif /* ENABLE_NODEPORT */
-
 		break;
 	default:
 		return DROP_UNKNOWN_CT;
