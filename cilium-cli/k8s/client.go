@@ -187,6 +187,10 @@ func (c *Client) DeleteServiceAccount(ctx context.Context, namespace, name strin
 	return c.Clientset.CoreV1().ServiceAccounts(namespace).Delete(ctx, name, opts)
 }
 
+func (c *Client) GetServiceAccount(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ServiceAccount, error) {
+	return c.Clientset.CoreV1().ServiceAccounts(namespace).Get(ctx, name, opts)
+}
+
 func (c *Client) GetClusterRole(ctx context.Context, name string, opts metav1.GetOptions) (*rbacv1.ClusterRole, error) {
 	return c.Clientset.RbacV1().ClusterRoles().Get(ctx, name, opts)
 }

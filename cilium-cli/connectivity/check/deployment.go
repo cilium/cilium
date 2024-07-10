@@ -959,14 +959,23 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			Annotations:  ct.params.DeploymentAnnotations.Match(lrpClientDeploymentName),
 			NodeSelector: ct.params.NodeSelector,
 		})
-		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(lrpClientDeploymentName), metav1.CreateOptions{})
+
+		_, err = ct.clients.src.GetServiceAccount(ctx, ct.params.TestNamespace, lrpClientDeploymentName, metav1.GetOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create service account %s: %w", lrpClientDeployment, err)
+			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(lrpClientDeploymentName), metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service account %s: %w", lrpClientDeployment, err)
+			}
 		}
-		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, lrpClientDeployment, metav1.CreateOptions{})
+
+		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, lrpClientDeploymentName, metav1.GetOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create deployment %s: %w", lrpClientDeployment, err)
+			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, lrpClientDeployment, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create deployment %s: %w", lrpClientDeployment, err)
+			}
 		}
+
 		ct.Logf("✨ [%s] Deploying lrp-backend deployment...", ct.clients.src.ClusterName())
 		containerPort := 8080
 		lrpBackendDeployment := newDeployment(deploymentParameters{
@@ -994,13 +1003,21 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			},
 			NodeSelector: ct.params.NodeSelector,
 		})
-		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(lrpBackendDeploymentName), metav1.CreateOptions{})
+
+		_, err = ct.clients.src.GetServiceAccount(ctx, ct.params.TestNamespace, lrpBackendDeploymentName, metav1.GetOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create service account %s: %w", lrpBackendDeployment, err)
+			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(lrpBackendDeploymentName), metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create service account %s: %w", lrpBackendDeployment, err)
+			}
 		}
-		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, lrpBackendDeployment, metav1.CreateOptions{})
+
+		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, lrpBackendDeploymentName, metav1.GetOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create deployment %s: %w", lrpBackendDeployment, err)
+			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, lrpBackendDeployment, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create deployment %s: %w", lrpBackendDeployment, err)
+			}
 		}
 	}
 
