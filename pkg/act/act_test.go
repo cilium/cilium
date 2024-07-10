@@ -28,6 +28,7 @@ func TestCell(t *testing.T) {
 
 type mapMock struct {
 	deletedKeys []act.ActiveConnectionTrackerKey
+	failed      uint64
 }
 
 func (*mapMock) IterateWithCallback(context.Context, act.ActiveConnectionTrackingIterateCallback) error {
@@ -37,6 +38,13 @@ func (*mapMock) IterateWithCallback(context.Context, act.ActiveConnectionTrackin
 func (m *mapMock) Delete(key *act.ActiveConnectionTrackerKey) error {
 	m.deletedKeys = append(m.deletedKeys, *key)
 	return nil
+}
+func (m *mapMock) SaveFailed(*act.ActiveConnectionTrackerKey, uint64) error {
+	return nil
+}
+
+func (m *mapMock) RestoreFailed(*act.ActiveConnectionTrackerKey) (uint64, error) {
+	return m.failed, nil
 }
 
 func TestCallback(t *testing.T) {
@@ -265,4 +273,38 @@ func TestOverflow(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestCallback_WithFailed(t *testing.T) {
+	opts := &option.DaemonConfig{
+		FixedZoneMapping: map[string]uint8{
+			"zone-a": 123,
+			"zone-b": 234,
+		},
+		ReverseFixedZoneMapping: map[uint8]string{
+			123: "zone-a",
+			234: "zone-b",
+		},
+	}
+	a := newAct(hivetest.Logger(t), &mapMock{failed: 101}, NewActiveConnectionTrackingMetrics(), &service.Service{}, opts)
+
+	// Initialize
+	a.keyToStrings = func(key *act.ActiveConnectionTrackerKey) (zone string, svc string, err error) {
+		return "zone-a", "svc-a", nil
+	}
+	key := &act.ActiveConnectionTrackerKey{SvcID: 1, Zone: 123}
+	value := &act.ActiveConnectionTrackerValue{Opened: 105, Closed: 1}
+	a.callback(key, value)
+	require.Equal(t, 0.0, a.metrics.Active.WithLabelValues("zone-a", "svc-a").Get())
+	require.Equal(t, 0.0, a.metrics.New.WithLabelValues("zone-a", "svc-a").Get())
+	require.Equal(t, 0.0, a.metrics.Failed.WithLabelValues("zone-a", "svc-a").Get())
+
+	// Update
+	key = &act.ActiveConnectionTrackerKey{SvcID: 1, Zone: 123}
+	value = &act.ActiveConnectionTrackerValue{Opened: 106, Closed: 1}
+	a.callback(key, value)
+	require.Equal(t, 4.0, a.metrics.Active.WithLabelValues("zone-a", "svc-a").Get())
+	require.Equal(t, 1.0, a.metrics.New.WithLabelValues("zone-a", "svc-a").Get())
+	require.Equal(t, 0.0, a.metrics.Failed.WithLabelValues("zone-a", "svc-a").Get())
+
 }
