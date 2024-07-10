@@ -393,6 +393,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 				 * doesn't hit the reselection again.
 				 */
 				backend_id = 0;
+			barrier();
 		}
 	}
 
@@ -414,6 +415,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
 		return -EHOSTUNREACH;
 	}
+	barrier();
 
 	if (lb4_svc_is_affinity(svc) && !backend_from_affinity)
 		lb4_update_affinity_by_netns(svc, &id, backend_id);
@@ -1079,6 +1081,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 			backend = __lb6_lookup_backend(backend_id);
 			if (!backend)
 				backend_id = 0;
+			barrier();
 		}
 	}
 
@@ -1100,6 +1103,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
 		return -EHOSTUNREACH;
 	}
+	barrier();
 
 	if (lb6_svc_is_affinity(svc) && !backend_from_affinity)
 		lb6_update_affinity_by_netns(svc, &id, backend_id);
