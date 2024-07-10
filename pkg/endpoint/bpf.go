@@ -298,7 +298,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 			// as the update will be done via applyPolicyMapChanges.
 			// Returning nil will cause desired policy map update to be skipped by
 			// the caller.
-			if e.desiredPolicy == e.realizedPolicy {
+			if e.realizedPolicy.basis == e.desiredPolicy {
 				return nil
 			}
 			return desiredRedirects
@@ -811,7 +811,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 		if err != nil {
 			return err
 		}
-		e.realizedPolicy.SetPolicyMap(pm)
+		e.realizedPolicy.mapStateMap = pm
 		e.updatePolicyMapPressureMetric()
 	}
 
@@ -1105,7 +1105,7 @@ type policyMapPressureUpdater interface {
 }
 
 func (e *Endpoint) updatePolicyMapPressureMetric() {
-	value := float64(e.realizedPolicy.GetPolicyMap().Len()) / float64(e.policyMap.MaxEntries())
+	value := float64(len(e.realizedPolicy.mapStateMap)) / float64(e.policyMap.MaxEntries())
 	e.PolicyMapPressureUpdater.Update(PolicyMapPressureEvent{
 		Value:      value,
 		EndpointID: e.ID,
@@ -1130,10 +1130,10 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) boo
 		return false
 	}
 
-	entry, ok := e.realizedPolicy.GetPolicyMap().Get(keyToDelete)
+	entry, ok := e.realizedPolicy.mapStateMap[keyToDelete]
 	// Operation was successful, remove from realized state.
 	if ok {
-		e.realizedPolicy.DeleteMapState(keyToDelete)
+		delete(e.realizedPolicy.mapStateMap, keyToDelete)
 		e.updatePolicyMapPressureMetric()
 
 		e.PolicyDebug(logrus.Fields{
@@ -1164,7 +1164,7 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 	}
 
 	// Operation was successful, add to realized state.
-	e.realizedPolicy.InsertMapState(keyToAdd, entry)
+	e.realizedPolicy.mapStateMap[keyToAdd] = entry
 	e.updatePolicyMapPressureMetric()
 
 	e.PolicyDebug(logrus.Fields{
@@ -1301,13 +1301,13 @@ func (e *Endpoint) syncPolicyMap() error {
 	}
 
 	// Nothing to do if the desired policy is already fully realized.
-	if e.realizedPolicy == e.desiredPolicy {
+	if e.realizedPolicy.basis == e.desiredPolicy {
 		e.PolicyDebug(nil, "syncPolicyMap(): not syncing as desired == realized")
 		return nil
 	}
 
 	// Diffs between the maps are expected here, so do not bother collecting them
-	_, _, err = e.syncPolicyMapsWith(e.realizedPolicy.GetPolicyMap(), false)
+	_, _, err = e.syncPolicyMapsWith(e.realizedPolicy.mapStateMap, false)
 	return err
 }
 
@@ -1315,53 +1315,44 @@ func (e *Endpoint) syncPolicyMap() error {
 // difference between the given 'realized' and desired policy state without
 // dumping the bpf policy map.
 // Changes are synced to endpoint's realized policy mapstate, 'realized' is
-// not modified.
-func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) (diffCount int, diffs []policy.MapChange, err error) {
+// also updated.
+func (e *Endpoint) syncPolicyMapsWith(realized policy.MapStateMap, withDiffs bool) (diffCount int, diffs []policy.MapChange, err error) {
 	errors := 0
 
 	// Add policy map entries before deleting to avoid transient drops
-	var adds []policy.MapChange
 	e.desiredPolicy.GetPolicyMap().ForEach(func(keyToAdd policy.Key, entry policy.MapStateEntry) bool {
-		if oldEntry, ok := realized.Get(keyToAdd); !ok || !oldEntry.DatapathEqual(&entry) {
-			adds = append(adds, policy.MapChange{
-				Add:   true,
-				Key:   keyToAdd,
-				Value: entry,
-			})
-		}
-		return true
-	})
-	for _, add := range adds {
-		if oldEntry, ok := realized.Get(add.Key); !ok || !oldEntry.DatapathEqual(&add.Value) {
-			if !e.addPolicyKey(add.Key, add.Value, false) {
+		if oldEntry, ok := realized[keyToAdd]; !ok || !oldEntry.DatapathEqual(&entry) {
+			realized[keyToAdd] = entry
+			if !e.addPolicyKey(keyToAdd, entry, false) {
 				errors++
 			}
 			diffCount++
 			if withDiffs {
-				diffs = append(diffs, add)
+				diffs = append(diffs, policy.MapChange{
+					Add:   true,
+					Key:   keyToAdd,
+					Value: entry,
+				})
 			}
 		}
-	}
-	var deletes []policy.MapChange
+		return true
+	})
+
 	// Delete policy keys present in the realized state, but not present in the desired state
-	realized.ForEach(func(keyToDelete policy.Key, _ policy.MapStateEntry) bool {
+	for keyToDelete := range realized {
 		// If key that is in realized state is not in desired state, just remove it.
 		if entry, ok := e.desiredPolicy.GetPolicyMap().Get(keyToDelete); !ok {
-			deletes = append(deletes, policy.MapChange{
-				Key:   keyToDelete,
-				Value: entry,
-			})
-		}
-		return true
-	})
-	for _, del := range deletes {
-		if _, ok := e.desiredPolicy.GetPolicyMap().Get(del.Key); !ok {
-			if !e.deletePolicyKey(del.Key, false) {
+			delete(realized, keyToDelete)
+			if !e.deletePolicyKey(keyToDelete, false) {
 				errors++
 			}
 			diffCount++
 			if withDiffs {
-				diffs = append(diffs, del)
+				diffs = append(diffs, policy.MapChange{
+					Add:   false,
+					Key:   keyToDelete,
+					Value: entry,
+				})
 			}
 		}
 	}
@@ -1372,8 +1363,8 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) 
 	return diffCount, diffs, err
 }
 
-func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
-	currentMap, insert := policy.NewMapStateWithInsert()
+func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapStateMap, error) {
+	currentMap := make(policy.MapStateMap)
 
 	cb := func(key bpf.MapKey, value bpf.MapValue) {
 		policymapKey := key.(*policymap.PolicyKey)
@@ -1391,7 +1382,7 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 			IsDeny:    policymapEntry.IsDeny(),
 			AuthType:  policy.AuthType(policymapEntry.AuthType),
 		}
-		insert(policyKey, policyEntry)
+		currentMap[policyKey] = policyEntry
 	}
 	err := e.policyMap.DumpWithCallback(cb)
 
@@ -1485,7 +1476,7 @@ func (e *Endpoint) startSyncPolicyMapController() {
 					return controller.NewExitReason("Endpoint disappeared")
 				}
 				defer e.unlock()
-				if e.desiredPolicy != e.realizedPolicy {
+				if e.realizedPolicy.basis != e.desiredPolicy {
 					// Currently in the middle of a regeneration; do not execute
 					// at this time.
 					return nil

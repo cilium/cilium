@@ -385,8 +385,8 @@ func (obtained LabelArrayListMap) Equals(expected LabelArrayListMap) bool {
 
 func (e *Endpoint) GetDesiredPolicyRuleLabels() LabelArrayListMap {
 	desiredLabels := make(LabelArrayListMap)
-	e.desiredPolicy.GetPolicyMap().ForEach(func(key policy.Key, entry policy.MapStateEntry) bool {
-		desiredLabels[key] = entry.GetRuleLabels()
+	e.desiredPolicy.GetPolicyMap().ForEach(func(key policy.Key, _ policy.MapStateEntry) bool {
+		desiredLabels[key], _ = e.desiredPolicy.GetPolicyMap().GetRuleLabels(key)
 		return true
 	})
 	return desiredLabels

@@ -91,8 +91,6 @@ type MapState interface {
 	// ForEach allows iteration over the MapStateEntries. It returns true if
 	// the iteration was not stopped early by the callback.
 	ForEach(func(Key, MapStateEntry) (cont bool)) (complete bool)
-	GetIdentities(*logrus.Logger) ([]int64, []int64)
-	GetDenyIdentities(*logrus.Logger) ([]int64, []int64)
 	Len() int
 
 	// private accessors
@@ -1888,45 +1886,6 @@ func (ms *mapState) deniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 	// The given L4 is not categorically denied.
 	// Traffic to/from a specific L3 on any of the selectors can still be denied.
 	return false
-}
-
-func (ms *mapState) GetIdentities(log *logrus.Logger) (ingIdentities, egIdentities []int64) {
-	return ms.getIdentities(log, false)
-}
-
-func (ms *mapState) GetDenyIdentities(log *logrus.Logger) (ingIdentities, egIdentities []int64) {
-	return ms.getIdentities(log, true)
-}
-
-// GetIdentities returns the ingress and egress identities stored in the
-// MapState.
-// Used only for API requests.
-func (ms *mapState) getIdentities(log *logrus.Logger, denied bool) (ingIdentities, egIdentities []int64) {
-	ms.ForEach(func(policyMapKey Key, policyMapValue MapStateEntry) bool {
-		if denied != policyMapValue.IsDeny {
-			return true
-		}
-		if policyMapKey.DestPort != 0 {
-			// If the port is non-zero, then the Key no longer only applies
-			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
-			// contain sets of which identities (i.e., label-based L3 only)
-			// are allowed, so anything which contains L4-related policy should
-			// not be added to these sets.
-			return true
-		}
-		switch trafficdirection.TrafficDirection(policyMapKey.TrafficDirection()) {
-		case trafficdirection.Ingress:
-			ingIdentities = append(ingIdentities, int64(policyMapKey.Identity))
-		case trafficdirection.Egress:
-			egIdentities = append(egIdentities, int64(policyMapKey.Identity))
-		default:
-			td := trafficdirection.TrafficDirection(policyMapKey.TrafficDirection())
-			log.WithField(logfields.TrafficDirection, td).
-				Errorf("Unexpected traffic direction present in policy map state for endpoint")
-		}
-		return true
-	})
-	return ingIdentities, egIdentities
 }
 
 // MapChanges collects updates to the endpoint policy on the
