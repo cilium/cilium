@@ -93,7 +93,7 @@ Deploy Cilium release via Helm:
    helm install cilium |CHART_RELEASE| \\
      --namespace kube-system \\
      --set cni.chainingMode=generic-veth \\
-     --set cni.exclusive=false \
+     --set cni.exclusive=false \\
      --set cni.customConf=true \\
      --set nodeinit.enabled=true \\
      --set cni.configMap=cni-configuration \\
