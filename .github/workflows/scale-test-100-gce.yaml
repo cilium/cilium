@@ -205,6 +205,16 @@ jobs:
           ig_name: ig2
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
+      - name: Create 3rd Instance Group
+        uses: thorn3r/scale-tests-action/create-instance-group@01b7f29b6eb04336793880301806c154e8bbd85f # updates for 5k
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: 1000
+          ig_name: ig3
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
       - name: Create Instance Group for resource heavy deployments
         uses: cilium/scale-tests-action/create-instance-group@238d773bd07754bfd693a6b22c94eddf3a12778d # main
         timeout-minutes: 30
@@ -288,7 +298,7 @@ jobs:
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
-            --nodes=2000 \
+            --nodes=3000 \
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
             --kubeconfig=$HOME/.kube/config \
