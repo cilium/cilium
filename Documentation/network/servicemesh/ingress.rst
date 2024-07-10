@@ -59,6 +59,8 @@ Prerequisites
 
 .. include:: ingress-reference.rst
 
+.. include:: ingress-reference.rst
+
 
 Ingress Path Types and Precedence
 *********************************
