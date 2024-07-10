@@ -1189,6 +1189,19 @@ func (s *Service) GetDeepCopyServices() []*lb.SVC {
 	return svcs
 }
 
+// GetServiceIDs returns a list of IDs of all installed services.
+func (s *Service) GetServiceIDs() []lb.ServiceID {
+	s.RLock()
+	defer s.RUnlock()
+
+	svcs := make([]lb.ServiceID, 0, len(s.svcByID))
+	for _, svc := range s.svcByID {
+		svcs = append(svcs, lb.ServiceID(svc.frontend.ID))
+	}
+
+	return svcs
+}
+
 // GetDeepCopyServiceByFrontend returns a deep-copy of the service that matches the Frontend address.
 func (s *Service) GetDeepCopyServiceByFrontend(frontend lb.L3n4Addr) (*lb.SVC, bool) {
 	s.RLock()
