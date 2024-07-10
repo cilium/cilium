@@ -1228,7 +1228,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		changes := ChangeState{
 			Adds:    make(Keys),
 			Deletes: make(Keys),
-			Old:     make(MapStateMap),
+			old:     make(MapStateMap),
 		}
 		// copy the starting point
 		ms := testMapState(make(MapStateMap, tt.ms.Len()))
@@ -1242,7 +1242,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		require.Truef(t, ms.DeepEquals(tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.diff(tt.want))
 		require.EqualValuesf(t, tt.wantAdds, changes.Adds, "%s: Adds mismatch", tt.name)
 		require.EqualValuesf(t, tt.wantDeletes, changes.Deletes, "%s: Deletes mismatch", tt.name)
-		require.EqualValuesf(t, tt.wantOld, changes.Old, "%s: OldValues mismatch allows", tt.name)
+		require.EqualValuesf(t, tt.wantOld, changes.old, "%s: OldValues mismatch allows", tt.name)
 
 		// Revert changes and check that we get the original mapstate
 		ms.revertChanges(changes)
