@@ -177,18 +177,6 @@ func (c *CIDUsageInPods) RemovePod(podName string) (string, int, error) {
 	return cidName, count, nil
 }
 
-func (c *CIDUsageInPods) CIDUsedByPod(podName string) (string, bool) {
-	if len(podName) == 0 {
-		return "", false
-	}
-
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	cidName, exists := c.podToCID[podName]
-	return cidName, exists
-}
-
 func (c *CIDUsageInPods) CIDUsageCount(cidName string) int {
 	if len(cidName) == 0 {
 		return 0
