@@ -64,6 +64,61 @@ Prerequisites
 Reference
 #########
 
+How Cilium Ingress differs from other Ingress controllers
+*********************************************************
+
+One of the biggest differences between Cilium Ingress and other Ingress controllers
+is how closely tied the implementation is to the CNI. For Cilium, Ingress is part
+of the networking stack, and so behaves in a different way to other Ingress
+controllers (even other Ingress controllers running in a Cilium cluster).
+
+Other Ingress controllers are generally installed as a Deployment or Daemonset
+in the cluster, and exposed via a Loadbalancer Service or similar (which Cilium
+can, of course, enable).
+
+Cilium Ingress is exposed with a Loadbalancer or NodePort service, or optionally
+can be exposed on the Host network also. But in all of these cases, when traffic
+arrives at the Service's port, eBPF code intercepts the traffic and transparently
+forwards it to Envoy (using the TPROXY kernel facility).
+
+This affects things like client IP visibility, which works differently for Cilium
+Ingress to other Ingress controllers.
+
+It also allows Cilium's Network Policy engine to apply CiliumNetworkPolicy to
+traffic bound for and traffic coming from an Ingress.
+
+Ingress and CiliumNetworkPolicy
+*******************************
+
+Ingress traffic bound to backend services via Cilium Ingress passes through a
+per-node Envoy proxy.
+
+The per-node Envoy proxy has special code that allows it to interact with the
+eBPF policy engine, and do policy lookups on traffic. This allows Envoy to be
+a Network Policy enforcement point, both for Ingress (and Gateway API) traffic,
+and also for east-west traffic via GAMMA or L7 Traffic Management.
+
+However, for Ingress, there's also an additional step. Traffic that arrives at
+Envoy *for Ingress or Gateway API* is assigned the special ``ingress`` identity
+in Cilium's Policy engine.
+
+Traffic coming from outside the cluster is usually assigned the ``world`` identity
+(unless there are IP CIDR policies in the cluster). This means that there are
+actually *two* logical Policy enforcement points in Cilium Ingress - before traffic
+arrives at the ``ingress`` identity, and after, when it is about to exit the
+per-node Envoy.
+
+.. image:: /images/ingress-policy.png
+    :align: center
+
+This means that, when applying Network Policy to a cluster, it's important to
+ensure that both steps are allowed, and that traffic is allowed from ``world`` to
+``ingress``, and from ``ingress`` to identities in the cluster (like the
+``productpage`` identity in the image above).
+
+Please see the Ingress and Policy example below for more details.
+
+
 Ingress Path Types and Precedence
 *********************************
 
@@ -84,10 +139,10 @@ The Ingress specification supports three types of paths:
 When multiple path types are configured on an Ingress object, Cilium will configure
 Envoy with the matches in the following order:
 
-* Exact
-* ImplementationSpecific (that is, regular expression)
-* Prefix
-* The ``/`` Prefix match has special handling and always goes last.
+#. Exact
+#. ImplementationSpecific (that is, regular expression)
+#. Prefix
+#. The ``/`` Prefix match has special handling and always goes last.
 
 Within each of these path types, the paths are sorted in decreasing order of string
 length.
@@ -101,7 +156,7 @@ the second will be sorted ahead of the first in the generated config. But becaus
 ``*`` is in use, the ``/impl`` match will never be hit, as any request to that
 path will match the ``/impl.*`` path first.
 
-See the Ingress Path Types Example below for more information.
+See the :ref:`Ingress Path Types <gs_ingress_path_types>` for more information.
 
 Supported Ingress Annotations
 *****************************
@@ -334,6 +389,7 @@ Cilium's Ingress features:
    :glob:
 
    http
+   ingress-and-network-policy
    path-types   
    grpc
    tls-termination
