@@ -272,7 +272,7 @@ jobs:
           persist-credentials: false
 
       - name: Install cilium-cli
-        uses: cilium/cilium-cli@9d071f99ae32af95cb15c3e0a280d222b569a1cf # v0.16.11
+        uses: cilium/cilium-cli@9fffebfb38ad7ff1f80f1c1a366ec87730683bb4 # v0.16.12
         with:
           skip-build: 'true'
           ci-version: 'latest'
