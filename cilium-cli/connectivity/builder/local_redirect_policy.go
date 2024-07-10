@@ -6,6 +6,8 @@ package builder
 import (
 	_ "embed"
 
+	"github.com/cilium/cilium/pkg/versioncheck"
+
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/connectivity/tests"
 	"github.com/cilium/cilium-cli/utils/features"
@@ -22,6 +24,9 @@ func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]stri
 	lrpFrontendIP := "169.254.169.254"
 	lrpFrontendIPSkipRedirect := "169.254.169.255"
 	newTest("local-redirect-policy", ct).
+		WithCondition(func() bool {
+			return versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion)
+		}).
 		WithCiliumLocalRedirectPolicy(check.CiliumLocalRedirectPolicyParams{
 			Policy:                  localRedirectPolicyYAML,
 			Name:                    "lrp-address-matcher",
