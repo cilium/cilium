@@ -71,6 +71,7 @@ runs:
       run: |
         DEFAULTS="--wait \
             --chart-directory=${{ inputs.chart-dir }} \
+            --disable-check=minimum-version \
             --helm-set=debug.enabled=true \
             --helm-set=debug.verbose=envoy \
             --helm-set=hubble.eventBufferCapacity=65535 \

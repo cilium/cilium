@@ -150,12 +150,6 @@ jobs:
         with:
           go-version: ${{ env.go_version }}
 
-      - name: Install Cilium CLI
-        uses: cilium/cilium-cli@9fffebfb38ad7ff1f80f1c1a366ec87730683bb4 # v0.16.12
-        with:
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
-
       - name: Install Kops
         uses: cilium/scale-tests-action/install-kops@dbd0721db1b3c6ef71644a7df205842252fc7c11 # main
 
@@ -210,6 +204,13 @@ jobs:
           node_count: 100
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@9fffebfb38ad7ff1f80f1c1a366ec87730683bb4 # v0.16.12
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Create Instance Group for resource heavy deployments
         uses: cilium/scale-tests-action/create-instance-group@dbd0721db1b3c6ef71644a7df205842252fc7c11 # main
