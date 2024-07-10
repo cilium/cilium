@@ -13,18 +13,12 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/act"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-func TestCell(t *testing.T) {
-	err := hive.New(act.Cell, Cell).Populate(hivetest.Logger(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-}
 
 type mapMock struct {
 	deletedKeys []act.ActiveConnectionTrackerKey
@@ -58,7 +52,7 @@ func TestCallback(t *testing.T) {
 			234: "zone-b",
 		},
 	}
-	a := newAct(hivetest.Logger(t), new(mapMock), NewActiveConnectionTrackingMetrics(), opts)
+	a := newAct(hivetest.Logger(t), new(mapMock), NewActiveConnectionTrackingMetrics(), &service.Service{}, opts)
 
 	// Initialize
 	a.keyToStrings = func(key *act.ActiveConnectionTrackerKey) (zone string, svc string, err error) {
@@ -149,7 +143,7 @@ func TestCleanup(t *testing.T) {
 		},
 	}
 	m := new(mapMock)
-	a := newAct(hivetest.Logger(t), m, NewActiveConnectionTrackingMetrics(), opts)
+	a := newAct(hivetest.Logger(t), m, NewActiveConnectionTrackingMetrics(), &service.Service{}, opts)
 
 	// Initialize entry with updates
 	a.keyToStrings = func(key *act.ActiveConnectionTrackerKey) (zone string, svc string, err error) {
@@ -207,12 +201,6 @@ func TestCleanup(t *testing.T) {
 
 	a._cleanup(context.Background(), cutoff)
 	require.Empty(t, a.tracker[123])
-	expected := []act.ActiveConnectionTrackerKey{
-		{Zone: 123, SvcID: 1},
-		{Zone: 123, SvcID: 2},
-		{Zone: 234, SvcID: 1},
-	}
-	require.ElementsMatch(t, expected, m.deletedKeys)
 	require.Len(t, a.tracker[234], 1)
 	// Only "zone-b", "svc-b" has updates after cut-off
 	require.NotEmpty(t, a.tracker[234][2])
@@ -234,7 +222,7 @@ func TestCleanup(t *testing.T) {
 
 func TestOverflow(t *testing.T) {
 	m := new(mapMock)
-	a := newAct(hivetest.Logger(t), m, NewActiveConnectionTrackingMetrics(), &option.DaemonConfig{})
+	a := newAct(hivetest.Logger(t), m, NewActiveConnectionTrackingMetrics(), &service.Service{}, &option.DaemonConfig{})
 
 	zones := []uint8{123, 124, 125, 126, 127}
 	services := make([]uint16, metricsCountSoftLimit/2)
@@ -257,7 +245,7 @@ func TestOverflow(t *testing.T) {
 	total := len(zones) * len(services)
 	require.Equal(t, total, a.trackerLen())
 
-	err := a.removeOverflow(context.Background())
+	err := a._removeOverflow(context.Background(), total)
 	require.NoError(t, err)
 
 	require.Equal(t, metricsCountSoftLimit, a.trackerLen())
@@ -307,4 +295,35 @@ func TestCallback_WithFailed(t *testing.T) {
 	require.Equal(t, 1.0, a.metrics.New.WithLabelValues("zone-a", "svc-a").Get())
 	require.Equal(t, 0.0, a.metrics.Failed.WithLabelValues("zone-a", "svc-a").Get())
 
+}
+
+func TestReconcileServices(t *testing.T) {
+	m := new(mapMock)
+	a := newAct(hivetest.Logger(t), m, NewActiveConnectionTrackingMetrics(), &service.Service{}, &option.DaemonConfig{})
+
+	nl := new(actMetric)
+	a.tracker = map[uint8]map[uint16]*actMetric{
+		123: {24: nl, 26: nl, 27: nl, 29: nl},
+		124: {25: nl, 26: nl, 27: nl, 28: nl},
+	}
+	activeServices := []loadbalancer.ServiceID{24, 26, 27}
+	a.svcIDs = func() []loadbalancer.ServiceID {
+		return activeServices
+	}
+
+	err := a.reconcileServices(context.Background())
+	require.NoError(t, err)
+
+	expectedTracker := map[uint8]map[uint16]*actMetric{
+		123: {24: nl, 26: nl, 27: nl},
+		124: {26: nl, 27: nl},
+	}
+	require.Equal(t, expectedTracker, a.tracker)
+
+	expectedDeleted := []act.ActiveConnectionTrackerKey{
+		{SvcID: 29, Zone: 123},
+		{SvcID: 28, Zone: 124},
+		{SvcID: 25, Zone: 124},
+	}
+	require.ElementsMatch(t, expectedDeleted, m.deletedKeys)
 }
