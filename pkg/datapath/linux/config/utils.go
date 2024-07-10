@@ -30,6 +30,12 @@ func defineUint32(name string, value uint32) string {
 		name, value, value, name, name)
 }
 
+// defineUint64 writes the C definition for an unsigned 64-bit value.
+func defineUint64(name string, value uint64) string {
+	return fmt.Sprintf("DEFINE_U64(%s, %#016x);\t/* %d */\n#define %s fetch_u64(%s)\n",
+		name, value, value, name, name)
+}
+
 // defineIPv4 writes the C definition for the given IPv4 address.
 func defineIPv4(name string, addr []byte) string {
 	if len(addr) != net.IPv4len {
