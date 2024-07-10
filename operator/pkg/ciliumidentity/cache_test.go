@@ -5,19 +5,20 @@ package ciliumidentity
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"reflect"
 	"sync"
 	"testing"
-
-	"github.com/cilium/cilium/pkg/labels"
 
 	"github.com/stretchr/testify/assert"
 
 	cestest "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	"github.com/cilium/cilium/pkg/identity/key"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
@@ -34,9 +35,10 @@ func TestMain(m *testing.M) {
 }
 
 func TestCIDState(t *testing.T) {
+	logger := slog.New(logging.SlogNopHandler)
 	// The subtests below share the same state to serially test insert, lookup and
 	// remove operations of CIDState.
-	state := NewCIDState()
+	state := NewCIDState(logger)
 	k1 := key.GetCIDKeyFromLabels(k8sLables_A, labels.LabelSourceK8s)
 	k2 := key.GetCIDKeyFromLabels(k8sLables_B, labels.LabelSourceK8s)
 	k3 := key.GetCIDKeyFromLabels(k8sLables_B_duplicate, labels.LabelSourceK8s)
@@ -142,9 +144,11 @@ func TestCIDState(t *testing.T) {
 }
 
 func TestCIDStateThreadSafety(t *testing.T) {
+	logger := slog.New(logging.SlogNopHandler)
+
 	// This test ensures that no changes to the CID state break its thread safety.
 	// Multiple go routines in parallel continuously keep using CIDState.
-	state := NewCIDState()
+	state := NewCIDState(logger)
 
 	k := key.GetCIDKeyFromLabels(k8sLables_A, labels.LabelSourceK8s)
 	k2 := key.GetCIDKeyFromLabels(k8sLables_B, labels.LabelSourceK8s)
