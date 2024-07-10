@@ -199,8 +199,8 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, false, exists, assertTxt)
 	assert.Equal(t, "", usedCID, assertTxt)
 
-	prevCID, count, err := state.RemovePod(podName1)
-	assert.Error(t, err)
+	prevCID, count, exists := state.RemovePod(podName1)
+	assert.Equal(t, false, exists)
 	assert.Equal(t, "", prevCID, assertTxt)
 	assert.Equal(t, 0, count, assertTxt)
 
@@ -255,8 +255,8 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 0, state.CIDUsageCount(cidName1), assertTxt)
 
 	assertTxt = "Remove Pod 1"
-	prevCID, count, err = state.RemovePod(podName1)
-	assert.NoError(t, err)
+	prevCID, count, exists = state.RemovePod(podName1)
+	assert.Equal(t, true, exists)
 	assert.Equal(t, cidName2, prevCID, assertTxt)
 	assert.Equal(t, 1, count, assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount(cidName2), assertTxt)
@@ -266,8 +266,8 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, "", usedCID, assertTxt)
 
 	assertTxt = "Remove Pod 2"
-	prevCID, count, err = state.RemovePod(podName2)
-	assert.NoError(t, err)
+	prevCID, count, exists = state.RemovePod(podName2)
+	assert.Equal(t, true, exists)
 	assert.Equal(t, cidName2, prevCID, assertTxt)
 	assert.Equal(t, 0, count, assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount(cidName2), assertTxt)

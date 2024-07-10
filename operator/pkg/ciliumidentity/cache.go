@@ -4,7 +4,6 @@
 package ciliumidentity
 
 import (
-	"errors"
 	"log/slog"
 	"strconv"
 
@@ -169,19 +168,20 @@ func (c *CIDUsageInPods) AssignCIDToPod(podName, cidName string) (string, int) {
 
 // RemovePod removes the pod from the pod to CID map, decrements the CID usage
 // and returns the CID name and its usage count after decrementing the usage.
+// If the pod does not exist in the pod to CID map it returns empty values.
 // The return values are used to track when old CIDs are no longer used.
-func (c *CIDUsageInPods) RemovePod(podName string) (string, int, error) {
+func (c *CIDUsageInPods) RemovePod(podName string) (string, int, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	cidName, exists := c.podToCID[podName]
 	if !exists {
-		return "", 0, errors.New("cilium identity not found in pods usage cache")
+		return "", 0, false
 	}
 	count := c.decrementUsage(cidName)
 	delete(c.podToCID, podName)
 
-	return cidName, count, nil
+	return cidName, count, true
 }
 
 func (c *CIDUsageInPods) CIDUsageCount(cidName string) int {
