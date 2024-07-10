@@ -120,6 +120,8 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup) {
 }
 
 func (d *Daemon) cleanupHealthEndpoint() {
+	log.Info("Cleaning up Cilium health endpoint")
+
 	// Delete the process
 	health.KillEndpoint()
 
@@ -144,5 +146,7 @@ func (d *Daemon) cleanupHealthEndpoint() {
 			log.WithError(err).Debug("Error occurred while deleting cilium-health endpoint")
 		}
 	}
+
+	// Remove health endpoint devices
 	health.CleanupEndpoint()
 }
