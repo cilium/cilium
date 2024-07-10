@@ -46,7 +46,6 @@
 #include "lib/dbg.h"
 #include "lib/trace.h"
 #include "lib/csum.h"
-#include "lib/egress_gateway.h"
 #include "lib/srv6.h"
 #include "lib/encap.h"
 #include "lib/eps.h"
@@ -1143,18 +1142,6 @@ ct_recreate4:
 						   false, 0);
 		}
 	}
-
-#ifdef ENABLE_EGRESS_GATEWAY_COMMON
-	/* We handle traffic to Egress GW that is not redirected to L7 proxy here.
-	 * The traffic that has been redirected is processed by to-netdev@bpf_host.
-	 * This code is retained in v1.16 to prevent disruptions during the upgrade.
-	 * It will be removed in v1.17.
-	 */
-	ret = egress_gw_handle_packet(ctx, tuple, ct_status, SECLABEL_IPV4,
-				      *dst_sec_identity, &trace);
-	if (ret != CTX_ACT_OK)
-		return ret;
-#endif
 
 	/* L7 proxy result in VTEP redirection in bpf_host, but when L7 proxy disabled
 	 * We want VTEP redirection handled earlier here to avoid packets passing to
