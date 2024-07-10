@@ -135,6 +135,11 @@ func NewACT(in struct {
 	in.Jobs.Add(job.Timer("act-metrics-cleanup", a.cleanup, metricsTimeout))
 	in.Jobs.Add(job.Timer("act-metrics-remove-overflow", a.removeOverflow, time.Hour, job.WithTrigger(a.trig)))
 	in.Lifecycle.Append(in.Jobs)
+	in.Lifecycle.Append(cell.Hook{
+		OnStop: func(_ cell.HookContext) error {
+			return a.saveFailed()
+		},
+	})
 	ctmap.ACT = a
 	return a
 }
@@ -199,9 +204,14 @@ func (a *ACT) callback(key *act.ActiveConnectionTrackerKey, value *act.ActiveCon
 			a.log.Debug("Failed to construct metrics map key in callback", "from-key", key.String())
 			return
 		}
+		failed, err := a.src.RestoreFailed(key)
+		if err != nil {
+			a.log.Debug("Failed to read a counter of failed connections for new metric")
+		}
 		a.tracker[key.Zone][key.SvcID] = &actMetric{
 			opened:      uint64(value.Opened),
 			closed:      uint64(value.Closed),
+			failed:      failed,
 			labelValues: []string{zone, svc},
 		}
 		return
@@ -225,6 +235,9 @@ func (a *ACT) callback(key *act.ActiveConnectionTrackerKey, value *act.ActiveCon
 
 	entry.failed += entry.newFailed
 	a.metrics.Failed.WithLabelValues(entry.labelValues...).Set(float64(entry.newFailed))
+	if entry.newFailed > 0 {
+		a.src.SaveFailed(key, entry.failed)
+	}
 
 	active := opened - (closed + entry.failed)
 	if sumClosed := (closed + entry.failed); sumClosed > opened {
@@ -437,5 +450,37 @@ func (a *ACT) removeOverflow(ctx context.Context) error {
 	}
 	scopedLog.Info("Removed extra metrics", "removed", removed)
 
+	return nil
+}
+
+func (a *ACT) saveFailed() error {
+	a.mux.Lock()
+	defer a.mux.Unlock()
+
+	saveErrCount := 0
+	for zone, services := range a.tracker {
+		for svc, entry := range services {
+			if entry.newFailed == 0 {
+				continue
+			}
+			mapKey := &act.ActiveConnectionTrackerKey{SvcID: svc, Zone: zone}
+			entry.failed += entry.newFailed
+			entry.newFailed = 0
+			err := a.src.SaveFailed(mapKey, entry.failed)
+			if err != nil {
+				a.log.Info("Failed to sync failed connection counter for",
+					"zone", entry.labelValues[0],
+					"svc", entry.labelValues[1],
+					"err", err,
+				)
+				saveErrCount++
+			}
+		}
+	}
+	if saveErrCount > 0 {
+		err := fmt.Errorf("failed connection counters not synced: %d", saveErrCount)
+		a.log.Warn("Failed to sync failed connection counters", "err", err)
+		return err
+	}
 	return nil
 }
