@@ -42,6 +42,7 @@ type epInfoCache struct {
 	options                *option.IntOptions
 	lxcMAC                 mac.MAC
 	ifIndex                int
+	netNsCookie            uint64
 
 	// endpoint is used to get the endpoint's logger.
 	//
@@ -73,6 +74,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		options:                e.Options.DeepCopy(),
 		lxcMAC:                 e.mac,
 		ifIndex:                e.ifIndex,
+		netNsCookie:            e.NetNsCookie,
 
 		endpoint: e,
 	}
@@ -111,6 +113,11 @@ func (ep *epInfoCache) GetIdentity() identity.NumericIdentity {
 // GetIdentityLocked returns the security identity of the endpoint.
 func (ep *epInfoCache) GetIdentityLocked() identity.NumericIdentity {
 	return ep.identity
+}
+
+// GetEndpointNetNsCookie returns the network namespace cookie for the endpoint
+func (ep *epInfoCache) GetEndpointNetNsCookie() uint64 {
+	return ep.netNsCookie
 }
 
 // Logger returns the logger for the endpoint that is being cached.
