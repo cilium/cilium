@@ -1231,7 +1231,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		changes := ChangeState{
 			Adds:    make(Keys),
 			Deletes: make(Keys),
-			Old:     make(MapStateMap),
+			old:     make(MapStateMap),
 		}
 		// copy the starting point
 		ms := testMapState(make(MapStateMap, tt.ms.Len()))
@@ -1245,7 +1245,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		require.Truef(t, ms.Equals(tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.Diff(tt.want))
 		require.EqualValuesf(t, tt.wantAdds, changes.Adds, "%s: Adds mismatch", tt.name)
 		require.EqualValuesf(t, tt.wantDeletes, changes.Deletes, "%s: Deletes mismatch", tt.name)
-		require.EqualValuesf(t, tt.wantOld, changes.Old, "%s: OldValues mismatch allows", tt.name)
+		require.EqualValuesf(t, tt.wantOld, changes.old, "%s: OldValues mismatch allows", tt.name)
 
 		// Revert changes and check that we get the original mapstate
 		ms.revertChanges(selectorCache, changes)
@@ -2251,7 +2251,7 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 	}
 	for _, tt := range tests {
 		old := ChangeState{
-			Old: make(MapStateMap),
+			old: make(MapStateMap),
 		}
 		tt.ms.ForEach(func(k Key, v MapStateEntry) bool {
 			old.insertOldIfNotExists(k, v)
@@ -2259,7 +2259,7 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 		})
 		changes := ChangeState{
 			Adds: make(Keys),
-			Old:  make(MapStateMap),
+			old:  make(MapStateMap),
 		}
 		tt.ms.addVisibilityKeys(DummyOwner{}, tt.args.redirectPort, &tt.args.visMeta, selectorCache, changes)
 		tt.ms.validatePortProto(t)
@@ -2268,13 +2268,13 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 		wantAdds := make(Keys)
 		wantOld := make(MapStateMap)
 
-		for k, v := range old.Old {
+		for k, v := range old.old {
 			if _, ok := tt.ms.Get(k); !ok {
 				wantOld[k] = v
 			}
 		}
 		tt.ms.ForEach(func(k Key, v MapStateEntry) bool {
-			if v2, ok := old.Old[k]; ok {
+			if v2, ok := old.old[k]; ok {
 				if !assert.ObjectsAreEqual(v2, v) {
 					if !v.DatapathEqual(&v2) {
 						wantAdds[k] = struct{}{}
@@ -2287,7 +2287,7 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 			return true
 		})
 		require.EqualValues(t, wantAdds, changes.Adds, tt.name)
-		require.EqualValues(t, wantOld, changes.Old, tt.name)
+		require.EqualValues(t, wantOld, changes.old, tt.name)
 	}
 }
 
@@ -2633,13 +2633,13 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 		changes := ChangeState{
 			Adds:    make(Keys),
 			Deletes: make(Keys),
-			Old:     make(MapStateMap),
+			old:     make(MapStateMap),
 		}
 		for _, arg := range tt.visArgs {
 			policyMapState.addVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, selectorCache, changes)
 		}
 		require.EqualValues(t, tt.visAdds, changes.Adds, tt.name+" (visAdds)")
-		require.EqualValues(t, tt.visOld, changes.Old, tt.name+" (visOld)")
+		require.EqualValues(t, tt.visOld, changes.old, tt.name+" (visOld)")
 
 		for _, x := range tt.args {
 			dir := trafficdirection.Egress
@@ -2664,14 +2664,14 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 		changes = ChangeState{
 			Adds:    adds,
 			Deletes: deletes,
-			Old:     make(MapStateMap),
+			old:     make(MapStateMap),
 		}
 
 		// Visibilty redirects need to be re-applied after consumeMapChanges()
 		for _, arg := range tt.visArgs {
 			policyMapState.addVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, selectorCache, changes)
 		}
-		for k := range changes.Old {
+		for k := range changes.old {
 			changes.Deletes[k] = struct{}{}
 		}
 		policyMapState.validatePortProto(t)

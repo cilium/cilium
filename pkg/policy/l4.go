@@ -528,10 +528,20 @@ func (l4 *L4Filter) Equals(_ *testing.T, bL4 *L4Filter) bool {
 }
 
 // ChangeState allows caller to revert changes made by (multiple) toMapState call(s)
+// All fields are maps so we can pass this by value.
 type ChangeState struct {
-	Adds    Keys        // Added or modified keys, if not nil
-	Deletes Keys        // deleted keys, if not nil
-	Old     MapStateMap // Old values of all modified or deleted keys, if not nil
+	Adds    Keys                  // Added or modified keys, if not nil
+	Deletes Keys                  // deleted keys, if not nil
+	old     map[Key]MapStateEntry // Old values of all modified or deleted keys, if not nil
+}
+
+// NewRevertState returns an empty ChangeState suitable for reverting MapState changes.
+// The private 'old' field is initialized so that old state can be restored if need be.
+func NewRevertState() ChangeState {
+	return ChangeState{
+		Adds: make(Keys),
+		old:  make(map[Key]MapStateEntry),
+	}
 }
 
 // toMapState converts a single filter into a MapState entries added to 'p.PolicyMapState'.
@@ -669,7 +679,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 		log.WithFields(logrus.Fields{
 			logfields.PolicyKeysAdded:   changes.Adds,
 			logfields.PolicyKeysDeleted: changes.Deletes,
-			logfields.PolicyEntriesOld:  changes.Old,
+			logfields.PolicyEntriesOld:  changes.old,
 		}).Debug("ToMapChange changes")
 	}
 }

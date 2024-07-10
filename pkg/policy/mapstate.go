@@ -887,8 +887,8 @@ func (ms *mapState) AddDependent(owner Key, dependent Key, identities Identities
 // addDependentOnEntry adds 'dependent' to the set of dependent keys of 'e'.
 func (ms *mapState) addDependentOnEntry(owner Key, e MapStateEntry, dependent Key, identities Identities, changes ChangeState) {
 	if _, exists := e.dependents[dependent]; !exists {
-		if changes.Old != nil {
-			changes.Old[owner] = e
+		if changes.old != nil {
+			changes.old[owner] = e
 		}
 		e.AddDependent(dependent)
 		ms.insert(owner, e, identities)
@@ -1062,7 +1062,7 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, identities I
 		}
 
 		// Save old value before any changes, if desired
-		if changes.Old != nil {
+		if changes.old != nil {
 			changes.insertOldIfNotExists(key, oldEntry)
 		}
 
@@ -1119,7 +1119,7 @@ func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, identitie
 			} else {
 				// 'owner' was not found, do not change anything
 				if oldAdded {
-					delete(changes.Old, key)
+					delete(changes.old, key)
 				}
 				return
 			}
@@ -1165,7 +1165,7 @@ func (ms *mapState) revertChanges(identities Identities, changes ChangeState) {
 		ms.denies.delete(k, identities)
 	}
 	// 'old' contains all the original values of both modified and deleted entries
-	for k, v := range changes.Old {
+	for k, v := range changes.old {
 		ms.insert(k, v, identities)
 	}
 }
@@ -1611,10 +1611,10 @@ var visibilityDerivedFrom = labels.LabelArrayList{visibilityDerivedFromLabels}
 // insertIfNotExists only inserts `key=value` if `key` does not exist in keys already
 // returns 'true' if 'key=entry' was added to 'keys'
 func (changes *ChangeState) insertOldIfNotExists(key Key, entry MapStateEntry) bool {
-	if changes == nil || changes.Old == nil {
+	if changes == nil || changes.old == nil {
 		return false
 	}
-	if _, exists := changes.Old[key]; !exists {
+	if _, exists := changes.old[key]; !exists {
 		// Only insert the old entry if the entry was not first added on this round of
 		// changes.
 		if _, added := changes.Adds[key]; !added {
@@ -1623,7 +1623,7 @@ func (changes *ChangeState) insertOldIfNotExists(key Key, entry MapStateEntry) b
 			entry.owners = entry.owners.Clone()
 			entry.dependents = maps.Clone(entry.dependents)
 
-			changes.Old[key] = entry
+			changes.old[key] = entry
 			return true
 		}
 	}
