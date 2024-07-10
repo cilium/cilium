@@ -191,7 +191,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	podName1 := "pod1"
 	assert.Equal(t, 0, state.CIDUsageCount(cidName1), assertTxt)
 
-	usedCID, exists := state.CIDUsedByPod(podName1)
+	usedCID, exists := state.podToCID[podName1]
 	assert.Equal(t, false, exists, assertTxt)
 	assert.Equal(t, "", usedCID, assertTxt)
 
@@ -206,7 +206,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 0, count, assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount(cidName1), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName1)
+	usedCID, exists = state.podToCID[podName1]
 	assert.Equal(t, true, exists, assertTxt)
 	assert.Equal(t, cidName1, usedCID, assertTxt)
 
@@ -217,7 +217,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 0, count, assertTxt)
 	assert.Equal(t, 2, state.CIDUsageCount(cidName1), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName2)
+	usedCID, exists = state.podToCID[podName2]
 	assert.Equal(t, true, exists, assertTxt)
 	assert.Equal(t, cidName1, usedCID, assertTxt)
 
@@ -228,7 +228,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 1, count, assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount(cidName2), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName2)
+	usedCID, exists = state.podToCID[podName2]
 	assert.Equal(t, true, exists, assertTxt)
 	assert.Equal(t, cidName2, usedCID, assertTxt)
 
@@ -239,7 +239,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 2, state.CIDUsageCount(cidName2), assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount(cidName1), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName1)
+	usedCID, exists = state.podToCID[podName1]
 	assert.Equal(t, true, exists, assertTxt)
 	assert.Equal(t, cidName2, usedCID, assertTxt)
 
@@ -257,7 +257,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 1, count, assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount(cidName2), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName1)
+	usedCID, exists = state.podToCID[podName1]
 	assert.Equal(t, false, exists, assertTxt)
 	assert.Equal(t, "", usedCID, assertTxt)
 
@@ -268,7 +268,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 0, count, assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount(cidName2), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName2)
+	usedCID, exists = state.podToCID[podName2]
 	assert.Equal(t, false, exists, assertTxt)
 	assert.Equal(t, "", usedCID, assertTxt)
 }
