@@ -6,8 +6,10 @@ package redirectpolicy
 import (
 	"github.com/cilium/hive/cell"
 
+	serviceapi "github.com/cilium/cilium/api/v1/server/restapi/service"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/service"
 )
 
@@ -17,16 +19,24 @@ var Cell = cell.Module(
 	"LRP Manager",
 
 	cell.Provide(newLRPManager),
+	cell.Provide(newLRPApiHandler),
 )
 
 type lrpManagerParams struct {
 	cell.In
 
-	Svc service.ServiceManager
-	Lpr agentK8s.LocalPodResource
-	Ep  endpointmanager.EndpointManager
+	Svc      service.ServiceManager
+	SvcCache *k8s.ServiceCache
+	Lpr      agentK8s.LocalPodResource
+	Ep       endpointmanager.EndpointManager
 }
 
 func newLRPManager(params lrpManagerParams) *Manager {
-	return NewRedirectPolicyManager(params.Svc, params.Lpr, params.Ep)
+	return NewRedirectPolicyManager(params.Svc, params.SvcCache, params.Lpr, params.Ep)
+}
+
+func newLRPApiHandler(lrpManager *Manager) serviceapi.GetLrpHandler {
+	return &getLrpHandler{
+		lrpManager: lrpManager,
+	}
 }

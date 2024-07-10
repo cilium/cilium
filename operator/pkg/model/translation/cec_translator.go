@@ -11,6 +11,7 @@ import (
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
+	"golang.org/x/exp/maps"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -41,6 +42,7 @@ type cecTranslator struct {
 	secretsNamespace string
 	useProxyProtocol bool
 	useAppProtocol   bool
+	useAlpn          bool
 
 	hostNetworkEnabled           bool
 	hostNetworkNodeLabelSelector *slim_metav1.LabelSelector
@@ -67,6 +69,7 @@ func NewCECTranslator(secretsNamespace string, useProxyProtocol bool, useAppProt
 		secretsNamespace:             secretsNamespace,
 		useProxyProtocol:             useProxyProtocol,
 		useAppProtocol:               useAppProtocol,
+		useAlpn:                      false,
 		hostNameSuffixMatch:          hostNameSuffixMatch,
 		idleTimeoutSeconds:           idleTimeoutSeconds,
 		xffNumTrustedHops:            xffNumTrustedHops,
@@ -75,6 +78,10 @@ func NewCECTranslator(secretsNamespace string, useProxyProtocol bool, useAppProt
 		ipv4Enabled:                  ipv4Enabled,
 		ipv6Enabled:                  ipv6Enabled,
 	}
+}
+
+func (i *cecTranslator) WithUseAlpn(useAlpn bool) {
+	i.useAlpn = useAlpn
 }
 
 func (i *cecTranslator) Translate(namespace string, name string, model *model.Model) (*ciliumv2.CiliumEnvoyConfig, error) {
@@ -89,7 +96,7 @@ func (i *cecTranslator) Translate(namespace string, name string, model *model.Mo
 	}
 
 	cec.Spec.BackendServices = i.getBackendServices(model)
-	cec.Spec.Services = i.getServices(namespace, name)
+	cec.Spec.Services = i.getServicesWithPorts(namespace, name, model)
 	cec.Spec.Resources = i.getResources(model)
 
 	if i.hostNetworkEnabled {
@@ -126,11 +133,32 @@ func (i *cecTranslator) getBackendServices(m *model.Model) []*ciliumv2.Service {
 	return res
 }
 
-func (i *cecTranslator) getServices(namespace string, name string) []*ciliumv2.ServiceListener {
+func (i *cecTranslator) getServicesWithPorts(namespace string, name string, m *model.Model) []*ciliumv2.ServiceListener {
+	// Find all the ports used in the model and build a set of them
+	allPorts := make(map[uint16]struct{})
+
+	for _, hl := range m.HTTP {
+		if _, ok := allPorts[uint16(hl.Port)]; !ok {
+			allPorts[uint16(hl.Port)] = struct{}{}
+		}
+	}
+	for _, tlsl := range m.TLSPassthrough {
+		if _, ok := allPorts[uint16(tlsl.Port)]; !ok {
+			allPorts[uint16(tlsl.Port)] = struct{}{}
+		}
+	}
+
+	ports := maps.Keys(allPorts)
+	// ensure the ports are stably sorted
+	goslices.SortStableFunc(ports, func(a, b uint16) int {
+		return cmp.Compare(a, b)
+	})
+
 	return []*ciliumv2.ServiceListener{
 		{
 			Namespace: namespace,
-			Name:      name,
+			Name:      model.Shorten(name),
+			Ports:     ports,
 		},
 	}
 }
@@ -182,6 +210,10 @@ func (i *cecTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
 	mutatorFuncs := []ListenerMutator{}
 	if i.useProxyProtocol {
 		mutatorFuncs = append(mutatorFuncs, WithProxyProtocol())
+	}
+
+	if i.useAlpn {
+		mutatorFuncs = append(mutatorFuncs, WithAlpn())
 	}
 
 	if i.hostNetworkEnabled {

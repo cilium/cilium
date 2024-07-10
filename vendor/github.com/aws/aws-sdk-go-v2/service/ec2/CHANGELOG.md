@@ -1,3 +1,61 @@
+# v1.168.0 (2024-07-02)
+
+* **Feature**: Documentation updates for Elastic Compute Cloud (EC2).
+
+# v1.167.1 (2024-06-28)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.167.0 (2024-06-26)
+
+* **Feature**: Support list-of-string endpoint parameter.
+
+# v1.166.0 (2024-06-25)
+
+* **Feature**: This release is for the launch of the new u7ib-12tb.224xlarge, R8g, c7gn.metal and mac2-m1ultra.metal instance types
+
+# v1.165.1 (2024-06-19)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.165.0 (2024-06-18)
+
+* **Feature**: Track usage of various AWS SDK features in user-agent string.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.164.2 (2024-06-17)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.164.1 (2024-06-14)
+
+* **Documentation**: Documentation updates for Amazon EC2.
+
+# v1.164.0 (2024-06-12)
+
+* **Feature**: Tagging support for Traffic Mirroring FilterRule resource
+
+# v1.163.1 (2024-06-07)
+
+* **Bug Fix**: Add clock skew correction on all service clients
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.163.0 (2024-06-04)
+
+* **Feature**: U7i instances with up to 32 TiB of DDR5 memory and 896 vCPUs are now available. C7i-flex instances are launched and are lower-priced variants of the Amazon EC2 C7i instances that offer a baseline level of CPU performance with the ability to scale up to the full compute performance 95% of the time.
+
+# v1.162.1 (2024-06-03)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.162.0 (2024-05-28)
+
+* **Feature**: Providing support to accept BgpAsnExtended attribute
+
+# v1.161.4 (2024-05-23)
+
+* No change notes available for this release.
+
 # v1.161.3 (2024-05-16)
 
 * **Dependency Update**: Updated to the latest SDK module versions

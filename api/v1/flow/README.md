@@ -279,6 +279,7 @@ EventTypeFilter is a filter describing a particular event type.
 | destination | [Endpoint](#flow-Endpoint) |  |  |
 | Type | [FlowType](#flow-FlowType) |  |  |
 | node_name | [string](#string) |  | NodeName is the name of the node from which this Flow was captured. |
+| node_labels | [string](#string) | repeated | node labels in `foo=bar` format. |
 | source_names | [string](#string) | repeated | all names the source IP can have. |
 | destination_names | [string](#string) | repeated | all names the destination IP can have. |
 | l7 | [Layer7](#flow-Layer7) |  | L7 information. This field is set if and only if FlowType is L7. |
@@ -337,6 +338,7 @@ multiple fields are set, then all fields must match for the filter to match.
 | traffic_direction | [TrafficDirection](#flow-TrafficDirection) | repeated | traffic_direction filters flow by direction of the connection, e.g. ingress or egress. |
 | verdict | [Verdict](#flow-Verdict) | repeated | only return Flows that were classified with a particular verdict. |
 | drop_reason_desc | [DropReason](#flow-DropReason) | repeated | only applicable to Verdict = DROPPED (e.g. &#34;POLICY_DENIED&#34;, &#34;UNSUPPORTED_L3_PROTOCOL&#34;) |
+| interface | [NetworkInterface](#flow-NetworkInterface) | repeated | interface is the network interface on which this flow was observed. |
 | event_type | [EventTypeFilter](#flow-EventTypeFilter) | repeated | event_type is the list of event types to filter on |
 | http_status_code | [string](#string) | repeated | http_status_code is a list of string prefixes (e.g. &#34;4&#43;&#34;, &#34;404&#34;, &#34;5&#43;&#34;) to filter on the HTTP status code |
 | protocol | [string](#string) | repeated | protocol filters flows by L4 or L7 protocol, e.g. (e.g. &#34;tcp&#34;, &#34;http&#34;) |
@@ -352,6 +354,7 @@ multiple fields are set, then all fields must match for the filter to match.
 | http_header | [HTTPHeader](#flow-HTTPHeader) | repeated | http_header is a list of key:value pairs to filter on the HTTP headers. |
 | tcp_flags | [TCPFlags](#flow-TCPFlags) | repeated | tcp_flags filters flows based on TCP header flags |
 | node_name | [string](#string) | repeated | node_name is a list of patterns to filter on the node name, e.g. &#34;k8s*&#34;, &#34;test-cluster/*.domain.com&#34;, &#34;cluster-name/&#34; etc. |
+| node_labels | [string](#string) | repeated | node_labels filters on a list of node label selectors. Selectors support the full Kubernetes label selector syntax. |
 | ip_version | [IPVersion](#flow-IPVersion) | repeated | filter based on IP version (ipv4 or ipv6) |
 | trace_id | [string](#string) | repeated | trace_id filters flows by trace ID |
 | experimental | [FlowFilter.Experimental](#flow-FlowFilter-Experimental) |  | experimental contains filters that are not stable yet. Support for experimental features is always optional and subject to change. |

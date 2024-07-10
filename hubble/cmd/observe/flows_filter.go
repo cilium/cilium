@@ -210,6 +210,7 @@ func newFlowFilter() *flowFilter {
 			{"workload", "to-workload"},
 			{"workload", "from-workload"},
 			{"node-name", "cluster"},
+			{"node-label"},
 			{"tcp-flags"},
 			{"uuid"},
 			{"traffic-direction"},
@@ -689,10 +690,14 @@ func (of *flowFilter) set(f *filterTracker, name, val string, track bool) error 
 			f.DestinationIdentity = append(f.GetDestinationIdentity(), identity.Uint32())
 		})
 
-	// node name filters
+	// node related filters
 	case "node-name":
 		f.apply(func(f *flowpb.FlowFilter) {
 			f.NodeName = append(f.GetNodeName(), val)
+		})
+	case "node-label":
+		f.apply(func(f *flowpb.FlowFilter) {
+			f.NodeLabels = append(f.GetNodeLabels(), val)
 		})
 
 		// cluster Name filters
@@ -725,13 +730,16 @@ func (of *flowFilter) set(f *filterTracker, name, val string, track bool) error 
 		default:
 			return fmt.Errorf("%s: invalid traffic direction, expected ingress or egress", td)
 		}
-
 	case "cel-expression":
 		f.apply(func(f *flowpb.FlowFilter) {
 			if f.GetExperimental() == nil {
 				f.Experimental = &flowpb.FlowFilter_Experimental{}
 			}
 			f.Experimental.CelExpression = append(f.Experimental.CelExpression, val)
+		})
+	case "interface":
+		f.apply(func(f *flowpb.FlowFilter) {
+			f.Interface = append(f.Interface, &flowpb.NetworkInterface{Name: val})
 		})
 	}
 

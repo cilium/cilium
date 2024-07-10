@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_MAPS_H_
-#define __LIB_MAPS_H_
+#pragma once
 
 #include "common.h"
 #include "ipv6.h"
@@ -36,7 +35,7 @@ struct bpf_elf_map __section_maps POLICY_CALL_MAP = {
 	.id		= CILIUM_MAP_POLICY,
 	.size_key	= sizeof(__u32),
 	.size_value	= sizeof(__u32),
-	.pinning	= PIN_GLOBAL_NS,
+	.pinning	= LIBBPF_PIN_BY_NAME,
 	.max_elem	= POLICY_PROG_MAP_SIZE,
 };
 
@@ -65,7 +64,7 @@ struct bpf_elf_map __section_maps POLICY_EGRESSCALL_MAP = {
 	.id		= CILIUM_MAP_EGRESSPOLICY,
 	.size_key	= sizeof(__u32),
 	.size_value	= sizeof(__u32),
-	.pinning	= PIN_GLOBAL_NS,
+	.pinning	= LIBBPF_PIN_BY_NAME,
 	.max_elem	= POLICY_PROG_MAP_SIZE,
 };
 
@@ -78,17 +77,6 @@ tail_call_egress_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 }
 
 #endif
-
-#ifdef ENABLE_BANDWIDTH_MANAGER
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct edt_id);
-	__type(value, struct edt_info);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, THROTTLE_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} THROTTLE_MAP __section_maps_btf;
-#endif /* ENABLE_BANDWIDTH_MANAGER */
 
 #ifdef POLICY_MAP
 /* Per-endpoint policy enforcement map */
@@ -130,29 +118,18 @@ struct {
 #endif
 
 #ifndef SKIP_CALLS_MAP
-/* Private per EP map for internal tail calls */
+/* Private per-EP map for internal tail calls. Its bpffs pin is replaced every
+ * time the BPF object is loaded. An existing pinned map is never reused.
+ */
 struct bpf_elf_map __section_maps CALLS_MAP = {
 	.type		= BPF_MAP_TYPE_PROG_ARRAY,
 	.id		= CILIUM_MAP_CALLS,
 	.size_key	= sizeof(__u32),
 	.size_value	= sizeof(__u32),
-	.pinning	= PIN_GLOBAL_NS,
+	.pinning	= CILIUM_PIN_REPLACE,
 	.max_elem	= CILIUM_CALL_SIZE,
 };
 #endif /* SKIP_CALLS_MAP */
-
-#ifdef HAVE_ENCAP
-
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct tunnel_key);
-	__type(value, struct tunnel_value);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, TUNNEL_ENDPOINT_MAP_SIZE);
-	__uint(map_flags, CONDITIONAL_PREALLOC);
-} TUNNEL_MAP __section_maps_btf;
-
-#endif
 
 #if defined(ENABLE_CUSTOM_CALLS) && defined(CUSTOM_CALLS_MAP)
 /* Private per-EP map for tail calls to user-defined programs.
@@ -165,7 +142,7 @@ struct bpf_elf_map __section_maps CUSTOM_CALLS_MAP = {
 	.id		= CILIUM_MAP_CUSTOM_CALLS,
 	.size_key	= sizeof(__u32),
 	.size_value	= sizeof(__u32),
-	.pinning	= PIN_GLOBAL_NS,
+	.pinning	= LIBBPF_PIN_BY_NAME,
 	.max_elem	= 4,	/* ingress and egress, IPv4 and IPv6 */
 };
 
@@ -200,14 +177,6 @@ struct {
 	__uint(max_entries, IPCACHE_MAP_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } IPCACHE_MAP __section_maps_btf;
-
-struct {
-	__uint(type, BPF_MAP_TYPE_ARRAY);
-	__type(key, __u32);
-	__type(value, struct encrypt_config);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, 1);
-} ENCRYPT_MAP __section_maps_btf;
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -250,17 +219,6 @@ struct {
 	__uint(max_entries, L2_RESPONSER_MAP4_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } L2_RESPONDER_MAP4 __section_maps_btf;
-
-#ifdef ENABLE_EGRESS_GATEWAY
-struct {
-	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
-	__type(key, struct egress_gw_policy_key);
-	__type(value, struct egress_gw_policy_entry);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} EGRESS_POLICY_MAP __section_maps_btf;
-#endif /* ENABLE_EGRESS_GATEWAY */
 
 #ifdef ENABLE_SRV6
 # define SRV6_VRF_MAP(IP_FAMILY)				\
@@ -339,4 +297,3 @@ tail_call_internal(struct __ctx_buff *ctx, const __u32 index, __s8 *ext_err)
 	return DROP_MISSED_TAIL_CALL;
 }
 #endif /* SKIP_CALLS_MAP */
-#endif

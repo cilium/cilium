@@ -16,8 +16,7 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  */
-#ifndef _LINUX_TCP_H
-#define _LINUX_TCP_H
+#pragma once
 
 #include <linux/types.h>
 
@@ -86,6 +85,3 @@ enum {
  */
 #define TCP_MSS_DEFAULT		 536U	/* IPv4 (RFC1122, RFC2581) */
 #define TCP_MSS_DESIRED		1220U	/* IPv6 (tunneled), EDNS0 (RFC3226) */
-
-
-#endif /* _LINUX_TCP_H */

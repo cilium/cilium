@@ -121,6 +121,12 @@ func (c *Client) addOperationDescribeVerifiedAccessInstanceLoggingConfigurations
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVerifiedAccessInstanceLoggingConfigurations(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -141,14 +147,6 @@ func (c *Client) addOperationDescribeVerifiedAccessInstanceLoggingConfigurations
 	}
 	return nil
 }
-
-// DescribeVerifiedAccessInstanceLoggingConfigurationsAPIClient is a client that
-// implements the DescribeVerifiedAccessInstanceLoggingConfigurations operation.
-type DescribeVerifiedAccessInstanceLoggingConfigurationsAPIClient interface {
-	DescribeVerifiedAccessInstanceLoggingConfigurations(context.Context, *DescribeVerifiedAccessInstanceLoggingConfigurationsInput, ...func(*Options)) (*DescribeVerifiedAccessInstanceLoggingConfigurationsOutput, error)
-}
-
-var _ DescribeVerifiedAccessInstanceLoggingConfigurationsAPIClient = (*Client)(nil)
 
 // DescribeVerifiedAccessInstanceLoggingConfigurationsPaginatorOptions is the
 // paginator options for DescribeVerifiedAccessInstanceLoggingConfigurations
@@ -218,6 +216,9 @@ func (p *DescribeVerifiedAccessInstanceLoggingConfigurationsPaginator) NextPage(
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeVerifiedAccessInstanceLoggingConfigurations(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -236,6 +237,14 @@ func (p *DescribeVerifiedAccessInstanceLoggingConfigurationsPaginator) NextPage(
 
 	return result, nil
 }
+
+// DescribeVerifiedAccessInstanceLoggingConfigurationsAPIClient is a client that
+// implements the DescribeVerifiedAccessInstanceLoggingConfigurations operation.
+type DescribeVerifiedAccessInstanceLoggingConfigurationsAPIClient interface {
+	DescribeVerifiedAccessInstanceLoggingConfigurations(context.Context, *DescribeVerifiedAccessInstanceLoggingConfigurationsInput, ...func(*Options)) (*DescribeVerifiedAccessInstanceLoggingConfigurationsOutput, error)
+}
+
+var _ DescribeVerifiedAccessInstanceLoggingConfigurationsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeVerifiedAccessInstanceLoggingConfigurations(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

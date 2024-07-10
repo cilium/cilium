@@ -1,5 +1,13 @@
 {
   "properties": {
+    "LBIPAM": {
+      "properties": {
+        "requireLBClass": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "MTU": {
       "type": "integer"
     },
@@ -477,9 +485,6 @@
             }
           },
           "type": "object"
-        },
-        "v2Enabled": {
-          "type": "boolean"
         }
       },
       "type": "object"
@@ -512,6 +517,9 @@
             "integer"
           ]
         },
+        "datapathMode": {
+          "type": "string"
+        },
         "disableExternalIPMitigation": {
           "type": "boolean"
         },
@@ -520,6 +528,17 @@
         },
         "events": {
           "properties": {
+            "default": {
+              "properties": {
+                "burstLimit": {
+                  "type": "null"
+                },
+                "rateLimit": {
+                  "type": "null"
+                }
+              },
+              "type": "object"
+            },
             "drop": {
               "properties": {
                 "enabled": {
@@ -713,6 +732,60 @@
       },
       "type": "object"
     },
+    "ciliumEndpointSlice": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "rateLimits": {
+          "items": {
+            "anyOf": [
+              {
+                "properties": {
+                  "burst": {
+                    "type": "integer"
+                  },
+                  "limit": {
+                    "type": "integer"
+                  },
+                  "nodes": {
+                    "type": "integer"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "burst": {
+                    "type": "integer"
+                  },
+                  "limit": {
+                    "type": "integer"
+                  },
+                  "nodes": {
+                    "type": "integer"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "burst": {
+                    "type": "integer"
+                  },
+                  "limit": {
+                    "type": "integer"
+                  },
+                  "nodes": {
+                    "type": "integer"
+                  }
+                }
+              }
+            ]
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
     "cleanBpfState": {
       "type": "boolean"
     },
@@ -741,26 +814,34 @@
               "properties": {
                 "podAntiAffinity": {
                   "properties": {
-                    "requiredDuringSchedulingIgnoredDuringExecution": {
+                    "preferredDuringSchedulingIgnoredDuringExecution": {
                       "items": {
                         "anyOf": [
                           {
                             "properties": {
-                              "labelSelector": {
+                              "podAffinityTerm": {
                                 "properties": {
-                                  "matchLabels": {
+                                  "labelSelector": {
                                     "properties": {
-                                      "k8s-app": {
-                                        "type": "string"
+                                      "matchLabels": {
+                                        "properties": {
+                                          "k8s-app": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "type": "object"
                                       }
                                     },
                                     "type": "object"
+                                  },
+                                  "topologyKey": {
+                                    "type": "string"
                                   }
                                 },
                                 "type": "object"
                               },
-                              "topologyKey": {
-                                "type": "string"
+                              "weight": {
+                                "type": "integer"
                               }
                             }
                           }
@@ -820,6 +901,12 @@
                     }
                   },
                   "type": "object"
+                },
+                "storageMedium": {
+                  "enum": [
+                    "Disk",
+                    "Memory"
+                  ]
                 }
               },
               "type": "object"
@@ -1125,6 +1212,13 @@
                 "annotations": {
                   "type": "object"
                 },
+                "enableSessionAffinity": {
+                  "enum": [
+                    "HAOnly",
+                    "Always",
+                    "Never"
+                  ]
+                },
                 "externalTrafficPolicy": {
                   "enum": [
                     "Local",
@@ -1136,6 +1230,22 @@
                     "Local",
                     "Cluster"
                   ]
+                },
+                "loadBalancerClass": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "loadBalancerIP": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "loadBalancerSourceRanges": {
+                  "items": {},
+                  "type": "array"
                 },
                 "nodePort": {
                   "type": "integer"
@@ -1193,6 +1303,9 @@
                   },
                   "type": "object"
                 },
+                "enableSecrets": {
+                  "type": "boolean"
+                },
                 "remote": {
                   "properties": {
                     "cert": {
@@ -1238,6 +1351,12 @@
               "properties": {
                 "rollingUpdate": {
                   "properties": {
+                    "maxSurge": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    },
                     "maxUnavailable": {
                       "type": [
                         "integer",
@@ -1313,6 +1432,9 @@
           "type": "string"
         },
         "customConf": {
+          "type": "boolean"
+        },
+        "enableRouteMTUForCNIChaining": {
           "type": "boolean"
         },
         "exclusive": {
@@ -1428,6 +1550,9 @@
         }
       },
       "type": "object"
+    },
+    "directRoutingSkipUnreachable": {
+      "type": "boolean"
     },
     "disableEndpointCRD": {
       "type": "boolean"
@@ -1787,7 +1912,10 @@
           ]
         },
         "enabled": {
-          "type": "boolean"
+          "type": [
+            "null",
+            "boolean"
+          ]
         },
         "extraArgs": {
           "items": {},
@@ -2104,12 +2232,6 @@
     },
     "etcd": {
       "properties": {
-        "annotations": {
-          "type": "object"
-        },
-        "clusterDomain": {
-          "type": "string"
-        },
         "enabled": {
           "type": "boolean"
         },
@@ -2123,140 +2245,8 @@
           },
           "type": "array"
         },
-        "extraArgs": {
-          "items": {},
-          "type": "array"
-        },
-        "extraVolumeMounts": {
-          "items": {},
-          "type": "array"
-        },
-        "extraVolumes": {
-          "items": {},
-          "type": "array"
-        },
-        "image": {
-          "properties": {
-            "digest": {
-              "type": "string"
-            },
-            "override": {
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "pullPolicy": {
-              "type": "string"
-            },
-            "repository": {
-              "type": "string"
-            },
-            "tag": {
-              "type": "string"
-            },
-            "useDigest": {
-              "type": "boolean"
-            }
-          },
-          "type": "object"
-        },
-        "k8sService": {
-          "type": "boolean"
-        },
-        "nodeSelector": {
-          "properties": {
-            "kubernetes.io/os": {
-              "type": "string"
-            }
-          },
-          "type": "object"
-        },
-        "podAnnotations": {
-          "type": "object"
-        },
-        "podDisruptionBudget": {
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            },
-            "maxUnavailable": {
-              "type": [
-                "null",
-                "integer",
-                "string"
-              ]
-            },
-            "minAvailable": {
-              "type": [
-                "null",
-                "integer",
-                "string"
-              ]
-            }
-          },
-          "type": "object"
-        },
-        "podLabels": {
-          "type": "object"
-        },
-        "podSecurityContext": {
-          "type": "object"
-        },
-        "priorityClassName": {
-          "type": "string"
-        },
-        "resources": {
-          "type": "object"
-        },
-        "securityContext": {
-          "type": "object"
-        },
         "ssl": {
           "type": "boolean"
-        },
-        "tolerations": {
-          "items": {
-            "anyOf": [
-              {
-                "properties": {
-                  "operator": {
-                    "type": "string"
-                  }
-                }
-              }
-            ]
-          },
-          "type": "array"
-        },
-        "topologySpreadConstraints": {
-          "items": {},
-          "type": "array"
-        },
-        "updateStrategy": {
-          "properties": {
-            "rollingUpdate": {
-              "properties": {
-                "maxSurge": {
-                  "type": [
-                    "integer",
-                    "string"
-                  ]
-                },
-                "maxUnavailable": {
-                  "type": [
-                    "integer",
-                    "string"
-                  ]
-                }
-              },
-              "type": "object"
-            },
-            "type": {
-              "type": "string"
-            }
-          },
-          "type": "object"
         }
       },
       "type": "object"
@@ -2308,8 +2298,14 @@
       "items": {},
       "type": "array"
     },
+    "forceDeviceDetection": {
+      "type": "boolean"
+    },
     "gatewayAPI": {
       "properties": {
+        "enableAlpn": {
+          "type": "boolean"
+        },
         "enableAppProtocol": {
           "type": "boolean"
         },
@@ -2318,6 +2314,17 @@
         },
         "enabled": {
           "type": "boolean"
+        },
+        "externalTrafficPolicy": {
+          "type": "string"
+        },
+        "gatewayClass": {
+          "properties": {
+            "create": {
+              "type": "string"
+            }
+          },
+          "type": "object"
         },
         "hostNetwork": {
           "properties": {
@@ -3289,6 +3296,9 @@
               },
               "type": "object"
             },
+            "labels": {
+              "type": "object"
+            },
             "nodeSelector": {
               "properties": {
                 "kubernetes.io/os": {
@@ -3557,6 +3567,9 @@
             },
             "annotations": {
               "type": "object"
+            },
+            "externalTrafficPolicy": {
+              "type": "string"
             },
             "insecureNodePort": {
               "type": [
@@ -4616,52 +4629,6 @@
             "anyOf": [
               {
                 "properties": {
-                  "effect": {
-                    "type": "string"
-                  },
-                  "key": {
-                    "type": "string"
-                  }
-                }
-              },
-              {
-                "properties": {
-                  "effect": {
-                    "type": "string"
-                  },
-                  "key": {
-                    "type": "string"
-                  }
-                }
-              },
-              {
-                "properties": {
-                  "effect": {
-                    "type": "string"
-                  },
-                  "key": {
-                    "type": "string"
-                  }
-                }
-              },
-              {
-                "properties": {
-                  "effect": {
-                    "type": "string"
-                  },
-                  "key": {
-                    "type": "string"
-                  },
-                  "value": {
-                    "type": "string"
-                  }
-                }
-              },
-              {
-                "properties": {
-                  "key": {
-                    "type": "string"
-                  },
                   "operator": {
                     "type": "string"
                   }
@@ -5035,23 +5002,6 @@
           },
           "type": "object"
         },
-        "etcd": {
-          "properties": {
-            "annotations": {
-              "type": "object"
-            },
-            "automount": {
-              "type": "boolean"
-            },
-            "create": {
-              "type": "boolean"
-            },
-            "name": {
-              "type": "string"
-            }
-          },
-          "type": "object"
-        },
         "hubblecertgen": {
           "properties": {
             "annotations": {
@@ -5190,6 +5140,14 @@
     },
     "synchronizeK8sNodes": {
       "type": "boolean"
+    },
+    "sysctlfix": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
     },
     "terminationGracePeriodSeconds": {
       "type": "integer"

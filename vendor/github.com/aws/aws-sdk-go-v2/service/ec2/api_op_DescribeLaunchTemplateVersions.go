@@ -113,7 +113,7 @@ type DescribeLaunchTemplateVersionsInput struct {
 	// If false , and if a Systems Manager parameter is specified for ImageId , the
 	// parameter is displayed in the response for imageId .
 	//
-	// For more information, see [Use a Systems Manager parameter instead of an AMI ID] in the Amazon Elastic Compute Cloud User Guide.
+	// For more information, see [Use a Systems Manager parameter instead of an AMI ID] in the Amazon EC2 User Guide.
 	//
 	// Default: false
 	//
@@ -207,6 +207,12 @@ func (c *Client) addOperationDescribeLaunchTemplateVersionsMiddlewares(stack *mi
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeLaunchTemplateVersions(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -227,14 +233,6 @@ func (c *Client) addOperationDescribeLaunchTemplateVersionsMiddlewares(stack *mi
 	}
 	return nil
 }
-
-// DescribeLaunchTemplateVersionsAPIClient is a client that implements the
-// DescribeLaunchTemplateVersions operation.
-type DescribeLaunchTemplateVersionsAPIClient interface {
-	DescribeLaunchTemplateVersions(context.Context, *DescribeLaunchTemplateVersionsInput, ...func(*Options)) (*DescribeLaunchTemplateVersionsOutput, error)
-}
-
-var _ DescribeLaunchTemplateVersionsAPIClient = (*Client)(nil)
 
 // DescribeLaunchTemplateVersionsPaginatorOptions is the paginator options for
 // DescribeLaunchTemplateVersions
@@ -304,6 +302,9 @@ func (p *DescribeLaunchTemplateVersionsPaginator) NextPage(ctx context.Context, 
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeLaunchTemplateVersions(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -322,6 +323,14 @@ func (p *DescribeLaunchTemplateVersionsPaginator) NextPage(ctx context.Context, 
 
 	return result, nil
 }
+
+// DescribeLaunchTemplateVersionsAPIClient is a client that implements the
+// DescribeLaunchTemplateVersions operation.
+type DescribeLaunchTemplateVersionsAPIClient interface {
+	DescribeLaunchTemplateVersions(context.Context, *DescribeLaunchTemplateVersionsInput, ...func(*Options)) (*DescribeLaunchTemplateVersionsOutput, error)
+}
+
+var _ DescribeLaunchTemplateVersionsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeLaunchTemplateVersions(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

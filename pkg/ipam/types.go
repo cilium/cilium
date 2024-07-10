@@ -8,8 +8,11 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
+	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -89,7 +92,6 @@ type IPAM struct {
 	IPv4Allocator Allocator
 
 	// metadata provides information about a particular IP owner.
-	// May be nil.
 	metadata Metadata
 
 	// owner maps an IP to the owner per pool.
@@ -106,17 +108,24 @@ type IPAM struct {
 	// excludedIPS contains excluded IPs and their respective owners per pool. The key is a
 	// combination pool:ip to avoid having to maintain a map of maps.
 	excludedIPs map[string]string
+
+	localNodeStore *node.LocalNodeStore
+	k8sEventReg    K8sEventRegister
+	nodeResource   agentK8s.LocalCiliumNodeResource
+	mtuConfig      MtuConfiguration
+	clientset      client.Clientset
+	nodeDiscovery  Owner
 }
 
 // DebugStatus implements debug.StatusObject to provide debug status collection
 // ability
 func (ipam *IPAM) DebugStatus() string {
-	if ipam == nil {
-		return "<nil>"
-	}
-
 	ipam.allocatorMutex.RLock()
-	str := spew.Sdump(ipam)
+	str := spew.Sdump(
+		"owners", ipam.owner,
+		"expiration timers", ipam.expirationTimers,
+		"excluded ips", ipam.excludedIPs,
+	)
 	ipam.allocatorMutex.RUnlock()
 	return str
 }
@@ -136,4 +145,12 @@ type timerKey struct {
 type expirationTimer struct {
 	uuid string
 	stop chan<- struct{}
+}
+
+// LimitsNotFound is an error that signals lack of limits for given instance type
+type LimitsNotFound struct{}
+
+// Error implements error interface
+func (_ LimitsNotFound) Error() string {
+	return "Limits not found"
 }

@@ -141,6 +141,12 @@ func (c *Client) addOperationGetTransitGatewayPrefixListReferencesMiddlewares(st
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetTransitGatewayPrefixListReferencesValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -164,14 +170,6 @@ func (c *Client) addOperationGetTransitGatewayPrefixListReferencesMiddlewares(st
 	}
 	return nil
 }
-
-// GetTransitGatewayPrefixListReferencesAPIClient is a client that implements the
-// GetTransitGatewayPrefixListReferences operation.
-type GetTransitGatewayPrefixListReferencesAPIClient interface {
-	GetTransitGatewayPrefixListReferences(context.Context, *GetTransitGatewayPrefixListReferencesInput, ...func(*Options)) (*GetTransitGatewayPrefixListReferencesOutput, error)
-}
-
-var _ GetTransitGatewayPrefixListReferencesAPIClient = (*Client)(nil)
 
 // GetTransitGatewayPrefixListReferencesPaginatorOptions is the paginator options
 // for GetTransitGatewayPrefixListReferences
@@ -240,6 +238,9 @@ func (p *GetTransitGatewayPrefixListReferencesPaginator) NextPage(ctx context.Co
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.GetTransitGatewayPrefixListReferences(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -258,6 +259,14 @@ func (p *GetTransitGatewayPrefixListReferencesPaginator) NextPage(ctx context.Co
 
 	return result, nil
 }
+
+// GetTransitGatewayPrefixListReferencesAPIClient is a client that implements the
+// GetTransitGatewayPrefixListReferences operation.
+type GetTransitGatewayPrefixListReferencesAPIClient interface {
+	GetTransitGatewayPrefixListReferences(context.Context, *GetTransitGatewayPrefixListReferencesInput, ...func(*Options)) (*GetTransitGatewayPrefixListReferencesOutput, error)
+}
+
+var _ GetTransitGatewayPrefixListReferencesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opGetTransitGatewayPrefixListReferences(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

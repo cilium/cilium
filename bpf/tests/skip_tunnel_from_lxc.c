@@ -30,7 +30,6 @@
  * Now include testing defaults
  */
 #define ROUTER_IP
-#include "config_replacement.h"
 #undef ROUTER_IP
 #include "node_config.h"
 
@@ -191,6 +190,9 @@ check_ctx(const struct __ctx_buff *ctx, __u32 expected_result, bool v4)
 
 		if (l3->daddr != DST_IPV4)
 			test_fatal("dest IP was changed");
+
+		if (l3->check != bpf_htons(0xf968))
+			test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 		l4 = (void *)l3 + sizeof(struct iphdr);
 	} else {

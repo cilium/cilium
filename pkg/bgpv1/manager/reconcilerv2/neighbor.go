@@ -175,15 +175,29 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	nset := map[string]*member{}
 
 	for i, n := range newNeigh {
+		// validate that peer has ASN and address. In current implementation these fields are
+		// mandatory for a peer. Eventually we will relax this restriction with implementation
+		// of BGP unnumbered.
+		if n.PeerASN == nil {
+			return fmt.Errorf("peer %s does not have a PeerASN", n.Name)
+		}
+
+		if n.PeerAddress == nil {
+			return fmt.Errorf("peer %s does not have a PeerAddress", n.Name)
+		}
+
 		var (
-			key = n.Name
+			key = r.neighborID(&n)
 			h   *member
 			ok  bool
 		)
 
-		config, err := r.getPeerConfig(n.PeerConfigRef.Name)
+		config, exists, err := r.getPeerConfig(n.PeerConfigRef)
 		if err != nil {
 			return err
+		}
+		if !exists {
+			continue // configured peer config does not exist, skip
 		}
 
 		passwd, err := r.getPeerPassword(p.DesiredConfig.Name, n.Name, config)
@@ -210,7 +224,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 
 	for i, n := range curNeigh {
 		var (
-			key = n.Peer.Name
+			key = r.neighborID(n.Peer)
 			h   *member
 			ok  bool
 		)
@@ -247,19 +261,17 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		l.Debug("No peer changes necessary")
 	}
 
-	// create new neighbors
-	for _, n := range toCreate {
-		l.WithField(types.PeerLogField, n.Peer.Name).Info("Adding peer")
+	// remove neighbors
+	for _, n := range toRemove {
+		l.WithField(types.PeerLogField, n.Peer.Name).Info("Removing peer")
 
-		if err := p.BGPInstance.Router.AddNeighbor(ctx, types.NeighborRequest{
-			Peer:       n.Peer,
-			PeerConfig: n.Config,
-			Password:   n.Password,
+		if err := p.BGPInstance.Router.RemoveNeighbor(ctx, types.NeighborRequest{
+			Peer: n.Peer,
 		}); err != nil {
-			return fmt.Errorf("failed to add neigbhor %s in instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
+			return fmt.Errorf("failed to remove neigbhor %s from instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
-		r.upsertMetadata(p.BGPInstance, p.DesiredConfig.Name, n)
+		r.deleteMetadata(p.BGPInstance, p.DesiredConfig.Name, n)
 	}
 
 	// update neighbors
@@ -277,41 +289,44 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		r.upsertMetadata(p.BGPInstance, p.DesiredConfig.Name, n)
 	}
 
-	// remove neighbors
-	for _, n := range toRemove {
-		l.WithField(types.PeerLogField, n.Peer.Name).Info("Removing peer")
+	// create new neighbors
+	for _, n := range toCreate {
+		l.WithField(types.PeerLogField, n.Peer.Name).Info("Adding peer")
 
-		if err := p.BGPInstance.Router.RemoveNeighbor(ctx, types.NeighborRequest{
-			Peer: n.Peer,
+		if err := p.BGPInstance.Router.AddNeighbor(ctx, types.NeighborRequest{
+			Peer:       n.Peer,
+			PeerConfig: n.Config,
+			Password:   n.Password,
 		}); err != nil {
-			return fmt.Errorf("failed to remove neigbhor %s from instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
+			return fmt.Errorf("failed to add neigbhor %s in instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
-		r.deleteMetadata(p.BGPInstance, p.DesiredConfig.Name, n)
+		r.upsertMetadata(p.BGPInstance, p.DesiredConfig.Name, n)
 	}
 
 	l.Debug("Done reconciling peers")
 	return nil
 }
 
-// getPeerConfig returns the CiliumBGPPeerConfigSpec for the given peerConfigName. If config does not exist, nil is returned.
-func (r *NeighborReconciler) getPeerConfig(peerConfigName string) (*v2alpha1.CiliumBGPPeerConfigSpec, error) {
-	config, exists, err := r.PeerConfig.GetByKey(resource.Key{Name: peerConfigName})
-	if err != nil {
-		return nil, err
-	}
-
-	var conf *v2alpha1.CiliumBGPPeerConfigSpec
-	if !exists {
-		// if config does not exist, return default config
+// getPeerConfig returns the CiliumBGPPeerConfigSpec for the given peerConfig.
+// If peerConfig is not specified, returns the default config.
+// If the referenced peerConfig does not exist, exists returns false.
+func (r *NeighborReconciler) getPeerConfig(peerConfig *v2alpha1.PeerConfigReference) (conf *v2alpha1.CiliumBGPPeerConfigSpec, exists bool, err error) {
+	if peerConfig == nil || peerConfig.Name == "" {
+		// if peer config is not specified, return default config
 		conf = &v2alpha1.CiliumBGPPeerConfigSpec{}
-	} else {
-		conf = &config.Spec
+		conf.SetDefaults()
+		return conf, true, nil
 	}
 
-	conf.SetDefaults()
+	config, exists, err := r.PeerConfig.GetByKey(resource.Key{Name: peerConfig.Name})
+	if err != nil || !exists {
+		return nil, exists, err
+	}
 
-	return conf, nil
+	conf = &config.Spec
+	conf.SetDefaults()
+	return conf, true, nil
 }
 
 func (r *NeighborReconciler) getPeerPassword(instanceName, peerName string, config *v2alpha1.CiliumBGPPeerConfigSpec) (string, error) {
@@ -374,4 +389,8 @@ func GetPeerAddressFromConfig(conf *v2alpha1.CiliumBGPNodeInstance, peerName str
 		}
 	}
 	return netip.Addr{}, fmt.Errorf("peer %s not found in instance %s", peerName, conf.Name)
+}
+
+func (r *NeighborReconciler) neighborID(n *v2alpha1.CiliumBGPNodePeer) string {
+	return fmt.Sprintf("%s%s%d", n.Name, *n.PeerAddress, *n.PeerASN)
 }

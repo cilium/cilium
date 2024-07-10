@@ -71,7 +71,9 @@ func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 	// Set the name to avoid any breaking change during upgrade.
 	cec.Name = cecName
 
-	return cec, d.getService(sourceResource, modelService), getEndpoints(sourceResource), err
+	dedicatedService := d.getService(sourceResource, modelService)
+
+	return cec, dedicatedService, getEndpoints(sourceResource), err
 }
 
 func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedResource, service *model.Service) *corev1.Service {

@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_POLICY_H_
-#define __LIB_POLICY_H_
+#pragma once
 
 #include <linux/icmp.h>
 
@@ -319,4 +318,3 @@ static __always_inline void policy_clear_mark(struct __ctx_buff *ctx)
 {
 	ctx_store_meta(ctx, CB_POLICY, 0);
 }
-#endif

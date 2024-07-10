@@ -205,6 +205,9 @@ const (
 	// Port is a L4 port
 	Port = "port"
 
+	// Ports is a list of L4 ports
+	Ports = "ports"
+
 	// PortName is a k8s ContainerPort Name
 	PortName = "portName"
 
@@ -255,6 +258,12 @@ const (
 
 	// VethPair is a tuple of Veth that are paired
 	VethPair = "vethPair"
+
+	// Netkit is a netkit object or ID
+	Netkit = "netkit"
+
+	// NetkitPair is a tuple of Netkit that are paired
+	NetkitPair = "netkitPair"
 
 	// NetNSName is a name of a network namespace
 	NetNSName = "netNSName"
@@ -783,4 +792,7 @@ const (
 
 	// NetnsCookie is the Linux kernel netns cookie.
 	NetnsCookie = "netnsCookie"
+
+	// Target identifies a target value
+	Target = "target"
 )

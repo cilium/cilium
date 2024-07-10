@@ -1,9 +1,5 @@
 {{- define "clustermesh-apiserver-generate-certs.job.spec" }}
-{{- $certValiditySecondsStr := printf "%ds" (mul .Values.clustermesh.apiserver.tls.auto.certValidityDuration 24 60 60) -}}
-{{- $clustermeshServerSANs := concat (list "*.mesh.cilium.io" (printf "clustermesh-apiserver.%s.svc" .Release.Namespace))
-  .Values.clustermesh.apiserver.tls.server.extraDnsNames
-  .Values.clustermesh.apiserver.tls.server.extraIpAddresses
--}}
+{{- $certValidityStr := printf "%dh" (mul .Values.clustermesh.apiserver.tls.auto.certValidityDuration 24) -}}
 spec:
   template:
     metadata:
@@ -20,30 +16,76 @@ spec:
           command:
             - "/usr/bin/cilium-certgen"
           args:
-            - "--cilium-namespace={{ .Release.Namespace }}"
             {{- if .Values.debug.enabled }}
             - "--debug"
             {{- end }}
             - "--ca-generate"
             - "--ca-reuse-secret"
-            {{- if and .Values.tls.ca.cert .Values.tls.ca.key }}
+            - "--ca-secret-namespace={{ .Release.Namespace }}"
             - "--ca-secret-name=cilium-ca"
-            {{- end }}
-            - "--clustermesh-apiserver-server-cert-generate"
-            - "--clustermesh-apiserver-server-cert-validity-duration={{ $certValiditySecondsStr }}"
-            - "--clustermesh-apiserver-server-cert-sans={{ join "," $clustermeshServerSANs }}"
-            - "--clustermesh-apiserver-admin-cert-generate"
-            - "--clustermesh-apiserver-admin-cert-validity-duration={{ $certValiditySecondsStr }}"
-            - "--clustermesh-apiserver-admin-cert-common-name={{ include "clustermesh-apiserver-generate-certs.admin-common-name" . }}"
-            {{- if .Values.externalWorkloads.enabled }}
-            - "--clustermesh-apiserver-client-cert-generate"
-            - "--clustermesh-apiserver-client-cert-validity-duration={{ $certValiditySecondsStr }}"
-            {{- end }}
-            {{- if .Values.clustermesh.useAPIServer }}
-            - "--clustermesh-apiserver-remote-cert-generate"
-            - "--clustermesh-apiserver-remote-cert-validity-duration={{ $certValiditySecondsStr }}"
-            - "--clustermesh-apiserver-remote-cert-common-name={{ include "clustermesh-apiserver-generate-certs.remote-common-name" . }}"
-            {{- end }}
+            - "--ca-common-name=Cilium CA"
+          env:
+            - name: CILIUM_CERTGEN_CONFIG
+              value: |
+                certs:
+                - name: clustermesh-apiserver-server-cert
+                  namespace: {{ .Release.Namespace }}
+                  commonName: "clustermesh-apiserver.cilium.io"
+                  hosts:
+                  - "clustermesh-apiserver.cilium.io"
+                  - "*.mesh.cilium.io"
+                  - "clustermesh-apiserver.{{ .Release.Namespace }}.svc"
+                  {{- range $dns := .Values.clustermesh.apiserver.tls.server.extraDnsNames }}
+                  - {{ $dns | quote }}
+                  {{- end }}
+                  - "127.0.0.1"
+                  - "::1"
+                  {{- range $ip := .Values.clustermesh.apiserver.tls.server.extraIpAddresses }}
+                  - {{ $ip | quote }}
+                  {{- end }}
+                  usage:
+                  - signing
+                  - key encipherment
+                  - server auth
+                  validity: {{ $certValidityStr }}
+                - name: clustermesh-apiserver-admin-cert
+                  namespace: {{ .Release.Namespace }}
+                  commonName: {{ include "clustermesh-apiserver-generate-certs.admin-common-name" . | quote }}
+                  usage:
+                  - signing
+                  - key encipherment
+                  - client auth
+                  validity: {{ $certValidityStr }}
+                {{- if .Values.clustermesh.useAPIServer }}
+                - name: clustermesh-apiserver-remote-cert
+                  namespace: {{ .Release.Namespace }}
+                  commonName: {{ include "clustermesh-apiserver-generate-certs.remote-common-name" . | quote }}
+                  usage:
+                  - signing
+                  - key encipherment
+                  - client auth
+                  validity: {{ $certValidityStr }}
+                {{- end }}
+                {{- if and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.kvstoremesh.enabled }}
+                - name: clustermesh-apiserver-local-cert
+                  namespace: {{ .Release.Namespace }}
+                  commonName: {{ include "clustermesh-apiserver-generate-certs.local-common-name" . | quote }}
+                  usage:
+                  - signing
+                  - key encipherment
+                  - client auth
+                  validity: {{ $certValidityStr }}
+                {{- end }}
+                {{- if .Values.externalWorkloads.enabled }}
+                - name: clustermesh-apiserver-client-cert
+                  namespace: {{ .Release.Namespace }}
+                  commonName: "externalworkload"
+                  usage:
+                  - signing
+                  - key encipherment
+                  - client auth
+                  validity: {{ $certValidityStr }}
+                {{- end }}
           {{- with .Values.certgen.extraVolumeMounts }}
           volumeMounts:
           {{- toYaml . | nindent 10 }}

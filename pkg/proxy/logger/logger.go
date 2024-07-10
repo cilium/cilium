@@ -4,6 +4,7 @@
 package logger
 
 import (
+	"context"
 	"net/netip"
 
 	"github.com/sirupsen/logrus"
@@ -123,16 +124,30 @@ func (logTags) Timestamp(ts time.Time) LogTag {
 
 // AddressingInfo is the information passed in via the Addressing() tag
 type AddressingInfo struct {
-	SrcIPPort   string
-	DstIPPort   string
-	SrcIdentity identity.NumericIdentity
-	DstIdentity identity.NumericIdentity
+	SrcIPPort string
+	DstIPPort string
+
+	SrcIdentity    identity.NumericIdentity
+	SrcSecIdentity *identity.Identity
+	SrcEPID        uint64
+
+	DstIdentity    identity.NumericIdentity
+	DstSecIdentity *identity.Identity
+	DstEPID        uint64
 }
 
 // Addressing attaches addressing information about the source and destination
 // to the logrecord
-func (logTags) Addressing(i AddressingInfo) LogTag {
+func (logTags) Addressing(ctx context.Context, i AddressingInfo) LogTag {
 	return func(lr *LogRecord) {
+		lr.SourceEndpoint.ID = i.SrcEPID
+		if i.SrcSecIdentity != nil {
+			lr.SourceEndpoint.Identity = uint64(i.SrcSecIdentity.ID)
+			lr.SourceEndpoint.Labels = i.SrcSecIdentity.LabelArray
+		} else {
+			lr.SourceEndpoint.Identity = uint64(i.SrcIdentity)
+		}
+
 		addrPort, err := netip.ParseAddrPort(i.SrcIPPort)
 		if err == nil {
 			if addrPort.Addr().Is6() {
@@ -140,13 +155,21 @@ func (logTags) Addressing(i AddressingInfo) LogTag {
 			}
 
 			lr.SourceEndpoint.Port = addrPort.Port()
-			endpointInfoRegistry.FillEndpointInfo(&lr.SourceEndpoint, addrPort.Addr(), i.SrcIdentity)
+			endpointInfoRegistry.FillEndpointInfo(ctx, &lr.SourceEndpoint, addrPort.Addr())
+		}
+
+		lr.DestinationEndpoint.ID = i.DstEPID
+		if i.DstSecIdentity != nil {
+			lr.DestinationEndpoint.Identity = uint64(i.DstSecIdentity.ID)
+			lr.DestinationEndpoint.Labels = i.DstSecIdentity.LabelArray
+		} else {
+			lr.DestinationEndpoint.Identity = uint64(i.DstIdentity)
 		}
 
 		addrPort, err = netip.ParseAddrPort(i.DstIPPort)
 		if err == nil {
 			lr.DestinationEndpoint.Port = addrPort.Port()
-			endpointInfoRegistry.FillEndpointInfo(&lr.DestinationEndpoint, addrPort.Addr(), i.DstIdentity)
+			endpointInfoRegistry.FillEndpointInfo(ctx, &lr.DestinationEndpoint, addrPort.Addr())
 		}
 	}
 }
@@ -190,37 +213,35 @@ func (lr *LogRecord) ApplyTags(tags ...LogTag) {
 }
 
 func (lr *LogRecord) getLogFields() *logrus.Entry {
-	fields := log.WithFields(logrus.Fields{
-		FieldType:    lr.Type,
-		FieldVerdict: lr.Verdict,
-		FieldMessage: lr.Info,
-	})
+	fields := make(logrus.Fields, 8) // at most 8 entries, avoid map grow
+
+	fields[FieldType] = lr.Type
+	fields[FieldVerdict] = lr.Verdict
+	fields[FieldMessage] = lr.Info
 
 	if lr.HTTP != nil {
-		fields = fields.WithFields(logrus.Fields{
-			FieldCode:     lr.HTTP.Code,
-			FieldMethod:   lr.HTTP.Method,
-			FieldURL:      lr.HTTP.URL,
-			FieldProtocol: lr.HTTP.Protocol,
-			FieldHeader:   lr.HTTP.Headers,
-		})
+		fields[FieldCode] = lr.HTTP.Code
+		fields[FieldMethod] = lr.HTTP.Method
+		fields[FieldURL] = lr.HTTP.URL
+		fields[FieldProtocol] = lr.HTTP.Protocol
+		fields[FieldHeader] = lr.HTTP.Headers
 	}
 
 	if lr.Kafka != nil {
-		fields = fields.WithFields(logrus.Fields{
-			FieldCode:               lr.Kafka.ErrorCode,
-			FieldKafkaAPIKey:        lr.Kafka.APIKey,
-			FieldKafkaAPIVersion:    lr.Kafka.APIVersion,
-			FieldKafkaCorrelationID: lr.Kafka.CorrelationID,
-		})
+		fields[FieldCode] = lr.Kafka.ErrorCode
+		fields[FieldKafkaAPIKey] = lr.Kafka.APIKey
+		fields[FieldKafkaAPIVersion] = lr.Kafka.APIVersion
+		fields[FieldKafkaCorrelationID] = lr.Kafka.CorrelationID
 	}
 
-	return fields
+	return log.WithFields(fields)
 }
 
 // Log logs a record to the logfile and flushes the buffer
 func (lr *LogRecord) Log() {
-	flowdebug.Log(lr.getLogFields(), "Logging flow record")
+	flowdebug.Log(func() (*logrus.Entry, string) {
+		return lr.getLogFields(), "Logging flow record"
+	})
 
 	logMutex.Lock()
 	lr.Metadata = metadata
@@ -260,11 +281,12 @@ func SetMetadata(md []string) {
 // EndpointInfoRegistry provides endpoint information lookup by endpoint IP address.
 type EndpointInfoRegistry interface {
 	// FillEndpointInfo resolves the labels of the specified identity if known locally.
-	// If 'id' is passed as zero, will locate the EP by 'ip', and also fill info.ID, if found.
+	// ID and Labels should be provieded in 'info' if known.
+	// If 'id' is passed as zero, will locate the EP by 'addr', and also fill info.ID, if found.
 	// Fills in the following info member fields:
 	//  - info.IPv4           (if 'ip' is IPv4)
 	//  - info.IPv6           (if 'ip' is not IPv4)
 	//  - info.Identity       (defaults to WORLD if not known)
 	//  - info.Labels         (only if identity is found)
-	FillEndpointInfo(info *accesslog.EndpointInfo, addr netip.Addr, id identity.NumericIdentity)
+	FillEndpointInfo(ctx context.Context, info *accesslog.EndpointInfo, addr netip.Addr)
 }

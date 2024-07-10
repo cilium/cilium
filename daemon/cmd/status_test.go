@@ -15,7 +15,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/daemon/cmd/cni/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
-	"github.com/cilium/cilium/pkg/mtu"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/nodediscovery"
@@ -26,14 +26,12 @@ type GetNodesSuite struct {
 	nm manager.NodeManager
 }
 
-var (
-	mtuConfig  = mtu.NewConfiguration(0, false, false, false, false, 0, nil)
-	fakeConfig = &option.DaemonConfig{
-		RoutingMode: option.RoutingModeTunnel,
-		EnableIPSec: true,
-		EncryptNode: true,
-	}
-)
+var fakeConfig = &option.DaemonConfig{
+	ConfigPatchMutex: new(lock.RWMutex),
+	RoutingMode:      option.RoutingModeTunnel,
+	EnableIPSec:      true,
+	EncryptNode:      true,
+}
 
 func setupGetNodesSuite(tb testing.TB) *GetNodesSuite {
 	option.Config.IPv4ServiceRange = AutoCIDR
@@ -47,7 +45,6 @@ func setupGetNodesSuite(tb testing.TB) *GetNodesSuite {
 		nm: nm,
 	}
 	return g
-
 }
 
 func Test_getNodesHandle(t *testing.T) {
@@ -80,8 +77,7 @@ func Test_getNodesHandle(t *testing.T) {
 		{
 			name: "create a client ID and store it locally",
 			setupArgs: func() args {
-				lnc, _ := nodediscovery.NewLocalNodeConfig(&mtuConfig, option.Config)
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(g.nm, nil, nil, lnc, &fake.FakeCNIConfigManager{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(g.nm, nil, nil, &fake.FakeCNIConfigManager{}, nil)
 				return args{
 					params: GetClusterNodesParams{
 						ClientID: &zero,
@@ -112,8 +108,7 @@ func Test_getNodesHandle(t *testing.T) {
 		{
 			name: "retrieve nodes diff from a client that was already present",
 			setupArgs: func() args {
-				lnc, _ := nodediscovery.NewLocalNodeConfig(&mtuConfig, option.Config)
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(g.nm, nil, nil, lnc, &fake.FakeCNIConfigManager{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(g.nm, nil, nil, &fake.FakeCNIConfigManager{}, nil)
 				return args{
 					params: GetClusterNodesParams{
 						ClientID: &clientIDs[0],
@@ -166,8 +161,7 @@ func Test_getNodesHandle(t *testing.T) {
 		{
 			name: "retrieve nodes from an expired client, it should be ok because the clean up only happens when on insertion",
 			setupArgs: func() args {
-				lnc, _ := nodediscovery.NewLocalNodeConfig(&mtuConfig, option.Config)
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(g.nm, nil, nil, lnc, &fake.FakeCNIConfigManager{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(g.nm, nil, nil, &fake.FakeCNIConfigManager{}, nil)
 				return args{
 					params: GetClusterNodesParams{
 						ClientID: &clientIDs[0],
@@ -221,8 +215,7 @@ func Test_getNodesHandle(t *testing.T) {
 		{
 			name: "retrieve nodes for a new client, the expired client should be deleted",
 			setupArgs: func() args {
-				lnc, _ := nodediscovery.NewLocalNodeConfig(&mtuConfig, option.Config)
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(g.nm, nil, nil, lnc, &fake.FakeCNIConfigManager{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(g.nm, nil, nil, &fake.FakeCNIConfigManager{}, nil)
 				return args{
 					params: GetClusterNodesParams{
 						ClientID: &zero,
@@ -271,8 +264,7 @@ func Test_getNodesHandle(t *testing.T) {
 		{
 			name: "retrieve nodes for a new client, however the randomizer allocated an existing clientID, so we should return a empty clientID",
 			setupArgs: func() args {
-				lnc, _ := nodediscovery.NewLocalNodeConfig(&mtuConfig, option.Config)
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(g.nm, nil, nil, lnc, &fake.FakeCNIConfigManager{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(g.nm, nil, nil, &fake.FakeCNIConfigManager{}, nil)
 				return args{
 					params: GetClusterNodesParams{
 						ClientID: &zero,
@@ -321,8 +313,7 @@ func Test_getNodesHandle(t *testing.T) {
 		{
 			name: "retrieve nodes for a client that does not want to have diffs, leave all other stored clients alone",
 			setupArgs: func() args {
-				lnc, _ := nodediscovery.NewLocalNodeConfig(&mtuConfig, option.Config)
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(g.nm, nil, nil, lnc, &fake.FakeCNIConfigManager{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(g.nm, nil, nil, &fake.FakeCNIConfigManager{}, nil)
 				return args{
 					params: GetClusterNodesParams{},
 					daemon: &Daemon{
@@ -428,10 +419,9 @@ func Test_cleanupClients(t *testing.T) {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
 		h := &getNodes{clients: args.clients}
-		lnc, _ := nodediscovery.NewLocalNodeConfig(&mtuConfig, option.Config)
 		h.cleanupClients(
 			&Daemon{
-				nodeDiscovery: nodediscovery.NewNodeDiscovery(g.nm, nil, nil, lnc, &fake.FakeCNIConfigManager{}),
+				nodeDiscovery: nodediscovery.NewNodeDiscovery(g.nm, nil, nil, &fake.FakeCNIConfigManager{}, nil),
 			})
 		require.EqualValues(t, want.clients, h.clients)
 	}

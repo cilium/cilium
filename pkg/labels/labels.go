@@ -141,8 +141,14 @@ const (
 	// LabelSourceNode is the label source for remote-nodes.
 	LabelSourceNode = "node"
 
+	// LabelSourceFQDN is the label source for IPs resolved by fqdn lookups
+	LabelSourceFQDN = "fqdn"
+
 	// LabelSourceReservedKeyPrefix is the prefix of a reserved label
 	LabelSourceReservedKeyPrefix = LabelSourceReserved + "."
+
+	// LabelSourceDirectory is the label source for policies read from files
+	LabelSourceDirectory = "directory"
 
 	// LabelKeyFixedIdentity is the label that can be used to define a fixed
 	// identity.
@@ -641,12 +647,7 @@ func (l Labels) FindReserved() Labels {
 
 // IsReserved returns true if any of the labels has a reserved source.
 func (l Labels) IsReserved() bool {
-	for _, lbl := range l {
-		if lbl.Source == LabelSourceReserved {
-			return true
-		}
-	}
-	return false
+	return l.HasSource(LabelSourceReserved)
 }
 
 // Has returns true if l contains the given label.
@@ -657,6 +658,25 @@ func (l Labels) Has(label Label) bool {
 		}
 	}
 	return false
+}
+
+// HasSource returns true if l contains the given label source.
+func (l Labels) HasSource(source string) bool {
+	for _, lbl := range l {
+		if lbl.Source == source {
+			return true
+		}
+	}
+	return false
+}
+
+// CollectSources returns all distinct label sources found in l
+func (l Labels) CollectSources() map[string]struct{} {
+	sources := make(map[string]struct{})
+	for _, lbl := range l {
+		sources[lbl.Source] = struct{}{}
+	}
+	return sources
 }
 
 // parseSource returns the parsed source of the given str. It also returns the next piece

@@ -9,59 +9,65 @@
 package bandwidth
 
 import (
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 var Cell = cell.Module(
 	"bandwidth-manager",
 	"Linux Bandwidth Manager for EDT-based pacing",
 
-	cell.Config(Config{false, false}),
+	cell.Config(types.DefaultBandwidthConfig),
 	cell.Provide(newBandwidthManager),
 
 	cell.ProvidePrivate(
 		tables.NewBandwidthQDiscTable, // RWTable[*BandwidthQDisc]
-		newReconcilerConfig,           // reconciler.Config[*BandwidthQDisc]
 	),
 	cell.Invoke(registerReconciler),
 )
 
-type Config struct {
-	// EnableBandwidthManager enables EDT-based pacing
-	EnableBandwidthManager bool
+type registerParams struct {
+	cell.In
 
-	// EnableBBR enables BBR TCP congestion control for the node including Pods
-	EnableBBR bool
+	Log              *slog.Logger
+	Table            statedb.RWTable[*tables.BandwidthQDisc]
+	BWM              types.BandwidthManager
+	Config           types.BandwidthConfig
+	DeriveParams     statedb.DeriveParams[*tables.Device, *tables.BandwidthQDisc]
+	ReconcilerParams reconciler.Params
 }
 
-func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.Bool("enable-bandwidth-manager", def.EnableBandwidthManager, "Enable BPF bandwidth manager")
-	flags.Bool(EnableBBR, def.EnableBBR, "Enable BBR for the bandwidth manager")
-}
-
-func newReconcilerConfig(log logrus.FieldLogger, tbl statedb.RWTable[*tables.BandwidthQDisc], bwm types.BandwidthManager) reconciler.Config[*tables.BandwidthQDisc] {
-	return reconciler.Config[*tables.BandwidthQDisc]{
-		Table:                     tbl,
-		FullReconcilationInterval: 10 * time.Minute,
-		RetryBackoffMinDuration:   time.Second,
-		RetryBackoffMaxDuration:   time.Minute,
-		IncrementalRoundSize:      1000,
-		GetObjectStatus:           (*tables.BandwidthQDisc).GetStatus,
-		SetObjectStatus:           (*tables.BandwidthQDisc).SetStatus,
-		CloneObject:               (*tables.BandwidthQDisc).Clone,
-		Operations:                newOps(log, bwm),
+func registerReconciler(p registerParams) error {
+	if !p.Config.EnableBandwidthManager {
+		return nil
 	}
+
+	// Start deriving Table[*BandwidthQDisc] from Table[*Device]
+	statedb.Derive("derive-desired-qdiscs", deviceToBandwidthQDisc)(
+		p.DeriveParams,
+	)
+
+	_, err := reconciler.Register(
+		p.ReconcilerParams,
+		p.Table,
+
+		(*tables.BandwidthQDisc).Clone,
+		(*tables.BandwidthQDisc).SetStatus,
+		(*tables.BandwidthQDisc).GetStatus,
+		newOps(p.Log, p.BWM),
+		nil,
+	)
+	return err
 }
 
 func newBandwidthManager(lc cell.Lifecycle, p bandwidthManagerParams) (types.BandwidthManager, defines.NodeFnOut) {
@@ -92,30 +98,12 @@ func (*manager) Stop(cell.HookContext) error {
 type bandwidthManagerParams struct {
 	cell.In
 
-	Log          logrus.FieldLogger
-	Config       Config
+	Log          *slog.Logger
+	Config       types.BandwidthConfig
 	DaemonConfig *option.DaemonConfig
 	Sysctl       sysctl.Sysctl
-}
-
-func registerReconciler(
-	cfg Config,
-	deriveParams statedb.DeriveParams[*tables.Device, *tables.BandwidthQDisc],
-	config reconciler.Config[*tables.BandwidthQDisc],
-	reconcilerParams reconciler.Params,
-) error {
-	if !cfg.EnableBandwidthManager {
-		return nil
-	}
-
-	// Start deriving Table[*BandwidthQDisc] from Table[*Device]
-	statedb.Derive("derive-desired-qdiscs", deviceToBandwidthQDisc)(
-		deriveParams,
-	)
-
-	// Create and register a reconciler for 'Table[*BandwidthQDisc]' that
-	// reconciles using '*ops'.
-	return reconciler.Register(config, reconcilerParams)
+	DB           *statedb.DB
+	EdtTable     statedb.RWTable[bwmap.Edt]
 }
 
 func deviceToBandwidthQDisc(device *tables.Device, deleted bool) (*tables.BandwidthQDisc, statedb.DeriveResult) {

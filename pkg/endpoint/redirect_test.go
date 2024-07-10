@@ -5,6 +5,7 @@ package endpoint
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -35,33 +36,31 @@ type RedirectSuite struct {
 	mgr             *cache.CachingIdentityAllocator
 	do              *DummyOwner
 	rsp             *RedirectSuiteProxy
+	stats           *regenerationStatistics
 }
 
 func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	testutils.IntegrationTest(tb)
 
-	s := &RedirectSuite{}
+	s := &RedirectSuite{
+		do: &DummyOwner{},
+	}
 	s.oldPolicyEnable = policy.GetPolicyEnabled()
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
 	// Setup dependencies for endpoint.
 	kvstore.SetupDummy(tb, "etcd")
 
-	idAllocatorOwner := &DummyIdentityAllocatorOwner{}
-
-	s.mgr = cache.NewCachingIdentityAllocator(idAllocatorOwner)
+	s.mgr = cache.NewCachingIdentityAllocator(s.do)
 	<-s.mgr.InitIdentityAllocator(nil)
 
-	identityCache := cache.IdentityCache{
+	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 		identity.NumericIdentity(identityBar): labelsBar,
 	}
 
-	s.do = &DummyOwner{
-		repo: policy.NewPolicyRepository(s.mgr, identityCache, nil, nil),
-	}
+	s.do.repo = policy.NewPolicyRepository(identityCache, nil, nil)
 	s.do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
-	identitymanager.Subscribe(s.do.repo)
 
 	s.rsp = &RedirectSuiteProxy{
 		parserProxyPortMap: map[string]uint16{
@@ -73,6 +72,8 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 		},
 		redirectPortUserMap: make(map[uint16][]string),
 	}
+
+	s.stats = new(regenerationStatistics)
 
 	tb.Cleanup(func() {
 		identitymanager.RemoveAll()
@@ -115,7 +116,7 @@ func (r *RedirectSuiteProxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource)
 type DummyIdentityAllocatorOwner struct{}
 
 // UpdateIdentities does nothing.
-func (d *DummyIdentityAllocatorOwner) UpdateIdentities(added, deleted cache.IdentityCache) {
+func (d *DummyIdentityAllocatorOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
 }
 
 // GetNodeSuffix does nothing.
@@ -170,8 +171,11 @@ func (d *DummyOwner) GetNodeSuffix() string {
 	return ""
 }
 
-// UpdateIdentities does nothing.
-func (d *DummyOwner) UpdateIdentities(added, deleted cache.IdentityCache) {}
+func (d *DummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
+	wg := &sync.WaitGroup{}
+	d.repo.GetSelectorCache().UpdateIdentities(added, deleted, wg)
+	wg.Wait()
+}
 
 const (
 	httpPort  = uint16(19001)
@@ -193,7 +197,7 @@ func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 }
 
 func (s *RedirectSuite) AddRules(rules api.Rules) {
-	s.do.repo.AddList(rules)
+	s.do.repo.MustAddList(rules)
 }
 
 func (s *RedirectSuite) TearDownTest(t *testing.T) {
@@ -202,14 +206,15 @@ func (s *RedirectSuite) TearDownTest(t *testing.T) {
 	policy.SetPolicyEnabled(s.oldPolicyEnable)
 }
 
-func (s *RedirectSuite) TestAddVisibilityRedirects(t *testing.T) {
+func TestAddVisibilityRedirects(t *testing.T) {
+	s := setupRedirectSuite(t)
 	ep := s.NewTestEndpoint(t)
 
 	firstAnno := "<Ingress/80/TCP/HTTP>"
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return firstAnno, nil
 	})
-	res, err := ep.regeneratePolicy()
+	res, err := ep.regeneratePolicy(s.stats)
 	require.Nil(t, err)
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
@@ -234,7 +239,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(t *testing.T) {
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return secondAnno, nil
 	})
-	res, err = ep.regeneratePolicy()
+	res, err = ep.regeneratePolicy(s.stats)
 	require.Nil(t, err)
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
@@ -257,7 +262,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(t *testing.T) {
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return thirdAnno, nil
 	})
-	res, err = ep.regeneratePolicy()
+	res, err = ep.regeneratePolicy(s.stats)
 	require.Nil(t, err)
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
@@ -308,7 +313,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(t *testing.T) {
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return noAnno, nil
 	})
-	res, err = ep.regeneratePolicy()
+	res, err = ep.regeneratePolicy(s.stats)
 	require.Nil(t, err)
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
@@ -344,7 +349,6 @@ var (
 		HTTP: []api.PortRuleHTTP{
 			{Method: "GET", Path: "/"},
 		},
-		L7Proto: policy.ParserTypeHTTP.String(),
 	}
 
 	lblsL3DenyFoo = labels.ParseLabelArray("l3-deny")
@@ -371,9 +375,9 @@ var (
 	dirIngress      = trafficdirection.Ingress.Uint8()
 	dirEgress       = trafficdirection.Egress.Uint8()
 	mapKeyAllL7     = policy.Key{Identity: 0, DestPort: 80, Nexthdr: 6, TrafficDirection: dirIngress}
-	mapKeyFoo       = policy.Key{Identity: identityFoo, DestPort: 0, Nexthdr: 0, TrafficDirection: dirIngress}
+	mapKeyFoo       = policy.Key{Identity: identityFoo, DestPort: 0, InvertedPortMask: 0xffff, Nexthdr: 0, TrafficDirection: dirIngress}
 	mapKeyFooL7     = policy.Key{Identity: identityFoo, DestPort: 80, Nexthdr: 6, TrafficDirection: dirIngress}
-	mapKeyAllowAllE = policy.Key{Identity: 0, DestPort: 0, Nexthdr: 0, TrafficDirection: dirEgress}
+	mapKeyAllowAllE = policy.Key{Identity: 0, DestPort: 0, Nexthdr: 0, InvertedPortMask: 0xffff, TrafficDirection: dirEgress}
 )
 
 // combineL4L7 returns a new PortRule that refers to the specified l4 ports and
@@ -399,7 +403,7 @@ func TestRedirectWithDeny(t *testing.T) {
 		ruleL4L7Allow.WithEndpointSelector(selectBar_),
 	})
 
-	res, err := ep.regeneratePolicy()
+	res, err := ep.regeneratePolicy(s.stats)
 	require.Nil(t, err)
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
@@ -415,7 +419,7 @@ func TestRedirectWithDeny(t *testing.T) {
 	})
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -456,7 +460,7 @@ func TestRedirectWithDeny(t *testing.T) {
 	// that port, as it is shadowed by the deny rule
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected2) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected2))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected2))
 	}
 
 	// Keep only desired redirects
@@ -472,7 +476,7 @@ func TestRedirectWithDeny(t *testing.T) {
 	// Check that the state before addRedirects is restored
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
 	require.Equal(t, 2, ep.desiredPolicy.GetPolicyMap().Len())
 }
@@ -553,6 +557,8 @@ func TestRedirectWithPriority(t *testing.T) {
 	s := setupRedirectSuite(t)
 
 	ep := s.NewTestEndpoint(t)
+	api.TestAllowIngressListener = true
+	defer func() { api.TestAllowIngressListener = false }()
 
 	s.AddRules(api.Rules{
 		ruleL4AllowListener1.WithEndpointSelector(selectBar_),
@@ -560,7 +566,7 @@ func TestRedirectWithPriority(t *testing.T) {
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
 	})
 
-	res, err := ep.regeneratePolicy()
+	res, err := ep.regeneratePolicy(s.stats)
 	require.Nil(t, err)
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
@@ -575,7 +581,7 @@ func TestRedirectWithPriority(t *testing.T) {
 	})
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -607,7 +613,7 @@ func TestRedirectWithPriority(t *testing.T) {
 	})
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected2) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected2))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected2))
 	}
 
 	// Keep only desired redirects
@@ -623,7 +629,7 @@ func TestRedirectWithPriority(t *testing.T) {
 	// Check that the state before addRedirects is restored
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
 	require.Equal(t, 2, ep.desiredPolicy.GetPolicyMap().Len())
 }
@@ -633,13 +639,15 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 
 	ep := s.NewTestEndpoint(t)
 
+	api.TestAllowIngressListener = true
+	defer func() { api.TestAllowIngressListener = false }()
 	s.AddRules(api.Rules{
 		ruleL4L7AllowListener1Priority1.WithEndpointSelector(selectBar_),
 		ruleL4AllowPort80.WithEndpointSelector(selectBar_),
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
 	})
 
-	res, err := ep.regeneratePolicy()
+	res, err := ep.regeneratePolicy(s.stats)
 	require.Nil(t, err)
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
@@ -654,7 +662,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	})
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -686,7 +694,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	})
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected2) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected2))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected2))
 	}
 
 	// Keep only desired redirects
@@ -702,7 +710,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	// Check that the state before addRedirects is restored
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(t, expected))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
 	require.Equal(t, 2, ep.desiredPolicy.GetPolicyMap().Len())
 }

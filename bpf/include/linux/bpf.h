@@ -6,8 +6,8 @@
  * modify it under the terms of version 2 of the GNU General Public
  * License as published by the Free Software Foundation.
  */
-#ifndef _UAPI__LINUX_BPF_H__
-#define _UAPI__LINUX_BPF_H__
+
+#pragma once
 
 #include <linux/types.h>
 #include <linux/bpf_common.h>
@@ -7313,5 +7313,3 @@ struct bpf_iter_num {
 	 */
 	__u64 __opaque[1];
 } __attribute__((aligned(8)));
-
-#endif /* _UAPI__LINUX_BPF_H__ */

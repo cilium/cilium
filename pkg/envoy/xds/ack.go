@@ -35,6 +35,12 @@ type ResourceVersionAckObserver interface {
 	// has acknowledged having applied the resources.
 	// Calls to this function must not block.
 	HandleResourceVersionAck(ackVersion uint64, nackVersion uint64, nodeIP string, resourceNames []string, typeURL string, detail string)
+
+	// MarkRestorePending informs the observer about a pending state restoration.
+	MarkRestorePending()
+
+	// MarkRestoreCompleted clears the 'restore' state so that updates are acked normally.
+	MarkRestoreCompleted()
 }
 
 // AckingResourceMutatorRevertFunc is a function which reverts the effects of
@@ -67,10 +73,6 @@ type AckingResourceMutator interface {
 	// A call to the returned revert function reverts the effects of this
 	// method call.
 	Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc
-
-	// UseCurrent inserts a completion that allows the caller to wait for the current
-	// version of the given typeURL to be ACKed.
-	UseCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup)
 
 	// DeleteNode frees resources held for the named node
 	DeleteNode(nodeID string)
@@ -106,6 +108,10 @@ type AckingResourceMutatorWrapper struct {
 
 	// pendingCompletions is the list of updates that are pending completion.
 	pendingCompletions map[*completion.Completion]*pendingCompletion
+
+	// restoring controls waiting for acks. When 'true' updates do not wait for acks from the xDS client,
+	// as xDS caches are pre-populated before passing any resources to xDS clients.
+	restoring bool
 }
 
 // pendingCompletion is an update that is pending completion.
@@ -129,6 +135,21 @@ func NewAckingResourceMutatorWrapper(mutator ResourceMutator) *AckingResourceMut
 		ackedVersions:      make(map[string]uint64),
 		pendingCompletions: make(map[*completion.Completion]*pendingCompletion),
 	}
+}
+
+func (m *AckingResourceMutatorWrapper) MarkRestorePending() {
+	m.locker.Lock()
+	defer m.locker.Unlock()
+
+	m.restoring = true
+}
+
+// MarkRestoreCompleted clears the 'restore' state so that updates are acked normally.
+func (m *AckingResourceMutatorWrapper) MarkRestoreCompleted() {
+	m.locker.Lock()
+	defer m.locker.Unlock()
+
+	m.restoring = false
 }
 
 // AddVersionCompletion adds a completion to wait for any ACK for the
@@ -157,18 +178,32 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
+	wait := wg != nil
+
+	if m.restoring {
+		// Do not wait for acks when restoring state
+		log.WithFields(logrus.Fields{
+			logfields.XDSTypeURL:      typeURL,
+			logfields.XDSResourceName: resourceName,
+		}).Debug("Upsert: Restoring, skipping wait for ACK")
+
+		wait = false
+	}
+
 	var updated bool
 	var revert ResourceMutatorRevertFunc
 	m.version, updated, revert = m.mutator.Upsert(typeURL, resourceName, resource)
 
 	if !updated {
-		if wg != nil {
+		if wait {
 			m.useCurrent(typeURL, nodeIDs, wg, callback)
+		} else if callback != nil {
+			callback(nil)
 		}
 		return func(completion *completion.Completion) {}
 	}
 
-	if wg != nil {
+	if wait {
 		// Create a new completion
 		c := wg.AddCompletionWithCallback(callback)
 		if _, found := m.pendingCompletions[c]; found {
@@ -188,6 +223,8 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 			comp.remainingNodesResources[nodeID][resourceName] = struct{}{}
 		}
 		m.pendingCompletions[c] = comp
+	} else if callback != nil {
+		callback(nil)
 	}
 
 	// Returned revert function locks again, so it can NOT be called from 'callback' directly,
@@ -216,16 +253,6 @@ func (m *AckingResourceMutatorWrapper) useCurrent(typeURL string, nodeIDs []stri
 	}
 }
 
-// UseCurrent adds a completion to the WaitGroup if the current
-// version of the cached resource has not been acked yet, allowing the
-// caller to wait for the ACK.
-func (m *AckingResourceMutatorWrapper) UseCurrent(typeURL string, nodeIDs []string, wg *completion.WaitGroup) {
-	m.locker.Lock()
-	defer m.locker.Unlock()
-
-	m.useCurrent(typeURL, nodeIDs, wg, nil)
-}
-
 func (m *AckingResourceMutatorWrapper) currentVersionAcked(nodeIDs []string) bool {
 	for _, node := range nodeIDs {
 		if acked, exists := m.ackedVersions[node]; !exists || acked < m.version {
@@ -245,6 +272,18 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
+	wait := wg != nil
+
+	if m.restoring {
+		// Do not wait for acks when restoring state
+		log.WithFields(logrus.Fields{
+			logfields.XDSTypeURL:      typeURL,
+			logfields.XDSResourceName: resourceName,
+		}).Debug("Delete: Restoring, skipping wait for ACK")
+
+		wait = false
+	}
+
 	// Always delete the resource, even if the completion's context was
 	// canceled before we even started, since we have no way to signal whether
 	// the resource is actually deleted.
@@ -258,13 +297,15 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 	m.version, updated, revert = m.mutator.Delete(typeURL, resourceName)
 
 	if !updated {
-		if wg != nil {
+		if wait {
 			m.useCurrent(typeURL, nodeIDs, wg, callback)
+		} else if callback != nil {
+			callback(nil)
 		}
 		return func(completion *completion.Completion) {}
 	}
 
-	if wg != nil {
+	if wait {
 		c := wg.AddCompletionWithCallback(callback)
 		if _, found := m.pendingCompletions[c]; found {
 			log.WithFields(logrus.Fields{
@@ -274,6 +315,8 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 		}
 
 		m.addVersionCompletion(typeURL, m.version, nodeIDs, c)
+	} else if callback != nil {
+		callback(nil)
 	}
 
 	return func(completion *completion.Completion) {

@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_CONNTRACK_H_
-#define __LIB_CONNTRACK_H_
+#pragma once
 
 #include <linux/icmpv6.h>
 #include <linux/icmp.h>
@@ -276,7 +275,10 @@ ct_entry_matches_types(const struct ct_entry *entry __maybe_unused,
 	return false;
 }
 
-/* Returns CT_NEW, CT_REOPENED or CT_ESTABLISHED. */
+/**
+ * Returns CT_NEW or CT_ESTABLISHED.
+ * 'ct_state', if not nullptr, will be filled in only if CT_ESTABLISHED is returned.
+ */
 static __always_inline enum ct_status
 __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 	    enum ct_action action, enum ct_dir dir, __u32 ct_entry_types,
@@ -306,8 +308,6 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		if (dir == CT_SERVICE && entry->rev_nat_index == 0)
 			entry->rev_nat_index = ct_state->rev_nat_index;
 
-		if (ct_state)
-			ct_lookup_fill_state(ct_state, entry, dir, syn);
 #ifdef CONNTRACK_ACCOUNTING
 		__sync_fetch_and_add(&entry->packets, 1);
 		__sync_fetch_and_add(&entry->bytes, ctx_full_len(ctx));
@@ -320,7 +320,11 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 				entry->seen_non_syn = false;
 
 				*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
-				return CT_REOPENED;
+
+				/* Return CT_NEW so that the caller creates a new entry instead of
+				 * updating the old one. (For policy drops the old entry remains.)
+				 */
+				return CT_NEW;
 			}
 			break;
 
@@ -340,6 +344,8 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 			} else {
 				entry->tx_closing = 1;
 			}
+			if (ct_state)
+				ct_state->closing = 1;
 
 			*monitor = TRACE_PAYLOAD_LEN;
 			if (ct_entry_alive(entry))
@@ -350,6 +356,10 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		default:
 			break;
 		}
+
+		/* Fill ct_state after all potential CT_NEW returns. */
+		if (ct_state)
+			ct_lookup_fill_state(ct_state, entry, dir, syn);
 
 		return CT_ESTABLISHED;
 	}
@@ -577,12 +587,10 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
 				  ct_state, is_tcp, tcp_flags, monitor);
 		if (ret != CT_NEW) {
-			if (likely(ret == CT_ESTABLISHED || ret == CT_REOPENED)) {
-				if (unlikely(tuple->flags & TUPLE_F_RELATED))
-					ret = CT_RELATED;
-				else
-					ret = CT_REPLY;
-			}
+			if (unlikely(tuple->flags & TUPLE_F_RELATED))
+				ret = CT_RELATED;
+			else
+				ret = CT_REPLY;
 			goto out;
 		}
 
@@ -826,12 +834,10 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
 				  ct_state, is_tcp, tcp_flags, monitor);
 		if (ret != CT_NEW) {
-			if (likely(ret == CT_ESTABLISHED || ret == CT_REOPENED)) {
-				if (unlikely(tuple->flags & TUPLE_F_RELATED))
-					ret = CT_RELATED;
-				else
-					ret = CT_REPLY;
-			}
+			if (unlikely(tuple->flags & TUPLE_F_RELATED))
+				ret = CT_RELATED;
+			else
+				ret = CT_REPLY;
 			goto out;
 		}
 
@@ -1053,8 +1059,7 @@ err_ct_fill_up:
 
 #ifndef DISABLE_LOOPBACK_LB
 static __always_inline bool
-ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple,
-			      __u16 *rev_nat_index)
+ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple)
 {
 	__u8 flags = tuple->flags;
 	struct ct_entry *entry;
@@ -1063,12 +1068,7 @@ ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple,
 	entry = map_lookup_elem(map, tuple);
 	tuple->flags = flags;
 
-	if (entry && entry->lb_loopback) {
-		*rev_nat_index = entry->rev_nat_index;
-		return true;
-	}
-
-	return false;
+	return entry && entry->lb_loopback;
 }
 #endif
 
@@ -1187,16 +1187,3 @@ ct_update_dsr(const void *map, const void *tuple, const bool dsr)
 
 	entry->dsr_internal = dsr;
 }
-
-static __always_inline void
-ct_update_nodeport(const void *map, const void *tuple, const bool node_port)
-{
-	struct ct_entry *entry;
-
-	entry = map_lookup_elem(map, tuple);
-	if (!entry)
-		return;
-
-	entry->node_port = node_port;
-}
-#endif /* __LIB_CONNTRACK_H_ */

@@ -107,6 +107,98 @@ func TestGetAnnotationServiceAffinity(t *testing.T) {
 	require.Equal(t, serviceAffinityNone, getAnnotationServiceAffinity(svc))
 }
 
+func TestGetTopologyAware(t *testing.T) {
+	tests := []struct {
+		name                string
+		annotations         map[string]string
+		trafficDistribution string
+		expectTopologyAware bool
+	}{{
+		name: "hints annotation == auto",
+		annotations: map[string]string{
+			corev1.DeprecatedAnnotationTopologyAwareHints: "auto",
+		},
+		expectTopologyAware: true,
+	}, {
+		name: "hints annotation == Auto",
+		annotations: map[string]string{
+			corev1.DeprecatedAnnotationTopologyAwareHints: "Auto",
+		},
+		expectTopologyAware: true,
+	}, {
+		name: "hints annotation == Disabled",
+		annotations: map[string]string{
+			corev1.DeprecatedAnnotationTopologyAwareHints: "Disabled",
+		},
+		expectTopologyAware: false,
+	}, {
+		name: "mode annotation == auto",
+		annotations: map[string]string{
+			corev1.AnnotationTopologyMode: "auto",
+		},
+		expectTopologyAware: true,
+	}, {
+		name: "mode annotation == Auto",
+		annotations: map[string]string{
+			corev1.AnnotationTopologyMode: "Auto",
+		},
+		expectTopologyAware: true,
+	}, {
+		name: "mode annotation == Disabled",
+		annotations: map[string]string{
+			corev1.AnnotationTopologyMode: "Disabled",
+		},
+		expectTopologyAware: false,
+	}, {
+		name: "mode annotation == example.com/custom",
+		annotations: map[string]string{
+			corev1.AnnotationTopologyMode: "example.com/custom",
+		},
+		expectTopologyAware: true,
+	}, {
+		name:                "trafficDistribution == PreferClose",
+		trafficDistribution: corev1.ServiceTrafficDistributionPreferClose,
+		expectTopologyAware: true,
+	}, {
+		name:                "trafficDistribution == SomethingElse",
+		trafficDistribution: "SomethingElse",
+		expectTopologyAware: false,
+	}, {
+		name: "mode annotation == Disabled, trafficDistribution == PreferClose",
+		annotations: map[string]string{
+			corev1.AnnotationTopologyMode: "Disabled",
+		},
+		trafficDistribution: corev1.ServiceTrafficDistributionPreferClose,
+		expectTopologyAware: true,
+	}, {
+		name: "hints annotation == Disabled, trafficDistribution == PreferClose",
+		annotations: map[string]string{
+			corev1.DeprecatedAnnotationTopologyAwareHints: "Disabled",
+		},
+		trafficDistribution: corev1.ServiceTrafficDistributionPreferClose,
+		expectTopologyAware: true,
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &slim_corev1.Service{
+				ObjectMeta: slim_metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+				Spec: slim_corev1.ServiceSpec{},
+			}
+			if tc.annotations != nil {
+				svc.Annotations = tc.annotations
+			}
+			if tc.trafficDistribution != "" {
+				svc.Spec.TrafficDistribution = &tc.trafficDistribution
+			}
+
+			require.Equal(t, tc.expectTopologyAware, getTopologyAware(svc))
+		})
+	}
+}
+
 func TestGetAnnotationTopologyAwareHints(t *testing.T) {
 	svc := &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{},
@@ -156,8 +248,7 @@ func TestGetAnnotationTopologyAwareHints(t *testing.T) {
 			corev1.AnnotationTopologyMode:                 "deprecated",
 		},
 	}}
-	require.Equal(t, true, getAnnotationTopologyAwareHints(svc))
-
+	require.True(t, getAnnotationTopologyAwareHints(svc))
 }
 
 func TestParseServiceID(t *testing.T) {
@@ -322,6 +413,7 @@ func TestParseService(t *testing.T) {
 		LoadBalancerIPs:          map[string]net.IP{},
 		Type:                     loadbalancer.SVCTypeLoadBalancer,
 		TopologyAware:            true,
+		Annotations:              map[string]string{"service.kubernetes.io/topology-aware-hints": "auto"},
 	}, svc)
 }
 
@@ -361,7 +453,8 @@ func TestServiceUniquePorts(t *testing.T) {
 			expected: map[uint16]bool{
 				1: true,
 				2: true,
-			}},
+			},
+		},
 	}
 
 	for _, m := range matrix {

@@ -8,8 +8,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -27,9 +27,8 @@ func newGlobalService() *GlobalService {
 }
 
 type GlobalServiceCache struct {
-	mutex       lock.RWMutex
-	byName      map[types.NamespacedName]*GlobalService
-	byNamespace map[string]sets.Set[*GlobalService]
+	mutex  lock.RWMutex
+	byName map[types.NamespacedName]*GlobalService
 
 	// metricTotalGlobalServices is the gauge metric for total of global services
 	metricTotalGlobalServices metric.Gauge
@@ -38,7 +37,6 @@ type GlobalServiceCache struct {
 func NewGlobalServiceCache(metricTotalGlobalServices metric.Gauge) *GlobalServiceCache {
 	return &GlobalServiceCache{
 		byName:                    map[types.NamespacedName]*GlobalService{},
-		byNamespace:               map[string]sets.Set[*GlobalService]{},
 		metricTotalGlobalServices: metricTotalGlobalServices,
 	}
 }
@@ -88,25 +86,6 @@ func (c *GlobalServiceCache) GetGlobalService(serviceNN types.NamespacedName) *G
 	return nil
 }
 
-// GetServices returns the services for a specific namespace. This function does not
-// make copy of the cluster services objects so those objects should not be mutated.
-func (c *GlobalServiceCache) GetServices(namespace string) []*serviceStore.ClusterService {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	clusterSvcs := []*serviceStore.ClusterService{}
-
-	if globalSvcs, ok := c.byNamespace[namespace]; ok {
-		for globalSvc := range globalSvcs {
-			for _, clusterSvc := range globalSvc.ClusterServices {
-				clusterSvcs = append(clusterSvcs, clusterSvc)
-			}
-		}
-	}
-
-	return clusterSvcs
-}
-
 func (c *GlobalServiceCache) OnUpdate(svc *serviceStore.ClusterService) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceName: svc.String(),
@@ -122,12 +101,6 @@ func (c *GlobalServiceCache) OnUpdate(svc *serviceStore.ClusterService) {
 		c.byName[svc.NamespaceServiceName()] = globalSvc
 		scopedLog.Debugf("Created global service %s", svc.NamespaceServiceName())
 		c.metricTotalGlobalServices.Set(float64(len(c.byName)))
-		globalSvcs, ok := c.byNamespace[svc.Namespace]
-		if !ok {
-			globalSvcs = sets.Set[*GlobalService]{}
-			c.byNamespace[svc.Namespace] = globalSvcs
-		}
-		globalSvcs.Insert(globalSvc)
 	}
 
 	scopedLog.Debugf("Updated service definition of remote cluster %#v", svc)
@@ -154,10 +127,6 @@ func (c *GlobalServiceCache) delete(globalService *GlobalService, clusterName st
 	// After the last cluster service is removed, remove the global service
 	if len(globalService.ClusterServices) == 0 {
 		scopedLog.Debugf("Deleted global service %s", serviceNN.String())
-		c.byNamespace[serviceNN.Namespace].Delete(globalService)
-		if len(c.byNamespace[serviceNN.Namespace]) == 0 {
-			delete(c.byNamespace, serviceNN.Namespace)
-		}
 		delete(c.byName, serviceNN)
 		c.metricTotalGlobalServices.Set(float64(len(c.byName)))
 	}
@@ -180,21 +149,71 @@ func (c *GlobalServiceCache) OnDelete(svc *serviceStore.ClusterService) bool {
 	}
 }
 
-func (c *GlobalServiceCache) OnClusterDelete(clusterName string) {
-	scopedLog := log.WithFields(logrus.Fields{logfields.ClusterName: clusterName})
-	scopedLog.Debugf("Cluster deletion event")
-
-	c.mutex.Lock()
-	for serviceNN, globalService := range c.byName {
-		c.delete(globalService, clusterName, serviceNN)
-	}
-	c.mutex.Unlock()
-}
-
 // Size returns the number of global services in the cache
 func (c *GlobalServiceCache) Size() (num int) {
 	c.mutex.RLock()
 	num = len(c.byName)
 	c.mutex.RUnlock()
 	return
+}
+
+type remoteServiceObserver struct {
+	log logrus.FieldLogger
+
+	cache *GlobalServiceCache
+
+	onUpdate func(*serviceStore.ClusterService)
+	onDelete func(*serviceStore.ClusterService)
+}
+
+// NewSharedServicesObserver returns an observer implementing the logic to convert
+// and filter shared services notifications, update the global service cache and
+// call the upstream handlers when appropriate.
+func NewSharedServicesObserver(
+	log logrus.FieldLogger, cache *GlobalServiceCache,
+	onUpdate, onDelete func(*serviceStore.ClusterService),
+) store.Observer {
+	return &remoteServiceObserver{
+		log:   log,
+		cache: cache,
+
+		onUpdate: onUpdate,
+		onDelete: onDelete,
+	}
+}
+
+// OnUpdate is called when a service in a remote cluster is updated
+func (r *remoteServiceObserver) OnUpdate(key store.Key) {
+	svc := &(key.(*serviceStore.ValidatingClusterService).ClusterService)
+	scopedLog := r.log.WithFields(logrus.Fields{logfields.ServiceName: svc.String()})
+	scopedLog.Debug("Received remote service update event")
+
+	// Short-circuit the handling of non-shared services
+	if !svc.Shared {
+		if r.cache.Has(svc) {
+			scopedLog.Debug("Previously shared service is no longer shared: triggering deletion event")
+			r.OnDelete(key)
+		} else {
+			scopedLog.Debug("Ignoring remote service update: service is not shared")
+		}
+		return
+	}
+
+	r.cache.OnUpdate(svc)
+	r.onUpdate(svc)
+}
+
+// OnDelete is called when a service in a remote cluster is deleted
+func (r *remoteServiceObserver) OnDelete(key store.NamedKey) {
+	svc := &(key.(*serviceStore.ValidatingClusterService).ClusterService)
+	scopedLog := r.log.WithFields(logrus.Fields{logfields.ServiceName: svc.String()})
+	scopedLog.Debug("Received remote service delete event")
+
+	// Short-circuit the deletion logic if the service was not present (i.e., not shared)
+	if !r.cache.OnDelete(svc) {
+		scopedLog.Debug("Ignoring remote service delete. Service was not shared")
+		return
+	}
+
+	r.onDelete(svc)
 }

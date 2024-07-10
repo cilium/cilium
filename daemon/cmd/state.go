@@ -467,7 +467,7 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState, endpointsR
 							DoFunc: func(ctx context.Context) error {
 								var localServices sets.Set[k8s.ServiceID]
 								if localOnly {
-									localServices = d.k8sWatcher.K8sSvcCache.LocalServices()
+									localServices = d.k8sSvcCache.LocalServices()
 								}
 
 								stale, err := d.svc.SyncWithK8sFinished(localOnly, localServices)
@@ -476,7 +476,7 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState, endpointsR
 								// of whether an error was returned.
 								swg := lock.NewStoppableWaitGroup()
 								for _, svc := range stale {
-									d.k8sWatcher.K8sSvcCache.EnsureService(svc, swg)
+									d.k8sSvcCache.EnsureService(svc, swg)
 								}
 
 								swg.Stop()
@@ -499,7 +499,7 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState, endpointsR
 
 					err := d.clustermesh.ServicesSynced(d.ctx)
 					if err != nil {
-						log.WithError(err).Fatal("timeout while waiting for all clusters to be locally synchronized")
+						return // The parent context expired, and we are already terminating
 					}
 					log.Debug("all clusters have been correctly synchronized locally")
 				}

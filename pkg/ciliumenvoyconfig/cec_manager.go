@@ -6,6 +6,7 @@ package ciliumenvoyconfig
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
@@ -14,6 +15,8 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -25,6 +28,7 @@ type ciliumEnvoyConfigManager interface {
 	addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error
 	updateCiliumEnvoyConfig(oldCECObjectMeta metav1.ObjectMeta, oldCECSpec *ciliumv2.CiliumEnvoyConfigSpec, newCECObjectMeta metav1.ObjectMeta, newCECSpec *ciliumv2.CiliumEnvoyConfigSpec) error
 	deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error
+	syncCiliumEnvoyConfigService(name string, namespace string, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error
 }
 
 type cecManager struct {
@@ -38,6 +42,9 @@ type cecManager struct {
 	resourceParser *cecResourceParser
 
 	envoyConfigTimeout time.Duration
+
+	services  resource.Resource[*slim_corev1.Service]
+	endpoints resource.Resource[*k8s.Endpoints]
 }
 
 func newCiliumEnvoyConfigManager(logger logrus.FieldLogger,
@@ -47,6 +54,8 @@ func newCiliumEnvoyConfigManager(logger logrus.FieldLogger,
 	backendSyncer *envoyServiceBackendSyncer,
 	resourceParser *cecResourceParser,
 	envoyConfigTimeout time.Duration,
+	services resource.Resource[*slim_corev1.Service],
+	endpoints resource.Resource[*k8s.Endpoints],
 ) *cecManager {
 	return &cecManager{
 		logger:             logger,
@@ -56,6 +65,8 @@ func newCiliumEnvoyConfigManager(logger logrus.FieldLogger,
 		backendSyncer:      backendSyncer,
 		resourceParser:     resourceParser,
 		envoyConfigTimeout: envoyConfigTimeout,
+		services:           services,
+		endpoints:          endpoints,
 	}
 }
 
@@ -80,7 +91,7 @@ func (r *cecManager) addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSp
 
 	name := service.L7LBResourceName{Name: cecObjectMeta.Name, Namespace: cecObjectMeta.Namespace}
 	if err := r.addK8sServiceRedirects(name, cecSpec, resources); err != nil {
-		return fmt.Errorf("failed to redirect k8s services to Envoy: %w", err)
+		return fmt.Errorf("failed to redirect k8s services to Envoy in CEC Add: %w", err)
 	}
 
 	if len(resources.Listeners) > 0 {
@@ -125,6 +136,13 @@ func (r *cecManager) addK8sServiceRedirects(resourceName service.L7LBResourceNam
 			return fmt.Errorf("listener %q not found in resources", svc.Listener)
 		}
 
+		// Add any relevant Nodeport values into the list of Ports to redirect.
+		nodePorts, err := r.getServiceNodeports(svc.Name, svc.Namespace, svc.Ports)
+		if err != nil {
+			return err
+		}
+		svc.Ports = append(svc.Ports, nodePorts...)
+
 		// Tell service manager to redirect the service to the port
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, true)
 		if err := r.serviceManager.RegisterL7LBServiceRedirect(serviceName, resourceName, proxyPort, svc.Ports); err != nil {
@@ -135,6 +153,12 @@ func (r *cecManager) addK8sServiceRedirects(resourceName service.L7LBResourceNam
 			return err
 		}
 	}
+	return r.syncCiliumEnvoyConfigService(resourceName.Name, resourceName.Namespace, spec)
+}
+
+func (r *cecManager) syncCiliumEnvoyConfigService(name string, namespace string, spec *ciliumv2.CiliumEnvoyConfigSpec) error {
+	resourceName := service.L7LBResourceName{Name: name, Namespace: namespace}
+
 	// Register services for Envoy backend sync
 	for _, svc := range spec.BackendServices {
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, false)
@@ -142,9 +166,142 @@ func (r *cecManager) addK8sServiceRedirects(resourceName service.L7LBResourceNam
 		if err := r.registerServiceSync(serviceName, resourceName, svc.Ports); err != nil {
 			return err
 		}
+
+		kSvc, err := r.getK8sService(svc.Name, svc.Namespace)
+		if err != nil {
+			return err
+		}
+
+		// Skip non-headless services as they are already supported in Cilium datapath LB service.
+		if kSvc == nil || kSvc.Spec.ClusterIP != slim_corev1.ClusterIPNone {
+			continue
+		}
+
+		ep, err := r.getEndpoint(svc.Name, svc.Namespace)
+		if err != nil {
+			return err
+		}
+		if ep == nil {
+			continue
+		}
+
+		// Explicitly call backendSyncer.Sync for headless service
+		for _, s := range convertToLBService(kSvc, ep) {
+			if err = r.backendSyncer.Sync(s); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// getServiceNodeports returns any relevant Nodeport numbers for the provided
+// Service ports. If the provided servicePorts do not have any nodeports set, returns
+// an empty list.
+func (r *cecManager) getServiceNodeports(name, namespace string, servicePorts []uint16) ([]uint16, error) {
+	var nodePorts []uint16
+	kSvc, err := r.getK8sService(name, namespace)
+	if err != nil {
+		return nodePorts, fmt.Errorf("could not retrieve service details for service %s/%s", namespace, name)
 	}
 
-	return nil
+	for _, servicePort := range servicePorts {
+		for _, port := range kSvc.Spec.Ports {
+			if servicePort == uint16(port.Port) {
+				if port.NodePort != 0 {
+					nodePorts = append(nodePorts, uint16(port.NodePort))
+				}
+			}
+		}
+	}
+
+	return nodePorts, nil
+}
+
+// getK8sService retrieves k8s service from the store
+func (r *cecManager) getK8sService(name string, namespace string) (*slim_corev1.Service, error) {
+	store, err := r.services.Store(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	svc, exists, err := store.GetByKey(resource.Key{
+		Name:      name,
+		Namespace: namespace,
+	})
+	if svc == nil {
+		return nil, fmt.Errorf("retrieved nil details for Service %s/%s", namespace, name)
+	}
+	if !exists || err != nil {
+		return nil, err
+	}
+	return svc, nil
+}
+
+// getEndpoint retrieves k8s endpoint from the store.
+// Endpoint might not have the same name as the service name if EndpointSlice is enabled,
+// so we need to loop through all endpoints to find the correct one.
+func (r *cecManager) getEndpoint(serviceName string, serviceNamespace string) (*k8s.Endpoints, error) {
+	store, err := r.endpoints.Store(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	iter := store.IterKeys()
+	for iter.Next() {
+		e, _, _ := store.GetByKey(iter.Key())
+		if e.EndpointSliceID.ServiceID.Name == serviceName &&
+			e.EndpointSliceID.ServiceID.Namespace == serviceNamespace {
+			return e, nil
+		}
+	}
+	return nil, nil
+}
+
+func convertToLBService(svc *slim_corev1.Service, ep *k8s.Endpoints) []*loadbalancer.SVC {
+	var res []*loadbalancer.SVC
+	fePorts := map[loadbalancer.FEPortName]*loadbalancer.L4Addr{}
+	var sortedPorts []loadbalancer.FEPortName
+
+	for _, port := range svc.Spec.Ports {
+		portName := loadbalancer.FEPortName(port.Name)
+		if _, ok := fePorts[portName]; !ok {
+			fePorts[portName] = loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+			sortedPorts = append(sortedPorts, portName)
+		}
+	}
+	// Sort the ports to ensure deterministic order
+	slices.Sort(sortedPorts)
+
+	for _, fePortName := range sortedPorts {
+		fePort := fePorts[fePortName]
+		s := &loadbalancer.SVC{
+			Name: loadbalancer.ServiceName{
+				Name:      svc.Name,
+				Namespace: svc.Namespace,
+			},
+			Frontend: loadbalancer.L3n4AddrID{
+				L3n4Addr: loadbalancer.L3n4Addr{
+					L4Addr: loadbalancer.L4Addr{
+						Protocol: fePort.Protocol,
+						Port:     fePort.Port,
+					},
+				},
+			},
+		}
+
+		for addrCluster, be := range ep.Backends {
+			if l4Addr := be.Ports[string(fePortName)]; l4Addr != nil {
+				s.Backends = append(s.Backends, &loadbalancer.Backend{
+					FEPortName: string(fePortName),
+					L3n4Addr:   *loadbalancer.NewL3n4Addr(l4Addr.Protocol, addrCluster, l4Addr.Port, 0),
+				})
+			}
+		}
+
+		res = append(res, s)
+	}
+
+	return res
 }
 
 func (r *cecManager) updateCiliumEnvoyConfig(
@@ -186,7 +343,7 @@ func (r *cecManager) updateCiliumEnvoyConfig(
 	}
 
 	if err := r.addK8sServiceRedirects(name, newCECSpec, newResources); err != nil {
-		return fmt.Errorf("failed to redirect k8s services to Envoy: %w", err)
+		return fmt.Errorf("failed to redirect k8s services to Envoy in CEC Update: %w", err)
 	}
 
 	if oldResources.ListenersAddedOrDeleted(&newResources) {

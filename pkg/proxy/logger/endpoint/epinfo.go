@@ -40,16 +40,23 @@ func NewEndpointInfoRegistry(ipc *ipcache.IPCache, endpointManager endpointmanag
 	}
 }
 
-func (r *endpointInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, addr netip.Addr, id identity.NumericIdentity) {
-	var ep *endpoint.Endpoint
+// FillEndpointInfo fills in as much information as possible from the provided information.
+// It will populate empty fields on a best-effort basis.
+// Resolving security labels may require accessing the kvstore; labelLookupTimeout sets
+// the timeout.
+func (r *endpointInfoRegistry) FillEndpointInfo(ctx context.Context, info *accesslog.EndpointInfo, addr netip.Addr) {
 	if addr.IsValid() {
 		if addr.Is4() {
 			info.IPv4 = addr.String()
 		} else {
 			info.IPv6 = addr.String()
 		}
+	}
 
-		// Get (local) endpoint identifier to be reported by cilium monitor
+	// Resolve endpoint, if needed and possible.
+	// This will fail if the IP does not correspond to an endpoint on this node.
+	var ep *endpoint.Endpoint
+	if info.ID == 0 {
 		ep = r.endpointManager.LookupIP(addr)
 		if ep != nil {
 			info.ID = ep.GetID()
@@ -59,23 +66,39 @@ func (r *endpointInfoRegistry) FillEndpointInfo(info *accesslog.EndpointInfo, ad
 	// Only resolve the security identity if not passed in, as it may have changed since
 	// reported by the proxy. This way we log the security identity and labels used for
 	// policy enforcement, if any.
-	if id == 0 {
+	if info.Identity == 0 {
+		// Try and look up identity by endpoint
 		if ep != nil {
-			id = ep.GetIdentity()
-		} else if addr.IsValid() {
-			ID, exists := r.ipcache.LookupByIP(addr.String())
-			if exists {
-				id = ID.ID
+			secid, err := ep.GetSecurityIdentity()
+			// safe to ignore error; just means endpoint is going away.
+			// this is best-effort anyways.
+			if err == nil && secid != nil {
+				info.Identity = uint64(secid.ID)
+				info.Labels = secid.LabelArray
 			}
 		}
+
+		// Fall back to ipcache
+		if info.Identity == 0 && addr.IsValid() {
+			ID, exists := r.ipcache.LookupByIP(addr.String())
+			if exists {
+				info.Identity = uint64(ID.ID)
+			}
+		}
+
 		// Default to WORLD if still unknown
-		if id == 0 {
-			id = identity.GetWorldIdentityFromIP(addr)
+		if info.Identity == 0 {
+			info.Identity = uint64(identity.GetWorldIdentityFromIP(addr))
 		}
 	}
-	info.Identity = uint64(id)
-	identity := r.identityAllocator.LookupIdentityByID(context.TODO(), id)
-	if identity != nil {
-		info.Labels = identity.Labels.GetModel()
+
+	// Look up security labels if not provided
+	if info.Labels == nil {
+		// The allocator should already have this in cache, but it may fall back to a
+		// remote read if missing. So, provide the context.
+		identity := r.identityAllocator.LookupIdentityByID(ctx, identity.NumericIdentity(info.Identity))
+		if identity != nil {
+			info.Labels = identity.LabelArray
+		}
 	}
 }

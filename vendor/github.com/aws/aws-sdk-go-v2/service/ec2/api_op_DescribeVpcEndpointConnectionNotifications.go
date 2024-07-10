@@ -135,6 +135,12 @@ func (c *Client) addOperationDescribeVpcEndpointConnectionNotificationsMiddlewar
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVpcEndpointConnectionNotifications(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -155,14 +161,6 @@ func (c *Client) addOperationDescribeVpcEndpointConnectionNotificationsMiddlewar
 	}
 	return nil
 }
-
-// DescribeVpcEndpointConnectionNotificationsAPIClient is a client that implements
-// the DescribeVpcEndpointConnectionNotifications operation.
-type DescribeVpcEndpointConnectionNotificationsAPIClient interface {
-	DescribeVpcEndpointConnectionNotifications(context.Context, *DescribeVpcEndpointConnectionNotificationsInput, ...func(*Options)) (*DescribeVpcEndpointConnectionNotificationsOutput, error)
-}
-
-var _ DescribeVpcEndpointConnectionNotificationsAPIClient = (*Client)(nil)
 
 // DescribeVpcEndpointConnectionNotificationsPaginatorOptions is the paginator
 // options for DescribeVpcEndpointConnectionNotifications
@@ -231,6 +229,9 @@ func (p *DescribeVpcEndpointConnectionNotificationsPaginator) NextPage(ctx conte
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeVpcEndpointConnectionNotifications(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -249,6 +250,14 @@ func (p *DescribeVpcEndpointConnectionNotificationsPaginator) NextPage(ctx conte
 
 	return result, nil
 }
+
+// DescribeVpcEndpointConnectionNotificationsAPIClient is a client that implements
+// the DescribeVpcEndpointConnectionNotifications operation.
+type DescribeVpcEndpointConnectionNotificationsAPIClient interface {
+	DescribeVpcEndpointConnectionNotifications(context.Context, *DescribeVpcEndpointConnectionNotificationsInput, ...func(*Options)) (*DescribeVpcEndpointConnectionNotificationsOutput, error)
+}
+
+var _ DescribeVpcEndpointConnectionNotificationsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeVpcEndpointConnectionNotifications(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

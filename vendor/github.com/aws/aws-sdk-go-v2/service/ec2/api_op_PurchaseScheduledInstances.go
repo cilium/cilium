@@ -127,6 +127,12 @@ func (c *Client) addOperationPurchaseScheduledInstancesMiddlewares(stack *middle
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addIdempotencyToken_opPurchaseScheduledInstancesMiddleware(stack, options); err != nil {
 		return err
 	}

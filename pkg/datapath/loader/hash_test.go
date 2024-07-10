@@ -4,101 +4,105 @@
 package loader
 
 import (
-	"context"
+	"errors"
+	"io"
 	"testing"
 
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/hivetest"
-	"github.com/cilium/statedb"
-	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
-	"github.com/cilium/cilium/pkg/datapath/linux/config"
-	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/maps/nodemap"
-	"github.com/cilium/cilium/pkg/maps/nodemap/fake"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
 var (
-	dummyNodeCfg = datapath.LocalNodeConfiguration{
-		MtuConfig: &fakeTypes.MTU{},
-	}
-	dummyDevCfg = testutils.NewTestEndpoint()
-	dummyEPCfg  = testutils.NewTestEndpoint()
+	dummyNodeCfg = datapath.LocalNodeConfiguration{}
 )
 
 // TestHashDatapath is done in this package just for easy access to dummy
 // configuration objects.
 func TestHashDatapath(t *testing.T) {
-	setupLocalNodeStore(t)
+	// Error from ConfigWriter is forwarded.
+	_, err := hashDatapath(fakeConfigWriter{}, nil)
+	require.Error(t, err)
 
-	var cfg datapath.ConfigWriter
-	hv := hive.New(
-		provideNodemap,
-		cell.Provide(
-			tables.NewNodeAddressTable,
-			statedb.RWTable[tables.NodeAddress].ToTable,
-			tables.NewDeviceTable,
-			statedb.RWTable[*tables.Device].ToTable,
-			func() datapath.BandwidthManager { return &fakeTypes.BandwidthManager{} },
-			func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },
-			config.NewHeaderfileWriter,
-			fakeTypes.NewNodeAddressing,
-		),
-		cell.Invoke(
-			statedb.RegisterTable[*tables.Device],
-			statedb.RegisterTable[tables.NodeAddress],
-		),
-		cell.Invoke(func(writer_ datapath.ConfigWriter) {
-			cfg = writer_
-		}),
-	)
+	// Ensure we get different hashes when config is changed
+	a, err := hashDatapath(fakeConfigWriter("a"), &dummyNodeCfg)
+	require.NoError(t, err)
 
-	tlog := hivetest.Logger(t)
-	require.NoError(t, hv.Start(tlog, context.TODO()))
-	t.Cleanup(func() { require.Nil(t, hv.Stop(tlog, context.TODO())) })
+	b, err := hashDatapath(fakeConfigWriter("b"), &dummyNodeCfg)
+	require.NoError(t, err)
+	require.NotEqual(t, a, b)
 
-	h := newDatapathHash()
-	baseHash := h.String()
+	// Ensure we get the same base hash when config is the same.
+	b, err = hashDatapath(fakeConfigWriter("a"), &dummyNodeCfg)
+	require.NoError(t, err)
+	require.Equal(t, a, b)
+}
 
-	// Ensure we get different hashes when config is added
-	h = hashDatapath(cfg, &dummyNodeCfg, &dummyDevCfg, &dummyEPCfg)
-	dummyHash := h.String()
-	require.NotEqual(t, dummyHash, baseHash)
+func TestHashEndpoint(t *testing.T) {
+	var base datapathHash
+	ep := testutils.NewTestEndpoint()
+	cfg := configWriterForTest(t)
 
-	// Ensure we get the same base hash when config is removed via Reset()
-	h.Reset()
-	require.Equal(t, h.String(), baseHash)
-	require.NotEqual(t, h.String(), dummyHash)
+	// Error from ConfigWriter is forwarded.
+	_, err := base.hashEndpoint(fakeConfigWriter{}, nil, nil)
+	require.Error(t, err)
 
-	// Ensure that with a copy of the endpoint config we get the same hash
-	newEPCfg := dummyEPCfg
-	h = hashDatapath(cfg, &dummyNodeCfg, &dummyDevCfg, &newEPCfg)
-	require.NotEqual(t, h.String(), baseHash)
-	require.Equal(t, h.String(), dummyHash)
+	// Hashing the endpoint gives a hash distinct from the base.
+	a, err := base.hashEndpoint(cfg, &localNodeConfig, &ep)
+	require.NoError(t, err)
+	require.NotEqual(t, base.String(), a)
+
+	// When we configure the endpoint differently, it's different
+	ep.Opts.SetBool("foo", true)
+	b, err := base.hashEndpoint(cfg, &localNodeConfig, &ep)
+	require.NoError(t, err)
+	require.NotEqual(t, a, b)
+}
+
+func TestHashTemplate(t *testing.T) {
+	var base datapathHash
+	ep := testutils.NewTestEndpoint()
+	cfg := configWriterForTest(t)
+
+	// Error from ConfigWriter is forwarded.
+	_, err := base.hashTemplate(fakeConfigWriter{}, nil, nil)
+	require.Error(t, err)
+
+	// Hashing the endpoint gives a hash distinct from the base.
+	a, err := base.hashTemplate(cfg, &localNodeConfig, &ep)
+	require.NoError(t, err)
+	require.NotEqual(t, base.String(), a)
 
 	// Even with different endpoint IDs, we get the same hash
 	//
 	// This is the key to avoiding recompilation per endpoint; static
 	// data substitution is performed via pkg/elf instead.
-	newEPCfg.Id++
-	h = hashDatapath(cfg, &dummyNodeCfg, &dummyDevCfg, &newEPCfg)
-	require.NotEqual(t, h.String(), baseHash)
-	require.Equal(t, h.String(), dummyHash)
-
-	// But when we configure the endpoint differently, it's different
-	newEPCfg = testutils.NewTestEndpoint()
-	newEPCfg.Opts.SetBool("foo", true)
-	h = hashDatapath(cfg, &dummyNodeCfg, &dummyDevCfg, &newEPCfg)
-	require.NotEqual(t, h.String(), baseHash)
-	require.NotEqual(t, h.String(), dummyHash)
+	ep.Id++
+	b, err := base.hashTemplate(cfg, &localNodeConfig, &ep)
+	require.NoError(t, err)
+	require.Equal(t, a, b)
 }
 
-var provideNodemap = cell.Provide(func() nodemap.MapV2 {
-	return fake.NewFakeNodeMapV2()
-})
+type fakeConfigWriter []byte
+
+func (fc fakeConfigWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
+	if cfg == nil {
+		return errors.New("LocalNodeConfiguration is nil")
+	}
+	_, err := w.Write(fc)
+	return err
+}
+
+func (fc fakeConfigWriter) WriteNetdevConfig(w io.Writer, opts *option.IntOptions) error {
+	return errors.New("not implemented")
+}
+
+func (fc fakeConfigWriter) WriteTemplateConfig(w io.Writer, _ *datapath.LocalNodeConfiguration, cfg datapath.EndpointConfiguration) error {
+	return errors.New("not implemented")
+}
+
+func (fc fakeConfigWriter) WriteEndpointConfig(w io.Writer, _ *datapath.LocalNodeConfiguration, cfg datapath.EndpointConfiguration) error {
+	return errors.New("not implemented")
+}

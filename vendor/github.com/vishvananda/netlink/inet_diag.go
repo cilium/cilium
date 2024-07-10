@@ -29,3 +29,8 @@ type InetDiagTCPInfoResp struct {
 	TCPInfo     *TCPInfo
 	TCPBBRInfo  *TCPBBRInfo
 }
+
+type InetDiagUDPInfoResp struct {
+	InetDiagMsg *Socket
+	Memory      *MemInfo
+}

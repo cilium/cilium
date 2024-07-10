@@ -454,12 +454,13 @@ func TestLabels(t *testing.T) {
 	err := cmd.Flags().Parse([]string{
 		"--label", "k1=v1,k2=v2",
 		"-l", "k3",
+		"--node-label", "io.cilium.egress-gateway",
 	})
 	require.NoError(t, err)
 	if diff := cmp.Diff(
 		[]*flowpb.FlowFilter{
-			{SourceLabel: []string{"k1=v1,k2=v2", "k3"}},
-			{DestinationLabel: []string{"k1=v1,k2=v2", "k3"}},
+			{SourceLabel: []string{"k1=v1,k2=v2", "k3"}, NodeLabels: []string{"io.cilium.egress-gateway"}},
+			{DestinationLabel: []string{"k1=v1,k2=v2", "k3"}, NodeLabels: []string{"io.cilium.egress-gateway"}},
 		},
 		f.whitelist.flowFilters(),
 		cmpopts.IgnoreUnexported(flowpb.FlowFilter{}),
@@ -795,6 +796,52 @@ func TestSnatIp(t *testing.T) {
 			cmd := newFlowsCmdWithFilter(viper.New(), f)
 			err := cmd.Flags().Parse(tc.flags)
 			diff := cmp.Diff(tc.filters, f.whitelist.flowFilters(), cmpopts.IgnoreUnexported(flowpb.FlowFilter{}))
+			if diff != "" {
+				t.Errorf("mismatch (-want +got):\n%s", diff)
+			}
+			if tc.err != "" {
+				require.Errorf(t, err, tc.err)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Nil(t, f.blacklist)
+		})
+	}
+}
+
+func TestInterface(t *testing.T) {
+	tt := []struct {
+		name    string
+		flags   []string
+		filters []*flowpb.FlowFilter
+		err     string
+	}{
+		{
+			name:  "exact match",
+			flags: []string{"--interface", "eth0"},
+			filters: []*flowpb.FlowFilter{
+				{
+					Interface: []*flowpb.NetworkInterface{
+						{
+							Name: "eth0",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFlowFilter()
+			cmd := newFlowsCmdWithFilter(viper.New(), f)
+			err := cmd.Flags().Parse(tc.flags)
+			diff := cmp.Diff(
+				tc.filters,
+				f.whitelist.flowFilters(),
+				cmpopts.IgnoreUnexported(flowpb.FlowFilter{}),
+				cmpopts.IgnoreUnexported(flowpb.NetworkInterface{}),
+			)
 			if diff != "" {
 				t.Errorf("mismatch (-want +got):\n%s", diff)
 			}

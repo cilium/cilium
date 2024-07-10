@@ -20,7 +20,7 @@ import (
 //
 // [ReleaseIpamPoolAllocation]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ReleaseIpamPoolAllocation.html
 // [AllocateIpamPoolCidr]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_AllocateIpamPoolCidr.html
-// [eventual consistency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/query-api-troubleshooting.html#eventual-consistency
+// [eventual consistency]: https://docs.aws.amazon.com/ec2/latest/devguide/eventual-consistency.html
 func (c *Client) GetIpamPoolAllocations(ctx context.Context, params *GetIpamPoolAllocationsInput, optFns ...func(*Options)) (*GetIpamPoolAllocationsOutput, error) {
 	if params == nil {
 		params = &GetIpamPoolAllocationsInput{}
@@ -136,6 +136,12 @@ func (c *Client) addOperationGetIpamPoolAllocationsMiddlewares(stack *middleware
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetIpamPoolAllocationsValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -159,14 +165,6 @@ func (c *Client) addOperationGetIpamPoolAllocationsMiddlewares(stack *middleware
 	}
 	return nil
 }
-
-// GetIpamPoolAllocationsAPIClient is a client that implements the
-// GetIpamPoolAllocations operation.
-type GetIpamPoolAllocationsAPIClient interface {
-	GetIpamPoolAllocations(context.Context, *GetIpamPoolAllocationsInput, ...func(*Options)) (*GetIpamPoolAllocationsOutput, error)
-}
-
-var _ GetIpamPoolAllocationsAPIClient = (*Client)(nil)
 
 // GetIpamPoolAllocationsPaginatorOptions is the paginator options for
 // GetIpamPoolAllocations
@@ -232,6 +230,9 @@ func (p *GetIpamPoolAllocationsPaginator) NextPage(ctx context.Context, optFns .
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.GetIpamPoolAllocations(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -250,6 +251,14 @@ func (p *GetIpamPoolAllocationsPaginator) NextPage(ctx context.Context, optFns .
 
 	return result, nil
 }
+
+// GetIpamPoolAllocationsAPIClient is a client that implements the
+// GetIpamPoolAllocations operation.
+type GetIpamPoolAllocationsAPIClient interface {
+	GetIpamPoolAllocations(context.Context, *GetIpamPoolAllocationsInput, ...func(*Options)) (*GetIpamPoolAllocationsOutput, error)
+}
+
+var _ GetIpamPoolAllocationsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opGetIpamPoolAllocations(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

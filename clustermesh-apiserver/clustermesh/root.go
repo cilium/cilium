@@ -28,7 +28,6 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -358,8 +357,6 @@ func startServer(
 		"cluster-id":   cinfo.ID,
 	}).Info("Starting clustermesh-apiserver...")
 
-	synced.SyncCRDs(startCtx, clientset, synced.ClusterMeshAPIServerResourceNames(), &synced.Resources{}, &synced.APIGroups{})
-
 	config := cmtypes.CiliumClusterConfig{
 		ID: cinfo.ID,
 		Capabilities: cmtypes.CiliumClusterConfigCapabilities{
@@ -368,7 +365,8 @@ func startServer(
 		},
 	}
 
-	if err := cmutils.SetClusterConfig(context.Background(), cinfo.Name, &config, backend); err != nil {
+	_, err := cmutils.EnforceClusterConfig(context.Background(), cinfo.Name, config, backend, log)
+	if err != nil {
 		log.WithError(err).Fatal("Unable to set local cluster config on kvstore")
 	}
 

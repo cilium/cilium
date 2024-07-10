@@ -14,7 +14,7 @@ jobs:
   build_commits:
     name: Check if build works for every commit
     runs-on: ubuntu-22.04
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -30,10 +30,10 @@ jobs:
         uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.22.3
+          go-version: 1.22.5
 
       - name: Checkout code
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
@@ -89,7 +89,7 @@ jobs:
 
       - name: Install LLVM and Clang
         if: steps.test-tree.outputs.src == 'true'
-        uses: KyleMayes/install-llvm-action@8b37482c5a2997a3ab5dbf6561f8109e2eaa7d3b # v2.0.2
+        uses: KyleMayes/install-llvm-action@82fd451e4380968e8336eefc5b8b9292a619de01 # v2.0.3
         with:
           version: "17.0.6"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}

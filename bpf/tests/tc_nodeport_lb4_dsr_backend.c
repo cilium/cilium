@@ -167,7 +167,7 @@ SETUP("tc", "tc_nodeport_dsr_backend")
 int nodeport_dsr_backend_setup(struct __ctx_buff *ctx)
 {
 	/* add local backend */
-	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFACE, 0, 0,
+	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFACE, 0, 0, 0,
 			      (__u8 *)backend_mac, (__u8 *)node_mac);
 
 	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
@@ -226,6 +226,9 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP has changed");
+
+	if (l3->check != bpf_htons(0x400a))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	if (opt->type != DSR_IPV4_OPT_TYPE)
 		test_fatal("type in DSR IP option has changed")
@@ -343,6 +346,9 @@ static __always_inline int check_reply(const struct __ctx_buff *ctx)
 
 	if (l3->daddr != CLIENT_IP)
 		test_fatal("dst IP has changed");
+
+	if (l3->check != bpf_htons(0x4baa))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	if (l4->source != FRONTEND_PORT)
 		test_fatal("src port hasn't been RevNATed to frontend port");
@@ -490,6 +496,9 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP has changed");
 
+	if (l3->check != bpf_htons(0x3509))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+
 	if (opt->type != DSR_IPV4_OPT_TYPE)
 		test_fatal("type in DSR IP option has changed")
 	if (opt->len != 8)
@@ -620,6 +629,9 @@ int nodeport_dsr_backend_redirect_reply_check(struct __ctx_buff *ctx)
 
 	if (l3->daddr != CLIENT_IP_2)
 		test_fatal("dst IP has changed");
+
+	if (l3->check != bpf_htons(0x3611))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	if (l4->source != BACKEND_PORT)
 		test_fatal("src port has changed");

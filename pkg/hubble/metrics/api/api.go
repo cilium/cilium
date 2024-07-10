@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -126,13 +126,13 @@ func (h Handlers) ProcessFlow(ctx context.Context, flow *pb.Flow) error {
 	return errs
 }
 
-// ProcessPodDeletion queries all handlers for a list of MetricVec and removes
-// metrics directly associated to deleted pod.
-func (h Handlers) ProcessPodDeletion(pod *slim_corev1.Pod) {
+// ProcessCiliumEndpointDeletion queries all handlers for a list of MetricVec and removes
+// metrics directly associated to pod of the deleted cilium endpoint.
+func (h Handlers) ProcessCiliumEndpointDeletion(endpoint *types.CiliumEndpoint) {
 	for _, h := range h.handlers {
 		for _, mv := range h.ListMetricVec() {
 			if ctx := h.Context(); ctx != nil {
-				ctx.DeleteMetricsAssociatedWithPod(pod.GetName(), pod.GetNamespace(), mv)
+				ctx.DeleteMetricsAssociatedWithPod(endpoint.GetName(), endpoint.GetNamespace(), mv)
 			}
 		}
 	}

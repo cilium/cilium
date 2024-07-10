@@ -42,7 +42,7 @@ func mockLogRecord() *LogRecord {
 			accesslog.VerdictForwarded,
 			"just a benchmark",
 		),
-		LogTags.Addressing(AddressingInfo{
+		LogTags.Addressing(context.Background(), AddressingInfo{
 			DstIPPort:   "15478",
 			DstIdentity: 16,
 			SrcIPPort:   "53",

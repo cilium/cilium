@@ -13,10 +13,9 @@ import (
 
 // This action is deprecated.
 //
-// Describes one or more of your linked EC2-Classic instances. This request only
-// returns information about EC2-Classic instances linked to a VPC through
-// ClassicLink. You cannot use this request to return information about other
-// instances.
+// Describes your linked EC2-Classic instances. This request only returns
+// information about EC2-Classic instances linked to a VPC through ClassicLink. You
+// cannot use this request to return information about other instances.
 func (c *Client) DescribeClassicLinkInstances(ctx context.Context, params *DescribeClassicLinkInstancesInput, optFns ...func(*Options)) (*DescribeClassicLinkInstancesOutput, error) {
 	if params == nil {
 		params = &DescribeClassicLinkInstancesInput{}
@@ -147,6 +146,12 @@ func (c *Client) addOperationDescribeClassicLinkInstancesMiddlewares(stack *midd
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeClassicLinkInstances(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -167,14 +172,6 @@ func (c *Client) addOperationDescribeClassicLinkInstancesMiddlewares(stack *midd
 	}
 	return nil
 }
-
-// DescribeClassicLinkInstancesAPIClient is a client that implements the
-// DescribeClassicLinkInstances operation.
-type DescribeClassicLinkInstancesAPIClient interface {
-	DescribeClassicLinkInstances(context.Context, *DescribeClassicLinkInstancesInput, ...func(*Options)) (*DescribeClassicLinkInstancesOutput, error)
-}
-
-var _ DescribeClassicLinkInstancesAPIClient = (*Client)(nil)
 
 // DescribeClassicLinkInstancesPaginatorOptions is the paginator options for
 // DescribeClassicLinkInstances
@@ -248,6 +245,9 @@ func (p *DescribeClassicLinkInstancesPaginator) NextPage(ctx context.Context, op
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeClassicLinkInstances(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -266,6 +266,14 @@ func (p *DescribeClassicLinkInstancesPaginator) NextPage(ctx context.Context, op
 
 	return result, nil
 }
+
+// DescribeClassicLinkInstancesAPIClient is a client that implements the
+// DescribeClassicLinkInstances operation.
+type DescribeClassicLinkInstancesAPIClient interface {
+	DescribeClassicLinkInstances(context.Context, *DescribeClassicLinkInstancesInput, ...func(*Options)) (*DescribeClassicLinkInstancesOutput, error)
+}
+
+var _ DescribeClassicLinkInstancesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeClassicLinkInstances(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

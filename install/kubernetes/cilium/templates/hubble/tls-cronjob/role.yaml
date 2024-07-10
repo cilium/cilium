@@ -1,0 +1,41 @@
+{{- if and .Values.hubble.enabled .Values.hubble.tls.enabled .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "cronJob") .Values.serviceAccounts.hubblecertgen.create .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hubble-generate-certs
+  namespace: {{ .Release.Namespace }}
+  {{- with .Values.hubble.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    resourceNames:
+      - hubble-server-certs
+      - hubble-relay-client-certs
+      - hubble-relay-server-certs
+      - hubble-metrics-server-certs
+      - hubble-ui-client-certs
+    verbs:
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    resourceNames:
+      - cilium-ca
+    verbs:
+      - get
+      - update
+{{- end }}

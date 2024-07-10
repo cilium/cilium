@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_PROXY_HAIRPIN_H_
-#define __LIB_PROXY_HAIRPIN_H_
+#pragma once
 
 #include "common.h"
 #include "utils.h"
@@ -29,7 +28,7 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, struct iphdr *ip4,
 {
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
 	union macaddr host_mac = HOST_IFINDEX_MAC;
-	union macaddr router_mac = NODE_MAC;
+	union macaddr router_mac = THIS_INTERFACE_MAC;
 #endif
 	int ret = 0;
 
@@ -79,5 +78,3 @@ ctx_redirect_to_proxy_hairpin_ipv6(struct __ctx_buff *ctx, __be16 proxy_port)
 #endif
 
 #endif /* HOST_IFINDEX_MAC && HOST_IFINDEX */
-
-#endif /* __LIB_PROXY_HAIRPIN_H_ */

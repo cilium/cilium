@@ -14,11 +14,9 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 )
 
-var (
-	cesNotify = subscriber.NewCES()
-)
+var cesNotify = subscriber.NewCES()
 
-func (k *K8sWatcher) ciliumEndpointSliceInit(ctx context.Context, asyncControllers *sync.WaitGroup) {
+func (k *K8sCiliumEndpointsWatcher) ciliumEndpointSliceInit(ctx context.Context, asyncControllers *sync.WaitGroup) {
 	log.Info("Initializing CES controller")
 
 	var once sync.Once
@@ -31,7 +29,7 @@ func (k *K8sWatcher) ciliumEndpointSliceInit(ctx context.Context, asyncControlle
 		var synced atomic.Bool
 		stop := make(chan struct{})
 
-		k.blockWaitGroupToSyncResources(
+		k.k8sResourceSynced.BlockWaitGroupToSyncResources(
 			stop,
 			nil,
 			func() bool { return synced.Load() },
@@ -80,7 +78,7 @@ func (k *K8sWatcher) ciliumEndpointSliceInit(ctx context.Context, asyncControlle
 		case <-kvstore.Connected():
 			log.Info("Connected to key-value store, stopping CiliumEndpointSlice watcher")
 			cancel()
-			k.cancelWaitGroupToSyncResources(apiGroup)
+			k.k8sResourceSynced.CancelWaitGroupToSyncResources(apiGroup)
 			k.k8sAPIGroups.RemoveAPI(apiGroup)
 			<-stop
 		case <-ctx.Done():

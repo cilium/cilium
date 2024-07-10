@@ -64,7 +64,7 @@ jobs:
 
     steps:
       - name: Checkout main branch to access local actions
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -73,10 +73,10 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@d70bba72b1f3fd22344832f00baa16ece964efeb # v3.3.0
+        uses: docker/setup-buildx-action@4fd812986e6c8c2a69e18311145f9371337f27d4 # v3.4.0
 
       - name: Login to quay.io
-        uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
+        uses: docker/login-action@0d4c9c5ea7693da7b068278f7b52bda2a190a446 # v3.2.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_BETA_USERNAME }}
@@ -97,12 +97,12 @@ jobs:
           fi
 
       - name: Checkout Source Code
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           persist-credentials: false
 
       - name: Release Build ${{ matrix.name }}
-        uses: docker/build-push-action@2cdde995de11925a030ce8070c3d77a52ffcf1c0 # v5.3.0
+        uses: docker/build-push-action@1a162644f9a7e87d8f4b053101d1d9a712edc18c # v6.3.0
         id: docker_build_release
         with:
           provenance: false
@@ -124,7 +124,7 @@ jobs:
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@7ccf588e3cf3cc2611714c2eeae48550fbc17552 # v0.15.11
+        uses: anchore/sbom-action@e8d2a6937ecead383dfe75190d104edd1f9c5751 # v0.16.0
         with:
           artifact-name: sbom_${{ matrix.name }}_${{ github.event.inputs.tag }}.spdx.json
           output-file: ./sbom_${{ matrix.name }}_${{ github.event.inputs.tag }}.spdx.json
@@ -152,7 +152,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: image-digest ${{ matrix.name }}
           path: image-digest
@@ -169,9 +169,10 @@ jobs:
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           path: image-digest/
+          pattern: "*image-digest *"
 
       - name: Image Digests Output
         shell: bash

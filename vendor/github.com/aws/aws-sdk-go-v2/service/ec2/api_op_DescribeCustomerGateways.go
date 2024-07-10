@@ -11,7 +11,7 @@ import (
 	smithytime "github.com/aws/smithy-go/time"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	smithywaiter "github.com/aws/smithy-go/waiter"
-	"github.com/jmespath/go-jmespath"
+	jmespath "github.com/jmespath/go-jmespath"
 	"time"
 )
 
@@ -145,6 +145,12 @@ func (c *Client) addOperationDescribeCustomerGatewaysMiddlewares(stack *middlewa
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeCustomerGateways(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -165,14 +171,6 @@ func (c *Client) addOperationDescribeCustomerGatewaysMiddlewares(stack *middlewa
 	}
 	return nil
 }
-
-// DescribeCustomerGatewaysAPIClient is a client that implements the
-// DescribeCustomerGateways operation.
-type DescribeCustomerGatewaysAPIClient interface {
-	DescribeCustomerGateways(context.Context, *DescribeCustomerGatewaysInput, ...func(*Options)) (*DescribeCustomerGatewaysOutput, error)
-}
-
-var _ DescribeCustomerGatewaysAPIClient = (*Client)(nil)
 
 // CustomerGatewayAvailableWaiterOptions are waiter options for
 // CustomerGatewayAvailableWaiter
@@ -291,7 +289,13 @@ func (w *CustomerGatewayAvailableWaiter) WaitForOutput(ctx context.Context, para
 		}
 
 		out, err := w.client.DescribeCustomerGateways(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -411,6 +415,14 @@ func customerGatewayAvailableStateRetryable(ctx context.Context, input *Describe
 
 	return true, nil
 }
+
+// DescribeCustomerGatewaysAPIClient is a client that implements the
+// DescribeCustomerGateways operation.
+type DescribeCustomerGatewaysAPIClient interface {
+	DescribeCustomerGateways(context.Context, *DescribeCustomerGatewaysInput, ...func(*Options)) (*DescribeCustomerGatewaysOutput, error)
+}
+
+var _ DescribeCustomerGatewaysAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeCustomerGateways(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

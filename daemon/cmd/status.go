@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
+	"github.com/cilium/cilium/pkg/maps/ratelimitmetricsmap"
 	"github.com/cilium/cilium/pkg/maps/timestamp"
 	tunnelmap "github.com/cilium/cilium/pkg/maps/tunnel"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -235,6 +236,17 @@ func (d *Daemon) getAttachModeStatus() models.AttachMode {
 	return mode
 }
 
+func (d *Daemon) getDatapathModeStatus() models.DatapathMode {
+	mode := models.DatapathModeVeth
+	switch option.Config.DatapathMode {
+	case datapathOption.DatapathModeNetkit:
+		mode = models.DatapathModeNetkit
+	case datapathOption.DatapathModeNetkitL2:
+		mode = models.DatapathModeNetkitDashL2
+	}
+	return mode
+}
+
 func (d *Daemon) getCNIChainingStatus() *models.CNIChainingStatus {
 	mode := d.cniConfigManager.GetChainingMode()
 	if len(mode) == 0 {
@@ -290,6 +302,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 			features.NodePort.DsrMode = models.KubeProxyReplacementFeaturesNodePortDsrModeGeneve
 		}
 		if option.Config.NodePortMode == option.NodePortModeHybrid {
+			//nolint:staticcheck
 			features.NodePort.Mode = strings.Title(option.Config.NodePortMode)
 		}
 		features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmRandom
@@ -410,6 +423,10 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 			{
 				Name: "Metrics",
 				Size: int64(metricsmap.MaxEntries),
+			},
+			{
+				Name: "Ratelimit metrics",
+				Size: int64(ratelimitmetricsmap.MaxEntries),
 			},
 			{
 				Name: "NAT",
@@ -742,8 +759,8 @@ func (d *Daemon) getStatus(brief bool) models.StatusResponse {
 
 func (d *Daemon) getIdentityRange() *models.IdentityRange {
 	s := &models.IdentityRange{
-		MinIdentity: int64(identity.GetMinimalAllocationIdentity()),
-		MaxIdentity: int64(identity.GetMaximumAllocationIdentity()),
+		MinIdentity: int64(identity.GetMinimalAllocationIdentity(d.clusterInfo.ID)),
+		MaxIdentity: int64(identity.GetMaximumAllocationIdentity(d.clusterInfo.ID)),
 	}
 
 	return s
@@ -1119,6 +1136,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 	d.statusResponse.IdentityRange = d.getIdentityRange()
 	d.statusResponse.Srv6 = d.getSRv6Status()
 	d.statusResponse.AttachMode = d.getAttachModeStatus()
+	d.statusResponse.DatapathMode = d.getDatapathModeStatus()
 
 	d.statusCollector = status.NewCollector(probes, status.Config{StackdumpPath: "/run/cilium/state/agent.stack.gz"})
 
@@ -1136,5 +1154,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 			}).Error("KVStore state not OK")
 
 		}
+
+		d.statusCollector.Close()
 	})
 }

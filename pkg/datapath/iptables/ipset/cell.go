@@ -37,48 +37,48 @@ var Cell = cell.Module(
 
 	cell.ProvidePrivate(
 		tables.NewIPSetTable,
-
-		reconciler.New[*tables.IPSetEntry],
-		newReconcilerConfig,
 		newOps,
+		newReconciler,
+
+		func(logger logrus.FieldLogger) *ipset {
+			return &ipset{
+				executable: funcExecutable(func(ctx context.Context, name string, stdin string, arg ...string) ([]byte, error) {
+					cmd := exec.CommandContext(ctx, name, arg...)
+					cmd.Stdin = strings.NewReader(stdin)
+					return cmd.Output()
+				}),
+				log: logger,
+			}
+		},
+
+		func(cfg *option.DaemonConfig) config {
+			return config{NodeIPSetNeeded: cfg.NodeIpsetNeeded()}
+		},
 	),
-	cell.ProvidePrivate(func(logger logrus.FieldLogger) *ipset {
-		return &ipset{
-			executable: funcExecutable(func(ctx context.Context, name string, stdin string, arg ...string) ([]byte, error) {
-				cmd := exec.CommandContext(ctx, name, arg...)
-				cmd.Stdin = strings.NewReader(stdin)
-				return cmd.Output()
-			}),
-			log: logger,
-		}
-	}),
-	cell.ProvidePrivate(func(cfg *option.DaemonConfig) config {
-		return config{NodeIPSetNeeded: cfg.NodeIpsetNeeded()}
-	}),
 )
 
 type config struct {
 	NodeIPSetNeeded bool
 }
 
-func newReconcilerConfig(ops *ops, tbl statedb.RWTable[*tables.IPSetEntry]) reconciler.Config[*tables.IPSetEntry] {
-	return reconciler.Config[*tables.IPSetEntry]{
-		Table:                     tbl,
-		FullReconcilationInterval: 30 * time.Minute,
-		RetryBackoffMinDuration:   100 * time.Millisecond,
-		RetryBackoffMaxDuration:   5 * time.Second,
-		GetObjectStatus:           (*tables.IPSetEntry).GetStatus,
-		SetObjectStatus:           (*tables.IPSetEntry).SetStatus,
-		CloneObject:               (*tables.IPSetEntry).Clone,
-		Operations:                ops,
-		BatchOperations:           ops,
+func newReconciler(params reconciler.Params, ops *ops, tbl statedb.RWTable[*tables.IPSetEntry]) (reconciler.Reconciler[*tables.IPSetEntry], error) {
+	return reconciler.Register(
+		params,
+		tbl,
+		(*tables.IPSetEntry).Clone,
+		(*tables.IPSetEntry).SetStatus,
+		(*tables.IPSetEntry).GetStatus,
+		ops,
+		ops,
 
-		// Set the maximum batch size to 100, and limit the incremental
-		// reconciliation to once every 10ms, giving us maximum throughput
-		// of 1000/10 * 100 = 10000 per second.
-		IncrementalRoundSize: 100,
+		reconciler.WithRoundLimits(
+			// Set the maximum batch size to 100, and limit the incremental
+			// reconciliation to once every 10ms, giving us maximum throughput
+			// of 1000/10 * 100 = 10000 per second.
+			100,
 
-		// Set the rate limiter to accumulate a batch of entries to reconcile.
-		RateLimiter: rate.NewLimiter(rate.Every(10*time.Millisecond), 1),
-	}
+			// Set the rate limiter to accumulate a batch of entries to reconcile.
+			rate.NewLimiter(rate.Every(10*time.Millisecond), 1),
+		),
+	)
 }

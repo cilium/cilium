@@ -60,6 +60,18 @@
   {{- end }}
 {{- end }}
 
+{{- if and .Values.ingressController.enabled (or (eq .Values.ingressController.service.type "LoadBalancer") (eq .Values.ingressController.service.type "NodePort"))}}
+  {{- if not (or (eq .Values.ingressController.service.externalTrafficPolicy "Cluster") (eq .Values.ingressController.service.externalTrafficPolicy "Local")) }}
+    {{ fail "Cilium Ingress services of type 'LoadBalancer' or 'NodePort' need an externalTrafficPolicy set to 'Cluster' or 'Local'." }}
+  {{- end }}
+{{- end }}
+
+{{- if .Values.gatewayAPI.enabled }}
+  {{- if not (or (eq .Values.gatewayAPI.externalTrafficPolicy "Cluster") (eq .Values.gatewayAPI.externalTrafficPolicy "Local")) }}
+    {{ fail "Cilium GatewayAPI needs an externalTrafficPolicy set to 'Cluster' or 'Local'." }}
+  {{- end }}
+{{- end }}
+
 {{- if or .Values.envoyConfig.enabled .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
   {{- if or (eq (toString .Values.kubeProxyReplacement) "disabled") (and (not (hasKey .Values "kubeProxyReplacement")) (not (semverCompare ">=1.14" (default "1.14" .Values.upgradeCompatibility)))) }}
     {{ fail "Ingress/Gateway API controller and EnvoyConfig require .Values.kubeProxyReplacement to be explicitly set to 'false' or 'true'" }}
@@ -73,10 +85,26 @@
 {{- end }}
 
 {{/* validate Cilium operator */}}
-{{- if eq .Values.enableCiliumEndpointSlice true }}
+{{- if or .Values.ciliumEndpointSlice.enabled .Values.enableCiliumEndpointSlice }}
   {{- if eq .Values.disableEndpointCRD true }}
-    {{ fail "if Cilium Endpoint Slice is enabled (.Values.enableCiliumEndpointSlice=true), it requires .Values.disableEndpointCRD=false" }}
+    {{ fail "if Cilium Endpoint Slice is enabled (.Values.ciliumEndpointSlice.enabled=true), it requires .Values.disableEndpointCRD=false" }}
   {{- end }}
+{{- end }}
+
+{{/* validate cluster name */}}
+{{- if eq .Values.cluster.name "" }}
+  {{ fail "The cluster name is invalid: cannot be empty" }}
+{{- end }}
+{{- if semverCompare ">=1.16" (default "1.16" .Values.upgradeCompatibility) }}
+{{- if gt (len .Values.cluster.name) 32 }}
+  {{ fail "The cluster name is invalid: must not be more than 32 characters. Configure 'upgradeCompatibility' to 1.15 or earlier to temporarily skip this check at your own risk" }}
+{{- end }}
+{{- if not (regexMatch "^([a-z0-9][-a-z0-9]*)?[a-z0-9]$" .Values.cluster.name) }}
+  {{ fail "The cluster name is invalid: must consist of lower case alphanumeric characters and '-', and must start and end with an alphanumeric character. Configure 'upgradeCompatibility' to 1.15 or earlier to temporarily skip this check at your own risk" }}
+{{- end }}
+{{- end }}
+{{- if and (eq .Values.cluster.name "default") (ne (int .Values.cluster.id) 0) }}
+  {{ fail "The cluster name is invalid: cannot use default value with cluster.id != 0" }}
 {{- end }}
 
 {{/* validate clustermesh-apiserver */}}

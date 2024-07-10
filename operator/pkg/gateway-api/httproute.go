@@ -5,8 +5,8 @@ package gateway_api
 
 import (
 	"context"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,12 +29,15 @@ import (
 type httpRouteReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	logger *slog.Logger
 }
 
-func newHTTPRouteReconciler(mgr ctrl.Manager) *httpRouteReconciler {
+func newHTTPRouteReconciler(mgr ctrl.Manager, logger *slog.Logger) *httpRouteReconciler {
 	return &httpRouteReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		logger: logger,
 	}
 }
 
@@ -52,10 +55,10 @@ func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
 					backendServiceName, err := helpers.GetBackendServiceName(r.Client, namespace, backend.BackendObjectReference)
 					if err != nil {
-						log.WithFields(logrus.Fields{
-							logfields.Controller: "httpRoute",
-							logfields.Resource:   client.ObjectKeyFromObject(rawObj),
-						}).WithError(err).Error("Failed to get backend service name")
+						r.logger.Error("Failed to get backend service name",
+							logfields.Controller, "httpRoute",
+							logfields.Resource, client.ObjectKeyFromObject(rawObj),
+							logfields.Error, err)
 						continue
 					}
 					backendServices = append(backendServices,
@@ -121,7 +124,8 @@ func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		// Watch for changes to HTTPRoute
-		For(&gatewayv1.HTTPRoute{}).
+		For(&gatewayv1.HTTPRoute{},
+			builder.WithPredicates(predicate.NewPredicateFuncs(r.hasGatewayParent()))).
 		// Watch for changes to Backend services
 		Watches(&corev1.Service{}, r.enqueueRequestForBackendService()).
 		// Watch for changes to Reference Grants
@@ -129,7 +133,7 @@ func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changes to Gateways and enqueue HTTPRoutes that reference them
 		Watches(&gatewayv1.Gateway{}, r.enqueueRequestForGateway(),
 			builder.WithPredicates(
-				predicate.NewPredicateFuncs(hasMatchingController(context.Background(), mgr.GetClient(), controllerName))))
+				predicate.NewPredicateFuncs(hasMatchingController(context.Background(), mgr.GetClient(), controllerName, r.logger))))
 
 	if helpers.HasServiceImportSupport(r.Client.Scheme()) {
 		// Watch for changes to Backend Service Imports
@@ -137,6 +141,23 @@ func (r *httpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return builder.Complete(r)
+}
+
+func (r *httpRouteReconciler) hasGatewayParent() func(object client.Object) bool {
+	return func(obj client.Object) bool {
+		hr, ok := obj.(*gatewayv1.HTTPRoute)
+		if !ok {
+			return false
+		}
+
+		for _, parent := range hr.Spec.ParentRefs {
+			if helpers.IsGateway(parent) {
+				return true
+			}
+		}
+
+		return false
+	}
 }
 
 // enqueueRequestForBackendService makes sure that HTTP Routes are reconciled
@@ -163,16 +184,13 @@ func (r *httpRouteReconciler) enqueueRequestForGateway() handler.EventHandler {
 
 func (r *httpRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Controller: "httpRoute",
-			logfields.Resource:   client.ObjectKeyFromObject(o),
-		})
+		scopedLog := r.logger.With(logfields.Controller, httpRoute, logfields.Resource, client.ObjectKeyFromObject(o))
 		hrList := &gatewayv1.HTTPRouteList{}
 
 		if err := r.Client.List(ctx, hrList, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(index, client.ObjectKeyFromObject(o).String()),
 		}); err != nil {
-			scopedLog.WithError(err).Error("Failed to get related HTTPRoutes")
+			scopedLog.Error("Failed to get related HTTPRoutes", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -185,7 +203,7 @@ func (r *httpRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: route,
 			})
-			scopedLog.WithField("httpRoute", route).Info("Enqueued HTTPRoute for resource")
+			scopedLog.Info("Enqueued HTTPRoute for resource", "httpRoute", route)
 		}
 		return requests
 	}
@@ -193,14 +211,11 @@ func (r *httpRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 
 func (r *httpRouteReconciler) enqueueAll() handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Controller: "httpRoute",
-			logfields.Resource:   client.ObjectKeyFromObject(o),
-		})
+		scopedLog := r.logger.With(logfields.Controller, httpRoute, logfields.Resource, client.ObjectKeyFromObject(o))
 		hrList := &gatewayv1.HTTPRouteList{}
 
 		if err := r.Client.List(ctx, hrList, &client.ListOptions{}); err != nil {
-			scopedLog.WithError(err).Error("Failed to get HTTPRoutes")
+			scopedLog.Error("Failed to get HTTPRoutes", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -213,7 +228,7 @@ func (r *httpRouteReconciler) enqueueAll() handler.MapFunc {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: route,
 			})
-			scopedLog.WithField("httpRoute", route).Info("Enqueued HTTPRoute for resource")
+			scopedLog.Info("Enqueued HTTPRoute for resource", "httpRoute", route)
 		}
 		return requests
 	}

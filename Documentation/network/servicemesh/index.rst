@@ -40,6 +40,10 @@ Looking at the feature set of a service mesh today, it can be summarized as foll
 - **Transparency**: The functionality must be available to applications in a
   transparent manner, i.e. without requiring to change application code.
 
+.. admonition:: Video
+  :class: attention
+
+  If you'd like a video explanation of Cilium's Service Mesh implementation, check out `eCHO episode 27: eBPF-enabled Service Mesh <https://www.youtube.com/watch?v=nJT0ASbGLvs>`__ and `eCHO episode 100: Next-gen mutual authentication in Cilium <https://www.youtube.com/watch?v=BWjDlynXhzg>`__.
 
 Why Cilium Service Mesh?
 ########################
@@ -57,6 +61,7 @@ HTTP, Kafka, gRPC, and DNS are parsed using a proxy such as Envoy.
 
    ingress
    gateway-api/gateway-api
+   gateway-api/gamma
    ingress-to-gateway/ingress-to-gateway
    istio
    mutual-authentication/mutual-authentication

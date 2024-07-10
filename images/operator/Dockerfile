@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG BASE_IMAGE=scratch
-ARG GOLANG_IMAGE=docker.io/library/golang:1.22.3@sha256:b1e05e2c918f52c59d39ce7d5844f73b2f4511f7734add8bb98c9ecdd4443365
-ARG ALPINE_IMAGE=docker.io/library/alpine:3.19.1@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:e0cc7db33a2ae3e4b5088756ed42ce7a90403d23@sha256:9188c85245c636d00aee1c17e0bbda181ef5ce2014aabc8cccaf21c1c41567b3
+ARG GOLANG_IMAGE=docker.io/library/golang:1.22.5@sha256:fcae9e0e7313c6467a7c6632ebb5e5fab99bd39bd5eb6ee34a211353e647827a
+ARG ALPINE_IMAGE=docker.io/library/alpine:3.20.1@sha256:b89d9c93e9ed3597455c90a0b88a8bbb5cb7188438f70953fede212a0c4394e0
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:f2636887eb8bc768ec16ee9aadba08c1aeed4701@sha256:d5cddede78af3ef93eef03eb6fc5e13984bb1ae7000f1e31b639ef393d4d35cd
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
@@ -15,19 +15,18 @@ FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} as builder
 ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
-ARG NOSTRIP
-ARG NOOPT
-ARG LOCKDEBUG
-ARG RACE
+# OPERATOR_VARIANT determines the target cloud provider to build the operator for.
 ARG OPERATOR_VARIANT
+# MODIFIERS are extra arguments to be passed to make at build time.
+ARG MODIFIERS
 
 WORKDIR /go/src/github.com/cilium/cilium
 
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     --mount=type=cache,target=/root/.cache \
     --mount=type=cache,target=/go/pkg \
-    make GOARCH=${TARGETARCH} RACE=${RACE} NOSTRIP=${NOSTRIP} NOOPT=${NOOPT} LOCKDEBUG=${LOCKDEBUG} \
-    DESTDIR=/out/${TARGETOS}/${TARGETARCH} build-container-${OPERATOR_VARIANT} install-container-binary-${OPERATOR_VARIANT}
+    make GOARCH=${TARGETARCH} DESTDIR=/out/${TARGETOS}/${TARGETARCH} ${MODIFIERS} \
+    build-container-${OPERATOR_VARIANT} install-container-binary-${OPERATOR_VARIANT}
 
 # licenses-all is a "script" that executes "go run" so its ARCH should be set
 # to the same ARCH specified in the base image of this Docker stage (BUILDARCH)

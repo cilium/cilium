@@ -18,7 +18,6 @@
  * Now include testing defaults
  */
 #define ROUTER_IP
-#include "config_replacement.h"
 #undef ROUTER_IP
 #include "node_config.h"
 
@@ -193,8 +192,8 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 		 */
 		struct ipv4_nat_target target = {
 			.addr = NODEPORT_IPV4,
-			.min_port = NODEPORT_NAT_PORT,
-			.max_port = NODEPORT_NAT_PORT,
+			.min_port = __bpf_ntohs(NODEPORT_NAT_PORT),
+			.max_port = __bpf_ntohs(NODEPORT_NAT_PORT) + 1,
 		};
 
 		void *map = get_cluster_snat_map_v4(0);
@@ -235,8 +234,8 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 		};
 		struct ipv6_nat_target target = {
 			.addr = *((union v6addr *)NODEPORT_IPV6),
-			.min_port = NODEPORT_NAT_PORT,
-			.max_port = NODEPORT_NAT_PORT,
+			.min_port = __bpf_ntohs(NODEPORT_NAT_PORT),
+			.max_port = __bpf_ntohs(NODEPORT_NAT_PORT) + 1,
 		};
 
 		struct ipv6_nat_entry state;

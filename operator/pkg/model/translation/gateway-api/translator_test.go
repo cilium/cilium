@@ -440,23 +440,45 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		translatorCases := []struct {
+			name                 string
+			gatewayAPITranslator *gatewayAPITranslator
+		}{
+			{
+				name: "Without externalTrafficPolicy",
+				gatewayAPITranslator: &gatewayAPITranslator{
+					cecTranslator:      translation.NewCECTranslator("cilium-secrets", false, false, true, 60, true, tt.nodeLabelSelector, tt.ipv4Enabled, tt.ipv6Enabled, 0),
+					hostNetworkEnabled: true,
+				},
+			},
+			{
+				name: "With externalTrafficPolicy",
+				gatewayAPITranslator: &gatewayAPITranslator{
+					cecTranslator:         translation.NewCECTranslator("cilium-secrets", false, false, true, 60, true, tt.nodeLabelSelector, tt.ipv4Enabled, tt.ipv6Enabled, 0),
+					hostNetworkEnabled:    true,
+					externalTrafficPolicy: "Cluster",
+				},
+			},
+		}
+
 		t.Run(tt.name, func(t *testing.T) {
-			trans := &gatewayAPITranslator{
-				cecTranslator:      translation.NewCECTranslator("cilium-secrets", false, false, true, 60, true, tt.nodeLabelSelector, tt.ipv4Enabled, tt.ipv6Enabled, 0),
-				hostNetworkEnabled: true,
+			for _, translatorCase := range translatorCases {
+				t.Run(translatorCase.name, func(t *testing.T) {
+					cec, svc, ep, err := translatorCase.gatewayAPITranslator.Translate(tt.args.m)
+					require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
+
+					diffOutput := cmp.Diff(tt.want, cec, protocmp.Transform())
+					if len(diffOutput) != 0 {
+						t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
+					}
+
+					require.NotNil(t, svc)
+					assert.Equal(t, corev1.ServiceTypeClusterIP, svc.Spec.Type)
+					require.Emptyf(t, svc.Spec.ExternalTrafficPolicy, "ClusterIP Services must not have an ExternalTrafficPolicy")
+
+					require.NotNil(t, ep)
+				})
 			}
-			cec, svc, ep, err := trans.Translate(tt.args.m)
-			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
-
-			diffOutput := cmp.Diff(tt.want, cec, protocmp.Transform())
-			if len(diffOutput) != 0 {
-				t.Errorf("CiliumEnvoyConfigs did not match:\n%s\n", diffOutput)
-			}
-
-			require.NotNil(t, svc)
-			assert.Equal(t, corev1.ServiceTypeClusterIP, svc.Spec.Type)
-
-			require.NotNil(t, ep)
 		})
 	}
 }
@@ -505,10 +527,11 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 
 func Test_getService(t *testing.T) {
 	type args struct {
-		resource    *model.FullyQualifiedResource
-		allPorts    []uint32
-		labels      map[string]string
-		annotations map[string]string
+		resource              *model.FullyQualifiedResource
+		allPorts              []uint32
+		labels                map[string]string
+		annotations           map[string]string
+		externalTrafficPolicy string
 	}
 	tests := []struct {
 		name string
@@ -525,7 +548,8 @@ func Test_getService(t *testing.T) {
 					Kind:      "Gateway",
 					UID:       "57889650-380b-4c05-9a2e-3baee7fd5271",
 				},
-				allPorts: []uint32{80},
+				allPorts:              []uint32{80},
+				externalTrafficPolicy: "Cluster",
 			},
 			want: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -552,14 +576,58 @@ func Test_getService(t *testing.T) {
 							Protocol: corev1.ProtocolTCP,
 						},
 					},
-					Type: corev1.ServiceTypeLoadBalancer,
+					Type:                  corev1.ServiceTypeLoadBalancer,
+					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyCluster,
+				},
+			},
+		},
+		{
+			name: "externaltrafficpolicy set to local",
+			args: args{
+				resource: &model.FullyQualifiedResource{
+					Name:      "test-externaltrafficpolicy-local",
+					Namespace: "default",
+					Version:   "v1",
+					Kind:      "Gateway",
+					UID:       "41b82697-2d8d-4776-81b6-44d0bbac7faa",
+				},
+				allPorts:              []uint32{80},
+				externalTrafficPolicy: "Local",
+			},
+			want: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cilium-gateway-test-externaltrafficpolicy-local",
+					Namespace: "default",
+					Labels: map[string]string{
+						owningGatewayLabel: "test-externaltrafficpolicy-local",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: gatewayv1beta1.GroupVersion.String(),
+							Kind:       "Gateway",
+							Name:       "test-externaltrafficpolicy-local",
+							UID:        types.UID("41b82697-2d8d-4776-81b6-44d0bbac7faa"),
+							Controller: model.AddressOf(true),
+						},
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:     fmt.Sprintf("port-%d", 80),
+							Port:     80,
+							Protocol: corev1.ProtocolTCP,
+						},
+					},
+					Type:                  corev1.ServiceTypeLoadBalancer,
+					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyLocal,
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getService(tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
+			got := getService(tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations, tt.args.externalTrafficPolicy)
 			assert.Equalf(t, tt.want, got, "getService(%v, %v, %v, %v)", tt.args.resource, tt.args.allPorts, tt.args.labels, tt.args.annotations)
 			assert.Equal(t, true, len(got.Name) <= 63, "Service name is too long")
 		})

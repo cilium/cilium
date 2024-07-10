@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+
+	"github.com/cilium/cilium/pkg/labels"
 )
 
 // FlowType is the type to indicate the flow direction
@@ -82,8 +84,9 @@ type EndpointInfo struct {
 	// Identity is the security identity of the endpoint
 	Identity uint64
 
-	// Labels is the list of security relevant labels of the endpoint
-	Labels []string
+	// Labels is the list of security relevant labels of the endpoint.
+	// Shared, do not mutate!
+	Labels labels.LabelArray
 }
 
 // ServiceInfo contains information about the Kubernetes service

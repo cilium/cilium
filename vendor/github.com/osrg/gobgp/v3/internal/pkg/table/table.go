@@ -57,9 +57,9 @@ type Table struct {
 	routeFamily  bgp.RouteFamily
 	destinations map[string]*Destination
 	logger       log.Logger
-	// index of route distinguishers with paths to a specific MAC
-	// this is a map[MAC address]map[RD]struct{}
-	// this holds a map for a set of RD.
+	// index of evpn prefixes with paths to a specific MAC in a MAC-VRF
+	// this is a map[rt, MAC address]map[prefix]struct{}
+	// this holds a map for a set of prefixes.
 	macIndex map[string]map[string]struct{}
 }
 
@@ -146,13 +146,15 @@ func (t *Table) deleteDest(dest *Destination) {
 
 	if nlri, ok := dest.nlri.(*bgp.EVPNNLRI); ok {
 		if macadv, ok := nlri.RouteTypeData.(*bgp.EVPNMacIPAdvertisementRoute); ok {
-			mac := *(*string)(unsafe.Pointer(&macadv.MacAddress))
-			serializedRD, _ := macadv.RD.Serialize()
-			rd := *(*string)(unsafe.Pointer(&serializedRD))
-			if rds, ok := t.macIndex[mac]; ok {
-				delete(rds, rd)
-				if len(rds) == 0 {
-					delete(t.macIndex, mac)
+			for _, path := range dest.knownPathList {
+				for _, ec := range path.GetRouteTargets() {
+					macKey := t.macKey(ec, macadv.MacAddress)
+					if keys, ok := t.macIndex[macKey]; ok {
+						delete(keys, t.tableKey(nlri))
+						if len(keys) == 0 {
+							delete(t.macIndex, macKey)
+						}
+					}
 				}
 			}
 		}
@@ -213,6 +215,32 @@ func (t *Table) getOrCreateDest(nlri bgp.AddrPrefixInterface, size int) *Destina
 		t.setDestination(dest)
 	}
 	return dest
+}
+
+func (t *Table) update(newPath *Path) *Update {
+	t.validatePath(newPath)
+	dst := t.getOrCreateDest(newPath.GetNlri(), 64)
+	u := dst.Calculate(t.logger, newPath)
+
+	if len(dst.knownPathList) == 0 {
+		t.deleteDest(dst)
+		return u
+	}
+
+	if nlri, ok := newPath.GetNlri().(*bgp.EVPNNLRI); ok {
+		if macadv, ok := nlri.RouteTypeData.(*bgp.EVPNMacIPAdvertisementRoute); ok {
+			tableKey := t.tableKey(nlri)
+			for _, ec := range newPath.GetRouteTargets() {
+				macKey := t.macKey(ec, macadv.MacAddress)
+				if _, ok := t.macIndex[macKey]; !ok {
+					t.macIndex[macKey] = make(map[string]struct{})
+				}
+				t.macIndex[macKey][tableKey] = struct{}{}
+			}
+		}
+	}
+
+	return u
 }
 
 func (t *Table) GetDestinations() map[string]*Destination {
@@ -393,17 +421,19 @@ func (t *Table) GetMUPDestinationsWithRouteType(p string) ([]*Destination, error
 }
 
 func (t *Table) setDestination(dst *Destination) {
-	t.destinations[t.tableKey(dst.nlri)] = dst
+	tableKey := t.tableKey(dst.nlri)
+	t.destinations[tableKey] = dst
 
 	if nlri, ok := dst.nlri.(*bgp.EVPNNLRI); ok {
 		if macadv, ok := nlri.RouteTypeData.(*bgp.EVPNMacIPAdvertisementRoute); ok {
-			mac := *(*string)(unsafe.Pointer(&macadv.MacAddress))
-			serializedRD, _ := macadv.RD.Serialize()
-			rd := *(*string)(unsafe.Pointer(&serializedRD))
-			if rds, ok := t.macIndex[mac]; ok {
-				rds[rd] = struct{}{}
-			} else {
-				t.macIndex[mac] = map[string]struct{}{rd: {}}
+			for _, path := range dst.knownPathList {
+				for _, ec := range path.GetRouteTargets() {
+					macKey := t.macKey(ec, macadv.MacAddress)
+					if _, ok := t.macIndex[macKey]; !ok {
+						t.macIndex[macKey] = make(map[string]struct{})
+					}
+					t.macIndex[macKey][tableKey] = struct{}{}
+				}
 			}
 		}
 	}
@@ -435,19 +465,14 @@ func (t *Table) tableKey(nlri bgp.AddrPrefixInterface) string {
 		copy(b[8:24], T.Prefix.To16())
 		b[24] = T.Length
 		return *(*string)(unsafe.Pointer(&b))
-	// we need fast lookup to routes for a specific mac address for evpn mac mobility
-	case *bgp.EVPNNLRI:
-		switch U := T.RouteTypeData.(type) {
-		case *bgp.EVPNMacIPAdvertisementRoute:
-			b := make([]byte, 15)
-			serializedRD, _ := U.RD.Serialize()
-			copy(b, serializedRD)
-			b[8] = bgp.EVPN_ROUTE_TYPE_MAC_IP_ADVERTISEMENT
-			copy(b[9:15], U.MacAddress)
-			return *(*string)(unsafe.Pointer(&b))
-		}
 	}
 	return nlri.String()
+}
+
+func (t *Table) macKey(rt bgp.ExtendedCommunityInterface, mac net.HardwareAddr) string {
+	b, _ := rt.Serialize()
+	b = append(b, mac...)
+	return *(*string)(unsafe.Pointer(&b))
 }
 
 func (t *Table) Bests(id string, as uint32) []*Path {
@@ -480,16 +505,11 @@ func (t *Table) GetKnownPathList(id string, as uint32) []*Path {
 	return paths
 }
 
-func (t *Table) GetKnownPathListWithMac(id string, as uint32, mac net.HardwareAddr, onlyBest bool) []*Path {
+func (t *Table) GetKnownPathListWithMac(id string, as uint32, rt bgp.ExtendedCommunityInterface, mac net.HardwareAddr, onlyBest bool) []*Path {
 	var paths []*Path
-	if rds, ok := t.macIndex[*(*string)(unsafe.Pointer(&mac))]; ok {
-		for rd := range rds {
-			b := make([]byte, 15)
-			copy(b, rd)
-			b[8] = bgp.EVPN_ROUTE_TYPE_MAC_IP_ADVERTISEMENT
-			copy(b[9:15], mac)
-			key := *(*string)(unsafe.Pointer(&b))
-			if dst, ok := t.destinations[key]; ok {
+	if prefixes, ok := t.macIndex[t.macKey(rt, mac)]; ok {
+		for prefix := range prefixes {
+			if dst, ok := t.destinations[prefix]; ok {
 				if onlyBest {
 					paths = append(paths, dst.GetBestPath(id, as))
 				} else {

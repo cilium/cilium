@@ -6,7 +6,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/netip"
+	"strconv"
 	"strings"
 
 	"github.com/go-openapi/strfmt"
@@ -16,7 +18,6 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
-	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -88,6 +89,18 @@ func (d *Daemon) getHubbleStatus(ctx context.Context) *models.HubbleStatus {
 	return hubbleStatus
 }
 
+func getPort(addr string) (int, error) {
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return 0, fmt.Errorf("parse host address and port: %w", err)
+	}
+	portNum, err := strconv.Atoi(port)
+	if err != nil {
+		return 0, fmt.Errorf("parse port number: %w", err)
+	}
+	return portNum, nil
+}
+
 func (d *Daemon) launchHubble() {
 	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble")
 	if !option.Config.EnableHubble {
@@ -132,6 +145,15 @@ func (d *Daemon) launchHubble() {
 			}),
 		)
 	}
+
+	// fill in the local node information after the dropEventEmitter logique,
+	// but before anything else (e.g. metrics).
+	localNodeWatcher, err := observer.NewLocalNodeWatcher(d.ctx, d.nodeLocalStore)
+	if err != nil {
+		logger.WithError(err).Error("Failed to retrieve local node information")
+		return
+	}
+	observerOpts = append(observerOpts, observeroption.WithOnDecodedFlow(localNodeWatcher))
 
 	grpcMetrics := grpc_prometheus.NewServerMetrics()
 	var metricsTLSConfig *certloader.WatchedServerConfig
@@ -220,7 +242,6 @@ func (d *Daemon) launchHubble() {
 	observerOpts = append(observerOpts,
 		observeroption.WithMaxFlows(maxFlows),
 		observeroption.WithMonitorBuffer(option.Config.HubbleEventQueueSize),
-		observeroption.WithCiliumDaemon(d),
 	)
 	if option.Config.HubbleExportFilePath != "" {
 		exporterOpts := []exporteroption.Option{
@@ -271,6 +292,14 @@ func (d *Daemon) launchHubble() {
 	}
 	if option.Config.HubblePreferIpv6 {
 		peerServiceOptions = append(peerServiceOptions, serviceoption.WithAddressFamilyPreference(serviceoption.AddressPreferIPv6))
+	}
+	if addr := option.Config.HubbleListenAddress; addr != "" {
+		port, err := getPort(option.Config.HubbleListenAddress)
+		if err != nil {
+			logger.WithError(err).WithField("address", addr).Warn("Hubble server will not pass port information in change notificantions on exposed Hubble peer service")
+		} else {
+			peerServiceOptions = append(peerServiceOptions, serviceoption.WithHubblePort(port))
+		}
 	}
 	peerSvc := peer.NewService(d.nodeDiscovery.Manager, peerServiceOptions...)
 	localSrvOpts = append(localSrvOpts,
@@ -473,8 +502,4 @@ func (d *Daemon) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service {
 // Hubble's events buffer.
 func getHubbleEventBufferCapacity(logger logrus.FieldLogger) (container.Capacity, error) {
 	return container.NewCapacity(option.Config.HubbleEventBufferCapacity)
-}
-
-func (d *Daemon) GetParentPodMetadata(cgroupId uint64) *cgroupManager.PodMetadata {
-	return d.cgroupManager.GetPodMetadataForContainer(cgroupId)
 }

@@ -140,6 +140,12 @@ func (c *Client) addOperationDescribeFleetInstancesMiddlewares(stack *middleware
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDescribeFleetInstancesValidationMiddleware(stack); err != nil {
 		return err
 	}

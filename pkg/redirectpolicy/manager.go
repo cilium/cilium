@@ -98,9 +98,10 @@ type Manager struct {
 	noNetnsCookieSupport bool
 }
 
-func NewRedirectPolicyManager(svc svcManager, lpr agentK8s.LocalPodResource, epM endpointManager) *Manager {
+func NewRedirectPolicyManager(svc svcManager, svcCache *k8s.ServiceCache, lpr agentK8s.LocalPodResource, epM endpointManager) *Manager {
 	return &Manager{
 		svcManager:            svc,
+		svcCache:              svcCache,
 		epManager:             epM,
 		localPods:             lpr,
 		policyFrontendsByHash: make(map[string]policyID),
@@ -109,10 +110,6 @@ func NewRedirectPolicyManager(svc svcManager, lpr agentK8s.LocalPodResource, epM
 		policyConfigs:         make(map[policyID]*LRPConfig),
 		policyEndpoints:       make(map[podID]sets.Set[policyID]),
 	}
-}
-
-func (rpm *Manager) RegisterSvcCache(cache svcCache) {
-	rpm.svcCache = cache
 }
 
 // Event handlers

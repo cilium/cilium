@@ -8,17 +8,63 @@ import (
 	"net/netip"
 	"sync/atomic"
 
+	"github.com/cilium/hive/cell"
+
+	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/bgp/speaker"
+	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
 
-func (k *K8sWatcher) endpointsInit() {
+type k8sEndpointsWatcherParams struct {
+	cell.In
+
+	Resources         agentK8s.Resources
+	K8sResourceSynced *k8sSynced.Resources
+	K8sAPIGroups      *k8sSynced.APIGroups
+
+	ServiceCache      *k8s.ServiceCache
+	MetalLBBgpSpeaker speaker.MetalLBBgpSpeaker
+	IPCache           *ipcache.IPCache
+}
+
+func newK8sEndpointsWatcher(params k8sEndpointsWatcherParams) *K8sEndpointsWatcher {
+	return &K8sEndpointsWatcher{
+		k8sResourceSynced: params.K8sResourceSynced,
+		k8sAPIGroups:      params.K8sAPIGroups,
+		resources:         params.Resources,
+		k8sSvcCache:       params.ServiceCache,
+		bgpSpeakerManager: params.MetalLBBgpSpeaker,
+		ipcache:           params.IPCache,
+		stop:              make(chan struct{}),
+	}
+}
+
+type K8sEndpointsWatcher struct {
+	// k8sResourceSynced maps a resource name to a channel. Once the given
+	// resource name is synchronized with k8s, the channel for which that
+	// resource name maps to is closed.
+	k8sResourceSynced *k8sSynced.Resources
+	// k8sAPIGroups is a set of k8s API in use. They are setup in watchers,
+	// and may be disabled while the agent runs.
+	k8sAPIGroups *k8sSynced.APIGroups
+	resources    agentK8s.Resources
+
+	k8sSvcCache       *k8s.ServiceCache
+	bgpSpeakerManager bgpSpeakerManager
+	ipcache           ipcacheManager
+
+	stop chan struct{}
+}
+
+func (k *K8sEndpointsWatcher) endpointsInit() {
 	swg := lock.NewStoppableWaitGroup()
 
 	// Use EndpointSliceV1 API group for cache syncing regardless of the underlying
@@ -27,7 +73,7 @@ func (k *K8sWatcher) endpointsInit() {
 
 	var synced atomic.Bool
 
-	k.blockWaitGroupToSyncResources(
+	k.k8sResourceSynced.BlockWaitGroupToSyncResources(
 		k.stop,
 		swg,
 		func() bool { return synced.Load() },
@@ -54,7 +100,7 @@ func (k *K8sWatcher) endpointsInit() {
 					k.updateEndpoint(event.Object, swg)
 				case resource.Delete:
 					k.k8sResourceSynced.SetEventTimestamp(apiGroup)
-					k.K8sSvcCache.DeleteEndpoints(event.Object.EndpointSliceID, swg)
+					k.k8sSvcCache.DeleteEndpoints(event.Object.EndpointSliceID, swg)
 				}
 				event.Done(nil)
 			}
@@ -62,15 +108,17 @@ func (k *K8sWatcher) endpointsInit() {
 	}()
 }
 
-func (k *K8sWatcher) updateEndpoint(eps *k8s.Endpoints, swgEps *lock.StoppableWaitGroup) {
-	k.K8sSvcCache.UpdateEndpoints(eps, swgEps)
-	if option.Config.BGPAnnounceLBIP {
-		k.bgpSpeakerManager.OnUpdateEndpoints(eps)
-	}
+func (k *K8sEndpointsWatcher) stopWatcher() {
+	close(k.stop)
+}
+
+func (k *K8sEndpointsWatcher) updateEndpoint(eps *k8s.Endpoints, swgEps *lock.StoppableWaitGroup) {
+	k.k8sSvcCache.UpdateEndpoints(eps, swgEps)
+	k.bgpSpeakerManager.OnUpdateEndpoints(eps)
 	k.addKubeAPIServerServiceEndpoints(eps)
 }
 
-func (k *K8sWatcher) addKubeAPIServerServiceEndpoints(eps *k8s.Endpoints) {
+func (k *K8sEndpointsWatcher) addKubeAPIServerServiceEndpoints(eps *k8s.Endpoints) {
 	if eps == nil ||
 		eps.EndpointSliceID.ServiceID.Name != "kubernetes" ||
 		eps.EndpointSliceID.ServiceID.Namespace != "default" {
@@ -99,7 +147,7 @@ func (k *K8sWatcher) addKubeAPIServerServiceEndpoints(eps *k8s.Endpoints) {
 //
 // The actual implementation of this logic down to the datapath is handled
 // asynchronously.
-func (k *K8sWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[netip.Prefix]struct{}, rid ipcacheTypes.ResourceID) {
+func (k *K8sEndpointsWatcher) handleKubeAPIServerServiceEPChanges(desiredIPs map[netip.Prefix]struct{}, rid ipcacheTypes.ResourceID) {
 	src := source.KubeAPIServer
 
 	// We must perform a diff on the ipcache.identityMetadata map in order to

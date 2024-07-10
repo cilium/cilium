@@ -91,6 +91,7 @@ var (
 	procEnumServicesStatusExW                                = modadvapi32.NewProc("EnumServicesStatusExW")
 	procEqualSid                                             = modadvapi32.NewProc("EqualSid")
 	procFreeSid                                              = modadvapi32.NewProc("FreeSid")
+	procGetAce                                               = modadvapi32.NewProc("GetAce")
 	procGetLengthSid                                         = modadvapi32.NewProc("GetLengthSid")
 	procGetNamedSecurityInfoW                                = modadvapi32.NewProc("GetNamedSecurityInfoW")
 	procGetSecurityDescriptorControl                         = modadvapi32.NewProc("GetSecurityDescriptorControl")
@@ -401,6 +402,7 @@ var (
 	procTransmitFile                                         = modmswsock.NewProc("TransmitFile")
 	procNetApiBufferFree                                     = modnetapi32.NewProc("NetApiBufferFree")
 	procNetGetJoinInformation                                = modnetapi32.NewProc("NetGetJoinInformation")
+	procNetUserEnum                                          = modnetapi32.NewProc("NetUserEnum")
 	procNetUserGetInfo                                       = modnetapi32.NewProc("NetUserGetInfo")
 	procNtCreateFile                                         = modntdll.NewProc("NtCreateFile")
 	procNtCreateNamedPipeFile                                = modntdll.NewProc("NtCreateNamedPipeFile")
@@ -1219,6 +1221,14 @@ func setEntriesInAcl(countExplicitEntries uint32, explicitEntries *EXPLICIT_ACCE
 	r0, _, _ := syscall.Syscall6(procSetEntriesInAclW.Addr(), 4, uintptr(countExplicitEntries), uintptr(unsafe.Pointer(explicitEntries)), uintptr(unsafe.Pointer(oldACL)), uintptr(unsafe.Pointer(newACL)), 0, 0)
 	if r0 != 0 {
 		ret = syscall.Errno(r0)
+	}
+	return
+}
+
+func GetAce(acl *ACL, aceIndex uint32, pAce **ACCESS_ALLOWED_ACE) (ret error) {
+	r0, _, _ := syscall.Syscall(procGetAce.Addr(), 3, uintptr(unsafe.Pointer(acl)), uintptr(aceIndex), uintptr(unsafe.Pointer(pAce)))
+	if r0 == 0 {
+		ret = GetLastError()
 	}
 	return
 }
@@ -3480,6 +3490,14 @@ func NetApiBufferFree(buf *byte) (neterr error) {
 
 func NetGetJoinInformation(server *uint16, name **uint16, bufType *uint32) (neterr error) {
 	r0, _, _ := syscall.Syscall(procNetGetJoinInformation.Addr(), 3, uintptr(unsafe.Pointer(server)), uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(bufType)))
+	if r0 != 0 {
+		neterr = syscall.Errno(r0)
+	}
+	return
+}
+
+func NetUserEnum(serverName *uint16, level uint32, filter uint32, buf **byte, prefMaxLen uint32, entriesRead *uint32, totalEntries *uint32, resumeHandle *uint32) (neterr error) {
+	r0, _, _ := syscall.Syscall9(procNetUserEnum.Addr(), 8, uintptr(unsafe.Pointer(serverName)), uintptr(level), uintptr(filter), uintptr(unsafe.Pointer(buf)), uintptr(prefMaxLen), uintptr(unsafe.Pointer(entriesRead)), uintptr(unsafe.Pointer(totalEntries)), uintptr(unsafe.Pointer(resumeHandle)), 0)
 	if r0 != 0 {
 		neterr = syscall.Errno(r0)
 	}

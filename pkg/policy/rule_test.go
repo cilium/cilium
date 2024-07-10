@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	stdlog "log"
+	"strings"
 	"testing"
 
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
@@ -22,6 +23,8 @@ import (
 )
 
 func TestL4Policy(t *testing.T) {
+	td := newTestData()
+
 	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
 	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
 	toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
@@ -61,62 +64,62 @@ func TestL4Policy(t *testing.T) {
 		HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 	}
 	l7map := L7DataMap{
-		wildcardCachedSelector: &PerSelectorPolicy{
+		td.wildcardCachedSelector: &PerSelectorPolicy{
 			L7Rules:    l7rules,
 			isRedirect: true,
 		},
 	}
 
 	expected := NewL4Policy(0)
-	expected.Ingress.PortRules["80/TCP"] = &L4Filter{
+	expected.Ingress.PortRules.Upsert("80", 0, "TCP", &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: "http", PerSelectorPolicies: l7map, Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
-	}
-	expected.Ingress.PortRules["8080/TCP"] = &L4Filter{
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+	})
+	expected.Ingress.PortRules.Upsert("8080", 0, "TCP", &L4Filter{
 		Port: 8080, Protocol: api.ProtoTCP, U8Proto: 6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: "http", PerSelectorPolicies: l7map, Ingress: true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
-	}
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+	})
 
-	expected.Egress.PortRules["3000/TCP"] = &L4Filter{
+	expected.Egress.PortRules.Upsert("3000", 0, "TCP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: nil,
+			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
-	}
-	expected.Egress.PortRules["3000/UDP"] = &L4Filter{
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+	})
+	expected.Egress.PortRules.Upsert("3000", 0, "UDP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: nil,
+			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
-	}
-	expected.Egress.PortRules["3000/SCTP"] = &L4Filter{
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+	})
+	expected.Egress.PortRules.Upsert("3000", 0, "SCTP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoSCTP, U8Proto: 132, Ingress: false,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: nil,
+			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
-	}
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+	})
 
 	ingressState := traceState{}
 	egressState := traceState{}
 	res := NewL4Policy(0)
 	var err error
 	res.Ingress.PortRules, err =
-		rule1.resolveIngressPolicy(testPolicyContext, toBar, &ingressState, L4PolicyMap{}, nil, nil)
+		rule1.resolveIngressPolicy(td.testPolicyContext, toBar, &ingressState, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res.Ingress)
 
 	res.Egress.PortRules, err =
-		rule1.resolveEgressPolicy(testPolicyContext, fromBar, &egressState, L4PolicyMap{}, nil, nil)
+		rule1.resolveEgressPolicy(td.testPolicyContext, fromBar, &egressState, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res.Egress)
 
@@ -126,16 +129,16 @@ func TestL4Policy(t *testing.T) {
 
 	require.Equal(t, 1, egressState.selectedRules)
 	require.Equal(t, 1, egressState.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	// Foo isn't selected in the rule1's policy.
 	ingressState = traceState{}
 	egressState = traceState{}
 
-	res1, err := rule1.resolveIngressPolicy(testPolicyContext, toFoo, &ingressState, L4PolicyMap{}, nil, nil)
+	res1, err := rule1.resolveIngressPolicy(td.testPolicyContext, toFoo, &ingressState, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
-	res2, err := rule1.resolveEgressPolicy(testPolicyContext, fromFoo, &ingressState, L4PolicyMap{}, nil, nil)
+	res2, err := rule1.resolveEgressPolicy(td.testPolicyContext, fromFoo, &ingressState, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 
 	require.Nil(t, res1)
@@ -185,14 +188,14 @@ func TestL4Policy(t *testing.T) {
 	}
 
 	expected = NewL4Policy(0)
-	expected.Ingress.PortRules["80/TCP"] = &L4Filter{
+	expected.Ingress.PortRules.Upsert("80", 0, "TCP", &L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: &PerSelectorPolicy{
+			td.wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
@@ -200,32 +203,32 @@ func TestL4Policy(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
-	}
-	expected.Egress.PortRules["3000/TCP"] = &L4Filter{
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+	})
+	expected.Egress.PortRules.Upsert("3000", 0, "TCP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: nil,
+			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
-	}
-	expected.Egress.PortRules["3000/UDP"] = &L4Filter{
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+	})
+	expected.Egress.PortRules.Upsert("3000", 0, "UDP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: nil,
+			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
-	}
-	expected.Egress.PortRules["3000/SCTP"] = &L4Filter{
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+	})
+	expected.Egress.PortRules.Upsert("3000", 0, "SCTP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoSCTP, U8Proto: 132, Ingress: false,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: nil,
+			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
-	}
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+	})
 
 	ingressState = traceState{}
 	egressState = traceState{}
@@ -235,34 +238,34 @@ func TestL4Policy(t *testing.T) {
 	ctx := SearchContext{To: labels.ParseSelectLabelArray("bar"), Trace: TRACE_VERBOSE}
 	ctx.Logging = stdlog.New(buffer, "", 0)
 
-	res.Ingress.PortRules, err = rule2.resolveIngressPolicy(testPolicyContext, &ctx, &ingressState, L4PolicyMap{}, nil, nil)
+	res.Ingress.PortRules, err = rule2.resolveIngressPolicy(td.testPolicyContext, &ctx, &ingressState, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res.Ingress)
 
 	t.Log(buffer)
 
-	res.Egress.PortRules, err = rule2.resolveEgressPolicy(testPolicyContext, fromBar, &egressState, L4PolicyMap{}, nil, nil)
+	res.Egress.PortRules, err = rule2.resolveEgressPolicy(td.testPolicyContext, fromBar, &egressState, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res.Egress)
 
-	require.Equal(t, 1, len(res.Ingress.PortRules))
+	require.Equal(t, 1, res.Ingress.PortRules.Len())
 	require.Equal(t, &expected, &res)
 	require.Equal(t, 1, ingressState.selectedRules)
 	require.Equal(t, 1, ingressState.matchedRules)
 
 	require.Equal(t, 1, egressState.selectedRules)
 	require.Equal(t, 1, egressState.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	ingressState = traceState{}
 	egressState = traceState{}
 
-	res1, err = rule2.resolveIngressPolicy(testPolicyContext, toFoo, &ingressState, L4PolicyMap{}, nil, nil)
+	res1, err = rule2.resolveIngressPolicy(td.testPolicyContext, toFoo, &ingressState, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res1)
 
-	res2, err = rule2.resolveEgressPolicy(testPolicyContext, fromFoo, &egressState, L4PolicyMap{}, nil, nil)
+	res2, err = rule2.resolveEgressPolicy(td.testPolicyContext, fromFoo, &egressState, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res2)
 
@@ -274,6 +277,7 @@ func TestL4Policy(t *testing.T) {
 }
 
 func TestMergeL4PolicyIngress(t *testing.T) {
+	td := newTestData()
 	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
 	//toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
 
@@ -306,30 +310,31 @@ func TestMergeL4PolicyIngress(t *testing.T) {
 	}
 
 	mergedES := L7DataMap{
-		cachedFooSelector: nil,
-		cachedBazSelector: nil,
+		td.cachedFooSelector: nil,
+		td.cachedBazSelector: nil,
 	}
-	expected := L4PolicyMap{"80/TCP": &L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeNone, PerSelectorPolicies: mergedES, Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedFooSelector: {nil},
-			cachedBazSelector: {nil},
+			td.cachedFooSelector: {nil},
+			td.cachedBazSelector: {nil},
 		},
-	}}
+	}})
 
 	state := traceState{}
-	res, err := rule1.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil, nil)
+	res, err := rule1.resolveIngressPolicy(td.testPolicyContext, toBar, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.Equal(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 }
 
 func TestMergeL4PolicyEgress(t *testing.T) {
+	td := newTestData()
 
 	buffer := new(bytes.Buffer)
 	fromBar := &SearchContext{
@@ -368,20 +373,20 @@ func TestMergeL4PolicyEgress(t *testing.T) {
 	}
 
 	mergedES := L7DataMap{
-		cachedFooSelector: nil,
-		cachedBazSelector: nil,
+		td.cachedFooSelector: nil,
+		td.cachedBazSelector: nil,
 	}
-	expected := L4PolicyMap{"80/TCP": &L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeNone, PerSelectorPolicies: mergedES, Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedFooSelector: {nil},
-			cachedBazSelector: {nil},
+			td.cachedFooSelector: {nil},
+			td.cachedBazSelector: {nil},
 		},
-	}}
+	}})
 
 	state := traceState{}
-	res, err := rule1.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil, nil)
+	res, err := rule1.resolveEgressPolicy(td.testPolicyContext, fromBar, &state, NewL4PolicyMap(), nil, nil)
 
 	t.Log(buffer)
 
@@ -390,11 +395,12 @@ func TestMergeL4PolicyEgress(t *testing.T) {
 	require.Equal(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 }
 
 func TestMergeL7PolicyIngress(t *testing.T) {
+	td := newTestData()
 	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
 	toFoo := &SearchContext{To: labels.ParseSelectLabelArray("foo")}
 
@@ -444,20 +450,20 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 		},
 	}
 
-	expected := L4PolicyMap{"80/TCP": &L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: &PerSelectorPolicy{
+			td.wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
 				isRedirect: true,
 			},
-			cachedFooSelector: &PerSelectorPolicy{
+			td.cachedFooSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -466,23 +472,23 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 		},
 		Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedFooSelector:      {nil},
-			wildcardCachedSelector: {nil},
+			td.cachedFooSelector:      {nil},
+			td.wildcardCachedSelector: {nil},
 		},
-	}}
+	}})
 
 	state := traceState{}
-	res, err := rule1.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil, nil)
+	res, err := rule1.resolveIngressPolicy(td.testPolicyContext, toBar, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.EqualValues(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	state = traceState{}
-	res, err = rule1.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = rule1.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)
@@ -527,53 +533,53 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 		Kafka: []kafka.PortRule{{Topic: "foo"}},
 	}
 	l7map := L7DataMap{
-		wildcardCachedSelector: &PerSelectorPolicy{
+		td.wildcardCachedSelector: &PerSelectorPolicy{
 			L7Rules:    l7rules,
 			isRedirect: true,
 		},
-		cachedFooSelector: &PerSelectorPolicy{
+		td.cachedFooSelector: &PerSelectorPolicy{
 			L7Rules:    l7rules,
 			isRedirect: true,
 		},
 	}
 
-	expected = L4PolicyMap{"80/TCP": &L4Filter{
+	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: "kafka", PerSelectorPolicies: l7map, Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedFooSelector:      {nil},
-			wildcardCachedSelector: {nil},
+			td.cachedFooSelector:      {nil},
+			td.wildcardCachedSelector: {nil},
 		},
-	}}
+	}})
 
 	state = traceState{}
-	res, err = rule2.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil, nil)
+	res, err = rule2.resolveIngressPolicy(td.testPolicyContext, toBar, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.EqualValues(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	state = traceState{}
-	res, err = rule2.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = rule2.resolveIngressPolicy(td.testPolicyContext, toFoo, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)
 	require.Equal(t, 0, state.matchedRules)
 
 	// Resolve rule1's policy, then try to add rule2.
-	res, err = rule1.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil, nil)
+	res, err = rule1.resolveIngressPolicy(td.testPolicyContext, toBar, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
 	state = traceState{}
-	_, err = rule2.resolveIngressPolicy(testPolicyContext, toBar, &state, res, nil, nil)
+	_, err = rule2.resolveIngressPolicy(td.testPolicyContext, toBar, &state, res, nil, nil)
 
 	require.NotNil(t, err)
-	res.Detach(testSelectorCache)
+	res.Detach(td.sc)
 
 	// Similar to 'rule2', but with different topics for the l3-dependent
 	// rule and the l4-only rule.
@@ -625,37 +631,38 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 
 	// The L3-dependent L7 rules are not merged together.
 	l7map = L7DataMap{
-		cachedFooSelector: &PerSelectorPolicy{
+		td.cachedFooSelector: &PerSelectorPolicy{
 			L7Rules:    fooRules,
 			isRedirect: true,
 		},
-		wildcardCachedSelector: &PerSelectorPolicy{
+		td.wildcardCachedSelector: &PerSelectorPolicy{
 			L7Rules:    barRules,
 			isRedirect: true,
 		},
 	}
-	expected = L4PolicyMap{"80/TCP": &L4Filter{
+	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: "kafka", PerSelectorPolicies: l7map, Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedFooSelector:      {nil},
-			wildcardCachedSelector: {nil},
+			td.cachedFooSelector:      {nil},
+			td.wildcardCachedSelector: {nil},
 		},
-	}}
+	}})
 
 	state = traceState{}
-	res, err = rule3.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil, nil)
+	res, err = rule3.resolveIngressPolicy(td.testPolicyContext, toBar, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.EqualValues(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 }
 
 func TestMergeL7PolicyEgress(t *testing.T) {
+	td := newTestData()
 	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
 	fromFoo := &SearchContext{From: labels.ParseSelectLabelArray("foo")}
 
@@ -706,18 +713,18 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 		},
 	}
 
-	expected := L4PolicyMap{"80/TCP": &L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: &PerSelectorPolicy{
+			td.wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}, {}},
 				},
 				isRedirect: true,
 			},
-			cachedFooSelector: &PerSelectorPolicy{
+			td.cachedFooSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/private", Method: "GET"}},
 				},
@@ -726,23 +733,23 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 		},
 		Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			wildcardCachedSelector: {nil},
-			cachedFooSelector:      {nil},
+			td.wildcardCachedSelector: {nil},
+			td.cachedFooSelector:      {nil},
 		},
-	}}
+	}})
 
 	state := traceState{}
-	res, err := rule1.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil, nil)
+	res, err := rule1.resolveEgressPolicy(td.testPolicyContext, fromBar, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.EqualValues(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	state = traceState{}
-	res, err = rule1.resolveEgressPolicy(testPolicyContext, fromFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = rule1.resolveEgressPolicy(td.testPolicyContext, fromFoo, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)
@@ -791,18 +798,18 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 		},
 	}
 
-	expected = L4PolicyMap{"9092/TCP": &L4Filter{
+	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"9092/TCP": {
 		Port: 9092, Protocol: api.ProtoTCP, U8Proto: 6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: ParserTypeKafka,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: &PerSelectorPolicy{
+			td.wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					Kafka: []kafka.PortRule{{Topic: "foo"}, {}},
 				},
 				isRedirect: true,
 			},
-			cachedFooSelector: &PerSelectorPolicy{
+			td.cachedFooSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					Kafka: []kafka.PortRule{{Topic: "foo"}},
 				},
@@ -811,33 +818,33 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 		},
 		Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedFooSelector:      {nil},
-			wildcardCachedSelector: {nil},
+			td.cachedFooSelector:      {nil},
+			td.wildcardCachedSelector: {nil},
 		},
-	}}
+	}})
 
 	state = traceState{}
-	res, err = rule2.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil, nil)
+	res, err = rule2.resolveEgressPolicy(td.testPolicyContext, fromBar, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.EqualValues(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	state = traceState{}
-	res, err = rule2.resolveEgressPolicy(testPolicyContext, fromFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = rule2.resolveEgressPolicy(td.testPolicyContext, fromFoo, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)
 	require.Equal(t, 0, state.matchedRules)
 
 	// Resolve rule1's policy, then try to add rule2.
-	res, err = rule1.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil, nil)
+	res, err = rule1.resolveEgressPolicy(td.testPolicyContext, fromBar, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
-	res.Detach(testSelectorCache)
+	res.Detach(td.sc)
 
 	// Similar to 'rule2', but with different topics for the l3-dependent
 	// rule and the l4-only rule.
@@ -885,34 +892,34 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 
 	// The l3-dependent l7 rules are not merged together.
 	l7map := L7DataMap{
-		cachedFooSelector: &PerSelectorPolicy{
+		td.cachedFooSelector: &PerSelectorPolicy{
 			L7Rules:    fooRules,
 			isRedirect: true,
 		},
-		wildcardCachedSelector: &PerSelectorPolicy{
+		td.wildcardCachedSelector: &PerSelectorPolicy{
 			L7Rules:    barRules,
 			isRedirect: true,
 		},
 	}
-	expected = L4PolicyMap{"80/TCP": &L4Filter{
+	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: "kafka", PerSelectorPolicies: l7map, Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedFooSelector:      {nil},
-			wildcardCachedSelector: {nil},
+			td.cachedFooSelector:      {nil},
+			td.wildcardCachedSelector: {nil},
 		},
-	}}
+	}})
 
 	state = traceState{}
-	res, err = rule3.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil, nil)
+	res, err = rule3.resolveEgressPolicy(td.testPolicyContext, fromBar, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.EqualValues(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 }
 
 func TestRuleWithNoEndpointSelector(t *testing.T) {
@@ -1073,6 +1080,7 @@ func TestL3Policy(t *testing.T) {
 }
 
 func TestICMPPolicy(t *testing.T) {
+	td := newTestData()
 	var err error
 	toBar := &SearchContext{To: labels.ParseSelectLabelArray("bar")}
 	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
@@ -1104,39 +1112,39 @@ func TestICMPPolicy(t *testing.T) {
 	}
 
 	expected := NewL4Policy(0)
-	expected.Ingress.PortRules["8/ICMP"] = &L4Filter{
+	expected.Ingress.PortRules.Upsert("8", 0, "ICMP", &L4Filter{
 		Port:     8,
 		Protocol: api.ProtoICMP,
 		U8Proto:  u8proto.ProtoIDs["icmp"],
 		Ingress:  true,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: nil,
+			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
-	}
-	expected.Egress.PortRules["8/ICMP"] = &L4Filter{
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+	})
+	expected.Egress.PortRules.Upsert("8", 0, "ICMP", &L4Filter{
 		Port:     8,
 		Protocol: api.ProtoICMP,
 		U8Proto:  u8proto.ProtoIDs["icmp"],
 		Ingress:  false,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: nil,
+			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
-	}
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+	})
 
 	ingressState := traceState{}
 	egressState := traceState{}
 	res := NewL4Policy(0)
 	res.Ingress.PortRules, err =
-		rule1.resolveIngressPolicy(testPolicyContext, toBar, &ingressState, L4PolicyMap{}, nil, nil)
+		rule1.resolveIngressPolicy(td.testPolicyContext, toBar, &ingressState, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res.Ingress)
 
 	res.Egress.PortRules, err =
-		rule1.resolveEgressPolicy(testPolicyContext, fromBar, &egressState, L4PolicyMap{}, nil, nil)
+		rule1.resolveEgressPolicy(td.testPolicyContext, fromBar, &egressState, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res.Egress)
 
@@ -1146,8 +1154,8 @@ func TestICMPPolicy(t *testing.T) {
 	require.Equal(t, 1, egressState.selectedRules)
 	require.Equal(t, 1, egressState.matchedRules)
 
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	// A rule for Ports and ICMP
 	rule2 := &rule{
@@ -1171,33 +1179,33 @@ func TestICMPPolicy(t *testing.T) {
 	}
 
 	expected = NewL4Policy(0)
-	expected.Ingress.PortRules["80/TCP"] = &L4Filter{
+	expected.Ingress.PortRules.Upsert("80", 0, "TCP", &L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  u8proto.ProtoIDs["tcp"],
 		Ingress:  true,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: nil,
+			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
-	}
-	expected.Ingress.PortRules["8/ICMP"] = &L4Filter{
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+	})
+	expected.Ingress.PortRules.Upsert("8", 0, "ICMP", &L4Filter{
 		Port:     8,
 		Protocol: api.ProtoICMP,
 		U8Proto:  u8proto.ProtoIDs["icmp"],
 		Ingress:  true,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: nil,
+			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
-	}
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+	})
 
 	ingressState = traceState{}
 	res = NewL4Policy(0)
 	res.Ingress.PortRules, err =
-		rule2.resolveIngressPolicy(testPolicyContext, toBar, &ingressState, L4PolicyMap{}, nil, nil)
+		rule2.resolveIngressPolicy(td.testPolicyContext, toBar, &ingressState, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res.Ingress)
 
@@ -1205,8 +1213,8 @@ func TestICMPPolicy(t *testing.T) {
 	require.Equal(t, 1, ingressState.selectedRules)
 	require.Equal(t, 1, ingressState.matchedRules)
 
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	// A rule for ICMPv6
 	icmpV6Type := intstr.FromInt(128)
@@ -1227,22 +1235,22 @@ func TestICMPPolicy(t *testing.T) {
 	}
 
 	expected = NewL4Policy(0)
-	expected.Ingress.PortRules["128/ICMPV6"] = &L4Filter{
+	expected.Ingress.PortRules.Upsert("128", 0, "ICMPV6", &L4Filter{
 		Port:     128,
 		Protocol: api.ProtoICMPv6,
 		U8Proto:  u8proto.ProtoIDs["icmpv6"],
 		Ingress:  true,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: nil,
+			td.wildcardCachedSelector: nil,
 		},
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
-	}
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}},
+	})
 
 	ingressState = traceState{}
 	res = NewL4Policy(0)
 	res.Ingress.PortRules, err =
-		rule3.resolveIngressPolicy(testPolicyContext, toBar, &ingressState, L4PolicyMap{}, nil, nil)
+		rule3.resolveIngressPolicy(td.testPolicyContext, toBar, &ingressState, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res.Ingress)
 
@@ -1255,7 +1263,6 @@ func TestICMPPolicy(t *testing.T) {
 // This ensures that the user is informed of policy combinations that are not
 // implemented in the datapath.
 func TestEgressRuleRestrictions(t *testing.T) {
-
 	fooSelector := []api.EndpointSelector{
 		api.NewESFromLabels(labels.ParseSelectLabel("foo")),
 	}
@@ -1348,6 +1355,7 @@ func TestPolicyEntityValidationEntitySelectorsFill(t *testing.T) {
 }
 
 func TestL3RuleLabels(t *testing.T) {
+	td := newTestData()
 	ruleLabels := map[string]labels.LabelArray{
 		"rule0": labels.ParseLabelArray("name=apiRule0"),
 		"rule1": labels.ParseLabelArray("name=apiRule1"),
@@ -1440,18 +1448,18 @@ func TestL3RuleLabels(t *testing.T) {
 
 			rule := &rule{Rule: apiRule}
 
-			_, err = rule.resolveIngressPolicy(testPolicyContext, toBar, &traceState{}, finalPolicy.Ingress.PortRules, nil, nil)
+			_, err = rule.resolveIngressPolicy(td.testPolicyContext, toBar, &traceState{}, finalPolicy.Ingress.PortRules, nil, nil)
 			require.NoError(t, err)
-			_, err = rule.resolveEgressPolicy(testPolicyContext, fromBar, &traceState{}, finalPolicy.Egress.PortRules, nil, nil)
+			_, err = rule.resolveEgressPolicy(td.testPolicyContext, fromBar, &traceState{}, finalPolicy.Egress.PortRules, nil, nil)
 			require.NoError(t, err)
 		}
 		// For debugging the test:
-		//require.EqualValues(t, L4PolicyMap{}, finalPolicy.Ingress)
+		//require.EqualValues(t, NewL4PolicyMap(), finalPolicy.Ingress)
 
 		type expectedResult map[string]labels.LabelArrayList
 		mapDirectionalResultsToExpectedOutput := map[*L4Filter]expectedResult{
-			finalPolicy.Ingress.PortRules[api.PortProtocolAny]: test.expectedIngressLabels,
-			finalPolicy.Egress.PortRules[api.PortProtocolAny]:  test.expectedEgressLabels,
+			finalPolicy.Ingress.PortRules.ExactLookup("0", 0, "ANY"): test.expectedIngressLabels,
+			finalPolicy.Egress.PortRules.ExactLookup("0", 0, "ANY"):  test.expectedEgressLabels,
 		}
 		for filter, exp := range mapDirectionalResultsToExpectedOutput {
 			if len(exp) > 0 {
@@ -1481,6 +1489,7 @@ func TestL3RuleLabels(t *testing.T) {
 }
 
 func TestL4RuleLabels(t *testing.T) {
+	td := newTestData()
 	ruleLabels := map[string]labels.LabelArray{
 		"rule0": labels.ParseLabelArray("name=apiRule0"),
 		"rule1": labels.ParseLabelArray("name=apiRule1"),
@@ -1575,29 +1584,29 @@ func TestL4RuleLabels(t *testing.T) {
 
 			rule := &rule{Rule: apiRule}
 
-			rule.resolveIngressPolicy(testPolicyContext, toBar, &traceState{}, finalPolicy.Ingress.PortRules, nil, nil)
-			rule.resolveEgressPolicy(testPolicyContext, fromBar, &traceState{}, finalPolicy.Egress.PortRules, nil, nil)
+			rule.resolveIngressPolicy(td.testPolicyContext, toBar, &traceState{}, finalPolicy.Ingress.PortRules, nil, nil)
+			rule.resolveEgressPolicy(td.testPolicyContext, fromBar, &traceState{}, finalPolicy.Egress.PortRules, nil, nil)
 		}
 
-		require.Equal(t, len(test.expectedIngressLabels), len(finalPolicy.Ingress.PortRules), fmt.Sprintf(test.description))
+		require.Equal(t, len(test.expectedIngressLabels), finalPolicy.Ingress.PortRules.Len(), fmt.Sprintf(test.description))
 		for portProto := range test.expectedIngressLabels {
-			out, found := finalPolicy.Ingress.PortRules[portProto]
-			require.True(t, found, fmt.Sprintf(test.description))
+			portProtoSlice := strings.Split(portProto, "/")
+			out := finalPolicy.Ingress.PortRules.ExactLookup(portProtoSlice[0], 0, portProtoSlice[1])
 			require.NotNil(t, out, test.description)
 			require.Equal(t, 1, len(out.RuleOrigin), fmt.Sprintf(test.description))
 			require.EqualValues(t, test.expectedIngressLabels[portProto], out.RuleOrigin[out.wildcard], fmt.Sprintf(test.description))
 		}
 
-		require.Equal(t, len(test.expectedEgressLabels), len(finalPolicy.Egress.PortRules), fmt.Sprintf(test.description))
+		require.Equal(t, len(test.expectedEgressLabels), finalPolicy.Egress.PortRules.Len(), fmt.Sprintf(test.description))
 		for portProto := range test.expectedEgressLabels {
-			out, found := finalPolicy.Egress.PortRules[portProto]
-			require.True(t, found, fmt.Sprintf(test.description))
+			portProtoSlice := strings.Split(portProto, "/")
+			out := finalPolicy.Egress.PortRules.ExactLookup(portProtoSlice[0], 0, portProtoSlice[1])
 			require.NotNil(t, out, test.description)
 
 			require.Equal(t, 1, len(out.RuleOrigin), fmt.Sprintf(test.description))
 			require.EqualValues(t, test.expectedEgressLabels[portProto], out.RuleOrigin[out.wildcard], fmt.Sprintf(test.description))
 		}
-		finalPolicy.Detach(testSelectorCache)
+		finalPolicy.Detach(td.sc)
 	}
 }
 
@@ -1647,17 +1656,10 @@ func checkEgress(t *testing.T, repo *Repository, ctx *SearchContext, verdict api
 	ctx.Logging = stdlog.New(buffer, "", 0)
 	expectResult(t, verdict, repo.AllowsEgressRLocked(ctx), buffer)
 }
-
-func parseAndAddRules(t *testing.T, rules api.Rules) *Repository {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.selectorCache = testSelectorCache
-
-	_, _ = repo.AddList(rules)
-	return repo
-}
-
 func TestIngressAllowAll(t *testing.T) {
-	repo := parseAndAddRules(t, api.Rules{
+	td := newTestData()
+	repo := td.repo
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorC,
 			Ingress: []api.IngressRule{
@@ -1686,7 +1688,9 @@ func TestIngressAllowAll(t *testing.T) {
 }
 
 func TestIngressAllowAllL4Overlap(t *testing.T) {
-	repo := parseAndAddRules(t, api.Rules{
+	td := newTestData()
+	repo := td.repo
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorC,
 			Ingress: []api.IngressRule{
@@ -1722,7 +1726,9 @@ func TestIngressAllowAllL4Overlap(t *testing.T) {
 }
 
 func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
-	repo := parseAndAddRules(t, api.Rules{
+	td := newTestData()
+	repo := td.repo
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorC,
 			Ingress: []api.IngressRule{
@@ -1758,7 +1764,9 @@ func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
 }
 
 func TestIngressL4AllowAll(t *testing.T) {
-	repo := parseAndAddRules(t, api.Rules{
+	td := newTestData()
+	repo := td.repo
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorC,
 			Ingress: []api.IngressRule{
@@ -1788,18 +1796,20 @@ func TestIngressL4AllowAll(t *testing.T) {
 	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(&ctxAToC80)
 	require.NoError(t, err)
 
-	filter, ok := l4IngressPolicy["80/TCP"]
-	require.True(t, ok)
+	filter := l4IngressPolicy.ExactLookup("80", 0, "TCP")
+	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, 1, len(filter.PerSelectorPolicies))
-	require.Nil(t, filter.PerSelectorPolicies[wildcardCachedSelector])
+	require.Nil(t, filter.PerSelectorPolicies[td.wildcardCachedSelector])
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
 
 func TestIngressL4AllowAllNamedPort(t *testing.T) {
-	repo := parseAndAddRules(t, api.Rules{
+	td := newTestData()
+	repo := td.repo
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorC,
 			Ingress: []api.IngressRule{
@@ -1833,19 +1843,21 @@ func TestIngressL4AllowAllNamedPort(t *testing.T) {
 	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(&ctxAToCNamed80)
 	require.NoError(t, err)
 
-	filter, ok := l4IngressPolicy["port-80/TCP"]
-	require.True(t, ok)
+	filter := l4IngressPolicy.ExactLookup("port-80", 0, "TCP")
+	require.NotNil(t, filter)
 	require.Equal(t, uint16(0), filter.Port)
 	require.Equal(t, "port-80", filter.PortName)
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, 1, len(filter.PerSelectorPolicies))
-	require.Nil(t, filter.PerSelectorPolicies[wildcardCachedSelector])
+	require.Nil(t, filter.PerSelectorPolicies[td.wildcardCachedSelector])
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
 
 func TestEgressAllowAll(t *testing.T) {
-	repo := parseAndAddRules(t, api.Rules{
+	td := newTestData()
+	repo := td.repo
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorA,
 			Egress: []api.EgressRule{
@@ -1873,7 +1885,9 @@ func TestEgressAllowAll(t *testing.T) {
 }
 
 func TestEgressL4AllowAll(t *testing.T) {
-	repo := parseAndAddRules(t, api.Rules{
+	td := newTestData()
+	repo := td.repo
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorA,
 			Egress: []api.EgressRule{
@@ -1905,18 +1919,20 @@ func TestEgressL4AllowAll(t *testing.T) {
 
 	t.Log(buffer)
 
-	filter, ok := l4EgressPolicy["80/TCP"]
-	require.True(t, ok)
+	filter := l4EgressPolicy.ExactLookup("80", 0, "TCP")
+	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
 	require.Equal(t, false, filter.Ingress)
 
 	require.Equal(t, 1, len(filter.PerSelectorPolicies))
-	require.Nil(t, filter.PerSelectorPolicies[wildcardCachedSelector])
+	require.Nil(t, filter.PerSelectorPolicies[td.wildcardCachedSelector])
 	l4EgressPolicy.Detach(repo.GetSelectorCache())
 }
 
 func TestEgressL4AllowWorld(t *testing.T) {
-	repo := parseAndAddRules(t, api.Rules{
+	td := newTestData()
+	repo := td.repo
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorA,
 			Egress: []api.EgressRule{
@@ -1961,8 +1977,8 @@ func TestEgressL4AllowWorld(t *testing.T) {
 
 	t.Log(buffer)
 
-	filter, ok := l4EgressPolicy["80/TCP"]
-	require.True(t, ok)
+	filter := l4EgressPolicy.ExactLookup("80", 0, "TCP")
+	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
 	require.Equal(t, false, filter.Ingress)
 
@@ -1971,7 +1987,9 @@ func TestEgressL4AllowWorld(t *testing.T) {
 }
 
 func TestEgressL4AllowAllEntity(t *testing.T) {
-	repo := parseAndAddRules(t, api.Rules{
+	td := newTestData()
+	repo := td.repo
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorA,
 			Egress: []api.EgressRule{
@@ -2016,8 +2034,8 @@ func TestEgressL4AllowAllEntity(t *testing.T) {
 
 	t.Log(buffer)
 
-	filter, ok := l4EgressPolicy["80/TCP"]
-	require.True(t, ok)
+	filter := l4EgressPolicy.ExactLookup("80", 0, "TCP")
+	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
 	require.Equal(t, false, filter.Ingress)
 
@@ -2026,7 +2044,9 @@ func TestEgressL4AllowAllEntity(t *testing.T) {
 }
 
 func TestEgressL3AllowWorld(t *testing.T) {
-	repo := parseAndAddRules(t, api.Rules{
+	td := newTestData()
+	repo := td.repo
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorA,
 			Egress: []api.EgressRule{
@@ -2063,7 +2083,9 @@ func TestEgressL3AllowWorld(t *testing.T) {
 }
 
 func TestEgressL3AllowAllEntity(t *testing.T) {
-	repo := parseAndAddRules(t, api.Rules{
+	td := newTestData()
+	repo := td.repo
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorA,
 			Egress: []api.EgressRule{
@@ -2108,7 +2130,9 @@ func TestL4WildcardMerge(t *testing.T) {
 	// at L4 and L7, that the L4-only rule shadows the L4-L7 rule. This is because
 	// L4-only rule implicitly allows all traffic at L7, so the L7-related
 	// parts of the L4-L7 rule are useless.
-	repo := parseAndAddRules(t, api.Rules{&api.Rule{
+	td := newTestData()
+	repo := td.repo
+	repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -2164,11 +2188,11 @@ func TestL4WildcardMerge(t *testing.T) {
 
 	expected := &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: "http",
 		PerSelectorPolicies: L7DataMap{
-			wildcardCachedSelector: nil,
-			cachedSelectorC: &PerSelectorPolicy{
+			td.wildcardCachedSelector: nil,
+			td.cachedSelectorC: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2177,8 +2201,8 @@ func TestL4WildcardMerge(t *testing.T) {
 		},
 		Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedSelectorC:        {nil},
-			wildcardCachedSelector: {nil},
+			td.cachedSelectorC:        {nil},
+			td.wildcardCachedSelector: {nil},
 		},
 	}
 
@@ -2191,14 +2215,14 @@ func TestL4WildcardMerge(t *testing.T) {
 
 	t.Log(buffer)
 
-	filter, ok := l4IngressPolicy["80/TCP"]
-	require.True(t, ok)
+	filter := l4IngressPolicy.ExactLookup("80", 0, "TCP")
+	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, 2, len(filter.PerSelectorPolicies))
-	require.NotNil(t, filter.PerSelectorPolicies[cachedSelectorC])
-	require.Nil(t, filter.PerSelectorPolicies[wildcardCachedSelector])
+	require.NotNil(t, filter.PerSelectorPolicies[td.cachedSelectorC])
+	require.Nil(t, filter.PerSelectorPolicies[td.wildcardCachedSelector])
 	require.EqualValues(t, expected, filter)
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
 
@@ -2206,7 +2230,7 @@ func TestL4WildcardMerge(t *testing.T) {
 		Port: 7000, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: "testparser",
 		PerSelectorPolicies: L7DataMap{
-			cachedSelectorC: &PerSelectorPolicy{
+			td.cachedSelectorC: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					L7Proto: "testparser",
 					L7:      []api.PortRuleL7{{"Key": "Value"}, {}},
@@ -2215,17 +2239,17 @@ func TestL4WildcardMerge(t *testing.T) {
 			},
 		},
 		Ingress:    true,
-		RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorC: {nil}},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorC: {nil}},
 	}
 
-	filterL7, ok := l4IngressPolicy["7000/TCP"]
-	require.True(t, ok)
+	filterL7 := l4IngressPolicy.ExactLookup("7000", 0, "TCP")
+	require.NotNil(t, filterL7)
 	require.Equal(t, uint16(7000), filterL7.Port)
 	require.True(t, filterL7.Ingress)
 
 	require.Equal(t, 1, len(filterL7.PerSelectorPolicies))
-	require.NotNil(t, filterL7.PerSelectorPolicies[cachedSelectorC])
-	require.Nil(t, filterL7.PerSelectorPolicies[wildcardCachedSelector])
+	require.NotNil(t, filterL7.PerSelectorPolicies[td.cachedSelectorC])
+	require.Nil(t, filterL7.PerSelectorPolicies[td.wildcardCachedSelector])
 	require.EqualValues(t, expectedL7, filterL7)
 	require.Equal(t, L7ParserType("testparser"), filterL7.L7Parser)
 
@@ -2235,7 +2259,8 @@ func TestL4WildcardMerge(t *testing.T) {
 	// for if L4-only policy is in the L4Filter for the same port-protocol tuple,
 	// and L7 metadata exists in the L4Filter we are adding; expect to resolve
 	// to L4-only policy without any L7-metadata.
-	repo = parseAndAddRules(t, api.Rules{&api.Rule{
+	repo = td.resetRepo()
+	repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -2298,32 +2323,31 @@ func TestL4WildcardMerge(t *testing.T) {
 
 	t.Log(buffer)
 
-	filter, ok = l4IngressPolicy["80/TCP"]
-	require.True(t, ok)
+	filter = l4IngressPolicy.ExactLookup("80", 0, "TCP")
+	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, 2, len(filter.PerSelectorPolicies))
-	require.Nil(t, filter.PerSelectorPolicies[wildcardCachedSelector])
-	require.NotNil(t, filter.PerSelectorPolicies[cachedSelectorC])
+	require.Nil(t, filter.PerSelectorPolicies[td.wildcardCachedSelector])
+	require.NotNil(t, filter.PerSelectorPolicies[td.cachedSelectorC])
 	require.EqualValues(t, expected, filter)
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
 
-	filterL7, ok = l4IngressPolicy["7000/TCP"]
-	require.True(t, ok)
+	filterL7 = l4IngressPolicy.ExactLookup("7000", 0, "TCP")
+	require.NotNil(t, filterL7)
 	require.Equal(t, uint16(7000), filterL7.Port)
 	require.True(t, filterL7.Ingress)
 
 	require.Equal(t, 1, len(filterL7.PerSelectorPolicies))
-	require.NotNil(t, filterL7.PerSelectorPolicies[cachedSelectorC])
-	require.Nil(t, filterL7.PerSelectorPolicies[wildcardCachedSelector])
+	require.NotNil(t, filterL7.PerSelectorPolicies[td.cachedSelectorC])
+	require.Nil(t, filterL7.PerSelectorPolicies[td.wildcardCachedSelector])
 	require.EqualValues(t, expectedL7, filterL7)
 	require.Equal(t, L7ParserType("testparser"), filterL7.L7Parser)
 
-	l4IngressPolicy.Detach(repo.GetSelectorCache())
-
-	// Second, test the explicit allow at L3.
-	repo = parseAndAddRules(t, api.Rules{&api.Rule{
+	// Second, test the expeicit allow at L3.
+	repo = td.resetRepo()
+	repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -2363,21 +2387,21 @@ func TestL4WildcardMerge(t *testing.T) {
 
 	t.Log(buffer)
 
-	filter, ok = l4IngressPolicy["80/TCP"]
-	require.True(t, ok)
+	filter = l4IngressPolicy.ExactLookup("80", 0, "TCP")
+	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
 	require.Equal(t, 2, len(filter.PerSelectorPolicies))
 	require.EqualValues(t, expected, filter)
-	l4IngressPolicy.Detach(repo.GetSelectorCache())
 
 	// Test the reverse order as well; ensure that we check both conditions
 	// for if L4-only policy is in the L4Filter for the same port-protocol tuple,
 	// and L7 metadata exists in the L4Filter we are adding; expect to resolve
 	// to L4-only policy without any L7-metadata.
-	repo = parseAndAddRules(t, api.Rules{&api.Rule{
+	repo = td.resetRepo()
+	repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -2417,15 +2441,14 @@ func TestL4WildcardMerge(t *testing.T) {
 
 	t.Log(buffer)
 
-	filter, ok = l4IngressPolicy["80/TCP"]
-	require.True(t, ok)
+	filter = l4IngressPolicy.ExactLookup("80", 0, "TCP")
+	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
 	require.Equal(t, 2, len(filter.PerSelectorPolicies))
 	require.EqualValues(t, expected, filter)
-	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
 
 func TestL3L4L7Merge(t *testing.T) {
@@ -2439,7 +2462,9 @@ func TestL3L4L7Merge(t *testing.T) {
 	// should allow all on port 80 only from endpoint C, traffic
 	// from all other endpoints should still only allow only GET
 	// on "/".
-	repo := parseAndAddRules(t, api.Rules{&api.Rule{
+	td := newTestData()
+	repo := td.repo
+	repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -2476,24 +2501,24 @@ func TestL3L4L7Merge(t *testing.T) {
 
 	t.Log(buffer)
 
-	filter, ok := l4IngressPolicy["80/TCP"]
-	require.True(t, ok)
+	filter := l4IngressPolicy.ExactLookup("80", 0, "TCP")
+	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, 2, len(filter.PerSelectorPolicies))
-	require.NotNil(t, filter.PerSelectorPolicies[wildcardCachedSelector])
-	require.Nil(t, filter.PerSelectorPolicies[cachedSelectorC])
+	require.NotNil(t, filter.PerSelectorPolicies[td.wildcardCachedSelector])
+	require.Nil(t, filter.PerSelectorPolicies[td.cachedSelectorC])
 
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
 	require.Equal(t, 2, len(filter.PerSelectorPolicies))
 	require.Equal(t, &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: "http",
 		PerSelectorPolicies: L7DataMap{
-			cachedSelectorC: nil,
-			wildcardCachedSelector: &PerSelectorPolicy{
+			td.cachedSelectorC: nil,
+			td.wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2502,13 +2527,13 @@ func TestL3L4L7Merge(t *testing.T) {
 		},
 		Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedSelectorC:        {nil},
-			wildcardCachedSelector: {nil},
+			td.cachedSelectorC:        {nil},
+			td.wildcardCachedSelector: {nil},
 		},
 	}, filter)
-	l4IngressPolicy.Detach(repo.GetSelectorCache())
 
-	repo = parseAndAddRules(t, api.Rules{&api.Rule{
+	repo = td.resetRepo()
+	repo.MustAddList(api.Rules{&api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -2545,22 +2570,22 @@ func TestL3L4L7Merge(t *testing.T) {
 
 	t.Log(buffer)
 
-	filter, ok = l4IngressPolicy["80/TCP"]
-	require.True(t, ok)
+	filter = l4IngressPolicy.ExactLookup("80", 0, "TCP")
+	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
 	require.Equal(t, 2, len(filter.PerSelectorPolicies))
-	require.NotNil(t, filter.PerSelectorPolicies[wildcardCachedSelector])
-	require.Nil(t, filter.PerSelectorPolicies[cachedSelectorC])
+	require.NotNil(t, filter.PerSelectorPolicies[td.wildcardCachedSelector])
+	require.Nil(t, filter.PerSelectorPolicies[td.cachedSelectorC])
 	require.Equal(t, &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-		wildcard: wildcardCachedSelector,
+		wildcard: td.wildcardCachedSelector,
 		L7Parser: "http",
 		PerSelectorPolicies: L7DataMap{
-			cachedSelectorC: nil,
-			wildcardCachedSelector: &PerSelectorPolicy{
+			td.cachedSelectorC: nil,
+			td.wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2569,16 +2594,17 @@ func TestL3L4L7Merge(t *testing.T) {
 		},
 		Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedSelectorC:        {nil},
-			wildcardCachedSelector: {nil},
+			td.cachedSelectorC:        {nil},
+			td.wildcardCachedSelector: {nil},
 		},
 	}, filter)
 
-	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
 
 func TestMatches(t *testing.T) {
-	repo := parseAndAddRules(t, api.Rules{
+	td := newTestData()
+	repo := td.repo
+	repo.MustAddList(api.Rules{
 		&api.Rule{
 			EndpointSelector: endpointSelectorA,
 			Ingress: []api.IngressRule{
@@ -2601,61 +2627,58 @@ func TestMatches(t *testing.T) {
 		},
 	})
 
-	epRule := repo.rules[0]
-	hostRule := repo.rules[1]
+	epRule := repo.rules[ruleKey{idx: 0}]
+	hostRule := repo.rules[ruleKey{idx: 1}]
 
 	selectedEpLabels := labels.ParseSelectLabel("id=a")
 	selectedIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})
+	td.addIdentity(selectedIdentity)
 
 	notSelectedEpLabels := labels.ParseSelectLabel("id=b")
 	notSelectedIdentity := identity.NewIdentity(9876, labels.Labels{notSelectedEpLabels.Key: notSelectedEpLabels})
+	td.addIdentity(notSelectedIdentity)
 
 	hostLabels := labels.Labels{selectedEpLabels.Key: selectedEpLabels}
 	hostLabels.MergeLabels(labels.LabelHost)
 	hostIdentity := identity.NewIdentity(identity.ReservedIdentityHost, hostLabels)
+	td.addIdentity(hostIdentity)
 
 	// notSelectedEndpoint is not selected by rule, so we it shouldn't be added
 	// to EndpointsSelected.
-	require.Equal(t, false, epRule.matches(notSelectedIdentity))
-	require.EqualValues(t, map[identity.NumericIdentity]bool{notSelectedIdentity.ID: false}, epRule.metadata.IdentitySelected)
+	require.Equal(t, false, epRule.matchesSubject(notSelectedIdentity))
 
 	// selectedEndpoint is selected by rule, so we it should be added to
 	// EndpointsSelected.
-	require.True(t, epRule.matches(selectedIdentity))
-	require.EqualValues(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false}, epRule.metadata.IdentitySelected)
+	require.True(t, epRule.matchesSubject(selectedIdentity))
 
 	// Test again to check for caching working correctly.
-	require.True(t, epRule.matches(selectedIdentity))
-	require.EqualValues(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false}, epRule.metadata.IdentitySelected)
+	require.True(t, epRule.matchesSubject(selectedIdentity))
 
 	// Possible scenario where an endpoint is deleted, and soon after another
 	// endpoint is added with the same ID, but with a different identity. Matching
 	// needs to handle this case correctly.
-	require.Equal(t, false, epRule.matches(notSelectedIdentity))
-	require.EqualValues(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false}, epRule.metadata.IdentitySelected)
+	require.Equal(t, false, epRule.matchesSubject(notSelectedIdentity))
 
 	// host endpoint is not selected by rule, so we it shouldn't be added to EndpointsSelected.
-	require.Equal(t, false, epRule.matches(hostIdentity))
-	require.Equal(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false, hostIdentity.ID: false}, epRule.metadata.IdentitySelected)
+	require.Equal(t, false, epRule.matchesSubject(hostIdentity))
 
 	// selectedEndpoint is not selected by rule, so we it shouldn't be added to EndpointsSelected.
-	require.Equal(t, false, hostRule.matches(selectedIdentity))
-	require.EqualValues(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: false}, hostRule.metadata.IdentitySelected)
+	require.Equal(t, false, hostRule.matchesSubject(selectedIdentity))
 
 	// host endpoint is selected by rule, but host labels are mutable, so don't cache them
-	require.True(t, hostRule.matches(hostIdentity))
-	require.Equal(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: false}, hostRule.metadata.IdentitySelected)
+	require.True(t, hostRule.matchesSubject(hostIdentity))
 
 	// Assert that mutable host identities are handled
 	// First, add an additional label, ensure that match succeeds
 	hostLabels.MergeLabels(labels.NewLabelsFromModel([]string{"foo=bar"}))
 	hostIdentity = identity.NewIdentity(identity.ReservedIdentityHost, hostLabels)
-	require.True(t, hostRule.matches(hostIdentity))
+	td.addIdentity(hostIdentity)
+	require.True(t, hostRule.matchesSubject(hostIdentity))
 
 	// Then, change host to id=c, which is not selected, and ensure match is correct
 	hostIdentity = identity.NewIdentity(identity.ReservedIdentityHost, labels.NewLabelsFromModel([]string{"id=c"}))
-	require.False(t, hostRule.matches(hostIdentity))
-	require.Equal(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: false}, hostRule.metadata.IdentitySelected)
+	td.addIdentity(hostIdentity)
+	require.False(t, hostRule.matchesSubject(hostIdentity))
 }
 
 func BenchmarkRuleString(b *testing.B) {
@@ -2699,6 +2722,7 @@ func BenchmarkRuleString(b *testing.B) {
 // This was added to prevent regression of a bug where the merging of l7 rules for "foo"
 // also affected the rules for "baz".
 func TestMergeL7PolicyEgressWithMultipleSelectors(t *testing.T) {
+	td := newTestData()
 	fromBar := &SearchContext{From: labels.ParseSelectLabelArray("bar")}
 	fromFoo := &SearchContext{From: labels.ParseSelectLabelArray("foo")}
 
@@ -2744,17 +2768,17 @@ func TestMergeL7PolicyEgressWithMultipleSelectors(t *testing.T) {
 		},
 	}
 
-	expected := L4PolicyMap{"80/TCP": &L4Filter{
+	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeHTTP,
 		PerSelectorPolicies: L7DataMap{
-			cachedFooSelector: &PerSelectorPolicy{
+			td.cachedFooSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Method: "GET"}, {}},
 				},
 				isRedirect: true,
 			},
-			cachedBazSelector: &PerSelectorPolicy{
+			td.cachedBazSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Method: "GET"}},
 				},
@@ -2763,23 +2787,23 @@ func TestMergeL7PolicyEgressWithMultipleSelectors(t *testing.T) {
 		},
 		Ingress: false,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
-			cachedBazSelector: {nil},
-			cachedFooSelector: {nil},
+			td.cachedBazSelector: {nil},
+			td.cachedFooSelector: {nil},
 		},
-	}}
+	}})
 
 	state := traceState{}
-	res, err := rule1.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil, nil)
+	res, err := rule1.resolveEgressPolicy(td.testPolicyContext, fromBar, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.EqualValues(t, expected, res)
 	require.Equal(t, 1, state.selectedRules)
 	require.Equal(t, 1, state.matchedRules)
-	res.Detach(testSelectorCache)
-	expected.Detach(testSelectorCache)
+	res.Detach(td.sc)
+	expected.Detach(td.sc)
 
 	state = traceState{}
-	res, err = rule1.resolveEgressPolicy(testPolicyContext, fromFoo, &state, L4PolicyMap{}, nil, nil)
+	res, err = rule1.resolveEgressPolicy(td.testPolicyContext, fromFoo, &state, NewL4PolicyMap(), nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, res)
 	require.Equal(t, 0, state.selectedRules)

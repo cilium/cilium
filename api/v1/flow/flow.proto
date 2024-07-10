@@ -42,6 +42,8 @@ message Flow {
 
     // NodeName is the name of the node from which this Flow was captured.
     string node_name = 11;
+    // node labels in `foo=bar` format.
+    repeated string node_labels = 37;
 
     reserved 12; // removed, do not use
 
@@ -196,7 +198,7 @@ enum TraceReason {
     ESTABLISHED = 2;
     REPLY = 3;
     RELATED = 4;
-    REOPENED = 5;
+    REOPENED = 5 [deprecated=true];
     SRV6_ENCAP = 6;
     SRV6_DECAP = 7;
     ENCRYPT_OVERLAY = 8;
@@ -539,11 +541,12 @@ message FlowFilter {
     // traffic_direction filters flow by direction of the connection, e.g.
     // ingress or egress.
     repeated TrafficDirection traffic_direction = 30;
-
     // only return Flows that were classified with a particular verdict.
     repeated Verdict verdict = 5;
     // only applicable to Verdict = DROPPED (e.g. "POLICY_DENIED", "UNSUPPORTED_L3_PROTOCOL")
     repeated DropReason drop_reason_desc = 33;
+    // interface is the network interface on which this flow was observed.
+    repeated NetworkInterface interface = 35;
     // event_type is the list of event types to filter on
     repeated EventTypeFilter event_type = 6;
     // http_status_code is a list of string prefixes (e.g. "4+", "404", "5+")
@@ -582,6 +585,9 @@ message FlowFilter {
     // node_name is a list of patterns to filter on the node name, e.g. "k8s*",
     // "test-cluster/*.domain.com", "cluster-name/" etc.
     repeated string node_name = 24;
+    // node_labels filters on a list of node label selectors. Selectors support
+    // the full Kubernetes label selector syntax.
+    repeated string node_labels = 36;
 
     // filter based on IP version (ipv4 or ipv6)
     repeated IPVersion ip_version = 25;

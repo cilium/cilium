@@ -126,8 +126,13 @@ Specify the Cluster Name and ID
 Cilium needs to be installed onto each cluster.
 
 Each cluster must be assigned a unique human-readable name as well as a numeric
-cluster ID (1-255). It is best to assign both these attributes at installation
-time of Cilium:
+cluster ID (1-255). The cluster name must respect the following constraints:
+
+* It must contain at most 32 characters;
+* It must begin and end with a lower case alphanumeric character;
+* It may contain lower case alphanumeric characters and dashes between.
+
+It is best to assign both the cluster name and the cluster ID at installation time:
 
  * ConfigMap options ``cluster-name`` and ``cluster-id``
  * Helm options ``cluster.name`` and ``cluster.id``
@@ -183,13 +188,13 @@ clusters.
 
 .. note::
 
-   You can additionally opt in to :ref:`kvstoremesh` when enabling
-   Cluster Mesh. Make sure to configure the Cilium CLI in *helm* mode and run:
+   Starting from v1.16 KVStoreMesh is enabled by default.
+   You can opt out of :ref:`kvstoremesh` when enabling the Cluster Mesh.
 
    .. code-block:: shell-session
 
-     cilium clustermesh enable --context $CLUSTER1 --enable-kvstoremesh
-     cilium clustermesh enable --context $CLUSTER2 --enable-kvstoremesh
+     cilium clustermesh enable --context $CLUSTER1 --enable-kvstoremesh=false
+     cilium clustermesh enable --context $CLUSTER2 --enable-kvstoremesh=false
 
 .. important::
 

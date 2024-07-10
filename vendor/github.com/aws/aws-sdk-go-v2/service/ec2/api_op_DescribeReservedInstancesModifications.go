@@ -16,13 +16,13 @@ import (
 // is returned. If a modification ID is specified, only information about the
 // specific modification is returned.
 //
-// For more information, see [Modifying Reserved Instances] in the Amazon EC2 User Guide.
+// For more information, see [Modify Reserved Instances] in the Amazon EC2 User Guide.
 //
 // The order of the elements in the response, including those within nested
 // structures, might vary. Applications should not assume the elements appear in a
 // particular order.
 //
-// [Modifying Reserved Instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-modifying.html
+// [Modify Reserved Instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ri-modifying.html
 func (c *Client) DescribeReservedInstancesModifications(ctx context.Context, params *DescribeReservedInstancesModificationsInput, optFns ...func(*Options)) (*DescribeReservedInstancesModificationsOutput, error) {
 	if params == nil {
 		params = &DescribeReservedInstancesModificationsInput{}
@@ -154,6 +154,12 @@ func (c *Client) addOperationDescribeReservedInstancesModificationsMiddlewares(s
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeReservedInstancesModifications(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -174,14 +180,6 @@ func (c *Client) addOperationDescribeReservedInstancesModificationsMiddlewares(s
 	}
 	return nil
 }
-
-// DescribeReservedInstancesModificationsAPIClient is a client that implements the
-// DescribeReservedInstancesModifications operation.
-type DescribeReservedInstancesModificationsAPIClient interface {
-	DescribeReservedInstancesModifications(context.Context, *DescribeReservedInstancesModificationsInput, ...func(*Options)) (*DescribeReservedInstancesModificationsOutput, error)
-}
-
-var _ DescribeReservedInstancesModificationsAPIClient = (*Client)(nil)
 
 // DescribeReservedInstancesModificationsPaginatorOptions is the paginator options
 // for DescribeReservedInstancesModifications
@@ -237,6 +235,9 @@ func (p *DescribeReservedInstancesModificationsPaginator) NextPage(ctx context.C
 	params := *p.params
 	params.NextToken = p.nextToken
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeReservedInstancesModifications(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -255,6 +256,14 @@ func (p *DescribeReservedInstancesModificationsPaginator) NextPage(ctx context.C
 
 	return result, nil
 }
+
+// DescribeReservedInstancesModificationsAPIClient is a client that implements the
+// DescribeReservedInstancesModifications operation.
+type DescribeReservedInstancesModificationsAPIClient interface {
+	DescribeReservedInstancesModifications(context.Context, *DescribeReservedInstancesModificationsInput, ...func(*Options)) (*DescribeReservedInstancesModificationsOutput, error)
+}
+
+var _ DescribeReservedInstancesModificationsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeReservedInstancesModifications(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

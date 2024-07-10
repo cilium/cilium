@@ -6,6 +6,7 @@ package dbg
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -36,7 +37,12 @@ var Troubleshoot = func() *cobra.Command {
 				cancel()
 			}
 
-			ciliumdbg.TroubleshootClusterMesh(cmd.Context(), stdout, dialer, cmcfg, timeout, args...)
+			// Try to retrieve the cluster name from the corresponding environment variable.
+			// It is only used to provide a hint if the configuration for the local cluster
+			// is present, hence it is not a big deal if we fail to retrieve it.
+			localClusterName, _ := os.LookupEnv("CLUSTER_NAME")
+
+			ciliumdbg.TroubleshootClusterMesh(cmd.Context(), stdout, dialer, cmcfg, timeout, localClusterName, args...)
 		},
 	}
 

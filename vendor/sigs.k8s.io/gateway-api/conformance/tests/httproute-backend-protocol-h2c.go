@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/roundtripper"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -34,10 +35,10 @@ func init() {
 var HTTPRouteBackendProtocolH2C = suite.ConformanceTest{
 	ShortName:   "HTTPRouteBackendProtocolH2C",
 	Description: "A HTTPRoute with a BackendRef that has an appProtocol kubernetes.io/h2c should be functional",
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportHTTPRoute,
-		suite.SupportHTTPRouteBackendProtocolH2C,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportHTTPRoute,
+		features.SupportHTTPRouteBackendProtocolH2C,
 	},
 	Manifests: []string{
 		"tests/httproute-backend-protocol-h2c.yaml",

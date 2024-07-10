@@ -5,8 +5,9 @@ package routechecks
 
 import (
 	"context"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,12 +32,15 @@ type Input interface {
 	GetGVK() schema.GroupVersionKind
 	GetGrants() []gatewayv1beta1.ReferenceGrant
 	GetGateway(parent gatewayv1.ParentReference) (*gatewayv1.Gateway, error)
+	GetParentGammaService(parent gatewayv1.ParentReference) (*corev1.Service, error)
 	GetHostnames() []gatewayv1.Hostname
 
 	SetParentCondition(ref gatewayv1.ParentReference, condition metav1.Condition)
 	SetAllParentCondition(condition metav1.Condition)
-	Log() *logrus.Entry
+	Log() *slog.Logger
 }
 
-type CheckRuleFunc func(input Input) (bool, error)
-type CheckGatewayFunc func(input Input, ref gatewayv1.ParentReference) (bool, error)
+type (
+	CheckRuleFunc   func(input Input) (bool, error)
+	CheckParentFunc func(input Input, ref gatewayv1.ParentReference) (bool, error)
+)

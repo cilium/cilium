@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __BPF_TAILCALL_H_
-#define __BPF_TAILCALL_H_
+#pragma once
 
 #include "compiler.h"
 
@@ -54,4 +53,3 @@ tail_call_dynamic(struct __ctx_buff *ctx, const void *map, __u32 slot)
 # define tail_call_static(ctx, map, slot)	__throw_build_bug()
 # define tail_call_dynamic(ctx, map, slot)	__throw_build_bug()
 #endif /* __bpf__ */
-#endif /* __BPF_TAILCALL_H_ */

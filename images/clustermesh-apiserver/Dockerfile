@@ -3,17 +3,17 @@
 
 # distroless images are signed by cosign and can be verified using:
 # cosign verify $IMAGE_NAME --certificate-oidc-issuer https://accounts.google.com  --certificate-identity keyless@distroless.iam.gserviceaccount.com
-ARG BASE_IMAGE=gcr.io/distroless/static-debian11:nonroot@sha256:f41b84cda410b05cc690c2e33d1973a31c6165a2721e2b5343aab50fecb63441
+ARG BASE_IMAGE=gcr.io/distroless/static-debian11:nonroot@sha256:63ebe035fbdd056ed682e6a87b286d07d3f05f12cb46f26b2b44fc10fc4a59ed
 # These SHA256 digests are important for two reasons:
 # 1. They 'pin' the container image to a specific version. Unlike a tag that can be changed at any future point, a
 #    SHA265 hash cannot be modified. This increases the security of the build by protecting against a class of supply
 #    chain attacks where an attacker has write access to our 3rd party dependnecy image registries.
 # 2. These digests must be to the *overall* digest, not the digest for a specific image. This is because the images will
 #    be architecture specific, but the overall digest will contiain all of the architectures.
-ARG GOLANG_IMAGE=docker.io/library/golang:1.22.3@sha256:b1e05e2c918f52c59d39ce7d5844f73b2f4511f7734add8bb98c9ecdd4443365
+ARG GOLANG_IMAGE=docker.io/library/golang:1.22.5@sha256:fcae9e0e7313c6467a7c6632ebb5e5fab99bd39bd5eb6ee34a211353e647827a
 # We don't use ETCD_IMAGE because that's used in Makefile.defs to select a ETCD image approrpate for the *host platform*
 # to run tests with.
-ARG ETCD_SERVER_IMAGE=gcr.io/etcd-development/etcd:v3.5.13@sha256:f435f2be55ca8fbaa56126419f3d0d3a43695a856ffcb7e51a3b82dcab784c14
+ARG ETCD_SERVER_IMAGE=gcr.io/etcd-development/etcd:v3.5.14@sha256:e690e8c2a36f7ededaa76e2178e7492954aef33616fa30e323bc00852fdb65c2
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
@@ -24,16 +24,14 @@ FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} as builder
 ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
-ARG NOSTRIP
-ARG NOOPT
-ARG LOCKDEBUG
-ARG RACE
+# MODIFIERS are extra arguments to be passed to make at build time.
+ARG MODIFIERS
 
 WORKDIR /go/src/github.com/cilium/cilium/clustermesh-apiserver
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
     mkdir -p /out/${TARGETOS}/${TARGETARCH} && cp etcd-config.yaml /out/${TARGETOS}/${TARGETARCH}/etcd-config.yaml
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg,type=cache \
-    make GOARCH=${TARGETARCH} RACE=${RACE} NOSTRIP=${NOSTRIP} NOOPT=${NOOPT} LOCKDEBUG=${LOCKDEBUG} \
+    make GOARCH=${TARGETARCH} ${MODIFIERS} \
     && mkdir -p /out/${TARGETOS}/${TARGETARCH}/usr/bin && mv clustermesh-apiserver /out/${TARGETOS}/${TARGETARCH}/usr/bin
 
 WORKDIR /go/src/github.com/cilium/cilium

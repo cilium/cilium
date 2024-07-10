@@ -136,6 +136,12 @@ func (c *Client) addOperationDescribeNetworkInterfacePermissionsMiddlewares(stac
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeNetworkInterfacePermissions(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -156,14 +162,6 @@ func (c *Client) addOperationDescribeNetworkInterfacePermissionsMiddlewares(stac
 	}
 	return nil
 }
-
-// DescribeNetworkInterfacePermissionsAPIClient is a client that implements the
-// DescribeNetworkInterfacePermissions operation.
-type DescribeNetworkInterfacePermissionsAPIClient interface {
-	DescribeNetworkInterfacePermissions(context.Context, *DescribeNetworkInterfacePermissionsInput, ...func(*Options)) (*DescribeNetworkInterfacePermissionsOutput, error)
-}
-
-var _ DescribeNetworkInterfacePermissionsAPIClient = (*Client)(nil)
 
 // DescribeNetworkInterfacePermissionsPaginatorOptions is the paginator options
 // for DescribeNetworkInterfacePermissions
@@ -236,6 +234,9 @@ func (p *DescribeNetworkInterfacePermissionsPaginator) NextPage(ctx context.Cont
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeNetworkInterfacePermissions(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -254,6 +255,14 @@ func (p *DescribeNetworkInterfacePermissionsPaginator) NextPage(ctx context.Cont
 
 	return result, nil
 }
+
+// DescribeNetworkInterfacePermissionsAPIClient is a client that implements the
+// DescribeNetworkInterfacePermissions operation.
+type DescribeNetworkInterfacePermissionsAPIClient interface {
+	DescribeNetworkInterfacePermissions(context.Context, *DescribeNetworkInterfacePermissionsInput, ...func(*Options)) (*DescribeNetworkInterfacePermissionsOutput, error)
+}
+
+var _ DescribeNetworkInterfacePermissionsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeNetworkInterfacePermissions(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

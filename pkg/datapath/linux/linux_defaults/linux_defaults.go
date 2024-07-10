@@ -27,9 +27,21 @@ const (
 	// table which is between 253-255. See ip-route(8).
 	RouteTableInterfacesOffset = 10
 
+	// MarkProxyToWorld is the default mark to use to indicate that a packet
+	// from proxy needs to be sent to the world.
+	MarkProxyToWorld = 0x800
+
 	// RouteMarkDecrypt is the default route mark to use to indicate datapath
 	// needs to decrypt a packet.
 	RouteMarkDecrypt = 0x0D00
+
+	// RouteMarkDecryptedOverlay is the output mark used for EncryptedOverlay
+	// XFRM policies.
+	//
+	// When this mark is present on a packet it indicates that overlay traffic
+	// was decrypted by XFRM and should be forwarded to a tunnel device for
+	// decapsulation.
+	RouteMarkDecryptedOverlay = 0x1D00
 
 	// RouteMarkEncrypt is the default route mark to use to indicate datapath
 	// needs to encrypt a packet.
@@ -115,7 +127,7 @@ const (
 	IPsecMarkBitMask = 0x0F00
 
 	// IPsecOldMarkMaskOut is the mask that was previously used. It can be
-	// removed in Cilium v1.15.
+	// removed in Cilium v1.17.
 	IPsecOldMarkMaskOut = 0xFF00
 
 	// IPsecMarkMask is the mask required for the IPsec SPI, node ID, and encrypt/decrypt bits

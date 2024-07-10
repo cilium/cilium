@@ -33,7 +33,8 @@ func FuzzResolveEgressPolicy(f *testing.F) {
 		}
 		rule := &rule{Rule: r}
 		state := traceState{}
-		_, _ = rule.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil, nil)
+		td := newTestData()
+		_, _ = rule.resolveEgressPolicy(td.testPolicyContext, fromBar, &state, NewL4PolicyMap(), nil, nil)
 
 	})
 }
@@ -83,6 +84,6 @@ func FuzzAccumulateMapChange(f *testing.F) {
 		key := Key{DestPort: port, Nexthdr: proto, TrafficDirection: dir.Uint8()}
 		value := NewMapStateEntry(csFoo, nil, proxyPort, "", 0, deny, DefaultAuthType, AuthTypeDisabled)
 		policyMaps := MapChanges{}
-		policyMaps.AccumulateMapChanges(csFoo, adds, deletes, key, value)
+		policyMaps.AccumulateMapChanges(csFoo, adds, deletes, []Key{key}, value)
 	})
 }

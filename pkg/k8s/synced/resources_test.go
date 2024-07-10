@@ -34,7 +34,6 @@ type waitForCacheTest struct {
 
 func TestWaitForCacheSyncWithTimeout(t *testing.T) {
 	unit := func(d int) time.Duration { return syncedPollPeriod * time.Duration(d) }
-	assert := assert.New(t)
 	for msg, test := range map[string]waitForCacheTest{
 		"Should complete due to event causing timeout to be extended past initial timeout": {
 			timeout: unit(5),
@@ -90,7 +89,9 @@ func TestWaitForCacheSyncWithTimeout(t *testing.T) {
 		func(test waitForCacheTest) {
 			t.Run(msg, func(t *testing.T) {
 				t.Parallel()
-				r := &Resources{}
+
+				assert := assert.New(t)
+				r := &Resources{CacheStatus: make(CacheStatus)}
 				stop := make(chan struct{})
 				swg := lock.NewStoppableWaitGroup()
 				start := time.Now()

@@ -9,6 +9,12 @@ var _ types.BandwidthManager = (*BandwidthManager)(nil)
 
 type BandwidthManager struct{}
 
+func (fbm *BandwidthManager) DeleteBandwidthLimit(endpointID uint16) {
+}
+
+func (fbm *BandwidthManager) UpdateBandwidthLimit(endpointID uint16, bytesPerSecond uint64) {
+}
+
 func (fbm *BandwidthManager) BBREnabled() bool {
 	return false
 }

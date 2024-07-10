@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -31,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/metrics"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -39,10 +39,26 @@ import (
 
 var etcdConfig = []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
 
-func (s *ClusterMeshServicesTestSuite) prepareServiceUpdate(clusterSuffix, backendIP, portName, port string) (string, string) {
-	return "cilium/state/services/v1/" + s.randomName + clusterSuffix + "/default/foo",
-		`{"cluster":"` + s.randomName + clusterSuffix + `","namespace":"default","name":"foo","frontends":{"172.20.0.177":{"port":{"protocol":"TCP","port":80}}},"backends":{"` + backendIP + `":{"` + portName + `":{"protocol":"TCP","port":` + port + `}}},"labels":{},"selector":{"name":"foo"},"shared":true,"includeExternal":true}`
+func (s *ClusterMeshServicesTestSuite) prepareServiceUpdate(tb testing.TB, clusterID uint32, backendIP, portName string, port uint16) (string, string) {
+	tb.Helper()
 
+	svc := serviceStore.ClusterService{
+		Cluster: fmt.Sprintf("%s%d", s.randomName, clusterID), ClusterID: clusterID,
+		Namespace: "default", Name: "foo",
+		Frontends: map[string]serviceStore.PortConfiguration{
+			"172.20.0.177": {"port": loadbalancer.NewL4Addr(loadbalancer.TCP, 80)},
+		},
+		Backends: map[string]serviceStore.PortConfiguration{
+			backendIP: {portName: loadbalancer.NewL4Addr(loadbalancer.TCP, port)},
+		},
+		Shared: true, IncludeExternal: true,
+	}
+
+	key := path.Join(serviceStore.ServiceStorePrefix, svc.GetKeyName())
+	value, err := svc.Marshal()
+	require.NoError(tb, err, "Unexpected error marshaling service")
+
+	return key, string(value)
 }
 
 type ClusterMeshServicesTestSuite struct {
@@ -88,7 +104,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 				MaxConnectedClusters: 255,
 			},
 		}
-		err := cmutils.SetClusterConfig(ctx, cluster, &config, kvstore.Client())
+		err := cmutils.SetClusterConfig(ctx, cluster, config, kvstore.Client())
 		require.NoError(tb, err)
 	}
 
@@ -107,16 +123,16 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 	store := store.NewFactory(store.MetricsProvider())
 	s.mesh = NewClusterMesh(hivetest.Lifecycle(tb), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
-		ClusterInfo:           cmtypes.ClusterInfo{ID: 255, Name: "test2", MaxConnectedClusters: 255},
-		NodeKeyCreator:        testNodeCreator,
+		ClusterInfo:           cmtypes.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
 		NodeObserver:          newNodesObserver(),
 		ServiceMerger:         s.svcCache,
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
-		ClusterIDsManager:     NewClusterMeshUsedIDs(),
+		ClusterIDsManager:     NewClusterMeshUsedIDs(localClusterID),
 		Metrics:               NewMetrics(),
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
 		StoreFactory:          store,
+		Logger:                logrus.New(),
 	})
 	require.NotNil(tb, s.mesh)
 
@@ -152,9 +168,9 @@ func (s *ClusterMeshServicesTestSuite) expectEvent(t *testing.T, action k8s.Cach
 func TestClusterMeshServicesGlobal(t *testing.T) {
 	s := setup(t)
 
-	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80")
+	k, v := s.prepareServiceUpdate(t, 1, "10.0.185.196", "http", 80)
 	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
-	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90")
+	k, v = s.prepareServiceUpdate(t, 2, "20.0.185.196", "http2", 90)
 	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
 
 	swgSvcs := lock.NewStoppableWaitGroup()
@@ -225,9 +241,9 @@ func TestClusterMeshServicesGlobal(t *testing.T) {
 func TestClusterMeshServicesUpdate(t *testing.T) {
 	s := setup(t)
 
-	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80")
+	k, v := s.prepareServiceUpdate(t, 1, "10.0.185.196", "http", 80)
 	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
-	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90")
+	k, v = s.prepareServiceUpdate(t, 2, "20.0.185.196", "http2", 90)
 	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
 
 	k8sSvc := &slim_corev1.Service{
@@ -258,7 +274,7 @@ func TestClusterMeshServicesUpdate(t *testing.T) {
 		}
 	})
 
-	k, v = s.prepareServiceUpdate("1", "80.0.185.196", "http", "8080")
+	k, v = s.prepareServiceUpdate(t, 1, "80.0.185.196", "http", 8080)
 	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
 	s.expectEvent(t, k8s.UpdateService, svcID, func(c *assert.CollectT, event k8s.ServiceEvent) {
 		if assert.Contains(c, event.Endpoints.Backends, cmtypes.MustParseAddrCluster("80.0.185.196")) {
@@ -271,7 +287,7 @@ func TestClusterMeshServicesUpdate(t *testing.T) {
 		}
 	})
 
-	k, v = s.prepareServiceUpdate("2", "90.0.185.196", "http", "8080")
+	k, v = s.prepareServiceUpdate(t, 2, "90.0.185.196", "http", 8080)
 	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
 	s.expectEvent(t, k8s.UpdateService, svcID, func(c *assert.CollectT, event k8s.ServiceEvent) {
 		if assert.Contains(c, event.Endpoints.Backends, cmtypes.MustParseAddrCluster("80.0.185.196")) {
@@ -304,9 +320,9 @@ func TestClusterMeshServicesUpdate(t *testing.T) {
 func TestClusterMeshServicesNonGlobal(t *testing.T) {
 	s := setup(t)
 
-	k, v := s.prepareServiceUpdate("1", "10.0.185.196", "http", "80")
+	k, v := s.prepareServiceUpdate(t, 1, "10.0.185.196", "http", 80)
 	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
-	k, v = s.prepareServiceUpdate("2", "20.0.185.196", "http2", "90")
+	k, v = s.prepareServiceUpdate(t, 2, "20.0.185.196", "http2", 90)
 	require.NoError(t, kvstore.Client().Update(context.TODO(), k, []byte(v), false))
 
 	k8sSvc := &slim_corev1.Service{
@@ -333,78 +349,4 @@ func TestClusterMeshServicesNonGlobal(t *testing.T) {
 
 	swgSvcs.Stop()
 	swgSvcs.Wait()
-}
-
-type fakeServiceMerger struct {
-	updated map[string]int
-	deleted map[string]int
-}
-
-func (f *fakeServiceMerger) init() {
-	f.updated = make(map[string]int)
-	f.deleted = make(map[string]int)
-}
-
-func (f *fakeServiceMerger) MergeExternalServiceUpdate(service *serviceStore.ClusterService, _ *lock.StoppableWaitGroup) {
-	f.updated[service.String()]++
-}
-
-func (f *fakeServiceMerger) MergeExternalServiceDelete(service *serviceStore.ClusterService, _ *lock.StoppableWaitGroup) {
-	f.deleted[service.String()]++
-}
-
-func TestRemoteServiceObserver(t *testing.T) {
-	svc1 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name", IncludeExternal: false, Shared: true}
-	svc2 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name"}
-	cache := common.NewGlobalServiceCache(metrics.NoOpGauge)
-	merger := fakeServiceMerger{}
-
-	observer := remoteServiceObserver{
-		remoteCluster: &remoteCluster{
-			mesh: &ClusterMesh{
-				globalServices: cache,
-				conf:           Configuration{ServiceMerger: &merger},
-			},
-		},
-		swg: lock.NewStoppableWaitGroup(),
-	}
-
-	// Observe a new service update (for a non-shared service), and assert it is not added to the cache
-	merger.init()
-	observer.OnUpdate(&svc2)
-
-	require.Equal(t, 0, merger.updated[svc1.String()])
-	require.Equal(t, 0, cache.Size())
-
-	// Observe a new service update (for a shared service), and assert it is correctly added to the cache
-	merger.init()
-	observer.OnUpdate(&svc1)
-
-	require.Equal(t, 1, merger.updated[svc1.String()])
-	require.Equal(t, 0, merger.deleted[svc1.String()])
-	require.Equal(t, 1, cache.Size())
-
-	gs := cache.GetGlobalService(svc1.NamespaceServiceName())
-	require.Equal(t, 1, len(gs.ClusterServices))
-	found, ok := gs.ClusterServices[svc1.Cluster]
-	require.True(t, ok)
-	require.Equal(t, &svc1, found)
-
-	// Observe a new service deletion, and assert it is correctly removed from the cache
-	merger.init()
-	observer.OnDelete(&svc1)
-
-	require.Equal(t, 0, merger.updated[svc1.String()])
-	require.Equal(t, 1, merger.deleted[svc1.String()])
-	require.Equal(t, 0, cache.Size())
-
-	// Observe two service updates in sequence (first shared, then non-shared),
-	// and assert that at the end it is not present in the cache (equivalent to update, then delete).
-	merger.init()
-	observer.OnUpdate(&svc1)
-	observer.OnUpdate(&svc2)
-
-	require.Equal(t, 1, merger.updated[svc1.String()])
-	require.Equal(t, 1, merger.deleted[svc1.String()])
-	require.Equal(t, 0, cache.Size())
 }

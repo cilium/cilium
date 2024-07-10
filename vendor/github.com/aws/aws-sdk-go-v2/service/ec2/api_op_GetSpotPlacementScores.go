@@ -181,6 +181,12 @@ func (c *Client) addOperationGetSpotPlacementScoresMiddlewares(stack *middleware
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetSpotPlacementScoresValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -204,14 +210,6 @@ func (c *Client) addOperationGetSpotPlacementScoresMiddlewares(stack *middleware
 	}
 	return nil
 }
-
-// GetSpotPlacementScoresAPIClient is a client that implements the
-// GetSpotPlacementScores operation.
-type GetSpotPlacementScoresAPIClient interface {
-	GetSpotPlacementScores(context.Context, *GetSpotPlacementScoresInput, ...func(*Options)) (*GetSpotPlacementScoresOutput, error)
-}
-
-var _ GetSpotPlacementScoresAPIClient = (*Client)(nil)
 
 // GetSpotPlacementScoresPaginatorOptions is the paginator options for
 // GetSpotPlacementScores
@@ -281,6 +279,9 @@ func (p *GetSpotPlacementScoresPaginator) NextPage(ctx context.Context, optFns .
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.GetSpotPlacementScores(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -299,6 +300,14 @@ func (p *GetSpotPlacementScoresPaginator) NextPage(ctx context.Context, optFns .
 
 	return result, nil
 }
+
+// GetSpotPlacementScoresAPIClient is a client that implements the
+// GetSpotPlacementScores operation.
+type GetSpotPlacementScoresAPIClient interface {
+	GetSpotPlacementScores(context.Context, *GetSpotPlacementScoresInput, ...func(*Options)) (*GetSpotPlacementScoresOutput, error)
+}
+
+var _ GetSpotPlacementScoresAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opGetSpotPlacementScores(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

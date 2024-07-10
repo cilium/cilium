@@ -126,6 +126,12 @@ func (c *Client) addOperationDescribeClientVpnEndpointsMiddlewares(stack *middle
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeClientVpnEndpoints(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -146,14 +152,6 @@ func (c *Client) addOperationDescribeClientVpnEndpointsMiddlewares(stack *middle
 	}
 	return nil
 }
-
-// DescribeClientVpnEndpointsAPIClient is a client that implements the
-// DescribeClientVpnEndpoints operation.
-type DescribeClientVpnEndpointsAPIClient interface {
-	DescribeClientVpnEndpoints(context.Context, *DescribeClientVpnEndpointsInput, ...func(*Options)) (*DescribeClientVpnEndpointsOutput, error)
-}
-
-var _ DescribeClientVpnEndpointsAPIClient = (*Client)(nil)
 
 // DescribeClientVpnEndpointsPaginatorOptions is the paginator options for
 // DescribeClientVpnEndpoints
@@ -223,6 +221,9 @@ func (p *DescribeClientVpnEndpointsPaginator) NextPage(ctx context.Context, optF
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeClientVpnEndpoints(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -241,6 +242,14 @@ func (p *DescribeClientVpnEndpointsPaginator) NextPage(ctx context.Context, optF
 
 	return result, nil
 }
+
+// DescribeClientVpnEndpointsAPIClient is a client that implements the
+// DescribeClientVpnEndpoints operation.
+type DescribeClientVpnEndpointsAPIClient interface {
+	DescribeClientVpnEndpoints(context.Context, *DescribeClientVpnEndpointsInput, ...func(*Options)) (*DescribeClientVpnEndpointsOutput, error)
+}
+
+var _ DescribeClientVpnEndpointsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeClientVpnEndpoints(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

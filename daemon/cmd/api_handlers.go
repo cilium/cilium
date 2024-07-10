@@ -12,14 +12,10 @@ import (
 
 	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
-	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
-	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
-	"github.com/cilium/cilium/api/v1/server/restapi/recorder"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 )
@@ -29,14 +25,12 @@ type handlersOut struct {
 
 	DaemonGetCgroupDumpMetadataHandler daemon.GetCgroupDumpMetadataHandler
 	DaemonGetClusterNodesHandler       daemon.GetClusterNodesHandler
-	DaemonGetConfigHandler             daemon.GetConfigHandler
 	DaemonGetDebuginfoHandler          daemon.GetDebuginfoHandler
 	DaemonGetHealthzHandler            daemon.GetHealthzHandler
 	DaemonGetMapHandler                daemon.GetMapHandler
 	DaemonGetMapNameEventsHandler      daemon.GetMapNameEventsHandler
 	DaemonGetMapNameHandler            daemon.GetMapNameHandler
 	DaemonGetNodeIdsHandler            daemon.GetNodeIdsHandler
-	DaemonPatchConfigHandler           daemon.PatchConfigHandler
 
 	EndpointDeleteEndpointHandler        endpoint.DeleteEndpointHandler
 	EndpointDeleteEndpointIDHandler      endpoint.DeleteEndpointIDHandler
@@ -50,10 +44,6 @@ type handlersOut struct {
 	EndpointPatchEndpointIDHandler       endpoint.PatchEndpointIDHandler
 	EndpointPatchEndpointIDLabelsHandler endpoint.PatchEndpointIDLabelsHandler
 	EndpointPutEndpointIDHandler         endpoint.PutEndpointIDHandler
-
-	IpamDeleteIpamIPHandler ipam.DeleteIpamIPHandler
-	IpamPostIpamHandler     ipam.PostIpamHandler
-	IpamPostIpamIPHandler   ipam.PostIpamIPHandler
 
 	MetricsGetMetricsHandler metrics.GetMetricsHandler
 
@@ -70,18 +60,7 @@ type handlersOut struct {
 	PolicyGetPolicySelectorsHandler   policy.GetPolicySelectorsHandler
 	PolicyPutPolicyHandler            policy.PutPolicyHandler
 
-	PrefilterDeletePrefilterHandler prefilter.DeletePrefilterHandler
-	PrefilterGetPrefilterHandler    prefilter.GetPrefilterHandler
-	PrefilterPatchPrefilterHandler  prefilter.PatchPrefilterHandler
-
-	RecorderDeleteRecorderIDHandler recorder.DeleteRecorderIDHandler
-	RecorderGetRecorderHandler      recorder.GetRecorderHandler
-	RecorderGetRecorderIDHandler    recorder.GetRecorderIDHandler
-	RecorderGetRecorderMasksHandler recorder.GetRecorderMasksHandler
-	RecorderPutRecorderIDHandler    recorder.PutRecorderIDHandler
-
 	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
-	ServiceGetLrpHandler          service.GetLrpHandler
 	ServiceGetServiceHandler      service.GetServiceHandler
 	ServiceGetServiceIDHandler    service.GetServiceIDHandler
 	ServicePutServiceIDHandler    service.PutServiceIDHandler
@@ -126,85 +105,53 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 	// /healthz/
 	out.DaemonGetHealthzHandler = wrapAPIHandler(dp, getHealthzHandler)
 
-	// /cluster/nodes
-	out.DaemonGetClusterNodesHandler = NewGetClusterNodesHandler(dp)
-
-	// /config/
-	out.DaemonGetConfigHandler = wrapAPIHandler(dp, getConfigHandler)
-	out.DaemonPatchConfigHandler = wrapAPIHandler(dp, patchConfigHandler)
-
-	if cfg.DatapathMode != datapathOption.DatapathModeLBOnly {
-		// /endpoint/
-		out.EndpointDeleteEndpointHandler = wrapAPIHandler(dp, deleteEndpointHandler)
-		out.EndpointGetEndpointHandler = wrapAPIHandler(dp, getEndpointHandler)
-
-		// /endpoint/{id}
-		out.EndpointGetEndpointIDHandler = wrapAPIHandler(dp, getEndpointIDHandler)
-		out.EndpointPutEndpointIDHandler = wrapAPIHandler(dp, putEndpointIDHandler)
-		out.EndpointPatchEndpointIDHandler = wrapAPIHandler(dp, patchEndpointIDHandler)
-		out.EndpointDeleteEndpointIDHandler = wrapAPIHandler(dp, deleteEndpointIDHandler)
-
-		// /endpoint/{id}config/
-		out.EndpointGetEndpointIDConfigHandler = wrapAPIHandler(dp, getEndpointIDConfigHandler)
-		out.EndpointPatchEndpointIDConfigHandler = wrapAPIHandler(dp, patchEndpointIDConfigHandler)
-
-		// /endpoint/{id}/labels/
-		out.EndpointGetEndpointIDLabelsHandler = wrapAPIHandler(dp, getEndpointIDLabelsHandler)
-		out.EndpointPatchEndpointIDLabelsHandler = wrapAPIHandler(dp, putEndpointIDLabelsHandler)
-
-		// /endpoint/{id}/log/
-		out.EndpointGetEndpointIDLogHandler = wrapAPIHandler(dp, getEndpointIDLogHandler)
-
-		// /endpoint/{id}/healthz
-		out.EndpointGetEndpointIDHealthzHandler = wrapAPIHandler(dp, getEndpointIDHealthzHandler)
-
-		// /identity/
-		out.PolicyGetIdentityHandler = wrapAPIHandler(dp, getIdentityHandler)
-		out.PolicyGetIdentityIDHandler = wrapAPIHandler(dp, getIdentityIDHandler)
-
-		// /identity/endpoints
-		out.PolicyGetIdentityEndpointsHandler = wrapAPIHandler(dp, getIdentityEndpointsHandler)
-
-		// /policy/
-		out.PolicyGetPolicyHandler = wrapAPIHandler(dp, getPolicyHandler)
-		out.PolicyPutPolicyHandler = wrapAPIHandler(dp, putPolicyHandler)
-		out.PolicyDeletePolicyHandler = wrapAPIHandler(dp, deletePolicyHandler)
-		out.PolicyGetPolicySelectorsHandler = wrapAPIHandler(dp, getPolicySelectorsHandler)
-
-		// /lrp/
-		out.ServiceGetLrpHandler = wrapAPIHandler(dp, getLRPHandler)
-	}
+	// /service/
+	out.ServiceGetServiceHandler = wrapAPIHandler(dp, getServiceHandler)
 
 	// /service/{id}/
 	out.ServiceGetServiceIDHandler = wrapAPIHandler(dp, getServiceIDHandler)
 	out.ServiceDeleteServiceIDHandler = wrapAPIHandler(dp, deleteServiceIDHandler)
 	out.ServicePutServiceIDHandler = wrapAPIHandler(dp, putServiceIDHandler)
 
-	// /service/
-	out.ServiceGetServiceHandler = wrapAPIHandler(dp, getServiceHandler)
+	// /cluster/nodes
+	out.DaemonGetClusterNodesHandler = NewGetClusterNodesHandler(dp)
 
-	// /recorder/{id}/
-	out.RecorderGetRecorderIDHandler = wrapAPIHandler(dp, getRecorderIDHandler)
-	out.RecorderDeleteRecorderIDHandler = wrapAPIHandler(dp, deleteRecorderIDHandler)
-	out.RecorderPutRecorderIDHandler = wrapAPIHandler(dp, putRecorderIDHandler)
+	// /endpoint/
+	out.EndpointDeleteEndpointHandler = wrapAPIHandler(dp, deleteEndpointHandler)
+	out.EndpointGetEndpointHandler = wrapAPIHandler(dp, getEndpointHandler)
 
-	// /recorder/
-	out.RecorderGetRecorderHandler = wrapAPIHandler(dp, getRecorderHandler)
+	// /endpoint/{id}
+	out.EndpointGetEndpointIDHandler = wrapAPIHandler(dp, getEndpointIDHandler)
+	out.EndpointPutEndpointIDHandler = wrapAPIHandler(dp, putEndpointIDHandler)
+	out.EndpointPatchEndpointIDHandler = wrapAPIHandler(dp, patchEndpointIDHandler)
+	out.EndpointDeleteEndpointIDHandler = wrapAPIHandler(dp, deleteEndpointIDHandler)
 
-	// /recorder/masks
-	out.RecorderGetRecorderMasksHandler = wrapAPIHandler(dp, getRecorderMasksHandler)
+	// /endpoint/{id}config/
+	out.EndpointGetEndpointIDConfigHandler = wrapAPIHandler(dp, getEndpointIDConfigHandler)
+	out.EndpointPatchEndpointIDConfigHandler = wrapAPIHandler(dp, patchEndpointIDConfigHandler)
 
-	// /prefilter/
-	out.PrefilterGetPrefilterHandler = wrapAPIHandler(dp, getPrefilterHandler)
-	out.PrefilterDeletePrefilterHandler = wrapAPIHandler(dp, deletePrefilterHandler)
-	out.PrefilterPatchPrefilterHandler = wrapAPIHandler(dp, patchPrefilterHandler)
+	// /endpoint/{id}/labels/
+	out.EndpointGetEndpointIDLabelsHandler = wrapAPIHandler(dp, getEndpointIDLabelsHandler)
+	out.EndpointPatchEndpointIDLabelsHandler = wrapAPIHandler(dp, putEndpointIDLabelsHandler)
 
-	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-		// /ipam/{ip}/
-		out.IpamPostIpamHandler = wrapAPIHandler(dp, postIPAMHandler)
-		out.IpamPostIpamIPHandler = wrapAPIHandler(dp, postIPAMIPHandler)
-		out.IpamDeleteIpamIPHandler = wrapAPIHandler(dp, deleteIPAMIPHandler)
-	}
+	// /endpoint/{id}/log/
+	out.EndpointGetEndpointIDLogHandler = wrapAPIHandler(dp, getEndpointIDLogHandler)
+
+	// /endpoint/{id}/healthz
+	out.EndpointGetEndpointIDHealthzHandler = wrapAPIHandler(dp, getEndpointIDHealthzHandler)
+
+	// /identity/
+	out.PolicyGetIdentityHandler = wrapAPIHandler(dp, getIdentityHandler)
+	out.PolicyGetIdentityIDHandler = wrapAPIHandler(dp, getIdentityIDHandler)
+
+	// /identity/endpoints
+	out.PolicyGetIdentityEndpointsHandler = wrapAPIHandler(dp, getIdentityEndpointsHandler)
+
+	// /policy/
+	out.PolicyGetPolicyHandler = wrapAPIHandler(dp, getPolicyHandler)
+	out.PolicyPutPolicyHandler = wrapAPIHandler(dp, putPolicyHandler)
+	out.PolicyDeletePolicyHandler = wrapAPIHandler(dp, deletePolicyHandler)
+	out.PolicyGetPolicySelectorsHandler = wrapAPIHandler(dp, getPolicySelectorsHandler)
 
 	// /debuginfo
 	out.DaemonGetDebuginfoHandler = wrapAPIHandler(dp, getDebugInfoHandler)
@@ -220,13 +167,11 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 	// metrics
 	out.MetricsGetMetricsHandler = wrapAPIHandler(dp, getMetricsHandler)
 
-	if cfg.DatapathMode != datapathOption.DatapathModeLBOnly {
-		// /fqdn/cache
-		out.PolicyGetFqdnCacheHandler = wrapAPIHandler(dp, getFqdnCacheHandler)
-		out.PolicyDeleteFqdnCacheHandler = wrapAPIHandler(dp, deleteFqdnCacheHandler)
-		out.PolicyGetFqdnCacheIDHandler = wrapAPIHandler(dp, getFqdnCacheIDHandler)
-		out.PolicyGetFqdnNamesHandler = wrapAPIHandler(dp, getFqdnNamesHandler)
-	}
+	// /fqdn/cache
+	out.PolicyGetFqdnCacheHandler = wrapAPIHandler(dp, getFqdnCacheHandler)
+	out.PolicyDeleteFqdnCacheHandler = wrapAPIHandler(dp, deleteFqdnCacheHandler)
+	out.PolicyGetFqdnCacheIDHandler = wrapAPIHandler(dp, getFqdnCacheIDHandler)
+	out.PolicyGetFqdnNamesHandler = wrapAPIHandler(dp, getFqdnNamesHandler)
 
 	// /ip/
 	out.PolicyGetIPHandler = wrapAPIHandler(dp, getIPHandler)

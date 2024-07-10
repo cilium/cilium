@@ -131,6 +131,12 @@ func (c *Client) addOperationDescribeLocalGatewaysMiddlewares(stack *middleware.
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeLocalGateways(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -151,14 +157,6 @@ func (c *Client) addOperationDescribeLocalGatewaysMiddlewares(stack *middleware.
 	}
 	return nil
 }
-
-// DescribeLocalGatewaysAPIClient is a client that implements the
-// DescribeLocalGateways operation.
-type DescribeLocalGatewaysAPIClient interface {
-	DescribeLocalGateways(context.Context, *DescribeLocalGatewaysInput, ...func(*Options)) (*DescribeLocalGatewaysOutput, error)
-}
-
-var _ DescribeLocalGatewaysAPIClient = (*Client)(nil)
 
 // DescribeLocalGatewaysPaginatorOptions is the paginator options for
 // DescribeLocalGateways
@@ -225,6 +223,9 @@ func (p *DescribeLocalGatewaysPaginator) NextPage(ctx context.Context, optFns ..
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeLocalGateways(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -243,6 +244,14 @@ func (p *DescribeLocalGatewaysPaginator) NextPage(ctx context.Context, optFns ..
 
 	return result, nil
 }
+
+// DescribeLocalGatewaysAPIClient is a client that implements the
+// DescribeLocalGateways operation.
+type DescribeLocalGatewaysAPIClient interface {
+	DescribeLocalGateways(context.Context, *DescribeLocalGatewaysInput, ...func(*Options)) (*DescribeLocalGatewaysOutput, error)
+}
+
+var _ DescribeLocalGatewaysAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeLocalGateways(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

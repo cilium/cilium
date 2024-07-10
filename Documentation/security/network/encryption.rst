@@ -20,6 +20,10 @@ traffic between Cilium-managed endpoints either using IPsec or WireGuard®:
    encryption-ipsec
    encryption-wireguard
 
+.. admonition:: Video
+ :class: attention
+
+  You can also see a demo of Cilium Transparent Encryption in `eCHO episode 79: Transparent Encryption with IPsec and WireGuard <https://www.youtube.com/watch?v=vj7M-t9MK6s>`__.
 
 Known Issues and Workarounds
 ============================

@@ -1091,13 +1091,35 @@ func TestCIDRGroupRefsToCIDRsSets(t *testing.T) {
 		refs     []string
 		cache    map[string]*cilium_v2_alpha1.CiliumCIDRGroup
 		expected map[string][]api.CIDR
-		err      error
+		err      string
 	}{
 		{
 			name:     "nil refs",
 			refs:     nil,
 			cache:    map[string]*cilium_v2_alpha1.CiliumCIDRGroup{},
 			expected: map[string][]api.CIDR{},
+		},
+		{
+			name: "missing refs",
+			err:  "cidr group \"missing\" not found, skipping translation",
+			refs: []string{"missing", "cidr-group-1"},
+			cache: map[string]*cilium_v2_alpha1.CiliumCIDRGroup{
+				"cidr-group-1": {
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cilium.io/v2alpha1",
+						Kind:       "CiliumCIDRGroup",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cidr-group-1",
+					},
+					Spec: cilium_v2_alpha1.CiliumCIDRGroupSpec{
+						ExternalCIDRs: []api.CIDR{api.CIDR("1.1.1.1/32"), api.CIDR("2.2.2.2/32")},
+					},
+				},
+			},
+			expected: map[string][]api.CIDR{
+				"cidr-group-1": {"1.1.1.1/32", "2.2.2.2/32"},
+			},
 		},
 		{
 			name: "with refs",
@@ -1139,8 +1161,10 @@ func TestCIDRGroupRefsToCIDRsSets(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p := &policyWatcher{cidrGroupCache: tc.cache}
 			got, err := p.cidrGroupRefsToCIDRsSets(tc.refs)
-			if err != nil {
+			if err != nil && tc.err == "" {
 				t.Fatalf("unexpected error from cidrGroupRefsToCIDRsSets: %s", err)
+			} else if err != nil && err.Error() != tc.err {
+				t.Fatalf("unexpected error divergence from cidrGroupRefsToCIDRsSets: %s != %s", err, tc.err)
 			}
 			if !reflect.DeepEqual(got, tc.expected) {
 				t.Fatalf("expected cidr sets to be %v, got %v", tc.expected, got)
@@ -1514,7 +1538,7 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 								},
 								{
 									IngressCommonRule: api.IngressCommonRule{
-										FromCIDRSet: nil,
+										FromCIDRSet: []api.CIDRRule{}, // Empty list, not nil!
 									},
 								},
 							},
@@ -1536,7 +1560,7 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 								},
 								{
 									EgressCommonRule: api.EgressCommonRule{
-										ToCIDRSet: nil,
+										ToCIDRSet: []api.CIDRRule{}, // Empty list, not nil!
 									},
 								},
 							},
@@ -1647,7 +1671,7 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 								},
 								{
 									IngressCommonRule: api.IngressCommonRule{
-										FromCIDRSet: nil,
+										FromCIDRSet: []api.CIDRRule{}, // Empty list, not nil!
 									},
 								},
 							},
@@ -1758,7 +1782,7 @@ func TestCIDRGroupRefsTranslate(t *testing.T) {
 								},
 								{
 									EgressCommonRule: api.EgressCommonRule{
-										ToCIDRSet: nil,
+										ToCIDRSet: []api.CIDRRule{}, // Empty list, not nil!
 									},
 								},
 							},

@@ -32,7 +32,6 @@
 #include "lib/identity.h"
 #include "lib/nodeport.h"
 #include "lib/clustermesh.h"
-#include "lib/wireguard.h"
 #include "lib/egress_gateway.h"
 
 #ifdef ENABLE_VTEP
@@ -150,7 +149,7 @@ not_esp:
 #ifdef HOST_IFINDEX
 	if (1) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
-		union macaddr router_mac = NODE_MAC;
+		union macaddr router_mac = THIS_INTERFACE_MAC;
 
 		ret = ipv6_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr,
 			      (__u8 *)&host_mac.addr, METRIC_INGRESS);
@@ -187,7 +186,7 @@ static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iph
 #ifdef HOST_IFINDEX
 	if (1) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
-		union macaddr router_mac = NODE_MAC;
+		union macaddr router_mac = THIS_INTERFACE_MAC;
 		int ret;
 
 		ret = ipv4_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr,
@@ -252,7 +251,7 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 
 		return ipv4_local_delivery(ctx, ETH_HLEN, src_sec_identity,
 					   MARK_MAGIC_IDENTITY, ip4, ep,
-					   METRIC_INGRESS, false, false, true,
+					   METRIC_INGRESS, false, true,
 					   cluster_id);
 	}
 
@@ -429,6 +428,8 @@ not_esp:
 			if (unlikely(ret != CTX_ACT_OK))
 				return ret;
 
+			ctx_egw_done_set(ctx);
+
 			/* to-netdev@bpf_host handles SNAT, so no need to do it here. */
 			ret = egress_gw_fib_lookup_and_redirect(ctx, snat_addr,
 								daddr, ext_err);
@@ -445,8 +446,7 @@ not_esp:
 	ep = lookup_ip4_endpoint(ip4);
 	if (ep && !(ep->flags & ENDPOINT_F_HOST))
 		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, MARK_MAGIC_IDENTITY,
-					   ip4, ep, METRIC_INGRESS, false, false, true,
-					   0);
+					   ip4, ep, METRIC_INGRESS, false, true, 0);
 
 	ret = overlay_ingress_policy_hook(ctx, ip4, *identity, ext_err);
 	if (ret != CTX_ACT_OK)
@@ -455,6 +455,9 @@ not_esp:
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
 	 */
+
+	set_identity_mark(ctx, *identity, MARK_MAGIC_IDENTITY);
+
 	return ipv4_host_delivery(ctx, ip4);
 }
 
@@ -480,7 +483,7 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP)
 int tail_handle_arp(struct __ctx_buff *ctx)
 {
-	union macaddr mac = NODE_MAC;
+	union macaddr mac = THIS_INTERFACE_MAC;
 	union macaddr smac;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_CT_REPLY,
@@ -740,9 +743,15 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 {
 	bool snat_done __maybe_unused = ctx_snat_done(ctx);
 	struct trace_ctx __maybe_unused trace;
+	struct bpf_tunnel_key tunnel_key = {};
+	__u32 src_sec_identity = UNKNOWN_ID;
 	int ret = TC_ACT_OK;
 	__u32 cluster_id __maybe_unused = 0;
+	__be16 __maybe_unused proto = 0;
 	__s8 ext_err = 0;
+
+	/* Load the ethertype just once: */
+	validate_ethertype(ctx, &proto);
 
 #ifdef ENABLE_BANDWIDTH_MANAGER
 	/* In tunneling mode, we should do this as close as possible to the
@@ -751,7 +760,7 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 	 * timestamp already here. The tunnel dev has noqueue qdisc, so as
 	 * tradeoff it's close enough.
 	 */
-	ret = edt_sched_departure(ctx);
+	ret = edt_sched_departure(ctx, proto);
 	/* No send_drop_notify_error() here given we're rate-limiting. */
 	if (ret == CTX_ACT_DROP) {
 		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
@@ -768,7 +777,14 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 	cluster_id = ctx_get_cluster_id_mark(ctx);
 #endif
 
-	ctx_set_overlay_mark(ctx);
+	/* We might see some unexpected packets without tunnel_key (eg. IPv6 ND).
+	 * No need to worry, the geneve/vxlan kernel drivers will drop them.
+	 */
+	if (!ctx_get_tunnel_key(ctx, &tunnel_key, TUNNEL_KEY_WITHOUT_SRC_IP, 0))
+		src_sec_identity = get_id_from_tunnel_id(tunnel_key.tunnel_id,
+							 ctx_get_protocol(ctx));
+
+	set_identity_mark(ctx, src_sec_identity, MARK_MAGIC_OVERLAY);
 
 #ifdef ENABLE_NODEPORT
 	if (snat_done) {
@@ -776,11 +792,11 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 		goto out;
 	}
 
-	ret = handle_nat_fwd(ctx, cluster_id, &trace, &ext_err);
+	ret = handle_nat_fwd(ctx, cluster_id, proto, &trace, &ext_err);
 out:
 #endif
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
+		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
 	return ret;
 }

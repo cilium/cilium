@@ -20,9 +20,15 @@ func IsGateway(parent gatewayv1.ParentReference) bool {
 	return (parent.Kind == nil || *parent.Kind == kindGateway) && (parent.Group == nil || *parent.Group == gatewayv1.GroupName)
 }
 
+func IsGammaService(parent gatewayv1.ParentReference) bool {
+	return parent.Kind != nil && *parent.Kind == kindService &&
+		parent.Group != nil && *parent.Group == corev1.GroupName
+}
+
 func IsService(be gatewayv1.BackendObjectReference) bool {
 	return (be.Kind == nil || *be.Kind == kindService) && (be.Group == nil || *be.Group == corev1.GroupName)
 }
+
 func IsServiceImport(be gatewayv1.BackendObjectReference) bool {
 	return be.Kind != nil && *be.Kind == kindServiceImport && be.Group != nil && *be.Group == mcsapiv1alpha1.GroupName
 }

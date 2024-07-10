@@ -129,6 +129,12 @@ func (c *Client) addOperationDescribeTransitGatewayMulticastDomainsMiddlewares(s
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeTransitGatewayMulticastDomains(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -149,14 +155,6 @@ func (c *Client) addOperationDescribeTransitGatewayMulticastDomainsMiddlewares(s
 	}
 	return nil
 }
-
-// DescribeTransitGatewayMulticastDomainsAPIClient is a client that implements the
-// DescribeTransitGatewayMulticastDomains operation.
-type DescribeTransitGatewayMulticastDomainsAPIClient interface {
-	DescribeTransitGatewayMulticastDomains(context.Context, *DescribeTransitGatewayMulticastDomainsInput, ...func(*Options)) (*DescribeTransitGatewayMulticastDomainsOutput, error)
-}
-
-var _ DescribeTransitGatewayMulticastDomainsAPIClient = (*Client)(nil)
 
 // DescribeTransitGatewayMulticastDomainsPaginatorOptions is the paginator options
 // for DescribeTransitGatewayMulticastDomains
@@ -225,6 +223,9 @@ func (p *DescribeTransitGatewayMulticastDomainsPaginator) NextPage(ctx context.C
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeTransitGatewayMulticastDomains(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -243,6 +244,14 @@ func (p *DescribeTransitGatewayMulticastDomainsPaginator) NextPage(ctx context.C
 
 	return result, nil
 }
+
+// DescribeTransitGatewayMulticastDomainsAPIClient is a client that implements the
+// DescribeTransitGatewayMulticastDomains operation.
+type DescribeTransitGatewayMulticastDomainsAPIClient interface {
+	DescribeTransitGatewayMulticastDomains(context.Context, *DescribeTransitGatewayMulticastDomainsInput, ...func(*Options)) (*DescribeTransitGatewayMulticastDomainsOutput, error)
+}
+
+var _ DescribeTransitGatewayMulticastDomainsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeTransitGatewayMulticastDomains(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

@@ -34,8 +34,10 @@ Automatic Verification
     DNS resolution, network connectivity, TLS authentication, etcd authorization
     and more, and reports the output in a user friendly format.
 
-    When KVStoreMesh is enabled, additionally run the troubleshoot command
-    inside the clustermesh-apiserver to investigate KVStoreMesh connectivity
+    When KVStoreMesh is enabled, the output of the troubleshoot command refers
+    to the connections from the agents to the local cache, and it is expected to
+    be the same for all the clusters they are connected to. Run the troubleshoot
+    command inside the clustermesh-apiserver to investigate KVStoreMesh connectivity
     issues towards the ClusterMesh control plane in remote clusters:
 
     .. code-block:: shell-session
@@ -71,8 +73,8 @@ you may perform the following steps to troubleshoot ClusterMesh issues.
 
  #. Validate that ClusterMesh is healthy running ``cilium-dbg status --all-clusters`` inside each Cilium agent::
 
-        ClusterMesh:   1/1 clusters ready, 10 global-services
-           k8s-c2: ready, 3 nodes, 25 endpoints, 8 identities, 10 services, 0 failures (last: never)
+        ClusterMesh:   1/1 remote clusters ready, 10 global-services
+           k8s-c2: ready, 3 nodes, 25 endpoints, 8 identities, 10 services, 0 reconnections (last: never)
            └  etcd: 1/1 connected, leases=0, lock lease-ID=7c028201b53de662, has-quorum=true: https://k8s-c2.mesh.cilium.io:2379 - 3.5.4 (Leader)
            └  remote configuration: expected=true, retrieved=true, cluster-id=3, kvstoremesh=false, sync-canaries=true
            └  synchronization status: nodes=true, endpoints=true, identities=true, services=true
@@ -100,6 +102,10 @@ you may perform the following steps to troubleshoot ClusterMesh issues.
     * ``clustermesh-apiserver-remote-cert``, which is used by Cilium agents, and
       optionally the kvstoremesh container in the clustermesh-apiserver deployment,
       to authenticate against remote etcd instances (either internal or external).
+
+    * ``clustermesh-apiserver-local-cert``, which is used by Cilium agents to
+      authenticate against the local etcd instance. Only applicable if KVStoreMesh
+      is enabled.
 
  #. Validate that the configuration for remote clusters is picked up correctly.
     For each remote cluster, an info log message ``New remote cluster

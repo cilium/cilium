@@ -13,12 +13,15 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
-func (s *EndpointSuite) TestWriteInformationalComments(t *testing.T) {
+func TestWriteInformationalComments(t *testing.T) {
+	s := setupEndpointSuite(t)
+
 	e := NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
 
 	var f bytes.Buffer
@@ -40,12 +43,13 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 		NodeMap:        nil,
 		ConfigWriter:   &config.HeaderfileWriter{},
 	})
+	cfg := datapath.LocalNodeConfiguration{}
 
 	targetComments := func(w io.Writer) error {
 		return e.writeInformationalComments(w)
 	}
 	targetConfig := func(w io.Writer) error {
-		return dp.WriteEndpointConfig(w, e)
+		return dp.WriteEndpointConfig(w, &cfg, e)
 	}
 
 	var buf bytes.Buffer

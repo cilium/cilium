@@ -199,12 +199,11 @@ func filterServiceBackends(svc *loadbalancer.SVC, onlyPorts []string) map[string
 	for _, port := range onlyPorts {
 		// check for port number
 		if port == strconv.Itoa(int(svc.Frontend.Port)) {
-			return map[string][]*loadbalancer.Backend{
-				port: preferredBackends,
-			}
+			res[port] = preferredBackends
 		}
 
-		// check for either named port
+		// Continue checking for either named port as the same service
+		// can be used with multiple port types together
 		for _, backend := range preferredBackends {
 			if port == backend.FEPortName {
 				res[port] = append(res[port], backend)
@@ -218,9 +217,9 @@ func filterServiceBackends(svc *loadbalancer.SVC, onlyPorts []string) map[string
 // filterPreferredBackends returns the slice of backends which are preferred for the given service.
 // If there is no preferred backend, it returns the slice of all backends.
 func filterPreferredBackends(backends []*loadbalancer.Backend) []*loadbalancer.Backend {
-	res := []*loadbalancer.Backend{}
+	var res []*loadbalancer.Backend
 	for _, backend := range backends {
-		if backend.Preferred == loadbalancer.Preferred(true) {
+		if backend.Preferred {
 			res = append(res, backend)
 		}
 	}
@@ -233,7 +232,7 @@ func filterPreferredBackends(backends []*loadbalancer.Backend) []*loadbalancer.B
 
 type backendSyncInfo struct {
 	// Names of the L7 LB resources (e.g. CEC) that need this service's backends to be
-	// synced to to an L7 Loadbalancer.
+	// synced to an L7 Loadbalancer.
 	backendRefs map[service.L7LBResourceName]backendSyncCECInfo
 }
 

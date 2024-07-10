@@ -140,6 +140,12 @@ func (c *Client) addOperationDescribeLocalGatewayRouteTableVirtualInterfaceGroup
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociations(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -160,15 +166,6 @@ func (c *Client) addOperationDescribeLocalGatewayRouteTableVirtualInterfaceGroup
 	}
 	return nil
 }
-
-// DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsAPIClient is a
-// client that implements the
-// DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociations operation.
-type DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsAPIClient interface {
-	DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociations(context.Context, *DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsInput, ...func(*Options)) (*DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsOutput, error)
-}
-
-var _ DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsAPIClient = (*Client)(nil)
 
 // DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsPaginatorOptions
 // is the paginator options for
@@ -240,6 +237,9 @@ func (p *DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsPaginato
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociations(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -258,6 +258,15 @@ func (p *DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsPaginato
 
 	return result, nil
 }
+
+// DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsAPIClient is a
+// client that implements the
+// DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociations operation.
+type DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsAPIClient interface {
+	DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociations(context.Context, *DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsInput, ...func(*Options)) (*DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsOutput, error)
+}
+
+var _ DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociations(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

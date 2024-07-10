@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   creationTimestamp: null
   name: ciliumclusterwidenetworkpolicies.cilium.io
 spec:
@@ -139,6 +139,7 @@ spec:
                               required:
                               - type
                               type: object
+                            maxItems: 40
                             type: array
                         type: object
                       type: array
@@ -155,7 +156,7 @@ spec:
                       items:
                         description: 'CIDR specifies a block of IP addresses. Example:
                           192.0.2.1/32'
-                        pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                        format: cidr
                         type: string
                       type: array
                     toCIDRSet:
@@ -187,7 +188,7 @@ spec:
                         properties:
                           cidr:
                             description: CIDR is a CIDR prefix / IP Block.
-                            pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                            format: cidr
                             type: string
                           cidrGroupRef:
                             description: CIDRGroupRef is a reference to a CiliumCIDRGroup
@@ -209,7 +210,7 @@ spec:
                             items:
                               description: 'CIDR specifies a block of IP addresses.
                                 Example: 192.0.2.1/32'
-                              pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                              format: cidr
                               type: string
                             type: array
                         type: object
@@ -316,6 +317,15 @@ spec:
                         rule will not apply to that IP. Note: ToFQDN cannot occur
                         in the same policy as other To* rules.'
                       items:
+                        oneOf:
+                        - properties:
+                            matchName: {}
+                          required:
+                          - matchName
+                        - properties:
+                            matchPattern: {}
+                          required:
+                          - matchPattern
                         properties:
                           matchName:
                             description: MatchName matches literal DNS names. A trailing
@@ -548,15 +558,15 @@ spec:
                               description: PortProtocol specifies an L4 port with
                                 an optional transport protocol
                               properties:
+                                endPort:
+                                  description: EndPort can only be an L4 port number.
+                                  format: int32
+                                  maximum: 65535
+                                  minimum: 0
+                                  type: integer
                                 port:
-                                  description: Port is an L4 port number. For now
-                                    the string will be strictly parsed as a single
-                                    uint16. In the future, this field may support
-                                    ranges in the form "1024-2048 Port can also be
-                                    a port name, which must contain at least one [a-z],
-                                    and may also contain [0-9] and '-' anywhere except
-                                    adjacent to another '-' or in the beginning or
-                                    the end.
+                                  description: Port can be an L4 port number, or a
+                                    name in the form of "http" or "http-8080".
                                   pattern: ^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4})|([a-zA-Z0-9]-?)*[a-zA-Z](-?[a-zA-Z0-9])*$
                                   type: string
                                 protocol:
@@ -575,18 +585,45 @@ spec:
                               required:
                               - port
                               type: object
+                            maxItems: 40
                             type: array
                           rules:
                             description: Rules is a list of additional port level
                               rules which must be met in order for the PortRule to
                               allow the traffic. If omitted or empty, no layer 7 rules
                               are enforced.
+                            oneOf:
+                            - properties:
+                                http: {}
+                              required:
+                              - http
+                            - properties:
+                                kafka: {}
+                              required:
+                              - kafka
+                            - properties:
+                                dns: {}
+                              required:
+                              - dns
+                            - properties:
+                                l7proto: {}
+                              required:
+                              - l7proto
                             properties:
                               dns:
                                 description: DNS-specific rules.
                                 items:
                                   description: PortRuleDNS is a list of allowed DNS
                                     lookups.
+                                  oneOf:
+                                  - properties:
+                                      matchName: {}
+                                    required:
+                                    - matchName
+                                  - properties:
+                                      matchPattern: {}
+                                    required:
+                                    - matchPattern
                                   properties:
                                     matchName:
                                       description: MatchName matches literal DNS names.
@@ -663,6 +700,7 @@ spec:
                                             type: string
                                           name:
                                             description: Name identifies the header.
+                                            minLength: 1
                                             type: string
                                           secret:
                                             description: Secret refers to a secret
@@ -1109,6 +1147,7 @@ spec:
                               required:
                               - type
                               type: object
+                            maxItems: 40
                             type: array
                         type: object
                       type: array
@@ -1125,7 +1164,7 @@ spec:
                       items:
                         description: 'CIDR specifies a block of IP addresses. Example:
                           192.0.2.1/32'
-                        pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                        format: cidr
                         type: string
                       type: array
                     toCIDRSet:
@@ -1157,7 +1196,7 @@ spec:
                         properties:
                           cidr:
                             description: CIDR is a CIDR prefix / IP Block.
-                            pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                            format: cidr
                             type: string
                           cidrGroupRef:
                             description: CIDRGroupRef is a reference to a CiliumCIDRGroup
@@ -1179,7 +1218,7 @@ spec:
                             items:
                               description: 'CIDR specifies a block of IP addresses.
                                 Example: 192.0.2.1/32'
-                              pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                              format: cidr
                               type: string
                             type: array
                         type: object
@@ -1377,15 +1416,15 @@ spec:
                               description: PortProtocol specifies an L4 port with
                                 an optional transport protocol
                               properties:
+                                endPort:
+                                  description: EndPort can only be an L4 port number.
+                                  format: int32
+                                  maximum: 65535
+                                  minimum: 0
+                                  type: integer
                                 port:
-                                  description: Port is an L4 port number. For now
-                                    the string will be strictly parsed as a single
-                                    uint16. In the future, this field may support
-                                    ranges in the form "1024-2048 Port can also be
-                                    a port name, which must contain at least one [a-z],
-                                    and may also contain [0-9] and '-' anywhere except
-                                    adjacent to another '-' or in the beginning or
-                                    the end.
+                                  description: Port can be an L4 port number, or a
+                                    name in the form of "http" or "http-8080".
                                   pattern: ^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4})|([a-zA-Z0-9]-?)*[a-zA-Z](-?[a-zA-Z0-9])*$
                                   type: string
                                 protocol:
@@ -1688,7 +1727,7 @@ spec:
                       items:
                         description: 'CIDR specifies a block of IP addresses. Example:
                           192.0.2.1/32'
-                        pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                        format: cidr
                         type: string
                       type: array
                     fromCIDRSet:
@@ -1720,7 +1759,7 @@ spec:
                         properties:
                           cidr:
                             description: CIDR is a CIDR prefix / IP Block.
-                            pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                            format: cidr
                             type: string
                           cidrGroupRef:
                             description: CIDRGroupRef is a reference to a CiliumCIDRGroup
@@ -1742,7 +1781,7 @@ spec:
                             items:
                               description: 'CIDR specifies a block of IP addresses.
                                 Example: 192.0.2.1/32'
-                              pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                              format: cidr
                               type: string
                             type: array
                         type: object
@@ -2039,6 +2078,7 @@ spec:
                               required:
                               - type
                               type: object
+                            maxItems: 40
                             type: array
                         type: object
                       type: array
@@ -2156,15 +2196,15 @@ spec:
                               description: PortProtocol specifies an L4 port with
                                 an optional transport protocol
                               properties:
+                                endPort:
+                                  description: EndPort can only be an L4 port number.
+                                  format: int32
+                                  maximum: 65535
+                                  minimum: 0
+                                  type: integer
                                 port:
-                                  description: Port is an L4 port number. For now
-                                    the string will be strictly parsed as a single
-                                    uint16. In the future, this field may support
-                                    ranges in the form "1024-2048 Port can also be
-                                    a port name, which must contain at least one [a-z],
-                                    and may also contain [0-9] and '-' anywhere except
-                                    adjacent to another '-' or in the beginning or
-                                    the end.
+                                  description: Port can be an L4 port number, or a
+                                    name in the form of "http" or "http-8080".
                                   pattern: ^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4})|([a-zA-Z0-9]-?)*[a-zA-Z](-?[a-zA-Z0-9])*$
                                   type: string
                                 protocol:
@@ -2183,18 +2223,45 @@ spec:
                               required:
                               - port
                               type: object
+                            maxItems: 40
                             type: array
                           rules:
                             description: Rules is a list of additional port level
                               rules which must be met in order for the PortRule to
                               allow the traffic. If omitted or empty, no layer 7 rules
                               are enforced.
+                            oneOf:
+                            - properties:
+                                http: {}
+                              required:
+                              - http
+                            - properties:
+                                kafka: {}
+                              required:
+                              - kafka
+                            - properties:
+                                dns: {}
+                              required:
+                              - dns
+                            - properties:
+                                l7proto: {}
+                              required:
+                              - l7proto
                             properties:
                               dns:
                                 description: DNS-specific rules.
                                 items:
                                   description: PortRuleDNS is a list of allowed DNS
                                     lookups.
+                                  oneOf:
+                                  - properties:
+                                      matchName: {}
+                                    required:
+                                    - matchName
+                                  - properties:
+                                      matchPattern: {}
+                                    required:
+                                    - matchPattern
                                   properties:
                                     matchName:
                                       description: MatchName matches literal DNS names.
@@ -2271,6 +2338,7 @@ spec:
                                             type: string
                                           name:
                                             description: Name identifies the header.
+                                            minLength: 1
                                             type: string
                                           secret:
                                             description: Secret refers to a secret
@@ -2526,7 +2594,7 @@ spec:
                       items:
                         description: 'CIDR specifies a block of IP addresses. Example:
                           192.0.2.1/32'
-                        pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                        format: cidr
                         type: string
                       type: array
                     fromCIDRSet:
@@ -2558,7 +2626,7 @@ spec:
                         properties:
                           cidr:
                             description: CIDR is a CIDR prefix / IP Block.
-                            pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                            format: cidr
                             type: string
                           cidrGroupRef:
                             description: CIDRGroupRef is a reference to a CiliumCIDRGroup
@@ -2580,7 +2648,7 @@ spec:
                             items:
                               description: 'CIDR specifies a block of IP addresses.
                                 Example: 192.0.2.1/32'
-                              pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                              format: cidr
                               type: string
                             type: array
                         type: object
@@ -2877,6 +2945,7 @@ spec:
                               required:
                               - type
                               type: object
+                            maxItems: 40
                             type: array
                         type: object
                       type: array
@@ -2897,15 +2966,15 @@ spec:
                               description: PortProtocol specifies an L4 port with
                                 an optional transport protocol
                               properties:
+                                endPort:
+                                  description: EndPort can only be an L4 port number.
+                                  format: int32
+                                  maximum: 65535
+                                  minimum: 0
+                                  type: integer
                                 port:
-                                  description: Port is an L4 port number. For now
-                                    the string will be strictly parsed as a single
-                                    uint16. In the future, this field may support
-                                    ranges in the form "1024-2048 Port can also be
-                                    a port name, which must contain at least one [a-z],
-                                    and may also contain [0-9] and '-' anywhere except
-                                    adjacent to another '-' or in the beginning or
-                                    the end.
+                                  description: Port can be an L4 port number, or a
+                                    name in the form of "http" or "http-8080".
                                   pattern: ^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4})|([a-zA-Z0-9]-?)*[a-zA-Z](-?[a-zA-Z0-9])*$
                                   type: string
                                 protocol:
@@ -3118,6 +3187,7 @@ spec:
                                 required:
                                 - type
                                 type: object
+                              maxItems: 40
                               type: array
                           type: object
                         type: array
@@ -3134,7 +3204,7 @@ spec:
                         items:
                           description: 'CIDR specifies a block of IP addresses. Example:
                             192.0.2.1/32'
-                          pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                          format: cidr
                           type: string
                         type: array
                       toCIDRSet:
@@ -3166,7 +3236,7 @@ spec:
                           properties:
                             cidr:
                               description: CIDR is a CIDR prefix / IP Block.
-                              pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                              format: cidr
                               type: string
                             cidrGroupRef:
                               description: CIDRGroupRef is a reference to a CiliumCIDRGroup
@@ -3189,7 +3259,7 @@ spec:
                               items:
                                 description: 'CIDR specifies a block of IP addresses.
                                   Example: 192.0.2.1/32'
-                                pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                                format: cidr
                                 type: string
                               type: array
                           type: object
@@ -3296,6 +3366,15 @@ spec:
                           cluster, the ToFQDN rule will not apply to that IP. Note:
                           ToFQDN cannot occur in the same policy as other To* rules.'
                         items:
+                          oneOf:
+                          - properties:
+                              matchName: {}
+                            required:
+                            - matchName
+                          - properties:
+                              matchPattern: {}
+                            required:
+                            - matchPattern
                           properties:
                             matchName:
                               description: MatchName matches literal DNS names. A
@@ -3531,15 +3610,15 @@ spec:
                                 description: PortProtocol specifies an L4 port with
                                   an optional transport protocol
                                 properties:
+                                  endPort:
+                                    description: EndPort can only be an L4 port number.
+                                    format: int32
+                                    maximum: 65535
+                                    minimum: 0
+                                    type: integer
                                   port:
-                                    description: Port is an L4 port number. For now
-                                      the string will be strictly parsed as a single
-                                      uint16. In the future, this field may support
-                                      ranges in the form "1024-2048 Port can also
-                                      be a port name, which must contain at least
-                                      one [a-z], and may also contain [0-9] and '-'
-                                      anywhere except adjacent to another '-' or in
-                                      the beginning or the end.
+                                    description: Port can be an L4 port number, or
+                                      a name in the form of "http" or "http-8080".
                                     pattern: ^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4})|([a-zA-Z0-9]-?)*[a-zA-Z](-?[a-zA-Z0-9])*$
                                     type: string
                                   protocol:
@@ -3558,18 +3637,45 @@ spec:
                                 required:
                                 - port
                                 type: object
+                              maxItems: 40
                               type: array
                             rules:
                               description: Rules is a list of additional port level
                                 rules which must be met in order for the PortRule
                                 to allow the traffic. If omitted or empty, no layer
                                 7 rules are enforced.
+                              oneOf:
+                              - properties:
+                                  http: {}
+                                required:
+                                - http
+                              - properties:
+                                  kafka: {}
+                                required:
+                                - kafka
+                              - properties:
+                                  dns: {}
+                                required:
+                                - dns
+                              - properties:
+                                  l7proto: {}
+                                required:
+                                - l7proto
                               properties:
                                 dns:
                                   description: DNS-specific rules.
                                   items:
                                     description: PortRuleDNS is a list of allowed
                                       DNS lookups.
+                                    oneOf:
+                                    - properties:
+                                        matchName: {}
+                                      required:
+                                      - matchName
+                                    - properties:
+                                        matchPattern: {}
+                                      required:
+                                      - matchPattern
                                     properties:
                                       matchName:
                                         description: MatchName matches literal DNS
@@ -3648,6 +3754,7 @@ spec:
                                               type: string
                                             name:
                                               description: Name identifies the header.
+                                              minLength: 1
                                               type: string
                                             secret:
                                               description: Secret refers to a secret
@@ -4104,6 +4211,7 @@ spec:
                                 required:
                                 - type
                                 type: object
+                              maxItems: 40
                               type: array
                           type: object
                         type: array
@@ -4120,7 +4228,7 @@ spec:
                         items:
                           description: 'CIDR specifies a block of IP addresses. Example:
                             192.0.2.1/32'
-                          pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                          format: cidr
                           type: string
                         type: array
                       toCIDRSet:
@@ -4152,7 +4260,7 @@ spec:
                           properties:
                             cidr:
                               description: CIDR is a CIDR prefix / IP Block.
-                              pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                              format: cidr
                               type: string
                             cidrGroupRef:
                               description: CIDRGroupRef is a reference to a CiliumCIDRGroup
@@ -4175,7 +4283,7 @@ spec:
                               items:
                                 description: 'CIDR specifies a block of IP addresses.
                                   Example: 192.0.2.1/32'
-                                pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                                format: cidr
                                 type: string
                               type: array
                           type: object
@@ -4373,15 +4481,15 @@ spec:
                                 description: PortProtocol specifies an L4 port with
                                   an optional transport protocol
                                 properties:
+                                  endPort:
+                                    description: EndPort can only be an L4 port number.
+                                    format: int32
+                                    maximum: 65535
+                                    minimum: 0
+                                    type: integer
                                   port:
-                                    description: Port is an L4 port number. For now
-                                      the string will be strictly parsed as a single
-                                      uint16. In the future, this field may support
-                                      ranges in the form "1024-2048 Port can also
-                                      be a port name, which must contain at least
-                                      one [a-z], and may also contain [0-9] and '-'
-                                      anywhere except adjacent to another '-' or in
-                                      the beginning or the end.
+                                    description: Port can be an L4 port number, or
+                                      a name in the form of "http" or "http-8080".
                                     pattern: ^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4})|([a-zA-Z0-9]-?)*[a-zA-Z](-?[a-zA-Z0-9])*$
                                     type: string
                                   protocol:
@@ -4689,7 +4797,7 @@ spec:
                         items:
                           description: 'CIDR specifies a block of IP addresses. Example:
                             192.0.2.1/32'
-                          pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                          format: cidr
                           type: string
                         type: array
                       fromCIDRSet:
@@ -4721,7 +4829,7 @@ spec:
                           properties:
                             cidr:
                               description: CIDR is a CIDR prefix / IP Block.
-                              pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                              format: cidr
                               type: string
                             cidrGroupRef:
                               description: CIDRGroupRef is a reference to a CiliumCIDRGroup
@@ -4744,7 +4852,7 @@ spec:
                               items:
                                 description: 'CIDR specifies a block of IP addresses.
                                   Example: 192.0.2.1/32'
-                                pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                                format: cidr
                                 type: string
                               type: array
                           type: object
@@ -5043,6 +5151,7 @@ spec:
                                 required:
                                 - type
                                 type: object
+                              maxItems: 40
                               type: array
                           type: object
                         type: array
@@ -5162,15 +5271,15 @@ spec:
                                 description: PortProtocol specifies an L4 port with
                                   an optional transport protocol
                                 properties:
+                                  endPort:
+                                    description: EndPort can only be an L4 port number.
+                                    format: int32
+                                    maximum: 65535
+                                    minimum: 0
+                                    type: integer
                                   port:
-                                    description: Port is an L4 port number. For now
-                                      the string will be strictly parsed as a single
-                                      uint16. In the future, this field may support
-                                      ranges in the form "1024-2048 Port can also
-                                      be a port name, which must contain at least
-                                      one [a-z], and may also contain [0-9] and '-'
-                                      anywhere except adjacent to another '-' or in
-                                      the beginning or the end.
+                                    description: Port can be an L4 port number, or
+                                      a name in the form of "http" or "http-8080".
                                     pattern: ^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4})|([a-zA-Z0-9]-?)*[a-zA-Z](-?[a-zA-Z0-9])*$
                                     type: string
                                   protocol:
@@ -5189,18 +5298,45 @@ spec:
                                 required:
                                 - port
                                 type: object
+                              maxItems: 40
                               type: array
                             rules:
                               description: Rules is a list of additional port level
                                 rules which must be met in order for the PortRule
                                 to allow the traffic. If omitted or empty, no layer
                                 7 rules are enforced.
+                              oneOf:
+                              - properties:
+                                  http: {}
+                                required:
+                                - http
+                              - properties:
+                                  kafka: {}
+                                required:
+                                - kafka
+                              - properties:
+                                  dns: {}
+                                required:
+                                - dns
+                              - properties:
+                                  l7proto: {}
+                                required:
+                                - l7proto
                               properties:
                                 dns:
                                   description: DNS-specific rules.
                                   items:
                                     description: PortRuleDNS is a list of allowed
                                       DNS lookups.
+                                    oneOf:
+                                    - properties:
+                                        matchName: {}
+                                      required:
+                                      - matchName
+                                    - properties:
+                                        matchPattern: {}
+                                      required:
+                                      - matchPattern
                                     properties:
                                       matchName:
                                         description: MatchName matches literal DNS
@@ -5279,6 +5415,7 @@ spec:
                                               type: string
                                             name:
                                               description: Name identifies the header.
+                                              minLength: 1
                                               type: string
                                             secret:
                                               description: Secret refers to a secret
@@ -5540,7 +5677,7 @@ spec:
                         items:
                           description: 'CIDR specifies a block of IP addresses. Example:
                             192.0.2.1/32'
-                          pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                          format: cidr
                           type: string
                         type: array
                       fromCIDRSet:
@@ -5572,7 +5709,7 @@ spec:
                           properties:
                             cidr:
                               description: CIDR is a CIDR prefix / IP Block.
-                              pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                              format: cidr
                               type: string
                             cidrGroupRef:
                               description: CIDRGroupRef is a reference to a CiliumCIDRGroup
@@ -5595,7 +5732,7 @@ spec:
                               items:
                                 description: 'CIDR specifies a block of IP addresses.
                                   Example: 192.0.2.1/32'
-                                pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
+                                format: cidr
                                 type: string
                               type: array
                           type: object
@@ -5894,6 +6031,7 @@ spec:
                                 required:
                                 - type
                                 type: object
+                              maxItems: 40
                               type: array
                           type: object
                         type: array
@@ -5914,15 +6052,15 @@ spec:
                                 description: PortProtocol specifies an L4 port with
                                   an optional transport protocol
                                 properties:
+                                  endPort:
+                                    description: EndPort can only be an L4 port number.
+                                    format: int32
+                                    maximum: 65535
+                                    minimum: 0
+                                    type: integer
                                   port:
-                                    description: Port is an L4 port number. For now
-                                      the string will be strictly parsed as a single
-                                      uint16. In the future, this field may support
-                                      ranges in the form "1024-2048 Port can also
-                                      be a port name, which must contain at least
-                                      one [a-z], and may also contain [0-9] and '-'
-                                      anywhere except adjacent to another '-' or in
-                                      the beginning or the end.
+                                    description: Port can be an L4 port number, or
+                                      a name in the form of "http" or "http-8080".
                                     pattern: ^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4})|([a-zA-Z0-9]-?)*[a-zA-Z](-?[a-zA-Z0-9])*$
                                     type: string
                                   protocol:
@@ -6033,6 +6171,36 @@ spec:
               that doesn't create a `UpdateStatus` method because the field does not
               exist in the structure."
             properties:
+              conditions:
+                items:
+                  properties:
+                    lastTransitionTime:
+                      description: The last time the condition transitioned from one
+                        status to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: A human readable message indicating details about
+                        the transition.
+                      type: string
+                    reason:
+                      description: The reason for the condition's last transition.
+                      type: string
+                    status:
+                      description: The status of the condition, one of True, False,
+                        or Unknown
+                      type: string
+                    type:
+                      description: The type of the policy condition
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               derivativePolicies:
                 additionalProperties:
                   description: CiliumNetworkPolicyNodeStatus is the status of a Cilium
@@ -6076,49 +6244,6 @@ spec:
                   type: object
                 description: DerivativePolicies is the status of all policies derived
                   from the Cilium policy
-                type: object
-              nodes:
-                additionalProperties:
-                  description: CiliumNetworkPolicyNodeStatus is the status of a Cilium
-                    policy rule for a specific node.
-                  properties:
-                    annotations:
-                      additionalProperties:
-                        type: string
-                      description: Annotations corresponds to the Annotations in the
-                        ObjectMeta of the CNP that have been realized on the node
-                        for CNP. That is, if a CNP has been imported and has been
-                        assigned annotation X=Y by the user, Annotations in CiliumNetworkPolicyNodeStatus
-                        will be X=Y once the CNP that was imported corresponding to
-                        Annotation X=Y has been realized on the node.
-                      type: object
-                    enforcing:
-                      description: Enforcing is set to true once all endpoints present
-                        at the time the policy has been imported are enforcing this
-                        policy.
-                      type: boolean
-                    error:
-                      description: Error describes any error that occurred when parsing
-                        or importing the policy, or realizing the policy for the endpoints
-                        to which it applies on the node.
-                      type: string
-                    lastUpdated:
-                      description: LastUpdated contains the last time this status
-                        was updated
-                      format: date-time
-                      type: string
-                    localPolicyRevision:
-                      description: Revision is the policy revision of the repository
-                        which first implemented this policy.
-                      format: int64
-                      type: integer
-                    ok:
-                      description: OK is true when the policy has been parsed and
-                        imported successfully into the in-memory policy repository
-                        on the node.
-                      type: boolean
-                  type: object
-                description: Nodes is the Cilium policy status for each node
                 type: object
             type: object
         required:

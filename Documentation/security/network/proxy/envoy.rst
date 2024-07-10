@@ -54,6 +54,11 @@ Potential Benefits
 - Dedicated health probes for the Envoy proxy.
 - Explicit deployment of Envoy proxy during Cilium installation (compared to on demand in the embedded mode).
 
+.. admonition:: Video
+ :class: attention
+
+  If you'd like to see Cilium Envoy in action, check out `eCHO episode 127: Cilium & Envoy <https://www.youtube.com/watch?v=HEwruycGbCU>`__.
+
 Known Limitations
 =================
 
@@ -179,7 +184,7 @@ After cloning cilium/proxy repo:
     $ cd proxylib
 
 While this dev VM is running, you can open additional terminals to the cilium/proxy dev VM
-by running ''vagrant ssh'' from within the cilium/proxy source directory.
+by running ``vagrant ssh`` from within the cilium/proxy source directory.
 
 
 Step 5: Create New Proxy Skeleton 
@@ -440,7 +445,7 @@ Step 11: Add Access Logging
 Cilium also has the notion of an ''Access Log'', which records each request handled by the proxy 
 and indicates whether the request was allowed or denied.  
 
-A call to ''p.connection.Log()'' implements access logging. See the OnData function in r2d2/r2d2parser.go 
+A call to ``p.connection.Log()`` implements access logging. See the OnData function in r2d2/r2d2parser.go 
 as an example: 
 
 .. code-block:: go
@@ -474,7 +479,7 @@ Note that we run both containers with labels that will make it easy to refer to 
 network policy.   Note that we have the client container run the sleep command, as we will use 'docker exec' to 
 access the client CLI.  
 
-Use ''cilium-dbg endpoint list'' to identify the IP address of the protocol server.  
+Use ``cilium-dbg endpoint list`` to identify the IP address of the protocol server.  
 
 .. code-block:: shell-session
 
@@ -511,7 +516,7 @@ Go Cassandra parser.  This policy has a single empty rule, which matches all req
   }]
 
 
-A policy can be imported into cilium using ''cilium policy import'', after which another call to ''cilium-dbg endpoint list''
+A policy can be imported into cilium using ``cilium policy import``, after which another call to ``cilium-dbg endpoint list``
 confirms that ingress policy is now in place on the server.  If the above policy was saved to a file cass-allow-all.json, 
 one would run: 
 
@@ -534,7 +539,7 @@ To remove this or any other policy, run:
 
     $ cilium-dbg policy delete --all 
 
-To install a new policy, first delete, and then run ''cilium policy import'' again.  For example, the following policy would allow
+To install a new policy, first delete, and then run ``cilium policy import`` again.  For example, the following policy would allow
 select statements on a specific set of tables to this Cassandra server, but deny all other queries. 
 
 .. code-block:: json
@@ -572,9 +577,9 @@ For example:
 If you rebase or other files change, you need to run both commands from the top level directory.  
 
 Cilium agent default to running as a service in the development VM.  However, the default options do not include 
-the ''--debug-verbose=flow'' flag, which is critical to getting visibility in troubleshooting Go proxy frameworks. 
+the ``--debug-verbose=flow`` flag, which is critical to getting visibility in troubleshooting Go proxy frameworks. 
 So it is easiest to stop the cilium service and run the cilium-agent directly as a command in a terminal window, 
-and adding the ''--debug-verbose=flow'' flag. 
+and adding the ``--debug-verbose=flow`` flag. 
 
 .. code-block:: shell-session
 

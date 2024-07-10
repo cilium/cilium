@@ -14,13 +14,13 @@
  *
  * If TRACE_SOCK_NOTIFY is not defined, the API will be compiled in as a NOP.
  */
-#ifndef __LIB_TRACE_SOCK__
-#define __LIB_TRACE_SOCK__
+#pragma once
 
 #include <bpf/ctx/sock.h>
 
 #include "common.h"
 #include "events.h"
+#include "ratelimit.h"
 
 /* L4 protocol for the trace event */
 enum l4_protocol {
@@ -82,6 +82,19 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 {
 	__u64 cgroup_id = 0;
 	struct trace_sock_notify msg __align_stack_8;
+	struct ratelimit_key rkey = {
+		.usage = RATELIMIT_USAGE_EVENTS_MAP,
+	};
+	struct ratelimit_settings settings = {
+		.topup_interval_ns = NSEC_PER_SEC,
+	};
+
+	if (EVENTS_MAP_RATE_LIMIT > 0) {
+		settings.bucket_size = EVENTS_MAP_BURST_LIMIT;
+		settings.tokens_per_topup = EVENTS_MAP_RATE_LIMIT;
+		if (!ratelimit_check_and_take(&rkey, &settings))
+			return;
+	}
 
 	if (is_defined(HAVE_CGROUP_ID))
 		cgroup_id = get_current_cgroup_id();
@@ -108,6 +121,19 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 {
 	__u64 cgroup_id = 0;
 	struct trace_sock_notify msg __align_stack_8;
+	struct ratelimit_key rkey = {
+		.usage = RATELIMIT_USAGE_EVENTS_MAP,
+	};
+	struct ratelimit_settings settings = {
+		.topup_interval_ns = NSEC_PER_SEC,
+	};
+
+	if (EVENTS_MAP_RATE_LIMIT > 0) {
+		settings.bucket_size = EVENTS_MAP_BURST_LIMIT;
+		settings.tokens_per_topup = EVENTS_MAP_RATE_LIMIT;
+		if (!ratelimit_check_and_take(&rkey, &settings))
+			return;
+	}
 
 	if (is_defined(HAVE_CGROUP_ID))
 		cgroup_id = get_current_cgroup_id();
@@ -140,4 +166,3 @@ send_trace_sock_notify6(struct __ctx_sock *ctx __maybe_unused,
 {
 }
 #endif /* TRACE_SOCK_NOTIFY */
-#endif /* __LIB_TRACE_SOCK__ */

@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -27,8 +26,9 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-func (s *EndpointSuite) TestUpdateVisibilityPolicy(t *testing.T) {
-	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil, nil)}
+func TestUpdateVisibilityPolicy(t *testing.T) {
+	setupEndpointSuite(t)
+	do := &DummyOwner{repo: policy.NewPolicyRepository(nil, nil, nil)}
 	ep := NewTestEndpointWithState(t, do, do, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 	ep.UpdateVisibilityPolicy(func(_, _ string) (string, error) {
 		return "", nil
@@ -71,9 +71,9 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	policy.SetPolicyEnabled("always")
 	defer policy.SetPolicyEnabled(pe)
 
-	idcache := make(cache.IdentityCache, testfactor)
+	idcache := make(identity.IdentityMap, testfactor)
 	fakeAllocator := testidentity.NewMockIdentityAllocator(idcache)
-	repo := policy.NewPolicyRepository(fakeAllocator, fakeAllocator.GetIdentityCache(), nil, nil)
+	repo := policy.NewPolicyRepository(fakeAllocator.GetIdentityCache(), nil, nil)
 
 	defer func() {
 		repo.RepositoryChangeQueue.Stop()
@@ -95,7 +95,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		// t.Logf("allocated label %s id %d", labelKeys, id.ID) // commented out for speed
 
 		wg := &sync.WaitGroup{}
-		repo.GetSelectorCache().UpdateIdentities(cache.IdentityCache{
+		repo.GetSelectorCache().UpdateIdentities(identity.IdentityMap{
 			id.ID: id.LabelArray,
 		}, nil, wg)
 		wg.Wait()
@@ -141,10 +141,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		},
 	}
 
-	_, _, err := repo.Add(*egressDenyRule)
-	if err != nil {
-		t.Fatal(err)
-	}
+	repo.MustAddList(api.Rules{egressDenyRule})
 
 	// Track all IDs we allocate so we can validate later that we never miss any
 	checkMutex := lock.Mutex{}
@@ -169,10 +166,11 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		done = true
 	}()
 
+	stats := new(regenerationStatistics)
 	// Continuously compute policy for the pod and ensure we never missed an incremental update.
 	for {
 		t.Log("Calculating policy...")
-		res, err := ep.regeneratePolicy()
+		res, err := ep.regeneratePolicy(stats)
 		assert.Nil(t, err)
 
 		// Sleep a random amount, so we accumulate some changes

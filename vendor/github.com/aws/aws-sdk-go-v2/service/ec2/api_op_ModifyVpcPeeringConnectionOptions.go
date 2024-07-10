@@ -131,6 +131,12 @@ func (c *Client) addOperationModifyVpcPeeringConnectionOptionsMiddlewares(stack 
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpModifyVpcPeeringConnectionOptionsValidationMiddleware(stack); err != nil {
 		return err
 	}

@@ -316,7 +316,7 @@ func executeForConfigType[T k8sRuntime.Object](t *testing.T,
 				shouldFailFor: tc.shouldFailFor,
 			}
 
-			reconciler := newCiliumEnvoyConfigReconciler(logger, manager)
+			reconciler := newCiliumEnvoyConfigReconciler(reconcilerParams{Logger: logger, Manager: manager})
 
 			// init current state
 			configs := map[resource.Key]*config{}
@@ -536,7 +536,7 @@ func TestReconcileExistingConfigs(t *testing.T) {
 				shouldFailFor: tc.failFor,
 			}
 
-			reconciler := newCiliumEnvoyConfigReconciler(logger, manager)
+			reconciler := newCiliumEnvoyConfigReconciler(reconcilerParams{Logger: logger, Manager: manager})
 
 			// init current state
 			reconciler.configs = make(map[resource.Key]*config, len(tc.configs))
@@ -673,7 +673,7 @@ func TestHandleLocalNodeLabels(t *testing.T) {
 				shouldFailFor: tc.failFor,
 			}
 
-			reconciler := newCiliumEnvoyConfigReconciler(logger, manager)
+			reconciler := newCiliumEnvoyConfigReconciler(reconcilerParams{Logger: logger, Manager: manager})
 
 			// init current state
 			reconciler.configs = make(map[resource.Key]*config, len(tc.configs))
@@ -786,5 +786,9 @@ func (r *fakeCECManager) updateCiliumEnvoyConfig(oldCECObjectMeta metav1.ObjectM
 
 	r.updatedConfigNames = append(r.updatedConfigNames, namespacedName)
 
+	return nil
+}
+
+func (r *fakeCECManager) syncCiliumEnvoyConfigService(name string, namespace string, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error {
 	return nil
 }

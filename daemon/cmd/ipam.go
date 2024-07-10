@@ -7,21 +7,14 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strings"
 
 	"github.com/cilium/statedb"
-	"github.com/go-openapi/runtime/middleware"
-	"github.com/go-openapi/swag"
 
 	"github.com/cilium/cilium/api/v1/models"
-	ipamapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
-	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/cidr"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -29,93 +22,11 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
 	mismatchRouterIPsMsg = "Mismatch of router IPs found during restoration. The Kubernetes resource contained %s, while the filesystem contained %s. Using the router IP from the filesystem. To change the router IP, specify --%s and/or --%s."
 )
-
-// Handle incoming requests address allocation requests for the daemon.
-func postIPAMHandler(d *Daemon, params ipamapi.PostIpamParams) middleware.Responder {
-	family := strings.ToLower(swag.StringValue(params.Family))
-	owner := swag.StringValue(params.Owner)
-	pool := ipam.Pool(swag.StringValue(params.Pool))
-	var expirationTimeout time.Duration
-	if swag.BoolValue(params.Expiration) {
-		expirationTimeout = defaults.IPAMExpiration
-	}
-	ipv4Result, ipv6Result, err := d.ipam.AllocateNextWithExpiration(family, owner, pool, expirationTimeout)
-	if err != nil {
-		return api.Error(ipamapi.PostIpamFailureCode, err)
-	}
-
-	resp := &models.IPAMResponse{
-		HostAddressing: node.GetNodeAddressing(),
-		Address:        &models.AddressPair{},
-	}
-
-	if ipv4Result != nil {
-		resp.Address.IPV4 = ipv4Result.IP.String()
-		resp.Address.IPV4PoolName = ipv4Result.IPPoolName.String()
-		resp.IPV4 = &models.IPAMAddressResponse{
-			Cidrs:           ipv4Result.CIDRs,
-			IP:              ipv4Result.IP.String(),
-			MasterMac:       ipv4Result.PrimaryMAC,
-			Gateway:         ipv4Result.GatewayIP,
-			ExpirationUUID:  ipv4Result.ExpirationUUID,
-			InterfaceNumber: ipv4Result.InterfaceNumber,
-		}
-	}
-
-	if ipv6Result != nil {
-		resp.Address.IPV6 = ipv6Result.IP.String()
-		resp.Address.IPV6PoolName = ipv6Result.IPPoolName.String()
-		resp.IPV6 = &models.IPAMAddressResponse{
-			Cidrs:           ipv6Result.CIDRs,
-			IP:              ipv6Result.IP.String(),
-			MasterMac:       ipv6Result.PrimaryMAC,
-			Gateway:         ipv6Result.GatewayIP,
-			ExpirationUUID:  ipv6Result.ExpirationUUID,
-			InterfaceNumber: ipv6Result.InterfaceNumber,
-		}
-	}
-
-	return ipamapi.NewPostIpamCreated().WithPayload(resp)
-}
-
-// Handle incoming requests address allocation requests for the daemon.
-func postIPAMIPHandler(d *Daemon, params ipamapi.PostIpamIPParams) middleware.Responder {
-	owner := swag.StringValue(params.Owner)
-	pool := ipam.Pool(swag.StringValue(params.Pool))
-	if err := d.ipam.AllocateIPString(params.IP, owner, pool); err != nil {
-		return api.Error(ipamapi.PostIpamIPFailureCode, err)
-	}
-
-	return ipamapi.NewPostIpamIPOK()
-}
-
-func deleteIPAMIPHandler(d *Daemon, params ipamapi.DeleteIpamIPParams) middleware.Responder {
-	// Release of an IP that is in use is not allowed
-	if ep := d.endpointManager.LookupIPv4(params.IP); ep != nil {
-		return api.Error(ipamapi.DeleteIpamIPFailureCode, fmt.Errorf("IP is in use by endpoint %d", ep.ID))
-	}
-	if ep := d.endpointManager.LookupIPv6(params.IP); ep != nil {
-		return api.Error(ipamapi.DeleteIpamIPFailureCode, fmt.Errorf("IP is in use by endpoint %d", ep.ID))
-	}
-
-	ip := net.ParseIP(params.IP)
-	if ip == nil {
-		return api.Error(ipamapi.DeleteIpamIPInvalidCode, fmt.Errorf("Invalid IP address: %s", params.IP))
-	}
-
-	pool := ipam.Pool(swag.StringValue(params.Pool))
-	if err := d.ipam.ReleaseIP(ip, pool); err != nil {
-		return api.Error(ipamapi.DeleteIpamIPFailureCode, err)
-	}
-
-	return ipamapi.NewDeleteIpamIPOK()
-}
 
 // DumpIPAM dumps in the form of a map, the list of
 // reserved IPv4 and IPv6 addresses.
@@ -184,10 +95,13 @@ func (d *Daemon) allocateRouterIPv6(family types.NodeAddressingFamily, fromK8s, 
 }
 
 // Coalesce CIDRS when allocating the DatapathIPs and healthIPs. GH #18868
-func coalesceCIDRs(rCIDRs []string) (result []string) {
+func coalesceCIDRs(rCIDRs []string) (result []string, err error) {
 	cidrs := make([]*net.IPNet, 0, len(rCIDRs))
 	for _, k := range rCIDRs {
-		ip, mask, _ := net.ParseCIDR(k)
+		ip, mask, err := net.ParseCIDR(k)
+		if err != nil {
+			return nil, err
+		}
 		cidrs = append(cidrs, &net.IPNet{IP: ip, Mask: mask.Mask})
 	}
 	ipv4cidr, ipv6cidr := iputil.CoalesceCIDRs(cidrs)
@@ -280,7 +194,10 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily, fromK8s,
 		option.Config.IPAM == ipamOption.IPAMENI &&
 		result != nil &&
 		len(result.CIDRs) > 0 {
-		result.CIDRs = coalesceCIDRs(result.CIDRs)
+		result.CIDRs, err = coalesceCIDRs(result.CIDRs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to coalesce CIDRs: %w", err)
+		}
 	}
 
 	if (option.Config.IPAM == ipamOption.IPAMENI ||
@@ -340,7 +257,10 @@ func (d *Daemon) allocateHealthIPs() error {
 			option.Config.IPAM == ipamOption.IPAMENI &&
 			result != nil &&
 			len(result.CIDRs) > 0 {
-			result.CIDRs = coalesceCIDRs(result.CIDRs)
+			result.CIDRs, err = coalesceCIDRs(result.CIDRs)
+			if err != nil {
+				return fmt.Errorf("failed to coalesce CIDRs: %w", err)
+			}
 		}
 
 		log.Debugf("IPv4 health endpoint address: %s", result.IP)
@@ -415,7 +335,10 @@ func (d *Daemon) allocateIngressIPs() error {
 				option.Config.IPAM == ipamOption.IPAMENI &&
 				result != nil &&
 				len(result.CIDRs) > 0 {
-				result.CIDRs = coalesceCIDRs(result.CIDRs)
+				result.CIDRs, err = coalesceCIDRs(result.CIDRs)
+				if err != nil {
+					return fmt.Errorf("failed to coalesce CIDRs: %w", err)
+				}
 			}
 
 			node.SetIngressIPv4(result.IP)
@@ -473,7 +396,10 @@ func (d *Daemon) allocateIngressIPs() error {
 				option.Config.IPAM == ipamOption.IPAMENI &&
 				result != nil &&
 				len(result.CIDRs) > 0 {
-				result.CIDRs = coalesceCIDRs(result.CIDRs)
+				result.CIDRs, err = coalesceCIDRs(result.CIDRs)
+				if err != nil {
+					return fmt.Errorf("failed to coalesce CIDRs: %w", err)
+				}
 			}
 
 			node.SetIngressIPv6(result.IP)
@@ -521,7 +447,7 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 	log.Infof("  Local node-name: %s", nodeTypes.GetName())
 	log.Infof("  Node-IPv6: %s", node.GetIPv6())
 
-	iter, _ := d.nodeAddrs.All(d.db.ReadTxn())
+	iter := d.nodeAddrs.All(d.db.ReadTxn())
 	addrs := statedb.Collect(
 		statedb.Filter(
 			iter,
@@ -616,14 +542,11 @@ func (d *Daemon) configureIPAM() {
 	}
 }
 
-func (d *Daemon) startIPAM(node agentK8s.LocalCiliumNodeResource) {
+func (d *Daemon) startIPAM() {
 	bootstrapStats.ipam.Start()
 	log.Info("Initializing node addressing")
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
-	d.ipam = ipam.NewIPAM(d.datapath.LocalNodeAddressing(), option.Config, d.nodeDiscovery, d.nodeLocalStore, d.k8sWatcher, node, d.mtuConfig, d.clientset)
-	if d.ipamMetadata != nil {
-		d.ipam.WithMetadata(d.ipamMetadata)
-	}
+	d.ipam.ConfigureAllocator()
 	bootstrapStats.ipam.End(true)
 }
 

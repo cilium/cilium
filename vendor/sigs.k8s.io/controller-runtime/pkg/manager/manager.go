@@ -22,14 +22,12 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
@@ -41,7 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"sigs.k8s.io/controller-runtime/pkg/config"
-	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	intrec "sigs.k8s.io/controller-runtime/pkg/internal/recorder"
 	"sigs.k8s.io/controller-runtime/pkg/leaderelection"
@@ -66,6 +63,15 @@ type Manager interface {
 	// managers, either because it won a leader election or because no leader
 	// election was configured.
 	Elected() <-chan struct{}
+
+	// AddMetricsServerExtraHandler adds an extra handler served on path to the http server that serves metrics.
+	// Might be useful to register some diagnostic endpoints e.g. pprof.
+	//
+	// Note that these endpoints are meant to be sensitive and shouldn't be exposed publicly.
+	//
+	// If the simple path -> handler mapping offered here is not enough,
+	// a new http server/listener should be added as Runnable to the manager via Add method.
+	AddMetricsServerExtraHandler(path string, handler http.Handler) error
 
 	// AddHealthzCheck allows you to add Healthz checker
 	AddHealthzCheck(name string, check healthz.Checker) error
@@ -436,126 +442,6 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		leaderElectionStopped:         make(chan struct{}),
 		leaderElectionReleaseOnCancel: options.LeaderElectionReleaseOnCancel,
 	}, nil
-}
-
-// AndFrom will use a supplied type and convert to Options
-// any options already set on Options will be ignored, this is used to allow
-// cli flags to override anything specified in the config file.
-//
-// Deprecated: This function has been deprecated and will be removed in a future release,
-// The Component Configuration package has been unmaintained for over a year and is no longer
-// actively developed. Users should migrate to their own configuration format
-// and configure Manager.Options directly.
-// See https://github.com/kubernetes-sigs/controller-runtime/issues/895
-// for more information, feedback, and comments.
-func (o Options) AndFrom(loader config.ControllerManagerConfiguration) (Options, error) {
-	newObj, err := loader.Complete()
-	if err != nil {
-		return o, err
-	}
-
-	o = o.setLeaderElectionConfig(newObj)
-
-	if o.Cache.SyncPeriod == nil && newObj.SyncPeriod != nil {
-		o.Cache.SyncPeriod = &newObj.SyncPeriod.Duration
-	}
-
-	if len(o.Cache.DefaultNamespaces) == 0 && newObj.CacheNamespace != "" {
-		o.Cache.DefaultNamespaces = map[string]cache.Config{newObj.CacheNamespace: {}}
-	}
-
-	if o.Metrics.BindAddress == "" && newObj.Metrics.BindAddress != "" {
-		o.Metrics.BindAddress = newObj.Metrics.BindAddress
-	}
-
-	if o.HealthProbeBindAddress == "" && newObj.Health.HealthProbeBindAddress != "" {
-		o.HealthProbeBindAddress = newObj.Health.HealthProbeBindAddress
-	}
-
-	if o.ReadinessEndpointName == "" && newObj.Health.ReadinessEndpointName != "" {
-		o.ReadinessEndpointName = newObj.Health.ReadinessEndpointName
-	}
-
-	if o.LivenessEndpointName == "" && newObj.Health.LivenessEndpointName != "" {
-		o.LivenessEndpointName = newObj.Health.LivenessEndpointName
-	}
-
-	if o.WebhookServer == nil {
-		port := 0
-		if newObj.Webhook.Port != nil {
-			port = *newObj.Webhook.Port
-		}
-		o.WebhookServer = webhook.NewServer(webhook.Options{
-			Port:    port,
-			Host:    newObj.Webhook.Host,
-			CertDir: newObj.Webhook.CertDir,
-		})
-	}
-
-	if newObj.Controller != nil {
-		if o.Controller.CacheSyncTimeout == 0 && newObj.Controller.CacheSyncTimeout != nil {
-			o.Controller.CacheSyncTimeout = *newObj.Controller.CacheSyncTimeout
-		}
-
-		if len(o.Controller.GroupKindConcurrency) == 0 && len(newObj.Controller.GroupKindConcurrency) > 0 {
-			o.Controller.GroupKindConcurrency = newObj.Controller.GroupKindConcurrency
-		}
-	}
-
-	return o, nil
-}
-
-// AndFromOrDie will use options.AndFrom() and will panic if there are errors.
-//
-// Deprecated: This function has been deprecated and will be removed in a future release,
-// The Component Configuration package has been unmaintained for over a year and is no longer
-// actively developed. Users should migrate to their own configuration format
-// and configure Manager.Options directly.
-// See https://github.com/kubernetes-sigs/controller-runtime/issues/895
-// for more information, feedback, and comments.
-func (o Options) AndFromOrDie(loader config.ControllerManagerConfiguration) Options {
-	o, err := o.AndFrom(loader)
-	if err != nil {
-		panic(fmt.Sprintf("could not parse config file: %v", err))
-	}
-	return o
-}
-
-func (o Options) setLeaderElectionConfig(obj v1alpha1.ControllerManagerConfigurationSpec) Options {
-	if obj.LeaderElection == nil {
-		// The source does not have any configuration; noop
-		return o
-	}
-
-	if !o.LeaderElection && obj.LeaderElection.LeaderElect != nil {
-		o.LeaderElection = *obj.LeaderElection.LeaderElect
-	}
-
-	if o.LeaderElectionResourceLock == "" && obj.LeaderElection.ResourceLock != "" {
-		o.LeaderElectionResourceLock = obj.LeaderElection.ResourceLock
-	}
-
-	if o.LeaderElectionNamespace == "" && obj.LeaderElection.ResourceNamespace != "" {
-		o.LeaderElectionNamespace = obj.LeaderElection.ResourceNamespace
-	}
-
-	if o.LeaderElectionID == "" && obj.LeaderElection.ResourceName != "" {
-		o.LeaderElectionID = obj.LeaderElection.ResourceName
-	}
-
-	if o.LeaseDuration == nil && !reflect.DeepEqual(obj.LeaderElection.LeaseDuration, metav1.Duration{}) {
-		o.LeaseDuration = &obj.LeaderElection.LeaseDuration.Duration
-	}
-
-	if o.RenewDeadline == nil && !reflect.DeepEqual(obj.LeaderElection.RenewDeadline, metav1.Duration{}) {
-		o.RenewDeadline = &obj.LeaderElection.RenewDeadline.Duration
-	}
-
-	if o.RetryPeriod == nil && !reflect.DeepEqual(obj.LeaderElection.RetryPeriod, metav1.Duration{}) {
-		o.RetryPeriod = &obj.LeaderElection.RetryPeriod.Duration
-	}
-
-	return o
 }
 
 // defaultHealthProbeListener creates the default health probes listener bound to the given address.

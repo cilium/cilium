@@ -22,7 +22,6 @@ import (
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -31,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/testutils"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -127,10 +128,10 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
 			func() ctmapgc.Enabler { return ctmapgc.NewFake() },
+			k8sSynced.RejectedCRDSyncPromise,
 		),
 		fakeDatapath.Cell,
 		prefilter.Cell,
-		loader.Cell,
 		monitorAgent.Cell,
 		ControlPlane,
 		metrics.Cell,
@@ -157,6 +158,8 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 
 	kvstore.Client().DeletePrefix(ctx, kvstore.OperationalPath)
 	kvstore.Client().DeletePrefix(ctx, kvstore.BaseKeyPrefix)
+
+	ds.d.policy.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 	ds.OnGetPolicyRepository = ds.d.GetPolicyRepository
 	ds.OnQueueEndpointBuild = nil

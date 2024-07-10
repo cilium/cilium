@@ -4,7 +4,6 @@
 package speaker
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -59,7 +58,7 @@ type metalLBSpeaker struct {
 //
 // The MetalLB speaker will use the value of nodetypes.GetName() as
 // its node identity.
-func newMetalLBSpeaker(ctx context.Context, clientset client.Clientset) (Speaker, error) {
+func newMetalLBSpeaker(clientset client.Clientset) (Speaker, error) {
 	logger := &bgplog.Logger{Entry: log}
 	client := bgpk8s.New(logger.Logger, clientset)
 
@@ -97,12 +96,15 @@ func newMetalLBSpeaker(ctx context.Context, clientset client.Clientset) (Speaker
 func (m metalLBSpeaker) SetService(name string, svc *metallbspr.Service, eps *metallbspr.Endpoints) types.SyncState {
 	return m.C.SetService(m.logger, name, svc, eps)
 }
+
 func (m metalLBSpeaker) SetNodeLabels(labels map[string]string) types.SyncState {
 	return m.C.SetNodeLabels(m.logger, labels)
 }
+
 func (m metalLBSpeaker) PeerSessions() []metallbspr.Session {
 	return m.C.PeerSessions()
 }
+
 func (m metalLBSpeaker) GetBGPController() *metallbspr.BGPController {
 	return m.C.Protocols[config.BGP].(*metallbspr.BGPController)
 }

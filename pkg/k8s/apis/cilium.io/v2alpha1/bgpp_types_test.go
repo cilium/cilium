@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 func TestBGPPeeringPolicyDefaulting(t *testing.T) {
@@ -106,8 +106,8 @@ func TestBGPNeighborValidation(t *testing.T) {
 			neighbor: &CiliumBGPNeighbor{
 				PeerASN:              65001,
 				PeerAddress:          "172.0.0.1/32",
-				KeepAliveTimeSeconds: pointer.Int32(3),
-				HoldTimeSeconds:      pointer.Int32(9),
+				KeepAliveTimeSeconds: ptr.To[int32](3),
+				HoldTimeSeconds:      ptr.To[int32](9),
 			},
 			expectError: nil,
 		},
@@ -117,8 +117,8 @@ func TestBGPNeighborValidation(t *testing.T) {
 				PeerASN:     65001,
 				PeerAddress: "172.0.0.1/32",
 				// KeepAliveTimeSeconds larger than HoldTimeSeconds = error
-				KeepAliveTimeSeconds: pointer.Int32(10),
-				HoldTimeSeconds:      pointer.Int32(5),
+				KeepAliveTimeSeconds: ptr.To[int32](10),
+				HoldTimeSeconds:      ptr.To[int32](5),
 			},
 			expectError: fmt.Errorf("some-error"),
 		},
@@ -128,7 +128,7 @@ func TestBGPNeighborValidation(t *testing.T) {
 				PeerASN:     65001,
 				PeerAddress: "172.0.0.1/32",
 				// KeepAliveTimeSeconds larger than default HoldTimeSeconds (90) = error
-				KeepAliveTimeSeconds: pointer.Int32(100),
+				KeepAliveTimeSeconds: ptr.To[int32](100),
 			},
 			expectError: fmt.Errorf("some-error"),
 		},

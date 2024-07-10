@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /* Copyright Authors of the Linux kernel */
-#ifndef _LINUX_SWAB_H
-#define _LINUX_SWAB_H
+#pragma once
 
 #include <linux/types.h>
 
@@ -283,6 +282,3 @@ static __inline__ void __swahb32s(__u32 *p)
 	*p = __swahb32p(p);
 #endif
 }
-
-
-#endif /* _LINUX_SWAB_H */

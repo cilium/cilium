@@ -5,13 +5,19 @@ package orchestrator
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/datapath/iptables"
-	"github.com/cilium/cilium/pkg/datapath/loader/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/mtu"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/nodediscovery"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy"
 )
 
@@ -27,6 +33,11 @@ type orchestratorParams struct {
 	MTU             mtu.MTU
 	IPTablesManager *iptables.Manager
 	Proxy           *proxy.Proxy
+	DB              *statedb.DB
+	Devices         statedb.Table[*tables.Device]
+	NodeAddresses   statedb.Table[tables.NodeAddress]
+	LocalNodeStore  *node.LocalNodeStore
+	NodeDiscovery   *nodediscovery.NodeDiscovery
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -36,10 +47,32 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 }
 
 func (o *orchestrator) Reinitialize(ctx context.Context) error {
+	// Wait until the local node has been populated by NodeDiscovery.
+	o.params.NodeDiscovery.WaitForLocalNodeInit()
+
+	localNode, err := o.params.LocalNodeStore.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("get local node: %w", err)
+	}
+
+	// Construct the LocalNodeConfiguration that encapsulates the
+	// local node's dynamic configuration.
+	localNodeConfig, err := newLocalNodeConfig(
+		option.Config,
+		localNode,
+		o.params.MTU,
+		o.params.DB.ReadTxn(),
+		o.params.Devices,
+		o.params.NodeAddresses,
+	)
+	if err != nil {
+		return fmt.Errorf("build LocalNodeConfiguration: %w", err)
+	}
+
 	return o.params.Loader.Reinitialize(
 		ctx,
+		localNodeConfig,
 		o.params.TunnelConfig,
-		o.params.MTU.GetDeviceMTU(),
 		o.params.IPTablesManager,
 		o.params.Proxy,
 	)

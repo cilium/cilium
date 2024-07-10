@@ -46,6 +46,12 @@ Requirements to be listed
 Users (Alphabetically)
 ----------------------
 
+    * N: Ænix
+      D: Ænix uses Cilium in free PaaS platform [Cozystack](https://cozystack.io) for running containers, virtual machines and Kubernetes-as-a-Service.
+      U: Networking, NetworkPolicy, kube-proxy replacement, CNI-Chaining (with kube-ovn)
+      L: https://cozystack.io/
+      Q: @kvaps
+
     * N: AccuKnox
       D: AccuKnox uses Cilium for network visibility and network policy enforcement.
       U: L3/L4/L7 policy enforcement using Identity, External/VM Workloads, Network Visibility using Hubble
@@ -391,6 +397,12 @@ Users (Alphabetically)
       U: Networking, network policy, Hubble for network visibility
       L: https://github.com/xiaods/k8e
       Q: @xds2000
+
+    * N: LinkPool
+      D: LinkPool is a professional Web3 infrastructure provider.
+      U: LinkPool is using Cilium as the CNI for its on-premise production clusters
+      L: https://linkpool.com
+      Q: @jleeh
 
     * N: Liquid Reply
       D: Liquid Reply is a professional service provider and utilizes Cilium on suitable projects and implementations.
@@ -756,6 +768,12 @@ Users (Alphabetically)
       D: Wildlife Studios is using Cilium in AWS for all their game production clusters (self hosted k8s)
       U: ClusterMesh, Global Service Load Balancing.
       Q: @Oki @luanguimaraesla @rsafonseca
+
+    * N: WSO2
+      D: WSO2 is using Cilium to implemented Zero Trust Network Security for their Kubernetes clusters
+      U: CNI, WireGuard Transparent Encryption, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, Hubble, Layer 7 visibility and Service Mesh via Cilium Envoy
+      L: https://www.cncf.io/case-studies/wso2/
+      Q: @lakwarus @isala404 @tharinduwijewardane
 
     * N: Yahoo!
       D: Yahoo is using Cilium for L4 North-South Load Balancing for Kubernetes Services

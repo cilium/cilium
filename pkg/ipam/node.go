@@ -7,6 +7,7 @@ package ipam
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -457,7 +458,13 @@ func (n *Node) recalculate() {
 	defer n.mutex.Unlock()
 
 	if err != nil {
-		scopedLog.Warning("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
+		var limitsNotFound LimitsNotFound
+		ok := errors.As(err, &limitsNotFound)
+		if ok {
+			scopedLog.WithError(err).Warning("Instance limits not found.")
+		} else {
+			scopedLog.WithError(err).Warning("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
+		}
 		// Avoid any further action
 		n.stats.IPv4.NeededIPs = 0
 		n.stats.IPv4.ExcessIPs = 0

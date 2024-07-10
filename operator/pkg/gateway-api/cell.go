@@ -7,10 +7,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -25,6 +26,7 @@ import (
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -34,11 +36,13 @@ var Cell = cell.Module(
 	"Manages the Gateway API controllers",
 
 	cell.Config(gatewayApiConfig{
-		EnableGatewayAPISecretsSync:   true,
-		EnableGatewayAPIProxyProtocol: false,
-		EnableGatewayAPIAppProtocol:   false,
-		GatewayAPISecretsNamespace:    "cilium-secrets",
-		GatewayAPIXffNumTrustedHops:   0,
+		EnableGatewayAPISecretsSync:            true,
+		EnableGatewayAPIProxyProtocol:          false,
+		EnableGatewayAPIAppProtocol:            false,
+		EnableGatewayAPIAlpn:                   false,
+		GatewayAPIServiceExternalTrafficPolicy: "Cluster",
+		GatewayAPISecretsNamespace:             "cilium-secrets",
+		GatewayAPIXffNumTrustedHops:            0,
 
 		GatewayAPIHostnetworkEnabled:           false,
 		GatewayAPIHostnetworkNodelabelselector: "",
@@ -51,8 +55,8 @@ var requiredGVK = []schema.GroupVersionKind{
 	gatewayv1.SchemeGroupVersion.WithKind("gatewayclasses"),
 	gatewayv1.SchemeGroupVersion.WithKind("gateways"),
 	gatewayv1.SchemeGroupVersion.WithKind("httproutes"),
+	gatewayv1.SchemeGroupVersion.WithKind("grpcroutes"),
 	gatewayv1beta1.SchemeGroupVersion.WithKind("referencegrants"),
-	gatewayv1alpha2.SchemeGroupVersion.WithKind("grpcroutes"),
 	gatewayv1alpha2.SchemeGroupVersion.WithKind("tlsroutes"),
 }
 
@@ -60,11 +64,13 @@ type gatewayApiConfig struct {
 	KubeProxyReplacement string
 	EnableNodePort       bool
 
-	EnableGatewayAPISecretsSync   bool
-	EnableGatewayAPIProxyProtocol bool
-	EnableGatewayAPIAppProtocol   bool
-	GatewayAPISecretsNamespace    string
-	GatewayAPIXffNumTrustedHops   uint32
+	EnableGatewayAPISecretsSync            bool
+	EnableGatewayAPIProxyProtocol          bool
+	EnableGatewayAPIAppProtocol            bool
+	EnableGatewayAPIAlpn                   bool
+	GatewayAPIServiceExternalTrafficPolicy string
+	GatewayAPISecretsNamespace             string
+	GatewayAPIXffNumTrustedHops            uint32
 
 	GatewayAPIHostnetworkEnabled           bool
 	GatewayAPIHostnetworkNodelabelselector string
@@ -77,7 +83,9 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-gateway-api-secrets-sync", r.EnableGatewayAPISecretsSync, "Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by gateway-api-secrets-namespace flag)")
 	flags.Bool("enable-gateway-api-proxy-protocol", r.EnableGatewayAPIProxyProtocol, "Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.")
 	flags.Bool("enable-gateway-api-app-protocol", r.EnableGatewayAPIAppProtocol, "Enables Backend Protocol selection (GEP-1911) for Gateway API via appProtocol")
+	flags.Bool("enable-gateway-api-alpn", r.EnableGatewayAPIAlpn, "Enables exposing ALPN with HTTP2 and HTTP/1.1 support for Gateway API")
 	flags.Uint32("gateway-api-xff-num-trusted-hops", r.GatewayAPIXffNumTrustedHops, "The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.")
+	flags.String("gateway-api-service-externaltrafficpolicy", r.GatewayAPIServiceExternalTrafficPolicy, "Kubernetes LoadBalancer Service externalTrafficPolicy for all Gateway instances.")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "Namespace having tls secrets used by CEC for Gateway API")
 	flags.Bool("gateway-api-hostnetwork-enabled", r.GatewayAPIHostnetworkEnabled, "Exposes Gateway listeners on the host network.")
 	flags.String("gateway-api-hostnetwork-nodelabelselector", r.GatewayAPIHostnetworkNodelabelselector, "Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'")
@@ -86,7 +94,7 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 type gatewayAPIParams struct {
 	cell.In
 
-	Logger             logrus.FieldLogger
+	Logger             *slog.Logger
 	K8sClient          k8sClient.Clientset
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Scheme             *runtime.Scheme
@@ -107,9 +115,13 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return nil
 	}
 
-	params.Logger.WithField("requiredGVK", requiredGVK).Info("Checking for required GatewayAPI resources")
+	if err := validateExternalTrafficPolicy(params); err != nil {
+		return err
+	}
+
+	params.Logger.Info("Checking for required GatewayAPI resources", "requiredGVK", requiredGVK)
 	if err := checkRequiredCRDs(context.Background(), params.K8sClient); err != nil {
-		params.Logger.WithError(err).Error("Required GatewayAPI resources are not found, please refer to docs for installation instructions")
+		params.Logger.Error("Required GatewayAPI resources are not found, please refer to docs for installation instructions", logfields.Error, err)
 		return nil
 	}
 
@@ -117,7 +129,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return err
 	}
 
-	if err := registerMCSAPITypesToScheme(params.K8sClient, params.Scheme); err != nil {
+	if err := registerMCSAPITypesToScheme(params.K8sClient, params.Scheme, params.Logger); err != nil {
 		return err
 	}
 
@@ -134,11 +146,18 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		params.GatewayApiConfig.GatewayAPIXffNumTrustedHops,
 	)
 
-	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, params.GatewayApiConfig.GatewayAPIHostnetworkEnabled)
+	cecTranslator.WithUseAlpn(params.GatewayApiConfig.EnableGatewayAPIAlpn)
+
+	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(
+		cecTranslator,
+		params.GatewayApiConfig.GatewayAPIHostnetworkEnabled,
+		params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy,
+	)
 
 	if err := registerReconcilers(
 		params.CtrlRuntimeManager,
 		gatewayAPITranslator,
+		params.Logger,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -165,6 +184,17 @@ func registerSecretSync(params gatewayAPIParams) secretsync.SecretSyncRegistrati
 			SecretsNamespace:     params.GatewayApiConfig.GatewayAPISecretsNamespace,
 		},
 	}
+}
+
+func validateExternalTrafficPolicy(params gatewayAPIParams) error {
+	if params.GatewayApiConfig.GatewayAPIHostnetworkEnabled && params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy != "" {
+		params.Logger.Warn("Gateway API host networking is enabled, externalTrafficPolicy will be ignored.")
+		return nil
+	} else if params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy == string(corev1.ServiceExternalTrafficPolicyCluster) ||
+		params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy == string(corev1.ServiceExternalTrafficPolicyLocal) {
+		return nil
+	}
+	return fmt.Errorf("invalid externalTrafficPolicy: %s", params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy)
 }
 
 func checkCRD(ctx context.Context, clientset k8sClient.Clientset, gvk schema.GroupVersionKind) error {
@@ -202,16 +232,17 @@ func checkRequiredCRDs(ctx context.Context, clientset k8sClient.Clientset) error
 }
 
 // registerReconcilers registers the Gateway API reconcilers to the controller-runtime library manager.
-func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator) error {
+func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator, logger *slog.Logger) error {
 	reconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
-		newGatewayClassReconciler(mgr),
-		newGatewayReconciler(mgr, translator),
-		newReferenceGrantReconciler(mgr),
-		newHTTPRouteReconciler(mgr),
-		newGRPCRouteReconciler(mgr),
-		newTLSRouteReconciler(mgr),
+		newGatewayClassReconciler(mgr, logger),
+		newGatewayReconciler(mgr, translator, logger),
+		newReferenceGrantReconciler(mgr, logger),
+		newHTTPRouteReconciler(mgr, logger),
+		newGammaHttpRouteReconciler(mgr, translator, logger),
+		newGRPCRouteReconciler(mgr, logger),
+		newTLSRouteReconciler(mgr, logger),
 	}
 
 	for _, r := range reconcilers {
@@ -237,10 +268,9 @@ func registerGatewayAPITypesToScheme(scheme *runtime.Scheme) error {
 	return nil
 }
 
-func registerMCSAPITypesToScheme(clientset k8sClient.Clientset, scheme *runtime.Scheme) error {
+func registerMCSAPITypesToScheme(clientset k8sClient.Clientset, scheme *runtime.Scheme, logger *slog.Logger) error {
 	serviceImportSupport := checkCRD(context.Background(), clientset, mcsapiv1alpha1.SchemeGroupVersion.WithKind("serviceimports")) == nil
-	log.WithField("enabled", serviceImportSupport).
-		Info("Multi-cluster Service API ServiceImport GatewayAPI integration")
+	logger.Info("Multi-cluster Service API ServiceImport GatewayAPI integration", "enabled", serviceImportSupport)
 	if serviceImportSupport {
 		return mcsapiv1alpha1.AddToScheme(scheme)
 	}

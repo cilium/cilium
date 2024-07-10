@@ -25,7 +25,6 @@ import (
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:categories=gateway-api
-// +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Hostnames",type=string,JSONPath=`.spec.hostnames`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
@@ -112,7 +111,7 @@ type HeaderMatchType = v1.HeaderMatchType
 //
 // * "/invalid" - "/" is an invalid character
 // +k8s:deepcopy-gen=false
-type HTTPHeaderName = v1.HeaderName
+type HTTPHeaderName = v1.HTTPHeaderName
 
 // HTTPHeaderMatch describes how to select a HTTP route by matching HTTP request
 // headers.

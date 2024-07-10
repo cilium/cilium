@@ -95,6 +95,7 @@ type RunCommandRequest struct {
 	ResourceTag          *[]RunCommandResourceTag `position:"Query" name:"ResourceTag"  type:"Repeated"`
 	ResourceOwnerAccount string                   `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string                   `position:"Query" name:"OwnerAccount"`
+	TerminationMode      string                   `position:"Query" name:"TerminationMode"`
 	EnableParameter      requests.Boolean         `position:"Query" name:"EnableParameter"`
 	Username             string                   `position:"Query" name:"Username"`
 }

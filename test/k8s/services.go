@@ -630,7 +630,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 
-			cmd := fmt.Sprintf("cilium config %s=%s", helpers.OptionConntrackAccounting, helpers.OptionEnabled)
+			cmd := fmt.Sprintf("cilium-dbg config %s=%s", helpers.OptionConntrackAccounting, helpers.OptionEnabled)
 			kubectl.CiliumExecMustSucceedOnAll(context.TODO(), cmd, "Unable to enable ConntrackAccounting option")
 			kubectl.CiliumPreFlightCheck()
 			testIPv4FragmentSupport(kubectl, ni)

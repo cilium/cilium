@@ -18,13 +18,13 @@ import (
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/hive"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -75,10 +75,10 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
 			func() gc.Enabler { return gc.NewFake() },
+			k8sSynced.RejectedCRDSyncPromise,
 		),
 		fakeDatapath.Cell,
 		prefilter.Cell,
-		loader.Cell,
 		monitorAgent.Cell,
 		metrics.Cell,
 		store.Cell,

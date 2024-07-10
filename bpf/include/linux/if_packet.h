@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /* Copyright Authors of the Linux kernel */
-#ifndef __LINUX_IF_PACKET_H
-#define __LINUX_IF_PACKET_H
+#pragma once
 
 #define PACKET_HOST		0		/* To us		*/
 #define PACKET_BROADCAST	1		/* To all		*/
@@ -13,5 +12,3 @@
 #define PACKET_KERNEL		7		/* To kernel space	*/
 /* Unused, PACKET_FASTROUTE and PACKET_LOOPBACK are invisible to user space */
 #define PACKET_FASTROUTE	6		/* Fastrouted frame	*/
-
-#endif // __LINUX_IF_PACKET_H

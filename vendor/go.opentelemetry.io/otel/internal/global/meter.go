@@ -65,6 +65,7 @@ func (p *meterProvider) Meter(name string, opts ...metric.MeterOption) metric.Me
 	key := il{
 		name:    name,
 		version: c.InstrumentationVersion(),
+		schema:  c.SchemaURL(),
 	}
 
 	if p.meters == nil {
@@ -164,6 +165,17 @@ func (m *meter) Int64Histogram(name string, options ...metric.Int64HistogramOpti
 	return i, nil
 }
 
+func (m *meter) Int64Gauge(name string, options ...metric.Int64GaugeOption) (metric.Int64Gauge, error) {
+	if del, ok := m.delegate.Load().(metric.Meter); ok {
+		return del.Int64Gauge(name, options...)
+	}
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	i := &siGauge{name: name, opts: options}
+	m.instruments = append(m.instruments, i)
+	return i, nil
+}
+
 func (m *meter) Int64ObservableCounter(name string, options ...metric.Int64ObservableCounterOption) (metric.Int64ObservableCounter, error) {
 	if del, ok := m.delegate.Load().(metric.Meter); ok {
 		return del.Int64ObservableCounter(name, options...)
@@ -226,6 +238,17 @@ func (m *meter) Float64Histogram(name string, options ...metric.Float64Histogram
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 	i := &sfHistogram{name: name, opts: options}
+	m.instruments = append(m.instruments, i)
+	return i, nil
+}
+
+func (m *meter) Float64Gauge(name string, options ...metric.Float64GaugeOption) (metric.Float64Gauge, error) {
+	if del, ok := m.delegate.Load().(metric.Meter); ok {
+		return del.Float64Gauge(name, options...)
+	}
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	i := &sfGauge{name: name, opts: options}
 	m.instruments = append(m.instruments, i)
 	return i, nil
 }

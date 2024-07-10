@@ -152,6 +152,12 @@ func (c *Client) addOperationDescribeFlowLogsMiddlewares(stack *middleware.Stack
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeFlowLogs(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -172,14 +178,6 @@ func (c *Client) addOperationDescribeFlowLogsMiddlewares(stack *middleware.Stack
 	}
 	return nil
 }
-
-// DescribeFlowLogsAPIClient is a client that implements the DescribeFlowLogs
-// operation.
-type DescribeFlowLogsAPIClient interface {
-	DescribeFlowLogs(context.Context, *DescribeFlowLogsInput, ...func(*Options)) (*DescribeFlowLogsOutput, error)
-}
-
-var _ DescribeFlowLogsAPIClient = (*Client)(nil)
 
 // DescribeFlowLogsPaginatorOptions is the paginator options for DescribeFlowLogs
 type DescribeFlowLogsPaginatorOptions struct {
@@ -248,6 +246,9 @@ func (p *DescribeFlowLogsPaginator) NextPage(ctx context.Context, optFns ...func
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeFlowLogs(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -266,6 +267,14 @@ func (p *DescribeFlowLogsPaginator) NextPage(ctx context.Context, optFns ...func
 
 	return result, nil
 }
+
+// DescribeFlowLogsAPIClient is a client that implements the DescribeFlowLogs
+// operation.
+type DescribeFlowLogsAPIClient interface {
+	DescribeFlowLogs(context.Context, *DescribeFlowLogsInput, ...func(*Options)) (*DescribeFlowLogsOutput, error)
+}
+
+var _ DescribeFlowLogsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeFlowLogs(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

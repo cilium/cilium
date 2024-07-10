@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_COMMON_H_
-#define __LIB_COMMON_H_
+#pragma once
 
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
@@ -12,8 +11,8 @@
 #include <linux/in.h>
 #include <linux/socket.h>
 
-#include "eth.h"
 #include "endian.h"
+#include "eth.h"
 #include "mono.h"
 #include "config.h"
 #include "tunnel.h"
@@ -178,10 +177,8 @@ static __always_inline bool validate_ethertype_l2_off(struct __ctx_buff *ctx,
 	eth = data + l2_off;
 
 	*proto = eth->h_proto;
-	if (bpf_ntohs(*proto) < ETH_P_802_3_MIN)
-		return false; /* non-Ethernet II unsupported */
 
-	return true;
+	return eth_is_supported_ethertype(*proto);
 }
 
 static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
@@ -709,16 +706,22 @@ enum metric_dir {
  *    In the IPsec case this becomes the SPI on the wire.
  */
 #define MARK_MAGIC_HOST_MASK		0x0F00
+#define MARK_MAGIC_PROXY_TO_WORLD	0x0800
 #define MARK_MAGIC_PROXY_EGRESS_EPID	0x0900 /* mark carries source endpoint ID */
 #define MARK_MAGIC_PROXY_INGRESS	0x0A00
 #define MARK_MAGIC_PROXY_EGRESS		0x0B00
 #define MARK_MAGIC_HOST			0x0C00
 #define MARK_MAGIC_DECRYPT		0x0D00
+/* used to identify encrypted overlay traffic post decryption.
+ * therefore, SPI bit can be reused to not steal an additional magic mark value.
+ */
+#define MARK_MAGIC_DECRYPTED_OVERLAY	0x1D00
 #define MARK_MAGIC_ENCRYPT		0x0E00
 #define MARK_MAGIC_IDENTITY		0x0F00 /* mark carries identity */
 #define MARK_MAGIC_TO_PROXY		0x0200
 #define MARK_MAGIC_SNAT_DONE		0x0300
 #define MARK_MAGIC_OVERLAY		0x0400
+#define MARK_MAGIC_EGW_DONE		0x0500
 
 #define MARK_MAGIC_KEY_MASK		0xFF00
 
@@ -772,9 +775,6 @@ enum metric_dir {
 #define DSR_IPV6_OPT_LEN	(sizeof(struct dsr_opt_v6) - 4)
 #define DSR_IPV6_EXT_LEN	((sizeof(struct dsr_opt_v6) - 8) / 8)
 
-/* We cap key index at 4 bits because mark value is used to map ctx to key */
-#define MAX_KEY_INDEX 15
-
 /* encrypt_config is the current encryption context on the node */
 struct encrypt_config {
 	__u8 encrypt_key;
@@ -826,6 +826,7 @@ enum {
 #define CB_SRV6_SID_2		CB_IFINDEX	/* Alias, non-overlapping */
 #define CB_CLUSTER_ID_EGRESS	CB_IFINDEX	/* Alias, non-overlapping */
 #define CB_HSIPC_ADDR_V4	CB_IFINDEX	/* Alias, non-overlapping */
+#define CB_TRACED		CB_IFINDEX	/* Alias, non-overlapping */
 	CB_POLICY,
 #define	CB_ADDR_V6_2		CB_POLICY	/* Alias, non-overlapping */
 #define CB_SRV6_SID_3		CB_POLICY	/* Alias, non-overlapping */
@@ -841,10 +842,6 @@ enum {
 #define	CB_ADDR_V6_4		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_IDENTITY	CB_CT_STATE	/* Alias, non-overlapping,
 						 * Not used by xfrm.
-						 */
-#define	CB_ENCRYPT_DST		CB_CT_STATE	/* Alias, non-overlapping,
-						 * Not used by xfrm.
-						 * Can be removed in v1.15.
 						 */
 #define	CB_CUSTOM_CALLS		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_SRV6_VRF_ID		CB_CT_STATE	/* Alias, non-overlapping */
@@ -879,7 +876,6 @@ enum ct_status {
 	CT_ESTABLISHED,
 	CT_REPLY,
 	CT_RELATED,
-	CT_REOPENED,
 } __packed;
 
 /* Service flags (lb{4,6}_service->flags) */
@@ -902,6 +898,7 @@ enum {
 	SVC_FLAG_LOOPBACK       = (1 << 3),  /* hostport with a loopback hostIP */
 	SVC_FLAG_INT_LOCAL_SCOPE = (1 << 4), /* internalTrafficPolicy=Local */
 	SVC_FLAG_TWO_SCOPES     = (1 << 5),  /* two sets of backends are used for external/internal connections */
+	SVC_FLAG_QUARANTINED    = (1 << 6),  /* Backend slot (key: backend_slot > 0) is quarantined */
 };
 
 /* Backend flags (lb{4,6}_backends->flags) */
@@ -1002,7 +999,10 @@ struct lb6_service {
 	__u16 rev_nat_index;
 	__u8 flags;
 	__u8 flags2;
-	__u8 pad[2];
+	/* For the service frontend, qcount denotes number of service backend
+	 * slots under quarantine (otherwise zero).
+	 */
+	__u16 qcount;
 };
 
 /* See lb4_backend comments */
@@ -1063,7 +1063,10 @@ struct lb4_service {
 	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
 	__u8 flags;
 	__u8 flags2;
-	__u8  pad[2];
+	/* For the service frontend, qcount denotes number of service backend
+	 * slots under quarantine (otherwise zero).
+	 */
+	__u16 qcount;
 };
 
 struct lb4_backend {
@@ -1155,7 +1158,8 @@ struct ct_state {
 	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
 	      reserved1:1,	/* Was auth_required, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is from tunnel */
-	      reserved:8;
+		  closing:1,
+	      reserved:7;
 	__u32 src_sec_id;
 #ifndef HAVE_FIB_IFINDEX
 	__u16 ifindex;
@@ -1198,8 +1202,20 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 	 * whenever we cannot do a fast ingress -> ingress switch but
 	 * instead need an ingress -> egress netns traversal or vice
 	 * versa.
+	 *
+	 * This is also the case if BPF host routing is disabled, or if
+	 * we are currently on egress which is indicated by ingress_ifindex
+	 * being 0. The latter is cleared upon skb scrubbing.
+	 *
+	 * In case of netkit, we're on the egress side and need a regular
+	 * redirect to the peer device's ifindex. In case of veth we're
+	 * on ingress and need a redirect peer to get to the target. Both
+	 * only traverse the CPU backlog queue once. In case of phys ->
+	 * Pod, the ingress_ifindex is > 0 and in both device types we
+	 * do want a redirect peer into the target Pod's netns.
 	 */
-	if (needs_backlog || !is_defined(ENABLE_HOST_ROUTING)) {
+	if (needs_backlog || !is_defined(ENABLE_HOST_ROUTING) ||
+	    ctx_get_ingress_ifindex(ctx) == 0) {
 		return ctx_redirect(ctx, ifindex, 0);
 	}
 
@@ -1257,5 +1273,3 @@ struct skip_lb6_key {
 #define TUNNEL_KEY_WITHOUT_SRC_IP offsetof(struct bpf_tunnel_key, local_ipv4)
 
 #include "overloadable.h"
-
-#endif /* __LIB_COMMON_H_ */

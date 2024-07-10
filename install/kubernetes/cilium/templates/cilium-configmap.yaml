@@ -15,6 +15,7 @@
 {{- $defaultK8sClientQPS := 5 -}}
 {{- $defaultK8sClientBurst := 10 -}}
 {{- $defaultDNSProxyEnableTransparentMode := "false" -}}
+{{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
 
 {{- /* Default values when 1.8 was initially deployed */ -}}
 {{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
@@ -92,28 +93,19 @@ metadata:
 data:
 {{- if .Values.etcd.enabled }}
   # The kvstore configuration is used to enable use of a kvstore for state
-  # storage. This can either be provided with an external kvstore or with the
-  # help of cilium-etcd-operator which operates an etcd cluster automatically.
+  # storage. This can be provided with an external kvstore.
   kvstore: etcd
-  {{- if .Values.etcd.k8sService }}
-  kvstore-opt: '{"etcd.config": "/var/lib/etcd-config/etcd.config", "etcd.operator": "true"}'
-  {{- else }}
   kvstore-opt: '{"etcd.config": "/var/lib/etcd-config/etcd.config"}'
-  {{- end }}
 
   # This etcd-config contains the etcd endpoints of your cluster. If you use
   # TLS please make sure you follow the tutorial in https://cilium.link/etcd-config
   etcd-config: |-
     ---
     endpoints:
-      {{- if .Values.etcd.managed }}
-      - https://cilium-etcd-client.{{ .Release.Namespace }}.svc:2379
-      {{- else }}
       {{- range .Values.etcd.endpoints }}
       - {{ . }}
       {{- end }}
-      {{- end }}
-    {{- if or .Values.etcd.ssl .Values.etcd.managed }}
+    {{- if .Values.etcd.ssl }}
     trusted-ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
     key-file: '/var/lib/etcd-secrets/etcd-client.key'
     cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
@@ -222,7 +214,7 @@ data:
   {{- end }}
 {{- end }}
 
-{{- if not .Values.envoy.enabled }}
+{{- if not $envoyDS }}
   # Port to expose Envoy metrics (e.g. "9964"). Envoy metrics listener will be disabled if this
   # field is not set.
   {{- if .Values.envoy.prometheus.enabled }}
@@ -277,8 +269,10 @@ data:
   enable-gateway-api: "true"
   enable-gateway-api-secrets-sync: {{ .Values.gatewayAPI.secretsNamespace.sync | quote }}
   enable-gateway-api-proxy-protocol: {{ .Values.gatewayAPI.enableProxyProtocol | quote }}
-  enable-gateway-api-app-protocol: {{ .Values.gatewayAPI.enableAppProtocol | quote }}
+  enable-gateway-api-app-protocol: {{ or .Values.gatewayAPI.enableAppProtocol .Values.gatewayAPI.enableAlpn | quote }}
+  enable-gateway-api-alpn: {{ .Values.gatewayAPI.enableAlpn | quote }}
   gateway-api-xff-num-trusted-hops: {{ .Values.gatewayAPI.xffNumTrustedHops | quote }}
+  gateway-api-service-externaltrafficpolicy: {{ .Values.gatewayAPI.externalTrafficPolicy | quote }}
   gateway-api-secrets-namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
   gateway-api-hostnetwork-enabled: {{ .Values.gatewayAPI.hostNetwork.enabled | quote }}
   gateway-api-hostnetwork-nodelabelselector: {{ include "mapToString" .Values.gatewayAPI.hostNetwork.nodes.matchLabels | quote }}
@@ -356,6 +350,13 @@ data:
 
 
 
+
+{{- if .Values.bpf.events.default.rateLimit }}
+  bpf-events-default-rate-limit: {{ .Values.bpf.events.default.rateLimit | quote }}
+{{- end }}
+{{- if .Values.bpf.events.default.burstLimit }}
+  bpf-events-default-burst-limit: {{ .Values.bpf.events.default.burstLimit | quote }}
+{{- end}}
 
 {{- if .Values.bpf.mapDynamicSizeRatio }}
   # Specifies the ratio (0.0-1.0] of total system memory to use for dynamic
@@ -584,6 +585,10 @@ data:
   enable-tcx: {{ .Values.bpf.enableTCX | quote }}
 {{- end }}
 
+{{- if hasKey .Values.bpf "datapathMode" }}
+  datapath-mode: {{ .Values.bpf.datapathMode | quote }}
+{{- end }}
+
 {{- if (not (kindIs "invalid" .Values.bpf.masquerade)) }}
   enable-bpf-masquerade: {{ .Values.bpf.masquerade | quote }}
 {{- else if eq $defaultBpfMasquerade "true" }}
@@ -652,6 +657,7 @@ data:
 {{- end }}
 
   auto-direct-node-routes: {{ .Values.autoDirectNodeRoutes | quote }}
+  direct-routing-skip-unreachable: {{ .Values.directRoutingSkipUnreachable | quote }}
 
 {{- if hasKey .Values "bandwidthManager" }}
 {{- if .Values.bandwidthManager.enabled }}
@@ -698,6 +704,10 @@ data:
 
 {{- if .Values.enableRuntimeDeviceDetection }}
   enable-runtime-device-detection: "true"
+{{- end }}
+
+{{- if .Values.forceDeviceDetection }}
+  force-device-detection: "true"
 {{- end }}
 
   kube-proxy-replacement: {{ $kubeProxyReplacement | quote }}
@@ -817,7 +827,7 @@ data:
 {{- if and .Values.endpointRoutes .Values.endpointRoutes.enabled }}
   enable-endpoint-routes: {{ .Values.endpointRoutes.enabled | quote }}
 {{- end }}
-{{- if and .Values.k8sNetworkPolicy .Values.k8sNetworkPolicy.enabled }}
+{{- if hasKey .Values.k8sNetworkPolicy "enabled" }}
   enable-k8s-networkpolicy: {{ .Values.k8sNetworkPolicy.enabled | quote }}
 {{- end }}
 {{- if .Values.cni.configMap }}
@@ -844,6 +854,9 @@ data:
 {{- if (not (kindIs "invalid" .Values.cni.externalRouting)) }}
   cni-external-routing: {{ .Values.cni.externalRouting | quote }}
 {{- end}}
+{{- if .Values.cni.enableRouteMTUForCNIChaining }}
+  enable-route-mtu-for-cni-chaining: {{ .Values.cni.enableRouteMTUForCNIChaining | quote }}
+{{- end }}
 {{- if .Values.kubeConfigPath }}
   k8s-kubeconfig-path: {{ .Values.kubeConfigPath | quote }}
 {{- end }}
@@ -856,7 +869,7 @@ data:
 {{- if hasKey .Values "healthChecking" }}
   enable-health-checking: {{ .Values.healthChecking | quote }}
 {{- end }}
-{{- if or .Values.wellKnownIdentities.enabled .Values.etcd.managed }}
+{{- if .Values.wellKnownIdentities.enabled }}
   enable-well-known-identities: "true"
 {{- else }}
   enable-well-known-identities: "false"
@@ -1036,6 +1049,10 @@ data:
   enable-node-ipam: "true"
 {{- end }}
 
+{{- if .Values.LBIPAM.requireLBClass }}
+  lbipam-require-lb-class: "true"
+{{- end }}
+
 {{- if .Values.apiRateLimit }}
   api-rate-limit: {{ .Values.apiRateLimit | quote }}
 {{- end }}
@@ -1118,9 +1135,6 @@ data:
 {{- if .Values.bgpControlPlane.enabled }}
   enable-bgp-control-plane: "true"
   bgp-secrets-namespace: {{ .Values.bgpControlPlane.secretsNamespace.name | quote }}
-  bgp-v2-api-enabled: {{ .Values.bgpControlPlane.v2Enabled | quote }}
-{{- else }}
-  enable-bgp-control-plane: "false"
 {{- end }}
 
 {{- if .Values.pmtuDiscovery.enabled }}
@@ -1148,8 +1162,11 @@ data:
   disable-external-ip-mitigation: {{ .Values.bpf.disableExternalIPMitigation | quote }}
 {{- end }}
 
-{{- if .Values.enableCiliumEndpointSlice }}
+{{- if or .Values.ciliumEndpointSlice.enabled .Values.enableCiliumEndpointSlice }}
   enable-cilium-endpoint-slice: "true"
+  {{- if .Values.ciliumEndpointSlice.rateLimits }}
+  ces-rate-limits: {{ .Values.ciliumEndpointSlice.rateLimits | toJson | quote }}
+  {{- end }}
 {{- end }}
 
 {{- if hasKey .Values "enableK8sTerminatingEndpoint" }}
@@ -1262,7 +1279,7 @@ data:
   proxy-max-connection-duration-seconds: {{ .Values.envoy.maxConnectionDurationSeconds | quote }}
   proxy-idle-timeout-seconds: {{ .Values.envoy.idleTimeoutDurationSeconds | quote }}
 
-  external-envoy-proxy: {{ .Values.envoy.enabled | quote }}
+  external-envoy-proxy: {{ include "envoyDaemonSetEnabled" . | quote }}
   envoy-base-id: {{ .Values.envoy.baseID | quote }}
 
 {{- if .Values.envoy.log.path }}

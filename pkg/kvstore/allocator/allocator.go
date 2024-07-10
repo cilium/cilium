@@ -598,11 +598,8 @@ func (k *kvstoreBackend) ListAndWatch(ctx context.Context, handler allocator.Cac
 				}
 
 				switch event.Typ {
-				case kvstore.EventTypeCreate:
-					handler.OnAdd(id, key)
-
-				case kvstore.EventTypeModify:
-					handler.OnModify(id, key)
+				case kvstore.EventTypeCreate, kvstore.EventTypeModify:
+					handler.OnUpsert(id, key)
 
 				case kvstore.EventTypeDelete:
 					handler.OnDelete(id, key)

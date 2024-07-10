@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __BPF_TYPES_MAPPER__
-#define __BPF_TYPES_MAPPER__
+#pragma once
 
 typedef __signed__ char __s8;
 typedef unsigned char __u8;
@@ -33,6 +32,4 @@ typedef __u64 __aligned_u64;
 typedef __u64 __net_cookie;
 typedef __u64 __sock_cookie;
 
-#define UINT8_MAX 0xffff
-
-#endif /* __BPF_TYPES_MAPPER__ */
+#define UINT16_MAX 0xffff

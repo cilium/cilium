@@ -22,6 +22,7 @@ on:
     branches:
       - main
       - ft/main/**
+      - 'renovate/main-**'
     paths-ignore:
       - 'Documentation/**'
 
@@ -70,7 +71,6 @@ jobs:
           echo '${{ tojson(inputs) }}'
 
   commit-status-start:
-    if: ${{ github.event_name != 'push' }}
     name: Commit Status Start
     runs-on: ubuntu-latest
     steps:
@@ -92,7 +92,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -112,7 +112,7 @@ jobs:
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@13cf0683b2662c27c691f4330c2ac0f48b429ce5 # v0.16.7
+        uses: cilium/cilium-cli@9d071f99ae32af95cb15c3e0a280d222b569a1cf # v0.16.11
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -137,7 +137,7 @@ jobs:
         if: ${{ !success() && steps.lb-test.outcome != 'skipped' }}
         run: |
           docker ps -a
-          docker logs -f lb-node
+          docker logs lb-node
           docker inspect lb-node
           docker exec -t lb-node docker ps
 
@@ -147,7 +147,7 @@ jobs:
           docker exec -t lb-node docker logs cilium-lb
 
   commit-status-final:
-    if: ${{ always() && github.event_name != 'push' }}
+    if: ${{ always() }}
     name: Commit Status Final
     needs: setup-and-test
     runs-on: ubuntu-latest

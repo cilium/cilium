@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __TEST_PKTGEN__
-#define __TEST_PKTGEN__
+#pragma once
 
 #include <bpf/compiler.h>
 #include <bpf/builtins.h>
@@ -63,6 +62,8 @@ static volatile const __u8 mac_zero[] =  {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 #define v4_pod_one	IPV4(192, 168, 0, 1)
 #define v4_pod_two	IPV4(192, 168, 0, 2)
 #define v4_pod_three	IPV4(192, 168, 0, 3)
+
+#define v4_all	IPV4(0, 0, 0, 0)
 
 /* IPv6 addresses for pods in the cluster */
 static volatile const __section(".rodata") __u8 v6_pod_one[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
@@ -664,6 +665,22 @@ pktgen__push_ipv4_udp_packet(struct pktgen *builder,
 	return l4;
 }
 
+static __always_inline struct vxlanhdr *
+pktgen__push_ipv4_vxlan_packet(struct pktgen *builder,
+			       __u8 *smac, __u8 *dmac,
+			       __be32 saddr, __be32 daddr,
+			       __be16 sport, __be16 dport)
+{
+	struct udphdr *l4;
+
+	l4 = pktgen__push_ipv4_udp_packet(builder, smac, dmac, saddr, daddr,
+					  sport, dport);
+	if (!l4)
+		return NULL;
+
+	return pktgen__push_default_vxlanhdr(builder);
+}
+
 static __always_inline struct tcphdr *
 pktgen__push_ipv6_tcp_packet(struct pktgen *builder,
 			     __u8 *smac, __u8 *dmac,
@@ -807,6 +824,7 @@ static __always_inline void pktgen__finish_ipv4(const struct pktgen *builder, in
 	v4len = (__be16)(builder->cur_off - builder->layer_offsets[i]);
 	/* Calculate total length, which is IPv4 hdr + all layers after it */
 	ipv4_layer->tot_len = __bpf_htons(v4len);
+	ipv4_layer->check = csum_fold(csum_diff(NULL, 0, ipv4_layer, sizeof(struct iphdr), 0));
 }
 
 static __always_inline void pktgen__finish_ipv6(const struct pktgen *builder, int i)
@@ -1068,5 +1086,3 @@ void pktgen__finish(const struct pktgen *builder)
 		}
 	}
 };
-
-#endif /* __TEST_PKTGEN__ */

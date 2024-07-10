@@ -4,14 +4,17 @@
 package loader
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -20,86 +23,93 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-// RestoreTemplates populates the object cache from templates on the filesystem
-// at the specified path.
-func (l *loader) RestoreTemplates(stateDir string) error {
-	// Simplest implementation: Just garbage-collect everything.
-	// In future we should make this smarter.
-	path := filepath.Join(stateDir, defaults.TemplatesDir)
-	err := os.RemoveAll(path)
-	if err == nil || os.IsNotExist(err) {
-		return nil
-	}
-	return &os.PathError{
-		Op:   "failed to remove old BPF templates",
-		Path: path,
-		Err:  err,
-	}
-}
-
-// objectCache is a map from a hash of the datapath to the path on the
-// filesystem where its corresponding BPF object file exists.
+// objectCache amortises the cost of BPF compilation for endpoints.
 type objectCache struct {
 	lock.Mutex
 	datapath.ConfigWriter
 
+	// The directory used for caching. Must not be accessed by another process.
 	workingDirectory string
-	baseHash         *datapathHash
 
-	// objects maps a hash to a queue which ensures that only one
-	// attempt is made concurrently to compile the corresponding template.
-	objects map[string]*cachedObject
+	baseHash datapathHash
+
+	// The cached objects.
+	objects map[string]*cachedSpec
 }
 
-type cachedObject struct {
-	// Protects state in cachedObject. Also used to serialize compilation attempts.
+type cachedSpec struct {
+	// Protects state, also used to serialize compilation attempts.
 	lock.Mutex
 
-	// The path at which the object is cached. May be empty if there hasn't
-	// been a successful compile yet.
-	path string
+	// The compiled and parsed spec. May be nil if no compilation has happened yet.
+	spec *ebpf.CollectionSpec
 }
 
-func newObjectCache(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, workingDir string) *objectCache {
-	oc := &objectCache{
+func newObjectCache(c datapath.ConfigWriter, workingDir string) *objectCache {
+	return &objectCache{
 		ConfigWriter:     c,
 		workingDirectory: workingDir,
-		objects:          make(map[string]*cachedObject),
+		objects:          make(map[string]*cachedSpec),
 	}
-	oc.Update(nodeCfg)
-	return oc
 }
 
-// Update may be called to update the base hash for configuration of datapath
-// configuration that applies across the node.
-func (o *objectCache) Update(nodeCfg *datapath.LocalNodeConfiguration) {
-	newHash := hashDatapath(o.ConfigWriter, nodeCfg, nil, nil)
+// UpdateDatapathHash invalidates the object cache if the configuration of the
+// datapath has changed.
+func (o *objectCache) UpdateDatapathHash(nodeCfg *datapath.LocalNodeConfiguration) error {
+	newHash, err := hashDatapath(o.ConfigWriter, nodeCfg)
+	if err != nil {
+		return fmt.Errorf("hash datapath config: %w", err)
+	}
 
+	// Prevent new compilation from starting.
 	o.Lock()
 	defer o.Unlock()
+
+	// Don't invalidate if the hash is the same.
+	if bytes.Equal(newHash, o.baseHash) {
+		return nil
+	}
+
+	// Wait until all concurrent compilation has finished.
+	for _, obj := range o.objects {
+		obj.Lock()
+	}
+
+	if err := os.RemoveAll(o.workingDirectory); err != nil {
+		for _, obj := range o.objects {
+			obj.Unlock()
+		}
+
+		return err
+	}
+
 	o.baseHash = newHash
+	o.objects = make(map[string]*cachedSpec)
+	return nil
 }
 
 // serialize access to an abitrary key.
 //
-// Lock the returned object to ensure mutual exclusion.
-func (o *objectCache) serialize(key string) *cachedObject {
+// The caller must call Unlock on the returned object.
+func (o *objectCache) serialize(key string) *cachedSpec {
 	o.Lock()
 	defer o.Unlock()
 
 	obj, ok := o.objects[key]
 	if !ok {
-		obj = new(cachedObject)
+		obj = new(cachedSpec)
 		o.objects[key] = obj
 	}
+
+	obj.Lock()
 	return obj
 }
 
 // build attempts to compile and cache a datapath template object file
 // corresponding to the specified endpoint configuration.
-func (o *objectCache) build(ctx context.Context, cfg datapath.EndpointConfiguration, stats *metrics.SpanStat, dir *directoryInfo, hash string) (string, error) {
+func (o *objectCache) build(ctx context.Context, nodeCfg *datapath.LocalNodeConfiguration, cfg datapath.EndpointConfiguration, stats *metrics.SpanStat, dir *directoryInfo, hash string) (string, error) {
 	isHost := cfg.IsHost()
-	templatePath := filepath.Join(o.workingDirectory, defaults.TemplatesDir, hash)
+	templatePath := filepath.Join(o.workingDirectory, hash)
 	dir = &directoryInfo{
 		Library: dir.Library,
 		Runtime: dir.Runtime,
@@ -123,7 +133,7 @@ func (o *objectCache) build(ctx context.Context, cfg datapath.EndpointConfigurat
 		return "", fmt.Errorf("failed to open template header for writing: %w", err)
 	}
 	defer f.Close()
-	if err = o.ConfigWriter.WriteEndpointConfig(f, cfg); err != nil {
+	if err = o.ConfigWriter.WriteEndpointConfig(f, nodeCfg, cfg); err != nil {
 		return "", fmt.Errorf("failed to write template header: %w", err)
 	}
 
@@ -148,15 +158,13 @@ func (o *objectCache) build(ctx context.Context, cfg datapath.EndpointConfigurat
 // threads attempt to concurrently fetchOrCompile a template binary for the
 // same set of EndpointConfiguration.
 //
-// Returns the path to the compiled template datapath object and whether the
-// object was compiled, or an error.
-func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointConfiguration, dir *directoryInfo, stats *metrics.SpanStat) (file *os.File, compiled bool, err error) {
+// Returns a copy of the compiled and parsed ELF and a hash identifying a cached entry.
+func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.LocalNodeConfiguration, cfg datapath.EndpointConfiguration, dir *directoryInfo, stats *metrics.SpanStat) (spec *ebpf.CollectionSpec, hash string, err error) {
 	cfg = wrap(cfg)
 
-	var hash string
-	hash, err = o.baseHash.sumEndpoint(o, cfg, false)
+	hash, err = o.baseHash.hashTemplate(o, nodeCfg, cfg)
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
 
 	// Capture the time spent waiting for the template to compile.
@@ -170,40 +178,30 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg datapath.EndpointC
 
 	scopedLog := log.WithField(logfields.BPFHeaderfileHash, hash)
 
+	// Only allow a single concurrent compilation per hash.
 	obj := o.serialize(hash)
-
-	// Only allow a single concurrent compilation.
-	obj.Lock()
 	defer obj.Unlock()
 
-	if obj.path != "" {
-		// Only attempt to use a cached object if we previously built this object.
-		// Otherwise we risk reusing a previous process' output since we're not
-		// guaranteed an empty working directory.
-		if cached, err := os.Open(obj.path); err == nil {
-			return cached, false, nil
-		} else if !errors.Is(err, os.ErrNotExist) {
-			return nil, false, err
-		}
+	if obj.spec != nil {
+		return obj.spec.Copy(), hash, nil
 	}
 
 	if stats == nil {
 		stats = &metrics.SpanStat{}
 	}
 
-	path, err := o.build(ctx, cfg, stats, dir, hash)
+	path, err := o.build(ctx, nodeCfg, cfg, stats, dir, hash)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			scopedLog.WithError(err).Error("BPF template object creation failed")
 		}
-		return nil, false, err
+		return nil, "", err
 	}
 
-	output, err := os.Open(path)
+	obj.spec, err = bpf.LoadCollectionSpec(path)
 	if err != nil {
-		return nil, false, err
+		return nil, "", fmt.Errorf("load eBPF ELF %s: %w", path, err)
 	}
 
-	obj.path = path
-	return output, !compiled, nil
+	return obj.spec.Copy(), hash, nil
 }

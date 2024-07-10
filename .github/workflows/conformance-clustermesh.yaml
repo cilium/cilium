@@ -22,6 +22,7 @@ on:
     branches:
       - main
       - ft/main/**
+      - 'renovate/main-**'
     paths-ignore:
       - 'Documentation/**'
 
@@ -60,8 +61,13 @@ env:
   cilium_cli_ci_version:
   clusterName1: cluster1-${{ github.run_id }}
   clusterName2: cluster2-${{ github.run_id }}
+  ciliumClusterName1: c1
+  ciliumClusterName2: cluster2-with-long-name-01234567
   contextName1: kind-cluster1-${{ github.run_id }}
   contextName2: kind-cluster2-${{ github.run_id }}
+
+  # renovate: datasource=github-releases depName=cert-manager/cert-manager
+  CERT_MANAGER_VERSION: v1.15.1
 
 jobs:
   echo-inputs:
@@ -74,7 +80,6 @@ jobs:
           echo '${{ tojson(inputs) }}'
 
   commit-status-start:
-    if: ${{ github.event_name != 'push' }}
     name: Commit Status Start
     runs-on: ubuntu-latest
     steps:
@@ -100,6 +105,7 @@ jobs:
             encryption: 'disabled'
             kube-proxy: 'iptables'
             mode: 'kvstoremesh'
+            tls-auto-method: helm
             cm-auth-mode-1: 'legacy'
             cm-auth-mode-2: 'legacy'
             maxConnectedClusters: '255'
@@ -111,6 +117,7 @@ jobs:
             encryption: 'wireguard'
             kube-proxy: 'none'
             mode: 'clustermesh'
+            tls-auto-method: cronJob
             cm-auth-mode-1: 'migration'
             cm-auth-mode-2: 'migration'
             maxConnectedClusters: '511'
@@ -123,6 +130,7 @@ jobs:
             encryption: 'ipsec'
             kube-proxy: 'iptables'
             mode: 'kvstoremesh'
+            tls-auto-method: certmanager
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
@@ -136,6 +144,7 @@ jobs:
             encryption: 'disabled'
             kube-proxy: 'none'
             mode: 'clustermesh'
+            tls-auto-method: certmanager
             cm-auth-mode-1: 'legacy'
             cm-auth-mode-2: 'migration'
             maxConnectedClusters: '255'
@@ -148,6 +157,7 @@ jobs:
             encryption: 'ipsec'
             kube-proxy: 'iptables'
             mode: 'external'
+            tls-auto-method: helm
             maxConnectedClusters: '255'
             ciliumEndpointSlice: 'disabled'
 
@@ -157,6 +167,7 @@ jobs:
             encryption: 'disabled'
             kube-proxy: 'none'
             mode: 'clustermesh'
+            tls-auto-method: helm
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
@@ -168,6 +179,7 @@ jobs:
             encryption: 'wireguard'
             kube-proxy: 'iptables'
             mode: 'kvstoremesh'
+            tls-auto-method: cronJob
             cm-auth-mode-1: 'migration'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '511'
@@ -180,6 +192,7 @@ jobs:
             encryption: 'ipsec'
             kube-proxy: 'iptables'
             mode: 'clustermesh'
+            tls-auto-method: certmanager
             cm-auth-mode-1: 'cluster'
             cm-auth-mode-2: 'cluster'
             maxConnectedClusters: '255'
@@ -192,6 +205,7 @@ jobs:
         #    encryption: 'disabled'
         #    kube-proxy: 'none'
         #    mode: 'kvstoremesh'
+        #    tls-auto-method: certmanager
         #    cm-auth-mode-1: 'cluster'
         #    cm-auth-mode-2: 'cluster'
 
@@ -201,6 +215,7 @@ jobs:
             encryption: 'wireguard'
             kube-proxy: 'iptables'
             mode: 'external'
+            tls-auto-method: helm
             maxConnectedClusters: '511'
             ciliumEndpointSlice: 'disabled'
 
@@ -211,7 +226,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -235,10 +250,18 @@ jobs:
             --helm-set=bpf.masquerade=${{ matrix.kube-proxy == 'none' }} \
             --helm-set=hubble.enabled=true \
             --helm-set=hubble.relay.enabled=true \
+            --helm-set=hubble.tls.auto.method=${{ matrix.tls-auto-method }} \
+            --helm-set=hubble.tls.auto.certManagerIssuerRef.group=cert-manager.io \
+            --helm-set=hubble.tls.auto.certManagerIssuerRef.kind=Issuer \
+            --helm-set=hubble.tls.auto.certManagerIssuerRef.name=cilium \
             --helm-set=clustermesh.useAPIServer=${{ matrix.mode != 'external' }} \
             --helm-set=clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.mode == 'kvstoremesh' }} \
             --helm-set=clustermesh.maxConnectedClusters=${{ matrix.maxConnectedClusters }} \
             --helm-set=clustermesh.enableEndpointSliceSynchronization=true \
+            --helm-set=clustermesh.apiserver.tls.auto.method=${{ matrix.tls-auto-method }} \
+            --helm-set=clustermesh.apiserver.tls.auto.certManagerIssuerRef.group=cert-manager.io \
+            --helm-set=clustermesh.apiserver.tls.auto.certManagerIssuerRef.kind=Issuer \
+            --helm-set=clustermesh.apiserver.tls.auto.certManagerIssuerRef.name=cilium \
             --helm-set=ciliumEndpointSlice.enabled=${{ matrix.ciliumEndpointSlice == 'enabled'}} \
             "
 
@@ -319,7 +342,7 @@ jobs:
           echo kind_svc_cidr_2=${KIND_SVC_CIDR_2} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@13cf0683b2662c27c691f4330c2ac0f48b429ce5 # v0.16.7
+        uses: cilium/cilium-cli@9d071f99ae32af95cb15c3e0a280d222b569a1cf # v0.16.11
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -402,14 +425,45 @@ jobs:
           kubectl --context ${{ env.contextName1 }} create -n kube-system -f ${{ steps.kvstore.outputs.cilium_etcd_secrets_path }}
           kubectl --context ${{ env.contextName2 }} create -n kube-system -f ${{ steps.kvstore.outputs.cilium_etcd_secrets_path }}
 
+      - name: Install cert-manager CRDs and create Cilium's issuer
+        if: matrix.tls-auto-method == 'certmanager'
+        run: |
+          # Generate the Cilium CA key and certificate
+          openssl genrsa 4096 > cilium-ca-key.pem
+          openssl req -new -x509 -nodes -days 1 -key cilium-ca-key.pem -out cilium-ca-crt.pem -subj "/CN=Cilium CA/"
+
+          cat << EOF > issuer.yaml
+          apiVersion: cert-manager.io/v1
+          kind: Issuer
+          metadata:
+            name: cilium
+            namespace: kube-system
+          spec:
+            ca:
+              secretName: cilium-root-ca
+          EOF
+
+          for ctx in ${{ env.contextName1 }} ${{ env.contextName2 }}; do
+            # Install the cert-manager CRDs
+            CRD_URL="https://github.com/cert-manager/cert-manager/releases/download/${{ env.CERT_MANAGER_VERSION }}/cert-manager.crds.yaml"
+            kubectl --context $ctx apply -f $CRD_URL
+
+            # Create the Cilium CA secret
+            kubectl --context $ctx create -n kube-system secret tls cilium-root-ca \
+              --key=cilium-ca-key.pem --cert=cilium-ca-crt.pem
+
+            # Create the cert-manager issuer
+            kubectl --context $ctx apply -f issuer.yaml
+          done
+
       - name: Set clustermesh connection parameters
         if: matrix.mode == 'external'
         id: clustermesh-vars
         run: |
           echo "cilium_install_clustermesh= \
             --set=clustermesh.config.enabled=true \
-            --set clustermesh.config.clusters[0].name=${{ env.clusterName1 }} \
-            --set clustermesh.config.clusters[1].name=${{ env.clusterName2 }} \
+            --set clustermesh.config.clusters[0].name=${{ env.ciliumClusterName1 }} \
+            --set clustermesh.config.clusters[1].name=${{ env.ciliumClusterName2 }} \
             ${{ steps.kvstore.outputs.cilium_install_clustermesh }} \
           " >> $GITHUB_OUTPUT
 
@@ -424,7 +478,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -448,7 +502,7 @@ jobs:
           # each cluster, to workaround #24692
           cilium --context ${{ env.contextName1 }} install \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --helm-set cluster.name=${{ env.clusterName1 }} \
+            --helm-set cluster.name=${{ env.ciliumClusterName1 }} \
             --helm-set cluster.id=1 \
             --helm-set clustermesh.apiserver.service.nodePort=32379 \
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-1 }} \
@@ -457,6 +511,7 @@ jobs:
             --nodes-without-cilium
 
       - name: Copy the Cilium CA secret to cluster2, as they must match
+        if: matrix.tls-auto-method != 'certmanager'
         run: |
           kubectl --context ${{ env.contextName1 }} get secret -n kube-system cilium-ca -o yaml |
             kubectl --context ${{ env.contextName2 }} create -f -
@@ -469,12 +524,24 @@ jobs:
           # each cluster, to workaround #24692
           cilium --context ${{ env.contextName2 }} install \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --helm-set cluster.name=${{ env.clusterName2 }} \
+            --helm-set cluster.name=${{ env.ciliumClusterName2 }} \
             --helm-set cluster.id=${{ matrix.maxConnectedClusters }} \
             --helm-set clustermesh.apiserver.service.nodePort=32380 \
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-2 }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
             ${{ steps.clustermesh-vars.outputs.cilium_install_clustermesh }}
+
+      - name: Install cert-manager
+        if: matrix.tls-auto-method == 'certmanager'
+        run: |
+          helm repo add jetstack https://charts.jetstack.io
+          for ctx in ${{ env.contextName1 }} ${{ env.contextName2 }}; do
+            helm --kube-context $ctx install \
+              cert-manager jetstack/cert-manager \
+              --namespace cert-manager \
+              --create-namespace \
+              --version ${{ env.CERT_MANAGER_VERSION }}
+          done
 
       - name: Wait for cluster mesh status to be ready
         run: |
@@ -495,12 +562,6 @@ jobs:
           cilium --context ${{ env.contextName2 }} status --wait
           cilium --context ${{ env.contextName1 }} clustermesh status --wait
           cilium --context ${{ env.contextName2 }} clustermesh status --wait
-
-      - name: Port forward Relay
-        run: |
-          cilium --context ${{ env.contextName1 }} hubble port-forward &
-          sleep 10s
-          [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Make JUnit report directory
         run: |
@@ -542,14 +603,14 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: cilium-sysdumps-${{ matrix.name }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: cilium-junits-${{ matrix.name }}
           path: cilium-junits/*.xml
@@ -568,7 +629,7 @@ jobs:
     steps:
       - name: Merge Sysdumps
         if: ${{ needs.installation-and-connectivity.result == 'failure' }}
-        uses: actions/upload-artifact/merge@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact/merge@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: cilium-sysdumps
           pattern: cilium-sysdumps-*
@@ -576,7 +637,7 @@ jobs:
           delete-merged: true
         continue-on-error: true
       - name: Merge JUnits
-        uses: actions/upload-artifact/merge@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact/merge@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: cilium-junits
           pattern: cilium-junits-*
@@ -584,7 +645,7 @@ jobs:
           delete-merged: true
 
   commit-status-final:
-    if: ${{ always() && github.event_name != 'push' }}
+    if: ${{ always() }}
     name: Commit Status Final
     needs: installation-and-connectivity
     runs-on: ubuntu-latest

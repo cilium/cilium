@@ -11,7 +11,7 @@ import (
 	smithytime "github.com/aws/smithy-go/time"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	smithywaiter "github.com/aws/smithy-go/waiter"
-	"github.com/jmespath/go-jmespath"
+	jmespath "github.com/jmespath/go-jmespath"
 	"time"
 )
 
@@ -117,6 +117,12 @@ func (c *Client) addOperationDescribeConversionTasksMiddlewares(stack *middlewar
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeConversionTasks(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -137,14 +143,6 @@ func (c *Client) addOperationDescribeConversionTasksMiddlewares(stack *middlewar
 	}
 	return nil
 }
-
-// DescribeConversionTasksAPIClient is a client that implements the
-// DescribeConversionTasks operation.
-type DescribeConversionTasksAPIClient interface {
-	DescribeConversionTasks(context.Context, *DescribeConversionTasksInput, ...func(*Options)) (*DescribeConversionTasksOutput, error)
-}
-
-var _ DescribeConversionTasksAPIClient = (*Client)(nil)
 
 // ConversionTaskCancelledWaiterOptions are waiter options for
 // ConversionTaskCancelledWaiter
@@ -263,7 +261,13 @@ func (w *ConversionTaskCancelledWaiter) WaitForOutput(ctx context.Context, param
 		}
 
 		out, err := w.client.DescribeConversionTasks(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -453,7 +457,13 @@ func (w *ConversionTaskCompletedWaiter) WaitForOutput(ctx context.Context, param
 		}
 
 		out, err := w.client.DescribeConversionTasks(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -691,7 +701,13 @@ func (w *ConversionTaskDeletedWaiter) WaitForOutput(ctx context.Context, params 
 		}
 
 		out, err := w.client.DescribeConversionTasks(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -763,6 +779,14 @@ func conversionTaskDeletedStateRetryable(ctx context.Context, input *DescribeCon
 
 	return true, nil
 }
+
+// DescribeConversionTasksAPIClient is a client that implements the
+// DescribeConversionTasks operation.
+type DescribeConversionTasksAPIClient interface {
+	DescribeConversionTasks(context.Context, *DescribeConversionTasksInput, ...func(*Options)) (*DescribeConversionTasksOutput, error)
+}
+
+var _ DescribeConversionTasksAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeConversionTasks(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

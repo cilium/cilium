@@ -11,18 +11,61 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/cilium/hive/cell"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore"
+	nm "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/node/types"
 )
 
-func (k *K8sWatcher) ciliumNodeInit(ctx context.Context, asyncControllers *sync.WaitGroup) {
+type k8sCiliumNodeWatcherParams struct {
+	cell.In
+
+	Clientset         k8sClient.Clientset
+	Resources         agentK8s.Resources
+	K8sResourceSynced *k8sSynced.Resources
+	K8sAPIGroups      *k8sSynced.APIGroups
+
+	NodeManager nm.NodeManager
+}
+
+func newK8sCiliumNodeWatcher(params k8sCiliumNodeWatcherParams) *K8sCiliumNodeWatcher {
+	return &K8sCiliumNodeWatcher{
+		clientset:         params.Clientset,
+		k8sResourceSynced: params.K8sResourceSynced,
+		k8sAPIGroups:      params.K8sAPIGroups,
+		resources:         params.Resources,
+		nodeManager:       params.NodeManager,
+	}
+}
+
+type K8sCiliumNodeWatcher struct {
+	clientset k8sClient.Clientset
+
+	// k8sResourceSynced maps a resource name to a channel. Once the given
+	// resource name is synchronized with k8s, the channel for which that
+	// resource name maps to is closed.
+	k8sResourceSynced *k8sSynced.Resources
+	// k8sAPIGroups is a set of k8s API in use. They are setup in watchers,
+	// and may be disabled while the agent runs.
+	k8sAPIGroups *k8sSynced.APIGroups
+	resources    agentK8s.Resources
+
+	nodeManager nodeManager
+
+	ciliumNodeStore atomic.Pointer[resource.Store[*cilium_v2.CiliumNode]]
+}
+
+func (k *K8sCiliumNodeWatcher) ciliumNodeInit(ctx context.Context, asyncControllers *sync.WaitGroup) {
 	// CiliumNode objects are used for node discovery until the key-value
 	// store is connected
 	var once sync.Once
@@ -32,7 +75,7 @@ func (k *K8sWatcher) ciliumNodeInit(ctx context.Context, asyncControllers *sync.
 		var synced atomic.Bool
 		stop := make(chan struct{})
 
-		k.blockWaitGroupToSyncResources(
+		k.k8sResourceSynced.BlockWaitGroupToSyncResources(
 			stop,
 			nil,
 			func() bool { return synced.Load() },
@@ -104,7 +147,7 @@ func (k *K8sWatcher) ciliumNodeInit(ctx context.Context, asyncControllers *sync.
 		case <-kvstore.Connected():
 			log.Info("Connected to key-value store, stopping CiliumNode watcher")
 			cancel()
-			k.cancelWaitGroupToSyncResources(apiGroup)
+			k.k8sResourceSynced.CancelWaitGroupToSyncResources(apiGroup)
 			k.k8sAPIGroups.RemoveAPI(apiGroup)
 			wg.Wait()
 		case <-ctx.Done():
@@ -122,7 +165,7 @@ func (k *K8sWatcher) ciliumNodeInit(ctx context.Context, asyncControllers *sync.
 	}
 }
 
-func (k *K8sWatcher) onCiliumNodeInsert(ciliumNode *cilium_v2.CiliumNode) bool {
+func (k *K8sCiliumNodeWatcher) onCiliumNodeInsert(ciliumNode *cilium_v2.CiliumNode) bool {
 	if k8s.IsLocalCiliumNode(ciliumNode) {
 		return false
 	}
@@ -131,7 +174,7 @@ func (k *K8sWatcher) onCiliumNodeInsert(ciliumNode *cilium_v2.CiliumNode) bool {
 	return true
 }
 
-func (k *K8sWatcher) onCiliumNodeUpdate(oldNode, newNode *cilium_v2.CiliumNode) bool {
+func (k *K8sCiliumNodeWatcher) onCiliumNodeUpdate(oldNode, newNode *cilium_v2.CiliumNode) bool {
 	// Comparing Annotations here since wg-pub-key annotation is used to exchange rotated WireGuard keys.
 	if oldNode.DeepEqual(newNode) &&
 		maps.Equal(oldNode.ObjectMeta.Labels, newNode.ObjectMeta.Labels) &&
@@ -141,7 +184,7 @@ func (k *K8sWatcher) onCiliumNodeUpdate(oldNode, newNode *cilium_v2.CiliumNode) 
 	return k.onCiliumNodeInsert(newNode)
 }
 
-func (k *K8sWatcher) onCiliumNodeDelete(ciliumNode *cilium_v2.CiliumNode) {
+func (k *K8sCiliumNodeWatcher) onCiliumNodeDelete(ciliumNode *cilium_v2.CiliumNode) {
 	if k8s.IsLocalCiliumNode(ciliumNode) {
 		return
 	}
@@ -156,7 +199,7 @@ func (k *K8sWatcher) onCiliumNodeDelete(ciliumNode *cilium_v2.CiliumNode) {
 // store if the local cache is falling behind due to the high amount of CiliumNode events
 // received from the k8s API server. To mitigate this, the caller should retry GetCiliumNode
 // for a given interval to be sure that a CiliumNode with that name has not actually been created.
-func (k *K8sWatcher) GetCiliumNode(ctx context.Context, nodeName string) (*cilium_v2.CiliumNode, error) {
+func (k *K8sCiliumNodeWatcher) GetCiliumNode(ctx context.Context, nodeName string) (*cilium_v2.CiliumNode, error) {
 	store := k.ciliumNodeStore.Load()
 	if store == nil {
 		return k.clientset.CiliumV2().CiliumNodes().Get(ctx, nodeName, v1.GetOptions{})

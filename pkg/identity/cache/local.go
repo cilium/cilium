@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -138,7 +137,7 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.
 
 	if l.events != nil && notifyOwner {
 		l.events <- allocator.AllocatorEvent{
-			Typ: kvstore.EventTypeCreate,
+			Typ: allocator.AllocatorChangeUpsert,
 			ID:  idpool.ID(id.ID),
 			Key: &key.GlobalIdentity{LabelArray: id.LabelArray},
 		}
@@ -168,7 +167,7 @@ func (l *localIdentityCache) release(id *identity.Identity, notifyOwner bool) bo
 
 			if l.events != nil && notifyOwner {
 				l.events <- allocator.AllocatorEvent{
-					Typ: kvstore.EventTypeDelete,
+					Typ: allocator.AllocatorChangeDelete,
 					ID:  idpool.ID(id.ID),
 				}
 			}
@@ -254,6 +253,21 @@ func (l *localIdentityCache) GetIdentities() map[identity.NumericIdentity]*ident
 	}
 
 	return cache
+}
+
+func (l *localIdentityCache) checkpoint(dst []*identity.Identity) []*identity.Identity {
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
+	for _, id := range l.identitiesByID {
+		dst = append(dst, id)
+	}
+	return dst
+}
+
+func (l *localIdentityCache) size() int {
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
+	return len(l.identitiesByID)
 }
 
 // close removes the events channel.

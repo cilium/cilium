@@ -14,33 +14,33 @@ import (
 // BoolSliceValue converts a bool slice into an array with same elements as slice.
 func BoolSliceValue(v []bool) interface{} {
 	var zero bool
-	cp := reflect.New(reflect.ArrayOf(len(v), reflect.TypeOf(zero)))
-	copy(cp.Elem().Slice(0, len(v)).Interface().([]bool), v)
-	return cp.Elem().Interface()
+	cp := reflect.New(reflect.ArrayOf(len(v), reflect.TypeOf(zero))).Elem()
+	reflect.Copy(cp, reflect.ValueOf(v))
+	return cp.Interface()
 }
 
 // Int64SliceValue converts an int64 slice into an array with same elements as slice.
 func Int64SliceValue(v []int64) interface{} {
 	var zero int64
-	cp := reflect.New(reflect.ArrayOf(len(v), reflect.TypeOf(zero)))
-	copy(cp.Elem().Slice(0, len(v)).Interface().([]int64), v)
-	return cp.Elem().Interface()
+	cp := reflect.New(reflect.ArrayOf(len(v), reflect.TypeOf(zero))).Elem()
+	reflect.Copy(cp, reflect.ValueOf(v))
+	return cp.Interface()
 }
 
 // Float64SliceValue converts a float64 slice into an array with same elements as slice.
 func Float64SliceValue(v []float64) interface{} {
 	var zero float64
-	cp := reflect.New(reflect.ArrayOf(len(v), reflect.TypeOf(zero)))
-	copy(cp.Elem().Slice(0, len(v)).Interface().([]float64), v)
-	return cp.Elem().Interface()
+	cp := reflect.New(reflect.ArrayOf(len(v), reflect.TypeOf(zero))).Elem()
+	reflect.Copy(cp, reflect.ValueOf(v))
+	return cp.Interface()
 }
 
 // StringSliceValue converts a string slice into an array with same elements as slice.
 func StringSliceValue(v []string) interface{} {
 	var zero string
-	cp := reflect.New(reflect.ArrayOf(len(v), reflect.TypeOf(zero)))
-	copy(cp.Elem().Slice(0, len(v)).Interface().([]string), v)
-	return cp.Elem().Interface()
+	cp := reflect.New(reflect.ArrayOf(len(v), reflect.TypeOf(zero))).Elem()
+	reflect.Copy(cp, reflect.ValueOf(v))
+	return cp.Interface()
 }
 
 // AsBoolSlice converts a bool array into a slice into with same elements as array.

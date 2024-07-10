@@ -21329,6 +21329,70 @@ func (m *awsEc2query_serializeOpDescribeTags) HandleSerialize(ctx context.Contex
 	return next.HandleSerialize(ctx, in)
 }
 
+type awsEc2query_serializeOpDescribeTrafficMirrorFilterRules struct {
+}
+
+func (*awsEc2query_serializeOpDescribeTrafficMirrorFilterRules) ID() string {
+	return "OperationSerializer"
+}
+
+func (m *awsEc2query_serializeOpDescribeTrafficMirrorFilterRules) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+) {
+	request, ok := in.Request.(*smithyhttp.Request)
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown transport type %T", in.Request)}
+	}
+
+	input, ok := in.Parameters.(*DescribeTrafficMirrorFilterRulesInput)
+	_ = input
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
+	}
+
+	operationPath := "/"
+	if len(request.Request.URL.Path) == 0 {
+		request.Request.URL.Path = operationPath
+	} else {
+		request.Request.URL.Path = path.Join(request.Request.URL.Path, operationPath)
+		if request.Request.URL.Path != "/" && operationPath[len(operationPath)-1] == '/' {
+			request.Request.URL.Path += "/"
+		}
+	}
+	request.Request.Method = "POST"
+	httpBindingEncoder, err := httpbinding.NewEncoder(request.URL.Path, request.URL.RawQuery, request.Header)
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	httpBindingEncoder.SetHeader("Content-Type").String("application/x-www-form-urlencoded")
+
+	bodyWriter := bytes.NewBuffer(nil)
+	bodyEncoder := query.NewEncoder(bodyWriter)
+	body := bodyEncoder.Object()
+	body.Key("Action").String("DescribeTrafficMirrorFilterRules")
+	body.Key("Version").String("2016-11-15")
+
+	if err := awsEc2query_serializeOpDocumentDescribeTrafficMirrorFilterRulesInput(input, bodyEncoder.Value); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	err = bodyEncoder.Encode()
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request, err = request.SetStream(bytes.NewReader(bodyWriter.Bytes())); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request.Request, err = httpBindingEncoder.Encode(request.Request); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	in.Request = request
+
+	return next.HandleSerialize(ctx, in)
+}
+
 type awsEc2query_serializeOpDescribeTrafficMirrorFilters struct {
 }
 
@@ -48596,6 +48660,19 @@ func awsEc2query_serializeDocumentTrafficMirrorFilterRuleFieldList(v []types.Tra
 	return nil
 }
 
+func awsEc2query_serializeDocumentTrafficMirrorFilterRuleIdList(v []string, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		av.String(v[i])
+	}
+	return nil
+}
+
 func awsEc2query_serializeDocumentTrafficMirrorNetworkServiceList(v []types.TrafficMirrorNetworkService, value query.Value) error {
 	if len(v) == 0 {
 		return nil
@@ -51664,6 +51741,11 @@ func awsEc2query_serializeOpDocumentCreateCustomerGatewayInput(v *CreateCustomer
 		objectKey.Integer(*v.BgpAsn)
 	}
 
+	if v.BgpAsnExtended != nil {
+		objectKey := object.Key("BgpAsnExtended")
+		objectKey.Long(*v.BgpAsnExtended)
+	}
+
 	if v.CertificateArn != nil {
 		objectKey := object.Key("CertificateArn")
 		objectKey.String(*v.CertificateArn)
@@ -53757,6 +53839,13 @@ func awsEc2query_serializeOpDocumentCreateTrafficMirrorFilterRuleInput(v *Create
 	if v.SourcePortRange != nil {
 		objectKey := object.Key("SourcePortRange")
 		if err := awsEc2query_serializeDocumentTrafficMirrorPortRangeRequest(v.SourcePortRange, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.TagSpecifications != nil {
+		objectKey := object.FlatKey("TagSpecification")
+		if err := awsEc2query_serializeDocumentTagSpecificationList(v.TagSpecifications, objectKey); err != nil {
 			return err
 		}
 	}
@@ -60440,6 +60529,47 @@ func awsEc2query_serializeOpDocumentDescribeTagsInput(v *DescribeTagsInput, valu
 	if v.NextToken != nil {
 		objectKey := object.Key("NextToken")
 		objectKey.String(*v.NextToken)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeOpDocumentDescribeTrafficMirrorFilterRulesInput(v *DescribeTrafficMirrorFilterRulesInput, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.DryRun != nil {
+		objectKey := object.Key("DryRun")
+		objectKey.Boolean(*v.DryRun)
+	}
+
+	if v.Filters != nil {
+		objectKey := object.FlatKey("Filter")
+		if err := awsEc2query_serializeDocumentFilterList(v.Filters, objectKey); err != nil {
+			return err
+		}
+	}
+
+	if v.MaxResults != nil {
+		objectKey := object.Key("MaxResults")
+		objectKey.Integer(*v.MaxResults)
+	}
+
+	if v.NextToken != nil {
+		objectKey := object.Key("NextToken")
+		objectKey.String(*v.NextToken)
+	}
+
+	if v.TrafficMirrorFilterId != nil {
+		objectKey := object.Key("TrafficMirrorFilterId")
+		objectKey.String(*v.TrafficMirrorFilterId)
+	}
+
+	if v.TrafficMirrorFilterRuleIds != nil {
+		objectKey := object.FlatKey("TrafficMirrorFilterRuleId")
+		if err := awsEc2query_serializeDocumentTrafficMirrorFilterRuleIdList(v.TrafficMirrorFilterRuleIds, objectKey); err != nil {
+			return err
+		}
 	}
 
 	return nil

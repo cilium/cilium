@@ -89,12 +89,7 @@ endif
 	$(QUIET) $(CONTAINER_ENGINE) buildx build -f $(subst %,$$*,$(2)) \
 		$(DOCKER_BUILD_FLAGS) $(DOCKER_FLAGS) \
 		$(if $(BASE_IMAGE),--build-arg BASE_IMAGE=$(BASE_IMAGE),) \
-		--build-arg NOSTRIP=$${NOSTRIP} \
-		--build-arg NOOPT=${NOOPT} \
-		--build-arg LOCKDEBUG=${LOCKDEBUG} \
-		--build-arg RACE=${RACE}\
-		--build-arg V=${V} \
-		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
+		--build-arg MODIFIERS="NOSTRIP=$${NOSTRIP} NOOPT=${NOOPT} LOCKDEBUG=${LOCKDEBUG} RACE=${RACE} V=${V} LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} ${ADDITIONAL_MODIFIERS}" \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		--build-arg OPERATOR_VARIANT=$(IMAGE_NAME) \
 		--build-arg DEBUG_HOLD=$(DEBUG_HOLD) \

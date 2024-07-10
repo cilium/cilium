@@ -21,6 +21,7 @@ fi
 if [ "$1" = "uninstall" ] ; then
     if [ -n "$(${SUDO} docker ps -a -q -f label=app=cilium)" ]; then
         echo "Shutting down running Cilium agent"
+        ${SUDO} docker stop cilium || true
         ${SUDO} docker rm -f cilium || true
     fi
     if [ -f /usr/bin/cilium ] ; then

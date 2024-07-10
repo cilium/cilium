@@ -162,6 +162,7 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 	tests := []struct {
 		name   string
 		fields fields
+		model  *model.Model
 		want   []*ciliumv2.ServiceListener
 	}{
 		{
@@ -170,18 +171,85 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 				name:      "cilium-ingress",
 				namespace: "kube-system",
 			},
+			model: &model.Model{
+				HTTP: []model.HTTPListener{
+					{
+						Port: 80,
+					},
+					{
+						Port: 443,
+					},
+				},
+			},
 			want: []*ciliumv2.ServiceListener{
 				{
 					Name:      "cilium-ingress",
 					Namespace: "kube-system",
+					Ports: []uint16{
+						80,
+						443,
+					},
+				},
+			},
+		},
+		{
+			name: "only http port",
+			fields: fields{
+				name:      "someotherservice",
+				namespace: "default",
+			},
+			model: &model.Model{
+				HTTP: []model.HTTPListener{
+					{
+						Port: 80,
+					},
+				},
+			},
+			want: []*ciliumv2.ServiceListener{
+				{
+					Name:      "someotherservice",
+					Namespace: "default",
+					Ports: []uint16{
+						80,
+					},
+				},
+			},
+		},
+		{
+			name: "cleartext HTTP and TLS passthrough",
+			fields: fields{
+				name:      "cilium-ingress",
+				namespace: "kube-system",
+			},
+			model: &model.Model{
+				HTTP: []model.HTTPListener{
+					{
+						Port: 80,
+					},
+				},
+				TLSPassthrough: []model.TLSPassthroughListener{
+					{
+						Port: 443,
+					},
+				},
+			},
+			want: []*ciliumv2.ServiceListener{
+				{
+					Name:      "cilium-ingress",
+					Namespace: "kube-system",
+					Ports: []uint16{
+						80,
+						443,
+					},
 				},
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &cecTranslator{}
-			got := i.getServices(tt.fields.namespace, tt.fields.name)
+			got := i.getServicesWithPorts(tt.fields.namespace, tt.fields.name, tt.model)
 			require.Equal(t, tt.want, got)
 		})
 	}

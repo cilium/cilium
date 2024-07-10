@@ -150,6 +150,12 @@ func (c *Client) addOperationDescribeFleetsMiddlewares(stack *middleware.Stack, 
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeFleets(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -170,14 +176,6 @@ func (c *Client) addOperationDescribeFleetsMiddlewares(stack *middleware.Stack, 
 	}
 	return nil
 }
-
-// DescribeFleetsAPIClient is a client that implements the DescribeFleets
-// operation.
-type DescribeFleetsAPIClient interface {
-	DescribeFleets(context.Context, *DescribeFleetsInput, ...func(*Options)) (*DescribeFleetsOutput, error)
-}
-
-var _ DescribeFleetsAPIClient = (*Client)(nil)
 
 // DescribeFleetsPaginatorOptions is the paginator options for DescribeFleets
 type DescribeFleetsPaginatorOptions struct {
@@ -246,6 +244,9 @@ func (p *DescribeFleetsPaginator) NextPage(ctx context.Context, optFns ...func(*
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeFleets(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -264,6 +265,14 @@ func (p *DescribeFleetsPaginator) NextPage(ctx context.Context, optFns ...func(*
 
 	return result, nil
 }
+
+// DescribeFleetsAPIClient is a client that implements the DescribeFleets
+// operation.
+type DescribeFleetsAPIClient interface {
+	DescribeFleets(context.Context, *DescribeFleetsInput, ...func(*Options)) (*DescribeFleetsOutput, error)
+}
+
+var _ DescribeFleetsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeFleets(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

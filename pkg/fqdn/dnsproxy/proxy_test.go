@@ -57,7 +57,7 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 
 	// Add these identities
 	wg := &sync.WaitGroup{}
-	testSelectorCache.UpdateIdentities(cache.IdentityCache{
+	testSelectorCache.UpdateIdentities(identity.IdentityMap{
 		dstID1: labels.Labels{"Dst1": labels.NewLabel("Dst1", "test", labels.LabelSourceK8s)}.LabelArray(),
 		dstID2: labels.Labels{"Dst2": labels.NewLabel("Dst2", "test", labels.LabelSourceK8s)}.LabelArray(),
 		dstID3: labels.Labels{"Dst3": labels.NewLabel("Dst3", "test", labels.LabelSourceK8s)}.LabelArray(),
@@ -65,12 +65,21 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	}, nil, wg)
 	wg.Wait()
 
-	s.repo = policy.NewPolicyRepository(nil, nil, nil, nil)
+	s.repo = policy.NewPolicyRepository(nil, nil, nil)
 	s.dnsTCPClient = &dns.Client{Net: "tcp", Timeout: time.Second, SingleInflight: true}
 	s.dnsServer = setupServer(tb)
 	require.NotNil(tb, s.dnsServer, "unable to setup DNS server")
-
-	proxy, err := StartDNSProxy("", 0, true, true, true, 1000, // any address, any port, enable ipv4, enable ipv6, enable compression, max 1000 restore IPs
+	dnsProxyConfig := DNSProxyConfig{
+		Address:                "",
+		Port:                   0,
+		IPv4:                   true,
+		IPv6:                   true,
+		EnableDNSCompression:   true,
+		MaxRestoreDNSIPs:       1000,
+		ConcurrencyLimit:       0,
+		ConcurrencyGracePeriod: 0,
+	}
+	proxy, err := StartDNSProxy(dnsProxyConfig, // any address, any port, enable ipv4, enable ipv6, enable compression, max 1000 restore IPs
 		// LookupEPByIP
 		func(ip netip.Addr) (*endpoint.Endpoint, error) {
 			if s.restoring {
@@ -112,7 +121,6 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, dstAddr string, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error {
 			return nil
 		},
-		0, 0,
 	)
 	require.Nil(tb, err, "error starting DNS Proxy")
 	s.proxy = proxy
@@ -222,8 +230,7 @@ func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.Cached
 // Setup identities, ports and endpoint IDs we will need
 var (
 	cacheAllocator          = cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
-	fakeAllocator           = testidentity.NewMockIdentityAllocator(cacheAllocator.GetIdentityCache())
-	testSelectorCache       = policy.NewSelectorCache(fakeAllocator, cacheAllocator.GetIdentityCache())
+	testSelectorCache       = policy.NewSelectorCache(cacheAllocator.GetIdentityCache())
 	dummySelectorCacheUser  = &DummySelectorCacheUser{}
 	DstID1Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst1=test"))
 	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, DstID1Selector)

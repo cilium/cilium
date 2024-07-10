@@ -236,6 +236,14 @@ var defaultPartitions = endpoints.Partitions{
 				},
 			},
 			endpoints.EndpointKey{
+				Region: "ca-west-1",
+			}: endpoints.Endpoint{
+				Hostname: "oidc.ca-west-1.amazonaws.com",
+				CredentialScope: endpoints.CredentialScope{
+					Region: "ca-west-1",
+				},
+			},
+			endpoints.EndpointKey{
 				Region: "eu-central-1",
 			}: endpoints.Endpoint{
 				Hostname: "oidc.eu-central-1.amazonaws.com",

@@ -11,14 +11,14 @@
  * If DROP_NOTIFY is not defined, the API will be compiled in as a NOP.
  */
 
-#ifndef __LIB_DROP__
-#define __LIB_DROP__
+#pragma once
 
 #include "dbg.h"
 #include "events.h"
 #include "common.h"
 #include "utils.h"
 #include "metrics.h"
+#include "ratelimit.h"
 
 #ifdef DROP_NOTIFY
 struct drop_notify {
@@ -60,7 +60,20 @@ int __send_drop_notify(struct __ctx_buff *ctx)
 	__u16 line = (__u16)(meta4 >> 16);
 	__u8 file = (__u8)(meta4 >> 8);
 	__u8 exitcode = (__u8)meta4;
+	struct ratelimit_key rkey = {
+		.usage = RATELIMIT_USAGE_EVENTS_MAP,
+	};
+	struct ratelimit_settings settings = {
+		.topup_interval_ns = NSEC_PER_SEC,
+	};
 	struct drop_notify msg;
+
+	if (EVENTS_MAP_RATE_LIMIT > 0) {
+		settings.bucket_size = EVENTS_MAP_BURST_LIMIT;
+		settings.tokens_per_topup = EVENTS_MAP_RATE_LIMIT;
+		if (!ratelimit_check_and_take(&rkey, &settings))
+			return exitcode;
+	}
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_DROP, (__u8)error),
@@ -178,5 +191,3 @@ int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 #define send_drop_notify_error_ext(ctx, src, reason, ext_err, exitcode, direction) \
 	_send_drop_notify(__MAGIC_FILE__, __MAGIC_LINE__, ctx, src, 0, 0, \
 			  __DROP_REASON_EXT(reason, ext_err), exitcode, direction)
-
-#endif /* __LIB_DROP__ */

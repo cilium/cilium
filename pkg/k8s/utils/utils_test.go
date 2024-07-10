@@ -168,6 +168,24 @@ func TestValidIPs(t *testing.T) {
 			want: []string{"10.0.0.1", "127.0.0.2", "127.0.0.3"},
 		},
 		{
+			name: "multiple pod ip sorted",
+			args: slim_corev1.PodStatus{
+				HostIP: "127.0.0.1",
+				PodIPs: []slim_corev1.PodIP{
+					{
+						IP: "10.0.0.1",
+					},
+					{
+						IP: "127.0.0.3",
+					},
+					{
+						IP: "127.0.0.2",
+					},
+				},
+			},
+			want: []string{"10.0.0.1", "127.0.0.2", "127.0.0.3"},
+		},
+		{
 			name: "have empty pod ip",
 			args: slim_corev1.PodStatus{
 				HostIP: "127.0.0.1",

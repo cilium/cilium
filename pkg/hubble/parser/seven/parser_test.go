@@ -15,6 +15,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -32,7 +33,7 @@ var (
 		IPv4:     "10.16.32.10",
 		IPv6:     "f00d::a10:0:0:abcd",
 		Identity: 9876,
-		Labels:   []string{"k1=v1", "k2=v2"},
+		Labels:   labels.ParseLabelArray("k1=v1", "k2=v2"),
 	}
 	fakeDestinationEndpoint = accesslog.EndpointInfo{
 		ID:       4321,
@@ -40,7 +41,7 @@ var (
 		IPv6:     "f00d::a10:0:0:1234",
 		Port:     80,
 		Identity: 6789,
-		Labels:   []string{"k3=v3", "k4=v4"},
+		Labels:   labels.ParseLabelArray("k3=v3", "k4=v4"),
 	}
 )
 

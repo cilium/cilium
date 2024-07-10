@@ -151,6 +151,10 @@ type Allocator struct {
 	// disableAutostart prevents starting the allocator when it is initialized
 	disableAutostart bool
 
+	// cacheValidators implement extra validations of retrieved identities, e.g.,
+	// to ensure that they belong to the expected range.
+	cacheValidators []CacheValidator
+
 	// backend is the upstream, shared, backend to which we syncronize local
 	// information
 	backend Backend
@@ -158,6 +162,10 @@ type Allocator struct {
 
 // AllocatorOption is the base type for allocator options
 type AllocatorOption func(*Allocator)
+
+// CacheValidator is the type of the validation functions triggered to filter out
+// invalid notification events.
+type CacheValidator func(kind AllocatorChangeKind, id idpool.ID, key AllocatorKey) error
 
 // NewAllocatorForGC returns an allocator that can be used to run RunGC()
 //
@@ -398,6 +406,12 @@ func WithoutGC() AllocatorOption {
 // WithoutAutostart prevents starting the allocator when it is initialized
 func WithoutAutostart() AllocatorOption {
 	return func(a *Allocator) { a.disableAutostart = true }
+}
+
+// WithCacheValidator registers a validator triggered for each identity
+// notification event to filter out invalid IDs and keys.
+func WithCacheValidator(validator CacheValidator) AllocatorOption {
+	return func(a *Allocator) { a.cacheValidators = append(a.cacheValidators, validator) }
 }
 
 // GetEvents returns the events channel given to the allocator when
@@ -905,8 +919,8 @@ type AllocatorEventSendChan = chan<- AllocatorEvent
 
 // AllocatorEvent is an event sent over AllocatorEventChan
 type AllocatorEvent struct {
-	// Typ is the type of event (create / modify / delete)
-	Typ kvstore.EventType
+	// Typ is the type of event (upsert / delete)
+	Typ AllocatorChangeKind
 
 	// ID is the allocated ID
 	ID idpool.ID

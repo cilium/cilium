@@ -10,7 +10,7 @@ import (
 	smithytime "github.com/aws/smithy-go/time"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	smithywaiter "github.com/aws/smithy-go/waiter"
-	"github.com/jmespath/go-jmespath"
+	jmespath "github.com/jmespath/go-jmespath"
 	"strconv"
 	"time"
 )
@@ -33,8 +33,8 @@ import (
 // returns an empty string. We recommend that you wait up to 15 minutes after
 // launching an instance before trying to retrieve the generated password.
 //
-// [EC2Launch]: https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ec2launch.html
-// [EC2Config]: https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/UsingConfig_WinAMI.html
+// [EC2Launch]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2launch.html
+// [EC2Config]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/UsingConfig_WinAMI.html
 func (c *Client) GetPasswordData(ctx context.Context, params *GetPasswordDataInput, optFns ...func(*Options)) (*GetPasswordDataOutput, error) {
 	if params == nil {
 		params = &GetPasswordDataInput{}
@@ -139,6 +139,12 @@ func (c *Client) addOperationGetPasswordDataMiddlewares(stack *middleware.Stack,
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpGetPasswordDataValidationMiddleware(stack); err != nil {
 		return err
 	}
@@ -162,14 +168,6 @@ func (c *Client) addOperationGetPasswordDataMiddlewares(stack *middleware.Stack,
 	}
 	return nil
 }
-
-// GetPasswordDataAPIClient is a client that implements the GetPasswordData
-// operation.
-type GetPasswordDataAPIClient interface {
-	GetPasswordData(context.Context, *GetPasswordDataInput, ...func(*Options)) (*GetPasswordDataOutput, error)
-}
-
-var _ GetPasswordDataAPIClient = (*Client)(nil)
 
 // PasswordDataAvailableWaiterOptions are waiter options for
 // PasswordDataAvailableWaiter
@@ -288,7 +286,13 @@ func (w *PasswordDataAvailableWaiter) WaitForOutput(ctx context.Context, params 
 		}
 
 		out, err := w.client.GetPasswordData(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -349,6 +353,14 @@ func passwordDataAvailableStateRetryable(ctx context.Context, input *GetPassword
 
 	return true, nil
 }
+
+// GetPasswordDataAPIClient is a client that implements the GetPasswordData
+// operation.
+type GetPasswordDataAPIClient interface {
+	GetPasswordData(context.Context, *GetPasswordDataInput, ...func(*Options)) (*GetPasswordDataOutput, error)
+}
+
+var _ GetPasswordDataAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opGetPasswordData(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

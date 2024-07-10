@@ -26,13 +26,15 @@ const (
 type gatewayAPITranslator struct {
 	cecTranslator translation.CECTranslator
 
-	hostNetworkEnabled bool
+	hostNetworkEnabled    bool
+	externalTrafficPolicy string
 }
 
-func NewTranslator(cecTranslator translation.CECTranslator, hostNetworkEnabled bool) translation.Translator {
+func NewTranslator(cecTranslator translation.CECTranslator, hostNetworkEnabled bool, externalTrafficPolicy string) translation.Translator {
 	return &gatewayAPITranslator{
-		cecTranslator:      cecTranslator,
-		hostNetworkEnabled: hostNetworkEnabled,
+		cecTranslator:         cecTranslator,
+		hostNetworkEnabled:    hostNetworkEnabled,
+		externalTrafficPolicy: externalTrafficPolicy,
 	}
 }
 
@@ -42,10 +44,24 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 		return nil, nil, nil, fmt.Errorf("model source can't be empty")
 	}
 
+	// source is the main object that is the source of the model.Model
 	var source *model.FullyQualifiedResource
+	// owner is the object that will be the owner of the created CEC
+	// for Gateways, source == owner == the created LB service
+	// for Services (that is, GAMMA), source is the parent Service, and owner
+	// is the HTTPRoute.
+	var owner *model.FullyQualifiedResource
+
 	var ports []uint32
 	for _, l := range listeners {
-		source = &l.GetSources()[0]
+		sources := l.GetSources()
+		source = &sources[0]
+		owner = source
+		// If there's more than one source in the listener, then this model is a GAMMA one,
+		// and includes a HTTPRoute source as the second one.
+		if len(sources) > 1 {
+			owner = &sources[1]
+		}
 
 		ports = append(ports, l.GetPort())
 	}
@@ -54,7 +70,16 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 		return nil, nil, nil, fmt.Errorf("model source name can't be empty")
 	}
 
-	cec, err := t.cecTranslator.Translate(source.Namespace, ciliumGatewayPrefix+source.Name, m)
+	// generatedName is the name of the generated objects.
+	// for Gateways, this is "cilium-gateway-<servicename>"
+	// for GAMMA, this is just "<servicename>"
+	generatedName := ciliumGatewayPrefix + source.Name
+
+	// TODO: remove this hack
+	if source.Kind == "Service" {
+		generatedName = source.Name
+	}
+	cec, err := t.cecTranslator.Translate(source.Namespace, generatedName, m)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -62,10 +87,10 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 	// Set the owner reference to the CEC object.
 	cec.OwnerReferences = []metav1.OwnerReference{
 		{
-			APIVersion: gatewayv1beta1.GroupVersion.String(),
-			Kind:       source.Kind,
-			Name:       source.Name,
-			UID:        types.UID(source.UID),
+			APIVersion: owner.Group + "/" + owner.Version,
+			Kind:       owner.Kind,
+			Name:       owner.Name,
+			UID:        types.UID(owner.UID),
 			Controller: model.AddressOf(true),
 		},
 	}
@@ -78,16 +103,17 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 		allLabels = mergeMap(allLabels, l.GetLabels())
 	}
 
-	lbSvc := getService(source, ports, allLabels, allAnnotations)
+	lbSvc := getService(source, ports, allLabels, allAnnotations, t.externalTrafficPolicy)
 
 	if t.hostNetworkEnabled {
 		lbSvc.Spec.Type = corev1.ServiceTypeClusterIP
+		lbSvc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicy("")
 	}
 
 	return cec, lbSvc, getEndpoints(*source), err
 }
 
-func getService(resource *model.FullyQualifiedResource, allPorts []uint32, labels, annotations map[string]string) *corev1.Service {
+func getService(resource *model.FullyQualifiedResource, allPorts []uint32, labels, annotations map[string]string, externalTrafficPolicy string) *corev1.Service {
 	uniquePorts := map[uint32]struct{}{}
 	for _, p := range allPorts {
 		uniquePorts[p] = struct{}{}
@@ -119,8 +145,9 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32, label
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type:  corev1.ServiceTypeLoadBalancer,
-			Ports: ports,
+			Type:                  corev1.ServiceTypeLoadBalancer,
+			ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicy(externalTrafficPolicy),
+			Ports:                 ports,
 		},
 	}
 }

@@ -19,7 +19,6 @@
  * Now include testing defaults
  */
 #define ROUTER_IP
-#include "config_replacement.h"
 #undef ROUTER_IP
 #include "node_config.h"
 

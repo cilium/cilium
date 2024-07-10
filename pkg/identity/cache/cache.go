@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/key"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/idpool"
-	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -22,9 +21,6 @@ import (
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "identity-cache")
 )
-
-// IdentityCache is a cache of identity to labels mapping
-type IdentityCache map[identity.NumericIdentity]labels.LabelArray
 
 // IdentitiesModel is a wrapper so that we can implement the sort.Interface
 // to sort the slice by ID
@@ -37,7 +33,7 @@ func (s IdentitiesModel) Less(i, j int) bool {
 }
 
 // FromIdentityCache populates the provided model from an identity cache.
-func (s IdentitiesModel) FromIdentityCache(cache IdentityCache) IdentitiesModel {
+func (s IdentitiesModel) FromIdentityCache(cache identity.IdentityMap) IdentitiesModel {
 	for id, lbls := range cache {
 		s = append(s, identitymodel.CreateModel(&identity.Identity{
 			ID:     id,
@@ -48,9 +44,9 @@ func (s IdentitiesModel) FromIdentityCache(cache IdentityCache) IdentitiesModel 
 }
 
 // GetIdentityCache returns a cache of all known identities
-func (m *CachingIdentityAllocator) GetIdentityCache() IdentityCache {
+func (m *CachingIdentityAllocator) GetIdentityCache() identity.IdentityMap {
 	log.Debug("getting identity cache for identity allocator manager")
-	cache := IdentityCache{}
+	cache := identity.IdentityMap{}
 
 	if m.isGlobalIdentityAllocatorInitialized() {
 		m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
@@ -113,10 +109,10 @@ type identityWatcher struct {
 // collectEvent records the 'event' as an added or deleted identity,
 // and makes sure that any identity is present in only one of the sets
 // (added or deleted).
-func collectEvent(event allocator.AllocatorEvent, added, deleted IdentityCache) bool {
+func collectEvent(event allocator.AllocatorEvent, added, deleted identity.IdentityMap) bool {
 	id := identity.NumericIdentity(event.ID)
 	// Only create events have the key
-	if event.Typ == kvstore.EventTypeCreate {
+	if event.Typ == allocator.AllocatorChangeUpsert {
 		if gi, ok := event.Key.(*key.GlobalIdentity); ok {
 			// Un-delete the added ID if previously
 			// 'deleted' so that collected events can be
@@ -144,8 +140,8 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 
 	go func() {
 		for {
-			added := IdentityCache{}
-			deleted := IdentityCache{}
+			added := identity.IdentityMap{}
+			deleted := identity.IdentityMap{}
 		First:
 			for {
 				event, ok := <-events
@@ -156,13 +152,11 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 				}
 				// Collect first added and deleted labels
 				switch event.Typ {
-				case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
+				case allocator.AllocatorChangeUpsert, allocator.AllocatorChangeDelete:
 					if collectEvent(event, added, deleted) {
 						// First event collected
 						break First
 					}
-				default:
-					// Ignore modify events
 				}
 			}
 
@@ -177,10 +171,8 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 					}
 					// Collect more added and deleted labels
 					switch event.Typ {
-					case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
+					case allocator.AllocatorChangeUpsert, allocator.AllocatorChangeDelete:
 						collectEvent(event, added, deleted)
-					default:
-						// Ignore modify events
 					}
 				default:
 					// No more events available without blocking

@@ -11,7 +11,7 @@ import (
 	smithytime "github.com/aws/smithy-go/time"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	smithywaiter "github.com/aws/smithy-go/waiter"
-	"github.com/jmespath/go-jmespath"
+	jmespath "github.com/jmespath/go-jmespath"
 	"time"
 )
 
@@ -109,6 +109,12 @@ func (c *Client) addOperationDescribeExportTasksMiddlewares(stack *middleware.St
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeExportTasks(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -129,14 +135,6 @@ func (c *Client) addOperationDescribeExportTasksMiddlewares(stack *middleware.St
 	}
 	return nil
 }
-
-// DescribeExportTasksAPIClient is a client that implements the
-// DescribeExportTasks operation.
-type DescribeExportTasksAPIClient interface {
-	DescribeExportTasks(context.Context, *DescribeExportTasksInput, ...func(*Options)) (*DescribeExportTasksOutput, error)
-}
-
-var _ DescribeExportTasksAPIClient = (*Client)(nil)
 
 // ExportTaskCancelledWaiterOptions are waiter options for
 // ExportTaskCancelledWaiter
@@ -255,7 +253,13 @@ func (w *ExportTaskCancelledWaiter) WaitForOutput(ctx context.Context, params *D
 		}
 
 		out, err := w.client.DescribeExportTasks(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -445,7 +449,13 @@ func (w *ExportTaskCompletedWaiter) WaitForOutput(ctx context.Context, params *D
 		}
 
 		out, err := w.client.DescribeExportTasks(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -517,6 +527,14 @@ func exportTaskCompletedStateRetryable(ctx context.Context, input *DescribeExpor
 
 	return true, nil
 }
+
+// DescribeExportTasksAPIClient is a client that implements the
+// DescribeExportTasks operation.
+type DescribeExportTasksAPIClient interface {
+	DescribeExportTasks(context.Context, *DescribeExportTasksInput, ...func(*Options)) (*DescribeExportTasksOutput, error)
+}
+
+var _ DescribeExportTasksAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeExportTasks(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

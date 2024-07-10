@@ -7,6 +7,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 
@@ -26,26 +27,39 @@ var deletionQueueCell = cell.Group(
 type deletionQueue struct {
 	lf            *lockfile.Lockfile
 	daemonPromise promise.Promise[*Daemon]
+	wg            sync.WaitGroup
 }
 
-func (dq *deletionQueue) Start(ctx cell.HookContext) error {
-	d, err := dq.daemonPromise.Await(ctx)
-	if err != nil {
-		return err
-	}
+func (dq *deletionQueue) Start(cell.HookContext) error {
+	dq.wg.Add(1)
+	go func() {
+		defer dq.wg.Done()
 
-	if err := dq.lock(ctx); err != nil {
-		return err
-	}
+		// hook context cancels when the start hooks have run, use context.Background()
+		// as we may be running after that.
+		d, err := dq.daemonPromise.Await(context.Background())
+		if err != nil {
+			log.WithError(err).Error("deletionQueue: Daemon promise failed")
+			return
+		}
 
-	bootstrapStats.deleteQueue.Start()
-	err = dq.processQueuedDeletes(d, ctx)
-	bootstrapStats.deleteQueue.EndError(err)
-	return err
+		if err := dq.lock(d.ctx); err != nil {
+			log.WithError(err).Error("deletionQueue: lock failed")
+			return
+		}
 
+		bootstrapStats.deleteQueue.Start()
+		err = dq.processQueuedDeletes(d, d.ctx)
+		bootstrapStats.deleteQueue.EndError(err)
+		if err != nil {
+			log.WithError(err).Error("deletionQueue: processQueuedDeletes failed")
+		}
+	}()
+	return nil
 }
 
-func (dq *deletionQueue) Stop(ctx cell.HookContext) error {
+func (dq *deletionQueue) Stop(cell.HookContext) error {
+	dq.wg.Wait()
 	return nil
 }
 

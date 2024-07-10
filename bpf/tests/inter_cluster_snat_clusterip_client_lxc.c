@@ -45,7 +45,6 @@
 #define ENABLE_CLUSTER_AWARE_ADDRESSING
 
 /* Import some default values */
-#include "config_replacement.h"
 
 /* Import map definitions and some default values */
 #include "node_config.h"
@@ -215,6 +214,9 @@ int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP hasn't been NATed to remote backend IP");
 
+	if (l3->check != bpf_htons(0xf968))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
 
@@ -319,6 +321,9 @@ int overlay_to_lxc_synack_check(struct __ctx_buff *ctx)
 	if (l3->daddr != CLIENT_IP)
 		test_fatal("dst IP is not client IP");
 
+	if (l3->check != bpf_htons(0x402))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+
 	if (l4->source != FRONTEND_PORT)
 		test_fatal("src port is not service frontend port");
 
@@ -403,6 +408,9 @@ int lxc_to_overlay_ack_check(struct __ctx_buff *ctx)
 
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP hasn't been NATed to remote backend IP");
+
+	if (l3->check != bpf_htons(0xf968))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");

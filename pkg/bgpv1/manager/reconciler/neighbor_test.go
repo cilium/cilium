@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/store"
@@ -72,20 +72,32 @@ func TestNeighborReconciler(t *testing.T) {
 				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort)},
+			},
+			err: nil,
+		},
+		{
+			name: "change peer ASN",
+			neighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32"},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
+			},
+			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64125, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64125, PeerAddress: "192.168.0.2/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort)},
 			},
 			err: nil,
 		},
 		{
 			name: "neighbor with peer port",
 			neighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(42424)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](42424)},
 				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(42424)},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](42424)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort)},
 			},
 			err: nil,
 		},
@@ -96,9 +108,9 @@ func TestNeighborReconciler(t *testing.T) {
 				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
-				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort)},
 			},
 			err: nil,
 		},
@@ -110,22 +122,22 @@ func TestNeighborReconciler(t *testing.T) {
 				{PeerASN: 64124, PeerAddress: "192.168.0.3/32"},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort)},
 			},
 			err: nil,
 		},
 		{
 			name: "update neighbor",
 			neighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", ConnectRetryTimeSeconds: pointer.Int32(120)},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", ConnectRetryTimeSeconds: pointer.Int32(120)},
-				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", ConnectRetryTimeSeconds: pointer.Int32(120)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", ConnectRetryTimeSeconds: ptr.To[int32](120)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", ConnectRetryTimeSeconds: ptr.To[int32](120)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", ConnectRetryTimeSeconds: ptr.To[int32](120)},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), ConnectRetryTimeSeconds: pointer.Int32(99)},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), ConnectRetryTimeSeconds: pointer.Int32(120)},
-				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), ConnectRetryTimeSeconds: pointer.Int32(120)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort), ConnectRetryTimeSeconds: ptr.To[int32](99)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort), ConnectRetryTimeSeconds: ptr.To[int32](120)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort), ConnectRetryTimeSeconds: ptr.To[int32](120)},
 			},
 			checks: checkTimers{
 				connectRetryTimer: true,
@@ -137,29 +149,29 @@ func TestNeighborReconciler(t *testing.T) {
 			neighbors: []v2alpha1api.CiliumBGPNeighbor{
 				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
 					Enabled:            true,
-					RestartTimeSeconds: pointer.Int32(v2alpha1api.DefaultBGPGRRestartTimeSeconds),
+					RestartTimeSeconds: ptr.To[int32](v2alpha1api.DefaultBGPGRRestartTimeSeconds),
 				}},
 				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
 					Enabled:            true,
-					RestartTimeSeconds: pointer.Int32(v2alpha1api.DefaultBGPGRRestartTimeSeconds),
+					RestartTimeSeconds: ptr.To[int32](v2alpha1api.DefaultBGPGRRestartTimeSeconds),
 				}},
 				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
 					Enabled:            true,
-					RestartTimeSeconds: pointer.Int32(v2alpha1api.DefaultBGPGRRestartTimeSeconds),
+					RestartTimeSeconds: ptr.To[int32](v2alpha1api.DefaultBGPGRRestartTimeSeconds),
 				}},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort), GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
 					Enabled:            false,
-					RestartTimeSeconds: pointer.Int32(0),
+					RestartTimeSeconds: ptr.To[int32](0),
 				}},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort), GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
 					Enabled:            true,
-					RestartTimeSeconds: pointer.Int32(v2alpha1api.DefaultBGPGRRestartTimeSeconds),
+					RestartTimeSeconds: ptr.To[int32](v2alpha1api.DefaultBGPGRRestartTimeSeconds),
 				}},
-				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort), GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
 					Enabled:            true,
-					RestartTimeSeconds: pointer.Int32(v2alpha1api.DefaultBGPGRRestartTimeSeconds),
+					RestartTimeSeconds: ptr.To[int32](v2alpha1api.DefaultBGPGRRestartTimeSeconds),
 				}},
 			},
 			checks: checkTimers{
@@ -170,12 +182,12 @@ func TestNeighborReconciler(t *testing.T) {
 		{
 			name: "update neighbor port",
 			neighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort)},
 				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(42424)},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](42424)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort)},
 			},
 			err: nil,
 		},
@@ -193,7 +205,7 @@ func TestNeighborReconciler(t *testing.T) {
 			name:      "add neighbor with a password",
 			neighbors: []v2alpha1api.CiliumBGPNeighbor{},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), AuthSecretRef: pointer.String("a-secret")},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort), AuthSecretRef: ptr.To[string]("a-secret")},
 			},
 			secretStore:      FakeSecretStore(map[string][]byte{"a-secret": []byte("a-password")}),
 			expectedSecret:   "a-secret",
@@ -203,10 +215,10 @@ func TestNeighborReconciler(t *testing.T) {
 		{
 			name: "neighbor's password secret not found",
 			neighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort)},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), AuthSecretRef: pointer.String("bad-secret")},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort), AuthSecretRef: ptr.To[string]("bad-secret")},
 			},
 			secretStore: FakeSecretStore(map[string][]byte{}),
 			err:         nil,
@@ -214,20 +226,20 @@ func TestNeighborReconciler(t *testing.T) {
 		{
 			name: "bad secret store, returns error",
 			neighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort)},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), AuthSecretRef: pointer.String("a-secret")},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort), AuthSecretRef: ptr.To[string]("a-secret")},
 			},
 			err: errors.New("fetch secret error"),
 		},
 		{
 			name: "neighbor's secret updated",
 			neighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), AuthSecretRef: pointer.String("a-secret")},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort), AuthSecretRef: ptr.To[string]("a-secret")},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), AuthSecretRef: pointer.String("another-secret")},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: ptr.To[int32](v2alpha1api.DefaultBGPPeerPort), AuthSecretRef: ptr.To[string]("another-secret")},
 			},
 			secretStore:      FakeSecretStore(map[string][]byte{"another-secret": []byte("another-password")}),
 			expectedSecret:   "another-secret",
@@ -312,33 +324,33 @@ func TestNeighborReconciler(t *testing.T) {
 			for _, peer := range getPeerResp.Peers {
 				toCiliumPeer := v2alpha1api.CiliumBGPNeighbor{
 					PeerAddress: toHostPrefix(peer.PeerAddress),
-					PeerPort:    pointer.Int32(int32(peer.PeerPort)),
+					PeerPort:    ptr.To[int32](int32(peer.PeerPort)),
 					PeerASN:     peer.PeerAsn,
 				}
 
 				if tt.checks.holdTimer {
-					toCiliumPeer.HoldTimeSeconds = pointer.Int32(int32(peer.ConfiguredHoldTimeSeconds))
+					toCiliumPeer.HoldTimeSeconds = ptr.To[int32](int32(peer.ConfiguredHoldTimeSeconds))
 				}
 
 				if tt.checks.connectRetryTimer {
-					toCiliumPeer.ConnectRetryTimeSeconds = pointer.Int32(int32(peer.ConnectRetryTimeSeconds))
+					toCiliumPeer.ConnectRetryTimeSeconds = ptr.To[int32](int32(peer.ConnectRetryTimeSeconds))
 				}
 
 				if tt.checks.keepaliveTimer {
-					toCiliumPeer.KeepAliveTimeSeconds = pointer.Int32(int32(peer.ConfiguredKeepAliveTimeSeconds))
+					toCiliumPeer.KeepAliveTimeSeconds = ptr.To[int32](int32(peer.ConfiguredKeepAliveTimeSeconds))
 				}
 
 				if tt.checks.grRestartTime {
 					toCiliumPeer.GracefulRestart = &v2alpha1api.CiliumBGPNeighborGracefulRestart{
 						Enabled:            peer.GracefulRestart.Enabled,
-						RestartTimeSeconds: pointer.Int32(int32(peer.GracefulRestart.RestartTimeSeconds)),
+						RestartTimeSeconds: ptr.To[int32](int32(peer.GracefulRestart.RestartTimeSeconds)),
 					}
 				}
 
 				// Check the API correctly reports a password was used.
 				require.Equal(t, tt.expectedPassword != "", peer.TCPPasswordEnabled)
 				if tt.expectedPassword != "" && peer.TCPPasswordEnabled {
-					toCiliumPeer.AuthSecretRef = pointer.String(tt.expectedSecret)
+					toCiliumPeer.AuthSecretRef = ptr.To[string](tt.expectedSecret)
 				}
 
 				runningPeers = append(runningPeers, toCiliumPeer)

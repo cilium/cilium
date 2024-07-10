@@ -31,12 +31,29 @@ const (
 	PolicyLabelKey = "gateway.networking.k8s.io/policy"
 )
 
-// PolicyTargetReference identifies an API object to apply a direct or
+// LocalPolicyTargetReference identifies an API object to apply a direct or
 // inherited policy to. This should be used as part of Policy resources
 // that can target Gateway API resources. For more information on how this
 // policy attachment model works, and a sample Policy resource, refer to
 // the policy attachment documentation for Gateway API.
-type PolicyTargetReference struct {
+type LocalPolicyTargetReference struct {
+	// Group is the group of the target resource.
+	Group Group `json:"group"`
+
+	// Kind is kind of the target resource.
+	Kind Kind `json:"kind"`
+
+	// Name is the name of the target resource.
+	Name ObjectName `json:"name"`
+}
+
+// NamespacedPolicyTargetReference identifies an API object to apply a direct or
+// inherited policy to, potentially in a different namespace. This should only
+// be used as part of Policy resources that need to be able to target resources
+// in different namespaces. For more information on how this policy attachment
+// model works, and a sample Policy resource, refer to the policy attachment
+// documentation for Gateway API.
+type NamespacedPolicyTargetReference struct {
 	// Group is the group of the target resource.
 	Group Group `json:"group"`
 
@@ -55,24 +72,25 @@ type PolicyTargetReference struct {
 	Namespace *Namespace `json:"namespace,omitempty"`
 }
 
-// PolicyTargetReferenceWithSectionName identifies an API object to apply a direct
-// policy to. This should be used as part of Policy resources that can target
-// single resources. For more information on how this policy attachment mode
-// works, and a sample Policy resource, refer to the policy attachment documentation
-// for Gateway API.
+// LocalPolicyTargetReferenceWithSectionName identifies an API object to apply a
+// direct policy to. This should be used as part of Policy resources that can
+// target single resources. For more information on how this policy attachment
+// mode works, and a sample Policy resource, refer to the policy attachment
+// documentation for Gateway API.
 //
 // Note: This should only be used for direct policy attachment when references
-// to SectionName are actually needed. In all other cases, PolicyTargetReference
-// should be used.
-type PolicyTargetReferenceWithSectionName struct {
-	PolicyTargetReference `json:",inline"`
+// to SectionName are actually needed. In all other cases,
+// LocalPolicyTargetReference should be used.
+type LocalPolicyTargetReferenceWithSectionName struct {
+	LocalPolicyTargetReference `json:",inline"`
 
 	// SectionName is the name of a section within the target resource. When
 	// unspecified, this targetRef targets the entire resource. In the following
 	// resources, SectionName is interpreted as the following:
 	//
-	// * Gateway: Listener Name
-	// * Service: Port Name
+	// * Gateway: Listener name
+	// * HTTPRoute: HTTPRouteRule name
+	// * Service: Port name
 	//
 	// If a SectionName is specified, but does not exist on the targeted object,
 	// the Policy must fail to attach, and the policy implementation should record

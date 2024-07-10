@@ -98,7 +98,7 @@ int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
 			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
 
-	endpoint_v4_add_entry(BACKEND_IP, 0, 0, 0,
+	endpoint_v4_add_entry(BACKEND_IP, 0, 0, 0, 0,
 			      (__u8 *)backend_mac, (__u8 *)node_mac);
 
 	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
@@ -152,6 +152,9 @@ int nodeport_nat_backend_check(const struct __ctx_buff *ctx)
 
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP has changed");
+
+	if (l3->check != bpf_htons(0xa712))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	if (l4->source != LB_PORT)
 		test_fatal("src port has changed");

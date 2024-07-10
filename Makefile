@@ -50,10 +50,9 @@ SKIP_CUSTOMVET_CHECK ?= "false"
 JOB_BASE_NAME ?= cilium_test
 
 TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 \
-	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002 \
-	-X github.com/cilium/cilium/pkg/datapath.datapathSHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002"
 
-TEST_UNITTEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/datapath.datapathSHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+TEST_UNITTEST_LDFLAGS=
 
 build: $(SUBDIRS) ## Builds all the components for Cilium by executing make in the respective sub directories.
 
@@ -83,7 +82,7 @@ $(SUBDIRS): force ## Execute default make target(make all) for the provided subd
 
 tests-privileged: ## Run Go tests including ones that require elevated privileges.
 	@$(ECHO_CHECK) running privileged tests...
-	PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
+	PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) -p 1 $(TEST_LDFLAGS) \
 		$(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 
@@ -124,7 +123,7 @@ ifeq ($(SKIP_KVSTORES),"false")
 endif
 
 generate-cov: ## Generate HTML coverage report at coverage-all.html.
-	# Remove generated code from coverage
+	-@# Remove generated code from coverage
 	$(QUIET) grep -Ev '(^github.com/cilium/cilium/api/v1)|(generated.deepcopy.go)|(^github.com/cilium/cilium/pkg/k8s/client/)' \
 		coverage.out > coverage.out.tmp
 	$(QUIET)$(GO) tool cover -html=coverage.out.tmp -o=coverage-all.html
@@ -231,46 +230,8 @@ include Makefile.kind
 
 -include Makefile.docker
 
-##@ API targets
-CRD_OPTIONS ?= "crd:crdVersions=v1"
-CRD_PATHS := "$(PWD)/pkg/k8s/apis/cilium.io/v2;\
-              $(PWD)/pkg/k8s/apis/cilium.io/v2alpha1;"
-CRDS_CILIUM_PATHS := $(PWD)/pkg/k8s/apis/cilium.io/client/crds/v2\
-                     $(PWD)/pkg/k8s/apis/cilium.io/client/crds/v2alpha1
-CRDS_CILIUM_V2 := ciliumnetworkpolicies \
-                  ciliumclusterwidenetworkpolicies \
-                  ciliumendpoints \
-                  ciliumidentities \
-                  ciliumnodes \
-                  ciliumexternalworkloads \
-                  ciliumlocalredirectpolicies \
-                  ciliumegressgatewaypolicies \
-                  ciliumenvoyconfigs \
-                  ciliumclusterwideenvoyconfigs \
-                  ciliumnodeconfigs
-CRDS_CILIUM_V2ALPHA1 := ciliumendpointslices \
-                        ciliumbgppeeringpolicies \
-                        ciliumbgpclusterconfigs \
-                        ciliumbgppeerconfigs \
-                        ciliumbgpadvertisements \
-                        ciliumbgpnodeconfigs \
-                        ciliumbgpnodeconfigoverrides \
-                        ciliumloadbalancerippools \
-                        ciliumcidrgroups \
-                        ciliuml2announcementpolicies \
-                        ciliumpodippools
-
 manifests: ## Generate K8s manifests e.g. CRD, RBAC etc.
-	$(eval TMPDIR := $(shell mktemp -d -t cilium.tmpXXXXXXXX))
-	$(QUIET)$(GO) run sigs.k8s.io/controller-tools/cmd/controller-gen $(CRD_OPTIONS) paths=$(CRD_PATHS) output:crd:artifacts:config="$(TMPDIR)"
-	$(QUIET)$(GO) run ./tools/crdcheck "$(TMPDIR)"
-
-	# Clean up old CRD state and start with a blank state.
-	for path in $(CRDS_CILIUM_PATHS); do rm -rf $${path} && mkdir $${path}; done
-
-	for file in $(CRDS_CILIUM_V2); do mv ${TMPDIR}/cilium.io_$${file}.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/$${file}.yaml; done
-	for file in $(CRDS_CILIUM_V2ALPHA1); do mv ${TMPDIR}/cilium.io_$${file}.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2alpha1/$${file}.yaml; done
-	rm -rf $(TMPDIR)
+	contrib/scripts/k8s-manifests-gen.sh
 
 generate-api: api/v1/openapi.yaml ## Generate cilium-agent client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/openapi.yaml
@@ -396,7 +357,7 @@ generate-k8s-api-local:
 
 .PHONY: generate-k8s-api
 generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go sources.
-	contrib/scripts/builder.sh \
+	RUN_AS_NONROOT=1 contrib/scripts/builder.sh \
 		$(MAKE) -C /go/src/github.com/cilium/cilium/ generate-k8s-api-local
 
 check-k8s-clusterrole: ## Ensures there is no diff between preflight's clusterrole and runtime's clusterrole.
@@ -484,6 +445,12 @@ endif
 	$(QUIET) contrib/scripts/check-go-testdata.sh
 	@$(ECHO_CHECK) contrib/scripts/check-source-info.sh
 	$(QUIET) contrib/scripts/check-source-info.sh
+	@$(ECHO_CHECK) contrib/scripts/check-xfrmstate.sh
+	$(QUIET) contrib/scripts/check-xfrmstate.sh
+	@$(ECHO_CHECK) contrib/scripts/check-legacy-header-guard.sh
+	$(QUIET) contrib/scripts/check-legacy-header-guard.sh
+	@$(ECHO_CHECK) contrib/scripts/check-logrus.sh
+	$(QUIET) contrib/scripts/check-logrus.sh
 
 pprof-heap: ## Get Go pprof heap profile.
 	$(QUIET)$(GO) tool pprof http://localhost:6060/debug/pprof/heap
@@ -552,9 +519,11 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 .PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api install licenses-all veryclean run_bpf_tests run-builder
 force :;
 
+BPF_TEST_FILE ?= ""
+
 run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder container image.
 	DOCKER_ARGS=--privileged contrib/scripts/builder.sh \
-		"make" "-j$(shell nproc)" "-C" "bpf/tests/" "all" "run"
+		"make" "-j$(shell nproc)" "-C" "bpf/tests/" "run" "BPF_TEST_FILE=$(BPF_TEST_FILE)"
 
 run-builder: ## Drop into a shell inside a container running the cilium-builder image.
 	DOCKER_ARGS=-it contrib/scripts/builder.sh bash

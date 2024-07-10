@@ -12,7 +12,7 @@ import (
 )
 
 // Describes an Elastic IP address transfer. For more information, see [Transfer Elastic IP addresses] in the
-// Amazon Virtual Private Cloud User Guide.
+// Amazon VPC User Guide.
 //
 // When you transfer an Elastic IP address, there is a two-step handshake between
 // the source and transfer Amazon Web Services accounts. When the source account
@@ -130,6 +130,12 @@ func (c *Client) addOperationDescribeAddressTransfersMiddlewares(stack *middlewa
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeAddressTransfers(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -150,14 +156,6 @@ func (c *Client) addOperationDescribeAddressTransfersMiddlewares(stack *middlewa
 	}
 	return nil
 }
-
-// DescribeAddressTransfersAPIClient is a client that implements the
-// DescribeAddressTransfers operation.
-type DescribeAddressTransfersAPIClient interface {
-	DescribeAddressTransfers(context.Context, *DescribeAddressTransfersInput, ...func(*Options)) (*DescribeAddressTransfersOutput, error)
-}
-
-var _ DescribeAddressTransfersAPIClient = (*Client)(nil)
 
 // DescribeAddressTransfersPaginatorOptions is the paginator options for
 // DescribeAddressTransfers
@@ -224,6 +222,9 @@ func (p *DescribeAddressTransfersPaginator) NextPage(ctx context.Context, optFns
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeAddressTransfers(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -242,6 +243,14 @@ func (p *DescribeAddressTransfersPaginator) NextPage(ctx context.Context, optFns
 
 	return result, nil
 }
+
+// DescribeAddressTransfersAPIClient is a client that implements the
+// DescribeAddressTransfers operation.
+type DescribeAddressTransfersAPIClient interface {
+	DescribeAddressTransfers(context.Context, *DescribeAddressTransfersInput, ...func(*Options)) (*DescribeAddressTransfersOutput, error)
+}
+
+var _ DescribeAddressTransfersAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeAddressTransfers(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

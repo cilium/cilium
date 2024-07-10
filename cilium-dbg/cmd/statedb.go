@@ -19,10 +19,13 @@ import (
 	"github.com/cilium/statedb"
 
 	clientPkg "github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/healthv2"
-	"github.com/cilium/cilium/pkg/healthv2/types"
+	"github.com/cilium/cilium/pkg/hive/health"
+	"github.com/cilium/cilium/pkg/hive/health/types"
+	"github.com/cilium/cilium/pkg/maps/bwmap"
+	"github.com/cilium/cilium/pkg/maps/nat/stats"
 )
 
 var StatedbCmd = &cobra.Command{
@@ -46,6 +49,11 @@ var statedbDumpCmd = &cobra.Command{
 		io.Copy(os.Stdout, resp.Body)
 		resp.Body.Close()
 	},
+}
+
+var statedbExperimentalCmd = &cobra.Command{
+	Use:   "experimental",
+	Short: "Experimental",
 }
 
 // StateDB HTTP handler is mounted at /statedb by configureAPIServer() in daemon/cmd/cells.go.
@@ -72,6 +80,11 @@ func newTabWriter(out io.Writer) *tabwriter.Writer {
 	return tabwriter.NewWriter(out, minWidth, width, padding, padChar, flags)
 }
 
+const (
+	// The number of lines before the header is reprinted when watching.
+	watchReprintHeaderInterval = 100
+)
+
 func statedbTableCommand[Obj statedb.TableWritable](tableName string) *cobra.Command {
 	var watchInterval time.Duration
 	cmd := &cobra.Command{
@@ -82,10 +95,11 @@ func statedbTableCommand[Obj statedb.TableWritable](tableName string) *cobra.Com
 
 			w := newTabWriter(os.Stdout)
 			var obj Obj
-			fmt.Fprintf(w, "%s\n", strings.Join(obj.TableHeader(), "\t"))
+			fmt.Fprintf(w, "# %s\n", strings.Join(obj.TableHeader(), "\t"))
 			defer w.Flush()
 
 			revision := statedb.Revision(0)
+			numLinesSinceHeader := 0
 
 			for {
 				// Query the contents of the table by revision, so that objects
@@ -99,6 +113,7 @@ func statedbTableCommand[Obj statedb.TableWritable](tableName string) *cobra.Com
 							// Remember the latest revision to query from.
 							revision = rev + 1
 							_, err := fmt.Fprintf(w, "%s\n", strings.Join(obj.TableRow(), "\t"))
+							numLinesSinceHeader++
 							return err
 						})
 					w.Flush()
@@ -117,6 +132,12 @@ func statedbTableCommand[Obj statedb.TableWritable](tableName string) *cobra.Com
 				}
 
 				time.Sleep(watchInterval)
+
+				if numLinesSinceHeader > watchReprintHeaderInterval {
+					numLinesSinceHeader = 0
+					fmt.Fprintf(w, "# %s\n", strings.Join(obj.TableHeader(), "\t"))
+					w.Flush()
+				}
 			}
 
 		},
@@ -126,8 +147,14 @@ func statedbTableCommand[Obj statedb.TableWritable](tableName string) *cobra.Com
 }
 
 func init() {
+	statedbExperimentalCmd.AddCommand(
+		statedbTableCommand[*experimental.Service](experimental.ServiceTableName),
+		statedbTableCommand[*experimental.Frontend](experimental.FrontendTableName),
+		statedbTableCommand[*experimental.Backend](experimental.BackendTableName),
+	)
 	StatedbCmd.AddCommand(
 		statedbDumpCmd,
+		statedbExperimentalCmd,
 
 		statedbTableCommand[*tables.Device]("devices"),
 		statedbTableCommand[*tables.Route]("routes"),
@@ -135,8 +162,10 @@ func init() {
 		statedbTableCommand[*tables.BandwidthQDisc](tables.BandwidthQDiscTableName),
 		statedbTableCommand[tables.NodeAddress](tables.NodeAddressTableName),
 		statedbTableCommand[*tables.Sysctl](tables.SysctlTableName),
-		statedbTableCommand[types.Status](healthv2.HealthTableName),
+		statedbTableCommand[types.Status](health.TableName),
 		statedbTableCommand[*tables.IPSetEntry](tables.IPSetsTableName),
+		statedbTableCommand[bwmap.Edt](bwmap.EdtTableName),
+		statedbTableCommand[stats.NatMapStats](stats.TableName),
 	)
 	RootCmd.AddCommand(StatedbCmd)
 }

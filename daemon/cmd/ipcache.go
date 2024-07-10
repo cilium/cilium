@@ -5,12 +5,12 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 	"io/fs"
 	"net"
 	"net/netip"
 
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -102,30 +101,52 @@ func containsSubnet(outer, inner net.IPNet) bool {
 	return outerBits == innerBits && outerOnes <= innerOnes && outer.Contains(inner.IP)
 }
 
-// restoreIPCache dumps the existing (old) bpf ipcache, adding relevant information
-// back in to the ipcache / identity allocator.
+// restoreLocalIdentities restores the local identity state in the
+// allocator and IPCache.
 //
-// The goal of this logic is to ensure, as much as possible, that local identities (i.e. CIDR)
-// get the same numeric identity upon agent restart.
+// First, the local identity allocator checkpoint is loaded.
+// This will ensure that the same set of labels is assigned the same numeric
+// identity once the agent has restored all state.
 //
-// For all local (cidr / remote-node) identities found, this adds a placeholder entry in the
-// ipcache metadata layer requesting the previous numeric identity. When the agent initializes
-// and the ipcache finally recreates the bpf map, this placeholder entry ensures the prefixes
-// exist and have the same identity as before.
+// Next, the outgoing ipcache bpf map is read. For any prefixes that
+// mapped to a CIDR-specific identity, the ipcache metadata is re-created
+// and inserted in to the ipcache.
 //
-// After a grace period, the placeholder metadata is removed and any prefixes not referenced
-// by other subsystems will be deallocated, see releaseRestoredCIDRs().
-// (Aside: prefix references mostly come from network policies, either directly through CIDR
-// selectors or via ToFQDN rules.)
+// The purpose of this is to preserve stable local identities on agent
+// restart as much as possible. This helps prevent spurious policy drops
+// on agent restart.
 //
-// For ingress IPs, it will add those to the ipcache and configure the local node
-// accordingly.
+// After a grace period, the restored identity references and placeholder ipcache
+// metadata entries are removed, assuming that the agent has synchronized
+// with other state (i.e. kvstore, k8s) and that all necessary entries
+// are present in ipcache & the identity allocator.
 //
 // This *must* be called before initMaps(), which will hide the "old" ipcache.
-func (d *Daemon) restoreIPCache() error {
-	ingressIPs := make([]netip.Prefix, 0, 2)
-	// need to preserve this so we can remove it later.
-	d.restoredCIDRs = map[netip.Prefix]identity.NumericIdentity{}
+func (d *Daemon) restoreLocalIdentities() error {
+	// Restore the local identity allocator from its checkpoint.
+	// This returns the set of identities created. We will use this set
+	// to regenerate the set of labels for prefixes in the ipcache.
+	restoredIdentities, err := d.identityAllocator.RestoreLocalIdentities()
+
+	// Dump the existing BPF ipcache map
+	localPrefixes, err2 := d.dumpOldIPCache()
+	if err2 != nil {
+		log.WithError(err2).Warn("Failed to restore existing identities from the previous ipcache. This may cause policy interruptions during restart.")
+		err = errors.Join(err, err2)
+		// continue; we may have a partial dump
+	}
+
+	// create placeholder CIDR labels in the ipcache.
+	// This only adds an ipcache metadata entry for prefixes with a `cidr:`
+	// label and ingress IPs. All other entries will have to be created anew.
+	d.restoreIPCache(localPrefixes, restoredIdentities)
+	return err
+}
+
+// dumpOldIPache reads the soon-to-be-overwritten ipcache BPF map, noting any prefixes
+// with a locally-scoped or ingress identity.
+func (d *Daemon) dumpOldIPCache() (map[netip.Prefix]identity.NumericIdentity, error) {
+	localPrefixes := map[netip.Prefix]identity.NumericIdentity{}
 
 	// Dump the bpf ipcache, recording any prefixes with local or ingress
 	// numeric identities.
@@ -134,10 +155,8 @@ func (d *Daemon) restoreIPCache() error {
 		v := value.(*ipcachemap.RemoteEndpointInfo)
 		nid := identity.NumericIdentity(v.SecurityIdentity)
 
-		if isLocalIdentity(nid) {
-			d.restoredCIDRs[k.Prefix()] = nid
-		} else if nid == identity.ReservedIdentityIngress && v.TunnelEndpoint.IsZero() {
-			ingressIPs = append(ingressIPs, k.Prefix())
+		if nid.Scope() == identity.IdentityScopeLocal || (nid == identity.ReservedIdentityIngress && v.TunnelEndpoint.IsZero()) {
+			localPrefixes[k.Prefix()] = nid
 		}
 	})
 	// dumpwithcallback() leaves the ipcache map open, must close before opened for
@@ -145,48 +164,124 @@ func (d *Daemon) restoreIPCache() error {
 	ipcachemap.IPCacheMap().Close()
 
 	if err != nil {
+		// ignore non-existent cache
 		if errors.Is(err, fs.ErrNotExist) {
-			return nil
+			err = nil
 		}
-		return fmt.Errorf("error dumping ipcache: %w", err)
+	}
+	log.Debugf("dumping ipache found %d local identities", len(localPrefixes))
+	return localPrefixes, err
+}
+
+// restoreIPCache recreated ipcache metadata entries from the dumped allocator and
+// bpf map state.
+//
+// The goal of this logic is to ensure, as much as possible, that local identities (i.e. CIDR)
+// get the same numeric identity upon agent restart.
+//
+// This reconstructs the ipcache state from the previous BPF map and the restored local
+// identities. Specifically, if a prefix in the ipcache has a CIDR label, this re-creates
+// that metadata entry.
+//
+// For ingress IPs, it will add those to the ipcache and configure the local node
+// accordingly.
+func (d *Daemon) restoreIPCache(localPrefixes map[netip.Prefix]identity.NumericIdentity, restoredIdentities map[identity.NumericIdentity]*identity.Identity) {
+	if len(localPrefixes) == 0 {
+		return
 	}
 
-	// Now that the map is dumped,
-	// - upsert relevant metadata in to the ipcache
-	// - withhold all existing CIDR identities
-	// - add Ingress IPs to local Node.
-	metaUpdates := make([]ipcache.MU, 0, len(ingressIPs)+len(d.restoredCIDRs))
-	nidsToWithhold := make([]identity.NumericIdentity, 0, len(d.restoredCIDRs))
+	metaUpdates := make([]ipcache.MU, 0, len(localPrefixes))
+	d.restoredCIDRs = make(map[netip.Prefix]identity.NumericIdentity, len(localPrefixes))
+	nidsToWithhold := []identity.NumericIdentity{}
 
-	for prefix, nid := range d.restoredCIDRs {
-		nidsToWithhold = append(nidsToWithhold, nid)
-		metaUpdates = append(metaUpdates, ipcache.MU{
-			Prefix:   prefix,
-			Source:   source.Restored,
-			Resource: restoredCIDRResource,
-			Metadata: []ipcache.IPMetadata{ipcachetypes.RequestedIdentity(nid)},
-		})
+	// Determine which numeric identities are not shared.
+	// This is used for identity recreation.
+	uniqueIDs := map[identity.NumericIdentity]struct{}{}
+	sharedIDs := map[identity.NumericIdentity]struct{}{}
+	for _, nid := range localPrefixes {
+		if _, ok := sharedIDs[nid]; ok {
+			continue
+		} else if _, ok := uniqueIDs[nid]; ok {
+			delete(uniqueIDs, nid)
+			sharedIDs[nid] = struct{}{}
+			continue
+		} else {
+			uniqueIDs[nid] = struct{}{}
+		}
 	}
-	for _, prefix := range ingressIPs {
-		metaUpdates = append(metaUpdates, ipcache.MU{
-			Prefix:   prefix,
-			Source:   source.Restored,
-			Resource: ingressResource,
-			Metadata: []ipcache.IPMetadata{labels.LabelIngress},
-		})
 
-		// Set any restored ingress IPs back on the LocalNode object
-		d.nodeLocalStore.Update(func(n *node.LocalNode) {
-			addr := prefix.Addr()
-			if addr.Is4() {
-				n.IPv4IngressIP = addr.AsSlice()
-			} else {
-				n.IPv6IngressIP = addr.AsSlice()
+	// Loop through prefixes recovered from the ipcache, using a few different
+	// heuristics to recreate the metadata in the ipcache.
+	for prefix, nid := range localPrefixes {
+		// Restore Ingress IPs as necessary
+		if nid == identity.ReservedIdentityIngress {
+			metaUpdates = append(metaUpdates, ipcache.MU{
+				Prefix:   prefix,
+				Source:   source.Restored,
+				Resource: ingressResource,
+				Metadata: []ipcache.IPMetadata{labels.LabelIngress},
+			})
+
+			// Set any restored ingress IPs back on the LocalNode object
+			d.nodeLocalStore.Update(func(n *node.LocalNode) {
+				addr := prefix.Addr()
+				if addr.Is4() {
+					n.IPv4IngressIP = addr.AsSlice()
+				} else {
+					n.IPv6IngressIP = addr.AsSlice()
+				}
+			})
+			log.WithField(logfields.Ingress, prefix).Info("Restored ingress IP")
+			continue
+		}
+
+		// For every prefix -> nid pair, look to see if there is a restored identity for this nid.
+		// If not, then request the same numeric identity *and* possibly insert CIDR labels
+		// If yes, **and** the identity contains the prefix `cidr:` label,
+		//   then upsert that exact set of labels in the ipcache.
+		id := restoredIdentities[nid]
+		if id == nil {
+			// Always request the previous numeric ID for this prefix.
+			metadata := []ipcache.IPMetadata{ipcachetypes.RequestedIdentity(nid)}
+
+			// If this numeric ID is not shared by any other prefixes, add CIDR labels
+			// as well.
+			if _, unique := uniqueIDs[nid]; unique {
+				metadata = append(metadata, labels.GetCIDRLabels(prefix))
 			}
-		})
-	}
-	if len(ingressIPs) > 0 {
-		log.WithField(logfields.Ingress, ingressIPs).Info("Restored ingress IPs")
+
+			// Commit to ipcache.
+			metaUpdates = append(metaUpdates, ipcache.MU{
+				Prefix:   prefix,
+				Source:   source.Restored,
+				Resource: restoredCIDRResource,
+				Metadata: metadata,
+			})
+			d.restoredCIDRs[prefix] = nid
+			nidsToWithhold = append(nidsToWithhold, nid)
+			log.WithField(logfields.Prefix, prefix).Debug("ipache prefix not found in allocator cache, requesting identity")
+
+		} else {
+			// The prefix's labels *have* been restored from the checkpoint.
+			//
+			// This is needed in particular for CIDR identities and
+			// FQDN identities, as they are derived from policies and thus are
+			// not available before endpoint regeneration starts, but need to
+			// be present in the new IPCache during endpoint regeneration to
+			// avoid drops.
+			metaUpdates = append(metaUpdates, ipcache.MU{
+				Prefix:   prefix,
+				Source:   source.Restored,
+				Resource: restoredCIDRResource,
+				Metadata: []ipcache.IPMetadata{id.Labels},
+			})
+			log.WithFields(logrus.Fields{
+				logfields.Labels: id.Labels,
+				logfields.Prefix: prefix,
+			}).Debug("restoring local ipcache entry")
+
+			d.restoredCIDRs[prefix] = nid
+		}
 	}
 
 	// Insert the batched changes in to the ipcache.
@@ -196,15 +291,16 @@ func (d *Daemon) restoreIPCache() error {
 	d.ipcache.IdentityAllocator.WithholdLocalIdentities(nidsToWithhold)
 	d.ipcache.UpsertMetadataBatch(metaUpdates...)
 
-	return nil
+	log.Infof("restored %d out of %d possible prefixes in the ipcache", len(d.restoredCIDRs), len(localPrefixes))
 }
 
-// releaseRestoredCIDRS removes the placeholder metadata that was inserted
-// in to the ipcache when local identities were restored.
-// Any identities actually in use will still exist after this.
+// releaseRestoredIdentities removes the placeholder state that was inserted
+// in to the ipcache and local identity allocators on restoration
 //
-// This should be called after a grace period (default 10 minutes, set
-// by --identity-restore-grace-period).
+// Any identities and prefixes actually in use will still exist after this.
+//
+// This should be called after a grace period (default 30 seconds,
+// 10 minutes for kvstore, set by --identity-restore-grace-period).
 // This grace period is needed when running on an external workload
 // where policy synchronization is not done via k8s. Also in k8s
 // case it is prudent to allow concurrent endpoint regenerations to
@@ -212,17 +308,22 @@ func (d *Daemon) restoreIPCache() error {
 //
 // Any CIDRs still in use after the grace period will have other sources
 // of metadata in the ipcache, and thus will remain. CIDRs for which
-// restoration was the only source of metadata will be deallocated.
-func (d *Daemon) releaseRestoredCIDRs() {
+// restoration was the only source of metadata will be deallocated. Identities
+// with no references after restoration will be deallocated.
+func (d *Daemon) releaseRestoredIdentities() {
 	defer func() {
 		// release the memory held by restored CIDRs
 		d.restoredCIDRs = nil
 	}()
+
+	// Remove any references to restored identities in the local allocators
+	d.identityAllocator.ReleaseRestoredIdentities()
+
 	if len(d.restoredCIDRs) == 0 {
 		return
 	}
 
-	log.WithField(logfields.Count, len(d.restoredCIDRs)).Info("Removing identity reservations for restored CIDR identities")
+	log.WithField(logfields.Count, len(d.restoredCIDRs)).Info("Removing identity reservations for restored identities")
 	updates := make([]ipcache.MU, 0, len(d.restoredCIDRs))
 	nids := make([]identity.NumericIdentity, 0, len(d.restoredCIDRs))
 	for prefix, nid := range d.restoredCIDRs {
@@ -230,16 +331,13 @@ func (d *Daemon) releaseRestoredCIDRs() {
 		updates = append(updates, ipcache.MU{
 			Prefix:   prefix,
 			Resource: restoredCIDRResource,
-			Metadata: []ipcache.IPMetadata{ipcachetypes.RequestedIdentity(0)},
+			Metadata: []ipcache.IPMetadata{
+				ipcachetypes.RequestedIdentity(0), // remove requsted ID, if present
+				labels.Labels{},                   // remove labels, if present
+			},
 		})
 	}
 
 	d.ipcache.RemoveMetadataBatch(updates...)
 	d.ipcache.IdentityAllocator.UnwithholdLocalIdentities(nids)
-}
-
-func isLocalIdentity(nid identity.NumericIdentity) bool {
-	scope := nid.Scope()
-	return scope == identity.IdentityScopeLocal ||
-		(scope == identity.IdentityScopeRemoteNode && option.Config.PolicyCIDRMatchesNodes())
 }

@@ -349,6 +349,9 @@ func newFlowsCmdHelper(usage cmdUsage, vp *viper.Viper, ofilter *flowFilter) *co
 		"node-name", ofilter,
 		`Show all flows which match the given node names (e.g. "k8s*", "test-cluster/*.company.com")`))
 	filterFlags.Var(filterVar(
+		"node-label", ofilter,
+		`Show only flows observed on nodes matching the given label filter (e.g. "key1=value1", "io.cilium/egress-gateway")`))
+	filterFlags.Var(filterVar(
 		"cluster", ofilter,
 		`Show all flows which match the cluster names (e.g. "test-cluster", "prod-*")`))
 	filterFlags.Var(filterVar(
@@ -529,6 +532,9 @@ func newFlowsCmdHelper(usage cmdUsage, vp *viper.Viper, ofilter *flowFilter) *co
 	filterFlags.Var(filterVar(
 		"cel-expression", ofilter,
 		"Filter flows using the given CEL expression"))
+	filterFlags.Var(filterVar(
+		"interface", ofilter,
+		"Show all flows observed at the given interface name (e.g. eth0)"))
 
 	rawFilterFlags.StringArray(allowlistFlag, []string{}, "Specify allowlist as JSON encoded FlowFilters")
 	rawFilterFlags.StringArray(denylistFlag, []string{}, "Specify denylist as JSON encoded FlowFilters")

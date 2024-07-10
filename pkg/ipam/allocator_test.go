@@ -23,6 +23,7 @@ type ownerMock struct{}
 
 func (o *ownerMock) K8sEventReceived(resourceApiGroup, scope string, action string, valid, equal bool) {
 }
+
 func (o *ownerMock) K8sEventProcessed(scope string, action string, status bool) {}
 
 func (o *ownerMock) UpdateCiliumNodeResource() {}
@@ -40,12 +41,13 @@ func (rm *resourceMock) Store(context.Context) (resource.Store[*ciliumv2.CiliumN
 	return nil, errors.New("unimplemented")
 }
 
-var mtuMock = mtu.NewConfiguration(0, false, false, false, false, 1500, nil)
+var mtuMock = mtu.NewConfiguration(0, false, false, false, false, 1500, nil, false)
 
 func TestAllocatedIPDump(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
+	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil)
+	ipam.ConfigureAllocator()
 
 	allocv4, allocv6, status := ipam.Dump()
 	require.NotEqual(t, "", status)
@@ -65,7 +67,8 @@ func TestExpirationTimer(t *testing.T) {
 
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
+	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil)
+	ipam.ConfigureAllocator()
 
 	err := ipam.AllocateIP(ip, "foo", PoolDefault())
 	require.Nil(t, err)
@@ -131,7 +134,9 @@ func TestAllocateNextWithExpiration(t *testing.T) {
 
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
+	fakeMetadata := fakeMetadataFunc(func(owner string, family Family) (pool string, err error) { return "some-pool", nil })
+	ipam := NewIPAM(fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, fakeMetadata)
+	ipam.ConfigureAllocator()
 
 	// Allocate IPs and test expiration timer. 'pool' is empty in order to test
 	// that the allocated pool is passed to StartExpirationTimer

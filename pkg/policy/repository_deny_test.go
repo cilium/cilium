@@ -22,6 +22,7 @@ import (
 )
 
 func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
+	td := newTestData()
 	// Cache policy enforcement value from when test was ran to avoid pollution
 	// across tests.
 	oldPolicyEnable := GetPolicyEnabled()
@@ -29,8 +30,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 
 	SetPolicyEnabled(option.DefaultEnforcement)
 
-	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.selectorCache = testSelectorCache
+	repo := td.repo
 
 	fooSelectLabel := labels.ParseSelectLabel("foo")
 	fooNumericIdentity := 9001
@@ -41,6 +41,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	fooEgressDenyRule2Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooEgressRule2", labels.LabelSourceAny)
 	combinedLabel := labels.NewLabel(k8sConst.PolicyLabelName, "combined", labels.LabelSourceAny)
 	initIdentity := identity.LookupReservedIdentity(identity.ReservedIdentityInit)
+	td.addIdentity(fooIdentity)
 
 	fooIngressDenyRule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(fooSelectLabel),
@@ -157,20 +158,19 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	require.Equal(t, false, egr, genCommentf(false, false))
 	require.EqualValues(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
 
-	_, _, err := repo.Add(fooIngressDenyRule1)
+	_, _, err := repo.mustAdd(fooIngressDenyRule1)
 	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.Equal(t, true, ing, genCommentf(true, true))
 	require.Equal(t, false, egr, genCommentf(false, false))
 	require.EqualValues(t, fooIngressDenyRule1, matchingRules[0].Rule, "returned matching rules did not match")
 
-	_, _, err = repo.Add(fooIngressDenyRule2)
+	_, _, err = repo.mustAdd(fooIngressDenyRule2)
 	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.Equal(t, true, ing, genCommentf(true, true))
 	require.Equal(t, false, egr, genCommentf(false, false))
-	require.EqualValues(t, fooIngressDenyRule1, matchingRules[0].Rule, "returned matching rules did not match")
-	require.EqualValues(t, fooIngressDenyRule2, matchingRules[1].Rule, "returned matching rules did not match")
+	require.ElementsMatch(t, matchingRules.AsPolicyRules(), api.Rules{&fooIngressDenyRule1, &fooIngressDenyRule2}, "returned matching rules did not match")
 
 	_, _, numDeleted := repo.DeleteByLabelsLocked(labels.LabelArray{fooIngressDenyRule1Label})
 	require.Equal(t, 1, numDeleted)
@@ -187,7 +187,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	require.Equal(t, false, egr, genCommentf(false, false))
 	require.EqualValues(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
 
-	_, _, err = repo.Add(fooEgressDenyRule1)
+	_, _, err = repo.mustAdd(fooEgressDenyRule1)
 	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.Equal(t, false, ing, genCommentf(true, false))
@@ -196,7 +196,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressDenyRule1Label})
 	require.Equal(t, 1, numDeleted)
 
-	_, _, err = repo.Add(fooEgressDenyRule2)
+	_, _, err = repo.mustAdd(fooEgressDenyRule2)
 	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.Equal(t, false, ing, genCommentf(true, false))
@@ -206,7 +206,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	_, _, numDeleted = repo.DeleteByLabelsLocked(labels.LabelArray{fooEgressDenyRule2Label})
 	require.Equal(t, 1, numDeleted)
 
-	_, _, err = repo.Add(combinedRule)
+	_, _, err = repo.mustAdd(combinedRule)
 	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.Equal(t, true, ing, genCommentf(true, true))
@@ -223,7 +223,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	require.EqualValues(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
 
 	SetPolicyEnabled(option.NeverEnforce)
-	_, _, err = repo.Add(combinedRule)
+	_, _, err = repo.mustAdd(combinedRule)
 	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.Equal(t, false, ing, genCommentf(true, false))
@@ -255,8 +255,8 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 }
 
 func TestGetRulesMatching(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.selectorCache = testSelectorCache
+	td := newTestData()
+	repo := td.repo
 
 	fooToBar := &SearchContext{
 		From: labels.ParseSelectLabelArray("foo"),
@@ -305,7 +305,7 @@ func TestGetRulesMatching(t *testing.T) {
 	require.Equal(t, false, egressMatch)
 
 	// When ingress deny policy is applied.
-	_, _, err := repo.Add(ingressDenyRule)
+	_, _, err := repo.mustAdd(ingressDenyRule)
 	require.Nil(t, err)
 	ingressMatch, egressMatch = repo.GetRulesMatching(labels.LabelArray{bar, foo})
 	require.Equal(t, true, ingressMatch)
@@ -315,7 +315,7 @@ func TestGetRulesMatching(t *testing.T) {
 	repo.DeleteByLabels(tag)
 
 	// When egress deny policy is applied.
-	_, _, err = repo.Add(egressDenyRule)
+	_, _, err = repo.mustAdd(egressDenyRule)
 	require.Nil(t, err)
 	ingressMatch, egressMatch = repo.GetRulesMatching(labels.LabelArray{bar, foo})
 	require.Equal(t, false, ingressMatch)
@@ -323,8 +323,8 @@ func TestGetRulesMatching(t *testing.T) {
 }
 
 func TestDeniesIngress(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.selectorCache = testSelectorCache
+	td := newTestData()
+	repo := td.repo
 
 	fooToBar := &SearchContext{
 		From: labels.ParseSelectLabelArray("foo"),
@@ -380,11 +380,11 @@ func TestDeniesIngress(t *testing.T) {
 		Labels: tag1,
 	}
 
-	_, _, err := repo.Add(rule1)
+	_, _, err := repo.mustAdd(rule1)
 	require.Nil(t, err)
-	_, _, err = repo.Add(rule2)
+	_, _, err = repo.mustAdd(rule2)
 	require.Nil(t, err)
-	_, _, err = repo.Add(rule3)
+	_, _, err = repo.mustAdd(rule3)
 	require.Nil(t, err)
 
 	// foo=>bar is not OK
@@ -422,8 +422,8 @@ func TestDeniesIngress(t *testing.T) {
 }
 
 func TestDeniesEgress(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.selectorCache = testSelectorCache
+	td := newTestData()
+	repo := td.repo
 
 	fooToBar := &SearchContext{
 		From: labels.ParseSelectLabelArray("foo"),
@@ -478,11 +478,11 @@ func TestDeniesEgress(t *testing.T) {
 		},
 		Labels: tag1,
 	}
-	_, _, err := repo.Add(rule1)
+	_, _, err := repo.mustAdd(rule1)
 	require.Nil(t, err)
-	_, _, err = repo.Add(rule2)
+	_, _, err = repo.mustAdd(rule2)
 	require.Nil(t, err)
-	_, _, err = repo.Add(rule3)
+	_, _, err = repo.mustAdd(rule3)
 	require.Nil(t, err)
 
 	// foo=>bar is not OK
@@ -530,8 +530,8 @@ func TestDeniesEgress(t *testing.T) {
 }
 
 func TestWildcardL3RulesIngressDeny(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.selectorCache = testSelectorCache
+	td := newTestData()
+	repo := td.repo
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 
@@ -547,7 +547,7 @@ func TestWildcardL3RulesIngressDeny(t *testing.T) {
 		Labels: labelsL3,
 	}
 	l3Rule.Sanitize()
-	_, _, err := repo.Add(l3Rule)
+	_, _, err := repo.mustAdd(l3Rule)
 	require.Nil(t, err)
 
 	ctx := &SearchContext{
@@ -560,25 +560,25 @@ func TestWildcardL3RulesIngressDeny(t *testing.T) {
 	policyDeny, err := repo.ResolveL4IngressPolicy(ctx)
 	require.Nil(t, err)
 
-	expectedPolicy := L4PolicyMap{
+	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"0/ANY": {
 			Port:     0,
 			Protocol: api.ProtoAny,
 			U8Proto:  0x0,
 			PerSelectorPolicies: L7DataMap{
-				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
+				td.cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
 			Ingress:    true,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar1: {labelsL3}},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL3}},
 		},
-	}
+	})
 	require.EqualValues(t, expectedPolicy, policyDeny)
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
 func TestWildcardL4RulesIngressDeny(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.selectorCache = testSelectorCache
+	td := newTestData()
+	repo := td.repo
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
@@ -603,7 +603,7 @@ func TestWildcardL4RulesIngressDeny(t *testing.T) {
 		Labels: labelsL4Kafka,
 	}
 	l49092Rule.Sanitize()
-	_, _, err := repo.Add(l49092Rule)
+	_, _, err := repo.mustAdd(l49092Rule)
 	require.Nil(t, err)
 
 	l480Rule := api.Rule{
@@ -623,7 +623,7 @@ func TestWildcardL4RulesIngressDeny(t *testing.T) {
 		Labels: labelsL4HTTP,
 	}
 	l480Rule.Sanitize()
-	_, _, err = repo.Add(l480Rule)
+	_, _, err = repo.mustAdd(l480Rule)
 	require.Nil(t, err)
 
 	ctx := &SearchContext{
@@ -636,7 +636,7 @@ func TestWildcardL4RulesIngressDeny(t *testing.T) {
 	policyDeny, err := repo.ResolveL4IngressPolicy(ctx)
 	require.Nil(t, err)
 
-	expectedDenyPolicy := L4PolicyMap{
+	expectedDenyPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"80/TCP": {
 			Port:     80,
 			Protocol: api.ProtoTCP,
@@ -644,9 +644,9 @@ func TestWildcardL4RulesIngressDeny(t *testing.T) {
 			L7Parser: ParserTypeNone,
 			Ingress:  true,
 			PerSelectorPolicies: L7DataMap{
-				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
+				td.cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar1: {labelsL4HTTP}},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL4HTTP}},
 		},
 		"9092/TCP": {
 			Port:     9092,
@@ -655,18 +655,18 @@ func TestWildcardL4RulesIngressDeny(t *testing.T) {
 			L7Parser: ParserTypeNone,
 			Ingress:  true,
 			PerSelectorPolicies: L7DataMap{
-				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
+				td.cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar1: {labelsL4Kafka}},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL4Kafka}},
 		},
-	}
-	require.EqualValues(t, expectedDenyPolicy, policyDeny)
+	})
+	require.True(t, policyDeny.Equals(t, expectedDenyPolicy), policyDeny.Diff(t, expectedDenyPolicy))
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
 func TestL3DependentL4IngressDenyFromRequires(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.selectorCache = testSelectorCache
+	td := newTestData()
+	repo := td.repo
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
@@ -695,7 +695,7 @@ func TestL3DependentL4IngressDenyFromRequires(t *testing.T) {
 		},
 	}
 	l480Rule.Sanitize()
-	_, _, err := repo.Add(l480Rule)
+	_, _, err := repo.mustAdd(l480Rule)
 	require.Nil(t, err)
 
 	ctx := &SearchContext{
@@ -715,10 +715,10 @@ func TestL3DependentL4IngressDenyFromRequires(t *testing.T) {
 			Values:   []string{"bar2"},
 		},
 	})
-	expectedCachedSelector, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, expectedSelector)
+	expectedCachedSelector, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, expectedSelector)
 
-	expectedDenyPolicy := L4PolicyMap{
-		"80/TCP": &L4Filter{
+	expectedDenyPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
+		"80/TCP": {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
@@ -728,14 +728,14 @@ func TestL3DependentL4IngressDenyFromRequires(t *testing.T) {
 			Ingress:    true,
 			RuleOrigin: map[CachedSelector]labels.LabelArrayList{expectedCachedSelector: {nil}},
 		},
-	}
+	})
 	require.EqualValues(t, expectedDenyPolicy, policyDeny)
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
 func TestL3DependentL4EgressDenyFromRequires(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.selectorCache = testSelectorCache
+	td := newTestData()
+	repo := td.repo
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
@@ -767,7 +767,7 @@ func TestL3DependentL4EgressDenyFromRequires(t *testing.T) {
 		},
 	}
 	l480Rule.Sanitize()
-	_, _, err := repo.Add(l480Rule)
+	_, _, err := repo.mustAdd(l480Rule)
 	require.Nil(t, err)
 
 	ctx := &SearchContext{
@@ -795,11 +795,11 @@ func TestL3DependentL4EgressDenyFromRequires(t *testing.T) {
 			Values:   []string{"bar2"},
 		},
 	})
-	expectedCachedSelector, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, expectedSelector)
-	expectedCachedSelector2, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, expectedSelector2)
+	expectedCachedSelector, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, expectedSelector)
+	expectedCachedSelector2, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, expectedSelector2)
 
-	expectedDenyPolicy := L4PolicyMap{
-		"0/ANY": &L4Filter{
+	expectedDenyPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
+		"0/ANY": {
 			Port:     0,
 			Protocol: "ANY",
 			U8Proto:  0x0,
@@ -808,7 +808,7 @@ func TestL3DependentL4EgressDenyFromRequires(t *testing.T) {
 			},
 			RuleOrigin: map[CachedSelector]labels.LabelArrayList{expectedCachedSelector2: {nil}},
 		},
-		"80/TCP": &L4Filter{
+		"80/TCP": {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
@@ -817,16 +817,16 @@ func TestL3DependentL4EgressDenyFromRequires(t *testing.T) {
 			},
 			RuleOrigin: map[CachedSelector]labels.LabelArrayList{expectedCachedSelector: {nil}},
 		},
-	}
-	if !assert.EqualValues(t, expectedDenyPolicy, policyDeny) {
+	})
+	if !assert.True(t, policyDeny.Equals(t, expectedDenyPolicy), policyDeny.Diff(t, expectedDenyPolicy)) {
 		t.Errorf("Policy doesn't match expected:\n%s", logBuffer.String())
 	}
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
 func TestWildcardL3RulesEgressDeny(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.selectorCache = testSelectorCache
+	td := newTestData()
+	repo := td.repo
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
@@ -847,7 +847,7 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 		Labels: labelsL4,
 	}
 	l3Rule.Sanitize()
-	_, _, err := repo.Add(l3Rule)
+	_, _, err := repo.mustAdd(l3Rule)
 	require.Nil(t, err)
 
 	icmpV4Type := intstr.FromInt(8)
@@ -870,7 +870,7 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 	err = icmpRule.Sanitize()
 	require.Nil(t, err)
 
-	_, _, err = repo.Add(icmpRule)
+	_, _, err = repo.mustAdd(icmpRule)
 	require.Nil(t, err)
 
 	icmpV6Type := intstr.FromInt(128)
@@ -894,7 +894,7 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 	err = icmpV6Rule.Sanitize()
 	require.Nil(t, err)
 
-	_, _, err = repo.Add(icmpV6Rule)
+	_, _, err = repo.mustAdd(icmpV6Rule)
 	require.Nil(t, err)
 
 	ctx := &SearchContext{
@@ -911,17 +911,17 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 	// Traffic to bar1 should not be forwarded to the DNS or HTTP
 	// proxy at all, but if it is (e.g., for visibility, the
 	// "0/ANY" rule should allow such traffic through.
-	expectedDenyPolicy := L4PolicyMap{
+	expectedDenyPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"0/ANY": {
 			Port:     0,
 			Protocol: "ANY",
 			U8Proto:  0x0,
 			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
-				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
+				td.cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
 			Ingress:    false,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar1: {labelsL4}},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL4}},
 		},
 		"8/ICMP": {
 			Port:     8,
@@ -929,10 +929,10 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 			U8Proto:  0x1,
 			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
-				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
+				td.cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
 			Ingress:    false,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar1: {labelsICMP}},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsICMP}},
 		},
 		"128/ICMPV6": {
 			Port:     128,
@@ -940,19 +940,20 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 			U8Proto:  0x3A,
 			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
-				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
+				td.cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
 			Ingress:    false,
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar1: {labelsICMPv6}},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsICMPv6}},
 		},
-	}
-	require.EqualValuesf(t, expectedDenyPolicy, policyDeny, "Resolved policy did not match expected:\n%s", logBuffer.String())
+	})
+	require.Truef(t, policyDeny.Equals(t, expectedDenyPolicy),
+		"%s\nResolved policy did not match expected:\n%s", policyDeny.Diff(t, expectedDenyPolicy), logBuffer.String())
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
 func TestWildcardL4RulesEgressDeny(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.selectorCache = testSelectorCache
+	td := newTestData()
+	repo := td.repo
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 := api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
@@ -977,7 +978,7 @@ func TestWildcardL4RulesEgressDeny(t *testing.T) {
 		Labels: labelsL3DNS,
 	}
 	l453Rule.Sanitize()
-	_, _, err := repo.Add(l453Rule)
+	_, _, err := repo.mustAdd(l453Rule)
 	require.Nil(t, err)
 
 	l480Rule := api.Rule{
@@ -997,7 +998,7 @@ func TestWildcardL4RulesEgressDeny(t *testing.T) {
 		Labels: labelsL3HTTP,
 	}
 	l480Rule.Sanitize()
-	_, _, err = repo.Add(l480Rule)
+	_, _, err = repo.mustAdd(l480Rule)
 	require.Nil(t, err)
 
 	ctx := &SearchContext{
@@ -1013,7 +1014,7 @@ func TestWildcardL4RulesEgressDeny(t *testing.T) {
 
 	// Bar1 should not be forwarded to the proxy, but if it is (e.g., for visibility),
 	// the L3/L4 deny should pass it without an explicit L7 wildcard.
-	expectedDenyPolicy := L4PolicyMap{
+	expectedDenyPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"80/TCP": {
 			Port:     80,
 			Protocol: api.ProtoTCP,
@@ -1021,9 +1022,9 @@ func TestWildcardL4RulesEgressDeny(t *testing.T) {
 			L7Parser: ParserTypeNone,
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
-				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
+				td.cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar1: {labelsL3HTTP}},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL3HTTP}},
 		},
 		"53/UDP": {
 			Port:     53,
@@ -1032,12 +1033,12 @@ func TestWildcardL4RulesEgressDeny(t *testing.T) {
 			L7Parser: ParserTypeNone,
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
-				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
+				td.cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
-			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorBar1: {labelsL3DNS}},
+			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL3DNS}},
 		},
-	}
-	if !assert.EqualValues(t, expectedDenyPolicy, policyDeny) {
+	})
+	if !assert.True(t, policyDeny.Equals(t, expectedDenyPolicy), policyDeny.Diff(t, expectedDenyPolicy)) {
 		t.Logf("%s", logBuffer.String())
 		t.Errorf("Resolved policy did not match expected")
 	}
@@ -1045,8 +1046,8 @@ func TestWildcardL4RulesEgressDeny(t *testing.T) {
 }
 
 func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.selectorCache = testSelectorCache
+	td := newTestData()
+	repo := td.repo
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
@@ -1055,9 +1056,9 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 	cidrSelectors := cidrSlice.GetAsEndpointSelectors()
 	var cachedSelectors CachedSelectorSlice
 	for i := range cidrSelectors {
-		c, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, cidrSelectors[i])
+		c, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, nil, cidrSelectors[i])
 		cachedSelectors = append(cachedSelectors, c)
-		defer testSelectorCache.RemoveSelector(c, dummySelectorCacheUser)
+		defer td.sc.RemoveSelector(c, dummySelectorCacheUser)
 	}
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 
@@ -1081,7 +1082,7 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 		Labels: labelsHTTP,
 	}
 	l480Get.Sanitize()
-	_, _, err := repo.Add(l480Get)
+	_, _, err := repo.mustAdd(l480Get)
 	require.Nil(t, err)
 
 	l3Rule := api.Rule{
@@ -1096,7 +1097,7 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 		Labels: labelsL3,
 	}
 	l3Rule.Sanitize()
-	_, _, err = repo.Add(l3Rule)
+	_, _, err = repo.mustAdd(l3Rule)
 	require.Nil(t, err)
 
 	ctx := &SearchContext{
@@ -1111,7 +1112,7 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 	require.Nil(t, err)
 
 	// Port 80 policy does not need the wildcard, as the "0" port policy will deny the traffic.
-	expectedDenyPolicy := L4PolicyMap{
+	expectedDenyPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"80/TCP": {
 			Port:     80,
 			Protocol: api.ProtoTCP,
@@ -1134,8 +1135,8 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 			},
 			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectors[0]: {labelsL3}},
 		},
-	}
-	if !assert.EqualValues(t, expectedDenyPolicy, policyDeny) {
+	})
+	if !assert.True(t, policyDeny.Equals(t, expectedDenyPolicy), policyDeny.Diff(t, expectedDenyPolicy)) {
 		t.Logf("%s", logBuffer.String())
 		t.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
@@ -1143,8 +1144,8 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 }
 
 func TestWildcardL3RulesIngressDenyFromEntities(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.selectorCache = testSelectorCache
+	td := newTestData()
+	repo := td.repo
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 
@@ -1162,7 +1163,7 @@ func TestWildcardL3RulesIngressDenyFromEntities(t *testing.T) {
 		Labels: labelsL3,
 	}
 	l3Rule.Sanitize()
-	_, _, err := repo.Add(l3Rule)
+	_, _, err := repo.mustAdd(l3Rule)
 	require.Nil(t, err)
 
 	ctx := &SearchContext{
@@ -1174,18 +1175,18 @@ func TestWildcardL3RulesIngressDenyFromEntities(t *testing.T) {
 
 	policyDeny, err := repo.ResolveL4IngressPolicy(ctx)
 	require.Nil(t, err)
-	require.Equal(t, 1, len(policyDeny))
+	require.Equal(t, 1, policyDeny.Len())
 	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
-	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(selWorld)
+	cachedSelectorWorld := td.sc.FindCachedIdentitySelector(selWorld)
 	require.NotNil(t, cachedSelectorWorld)
 
-	cachedSelectorWorldV4 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv4])
+	cachedSelectorWorldV4 := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv4])
 	require.NotNil(t, cachedSelectorWorldV4)
 
-	cachedSelectorWorldV6 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
+	cachedSelectorWorldV6 := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
 	require.NotNil(t, cachedSelectorWorldV6)
 
-	expectedPolicy := L4PolicyMap{
+	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"0/ANY": {
 			Port:     0,
 			Protocol: "ANY",
@@ -1203,15 +1204,15 @@ func TestWildcardL3RulesIngressDenyFromEntities(t *testing.T) {
 				cachedSelectorWorldV6: {labelsL3},
 			},
 		},
-	}
+	})
 
 	require.EqualValues(t, expectedPolicy, policyDeny)
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
 func TestWildcardL3RulesEgressDenyToEntities(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.selectorCache = testSelectorCache
+	td := newTestData()
+	repo := td.repo
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 
@@ -1229,7 +1230,7 @@ func TestWildcardL3RulesEgressDenyToEntities(t *testing.T) {
 		Labels: labelsL3,
 	}
 	l3Rule.Sanitize()
-	_, _, err := repo.Add(l3Rule)
+	_, _, err := repo.mustAdd(l3Rule)
 	require.Nil(t, err)
 
 	ctx := &SearchContext{
@@ -1241,20 +1242,20 @@ func TestWildcardL3RulesEgressDenyToEntities(t *testing.T) {
 
 	policyDeny, err := repo.ResolveL4EgressPolicy(ctx)
 	require.Nil(t, err)
-	require.Equal(t, 1, len(policyDeny))
+	require.Equal(t, 1, policyDeny.Len())
 	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
-	cachedSelectorWorld := testSelectorCache.FindCachedIdentitySelector(selWorld)
+	cachedSelectorWorld := td.sc.FindCachedIdentitySelector(selWorld)
 	require.NotNil(t, cachedSelectorWorld)
 
-	cachedSelectorWorldV4 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv4])
+	cachedSelectorWorldV4 := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv4])
 	require.NotNil(t, cachedSelectorWorldV4)
 
-	cachedSelectorWorldV6 := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
+	cachedSelectorWorldV6 := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
 	require.NotNil(t, cachedSelectorWorldV6)
 
 	// We should expect an empty deny policy because the policy does not
 	// contain any rules with the label 'id=foo'.
-	expectedDenyPolicy := L4PolicyMap{
+	expectedDenyPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"0/ANY": {
 			Port:     0,
 			Protocol: "ANY",
@@ -1272,15 +1273,15 @@ func TestWildcardL3RulesEgressDenyToEntities(t *testing.T) {
 				cachedSelectorWorldV6: {labelsL3},
 			},
 		},
-	}
+	})
 
 	require.EqualValues(t, expectedDenyPolicy, policyDeny)
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
 func TestMinikubeGettingStartedDeny(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.selectorCache = testSelectorCache
+	td := newTestData()
+	repo := td.repo
 
 	app2Selector := labels.ParseSelectLabelArray("id=app2")
 
@@ -1309,7 +1310,7 @@ func TestMinikubeGettingStartedDeny(t *testing.T) {
 		selFromApp2,
 	}
 
-	_, _, err := repo.Add(api.Rule{
+	_, _, err := repo.mustAdd(api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
 		IngressDeny: []api.IngressDenyRule{
 			{
@@ -1326,7 +1327,7 @@ func TestMinikubeGettingStartedDeny(t *testing.T) {
 	})
 	require.Nil(t, err)
 
-	_, _, err = repo.Add(api.Rule{
+	_, _, err = repo.mustAdd(api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
 		IngressDeny: []api.IngressDenyRule{
 			{
@@ -1351,11 +1352,11 @@ func TestMinikubeGettingStartedDeny(t *testing.T) {
 	l4IngressDenyPolicy, err := repo.ResolveL4IngressPolicy(fromApp2.WithLogger(logBuffer))
 	require.Nil(t, err)
 
-	cachedSelectorApp2 := testSelectorCache.FindCachedIdentitySelector(selFromApp2)
+	cachedSelectorApp2 := td.sc.FindCachedIdentitySelector(selFromApp2)
 	require.NotNil(t, cachedSelectorApp2)
 
 	expectedDeny := NewL4Policy(repo.GetRevision())
-	expectedDeny.Ingress.PortRules["80/TCP"] = &L4Filter{
+	expectedDeny.Ingress.PortRules.Upsert("80", 0, "TCP", &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
@@ -1363,23 +1364,23 @@ func TestMinikubeGettingStartedDeny(t *testing.T) {
 		},
 		Ingress:    true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorApp2: {nil}},
-	}
+	})
 
 	if !assert.EqualValues(t, expectedDeny.Ingress.PortRules, l4IngressDenyPolicy) {
 		t.Logf("%s", logBuffer.String())
 		t.Errorf("Resolved policy did not match expected")
 	}
-	l4IngressDenyPolicy.Detach(testSelectorCache)
-	expectedDeny.Detach(testSelectorCache)
+	l4IngressDenyPolicy.Detach(td.sc)
+	expectedDeny.Detach(td.sc)
 
 	// L4 from app3 has no rules
 	expectedDeny = NewL4Policy(repo.GetRevision())
 	l4IngressDenyPolicy, err = repo.ResolveL4IngressPolicy(fromApp3)
 	require.Nil(t, err)
-	require.Equal(t, 0, len(l4IngressDenyPolicy))
+	require.Equal(t, 0, l4IngressDenyPolicy.Len())
 	require.Equal(t, expectedDeny.Ingress.PortRules, l4IngressDenyPolicy)
-	l4IngressDenyPolicy.Detach(testSelectorCache)
-	expectedDeny.Detach(testSelectorCache)
+	l4IngressDenyPolicy.Detach(td.sc)
+	expectedDeny.Detach(td.sc)
 }
 
 func buildDenyRule(from, to, port string) api.Rule {
@@ -1410,13 +1411,13 @@ func buildDenyRule(from, to, port string) api.Rule {
 }
 
 func TestPolicyDenyTrace(t *testing.T) {
-	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.selectorCache = testSelectorCache
+	td := newTestData()
+	repo := td.repo
 
 	// Add rules to allow foo=>bar
 	l3rule := buildDenyRule("foo", "bar", "")
 	rules := api.Rules{&l3rule}
-	_, _ = repo.AddList(rules)
+	_, _ = repo.MustAddList(rules)
 
 	// foo=>bar is OK
 	expectedOut := `
@@ -1454,7 +1455,7 @@ Ingress verdict: denied
 
 	// Now, add extra rules to allow specifically baz=>bar on port 80
 	l4rule := buildDenyRule("baz", "bar", "80")
-	_, _, err := repo.Add(l4rule)
+	_, _, err := repo.mustAdd(l4rule)
 	require.Nil(t, err)
 
 	// baz=>bar:80 is OK
@@ -1469,7 +1470,7 @@ Resolving ingress policy for [any:bar]
     Denies from labels {"matchLabels":{"reserved:host":""}}
     Denies from labels {"matchLabels":{"any:baz":""}}
       Found all required labels
-      Denies port [{80 }]
+      Denies port [{80 0 }]
 2/2 rules selected
 Found no allow rule
 Found deny rule
@@ -1507,7 +1508,7 @@ Ingress verdict: denied
 			},
 		}},
 	}
-	_, _, err = repo.Add(l3rule)
+	_, _, err = repo.mustAdd(l3rule)
 	require.Nil(t, err)
 
 	// foo=>bar is now denied due to the FromRequires
@@ -1546,7 +1547,7 @@ Resolving ingress policy for [any:bar]
     Denies from labels {"matchLabels":{"reserved:host":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
     Denies from labels {"matchLabels":{"any:baz":""},"matchExpressions":[{"key":"any:baz","operator":"In","values":[""]}]}
       Found all required labels
-      Denies port [{80 }]
+      Denies port [{80 0 }]
         No port match found
 * Rule {"matchLabels":{"any:bar":""}}: selected
 3/3 rules selected
@@ -1562,44 +1563,4 @@ Ingress verdict: denied
 	verdict := repo.AllowsIngressRLocked(ctx)
 	repo.Mutex.RUnlock()
 	require.Equal(t, api.Denied, verdict)
-}
-
-func TestRemoveIdentityFromRuleDenyCaches(t *testing.T) {
-
-	testRepo := parseAndAddRules(t, api.Rules{&api.Rule{
-		EndpointSelector: endpointSelectorA,
-		IngressDeny: []api.IngressDenyRule{
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{endpointSelectorC},
-				},
-			},
-		},
-	}})
-
-	addedRule := testRepo.rules[0]
-
-	selectedEpLabels := labels.ParseSelectLabel("id=a")
-	selectedIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})
-
-	notSelectedEpLabels := labels.ParseSelectLabel("id=b")
-	notSelectedIdentity := identity.NewIdentity(9876, labels.Labels{notSelectedEpLabels.Key: notSelectedEpLabels})
-
-	// selectedEndpoint is selected by rule, so we it should be added to
-	// EndpointsSelected.
-	require.Equal(t, true, addedRule.matches(selectedIdentity))
-	require.EqualValues(t, map[identity.NumericIdentity]bool{selectedIdentity.ID: true}, addedRule.metadata.IdentitySelected)
-
-	wg := testRepo.removeIdentityFromRuleCaches(selectedIdentity)
-	wg.Wait()
-
-	require.EqualValues(t, map[identity.NumericIdentity]bool{}, addedRule.metadata.IdentitySelected)
-
-	require.Equal(t, false, addedRule.matches(notSelectedIdentity))
-	require.EqualValues(t, map[identity.NumericIdentity]bool{notSelectedIdentity.ID: false}, addedRule.metadata.IdentitySelected)
-
-	wg = testRepo.removeIdentityFromRuleCaches(notSelectedIdentity)
-	wg.Wait()
-
-	require.EqualValues(t, map[identity.NumericIdentity]bool{}, addedRule.metadata.IdentitySelected)
 }

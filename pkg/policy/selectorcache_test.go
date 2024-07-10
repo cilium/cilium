@@ -4,15 +4,14 @@
 package policy
 
 import (
+	"net"
 	"net/netip"
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -231,11 +230,11 @@ func (cs *testCachedSelector) String() string {
 }
 
 func TestAddRemoveSelector(t *testing.T) {
-	sc := testNewSelectorCache(cache.IdentityCache{})
+	sc := testNewSelectorCache(identity.IdentityMap{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
-	sc.UpdateIdentities(cache.IdentityCache{
+	sc.UpdateIdentities(identity.IdentityMap{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s),
 			k8sConst.PodNamespaceLabel: labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
@@ -283,13 +282,13 @@ func TestAddRemoveSelector(t *testing.T) {
 }
 
 func TestMultipleIdentitySelectors(t *testing.T) {
-	sc := testNewSelectorCache(cache.IdentityCache{})
+	sc := testNewSelectorCache(identity.IdentityMap{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
 	li1 := identity.IdentityScopeLocal
 	li2 := li1 + 1
-	sc.UpdateIdentities(cache.IdentityCache{
+	sc.UpdateIdentities(identity.IdentityMap{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 
@@ -344,11 +343,11 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 }
 
 func TestIdentityUpdates(t *testing.T) {
-	sc := testNewSelectorCache(cache.IdentityCache{})
+	sc := testNewSelectorCache(identity.IdentityMap{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
-	sc.UpdateIdentities(cache.IdentityCache{
+	sc.UpdateIdentities(identity.IdentityMap{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 	}, nil, wg)
@@ -377,7 +376,7 @@ func TestIdentityUpdates(t *testing.T) {
 	user1.Reset()
 	// Add some identities to the identity cache
 	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(cache.IdentityCache{
+	sc.UpdateIdentities(identity.IdentityMap{
 		12345: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 	}, nil, wg)
 	wg.Wait()
@@ -395,7 +394,7 @@ func TestIdentityUpdates(t *testing.T) {
 	user1.Reset()
 	// Remove some identities from the identity cache
 	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(nil, cache.IdentityCache{
+	sc.UpdateIdentities(nil, identity.IdentityMap{
 		12345: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 	}, wg)
 	wg.Wait()
@@ -416,130 +415,12 @@ func TestIdentityUpdates(t *testing.T) {
 	require.Equal(t, 0, len(sc.selectors))
 }
 
-func TestFQDNSelectorUpdates(t *testing.T) {
-	sc := testNewSelectorCache(cache.IdentityCache{})
-	di := sc.localIdentityNotifier.(*testidentity.DummyIdentityNotifier)
-
-	// Add some identities to the identity cache
-	googleSel := api.FQDNSelector{MatchName: "google.com"}
-	ciliumSel := api.FQDNSelector{MatchName: "cilium.io"}
-
-	ciliumIPs := []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("2.1.1.1")}
-	googleIPs := []netip.Addr{netip.MustParseAddr("1.1.1.2"), netip.MustParseAddr("2.1.1.2")}
-
-	initialCiliumIdentities := cache.IdentityCache{
-		1111: labels.GetCIDRLabels(netip.MustParsePrefix("1.1.1.1/32")).LabelArray().Sort(),
-		2111: labels.GetCIDRLabels(netip.MustParsePrefix("2.1.1.1/32")).LabelArray().Sort(),
-	}
-
-	initialGoogleIdentities := cache.IdentityCache{
-		1112: labels.GetCIDRLabels(netip.MustParsePrefix("1.1.1.2/32")).LabelArray().Sort(),
-		2112: labels.GetCIDRLabels(netip.MustParsePrefix("2.1.1.2/32")).LabelArray().Sort(),
-	}
-
-	sc.UpdateIdentities(initialCiliumIdentities, nil, nil)
-	sc.UpdateIdentities(initialGoogleIdentities, nil, nil)
-
-	// Configure the dummy NameManager so that each selector has one IP
-	di.SetSelectorIPs(googleSel, googleIPs[:1])
-	di.SetSelectorIPs(ciliumSel, ciliumIPs[:1])
-
-	user1 := newUser(t, "user1", sc)
-	cached := user1.AddFQDNSelector(ciliumSel)
-
-	selections := cached.GetSelections()
-	require.Equal(t, 1, len(selections))
-	require.Equal(t, 1111, int(selections[0]))
-
-	// Add another selector from the same user
-	cached2 := user1.AddFQDNSelector(googleSel)
-	require.NotEqual(t, cached, cached2)
-
-	// Current selections contain the numeric identities of existing identities that match
-	selections2 := cached2.GetSelections()
-	require.Equal(t, 1, len(selections2))
-	require.Equal(t, 1112, int(selections2[0]))
-
-	// Add an additional IP to the selector (for which the identity exists)
-	user1.Reset()
-	wg := &sync.WaitGroup{}
-	sc.UpdateFQDNSelector(ciliumSel, ciliumIPs, wg)
-	wg.Wait()
-
-	adds, deletes := user1.WaitForUpdate()
-	require.Equal(t, 1, adds)
-	require.Equal(t, 0, deletes)
-
-	selections = cached.GetSelections()
-	require.Equal(t, 2, len(selections))
-	require.Equal(t, 1111, int(selections[0]))
-	require.Equal(t, 2111, int(selections[1]))
-
-	// Change to a different IP that does not yet exist
-	user1.Reset()
-	wg = &sync.WaitGroup{}
-	sc.UpdateFQDNSelector(ciliumSel, []netip.Addr{netip.MustParseAddr("4.4.4.4")}, wg)
-	wg.Wait()
-
-	adds, deletes = user1.WaitForUpdate()
-	require.Equal(t, 1, adds) // these values are not cleared on Reset(, adds), so this is the same as before
-	require.Equal(t, 2, deletes)
-
-	selections = cached.GetSelections()
-	require.Equal(t, 0, len(selections))
-
-	// Now, add the identity that the selector selects
-	newIdentities := cache.IdentityCache{
-		4444: labels.GetCIDRLabels(netip.MustParsePrefix("4.4.4.4/32")).LabelArray().Sort(),
-	}
-
-	user1.Reset()
-	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(newIdentities, nil, wg)
-	wg.Wait()
-
-	// We should now see another add
-	selections = cached.GetSelections()
-	require.Equal(t, 1, len(selections))
-	require.Equal(t, 4444, int(selections[0]))
-
-	adds, deletes = user1.WaitForUpdate()
-	require.Equal(t, 2, adds) // Again, this is one more than before
-	require.Equal(t, 2, deletes)
-
-	// Delete an unrelated identity, ensure nothing changes
-	user1.Reset()
-	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(nil, initialCiliumIdentities, wg)
-	wg.Wait()
-
-	// We should now see no changes
-	selections = cached.GetSelections()
-	require.Equal(t, 1, len(selections))
-	require.Equal(t, 4444, int(selections[0]))
-
-	// In this case, user1 will not get an update, since adds + deletes = 0
-
-	// Delete a selected identity, ensure we get the delete
-	user1.Reset()
-	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(nil, newIdentities, wg)
-	wg.Wait()
-
-	selections = cached.GetSelections()
-	require.Equal(t, 0, len(selections))
-
-	adds, deletes = user1.WaitForUpdate()
-	require.Equal(t, 2, adds)
-	require.Equal(t, 3, deletes)
-}
-
 func TestIdentityUpdatesMultipleUsers(t *testing.T) {
-	sc := testNewSelectorCache(cache.IdentityCache{})
+	sc := testNewSelectorCache(identity.IdentityMap{})
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
-	sc.UpdateIdentities(cache.IdentityCache{
+	sc.UpdateIdentities(identity.IdentityMap{
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 	}, nil, wg)
@@ -559,7 +440,7 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	user2.Reset()
 	// Add some identities to the identity cache
 	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(cache.IdentityCache{
+	sc.UpdateIdentities(identity.IdentityMap{
 		123: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		234: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 		345: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
@@ -586,7 +467,7 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	user2.Reset()
 	// Remove some identities from the identity cache
 	wg = &sync.WaitGroup{}
-	sc.UpdateIdentities(nil, cache.IdentityCache{
+	sc.UpdateIdentities(nil, identity.IdentityMap{
 		123: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		234: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 	}, wg)
@@ -629,42 +510,36 @@ func TestSelectorManagerCanGetBeforeSet(t *testing.T) {
 	require.Equal(t, 0, len(selections))
 }
 
-func testNewSelectorCache(ids cache.IdentityCache) *SelectorCache {
-	sc := NewSelectorCache(testidentity.NewMockIdentityAllocator(ids), ids)
+func testNewSelectorCache(ids identity.IdentityMap) *SelectorCache {
+	sc := NewSelectorCache(ids)
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return sc
 }
 
-func TestFQDNSelectorMatches(t *testing.T) {
+func Test_getLocalScopeNets(t *testing.T) {
+	nets := getLocalScopeNets(identity.ReservedIdentityWorld, nil)
+	require.Len(t, nets, 0)
 
-	f := fqdnSelector{}
+	nets = getLocalScopeNets(identity.ReservedIdentityWorld, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "0.0.0.0/0"}})
+	require.Len(t, nets, 0)
 
-	ip1 := netip.MustParseAddr("1.1.1.1")
-	ip2 := netip.MustParseAddr("1.1.1.2")
+	nets = getLocalScopeNets(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "0.0.0.0/0"}})
+	require.Len(t, nets, 1)
+	require.Equal(t, &net.IPNet{IP: make(net.IP, 4), Mask: make(net.IPMask, 4)}, nets[0])
 
-	l1 := labels.GetCIDRLabels(netip.PrefixFrom(ip1, ip1.BitLen())).LabelArray()
-	l2 := labels.GetCIDRLabels(netip.PrefixFrom(ip2, ip2.BitLen())).LabelArray()
+	nets = getLocalScopeNets(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "::/0"}})
+	require.Len(t, nets, 1)
+	require.Equal(t, &net.IPNet{IP: make(net.IP, 16), Mask: make(net.IPMask, 16)}, nets[0])
 
-	i1 := scIdentity{lbls: l1}
-	i2 := scIdentity{lbls: l2}
-	i3 := scIdentity{}
+	nets = getLocalScopeNets(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "--/0"}})
+	require.Len(t, nets, 1)
+	require.Equal(t, &net.IPNet{IP: make(net.IP, 16), Mask: make(net.IPMask, 16)}, nets[0])
 
-	assert.False(t, f.matches(i1))
-	assert.False(t, f.matches(i2))
-	assert.False(t, f.matches(i3))
-
-	f.setSelectorIPs([]netip.Addr{ip1})
-	assert.True(t, f.matches(i1))
-	assert.False(t, f.matches(i2))
-	assert.False(t, f.matches(i3))
-
-	f.setSelectorIPs([]netip.Addr{ip2})
-	assert.False(t, f.matches(i1))
-	assert.True(t, f.matches(i2))
-	assert.False(t, f.matches(i3))
-
-	f.setSelectorIPs([]netip.Addr{ip1, ip2})
-	assert.True(t, f.matches(i1))
-	assert.True(t, f.matches(i2))
-	assert.False(t, f.matches(i3))
+	nets = getLocalScopeNets(identity.IdentityScopeLocal, labels.LabelArray{
+		labels.Label{Source: labels.LabelSourceCIDR, Key: "ff--/8"},
+		labels.Label{Source: labels.LabelSourceCIDR, Key: "--/0"},
+		labels.Label{Source: labels.LabelSourceCIDR, Key: "--1/128"},
+	})
+	require.Len(t, nets, 1)
+	require.Equal(t, &net.IPNet{IP: net.IPv6loopback, Mask: net.CIDRMask(128, 128)}, nets[0])
 }

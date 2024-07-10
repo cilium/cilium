@@ -5,8 +5,10 @@ package manager
 
 import (
 	"fmt"
+	"io"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -36,7 +38,6 @@ func (pm providerMock) getContainerPath(podId string, containerId string, qos sl
 
 func (pm providerMock) getBasePath() (string, error) {
 	return "", nil
-
 }
 
 var (
@@ -120,13 +121,22 @@ var (
 	}
 )
 
-func newCgroupManagerTest(pMock providerMock, cg cgroup) *CgroupManager {
+func newCgroupManagerTest(t testing.TB, pMock providerMock, cg cgroup, events chan podEventStatus) CGroupManager {
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+
 	// Unbuffered channel tests to detect any issues on the caller side.
-	return initManager(pMock, cg, 0)
+	tcm := newManager(logger, cg, pMock, 0)
+
+	tcm.podEventsDone = events
+
+	go tcm.processPodEvents()
+	t.Cleanup(tcm.Close)
+
+	return tcm
 }
 
-func setup(tb testing.TB) {
-	option.Config.EnableSocketLBTracing = true
+func setup() {
 	nodetypes.SetName("n1")
 }
 
@@ -135,7 +145,7 @@ func getFullPath(path string) string {
 }
 
 func TestGetPodMetadataOnPodAdd(t *testing.T) {
-	setup(t)
+	setup()
 
 	c1CId := uint64(1234)
 	c2CId := uint64(4567)
@@ -149,7 +159,7 @@ func TestGetPodMetadataOnPodAdd(t *testing.T) {
 		c3Id: pod2C1CgrpPath,
 	}}
 	pod10 := pod1.DeepCopy()
-	mm := newCgroupManagerTest(provMock, cgMock)
+	mm := newCgroupManagerTest(t, provMock, cgMock, nil)
 
 	type test struct {
 		input  *slimcorev1.Pod
@@ -178,6 +188,8 @@ func TestGetPodMetadataOnPodAdd(t *testing.T) {
 }
 
 func TestGetPodMetadataOnPodUpdate(t *testing.T) {
+	setup()
+
 	c3CId := uint64(2345)
 	c1CId := uint64(1234)
 	cgMock := cgroupMock{cgroupIds: map[string]uint64{
@@ -188,7 +200,17 @@ func TestGetPodMetadataOnPodUpdate(t *testing.T) {
 		c3Id: pod3C1CgrpPath,
 		c1Id: pod3C2CgrpPath,
 	}}
-	mm := newCgroupManagerTest(provMock, cgMock)
+	events := make(chan podEventStatus)
+	mm := newCgroupManagerTest(t, provMock, cgMock, events)
+	deleteEv := make(chan podEventStatus)
+	go func() {
+		for status := range events {
+			if status.eventType != podDeleteEvent {
+				continue
+			}
+			deleteEv <- status
+		}
+	}()
 	newPod := pod3.DeepCopy()
 	cs := slimcorev1.ContainerStatus{
 		State:       slimcorev1.ContainerState{Running: &slimcorev1.ContainerStateRunning{}},
@@ -213,12 +235,25 @@ func TestGetPodMetadataOnPodUpdate(t *testing.T) {
 	got2 := mm.GetPodMetadataForContainer(c1CId)
 	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got1)
 	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got2)
+
+	// Delete pod to assert no metadata is found.
+	mm.OnDeletePod(pod3)
+	// Wait for delete event to complete.
+	ev := <-deleteEv
+	require.Equal(t, podEventStatus{
+		name:      pod3.Name,
+		namespace: pod3.Namespace,
+		eventType: podDeleteEvent,
+	}, ev)
+
+	got = mm.GetPodMetadataForContainer(c3CId)
+	require.Nil(t, got)
 }
 
 func TestGetPodMetadataOnManagerDisabled(t *testing.T) {
 	// Disable the feature flag.
 	option.Config.EnableSocketLBTracing = false
-	mm := newCgroupManagerTest(providerMock{}, cgroupMock{})
+	mm := newCgroupManagerTest(t, providerMock{}, cgroupMock{}, nil)
 	c1CId := uint64(1234)
 
 	mm.OnAddPod(pod1)
@@ -232,4 +267,28 @@ func TestGetPodMetadataOnManagerDisabled(t *testing.T) {
 
 	got = mm.GetPodMetadataForContainer(c1CId)
 	require.Nil(t, got)
+}
+
+func BenchmarkGetPodMetadataForContainer(b *testing.B) {
+	setup()
+	c3CId := uint64(2345)
+	c1CId := uint64(1234)
+	cgMock := cgroupMock{cgroupIds: map[string]uint64{
+		pod3C1CgrpPath: c3CId,
+		pod3C2CgrpPath: c1CId,
+	}}
+	provMock := providerMock{paths: map[string]string{
+		c3Id: pod3C1CgrpPath,
+		c1Id: pod3C2CgrpPath,
+	}}
+	mm := newCgroupManagerTest(b, provMock, cgMock, nil)
+
+	// Add pod, and check for pod metadata for their containers.
+	mm.OnAddPod(pod3)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		got := mm.GetPodMetadataForContainer(c3CId)
+		require.Equal(b, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got)
+	}
 }

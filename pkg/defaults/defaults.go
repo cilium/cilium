@@ -193,9 +193,13 @@ const (
 	// option.IdentityChangeGracePeriod
 	IdentityChangeGracePeriod = 5 * time.Second
 
-	// IdentityRestoreGracePeriod is the default value for
-	// option.IdentityRestoreGracePeriod
-	IdentityRestoreGracePeriod = 10 * time.Minute
+	// IdentityRestoreGracePeriodKvstore is the default value for
+	// option.IdentityRestoreGracePeriod when kvstore is enabled.
+	IdentityRestoreGracePeriodKvstore = 10 * time.Minute
+
+	// IdentityRestoreGracePeriodKvstore is the default value for
+	// option.IdentityRestoreGracePeriod when only k8s is in use
+	IdentityRestoreGracePeriodK8s = 30 * time.Second
 
 	// ExecTimeout is a timeout for executing commands.
 	ExecTimeout = 300 * time.Second
@@ -253,6 +257,10 @@ const (
 	// be necessary on key rotations.
 	EnableIPsecKeyWatcher = true
 
+	// Enable caching for XfrmState for IPSec. Significantly reduces CPU usage
+	// in large clusters.
+	EnableIPSecXfrmStateCaching = true
+
 	// Enable IPSec encrypted overlay
 	//
 	// This feature will encrypt overlay traffic before it leaves the cluster.
@@ -296,6 +304,9 @@ const (
 
 	// EnableAutoDirectRouting is the default value for EnableAutoDirectRouting
 	EnableAutoDirectRouting = false
+
+	// EnableDirectRoutingSkipUnreachable is the default value for EnableDirectRoutingIgnoreUnreachableName
+	EnableDirectRoutingSkipUnreachable = false
 
 	// EnableHealthChecking is the default value for EnableHealthChecking
 	EnableHealthChecking = true

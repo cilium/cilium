@@ -2156,13 +2156,13 @@ var (
 				},
 			},
 		},
-		GRPCRoutes: []gatewayv1alpha2.GRPCRoute{
+		GRPCRoutes: []gatewayv1.GRPCRoute{
 			{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "grpc-route",
 					Namespace: "default",
 				},
-				Spec: gatewayv1alpha2.GRPCRouteSpec{
+				Spec: gatewayv1.GRPCRouteSpec{
 					CommonRouteSpec: gatewayv1.CommonRouteSpec{
 						ParentRefs: []gatewayv1.ParentReference{
 							{
@@ -2170,21 +2170,21 @@ var (
 							},
 						},
 					},
-					Hostnames: []gatewayv1alpha2.Hostname{
+					Hostnames: []gatewayv1.Hostname{
 						"example.com",
 					},
-					Rules: []gatewayv1alpha2.GRPCRouteRule{
+					Rules: []gatewayv1.GRPCRouteRule{
 						{
-							Matches: []gatewayv1alpha2.GRPCRouteMatch{
+							Matches: []gatewayv1.GRPCRouteMatch{
 								{
-									Method: &gatewayv1alpha2.GRPCMethodMatch{
-										Type:    model.AddressOf[gatewayv1alpha2.GRPCMethodMatchType](gatewayv1alpha2.GRPCMethodMatchExact),
+									Method: &gatewayv1.GRPCMethodMatch{
+										Type:    model.AddressOf[gatewayv1.GRPCMethodMatchType](gatewayv1.GRPCMethodMatchExact),
 										Service: model.AddressOf("service.Echo"),
 										Method:  model.AddressOf("Ping"),
 									},
 								},
 							},
-							BackendRefs: []gatewayv1alpha2.GRPCBackendRef{
+							BackendRefs: []gatewayv1.GRPCBackendRef{
 								{
 									BackendRef: gatewayv1.BackendRef{
 										BackendObjectReference: gatewayv1.BackendObjectReference{

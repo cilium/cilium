@@ -139,6 +139,14 @@ routing mode:
 * ``ipv4-native-routing-cidr: x.x.x.x/y``: Set the CIDR in which native routing
   can be performed.
 
+The following configuration options are optional when running the datapath in 
+native routing mode:
+
+* ``direct-routing-skip-unreachable``: If a BGP daemon is running and there 
+  is multiple native subnets to the cluster network, 
+  ``direct-routing-skip-unreachable: true`` can be added alongside 
+  ``auto-direct-node-routes`` to give each node L2 connectivity in each zone 
+  without traffic always needing to be routed by the BGP routers.
 
 .. _aws_eni_datapath:
 

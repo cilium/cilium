@@ -89,38 +89,40 @@ type DescribeNetworkInterfaceAttributeTag struct {
 // DescribeNetworkInterfaceAttributeResponse is the response struct for api DescribeNetworkInterfaceAttribute
 type DescribeNetworkInterfaceAttributeResponse struct {
 	*responses.BaseResponse
-	CreationTime                string                                              `json:"CreationTime" xml:"CreationTime"`
-	VpcId                       string                                              `json:"VpcId" xml:"VpcId"`
-	Type                        string                                              `json:"Type" xml:"Type"`
-	Status                      string                                              `json:"Status" xml:"Status"`
-	NetworkInterfaceTrafficMode string                                              `json:"NetworkInterfaceTrafficMode" xml:"NetworkInterfaceTrafficMode"`
-	NetworkInterfaceName        string                                              `json:"NetworkInterfaceName" xml:"NetworkInterfaceName"`
-	MacAddress                  string                                              `json:"MacAddress" xml:"MacAddress"`
-	QueuePairNumber             int                                                 `json:"QueuePairNumber" xml:"QueuePairNumber"`
-	NetworkInterfaceId          string                                              `json:"NetworkInterfaceId" xml:"NetworkInterfaceId"`
-	ServiceID                   int64                                               `json:"ServiceID" xml:"ServiceID"`
-	InstanceId                  string                                              `json:"InstanceId" xml:"InstanceId"`
-	OwnerId                     string                                              `json:"OwnerId" xml:"OwnerId"`
-	ServiceManaged              bool                                                `json:"ServiceManaged" xml:"ServiceManaged"`
-	VSwitchId                   string                                              `json:"VSwitchId" xml:"VSwitchId"`
-	RequestId                   string                                              `json:"RequestId" xml:"RequestId"`
-	Description                 string                                              `json:"Description" xml:"Description"`
-	ResourceGroupId             string                                              `json:"ResourceGroupId" xml:"ResourceGroupId"`
-	ZoneId                      string                                              `json:"ZoneId" xml:"ZoneId"`
-	PrivateIpAddress            string                                              `json:"PrivateIpAddress" xml:"PrivateIpAddress"`
-	QueueNumber                 int                                                 `json:"QueueNumber" xml:"QueueNumber"`
-	DeleteOnRelease             bool                                                `json:"DeleteOnRelease" xml:"DeleteOnRelease"`
-	TcpOptionAddressEnabled     string                                              `json:"TcpOptionAddressEnabled" xml:"TcpOptionAddressEnabled"`
-	SecurityGroupIds            SecurityGroupIdsInDescribeNetworkInterfaceAttribute `json:"SecurityGroupIds" xml:"SecurityGroupIds"`
-	AssociatedPublicIp          AssociatedPublicIp                                  `json:"AssociatedPublicIp" xml:"AssociatedPublicIp"`
-	Attachment                  Attachment                                          `json:"Attachment" xml:"Attachment"`
-	BondInterfaceSpecification  BondInterfaceSpecification                          `json:"BondInterfaceSpecification" xml:"BondInterfaceSpecification"`
-	SlaveInterfaceSpecification SlaveInterfaceSpecification                         `json:"SlaveInterfaceSpecification" xml:"SlaveInterfaceSpecification"`
-	PrivateIpSets               PrivateIpSetsInDescribeNetworkInterfaceAttribute    `json:"PrivateIpSets" xml:"PrivateIpSets"`
-	Ipv6Sets                    Ipv6SetsInDescribeNetworkInterfaceAttribute         `json:"Ipv6Sets" xml:"Ipv6Sets"`
-	Ipv4PrefixSets              Ipv4PrefixSetsInDescribeNetworkInterfaceAttribute   `json:"Ipv4PrefixSets" xml:"Ipv4PrefixSets"`
-	Ipv6PrefixSets              Ipv6PrefixSetsInDescribeNetworkInterfaceAttribute   `json:"Ipv6PrefixSets" xml:"Ipv6PrefixSets"`
-	Tags                        TagsInDescribeNetworkInterfaceAttribute             `json:"Tags" xml:"Tags"`
+	CreationTime                    string                                              `json:"CreationTime" xml:"CreationTime"`
+	VpcId                           string                                              `json:"VpcId" xml:"VpcId"`
+	Type                            string                                              `json:"Type" xml:"Type"`
+	Status                          string                                              `json:"Status" xml:"Status"`
+	NetworkInterfaceTrafficMode     string                                              `json:"NetworkInterfaceTrafficMode" xml:"NetworkInterfaceTrafficMode"`
+	NetworkInterfaceName            string                                              `json:"NetworkInterfaceName" xml:"NetworkInterfaceName"`
+	MacAddress                      string                                              `json:"MacAddress" xml:"MacAddress"`
+	QueuePairNumber                 int                                                 `json:"QueuePairNumber" xml:"QueuePairNumber"`
+	NetworkInterfaceId              string                                              `json:"NetworkInterfaceId" xml:"NetworkInterfaceId"`
+	ServiceID                       int64                                               `json:"ServiceID" xml:"ServiceID"`
+	InstanceId                      string                                              `json:"InstanceId" xml:"InstanceId"`
+	OwnerId                         string                                              `json:"OwnerId" xml:"OwnerId"`
+	ServiceManaged                  bool                                                `json:"ServiceManaged" xml:"ServiceManaged"`
+	VSwitchId                       string                                              `json:"VSwitchId" xml:"VSwitchId"`
+	RequestId                       string                                              `json:"RequestId" xml:"RequestId"`
+	Description                     string                                              `json:"Description" xml:"Description"`
+	ResourceGroupId                 string                                              `json:"ResourceGroupId" xml:"ResourceGroupId"`
+	ZoneId                          string                                              `json:"ZoneId" xml:"ZoneId"`
+	PrivateIpAddress                string                                              `json:"PrivateIpAddress" xml:"PrivateIpAddress"`
+	QueueNumber                     int                                                 `json:"QueueNumber" xml:"QueueNumber"`
+	DeleteOnRelease                 bool                                                `json:"DeleteOnRelease" xml:"DeleteOnRelease"`
+	TcpOptionAddressEnabled         string                                              `json:"TcpOptionAddressEnabled" xml:"TcpOptionAddressEnabled"`
+	SecurityGroupIds                SecurityGroupIdsInDescribeNetworkInterfaceAttribute `json:"SecurityGroupIds" xml:"SecurityGroupIds"`
+	AssociatedPublicIp              AssociatedPublicIp                                  `json:"AssociatedPublicIp" xml:"AssociatedPublicIp"`
+	Attachment                      Attachment                                          `json:"Attachment" xml:"Attachment"`
+	BondInterfaceSpecification      BondInterfaceSpecification                          `json:"BondInterfaceSpecification" xml:"BondInterfaceSpecification"`
+	SlaveInterfaceSpecification     SlaveInterfaceSpecification                         `json:"SlaveInterfaceSpecification" xml:"SlaveInterfaceSpecification"`
+	NetworkInterfaceTrafficConfig   NetworkInterfaceTrafficConfig                       `json:"NetworkInterfaceTrafficConfig" xml:"NetworkInterfaceTrafficConfig"`
+	ConnectionTrackingConfiguration ConnectionTrackingConfiguration                     `json:"ConnectionTrackingConfiguration" xml:"ConnectionTrackingConfiguration"`
+	PrivateIpSets                   PrivateIpSetsInDescribeNetworkInterfaceAttribute    `json:"PrivateIpSets" xml:"PrivateIpSets"`
+	Ipv6Sets                        Ipv6SetsInDescribeNetworkInterfaceAttribute         `json:"Ipv6Sets" xml:"Ipv6Sets"`
+	Ipv4PrefixSets                  Ipv4PrefixSetsInDescribeNetworkInterfaceAttribute   `json:"Ipv4PrefixSets" xml:"Ipv4PrefixSets"`
+	Ipv6PrefixSets                  Ipv6PrefixSetsInDescribeNetworkInterfaceAttribute   `json:"Ipv6PrefixSets" xml:"Ipv6PrefixSets"`
+	Tags                            TagsInDescribeNetworkInterfaceAttribute             `json:"Tags" xml:"Tags"`
 }
 
 // CreateDescribeNetworkInterfaceAttributeRequest creates a request to invoke DescribeNetworkInterfaceAttribute API

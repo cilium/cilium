@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
       - name: echo
-        image: gcr.io/k8s-staging-gateway-api/echo-advanced:v20231214-v1.0.0-140-gf544a46e
+        image: gcr.io/k8s-staging-gateway-api/echo-advanced:v20240412-v1.0.0-394-g40c666fd
         imagePullPolicy: IfNotPresent
         args:
         - --tcp=9090
@@ -83,7 +83,7 @@ spec:
     spec:
       containers:
       - name: echo
-        image: gcr.io/k8s-staging-gateway-api/echo-advanced:v20231214-v1.0.0-140-gf544a46e
+        image: gcr.io/k8s-staging-gateway-api/echo-advanced:v20240412-v1.0.0-394-g40c666fd
         imagePullPolicy: IfNotPresent
         args:
         - --tcp=9090
@@ -172,5 +172,5 @@ spec:
     spec:
       containers:
       - name: echo
-        image: gcr.io/k8s-staging-gateway-api/echo-advanced:v20231214-v1.0.0-140-gf544a46e
+        image: gcr.io/k8s-staging-gateway-api/echo-advanced:v20240412-v1.0.0-394-g40c666fd
         imagePullPolicy: IfNotPresent

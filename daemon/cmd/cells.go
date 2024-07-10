@@ -17,7 +17,9 @@ import (
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
+	"github.com/cilium/cilium/pkg/bgp/speaker"
 	"github.com/cilium/cilium/pkg/bgpv1"
+	cgroup "github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -25,28 +27,35 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointcleanup"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/gops"
-	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
+	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
+	loadbalancer_experimental "github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
+	natStats "github.com/cilium/cilium/pkg/maps/nat/stats"
+	"github.com/cilium/cilium/pkg/maps/ratelimitmetricsmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
+	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/signal"
@@ -90,6 +99,9 @@ var (
 		// Provides cilium_datapath_drop/forward Prometheus metrics.
 		metricsmap.Cell,
 
+		// Provides cilium_bpf_ratelimit_dropped_total Prometheus metric.
+		ratelimitmetricsmap.Cell,
+
 		// Provide option.Config via hive so cells can depend on the agent config.
 		cell.Provide(func() *option.DaemonConfig { return option.Config }),
 
@@ -108,6 +120,14 @@ var (
 		// Store cell provides factory for creating watchStore/syncStore/storeManager
 		// useful for synchronizing data from/to kvstore.
 		store.Cell,
+
+		// Provide CRD resource names for 'k8sSynced.CRDSyncCell' below.
+		cell.Provide(func() k8sSynced.CRDSyncResourceNames { return k8sSynced.AgentCRDResourceNames() }),
+		// CRDSyncCell provides a promise that is resolved as soon as CRDs used by the
+		// agent have k8sSynced.
+		// Allows cells to wait for CRDs before trying to list Cilium resources.
+		// This is separate from k8sSynced.Cell as this one needs to be mocked for tests.
+		k8sSynced.CRDSyncCell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure
@@ -163,6 +183,9 @@ var (
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,
 
+		// Experimental control-plane for configuring service load-balancing.
+		loadbalancer_experimental.Cell,
+
 		// Service is a datapath service handler. Its main responsibility is to reflect
 		// service-related changes into BPF maps used by datapath BPF programs.
 		service.Cell,
@@ -186,6 +209,9 @@ var (
 		// The BGP Control Plane which enables various BGP related interop.
 		bgpv1.Cell,
 
+		// The MetalLB BGP speaker enables support for MetalLB BGP.
+		speaker.Cell,
+
 		// Brokers datapath signals from signalmap
 		signal.Cell,
 
@@ -195,8 +221,8 @@ var (
 		// IPCache, policy.Repository and CachingIdentityAllocator.
 		cell.Provide(newPolicyTrifecta),
 
-		// IPAM metadata manager, determines which IPAM pool a pod should allocate from
-		ipamMetadata.Cell,
+		// IPAM provides IP address management.
+		ipamcell.Cell,
 
 		// Egress Gateway allows originating traffic from specific IPv4 addresses.
 		egressgateway.Cell,
@@ -204,8 +230,12 @@ var (
 		// ServiceCache holds the list of known services correlated with the matching endpoints.
 		k8s.ServiceCacheCell,
 
-		// K8s policy resource watcher cell.
+		// K8s policy resource watcher cell. It depends on the half-initialized daemon which is
+		// resolved by newDaemonPromise()
 		policyK8s.Cell,
+
+		// Directory policy watcher cell.
+		policyDirectory.Cell,
 
 		// ClusterMesh is the Cilium's multicluster implementation.
 		cell.Config(cmtypes.DefaultClusterInfo),
@@ -227,6 +257,24 @@ var (
 		// The node discovery cell provides the local node configuration and node discovery
 		// which communicate changes in local node information to the API server or KVStore.
 		nodediscovery.Cell,
+
+		// Cgroup manager maintains Kubernetes and low-level metadata (cgroup path and
+		// cgroup id) for local pods and their containers.
+		cgroup.Cell,
+
+		// NAT stats provides stat computation and tables for NAT map bpf maps.
+		natStats.Cell,
+
+		// Provide the logic to map DNS names matching Kubernetes services to the
+		// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
+		// and clustermesh.
+		dial.ServiceResolverCell,
+
+		// K8s Watcher provides the core k8s watchers
+		watchers.Cell,
+
+		// Provide pcap recorder
+		recorder.Cell,
 	)
 )
 

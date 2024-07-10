@@ -16,9 +16,10 @@
 //
 // BLAKE2X is a construction to compute hash values larger than 32 bytes. It
 // can produce hash values between 0 and 65535 bytes.
-package blake2s // import "golang.org/x/crypto/blake2s"
+package blake2s
 
 import (
+	"crypto"
 	"encoding/binary"
 	"errors"
 	"hash"
@@ -54,6 +55,13 @@ func Sum256(data []byte) [Size]byte {
 // When the key is nil, the returned hash.Hash implements BinaryMarshaler
 // and BinaryUnmarshaler for state (de)serialization as documented by hash.Hash.
 func New256(key []byte) (hash.Hash, error) { return newDigest(Size, key) }
+
+func init() {
+	crypto.RegisterHash(crypto.BLAKE2s_256, func() hash.Hash {
+		h, _ := New256(nil)
+		return h
+	})
+}
 
 // New128 returns a new hash.Hash computing the BLAKE2s-128 checksum given a
 // non-empty key. Note that a 128-bit digest is too small to be secure as a

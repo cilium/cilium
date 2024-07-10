@@ -14,8 +14,8 @@ TIMEOUT = 60
 .DEFAULT_GOAL := precommit
 
 .PHONY: precommit ci
-precommit: generate dependabot-generate license-check misspell go-mod-tidy golangci-lint-fix verify-readmes test-default
-ci: generate dependabot-check license-check lint vanity-import-check verify-readmes build test-default check-clean-work-tree test-coverage
+precommit: generate license-check misspell go-mod-tidy golangci-lint-fix verify-readmes verify-mods test-default
+ci: generate license-check lint vanity-import-check verify-readmes verify-mods build test-default check-clean-work-tree test-coverage
 
 # Tools
 
@@ -38,9 +38,6 @@ $(TOOLS)/crosslink: PACKAGE=go.opentelemetry.io/build-tools/crosslink
 
 SEMCONVKIT = $(TOOLS)/semconvkit
 $(TOOLS)/semconvkit: PACKAGE=go.opentelemetry.io/otel/$(TOOLS_MOD_DIR)/semconvkit
-
-DBOTCONF = $(TOOLS)/dbotconf
-$(TOOLS)/dbotconf: PACKAGE=go.opentelemetry.io/build-tools/dbotconf
 
 GOLANGCI_LINT = $(TOOLS)/golangci-lint
 $(TOOLS)/golangci-lint: PACKAGE=github.com/golangci/golangci-lint/cmd/golangci-lint
@@ -70,7 +67,7 @@ GOVULNCHECK = $(TOOLS)/govulncheck
 $(TOOLS)/govulncheck: PACKAGE=golang.org/x/vuln/cmd/govulncheck
 
 .PHONY: tools
-tools: $(CROSSLINK) $(DBOTCONF) $(GOLANGCI_LINT) $(MISSPELL) $(GOCOVMERGE) $(STRINGER) $(PORTO) $(GOJQ) $(SEMCONVGEN) $(MULTIMOD) $(SEMCONVKIT) $(GOTMPL) $(GORELEASE)
+tools: $(CROSSLINK) $(GOLANGCI_LINT) $(MISSPELL) $(GOCOVMERGE) $(STRINGER) $(PORTO) $(GOJQ) $(SEMCONVGEN) $(MULTIMOD) $(SEMCONVKIT) $(GOTMPL) $(GORELEASE)
 
 # Virtualized python tools via docker
 
@@ -252,15 +249,6 @@ license-check:
 	           exit 1; \
 	   fi
 
-DEPENDABOT_CONFIG = .github/dependabot.yml
-.PHONY: dependabot-check
-dependabot-check: $(DBOTCONF)
-	@$(DBOTCONF) verify $(DEPENDABOT_CONFIG) || ( echo "(run: make dependabot-generate)"; exit 1 )
-
-.PHONY: dependabot-generate
-dependabot-generate: $(DBOTCONF)
-	@$(DBOTCONF) generate > $(DEPENDABOT_CONFIG)
-
 .PHONY: check-clean-work-tree
 check-clean-work-tree:
 	@if ! git diff --quiet; then \
@@ -276,10 +264,7 @@ SEMCONVPKG ?= "semconv/"
 semconv-generate: $(SEMCONVGEN) $(SEMCONVKIT)
 	[ "$(TAG)" ] || ( echo "TAG unset: missing opentelemetry semantic-conventions tag"; exit 1 )
 	[ "$(OTEL_SEMCONV_REPO)" ] || ( echo "OTEL_SEMCONV_REPO unset: missing path to opentelemetry semantic-conventions repo"; exit 1 )
-	$(SEMCONVGEN) -i "$(OTEL_SEMCONV_REPO)/model/." --only=span -p conventionType=trace -f trace.go -t "$(SEMCONVPKG)/template.j2" -s "$(TAG)"
 	$(SEMCONVGEN) -i "$(OTEL_SEMCONV_REPO)/model/." --only=attribute_group -p conventionType=trace -f attribute_group.go -t "$(SEMCONVPKG)/template.j2" -s "$(TAG)"
-	$(SEMCONVGEN) -i "$(OTEL_SEMCONV_REPO)/model/." --only=event -p conventionType=event -f event.go -t "$(SEMCONVPKG)/template.j2" -s "$(TAG)"
-	$(SEMCONVGEN) -i "$(OTEL_SEMCONV_REPO)/model/." --only=resource -p conventionType=resource -f resource.go -t "$(SEMCONVPKG)/template.j2" -s "$(TAG)"
 	$(SEMCONVGEN) -i "$(OTEL_SEMCONV_REPO)/model/." --only=metric  -f metric.go -t "$(SEMCONVPKG)/metric_template.j2" -s "$(TAG)"
 	$(SEMCONVKIT) -output "$(SEMCONVPKG)/$(TAG)" -tag "$(TAG)"
 
@@ -292,16 +277,20 @@ gorelease/%:| $(GORELEASE)
 		&& $(GORELEASE) \
 		|| echo ""
 
+.PHONY: verify-mods
+verify-mods: $(MULTIMOD)
+	$(MULTIMOD) verify
+
 .PHONY: prerelease
-prerelease: $(MULTIMOD)
+prerelease: verify-mods
 	@[ "${MODSET}" ] || ( echo ">> env var MODSET is not set"; exit 1 )
-	$(MULTIMOD) verify && $(MULTIMOD) prerelease -m ${MODSET}
+	$(MULTIMOD) prerelease -m ${MODSET}
 
 COMMIT ?= "HEAD"
 .PHONY: add-tags
-add-tags: $(MULTIMOD)
+add-tags: verify-mods
 	@[ "${MODSET}" ] || ( echo ">> env var MODSET is not set"; exit 1 )
-	$(MULTIMOD) verify && $(MULTIMOD) tag -m ${MODSET} -c ${COMMIT}
+	$(MULTIMOD) tag -m ${MODSET} -c ${COMMIT}
 
 .PHONY: lint-markdown
 lint-markdown:

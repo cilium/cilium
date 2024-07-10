@@ -11,11 +11,13 @@ import (
 	"github.com/cilium/statedb"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/datapath"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -23,9 +25,11 @@ import (
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
+	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
 	"github.com/cilium/cilium/pkg/mtu"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 )
@@ -54,7 +58,15 @@ var Cell = cell.Module(
 		func() mtu.MTU { return &fakeTypes.MTU{} },
 		func() *wg.Agent { return nil },
 		func() types.Loader { return &fakeTypes.FakeLoader{} },
+		loader.NewCompilationLock,
 		func() sysctl.Sysctl { return &Sysctl{} },
+		func() (promise.Promise[nat.NatMap4], promise.Promise[nat.NatMap6]) {
+			r4, p4 := promise.New[nat.NatMap4]()
+			r6, p6 := promise.New[nat.NatMap6]()
+			r4.Reject(nat.MapDisabled)
+			r6.Reject(nat.MapDisabled)
+			return p4, p6
+		},
 
 		tables.NewDeviceTable,
 		tables.NewL2AnnounceTable, statedb.RWTable[*tables.L2AnnounceEntry].ToTable,
@@ -62,7 +74,7 @@ var Cell = cell.Module(
 	),
 
 	tables.NodeAddressCell,
-	tables.NodeAddressingCell,
+	datapath.NodeAddressingCell,
 
 	cell.Invoke(
 		statedb.RegisterTable[*tables.Device],

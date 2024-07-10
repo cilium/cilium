@@ -5,9 +5,12 @@ package cache
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/allocator"
@@ -24,7 +27,8 @@ import (
 )
 
 var fakeConfig = &option.DaemonConfig{
-	K8sNamespace: "kube-system",
+	ConfigPatchMutex: new(lock.RWMutex),
+	K8sNamespace:     "kube-system",
 }
 
 func TestAllocateIdentityReserved(t *testing.T) {
@@ -95,17 +99,17 @@ func testAllocateIdentityReserved(t *testing.T) {
 type dummyOwner struct {
 	updated chan identity.NumericIdentity
 	mutex   lock.Mutex
-	cache   IdentityCache
+	cache   identity.IdentityMap
 }
 
 func newDummyOwner() *dummyOwner {
 	return &dummyOwner{
-		cache:   IdentityCache{},
+		cache:   identity.IdentityMap{},
 		updated: make(chan identity.NumericIdentity, 1024),
 	}
 }
 
-func (d *dummyOwner) UpdateIdentities(added, deleted IdentityCache) {
+func (d *dummyOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
 	d.mutex.Lock()
 	log.Debugf("Dummy UpdateIdentities(added: %v, deleted: %v)", added, deleted)
 	for id, lbls := range added {
@@ -179,7 +183,7 @@ func testEventWatcherBatching(t *testing.T) {
 
 	for i := 1024; i < 1034; i++ {
 		events <- allocator.AllocatorEvent{
-			Typ: kvstore.EventTypeCreate,
+			Typ: allocator.AllocatorChangeUpsert,
 			ID:  idpool.ID(i),
 			Key: key,
 		}
@@ -188,21 +192,21 @@ func testEventWatcherBatching(t *testing.T) {
 	require.EqualValues(t, lbls.LabelArray(), owner.GetIdentity(identity.NumericIdentity(1033)))
 	for i := 1024; i < 1034; i++ {
 		events <- allocator.AllocatorEvent{
-			Typ: kvstore.EventTypeDelete,
+			Typ: allocator.AllocatorChangeDelete,
 			ID:  idpool.ID(i),
 		}
 	}
 	require.NotEqual(t, 0, owner.WaitUntilID(1033))
 	for i := 2048; i < 2058; i++ {
 		events <- allocator.AllocatorEvent{
-			Typ: kvstore.EventTypeCreate,
+			Typ: allocator.AllocatorChangeUpsert,
 			ID:  idpool.ID(i),
 			Key: key,
 		}
 	}
 	for i := 2048; i < 2053; i++ {
 		events <- allocator.AllocatorEvent{
-			Typ: kvstore.EventTypeDelete,
+			Typ: allocator.AllocatorChangeDelete,
 			ID:  idpool.ID(i),
 		}
 	}
@@ -211,7 +215,7 @@ func testEventWatcherBatching(t *testing.T) {
 
 	for i := 2053; i < 2058; i++ {
 		events <- allocator.AllocatorEvent{
-			Typ: kvstore.EventTypeDelete,
+			Typ: allocator.AllocatorChangeDelete,
 			ID:  idpool.ID(i),
 		}
 	}
@@ -443,4 +447,123 @@ func testAllocatorReset(t *testing.T) {
 	<-mgr.InitIdentityAllocator(nil)
 	testAlloc()
 	mgr.Close()
+}
+
+func TestAllocateLocally(t *testing.T) {
+	mgr := NewCachingIdentityAllocator(newDummyOwner())
+
+	cidrLbls := labels.NewLabelsFromSortedList("cidr:1.2.3.4/32")
+	podLbls := labels.NewLabelsFromSortedList("k8s:foo=bar")
+
+	assert.False(t, needsGlobalIdentity(cidrLbls))
+	assert.True(t, needsGlobalIdentity(podLbls))
+
+	id, allocated, err := mgr.AllocateLocalIdentity(cidrLbls, false, identity.IdentityScopeLocal+50)
+	assert.Nil(t, err)
+	assert.True(t, allocated)
+	assert.Equal(t, id.ID.Scope(), identity.IdentityScopeLocal)
+	assert.Equal(t, id.ID, identity.IdentityScopeLocal+50)
+
+	id, _, err = mgr.AllocateLocalIdentity(podLbls, false, 0)
+	assert.Error(t, err, ErrNonLocalIdentity)
+	assert.Nil(t, id)
+}
+
+func TestCheckpointRestore(t *testing.T) {
+	owner := newDummyOwner()
+	mgr := NewCachingIdentityAllocator(owner)
+	defer mgr.Close()
+	dir := t.TempDir()
+	mgr.checkpointPath = filepath.Join(dir, CheckpointFile)
+	mgr.EnableCheckpointing()
+
+	for _, l := range []string{
+		"cidr:1.1.1.1/32;reserved:kube-apiserver",
+		"cidr:1.1.1.2/32;reserved:kube-apiserver",
+		"cidr:1.1.1.1/32",
+		"cidr:1.1.1.2/32",
+	} {
+		lbls := labels.NewLabelsFromSortedList(l)
+		assert.NotEqual(t, identity.IdentityScopeGlobal, identity.ScopeForLabels(lbls), "test bug: only restore locally-scoped labels")
+
+		_, _, err := mgr.AllocateIdentity(context.Background(), lbls, false, 0)
+		assert.Nil(t, err)
+	}
+
+	// ensure that the checkpoint file has been written
+	// This is asynchronous, so we must retry
+	assert.Eventually(t, func() bool {
+		_, err := os.Stat(mgr.checkpointPath)
+		return err == nil
+	}, time.Second, 50*time.Millisecond)
+
+	modelBefore := mgr.GetIdentities()
+
+	// Explicitly checkpoint, to ensure we get the latest data
+	err := mgr.checkpoint(context.TODO())
+	require.NoError(t, err)
+
+	newMgr := NewCachingIdentityAllocator(owner)
+	defer newMgr.Close()
+	newMgr.checkpointPath = mgr.checkpointPath
+
+	restored, err := newMgr.RestoreLocalIdentities()
+	assert.Nil(t, err)
+	assert.Len(t, restored, 4)
+
+	modelAfter := newMgr.GetIdentities()
+
+	assert.ElementsMatch(t, modelBefore, modelAfter)
+}
+
+func TestClusterIDValidator(t *testing.T) {
+	const (
+		cid   = 5
+		minID = cid << 16
+		maxID = minID + 65535
+	)
+
+	var (
+		validator = clusterIDValidator(cid)
+		key       = &cacheKey.GlobalIdentity{}
+	)
+
+	// Identities matching the cluster ID should pass validation
+	for _, id := range []idpool.ID{minID, minID + 1, maxID - 1, maxID} {
+		assert.NoError(t, validator(allocator.AllocatorChangeUpsert, id, key), "ID %d should have passed validation", id)
+	}
+
+	// Identities not matching the cluster ID should fail validation
+	for _, id := range []idpool.ID{1, minID - 1, maxID + 1} {
+		assert.Error(t, validator(allocator.AllocatorChangeUpsert, id, key), "ID %d should have failed validation", id)
+	}
+}
+
+func TestClusterNameValidator(t *testing.T) {
+	const id = 100
+
+	var (
+		validator = clusterNameValidator("foo")
+		generator = cacheKey.GlobalIdentity{}
+	)
+
+	key := generator.PutKey("k8s:foo=bar;k8s:bar=baz;qux=fred;k8s:io.cilium.k8s.policy.cluster=foo")
+	assert.NoError(t, validator(allocator.AllocatorChangeUpsert, id, key))
+
+	key = generator.PutKey("k8s:foo=bar;k8s:bar=baz")
+	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, key), "could not find expected label io.cilium.k8s.policy.cluster")
+
+	key = generator.PutKey("k8s:foo=bar;k8s:bar=baz;k8s:io.cilium.k8s.policy.cluster=bar")
+	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, key), "unexpected cluster name: got bar, expected foo")
+
+	key = generator.PutKey("k8s:foo=bar;k8s:bar=baz;qux:io.cilium.k8s.policy.cluster=bar")
+	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, key), "unexpected source for cluster label: got qux, expected k8s")
+
+	key = generator.PutKey("k8s:foo=bar;k8s:bar=baz;qux:io.cilium.k8s.policy.cluster=bar;k8s:io.cilium.k8s.policy.cluster=bar")
+	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, key), "unexpected source for cluster label: got qux, expected k8s")
+
+	assert.EqualError(t, validator(allocator.AllocatorChangeUpsert, id, nil), "unsupported key type <nil>")
+
+	key = generator.PutKey("")
+	assert.NoError(t, validator(allocator.AllocatorChangeDelete, id, key))
 }

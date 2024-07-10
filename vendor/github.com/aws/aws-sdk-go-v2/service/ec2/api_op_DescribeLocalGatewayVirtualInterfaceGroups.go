@@ -131,6 +131,12 @@ func (c *Client) addOperationDescribeLocalGatewayVirtualInterfaceGroupsMiddlewar
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeLocalGatewayVirtualInterfaceGroups(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -151,14 +157,6 @@ func (c *Client) addOperationDescribeLocalGatewayVirtualInterfaceGroupsMiddlewar
 	}
 	return nil
 }
-
-// DescribeLocalGatewayVirtualInterfaceGroupsAPIClient is a client that implements
-// the DescribeLocalGatewayVirtualInterfaceGroups operation.
-type DescribeLocalGatewayVirtualInterfaceGroupsAPIClient interface {
-	DescribeLocalGatewayVirtualInterfaceGroups(context.Context, *DescribeLocalGatewayVirtualInterfaceGroupsInput, ...func(*Options)) (*DescribeLocalGatewayVirtualInterfaceGroupsOutput, error)
-}
-
-var _ DescribeLocalGatewayVirtualInterfaceGroupsAPIClient = (*Client)(nil)
 
 // DescribeLocalGatewayVirtualInterfaceGroupsPaginatorOptions is the paginator
 // options for DescribeLocalGatewayVirtualInterfaceGroups
@@ -227,6 +225,9 @@ func (p *DescribeLocalGatewayVirtualInterfaceGroupsPaginator) NextPage(ctx conte
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeLocalGatewayVirtualInterfaceGroups(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -245,6 +246,14 @@ func (p *DescribeLocalGatewayVirtualInterfaceGroupsPaginator) NextPage(ctx conte
 
 	return result, nil
 }
+
+// DescribeLocalGatewayVirtualInterfaceGroupsAPIClient is a client that implements
+// the DescribeLocalGatewayVirtualInterfaceGroups operation.
+type DescribeLocalGatewayVirtualInterfaceGroupsAPIClient interface {
+	DescribeLocalGatewayVirtualInterfaceGroups(context.Context, *DescribeLocalGatewayVirtualInterfaceGroupsInput, ...func(*Options)) (*DescribeLocalGatewayVirtualInterfaceGroupsOutput, error)
+}
+
+var _ DescribeLocalGatewayVirtualInterfaceGroupsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeLocalGatewayVirtualInterfaceGroups(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -926,7 +927,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		WithStatusSubresource(&gatewayv1.HTTPRoute{}).
 		Build()
 
-	r := &httpRouteReconciler{Client: c}
+	r := &httpRouteReconciler{Client: c, logger: hivetest.Logger(t)}
 
 	t.Run("no http route", func(t *testing.T) {
 		result, err := r.Reconcile(context.Background(), ctrl.Request{
@@ -1296,7 +1297,7 @@ func Test_httpRouteReconciler_Reconcile_NoServiceImportCRD(t *testing.T) {
 		WithStatusSubresource(&gatewayv1.HTTPRoute{}).
 		Build()
 
-	r := &httpRouteReconciler{Client: c}
+	r := &httpRouteReconciler{Client: c, logger: hivetest.Logger(t)}
 
 	t.Run("valid http route with Service", func(t *testing.T) {
 		key := types.NamespacedName{

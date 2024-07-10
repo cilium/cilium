@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_ENCRYPT_H_
-#define __LIB_ENCRYPT_H_
+#pragma once
 
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
@@ -13,6 +12,19 @@
 #include "lib/drop.h"
 #include "lib/eps.h"
 #include "lib/vxlan.h"
+
+/* We cap key index at 4 bits because mark value is used to map ctx to key */
+#define MAX_KEY_INDEX 15
+
+#ifdef ENABLE_IPSEC
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__type(key, __u32);
+	__type(value, struct encrypt_config);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 1);
+} ENCRYPT_MAP __section_maps_btf;
+#endif
 
 static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 {
@@ -215,13 +227,16 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
  *   - net.ipv4.conf.default.accept_local = 1
  */
 static __always_inline int
-encrypt_overlay_and_redirect(struct __ctx_buff *ctx, void *data,
-			     void *data_end, struct iphdr *ip4)
+encrypt_overlay_and_redirect(struct __ctx_buff *ctx)
 {
+	struct iphdr *ip4, *inner_ipv4 = NULL;
 	struct endpoint_info *ep_info = NULL;
-	struct iphdr *inner_ipv4 = NULL;
+	void *data, *data_end;
 	__u8 dst_mac = 0;
 	int ret = 0;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
 
 	ret = vxlan_get_inner_ipv4(data, data_end, ip4, &inner_ipv4);
 	if (!ret)
@@ -275,5 +290,3 @@ do_decrypt(struct __ctx_buff __maybe_unused *ctx, __u16 __maybe_unused proto)
 	return CTX_ACT_OK;
 }
 #endif /* ENABLE_IPSEC */
-#endif /* __LIB_ENCRYPT_H_ */
-

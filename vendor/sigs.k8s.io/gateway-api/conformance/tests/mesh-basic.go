@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/echo"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -31,8 +32,8 @@ func init() {
 var MeshBasic = suite.ConformanceTest{
 	ShortName:   "MeshBasic",
 	Description: "A mesh client can communicate with a mesh server. This tests basic reachability with no configuration applied.",
-	Features: []suite.SupportedFeature{
-		suite.SupportMesh,
+	Features: []features.SupportedFeature{
+		features.SupportMesh,
 	},
 	Manifests: []string{},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {

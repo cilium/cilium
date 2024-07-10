@@ -5,10 +5,10 @@ package gateway_api
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,14 +28,13 @@ const (
 	backendServiceIndex       = "backendServiceIndex"
 	backendServiceImportIndex = "backendServiceImportIndex"
 	gatewayIndex              = "gatewayIndex"
+	gammaBackendServiceIndex  = "gammaBackendServiceIndex"
+	gammaListenerServiceIndex = "gammaListenerServiceIndex"
 )
 
-func hasMatchingController(ctx context.Context, c client.Client, controllerName string) func(object client.Object) bool {
+func hasMatchingController(ctx context.Context, c client.Client, controllerName string, logger *slog.Logger) func(object client.Object) bool {
 	return func(obj client.Object) bool {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Controller: gateway,
-			logfields.Resource:   obj.GetName(),
-		})
+		scopedLog := logger.With(logfields.Controller, gateway, logfields.Resource, obj.GetName())
 		gw, ok := obj.(*gatewayv1.Gateway)
 		if !ok {
 			return false
@@ -44,7 +43,7 @@ func hasMatchingController(ctx context.Context, c client.Client, controllerName 
 		gwc := &gatewayv1.GatewayClass{}
 		key := types.NamespacedName{Name: string(gw.Spec.GatewayClassName)}
 		if err := c.Get(ctx, key, gwc); err != nil {
-			scopedLog.WithError(err).Error("Unable to get GatewayClass")
+			scopedLog.Error("Unable to get GatewayClass", logfields.Error, err)
 			return false
 		}
 
@@ -52,15 +51,12 @@ func hasMatchingController(ctx context.Context, c client.Client, controllerName 
 	}
 }
 
-func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Object) []*gatewayv1.Gateway {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.Controller: gateway,
-		logfields.Resource:   obj.GetName(),
-	})
+func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Object, logger *slog.Logger) []*gatewayv1.Gateway {
+	scopedLog := logger.With(logfields.Controller, gateway, logfields.Resource, obj.GetName())
 
 	gwList := &gatewayv1.GatewayList{}
 	if err := c.List(ctx, gwList); err != nil {
-		scopedLog.WithError(err).Warn("Unable to list Gateways")
+		scopedLog.Warn("Unable to list Gateways", logfields.Error, err)
 		return nil
 	}
 
@@ -85,15 +81,12 @@ func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Objec
 	return gateways
 }
 
-func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Object) []types.NamespacedName {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.Controller:   gateway,
-		logfields.K8sNamespace: ns.GetName(),
-	})
+func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Object, logger *slog.Logger) []types.NamespacedName {
+	scopedLog := logger.With(logfields.Controller, gateway, logfields.K8sNamespace, ns.GetName())
 
 	gwList := &gatewayv1.GatewayList{}
 	if err := c.List(ctx, gwList); err != nil {
-		scopedLog.WithError(err).Warn("Unable to list Gateways")
+		scopedLog.Warn("Unable to list Gateways", logfields.Error, err)
 		return nil
 	}
 
@@ -121,7 +114,7 @@ func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Obj
 				nsList := &corev1.NamespaceList{}
 				err := c.List(ctx, nsList, client.MatchingLabels(l.AllowedRoutes.Namespaces.Selector.MatchLabels))
 				if err != nil {
-					scopedLog.WithError(err).Warn("Unable to list Namespaces")
+					scopedLog.Warn("Unable to list Namespaces", logfields.Error, err)
 					return nil
 				}
 				for _, item := range nsList.Items {
@@ -173,9 +166,9 @@ func onlyStatusChanged() predicate.Predicate {
 					return false
 				}
 				return !cmp.Equal(o.Status, n.Status, option)
-			case *gatewayv1alpha2.GRPCRoute:
-				o, _ := e.ObjectOld.(*gatewayv1alpha2.GRPCRoute)
-				n, ok := e.ObjectNew.(*gatewayv1alpha2.GRPCRoute)
+			case *gatewayv1.GRPCRoute:
+				o, _ := e.ObjectOld.(*gatewayv1.GRPCRoute)
+				n, ok := e.ObjectNew.(*gatewayv1.GRPCRoute)
 				if !ok {
 					return false
 				}

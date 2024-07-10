@@ -5,6 +5,8 @@ package option
 
 import (
 	"bytes"
+	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +21,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/mackerelio/go-osstat/memory"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cast"
@@ -122,6 +128,9 @@ const (
 
 	// Devices facing cluster/external network for attaching bpf_host
 	Devices = "devices"
+
+	// Forces the auto-detection of devices, even if specific devices are explicitly listed
+	ForceDeviceDetection = "force-device-detection"
 
 	// DirectRoutingDevice is the name of a device used to connect nodes in
 	// direct routing mode (only required by BPF NodePort)
@@ -270,6 +279,10 @@ const (
 	// Alias to NodePortAcceleration
 	LoadBalancerAcceleration = "bpf-lb-acceleration"
 
+	// LoadBalancerExternalControlPlane switch skips connectivity to kube-apiserver
+	// which is relevant in lb-only mode
+	LoadBalancerExternalControlPlane = "bpf-lb-external-control-plane"
+
 	// MaglevTableSize determines the size of the backend table per service
 	MaglevTableSize = "bpf-lb-maglev-table-size"
 
@@ -352,12 +365,6 @@ const (
 
 	// EnableIPv4EgressGateway enables the IPv4 egress gateway
 	EnableIPv4EgressGateway = "enable-ipv4-egress-gateway"
-
-	// EnableIngressController enables Ingress Controller
-	EnableIngressController = "enable-ingress-controller"
-
-	// EnableGatewayAPI enables Gateway API support
-	EnableGatewayAPI = "enable-gateway-api"
 
 	// EnableEnvoyConfig enables processing of CiliumClusterwideEnvoyConfig and CiliumEnvoyConfig CRDs
 	EnableEnvoyConfig = "enable-envoy-config"
@@ -467,6 +474,10 @@ const (
 
 	// DNSProxyEnableTransparentMode enables transparent mode for the DNS proxy.
 	DNSProxyEnableTransparentMode = "dnsproxy-enable-transparent-mode"
+
+	// DNSProxyInsecureSkipTransparentModeCheck is a hidden flag that allows users
+	// to disable transparent mode even if IPSec is enabled
+	DNSProxyInsecureSkipTransparentModeCheck = "dnsproxy-insecure-skip-transparent-mode-check"
 
 	// MTUName is the name of the MTU option
 	MTUName = "mtu"
@@ -677,6 +688,25 @@ const (
 	// IPv6MCastDevice is the name of the option to select IPv6 multicast device
 	IPv6MCastDevice = "ipv6-mcast-device"
 
+	// BPFEventsDefaultRateLimit specifies limit of messages per second that can be written to
+	// BPF events map. This limit is defined for all types of events except dbg and pcap.
+	// The number of messages is averaged, meaning that if no messages were written
+	// to the map over 5 seconds, it's possible to write more events than the value of rate limit
+	// in the 6th second.
+	//
+	// If BPFEventsDefaultRateLimit > 0, non-zero value for BPFEventsDefaultBurstLimit must also be provided
+	// lest the configuration is considered invalid.
+	// If both rate and burst limit are 0 or not specified, no limit is imposed.
+	BPFEventsDefaultRateLimit = "bpf-events-default-rate-limit"
+
+	// BPFEventsDefaultBurstLimit specifies the maximum number of messages that can be written
+	// to BPF events map in 1 second. This limit is defined for all types of events except dbg and pcap.
+	//
+	// If BPFEventsDefaultBurstLimit > 0, non-zero value for BPFEventsDefaultRateLimit must also be provided
+	// lest the configuration is considered invalid.
+	// If both burst and rate limit are 0 or not specified, no limit is imposed.
+	BPFEventsDefaultBurstLimit = "bpf-events-default-burst-limit"
+
 	// FQDNRejectResponseCode is the name for the option for dns-proxy reject response code
 	FQDNRejectResponseCode = "tofqdns-dns-reject-response-code"
 
@@ -709,6 +739,9 @@ const (
 	// EnableAutoDirectRoutingName is the name for the EnableAutoDirectRouting option
 	EnableAutoDirectRoutingName = "auto-direct-node-routes"
 
+	// DirectRoutingSkipUnreachableName is the name for the DirectRoutingSkipUnreachable option
+	DirectRoutingSkipUnreachableName = "direct-routing-skip-unreachable"
+
 	// EnableIPSecName is the name of the option to enable IPSec
 	EnableIPSecName = "enable-ipsec"
 
@@ -719,6 +752,10 @@ const (
 	// Enable watcher for IPsec key. If disabled, a restart of the agent will
 	// be necessary on key rotations.
 	EnableIPsecKeyWatcher = "enable-ipsec-key-watcher"
+
+	// Enable caching for XfrmState for IPSec. Significantly reduces CPU usage
+	// in large clusters.
+	EnableIPSecXfrmStateCaching = "enable-ipsec-xfrm-state-caching"
 
 	// IPSecKeyFileName is the name of the option for ipsec key file
 	IPSecKeyFileName = "ipsec-key-file"
@@ -1055,6 +1092,12 @@ const (
 	// HubbleDropEventsReasons controls which drop reasons to emit events for
 	HubbleDropEventsReasons = "hubble-drop-events-reasons"
 
+	// K8sClientConnectionTimeout configures the timeout for K8s client connections.
+	K8sClientConnectionTimeout = "k8s-client-connection-timeout"
+
+	// K8sClientConnectionKeepAlive configures the keep alive duration for K8s client connections.
+	K8sClientConnectionKeepAlive = "k8s-client-connection-keep-alive"
+
 	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
 	K8sHeartbeatTimeout = "k8s-heartbeat-timeout"
 
@@ -1370,6 +1413,10 @@ func LogRegisteredOptions(vp *viper.Viper, entry *logrus.Entry) {
 
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
+	// Private sum of the config written to file. Used to check that the config is not changed
+	// after.
+	shaSum [32]byte
+
 	CreationTime        time.Time
 	BpfDir              string   // BPF template files directory
 	LibDir              string   // Cilium library files directory
@@ -1411,7 +1458,7 @@ type DaemonConfig struct {
 	Opts *IntOptions
 
 	// Mutex for serializing configuration updates to the daemon.
-	ConfigPatchMutex lock.RWMutex
+	ConfigPatchMutex *lock.RWMutex
 
 	// Monitor contains the configuration for the node monitor.
 	Monitor *models.MonitorStatus
@@ -1500,6 +1547,24 @@ type DaemonConfig struct {
 	// aggregation ensures reports are generated for when monitor-aggragation
 	// is enabled. Network byte-order.
 	MonitorAggregationFlags uint16
+
+	// BPFEventsDefaultRateLimit specifies limit of messages per second that can be written to
+	// BPF events map. This limit is defined for all types of events except dbg and pcap.
+	// The number of messages is averaged, meaning that if no messages were written
+	// to the map over 5 seconds, it's possible to write more events than the value of rate limit
+	// in the 6th second.
+	//
+	// If BPFEventsDefaultRateLimit > 0, non-zero value for BPFEventsDefaultBurstLimit must also be provided
+	// lest the configuration is considered invalid.
+	BPFEventsDefaultRateLimit uint32
+
+	// BPFEventsDefaultBurstLimit specifies the maximum number of messages that can be written
+	// to BPF events map in 1 second. This limit is defined for all types of events except dbg and pcap.
+	//
+	// If BPFEventsDefaultBurstLimit > 0, non-zero value for BPFEventsDefaultRateLimit must also be provided
+	// lest the configuration is considered invalid.
+	// If both burst and rate limit are 0 or not specified, no limit is imposed.
+	BPFEventsDefaultBurstLimit uint32
 
 	// BPFMapsDynamicSizeRatio is ratio of total system memory to use for
 	// dynamic sizing of the CT, NAT, Neighbor and SockRevNAT BPF maps.
@@ -1596,6 +1661,9 @@ type DaemonConfig struct {
 	// be necessary on key rotations.
 	EnableIPsecKeyWatcher bool
 
+	// EnableIPSecXfrmStateCaching enables IPSec XfrmState caching.
+	EnableIPSecXfrmStateCaching bool
+
 	// EnableIPSecEncryptedOverlay enables IPSec encryption for overlay traffic.
 	EnableIPSecEncryptedOverlay bool
 
@@ -1690,8 +1758,6 @@ type DaemonConfig struct {
 	EnableBPFClockProbe     bool
 	EnableIPv4EgressGateway bool
 	EnableEnvoyConfig       bool
-	EnableIngressController bool
-	EnableGatewayAPI        bool
 	InstallIptRules         bool
 	MonitorAggregation      string
 	PreAllocateMaps         bool
@@ -1761,6 +1827,10 @@ type DaemonConfig struct {
 	// DNSProxyEnableTransparentMode enables transparent mode for the DNS proxy.
 	DNSProxyEnableTransparentMode bool
 
+	// DNSProxyInsecureSkipTransparentModeCheck is a hidden flag that allows users
+	// to disable transparent mode even if IPSec is enabled
+	DNSProxyInsecureSkipTransparentModeCheck bool
+
 	// DNSProxyLockCount is the array size containing mutexes which protect
 	// against parallel handling of DNS response names.
 	DNSProxyLockCount int
@@ -1780,6 +1850,10 @@ type DaemonConfig struct {
 	// EnableAutoDirectRouting enables installation of direct routes to
 	// other nodes when available
 	EnableAutoDirectRouting bool
+
+	// DirectRoutingSkipUnreachable skips installation of direct routes
+	// to nodes when they're not on the same L2
+	DirectRoutingSkipUnreachable bool
 
 	// EnableLocalNodeRoute controls installation of the route which points
 	// the allocation prefix of the local node.
@@ -1832,6 +1906,8 @@ type DaemonConfig struct {
 	// unused after this time, they will be removed from the IP cache. Any of the restored
 	// identities that are used in network policies will remain in the IP cache until all such
 	// policies are removed.
+	//
+	// The default is 30 seconds for k8s clusters, and 10 minutes for kvstore clusters
 	IdentityRestoreGracePeriod time.Duration
 
 	// PolicyQueueSize is the size of the queues for the policy repository.
@@ -1909,6 +1985,10 @@ type DaemonConfig struct {
 	// LoadBalancerRSSv4CIDR defines the outer source IPv6 prefix for DSR/IPIP
 	LoadBalancerRSSv6CIDR string
 	LoadBalancerRSSv6     net.IPNet
+
+	// LoadBalancerExternalControlPlane tells whether to not use kube-apiserver as
+	// its control plane in lb-only mode.
+	LoadBalancerExternalControlPlane bool
 
 	// EnablePMTUDiscovery indicates whether to send ICMP fragmentation-needed
 	// replies to the client (when needed).
@@ -2386,6 +2466,7 @@ var (
 	Config = &DaemonConfig{
 		CreationTime:                    time.Now(),
 		Opts:                            NewIntOptions(&DaemonOptionLibrary),
+		ConfigPatchMutex:                new(lock.RWMutex),
 		Monitor:                         &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
 		IPv6ClusterAllocCIDR:            defaults.IPv6ClusterAllocCIDR,
 		IPv6ClusterAllocCIDRBase:        defaults.IPv6ClusterAllocCIDRBase,
@@ -2404,7 +2485,7 @@ var (
 		KVstorePeriodicSync:             defaults.KVstorePeriodicSync,
 		KVstoreConnectivityTimeout:      defaults.KVstoreConnectivityTimeout,
 		IdentityChangeGracePeriod:       defaults.IdentityChangeGracePeriod,
-		IdentityRestoreGracePeriod:      defaults.IdentityRestoreGracePeriod,
+		IdentityRestoreGracePeriod:      defaults.IdentityRestoreGracePeriodK8s,
 		FixedIdentityMapping:            make(map[string]string),
 		KVStoreOpt:                      make(map[string]string),
 		LogOpt:                          make(map[string]string),
@@ -2523,7 +2604,8 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 // devices to implement some features.
 func (c *DaemonConfig) AreDevicesRequired() bool {
 	return c.EnableNodePort || c.EnableHostFirewall || c.EnableWireguard ||
-		c.EnableHighScaleIPcache || c.EnableL2Announcements || c.ForceDeviceRequired
+		c.EnableHighScaleIPcache || c.EnableL2Announcements || c.ForceDeviceRequired ||
+		c.EnableIPSecEncryptedOverlay
 }
 
 // When WG & encrypt-node are on, a NodePort BPF to-be forwarded request
@@ -2635,16 +2717,6 @@ func (c *DaemonConfig) AgentNotReadyNodeTaintValue() string {
 // K8sNetworkPolicyEnabled returns true if cilium agent needs to support K8s NetworkPolicy, false otherwise.
 func (c *DaemonConfig) K8sNetworkPolicyEnabled() bool {
 	return c.EnableK8sNetworkPolicy
-}
-
-// K8sIngressControllerEnabled returns true if ingress controller feature is enabled in Cilium
-func (c *DaemonConfig) K8sIngressControllerEnabled() bool {
-	return c.EnableIngressController
-}
-
-// K8sGatewayAPIEnabled returns true if Gateway API feature is enabled in Cilium
-func (c *DaemonConfig) K8sGatewayAPIEnabled() bool {
-	return c.EnableGatewayAPI
 }
 
 func (c *DaemonConfig) PolicyCIDRMatchesNodes() bool {
@@ -2794,7 +2866,7 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 	if err := cinfo.InitClusterIDMax(); err != nil {
 		return err
 	}
-	if err := cinfo.Validate(); err != nil {
+	if err := cinfo.Validate(log); err != nil {
 		return err
 	}
 
@@ -2977,6 +3049,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
 	c.EnableXTSocketFallback = vp.GetBool(EnableXTSocketFallbackName)
 	c.EnableAutoDirectRouting = vp.GetBool(EnableAutoDirectRoutingName)
+	c.DirectRoutingSkipUnreachable = vp.GetBool(DirectRoutingSkipUnreachableName)
 	c.EnableEndpointRoutes = vp.GetBool(EnableEndpointRoutes)
 	c.EnableHealthChecking = vp.GetBool(EnableHealthChecking)
 	c.EnableEndpointHealthChecking = vp.GetBool(EnableEndpointHealthChecking)
@@ -3044,13 +3117,12 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableIPMasqAgent = vp.GetBool(EnableIPMasqAgent)
 	c.EnableIPv4EgressGateway = vp.GetBool(EnableIPv4EgressGateway)
 	c.EnableEnvoyConfig = vp.GetBool(EnableEnvoyConfig)
-	c.EnableIngressController = vp.GetBool(EnableIngressController)
-	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.IPMasqAgentConfigPath = vp.GetString(IPMasqAgentConfigPath)
 	c.InstallIptRules = vp.GetBool(InstallIptRules)
 	c.IPSecKeyFile = vp.GetString(IPSecKeyFileName)
 	c.IPsecKeyRotationDuration = vp.GetDuration(IPsecKeyRotationDuration)
 	c.EnableIPsecKeyWatcher = vp.GetBool(EnableIPsecKeyWatcher)
+	c.EnableIPSecXfrmStateCaching = vp.GetBool(EnableIPSecXfrmStateCaching)
 	c.MonitorAggregation = vp.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = vp.GetDuration(MonitorAggregationInterval)
 	c.MTU = vp.GetInt(MTUName)
@@ -3080,6 +3152,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.LoadBalancerDSRL4Xlate = vp.GetString(LoadBalancerDSRL4Xlate)
 	c.LoadBalancerRSSv4CIDR = vp.GetString(LoadBalancerRSSv4CIDR)
 	c.LoadBalancerRSSv6CIDR = vp.GetString(LoadBalancerRSSv6CIDR)
+	c.LoadBalancerExternalControlPlane = vp.GetBool(LoadBalancerExternalControlPlane)
 	c.InstallNoConntrackIptRules = vp.GetBool(InstallNoConntrackIptRules)
 	c.ContainerIPLocalReservedPorts = vp.GetString(ContainerIPLocalReservedPorts)
 	c.EnableCustomCalls = vp.GetBool(EnableCustomCallsName)
@@ -3207,6 +3280,10 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 			"which can cause problems with performance, observability and policy", EnableAutoDirectRoutingName, IPv6NativeRoutingCIDR, IPv6NativeRoutingCIDR)
 	}
 
+	if c.DirectRoutingSkipUnreachable && !c.EnableAutoDirectRouting {
+		log.Fatalf("Flag %s cannot be enabled when %s is not enabled. As if %s is then enabled, it may lead to unexpected behaviour causing network connectivity issues.", DirectRoutingSkipUnreachableName, EnableAutoDirectRoutingName, EnableAutoDirectRoutingName)
+	}
+
 	if err := c.calculateBPFMapSizes(vp); err != nil {
 		log.Fatal(err)
 	}
@@ -3239,6 +3316,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.DNSProxyConcurrencyLimit = vp.GetInt(DNSProxyConcurrencyLimit)
 	c.DNSProxyConcurrencyProcessingGracePeriod = vp.GetDuration(DNSProxyConcurrencyProcessingGracePeriod)
 	c.DNSProxyEnableTransparentMode = vp.GetBool(DNSProxyEnableTransparentMode)
+	c.DNSProxyInsecureSkipTransparentModeCheck = vp.GetBool(DNSProxyInsecureSkipTransparentModeCheck)
 	c.DNSProxyLockCount = vp.GetInt(DNSProxyLockCount)
 	c.DNSProxyLockTimeout = vp.GetDuration(DNSProxyLockTimeout)
 	c.FQDNRejectResponse = vp.GetString(FQDNRejectResponseCode)
@@ -3323,6 +3401,18 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		log.Fatalf("unable to parse %s: %s", LogOpt, err)
 	} else {
 		c.LogOpt = m
+	}
+
+	bpfEventsDefaultRateLimit := vp.GetUint32(BPFEventsDefaultRateLimit)
+	bpfEventsDefaultBurstLimit := vp.GetUint32(BPFEventsDefaultBurstLimit)
+	switch {
+	case bpfEventsDefaultRateLimit > 0 && bpfEventsDefaultBurstLimit == 0:
+		log.Fatalf("invalid BPF events default config: burst limit must also be specified when rate limit is provided")
+	case bpfEventsDefaultRateLimit == 0 && bpfEventsDefaultBurstLimit > 0:
+		log.Fatalf("invalid BPF events default config: rate limit must also be specified when burst limit is provided")
+	default:
+		c.BPFEventsDefaultRateLimit = vp.GetUint32(BPFEventsDefaultRateLimit)
+		c.BPFEventsDefaultBurstLimit = vp.GetUint32(BPFEventsDefaultBurstLimit)
 	}
 
 	c.bpfMapEventConfigs = make(BPFEventBufferConfigs)
@@ -3504,6 +3594,10 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 			continue
 		}
 		c.ExcludeNodeLabelPatterns = append(c.ExcludeNodeLabelPatterns, r)
+	}
+
+	if c.KVStore != "" {
+		c.IdentityRestoreGracePeriod = defaults.IdentityRestoreGracePeriodKvstore
 	}
 }
 
@@ -3720,12 +3814,9 @@ func (c *DaemonConfig) checkIPAMDelegatedPlugin() error {
 		if c.EnableEndpointHealthChecking {
 			return fmt.Errorf("--%s must be disabled with --%s=%s", EnableEndpointHealthChecking, IPAM, ipamOption.IPAMDelegatedPlugin)
 		}
-		// Ingress controller and envoy config require cilium-agent to create an IP address
-		// specifically for differentiating ingress and envoy traffic, which is not possible
+		// envoy config (Ingress, Gateway API, ...) require cilium-agent to create an IP address
+		// specifically for differentiating envoy traffic, which is not possible
 		// with delegated IPAM.
-		if c.EnableIngressController {
-			return fmt.Errorf("--%s must be disabled with --%s=%s", EnableIngressController, IPAM, ipamOption.IPAMDelegatedPlugin)
-		}
 		if c.EnableEnvoyConfig {
 			return fmt.Errorf("--%s must be disabled with --%s=%s", EnableEnvoyConfig, IPAM, ipamOption.IPAMDelegatedPlugin)
 		}
@@ -3946,16 +4037,17 @@ func (c *DaemonConfig) KubeProxyReplacementFullyEnabled() bool {
 		c.EnableSessionAffinity
 }
 
+var backupFileNames []string = []string{
+	"agent-runtime-config.json",
+	"agent-runtime-config-1.json",
+	"agent-runtime-config-2.json",
+}
+
 // StoreInFile stores the configuration in a the given directory under the file
 // name 'daemon-config.json'. If this file already exists, it is renamed to
 // 'daemon-config-1.json', if 'daemon-config-1.json' also exists,
 // 'daemon-config-1.json' is renamed to 'daemon-config-2.json'
 func (c *DaemonConfig) StoreInFile(dir string) error {
-	backupFileNames := []string{
-		"agent-runtime-config.json",
-		"agent-runtime-config-1.json",
-		"agent-runtime-config-2.json",
-	}
 	backupFiles(dir, backupFileNames)
 	f, err := os.Create(backupFileNames[0])
 	if err != nil {
@@ -3964,7 +4056,85 @@ func (c *DaemonConfig) StoreInFile(dir string) error {
 	defer f.Close()
 	e := json.NewEncoder(f)
 	e.SetIndent("", " ")
-	return e.Encode(c)
+
+	// Exclude concurrent modification of fields protected by c.ConfigPatchMutex
+	// we store the file
+	c.ConfigPatchMutex.RLock()
+	err = e.Encode(c)
+	c.shaSum = c.checksum()
+	c.ConfigPatchMutex.RUnlock()
+
+	return err
+}
+
+func (c *DaemonConfig) checksum() [32]byte {
+	// take a shallow copy for summing
+	sumConfig := *c
+	// Ignore variable parts
+	sumConfig.Opts = nil
+	cBytes, err := json.Marshal(&sumConfig)
+	if err != nil {
+		return [32]byte{}
+	}
+	return sha256.Sum256(cBytes)
+}
+
+// ValidateUnchanged takes a context that is unused so that it can be used as a doFunc in a
+// controller
+func (c *DaemonConfig) ValidateUnchanged(context.Context) error {
+	// Exclude concurrent modification of fields protected by c.ConfigPatchMutex
+	// we store the file
+	c.ConfigPatchMutex.RLock()
+	sum := c.checksum()
+	c.ConfigPatchMutex.RUnlock()
+
+	if sum != c.shaSum {
+		return c.diffFromFile()
+	}
+	return nil
+}
+
+func (c *DaemonConfig) diffFromFile() error {
+	f, err := os.Open(backupFileNames[0])
+	if err != nil {
+		return err
+	}
+
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	fileBytes := make([]byte, fi.Size())
+	count, err := f.Read(fileBytes)
+	if err != nil {
+		return err
+	}
+	fileBytes = fileBytes[:count]
+
+	var config DaemonConfig
+	err = json.Unmarshal(fileBytes, &config)
+
+	var diff string
+	if err != nil {
+		diff = fmt.Errorf("unmarshal failed %q: %w", string(fileBytes), err).Error()
+	} else {
+		// Ignore all unexported fields during Diff.
+		// from https://github.com/google/go-cmp/issues/313#issuecomment-1315651560
+		opts := cmp.FilterPath(func(p cmp.Path) bool {
+			sf, ok := p.Index(-1).(cmp.StructField)
+			if !ok {
+				return false
+			}
+			r, _ := utf8.DecodeRuneInString(sf.Name())
+			return !unicode.IsUpper(r)
+		}, cmp.Ignore())
+
+		diff = cmp.Diff(&config, c, opts,
+			cmpopts.IgnoreTypes(&IntOptions{}),
+			cmpopts.IgnoreTypes(&OptionLibrary{}))
+	}
+	return fmt.Errorf("Config differs:\n%s", diff)
 }
 
 func (c *DaemonConfig) BGPControlPlaneEnabled() bool {

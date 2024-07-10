@@ -188,10 +188,26 @@ the state of applying FQDN policy in multiple layers of the daemon:
 
 
 #. If the traffic is allowed, then these IPs should have corresponding local identities via
-   ``cilium-dbg identity list | grep <IP>``:
+   ``cilium-dbg ip list | grep <IP>``:
 
    .. code-block:: shell-session
 
-      # cilium-dbg identity list | grep -A 1 140.82.121.6
-      16777230   cidr:140.82.121.6/32
-           reserved:world
+      # cilium-dbg ip list | grep -A 1 140.82.121.6
+      140.82.121.6/32                 fqdn:api.github.com
+                                      reserved:world
+
+Monitoring ``toFQDNs`` identity usage
+-------------------------------------
+
+When using ``toFQDNs`` selectors, every IP observed by a matching DNS lookup
+will be labeled with that selector. As a DNS name might be matched by multiple
+selectors, and because an IP might map to multiple names, an IP might be labeled
+by multiple selectors. As with regular cluster identities, every unique combination
+of labels will allocate its own numeric security identity. This can lead to many
+different identities being allocated, as described in :ref:`identity-relevant-labels`.
+
+To detect potential identity exhaustion for ``toFQDNs`` identities, the number
+allocated FQDN identities can be monitored using the ``identity_label_sources{type="fqdn"}``
+metric. As a comparative reference the ``fqdn_selectors`` metric monitors the number
+of registered ``toFQDNs`` selectors. For more details on metrics, please
+refer to :ref:`metrics`.

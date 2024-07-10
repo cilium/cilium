@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/sirupsen/logrus"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
@@ -196,7 +196,7 @@ func newFixture(conf fixtureConfig) *fixture {
 func setupSingleNeighbor(ctx context.Context, f *fixture, peerASN uint32) error {
 	f.config.policy.Spec.VirtualRouters[0] = cilium_api_v2alpha1.CiliumBGPVirtualRouter{
 		LocalASN:      int64(ciliumASN),
-		ExportPodCIDR: pointer.Bool(true),
+		ExportPodCIDR: ptr.To[bool](true),
 		Neighbors: []cilium_api_v2alpha1.CiliumBGPNeighbor{
 			{
 				PeerAddress: dummies[instance1Link].ipv4.String(),

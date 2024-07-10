@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -39,10 +40,10 @@ func init() {
 var HTTPRouteBackendProtocolWebSocket = suite.ConformanceTest{
 	ShortName:   "HTTPRouteBackendProtocolWebSocket",
 	Description: "A HTTPRoute with a BackendRef that has an appProtocol kubernetes.io/ws should be functional",
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportHTTPRoute,
-		suite.SupportHTTPRouteBackendProtocolWebSocket,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportHTTPRoute,
+		features.SupportHTTPRouteBackendProtocolWebSocket,
 	},
 	Manifests: []string{
 		"tests/httproute-backend-protocol-websocket.yaml",

@@ -20,8 +20,7 @@
  *      2 of the License, or (at your option) any later version.
  */
 
-#ifndef _LINUX_IN6_H
-#define _LINUX_IN6_H
+#pragma	once
 
 #include <linux/types.h>
 
@@ -148,4 +147,3 @@ struct in6_addr {
  * ...
  * MRT6_MAX
  */
-#endif /* _LINUX_IN6_H */

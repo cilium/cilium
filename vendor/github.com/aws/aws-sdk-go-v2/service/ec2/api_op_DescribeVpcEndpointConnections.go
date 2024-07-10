@@ -133,6 +133,12 @@ func (c *Client) addOperationDescribeVpcEndpointConnectionsMiddlewares(stack *mi
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVpcEndpointConnections(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -153,14 +159,6 @@ func (c *Client) addOperationDescribeVpcEndpointConnectionsMiddlewares(stack *mi
 	}
 	return nil
 }
-
-// DescribeVpcEndpointConnectionsAPIClient is a client that implements the
-// DescribeVpcEndpointConnections operation.
-type DescribeVpcEndpointConnectionsAPIClient interface {
-	DescribeVpcEndpointConnections(context.Context, *DescribeVpcEndpointConnectionsInput, ...func(*Options)) (*DescribeVpcEndpointConnectionsOutput, error)
-}
-
-var _ DescribeVpcEndpointConnectionsAPIClient = (*Client)(nil)
 
 // DescribeVpcEndpointConnectionsPaginatorOptions is the paginator options for
 // DescribeVpcEndpointConnections
@@ -231,6 +229,9 @@ func (p *DescribeVpcEndpointConnectionsPaginator) NextPage(ctx context.Context, 
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeVpcEndpointConnections(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -249,6 +250,14 @@ func (p *DescribeVpcEndpointConnectionsPaginator) NextPage(ctx context.Context, 
 
 	return result, nil
 }
+
+// DescribeVpcEndpointConnectionsAPIClient is a client that implements the
+// DescribeVpcEndpointConnections operation.
+type DescribeVpcEndpointConnectionsAPIClient interface {
+	DescribeVpcEndpointConnections(context.Context, *DescribeVpcEndpointConnectionsInput, ...func(*Options)) (*DescribeVpcEndpointConnectionsOutput, error)
+}
+
+var _ DescribeVpcEndpointConnectionsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeVpcEndpointConnections(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

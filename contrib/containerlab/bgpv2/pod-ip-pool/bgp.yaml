@@ -1,0 +1,115 @@
+apiVersion: cilium.io/v2alpha1
+kind: CiliumPodIPPool
+metadata:
+  name: default
+  labels:
+    pool: blue
+spec:
+  ipv4:
+    cidrs:
+      - 10.100.0.0/16
+    maskSize: 24
+  ipv6:
+    cidrs:
+      - fd00:100:1::/48
+    maskSize: 64
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumPodIPPool
+metadata:
+  name: red-pool
+  labels:
+    pool: red
+spec:
+  ipv4:
+    cidrs:
+      - 10.200.0.0/16
+    maskSize: 24
+  ipv6:
+    cidrs:
+      - fd00:200:1::/48
+    maskSize: 64
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPClusterConfig
+metadata:
+  name: cilium-bgp
+spec:
+  nodeSelector:
+    matchLabels:
+      bgp: "65001"
+  bgpInstances:
+  - name: "65001"
+    localASN: 65001
+    peers:
+    - name: "65000"
+      peerASN: 65000
+      peerAddress: fd00:10::1
+      peerConfigRef:
+        name: "cilium-peer"
+
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPPeerConfig
+metadata:
+  name: cilium-peer
+spec:
+  authSecretRef: bgp-auth-secret
+  gracefulRestart:
+    enabled: true
+    restartTimeSeconds: 15
+  families:
+    - afi: ipv4
+      safi: unicast
+      advertisements:
+        matchLabels:
+          advertise: "pod-ip-pool"
+    - afi: ipv6
+      safi: unicast
+      advertisements:
+        matchLabels:
+          advertise: "pod-ip-pool"
+
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPAdvertisement
+metadata:
+  name: pod-ip-pool-advert
+  labels:
+    advertise: pod-ip-pool
+spec:
+  advertisements:
+    - advertisementType: "CiliumPodIPPool"
+      selector:
+        matchLabels:
+          pool: "blue"
+      attributes:
+        communities:
+          standard: [ "65000:100" ]
+    - advertisementType: "CiliumPodIPPool"
+      selector:
+        matchLabels:
+          pool: "red"
+      attributes:
+        communities:
+          standard: [ "65000:200" ]
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: curl-red
+spec:
+  selector:
+    matchLabels:
+      app: curl-red
+  template:
+    metadata:
+      labels:
+        app: curl-red
+      annotations:
+        "ipam.cilium.io/ip-pool": "red-pool"
+    spec:
+      containers:
+        - name: curl
+          image: curlimages/curl
+          command: ["sleep", "infinit"]

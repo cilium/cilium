@@ -50,15 +50,14 @@ type CreateInstanceConnectEndpointInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// Indicates whether your client's IP address is preserved as the source. The
-	// value is true or false .
+	// Indicates whether the client IP address is preserved as the source. The
+	// following are the possible values.
 	//
-	//   - If true , your client's IP address is used when you connect to a resource.
+	//   - true - Use the client IP address as the source.
 	//
-	//   - If false , the elastic network interface IP address is used when you connect
-	//   to a resource.
+	//   - false - Use the network interface IP address as the source.
 	//
-	// Default: true
+	// Default: false
 	PreserveClientIp *bool
 
 	// One or more security groups to associate with the endpoint. If you don't
@@ -140,6 +139,12 @@ func (c *Client) addOperationCreateInstanceConnectEndpointMiddlewares(stack *mid
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
 	if err = addIdempotencyToken_opCreateInstanceConnectEndpointMiddleware(stack, options); err != nil {

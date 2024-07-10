@@ -25,7 +25,7 @@ import (
 // in the Amazon EBS User Guide.
 //
 // You can tag your volumes during creation. For more information, see [Tag your Amazon EC2 resources] in the
-// Amazon Elastic Compute Cloud User Guide.
+// Amazon EC2 User Guide.
 //
 // For more information, see [Create an Amazon EBS volume] in the Amazon EBS User Guide.
 //
@@ -58,7 +58,7 @@ type CreateVolumeInput struct {
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see [Ensure Idempotency].
 	//
-	// [Ensure Idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
+	// [Ensure Idempotency]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
 	ClientToken *string
 
 	// Checks whether you have the required permissions for the action, without
@@ -99,12 +99,12 @@ type CreateVolumeInput struct {
 	// is 3,000 IOPS. This parameter is not supported for gp2 , st1 , sc1 , or standard
 	// volumes.
 	//
-	// [instances built on the Nitro System]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances
+	// [instances built on the Nitro System]: https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
 	Iops *int32
 
-	// The identifier of the Key Management Service (KMS) KMS key to use for Amazon
-	// EBS encryption. If this parameter is not specified, your KMS key for Amazon EBS
-	// is used. If KmsKeyId is specified, the encrypted state must be true .
+	// The identifier of the KMS key to use for Amazon EBS encryption. If this
+	// parameter is not specified, your KMS key for Amazon EBS is used. If KmsKeyId is
+	// specified, the encrypted state must be true .
 	//
 	// You can specify the KMS key using any of the following:
 	//
@@ -128,11 +128,16 @@ type CreateVolumeInput struct {
 	// Zone. This parameter is supported with io1 and io2 volumes only. For more
 	// information, see [Amazon EBS Multi-Attach]in the Amazon EBS User Guide.
 	//
-	// [Instances built on the Nitro System]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances
+	// [Instances built on the Nitro System]: https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
 	// [Amazon EBS Multi-Attach]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-volumes-multi.html
 	MultiAttachEnabled *bool
 
-	// The Amazon Resource Name (ARN) of the Outpost.
+	// The Amazon Resource Name (ARN) of the Outpost on which to create the volume.
+	//
+	// If you intend to use a volume with an instance running on an outpost, then you
+	// must create the volume on the same outpost as the instance. You can't use a
+	// volume created in an Amazon Web Services Region with an instance on an Amazon
+	// Web Services outpost, or the other way around.
 	OutpostArn *string
 
 	// The size of the volume, in GiBs. You must specify either a snapshot ID or a
@@ -219,8 +224,8 @@ type CreateVolumeOutput struct {
 	// rate at which the volume accumulates I/O credits for bursting.
 	Iops *int32
 
-	// The Amazon Resource Name (ARN) of the Key Management Service (KMS) KMS key that
-	// was used to protect the volume encryption key for the volume.
+	// The Amazon Resource Name (ARN) of the KMS key that was used to protect the
+	// volume encryption key for the volume.
 	KmsKeyId *string
 
 	// Indicates whether Amazon EBS Multi-Attach is enabled.
@@ -314,6 +319,12 @@ func (c *Client) addOperationCreateVolumeMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
 	if err = addIdempotencyToken_opCreateVolumeMiddleware(stack, options); err != nil {

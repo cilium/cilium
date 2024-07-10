@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_EGRESS_GATEWAY_H_
-#define __LIB_EGRESS_GATEWAY_H_
+#pragma once
 
 #include "lib/fib.h"
 #include "lib/identity.h"
 #include "lib/overloadable.h"
 
-#include "maps.h"
+#include "encap.h"
 
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
 
@@ -57,6 +56,15 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 }
 
 #ifdef ENABLE_EGRESS_GATEWAY
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct egress_gw_policy_key);
+	__type(value, struct egress_gw_policy_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, EGRESS_POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} EGRESS_POLICY_MAP __section_maps_btf;
+
 static __always_inline
 struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
 {
@@ -155,6 +163,7 @@ egress_gw_request_needs_redirect_hook(struct ipv4_ct_tuple *rtuple,
 				      enum ct_status ct_status,
 				      __be32 *gateway_ip)
 {
+#if defined(IS_BPF_LXC)
 	/* If the packet is a reply or is related, it means that outside
 	 * has initiated the connection, and so we should skip egress
 	 * gateway, since an egress policy is only matching connections
@@ -162,6 +171,17 @@ egress_gw_request_needs_redirect_hook(struct ipv4_ct_tuple *rtuple,
 	 */
 	if (ct_status == CT_REPLY || ct_status == CT_RELATED)
 		return CTX_ACT_OK;
+#else
+	/* We lookup CT in forward direction at to-netdev and expect to
+	 * get CT_ESTABLISHED for outbound connection as
+	 * from_container should have already created a CT entry.
+	 * If we get CT_NEW here, it's an indication that it's a reply
+	 * for inbound connection or host-level outbound connection.
+	 * We don't expect to receive any other ct_status here.
+	 */
+	if (ct_status != CT_ESTABLISHED)
+		return CTX_ACT_OK;
+#endif
 
 	return egress_gw_request_needs_redirect(rtuple, gateway_ip);
 }
@@ -203,5 +223,44 @@ bool egress_gw_reply_needs_redirect_hook(struct iphdr *ip4, __u32 *tunnel_endpoi
 	return false;
 }
 
+static __always_inline
+int egress_gw_handle_packet(struct __ctx_buff *ctx,
+			    struct ipv4_ct_tuple *tuple,
+			    enum ct_status ct_status,
+			    __u32 src_sec_identity, __u32 dst_sec_identity,
+			    const struct trace_ctx *trace)
+{
+	struct endpoint_info *gateway_node_ep;
+	__be32 gateway_ip = 0;
+	int ret;
+
+	/* If the packet is destined to an entity inside the cluster,
+	 * either EP or node, it should not be forwarded to an egress
+	 * gateway since only traffic leaving the cluster is supposed to
+	 * be masqueraded with an egress IP.
+	 */
+	if (identity_is_cluster(dst_sec_identity))
+		return CTX_ACT_OK;
+
+	ret = egress_gw_request_needs_redirect_hook(tuple, ct_status, &gateway_ip);
+	if (IS_ERR(ret))
+		return ret;
+
+	if (ret == CTX_ACT_OK)
+		return ret;
+
+	/* If the gateway node is the local node, then just let the
+	 * packet go through, as it will be SNATed later on by
+	 * handle_nat_fwd().
+	 */
+	gateway_node_ep = __lookup_ip4_endpoint(gateway_ip);
+	if (gateway_node_ep && (gateway_node_ep->flags & ENDPOINT_F_HOST))
+		return CTX_ACT_OK;
+
+	/* Send the packet to egress gateway node through a tunnel. */
+	return __encap_and_redirect_with_nodeid(ctx, 0, gateway_ip,
+						src_sec_identity, dst_sec_identity,
+						NOT_VTEP_DST, trace);
+}
+
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
-#endif /* __LIB_EGRESS_GATEWAY_H_ */

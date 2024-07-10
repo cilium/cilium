@@ -21,6 +21,7 @@ on:
     branches:
       - main
       - ft/main/**
+      - 'renovate/main-**'
     paths-ignore:
       - 'Documentation/**'
 
@@ -57,7 +58,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go-version: 1.22.3
+  go-version: 1.22.5
 
 jobs:
   echo-inputs:
@@ -70,7 +71,6 @@ jobs:
           echo '${{ tojson(inputs) }}'
 
   commit-status-start:
-    if: ${{ github.event_name != 'push' }}
     name: Commit Status Start
     runs-on: ubuntu-latest
     steps:
@@ -86,7 +86,7 @@ jobs:
     name: Build Ginkgo Runtime
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -108,7 +108,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -129,7 +129,7 @@ jobs:
         uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.22.3
+          go-version: 1.22.5
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -167,8 +167,7 @@ jobs:
 
   setup-and-test:
     needs: build-ginkgo-binary
-    runs-on:
-      group: ginkgo-runners
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER }}
     name: "Runtime Test (${{matrix.focus}})"
     env:
       # GitHub doesn't provide a way to retrieve the name of a job, so we have
@@ -232,7 +231,7 @@ jobs:
           - focus: "datapath"
             cliFocus: "RuntimeDatapathConntrackInVethModeTest|RuntimeDatapathMonitorTest"
 
-    timeout-minutes: 40
+    timeout-minutes: 50
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -240,7 +239,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -262,7 +261,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -273,7 +272,7 @@ jobs:
           test-name: runtime-tests
           install-dependencies: true
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          image-version: "bpf-next-20240515.073534@sha256:75ba3187777e13dea7f96a6a3d3c239725324fb477429e4622ed24ab6b397745"
+          image-version: "bpf-next-20240705.013129@sha256:ba24c5780717eb36a938a314999bc938f71c0e494e3e8231d9d98f448b748040"
           host-mount: ./
           cpu: 4
           mem: 12G
@@ -291,7 +290,7 @@ jobs:
         uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.22.3
+          go-version: 1.22.5
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -380,7 +379,7 @@ jobs:
 
       - name: Runtime privileged tests
         if: ${{ matrix.focus == 'privileged' }}
-        timeout-minutes: 30
+        timeout-minutes: 40
         uses: cilium/little-vm-helper@3c748d6fc9d6c44a433de85a66f70e8f7043be04 # v0.0.18
         with:
           provision: 'false'
@@ -420,7 +419,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: cilium-sysdumps-${{ matrix.focus }}
           path: |
@@ -441,7 +440,7 @@ jobs:
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: cilium-junits-${{ matrix.focus }}
           path: cilium-junits/*.xml
@@ -460,7 +459,7 @@ jobs:
     steps:
       - name: Merge Sysdumps
         if: ${{ needs.setup-and-test.result == 'failure' }}
-        uses: actions/upload-artifact/merge@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact/merge@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: cilium-sysdumps
           pattern: cilium-sysdumps-*
@@ -468,7 +467,7 @@ jobs:
           delete-merged: true
         continue-on-error: true
       - name: Merge JUnits
-        uses: actions/upload-artifact/merge@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact/merge@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: cilium-junits
           pattern: cilium-junits-*
@@ -476,7 +475,7 @@ jobs:
           delete-merged: true
 
   commit-status-final:
-    if: ${{ always() && github.event_name != 'push' }}
+    if: ${{ always() }}
     name: Commit Status Final
     needs: setup-and-test
     runs-on: ubuntu-latest

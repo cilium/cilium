@@ -5,7 +5,6 @@
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
 #define ROUTER_IP
-#include "config_replacement.h"
 #undef ROUTER_IP
 
 #define NODE_ID 2333
@@ -165,6 +164,9 @@ int ipv4_ipsec_from_host_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	if (l3->daddr != v4_pod_two)
 		test_fatal("dest IP was changed");
+
+	if (l3->check != bpf_htons(0xf948))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 

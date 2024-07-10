@@ -147,10 +147,11 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 			continue
 		}
 
-		flowdebug.Log(log.WithFields(logrus.Fields{}),
-			fmt.Sprintf("%s: Access log message: %s", pblog.PolicyName, pblog.String()))
+		flowdebug.Log(func() (*logrus.Entry, string) {
+			return log, fmt.Sprintf("%s: Access log message: %s", pblog.PolicyName, pblog.String())
+		})
 
-		r := logRecord(&pblog)
+		r := logRecord(ctx, &pblog)
 
 		// Update proxy stats for the endpoint if it still exists
 		localEndpoint := s.localEndpointStore.getLocalEndpoint(pblog.PolicyName)
@@ -167,7 +168,7 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 	}
 }
 
-func logRecord(pblog *cilium.LogEntry) *logger.LogRecord {
+func logRecord(ctx context.Context, pblog *cilium.LogEntry) *logger.LogRecord {
 	var kafkaRecord *accesslog.LogRecordKafka
 	var kafkaTopics []string
 
@@ -224,7 +225,7 @@ func logRecord(pblog *cilium.LogEntry) *logger.LogRecord {
 	r := logger.NewLogRecord(flowType, pblog.IsIngress,
 		logger.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
 		logger.LogTags.Verdict(GetVerdict(pblog), pblog.CiliumRuleRef),
-		logger.LogTags.Addressing(addrInfo),
+		logger.LogTags.Addressing(ctx, addrInfo),
 		l7tags,
 	)
 	r.Log()

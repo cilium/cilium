@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,13 +17,25 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 )
 
+const (
+	k8sAPIGroupCiliumEnvoyConfigV2            = "cilium/v2::CiliumEnvoyConfig"
+	k8sAPIGroupCiliumClusterwideEnvoyConfigV2 = "cilium/v2::CiliumClusterwideEnvoyConfig"
+)
+
 type ciliumEnvoyConfigReconciler struct {
 	logger logrus.FieldLogger
+
+	k8sResourceSynced *synced.Resources
+	k8sAPIGroups      *synced.APIGroups
+
+	cecSynced  atomic.Bool
+	ccecSynced atomic.Bool
 
 	manager ciliumEnvoyConfigManager
 
@@ -40,13 +53,20 @@ type config struct {
 	selectsLocalNode bool
 }
 
-func newCiliumEnvoyConfigReconciler(logger logrus.FieldLogger,
-	manager ciliumEnvoyConfigManager,
-) *ciliumEnvoyConfigReconciler {
+func newCiliumEnvoyConfigReconciler(params reconcilerParams) *ciliumEnvoyConfigReconciler {
 	return &ciliumEnvoyConfigReconciler{
-		logger:  logger,
-		manager: manager,
-		configs: map[resource.Key]*config{},
+		logger:            params.Logger,
+		k8sResourceSynced: params.K8sResourceSynced,
+		k8sAPIGroups:      params.K8sAPIGroups,
+		manager:           params.Manager,
+		configs:           map[resource.Key]*config{},
+	}
+}
+
+func (r *ciliumEnvoyConfigReconciler) registerResourceWithSyncFn(ctx context.Context, resource string, syncFn func() bool) {
+	if r.k8sResourceSynced != nil && r.k8sAPIGroups != nil {
+		r.k8sResourceSynced.BlockWaitGroupToSyncResources(ctx.Done(), nil, syncFn, resource)
+		r.k8sAPIGroups.AddAPI(resource)
 	}
 }
 
@@ -58,18 +78,21 @@ func (r *ciliumEnvoyConfigReconciler) handleCECEvent(ctx context.Context, event 
 	var err error
 
 	switch event.Kind {
+	case resource.Sync:
+		scopedLogger.Debug("Received CiliumEnvoyConfig sync event")
+		r.cecSynced.Store(true)
 	case resource.Upsert:
 		scopedLogger.Debug("Received CiliumEnvoyConfig upsert event")
 		err = r.configUpserted(ctx, event.Key, &config{meta: event.Object.ObjectMeta, spec: &event.Object.Spec})
 		if err != nil {
-			scopedLogger.WithError(err).Error("failed to handle CEC upsert")
+			scopedLogger.WithError(err).Info("Failed to handle CEC upsert, Hive will retry")
 			err = fmt.Errorf("failed to handle CEC upsert: %w", err)
 		}
 	case resource.Delete:
 		scopedLogger.Debug("Received CiliumEnvoyConfig delete event")
 		err = r.configDeleted(ctx, event.Key)
 		if err != nil {
-			scopedLogger.WithError(err).Error("failed to handle CEC delete")
+			scopedLogger.WithError(err).Info("Failed to handle CEC delete, Hive will retry")
 			err = fmt.Errorf("failed to handle CEC delete: %w", err)
 		}
 	}
@@ -87,18 +110,21 @@ func (r *ciliumEnvoyConfigReconciler) handleCCECEvent(ctx context.Context, event
 	var err error
 
 	switch event.Kind {
+	case resource.Sync:
+		scopedLogger.Debug("Received CiliumClusterwideEnvoyConfig sync event")
+		r.ccecSynced.Store(true)
 	case resource.Upsert:
 		scopedLogger.Debug("Received CiliumClusterwideEnvoyConfig upsert event")
 		err = r.configUpserted(ctx, event.Key, &config{meta: event.Object.ObjectMeta, spec: &event.Object.Spec})
 		if err != nil {
-			scopedLogger.WithError(err).Error("failed to handle CCEC upsert")
+			scopedLogger.WithError(err).Info("Failed to handle CCEC upsert, Hive will retry")
 			err = fmt.Errorf("failed to handle CCEC upsert: %w", err)
 		}
 	case resource.Delete:
 		scopedLogger.Debug("Received CiliumClusterwideEnvoyConfig delete event")
 		err = r.configDeleted(ctx, event.Key)
 		if err != nil {
-			scopedLogger.WithError(err).Error("failed to handle CCEC delete")
+			scopedLogger.WithError(err).Info("Failed to handle CEC delete, Hive will retry")
 			err = fmt.Errorf("failed to handle CCEC delete: %w", err)
 		}
 	}
@@ -268,4 +294,21 @@ func (r *ciliumEnvoyConfigReconciler) configSelectsLocalNode(cfg *config) (bool,
 	}
 
 	return true, nil
+}
+
+func (r *ciliumEnvoyConfigReconciler) syncHeadlessService(_ context.Context) error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	var reconcileErr error
+
+	for key, cfg := range r.configs {
+		if err := r.manager.syncCiliumEnvoyConfigService(cfg.meta.Name, cfg.meta.Namespace, cfg.spec); err != nil {
+			r.logger.WithField("key", key).WithError(err).Info("Failed to sync headless service, Hive will retry")
+			reconcileErr = errors.Join(reconcileErr, fmt.Errorf("failed to reconcile existing config (%s): %w", key, err))
+			continue
+		}
+	}
+
+	return reconcileErr
 }

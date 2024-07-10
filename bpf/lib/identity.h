@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_IDENTITY_H_
-#define __LIB_IDENTITY_H_
+#pragma once
 
 #include "dbg.h"
 
@@ -184,24 +183,6 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 		*identity = HOST_ID;
 	} else if (magic == MARK_MAGIC_ENCRYPT) {
 		*identity = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
-
-		/* Special case needed to handle upgrades. Can be removed in v1.15.
-		 * Before the upgrade, bpf_lxc will write the tunnel endpoint in
-		 * skb->cb[4]. After the upgrade, it will write the security identity.
-		 * For the upgrade to happen without drops, bpf_host thus needs to
-		 * handle both cases.
-		 * We can distinguish between the two cases by looking at the first
-		 * byte. Identities are on 24-bits so the first byte will be zero;
-		 * conversely, tunnel endpoint addresses within the range 0.0.0.0/8
-		 * (first byte is zero) are impossible because special purpose
-		 * (RFC6890).
-		 */
-		if ((*identity & 0xFF000000) != 0) {
-			/* skb->cb[4] was actually carrying the tunnel endpoint and the
-			 * security identity is in the mark.
-			 */
-			*identity = get_identity(ctx);
-		}
 #if defined(ENABLE_L7_LB)
 	} else if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
 		*identity = get_epid(ctx); /* endpoint identity, not security identity! */
@@ -244,5 +225,3 @@ static __always_inline bool identity_is_local(__u32 identity)
 {
 	return (identity & IDENTITY_LOCAL_SCOPE_MASK) != 0;
 }
-
-#endif

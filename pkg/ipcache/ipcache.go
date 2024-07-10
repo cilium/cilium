@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
-	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -85,7 +85,7 @@ type Configuration struct {
 	cache.IdentityAllocator
 	ipcacheTypes.PolicyHandler
 	ipcacheTypes.DatapathHandler
-	k8s.CacheStatus
+	synced.CacheStatus
 }
 
 // IPCache is a collection of mappings:
@@ -472,8 +472,7 @@ func (ipc *IPCache) UpsertMetadataBatch(updates ...MU) (revision uint64) {
 	prefixes := make([]netip.Prefix, 0, len(updates))
 	ipc.metadata.Lock()
 	for _, upd := range updates {
-		ipc.metadata.upsertLocked(upd.Prefix, upd.Source, upd.Resource, upd.Metadata...)
-		prefixes = append(prefixes, upd.Prefix)
+		prefixes = append(prefixes, ipc.metadata.upsertLocked(upd.Prefix, upd.Source, upd.Resource, upd.Metadata...)...)
 	}
 	ipc.metadata.Unlock()
 	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
@@ -502,8 +501,7 @@ func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) (revision uint64) {
 	prefixes := make([]netip.Prefix, 0, len(updates))
 	ipc.metadata.Lock()
 	for _, upd := range updates {
-		ipc.metadata.remove(upd.Prefix, upd.Resource, upd.Metadata...)
-		prefixes = append(prefixes, upd.Prefix)
+		prefixes = append(prefixes, ipc.metadata.remove(upd.Prefix, upd.Resource, upd.Metadata...)...)
 	}
 	ipc.metadata.Unlock()
 	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
@@ -521,11 +519,12 @@ func (ipc *IPCache) RemoveMetadataBatch(updates ...MU) (revision uint64) {
 // Returns a revision number that can be passed to WaitForRevision().
 func (ipc *IPCache) UpsertPrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) (revision uint64) {
 	ipc.metadata.Lock()
+	affectedPrefixed := make([]netip.Prefix, 0, len(prefixes))
 	for _, p := range prefixes {
-		ipc.metadata.upsertLocked(p, src, resource, labels.GetCIDRLabels(p))
+		affectedPrefixed = append(affectedPrefixed, ipc.metadata.upsertLocked(p, src, resource, labels.GetCIDRLabels(p))...)
 	}
 	ipc.metadata.Unlock()
-	revision = ipc.metadata.enqueuePrefixUpdates(prefixes...)
+	revision = ipc.metadata.enqueuePrefixUpdates(affectedPrefixed...)
 	ipc.TriggerLabelInjection()
 	return
 }
@@ -543,11 +542,12 @@ func (ipc *IPCache) UpsertPrefixes(prefixes []netip.Prefix, src source.Source, r
 // to implement the logic associated with the removed CIDR labels.
 func (ipc *IPCache) RemovePrefixes(prefixes []netip.Prefix, src source.Source, resource ipcacheTypes.ResourceID) {
 	ipc.metadata.Lock()
+	affectedPrefixes := make([]netip.Prefix, 0, len(prefixes))
 	for _, p := range prefixes {
-		ipc.metadata.remove(p, resource, labels.GetCIDRLabels(p))
+		affectedPrefixes = append(affectedPrefixes, ipc.metadata.remove(p, resource, labels.GetCIDRLabels(p))...)
 	}
 	ipc.metadata.Unlock()
-	ipc.metadata.enqueuePrefixUpdates(prefixes...)
+	ipc.metadata.enqueuePrefixUpdates(affectedPrefixes...)
 	ipc.TriggerLabelInjection()
 }
 
@@ -603,15 +603,17 @@ func (ipc *IPCache) RemoveIdentityOverride(cidr netip.Prefix, identityLabels lab
 // metadata updates. Thus, the sequence
 //
 //	rev := UpsertMetadataBatch(prefix1, metadata, ...)
-//	WaitForRevision(rev)
+//	WaitForRevision(ctx, rev)
 //
 // means that prefix1 has had at least one call to InjectLabels with the supplied
 // metadata. It does not guarantee that the metadata matches exactly what was
 // passed to UpsertMetadata, as other callers may have also queued modifications.
 //
 // Note that the revision number should be treated as an opaque identifier.
-func (ipc *IPCache) WaitForRevision(desired uint64) {
-	ipc.metadata.waitForRevision(desired)
+// Returns a non-nil error if the provided context was cancelled before the
+// desired revision was reached.
+func (ipc *IPCache) WaitForRevision(ctx context.Context, desired uint64) error {
+	return ipc.metadata.waitForRevision(ctx, desired)
 }
 
 // DumpToListenerLocked dumps the entire contents of the IPCache by triggering

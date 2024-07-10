@@ -188,17 +188,6 @@ func (manager *TableManager) DeleteVrf(name string) ([]*Path, error) {
 	return msgs, nil
 }
 
-func (manager *TableManager) update(newPath *Path) *Update {
-	t := manager.Tables[newPath.GetRouteFamily()]
-	t.validatePath(newPath)
-	dst := t.getOrCreateDest(newPath.GetNlri(), 64)
-	u := dst.Calculate(manager.logger, newPath)
-	if len(dst.knownPathList) == 0 {
-		t.deleteDest(dst)
-	}
-	return u
-}
-
 func (manager *TableManager) Update(newPath *Path) []*Update {
 	if newPath == nil || newPath.IsEOR() {
 		return nil
@@ -207,12 +196,12 @@ func (manager *TableManager) Update(newPath *Path) []*Update {
 	// Except for a special case with EVPN, we'll have one destination.
 	updates := make([]*Update, 0, 1)
 	family := newPath.GetRouteFamily()
-	if _, ok := manager.Tables[family]; ok {
-		updates = append(updates, manager.update(newPath))
+	if table, ok := manager.Tables[family]; ok {
+		updates = append(updates, table.update(newPath))
 
 		if family == bgp.RF_EVPN {
 			for _, p := range manager.handleMacMobility(newPath) {
-				updates = append(updates, manager.update(p))
+				updates = append(updates, table.update(p))
 			}
 		}
 	}
@@ -255,7 +244,17 @@ func (manager *TableManager) handleMacMobility(path *Path) []*Path {
 	}
 	e1, et1, m1, s1, i1 := f(path)
 
-	for _, path2 := range manager.GetPathListWithMac(GLOBAL_RIB_NAME, 0, []bgp.RouteFamily{bgp.RF_EVPN}, m1) {
+	// Extract the route targets to scope the lookup to the MAC-VRF with the MAC address.
+	// This will help large EVPN instances where a single MAC is present in a lot of MAC-VRFs (e.g.
+	// an anycast router).
+	// A route may have multiple route targets, to target multiple MAC-VRFs (e.g. in both an L2VNI
+	// and L3VNI in the VXLAN case).
+	var paths []*Path
+	for _, ec := range path.GetRouteTargets() {
+		paths = append(paths, manager.GetPathListWithMac(GLOBAL_RIB_NAME, 0, []bgp.RouteFamily{bgp.RF_EVPN}, ec, m1)...)
+	}
+
+	for _, path2 := range paths {
 		if !path2.IsLocal() || path2.GetNlri().(*bgp.EVPNNLRI).RouteType != bgp.EVPN_ROUTE_TYPE_MAC_IP_ADVERTISEMENT {
 			continue
 		}
@@ -326,10 +325,10 @@ func (manager *TableManager) GetPathList(id string, as uint32, rfList []bgp.Rout
 	return paths
 }
 
-func (manager *TableManager) GetPathListWithMac(id string, as uint32, rfList []bgp.RouteFamily, mac net.HardwareAddr) []*Path {
+func (manager *TableManager) GetPathListWithMac(id string, as uint32, rfList []bgp.RouteFamily, rt bgp.ExtendedCommunityInterface, mac net.HardwareAddr) []*Path {
 	var paths []*Path
 	for _, t := range manager.tables(rfList...) {
-		paths = append(paths, t.GetKnownPathListWithMac(id, as, mac, false)...)
+		paths = append(paths, t.GetKnownPathListWithMac(id, as, rt, mac, false)...)
 	}
 	return paths
 }

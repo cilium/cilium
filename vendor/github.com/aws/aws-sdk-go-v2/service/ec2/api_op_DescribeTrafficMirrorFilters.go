@@ -125,6 +125,12 @@ func (c *Client) addOperationDescribeTrafficMirrorFiltersMiddlewares(stack *midd
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeTrafficMirrorFilters(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -145,14 +151,6 @@ func (c *Client) addOperationDescribeTrafficMirrorFiltersMiddlewares(stack *midd
 	}
 	return nil
 }
-
-// DescribeTrafficMirrorFiltersAPIClient is a client that implements the
-// DescribeTrafficMirrorFilters operation.
-type DescribeTrafficMirrorFiltersAPIClient interface {
-	DescribeTrafficMirrorFilters(context.Context, *DescribeTrafficMirrorFiltersInput, ...func(*Options)) (*DescribeTrafficMirrorFiltersOutput, error)
-}
-
-var _ DescribeTrafficMirrorFiltersAPIClient = (*Client)(nil)
 
 // DescribeTrafficMirrorFiltersPaginatorOptions is the paginator options for
 // DescribeTrafficMirrorFilters
@@ -221,6 +219,9 @@ func (p *DescribeTrafficMirrorFiltersPaginator) NextPage(ctx context.Context, op
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeTrafficMirrorFilters(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -239,6 +240,14 @@ func (p *DescribeTrafficMirrorFiltersPaginator) NextPage(ctx context.Context, op
 
 	return result, nil
 }
+
+// DescribeTrafficMirrorFiltersAPIClient is a client that implements the
+// DescribeTrafficMirrorFilters operation.
+type DescribeTrafficMirrorFiltersAPIClient interface {
+	DescribeTrafficMirrorFilters(context.Context, *DescribeTrafficMirrorFiltersInput, ...func(*Options)) (*DescribeTrafficMirrorFiltersOutput, error)
+}
+
+var _ DescribeTrafficMirrorFiltersAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeTrafficMirrorFilters(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

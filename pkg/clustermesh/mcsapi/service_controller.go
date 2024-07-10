@@ -236,6 +236,14 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if localSvc != nil {
 		svc.Spec.Selector = localSvc.Spec.Selector
 		svc.Spec.Ports = localSvc.Spec.Ports
+
+		// Use the local Service on creation as reference to determine the headlessness
+		// if the ServiceImport is not yet created. This allow to save a potential switch
+		// from non headless to headless (which involved a deletion + recreation)
+		// if there is no export conflict.
+		if svcImport == nil && !svcExists && localSvc.Spec.ClusterIP == corev1.ClusterIPNone {
+			svc.Spec.ClusterIP = corev1.ClusterIPNone
+		}
 	}
 
 	if svcImport != nil {
@@ -282,26 +290,18 @@ func (r *mcsAPIServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// and always derive the name in the Reconcile function anyway.
 		For(&mcsapiv1alpha1.ServiceImport{}).
 		// Watch for changes to ServiceExport
-		Watches(&mcsapiv1alpha1.ServiceExport{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
-			svcExport, ok := obj.(*mcsapiv1alpha1.ServiceExport)
-			if !ok {
-				return []ctrl.Request{}
-			}
-			name := types.NamespacedName{Name: svcExport.Name, Namespace: svcExport.Namespace}
-			return []ctrl.Request{{NamespacedName: name}}
-		})).
-		// Watch for changes to Services supported that have a MCS API object as owner reference
+		Watches(&mcsapiv1alpha1.ServiceExport{}, &handler.EnqueueRequestForObject{}).
+		// Watch for changes to Services
 		Watches(&corev1.Service{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
-			svc, ok := obj.(*corev1.Service)
-			if !ok {
-				return []ctrl.Request{}
-			}
-			mcsAPIOwner := getMCSAPIOwner(svc.OwnerReferences)
+			mcsAPIOwner := getMCSAPIOwner(obj.GetOwnerReferences())
 			if mcsAPIOwner == "" {
-				return []ctrl.Request{}
+				return []ctrl.Request{{NamespacedName: types.NamespacedName{
+					Name: obj.GetName(), Namespace: obj.GetNamespace(),
+				}}}
 			}
-			name := types.NamespacedName{Name: mcsAPIOwner, Namespace: svc.Namespace}
-			return []ctrl.Request{{NamespacedName: name}}
+			return []ctrl.Request{{NamespacedName: types.NamespacedName{
+				Name: mcsAPIOwner, Namespace: obj.GetNamespace(),
+			}}}
 		})).
 		Complete(r)
 }

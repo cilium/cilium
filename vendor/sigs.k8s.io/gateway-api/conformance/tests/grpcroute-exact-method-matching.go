@@ -22,12 +22,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"k8s.io/apimachinery/pkg/types"
 
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	pb "sigs.k8s.io/gateway-api/conformance/echo-basic/grpcechoserver"
-
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/gateway-api/conformance/utils/grpc"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
 func init() {
@@ -38,15 +38,15 @@ var GRPCExactMethodMatching = suite.ConformanceTest{
 	ShortName:   "GRPCExactMethodMatching",
 	Description: "A single GRPCRoute with exact method matching for different backends",
 	Manifests:   []string{"tests/grpcroute-exact-method-matching.yaml"},
-	Features: []suite.SupportedFeature{
-		suite.SupportGateway,
-		suite.SupportGRPCRoute,
+	Features: []features.SupportedFeature{
+		features.SupportGateway,
+		features.SupportGRPCRoute,
 	},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		ns := "gateway-conformance-infra"
 		routeNN := types.NamespacedName{Name: "exact-matching", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
-		gwAddr := kubernetes.GatewayAndRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), &v1alpha2.GRPCRoute{}, routeNN)
+		gwAddr := kubernetes.GatewayAndRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), &v1.GRPCRoute{}, routeNN)
 
 		testCases := []grpc.ExpectedResponse{
 			{
@@ -69,7 +69,7 @@ var GRPCExactMethodMatching = suite.ConformanceTest{
 			tc := testCases[i]
 			t.Run(tc.GetTestCaseName(i), func(t *testing.T) {
 				t.Parallel()
-				grpc.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.TimeoutConfig, gwAddr, tc)
+				grpc.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.GRPCClient, suite.TimeoutConfig, gwAddr, tc)
 			})
 		}
 	},

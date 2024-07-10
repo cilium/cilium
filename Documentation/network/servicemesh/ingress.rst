@@ -79,11 +79,20 @@ Supported Ingress Annotations
        | ``shared``.
      - | ``dedicated``
        | (from Helm chart)
+   * - ``ingress.cilium.io/loadbalancer-class``
+     - | The loadbalancer class for the ingress.
+       | Only applicable when ``loadbalancer-mode`` is set to ``dedicated``.
+     - unspecified
    * - ``ingress.cilium.io/service-type``
      - | The Service type for dedicated Ingress.
        | Applicable values are ``LoadBalancer``
        | and ``NodePort``.
      - ``LoadBalancer``
+   * - ``ingress.cilium.io/service-external-traffic-policy``
+     - | The Service externalTrafficPolicy for dedicated
+       | Ingress. Applicable values are ``Cluster``
+       | and ``Local``.
+     - ``Cluster``
    * - ``ingress.cilium.io/insecure-node-port``
      - | The NodePort to use for the HTTP Ingress.
        | Applicable only if ``ingress.cilium.io/service-type``

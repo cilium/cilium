@@ -12,8 +12,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -58,7 +60,12 @@ func registerEndpointBPFProgWatchdog(p epBPFProgWatchdogParams) {
 	if p.Config.EndpointBPFProgWatchdogInterval == 0 {
 		return
 	}
-
+	// The watchdog works only for tc BPF, but not when the L4LB has
+	// XDP acceleration enabled. While we could enable it for tc BPF
+	// mode, lets keep same behavior on both settings.
+	if option.Config.DatapathMode == datapathOption.DatapathModeLBOnly {
+		return
+	}
 	var (
 		ctx, cancel = context.WithCancel(context.Background())
 		mgr         = controller.NewManager()
@@ -111,8 +118,9 @@ func (d *Daemon) checkEndpointBPFPrograms(ctx context.Context, p epBPFProgWatchd
 		if err != nil {
 			log.WithField(logfields.Endpoint, ep.HostInterface()).
 				WithField(logfields.EndpointID, ep.ID).
+				WithField(logfields.CEPName, ep.GetK8sNamespaceAndCEPName()).
 				WithError(err).
-				Error("Unable to assert if endpoint BPF programs need to be reloaded")
+				Warn("Unable to assert if endpoint BPF programs need to be reloaded")
 			return err
 		}
 		// We've detected missing bpf progs for this endpoint.

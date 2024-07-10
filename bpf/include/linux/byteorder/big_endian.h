@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /* Copyright Authors of the Linux kernel */
-#ifndef _LINUX_BYTEORDER_BIG_ENDIAN_H
-#define _LINUX_BYTEORDER_BIG_ENDIAN_H
+#pragma once
 
 #ifndef __BIG_ENDIAN
 #define __BIG_ENDIAN 4321
@@ -102,6 +101,3 @@ static __inline__ __u16 __be16_to_cpup(const __be16 *p)
 #define __be32_to_cpus(x) do { (void)(x); } while (0)
 #define __cpu_to_be16s(x) do { (void)(x); } while (0)
 #define __be16_to_cpus(x) do { (void)(x); } while (0)
-
-
-#endif /* _LINUX_BYTEORDER_BIG_ENDIAN_H */

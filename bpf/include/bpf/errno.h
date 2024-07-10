@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __BPF_ERRNO__
-#define __BPF_ERRNO__
+#pragma once
 
 /* Few basic errno codes as we don't want to include errno.h. */
 
@@ -48,5 +47,3 @@
 #ifndef ENOTSUPP
 # define ENOTSUPP	524
 #endif
-
-#endif /* __BPF_ERRNO__ */

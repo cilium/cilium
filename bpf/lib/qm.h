@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __QM_H_
-#define __QM_H_
+#pragma once
 
 #include <bpf/ctx/ctx.h>
 
@@ -23,5 +22,3 @@ static inline void reset_queue_mapping(struct __ctx_buff *ctx __maybe_unused)
 	ctx->queue_mapping = 0;
 #endif
 }
-
-#endif /* __QM_H_ */

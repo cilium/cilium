@@ -179,6 +179,24 @@ func (cm *controllerManager) add(r Runnable) error {
 	return cm.runnables.Add(r)
 }
 
+// AddMetricsServerExtraHandler adds extra handler served on path to the http server that serves metrics.
+func (cm *controllerManager) AddMetricsServerExtraHandler(path string, handler http.Handler) error {
+	cm.Lock()
+	defer cm.Unlock()
+	if cm.started {
+		return fmt.Errorf("unable to add new metrics handler because metrics endpoint has already been created")
+	}
+	if cm.metricsServer == nil {
+		cm.GetLogger().Info("warn: metrics server is currently disabled, registering extra handler %q will be ignored", path)
+		return nil
+	}
+	if err := cm.metricsServer.AddExtraHandler(path, handler); err != nil {
+		return err
+	}
+	cm.logger.V(2).Info("Registering metrics http server extra handler", "path", path)
+	return nil
+}
+
 // AddHealthzCheck allows you to add Healthz checker.
 func (cm *controllerManager) AddHealthzCheck(name string, check healthz.Checker) error {
 	cm.Lock()
@@ -284,9 +302,8 @@ func (cm *controllerManager) addHealthProbeServer() error {
 		mux.Handle(cm.livenessEndpointName+"/", http.StripPrefix(cm.livenessEndpointName, cm.healthzHandler))
 	}
 
-	return cm.add(&server{
-		Kind:     "health probe",
-		Log:      cm.logger,
+	return cm.add(&Server{
+		Name:     "health probe",
 		Server:   srv,
 		Listener: cm.healthProbeListener,
 	})
@@ -302,9 +319,8 @@ func (cm *controllerManager) addPprofServer() error {
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
-	return cm.add(&server{
-		Kind:     "pprof",
-		Log:      cm.logger,
+	return cm.add(&Server{
+		Name:     "pprof",
 		Server:   srv,
 		Listener: cm.pprofListener,
 	})
@@ -384,14 +400,13 @@ func (cm *controllerManager) Start(ctx context.Context) (err error) {
 		}
 	}
 
-	// First start any internal HTTP servers, which includes health probes, metrics and profiling if enabled.
+	// First start any HTTP servers, which includes health probes, metrics and profiling if enabled.
 	//
-	// WARNING: Internal HTTP servers MUST start before any cache is populated, otherwise it would block
-	// conversion webhooks to be ready for serving which make the cache never get ready.
-	if err := cm.runnables.HTTPServers.Start(cm.internalCtx); err != nil {
-		if err != nil {
-			return fmt.Errorf("failed to start HTTP servers: %w", err)
-		}
+	// WARNING: HTTPServers includes the health probes, which MUST start before any cache is populated, otherwise
+	// it would block conversion webhooks to be ready for serving which make the cache never get ready.
+	logCtx := logr.NewContext(cm.internalCtx, cm.logger)
+	if err := cm.runnables.HTTPServers.Start(logCtx); err != nil {
+		return fmt.Errorf("failed to start HTTP servers: %w", err)
 	}
 
 	// Start any webhook servers, which includes conversion, validation, and defaulting
@@ -401,23 +416,17 @@ func (cm *controllerManager) Start(ctx context.Context) (err error) {
 	// between conversion webhooks and the cache sync (usually initial list) which causes the webhooks
 	// to never start because no cache can be populated.
 	if err := cm.runnables.Webhooks.Start(cm.internalCtx); err != nil {
-		if err != nil {
-			return fmt.Errorf("failed to start webhooks: %w", err)
-		}
+		return fmt.Errorf("failed to start webhooks: %w", err)
 	}
 
 	// Start and wait for caches.
 	if err := cm.runnables.Caches.Start(cm.internalCtx); err != nil {
-		if err != nil {
-			return fmt.Errorf("failed to start caches: %w", err)
-		}
+		return fmt.Errorf("failed to start caches: %w", err)
 	}
 
 	// Start the non-leaderelection Runnables after the cache has synced.
 	if err := cm.runnables.Others.Start(cm.internalCtx); err != nil {
-		if err != nil {
-			return fmt.Errorf("failed to start other runnables: %w", err)
-		}
+		return fmt.Errorf("failed to start other runnables: %w", err)
 	}
 
 	// Start the leader election and all required runnables.
@@ -518,6 +527,8 @@ func (cm *controllerManager) engageStopProcedure(stopComplete <-chan struct{}) e
 
 		// Stop all the leader election runnables, which includes reconcilers.
 		cm.logger.Info("Stopping and waiting for leader election runnables")
+		// Prevent leader election when shutting down a non-elected manager
+		cm.runnables.LeaderElection.startOnce.Do(func() {})
 		cm.runnables.LeaderElection.StopAndWait(cm.shutdownCtx)
 
 		// Stop the caches before the leader election runnables, this is an important

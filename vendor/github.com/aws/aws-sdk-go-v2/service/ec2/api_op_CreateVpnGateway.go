@@ -131,6 +131,12 @@ func (c *Client) addOperationCreateVpnGatewayMiddlewares(stack *middleware.Stack
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpCreateVpnGatewayValidationMiddleware(stack); err != nil {
 		return err
 	}

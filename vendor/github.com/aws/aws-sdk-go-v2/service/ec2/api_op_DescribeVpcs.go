@@ -13,11 +13,13 @@ import (
 	smithytime "github.com/aws/smithy-go/time"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	smithywaiter "github.com/aws/smithy-go/waiter"
-	"github.com/jmespath/go-jmespath"
+	jmespath "github.com/jmespath/go-jmespath"
 	"time"
 )
 
-// Describes one or more of your VPCs.
+// Describes your VPCs. The default is to describe all your VPCs. Alternatively,
+// you can specify specific VPC IDs or filter the results to include only the VPCs
+// that match specific criteria.
 func (c *Client) DescribeVpcs(ctx context.Context, params *DescribeVpcsInput, optFns ...func(*Options)) (*DescribeVpcsOutput, error) {
 	if params == nil {
 		params = &DescribeVpcsInput{}
@@ -99,8 +101,6 @@ type DescribeVpcsInput struct {
 	NextToken *string
 
 	// The IDs of the VPCs.
-	//
-	// Default: Describes all your VPCs.
 	VpcIds []string
 
 	noSmithyDocumentSerde
@@ -112,7 +112,7 @@ type DescribeVpcsOutput struct {
 	// value is null when there are no more items to return.
 	NextToken *string
 
-	// Information about one or more VPCs.
+	// Information about the VPCs.
 	Vpcs []types.Vpc
 
 	// Metadata pertaining to the operation's result.
@@ -176,6 +176,12 @@ func (c *Client) addOperationDescribeVpcsMiddlewares(stack *middleware.Stack, op
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVpcs(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -195,99 +201,6 @@ func (c *Client) addOperationDescribeVpcsMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 	return nil
-}
-
-// DescribeVpcsAPIClient is a client that implements the DescribeVpcs operation.
-type DescribeVpcsAPIClient interface {
-	DescribeVpcs(context.Context, *DescribeVpcsInput, ...func(*Options)) (*DescribeVpcsOutput, error)
-}
-
-var _ DescribeVpcsAPIClient = (*Client)(nil)
-
-// DescribeVpcsPaginatorOptions is the paginator options for DescribeVpcs
-type DescribeVpcsPaginatorOptions struct {
-	// The maximum number of items to return for this request. To get the next page of
-	// items, make another request with the token returned in the output. For more
-	// information, see [Pagination].
-	//
-	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
-	Limit int32
-
-	// Set to true if pagination should stop if the service returns a pagination token
-	// that matches the most recent token provided to the service.
-	StopOnDuplicateToken bool
-}
-
-// DescribeVpcsPaginator is a paginator for DescribeVpcs
-type DescribeVpcsPaginator struct {
-	options   DescribeVpcsPaginatorOptions
-	client    DescribeVpcsAPIClient
-	params    *DescribeVpcsInput
-	nextToken *string
-	firstPage bool
-}
-
-// NewDescribeVpcsPaginator returns a new DescribeVpcsPaginator
-func NewDescribeVpcsPaginator(client DescribeVpcsAPIClient, params *DescribeVpcsInput, optFns ...func(*DescribeVpcsPaginatorOptions)) *DescribeVpcsPaginator {
-	if params == nil {
-		params = &DescribeVpcsInput{}
-	}
-
-	options := DescribeVpcsPaginatorOptions{}
-	if params.MaxResults != nil {
-		options.Limit = *params.MaxResults
-	}
-
-	for _, fn := range optFns {
-		fn(&options)
-	}
-
-	return &DescribeVpcsPaginator{
-		options:   options,
-		client:    client,
-		params:    params,
-		firstPage: true,
-		nextToken: params.NextToken,
-	}
-}
-
-// HasMorePages returns a boolean indicating whether more pages are available
-func (p *DescribeVpcsPaginator) HasMorePages() bool {
-	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
-}
-
-// NextPage retrieves the next DescribeVpcs page.
-func (p *DescribeVpcsPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeVpcsOutput, error) {
-	if !p.HasMorePages() {
-		return nil, fmt.Errorf("no more pages available")
-	}
-
-	params := *p.params
-	params.NextToken = p.nextToken
-
-	var limit *int32
-	if p.options.Limit > 0 {
-		limit = &p.options.Limit
-	}
-	params.MaxResults = limit
-
-	result, err := p.client.DescribeVpcs(ctx, &params, optFns...)
-	if err != nil {
-		return nil, err
-	}
-	p.firstPage = false
-
-	prevToken := p.nextToken
-	p.nextToken = result.NextToken
-
-	if p.options.StopOnDuplicateToken &&
-		prevToken != nil &&
-		p.nextToken != nil &&
-		*prevToken == *p.nextToken {
-		p.nextToken = nil
-	}
-
-	return result, nil
 }
 
 // VpcAvailableWaiterOptions are waiter options for VpcAvailableWaiter
@@ -404,7 +317,13 @@ func (w *VpcAvailableWaiter) WaitForOutput(ctx context.Context, params *Describe
 		}
 
 		out, err := w.client.DescribeVpcs(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -591,7 +510,13 @@ func (w *VpcExistsWaiter) WaitForOutput(ctx context.Context, params *DescribeVpc
 		}
 
 		out, err := w.client.DescribeVpcs(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -647,6 +572,102 @@ func vpcExistsStateRetryable(ctx context.Context, input *DescribeVpcsInput, outp
 
 	return true, nil
 }
+
+// DescribeVpcsPaginatorOptions is the paginator options for DescribeVpcs
+type DescribeVpcsPaginatorOptions struct {
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see [Pagination].
+	//
+	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
+	Limit int32
+
+	// Set to true if pagination should stop if the service returns a pagination token
+	// that matches the most recent token provided to the service.
+	StopOnDuplicateToken bool
+}
+
+// DescribeVpcsPaginator is a paginator for DescribeVpcs
+type DescribeVpcsPaginator struct {
+	options   DescribeVpcsPaginatorOptions
+	client    DescribeVpcsAPIClient
+	params    *DescribeVpcsInput
+	nextToken *string
+	firstPage bool
+}
+
+// NewDescribeVpcsPaginator returns a new DescribeVpcsPaginator
+func NewDescribeVpcsPaginator(client DescribeVpcsAPIClient, params *DescribeVpcsInput, optFns ...func(*DescribeVpcsPaginatorOptions)) *DescribeVpcsPaginator {
+	if params == nil {
+		params = &DescribeVpcsInput{}
+	}
+
+	options := DescribeVpcsPaginatorOptions{}
+	if params.MaxResults != nil {
+		options.Limit = *params.MaxResults
+	}
+
+	for _, fn := range optFns {
+		fn(&options)
+	}
+
+	return &DescribeVpcsPaginator{
+		options:   options,
+		client:    client,
+		params:    params,
+		firstPage: true,
+		nextToken: params.NextToken,
+	}
+}
+
+// HasMorePages returns a boolean indicating whether more pages are available
+func (p *DescribeVpcsPaginator) HasMorePages() bool {
+	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
+}
+
+// NextPage retrieves the next DescribeVpcs page.
+func (p *DescribeVpcsPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeVpcsOutput, error) {
+	if !p.HasMorePages() {
+		return nil, fmt.Errorf("no more pages available")
+	}
+
+	params := *p.params
+	params.NextToken = p.nextToken
+
+	var limit *int32
+	if p.options.Limit > 0 {
+		limit = &p.options.Limit
+	}
+	params.MaxResults = limit
+
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
+	result, err := p.client.DescribeVpcs(ctx, &params, optFns...)
+	if err != nil {
+		return nil, err
+	}
+	p.firstPage = false
+
+	prevToken := p.nextToken
+	p.nextToken = result.NextToken
+
+	if p.options.StopOnDuplicateToken &&
+		prevToken != nil &&
+		p.nextToken != nil &&
+		*prevToken == *p.nextToken {
+		p.nextToken = nil
+	}
+
+	return result, nil
+}
+
+// DescribeVpcsAPIClient is a client that implements the DescribeVpcs operation.
+type DescribeVpcsAPIClient interface {
+	DescribeVpcs(context.Context, *DescribeVpcsInput, ...func(*Options)) (*DescribeVpcsOutput, error)
+}
+
+var _ DescribeVpcsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeVpcs(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

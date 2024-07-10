@@ -36,9 +36,9 @@ Dockerfile
 Dockerfiles
 Donenfeld
 ECMP
+EKS
 ENI
 Efx
-EKS
 Engleder
 FIt
 Fastabend
@@ -48,6 +48,7 @@ Fsnotify
 GCP
 GKE
 Gartrell
+GatewayClass
 Gbit
 GiB
 Gospodarek
@@ -183,6 +184,7 @@ bcc
 behaviour
 benchmarking
 bgp
+blackholing
 blockedConfigOverrides
 bnxt
 bookinfo
@@ -195,6 +197,7 @@ bugfix
 bugfixes
 bugtool
 buildx
+burstLimit
 bytecode
 cBPF
 callee
@@ -295,6 +298,7 @@ eBGP
 eBPF
 eXpress
 ebpf
+edts
 effectful
 egressing
 elfutils
@@ -328,6 +332,7 @@ fromCIDR
 fromCIDRSet
 fromEndpoints
 frontend
+frontends
 fs
 func
 gRPC
@@ -474,6 +479,7 @@ llc
 llvm
 loadBalancerClass
 loadBalancerIP
+loadBalancerSourceRanges
 loadbalancer
 loadbalancers
 loadbalancing
@@ -539,6 +545,7 @@ netdevices
 netdevsim
 netfilter
 netfront
+netkit
 netns
 netperf
 netsec
@@ -599,6 +606,7 @@ prerequirement
 prestop
 printf
 priori
+proc
 profiler
 programmability
 prometheus
@@ -614,6 +622,8 @@ qemu
 queryable
 queueing
 rST
+rateLimit
+ratelimiter
 rc
 reStructuredText
 reachability
@@ -622,6 +632,7 @@ rebased
 rebasing
 recompiles
 reconfigurations
+reconnections
 recv
 regenerations
 regexes
@@ -632,6 +643,8 @@ repo
 repos
 reproducibility
 requireIPv
+requireLBClass
+resync
 retpoline
 retransmission
 retransmissions
@@ -727,6 +740,7 @@ tracepoints
 tracestate
 transpiling
 tsne
+tunings
 tunnelProtocol
 ubuntu
 udp
@@ -784,6 +798,7 @@ webservice
 whitespace
 wildcarded
 workqueue
+workstream
 www
 xDS
 xdp

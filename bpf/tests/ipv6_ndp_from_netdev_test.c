@@ -6,7 +6,6 @@
 #include "pktgen.h"
 #define ROUTER_IP
 #define HOST_IP
-#include "config_replacement.h"
 #undef ROUTER_IP
 #undef HOST_IP
 
@@ -63,7 +62,7 @@ int ipv6_from_netdev_ns_for_pod_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "01_ipv6_from_netdev_ns_for_pod")
 int ipv6_from_netdev_ns_for_pod_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v6_add_entry((union v6addr *)v6_pod_three, 0, 0, 0,
+	endpoint_v6_add_entry((union v6addr *)v6_pod_three, 0, 0, 0, 0,
 			      (__u8 *)mac_three, (__u8 *)mac_two);
 	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
 	return TEST_ERROR;
@@ -100,7 +99,7 @@ int ipv6_from_netdev_ns_for_pod_check(const struct __ctx_buff *ctx)
 	if (l2->h_proto != bpf_htons(ETH_P_IPV6))
 		test_fatal("l2 proto hasn't been set to ETH_P_IP");
 
-	union macaddr node_mac = NODE_MAC;
+	union macaddr node_mac = THIS_INTERFACE_MAC;
 
 	if (memcmp(l2->h_source, (__u8 *)&node_mac.addr, ETH_ALEN) != 0)
 		test_fatal("src mac hasn't been set to node mac");
@@ -184,7 +183,7 @@ int ipv6_from_netdev_ns_for_node_ip_setup(struct __ctx_buff *ctx)
 	union v6addr node_ip;
 
 	BPF_V6(node_ip, HOST_IP);
-	endpoint_v6_add_entry((union v6addr *)&node_ip, 0, 0, ENDPOINT_F_HOST,
+	endpoint_v6_add_entry((union v6addr *)&node_ip, 0, 0, ENDPOINT_F_HOST, 0,
 			      (__u8 *)mac_three, (__u8 *)mac_two);
 	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
 	return TEST_ERROR;

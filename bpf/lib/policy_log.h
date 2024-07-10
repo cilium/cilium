@@ -10,10 +10,10 @@
  *
  * If POLICY_VERDICT_NOTIFY is not defined, the API will be a non-op.
  */
-#ifndef __LIB_POLICY_LOG__
-#define __LIB_POLICY_LOG__
+#pragma once
 
 #include "common.h"
+#include "ratelimit.h"
 
 #ifdef POLICY_VERDICT_NOTIFY
 
@@ -55,13 +55,42 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 {
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
+	struct ratelimit_key rkey = {
+		.usage = RATELIMIT_USAGE_EVENTS_MAP,
+	};
+	struct ratelimit_settings settings = {
+		.topup_interval_ns = NSEC_PER_SEC,
+	};
 	struct policy_verdict_notify msg;
 
+#if defined(IS_BPF_HOST)
+	/* When this function is called in the context of bpf_host (e.g. by
+	 * host firewall) POLICY_VERDICT_LOG_FILTER is always set to 0,
+	 * preventing any policy verdict notification, as the logic to set it
+	 * is only wired up to endpoints.
+	 *
+	 * Insead of tweaking POLICY_VERDICT_LOG_FILTER and reloading bpf_host
+	 * based on whether host firewall policies are present or not, just
+	 * always enable policy verdicts notifications, and filter out the ones
+	 * for default allow policies, to prevent a flood of notifications for
+	 * traffic allowed by default.
+	 */
+	if (match_type == POLICY_MATCH_ALL && verdict == CTX_ACT_OK)
+		return;
+#else
 	if (!policy_verdict_filter_allow(POLICY_VERDICT_LOG_FILTER, dir))
 		return;
+#endif
 
 	if (verdict == 0)
 		verdict = (int)proxy_port;
+
+	if (EVENTS_MAP_RATE_LIMIT > 0) {
+		settings.bucket_size = EVENTS_MAP_BURST_LIMIT;
+		settings.tokens_per_topup = EVENTS_MAP_RATE_LIMIT;
+		if (!ratelimit_check_and_take(&rkey, &settings))
+			return;
+	}
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_POLICY_VERDICT, 0),
@@ -93,4 +122,3 @@ send_policy_verdict_notify(struct __ctx_buff *ctx __maybe_unused,
 {
 }
 #endif /* POLICY_VERDICT_NOTIFY */
-#endif /* __LIB_POLICY_LOG__*/

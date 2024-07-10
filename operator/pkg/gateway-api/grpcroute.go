@@ -5,8 +5,8 @@ package gateway_api
 
 import (
 	"context"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
@@ -29,45 +29,48 @@ import (
 type grpcRouteReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	logger *slog.Logger
 }
 
-func newGRPCRouteReconciler(mgr ctrl.Manager) *grpcRouteReconciler {
+func newGRPCRouteReconciler(mgr ctrl.Manager, logger *slog.Logger) *grpcRouteReconciler {
 	return &grpcRouteReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		logger: logger,
 	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.GRPCRoute{},
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{},
 		backendServiceIndex, r.getBackendServiceForGRPCRoute,
 	); err != nil {
 		return err
 	}
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.GRPCRoute{},
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{},
 		backendServiceImportIndex, r.getBackendServiceImportForGRPCRoute,
 	); err != nil {
 		return err
 	}
 
 	// Create field indexer for Gateway parents, this allows a faster lookup for event queueing
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.GRPCRoute{},
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.GRPCRoute{},
 		gatewayIndex, getParentGatewayForGRPCRoute); err != nil {
 		return err
 	}
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		// Watch for changes to GRPCRoute
-		For(&gatewayv1alpha2.GRPCRoute{}).
+		For(&gatewayv1.GRPCRoute{}).
 		// Watch for changes to Backend services
 		Watches(&corev1.Service{}, r.enqueueRequestForBackendService()).
 		// Watch for changes to Reference Grants
 		Watches(&gatewayv1beta1.ReferenceGrant{}, r.enqueueRequestForReferenceGrant()).
 		// Watch for changes to Gateways and enqueue GRPCRoutes that reference them
-		Watches(&gatewayv1beta1.Gateway{}, r.enqueueRequestForGateway(),
+		Watches(&gatewayv1.Gateway{}, r.enqueueRequestForGateway(),
 			builder.WithPredicates(
-				predicate.NewPredicateFuncs(hasMatchingController(context.Background(), mgr.GetClient(), controllerName))))
+				predicate.NewPredicateFuncs(hasMatchingController(context.Background(), mgr.GetClient(), controllerName, r.logger))))
 
 	if helpers.HasServiceImportSupport(r.Client.Scheme()) {
 		// Watch for changes to Backend Service Imports
@@ -77,7 +80,7 @@ func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func getParentGatewayForGRPCRoute(rawObj client.Object) []string {
-	route, ok := rawObj.(*gatewayv1alpha2.GRPCRoute)
+	route, ok := rawObj.(*gatewayv1.GRPCRoute)
 	if !ok {
 		return nil
 	}
@@ -97,7 +100,7 @@ func getParentGatewayForGRPCRoute(rawObj client.Object) []string {
 }
 
 func (r *grpcRouteReconciler) getBackendServiceForGRPCRoute(rawObj client.Object) []string {
-	route, ok := rawObj.(*gatewayv1alpha2.GRPCRoute)
+	route, ok := rawObj.(*gatewayv1.GRPCRoute)
 	if !ok {
 		return nil
 	}
@@ -107,10 +110,11 @@ func (r *grpcRouteReconciler) getBackendServiceForGRPCRoute(rawObj client.Object
 			namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
 			backendServiceName, err := helpers.GetBackendServiceName(r.Client, namespace, backend.BackendObjectReference)
 			if err != nil {
-				log.WithFields(logrus.Fields{
-					logfields.Controller: "grpcRoute",
-					logfields.Resource:   client.ObjectKeyFromObject(rawObj),
-				}).WithError(err).Error("Failed to get backend service name")
+				r.logger.Error("Failed to get backend service name",
+					logfields.Controller, "grpcRoute",
+					logfields.Resource, client.ObjectKeyFromObject(rawObj),
+					logfields.Error, err,
+				)
 				continue
 			}
 			backendServices = append(backendServices,
@@ -125,7 +129,7 @@ func (r *grpcRouteReconciler) getBackendServiceForGRPCRoute(rawObj client.Object
 }
 
 func (r *grpcRouteReconciler) getBackendServiceImportForGRPCRoute(rawObj client.Object) []string {
-	route, ok := rawObj.(*gatewayv1alpha2.GRPCRoute)
+	route, ok := rawObj.(*gatewayv1.GRPCRoute)
 	if !ok {
 		return nil
 	}
@@ -170,16 +174,13 @@ func (r *grpcRouteReconciler) enqueueRequestForGateway() handler.EventHandler {
 
 func (r *grpcRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Controller: grpcRoute,
-			logfields.Resource:   client.ObjectKeyFromObject(o),
-		})
-		list := &gatewayv1alpha2.GRPCRouteList{}
+		scopedLog := r.logger.With(logfields.Controller, grpcRoute, logfields.Resource, client.ObjectKeyFromObject(o))
+		list := &gatewayv1.GRPCRouteList{}
 
 		if err := r.Client.List(ctx, list, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(index, client.ObjectKeyFromObject(o).String()),
 		}); err != nil {
-			scopedLog.WithError(err).Error("Failed to get related GRPCRoutes")
+			scopedLog.Error("Failed to get related GRPCRoutes", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -192,7 +193,7 @@ func (r *grpcRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: route,
 			})
-			scopedLog.WithField(grpcRoute, route).Info("Enqueued GRPCRoute for resource")
+			scopedLog.Info("Enqueued GRPCRoute for resource", grpcRoute, route)
 		}
 		return requests
 	}
@@ -200,14 +201,11 @@ func (r *grpcRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 
 func (r *grpcRouteReconciler) enqueueAll() handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Controller: grpcRoute,
-			logfields.Resource:   client.ObjectKeyFromObject(o),
-		})
-		list := &gatewayv1alpha2.GRPCRouteList{}
+		scopedLog := r.logger.With(logfields.Controller, grpcRoute, logfields.Resource, client.ObjectKeyFromObject(o))
+		list := &gatewayv1.GRPCRouteList{}
 
 		if err := r.Client.List(ctx, list, &client.ListOptions{}); err != nil {
-			scopedLog.WithError(err).Error("Failed to get GRPCRoutes")
+			scopedLog.Error("Failed to get GRPCRoutes", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -220,7 +218,7 @@ func (r *grpcRouteReconciler) enqueueAll() handler.MapFunc {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: route,
 			})
-			scopedLog.WithField(grpcRoute, route).Info("Enqueued GRPCRoute for resource")
+			scopedLog.Info("Enqueued GRPCRoute for resource", grpcRoute, route)
 		}
 		return requests
 	}

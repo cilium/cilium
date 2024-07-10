@@ -41,7 +41,7 @@
 #undef NODEPORT_PORT_MAX_NAT
 #define NODEPORT_PORT_MAX 32767
 #define NODEPORT_PORT_MIN_NAT (NODEPORT_PORT_MAX + 1)
-#define NODEPORT_PORT_MAX_NAT (NODEPORT_PORT_MIN_NAT + 1)
+#define NODEPORT_PORT_MAX_NAT (NODEPORT_PORT_MIN_NAT)
 
 /* Overwrite (local) CLUSTER_ID defined in node_config.h */
 #undef CLUSTER_ID
@@ -246,6 +246,9 @@ int to_overlay_syn_check(struct __ctx_buff *ctx)
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP has changed");
 
+	if (l3->check != bpf_htons(0x4111))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+
 	if (l4->source != CLIENT_INTER_CLUSTER_SNAT_PORT)
 		test_fatal("src port hasn't been SNATed for inter-cluster communication");
 
@@ -286,7 +289,7 @@ int from_overlay_synack_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "02_from_overlay_synack")
 int from_overlay_synack_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v4_add_entry(CLIENT_IP, CLIENT_IFINDEX, 0, 0,
+	endpoint_v4_add_entry(CLIENT_IP, CLIENT_IFINDEX, 0, 0, 0,
 			      (__u8 *)CLIENT_MAC, (__u8 *)CLIENT_ROUTER_MAC);
 
 	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
@@ -342,6 +345,9 @@ int from_overlay_synack_check(struct __ctx_buff *ctx)
 
 	if (l3->daddr != CLIENT_IP)
 		test_fatal("dst IP hasn't been RevSNATed to client IP");
+
+	if (l3->check != bpf_htons(0xfa68))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	if (l4->source != BACKEND_PORT)
 		test_fatal("src port has changed");
@@ -434,6 +440,9 @@ int to_overlay_ack_check(struct __ctx_buff *ctx)
 
 	if (l3->daddr != BACKEND_IP)
 		test_fatal("dst IP has changed");
+
+	if (l3->check != bpf_htons(0x4111))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_INTER_CLUSTER_SNAT_PORT)
 		test_fatal("src port hasn't been SNATed for inter-cluster communication");

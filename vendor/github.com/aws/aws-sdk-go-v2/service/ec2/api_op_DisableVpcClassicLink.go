@@ -111,6 +111,12 @@ func (c *Client) addOperationDisableVpcClassicLinkMiddlewares(stack *middleware.
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDisableVpcClassicLinkValidationMiddleware(stack); err != nil {
 		return err
 	}

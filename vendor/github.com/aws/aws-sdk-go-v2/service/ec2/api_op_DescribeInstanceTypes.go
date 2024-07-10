@@ -267,6 +267,12 @@ func (c *Client) addOperationDescribeInstanceTypesMiddlewares(stack *middleware.
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeInstanceTypes(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -287,14 +293,6 @@ func (c *Client) addOperationDescribeInstanceTypesMiddlewares(stack *middleware.
 	}
 	return nil
 }
-
-// DescribeInstanceTypesAPIClient is a client that implements the
-// DescribeInstanceTypes operation.
-type DescribeInstanceTypesAPIClient interface {
-	DescribeInstanceTypes(context.Context, *DescribeInstanceTypesInput, ...func(*Options)) (*DescribeInstanceTypesOutput, error)
-}
-
-var _ DescribeInstanceTypesAPIClient = (*Client)(nil)
 
 // DescribeInstanceTypesPaginatorOptions is the paginator options for
 // DescribeInstanceTypes
@@ -364,6 +362,9 @@ func (p *DescribeInstanceTypesPaginator) NextPage(ctx context.Context, optFns ..
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeInstanceTypes(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -382,6 +383,14 @@ func (p *DescribeInstanceTypesPaginator) NextPage(ctx context.Context, optFns ..
 
 	return result, nil
 }
+
+// DescribeInstanceTypesAPIClient is a client that implements the
+// DescribeInstanceTypes operation.
+type DescribeInstanceTypesAPIClient interface {
+	DescribeInstanceTypes(context.Context, *DescribeInstanceTypesInput, ...func(*Options)) (*DescribeInstanceTypesOutput, error)
+}
+
+var _ DescribeInstanceTypesAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeInstanceTypes(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

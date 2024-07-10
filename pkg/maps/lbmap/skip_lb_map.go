@@ -94,7 +94,7 @@ func (m *skipLBMap) AddLB6(netnsCookie uint64, ip net.IP, port uint16) error {
 func (m *skipLBMap) DeleteLB4ByAddrPort(ip net.IP, port uint16) {
 	deleted := 0
 	errors := 0
-	deleteEntry := func(key *SkipLB4Key, _ SkipLB4Value) {
+	deleteEntry := func(key *SkipLB4Key, _ *SkipLB4Value) {
 		if key == nil {
 			return
 		}
@@ -113,7 +113,7 @@ func (m *skipLBMap) DeleteLB4ByAddrPort(ip net.IP, port uint16) {
 	if err := m.bpfMap4.IterateWithCallback(&SkipLB4Key{}, &SkipLB4Value{},
 		func(k, v interface{}) {
 			key := k.(*SkipLB4Key)
-			value := v.(SkipLB4Value)
+			value := v.(*SkipLB4Value)
 			deleteEntry(key, value)
 		}); err != nil {
 		log.WithError(err).Error("error iterating over skip_lb4 map")

@@ -135,6 +135,7 @@ type CreateAutoProvisioningGroupRequest struct {
 	LaunchConfigurationNetworkInterface            *[]CreateAutoProvisioningGroupLaunchConfigurationNetworkInterface `position:"Query" name:"LaunchConfiguration.NetworkInterface"  type:"Repeated"`
 	ValidFrom                                      string                                                            `position:"Query" name:"ValidFrom"`
 	AutoProvisioningGroupName                      string                                                            `position:"Query" name:"AutoProvisioningGroupName"`
+	LaunchConfigurationAdditionalInfo              CreateAutoProvisioningGroupLaunchConfigurationAdditionalInfo      `position:"Query" name:"LaunchConfiguration.AdditionalInfo"  type:"Struct"`
 }
 
 // CreateAutoProvisioningGroupLaunchConfigurationDataDisk is a repeated param struct in CreateAutoProvisioningGroupRequest
@@ -214,6 +215,11 @@ type CreateAutoProvisioningGroupLaunchConfigurationNetworkInterface struct {
 	SecurityGroupId  string    `name:"SecurityGroupId"`
 	SecurityGroupIds *[]string `name:"SecurityGroupIds" type:"Repeated"`
 	InstanceType     string    `name:"InstanceType"`
+}
+
+// CreateAutoProvisioningGroupLaunchConfigurationAdditionalInfo is a repeated param struct in CreateAutoProvisioningGroupRequest
+type CreateAutoProvisioningGroupLaunchConfigurationAdditionalInfo struct {
+	PvdConfig string `name:"PvdConfig"`
 }
 
 // CreateAutoProvisioningGroupLaunchTemplateConfigSecondaryNetworkInterface is a repeated param struct in CreateAutoProvisioningGroupRequest

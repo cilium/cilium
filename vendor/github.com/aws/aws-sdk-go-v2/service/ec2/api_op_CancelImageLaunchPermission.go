@@ -111,6 +111,12 @@ func (c *Client) addOperationCancelImageLaunchPermissionMiddlewares(stack *middl
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpCancelImageLaunchPermissionValidationMiddleware(stack); err != nil {
 		return err
 	}

@@ -308,7 +308,7 @@ type AddressAttribute struct {
 }
 
 // Details on the Elastic IP address transfer. For more information, see [Transfer Elastic IP addresses] in the
-// Amazon Virtual Private Cloud User Guide.
+// Amazon VPC User Guide.
 //
 // [Transfer Elastic IP addresses]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-eips.html#transfer-EIPs-intro
 type AddressTransfer struct {
@@ -990,7 +990,31 @@ type ByoipCidr struct {
 	// [Local Zones]: https://docs.aws.amazon.com/local-zones/latest/ug/how-local-zones-work.html
 	NetworkBorderGroup *string
 
-	// The state of the address pool.
+	// The state of the address range.
+	//
+	//   - advertised : The address range is being advertised to the internet by Amazon
+	//   Web Services.
+	//
+	//   - deprovisioned : The address range is deprovisioned.
+	//
+	//   - failed-deprovision : The request to deprovision the address range was
+	//   unsuccessful. Ensure that all EIPs from the range have been deallocated and try
+	//   again.
+	//
+	//   - failed-provision : The request to provision the address range was
+	//   unsuccessful.
+	//
+	//   - pending-deprovision : You’ve submitted a request to deprovision an address
+	//   range and it's pending.
+	//
+	//   - pending-provision : You’ve submitted a request to provision an address range
+	//   and it's pending.
+	//
+	//   - provisioned : The address range is provisioned and can be advertised. The
+	//   range is not currently advertised.
+	//
+	//   - provisioned-not-publicly-advertisable : The address range is provisioned and
+	//   cannot be advertised.
 	State ByoipCidrState
 
 	// Upon success, contains the ID of the address pool. Otherwise, contains an error
@@ -1556,7 +1580,7 @@ type CertificateAuthenticationRequest struct {
 
 // Provides authorization for Amazon to bring a specific IP address range to a
 // specific Amazon Web Services account using bring your own IP addresses (BYOIP).
-// For more information, see [Configuring your BYOIP address range]in the Amazon Elastic Compute Cloud User Guide.
+// For more information, see [Configuring your BYOIP address range]in the Amazon EC2 User Guide.
 //
 // [Configuring your BYOIP address range]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-byoip.html#prepare-for-byoip
 type CidrAuthorizationContext struct {
@@ -2183,7 +2207,7 @@ type ConnectionNotification struct {
 
 // A security group connection tracking configuration that enables you to set the
 // idle timeout for connection tracking on an Elastic network interface. For more
-// information, see [Connection tracking timeouts]in the Amazon Elastic Compute Cloud User Guide.
+// information, see [Connection tracking timeouts]in the Amazon EC2 User Guide.
 //
 // [Connection tracking timeouts]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts
 type ConnectionTrackingConfiguration struct {
@@ -2208,7 +2232,7 @@ type ConnectionTrackingConfiguration struct {
 
 // A security group connection tracking specification that enables you to set the
 // idle timeout for connection tracking on an Elastic network interface. For more
-// information, see [Connection tracking timeouts]in the Amazon Elastic Compute Cloud User Guide.
+// information, see [Connection tracking timeouts]in the Amazon EC2 User Guide.
 //
 // [Connection tracking timeouts]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts
 type ConnectionTrackingSpecification struct {
@@ -2233,7 +2257,7 @@ type ConnectionTrackingSpecification struct {
 
 // A security group connection tracking specification request that enables you to
 // set the idle timeout for connection tracking on an Elastic network interface.
-// For more information, see [Connection tracking timeouts]in the Amazon Elastic Compute Cloud User Guide.
+// For more information, see [Connection tracking timeouts]in the Amazon EC2 User Guide.
 //
 // [Connection tracking timeouts]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts
 type ConnectionTrackingSpecificationRequest struct {
@@ -2258,7 +2282,7 @@ type ConnectionTrackingSpecificationRequest struct {
 
 // A security group connection tracking specification response that enables you to
 // set the idle timeout for connection tracking on an Elastic network interface.
-// For more information, see [Connection tracking timeouts]in the Amazon Elastic Compute Cloud User Guide.
+// For more information, see [Connection tracking timeouts]in the Amazon EC2 User Guide.
 //
 // [Connection tracking timeouts]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts
 type ConnectionTrackingSpecificationResponse struct {
@@ -2603,9 +2627,17 @@ type CreditSpecificationRequest struct {
 // Describes a customer gateway.
 type CustomerGateway struct {
 
-	// The customer gateway's Border Gateway Protocol (BGP) Autonomous System Number
-	// (ASN).
+	// The customer gateway device's Border Gateway Protocol (BGP) Autonomous System
+	// Number (ASN).
+	//
+	// Valid values: 1 to 2,147,483,647
 	BgpAsn *string
+
+	// The customer gateway device's Border Gateway Protocol (BGP) Autonomous System
+	// Number (ASN).
+	//
+	// Valid values: 2,147,483,648 to 4,294,967,295
+	BgpAsnExtended *string
 
 	// The Amazon Resource Name (ARN) for the customer gateway certificate.
 	CertificateArn *string
@@ -2616,7 +2648,10 @@ type CustomerGateway struct {
 	// The name of customer gateway device.
 	DeviceName *string
 
-	// The IP address of the customer gateway device's outside interface.
+	//  IPv4 address for the customer gateway device's outside interface. The address
+	// must be static. If OutsideIpAddressType in your VPN connection options is set
+	// to PrivateIpv4 , you can use an RFC6598 or RFC1918 private IPv4 address. If
+	// OutsideIpAddressType is set to PublicIpv4 , you can use a public IPv4 address.
 	IpAddress *string
 
 	// The current state of the customer gateway ( pending | available | deleting |
@@ -3562,8 +3597,8 @@ type EgressOnlyInternetGateway struct {
 }
 
 // Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-// that require graphics acceleration, we recommend that you use Amazon EC2 G4ad,
-// G4dn, or G5 instances.
+// that require graphics acceleration, we recommend that you use Amazon EC2 G4, G5,
+// or G6 instances.
 //
 // Describes the association between an instance and an Elastic Graphics
 // accelerator.
@@ -3586,8 +3621,8 @@ type ElasticGpuAssociation struct {
 }
 
 // Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-// that require graphics acceleration, we recommend that you use Amazon EC2 G4ad,
-// G4dn, or G5 instances.
+// that require graphics acceleration, we recommend that you use Amazon EC2 G4, G5,
+// or G6 instances.
 //
 // Describes the status of an Elastic Graphics accelerator.
 type ElasticGpuHealth struct {
@@ -3599,8 +3634,8 @@ type ElasticGpuHealth struct {
 }
 
 // Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-// that require graphics acceleration, we recommend that you use Amazon EC2 G4ad,
-// G4dn, or G5 instances.
+// that require graphics acceleration, we recommend that you use Amazon EC2 G4, G5,
+// or G6 instances.
 //
 // Describes an Elastic Graphics accelerator.
 type ElasticGpus struct {
@@ -3630,17 +3665,13 @@ type ElasticGpus struct {
 }
 
 // Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-// that require graphics acceleration, we recommend that you use Amazon EC2 G4ad,
-// G4dn, or G5 instances.
+// that require graphics acceleration, we recommend that you use Amazon EC2 G4, G5,
+// or G6 instances.
 //
 // A specification for an Elastic Graphics accelerator.
 type ElasticGpuSpecification struct {
 
-	// The type of Elastic Graphics accelerator. For more information about the values
-	// to specify for Type , see [Elastic Graphics Basics], specifically the Elastic Graphics accelerator
-	// column, in the Amazon Elastic Compute Cloud User Guide for Windows Instances.
-	//
-	// [Elastic Graphics Basics]: https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/elastic-graphics.html#elastic-graphics-basics
+	// The type of Elastic Graphics accelerator.
 	//
 	// This member is required.
 	Type *string
@@ -5005,7 +5036,7 @@ type FlowLog struct {
 	//
 	// Valid Values: 60 | 600
 	//
-	// [Nitro-based instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances
+	// [Nitro-based instance]: https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
 	MaxAggregationInterval *int32
 
 	// The ID of the resource being monitored.
@@ -5210,10 +5241,10 @@ type GroupIdentifier struct {
 }
 
 // Indicates whether your instance is configured for hibernation. This parameter
-// is valid only if the instance meets the [hibernation prerequisites]. For more information, see [Hibernate your instance] in the
+// is valid only if the instance meets the [hibernation prerequisites]. For more information, see [Hibernate your Amazon EC2 instance] in the
 // Amazon EC2 User Guide.
 //
-// [Hibernate your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html
+// [Hibernate your Amazon EC2 instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html
 // [hibernation prerequisites]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/hibernating-prerequisites.html
 type HibernationOptions struct {
 
@@ -5225,10 +5256,10 @@ type HibernationOptions struct {
 }
 
 // Indicates whether your instance is configured for hibernation. This parameter
-// is valid only if the instance meets the [hibernation prerequisites]. For more information, see [Hibernate your instance] in the
+// is valid only if the instance meets the [hibernation prerequisites]. For more information, see [Hibernate your Amazon EC2 instance] in the
 // Amazon EC2 User Guide.
 //
-// [Hibernate your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html
+// [Hibernate your Amazon EC2 instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html
 // [hibernation prerequisites]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/hibernating-prerequisites.html
 type HibernationOptionsRequest struct {
 
@@ -6767,7 +6798,7 @@ type InstanceNetworkInterface struct {
 
 	// A security group connection tracking configuration that enables you to set the
 	// timeout for connection tracking on an Elastic network interface. For more
-	// information, see [Connection tracking timeouts]in the Amazon Elastic Compute Cloud User Guide.
+	// information, see [Connection tracking timeouts]in the Amazon EC2 User Guide.
 	//
 	// [Connection tracking timeouts]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts
 	ConnectionTrackingConfiguration *ConnectionTrackingSpecificationResponse
@@ -6902,7 +6933,7 @@ type InstanceNetworkInterfaceSpecification struct {
 
 	// A security group connection tracking specification that enables you to set the
 	// timeout for connection tracking on an Elastic network interface. For more
-	// information, see [Connection tracking timeouts]in the Amazon Elastic Compute Cloud User Guide.
+	// information, see [Connection tracking timeouts]in the Amazon EC2 User Guide.
 	//
 	// [Connection tracking timeouts]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts
 	ConnectionTrackingSpecification *ConnectionTrackingSpecificationRequest
@@ -7281,7 +7312,7 @@ type InstanceRequirements struct {
 	//
 	// The parameter accepts an integer, which Amazon EC2 interprets as a percentage.
 	//
-	// If you set DesiredCapacityType to vcpu or memory-mib , the price protection
+	// If you set TargetCapacityUnitType to vcpu or memory-mib , the price protection
 	// threshold is based on the per vCPU or per memory price instead of the per
 	// instance price.
 	//
@@ -7640,7 +7671,7 @@ type InstanceRequirementsRequest struct {
 	//
 	// The parameter accepts an integer, which Amazon EC2 interprets as a percentage.
 	//
-	// If you set DesiredCapacityType to vcpu or memory-mib , the price protection
+	// If you set TargetCapacityUnitType to vcpu or memory-mib , the price protection
 	// threshold is based on the per vCPU or per memory price instead of the per
 	// instance price.
 	//
@@ -9121,10 +9152,9 @@ type IpRange struct {
 // Describes an IPv4 prefix.
 type Ipv4PrefixSpecification struct {
 
-	// The IPv4 prefix. For information, see [Assigning prefixes to Amazon EC2 network interfaces] in the Amazon Elastic Compute Cloud User
-	// Guide.
+	// The IPv4 prefix. For information, see [Assigning prefixes to network interfaces] in the Amazon EC2 User Guide.
 	//
-	// [Assigning prefixes to Amazon EC2 network interfaces]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html
+	// [Assigning prefixes to network interfaces]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html
 	Ipv4Prefix *string
 
 	noSmithyDocumentSerde
@@ -9133,10 +9163,9 @@ type Ipv4PrefixSpecification struct {
 // Describes the IPv4 prefix option for a network interface.
 type Ipv4PrefixSpecificationRequest struct {
 
-	// The IPv4 prefix. For information, see [Assigning prefixes to Amazon EC2 network interfaces] in the Amazon Elastic Compute Cloud User
-	// Guide.
+	// The IPv4 prefix. For information, see [Assigning prefixes to network interfaces] in the Amazon EC2 User Guide.
 	//
-	// [Assigning prefixes to Amazon EC2 network interfaces]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html
+	// [Assigning prefixes to network interfaces]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html
 	Ipv4Prefix *string
 
 	noSmithyDocumentSerde
@@ -9852,7 +9881,7 @@ type LaunchTemplateInstanceMarketOptionsRequest struct {
 }
 
 // The metadata options for the instance. For more information, see [Instance metadata and user data] in the Amazon
-// Elastic Compute Cloud User Guide.
+// EC2 User Guide.
 //
 // [Instance metadata and user data]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html
 type LaunchTemplateInstanceMetadataOptions struct {
@@ -9912,7 +9941,7 @@ type LaunchTemplateInstanceMetadataOptions struct {
 }
 
 // The metadata options for the instance. For more information, see [Instance metadata and user data] in the Amazon
-// Elastic Compute Cloud User Guide.
+// EC2 User Guide.
 //
 // [Instance metadata and user data]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html
 type LaunchTemplateInstanceMetadataOptionsRequest struct {
@@ -9991,9 +10020,9 @@ type LaunchTemplateInstanceNetworkInterfaceSpecification struct {
 
 	// A security group connection tracking specification that enables you to set the
 	// timeout for connection tracking on an Elastic network interface. For more
-	// information, see [Connection tracking timeouts]in the Amazon Elastic Compute Cloud User Guide.
+	// information, see [Idle connection tracking timeout]in the Amazon EC2 User Guide.
 	//
-	// [Connection tracking timeouts]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts
+	// [Idle connection tracking timeout]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts
 	ConnectionTrackingSpecification *ConnectionTrackingSpecification
 
 	// Indicates whether the network interface is deleted when the instance is
@@ -10088,9 +10117,9 @@ type LaunchTemplateInstanceNetworkInterfaceSpecificationRequest struct {
 
 	// A security group connection tracking specification that enables you to set the
 	// timeout for connection tracking on an Elastic network interface. For more
-	// information, see [Connection tracking timeouts]in the Amazon Elastic Compute Cloud User Guide.
+	// information, see [Idle connection tracking timeout]in the Amazon EC2 User Guide.
 	//
-	// [Connection tracking timeouts]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts
+	// [Idle connection tracking timeout]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts
 	ConnectionTrackingSpecification *ConnectionTrackingSpecificationRequest
 
 	// Indicates whether the network interface is deleted when the instance is
@@ -10114,8 +10143,7 @@ type LaunchTemplateInstanceNetworkInterfaceSpecificationRequest struct {
 	Groups []string
 
 	// The type of network interface. To create an Elastic Fabric Adapter (EFA),
-	// specify efa . For more information, see [Elastic Fabric Adapter] in the Amazon Elastic Compute Cloud
-	// User Guide.
+	// specify efa . For more information, see [Elastic Fabric Adapter] in the Amazon EC2 User Guide.
 	//
 	// If you are not creating an EFA, specify interface or omit this parameter.
 	//
@@ -11459,11 +11487,10 @@ type NatGateway struct {
 	// The ID of the NAT gateway.
 	NatGatewayId *string
 
-	// Reserved. If you need to sustain traffic greater than the [documented limits], contact us through
-	// the [Support Center].
+	// Reserved. If you need to sustain traffic greater than the [documented limits], contact Amazon Web
+	// Services Support.
 	//
-	// [documented limits]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html
-	// [Support Center]: https://console.aws.amazon.com/support/home?
+	// [documented limits]: https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html#vpc-limits-gateways
 	ProvisionedBandwidth *ProvisionedBandwidth
 
 	// The state of the NAT gateway.
@@ -11533,7 +11560,7 @@ type NatGatewayAddress struct {
 // Describes a network ACL.
 type NetworkAcl struct {
 
-	// Any associations between the network ACL and one or more subnets
+	// Any associations between the network ACL and your subnets
 	Associations []NetworkAclAssociation
 
 	// The entries (rules) in the network ACL.
@@ -11916,7 +11943,7 @@ type NetworkInterface struct {
 
 	// A security group connection tracking configuration that enables you to set the
 	// timeout for connection tracking on an Elastic network interface. For more
-	// information, see [Connection tracking timeouts]in the Amazon Elastic Compute Cloud User Guide.
+	// information, see [Connection tracking timeouts]in the Amazon EC2 User Guide.
 	//
 	// [Connection tracking timeouts]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-connection-tracking.html#connection-tracking-timeouts
 	ConnectionTrackingConfiguration *ConnectionTrackingConfiguration
@@ -12307,16 +12334,16 @@ type OnDemandOptions struct {
 	// their average CPU usage exceeds the baseline utilization, you will incur a
 	// charge for surplus credits. The maxTotalPrice does not account for surplus
 	// credits, and, if you use surplus credits, your final cost might be higher than
-	// what you specified for maxTotalPrice . For more information, see [Surplus credits can incur charges] in the EC2
-	// User Guide.
+	// what you specified for maxTotalPrice . For more information, see [Surplus credits can incur charges] in the Amazon
+	// EC2 User Guide.
 	//
 	// [Surplus credits can incur charges]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-unlimited-mode-concepts.html#unlimited-mode-surplus-credits
 	MaxTotalPrice *string
 
-	// The minimum target capacity for On-Demand Instances in the fleet. If the
-	// minimum target capacity is not reached, the fleet launches no instances.
+	// The minimum target capacity for On-Demand Instances in the fleet. If this
+	// minimum capacity isn't reached, no instances are launched.
 	//
-	// Supported only for fleets of type instant .
+	// Constraints: Maximum value of 1000 . Supported only for fleets of type instant .
 	//
 	// At least one of the following must be specified: SingleAvailabilityZone |
 	// SingleInstanceType
@@ -12364,16 +12391,16 @@ type OnDemandOptionsRequest struct {
 	// their average CPU usage exceeds the baseline utilization, you will incur a
 	// charge for surplus credits. The MaxTotalPrice does not account for surplus
 	// credits, and, if you use surplus credits, your final cost might be higher than
-	// what you specified for MaxTotalPrice . For more information, see [Surplus credits can incur charges] in the EC2
-	// User Guide.
+	// what you specified for MaxTotalPrice . For more information, see [Surplus credits can incur charges] in the Amazon
+	// EC2 User Guide.
 	//
 	// [Surplus credits can incur charges]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-unlimited-mode-concepts.html#unlimited-mode-surplus-credits
 	MaxTotalPrice *string
 
-	// The minimum target capacity for On-Demand Instances in the fleet. If the
-	// minimum target capacity is not reached, the fleet launches no instances.
+	// The minimum target capacity for On-Demand Instances in the fleet. If this
+	// minimum capacity isn't reached, no instances are launched.
 	//
-	// Supported only for fleets of type instant .
+	// Constraints: Maximum value of 1000 . Supported only for fleets of type instant .
 	//
 	// At least one of the following must be specified: SingleAvailabilityZone |
 	// SingleInstanceType
@@ -13180,46 +13207,25 @@ type PropagatingVgw struct {
 	noSmithyDocumentSerde
 }
 
-// Reserved. If you need to sustain traffic greater than the [documented limits], contact us through
-// the [Support Center].
+// Reserved. If you need to sustain traffic greater than the [documented limits], contact Amazon Web
+// Services Support.
 //
-// [documented limits]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html
-// [Support Center]: https://console.aws.amazon.com/support/home?
+// [documented limits]: https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html#vpc-limits-gateways
 type ProvisionedBandwidth struct {
 
-	// Reserved. If you need to sustain traffic greater than the [documented limits], contact us through
-	// the [Support Center].
-	//
-	// [documented limits]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html
-	// [Support Center]: https://console.aws.amazon.com/support/home?
+	// Reserved.
 	ProvisionTime *time.Time
 
-	// Reserved. If you need to sustain traffic greater than the [documented limits], contact us through
-	// the [Support Center].
-	//
-	// [documented limits]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html
-	// [Support Center]: https://console.aws.amazon.com/support/home?
+	// Reserved.
 	Provisioned *string
 
-	// Reserved. If you need to sustain traffic greater than the [documented limits], contact us through
-	// the [Support Center].
-	//
-	// [documented limits]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html
-	// [Support Center]: https://console.aws.amazon.com/support/home?
+	// Reserved.
 	RequestTime *time.Time
 
-	// Reserved. If you need to sustain traffic greater than the [documented limits], contact us through
-	// the [Support Center].
-	//
-	// [documented limits]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html
-	// [Support Center]: https://console.aws.amazon.com/support/home?
+	// Reserved.
 	Requested *string
 
-	// Reserved. If you need to sustain traffic greater than the [documented limits], contact us through
-	// the [Support Center].
-	//
-	// [documented limits]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html
-	// [Support Center]: https://console.aws.amazon.com/support/home?
+	// Reserved.
 	Status *string
 
 	noSmithyDocumentSerde
@@ -13520,19 +13526,19 @@ type RequestLaunchTemplateData struct {
 	// attributes (instance type, platform, Availability Zone).
 	CapacityReservationSpecification *LaunchTemplateCapacityReservationSpecificationRequest
 
-	// The CPU options for the instance. For more information, see [Optimizing CPU Options] in the Amazon
-	// Elastic Compute Cloud User Guide.
+	// The CPU options for the instance. For more information, see [Optimize CPU options] in the Amazon EC2
+	// User Guide.
 	//
-	// [Optimizing CPU Options]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-optimize-cpu.html
+	// [Optimize CPU options]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-optimize-cpu.html
 	CpuOptions *LaunchTemplateCpuOptionsRequest
 
 	// The credit option for CPU usage of the instance. Valid only for T instances.
 	CreditSpecification *CreditSpecificationRequest
 
 	// Indicates whether to enable the instance for stop protection. For more
-	// information, see [Stop protection]in the Amazon Elastic Compute Cloud User Guide.
+	// information, see [Enable stop protection for your instance]in the Amazon EC2 User Guide.
 	//
-	// [Stop protection]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html#Using_StopProtection
+	// [Enable stop protection for your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-stop-protection.html
 	DisableApiStop *bool
 
 	// If you set this parameter to true , you can't terminate the instance using the
@@ -13584,10 +13590,10 @@ type RequestLaunchTemplateData struct {
 	EnclaveOptions *LaunchTemplateEnclaveOptionsRequest
 
 	// Indicates whether an instance is enabled for hibernation. This parameter is
-	// valid only if the instance meets the [hibernation prerequisites]. For more information, see [Hibernate your instance] in the Amazon
-	// Elastic Compute Cloud User Guide.
+	// valid only if the instance meets the [hibernation prerequisites]. For more information, see [Hibernate your Amazon EC2 instance] in the Amazon
+	// EC2 User Guide.
 	//
-	// [Hibernate your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html
+	// [Hibernate your Amazon EC2 instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html
 	// [hibernation prerequisites]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/hibernating-prerequisites.html
 	HibernationOptions *LaunchTemplateHibernationOptionsRequest
 
@@ -13613,7 +13619,7 @@ type RequestLaunchTemplateData struct {
 	// parameter. If the launch template will be used by an EC2 Fleet or Spot Fleet,
 	// you must specify the AMI ID.
 	//
-	// For more information, see [Use a Systems Manager parameter instead of an AMI ID] in the Amazon Elastic Compute Cloud User Guide.
+	// For more information, see [Use a Systems Manager parameter instead of an AMI ID] in the Amazon EC2 User Guide.
 	//
 	// [Use a Systems Manager parameter instead of an AMI ID]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-launch-template.html#use-an-ssm-parameter-instead-of-an-ami-id
 	ImageId *string
@@ -13664,18 +13670,17 @@ type RequestLaunchTemplateData struct {
 	// [launch instance wizard]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-instance-wizard.html
 	InstanceRequirements *InstanceRequirementsRequest
 
-	// The instance type. For more information, see [Instance types] in the Amazon Elastic Compute
-	// Cloud User Guide.
+	// The instance type. For more information, see [Amazon EC2 instance types] in the Amazon EC2 User Guide.
 	//
 	// If you specify InstanceType , you can't specify InstanceRequirements .
 	//
-	// [Instance types]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html
+	// [Amazon EC2 instance types]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html
 	InstanceType InstanceType
 
 	// The ID of the kernel.
 	//
 	// We recommend that you use PV-GRUB instead of kernels and RAM disks. For more
-	// information, see [User provided kernels]in the Amazon Elastic Compute Cloud User Guide.
+	// information, see [User provided kernels]in the Amazon EC2 User Guide.
 	//
 	// [User provided kernels]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/UserProvidedkernels.html
 	KernelId *string
@@ -13696,7 +13701,7 @@ type RequestLaunchTemplateData struct {
 	MaintenanceOptions *LaunchTemplateInstanceMaintenanceOptionsRequest
 
 	// The metadata options for the instance. For more information, see [Instance metadata and user data] in the Amazon
-	// Elastic Compute Cloud User Guide.
+	// EC2 User Guide.
 	//
 	// [Instance metadata and user data]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html
 	MetadataOptions *LaunchTemplateInstanceMetadataOptionsRequest
@@ -13717,7 +13722,7 @@ type RequestLaunchTemplateData struct {
 	// The ID of the RAM disk.
 	//
 	// We recommend that you use PV-GRUB instead of kernels and RAM disks. For more
-	// information, see [User provided kernels]in the Amazon Elastic Compute Cloud User Guide.
+	// information, see [User provided kernels]in the Amazon EC2 User Guide.
 	//
 	// [User provided kernels]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/UserProvidedkernels.html
 	RamDiskId *string
@@ -13740,16 +13745,15 @@ type RequestLaunchTemplateData struct {
 	TagSpecifications []LaunchTemplateTagSpecificationRequest
 
 	// The user data to make available to the instance. You must provide
-	// base64-encoded text. User data is limited to 16 KB. For more information, see [Run commands on your Linux instance at launch]
-	// (Linux) or [Work with instance user data](Windows) in the Amazon Elastic Compute Cloud User Guide.
+	// base64-encoded text. User data is limited to 16 KB. For more information, see [Run commands on your Amazon EC2 instance at launch]
+	// in the Amazon EC2 User Guide.
 	//
 	// If you are creating the launch template for use with Batch, the user data must
 	// be provided in the [MIME multi-part archive format]. For more information, see [Amazon EC2 user data in launch templates] in the Batch User Guide.
 	//
-	// [Run commands on your Linux instance at launch]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html
 	// [Amazon EC2 user data in launch templates]: https://docs.aws.amazon.com/batch/latest/userguide/launch-templates.html
 	// [MIME multi-part archive format]: https://cloudinit.readthedocs.io/en/latest/topics/format.html#mime-multi-part-archive
-	// [Work with instance user data]: https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/instancedata-add-user-data.html
+	// [Run commands on your Amazon EC2 instance at launch]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html
 	UserData *string
 
 	noSmithyDocumentSerde
@@ -14227,19 +14231,19 @@ type ResponseLaunchTemplateData struct {
 	// Information about the Capacity Reservation targeting option.
 	CapacityReservationSpecification *LaunchTemplateCapacityReservationSpecificationResponse
 
-	// The CPU options for the instance. For more information, see [Optimizing CPU options] in the Amazon
-	// Elastic Compute Cloud User Guide.
+	// The CPU options for the instance. For more information, see [Optimize CPU options] in the Amazon EC2
+	// User Guide.
 	//
-	// [Optimizing CPU options]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-optimize-cpu.html
+	// [Optimize CPU options]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-optimize-cpu.html
 	CpuOptions *LaunchTemplateCpuOptions
 
 	// The credit option for CPU usage of the instance.
 	CreditSpecification *CreditSpecification
 
 	// Indicates whether the instance is enabled for stop protection. For more
-	// information, see [Stop protection]in the Amazon Elastic Compute Cloud User Guide.
+	// information, see [Enable stop protection for your instance]in the Amazon EC2 User Guide.
 	//
-	// [Stop protection]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html#Using_StopProtection
+	// [Enable stop protection for your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-stop-protection.html
 	DisableApiStop *bool
 
 	// If set to true , indicates that the instance cannot be terminated using the
@@ -14276,9 +14280,9 @@ type ResponseLaunchTemplateData struct {
 	EnclaveOptions *LaunchTemplateEnclaveOptions
 
 	// Indicates whether an instance is configured for hibernation. For more
-	// information, see [Hibernate your instance]in the Amazon Elastic Compute Cloud User Guide.
+	// information, see [Hibernate your Amazon EC2 instance]in the Amazon EC2 User Guide.
 	//
-	// [Hibernate your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html
+	// [Hibernate your Amazon EC2 instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html
 	HibernationOptions *LaunchTemplateHibernationOptions
 
 	// The IAM instance profile.
@@ -14298,7 +14302,7 @@ type ResponseLaunchTemplateData struct {
 	//   - If a Systems Manager parameter was specified in the request, and
 	//   ResolveAlias was configured as false , then this is the parameter value.
 	//
-	// For more information, see [Use a Systems Manager parameter instead of an AMI ID] in the Amazon Elastic Compute Cloud User Guide.
+	// For more information, see [Use a Systems Manager parameter instead of an AMI ID] in the Amazon EC2 User Guide.
 	//
 	// [Use a Systems Manager parameter instead of an AMI ID]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html#use-an-ssm-parameter-instead-of-an-ami-id
 	ImageId *string
@@ -14332,7 +14336,7 @@ type ResponseLaunchTemplateData struct {
 	MaintenanceOptions *LaunchTemplateInstanceMaintenanceOptions
 
 	// The metadata options for the instance. For more information, see [Instance metadata and user data] in the Amazon
-	// Elastic Compute Cloud User Guide.
+	// EC2 User Guide.
 	//
 	// [Instance metadata and user data]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html
 	MetadataOptions *LaunchTemplateInstanceMetadataOptions
@@ -14434,7 +14438,7 @@ type Route struct {
 // Describes a route table.
 type RouteTable struct {
 
-	// The associations between the route table and one or more subnets or a gateway.
+	// The associations between the route table and your subnets or gateways.
 	Associations []RouteTableAssociation
 
 	// The ID of the Amazon Web Services account that owns the route table.
@@ -15362,8 +15366,8 @@ type Snapshot struct {
 	// Indicates whether the snapshot is encrypted.
 	Encrypted *bool
 
-	// The Amazon Resource Name (ARN) of the Key Management Service (KMS) KMS key that
-	// was used to protect the volume encryption key for the parent volume.
+	// The Amazon Resource Name (ARN) of the KMS key that was used to protect the
+	// volume encryption key for the parent volume.
 	KmsKeyId *string
 
 	// The ARN of the Outpost on which the snapshot is stored. For more information,
@@ -15401,9 +15405,9 @@ type Snapshot struct {
 	State SnapshotState
 
 	// Encrypted Amazon EBS snapshots are copied asynchronously. If a snapshot copy
-	// operation fails (for example, if the proper Key Management Service (KMS)
-	// permissions are not obtained) this field displays error state details to help
-	// you diagnose why the error occurred. This parameter is only returned by DescribeSnapshots.
+	// operation fails (for example, if the proper KMS permissions are not obtained)
+	// this field displays error state details to help you diagnose why the error
+	// occurred. This parameter is only returned by DescribeSnapshots.
 	StateMessage *string
 
 	// The storage tier in which the snapshot is stored. standard indicates that the
@@ -15638,7 +15642,7 @@ type SnapshotTierStatus struct {
 
 // The Spot Instance replacement strategy to use when Amazon EC2 emits a signal
 // that your Spot Instance is at an elevated risk of being interrupted. For more
-// information, see [Capacity rebalancing]in the Amazon EC2 User Guide for Linux Instances.
+// information, see [Capacity rebalancing]in the Amazon EC2 User Guide.
 //
 // [Capacity rebalancing]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-capacity-rebalance.html
 type SpotCapacityRebalance struct {
@@ -15889,15 +15893,19 @@ type SpotFleetRequestConfigData struct {
 	// diversified Spot Fleet requests instances from all of the Spot Instance pools
 	// that you specify.
 	//
-	// lowestPrice Spot Fleet requests instances from the lowest priced Spot Instance
-	// pool that has available capacity. If the lowest priced pool doesn't have
-	// available capacity, the Spot Instances come from the next lowest priced pool
-	// that has available capacity. If a pool runs out of capacity before fulfilling
-	// your desired capacity, Spot Fleet will continue to fulfill your request by
-	// drawing from the next lowest priced pool. To ensure that your desired capacity
-	// is met, you might receive Spot Instances from several pools. Because this
-	// strategy only considers instance price and not capacity availability, it might
-	// lead to high interruption rates.
+	// lowestPrice (not recommended) We don't recommend the lowestPrice allocation
+	// strategy because it has the highest risk of interruption for your Spot
+	// Instances.
+	//
+	// Spot Fleet requests instances from the lowest priced Spot Instance pool that
+	// has available capacity. If the lowest priced pool doesn't have available
+	// capacity, the Spot Instances come from the next lowest priced pool that has
+	// available capacity. If a pool runs out of capacity before fulfilling your
+	// desired capacity, Spot Fleet will continue to fulfill your request by drawing
+	// from the next lowest priced pool. To ensure that your desired capacity is met,
+	// you might receive Spot Instances from several pools. Because this strategy only
+	// considers instance price and not capacity availability, it might lead to high
+	// interruption rates.
 	//
 	// Default: lowestPrice
 	//
@@ -15992,7 +16000,7 @@ type SpotFleetRequestConfigData struct {
 	// charge for surplus credits. The onDemandMaxTotalPrice does not account for
 	// surplus credits, and, if you use surplus credits, your final cost might be
 	// higher than what you specified for onDemandMaxTotalPrice . For more information,
-	// see [Surplus credits can incur charges]in the EC2 User Guide.
+	// see [Surplus credits can incur charges]in the Amazon EC2 User Guide.
 	//
 	// [Surplus credits can incur charges]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-unlimited-mode-concepts.html#unlimited-mode-surplus-credits
 	OnDemandMaxTotalPrice *string
@@ -16024,7 +16032,7 @@ type SpotFleetRequestConfigData struct {
 	// charge for surplus credits. The spotMaxTotalPrice does not account for surplus
 	// credits, and, if you use surplus credits, your final cost might be higher than
 	// what you specified for spotMaxTotalPrice . For more information, see [Surplus credits can incur charges] in the
-	// EC2 User Guide.
+	// Amazon EC2 User Guide.
 	//
 	// [Surplus credits can incur charges]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-unlimited-mode-concepts.html#unlimited-mode-surplus-credits
 	SpotMaxTotalPrice *string
@@ -16153,7 +16161,7 @@ type SpotInstanceRequest struct {
 
 	// The state of the Spot Instance request. Spot request status information helps
 	// track your Spot Instance requests. For more information, see [Spot request status]in the Amazon EC2
-	// User Guide for Linux Instances.
+	// User Guide.
 	//
 	// [Spot request status]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-request-status.html
 	State SpotInstanceState
@@ -16201,8 +16209,7 @@ type SpotInstanceStateFault struct {
 // Describes the status of a Spot Instance request.
 type SpotInstanceStatus struct {
 
-	// The status code. For a list of status codes, see [Spot request status codes] in the Amazon EC2 User Guide
-	// for Linux Instances.
+	// The status code. For a list of status codes, see [Spot request status codes] in the Amazon EC2 User Guide.
 	//
 	// [Spot request status codes]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-request-status.html#spot-instance-request-status-understand
 	Code *string
@@ -16223,7 +16230,7 @@ type SpotMaintenanceStrategies struct {
 
 	// The Spot Instance replacement strategy to use when Amazon EC2 emits a signal
 	// that your Spot Instance is at an elevated risk of being interrupted. For more
-	// information, see [Capacity rebalancing]in the Amazon EC2 User Guide for Linux Instances.
+	// information, see [Capacity rebalancing]in the Amazon EC2 User Guide.
 	//
 	// [Capacity rebalancing]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-capacity-rebalance.html
 	CapacityRebalance *SpotCapacityRebalance
@@ -16312,15 +16319,19 @@ type SpotOptions struct {
 	// diversified EC2 Fleet requests instances from all of the Spot Instance pools
 	// that you specify.
 	//
-	// lowest-price EC2 Fleet requests instances from the lowest priced Spot Instance
-	// pool that has available capacity. If the lowest priced pool doesn't have
-	// available capacity, the Spot Instances come from the next lowest priced pool
-	// that has available capacity. If a pool runs out of capacity before fulfilling
-	// your desired capacity, EC2 Fleet will continue to fulfill your request by
-	// drawing from the next lowest priced pool. To ensure that your desired capacity
-	// is met, you might receive Spot Instances from several pools. Because this
-	// strategy only considers instance price and not capacity availability, it might
-	// lead to high interruption rates.
+	// lowest-price (not recommended) We don't recommend the lowest-price allocation
+	// strategy because it has the highest risk of interruption for your Spot
+	// Instances.
+	//
+	// EC2 Fleet requests instances from the lowest priced Spot Instance pool that has
+	// available capacity. If the lowest priced pool doesn't have available capacity,
+	// the Spot Instances come from the next lowest priced pool that has available
+	// capacity. If a pool runs out of capacity before fulfilling your desired
+	// capacity, EC2 Fleet will continue to fulfill your request by drawing from the
+	// next lowest priced pool. To ensure that your desired capacity is met, you might
+	// receive Spot Instances from several pools. Because this strategy only considers
+	// instance price and not capacity availability, it might lead to high interruption
+	// rates.
 	//
 	// Default: lowest-price
 	//
@@ -16363,16 +16374,16 @@ type SpotOptions struct {
 	// their average CPU usage exceeds the baseline utilization, you will incur a
 	// charge for surplus credits. The maxTotalPrice does not account for surplus
 	// credits, and, if you use surplus credits, your final cost might be higher than
-	// what you specified for maxTotalPrice . For more information, see [Surplus credits can incur charges] in the EC2
-	// User Guide.
+	// what you specified for maxTotalPrice . For more information, see [Surplus credits can incur charges] in the Amazon
+	// EC2 User Guide.
 	//
 	// [Surplus credits can incur charges]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-unlimited-mode-concepts.html#unlimited-mode-surplus-credits
 	MaxTotalPrice *string
 
-	// The minimum target capacity for Spot Instances in the fleet. If the minimum
-	// target capacity is not reached, the fleet launches no instances.
+	// The minimum target capacity for Spot Instances in the fleet. If this minimum
+	// capacity isn't reached, no instances are launched.
 	//
-	// Supported only for fleets of type instant .
+	// Constraints: Maximum value of 1000 . Supported only for fleets of type instant .
 	//
 	// At least one of the following must be specified: SingleAvailabilityZone |
 	// SingleInstanceType
@@ -16422,15 +16433,19 @@ type SpotOptionsRequest struct {
 	// diversified EC2 Fleet requests instances from all of the Spot Instance pools
 	// that you specify.
 	//
-	// lowest-price EC2 Fleet requests instances from the lowest priced Spot Instance
-	// pool that has available capacity. If the lowest priced pool doesn't have
-	// available capacity, the Spot Instances come from the next lowest priced pool
-	// that has available capacity. If a pool runs out of capacity before fulfilling
-	// your desired capacity, EC2 Fleet will continue to fulfill your request by
-	// drawing from the next lowest priced pool. To ensure that your desired capacity
-	// is met, you might receive Spot Instances from several pools. Because this
-	// strategy only considers instance price and not capacity availability, it might
-	// lead to high interruption rates.
+	// lowest-price (not recommended) We don't recommend the lowest-price allocation
+	// strategy because it has the highest risk of interruption for your Spot
+	// Instances.
+	//
+	// EC2 Fleet requests instances from the lowest priced Spot Instance pool that has
+	// available capacity. If the lowest priced pool doesn't have available capacity,
+	// the Spot Instances come from the next lowest priced pool that has available
+	// capacity. If a pool runs out of capacity before fulfilling your desired
+	// capacity, EC2 Fleet will continue to fulfill your request by drawing from the
+	// next lowest priced pool. To ensure that your desired capacity is met, you might
+	// receive Spot Instances from several pools. Because this strategy only considers
+	// instance price and not capacity availability, it might lead to high interruption
+	// rates.
 	//
 	// Default: lowest-price
 	//
@@ -16473,16 +16488,16 @@ type SpotOptionsRequest struct {
 	// their average CPU usage exceeds the baseline utilization, you will incur a
 	// charge for surplus credits. The MaxTotalPrice does not account for surplus
 	// credits, and, if you use surplus credits, your final cost might be higher than
-	// what you specified for MaxTotalPrice . For more information, see [Surplus credits can incur charges] in the EC2
-	// User Guide.
+	// what you specified for MaxTotalPrice . For more information, see [Surplus credits can incur charges] in the Amazon
+	// EC2 User Guide.
 	//
 	// [Surplus credits can incur charges]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-unlimited-mode-concepts.html#unlimited-mode-surplus-credits
 	MaxTotalPrice *string
 
-	// The minimum target capacity for Spot Instances in the fleet. If the minimum
-	// target capacity is not reached, the fleet launches no instances.
+	// The minimum target capacity for Spot Instances in the fleet. If this minimum
+	// capacity isn't reached, no instances are launched.
 	//
-	// Supported only for fleets of type instant .
+	// Constraints: Maximum value of 1000 . Supported only for fleets of type instant .
 	//
 	// At least one of the following must be specified: SingleAvailabilityZone |
 	// SingleInstanceType
@@ -17279,6 +17294,9 @@ type TrafficMirrorFilterRule struct {
 
 	// The source port range assigned to the Traffic Mirror rule.
 	SourcePortRange *TrafficMirrorPortRange
+
+	// Tags on Traffic Mirroring filter rules.
+	Tags []Tag
 
 	// The traffic direction assigned to the Traffic Mirror rule.
 	TrafficDirection TrafficDirection
@@ -19163,8 +19181,8 @@ type Volume struct {
 	// rate at which the volume accumulates I/O credits for bursting.
 	Iops *int32
 
-	// The Amazon Resource Name (ARN) of the Key Management Service (KMS) KMS key that
-	// was used to protect the volume encryption key for the volume.
+	// The Amazon Resource Name (ARN) of the KMS key that was used to protect the
+	// volume encryption key for the volume.
 	KmsKeyId *string
 
 	// Indicates whether Amazon EBS Multi-Attach is enabled.

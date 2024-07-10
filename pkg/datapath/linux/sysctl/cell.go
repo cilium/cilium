@@ -26,8 +26,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(
 		tables.NewSysctlTable,
 
-		reconciler.New[*tables.Sysctl],
-		newReconcilerConfig,
+		newReconciler,
 		newOps,
 	),
 	cell.ProvidePrivate(
@@ -45,19 +44,24 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.String("procfs", "/proc", "Path to the host's proc filesystem mount")
 }
 
-func newReconcilerConfig(
+func newReconciler(
+	params reconciler.Params,
 	ops reconciler.Operations[*tables.Sysctl],
 	tbl statedb.RWTable[*tables.Sysctl],
-) reconciler.Config[*tables.Sysctl] {
-	return reconciler.Config[*tables.Sysctl]{
-		Table:                     tbl,
-		FullReconcilationInterval: 10 * time.Minute,
-		RetryBackoffMinDuration:   100 * time.Millisecond,
-		RetryBackoffMaxDuration:   5 * time.Second,
-		IncrementalRoundSize:      100,
-		GetObjectStatus:           (*tables.Sysctl).GetStatus,
-		SetObjectStatus:           (*tables.Sysctl).SetStatus,
-		CloneObject:               (*tables.Sysctl).Clone,
-		Operations:                ops,
-	}
+) (reconciler.Reconciler[*tables.Sysctl], error) {
+	return reconciler.Register(
+		params,
+		tbl,
+		(*tables.Sysctl).Clone,
+		(*tables.Sysctl).SetStatus,
+		(*tables.Sysctl).GetStatus,
+		ops,
+		nil,
+
+		reconciler.WithoutPruning(),
+		reconciler.WithRefreshing(
+			10*time.Minute,
+			nil,
+		),
+	)
 }

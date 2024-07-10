@@ -301,21 +301,47 @@ Annotations:
 
 .. _current_release_required_changes:
 
+.. _1.17_upgrade_notes:
+
+1.17 Upgrade Notes
+------------------
+
+* Operating Cilium in ``--datapath-mode=lb-only`` for plain Docker mode now requires to
+  add an additional ``--bpf-lb-external-control-plane=true`` to the command line, otherwise
+  it is assumed that Kubernetes is present.
+
 .. _1.16_upgrade_notes:
 
 1.16 Upgrade Notes
 ------------------
 
-* Cilium Envoy DaemonSet is now enabled by default, and existing in-container installs
-  will be changed to DaemonSet mode unless specifically opted out of. This can be done by
-  disabling it manually by setting ``envoy.enabled=false`` accordingly. This change adds
-  one additional Pod per Node, therefore Nodes at maximum Pod capacity will face an
-  eviction of a single non-system critical Pod after upgrading.
+* Cilium Envoy DaemonSet is now enabled by default for new installation if the helm attribute
+  ``envoy.enabled`` is not specified, for existing cluster, please set ``upgradeCompatibility``
+  to 1.15 or earlier to keep the previous behavior. This change adds one additional Pod per Node,
+  therefore Nodes at maximum Pod capacity will face an eviction of a single non-system critical
+  Pod after upgrading.
 * For Linux kernels of version 6.6 or newer, Cilium by default switches to tcx BPF links for
   attaching its tc BPF programs in the core datapath for better resiliency and performance.
   If your current setup has third-party old-style tc BPF users, then this option should be
   disabled via Helm through ``bpf.enableTCX=false`` in order to continue in old-style tc BPF
   attachment mode as before.
+* Starting with Cilium 1.16 netkit is supported as a new datapath mode for Linux kernels of
+  version 6.8 or newer. Cilium still continues to rely on veth devices by default. In case
+  of interest to experiment with netkit, please consider the :ref:`performance_tuning` guide
+  for instructions. An in-place replacement of veth to netkit is not possible.
+* The implementation of ``toFQDNs`` selectors in policies has been overhauled to improve
+  performance when many different IPs are observed for a selector: Instead of creating
+  ``cidr`` identities for each allowed IP, IPs observed in DNS lookups are now labeled
+  with the selectors ``toFQDNs`` matching them. This reduces tail latency significantly for
+  FQDNs with a highly dynamic set of IPs, such as e.g. content delivery networks and
+  cloud object storage services.
+  Cilium automatically migrates its internal state for ``toFQDNs`` policy entries upon
+  upgrade or downgrade. To avoid drops during upgrades in clusters with ``toFQDNs`` policies,
+  it is required to run Cilium v1.15.6 or newer before upgrading to Cilium v1.16. If upgrading
+  from an older Cilium version, temporary packet drops for connections allowed by ``toFQDNs``
+  policies may occur during the initial endpoint regeneration on Cilium v1.16.
+  Similarly, when downgrading from v1.16 to v1.15 or older, temporary drops may occur for
+  such connections as well during initial endpoint regeneration on the downgraded version.
 * The ``cilium-dbg status --verbose`` command health data may now show health reported on a non-leaf
   component under a leaf named ``reporter``. Health data tree branches will now also be sorted by
   the fully qualified health status identifier.
@@ -328,11 +354,11 @@ Annotations:
 * Local Redirect Policy, when enabled with socket-based load-balancing, redirects traffic
   from policy-selected node-local backends destined to the policy's frontend, back to the
   node-local backends. To override this behavior, which is enabled by default, create
-  local redirect policies with the ``skipRedirectFromBackend`` flag set to ``false``.
+  local redirect policies with the ``skipRedirectFromBackend`` flag set to ``true``.
 * Detection and reconfiguration on changes to native network devices and their addresses is now
   the default. Cilium will now load the native device BPF program onto devices that appear after
   Cilium has started. NodePort services are now available on addresses assigned after Cilium has
-  started. The set of addresses to use for NodePort can be configured with the Helm option 
+  started. The set of addresses to use for NodePort can be configured with the Helm option
   ``nodePort.addresses``.
   The related Helm option ``enableRuntimeDeviceDetection`` has been deprecated and will be
   removed in future release. The devices and the addresses Cilium considers the node's addresses
@@ -340,6 +366,50 @@ Annotations:
   commands.
 * Service connections that use ``Direct-Server-Return`` and were established prior to Cilium v1.13.3
   will be disrupted, and need to be re-established.
+* Cilium Operator now uses dynamic rate limiting based on cluster size for the CiliumEndpointSlice
+  controller. The ``ces-rate-limits`` flag or the Helm value ``ciliumEndpointSlice.rateLimits`` can
+  be used to supply a custom configuration. The following list of flags for static and dynamic rate
+  limits have been deprecated and their usage will be ignored:
+  ``ces-write-qps-limit``, ``ces-write-qps-burst``, ``ces-enable-dynamic-rate-limit``,
+  ``ces-dynamic-rate-limit-nodes``, ``ces-dynamic-rate-limit-qps-limit``,
+  ``ces-dynamic-rate-limit-qps-burst``
+* Metrics ``policy_regeneration_total`` and
+  ``policy_regeneration_time_stats_seconds`` have been deprecated in favor of
+  ``endpoint_regenerations_total`` and
+  ``endpoint_regeneration_time_stats_seconds``, respectively.
+* The Cilium cluster name is now validated to consist of at most 32 lower case
+  alphanumeric characters and '-', start and end with an alphanumeric character.
+  Validation can be currently bypassed configuring ``upgradeCompatibility`` to
+  v1.15 or earlier, but will be strictly enforced starting from Cilium v1.17.
+* Certain invalid CiliumNetworkPolicies that have always been ignored will now be rejected by the apiserver.
+  Specifically, policies with multiple L7 protocols on the same port, over 40 port rules, or over
+  40 ICMP rules will now have server-side validation.
+* Cilium could previously be run in a configuration where the Etcd instances
+  that distribute Cilium state between nodes would be managed in pod network by
+  Cilium itself. This support was complicated and error prone, so the support
+  is now deprecated. The following guide provides alternatives for running
+  Cilium with Etcd: :ref:`k8s_install_etcd`.
+* Cilium now respects the port specified as part of the etcd configuration, rather
+  than defaulting it to that of the service when the address matches a Kubernetes
+  service DNS name. Additionally, Kubernetes service DNS name to ClusterIP
+  translation is now automatically enabled for etcd (if necessary); the
+  ``etcd.operator`` ``kvstore-opt`` option is now a no-op and has been removed.
+* KVStoreMesh is now enabled by default in Clustermesh.
+  If you want to disable KVStoreMesh, set Helm value ``clustermesh.apiserver.kvstoremesh.enabled=false``
+  explicitly during the upgrade.
+* Gateway API GRPCRoute which is moved from ``v1alpha2`` to ``v1``. Please install new GRPCRoute CRD and migrate
+  your resources from ``v1alpha2`` to ``v1`` version.
+* The default value of of ``CiliumLoadBalancerIPPool.spec.allowFirstLastIPs`` has been changed to ``yes``.
+  This means that unless explicitly configured otherwise, the first and last IP addresses of the IP pool
+  are available for allocation. If you rely on the previous behavior, you should explicitly set
+  ``allowFirstLastIPs: no`` in your IP pool configuration before the upgrade.
+* The ``CiliumLoadBalancerIPPool.spec.cidrs`` field has been deprecated in v1.15 favor of 
+  ``CiliumLoadBalancerIPPool.spec.blocks``. As of v1.15 both fields have the same behavior. The
+  ``cidrs`` field will be removed in v1.16. Please update your IP pool configurations to use
+  ``blocks`` instead of ``cidrs`` before upgrading.
+* For IPsec, the use of per-tunnel keys is mandatory, via the use of the ``+``
+  sign in the secret. See the :ref:`encryption_ipsec` guide for more
+  information.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -353,6 +423,12 @@ Removed Options
 * The deprecated flag ``enable-remote-node-identity`` has been removed.
   More information can be found in the following Helm upgrade notes.
 * The deprecated flag ``install-egress-gateway-routes`` has been removed.
+
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
+
+* The ``clustermesh-ip-identities-sync-timeout`` flag has been deprecated in
+  favor of ``clustermesh-sync-timeout``, and will be removed in Cilium 1.17.
 
 Helm Options
 ~~~~~~~~~~~~
@@ -375,18 +451,29 @@ Helm Options
 * Helm option ``enableRuntimeDeviceDetection`` is now deprecated and is a no-op.
 * The IP addresses on which to expose NodePort services can now be configured with ``nodePort.addresses``. Prior to this, Cilium only
   exposed NodePort services on the first (preferably private) IPv4 and IPv6 address of each device.
+* Helm option ``enableCiliumEndpointSlice`` has been deprecated and will be removed in a future release.
+  The option has been replaced by ``ciliumEndpointSlice.enabled``.
+* The Helm option for deploying a managed etcd instance via ``etcd.managed``
+  and other related Helm configurations have been removed.
+* The Clustermesh option ``clustermesh.apiserver.kvstoremesh.enabled`` is now set to ``true`` by default.
+  To disable KVStoreMesh, set ``clustermesh.apiserver.kvstoremesh.enabled=false`` explicitly during the upgrade.
 
 Added Metrics
 ~~~~~~~~~~~~~
 
-* TBD
+* ``cilium_identity_label_sources`` is a new metric which counts the number of
+  identities with per label source. This is particularly useful to further break
+  down the source of local identities by having separate metrics for ``fqdn``
+  and ``cidr`` labels.
+* ``cilium_fqdn_selectors`` is a new metric counting the number of ingested
+  ``toFQDNs`` selectors.
 
 Removed Metrics
 ~~~~~~~~~~~~~~~
 
 The following deprecated metrics were removed:
 
-* TBD
+* ``cilium_ces_sync_errors_total``
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
@@ -433,12 +520,14 @@ Changed Metrics
 * The ``CILIUM_PREPEND_IPTABLES_CHAIN`` environment variable has been renamed
   to ``CILIUM_PREPEND_IPTABLES_CHAINS`` (note the trailing ``S``) to more accurately
   match the name of the associated command line flag ``--prepend-iptables-chains``.
-* ``CiliumNetworkPolicy`` changed the semantic of the empty non-nil slice.
+* ``CiliumNetworkPolicy`` changed the semantics of the empty non-nil slice.
   For an Ingress CNP, an empty slice in one of the fields ``fromEndpoints``, ``fromCIDR``,
-  ``fromCIDRSet`` and ``fromEntities`` will not select any identity, thus falling back
-  to default deny for an allow policy. Similarly, for an Egress CNP, an empty slice in
-  one of the fields ``toEndpoints``, ``toCIDR``, ``toCIDRSet`` and ``toEntities`` will
-  not select any identity either.
+  ``fromCIDRSet`` and ``fromEntities`` will not select any identity, thus falling back to
+  default deny for an allow policy. Similarly, for an Egress CNP, an empty slice in one of
+  the fields ``toEndpoints``, ``toCIDR``, ``toCIDRSet`` and ``toEntities`` will not select
+  any identity either. Additionally, the behaviour of a CNP with ``toCIDRSet`` or
+  ``fromCIDRSet`` selectors using ``cidrGroupRef`` targeting only non-existent CIDR groups
+  was changed from allow-all to deny-all to align with the new semantics.
 * If Cilium is configured with BPF masquerade support but the requirements are not
   met (e.g: NodePort service implementation in BPF is disabled or socket load-balancing
   is disabled), it will fail to initialize and will log an error instead of silently

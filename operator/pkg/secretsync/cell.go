@@ -5,9 +5,9 @@ package secretsync
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 )
 
@@ -35,7 +35,7 @@ var Cell = cell.Module(
 type secretSyncParams struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 
 	CtrlRuntimeManager ctrlRuntime.Manager

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
@@ -137,7 +138,20 @@ func (igc *GC) gc(ctx context.Context) error {
 				logfields.Identity: identity,
 			}).Debugf("Deleting unused identity; marked for deletion at %s", ts)
 
-			if err := igc.deleteIdentity(ctx, identity); err != nil {
+			err := igc.deleteIdentity(ctx, identity)
+			if err != nil {
+				if k8serrors.IsConflict(err) {
+					// If a conflict arises, defer deletion to the next gc
+					// run and permit gc to continue. This prevents
+					// identities from accumulating if there are frequent
+					// conflicts.
+					log.WithFields(logrus.Fields{
+						logfields.Identity: identity.Name,
+						logfields.K8sUID:   identity.UID,
+					}).Warn("Could not delete identity due to conflict")
+					continue
+				}
+
 				log.WithError(err).WithFields(logrus.Fields{
 					logfields.Identity: identity,
 				}).Error("Deleting unused identity")

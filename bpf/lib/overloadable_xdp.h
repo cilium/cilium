@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef __LIB_OVERLOADABLE_XDP_H_
-#define __LIB_OVERLOADABLE_XDP_H_
+#pragma once
 
 #include <linux/udp.h>
 #include <linux/ip.h>
@@ -159,7 +158,7 @@ static __always_inline bool ctx_snat_done(struct xdp_md *ctx)
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 		   __u32 daddr, __u32 seclabel __maybe_unused,
-		   __u32 vni __maybe_unused, void *opt, __u32 opt_len, int *ifindex)
+		   __u32 vni __maybe_unused, void *opt, __u32 opt_len)
 {
 	__u32 inner_len = ctx_full_len(ctx);
 	__u32 tunnel_hdr_len = 8; /* geneve / vxlan */
@@ -236,8 +235,6 @@ ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 
 	eth->h_proto = bpf_htons(ETH_P_IP);
 
-	*ifindex = 0;
-
 	return CTX_ACT_REDIRECT;
 }
 
@@ -267,5 +264,3 @@ ctx_set_tunnel_opt(struct xdp_md *ctx, void *opt, __u32 opt_len)
 	return 0;
 }
 #endif /* HAVE_ENCAP */
-
-#endif /* __LIB_OVERLOADABLE_XDP_H_ */

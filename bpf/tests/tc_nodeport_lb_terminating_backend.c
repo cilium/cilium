@@ -67,8 +67,6 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 
 #define SECCTX_FROM_IPCACHE 1
 
-#include "config_replacement.h"
-
 #include "bpf_host.c"
 
 #include "lib/endpoint.h"
@@ -129,7 +127,7 @@ int tc_nodeport_lb_terminating_backend_0_setup(struct __ctx_buff *ctx)
 			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP, 0);
 
 	/* add local backend */
-	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, 0, 0,
+	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, 0, 0, 0,
 			      (__u8 *)local_backend_mac, (__u8 *)node_mac);
 
 	ipcache_v4_add_entry(BACKEND_IP_LOCAL, 0, 112233, 0, 0);
@@ -183,6 +181,9 @@ int tc_nodeport_lb_terminating_backend_0_check(const struct __ctx_buff *ctx)
 
 	if (l3->daddr != BACKEND_IP_LOCAL)
 		test_fatal("dst IP hasn't been NATed to local backend IP");
+
+	if (l3->check != bpf_htons(0x4213))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
@@ -284,6 +285,9 @@ int tc_nodeport_lb_terminating_backend_1_check(const struct __ctx_buff *ctx)
 
 	if (l3->daddr != BACKEND_IP_LOCAL)
 		test_fatal("dst IP hasn't been NATed to local backend IP");
+
+	if (l3->check != bpf_htons(0x4213))
+		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");

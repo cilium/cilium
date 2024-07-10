@@ -72,24 +72,24 @@ func (f *FakeDatapath) WriteNetdevConfig(io.Writer, *option.IntOptions) error {
 }
 
 // WriteTemplateConfig pretends to write the endpoint configuration to a writer.
-func (f *FakeDatapath) WriteTemplateConfig(io.Writer, datapath.EndpointConfiguration) error {
+func (f *FakeDatapath) WriteTemplateConfig(io.Writer, *datapath.LocalNodeConfiguration, datapath.EndpointConfiguration) error {
 	return nil
 }
 
 // WriteEndpointConfig pretends to write the endpoint configuration to a writer.
-func (f *FakeDatapath) WriteEndpointConfig(io.Writer, datapath.EndpointConfiguration) error {
+func (f *FakeDatapath) WriteEndpointConfig(io.Writer, *datapath.LocalNodeConfiguration, datapath.EndpointConfiguration) error {
 	return nil
 }
 
-func (f *FakeDatapath) InstallProxyRules(uint16, bool, string) {
+func (f *FakeDatapath) InstallProxyRules(uint16, string) {
 }
 
 func (f *FakeDatapath) SupportsOriginalSourceAddr() bool {
 	return false
 }
 
-func (m *FakeDatapath) GetProxyPort(name string) uint16 {
-	return 0
+func (m *FakeDatapath) GetProxyPorts() map[string]uint16 {
+	return nil
 }
 
 func (m *FakeDatapath) InstallNoTrackRules(ip netip.Addr, port uint16) {
@@ -130,7 +130,7 @@ func (f *FakeLoader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, st
 	panic("implement me")
 }
 
-func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
+func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (string, error) {
 	panic("implement me")
 }
 
@@ -154,7 +154,7 @@ func (f *FakeLoader) CustomCallsMapPath(id uint16) string {
 }
 
 // Reinitialize does nothing.
-func (f *FakeLoader) Reinitialize(ctx context.Context, tunnelConfig tunnel.Config, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (f *FakeLoader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	return nil
 }
 
@@ -162,7 +162,11 @@ func (f *FakeLoader) HostDatapathInitialized() <-chan struct{} {
 	return nil
 }
 
-func (f *FakeLoader) RestoreTemplates(stateDir string) error {
+func (f *FakeLoader) DetachXDP(ifaceName string, bpffsBase, progName string) error {
+	return nil
+}
+
+func (f *FakeLoader) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
 	return nil
 }
 

@@ -134,6 +134,12 @@ func (c *Client) addOperationDescribeTransitGatewayConnectsMiddlewares(stack *mi
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeTransitGatewayConnects(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -154,14 +160,6 @@ func (c *Client) addOperationDescribeTransitGatewayConnectsMiddlewares(stack *mi
 	}
 	return nil
 }
-
-// DescribeTransitGatewayConnectsAPIClient is a client that implements the
-// DescribeTransitGatewayConnects operation.
-type DescribeTransitGatewayConnectsAPIClient interface {
-	DescribeTransitGatewayConnects(context.Context, *DescribeTransitGatewayConnectsInput, ...func(*Options)) (*DescribeTransitGatewayConnectsOutput, error)
-}
-
-var _ DescribeTransitGatewayConnectsAPIClient = (*Client)(nil)
 
 // DescribeTransitGatewayConnectsPaginatorOptions is the paginator options for
 // DescribeTransitGatewayConnects
@@ -230,6 +228,9 @@ func (p *DescribeTransitGatewayConnectsPaginator) NextPage(ctx context.Context, 
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeTransitGatewayConnects(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -248,6 +249,14 @@ func (p *DescribeTransitGatewayConnectsPaginator) NextPage(ctx context.Context, 
 
 	return result, nil
 }
+
+// DescribeTransitGatewayConnectsAPIClient is a client that implements the
+// DescribeTransitGatewayConnects operation.
+type DescribeTransitGatewayConnectsAPIClient interface {
+	DescribeTransitGatewayConnects(context.Context, *DescribeTransitGatewayConnectsInput, ...func(*Options)) (*DescribeTransitGatewayConnectsOutput, error)
+}
+
+var _ DescribeTransitGatewayConnectsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeTransitGatewayConnects(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

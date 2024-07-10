@@ -11,7 +11,6 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/cilium/dns"
 	"github.com/go-openapi/runtime/middleware"
@@ -29,8 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
-	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
@@ -54,64 +51,6 @@ const (
 	metricErrorAllow   = "allow"
 )
 
-// requestNameKey is used as a key to context.Value(). It is used
-// to pass the triggering DNS name for logging purposes.
-type requestNameKey struct{}
-
-// updateSelectors propagates the mapping of FQDNSelector to IPs
-// to the policy engine.
-// First, it updates any selectors in the SelectorCache, then it triggers
-// all endpoints to push incremental updates via UpdatePolicyMaps.
-//
-// returns a WaitGroup that is done when all policymaps have been updated
-// and all endpoints referencing the IPs are able to pass traffic.
-func (d *Daemon) updateSelectors(ctx context.Context, selectors map[policyApi.FQDNSelector][]netip.Addr, ipcacheRevision uint64) (wg *sync.WaitGroup) {
-	// There may be nothing to update - in this case, we exit and do not need
-	// to trigger policy updates for all endpoints.
-	if len(selectors) == 0 {
-		return &sync.WaitGroup{}
-	}
-	logger := log.WithField("qname", ctx.Value(requestNameKey{}))
-
-	// notifyWg is a waitgroup that is incremented for every "user" of a selector; i.e.
-	// every single SelectorPolicy. Once that selector has pushed out incremental changes
-	// to every relevant endpoint, the WaitGroup will be done.
-	notifyWg := &sync.WaitGroup{}
-	updateResult := policy.UpdateResultUnchanged
-	// Update mapping of selector to set of IPs in selector cache.
-	for selector, ips := range selectors {
-		logger.WithFields(logrus.Fields{
-			"fqdnSelectorString": selector,
-			"ips":                ips}).Debug("updating FQDN selector")
-		res := d.policy.GetSelectorCache().UpdateFQDNSelector(selector, ips, notifyWg)
-		updateResult |= res
-	}
-
-	// UpdatePolicyMaps consumes notifyWG, and returns its own WaitGroup
-	// that is Done() when all endpoints have pushed their incremental changes
-	// down in to their bpf PolicyMap.
-	if updateResult&policy.UpdateResultUpdatePolicyMaps > 0 {
-		logger.Debug("FQDN selector update requires UpdatePolicyMaps.")
-		wg = d.endpointManager.UpdatePolicyMaps(ctx, notifyWg)
-	} else {
-		wg = &sync.WaitGroup{}
-	}
-
-	// If any of the selectors indicated they're missing identities,
-	// we also need to wait for a full ipcache round.
-	if updateResult&policy.UpdateResultIdentitiesNeeded > 0 && ipcacheRevision > 0 {
-		wg.Add(1)
-		go func() {
-			logger.Debug("FQDN selector update requires IPCache completion.")
-			d.ipcache.WaitForRevision(ipcacheRevision)
-			wg.Done()
-		}()
-	}
-
-	// This releases the nameManager lock; at this point, it is safe for another fqdn update to proceed
-	return
-}
-
 // bootstrapFQDN initializes the toFQDNs related subsystems: dnsNameManager and the DNS proxy.
 // dnsNameManager will use the default resolver and, implicitly, the
 // default DNS cache. The proxy binds to all interfaces, and uses the
@@ -120,7 +59,6 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	cfg := fqdn.Config{
 		MinTTL:              option.Config.ToFQDNsMinTTL,
 		Cache:               fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
-		UpdateSelectors:     d.updateSelectors,
 		GetEndpointsDNSInfo: d.getEndpointsDNSInfo,
 		IPCache:             ipcache,
 	}
@@ -154,30 +92,38 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		return nil
 	}
 
-	// Once we stop returning errors from StartDNSProxy this should live in
-	// StartProxySupport
-	port, err := d.l7Proxy.GetProxyPort(proxytypes.DNSProxyName)
-	if err != nil {
-		return err
-	}
-	if option.Config.ToFQDNsProxyPort != 0 {
-		port = uint16(option.Config.ToFQDNsProxyPort)
-	} else if port == 0 {
-		// Try locate old DNS proxy port number from the datapath, and reuse it if it's not open
-		oldPort := d.datapath.GetProxyPort(proxytypes.DNSProxyName)
-		openLocalPorts := proxy.OpenLocalPorts()
-		if _, alreadyOpen := openLocalPorts[oldPort]; !alreadyOpen {
-			port = oldPort
+	// A configured proxy port takes precedence over using the previous port.
+	port := uint16(option.Config.ToFQDNsProxyPort)
+	if port == 0 {
+		// Try reuse previous DNS proxy port number
+		if oldPort, isStatic, err := d.l7Proxy.GetProxyPort(proxytypes.DNSProxyName); err == nil {
+			if isStatic {
+				port = oldPort
+			} else {
+				openLocalPorts := proxy.OpenLocalPorts()
+				if _, alreadyOpen := openLocalPorts[oldPort]; !alreadyOpen {
+					port = oldPort
+				} else {
+					log.WithField(logfields.Port, oldPort).Info("Unable re-use old DNS proxy port as it is already in use")
+				}
+			}
 		}
 	}
 	if err := re.InitRegexCompileLRU(option.Config.FQDNRegexCompileLRUSize); err != nil {
 		return fmt.Errorf("could not initialize regex LRU cache: %w", err)
 	}
-	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port,
-		option.Config.EnableIPv4, option.Config.EnableIPv6,
-		option.Config.ToFQDNsEnableDNSCompression,
-		option.Config.DNSMaxIPsPerRestoredRule, d.lookupEPByIP, d.ipcache.LookupSecIDByIP, d.ipcache.LookupByIdentity,
-		d.notifyOnDNSMsg, option.Config.DNSProxyConcurrencyLimit, option.Config.DNSProxyConcurrencyProcessingGracePeriod)
+	dnsProxyConfig := dnsproxy.DNSProxyConfig{
+		Address:                "",
+		Port:                   port,
+		IPv4:                   option.Config.EnableIPv4,
+		IPv6:                   option.Config.EnableIPv6,
+		EnableDNSCompression:   option.Config.ToFQDNsEnableDNSCompression,
+		MaxRestoreDNSIPs:       option.Config.DNSMaxIPsPerRestoredRule,
+		ConcurrencyLimit:       option.Config.DNSProxyConcurrencyLimit,
+		ConcurrencyGracePeriod: option.Config.DNSProxyConcurrencyProcessingGracePeriod,
+	}
+	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy(dnsProxyConfig, d.lookupEPByIP, d.ipcache.LookupSecIDByIP, d.ipcache.LookupByIdentity,
+		d.notifyOnDNSMsg)
 	if err == nil {
 		// Increase the ProxyPort reference count so that it will never get released.
 		err = d.l7Proxy.SetProxyPort(proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, proxy.DefaultDNSProxy.GetBindPort(), false)
@@ -324,13 +270,18 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	if msg.Response {
 		flowType = accesslog.TypeResponse
 		addrInfo.DstIPPort = epIPPort
-		addrInfo.DstIdentity = ep.GetIdentity()
+		addrInfo.DstEPID = ep.GetID()
+		// ignore error; log fields are best effort. Only returns error if endpoint
+		// is going away.
+		addrInfo.DstSecIdentity, _ = ep.GetSecurityIdentity()
 		addrInfo.SrcIPPort = serverAddr
 		addrInfo.SrcIdentity = serverID
 	} else {
 		flowType = accesslog.TypeRequest
 		addrInfo.SrcIPPort = epIPPort
-		addrInfo.SrcIdentity = ep.GetIdentity()
+		addrInfo.SrcEPID = ep.GetID()
+		// ignore error; same reason as above.
+		addrInfo.SrcSecIdentity, _ = ep.GetSecurityIdentity()
 		addrInfo.DstIPPort = serverAddr
 		addrInfo.DstIdentity = serverID
 	}
@@ -422,13 +373,11 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			"ips":   responseIPs,
 		}).Debug("Updating DNS name in cache from response to query")
 
-		updateCtx, updateCancel := context.WithTimeout(
-			context.WithValue(d.ctx, requestNameKey{}, qname), // set the name as a context key for logging
-			option.Config.FQDNProxyResponseMaxDelay)
+		updateCtx, updateCancel := context.WithTimeout(d.ctx, option.Config.FQDNProxyResponseMaxDelay)
 		defer updateCancel()
 		updateStart := time.Now()
 
-		wg := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
+		dpUpdates := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
 			qname: {
 				IPs: responseIPs,
 				TTL: int(TTL),
@@ -436,17 +385,10 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 
 		stat.PolicyGenerationTime.End(true)
 		stat.DataplaneTime.Start()
-		updateComplete := make(chan struct{})
-		go func(wg *sync.WaitGroup, done chan struct{}) {
-			wg.Wait()
-			close(updateComplete)
-		}(wg, updateComplete)
 
-		select {
-		case <-updateCtx.Done():
+		if err := dpUpdates.Wait(); err != nil {
 			log.Warning("Timed out waiting for datapath updates of FQDN IP information; returning response. Consider increasing --tofqdns-proxy-response-max-delay if this keeps happening.")
 			metrics.ProxyDatapathUpdateTimeout.Inc()
-		case <-updateComplete:
 		}
 
 		log.WithFields(logrus.Fields{
@@ -462,10 +404,15 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 
 	// Ensure that there are no early returns from this function before the
 	// code below, otherwise the log record will not be made.
+	//
+	// Restrict label enrichment time to 10ms; we don't want to block DNS
+	// requests because an identity isn't in the local cache yet.
+	logContext, lcncl := context.WithTimeout(d.ctx, 10*time.Millisecond)
+	defer lcncl()
 	record := logger.NewLogRecord(flowType, false,
 		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
 		logger.LogTags.Verdict(verdict, reason),
-		logger.LogTags.Addressing(addrInfo),
+		logger.LogTags.Addressing(logContext, addrInfo),
 		logger.LogTags.DNS(&accesslog.LogRecordDNS{
 			Query:             qname,
 			IPs:               responseIPs,

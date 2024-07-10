@@ -13,7 +13,7 @@ import (
 	smithytime "github.com/aws/smithy-go/time"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	smithywaiter "github.com/aws/smithy-go/waiter"
-	"github.com/jmespath/go-jmespath"
+	jmespath "github.com/jmespath/go-jmespath"
 	"strconv"
 	"time"
 )
@@ -146,6 +146,12 @@ func (c *Client) addOperationDescribeKeyPairsMiddlewares(stack *middleware.Stack
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeKeyPairs(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -166,14 +172,6 @@ func (c *Client) addOperationDescribeKeyPairsMiddlewares(stack *middleware.Stack
 	}
 	return nil
 }
-
-// DescribeKeyPairsAPIClient is a client that implements the DescribeKeyPairs
-// operation.
-type DescribeKeyPairsAPIClient interface {
-	DescribeKeyPairs(context.Context, *DescribeKeyPairsInput, ...func(*Options)) (*DescribeKeyPairsOutput, error)
-}
-
-var _ DescribeKeyPairsAPIClient = (*Client)(nil)
 
 // KeyPairExistsWaiterOptions are waiter options for KeyPairExistsWaiter
 type KeyPairExistsWaiterOptions struct {
@@ -290,7 +288,13 @@ func (w *KeyPairExistsWaiter) WaitForOutput(ctx context.Context, params *Describ
 		}
 
 		out, err := w.client.DescribeKeyPairs(ctx, params, func(o *Options) {
+			baseOpts := []func(*Options){
+				addIsWaiterUserAgent,
+			}
 			o.APIOptions = append(o.APIOptions, apiOptions...)
+			for _, opt := range baseOpts {
+				opt(o)
+			}
 			for _, opt := range options.ClientOptions {
 				opt(o)
 			}
@@ -363,6 +367,14 @@ func keyPairExistsStateRetryable(ctx context.Context, input *DescribeKeyPairsInp
 
 	return true, nil
 }
+
+// DescribeKeyPairsAPIClient is a client that implements the DescribeKeyPairs
+// operation.
+type DescribeKeyPairsAPIClient interface {
+	DescribeKeyPairs(context.Context, *DescribeKeyPairsInput, ...func(*Options)) (*DescribeKeyPairsOutput, error)
+}
+
+var _ DescribeKeyPairsAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeKeyPairs(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

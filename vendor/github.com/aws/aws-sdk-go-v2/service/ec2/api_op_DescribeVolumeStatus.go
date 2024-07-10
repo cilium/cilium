@@ -108,11 +108,8 @@ type DescribeVolumeStatusInput struct {
 	Filters []types.Filter
 
 	// The maximum number of items to return for this request. To get the next page of
-	// items, make another request with the token returned in the output. This value
-	// can be between 5 and 1,000; if the value is larger than 1,000, only 1,000
-	// results are returned. If this parameter is not used, then all items are
-	// returned. You cannot specify this parameter and the volume IDs parameter in the
-	// same request. For more information, see [Pagination].
+	// items, make another request with the token returned in the output. For more
+	// information, see [Pagination].
 	//
 	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	MaxResults *int32
@@ -199,6 +196,12 @@ func (c *Client) addOperationDescribeVolumeStatusMiddlewares(stack *middleware.S
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeVolumeStatus(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -220,23 +223,12 @@ func (c *Client) addOperationDescribeVolumeStatusMiddlewares(stack *middleware.S
 	return nil
 }
 
-// DescribeVolumeStatusAPIClient is a client that implements the
-// DescribeVolumeStatus operation.
-type DescribeVolumeStatusAPIClient interface {
-	DescribeVolumeStatus(context.Context, *DescribeVolumeStatusInput, ...func(*Options)) (*DescribeVolumeStatusOutput, error)
-}
-
-var _ DescribeVolumeStatusAPIClient = (*Client)(nil)
-
 // DescribeVolumeStatusPaginatorOptions is the paginator options for
 // DescribeVolumeStatus
 type DescribeVolumeStatusPaginatorOptions struct {
 	// The maximum number of items to return for this request. To get the next page of
-	// items, make another request with the token returned in the output. This value
-	// can be between 5 and 1,000; if the value is larger than 1,000, only 1,000
-	// results are returned. If this parameter is not used, then all items are
-	// returned. You cannot specify this parameter and the volume IDs parameter in the
-	// same request. For more information, see [Pagination].
+	// items, make another request with the token returned in the output. For more
+	// information, see [Pagination].
 	//
 	// [Pagination]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination
 	Limit int32
@@ -299,6 +291,9 @@ func (p *DescribeVolumeStatusPaginator) NextPage(ctx context.Context, optFns ...
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeVolumeStatus(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -317,6 +312,14 @@ func (p *DescribeVolumeStatusPaginator) NextPage(ctx context.Context, optFns ...
 
 	return result, nil
 }
+
+// DescribeVolumeStatusAPIClient is a client that implements the
+// DescribeVolumeStatus operation.
+type DescribeVolumeStatusAPIClient interface {
+	DescribeVolumeStatus(context.Context, *DescribeVolumeStatusInput, ...func(*Options)) (*DescribeVolumeStatusOutput, error)
+}
+
+var _ DescribeVolumeStatusAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeVolumeStatus(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{

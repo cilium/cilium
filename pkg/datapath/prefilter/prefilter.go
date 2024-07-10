@@ -241,8 +241,8 @@ func (p *PreFilter) init() error {
 	return nil
 }
 
-// NewPreFilter returns prefilter handle
-func NewPreFilter(config *option.DaemonConfig, lifecycle cell.Lifecycle) types.PreFilter {
+// newPreFilter returns prefilter handle
+func newPreFilter(config *option.DaemonConfig, lifecycle cell.Lifecycle) types.PreFilter {
 	p := &PreFilter{
 		revision: 1,
 		enabled:  config.EnableXDPPrefilter,

@@ -115,6 +115,12 @@ func (c *Client) addOperationDeleteNetworkAclEntryMiddlewares(stack *middleware.
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = addOpDeleteNetworkAclEntryValidationMiddleware(stack); err != nil {
 		return err
 	}

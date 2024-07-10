@@ -209,7 +209,7 @@ spec:
         - name: etcd-config-path
           mountPath: /var/lib/etcd-config
           readOnly: true
-        {{- if or .Values.etcd.ssl .Values.etcd.managed }}
+        {{- if .Values.etcd.ssl }}
         - name: etcd-secrets
           mountPath: /var/lib/etcd-secrets
           readOnly: true
@@ -256,11 +256,7 @@ spec:
         {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
       hostNetwork: {{ .Values.operator.hostNetwork }}
-      {{- if and .Values.etcd.managed (not .Values.etcd.k8sService) }}
-      # In managed etcd mode, Cilium must be able to resolve the DNS name of
-      # the etcd service
-      dnsPolicy: ClusterFirstWithHostNet
-      {{- else if .Values.operator.dnsPolicy }}
+      {{- if .Values.operator.dnsPolicy }}
       dnsPolicy: {{ .Values.operator.dnsPolicy }}
       {{- end }}
       restartPolicy: Always
@@ -317,7 +313,7 @@ spec:
           items:
           - key: etcd-config
             path: etcd.config
-      {{- if or .Values.etcd.ssl .Values.etcd.managed }}
+      {{- if .Values.etcd.ssl }}
         # To read the k8s etcd secrets in case the user might want to use TLS
       - name: etcd-secrets
         secret:

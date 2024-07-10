@@ -95,11 +95,11 @@ Install Cilium
             --namespace kube-system \\
             --set aksbyocni.enabled=true \\
             --set nodeinit.enabled=true
-         
-         .. note::
 
-            Installing Cilium via helm is supported only for AKS BYOCNI cluster and 
-            not for Azure CNI Powered by Cilium clusters.
+       .. note::
+
+          Installing Cilium via helm is supported only for AKS BYOCNI cluster and
+          not for Azure CNI Powered by Cilium clusters.
 
     .. group-tab:: EKS
 
@@ -220,6 +220,11 @@ Install Cilium
     .. group-tab:: Alibaba ACK
 
         .. include:: ../installation/alibabacloud-eni.rst
+
+.. admonition:: Video
+  :class: attention
+
+  If you'd like to learn more about Cilium Helm values, check out `eCHO episode 117: A Tour of the Cilium Helm Values <https://www.youtube.com/watch?v=ni0Uw4WLHYo>`__.
 
 .. include:: k8s-install-restart-pods.rst
 

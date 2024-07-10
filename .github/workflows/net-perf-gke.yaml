@@ -1,9 +1,26 @@
-name: Network performance GKE
+name: Network performance GKE (net-perf-gke)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
   schedule:
     - cron: '39 0 * * 1-5'
+
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+
 # For testing uncomment following lines:
 #  push:
 #    branches:
@@ -18,6 +35,10 @@ permissions:
   contents: read
   # To be able to request the JWT from GitHub's OIDC provider
   id-token: write
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
 
 concurrency:
   # Structure:
@@ -46,9 +67,26 @@ env:
   gcp_zone: us-east5-a
   k8s_version: 1.28
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 405.0.0
+  gcloud_version: 483.0.0
 
 jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
   installation-and-perf:
     name: Installation and Perf Test
     runs-on: ubuntu-latest
@@ -138,7 +176,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -150,7 +188,7 @@ jobs:
         id: vars
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ ${{ github.event.pull_request }} ] ; then
-            SHA="${{ inputs.image-tag }}"
+            SHA="${{ inputs.SHA }}"
             OWNER="${{ inputs.PR-number }}"
           else
             SHA="${{ github.sha }}"
@@ -198,7 +236,7 @@ jobs:
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@13cf0683b2662c27c691f4330c2ac0f48b429ce5 # v0.16.7
+        uses: cilium/cilium-cli@9d071f99ae32af95cb15c3e0a280d222b569a1cf # v0.16.11
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
@@ -206,7 +244,7 @@ jobs:
 
       - name: Set up gcloud credentials
         id: 'auth'
-        uses: google-github-actions/auth@55bd3a7c6e2ae7cf1877fd1ccb9d54c0503c457c # v2.1.2
+        uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
         with:
           workload_identity_provider: ${{ secrets.GCP_PERF_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PERF_SA }}
@@ -296,9 +334,21 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@238d773bd07754bfd693a6b22c94eddf3a12778d # main
+        uses: cilium/scale-tests-action/export-results@dbd0721db1b3c6ef71644a7df205842252fc7c11 # main
         with:
           test_name: ${{ env.test_name }}-${{ matrix.name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
           artifacts: ./output/*
           other_files: cilium-sysdump-final.zip
+
+  commit-status-final:
+    if: ${{ always() }}
+    name: Commit Status Final
+    needs: installation-and-perf
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.installation-and-perf.result }}

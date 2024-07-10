@@ -12,7 +12,7 @@ import (
 )
 
 // Describes a root volume replacement task. For more information, see [Replace a root volume] in the
-// Amazon Elastic Compute Cloud User Guide.
+// Amazon EC2 User Guide.
 //
 // [Replace a root volume]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/replace-root.html
 func (c *Client) DescribeReplaceRootVolumeTasks(ctx context.Context, params *DescribeReplaceRootVolumeTasksInput, optFns ...func(*Options)) (*DescribeReplaceRootVolumeTasksOutput, error) {
@@ -131,6 +131,12 @@ func (c *Client) addOperationDescribeReplaceRootVolumeTasksMiddlewares(stack *mi
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addTimeOffsetBuild(stack, c); err != nil {
+		return err
+	}
+	if err = addUserAgentRetryMode(stack, options); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeReplaceRootVolumeTasks(options.Region), middleware.Before); err != nil {
 		return err
 	}
@@ -151,14 +157,6 @@ func (c *Client) addOperationDescribeReplaceRootVolumeTasksMiddlewares(stack *mi
 	}
 	return nil
 }
-
-// DescribeReplaceRootVolumeTasksAPIClient is a client that implements the
-// DescribeReplaceRootVolumeTasks operation.
-type DescribeReplaceRootVolumeTasksAPIClient interface {
-	DescribeReplaceRootVolumeTasks(context.Context, *DescribeReplaceRootVolumeTasksInput, ...func(*Options)) (*DescribeReplaceRootVolumeTasksOutput, error)
-}
-
-var _ DescribeReplaceRootVolumeTasksAPIClient = (*Client)(nil)
 
 // DescribeReplaceRootVolumeTasksPaginatorOptions is the paginator options for
 // DescribeReplaceRootVolumeTasks
@@ -230,6 +228,9 @@ func (p *DescribeReplaceRootVolumeTasksPaginator) NextPage(ctx context.Context, 
 	}
 	params.MaxResults = limit
 
+	optFns = append([]func(*Options){
+		addIsPaginatorUserAgent,
+	}, optFns...)
 	result, err := p.client.DescribeReplaceRootVolumeTasks(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
@@ -248,6 +249,14 @@ func (p *DescribeReplaceRootVolumeTasksPaginator) NextPage(ctx context.Context, 
 
 	return result, nil
 }
+
+// DescribeReplaceRootVolumeTasksAPIClient is a client that implements the
+// DescribeReplaceRootVolumeTasks operation.
+type DescribeReplaceRootVolumeTasksAPIClient interface {
+	DescribeReplaceRootVolumeTasks(context.Context, *DescribeReplaceRootVolumeTasksInput, ...func(*Options)) (*DescribeReplaceRootVolumeTasksOutput, error)
+}
+
+var _ DescribeReplaceRootVolumeTasksAPIClient = (*Client)(nil)
 
 func newServiceMetadataMiddleware_opDescribeReplaceRootVolumeTasks(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
