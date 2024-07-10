@@ -95,7 +95,8 @@ type actMetric struct {
 	opened, closed    uint64
 	newFailed, failed uint64
 	updated           time.Time
-	labelValues       []string
+	// labelValues contain zone and service addr string (in order)
+	labelValues []string
 }
 
 type ACT struct {
@@ -185,9 +186,6 @@ func newAct(log *slog.Logger, src act.ActiveConnectionTrackingMap, metrics Activ
 // It will create the new metrics series if needed. In this case metrics won't
 // be presented as the number of new connections can't be calculated yet.
 func (a *ACT) callback(key *act.ActiveConnectionTrackerKey, value *act.ActiveConnectionTrackerValue) {
-	a.mux.Lock()
-	defer a.mux.Unlock()
-
 	entry, ok := a.tracker[key.Zone][key.SvcID]
 	if !ok {
 		if count := a.trackerLen(); count >= metricsCountHardLimit {
@@ -227,8 +225,18 @@ func (a *ACT) callback(key *act.ActiveConnectionTrackerKey, value *act.ActiveCon
 
 	opened, closed := uint64(value.Opened), uint64(value.Closed)
 	if opened == entry.opened && closed == entry.closed && entry.newFailed == 0 {
-		a.metrics.New.WithLabelValues(entry.labelValues...).Set(0)
-		a.metrics.Failed.WithLabelValues(entry.labelValues...).Set(0)
+		if entry.updated.IsZero() {
+			// New and inactive entry.
+			return
+		}
+		n := a.metrics.New.WithLabelValues(entry.labelValues...)
+		f := a.metrics.Failed.WithLabelValues(entry.labelValues...)
+		if n.Get()+f.Get() > 0 {
+			// Reset published metrics only once.
+			n.Set(0)
+			f.Set(0)
+			entry.updated = time.Now()
+		}
 		return
 	}
 	scopedLog := a.log.With("svc", key.SvcID, "zone", key.Zone)
@@ -264,6 +272,9 @@ func (a *ACT) callback(key *act.ActiveConnectionTrackerKey, value *act.ActiveCon
 }
 
 func (a *ACT) update(ctx context.Context) error {
+	a.mux.Lock()
+	defer a.mux.Unlock()
+
 	start := time.Now()
 	err := a.src.IterateWithCallback(ctx, a.callback)
 	if err != nil {
