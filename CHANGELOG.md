@@ -1,5 +1,83 @@
 # Changelog
 
+## v1.14.13
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* ui: v0.13.1 release (Backport PR #33227, Upstream PR #32852, @geakstr)
+
+**Bugfixes:**
+* envoy: Avoid short circuit backend filtering (Backport PR #33534, Upstream PR #33403, @sayboras)
+* Fix service connection to terminating backend, when the service has no more backends available. (Backport PR #32093, Upstream PR #31840, @julianwiedmann)
+* Fix too many open Unix sockets (Backport PR #33632, Upstream PR #33569, @chaunceyjiang)
+* Generate SBOM from the correct release image (cilium/cilium#33051, @ferozsalam)
+* helm: Decouple sysctlfix from cgroup.autoMount (Backport PR #33099, Upstream PR #32866, @YutaroHayakawa)
+* ipsec: do not nil out EncryptInterface when using IPAM ENI on netlink… (Backport PR #33632, Upstream PR #33512, @jasonaliyetti)
+* IPv6 and IPv4 '0.0.0.0/0' CIDR parsing in policy processing has been fixed (Backport PR #33530, Upstream PR #33448, @jrajahalme)
+* Report the correct drop reason when a packet is dropped by the bpf_lxc program. (Backport PR #33632, Upstream PR #33551, @julianwiedmann)
+* Revert PR #32244 which caused unintended side-effects that negatively impacted network performance. (Backport PR #33377, Upstream PR #33304, @learnitall)
+* socketlb: tolerate cgroupv1 when detaching bpf programs (Backport PR #33632, Upstream PR #33599, @rgo3)
+* Update IPsec to handle larger PSK values when using per-tunnel PSK (Backport PR #33632, Upstream PR #33472, @jasonaliyetti)
+
+**CI Changes:**
+* [v1.14] Disable release SBOM asset uploads (cilium/cilium#33073, @ferozsalam)
+* Bump CLI to v0.16.11 (Backport PR #33530, Upstream PR #33444, @brb)
+* ci: Add IPsec leak detection for ci-ipsec-e2e (Backport PR #33048, Upstream PR #32930, @jschwinger233)
+* ci: use env variable to store branch name (Backport PR #33377, Upstream PR #26779, @ferozsalam)
+* gh: ipsec: clarify check for leaked proxy traffic during key rotation (Backport PR #33632, Upstream PR #33509, @julianwiedmann)
+* gha: Only retrieve IPv4 CIDR from docker network (Backport PR #33111, Upstream PR #33093, @sayboras)
+
+**Misc Changes:**
+* .github: add workflow for renovate to build base images (Backport PR #33347, Upstream PR #33326, @aanm)
+* .github: fix cloud workflows for renovate (Backport PR #33322, Upstream PR #33320, @aanm)
+* .github: fix worfklows used by renovate (Backport PR #33316, Upstream PR #33309, @aanm)
+* .github: fix workflows for on push (cilium/cilium#33369, @aanm)
+* [v1.14] - remove tracking of backports with MLH (cilium/cilium#33125, @aanm)
+* Add auto-merge for renovate for trusted dependencies (Backport PR #33316, Upstream PR #33287, @aanm)
+* build(deps): bump urllib3 from 2.0.7 to 2.2.2 in /Documentation (Backport PR #33377, Upstream PR #33218, @dependabot[bot])
+* build-images-base: cancel github runs based on branch name (Backport PR #33377, Upstream PR #33353, @aanm)
+* build-images-base: push to branch if pull request ref doesn't exist (Backport PR #33377, Upstream PR #33368, @aanm)
+* build-images: fetch artifacts with specific pattern (Backport PR #33377, Upstream PR #33216, @aanm)
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#33188, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#33363, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#33496, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#33636, @cilium-renovate[bot])
+* chore(deps): update cilium/cilium-cli action to v0.16.11 (v1.14) (cilium/cilium#33652, @cilium-renovate[bot])
+* chore(deps): update cilium/scale-tests-action digest to 511e3d9 (v1.14) (cilium/cilium#33215, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.10 (v1.14) (cilium/cilium#32992, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.18.7 (v1.14) (cilium/cilium#33355, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.21.11 docker digest to 2eb85b8 (v1.14) (cilium/cilium#33178, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.21.11 docker digest to b405b62 (v1.14) (cilium/cilium#33339, @cilium-renovate[bot])
+* chore(deps): update docker/build-push-action action to v5.4.0 (v1.14) (cilium/cilium#33019, @cilium-renovate[bot])
+* chore(deps): update docker/build-push-action action to v6 (v1.14) (cilium/cilium#33206, @cilium-renovate[bot])
+* chore(deps): update go to v1.21.12 (v1.14) (cilium/cilium#33540, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/certgen docker tag to v0.1.13 (v1.14) (cilium/cilium#33179, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.14) (patch) (cilium/cilium#33007, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.14) (patch) (cilium/cilium#33182, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.14) (patch) (cilium/cilium#33362, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.14) (patch) (cilium/cilium#33635, @cilium-renovate[bot])
+* daemon: Allow DNS transparent mode to be turned off with encryption (Backport PR #33530, Upstream PR #33420, @gandro)
+* docs: Improve note on kube-apiserver entity limitations (Backport PR #33530, Upstream PR #33382, @gandro)
+* docs: ipsec: mention dependency on transparent mode for DNS proxy (Backport PR #33099, Upstream PR #33062, @julianwiedmann)
+* Documentation: accept ORG and REPO (Backport PR #33530, Upstream PR #33514, @aanm)
+* examples: Fix subject selector in ingress policy (Backport PR #33377, Upstream PR #33292, @joestringer)
+* Fix renovate's concurrency group (Backport PR #33561, Upstream PR #33528, @aanm)
+* install/kubernetes: update nodeinit image to latest version (Backport PR #33530, Upstream PR #33427, @marseel)
+* ipcache: Fix orphaned ipcache entries when mixing Upsert and Inject (Backport PR #33270, Upstream PR #33120, @squeed)
+* LRP: Misc fix-ups (Backport PR #33530, Upstream PR #33442, @aditighag)
+* Makefile.values: re-add etcd back (cilium/cilium#33579, @aanm)
+* Miscellaneous improvements to clustermesh-related troubleshooting tools (Backport PR #33377, Upstream PR #32951, @giorio94)
+* Renovate changes (Backport PR #33561, Upstream PR #33519, @aanm)
+* renovate: add auto-approve bot for renovate PRs (Backport PR #33643, Upstream PR #33604, @aanm)
+
+**Other Changes:**
+* envoy: Bump golang version to v1.22.5 (cilium/cilium#33556, @sayboras)
+* envoy: Update envoy 1.28.x to v1.28.5 (cilium/cilium#33482, @sayboras)
+* github: fix concurrency groups for push events (cilium/cilium#33645, @aanm)
+* install: Update image digests for v1.14.12 (cilium/cilium#33016, @qmonnet)
+
 ## v1.14.12
 
 Summary of Changes
