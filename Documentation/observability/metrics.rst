@@ -420,6 +420,9 @@ Name                                     Labels                                 
 ======================================== ================================================== ========== ========================================================
 ``identity``                             ``type``                                           Enabled    Number of identities currently allocated
 ``identity_label_sources``               ``source``                                         Enabled    Number of identities which contain at least one label from the given label source
+``identity_gc_entries``                                                                     Enabled    Number of alive and deleted identities at the end of a garbage collector run
+``identity_gc_runs``                     ``outcome``                                        Enabled    Number of times identity garbage collector has run
+``identity_gc_latency``                  ``outcome``                                        Enabled    Duration of the last successful identity GC run 
 ``ipcache_errors_total``                 ``type``, ``error``                                Enabled    Number of errors interacting with the ipcache
 ``ipcache_events_total``                 ``type``                                           Enabled    Number of events interacting with the ipcache
 ======================================== ================================================== ========== ========================================================
