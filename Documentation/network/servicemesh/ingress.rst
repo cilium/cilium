@@ -167,7 +167,7 @@ Cilium's Ingress features:
 
    http
    ingress-and-network-policy
-   path-types   
+   path-types
    grpc
    tls-termination
    tls-default-certificate
