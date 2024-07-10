@@ -388,6 +388,9 @@ Annotations:
 * KVStoreMesh is now enabled by default in Clustermesh.
   If you want to disable KVStoreMesh, set Helm value ``clustermesh.apiserver.kvstoremesh.enabled=false``
   explicitly during the upgrade.
+* With the default enablement of KVStoreMesh, if you use :ref:`external workloads <external_workloads>`,
+  ensure that your cluster has a Cluster name and ID specified before upgrading.
+  Alternatively, you can explicitly opt out of KVStoreMesh.
 * Gateway API GRPCRoute which is moved from ``v1alpha2`` to ``v1``. Please install new GRPCRoute CRD and migrate
   your resources from ``v1alpha2`` to ``v1`` version.
 * The default value of of ``CiliumLoadBalancerIPPool.spec.allowFirstLastIPs`` has been changed to ``yes``.
