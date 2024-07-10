@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 var Cell = cell.Module(
@@ -33,23 +32,42 @@ var Cell = cell.Module(
 
 	cell.ProvidePrivate(
 		tables.NewBandwidthQDiscTable, // RWTable[*BandwidthQDisc]
-		newReconcilerConfig,           // reconciler.Config[*BandwidthQDisc]
 	),
 	cell.Invoke(registerReconciler),
 )
 
-func newReconcilerConfig(log *slog.Logger, tbl statedb.RWTable[*tables.BandwidthQDisc], bwm types.BandwidthManager) reconciler.Config[*tables.BandwidthQDisc] {
-	return reconciler.Config[*tables.BandwidthQDisc]{
-		Table:                     tbl,
-		FullReconcilationInterval: 10 * time.Minute,
-		RetryBackoffMinDuration:   time.Second,
-		RetryBackoffMaxDuration:   time.Minute,
-		IncrementalRoundSize:      1000,
-		GetObjectStatus:           (*tables.BandwidthQDisc).GetStatus,
-		SetObjectStatus:           (*tables.BandwidthQDisc).SetStatus,
-		CloneObject:               (*tables.BandwidthQDisc).Clone,
-		Operations:                newOps(log, bwm),
+type registerParams struct {
+	cell.In
+
+	Log              *slog.Logger
+	Table            statedb.RWTable[*tables.BandwidthQDisc]
+	BWM              types.BandwidthManager
+	Config           types.BandwidthConfig
+	DeriveParams     statedb.DeriveParams[*tables.Device, *tables.BandwidthQDisc]
+	ReconcilerParams reconciler.Params
+}
+
+func registerReconciler(p registerParams) error {
+	if !p.Config.EnableBandwidthManager {
+		return nil
 	}
+
+	// Start deriving Table[*BandwidthQDisc] from Table[*Device]
+	statedb.Derive("derive-desired-qdiscs", deviceToBandwidthQDisc)(
+		p.DeriveParams,
+	)
+
+	_, err := reconciler.Register(
+		p.ReconcilerParams,
+		p.Table,
+
+		(*tables.BandwidthQDisc).Clone,
+		(*tables.BandwidthQDisc).SetStatus,
+		(*tables.BandwidthQDisc).GetStatus,
+		newOps(p.Log, p.BWM),
+		nil,
+	)
+	return err
 }
 
 func newBandwidthManager(lc cell.Lifecycle, p bandwidthManagerParams) (types.BandwidthManager, defines.NodeFnOut) {
@@ -86,26 +104,6 @@ type bandwidthManagerParams struct {
 	Sysctl       sysctl.Sysctl
 	DB           *statedb.DB
 	EdtTable     statedb.RWTable[bwmap.Edt]
-}
-
-func registerReconciler(
-	cfg types.BandwidthConfig,
-	deriveParams statedb.DeriveParams[*tables.Device, *tables.BandwidthQDisc],
-	config reconciler.Config[*tables.BandwidthQDisc],
-	reconcilerParams reconciler.Params,
-) error {
-	if !cfg.EnableBandwidthManager {
-		return nil
-	}
-
-	// Start deriving Table[*BandwidthQDisc] from Table[*Device]
-	statedb.Derive("derive-desired-qdiscs", deviceToBandwidthQDisc)(
-		deriveParams,
-	)
-
-	// Create and register a reconciler for 'Table[*BandwidthQDisc]' that
-	// reconciles using '*ops'.
-	return reconciler.Register(config, reconcilerParams)
 }
 
 func deviceToBandwidthQDisc(device *tables.Device, deleted bool) (*tables.BandwidthQDisc, statedb.DeriveResult) {

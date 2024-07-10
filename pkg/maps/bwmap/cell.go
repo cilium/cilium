@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 // Cell manages the cilium_throttle BPF map for implementing per-endpoint
@@ -28,9 +27,6 @@ var Cell = cell.Module(
 		statedb.RWTable[Edt].ToTable,
 		newThrottleMap,
 	),
-	cell.ProvidePrivate(
-		edtReconcilerConfig,
-	),
 	cell.Invoke(
 		statedb.RegisterTable[Edt],
 		registerReconciler,
@@ -38,32 +34,24 @@ var Cell = cell.Module(
 	),
 )
 
-func registerReconciler(cfg types.BandwidthConfig, rcfg reconciler.Config[Edt], params reconciler.Params) error {
+func registerReconciler(cfg types.BandwidthConfig, m throttleMap, edts statedb.RWTable[Edt], params reconciler.Params) error {
 	if cfg.EnableBandwidthManager {
-		return reconciler.Register(rcfg, params)
+		ops := bpf.NewMapOps[Edt](m.Map)
+		_, err := reconciler.Register(
+			params,
+			edts,
+			func(e Edt) Edt { return e },
+			func(e Edt, s reconciler.Status) Edt {
+				e.Status = s
+				return e
+			},
+			func(e Edt) reconciler.Status {
+				return e.Status
+			},
+			ops,
+			nil,
+		)
+		return err
 	}
 	return nil
-}
-
-func edtReconcilerConfig(m throttleMap, edts statedb.RWTable[Edt]) reconciler.Config[Edt] {
-	ops := bpf.NewMapOps[Edt](m.Map)
-
-	return reconciler.Config[Edt]{
-		Table:                     edts,
-		FullReconcilationInterval: time.Hour,
-		RetryBackoffMinDuration:   100 * time.Millisecond,
-		RetryBackoffMaxDuration:   time.Minute,
-		IncrementalRoundSize:      100,
-		GetObjectStatus: func(e Edt) reconciler.Status {
-			return e.Status
-		},
-		SetObjectStatus: func(e Edt, s reconciler.Status) Edt {
-			e.Status = s
-			return e
-		},
-		CloneObject:     func(e Edt) Edt { return e },
-		RateLimiter:     nil,
-		Operations:      ops,
-		BatchOperations: nil,
-	}
 }

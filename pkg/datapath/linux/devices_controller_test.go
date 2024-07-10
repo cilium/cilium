@@ -320,11 +320,10 @@ func TestDevicesController(t *testing.T) {
 			// Get the new set of devices
 			for {
 				txn := db.ReadTxn()
-				allDevsIter, _ := devicesTable.All(txn)
-				allDevs := statedb.Collect(allDevsIter)
+				allDevs := statedb.Collect(devicesTable.All(txn))
 				devs, devsInvalidated := tables.SelectedDevices(devicesTable, txn)
 
-				routesIter, routesIterInvalidated := routesTable.All(txn)
+				routesIter, routesIterInvalidated := routesTable.AllWatch(txn)
 				routes := statedb.Collect(routesIter)
 
 				// Stop if the test case passes and there are no orphan routes left in the
@@ -604,7 +603,7 @@ func TestDevicesController_Restarts(t *testing.T) {
 
 	for {
 		rxn := db.ReadTxn()
-		iter, invalidated := devicesTable.All(rxn)
+		iter, invalidated := devicesTable.AllWatch(rxn)
 		devs := statedb.Collect(iter)
 
 		// We expect the 'stale' device to have been flushed by the restart

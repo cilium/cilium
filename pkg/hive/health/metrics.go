@@ -68,7 +68,7 @@ func publishJob(ctx context.Context, p metricPublisherParams, publish publishFun
 	limiter := rate.NewLimiter(15*time.Second, 3)
 	defer limiter.Stop() // Avoids leaking a goroutine.
 
-	it, watch := p.Table.All(p.DB.ReadTxn())
+	it, watch := p.Table.AllWatch(p.DB.ReadTxn())
 	for {
 		stats := make(map[types.Level]uint64)
 		for obj, _, ok := it.Next(); ok; obj, _, ok = it.Next() {
@@ -86,6 +86,6 @@ func publishJob(ctx context.Context, p metricPublisherParams, publish publishFun
 			return err
 		}
 
-		it, watch = p.Table.All(p.DB.ReadTxn())
+		it, watch = p.Table.AllWatch(p.DB.ReadTxn())
 	}
 }
