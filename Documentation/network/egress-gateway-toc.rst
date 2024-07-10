@@ -13,5 +13,5 @@ Egress Gateway
    :maxdepth: 2
    :glob:
 
-   egress-gateway
-   egress-gateway-troubleshooting
+   egress-gateway/egress-gateway
+   egress-gateway/egress-gateway-troubleshooting
