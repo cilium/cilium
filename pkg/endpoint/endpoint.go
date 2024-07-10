@@ -766,6 +766,11 @@ func (e *Endpoint) GetIdentity() identity.NumericIdentity {
 	return e.getIdentity()
 }
 
+// GetEndpointNetNsCookie returns the endpoint's netns cookie.
+func (e *Endpoint) GetEndpointNetNsCookie() uint64 {
+	return e.NetNsCookie
+}
+
 func (e *Endpoint) getIdentity() identity.NumericIdentity {
 	if e.SecurityIdentity != nil {
 		return e.SecurityIdentity.ID

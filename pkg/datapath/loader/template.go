@@ -28,6 +28,7 @@ const (
 	templateLxcID               = uint16(65535)
 	templatePolicyVerdictFilter = uint32(0xffff)
 	templateIfIndex             = math.MaxUint32
+	templateEndpointNetNsCookie = math.MaxUint64
 )
 
 var (
@@ -99,6 +100,11 @@ func (t *templateCfg) GetIdentity() identity.NumericIdentity {
 // locked.
 func (t *templateCfg) GetIdentityLocked() identity.NumericIdentity {
 	return templateSecurityID
+}
+
+// GetEndpointNetNsCookie returns a invalid (zero) network namespace cookie.
+func (t *templateCfg) GetEndpointNetNsCookie() uint64 {
+	return templateEndpointNetNsCookie
 }
 
 // GetNodeMAC returns a well-known dummy MAC address which may be later
@@ -261,6 +267,8 @@ func ELFVariableSubstitutions(ep datapath.Endpoint) map[string]uint64 {
 		result["IPV6_MASQUERADE_1"] = 0
 		result["IPV6_MASQUERADE_2"] = 0
 	}
+
+	result["ENDPOINT_NETNS_COOKIE"] = ep.GetEndpointNetNsCookie()
 
 	identity := ep.GetIdentity().Uint32()
 	result["SECLABEL"] = uint64(identity)
