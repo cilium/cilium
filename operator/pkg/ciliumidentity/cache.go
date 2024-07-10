@@ -5,11 +5,13 @@ package ciliumidentity
 
 import (
 	"errors"
+	"log/slog"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // SecIDs is used to handle duplicate CIDs. Operator itself will not generate
@@ -26,12 +28,14 @@ type CIDState struct {
 	// Maps label string generated from GlobalIdentity.GetKey() to CID name.
 	labelsToID map[string]*SecIDs
 	mu         lock.RWMutex
+	logger     *slog.Logger
 }
 
-func NewCIDState() *CIDState {
+func NewCIDState(logger *slog.Logger) *CIDState {
 	cidState := &CIDState{
 		idToLabels: make(map[string]*key.GlobalIdentity),
 		labelsToID: make(map[string]*SecIDs),
+		logger:     logger,
 	}
 
 	return cidState
@@ -49,6 +53,7 @@ func (c *CIDState) Upsert(id string, k *key.GlobalIdentity) {
 		return
 	}
 
+	c.logger.Debug("Upsert internal mapping between", logfields.CIDName, id, "labels", k.Labels().String())
 	c.idToLabels[id] = k
 
 	keyStr := k.GetKey()
@@ -76,6 +81,8 @@ func (c *CIDState) Remove(id string) {
 	if !exists {
 		return
 	}
+
+	c.logger.Debug("Remove internal mapping between", logfields.CIDName, id, "labels", k.Labels().String())
 
 	delete(c.idToLabels, id)
 
