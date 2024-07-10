@@ -447,7 +447,7 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 	log.Infof("  Local node-name: %s", nodeTypes.GetName())
 	log.Infof("  Node-IPv6: %s", node.GetIPv6())
 
-	iter, _ := d.nodeAddrs.All(d.db.ReadTxn())
+	iter := d.nodeAddrs.All(d.db.ReadTxn())
 	addrs := statedb.Collect(
 		statedb.Filter(
 			iter,

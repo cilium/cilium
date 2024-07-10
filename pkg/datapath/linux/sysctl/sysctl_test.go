@@ -149,8 +149,7 @@ func TestSysctl(t *testing.T) {
 			cell.Provide(
 				newReconcilingSysctl,
 				tables.NewSysctlTable,
-				reconciler.New[*tables.Sysctl],
-				newReconcilerConfig,
+				newReconciler,
 				newOps,
 			),
 		),
@@ -249,8 +248,7 @@ func TestSysctlIgnoreErr(t *testing.T) {
 			cell.Provide(
 				newReconcilingSysctl,
 				tables.NewSysctlTable,
-				reconciler.New[*tables.Sysctl],
-				newReconcilerConfig,
+				newReconciler,
 				newOps,
 			),
 		),
