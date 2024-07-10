@@ -61,8 +61,50 @@ Prerequisites
 
 .. include:: installation.rst
 
+Reference
+#########
+
+Ingress Path Types and Precedence
+*********************************
+
+The Ingress specification supports three types of paths:
+
+* **Exact** - match the given path exactly.
+* **Prefix** - match the URL path prefix split by ``/``. The last path segment must
+  match the whole segment - if you configure a Prefix path of ``/foo/bar``,
+  ``/foo/bar/baz`` will match, but ``/foo/barbaz`` will not.
+* **ImplementationSpecific** - Interpretation of the Path is up to the IngressClass.
+  **In Cilium's case, we define ImplementationSpecific to be "Regex"**, so Cilium will
+  interpret any given path as a regular expression and program Envoy accordingly.
+  Notably, some other implementations have ImplementationSpecific mean "Prefix",
+  and in those cases, Cilium will treat the paths differently. (Since a path like
+  ``/foo/bar`` contains no regex characters, when it is configured in Envoy as a
+  regex, it will function as an ``Exact`` match instead).
+
+When multiple path types are configured on an Ingress object, Cilium will configure
+Envoy with the matches in the following order:
+
+* Exact
+* ImplementationSpecific (that is, regular expression)
+* Prefix
+* The ``/`` Prefix match has special handling and always goes last.
+
+Within each of these path types, the paths are sorted in decreasing order of string
+length.
+
+If you do use ImplementationSpecific regex support, be careful with using the
+``*`` operator, since it will increase the length of the regex, but may match
+another, shorter option.
+
+For example, if you have two ImplementationSpecific paths, ``/impl``, and ``/impl.*``,
+the second will be sorted ahead of the first in the generated config. But because
+``*`` is in use, the ``/impl`` match will never be hit, as any request to that
+path will match the ``/impl.*`` path first.
+
+See the Ingress Path Types Example below for more information.
+
 Supported Ingress Annotations
-#############################
+*****************************
 
 .. list-table::
    :header-rows: 1
@@ -292,6 +334,7 @@ Cilium's Ingress features:
    :glob:
 
    http
+   path-types   
    grpc
    tls-termination
    tls-default-certificate
