@@ -18,14 +18,17 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/model"
 	"github.com/cilium/cilium/pkg/labelsfilter"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -375,6 +378,92 @@ func (e *Endpoint) GetModel() *models.Endpoint {
 	return e.GetModelRLocked()
 }
 
+func toSlice(idMap map[identity.NumericIdentity]struct{}) (res []int64) {
+	for id := range idMap {
+		res = append(res, int64(id))
+	}
+	slices.Sort(res)
+	return res
+}
+
+func (e *Endpoint) getRealizedPolicyIdentities() (ing, eg, ingDeny, egDeny []int64) {
+	// Deduplicate identities via maps
+	ingressMap := make(map[identity.NumericIdentity]struct{})
+	ingressDenyMap := make(map[identity.NumericIdentity]struct{})
+	egressMap := make(map[identity.NumericIdentity]struct{})
+	egressDenyMap := make(map[identity.NumericIdentity]struct{})
+
+	for policyMapKey, policyMapValue := range e.realizedPolicy.mapStateMap {
+		if policyMapKey.DestPort != 0 {
+			// If the port is non-zero, then the Key no longer only applies
+			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
+			// contain sets of which identities (i.e., label-based L3 only)
+			// are allowed, so anything which contains L4-related policy should
+			// not be added to these sets.
+			continue
+		}
+		switch trafficdirection.TrafficDirection(policyMapKey.TrafficDirection()) {
+		case trafficdirection.Ingress:
+			if policyMapValue.IsDeny {
+				ingressDenyMap[policyMapKey.Identity] = struct{}{}
+			} else {
+				ingressMap[policyMapKey.Identity] = struct{}{}
+			}
+		case trafficdirection.Egress:
+			if policyMapValue.IsDeny {
+				egressDenyMap[policyMapKey.Identity] = struct{}{}
+			} else {
+				egressMap[policyMapKey.Identity] = struct{}{}
+			}
+		default:
+			td := trafficdirection.TrafficDirection(policyMapKey.TrafficDirection())
+			log.WithFields(logrus.Fields{"map-name": "realized", logfields.TrafficDirection: td}).
+				Errorf("Unexpected traffic direction present in policy map state for endpoint")
+		}
+	}
+
+	return toSlice(ingressMap), toSlice(ingressDenyMap), toSlice(egressMap), toSlice(egressDenyMap)
+}
+
+func (e *Endpoint) getDesiredPolicyIdentities() (ing, eg, ingDeny, egDeny []int64) {
+	// Deduplicate identities via maps
+	ingressMap := make(map[identity.NumericIdentity]struct{})
+	ingressDenyMap := make(map[identity.NumericIdentity]struct{})
+	egressMap := make(map[identity.NumericIdentity]struct{})
+	egressDenyMap := make(map[identity.NumericIdentity]struct{})
+	e.desiredPolicy.GetPolicyMap().ForEach(func(policyMapKey policy.Key, policyMapValue policy.MapStateEntry) bool {
+		if policyMapKey.DestPort != 0 {
+			// If the port is non-zero, then the Key no longer only applies
+			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
+			// contain sets of which identities (i.e., label-based L3 only)
+			// are allowed, so anything which contains L4-related policy should
+			// not be added to these sets.
+			return true
+		}
+		switch trafficdirection.TrafficDirection(policyMapKey.TrafficDirection()) {
+		case trafficdirection.Ingress:
+			if policyMapValue.IsDeny {
+				ingressDenyMap[policyMapKey.Identity] = struct{}{}
+			} else {
+				ingressMap[policyMapKey.Identity] = struct{}{}
+			}
+		case trafficdirection.Egress:
+			if policyMapValue.IsDeny {
+				egressDenyMap[policyMapKey.Identity] = struct{}{}
+			} else {
+				egressMap[policyMapKey.Identity] = struct{}{}
+			}
+		default:
+			td := trafficdirection.TrafficDirection(policyMapKey.TrafficDirection())
+			log.WithFields(logrus.Fields{"map-name": "desired", logfields.TrafficDirection: td}).
+				Errorf("Unexpected traffic direction present in policy map state for endpoint")
+		}
+		return true
+	})
+
+	return toSlice(ingressMap), toSlice(ingressDenyMap), toSlice(egressMap), toSlice(egressDenyMap)
+}
+
 // GetPolicyModel returns the endpoint's policy as an API model.
 //
 // Must be called with e.mutex RLock()ed.
@@ -387,19 +476,13 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		return nil
 	}
 
-	realizedLog := log.WithField("map-name", "realized").Logger
-	realizedIngressIdentities, realizedEgressIdentities :=
-		e.realizedPolicy.GetPolicyMap().GetIdentities(realizedLog)
+	realizedIngressIdentities, realizedEgressIdentities,
+		realizedDenyIngressIdentities, realizedDenyEgressIdentities :=
+		e.getRealizedPolicyIdentities()
 
-	realizedDenyIngressIdentities, realizedDenyEgressIdentities :=
-		e.realizedPolicy.GetPolicyMap().GetDenyIdentities(realizedLog)
-
-	desiredLog := log.WithField("map-name", "desired").Logger
-	desiredIngressIdentities, desiredEgressIdentities :=
-		e.desiredPolicy.GetPolicyMap().GetIdentities(desiredLog)
-
-	desiredDenyIngressIdentities, desiredDenyEgressIdentities :=
-		e.desiredPolicy.GetPolicyMap().GetDenyIdentities(desiredLog)
+	desiredIngressIdentities, desiredEgressIdentities,
+		desiredDenyIngressIdentities, desiredDenyEgressIdentities :=
+		e.getDesiredPolicyIdentities()
 
 	policyEnabled := e.policyStatus()
 
@@ -414,8 +497,8 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	var (
 		realizedL4Policy *policy.L4Policy
 	)
-	if e.realizedPolicy != nil {
-		realizedL4Policy = &e.realizedPolicy.L4Policy
+	if e.realizedPolicy.basis != nil {
+		realizedL4Policy = &e.realizedPolicy.basis.L4Policy
 	}
 
 	mdl := &models.EndpointPolicy{
@@ -466,11 +549,11 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 	policyEnabled := models.EndpointPolicyEnabledNone
 	switch {
-	case e.realizedPolicy.IngressPolicyEnabled && e.realizedPolicy.EgressPolicyEnabled:
+	case e.realizedPolicy.basis.IngressPolicyEnabled && e.realizedPolicy.basis.EgressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledBoth
-	case e.realizedPolicy.IngressPolicyEnabled:
+	case e.realizedPolicy.basis.IngressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledIngress
-	case e.realizedPolicy.EgressPolicyEnabled:
+	case e.realizedPolicy.basis.EgressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledEgress
 	}
 
