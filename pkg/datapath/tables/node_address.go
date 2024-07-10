@@ -337,9 +337,7 @@ func (n *nodeAddressController) updateFallbacks(txn statedb.ReadTxn, dev *Device
 	}
 
 	fallbacks := &n.fallbackAddresses
-	if deleted && (fallbacks.ipv4.dev == dev || fallbacks.ipv6.dev == dev) {
-		// The device that was used for fallback address was removed.
-		// Clear the fallbacks and reprocess from scratch.
+	if deleted && fallbacks.fromDevice(dev) {
 		fallbacks.clear()
 		devices, _ := n.Devices.All(txn)
 		for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
@@ -571,7 +569,27 @@ func (f *fallbackAddresses) addrs() []netip.Addr {
 	return []netip.Addr{f.ipv4.addr.Addr, f.ipv6.addr.Addr}
 }
 
+func (f *fallbackAddresses) fromDevice(dev *Device) bool {
+	return (f.ipv4.dev != nil && f.ipv4.dev.Name == dev.Name) ||
+		(f.ipv6.dev != nil && f.ipv6.dev.Name == dev.Name)
+}
+
+func (f *fallbackAddresses) clearDevice(dev *Device) {
+	// Clear the fallbacks if they were from a prior version of this device
+	// as the addresses may have been removed.
+	if f.ipv4.dev != nil && f.ipv4.dev.Name == dev.Name {
+		f.ipv4 = fallbackAddress{}
+	}
+	if f.ipv6.dev != nil && f.ipv6.dev.Name == dev.Name {
+		f.ipv6 = fallbackAddress{}
+	}
+}
+
 func (f *fallbackAddresses) update(dev *Device) (updated bool) {
+	prevIPv4, prevIPv6 := f.ipv4.addr, f.ipv6.addr
+
+	f.clearDevice(dev)
+
 	// Iterate over all addresses to see if any of them make for a better
 	// fallback address.
 	for _, addr := range dev.Addrs {
@@ -602,12 +620,11 @@ func (f *fallbackAddresses) update(dev *Device) (updated bool) {
 			better = addr.Addr.Less(fa.addr.Addr)
 		}
 		if better {
-			updated = true
 			fa.dev = dev
 			fa.addr = addr
 		}
 	}
-	return
+	return prevIPv4 != f.ipv4.addr || prevIPv6 != f.ipv6.addr
 }
 
 // Shared test address definitions

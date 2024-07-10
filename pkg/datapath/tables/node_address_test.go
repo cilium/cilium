@@ -693,45 +693,61 @@ func TestSortedAddresses(t *testing.T) {
 func TestFallbackAddresses(t *testing.T) {
 	var f fallbackAddresses
 
-	f.update(&Device{
+	updated := f.update(&Device{
 		Index: 2,
 		Addrs: []DeviceAddress{
 			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: RT_SCOPE_SITE},
 		},
 	})
 	assert.Equal(t, f.ipv4.addr.Addr.String(), "10.0.0.1")
-	f.update(&Device{
+	assert.True(t, updated, "updated")
+
+	updated = f.update(&Device{
 		Index: 3,
 		Addrs: []DeviceAddress{
 			{Addr: netip.MustParseAddr("1001::1"), Scope: RT_SCOPE_SITE},
 		},
 	})
 	assert.Equal(t, f.ipv6.addr.Addr.String(), "1001::1")
+	assert.True(t, updated, "updated")
 
 	// Lower scope wins
-	f.update(&Device{
+	updated = f.update(&Device{
 		Index: 4,
 		Addrs: []DeviceAddress{
 			{Addr: netip.MustParseAddr("10.0.0.2"), Scope: RT_SCOPE_UNIVERSE},
 		},
 	})
 	assert.Equal(t, f.ipv4.addr.Addr.String(), "10.0.0.2")
+	assert.True(t, updated, "updated")
 
 	// Lower ifindex wins
-	f.update(&Device{
+	updated = f.update(&Device{
 		Index: 1,
 		Addrs: []DeviceAddress{
 			{Addr: netip.MustParseAddr("10.0.0.3"), Scope: RT_SCOPE_UNIVERSE},
 		},
 	})
 	assert.Equal(t, f.ipv4.addr.Addr.String(), "10.0.0.3")
+	assert.True(t, updated, "updated")
 
 	// Public wins over private
-	f.update(&Device{
+	updated = f.update(&Device{
 		Index: 5,
 		Addrs: []DeviceAddress{
 			{Addr: netip.MustParseAddr("20.0.0.1"), Scope: RT_SCOPE_SITE},
 		},
 	})
 	assert.Equal(t, f.ipv4.addr.Addr.String(), "20.0.0.1")
+	assert.True(t, updated, "updated")
+
+	// Update with the same set of addresses does nothing.
+	updated = f.update(&Device{
+		Index: 5,
+		Addrs: []DeviceAddress{
+			{Addr: netip.MustParseAddr("20.0.0.1"), Scope: RT_SCOPE_SITE},
+		},
+	})
+	assert.Equal(t, f.ipv4.addr.Addr.String(), "20.0.0.1")
+	assert.False(t, updated, "updated")
 }
