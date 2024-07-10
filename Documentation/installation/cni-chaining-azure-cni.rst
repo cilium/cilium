@@ -94,6 +94,7 @@ Deploy Cilium release via Helm:
      --namespace kube-system \\
      --set cni.chainingMode=generic-veth \\
      --set cni.customConf=true \\
+     --set cni.exclusive=false \\
      --set nodeinit.enabled=true \\
      --set cni.configMap=cni-configuration \\
      --set routingMode=native \\
