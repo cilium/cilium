@@ -340,7 +340,8 @@ Makefile* @cilium/build
 /Documentation/network/concepts/ipam/azure* @cilium/sig-ipam @cilium/azure @cilium/docs-structure
 /Documentation/network/concepts/ipam/eni* @cilium/sig-ipam @cilium/aws @cilium/docs-structure
 /Documentation/network/ebpf/ @cilium/sig-datapath @cilium/docs-structure
-/Documentation/network/egress-gateway.rst @cilium/egress-gateway @cilium/docs-structure
+/Documentation/network/egress-gateway-toc.rst @cilium/egress-gateway @cilium/docs-structure
+/Documentation/network/egress-gateway/ @cilium/egress-gateway @cilium/docs-structure
 /Documentation/network/kubernetes/ @cilium/sig-k8s @cilium/docs-structure
 /Documentation/network/kubernetes/bandwidth-manager.rst @cilium/sig-datapath @cilium/docs-structure
 /Documentation/network/kubernetes/ipam* @cilium/sig-ipam @cilium/docs-structure
