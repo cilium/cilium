@@ -13,7 +13,7 @@ Ingress Path Types Example
 This example walks through how various path types interact and allows you to
 test that Cilium is working as it should.
 
-This example requires that Cilium Ingress is enabled, and `kubectl` and `jq`
+This example requires that Cilium Ingress is enabled, and ``kubectl`` and ``jq``
 must be installed.
 
 Deploy the example app
