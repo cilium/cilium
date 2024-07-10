@@ -151,6 +151,10 @@ func (m actMap) SaveFailed(key *ActiveConnectionTrackerKey, count uint64) error 
 
 func (m actMap) RestoreFailed(key *ActiveConnectionTrackerKey) (uint64, error) {
 	val, err := m.f.Lookup(key)
+	if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
+		// Ignore not found.
+		return 0, nil
+	}
 	if err != nil {
 		return 0, err
 	}

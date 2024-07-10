@@ -31,6 +31,9 @@ type ServiceManager interface {
 	// GetDeepCopyServices returns a deep-copy of all installed services.
 	GetDeepCopyServices() []*lb.SVC
 
+	// GetServiceIDs returns a list of IDs of all installed services.
+	GetServiceIDs() []lb.ServiceID
+
 	// GetDeepCopyServiceByFrontend returns a deep-copy of the service that matches the Frontend address.
 	GetDeepCopyServiceByFrontend(frontend lb.L3n4Addr) (*lb.SVC, bool)
 
