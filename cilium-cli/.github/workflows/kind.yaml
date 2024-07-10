@@ -69,7 +69,9 @@ jobs:
             --set cni.chainingMode=portmap \
             --set loadBalancer.l7.backend=envoy \
             --set tls.secretsBackend=k8s \
-            --set prometheus.enabled=true
+            --set prometheus.enabled=true \
+            --set localRedirectPolicy=true \
+            --set socketLB.enabled=true
 
       - name: Enable Relay
         run: |
@@ -98,6 +100,12 @@ jobs:
           kubectl apply -n external-targets -f .github/external-targets/nginx.yaml
           kubectl rollout status -n external-targets ds/nginx
 
+      - name: Set up node local DNS
+        run: |
+          kubedns=$(kubectl get svc kube-dns -n kube-system -o jsonpath={.spec.clusterIP}) && sed -i "s/__PILLAR__DNS__SERVER__/$kubedns/g;" .github/node-local-dns/node-local-dns.yaml
+          kubectl apply -k .github/node-local-dns
+          kubectl rollout status -n kube-system ds/node-local-dns
+
       - name: Connectivity Test
         run: |
           # Setup the connectivity disruption tests. We don't really care about the result
@@ -122,6 +130,10 @@ jobs:
             --external-cidr 172.18.0.0/16 \
             --external-ip ${{ steps.external_targets.outputs.worker2_ip }} \
             --external-other-ip ${{ steps.external_targets.outputs.worker3_ip }}
+
+      - name: Uninstall node local DNS
+        run: |
+          kubectl delete -k .github/node-local-dns
 
       - name: Uninstall cilium
         run: |
