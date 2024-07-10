@@ -244,10 +244,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 		updatedStats []*models.ProxyStatistics
 	)
 
-	changes := policy.ChangeState{
-		Adds: make(policy.Keys),
-		Old:  make(policy.MapStateMap),
-	}
+	changes := policy.NewRevertState()
 
 	// create or update proxy redirects
 	e.desiredPolicy.UpdateRedirects(ingress,

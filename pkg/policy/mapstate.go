@@ -954,7 +954,7 @@ func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, changes C
 			} else {
 				// 'owner' was not found, do not change anything
 				if oldAdded {
-					delete(changes.Old, key)
+					delete(changes.old, key)
 				}
 				return
 			}
@@ -994,7 +994,7 @@ func (ms *mapState) revertChanges(changes ChangeState) {
 		ms.denies.delete(k)
 	}
 	// 'old' contains all the original values of both modified and deleted entries
-	for k, v := range changes.Old {
+	for k, v := range changes.old {
 		ms.insert(k, v)
 	}
 }
@@ -1242,10 +1242,10 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, chan
 // 'changes.Adds' so we'll record the old value as expected.
 // Returns 'true' if an old entry was added.
 func (changes *ChangeState) insertOldIfNotExists(key Key, entry MapStateEntry) bool {
-	if changes == nil || changes.Old == nil {
+	if changes == nil || changes.old == nil {
 		return false
 	}
-	if _, exists := changes.Old[key]; !exists {
+	if _, exists := changes.old[key]; !exists {
 		// Only insert the old entry if the entry was not first added on this round of
 		// changes.
 		if _, added := changes.Adds[key]; !added {
@@ -1254,7 +1254,7 @@ func (changes *ChangeState) insertOldIfNotExists(key Key, entry MapStateEntry) b
 			entry.owners = entry.owners.Clone()
 			entry.dependents = maps.Clone(entry.dependents)
 
-			changes.Old[key] = entry
+			changes.old[key] = entry
 			return true
 		}
 	}
@@ -1454,7 +1454,7 @@ func (mc *MapChanges) consumeMapChanges(p *EndpointPolicy, features policyFeatur
 	changes := ChangeState{
 		Adds:    make(Keys, len(mc.synced)),
 		Deletes: make(Keys, len(mc.synced)),
-		Old:     make(map[Key]MapStateEntry, len(mc.synced)),
+		old:     make(map[Key]MapStateEntry, len(mc.synced)),
 	}
 
 	var redirects map[string]uint16
