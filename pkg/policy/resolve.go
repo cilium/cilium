@@ -162,27 +162,6 @@ func (p *EndpointPolicy) Detach() {
 	p.selectorPolicy.removeUser(p)
 }
 
-// NewMapStateWithInsert returns a new MapState and an insert function that can be used to populate
-// it. We keep general insert functions private so that the caller can only insert to this specific
-// map.
-func NewMapStateWithInsert() (MapState, func(k Key, e MapStateEntry)) {
-	currentMap := NewMapState()
-
-	return currentMap, func(k Key, e MapStateEntry) {
-		currentMap.insert(k, e, nil)
-	}
-}
-
-func (p *EndpointPolicy) InsertMapState(key Key, entry MapStateEntry) {
-	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
-	p.policyMapState.insert(key, entry, p.SelectorCache)
-}
-
-func (p *EndpointPolicy) DeleteMapState(key Key) {
-	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
-	p.policyMapState.delete(key, p.SelectorCache)
-}
-
 func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
 	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
 	p.policyMapState.revertChanges(p.SelectorCache, changes)

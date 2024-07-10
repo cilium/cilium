@@ -532,7 +532,7 @@ func (l4 *L4Filter) Equals(_ *testing.T, bL4 *L4Filter) bool {
 type ChangeState struct {
 	Adds    Keys                  // Added or modified keys, if not nil
 	Deletes Keys                  // deleted keys, if not nil
-	old     map[Key]MapStateEntry // Old values of all modified or deleted keys, if not nil
+	old     map[Key]mapStateEntry // Old values of all modified or deleted keys, if not nil
 }
 
 // NewRevertState returns an empty ChangeState suitable for reverting MapState changes.
@@ -540,7 +540,7 @@ type ChangeState struct {
 func NewRevertState() ChangeState {
 	return ChangeState{
 		Adds: make(Keys),
-		old:  make(map[Key]MapStateEntry),
+		old:  make(map[Key]mapStateEntry),
 	}
 }
 
@@ -627,12 +627,12 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 				continue
 			}
 		}
-		entry := NewMapStateEntry(cs, 0, l4.RuleOrigin[cs], proxyPort, currentRule.GetListener(), currentRule.GetPriority(), isDenyRule, hasAuth, authType)
+		entry := NewMapStateEntry(0, proxyPort, currentRule.GetListener(), currentRule.GetPriority(), isDenyRule, hasAuth, authType)
 
 		if cs.IsWildcard() {
 			for _, keyToAdd := range keysToAdd {
 				keyToAdd.Identity = 0
-				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+				p.policyMapState.insertWithChanges(cs, keyToAdd, entry, l4.RuleOrigin[cs], p.SelectorCache, features, changes)
 
 				if port == 0 {
 					// Allow-all
@@ -662,15 +662,15 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 		for _, id := range idents {
 			for _, keyToAdd := range keysToAdd {
 				keyToAdd.Identity = id.Uint32()
-				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+				p.policyMapState.insertWithChanges(cs, keyToAdd, entry, l4.RuleOrigin[cs], p.SelectorCache, features, changes)
 				// If Cilium is in dual-stack mode then the "World" identity
 				// needs to be split into two identities to represent World
 				// IPv6 and IPv4 traffic distinctly from one another.
 				if id == identity.ReservedIdentityWorld && option.Config.IsDualStack() {
 					keyToAdd.Identity = identity.ReservedIdentityWorldIPv4.Uint32()
-					p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+					p.policyMapState.insertWithChanges(cs, keyToAdd, entry, l4.RuleOrigin[cs], p.SelectorCache, features, changes)
 					keyToAdd.Identity = identity.ReservedIdentityWorldIPv6.Uint32()
-					p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+					p.policyMapState.insertWithChanges(cs, keyToAdd, entry, l4.RuleOrigin[cs], p.SelectorCache, features, changes)
 				}
 			}
 		}
@@ -1663,7 +1663,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 			keysToAdd = append(keysToAdd,
 				NewKey(direction.Uint8(), 0, proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 		}
-		value := NewMapStateEntry(cs, 0, derivedFrom, proxyPort, listener, priority, isDeny, hasAuth, authType)
+		value := NewMapStateEntry(0, proxyPort, listener, priority, isDeny, hasAuth, authType)
 
 		if option.Config.Debug {
 			authString := "default"
@@ -1683,7 +1683,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 				logfields.ListenerPriority: priority,
 			}).Debug("AccumulateMapChanges")
 		}
-		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, keysToAdd, value)
+		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, keysToAdd, value, derivedFrom)
 	}
 }
 

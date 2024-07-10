@@ -350,17 +350,25 @@ var (
 	mapKeyAllowAll__ = IngressL3OnlyKey(0)
 	mapKeyAllowAllE_ = EgressL3OnlyKey(0)
 	// Desired map entries for no L7 redirect / redirect to Proxy
+	mapEntryL7None = func(lbls ...labels.LabelArray) mapStateEntry {
+		return newMapStateEntry(nil, 0, lbls, 0, "", 0, false, DefaultAuthType, AuthTypeDisabled)
+	}
 	mapEntryL7None_ = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, 0, labels.LabelArrayList(lbls).Sort(), 0, "", 0, false, DefaultAuthType, AuthTypeDisabled).WithOwners()
+		return NewMapStateEntry(0, 0, "", 0, false, DefaultAuthType, AuthTypeDisabled)
 	}
 	mapEntryL7Auth_ = func(at AuthType, lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, 0, labels.LabelArrayList(lbls).Sort(), 0, "", 0, false, ExplicitAuthType, at).WithOwners()
+		return NewMapStateEntry(0, 0, "", 0, false, ExplicitAuthType, at)
 	}
-	mapEntryL7Deny_ = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, 0, labels.LabelArrayList(lbls).Sort(), 0, "", 0, true, DefaultAuthType, AuthTypeDisabled).WithOwners()
+	mapEntryL7Deny = func(lbls ...labels.LabelArray) mapStateEntry {
+		return newMapStateEntry(nil, 0, lbls, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
 	}
 	mapEntryL7Proxy = func(lbls ...labels.LabelArray) MapStateEntry {
-		entry := NewMapStateEntry(nil, 0, labels.LabelArrayList(lbls).Sort(), 1, "", 0, false, DefaultAuthType, AuthTypeDisabled).WithOwners()
+		entry := NewMapStateEntry(0, 1, "", 0, false, DefaultAuthType, AuthTypeDisabled)
+		entry.ProxyPort = 1
+		return entry
+	}
+	mapEntryL7Prox = func(lbls ...labels.LabelArray) mapStateEntry {
+		entry := newMapStateEntry(nil, 0, lbls, 1, "", 0, false, DefaultAuthType, AuthTypeDisabled)
 		entry.ProxyPort = 1
 		return entry
 	}
@@ -743,11 +751,11 @@ func testCaseToMapState(t generatedBPFKey, identities Identities) MapState {
 
 	if t.L3Key.L3 != nil {
 		if t.L3Key.Deny != nil && *t.L3Key.Deny {
-			m.denies.upsert(mapKeyDeny_Foo__, mapEntryL7Deny_(), identities)
+			m.denies.upsert(mapKeyDeny_Foo__, mapEntryL7Deny(), identities)
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L3Key.L7 == nil || !*t.L3Key.L7 {
-				m.allows.upsert(mapKeyAllowFoo__, mapEntryL7None_(), identities)
+				m.allows.upsert(mapKeyAllowFoo__, mapEntryL7None(), identities)
 			}
 			// there's no "else" because we don't support L3L7 policies, i.e.,
 			// a L4 port needs to be specified.
@@ -755,31 +763,31 @@ func testCaseToMapState(t generatedBPFKey, identities Identities) MapState {
 	}
 	if t.L4Key.L3 != nil {
 		if t.L4Key.Deny != nil && *t.L4Key.Deny {
-			m.denies.upsert(mapKeyDeny____L4, mapEntryL7Deny_(), identities)
+			m.denies.upsert(mapKeyDeny____L4, mapEntryL7Deny(), identities)
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L4Key.L7 == nil || !*t.L4Key.L7 {
-				m.allows.upsert(mapKeyAllow___L4, mapEntryL7None_(), identities)
+				m.allows.upsert(mapKeyAllow___L4, mapEntryL7None(), identities)
 			} else {
 				// L7 is set and it's true then we should expected a mapEntry
 				// with L7 redirection.
-				m.allows.upsert(mapKeyAllow___L4, mapEntryL7Proxy(), identities)
+				m.allows.upsert(mapKeyAllow___L4, mapEntryL7Prox(), identities)
 			}
 		}
 	}
 	if t.L3L4Key.L3 != nil {
 		if t.L3L4Key.Deny != nil && *t.L3L4Key.Deny {
-			m.denies.upsert(mapKeyDeny_FooL4, mapEntryL7Deny_(), identities)
+			m.denies.upsert(mapKeyDeny_FooL4, mapEntryL7Deny(), identities)
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L3L4Key.L7 == nil || !*t.L3L4Key.L7 {
-				m.allows.upsert(mapKeyAllowFooL4, mapEntryL7None_(), identities)
+				m.allows.upsert(mapKeyAllowFooL4, mapEntryL7None(), identities)
 			} else {
 				// L7 is set and it's true then we should expected a mapEntry
 				// with L7 redirection only if we haven't set it already
 				// for an existing L4-only.
 				if t.L4Key.L7 == nil || !*t.L4Key.L7 {
-					m.allows.upsert(mapKeyAllowFooL4, mapEntryL7Proxy(), identities)
+					m.allows.upsert(mapKeyAllowFooL4, mapEntryL7Prox(), identities)
 				}
 			}
 		}
@@ -1201,18 +1209,6 @@ func Test_MergeRules(t *testing.T) {
 					t.Errorf("Policy obtained didn't match expected for endpoint %s", labelsFoo)
 				}
 			}
-			// It is extremely difficult to derive the "DerivedFromRules" field.
-			// Since this field is only used for debuggability purposes we can
-			// ignore it and test only for the MapState that we are expecting
-			// to be plumbed into the datapath.
-			mapstate.ForEach(func(k Key, v MapStateEntry) bool {
-				if v.derivedFromRules == nil || len(v.derivedFromRules) == 0 {
-					return true
-				}
-				v.derivedFromRules = labels.LabelArrayList(nil).Sort()
-				mapstate.insert(k, v, selectorCache)
-				return true
-			})
 			if equal := assert.EqualExportedValues(t, expectedMapState[tt.test], mapstate); !equal {
 				t.Logf("Rules:\n%s\n\n", tt.rules.String())
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
@@ -1466,7 +1462,7 @@ var (
 			labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
 		},
 	}
-	mapEntryL3UnknownIngress          = NewMapStateEntry(nil, 0, derivedFrom, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
+	mapEntryL3UnknownIngress          = NewMapStateEntry(0, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
 	mapKeyL3HostEgress                = EgressL3OnlyKey(identity.ReservedIdentityHost.Uint32())
 	ruleL3L4Port8080ProtoAnyDenyWorld = api.NewRule().WithIngressDenyRules([]api.IngressDenyRule{
 		{
@@ -1566,20 +1562,10 @@ var (
 	mapEntryL4WorldIPDependentsIngressDeny  = MapStateEntry{
 		ProxyPort: 0,
 		IsDeny:    true,
-		dependents: Keys{
-			mapKeyL4Port8080ProtoTCPWorldIPIngress:  struct{}{},
-			mapKeyL4Port8080ProtoUDPWorldIPIngress:  struct{}{},
-			mapKeyL4Port8080ProtoSCTPWorldIPIngress: struct{}{},
-		},
 	}
 	mapEntryL4WorldIPDependentsEgressDeny = MapStateEntry{
 		ProxyPort: 0,
 		IsDeny:    true,
-		dependents: Keys{
-			mapKeyL4Port8080ProtoTCPWorldIPEgress:  struct{}{},
-			mapKeyL4Port8080ProtoUDPWorldIPEgress:  struct{}{},
-			mapKeyL4Port8080ProtoSCTPWorldIPEgress: struct{}{},
-		},
 	}
 
 	ruleL3AllowWorldSubnetNamedPort = api.NewRule().WithIngressRules([]api.IngressRule{{
