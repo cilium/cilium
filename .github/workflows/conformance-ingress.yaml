@@ -178,7 +178,7 @@ jobs:
           # Please refer to https://github.com/kubernetes-sigs/ingress-controller-conformance/pull/101 for more details.
           repository: cilium/ingress-controller-conformance
           path: ingress-controller-conformance
-          ref: 010bbae21b71d9785660b87908dfe2ba8cd2f25d
+          ref: 6a193b3f73d8b1201a818bb7c8f204059b064857
           persist-credentials: false
 
       - name: Install Ingress conformance test tool
@@ -275,7 +275,7 @@ jobs:
         timeout-minutes: 30
         run: |
           cd ingress-controller-conformance
-          ./ingress-controller-conformance -ingress-class cilium -wait-time-for-ingress-status 60s -wait-time-for-ready 60s
+          ./ingress-controller-conformance -ingress-class cilium -wait-time-for-ingress-status 60s -wait-time-for-ready 60s -http-client-timeout 60s
 
       - name: Post-test information gathering
         if: ${{ !success() }}
