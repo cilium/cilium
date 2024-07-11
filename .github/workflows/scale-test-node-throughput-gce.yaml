@@ -97,12 +97,6 @@ jobs:
         with:
           go-version: ${{ env.go_version }}
 
-      - name: Install Cilium CLI
-        uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
-        with:
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
-
       - name: Install Kops
         uses: cilium/scale-tests-action/install-kops@dbd0721db1b3c6ef71644a7df205842252fc7c11 # main
 
@@ -133,17 +127,6 @@ jobs:
           persist-credentials: false
           sparse-checkout: clusterloader2
           path: perf-tests
-      
-      - name: Display version info of installed tools
-        run: |
-          echo "--- go ---"
-          go version
-          echo "--- cilium-cli ---"
-          cilium version --client
-          echo "--- kops ---"
-          ./kops version
-          echo "--- gcloud ---"
-          gcloud version
 
       - name: Deploy cluster
         id: deploy-cluster
@@ -157,12 +140,30 @@ jobs:
           node_count: 1
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
-      
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ env.CILIUM_CLI_VERSION }}
+
+      - name: Display version info of installed tools
+        run: |
+          echo "--- go ---"
+          go version
+          echo "--- cilium-cli ---"
+          cilium version --client
+          echo "--- kops ---"
+          ./kops version
+          echo "--- gcloud ---"
+          gcloud version
+
       - name: Setup firewall rules
         uses: cilium/scale-tests-action/setup-firewall@dbd0721db1b3c6ef71644a7df205842252fc7c11 # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-      
+
       - name: Install Cilium
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
