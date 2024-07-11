@@ -247,6 +247,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		podToControlplaneHostCidr{},
 		podToK8sOnControlplaneCidr{},
 		localRedirectPolicy{},
+		localRedirectPolicyWithNodeDNS{},
 		noFragmentation{},
 		bgpControlPlane{},
 	}
@@ -281,6 +282,7 @@ func renderTemplates(param check.Parameters) (map[string]string, error) {
 		"clientEgressL7TLSPolicyPortRangeYAML":             clientEgressL7TLSPolicyPortRangeYAML,
 		"clientEgressL7HTTPMatchheaderSecretYAML":          clientEgressL7HTTPMatchheaderSecretYAML,
 		"clientEgressL7HTTPMatchheaderSecretPortRangeYAML": clientEgressL7HTTPMatchheaderSecretPortRangeYAML,
+		"clientEgressNodeLocalDNSYAML":                     clientEgressNodeLocalDNSYAML,
 		"echoIngressFromCIDRYAML":                          echoIngressFromCIDRYAML,
 		"denyCIDRPolicyYAML":                               denyCIDRPolicyYAML,
 	}
