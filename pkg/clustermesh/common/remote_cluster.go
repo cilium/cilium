@@ -268,7 +268,7 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 	rc.config = &models.RemoteClusterConfig{Required: true}
 	rc.mutex.Unlock()
 
-	cfgch := make(chan types.CiliumClusterConfig)
+	cfgch := make(chan types.CiliumClusterConfig, 1)
 	defer close(cfgch)
 
 	// We retry here rather than simply returning an error and relying on the external
