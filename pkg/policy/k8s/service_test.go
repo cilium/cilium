@@ -5,12 +5,15 @@ package k8s
 
 import (
 	"cmp"
+	"context"
 	"net/netip"
 	"slices"
 	"testing"
 
+	"github.com/cilium/stream"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -731,4 +734,41 @@ func Test_hasMatchingToServices(t *testing.T) {
 			assert.Equalf(t, tt.want, hasMatchingToServices(tt.args.spec, tt.args.svcID, tt.args.svc), "hasMatchingToServices(%v, %v, %v)", tt.args.spec, tt.args.svcID, tt.args.svc)
 		})
 	}
+}
+
+func Test_serviceNotificationsQueue(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	upstream := make(chan k8s.ServiceNotification)
+	downstream := serviceNotificationsQueue(ctx, stream.FromChannel(upstream))
+
+	// Test that sending events in upstream does not block on unbuffered channel
+	upstream <- k8s.ServiceNotification{ID: k8s.ServiceID{Name: "svc1"}}
+	upstream <- k8s.ServiceNotification{ID: k8s.ServiceID{Name: "svc2"}}
+	upstream <- k8s.ServiceNotification{ID: k8s.ServiceID{Name: "svc3"}}
+
+	// Test that events are received in order
+	require.Equal(t, k8s.ServiceNotification{ID: k8s.ServiceID{Name: "svc1"}}, <-downstream)
+	require.Equal(t, k8s.ServiceNotification{ID: k8s.ServiceID{Name: "svc2"}}, <-downstream)
+	require.Equal(t, k8s.ServiceNotification{ID: k8s.ServiceID{Name: "svc3"}}, <-downstream)
+	require.Empty(t, downstream)
+
+	// Test that Go routine exits on empty upstream if ctx is cancelled
+	cancel()
+	_, ok := <-downstream
+	require.False(t, ok, "service notification channel was not closed on cancellation")
+
+	// Test that Go routine exits on upstream close
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+	upstream = make(chan k8s.ServiceNotification)
+	downstream = serviceNotificationsQueue(ctx, stream.FromChannel(upstream))
+
+	upstream <- k8s.ServiceNotification{ID: k8s.ServiceID{Name: "svc4"}}
+	require.Equal(t, k8s.ServiceNotification{ID: k8s.ServiceID{Name: "svc4"}}, <-downstream)
+
+	close(upstream)
+	_, ok = <-downstream
+	require.False(t, ok, "service notification channel was not closed on upstream close")
 }
