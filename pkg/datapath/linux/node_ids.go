@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/idpool"
@@ -31,7 +33,13 @@ func (n *linuxNodeHandler) GetNodeIP(nodeID uint16) string {
 		// Returns local node's IPv4 address if available, IPv6 address otherwise.
 		return node.GetCiliumEndpointNodeIP()
 	}
-	return n.nodeIPsByIDs[nodeID]
+
+	// Otherwise, return one of the IPs matching the given ID.
+	for ip := range n.nodeIPsByIDs[nodeID] {
+		return ip
+	}
+
+	return ""
 }
 
 func (n *linuxNodeHandler) GetNodeID(nodeIP net.IP) (uint16, bool) {
@@ -151,16 +159,13 @@ func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) error {
 
 func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16, nodeIPs map[string]bool, nodeName string) error {
 	var errs error
-	for ip, id := range n.nodeIDsByIPs {
-		if nodeID != id {
-			continue
-		}
+	for ip := range n.nodeIPsByIDs[nodeID] {
 		// Check that only IPs of this node had this node ID.
 		if _, isIPOfOldNode := nodeIPs[ip]; !isIPOfOldNode {
 			n.log.Error("Found a foreign IP address with the ID of the current node",
 				logfields.NodeName, nodeName,
 				logfields.IPAddr, ip,
-				logfields.NodeID, id,
+				logfields.NodeID, nodeID,
 			)
 		}
 
@@ -198,7 +203,7 @@ func (n *linuxNodeHandler) mapNodeID(ip string, id uint16, SPI uint8) error {
 	// We only add the IP <> ID mapping in memory once we are sure it was
 	// successfully added to the BPF map.
 	n.nodeIDsByIPs[ip] = id
-	n.nodeIPsByIDs[id] = ip
+	setIPsByIDsMapping(n.nodeIPsByIDs, id, ip)
 
 	return nil
 }
@@ -221,7 +226,11 @@ func (n *linuxNodeHandler) unmapNodeID(ip string) error {
 	}
 	if id, exists := n.nodeIDsByIPs[ip]; exists {
 		delete(n.nodeIDsByIPs, ip)
-		delete(n.nodeIPsByIDs, id)
+
+		n.nodeIPsByIDs[id].Delete(ip)
+		if n.nodeIPsByIDs[id].Len() == 0 {
+			delete(n.nodeIPsByIDs, id)
+		}
 	}
 
 	return nil
@@ -330,11 +339,11 @@ func (n *linuxNodeHandler) registerNodeIDAllocations(allocatedNodeIDs map[string
 	// the allocation of node IDs. Not only do we need to update the map,
 	nodeIDs := make(map[uint16]struct{})
 	IDsByIPs := make(map[string]uint16)
-	IPsByIDs := make(map[uint16]string)
+	IPsByIDs := make(map[uint16]sets.Set[string])
 	for ip, val := range allocatedNodeIDs {
 		id := val.NodeID
 		IDsByIPs[ip] = id
-		IPsByIDs[id] = ip
+		setIPsByIDsMapping(IPsByIDs, id, ip)
 		// ...but we also need to remove any restored nodeID from the pool of IDs
 		// available for allocation.
 		if _, exists := nodeIDs[id]; !exists {
@@ -353,4 +362,13 @@ func (n *linuxNodeHandler) registerNodeIDAllocations(allocatedNodeIDs map[string
 
 	n.nodeIDsByIPs = IDsByIPs
 	n.nodeIPsByIDs = IPsByIDs
+}
+
+func setIPsByIDsMapping(nodeIPsByIDs map[uint16]sets.Set[string], id uint16, ip string) {
+	ips, ok := nodeIPsByIDs[id]
+	if !ok {
+		ips = sets.New[string]()
+		nodeIPsByIDs[id] = ips
+	}
+	ips.Insert(ip)
 }

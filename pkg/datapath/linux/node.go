@@ -19,6 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -81,7 +82,7 @@ type linuxNodeHandler struct {
 	// Node-scoped unique IDs for the nodes.
 	nodeIDsByIPs map[string]uint16
 	// reverse map of the above
-	nodeIPsByIDs map[uint16]string
+	nodeIPsByIDs map[uint16]sets.Set[string]
 
 	ipsecMetricCollector prometheus.Collector
 	ipsecMetricOnce      sync.Once
@@ -135,7 +136,7 @@ func newNodeHandler(
 		nodeMap:                nodeMap,
 		nodeIDs:                idpool.NewIDPool(minNodeID, maxNodeID),
 		nodeIDsByIPs:           map[string]uint16{},
-		nodeIPsByIDs:           map[uint16]string{},
+		nodeIPsByIDs:           map[uint16]sets.Set[string]{},
 		ipsecMetricCollector:   ipsec.NewXFRMCollector(),
 		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
 		nodeNeighborQueue:      nbq,
