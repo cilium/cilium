@@ -677,9 +677,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		case len(option.Config.MasqueradeInterfaces) > 0:
 			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
 				option.MasqueradeInterfaces, option.Devices)
-		case option.Config.TunnelingEnabled() && !option.Config.EnableSocketLB:
-			err = fmt.Errorf("BPF masquerade requires socket-LB (--%s=\"false\")",
-				option.EnableSocketLB)
 		}
 		if err != nil {
 			log.WithError(err).Error("unable to initialize BPF masquerade support")

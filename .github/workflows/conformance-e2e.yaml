@@ -172,6 +172,7 @@ jobs:
             kpr: 'false'
             tunnel: 'geneve'
             endpoint-routes: 'true'
+            misc: 'socketLB.enabled=false,nodePort.enabled=true,bpf.masquerade=true'
 
           - name: '9'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
