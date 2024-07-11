@@ -128,12 +128,6 @@ jobs:
         with:
           go-version: ${{ env.go_version }}
 
-      - name: Install Cilium CLI
-        uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
-        with:
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
-
       - name: Install Kops
         uses: cilium/scale-tests-action/install-kops@dbd0721db1b3c6ef71644a7df205842252fc7c11 # main
 
@@ -174,17 +168,6 @@ jobs:
           sparse-checkout: cmapisrv-mock
           path: scaffolding
 
-      - name: Display version info of installed tools
-        run: |
-          echo "--- go ---"
-          go version
-          echo "--- cilium-cli ---"
-          cilium version --client
-          echo "--- kops ---"
-          ./kops version
-          echo "--- gcloud ---"
-          gcloud version
-
       - name: Deploy cluster
         id: deploy-cluster
         uses: cilium/scale-tests-action/create-cluster@dbd0721db1b3c6ef71644a7df205842252fc7c11 # main
@@ -199,6 +182,24 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           kube_proxy_enabled: false
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ env.CILIUM_CLI_VERSION }}
+
+      - name: Display version info of installed tools
+        run: |
+          echo "--- go ---"
+          go version
+          echo "--- cilium-cli ---"
+          cilium version --client
+          echo "--- kops ---"
+          ./kops version
+          echo "--- gcloud ---"
+          gcloud version
 
       - name: Setup firewall rules
         uses: cilium/scale-tests-action/setup-firewall@dbd0721db1b3c6ef71644a7df205842252fc7c11 # main
