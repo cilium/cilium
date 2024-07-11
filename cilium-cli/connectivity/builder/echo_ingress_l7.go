@@ -40,4 +40,20 @@ func (t echoIngressL7) build(ct *check.ConnectivityTest, _ map[string]string) {
 		WithCiliumPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
 		WithScenarios(tests.PodToPodWithEndpoints()).
 		WithExpectations(expectation)
+
+	newTest("echo-ingress-l7-via-hostport-with-encryption", ct).
+		WithCondition(func() bool { return !ct.Params().SingleNode }).
+		WithFeatureRequirements(
+			features.RequireEnabled(features.L7Proxy),
+			// Once https://github.com/cilium/cilium/issues/33168 is fixed, we
+			// can enable for IPsec too.
+			features.RequireMode(features.EncryptionPod, "wireguard"),
+			// Otherwise pod->hostport traffic will be policy
+			// denied on the ingress of dest node when
+			// routing=vxlan + kpr=1 + bpf_masq=1
+			features.RequireEnabled(features.EncryptionNode),
+		).
+		WithCiliumPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
+		WithScenarios(tests.PodToHostPort()).
+		WithExpectations(expectation)
 }
