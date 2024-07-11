@@ -497,6 +497,10 @@ const (
 	// BPFSocketLBHostnsOnly is the name of the BPFSocketLBHostnsOnly option
 	BPFSocketLBHostnsOnly = "bpf-lb-sock-hostns-only"
 
+	// EnableSocketLBPodConnectionTermination enables termination of pod connections
+	// to deleted service backends when socket-LB is enabled.
+	EnableSocketLBPodConnectionTermination = "bpf-lb-sock-terminate-pod-connections"
+
 	// RoutingMode is the name of the option to choose between native routing and tunneling mode
 	RoutingMode = "routing-mode"
 
@@ -2422,6 +2426,10 @@ type DaemonConfig struct {
 	// NodeLabels is the list of label prefixes used to determine identity of a node (requires enabling of
 	// EnableNodeSelectorLabels)
 	NodeLabels []string
+
+	// EnableSocketLBPodConnectionTermination enables the termination of connections from pods
+	// to deleted service backends when socket-LB is enabled
+	EnableSocketLBPodConnectionTermination bool
 }
 
 var (
@@ -3009,6 +3017,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
 	c.EnableSocketLB = vp.GetBool(EnableSocketLB)
 	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
+	c.EnableSocketLBPodConnectionTermination = vp.GetBool(EnableSocketLBPodConnectionTermination)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
 	c.EnableXTSocketFallback = vp.GetBool(EnableXTSocketFallbackName)
 	c.EnableAutoDirectRouting = vp.GetBool(EnableAutoDirectRoutingName)

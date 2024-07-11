@@ -345,6 +345,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableSocketLB, false, "Enable socket-based LB for E/W traffic")
 	option.BindEnv(vp, option.EnableSocketLB)
 
+	flags.Bool(option.EnableSocketLBPodConnectionTermination, true, "Enable terminating connections to deleted service backends when socket-LB is enabled")
+	flags.MarkHidden(option.EnableSocketLBPodConnectionTermination)
+	option.BindEnv(vp, option.EnableSocketLBPodConnectionTermination)
+
 	flags.Bool(option.EnableSocketLBTracing, true, "Enable tracing for socket-based LB")
 	option.BindEnv(vp, option.EnableSocketLBTracing)
 
@@ -1374,6 +1378,8 @@ func initEnv(vp *viper.Viper) {
 		option.Config.EnableSocketLB = true
 		// Socket-LB tracing relies on metadata that's retrieved from Kubernetes.
 		option.Config.EnableSocketLBTracing = false
+		option.Config.EnableSocketLBTracing = true
+		option.Config.EnableSocketLBPodConnectionTermination = true
 		option.Config.EnableHostPort = false
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true

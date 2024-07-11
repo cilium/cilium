@@ -998,6 +998,8 @@ socketLB:
   enabled: false
   # -- Disable socket lb for non-root ns. This is used to enable Istio routing rules.
   # hostNamespaceOnly: false
+  # -- Enable terminating pod connections to deleted service backends.
+  # terminatePodConnections: true
 # -- Configure certificate generation for Hubble integration.
 # If hubble.tls.auto.method=cronJob, these values are used
 # for the Kubernetes CronJob which will be scheduled regularly to
