@@ -678,7 +678,10 @@ func (e *etcdClient) asyncConnectEtcdClient(errChan chan<- error) {
 			continue
 
 		case EventTypeListDone:
+			// A list done event signals the initial connection, but
+			// is also not an heartbeat signal.
 			close(listDone)
+			continue
 		}
 
 		// It is tempting to compare against the heartbeat value stored in
@@ -1014,6 +1017,16 @@ func (e *etcdClient) statusChecker() {
 	statusTimer, statusTimerDone := inctimer.New()
 	defer statusTimerDone()
 
+	e.RWMutex.Lock()
+	// Ensure that lastHearbeat is always set to a non-zero value when starting
+	// the status checker, to guarantee that we can correctly compute the time
+	// difference even in case we don't receive any heartbeat event. Indeed, we
+	// want to consider that as an heartbeat failure after the usual timeout.
+	if e.lastHeartbeat.IsZero() {
+		e.lastHeartbeat = time.Now()
+	}
+	e.RWMutex.Unlock()
+
 	for {
 		newStatus := []string{}
 		ok := 0
@@ -1024,7 +1037,7 @@ func (e *etcdClient) statusChecker() {
 		lastHeartbeat := e.lastHeartbeat
 		e.RWMutex.RUnlock()
 
-		if heartbeatDelta := time.Since(lastHeartbeat); !lastHeartbeat.IsZero() && heartbeatDelta > 2*HeartbeatWriteInterval {
+		if heartbeatDelta := time.Since(lastHeartbeat); heartbeatDelta > 2*HeartbeatWriteInterval {
 			recordQuorumError("no event received")
 			quorumError = fmt.Errorf("%s since last heartbeat update has been received", heartbeatDelta)
 		}
