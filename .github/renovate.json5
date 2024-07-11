@@ -22,6 +22,7 @@
     ".github/actions/lvh-kind/**",
     ".github/actions/set-env-variables/action.yml",
     ".github/workflows/**",
+    ".github/ISSUE_TEMPLATE/bug_report.yaml",
     "images/**",
     "examples/hubble/*",
     "go.mod",
@@ -86,14 +87,6 @@
   ],
   "assignAutomerge": true,
   "packageRules": [
-    {
-      "matchPackageNames": [
-        "github.com/aws/aws-sdk-go-v2/service/ec2",
-        "github.com/aliyun/alibaba-cloud-sdk-go",
-        "renovatebot/github-action"
-      ],
-      "schedule": ["on the 1st day instance on sunday"]
-    },
     {
       "matchPackageNames": [
         "go", // golang version directive upgrade in go.mod
@@ -637,6 +630,41 @@
         "grpc/grpc-go"
       ],
       "versioning": "regex:cmd/protoc-gen-go-grpc/v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+    },
+    {
+      "matchPackageNames": [
+        "github.com/aws/aws-sdk-go-v2/service/ec2",
+        "github.com/aliyun/alibaba-cloud-sdk-go",
+        "renovatebot/github-action"
+      ],
+      "schedule": ["on the 1st day instance on sunday"]
+    },
+    {
+      // Separate major minor and patch so that renovate can update the patch
+      // versions of cilium.
+      "matchFileNames": [
+        ".github/ISSUE_TEMPLATE/bug_report.yaml"
+      ],
+      "matchDepNames": [
+        "cilium/cilium",
+      ],
+      "separateMajorMinor": true,
+      "separateMinorPatch": true,
+      "ignoreUnstable": false,
+      "versioning": "semver"
+    },
+    {
+      "enabled": false,
+      "matchFileNames": [
+        ".github/ISSUE_TEMPLATE/bug_report.yaml"
+      ],
+      "matchDepNames": [
+        "cilium/cilium",
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
     }
   ],
   "kubernetes": {
@@ -666,6 +694,17 @@
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s.+@(?<currentValue>.*)",
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s.+_VERSION=(?<currentValue>.*)"
       ]
+    },
+    {
+      "fileMatch": [
+        ".github/ISSUE_TEMPLATE/bug_report.yaml"
+      ],
+      // These regexes manage version and digest strings in shell scripts,
+      // similar to the examples shown here:
+      //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+- \'v(?<currentValue>.*) or higher\'"
+      ],
     },
     {
       "fileMatch": [
