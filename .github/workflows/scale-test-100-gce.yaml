@@ -186,9 +186,9 @@ jobs:
         timeout-minutes: 60
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          control_plane_size: n2-standard-32
+          control_plane_size: n2-standard-64
           control_plane_count: 5
-          control_plane_volume_size: 50
+          control_plane_volume_size: 64
           node_size: e2-medium
           node_count: 1000
           node_volume_size: 50
