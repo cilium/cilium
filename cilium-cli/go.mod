@@ -27,7 +27,7 @@ require (
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8
 	google.golang.org/grpc v1.65.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
-	helm.sh/helm/v3 v3.15.2
+	helm.sh/helm/v3 v3.15.3
 	k8s.io/api v0.30.2
 	k8s.io/apimachinery v0.30.2
 	k8s.io/cli-runtime v0.30.0
