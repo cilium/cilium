@@ -29,6 +29,8 @@ runs:
         fi
         ${{ inputs.cilium-cli }} connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
           --include-conn-disrupt-test \
+          --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
+          --conn-disrupt-test-xfrm-errors-path "./cilium-conn-disrupt-xfrm-errors" \
           --flush-ct \
           --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
           --sysdump-output-filename "cilium-sysdump-conn-disrupt-test-${{ inputs.job-name }}-<ts>" \
