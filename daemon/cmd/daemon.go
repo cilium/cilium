@@ -658,7 +658,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
 				option.MasqueradeInterfaces, option.Devices)
 		case option.Config.TunnelingEnabled() && !option.Config.EnableSocketLB:
-			err = fmt.Errorf("BPF masquerade requires socket-LB (--%s=\"false\")",
+			err = fmt.Errorf("BPF masquerade with tunnel routing requires socket-LB (--%s=\"true\")",
 				option.EnableSocketLB)
 		}
 		if err != nil {
