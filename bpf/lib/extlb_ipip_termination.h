@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 
-#ifndef __LIB_IPIP_TERMINATION_H_
-#define __LIB_IPIP_TERMINATION_H_
+#pragma once
 
-#ifdef ENABLE_IPIP_TERMINATION
-
+#ifdef ENABLE_EXTLB_IPIP_TERMINATION
 static __always_inline int
 decap_ipv4(struct __ctx_buff *ctx)
 {
@@ -30,10 +28,8 @@ decap_ipv4(struct __ctx_buff *ctx)
 		return DROP_INVALID;
 
 	ret = lb4_extract_tuple(ctx, &inner_ip4, inner_ip4_off, &l4_off, &tuple);
-	if (IS_ERR(ret)) {
-		/* Bypass */
-		return CTX_ACT_OK;
-	}
+	if (IS_ERR(ret))
+		return ret;
 
 	lb4_fill_key(&key, &tuple);
 
@@ -43,7 +39,7 @@ decap_ipv4(struct __ctx_buff *ctx)
 			return CTX_ACT_OK;
 
 		if (ctx_adjust_hroom(ctx, -outer_ip4_len,
-				     BPF_ADJ_ROOM_MAC, BPF_F_ADJ_ROOM_FIXED_GSO))
+				     BPF_ADJ_ROOM_MAC, ctx_adjust_hroom_flags()))
 			return DROP_INVALID;
 	}
 
@@ -66,6 +62,7 @@ decap_ipip(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		/* TODO: support ipv6 */
+		return DROP_INVALID;
 #endif
 	default:
 		return CTX_ACT_OK;
@@ -73,5 +70,4 @@ decap_ipip(struct __ctx_buff *ctx)
 
 	return CTX_ACT_OK;
 }
-#endif /* ENABLE_IPIP_TERMINATION */
-#endif /* __LIB_IPIP_TERMINATION_H_ */
+#endif /* ENABLE_EXTLB_IPIP_TERMINATION*/

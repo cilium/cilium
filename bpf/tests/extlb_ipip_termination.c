@@ -10,14 +10,20 @@
 
 #undef ctx_adjust_hroom
 #define ctx_adjust_hroom mock_ctx_adjust_hroom
-static __always_inline int mock_ctx_adjust_hroom(struct __ctx_buff *ctx __maybe_unused, __s32 len_diff __maybe_unused,
-  __u32 mode __maybe_unused, __u64 flags __maybe_unused);
+static __always_inline int
+mock_ctx_adjust_hroom(struct __ctx_buff *ctx __maybe_unused,
+		      __s32 len_diff __maybe_unused,
+		      __u32 mode __maybe_unused,
+		      __u64 flags __maybe_unused);
 
 #include "bpf_host.c"
 #include "lib/lb.h"
 
-static __always_inline int mock_ctx_adjust_hroom(struct __ctx_buff *ctx __maybe_unused, __s32 len_diff __maybe_unused,
-  __u32 mode __maybe_unused, __u64 flags __maybe_unused)
+static __always_inline int
+mock_ctx_adjust_hroom(struct __ctx_buff *ctx __maybe_unused,
+		      __s32 len_diff __maybe_unused,
+		      __u32 mode __maybe_unused,
+		      __u64 flags __maybe_unused)
 {
 	void *data;
 	void *data_end;
@@ -29,11 +35,8 @@ static __always_inline int mock_ctx_adjust_hroom(struct __ctx_buff *ctx __maybe_
 
 	if (mode != BPF_ADJ_ROOM_MAC)
 		return CTX_ACT_DROP;
-	if (flags != BPF_F_ADJ_ROOM_FIXED_GSO)
+	if (len_diff != -(long)(sizeof(struct iphdr)))
 		return CTX_ACT_DROP;
-	if (len_diff != -(long)(sizeof(struct iphdr)) )
-		return CTX_ACT_DROP;
-
 
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
@@ -85,13 +88,12 @@ struct {
 	},
 };
 
-
 /* Test that a packet with IPIP encapsulation
-*  is decapsulated when it reached the loadbalancer service.
-*  | eth | LB_IP:NODE_IP | CLIENT_IP:VIP | TCP:tcp_svc_one(80) |
-*/
-PKTGEN("tc", "ipip_termination_from_host")
-int ipip_termination_from_host_pktgen(struct __ctx_buff *ctx)
+ *  is decapsulated when it reached the loadbalancer service.
+ *  | eth | LB_IP:NODE_IP | CLIENT_IP:VIP | TCP:tcp_svc_one(80) |
+ */
+PKTGEN("tc", "extlb_ipip_termination_from_host")
+int extlb_ipip_termination_from_host_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct ethhdr *l2;
@@ -129,8 +131,8 @@ int ipip_termination_from_host_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "ipip_termination_from_host")
-int ipip_termination_from_host_setup(__maybe_unused struct __ctx_buff *ctx)
+SETUP("tc", "extlb_ipip_termination_from_host")
+int extlb_ipip_termination_from_host_setup(__maybe_unused struct __ctx_buff *ctx)
 {
 	lb_v4_add_service_with_flags(LB_VIP, tcp_svc_one, 1, 1, SVC_FLAG_LOADBALANCER, 0);
 	lb_v4_add_backend(LB_VIP, tcp_svc_one, 1, 124, v4_pod_one, tcp_dst_one, IPPROTO_TCP, 0);
@@ -142,8 +144,8 @@ int ipip_termination_from_host_setup(__maybe_unused struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "ipip_termination_from_host")
-int ipip_termination_from_host_check(__maybe_unused struct __ctx_buff *ctx)
+CHECK("tc", "extlb_ipip_termination_from_host")
+int extlb_ipip_termination_from_host_check(__maybe_unused struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
@@ -178,11 +180,9 @@ int ipip_termination_from_host_check(__maybe_unused struct __ctx_buff *ctx)
 	if ((void *)outer_l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("outer_l3 out of bounds");
 
-
 	inner_l3 = (void *)outer_l3 + sizeof(struct iphdr);
 	if ((void *)inner_l3 + sizeof(struct iphdr) > data_end)
 		test_fatal("inner_l3 out of bounds");
-
 
 	l4 = (void *)inner_l3 + sizeof(struct iphdr);
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
@@ -190,9 +190,8 @@ int ipip_termination_from_host_check(__maybe_unused struct __ctx_buff *ctx)
 
 	/* Test decap_ipip() */
 	ret = lb4_extract_tuple(ctx, inner_l3, (void *)inner_l3 - data, &l4_off, &tuple);
-	if (IS_ERR(ret)) {
+	if (IS_ERR(ret))
 		test_fatal("lb4_extract_tuple() failed\n");
-	}
 
 	lb4_fill_key(&key, &tuple);
 
@@ -200,13 +199,13 @@ int ipip_termination_from_host_check(__maybe_unused struct __ctx_buff *ctx)
 	if (!svc) {
 		test_fatal("svc is not found\n");
 	} else {
-		if (!lb4_svc_is_loadbalancer(svc)) {
+		if (!lb4_svc_is_loadbalancer(svc))
 			test_fatal("svc is not loadbalancer\n");
-		}
-		ret = ctx_adjust_hroom(ctx, -ipv4_hdrlen(outer_l3), BPF_ADJ_ROOM_MAC, BPF_F_ADJ_ROOM_FIXED_GSO);
-		if (IS_ERR(ret)) {
+
+		ret = ctx_adjust_hroom(ctx, -ipv4_hdrlen(outer_l3),
+				       BPF_ADJ_ROOM_MAC, ctx_adjust_hroom_flags());
+		if (IS_ERR(ret))
 			test_fatal("ctx_adjust_hroom() failed\n");
-		}
 	}
 
 	/* Verify decapsulation */
