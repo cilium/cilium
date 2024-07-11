@@ -603,6 +603,7 @@ mode would look as follows:
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
+.. _socketlb-host-netns-only:
 
 Socket LoadBalancer Bypass in Pod Namespace
 *******************************************
