@@ -59,7 +59,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_ci_version:
   kind_config: .github/kind-config.yaml
   gateway_api_version: v1.1.0
   timeout: 5m
@@ -112,13 +111,6 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
-      - name: Install Cilium CLI
-        uses: cilium/cilium-cli@9fffebfb38ad7ff1f80f1c1a366ec87730683bb4 # v0.16.12
-        with:
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
-
       - name: Get Cilium's default values
         id: default_vars
         uses: ./.github/actions/helm-default
@@ -166,6 +158,13 @@ jobs:
           kubectl_version: ${{ env.KIND_K8S_VERSION }}
           config: ${{ env.kind_config }}
           wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@9fffebfb38ad7ff1f80f1c1a366ec87730683bb4 # v0.16.12
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Install Go
         uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
