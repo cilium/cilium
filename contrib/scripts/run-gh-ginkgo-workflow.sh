@@ -134,7 +134,7 @@ install_vm_dep() {
 provision_kind() {
     local kernel_tag="$1" kubernetes_image="$2" ip_family="$3"
 
-    if [[ "${kernel_tag}" == bpf-next-* ]]; then
+    if [[ "${kernel_tag}" == 6.6-* ]]; then
         ${connect} "cd /host; ./contrib/scripts/kind.sh '' 2 '' ${kubernetes_image} none ${ip_family}"
         ${connect} kubectl label node kind-worker2 cilium.io/ci-node=kind-worker2
         ${connect} kubectl label node kind-worker2 node-role.kubernetes.io/controlplane=
@@ -156,7 +156,7 @@ run_tests() {
     local NO_CILIUM_ON_NODES=""
 
     case "${kernel_tag}" in
-        bpf-next-*)
+        6.6-*)
             K8S_NODES=3
             NETNEXT=1
             KERNEL=net-next
