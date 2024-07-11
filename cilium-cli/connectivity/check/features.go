@@ -229,6 +229,35 @@ func (ct *ConnectivityTest) extractFeaturesFromCRDs(ctx context.Context, result 
 	return nil
 }
 
+const (
+	nodeLocalDNSNamespace                     = "kube-system"
+	nodeLocalDNSDaemonSetName                 = "node-local-dns"
+	nodeLocalDNSCiliumLocalRedirectPolicyName = "nodelocaldns"
+)
+
+func (ct *ConnectivityTest) extractFeaturesFromDNSConfig(ctx context.Context, result features.Set) error {
+	_, err := ct.client.GetDaemonSet(ctx, nodeLocalDNSNamespace, nodeLocalDNSDaemonSetName, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			result[features.NodeLocalDNS] = features.Status{Enabled: false}
+			return nil
+		}
+		return fmt.Errorf("unable to retrieve DaemonSet %s: %w", nodeLocalDNSDaemonSetName, err)
+	}
+
+	_, err = ct.client.GetCiliumLocalRedirectPolicy(ctx, nodeLocalDNSNamespace, nodeLocalDNSCiliumLocalRedirectPolicyName, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			result[features.NodeLocalDNS] = features.Status{Enabled: false}
+			return nil
+		}
+		return fmt.Errorf("unable to retrieve CiliumLocalRedirectPolicy %s: %w", nodeLocalDNSCiliumLocalRedirectPolicyName, err)
+	}
+
+	result[features.NodeLocalDNS] = features.Status{Enabled: true}
+	return nil
+}
+
 func (ct *ConnectivityTest) validateFeatureSet(other features.Set, source string) {
 	for key, found := range other {
 		expected, ok := ct.Features[key]
@@ -304,6 +333,10 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 			return err
 		}
 		err = ct.extractFeaturesFromCRDs(ctx, features)
+		if err != nil {
+			return err
+		}
+		err = ct.extractFeaturesFromDNSConfig(ctx, features)
 		if err != nil {
 			return err
 		}
