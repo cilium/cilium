@@ -20,5 +20,6 @@ steps:
           - cilium-bugtool
           - --get-pprof
           - --pprof-trace-seconds=40
+          - --archiveType=gz
           - -t=-
           timeout: 55s
