@@ -307,21 +307,6 @@ jobs:
             --testoverrides=./modules.yaml \
             2>&1 | tee cl2-output.txt
 
-      - name: Gather debug info on failure
-        id: debug-info
-        if: ${{ failure() }}
-        run: |
-          cilium status
-          kubectl get pods --all-namespaces -owide
-          cilium sysdump --output-filename cilium-sysdump-final
-
-      - name: Upload artifacts
-        if: ${{ steps.debug-info.outcome != 'skipped' }}
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
-        with:
-          name: cilium-sysdump-final
-          path: cilium-sysdump-*.zip
-
       - name: Cleanup cluster
         if: ${{ always() }}
         uses: cilium/scale-tests-action/cleanup-cluster@238d773bd07754bfd693a6b22c94eddf3a12778d # main
