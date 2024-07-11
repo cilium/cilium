@@ -689,6 +689,10 @@ func (c *Client) DeleteCiliumEgressGatewayPolicy(ctx context.Context, name strin
 	return c.CiliumClientset.CiliumV2().CiliumEgressGatewayPolicies().Delete(ctx, name, opts)
 }
 
+func (c *Client) GetCiliumLocalRedirectPolicy(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*ciliumv2.CiliumLocalRedirectPolicy, error) {
+	return c.CiliumClientset.CiliumV2().CiliumLocalRedirectPolicies(namespace).Get(ctx, name, opts)
+}
+
 func (c *Client) DeleteCiliumLocalRedirectPolicy(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
 	return c.CiliumClientset.CiliumV2().CiliumLocalRedirectPolicies(namespace).Delete(ctx, name, opts)
 }

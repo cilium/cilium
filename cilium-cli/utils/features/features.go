@@ -77,6 +77,8 @@ const (
 	LocalRedirectPolicy Feature = "enable-local-redirect-policy"
 
 	BGPControlPlane Feature = "enable-bgp-control-plane"
+
+	NodeLocalDNS Feature = "node-local-dns"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
