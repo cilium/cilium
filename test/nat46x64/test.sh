@@ -14,8 +14,7 @@ CILIUM_EXEC="docker exec -t lb-node docker exec -t cilium-lb"
 
 CFG_COMMON=("--enable-ipv4=true" "--enable-ipv6=true" "--devices=eth0" \
             "--datapath-mode=lb-only" "--bpf-lb-external-control-plane=true" \
-	    "--bpf-lb-dsr-dispatch=ipip" "--bpf-lb-mode=snat" \
-	    "--enable-nat46x64-gateway=true")
+	    "--bpf-lb-mode=snat" "--enable-nat46x64-gateway=true")
 
 TXT_XDP_MAGLEV="Mode:XDP\tAlgorithm:Maglev\tRecorder:Disabled"
 CFG_XDP_MAGLEV=("--bpf-lb-acceleration=native" "--bpf-lb-algorithm=maglev")
