@@ -171,6 +171,7 @@ jobs:
           #   down the rollout process and highlight possible connection disruption
           #   occurring in the meanwhile.
           CILIUM_INSTALL_DEFAULTS=" \
+            --disable-check=minimum-version \
             --set=debug.enabled=true \
             --set=bpf.monitorAggregation=medium \
             --set=hubble.enabled=true \
@@ -221,13 +222,6 @@ jobs:
           echo "cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_ENCRYPTION}" >> $GITHUB_OUTPUT
           echo "connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS}" >> $GITHUB_OUTPUT
 
-      - name: Install Cilium CLI
-        uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
-        with:
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
-
       - name: Generate Kind configuration files
         run: |
           PODCIDR=10.242.0.0/16,fd00:10:242::/48 \
@@ -261,6 +255,13 @@ jobs:
           kubectl_version: ${{ env.KIND_K8S_VERSION }}
           config: ./.github/kind-config-cluster2.yaml
           wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ env.CILIUM_CLI_VERSION }}
 
       # Make sure that coredns uses IPv4-only upstream DNS servers also in case of clusters
       # with IP family dual, since IPv6 ones are not reachable and cause spurious failures.
@@ -454,6 +455,7 @@ jobs:
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} --hubble=false \
             --include-conn-disrupt-test --conn-disrupt-test-setup \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
 
 
@@ -573,6 +575,7 @@ jobs:
             --multi-cluster=${{ env.contextName2 }} \
             ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --include-conn-disrupt-test \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --junit-file "cilium-junits/${{ env.job_name }} - post upgrade (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests post-upgrade (${{ join(matrix.*, ', ') }})"
 
@@ -582,6 +585,7 @@ jobs:
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} --hubble=false \
             --include-conn-disrupt-test --conn-disrupt-test-setup \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
 
 
@@ -638,6 +642,7 @@ jobs:
             --test='no-interrupted-connections' \
             --test='no-unexpected-packet-drops' \
             --include-conn-disrupt-test \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --junit-file "cilium-junits/${{ env.job_name }} - stress test (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests stess-test (${{ join(matrix.*, ', ') }})"
 
@@ -647,6 +652,7 @@ jobs:
           cilium --context ${{ env.contextName1 }} connectivity test \
             --multi-cluster=${{ env.contextName2 }} --hubble=false \
             --include-conn-disrupt-test --conn-disrupt-test-setup \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
 
 
@@ -681,6 +687,7 @@ jobs:
             --multi-cluster=${{ env.contextName2 }} \
             ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --include-conn-disrupt-test \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --junit-file "cilium-junits/${{ env.job_name }} - post downgrade (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests post-downgrade (${{ join(matrix.*, ', ') }})"
 
