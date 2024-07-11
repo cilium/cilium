@@ -20,12 +20,13 @@ import (
 	"github.com/cilium/cilium-cli/install"
 )
 
-// addCommonInstallFlags adds install command flags that are shared between classic and helm mode.
+// addCommonInstallFlags adds install command flags that are shared between install and upgrade commands.
 func addCommonInstallFlags(cmd *cobra.Command, params *install.Parameters) {
 	cmd.Flags().StringVar(&params.Version, "version", defaults.Version, "Cilium version to install")
 	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Datapath mode to use { tunnel | native | aws-eni | gke | azure | aks-byocni } (default: autodetected).")
 	cmd.Flags().BoolVar(&params.ListVersions, "list-versions", false, "List all the available versions without actually installing")
 	cmd.Flags().BoolVar(&params.NodesWithoutCilium, "nodes-without-cilium", false, "Configure the affinities to avoid scheduling Cilium components on nodes labeled with cilium.io/no-schedule. It is assumed that the infrastructure has set up routing on these nodes to provide connectivity within the Cilium cluster.")
+	cmd.Flags().StringSliceVar(&params.DisableChecks, "disable-check", []string{}, "Disable a particular validation check")
 }
 
 // addCommonUninstallFlags adds uninstall command flags that are shared between classic and helm mode.
@@ -89,7 +90,6 @@ cilium install --context kind-cluster1 --set cluster.id=1 --set cluster.name=clu
 	cmd.Flags().BoolVar(&params.DryRun, "dry-run", false, "Write resources to be installed to stdout without actually installing them")
 	cmd.Flags().BoolVar(&params.DryRunHelmValues, "dry-run-helm-values", false, "Write non-default Helm values to stdout without performing the actual installation")
 	cmd.Flags().StringVar(&params.HelmRepository, "repository", defaults.HelmRepository, "Helm chart repository to download Cilium charts from")
-	cmd.Flags().StringSliceVar(&params.DisableChecks, "disable-check", []string{}, "Disable a particular validation check")
 	return cmd
 }
 
