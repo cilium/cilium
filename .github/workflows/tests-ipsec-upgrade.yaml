@@ -150,6 +150,10 @@ jobs:
             mode: 'patch'
             name: '7'
 
+          - config: '6.6'
+            mode: 'patch'
+            name: '8'
+
     timeout-minutes: 70
     steps:
       - name: Checkout context ref (trusted)
