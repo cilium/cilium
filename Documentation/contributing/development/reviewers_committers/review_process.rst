@@ -28,9 +28,8 @@ Review process
    ensure it gets reviewed and merged.
 
    If the contributor is a Cilium committer, then they are responsible for
-   getting the PR in a ready to be merged state by adding the
-   ``ready-to-merge`` label, once all reviews have been addressed and CI checks
-   are successful, so that they (or another committer) can merge the PR.
+   getting the PR ready to be merged by addressing review comments and
+   resolving all CI checks for "Required" workflows.
 
    If this PR is a backport PR (typically with the label ``kind/backport``) and
    no-one else has reviewed the PR, review the changes as a sanity check. If
@@ -153,16 +152,11 @@ that require review in the `filter <team_review_filter_>`_.
    :scale: 50%
 
 When all review objectives for all ``CODEOWNERS`` are met, all required CI
-tests have passed and a proper release label is set, you may set the
-``ready-to-merge`` label to indicate that all criteria have been met.
-Maintainer's little helper might set this label automatically if the previous
-requirements were met.
-
-+--------------------------+---------------------------+
-| Labels                   | When to set               |
-+==========================+===========================+
-| ``ready-to-merge``       | PR is ready to be merged  |
-+--------------------------+---------------------------+
+tests have passed and a proper release label is set, a PR may be merged by any
+committer with access rights to click the green merge button.
+Maintainer's little helper may set the ``ready-to-merge`` label automatically
+to recognize the state of the PR. Periodically, a rotating assigned committer
+will review the list of PRs that are marked ``ready-to-merge``.
 
 .. _committers team: https://github.com/orgs/cilium/teams/committers/members
 .. _community repository: https://github.com/cilium/community
