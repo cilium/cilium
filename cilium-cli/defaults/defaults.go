@@ -110,7 +110,7 @@ const (
 
 var (
 	// renovate: datasource=github-releases depName=cilium/cilium
-	Version = "v1.15.6"
+	Version = "v1.15.7"
 
 	// HelmRepository specifies Helm repository to download Cilium charts from.
 	HelmRepository = "https://helm.cilium.io"
