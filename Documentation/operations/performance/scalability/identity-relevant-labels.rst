@@ -24,20 +24,20 @@ following exceptions:
 =================================================== =========================================================
 Label                                               Description
 --------------------------------------------------- ---------------------------------------------------------
-``any:!io.kubernetes``                              Ignore all ``io.kubernetes`` labels
-``any:!kubernetes\.io``                             Ignore all other ``kubernetes.io`` labels
-``any:!statefulset\.kubernetes\.io/pod-name``       Ignore ``statefulset.kubernetes.io/pod-name`` label
-``any:!apps\.kubernetes\.io/pod-index``             Ignore ``apps.kubernetes.io/pod-index`` label
-``any:!batch\.kubernetes\.io/job-completion-index`` Ignore ``batch.kubernetes.io/job-completion-index`` label
-``any:!batch\.kubernetes\.io/controller-uid``       Ignore ``batch.kubernetes.io/controller-uid`` label
-``any:!beta\.kubernetes\.io``                       Ignore all ``beta.kubernetes.io`` labels
-``any:!k8s\.io``                                    Ignore all ``k8s.io`` labels
-``any:!pod-template-generation``                    Ignore all ``pod-template-generation`` labels
-``any:!pod-template-hash``                          Ignore all ``pod-template-hash`` labels
-``any:!controller-revision-hash``                   Ignore all ``controller-revision-hash`` labels
-``any:!annotation.*``                               Ignore all ``annotation`` labels
-``any:!controller-uid``                             Ignore all ``controller-uid`` labels
-``any:!etcd_node``                                  Ignore all ``etcd_node`` labels
+``!io\.kubernetes``                                 Ignore all ``io.kubernetes`` labels
+``!kubernetes\.io``                                 Ignore all other ``kubernetes.io`` labels
+``!statefulset\.kubernetes\.io/pod-name``           Ignore ``statefulset.kubernetes.io/pod-name`` label
+``!apps\.kubernetes\.io/pod-index``                 Ignore ``apps.kubernetes.io/pod-index`` label
+``!batch\.kubernetes\.io/job-completion-index``     Ignore ``batch.kubernetes.io/job-completion-index`` label
+``!batch\.kubernetes\.io/controller-uid``           Ignore ``batch.kubernetes.io/controller-uid`` label
+``!beta\.kubernetes\.io``                           Ignore all ``beta.kubernetes.io`` labels
+``!k8s\.io``                                        Ignore all ``k8s.io`` labels
+``!pod-template-generation``                        Ignore all ``pod-template-generation`` labels
+``!pod-template-hash``                              Ignore all ``pod-template-hash`` labels
+``!controller-revision-hash``                       Ignore all ``controller-revision-hash`` labels
+``!annotation.*``                                   Ignore all ``annotation`` labels
+``!controller-uid``                                 Ignore all ``controller-uid`` labels
+``!etcd_node``                                      Ignore all ``etcd_node`` labels
 =================================================== =========================================================
 
 The above label patterns are all *exclusive label patterns*, that is to say
@@ -55,9 +55,9 @@ the configuration:
 Label                                      Description
 ------------------------------------------ -----------------------------------------------------
 ``reserved:.*``                            Include all ``reserved:`` labels
-``any:io\.kubernetes\.pod\.namespace``     Include all ``io.kubernetes.pod.namespace`` labels
-``any:io\.cilium\.k8s\.namespace\.labels`` Include all ``io.cilium.k8s.namespace.labels`` labels
-``any:app\.kubernetes\.io``                Include all ``app.kubernetes.io`` labels
+``io\.kubernetes\.pod\.namespace``         Include all ``io.kubernetes.pod.namespace`` labels
+``io\.cilium\.k8s\.namespace\.labels``     Include all ``io.cilium.k8s.namespace.labels`` labels
+``app\.kubernetes\.io``                    Include all ``app.kubernetes.io`` labels
 ========================================== =====================================================
 
 
@@ -76,7 +76,7 @@ this attribute can also be set via helm option ``--set labels=<values>``.
     data:
     ...
       kube-proxy-replacement: "true"
-      labels:  "k8s:io.kubernetes\\.pod\\.namespace k8s:k8s-app k8s:app k8s:name"
+      labels:  "io\\.kubernetes\\.pod\\.namespace k8s-app app name"
       enable-ipv4-masquerade: "true"
       monitor-aggregation: medium
     ...
@@ -90,6 +90,9 @@ with ``example.com``, whereas ``.*example\.com`` will match labels that contain
 ``example.com`` anywhere. Be sure to escape periods in domain names to avoid
 the pattern matching too broadly and therefore including or excluding too many
 labels.
+
+The label patterns are using regular expressions. Therefore, using  ``kind$`` 
+or ``^kind$`` can exactly match the label key ``kind``, not just the prefix.
 
 Upon defining a custom list of label patterns in the ConfigMap, Cilium adds the
 provided list of label patterns to the default list of label patterns. After
@@ -120,21 +123,23 @@ and the default inclusive labels will be used to evaluate Cilium identities:
 
 .. code-block:: yaml
 
-    labels: "k8s:io.kubernetes\\.pod\\.namespace k8s:k8s-app k8s:app k8s:name"
+    labels: "io\\.kubernetes\\.pod\\.namespace k8s-app app name kind$ other$"
 
 The above configuration would only include the following label keys when
 evaluating Cilium identities:
 
-- k8s:k8s-app
-- k8s:app
-- k8s:name
+- k8s-app
+- app
+- name
+- kind
+- other
 - reserved:.*
 - io\.kubernetes\.pod\.namespace
 - io\.cilium\.k8s.namespace\.labels
 - app\.kubernetes\.io
 
-Note that ``k8s:io\.kubernetes\.pod\.namespace`` is already included in default
-label ``io\.kubernetes\.pod\.namespace``.
+Note that ``io.kubernetes.pod.namespace`` is already included in default
+label ``io.kubernetes.pod.namespace``.
 
 Labels with the same prefix as defined in the configuration will also be
 considered. This lists some examples of label keys that would also be evaluated
@@ -144,10 +149,13 @@ for Cilium identities:
 - app-production
 - name-defined
 
+Because we have ``$`` in label key ``kind$`` and ``other$``. Only label keys using
+exactly ``kind`` and ``other`` will be evaluated for Cilium. 
+
 When a single inclusive label is added to the filter, all labels not defined
 in the default list will be excluded. For example, pods running with the
 security labels ``team=team-1, env=prod`` will have the label ``env=prod``
-ignored as soon Cilium is started with the filter ``k8s:team``.
+ignored as soon Cilium is started with the filter ``team``.
 
 Excluding Labels
 ----------------
@@ -160,10 +168,10 @@ Cilium identities:
 
 .. code-block:: yaml
 
-    labels: "k8s:!controller-uid k8s:!job-name"
+    labels: "!controller-uid !job-name"
 
 The provided example would cause Cilium to exclude any of the following label
 matches:
 
-- k8s:controller-uid
-- k8s:job-name
+- controller-uid
+- job-name
