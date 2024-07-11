@@ -208,6 +208,7 @@ jobs:
         # It would even fail because `steps.docker_build_ci*.outputs.digest` isn't set in case
         # neither push nor load are set in the docker/build-push-action action.
         if: ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }}
+        continue-on-error: true
         run: |
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
@@ -220,6 +221,7 @@ jobs:
         # neither push nor load are set in the docker/build-push-action action.
         if: ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }}
         uses: anchore/sbom-action@e8d2a6937ecead383dfe75190d104edd1f9c5751 # v0.16.0
+        continue-on-error: true
         with:
           artifact-name: sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -228,6 +230,7 @@ jobs:
       - name: Generate SBOM (race)
         if: ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }}
         uses: anchore/sbom-action@e8d2a6937ecead383dfe75190d104edd1f9c5751 # v0.16.0
+        continue-on-error: true
         with:
           artifact-name: sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -236,6 +239,7 @@ jobs:
       - name: Generate SBOM (unstripped)
         if: ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }}
         uses: anchore/sbom-action@e8d2a6937ecead383dfe75190d104edd1f9c5751 # v0.16.0
+        continue-on-error: true
         with:
           artifact-name: sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -247,6 +251,7 @@ jobs:
         # It would even fail because `steps.docker_build_ci*.outputs.digest` isn't set in case
         # neither push nor load are set in the docker/build-push-action action.
         if: ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }}
+        continue-on-error: true
         run: |
           cosign attach sbom --sbom sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
           cosign attach sbom --sbom sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
@@ -258,6 +263,7 @@ jobs:
         # It would even fail because `steps.docker_build_ci*.outputs.digest` isn't set in case
         # neither push nor load are set in the docker/build-push-action action.
         if: ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }}
+        continue-on-error: true
         run: |
           docker_build_ci_digest="${{ steps.docker_build_ci.outputs.digest }}"
           image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${docker_build_ci_digest/:/-}.sbom"
