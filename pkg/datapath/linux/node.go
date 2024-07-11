@@ -969,7 +969,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		oldKey, newKey                           uint8
 		isLocalNode                              = false
 	)
-	remoteNodeID, err := n.allocateIDForNode(oldNode, newNode)
+	nodeID, err := n.allocateIDForNode(oldNode, newNode)
 	if err != nil {
 		errs = errors.Join(errs, fmt.Errorf("failed to allocate ID for node %s: %w", newNode.Name, err))
 	}
@@ -985,7 +985,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	if n.nodeConfig.EnableIPSec {
-		errs = errors.Join(errs, n.enableIPsec(oldNode, newNode, remoteNodeID))
+		errs = errors.Join(errs, n.enableIPsec(oldNode, newNode, nodeID))
 		newKey = newNode.EncryptionKey
 	}
 
