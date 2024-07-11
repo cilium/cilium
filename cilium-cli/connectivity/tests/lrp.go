@@ -188,3 +188,38 @@ func WaitForLocalRedirectBPFEntries(ctx context.Context, t *check.Test, frontend
 		return
 	}
 }
+
+// LRPWithNodeDNS runs test scenarios for local redirect policy
+// with the node local DNS setup.
+//
+// It sends HTTP requests to the externalEcho service to check
+// the DNS requests are resolved by node-local DNS cache pods.
+// The network policy allows the clients to access node-local-dns
+// and the externalEcho service.
+func LRPWithNodeDNS() check.Scenario {
+	return lrpWithNodeDNS{}
+}
+
+type lrpWithNodeDNS struct{}
+
+func (s lrpWithNodeDNS) Name() string {
+	return "local-redirect-policy-with-node-dns"
+}
+
+func (s lrpWithNodeDNS) Run(ctx context.Context, t *check.Test) {
+	ct := t.Context()
+
+	i := 0
+	for _, client := range ct.ClientPods() {
+		client := client
+
+		for _, externalEchoSvc := range ct.EchoExternalServices() {
+			externalEcho := externalEchoSvc.ToEchoIPService()
+
+			t.NewAction(s, fmt.Sprintf("lrp-node-dns-http-to-%s-%d", externalEcho, i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4))
+			})
+			i++
+		}
+	}
+}
