@@ -22,12 +22,16 @@ int cil_to_wireguard(struct __ctx_buff *ctx)
 	int __maybe_unused ret;
 	__s8 __maybe_unused ext_err = 0;
 	__u16 __maybe_unused proto = ctx_get_protocol(ctx);
-	__u32 __maybe_unused src_sec_identity = get_identity(ctx);
+	__u32 __maybe_unused src_sec_identity = UNKNOWN_ID;
+	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 
 	struct trace_ctx __maybe_unused trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
+
+	if (magic == MARK_MAGIC_IDENTITY)
+		src_sec_identity = get_identity(ctx);
 
 	bpf_clear_meta(ctx);
 
