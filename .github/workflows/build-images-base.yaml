@@ -57,6 +57,13 @@ jobs:
       - name: Cleanup Disk space in runner
         uses: ./.github/actions/disk-cleanup
 
+      - name: Copy scripts to trusted directory
+        run: |
+          mkdir -p ../cilium-base-branch/images/runtime/
+          cp ./images/runtime/update-cilium-runtime-image.sh ../cilium-base-branch/images/runtime/
+          mkdir -p ../cilium-base-branch/images/builder/
+          cp ./images/builder/update-cilium-runtime-image.sh ../cilium-base-branch/images/builder/
+
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
@@ -166,7 +173,7 @@ jobs:
       - name: Update Runtime Image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          images/runtime/update-cilium-runtime-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}"
+          ../cilium-base-branch/images/runtime/update-cilium-runtime-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}"
           git commit -sam "images: update cilium-{runtime,builder}"
 
       - name: Generating image tag for Cilium-Builder
@@ -252,12 +259,12 @@ jobs:
       - name: Update Runtime Images
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          images/runtime/update-cilium-runtime-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}"
+          ../cilium-base-branch/images/runtime/update-cilium-runtime-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}"
 
       - name: Update Builder Images
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          images/builder/update-cilium-builder-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}"
+          ../cilium-base-branch/images/builder/update-cilium-builder-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}"
 
       - name: Commit changes by amending previous commit
         # Run this step in case we have committed the cilium-runtime changes before
