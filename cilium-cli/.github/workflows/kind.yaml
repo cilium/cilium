@@ -105,8 +105,7 @@ jobs:
           # disruption), but we want to make sure that the command works as expected.
           #
           # Dispatch interval is set to 100ms, b/c otherwise (default is 0), the flow validation might time out.
-          cilium connectivity test --test-namespace test-namespace \
-            --test-concurrency=5 \
+          cilium connectivity test --test-namespace test-namespace-1 \
             --conn-disrupt-dispatch-interval 100ms \
             --include-conn-disrupt-test --conn-disrupt-test-setup
 

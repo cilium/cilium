@@ -243,6 +243,7 @@ func newConnectivityTests(params check.Parameters, logger *check.ConcurrentLogge
 	for i := 0; i < params.TestConcurrency; i++ {
 		params := params
 		params.TestNamespace = fmt.Sprintf("%s-%d", params.TestNamespace, i+1)
+		params.TestNamespaceIndex = i
 		if params.ExternalTargetCANamespace == "" {
 			params.ExternalTargetCANamespace = params.TestNamespace
 		}
