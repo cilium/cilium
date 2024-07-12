@@ -28,8 +28,8 @@ endif
 
 # renovate: datasource=docker
 export CERTGEN_REPO:=quay.io/cilium/certgen
-export CERTGEN_VERSION:=v0.1.11
-export CERTGEN_DIGEST:=sha256:5586de5019abc104637a9818a626956cd9b1e827327b958186ec412ae3d5dea6
+export CERTGEN_VERSION:=v0.1.13
+export CERTGEN_DIGEST:=sha256:01802e6a153a9473b06ebade7ee5730f8f2c6cc8db8768508161da3cdd778641
 
 # renovate: datasource=docker
 export CILIUM_ETCD_OPERATOR_REPO:=quay.io/cilium/cilium-etcd-operator
@@ -48,9 +48,9 @@ export ETCD_DIGEST:=sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607ca
 
 # renovate: datasource=docker
 export HUBBLE_UI_BACKEND_REPO:=quay.io/cilium/hubble-ui-backend
-export HUBBLE_UI_BACKEND_VERSION:=v0.13.0
-export HUBBLE_UI_BACKEND_DIGEST:=sha256:1e7657d997c5a48253bb8dc91ecee75b63018d16ff5e5797e5af367336bc8803
+export HUBBLE_UI_BACKEND_VERSION:=v0.13.1
+export HUBBLE_UI_BACKEND_DIGEST:=sha256:0e0eed917653441fded4e7cdb096b7be6a3bddded5a2dd10812a27b1fc6ed95b
 # renovate: datasource=docker
 export HUBBLE_UI_FRONTEND_REPO:=quay.io/cilium/hubble-ui
-export HUBBLE_UI_FRONTEND_VERSION:=v0.13.0
-export HUBBLE_UI_FRONTEND_DIGEST:=sha256:7d663dc16538dd6e29061abd1047013a645e6e69c115e008bee9ea9fef9a6666
+export HUBBLE_UI_FRONTEND_VERSION:=v0.13.1
+export HUBBLE_UI_FRONTEND_DIGEST:=sha256:e2e9313eb7caf64b0061d9da0efbdad59c6c461f6ca1752768942bfeda0796c6
