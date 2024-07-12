@@ -54,7 +54,7 @@ subscriber list based on the application requirements. This is done by running
 Then, multicast subscriber pods can send out IGMP join and multicast
 sender pods can start sending multicast stream.
 
-As an example, the following guide uses ``239.25.0.1`` multicast group address.
+As an example, the following guide uses ``239.255.0.1`` multicast group address.
 
 Get all CiliumNode IP addresses to be set as multicast subscribers:
 
