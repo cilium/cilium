@@ -346,7 +346,7 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, extra SetupHoo
 			return fmt.Errorf("unable to detect nodes w/o Cilium IPs: %w", err)
 		}
 	}
-	if match, _ := ct.Features.MatchRequirements((features.RequireEnabled(features.CIDRMatchNodes))); match {
+	if match, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.CIDRMatchNodes)); match {
 		if err := ct.detectNodeCIDRs(ctx); err != nil {
 			return fmt.Errorf("unable to detect node CIDRs: %w", err)
 		}
