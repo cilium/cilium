@@ -421,9 +421,7 @@ jobs:
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
         with:
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
+          ci-version: "8ba6c3828caea4bba15520b205307f28bfdd4631"
 
       - name: Set Kind params
         id: kind-params
