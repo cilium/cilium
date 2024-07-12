@@ -100,13 +100,6 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
-      - name: Install Cilium CLI
-        uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
-        with:
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
-
       - name: Get Cilium's default values
         id: default_vars
         uses: ./.github/actions/helm-default
@@ -191,6 +184,13 @@ jobs:
           kubectl_version: ${{ env.KIND_K8S_VERSION }}
           config: ${{ env.kind_config }}
           wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Wait for images to be available
         timeout-minutes: 30
