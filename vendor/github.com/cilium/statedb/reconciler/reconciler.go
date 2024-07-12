@@ -126,11 +126,9 @@ func (r *reconciler[Obj]) prune(ctx context.Context, txn statedb.ReadTxn) error 
 func (r *reconciler[Obj]) refreshLoop(ctx context.Context, health cell.Health) error {
 	lastRevision := statedb.Revision(0)
 
-	refreshTimer := time.NewTimer(r.config.RefreshInterval)
+	refreshTimer := time.NewTimer(0)
 	defer refreshTimer.Stop()
 
-	health.OK(fmt.Sprintf("Refreshing in %s", r.config.RefreshInterval))
-outer:
 	for {
 		// Wait until it's time to refresh.
 		select {
@@ -140,27 +138,24 @@ outer:
 		case <-refreshTimer.C:
 		}
 
-		now := time.Now()
+		durationUntilRefresh := r.config.RefreshInterval
 
 		// Iterate over the objects in revision order, e.g. oldest modification first.
 		// We look for objects that are older than [RefreshInterval] and mark them for
-		// pending in order for them to be reconciled again.
+		// refresh in order for them to be reconciled again.
 		iter := r.config.Table.LowerBound(r.DB.ReadTxn(), statedb.ByRevision[Obj](lastRevision+1))
 		indexer := r.config.Table.PrimaryIndexer()
 		for obj, rev, ok := iter.Next(); ok; obj, rev, ok = iter.Next() {
 			status := r.config.GetObjectStatus(obj)
 
+			// The duration elapsed since this object was last updated.
+			updatedSince := time.Since(status.UpdatedAt)
+
 			// Have we reached an object that is newer than RefreshInterval?
-			if now.Sub(status.UpdatedAt) < r.config.RefreshInterval {
-				// Reset the timer to fire when this now oldest object should be
-				// refreshed.
-				nextRefreshIn := min(
-					0,
-					now.Sub(status.UpdatedAt)-r.config.RefreshInterval,
-				)
-				refreshTimer.Reset(nextRefreshIn)
-				health.OK(fmt.Sprintf("Refreshing in %s", nextRefreshIn))
-				continue outer
+			// If so, wait until this now oldest object's UpdatedAt exceeds RefreshInterval.
+			if updatedSince < r.config.RefreshInterval {
+				durationUntilRefresh = r.config.RefreshInterval - updatedSince
+				break
 			}
 
 			lastRevision = rev
@@ -186,8 +181,7 @@ outer:
 			}
 		}
 
-		// Since we reached here there were no objects. Set the timer for the full
-		// RefreshInterval.
-		refreshTimer.Reset(r.config.RefreshInterval)
+		refreshTimer.Reset(durationUntilRefresh)
+		health.OK(fmt.Sprintf("Next refresh in %s", durationUntilRefresh))
 	}
 }
