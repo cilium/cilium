@@ -101,7 +101,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto)
 
 #if defined(HAVE_ENCAP)
 	if (from_tunnel)
-		goto encrypt;
+		goto overlay_encrypt;
 #endif /* HAVE_ENCAP */
 
 #ifndef ENABLE_NODE_ENCRYPTION
@@ -152,9 +152,9 @@ maybe_encrypt: __maybe_unused
 	 * required.
 	 */
 	if (dst && dst->key) {
-encrypt: __maybe_unused
 		if (src)
 			set_identity_mark(ctx, src->sec_identity, MARK_MAGIC_IDENTITY);
+overlay_encrypt: __maybe_unused
 		return ctx_redirect(ctx, WG_IFINDEX, 0);
 	}
 
