@@ -41,7 +41,7 @@ GOTEST_BASE := -timeout 600s
 GOTEST_COVER_OPTS += -coverprofile=coverage.out
 BENCH_EVAL := "."
 BENCH ?= $(BENCH_EVAL)
-BENCHFLAGS_EVAL := -bench=$(BENCH) -run=^$ -benchtime=10s
+BENCHFLAGS_EVAL := -bench=$(BENCH) -run=^$$ -benchtime=10s
 BENCHFLAGS ?= $(BENCHFLAGS_EVAL)
 SKIP_KVSTORES ?= "false"
 SKIP_K8S_CODE_GEN_CHECK ?= "true"
