@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"net"
 	"net/netip"
 	"os"
@@ -1199,8 +1198,7 @@ func TestNodesStartupPruning(t *testing.T) {
 	}}
 
 	// Create a nodes.json file from the above two nodes, simulating a previous instance of the agent.
-	tmp, err := os.MkdirTemp("", "nodes")
-	require.NoError(t, err)
+	tmp := t.TempDir()
 	path := filepath.Join(tmp, nodesFilename)
 	nf, err := os.Create(path)
 	require.NoError(t, err)
@@ -1216,14 +1214,9 @@ func TestNodesStartupPruning(t *testing.T) {
 	checkNodeFileMatches := func(path string, node nodeTypes.Node) {
 		// Wait until the file exists. The node deletion triggers the write, hence
 		// this shouldn't take long.
-		for range 10 {
-			_, err := os.Stat(path)
-			if err == nil {
-				break
-			}
-			require.ErrorIs(t, err, fs.ErrNotExist)
-			time.Sleep(time.Millisecond)
-		}
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			assert.FileExists(c, path)
+		}, time.Second, 10*time.Millisecond)
 		nwf, err := os.Open(path)
 		require.NoError(t, err)
 		t.Cleanup(func() {
