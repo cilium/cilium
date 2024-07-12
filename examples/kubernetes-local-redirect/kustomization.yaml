@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - node-local-dns.yaml
+  - node-local-dns-lrp.yaml
+patches:
+  - target:
+      group: apps
+      version: v1
+      kind: DaemonSet
+      name: node-local-dns
+    patch: |-
+      - op: add
+        path: /spec/template/spec/affinity
+        value:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: cilium.io/no-schedule
+                  operator: NotIn
+                  values:
+                  - "true"
