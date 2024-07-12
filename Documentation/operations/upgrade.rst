@@ -301,6 +301,11 @@ communicating via the proxy must reconnect to re-establish connections.
   BGP CRDs (``CiliumBGPClusterConfig``, ``CiliumBGPPeerConfig``, ``CiliumBGPAdvertisement``, ``CiliumBGPNodeConfigOverride``) to configure BGP.
 * The check for connectivity to the Kubernetes apiserver has been removed from the cilium-agent liveness probe. This can be turned back on
   by setting the helm option ``livenessProbe.requireK8sConnectivity`` to ``true``.
+* The label ``io.cilium.k8s.policy.serviceaccount`` will be included in the default label list. If you configure your own identity-relevant labels 
+  on your cluster, the number of identities will temporarily increase during the upgrade, which will result in increased drops. If you would like 
+  to disable this new behavior, you can add ``!io\.cilium\.k8s\.policy\.serviceaccount`` to your identity-relevant labels to 
+  exclude the ``io.cilium.k8s.policy.serviceaccount`` label.
+
 
 Removed Options
 ~~~~~~~~~~~~~~~
