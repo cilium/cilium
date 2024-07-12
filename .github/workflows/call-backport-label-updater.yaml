@@ -13,7 +13,7 @@
       runs-on: ubuntu-latest
       strategy:
         matrix:
-          branch: ["1.12", "1.13", "1.14", "1.15", "1.16"]
+          branch: ["1.14", "1.15", "1.16", "1.17"]
       outputs:
           version: ${{ steps.get-branch.outputs.version }}
       if: |
