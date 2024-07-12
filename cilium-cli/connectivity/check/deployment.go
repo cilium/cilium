@@ -429,8 +429,9 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		return ct.deployPerf(ctx)
 	}
 
-	// Deploy test-conn-disrupt actors
-	if ct.params.ConnDisruptTestSetup {
+	// Deploy test-conn-disrupt actors (only in the first
+	// test namespace in case of tests concurrent run)
+	if ct.params.ConnDisruptTestSetup && ct.params.TestNamespaceIndex == 0 {
 		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, testConnDisruptServerDeploymentName, metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), testConnDisruptServerDeploymentName)
@@ -1156,7 +1157,7 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 		}
 	}
 
-	if ct.params.IncludeConnDisruptTest {
+	if ct.params.IncludeConnDisruptTest && ct.params.TestNamespaceIndex == 0 {
 		// We append the server and client deployment names to two different
 		// lists. This matters when running in multi-cluster mode, because
 		// the server is deployed in the local cluster (targeted by the "src"
