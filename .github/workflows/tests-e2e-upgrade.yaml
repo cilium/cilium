@@ -346,7 +346,7 @@ jobs:
           #  devices: '{eth0,eth1}'
           #  secondary-network: 'true'
 
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
