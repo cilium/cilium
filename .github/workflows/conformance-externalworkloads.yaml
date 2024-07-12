@@ -145,7 +145,7 @@ jobs:
             VERSION=$(echo $i | jq -r '.version')
             ZONE=$(echo $i | jq -r '.zone')
             gcloud --quiet container get-server-config \
-              --flatten="channels" --filter="channels.channel=REGULAR"   \
+              --flatten="channels" \
               --format="yaml(channels.validVersions)" --zone $ZONE > /tmp/output
             if grep -q -F $VERSION /tmp/output; then
               echo "Version $VERSION is valid for zone $ZONE"
