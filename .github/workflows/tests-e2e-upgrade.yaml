@@ -421,9 +421,7 @@ jobs:
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
         with:
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
+          ci-version: "8ba6c3828caea4bba15520b205307f28bfdd4631"
 
       - name: Set Kind params
         id: kind-params
@@ -492,7 +490,7 @@ jobs:
           # subsequent connectivity tests with --include-conn-disrupt-test to catch any
           # interruption in such flows.
           cilium connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
-            --conn-disrupt-dispatch-interval 0ms
+            --conn-disrupt-dispatch-interval 0ms --test-concurrency=5
 
       - name: Upgrade Cilium
         shell: bash
@@ -521,7 +519,7 @@ jobs:
 
           cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
             --include-conn-disrupt-test \
-            --flush-ct \
+            --flush-ct --test-concurrency=5 \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
@@ -530,7 +528,7 @@ jobs:
 
           # --flush-ct interrupts the flows, so we need to set up again.
           cilium connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
-            --conn-disrupt-dispatch-interval 0ms
+            --conn-disrupt-dispatch-interval 0ms --test-concurrency=5
 
       - name: Downgrade Cilium ${{ env.cilium_stable_version }}
         shell: bash
@@ -559,7 +557,7 @@ jobs:
 
           cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
             --include-conn-disrupt-test \
-            --flush-ct \
+            --flush-ct --test-concurrency=5 \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
