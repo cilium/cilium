@@ -121,7 +121,7 @@ type DNSProxy struct {
 	lock.RWMutex
 
 	// DNSClients is a container for dns.SharedClient instances.
-	DNSClients *dns.SharedClients
+	DNSClients *SharedClients
 
 	// usedServers is the set of DNS servers that have been allowed and used successfully.
 	// This is used to limit the number of IPs we store for restored DNS rules.
@@ -667,7 +667,7 @@ func StartDNSProxy(
 		cache:                    make(regexCache),
 		EnableDNSCompression:     dnsProxyConfig.EnableDNSCompression,
 		maxIPsPerRestoredDNSRule: dnsProxyConfig.MaxRestoreDNSIPs,
-		DNSClients:               dns.NewSharedClients(),
+		DNSClients:               NewSharedClients(),
 	}
 	if dnsProxyConfig.ConcurrencyLimit > 0 {
 		p.ConcurrencyLimit = semaphore.NewWeighted(int64(dnsProxyConfig.ConcurrencyLimit))
