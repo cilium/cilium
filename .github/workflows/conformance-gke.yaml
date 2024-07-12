@@ -224,13 +224,6 @@ jobs:
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
-      - name: Install Cilium CLI
-        uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
-        with:
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
-
       - name: Set up gcloud credentials
         id: 'auth'
         uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
@@ -274,6 +267,13 @@ jobs:
       - name: Get cluster credentials
         run: |
           gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }}
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ env.CILIUM_CLI_VERSION }}
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
