@@ -55,12 +55,13 @@ var Cell = cell.Module(
 	cell.Provide(newClientset),
 )
 
-// client.ClientBuilderCell provides a function to create a new composite Clientset,
+// client.OperatorClientBuilderCell provides a function to create a new composite Clientset,
 // allowing a controller to use its own Clientset with a different user agent.
-var ClientBuilderCell = cell.Module(
+var OperatorClientBuilderCell = cell.Module(
 	"k8s-client-builder",
 	"Kubernetes Client Builder",
 
+	cell.Config(defaultOperatorConfig),
 	cell.Provide(NewClientBuilder),
 )
 

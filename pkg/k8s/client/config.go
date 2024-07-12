@@ -57,6 +57,18 @@ var defaultConfig = Config{
 	EnableK8sAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
 }
 
+var defaultOperatorConfig = Config{
+	EnableK8s:                    true,
+	K8sAPIServer:                 "",
+	K8sKubeConfigPath:            "",
+	K8sClientQPS:                 defaults.OperatorK8sClientQPSLimit,
+	K8sClientBurst:               defaults.OperatorK8sClientBurst,
+	K8sClientConnectionTimeout:   30 * time.Second,
+	K8sClientConnectionKeepAlive: 30 * time.Second,
+	K8sHeartbeatTimeout:          30 * time.Second,
+	EnableK8sAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
+}
+
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool(option.EnableK8s, def.EnableK8s, "Enable the k8s clientset")
 	flags.String(option.K8sAPIServer, def.K8sAPIServer, "Kubernetes API server URL")

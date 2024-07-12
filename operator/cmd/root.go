@@ -98,11 +98,12 @@ var (
 		// Runs the gops agent, a tool to diagnose Go processes.
 		gops.Cell(defaults.GopsPortOperator),
 
-		// Provides Clientset, API for accessing Kubernetes objects.
-		k8sClient.Cell,
-
 		// Provides a ClientBuilderFunc that can be used by other cells to create a client.
-		k8sClient.ClientBuilderCell,
+		k8sClient.OperatorClientBuilderCell,
+
+		// Provides a Clientset for accessing the Kubernetes API using the provided ClientBuilderFunc.
+		// This client is shared by controllers that do not create their own via the ClientBuilderFunc.
+		cell.Provide(func(f k8sClient.ClientBuilderFunc) (k8sClient.Clientset, error) { return f("") }),
 
 		// Provides the modular metrics registry, metric HTTP server and legacy metrics cell.
 		operatorMetrics.Cell,
