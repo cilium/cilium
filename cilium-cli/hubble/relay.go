@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cilium/cilium-cli/internal/utils"
+	"github.com/cilium/cilium/cilium-cli/internal/utils"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

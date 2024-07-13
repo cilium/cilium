@@ -6,7 +6,7 @@ package check
 import (
 	"context"
 
-	"github.com/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
 // Scenario is implemented by all test scenarios like pod-to-pod, pod-to-world, etc.

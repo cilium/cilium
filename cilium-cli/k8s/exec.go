@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/remotecommand"
 
-	"github.com/cilium/cilium-cli/k8s/internal"
+	"github.com/cilium/cilium/cilium-cli/k8s/internal"
 )
 
 type ExecResult struct {

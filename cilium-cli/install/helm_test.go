@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 
 	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"

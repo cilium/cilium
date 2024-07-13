@@ -25,8 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/api"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/status"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/status"
 )
 
 const (

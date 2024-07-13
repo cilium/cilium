@@ -14,9 +14,9 @@ import (
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
 
-	"github.com/cilium/cilium-cli/connectivity/filters"
-	"github.com/cilium/cilium-cli/k8s"
-	"github.com/cilium/cilium-cli/sysdump"
+	"github.com/cilium/cilium/cilium-cli/connectivity/filters"
+	"github.com/cilium/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/cilium-cli/sysdump"
 )
 
 type Parameters struct {

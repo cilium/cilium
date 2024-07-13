@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
 func TestWithFeatureRequirements(t *testing.T) {

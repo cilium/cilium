@@ -24,8 +24,8 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 )
 
 /* How many times we should retry getting the policy revisions before

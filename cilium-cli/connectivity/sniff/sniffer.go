@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium-cli/connectivity/check"
-	"github.com/cilium/cilium-cli/utils/lock"
+	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/utils/lock"
 )
 
 // Mode configures the Sniffer validation mode.

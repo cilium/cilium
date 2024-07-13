@@ -26,9 +26,9 @@ import (
 	"github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/api/v1/relay"
 
-	"github.com/cilium/cilium-cli/connectivity/filters"
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/cilium-cli/connectivity/filters"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
 const (

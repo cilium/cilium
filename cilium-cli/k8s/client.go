@@ -50,7 +50,7 @@ import (
 	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/defaults"
 )
 
 type Client struct {

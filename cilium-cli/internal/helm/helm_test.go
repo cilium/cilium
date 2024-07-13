@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/defaults"
 
 	"github.com/blang/semver/v4"
 )

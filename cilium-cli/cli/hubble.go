@@ -7,7 +7,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/cilium/cilium-cli/hubble"
+	"github.com/cilium/cilium/cilium-cli/hubble"
 
 	"github.com/spf13/cobra"
 )

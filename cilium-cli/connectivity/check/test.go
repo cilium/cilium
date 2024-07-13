@@ -30,9 +30,9 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/sysdump"
-	"github.com/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/sysdump"
+	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
 const (

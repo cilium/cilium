@@ -16,9 +16,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/status"
-	"github.com/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/status"
+	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
 // PrintEncryptStatus prints encryption status from all/specific cilium agent pods.

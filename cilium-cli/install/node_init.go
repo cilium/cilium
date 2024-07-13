@@ -7,7 +7,7 @@ import (
 	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
-	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 )
 
 func needsNodeInit(k k8s.Kind, version semver.Version) bool {

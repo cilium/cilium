@@ -32,11 +32,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/helm"
-	"github.com/cilium/cilium-cli/k8s"
-	"github.com/cilium/cilium-cli/status"
-	"github.com/cilium/cilium-cli/utils/wait"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/internal/helm"
+	"github.com/cilium/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/cilium-cli/status"
+	"github.com/cilium/cilium/cilium-cli/utils/wait"
 )
 
 const (

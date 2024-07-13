@@ -7,9 +7,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/cilium/cilium-cli/connectivity/builder"
-	"github.com/cilium/cilium-cli/connectivity/check"
-	"github.com/cilium/cilium-cli/utils/runner"
+	"github.com/cilium/cilium/cilium-cli/connectivity/builder"
+	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/utils/runner"
 )
 
 // Hooks defines the extension hooks provided by connectivity tests.

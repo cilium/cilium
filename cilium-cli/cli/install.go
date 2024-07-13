@@ -15,9 +15,9 @@ import (
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/hubble"
-	"github.com/cilium/cilium-cli/install"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/hubble"
+	"github.com/cilium/cilium/cilium-cli/install"
 )
 
 // addCommonInstallFlags adds install command flags that are shared between install and upgrade commands.

@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/sysdump"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/sysdump"
 )
 
 var (

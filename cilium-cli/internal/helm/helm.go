@@ -30,7 +30,7 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/strvals"
 
-	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/defaults"
 )
 
 var settings = cli.New()

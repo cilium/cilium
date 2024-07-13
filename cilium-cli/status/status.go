@@ -13,7 +13,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 
-	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/defaults"
 )
 
 const (

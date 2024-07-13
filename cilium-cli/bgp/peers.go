@@ -19,8 +19,8 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/status"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/status"
 )
 
 const (
