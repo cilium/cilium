@@ -425,7 +425,9 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
-	if ct.params.Perf {
+	// Deploy perf actors (only in the first test namespace
+	// in case of tests concurrent run)
+	if ct.params.Perf && ct.params.TestNamespaceIndex == 0 {
 		return ct.deployPerf(ctx)
 	}
 
@@ -1143,7 +1145,7 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 		if ct.params.MultiCluster == "" && !ct.params.SingleNode {
 			srcList = append(srcList, client3DeploymentName)
 		}
-	} else {
+	} else if ct.params.TestNamespaceIndex == 0 {
 		srcList = []string{}
 		if ct.params.PerfPodNet {
 			srcList = append(srcList, perfClientDeploymentName)
