@@ -4196,6 +4196,8 @@ func validateConfigMap(cmd *cobra.Command, m map[string]interface{}) error {
 			_, err = cast.ToUint32E(value)
 		case "uint64":
 			_, err = cast.ToUint64E(value)
+		case "stringToString":
+			_, err = cast.ToStringMapStringE(value)
 		default:
 			log.Warnf("Unable to validate option %s value of type %s", key, t)
 		}
