@@ -182,7 +182,6 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().DurationVar(&params.Timeout, "timeout", defaults.ConnectivityTestSuiteTimeout, "Maximum time to allow the connectivity test suite to take")
 
 	cmd.Flags().IntVar(&params.TestConcurrency, "test-concurrency", 1, "Count of namespaces to perform the connectivity tests in parallel (value <= 0 will be treated as 1)")
-	_ = cmd.Flags().MarkHidden("test-concurrency")
 
 	hooks.AddConnectivityTestFlags(cmd.Flags())
 
@@ -230,16 +229,6 @@ func newConnectivityTests(params check.Parameters, logger *check.ConcurrentLogge
 	if params.TestConcurrency < 1 {
 		fmt.Printf("--test-concurrency parameter value is invalid [%d], using 1 instead\n", params.TestConcurrency)
 		params.TestConcurrency = 1
-	}
-	if params.TestConcurrency < 2 {
-		if params.ExternalTargetCANamespace == "" {
-			params.ExternalTargetCANamespace = defaults.ConnectivityCheckNamespace
-		}
-		cc, err := check.NewConnectivityTest(k8sClient, params, defaults.CLIVersion, logger)
-		if err != nil {
-			return nil, err
-		}
-		return []*check.ConnectivityTest{cc}, nil
 	}
 
 	connTests := make([]*check.ConnectivityTest, 0, params.TestConcurrency)
