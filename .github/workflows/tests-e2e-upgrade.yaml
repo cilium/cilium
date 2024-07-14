@@ -325,7 +325,7 @@ jobs:
           binary-dir: ./
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@3c748d6fc9d6c44a433de85a66f70e8f7043be04 # v0.0.18
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
         with:
           test-name: ipsec-upgrade
           image-version: ${{ matrix.kernel }}
@@ -337,7 +337,7 @@ jobs:
             git config --global --add safe.directory /host
 
       - name: Setup K8s cluster
-        uses: cilium/little-vm-helper@3c748d6fc9d6c44a433de85a66f70e8f7043be04 # v0.0.18
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
         with:
           provision: 'false'
           cmd: |
@@ -383,7 +383,7 @@ jobs:
           done
 
       - name: Install Cilium ${{ env.cilium_stable_version }}
-        uses: cilium/little-vm-helper@3c748d6fc9d6c44a433de85a66f70e8f7043be04 # v0.0.18
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
         with:
           provision: 'false'
           cmd: |
@@ -397,7 +397,7 @@ jobs:
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
       - name: Start conn-disrupt-test
-        uses: cilium/little-vm-helper@3c748d6fc9d6c44a433de85a66f70e8f7043be04 # v0.0.18
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
         with:
           provision: 'false'
           cmd: |
@@ -410,7 +410,7 @@ jobs:
               --conn-disrupt-dispatch-interval 0ms
 
       - name: Upgrade Cilium
-        uses: cilium/little-vm-helper@3c748d6fc9d6c44a433de85a66f70e8f7043be04 # v0.0.18
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
         with:
           provision: 'false'
           cmd: |
@@ -424,7 +424,7 @@ jobs:
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
       - name: Test Cilium after upgrade
-        uses: cilium/little-vm-helper@3c748d6fc9d6c44a433de85a66f70e8f7043be04 # v0.0.18
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
         with:
           provision: 'false'
           cmd: |
@@ -457,7 +457,7 @@ jobs:
               --conn-disrupt-dispatch-interval 0ms
 
       - name: Downgrade Cilium ${{ env.cilium_stable_version }}
-        uses: cilium/little-vm-helper@3c748d6fc9d6c44a433de85a66f70e8f7043be04 # v0.0.18
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
         with:
           provision: 'false'
           cmd: |
@@ -471,7 +471,7 @@ jobs:
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
       - name: Test Cilium after downgrade to ${{ env.cilium_stable_version }}
-        uses: cilium/little-vm-helper@3c748d6fc9d6c44a433de85a66f70e8f7043be04 # v0.0.18
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
         with:
           provision: 'false'
           cmd: |
@@ -502,7 +502,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@3c748d6fc9d6c44a433de85a66f70e8f7043be04 # v0.0.18
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
         with:
           provision: 'false'
           cmd: |
