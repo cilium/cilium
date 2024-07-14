@@ -975,7 +975,7 @@ func (c *Client) GetServerVersion() (*semver.Version, error) {
 			return &ver, nil
 		}
 	}
-	return nil, fmt.Errorf("unable to parse Kubernetes version (got %s): %s", sv.String(), err)
+	return nil, fmt.Errorf("unable to parse Kubernetes version (got %s): %w", sv.String(), err)
 }
 
 func (c *Client) GetIngress(ctx context.Context, namespace string, name string, opts metav1.GetOptions) (*networkingv1.Ingress, error) {

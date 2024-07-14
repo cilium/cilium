@@ -29,7 +29,7 @@ func (s *Encrypt) IPsecKeyStatus(ctx context.Context) error {
 func (s *Encrypt) readIPsecKey(ctx context.Context) (string, error) {
 	secret, err := s.client.GetSecret(ctx, s.params.CiliumNamespace, defaults.EncryptionSecretName, metav1.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch IPsec secret: %s", err)
+		return "", fmt.Errorf("failed to fetch IPsec secret: %w", err)
 	}
 
 	if key, ok := secret.Data["keys"]; ok {

@@ -34,7 +34,7 @@ func (s *Encrypt) IPsecRotateKey(ctx context.Context) error {
 
 	secret, err := s.client.GetSecret(ctx, s.params.CiliumNamespace, defaults.EncryptionSecretName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to fetch IPsec secret: %s", err)
+		return fmt.Errorf("failed to fetch IPsec secret: %w", err)
 	}
 
 	keyBytes, ok := secret.Data["keys"]
@@ -48,7 +48,7 @@ func (s *Encrypt) IPsecRotateKey(ctx context.Context) error {
 
 	newKey, err := rotateIPsecKey(key, s.params.IPsecKeyAuthAlgo)
 	if err != nil {
-		return fmt.Errorf("failed to rotate IPsec key: %s", err)
+		return fmt.Errorf("failed to rotate IPsec key: %w", err)
 	}
 
 	if s.params.IPsecKeyPerNode != "" {
@@ -58,7 +58,7 @@ func (s *Encrypt) IPsecRotateKey(ctx context.Context) error {
 	patch := []byte(`{"stringData":{"keys":"` + newKey.String() + `"}}`)
 	_, err = s.client.PatchSecret(ctx, s.params.CiliumNamespace, defaults.EncryptionSecretName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to patch IPsec secret with new key: %s", err)
+		return fmt.Errorf("failed to patch IPsec secret with new key: %w", err)
 	}
 
 	_, err = fmt.Printf("IPsec key successfully rotated, new key SPI: %d\n", newKey.spi)
@@ -150,14 +150,14 @@ const maxIPsecSPI = 16
 func (k ipsecKey) rotate() (ipsecKey, error) {
 	key, err := generateRandomHex(len(k.key))
 	if err != nil {
-		return ipsecKey{}, fmt.Errorf("failed to generate authentication key: %s", err)
+		return ipsecKey{}, fmt.Errorf("failed to generate authentication key: %w", err)
 	}
 
 	cipherKey := ""
 	if k.cipherMode != "" {
 		cipherKey, err = generateRandomHex(len(k.cipherKey))
 		if err != nil {
-			return ipsecKey{}, fmt.Errorf("failed to generate symmetric encryption key: %s", err)
+			return ipsecKey{}, fmt.Errorf("failed to generate symmetric encryption key: %w", err)
 		}
 	}
 
@@ -197,7 +197,7 @@ func generateRandomHex(size int) (string, error) {
 func mustParseBool(v string) bool {
 	b, err := strconv.ParseBool(v)
 	if err != nil {
-		panic(fmt.Errorf("failed to parse string [%s] to bool: %s", v, err))
+		panic(fmt.Errorf("failed to parse string [%s] to bool: %w", v, err))
 	}
 	return b
 }

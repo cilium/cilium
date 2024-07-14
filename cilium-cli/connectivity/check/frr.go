@@ -355,7 +355,7 @@ func writeDataToPod(ctx context.Context, pod *Pod, filePath string, data []byte)
 		[]string{"sh", "-c", fmt.Sprintf("echo %s | base64 -d > %s", encodedData, filePath)})
 
 	if err != nil || stderr.String() != "" {
-		return fmt.Errorf("failed writing data to pod: %s: %s", err, stderr.String())
+		return fmt.Errorf("failed writing data to pod: %w: %s", err, stderr.String())
 	}
 	return nil
 }

@@ -92,11 +92,11 @@ func (s *Encrypt) fetchEncryptStatusFromPod(ctx context.Context, pod corev1.Pod)
 	cmd := []string{"cilium", "encrypt", "status", "-o", "json"}
 	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, cmd)
 	if err != nil {
-		return models.EncryptionStatus{}, fmt.Errorf("failed to fetch encryption status from %s: %v", pod.Name, err)
+		return models.EncryptionStatus{}, fmt.Errorf("failed to fetch encryption status from %s: %w", pod.Name, err)
 	}
 	encStatus, err := nodeStatusFromOutput(output.String())
 	if err != nil {
-		return models.EncryptionStatus{}, fmt.Errorf("failed to parse encryption status from %s: %v", pod.Name, err)
+		return models.EncryptionStatus{}, fmt.Errorf("failed to parse encryption status from %s: %w", pod.Name, err)
 	}
 	return encStatus, nil
 }
@@ -105,13 +105,13 @@ func nodeStatusFromOutput(output string) (models.EncryptionStatus, error) {
 	if !json.Valid([]byte(output)) {
 		res, err := nodeStatusFromText(output)
 		if err != nil {
-			return models.EncryptionStatus{}, fmt.Errorf("failed to parse text: %v", err)
+			return models.EncryptionStatus{}, fmt.Errorf("failed to parse text: %w", err)
 		}
 		return res, nil
 	}
 	encStatus := models.EncryptionStatus{}
 	if err := json.Unmarshal([]byte(output), &encStatus); err != nil {
-		return models.EncryptionStatus{}, fmt.Errorf("failed to unmarshal json: %v", err)
+		return models.EncryptionStatus{}, fmt.Errorf("failed to unmarshal json: %w", err)
 	}
 	return encStatus, nil
 }
@@ -145,19 +145,19 @@ func nodeStatusFromText(str string) (models.EncryptionStatus, error) {
 		case "Keys in use":
 			keys, err := strconv.Atoi(value)
 			if err != nil {
-				return models.EncryptionStatus{}, fmt.Errorf("invalid number 'Keys in use' [%s]: %v", value, err)
+				return models.EncryptionStatus{}, fmt.Errorf("invalid number 'Keys in use' [%s]: %w", value, err)
 			}
 			res.Ipsec.KeysInUse = int64(keys)
 		case "Errors":
 			count, err := strconv.Atoi(value)
 			if err != nil {
-				return models.EncryptionStatus{}, fmt.Errorf("invalid number 'Errors' [%s]: %v", value, err)
+				return models.EncryptionStatus{}, fmt.Errorf("invalid number 'Errors' [%s]: %w", value, err)
 			}
 			res.Ipsec.ErrorCount = int64(count)
 		default:
 			count, err := strconv.Atoi(value)
 			if err != nil {
-				return models.EncryptionStatus{}, fmt.Errorf("invalid number '%s' [%s]: %v", key, value, err)
+				return models.EncryptionStatus{}, fmt.Errorf("invalid number '%s' [%s]: %w", key, value, err)
 			}
 			res.Ipsec.XfrmErrors[key] = int64(count)
 		}
