@@ -1,3 +1,13 @@
+# v1.170.0 (2024-07-10.2)
+
+* **Feature**: Add parameters to enable provisioning IPAM BYOIPv4 space at a Local Zone Network Border Group level
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.169.0 (2024-07-10)
+
+* **Feature**: Add parameters to enable provisioning IPAM BYOIPv4 space at a Local Zone Network Border Group level
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.168.0 (2024-07-02)
 
 * **Feature**: Documentation updates for Elastic Compute Cloud (EC2).

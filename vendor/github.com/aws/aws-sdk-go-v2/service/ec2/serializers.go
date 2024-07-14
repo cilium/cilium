@@ -53224,6 +53224,11 @@ func awsEc2query_serializeOpDocumentCreatePublicIpv4PoolInput(v *CreatePublicIpv
 		objectKey.Boolean(*v.DryRun)
 	}
 
+	if v.NetworkBorderGroup != nil {
+		objectKey := object.Key("NetworkBorderGroup")
+		objectKey.String(*v.NetworkBorderGroup)
+	}
+
 	if v.TagSpecifications != nil {
 		objectKey := object.FlatKey("TagSpecification")
 		if err := awsEc2query_serializeDocumentTagSpecificationList(v.TagSpecifications, objectKey); err != nil {
@@ -55746,6 +55751,11 @@ func awsEc2query_serializeOpDocumentDeletePublicIpv4PoolInput(v *DeletePublicIpv
 	if v.DryRun != nil {
 		objectKey := object.Key("DryRun")
 		objectKey.Boolean(*v.DryRun)
+	}
+
+	if v.NetworkBorderGroup != nil {
+		objectKey := object.Key("NetworkBorderGroup")
+		objectKey.String(*v.NetworkBorderGroup)
 	}
 
 	if v.PoolId != nil {
@@ -67548,6 +67558,11 @@ func awsEc2query_serializeOpDocumentProvisionPublicIpv4PoolCidrInput(v *Provisio
 	if v.NetmaskLength != nil {
 		objectKey := object.Key("NetmaskLength")
 		objectKey.Integer(*v.NetmaskLength)
+	}
+
+	if v.NetworkBorderGroup != nil {
+		objectKey := object.Key("NetworkBorderGroup")
+		objectKey.String(*v.NetworkBorderGroup)
 	}
 
 	if v.PoolId != nil {

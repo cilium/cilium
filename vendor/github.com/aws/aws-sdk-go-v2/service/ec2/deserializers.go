@@ -89772,6 +89772,19 @@ func awsEc2query_deserializeDocumentIpamDiscoveredResourceCidr(v **types.IpamDis
 		originalDecoder := decoder
 		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
 		switch {
+		case strings.EqualFold("availabilityZoneId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AvailabilityZoneId = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("ipamResourceDiscoveryId", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -89800,6 +89813,19 @@ func awsEc2query_deserializeDocumentIpamDiscoveredResourceCidr(v **types.IpamDis
 					return err
 				}
 				sv.IpUsage = ptr.Float64(f64)
+			}
+
+		case strings.EqualFold("networkInterfaceAttachmentStatus", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.NetworkInterfaceAttachmentStatus = types.IpamNetworkInterfaceAttachmentStatus(xtv)
 			}
 
 		case strings.EqualFold("resourceCidr", t.Name.Local):
@@ -91416,6 +91442,19 @@ func awsEc2query_deserializeDocumentIpamResourceCidr(v **types.IpamResourceCidr,
 		originalDecoder := decoder
 		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
 		switch {
+		case strings.EqualFold("availabilityZoneId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AvailabilityZoneId = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("complianceStatus", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
