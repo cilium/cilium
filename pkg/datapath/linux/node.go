@@ -1289,13 +1289,13 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		if err := n.removeEncryptRules(); err != nil {
 			n.log.Warn("Cannot cleanup previous encryption rule state.", logfields.Error, err)
 		}
-		if err := ipsec.DeleteXFRM(n.log); err != nil {
+		if err := ipsec.DeleteXFRM(n.log, ipsec.AllReqID); err != nil {
 			return fmt.Errorf("failed to delete xfrm policies on node configuration changed: %w", err)
 		}
 	}
 
 	if !newConfig.EnableIPSecEncryptedOverlay {
-		if err := ipsec.DeleteXFRMWithReqID(n.log, ipsec.EncryptedOverlayReqID); err != nil {
+		if err := ipsec.DeleteXFRM(n.log, ipsec.EncryptedOverlayReqID); err != nil {
 			return fmt.Errorf("failed to delete encrypt overlay xfrm policies on node configuration change: %w", err)
 		}
 	}
