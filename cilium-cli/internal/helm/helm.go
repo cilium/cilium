@@ -216,7 +216,7 @@ func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag, repository string)
 	// Get the chart version from the local Helm chart specified with --chart-directory flag.
 	localChart, err := newChartFromDirectory(chartDirectoryFlag)
 	if err != nil {
-		return semver.Version{}, nil, fmt.Errorf("failed to load Helm chart directory %s: %s", chartDirectoryFlag, err)
+		return semver.Version{}, nil, fmt.Errorf("failed to load Helm chart directory %s: %w", chartDirectoryFlag, err)
 	}
 	return versioncheck.MustVersion(localChart.Metadata.Version), localChart, nil
 }

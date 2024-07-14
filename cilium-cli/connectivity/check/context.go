@@ -334,7 +334,7 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, extra SetupHoo
 	}
 	if ct.params.Hubble {
 		if err := ct.enableHubbleClient(ctx); err != nil {
-			return fmt.Errorf("unable to create hubble client: %s", err)
+			return fmt.Errorf("unable to create hubble client: %w", err)
 		}
 	}
 	if match, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.NodeWithoutCilium)); match {
