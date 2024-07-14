@@ -4,15 +4,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 FROM docker.io/library/golang:1.22.5-alpine3.19@sha256:0642d4f809abf039440540de1f0e83502401686e3946ed8e7398a1d94648aa6d AS builder
-WORKDIR /go/src/github.com/cilium/cilium-cli
+WORKDIR /go/src/github.com/cilium/cilium
 RUN apk add --no-cache git make ca-certificates
 COPY . .
-RUN make
+RUN make -C cilium-cli
 
-FROM ubuntu:24.04@sha256:2e863c44b718727c860746568e1d54afd13b2fa71b160f5cd9058fc436217b30
+FROM ubuntu:24.04@sha256:2e863c44b718727c860746568e1d54afd13b2fa71b160f5cd9058fc436217b30 AS release
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /root/app
-COPY --from=builder /go/src/github.com/cilium/cilium-cli/cilium /usr/local/bin/cilium
+COPY --from=builder /go/src/github.com/cilium/cilium/cilium-cli/cilium /usr/local/bin/cilium
 
 # Install cloud CLIs. Based on these instructions:
 # - https://cloud.google.com/sdk/docs/install#deb

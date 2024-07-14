@@ -2,7 +2,7 @@ name: Image CI Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request_target:
+  pull_request:
     types:
       - opened
       - synchronize
@@ -42,6 +42,9 @@ jobs:
         include:
           - name: cilium
             dockerfile: ./images/cilium/Dockerfile
+
+          - name: cilium-cli
+            dockerfile: ./cilium-cli/Dockerfile
 
           - name: operator-aws
             dockerfile: ./images/operator/Dockerfile
@@ -140,7 +143,7 @@ jobs:
 
       # main branch pushes
       - name: CI Build ${{ matrix.name }}
-        if: ${{ github.event_name != 'pull_request_target' && !startsWith(github.ref_name, 'ft/') }}
+        if: ${{ github.event_name != 'pull_request' && !startsWith(github.ref_name, 'ft/') }}
         uses: docker/build-push-action@1a162644f9a7e87d8f4b053101d1d9a712edc18c # v6.3.0
         id: docker_build_ci
         with:
@@ -151,7 +154,7 @@ jobs:
           # re-pushing the image tags when we only want to re-create the Golang
           # docker cache after the workflow "Image CI Cache Cleaner" was terminated.
           push: ${{ github.event_name == 'push' }}
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64${{ matrix.name != 'cilium-cli' && ',linux/arm64' || '' }}
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
@@ -160,7 +163,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI race detection Build ${{ matrix.name }}
-        if: ${{ github.event_name != 'pull_request_target' && !startsWith(github.ref_name, 'ft/') }}
+        if: ${{ github.event_name != 'pull_request' && !startsWith(github.ref_name, 'ft/') }}
         uses: docker/build-push-action@1a162644f9a7e87d8f4b053101d1d9a712edc18c # v6.3.0
         id: docker_build_ci_detect_race_condition
         with:
@@ -182,7 +185,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
-        if: ${{ github.event_name != 'pull_request_target' && !startsWith(github.ref_name, 'ft/') }}
+        if: ${{ github.event_name != 'pull_request' && !startsWith(github.ref_name, 'ft/') }}
         uses: docker/build-push-action@1a162644f9a7e87d8f4b053101d1d9a712edc18c # v6.3.0
         id: docker_build_ci_unstripped
         with:
@@ -292,7 +295,7 @@ jobs:
 
       # PR or feature branch updates
       - name: CI Build ${{ matrix.name }}
-        if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
         uses: docker/build-push-action@1a162644f9a7e87d8f4b053101d1d9a712edc18c # v6.3.0
         id: docker_build_ci_pr
         with:
@@ -300,7 +303,7 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64${{ matrix.name != 'cilium-cli' && ',linux/arm64' || '' }}
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
           target: release
@@ -308,7 +311,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI race detection Build ${{ matrix.name }}
-        if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
         uses: docker/build-push-action@1a162644f9a7e87d8f4b053101d1d9a712edc18c # v6.3.0
         id: docker_build_ci_pr_detect_race_condition
         with:
@@ -326,7 +329,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
-        if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
         uses: docker/build-push-action@1a162644f9a7e87d8f4b053101d1d9a712edc18c # v6.3.0
         id: docker_build_ci_pr_unstripped
         with:
@@ -343,14 +346,14 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: Sign Container Images
-        if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
         run: |
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_pr.outputs.digest }}
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_pr_detect_race_condition.outputs.digest }}
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_pr_unstripped.outputs.digest }}
 
       - name: Generate SBOM
-        if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
         uses: anchore/sbom-action@95b086ac308035dc0850b3853be5b7ab108236a8 # v0.16.1
         with:
           artifact-name: sbom_ci_pr_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -358,7 +361,7 @@ jobs:
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
 
       - name: Generate SBOM (race)
-        if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
         uses: anchore/sbom-action@95b086ac308035dc0850b3853be5b7ab108236a8 # v0.16.1
         with:
           artifact-name: sbom_ci_pr_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -366,7 +369,7 @@ jobs:
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
 
       - name: Generate SBOM (unstripped)
-        if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
         uses: anchore/sbom-action@95b086ac308035dc0850b3853be5b7ab108236a8 # v0.16.1
         with:
           artifact-name: sbom_ci_pr_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -374,14 +377,14 @@ jobs:
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
 
       - name: Attach SBOM to Container Images
-        if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
         run: |
           cosign attach sbom --sbom sbom_ci_pr_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_pr.outputs.digest }}
           cosign attach sbom --sbom sbom_ci_pr_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_pr_detect_race_condition.outputs.digest }}
           cosign attach sbom --sbom sbom_ci_pr_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_pr_unstripped.outputs.digest }}
 
       - name: Sign SBOM Images
-        if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
         run: |
           docker_build_ci_pr_digest="${{ steps.docker_build_ci_pr.outputs.digest }}"
           image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${docker_build_ci_pr_digest/:/-}.sbom"
@@ -399,7 +402,7 @@ jobs:
           cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${docker_build_ci_pr_unstripped_sbom_digest}"
 
       - name: CI Image Releases digests
-        if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
         shell: bash
         run: |
           mkdir -p image-digest/
@@ -417,7 +420,7 @@ jobs:
 
       # Store docker's golang's cache build locally only on the main branch
       - name: Store ${{ matrix.name }} Golang cache build locally
-        if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch }}
+        if: ${{ github.event_name != 'pull_request' && steps.cache.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch }}
         uses: docker/build-push-action@1a162644f9a7e87d8f4b053101d1d9a712edc18c # v6.3.0
         with:
           provenance: false
@@ -430,7 +433,7 @@ jobs:
 
       # Store docker's golang's cache build locally only on the main branch
       - name: Store ${{ matrix.name }} Golang cache in GitHub cache path
-        if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch }}
+        if: ${{ github.event_name != 'pull_request' && steps.cache.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch }}
         shell: bash
         run: |
           mkdir -p /tmp/.cache/${{ matrix.name }}/
