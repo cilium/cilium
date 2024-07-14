@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -40,6 +41,8 @@ func newCmdConnectivity(hooks api.Hooks) *cobra.Command {
 var params = check.Parameters{
 	ExternalDeploymentPort: 8080,
 	EchoServerHostPort:     4000,
+	JunitProperties:        make(map[string]string),
+	NodeSelector:           make(map[string]string),
 	Writer:                 os.Stdout,
 	SysdumpOptions: sysdump.Options{
 		LargeSysdumpAbortTimeout: sysdump.DefaultLargeSysdumpAbortTimeout,
@@ -132,7 +135,7 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().StringVar(&params.ExternalOtherIP, "external-other-ip", "1.0.0.1", "Other IP to use as external target in connectivity tests")
 	cmd.Flags().StringSliceVar(&params.NodeCIDRs, "node-cidr", nil, "one or more CIDRs that cover all nodes in the cluster")
 	cmd.Flags().StringVar(&params.JunitFile, "junit-file", "", "Generate junit report and write to file")
-	cmd.Flags().StringToStringVar(&params.JunitProperties, "junit-property", map[string]string{}, "Add key=value properties to the generated junit file")
+	cmd.Flags().Var(option.NewNamedMapOptions("junit-property", &params.JunitProperties, nil), "junit-property", "Add key=value properties to the generated junit file")
 	cmd.Flags().BoolVar(&params.SkipIPCacheCheck, "skip-ip-cache-check", true, "Skip IPCache check")
 	cmd.Flags().MarkHidden("skip-ip-cache-check")
 	cmd.Flags().BoolVar(&params.IncludeUnsafeTests, "include-unsafe-tests", false, "Include tests which can modify cluster nodes state")
@@ -218,7 +221,7 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 
 func registerCommonFlags(flags *pflag.FlagSet) {
 	flags.BoolVarP(&params.Debug, "debug", "d", false, "Show debug messages")
-	flags.StringToStringVar(&params.NodeSelector, "node-selector", map[string]string{}, "Restrict connectivity pods to nodes matching this label")
+	flags.Var(option.NewNamedMapOptions("node-selector", &params.NodeSelector, nil), "node-selector", "Restrict connectivity pods to nodes matching this label")
 	flags.StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to perform the connectivity in")
 	flags.Var(&params.DeploymentAnnotations, "deployment-pod-annotations", "Add annotations to the connectivity pods, e.g. '{\"client\":{\"foo\":\"bar\"}}'")
 }
