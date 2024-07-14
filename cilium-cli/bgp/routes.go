@@ -142,7 +142,7 @@ func (s *Status) fetchRoutesFromPod(ctx context.Context, fetchCmd []string, pod 
 
 	err = json.Unmarshal(output.Bytes(), &bgpRoutes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal bgp routes from %s: %v", pod.Name, err)
+		return nil, fmt.Errorf("failed to unmarshal bgp routes from %s: %w", pod.Name, err)
 	}
 
 	return bgpRoutes, nil

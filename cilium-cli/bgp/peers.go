@@ -101,14 +101,14 @@ func (s *Status) fetchPeeringStateFromPod(ctx context.Context, pod *corev1.Pod) 
 	cmd := []string{"cilium", "bgp", "peers", "-o", "json"}
 	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, cmd)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch bgp state from %s: %v", pod.Name, err)
+		return nil, fmt.Errorf("failed to fetch bgp state from %s: %w", pod.Name, err)
 	}
 
 	bgpPeers := make([]*models.BgpPeer, 0)
 
 	err = json.Unmarshal(output.Bytes(), &bgpPeers)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal bgp state from %s: %v", pod.Name, err)
+		return nil, fmt.Errorf("failed to unmarshal bgp state from %s: %w", pod.Name, err)
 	}
 
 	return bgpPeers, nil

@@ -252,7 +252,7 @@ func (k *K8sClusterMesh) getSecret(ctx context.Context, client k8sClusterMeshImp
 func (k *K8sClusterMesh) getCACert(ctx context.Context, client k8sClusterMeshImplementation) ([]byte, error) {
 	secret, err := client.GetSecret(ctx, k.params.Namespace, defaults.CASecretName, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("get secret %q to retrieve CA: %s", defaults.CASecretName, err)
+		return nil, fmt.Errorf("get secret %q to retrieve CA: %w", defaults.CASecretName, err)
 	}
 
 	// The helm and cronjob certificate generation methods currently store

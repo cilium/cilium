@@ -168,10 +168,10 @@ func exportSummary(content perfData, reportDir string) error {
 	filePath := path.Join(reportDir, strings.Join([]string{fileName, "json"}, "."))
 	contentStr, err := prettyPrintJSON(content)
 	if err != nil {
-		return fmt.Errorf("error formatting summary: %v error: %v", content, err)
+		return fmt.Errorf("error formatting summary: %v error: %w", content, err)
 	}
 	if err := os.WriteFile(filePath, []byte(contentStr), 0600); err != nil {
-		return fmt.Errorf("writing to file %v error: %v", filePath, err)
+		return fmt.Errorf("writing to file %v error: %w", filePath, err)
 	}
 	return nil
 }
@@ -179,11 +179,11 @@ func exportSummary(content perfData, reportDir string) error {
 func prettyPrintJSON(data interface{}) (string, error) {
 	output := &bytes.Buffer{}
 	if err := json.NewEncoder(output).Encode(data); err != nil {
-		return "", fmt.Errorf("building encoder error: %v", err)
+		return "", fmt.Errorf("building encoder error: %w", err)
 	}
 	formatted := &bytes.Buffer{}
 	if err := json.Indent(formatted, output.Bytes(), "", "  "); err != nil {
-		return "", fmt.Errorf("indenting error: %v", err)
+		return "", fmt.Errorf("indenting error: %w", err)
 	}
 	return formatted.String(), nil
 }

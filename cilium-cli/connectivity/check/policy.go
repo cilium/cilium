@@ -480,7 +480,7 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 	if sumMap(revDeltas) > 0 {
 		t.Debug("Policy difference detected, waiting for Cilium agents to increment policy revisions..")
 		if err := t.waitCiliumPolicyRevisions(ctx, revisions, revDeltas); err != nil {
-			return fmt.Errorf("policies were not applied on all Cilium nodes in time: %s", err)
+			return fmt.Errorf("policies were not applied on all Cilium nodes in time: %w", err)
 		}
 	}
 
