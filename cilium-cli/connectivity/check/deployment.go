@@ -921,7 +921,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 				svc := newService(echoExternalNodeDeploymentName,
 					map[string]string{"name": echoExternalNodeDeploymentName, "kind": kindEchoExternalNodeName},
-					map[string]string{"kind": kindEchoExternalNodeName}, "http", 8080)
+					map[string]string{"kind": kindEchoExternalNodeName}, "http", port)
 				svc.Spec.ClusterIP = corev1.ClusterIPNone
 				svc.Spec.Type = corev1.ServiceTypeClusterIP
 				_, err := ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
