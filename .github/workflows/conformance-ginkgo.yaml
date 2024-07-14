@@ -274,8 +274,8 @@ jobs:
       - name: Install cilium-cli
         uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
         with:
-          skip-build: 'true'
-          ci-version: 'latest'
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          ci-version: ${{ env.CILIUM_CLI_VERSION }}
           binary-dir: '.'
 
       - name: Install helm
