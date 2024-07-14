@@ -7,11 +7,12 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	"sync"
 	"text/tabwriter"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
 )
@@ -115,7 +116,7 @@ type Status struct {
 	// For Helm mode only.
 	HelmChartVersion string `json:"helm_chart_version,omitempty"`
 
-	mutex *sync.Mutex
+	mutex *lock.Mutex
 }
 
 func newStatus() *Status {
@@ -127,7 +128,7 @@ func newStatus() *Status {
 		CiliumStatus:    CiliumStatusMap{},
 		CiliumEndpoints: CiliumEndpointsMap{},
 		Errors:          ErrorCountMapMap{},
-		mutex:           &sync.Mutex{},
+		mutex:           &lock.Mutex{},
 	}
 }
 

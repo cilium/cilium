@@ -6,7 +6,8 @@ package wait
 import (
 	"context"
 	"fmt"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
 )

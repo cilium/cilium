@@ -13,7 +13,10 @@ import (
 	"path"
 	"strings"
 	"testing"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
+
+	"github.com/cilium/cilium/pkg/safeio"
 
 	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium/api/v1/models"
@@ -193,7 +196,7 @@ func TestKVStoreTask(t *testing.T) {
 	})
 	fd, err := os.Open(path.Join(collector.sysdumpDir, "kvstore-heartbeat.json"))
 	assert.NoError(err)
-	data, err := io.ReadAll(fd)
+	data, err := safeio.ReadAllLimit(fd, safeio.MB)
 	assert.NoError(err)
 	assert.Equal([]byte("{}"), data)
 }

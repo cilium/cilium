@@ -12,7 +12,8 @@ import (
 	"os/signal"
 	"runtime"
 	"syscall"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (

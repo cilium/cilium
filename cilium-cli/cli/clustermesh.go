@@ -8,7 +8,8 @@ import (
 	"io"
 	"os"
 	"strings"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/spf13/cobra"

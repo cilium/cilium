@@ -5,7 +5,8 @@ package sysdump
 
 import (
 	"runtime"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (

@@ -10,8 +10,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,6 +23,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
+	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
@@ -375,7 +376,7 @@ func sumMap(m map[string]int) int {
 
 // policyApplyDeleteLock guarantees that only one connectivity test instance
 // can apply or delete policies in case of connectivity test concurrency > 1
-var policyApplyDeleteLock = sync.Mutex{}
+var policyApplyDeleteLock = lock.Mutex{}
 
 // applyPolicies applies all the Test's registered network policies.
 func (t *Test) applyPolicies(ctx context.Context) error {

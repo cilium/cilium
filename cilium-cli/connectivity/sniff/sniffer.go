@@ -9,10 +9,12 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/utils/lock"
+	"github.com/cilium/cilium/pkg/inctimer"
 )
 
 // Mode configures the Sniffer validation mode.
@@ -98,7 +100,7 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 			}
 
 			return nil, fmt.Errorf("Failed to execute tcpdump: %w", err)
-		case <-time.After(100 * time.Millisecond):
+		case <-inctimer.After(100 * time.Millisecond):
 			line, err := sniffer.stdout.ReadString('\n')
 			if err != nil && !errors.Is(err, io.EOF) {
 				return nil, fmt.Errorf("Failed to read kubectl exec's stdout: %w", err)

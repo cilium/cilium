@@ -8,7 +8,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"helm.sh/helm/v3/pkg/action"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

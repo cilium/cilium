@@ -8,7 +8,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/cilium/cilium/api/v1/models"
 

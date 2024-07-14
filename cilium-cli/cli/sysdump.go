@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"

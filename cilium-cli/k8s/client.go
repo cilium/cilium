@@ -15,7 +15,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/blang/semver/v4"
 	"helm.sh/helm/v3/pkg/action"
@@ -48,6 +49,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/safeio"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
@@ -320,7 +322,7 @@ func (c *Client) CiliumLogs(ctx context.Context, namespace, pod string, since ti
 	}
 	defer podLogs.Close()
 
-	log, err := io.ReadAll(podLogs)
+	log, err := safeio.ReadAllLimit(podLogs, safeio.MB)
 	if err != nil {
 		return "", fmt.Errorf("error reading log: %w", err)
 	}
@@ -827,7 +829,7 @@ func stream(conn httpstream.Connection, port uint16, handler func(io.ReadWriteCl
 	errorDone := make(chan error)
 	go func() {
 		defer close(errorDone)
-		message, err := io.ReadAll(errorStream)
+		message, err := safeio.ReadAllLimit(errorStream, safeio.MB)
 		switch {
 		case err != nil:
 			errorDone <- fmt.Errorf("reading from error stream: %w", err)

@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"sync"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/blang/semver/v4"
 	"github.com/cloudflare/cfssl/cli/genkey"
@@ -27,6 +27,7 @@ import (
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
@@ -148,7 +149,7 @@ type Test struct {
 
 	// Buffer to store output until it's flushed by a failure.
 	// Unused when run in verbose or debug mode.
-	logMu  sync.RWMutex
+	logMu  lock.RWMutex
 	logBuf io.ReadWriter
 
 	// conditionFn is a function that returns true if the test needs to run,

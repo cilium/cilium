@@ -9,7 +9,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"golang.org/x/exp/maps"
 	appsv1 "k8s.io/api/apps/v1"

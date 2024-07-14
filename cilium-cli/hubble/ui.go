@@ -6,7 +6,8 @@ package hubble
 import (
 	"fmt"
 	"io"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/cilium/cilium/cilium-cli/internal/utils"
 

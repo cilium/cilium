@@ -13,7 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/blang/semver/v4"
 	"golang.org/x/exp/maps"
@@ -25,6 +26,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/observer"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/internal/junit"
 	"github.com/cilium/cilium/cilium-cli/connectivity/perf/common"
@@ -817,7 +819,7 @@ func (ct *ConnectivityTest) modifyStaticRoutesForNodesWithoutCilium(ctx context.
 
 // multiClusterClientLock protects K8S client instantiation (Scheme registration)
 // for the cluster mesh setup in case of connectivity test concurrency > 1
-var multiClusterClientLock = sync.Mutex{}
+var multiClusterClientLock = lock.Mutex{}
 
 // determine if only single node tests can be ran.
 // if the user specified SingleNode on the CLI this is taken as the truth and

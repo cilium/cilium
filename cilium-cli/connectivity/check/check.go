@@ -9,7 +9,8 @@ import (
 	"io"
 	"regexp"
 	"strings"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"

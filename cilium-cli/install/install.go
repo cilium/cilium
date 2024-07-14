@@ -7,7 +7,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/blang/semver/v4"
 	"helm.sh/helm/v3/pkg/action"

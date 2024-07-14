@@ -4,7 +4,7 @@
 package defaults
 
 import (
-	"time"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (

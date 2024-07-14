@@ -15,7 +15,8 @@ import (
 	"path"
 	"regexp"
 	"strings"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/blang/semver/v4"
 	helm "github.com/cilium/charts"

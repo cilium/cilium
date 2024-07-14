@@ -5,7 +5,8 @@ package cli
 
 import (
 	"context"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/spf13/cobra"
 

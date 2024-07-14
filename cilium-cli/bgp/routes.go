@@ -16,7 +16,8 @@ import (
 	"strings"
 	"sync"
 	"text/tabwriter"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	corev1 "k8s.io/api/core/v1"

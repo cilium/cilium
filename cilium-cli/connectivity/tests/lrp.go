@@ -9,7 +9,8 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 

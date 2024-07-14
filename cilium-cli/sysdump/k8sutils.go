@@ -6,7 +6,8 @@ package sysdump
 import (
 	"context"
 	"fmt"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

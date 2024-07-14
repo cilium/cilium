@@ -17,7 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/cilium/workerpool"
 	"github.com/spf13/cobra"
