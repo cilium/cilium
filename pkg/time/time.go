@@ -51,6 +51,7 @@ var (
 	Now                    = time.Now
 	Parse                  = time.Parse
 	ParseInLocation        = time.ParseInLocation
+	UTC                    = time.UTC
 	Unix                   = time.Unix
 	UnixMicro              = time.UnixMicro
 	UnixMilli              = time.UnixMilli
