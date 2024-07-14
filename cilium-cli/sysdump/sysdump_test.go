@@ -20,7 +20,6 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -34,15 +33,7 @@ import (
 	"github.com/cilium/cilium-cli/k8s"
 )
 
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type SysdumpSuite struct{}
-
-var _ = check.Suite(&SysdumpSuite{})
-
-func (b *SysdumpSuite) TestSysdumpCollector(c *check.C) {
+func TestSysdumpCollector(t *testing.T) {
 	client := fakeClient{
 		nodeList: &corev1.NodeList{
 			Items: []corev1.Node{
@@ -57,15 +48,15 @@ func (b *SysdumpSuite) TestSysdumpCollector(c *check.C) {
 	startTime := time.Unix(946713600, 0)
 	timestamp := startTime.Format(timeFormat)
 	collector, err := NewCollector(&client, options, startTime, "cilium-cli-version")
-	c.Assert(err, check.IsNil)
-	c.Assert(path.Base(collector.sysdumpDir), check.Equals, "my-sysdump-"+timestamp)
+	assert.NoError(t, err)
+	assert.Equal(t, "my-sysdump-"+timestamp, path.Base(collector.sysdumpDir))
 	tempFile := collector.AbsoluteTempPath("my-file-<ts>")
-	c.Assert(tempFile, check.Equals, path.Join(collector.sysdumpDir, "my-file-"+timestamp))
+	assert.Equal(t, path.Join(collector.sysdumpDir, "my-file-"+timestamp), tempFile)
 	_, err = os.Stat(path.Join(collector.sysdumpDir, sysdumpLogFile))
-	c.Assert(err, check.IsNil)
+	assert.NoError(t, err)
 }
 
-func (b *SysdumpSuite) TestNodeList(c *check.C) {
+func TestNodeList(t *testing.T) {
 	options := Options{
 		Writer: io.Discard,
 	}
@@ -79,19 +70,19 @@ func (b *SysdumpSuite) TestNodeList(c *check.C) {
 		},
 	}
 	collector, err := NewCollector(&client, options, time.Now(), "cilium-cli-version")
-	c.Assert(err, check.IsNil)
-	c.Assert(collector.NodeList, check.DeepEquals, []string{"node-a", "node-b", "node-c"})
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"node-a", "node-b", "node-c"}, collector.NodeList)
 
 	options = Options{
 		Writer:   io.Discard,
 		NodeList: "node-a,node-c",
 	}
 	collector, err = NewCollector(&client, options, time.Now(), "cilium-cli-version")
-	c.Assert(err, check.IsNil)
-	c.Assert(collector.NodeList, check.DeepEquals, []string{"node-a", "node-c"})
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"node-a", "node-c"}, collector.NodeList)
 }
 
-func (b *SysdumpSuite) TestAddTasks(c *check.C) {
+func TestAddTasks(t *testing.T) {
 	options := Options{
 		Writer: io.Discard,
 	}
@@ -103,14 +94,14 @@ func (b *SysdumpSuite) TestAddTasks(c *check.C) {
 		},
 	}
 	collector, err := NewCollector(&client, options, time.Now(), "cilium-cli-version")
-	c.Assert(err, check.IsNil)
+	assert.NoError(t, err)
 	collector.AddTasks([]Task{{}, {}, {}})
-	c.Assert(len(collector.additionalTasks), check.Equals, 3)
+	assert.Len(t, collector.additionalTasks, 3)
 	collector.AddTasks([]Task{{}, {}, {}})
-	c.Assert(len(collector.additionalTasks), check.Equals, 6)
+	assert.Len(t, collector.additionalTasks, 6)
 }
 
-func (b *SysdumpSuite) TestExtractGopsPID(c *check.C) {
+func TestExtractGopsPID(t *testing.T) {
 	var pid string
 	var err error
 
@@ -121,8 +112,8 @@ func (b *SysdumpSuite) TestExtractGopsPID(c *check.C) {
 1     0     custom        go1.16.3           /usr/local/bin/custom
 	`
 	pid, err = extractGopsPID(normalOutput)
-	c.Assert(err, check.IsNil)
-	c.Assert(pid, check.Equals, "10")
+	assert.NoError(t, err)
+	assert.Equal(t, "10", pid)
 
 	missingAgent := `
 25863 0     gops          unknown Go version /usr/bin/gops
@@ -131,8 +122,8 @@ func (b *SysdumpSuite) TestExtractGopsPID(c *check.C) {
 1     0     custom        go1.16.3           /usr/local/bin/custom
 	`
 	pid, err = extractGopsPID(missingAgent)
-	c.Assert(err, check.NotNil)
-	c.Assert(pid, check.Equals, "")
+	assert.Error(t, err)
+	assert.Empty(t, pid)
 
 	multipleAgents := `
 25863 0     gops*          unknown Go version /usr/bin/gops
@@ -141,16 +132,16 @@ func (b *SysdumpSuite) TestExtractGopsPID(c *check.C) {
 1     0     custom        go1.16.3           /usr/local/bin/custom
 	`
 	pid, err = extractGopsPID(multipleAgents)
-	c.Assert(err, check.IsNil)
-	c.Assert(pid, check.Equals, "25863")
+	assert.NoError(t, err)
+	assert.Equal(t, "25863", pid)
 
 	noOutput := ``
 	_, err = extractGopsPID(noOutput)
-	c.Assert(err, check.NotNil)
+	assert.Error(t, err)
 
 }
 
-func (b *SysdumpSuite) TestExtractGopsProfileData(c *check.C) {
+func TestExtractGopsProfileData(t *testing.T) {
 	gopsOutput := `
 	Profiling CPU now, will take 30 secs...
 	Profile dump saved to: /tmp/cpu_profile3302111893
@@ -158,8 +149,8 @@ func (b *SysdumpSuite) TestExtractGopsProfileData(c *check.C) {
 	wantFilepath := "/tmp/cpu_profile3302111893"
 
 	gotFilepath, err := extractGopsProfileData(gopsOutput)
-	c.Assert(err, check.IsNil)
-	c.Assert(gotFilepath, check.Equals, wantFilepath)
+	assert.NoError(t, err)
+	assert.Equal(t, wantFilepath, gotFilepath)
 
 }
 
