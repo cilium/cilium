@@ -273,7 +273,7 @@ jobs:
           test-name: runtime-tests
           install-dependencies: true
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          image-version: "6.6-20240703.151759@sha256:44b85954edbf627d691b355a408d9c19deb796b34181c313aa6d73da3be2c758"
+          image-version: "6.6-20240710.064909@sha256:c92b452bb641f97742df38e2a5e1884c7486a35d65885d9f030409346a0c83b8"
           host-mount: ./
           cpu: 4
           mem: 12G
