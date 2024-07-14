@@ -22,7 +22,6 @@ concurrency:
 
 env:
   cluster_name: cilium-testing
-  cilium_cli_ci_version:
 
 jobs:
   kubernetes-e2e-net-conformance:
@@ -145,9 +144,9 @@ jobs:
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
         with:
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Checkout code
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
