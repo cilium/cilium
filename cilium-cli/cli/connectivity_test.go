@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium-cli/api"
 	"github.com/cilium/cilium-cli/connectivity/check"
 )
 
@@ -86,4 +87,20 @@ func TestNewConnectivityTests(t *testing.T) {
 			require.Equal(t, n, actual[i].Params().ExternalTargetCANamespace)
 		}
 	}
+}
+
+func TestConnectivityTestFlags(t *testing.T) {
+	ct := newCmdConnectivityTest(&api.NopHooks{})
+	require.Empty(t, params.JunitProperties)
+	ct.Flags().Set("junit-property", "a=b")
+	require.NoError(t, ct.Flags().Set("junit-property", "a=b"))
+	require.Equal(t, map[string]string{"a": "b"}, params.JunitProperties)
+	require.NoError(t, ct.Flags().Set("junit-property", "c=d"))
+	require.Equal(t, map[string]string{"a": "b", "c": "d"}, params.JunitProperties)
+
+	require.Empty(t, params.NodeSelector)
+	require.NoError(t, ct.Flags().Set("node-selector", "a=b"))
+	require.Equal(t, map[string]string{"a": "b"}, params.NodeSelector)
+	require.NoError(t, ct.Flags().Set("node-selector", "c=d"))
+	require.Equal(t, map[string]string{"a": "b", "c": "d"}, params.NodeSelector)
 }
