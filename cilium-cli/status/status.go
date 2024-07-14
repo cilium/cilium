@@ -199,7 +199,7 @@ func (s *Status) parseCiliumSubsystemStatus(deployment, podName, subsystem strin
 
 func (s *Status) parseStatusResponse(deployment, podName string, r *models.StatusResponse, err error) {
 	if err != nil {
-		s.AddAggregatedError(deployment, podName, fmt.Errorf("unable to retrieve cilium status: %s", err))
+		s.AddAggregatedError(deployment, podName, fmt.Errorf("unable to retrieve cilium status: %w", err))
 		return
 	}
 
@@ -244,7 +244,7 @@ func (s *Status) parseStatusResponse(deployment, podName string, r *models.Statu
 
 func (s *Status) parseEndpointsResponse(deployment, podName string, eps []*models.Endpoint, err error) {
 	if err != nil {
-		s.AddAggregatedError(deployment, podName, fmt.Errorf("unable to retrieve cilium endpoint information: %s", err))
+		s.AddAggregatedError(deployment, podName, fmt.Errorf("unable to retrieve cilium endpoint information: %w", err))
 		return
 	}
 

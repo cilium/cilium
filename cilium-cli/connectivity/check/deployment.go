@@ -590,7 +590,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		ct.Logf("✨ [%s] Deploying DNS test server configmap...", ct.clients.src.ClusterName())
 		_, err = ct.clients.src.CreateConfigMap(ctx, ct.params.TestNamespace, dnsConfigMap, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create configmap %s: %s", corednsConfigMapName, err)
+			return fmt.Errorf("unable to create configmap %s: %w", corednsConfigMapName, err)
 		}
 	}
 	if ct.params.MultiCluster != "" {
@@ -599,7 +599,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			ct.Logf("✨ [%s] Deploying DNS test server configmap...", ct.clients.dst.ClusterName())
 			_, err = ct.clients.dst.CreateConfigMap(ctx, ct.params.TestNamespace, dnsConfigMap, metav1.CreateOptions{})
 			if err != nil {
-				return fmt.Errorf("unable to create configmap %s: %s", corednsConfigMapName, err)
+				return fmt.Errorf("unable to create configmap %s: %w", corednsConfigMapName, err)
 			}
 		}
 	}
@@ -635,11 +635,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}, ct.params.DNSTestServerImage)
 		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoSameNodeDeploymentName), metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create service account %s: %s", echoSameNodeDeploymentName, err)
+			return fmt.Errorf("unable to create service account %s: %w", echoSameNodeDeploymentName, err)
 		}
 		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, echoDeployment, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create deployment %s: %s", echoSameNodeDeploymentName, err)
+			return fmt.Errorf("unable to create deployment %s: %w", echoSameNodeDeploymentName, err)
 		}
 	}
 
@@ -656,11 +656,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		})
 		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(clientDeploymentName), metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create service account %s: %s", clientDeploymentName, err)
+			return fmt.Errorf("unable to create service account %s: %w", clientDeploymentName, err)
 		}
 		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, clientDeployment, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create deployment %s: %s", clientDeploymentName, err)
+			return fmt.Errorf("unable to create deployment %s: %w", clientDeploymentName, err)
 		}
 	}
 
@@ -693,11 +693,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		})
 		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(client2DeploymentName), metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create service account %s: %s", client2DeploymentName, err)
+			return fmt.Errorf("unable to create service account %s: %w", client2DeploymentName, err)
 		}
 		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, clientDeployment, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create deployment %s: %s", client2DeploymentName, err)
+			return fmt.Errorf("unable to create deployment %s: %w", client2DeploymentName, err)
 		}
 	}
 
@@ -731,11 +731,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			})
 			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(client3DeploymentName), metav1.CreateOptions{})
 			if err != nil {
-				return fmt.Errorf("unable to create service account %s: %s", client3DeploymentName, err)
+				return fmt.Errorf("unable to create service account %s: %w", client3DeploymentName, err)
 			}
 			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, clientDeployment, metav1.CreateOptions{})
 			if err != nil {
-				return fmt.Errorf("unable to create deployment %s: %s", client3DeploymentName, err)
+				return fmt.Errorf("unable to create deployment %s: %w", client3DeploymentName, err)
 			}
 		}
 	}
@@ -760,11 +760,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		})
 		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(clientCPDeployment), metav1.CreateOptions{})
 		if err != nil && !k8sErrors.IsAlreadyExists(err) {
-			return fmt.Errorf("unable to create service account %s: %s", clientCPDeployment, err)
+			return fmt.Errorf("unable to create service account %s: %w", clientCPDeployment, err)
 		}
 		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, clientDeployment, metav1.CreateOptions{})
 		if err != nil && !k8sErrors.IsAlreadyExists(err) {
-			return fmt.Errorf("unable to create deployment %s: %s", clientCPDeployment, err)
+			return fmt.Errorf("unable to create deployment %s: %w", clientCPDeployment, err)
 		}
 	}
 
@@ -835,7 +835,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}, ct.params.DNSTestServerImage)
 			_, err = ct.clients.dst.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoOtherNodeDeploymentName), metav1.CreateOptions{})
 			if err != nil {
-				return fmt.Errorf("unable to create service account %s: %s", echoOtherNodeDeploymentName, err)
+				return fmt.Errorf("unable to create service account %s: %w", echoOtherNodeDeploymentName, err)
 			}
 			_, err = ct.clients.dst.CreateDeployment(ctx, ct.params.TestNamespace, echoOtherNodeDeployment, metav1.CreateOptions{})
 			if err != nil {
@@ -910,11 +910,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				})
 				_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoExternalNodeDeploymentName), metav1.CreateOptions{})
 				if err != nil {
-					return fmt.Errorf("unable to create service account %s: %s", echoExternalNodeDeploymentName, err)
+					return fmt.Errorf("unable to create service account %s: %w", echoExternalNodeDeploymentName, err)
 				}
 				_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, echoExternalDeployment, metav1.CreateOptions{})
 				if err != nil {
-					return fmt.Errorf("unable to create deployment %s: %s", echoExternalNodeDeploymentName, err)
+					return fmt.Errorf("unable to create deployment %s: %w", echoExternalNodeDeploymentName, err)
 				}
 
 				svc := newService(echoExternalNodeDeploymentName,
@@ -959,11 +959,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		})
 		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(lrpClientDeploymentName), metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create service account %s: %s", lrpClientDeployment, err)
+			return fmt.Errorf("unable to create service account %s: %w", lrpClientDeployment, err)
 		}
 		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, lrpClientDeployment, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create deployment %s: %s", lrpClientDeployment, err)
+			return fmt.Errorf("unable to create deployment %s: %w", lrpClientDeployment, err)
 		}
 		ct.Logf("✨ [%s] Deploying lrp-backend deployment...", ct.clients.src.ClusterName())
 		containerPort := 8080
@@ -994,11 +994,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		})
 		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(lrpBackendDeploymentName), metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create service account %s: %s", lrpBackendDeployment, err)
+			return fmt.Errorf("unable to create service account %s: %w", lrpBackendDeployment, err)
 		}
 		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, lrpBackendDeployment, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create deployment %s: %s", lrpBackendDeployment, err)
+			return fmt.Errorf("unable to create deployment %s: %w", lrpBackendDeployment, err)
 		}
 	}
 
@@ -1046,7 +1046,7 @@ func (ct *ConnectivityTest) createClientPerfDeployment(ctx context.Context, name
 	})
 	_, err := ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(name), metav1.CreateOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to create service account %s: %s", name, err)
+		return fmt.Errorf("unable to create service account %s: %w", name, err)
 	}
 	_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfClientDeployment, metav1.CreateOptions{})
 	if err != nil {
@@ -1074,7 +1074,7 @@ func (ct *ConnectivityTest) createServerPerfDeployment(ctx context.Context, name
 	})
 	_, err := ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(name), metav1.CreateOptions{})
 	if err != nil {
-		return fmt.Errorf("unable to create service account %s: %s", name, err)
+		return fmt.Errorf("unable to create service account %s: %w", name, err)
 	}
 
 	_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfServerDeployment, metav1.CreateOptions{})
@@ -1300,7 +1300,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 
 	clientPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindClientName})
 	if err != nil {
-		return fmt.Errorf("unable to list client pods: %s", err)
+		return fmt.Errorf("unable to list client pods: %w", err)
 	}
 
 	for _, pod := range clientPods.Items {

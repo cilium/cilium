@@ -94,13 +94,13 @@ func validateHealthStatus(t *check.ConnectivityTest, pod *check.Pod, out bytes.B
 	var data interface{}
 	err := json.Unmarshal(out.Bytes(), &data)
 	if err != nil {
-		return fmt.Errorf("Failed to unmarshal cilium-health output: %s", err)
+		return fmt.Errorf("Failed to unmarshal cilium-health output: %w", err)
 	}
 
 	// Check that status of all nodes is reported
 	nodes, err := filterJSON(data, nodesFilter)
 	if err != nil {
-		return fmt.Errorf("Failed to filter nodes: %s", err)
+		return fmt.Errorf("Failed to filter nodes: %w", err)
 	}
 	nodeCount := strings.Split(nodes, " ")
 	if len(nodeCount) < len(t.CiliumPods()) {
@@ -114,7 +114,7 @@ func validateHealthStatus(t *check.ConnectivityTest, pod *check.Pod, out bytes.B
 		kvExpr := fmt.Sprintf(`{range .nodes[*]}{.name}{"%s="}{%s}{"\n"}{end}`, statusPath, statusPath)
 		healthStatus, err := filterJSON(data, kvExpr)
 		if err != nil {
-			return fmt.Errorf("cilium-agent '%s': failed to filter node health status: %s", pod.Name(), err)
+			return fmt.Errorf("cilium-agent '%s': failed to filter node health status: %w", pod.Name(), err)
 		}
 
 		for path, status := range parseKVPairs(healthStatus) {

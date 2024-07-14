@@ -9,6 +9,7 @@ linters:
     - bodyclose
     - gocheckcompilerdirectives
     - err113
+    - errorlint
     - gofmt
     - goheader
     - goimports

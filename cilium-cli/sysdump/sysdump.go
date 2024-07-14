@@ -8,6 +8,7 @@ import (
 	"archive/zip"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -23,7 +24,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -282,7 +283,7 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 
 		c.CiliumConfigMap, err = c.Client.GetConfigMap(context.Background(), c.Options.CiliumNamespace, ciliumConfigMapName, metav1.GetOptions{})
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !k8sErrors.IsNotFound(err) {
 				return nil, fmt.Errorf("failed to get %s ConfigMap: %w", ciliumConfigMapName, err)
 			}
 			c.log("ℹ️  %s ConfigMap not found in %s namespace", ciliumConfigMapName, c.Options.CiliumNamespace)
@@ -781,7 +782,7 @@ func (c *Collector) Run() error {
 			Task: func(ctx context.Context) error {
 				_, err := c.Client.GetSecret(ctx, c.Options.CiliumNamespace, ciliumEtcdSecretsSecretName, metav1.GetOptions{})
 				if err != nil {
-					if errors.IsNotFound(err) {
+					if k8sErrors.IsNotFound(err) {
 						c.log("Secret %q not found in namespace %q - this is expected when using the CRD KVStore", ciliumEtcdSecretsSecretName, c.Options.CiliumNamespace)
 						return nil
 					}
@@ -829,7 +830,7 @@ func (c *Collector) Run() error {
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetDaemonSet(ctx, c.Options.CiliumNamespace, ciliumNodeInitDaemonSetName, metav1.GetOptions{})
 				if err != nil {
-					if errors.IsNotFound(err) {
+					if k8sErrors.IsNotFound(err) {
 						c.logWarn("Daemonset %q not found in namespace %q - this is expected if Node Init DaemonSet is not enabled", ciliumNodeInitDaemonSetName, c.Options.CiliumNamespace)
 						return nil
 					}
@@ -861,7 +862,7 @@ func (c *Collector) Run() error {
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetDaemonSet(ctx, c.Options.CiliumNamespace, ciliumEnvoyDaemonSetName, metav1.GetOptions{})
 				if err != nil {
-					if errors.IsNotFound(err) {
+					if k8sErrors.IsNotFound(err) {
 						c.logWarn("Daemonset %q not found in namespace %q - this is expected if Envoy DaemonSet is not enabled", ciliumEnvoyDaemonSetName, c.Options.CiliumNamespace)
 						return nil
 					}
@@ -879,7 +880,7 @@ func (c *Collector) Run() error {
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetDaemonSet(ctx, c.Options.CiliumNamespace, hubbleDaemonSetName, metav1.GetOptions{})
 				if err != nil {
-					if errors.IsNotFound(err) {
+					if k8sErrors.IsNotFound(err) {
 						c.logDebug("Daemonset %q not found in namespace %q - this is expected in recent versions of Cilium", hubbleDaemonSetName, c.Options.CiliumNamespace)
 						return nil
 					}
@@ -911,7 +912,7 @@ func (c *Collector) Run() error {
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetDeployment(ctx, c.Options.CiliumNamespace, hubbleRelayDeploymentName, metav1.GetOptions{})
 				if err != nil {
-					if errors.IsNotFound(err) {
+					if k8sErrors.IsNotFound(err) {
 						c.logWarn("Deployment %q not found in namespace %q - this is expected if Hubble is not enabled", hubbleRelayDeploymentName, c.Options.CiliumNamespace)
 						return nil
 					}
@@ -929,7 +930,7 @@ func (c *Collector) Run() error {
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetDeployment(ctx, c.Options.CiliumNamespace, hubbleUIDeploymentName, metav1.GetOptions{})
 				if err != nil {
-					if errors.IsNotFound(err) {
+					if k8sErrors.IsNotFound(err) {
 						c.logWarn("Deployment %q not found in namespace %q - this is expected if Hubble UI is not enabled", hubbleUIDeploymentName, c.Options.CiliumNamespace)
 						return nil
 					}
@@ -947,7 +948,7 @@ func (c *Collector) Run() error {
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetCronJob(ctx, c.Options.CiliumNamespace, hubbleGenerateCertsCronJob, metav1.GetOptions{})
 				if err != nil {
-					if errors.IsNotFound(err) {
+					if k8sErrors.IsNotFound(err) {
 						c.logWarn("cronjob %q not found in namespace %q - this is expected if auto TLS is not enabled or if not using hubble.auto.tls.method=cronjob", hubbleGenerateCertsCronJob, c.Options.CiliumNamespace)
 						return nil
 					}
@@ -1074,7 +1075,7 @@ func (c *Collector) Run() error {
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetDeployment(ctx, c.Options.CiliumNamespace, clustermeshApiserverDeploymentName, metav1.GetOptions{})
 				if err != nil {
-					if errors.IsNotFound(err) {
+					if k8sErrors.IsNotFound(err) {
 						c.logWarn("Deployment %q not found in namespace %q - this is expected if 'clustermesh-apiserver' isn't enabled", clustermeshApiserverDeploymentName, c.Options.CiliumNamespace)
 						return nil
 					}
@@ -1102,7 +1103,7 @@ func (c *Collector) Run() error {
 			Quick:       true,
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetConfigMap(ctx, c.Options.CiliumNamespace, c.Options.CNIConfigMapName, metav1.GetOptions{})
-				if err != nil && errors.IsNotFound(err) {
+				if err != nil && k8sErrors.IsNotFound(err) {
 					c.logDebug("CNI configmap %s not found: %w", c.Options.CNIConfigMapName, err)
 					return nil
 				}
@@ -1469,7 +1470,7 @@ func (c *Collector) Run() error {
 			Task: func(ctx context.Context) error {
 				cmName := DefaultTetragonConfigMapName
 				v, err := c.Client.GetConfigMap(ctx, c.Options.TetragonNamespace, cmName, metav1.GetOptions{})
-				if err != nil && errors.IsNotFound(err) {
+				if err != nil && k8sErrors.IsNotFound(err) {
 					c.logDebug("CNI configmap %s not found: %w", cmName, err)
 					return nil
 				}
@@ -1773,7 +1774,7 @@ func (c *Collector) getSPIRETasks() []Task {
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetStatefulSet(ctx, c.Options.CiliumSPIRENamespace, ciliumSPIREServerStatefulSetName, metav1.GetOptions{})
 				if err != nil {
-					if errors.IsNotFound(err) {
+					if k8sErrors.IsNotFound(err) {
 						c.logWarn("StatefulSet %q not found in namespace %q - this is expected if SPIRE installation is not enabled", ciliumSPIREServerStatefulSetName, c.Options.CiliumSPIRENamespace)
 						return nil
 					}
@@ -1791,7 +1792,7 @@ func (c *Collector) getSPIRETasks() []Task {
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetDaemonSet(ctx, c.Options.CiliumSPIRENamespace, ciliumSPIREAgentDaemonSetName, metav1.GetOptions{})
 				if err != nil {
-					if errors.IsNotFound(err) {
+					if k8sErrors.IsNotFound(err) {
 						c.logWarn("Daemonset %q not found in namespace %q - this is expected if SPIRE installation is not enabled", ciliumSPIREAgentDaemonSetName, c.Options.CiliumSPIRENamespace)
 						return nil
 					}
@@ -1809,7 +1810,7 @@ func (c *Collector) getSPIRETasks() []Task {
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetConfigMap(ctx, c.Options.CiliumSPIRENamespace, ciliumSPIREAgentConfigMapName, metav1.GetOptions{})
 				if err != nil {
-					if errors.IsNotFound(err) {
+					if k8sErrors.IsNotFound(err) {
 						c.logWarn("ConfigMap %q not found in namespace %q - this is expected if SPIRE installation is not enabled", ciliumSPIREAgentConfigMapName, c.Options.CiliumSPIRENamespace)
 						return nil
 					}
@@ -1827,7 +1828,7 @@ func (c *Collector) getSPIRETasks() []Task {
 			Task: func(ctx context.Context) error {
 				v, err := c.Client.GetConfigMap(ctx, c.Options.CiliumSPIRENamespace, ciliumSPIREServerConfigMapName, metav1.GetOptions{})
 				if err != nil {
-					if errors.IsNotFound(err) {
+					if k8sErrors.IsNotFound(err) {
 						c.logWarn("ConfigMap %q not found in namespace %q - this is expected if SPIRE installation is not enabled", ciliumSPIREServerConfigMapName, c.Options.CiliumSPIRENamespace)
 						return nil
 					}
@@ -2118,7 +2119,7 @@ func untar(src string, dst string) error {
 	tr := tar.NewReader(gz)
 	for {
 		header, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		} else if err != nil {
 			return err
@@ -2154,7 +2155,7 @@ func untar(src string, dst string) error {
 func copyN(dst io.Writer, src io.Reader, n int64) error {
 	for {
 		_, err := io.CopyN(dst, src, n)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		} else if err != nil {
 			return err
@@ -2639,7 +2640,7 @@ func (c *Collector) submitFlavorSpecificTasks(f k8s.Flavor) error {
 			// Collect the 'kube-system/aws-node' DaemonSet.
 			d, err := c.Client.GetDaemonSet(ctx, awsNodeDaemonSetNamespace, awsNodeDaemonSetName, metav1.GetOptions{})
 			if err != nil {
-				if errors.IsNotFound(err) {
+				if k8sErrors.IsNotFound(err) {
 					c.logDebug("DaemonSet %q not found in namespace %q - this is expected when running in ENI mode", awsNodeDaemonSetName, awsNodeDaemonSetNamespace)
 					return nil
 				}
@@ -2921,7 +2922,7 @@ func detectCiliumNamespace(k KubernetesClient) (string, error) {
 	for _, ns := range DefaultCiliumNamespaces {
 		ctx := context.Background()
 		ns, err := k.GetNamespace(ctx, ns, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
+		if k8sErrors.IsNotFound(err) {
 			continue
 		}
 		if err != nil {
@@ -2929,7 +2930,7 @@ func detectCiliumNamespace(k KubernetesClient) (string, error) {
 		}
 
 		_, err = k.GetDaemonSet(ctx, ns.Name, "cilium", metav1.GetOptions{})
-		if errors.IsNotFound(err) {
+		if k8sErrors.IsNotFound(err) {
 			continue
 		}
 		if err != nil {
@@ -2944,7 +2945,7 @@ func detectCiliumOperatorNamespace(k KubernetesClient) (string, error) {
 	for _, ns := range DefaultCiliumNamespaces {
 		ctx := context.Background()
 		ns, err := k.GetNamespace(ctx, ns, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
+		if k8sErrors.IsNotFound(err) {
 			continue
 		}
 		if err != nil {
@@ -2952,7 +2953,7 @@ func detectCiliumOperatorNamespace(k KubernetesClient) (string, error) {
 		}
 
 		_, err = k.GetDeployment(ctx, ns.Name, ciliumOperatorDeploymentName, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
+		if k8sErrors.IsNotFound(err) {
 			continue
 		}
 		if err != nil {
@@ -2967,7 +2968,7 @@ func detectCiliumSPIRENamespace(k KubernetesClient) (string, error) {
 	for _, ns := range DefaultCiliumSPIRENamespaces {
 		ctx := context.Background()
 		ns, err := k.GetNamespace(ctx, ns, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
+		if k8sErrors.IsNotFound(err) {
 			continue
 		}
 		if err != nil {
@@ -2975,7 +2976,7 @@ func detectCiliumSPIRENamespace(k KubernetesClient) (string, error) {
 		}
 
 		_, err = k.GetDaemonSet(ctx, ns.Name, ciliumSPIREAgentDaemonSetName, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
+		if k8sErrors.IsNotFound(err) {
 			continue
 		}
 		if err != nil {

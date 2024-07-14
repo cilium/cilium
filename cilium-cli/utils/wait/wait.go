@@ -74,7 +74,7 @@ func (w *Observer) Retry(err error) error {
 	select {
 	case <-w.ctx.Done():
 		if err != nil {
-			return fmt.Errorf("timeout while waiting for condition, last error: %s", err)
+			return fmt.Errorf("timeout while waiting for condition, last error: %w", err)
 		}
 		return fmt.Errorf("timeout while waiting for condition")
 	case <-time.After(w.params.retryInterval()):

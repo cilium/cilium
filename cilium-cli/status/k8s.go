@@ -204,7 +204,8 @@ func (k *K8sStatusCollector) podCount(ctx context.Context, status *Status) error
 	// for any pods to be managed by Cilium. So continue, with 0 managed pods.
 	ciliumEps, err := k.client.ListCiliumEndpoints(ctx, "", metav1.ListOptions{})
 	if err != nil {
-		if err, ok := err.(*k8serrors.StatusError); ok && err.Status().Code != http.StatusNotFound {
+		var statusErr *k8serrors.StatusError
+		if errors.As(err, &statusErr) && statusErr.Status().Code != http.StatusNotFound {
 			return err
 		}
 	}
