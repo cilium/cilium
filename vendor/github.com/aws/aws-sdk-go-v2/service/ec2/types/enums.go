@@ -4983,6 +4983,26 @@ func (IpamManagementState) Values() []IpamManagementState {
 	}
 }
 
+type IpamNetworkInterfaceAttachmentStatus string
+
+// Enum values for IpamNetworkInterfaceAttachmentStatus
+const (
+	IpamNetworkInterfaceAttachmentStatusAvailable IpamNetworkInterfaceAttachmentStatus = "available"
+	IpamNetworkInterfaceAttachmentStatusInUse     IpamNetworkInterfaceAttachmentStatus = "in-use"
+)
+
+// Values returns all known values for IpamNetworkInterfaceAttachmentStatus. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpamNetworkInterfaceAttachmentStatus) Values() []IpamNetworkInterfaceAttachmentStatus {
+	return []IpamNetworkInterfaceAttachmentStatus{
+		"available",
+		"in-use",
+	}
+}
+
 type IpamOverlapStatus string
 
 // Enum values for IpamOverlapStatus
