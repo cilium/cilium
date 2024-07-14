@@ -66,6 +66,9 @@ const (
 	defaultDropPriority      = 100
 	oldXFRMOutPolicyPriority = 50
 
+	// The request ID which signifies all Cilium managed policies and states.
+	AllReqID = 0
+
 	// DefaultReqID is the default reqid used for all IPSec rules.
 	DefaultReqID = 1
 
@@ -975,14 +978,11 @@ func isXfrmStateCilium(state netlink.XfrmState) bool {
 	return false
 }
 
-// DeleteXFRM remove any remaining XFRM policy or state from tables
-func DeleteXFRM(log *slog.Logger) error {
-	return DeleteXFRMWithReqID(log, 0)
-}
-
-// DeleteXFRMWithReqID remove any XFRM policy or state from tables which matches the reqID
-// If reqID is 0, it will remove all XFRM policy or state
-func DeleteXFRMWithReqID(log *slog.Logger, reqID int) error {
+// DeleteXFRM will remove XFRM policies and states by their XFRM request ID.
+//
+// AllReqID can be used for `reqID` to remove all Cilium managed XFRM policies
+// and states.
+func DeleteXFRM(log *slog.Logger, reqID int) error {
 	log = log.With(logfields.LogSubsys, subsystem)
 
 	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
@@ -1000,7 +1000,7 @@ policy:
 		// check if there exists a template with req ID as the one we are looking for
 		// if so, delete the policy.
 		for _, tmpl := range p.Tmpls {
-			if reqID == 0 || tmpl.Reqid == reqID {
+			if reqID == AllReqID || tmpl.Reqid == reqID {
 				if err := netlink.XfrmPolicyDel(&p); err != nil {
 					ee.Add(err)
 				}
@@ -1019,7 +1019,7 @@ policy:
 	}
 	ee = resiliency.NewErrorSet("failed to delete XFRM states", len(xfrmStateList))
 	for _, s := range xfrmStateList {
-		if isXfrmStateCilium(s) && (reqID == 0 || s.Reqid == reqID) {
+		if isXfrmStateCilium(s) && (reqID == AllReqID || s.Reqid == reqID) {
 			if err := xfrmStateCache.XfrmStateDel(&s); err != nil {
 				ee.Add(err)
 			}
