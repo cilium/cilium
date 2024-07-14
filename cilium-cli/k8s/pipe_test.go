@@ -8,16 +8,8 @@ import (
 	"io"
 	"testing"
 
-	"gopkg.in/check.v1"
+	"github.com/stretchr/testify/assert"
 )
-
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type CopyPipeSuites struct{}
-
-var _ = check.Suite(&CopyPipeSuites{})
 
 type remoteFile struct {
 	bytes []byte
@@ -48,7 +40,7 @@ func (r *remoteFile) ReadWithFailure(offset uint64, writer io.Writer) error {
 
 }
 
-func (b *CopyPipeSuites) TestCopyWithoutRetry(c *check.C) {
+func TestCopyWithoutRetry(t *testing.T) {
 	remoteFile := &remoteFile{
 		bytes: []byte{1, 2, 3},
 	}
@@ -59,11 +51,11 @@ func (b *CopyPipeSuites) TestCopyWithoutRetry(c *check.C) {
 
 	res := &bytes.Buffer{}
 	_, err := io.Copy(res, pipe)
-	c.Assert(err, check.IsNil)
-	c.Assert(res.Bytes(), check.DeepEquals, remoteFile.bytes)
+	assert.NoError(t, err)
+	assert.Equal(t, remoteFile.bytes, res.Bytes())
 }
 
-func (b *CopyPipeSuites) TestCopyWithRetry(c *check.C) {
+func TestCopyWithRetry(t *testing.T) {
 	remoteFile := &remoteFile{
 		bytes:       []byte{1, 2, 3},
 		maxFailures: 2,
@@ -76,11 +68,11 @@ func (b *CopyPipeSuites) TestCopyWithRetry(c *check.C) {
 
 	res := &bytes.Buffer{}
 	_, err := io.Copy(res, pipe)
-	c.Assert(err, check.IsNil)
-	c.Assert(res.Bytes(), check.DeepEquals, remoteFile.bytes)
+	assert.NoError(t, err)
+	assert.Equal(t, remoteFile.bytes, res.Bytes())
 }
 
-func (b *CopyPipeSuites) TestCopyWithExhaustedRetry(c *check.C) {
+func TestCopyWithExhaustedRetry(t *testing.T) {
 	remoteFile := &remoteFile{
 		bytes:       []byte{1, 2, 3},
 		maxFailures: 3,
@@ -93,7 +85,7 @@ func (b *CopyPipeSuites) TestCopyWithExhaustedRetry(c *check.C) {
 
 	res := &bytes.Buffer{}
 	_, err := io.Copy(res, pipe)
-	c.Assert(err, check.NotNil)
-	c.Assert(err, check.ErrorMatches, "dropping out copy after 2 retries: unexpected EOF")
-	c.Assert(res.Bytes(), check.HasLen, 0)
+	assert.Error(t, err)
+	assert.Equal(t, err.Error(), "dropping out copy after 2 retries: unexpected EOF")
+	assert.Empty(t, res.Bytes())
 }
