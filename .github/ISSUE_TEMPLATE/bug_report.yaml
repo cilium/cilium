@@ -26,11 +26,11 @@ body:
         # renovate: datasource=github-tags depName=cilium/cilium
         - 'v1.16.0-rc.1 or higher'
         # renovate: datasource=github-tags depName=cilium/cilium
-        - 'v1.15.6 or higher'
+        - 'vv1.15.7 or higher'
         # renovate: datasource=github-tags depName=cilium/cilium
-        - 'v1.14.12 or higher'
+        - 'vv1.14.13 or higher'
         # renovate: datasource=github-tags depName=cilium/cilium
-        - 'v1.13.17 or higher'
+        - 'vv1.13.18 or higher'
     validations:
       required: true
   - type: textarea
