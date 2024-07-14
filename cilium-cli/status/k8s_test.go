@@ -13,21 +13,13 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/go-openapi/strfmt"
-	"gopkg.in/check.v1"
+	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
 )
-
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type StatusSuite struct{}
-
-var _ = check.Suite(&StatusSuite{})
 
 var (
 	fakeParameters = K8sStatusParameters{
@@ -164,83 +156,83 @@ func (c *k8sStatusMockClient) CiliumDbgEndpoints(_ context.Context, _, _ string)
 	return nil, nil
 }
 
-func (b *StatusSuite) TestMockClient(c *check.C) {
+func TestMockClient(t *testing.T) {
 	client := newK8sStatusMockClient()
-	c.Assert(client, check.Not(check.IsNil))
+	assert.NotNil(t, client)
 }
 
-func (b *StatusSuite) TestStatus(c *check.C) {
+func TestStatus(t *testing.T) {
 	client := newK8sStatusMockClient()
-	c.Assert(client, check.Not(check.IsNil))
+	assert.NotNil(t, client)
 
 	collector, err := NewK8sStatusCollector(client, fakeParameters)
-	c.Assert(err, check.IsNil)
-	c.Assert(collector, check.Not(check.IsNil))
+	assert.NoError(t, err)
+	assert.NotNil(t, collector)
 
 	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 10, 10, 10, 0, 10, 1, 1)
 	status, err := collector.Status(context.Background())
-	c.Assert(err, check.IsNil)
-	c.Assert(status, check.Not(check.IsNil))
-	c.Assert(status.PodState[defaults.AgentDaemonSetName].Desired, check.Equals, 10)
-	c.Assert(status.PodState[defaults.AgentDaemonSetName].Ready, check.Equals, 10)
-	c.Assert(status.PodState[defaults.AgentDaemonSetName].Available, check.Equals, 10)
-	c.Assert(status.PodState[defaults.AgentDaemonSetName].Unavailable, check.Equals, 0)
-	c.Assert(status.PhaseCount[defaults.AgentDaemonSetName][string(corev1.PodRunning)], check.Equals, 10)
-	c.Assert(status.PhaseCount[defaults.AgentDaemonSetName][string(corev1.PodFailed)], check.Equals, 0)
-	c.Assert(len(status.CiliumStatus), check.Equals, 10)
+	assert.NoError(t, err)
+	assert.NotNil(t, status)
+	assert.Equal(t, 10, status.PodState[defaults.AgentDaemonSetName].Desired)
+	assert.Equal(t, 10, status.PodState[defaults.AgentDaemonSetName].Ready)
+	assert.Equal(t, 10, status.PodState[defaults.AgentDaemonSetName].Available)
+	assert.Equal(t, 0, status.PodState[defaults.AgentDaemonSetName].Unavailable)
+	assert.Equal(t, 10, status.PhaseCount[defaults.AgentDaemonSetName][string(corev1.PodRunning)])
+	assert.Equal(t, 0, status.PhaseCount[defaults.AgentDaemonSetName][string(corev1.PodFailed)])
+	assert.Len(t, status.CiliumStatus, 10)
 
 	client.reset()
 	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 10, 5, 5, 5, 10, 2, 2)
 	status, err = collector.Status(context.Background())
-	c.Assert(err, check.IsNil)
-	c.Assert(status, check.Not(check.IsNil))
-	c.Assert(status.PodState[defaults.AgentDaemonSetName].Desired, check.Equals, 10)
-	c.Assert(status.PodState[defaults.AgentDaemonSetName].Ready, check.Equals, 5)
-	c.Assert(status.PodState[defaults.AgentDaemonSetName].Available, check.Equals, 5)
-	c.Assert(status.PodState[defaults.AgentDaemonSetName].Unavailable, check.Equals, 5)
-	c.Assert(status.PhaseCount[defaults.AgentDaemonSetName][string(corev1.PodRunning)], check.Equals, 5)
-	c.Assert(status.PhaseCount[defaults.AgentDaemonSetName][string(corev1.PodFailed)], check.Equals, 5)
-	c.Assert(len(status.CiliumStatus), check.Equals, 5)
+	assert.NoError(t, err)
+	assert.NotNil(t, status)
+	assert.Equal(t, 10, status.PodState[defaults.AgentDaemonSetName].Desired)
+	assert.Equal(t, 5, status.PodState[defaults.AgentDaemonSetName].Ready)
+	assert.Equal(t, 5, status.PodState[defaults.AgentDaemonSetName].Available)
+	assert.Equal(t, 5, status.PodState[defaults.AgentDaemonSetName].Unavailable)
+	assert.Equal(t, 5, status.PhaseCount[defaults.AgentDaemonSetName][string(corev1.PodRunning)])
+	assert.Equal(t, 5, status.PhaseCount[defaults.AgentDaemonSetName][string(corev1.PodFailed)])
+	assert.Len(t, status.CiliumStatus, 5)
 
 	client.reset()
 	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 10, 5, 5, 5, 10, 3, 3)
 	delete(client.status, "cilium-2")
 	status, err = collector.Status(context.Background())
-	c.Assert(err, check.IsNil)
-	c.Assert(status, check.Not(check.IsNil))
-	c.Assert(status.PodState[defaults.AgentDaemonSetName].Desired, check.Equals, 10)
-	c.Assert(status.PodState[defaults.AgentDaemonSetName].Ready, check.Equals, 5)
-	c.Assert(status.PodState[defaults.AgentDaemonSetName].Available, check.Equals, 5)
-	c.Assert(status.PodState[defaults.AgentDaemonSetName].Unavailable, check.Equals, 5)
-	c.Assert(status.PhaseCount[defaults.AgentDaemonSetName][string(corev1.PodRunning)], check.Equals, 5)
-	c.Assert(status.PhaseCount[defaults.AgentDaemonSetName][string(corev1.PodFailed)], check.Equals, 5)
-	c.Assert(len(status.CiliumStatus), check.Equals, 5)
-	c.Assert(status.CiliumStatus["cilium-2"], check.IsNil)
+	assert.NoError(t, err)
+	assert.NotNil(t, status)
+	assert.Equal(t, 10, status.PodState[defaults.AgentDaemonSetName].Desired)
+	assert.Equal(t, 5, status.PodState[defaults.AgentDaemonSetName].Ready)
+	assert.Equal(t, 5, status.PodState[defaults.AgentDaemonSetName].Available)
+	assert.Equal(t, 5, status.PodState[defaults.AgentDaemonSetName].Unavailable)
+	assert.Equal(t, 5, status.PhaseCount[defaults.AgentDaemonSetName][string(corev1.PodRunning)])
+	assert.Equal(t, 5, status.PhaseCount[defaults.AgentDaemonSetName][string(corev1.PodFailed)])
+	assert.Len(t, status.CiliumStatus, 5)
+	assert.Nil(t, status.CiliumStatus["cilium-2"])
 
 	client.reset()
 	// observed generation behind
 	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 5, 5, 5, 5, 5, 3, 2)
 	status, err = collector.Status(context.Background())
-	c.Assert(err, check.IsNil)
-	c.Assert(status, check.Not(check.IsNil))
-	c.Assert(status.Errors["cilium"]["cilium"].Errors, check.HasLen, 1)
-	c.Assert(status.Errors["cilium"]["cilium"].Errors[0], check.ErrorMatches, ".*rollout has not started.*")
+	assert.NoError(t, err)
+	assert.NotNil(t, status)
+	assert.Len(t, status.Errors["cilium"]["cilium"].Errors, 1)
+	assert.Regexp(t, ".*rollout has not started.*", status.Errors["cilium"]["cilium"].Errors[0].Error())
 
 	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 5, 5, 5, 5, 1, 3, 3)
 	status, err = collector.Status(context.Background())
-	c.Assert(err, check.IsNil)
-	c.Assert(status, check.Not(check.IsNil))
-	c.Assert(status.Errors["cilium"]["cilium"].Errors, check.HasLen, 1)
-	c.Assert(status.Errors["cilium"]["cilium"].Errors[0], check.ErrorMatches, ".*is rolling out.*")
+	assert.NoError(t, err)
+	assert.NotNil(t, status)
+	assert.Len(t, status.Errors["cilium"]["cilium"].Errors, 1)
+	assert.Regexp(t, ".*is rolling out.*", status.Errors["cilium"]["cilium"].Errors[0].Error())
 }
 
-func (b *StatusSuite) TestFormat(c *check.C) {
+func TestFormat(t *testing.T) {
 	client := newK8sStatusMockClient()
-	c.Assert(client, check.Not(check.IsNil))
+	assert.NotNil(t, client)
 
 	collector, err := NewK8sStatusCollector(client, fakeParameters)
-	c.Assert(err, check.IsNil)
-	c.Assert(collector, check.Not(check.IsNil))
+	assert.NoError(t, err)
+	assert.NotNil(t, collector)
 
 	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 10, 5, 5, 5, 10, 4, 4)
 	delete(client.status, "cilium-2")
@@ -248,11 +240,11 @@ func (b *StatusSuite) TestFormat(c *check.C) {
 	client.addPod("kube-system", "cilium-operator-1", "k8s-app=cilium-operator", []corev1.Container{{Image: "cilium-operator:1.9"}}, corev1.PodStatus{Phase: corev1.PodRunning})
 
 	status, err := collector.Status(context.Background())
-	c.Assert(err, check.IsNil)
+	assert.NoError(t, err)
 	buf := status.Format()
-	c.Assert(buf[len(buf)-1], check.Equals, byte('\n'))
+	assert.Equal(t, byte('\n'), buf[len(buf)-1])
 
 	var nilStatus *Status
 	buf = nilStatus.Format()
-	c.Assert(buf, check.Equals, "")
+	assert.Empty(t, buf)
 }
