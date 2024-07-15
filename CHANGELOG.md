@@ -1,5 +1,99 @@
 # Changelog
 
+## v1.16.0-rc.2
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add kubernetes validations to ensure CiliumLocalRedirectPolicy fields are immutable as policy updates are not supported.(Backport PR #33804, Upstream PR #33640, @chaunceyjiang)
+* EGW NAT Stats Troubleshooting & EGW Docs Structure Improvements(Backport PR #33804, Upstream PR #33416, @tommyp1ckles)
+* envoy: Update envoy 1.29.x to v1.29.7(Backport PR #33630, Upstream PR #33486, @sayboras)
+* helm: Add possibility to control creation of GatewayClass(Backport PR #33630, Upstream PR #33446, @balous)
+* ipsec: Deprecate global IPsec keys(Backport PR #33630, Upstream PR #33504, @pchaigno)
+
+**Bugfixes:**
+* auth: fix fatal error: concurrent map iteration and map write(Backport PR #33804, Upstream PR #33634, @chaunceyjiang)
+* cert: Adding H2 Protocol Support when Get gRPC Config For Client(Backport PR #33804, Upstream PR #33616, @mrproliu)
+* Correctly remove data cached by KVStoreMesh for a given cluster when disconnecting from such cluster(Backport PR #33630, Upstream PR #33153, @giorio94)
+* DNS Proxy: Allow SO_LINGER to be set to the socket to upstream(Backport PR #33804, Upstream PR #33592, @gandro)
+* envoy: Avoid short circuit backend filtering(Backport PR #33630, Upstream PR #33403, @sayboras)
+* Fix CNP/CCNP update when selectors change from nil to empty non-nil slices(Backport PR #33804, Upstream PR #33506, @pippolo84)
+* Fix configuration generated from Helm values for `hubble-drop-events-reasons` to use a whitespace item separator(Backport PR #33804, Upstream PR #33699, @EricMountain)
+* Fix rare race condition afflicting clustermesh while stopping the retrieval of the remote cluster configuration, possibly causing a deadlock(Backport PR #33804, Upstream PR #33735, @giorio94)
+* Fix too many open Unix sockets(Backport PR #33630, Upstream PR #33569, @chaunceyjiang)
+* Fixes a missing rev-DNAT issue when wireguard, nodeport, KPR, and L7 proxy are enabled together.(Backport PR #33804, Upstream PR #33426, @jschwinger233)
+* Fixes a race condition during agent startup that causes the k8s node label updates to not get propagated to the host endpoint.(Backport PR #33630, Upstream PR #33511, @skmatti)
+* ipsec: do not nil out EncryptInterface when using IPAM ENI on netlink…(Backport PR #33630, Upstream PR #33512, @jasonaliyetti)
+* IPv6 and IPv4 '0.0.0.0/0' CIDR parsing in policy processing has been fixed(Backport PR #33630, Upstream PR #33448, @jrajahalme)
+* Report the correct drop reason when a packet is dropped by the bpf_lxc program.(Backport PR #33630, Upstream PR #33551, @julianwiedmann)
+* Skip regenerating host endpoint on k8s node labels update if identity labels are unchanged(Backport PR #33804, Upstream PR #33306, @skmatti)
+* socketlb: tolerate cgroupv1 when detaching bpf programs(Backport PR #33630, Upstream PR #33599, @rgo3)
+* The cilium agent now cleans up stale nodeID mappings and other node-related state on startup(Backport PR #33630, Upstream PR #33278, @bimmlerd)
+* Update IPsec to handle larger PSK values when using per-tunnel PSK(Backport PR #33630, Upstream PR #33472, @jasonaliyetti)
+* When the Bandwidth Manager feature is enabled, don't apply Egress rate-limiting to "Port unreachable" ICMP replies by Cilium's North-South Loadbalancer.(Backport PR #33630, Upstream PR #33624, @julianwiedmann)
+
+**CI Changes:**
+* [v1.16] ci: Add call backport label udpater workflow(cilium/cilium#33759, @pippolo84)
+* Bump CLI to v0.16.11(Backport PR #33630, Upstream PR #33444, @brb)
+* ci: Set cluster id in external workloads(Backport PR #33804, Upstream PR #33694, @marseel)
+* gh: ipsec: clarify check for leaked proxy traffic during key rotation(Backport PR #33630, Upstream PR #33509, @julianwiedmann)
+* gha: Add http client timeout in Ingress(Backport PR #33804, Upstream PR #33683, @sayboras)
+* release image: Allow arbitrary pre-release identifiers(cilium/cilium#33718, @michi-covalent)
+* workflow: Use per-tunnel keys for the IPsec upgrade test(Backport PR #33804, Upstream PR #33769, @pchaigno)
+
+**Misc Changes:**
+* [v1.16] ginkgo: use net-next configuration with 6.6 kernel(cilium/cilium#33733, @aanm)
+* Add kernel version limitation to multicast Doc(Backport PR #33630, Upstream PR #33567, @yushoyamaguchi)
+* bgpv2: Fix description of Selector behavior in CiliumBGPAdvertisement CRD(Backport PR #33630, Upstream PR #33537, @rastislavs)
+* bgpv2: Skip reconcile while BGPNodeConfig is not initialized(Backport PR #33630, Upstream PR #33526, @rastislavs)
+* bpf: lxc: use THIS_INTERFACE_IFINDEX instead of CB_IFINDEX(Backport PR #33630, Upstream PR #33524, @julianwiedmann)
+* chore(deps): update all github action dependencies (v1.16)(cilium/cilium#33478, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16)(cilium/cilium#33622, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16)(cilium/cilium#33788, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16)(cilium/cilium#33602, @cilium-renovate[bot])
+* chore(deps): update cilium/little-vm-helper action to v0.0.19 (v1.16)(cilium/cilium#33790, @cilium-renovate[bot])
+* chore(deps): update go to v1.22.5 (v1.16)(cilium/cilium#33566, @cilium-renovate[bot])
+* chore(deps): update kindest/node docker tag to v1.30.2 (v1.16)(cilium/cilium#33521, @cilium-renovate[bot])
+* chore(deps): update quay.io/lvh-images/kind docker tag to bpf-20240628.013131 (v1.16)(cilium/cilium#33480, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch)(cilium/cilium#33620, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch)(cilium/cilium#33791, @cilium-renovate[bot])
+* Cleanup: no need to deactivate l7proxy when activating EgressGetway(Backport PR #33630, Upstream PR #33516, @cdtzabra)
+* daemon: add agent-runtime-config backup files to gitignore(Backport PR #33630, Upstream PR #33485, @mhofstetter)
+* daemon: Allow DNS transparent mode to be turned off with encryption(Backport PR #33630, Upstream PR #33420, @gandro)
+* docs,LRP: Add steps to restart agent and operator pods and update feature roadmap status(Backport PR #33804, Upstream PR #33655, @aditighag)
+* docs: Add node about socketLB.hostNamespaceOnly to Kata page(Backport PR #33804, Upstream PR #33725, @brb)
+* docs: Add Port Range Information(Backport PR #33630, Upstream PR #33389, @nathanjsweet)
+* docs: add upgrade note for dangling cidrGroupRefs(Backport PR #33630, Upstream PR #33445, @bimmlerd)
+* docs: cleanup upgrade docs on 1.16(cilium/cilium#33703, @marseel)
+* docs: Document plus sign in IPsec secret(Backport PR #33630, Upstream PR #33564, @pchaigno)
+* docs: Improve Ingress documentation(Backport PR #33804, Upstream PR #33698, @youngnick)
+* docs: remove beta from local redirect policy page(Backport PR #33630, Upstream PR #33498, @ysksuzuki)
+* docs: Remove CNCF graduation from the roadmap(Backport PR #33804, Upstream PR #33680, @joestringer)
+* docs: remove mention of outdated clustermesh + L7 policies + tunnel limitation(Backport PR #33804, Upstream PR #33626, @giorio94)
+* docs: Update LVH VM image pull instructions(Backport PR #33804, Upstream PR #33621, @brb)
+* Documentation: accept ORG and REPO(Backport PR #33630, Upstream PR #33514, @aanm)
+* Documentation: Add --set cni.exclusive=false for Azure Chain Mode(Backport PR #33804, Upstream PR #33708, @Mais316)
+* Fix container/bitlpm traversal(Backport PR #33630, Upstream PR #33447, @jrajahalme)
+* Fix issue where `ec2-api-endpoint` config would use the incorrect API endpoint.(Backport PR #33804, Upstream PR #33598, @archerwu9425)
+* fix link in node-ipam.rst(Backport PR #33630, Upstream PR #33505, @saintdle)
+* Fix loading of program `cil_sock{4,6}_connect` due to verifier complexity issue on certain kernels.(Backport PR #33804, Upstream PR #33709, @aditighag)
+* Fix renovate's concurrency group(Backport PR #33560, Upstream PR #33528, @aanm)
+* Low hanging fruit performance improvements of KVStoreMesh(Backport PR #33804, Upstream PR #33637, @giorio94)
+* LRP: Misc fix-ups(Backport PR #33630, Upstream PR #33442, @aditighag)
+* option: Make TestDaemonConfig_StoreInFile less brittle(Backport PR #33804, Upstream PR #33608, @jrajahalme)
+* policy/k8s: Fix deadlock in ToServices implementation(Backport PR #33825, Upstream PR #33739, @gandro)
+* policy: Fix `mapstate.Diff()` used in tests(Backport PR #33630, Upstream PR #33449, @jrajahalme)
+* Renovate changes(Backport PR #33560, Upstream PR #33519, @aanm)
+* renovate: add auto-approve bot for renovate PRs(Backport PR #33641, Upstream PR #33604, @aanm)
+* renovate: onboard etcd image used in integration tests(Backport PR #33804, Upstream PR #33679, @giorio94)
+* upgrade-notes: add information about kvstoremesh and external workloads(cilium/cilium#33695, @marseel)
+* wireguard: minor improvements for to-wireguard program(Backport PR #33804, Upstream PR #33764, @julianwiedmann)
+
+**Other Changes:**
+* [v1.16] datapath: Fix update to NodeAddress table and prioritize Node IP(cilium/cilium#33817, @joamaki)
+* install: Update image digests for v1.16.0-rc.1(cilium/cilium#33464, @joestringer)
+
 ## v1.16.0-rc.1
 
 Summary of Changes

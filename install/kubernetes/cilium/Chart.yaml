@@ -2,8 +2,8 @@ apiVersion: v2
 name: cilium
 displayName: Cilium
 home: https://cilium.io/
-version: 1.16.0-rc.1
-appVersion: 1.16.0-rc.1
+version: 1.16.0-rc.2
+appVersion: 1.16.0-rc.2
 kubeVersion: ">= 1.21.0-0"
 icon: https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/logo-solo.svg
 description: eBPF-based Networking, Security, and Observability
