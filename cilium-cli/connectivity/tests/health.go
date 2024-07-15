@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/inctimer"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/jsonpath"
@@ -44,7 +45,7 @@ func runHealthProbe(ctx context.Context, t *check.Test, pod *check.Pod) {
 
 	// Probe health status until it passes checks or timeout is reached.
 	for {
-		retryTimer := time.After(time.Second)
+		retryTimer := inctimer.After(time.Second)
 
 		if _, err := pod.K8sClient.GetPod(ctx, pod.Pod.Namespace, pod.Pod.Name, metav1.GetOptions{}); k8serrors.IsNotFound(err) {
 			t.Failf("cilium-health validation failed. Cilium Agent Pod %s/%s no longer exists", pod.Pod.Namespace, pod.Pod.Name)

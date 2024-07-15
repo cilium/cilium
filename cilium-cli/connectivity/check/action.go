@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/api/v1/relay"
 	hubprinter "github.com/cilium/cilium/hubble/pkg/printer"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -801,7 +802,7 @@ func (a *Action) waitForRelay(ctx context.Context, client observer.ObserverClien
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("hubble server status failure: %w", ctx.Err())
-		case <-time.After(time.Second):
+		case <-inctimer.After(time.Second):
 			a.Debug("retrying hubble relay server status request")
 		}
 	}
