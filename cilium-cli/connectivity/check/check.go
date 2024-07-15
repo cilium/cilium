@@ -50,6 +50,12 @@ type Parameters struct {
 	PerfHostNet            bool
 	PerfPodNet             bool
 	PerfSamples            int
+	PerfMessageSize        int
+	PerfMixed              bool
+	PerfThroughput         bool
+	PerfCRR                bool
+	PerfRR                 bool
+	PerfUDP                bool
 	CurlImage              string
 	PerformanceImage       string
 	JSONMockImage          string

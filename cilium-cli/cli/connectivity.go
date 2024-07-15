@@ -207,8 +207,14 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 	}
 
 	cmd.Flags().DurationVar(&params.PerfDuration, "duration", 10*time.Second, "Duration for the Performance test to run")
+	cmd.Flags().IntVar(&params.PerfMessageSize, "msg-size", 1024, "Size of message to use in UDP test")
+	cmd.Flags().BoolVar(&params.PerfCRR, "crr", false, "Run CRR test")
+	cmd.Flags().BoolVar(&params.PerfRR, "rr", true, "Run RR test")
+	cmd.Flags().BoolVar(&params.PerfUDP, "udp", false, "Run UDP tests")
+	cmd.Flags().BoolVar(&params.PerfThroughput, "throughput", true, "Run throughput test")
+	cmd.Flags().BoolVar(&params.PerfMixed, "mixed", false, "Run pod-to-host and host-to-pod tests (only works if both host-net=true and pod-net=true)")
 	cmd.Flags().IntVar(&params.PerfSamples, "samples", 1, "Number of Performance samples to capture (how many times to run each test)")
-	cmd.Flags().BoolVar(&params.PerfHostNet, "host-net", false, "Test host network")
+	cmd.Flags().BoolVar(&params.PerfHostNet, "host-net", true, "Test host network")
 	cmd.Flags().BoolVar(&params.PerfPodNet, "pod-net", true, "Test pod network")
 
 	cmd.Flags().StringVar(&params.PerformanceImage, "performance-image", defaults.ConnectivityPerformanceImage, "Image path to use for performance")
