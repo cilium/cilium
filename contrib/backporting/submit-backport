@@ -65,6 +65,6 @@ echo -n "Set labels for all PRs above? [Y/n] "
 read set_all_labels
 if [ "$set_all_labels" != "n" ]; then
     for pr in $prs; do
-        $DIR/set-labels.py $pr $BRANCH;
+        $DIR/set-labels.py $pr pending $BRANCH;
     done
 fi
