@@ -8,8 +8,8 @@ package install
 import (
 	"fmt"
 
-	"github.com/cilium/cilium-cli/internal/helm"
-	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/cilium-cli/internal/helm"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 
 	"github.com/cilium/cilium/pkg/versioncheck"
 )

@@ -21,9 +21,9 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/k8s"
-	"github.com/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
 const (
@@ -1569,7 +1569,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	}
 
 	// TODO: unconditionally re-enable the IPCache check once
-	// https://github.com/cilium/cilium-cli/issues/361 is resolved.
+	// https://github.com/cilium/cilium/cilium-cli/issues/361 is resolved.
 	if ct.params.SkipIPCacheCheck {
 		ct.Infof("Skipping IPCache check")
 	} else {

@@ -13,10 +13,10 @@ import (
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
-	"github.com/cilium/cilium-cli/connectivity/check"
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/utils/features"
-	"github.com/cilium/cilium-cli/utils/wait"
+	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/cilium-cli/utils/wait"
 )
 
 // LRP runs test scenarios for local redirect policy. It tests local redirection

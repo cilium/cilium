@@ -6,10 +6,10 @@ package encrypt
 import (
 	"testing"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
 func Test_nodeStatusFromOutput(t *testing.T) {

@@ -13,16 +13,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium-cli/api"
-	"github.com/cilium/cilium-cli/connectivity"
-	"github.com/cilium/cilium-cli/connectivity/check"
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/sysdump"
-	"github.com/cilium/cilium-cli/utils/junit"
+	"github.com/cilium/cilium/cilium-cli/api"
+	"github.com/cilium/cilium/cilium-cli/connectivity"
+	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/sysdump"
+	"github.com/cilium/cilium/cilium-cli/utils/junit"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 func newCmdConnectivity(hooks api.Hooks) *cobra.Command {

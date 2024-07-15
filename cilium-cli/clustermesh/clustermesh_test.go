@@ -7,12 +7,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 )
 
 func TestRemoveFromClustermeshConfig(t *testing.T) {

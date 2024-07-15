@@ -9,10 +9,10 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/safeio"
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/pkg/safeio"
 )
 
 func getLatestStableVersion() string {

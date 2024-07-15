@@ -8,7 +8,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/cilium/cilium-cli/internal/utils"
+	"github.com/cilium/cilium/cilium-cli/internal/utils"
 
 	"github.com/pkg/browser"
 )

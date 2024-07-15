@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/gops/signal"
 
-	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/defaults"
 )
 
 const (
