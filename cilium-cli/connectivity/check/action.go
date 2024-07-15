@@ -18,13 +18,13 @@ import (
 	"sync"
 	"time"
 
-	hubprinter "github.com/cilium/cilium/hubble/pkg/printer"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/api/v1/relay"
+	hubprinter "github.com/cilium/cilium/hubble/pkg/printer"
+	"github.com/cilium/cilium/pkg/lock"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/cilium/cilium-cli/connectivity/filters"
 	"github.com/cilium/cilium-cli/defaults"
@@ -68,7 +68,7 @@ type Action struct {
 	expIngress Result
 
 	// flowsMu protects flows.
-	flowsMu sync.Mutex
+	flowsMu lock.Mutex
 	// flows is a map of all flow logs generated during the Action.
 	flows flowsSet
 
