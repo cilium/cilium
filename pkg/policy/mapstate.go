@@ -912,6 +912,20 @@ func (msA *mapState) Equals(msB MapState) bool {
 	})
 }
 
+// DeepEqual determines if this MapState is equal to the
+// argument MapState
+// Only used for testing, but also from the endpoint package!
+// internal indices are ignored, only the mapstate entries are checked for!
+func (msA *mapState) DeepEquals(msB *mapState) bool {
+	if msA.Len() != msB.Len() {
+		return false
+	}
+	return msA.forEach(func(kA Key, vA mapStateEntry) bool {
+		vB, ok := msB.get(kA)
+		return ok && (&vB).DeepEqual(&vA)
+	})
+}
+
 // Diff returns the string of differences between 'obtained' and 'expected' prefixed with
 // '+ ' or '- ' for obtaining something unexpected, or not obtaining the expected, respectively.
 // For use in debugging.
@@ -930,6 +944,31 @@ func (obtained *mapState) Diff(expected MapState) (res string) {
 	})
 	obtained.ForEach(func(kE Key, vE MapStateEntry) bool {
 		if _, ok := expected.Get(kE); !ok {
+			res += "+ " + kE.String() + ": " + vE.String() + "\n"
+		}
+		return true
+	})
+	return res
+}
+
+// diff returns the string of differences between 'obtained' and 'expected' prefixed with
+// '+ ' or '- ' for obtaining something unexpected, or not obtaining the expected, respectively.
+// For use in debugging.
+func (obtained *mapState) diff(expected *mapState) (res string) {
+	res += "Missing (-), Unexpected (+):\n"
+	expected.forEach(func(kE Key, vE mapStateEntry) bool {
+		if vO, ok := obtained.get(kE); ok {
+			if !(&vO).DeepEqual(&vE) {
+				res += "- " + kE.String() + ": " + vE.String() + "\n"
+				res += "+ " + kE.String() + ": " + vO.String() + "\n"
+			}
+		} else {
+			res += "- " + kE.String() + ": " + vE.String() + "\n"
+		}
+		return true
+	})
+	obtained.forEach(func(kE Key, vE mapStateEntry) bool {
+		if _, ok := expected.get(kE); !ok {
 			res += "+ " + kE.String() + ": " + vE.String() + "\n"
 		}
 		return true
@@ -1059,6 +1098,10 @@ func (e *mapStateEntry) DeepEqual(o *mapStateEntry) bool {
 		return false
 	}
 
+	if e.order != o.order {
+		return false
+	}
+
 	if e.Listener != o.Listener || e.priority != o.priority {
 		return false
 	}
@@ -1089,6 +1132,8 @@ func (e *mapStateEntry) DeepEqual(o *mapStateEntry) bool {
 func (e MapStateEntry) String() string {
 	return "ProxyPort=" + strconv.FormatUint(uint64(e.ProxyPort), 10) +
 		",Listener=" + e.Listener +
+		",priority=" + strconv.FormatUint(uint64(e.priority), 10) +
+		",order=" + strconv.FormatUint(uint64(e.order), 10) +
 		",IsDeny=" + strconv.FormatBool(e.IsDeny) +
 		",AuthType=" + e.AuthType.String()
 }
@@ -1096,7 +1141,9 @@ func (e MapStateEntry) String() string {
 // String returns a string representation of the MapStateEntry
 func (e mapStateEntry) String() string {
 	return e.MapStateEntry.String() +
-		",DerivedFromRules=" + fmt.Sprintf("%v", e.derivedFromRules)
+		",DerivedFromRules=" + fmt.Sprintf("%v", e.derivedFromRules) +
+		",owners=" + fmt.Sprintf("%v", e.owners) +
+		",dependents=" + fmt.Sprintf("%v", e.dependents)
 }
 
 // addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes', and any changed or removed old values in 'old', if not nil.
@@ -1537,7 +1584,8 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, iden
 			// New entry has a default auth type.
 			// Fill in the AuthType from more generic entries with an explicit auth type
 			maxSpecificity := 0
-			var l3l4State map[Key]mapStateEntry
+			var l3l4State []keyValue
+			var dependents []keyValue
 
 			ms.allows.ForEachKeyWithBroaderOrEqualPortProto(newKey, func(k Key, v mapStateEntry) bool {
 				// Nothing to be done if entry has default AuthType
@@ -1572,10 +1620,8 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, iden
 						l3l4AuthEntry := newMapStateEntry(k, newEntry.order, v.derivedFromRules, newEntry.ProxyPort, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType)
 						l3l4AuthEntry.derivedFromRules.MergeSorted(newEntry.derivedFromRules)
 
-						if l3l4State == nil {
-							l3l4State = make(map[Key]mapStateEntry)
-						}
-						l3l4State[newKeyCpy] = l3l4AuthEntry
+						l3l4State = append(l3l4State, keyValue{newKeyCpy, l3l4AuthEntry})
+						dependents = append(dependents, keyValue{k, v})
 					}
 				}
 				return true
@@ -1585,12 +1631,13 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, iden
 			// entries are not needed as the L4-only entry with an overridden AuthType
 			// will be matched before the L3-only entries in the datapath.
 			if maxSpecificity == 0 {
-				for k, v := range l3l4State {
-					ms.addKeyWithChanges(k, v, identities, changes)
+				for i, kv := range l3l4State {
+					ms.addKeyWithChanges(kv.key, kv.value, identities, changes)
 					// L3-only entries can be deleted incrementally so we need to track their
 					// effects on other entries so that those effects can be reverted when the
 					// identity is removed.
-					newEntry.AddDependent(k)
+					dep := dependents[i]
+					ms.addDependentOnEntry(dep.key, dep.value, kv.key, identities, changes)
 				}
 			}
 		} else {
