@@ -102,6 +102,22 @@ const (
 	// 0x1000, and the K8s marks are 0x4000 and 0x8000. So both are not
 	// interfering with that bit.
 	MagicMarkWireGuardEncrypted int = 0x1E00
+
+	// MagicMarkDecrypt is the packet mark used to indicate the datapath needs
+	// to decrypt a packet.
+	MagicMarkDecrypt = 0x0D00
+
+	// MagicMarkDecryptedOverlay indicates to the datapath that the packet
+	// was IPsec decrypted and now contains a vxlan header.
+	//
+	// When this mark is present on a packet it indicates that overlay traffic
+	// was decrypted by XFRM and should be forwarded to a tunnel device for
+	// decapsulation.
+	MagicMarkDecryptedOverlay = 0x1D00
+
+	// MagicMarkEncrypt is the packet mark to use to indicate datapath
+	// needs to encrypt a packet.
+	MagicMarkEncrypt = 0x0E00
 )
 
 // getMagicMark returns the magic marker with which each packet must be marked.
