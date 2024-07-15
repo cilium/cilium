@@ -232,7 +232,6 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 #endif /* ENABLE_IPV6 */
 	}
 #endif /* ENABLE_TPROXY */
-	ctx_change_type(ctx, PACKET_HOST); /* Required for ingress packets from overlay */
 	return result;
 }
 
