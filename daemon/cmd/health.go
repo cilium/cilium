@@ -101,6 +101,12 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 							return fmt.Errorf("failed to restart endpoint (check failed: %w): %w", err, launchErr)
 						}
 						return launchErr
+					} else {
+						// Now that we relaunched, retry so that the cleanup and time
+						// to bring up the health endpoint does not skew the probing
+						if pingErr := client.PingEndpoint(); pingErr == nil {
+							lastSuccessfulPing = time.Now()
+						}
 					}
 				}
 				return err
