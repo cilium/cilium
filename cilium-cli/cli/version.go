@@ -5,11 +5,11 @@ package cli
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"runtime"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/safeio"
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -22,7 +22,7 @@ func getLatestStableVersion() string {
 	}
 	defer resp.Body.Close()
 
-	b, err := io.ReadAll(resp.Body)
+	b, err := safeio.ReadAllLimit(resp.Body, safeio.KB)
 	if err != nil {
 		return "unknown"
 	}
