@@ -16,7 +16,6 @@ import (
 )
 
 const (
-	messageSize     = 1024
 	netperfToolName = "netperf"
 )
 
@@ -41,19 +40,40 @@ func (s *netPerf) Name() string {
 func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 	samples := t.Context().Params().PerfSamples
 	duration := t.Context().Params().PerfDuration
+	msgSize := t.Context().Params().PerfMessageSize
+	mixed := t.Context().Params().PerfMixed
+	throughput := t.Context().Params().PerfThroughput
+	crr := t.Context().Params().PerfCRR
+	rr := t.Context().Params().PerfRR
+	udp := t.Context().Params().PerfUDP
 
-	tests := []string{
-		"TCP_RR",
-		"TCP_STREAM",
-		"UDP_RR",
-		"UDP_STREAM",
-		"TCP_CRR",
+	tests := []string{}
+
+	if throughput {
+		tests = append(tests, "TCP_STREAM")
+		if udp {
+			tests = append(tests, "UDP_STREAM")
+		}
+	}
+
+	if crr {
+		tests = append(tests, "TCP_CRR")
+	}
+
+	if rr {
+		tests = append(tests, "TCP_RR")
+		if udp {
+			tests = append(tests, "UDP_RR")
+		}
 	}
 
 	for sample := 1; sample <= samples; sample++ {
 		for _, c := range t.Context().PerfClientPods() {
 			c := c
 			for _, server := range t.Context().PerfServerPod() {
+				if !mixed && (strings.Contains(server.Pod.Name, check.PerfHostName) != strings.Contains(c.Pod.Name, check.PerfHostName)) {
+					continue
+				}
 				scenarioName := ""
 				if strings.Contains(c.Pod.Name, check.PerfHostName) {
 					scenarioName += "host"
@@ -66,6 +86,7 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 				} else {
 					scenarioName += "pod"
 				}
+
 				sameNode := true
 				if strings.Contains(c.Pod.Name, check.PerfOtherNode) {
 					sameNode = false
@@ -82,6 +103,7 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 							Sample:   sample,
 							Duration: duration,
 							Scenario: scenarioName,
+							MsgSize:  msgSize,
 						}
 						perfResult := netperf(ctx, server.Pod.Status.PodIP, k, a)
 						t.Context().PerfResults = append(t.Context().PerfResults, common.PerfSummary{PerfTest: k, Result: perfResult})
@@ -92,8 +114,8 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 	}
 }
 
-func buildExecCommand(test string, sip string, duration time.Duration, args []string) []string {
-	exec := []string{"/usr/local/bin/netperf", "-H", sip, "-l", duration.String(), "-t", test, "--", "-R", "1", "-m", fmt.Sprintf("%d", messageSize)}
+func buildExecCommand(test string, sip string, duration time.Duration, msgSize int, args []string) []string {
+	exec := []string{"/usr/local/bin/netperf", "-H", sip, "-l", duration.String(), "-t", test, "--", "-R", "1", "-m", fmt.Sprintf("%d", msgSize)}
 	exec = append(exec, args...)
 
 	return exec
@@ -117,7 +139,7 @@ func parseFloat(a *check.Action, value string) float64 {
 
 func netperf(ctx context.Context, sip string, perfTest common.PerfTests, a *check.Action) common.PerfResult {
 	args := []string{"-o", "MIN_LATENCY,MEAN_LATENCY,MAX_LATENCY,P50_LATENCY,P90_LATENCY,P99_LATENCY,TRANSACTION_RATE,THROUGHPUT,THROUGHPUT_UNITS"}
-	exec := buildExecCommand(perfTest.Test, sip, perfTest.Duration, args)
+	exec := buildExecCommand(perfTest.Test, sip, perfTest.Duration, perfTest.MsgSize, args)
 
 	a.ExecInPod(ctx, exec)
 	output := a.CmdOutput()
