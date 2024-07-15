@@ -137,9 +137,9 @@ jobs:
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@e386af2b9f500e4c40436ac660cd6602da104fc7 # v0.16.14
         with:
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Install Cilium
         id: install-cilium
