@@ -100,8 +100,8 @@ type ipt struct {
 	waitArgs []string
 }
 
-func (ipt *ipt) initArgs(waitSeconds int) {
-	v, err := ipt.getVersion()
+func (ipt *ipt) initArgs(ctx context.Context, waitSeconds int) {
+	v, err := ipt.getVersion(ctx)
 	if err == nil {
 		switch {
 		case isWaitSecondsMinVersion(v):
@@ -126,8 +126,8 @@ func (ipt *ipt) getIpset() string {
 	return ipt.ipset
 }
 
-func (ipt *ipt) getVersion() (semver.Version, error) {
-	b, err := exec.WithTimeout(defaults.ExecTimeout, ipt.prog, "--version").CombinedOutput(log, false)
+func (ipt *ipt) getVersion(ctx context.Context) (semver.Version, error) {
+	b, err := exec.CommandContext(ctx, ipt.prog, "--version").CombinedOutput(log, false)
 	if err != nil {
 		return semver.Version{}, err
 	}
@@ -321,6 +321,17 @@ func newIptablesManager(p params) *Manager {
 		cniConfigManager: p.CNIConfigManager,
 	}
 
+	// init iptables/ip6tables wait arguments before using them in the reconciler or in the manager (e.g: GetProxyPorts)
+	p.Lifecycle.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
+			ip4tables.initArgs(ctx, int(p.Cfg.IPTablesLockTimeout/time.Second))
+			if p.SharedCfg.EnableIPv6 {
+				ip6tables.initArgs(ctx, int(p.Cfg.IPTablesLockTimeout/time.Second))
+			}
+			return nil
+		},
+	})
+
 	p.Lifecycle.Append(iptMgr)
 
 	p.JobGroup.Add(
@@ -416,9 +427,6 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 		m.haveSocketMatch = true
 	}
 	m.haveBPFSocketAssign = m.sharedCfg.EnableBPFTProxy
-
-	ip4tables.initArgs(int(m.cfg.IPTablesLockTimeout / time.Second))
-	ip6tables.initArgs(int(m.cfg.IPTablesLockTimeout / time.Second))
 
 	return nil
 }
