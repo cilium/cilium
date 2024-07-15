@@ -192,6 +192,20 @@ func (ms *mapState) validatePortProto(t *testing.T) {
 	})
 }
 
+func (e MapStateEntry) noOwner() mapStateEntry {
+	return e.toMapStateEntry(nil, nil)
+}
+
+func (e MapStateEntry) withOwner(owner MapStateOwner) mapStateEntry {
+	return e.toMapStateEntry(owner, nil)
+}
+
+func (e mapStateEntry) withOwner(owner MapStateOwner) mapStateEntry {
+	e.owners.Remove(nil)
+	e.owners.Insert(owner)
+	return e
+}
+
 func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
@@ -218,7 +232,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				IngressL3OnlyKey(0): MapStateEntry{
 					ProxyPort: 0,
 					IsDeny:    false,
-				}.toMapStateEntry(nil, nil),
+				}.noOwner(),
 			}),
 			args: args{
 				key:   IngressL3OnlyKey(0),
@@ -3080,37 +3094,37 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		anyIngressKey := IngressL3OnlyKey(0)
 		allowEntry := MapStateEntry{}
 		aKey := IngressKey(tt.aIdentity, tt.aProto, tt.aPort, 0)
-		aEntry := MapStateEntry{IsDeny: tt.aIsDeny}
+		aEntry := MapStateEntry{IsDeny: tt.aIsDeny}.noOwner()
 		bKey := IngressKey(tt.bIdentity, tt.bProto, tt.bPort, 0)
-		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}
+		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}.noOwner()
 		expectedKeys := newMapState()
 		if tt.outcome&insertAllowAll > 0 {
-			expectedKeys.allows.upsert(anyIngressKey, allowEntry.toMapStateEntry(nil, nil), selectorCache)
+			expectedKeys.allows.upsert(anyIngressKey, allowEntry.noOwner(), selectorCache)
 		}
 		if tt.outcome&insertA > 0 {
 			if tt.aIsDeny {
-				expectedKeys.denies.upsert(aKey, aEntry.toMapStateEntry(nil, nil), selectorCache)
+				expectedKeys.denies.upsert(aKey, aEntry, selectorCache)
 			} else {
-				expectedKeys.allows.upsert(aKey, aEntry.toMapStateEntry(nil, nil), selectorCache)
+				expectedKeys.allows.upsert(aKey, aEntry, selectorCache)
 			}
 		}
 		if tt.outcome&insertAasDeny > 0 {
-			expectedKeys.denies.upsert(aKey, aEntry.toMapStateEntry(nil, nil).asDeny(), selectorCache)
+			expectedKeys.denies.upsert(aKey, aEntry.asDeny(), selectorCache)
 		}
 		if tt.outcome&insertB > 0 {
 			if tt.bIsDeny {
-				expectedKeys.denies.upsert(bKey, bEntry.toMapStateEntry(nil, nil), selectorCache)
+				expectedKeys.denies.upsert(bKey, bEntry, selectorCache)
 			} else {
-				expectedKeys.allows.upsert(bKey, bEntry.toMapStateEntry(nil, nil), selectorCache)
+				expectedKeys.allows.upsert(bKey, bEntry, selectorCache)
 			}
 		}
 		if tt.outcome&insertBasDeny > 0 {
-			expectedKeys.denies.upsert(bKey, bEntry.toMapStateEntry(nil, nil).asDeny(), selectorCache)
+			expectedKeys.denies.upsert(bKey, bEntry.asDeny(), selectorCache)
 		}
 		if tt.outcome&insertAWithBProto > 0 {
 			aKeyWithBProto := IngressKey(tt.aIdentity, tt.bProto, tt.bPort, 0)
-			aEntryWithProto := aEntry.toMapStateEntry(aKey, nil)
-			aEntryWithDep := aEntry.toMapStateEntry(nil, nil)
+			aEntryWithProto := aEntry.withOwner(aKey)
+			aEntryWithDep := aEntry
 			aEntryWithDep.AddDependent(aKeyWithBProto)
 			if tt.aIsDeny {
 				expectedKeys.denies.upsert(aKey, aEntryWithDep, selectorCache)
@@ -3134,8 +3148,8 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		}
 		if tt.outcome&insertBWithAProto > 0 {
 			bKeyWithAProto := IngressKey(tt.bIdentity, tt.aProto, tt.aPort, 0)
-			bEntryWithProto := bEntry.toMapStateEntry(bKey, nil)
-			bEntryWithDep := bEntry.toMapStateEntry(nil, nil)
+			bEntryWithProto := bEntry.withOwner(bKey)
+			bEntryWithDep := bEntry
 			bEntryWithDep.AddDependent(bKeyWithAProto)
 			if tt.bIsDeny {
 				expectedKeys.denies.upsert(bKey, bEntryWithDep, selectorCache)
@@ -3158,8 +3172,8 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		if tt.withAllowAll {
 			outcomeKeys.insertWithChanges(nil, anyIngressKey, allowEntry, nil, selectorCache, allFeatures, changes)
 		}
-		outcomeKeys.insertWithChanges(nil, aKey, aEntry, nil, selectorCache, allFeatures, changes)
-		outcomeKeys.insertWithChanges(nil, bKey, bEntry, nil, selectorCache, allFeatures, changes)
+		outcomeKeys.insertWithChanges(nil, aKey, aEntry.MapStateEntry, nil, selectorCache, allFeatures, changes)
+		outcomeKeys.insertWithChanges(nil, bKey, bEntry.MapStateEntry, nil, selectorCache, allFeatures, changes)
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equals(outcomeKeys), "%s (MapState):\n%s", tt.name, outcomeKeys.Diff(expectedKeys))
 	}
@@ -3176,8 +3190,8 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}
 		expectedKeys := newMapState()
 		if tt.outcome&insertAllowAll > 0 {
-			expectedKeys.allows.upsert(anyIngressKey, allowEntry.toMapStateEntry(nil, nil), selectorCache)
-			expectedKeys.allows.upsert(anyEgressKey, allowEntry.toMapStateEntry(nil, nil), selectorCache)
+			expectedKeys.allows.upsert(anyIngressKey, allowEntry.noOwner(), selectorCache)
+			expectedKeys.allows.upsert(anyEgressKey, allowEntry.noOwner(), selectorCache)
 		}
 		if tt.aIsDeny {
 			expectedKeys.denies.upsert(aKey, aEntry.toMapStateEntry(nil, nil), selectorCache)
@@ -3367,13 +3381,13 @@ func TestDenyPreferredInsertLogic(t *testing.T) {
 	td.bootstrapRepo(GenerateCIDRDenyRules, 1000, t)
 	p, _ := td.repo.resolvePolicyLocked(fooIdentity)
 
-	mapState := newMapState()
-	mapState.validator = &validator{} // insert validator
+	ms := newMapState()
+	ms.validator = &validator{} // insert validator
 
 	// This is DistillPolicy, but with MapState validator injected
 	epPolicy := &EndpointPolicy{
 		selectorPolicy: p,
-		policyMapState: mapState,
+		policyMapState: ms,
 		PolicyOwner:    DummyOwner{},
 	}
 

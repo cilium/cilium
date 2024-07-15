@@ -1284,7 +1284,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry mapState
 			}
 			// Identical key needs to be added if owners are different (to merge them).
 			if !(k == newKey && !v.owners.Equal(newEntry.owners)) {
-				// If this iterated-deny-entry is a superset (or equal) of
+				// If this iterated-deny-entry has the wildcard ID or the same ID as
 				// the new-entry and the iterated-deny-entry has a broader (or
 				// equal) port-protocol then we need not insert the new entry.
 				bailed = true
