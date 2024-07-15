@@ -507,7 +507,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 		if pool.Spec.ServiceSelector != nil {
 			selector, err := slim_meta_v1.LabelSelectorAsSelector(pool.Spec.ServiceSelector)
 			if err != nil {
-				errs = errors.Join(errs, fmt.Errorf("Making selector from pool '%s' label selector", pool.Name))
+				errs = errors.Join(errs, fmt.Errorf("making selector from pool '%s' label selector", pool.Name))
 				continue
 			}
 
@@ -645,7 +645,7 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 					continue
 				}
 
-				return statusModified, fmt.Errorf("Error while attempting to allocate IP '%s'", ingress.IP)
+				return statusModified, fmt.Errorf("error while attempting to allocate IP '%s'", ingress.IP)
 			}
 
 			sv.AllocatedIPs = append(sv.AllocatedIPs, ServiceViewIP{
@@ -1119,7 +1119,7 @@ func (ipam *LBIPAM) findRangeOfIP(sv *ServiceView, ip netip.Addr) (lbRange *LBRa
 		if pool.Spec.ServiceSelector != nil {
 			selector, err := slim_meta_v1.LabelSelectorAsSelector(pool.Spec.ServiceSelector)
 			if err != nil {
-				return nil, false, fmt.Errorf("Making selector from pool '%s' label selector: %w", pool.Name, err)
+				return nil, false, fmt.Errorf("making selector from pool '%s' label selector: %w", pool.Name, err)
 			}
 
 			if !selector.Matches(sv.Labels) {
@@ -1197,7 +1197,7 @@ func (ipam *LBIPAM) allocateIPAddress(
 		if pool.Spec.ServiceSelector != nil {
 			selector, err := slim_meta_v1.LabelSelectorAsSelector(pool.Spec.ServiceSelector)
 			if err != nil {
-				return netip.Addr{}, nil, fmt.Errorf("Making selector from pool '%s' label selector: %w", pool.Name, err)
+				return netip.Addr{}, nil, fmt.Errorf("making selector from pool '%s' label selector: %w", pool.Name, err)
 			}
 
 			if !selector.Matches(sv.Labels) {
@@ -1300,12 +1300,12 @@ func (ipam *LBIPAM) handleNewPool(ctx context.Context, pool *cilium_api_v2alpha1
 	for _, ipBlock := range pool.Spec.Blocks {
 		from, to, fromCidr, err := ipRangeFromBlock(ipBlock)
 		if err != nil {
-			return fmt.Errorf("Error parsing ip block: %w", err)
+			return fmt.Errorf("error parsing ip block: %w", err)
 		}
 
 		lbRange, err := NewLBRange(from, to, pool)
 		if err != nil {
-			return fmt.Errorf("Error making LB Range for '%s': %w", ipBlock.Cidr, err)
+			return fmt.Errorf("error making LB Range for '%s': %w", ipBlock.Cidr, err)
 		}
 
 		// If AllowFirstLastIPs is no, mark the first and last IP as allocated upon range creation.
@@ -1333,7 +1333,7 @@ func ipRangeFromBlock(block cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock)
 	if string(block.Cidr) != "" {
 		prefix, err := netip.ParsePrefix(string(block.Cidr))
 		if err != nil {
-			return netip.Addr{}, netip.Addr{}, false, fmt.Errorf("Error parsing cidr '%s': %w", block.Cidr, err)
+			return netip.Addr{}, netip.Addr{}, false, fmt.Errorf("error parsing cidr '%s': %w", block.Cidr, err)
 		}
 
 		to, from = rangeFromPrefix(prefix)
@@ -1373,7 +1373,7 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2a
 	for _, newBlock := range pool.Spec.Blocks {
 		from, to, fromCidr, err := ipRangeFromBlock(newBlock)
 		if err != nil {
-			return fmt.Errorf("Error parsing ip block: %w", err)
+			return fmt.Errorf("error parsing ip block: %w", err)
 		}
 
 		newRanges = append(newRanges, rng{
@@ -1450,7 +1450,7 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2a
 
 		newLBRange, err := NewLBRange(newRange.from, newRange.to, pool)
 		if err != nil {
-			return fmt.Errorf("Error while making new LB range for range '%s - %s': %w", newRange.from, newRange.to, err)
+			return fmt.Errorf("error while making new LB range for range '%s - %s': %w", newRange.from, newRange.to, err)
 		}
 
 		// If AllowFirstLastIPs is no, mark the first and last IP as allocated upon range creation.
