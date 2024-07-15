@@ -750,19 +750,23 @@ func patchEndpointIDHandler(d *Daemon, params PatchEndpointIDParams) middleware.
 	return NewPatchEndpointIDOK()
 }
 
-func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
+func (d *Daemon) deleteEndpointRelease(ep *endpoint.Endpoint, noIPRelease bool) int {
 	// Cancel any ongoing endpoint creation
 	d.endpointCreations.CancelCreateRequest(ep)
 
 	scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 	errs := d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
-		// If the IP is managed by an external IPAM, it does not need to be released
-		NoIPRelease: ep.DatapathConfiguration.ExternalIpam,
+		NoIPRelease: noIPRelease,
 	})
 	for _, err := range errs {
 		scopedLog.WithError(err).Warn("Ignoring error while deleting endpoint")
 	}
 	return len(errs)
+}
+
+func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
+	// If the IP is managed by an external IPAM, it does not need to be released
+	return d.deleteEndpointRelease(ep, ep.DatapathConfiguration.ExternalIpam)
 }
 
 // deleteEndpointQuiet sets the endpoint into disconnecting state and removes
