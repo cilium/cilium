@@ -26,7 +26,6 @@ func FlushLoggingMetrics() {
 	flushMetrics.Do(func() {
 		if metricsInitialized != nil {
 			close(metricsInitialized)
-			metricsInitialized = nil
 		}
 	})
 }
@@ -50,6 +49,7 @@ func NewLoggingHook() *LoggingHook {
 		// accurate, however init errors can only happen during initialization so it probably doesn't make
 		// a big difference in practice.
 		<-metricsInitialized
+		metricsInitialized = nil
 		ErrorsWarnings.WithLabelValues(logrus.ErrorLevel.String(), "init").Add(float64(lh.errs.Load()))
 		ErrorsWarnings.WithLabelValues(logrus.WarnLevel.String(), "init").Add(float64(lh.warn.Load()))
 	}()
