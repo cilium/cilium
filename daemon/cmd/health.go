@@ -121,13 +121,11 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 }
 
 func (d *Daemon) cleanupHealthEndpoint() {
+	var ep *endpoint.Endpoint
+
 	log.Info("Cleaning up Cilium health endpoint")
 
-	// Delete the process
-	health.KillEndpoint()
-
 	// Clean up agent resources
-	var ep *endpoint.Endpoint
 	healthIPv4 := node.GetEndpointHealthIPv4()
 	healthIPv6 := node.GetEndpointHealthIPv6()
 	if healthIPv4 != nil {
@@ -140,13 +138,11 @@ func (d *Daemon) cleanupHealthEndpoint() {
 		log.Debug("Didn't find existing cilium-health endpoint to delete")
 	} else {
 		log.Debug("Removing existing cilium-health endpoint")
-		errs := d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
-			NoIPRelease: true,
-		})
-		for _, err := range errs {
-			log.WithError(err).Debug("Error occurred while deleting cilium-health endpoint")
-		}
+		d.deleteEndpointRelease(ep, true)
 	}
+
+	// Delete the process
+	health.KillEndpoint()
 
 	// Remove health endpoint devices
 	health.CleanupEndpoint()
