@@ -90,6 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      empty: ${{ steps.set-matrix.outputs.empty }}
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -149,10 +150,12 @@ jobs:
           echo "Filtered matrix:"
           cat /tmp/result.json
           echo "matrix=$(jq -c . < /tmp/result.json)" >> $GITHUB_OUTPUT
+          echo "empty=$(jq '(.include | length) == 0' /tmp/result.json)" >> $GITHUB_OUTPUT
 
   installation-and-connectivity:
     name: Installation and Connectivity Test
     needs: generate-matrix
+    if: ${{ needs.generate-matrix.outputs.empty == 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -393,7 +396,7 @@ jobs:
           junit-directory: "cilium-junits"
 
   merge-upload:
-    if: ${{ always() }}
+    if: ${{ always() && needs.installation-and-connectivity.result != 'skipped' }}
     name: Merge and Upload Artifacts
     runs-on: ubuntu-latest
     needs: installation-and-connectivity
@@ -422,14 +425,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
+        if: ${{ needs.installation-and-connectivity.result != 'skipped' }}
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.installation-and-connectivity.result }}
+      - name: Set final commit status
+        if: ${{ needs.installation-and-connectivity.result == 'skipped' }}
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ github.event_name != 'schedule' && 'success' || 'failure' }}
+          description: 'Skipped'
+
 
   cleanup:
     name: Cleanup EKS Clusters
-    if: ${{ always() }}
+    if: ${{ always() && needs.generate-matrix.outputs.empty == 'false' }}
     continue-on-error: true
     needs: [generate-matrix, installation-and-connectivity]
     runs-on: ubuntu-latest
