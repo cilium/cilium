@@ -6,6 +6,8 @@ package runner
 import (
 	"errors"
 	"sync"
+
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 // MultiError can be used to run multiple goroutines that
@@ -13,7 +15,7 @@ import (
 // return joined errors as a single one.
 type MultiError struct {
 	wg   sync.WaitGroup
-	lock sync.Mutex
+	lock lock.Mutex
 	err  error
 }
 
