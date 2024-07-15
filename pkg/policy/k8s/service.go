@@ -357,13 +357,13 @@ func (q *serviceQueue) dequeue(ctx context.Context) (item k8s.ServiceNotificatio
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	for len(q.queue) == 0 {
+	for len(q.queue) == 0 && ctx.Err() == nil {
 		q.cond.Wait()
+	}
 
-		// If ctx is cancelled, we return immediately
-		if ctx.Err() != nil {
-			return item, false
-		}
+	// If ctx is cancelled, we return immediately
+	if ctx.Err() != nil {
+		return item, false
 	}
 
 	item = q.queue[0]
