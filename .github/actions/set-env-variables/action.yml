@@ -10,7 +10,7 @@ runs:
         # no prod yet
         echo "QUAY_CHARTS_ORGANIZATION_DEV=cilium-charts-dev" >> $GITHUB_ENV
         # renovate: datasource=github-releases depName=cilium/cilium-cli
-        CILIUM_CLI_VERSION="v0.16.11"
+        CILIUM_CLI_VERSION="v0.16.13"
         echo "CILIUM_CLI_VERSION=$CILIUM_CLI_VERSION" >> $GITHUB_ENV
         echo "GCP_PERF_RESULTS_BUCKET=gs://cilium-scale-results" >> $GITHUB_ENV
 
