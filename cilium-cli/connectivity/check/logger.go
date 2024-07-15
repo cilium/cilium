@@ -8,9 +8,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 // NewConcurrentLogger factory function that returns ConcurrentLogger.
@@ -24,7 +25,7 @@ func NewConcurrentLogger(writer io.Writer, concurrency int) *ConcurrentLogger {
 		// goroutine to avoid deadlock in case if buffer is full.
 		nsTestsCh:        make(chan string, concurrency*10),
 		nsTestMsgs:       make(map[string][]message),
-		nsTestMsgsLock:   sync.Mutex{},
+		nsTestMsgsLock:   lock.Mutex{},
 		collectorStarted: atomic.Bool{},
 		printerDoneCh:    make(chan bool),
 	}
@@ -35,7 +36,7 @@ type ConcurrentLogger struct {
 	writer            io.Writer
 	nsTestsCh         chan string
 	nsTestMsgs        map[string][]message
-	nsTestMsgsLock    sync.Mutex
+	nsTestMsgsLock    lock.Mutex
 	collectorStarted  atomic.Bool
 	printerDoneCh     chan bool
 	nsTestFinishCount int
