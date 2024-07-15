@@ -318,9 +318,17 @@
       "matchPackageNames": [
         "docker.io/library/ubuntu"
       ],
-      "allowedVersions": "22.04",
+      "allowedVersions": "24.04",
       "matchBaseBranches": [
         "main",
+      ],
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/ubuntu"
+      ],
+      "allowedVersions": "22.04",
+      "matchBaseBranches": [
         "v1.16",
         "v1.15",
         "v1.14",
