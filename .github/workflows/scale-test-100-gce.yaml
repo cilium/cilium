@@ -195,6 +195,7 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           kube_proxy_enabled: false
+          allocate_node_cidrs: false
 
       - name: Create 2nd Instance Group
         uses: thorn3r/scale-tests-action/create-instance-group@01b7f29b6eb04336793880301806c154e8bbd85f # updates for 5k
