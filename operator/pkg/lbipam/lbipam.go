@@ -528,9 +528,11 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 
 			compatible := true
 			for _, sharedView := range sharedViews {
-				if sv != sharedView && !sharedView.isCompatible(sv) {
-					compatible = false
-					break
+				if sv != sharedView {
+					if c, _ := sharedView.isCompatible(sv); !c {
+						compatible = false
+						break
+					}
 				}
 			}
 
@@ -563,7 +565,6 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 					errs = errors.Join(errs, releaseAllocIP())
 					continue
 				}
-
 			} else {
 				// Service has an IPv4 address, but its spec doesn't request it anymore, so take it away
 				if !sv.RequestedFamilies.IPv4 {
@@ -864,17 +865,19 @@ func (ipam *LBIPAM) satisfySpecificIPRequests(sv *ServiceView) (statusModified b
 			// Check if the ports and external traffic policy of the current service is compatible with the existing `ServiceViews`
 			// This also checks if the sharing key is the same
 			compatible := true
+			incompatibilityReason := ""
 			for _, serviceView := range serviceViews {
-				if !(serviceView.isCompatible(sv)) {
+				if c, r := serviceView.isCompatible(sv); !c {
 					compatible = false
+					incompatibilityReason = r
 					break
 				}
 			}
 			// if it is, add the service view to the list, and satisfy the IP
 			if !compatible {
-				// The IP was requested and a sharing key was provided, but the IP is already allocated to another service with a different sharing key.
-				msg := fmt.Sprintf("The IP '%s' is already allocated to another service with a different sharing key", reqIP)
-				reason := "already_allocated_different_sharing_key"
+				// The IP was requested and a sharing key was provided, but the service isn't compatible with one of the services sharing the IP.
+				msg := fmt.Sprintf("The IP '%s' is already allocated to an incompatible service. Reason: %s", reqIP, incompatibilityReason)
+				reason := "already_allocated_incompatible_service"
 				if ipam.setSVCSatisfiedCondition(sv, false, reason, msg) {
 					statusModified = true
 				}
@@ -957,7 +960,7 @@ func (ipam *LBIPAM) satisfyGenericIPv4Requests(sv *ServiceView) (statusModified 
 			// Check if the ports and external traffic policy of the current service is compatible with the existing `ServiceViews`
 			compatible := true
 			for _, serviceView := range serviceViews {
-				if !(serviceView.isCompatible(sv)) {
+				if c, _ := serviceView.isCompatible(sv); !c {
 					compatible = false
 					break
 				}
@@ -1023,7 +1026,7 @@ func (ipam *LBIPAM) satisfyGenericIPv6Requests(sv *ServiceView) (statusModified 
 				// Check if the ports and external traffic policy of the current service is compatible with the existing `ServiceViews`
 				compatible := true
 				for _, serviceView := range serviceViews {
-					if !(serviceView.isCompatible(sv)) {
+					if c, _ := serviceView.isCompatible(sv); !c {
 						compatible = false
 						break
 					}
