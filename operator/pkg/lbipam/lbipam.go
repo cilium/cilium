@@ -453,8 +453,8 @@ func (ipam *LBIPAM) serviceViewFromService(key resource.Key, svc *slim_core_v1.S
 	sv.Labels = svcLabels(svc)
 	sv.RequestedFamilies.IPv4, sv.RequestedFamilies.IPv6 = ipam.serviceIPFamilyRequest(svc)
 	sv.RequestedIPs = getSVCRequestedIPs(ipam.logger, svc)
-	sv.SharingKey = getSVCSharingKey(ipam.logger, svc)
-	sv.SharingCrossNamespace = getSVCSharingCrossNamespace(ipam.logger, svc)
+	sv.SharingKey = getSVCSharingKey(svc)
+	sv.SharingCrossNamespace = getSVCSharingCrossNamespace(svc)
 	sv.ExternalTrafficPolicy = svc.Spec.ExternalTrafficPolicy
 	sv.Ports = make([]slim_core_v1.ServicePort, len(svc.Spec.Ports))
 	copy(sv.Ports, svc.Spec.Ports)
@@ -699,14 +699,14 @@ func getSVCRequestedIPs(log logrus.FieldLogger, svc *slim_core_v1.Service) []net
 	})
 }
 
-func getSVCSharingKey(log logrus.FieldLogger, svc *slim_core_v1.Service) string {
+func getSVCSharingKey(svc *slim_core_v1.Service) string {
 	if val, _ := annotation.Get(svc, annotation.LBIPAMSharingKey, annotation.LBIPAMSharingKeyAlias); val != "" {
 		return val
 	}
 	return ""
 }
 
-func getSVCSharingCrossNamespace(log logrus.FieldLogger, svc *slim_core_v1.Service) []string {
+func getSVCSharingCrossNamespace(svc *slim_core_v1.Service) []string {
 	if val, _ := annotation.Get(svc, annotation.LBIPAMSharingAcrossNamespace, annotation.LBIPAMSharingAcrossNamespaceAlias); val != "" {
 		return strings.Split(val, ",")
 	}
