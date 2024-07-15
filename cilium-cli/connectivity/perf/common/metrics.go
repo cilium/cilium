@@ -99,6 +99,7 @@ type PerfTests struct {
 	SameNode bool
 	Scenario string
 	Sample   int
+	MsgSize  int
 	Duration time.Duration
 }
 
