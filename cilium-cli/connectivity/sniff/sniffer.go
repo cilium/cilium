@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/inctimer"
+
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/utils/lock"
 )
@@ -98,7 +100,7 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 			}
 
 			return nil, fmt.Errorf("Failed to execute tcpdump: %w", err)
-		case <-time.After(100 * time.Millisecond):
+		case <-inctimer.After(100 * time.Millisecond):
 			line, err := sniffer.stdout.ReadString('\n')
 			if err != nil && !errors.Is(err, io.EOF) {
 				return nil, fmt.Errorf("Failed to read kubectl exec's stdout: %w", err)
