@@ -6,6 +6,8 @@ package builder
 import (
 	_ "embed"
 
+	"github.com/cilium/cilium/pkg/versioncheck"
+
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/connectivity/tests"
 	"github.com/cilium/cilium-cli/utils/features"
@@ -43,6 +45,9 @@ func (t echoIngressL7) build(ct *check.ConnectivityTest, _ map[string]string) {
 
 	newTest("echo-ingress-l7-via-hostport-with-encryption", ct).
 		WithCondition(func() bool { return !ct.Params().SingleNode }).
+		WithCondition(func() bool {
+			return versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion)
+		}).
 		WithFeatureRequirements(
 			features.RequireEnabled(features.L7Proxy),
 			// Once https://github.com/cilium/cilium/issues/33168 is fixed, we
