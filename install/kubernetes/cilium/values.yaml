@@ -158,14 +158,6 @@ image:
   # cilium-digest
   digest: ""
   useDigest: false
-# -- Affinity for cilium-agent.
-affinity:
-  podAntiAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      - topologyKey: kubernetes.io/hostname
-        labelSelector:
-          matchLabels:
-            k8s-app: cilium
 # -- Node selector for cilium-agent.
 nodeSelector:
   kubernetes.io/os: linux

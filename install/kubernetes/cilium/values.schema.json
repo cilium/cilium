@@ -3,43 +3,6 @@
     "MTU": {
       "type": "integer"
     },
-    "affinity": {
-      "properties": {
-        "podAntiAffinity": {
-          "properties": {
-            "requiredDuringSchedulingIgnoredDuringExecution": {
-              "items": {
-                "anyOf": [
-                  {
-                    "properties": {
-                      "labelSelector": {
-                        "properties": {
-                          "matchLabels": {
-                            "properties": {
-                              "k8s-app": {
-                                "type": "string"
-                              }
-                            },
-                            "type": "object"
-                          }
-                        },
-                        "type": "object"
-                      },
-                      "topologyKey": {
-                        "type": "string"
-                      }
-                    }
-                  }
-                ]
-              },
-              "type": "array"
-            }
-          },
-          "type": "object"
-        }
-      },
-      "type": "object"
-    },
     "agent": {
       "type": "boolean"
     },

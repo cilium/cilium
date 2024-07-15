@@ -16,10 +16,6 @@
      - Configure the underlying network MTU to overwrite auto-detected MTU. This value doesn't change the host network interface MTU i.e. eth0 or ens0. It changes the MTU for cilium_net@cilium_host, cilium_host@cilium_net, cilium_vxlan and lxc_health interfaces.
      - int
      - ``0``
-   * - :spelling:ignore:`affinity`
-     - Affinity for cilium-agent.
-     - object
-     - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}``
    * - :spelling:ignore:`agent`
      - Install the cilium agent resources.
      - bool
@@ -456,6 +452,10 @@
      - List of rate limit options to be used for the CiliumEndpointSlice controller. Each object in the list must have the following fields: nodes: Count of nodes at which to apply the rate limit. limit: The sustained request rate in requests per second. The maximum rate that can be configured is 50. burst: The burst request rate in requests per second. The maximum burst that can be configured is 100.
      - list
      - ``[{"burst":20,"limit":10,"nodes":0},{"burst":15,"limit":7,"nodes":100},{"burst":10,"limit":5,"nodes":500}]``
+   * - :spelling:ignore:`ciliumEndpointSlice.sliceMode`
+     - The slicing mode to use for CiliumEndpointSlices. cesSliceModeIdentity groups together CiliumEndpoints that share the same identity. cesSliceModeFCFS groups together CiliumEndpoints in a first-come-first-serve basis, filling in the largest non-full slice first.
+     - string
+     - ``"cesSliceModeIdentity"``
    * - :spelling:ignore:`cleanBpfState`
      - Clean all eBPF datapath state from the initContainer of the cilium-agent DaemonSet.  WARNING: Use with care!
      - bool
