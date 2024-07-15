@@ -1221,16 +1221,10 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				ms.validator.isSupersetOrSame(k, newKey, identities)
 			}
 			// Identical key needs to be added if owners are different (to merge them).
-			if k != newKey || v.HasSameOwners(&newEntry) {
-				// If this iterated-deny-entry is a supserset (or equal) of the new-entry and
-				// the iterated-deny-entry has a broader (or equal) port-protocol and
-				// the ownership between the entries is the same then we
-				// should not insert the new entry (as long as it is not one
-				// of the special L4-only denies we created to cover the special
-				// case of a superset-allow with a more specific port-protocol).
-				//
-				// NOTE: This condition could be broader to reject more deny entries,
-				// but there *may* be performance tradeoffs.
+			if !(k == newKey && !v.HasSameOwners(&newEntry)) {
+				// If this iterated-deny-entry is a superset (or equal) of
+				// the new-entry and the iterated-deny-entry has a broader (or
+				// equal) port-protocol then we need not insert the new entry.
 				bailed = true
 				return false
 			}
@@ -1248,7 +1242,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 
 			// If this iterated-allow-entry is a superset of the new-entry
 			// and it has a more specific port-protocol than the new-entry
-			// then an additional copy of the new-entry with the more
+			// then an additional copy of the new deny entry with the more
 			// specific port-protocol of the iterated-allow-entry must be inserted.
 			newKeyCpy := k
 			newKeyCpy.Identity = newKey.Identity
@@ -1282,6 +1276,8 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			}
 			return true
 		})
+		// Not adding the new L3/L4 deny entries yet so that we do not need to worry about
+		// them below.
 		ms.denies.ForEachNarrowerOrEqualDatapathKey(newKey, func(k Key, v MapStateEntry) bool {
 			if ms.validator != nil {
 				if !(newKey.Identity == 0 || newKey.Identity == k.Identity) {
@@ -1291,16 +1287,10 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				ms.validator.isSupersetOrSame(newKey, k, identities)
 			}
 			// Identical key needs to be added if owners are different to merge them
-			if newKey != k || newEntry.HasSameOwners(&v) {
-				// If this iterated-deny-entry is a subset (or equal) of the new-entry and
-				// the new-entry has a broader (or equal) port-protocol and
-				// the ownership between the entries is the same then we
-				// should delete the iterated-deny-entry (as long as it is not one
-				// of the special L4-only denies we created to cover the special
-				// case of a superset-allow with a more specific port-protocol).
-				//
-				// NOTE: This condition could be broader to reject more deny entries,
-				// but there *may* be performance tradeoffs.
+			if !(k == newKey && !v.HasSameOwners(&newEntry)) {
+				// If this iterated-deny-entry is a subset (or equal) of the
+				// new-entry and the new-entry has a broader (or equal)
+				// port-protocol then we can delete the iterated-deny-entry.
 				deletes = append(deletes, k)
 			}
 			return true
@@ -1323,6 +1313,38 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		updates = nil
 		var dependents []MapChange
 		bailed := false
+
+		// Deny takes precedence for the identity of the newKey and the port/proto of the
+		// iterated narrower port/proto due to broader ID (CIDR or ANY)
+		ms.denies.ForEachNarrowerKeyWithBroaderID(newKey, prefixes, func(k Key, v MapStateEntry) bool {
+			if ms.validator != nil {
+				ms.validator.isBroader(newKey, k)
+				ms.validator.isSupersetOf(k, newKey, identities)
+			}
+
+			// If the new-entry is a subset of the iterated-deny-entry
+			// and the new-entry has a less specific port-protocol than the
+			// iterated-deny-entry then an additional copy of the iterated-deny-entry
+			// with the identity of the new-entry must be added.
+			denyKeyCpy := k
+			denyKeyCpy.Identity = newKey.Identity
+			l3l4DenyEntry := NewMapStateEntry(k, v.order, v.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
+			updates = append(updates, MapChange{
+				Add:   true,
+				Key:   denyKeyCpy,
+				Value: l3l4DenyEntry,
+			})
+			// L3-only entries can be deleted incrementally so we need to track their
+			// effects on other entries so that those effects can be reverted when the
+			// identity is removed.
+			dependents = append(dependents, MapChange{
+				Key:   k,
+				Value: v,
+			})
+
+			return true
+		})
+
 		ms.denies.ForEachBroaderKeyWithNarrowerID(newKey, prefixes, func(k Key, v MapStateEntry) bool {
 			if ms.validator != nil {
 				ms.validator.isBroader(k, newKey)
