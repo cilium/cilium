@@ -1654,6 +1654,9 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 			  &ext_err, &proxy_port, from_tunnel);
 	switch (ret) {
 	case POLICY_ACT_PROXY_REDIRECT:
+		if (from_tunnel)
+			ctx_change_type(ctx, PACKET_HOST);
+
 		ret = ctx_redirect_to_proxy6(ctx, &tuple, proxy_port, from_host);
 		proxy_redirect = true;
 		break;
@@ -1999,6 +2002,9 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 			  &ext_err, &proxy_port, from_tunnel);
 	switch (ret) {
 	case POLICY_ACT_PROXY_REDIRECT:
+		if (from_tunnel)
+			ctx_change_type(ctx, PACKET_HOST);
+
 		ret = ctx_redirect_to_proxy4(ctx, &tuple, proxy_port, from_host);
 		proxy_redirect = true;
 		break;
