@@ -211,6 +211,7 @@ github.com/cilium/cilium/pkg/policy/types
 github.com/cilium/cilium/pkg/promise
 github.com/cilium/cilium/pkg/rate
 github.com/cilium/cilium/pkg/rate/metrics
+github.com/cilium/cilium/pkg/safeio
 github.com/cilium/cilium/pkg/safetime
 github.com/cilium/cilium/pkg/service/store
 github.com/cilium/cilium/pkg/slices

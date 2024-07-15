@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/safeio"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -184,7 +185,7 @@ func TestKVStoreTask(t *testing.T) {
 	})
 	fd, err := os.Open(path.Join(collector.sysdumpDir, "kvstore-heartbeat.json"))
 	assert.NoError(err)
-	data, err := io.ReadAll(fd)
+	data, err := safeio.ReadAllLimit(fd, safeio.KB)
 	assert.NoError(err)
 	assert.Equal([]byte("{}"), data)
 }

@@ -18,6 +18,12 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
+	"github.com/cilium/cilium/api/v1/models"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/safeio"
+	"github.com/cilium/cilium/pkg/versioncheck"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli/output"
 	appsv1 "k8s.io/api/apps/v1"
@@ -43,12 +49,6 @@ import (
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/transport/spdy"
-
-	"github.com/cilium/cilium/api/v1/models"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/defaults"
 )
@@ -320,8 +320,8 @@ func (c *Client) CiliumLogs(ctx context.Context, namespace, pod string, since ti
 	}
 	defer podLogs.Close()
 
-	log, err := io.ReadAll(podLogs)
-	if err != nil {
+	log, err := safeio.ReadAllLimit(podLogs, safeio.GB)
+	if err != nil && !errors.Is(err, safeio.ErrLimitReached) {
 		return "", fmt.Errorf("error reading log: %w", err)
 	}
 
@@ -827,7 +827,7 @@ func stream(conn httpstream.Connection, port uint16, handler func(io.ReadWriteCl
 	errorDone := make(chan error)
 	go func() {
 		defer close(errorDone)
-		message, err := io.ReadAll(errorStream)
+		message, err := safeio.ReadAllLimit(errorStream, safeio.KB)
 		switch {
 		case err != nil:
 			errorDone <- fmt.Errorf("reading from error stream: %w", err)
