@@ -108,8 +108,8 @@ type MapState interface {
 	addVisibilityKeys(PolicyOwner, uint16, *VisibilityMetadata, Identities, ChangeState)
 	allowAllIdentities(ingress, egress bool)
 	determineAllowLocalhostIngress()
-	insertWithChanges(cs MapStateOwner, newKey Key, newEntry MapStateEntry, derivedFrom labels.LabelArrayList, identities Identities, features policyFeatures, changes ChangeState)
-	deleteKeyWithChanges(key Key, owner MapStateOwner, identities Identities, changes ChangeState)
+	insertWithChanges(owner MapStateOwner, newKey Key, newEntry MapStateEntry, derivedFrom labels.LabelArrayList, identities Identities, features policyFeatures, changes ChangeState)
+	deleteKeyWithChanges(owner MapStateOwner, key Key, order uint8, identities Identities, changes ChangeState)
 
 	// For testing from other packages only
 	Equals(MapState) bool
@@ -1151,7 +1151,16 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, identities I
 	// Keep all owners that need this entry so that it is deleted only if all the owners delete their contribution
 	var datapathEqual bool
 	oldEntry, exists := ms.get(key)
-	if exists {
+	// Earlier order entries override later order ones without merging
+	if exists || entry.order < oldEntry.order {
+		// Keep the earlier order entry intact regardless if it was an allow or deny, l7
+		// redirect or not
+		if oldEntry.order < entry.order {
+			return
+		}
+
+		// oldEntry and entry are on the same order level, merge them
+
 		// Deny entry can only be overridden by another deny entry
 		if oldEntry.IsDeny && !entry.IsDeny {
 			return
@@ -1173,6 +1182,11 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, identities I
 		oldEntry.merge(&entry)
 		ms.insert(key, oldEntry, identities)
 	} else {
+		// Save old value before any changes, if desired
+		if exists && changes.old != nil {
+			changes.insertOldIfNotExists(key, oldEntry)
+		}
+
 		// Callers already have cloned the containers, no need to do it again here
 		ms.insert(key, entry, identities)
 	}
@@ -1189,8 +1203,9 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, identities I
 
 // deleteKeyWithChanges deletes a 'key' from 'keys' keeping track of incremental changes in 'adds' and 'deletes'.
 // The key is unconditionally deleted if 'cs' is nil, otherwise only the contribution of this 'cs' is removed.
-func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, identities Identities, changes ChangeState) {
-	if entry, exists := ms.get(key); exists {
+// Note: key is only deleted if the 'order' matches with the order field of the found entry
+func (ms *mapState) deleteKeyWithChanges(owner MapStateOwner, key Key, order uint8, identities Identities, changes ChangeState) {
+	if entry, exists := ms.get(key); exists && entry.order == order {
 		// Save old value before any changes, if desired
 		oldAdded := changes.insertOldIfNotExists(key, entry)
 		if owner != nil {
@@ -1236,7 +1251,7 @@ func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, identitie
 
 		// Check if dependent entries need to be deleted as well
 		for k := range entry.dependents {
-			ms.deleteKeyWithChanges(k, key, identities, changes)
+			ms.deleteKeyWithChanges(key, k, entry.order, identities, changes)
 		}
 		if changes.Deletes != nil {
 			changes.Deletes[key] = struct{}{}
@@ -1272,6 +1287,11 @@ type keyValue struct {
 	value mapStateEntry
 }
 
+type keyOrder struct {
+	key   Key
+	order uint8
+}
+
 func (ms *mapState) insertWithChanges(cs MapStateOwner, key Key, entry MapStateEntry, derivedFrom labels.LabelArrayList, identities Identities, features policyFeatures, changes ChangeState) {
 	ms.denyPreferredInsertWithChanges(key, entry.toMapStateEntry(cs, derivedFrom), identities, features, changes)
 }
@@ -1287,8 +1307,8 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry mapState
 		return
 	}
 
-	// If we have a deny "all" we don't accept any kind of map entry.
-	if _, ok := ms.denies.Lookup(allKey[newKey.TrafficDirection()]); ok {
+	// If we have a deny "all" we don't accept any kind of map entry if the deny-all-entry is on the same or earlier order
+	if denyAllEntry, ok := ms.denies.Lookup(allKey[newKey.TrafficDirection()]); ok && denyAllEntry.order <= newEntry.order {
 		return
 	}
 
@@ -1311,12 +1331,32 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry mapState
 	// deleted.
 	var (
 		updates []keyValue
-		deletes []Key
+		deletes []keyOrder
 	)
 	prefixes := getNets(identities, newKey.Identity)
 	if newEntry.IsDeny {
 		bailed := false
-		// If there is no broader or equal deny key, then do not add a more specific one
+		// If there is broader or equal allow entry of an earlier order, then do not add the
+		// new deny entry
+		if newEntry.order > 0 {
+			ms.allows.ForEachBroaderOrEqualKey(newKey, prefixes, func(k Key, v mapStateEntry) bool {
+				if ms.validator != nil {
+					ms.validator.isBroaderOrEqual(k, newKey)
+					ms.validator.isSupersetOrSame(k, newKey, identities)
+				}
+
+				if v.order < newEntry.order {
+					bailed = true
+					return false
+				}
+				return true
+			})
+			if bailed {
+				return
+			}
+		}
+
+		// If there is a broader or equal deny key, then do not add a more specific one
 		ms.denies.ForEachBroaderOrEqualDatapathKey(newKey, func(k Key, v mapStateEntry) bool {
 			if ms.validator != nil {
 				// A narrower of two deny keys is redundant in the datapath only if
@@ -1329,11 +1369,25 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry mapState
 				ms.validator.isBroaderOrEqual(k, newKey)
 				ms.validator.isSupersetOrSame(k, newKey, identities)
 			}
-			// Identical key needs to be added if owners are different (to merge them).
-			if !(k == newKey && !v.owners.Equal(newEntry.owners)) {
-				// If this iterated-deny-entry has the wildcard ID or the same ID as
-				// the new-entry and the iterated-deny-entry has a broader (or
-				// equal) port-protocol then we need not insert the new entry.
+
+			// Later order entry 'v' does not prevent adding a narrower subset entry
+			// since 'v' could be overridden by an allow entry of an intermediate order
+			if v.order > newEntry.order {
+				return true
+			}
+
+			// Identical key on the same order needs to be added if owners are different
+			// (to merge them)
+			if !(k == newKey && v.order == newEntry.order && !v.owners.Equal(newEntry.owners)) {
+				// If this iterated-deny-entry is a supserset (or equal) of the new-entry and
+				// the iterated-deny-entry has a broader (or equal) port-protocol and
+				// the ownership between the entries is the same then we
+				// should not insert the new entry (as long as it is not one
+				// of the special L4-only denies we created to cover the special
+				// case of a superset-allow with a more specific port-protocol).
+				//
+				// NOTE: This condition could be broader to reject more deny entries,
+				// but there *may* be performance tradeoffs.
 				bailed = true
 				return false
 			}
@@ -1349,6 +1403,19 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry mapState
 				ms.validator.isSupersetOf(k, newKey, identities)
 			}
 
+			if v.order < newEntry.order {
+				// Earlier order allow entries trump later order denies.
+				// Need to add an allow entry with the narrower key of the iterated entry.
+				newKeyCpy := k
+				newKeyCpy.Identity = newKey.Identity
+				l3l4AllowEntry := newMapStateEntry(k, v.order, v.derivedFromRules, v.ProxyPort, v.Listener, v.priority, false, v.hasAuthType, v.AuthType)
+				updates = append(updates, keyValue{
+					key:   newKeyCpy,
+					value: l3l4AllowEntry,
+				})
+				return true
+			}
+
 			// If this iterated-allow-entry is a superset of the new-entry
 			// and it has a more specific port-protocol than the new-entry
 			// then an additional copy of the new deny entry with the more
@@ -1362,16 +1429,32 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry mapState
 			})
 			return true
 		})
+
+		// From here on 'bailed' does not take immediate effect!
+		bailed = false
 		ms.allows.ForEachNarrowerOrEqualKey(newKey, prefixes, func(k Key, v mapStateEntry) bool {
 			if ms.validator != nil {
 				ms.validator.isBroaderOrEqual(newKey, k)
 				ms.validator.isSupersetOrSame(newKey, k, identities)
 			}
+
+			if v.order < newEntry.order {
+				// 'v' is an earlier order allow entry that has narrower or equal
+				// port/proto than the new deny entry that will natively get
+				// precedence on datapath match.
+				// If the newKey is identical to the iterated 'k', then we must bail
+				// the new entry to not change the key to deny.
+				if k == newKey {
+					bailed = true
+				}
+				return true
+			}
+
 			// If the new-entry is a superset (or equal) of the iterated-allow-entry and
 			// the new-entry has a broader (or equal) port-protocol then we
 			// should delete the iterated-allow-entry
 			if newKey.Identity == 0 || newKey.Identity == k.Identity {
-				deletes = append(deletes, k)
+				deletes = append(deletes, keyOrder{k, v.order})
 			} else {
 				// when newKey.Identity is not ANY and is different from the subset
 				// key, we must keep the subset key and make it a deny instead.
@@ -1385,8 +1468,8 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry mapState
 		})
 		// Not adding the new L3/L4 deny entries yet so that we do not need to worry about
 		// them below.
-		for _, k := range deletes {
-			ms.deleteKeyWithChanges(k, nil, identities, changes)
+		for _, kO := range deletes {
+			ms.deleteKeyWithChanges(nil, kO.key, kO.order, identities, changes)
 		}
 		deletes = nil
 		ms.denies.ForEachNarrowerOrEqualDatapathKey(newKey, func(k Key, v mapStateEntry) bool {
@@ -1397,17 +1480,26 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry mapState
 				ms.validator.isBroaderOrEqual(newKey, k)
 				ms.validator.isSupersetOrSame(newKey, k, identities)
 			}
-			// Identical key needs to be kept if owners are different to merge them
-			if !(newKey == k && !newEntry.owners.Equal(v.owners)) {
+
+			// Earlier order deny entries are not deleted due to later order ones, as an
+			// allow of an intermediate order could be added later, and the earlier
+			// order deny should still have an effect on it.
+			if v.order < newEntry.order {
+				return true
+			}
+
+			// Identical key on the same order needs to be kept if owners are different
+			// (to merge them)
+			if !(newKey == k && newEntry.order == v.order && !newEntry.owners.Equal(v.owners)) {
 				// If this iterated-deny-entry is a subset (or equal) of the
 				// new-entry and the new-entry has a broader (or equal)
 				// port-protocol then we can delete the iterated-deny-entry.
-				deletes = append(deletes, k)
+				deletes = append(deletes, keyOrder{k, v.order})
 			}
 			return true
 		})
-		for _, k := range deletes {
-			ms.deleteKeyWithChanges(k, nil, identities, changes)
+		for _, kO := range deletes {
+			ms.deleteKeyWithChanges(nil, kO.key, kO.order, identities, changes)
 		}
 		for _, update := range updates {
 			ms.addKeyWithChanges(update.key, update.value, identities, changes)
@@ -1416,39 +1508,60 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry mapState
 			// identity is removed.
 			newEntry.AddDependent(update.key)
 		}
-		ms.addKeyWithChanges(newKey, newEntry, identities, changes)
+		if !bailed {
+			ms.addKeyWithChanges(newKey, newEntry, identities, changes)
+		}
 	} else {
 		// NOTE: We do not delete redundant allow entries.
 		updates = nil
+		deletes = nil
 		var dependents []keyValue
 		bailed := false
 
-		// Deny takes precedence for the identity of the newKey and the port/proto of the
-		// iterated narrower port/proto due to broader ID (CIDR or ANY)
+		// later order denies may need to be removed, or need additional allow entries
+		ms.denies.ForEachNarrowerOrEqualKey(newKey, prefixes, func(k Key, v mapStateEntry) bool {
+			if ms.validator != nil {
+				ms.validator.isBroaderOrEqual(newKey, k)
+				ms.validator.isSupersetOrSame(newKey, k, identities)
+			}
+
+			if v.order > newEntry.order {
+				deletes = append(deletes, keyOrder{k, v.order})
+			}
+			return true
+		})
+		for _, kO := range deletes {
+			ms.deleteKeyWithChanges(nil, kO.key, kO.order, identities, changes)
+		}
+
+		// Earlier or same order deny takes precedence for the identity of the newKey and
+		// the port/proto of the iterated narrower port/proto due to broader ID (CIDR or
+		// ANY)
 		ms.denies.ForEachNarrowerKeyWithBroaderID(newKey, prefixes, func(k Key, v mapStateEntry) bool {
 			if ms.validator != nil {
 				ms.validator.isBroader(newKey, k)
 				ms.validator.isSupersetOf(k, newKey, identities)
 			}
-
-			// If the new-entry is a subset of the iterated-deny-entry
-			// and the new-entry has a less specific port-protocol than the
-			// iterated-deny-entry then an additional copy of the iterated-deny-entry
-			// with the identity of the new-entry must be added.
-			denyKeyCpy := k
-			denyKeyCpy.Identity = newKey.Identity
-			l3l4DenyEntry := newMapStateEntry(k, v.order, v.derivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
-			updates = append(updates, keyValue{
-				key:   denyKeyCpy,
-				value: l3l4DenyEntry,
-			})
-			// L3-only entries can be deleted incrementally so we need to track their
-			// effects on other entries so that those effects can be reverted when the
-			// identity is removed.
-			dependents = append(dependents, keyValue{
-				key:   k,
-				value: v,
-			})
+			if v.order <= newEntry.order {
+				// If the new-entry is a subset of the iterated-deny-entry
+				// and the new-entry has a less specific port-protocol than the
+				// iterated-deny-entry then an additional copy of the iterated-deny-entry
+				// with the identity of the new-entry must be added.
+				denyKeyCpy := k
+				denyKeyCpy.Identity = newKey.Identity
+				l3l4DenyEntry := newMapStateEntry(k, v.order, v.derivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
+				updates = append(updates, keyValue{
+					key:   denyKeyCpy,
+					value: l3l4DenyEntry,
+				})
+				// L3-only entries can be deleted incrementally so we need to track their
+				// effects on other entries so that those effects can be reverted when the
+				// identity is removed.
+				dependents = append(dependents, keyValue{
+					key:   k,
+					value: v,
+				})
+			}
 			return true
 		})
 
@@ -1457,6 +1570,25 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry mapState
 				ms.validator.isBroader(k, newKey)
 				ms.validator.isSupersetOf(newKey, k, identities)
 			}
+
+			// Later order deny entries have no effect on earlier order allow entries
+			if v.order > newEntry.order {
+				// earlier order allow entries trump later order denies
+				// Need to add an allow entry with the broader key of the iterated entry.
+				newKeyCpy := newKey
+				newKeyCpy.Identity = k.Identity
+				l3l4AllowEntry := newMapStateEntry(newKey, newEntry.order, newEntry.derivedFromRules, newEntry.ProxyPort, newEntry.Listener, newEntry.priority, false, newEntry.hasAuthType, newEntry.AuthType)
+				updates = append(updates, keyValue{
+					key:   newKeyCpy,
+					value: l3l4AllowEntry,
+				})
+				dependents = append(dependents, keyValue{
+					key:   newKey,
+					value: newEntry,
+				})
+				return true
+			}
+
 			// If the new-entry is *only* superset of the iterated-deny-entry
 			// and the new-entry has a more specific port-protocol than the
 			// iterated-deny-entry then an additional copy of the iterated-deny-entry
@@ -1484,6 +1616,13 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry mapState
 				ms.validator.isBroaderOrEqual(k, newKey)
 				ms.validator.isSupersetOrSame(k, newKey, identities)
 			}
+
+			// Later order deny entries have no effect on earlier order allow entries
+			if v.order > newEntry.order {
+				// earlier order allow entries trump later order denies
+				return true
+			}
+
 			// If the iterated-deny-entry is a superset (or equal) of the new-allow-entry we should bail it
 			if k.Identity == 0 || k.Identity == newKey.Identity {
 				// If the iterated-deny-entry is a superset (or equal) of the new-entry and has a
@@ -1588,6 +1727,11 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, iden
 			var dependents []keyValue
 
 			ms.allows.ForEachKeyWithBroaderOrEqualPortProto(newKey, func(k Key, v mapStateEntry) bool {
+				// Later order entries do not affect the earlier order newEntry
+				if v.order > newEntry.order {
+					return true
+				}
+
 				// Nothing to be done if entry has default AuthType
 				if v.hasAuthType == DefaultAuthType {
 					return true
@@ -1649,6 +1793,11 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, iden
 			defaultSubsetKeys := make(map[Key]int)
 
 			ms.allows.ForEachKeyWithNarrowerOrEqualPortProto(newKey, func(k Key, v mapStateEntry) bool {
+				// Earlier order entries are not affected by a later order newEntry.
+				if v.order < newEntry.order {
+					return true
+				}
+
 				// Find out if 'newKey' is a superset of 'k'
 				if specificity := IsSuperSetOf(newKey, k); specificity > 0 {
 					if v.hasAuthType == ExplicitAuthType {
@@ -2080,8 +2229,9 @@ func (mc *MapChanges) consumeMapChanges(policyOwner PolicyOwner, policyMapState 
 		} else {
 			// Delete the contribution of this cs to the key and collect incremental changes
 			key := mc.changes[i].Key
+			entry := mc.changes[i].Value
 			cs := mc.changes[i].cs
-			policyMapState.deleteKeyWithChanges(key, cs, identities, changes)
+			policyMapState.deleteKeyWithChanges(cs, key, entry.order, identities, changes)
 		}
 	}
 	mc.changes = nil
