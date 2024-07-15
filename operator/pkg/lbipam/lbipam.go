@@ -232,13 +232,13 @@ func (ipam *LBIPAM) handlePoolEvent(ctx context.Context, event resource.Event[*c
 	var err error
 	switch event.Kind {
 	case resource.Upsert:
-		err = ipam.poolOnUpsert(ctx, event.Key, event.Object)
+		err = ipam.poolOnUpsert(ctx, event.Object)
 		if err != nil {
 			ipam.logger.WithError(err).Error("pool upsert failed")
 			err = fmt.Errorf("poolOnUpsert: %w", err)
 		}
 	case resource.Delete:
-		err = ipam.poolOnDelete(ctx, event.Key, event.Object)
+		err = ipam.poolOnDelete(ctx, event.Object)
 		if err != nil {
 			ipam.logger.WithError(err).Error("pool delete failed")
 			err = fmt.Errorf("poolOnDelete: %w", err)
@@ -251,13 +251,13 @@ func (ipam *LBIPAM) handleServiceEvent(ctx context.Context, event resource.Event
 	var err error
 	switch event.Kind {
 	case resource.Upsert:
-		err = ipam.svcOnUpsert(ctx, event.Key, event.Object)
+		err = ipam.svcOnUpsert(ctx, event.Object)
 		if err != nil {
 			ipam.logger.WithError(err).Error("service upsert failed")
 			err = fmt.Errorf("svcOnUpsert: %w", err)
 		}
 	case resource.Delete:
-		err = ipam.svcOnDelete(ctx, event.Key, event.Object)
+		err = ipam.svcOnDelete(ctx, event.Object)
 		if err != nil {
 			ipam.logger.WithError(err).Error("service delete failed")
 			err = fmt.Errorf("svcOnDelete: %w", err)
@@ -272,7 +272,7 @@ func (ipam *LBIPAM) RegisterOnReady(cb func()) {
 	ipam.initDoneCallbacks = append(ipam.initDoneCallbacks, cb)
 }
 
-func (ipam *LBIPAM) poolOnUpsert(ctx context.Context, k resource.Key, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) error {
+func (ipam *LBIPAM) poolOnUpsert(ctx context.Context, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) error {
 	// Deep copy so we get a version we are allowed to update the status
 	pool = pool.DeepCopy()
 
@@ -305,7 +305,7 @@ func (ipam *LBIPAM) poolOnUpsert(ctx context.Context, k resource.Key, pool *cili
 	return nil
 }
 
-func (ipam *LBIPAM) poolOnDelete(ctx context.Context, k resource.Key, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) error {
+func (ipam *LBIPAM) poolOnDelete(ctx context.Context, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) error {
 	err := ipam.handlePoolDeleted(ctx, pool)
 	if err != nil {
 		return fmt.Errorf("handlePoolDeleted: %w", err)
@@ -324,7 +324,7 @@ func (ipam *LBIPAM) poolOnDelete(ctx context.Context, k resource.Key, pool *cili
 	return nil
 }
 
-func (ipam *LBIPAM) svcOnUpsert(ctx context.Context, k resource.Key, svc *slim_core_v1.Service) error {
+func (ipam *LBIPAM) svcOnUpsert(ctx context.Context, svc *slim_core_v1.Service) error {
 	err := ipam.handleUpsertService(ctx, svc)
 	if err != nil {
 		return fmt.Errorf("handleUpsertService: %w", err)
@@ -338,7 +338,7 @@ func (ipam *LBIPAM) svcOnUpsert(ctx context.Context, k resource.Key, svc *slim_c
 	return nil
 }
 
-func (ipam *LBIPAM) svcOnDelete(ctx context.Context, k resource.Key, svc *slim_core_v1.Service) error {
+func (ipam *LBIPAM) svcOnDelete(ctx context.Context, svc *slim_core_v1.Service) error {
 	ipam.logger.Debugf("Deleted service '%s/%s'", svc.GetNamespace(), svc.GetName())
 
 	ipam.handleDeletedService(svc)
@@ -382,7 +382,7 @@ func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.S
 		// we were responsible before, but not anymore
 
 		// Release allocations and other references as if the service was deleted
-		if err := ipam.svcOnDelete(ctx, key, svc); err != nil {
+		if err := ipam.svcOnDelete(ctx, svc); err != nil {
 			return fmt.Errorf("svcOnDelete: %w", err)
 		}
 
