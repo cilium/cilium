@@ -262,6 +262,7 @@ securityContext:
       - IPC_LOCK
       # Used in iptables. Consider removing once we are iptables-free
       - SYS_MODULE
+      # Needed to switch network namespaces (used for health endpoint, socket-LB).
       # We need it for now but might not need it for >= 5.11 specially
       # for the 'SYS_RESOURCE'.
       # In >= 5.8 there's already BPF and PERMON capabilities
