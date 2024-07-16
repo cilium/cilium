@@ -23,6 +23,7 @@ triggers:
     - tests-l4lb.yaml
     - tests-e2e-upgrade.yaml
     - tests-ipsec-upgrade.yaml
+    - hubble-cli-integration-test.yaml
   /ci-aks:
     workflows:
     - conformance-aks.yaml
@@ -90,6 +91,9 @@ triggers:
   /net-perf-gke:
     workflows:
     - net-perf-gke.yaml
+  /ci-hubble-cli:
+    workflows:
+    - hubble-cli-integration-test.yaml
 
 workflows:
   conformance-aks.yaml:
@@ -130,3 +134,5 @@ workflows:
     paths-ignore-regex: (test|Documentation|hubble)/
   tests-ipsec-upgrade.yaml:
     paths-ignore-regex: (test|Documentation|hubble)/
+  hubble-cli-integration-test.yaml:
+    paths-ignore-regex: (test|Documentation)/
