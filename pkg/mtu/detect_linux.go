@@ -6,13 +6,21 @@
 package mtu
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"net"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/time"
+
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 )
 
 const (
@@ -104,4 +112,50 @@ func getMTUFromIf(ip net.IP) (int, error) {
 		}
 	}
 	return 0, fmt.Errorf("No interface contains the provided ip: %v", ip)
+}
+
+func detectRuntimeMTUChange(ctx context.Context, p mtuParams, health cell.Health, runningMTU int) error {
+	limiter := rate.NewLimiter(100*time.Millisecond, 1)
+	for {
+		devicesChanged := detectMTU(p.Log, p.DB, p.Devices, runningMTU)
+		health.OK("OK")
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-devicesChanged:
+		}
+
+		// Check at most once every 100ms to batch up changes
+		_ = limiter.Wait(ctx)
+	}
+}
+
+func detectMTU(
+	log *slog.Logger,
+	db *statedb.DB,
+	devices statedb.Table[*tables.Device],
+	runningMTU int,
+) <-chan struct{} {
+	rtx := db.ReadTxn()
+	devs, changed := tables.SelectedDevices(devices, rtx)
+	for _, dev := range devs {
+		if dev.MTU < runningMTU {
+			log.Warn("MTU on selected device is lower than the MTU Cilium has configured/detected, "+
+				"restart agent or explicitly configure MTU to avoid fragmentation or packet drops",
+				"running-mtu", runningMTU,
+				"dev", dev.Name,
+				"dev-mtu", dev.MTU,
+			)
+		} else if dev.MTU > runningMTU {
+			log.Warn("MTU on selected device is higher than the MTU Cilium has configured/detected, "+
+				"restarting the agent or adjusting configuration may improve performance",
+				"running-mtu", runningMTU,
+				"dev", dev.Name,
+				"dev-mtu", dev.MTU,
+			)
+		}
+	}
+
+	return changed
 }

@@ -4,10 +4,16 @@
 package mtu
 
 import (
+	"context"
+	"log/slog"
+
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/node"
@@ -37,6 +43,12 @@ type mtuParams struct {
 	CNI          cni.CNIConfigManager
 	TunnelConfig tunnel.Config
 
+	DB          *statedb.DB
+	Devices     statedb.Table[*tables.Device]
+	JobRegistry job.Registry
+	Health      cell.Health
+	Log         *slog.Logger
+
 	Config Config
 }
 
@@ -55,6 +67,8 @@ func (c Config) Flags(flags *pflag.FlagSet) {
 
 func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) MTU {
 	c := &Configuration{}
+	group := p.JobRegistry.NewGroup(p.Health)
+	lc.Append(group)
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
 			node, err := p.LocalNode.Get(ctx)
@@ -70,6 +84,7 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) MTU {
 				configuredMTU = mtu
 				log.WithField("mtu", configuredMTU).Info("Overwriting MTU based on CNI configuration")
 			}
+
 			*c = NewConfiguration(
 				p.IPsec.AuthKeySize(),
 				option.Config.EnableIPSec,
@@ -80,6 +95,11 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) MTU {
 				externalIP,
 				cc.EnableRouteMTUForCNIChaining,
 			)
+
+			group.Add(job.OneShot("detect-runtime-mtu-change", func(ctx context.Context, health cell.Health) error {
+				return detectRuntimeMTUChange(ctx, p, health, c.GetDeviceMTU())
+			}))
+
 			return nil
 		},
 	})
