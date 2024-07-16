@@ -801,5 +801,5 @@ func (mgr *endpointManager) GetEndpointNetnsCookieByIP(ip netip.Addr) (uint64, e
 		return 0, fmt.Errorf("endpoint not found by ip %v", ip)
 	}
 
-	return ep.GetEndpointNetnsCookie(), nil
+	return ep.NetNsCookie, nil
 }
