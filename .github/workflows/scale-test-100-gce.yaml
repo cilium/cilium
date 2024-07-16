@@ -130,7 +130,7 @@ jobs:
           release-version: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Install Kops
-        uses: cilium/scale-tests-action/install-kops@238d773bd07754bfd693a6b22c94eddf3a12778d # main
+        uses: cilium/scale-tests-action/install-kops@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3 # main
 
       - name: Setup gcloud credentials
         uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
@@ -181,7 +181,7 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: thorn3r/scale-tests-action/create-cluster@efbf8e395175459d4badde52d4473050d6986d60    # updates for 5k
+        uses: cilium/scale-tests-action/create-cluster@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3    # main
         timeout-minutes: 60
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -197,7 +197,7 @@ jobs:
           allocate_node_cidrs: false
 
       - name: Create 2nd Instance Group
-        uses: thorn3r/scale-tests-action/create-instance-group@01b7f29b6eb04336793880301806c154e8bbd85f # updates for 5k
+        uses: cilium/scale-tests-action/create-instance-group@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3 # main
         timeout-minutes: 60
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -207,7 +207,7 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Create 3rd Instance Group
-        uses: thorn3r/scale-tests-action/create-instance-group@01b7f29b6eb04336793880301806c154e8bbd85f # updates for 5k
+        uses: cilium/scale-tests-action/create-instance-group@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3 # main
         timeout-minutes: 60
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -216,8 +216,28 @@ jobs:
           ig_name: ig3
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
+      - name: Create 4th Instance Group
+        uses: cilium/scale-tests-action/create-instance-group@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3 # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: 1000
+          ig_name: ig4
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Create 5th Instance Group
+        uses: cilium/scale-tests-action/create-instance-group@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3 # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: 1000
+          ig_name: ig5
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
       - name: Create Instance Group for resource heavy deployments
-        uses: cilium/scale-tests-action/create-instance-group@238d773bd07754bfd693a6b22c94eddf3a12778d # main
+        uses: cilium/scale-tests-action/create-instance-group@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3 # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -227,7 +247,7 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@238d773bd07754bfd693a6b22c94eddf3a12778d # main
+        uses: cilium/scale-tests-action/setup-firewall@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3 # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
 
@@ -251,7 +271,7 @@ jobs:
           ${{ steps.apiserver-vars.outputs.cilium_install_apiserver }}
 
       - name: Wait for cluster to be ready
-        uses: thorn3r/scale-tests-action/validate-cluster@0dbf5b413892a408f947d9e6d8d89d21595757df # forked to allow configurable timeout
+        uses: cilium/scale-tests-action/validate-cluster@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3 # main
         timeout-minutes: 90
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -324,14 +344,14 @@ jobs:
 
       - name: Cleanup cluster
         if: ${{ always() }}
-        uses: cilium/scale-tests-action/cleanup-cluster@238d773bd07754bfd693a6b22c94eddf3a12778d # main
+        uses: cilium/scale-tests-action/cleanup-cluster@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3 # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@238d773bd07754bfd693a6b22c94eddf3a12778d # main
+        uses: cilium/scale-tests-action/export-results@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3 # main
         with:
           test_name: ${{ env.test_name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
