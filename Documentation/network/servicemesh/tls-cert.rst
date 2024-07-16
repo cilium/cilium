@@ -36,7 +36,7 @@ Create TLS Certificate and Private Key
                 --namespace cert-manager \
                 --set installCRDs=true \
                 --create-namespace \
-                --set "extraArgs={--feature-gates=ExperimentalGatewayAPISupport=true}"
+                --set "extraArgs={--enable-gateway-api}"
 
         Now, create a CA Issuer:
 
