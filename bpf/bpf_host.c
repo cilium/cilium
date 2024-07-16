@@ -1657,11 +1657,11 @@ int cil_to_host(struct __ctx_buff *ctx)
 		ret = DROP_UNSUPPORTED_L2;
 		goto out;
 	}
-	/* handle_nat_fwd() tail calls in the majority of cases, so control
+	/* handle_nat_egress() tail calls in the majority of cases, so control
 	 * might never return to this program. Since IPsec is not compatible
 	 * iwth Host Firewall, this won't be an issue.
 	 */
-	ret = handle_nat_fwd(ctx, 0, proto, &trace, &ext_err);
+	ret = handle_nat_egress(ctx, 0, proto, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto out;
 
