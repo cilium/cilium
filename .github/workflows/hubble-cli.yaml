@@ -8,24 +8,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check_changes:
-    name: Deduce required tests from code changes
-    runs-on: ubuntu-22.04
-    outputs:
-      tested: ${{ steps.tested-tree.outputs.src }}
-    steps:
-      - name: Check code changes
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: tested-tree
-        with:
-          filters: |
-            src:
-              - '!(test|Documentation)/**'
-
   build-hubble-cli-release-binaries:
     name: Build Hubble CLI release binaries
-    needs: check_changes
-    if: ${{ needs.check_changes.outputs.tested == 'true' }}
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repository
