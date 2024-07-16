@@ -3,8 +3,8 @@ Name                                             Source   NatPolicy   ExtTraffic
 default/my-app-85f46c4bd9-nnk25/host-port/4444   k8s                  Cluster            Cluster                              0             0                     false              
 
 --- Frontends ---
-Address            Type       ServiceName                                      PortName   Backends                   Status
-0.0.0.0:4444/TCP   HostPort   default/my-app-85f46c4bd9-nnk25/host-port/4444              10.244.1.113:80 (active)   Done (??? ago)
+Address            Type       ServiceName                                      PortName   Backends                       Status
+0.0.0.0:4444/TCP   HostPort   default/my-app-85f46c4bd9-nnk25/host-port/4444              10.244.1.113:80/TCP (active)   Done (??? ago)
 
 --- Backends ---
 Address               State    Instances                                        NodeName   ZoneID
