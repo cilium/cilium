@@ -63,7 +63,7 @@ func setupDaemonFQDNSuite(tb testing.TB) *DaemonFQDNSuite {
 	ds := &DaemonFQDNSuite{}
 	d := &Daemon{}
 	d.ctx = context.Background()
-	d.policy = policy.NewPolicyRepository(nil, nil, nil)
+	d.policy = policy.NewPolicyRepository(nil, nil, nil, nil)
 	d.endpointManager = endpointmanager.New(&dummyEpSyncher{}, nil, nil)
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           context.TODO(),

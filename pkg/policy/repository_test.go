@@ -2509,7 +2509,7 @@ func TestDefaultAllow(t *testing.T) {
 func TestReplaceByResource(t *testing.T) {
 	// don't use the full testdata() here, since we want to watch
 	// selectorcache changes carefully
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	sc := testNewSelectorCache(nil)
 	repo.selectorCache = sc
 	assert.Len(t, sc.selectors, 0)
