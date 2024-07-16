@@ -3,9 +3,9 @@ Name        Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAf
 test/echo   k8s                  Cluster            Cluster                              0             0                     false              10.0.0.0/8
 
 --- Frontends ---
-Address           Type           ServiceName   PortName   Backends                 Status
-10.0.0.1:80/TCP   ClusterIP      test/echo     http       10.244.1.1:80 (active)   Done (??? ago)
-10.0.0.2:80/TCP   LoadBalancer   test/echo     http       10.244.1.1:80 (active)   Done (??? ago)
+Address           Type           ServiceName   PortName   Backends                     Status
+10.0.0.1:80/TCP   ClusterIP      test/echo     http       10.244.1.1:80/TCP (active)   Done (??? ago)
+10.0.0.2:80/TCP   LoadBalancer   test/echo     http       10.244.1.1:80/TCP (active)   Done (??? ago)
 
 --- Backends ---
 Address             State    Instances          NodeName          ZoneID

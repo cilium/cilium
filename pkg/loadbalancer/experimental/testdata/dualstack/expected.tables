@@ -3,15 +3,15 @@ Name                     Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolic
 default/echo-dualstack   k8s                  Cluster            Cluster                              0             0                     false              
 
 --- Frontends ---
-Address                     Type        ServiceName              PortName   Backends                                                               Status
-[::]:30181/TCP              NodePort    default/echo-dualstack   http       [fd00:10:244:1::247e]:80 (active), [fd00:10:244:2::a314]:80 (active)   Done (??? ago)
-[::]:32757/UDP              NodePort    default/echo-dualstack   tftp       [fd00:10:244:1::247e]:69 (active), [fd00:10:244:2::a314]:69 (active)   Done (??? ago)
-0.0.0.0:30181/TCP           NodePort    default/echo-dualstack   http       10.244.1.54:80 (active), 10.244.2.9:80 (active)                        Done (??? ago)
-0.0.0.0:32757/UDP           NodePort    default/echo-dualstack   tftp       10.244.1.54:69 (active), 10.244.2.9:69 (active)                        Done (??? ago)
-10.96.207.99:69/UDP         ClusterIP   default/echo-dualstack   tftp       10.244.1.54:69 (active), 10.244.2.9:69 (active)                        Done (??? ago)
-10.96.207.99:80/TCP         ClusterIP   default/echo-dualstack   http       10.244.1.54:80 (active), 10.244.2.9:80 (active)                        Done (??? ago)
-[fd00:10:96::b050]:69/UDP   ClusterIP   default/echo-dualstack   tftp       [fd00:10:244:1::247e]:69 (active), [fd00:10:244:2::a314]:69 (active)   Done (??? ago)
-[fd00:10:96::b050]:80/TCP   ClusterIP   default/echo-dualstack   http       [fd00:10:244:1::247e]:80 (active), [fd00:10:244:2::a314]:80 (active)   Done (??? ago)
+Address                     Type        ServiceName              PortName   Backends                                                                       Status
+[::]:30181/TCP              NodePort    default/echo-dualstack   http       [fd00:10:244:1::247e]:80/TCP (active), [fd00:10:244:2::a314]:80/TCP (active)   Done (??? ago)
+[::]:32757/UDP              NodePort    default/echo-dualstack   tftp       [fd00:10:244:1::247e]:69/UDP (active), [fd00:10:244:2::a314]:69/UDP (active)   Done (??? ago)
+0.0.0.0:30181/TCP           NodePort    default/echo-dualstack   http       10.244.1.54:80/TCP (active), 10.244.2.9:80/TCP (active)                        Done (??? ago)
+0.0.0.0:32757/UDP           NodePort    default/echo-dualstack   tftp       10.244.1.54:69/UDP (active), 10.244.2.9:69/UDP (active)                        Done (??? ago)
+10.96.207.99:69/UDP         ClusterIP   default/echo-dualstack   tftp       10.244.1.54:69/UDP (active), 10.244.2.9:69/UDP (active)                        Done (??? ago)
+10.96.207.99:80/TCP         ClusterIP   default/echo-dualstack   http       10.244.1.54:80/TCP (active), 10.244.2.9:80/TCP (active)                        Done (??? ago)
+[fd00:10:96::b050]:69/UDP   ClusterIP   default/echo-dualstack   tftp       [fd00:10:244:1::247e]:69/UDP (active), [fd00:10:244:2::a314]:69/UDP (active)   Done (??? ago)
+[fd00:10:96::b050]:80/TCP   ClusterIP   default/echo-dualstack   http       [fd00:10:244:1::247e]:80/TCP (active), [fd00:10:244:2::a314]:80/TCP (active)   Done (??? ago)
 
 --- Backends ---
 Address                        State    Instances                       NodeName             ZoneID

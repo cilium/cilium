@@ -43,7 +43,7 @@ func ciliumAddService(kubectl *helpers.Kubectl, id int64, frontend string, backe
 	ciliumPods, err := kubectl.GetCiliumPods()
 	ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
 	for _, pod := range ciliumPods {
-		err := kubectl.CiliumServiceAdd(pod, id, frontend, backends, svcType, trafficPolicy)
+		err := kubectl.CiliumServiceAdd(pod, id, "", frontend, backends, svcType, trafficPolicy)
 		ExpectWithOffset(1, err).To(BeNil(), "Failed to add cilium service")
 	}
 }
