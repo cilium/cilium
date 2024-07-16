@@ -3,8 +3,8 @@ Name                     Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolic
 test/graceful-term-svc   k8s                  Cluster            Cluster                              0             0                     false              
 
 --- Frontends ---
-Address                 Type        ServiceName              PortName   Backends                          Status
-10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc              10.244.0.112:8081 (terminating)   Done (??? ago)
+Address                 Type        ServiceName              PortName   Backends                              Status
+10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc              10.244.0.112:8081/TCP (terminating)   Done (??? ago)
 
 --- Backends ---
 Address                 State         Instances                NodeName                      ZoneID
