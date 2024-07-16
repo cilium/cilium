@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s/synced"
@@ -52,6 +53,7 @@ type policyParams struct {
 	EndpointManager endpointmanager.EndpointManager
 	CertManager     certificatemanager.CertificateManager
 	SecretManager   certificatemanager.SecretManager
+	IdentityManager *identitymanager.IdentityManager
 	CacheStatus     synced.CacheStatus
 	ClusterInfo     cmtypes.ClusterInfo
 }
@@ -94,6 +96,7 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		identity.ListReservedIdentities(), // Load SelectorCache with reserved identities
 		params.CertManager,
 		params.SecretManager,
+		params.IdentityManager,
 	)
 	repo.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
 

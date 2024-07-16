@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/gops"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -160,6 +161,10 @@ var (
 		// Shared synchronization structures for waiting on K8s resources to
 		// be synced
 		k8sSynced.Cell,
+
+		// IdentityManager maintains the set of identities and a count of its
+		// users.
+		identitymanager.Cell,
 
 		// EndpointManager maintains a collection of the locally running endpoints.
 		endpointmanager.Cell,

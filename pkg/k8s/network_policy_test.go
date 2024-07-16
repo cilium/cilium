@@ -88,7 +88,7 @@ var (
 type DummySelectorCacheUser struct{}
 
 func testNewPolicyRepository() *policy.Repository {
-	repo := policy.NewPolicyRepository(nil, nil, nil)
+	repo := policy.NewPolicyRepository(nil, nil, nil, nil)
 	repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return repo
 }
