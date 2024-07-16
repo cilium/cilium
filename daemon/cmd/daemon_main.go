@@ -62,6 +62,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -1707,6 +1708,7 @@ type daemonParams struct {
 	Recorder            *recorder.Recorder
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
+	IdentityManager     *identitymanager.IdentityManager
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig], promise.Promise[policyK8s.PolicyManager]) {

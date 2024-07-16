@@ -8,6 +8,7 @@ import (
 
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
+	"github.com/cilium/cilium/pkg/identity"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
@@ -34,4 +35,8 @@ type Owner interface {
 	// RemoveRestoredDNSRules removes any restored DNS rules for
 	// this endpoint from the DNS proxy.
 	RemoveRestoredDNSRules(epID uint16)
+
+	AddIdentity(*identity.Identity)
+	RemoveIdentity(*identity.Identity)
+	RemoveOldAddNewIdentity(*identity.Identity, *identity.Identity)
 }
