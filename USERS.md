@@ -117,6 +117,12 @@ Users (Alphabetically)
       Q: @Bernard Halas
       L: https://github.com/berops/claudie
 
+    * N: Bitnami
+      D: Cilium is part of the largest open-source application catalog.
+      U: CNI, Hubble, BGP, eBPF, CiliumNetworkPolicy, CiliumClusterwideNetworkPolicy
+      L: https://bitnami.com/stack/cilium
+      Q: @carrodher
+
     * N: ByteDance
       D: ByteDance is using Cilium as CNI plug-in for self-hosted Kubernetes.
       U: CNI, Networking
@@ -763,6 +769,12 @@ Users (Alphabetically)
       D: Veepee is using Cilium on their on-premise Kubernetes clusters, hosting majority of their applications.
       U. CNI, BGP, eBPF, Hubble, DirectRouting (via kube-router)
       Q: @nerzhul
+
+    * N: VMware by Broadcom
+      D: VMware offers multi-arch (ARM, AMD) and multi-distro (Ubuntu, RedHat UBI, Debian, PhotonOS) Cilium as part of the Tanzu Application Catalog, enabling customers to deploy it in their Kubernetes infrastructure.
+      U: CNI, Hubble, BGP, eBPF, CiliumNetworkPolicy, CiliumClusterwideNetworkPolicy
+      L: https://app-catalog.vmware.com/catalog?gfilter=cilium
+      Q: @carrodher
 
     * N: Wildlife Studios
       D: Wildlife Studios is using Cilium in AWS for all their game production clusters (self hosted k8s)
