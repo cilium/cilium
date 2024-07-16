@@ -272,11 +272,11 @@ jobs:
 
       - name: Wait for cluster to be ready
         uses: cilium/scale-tests-action/validate-cluster@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3 # main
-        timeout-minutes: 90
+        timeout-minutes: 150
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
-          timeout: "90m"
+          timeout: "150m"
 
       - name: Wait for Cilium status to be ready
         run: |
@@ -319,7 +319,7 @@ jobs:
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
-            --nodes=3000 \
+            --nodes=5000 \
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
             --kubeconfig=$HOME/.kube/config \
@@ -340,6 +340,20 @@ jobs:
         uses: cilium/scale-tests-action/delete-instance-group@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3 # main
         with:
           instance_group_name: ig3
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Delete 4th Instance Group
+        if: ${{ always() }}
+        uses: cilium/scale-tests-action/delete-instance-group@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3 # main
+        with:
+          instance_group_name: ig4
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Delete 5th Instance Group
+        if: ${{ always() }}
+        uses: cilium/scale-tests-action/delete-instance-group@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3 # main
+        with:
+          instance_group_name: ig5
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Cleanup cluster
