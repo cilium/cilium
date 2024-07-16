@@ -182,7 +182,7 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: thorn3r/scale-tests-action/create-cluster@2bd53d0381eb7d234e280925df9c39f4d36922cf    # updates for 5k
+        uses: thorn3r/scale-tests-action/create-cluster@efbf8e395175459d4badde52d4473050d6986d60    # updates for 5k
         timeout-minutes: 60
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
