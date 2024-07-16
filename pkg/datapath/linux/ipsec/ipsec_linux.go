@@ -160,6 +160,9 @@ var (
 	// It provides XfrmStateAdd/Update/Del wrappers that ensure cache
 	// is correctly invalidate.
 	xfrmStateCache = NewXfrmStateListCache(time.Minute)
+
+	// tracks changes in SPI to identify when a key got rotated
+	changeCountSpi int
 )
 
 func getGlobalIPsecKey(ip net.IP) *ipSecKey {
@@ -1164,6 +1167,10 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 
 		ipSecKeysRemovalTime[oldSpi] = time.Now()
 		ipSecCurrentKeySPI = spi
+
+		if ipSecCurrentKeySPI != oldSpi && oldSpi != 0 {
+			changeCountSpi++
+		}
 	}
 	return keyLen, spi, nil
 }

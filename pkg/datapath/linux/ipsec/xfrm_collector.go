@@ -53,6 +53,7 @@ type xfrmCollector struct {
 	nbKeysDesc       *prometheus.Desc
 	nbXFRMStatesDesc *prometheus.Desc
 	nbXFRMPolsDesc   *prometheus.Desc
+	nbSPIChangesDesc *prometheus.Desc
 }
 
 func NewXFRMCollector() prometheus.Collector {
@@ -77,6 +78,11 @@ func NewXFRMCollector() prometheus.Collector {
 			"Number of XFRM policies",
 			[]string{labelDir}, nil,
 		),
+		nbSPIChangesDesc: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.Namespace, subsystem, "spi_changes"),
+			"Number of SPI changes",
+			[]string{}, nil,
+		),
 	}
 }
 
@@ -85,6 +91,7 @@ func (x *xfrmCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- x.nbKeysDesc
 	ch <- x.nbXFRMStatesDesc
 	ch <- x.nbXFRMPolsDesc
+	ch <- x.nbSPIChangesDesc
 }
 
 func (x *xfrmCollector) collectErrors(ch chan<- prometheus.Metric) {
@@ -150,6 +157,8 @@ func (x *xfrmCollector) collectConfigStats(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(x.nbXFRMPolsDesc, prometheus.GaugeValue, float64(nbPolIn), labelDirIn)
 	ch <- prometheus.MustNewConstMetric(x.nbXFRMPolsDesc, prometheus.GaugeValue, float64(nbPolOut), labelDirOut)
 	ch <- prometheus.MustNewConstMetric(x.nbXFRMPolsDesc, prometheus.GaugeValue, float64(nbPolFwd), labelDirFwd)
+
+	ch <- prometheus.MustNewConstMetric(x.nbSPIChangesDesc, prometheus.CounterValue, float64(changeCountSpi))
 }
 
 func (x *xfrmCollector) Collect(ch chan<- prometheus.Metric) {
