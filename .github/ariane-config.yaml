@@ -93,40 +93,40 @@ triggers:
 
 workflows:
   conformance-aks.yaml:
-    paths-ignore-regex: (test|Documentation)/
+    paths-ignore-regex: (test|Documentation|hubble)/
   conformance-aws-cni.yaml:
-    paths-ignore-regex: (test|Documentation)/
+    paths-ignore-regex: (test|Documentation|hubble)/
   conformance-clustermesh.yaml:
-    paths-ignore-regex: (test|Documentation)/
+    paths-ignore-regex: (test|Documentation|hubble)/
   conformance-e2e.yaml:
-    paths-ignore-regex: (test|Documentation)/
+    paths-ignore-regex: (test|Documentation|hubble)/
   conformance-ipsec-e2e.yaml:
-    paths-ignore-regex: (test|Documentation)/
+    paths-ignore-regex: (test|Documentation|hubble)/
   conformance-eks.yaml:
-    paths-ignore-regex: (test|Documentation)/
+    paths-ignore-regex: (test|Documentation|hubble)/
   conformance-externalworkloads.yaml:
-    paths-ignore-regex: (test|Documentation)/
+    paths-ignore-regex: (test|Documentation|hubble)/
   conformance-gateway-api.yaml:
-    paths-ignore-regex: (test|Documentation)/
+    paths-ignore-regex: (test|Documentation|hubble)/
   conformance-ginkgo.yaml:
     paths-ignore-regex: Documentation/
   conformance-gke.yaml:
-    paths-ignore-regex: (test|Documentation)/
+    paths-ignore-regex: (test|Documentation|hubble)/
   conformance-ingress.yaml:
-    paths-ignore-regex: (test|Documentation)/
+    paths-ignore-regex: (test|Documentation|hubble)/
   conformance-multi-pool.yaml:
-    paths-ignore-regex: (test|Documentation)/
+    paths-ignore-regex: (test|Documentation|hubble)/
   conformance-runtime.yaml:
     paths-ignore-regex: Documentation/
   integration-test.yaml:
     paths-ignore-regex: Documentation/
   tests-clustermesh-upgrade.yaml:
-    paths-ignore-regex: (test|Documentation)/
+    paths-ignore-regex: (test|Documentation|hubble)/
   tests-datapath-verifier.yaml:
     paths-regex: (bpf|test/verifier|vendor|images)/
   tests-l4lb.yaml:
     paths-regex: (bpf|daemon|images|pkg|test/l4lb|test/nat46x64|vendor)/
   tests-e2e-upgrade.yaml:
-    paths-ignore-regex: (test|Documentation)/
+    paths-ignore-regex: (test|Documentation|hubble)/
   tests-ipsec-upgrade.yaml:
-    paths-ignore-regex: (test|Documentation)/
+    paths-ignore-regex: (test|Documentation|hubble)/
