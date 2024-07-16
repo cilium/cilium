@@ -1945,7 +1945,7 @@ func (kub *Kubectl) validateServicePlumbingInCiliumPod(fullName, ciliumPod strin
 	for _, port := range serviceObj.Spec.Ports {
 		var foundPort *v1.ServicePort
 		for _, realizedService := range realizedServices {
-			if port.Port == int32(realizedService.FrontendAddress.Port) {
+			if compareServicePortToFrontEnd(&port, realizedService.FrontendAddress) {
 				foundPort = &port
 				break
 			}
@@ -1955,8 +1955,9 @@ func (kub *Kubectl) validateServicePlumbingInCiliumPod(fullName, ciliumPod strin
 				port.Port, fullName, serviceObj.Spec.ClusterIP, ciliumPod)
 		}
 
-		if _, ok := lbMap[net.JoinHostPort(serviceObj.Spec.ClusterIP, fmt.Sprintf("%d", port.Port))]; !ok {
-			return fmt.Errorf("port %d of service %s (%s) not found in cilium-dbg bpf lb list of pod %s",
+		lKey := serviceAddressKey(serviceObj.Spec.ClusterIP, fmt.Sprintf("%d", port.Port), string(port.Protocol), "")
+		if _, ok := lbMap[lKey]; !ok {
+			return fmt.Errorf("port %d of service %s (%s) not found in cilium bpf lb list of pod %s",
 				port.Port, fullName, serviceObj.Spec.ClusterIP, ciliumPod)
 		}
 	}
@@ -1967,10 +1968,11 @@ func (kub *Kubectl) validateServicePlumbingInCiliumPod(fullName, ciliumPod strin
 				foundBackend, foundBackendLB := false, false
 				for _, realizedService := range realizedServices {
 					frontEnd := realizedService.FrontendAddress
-					lb := lbMap[net.JoinHostPort(frontEnd.IP, fmt.Sprintf("%d", frontEnd.Port))]
-
+					lbKey := serviceAddressKey(frontEnd.IP, fmt.Sprintf("%d", frontEnd.Port), string(frontEnd.Protocol), "")
+					lb := lbMap[lbKey]
 					for _, backAddr := range realizedService.BackendAddresses {
-						if addr.IP == *backAddr.IP && uint16(port.Port) == backAddr.Port {
+						if addr.IP == *backAddr.IP && uint16(port.Port) == backAddr.Port &&
+							compareProto(string(port.Protocol), backAddr.Protocol) {
 							foundBackend = true
 							for _, backend := range lb {
 								if strings.Contains(backend, net.JoinHostPort(*backAddr.IP, fmt.Sprintf("%d", port.Port))) {
@@ -4166,7 +4168,7 @@ CILIUM_SERVICES:
 	for _, cSvc := range ciliumSvcs {
 		if cSvc.Status.Realized.FrontendAddress.IP == k8sService.Spec.ClusterIP {
 			for _, port := range k8sService.Spec.Ports {
-				if int32(cSvc.Status.Realized.FrontendAddress.Port) == port.Port {
+				if compareServicePortToFrontEnd(&port, cSvc.Status.Realized.FrontendAddress) {
 					ciliumService = &cSvc
 					break CILIUM_SERVICES
 				}
@@ -4187,7 +4189,11 @@ CILIUM_SERVICES:
 }
 
 // CiliumServiceAdd adds the given service on a 'pod' running Cilium
-func (kub *Kubectl) CiliumServiceAdd(pod string, id int64, frontend string, backends []string, svcType, trafficPolicy string) error {
+func (kub *Kubectl) CiliumServiceAdd(pod string, id int64, protocol string, frontend string, backends []string, svcType, trafficPolicy string) error {
+	protocol = strings.ToLower(protocol)
+	if protocol == "" || protocol == "any" || protocol == "none" {
+		protocol = "tcp"
+	}
 	var opts []string
 	switch strings.ToLower(svcType) {
 	case "nodeport":
@@ -4214,8 +4220,8 @@ func (kub *Kubectl) CiliumServiceAdd(pod string, id int64, frontend string, back
 	backendsStr := strings.Join(backends, ",")
 	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
 	defer cancel()
-	return kub.CiliumExecContext(ctx, pod, fmt.Sprintf("cilium-dbg service update --id %d --frontend %q --backends %q %s",
-		id, frontend, backendsStr, optsStr)).GetErr("cilium-dbg service update")
+	return kub.CiliumExecContext(ctx, pod, fmt.Sprintf("cilium-dbg service update --id %d --protocol %q --frontend %q --backends %q %s",
+		id, protocol, frontend, backendsStr, optsStr)).GetErr("cilium-dbg service update")
 }
 
 // CiliumServiceDel deletes the service with 'id' on a 'pod' running Cilium
@@ -4501,7 +4507,7 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 
 	var k8sServicePort *v1.ServicePort
 	for _, k8sPort := range k8sService.Spec.Ports {
-		if k8sPort.Port == int32(cSvc.Status.Realized.FrontendAddress.Port) {
+		if compareServicePortToFrontEnd(&k8sPort, cSvc.Status.Realized.FrontendAddress) {
 			k8sServicePort = &k8sPort
 			k8sServicesFound[serviceKey(*k8sService)] = true
 			break
@@ -4530,14 +4536,16 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 }
 
 func validateCiliumSvcLB(cSvc models.Service, lbMap map[string][]string) error {
-	scope := ""
+	var scope string
 	if cSvc.Status.Realized.FrontendAddress.Scope == models.FrontendAddressScopeInternal {
 		scope = "/i"
 	}
-
-	frontendAddress := net.JoinHostPort(
+	frontendAddress := serviceAddressKey(
 		cSvc.Status.Realized.FrontendAddress.IP,
-		strconv.Itoa(int(cSvc.Status.Realized.FrontendAddress.Port))) + scope
+		strconv.Itoa(int(cSvc.Status.Realized.FrontendAddress.Port)),
+		cSvc.Status.Realized.FrontendAddress.Protocol,
+		scope,
+	)
 	bpfBackends, ok := lbMap[frontendAddress]
 	if !ok {
 		return fmt.Errorf("%s bpf lb map entry not found", frontendAddress)
@@ -4574,7 +4582,9 @@ func getK8sEndpointAddresses(ep v1.Endpoints) []*models.BackendAddress {
 }
 
 func addrsEqual(addr1, addr2 *models.BackendAddress) bool {
-	return *addr1.IP == *addr2.IP && addr1.Port == addr2.Port
+	return *addr1.IP == *addr2.IP &&
+		addr1.Port == addr2.Port &&
+		compareProto(addr1.Protocol, addr2.Protocol)
 }
 
 // GenerateNamespaceForTest generates a namespace based off of the current test
@@ -4887,4 +4897,33 @@ func (kub *Kubectl) AddVXLAN(nodeName, remote, dev, addr string, vxlanId int) *C
 func (kub *Kubectl) DelVXLAN(nodeName string, vxlanId int) *CmdRes {
 	cmd := fmt.Sprintf("ip link del dev vxlan%d", vxlanId)
 	return kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+}
+
+func compareProto(proto1, proto2 string) bool {
+	proto1 = strings.ToLower(proto1)
+	if proto1 == "" || proto1 == "none" || proto1 == "any" {
+		return true
+	}
+	proto2 = strings.ToLower(proto2)
+	if proto2 == "" || proto2 == "none" || proto2 == "any" {
+		return true
+	}
+	return proto1 == proto2
+}
+
+func compareServicePortToFrontEnd(sP *v1.ServicePort, fA *models.FrontendAddress) bool {
+	return sP.Port == int32(fA.Port) && compareProto(string(sP.Protocol), fA.Protocol)
+}
+
+func serviceAddressKey(ip, port, proto, scope string) string {
+	newOutputStyle := HasNewServiceOutput(GetRunningCiliumVersion())
+	k := net.JoinHostPort(ip, port)
+	if newOutputStyle {
+		p := strings.ToLower(proto)
+		if p == "" || p == "none" || p == "any" {
+			proto = "ANY"
+		}
+		return fmt.Sprintf("%s/%s%s", k, proto, scope)
+	}
+	return fmt.Sprintf("%s%s", k, scope)
 }
