@@ -99,7 +99,6 @@ jobs:
             --helm-set=ciliumEndpointSlice.rateLimits[0].nodes=1 \
             --helm-set=ciliumEndpointSlice.rateLimits[0].limit=100 \
             --helm-set=ciliumEndpointSlice.rateLimits[0].burst=200 \
-            --helm-set=debug.enabled=true \
             --helm-set=kubeProxyReplacement=true"
           fi
 
