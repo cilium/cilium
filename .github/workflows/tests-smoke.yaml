@@ -73,6 +73,9 @@ jobs:
           make -C install/kubernetes
           test -z "$(git status --porcelain)" || (echo "please run 'make -C install/kubernetes' and submit your changes"; exit 1)
 
+          git rm --ignore-unmatch install/kubernetes/cilium/values.schema.json
+          test -z "$(git status --porcelain)" || (echo "please delete 'install/kubernetes/cilium/values.schema.json' and submit your changes"; exit 1)
+
   conformance-test:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.tested == 'true' }}
