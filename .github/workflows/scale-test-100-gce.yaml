@@ -308,6 +308,20 @@ jobs:
             --testoverrides=./modules.yaml \
             2>&1 | tee cl2-output.txt
 
+      - name: Delete 2nd Instance Group
+        if: ${{ always() }}
+        uses: cilium/scale-tests-action/delete-instance-group@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3 # main
+        with:
+          instance_group_name: ig2
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Delete 3rd Instance Group
+        if: ${{ always() }}
+        uses: cilium/scale-tests-action/delete-instance-group@5eece828282eccbc8a1ad1b0e53ace8dc6c3ffd3 # main
+        with:
+          instance_group_name: ig3
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
       - name: Cleanup cluster
         if: ${{ always() }}
         uses: cilium/scale-tests-action/cleanup-cluster@238d773bd07754bfd693a6b22c94eddf3a12778d # main
