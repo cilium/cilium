@@ -132,7 +132,7 @@ to the IAM role associated with the EKS cluster:
         --policy-arn arn:aws:iam::aws:policy/AmazonEKSVPCResourceController \
         --role-name "${EKS_CLUSTER_ROLE_NAME}"
 
-Then, and as mentioned above, make sure that the version of the AWS VPC CNI
+Then, as mentioned above, make sure that the version of the AWS VPC CNI
 plugin running in the cluster is up-to-date:
 
 .. code-block:: shell-session
