@@ -282,6 +282,10 @@ const (
 
 	// pprofPort is the port that the pprof listens on
 	pprofPort = "operator-pprof-port"
+
+	k8sClientQps = "operator-k8s-client-qps"
+
+	k8sClientBurst = "operator-k8s-client-burst"
 )
 
 // operatorPprofConfig holds the configuration for the operator pprof cell.
@@ -299,4 +303,14 @@ func (def operatorPprofConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(pprofOperator, def.OperatorPprof, "Enable serving pprof debugging API")
 	flags.String(pprofAddress, def.OperatorPprofAddress, "Address that pprof listens on")
 	flags.Uint16(pprofPort, def.OperatorPprofPort, "Port that pprof listens on")
+}
+
+type operatorClientParams struct {
+	OperatorK8sClientQPS   float32
+	OperatorK8sClientBurst int
+}
+
+func (def operatorClientParams) Flags(flags *pflag.FlagSet) {
+	flags.Float32(k8sClientQps, def.OperatorK8sClientQPS, "Queries per second limit for the K8s client")
+	flags.Int(k8sClientBurst, def.OperatorK8sClientBurst, "Burst value allowed for the K8s client")
 }

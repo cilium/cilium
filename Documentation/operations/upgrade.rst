@@ -309,6 +309,11 @@ Annotations:
 * Operating Cilium in ``--datapath-mode=lb-only`` for plain Docker mode now requires to
   add an additional ``--bpf-lb-external-control-plane=true`` to the command line, otherwise
   it is assumed that Kubernetes is present.
+* The Kubernetes clients used by Cilium Agent and Cilium Operator now have separately configurable
+  rate limits. The default rate limit for Cilium Operator K8s clients has been increased to
+  100 QPS/200 Burst. To configure the rate limit for Cilium Operator, use the
+  ``--operator-k8s-client-qps`` and ``--operator-k8s-client-burst`` flags or the corresponding
+  Helm values.
 
 Removed Options
 ~~~~~~~~~~~~~~~
