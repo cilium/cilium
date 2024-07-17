@@ -14,8 +14,9 @@ type Observer interface {
 	// returns within a reasonable period.
 	LocalEndpointIdentityAdded(*identity.Identity)
 
-	// LocalEndpointIdentityRemoved is called when an identity is no longer
-	// in use on the node. Implementations must ensure that the callback
-	// returns within a reasonable period.
+	// LocalEndpointIdentityRemoved is called when an identity is no longer in
+	// use on the node. Implementations must ensure that the callback returns
+	// within a reasonable period and must be aware that this callback might be
+	// called while the Endpoint lock is taken.
 	LocalEndpointIdentityRemoved(*identity.Identity)
 }
