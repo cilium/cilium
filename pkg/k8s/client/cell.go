@@ -51,7 +51,9 @@ var Cell = cell.Module(
 	"k8s-client",
 	"Kubernetes Client",
 
-	cell.Config(defaultConfig),
+	cell.Config(defaultSharedConfig),
+	cell.Config(defaultClientParams),
+	cell.Provide(NewClientConfig),
 	cell.Provide(newClientset),
 )
 
@@ -61,6 +63,8 @@ var ClientBuilderCell = cell.Module(
 	"k8s-client-builder",
 	"Kubernetes Client Builder",
 
+	cell.Config(defaultSharedConfig),
+	cell.Provide(NewClientConfig),
 	cell.Provide(NewClientBuilder),
 )
 
