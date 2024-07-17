@@ -321,9 +321,12 @@ func newIptablesManager(p params) *Manager {
 		cniConfigManager: p.CNIConfigManager,
 	}
 
+	argsInit := make(chan struct{})
+
 	// init iptables/ip6tables wait arguments before using them in the reconciler or in the manager (e.g: GetProxyPorts)
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
+			defer close(argsInit)
 			ip4tables.initArgs(ctx, int(p.Cfg.IPTablesLockTimeout/time.Second))
 			if p.SharedCfg.EnableIPv6 {
 				ip6tables.initArgs(ctx, int(p.Cfg.IPTablesLockTimeout/time.Second))
@@ -336,6 +339,9 @@ func newIptablesManager(p params) *Manager {
 
 	p.JobGroup.Add(
 		job.OneShot("iptables-reconciliation-loop", func(ctx context.Context, health cell.Health) error {
+			// each job runs in an independent goroutine, so we need to explicitly wait for
+			// iptables arguments initialization before starting the reconciler.
+			<-argsInit
 			return reconciliationLoop(
 				ctx, p.Logger, health,
 				iptMgr.sharedCfg.InstallIptRules, &iptMgr.reconcilerParams,
