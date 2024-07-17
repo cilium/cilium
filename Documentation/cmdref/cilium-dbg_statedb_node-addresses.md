@@ -12,6 +12,7 @@ cilium-dbg statedb node-addresses [flags]
 
 ```
   -h, --help             help for node-addresses
+  -o, --output string    Output format, one of: table, json or yaml (default "table")
   -w, --watch duration   Watch for new changes with the given interval (e.g. --watch=100ms)
 ```
 
