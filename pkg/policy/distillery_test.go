@@ -43,7 +43,7 @@ func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
 	c.Assert(ep2.GetSecurityIdentity(), Equals, identity)
 
 	// Nonsense delete of entry that isn't yet inserted
-	deleted := cache.delete(identity)
+	deleted, _ := cache.delete(identity)
 	c.Assert(deleted, Equals, false)
 
 	// Insert identity twice. Should be the same policy.
@@ -53,9 +53,9 @@ func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
 
 	// Despite two insert calls, there is no reference tracking; any delete
 	// will clear the cache.
-	cacheCleared := cache.delete(identity)
+	cacheCleared, _ := cache.delete(identity)
 	c.Assert(cacheCleared, Equals, true)
-	cacheCleared = cache.delete(identity)
+	cacheCleared, _ = cache.delete(identity)
 	c.Assert(cacheCleared, Equals, false)
 
 	// Insert two distinct identities, then delete one. Other should still
@@ -67,7 +67,7 @@ func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
 	policy1 = cache.insert(identity)
 	policy3 := cache.insert(identity3)
 	c.Assert(policy1, Not(Equals), policy3)
-	_ = cache.delete(identity)
+	_, _ = cache.delete(identity)
 	policy3 = cache.lookupOrCreate(identity3, false)
 	c.Assert(policy3, NotNil)
 }
@@ -94,7 +94,7 @@ func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
 	c.Assert(idp1, Equals, idp2)
 
 	// Remove the identity and observe that it is no longer available
-	cacheCleared := cache.delete(identity1)
+	cacheCleared, _ := cache.delete(identity1)
 	c.Assert(cacheCleared, Equals, true)
 	updated, err = cache.updateSelectorPolicy(identity1)
 	c.Assert(err, NotNil)

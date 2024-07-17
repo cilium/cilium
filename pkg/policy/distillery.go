@@ -72,15 +72,14 @@ func (cache *PolicyCache) insert(identity *identityPkg.Identity) SelectorPolicy 
 // delete forgets about any cached SelectorPolicy that this endpoint uses.
 //
 // Returns true if the SelectorPolicy was removed from the cache.
-func (cache *PolicyCache) delete(identity *identityPkg.Identity) bool {
+func (cache *PolicyCache) delete(identity *identityPkg.Identity) (bool, *cachedSelectorPolicy) {
 	cache.Lock()
 	defer cache.Unlock()
 	cip, ok := cache.policies[identity.ID]
 	if ok {
 		delete(cache.policies, identity.ID)
-		cip.getPolicy().Detach()
 	}
-	return ok
+	return ok, cip
 }
 
 // updateSelectorPolicy resolves the policy for the security identity of the
@@ -135,7 +134,17 @@ func (cache *PolicyCache) LocalEndpointIdentityAdded(identity *identityPkg.Ident
 // LocalEndpointIdentityRemoved deletes the cached SelectorPolicy for the
 // specified Identity.
 func (cache *PolicyCache) LocalEndpointIdentityRemoved(identity *identityPkg.Identity) {
-	cache.delete(identity)
+	deleted, cip := cache.delete(identity)
+	if deleted && cip != nil {
+		if p := cip.getPolicy(); p != nil {
+			// Detach policy resources after identity has been removed. This is
+			// executed async in a separate goroutine because this callback
+			// function (LocalEndpointIdentityRemoved()) can be called while the
+			// endpoint lock is taken and the following Detach() can take the
+			// NameManager and SelectorCache locks, which can lead to deadlocks.
+			go p.Detach()
+		}
+	}
 }
 
 // Lookup attempts to locate the SelectorPolicy corresponding to the specified
