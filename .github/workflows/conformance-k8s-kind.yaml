@@ -27,7 +27,7 @@ env:
 jobs:
   kubernetes-e2e:
     name: Installation and Conformance Test
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
