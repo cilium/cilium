@@ -13,9 +13,11 @@ import (
 var BPFCtCmd = &cobra.Command{
 	Use:   "ct",
 	Short: "Connection tracking tables",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		ctmap.InitMapInfo(true, true, true)
+	},
 }
 
 func init() {
-	ctmap.InitMapInfo(true, true, true)
 	BPFCmd.AddCommand(BPFCtCmd)
 }

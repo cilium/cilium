@@ -1,0 +1,5 @@
+cilium-dbg is a tool to inspect the state of cilium-agent. It is shipped as part of the
+cilium-agent binary and is invoked via the cilium-dbg symlink to cilium-agent.
+
+The symlink in this directory exists mostly to serve the tooling to generate command reference
+documentation.
