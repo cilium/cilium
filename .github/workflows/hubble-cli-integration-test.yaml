@@ -122,11 +122,13 @@ jobs:
           go-version-file: 'go.mod'
 
       - name: Build hubble CLI
-        run: make
+        run: |
+          make -C hubble
+          ./hubble/hubble version
 
       # Setup the cluster
       - name: Create kind cluster
-        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0 -C hubble
         with:
           version: ${{ env.KIND_VERSION }}
           node_image: ${{ env.KIND_K8S_IMAGE }}
@@ -167,7 +169,7 @@ jobs:
         timeout-minutes: 5
         run: |
           set -ex
-          ./hubble --version
+          ./hubble/hubble --version
 
           kubectl -n kube-system port-forward service/hubble-relay 4245:80 &
           # wait until the port-forward is running
@@ -178,12 +180,12 @@ jobs:
           # give relay a little bit more time to actually connect to agent before running commands.
           sleep 5
 
-          ./hubble status
+          ./hubble/hubble status
 
           # query hubble until we receive flows, or timeout
           flowCount=0
           until [ $flowCount -gt 0 ]; do
-            ./hubble observe -n kube-system -o jsonpb  | tee flows.json
+            ./hubble/hubble observe -n kube-system -o jsonpb  | tee flows.json
             flowCount=$(jq -r --slurp 'length' flows.json)
             sleep 5
           done
@@ -191,7 +193,7 @@ jobs:
           # verify we got some flows
           test $(jq -r --slurp 'length' flows.json) -gt 0
           # test piping flows into the CLI
-          test $(./hubble observe < flows.json -o json | jq -r --slurp 'length') -eq $(jq -r --slurp 'length' flows.json)
+          test $(./hubble/hubble observe < flows.json -o json | jq -r --slurp 'length') -eq $(jq -r --slurp 'length' flows.json)
 
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
