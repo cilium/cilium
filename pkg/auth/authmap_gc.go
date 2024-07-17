@@ -401,9 +401,11 @@ func (r *authMapGarbageCollector) cleanupExpiredEntries(_ context.Context) error
 // Endpoints
 
 func (r *authMapGarbageCollector) subscribeToEndpointEvents(endpointManager endpointmanager.EndpointManager) {
+	localEPs := endpointManager.GetEndpoints()
+
 	r.endpointsCacheMutex.Lock()
 	r.endpointsCache = map[uint16]*endpoint.Endpoint{}
-	for _, ep := range endpointManager.GetEndpoints() {
+	for _, ep := range localEPs {
 		r.endpointsCache[ep.GetID16()] = ep
 	}
 	r.endpointsCacheSynced = true
