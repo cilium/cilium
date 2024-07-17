@@ -12,6 +12,7 @@ cilium-dbg statedb routes [flags]
 
 ```
   -h, --help             help for routes
+  -o, --output string    Output format, one of: table, json or yaml (default "table")
   -w, --watch duration   Watch for new changes with the given interval (e.g. --watch=100ms)
 ```
 

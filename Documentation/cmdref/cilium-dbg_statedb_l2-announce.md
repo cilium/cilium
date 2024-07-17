@@ -12,6 +12,7 @@ cilium-dbg statedb l2-announce [flags]
 
 ```
   -h, --help             help for l2-announce
+  -o, --output string    Output format, one of: table, json or yaml (default "table")
   -w, --watch duration   Watch for new changes with the given interval (e.g. --watch=100ms)
 ```
 
