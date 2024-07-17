@@ -80,6 +80,8 @@ const (
 	BGPControlPlane Feature = "enable-bgp-control-plane"
 
 	NodeLocalDNS Feature = "node-local-dns"
+
+	Multicast Feature = "multicast-enabled"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
@@ -319,6 +321,10 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	fs[BGPControlPlane] = Status{
 		Enabled: cm.Data[string(BGPControlPlane)] == "true",
+	}
+
+	fs[Multicast] = Status{
+		Enabled: cm.Data[string(Multicast)] == "true",
 	}
 }
 
