@@ -12,6 +12,7 @@ cilium-dbg statedb ipsets [flags]
 
 ```
   -h, --help             help for ipsets
+  -o, --output string    Output format, one of: table, json or yaml (default "table")
   -w, --watch duration   Watch for new changes with the given interval (e.g. --watch=100ms)
 ```
 

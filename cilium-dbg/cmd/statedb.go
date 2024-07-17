@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,10 +14,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/statedb"
 	"github.com/liggitt/tabwriter"
 	"github.com/spf13/cobra"
-
-	"github.com/cilium/statedb"
+	"gopkg.in/yaml.v3"
 
 	clientPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
@@ -85,21 +86,86 @@ const (
 	watchReprintHeaderInterval = 100
 )
 
+type outputter interface {
+	writeHeader()
+	writeObject(obj statedb.TableWritable) error
+	flush()
+}
+
+type tableOutput struct {
+	proto               statedb.TableWritable
+	w                   *tabwriter.Writer
+	numLinesSinceHeader int
+}
+
+func (t *tableOutput) writeHeader() {
+	fmt.Fprintf(t.w, "# %s\n", strings.Join(t.proto.TableHeader(), "\t"))
+}
+
+func (t *tableOutput) writeObject(obj statedb.TableWritable) error {
+	_, err := fmt.Fprintf(t.w, "%s\n", strings.Join(obj.TableRow(), "\t"))
+	t.numLinesSinceHeader++
+	return err
+}
+
+func (t *tableOutput) flush() {
+	if t.numLinesSinceHeader > watchReprintHeaderInterval {
+		t.numLinesSinceHeader = 0
+		fmt.Fprintf(t.w, "# %s\n", strings.Join(t.proto.TableHeader(), "\t"))
+	}
+	t.w.Flush()
+}
+
+type jsonOutput struct {
+	enc *json.Encoder
+}
+
+func (j jsonOutput) writeHeader() {}
+func (j jsonOutput) writeObject(obj statedb.TableWritable) error {
+	return j.enc.Encode(obj)
+}
+func (j jsonOutput) flush() {}
+
+type yamlOutput struct {
+	enc *yaml.Encoder
+}
+
+func (j yamlOutput) writeHeader() {}
+func (j yamlOutput) writeObject(obj statedb.TableWritable) error {
+	return j.enc.Encode(obj)
+}
+func (j yamlOutput) flush() {}
+
 func statedbTableCommand[Obj statedb.TableWritable](tableName string) *cobra.Command {
-	var watchInterval time.Duration
+	var (
+		watchInterval time.Duration
+		outputFormat  string
+	)
 	cmd := &cobra.Command{
 		Use:   tableName,
 		Short: fmt.Sprintf("Show contents of table %q", tableName),
 		Run: func(cmd *cobra.Command, args []string) {
 			table := newRemoteTable[Obj](tableName)
 
-			w := newTabWriter(os.Stdout)
-			var obj Obj
-			fmt.Fprintf(w, "# %s\n", strings.Join(obj.TableHeader(), "\t"))
-			defer w.Flush()
+			var proto Obj
+			var outputter outputter
+			switch outputFormat {
+			case "table":
+				outputter = &tableOutput{
+					proto:               proto,
+					w:                   newTabWriter(os.Stdout),
+					numLinesSinceHeader: 0,
+				}
+			case "json":
+				outputter = jsonOutput{json.NewEncoder(os.Stdout)}
+			case "yaml":
+				outputter = yamlOutput{yaml.NewEncoder(os.Stdout)}
+			default:
+				Fatalf("Unknown output format %q. Choose one of: table, yaml or json.", outputFormat)
+			}
+			outputter.writeHeader()
 
 			revision := statedb.Revision(0)
-			numLinesSinceHeader := 0
 
 			for {
 				// Query the contents of the table by revision, so that objects
@@ -112,12 +178,9 @@ func statedbTableCommand[Obj statedb.TableWritable](tableName string) *cobra.Com
 						func(obj Obj, rev statedb.Revision) error {
 							// Remember the latest revision to query from.
 							revision = rev + 1
-							_, err := fmt.Fprintf(w, "%s\n", strings.Join(obj.TableRow(), "\t"))
-							numLinesSinceHeader++
-							return err
+							return outputter.writeObject(obj)
 						})
-					w.Flush()
-
+					outputter.flush()
 					if err != nil {
 						return
 					}
@@ -133,16 +196,12 @@ func statedbTableCommand[Obj statedb.TableWritable](tableName string) *cobra.Com
 
 				time.Sleep(watchInterval)
 
-				if numLinesSinceHeader > watchReprintHeaderInterval {
-					numLinesSinceHeader = 0
-					fmt.Fprintf(w, "# %s\n", strings.Join(obj.TableHeader(), "\t"))
-					w.Flush()
-				}
 			}
 
 		},
 	}
 	cmd.Flags().DurationVarP(&watchInterval, "watch", "w", time.Duration(0), "Watch for new changes with the given interval (e.g. --watch=100ms)")
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "Output format, one of: table, json or yaml")
 	return cmd
 }
 
