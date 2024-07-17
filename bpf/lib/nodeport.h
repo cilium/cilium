@@ -1496,12 +1496,6 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 		return CTX_ACT_OK;
 
 #if defined(IS_BPF_HOST) && !defined(ENABLE_SKIP_FIB)
-
-# if defined(ENABLE_IPSEC)
-	if (ctx_get_ifindex(ctx) == HOST_IFINDEX)
-		goto skip_fib_lookup;
-# endif /* ENABLE_IPSEC */
-
 	fib_params.l.family = AF_INET6;
 	fib_params.l.ifindex = ctx_get_ifindex(ctx);
 	ipv6_addr_copy((union v6addr *)fib_params.l.ipv6_src,
@@ -1512,8 +1506,6 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 	ret = nodeport_fib_lookup_and_redirect(ctx, &fib_params, ext_err);
 	if (ret != CTX_ACT_OK)
 		return ret;
-
-skip_fib_lookup: __maybe_unused;
 #endif
 
 	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
@@ -1578,16 +1570,9 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	int ret;
 
 	ret = nodeport_rev_dnat_fwd_ipv6(ctx, &snat_done, trace, ext_err);
-#if defined(IS_BPF_WIREGUARD)
-	goto out;
-#endif /* !IS_BPF_WIREGUARD */
-
-#if defined(ENABLE_IPSEC) && defined(IS_BPF_HOST)
-	if (ctx_get_ifindex(ctx) == HOST_IFINDEX)
-		goto out;
-#endif /* ENABLE_IPSEC && IS_BPF_HOST */
-
+#if !defined(IS_BPF_WIREGUARD)
 	if (ret != CTX_ACT_OK)
+#endif /* !IS_BPF_WIREGUARD */
 		return ret;
 
 #if !defined(ENABLE_DSR) ||						\
@@ -1601,7 +1586,6 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	if (is_defined(IS_BPF_HOST) && snat_done)
 		ctx_snat_done_set(ctx);
 
-out: __maybe_unused;
 	return ret;
 }
 
@@ -3102,12 +3086,6 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
 		return CTX_ACT_OK;
 
 #if defined(IS_BPF_HOST) && !defined(ENABLE_SKIP_FIB)
-
-# if defined(ENABLE_IPSEC)
-	if (ctx_get_ifindex(ctx) == HOST_IFINDEX)
-		goto skip_fib_lookup;
-# endif /* ENABLE_IPSEC */
-
 	/* Perform FIB lookup with post-RevDNAT src IP, and redirect
 	 * packet to the correct egress interface:
 	 */
@@ -3119,8 +3097,6 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
 	ret = nodeport_fib_lookup_and_redirect(ctx, &fib_params, ext_err);
 	if (ret != CTX_ACT_OK)
 		return ret;
-
-skip_fib_lookup: __maybe_unused;
 #endif
 
 	/* Cache is_fragment in advance, nodeport_fib_lookup_and_redirect may invalidate ip4. */
@@ -3213,16 +3189,9 @@ __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
 	int ret;
 
 	ret = nodeport_rev_dnat_fwd_ipv4(ctx, &snat_done, trace, ext_err);
-#if defined(IS_BPF_WIREGUARD)
-	goto out;
-#endif /* !IS_BPF_WIREGUARD */
-
-#if defined(ENABLE_IPSEC) && defined(IS_BPF_HOST)
-	if (ctx_get_ifindex(ctx) == HOST_IFINDEX)
-		goto out;
-#endif /* ENABLE_IPSEC && IS_BPF_HOST */
-
+#if !defined(IS_BPF_WIREGUARD)
 	if (ret != CTX_ACT_OK)
+#endif /* !IS_BPF_WIREGUARD */
 		return ret;
 
 #if !defined(ENABLE_DSR) ||						\
@@ -3239,7 +3208,6 @@ __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
 	if (is_defined(IS_BPF_HOST) && snat_done)
 		ctx_snat_done_set(ctx);
 
-out: __maybe_unused;
 	return ret;
 }
 
