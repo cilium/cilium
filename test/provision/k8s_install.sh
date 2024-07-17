@@ -171,6 +171,7 @@ controllerManager:
 apiServer:
   extraArgs:
     "feature-gates": "{{ .API_SERVER_FEATURE_GATES }}"
+imageRepository: "registry.k8s.io"
 EOF
 )
 
@@ -210,6 +211,10 @@ controllerManager:
 apiServer:
   extraArgs:
     "feature-gates": "{{ .API_SERVER_FEATURE_GATES }},IPv6DualStack={{ .IPV6_DUAL_STACK_FEATURE_GATE }}"
+imageRepository: "registry.k8s.io"
+dns:
+  imageRepository: "registry.k8s.io/coredns"
+  imageTag: "v1.8.0"
 EOF
 )
 
@@ -251,6 +256,9 @@ controllerManager:
 apiServer:
   extraArgs:
     "feature-gates": "{{ .API_SERVER_FEATURE_GATES }},IPv6DualStack={{ .IPV6_DUAL_STACK_FEATURE_GATE }}"
+imageRepository: "registry.k8s.io"
+dns:
+  imageRepository: "registry.k8s.io/coredns"
 ---
 kind: KubeletConfiguration
 apiVersion: kubelet.config.k8s.io/v1beta1
@@ -310,6 +318,9 @@ controllerManager:
 apiServer:
   extraArgs:
     "feature-gates": "{{ .API_SERVER_FEATURE_GATES }},IPv6DualStack={{ .IPV6_DUAL_STACK_FEATURE_GATE }}"
+imageRepository: "registry.k8s.io"
+dns:
+  imageRepository: "registry.k8s.io/coredns"
 ---
 kind: KubeletConfiguration
 apiVersion: kubelet.config.k8s.io/v1beta1
@@ -370,6 +381,9 @@ networking:
   dnsDomain: cluster.local
   podSubnet: "{{ .KUBEADM_V1BETA2_POD_CIDR }}"
   serviceSubnet: "{{ .KUBEADM_V1BETA2_SVC_CIDR }}"
+imageRepository: "registry.k8s.io"
+dns:
+  imageRepository: "registry.k8s.io/coredns"
 ---
 kind: KubeletConfiguration
 apiVersion: kubelet.config.k8s.io/v1beta1
