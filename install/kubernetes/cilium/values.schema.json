@@ -3737,6 +3737,23 @@
             "integer"
           ]
         },
+        "operator": {
+          "properties": {
+            "burst": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
+            "qps": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            }
+          },
+          "type": "object"
+        },
         "qps": {
           "type": [
             "null",

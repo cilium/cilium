@@ -1193,8 +1193,19 @@ data:
   annotate-k8s-node: "true"
 {{- end }}
 
-  k8s-client-qps: {{ .Values.k8sClientRateLimit.qps | default $defaultK8sClientQPS | quote}}
-  k8s-client-burst: {{ .Values.k8sClientRateLimit.burst | default $defaultK8sClientBurst | quote }}
+{{- with .Values.k8sClientRateLimit.qps }}
+  k8s-client-qps: {{ . | quote }}
+{{- end }}
+{{- with .Values.k8sClientRateLimit.burst }}
+  k8s-client-burst: {{ . | quote }}
+{{- end }}
+
+{{- with .Values.k8sClientRateLimit.operator.qps }}
+  operator-k8s-client-qps: {{ .| quote }}
+{{- end }}
+{{- with .Values.k8sClientRateLimit.operator.burst }}
+  operator-k8s-client-burst: {{ .| quote }}
+{{- end }}
 
 {{- if and .Values.operator.setNodeTaints (not .Values.operator.removeNodeTaints) -}}
   {{ fail "Cannot have operator.setNodeTaintsMaxNodes and not operator.removeNodeTaints = false" }}

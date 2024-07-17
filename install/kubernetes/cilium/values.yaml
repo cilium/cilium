@@ -46,25 +46,40 @@ k8sServiceHost: ""
 # @schema
 # -- (string) Kubernetes service port
 k8sServicePort: ""
-# -- Configure the client side rate limit for the agent and operator
+# -- Configure the client side rate limit for the agent
 #
 # If the amount of requests to the Kubernetes API server exceeds the configured
-# rate limit, the agent and operator will start to throttle requests by delaying
+# rate limit, the agent will start to throttle requests by delaying
 # them until there is budget or the request times out.
 k8sClientRateLimit:
   # @schema
   # type: [null, integer]
   # @schema
   # -- (int) The sustained request rate in requests per second.
-  # @default -- 5 for k8s up to 1.26. 10 for k8s version 1.27+
+  # @default -- 10
   qps:
   # @schema
   # type: [null, integer]
   # @schema
   # -- (int) The burst request rate in requests per second.
   # The rate limiter will allow short bursts with a higher rate.
-  # @default -- 10 for k8s up to 1.26. 20 for k8s version 1.27+
+  # @default -- 20
   burst:
+  # -- Configure the client side rate limit for the Cilium Operator
+  operator:
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- (int) The sustained request rate in requests per second.
+    # @default -- 100
+    qps:
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- (int) The burst request rate in requests per second.
+    # The rate limiter will allow short bursts with a higher rate.
+    # @default -- 200
+    burst:
 cluster:
   # -- Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
   # It must respect the following constraints:

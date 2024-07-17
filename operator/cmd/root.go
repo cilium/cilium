@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/bgpv2"
 	"github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
 	"github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
+	"github.com/cilium/cilium/operator/pkg/client"
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
@@ -98,11 +99,18 @@ var (
 		// Runs the gops agent, a tool to diagnose Go processes.
 		gops.Cell(defaults.GopsPortOperator),
 
-		// Provides Clientset, API for accessing Kubernetes objects.
-		k8sClient.Cell,
-
-		// Provides a ClientBuilderFunc that can be used by other cells to create a client.
-		k8sClient.ClientBuilderCell,
+		// Provides a Kubernetes client and ClientBuilderFunc that can be used by other cells to create a client.
+		client.Cell,
+		cell.ProvidePrivate(func(clientParams operatorClientParams) k8sClient.ClientParams {
+			return k8sClient.ClientParams{
+				K8sClientQPS:   clientParams.OperatorK8sClientQPS,
+				K8sClientBurst: clientParams.OperatorK8sClientBurst,
+			}
+		}),
+		cell.Config(operatorClientParams{
+			OperatorK8sClientQPS:   100.0,
+			OperatorK8sClientBurst: 200,
+		}),
 
 		// Provides the modular metrics registry, metric HTTP server and legacy metrics cell.
 		operatorMetrics.Cell,
