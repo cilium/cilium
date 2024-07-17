@@ -419,10 +419,11 @@ func (mgr *endpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.
 	result := ep.Delete(conf)
 
 	mgr.mutex.RLock()
-	for s := range mgr.subscribers {
+	subs := maps.Clone(mgr.subscribers)
+	mgr.mutex.RUnlock()
+	for s := range subs {
 		s.EndpointDeleted(ep, conf)
 	}
-	mgr.mutex.RUnlock()
 
 	return result
 }
@@ -671,10 +672,11 @@ func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 	}
 
 	mgr.mutex.RLock()
-	for s := range mgr.subscribers {
+	subs := maps.Clone(mgr.subscribers)
+	mgr.mutex.RUnlock()
+	for s := range subs {
 		s.EndpointCreated(ep)
 	}
-	mgr.mutex.RUnlock()
 
 	return nil
 }
