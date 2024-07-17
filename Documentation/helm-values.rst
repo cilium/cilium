@@ -1556,6 +1556,10 @@
      - Emit v1.Events related to pods on detection of packet drops.
      - object
      - ``{"enabled":false,"interval":"2m","reasons":["auth_required","policy_denied"]}``
+   * - :spelling:ignore:`hubble.dropEventEmitter.enabled`
+     - Enable the dropEventEmitter. (false by default).
+     - bool
+     - ``false``
    * - :spelling:ignore:`hubble.dropEventEmitter.interval`
      - - Minimum time between emitting same events.
      - string
