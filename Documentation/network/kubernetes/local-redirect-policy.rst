@@ -531,7 +531,7 @@ When a local redirect policy is applied, cilium BPF datapath redirects traffic g
 However, for traffic originating from a node-local backend pod destined to the policy frontend, users may want to
 skip redirecting the traffic back to the node-local backend pod, and instead forward the traffic to the original frontend.
 This behavior can be enabled by setting the ``skipRedirectFromBackend`` flag to ``true`` in the local redirect policy spec.
-The configuration is only supported with socket-based load-balancing, and requires ``SO_NETNS_COOKIE`` feature
+The configuration is supported with socket-based load-balancing and per packet based load-balancing, and requires ``SO_NETNS_COOKIE`` feature
 available in Linux kernel version >= 5.8.
 
 .. note::
