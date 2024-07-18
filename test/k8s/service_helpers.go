@@ -302,6 +302,17 @@ func doFragmentedRequest(kubectl *helpers.Kubectl, srcPod string, srcPort, dstPo
 	res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, cmdInK8s2)
 	countInK8s2, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
 
+	fmt.Println("pattern1:", patternInK8s1)
+	fmt.Println("pattern2:", patternInK8s2)
+
+	ctList := "cilium-dbg bpf ct list global"
+	fmt.Println("ct list k8s1 before")
+	res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, ctList)
+	fmt.Println(string(res.Stdout()))
+	fmt.Println("ct list k8s2 before")
+	res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, ctList)
+	fmt.Println(string(res.Stdout()))
+
 	// Field #7 is "Packets=<n>"
 	cmdOut := "cilium-dbg bpf ct list global | awk '/%s/ { sub(\".*=\",\"\", $7); print $7 }'"
 
@@ -349,6 +360,13 @@ func doFragmentedRequest(kubectl *helpers.Kubectl, srcPod string, srcPort, dstPo
 			delta++
 		}
 	}
+
+	fmt.Println("ct list k8s1 after")
+	res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, ctList)
+	fmt.Println(string(res.Stdout()))
+	fmt.Println("ct list k8s2 after")
+	res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, ctList)
+	fmt.Println(string(res.Stdout()))
 
 	// Check that the expected packets were processed
 	// Because of load balancing we do not know what
