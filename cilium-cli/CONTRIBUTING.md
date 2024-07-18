@@ -1,5 +1,13 @@
 # Contributing to Cilium CLI
 
+## IMPORTANT Cilium CLI is moving 🚚📦📦📦
+
+We are planning to merge Cilium CLI code into cilium/cilium repository to
+simplify the overall development process after Cilium v1.16.0 gets released.
+See [CFP-25694](https://github.com/cilium/design-cfps/pull/9) for details.
+If you have questions, post a message in
+[#development Cilium Slack channel](https://cilium.slack.com/archives/C2B917YHE).
+
 ## Contribution workflow
 
 Cilium CLI uses GitHub for collaborative development. Please use GitHub issues
