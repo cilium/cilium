@@ -282,10 +282,6 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           timeout: "150m"
 
-      - name: Wait for Cilium status to be ready
-        run: |
-          cilium status --wait --wait-duration=20m
-
       - name: Run CL2
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2
