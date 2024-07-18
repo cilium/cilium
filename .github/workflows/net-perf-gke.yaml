@@ -61,7 +61,7 @@ concurrency:
 
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: acb9a6354ca100def52894e7ed8056d9f049311a
   test_name: gke-perf
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   gcp_zone: us-east5-a
