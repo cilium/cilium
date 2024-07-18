@@ -49,7 +49,7 @@ jobs:
   install-and-scaletest:
     runs-on: ubuntu-latest-8cores-32gb-22.04
     name: Install and Scale Test
-    timeout-minutes: 360
+    timeout-minutes: 540
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
@@ -286,7 +286,7 @@ jobs:
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2
         shell: bash
-        timeout-minutes: 360
+        timeout-minutes: 420
         run: |
           mkdir ./report
           export CL2_PROMETHEUS_PVC_ENABLED=false
