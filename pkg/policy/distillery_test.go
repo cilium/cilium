@@ -1594,37 +1594,9 @@ var (
 			ToCIDR: api.CIDRSlice{worldIPCIDR},
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
-	mapKeyAnyIngress                        = key(0, 0, 0, trafficdirection.Ingress.Uint8())
-	mapKeyL4AnyPortProtoWorldIPIngress      = key(worldIPIdentity.Uint32(), 0, 0, trafficdirection.Ingress.Uint8())
-	mapKeyL4AnyPortProtoWorldIPEgress       = key(worldIPIdentity.Uint32(), 0, 0, trafficdirection.Egress.Uint8())
-	mapKeyL4Port8080ProtoTCPWorldIPIngress  = key(worldIPIdentity.Uint32(), 8080, 6, trafficdirection.Ingress.Uint8())
-	mapKeyL4Port8080ProtoTCPWorldIPEgress   = key(worldIPIdentity.Uint32(), 8080, 6, trafficdirection.Egress.Uint8())
-	mapKeyL4Port8080ProtoUDPWorldIPIngress  = key(worldIPIdentity.Uint32(), 8080, 17, trafficdirection.Ingress.Uint8())
-	mapKeyL4Port8080ProtoUDPWorldIPEgress   = key(worldIPIdentity.Uint32(), 8080, 17, trafficdirection.Egress.Uint8())
-	mapKeyL4Port8080ProtoSCTPWorldIPIngress = key(worldIPIdentity.Uint32(), 8080, 132, trafficdirection.Ingress.Uint8())
-	mapKeyL4Port8080ProtoSCTPWorldIPEgress  = key(worldIPIdentity.Uint32(), 8080, 132, trafficdirection.Egress.Uint8())
-	mapEntryL4WorldIPDependentsIngressDeny  = MapStateEntry{
-		ProxyPort:        0,
-		IsDeny:           true,
-		DerivedFromRules: labels.LabelArrayList{nil},
-		owners:           map[MapStateOwner]struct{}{},
-		dependents: Keys{
-			mapKeyL4Port8080ProtoTCPWorldIPIngress:  struct{}{},
-			mapKeyL4Port8080ProtoUDPWorldIPIngress:  struct{}{},
-			mapKeyL4Port8080ProtoSCTPWorldIPIngress: struct{}{},
-		},
-	}
-	mapEntryL4WorldIPDependentsEgressDeny = MapStateEntry{
-		ProxyPort:        0,
-		IsDeny:           true,
-		DerivedFromRules: labels.LabelArrayList{nil},
-		owners:           map[MapStateOwner]struct{}{},
-		dependents: Keys{
-			mapKeyL4Port8080ProtoTCPWorldIPEgress:  struct{}{},
-			mapKeyL4Port8080ProtoUDPWorldIPEgress:  struct{}{},
-			mapKeyL4Port8080ProtoSCTPWorldIPEgress: struct{}{},
-		},
-	}
+	mapKeyAnyIngress                   = key(0, 0, 0, trafficdirection.Ingress.Uint8())
+	mapKeyL4AnyPortProtoWorldIPIngress = key(worldIPIdentity.Uint32(), 0, 0, trafficdirection.Ingress.Uint8())
+	mapKeyL4AnyPortProtoWorldIPEgress  = key(worldIPIdentity.Uint32(), 0, 0, trafficdirection.Egress.Uint8())
 
 	ruleL3AllowWorldSubnetNamedPort = api.NewRule().WithIngressRules([]api.IngressRule{{
 		ToPorts: api.PortRules{
@@ -1761,14 +1733,8 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyL3L4Port8080ProtoUDPWorldSNEgress:   mapEntryAllow,
 			mapKeyL3L4Port8080ProtoSCTPWorldSNIngress: mapEntryAllow,
 			mapKeyL3L4Port8080ProtoSCTPWorldSNEgress:  mapEntryAllow,
-			mapKeyL4AnyPortProtoWorldIPIngress:        mapEntryL4WorldIPDependentsIngressDeny,
-			mapKeyL4AnyPortProtoWorldIPEgress:         mapEntryL4WorldIPDependentsEgressDeny,
-			mapKeyL4Port8080ProtoTCPWorldIPIngress:    mapEntryDeny,
-			mapKeyL4Port8080ProtoTCPWorldIPEgress:     mapEntryDeny,
-			mapKeyL4Port8080ProtoUDPWorldIPIngress:    mapEntryDeny,
-			mapKeyL4Port8080ProtoUDPWorldIPEgress:     mapEntryDeny,
-			mapKeyL4Port8080ProtoSCTPWorldIPIngress:   mapEntryDeny,
-			mapKeyL4Port8080ProtoSCTPWorldIPEgress:    mapEntryDeny,
+			mapKeyL4AnyPortProtoWorldIPIngress:        mapEntryDeny,
+			mapKeyL4AnyPortProtoWorldIPEgress:         mapEntryDeny,
 		})}, {"named_port_world_subnet", api.Rules{ruleAllowAllIngress, ruleL3AllowWorldSubnetNamedPort}, testMapState(map[Key]MapStateEntry{
 			mapKeyAnyIngress: mapEntryAllow,
 			mapKeyL3L4NamedPortHTTPProtoTCPWorldSubNetIngress: mapEntryAllow,
