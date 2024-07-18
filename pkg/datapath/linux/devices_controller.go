@@ -372,6 +372,7 @@ func (dc *devicesController) processUpdates(
 			if !ok {
 				linkUpdates = nil
 			} else {
+				fmt.Printf("[tom-debug] [device] name=%s index=%d msg_type=%x\n", l.Attrs().Name, l.Index, l.Header.Type)
 				appendUpdate(int(l.Index), l)
 			}
 
