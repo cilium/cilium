@@ -101,73 +101,31 @@ jobs:
             name: "native"
             mode: "gke"
             encryption: "none"
-            hubble: "false"
 
           - index: 2
             name: "tunnel"
             mode: "tunnel"
             encryption: "none"
-            hubble: "false"
 
           - index: 3
             name: "native-ipsec"
             mode: "gke"
             encryption: "ipsec"
-            hubble: "false"
 
           - index: 4
             name: "tunnel-ipsec"
             mode: "tunnel"
             encryption: "ipsec"
-            hubble: "false"
 
           - index: 5
             name: "native-wireguard"
             mode: "gke"
             encryption: "wireguard"
-            hubble: "false"
 
           - index: 6
             name: "tunnel-wireguard"
             mode: "tunnel"
             encryption: "wireguard"
-            hubble: "false"
-
-          - index: 7
-            name: "native-hubble"
-            mode: "gke"
-            encryption: "none"
-            hubble: "true"
-
-          - index: 8
-            name: "tunnel-hubble"
-            mode: "tunnel"
-            encryption: "none"
-            hubble: "true"
-
-          - index: 9
-            name: "native-ipsec-hubble"
-            mode: "gke"
-            encryption: "ipsec"
-            hubble: "true"
-
-          - index: 10
-            name: "tunnel-ipsec-hubble"
-            mode: "tunnel"
-            encryption: "ipsec"
-            hubble: "true"
-
-          - index: 11
-            name: "native-wireguard-hubble"
-            mode: "gke"
-            encryption: "wireguard"
-            hubble: "true"
-
-          - index: 12
-            name: "tunnel-wireguard-hubble"
-            mode: "tunnel"
-            encryption: "wireguard"
-            hubble: "true"
 
     steps:
       - name: Collect Workflow Telemetry
@@ -201,7 +159,7 @@ jobs:
             --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
             --helm-set=debug.enabled=false \
             --helm-set=bpf.monitorAggregation=maximum \
-            --helm-set=hubble.enabled=${{ matrix.hubble == 'true' }} \
+            --helm-set=hubble.enabled=true \
             --wait=false"
 
           # only add SHA to the image tags if it was set
