@@ -1274,26 +1274,32 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			return true
 		})
 
-		ms.allows.ForEachNarrowerKeyWithBroaderID(newKey, prefixes, func(k Key, v MapStateEntry) bool {
-			if ms.validator != nil {
-				ms.validator.isBroader(newKey, k)
-				ms.validator.isSupersetOf(k, newKey, identities)
-			}
+		// Only a non-wildcard key can have a wildcard superset key
+		if newKey.Identity != 0 {
+			ms.allows.ForEachNarrowerKeyWithBroaderID(newKey, prefixes, func(k Key, v MapStateEntry) bool {
+				if ms.validator != nil {
+					ms.validator.isBroader(newKey, k)
+					ms.validator.isSupersetOf(k, newKey, identities)
+				}
 
-			// If this iterated-allow-entry is a superset of the new-entry
-			// and it has a more specific port-protocol than the new-entry
-			// then an additional copy of the new deny entry with the more
-			// specific port-protocol of the iterated-allow-entry must be inserted.
-			newKeyCpy := k
-			newKeyCpy.Identity = newKey.Identity
-			l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
-			updates = append(updates, MapChange{
-				Add:   true,
-				Key:   newKeyCpy,
-				Value: l3l4DenyEntry,
+				// If this iterated-allow-entry is a wildcard superset of the new-entry
+				// and it has a more specific port-protocol than the new-entry
+				// then an additional copy of the new deny entry with the more
+				// specific port-protocol of the iterated-allow-entry must be inserted.
+				if k.Identity != 0 {
+					return true // skip non-wildcard
+				}
+				newKeyCpy := k
+				newKeyCpy.Identity = newKey.Identity
+				l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
+				updates = append(updates, MapChange{
+					Add:   true,
+					Key:   newKeyCpy,
+					Value: l3l4DenyEntry,
+				})
+				return true
 			})
-			return true
-		})
+		}
 
 		ms.allows.ForEachNarrowerOrEqualKey(newKey, prefixes, func(k Key, v MapStateEntry) bool {
 			if ms.validator != nil {
@@ -1422,33 +1428,35 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			return true
 		})
 
-		ms.denies.ForEachBroaderKeyWithNarrowerID(newKey, prefixes, func(k Key, v MapStateEntry) bool {
-			if ms.validator != nil {
-				ms.validator.isBroader(k, newKey)
-				ms.validator.isSupersetOf(newKey, k, identities)
-			}
-			// If the new-entry is *only* superset of the iterated-deny-entry
-			// and the new-entry has a more specific port-protocol than the
-			// iterated-deny-entry then an additional copy of the iterated-deny-entry
-			// with the more specific port-porotocol of the new-entry must
-			// be added.
-			denyKeyCpy := newKey
-			denyKeyCpy.Identity = k.Identity
-			l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
-			updates = append(updates, MapChange{
-				Add:   true,
-				Key:   denyKeyCpy,
-				Value: l3l4DenyEntry,
+		if newKey.Identity == 0 {
+			ms.denies.ForEachBroaderKeyWithNarrowerID(newKey, prefixes, func(k Key, v MapStateEntry) bool {
+				if ms.validator != nil {
+					ms.validator.isBroader(k, newKey)
+					ms.validator.isSupersetOf(newKey, k, identities)
+				}
+				// If the new-entry is a wildcard superset of the iterated-deny-entry
+				// and the new-entry has a more specific port-protocol than the
+				// iterated-deny-entry then an additional copy of the iterated-deny-entry
+				// with the more specific port-porotocol of the new-entry must
+				// be added.
+				denyKeyCpy := newKey
+				denyKeyCpy.Identity = k.Identity
+				l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
+				updates = append(updates, MapChange{
+					Add:   true,
+					Key:   denyKeyCpy,
+					Value: l3l4DenyEntry,
+				})
+				// L3-only entries can be deleted incrementally so we need to track their
+				// effects on other entries so that those effects can be reverted when the
+				// identity is removed.
+				dependents = append(dependents, MapChange{
+					Key:   k,
+					Value: v,
+				})
+				return true
 			})
-			// L3-only entries can be deleted incrementally so we need to track their
-			// effects on other entries so that those effects can be reverted when the
-			// identity is removed.
-			dependents = append(dependents, MapChange{
-				Key:   k,
-				Value: v,
-			})
-			return true
-		})
+		}
 
 		for i, update := range updates {
 			if update.Add {
