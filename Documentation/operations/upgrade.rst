@@ -270,34 +270,21 @@ Cilium to the state it was in prior to the upgrade.
 Version Specific Notes
 ======================
 
-This section documents the specific steps required for upgrading from one
-version of Cilium to another version of Cilium. There are particular version
-transitions which are suggested by the Cilium developers to avoid known issues
-during upgrade, then subsequently there are sections for specific upgrade
-transitions, ordered by version.
+This section details the upgrade notes specific to |CURRENT_RELEASE|. Read them
+carefully and take the suggested actions before upgrading Cilium to |CURRENT_RELEASE|.
+For upgrades to earlier releases, see the
+:prev-docs:`upgrade notes to the previous version <operations/upgrade/#upgrade-notes>`.
 
-The table below lists suggested upgrade transitions, from a specified current
-version running in a cluster to a specified target version. If a specific
-combination is not listed in the table below, then it may not be safe. In that
-case, consider performing incremental upgrades between versions (e.g. upgrade
-from ``1.12.x`` to ``1.13.y`` first, and to ``1.14.z`` only afterwards).
+The only tested upgrade and rollback path is between consecutive minor releases.
+Always perform upgrades and rollbacks between one minor release at a time.
+Additionally, always update to the latest patch release of your current version
+before attempting an upgrade.
 
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| Current version       | Target version        | L3/L4 impact            | L7 impact                 |
-+=======================+=======================+=========================+===========================+
-| ``1.13.x``            | ``1.14.y``            | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.12.x``            | ``1.13.y``            | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.11.x``            | ``1.12.y``            | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-
-Annotations:
-
-#. **Clients must reconnect**: Any traffic flowing via a proxy (for example,
-   because an L7 policy is in place) will be disrupted during upgrade.
-   Endpoints communicating via the proxy must reconnect to re-establish
-   connections.
+Tested upgrades are expected to have minimal to no impact on new and existing
+connections matched by either no Network Policies, or L3/L4 Network Policies only.
+Any traffic flowing via user space proxies (for example, because an L7 policy is
+in place, or using Ingress/Gateway API) will be disrupted during upgrade. Endpoints
+communicating via the proxy must reconnect to re-establish connections.
 
 .. _current_release_required_changes:
 
@@ -490,14 +477,6 @@ use Cilium CLI in Helm mode to manage classic mode installations, and vice versa
 To migrate a classic mode Cilium installation to Helm mode, you need to
 uninstall Cilium using classic mode Cilium CLI, and then re-install Cilium
 using Helm mode Cilium CLI.
-
-.. _earlier_upgrade_notes:
-
-Earlier Upgrade Notes
----------------------
-
-For upgrades from earlier releases, see the
-:prev-docs:`upgrade notes from the previous version <operations/upgrade/#upgrade-notes>`.
 
 Advanced
 ========
