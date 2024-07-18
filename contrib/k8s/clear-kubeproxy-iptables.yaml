@@ -1,0 +1,46 @@
+# clear-kubeproxy-iptables.yaml: Remove iptables rules installed
+# by kube-proxy from all nodes in a cluster. Removing iptables rules
+# installed by kube-proxy may be required as part of installing Cilium
+# with KubeProxyReplacement enabled. This DaemonSet deploys a Pod on
+# each node which runs within the Node's namespace and removes iptables rules
+# installed by kube-proxy. The Pod will enter into a Ready state and go
+# idle after the rules have been removed. To use:
+# 1. Deploy to a cluster:
+#    kubectl apply -f ./clear-kubeproxy-iptables.yaml
+# 2. Wait for all Pods in the DaemonSet to be ready:
+#    kubectl rollout status --watch -n kube-system ds/clear-kubeproxy-iptables
+# 3. Delete the DaemonSet:
+#    kubectl delete -n kube-system ds/clear-kubeproxy-iptables
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: clear-kubeproxy-iptables
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: clear-kubeproxy-iptables
+  template:
+    metadata:
+      labels:
+        name: clear-kubeproxy-iptables
+    spec:
+      hostNetwork: true
+      containers:
+      - name: script-runner
+        image: nicolaka/netshoot:latest
+        imagePullPolicy: Always
+        securityContext:
+          privileged: true
+        command:
+        - /bin/bash
+        - -c
+        - "iptables save | grep -V KUBE | iptables-restore && touch /readyz && sleep infinity"
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - /readyz
+          initialDelaySeconds: 1
+          periodSeconds: 5
+
