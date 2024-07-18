@@ -93,7 +93,9 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 				}
 
 				for _, test := range tests {
-					action := t.NewAction(s, netperfToolName, &c, server, features.IPFamilyV4)
+					testName := netperfToolName + "_" + test + "_" + scenarioName
+					action := t.NewAction(s, testName, &c, server, features.IPFamilyV4)
+
 					action.CollectFlows = false
 					action.Run(func(a *check.Action) {
 						k := common.PerfTests{
