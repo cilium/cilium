@@ -187,10 +187,10 @@ jobs:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           control_plane_size: n2-standard-64
           control_plane_count: 5
-          control_plane_volume_size: 64
+          control_plane_volume_size: 1000
           node_size: e2-medium
           node_count: 1000
-          node_volume_size: 50
+          node_volume_size: 30
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           kube_proxy_enabled: false
@@ -203,6 +203,7 @@ jobs:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           node_size: e2-medium
           node_count: 1000
+          node_volume_size: 30
           ig_name: ig2
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
@@ -213,6 +214,7 @@ jobs:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           node_size: e2-medium
           node_count: 1000
+          node_volume_size: 30
           ig_name: ig3
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
@@ -223,6 +225,7 @@ jobs:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           node_size: e2-medium
           node_count: 1000
+          node_volume_size: 30
           ig_name: ig4
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
@@ -233,6 +236,7 @@ jobs:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           node_size: e2-medium
           node_count: 1000
+          node_volume_size: 30
           ig_name: ig5
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
