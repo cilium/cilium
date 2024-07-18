@@ -111,18 +111,18 @@ func (d *deviceReloader) reload(ctx context.Context) error {
 		return nil
 	}
 
-	daemon, err := d.params.Daemon.Await(ctx)
+	_, err := d.params.Daemon.Await(ctx)
 	if err != nil {
 		return err
 	}
 
 	// Reload the datapath.
-	wg, err := daemon.TriggerReload("devices changed")
+	/*wg, err := daemon.TriggerReload("devices changed")
 	if err != nil {
 		log.WithError(err).Warn("Failed to reload datapath")
 	} else {
 		wg.Wait()
-	}
+	}*/
 	d.prevDevices = devices
 	return nil
 }
