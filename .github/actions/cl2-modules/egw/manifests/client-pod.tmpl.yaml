@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{.Name}}
+  labels:
+    app.kubernetes.io/name: egw-client
+    scaffolding.cilium.io/egw-client-is-bootstrap: "{{.ClientIsBootstrap}}"
+spec:
+  nodeSelector:
+    role.scaffolding/egw-client: "true"
+  containers:
+  - name: egw-client
+    image: quay.io/cilium/egw-scale-utils:${EGW_IMAGE_TAG}
+    imagePullPolicy: IfNotPresent
+    args:
+      - "client"
+      - "--external-target-addr=${EGW_EXTERNAL_TARGET_ADDR}:1337"
+      - "--test-timeout={{.ClientConnectTimeout}}"
+    ports:
+    - name: prometheus
+      containerPort: 2112
+    env:
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    readinessProbe:
+      httpGet:
+        path: "/readyz"
+        port: 2112
+      initialDelaySeconds: 5
+      periodSeconds: 1
