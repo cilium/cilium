@@ -5,11 +5,14 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"github.com/vishvananda/netlink"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/option"
@@ -76,10 +79,12 @@ func (d *deviceReloader) Stop(ctx cell.HookContext) error {
 func (d *deviceReloader) queryDevices(rxn statedb.ReadTxn) []string {
 	var nativeDevices []*tables.Device
 	nativeDevices, d.devsChanged = tables.SelectedDevices(d.params.Devices, rxn)
+	fmt.Println("[tom-debug] queryDevices: ", tables.DeviceNames(nativeDevices))
 	return tables.DeviceNames(nativeDevices)
 }
 
 func (d *deviceReloader) reload(ctx context.Context) error {
+	fmt.Println("[tom-debug] device reloader reload --->")
 	var addrsChanged bool
 	select {
 	case <-d.addrsChanged:
@@ -106,23 +111,59 @@ func (d *deviceReloader) reload(ctx context.Context) error {
 	}
 	devices := d.queryDevices(rxn)
 
+	prev := sets.New[string](d.prevDevices...)
+	curr := sets.New[string](devices...)
+
+	for added := range curr.Difference(prev) {
+		fmt.Println("[tom-debug] device reloader detected added:", added)
+	}
+	for missing := range prev.Difference(curr) {
+		fmt.Println("[tom-debug] device reloader detected missing:", missing)
+	}
 	// Don't do any work if we don't need to.
 	if slices.Equal(d.prevDevices, devices) && !addrsChanged {
 		return nil
 	}
 
-	_, err := d.params.Daemon.Await(ctx)
+	DumpLinks("pre daemon await")
+
+	daemon, err := d.params.Daemon.Await(ctx)
 	if err != nil {
 		return err
 	}
 
+	DumpLinks("trigger reload")
 	// Reload the datapath.
-	/*wg, err := daemon.TriggerReload("devices changed")
+	wg, err := daemon.TriggerReload("devices changed")
 	if err != nil {
 		log.WithError(err).Warn("Failed to reload datapath")
 	} else {
 		wg.Wait()
-	}*/
+	}
+
+	DumpLinks("post-reload")
 	d.prevDevices = devices
+	fmt.Println("[tom-debug] setting prevDevices to: ", d.prevDevices)
 	return nil
+}
+
+func DumpLinks(tag string) {
+	tag += " [device-reloader]"
+	fmt.Println(tag, "[tom-debug] #### tracing endpoint links ####")
+	links, err := netlink.LinkList()
+	if err != nil {
+		fmt.Println(tag, "[tom-debug] error listing links:", err)
+		return
+	}
+	found := false
+	for _, link := range links {
+		if link.Attrs().Name == "lxc_health" {
+			fmt.Println(tag, "[tom-debug] link:", link.Attrs().Name, link.Attrs().Index)
+			found = true
+		}
+	}
+	if !found {
+		fmt.Println("[tom-debug] Link not found here!!!! #######################")
+	}
+	fmt.Println(tag, "[tom-debug] #### trace done ####")
 }
