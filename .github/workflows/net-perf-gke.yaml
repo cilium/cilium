@@ -157,9 +157,6 @@ jobs:
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --helm-set=cluster.name=${{ env.clusterName }}-${{ matrix.index }} \
             --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
-            --helm-set=debug.enabled=false \
-            --helm-set=bpf.monitorAggregation=maximum \
-            --helm-set=hubble.enabled=true \
             --wait=false"
 
           # only add SHA to the image tags if it was set
