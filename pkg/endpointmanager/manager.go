@@ -548,10 +548,15 @@ func (mgr *endpointManager) RegenerateAllEndpoints(regenMetadata *regeneration.E
 	reason := regenMetadata.Reason
 	log.WithFields(logrus.Fields{"reason": reason}).Info("regenerating all endpoints")
 	for _, ep := range eps {
+		ep.DumpLinks("pre-regen-all")
 		go func(ep *endpoint.Endpoint) {
+			fmt.Println("[tom-debug] regenerating endpoint: ", ep.ID, ep.GetState())
 			<-ep.RegenerateIfAlive(regenMetadata)
 			wg.Done()
 		}(ep)
+	}
+	for _, ep := range eps {
+		ep.DumpLinks("post-regen-all")
 	}
 
 	return &wg

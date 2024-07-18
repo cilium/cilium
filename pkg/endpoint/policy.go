@@ -406,15 +406,12 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 		return err
 	}
 
-	e.DumpLinks("regen [2]")
-
 	// When building the initial drop policy in waiting-for-identity state
 	// the state remains unchanged
 	//
 	// GH-5350: Remove this special case to require checking for StateWaitingForIdentity
 	if e.getState() != StateWaitingForIdentity &&
 		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+ctx.Reason) {
-		e.DumpLinks("waiting for identity")
 		if debugLogsEnabled {
 			e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		}
@@ -455,7 +452,6 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 		stats.prepareBuild.End(false)
 		return fmt.Errorf("Failed to create endpoint directory: %w", err)
 	}
-	e.DumpLinks("setup dirs done")
 
 	stats.prepareBuild.End(true)
 
@@ -483,7 +479,10 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 		e.unlock()
 	}()
 
+	e.DumpLinks("setup dirs done")
+	// fails here
 	revision, err = e.regenerateBPF(ctx)
+	e.DumpLinks("post-regen-bpf")
 
 	// Write full verifier log to the endpoint directory.
 	var ve *ebpf.VerifierError
@@ -514,6 +513,7 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 		return err
 	}
 
+	// Never gets here
 	e.DumpLinks("about to realize")
 	return e.updateRealizedState(stats, origDir, revision)
 }

@@ -533,6 +533,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	stats.waitingForLock.End(true)
 	defer e.owner.GetCompilationLock().RUnlock()
 
+	e.DumpLinks("pre-proxy updates")
 	datapathRegenCtxt.prepareForProxyUpdates(regenContext.parentContext)
 	defer datapathRegenCtxt.completionCancel()
 
@@ -541,6 +542,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	// IPCache. Therefore, we obtain the DNSRules outside the critical section.
 	rules := e.owner.GetDNSRules(e.ID)
 	err = e.runPreCompilationSteps(regenContext, rules)
+	e.DumpLinks("run comp steps")
 
 	// Keep track of the side-effects of the regeneration that need to be
 	// reverted in case of failure.
@@ -557,6 +559,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	if err != nil {
 		return 0, err
 	}
+	e.DumpLinks("regen-bpf [2]")
 
 	// No need to compile BPF in dry mode. Also, in lb-only mode we do not
 	// support local Pods on the worker node, hence endpoint BPF regeneration
@@ -582,12 +585,15 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 
 		return e.nextPolicyRevision, nil
 	}
+	e.DumpLinks("before ctc clean")
 
 	// Wait for connection tracking cleaning to complete
 	stats.waitingForCTClean.Start()
 	<-datapathRegenCtxt.ctCleaned
 	stats.waitingForCTClean.End(true)
 
+	// err is here
+	e.DumpLinks("before realizeBPFState")
 	err = e.realizeBPFState(regenContext)
 	if err != nil {
 		return datapathRegenCtxt.epInfoCache.revision, err
