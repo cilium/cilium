@@ -162,6 +162,20 @@ func (o *objectCache) build(ctx context.Context, nodeCfg *datapath.LocalNodeConf
 func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.LocalNodeConfiguration, cfg datapath.EndpointConfiguration, dir *directoryInfo, stats *metrics.SpanStat) (spec *ebpf.CollectionSpec, hash string, err error) {
 	cfg = wrap(cfg)
 
+	// copySpec works around a bug in cilium/ebpf.
+	//
+	// See https://github.com/cilium/ebpf/issues/1517.
+	copySpec := func(s *ebpf.CollectionSpec) *ebpf.CollectionSpec {
+		s = s.Copy()
+		for _, m := range s.Maps {
+			if m.Extra != nil {
+				cpy := *m.Extra
+				m.Extra = &cpy
+			}
+		}
+		return s
+	}
+
 	hash, err = o.baseHash.hashTemplate(o, nodeCfg, cfg)
 	if err != nil {
 		return nil, "", err
@@ -183,7 +197,7 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 	defer obj.Unlock()
 
 	if obj.spec != nil {
-		return obj.spec.Copy(), hash, nil
+		return copySpec(obj.spec), hash, nil
 	}
 
 	if stats == nil {
@@ -203,5 +217,5 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, nodeCfg *datapath.Loca
 		return nil, "", fmt.Errorf("load eBPF ELF %s: %w", path, err)
 	}
 
-	return obj.spec.Copy(), hash, nil
+	return copySpec(obj.spec), hash, nil
 }
