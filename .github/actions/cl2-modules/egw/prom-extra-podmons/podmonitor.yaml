@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: egw-client
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: egw-client
+      scaffolding.cilium.io/egw-client-is-bootstrap: "false"
+  namespaceSelector:
+    any: true
+  podMetricsEndpoints:
+  - port: prometheus
+    interval: 5s
