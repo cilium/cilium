@@ -57,6 +57,7 @@ func (mgr *endpointManager) markEndpoints() []uint16 {
 // sweepEndpoints iterates through the specified list of endpoints marked for
 // deletion and attempts to garbage-collect them if they still exist.
 func (mgr *endpointManager) sweepEndpoints(markedEndpoints []uint16) {
+	return
 	toSweep := make([]*endpoint.Endpoint, 0, len(markedEndpoints))
 
 	// 'markedEndpoints' were marked during the previous mark round, so

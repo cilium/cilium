@@ -362,6 +362,7 @@ func (e *Endpoint) Start(id uint16) {
 	})
 
 	// Start goroutines that are responsible for handling events.
+	// This is a no op when it stops
 	e.startRegenerationFailureHandler()
 	if e.eventQueue == nil {
 		e.InitEventQueue()
@@ -376,6 +377,7 @@ func (e *Endpoint) Start(id uint16) {
 // goroutines managed by this endpoint, but without removing BPF maps and
 // datapath state (for instance, because the daemon is shutting down but the
 // endpoint should remain operational while the daemon is not running).
+// foo
 func (e *Endpoint) Stop() {
 	// Since the endpoint is being deleted, we no longer need to run events
 	// in its event queue. This is a no-op if the queue has already been

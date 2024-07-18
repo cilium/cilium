@@ -82,8 +82,14 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 				// successfully pinged it since successfulPingTimeout, restart the health EP.
 				if client == nil || time.Since(lastSuccessfulPing) > successfulPingTimeout {
 					var launchErr error
+					// This is what's removing!!!?!?
+					fmt.Println("[tom-debug] 			removing health endpoint ===>", client, time.Since(lastSuccessfulPing) > successfulPingTimeout, lastSuccessfulPing)
+					// I think for whatever reason, in this env, the endpoit is queued up for regen right now, once this has started stopping
+					// the endpoint context doesn't work.
+
 					d.cleanupHealthEndpoint()
 
+					// This is async.
 					client, launchErr = health.LaunchAsEndpoint(
 						ctx,
 						d,

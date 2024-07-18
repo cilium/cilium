@@ -475,11 +475,11 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 					}
 				}
 			case netlink.LinkUpdate:
-				if u.Header.Type == unix.RTM_DELLINK {
+				if u.Header.Type == unix.RTM_DELLINK { // 0x11
 					// Mark for deletion.
 					dc.deadLinkIndexes.Insert(d.Index)
 					deviceDeleted = true
-				} else {
+				} else { // 0x10 RTM_BASE
 					dc.deadLinkIndexes.Delete(d.Index)
 					deviceDeleted = false
 					populateFromLink(d, u.Link)

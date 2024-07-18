@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -159,6 +160,7 @@ func (d *Daemon) processQueuedDeleteEntryLocked(file string) error {
 		return nil
 	}
 
+	fmt.Println("[tom-debug] delete from queue:", file, req.ContainerID)
 	// As with DeleteEndpoint, errors are logged elsewhere
 	_, _ = d.deleteEndpointByContainerID(req.ContainerID)
 

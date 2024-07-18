@@ -773,6 +773,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 // Specific users such as the cilium-health EP may choose not to release the IP
 // when deleting the endpoint. Most users should pass true for releaseIP.
 func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
+	fmt.Println("[tom-debug] delete ep quiet", ep.ID)
 	return d.endpointManager.RemoveEndpoint(ep, conf)
 }
 
@@ -802,6 +803,7 @@ func (d *Daemon) DeleteEndpoint(id string) (int, error) {
 				logfields.K8sNamespace: ep.GetK8sNamespace(),
 			}).Info(msg)
 		}
+		fmt.Println("[tom-debug] delete ep req:", ep.ID)
 		return d.deleteEndpoint(ep), nil
 	}
 }
@@ -831,6 +833,7 @@ func (d *Daemon) deleteEndpointByContainerID(containerID string) (nErrors int, e
 		}
 
 		scopedLog.Info("Delete endpoint by containerID request")
+		fmt.Println("[tom-debug] delete by container ID:", ep.ID)
 		nErrors += d.deleteEndpoint(ep)
 	}
 
@@ -879,6 +882,7 @@ func (d *Daemon) EndpointRestored(ep *endpoint.Endpoint) {
 
 func deleteEndpointIDHandler(d *Daemon, params DeleteEndpointIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /endpoint/{id} request")
+	fmt.Println("[tom-debug] http delete request for:", params.ID)
 
 	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointDelete)
 	if err != nil {

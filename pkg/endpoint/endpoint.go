@@ -563,6 +563,7 @@ func NewTestEndpointWithState(_ testing.TB, owner regeneration.Owner, policyGett
 
 func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, ifName string) *Endpoint {
 	ep := &Endpoint{
+		kkjjjj
 		owner:            owner,
 		policyGetter:     policyGetter,
 		namedPortsGetter: namedPortsGetter,
@@ -590,6 +591,9 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 	ep.initDNSHistoryTrigger()
 
 	ctx, cancel := context.WithCancel(context.Background())
+	cancel = func() {
+		fmt.Println("[tom-debug] cancel handler:", ID)
+	}
 	ep.aliveCancel = cancel
 	ep.aliveCtx = ctx
 
@@ -2472,6 +2476,7 @@ func (e *Endpoint) SyncEndpointHeaderFile() {
 func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	errs := []error{}
 
+	fmt.Println("[tom-debug] stop endpoint due to delete", e.ID)
 	e.Stop()
 
 	// Lock out any other writers to the endpoint.  In case multiple delete

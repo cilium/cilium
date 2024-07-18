@@ -479,6 +479,7 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 		e.unlock()
 	}()
 
+	// With health, still exists here.
 	e.DumpLinks("setup dirs done")
 	// fails here
 	revision, err = e.regenerateBPF(ctx)

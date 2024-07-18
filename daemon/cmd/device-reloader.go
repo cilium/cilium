@@ -116,9 +116,15 @@ func (d *deviceReloader) reload(ctx context.Context) error {
 
 	for added := range curr.Difference(prev) {
 		fmt.Println("[tom-debug] device reloader detected added:", added)
+		if added == "lxc_health" {
+			return nil
+		}
 	}
 	for missing := range prev.Difference(curr) {
 		fmt.Println("[tom-debug] device reloader detected missing:", missing)
+		if missing == "lxc_health" {
+			return nil
+		}
 	}
 	// Don't do any work if we don't need to.
 	if slices.Equal(d.prevDevices, devices) && !addrsChanged {
@@ -130,6 +136,16 @@ func (d *deviceReloader) reload(ctx context.Context) error {
 	daemon, err := d.params.Daemon.Await(ctx)
 	if err != nil {
 		return err
+	}
+
+	adds := prev.Difference(curr)
+	if len(adds) == 1 {
+		for added := range adds {
+			if added == "lxc_health" {
+				fmt.Println("[tom-debug] device reloader detected lxc_health missing, skipping reload")
+				return nil
+			}
+		}
 	}
 
 	DumpLinks("trigger reload")
