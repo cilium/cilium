@@ -156,22 +156,21 @@ jobs:
             # ingress-controller: 'true'
             bgp-control-plane: 'true'
 
-#          Disable until https://github.com/cilium/cilium/issues/32689
-#          is resolved.
-#          - name: '7'
-#            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-#            kernel: 'bpf-next-20240711.013133'
-#            kube-proxy: 'none'
-#            kpr: 'true'
-#            devices: '{eth0,eth1}'
-#            secondary-network: 'true'
-#            tunnel: 'disabled'
-#            lb-mode: 'snat'
-#            egress-gateway: 'true'
-#            lb-acceleration: 'testing-only'
-#            # Disable until https://github.com/cilium/cilium/issues/30717
-#            # has been resolved.
-#            # ingress-controller: 'true'
+          - name: '7'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-next-20240711.013133'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'disabled'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
+            lb-acceleration: 'testing-only'
+            # Disable until https://github.com/cilium/cilium/issues/30717
+            # has been resolved.
+            # ingress-controller: 'true'
+          #
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -527,6 +526,7 @@ jobs:
             --include-conn-disrupt-test \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --flush-ct \
+            --test check-log-errors \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
@@ -567,6 +567,7 @@ jobs:
             --include-conn-disrupt-test \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --flush-ct \
+            --test check-log-errors \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
