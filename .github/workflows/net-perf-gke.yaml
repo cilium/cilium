@@ -61,7 +61,7 @@ concurrency:
 
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
-  cilium_cli_ci_version: acb9a6354ca100def52894e7ed8056d9f049311a
+  cilium_cli_ci_version: e8434104dd628c6e1cc7ad0b1292116383d0e993
   test_name: gke-perf
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   gcp_zone: us-east5-a
@@ -179,11 +179,18 @@ jobs:
 
           CILIUM_INSTALL_DEFAULTS+=" --datapath-mode=${{ matrix.mode }}"
 
+          if [ "${{ matrix.encryption }}" = "none" ] ; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=kubeProxyReplacement=true --helm-set=bpf.masquerade=true"
+          fi
+
           if [ "${{ matrix.encryption }}" = "ipsec" ] ; then
+            # IPSec doesn't work with kube-proxy replacement
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=bpf.masquerade=true"
             CILIUM_INSTALL_DEFAULTS+=" --helm-set=encryption.enabled=true --helm-set=encryption.type=ipsec"
           fi
 
           if [ "${{ matrix.encryption }}" = "wireguard" ] ; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=kubeProxyReplacement=true --helm-set=bpf.masquerade=true"
             CILIUM_INSTALL_DEFAULTS+=" --helm-set=encryption.enabled=true --helm-set=encryption.type=wireguard"
           fi
 
@@ -270,7 +277,7 @@ jobs:
         id: run-perf
         run: |
           mkdir output
-          cilium connectivity perf --duration=30s --host-net=true --pod-net=true --report-dir=./output
+          cilium connectivity perf --report-dir=./output
           sudo chmod -R +r ./output
 
       - name: Get sysdump
