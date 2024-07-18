@@ -21,6 +21,7 @@ const (
 	ciliumConfigMapName                = defaults.ConfigMapName
 	ciliumEtcdSecretsSecretName        = "cilium-etcd-secrets"
 	ciliumOperatorDeploymentName       = defaults.OperatorDeploymentName
+	ciliumOperatorContainerName        = defaults.OperatorContainerName
 	ciliumSPIREServerStatefulSetName   = defaults.SPIREServerStatefulSetName
 	ciliumSPIREAgentDaemonSetName      = defaults.SPIREAgentDaemonSetName
 	ciliumSPIREServerConfigMapName     = defaults.SPIREServerConfigMapName
