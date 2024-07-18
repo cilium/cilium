@@ -33,8 +33,8 @@ var defaultOptions = options{
 		},
 	},
 	backoff: &backoff.Exponential{
-		Min:    10 * time.Second,
-		Max:    90 * time.Minute,
+		Min:    time.Second,
+		Max:    time.Minute,
 		Factor: 2.0,
 	},
 	connCheckInterval:  2 * time.Minute,
