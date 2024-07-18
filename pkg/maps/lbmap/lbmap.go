@@ -221,8 +221,11 @@ func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev
 
 	for slot := 0; slot <= backendCount; slot++ {
 		svcKey.SetBackendSlot(slot)
-		if err := svcKey.MapDelete(); err != nil {
-			return fmt.Errorf("Unable to delete service entry %+v: %w", svcKey, err)
+		if err := deleteServiceLocked(svcKey); err != nil {
+			log.WithFields(logrus.Fields{
+				logfields.ServiceKey:  svcKey,
+				logfields.BackendSlot: svcKey.GetBackendSlot(),
+			}).WithError(err).Warn("Unable to delete service entry from BPF map")
 		}
 	}
 
@@ -399,7 +402,8 @@ func updateRevNatLocked(key RevNatKey, value RevNatValue) error {
 }
 
 func deleteRevNatLocked(key RevNatKey) error {
-	return key.Map().Delete(key.ToNetwork())
+	_, err := key.Map().SilentDelete(key.ToNetwork())
+	return err
 }
 
 func (*LBBPFMap) UpdateSourceRanges(revNATID uint16, prevSourceRanges []*cidr.CIDR,
@@ -606,7 +610,8 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quaranti
 }
 
 func deleteServiceLocked(key ServiceKey) error {
-	return key.Map().Delete(key.ToNetwork())
+	_, err := key.Map().SilentDelete(key.ToNetwork())
+	return err
 }
 
 func getBackend(backend *loadbalancer.Backend, ipv6 bool) (Backend, error) {
