@@ -836,7 +836,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 			// There is one special case is L7 proxy service, which never have any
 			// backends because the traffic will be redirected.
 			activeBackends := 0
-			if params.L7LBProxyPort != 0 {
+			if l7lbInfo != nil {
 				// Set this to 1 because Envoy will be running in this case.
 				getScopedLog().WithField(logfields.ServiceHealthCheckNodePort, svc.svcHealthCheckNodePort).
 					Debug("L7 service with HealthcheckNodePort enabled")
