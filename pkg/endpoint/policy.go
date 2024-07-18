@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
@@ -351,6 +352,26 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(opts option.OptionMap) (opts
 	return
 }
 
+func (e *Endpoint) DumpLinks(tag string) {
+	fmt.Println(e.ID, tag, "[tom-debug] #### tracing endpoint links ####")
+	links, err := netlink.LinkList()
+	if err != nil {
+		fmt.Println(e.ID, tag, "[tom-debug] error listing links:", err)
+		return
+	}
+	found := false
+	for _, link := range links {
+		if link.Attrs().Name == "lxc_health" {
+			fmt.Println(e.ID, tag, "[tom-debug] link:", link.Attrs().Name, link.Attrs().Index)
+			found = true
+		}
+	}
+	if !found {
+		fmt.Println(e.ID, "[tom-debug] Link not found here!!!! #######################")
+	}
+	fmt.Println(e.ID, tag, "[tom-debug] #### trace done ####")
+}
+
 // Called with e.mutex UNlocked
 func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	var revision uint64
@@ -385,12 +406,15 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 		return err
 	}
 
+	e.DumpLinks("regen [2]")
+
 	// When building the initial drop policy in waiting-for-identity state
 	// the state remains unchanged
 	//
 	// GH-5350: Remove this special case to require checking for StateWaitingForIdentity
 	if e.getState() != StateWaitingForIdentity &&
 		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+ctx.Reason) {
+		e.DumpLinks("waiting for identity")
 		if debugLogsEnabled {
 			e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		}
@@ -431,6 +455,7 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 		stats.prepareBuild.End(false)
 		return fmt.Errorf("Failed to create endpoint directory: %w", err)
 	}
+	e.DumpLinks("setup dirs done")
 
 	stats.prepareBuild.End(true)
 
@@ -489,6 +514,7 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 		return err
 	}
 
+	e.DumpLinks("about to realize")
 	return e.updateRealizedState(stats, origDir, revision)
 }
 
@@ -537,6 +563,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	// Remove restored rules after successful regeneration
 	e.owner.RemoveRestoredDNSRules(e.ID)
 
+	e.DumpLinks("done realize")
 	return nil
 }
 
