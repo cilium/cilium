@@ -1129,6 +1129,23 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
+			Description:     "Collecting gops stats from Cilium-operator pods",
+			Quick:           true,
+			Task: func(ctx context.Context) error {
+				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.CiliumOperatorLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get cilium-operator pods: %w", err)
+				}
+				if err := c.SubmitGopsSubtasks(FilterPods(p, c.NodeList), ciliumOperatorContainerName); err != nil {
+					return fmt.Errorf("failed to collect Cilium gops: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
 			Description:     "Collecting gops stats from Hubble pods",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
