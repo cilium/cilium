@@ -185,7 +185,6 @@ jobs:
 
           if [ "${{ matrix.encryption }}" = "ipsec" ] ; then
             # IPSec doesn't work with kube-proxy replacement
-            CILIUM_INSTALL_DEFAULTS+=" --helm-set=bpf.masquerade=true"
             CILIUM_INSTALL_DEFAULTS+=" --helm-set=encryption.enabled=true --helm-set=encryption.type=ipsec"
           fi
 
