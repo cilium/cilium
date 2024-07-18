@@ -78,14 +78,33 @@ spec:
             grpc:
               port: 4222
             timeoutSeconds: 3
+          # livenessProbe will kill the pod, we should be very conservative
+          # here on failures since killing the pod should be a last resort, and
+          # we should provide enough time for relay to retry before killing it.
           livenessProbe:
             grpc:
               port: 4222
-            timeoutSeconds: 3
+            timeoutSeconds: 10
+            # Give relay time to establish connections and make a few retries
+            # before starting livenessProbes.
+            initialDelaySeconds: 10
+            # 10 second * 12 failures = 2 minutes of failure.
+            # If relay cannot become healthy after 2 minutes, then killing it
+            # might resolve whatever issue is occurring.
+            #
+            # 10 seconds is a reasonable retry period so we can see if it's
+            # failing regularly or only sporadically.
+            periodSeconds: 10
+            failureThreshold: 12
           startupProbe:
             grpc:
               port: 4222
+            # Give relay time to get it's certs and establish connections and
+            # make a few retries before starting startupProbes.
+            initialDelaySeconds: 10
+            # 20 * 3 seconds = 1 minute of failure before we consider startup as failed.
             failureThreshold: 20
+            # Retry more frequently at startup so that it can be considered started more quickly.
             periodSeconds: 3
           {{- with .Values.hubble.relay.extraEnv }}
           env:
