@@ -882,9 +882,24 @@ func (s *ServiceCacheImpl) mergeExternalServiceDeleteLocked(service *serviceStor
 // ability
 func (s *ServiceCacheImpl) DebugStatus() string {
 	s.mutex.RLock()
-	str := spew.Sdump(s)
-	s.mutex.RUnlock()
-	return str
+	defer s.mutex.RUnlock()
+	// Create a temporary struct excluding the fields we want to ignore.
+	dumpable := struct {
+		Config            ServiceCacheConfig
+		Services          map[ServiceID]*Service
+		Endpoints         map[ServiceID]*EndpointSlices
+		ExternalEndpoints map[ServiceID]externalEndpoints
+		SelfNodeZoneLabel string
+	}{
+		Config:            s.config,
+		Services:          s.services,
+		Endpoints:         s.endpoints,
+		ExternalEndpoints: s.externalEndpoints,
+		SelfNodeZoneLabel: s.selfNodeZoneLabel,
+	}
+
+	// Dump the temporary structure.
+	return spew.Sdump(dumpable)
 }
 
 func (s *ServiceCacheImpl) updateSelfNodeLabels(labels map[string]string) {
