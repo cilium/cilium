@@ -29,8 +29,6 @@ on:
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
 permissions:
-  # To read actions state with catchpoint/workflow-telemetry-action
-  actions: read
   # To be able to access the repository with actions/checkout
   contents: read
   # To be able to request the JWT from GitHub's OIDC provider
@@ -61,7 +59,7 @@ concurrency:
 
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
-  cilium_cli_ci_version: e8434104dd628c6e1cc7ad0b1292116383d0e993
+  cilium_cli_ci_version: 7267213ec293dfdb9f5cf9eaf384fd6513c6c3c7
   test_name: gke-perf
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   gcp_zone: us-east5-a
@@ -128,11 +126,6 @@ jobs:
             encryption: "wireguard"
 
     steps:
-      - name: Collect Workflow Telemetry
-        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
-        with:
-          comment_on_pr: false
-
       - name: Checkout context ref (trusted)
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
@@ -277,7 +270,7 @@ jobs:
         id: run-perf
         run: |
           mkdir output
-          cilium connectivity perf --report-dir=./output
+          cilium connectivity perf --host-net=true  --rr=true --report-dir=./output
           sudo chmod -R +r ./output
 
       - name: Get sysdump
