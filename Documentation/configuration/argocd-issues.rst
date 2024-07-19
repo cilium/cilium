@@ -105,7 +105,8 @@ Application chart for Cilium deployed to Talos Linux fails with: field not decla
 
 When deploying Cilium to Talos Linux with ArgoCD, some users have reported issues due to Talos Security configuration. ArgoCD may fail to deploy the application with the message:
 
-.. code-block:: shell
+.. code-block:: shell-session
+
     Failed to compare desired state to live state: failed to calculate diff: 
     error calculating structured merge diff: error building typed value from live 
     resource: .spec.template.spec.securityContext.appArmorProfile: field not 
@@ -117,6 +118,7 @@ Solution
 Set the Application to `ServerSideApply=true``, visit the `ArgoCD documentation <https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/#server-side-apply>`__ for further details. 
 
 .. code-block:: yaml
+
     apiVersion: argoproj.io/v1alpha1
     kind: Application
     spec:
