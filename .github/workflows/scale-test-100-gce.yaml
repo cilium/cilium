@@ -196,50 +196,6 @@ jobs:
           kube_proxy_enabled: false
           allocate_node_cidrs: false
 
-      - name: Create 2nd Instance Group
-        uses: cilium/scale-tests-action/create-instance-group@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
-        timeout-minutes: 60
-        with:
-          cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          node_size: e2-medium
-          node_count: 1000
-          node_volume_size: 30
-          ig_name: ig2
-          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
-
-      - name: Create 3rd Instance Group
-        uses: cilium/scale-tests-action/create-instance-group@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
-        timeout-minutes: 60
-        with:
-          cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          node_size: e2-medium
-          node_count: 1000
-          node_volume_size: 30
-          ig_name: ig3
-          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
-
-      - name: Create 4th Instance Group
-        uses: cilium/scale-tests-action/create-instance-group@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
-        timeout-minutes: 60
-        with:
-          cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          node_size: e2-medium
-          node_count: 1000
-          node_volume_size: 30
-          ig_name: ig4
-          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
-
-      - name: Create 5th Instance Group
-        uses: cilium/scale-tests-action/create-instance-group@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
-        timeout-minutes: 60
-        with:
-          cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          node_size: e2-medium
-          node_count: 1000
-          node_volume_size: 30
-          ig_name: ig5
-          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
-
       - name: Create Instance Group for resource heavy deployments
         uses: cilium/scale-tests-action/create-instance-group@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
         timeout-minutes: 30
@@ -276,11 +232,87 @@ jobs:
 
       - name: Wait for cluster to be ready
         uses: cilium/scale-tests-action/validate-cluster@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
-        timeout-minutes: 150
+        timeout-minutes: 60
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
-          timeout: "150m"
+          timeout: "60m"
+
+      - name: Create 2nd Instance Group
+        uses: cilium/scale-tests-action/create-instance-group@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: 1000
+          node_volume_size: 30
+          ig_name: ig2
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Wait for cluster to be ready
+        uses: cilium/scale-tests-action/validate-cluster@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          timeout: "60m"
+
+      - name: Create 3rd Instance Group
+        uses: cilium/scale-tests-action/create-instance-group@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: 1000
+          node_volume_size: 30
+          ig_name: ig3
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Wait for cluster to be ready
+        uses: cilium/scale-tests-action/validate-cluster@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          timeout: "60m"
+
+      - name: Create 4th Instance Group
+        uses: cilium/scale-tests-action/create-instance-group@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: 1000
+          node_volume_size: 30
+          ig_name: ig4
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Wait for cluster to be ready
+        uses: cilium/scale-tests-action/validate-cluster@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          timeout: "60m"
+
+      - name: Create 5th Instance Group
+        uses: cilium/scale-tests-action/create-instance-group@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: 1000
+          node_volume_size: 30
+          ig_name: ig5
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Wait for cluster to be ready
+        uses: cilium/scale-tests-action/validate-cluster@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          timeout: "60m"
 
       - name: Run CL2
         id: run-cl2
