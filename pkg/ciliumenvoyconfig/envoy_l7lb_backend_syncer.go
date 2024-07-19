@@ -49,19 +49,20 @@ func newEnvoyServiceBackendSyncer(logger logrus.FieldLogger, envoyXdsServer envo
 func (r *envoyServiceBackendSyncer) Sync(svc *loadbalancer.SVC) error {
 	r.l7lbSvcsMutex.RLock()
 	l7lbInfo, exists := r.l7lbSvcs[svc.Name]
-	r.l7lbSvcsMutex.RUnlock()
-
 	if !exists {
+		r.l7lbSvcsMutex.RUnlock()
 		return nil
 	}
+	frontendPorts := l7lbInfo.GetAllFrontendPorts()
+	r.l7lbSvcsMutex.RUnlock()
 
 	// Filter backend based on list of port numbers, then upsert backends
 	// as Envoy endpoints
-	be := filterServiceBackends(svc, l7lbInfo.GetAllFrontendPorts())
+	be := filterServiceBackends(svc, frontendPorts)
 
 	r.logger.
 		WithField("filteredBackends", be).
-		WithField(logfields.L7LBFrontendPorts, l7lbInfo.GetAllFrontendPorts()).
+		WithField(logfields.L7LBFrontendPorts, frontendPorts).
 		WithField(logfields.ServiceNamespace, svc.Name.Namespace).
 		WithField(logfields.ServiceName, svc.Name.Name).
 		Debug("Upsert envoy endpoints")
