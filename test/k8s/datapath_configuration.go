@@ -24,11 +24,16 @@ var _ = Describe("K8sDatapathConfig", func() {
 	var (
 		kubectl    *helpers.Kubectl
 		monitorLog = "monitor-aggregation.log"
+		ni         *helpers.NodesInfo
+		err        error
 	)
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		deploymentManager.SetKubectl(kubectl)
+
+		ni, err = helpers.GetNodesInfo(kubectl)
+		Expect(err).Should(BeNil(), "Cannot get nodes info")
 	})
 
 	AfterEach(func() {
@@ -206,9 +211,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
-	SkipContextIf(func() bool {
-		return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != ""
-	}, "IPv6 masquerading", func() {
+	Context("IPv6 masquerading", func() {
 		var (
 			k8s1EndpointIPs map[string]string
 			testDSK8s1IPv6  string = "fd03::310"
@@ -265,25 +268,20 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 		})
 
-		// Note: At the time we add the test below, it does not
-		// run on the CI because the only job which is running
-		// with a 3rd, non-K8s node (net-next) also has KPR,
-		// and skips the context we're in. Run locally.
-		// TODO: uncomment once the above has changed
-		//SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "for external traffic", func() {
-		//	// A native routing CIDR is set, but it does
-		//	// not prevent masquerading for packets going
-		//	// outside of the K8s cluster. Check that the
-		//	// echo server sees the IPv6 address of the
-		//	// client's node.
-		//	url := fmt.Sprintf(`"http://[%s]:80/"`, ni.outsideIPv6)
-		//	testCurlFromPodWithSourceIPCheck(kubectl, testDSK8s2, url, 5, ni.primaryK8s2IPv6)
+		SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "for external traffic", func() {
+			// A native routing CIDR is set, but it does
+			// not prevent masquerading for packets going
+			// outside of the K8s cluster. Check that the
+			// echo server sees the IPv6 address of the
+			// client's node.
+			url := fmt.Sprintf(`"http://[%s]:80/"`, ni.OutsideIPv6)
+			testCurlFromPodWithSourceIPCheck(kubectl, testDSK8s2, url, 5, ni.PrimaryK8s2IPv6)
 
-		//	for _, epIP := range k8s1EndpointIPs {
-		//		url = fmt.Sprintf(`"http://[%s]:80/"`, epIP)
-		//		testCurlFromPodWithSourceIPCheck(kubectl, testDSK8s2, url, 5, ni.primaryK8s2IPv6)
-		//	}
-		//})
+			for _, epIP := range k8s1EndpointIPs {
+				url = fmt.Sprintf(`"http://[%s]:80/"`, epIP)
+				testCurlFromPodWithSourceIPCheck(kubectl, testDSK8s2, url, 5, ni.PrimaryK8s2IPv6)
+			}
+		})
 
 		AfterAll(func() {
 			ciliumDelService(kubectl, 31080)
