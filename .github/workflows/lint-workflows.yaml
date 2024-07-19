@@ -249,3 +249,17 @@ jobs:
             fi
           done
           exit ${EXIT}
+
+      - name: Validate Absence of Trailing Spaces
+        shell: bash
+        working-directory: src/github.com/cilium/cilium/
+        run: |
+          if grep --quiet --recursive '[[:blank:]]$' .github; then
+            echo "Found trailing spaces in the following workflow files"
+            grep --files-with-matches --recursive '[[:blank:]]$' .github
+            echo
+            echo "Please run:"
+            echo "  find .github -type f -exec sed -ri 's/[[:blank:]]+$//' {} \;"
+            echo "and submit your changes"
+            exit 1
+          fi
