@@ -2098,7 +2098,8 @@ func (c *Collector) SubmitTetragonBugtoolTasks(pods []*corev1.Pod, tetragonAgent
 // (e.g. "a/b/c" => "b/c"). Don't pass an absolute path. It doesn't do what
 // you think it does.
 func removeTopDirectory(path string) (string, error) {
-	index := strings.IndexByte(path, filepath.Separator)
+	// file separator hardcoded because sysdump always created on Linux OS
+	index := strings.IndexByte(path, '/')
 	if index < 0 {
 		return "", fmt.Errorf("invalid path %q", path)
 	}
@@ -2131,7 +2132,7 @@ func untar(src string, dst string) error {
 		}
 		name, err := removeTopDirectory(header.Name)
 		if err != nil {
-			return nil
+			return err
 		}
 		filename := filepath.Join(dst, name)
 		directory := filepath.Dir(filename)
