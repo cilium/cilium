@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/operator/auth/identity"
 	"github.com/cilium/cilium/pkg/backoff"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -96,11 +97,11 @@ type params struct {
 }
 
 type Client struct {
-	cfg   ClientConfig
-	log   logrus.FieldLogger
-	entry entryv1.EntryClient
-
-	k8sClient k8sClient.Clientset
+	cfg        ClientConfig
+	log        logrus.FieldLogger
+	entry      entryv1.EntryClient
+	entryMutex lock.RWMutex
+	k8sClient  k8sClient.Clientset
 }
 
 // NewClient creates a new SPIRE client.
@@ -131,7 +132,9 @@ func (c *Client) onStart(_ cell.HookContext) error {
 			attempts++
 			conn, err := c.connect(context.Background())
 			if err == nil {
+				c.entryMutex.Lock()
 				c.entry = entryv1.NewEntryClient(conn)
+				c.entryMutex.Unlock()
 				break
 			}
 			c.log.WithError(err).Warnf("Unable to connect to SPIRE server, attempt %d", attempts+1)
@@ -191,6 +194,8 @@ func (c *Client) connect(ctx context.Context) (*grpc.ClientConn, error) {
 // Upsert creates or updates the SPIFFE ID for the given ID.
 // The SPIFFE ID is in the form of spiffe://<trust-domain>/identity/<id>.
 func (c *Client) Upsert(ctx context.Context, id string) error {
+	c.entryMutex.RLock()
+	defer c.entryMutex.RUnlock()
 	if c.entry == nil {
 		return fmt.Errorf("unable to connect to SPIRE server %s", c.cfg.SpireServerAddress)
 	}
@@ -228,6 +233,8 @@ func (c *Client) Upsert(ctx context.Context, id string) error {
 // Delete deletes the SPIFFE ID for the given ID.
 // The SPIFFE ID is in the form of spiffe://<trust-domain>/identity/<id>.
 func (c *Client) Delete(ctx context.Context, id string) error {
+	c.entryMutex.RLock()
+	defer c.entryMutex.RUnlock()
 	if c.entry == nil {
 		return fmt.Errorf("unable to connect to SPIRE server %s", c.cfg.SpireServerAddress)
 	}
@@ -259,6 +266,8 @@ func (c *Client) Delete(ctx context.Context, id string) error {
 }
 
 func (c *Client) List(ctx context.Context) ([]string, error) {
+	c.entryMutex.RLock()
+	defer c.entryMutex.RUnlock()
 	entries, err := c.entry.ListEntries(ctx, &entryv1.ListEntriesRequest{
 		Filter: &entryv1.ListEntriesRequest_Filter{
 			ByParentId: &types.SPIFFEID{
