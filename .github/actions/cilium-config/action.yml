@@ -167,7 +167,7 @@ runs:
           if [ "${{ inputs.ciliumendpointslice }}" == "true" ]; then
             CILIUMENDPOINTSLICE="--helm-set=ciliumEndpointSlice.enabled=true"
           fi
-        
+
           LOCAL_REDIRECT_POLICY=""
           if [ "${{ inputs.local-redirect-policy }}" == "true" ]; then
             LOCAL_REDIRECT_POLICY="--helm-set=localRedirectPolicy=true"
