@@ -11,7 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -59,7 +59,7 @@ func newTestEPManager() *testEPManager {
 	}
 }
 
-func newTestBWManager() bandwidth.Manager {
+func newTestBWManager() datapath.BandwidthManager {
 	return &fake.BandwidthManager{}
 }
 

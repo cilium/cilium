@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
@@ -45,12 +45,12 @@ type endpointManager interface {
 // exists.
 type MapSweeper struct {
 	endpointManager
-	bwManager bandwidth.Manager
+	bwManager datapath.BandwidthManager
 }
 
 // NewMapSweeper creates an object that walks map paths and garbage-collects
 // them.
-func NewMapSweeper(g endpointManager, bwm bandwidth.Manager) *MapSweeper {
+func NewMapSweeper(g endpointManager, bwm datapath.BandwidthManager) *MapSweeper {
 	return &MapSweeper{
 		endpointManager: g,
 		bwManager:       bwm,
