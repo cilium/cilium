@@ -1,19 +1,21 @@
 ---
-    name: Call Backport Label Updater
-    on:
-      pull_request_target:
-        types:
-          - closed
-        branches:
-          - v1.14
-    jobs:
-      call-backport-label-updater:
-        if: |
-            github.event.pull_request.merged == true &&
-            contains(github.event.pull_request.body, 'upstream-prs') &&
-            contains(github.event.pull_request.labels.*.name, 'backport/1.14')
-        uses: cilium/cilium/.github/workflows/update-label-backport-pr.yaml@main
-        with:
-          pr-body: ${{ github.event.pull_request.body }}
-          branch: 1.14
-        secrets: inherit
+  name: Call Backport Label Updater
+  on:
+    pull_request_target:
+      types:
+        - closed
+      branches:
+        - v[0-9]+.[0-9]+*
+
+  jobs:
+    call-backport-label-updater:
+      name: Update backport labels for upstream PR
+      if: |
+        github.event.pull_request.merged == true &&
+        contains(github.event.pull_request.body, 'upstream-prs') &&
+        contains(join(github.event.pull_request.labels.*.name, ', '), 'backport/')
+      uses: cilium/cilium/.github/workflows/update-label-backport-pr.yaml@main
+      with:
+        pr-body: ${{ github.event.pull_request.body }}
+        branch: ${{ github.base_ref }}
+      secrets: inherit
