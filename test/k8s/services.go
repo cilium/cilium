@@ -181,7 +181,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 				testExternalTrafficPolicyLocal(kubectl, ni)
 			})
 
-			It("", func() {
+			It("vanilla", func() {
 				testNodePort(kubectl, ni, false, false, 0)
 			})
 		})
