@@ -4,7 +4,11 @@
 package client
 
 import (
+	"bytes"
+	"flag"
+	"fmt"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -211,8 +215,7 @@ func TestFormatNodeStatus(t *testing.T) {
 		possibleEndpointStatuses = append(possibleEndpointStatuses, hostStatus)
 	}
 
-	printAllOptions := []bool{true, false}
-	succinctOptions := []bool{true, false}
+	allNodesOptions := []bool{true, false}
 	verboseOptions := []bool{true, false}
 	localhostOptions := []bool{true, false}
 
@@ -224,12 +227,10 @@ func TestFormatNodeStatus(t *testing.T) {
 					Host:           hostStatus,
 					Name:           name,
 				}
-				for _, printAllOpt := range printAllOptions {
-					for _, succintOpt := range succinctOptions {
-						for _, verboseOpt := range verboseOptions {
-							for _, localhostOpt := range localhostOptions {
-								formatNodeStatus(w, ns, printAllOpt, succintOpt, verboseOpt, localhostOpt)
-							}
+				for _, allNodesOpt := range allNodesOptions {
+					for _, verboseOpt := range verboseOptions {
+						for _, localhostOpt := range localhostOptions {
+							formatNodeStatus(w, ns, allNodesOpt, verboseOpt, localhostOpt)
 						}
 					}
 				}
@@ -325,5 +326,228 @@ func TestGetAllEndpointAddresses(t *testing.T) {
 	}
 	for _, tc := range tests {
 		require.Equal(t, tc.expected, GetAllEndpointAddresses(tc.node))
+	}
+}
+
+// used ot update golden files
+var update = flag.Bool("update", false, "update golden files")
+
+func createNodes(healthy int, unhealthy int, unknown int) []*models.NodeStatus {
+
+	nodes := make([]*models.NodeStatus, healthy+unhealthy)
+
+	for i := 0; i < healthy; i++ {
+		nodes[i] = &models.NodeStatus{
+			Name: fmt.Sprintf("node%d", i),
+			Host: &models.HostStatus{
+				PrimaryAddress: &models.PathStatus{
+					IP: fmt.Sprintf("192.168.1.%d", i),
+					HTTP: &models.ConnectivityStatus{
+						Status:  "",
+						Latency: 10000000,
+					},
+					Icmp: &models.ConnectivityStatus{
+						Status:  "",
+						Latency: 10000000,
+					},
+				},
+			},
+			HealthEndpoint: &models.EndpointStatus{
+				PrimaryAddress: &models.PathStatus{
+					IP: fmt.Sprintf("192.168.1.%d", i),
+					HTTP: &models.ConnectivityStatus{
+						Status:  "",
+						Latency: 10000000,
+					},
+					Icmp: &models.ConnectivityStatus{
+						Status:  "",
+						Latency: 10000000,
+					},
+				},
+			},
+		}
+	}
+
+	for i := healthy; i < healthy+unhealthy; i++ {
+		nodes[i] = &models.NodeStatus{
+			Name: fmt.Sprintf("node%d", i),
+			Host: &models.HostStatus{
+				PrimaryAddress: &models.PathStatus{
+					IP: fmt.Sprintf("192.168.1.%d", i),
+					HTTP: &models.ConnectivityStatus{
+						Status: "failed",
+					},
+					Icmp: &models.ConnectivityStatus{
+						Status: "failed",
+					},
+				},
+			},
+			HealthEndpoint: &models.EndpointStatus{
+				PrimaryAddress: &models.PathStatus{
+					IP: fmt.Sprintf("192.168.1.%d", i),
+					HTTP: &models.ConnectivityStatus{
+						Status: "failed",
+					},
+					Icmp: &models.ConnectivityStatus{
+						Status: "failed",
+					},
+				},
+			},
+		}
+	}
+
+	for i := healthy + unhealthy; i < healthy+unhealthy+unknown; i++ {
+		nodes[i] = &models.NodeStatus{
+			Name: fmt.Sprintf("node%d", i),
+			Host: &models.HostStatus{
+				PrimaryAddress: &models.PathStatus{
+					IP: fmt.Sprintf("192.168.1.%d", i),
+				},
+			},
+			HealthEndpoint: &models.EndpointStatus{
+				PrimaryAddress: &models.PathStatus{
+					IP: fmt.Sprintf("192.168.1.%d", i),
+				},
+			},
+		}
+	}
+	return nodes
+}
+
+func TestFormatHealthStatusResponse(t *testing.T) {
+
+	localNode := &models.SelfStatus{
+		Name: "local",
+	}
+
+	tests := []struct {
+		name       string
+		sr         *models.HealthStatusResponse
+		allNodes   bool
+		verbose    bool
+		maxLines   int
+		wantLines  int
+		wantGolden string
+	}{
+		{
+			name: "all healthy",
+			sr: &models.HealthStatusResponse{
+				Nodes:     createNodes(4, 0, 0),
+				Local:     localNode,
+				Timestamp: "2023-04-01T12:00:00Z",
+			},
+			allNodes:   false,
+			verbose:    false,
+			maxLines:   10,
+			wantGolden: "allHealthy",
+		},
+		{
+			name: "all healthy verbose",
+			sr: &models.HealthStatusResponse{
+				Nodes:     createNodes(4, 0, 0),
+				Local:     localNode,
+				Timestamp: "2023-04-01T12:00:00Z",
+			},
+			allNodes:   false,
+			verbose:    true,
+			maxLines:   10,
+			wantGolden: "allHealthyVerbose",
+		},
+		{
+			name: "all healthy all nodes",
+			sr: &models.HealthStatusResponse{
+				Nodes:     createNodes(4, 0, 0),
+				Local:     localNode,
+				Timestamp: "2023-04-01T12:00:00Z",
+			},
+			allNodes:   true,
+			verbose:    false,
+			maxLines:   10,
+			wantGolden: "allHealthyAllNodes",
+		},
+		{
+			name: "one unhealthy",
+			sr: &models.HealthStatusResponse{
+				Nodes:     createNodes(3, 1, 0),
+				Local:     localNode,
+				Timestamp: "2023-04-01T12:00:00Z",
+			},
+			allNodes:   false,
+			verbose:    false,
+			maxLines:   10,
+			wantGolden: "oneUnhealthy",
+		},
+		{
+			name: "one unhealthy verbose",
+			sr: &models.HealthStatusResponse{
+				Nodes:     createNodes(3, 1, 0),
+				Local:     localNode,
+				Timestamp: "2023-04-01T12:00:00Z",
+			},
+			allNodes:   false,
+			verbose:    true,
+			maxLines:   10,
+			wantGolden: "oneUnhealthyVerbose",
+		},
+		{
+			name: "one unhealthy all nodes",
+			sr: &models.HealthStatusResponse{
+				Nodes:     createNodes(3, 1, 0),
+				Local:     localNode,
+				Timestamp: "2023-04-01T12:00:00Z",
+			},
+			allNodes:   true,
+			verbose:    false,
+			maxLines:   10,
+			wantGolden: "oneUnhealthyAllNodes",
+		},
+		{
+			name: "11 unhealthy",
+			sr: &models.HealthStatusResponse{
+				Nodes:     createNodes(0, 11, 0),
+				Local:     localNode,
+				Timestamp: "2023-04-01T12:00:00Z",
+			},
+			allNodes:   false,
+			verbose:    false,
+			maxLines:   10,
+			wantGolden: "elevenUnhealthy",
+		},
+		{
+			name: "11 healthy all nodes",
+			sr: &models.HealthStatusResponse{
+				Nodes:     createNodes(11, 0, 0),
+				Local:     localNode,
+				Timestamp: "2023-04-01T12:00:00Z",
+			},
+			allNodes:   true,
+			verbose:    false,
+			maxLines:   10,
+			wantGolden: "elevenHealthyAllNodes",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, err := os.ReadFile("testdata/" + tt.wantGolden + ".golden")
+			if err != nil {
+				t.Fatalf("failed to read golden file: %v", err)
+			}
+
+			w := &bytes.Buffer{}
+			FormatHealthStatusResponse(w, tt.sr, tt.allNodes, tt.verbose, tt.maxLines)
+
+			if *update {
+				t.Log("updating golden file")
+				f, err := os.Create("testdata/" + tt.wantGolden + ".golden")
+				if err != nil {
+					t.Fatalf("failed to create golden file: %v", err)
+				}
+				defer f.Close()
+				f.Write([]byte(w.Bytes()))
+			}
+
+			require.Equal(t, string(f), w.String())
+		})
 	}
 }

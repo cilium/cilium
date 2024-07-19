@@ -1,0 +1,30 @@
+Cluster health:	3/4 reachable	(2023-04-01T12:00:00Z)
+Name	IP	Node	Endpoints
+  node0:
+    Host connectivity to 192.168.1.0:
+      ICMP to stack:	OK, RTT=10ms
+      HTTP to agent:	OK, RTT=10ms
+    Endpoint connectivity to 192.168.1.0:
+      ICMP to stack:	OK, RTT=10ms
+      HTTP to agent:	OK, RTT=10ms
+  node1:
+    Host connectivity to 192.168.1.1:
+      ICMP to stack:	OK, RTT=10ms
+      HTTP to agent:	OK, RTT=10ms
+    Endpoint connectivity to 192.168.1.1:
+      ICMP to stack:	OK, RTT=10ms
+      HTTP to agent:	OK, RTT=10ms
+  node2:
+    Host connectivity to 192.168.1.2:
+      ICMP to stack:	OK, RTT=10ms
+      HTTP to agent:	OK, RTT=10ms
+    Endpoint connectivity to 192.168.1.2:
+      ICMP to stack:	OK, RTT=10ms
+      HTTP to agent:	OK, RTT=10ms
+  node3:
+    Host connectivity to 192.168.1.3:
+      ICMP to stack:	failed
+      HTTP to agent:	failed
+    Endpoint connectivity to 192.168.1.3:
+      ICMP to stack:	failed
+      HTTP to agent:	failed
