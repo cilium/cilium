@@ -115,6 +115,7 @@ Solution
 Add option ``ServerSideApply=true`` to list ``syncPolicy.syncOptions`` for the Application.
 
 .. code-block:: yaml
+
     apiVersion: argoproj.io/v1alpha1
     kind: Application
     spec:
