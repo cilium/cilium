@@ -13,9 +13,11 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 var Cell = cell.Module(
@@ -70,4 +72,6 @@ type bandwidthManagerParams struct {
 	Log          logrus.FieldLogger
 	Config       Config
 	DaemonConfig *option.DaemonConfig
+	DB           *statedb.DB
+	Devices      statedb.Table[*tables.Device]
 }

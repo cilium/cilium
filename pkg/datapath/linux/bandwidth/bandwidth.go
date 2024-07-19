@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/sysctl"
@@ -97,10 +98,12 @@ func (m *manager) probe() error {
 	if !m.params.Config.EnableBandwidthManager {
 		return nil
 	}
+
 	if _, err := sysctl.Read("net.core.default_qdisc"); err != nil {
 		m.params.Log.WithError(err).Warn("BPF bandwidth manager could not read procfs. Disabling the feature.")
 		return nil
 	}
+
 	if !kernelGood {
 		m.params.Log.Warn("BPF bandwidth manager needs kernel 5.1 or newer. Disabling the feature.")
 		return nil
@@ -133,16 +136,15 @@ func (m *manager) probe() error {
 }
 
 func (m *manager) init() error {
-	// TODO make the bwmanager reactive by using the (currently ignored) watch channel, which is
-	// closed when there's new or changed devices.
-	devs := m.params.DaemonConfig.GetDevices()
+	selectedDevices, _ := tables.SelectedDevices(m.params.Devices, m.params.DB.ReadTxn())
+	devs := tables.DeviceNames(selectedDevices)
 	if len(devs) == 0 {
 		m.params.Log.Warn("BPF bandwidth manager could not detect host devices. Disabling the feature.")
 		m.enabled = false
 		return nil
 	}
 
-	m.params.Log.Info("Setting up BPF bandwidth manager")
+	m.params.Log.WithField(logfields.Devices, devs).Info("Setting up BPF bandwidth manager")
 
 	if err := bwmap.ThrottleMap().OpenOrCreate(); err != nil {
 		return fmt.Errorf("failed to access ThrottleMap: %w", err)
