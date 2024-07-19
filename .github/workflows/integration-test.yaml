@@ -174,8 +174,7 @@ jobs:
       - name: On failure collect logs
         if: ${{ failure() }}
         run: |
-          docker logs kvstore1
-          docker logs kvstore2
+          docker logs cilium-etcd-test-container 
 
   commit-status-final:
     if: ${{ always() }}

@@ -15,9 +15,10 @@ make clean
 # Start kvstores seperately so we can do some pre-run checks.
 make start-kvstores
 
-# Check status of kvstores.
-docker logs kvstore1
-docker logs kvstore2
+
+# Check status of kvstore.
+sleep 15
+docker logs cilium-etcd-test-container 
 
 # Run with default verbosity here since this builds all Go code by running
 # 'go vet' and all integration tests. At least one line of output is generated
