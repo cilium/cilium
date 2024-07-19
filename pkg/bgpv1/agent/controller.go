@@ -139,20 +139,6 @@ func NewController(params ControllerParams) (*Controller, error) {
 			return nil
 		}),
 
-		job.OneShot("cilium-node-observer", func(ctx context.Context, health cell.Health) (err error) {
-			for ev := range c.CiliumNodeResource.Events(ctx) {
-				switch ev.Kind {
-				case resource.Upsert:
-					// Set the local CiliumNode.
-					c.LocalCiliumNode = ev.Object
-					// Signal the reconciliation logic.
-					c.Sig.Event(struct{}{})
-				}
-				ev.Done(nil)
-			}
-			return nil
-		}),
-
 		job.OneShot("bgp-controller",
 			func(ctx context.Context, health cell.Health) (err error) {
 				// initialize PolicyLister used in the controller
@@ -188,17 +174,30 @@ func (c *Controller) Run(ctx context.Context) {
 		})
 	)
 
-	// add an initial signal to kick things off
-	c.Sig.Event(struct{}{})
-
 	l.Info("Cilium BGP Control Plane Controller now running...")
+	ciliumNodeCh := c.CiliumNodeResource.Events(ctx)
 	for {
 		select {
+		case ev, ok := <-ciliumNodeCh:
+			if !ok {
+				l.Info("LocalCiliumNode resource channel closed, Cilium BGP Control Plane Controller shut down")
+				return
+			}
+			switch ev.Kind {
+			case resource.Upsert:
+				// Set the local CiliumNode.
+				c.LocalCiliumNode = ev.Object
+				// Signal the reconciliation logic.
+				c.Sig.Event(struct{}{})
+			}
+			ev.Done(nil)
 		case <-ctx.Done():
 			l.Info("Cilium BGP Control Plane Controller shut down")
 			return
 		case <-c.Sig.Sig:
-			if err := c.Reconcile(ctx); err != nil {
+			if c.LocalCiliumNode == nil {
+				l.Debug("localCiliumNode has not been set yet")
+			} else if err := c.Reconcile(ctx); err != nil {
 				l.WithError(err).Error("Encountered error during reconciliation")
 			} else {
 				l.Debug("Successfully completed reconciliation")
@@ -330,7 +329,6 @@ func (c *Controller) bgppSelection() (*v2alpha1api.CiliumBGPPeeringPolicy, error
 	if err != nil {
 		return nil, fmt.Errorf("failed to list CiliumBGPPeeringPolicies")
 	}
-
 	// perform policy selection based on node.
 	labels := c.LocalCiliumNode.Labels
 
