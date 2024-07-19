@@ -27,6 +27,10 @@ const (
 
 	bgpCommunityPodCIDR = "65001:100"
 	bgpCommunityService = "65001:200"
+
+	bgpConnectRetryTimeSeconds = 1
+	bgpKeepAliveTimeSeconds    = 1
+	bgpHoldTimeSeconds         = 3
 )
 
 func BGPAdvertisements(bgpAPIVersion uint8) check.Scenario {
@@ -72,7 +76,8 @@ func (s *bgpAdvertisements) Run(ctx context.Context, t *check.Test) {
 		podCIDRPrefixes := ct.PodCIDRPrefixes(ipFamily)
 		svcPrefixes := ct.EchoServicePrefixes(ipFamily)
 		for _, frr := range ct.FRRPods() {
-			check.WaitForFRRBGPNeighborsState(ctx, t, &frr, frrPeers, "Established")
+			neighbors := check.WaitForFRRBGPNeighborsState(ctx, t, &frr, frrPeers, "Established")
+			check.AssertFRRBGPNeighborTimers(t, neighbors, frrPeers, bgpKeepAliveTimeSeconds, bgpHoldTimeSeconds)
 
 			frrPrefixes := check.WaitForFRRBGPPrefixes(ctx, t, &frr, podCIDRPrefixes, ipFamily)
 			check.AssertFRRBGPCommunity(t, frrPrefixes, podCIDRPrefixes, bgpCommunityPodCIDR)
@@ -167,9 +172,9 @@ func (s *bgpAdvertisements) configureBGPv1Peering(ctx context.Context, t *check.
 			ciliumv2alpha1.CiliumBGPNeighbor{
 				PeerAddress:             frr.Address(ipFamily) + prefix,
 				PeerASN:                 bgpFRRASN,
-				ConnectRetryTimeSeconds: ptr.To[int32](1),
-				KeepAliveTimeSeconds:    ptr.To[int32](1),
-				HoldTimeSeconds:         ptr.To[int32](3),
+				ConnectRetryTimeSeconds: ptr.To[int32](bgpConnectRetryTimeSeconds),
+				KeepAliveTimeSeconds:    ptr.To[int32](bgpKeepAliveTimeSeconds),
+				HoldTimeSeconds:         ptr.To[int32](bgpHoldTimeSeconds),
 				AdvertisedPathAttributes: []ciliumv2alpha1.CiliumBGPPathAttributes{
 					{
 						SelectorType: ciliumv2alpha1.PodCIDRSelectorName,
@@ -236,9 +241,9 @@ func (s *bgpAdvertisements) configureBGPv2Peering(ctx context.Context, t *check.
 		},
 		Spec: ciliumv2alpha1.CiliumBGPPeerConfigSpec{
 			Timers: &ciliumv2alpha1.CiliumBGPTimers{
-				ConnectRetryTimeSeconds: ptr.To[int32](1),
-				KeepAliveTimeSeconds:    ptr.To[int32](1),
-				HoldTimeSeconds:         ptr.To[int32](3),
+				ConnectRetryTimeSeconds: ptr.To[int32](bgpConnectRetryTimeSeconds),
+				KeepAliveTimeSeconds:    ptr.To[int32](bgpKeepAliveTimeSeconds),
+				HoldTimeSeconds:         ptr.To[int32](bgpHoldTimeSeconds),
 			},
 			Families: []ciliumv2alpha1.CiliumBGPFamilyWithAdverts{
 				{
