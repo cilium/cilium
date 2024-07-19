@@ -54,12 +54,16 @@ type FRRBGPPeeringParams struct {
 
 // FRRBGPNeighborInfo holds FRR BGP neighbor information equivalent to "show bgp neighbor json" CLI output entry.
 type FRRBGPNeighborInfo struct {
-	RemoteAS       int    `json:"remoteAs"`
-	LocalAS        int    `json:"localAs"`
-	Hostname       string `json:"hostname"`
-	RemoteRouterID string `json:"remoteRouterId"`
-	LocalRouterID  string `json:"localRouterId"`
-	BGPState       string `json:"bgpState"`
+	RemoteAS                       int    `json:"remoteAs"`
+	LocalAS                        int    `json:"localAs"`
+	Hostname                       string `json:"hostname"`
+	RemoteRouterID                 string `json:"remoteRouterId"`
+	LocalRouterID                  string `json:"localRouterId"`
+	BGPState                       string `json:"bgpState"`
+	BgpTimerUpMsec                 int    `json:"bgpTimerUpMsec"`
+	BgpTimerUpEstablishedEpoch     int    `json:"bgpTimerUpEstablishedEpoch"`
+	BgpTimerHoldTimeMsecs          int    `json:"bgpTimerHoldTimeMsecs"`
+	BgpTimerKeepAliveIntervalMsecs int    `json:"bgpTimerKeepAliveIntervalMsecs"`
 }
 
 // FRRBGPPrefixMap is a map of BGP route information indexed by prefix.
@@ -250,41 +254,59 @@ func RenderFRRBGPPeeringConfig(t *Test, params FRRBGPPeeringParams) string {
 }
 
 // WaitForFRRBGPNeighborsState waits until provided list of BGP peers reach the provided state
-// on the provided FRR pod.
-func WaitForFRRBGPNeighborsState(ctx context.Context, t *Test, frrPod *Pod, expPeers []netip.Addr, expState string) {
+// on the provided FRR pod and returns detailed state information of all peers.
+func WaitForFRRBGPNeighborsState(ctx context.Context, t *Test, frrPod *Pod, expPeers []netip.Addr, expState string) map[string]FRRBGPNeighborInfo {
 	w := wait.NewObserver(ctx, wait.Parameters{Timeout: 30 * time.Second})
 	defer w.Cancel()
 
-	ensureBGPNeighborsState := func() error {
+	ensureBGPNeighborsState := func() (map[string]FRRBGPNeighborInfo, error) {
 		stdout := RunFRRCommand(ctx, t, frrPod, "show bgp neighbor json")
 		entries := map[string]FRRBGPNeighborInfo{}
 		err := json.Unmarshal(stdout, &entries)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if len(entries) < len(expPeers) {
-			return fmt.Errorf("expected %d peers, got %d", len(expPeers), len(entries))
+			return nil, fmt.Errorf("expected %d peers, got %d", len(expPeers), len(entries))
 		}
 		for _, peer := range expPeers {
 			frrPeer, exists := entries[peer.String()]
 			if !exists {
-				return fmt.Errorf("missing peer %s", peer.String())
+				return nil, fmt.Errorf("missing peer %s", peer.String())
 			}
 			if frrPeer.BGPState != expState {
-				return fmt.Errorf("peer %s: expected %s state, got %s", peer, expState, entries[peer.String()].BGPState)
+				return nil, fmt.Errorf("peer %s: expected %s state, got %s", peer, expState, entries[peer.String()].BGPState)
 			}
 		}
-		return nil
+		return entries, nil
 	}
 
 	for {
-		if err := ensureBGPNeighborsState(); err != nil {
+		entries, err := ensureBGPNeighborsState()
+		if err != nil {
 			if err := w.Retry(err); err != nil {
 				t.Fatalf("Failed to ensure FRR BGP neighbor states: %v", err)
 			}
 			continue
 		}
-		return
+		return entries
+	}
+}
+
+// AssertFRRBGPNeighborTimers asserts that peering connections of the provided neighbors filtered by checkNeighbors
+// use the provided BGP timer intervals.
+func AssertFRRBGPNeighborTimers(t *Test, neighbors map[string]FRRBGPNeighborInfo, checkNeighbors []netip.Addr, keepAliveSeconds, holdTimeSeconds int32) {
+	for _, addr := range checkNeighbors {
+		neighbor, ok := neighbors[addr.String()]
+		if !ok {
+			t.Fatalf("neighbor %s missing in FRR neighbors map", addr)
+		}
+		if neighbor.BgpTimerKeepAliveIntervalMsecs != int(keepAliveSeconds*1000) {
+			t.Fatalf("neighbor %s: expected BGP KeepAlive '%d', got '%d'", addr, keepAliveSeconds, neighbor.BgpTimerKeepAliveIntervalMsecs/1000)
+		}
+		if neighbor.BgpTimerHoldTimeMsecs != int(holdTimeSeconds*1000) {
+			t.Fatalf("neighbor %s: expected BGP HoldTime '%d', got '%d'", addr, holdTimeSeconds, neighbor.BgpTimerHoldTimeMsecs/1000)
+		}
 	}
 }
 
