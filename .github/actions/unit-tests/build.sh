@@ -12,9 +12,16 @@ V=0 make precheck build -j 2 --quiet
 # as not used by the subsequent steps.
 make clean
 
+# Start kvstores seperately so we can do some pre-run checks.
+make start-kvstores
+
+# Check status of kvstores.
+docker logs kvstore1
+docker logs kvstore2
+
 # Run with default verbosity here since this builds all Go code by running
 # 'go vet' and all integration tests. At least one line of output is generated
 # after each Go package is built and tested.
-make integration-tests
+SKIP_KVSTORES=true make integration-tests
 
 exit 0
