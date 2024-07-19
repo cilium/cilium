@@ -34,11 +34,13 @@ var statusCmd = &cobra.Command{
 }
 
 var (
-	statusDetails pkg.StatusDetails
-	allHealth     bool
-	brief         bool
-	timeout       time.Duration
-	healthLines   = 10
+	statusDetails          pkg.StatusDetails
+	allHealth              bool
+	brief                  bool
+	requireK8sConnectivity bool
+	timeout                time.Duration
+	healthLines            = 10
+	allNodes               = false
 )
 
 func init() {
@@ -72,6 +74,12 @@ func statusDaemon() {
 	if allHealth {
 		healthLines = 0
 	}
+
+	if statusDetails.AllNodes {
+		allNodes = true
+		healthLines = 0
+	}
+
 	params := daemon.NewGetHealthzParamsWithTimeout(timeout)
 	params.SetBrief(&brief)
 	if resp, err := client.Daemon.GetHealthz(params); err != nil {
@@ -128,7 +136,7 @@ func statusDaemon() {
 				Fatalf("Failed while streaming remote health data table: %s", err)
 			}
 
-			healthPkg.GetAndFormatHealthStatus(w, true, allHealth, healthLines)
+			healthPkg.GetAndFormatHealthStatus(w, allNodes, verbose, healthLines)
 			healthPkg.GetAndFormatModulesHealth(w, ss, allHealth)
 		} else {
 			fmt.Fprint(w, "Cluster health:\t\tProbe disabled\n")
