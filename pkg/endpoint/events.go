@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
@@ -264,7 +265,7 @@ func (ev *EndpointPolicyVisibilityEvent) Handle(res chan interface{}) {
 // EndpointPolicyBandwidthEvent contains all fields necessary to update
 // the Pod's bandwidth policy.
 type EndpointPolicyBandwidthEvent struct {
-	bwm    bandwidth.Manager
+	bwm    datapath.BandwidthManager
 	ep     *Endpoint
 	annoCB AnnotationsResolverCB
 }

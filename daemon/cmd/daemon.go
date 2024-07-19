@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
@@ -216,7 +215,7 @@ type Daemon struct {
 
 	// Tunnel-related configuration
 	tunnelConfig tunnel.Config
-	bwManager    bandwidth.Manager
+	bwManager    datapath.BandwidthManager
 }
 
 // GetPolicyRepository returns the policy repository of the daemon

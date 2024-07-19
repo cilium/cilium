@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -237,7 +236,7 @@ type K8sWatcher struct {
 	envoyConfigManager    envoyConfigManager
 	cgroupManager         cgroupManager
 
-	bandwidthManager bandwidth.Manager
+	bandwidthManager datapath.BandwidthManager
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started
@@ -285,7 +284,7 @@ func NewK8sWatcher(
 	cgroupManager cgroupManager,
 	resources agentK8s.Resources,
 	serviceCache *k8s.ServiceCache,
-	bandwidthManager bandwidth.Manager,
+	bandwidthManager datapath.BandwidthManager,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		clientset:               clientset,

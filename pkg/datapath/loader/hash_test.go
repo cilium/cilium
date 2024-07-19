@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
@@ -36,7 +35,7 @@ func (s *LoaderTestSuite) TesthashDatapath(c *C) {
 		provideNodemap,
 		cell.Provide(
 			fake.NewNodeAddressing,
-			func() bandwidth.Manager { return &fake.BandwidthManager{} },
+			func() datapath.BandwidthManager { return &fake.BandwidthManager{} },
 			config.NewHeaderfileWriter,
 		),
 		cell.Invoke(func(writer_ datapath.ConfigWriter) {

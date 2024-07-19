@@ -195,7 +195,7 @@ type datapathParams struct {
 	// uses of it converted to Table[Device].
 	DeviceManager *linuxdatapath.DeviceManager
 
-	BandwidthManager bandwidth.Manager
+	BandwidthManager types.BandwidthManager
 
 	ModulesManager *modules.Manager
 

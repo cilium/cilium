@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -195,7 +195,7 @@ func partitionEPDirNamesByRestoreStatus(eptsDirNames []string) (complete []strin
 // * regenerates the endpoint
 // Returns an error if any operation fails while trying to perform the above
 // operations.
-func (e *Endpoint) RegenerateAfterRestore(regenerator *Regenerator, bwm bandwidth.Manager, resolveMetadata MetadataResolverCB) error {
+func (e *Endpoint) RegenerateAfterRestore(regenerator *Regenerator, bwm datapath.BandwidthManager, resolveMetadata MetadataResolverCB) error {
 	if err := e.restoreIdentity(regenerator); err != nil {
 		return err
 	}
