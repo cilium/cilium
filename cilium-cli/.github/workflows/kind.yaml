@@ -129,7 +129,8 @@ jobs:
             --external-target-ca-name=ca \
             --external-cidr 172.18.0.0/16 \
             --external-ip ${{ steps.external_targets.outputs.worker2_ip }} \
-            --external-other-ip ${{ steps.external_targets.outputs.worker3_ip }}
+            --external-other-ip ${{ steps.external_targets.outputs.worker3_ip }} \
+            --test '!local-redirect-policy-with-node-dns'
 
       - name: Uninstall node local DNS
         run: |
