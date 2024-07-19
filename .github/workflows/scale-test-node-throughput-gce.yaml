@@ -59,7 +59,7 @@ jobs:
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
-      
+
       - name: Get Cilium's default values
         id: default_vars
         uses: ./.github/actions/helm-default
@@ -119,7 +119,7 @@ jobs:
         with:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           version: ${{ env.gcloud_version }}
-      
+
       - name: Clone ClusterLoader2
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
@@ -133,7 +133,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: clusterloader2
           path: perf-tests
-      
+
       - name: Display version info of installed tools
         run: |
           echo "--- go ---"
@@ -157,12 +157,12 @@ jobs:
           node_count: 1
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
-      
+
       - name: Setup firewall rules
         uses: cilium/scale-tests-action/setup-firewall@c3a2f10946bf94430b40fd9e3ad40834add6d555 # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-      
+
       - name: Install Cilium
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
@@ -177,7 +177,7 @@ jobs:
       - name: Wait for Cilium status to be ready
         run: |
           cilium status --wait
-      
+
       - name: Run CL2
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2
