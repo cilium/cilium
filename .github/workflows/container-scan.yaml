@@ -21,7 +21,7 @@ jobs:
           {name: kvstoremesh, dockerfile: ./images/kvstoremesh/Dockerfile},
           {name: operator-generic, dockerfile: ./images/operator/Dockerfile},
         ]
-        branch: [v1.11, v1.12, v1.13] 
+        branch: [v1.11, v1.12, v1.13]
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -33,7 +33,7 @@ jobs:
       - name: Build local container
         uses: docker/build-push-action@5176d81f87c23d6fc96624dfdbcd9f3830bbe445 # v6.5.0
         with:
-          context: . 
+          context: .
           tags: ${{ matrix.image.name }}:${{ matrix.branch }}
           push: false
           load: true

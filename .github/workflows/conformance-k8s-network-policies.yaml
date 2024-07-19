@@ -35,7 +35,7 @@ jobs:
              cilium-preflight/clusterrole.yaml
 
   cyclonus-test:
-    name: Cyclonus Test 
+    name: Cyclonus Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout target branch to access local actions
