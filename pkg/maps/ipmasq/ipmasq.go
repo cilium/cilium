@@ -4,12 +4,11 @@
 package ipmasq
 
 import (
-	"net"
+	"net/netip"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -83,8 +82,10 @@ func IPMasq6Map() *bpf.Map {
 
 type IPMasqBPFMap struct{}
 
-func (*IPMasqBPFMap) Update(cidr net.IPNet) error {
-	if ip.IsIPv4(cidr.IP) {
+func (*IPMasqBPFMap) Update(cidr netip.Prefix) error {
+	cidr.Addr()
+
+	if cidr.Addr().Is4() {
 		if option.Config.EnableIPv4Masquerade {
 			return IPMasq4Map().Update(keyIPv4(cidr), &Value{})
 		}
@@ -96,8 +97,8 @@ func (*IPMasqBPFMap) Update(cidr net.IPNet) error {
 	return nil
 }
 
-func (*IPMasqBPFMap) Delete(cidr net.IPNet) error {
-	if ip.IsIPv4(cidr.IP) {
+func (*IPMasqBPFMap) Delete(cidr netip.Prefix) error {
+	if cidr.Addr().Is4() {
 		if option.Config.EnableIPv4Masquerade {
 			return IPMasq4Map().Delete(keyIPv4(cidr))
 		}
@@ -115,8 +116,8 @@ func (*IPMasqBPFMap) Delete(cidr net.IPNet) error {
 // specify which protocol we need when ipMasq4Map/ipMasq6Map, or config
 // options, have not been set, as is the case when calling from the CLI, for
 // example.
-func (*IPMasqBPFMap) DumpForProtocols(ipv4Needed, ipv6Needed bool) ([]net.IPNet, error) {
-	cidrs := []net.IPNet{}
+func (*IPMasqBPFMap) DumpForProtocols(ipv4Needed, ipv6Needed bool) ([]netip.Prefix, error) {
+	cidrs := []netip.Prefix{}
 	if ipv4Needed {
 		if err := IPMasq4Map().DumpWithCallback(
 			func(keyIPv4 bpf.MapKey, _ bpf.MapValue) {
@@ -138,46 +139,28 @@ func (*IPMasqBPFMap) DumpForProtocols(ipv4Needed, ipv6Needed bool) ([]net.IPNet,
 
 // Dump dumps the contents of the ip-masq-agent maps for IPv4 and/or IPv6, as
 // required based on configuration options.
-func (*IPMasqBPFMap) Dump() ([]net.IPNet, error) {
+func (*IPMasqBPFMap) Dump() ([]netip.Prefix, error) {
 	return (&IPMasqBPFMap{}).DumpForProtocols(option.Config.EnableIPv4Masquerade, option.Config.EnableIPv6Masquerade)
 }
 
-func keyIPv4(cidr net.IPNet) *Key4 {
-	ones, _ := cidr.Mask.Size()
+func keyIPv4(cidr netip.Prefix) *Key4 {
+	ones := cidr.Bits()
 	key := &Key4{PrefixLen: uint32(ones)}
-	copy(key.Address[:], cidr.IP.To4())
+	copy(key.Address[:], cidr.Masked().Addr().AsSlice())
 	return key
 }
 
-func keyToIPNetIPv4(key *Key4) net.IPNet {
-	var (
-		cidr net.IPNet
-		ip   types.IPv4
-	)
-
-	cidr.Mask = net.CIDRMask(int(key.PrefixLen), 32)
-	key.Address.DeepCopyInto(&ip)
-	cidr.IP = ip.IP()
-
-	return cidr
+func keyToIPNetIPv4(key *Key4) netip.Prefix {
+	return netip.PrefixFrom(key.Address.Addr(), int(key.PrefixLen))
 }
 
-func keyIPv6(cidr net.IPNet) *Key6 {
-	ones, _ := cidr.Mask.Size()
+func keyIPv6(cidr netip.Prefix) *Key6 {
+	ones := cidr.Bits()
 	key := &Key6{PrefixLen: uint32(ones)}
-	copy(key.Address[:], cidr.IP.To16())
+	copy(key.Address[:], cidr.Masked().Addr().AsSlice())
 	return key
 }
 
-func keyToIPNetIPv6(key *Key6) net.IPNet {
-	var (
-		cidr net.IPNet
-		ip   types.IPv6
-	)
-
-	cidr.Mask = net.CIDRMask(int(key.PrefixLen), 128)
-	key.Address.DeepCopyInto(&ip)
-	cidr.IP = ip.IP()
-
-	return cidr
+func keyToIPNetIPv6(key *Key6) netip.Prefix {
+	return netip.PrefixFrom(key.Address.Addr(), int(key.PrefixLen))
 }
