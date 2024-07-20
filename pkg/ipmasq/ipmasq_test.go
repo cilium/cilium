@@ -5,14 +5,14 @@ package ipmasq
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -20,16 +20,16 @@ type ipMasqMapMock struct {
 	lock.RWMutex
 	ipv4Enabled bool
 	ipv6Enabled bool
-	cidrsIPv4   map[string]net.IPNet
-	cidrsIPv6   map[string]net.IPNet
+	cidrsIPv4   map[string]netip.Prefix
+	cidrsIPv6   map[string]netip.Prefix
 }
 
-func (m *ipMasqMapMock) Update(cidr net.IPNet) error {
+func (m *ipMasqMapMock) Update(cidr netip.Prefix) error {
 	m.Lock()
 	defer m.Unlock()
 
 	cidrStr := cidr.String()
-	if ip.IsIPv4(cidr.IP) {
+	if cidr.Addr().Is4() {
 		if m.ipv4Enabled {
 			if _, ok := m.cidrsIPv4[cidrStr]; ok {
 				return fmt.Errorf("CIDR already exists: %s", cidrStr)
@@ -52,12 +52,12 @@ func (m *ipMasqMapMock) Update(cidr net.IPNet) error {
 	return nil
 }
 
-func (m *ipMasqMapMock) Delete(cidr net.IPNet) error {
+func (m *ipMasqMapMock) Delete(cidr netip.Prefix) error {
 	m.Lock()
 	defer m.Unlock()
 
 	cidrStr := cidr.String()
-	if ip.IsIPv4(cidr.IP) {
+	if cidr.Addr().Is4() {
 		if m.ipv4Enabled {
 			if _, ok := m.cidrsIPv4[cidrStr]; !ok {
 				return fmt.Errorf("CIDR not found: %s", cidrStr)
@@ -80,11 +80,11 @@ func (m *ipMasqMapMock) Delete(cidr net.IPNet) error {
 	return nil
 }
 
-func (m *ipMasqMapMock) Dump() ([]net.IPNet, error) {
+func (m *ipMasqMapMock) Dump() ([]netip.Prefix, error) {
 	m.RLock()
 	defer m.RUnlock()
 
-	cidrs := make([]net.IPNet, 0, len(m.cidrsIPv4)+len(m.cidrsIPv6))
+	cidrs := make([]netip.Prefix, 0, len(m.cidrsIPv4)+len(m.cidrsIPv6))
 	if m.ipv4Enabled {
 		for _, cidr := range m.cidrsIPv4 {
 			cidrs = append(cidrs, cidr)
@@ -135,8 +135,8 @@ type IPMasqTestSuite struct {
 func setUpTest(tb testing.TB) *IPMasqTestSuite {
 	i := &IPMasqTestSuite{}
 	i.ipMasqMap = &ipMasqMapMock{
-		cidrsIPv4: map[string]net.IPNet{},
-		cidrsIPv6: map[string]net.IPNet{},
+		cidrsIPv4: map[string]netip.Prefix{},
+		cidrsIPv6: map[string]netip.Prefix{},
 	}
 
 	configFile, err := os.CreateTemp("", "ipmasq-test")
@@ -171,6 +171,7 @@ func TestUpdateIPv4(t *testing.T) {
 
 	ipnets := i.ipMasqMap.dumpToSet()
 	require.Len(t, ipnets, 3)
+
 	_, ok := ipnets["1.1.1.1/32"]
 	require.True(t, ok)
 	_, ok = ipnets["2.2.0.0/16"]
@@ -367,10 +368,10 @@ func TestRestoreIPv4(t *testing.T) {
 	// Check that stale entry is removed from the map after restore
 	i.ipMasqAgent.Stop()
 
-	_, cidr, _ := net.ParseCIDR("3.3.3.0/24")
-	i.ipMasqMap.cidrsIPv4[cidr.String()] = *cidr
-	_, cidr, _ = net.ParseCIDR("4.4.0.0/16")
-	i.ipMasqMap.cidrsIPv4[cidr.String()] = *cidr
+	cidr := netip.MustParsePrefix("3.3.3.0/24")
+	i.ipMasqMap.cidrsIPv4[cidr.String()] = cidr
+	cidr = netip.MustParsePrefix("4.4.0.0/16")
+	i.ipMasqMap.cidrsIPv4[cidr.String()] = cidr
 	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 4.4.0.0/16")
 
 	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
@@ -389,7 +390,7 @@ func TestRestoreIPv4(t *testing.T) {
 	// the config
 	i.ipMasqAgent.Stop()
 	i.ipMasqMap = &ipMasqMapMock{
-		cidrsIPv4:   map[string]net.IPNet{},
+		cidrsIPv4:   map[string]netip.Prefix{},
 		ipv4Enabled: true,
 		ipv6Enabled: false,
 	}
@@ -415,10 +416,10 @@ func TestRestoreIPv6(t *testing.T) {
 	// Check that stale entry is removed from the map after restore
 	i.ipMasqAgent.Stop()
 
-	_, cidr, _ := net.ParseCIDR("3:3:3:3::/64")
-	i.ipMasqMap.cidrsIPv6[cidr.String()] = *cidr
-	_, cidr, _ = net.ParseCIDR("4:4::/32")
-	i.ipMasqMap.cidrsIPv6[cidr.String()] = *cidr
+	cidr := netip.MustParsePrefix("3:3:3:3::/64")
+	i.ipMasqMap.cidrsIPv6[cidr.String()] = cidr
+	cidr = netip.MustParsePrefix("4:4::/32")
+	i.ipMasqMap.cidrsIPv6[cidr.String()] = cidr
 	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 4:4::/32")
 
 	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
@@ -437,7 +438,7 @@ func TestRestoreIPv6(t *testing.T) {
 	// the config
 	i.ipMasqAgent.Stop()
 	i.ipMasqMap = &ipMasqMapMock{
-		cidrsIPv6:   map[string]net.IPNet{},
+		cidrsIPv6:   map[string]netip.Prefix{},
 		ipv4Enabled: false,
 		ipv6Enabled: true,
 	}
@@ -463,14 +464,14 @@ func TestRestore(t *testing.T) {
 	// Check that stale entry is removed from the map after restore
 	i.ipMasqAgent.Stop()
 
-	_, cidr, _ := net.ParseCIDR("3:3:3:3::/64")
-	i.ipMasqMap.cidrsIPv6[cidr.String()] = *cidr
-	_, cidr, _ = net.ParseCIDR("4:4::/32")
-	i.ipMasqMap.cidrsIPv6[cidr.String()] = *cidr
-	_, cidr, _ = net.ParseCIDR("3.3.3.0/24")
-	i.ipMasqMap.cidrsIPv4[cidr.String()] = *cidr
-	_, cidr, _ = net.ParseCIDR("4.4.0.0/16")
-	i.ipMasqMap.cidrsIPv4[cidr.String()] = *cidr
+	cidr := netip.MustParsePrefix("3:3:3:3::/64")
+	i.ipMasqMap.cidrsIPv6[cidr.String()] = cidr
+	cidr = netip.MustParsePrefix("4:4::/32")
+	i.ipMasqMap.cidrsIPv6[cidr.String()] = cidr
+	cidr = netip.MustParsePrefix("3.3.3.0/24")
+	i.ipMasqMap.cidrsIPv4[cidr.String()] = cidr
+	cidr = netip.MustParsePrefix("4.4.0.0/16")
+	i.ipMasqMap.cidrsIPv4[cidr.String()] = cidr
 	i.writeConfig(t, "nonMasqueradeCIDRs:\n- 4.4.0.0/16\n- 4:4::/32")
 
 	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
@@ -493,8 +494,8 @@ func TestRestore(t *testing.T) {
 	// the config
 	i.ipMasqAgent.Stop()
 	i.ipMasqMap = &ipMasqMapMock{
-		cidrsIPv4:   map[string]net.IPNet{},
-		cidrsIPv6:   map[string]net.IPNet{},
+		cidrsIPv4:   map[string]netip.Prefix{},
+		cidrsIPv6:   map[string]netip.Prefix{},
 		ipv4Enabled: true,
 		ipv6Enabled: true,
 	}
@@ -510,4 +511,43 @@ func TestRestore(t *testing.T) {
 	require.True(t, ok)
 	_, ok = ipnets["3:3:3:3::/96"]
 	require.True(t, ok)
+}
+
+func TestParseCIDR(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		in      string
+		want    netip.Prefix
+		wantErr bool
+	}{
+		{
+			name:    "invalid input",
+			in:      "invalid-prefix",
+			wantErr: true,
+		},
+		{
+			name: "valid prefix 4",
+			in:   "3.3.0.0/16",
+			want: netip.MustParsePrefix("3.3.0.0/16"),
+		},
+		{
+			name: "valid prefix 6",
+			in:   "1:2:3::/96",
+			want: netip.MustParsePrefix("1:2:3::/96"),
+		},
+		{
+			name: "always set mask bits to zero (canonicalize)",
+			in:   "64.255.255.255/8",
+			want: netip.MustParsePrefix("64.0.0.0/8"),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parseCIDR(tc.in)
+			assert.Equal(t, err != nil, tc.wantErr)
+			if err != nil {
+				return
+			}
+			assert.Equal(t, got, tc.want)
+		})
+	}
 }
