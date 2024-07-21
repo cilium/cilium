@@ -181,7 +181,7 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: cilium/scale-tests-action/create-cluster@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec    # main
+        uses: thorn3r/scale-tests-action/create-cluster@b07428344bdf7a732921726070d2326552293046 # etcd volume 500gb
         timeout-minutes: 60
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -195,6 +195,7 @@ jobs:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           kube_proxy_enabled: false
           allocate_node_cidrs: false
+          etcd_volume_size: 500
 
       - name: Create Instance Group for resource heavy deployments
         uses: cilium/scale-tests-action/create-instance-group@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
