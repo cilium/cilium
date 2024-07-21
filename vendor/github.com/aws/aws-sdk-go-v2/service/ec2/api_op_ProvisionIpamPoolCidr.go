@@ -46,7 +46,8 @@ type ProvisionIpamPoolCidrInput struct {
 	Cidr *string
 
 	// A signed document that proves that you are authorized to bring a specified IP
-	// address range to Amazon using BYOIP. This option applies to public pools only.
+	// address range to Amazon using BYOIP. This option only applies to IPv4 and IPv6
+	// pools in the public scope.
 	CidrAuthorizationContext *types.IpamCidrAuthorizationContext
 
 	// A unique, case-sensitive identifier that you provide to ensure the idempotency
@@ -61,11 +62,20 @@ type ProvisionIpamPoolCidrInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// Verification token ID. This option only applies to IPv4 and IPv6 pools in the
+	// public scope.
+	IpamExternalResourceVerificationTokenId *string
+
 	// The netmask length of the CIDR you'd like to provision to a pool. Can be used
 	// for provisioning Amazon-provided IPv6 CIDRs to top-level pools and for
 	// provisioning CIDRs to pools with source pools. Cannot be used to provision BYOIP
 	// CIDRs to top-level pools. Either "NetmaskLength" or "Cidr" is required.
 	NetmaskLength *int32
+
+	// The method for verifying control of a public IP address range. Defaults to
+	// remarks-x509 if not specified. This option only applies to IPv4 and IPv6 pools
+	// in the public scope.
+	VerificationMethod types.VerificationMethod
 
 	noSmithyDocumentSerde
 }
