@@ -4962,6 +4962,34 @@ func (IpamDiscoveryFailureCode) Values() []IpamDiscoveryFailureCode {
 	}
 }
 
+type IpamExternalResourceVerificationTokenState string
+
+// Enum values for IpamExternalResourceVerificationTokenState
+const (
+	IpamExternalResourceVerificationTokenStateCreateInProgress IpamExternalResourceVerificationTokenState = "create-in-progress"
+	IpamExternalResourceVerificationTokenStateCreateComplete   IpamExternalResourceVerificationTokenState = "create-complete"
+	IpamExternalResourceVerificationTokenStateCreateFailed     IpamExternalResourceVerificationTokenState = "create-failed"
+	IpamExternalResourceVerificationTokenStateDeleteInProgress IpamExternalResourceVerificationTokenState = "delete-in-progress"
+	IpamExternalResourceVerificationTokenStateDeleteComplete   IpamExternalResourceVerificationTokenState = "delete-complete"
+	IpamExternalResourceVerificationTokenStateDeleteFailed     IpamExternalResourceVerificationTokenState = "delete-failed"
+)
+
+// Values returns all known values for IpamExternalResourceVerificationTokenState.
+// Note that this can be expanded in the future, and so it is only as up to date as
+// the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpamExternalResourceVerificationTokenState) Values() []IpamExternalResourceVerificationTokenState {
+	return []IpamExternalResourceVerificationTokenState{
+		"create-in-progress",
+		"create-complete",
+		"create-failed",
+		"delete-in-progress",
+		"delete-complete",
+		"delete-failed",
+	}
+}
+
 type IpamManagementState string
 
 // Enum values for IpamManagementState
@@ -7019,6 +7047,7 @@ const (
 	ResourceTypeIpamResourceDiscovery                                  ResourceType = "ipam-resource-discovery"
 	ResourceTypeIpamResourceDiscoveryAssociation                       ResourceType = "ipam-resource-discovery-association"
 	ResourceTypeInstanceConnectEndpoint                                ResourceType = "instance-connect-endpoint"
+	ResourceTypeIpamExternalResourceVerificationToken                  ResourceType = "ipam-external-resource-verification-token"
 )
 
 // Values returns all known values for ResourceType. Note that this can be
@@ -7114,6 +7143,7 @@ func (ResourceType) Values() []ResourceType {
 		"ipam-resource-discovery",
 		"ipam-resource-discovery-association",
 		"instance-connect-endpoint",
+		"ipam-external-resource-verification-token",
 	}
 }
 
@@ -7953,6 +7983,25 @@ func (TieringOperationStatus) Values() []TieringOperationStatus {
 	}
 }
 
+type TokenState string
+
+// Enum values for TokenState
+const (
+	TokenStateValid   TokenState = "valid"
+	TokenStateExpired TokenState = "expired"
+)
+
+// Values returns all known values for TokenState. Note that this can be expanded
+// in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (TokenState) Values() []TokenState {
+	return []TokenState{
+		"valid",
+		"expired",
+	}
+}
+
 type TpmSupportValues string
 
 // Enum values for TpmSupportValues
@@ -8639,6 +8688,25 @@ func (UserTrustProviderType) Values() []UserTrustProviderType {
 	return []UserTrustProviderType{
 		"iam-identity-center",
 		"oidc",
+	}
+}
+
+type VerificationMethod string
+
+// Enum values for VerificationMethod
+const (
+	VerificationMethodRemarksX509 VerificationMethod = "remarks-x509"
+	VerificationMethodDnsToken    VerificationMethod = "dns-token"
+)
+
+// Values returns all known values for VerificationMethod. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (VerificationMethod) Values() []VerificationMethod {
+	return []VerificationMethod{
+		"remarks-x509",
+		"dns-token",
 	}
 }
 

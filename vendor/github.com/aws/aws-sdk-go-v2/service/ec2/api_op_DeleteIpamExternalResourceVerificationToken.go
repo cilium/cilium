@@ -6,66 +6,51 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
-	"time"
 )
 
-// Gets the console output for the specified instance. For Linux instances, the
-// instance console output displays the exact console output that would normally be
-// displayed on a physical monitor attached to a computer. For Windows instances,
-// the instance console output includes the last three system event log errors.
-//
-// For more information, see [Instance console output] in the Amazon EC2 User Guide.
-//
-// [Instance console output]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-console.html#instance-console-console-output
-func (c *Client) GetConsoleOutput(ctx context.Context, params *GetConsoleOutputInput, optFns ...func(*Options)) (*GetConsoleOutputOutput, error) {
+// Delete a verification token. A verification token is an Amazon Web
+// Services-generated random value that you can use to prove ownership of an
+// external resource. For example, you can use a verification token to validate
+// that you control a public IP address range when you bring an IP address range to
+// Amazon Web Services (BYOIP).
+func (c *Client) DeleteIpamExternalResourceVerificationToken(ctx context.Context, params *DeleteIpamExternalResourceVerificationTokenInput, optFns ...func(*Options)) (*DeleteIpamExternalResourceVerificationTokenOutput, error) {
 	if params == nil {
-		params = &GetConsoleOutputInput{}
+		params = &DeleteIpamExternalResourceVerificationTokenInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "GetConsoleOutput", params, optFns, c.addOperationGetConsoleOutputMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DeleteIpamExternalResourceVerificationToken", params, optFns, c.addOperationDeleteIpamExternalResourceVerificationTokenMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*GetConsoleOutputOutput)
+	out := result.(*DeleteIpamExternalResourceVerificationTokenOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type GetConsoleOutputInput struct {
+type DeleteIpamExternalResourceVerificationTokenInput struct {
 
-	// The ID of the instance.
+	// The token ID.
 	//
 	// This member is required.
-	InstanceId *string
+	IpamExternalResourceVerificationTokenId *string
 
-	// Checks whether you have the required permissions for the action, without
-	// actually making the request, and provides an error response. If you have the
+	// A check for whether you have the required permissions for the action without
+	// actually making the request and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// When enabled, retrieves the latest console output for the instance.
-	//
-	// Default: disabled ( false )
-	Latest *bool
-
 	noSmithyDocumentSerde
 }
 
-type GetConsoleOutputOutput struct {
+type DeleteIpamExternalResourceVerificationTokenOutput struct {
 
-	// The ID of the instance.
-	InstanceId *string
-
-	// The console output, base64-encoded. If you are using a command line tool, the
-	// tool decodes the output for you.
-	Output *string
-
-	// The time at which the output was last updated.
-	Timestamp *time.Time
+	// The verification token.
+	IpamExternalResourceVerificationToken *types.IpamExternalResourceVerificationToken
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -73,19 +58,19 @@ type GetConsoleOutputOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationGetConsoleOutputMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDeleteIpamExternalResourceVerificationTokenMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpGetConsoleOutput{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpDeleteIpamExternalResourceVerificationToken{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpGetConsoleOutput{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpDeleteIpamExternalResourceVerificationToken{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "GetConsoleOutput"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DeleteIpamExternalResourceVerificationToken"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -134,10 +119,10 @@ func (c *Client) addOperationGetConsoleOutputMiddlewares(stack *middleware.Stack
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
-	if err = addOpGetConsoleOutputValidationMiddleware(stack); err != nil {
+	if err = addOpDeleteIpamExternalResourceVerificationTokenValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetConsoleOutput(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteIpamExternalResourceVerificationToken(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -158,10 +143,10 @@ func (c *Client) addOperationGetConsoleOutputMiddlewares(stack *middleware.Stack
 	return nil
 }
 
-func newServiceMetadataMiddleware_opGetConsoleOutput(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDeleteIpamExternalResourceVerificationToken(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "GetConsoleOutput",
+		OperationName: "DeleteIpamExternalResourceVerificationToken",
 	}
 }
