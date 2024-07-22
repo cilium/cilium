@@ -22,9 +22,9 @@ const (
 	// traceNotifyCommonLen is the minimum length required to determine the version of the TN event.
 	traceNotifyCommonLen = 16
 	// traceNotifyV0Len is the amount of packet data provided in a trace notification v0.
-	traceNotifyV0Len = 32
+	traceNotifyV0Len = 40
 	// traceNotifyV1Len is the amount of packet data provided in a trace notification v1.
-	traceNotifyV1Len = 48
+	traceNotifyV1Len = 56
 )
 
 const (
@@ -42,19 +42,20 @@ const (
 // This struct needs to be kept in sync with the decodeTraceNotifyVersion0
 // func.
 type TraceNotifyV0 struct {
-	Type     uint8
-	ObsPoint uint8
-	Source   uint16
-	Hash     uint32
-	OrigLen  uint32
-	CapLen   uint16
-	Version  uint16
-	SrcLabel identity.NumericIdentity
-	DstLabel identity.NumericIdentity
-	DstID    uint16
-	Reason   uint8
-	Flags    uint8
-	Ifindex  uint32
+	Type      uint8
+	ObsPoint  uint8
+	Source    uint16
+	Hash      uint32
+	OrigLen   uint32
+	CapLen    uint16
+	Version   uint16
+	SrcLabel  identity.NumericIdentity
+	DstLabel  identity.NumericIdentity
+	DstID     uint16
+	Reason    uint8
+	Flags     uint8
+	Ifindex   uint32
+	IPTraceID uint64
 	// data
 }
 
@@ -80,6 +81,7 @@ func (tn *TraceNotifyV0) decodeTraceNotifyVersion0(data []byte) error {
 	tn.Reason = data[26]
 	tn.Flags = data[27]
 	tn.Ifindex = byteorder.Native.Uint32(data[28:32])
+	tn.IPTraceID = byteorder.Native.Uint64(data[32:40])
 
 	return nil
 }
@@ -128,6 +130,10 @@ func (n *TraceNotifyV0) TraceReasonIsDecap() bool {
 	return false
 }
 
+func (n *TraceNotify) GetIPTraceID() uint64 {
+	return n.IPTraceID
+}
+
 // TraceNotifyV1 is the version 1 message format. This struct needs to be kept
 // in sync with the decodeTraceNotifyVersion1 func.
 type TraceNotifyV1 struct {
@@ -148,7 +154,7 @@ func (tn *TraceNotifyV1) decodeTraceNotifyVersion1(data []byte) error {
 		return err
 	}
 
-	copy(tn.OrigIP[:], data[32:48])
+	copy(tn.OrigIP[:], data[40:56])
 	return nil
 }
 
@@ -299,8 +305,14 @@ func (n *TraceNotify) DumpInfo(data []byte, numeric DisplayFormat, linkMonitor g
 	}
 	n.dumpIdentity(buf, numeric)
 	ifname := linkMonitor.Name(n.Ifindex)
-	fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n", n.traceReasonString(),
-		ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
+
+	if n.GetIPTraceID() != 0 {
+		fmt.Fprintf(buf, " ip_trace_id %#x state %s ifindex %s orig-ip %s: %s\n", n.GetIPTraceID(), n.traceReasonString(),
+			ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
+	} else {
+		fmt.Fprintf(buf, " state %s ifindex %s orig-ip %s: %s\n", n.traceReasonString(),
+			ifname, n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
+	}
 	buf.Flush()
 }
 
@@ -369,11 +381,12 @@ type TraceNotifyVerbose struct {
 	ObservationPoint string `json:"observationPoint"`
 	TraceSummary     string `json:"traceSummary"`
 
-	Source   uint16                   `json:"source"`
-	Bytes    uint32                   `json:"bytes"`
-	SrcLabel identity.NumericIdentity `json:"srcLabel"`
-	DstLabel identity.NumericIdentity `json:"dstLabel"`
-	DstID    uint16                   `json:"dstID"`
+	Source    uint16                   `json:"source"`
+	Bytes     uint32                   `json:"bytes"`
+	SrcLabel  identity.NumericIdentity `json:"srcLabel"`
+	DstLabel  identity.NumericIdentity `json:"dstLabel"`
+	DstID     uint16                   `json:"dstID"`
+	IPTraceID uint64                   `json:"IpTraceID"`
 
 	Summary *DissectSummary `json:"summary,omitempty"`
 }
@@ -393,5 +406,6 @@ func TraceNotifyToVerbose(n *TraceNotify, linkMonitor getters.LinkGetter) TraceN
 		SrcLabel:         n.SrcLabel,
 		DstLabel:         n.DstLabel,
 		DstID:            n.DstID,
+		IPTraceID:        n.IPTraceID,
 	}
 }

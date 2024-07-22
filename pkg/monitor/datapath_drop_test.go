@@ -16,22 +16,23 @@ import (
 func TestDecodeDropNotify(t *testing.T) {
 	// This check on the struct length constant is there to ensure that this
 	// test is updated when the struct changes.
-	require.Equal(t, 36, DropNotifyLen)
+	require.Equal(t, 48, DropNotifyLen)
 
 	input := DropNotify{
-		Type:     0x00,
-		SubType:  0x01,
-		Source:   0x02_03,
-		Hash:     0x04_05_06_07,
-		OrigLen:  0x08_09_0a_0b,
-		CapLen:   0x0c_0d_0e_10,
-		SrcLabel: 0x11_12_13_14,
-		DstLabel: 0x15_16_17_18,
-		DstID:    0x19_1a_1b_1c,
-		Line:     0x1d_1e,
-		File:     0x20,
-		ExtError: 0x21,
-		Ifindex:  0x22_23_24_25,
+		Type:      0x00,
+		SubType:   0x01,
+		Source:    0x02_03,
+		Hash:      0x04_05_06_07,
+		OrigLen:   0x08_09_0a_0b,
+		CapLen:    0x0c_0d_0e_10,
+		SrcLabel:  0x11_12_13_14,
+		DstLabel:  0x15_16_17_18,
+		DstID:     0x19_1a_1b_1c,
+		Line:      0x1d_1e,
+		File:      0x20,
+		ExtError:  0x21,
+		Ifindex:   0x22_23_24_25,
+		IPTraceID: 0x123456789abcdef0,
 	}
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, input)
@@ -54,6 +55,7 @@ func TestDecodeDropNotify(t *testing.T) {
 	require.Equal(t, input.File, output.File)
 	require.Equal(t, input.ExtError, output.ExtError)
 	require.Equal(t, input.Ifindex, output.Ifindex)
+	require.Equal(t, input.IPTraceID, output.IPTraceID)
 }
 
 func BenchmarkNewDecodeDropNotify(b *testing.B) {

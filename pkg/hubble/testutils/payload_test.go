@@ -26,10 +26,10 @@ func decodeHex(s string) []byte {
 
 func TestCreateL3L4Payload(t *testing.T) {
 	// These contain TraceNotify headers plus the ethernet header of the packet
-	packetv4Prefix := decodeHex("0403a80b8d4598d462000000620000006800000001000000000002000000000006e9183bb275129106e2221a080045000054bfe900003f019ae2")
-	packetv4802Prefix := decodeHex("0403a80b8d4598d462000000620000006800000001000000000002000000000006e9183bb275129106e2221a81000202080045000054bfe900003f019ae2")
-	packetv6Prefix := decodeHex("0405a80b5f16f2b85600000056000000680000000000000000000000000000003333ff00b3e5129106e2221a86dd6000000000203aff")
-	packetv6802Prefix := decodeHex("0405a80b5f16f2b85600000056000000680000000000000000000000000000003333ff00b3e5129106e2221a8100020286dd6000000000203aff")
+	packetv4Prefix := decodeHex("0403a80b8d4598d4620000006200000068000000010000000000020000000000000000000000000006e9183bb275129106e2221a080045000054bfe900003f019ae2")
+	packetv4802Prefix := decodeHex("0403a80b8d4598d4620000006200000068000000010000000000020000000000000000000000000006e9183bb275129106e2221a81000202080045000054bfe900003f019ae2")
+	packetv6Prefix := decodeHex("0405a80b5f16f2b856000000560000006800000000000000000000000000000000000000000000003333ff00b3e5129106e2221a86dd6000000000203aff")
+	packetv6802Prefix := decodeHex("0405a80b5f16f2b856000000560000006800000000000000000000000000000000000000000000003333ff00b3e5129106e2221a8100020286dd6000000000203aff")
 
 	// ICMPv4/v6 packets (with reversed src/dst IPs)
 	packetICMPv4 := decodeHex("010101010a107e4000003639225700051b7b415d0000000086bf050000000000101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031323334353637")
@@ -39,26 +39,28 @@ func TestCreateL3L4Payload(t *testing.T) {
 
 	// The following structs are decoded pieces of the above packets
 	traceNotifyIPv4 := monitor.TraceNotifyV0{
-		Type:     monitorAPI.MessageTypeTrace,
-		ObsPoint: monitorAPI.TraceToStack,
-		Source:   0xba8,
-		Hash:     0xd498458d,
-		OrigLen:  0x62,
-		CapLen:   0x62,
-		SrcLabel: 0x68,
-		DstLabel: 0x1,
-		Reason:   monitor.TraceReasonCtReply,
+		Type:      monitorAPI.MessageTypeTrace,
+		ObsPoint:  monitorAPI.TraceToStack,
+		Source:    0xba8,
+		Hash:      0xd498458d,
+		OrigLen:   0x62,
+		CapLen:    0x62,
+		SrcLabel:  0x68,
+		DstLabel:  0x1,
+		Reason:    monitor.TraceReasonCtReply,
+		IPTraceID: 0x0000000000000000,
 	}
 	traceNotifyIPv6 := monitor.TraceNotifyV0{
-		Type:     monitorAPI.MessageTypeTrace,
-		ObsPoint: monitorAPI.TraceFromLxc,
-		Source:   0xba8,
-		Hash:     0xb8f2165f,
-		OrigLen:  0x56,
-		CapLen:   0x56,
-		SrcLabel: 0x68,
-		DstLabel: 0x0,
-		Reason:   monitor.TraceReasonPolicy,
+		Type:      monitorAPI.MessageTypeTrace,
+		ObsPoint:  monitorAPI.TraceFromLxc,
+		Source:    0xba8,
+		Hash:      0xb8f2165f,
+		OrigLen:   0x56,
+		CapLen:    0x56,
+		SrcLabel:  0x68,
+		DstLabel:  0x0,
+		Reason:    monitor.TraceReasonPolicy,
+		IPTraceID: 0x0000000000000000,
 	}
 
 	etherIPv4 := &layers.Ethernet{
