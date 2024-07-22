@@ -3666,6 +3666,13 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equals(outcomeKeys), "%s (MapState):\n%s", tt.name, outcomeKeys.Diff(expectedKeys))
+
+		// Test also with reverse insertion order
+		outcomeKeys = newMapState(nil)
+		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
+		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
+		outcomeKeys.validatePortProto(t)
+		require.True(t, expectedKeys.Equals(outcomeKeys), "%s (in reverse) (MapState):\n%s", tt.name, outcomeKeys.Diff(expectedKeys))
 	}
 	// Now test all cases with different traffic directions.
 	// This should result in both entries being inserted with
@@ -3690,7 +3697,14 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
 		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
 		outcomeKeys.validatePortProto(t)
-		require.EqualValuesf(t, expectedKeys, outcomeKeys, "different traffic directions %s", tt.name)
+		require.True(t, expectedKeys.Equals(outcomeKeys), "%s different traffic directions (MapState):\n%s", tt.name, outcomeKeys.Diff(expectedKeys))
+
+		// Test also with reverse insertion order
+		outcomeKeys = newMapState(nil)
+		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
+		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
+		outcomeKeys.validatePortProto(t)
+		require.True(t, expectedKeys.Equals(outcomeKeys), "%s different traffic directions (in reverse) (MapState):\n%s", tt.name, outcomeKeys.Diff(expectedKeys))
 	}
 }
 
