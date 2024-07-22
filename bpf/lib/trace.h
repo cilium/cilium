@@ -27,6 +27,7 @@
 #include "utils.h"
 #include "metrics.h"
 #include "ratelimit.h"
+#include "trace_helpers.h"
 
 /* Available observation points. */
 enum trace_point {
