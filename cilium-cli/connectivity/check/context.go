@@ -5,11 +5,9 @@ package check
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/netip"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium-cli/connectivity/internal/junit"
 	"github.com/cilium/cilium-cli/connectivity/perf/common"
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/k8s"
@@ -427,9 +424,6 @@ func (ct *ConnectivityTest) PrintReport(ctx context.Context) error {
 	if len(ct.tests) == 0 {
 		return nil
 	}
-	if err := ct.writeJunit(); err != nil {
-		ct.Failf("writing to junit file %s failed: %s", ct.Params().JunitFile, err)
-	}
 
 	if ct.Params().FlushCT {
 		var wg sync.WaitGroup
@@ -466,83 +460,6 @@ func (ct *ConnectivityTest) Cleanup() {
 func (ct *ConnectivityTest) skip(t *Test, index int, reason string) {
 	ct.logger.Printf(t, "[=] [%s] Skipping test [%s] [%d/%d] (%s)\n", ct.params.TestNamespace, t.Name(), index, len(t.ctx.tests), reason)
 	t.skipped = true
-}
-
-func (ct *ConnectivityTest) writeJunit() error {
-	if ct.Params().JunitFile == "" {
-		return nil
-	}
-
-	properties := []junit.Property{
-		{Name: "Args", Value: strings.Join(os.Args[3:], "|")},
-	}
-	for key, val := range ct.Params().JunitProperties {
-		properties = append(properties, junit.Property{Name: key, Value: val})
-	}
-
-	suite := &junit.TestSuite{
-		Name:    "connectivity test",
-		Package: "cilium",
-		Tests:   len(ct.tests),
-		Properties: &junit.Properties{
-			Properties: properties,
-		},
-	}
-
-	for i, t := range ct.tests {
-		test := &junit.TestCase{
-			Name:      t.Name(),
-			Classname: "connectivity test",
-			Status:    "passed",
-			Time:      t.completionTime.Sub(t.startTime).Seconds(),
-		}
-
-		// Timestamp of the TestSuite is the first test's start time
-		if i == 0 {
-			suite.Timestamp = t.startTime.Format("2006-01-02T15:04:05")
-		}
-		suite.Time += test.Time
-
-		if t.skipped {
-			test.Status = "skipped"
-			test.Skipped = &junit.Skipped{Message: t.Name() + " skipped"}
-			suite.Skipped++
-			test.Time = 0
-		} else if t.failed {
-			test.Status = "failed"
-			test.Failure = &junit.Failure{Message: t.Name() + " failed", Type: "failure"}
-			suite.Failures++
-			msgs := []string{}
-			for _, a := range t.failedActions() {
-				msgs = append(msgs, a.String())
-			}
-			test.Failure.Value = strings.Join(msgs, "\n")
-		}
-
-		suite.TestCases = append(suite.TestCases, test)
-	}
-
-	suites := junit.TestSuites{
-		Tests:      suite.Tests,
-		Disabled:   suite.Skipped,
-		Failures:   suite.Failures,
-		Time:       suite.Time,
-		TestSuites: []*junit.TestSuite{suite},
-	}
-
-	f, err := os.Create(ct.Params().JunitFile)
-	if err != nil {
-		return err
-	}
-
-	if err := suites.WriteReport(f); err != nil {
-		if e := f.Close(); e != nil {
-			return errors.Join(err, e)
-		}
-		return err
-	}
-
-	return f.Close()
 }
 
 func (ct *ConnectivityTest) report() error {

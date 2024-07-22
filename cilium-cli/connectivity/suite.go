@@ -30,6 +30,7 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 	if err != nil {
 		return err
 	}
+	junitCollector := check.NewJUnitCollector(connTests[0].Params().JunitProperties, connTests[0].Params().JunitFile)
 	for i := range suiteBuilders {
 		if e := suiteBuilders[i](connTests, extra.AddConnectivityTests); e != nil {
 			return e
@@ -41,11 +42,15 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 			return e
 		}
 		for j := range connTests {
+			junitCollector.Collect(connTests[j])
 			if e := connTests[j].PrintReport(ctx); e != nil {
 				err = errors.Join(err, e)
 			}
 			connTests[j].Cleanup()
 		}
+	}
+	if err := junitCollector.Write(); err != nil {
+		connTests[0].Failf("writing to junit file %s failed: %s", connTests[0].Params().JunitFile, err)
 	}
 	return err
 }
