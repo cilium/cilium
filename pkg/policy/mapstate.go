@@ -943,14 +943,15 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			}
 			return true
 		})
+		if bailed {
+			return
+		}
 		for _, update := range updates {
 			if !update.Add {
 				ms.deleteKeyWithChanges(update.Key, nil, changes)
 			}
 		}
-		if !bailed {
-			ms.addKeyWithChanges(newKey, newEntry, changes)
-		}
+		ms.addKeyWithChanges(newKey, newEntry, changes)
 	} else {
 		// NOTE: We do not delete redundant allow entries.
 		updates = nil
@@ -999,6 +1000,9 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			}
 			return true
 		})
+		if bailed {
+			return
+		}
 		for i, update := range updates {
 			if update.Add {
 				ms.addKeyWithChanges(update.Key, update.Value, changes)
@@ -1006,9 +1010,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				ms.addDependentOnEntry(dep.Key, dep.Value, update.Key, changes)
 			}
 		}
-		if !bailed {
-			ms.authPreferredInsert(newKey, newEntry, features, changes)
-		}
+		ms.authPreferredInsert(newKey, newEntry, features, changes)
 	}
 }
 
