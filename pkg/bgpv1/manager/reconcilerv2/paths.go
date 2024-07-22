@@ -150,8 +150,21 @@ func reconcilePaths(params *reconcilePathsParams) (PathMap, error) {
 		return params.CurrentAdvertisements, nil
 	}
 
+	// withdraw unneeded adverts
+	for advrtKey, advrt := range toWithdraw {
+		l.WithFields(logrus.Fields{
+			types.PathLogField:   advrt.NLRI.String(),
+			types.FamilyLogField: advrt.Family.String(),
+		}).Debug("Withdrawing path")
+
+		if err := params.Router.WithdrawPath(params.Ctx, types.PathRequest{Path: advrt}); err != nil {
+			return runningAdverts, err
+		}
+		delete(runningAdverts, advrtKey)
+	}
+
 	// create new adverts
-	for _, advrt := range toAdvertise {
+	for advrtKey, advrt := range toAdvertise {
 		l.WithFields(logrus.Fields{
 			types.PathLogField:   advrt.NLRI.String(),
 			types.FamilyLogField: advrt.Family.String(),
@@ -161,20 +174,7 @@ func reconcilePaths(params *reconcilePathsParams) (PathMap, error) {
 		if err != nil {
 			return runningAdverts, err
 		}
-		runningAdverts[advrt.NLRI.String()] = advrtResp.Path
-	}
-
-	// withdraw unneeded adverts
-	for _, advrt := range toWithdraw {
-		l.WithFields(logrus.Fields{
-			types.PathLogField:   advrt.NLRI.String(),
-			types.FamilyLogField: advrt.Family.String(),
-		}).Debug("Withdrawing path")
-
-		if err := params.Router.WithdrawPath(params.Ctx, types.PathRequest{Path: advrt}); err != nil {
-			return runningAdverts, err
-		}
-		delete(runningAdverts, advrt.NLRI.String())
+		runningAdverts[advrtKey] = advrtResp.Path
 	}
 
 	return runningAdverts, nil
