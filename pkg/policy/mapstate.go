@@ -1097,6 +1097,13 @@ func (ms *mapState) revertChanges(identities Identities, changes ChangeState) {
 // Incremental changes performed are recorded in 'adds' and 'deletes', if not nil.
 // See https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw#gid=2109052536 for details
 func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStateEntry, identities Identities, features policyFeatures, changes ChangeState) {
+	// Sanity check on the newKey
+	if newKey.TrafficDirection >= trafficdirection.Invalid.Uint8() {
+		stacktrace := hclog.Stacktrace()
+		log.Errorf("mapState.denyPreferredInsertWithChanges: invalid traffic direction in key: %d. Stacktrace: %s",
+			newKey.TrafficDirection, stacktrace)
+		return
+	}
 	// Skip deny rules processing if the policy in this direction has no deny rules
 	if !features.contains(denyRules) {
 		ms.authPreferredInsert(newKey, newEntry, identities, features, changes)
