@@ -319,11 +319,13 @@ func (r *reconciler) allocateCIDForPod(pod *slim_corev1.Pod) error {
 	podName := podResourceKey(pod.Name, pod.Namespace).String()
 	prevCIDName, _ := r.cidUsageInPods.AssignCIDToPod(podName, cidName)
 
-	r.logger.Info("CID allocated for pod",
-		logfields.K8sPodName, fmt.Sprintf("%s/%s", pod.Namespace, pod.Name),
-		logfields.CIDName, cidName,
-		logfields.OldIdentity, prevCIDName,
-		logfields.Labels, k8sLabels)
+	if cidName != prevCIDName {
+		r.logger.Info("CID allocated for pod",
+			logfields.K8sPodName, fmt.Sprintf("%s/%s", pod.Namespace, pod.Name),
+			logfields.CIDName, cidName,
+			logfields.OldIdentity, prevCIDName,
+			logfields.Labels, k8sLabels)
+	}
 
 	if isNewCID {
 		r.queueOps.enqueueCIDReconciliation(cidResourceKey(cidName), 0)

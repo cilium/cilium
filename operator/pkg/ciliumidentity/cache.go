@@ -52,7 +52,7 @@ func (c *CIDState) Upsert(id string, k *key.GlobalIdentity) {
 		return
 	}
 
-	c.logger.Debug("Upsert internal mapping between", logfields.CIDName, id, "labels", k.Labels().String())
+	c.logger.Debug("Upsert internal mapping", logfields.CIDName, id)
 	c.idToLabels[id] = k
 
 	keyStr := k.GetKey()
@@ -81,7 +81,7 @@ func (c *CIDState) Remove(id string) {
 		return
 	}
 
-	c.logger.Debug("Remove internal mapping between", logfields.CIDName, id, "labels", k.Labels().String())
+	c.logger.Debug("Remove internal mapping", logfields.CIDName, id)
 
 	delete(c.idToLabels, id)
 
