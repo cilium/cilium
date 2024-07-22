@@ -543,8 +543,8 @@ func (ct *ConnectivityTest) report() error {
 			}
 		}
 		ct.Logf("%s", strings.Repeat("-", 85))
-		if ct.Params().PerfReportDir != "" {
-			common.ExportPerfSummaries(ct.PerfResults, ct.Params().PerfReportDir)
+		if ct.Params().PerfParameters.ReportDir != "" {
+			common.ExportPerfSummaries(ct.PerfResults, ct.Params().PerfParameters.ReportDir)
 		}
 	}
 
