@@ -805,6 +805,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Int(option.SockRevNatEntriesName, option.SockRevNATMapEntriesDefault, "Maximum number of entries for the SockRevNAT BPF map")
 	option.BindEnv(vp, option.SockRevNatEntriesName)
 
+	flags.Int(option.IPCacheMapEntriesName, option.IPCacheMapEntriesDefault, "Maximum number of entries for the ipcache BPF map")
+	option.BindEnv(vp, option.IPCacheMapEntriesName)
+
 	flags.Float64(option.MapEntriesGlobalDynamicSizeRatioName, 0.0025, "Ratio (0.0-1.0] of total system memory to use for dynamic sizing of CT, NAT and policy BPF maps")
 	option.BindEnv(vp, option.MapEntriesGlobalDynamicSizeRatioName)
 

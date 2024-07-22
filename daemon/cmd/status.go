@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	ipmasqmap "github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -379,7 +378,7 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 			},
 			{
 				Name: "IP cache",
-				Size: int64(ipcachemap.MaxEntries),
+				Size: int64(option.Config.IPCacheMapEntries),
 			},
 			{
 				Name: "IPv4 masquerading agent",

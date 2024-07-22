@@ -589,6 +589,9 @@ const (
 	// that sock rev NAT is mostly used for UDP and getpeername only.
 	SockRevNATMapEntriesDefault = CTMapEntriesGlobalAnyDefault
 
+	// IPCacheMapEntriesDefault defines the default ipcache map limit.
+	IPCacheMapEntriesDefault = 512000
+
 	// MapEntriesGlobalDynamicSizeRatioName is the name of the option to
 	// set the ratio of total system memory to use for dynamic sizing of the
 	// CT, NAT, Neighbor and SockRevNAT BPF maps.
@@ -648,6 +651,9 @@ const (
 	// EgressGatewayPolicyMapEntriesName configures max entries for egress gateway's policy
 	// map.
 	EgressGatewayPolicyMapEntriesName = "egress-gateway-policy-map-max"
+
+	// IPCacheMapEntriesName configures max entries for BPF ipcache map.
+	IPCacheMapEntriesName = "bpf-ipcache-map-max"
 
 	// LogSystemLoadConfigName is the name of the option to enable system
 	// load loggging
@@ -1601,6 +1607,9 @@ type DaemonConfig struct {
 	// PolicyMapEntries is the maximum number of peer identities that an
 	// endpoint may allow traffic to exchange traffic with.
 	PolicyMapEntries int
+
+	// IPCacheMapEntries is the maximum number of entries in the ipcache map.
+	IPCacheMapEntries int
 
 	// PolicyMapFullReconciliationInterval is the interval at which to perform
 	// the full reconciliation of the endpoint policy map.
@@ -3716,6 +3725,15 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 			c.SockRevNatEntries, LimitTableMax)
 	}
 
+	if c.IPCacheMapEntries < LimitTableMin {
+		return fmt.Errorf("specified IPCacheMap max entries %d must exceed minimum %d",
+			c.IPCacheMapEntries, LimitTableMin)
+	}
+	if c.IPCacheMapEntries > LimitTableMax {
+		return fmt.Errorf("specified IPCacheMap max entries %d must not exceed maximum %d",
+			c.IPCacheMapEntries, LimitTableMax)
+	}
+
 	if c.PolicyMapEntries < PolicyMapMin {
 		return fmt.Errorf("specified PolicyMap max entries %d must exceed minimum %d",
 			c.PolicyMapEntries, PolicyMapMin)
@@ -3849,6 +3867,7 @@ func (c *DaemonConfig) calculateBPFMapSizes(vp *viper.Viper) error {
 	c.LBAffinityMapEntries = vp.GetInt(LBAffinityMapMaxEntries)
 	c.LBSourceRangeMapEntries = vp.GetInt(LBSourceRangeMapMaxEntries)
 	c.LBMaglevMapEntries = vp.GetInt(LBMaglevMapMaxEntries)
+	c.IPCacheMapEntries = vp.GetInt(IPCacheMapEntriesName)
 
 	// Don't attempt dynamic sizing if any of the sizeof members was not
 	// populated by the daemon (or any other caller).

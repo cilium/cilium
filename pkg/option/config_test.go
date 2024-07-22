@@ -265,6 +265,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		CTMapEntriesGlobalAny int
 		NATMapEntriesGlobal   int
 		PolicyMapEntries      int
+		IPCacheMapEntries     int
 		LBMapEntries          int
 		FragmentsMapEntries   int
 		NeighMapEntriesGlobal int
@@ -284,6 +285,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				CTMapEntriesGlobalAny: CTMapEntriesGlobalAnyDefault,
 				NATMapEntriesGlobal:   NATMapEntriesGlobalDefault,
 				PolicyMapEntries:      16384,
+				IPCacheMapEntries:     512000,
 				LBMapEntries:          65536,
 				FragmentsMapEntries:   defaults.FragmentsMapEntries,
 				NeighMapEntriesGlobal: NATMapEntriesGlobalDefault,
@@ -295,6 +297,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				CTMapEntriesGlobalAny: CTMapEntriesGlobalAnyDefault,
 				NATMapEntriesGlobal:   NATMapEntriesGlobalDefault,
 				PolicyMapEntries:      16384,
+				IPCacheMapEntries:     512000,
 				LBMapEntries:          65536,
 				FragmentsMapEntries:   defaults.FragmentsMapEntries,
 				NeighMapEntriesGlobal: NATMapEntriesGlobalDefault,
@@ -310,6 +313,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				CTMapEntriesGlobalAny: 18000,
 				NATMapEntriesGlobal:   2048,
 				PolicyMapEntries:      512,
+				IPCacheMapEntries:     1024000,
 				LBMapEntries:          1 << 14,
 				SockRevNatEntries:     18000,
 				FragmentsMapEntries:   2 << 14,
@@ -320,6 +324,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				CTMapEntriesGlobalAny: 18000,
 				NATMapEntriesGlobal:   2048,
 				PolicyMapEntries:      512,
+				IPCacheMapEntries:     1024000,
 				LBMapEntries:          1 << 14,
 				SockRevNatEntries:     18000,
 				FragmentsMapEntries:   2 << 14,
@@ -415,6 +420,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				NATMapEntriesGlobal:   NATMapEntriesGlobalDefault,
 				SockRevNatEntries:     4096,
 				PolicyMapEntries:      16384,
+				IPCacheMapEntries:     512000,
 				LBMapEntries:          65536,
 				FragmentsMapEntries:   defaults.FragmentsMapEntries,
 			},
@@ -425,6 +431,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				NATMapEntriesGlobal:   (2048 + 4096) * 2 / 3,
 				SockRevNatEntries:     4096,
 				PolicyMapEntries:      16384,
+				IPCacheMapEntries:     512000,
 				LBMapEntries:          65536,
 				FragmentsMapEntries:   defaults.FragmentsMapEntries,
 				WantErr:               false,
@@ -465,6 +472,26 @@ func TestCheckMapSizeLimits(t *testing.T) {
 			},
 		},
 		{
+			name: "IPCache map size below range",
+			d: &DaemonConfig{
+				IPCacheMapEntries: LimitTableMin - 1,
+			},
+			want: sizes{
+				IPCacheMapEntries: LimitTableMin - 1,
+				WantErr:           true,
+			},
+		},
+		{
+			name: "IPCache map size above range",
+			d: &DaemonConfig{
+				IPCacheMapEntries: LimitTableMax + 1,
+			},
+			want: sizes{
+				IPCacheMapEntries: LimitTableMax + 1,
+				WantErr:           true,
+			},
+		},
+		{
 			name: "Fragments map size below range",
 			d: &DaemonConfig{
 				FragmentsMapEntries: FragmentsMapMin - 1,
@@ -495,6 +522,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				CTMapEntriesGlobalAny: tt.d.CTMapEntriesGlobalAny,
 				NATMapEntriesGlobal:   tt.d.NATMapEntriesGlobal,
 				PolicyMapEntries:      tt.d.PolicyMapEntries,
+				IPCacheMapEntries:     tt.d.IPCacheMapEntries,
 				LBMapEntries:          tt.d.LBMapEntries,
 				FragmentsMapEntries:   tt.d.FragmentsMapEntries,
 				NeighMapEntriesGlobal: tt.d.NeighMapEntriesGlobal,
