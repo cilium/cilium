@@ -149,6 +149,7 @@ struct trace_notify {
 	__u8		ipv6:1;
 	__u8		pad:7;
 	__u32		ifindex;
+	__u64		ip_trace_id;
 	union {
 		struct {
 			__be32		orig_ip4;
@@ -198,6 +199,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u32 src, __u32 dst, __u16 dst_id, __u32 ifindex,
 		   enum trace_reason reason, __u32 monitor, __u16 line, __u8 file)
 {
+	__u64 ip_trace_id = load_ip_trace_id();
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
 			      ctx_len);
@@ -229,6 +231,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.dst_id		= dst_id,
 		.reason		= reason,
 		.ifindex	= ifindex,
+		.ip_trace_id = ip_trace_id,
 	};
 	memset(&msg.orig_ip6, 0, sizeof(union v6addr));
 
@@ -242,6 +245,7 @@ send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u32 src, __u32 dst, __be32 orig_addr, __u16 dst_id,
 		   __u32 ifindex, enum trace_reason reason, __u32 monitor)
 {
+	__u64 ip_trace_id = load_ip_trace_id();
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
 			      ctx_len);
@@ -275,6 +279,7 @@ send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.ifindex	= ifindex,
 		.ipv6		= 0,
 		.orig_ip4	= orig_addr,
+		.ip_trace_id = ip_trace_id,
 	};
 
 	ctx_event_output(ctx, &EVENTS_MAP,
@@ -288,6 +293,7 @@ send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 		   __u16 dst_id, __u32 ifindex, enum trace_reason reason,
 		   __u32 monitor)
 {
+	__u64 ip_trace_id = load_ip_trace_id();
 	__u64 ctx_len = ctx_full_len(ctx);
 	__u64 cap_len = min_t(__u64, monitor ? : TRACE_PAYLOAD_LEN,
 			      ctx_len);
@@ -320,6 +326,7 @@ send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.reason		= reason,
 		.ifindex	= ifindex,
 		.ipv6		= 1,
+		.ip_trace_id = ip_trace_id,
 	};
 
 	ipv6_addr_copy(&msg.orig_ip6, orig_addr);
