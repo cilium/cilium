@@ -1141,6 +1141,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.NodeLabels, []string{}, "List of label prefixes used to determine identity of a node (used only when enable-node-selector-labels is enabled)")
 	option.BindEnv(vp, option.NodeLabels)
 
+	flags.Uint8(option.EnableIPOptionTracing, 0, "Enable packet IP tracing. Set this option to specify the IP options field of IPv4 packet from which to read tracing information; a value of 0 disables IP tracing.")
+	option.BindEnv(vp, option.EnableIPOptionTracing)
+
 	if err := vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
 	}
