@@ -147,6 +147,10 @@ func (d *Daemon) cleanupHealthEndpoint() {
 		d.deleteEndpointRelease(ep, true)
 	}
 
+	// The CNI plugin is not invoked for the health endpoint since it was
+	// spawned by the agent itself. The endpoint manager will only down the
+	// device, but not remove it. Hence we need to trigger final removal.
+
 	// Delete the process
 	health.KillEndpoint()
 
