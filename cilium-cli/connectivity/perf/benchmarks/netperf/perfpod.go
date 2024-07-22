@@ -109,8 +109,8 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 	}
 }
 
-func buildExecCommand(test string, sip string, duration time.Duration, msgSize int, args []string) []string {
-	exec := []string{"/usr/local/bin/netperf", "-H", sip, "-l", duration.String(), "-t", test, "--", "-R", "1", "-m", fmt.Sprintf("%d", msgSize)}
+func buildExecCommand(test string, sip string, duration time.Duration, args []string) []string {
+	exec := []string{"/usr/local/bin/netperf", "-H", sip, "-l", duration.String(), "-t", test, "--", "-R", "1"}
 	exec = append(exec, args...)
 
 	return exec
@@ -134,7 +134,10 @@ func parseFloat(a *check.Action, value string) float64 {
 
 func netperf(ctx context.Context, sip string, perfTest common.PerfTests, a *check.Action) common.PerfResult {
 	args := []string{"-o", "MIN_LATENCY,MEAN_LATENCY,MAX_LATENCY,P50_LATENCY,P90_LATENCY,P99_LATENCY,TRANSACTION_RATE,THROUGHPUT,THROUGHPUT_UNITS"}
-	exec := buildExecCommand(perfTest.Test, sip, perfTest.Duration, perfTest.MsgSize, args)
+	if perfTest.Test == "UDP_STREAM" {
+		args = append(args, "-m", fmt.Sprintf("%d", perfTest.MsgSize))
+	}
+	exec := buildExecCommand(perfTest.Test, sip, perfTest.Duration, args)
 
 	a.ExecInPod(ctx, exec)
 	output := a.CmdOutput()
