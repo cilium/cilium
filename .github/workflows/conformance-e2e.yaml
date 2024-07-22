@@ -470,7 +470,7 @@ jobs:
           # always go through the correct gateway
           EXTRA+=("--expected-drop-reasons=+No egress gateway found")
 
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          cilium connectivity test --include-unsafe-tests --test-concurrency=3 --collect-sysdump-on-failure \
             "${EXTRA[@]}" \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \

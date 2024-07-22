@@ -199,6 +199,7 @@ jobs:
           # required. The full suite is run in conformance-clustermesh.
           CONNECTIVITY_TEST_DEFAULTS=" \
             --hubble=false \
+            --test-concurrency=3 \
             --flow-validation=disabled \
             --test='no-interrupted-connections' \
             --test='no-unexpected-packet-drops' \

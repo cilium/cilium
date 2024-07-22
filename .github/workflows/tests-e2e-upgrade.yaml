@@ -494,7 +494,7 @@ jobs:
           # Create pods which establish long lived connections. It will be used by
           # subsequent connectivity tests with --include-conn-disrupt-test to catch any
           # interruption in such flows.
-          cilium connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+          cilium connectivity test --test-concurrency=3 --include-conn-disrupt-test --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
 
@@ -523,7 +523,7 @@ jobs:
           # always go through the correct gateway
           EXTRA+=("--expected-drop-reasons=+No egress gateway found")
 
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          cilium connectivity test --test-concurrency=3 --include-unsafe-tests --collect-sysdump-on-failure \
             --include-conn-disrupt-test \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --flush-ct \
@@ -534,7 +534,7 @@ jobs:
             "${EXTRA[@]}"
 
           # --flush-ct interrupts the flows, so we need to set up again.
-          cilium connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+          cilium connectivity test --test-concurrency=3 --include-conn-disrupt-test --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
 
@@ -563,7 +563,7 @@ jobs:
           # always go through the correct gateway
           EXTRA+=("--expected-drop-reasons=+No egress gateway found")
 
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          cilium connectivity test --test-concurrency=3 --include-unsafe-tests --collect-sysdump-on-failure \
             --include-conn-disrupt-test \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --flush-ct \

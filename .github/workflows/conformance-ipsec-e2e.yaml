@@ -333,7 +333,7 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          cilium connectivity test --include-unsafe-tests --test-concurrency=3 --collect-sysdump-on-failure \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
@@ -385,7 +385,7 @@ jobs:
             TEST='--test "!pod-to-pod-no-frag"'
           fi
 
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          cilium connectivity test --include-unsafe-tests --test-concurrency=3 --collect-sysdump-on-failure \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
