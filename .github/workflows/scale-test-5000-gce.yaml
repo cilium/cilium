@@ -1,0 +1,459 @@
+name: 5000 Nodes Scale Test (scale-5000)
+
+on:
+
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+
+# For testing uncomment following lines:
+#  push:
+#    branches:
+#      - your_branch_name
+
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To be able to request the JWT from GitHub's OIDC provider
+  id-token: write
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  # renovate: datasource=golang-version depName=go
+  go_version: 1.22.5
+  test_name: scale-5000
+  cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
+  # renovate: datasource=docker depName=google/cloud-sdk
+  gcloud_version: 483.0.0
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  install-and-scaletest:
+    runs-on: ubuntu-latest-8cores-32gb-22.04
+    name: Install and Scale Test
+    timeout-minutes: 540
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] ; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+
+          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+            --set pprof.enabled=true \
+            --helm-set=prometheus.enabled=true \
+            --helm-set=cluster.name=${{ env.cluster_name }} \
+            --helm-set=operator.extraArgs=\"{--k8s-client-qps=100,--k8s-client-burst=200}\" \
+            --helm-set=endpointHealthChecking.enabled=false \
+            --helm-set=healthChecking=false \
+            --helm-set=ciliumEndpointSlice.enabled=true \
+            --helm-set=ciliumEndpointSlice.sliceMode="fcfs" \
+            --helm-set=ciliumEndpointSlice.rateLimits[0].nodes=1 \
+            --helm-set=ciliumEndpointSlice.rateLimits[0].limit=50 \
+            --helm-set=ciliumEndpointSlice.rateLimits[0].burst=100 \
+            --helm-set=k8sServiceHost=api.internal.${{ steps.vars.outputs.cluster_name }} \
+            --helm-set=k8sServicePort=443 \
+            --helm-set=kubeProxyReplacement=true \
+            --wait=false"
+
+          # only add SHA to the image tags if it was set
+          if [ -n "${SHA}" ]; then
+            echo sha=${SHA} >> $GITHUB_OUTPUT
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${SHA} \
+            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
+            --helm-set=clustermesh.apiserver.image.tag=${SHA} \
+            --helm-set=clustermesh.apiserver.image.useDigest=false \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=hubble.relay.image.useDigest=false"
+          fi
+
+          # Adding k8s.local to the end makes kops happy
+          # has stricter DNS naming requirements.
+          CLUSTER_NAME="${{ env.test_name }}-${{ env.cluster_name }}.k8s.local"
+
+          echo SHA=${SHA} >> $GITHUB_OUTPUT
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo CLUSTER_NAME=${CLUSTER_NAME} >> $GITHUB_OUTPUT
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.SHA }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Install Go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          go-version: ${{ env.go_version }}
+
+      - name: Install Kops
+        uses: cilium/scale-tests-action/install-kops@8c351e39623bb4129e64705c64285d5330cb0ec9g # main
+
+      - name: Setup gcloud credentials
+        uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PERF_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PERF_SA }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@98ddc00a17442e89a24bbf282954a3b65ce6d200 # v2.1.0
+        with:
+          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+          version: ${{ env.gcloud_version }}
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ env.CILIUM_CLI_VERSION }}
+
+      - name: Display version info of installed tools
+        run: |
+          echo "--- go ---"
+          go version
+          echo "--- cilium-cli ---"
+          cilium version --client
+          echo "--- kops ---"
+          ./kops version
+          echo "--- gcloud ---"
+          gcloud version
+
+      - name: Clone ClusterLoader2
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          repository: kubernetes/perf-tests
+          # Avoid using renovate to update this dependency because: (1)
+          # perf-tests does not tag or release, so renovate will pull
+          # all updates to the default branch and (2) continually
+          # updating CL2 may impact the stability of the scale test
+          # results.
+          ref: 6eb52ac89d5de15a0ad13cfeb2b2026e57ce4f64
+          persist-credentials: false
+          sparse-checkout: clusterloader2
+          path: perf-tests
+
+      - name: Deploy cluster
+        id: deploy-cluster
+        uses: thorn3r/scale-tests-action/create-cluster@d5a1ff33c0d1f5658622a442404387661731e80a # forked
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          control_plane_size: n2-standard-64
+          control_plane_count: 5
+          control_plane_volume_size: 1000
+          node_size: e2-medium
+          node_count: 1000
+          node_volume_size: 30
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+          kube_proxy_enabled: false
+          allocate_node_cidrs: false
+          etcd_volume_size: 500
+          max_in_flight: 640
+
+      - name: Create Instance Group for resource heavy deployments
+        uses: cilium/scale-tests-action/create-instance-group@8c351e39623bb4129e64705c64285d5330cb0ec9g # main
+        timeout-minutes: 30
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-standard-32
+          node_count: 1
+          ig_name: heapster
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+ 
+      - name: Setup firewall rules
+        uses: cilium/scale-tests-action/setup-firewall@8c351e39623bb4129e64705c64285d5330cb0ec9g # main
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+
+      - name: Install Cilium
+        run: |
+          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Wait for cluster to be ready
+        uses: cilium/scale-tests-action/validate-cluster@8c351e39623bb4129e64705c64285d5330cb0ec9g # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          timeout: "60m"
+
+      - name: Create 2nd Instance Group
+        uses: cilium/scale-tests-action/create-instance-group@8c351e39623bb4129e64705c64285d5330cb0ec9g $ main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: 1000
+          node_volume_size: 30
+          ig_name: ig2
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Wait for cluster to be ready
+        uses: cilium/scale-tests-action/validate-cluster@8c351e39623bb4129e64705c64285d5330cb0ec9g # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          timeout: "60m"
+
+      - name: Create 3rd Instance Group
+        uses: cilium/scale-tests-action/create-instance-group@8c351e39623bb4129e64705c64285d5330cb0ec9g # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: 1000
+          node_volume_size: 30
+          ig_name: ig3
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Wait for cluster to be ready
+        uses: cilium/scale-tests-action/validate-cluster@8c351e39623bb4129e64705c64285d5330cb0ec9g # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          timeout: "60m"
+
+      - name: Create 4th Instance Group
+        uses: cilium/scale-tests-action/create-instance-group@8c351e39623bb4129e64705c64285d5330cb0ec9g # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: 1000
+          node_volume_size: 30
+          ig_name: ig4
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Wait for cluster to be ready
+        uses: cilium/scale-tests-action/validate-cluster@8c351e39623bb4129e64705c64285d5330cb0ec9g # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          timeout: "60m"
+
+      - name: Create 5th Instance Group
+        uses: cilium/scale-tests-action/create-instance-group@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: 500
+          node_volume_size: 30
+          ig_name: ig5
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Wait for cluster to be ready
+        uses: cilium/scale-tests-action/validate-cluster@8c351e39623bb4129e64705c64285d5330cb0ec9g # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          timeout: "60m"
+
+      - name: Create 6th Instance Group
+        uses: cilium/scale-tests-action/create-instance-group@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: 500
+          node_volume_size: 30
+          ig_name: ig6
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Wait for cluster to be ready
+        uses: cilium/scale-tests-action/validate-cluster@8c351e39623bb4129e64705c64285d5330cb0ec9g # main
+        timeout-minutes: 60
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          timeout: "60m"
+
+
+      - name: Run CL2
+        id: run-cl2
+        working-directory: ./perf-tests/clusterloader2
+        shell: bash
+        timeout-minutes: 420
+        run: |
+          mkdir ./report
+          export CL2_PROMETHEUS_PVC_ENABLED=false
+          export CL2_ENABLE_PVS=false
+          export CL2_ENABLE_NETWORKPOLICIES=true
+          export CL2_ALLOWED_SLOW_API_CALLS=1
+          export CL2_SCHEDULER_THROUGHPUT_THRESHOLD=0
+          export CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR=true
+          export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT=true
+          export CL2_PROMETHEUS_MEMORY_LIMIT_FACTOR=20.0
+          export CL2_PROMETHEUS_MEMORY_SCALE_FACTOR=18.0
+          export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL="60s"
+          export CL2_LOAD_TEST_THROUGHPUT=50.0
+          export CL2_DELETE_TEST_THROUGHPUT=50.0
+
+          # CL2 hardcodes module paths to live in ./testing/load, even
+          # if the path given is relative.
+          cp ../../.github/actions/cl2-modules/cilium-agent-pprofs.yaml ./testing/load/
+          cp ../../.github/actions/cl2-modules/cilium-metrics.yaml ./testing/load/
+          echo \
+            '{"CL2_ADDITIONAL_MEASUREMENT_MODULES": ["./cilium-agent-pprofs.yaml", "./cilium-metrics.yaml"]}' \
+            > modules.yaml
+
+          # CL2 needs ssh access to control plane nodes
+          gcloud compute config-ssh
+
+          go run ./cmd/clusterloader.go \
+            -v=2 \
+            --testconfig=./testing/load/config.yaml \
+            --provider=gce \
+            --enable-prometheus-server \
+            --tear-down-prometheus-server=false \
+            --nodes=5000 \
+            --report-dir=./report \
+            --experimental-prometheus-snapshot-to-report-dir=true \
+            --kubeconfig=$HOME/.kube/config \
+            --testoverrides=./testing/experiments/use_simple_latency_query.yaml \
+            --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
+            --testoverrides=./modules.yaml \
+            2>&1 | tee cl2-output.txt
+
+      - name: Delete 2nd Instance Group
+        if: ${{ always() }}
+        uses: cilium/scale-tests-action/delete-instance-group@8c351e39623bb4129e64705c64285d5330cb0ec9g # main
+        with:
+          instance_group_name: ig2
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Delete 3rd Instance Group
+        if: ${{ always() }}
+        uses: cilium/scale-tests-action/delete-instance-group@8c351e39623bb4129e64705c64285d5330cb0ec9g # main
+        with:
+          instance_group_name: ig3
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Delete 4th Instance Group
+        if: ${{ always() }}
+        uses: cilium/scale-tests-action/delete-instance-group@8c351e39623bb4129e64705c64285d5330cb0ec9g # main
+        with:
+          instance_group_name: ig4
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Delete 5th Instance Group
+        if: ${{ always() }}
+        uses: cilium/scale-tests-action/delete-instance-group@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
+        with:
+          instance_group_name: ig5
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Delete 6th Instance Group
+        if: ${{ always() }}
+        uses: cilium/scale-tests-action/delete-instance-group@ce78bc6ce294263a89e91ad3bc56aa1a1fbd75ec # main
+        with:
+          instance_group_name: ig6
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Cleanup cluster
+        if: ${{ always() }}
+        uses: cilium/scale-tests-action/cleanup-cluster@8c351e39623bb4129e64705c64285d5330cb0ec9g # main
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Export results to GS bucket
+        if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
+        uses: cilium/scale-tests-action/export-results@8c351e39623bb4129e64705c64285d5330cb0ec9g # main
+        with:
+          test_name: ${{ env.test_name }}
+          results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
+          artifacts: ./perf-tests/clusterloader2/report/*
+          other_files: ./perf-tests/clusterloader2/cl2-output.txt
+
+  commit-status-final:
+    if: ${{ always() }}
+    name: Commit Status Final
+    needs: install-and-scaletest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.install-and-scaletest.result }}
