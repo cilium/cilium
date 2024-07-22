@@ -38,6 +38,10 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- if gt (len .Values.authentication.mutual.spire.install.server.initContainers) 0 }}
       initContainers:
         {{- toYaml .Values.authentication.mutual.spire.install.server.initContainers | nindent 8 }}
