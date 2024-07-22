@@ -158,20 +158,20 @@ jobs:
 
 #          Disable until https://github.com/cilium/cilium/issues/32689
 #          is resolved.
-#          - name: '7'
-#            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-#            kernel: 'bpf-next-20240711.013133'
-#            kube-proxy: 'none'
-#            kpr: 'true'
-#            devices: '{eth0,eth1}'
-#            secondary-network: 'true'
-#            tunnel: 'disabled'
-#            lb-mode: 'snat'
-#            egress-gateway: 'true'
-#            lb-acceleration: 'testing-only'
-#            # Disable until https://github.com/cilium/cilium/issues/30717
-#            # has been resolved.
-#            # ingress-controller: 'true'
+          - name: '7'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-next-20240711.013133'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'disabled'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
+            lb-acceleration: 'testing-only'
+            # Disable until https://github.com/cilium/cilium/issues/30717
+            # has been resolved.
+            # ingress-controller: 'true'
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
