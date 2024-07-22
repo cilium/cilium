@@ -27,6 +27,7 @@ import (
 	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -180,13 +181,22 @@ func (d *Daemon) updateDNSDatapathRules(ctx context.Context) error {
 }
 
 // lookupEPByIP returns the endpoint that this IP belongs to
-func (d *Daemon) lookupEPByIP(endpointAddr netip.Addr) (endpoint *endpoint.Endpoint, err error) {
-	e := d.endpointManager.LookupIP(endpointAddr)
-	if e == nil {
-		return nil, fmt.Errorf("cannot find endpoint with IP %s", endpointAddr)
+func (d *Daemon) lookupEPByIP(endpointAddr netip.Addr) (endpoint *endpoint.Endpoint, isHost bool, err error) {
+	if e := d.endpointManager.LookupIP(endpointAddr); e != nil {
+		return e, e.IsHost(), nil
 	}
 
-	return e, nil
+	// TODO: this works in very simple cases but is obviously not the correct way to do it
+	// unfortunately miekg/dns provides no way to access packet marks
+	if nodeAddr, ok := netip.AddrFromSlice(node.GetIPv4()); ok && endpointAddr == nodeAddr {
+		if e := d.endpointManager.GetHostEndpoint(); e != nil {
+			return e, true, nil
+		} else {
+			return nil, true, errors.New("host endpoint has not been created yet")
+		}
+	}
+
+	return nil, false, fmt.Errorf("cannot find endpoint with IP %s", endpointAddr)
 }
 
 // notifyOnDNSMsg handles DNS data in the daemon by emitting monitor
