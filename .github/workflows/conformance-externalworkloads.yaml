@@ -56,8 +56,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-vm
-  vmName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}-vm
+  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+  vmName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   vmStartupScript: .github/gcp-vm-startup.sh
   cilium_cli_ci_version:
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
