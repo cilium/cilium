@@ -18,46 +18,48 @@ import (
 	"github.com/cilium/cilium/cilium-cli/sysdump"
 )
 
+type PerfParameters struct {
+	ReportDir   string
+	Duration    time.Duration
+	HostNet     bool
+	PodNet      bool
+	Samples     int
+	MessageSize int
+	Mixed       bool
+	Throughput  bool
+	CRR         bool
+	RR          bool
+	UDP         bool
+	Image       string
+}
+
 type Parameters struct {
-	AssumeCiliumVersion   string
-	CiliumNamespace       string
-	TestNamespace         string
-	TestNamespaceIndex    int
-	TestConcurrency       int
-	SingleNode            bool
-	PrintFlows            bool
-	ForceDeploy           bool
-	Hubble                bool
-	HubbleServer          string
-	K8sLocalHostTest      bool
-	MultiCluster          string
-	RunTests              []*regexp.Regexp
-	SkipTests             []*regexp.Regexp
-	PostTestSleepDuration time.Duration
-	FlowValidation        string
-	AllFlows              bool
-	Writer                io.ReadWriter
-	Verbose               bool
-	Debug                 bool
-	Timestamp             bool
-	PauseOnFail           bool
-	SkipIPCacheCheck      bool
-	// Perf is not user-facing parameter, but it's used to run perf subcommand
-	// using connectivity test suite.
+	AssumeCiliumVersion    string
+	CiliumNamespace        string
+	TestNamespace          string
+	TestNamespaceIndex     int
+	TestConcurrency        int
+	SingleNode             bool
+	PrintFlows             bool
+	ForceDeploy            bool
+	Hubble                 bool
+	HubbleServer           string
+	K8sLocalHostTest       bool
+	MultiCluster           string
+	RunTests               []*regexp.Regexp
+	SkipTests              []*regexp.Regexp
+	PostTestSleepDuration  time.Duration
+	FlowValidation         string
+	AllFlows               bool
+	Writer                 io.ReadWriter
+	Verbose                bool
+	Debug                  bool
+	Timestamp              bool
+	PauseOnFail            bool
+	SkipIPCacheCheck       bool
 	Perf                   bool
-	PerfReportDir          string
-	PerfDuration           time.Duration
-	PerfHostNet            bool
-	PerfPodNet             bool
-	PerfSamples            int
-	PerfMessageSize        int
-	PerfMixed              bool
-	PerfThroughput         bool
-	PerfCRR                bool
-	PerfRR                 bool
-	PerfUDP                bool
+	PerfParameters         PerfParameters
 	CurlImage              string
-	PerformanceImage       string
 	JSONMockImage          string
 	TestConnDisruptImage   string
 	FRRImage               string

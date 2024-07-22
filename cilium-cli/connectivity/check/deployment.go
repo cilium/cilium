@@ -1052,7 +1052,7 @@ func (ct *ConnectivityTest) createClientPerfDeployment(ctx context.Context, name
 		Kind:      kindPerfName,
 		NamedPort: "http-80",
 		Port:      80,
-		Image:     ct.params.PerformanceImage,
+		Image:     ct.params.PerfParameters.Image,
 		Labels: map[string]string{
 			"client": "role",
 		},
@@ -1084,7 +1084,7 @@ func (ct *ConnectivityTest) createServerPerfDeployment(ctx context.Context, name
 		},
 		Annotations:                   ct.params.DeploymentAnnotations.Match(name),
 		Port:                          5001,
-		Image:                         ct.params.PerformanceImage,
+		Image:                         ct.params.PerfParameters.Image,
 		Command:                       []string{"/bin/bash", "-c", "netserver;sleep 10000000"},
 		NodeSelector:                  map[string]string{"kubernetes.io/hostname": nodeName},
 		HostNetwork:                   hostNetwork,
@@ -1125,7 +1125,7 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 		ct.Warn("Selected nodes have different zones, tweak nodeSelector if that's not what you intended")
 	}
 
-	if ct.params.PerfPodNet {
+	if ct.params.PerfParameters.PodNet {
 		if err = ct.createClientPerfDeployment(ctx, perfClientDeploymentName, firstNodeName, false); err != nil {
 			ct.Warnf("unable to create deployment: %w", err)
 		}
@@ -1138,7 +1138,7 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 		}
 	}
 
-	if ct.params.PerfHostNet {
+	if ct.params.PerfParameters.HostNet {
 		if err = ct.createClientPerfDeployment(ctx, perfClientHostNetDeploymentName, firstNodeName, true); err != nil {
 			ct.Warnf("unable to create deployment: %w", err)
 		}
@@ -1163,12 +1163,12 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 		}
 	} else if ct.params.TestNamespaceIndex == 0 {
 		srcList = []string{}
-		if ct.params.PerfPodNet {
+		if ct.params.PerfParameters.PodNet {
 			srcList = append(srcList, perfClientDeploymentName)
 			srcList = append(srcList, perfClientAcrossDeploymentName)
 			srcList = append(srcList, perfServerDeploymentName)
 		}
-		if ct.params.PerfHostNet {
+		if ct.params.PerfParameters.HostNet {
 			srcList = append(srcList, perfClientHostNetDeploymentName)
 			srcList = append(srcList, perfClientHostNetAcrossDeploymentName)
 			srcList = append(srcList, perfServerHostNetDeploymentName)
