@@ -318,6 +318,7 @@ jobs:
 
           CONNECTIVITY_TEST_DEFAULTS="--hubble=false \
             --flow-validation=disabled \
+            --test-concurrency=5 \
             --multi-cluster=${{ env.contextName2 }} \
             --external-target=google.com. \
             --include-unsafe-tests \
