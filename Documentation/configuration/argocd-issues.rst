@@ -99,3 +99,31 @@ of Argo CD related issues on GitHub
 <https://github.com/cilium/cilium/issues?q=is%3Aissue+argocd>`__.
 If you can't find an issue that relates to yours, create one and/or seek help
 on `Cilium Slack`_.
+
+Application chart for Cilium deployed to Talos Linux fails with: field not declared in schema
+=============================================================================================
+
+When deploying Cilium to Talos Linux with ArgoCD, some users have reported
+issues due to Talos Security configuration. ArgoCD may fail to deploy the
+application with the message::
+
+    Failed to compare desired state to live state: failed to calculate diff:
+    error calculating structured merge diff: error building typed value from live
+    resource: .spec.template.spec.securityContext.appArmorProfile: field not
+    declared in schema
+
+Solution
+--------
+
+Add option ``ServerSideApply=true`` to list ``syncPolicy.syncOptions`` for the Application.
+
+.. code-block:: yaml
+
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    spec:
+      syncPolicy:
+        syncOptions:
+        - ServerSideApply=true
+
+Visit the `ArgoCD documentation <https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/#server-side-apply>`__ for further details.
