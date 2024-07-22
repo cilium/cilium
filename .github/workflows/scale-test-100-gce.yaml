@@ -95,7 +95,6 @@ jobs:
             --helm-set=endpointHealthChecking.enabled=false \
             --helm-set=healthChecking=false \
             --helm-set=ciliumEndpointSlice.enabled=true \
-            --helm-set=ciliumEndpointSlice.sliceMode="cesSliceModeFCFS" \
             --helm-set=ciliumEndpointSlice.rateLimits[0].nodes=1 \
             --helm-set=ciliumEndpointSlice.rateLimits[0].limit=100 \
             --helm-set=ciliumEndpointSlice.rateLimits[0].burst=200 \
