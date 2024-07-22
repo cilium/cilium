@@ -38,40 +38,33 @@ func (s *netPerf) Name() string {
 }
 
 func (s *netPerf) Run(ctx context.Context, t *check.Test) {
-	samples := t.Context().Params().PerfSamples
-	duration := t.Context().Params().PerfDuration
-	msgSize := t.Context().Params().PerfMessageSize
-	mixed := t.Context().Params().PerfMixed
-	throughput := t.Context().Params().PerfThroughput
-	crr := t.Context().Params().PerfCRR
-	rr := t.Context().Params().PerfRR
-	udp := t.Context().Params().PerfUDP
+	perfParameters := t.Context().Params().PerfParameters
 
 	tests := []string{}
 
-	if throughput {
+	if perfParameters.Throughput {
 		tests = append(tests, "TCP_STREAM")
-		if udp {
+		if perfParameters.UDP {
 			tests = append(tests, "UDP_STREAM")
 		}
 	}
 
-	if crr {
+	if perfParameters.CRR {
 		tests = append(tests, "TCP_CRR")
 	}
 
-	if rr {
+	if perfParameters.RR {
 		tests = append(tests, "TCP_RR")
-		if udp {
+		if perfParameters.UDP {
 			tests = append(tests, "UDP_RR")
 		}
 	}
 
-	for sample := 1; sample <= samples; sample++ {
+	for sample := 1; sample <= perfParameters.Samples; sample++ {
 		for _, c := range t.Context().PerfClientPods() {
 			c := c
 			for _, server := range t.Context().PerfServerPod() {
-				if !mixed && (strings.Contains(server.Pod.Name, check.PerfHostName) != strings.Contains(c.Pod.Name, check.PerfHostName)) {
+				if !perfParameters.Mixed && (strings.Contains(server.Pod.Name, check.PerfHostName) != strings.Contains(c.Pod.Name, check.PerfHostName)) {
 					continue
 				}
 				scenarioName := ""
@@ -103,9 +96,9 @@ func (s *netPerf) Run(ctx context.Context, t *check.Test) {
 							Tool:     netperfToolName,
 							SameNode: sameNode,
 							Sample:   sample,
-							Duration: duration,
+							Duration: perfParameters.Duration,
 							Scenario: scenarioName,
-							MsgSize:  msgSize,
+							MsgSize:  perfParameters.MessageSize,
 						}
 						perfResult := netperf(ctx, server.Pod.Status.PodIP, k, a)
 						t.Context().PerfResults = append(t.Context().PerfResults, common.PerfSummary{PerfTest: k, Result: perfResult})
