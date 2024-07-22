@@ -81,6 +81,11 @@ int cil_from_network(struct __ctx_buff *ctx)
 		obs_point_to = TRACE_TO_HOST;
 #endif
 
+#ifdef ENABLE_PACKET_IP_TRACING
+	if (ENABLE_PACKET_IP_TRACING > 0)
+		check_and_store_ip_trace_id(ctx, ENABLE_PACKET_IP_TRACING);
+#endif
+
 out:
 	send_trace_notify(ctx, obs_point_from, UNKNOWN_ID, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, ingress_ifindex,

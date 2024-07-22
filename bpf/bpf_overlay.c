@@ -579,6 +579,11 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	__u16 proto;
 	int ret;
 
+#ifdef ENABLE_PACKET_IP_TRACING
+	if (ENABLE_PACKET_IP_TRACING > 0)
+		check_and_store_ip_trace_id(ctx, ENABLE_PACKET_IP_TRACING);
+#endif
+
 #ifndef ENABLE_HIGH_SCALE_IPCACHE
 	/* preserve skb->cb for hs-ipcache, from-netdev is passing info */
 	bpf_clear_meta(ctx);

@@ -1282,6 +1282,11 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #endif
 	int ret;
 
+#ifdef ENABLE_PACKET_IP_TRACING
+	if (ENABLE_PACKET_IP_TRACING > 0)
+		check_and_store_ip_trace_id(ctx, ENABLE_PACKET_IP_TRACING);
+#endif
+
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 * We will see the packet again in from-netdev@eth0.vlanXXX.
 	 */
@@ -1687,6 +1692,11 @@ int cil_to_host(struct __ctx_buff *ctx)
 #else
 	ret = CTX_ACT_OK;
 #endif /* ENABLE_HOST_FIREWALL */
+
+#ifdef ENABLE_PACKET_IP_TRACING
+	if (ENABLE_PACKET_IP_TRACING > 0)
+		check_and_store_ip_trace_id(ctx, ENABLE_PACKET_IP_TRACING);
+#endif
 
 out:
 	if (IS_ERR(ret))
