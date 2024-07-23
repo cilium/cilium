@@ -105,11 +105,15 @@ jobs:
             SHA="${{ github.sha }}"
           fi
 
+          # Adding k8s.local to the end makes kops happy
+          # has stricter DNS naming requirements.
+          CLUSTER_NAME="${{ env.test_name }}-${{ env.cluster_name }}.k8s.local"
+
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --set pprof.enabled=true \
             --helm-set=prometheus.enabled=true \
             --helm-set=cluster.name=${{ env.cluster_name }} \
-            --helm-set=k8sServiceHost=api.internal.${{ steps.vars.outputs.cluster_name }} \
+            --helm-set=k8sServiceHost=api.internal.${CLUSTER_NAME} \
             --helm-set=k8sServicePort=443 \
             --helm-set=kubeProxyReplacement=true \
             --wait=false"
@@ -131,10 +135,6 @@ jobs:
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set=hubble.relay.image.useDigest=false"
           fi
-
-          # Adding k8s.local to the end makes kops happy
-          # has stricter DNS naming requirements.
-          CLUSTER_NAME="${{ env.test_name }}-${{ env.cluster_name }}.k8s.local"
 
           echo SHA=${SHA} >> $GITHUB_OUTPUT
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
