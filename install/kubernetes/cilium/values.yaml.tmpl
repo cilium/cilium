@@ -37,13 +37,23 @@ imagePullSecrets: []
 # -- (string) Kubernetes config path
 # @default -- `"~/.kube/config"`
 kubeConfigPath: ""
-# -- (string) Kubernetes service host - use "auto" for automatic lookup from the cluster-info ConfigMap (kubeadm-based clusters only)
+# -- (string) Kubernetes service host - use "auto" for automatic lookup from the cluster-info ConfigMap
 k8sServiceHost: ""
 # @schema
 # type: [string, integer]
 # @schema
 # -- (string) Kubernetes service port
 k8sServicePort: ""
+# @schema
+# type: [null, string]
+# @schema
+# -- (string) When `k8sServiceHost=auto`, allows to customize the configMap name. It defaults to `cluster-info`.
+k8sServiceLookupConfigMapName: ""
+# @schema
+# type: [null, string]
+# @schema
+# -- (string) When `k8sServiceHost=auto`, allows to customize the namespace that contains `k8sServiceLookupConfigMapName`. It defaults to `kube-public`.
+k8sServiceLookupNamespace: ""
 # -- Configure the client side rate limit for the agent
 #
 # If the amount of requests to the Kubernetes API server exceeds the configured
