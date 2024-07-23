@@ -2474,6 +2474,12 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 
 	e.Stop()
 
+	// Wait for any pending endpoint regenerate() calls to finish. The
+	// latter bails out after taking the lock when it detects that the
+	// endpoint state is disconnecting.
+	e.buildMutex.Lock()
+	defer e.buildMutex.Unlock()
+
 	// Lock out any other writers to the endpoint.  In case multiple delete
 	// requests have been enqueued, have all of them except the first
 	// return here. Ignore the request if the endpoint is already
