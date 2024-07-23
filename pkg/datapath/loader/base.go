@@ -380,6 +380,8 @@ func (l *loader) ReinitializeXDP(ctx context.Context, extraCArgs []string) error
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
 func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+	fmt.Println("[tom-debug] Reinitialize started")
+	defer fmt.Println("[tom-debug] Reinitialize finished")
 	sysSettings := []tables.Sysctl{
 		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
 		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
@@ -388,9 +390,11 @@ func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfigu
 		{Name: "kernel.timer_migration", Val: "0", IgnoreErr: true},
 	}
 
+	fmt.Println("[tom-debug] grabbing compilation lock")
 	// Lock so that endpoints cannot be built while we are compile base programs.
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
+	fmt.Println("[tom-debug] acquired compilation lock")
 
 	// Store the new LocalNodeConfiguration
 	l.nodeConfig.Store(&cfg)
@@ -411,12 +415,15 @@ func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfigu
 			tables.Sysctl{Name: "net.ipv6.conf.all.disable_ipv6", Val: "0", IgnoreErr: false})
 	}
 
+	fmt.Println("[tom-debug] setup base device")
 	// Datapath initialization
 	hostDev1, _, err := setupBaseDevice(l.sysctl, cfg.DeviceMTU)
 	if err != nil {
 		return fmt.Errorf("failed to setup base devices: %w", err)
 	}
+	fmt.Println("[tom-debug] setup base device...done")
 
+	fmt.Println("[tom-debug] create ipip devices")
 	if option.Config.EnableHealthDatapath || option.Config.EnableIPIPTermination {
 		sysSettings = append(
 			sysSettings,
@@ -429,44 +436,63 @@ func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfigu
 		}
 	}
 
+	fmt.Println("[tom-debug] create ipip devices...done")
+
+	fmt.Println("[tom-debug] setup tunnel")
 	if err := setupTunnelDevice(l.sysctl, tunnelConfig.Protocol(), tunnelConfig.Port(), cfg.DeviceMTU); err != nil {
 		return fmt.Errorf("failed to setup %s tunnel device: %w", tunnelConfig.Protocol(), err)
 	}
+	fmt.Println("[tom-debug] setup tunnel...done")
 
+	fmt.Println("[tom-debug] add eni rules")
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		var err error
 		if sysSettings, err = addENIRules(sysSettings); err != nil {
 			return fmt.Errorf("unable to install ip rule for ENI multi-node NodePort: %w", err)
 		}
 	}
+	fmt.Println("[tom-debug] add eni rules...done")
 
+	fmt.Println("[tom-debug] apply sysctl settings")
 	// Any code that relies on sysctl settings being applied needs to be called after this.
 	if err := l.sysctl.ApplySettings(sysSettings); err != nil {
 		return err
 	}
+	fmt.Println("[tom-debug] apply sysctl settings...done")
 
+	fmt.Println("[tom-debug] add host device addr")
 	// add internal ipv4 and ipv6 addresses to cilium_host
 	if err := addHostDeviceAddr(hostDev1, internalIPv4, internalIPv6); err != nil {
 		return fmt.Errorf("failed to add internal IP address to %s: %w", hostDev1.Attrs().Name, err)
 	}
+	fmt.Println("[tom-debug] add host device addr...done")
 
+	fmt.Println("[tom-debug] get device names")
 	devices := cfg.DeviceNames()
+	fmt.Println("[tom-debug] get device names...done")
 
+	fmt.Println("[tom-debug] clean ingress qdisc")
 	if err := cleanIngressQdisc(devices); err != nil {
 		log.WithError(err).Warn("Unable to clean up ingress qdiscs")
 		return err
 	}
+	fmt.Println("[tom-debug] clean ingress qdisc...done")
 
+	fmt.Println("[tom-debug] write node config hdr")
 	if err := l.writeNodeConfigHeader(&cfg); err != nil {
 		log.WithError(err).Error("Unable to write node config header")
 		return err
 	}
+	fmt.Println("[tom-debug] write node config hdr...done")
 
+	fmt.Println("[tom-debug] write netdev hdr")
 	if err := l.writeNetdevHeader("./"); err != nil {
 		log.WithError(err).Warn("Unable to write netdev header")
 		return err
 	}
+	fmt.Println("[tom-debug] write netdev hdr...done")
 
+	fmt.Println("[tom-debug] enable xfp prefilter")
 	if option.Config.EnableXDPPrefilter {
 		scopedLog := log.WithField(logfields.Devices, devices)
 
@@ -475,10 +501,12 @@ func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfigu
 			return err
 		}
 	}
+	fmt.Println("[tom-debug] enable xfp prefilter...done")
 
 	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
 	defer cancel()
 
+	fmt.Println("[tom-debug] enable sock lb")
 	if option.Config.EnableSocketLB {
 		// compile bpf_sock.c and attach/detach progs for socketLB
 		if err := compileWithOptions(ctx, "bpf_sock.c", "bpf_sock.o", []string{"-DCALLS_MAP=cilium_calls_lb"}); err != nil {
@@ -492,21 +520,29 @@ func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfigu
 			return err
 		}
 	}
+	fmt.Println("[tom-debug] enable sock lb...done")
 
 	extraArgs := []string{"-Dcapture_enabled=0"}
+	fmt.Println("[tom-debug] reinit xdp locked")
 	if err := l.reinitializeXDPLocked(ctx, extraArgs, devices); err != nil {
 		log.WithError(err).Fatal("Failed to compile XDP program")
 	}
+	fmt.Println("[tom-debug] reinit xdp locked...done")
 
+	fmt.Println("[tom-debug] compile default")
 	// Compile alignchecker program
 	if err := compileDefault(ctx, "bpf_alignchecker.c", defaults.AlignCheckerName); err != nil {
 		log.WithError(err).Fatal("alignchecker compile failed")
 	}
+	fmt.Println("[tom-debug] compile default...done")
+	fmt.Println("[tom-debug] check struct alignments")
 	// Validate alignments of C and Go equivalent structs
 	if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
 		log.WithError(err).Fatal("C and Go structs alignment check failed")
 	}
+	fmt.Println("[tom-debug] check struct alignments...done")
 
+	fmt.Println("[tom-debug] compile network")
 	if option.Config.EnableIPSec {
 		if err := compileNetwork(ctx); err != nil {
 			log.WithError(err).Fatal("failed to compile encryption programs")
@@ -516,14 +552,19 @@ func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfigu
 			return err
 		}
 	}
+	fmt.Println("[tom-debug] compile network...done")
 
+	fmt.Println("[tom-debug] init overlay (re)")
 	if err := l.reinitializeOverlay(ctx, tunnelConfig); err != nil {
 		return err
 	}
+	fmt.Println("[tom-debug] init overlay (re)...done")
 
+	fmt.Println("[tom-debug] re init wireguard")
 	if err := l.reinitializeWireguard(ctx); err != nil {
 		return err
 	}
+	fmt.Println("[tom-debug] re init wireguard...done")
 
 	if err := l.nodeHandler.NodeConfigurationChanged(cfg); err != nil {
 		return err
