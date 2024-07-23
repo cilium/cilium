@@ -32,8 +32,8 @@ even earlier point in software. However, since this processing occurs so early
 in the networking stack, the stack has not yet extracted metadata out of the
 packet. On the other hand, tc BPF programs are executed later in the kernel
 stack, so they have access to more metadata and core kernel functionality.
-Apart from tc and XDP programs, there are various other kernel subsystems as
-well, which use BPF such as tracing (kprobes, uprobes, tracepoints, etc).
+Apart from tc and XDP programs, various other kernel subsystems use BPF, 
+such as tracing (via kprobes, uprobes, tracepoints, for example).
 
 The following subsections provide further details on individual aspects of the
 BPF architecture.
@@ -81,7 +81,7 @@ The advantages for pushing these instructions into the kernel include:
   programs, for example, reuse the existing in-kernel drivers and operate on the
   provided DMA buffers containing the packet frames without exposing them or an entire
   driver to user space as in other models. Moreover, XDP programs reuse the existing
-  stack instead of bypassing it. BPF can be considered a generic "glue code" for
+  stack instead of bypassing it. BPF can be considered a generic "glue code" between
   kernel facilities for crafting programs to solve specific use cases.
 
 The execution of a BPF program inside the kernel is always event-driven! Examples:
@@ -148,7 +148,7 @@ which, by design, means that any program will terminate quickly. For kernel newe
 than 5.1 this limit was lifted to 1 million BPF instructions. Although the
 instruction set contains forward as well as backward jumps, the in-kernel BPF
 verifier will forbid loops so that termination is always guaranteed. Since BPF
-programs run inside the kernel; the verifier's job is to make sure that these are
+programs run inside the kernel, the verifier's job is to make sure that these are
 safe to run, not affecting the system's stability. This means that from an instruction
 set point of view, loops can be implemented, but the verifier will restrict that.
 However, there is also a concept of tail calls that allows for one BPF program to
@@ -305,7 +305,7 @@ part of the core kernel and cannot be extended or added through kernel modules.
 
 The aforementioned function signature also allows the verifier to perform type
 checks. The above ``struct bpf_func_proto`` is used to hand all the necessary
-information which needs to be known about the helper to the verifier, so that
+information that needs to be known about the helper to the verifier, so that
 the verifier can make sure that the expected types from the helper match the
 current contents of the BPF program's analyzed registers.
 

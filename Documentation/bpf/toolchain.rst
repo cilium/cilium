@@ -682,7 +682,7 @@ following sample code:
           *c = sum;
         }
 
-At default code generation, the assembler will look like:
+At default code generation, the assembler looks like:
 
 .. code-block:: shell-session
 
@@ -698,7 +698,7 @@ At default code generation, the assembler will look like:
 
 64-bit registers are used, hence the addition means 64-bit addition. Now, if you
 enable the new 32-bit subregisters support by specifying ``-mattr=+alu32``, then
-the assembler will look like:
+the assembler looks like:
 
 .. code-block:: shell-session
 
@@ -1775,7 +1775,7 @@ of all details, but enough for getting started.
   It basically means that the ``bpf`` classifier does not need to call into external
   tc action modules, which are not necessary for ``bpf`` anyway, since all packet
   mangling, forwarding or other kind of actions can already be performed inside
-  the single BPF program, which is to be attached, and is therefore significantly
+  the single BPF program, and is therefore significantly
   faster.
 
   At this point, the program has been attached and is executed once packets traverse
@@ -1864,7 +1864,7 @@ of all details, but enough for getting started.
     # tc qdisc del dev em1 clsact
 
   tc BPF programs can also be offloaded if the NIC and driver has support for it
-  similarly, as with XDP BPF programs. Netronome's nfp supported NICs offer both
+  like XDP BPF programs. Netronome's nfp supported NICs offer both
   types of BPF offload.
 
   .. code-block:: shell-session
