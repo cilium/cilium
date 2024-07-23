@@ -30,7 +30,7 @@ Feature Proposal template <https://docs.google.com/document/d/1vtE82JExQHw8_-pX2
 proposal. Please make a copy of that template, fill it in with your ideas, and 
 ensure it's publicly visible, before adding the link into the GitHub issue.
 
-After the initial dicussion, CFPs should be added to the `design-cfps repo <https://github.com/cilium/design-cfps>`_
+After the initial discussion, CFPs should be added to the `design-cfps repo <https://github.com/cilium/design-cfps>`_
 so the design and discussion can be stored for future reference.
 
 .. _provision_environment:
