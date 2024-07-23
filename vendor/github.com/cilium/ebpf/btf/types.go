@@ -682,6 +682,10 @@ func Copy(typ Type) Type {
 }
 
 func copyType(typ Type, ids map[Type]TypeID, copies map[Type]Type, copiedIDs map[Type]TypeID) Type {
+	if typ == nil {
+		return nil
+	}
+
 	cpy, ok := copies[typ]
 	if ok {
 		// This has been copied previously, no need to continue.

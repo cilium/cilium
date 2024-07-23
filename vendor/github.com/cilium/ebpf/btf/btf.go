@@ -66,7 +66,7 @@ func (s *immutableTypes) typeByID(id TypeID) (Type, bool) {
 // mutableTypes is a set of types which may be changed.
 type mutableTypes struct {
 	imm           immutableTypes
-	mu            *sync.RWMutex   // protects copies below
+	mu            sync.RWMutex    // protects copies below
 	copies        map[Type]Type   // map[orig]copy
 	copiedTypeIDs map[Type]TypeID // map[copy]origID
 }
@@ -94,10 +94,14 @@ func (mt *mutableTypes) add(typ Type, typeIDs map[Type]TypeID) Type {
 }
 
 // copy a set of mutable types.
-func (mt *mutableTypes) copy() mutableTypes {
-	mtCopy := mutableTypes{
+func (mt *mutableTypes) copy() *mutableTypes {
+	if mt == nil {
+		return nil
+	}
+
+	mtCopy := &mutableTypes{
 		mt.imm,
-		&sync.RWMutex{},
+		sync.RWMutex{},
 		make(map[Type]Type, len(mt.copies)),
 		make(map[Type]TypeID, len(mt.copiedTypeIDs)),
 	}
@@ -169,7 +173,7 @@ func (mt *mutableTypes) anyTypesByName(name string) ([]Type, error) {
 // Spec allows querying a set of Types and loading the set into the
 // kernel.
 type Spec struct {
-	mutableTypes
+	*mutableTypes
 
 	// String table from ELF.
 	strings *stringTable
@@ -339,7 +343,7 @@ func loadRawSpec(btf io.ReaderAt, bo binary.ByteOrder, base *Spec) (*Spec, error
 	typeIDs, typesByName := indexTypes(types, firstTypeID)
 
 	return &Spec{
-		mutableTypes{
+		&mutableTypes{
 			immutableTypes{
 				types,
 				typeIDs,
@@ -347,7 +351,7 @@ func loadRawSpec(btf io.ReaderAt, bo binary.ByteOrder, base *Spec) (*Spec, error
 				typesByName,
 				bo,
 			},
-			&sync.RWMutex{},
+			sync.RWMutex{},
 			make(map[Type]Type),
 			make(map[Type]TypeID),
 		},
@@ -522,6 +526,10 @@ func fixupDatasecLayout(ds *Datasec) error {
 
 // Copy creates a copy of Spec.
 func (s *Spec) Copy() *Spec {
+	if s == nil {
+		return nil
+	}
+
 	return &Spec{
 		s.mutableTypes.copy(),
 		s.strings,
