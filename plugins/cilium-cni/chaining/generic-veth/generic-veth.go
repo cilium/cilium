@@ -96,7 +96,16 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 
 			addrsv6, err := netlink.AddrList(link, netlink.FAMILY_V6)
 			if err == nil && len(addrsv6) > 0 {
-				vethIPv6 = addrsv6[0].IPNet.IP.String()
+				if len(addrsv6) == 1 {
+					vethIPv6 = addrsv6[0].IPNet.IP.String()
+				} else {
+					for _, addrv6 := range addrsv6 {
+						if addrv6.IP.IsGlobalUnicast() {
+							vethIPv6 = addrv6.IPNet.IP.String()
+							break
+						}
+					}
+				}
 			} else if err != nil {
 				pluginCtx.Logger.WithError(err).WithField(logfields.Interface, link.Attrs().Name).Warn("No valid IPv6 address found")
 			}
