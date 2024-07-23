@@ -690,7 +690,8 @@ const (
 	WorkQueueBurstLimit = "workQueueBurstLimit"
 
 	// WorkQueueSyncBackoff is the backoff time used by workqueues before an attempt to retry sync with k8s-apiserver.
-	WorkQueueSyncBackOff = "workQueueSyncBackOff"
+	WorkQueueSyncBackOff    = "workQueueSyncBackOff"
+	WorkQueueMaxSyncBackOff = "workQueueMaxSyncBackOff"
 
 	// SourceIP is a source IP
 	SourceIP = "sourceIP"
