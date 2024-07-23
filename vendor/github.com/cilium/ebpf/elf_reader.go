@@ -972,6 +972,9 @@ func mapSpecFromBTF(es *elfSection, vs *btf.VarSecinfo, def *btf.Struct, spec *b
 				return nil, fmt.Errorf("resolving values contents: %w", err)
 			}
 
+		case "map_extra":
+			return nil, fmt.Errorf("BTF map definition: field %s: %w", member.Name, ErrNotSupported)
+
 		default:
 			return nil, fmt.Errorf("unrecognized field %s in BTF map definition", member.Name)
 		}

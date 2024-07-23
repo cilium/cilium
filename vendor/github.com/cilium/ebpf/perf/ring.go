@@ -10,31 +10,37 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	"github.com/cilium/ebpf/internal/sys"
 	"github.com/cilium/ebpf/internal/unix"
 )
 
 // perfEventRing is a page of metadata followed by
 // a variable number of pages which form a ring buffer.
 type perfEventRing struct {
-	fd   int
 	cpu  int
 	mmap []byte
 	ringReader
 }
 
-func newPerfEventRing(cpu, perCPUBuffer int, opts ReaderOptions) (*perfEventRing, error) {
+func newPerfEventRing(cpu, perCPUBuffer int, opts ReaderOptions) (_ *sys.FD, _ *perfEventRing, err error) {
+	closeOnError := func(c io.Closer) {
+		if err != nil {
+			c.Close()
+		}
+	}
+
 	if opts.Watermark >= perCPUBuffer {
-		return nil, errors.New("watermark must be smaller than perCPUBuffer")
+		return nil, nil, errors.New("watermark must be smaller than perCPUBuffer")
 	}
 
 	fd, err := createPerfEvent(cpu, opts)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	defer closeOnError(fd)
 
-	if err := unix.SetNonblock(fd, true); err != nil {
-		unix.Close(fd)
-		return nil, err
+	if err := unix.SetNonblock(fd.Int(), true); err != nil {
+		return nil, nil, err
 	}
 
 	protections := unix.PROT_READ
@@ -42,10 +48,9 @@ func newPerfEventRing(cpu, perCPUBuffer int, opts ReaderOptions) (*perfEventRing
 		protections |= unix.PROT_WRITE
 	}
 
-	mmap, err := unix.Mmap(fd, 0, perfBufferSize(perCPUBuffer), protections, unix.MAP_SHARED)
+	mmap, err := unix.Mmap(fd.Int(), 0, perfBufferSize(perCPUBuffer), protections, unix.MAP_SHARED)
 	if err != nil {
-		unix.Close(fd)
-		return nil, fmt.Errorf("can't mmap: %v", err)
+		return nil, nil, fmt.Errorf("can't mmap: %v", err)
 	}
 
 	// This relies on the fact that we allocate an extra metadata page,
@@ -62,14 +67,13 @@ func newPerfEventRing(cpu, perCPUBuffer int, opts ReaderOptions) (*perfEventRing
 	}
 
 	ring := &perfEventRing{
-		fd:         fd,
 		cpu:        cpu,
 		mmap:       mmap,
 		ringReader: reader,
 	}
 	runtime.SetFinalizer(ring, (*perfEventRing).Close)
 
-	return ring, nil
+	return fd, ring, nil
 }
 
 // perfBufferSize returns a valid mmap buffer size for use with perf_event_open (1+2^n pages)
@@ -88,17 +92,14 @@ func perfBufferSize(perCPUBuffer int) int {
 	return nPages * pageSize
 }
 
-func (ring *perfEventRing) Close() {
+func (ring *perfEventRing) Close() error {
 	runtime.SetFinalizer(ring, nil)
-
-	_ = unix.Close(ring.fd)
-	_ = unix.Munmap(ring.mmap)
-
-	ring.fd = -1
+	mmap := ring.mmap
 	ring.mmap = nil
+	return unix.Munmap(mmap)
 }
 
-func createPerfEvent(cpu int, opts ReaderOptions) (int, error) {
+func createPerfEvent(cpu int, opts ReaderOptions) (*sys.FD, error) {
 	wakeup := 0
 	bits := 0
 	if opts.WakeupEvents > 0 {
@@ -126,9 +127,9 @@ func createPerfEvent(cpu int, opts ReaderOptions) (int, error) {
 	attr.Size = uint32(unsafe.Sizeof(attr))
 	fd, err := unix.PerfEventOpen(&attr, -1, cpu, -1, unix.PERF_FLAG_FD_CLOEXEC)
 	if err != nil {
-		return -1, fmt.Errorf("can't create perf event: %w", err)
+		return nil, fmt.Errorf("can't create perf event: %w", err)
 	}
-	return fd, nil
+	return sys.NewFD(fd)
 }
 
 type ringReader interface {

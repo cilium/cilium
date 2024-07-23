@@ -359,7 +359,7 @@ const (
 	BPF_LINK_TYPE_TCX            LinkType = 11
 	BPF_LINK_TYPE_UPROBE_MULTI   LinkType = 12
 	BPF_LINK_TYPE_NETKIT         LinkType = 13
-	MAX_BPF_LINK_TYPE            LinkType = 14
+	__MAX_BPF_LINK_TYPE          LinkType = 14
 )
 
 type MapType uint32
@@ -528,7 +528,7 @@ type LinkInfo struct {
 	Id     LinkID
 	ProgId uint32
 	_      [4]byte
-	Extra  [40]uint8
+	Extra  [48]uint8
 }
 
 type MapInfo struct {
@@ -1263,7 +1263,7 @@ type CgroupLinkInfo struct {
 	_          [4]byte
 	CgroupId   uint64
 	AttachType AttachType
-	_          [28]byte
+	_          [36]byte
 }
 
 type IterLinkInfo struct {
@@ -1287,6 +1287,7 @@ type KprobeLinkInfo struct {
 	Offset        uint32
 	Addr          uint64
 	Missed        uint64
+	_             [8]byte
 }
 
 type KprobeMultiLinkInfo struct {
@@ -1298,7 +1299,7 @@ type KprobeMultiLinkInfo struct {
 	Count  uint32
 	Flags  uint32
 	Missed uint64
-	_      [16]byte
+	_      [24]byte
 }
 
 type NetNsLinkInfo struct {
@@ -1308,7 +1309,7 @@ type NetNsLinkInfo struct {
 	_          [4]byte
 	NetnsIno   uint32
 	AttachType AttachType
-	_          [32]byte
+	_          [40]byte
 }
 
 type NetfilterLinkInfo struct {
@@ -1320,7 +1321,7 @@ type NetfilterLinkInfo struct {
 	Hooknum  uint32
 	Priority int32
 	Flags    uint32
-	_        [24]byte
+	_        [32]byte
 }
 
 type NetkitLinkInfo struct {
@@ -1330,7 +1331,7 @@ type NetkitLinkInfo struct {
 	_          [4]byte
 	Ifindex    uint32
 	AttachType AttachType
-	_          [32]byte
+	_          [40]byte
 }
 
 type PerfEventLinkInfo struct {
@@ -1348,7 +1349,7 @@ type RawTracepointLinkInfo struct {
 	_         [4]byte
 	TpName    Pointer
 	TpNameLen uint32
-	_         [28]byte
+	_         [36]byte
 }
 
 type TcxLinkInfo struct {
@@ -1358,7 +1359,7 @@ type TcxLinkInfo struct {
 	_          [4]byte
 	Ifindex    uint32
 	AttachType AttachType
-	_          [32]byte
+	_          [40]byte
 }
 
 type TracingLinkInfo struct {
@@ -1369,7 +1370,7 @@ type TracingLinkInfo struct {
 	AttachType  AttachType
 	TargetObjId uint32
 	TargetBtfId TypeID
-	_           [28]byte
+	_           [36]byte
 }
 
 type XDPLinkInfo struct {
@@ -1378,5 +1379,5 @@ type XDPLinkInfo struct {
 	ProgId  uint32
 	_       [4]byte
 	Ifindex uint32
-	_       [36]byte
+	_       [44]byte
 }

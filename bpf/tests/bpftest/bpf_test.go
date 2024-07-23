@@ -158,19 +158,11 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 	if !collectCoverage {
 		coll, _, err = bpf.LoadCollection(spec, nil)
 	} else {
-		coll, cfg, err = coverbee.InstrumentAndLoadCollection(spec, ebpf.CollectionOptions{
-			Programs: ebpf.ProgramOptions{
-				// 64 MiB, not needed in most cases, except when running instrumented code.
-				LogSize: 64 << 20,
-			},
-		}, instrLog)
+		coll, cfg, err = coverbee.InstrumentAndLoadCollection(spec, ebpf.CollectionOptions{}, instrLog)
 	}
 
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
-		if ve.Truncated {
-			t.Fatal("Verifier log exceeds 64MiB, increase LogSize passed to coverbee.InstrumentAndLoadCollection")
-		}
 		t.Fatalf("verifier error: %+v", ve)
 	}
 	if err != nil {
