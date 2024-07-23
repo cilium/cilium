@@ -126,10 +126,12 @@ func xdpCompileArgs(xdpDev string, extraCArgs []string) ([]string, error) {
 
 // compileAndLoadXDPProg compiles bpf_xdp.c for the given XDP device and loads it.
 func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCArgs []string) error {
+	fmt.Println("		[tom-debug][reinitializeXDPLocked][compileAndLoadXDPProg] compile and load xdp prog", xdpDev, xdpMode, extraCArgs)
 	args, err := xdpCompileArgs(xdpDev, extraCArgs)
 	if err != nil {
 		return fmt.Errorf("failed to derive XDP compile extra args: %w", err)
 	}
+	fmt.Println("		[tom-debug][reinitializeXDPLocked][compileAndLoadXDPProg] compile and load xdp prog...done", xdpDev, xdpMode, extraCArgs)
 
 	dirs := &directoryInfo{
 		Library: option.Config.BpfDir,
@@ -144,10 +146,12 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 		Options:    args,
 	}
 
+	fmt.Println("		[tom-debug][reinitializeXDPLocked][compileAndLoadXDPProg] compile", xdpDev, xdpMode, extraCArgs)
 	objPath, err := compile(ctx, prog, dirs)
 	if err != nil {
 		return err
 	}
+	fmt.Println("		[tom-debug][reinitializeXDPLocked][compileAndLoadXDPProg] compile...done", xdpDev, xdpMode, extraCArgs)
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -157,26 +161,34 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 		return fmt.Errorf("retrieving device %s: %w", xdpDev, err)
 	}
 
+	fmt.Println("		[tom-debug][reinitializeXDPLocked][compileAndLoadXDPProg] load spec", xdpDev, xdpMode, extraCArgs)
 	spec, err := bpf.LoadCollectionSpec(objPath)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}
+	fmt.Println("		[tom-debug][reinitializeXDPLocked][compileAndLoadXDPProg] load spec...done", xdpDev, xdpMode, extraCArgs)
 
+	fmt.Println("		[tom-debug][reinitializeXDPLocked][compileAndLoadXDPProg] load datapath", xdpDev, xdpMode, extraCArgs)
 	coll, commit, err := loadDatapath(spec, nil, nil)
 	if err != nil {
 		return err
 	}
 	defer coll.Close()
+	fmt.Println("		[tom-debug][reinitializeXDPLocked][compileAndLoadXDPProg] load datapath...done", xdpDev, xdpMode, extraCArgs)
 
+	fmt.Println("		[tom-debug][reinitializeXDPLocked][compileAndLoadXDPProg] attach xdp", xdpDev, xdpMode, extraCArgs)
 	if err := attachXDPProgram(iface, coll.Programs[symbolFromHostNetdevXDP], symbolFromHostNetdevXDP,
 		bpffsDeviceLinksDir(bpf.CiliumPath(), iface), xdpConfigModeToFlag(xdpMode)); err != nil {
 		return fmt.Errorf("interface %s: %w", xdpDev, err)
 	}
 
+	fmt.Println("		[tom-debug][reinitializeXDPLocked][compileAndLoadXDPProg] attach xdp...done", xdpDev, xdpMode, extraCArgs)
+	fmt.Println("		[tom-debug][reinitializeXDPLocked][compileAndLoadXDPProg] commit", xdpDev, xdpMode, extraCArgs)
 	if err := commit(); err != nil {
 		return fmt.Errorf("committing bpf pins: %w", err)
 	}
 
+	fmt.Println("		[tom-debug][reinitializeXDPLocked][compileAndLoadXDPProg] commit...done", xdpDev, xdpMode, extraCArgs)
 	return nil
 }
 

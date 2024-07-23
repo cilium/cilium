@@ -271,17 +271,21 @@ func (l *loader) reinitializeIPSec() error {
 }
 
 func (l *loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error {
+	fmt.Println("[tom-debug]        [reinitializeOverlay] get protocol")
 	// tunnelConfig.Protocol() can be one of tunnel.[Disabled, VXLAN, Geneve]
 	// if it is disabled, the overlay network programs don't have to be (re)initialized
 	if tunnelConfig.Protocol() == tunnel.Disabled {
 		return nil
 	}
+	fmt.Println("	[tom-debug][reinitializeOverlay] get protocol...done")
 
+	fmt.Println("	[tom-debug][reinitializeOverlay] get device name")
 	iface := tunnelConfig.DeviceName()
 	link, err := netlink.LinkByName(iface)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve link for interface %s: %w", iface, err)
 	}
+	fmt.Println("	[tom-debug][reinitializeOverlay] get device name...done")
 
 	// gather compile options for bpf_overlay.c
 	opts := []string{
@@ -301,9 +305,11 @@ func (l *loader) reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Co
 		opts = append(opts, fmt.Sprintf("-DSECLABEL_IPV6=%d", identity.ReservedIdentityWorld))
 	}
 
+	fmt.Println("	[tom-debug][reinitializeOverlay] replace overlay datapath")
 	if err := l.replaceOverlayDatapath(ctx, opts, iface); err != nil {
 		return fmt.Errorf("failed to load overlay programs: %w", err)
 	}
+	fmt.Println("	[tom-debug][reinitializeOverlay] replace overlay datapath...done")
 
 	return nil
 }
@@ -336,11 +342,14 @@ func (l *loader) reinitializeWireguard(ctx context.Context) (err error) {
 }
 
 func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string, devices []string) error {
+	fmt.Println("	[tom-debug][reinitializeXDPLocked] maybe unload obsolete xdp programs")
 	l.maybeUnloadObsoleteXDPPrograms(devices, option.Config.XDPMode, bpf.CiliumPath())
 	if option.Config.XDPMode == option.XDPModeDisabled {
 		return nil
 	}
+	fmt.Println("	[tom-debug][reinitializeXDPLocked] maybe unload obsolete xdp programs...done")
 	for _, dev := range devices {
+		fmt.Println("	[tom-debug][reinitializeXDPLocked] compile and load xdp prog", dev)
 		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach bpf_host
 		// so that NodePort's rev-{S,D}NAT translations happens for a reply from the remote node.
 		// So We need to exclude cilium_wg0 not to attach the XDP program when XDP acceleration
@@ -356,11 +365,14 @@ func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string,
 				return fmt.Errorf("attaching XDP program to interface %s: %w", dev, err)
 			}
 		}
+		fmt.Println("	[tom-debug][reinitializeXDPLocked] compile and load xdp prog...done", dev)
 	}
 
 	// Clean up the legacy cilium_calls_xdp path.
 	// TODO:  Remove in Cilium 1.17.
+	fmt.Println("	[tom-debug][reinitializeXDPLocked]remove tc globals path")
 	os.Remove(filepath.Join(bpf.TCGlobalsPath(), "cilium_calls_xdp"))
+	fmt.Println("	[tom-debug][reinitializeXDPLocked]remove tc globals path...done")
 
 	return nil
 }

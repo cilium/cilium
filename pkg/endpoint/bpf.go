@@ -593,6 +593,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	<-datapathRegenCtxt.ctCleaned
 	stats.waitingForCTClean.End(true)
 
+	// @tom error here
 	err = e.realizeBPFState(regenContext)
 	if err != nil {
 		return datapathRegenCtxt.epInfoCache.revision, err
@@ -671,6 +672,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 		}
 
 		// Compile and install BPF programs for this endpoint
+		// @tom
 		templateHash, err := e.owner.Datapath().Loader().ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 		if err != nil {
 			if !errors.Is(err, context.Canceled) {

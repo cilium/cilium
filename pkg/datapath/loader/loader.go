@@ -528,40 +528,56 @@ func (l *loader) reloadDatapath(ep datapath.Endpoint, spec *ebpf.CollectionSpec)
 }
 
 func (l *loader) replaceOverlayDatapath(ctx context.Context, cArgs []string, iface string) error {
+	fmt.Println("		[tom-debug][reinitializeOverlay][replaceOverlayDatapath] start compileOverlay")
 	if err := compileOverlay(ctx, cArgs); err != nil {
 		return fmt.Errorf("compiling overlay program: %w", err)
 	}
+	fmt.Println("		[tom-debug][reinitializeOverlay][replaceOverlayDatapath] start compileOverlay...done")
 
+	fmt.Println("		[tom-debug][reinitializeOverlay][replaceOverlayDatapath] get link")
 	device, err := netlink.LinkByName(iface)
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", iface, err)
 	}
+	fmt.Println("		[tom-debug][reinitializeOverlay][replaceOverlayDatapath] get link...done")
 
+	fmt.Println("		[tom-debug][reinitializeOverlay][replaceOverlayDatapath] load collection spec")
 	spec, err := bpf.LoadCollectionSpec(overlayObj)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", overlayObj, err)
 	}
+	fmt.Println("		[tom-debug][reinitializeOverlay][replaceOverlayDatapath] load collection spec...done")
 
+	fmt.Println("		[tom-debug][reinitializeOverlay][replaceOverlayDatapath] load datapath")
 	coll, commit, err := loadDatapath(spec, nil, nil)
 	if err != nil {
 		return err
 	}
+	fmt.Println("		[tom-debug][reinitializeOverlay][replaceOverlayDatapath] load datapath...done")
 	defer coll.Close()
 
+	fmt.Println("		[tom-debug][reinitializeOverlay][replaceOverlayDatapath] bpffsDeviceLinksDir")
 	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
+	fmt.Println("		[tom-debug][reinitializeOverlay][replaceOverlayDatapath] bpffsDeviceLinksDir...done")
+	fmt.Println("		[tom-debug][reinitializeOverlay][replaceOverlayDatapath] attachSKBProgram from overlay")
 	if err := attachSKBProgram(device, coll.Programs[symbolFromOverlay], symbolFromOverlay,
 		linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", device, err)
 	}
+	fmt.Println("		[tom-debug][reinitializeOverlay][replaceOverlayDatapath] attachSKBProgram...done")
+	fmt.Println("		[tom-debug][reinitializeOverlay][replaceOverlayDatapath] attachSKBProgram to overlay")
 	if err := attachSKBProgram(device, coll.Programs[symbolToOverlay], symbolToOverlay,
 		linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s egress: %w", device, err)
 	}
+	fmt.Println("		[tom-debug][reinitializeOverlay][replaceOverlayDatapath] attachSKBProgram to overlay...done")
 
+	fmt.Println("		[tom-debug][reinitializeOverlay][replaceOverlayDatapath] commit")
 	if err := commit(); err != nil {
 		return fmt.Errorf("committing bpf pins: %w", err)
 	}
 
+	fmt.Println("		[tom-debug][reinitializeOverlay][replaceOverlayDatapath] commit...done")
 	return nil
 }
 
