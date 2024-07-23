@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
@@ -197,13 +198,42 @@ func (c *Controller) Run(ctx context.Context) {
 		case <-c.Sig.Sig:
 			if c.LocalCiliumNode == nil {
 				l.Debug("localCiliumNode has not been set yet")
-			} else if err := c.Reconcile(ctx); err != nil {
-				l.WithError(err).Error("Encountered error during reconciliation")
+			} else if err := c.reconcileWithRetry(ctx); err != nil {
+				l.WithError(err).Error("Reconciliation with retries failed")
 			} else {
 				l.Debug("Successfully completed reconciliation")
 			}
 		}
 	}
+}
+
+// reconcileWithRetry runs Reconcile and retries if it fails until the iterations count defined in backoff is reached.
+func (c *Controller) reconcileWithRetry(ctx context.Context) error {
+	// reconciliation will repeat for ~15 seconds
+	backoff := wait.Backoff{
+		Duration: 500 * time.Millisecond,
+		Factor:   2,
+		Jitter:   0.5,
+		Steps:    5,
+	}
+
+	var err error
+	retryFn := func(ctx context.Context) (bool, error) {
+		err = c.Reconcile(ctx)
+		if err != nil {
+			log.WithError(err).Debug("Reconciliation failed")
+			return false, nil
+		}
+		return true, nil
+	}
+
+	if retryErr := wait.ExponentialBackoffWithContext(ctx, backoff, retryFn); retryErr != nil {
+		if wait.Interrupted(retryErr) && err != nil {
+			return err // return the actual reconciliation error
+		}
+		return retryErr
+	}
+	return nil
 }
 
 // Reconcile is the main reconciliation loop for the BGP Control Plane Controller.
