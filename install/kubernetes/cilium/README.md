@@ -639,7 +639,9 @@ contributors across the globe, there is almost always someone available to help.
 | k8sClientRateLimit.operator.qps | int | 100 | The sustained request rate in requests per second. |
 | k8sClientRateLimit.qps | int | 10 | The sustained request rate in requests per second. |
 | k8sNetworkPolicy.enabled | bool | `true` | Enable support for K8s NetworkPolicy |
-| k8sServiceHost | string | `""` | Kubernetes service host - use "auto" for automatic lookup from the cluster-info ConfigMap (kubeadm-based clusters only) |
+| k8sServiceHost | string | `""` | Kubernetes service host - use "auto" for automatic lookup from the cluster-info ConfigMap |
+| k8sServiceLookupConfigMapName | string | `""` | When `k8sServiceHost=auto`, allows to customize the configMap name. It defaults to `cluster-info`. |
+| k8sServiceLookupNamespace | string | `""` | When `k8sServiceHost=auto`, allows to customize the namespace that contains `k8sServiceLookupConfigMapName`. It defaults to `kube-public`. |
 | k8sServicePort | string | `""` | Kubernetes service port |
 | keepDeprecatedLabels | bool | `false` | Keep the deprecated selector labels when deploying Cilium DaemonSet. |
 | keepDeprecatedProbes | bool | `false` | Keep the deprecated probes when deploying Cilium DaemonSet |

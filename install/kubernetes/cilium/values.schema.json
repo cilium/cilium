@@ -3774,6 +3774,18 @@
     "k8sServiceHost": {
       "type": "string"
     },
+    "k8sServiceLookupConfigMapName": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "k8sServiceLookupNamespace": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
     "k8sServicePort": {
       "type": [
         "string",
