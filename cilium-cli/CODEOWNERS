@@ -1,21 +1,24 @@
 # Code owners groups and a brief description of their areas:
-# @cilium/azure              Integration with Azure
-# @cilium/ci-structure       Continuous integration, testing
-# @cilium/cli                Commandline interfaces
-# @cilium/contributing       Developer documentation & tools
-# @cilium/github-sec         GitHub security (handling of secrets, consequences of pull_request_target, etc.)
-# @cilium/sig-encryption     Encryption management
-# @cilium/sig-bgp            BGP integration
-# @cilium/sig-clustermesh    Clustermesh and external workloads
-# @cilium/sig-hubble         Hubble integration
-# @cilium/sig-k8s            K8s integration, K8s CNI plugin
-# @cilium/vendor             Vendoring, dependency management
+# @cilium/azure                  Integration with Azure
+# @cilium/ci-structure           Continuous integration, testing
+# @cilium/cilium-cli-maintainers Release-related files
+# @cilium/cli                    Commandline interfaces
+# @cilium/contributing           Developer documentation & tools
+# @cilium/github-sec             GitHub security (handling of secrets, consequences of pull_request_target, etc.)
+# @cilium/sig-encryption         Encryption management
+# @cilium/sig-bgp                BGP integration
+# @cilium/sig-clustermesh        Clustermesh and external workloads
+# @cilium/sig-hubble             Hubble integration
+# @cilium/sig-k8s                K8s integration, K8s CNI plugin
+# @cilium/vendor                 Vendoring, dependency management
 
 # The following filepaths should be sorted so that more specific paths occur
 # after the less specific paths, otherwise the ownership for the specific paths
 # is not properly picked up in Github.
 * @cilium/cli
 /CODEOWNERS @cilium/contributing
+/README.md @cilium/cilium-cli-maintainers
+/RELEASE.md @cilium/cilium-cli-maintainers
 /.github/ @cilium/contributing
 /.github/gcp-vm-startup.sh @cilium/ci-structure
 /.github/get-kubeconfig.sh @cilium/github-sec @cilium/ci-structure
@@ -74,4 +77,6 @@
 /k8s/ @cilium/sig-k8s
 /go.sum @cilium/vendor
 /go.mod @cilium/vendor
+/stable-v0.14.txt @cilium/cilium-cli-maintainers
+/stable.txt @cilium/cilium-cli-maintainers
 /vendor/ @cilium/vendor
