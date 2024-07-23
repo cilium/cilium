@@ -457,6 +457,9 @@ kubespray
 kvstore
 kvstoremesh
 kvstores
+k8sServiceHost
+k8sServiceLookupConfigMapName
+k8sServiceLookupNamespace
 lan
 latencies
 leia

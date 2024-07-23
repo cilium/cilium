@@ -2357,7 +2357,15 @@
      - bool
      - ``true``
    * - :spelling:ignore:`k8sServiceHost`
-     - Kubernetes service host - use "auto" for automatic lookup from the cluster-info ConfigMap (kubeadm-based clusters only)
+     - Kubernetes service host - use "auto" for automatic lookup from the cluster-info ConfigMap
+     - string
+     - ``""``
+   * - :spelling:ignore:`k8sServiceLookupConfigMapName`
+     - When ``k8sServiceHost=auto``\ , allows to customize the configMap name. It defaults to ``cluster-info``.
+     - string
+     - ``""``
+   * - :spelling:ignore:`k8sServiceLookupNamespace`
+     - When ``k8sServiceHost=auto``\ , allows to customize the namespace that contains ``k8sServiceLookupConfigMapName``. It defaults to ``kube-public``.
      - string
      - ``""``
    * - :spelling:ignore:`k8sServicePort`
