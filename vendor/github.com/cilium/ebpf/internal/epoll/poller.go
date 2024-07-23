@@ -1,16 +1,20 @@
 package epoll
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"os"
 	"runtime"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/unix"
 )
+
+var ErrFlushed = errors.New("data was flushed")
 
 // Poller waits for readiness notifications from multiple file descriptors.
 //
@@ -21,27 +25,48 @@ type Poller struct {
 	epollMu sync.Mutex
 	epollFd int
 
-	eventMu sync.Mutex
-	event   *eventFd
+	eventMu    sync.Mutex
+	closeEvent *eventFd
+	flushEvent *eventFd
 }
 
-func New() (*Poller, error) {
+func New() (_ *Poller, err error) {
+	closeFDOnError := func(fd int) {
+		if err != nil {
+			unix.Close(fd)
+		}
+	}
+	closeEventFDOnError := func(e *eventFd) {
+		if err != nil {
+			e.close()
+		}
+	}
+
 	epollFd, err := unix.EpollCreate1(unix.EPOLL_CLOEXEC)
 	if err != nil {
 		return nil, fmt.Errorf("create epoll fd: %v", err)
 	}
+	defer closeFDOnError(epollFd)
 
 	p := &Poller{epollFd: epollFd}
-	p.event, err = newEventFd()
+	p.closeEvent, err = newEventFd()
 	if err != nil {
-		unix.Close(epollFd)
 		return nil, err
 	}
+	defer closeEventFDOnError(p.closeEvent)
 
-	if err := p.Add(p.event.raw, 0); err != nil {
-		unix.Close(epollFd)
-		p.event.close()
-		return nil, fmt.Errorf("add eventfd: %w", err)
+	p.flushEvent, err = newEventFd()
+	if err != nil {
+		return nil, err
+	}
+	defer closeEventFDOnError(p.flushEvent)
+
+	if err := p.Add(p.closeEvent.raw, 0); err != nil {
+		return nil, fmt.Errorf("add close eventfd: %w", err)
+	}
+
+	if err := p.Add(p.flushEvent.raw, 0); err != nil {
+		return nil, fmt.Errorf("add flush eventfd: %w", err)
 	}
 
 	runtime.SetFinalizer(p, (*Poller).Close)
@@ -55,8 +80,8 @@ func New() (*Poller, error) {
 func (p *Poller) Close() error {
 	runtime.SetFinalizer(p, nil)
 
-	// Interrupt Wait() via the event fd if it's currently blocked.
-	if err := p.wakeWait(); err != nil {
+	// Interrupt Wait() via the closeEvent fd if it's currently blocked.
+	if err := p.wakeWaitForClose(); err != nil {
 		return err
 	}
 
@@ -73,9 +98,14 @@ func (p *Poller) Close() error {
 		p.epollFd = -1
 	}
 
-	if p.event != nil {
-		p.event.close()
-		p.event = nil
+	if p.closeEvent != nil {
+		p.closeEvent.close()
+		p.closeEvent = nil
+	}
+
+	if p.flushEvent != nil {
+		p.flushEvent.close()
+		p.flushEvent = nil
 	}
 
 	return nil
@@ -118,8 +148,11 @@ func (p *Poller) Add(fd int, id int) error {
 
 // Wait for events.
 //
-// Returns the number of pending events or an error wrapping os.ErrClosed if
-// Close is called, or os.ErrDeadlineExceeded if EpollWait timeout.
+// Returns the number of pending events and any errors.
+//
+//   - [os.ErrClosed] if interrupted by [Close].
+//   - [ErrFlushed] if interrupted by [Flush].
+//   - [os.ErrDeadlineExceeded] if deadline is reached.
 func (p *Poller) Wait(events []unix.EpollEvent, deadline time.Time) (int, error) {
 	p.epollMu.Lock()
 	defer p.epollMu.Unlock()
@@ -132,13 +165,11 @@ func (p *Poller) Wait(events []unix.EpollEvent, deadline time.Time) (int, error)
 		timeout := int(-1)
 		if !deadline.IsZero() {
 			msec := time.Until(deadline).Milliseconds()
-			if msec < 0 {
-				// Deadline is in the past.
-				msec = 0
-			} else if msec > math.MaxInt {
-				// Deadline is too far in the future.
-				msec = math.MaxInt
-			}
+			// Deadline is in the past, don't block.
+			msec = max(msec, 0)
+			// Deadline is too far in the future.
+			msec = min(msec, math.MaxInt)
+
 			timeout = int(msec)
 		}
 
@@ -156,16 +187,26 @@ func (p *Poller) Wait(events []unix.EpollEvent, deadline time.Time) (int, error)
 			return 0, fmt.Errorf("epoll wait: %w", os.ErrDeadlineExceeded)
 		}
 
-		for _, event := range events[:n] {
-			if int(event.Fd) == p.event.raw {
-				// Since we don't read p.event the event is never cleared and
+		for i := 0; i < n; {
+			event := events[i]
+			if int(event.Fd) == p.closeEvent.raw {
+				// Since we don't read p.closeEvent the event is never cleared and
 				// we'll keep getting this wakeup until Close() acquires the
 				// lock and sets p.epollFd = -1.
 				return 0, fmt.Errorf("epoll wait: %w", os.ErrClosed)
 			}
+			if int(event.Fd) == p.flushEvent.raw {
+				// read event to prevent it from continuing to wake
+				p.flushEvent.read()
+				err = ErrFlushed
+				events = slices.Delete(events, i, i+1)
+				n -= 1
+				continue
+			}
+			i++
 		}
 
-		return n, nil
+		return n, err
 	}
 }
 
@@ -173,16 +214,28 @@ type temporaryError interface {
 	Temporary() bool
 }
 
-// wakeWait unblocks Wait if it's epoll_wait.
-func (p *Poller) wakeWait() error {
+// wakeWaitForClose unblocks Wait if it's epoll_wait.
+func (p *Poller) wakeWaitForClose() error {
 	p.eventMu.Lock()
 	defer p.eventMu.Unlock()
 
-	if p.event == nil {
+	if p.closeEvent == nil {
 		return fmt.Errorf("epoll wake: %w", os.ErrClosed)
 	}
 
-	return p.event.add(1)
+	return p.closeEvent.add(1)
+}
+
+// Flush unblocks Wait if it's epoll_wait, for purposes of reading pending samples
+func (p *Poller) Flush() error {
+	p.eventMu.Lock()
+	defer p.eventMu.Unlock()
+
+	if p.flushEvent == nil {
+		return fmt.Errorf("epoll wake: %w", os.ErrClosed)
+	}
+
+	return p.flushEvent.add(1)
 }
 
 // eventFd wraps a Linux eventfd.
@@ -213,7 +266,7 @@ func (efd *eventFd) close() error {
 
 func (efd *eventFd) add(n uint64) error {
 	var buf [8]byte
-	internal.NativeEndian.PutUint64(buf[:], 1)
+	internal.NativeEndian.PutUint64(buf[:], n)
 	_, err := efd.file.Write(buf[:])
 	return err
 }

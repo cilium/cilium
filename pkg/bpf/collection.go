@@ -270,20 +270,6 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.C
 		return nil, nil, fmt.Errorf("inlining global data: %w", err)
 	}
 
-	// Set initial size of verifier log buffer.
-	//
-	// Up until kernel 5.1, the maximum log size is (2^24)-1. In 5.2, this was
-	// increased to (2^30)-1 by 7a9f5c65abcc ("bpf: increase verifier log limit").
-	//
-	// The default value of (2^22)-1 was chosen to be large enough to fit the log
-	// of most Cilium programs, while falling just within the 5.1 maximum size in
-	// one of the steps of the multiplication loop below. Without the -1, it would
-	// overshoot the cap to 2^24, making e.g. verifier tests unable to load the
-	// program if the previous size (2^22) was too small to fit the log.
-	if opts.Programs.LogSize == 0 {
-		opts.Programs.LogSize = 4_194_303
-	}
-
 	// Find and strip all CILIUM_PIN_REPLACE pinning flags before creating the
 	// Collection. ebpf-go will reject maps with pins it doesn't recognize.
 	toReplace := consumePinReplace(spec)
@@ -305,35 +291,8 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.C
 		coll, err = ebpf.NewCollectionWithOptions(spec, opts.CollectionOptions)
 	}
 
-	// Try to obtain the full verifier log if it was truncated. Note that
-	// VerifierError is also returned if verification was successful but the
-	// buffer was too small.
-	attempts := 5
-	for range attempts {
-		var ve *ebpf.VerifierError
-		if errors.As(err, &ve) && ve.Truncated {
-			// Retry with non-zero log level to avoid retrying with log disabled.
-			if opts.Programs.LogLevel == 0 {
-				opts.Programs.LogLevel = ebpf.LogLevelBranch
-			}
-
-			opts.Programs.LogSize *= 4
-
-			// Retry loading the Collection with increased log buffer.
-			coll, err = ebpf.NewCollectionWithOptions(spec, opts.CollectionOptions)
-
-			// Re-check error and bump attempts.
-			continue
-		}
-
-		if err != nil {
-			// Not a VerifierError or not truncated.
-			return nil, nil, err
-		}
-	}
 	if err != nil {
-		// Retry loop failed to resolve a VerifierError.
-		return nil, nil, fmt.Errorf("%d-byte truncated verifier log after %d attempts: %w", opts.CollectionOptions.Programs.LogSize, attempts, err)
+		return nil, nil, err
 	}
 
 	// Load successful, return a function that must be invoked after attaching the

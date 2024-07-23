@@ -193,8 +193,8 @@ github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/cilium/coverbee v0.3.2
-## explicit; go 1.18
+# github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
+## explicit; go 1.21
 github.com/cilium/coverbee
 github.com/cilium/coverbee/pkg/cparser
 github.com/cilium/coverbee/pkg/verifierlog
@@ -205,8 +205,8 @@ github.com/cilium/deepequal-gen/generators
 # github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
 ## explicit; go 1.18
 github.com/cilium/dns
-# github.com/cilium/ebpf v0.15.0
-## explicit; go 1.21.0
+# github.com/cilium/ebpf v0.15.1-0.20240723115216-b689d288f907
+## explicit; go 1.21
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/btf

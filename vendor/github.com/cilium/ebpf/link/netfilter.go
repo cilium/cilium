@@ -67,4 +67,24 @@ func (*netfilterLink) Update(new *ebpf.Program) error {
 	return fmt.Errorf("netfilter update: %w", ErrNotSupported)
 }
 
+func (nf *netfilterLink) Info() (*Info, error) {
+	var info sys.NetfilterLinkInfo
+	if err := sys.ObjInfo(nf.fd, &info); err != nil {
+		return nil, fmt.Errorf("netfilter link info: %s", err)
+	}
+	extra := &NetfilterInfo{
+		Pf:       info.Pf,
+		Hooknum:  info.Hooknum,
+		Priority: info.Priority,
+		Flags:    info.Flags,
+	}
+
+	return &Info{
+		info.Type,
+		info.Id,
+		ebpf.ProgramID(info.ProgId),
+		extra,
+	}, nil
+}
+
 var _ Link = (*netfilterLink)(nil)
