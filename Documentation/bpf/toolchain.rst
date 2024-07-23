@@ -25,7 +25,7 @@ The step of manually building iproute2 and Linux kernel is usually not necessary
 given that major distributions already ship recent enough kernels by default, but
 would be needed for testing bleeding edge versions or contributing BPF patches to
 iproute2 and to the Linux kernel, respectively. Similarly, for debugging and
-introspection purposes building bpftool is optional, but recommended.
+introspection purposes building bpftool is optional but recommended.
 
 .. tabs::
 
@@ -80,7 +80,7 @@ In case the ``net`` tree is of interest, it can be cloned from this url:
 
     $ git clone git://git.kernel.org/pub/scm/linux/kernel/git/netdev/net.git
 
-There are dozens of tutorials in the Internet on how to build Linux kernels, one
+There are dozens of tutorials on the Internet on how to build Linux kernels, one
 good resource is the Kernel Newbies website (https://kernelnewbies.org/KernelBuild)
 that can be followed with one of the two git trees mentioned above.
 
@@ -254,7 +254,7 @@ into BPF object files.
 
 The typical workflow is that BPF programs are written in C, compiled by LLVM
 into object / ELF files, which are parsed by user space BPF ELF loaders (such as
-iproute2 or others), and pushed into the kernel through the BPF system call.
+iproute2 or others) and pushed into the kernel through the BPF system call.
 The kernel verifies the BPF instructions and JITs them, returning a new file
 descriptor for the program, which then can be attached to a subsystem (e.g.
 networking). If supported, the subsystem could then further offload the BPF
@@ -476,8 +476,8 @@ The generated LLVM IR can also be dumped in human readable format through:
 
     $ clang -O2 -Wall -emit-llvm -S -c xdp-example.c -o -
 
-LLVM is able to attach debug information such as the description of used data
-types in the program to the generated BPF object file. By default this is in
+LLVM can attach debug information such as the description of used data
+types in the program to the generated BPF object file. By default, this is in
 DWARF format.
 
 A heavily simplified version used by BPF is called BTF (BPF Type Format). The
@@ -628,8 +628,8 @@ A full command line example with llc's ``-mcpu=probe``:
     $ clang -O2 -Wall --target=bpf -emit-llvm -c xdp-example.c -o xdp-example.bc
     $ llc xdp-example.bc -march=bpf -mcpu=probe -filetype=obj -o xdp-example.o
 
-Generally, LLVM IR generation is architecture independent. There are
-however a few differences when using ``clang --target=bpf`` versus
+Generally, LLVM IR generation is architecture independent. However, there are 
+a few differences when using ``clang --target=bpf`` versus
 leaving ``--target=bpf`` out and thus using clang's default target which,
 depending on the underlying architecture, might be ``x86_64``, ``arm64``
 or others.
@@ -682,7 +682,7 @@ following sample code:
           *c = sum;
         }
 
-At default code generation, the assembler will looks like:
+At default code generation, the assembler looks like:
 
 .. code-block:: shell-session
 
@@ -698,7 +698,7 @@ At default code generation, the assembler will looks like:
 
 64-bit registers are used, hence the addition means 64-bit addition. Now, if you
 enable the new 32-bit subregisters support by specifying ``-mattr=+alu32``, then
-the assembler will looks like:
+the assembler looks like:
 
 .. code-block:: shell-session
 
@@ -910,7 +910,7 @@ describe some of the differences for the BPF model:
   ``PIN_GLOBAL_NS`` pinning. In that case, the map will be shared among
   BPF programs originating from various object files. ``PIN_NONE`` would
   mean that the map is not placed into the BPF file system as a node,
-  and as a result will not be accessible from user space after tc quits. It
+  and as a result, will not be accessible from user space after tc quits. It
   would also mean that tc creates two separate map instances for each
   program, since it cannot retrieve a previously pinned map under that
   name. The ``acc_map`` part from the mentioned path is the name of the
@@ -1230,7 +1230,7 @@ describe some of the differences for the BPF model:
   In this case, the ``section 1/0`` indicates that the ``looper()`` function
   resides in the map id ``1`` at position ``0``.
 
-  The pinned map can be retrieved by a user space applications (e.g. Cilium daemon),
+  The pinned map can be retrieved by user space applications (e.g. Cilium daemon),
   but also by tc itself in order to update the map with new programs. Updates
   happen atomically, the initial entry programs that are triggered first from the
   various subsystems are also updated atomically.
@@ -1624,7 +1624,7 @@ of all details, but enough for getting started.
 
   ``xdpdrv`` stands for native XDP, meaning the BPF program is run directly in
   the driver's receive path at the earliest possible point in software. This is
-  the normal / conventional XDP mode and requires driver's to implement XDP
+  the normal / conventional XDP mode and requires drivers to implement XDP
   support, which all major 10G/40G/+ networking drivers in the upstream Linux
   kernel already provide.
 
@@ -1775,7 +1775,7 @@ of all details, but enough for getting started.
   It basically means that the ``bpf`` classifier does not need to call into external
   tc action modules, which are not necessary for ``bpf`` anyway, since all packet
   mangling, forwarding or other kind of actions can already be performed inside
-  the single BPF program which is to be attached, and is therefore significantly
+  a single BPF program, and is therefore significantly
   faster.
 
   At this point, the program has been attached and is executed once packets traverse
@@ -1863,8 +1863,8 @@ of all details, but enough for getting started.
 
     # tc qdisc del dev em1 clsact
 
-  tc BPF programs can also be offloaded if the NIC and driver has support for it
-  similarly as with XDP BPF programs. Netronome's nfp supported NICs offer both
+  tc BPF programs can also be offloaded if the NIC and driver has support for it,
+  like XDP BPF programs. Netronome's nfp supported NICs offer both
   types of BPF offload.
 
   .. code-block:: shell-session
