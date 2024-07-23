@@ -10,7 +10,7 @@ Further Reading
 ===============
 
 Mentioned lists of docs, projects, talks, papers, and further reading
-material are likely not complete. Thus, feel free to open pull requests
+materials are likely not complete. Thus, feel free to open pull requests
 to complete the list.
 
 Kernel Developer FAQ
@@ -46,7 +46,7 @@ legacy cBPF:
 
 * **BCC**
 
-  BCC stands for BPF Compiler Collection and its key feature is to provide
+  BCC stands for BPF Compiler Collection, and its key feature is to provide
   a set of easy to use and efficient kernel tracing utilities all based
   upon BPF programs hooking into kernel infrastructure based upon kprobes,
   kretprobes, tracepoints, uprobes, uretprobes as well as USDT probes. The
