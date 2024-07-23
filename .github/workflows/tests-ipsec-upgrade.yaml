@@ -180,7 +180,7 @@ jobs:
     timeout-minutes: 70
     steps:
       - name: Collect Workflow Telemetry
-        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        uses: chancez/workflow-telemetry-action@pr/chancez/quote_step_names
         with:
           comment_on_pr: false
 
