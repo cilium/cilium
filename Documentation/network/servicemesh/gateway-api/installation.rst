@@ -18,6 +18,16 @@ Prerequisites
     - `ReferenceGrant <https://gateway-api.sigs.k8s.io/api-types/referencegrant/>`_
     - `TLSRoute (experimental) <https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io%2fv1alpha2.TLSRoute/>`_
 
+    .. admonition:: warning
+        :class: attention
+
+        An issue in Gateway API requires Cilium having the experimental CRDs to
+        be installed in order to use Gateway API. The issue is being tracked
+        `here <https://github.com/kubernetes-sigs/gateway-api/issues/3080>`__.
+
+        To install the experimental CRDs, please refer to
+        the `Gateway API documentation <https://gateway-api.sigs.k8s.io/guides/#install-experimental-channel>`__.
+
     .. code-block:: shell-session
 
         $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/v1.1.0/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
