@@ -33,7 +33,7 @@ in the networking stack, the stack has not yet extracted metadata out of the
 packet. On the other hand, tc BPF programs are executed later in the kernel
 stack, so they have access to more metadata and core kernel functionality.
 Apart from tc and XDP programs, there are various other kernel subsystems as
-well which use BPF such as tracing (kprobes, uprobes, tracepoints, etc).
+well, which use BPF such as tracing (kprobes, uprobes, tracepoints, etc).
 
 The following subsections provide further details on individual aspects of the
 BPF architecture.
@@ -81,7 +81,7 @@ The advantages for pushing these instructions into the kernel include:
   programs, for example, reuse the existing in-kernel drivers and operate on the
   provided DMA buffers containing the packet frames without exposing them or an entire
   driver to user space as in other models. Moreover, XDP programs reuse the existing
-  stack instead of bypassing it. BPF can be considered a generic "glue code" to
+  stack instead of bypassing it. BPF can be considered a generic "glue code" for
   kernel facilities for crafting programs to solve specific use cases.
 
 The execution of a BPF program inside the kernel is always event-driven! Examples:
@@ -148,7 +148,7 @@ which, by design, means that any program will terminate quickly. For kernel newe
 than 5.1 this limit was lifted to 1 million BPF instructions. Although the
 instruction set contains forward as well as backward jumps, the in-kernel BPF
 verifier will forbid loops so that termination is always guaranteed. Since BPF
-programs run inside the kernel, the verifier's job is to make sure that these are
+programs run inside the kernel; the verifier's job is to make sure that these are
 safe to run, not affecting the system's stability. This means that from an instruction
 set point of view, loops can be implemented, but the verifier will restrict that.
 However, there is also a concept of tail calls that allows for one BPF program to
@@ -305,7 +305,7 @@ part of the core kernel and cannot be extended or added through kernel modules.
 
 The aforementioned function signature also allows the verifier to perform type
 checks. The above ``struct bpf_func_proto`` is used to hand all the necessary
-information which need to be known about the helper to the verifier, so that
+information which needs to be known about the helper to the verifier, so that
 the verifier can make sure that the expected types from the helper match the
 current contents of the BPF program's analyzed registers.
 
@@ -616,7 +616,7 @@ determined through:
     arch/x86/Kconfig:    select ARCH_HAS_SET_MEMORY
 
 The option ``CONFIG_ARCH_HAS_SET_MEMORY`` is not configurable, thanks to
-which this protection is always built-in. Other architectures might follow
+which this protection is always built in. Other architectures might follow
 in the future.
 
 In case of the ``x86_64`` JIT compiler, the JITing of the indirect jump from
@@ -635,7 +635,7 @@ Currently, enabling hardening will blind all user provided 32 bit and 64 bit
 constants from the BPF program when it gets JIT compiled in order to prevent
 JIT spraying attacks which inject native opcodes as immediate values. This is
 problematic as these immediate values reside in executable kernel memory,
-therefore a jump that could be triggered from some kernel bug would jump to
+therefore, a jump that could be triggered from some kernel bug would jump to
 the start of the immediate value and then execute these as native instructions.
 
 JIT constant blinding prevents this due to randomizing the actual instruction,
@@ -711,7 +711,7 @@ when mounting an attack anymore. For container-based environments, the
 ``CONFIG_BPF_JIT_ALWAYS_ON`` configuration option is optional, but in
 case JITs are enabled there anyway, the interpreter may as well be compiled
 out to reduce the kernel's complexity. Thus, it is also generally
-recommended for widely used JITs in case of main stream architectures
+recommended for widely used JITs in case of mainstream architectures
 such as ``x86_64`` and ``arm64``.
 
 Last but not least, the kernel offers an option to disable the use of
