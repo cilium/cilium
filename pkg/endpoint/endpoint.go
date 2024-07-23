@@ -2474,8 +2474,8 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 
 	e.Stop()
 
-	e.buildMutex.Lock()
-	defer e.buildMutex.Unlock()
+	//e.buildMutex.Lock()
+	//defer e.buildMutex.Unlock()
 
 	// Lock out any other writers to the endpoint.  In case multiple delete
 	// requests have been enqueued, have all of them except the first
