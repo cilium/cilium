@@ -142,13 +142,15 @@ func getBPFCPU() string {
 			// tested it and need it to work around complexity issues.
 			if probes.HaveV3ISA() == nil {
 				if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) == nil {
-					nameBPFCPU = "v3"
+					fmt.Println("[tom-debug] would have used v3")
+					nameBPFCPU = "v2"
 					return
 				}
 			}
 			// We want to enable v2 on all kernels that support it, that is,
 			// kernels 4.14+.
 			if probes.HaveV2ISA() == nil {
+				fmt.Println("[tom-debug] actually used v2")
 				nameBPFCPU = "v2"
 			}
 		}
