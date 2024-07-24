@@ -209,6 +209,7 @@ func (rc *remoteCluster) ipCacheWatcherOpts(config *cmtypes.CiliumClusterConfig)
 
 	if config != nil {
 		opts = append(opts, ipcache.WithCachedPrefix(config.Capabilities.Cached))
+		opts = append(opts, ipcache.WithIdentityValidator(config.ID))
 	}
 
 	if rc.ipCacheWatcherExtraOpts != nil {
