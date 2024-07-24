@@ -20,9 +20,11 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 )
 
+type QueuedItem interface {
+	Key() resource.Key
+}
 type queueOperations interface {
-	enqueueCIDReconciliation(cidKey resource.Key, delay time.Duration)
-	enqueuePodReconciliation(podKey resource.Key, delay time.Duration)
+	enqueueReconciliation(item QueuedItem, delay time.Duration)
 }
 
 type params struct {
@@ -111,10 +113,7 @@ func (c *Controller) Start(_ cell.HookContext) error {
 	return nil
 }
 
-func (c *Controller) enqueueCIDReconciliation(cidKey resource.Key, delay time.Duration) {
-}
-
-func (c *Controller) enqueuePodReconciliation(podKey resource.Key, delay time.Duration) {
+func (c *Controller) enqueueReconciliation(item QueuedItem, delay time.Duration) {
 }
 
 func (c *Controller) Stop(hookContext cell.HookContext) error {

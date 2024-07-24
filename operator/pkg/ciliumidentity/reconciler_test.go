@@ -42,12 +42,8 @@ type testQueueOps struct {
 	fakeWorkQueue map[string]bool
 }
 
-func (t testQueueOps) enqueueCIDReconciliation(cidKey resource.Key, _ time.Duration) {
-	t.fakeWorkQueue[cidKey.String()] = true
-}
-
-func (t testQueueOps) enqueuePodReconciliation(cidKey resource.Key, _ time.Duration) {
-	t.fakeWorkQueue[cidKey.String()] = true
+func (t testQueueOps) enqueueReconciliation(item QueuedItem, delay time.Duration) {
+	t.fakeWorkQueue[item.Key().String()] = true
 }
 
 func testNewReconciler(t *testing.T, ctx context.Context, enableCES bool) (*reconciler, *testQueueOps, k8sClient.FakeClientset, func()) {
