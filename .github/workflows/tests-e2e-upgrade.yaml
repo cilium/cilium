@@ -158,11 +158,7 @@ jobs:
 
           - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            # Disable until fix for https://github.com/cilium/cilium/issues/32689
-            # has been backported to v1.16. Seems to affect bpf-next much more
-            # than older kernels.
-            # kernel: 'bpf-next-20240711.013133'
-            kernel: '6.1-20240710.064909'
+            kernel: 'bpf-next-20240711.013133'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
