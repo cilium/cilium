@@ -83,8 +83,6 @@ func IPMasq6Map() *bpf.Map {
 type IPMasqBPFMap struct{}
 
 func (*IPMasqBPFMap) Update(cidr netip.Prefix) error {
-	cidr.Addr()
-
 	if cidr.Addr().Is4() {
 		if option.Config.EnableIPv4Masquerade {
 			return IPMasq4Map().Update(keyIPv4(cidr), &Value{})
