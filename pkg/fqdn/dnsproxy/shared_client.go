@@ -31,6 +31,11 @@ func NewSharedClients() *SharedClients {
 	}
 }
 
+// sharedClientKey returns an identifier for this five-tuple used to find a shared client.
+func sharedClientKey(protocol, client, server string) string {
+	return protocol + "-" + client + "-" + server
+}
+
 func (s *SharedClients) Exchange(key string, conf *dns.Client, m *dns.Msg, serverAddrStr string) (r *dns.Msg, rtt time.Duration, closer func(), err error) {
 	return s.ExchangeContext(context.Background(), key, conf, m, serverAddrStr)
 }
@@ -39,6 +44,35 @@ func (s *SharedClients) ExchangeContext(ctx context.Context, key string, conf *d
 	client, closer := s.GetSharedClient(key, conf, serverAddrStr)
 	r, rtt, err = client.ExchangeSharedContext(ctx, m)
 	return r, rtt, closer, err
+}
+
+// Called by wrapped TCP connection once downstream connection breaks/is closed as a notfication to close upstream conn.
+func (s *SharedClients) ShutdownClient(key string) {
+	// lock for s.clients access
+	s.lock.Lock()
+	// locate client to re-use if possible.
+	client := s.clients[key]
+	if client == nil {
+		return
+	}
+	s.lock.Unlock()
+
+	client.Lock()
+	defer client.Unlock()
+	client.refcount--
+	if client.refcount == 0 {
+		// connection close must be completed while holding the client's lock to
+		// avoid a race where a new client dials using the same 5-tuple and gets a
+		// bind error.
+		// The client remains findable so that new users with the same key may wait
+		// for this closing to be done with.
+		client.close()
+		// Make client unreachable
+		// Must take s.lock for this.
+		s.lock.Lock()
+		delete(s.clients, key)
+		s.lock.Unlock()
+	}
 }
 
 // GetSharedClient gets or creates an instance of SharedClient keyed with 'key'.  if 'key' is an
@@ -76,6 +110,11 @@ func (s *SharedClients) GetSharedClient(key string, conf *dns.Client, serverAddr
 		// client was closed while we waited for it's lock, discard and try again
 		client.Unlock()
 		client = nil
+	}
+
+	// TCP shared clients don't need the closer func as they are cleaned up via ShutdownClient.
+	if conf.Net == "tcp" {
+		return client, func() {}
 	}
 
 	return client, func() {
