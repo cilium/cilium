@@ -285,7 +285,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			ret = __ipv6_host_policy_ingress(ctx, ip6, ct_buffer, &remote_id, &trace,
 							 ext_err);
 		}
-		if (IS_ERR(ret))
+		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 			return ret;
 	}
 #endif /* ENABLE_HOST_FIREWALL */
@@ -714,7 +714,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			ret = __ipv4_host_policy_ingress(ctx, ip4, ct_buffer, &remote_id, &trace,
 							 ext_err);
 		}
-		if (IS_ERR(ret))
+		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 			return ret;
 	}
 #endif /* ENABLE_HOST_FIREWALL */
@@ -1423,6 +1423,12 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 
 	if (IS_ERR(ret))
 		goto drop_err;
+
+	if (ret == CTX_ACT_REDIRECT)
+	{
+		/* perhaps it's better to move part of the redirectio code here? */	
+		return ret;
+	}
 
 skip_host_firewall:
 #endif /* ENABLE_HOST_FIREWALL */

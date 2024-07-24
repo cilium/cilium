@@ -11,7 +11,10 @@
 #include "auth.h"
 #include "policy.h"
 #include "policy_log.h"
+#include "proxy_hairpin.h"
 #include "trace.h"
+
+#define ENABLE_HOST_PROXY
 
 # ifdef ENABLE_IPV6
 #  ifndef ENABLE_MASQUERADE_IPV6
@@ -364,6 +367,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	struct remote_endpoint_info *info;
 	__u32 dst_sec_identity = 0;
 	__u16 proxy_port = 0;
+	union macaddr mac = THIS_INTERFACE_MAC;
 
 	trace->monitor = ct_buffer->monitor;
 	trace->reason = (enum trace_reason)ret;
@@ -422,6 +426,21 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 					   tuple->nexthdr, POLICY_EGRESS, 0,
 					   verdict, proxy_port, policy_match_type, audited,
 					   auth_type);
+
+#  ifdef ENABLE_HOST_PROXY
+	if (proxy_port > 0 && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
+		/* Trace the packet before it is forwarded to proxy */
+		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4, UNKNOWN_ID,
+				bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
+				trace->reason, trace->monitor);
+		ret = ctx_redirect_to_proxy4(ctx, tuple, proxy_port, false);
+		if (IS_ERR(ret))
+			return ret;
+		eth_store_daddr(ctx, (__u8 *)&mac, 0);
+		return ctx_redirect(ctx, NATIVE_DEV_IFINDEX, BPF_F_INGRESS);
+	}
+#  endif /* ENABLE_HOST_PROXY */
+
 	return verdict;
 }
 
