@@ -20,7 +20,9 @@ var _ translation.Translator = (*gatewayAPITranslator)(nil)
 
 const (
 	ciliumGatewayPrefix = "cilium-gateway-"
-	owningGatewayLabel  = "io.cilium.gateway/owning-gateway"
+	// Deprecated: owningGatewayLabel will be removed later in favour of gatewayNameLabel
+	owningGatewayLabel = "io.cilium.gateway/owning-gateway"
+	gatewayNameLabel   = "gateway.networking.k8s.io/gateway-name"
 )
 
 type gatewayAPITranslator struct {
@@ -84,18 +86,7 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 		return nil, nil, nil, err
 	}
 
-	// Set the owner reference to the CEC object.
-	cec.OwnerReferences = []metav1.OwnerReference{
-		{
-			APIVersion: owner.Group + "/" + owner.Version,
-			Kind:       owner.Kind,
-			Name:       owner.Name,
-			UID:        types.UID(owner.UID),
-			Controller: model.AddressOf(true),
-		},
-	}
-
-	allLabels, allAnnotations := map[string]string{}, map[string]string{}
+	var allLabels, allAnnotations map[string]string
 	// Merge all the labels and annotations from the listeners.
 	// Normally, the labels and annotations are the same for all the listeners having same gateway.
 	for _, l := range listeners {
@@ -103,6 +94,11 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 		allLabels = mergeMap(allLabels, l.GetLabels())
 	}
 
+	if err = decorateCEC(cec, owner, allLabels, allAnnotations); err != nil {
+		return nil, nil, nil, err
+	}
+
+	ep := getEndpoints(*source, allLabels, allAnnotations)
 	lbSvc := getService(source, ports, allLabels, allAnnotations, t.externalTrafficPolicy)
 
 	if t.hostNetworkEnabled {
@@ -110,7 +106,7 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 		lbSvc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicy("")
 	}
 
-	return cec, lbSvc, getEndpoints(*source), err
+	return cec, lbSvc, ep, err
 }
 
 func getService(resource *model.FullyQualifiedResource, allPorts []uint32, labels, annotations map[string]string, externalTrafficPolicy string) *corev1.Service {
@@ -128,11 +124,16 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32, label
 		})
 	}
 
+	shortenName := model.Shorten(resource.Name)
+
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        model.Shorten(ciliumGatewayPrefix + resource.Name),
-			Namespace:   resource.Namespace,
-			Labels:      mergeMap(map[string]string{owningGatewayLabel: model.Shorten(resource.Name)}, labels),
+			Name:      model.Shorten(ciliumGatewayPrefix + resource.Name),
+			Namespace: resource.Namespace,
+			Labels: mergeMap(map[string]string{
+				owningGatewayLabel: shortenName,
+				gatewayNameLabel:   shortenName,
+			}, labels),
 			Annotations: annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				{
@@ -152,12 +153,18 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32, label
 	}
 }
 
-func getEndpoints(resource model.FullyQualifiedResource) *corev1.Endpoints {
+func getEndpoints(resource model.FullyQualifiedResource, labels, annotations map[string]string) *corev1.Endpoints {
+	shortedName := model.Shorten(resource.Name)
+
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      model.Shorten(ciliumGatewayPrefix + resource.Name),
 			Namespace: resource.Namespace,
-			Labels:    map[string]string{owningGatewayLabel: model.Shorten(resource.Name)},
+			Labels: mergeMap(map[string]string{
+				owningGatewayLabel: shortedName,
+				gatewayNameLabel:   shortedName,
+			}, labels),
+			Annotations: annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: gatewayv1beta1.GroupVersion.String(),
@@ -178,6 +185,32 @@ func getEndpoints(resource model.FullyQualifiedResource) *corev1.Endpoints {
 			},
 		},
 	}
+}
+
+func decorateCEC(cec *ciliumv2.CiliumEnvoyConfig, resource *model.FullyQualifiedResource, labels, annotations map[string]string) error {
+	if cec == nil || resource == nil {
+		return fmt.Errorf("CEC or resource can't be nil")
+	}
+
+	// Set the owner reference to the CEC object.
+	cec.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion: resource.Group + "/" + resource.Version,
+			Kind:       resource.Kind,
+			Name:       resource.Name,
+			UID:        types.UID(resource.UID),
+			Controller: model.AddressOf(true),
+		},
+	}
+
+	if cec.Labels == nil {
+		cec.Labels = make(map[string]string)
+	}
+	cec.Labels = mergeMap(cec.Labels, labels)
+	cec.Labels[gatewayNameLabel] = model.Shorten(resource.Name)
+	cec.Annotations = mergeMap(cec.Annotations, annotations)
+
+	return nil
 }
 
 func mergeMap(left, right map[string]string) map[string]string {
