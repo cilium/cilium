@@ -68,8 +68,8 @@ github.com/chai2010/gettext-go v1.0.2/go.mod h1:y+wnP2cHYaVj19NZhYKAwEMH2CI1gNHe
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
-github.com/cilium/charts v0.0.0-20240715224603-2c16e873a3ab h1:EVAC8KFkkDMPbWHmoYMo7RBd1aaWVlyutyQf4aM+euI=
-github.com/cilium/charts v0.0.0-20240715224603-2c16e873a3ab/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
+github.com/cilium/charts v0.0.0-20240724150047-2a1e5b85b669 h1:TF3FtQthnyBDPjVgZEPPy15FJ1NehhRA6Xh+K3qPbdI=
+github.com/cilium/charts v0.0.0-20240724150047-2a1e5b85b669/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
 github.com/cilium/cilium v1.16.0 h1:5NqA2H/7si4KbiMjzqeH130LTox7F2MrKSrS3lUYUTk=
 github.com/cilium/cilium v1.16.0/go.mod h1:u/Hggj4kmmYtLvZ+wG2nppabk7wpAFn09Sm+Bo1kGvo=
 github.com/cilium/ebpf v0.15.0 h1:7NxJhNiBT3NG8pZJ3c+yfrVdHY8ScgKD27sScgjLMMk=
