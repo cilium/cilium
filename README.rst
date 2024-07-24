@@ -28,6 +28,21 @@ and flexible. To learn more about eBPF, visit `eBPF.io`_.
 .. image:: Documentation/images/cilium-overview.png
    :alt: Overview of Cilium features for networking, observability, service mesh, and runtime security
 
+.. raw:: html
+
+   <a href="https://cncf.io/">
+      <picture>
+         <source media="(prefers-color-scheme: light)" srcset="https://github.com/cncf/artwork/blob/main/other/cncf-member/graduated/color/cncf-graduated-color.svg" />
+         <img src="https://github.com/cncf/artwork/blob/main/other/cncf-member/graduated/white/cncf-graduated-white.svg" alt="CNCF Graduated Project" height="80" />
+      </picture>
+   </a>
+   <a href="https://ebpf.io/">
+      <picture>
+         <source media="(prefers-color-scheme: light)" srcset=".github/assets/powered-by-ebpf.svg" />
+         <img src=".github/assets/powered-by-ebpf_white.svg" alt="Powered by eBPF" height="80" align="right" />
+      </picture>
+   </a>
+
 Stable Releases
 ===============
 
