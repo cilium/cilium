@@ -719,9 +719,20 @@ func TestL7Rules(t *testing.T) {
 	require.NotNil(t, err)
 }
 
-// This test ensures that host policies with L7 rules are rejected.
+// This test ensures that host policies with L7 rules (except for DNS egress) are rejected.
 func TestL7RulesWithNodeSelector(t *testing.T) {
 	setUpSuite(t)
+
+	toPortsHTTP := []PortRule{{
+		Ports: []PortProtocol{
+			{Port: "80", Protocol: ProtoTCP},
+		},
+		Rules: &L7Rules{
+			HTTP: []PortRuleHTTP{
+				{Method: "PUT", Path: "/"},
+			},
+		},
+	}}
 
 	invalidL7RuleIngress := Rule{
 		NodeSelector: WildcardEndpointSelector,
@@ -730,23 +741,29 @@ func TestL7RulesWithNodeSelector(t *testing.T) {
 				IngressCommonRule: IngressCommonRule{
 					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
 				},
-				ToPorts: []PortRule{{
-					Ports: []PortProtocol{
-						{Port: "80", Protocol: ProtoTCP},
-					},
-					Rules: &L7Rules{
-						HTTP: []PortRuleHTTP{
-							{Method: "PUT", Path: "/"},
-						},
-					},
-				}},
+				ToPorts: toPortsHTTP,
 			},
 		},
 	}
 	err := invalidL7RuleIngress.Sanitize()
-	require.Equal(t, "host policies do not support L7 rules yet", err.Error())
+	require.Equal(t, "L7 policy is not supported on host ingress yet", err.Error())
 
 	invalidL7RuleEgress := Rule{
+		NodeSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				EgressCommonRule: EgressCommonRule{
+					ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				},
+				ToPorts: toPortsHTTP,
+			},
+		},
+	}
+
+	err = invalidL7RuleEgress.Sanitize()
+	Assert(err.Error(), Equals, "L7 protocol HTTP is not supported on host egress yet")
+
+	validL7RuleEgress := Rule{
 		NodeSelector: WildcardEndpointSelector,
 		Egress: []EgressRule{
 			{
@@ -766,8 +783,8 @@ func TestL7RulesWithNodeSelector(t *testing.T) {
 			},
 		},
 	}
-	err = invalidL7RuleEgress.Sanitize()
-	require.Equal(t, "host policies do not support L7 rules yet", err.Error())
+	err = validL7RuleEgress.Sanitize()
+	require.Nil(t, err)
 
 	validL7RuleIngress := Rule{
 		NodeSelector: WildcardEndpointSelector,
