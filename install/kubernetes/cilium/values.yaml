@@ -156,8 +156,8 @@ image:
   tag: "v1.16.0"
   pullPolicy: "IfNotPresent"
   # cilium-digest
-  digest: ""
-  useDigest: false
+  digest: "sha256:46ffa4ef3cf6d8885dcc4af5963b0683f7d59daa90d49ed9fb68d3b1627fe058"
+  useDigest: true
 # -- Affinity for cilium-agent.
 affinity:
   podAntiAffinity:
@@ -1303,8 +1303,8 @@ hubble:
       repository: "quay.io/cilium/hubble-relay"
       tag: "v1.16.0"
       # hubble-relay-digest
-      digest: ""
-      useDigest: false
+      digest: "sha256:33fca7776fc3d7b2abe08873319353806dc1c5e07e12011d7da4da05f836ce8d"
+      useDigest: true
       pullPolicy: "IfNotPresent"
     # -- Specifies the resources for the hubble-relay pods
     resources: {}
@@ -2447,14 +2447,14 @@ operator:
     repository: "quay.io/cilium/operator"
     tag: "v1.16.0"
     # operator-generic-digest
-    genericDigest: ""
+    genericDigest: "sha256:d6621c11c4e4943bf2998af7febe05be5ed6fdcf812b27ad4388f47022190316"
     # operator-azure-digest
-    azureDigest: ""
+    azureDigest: "sha256:dd7562e20bc72b55c65e2110eb98dca1dd2bbf6688b7d8cea2bc0453992c121d"
     # operator-aws-digest
-    awsDigest: ""
+    awsDigest: "sha256:8dbe47a77ba8e1a5b111647a43db10c213d1c7dfc9f9aab5ef7279321ad21a2f"
     # operator-alibabacloud-digest
-    alibabacloudDigest: ""
-    useDigest: false
+    alibabacloudDigest: "sha256:d2d9f450f2fc650d74d4b3935f4c05736e61145b9c6927520ea52e1ebcf4f3ea"
+    useDigest: true
     pullPolicy: "IfNotPresent"
     suffix: ""
   # -- Number of replicas to run for the cilium-operator deployment
@@ -2731,8 +2731,8 @@ preflight:
     repository: "quay.io/cilium/cilium"
     tag: "v1.16.0"
     # cilium-digest
-    digest: ""
-    useDigest: false
+    digest: "sha256:46ffa4ef3cf6d8885dcc4af5963b0683f7d59daa90d49ed9fb68d3b1627fe058"
+    useDigest: true
     pullPolicy: "IfNotPresent"
   # -- The priority class to use for the preflight pod.
   priorityClassName: ""
@@ -2880,8 +2880,8 @@ clustermesh:
       repository: "quay.io/cilium/clustermesh-apiserver"
       tag: "v1.16.0"
       # clustermesh-apiserver-digest
-      digest: ""
-      useDigest: false
+      digest: "sha256:a1597b7de97cfa03f1330e6b784df1721eb69494cd9efb0b3a6930680dfe7a8e"
+      useDigest: true
       pullPolicy: "IfNotPresent"
     # -- TCP port for the clustermesh-apiserver health API.
     healthPort: 9880
