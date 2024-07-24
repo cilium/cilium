@@ -257,7 +257,8 @@ var basicHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Name:      "cilium-gateway-my-gateway",
 		Namespace: "default",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "my-gateway",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -319,7 +320,8 @@ var basicHTTPListenersCiliumEnvoyConfigWithXff = &ciliumv2.CiliumEnvoyConfig{
 		Name:      "cilium-gateway-my-gateway",
 		Namespace: "default",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "my-gateway",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -382,7 +384,8 @@ func basicHostPortHTTPListenersCiliumEnvoyConfig(address string, port uint32, no
 			Name:      "cilium-gateway-my-gateway",
 			Namespace: "default",
 			Labels: map[string]string{
-				"cilium.io/use-original-source-address": "false",
+				"cilium.io/use-original-source-address":  "false",
+				"gateway.networking.k8s.io/gateway-name": "my-gateway",
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
@@ -478,7 +481,8 @@ var basicTLSListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Name:      "cilium-gateway-my-gateway",
 		Namespace: "default",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "my-gateway",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -598,7 +602,8 @@ var simpleSameNamespaceHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyCon
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -723,7 +728,8 @@ var backendProtocolEnabledH2CHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEn
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -815,7 +821,8 @@ var crossNamespaceHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Name:      "cilium-gateway-backend-namespaces",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "backend-namespaces",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -920,7 +927,8 @@ var exactPathMatchingHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfi
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -1138,7 +1146,8 @@ var headerMatchingHTTPCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -1451,7 +1460,8 @@ var hostnameIntersectionHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyCo
 		Name:      "cilium-gateway-httproute-hostname-intersection",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "httproute-hostname-intersection",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -1705,7 +1715,8 @@ var listenerHostNameMatchingCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Name:      "cilium-gateway-httproute-listener-hostname-matching",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "httproute-listener-hostname-matching",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -1873,7 +1884,8 @@ var matchingAcrossHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -2054,7 +2066,8 @@ var matchingHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -2245,7 +2258,8 @@ var queryParamMatchingHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConf
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -2444,7 +2458,8 @@ var methodMatchingHTTPListenersHTTPListenersCiliumEnvoyConfig = &ciliumv2.Cilium
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -2688,7 +2703,8 @@ var requestHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyC
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -3177,7 +3193,8 @@ var backendRefsRequestHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.C
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -3838,7 +3855,8 @@ var backendRefsResponseHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -4238,7 +4256,8 @@ var requestRedirectHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -4419,7 +4438,8 @@ var requestRedirectWithMultiHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnv
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -4693,7 +4713,8 @@ var responseHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoy
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -4939,7 +4960,8 @@ var rewriteHostHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -5164,7 +5186,8 @@ var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
@@ -5390,7 +5413,8 @@ var mirrorHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Name:      "cilium-gateway-same-namespace",
 		Namespace: "gateway-conformance-infra",
 		Labels: map[string]string{
-			"cilium.io/use-original-source-address": "false",
+			"cilium.io/use-original-source-address":  "false",
+			"gateway.networking.k8s.io/gateway-name": "same-namespace",
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
