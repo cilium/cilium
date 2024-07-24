@@ -328,7 +328,7 @@ func (r *reconciler) allocateCIDForPod(pod *slim_corev1.Pod) error {
 	}
 
 	if isNewCID {
-		r.queueOps.enqueueCIDReconciliation(cidResourceKey(cidName), 0)
+		r.queueOps.enqueueReconciliation(CIDItem{cidResourceKey(cidName)}, 0)
 	}
 
 	return nil
@@ -430,7 +430,7 @@ func (r *reconciler) updateAllPodsInNamespace(namespace string) error {
 	var lastErr error
 
 	for _, pod := range podList {
-		r.queueOps.enqueuePodReconciliation(podResourceKey(pod.Name, pod.Namespace), 0)
+		r.queueOps.enqueueReconciliation(PodItem{podResourceKey(pod.Name, pod.Namespace)}, 0)
 	}
 
 	return lastErr
