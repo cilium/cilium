@@ -86,7 +86,7 @@ func TestIPIdentityWatcher(t *testing.T) {
 
 	var synced bool
 	st := storepkg.NewFactory(storepkg.MetricsProvider())
-	runnable := func(body func(ipcache *fakeIPCache), prefix string, opts ...IWOpt) func(t *testing.T) {
+	runnable := func(body func(t *testing.T, ipcache *fakeIPCache), prefix string, opts ...IWOpt) func(t *testing.T) {
 		return func(t *testing.T) {
 			synced = false
 			ipcache := NewFakeIPCache()
@@ -112,14 +112,14 @@ func TestIPIdentityWatcher(t *testing.T) {
 				wg.Done()
 			}()
 
-			body(ipcache)
+			body(t, ipcache)
 
 			// Assert that the watched prefix is correct.
 			require.Equal(t, prefix, backend.prefix)
 		}
 	}
 
-	t.Run("without cluster ID", runnable(func(ipcache *fakeIPCache) {
+	t.Run("without cluster ID", runnable(func(t *testing.T, ipcache *fakeIPCache) {
 		require.Equal(t, NewEvent("upsert", "10.0.0.1", src), eventually(ipcache.events))
 		require.Equal(t, NewEvent("upsert", "10.0.1.0/24", src), eventually(ipcache.events))
 		require.Equal(t, NewEvent("delete", "10.0.1.0/24", src), eventually(ipcache.events))
@@ -128,7 +128,7 @@ func TestIPIdentityWatcher(t *testing.T) {
 		require.True(t, synced, "The on-sync callback should have been executed")
 	}, "cilium/state/ip/v1/default/"))
 
-	t.Run("with cluster ID", runnable(func(ipcache *fakeIPCache) {
+	t.Run("with cluster ID", runnable(func(t *testing.T, ipcache *fakeIPCache) {
 		require.Equal(t, NewEvent("upsert", "10.0.0.1@10", src), eventually(ipcache.events))
 		require.Equal(t, NewEvent("upsert", "10.0.1.0/24@10", src), eventually(ipcache.events))
 		require.Equal(t, NewEvent("delete", "10.0.1.0/24@10", src), eventually(ipcache.events))
@@ -137,7 +137,7 @@ func TestIPIdentityWatcher(t *testing.T) {
 		require.True(t, synced, "The on-sync callback should have been executed")
 	}, "cilium/state/ip/v1/default/", WithClusterID(10)))
 
-	t.Run("with cached prefix", runnable(func(ipcache *fakeIPCache) {
+	t.Run("with cached prefix", runnable(func(t *testing.T, ipcache *fakeIPCache) {
 		require.Equal(t, NewEvent("upsert", "10.0.0.1", src), eventually(ipcache.events))
 		require.Equal(t, NewEvent("upsert", "10.0.1.0/24", src), eventually(ipcache.events))
 		require.Equal(t, NewEvent("delete", "10.0.1.0/24", src), eventually(ipcache.events))
