@@ -684,7 +684,7 @@ func StartDNSProxy(
 
 	start := time.Now()
 	for time.Since(start) < ProxyBindTimeout {
-		dnsServers, bindPort, err = bindToAddr(dnsProxyConfig.Address, dnsProxyConfig.Port, p, dnsProxyConfig.IPv4, dnsProxyConfig.IPv6)
+		dnsServers, bindPort, err = bindToAddr(dnsProxyConfig.Address, dnsProxyConfig.Port, p, dnsProxyConfig.IPv4, dnsProxyConfig.IPv6, p.DNSClients)
 		if err == nil {
 			break
 		}
@@ -1071,7 +1071,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	// - is the local host
 	if option.Config.DNSProxyEnableTransparentMode && !ep.IsHost() && !epAddr.IsLoopback() && ep.ID != uint16(identity.ReservedIdentityHost) && targetServerID.IsCluster() && targetServerID != identity.ReservedIdentityHost {
 		dialer.LocalAddr = w.RemoteAddr()
-		key = protocol + "-" + epIPPort + "-" + targetServerAddrStr
+		key = sharedClientKey(protocol, epIPPort, targetServerAddrStr)
 	}
 
 	conf := &dns.Client{
@@ -1239,7 +1239,7 @@ func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []net.IP, TTL ui
 // Note: This mimics what the dns package does EXCEPT for setting reuseport.
 // This is ok for now but it would simplify proxy management in the future to
 // have it set.
-func bindToAddr(address string, port uint16, handler dns.Handler, ipv4, ipv6 bool) (dnsServers []*dns.Server, bindPort uint16, err error) {
+func bindToAddr(address string, port uint16, handler dns.Handler, ipv4, ipv6 bool, sc *SharedClients) (dnsServers []*dns.Server, bindPort uint16, err error) {
 	defer func() {
 		if err != nil {
 			shutdownServers(dnsServers)
@@ -1260,6 +1260,10 @@ func bindToAddr(address string, port uint16, handler dns.Handler, ipv4, ipv6 boo
 		tcpListener, err := lc.Listen(context.Background(), ipFamily.TCPAddress, evaluateAddress(address, port, bindPort, ipFamily))
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to listen on %s: %w", ipFamily.TCPAddress, err)
+		}
+		if option.Config.DNSProxyEnableTransparentMode {
+			// The wrapper is only necessary to forward the closing signal in transparent mode.
+			tcpListener = &wrappedTCPListener{sc: sc, Listener: tcpListener}
 		}
 		dnsServers = append(dnsServers, &dns.Server{
 			Listener: tcpListener, Handler: handler,
@@ -1288,6 +1292,56 @@ func bindToAddr(address string, port uint16, handler dns.Handler, ipv4, ipv6 boo
 	}
 
 	return dnsServers, bindPort, nil
+}
+
+type wrappedTCPListener struct {
+	net.Listener
+	sc *SharedClients
+}
+
+func (w *wrappedTCPListener) Accept() (net.Conn, error) {
+	c, err := w.Listener.Accept()
+	if err != nil {
+		return c, err
+	}
+
+	wc := &wrappedTCPConn{c.(*net.TCPConn), w.sc}
+	return wc, err
+}
+
+type wrappedTCPConn struct {
+	*net.TCPConn
+	sc *SharedClients
+}
+
+func (w *wrappedTCPConn) key() string {
+	return sharedClientKey("tcp", w.RemoteAddr().String(), w.LocalAddr().String())
+}
+
+func (w *wrappedTCPConn) Read(b []byte) (int, error) {
+	n, err := w.TCPConn.Read(b)
+	if err != nil {
+		// Any error is reason enough to close the upstream conn.
+		w.sc.ShutdownClient(w.key())
+	}
+	return n, err
+}
+func (w *wrappedTCPConn) Write(b []byte) (int, error) {
+	n, err := w.TCPConn.Write(b)
+	if err != nil {
+		w.sc.ShutdownClient(w.key())
+	}
+	return n, err
+}
+
+// Close closes the wrapped connection, but also forwards the closing signal to
+// shared clients, so that the upstream connection is closed too.
+func (w *wrappedTCPConn) Close() error {
+	// It's possible that there is no shared client behind this key, as we don't
+	// always use the original source address. That's okay, since ShutdownClient
+	// does nothing for keys it doesn't know.
+	w.sc.ShutdownClient(w.key())
+	return w.TCPConn.Close()
 }
 
 func evaluateAddress(address string, port uint16, bindPort uint16, ipFamily ipfamily.IPFamily) string {
