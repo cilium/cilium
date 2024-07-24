@@ -1,5 +1,44 @@
 # Changelog
 
+## v1.16.0
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Forcefully terminate stale connections in pod network namespaces that are connected to deleted service backends when socket-lb is enabled, and allow pod applications to re-connect to active backends. (Backport PR #33941, Upstream PR #33459, @aditighag)
+
+**Bugfixes:**
+* add support for validation of stringToString values in ConfigMap (Backport PR #33846, Upstream PR #33779, @alex-berger)
+* envoy: Fix data race in RegisterServiceUsageInCEC (Backport PR #33941, Upstream PR #33903, @chaunceyjiang)
+* helm: remove duplicate metrics for Envoy pod (Backport PR #33846, Upstream PR #33803, @mhofstetter)
+* ingress: Set active backend number for Local ETP (Backport PR #33846, Upstream PR #33600, @sayboras)
+* iptables: Explicitly wait for iptables wrappers to be initialized (Backport PR #33941, Upstream PR #33867, @pippolo84)
+* iptables: Fix wait args race during startup (Backport PR #33941, Upstream PR #33824, @pippolo84)
+* pkg/metrics: fix data race warning on metrics init hook. (Backport PR #33941, Upstream PR #33823, @tommyp1ckles)
+* Reduce conntrack lifetime for closing service connections. (Backport PR #33941, Upstream PR #33907, @julianwiedmann)
+
+**CI Changes:**
+* ci: enable BGP Control Plane in e2e tests (Backport PR #33941, Upstream PR #33488, @rastislavs)
+* gha: don't fail if all cloud provider matrix entries are filtered out (Backport PR #33941, Upstream PR #33819, @giorio94)
+
+**Misc Changes:**
+* chore(deps): update dependency cilium/cilium-cli to v0.16.13 (v1.16) (cilium/cilium#33659, @cilium-renovate[bot])
+* daemon: Do not require socketLB for BPF masq (Backport PR #33846, Upstream PR #33728, @brb)
+* doc: Add doc for disk based cilium network policy (Backport PR #33941, Upstream PR #33854, @tamilmani1989)
+* docs: generalize version specific notes section (Backport PR #33941, Upstream PR #33888, @giorio94)
+* Document configuring hubble metrics with TLS (Backport PR #33941, Upstream PR #33661, @chancez)
+* Fix for small typos on documentation (Backport PR #33941, Upstream PR #33853, @beyildirim)
+* Fix typo in Multicast feature documentation (Backport PR #33846, Upstream PR #33773, @superbananaman)
+* helm: Allow socket linger timeout to be set to zero (Backport PR #33941, Upstream PR #33887, @gandro)
+* policy/k8s: Fix race in service notification shutdown (Backport PR #33838, Upstream PR #33806, @gandro)
+* policy: Keep deny entries when covered by another CIDR deny (cilium/cilium#33719, @jrajahalme)
+* svc: Use in-memory l7 service map to check L7 service (Backport PR #33941, Upstream PR #33879, @sayboras)
+* Update CiliumEnvoyConfig log for headless Services (Backport PR #33846, Upstream PR #33628, @youngnick)
+
+**Other Changes:**
+* install: Update image digests for v1.16.0-rc.2 (cilium/cilium#33832, @cilium-release-bot[bot])
+
 ## v1.16.0-rc.2
 
 Summary of Changes
