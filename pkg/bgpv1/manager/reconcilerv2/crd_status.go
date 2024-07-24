@@ -10,7 +10,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/lthibault/jitterbug"
+	"github.com/lthibault/jitterbug/v2"
 	"github.com/sirupsen/logrus"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

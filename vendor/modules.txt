@@ -913,9 +913,9 @@ github.com/kevinburke/ssh_config
 # github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 ## explicit
 github.com/liggitt/tabwriter
-# github.com/lthibault/jitterbug v2.0.0+incompatible
-## explicit
-github.com/lthibault/jitterbug
+# github.com/lthibault/jitterbug/v2 v2.2.2
+## explicit; go 1.14
+github.com/lthibault/jitterbug/v2
 # github.com/mackerelio/go-osstat v0.2.5
 ## explicit; go 1.18
 github.com/mackerelio/go-osstat/loadavg

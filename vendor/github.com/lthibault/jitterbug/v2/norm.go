@@ -5,13 +5,14 @@ import (
 	"time"
 )
 
-// Norm is a normal distribution
+// Norm is a normal distribution.
 type Norm struct {
 	Source      *rand.Rand
 	Mean, Stdev time.Duration
 }
 
-// Jitter the duration by drawing form a normal distribution
+// Jitter the duration by adding a delay that has been drawn
+// from the a normal distribution.
 func (n Norm) Jitter(d time.Duration) time.Duration {
 	f := rand.NormFloat64
 	if n.Source != nil {
