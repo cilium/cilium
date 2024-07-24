@@ -50,11 +50,15 @@ func (fb *fakeBackend) ListAndWatch(ctx context.Context, prefix string, _ int) *
 		return out
 	}
 
+	id := func(clusterID, localID uint32) identity.NumericIdentity {
+		return identity.NumericIdentity(clusterID<<identity.GetClusterIDShift() | localID)
+	}
+
 	fb.prefix = prefix
 
-	pair = identity.IPIdentityPair{IP: net.ParseIP("10.0.0.1")}
+	pair = identity.IPIdentityPair{IP: net.ParseIP("10.0.0.1"), ID: id(10, 200)}
 	ch <- kvstore.KeyValueEvent{Typ: kvstore.EventTypeCreate, Key: pair.GetKeyName(), Value: marshal(pair)}
-	pair = identity.IPIdentityPair{IP: net.ParseIP("10.0.1.0"), Mask: net.CIDRMask(24, 32)}
+	pair = identity.IPIdentityPair{IP: net.ParseIP("10.0.1.0"), Mask: net.CIDRMask(24, 32), ID: id(10, 201)}
 	ch <- kvstore.KeyValueEvent{Typ: kvstore.EventTypeCreate, Key: pair.GetKeyName(), Value: marshal(pair)}
 	pair = identity.IPIdentityPair{IP: net.ParseIP("10.0.1.0"), Mask: net.CIDRMask(24, 32)}
 	ch <- kvstore.KeyValueEvent{Typ: kvstore.EventTypeListDone}
@@ -64,7 +68,10 @@ func (fb *fakeBackend) ListAndWatch(ctx context.Context, prefix string, _ int) *
 	pair = identity.IPIdentityPair{IP: net.ParseIP("10.0.0.1")}
 	ch <- kvstore.KeyValueEvent{Typ: kvstore.EventTypeDelete, Key: pair.GetKeyName()}
 
-	pair = identity.IPIdentityPair{IP: net.ParseIP("f00d::a00:0:0:c164")}
+	pair = identity.IPIdentityPair{IP: net.ParseIP("f00d::a00:0:0:c164"), ID: id(10, 202)}
+	ch <- kvstore.KeyValueEvent{Typ: kvstore.EventTypeCreate, Key: pair.GetKeyName(), Value: marshal(pair)}
+
+	pair = identity.IPIdentityPair{IP: net.ParseIP("10.0.0.2"), ID: id(11, 203)}
 	ch <- kvstore.KeyValueEvent{Typ: kvstore.EventTypeCreate, Key: pair.GetKeyName(), Value: marshal(pair)}
 
 	close(ch)
@@ -125,6 +132,7 @@ func TestIPIdentityWatcher(t *testing.T) {
 		require.Equal(t, NewEvent("delete", "10.0.1.0/24", src), eventually(ipcache.events))
 		require.Equal(t, NewEvent("delete", "10.0.0.1", src), eventually(ipcache.events))
 		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("upsert", "10.0.0.2", src), eventually(ipcache.events))
 		require.True(t, synced, "The on-sync callback should have been executed")
 	}, "cilium/state/ip/v1/default/"))
 
@@ -134,6 +142,7 @@ func TestIPIdentityWatcher(t *testing.T) {
 		require.Equal(t, NewEvent("delete", "10.0.1.0/24@10", src), eventually(ipcache.events))
 		require.Equal(t, NewEvent("delete", "10.0.0.1@10", src), eventually(ipcache.events))
 		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164@10", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("upsert", "10.0.0.2@10", src), eventually(ipcache.events))
 		require.True(t, synced, "The on-sync callback should have been executed")
 	}, "cilium/state/ip/v1/default/", WithClusterID(10)))
 
@@ -143,6 +152,51 @@ func TestIPIdentityWatcher(t *testing.T) {
 		require.Equal(t, NewEvent("delete", "10.0.1.0/24", src), eventually(ipcache.events))
 		require.Equal(t, NewEvent("delete", "10.0.0.1", src), eventually(ipcache.events))
 		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("upsert", "10.0.0.2", src), eventually(ipcache.events))
 		require.True(t, synced, "The on-sync callback should have been executed")
 	}, "cilium/cache/ip/v1/foo/", WithCachedPrefix(true)))
+
+	t.Run("with identity validation", runnable(func(t *testing.T, ipcache *fakeIPCache) {
+		require.Equal(t, NewEvent("upsert", "10.0.0.1", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("upsert", "10.0.1.0/24", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("delete", "10.0.1.0/24", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("delete", "10.0.0.1", src), eventually(ipcache.events))
+		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164", src), eventually(ipcache.events))
+		require.True(t, synced, "The on-sync callback should have been executed")
+	}, "cilium/state/ip/v1/default/", WithIdentityValidator(10)))
+}
+
+func TestIdentityValidator(t *testing.T) {
+	const (
+		cid   = 5
+		minID = cid << 16
+		maxID = minID + 65535
+	)
+
+	var opts iwOpts
+	WithIdentityValidator(cid)(&opts)
+
+	require.Len(t, opts.validators, 1, "The validator should have been configured")
+	validator := opts.validators[0]
+
+	// Identities matching the cluster ID should pass validation
+	for _, id := range []identity.NumericIdentity{minID, minID + 1, maxID - 1, maxID} {
+		assert.NoError(t, validator(&identity.IPIdentityPair{ID: id}), "ID %d should have passed validation", id)
+	}
+
+	// Reserved identities should pass validation
+	for _, id := range []identity.NumericIdentity{
+		identity.ReservedIdentityHealth,
+		identity.ReservedIdentityIngress,
+		identity.ReservedCoreDNS,
+		identity.UserReservedNumericIdentity,
+		identity.MinimalNumericIdentity - 1,
+	} {
+		assert.NoError(t, validator(&identity.IPIdentityPair{ID: id}), "ID %d should have passed validation", id)
+	}
+
+	// Identities not matching the cluster ID should fail validation
+	for _, id := range []identity.NumericIdentity{identity.MinimalNumericIdentity, minID - 1, maxID + 1} {
+		assert.Error(t, validator(&identity.IPIdentityPair{ID: id}), "ID %d should have failed validation", id)
+	}
 }
