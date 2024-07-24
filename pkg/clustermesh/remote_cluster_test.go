@@ -81,7 +81,7 @@ func TestRemoteClusterRun(t *testing.T) {
 				"cilium/state/nodes/v1/foo/bar":        `{"name": "bar", "cluster": "foo", "clusterID": 1}`,
 				"cilium/state/services/v1/foo/baz/bar": `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 1}`,
 				"cilium/state/identities/v1/id/65538":  `key1=value1;key2=value2;k8s:io.cilium.k8s.policy.cluster=foo`,
-				"cilium/state/ip/v1/default/1.1.1.1":   `{"IP": "1.1.1.1"}`,
+				"cilium/state/ip/v1/default/1.1.1.1":   `{"IP": "1.1.1.1", "ID": 65538}`,
 			},
 		},
 		{
@@ -97,7 +97,7 @@ func TestRemoteClusterRun(t *testing.T) {
 				"cilium/state/nodes/v1/foo/bar":          `{"name": "bar", "cluster": "foo", "clusterID": 255}`,
 				"cilium/state/services/v1/foo/baz/bar":   `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 255}`,
 				"cilium/state/identities/v1/id/16711681": `key1=value1;key2=value2;k8s:io.cilium.k8s.policy.cluster=foo`,
-				"cilium/state/ip/v1/default/1.1.1.1":     `{"IP": "1.1.1.1"}`,
+				"cilium/state/ip/v1/default/1.1.1.1":     `{"IP": "1.1.1.1", "ID": 16711681}`,
 
 				"cilium/synced/foo/cilium/state/nodes/v1":      "true",
 				"cilium/synced/foo/cilium/state/services/v1":   "true",
@@ -119,7 +119,7 @@ func TestRemoteClusterRun(t *testing.T) {
 				"cilium/cache/nodes/v1/foo/bar":              `{"name": "bar", "cluster": "foo", "clusterID": 255}`,
 				"cilium/cache/services/v1/foo/baz/bar":       `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 255}`,
 				"cilium/cache/identities/v1/foo/id/16711681": `key1=value1;key2=value2;k8s:io.cilium.k8s.policy.cluster=foo`,
-				"cilium/cache/ip/v1/foo/1.1.1.1":             `{"IP": "1.1.1.1"}`,
+				"cilium/cache/ip/v1/foo/1.1.1.1":             `{"IP": "1.1.1.1", "ID": 16711681}`,
 
 				"cilium/synced/foo/cilium/cache/nodes/v1":      "true",
 				"cilium/synced/foo/cilium/cache/services/v1":   "true",
@@ -262,9 +262,9 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 			"cilium/cache/nodes/v1/foo/qux":        fmt.Sprintf(`{"name": "qux", "cluster": "foo", "clusterID": %d}`, clusterID),
 			"cilium/cache/services/v1/foo/baz/bar": fmt.Sprintf(`{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": %d, "shared": true}`, clusterID),
 			"cilium/cache/services/v1/foo/baz/qux": fmt.Sprintf(`{"name": "qux", "namespace": "baz", "cluster": "foo", "clusterID": %d, "shared": true}`, clusterID),
-			"cilium/cache/ip/v1/foo/1.1.1.1":       `{"IP": "1.1.1.1"}`,
-			"cilium/cache/ip/v1/foo/1.1.1.2":       `{"IP": "1.1.1.2"}`,
-			"cilium/cache/ip/v1/foo/1.1.1.3":       `{"IP": "1.1.1.3"}`,
+			"cilium/cache/ip/v1/foo/1.1.1.1":       fmt.Sprintf(`{"IP": "1.1.1.1", "ID": %d}`, id(clusterID)),
+			"cilium/cache/ip/v1/foo/1.1.1.2":       fmt.Sprintf(`{"IP": "1.1.1.2", "ID": %d}`, id(clusterID)),
+			"cilium/cache/ip/v1/foo/1.1.1.3":       fmt.Sprintf(`{"IP": "1.1.1.3", "ID": %d}`, id(clusterID)),
 
 			fmt.Sprintf("cilium/cache/identities/v1/foo/id/%d", id(clusterID)): `key1=value1;key2=value2;k8s:io.cilium.k8s.policy.cluster=foo`,
 		}
@@ -341,9 +341,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 		require.NoError(t, <-ready, "rc.Run() failed")
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			// The IP entries don't include the ClusterID, hence they are not
-			// filtered out by the validation, but propagated correctly.
-			assert.EqualValues(c, 3, obs.updates.Load(), "Upsertions not observed correctly")
+			assert.EqualValues(c, 0, obs.updates.Load(), "Upsertions not observed correctly")
 			assert.EqualValues(c, 8, obs.deletes.Load(), "Deletions not observed correctly")
 			assert.Nil(c, allocator.LookupIdentityByID(ctx, id(cid1)), "Identity deletion not observed correctly")
 		}, timeout, tick)
@@ -391,7 +389,7 @@ func TestIPCacheWatcherOpts(t *testing.T) {
 		{
 			name:     "non-nil config",
 			config:   &types.CiliumClusterConfig{},
-			expected: 1,
+			expected: 2,
 		},
 		{
 			name: "with extra opts",
