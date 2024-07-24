@@ -29,6 +29,7 @@ import (
 )
 
 const (
+	// Deprecated: owningGatewayLabel will be removed later in favour of gatewayNameLabel
 	owningGatewayLabel = "io.cilium.gateway/owning-gateway"
 
 	lastTransitionTime = "LastTransitionTime"
