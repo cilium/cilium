@@ -457,8 +457,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			"hubble.relay.image.tag": newImageVersion,
 			"cluster.name":           clusterName,
 			"cluster.id":             clusterID,
-			// Remove this after 1.16 is released
-			"envoy.enabled": "false",
 		}
 
 		upgradeCompatibilityVer := strings.TrimSuffix(oldHelmChartVersion, "-dev")
