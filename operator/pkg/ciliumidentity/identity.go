@@ -22,6 +22,10 @@ func (c CIDItem) Key() resource.Key {
 	return c.key
 }
 
+func (c CIDItem) Reconcile(reconciler *reconciler) error {
+	return reconciler.reconcileCID(c.key)
+}
+
 func (c *Controller) processCiliumIdentityEvents(ctx context.Context) error {
 	for event := range c.ciliumIdentity.Events(ctx) {
 		if event.Kind == resource.Upsert || event.Kind == resource.Delete {

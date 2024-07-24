@@ -22,6 +22,10 @@ func (p PodItem) Key() resource.Key {
 	return p.key
 }
 
+func (p PodItem) Reconcile(reconciler *reconciler) error {
+	return reconciler.reconcilePod(p.key)
+}
+
 func (c *Controller) processPodEvents(ctx context.Context) error {
 	for event := range c.pod.Events(ctx) {
 		if event.Kind == resource.Upsert || event.Kind == resource.Delete {
