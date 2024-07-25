@@ -968,6 +968,8 @@ static __always_inline void pktgen__finish_tcp(const struct pktgen *builder, int
 
 static __always_inline void pktgen__finish_udp(const struct pktgen *builder, int i)
 {
+	struct iphdr *ipv4_layer;
+	__u64 ipv4_offset;
 	struct udphdr *udp_layer;
 	__u64 layer_off;
 	__u16 len;
@@ -987,7 +989,20 @@ static __always_inline void pktgen__finish_udp(const struct pktgen *builder, int
 	udp_layer->check = 0;
 	len = (__be16)(builder->cur_off - builder->layer_offsets[i]);
 	udp_layer->len = __bpf_htons(len);
-	udp_layer->check = csum_fold(csum_diff(NULL, 0, udp_layer, sizeof(struct udphdr), 0));
+
+	if (i - 1 >= 0 && builder->layers[i - 1] == PKT_LAYER_IPV4) 
+	{
+		ipv4_offset =  builder->layer_offsets[i-1];
+		if (ipv4_offset >= MAX_PACKET_OFF - sizeof(struct iphdr))
+			return;
+		
+		ipv4_layer = ctx_data(builder->ctx) + ipv4_offset;
+		if ((void *)ipv4_layer + sizeof(struct iphdr) > ctx_data_end(builder->ctx))
+			return;
+
+		udp_layer->check = 0;
+		udp_layer->check = csum_udp(ipv4_layer, udp_layer, ctx_data_end(builder->ctx));
+	}
 }
 
 static __always_inline void pktgen__finish_icmp(const struct pktgen *builder, int i)
