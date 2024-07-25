@@ -5,7 +5,7 @@ for image in $(cat image-catalog.txt); do
 	max_attempts=6
 	# Retry for about 2 minutes, with exponential backoff to
 	# prevent overloading registry server rate limits.
-	while [[ $attempt < ${max_attempts} ]] do
+	while [[ "${attempt}" < "${max_attempts}" ]]; do
 		echo "Attempting to pull $image (attempt $attempt)"
 		docker pull $image && break
 		attempt=$((attempt+1))
