@@ -344,6 +344,11 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.Health) e
 // addresses are the most suitable IPv4 and IPv6 address on any network device, whether it's
 // selected for datapath use or not.
 func (n *nodeAddressController) updateWildcardDevice(txn statedb.WriteTxn, dev *Device, deleted bool) {
+	if strings.HasPrefix(dev.Name, "lxc") {
+		// Always ignore lxc devices.
+		return
+	}
+
 	if !n.updateFallbacks(txn, dev, deleted) {
 		// No changes
 		return
@@ -383,6 +388,10 @@ func (n *nodeAddressController) updateFallbacks(txn statedb.ReadTxn, dev *Device
 		fallbacks.clear()
 		devices := n.Devices.All(txn)
 		for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
+			if strings.HasPrefix(dev.Name, "lxc") {
+				// Never pick the fallback from lxc* devices.
+				continue
+			}
 			fallbacks.update(dev)
 		}
 		return true
@@ -653,6 +662,10 @@ func (f *fallbackAddresses) update(dev *Device) (updated bool) {
 		switch {
 		case fa.dev == nil:
 			better = true
+		case dev.Selected && !fa.dev.Selected:
+			better = true
+		case !dev.Selected && fa.dev.Selected:
+			better = false
 		case ip.IsPublicAddr(addr.Addr.AsSlice()) && !ip.IsPublicAddr(fa.addr.Addr.AsSlice()):
 			better = true
 		case !ip.IsPublicAddr(addr.Addr.AsSlice()) && ip.IsPublicAddr(fa.addr.Addr.AsSlice()):
