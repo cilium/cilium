@@ -346,19 +346,21 @@ func (n *nodeAddressController) update(txn statedb.WriteTxn, new []NodeAddress, 
 	}
 }
 
+// whiteListDevices are the devices from which node IPs are taken from regardless
+// of whether they are selected or not.
+var whitelistDevices = []string{
+	defaults.HostDevice,
+	"lo",
+}
+
 func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddress {
 	if dev.Flags&net.FlagUp == 0 {
 		return nil
 	}
 
-	if dev.Name != defaults.HostDevice {
-		// Skip obviously uninteresting devices. We include the HostDevice as its IP addresses are
-		// considered node addresses and added to e.g. ipcache as HOST_IDs.
-		for _, prefix := range defaults.ExcludedDevicePrefixes {
-			if strings.HasPrefix(dev.Name, prefix) {
-				return nil
-			}
-		}
+	// Ignore non-whitelisted & non-selected devices.
+	if !slices.Contains(whitelistDevices, dev.Name) && !dev.Selected {
+		return nil
 	}
 
 	addrs := make([]NodeAddress, 0, len(dev.Addrs))
@@ -421,7 +423,7 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddres
 		// by the logic following this loop.
 		nodePort := false
 		if len(n.Config.NodePortAddresses) > 0 {
-			nodePort = dev.Selected && ip.NetsContainsAny(n.Config.getNets(), []*net.IPNet{ip.IPToPrefix(addr.AsIP())})
+			nodePort = dev.Name != defaults.HostDevice && ip.NetsContainsAny(n.Config.getNets(), []*net.IPNet{ip.IPToPrefix(addr.AsIP())})
 		}
 		addrs = append(addrs,
 			NodeAddress{
@@ -431,17 +433,17 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddres
 			})
 	}
 
-	if len(n.Config.NodePortAddresses) == 0 {
+	if len(n.Config.NodePortAddresses) == 0 && dev.Name != defaults.HostDevice {
 		// Pick the NodePort addresses. Prefer private addresses if possible.
 		if ipv4PrivateIndex >= 0 {
-			addrs[ipv4PrivateIndex].NodePort = dev.Selected
+			addrs[ipv4PrivateIndex].NodePort = true
 		} else if ipv4PublicIndex >= 0 {
-			addrs[ipv4PublicIndex].NodePort = dev.Selected
+			addrs[ipv4PublicIndex].NodePort = true
 		}
 		if ipv6PrivateIndex >= 0 {
-			addrs[ipv6PrivateIndex].NodePort = dev.Selected
+			addrs[ipv6PrivateIndex].NodePort = true
 		} else if ipv6PublicIndex >= 0 {
-			addrs[ipv6PublicIndex].NodePort = dev.Selected
+			addrs[ipv6PublicIndex].NodePort = true
 		}
 	}
 

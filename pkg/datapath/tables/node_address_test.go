@@ -397,6 +397,49 @@ func TestNodeAddressHostDevice(t *testing.T) {
 	}
 }
 
+// TestNodeAddressLoopback tests that non-loopback addresses from the loopback
+// device are always taken, regardless of whether the lo device gets selected or not.
+// This allows assigning VIPs to the loopback device and make Cilium consider them
+// as node IPs.
+func TestNodeAddressLoopback(t *testing.T) {
+	t.Parallel()
+
+	db, devices, nodeAddrs, _ := fixture(t, int(unix.RT_SCOPE_SITE), nil)
+
+	txn := db.WriteTxn(devices)
+	_, watch := nodeAddrs.All(txn)
+
+	devices.Insert(txn, &tables.Device{
+		Index: 1,
+		Name:  "lo",
+		Flags: net.FlagUp | net.FlagLoopback,
+		Addrs: []tables.DeviceAddress{
+			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("2001::1"), Scope: unix.RT_SCOPE_UNIVERSE},
+		},
+		Selected: false,
+	})
+
+	txn.Commit()
+	<-watch // wait for propagation
+
+	iter, _ := nodeAddrs.All(db.ReadTxn())
+	addrs := statedb.Collect(iter)
+
+	if assert.Len(t, addrs, 2) {
+		assert.Equal(t, addrs[0].Addr.String(), "10.0.0.1")
+		assert.Equal(t, addrs[0].DeviceName, "lo")
+		assert.True(t, addrs[0].Primary)
+		assert.True(t, addrs[0].NodePort)
+
+		assert.Equal(t, addrs[1].Addr.String(), "2001::1")
+		assert.Equal(t, addrs[1].DeviceName, "lo")
+		assert.True(t, addrs[1].Primary)
+		assert.True(t, addrs[1].NodePort)
+
+	}
+}
+
 var nodeAddressWhitelistTests = []struct {
 	name         string
 	cidrs        string                 // --nodeport-addresses
