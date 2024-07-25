@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/datapath/node"
 	"github.com/cilium/cilium/pkg/datapath/orchestrator"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -134,6 +135,7 @@ var Cell = cell.Module(
 
 	// Provides node handler, which handles node events.
 	cell.Provide(linuxdatapath.NewNodeHandler),
+	cell.Provide(node.NewNodeIDApiHandler),
 
 	// Provides Active Connection Tracking metrics based on counts of
 	// opened (from BPF ACT map), closed (from BPF ACT map), and failed
