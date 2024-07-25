@@ -185,7 +185,6 @@ func newDatapath(params datapathParams) types.Datapath {
 		Devices:        params.Devices,
 		Orchestrator:   params.Orchestrator,
 		NodeHandler:    params.NodeHandler,
-		NodeIDHandler:  params.NodeIDHandler,
 		NodeNeighbors:  params.NodeNeighbors,
 	})
 
