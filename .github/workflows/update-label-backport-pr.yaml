@@ -40,10 +40,12 @@
           - name: Update labels
             env:
               GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              BRANCH: ${{ inputs.branch }}
             run: |
+              VERSION=${BRANCH#v}
               echo "${{steps.pre-process.outputs.result}}" | sed -En "/upstream-prs/ { n; p }" | cut -d ';' -f 1 | grep -Eo '[0-9]+' | while read -r pr; do
-                echo "Removing label backport-pending/${{ inputs.branch }} from pr #${pr}."
-                gh pr edit ${pr} --repo "${GITHUB_REPOSITORY}" --remove-label backport-pending/${{ inputs.branch }}
-                echo "Adding label backport-done/${{ inputs.branch }} to pr #${pr}."
-                gh pr edit ${pr} --repo "${GITHUB_REPOSITORY}" --add-label backport-done/${{ inputs.branch }}
+                echo "Removing label backport-pending/${VERSION} from pr #${pr}."
+                gh pr edit ${pr} --repo "${GITHUB_REPOSITORY}" --remove-label backport-pending/${VERSION}
+                echo "Adding label backport-done/${VERSION} to pr #${pr}."
+                gh pr edit ${pr} --repo "${GITHUB_REPOSITORY}" --add-label backport-done/${VERSION}
               done
