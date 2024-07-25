@@ -326,9 +326,8 @@ jobs:
         timeout-minutes: 5
         shell: bash
         run: |
-          #cd test
-          #./preload-images.sh
-          echo "Skipping preload-images.sh"
+          cd test
+          ./preload-images.sh
 
       # Load Ginkgo build from GitHub
       - name: Load ${{ matrix.name }} Ginkgo build from GitHub
