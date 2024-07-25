@@ -420,7 +420,7 @@ func (pr *PortRule) sanitize(ingress bool) error {
 	for i := range pr.Ports {
 		var isZero bool
 		var err error
-		if isZero, err = pr.Ports[i].sanitize(); err != nil {
+		if isZero, err = pr.Ports[i].sanitize(hasDNSRules); err != nil {
 			return err
 		}
 		if isZero {
@@ -465,7 +465,7 @@ func (pr *PortRule) sanitize(ingress bool) error {
 	return nil
 }
 
-func (pp *PortProtocol) sanitize() (isZero bool, err error) {
+func (pp *PortProtocol) sanitize(hasDNSRules bool) (isZero bool, err error) {
 	if pp.Port == "" {
 		return isZero, fmt.Errorf("Port must be specified")
 	}
@@ -481,6 +481,9 @@ func (pp *PortProtocol) sanitize() (isZero bool, err error) {
 			return isZero, fmt.Errorf("Unable to parse port: %w", err)
 		}
 		isZero = p == 0
+		if hasDNSRules && pp.EndPort > int32(p) {
+			return isZero, errors.New("DNS rules do not support port ranges")
+		}
 	}
 
 	pp.Protocol, err = ParseL4Proto(string(pp.Protocol))
