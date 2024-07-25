@@ -5,19 +5,14 @@ LABEL maintainer="maintainer@cilium.io"
 
 RUN apk add --no-cache --virtual --update \
     aspell-en \
-    nodejs \
-    npm \
     bash \
     ca-certificates \
     enchant2 \
     enchant2-dev \
+    imagemagick \    
     git \
-    libc6-compat \
-    py-pip \
-    python3 \
     py3-sphinx \
     gcc \
-    musl-dev \
     && true
 
 FROM docs-base AS docs-builder
