@@ -1544,6 +1544,31 @@ func (kub *Kubectl) waitForNPods(checkStatus checkPodStatusFunc, namespace strin
 }
 
 func (kub *Kubectl) waitForSinglePod(checkStatus checkPodStatusFunc, namespace string, podname string, timeout time.Duration) error {
+	waitForImage := func() bool {
+		pod := v1.Pod{}
+		err := kub.GetPods(namespace, podname).Unmarshal(&pod)
+		if err != nil {
+			kub.Logger().Infof("Error while getting Pod %s in namespace %s: %s", podname, namespace, err)
+			return false
+		}
+		// Check if Pod is waiting for an image to be pulled or is in a image pull backoff state.
+		for _, container := range pod.Status.ContainerStatuses {
+			if container.State.Waiting != nil &&
+				(container.State.Waiting.Reason == "ImagePullBackOff" || container.State.Waiting.Reason == "ErrImagePull") {
+				return false
+			}
+		}
+		return true
+	}
+	// We do a seperate wait for image pull timeout, as image pulls can be rate limited leading to temporary failures.
+	if err := WithTimeout(
+		waitForImage,
+		fmt.Sprintf("timed out waiting for pod %s to pull images, this may be caused by image registry rate-limiting", podname),
+		&TimeoutConfig{Timeout: timeout},
+	); err != nil {
+		return err
+	}
+
 	body := func() bool {
 		pod := v1.Pod{}
 		// Result unmarshals to a v1.Pod only if the filter is a
