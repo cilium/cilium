@@ -29,8 +29,6 @@ on:
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
 permissions:
-  # To read actions state with catchpoint/workflow-telemetry-action
-  actions: read
   # To be able to access the repository with actions/checkout
   contents: read
   # To be able to request the JWT from GitHub's OIDC provider
@@ -61,7 +59,7 @@ concurrency:
 
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
-  cilium_cli_ci_version:
+  cilium_cli_ci_version: 7267213ec293dfdb9f5cf9eaf384fd6513c6c3c7
   test_name: gke-perf
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   gcp_zone: us-east5-a
@@ -101,80 +99,33 @@ jobs:
             name: "native"
             mode: "gke"
             encryption: "none"
-            hubble: "false"
 
           - index: 2
             name: "tunnel"
             mode: "tunnel"
             encryption: "none"
-            hubble: "false"
 
           - index: 3
             name: "native-ipsec"
             mode: "gke"
             encryption: "ipsec"
-            hubble: "false"
 
           - index: 4
             name: "tunnel-ipsec"
             mode: "tunnel"
             encryption: "ipsec"
-            hubble: "false"
 
           - index: 5
             name: "native-wireguard"
             mode: "gke"
             encryption: "wireguard"
-            hubble: "false"
 
           - index: 6
             name: "tunnel-wireguard"
             mode: "tunnel"
             encryption: "wireguard"
-            hubble: "false"
-
-          - index: 7
-            name: "native-hubble"
-            mode: "gke"
-            encryption: "none"
-            hubble: "true"
-
-          - index: 8
-            name: "tunnel-hubble"
-            mode: "tunnel"
-            encryption: "none"
-            hubble: "true"
-
-          - index: 9
-            name: "native-ipsec-hubble"
-            mode: "gke"
-            encryption: "ipsec"
-            hubble: "true"
-
-          - index: 10
-            name: "tunnel-ipsec-hubble"
-            mode: "tunnel"
-            encryption: "ipsec"
-            hubble: "true"
-
-          - index: 11
-            name: "native-wireguard-hubble"
-            mode: "gke"
-            encryption: "wireguard"
-            hubble: "true"
-
-          - index: 12
-            name: "tunnel-wireguard-hubble"
-            mode: "tunnel"
-            encryption: "wireguard"
-            hubble: "true"
 
     steps:
-      - name: Collect Workflow Telemetry
-        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
-        with:
-          comment_on_pr: false
-
       - name: Checkout context ref (trusted)
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
@@ -199,9 +150,6 @@ jobs:
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --helm-set=cluster.name=${{ env.clusterName }}-${{ matrix.index }} \
             --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
-            --helm-set=debug.enabled=false \
-            --helm-set=bpf.monitorAggregation=maximum \
-            --helm-set=hubble.enabled=${{ matrix.hubble == 'true' }} \
             --wait=false"
 
           # only add SHA to the image tags if it was set
@@ -224,11 +172,17 @@ jobs:
 
           CILIUM_INSTALL_DEFAULTS+=" --datapath-mode=${{ matrix.mode }}"
 
+          if [ "${{ matrix.encryption }}" = "none" ] ; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=kubeProxyReplacement=true --helm-set=bpf.masquerade=true"
+          fi
+
           if [ "${{ matrix.encryption }}" = "ipsec" ] ; then
+            # IPSec doesn't work with kube-proxy replacement
             CILIUM_INSTALL_DEFAULTS+=" --helm-set=encryption.enabled=true --helm-set=encryption.type=ipsec"
           fi
 
           if [ "${{ matrix.encryption }}" = "wireguard" ] ; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=kubeProxyReplacement=true --helm-set=bpf.masquerade=true"
             CILIUM_INSTALL_DEFAULTS+=" --helm-set=encryption.enabled=true --helm-set=encryption.type=wireguard"
           fi
 
@@ -284,7 +238,7 @@ jobs:
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
-          image-tag: ${{ env.CILIUM_CLI_VERSION }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Wait for images to be available
         timeout-minutes: 30
@@ -297,7 +251,8 @@ jobs:
       - name: Create custom IPsec secret
         if: ${{ matrix.encryption == 'ipsec' }}
         run: |
-          kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="15 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+          kubectl create -n kube-system secret generic cilium-ipsec-keys \
+              --from-literal=keys="3+ rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
       - name: Install Cilium
         id: install-cilium
@@ -315,7 +270,7 @@ jobs:
         id: run-perf
         run: |
           mkdir output
-          cilium connectivity perf --duration=30s --host-net=true --pod-net=true --report-dir=./output
+          cilium connectivity perf --host-net=true  --rr=true --report-dir=./output
           sudo chmod -R +r ./output
 
       - name: Get sysdump
