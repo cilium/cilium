@@ -322,6 +322,13 @@ jobs:
             ln -s /host /home/vagrant/go/src/github.com/cilium/cilium
             git config --add safe.directory /cilium
 
+      - name: "Pre-load test images into Kind cluster"
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          cd test
+          ./preload-images.sh
+
       # Load Ginkgo build from GitHub
       - name: Load ${{ matrix.name }} Ginkgo build from GitHub
         uses: actions/cache/restore@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2

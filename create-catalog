@@ -1,0 +1,3 @@
+find test/ | grep yaml$ | xargs cat | yq -r 'select(.kind == "Deployment") | .spec.template.spec.containers[].image' | sort | uniq
+find test/ | grep yaml$ | xargs cat | yq -r 'select(.kind == "Pod") | .spec.containers[].image' | sort | uniq
+

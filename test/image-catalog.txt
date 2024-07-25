@@ -1,0 +1,10 @@
+docker.io/cilium/kafkaclient:1.0
+docker.io/cilium/kafkaproxy:1.0
+docker.io/tgraf/netperf:v1.0
+quay.io/cilium/echoserver-udp:v2020.01.30
+quay.io/cilium/echoserver:1.10.1
+quay.io/cilium/json-mock:v1.3.3@sha256:f26044a2b8085fcaa8146b6b8bb73556134d7ec3d5782c6a04a058c945924ca0
+registry.k8s.io/coredns/coredns:v1.10.1
+registry.k8s.io/coredns/coredns:v1.8.3
+registry.k8s.io/coredns/coredns:v1.8.6
+registry.k8s.io/coredns/coredns:v1.9.3
