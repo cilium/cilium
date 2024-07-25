@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/datapath/types"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 )
 
@@ -30,6 +31,7 @@ type serviceManagerParams struct {
 	MonitorAgent monitorAgent.Agent
 
 	HealthCheckers []HealthChecker `group:"healthCheckers"`
+	Clientset      k8sClient.Clientset
 }
 
 func newServiceInternal(params serviceManagerParams) *Service {
@@ -40,5 +42,5 @@ func newServiceInternal(params serviceManagerParams) *Service {
 		}
 	}
 
-	return newService(params.MonitorAgent, params.Datapath.LBMap(), params.Datapath.NodeNeighbors(), enabledHealthCheckers)
+	return newService(params.MonitorAgent, params.Datapath.LBMap(), params.Datapath.NodeNeighbors(), enabledHealthCheckers, params.Clientset.IsEnabled())
 }
