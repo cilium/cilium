@@ -1537,10 +1537,34 @@ func (kub *Kubectl) waitForNPods(checkStatus checkPodStatusFunc, namespace strin
 		return currScheduled >= required
 	}
 
-	return WithTimeout(
+	timeoutErr := WithTimeout(
 		body,
 		fmt.Sprintf("timed out waiting for pods with filter %s to be ready", filter),
 		&TimeoutConfig{Timeout: timeout})
+	if timeoutErr != nil {
+		// Find Pod that has label type=client and at least one restart
+		// and print its logs
+		podList := &v1.PodList{}
+		err := kub.GetPods(namespace, filter).Unmarshal(podList)
+		if err != nil {
+			kub.Logger().Infof("Error while getting PodList: %s", err)
+			return timeoutErr
+		}
+		for _, pod := range podList.Items {
+			fmt.Println("[tom-debug] checking pod", pod.Name, "restarts", pod.Status.ContainerStatuses[0].RestartCount)
+			// Check number of restarts
+			for _, container := range pod.Status.ContainerStatuses {
+				if container.Name == "cilium-agent" && container.RestartCount > 0 {
+					logs := kub.ExecShort(fmt.Sprintf("%s -n %s logs %s", KubectlCmd, namespace, pod.Name))
+					fmt.Println("[tom-debug] ----------------------")
+					fmt.Println(logs.Stdout())
+					fmt.Println("[tom-debug] ----------------------")
+					fmt.Println(logs.Stderr())
+				}
+			}
+		}
+	}
+	return timeoutErr
 }
 
 func (kub *Kubectl) waitForSinglePod(checkStatus checkPodStatusFunc, namespace string, podname string, timeout time.Duration) error {
