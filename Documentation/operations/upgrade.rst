@@ -391,6 +391,14 @@ communicating via the proxy must reconnect to re-establish connections.
 * For IPsec, the use of per-tunnel keys is mandatory, via the use of the ``+``
   sign in the secret. See the :ref:`encryption_ipsec` guide for more
   information.
+* ``CiliumNetworkPolicy`` changed the semantics of the empty non-nil slice.
+  For an Ingress CNP, an empty slice in one of the fields ``fromEndpoints``, ``fromCIDR``,
+  ``fromCIDRSet`` and ``fromEntities`` will not select any identity, thus falling back to
+  default deny for an allow policy. Similarly, for an Egress CNP, an empty slice in one of
+  the fields ``toEndpoints``, ``toCIDR``, ``toCIDRSet`` and ``toEntities`` will not select
+  any identity either. Additionally, the behaviour of a CNP with ``toCIDRSet`` or
+  ``fromCIDRSet`` selectors using ``cidrGroupRef`` targeting only non-existent CIDR groups
+  was changed from allow-all to deny-all to align with the new semantics.
 
 Removed Options
 ~~~~~~~~~~~~~~~
