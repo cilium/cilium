@@ -9,7 +9,7 @@ metadata:
 spec:
   containers:
     - name: specific-mac-address
-      image: busybox:1.36
+      image: cgr.dev/chainguard/busybox:latest
       command:
         - sleep
         - "3600"
