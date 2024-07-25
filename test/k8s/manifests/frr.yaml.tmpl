@@ -10,7 +10,7 @@ spec:
   hostNetwork: true
   initContainers:
   - name: init
-    image: busybox:1.28
+    image: cgr.dev/chainguard/busybox:latest
     securityContext:
       privileged: true
     command:
