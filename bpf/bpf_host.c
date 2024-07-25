@@ -330,8 +330,6 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	/* Lookup IPv6 address in list of local endpoints */
 	ep = lookup_ip6_endpoint(ip6);
 	if (ep) {
-		bool l2_hdr_required __maybe_unused = true;
-
 		/* Let through packets to the node-ip so they are
 		 * processed by the local ip stack.
 		 */
@@ -340,12 +338,16 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 
 #ifdef ENABLE_HOST_ROUTING
 		/* add L2 header for L2-less interface, such as cilium_wg0 */
-		ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
-		if (ret != 0)
-			return ret;
-		if (l2_hdr_required && ETH_HLEN == 0) {
-			/* l2 header is added */
-			l3_off += __ETH_HLEN;
+		if (!from_host) {
+			bool l2_hdr_required = true;
+
+			ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
+			if (ret != 0)
+				return ret;
+			if (l2_hdr_required && ETH_HLEN == 0) {
+				/* l2 header is added */
+				l3_off += __ETH_HLEN;
+			}
 		}
 #endif
 		return ipv6_local_delivery(ctx, l3_off, secctx, magic, ep,
@@ -748,8 +750,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	/* Lookup IPv4 address in list of local endpoints and host IPs */
 	ep = lookup_ip4_endpoint(ip4);
 	if (ep) {
-		bool l2_hdr_required __maybe_unused = true;
-		int l3_off __maybe_unused = ETH_HLEN;
+		int l3_off = ETH_HLEN;
 
 		/* Let through packets to the node-ip so they are processed by
 		 * the local ip stack.
@@ -759,16 +760,20 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 
 #ifdef ENABLE_HOST_ROUTING
 		/* add L2 header for L2-less interface, such as cilium_wg0 */
-		ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
-		if (ret != 0)
-			return ret;
-		if (l2_hdr_required && ETH_HLEN == 0) {
-			/* l2 header is added */
-			l3_off += __ETH_HLEN;
-			if (!____revalidate_data_pull(ctx, &data, &data_end,
-						      (void **)&ip4, sizeof(*ip4),
-						      false, l3_off))
-				return DROP_INVALID;
+		if (!from_host) {
+			bool l2_hdr_required = true;
+
+			ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
+			if (ret != 0)
+				return ret;
+			if (l2_hdr_required && ETH_HLEN == 0) {
+				/* l2 header is added */
+				l3_off += __ETH_HLEN;
+				if (!____revalidate_data_pull(ctx, &data, &data_end,
+							      (void **)&ip4, sizeof(*ip4),
+							      false, l3_off))
+					return DROP_INVALID;
+			}
 		}
 #endif
 
