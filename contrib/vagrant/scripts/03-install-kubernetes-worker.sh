@@ -337,7 +337,7 @@ Requires=${container_runtime_name}.service
 [Service]
 # Mount BPF fs for cilium
 ExecStartPre=/bin/bash -c ' \\
-        if [[ \$(/bin/mount | /bin/grep /sys/fs/bpf -c) -eq 0 ]]; then \\
+        if ! /bin/mount | /bin/grep -q "/sys/fs/bpf"; then \\
            /bin/mount bpffs /sys/fs/bpf -t bpf; \\
         fi'
 ExecStart=/usr/bin/kubelet \\
