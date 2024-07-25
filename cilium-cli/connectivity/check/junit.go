@@ -39,7 +39,7 @@ type JUnitCollector struct {
 // Collect collects ConnectivityTest instance test results.
 // The method is not thread safe.
 func (j *JUnitCollector) Collect(ct *ConnectivityTest) {
-	if j.junitFile != "" && len(ct.tests) == 0 {
+	if j.junitFile == "" || len(ct.tests) == 0 {
 		return
 	}
 
