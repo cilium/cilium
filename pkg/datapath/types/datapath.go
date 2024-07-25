@@ -13,8 +13,6 @@ type Datapath interface {
 	// Node must return the handler for node events
 	Node() NodeHandler
 
-	NodeIDs() NodeIDHandler
-
 	NodeNeighbors() NodeNeighbors
 
 	// LocalNodeAddressing must return the node addressing implementation
