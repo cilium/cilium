@@ -195,7 +195,7 @@ func newDatapath(params datapathParams) types.Datapath {
 				return fmt.Errorf("requirements failed: %w", err)
 			}
 
-			datapath.NodeIDs().RestoreNodeIDs()
+			params.NodeIDHandler.RestoreNodeIDs()
 			return nil
 		},
 	})
