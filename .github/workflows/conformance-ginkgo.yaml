@@ -323,11 +323,13 @@ jobs:
             git config --add safe.directory /cilium
 
       - name: "Pre-load test images into Kind cluster"
-        timeout-minutes: 5
-        shell: bash
-        run: |
-          cd test
-          ./preload-images.sh
+        timeout-minutes: 7
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/test
+            ./preload-images.sh
 
       # Load Ginkgo build from GitHub
       - name: Load ${{ matrix.name }} Ginkgo build from GitHub
