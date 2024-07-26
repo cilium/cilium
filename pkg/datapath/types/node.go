@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/xdp"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -165,6 +166,10 @@ type LocalNodeConfiguration struct {
 	// these are then used when encryption is enabled to configure the node
 	// for encryption over these subnets at node initialization.
 	IPv6PodSubnets []*cidr.CIDR
+
+	// XDPConfig holds configuration options to determine how the node should
+	// handle XDP programs.
+	XDPConfig xdp.Config
 }
 
 func (cfg *LocalNodeConfiguration) DeviceNames() []string {

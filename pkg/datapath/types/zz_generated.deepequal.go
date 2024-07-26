@@ -248,5 +248,9 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 		}
 	}
 
+	if in.XDPConfig != other.XDPConfig {
+		return false
+	}
+
 	return true
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/xdp"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -40,6 +41,7 @@ func newLocalNodeConfig(
 	directRoutingDevTbl tables.DirectRoutingDevice,
 	devices statedb.Table[*tables.Device],
 	nodeAddresses statedb.Table[tables.NodeAddress],
+	xdpConfig xdp.Config,
 ) (datapath.LocalNodeConfiguration, <-chan struct{}, <-chan struct{}, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
@@ -92,5 +94,6 @@ func newLocalNodeConfig(
 		EncryptNode:                  config.EncryptNode,
 		IPv4PodSubnets:               cidr.NewCIDRSlice(config.IPv4PodSubnets),
 		IPv6PodSubnets:               cidr.NewCIDRSlice(config.IPv6PodSubnets),
+		XDPConfig:                    xdpConfig,
 	}, devsWatch, addrsWatch, directRoutingDevWatch, nil
 }

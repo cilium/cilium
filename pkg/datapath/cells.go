@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
@@ -140,6 +141,9 @@ var Cell = cell.Module(
 
 	// Provides prefilter, a means of configuring XDP pre-filters for DDoS-mitigation.
 	prefilter.Cell,
+
+	// XDP cell provides modularized XDP enablement.
+	xdp.Cell,
 
 	// Provides node handler, which handles node events.
 	cell.Provide(linuxdatapath.NewNodeHandler),
