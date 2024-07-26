@@ -344,6 +344,11 @@ func (n *nodeAddressController) run(ctx context.Context, reporter cell.Health) e
 // addresses are the most suitable IPv4 and IPv6 address on any network device, whether it's
 // selected for datapath use or not.
 func (n *nodeAddressController) updateWildcardDevice(txn statedb.WriteTxn, dev *Device, deleted bool) {
+	if strings.HasPrefix(dev.Name, "lxc") {
+		// Always ignore lxc devices.
+		return
+	}
+
 	if !n.updateFallbacks(txn, dev, deleted) {
 		// No changes
 		return
@@ -383,6 +388,10 @@ func (n *nodeAddressController) updateFallbacks(txn statedb.ReadTxn, dev *Device
 		fallbacks.clear()
 		devices := n.Devices.All(txn)
 		for dev, _, ok := devices.Next(); ok; dev, _, ok = devices.Next() {
+			if strings.HasPrefix(dev.Name, "lxc") {
+				// Never pick the fallback from lxc* devices.
+				continue
+			}
 			fallbacks.update(dev)
 		}
 		return true
@@ -429,24 +438,21 @@ func (n *nodeAddressController) update(txn statedb.WriteTxn, new []NodeAddress, 
 	}
 }
 
+// whiteListDevices are the devices from which node IPs are taken from regardless
+// of whether they are selected or not.
+var whitelistDevices = []string{
+	defaults.HostDevice,
+	"lo",
+}
+
 func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddress {
 	if dev.Flags&net.FlagUp == 0 {
 		return nil
 	}
 
-	if dev.Name != defaults.HostDevice {
-		// Only take addresses from the selected devices.
-		if !dev.Selected {
-			return nil
-		}
-
-		// Skip obviously uninteresting devices. We include the HostDevice as its IP addresses are
-		// considered node addresses and added to e.g. ipcache as HOST_IDs.
-		for _, prefix := range defaults.ExcludedDevicePrefixes {
-			if strings.HasPrefix(dev.Name, prefix) {
-				return nil
-			}
-		}
+	// Ignore non-whitelisted & non-selected devices.
+	if !slices.Contains(whitelistDevices, dev.Name) && !dev.Selected {
+		return nil
 	}
 
 	addrs := make([]NodeAddress, 0, len(dev.Addrs))
@@ -509,7 +515,7 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddres
 		// by the logic following this loop.
 		nodePort := false
 		if len(n.Config.NodePortAddresses) > 0 {
-			nodePort = dev.Selected && ip.NetsContainsAny(n.Config.getNets(), []*net.IPNet{ip.IPToPrefix(addr.AsIP())})
+			nodePort = dev.Name != defaults.HostDevice && ip.NetsContainsAny(n.Config.getNets(), []*net.IPNet{ip.IPToPrefix(addr.AsIP())})
 		}
 		addrs = append(addrs,
 			NodeAddress{
@@ -519,7 +525,7 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddres
 			})
 	}
 
-	if len(n.Config.NodePortAddresses) == 0 && dev.Selected {
+	if len(n.Config.NodePortAddresses) == 0 && dev.Name != defaults.HostDevice {
 		// Pick the NodePort addresses. Prefer private addresses if possible.
 		if ipv4PrivateIndex >= 0 {
 			addrs[ipv4PrivateIndex].NodePort = true
@@ -656,6 +662,10 @@ func (f *fallbackAddresses) update(dev *Device) (updated bool) {
 		switch {
 		case fa.dev == nil:
 			better = true
+		case dev.Selected && !fa.dev.Selected:
+			better = true
+		case !dev.Selected && fa.dev.Selected:
+			better = false
 		case ip.IsPublicAddr(addr.Addr.AsSlice()) && !ip.IsPublicAddr(fa.addr.Addr.AsSlice()):
 			better = true
 		case !ip.IsPublicAddr(addr.Addr.AsSlice()) && ip.IsPublicAddr(fa.addr.Addr.AsSlice()):

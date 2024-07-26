@@ -4,6 +4,7 @@
 package k8sTest
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -175,6 +176,10 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 	app1Service := "app1-service"
 
 	cleanupCiliumState := func(helmPath, chartVersion, imageName, imageTag, registry string) {
+		// GH-34026: Cilium v1.16.0 broke pidfile cleanup on shutdown. Remove it before the end of the test so that the testsuite can clean up the environment properly.
+		By("Cleaning up pidfiles...")
+		kubectl.CiliumExecMustSucceedOnAll(context.TODO(), "rm /var/run/cilium/cilium.pid", "Clean up pidfile before test completion")
+
 		removeCilium(kubectl)
 
 		opts := map[string]string{
@@ -452,8 +457,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			"hubble.relay.image.tag": newImageVersion,
 			"cluster.name":           clusterName,
 			"cluster.id":             clusterID,
-			// Remove this after 1.16 is released
-			"envoy.enabled": "false",
 		}
 
 		upgradeCompatibilityVer := strings.TrimSuffix(oldHelmChartVersion, "-dev")

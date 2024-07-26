@@ -47,7 +47,7 @@ import (
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/clustermesh/endpointslicesync"
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
-	operatorClusterMesh "github.com/cilium/cilium/pkg/clustermesh/operator"
+	cmoperator "github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -196,7 +196,7 @@ var (
 			nodeipam.Cell,
 			auth.Cell,
 			store.Cell,
-			operatorClusterMesh.Cell,
+			cmoperator.Cell,
 			endpointslicesync.Cell,
 			mcsapi.Cell,
 			legacyCell,
@@ -473,7 +473,7 @@ func kvstoreEnabled() bool {
 
 var legacyCell = cell.Invoke(registerLegacyOnLeader)
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver) {
+func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:          ctx,
@@ -482,6 +482,7 @@ func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, re
 		resources:    resources,
 		storeFactory: factory,
 		svcResolver:  svcResolver,
+		cfgMCSAPI:    cfgMCSAPI,
 	}
 	lc.Append(cell.Hook{
 		OnStart: legacy.onStart,
@@ -497,6 +498,7 @@ type legacyOnLeader struct {
 	resources    operatorK8s.Resources
 	storeFactory store.Factory
 	svcResolver  *dial.ServiceResolver
+	cfgMCSAPI    cmoperator.MCSAPIConfig
 }
 
 func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
@@ -593,6 +595,19 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 				StoreFactory: legacy.storeFactory,
 				SyncCallback: func(_ context.Context) {},
 			})
+			legacy.wg.Add(1)
+			go func() {
+				mcsapi.StartSynchronizingServiceExports(legacy.ctx, mcsapi.ServiceExportSyncParameters{
+					ClusterName:             clusterInfo.Name,
+					ClusterMeshEnableMCSAPI: legacy.cfgMCSAPI.ClusterMeshEnableMCSAPI,
+					Clientset:               legacy.clientset,
+					ServiceExports:          legacy.resources.ServiceExports,
+					Services:                legacy.resources.Services,
+					StoreFactory:            legacy.storeFactory,
+					SyncCallback:            func(context.Context) {},
+				})
+				legacy.wg.Done()
+			}()
 		}
 
 		if legacy.clientset.IsEnabled() {
@@ -616,7 +631,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			withKVStore = true
 		}
 
-		startKvstoreWatchdog()
+		startKvstoreWatchdog(legacy.cfgMCSAPI)
 	}
 
 	if legacy.clientset.IsEnabled() &&
