@@ -154,8 +154,13 @@ func ReconcileRoutePolicies(rp *ReconcileRoutePoliciesParams) (RoutePolicyMap, e
 	return runningPolicies, nil
 }
 
-func PolicyName(peer, family, advertType string) string {
-	return fmt.Sprintf("%s-%s-%s", peer, family, advertType)
+// PolicyName returns a unique route policy name for the provided peer, family and advertisement type.
+// If there a is a need for multiple route policies per advertisement type, unique resourceID can be provided.
+func PolicyName(peer, family string, advertType v2alpha1.BGPAdvertisementType, resourceID string) string {
+	if resourceID == "" {
+		return fmt.Sprintf("%s-%s-%s", peer, family, advertType)
+	}
+	return fmt.Sprintf("%s-%s-%s-%s", peer, family, advertType, resourceID)
 }
 
 func CreatePolicy(name string, peerAddr netip.Addr, v4Prefixes, v6Prefixes types.PolicyPrefixMatchList, advert v2alpha1.BGPAdvertisement) (*types.RoutePolicy, error) {
