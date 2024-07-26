@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/datapath/xdp"
 )
 
 // Loader is an interface to abstract out loading of datapath programs.
@@ -21,10 +22,10 @@ type Loader interface {
 	HostDatapathInitialized() <-chan struct{}
 
 	ReloadDatapath(ctx context.Context, ep Endpoint, cfg *LocalNodeConfiguration, stats *metrics.SpanStat) (string, error)
-	ReinitializeXDP(ctx context.Context, cfg *LocalNodeConfiguration, extraCArgs []string) error
+	ReinitializeXDP(ctx context.Context, cfg *LocalNodeConfiguration, extraCArgs []string, xdpConfig xdp.Config) error
 	EndpointHash(cfg EndpointConfiguration, lnCfg *LocalNodeConfiguration) (string, error)
 	ReinitializeHostDev(ctx context.Context, mtu int) error
-	Reinitialize(ctx context.Context, cfg *LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr IptablesManager, p Proxy) error
+	Reinitialize(ctx context.Context, cfg *LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr IptablesManager, p Proxy, xdpConfig xdp.Config) error
 	DetachXDP(iface string, bpffsBase, progName string) error
 	WriteEndpointConfig(w io.Writer, cfg EndpointConfiguration, lnCfg *LocalNodeConfiguration) error
 }

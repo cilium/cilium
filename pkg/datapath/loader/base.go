@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -335,9 +336,9 @@ func (l *loader) reinitializeWireguard(ctx context.Context) (err error) {
 	return
 }
 
-func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string, devices []string) error {
-	l.maybeUnloadObsoleteXDPPrograms(devices, option.Config.XDPMode, bpf.CiliumPath())
-	if option.Config.XDPMode == option.XDPModeDisabled {
+func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string, devices []string, xdpConfig xdp.Config) error {
+	l.maybeUnloadObsoleteXDPPrograms(devices, xdpConfig.TCMode(), bpf.CiliumPath())
+	if xdpConfig.Disabled() {
 		return nil
 	}
 	for _, dev := range devices {
@@ -349,7 +350,7 @@ func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string,
 			continue
 		}
 
-		if err := compileAndLoadXDPProg(ctx, dev, option.Config.XDPMode, extraCArgs); err != nil {
+		if err := compileAndLoadXDPProg(ctx, dev, xdpConfig.TCMode(), extraCArgs); err != nil {
 			if option.Config.NodePortAcceleration == option.XDPModeBestEffort {
 				log.WithError(err).WithField(logfields.Device, dev).Info("Failed to attach XDP program, ignoring due to best-effort mode")
 			} else {
@@ -368,11 +369,11 @@ func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string,
 // ReinitializeXDP (re-)configures the XDP datapath only. This includes recompilation
 // and reinsertion of the object into the kernel as well as an atomic program replacement
 // at the XDP hook. extraCArgs can be passed-in in order to alter BPF code defines.
-func (l *loader) ReinitializeXDP(ctx context.Context, cfg *datapath.LocalNodeConfiguration, extraCArgs []string) error {
+func (l *loader) ReinitializeXDP(ctx context.Context, cfg *datapath.LocalNodeConfiguration, extraCArgs []string, xdpConfig xdp.Config) error {
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
 	devices := cfg.DeviceNames()
-	return l.reinitializeXDPLocked(ctx, extraCArgs, devices)
+	return l.reinitializeXDPLocked(ctx, extraCArgs, devices, xdpConfig)
 }
 
 func (l *loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
@@ -388,7 +389,7 @@ func (l *loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
 // BPF programs, netfilter rule configuration and reserving routes in IPAM for
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
-func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy, xdpConfig xdp.Config) error {
 	sysSettings := []tables.Sysctl{
 		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
 		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
@@ -501,7 +502,7 @@ func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfig
 	}
 
 	extraArgs := []string{"-Dcapture_enabled=0"}
-	if err := l.reinitializeXDPLocked(ctx, extraArgs, devices); err != nil {
+	if err := l.reinitializeXDPLocked(ctx, extraArgs, devices, xdpConfig); err != nil {
 		log.WithError(err).Fatal("Failed to compile XDP program")
 	}
 

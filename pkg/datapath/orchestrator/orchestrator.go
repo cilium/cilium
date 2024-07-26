@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -77,6 +78,7 @@ type orchestratorParams struct {
 	Lifecycle           cell.Lifecycle
 	EndpointManager     endpointmanager.EndpointManager
 	ConfigPromise       promise.Promise[*option.DaemonConfig]
+	XDPConfig           xdp.Config
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -226,6 +228,7 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 		o.params.TunnelConfig,
 		o.params.IPTablesManager,
 		o.params.Proxy,
+		o.params.XDPConfig,
 	); err != nil {
 		errs = append(errs, err)
 	}
@@ -280,7 +283,7 @@ func (o *orchestrator) ReinitializeXDP(ctx context.Context, extraCArgs []string)
 		return ctx.Err()
 	}
 
-	return o.params.Loader.ReinitializeXDP(ctx, o.latestLocalNodeConfig.Load(), extraCArgs)
+	return o.params.Loader.ReinitializeXDP(ctx, o.latestLocalNodeConfig.Load(), extraCArgs, o.params.XDPConfig)
 }
 
 func (o *orchestrator) EndpointHash(cfg types.EndpointConfiguration) (string, error) {
