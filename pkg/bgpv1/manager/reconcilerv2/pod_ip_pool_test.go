@@ -5,7 +5,6 @@ package reconcilerv2
 
 import (
 	"context"
-	"fmt"
 	"net/netip"
 	"testing"
 
@@ -37,17 +36,14 @@ var (
 	redPoolNodePrefix2v6 = ipamtypes.IPAMPodCIDR("2001:db8:0:0:1235::/96")
 
 	redPoolName       = "red-pool"
-	redPoolNamespace  = "default"
 	redLabelSelector  = slimv1.LabelSelector{MatchLabels: map[string]string{"pool": "red"}}
 	redNameNSSelector = slimv1.LabelSelector{MatchLabels: map[string]string{
-		podIPPoolNameLabel:      redPoolName,
-		podIPPoolNamespaceLabel: redPoolNamespace,
+		podIPPoolNameLabel: redPoolName,
 	}}
 	redPool = &v2alpha1.CiliumPodIPPool{
 		ObjectMeta: metaV1.ObjectMeta{
-			Name:      redPoolName,
-			Namespace: redPoolNamespace,
-			Labels:    redLabelSelector.MatchLabels,
+			Name:   redPoolName,
+			Labels: redLabelSelector.MatchLabels,
 		},
 		Spec: v2alpha1.IPPoolSpec{
 			IPv4: &v2alpha1.IPv4PoolSpec{
@@ -60,7 +56,7 @@ var (
 			},
 		},
 	}
-	redPeer65001v4PodIPPoolRPName = PolicyName("red-peer-65001", "ipv4", fmt.Sprintf("%s-%s", redPoolName, redPoolNamespace))
+	redPeer65001v4PodIPPoolRPName = PolicyName("red-peer-65001", "ipv4", v2alpha1.BGPCiliumPodIPPoolAdvert, redPoolName)
 	redPeer65001v4PodIPPoolRP     = &types.RoutePolicy{
 		Name: redPeer65001v4PodIPPoolRPName,
 		Type: types.RoutePolicyTypeExport,
@@ -88,7 +84,7 @@ var (
 			},
 		},
 	}
-	redPeer65001v6PodIPPoolRPName = PolicyName("red-peer-65001", "ipv6", fmt.Sprintf("%s-%s", redPoolName, redPoolNamespace))
+	redPeer65001v6PodIPPoolRPName = PolicyName("red-peer-65001", "ipv6", v2alpha1.BGPCiliumPodIPPoolAdvert, redPoolName)
 	redPeer65001v6PodIPPoolRP     = &types.RoutePolicy{
 		Name: redPeer65001v6PodIPPoolRPName,
 		Type: types.RoutePolicyTypeExport,
@@ -129,17 +125,14 @@ var (
 	bluePoolCIDR3v6       = v2alpha1.PoolCIDR("2001:db8:3::/64")
 
 	bluePoolName       = "blue-pool"
-	bluePoolNamespace  = "default"
 	blueLabelSelector  = slimv1.LabelSelector{MatchLabels: map[string]string{"pool": "blue"}}
 	blueNameNSSelector = slimv1.LabelSelector{MatchLabels: map[string]string{
-		podIPPoolNameLabel:      bluePoolName,
-		podIPPoolNamespaceLabel: bluePoolNamespace,
+		podIPPoolNameLabel: bluePoolName,
 	}}
 	bluePool = &v2alpha1.CiliumPodIPPool{
 		ObjectMeta: metaV1.ObjectMeta{
-			Name:      bluePoolName,
-			Namespace: bluePoolNamespace,
-			Labels:    blueLabelSelector.MatchLabels,
+			Name:   bluePoolName,
+			Labels: blueLabelSelector.MatchLabels,
 		},
 		Spec: v2alpha1.IPPoolSpec{
 			IPv4: &v2alpha1.IPv4PoolSpec{
@@ -160,7 +153,7 @@ var (
 			},
 		},
 	}
-	bluePeer65001v4PodIPPoolRPName = PolicyName("blue-peer-65001", "ipv4", fmt.Sprintf("%s-%s", bluePoolName, bluePoolNamespace))
+	bluePeer65001v4PodIPPoolRPName = PolicyName("blue-peer-65001", "ipv4", v2alpha1.BGPCiliumPodIPPoolAdvert, bluePoolName)
 	bluePeer65001v4PodIPPoolRP     = &types.RoutePolicy{
 		Name: bluePeer65001v4PodIPPoolRPName,
 		Type: types.RoutePolicyTypeExport,
@@ -188,7 +181,7 @@ var (
 			},
 		},
 	}
-	bluePeer65001v6PodIPPoolRPName = PolicyName("blue-peer-65001", "ipv6", fmt.Sprintf("%s-%s", bluePoolName, bluePoolNamespace))
+	bluePeer65001v6PodIPPoolRPName = PolicyName("blue-peer-65001", "ipv6", v2alpha1.BGPCiliumPodIPPoolAdvert, bluePoolName)
 	bluePeer65001v6PodIPPoolRP     = &types.RoutePolicy{
 		Name: bluePeer65001v6PodIPPoolRPName,
 		Type: types.RoutePolicyTypeExport,
@@ -287,7 +280,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				Peers:    []v2alpha1.CiliumBGPNodePeer{redPeer65001, bluePeer65001},
 			},
 			expectedPoolAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
-				{Name: redPoolName, Namespace: redPoolNamespace}: {
+				{Name: redPoolName}: {
 					{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 						string(redPoolNodePrefix1v4): struct{}{},
 						string(redPoolNodePrefix2v4): struct{}{},
@@ -297,7 +290,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 						string(redPoolNodePrefix2v6): struct{}{},
 					},
 				},
-				{Name: bluePoolName, Namespace: bluePoolNamespace}: {
+				{Name: bluePoolName}: {
 					{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 						string(bluePoolNodePrefix1v4): struct{}{},
 						string(bluePoolNodePrefix2v4): struct{}{},
@@ -309,11 +302,11 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				},
 			},
 			expectedRPs: ResourceRoutePolicyMap{
-				resource.Key{Name: redPoolName, Namespace: redPoolNamespace}: RoutePolicyMap{
+				resource.Key{Name: redPoolName}: RoutePolicyMap{
 					redPeer65001v4PodIPPoolRPName: redPeer65001v4PodIPPoolRP,
 					redPeer65001v6PodIPPoolRPName: redPeer65001v6PodIPPoolRP,
 				},
-				resource.Key{Name: bluePoolName, Namespace: bluePoolNamespace}: RoutePolicyMap{
+				resource.Key{Name: bluePoolName}: RoutePolicyMap{
 					bluePeer65001v4PodIPPoolRPName: bluePeer65001v4PodIPPoolRP,
 					bluePeer65001v6PodIPPoolRPName: bluePeer65001v6PodIPPoolRP,
 				},
@@ -373,7 +366,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				Peers:    []v2alpha1.CiliumBGPNodePeer{redPeer65001, bluePeer65001},
 			},
 			expectedPoolAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
-				{Name: redPoolName, Namespace: redPoolNamespace}: {
+				{Name: redPoolName}: {
 					{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 						string(redPoolNodePrefix1v4): struct{}{},
 						string(redPoolNodePrefix2v4): struct{}{},
@@ -383,7 +376,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 						string(redPoolNodePrefix2v6): struct{}{},
 					},
 				},
-				{Name: bluePoolName, Namespace: bluePoolNamespace}: {
+				{Name: bluePoolName}: {
 					{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 						string(bluePoolNodePrefix1v4): struct{}{},
 						string(bluePoolNodePrefix2v4): struct{}{},
@@ -395,11 +388,11 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				},
 			},
 			expectedRPs: ResourceRoutePolicyMap{
-				resource.Key{Name: redPoolName, Namespace: redPoolNamespace}: RoutePolicyMap{
+				resource.Key{Name: redPoolName}: RoutePolicyMap{
 					redPeer65001v4PodIPPoolRPName: redPeer65001v4PodIPPoolRP,
 					redPeer65001v6PodIPPoolRPName: redPeer65001v6PodIPPoolRP,
 				},
-				resource.Key{Name: bluePoolName, Namespace: bluePoolNamespace}: RoutePolicyMap{
+				resource.Key{Name: bluePoolName}: RoutePolicyMap{
 					bluePeer65001v4PodIPPoolRPName: bluePeer65001v4PodIPPoolRP,
 					bluePeer65001v6PodIPPoolRPName: bluePeer65001v6PodIPPoolRP,
 				},
@@ -517,7 +510,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				redPool,
 			},
 			preconfiguredPoolAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
-				{Name: "unknown", Namespace: "default"}: {
+				{Name: "unknown"}: {
 					{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 						"10.10.1.0/24": struct{}{},
 						"10.10.2.0/24": struct{}{},
@@ -529,11 +522,11 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				},
 			},
 			preconfiguredRPs: ResourceRoutePolicyMap{
-				resource.Key{Name: redPoolName, Namespace: redPoolNamespace}: RoutePolicyMap{
+				resource.Key{Name: redPoolName}: RoutePolicyMap{
 					redPeer65001v4PodIPPoolRPName: redPeer65001v4PodIPPoolRP,
 					redPeer65001v6PodIPPoolRPName: redPeer65001v6PodIPPoolRP,
 				},
-				resource.Key{Name: bluePoolName, Namespace: bluePoolNamespace}: RoutePolicyMap{
+				resource.Key{Name: bluePoolName}: RoutePolicyMap{
 					bluePeer65001v4PodIPPoolRPName: bluePeer65001v4PodIPPoolRP,
 					bluePeer65001v6PodIPPoolRPName: bluePeer65001v6PodIPPoolRP,
 				},
@@ -567,7 +560,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				Peers:    []v2alpha1.CiliumBGPNodePeer{redPeer65001, bluePeer65001},
 			},
 			expectedPoolAFPaths: map[resource.Key]map[types.Family]map[string]struct{}{
-				{Name: redPoolName, Namespace: redPoolNamespace}: {
+				{Name: redPoolName}: {
 					{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
 						string(redPoolNodePrefix1v4): struct{}{},
 						string(redPoolNodePrefix2v4): struct{}{},
@@ -579,7 +572,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 				},
 			},
 			expectedRPs: ResourceRoutePolicyMap{
-				resource.Key{Name: redPoolName, Namespace: redPoolNamespace}: RoutePolicyMap{
+				resource.Key{Name: redPoolName}: RoutePolicyMap{
 					redPeer65001v4PodIPPoolRPName: redPeer65001v4PodIPPoolRP,
 					redPeer65001v6PodIPPoolRPName: redPeer65001v6PodIPPoolRP,
 				},
