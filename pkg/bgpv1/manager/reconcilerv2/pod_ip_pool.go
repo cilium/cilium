@@ -399,7 +399,7 @@ func (r *PodIPPoolReconciler) getPodIPPoolPolicy(p ReconcileParams, peer string,
 		return nil, nil
 	}
 
-	policyName := PolicyName(peer, family.Afi.String(), fmt.Sprintf("%s-%s", pool.Name, pool.Namespace))
+	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, pool.Name)
 	return CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, advert)
 }
 
