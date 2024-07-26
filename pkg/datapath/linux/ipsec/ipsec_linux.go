@@ -1146,6 +1146,9 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 		ipSecKey.ESN = esn
 
 		if oldKey, ok := ipSecKeysGlobal[""]; ok {
+			if oldKey.Spi == spi {
+				return 0, 0, fmt.Errorf("invalid SPI: changing IPSec keys requires incrementing the key id")
+			}
 			ipSecKeysRemovalTime[oldKey.Spi] = time.Now()
 		}
 		ipSecKeysGlobal[""] = ipSecKey
