@@ -336,36 +336,31 @@ func formatNodeStatus(w io.Writer, node *models.NodeStatus, allNodes, verbose, l
 	}
 
 	if !nodeIsHealthy(node) {
-		ips := []string{getPrimaryAddressIP(node)}
-		for _, addr := range GetHostSecondaryAddresses(node) {
-			if addr == nil {
-				continue
-			}
-			ips = append(ips, addr.IP)
-		}
-		fmt.Fprintf(w, "  %s%s\t%s\t%s\t%s\n", node.Name,
-			localStr, strings.Join(ips, ","),
-			SummarizePathConnectivityStatusType(GetAllHostAddresses(node)).String(),
-			SummarizePathConnectivityStatusType(GetAllEndpointAddresses(node)).String())
+		printNode(w, node, localStr)
 		return true
 	}
 
 	if allNodes {
-		ips := []string{getPrimaryAddressIP(node)}
-		for _, addr := range GetHostSecondaryAddresses(node) {
-			if addr == nil {
-				continue
-			}
-			ips = append(ips, addr.IP)
-		}
-		fmt.Fprintf(w, "  %s%s\t%s\t%s\t%s\n", node.Name,
-			localStr, strings.Join(ips, ","),
-			SummarizePathConnectivityStatusType(GetAllHostAddresses(node)).String(),
-			SummarizePathConnectivityStatusType(GetAllEndpointAddresses(node)).String())
+		printNode(w, node, localStr)
 		return true
 	}
 
 	return false
+}
+
+// printNode prints the node name, primary address, and connectivity status to the writer.
+func printNode(w io.Writer, node *models.NodeStatus, localStr string) {
+	ips := []string{getPrimaryAddressIP(node)}
+	for _, addr := range GetHostSecondaryAddresses(node) {
+		if addr == nil {
+			continue
+		}
+		ips = append(ips, addr.IP)
+	}
+	fmt.Fprintf(w, "  %s%s\t%s\t%s\t%s\n", node.Name,
+		localStr, strings.Join(ips, ","),
+		SummarizePathConnectivityStatusType(GetAllHostAddresses(node)).String(),
+		SummarizePathConnectivityStatusType(GetAllEndpointAddresses(node)).String())
 }
 
 // FormatHealthStatusResponse writes a HealthStatusResponse as a string to the
@@ -393,8 +388,7 @@ func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, al
 		healthy, len(sr.Nodes), sr.Timestamp)
 
 	if localhost != nil {
-		printed := formatNodeStatus(w, localhost, allNodes, verbose, true)
-		if printed {
+		if formatNodeStatus(w, localhost, allNodes, verbose, true) {
 			printedLines++
 		}
 	}
@@ -410,8 +404,7 @@ func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, al
 		if node == localhost {
 			continue
 		}
-		printed := formatNodeStatus(w, node, allNodes, verbose, false)
-		if printed {
+		if formatNodeStatus(w, node, allNodes, verbose, false) {
 			printedLines++
 		}
 	}
