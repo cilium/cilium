@@ -1554,7 +1554,8 @@ func (kub *Kubectl) waitForNPods(checkStatus checkPodStatusFunc, namespace strin
 			fmt.Println("[tom-debug] checking pod", pod.Name, "restarts", pod.Status.ContainerStatuses[0].RestartCount)
 			// Check number of restarts
 			for _, container := range pod.Status.ContainerStatuses {
-				if container.Name == "cilium-agent" && container.RestartCount > 0 {
+				if container.RestartCount > 0 {
+					fmt.Println("[tom-debug] Pod", pod.Name, "has restarts", container.RestartCount, "in container:", container.Name)
 					logs := kub.ExecShort(fmt.Sprintf("%s -n %s logs %s", KubectlCmd, namespace, pod.Name))
 					fmt.Println("[tom-debug] ----------------------")
 					fmt.Println(logs.Stdout())
