@@ -822,7 +822,7 @@ func (r *ServiceReconciler) getLBRoutePolicy(p ReconcileParams, peer string, fam
 		return nil, nil
 	}
 
-	policyName := PolicyName(peer, family.Afi.String(), fmt.Sprintf("%s-%s", lbPool.Name, lbPool.Namespace))
+	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, lbPool.Name)
 	policy, err := CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, advert)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create lb pool route policy: %w", err)
@@ -907,7 +907,7 @@ func (r *ServiceReconciler) getExternalIPRoutePolicy(p ReconcileParams, peer str
 		return nil, nil
 	}
 
-	policyName := PolicyName(peer, family.Afi.String(), fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2alpha1.BGPExternalIPAddr))
+	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2alpha1.BGPExternalIPAddr))
 	policy, err := CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, advert)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create external IP route policy: %w", err)
@@ -1000,7 +1000,7 @@ func (r *ServiceReconciler) getClusterIPRoutePolicy(p ReconcileParams, peer stri
 		return nil, nil
 	}
 
-	policyName := PolicyName(peer, family.Afi.String(), fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2alpha1.BGPClusterIPAddr))
+	policyName := PolicyName(peer, family.Afi.String(), advert.AdvertisementType, fmt.Sprintf("%s-%s-%s", svc.Name, svc.Namespace, v2alpha1.BGPClusterIPAddr))
 	policy, err := CreatePolicy(policyName, peerAddr, v4Prefixes, v6Prefixes, advert)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cluster IP route policy: %w", err)
