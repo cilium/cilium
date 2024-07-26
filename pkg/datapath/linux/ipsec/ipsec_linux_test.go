@@ -39,11 +39,14 @@ func setupIPSecSuitePrivileged(tb testing.TB) *slog.Logger {
 }
 
 var (
-	path           = "ipsec_keys_test"
-	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n1 digest_null \"\" cipher_null \"\"\n")
-	keysAeadDat    = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
-	keysAeadDat256 = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f144434241343332312423222114131211 128\n")
-	invalidKeysDat = []byte("1 test abcdefghijklmnopqrstuvwzyzABCDEF test abcdefghijklmnopqrstuvwzyzABCDEF\n")
+	path             = "ipsec_keys_test"
+	keyDat           = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n")
+	keyNullDat       = []byte("2 digest_null \"\" cipher_null \"\"\n")
+	keyAeadDat       = []byte("3 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
+	keyAead256Dat    = []byte("4 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f144434241343332312423222114131211 128\n")
+	keyInvalidDat    = []byte("1 test abcdefghijklmnopqrstuvwzyzABCDEF test abcdefghijklmnopqrstuvwzyzABCDEF\n")
+	keysSameSpiDat   = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n1 digest_null \"\" cipher_null \"\"\n")
+	keysDuplicateDat = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
 )
 
 func TestLoadKeysNoFile(t *testing.T) {
@@ -56,7 +59,7 @@ func TestLoadKeysNoFile(t *testing.T) {
 func TestInvalidLoadKeys(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
-	keys := bytes.NewReader(invalidKeysDat)
+	keys := bytes.NewReader(keyInvalidDat)
 	_, _, err := LoadIPSecKeys(log, keys)
 	require.Error(t, err)
 
@@ -72,14 +75,29 @@ func TestInvalidLoadKeys(t *testing.T) {
 func TestLoadKeys(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
-	testCases := [][]byte{keysDat, keysAeadDat, keysAeadDat256}
-	for _, testCase := range testCases {
+	for _, testCase := range [][]byte{keyDat, keyNullDat, keyAeadDat, keyAead256Dat} {
 		keys := bytes.NewReader(testCase)
 		_, spi, err := LoadIPSecKeys(log, keys)
 		require.NoError(t, err)
 		err = SetIPSecSPI(log, spi)
 		require.NoError(t, err)
 	}
+}
+
+func TestLoadKeysIdentical(t *testing.T) {
+	log := setupIPSecSuitePrivileged(t)
+
+	keys := bytes.NewReader(keysDuplicateDat)
+	_, _, err := LoadIPSecKeys(log, keys)
+	require.NoError(t, err)
+}
+
+func TestLoadKeysSameSPI(t *testing.T) {
+	log := setupIPSecSuitePrivileged(t)
+
+	keys := bytes.NewReader(keysSameSpiDat)
+	_, _, err := LoadIPSecKeys(log, keys)
+	require.Error(t, err)
 }
 
 func TestParseSPI(t *testing.T) {

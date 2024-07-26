@@ -18,6 +18,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -1074,7 +1075,6 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		var (
-			oldSpi     uint8
 			aeadKey    []byte
 			authKey    []byte
 			esn        bool
@@ -1157,12 +1157,19 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 		ipSecKey.Spi = spi
 		ipSecKey.ESN = esn
 
-		if ipSecKeysGlobal[""] != nil {
-			oldSpi = ipSecKeysGlobal[""].Spi
-		}
-		ipSecKeysGlobal[""] = ipSecKey
+		if oldKey, ok := ipSecKeysGlobal[""]; ok {
+			if reflect.DeepEqual(oldKey, ipSecKey) {
+				continue
+			}
 
-		ipSecKeysRemovalTime[oldSpi] = time.Now()
+			if oldKey.Spi == spi {
+				return 0, 0, fmt.Errorf("invalid SPI: new value must differ from the previous one")
+			}
+
+			ipSecKeysRemovalTime[oldKey.Spi] = time.Now()
+		}
+
+		ipSecKeysGlobal[""] = ipSecKey
 		ipSecCurrentKeySPI = spi
 	}
 	return keyLen, spi, nil
