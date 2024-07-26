@@ -215,17 +215,6 @@ func (m *Manager) removeCiliumRules(table string, prog runnable, match string) e
 			continue
 		}
 
-		// Temporary fix while Iptables is upgraded to >= 1.8.5
-		// (See GH-20884).
-		//
-		// The version currently shipped with Cilium (1.8.4) does not
-		// support the deletion of NOTRACK rules, so we will just ignore
-		// them here and let the agent remove them when it deletes the
-		// entire chain.
-		if strings.Contains(rule, "-j NOTRACK") {
-			continue
-		}
-
 		// do not remove feeder for chains that are set to be disabled
 		// ie catch the beginning of the rule like -A POSTROUTING to match it against
 		// disabled chains
