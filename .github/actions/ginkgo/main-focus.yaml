@@ -32,6 +32,7 @@ focus:
 - "f18-datapath-bgp-lrp"
 - "f19-update"
 - "f20-kafka"
+- "f21-datapath-misc-3"
 include:
   ###
   # K8sAgentChaosTest Connectivity demo application Endpoint can still connect while Cilium is not running
@@ -114,11 +115,14 @@ include:
   # K8sDatapathConfig Check BPF masquerading with ip-masq-agent DirectRouting, IPv4 only
   # K8sDatapathConfig Check BPF masquerading with ip-masq-agent VXLAN
   # K8sDatapathConfig High-scale IPcache Test ingress policy enforcement with GENEVE and endpoint routes
+  - focus: "f09-datapath-misc-2"
+    cliFocus: "K8sDatapathConfig WireGuard encryption strict mode|K8sDatapathConfig Check|K8sDatapathConfig IPv4Only|K8sDatapathConfig High-scale"
+
   # K8sDatapathConfig Iptables Skip conntrack for pod traffic
   # K8sDatapathConfig IPv4Only Check connectivity with IPv6 disabled
   # K8sDatapathConfig IPv6 masquerading across K8s nodes, skipped due to native routing CIDR
-  - focus: "f09-datapath-misc-2"
-    cliFocus: "K8sDatapathConfig WireGuard encryption strict mode|K8sDatapathConfig Check|K8sDatapathConfig IPv4Only|K8sDatapathConfig High-scale|K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only|K8sDatapathConfig IPv6"
+  - focus: "f21-datapath-misc-3"
+    cliFocus: "K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only|K8sDatapathConfig IPv6"
 
   ###
   # K8sAgentHubbleTest Hubble Observe Test FQDN Policy with Relay
