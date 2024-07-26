@@ -2494,13 +2494,29 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 	// Do not schedule cilium-agent on the NO_CILIUM_ON_NODE nodes
 	noCiliumNodes := GetNodesWithoutCilium()
 	if len(noCiliumNodes) > 0 {
-		opts := map[string]string{
-			"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key":      "cilium.io/ci-node",
-			"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator": "NotIn",
-		}
-		for i, n := range noCiliumNodes {
-			key := fmt.Sprintf("affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[%d]", i)
-			opts[key] = kub.GetNodeCILabel(n)
+		opts := make(map[string]string)
+		// Component represents the path within the top level of the
+		// Cilium values.yaml configuration for a specific resource.
+		for _, component := range []string{
+			"", // cilium-agent
+			"envoy",
+			"hubble.relay",
+			"operator",
+			"preflight",
+		} {
+			prefix := strings.TrimPrefix(
+				strings.Join(
+					append(
+						[]string{component},
+						"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0]",
+					), ".",
+				), ".")
+			opts[prefix+".key"] = "cilium.io/ci-node"
+			opts[prefix+".operator"] = "NotIn"
+			for i, n := range noCiliumNodes {
+				key := prefix + fmt.Sprintf(".values[%d]", i)
+				opts[key] = kub.GetNodeCILabel(n)
+			}
 		}
 		for key, value := range opts {
 			options = addIfNotOverwritten(options, key, value)
