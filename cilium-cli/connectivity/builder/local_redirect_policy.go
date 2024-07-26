@@ -27,6 +27,10 @@ func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]stri
 		WithCondition(func() bool {
 			return versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion)
 		}).
+		WithCondition(func() bool {
+			// Disable until https://github.com/cilium/cilium-cli/issues/2733 is fixed.
+			return false
+		}).
 		WithCiliumLocalRedirectPolicy(check.CiliumLocalRedirectPolicyParams{
 			Policy:                  localRedirectPolicyYAML,
 			Name:                    "lrp-address-matcher",
