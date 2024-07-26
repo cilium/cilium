@@ -206,7 +206,7 @@ func (r *PodCIDRReconciler) getDesiredRoutePolicies(p ReconcileParams, desiredPe
 				}
 
 				if len(v6Prefixes) > 0 || len(v4Prefixes) > 0 {
-					name := PolicyName(peer, fam.Afi.String(), string(advert.AdvertisementType))
+					name := PolicyName(peer, fam.Afi.String(), advert.AdvertisementType, "")
 					policy, err := CreatePolicy(name, peerAddr, v4Prefixes, v6Prefixes, advert)
 					if err != nil {
 						return nil, err

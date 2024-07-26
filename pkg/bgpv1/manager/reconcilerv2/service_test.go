@@ -32,7 +32,7 @@ var (
 
 var (
 	redSvcKey           = resource.Key{Name: "red-svc", Namespace: "non-default"}
-	redLBPoolKey        = resource.Key{Name: "red-lb-pool", Namespace: "non-default"}
+	redLBPoolKey        = resource.Key{Name: "red-lb-pool"}
 	redSvcSelector      = &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "red"}}
 	mismatchSvcSelector = &slim_metav1.LabelSelector{MatchLabels: map[string]string{"color": "blue"}}
 	ingressV4           = "192.168.0.1"
@@ -52,9 +52,8 @@ var (
 
 	redLBPool = &v2alpha1.CiliumLoadBalancerIPPool{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "red-lb-pool",
-			Namespace: "non-default",
-			Labels:    redSvcSelector.MatchLabels,
+			Name:   "red-lb-pool",
+			Labels: redSvcSelector.MatchLabels,
 		},
 		Spec: v2alpha1.CiliumLoadBalancerIPPoolSpec{
 			Blocks: []v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
@@ -96,7 +95,7 @@ var (
 		return cp
 	}
 
-	redPeer65001v4LBRPName = PolicyName("red-peer-65001", "ipv4", "red-lb-pool-non-default")
+	redPeer65001v4LBRPName = PolicyName("red-peer-65001", "ipv4", v2alpha1.BGPServiceAdvert, "red-lb-pool")
 	redPeer65001v4LBRP     = &types.RoutePolicy{
 		Name: redPeer65001v4LBRPName,
 		Type: types.RoutePolicyTypeExport,
@@ -120,7 +119,7 @@ var (
 		},
 	}
 
-	redPeer65001v6LBRPName = PolicyName("red-peer-65001", "ipv6", "red-lb-pool-non-default")
+	redPeer65001v6LBRPName = PolicyName("red-peer-65001", "ipv6", v2alpha1.BGPServiceAdvert, "red-lb-pool")
 	redPeer65001v6LBRP     = &types.RoutePolicy{
 		Name: redPeer65001v6LBRPName,
 		Type: types.RoutePolicyTypeExport,
@@ -165,7 +164,7 @@ var (
 		return cp
 	}
 
-	redPeer65001v4ExtRPName = PolicyName("red-peer-65001", "ipv4", "red-svc-non-default-ExternalIP")
+	redPeer65001v4ExtRPName = PolicyName("red-peer-65001", "ipv4", v2alpha1.BGPServiceAdvert, "red-svc-non-default-ExternalIP")
 	redPeer65001v4ExtRP     = &types.RoutePolicy{
 		Name: redPeer65001v4ExtRPName,
 		Type: types.RoutePolicyTypeExport,
@@ -189,7 +188,7 @@ var (
 		},
 	}
 
-	redPeer65001v6ExtRPName = PolicyName("red-peer-65001", "ipv6", "red-svc-non-default-ExternalIP")
+	redPeer65001v6ExtRPName = PolicyName("red-peer-65001", "ipv6", v2alpha1.BGPServiceAdvert, "red-svc-non-default-ExternalIP")
 	redPeer65001v6ExtRP     = &types.RoutePolicy{
 		Name: redPeer65001v6ExtRPName,
 		Type: types.RoutePolicyTypeExport,
@@ -235,7 +234,7 @@ var (
 		return cp
 	}
 
-	redPeer65001v4ClusterRPName = PolicyName("red-peer-65001", "ipv4", "red-svc-non-default-ClusterIP")
+	redPeer65001v4ClusterRPName = PolicyName("red-peer-65001", "ipv4", v2alpha1.BGPServiceAdvert, "red-svc-non-default-ClusterIP")
 	redPeer65001v4ClusterRP     = &types.RoutePolicy{
 		Name: redPeer65001v4ClusterRPName,
 		Type: types.RoutePolicyTypeExport,
@@ -259,7 +258,7 @@ var (
 		},
 	}
 
-	redPeer65001v6ClusterRPName = PolicyName("red-peer-65001", "ipv6", "red-svc-non-default-ClusterIP")
+	redPeer65001v6ClusterRPName = PolicyName("red-peer-65001", "ipv6", v2alpha1.BGPServiceAdvert, "red-svc-non-default-ClusterIP")
 	redPeer65001v6ClusterRP     = &types.RoutePolicy{
 		Name: redPeer65001v6ClusterRPName,
 		Type: types.RoutePolicyTypeExport,
