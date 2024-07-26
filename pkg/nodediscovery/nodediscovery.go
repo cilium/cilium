@@ -105,7 +105,7 @@ func NewNodeDiscovery(manager nodemanager.NodeManager, clientset client.Clientse
 		auxPrefixes = append(auxPrefixes, serviceCIDR)
 	}
 
-	return &NodeDiscovery{
+	nd := &NodeDiscovery{
 		Manager: manager,
 		LocalConfig: datapath.LocalNodeConfiguration{
 			MtuConfig:               mtuConfig,
@@ -129,6 +129,8 @@ func NewNodeDiscovery(manager nodemanager.NodeManager, clientset client.Clientse
 		NetConf:               netConf,
 		clientset:             clientset,
 	}
+	nd.earlyFillLocalNode()
+	return nd
 }
 
 // JoinCluster passes the node name to the kvstore and updates the local configuration on response.
@@ -229,10 +231,16 @@ func (n *NodeDiscovery) ClusterSizeDependantInterval(baseInterval time.Duration)
 	return n.Manager.ClusterSizeDependantInterval(baseInterval)
 }
 
-func (n *NodeDiscovery) fillLocalNode() {
+func (n *NodeDiscovery) earlyFillLocalNode() {
 	n.localNode.Name = nodeTypes.GetName()
-	n.localNode.Cluster = option.Config.ClusterName
 	n.localNode.IPAddresses = []nodeTypes.Address{}
+	n.localNode.NodeIdentity = uint32(identity.ReservedIdentityHost)
+	n.localNode.BootID = node.GetBootID()
+}
+
+func (n *NodeDiscovery) fillLocalNode() {
+	n.earlyFillLocalNode()
+	n.localNode.Cluster = option.Config.ClusterName
 	n.localNode.IPv4AllocCIDR = node.GetIPv4AllocRange()
 	n.localNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
 	n.localNode.IPv4HealthIP = node.GetEndpointHealthIPv4()
@@ -243,8 +251,6 @@ func (n *NodeDiscovery) fillLocalNode() {
 	n.localNode.EncryptionKey = node.GetEncryptKeyIndex()
 	n.localNode.WireguardPubKey = node.GetWireguardPubKey()
 	n.localNode.Labels = node.GetLabels()
-	n.localNode.NodeIdentity = uint32(identity.ReservedIdentityHost)
-	n.localNode.BootID = node.GetBootID()
 
 	if option.Config.JoinCluster {
 		// Ensure that we propagate the identity allocated by the clustermesh-apiserver
