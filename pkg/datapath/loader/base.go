@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -342,9 +343,9 @@ func (l *loader) reinitializeWireguard(ctx context.Context) (err error) {
 	return
 }
 
-func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string, devices []string) error {
-	l.maybeUnloadObsoleteXDPPrograms(devices, option.Config.XDPMode, bpf.CiliumPath())
-	if option.Config.XDPMode == option.XDPModeDisabled {
+func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string, devices []string, xdpConfig xdp.Config) error {
+	l.maybeUnloadObsoleteXDPPrograms(devices, xdpConfig.Mode(), bpf.CiliumPath())
+	if xdpConfig.Disabled() {
 		return nil
 	}
 	for _, dev := range devices {
@@ -356,7 +357,7 @@ func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string,
 			continue
 		}
 
-		if err := compileAndLoadXDPProg(ctx, dev, option.Config.XDPMode, extraCArgs); err != nil {
+		if err := compileAndLoadXDPProg(ctx, dev, xdpConfig.Mode(), extraCArgs); err != nil {
 			if option.Config.NodePortAcceleration == option.XDPModeBestEffort {
 				log.WithError(err).WithField(logfields.Device, dev).Info("Failed to attach XDP program, ignoring due to best-effort mode")
 			} else {
@@ -379,7 +380,7 @@ func (l *loader) ReinitializeXDP(ctx context.Context, cfg *datapath.LocalNodeCon
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
 	devices := cfg.DeviceNames()
-	return l.reinitializeXDPLocked(ctx, extraCArgs, devices)
+	return l.reinitializeXDPLocked(ctx, extraCArgs, devices, cfg.XDPConfig)
 }
 
 func (l *loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
@@ -513,7 +514,7 @@ func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfig
 	}
 
 	extraArgs := []string{"-Dcapture_enabled=0"}
-	if err := l.reinitializeXDPLocked(ctx, extraArgs, devices); err != nil {
+	if err := l.reinitializeXDPLocked(ctx, extraArgs, devices, cfg.XDPConfig); err != nil {
 		log.WithError(err).Fatal("Failed to compile XDP program")
 	}
 

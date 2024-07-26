@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -77,6 +78,7 @@ type orchestratorParams struct {
 	Lifecycle           cell.Lifecycle
 	EndpointManager     endpointmanager.EndpointManager
 	ConfigPromise       promise.Promise[*option.DaemonConfig]
+	XDPConfig           xdp.Config
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -160,6 +162,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.DirectRoutingDevice,
 			o.params.Devices,
 			o.params.NodeAddresses,
+			o.params.XDPConfig,
 		)
 		if err != nil {
 			health.Degraded("failed to get local node configuration", err)

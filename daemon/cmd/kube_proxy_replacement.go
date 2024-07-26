@@ -129,13 +129,6 @@ func initKubeProxyReplacementOptions(sysctl sysctl.Sysctl, tunnelConfig tunnel.C
 		}
 
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
-			option.Config.NodePortAcceleration != option.NodePortAccelerationGeneric &&
-			option.Config.NodePortAcceleration != option.NodePortAccelerationNative &&
-			option.Config.NodePortAcceleration != option.NodePortAccelerationBestEffort {
-			return fmt.Errorf("Invalid value for --%s: %s", option.NodePortAcceleration, option.Config.NodePortAcceleration)
-		}
-
-		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
 			option.Config.EnableWireguard && option.Config.EncryptNode {
 			log.WithField(logfields.Hint,
 				"Disable XDP acceleration to encrypt N/S Loadbalancer traffic.").
@@ -389,12 +382,6 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 		}
 	}
 
-	if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
-		if err := setXDPMode(option.Config.NodePortAcceleration); err != nil {
-			return fmt.Errorf("Cannot set NodePort acceleration: %w", err)
-		}
-	}
-
 	option.Config.NodePortNat46X64 = option.Config.IsDualStack() &&
 		option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
 		option.Config.NodePortMode == option.NodePortModeSNAT
@@ -602,29 +589,5 @@ func checkNodePortAndEphemeralPortRanges(sysctl sysctl.Sysctl) error {
 			nodePortRangeStr, err)
 	}
 
-	return nil
-}
-
-func setXDPMode(mode string) error {
-	switch mode {
-	case option.XDPModeNative, option.XDPModeBestEffort:
-		if option.Config.XDPMode == option.XDPModeLinkNone ||
-			option.Config.XDPMode == option.XDPModeLinkDriver {
-			option.Config.XDPMode = option.XDPModeLinkDriver
-		} else {
-			return fmt.Errorf("XDP Mode conflict: current mode is %s, trying to set conflicting %s",
-				option.Config.XDPMode, option.XDPModeLinkDriver)
-		}
-	case option.XDPModeGeneric:
-		if option.Config.XDPMode == option.XDPModeLinkNone ||
-			option.Config.XDPMode == option.XDPModeLinkGeneric {
-			option.Config.XDPMode = option.XDPModeLinkGeneric
-		} else {
-			return fmt.Errorf("XDP Mode conflict: current mode is %s, trying to set conflicting %s",
-				option.Config.XDPMode, option.XDPModeLinkGeneric)
-		}
-	case option.XDPModeDisabled:
-		break
-	}
 	return nil
 }

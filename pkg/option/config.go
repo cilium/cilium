@@ -3323,8 +3323,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	}
 	c.IPv6PodSubnets = subnets
 
-	c.XDPMode = XDPModeLinkNone
-
 	err = c.populateNodePortRange(vp)
 	if err != nil {
 		log.WithError(err).Fatal("Failed to populate NodePortRange")
