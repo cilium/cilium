@@ -2,7 +2,7 @@
 
 exemptions:
   - check: slack_presence
-    reason: "The Cilium slack community can be found at http://slack.cilium.io/" # Justification of this exemption
+    reason: "The Cilium slack community can be found at https://slack.cilium.io" # Justification of this exemption
 
   - check: dangerous_workflow
     reason: >
