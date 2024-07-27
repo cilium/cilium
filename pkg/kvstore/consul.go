@@ -122,7 +122,7 @@ func (c *consulModule) getConfig() map[string]string {
 
 func (c *consulModule) newClient(ctx context.Context, opts *ExtraOptions) (BackendOperations, chan error) {
 	log.WithFields(logrus.Fields{
-		logfields.URL: "https://cilium.herokuapp.com/",
+		logfields.URL: "https://slack.cilium.io",
 	}).Warning("Support for Consul as a kvstore backend has been deprecated due to lack of maintainers. If you are interested in helping to maintain Consul support in Cilium, please reach out on GitHub or the official Cilium slack")
 
 	errChan := make(chan error, 1)

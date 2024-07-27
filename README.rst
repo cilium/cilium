@@ -277,7 +277,7 @@ Community
 Slack
 -----
 
-Join the Cilium `Slack channel <https://cilium.herokuapp.com/>`_ to chat with
+Join the Cilium `Slack channel <https://slack.cilium.io>`_ to chat with
 Cilium developers and other Cilium users. This is a good place to learn about
 Cilium, ask questions, and share your experiences.
 
@@ -367,7 +367,7 @@ and the `2-Clause BSD License <bsd-license_>`__
 
 .. |slack| image:: https://img.shields.io/badge/slack-cilium-brightgreen.svg?logo=slack
     :alt: Join the Cilium slack channel
-    :target: https://cilium.herokuapp.com/
+    :target: https://slack.cilium.io
 
 .. |cii| image:: https://bestpractices.coreinfrastructure.org/projects/1269/badge
     :alt: CII Best Practices

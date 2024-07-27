@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report! If you have usage questions, please try the [slack channel](http://slack.cilium.io/) and see the [FAQ](https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is:issue+label:kind/question+) first.
+        Thanks for taking the time to fill out this bug report! If you have usage questions, please try the [slack channel](https://slack.cilium.io) and see the [FAQ](https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is:issue+label:kind/question+) first.
 
         **Important**: For security related issues: We strongly encourage you to report security vulnerabilities to the private security mailing list: security@cilium.io - first, before disclosing them in any public forums.
   - type: checkboxes
