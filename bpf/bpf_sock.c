@@ -132,15 +132,6 @@ struct {
 	__uint(max_entries, LB4_REVERSE_NAT_SK_MAP_SIZE);
 } LB4_REVERSE_NAT_SK_MAP __section_maps_btf;
 
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct skip_lb4_key);
-	__type(value, __u8);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} LB4_SKIP_MAP __section_maps_btf;
-
 static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb4_backend *backend,
 					       const struct lb4_key *orig_key,
@@ -245,47 +236,6 @@ sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
 	return NULL;
 }
 
-#ifdef ENABLE_LOCAL_REDIRECT_POLICY
-/* Service translation logic for a local-redirect service can cause packets to
- * be looped back to a service node-local backend after translation. This can
- * happen when the node-local backend itself tries to connect to the service
- * frontend for which it acts as a backend. There are cases where this can break
- * traffic flow if the backend needs to forward the redirected traffic to the
- * actual service frontend. Hence, allow service translation for pod traffic
- * getting redirected to backend (across network namespaces), but skip service
- * translation for backend to itself or another service backend within the same
- * namespace. Currently only v4 and v4-in-v6, but no plain v6 is supported.
- *
- * For example, in EKS cluster, a local-redirect service exists with the AWS
- * metadata IP, port as the frontend <169.254.169.254, 80> and kiam proxy as a
- * backend Pod. When traffic destined to the frontend originates from the kiam
- * Pod in namespace ns1 (host ns when the kiam proxy Pod is deployed in
- * hostNetwork mode or regular Pod ns) and the Pod is selected as a backend, the
- * traffic would get looped back to the proxy Pod.
- */
-static __always_inline bool
-sock4_skip_xlate_from_ctx_to_svc(struct bpf_sock_addr *ctx __maybe_unused,
-				 __be32 address __maybe_unused, __be16 port __maybe_unused)
-{
-#ifdef HAVE_NETNS_COOKIE
-	__net_cookie cookie = get_netns_cookie(ctx);
-	struct skip_lb4_key key;
-	__u8 *val = NULL;
-
-	memset(&key, 0, sizeof(key));
-	key.netns_cookie = cookie;
-	key.address = address;
-	key.port = port;
-	val = map_lookup_elem(&LB4_SKIP_MAP, &key);
-	if (val)
-		return true;
-	return false;
-#else
-	return false;
-#endif
-}
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
-
 static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full,
 					     const bool udp_only)
@@ -339,7 +289,8 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 
 #ifdef ENABLE_LOCAL_REDIRECT_POLICY
 	if (lb4_svc_is_localredirect(svc) &&
-	    sock4_skip_xlate_from_ctx_to_svc(ctx_full, orig_key.address, orig_key.dport))
+	    lb4_skip_xlate_from_ctx_to_svc(get_netns_cookie(ctx_full),
+					   orig_key.address, orig_key.dport))
 		return -ENXIO;
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
@@ -658,14 +609,6 @@ struct {
 	__uint(max_entries, LB6_REVERSE_NAT_SK_MAP_SIZE);
 } LB6_REVERSE_NAT_SK_MAP __section_maps_btf;
 
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct skip_lb6_key);
-	__type(value, __u8);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
-} LB6_SKIP_MAP __section_maps_btf;
-
 static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb6_backend *backend,
 					       const struct lb6_key *orig_key,
@@ -693,29 +636,6 @@ static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
 					       union v6addr *addr);
 
-#ifdef ENABLE_LOCAL_REDIRECT_POLICY
-static __always_inline bool
-sock6_skip_xlate_from_ctx_to_svc(struct bpf_sock_addr *ctx __maybe_unused,
-				 const __be16 port __maybe_unused)
-{
-#ifdef HAVE_NETNS_COOKIE
-	__net_cookie cookie = get_netns_cookie(ctx);
-	struct skip_lb6_key key;
-	__u8 *val = NULL;
-
-	memset(&key, 0, sizeof(key));
-	key.netns_cookie = cookie;
-	ctx_get_v6_address(ctx, &key.address);
-	key.port = port;
-	val = map_lookup_elem(&LB6_SKIP_MAP, &key);
-	if (val)
-		return true;
-	return false;
-#else
-	return false;
-#endif
-}
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 #endif /* ENABLE_IPV6 */
 
 static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
@@ -1050,11 +970,11 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (sock6_skip_xlate(svc, &orig_key.address))
 		return -EPERM;
 
-#ifdef ENABLE_LOCAL_REDIRECT_POLICY
+#if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(HAVE_NETNS_COOKIE)
 	if (lb6_svc_is_localredirect(svc) &&
-	    sock6_skip_xlate_from_ctx_to_svc(ctx, orig_key.dport))
+	    lb6_skip_xlate_from_ctx_to_svc(get_netns_cookie(ctx), orig_key.address, orig_key.dport))
 		return -ENXIO;
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
+#endif /* ENABLE_LOCAL_REDIRECT_POLICY && HAVE_NETNS_COOKIE*/
 
 #ifdef ENABLE_L7_LB
 	/* See __sock4_xlate_fwd for commentary. */

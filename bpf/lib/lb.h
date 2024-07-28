@@ -92,9 +92,26 @@ struct {
 	});
 } LB6_MAGLEV_MAP_OUTER __section_maps_btf;
 #endif /* LB_SELECTION == LB_SELECTION_MAGLEV */
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct skip_lb6_key);
+	__type(value, __u8);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
+} LB6_SKIP_MAP __section_maps_btf;
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct skip_lb4_key);
+	__type(value, __u8);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} LB4_SKIP_MAP __section_maps_btf;
+
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, __u16);
@@ -860,6 +877,25 @@ lb6_to_lb4(struct __ctx_buff *ctx __maybe_unused,
 #endif
 }
 
+#ifdef ENABLE_LOCAL_REDIRECT_POLICY
+static __always_inline bool
+lb6_skip_xlate_from_ctx_to_svc(__net_cookie cookie,
+			       union v6addr addr __maybe_unused, __be16 port __maybe_unused)
+{
+	struct skip_lb6_key key;
+	__u8 *val = NULL;
+
+	memset(&key, 0, sizeof(key));
+	key.netns_cookie = cookie;
+	key.address = addr;
+	key.port = port;
+	val = map_lookup_elem(&LB6_SKIP_MAP, &key);
+	if (val)
+		return true;
+	return false;
+}
+#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
+
 static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     int l3_off, int l4_off,
 				     struct lb6_key *key,
@@ -867,7 +903,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     const struct lb6_service *svc,
 				     struct ct_state *state,
 				     const bool skip_l3_xlate,
-				     __s8 *ext_err)
+				     __s8 *ext_err,
+				     __net_cookie netns_cookie __maybe_unused)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__u8 flags = tuple->flags;
@@ -969,6 +1006,12 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	if (lb6_svc_is_affinity(svc))
 		lb6_update_affinity_by_addr(svc, &client_id, backend_id);
 #endif
+
+#if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(HAVE_NETNS_COOKIE)
+	if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
+	    lb6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
+		return CTX_ACT_OK;
+#endif /* ENABLE_LOCAL_REDIRECT_POLICY && HAVE_NETNS_COOKIE */
 
 	ipv6_addr_copy(&tuple->daddr, &backend->address);
 
@@ -1510,6 +1553,42 @@ lb4_to_lb6(struct __ctx_buff *ctx __maybe_unused,
 #endif
 }
 
+#ifdef ENABLE_LOCAL_REDIRECT_POLICY
+/* Service translation logic for a local-redirect service can cause packets to
+ * be looped back to a service node-local backend after translation. This can
+ * happen when the node-local backend itself tries to connect to the service
+ * frontend for which it acts as a backend. There are cases where this can break
+ * traffic flow if the backend needs to forward the redirected traffic to the
+ * actual service frontend. Hence, allow service translation for pod traffic
+ * getting redirected to backend (across network namespaces), but skip service
+ * translation for backend to itself or another service backend within the same
+ * namespace. Currently only v4 and v4-in-v6, but no plain v6 is supported.
+ *
+ * For example, in EKS cluster, a local-redirect service exists with the AWS
+ * metadata IP, port as the frontend <169.254.169.254, 80> and kiam proxy as a
+ * backend Pod. When traffic destined to the frontend originates from the kiam
+ * Pod in namespace ns1 (host ns when the kiam proxy Pod is deployed in
+ * hostNetwork mode or regular Pod ns) and the Pod is selected as a backend, the
+ * traffic would get looped back to the proxy Pod.
+ */
+static __always_inline bool
+lb4_skip_xlate_from_ctx_to_svc(__net_cookie cookie,
+			       __be32 address __maybe_unused, __be16 port __maybe_unused)
+{
+	struct skip_lb4_key key;
+	__u8 *val = NULL;
+
+	memset(&key, 0, sizeof(key));
+	key.netns_cookie = cookie;
+	key.address = address;
+	key.port = port;
+	val = map_lookup_elem(&LB4_SKIP_MAP, &key);
+	if (val)
+		return true;
+	return false;
+}
+#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
+
 static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     bool is_fragment, int l3_off, int l4_off,
 				     struct lb4_key *key,
@@ -1519,7 +1598,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     bool has_l4_header,
 				     const bool skip_l3_xlate,
 				     __u32 *cluster_id __maybe_unused,
-				     __s8 *ext_err)
+				     __s8 *ext_err,
+				     __net_cookie netns_cookie __maybe_unused)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__be32 saddr = tuple->saddr;
@@ -1627,19 +1707,31 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	if (lb4_svc_is_affinity(svc))
 		lb4_update_affinity_by_addr(svc, &client_id, backend_id);
 #endif
-#ifndef DISABLE_LOOPBACK_LB
-	/* Special loopback case: The origin endpoint has transmitted to a
-	 * service which is being translated back to the source. This would
-	 * result in a packet with identical source and destination address.
-	 * Linux considers such packets as martian source and will drop unless
-	 * received on a loopback device. Perform NAT on the source address
-	 * to make it appear from an outside address.
-	 */
+
+#if !defined(DISABLE_LOOPBACK_LB) || \
+	(defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(HAVE_NETNS_COOKIE))
 	if (saddr == backend->address) {
+	#if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(HAVE_NETNS_COOKIE)
+		if (netns_cookie > 0 && unlikely(lb4_svc_is_localredirect(svc)) &&
+		    lb4_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
+			return CTX_ACT_OK;
+	#endif /* ENABLE_LOCAL_REDIRECT_POLICY && HAVE_NETNS_COOKIE */
+
+		/* Special loopback case: The origin endpoint has transmitted to a
+		 * service which is being translated back to the source. This would
+		 * result in a packet with identical source and destination address.
+		 * Linux considers such packets as martian source and will drop unless
+		 * received on a loopback device. Perform NAT on the source address
+		 * to make it appear from an outside address.
+		 */
+	#ifndef DISABLE_LOOPBACK_LB
 		new_saddr = IPV4_LOOPBACK;
 		state->loopback = 1;
+	#endif
 	}
+#endif
 
+#ifndef DISABLE_LOOPBACK_LB
 	if (!state->loopback)
 #endif
 		tuple->daddr = backend->address;
