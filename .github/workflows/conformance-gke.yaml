@@ -63,7 +63,7 @@ env:
   cilium_cli_ci_version:
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 483.0.0
+  gcloud_version: 485.0.0
 
 jobs:
   echo-inputs:

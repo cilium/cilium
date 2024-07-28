@@ -67,7 +67,7 @@ env:
   gcp_zone: us-east5-a
   k8s_version: 1.28
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 483.0.0
+  gcloud_version: 485.0.0
 
 jobs:
   echo-inputs:
@@ -336,7 +336,7 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@c3a2f10946bf94430b40fd9e3ad40834add6d555 # main
+        uses: cilium/scale-tests-action/export-results@8c351e39623bb4129e64705c64285d5330cb0ec9 # main
         with:
           test_name: ${{ env.test_name }}-${{ matrix.name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
