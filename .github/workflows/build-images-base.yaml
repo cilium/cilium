@@ -58,11 +58,11 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4fd812986e6c8c2a69e18311145f9371337f27d4 # v3.4.0
+        uses: docker/setup-buildx-action@aa33708b10e362ff993539393ff100fa93ed6a27 # v3.5.0
 
       - name: Set up QEMU
         id: qemu
-        uses: docker/setup-qemu-action@5927c834f5b4fdf503fca6f4c7eccda82949e1ee # v3.1.0
+        uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf # v3.2.0
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
@@ -97,7 +97,7 @@ jobs:
 
       - name: Login to quay.io
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        uses: docker/login-action@0d4c9c5ea7693da7b068278f7b52bda2a190a446 # v3.2.0
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME }}
@@ -105,7 +105,7 @@ jobs:
 
       - name: Release build cilium-runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        uses: docker/build-push-action@1a162644f9a7e87d8f4b053101d1d9a712edc18c # v6.3.0
+        uses: docker/build-push-action@5176d81f87c23d6fc96624dfdbcd9f3830bbe445 # v6.5.0
         id: docker_build_release_runtime
         with:
           provenance: false
@@ -124,7 +124,7 @@ jobs:
 
       - name: Generate SBOM
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        uses: anchore/sbom-action@95b086ac308035dc0850b3853be5b7ab108236a8 # v0.16.1
+        uses: anchore/sbom-action@d94f46e13c6c62f59525ac9a1e147a99dc0b9bf5 # v0.17.0
         with:
           artifact-name: sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json
           output-file: ./sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json
@@ -184,7 +184,7 @@ jobs:
 
       - name: Login to quay.io
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && steps.cilium-runtime-tag-in-repositories.outputs.exists != 'false' }}
-        uses: docker/login-action@0d4c9c5ea7693da7b068278f7b52bda2a190a446 # v3.2.0
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME }}
@@ -192,7 +192,7 @@ jobs:
 
       - name: Release build cilium-builder
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
-        uses: docker/build-push-action@1a162644f9a7e87d8f4b053101d1d9a712edc18c # v6.3.0
+        uses: docker/build-push-action@5176d81f87c23d6fc96624dfdbcd9f3830bbe445 # v6.5.0
         id: docker_build_release_builder
         with:
           provenance: false
@@ -210,7 +210,7 @@ jobs:
 
       - name: Generate SBOM
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
-        uses: anchore/sbom-action@95b086ac308035dc0850b3853be5b7ab108236a8 # v0.16.1
+        uses: anchore/sbom-action@d94f46e13c6c62f59525ac9a1e147a99dc0b9bf5 # v0.17.0
         with:
           artifact-name: sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json
           output-file: ./sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json
