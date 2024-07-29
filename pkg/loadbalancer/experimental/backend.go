@@ -4,13 +4,13 @@
 package experimental
 
 import (
-	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
+	"github.com/cilium/statedb/part"
 
-	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -19,22 +19,72 @@ const (
 	BackendTableName = "backends"
 )
 
-// Backend describes a backend for one or more services.
-//
-// This embeds the loadbalancer.Backend and adds further fields to it. Eventually
-// we'd unify them, but for now we do not want to affect existing code yet.
+// BackendParams defines the parameters of a backend for insertion into the backends table.
+type BackendParams struct {
+	loadbalancer.L3n4Addr
+
+	// PortName is the frontend port name. If a frontend has specified a port name
+	// only the backends with matching port name are selected.
+	PortName string
+
+	// Weight of backend for load-balancing.
+	Weight uint16
+
+	// Node hosting this backend. This is used to determine backends local to
+	// a node.
+	NodeName string
+
+	// Zone where backend is located.
+	ZoneID uint8
+
+	// State of the backend for load-balancing service traffic
+	State loadbalancer.BackendState
+}
+
+// Backend is a composite of the per-service backend instances that share the same
+// IP address and port.
 type Backend struct {
-	loadbalancer.Backend
+	loadbalancer.L3n4Addr
 
-	// Cluster in which the backend resides
-	Cluster string
+	// State is the learned state of the backend that combines the state of the
+	// instances and the results of health checking.
+	State loadbalancer.BackendState
 
-	// Source of the backend
+	// Node hosting this backend. This is used to determine backends local to
+	// a node.
+	NodeName string
+
+	// Zone where backend is located.
+	ZoneID uint8
+
+	// Instances of this backend. A backend is always linked to a specific
+	// service and the instances may call the backend by different name
+	// (PortName) or they may come from  differents sources.
+	Instances part.Map[loadbalancer.ServiceName, BackendInstance]
+
+	// Properties are additional untyped properties that can carry feature
+	// specific metadata about the backend.
+	Properties part.Map[string, any]
+}
+
+// BackendInstance defines the backend's properties associated with a specific
+// service.
+type BackendInstance struct {
+	// PortName is the frontend port name used for filtering the backends
+	// associated with a service.
+	PortName string
+
+	// Weight is the load-balancing weight for this backend in association
+	// with a specific service.
+	Weight uint16
+
+	// Source is the data source from which this backend came from.
 	Source source.Source
 
-	// ReferencedBy is the set of services referencing this backend.
-	// This is managed by [Services].
-	ReferencedBy container.ImmSet[loadbalancer.ServiceName]
+	// State is the backend's state as defined by the data source. This is
+	// taken as input along with learned state (e.g. via health checking) to
+	// construct the definite state.
+	State loadbalancer.BackendState
 }
 
 func (be *Backend) String() string {
@@ -45,17 +95,10 @@ func (be *Backend) TableHeader() []string {
 	return []string{
 		"Address",
 		"State",
-		"Source",
-		"ReferencedBy",
+		"Instances",
+		"NodeName",
+		"ZoneID",
 	}
-}
-
-func toStrings[T fmt.Stringer](xs []T) []string {
-	out := make([]string, len(xs))
-	for i := range xs {
-		out[i] = xs[i].String()
-	}
-	return out
 }
 
 func (be *Backend) TableRow() []string {
@@ -64,17 +107,58 @@ func (be *Backend) TableRow() []string {
 		state = err.Error()
 	}
 	return []string{
-		be.L3n4Addr.StringWithProtocol(),
+		be.StringWithProtocol(),
 		state,
-		string(be.Source),
-		strings.Join(toStrings(be.ReferencedBy.AsSlice()), ", "),
+		showInstances(be.Instances),
+		be.NodeName,
+		strconv.FormatUint(uint64(be.ZoneID), 10),
 	}
+}
+
+func showInstances(instances part.Map[loadbalancer.ServiceName, BackendInstance]) string {
+	var b strings.Builder
+	iter := instances.All()
+	count := instances.Len()
+	for name, inst, ok := iter.Next(); ok; name, inst, ok = iter.Next() {
+		b.WriteString(name.String())
+		if inst.PortName != "" {
+			b.WriteString(" (")
+			b.WriteString(string(inst.PortName))
+			b.WriteRune(')')
+		}
+		count--
+		if count > 0 {
+			b.WriteString(", ")
+		}
+	}
+	return b.String()
+}
+
+func (be *Backend) forEachInstance(cb func(loadbalancer.ServiceName, BackendInstance)) {
+	iter := be.Instances.All()
+	for name, inst, ok := iter.Next(); ok; name, inst, ok = iter.Next() {
+		cb(name, inst)
+	}
+}
+
+func (be *Backend) serviceNameKeys() index.KeySet {
+	if be.Instances.Len() == 1 {
+		// Avoid allocating the slice.
+		name, _, _ := be.Instances.All().Next()
+		return index.NewKeySet(index.String(name.String()))
+	}
+	keys := make([]index.Key, 0, be.Instances.Len())
+	iter := be.Instances.All()
+	for name, _, ok := iter.Next(); ok; name, _, ok = iter.Next() {
+		keys = append(keys, index.String(name.String()))
+	}
+	return index.NewKeySet(keys...)
 }
 
 func (be *Backend) release(name loadbalancer.ServiceName) (*Backend, bool) {
 	beCopy := *be
-	beCopy.ReferencedBy = beCopy.ReferencedBy.Delete(name)
-	return &beCopy, beCopy.ReferencedBy.Len() == 0
+	beCopy.Instances = beCopy.Instances.Delete(name)
+	return &beCopy, beCopy.Instances.Len() == 0
 }
 
 // Clone returns a shallow clone of the backend.
@@ -84,30 +168,32 @@ func (be *Backend) Clone() *Backend {
 }
 
 var (
-	BackendAddrIndex = statedb.Index[*Backend, loadbalancer.L3n4Addr]{
+	backendAddrIndex = statedb.Index[*Backend, loadbalancer.L3n4Addr]{
 		Name: "addr",
 		FromObject: func(obj *Backend) index.KeySet {
-			return index.NewKeySet(l3n4AddrKey(obj.L3n4Addr))
+			return index.NewKeySet(obj.L3n4Addr.Bytes())
 		},
-		FromKey: l3n4AddrKey,
+		FromKey: func(l loadbalancer.L3n4Addr) index.Key { return index.Key(l.Bytes()) },
 		Unique:  true,
 	}
 
-	BackendServiceIndex = statedb.Index[*Backend, loadbalancer.ServiceName]{
-		Name: "service-name",
-		FromObject: func(obj *Backend) index.KeySet {
-			return index.StringerSlice(obj.ReferencedBy.AsSlice())
-		},
-		FromKey: index.Stringer[loadbalancer.ServiceName],
-		Unique:  false,
+	BackendByAddress = backendAddrIndex.Query
+
+	backendServiceIndex = statedb.Index[*Backend, loadbalancer.ServiceName]{
+		Name:       "service-name",
+		FromObject: (*Backend).serviceNameKeys,
+		FromKey:    index.Stringer[loadbalancer.ServiceName],
+		Unique:     false,
 	}
+
+	BackendByServiceName = backendServiceIndex.Query
 )
 
 func NewBackendsTable(db *statedb.DB) (statedb.RWTable[*Backend], error) {
 	tbl, err := statedb.NewTable(
 		BackendTableName,
-		BackendAddrIndex,
-		BackendServiceIndex,
+		backendAddrIndex,
+		backendServiceIndex,
 	)
 	if err != nil {
 		return nil, err
