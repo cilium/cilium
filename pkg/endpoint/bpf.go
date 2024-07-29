@@ -649,6 +649,11 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		return 0, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %w", err)
 	}
 
+	// Initialize (if not done yet) the DNS history trigger to allow DNS proxy to trigger
+	// updates to endpoint headers. The initialization happens here as at this point
+	// datapath is ready to process the trigger.
+	e.initDNSHistoryTrigger()
+
 	return datapathRegenCtxt.epInfoCache.revision, err
 }
 
