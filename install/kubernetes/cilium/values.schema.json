@@ -2606,6 +2606,9 @@
                     "cert": {
                       "type": "string"
                     },
+                    "existingSecret": {
+                      "type": "string"
+                    },
                     "extraDnsNames": {
                       "items": {},
                       "type": "array"
@@ -2981,6 +2984,9 @@
                     "cert": {
                       "type": "string"
                     },
+                    "existingSecret": {
+                      "type": "string"
+                    },
                     "key": {
                       "type": "string"
                     }
@@ -2994,6 +3000,9 @@
                     },
                     "enabled": {
                       "type": "boolean"
+                    },
+                    "existingSecret": {
+                      "type": "string"
                     },
                     "extraDnsNames": {
                       "items": {},
@@ -3085,6 +3094,9 @@
             "server": {
               "properties": {
                 "cert": {
+                  "type": "string"
+                },
+                "existingSecret": {
                   "type": "string"
                 },
                 "extraDnsNames": {
@@ -3370,6 +3382,9 @@
                 "client": {
                   "properties": {
                     "cert": {
+                      "type": "string"
+                    },
+                    "existingSecret": {
                       "type": "string"
                     },
                     "key": {

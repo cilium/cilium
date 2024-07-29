@@ -314,6 +314,7 @@ etcd
 eth
 ethernet
 ethtool
+existingSecret
 extTrafficPolicy
 extern
 externalIPs
@@ -430,6 +431,9 @@ jsgt
 jsle
 jslt
 json
+k8sServiceHost
+k8sServiceLookupConfigMapName
+k8sServiceLookupNamespace
 kTLS
 kafka
 kallsyms

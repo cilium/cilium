@@ -186,7 +186,7 @@ spec:
           defaultMode: 0400
           sources:
           - secret:
-              name: hubble-ui-client-certs
+              name: {{ .Values.hubble.ui.tls.client.existingSecret | default "hubble-ui-client-certs" }}
               items:
                 - key: tls.crt
                   path: client.crt

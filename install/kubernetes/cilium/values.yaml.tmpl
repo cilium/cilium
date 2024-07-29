@@ -1086,9 +1086,14 @@ hubble:
       enabled: false
       # Configure hubble metrics server TLS.
       server:
-        # -- base64 encoded PEM values for the Hubble metrics server certificate.
+        # -- Name of the Secret containing the certificate and key for the Hubble metrics server.
+        # If specified, cert and key are ignored.
+        existingSecret: ""
+        # -- base64 encoded PEM values for the Hubble metrics server certificate (deprecated).
+        # Use existingSecret instead.
         cert: ""
-        # -- base64 encoded PEM values for the Hubble metrics server key.
+        # -- base64 encoded PEM values for the Hubble metrics server key (deprecated).
+        # Use existingSecret instead.
         key: ""
         # -- Extra DNS names added to certificate when it's auto generated
         extraDnsNames: []
@@ -1286,9 +1291,16 @@ hubble:
       #   name: ca-issuer
       # -- certmanager issuer used when hubble.tls.auto.method=certmanager.
       certManagerIssuerRef: {}
-    # -- base64 encoded PEM values for the Hubble server certificate and private key
+    # -- The Hubble server certificate and private key
     server:
+      # -- Name of the Secret containing the certificate and key for the Hubble server.
+      # If specified, cert and key are ignored.
+      existingSecret: ""
+      # -- base64 encoded PEM values for the Hubble server certificate (deprecated).
+      # Use existingSecret instead.
       cert: ""
+      # -- base64 encoded PEM values for the Hubble server key (deprecated).
+      # Use existingSecret instead.
       key: ""
       # -- Extra DNS names added to certificate when it's auto generated
       extraDnsNames: []
@@ -1400,14 +1412,21 @@ hubble:
     listenPort: "4245"
     # -- TLS configuration for Hubble Relay
     tls:
-      # -- base64 encoded PEM values for the hubble-relay client certificate and private key
+      # -- The hubble-relay client certificate and private key.
       # This keypair is presented to Hubble server instances for mTLS
       # authentication and is required when hubble.tls.enabled is true.
       # These values need to be set manually if hubble.tls.auto.enabled is false.
       client:
+        # -- Name of the Secret containing the certificate and key for the Hubble metrics server.
+        # If specified, cert and key are ignored.
+        existingSecret: ""
+        # -- base64 encoded PEM values for the Hubble relay client certificate (deprecated).
+        # Use existingSecret instead.
         cert: ""
+        # -- base64 encoded PEM values for the Hubble relay client key (deprecated).
+        # Use existingSecret instead.
         key: ""
-      # -- base64 encoded PEM values for the hubble-relay server certificate and private key
+      # -- The hubble-relay server certificate and private key
       server:
         # When set to true, enable TLS on for Hubble Relay server
         # (ie: for clients connecting to the Hubble Relay API).
@@ -1416,8 +1435,14 @@ hubble:
         # False allow non-mutual TLS connections.
         # This option has no effect when TLS is disabled.
         mtls: false
-        # These values need to be set manually if hubble.tls.auto.enabled is false.
+        # -- Name of the Secret containing the certificate and key for the Hubble relay server.
+        # If specified, cert and key are ignored.
+        existingSecret: ""
+        # -- base64 encoded PEM values for the Hubble relay server certificate (deprecated).
+        # Use existingSecret instead.
         cert: ""
+        # -- base64 encoded PEM values for the Hubble relay server key (deprecated).
+        # Use existingSecret instead.
         key: ""
         # -- extra DNS names added to certificate when its auto gen
         extraDnsNames: []
@@ -1524,12 +1549,15 @@ hubble:
     # -- Roll out Hubble-ui pods automatically when configmap is updated.
     rollOutPods: false
     tls:
-      # -- base64 encoded PEM values used to connect to hubble-relay
-      # This keypair is presented to Hubble Relay instances for mTLS
-      # authentication and is required when hubble.relay.tls.server.enabled is true.
-      # These values need to be set manually if hubble.tls.auto.enabled is false.
       client:
+        # -- Name of the Secret containing the client certificate and key for Hubble UI
+        # If specified, cert and key are ignored.
+        existingSecret: ""
+        # -- base64 encoded PEM values for the Hubble UI client certificate (deprecated).
+        # Use existingSecret instead.
         cert: ""
+        # -- base64 encoded PEM values for the Hubble UI client key (deprecated).
+        # Use existingSecret instead.
         key: ""
     backend:
       # -- Hubble-ui backend image.

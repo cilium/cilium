@@ -1583,7 +1583,7 @@
    * - :spelling:ignore:`hubble.metrics`
      - Hubble metrics configuration. See https://docs.cilium.io/en/stable/observability/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
      - object
-     - ``{"dashboards":{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null},"enableOpenMetrics":false,"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"tlsConfig":{}},"tls":{"enabled":false,"server":{"cert":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":{"enabled":false,"key":"ca.crt","name":null,"useSecret":false}}}}``
+     - ``{"dashboards":{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null},"enableOpenMetrics":false,"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"tlsConfig":{}},"tls":{"enabled":false,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":{"enabled":false,"key":"ca.crt","name":null,"useSecret":false}}}}``
    * - :spelling:ignore:`hubble.metrics.dashboards`
      - Grafana dashboards for hubble grafana can import dashboards based on the label and value ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
      - object
@@ -1633,7 +1633,11 @@
      - list
      - ``[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]``
    * - :spelling:ignore:`hubble.metrics.tls.server.cert`
-     - base64 encoded PEM values for the Hubble metrics server certificate.
+     - base64 encoded PEM values for the Hubble metrics server certificate (deprecated). Use existingSecret instead.
+     - string
+     - ``""``
+   * - :spelling:ignore:`hubble.metrics.tls.server.existingSecret`
+     - Name of the Secret containing the certificate and key for the Hubble metrics server. If specified, cert and key are ignored.
      - string
      - ``""``
    * - :spelling:ignore:`hubble.metrics.tls.server.extraDnsNames`
@@ -1645,7 +1649,7 @@
      - list
      - ``[]``
    * - :spelling:ignore:`hubble.metrics.tls.server.key`
-     - base64 encoded PEM values for the Hubble metrics server key.
+     - base64 encoded PEM values for the Hubble metrics server key (deprecated). Use existingSecret instead.
      - string
      - ``""``
    * - :spelling:ignore:`hubble.metrics.tls.server.mtls`
@@ -1863,15 +1867,35 @@
    * - :spelling:ignore:`hubble.relay.tls`
      - TLS configuration for Hubble Relay
      - object
-     - ``{"client":{"cert":"","key":""},"server":{"cert":"","enabled":false,"extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":false,"relayName":"ui.hubble-relay.cilium.io"}}``
+     - ``{"client":{"cert":"","existingSecret":"","key":""},"server":{"cert":"","enabled":false,"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":false,"relayName":"ui.hubble-relay.cilium.io"}}``
    * - :spelling:ignore:`hubble.relay.tls.client`
-     - base64 encoded PEM values for the hubble-relay client certificate and private key This keypair is presented to Hubble server instances for mTLS authentication and is required when hubble.tls.enabled is true. These values need to be set manually if hubble.tls.auto.enabled is false.
+     - The hubble-relay client certificate and private key. This keypair is presented to Hubble server instances for mTLS authentication and is required when hubble.tls.enabled is true. These values need to be set manually if hubble.tls.auto.enabled is false.
      - object
-     - ``{"cert":"","key":""}``
+     - ``{"cert":"","existingSecret":"","key":""}``
+   * - :spelling:ignore:`hubble.relay.tls.client.cert`
+     - base64 encoded PEM values for the Hubble relay client certificate (deprecated). Use existingSecret instead.
+     - string
+     - ``""``
+   * - :spelling:ignore:`hubble.relay.tls.client.existingSecret`
+     - Name of the Secret containing the certificate and key for the Hubble metrics server. If specified, cert and key are ignored.
+     - string
+     - ``""``
+   * - :spelling:ignore:`hubble.relay.tls.client.key`
+     - base64 encoded PEM values for the Hubble relay client key (deprecated). Use existingSecret instead.
+     - string
+     - ``""``
    * - :spelling:ignore:`hubble.relay.tls.server`
-     - base64 encoded PEM values for the hubble-relay server certificate and private key
+     - The hubble-relay server certificate and private key
      - object
-     - ``{"cert":"","enabled":false,"extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":false,"relayName":"ui.hubble-relay.cilium.io"}``
+     - ``{"cert":"","enabled":false,"existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":"","mtls":false,"relayName":"ui.hubble-relay.cilium.io"}``
+   * - :spelling:ignore:`hubble.relay.tls.server.cert`
+     - base64 encoded PEM values for the Hubble relay server certificate (deprecated). Use existingSecret instead.
+     - string
+     - ``""``
+   * - :spelling:ignore:`hubble.relay.tls.server.existingSecret`
+     - Name of the Secret containing the certificate and key for the Hubble relay server. If specified, cert and key are ignored.
+     - string
+     - ``""``
    * - :spelling:ignore:`hubble.relay.tls.server.extraDnsNames`
      - extra DNS names added to certificate when its auto gen
      - list
@@ -1880,6 +1904,10 @@
      - extra IP addresses added to certificate when its auto gen
      - list
      - ``[]``
+   * - :spelling:ignore:`hubble.relay.tls.server.key`
+     - base64 encoded PEM values for the Hubble relay server key (deprecated). Use existingSecret instead.
+     - string
+     - ``""``
    * - :spelling:ignore:`hubble.relay.tolerations`
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
@@ -1903,7 +1931,7 @@
    * - :spelling:ignore:`hubble.tls`
      - TLS configuration for Hubble
      - object
-     - ``{"auto":{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"},"enabled":true,"server":{"cert":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
+     - ``{"auto":{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"},"enabled":true,"server":{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
    * - :spelling:ignore:`hubble.tls.auto`
      - Configure automatic TLS certificates generation.
      - object
@@ -1933,9 +1961,17 @@
      - bool
      - ``true``
    * - :spelling:ignore:`hubble.tls.server`
-     - base64 encoded PEM values for the Hubble server certificate and private key
+     - The Hubble server certificate and private key
      - object
-     - ``{"cert":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}``
+     - ``{"cert":"","existingSecret":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}``
+   * - :spelling:ignore:`hubble.tls.server.cert`
+     - base64 encoded PEM values for the Hubble server certificate (deprecated). Use existingSecret instead.
+     - string
+     - ``""``
+   * - :spelling:ignore:`hubble.tls.server.existingSecret`
+     - Name of the Secret containing the certificate and key for the Hubble server. If specified, cert and key are ignored.
+     - string
+     - ``""``
    * - :spelling:ignore:`hubble.tls.server.extraDnsNames`
      - Extra DNS names added to certificate when it's auto generated
      - list
@@ -1944,6 +1980,10 @@
      - Extra IP addresses added to certificate when it's auto generated
      - list
      - ``[]``
+   * - :spelling:ignore:`hubble.tls.server.key`
+     - base64 encoded PEM values for the Hubble server key (deprecated). Use existingSecret instead.
+     - string
+     - ``""``
    * - :spelling:ignore:`hubble.ui.affinity`
      - Affinity for hubble-ui
      - object
@@ -2088,10 +2128,18 @@
      - When deploying Hubble UI in standalone, with tls enabled for Hubble relay, it is required to provide a volume for mounting the client certificates.
      - object
      - ``{}``
-   * - :spelling:ignore:`hubble.ui.tls.client`
-     - base64 encoded PEM values used to connect to hubble-relay This keypair is presented to Hubble Relay instances for mTLS authentication and is required when hubble.relay.tls.server.enabled is true. These values need to be set manually if hubble.tls.auto.enabled is false.
-     - object
-     - ``{"cert":"","key":""}``
+   * - :spelling:ignore:`hubble.ui.tls.client.cert`
+     - base64 encoded PEM values for the Hubble UI client certificate (deprecated). Use existingSecret instead.
+     - string
+     - ``""``
+   * - :spelling:ignore:`hubble.ui.tls.client.existingSecret`
+     - Name of the Secret containing the client certificate and key for Hubble UI If specified, cert and key are ignored.
+     - string
+     - ``""``
+   * - :spelling:ignore:`hubble.ui.tls.client.key`
+     - base64 encoded PEM values for the Hubble UI client key (deprecated). Use existingSecret instead.
+     - string
+     - ``""``
    * - :spelling:ignore:`hubble.ui.tolerations`
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
