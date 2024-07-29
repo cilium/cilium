@@ -88,7 +88,7 @@ type GC struct {
 }
 
 func registerGC(p params) {
-	if !p.Clientset.IsEnabled() || p.SharedCfg.EnableOperatorManageCIDs {
+	if !p.Clientset.IsEnabled() {
 		return
 	}
 
