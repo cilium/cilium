@@ -116,7 +116,7 @@ include:
   # K8sDatapathConfig Check BPF masquerading with ip-masq-agent VXLAN
   # K8sDatapathConfig High-scale IPcache Test ingress policy enforcement with GENEVE and endpoint routes
   - focus: "f09-datapath-misc-2"
-    cliFocus: "K8sDatapathConfig WireGuard encryption strict mode|K8sDatapathConfig Check|K8sDatapathConfig IPv4Only|K8sDatapathConfig High-scale"
+    cliFocus: "K8sDatapathConfig WireGuard encryption strict mode|K8sDatapathConfig Check|K8sDatapathConfig High-scale"
 
   # K8sDatapathConfig Iptables Skip conntrack for pod traffic
   # K8sDatapathConfig IPv4Only Check connectivity with IPv6 disabled
