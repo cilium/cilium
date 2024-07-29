@@ -5,8 +5,8 @@ package gateway_api
 
 import (
 	"context"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,12 +29,15 @@ import (
 type grpcRouteReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	logger *slog.Logger
 }
 
-func newGRPCRouteReconciler(mgr ctrl.Manager) *grpcRouteReconciler {
+func newGRPCRouteReconciler(mgr ctrl.Manager, logger *slog.Logger) *grpcRouteReconciler {
 	return &grpcRouteReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		logger: logger,
 	}
 }
 
@@ -67,7 +70,7 @@ func (r *grpcRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changes to Gateways and enqueue GRPCRoutes that reference them
 		Watches(&gatewayv1.Gateway{}, r.enqueueRequestForGateway(),
 			builder.WithPredicates(
-				predicate.NewPredicateFuncs(hasMatchingController(context.Background(), mgr.GetClient(), controllerName))))
+				predicate.NewPredicateFuncs(hasMatchingController(context.Background(), mgr.GetClient(), controllerName, r.logger))))
 
 	if helpers.HasServiceImportSupport(r.Client.Scheme()) {
 		// Watch for changes to Backend Service Imports
@@ -107,10 +110,11 @@ func (r *grpcRouteReconciler) getBackendServiceForGRPCRoute(rawObj client.Object
 			namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
 			backendServiceName, err := helpers.GetBackendServiceName(r.Client, namespace, backend.BackendObjectReference)
 			if err != nil {
-				log.WithFields(logrus.Fields{
-					logfields.Controller: "grpcRoute",
-					logfields.Resource:   client.ObjectKeyFromObject(rawObj),
-				}).WithError(err).Error("Failed to get backend service name")
+				r.logger.Error("Failed to get backend service name",
+					logfields.Controller, "grpcRoute",
+					logfields.Resource, client.ObjectKeyFromObject(rawObj),
+					logfields.Error, err,
+				)
 				continue
 			}
 			backendServices = append(backendServices,
@@ -170,16 +174,13 @@ func (r *grpcRouteReconciler) enqueueRequestForGateway() handler.EventHandler {
 
 func (r *grpcRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Controller: grpcRoute,
-			logfields.Resource:   client.ObjectKeyFromObject(o),
-		})
+		scopedLog := r.logger.With(logfields.Controller, grpcRoute, logfields.Resource, client.ObjectKeyFromObject(o))
 		list := &gatewayv1.GRPCRouteList{}
 
 		if err := r.Client.List(ctx, list, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(index, client.ObjectKeyFromObject(o).String()),
 		}); err != nil {
-			scopedLog.WithError(err).Error("Failed to get related GRPCRoutes")
+			scopedLog.Error("Failed to get related GRPCRoutes", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -192,7 +193,7 @@ func (r *grpcRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: route,
 			})
-			scopedLog.WithField(grpcRoute, route).Info("Enqueued GRPCRoute for resource")
+			scopedLog.Info("Enqueued GRPCRoute for resource", grpcRoute, route)
 		}
 		return requests
 	}
@@ -200,14 +201,11 @@ func (r *grpcRouteReconciler) enqueueFromIndex(index string) handler.MapFunc {
 
 func (r *grpcRouteReconciler) enqueueAll() handler.MapFunc {
 	return func(ctx context.Context, o client.Object) []reconcile.Request {
-		scopedLog := log.WithFields(logrus.Fields{
-			logfields.Controller: grpcRoute,
-			logfields.Resource:   client.ObjectKeyFromObject(o),
-		})
+		scopedLog := r.logger.With(logfields.Controller, grpcRoute, logfields.Resource, client.ObjectKeyFromObject(o))
 		list := &gatewayv1.GRPCRouteList{}
 
 		if err := r.Client.List(ctx, list, &client.ListOptions{}); err != nil {
-			scopedLog.WithError(err).Error("Failed to get GRPCRoutes")
+			scopedLog.Error("Failed to get GRPCRoutes", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
@@ -220,7 +218,7 @@ func (r *grpcRouteReconciler) enqueueAll() handler.MapFunc {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: route,
 			})
-			scopedLog.WithField(grpcRoute, route).Info("Enqueued GRPCRoute for resource")
+			scopedLog.Info("Enqueued GRPCRoute for resource", grpcRoute, route)
 		}
 		return requests
 	}

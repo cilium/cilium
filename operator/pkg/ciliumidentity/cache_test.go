@@ -5,19 +5,20 @@ package ciliumidentity
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"reflect"
 	"sync"
 	"testing"
-
-	"github.com/cilium/cilium/pkg/labels"
 
 	"github.com/stretchr/testify/assert"
 
 	cestest "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	"github.com/cilium/cilium/pkg/identity/key"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
+	"github.com/cilium/cilium/pkg/logging"
 )
 
 var (
@@ -34,9 +35,10 @@ func TestMain(m *testing.M) {
 }
 
 func TestCIDState(t *testing.T) {
+	logger := slog.New(logging.SlogNopHandler)
 	// The subtests below share the same state to serially test insert, lookup and
 	// remove operations of CIDState.
-	state := NewCIDState()
+	state := NewCIDState(logger)
 	k1 := key.GetCIDKeyFromLabels(k8sLables_A, labels.LabelSourceK8s)
 	k2 := key.GetCIDKeyFromLabels(k8sLables_B, labels.LabelSourceK8s)
 	k3 := key.GetCIDKeyFromLabels(k8sLables_B_duplicate, labels.LabelSourceK8s)
@@ -142,9 +144,11 @@ func TestCIDState(t *testing.T) {
 }
 
 func TestCIDStateThreadSafety(t *testing.T) {
+	logger := slog.New(logging.SlogNopHandler)
+
 	// This test ensures that no changes to the CID state break its thread safety.
 	// Multiple go routines in parallel continuously keep using CIDState.
-	state := NewCIDState()
+	state := NewCIDState(logger)
 
 	k := key.GetCIDKeyFromLabels(k8sLables_A, labels.LabelSourceK8s)
 	k2 := key.GetCIDKeyFromLabels(k8sLables_B, labels.LabelSourceK8s)
@@ -191,12 +195,12 @@ func TestCIDUsageInPods(t *testing.T) {
 	podName1 := "pod1"
 	assert.Equal(t, 0, state.CIDUsageCount(cidName1), assertTxt)
 
-	usedCID, exists := state.CIDUsedByPod(podName1)
+	usedCID, exists := state.podToCID[podName1]
 	assert.Equal(t, false, exists, assertTxt)
 	assert.Equal(t, "", usedCID, assertTxt)
 
-	prevCID, count, err := state.RemovePod(podName1)
-	assert.Error(t, err)
+	prevCID, count, exists := state.RemovePod(podName1)
+	assert.Equal(t, false, exists)
 	assert.Equal(t, "", prevCID, assertTxt)
 	assert.Equal(t, 0, count, assertTxt)
 
@@ -206,7 +210,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 0, count, assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount(cidName1), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName1)
+	usedCID, exists = state.podToCID[podName1]
 	assert.Equal(t, true, exists, assertTxt)
 	assert.Equal(t, cidName1, usedCID, assertTxt)
 
@@ -217,7 +221,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 0, count, assertTxt)
 	assert.Equal(t, 2, state.CIDUsageCount(cidName1), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName2)
+	usedCID, exists = state.podToCID[podName2]
 	assert.Equal(t, true, exists, assertTxt)
 	assert.Equal(t, cidName1, usedCID, assertTxt)
 
@@ -228,7 +232,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 1, count, assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount(cidName2), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName2)
+	usedCID, exists = state.podToCID[podName2]
 	assert.Equal(t, true, exists, assertTxt)
 	assert.Equal(t, cidName2, usedCID, assertTxt)
 
@@ -239,7 +243,7 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 2, state.CIDUsageCount(cidName2), assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount(cidName1), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName1)
+	usedCID, exists = state.podToCID[podName1]
 	assert.Equal(t, true, exists, assertTxt)
 	assert.Equal(t, cidName2, usedCID, assertTxt)
 
@@ -251,24 +255,24 @@ func TestCIDUsageInPods(t *testing.T) {
 	assert.Equal(t, 0, state.CIDUsageCount(cidName1), assertTxt)
 
 	assertTxt = "Remove Pod 1"
-	prevCID, count, err = state.RemovePod(podName1)
-	assert.NoError(t, err)
+	prevCID, count, exists = state.RemovePod(podName1)
+	assert.Equal(t, true, exists)
 	assert.Equal(t, cidName2, prevCID, assertTxt)
 	assert.Equal(t, 1, count, assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount(cidName2), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName1)
+	usedCID, exists = state.podToCID[podName1]
 	assert.Equal(t, false, exists, assertTxt)
 	assert.Equal(t, "", usedCID, assertTxt)
 
 	assertTxt = "Remove Pod 2"
-	prevCID, count, err = state.RemovePod(podName2)
-	assert.NoError(t, err)
+	prevCID, count, exists = state.RemovePod(podName2)
+	assert.Equal(t, true, exists)
 	assert.Equal(t, cidName2, prevCID, assertTxt)
 	assert.Equal(t, 0, count, assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount(cidName2), assertTxt)
 
-	usedCID, exists = state.CIDUsedByPod(podName2)
+	usedCID, exists = state.podToCID[podName2]
 	assert.Equal(t, false, exists, assertTxt)
 	assert.Equal(t, "", usedCID, assertTxt)
 }

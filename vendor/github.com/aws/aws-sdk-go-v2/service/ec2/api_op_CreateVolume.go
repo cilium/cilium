@@ -132,7 +132,12 @@ type CreateVolumeInput struct {
 	// [Amazon EBS Multi-Attach]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-volumes-multi.html
 	MultiAttachEnabled *bool
 
-	// The Amazon Resource Name (ARN) of the Outpost.
+	// The Amazon Resource Name (ARN) of the Outpost on which to create the volume.
+	//
+	// If you intend to use a volume with an instance running on an outpost, then you
+	// must create the volume on the same outpost as the instance. You can't use a
+	// volume created in an Amazon Web Services Region with an instance on an Amazon
+	// Web Services outpost, or the other way around.
 	OutpostArn *string
 
 	// The size of the volume, in GiBs. You must specify either a snapshot ID or a

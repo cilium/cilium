@@ -4,8 +4,6 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _gs_external_ingress_policy:
-
 *************************
 External Lock-down Policy
 *************************

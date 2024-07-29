@@ -638,6 +638,8 @@ func (m *ClientConfig) validate(all bool) error {
 
 	}
 
+	// no validation rules for ClientScope
+
 	if len(errors) > 0 {
 		return ClientConfigMultiError(errors)
 	}

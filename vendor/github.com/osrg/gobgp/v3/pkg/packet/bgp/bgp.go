@@ -1586,6 +1586,7 @@ const (
 	BGP_RD_TWO_OCTET_AS = iota
 	BGP_RD_IPV4_ADDRESS
 	BGP_RD_FOUR_OCTET_AS
+	BGP_RD_EOR
 )
 
 type RouteDistinguisherInterface interface {
@@ -9637,6 +9638,8 @@ func NewPrefixFromRouteFamily(afi uint16, safi uint8, prefixStr ...string) (pref
 		return NewIPv6AddrPrefix(uint8(len), addr.String()), nil
 	}
 
+	rdEOR := &RouteDistinguisherUnknown{DefaultRouteDistinguisher{Type: BGP_RD_EOR}, []byte("EOR")}
+
 	switch family {
 	case RF_IPv4_UC, RF_IPv4_MC:
 		if len(prefixStr) > 0 {
@@ -9652,7 +9655,7 @@ func NewPrefixFromRouteFamily(afi uint16, safi uint8, prefixStr ...string) (pref
 		}
 	case RF_IPv4_VPN:
 		if len(prefixStr) == 0 {
-			prefix = NewLabeledVPNIPAddrPrefix(0, "", *NewMPLSLabelStack(), nil)
+			prefix = NewLabeledVPNIPAddrPrefix(0, "", *NewMPLSLabelStack(), rdEOR)
 			break
 		}
 
@@ -9671,7 +9674,7 @@ func NewPrefixFromRouteFamily(afi uint16, safi uint8, prefixStr ...string) (pref
 		)
 	case RF_IPv6_VPN:
 		if len(prefixStr) == 0 {
-			prefix = NewLabeledVPNIPv6AddrPrefix(0, "", *NewMPLSLabelStack(), nil)
+			prefix = NewLabeledVPNIPv6AddrPrefix(0, "", *NewMPLSLabelStack(), rdEOR)
 			break
 		}
 

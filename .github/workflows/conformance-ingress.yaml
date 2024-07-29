@@ -58,7 +58,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_ci_version:
   kind_config: .github/kind-config.yaml
   timeout: 5m
 
@@ -135,13 +134,6 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
-      - name: Install Cilium CLI
-        uses: cilium/cilium-cli@9d071f99ae32af95cb15c3e0a280d222b569a1cf # v0.16.11
-        with:
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
-
       - name: Get Cilium's default values
         id: default_vars
         uses: ./.github/actions/helm-default
@@ -186,6 +178,13 @@ jobs:
           config: ${{ env.kind_config }}
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ env.CILIUM_CLI_VERSION }}
+
       - name: Checkout ingress-controller-conformance
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
@@ -193,7 +192,7 @@ jobs:
           # Please refer to https://github.com/kubernetes-sigs/ingress-controller-conformance/pull/101 for more details.
           repository: cilium/ingress-controller-conformance
           path: ingress-controller-conformance
-          ref: ea4049969a830d3ecac0d2a9b71b254212ac4b65
+          ref: 6a193b3f73d8b1201a818bb7c8f204059b064857
           persist-credentials: false
 
       - name: Install Ingress conformance test tool
@@ -239,7 +238,7 @@ jobs:
           EOF
           cat pool.yaml
           kubectl apply -f pool.yaml
-          
+
           echo "Deploying L2-Announcement Policy..."
           cat << 'EOF' > l2policy.yaml
           apiVersion: "cilium.io/v2alpha1"
@@ -275,7 +274,7 @@ jobs:
       - name: Run Sanity check (external)
         timeout-minutes: 5
         run: |
-          lb=$(kubectl get ingress basic-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')     
+          lb=$(kubectl get ingress basic-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --retry-all-errors --retry-delay 5 --fail -- http://"$lb"
 
           # By now the service should be up, no need to do the manual retries for the second request
@@ -290,7 +289,7 @@ jobs:
           else
             node_port=$(kubectl get -n kube-system svc cilium-ingress -o jsonpath='{.spec.ports[?(@.port==80)].nodePort}')
           fi
-          docker exec -i chart-testing-control-plane curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail http://localhost:$node_port/details/1 
+          docker exec -i chart-testing-control-plane curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail http://localhost:$node_port/details/1
 
       - name: Run Sanity check (headless service)
         timeout-minutes: 5
@@ -383,7 +382,7 @@ jobs:
             sleep 3
           done
           lb=$(kubectl get ingress basic-ingress-headless -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          curl -s -v --connect-timeout 2 --max-time 20 --retry 3 --retry-all-errors --retry-delay 3 --fail -- http://"$lb"/details/1      
+          curl -s -v --connect-timeout 2 --max-time 20 --retry 3 --retry-all-errors --retry-delay 3 --fail -- http://"$lb"/details/1
           curl -s -v --connect-timeout 2 --max-time 20 --retry 3 --retry-all-errors --retry-delay 3 --fail -- http://"$lb"/details/2
 
       - name: Cleanup Sanity check
@@ -404,6 +403,7 @@ jobs:
             -ingress-class cilium \
             -wait-time-for-ingress-status 60s \
             -wait-time-for-ready 60s \
+            -http-client-timeout 60s \
             -enable-http-debug \
             -stop-on-failure
 
@@ -417,7 +417,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: cilium-sysdump-out-${{ matrix.name }}
           path: cilium-sysdump-out-*.zip
@@ -430,7 +430,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1  
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.ingress-conformance-test.result }}

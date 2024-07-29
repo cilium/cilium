@@ -6,10 +6,10 @@ package routechecks
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +25,7 @@ import (
 // HTTPRouteInput is used to implement the Input interface for HTTPRoute
 type HTTPRouteInput struct {
 	Ctx       context.Context
-	Logger    *logrus.Entry
+	Logger    *slog.Logger
 	Client    client.Client
 	Grants    *gatewayv1beta1.ReferenceGrantList
 	HTTPRoute *gatewayv1.HTTPRoute
@@ -161,7 +161,7 @@ func (h *HTTPRouteInput) GetParentGammaService(parent gatewayv1.ParentReference)
 	return s, nil
 }
 
-func (h *HTTPRouteInput) Log() *logrus.Entry {
+func (h *HTTPRouteInput) Log() *slog.Logger {
 	return h.Logger
 }
 

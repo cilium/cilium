@@ -44,25 +44,41 @@ k8sServiceHost: ""
 # @schema
 # -- (string) Kubernetes service port
 k8sServicePort: ""
-# -- Configure the client side rate limit for the agent and operator
+# -- Configure the client side rate limit for the agent
 #
 # If the amount of requests to the Kubernetes API server exceeds the configured
-# rate limit, the agent and operator will start to throttle requests by delaying
+# rate limit, the agent will start to throttle requests by delaying
 # them until there is budget or the request times out.
 k8sClientRateLimit:
   # @schema
   # type: [null, integer]
   # @schema
   # -- (int) The sustained request rate in requests per second.
-  # @default -- 5 for k8s up to 1.26. 10 for k8s version 1.27+
+  # @default -- 10
   qps:
   # @schema
   # type: [null, integer]
   # @schema
   # -- (int) The burst request rate in requests per second.
   # The rate limiter will allow short bursts with a higher rate.
-  # @default -- 10 for k8s up to 1.26. 20 for k8s version 1.27+
+  # @default -- 20
   burst:
+  # -- Configure the client side rate limit for the Cilium Operator
+  operator:
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- (int) The sustained request rate in requests per second.
+    # @default -- 100
+    qps:
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- (int) The burst request rate in requests per second.
+    # The rate limiter will allow short bursts with a higher rate.
+    # @default -- 200
+    burst:
+
 cluster:
   # -- Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
   # It must respect the following constraints:
@@ -260,6 +276,7 @@ securityContext:
       - IPC_LOCK
       # Used in iptables. Consider removing once we are iptables-free
       - SYS_MODULE
+      # Needed to switch network namespaces (used for health endpoint, socket-LB).
       # We need it for now but might not need it for >= 5.11 specially
       # for the 'SYS_RESOURCE'.
       # In >= 5.8 there's already BPF and PERMON capabilities
@@ -750,6 +767,14 @@ ciliumEndpointSlice:
     limit: 5
     burst: 10
 
+  # @schema
+  # enum: ["identity", "fcfs"]
+  # @schema
+  # -- The slicing mode to use for CiliumEndpointSlices.
+  # identity groups together CiliumEndpoints that share the same identity.
+  # fcfs groups together CiliumEndpoints in a first-come-first-serve basis, filling in the largest non-full slice first.
+  sliceMode: identity
+
 envoyConfig:
   # -- Enable CiliumEnvoyConfig CRD
   # CiliumEnvoyConfig CRD can also be implicitly enabled by other options.
@@ -1021,6 +1046,8 @@ socketLB:
   enabled: false
   # -- Disable socket lb for non-root ns. This is used to enable Istio routing rules.
   # hostNamespaceOnly: false
+  # -- Enable terminating pod connections to deleted service backends.
+  # terminatePodConnections: true
 # -- Configure certificate generation for Hubble integration.
 # If hubble.tls.auto.method=cronJob, these values are used
 # for the Kubernetes CronJob which will be scheduled regularly to
@@ -1616,6 +1643,8 @@ hubble:
     replicas: 1
     # -- Annotations to be added to all top-level hubble-ui objects (resources under templates/hubble-ui)
     annotations: {}
+    # -- Additional labels to be added to 'hubble-ui' deployment object
+    labels: {}
     # -- Annotations to be added to hubble-ui pods
     podAnnotations: {}
     # -- Labels to be added to hubble-ui pods
@@ -1742,6 +1771,7 @@ hubble:
             #     end: "2023-10-09T23:59:59-07:00"
 
   # -- Emit v1.Events related to pods on detection of packet drops.
+  #    This feature is alpha, please provide feedback at https://github.com/cilium/cilium/issues/33975.
   dropEventEmitter:
     enabled: false
     # --- Minimum time between emitting same events.
@@ -1915,6 +1945,13 @@ enableMasqueradeRouteSource: false
 enableIPv4BIGTCP: false
 # -- Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
 enableIPv6BIGTCP: false
+
+nat:
+  # -- Number of the top-k SNAT map connections to track in Cilium statedb.
+  mapStatsEntries: 32
+  # -- Interval between how often SNAT map is counted for stats.
+  mapStatsInterval: 30s
+
 egressGateway:
   # -- Enables egress gateway to redirect and SNAT the traffic that leaves the
   # cluster.
@@ -3011,9 +3048,11 @@ clustermesh:
       # NodePort will be redirected to a local backend, regardless of whether the
       # destination node belongs to the local or the remote cluster.
       nodePort: 32379
-      # -- Annotations for the clustermesh-apiserver
-      # For GKE LoadBalancer, use annotation cloud.google.com/load-balancer-type: "Internal"
-      # For EKS LoadBalancer, use annotation service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+      # -- Annotations for the clustermesh-apiserver service.
+      # Example annotations to configure an internal load balancer on different cloud providers:
+      # * AKS: service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+      # * EKS: service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+      # * GKE: networking.gke.io/load-balancer-type: "Internal"
       annotations: {}
       # @schema
       # enum: [Local, Cluster]
@@ -3346,6 +3385,8 @@ enableK8sTerminatingEndpoint: true
 # When set to a value starting with `ignore-taint.cluster-autoscaler.kubernetes.io/`, the Cluster Autoscaler will ignore the taint on its decisions, allowing the cluster to scale up.
 agentNotReadyTaintKey: "node.cilium.io/agent-not-ready"
 dnsProxy:
+  # -- Timeout (in seconds) when closing the connection between the DNS proxy and the upstream server. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background.
+  socketLingerTimeout: 10
   # -- DNS response code for rejecting DNS requests, available options are '[nameError refused]'.
   dnsRejectResponseCode: refused
   # -- Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present.

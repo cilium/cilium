@@ -56,7 +56,7 @@ highly efficient in-kernel datapath. Protocols at the application layer such as
 HTTP, Kafka, gRPC, and DNS are parsed using a proxy such as Envoy. 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :glob:
 
    ingress

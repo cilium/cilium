@@ -23,6 +23,24 @@ bpf_clear_meta(struct __sk_buff *ctx)
 	WRITE_ONCE(ctx->tc_classid, zero);
 }
 
+static __always_inline __maybe_unused void
+ctx_store_meta_ipv6(struct __sk_buff *ctx, const __u32 off, const union v6addr *addr)
+{
+	ctx_store_meta(ctx, off, addr->p1);
+	ctx_store_meta(ctx, off + 1, addr->p2);
+	ctx_store_meta(ctx, off + 2, addr->p3);
+	ctx_store_meta(ctx, off + 3, addr->p4);
+}
+
+static __always_inline __maybe_unused void
+ctx_load_meta_ipv6(const struct __sk_buff *ctx, union v6addr *addr, const __u32 off)
+{
+	addr->p1 = ctx_load_meta(ctx, off);
+	addr->p2 = ctx_load_meta(ctx, off + 1);
+	addr->p3 = ctx_load_meta(ctx, off + 2);
+	addr->p4 = ctx_load_meta(ctx, off + 3);
+}
+
 /**
  * get_identity - returns source identity from the mark field
  *

@@ -109,6 +109,9 @@ issues:
     - path: "pkg/ipam/(cidrset|service)/.+\\.go"
       linters:
         - goheader
+    - path: "pkg/hubble/dropeventemitter/fake_recorder.go"
+      linters:
+        - goheader
 
 linters:
   disable-all: true

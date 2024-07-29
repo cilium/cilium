@@ -1354,6 +1354,25 @@ Deny policies do not support: policy enforcement at L7, i.e., specifically
 denying an URL and ``toFQDNs``, i.e., specifically denying traffic to a specific
 domain name.
 
+.. _disk_policies:
+
+Disk based Cilium Network Policies
+==================================
+This functionality enables users to place network policy YAML files directly into
+the node's filesystem, bypassing the need for definition via k8s CRD. 
+By setting the config field ``static-cnp-path``, users specify the directory from 
+which policies will be loaded. The Cilium agent then processes all policy YAML files 
+present in this directory, transforming them into rules that are incorporated into 
+the policy engine. Additionally, the Cilium agent monitors this directory for any 
+new policy YAML files as well as any updates or deletions, making corresponding 
+updates to the policy engine's rules. It is important to note that this feature 
+only supports CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy.
+
+To determine whether a policy was established via Kubernetes CRD or directly from a directory, 
+execute the command ``cilium policy get`` and examine the source attribute within the policy. 
+In output, you could notice policies that have been sourced from a directory will have the 
+``source`` field set as ``directory``. Additionally, ``cilium endpoint get <endpoint_id>`` also have 
+fields to show the source of policy associated with that endpoint.
 
 Previous limitations and known issues
 -------------------------------------

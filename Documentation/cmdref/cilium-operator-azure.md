@@ -20,7 +20,7 @@ cilium-operator-azure [flags]
       --bgp-config-path string                               Path to file containing the BGP configuration (default "/var/lib/cilium/bgp/config.yaml")
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                               Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
-      --ces-slice-mode string                                Slicing mode defines how CiliumEndpoints are grouped into CES: either batched by their Identity ("cesSliceModeIdentity") or batched on a "First Come, First Served" basis ("cesSliceModeFCFS") (default "cesSliceModeIdentity")
+      --ces-slice-mode string                                Slicing mode defines how CiliumEndpoints are grouped into CES: either batched by their Identity ("identity") or batched on a "First Come, First Served" basis ("fcfs") (default "identity")
       --cilium-endpoint-gc-interval duration                 GC interval for cilium endpoints (default 5m0s)
       --cilium-pod-labels string                             Cilium Pod's labels. Used to detect if a Cilium pod is running to remove the node taints where its running and set NetworkUnavailable to false (default "k8s-app=cilium")
       --cilium-pod-namespace string                          Name of the Kubernetes namespace in which Cilium is deployed in. Defaults to the same namespace defined in k8s-namespace
@@ -85,10 +85,8 @@ cilium-operator-azure [flags]
       --instance-tags-filter map                             EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --ipam string                                          Backend to use for IPAM (default "azure")
       --k8s-api-server string                                Kubernetes API server URL
-      --k8s-client-burst int                                 Burst value allowed for the K8s client
       --k8s-client-connection-keep-alive duration            Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration               Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)
-      --k8s-client-qps float32                               Queries per second limit for the K8s client
       --k8s-heartbeat-timeout duration                       Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                           Absolute path of the kubernetes kubeconfig file
       --k8s-namespace string                                 Name of the Kubernetes namespace in which Cilium Operator is deployed in
@@ -114,6 +112,8 @@ cilium-operator-azure [flags]
       --mesh-auth-spire-server-connection-timeout duration   SPIRE server connection timeout. (default 10s)
       --nodes-gc-interval duration                           GC interval for CiliumNodes (default 5m0s)
       --operator-api-serve-addr string                       Address to serve API requests (default "localhost:9234")
+      --operator-k8s-client-burst int                        Burst value allowed for the K8s client (default 200)
+      --operator-k8s-client-qps float32                      Queries per second limit for the K8s client (default 100)
       --operator-pprof                                       Enable serving pprof debugging API
       --operator-pprof-address string                        Address that pprof listens on (default "localhost")
       --operator-pprof-port uint16                           Port that pprof listens on (default 6061)

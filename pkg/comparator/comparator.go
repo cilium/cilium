@@ -3,30 +3,6 @@
 
 package comparator
 
-import (
-	"github.com/kr/pretty"
-	"github.com/pmezard/go-difflib/difflib"
-)
-
-// CompareWithNames compares two interfaces and emits a unified diff as string
-func CompareWithNames(a, b interface{}, nameA, nameB string) string {
-	stringA := pretty.Sprintf("%# v", a)
-	stringB := pretty.Sprintf("%# v", b)
-	diff := difflib.UnifiedDiff{
-		A:        difflib.SplitLines(stringA),
-		B:        difflib.SplitLines(stringB),
-		FromFile: nameA,
-		ToFile:   nameB,
-		Context:  32,
-	}
-
-	out, err := difflib.GetUnifiedDiffString(diff)
-	if err != nil {
-		return err.Error()
-	}
-	return "Unified diff:\n" + out
-}
-
 // MapStringEqualsIgnoreKeys returns true if both maps have the same values for
 // the keys that are not present in the 'ignoreKeys'.
 func MapStringEqualsIgnoreKeys(m1, m2 map[string]string, ignoreKeys []string) bool {

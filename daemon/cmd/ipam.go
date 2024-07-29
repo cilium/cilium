@@ -447,7 +447,7 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 	log.Infof("  Local node-name: %s", nodeTypes.GetName())
 	log.Infof("  Node-IPv6: %s", node.GetIPv6())
 
-	iter, _ := d.nodeAddrs.All(d.db.ReadTxn())
+	iter := d.nodeAddrs.All(d.db.ReadTxn())
 	addrs := statedb.Collect(
 		statedb.Filter(
 			iter,
@@ -456,7 +456,7 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 	if option.Config.EnableIPv6 {
 		log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
 
-		if c := option.Config.GetIPv6NativeRoutingCIDR(); c != nil {
+		if c := option.Config.IPv6NativeRoutingCIDR; c != nil {
 			log.Infof("  IPv6 native routing prefix: %s", c.String())
 		}
 
@@ -476,7 +476,7 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 	if option.Config.EnableIPv4 {
 		log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
 
-		if c := option.Config.GetIPv4NativeRoutingCIDR(); c != nil {
+		if c := option.Config.IPv4NativeRoutingCIDR; c != nil {
 			log.Infof("  IPv4 native routing prefix: %s", c.String())
 		}
 
@@ -537,7 +537,12 @@ func (d *Daemon) configureIPAM() {
 		node.SetIPv6NodeRange(allocCIDR)
 	}
 
-	if err := node.AutoComplete(); err != nil {
+	device := ""
+	drd, _ := d.directRoutingDev.Get(d.ctx, d.db.ReadTxn())
+	if drd != nil {
+		device = drd.Name
+	}
+	if err := node.AutoComplete(device); err != nil {
 		log.WithError(err).Fatal("Cannot autocomplete node addresses")
 	}
 }

@@ -5,8 +5,8 @@ package gateway_api
 
 import (
 	"context"
+	"log/slog"
 
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -18,12 +18,9 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-func EnqueueTLSSecrets(c client.Client, logger logrus.FieldLogger) handler.EventHandler {
+func EnqueueTLSSecrets(c client.Client, logger *slog.Logger) handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-		scopedLog := logger.WithFields(logrus.Fields{
-			logfields.Controller: "secrets",
-			logfields.Resource:   obj.GetName(),
-		})
+		scopedLog := logger.With(logfields.Controller, "secrets", logfields.Resource, obj.GetName())
 
 		gw, ok := obj.(*gatewayv1.Gateway)
 		if !ok {
@@ -31,7 +28,7 @@ func EnqueueTLSSecrets(c client.Client, logger logrus.FieldLogger) handler.Event
 		}
 
 		// Check whether Gateway is managed by Cilium
-		if !hasMatchingController(ctx, c, controllerName)(gw) {
+		if !hasMatchingController(ctx, c, controllerName, logger)(gw) {
 			return nil
 		}
 
@@ -49,17 +46,17 @@ func EnqueueTLSSecrets(c client.Client, logger logrus.FieldLogger) handler.Event
 					Name:      string(cert.Name),
 				}
 				reqs = append(reqs, reconcile.Request{NamespacedName: s})
-				scopedLog.WithField("secret", s).Debug("Enqueued secret for gateway")
+				scopedLog.Debug("Enqueued secret for gateway", "secret", s)
 			}
 		}
 		return reqs
 	})
 }
 
-func IsReferencedByCiliumGateway(ctx context.Context, c client.Client, logger logrus.FieldLogger, obj *corev1.Secret) bool {
-	gateways := getGatewaysForSecret(ctx, c, obj)
+func IsReferencedByCiliumGateway(ctx context.Context, c client.Client, logger *slog.Logger, obj *corev1.Secret) bool {
+	gateways := getGatewaysForSecret(ctx, c, obj, logger)
 	for _, gw := range gateways {
-		if hasMatchingController(ctx, c, controllerName)(gw) {
+		if hasMatchingController(ctx, c, controllerName, logger)(gw) {
 			return true
 		}
 	}

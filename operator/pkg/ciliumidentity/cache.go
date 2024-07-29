@@ -4,12 +4,13 @@
 package ciliumidentity
 
 import (
-	"errors"
+	"log/slog"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // SecIDs is used to handle duplicate CIDs. Operator itself will not generate
@@ -26,12 +27,14 @@ type CIDState struct {
 	// Maps label string generated from GlobalIdentity.GetKey() to CID name.
 	labelsToID map[string]*SecIDs
 	mu         lock.RWMutex
+	logger     *slog.Logger
 }
 
-func NewCIDState() *CIDState {
+func NewCIDState(logger *slog.Logger) *CIDState {
 	cidState := &CIDState{
 		idToLabels: make(map[string]*key.GlobalIdentity),
 		labelsToID: make(map[string]*SecIDs),
+		logger:     logger,
 	}
 
 	return cidState
@@ -49,6 +52,7 @@ func (c *CIDState) Upsert(id string, k *key.GlobalIdentity) {
 		return
 	}
 
+	c.logger.Debug("Upsert internal mapping", logfields.CIDName, id)
 	c.idToLabels[id] = k
 
 	keyStr := k.GetKey()
@@ -76,6 +80,8 @@ func (c *CIDState) Remove(id string) {
 	if !exists {
 		return
 	}
+
+	c.logger.Debug("Remove internal mapping", logfields.CIDName, id)
 
 	delete(c.idToLabels, id)
 
@@ -162,31 +168,20 @@ func (c *CIDUsageInPods) AssignCIDToPod(podName, cidName string) (string, int) {
 
 // RemovePod removes the pod from the pod to CID map, decrements the CID usage
 // and returns the CID name and its usage count after decrementing the usage.
+// If the pod does not exist in the pod to CID map it returns empty values.
 // The return values are used to track when old CIDs are no longer used.
-func (c *CIDUsageInPods) RemovePod(podName string) (string, int, error) {
+func (c *CIDUsageInPods) RemovePod(podName string) (string, int, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	cidName, exists := c.podToCID[podName]
 	if !exists {
-		return "", 0, errors.New("cilium identity not found in pods usage cache")
+		return "", 0, false
 	}
 	count := c.decrementUsage(cidName)
 	delete(c.podToCID, podName)
 
-	return cidName, count, nil
-}
-
-func (c *CIDUsageInPods) CIDUsedByPod(podName string) (string, bool) {
-	if len(podName) == 0 {
-		return "", false
-	}
-
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	cidName, exists := c.podToCID[podName]
-	return cidName, exists
+	return cidName, count, true
 }
 
 func (c *CIDUsageInPods) CIDUsageCount(cidName string) int {

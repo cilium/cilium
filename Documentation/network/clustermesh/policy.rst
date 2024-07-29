@@ -45,12 +45,3 @@ between two clusters. The cluster name refers to the name given via the
         - matchLabels:
             name: rebel-base
             io.cilium.k8s.policy.cluster: cluster2
-
-Limitations
-###########
-
- * L7 security policies currently only work across multiple clusters if worker
-   nodes have routes installed allowing to route pod IPs of all clusters. This
-   is obtained when running in direct routing mode by running a routing daemon or
-   ``--auto-direct-node-routes`` but won't work automatically when using
-   tunnel/encapsulation mode.

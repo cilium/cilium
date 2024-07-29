@@ -221,7 +221,7 @@ func testScheme() *runtime.Scheme {
 	return scheme
 }
 
-func Test_httpRouteReconciler_Reconcile(t *testing.T) {
+func Test_mcsDerivedService_Reconcile(t *testing.T) {
 	c := fake.NewClientBuilder().
 		WithObjects(mcsFixtures...).
 		WithScheme(testScheme()).

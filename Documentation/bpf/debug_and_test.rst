@@ -190,7 +190,7 @@ can sometimes be useful for debugging in the kernel:
       [...]
 
 The basic blocks of a program can also be visualized with the help of
-``graphviz``. For this purpose bpftool has a ``visual`` dump mode that
+``graphviz``. For this purpose, bpftool has a ``visual`` dump mode that
 generates a dot file instead of the plain BPF ``xlated`` instruction
 dump that can later be converted to a png file:
 

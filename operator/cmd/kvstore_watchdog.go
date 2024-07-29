@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/allocator"
+	cmoperator "github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -60,7 +61,7 @@ func getOldestLeases(lockPaths map[string]kvstore.Value) map[string]kvstore.Valu
 	return oldestLeases
 }
 
-func startKvstoreWatchdog() {
+func startKvstoreWatchdog(cfgMCSAPI cmoperator.MCSAPIConfig) {
 	log.WithField(logfields.Interval, defaults.LockLeaseTTL).Infof("Starting kvstore watchdog")
 	backend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, "", nil, kvstore.Client())
 	if err != nil {
@@ -105,8 +106,11 @@ func startKvstoreWatchdog() {
 				// The cluster config continues to be enforced also after the initial successful
 				// insertion to prevent issues in case of, e.g., unexpected lease expiration.
 				cfg := cmtypes.CiliumClusterConfig{
-					ID:           option.Config.ClusterID,
-					Capabilities: cmtypes.CiliumClusterConfigCapabilities{MaxConnectedClusters: option.Config.MaxConnectedClusters}}
+					ID: option.Config.ClusterID,
+					Capabilities: cmtypes.CiliumClusterConfigCapabilities{
+						MaxConnectedClusters:  option.Config.MaxConnectedClusters,
+						ServiceExportsEnabled: &cfgMCSAPI.ClusterMeshEnableMCSAPI,
+					}}
 				if err := cmutils.SetClusterConfig(ctx, option.Config.ClusterName, cfg, kvstore.Client()); err != nil {
 					log.WithError(err).Warning("Unable to set local cluster config")
 				}

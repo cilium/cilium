@@ -40,7 +40,7 @@ Enable the Hubble UI by running the following command:
             cilium hubble enable --ui
             🔑 Found existing CA in secret cilium-ca
             ✨ Patching ConfigMap cilium-config to enable Hubble...
-            ♻️  Restarted Cilium pods
+            ♻️ Restarted Cilium pods
             ✅ Relay is already deployed
             ✅ Hubble UI is already deployed
 

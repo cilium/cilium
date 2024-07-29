@@ -62,7 +62,7 @@ env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   cilium_cli_ci_version:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.183.0
+  eksctl_version: v0.186.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.30.2
 
@@ -90,6 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      empty: ${{ steps.set-matrix.outputs.empty }}
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -149,10 +150,12 @@ jobs:
           echo "Filtered matrix:"
           cat /tmp/result.json
           echo "matrix=$(jq -c . < /tmp/result.json)" >> $GITHUB_OUTPUT
+          echo "empty=$(jq '(.include | length) == 0' /tmp/result.json)" >> $GITHUB_OUTPUT
 
   installation-and-connectivity:
     name: Installation and Connectivity Test
     needs: generate-matrix
+    if: ${{ needs.generate-matrix.outputs.empty == 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -221,13 +224,6 @@ jobs:
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
 
-      - name: Install Cilium CLI
-        uses: cilium/cilium-cli@9d071f99ae32af95cb15c3e0a280d222b569a1cf # v0.16.11
-        with:
-          repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
-          ci-version: ${{ env.cilium_cli_ci_version }}
-
       - name: Install kubectl
         run: |
           curl -sLO "https://dl.k8s.io/release/${{ env.kubectl_version }}/bin/linux/amd64/kubectl"
@@ -248,6 +244,13 @@ jobs:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
 
+      - name: Run aws configure
+        run: |
+          aws configure set aws_access_key_id ${{ env.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws configure set aws_session_token ${{ env.AWS_SESSION_TOKEN }}
+          aws configure set default.region ${{ env.AWS_REGION }}
+
       - name: Create EKS cluster
         uses: ./.github/actions/setup-eks-cluster
         with:
@@ -256,6 +259,13 @@ jobs:
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
           spot: false
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ env.CILIUM_CLI_VERSION }}
 
       - name: Wait for images to be available
         timeout-minutes: 30
@@ -317,14 +327,14 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: cilium-sysdumps-${{ matrix.version }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: cilium-junits-${{ matrix.version }}
           path: cilium-junits/*.xml
@@ -336,14 +346,14 @@ jobs:
           junit-directory: "cilium-junits"
 
   merge-upload:
-    if: ${{ always() }}
+    if: ${{ always() && needs.installation-and-connectivity.result != 'skipped' }}
     name: Merge and Upload Artifacts
     runs-on: ubuntu-latest
     needs: installation-and-connectivity
     steps:
       - name: Merge Sysdumps
         if: ${{ needs.installation-and-connectivity.result == 'failure' }}
-        uses: actions/upload-artifact/merge@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact/merge@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: cilium-sysdumps
           pattern: cilium-sysdumps-*
@@ -351,7 +361,7 @@ jobs:
           delete-merged: true
         continue-on-error: true
       - name: Merge JUnits
-        uses: actions/upload-artifact/merge@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact/merge@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: cilium-junits
           pattern: cilium-junits-*
@@ -365,14 +375,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
+        if: ${{ needs.installation-and-connectivity.result != 'skipped' }}
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.installation-and-connectivity.result }}
+      - name: Set final commit status
+        if: ${{ needs.installation-and-connectivity.result == 'skipped' }}
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ github.event_name != 'schedule' && 'success' || 'failure' }}
+          description: 'Skipped'
+
 
   cleanup:
     name: Cleanup EKS Clusters
-    if: ${{ always() }}
+    if: ${{ always() && needs.generate-matrix.outputs.empty == 'false' }}
     continue-on-error: true
     needs: [generate-matrix, installation-and-connectivity]
     runs-on: ubuntu-latest

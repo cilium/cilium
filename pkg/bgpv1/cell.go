@@ -89,6 +89,9 @@ var Cell = cell.Module(
 	// BGP v2 reconcilers
 	reconcilerv2.ConfigReconcilers,
 
+	// BGP state reconcilers
+	reconcilerv2.StateReconcilers,
+
 	cell.Invoke(
 		// Invoke bgp controller to trigger the constructor.
 		func(*agent.Controller) {},

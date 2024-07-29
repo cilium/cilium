@@ -4,8 +4,6 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _gs_default_deny_ingress_policy:
-
 ***************************
 Default Deny Ingress Policy
 ***************************
@@ -68,3 +66,9 @@ The next step is to allow ingress traffic to the ``/details`` endpoint:
     {"id":1,"author":"William Shakespeare","year":1595,"type":"paperback","pages":200,"publisher":"PublisherA","language":"English","ISBN-10":"1234567890","ISBN-13":"123-1234567890"}
     $ kubectl exec -it deployment/client -- curl -s http://$HTTP_INGRESS/details/1
     {"id":1,"author":"William Shakespeare","year":1595,"type":"paperback","pages":200,"publisher":"PublisherA","language":"English","ISBN-10":"1234567890","ISBN-13":"123-1234567890"}
+
+NetworkPolicy that selects ``reserved:ingress`` and allows egress
+to specific identities could also be used. But in general, it's probably more
+reliable to allow all traffic from the ``reserved:ingress`` identity to all
+``cluster`` identities, given that Cilium Ingress is part of the networking
+infrastructure.

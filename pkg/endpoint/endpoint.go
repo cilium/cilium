@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ippkg "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -274,7 +273,7 @@ type Endpoint struct {
 
 	// dnsHistoryTrigger is the trigger to write down the ep_config.h to make
 	// sure that restores when DNS policy is in there are correct
-	dnsHistoryTrigger *trigger.Trigger
+	dnsHistoryTrigger atomic.Pointer[trigger.Trigger]
 
 	// state is the state the endpoint is in. See setState()
 	state State
@@ -571,6 +570,7 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 		proxy:            proxy,
 		ifName:           ifName,
 		OpLabels:         labels.NewOpLabels(),
+		Options:          option.NewIntOptions(&EndpointMutableOptionLibrary),
 		DNSRules:         nil,
 		DNSRulesV2:       nil,
 		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
@@ -587,8 +587,6 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 		properties:       map[string]interface{}{},
 	}
 
-	ep.initDNSHistoryTrigger()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	ep.aliveCancel = cancel
 	ep.aliveCtx = ctx
@@ -601,16 +599,22 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 }
 
 func (e *Endpoint) initDNSHistoryTrigger() {
+	if e.dnsHistoryTrigger.Load() != nil {
+		// Already initialized, bail out.
+		return
+	}
+
 	// Note: This can only fail if the trigger func is nil.
-	var err error
-	e.dnsHistoryTrigger, err = trigger.NewTrigger(trigger.Parameters{
+	trigger, err := trigger.NewTrigger(trigger.Parameters{
 		Name:        "sync_endpoint_header_file",
 		MinInterval: 5 * time.Second,
 		TriggerFunc: e.syncEndpointHeaderFile,
 	})
 	if err != nil {
 		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("Failed to create the endpoint header file sync trigger")
+		return
 	}
+	e.dnsHistoryTrigger.Store(trigger)
 }
 
 // CreateIngressEndpoint creates the endpoint corresponding to Cilium Ingress.
@@ -833,25 +837,15 @@ func (e *Endpoint) forcePolicyComputation() {
 	e.forcePolicyCompute = true
 }
 
-// SetDefaultOpts initializes the endpoint Options and configures the specified
-// options.
+// SetDefaultOpts configures all options for the endpoint, getting the values from 'opts'.
 func (e *Endpoint) SetDefaultOpts(opts *option.IntOptions) {
-	if e.Options == nil {
-		e.Options = option.NewIntOptions(&EndpointMutableOptionLibrary)
-	}
-	if e.Options.Library == nil {
-		e.Options.Library = &EndpointMutableOptionLibrary
-	}
-	if e.Options.Opts == nil {
-		e.Options.Opts = option.OptionMap{}
-	}
-
 	if opts != nil {
-		epOptLib := option.GetEndpointMutableOptionLibrary()
-		for k := range epOptLib {
+		for k := range EndpointMutableOptionLibrary {
 			e.Options.SetValidated(k, opts.GetValue(k))
 		}
 	}
+	// Always set DebugPolicy if Debug is configured, possibly overriding this setting in
+	// 'opts'
 	if option.Config.Debug {
 		e.Options.SetValidated(option.DebugPolicy, option.OptionEnabled)
 	}
@@ -918,8 +912,9 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 
 	ep.initDNSHistoryTrigger()
 
-	// Validate the options that were parsed
-	ep.SetDefaultOpts(ep.Options)
+	// Set default options, unsupported options were already dropped by
+	// ep.Options.UnmarshalJSON
+	ep.SetDefaultOpts(nil)
 
 	// Initialize fields to values which are non-nil that are not serialized.
 	ep.hasBPFProgram = make(chan struct{})
@@ -1230,7 +1225,7 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 		// (init), which is not registered in the identity manager and
 		// therefore doesn't need to be removed.
 		if e.SecurityIdentity.ID != identity.ReservedIdentityInit {
-			identitymanager.Remove(e.SecurityIdentity)
+			e.owner.RemoveIdentity(e.SecurityIdentity)
 		}
 
 		releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
@@ -1248,8 +1243,8 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	e.controllers.RemoveAll()
 	e.cleanPolicySignals()
 
-	if e.dnsHistoryTrigger != nil {
-		e.dnsHistoryTrigger.Shutdown()
+	if trigger := e.dnsHistoryTrigger.Swap(nil); trigger != nil {
+		trigger.Shutdown()
 	}
 
 	if e.ConntrackLocalLocked() {
@@ -1691,7 +1686,7 @@ func (e *Endpoint) APICanModifyConfig(n models.ConfigurationMap) error {
 	}
 	for config, val := range n {
 		if optionSetting, err := option.NormalizeBool(val); err == nil {
-			if e.Options.Opts[config] == optionSetting {
+			if e.Options.GetValue(config) == optionSetting {
 				// The option won't be changed.
 				continue
 			}
@@ -2457,8 +2452,8 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 // SyncEndpointHeaderFile triggers the header file sync to the ep_config.h
 // file. This includes updating the current DNS History information.
 func (e *Endpoint) SyncEndpointHeaderFile() {
-	if e.dnsHistoryTrigger != nil {
-		e.dnsHistoryTrigger.Trigger()
+	if trigger := e.dnsHistoryTrigger.Load(); trigger != nil {
+		trigger.Trigger()
 	}
 }
 
@@ -2473,6 +2468,12 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	errs := []error{}
 
 	e.Stop()
+
+	// Wait for any pending endpoint regenerate() calls to finish. The
+	// latter bails out after taking the lock when it detects that the
+	// endpoint state is disconnecting.
+	e.buildMutex.Lock()
+	defer e.buildMutex.Unlock()
 
 	// Lock out any other writers to the endpoint.  In case multiple delete
 	// requests have been enqueued, have all of them except the first

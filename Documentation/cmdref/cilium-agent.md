@@ -95,6 +95,7 @@ cilium-agent [flags]
       --dnsproxy-concurrency-limit int                            Limit concurrency of DNS message processing
       --dnsproxy-concurrency-processing-grace-period duration     Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing
       --dnsproxy-enable-transparent-mode                          Enable DNS proxy transparent mode
+      --dnsproxy-socket-linger-timeout int                        Timeout (in seconds) when closing the connection between the DNS proxy and the upstream server. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background (default 10)
       --egress-gateway-policy-map-max int                         Maximum number of entries in egress gateway policy map (default 16384)
       --egress-gateway-reconciliation-trigger-interval duration   Time between triggers of egress gateway state reconciliations (default 1s)
       --egress-masquerade-interfaces strings                      Limit iptables-based egress masquerading to interface selector
@@ -201,7 +202,7 @@ cilium-agent [flags]
       --http-retry-count uint                                     Number of retries performed after a forwarded request attempt fails (default 3)
       --http-retry-timeout uint                                   Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
       --hubble-disable-tls                                        Allow Hubble server to run on the given listen address without TLS.
-      --hubble-drop-events                                        Emit packet drop Events related to pods
+      --hubble-drop-events                                        Emit packet drop Events related to pods (alpha)
       --hubble-drop-events-interval duration                      Minimum time between emitting same events (default 2m0s)
       --hubble-drop-events-reasons string                         Drop reasons to emit events for (default "auth_required,policy_denied")
       --hubble-event-buffer-capacity int                          Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535) (default 4095)
@@ -261,10 +262,10 @@ cilium-agent [flags]
       --ipv6-service-range string                                 Kubernetes IPv6 services CIDR if not inside cluster prefix (default "auto")
       --join-cluster                                              Join a Cilium cluster via kvstore registration
       --k8s-api-server string                                     Kubernetes API server URL
-      --k8s-client-burst int                                      Burst value allowed for the K8s client
+      --k8s-client-burst int                                      Burst value allowed for the K8s client (default 20)
       --k8s-client-connection-keep-alive duration                 Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration                    Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)
-      --k8s-client-qps float32                                    Queries per second limit for the K8s client
+      --k8s-client-qps float32                                    Queries per second limit for the K8s client (default 10)
       --k8s-heartbeat-timeout duration                            Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                                Absolute path of the kubernetes kubeconfig file
       --k8s-namespace string                                      Name of the Kubernetes namespace in which Cilium is deployed in

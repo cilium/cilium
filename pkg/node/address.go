@@ -73,17 +73,17 @@ func makeIPv6HostIP() net.IP {
 	return ip
 }
 
-// InitDefaultPrefix initializes the node address and allocation prefixes with
+// initDefaultPrefix initializes the node address and allocation prefixes with
 // default values derived from the system. device can be set to the primary
 // network device of the system in which case the first address with global
 // scope will be regarded as the system's node address.
-func InitDefaultPrefix(device string) {
+func initDefaultPrefix(device string) {
 	localNode.Update(func(n *LocalNode) {
-		SetDefaultPrefix(option.Config, device, n)
+		setDefaultPrefix(option.Config, device, n)
 	})
 }
 
-func SetDefaultPrefix(cfg *option.DaemonConfig, device string, node *LocalNode) {
+func setDefaultPrefix(cfg *option.DaemonConfig, device string, node *LocalNode) {
 	if cfg.EnableIPv4 {
 		isIPv6 := false
 
@@ -280,8 +280,8 @@ func SetIPv6NodeRange(net *cidr.CIDR) {
 }
 
 // AutoComplete completes the parts of addressing that can be auto derived
-func AutoComplete() error {
-	InitDefaultPrefix(option.Config.DirectRoutingDevice)
+func AutoComplete(directRoutingDevice string) error {
+	initDefaultPrefix(directRoutingDevice)
 
 	if option.Config.EnableIPv6 && GetIPv6AllocRange() == nil {
 		return fmt.Errorf("IPv6 allocation CIDR is not configured. Please specify --%s", option.IPv6Range)

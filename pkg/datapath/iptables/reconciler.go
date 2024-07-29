@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -35,6 +36,17 @@ type localNodeInfo struct {
 	ipv6AllocCIDR         string
 	ipv4NativeRoutingCIDR string
 	ipv6NativeRoutingCIDR string
+}
+
+func (lni localNodeInfo) isValid() bool {
+	switch {
+	case option.Config.EnableIPv4 && (lni.internalIPv4.IsUnspecified() || lni.ipv4AllocCIDR == ""):
+		return false
+	case option.Config.EnableIPv6 && (lni.internalIPv6.IsUnspecified() || lni.ipv6AllocCIDR == ""):
+		return false
+	default:
+		return true
+	}
 }
 
 func (lni localNodeInfo) equal(other localNodeInfo) bool {
@@ -127,8 +139,15 @@ func reconciliationLoop(
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// Pull the local node until it has been initialized far enough for
+	// the reconciliation to proceed.
 	localNodeEvents := stream.ToChannel(ctx, params.localNodeStore)
-	state.localNodeInfo = toLocalNodeInfo(<-localNodeEvents)
+	for localNode := range localNodeEvents {
+		state.localNodeInfo = toLocalNodeInfo(localNode)
+		if state.localNodeInfo.isValid() {
+			break
+		}
+	}
 
 	devices, devicesWatch := tables.SelectedDevices(params.devices, params.db.ReadTxn())
 	state.devices = sets.New(tables.DeviceNames(devices)...)

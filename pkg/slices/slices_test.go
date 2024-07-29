@@ -302,6 +302,45 @@ func TestSubsetOf(t *testing.T) {
 	}
 }
 
+func TestXorNil(t *testing.T) {
+	testCases := []struct {
+		name     string
+		a        []string
+		b        []string
+		expected bool
+	}{
+		{
+			name:     "both nil",
+			a:        nil,
+			b:        nil,
+			expected: false,
+		},
+		{
+			name:     "first is nil",
+			a:        nil,
+			b:        []string{},
+			expected: true,
+		},
+		{
+			name:     "second is nil",
+			a:        []string{},
+			b:        nil,
+			expected: true,
+		},
+		{
+			name:     "both non-nil",
+			a:        []string{},
+			b:        []string{},
+			expected: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, XorNil(tc.a, tc.b))
+		})
+	}
+}
+
 // BenchmarkUnique runs the Unique function on a slice of size elements, where each element
 // has a probability of 20% of being a duplicate.
 // At each iteration the slice is restored to its original status and reshuffled, in order

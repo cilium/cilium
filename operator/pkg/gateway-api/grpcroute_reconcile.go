@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -31,10 +30,7 @@ import (
 // the resource is valid and accepted. The Accepted resources will be then included
 // in parent Gateway for further processing.
 func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
-		logfields.Controller: grpcRoute,
-		logfields.Resource:   req.NamespacedName,
-	})
+	scopedLog := r.logger.With(logfields.Controller, grpcRoute, logfields.Resource, req.NamespacedName)
 	scopedLog.Info("Reconciling GRPCRoute")
 
 	// Fetch the GRPCRoute instance
@@ -43,7 +39,7 @@ func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if k8serrors.IsNotFound(err) {
 			return controllerruntime.Success()
 		}
-		scopedLog.WithError(err).Error("Unable to fetch GRPCRoute")
+		scopedLog.ErrorContext(ctx, "Unable to fetch GRPCRoute", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
 
@@ -63,7 +59,7 @@ func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// input for the validators
 	i := &routechecks.GRPCRouteInput{
 		Ctx:       ctx,
-		Logger:    scopedLog.WithField(logfields.Resource, gr),
+		Logger:    scopedLog.With(logfields.Resource, gr),
 		Client:    r.Client,
 		Grants:    grants,
 		GRPCRoute: gr,

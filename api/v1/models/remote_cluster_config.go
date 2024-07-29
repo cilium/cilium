@@ -34,6 +34,9 @@ type RemoteClusterConfig struct {
 	// Whether the configuration has been correctly retrieved
 	Retrieved bool `json:"retrieved,omitempty"`
 
+	// Whether or not MCS-API ServiceExports is enabled by the cluster (null means unsupported).
+	ServiceExportsEnabled *bool `json:"service-exports-enabled,omitempty"`
+
 	// Whether the remote cluster supports per-prefix "synced" canaries
 	SyncCanaries bool `json:"sync-canaries,omitempty"`
 }

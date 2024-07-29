@@ -49,11 +49,12 @@ type Trie[K, T any] interface {
 	// prefix, it will be set to the Trie's maximum prefix.
 	Descendants(prefix uint, key K, fn func(uint, K, T) bool)
 	// Upsert updates or inserts the trie with a a prefix, key,
-	// and value.
+	// and value. The method returns true if the key is new, and
+	// false if the key already existed.
 	//
 	// Note: If the prefix argument exceeds the Trie's maximum
 	// prefix, it will be set to the Trie's maximum prefix.
-	Upsert(prefix uint, key K, value T)
+	Upsert(prefix uint, key K, value T) bool
 	// Delete removes a key with the exact given prefix and returns
 	// false if the key was not found.
 	//
@@ -170,19 +171,16 @@ func (t *trie[K, T]) Descendants(prefixLen uint, k Key[K], fn func(prefix uint, 
 		return
 	}
 	prefixLen = min(prefixLen, t.maxPrefix)
-	searchNode := &node[K, T]{
-		key:       k,
-		prefixLen: prefixLen,
-	}
 	currentNode := t.root
 	for currentNode != nil {
-		matchLen := prefixMatch(searchNode, currentNode.prefixLen, currentNode.key)
-		// The currentNode matches the prefix-key argument.
+		matchLen := currentNode.prefixMatch(prefixLen, k)
+		// CurrentNode matches the prefix-key argument
 		if matchLen >= prefixLen {
 			currentNode.forEach(fn)
 			return
 		}
-		// currentNode is a leaf and has no children. Calling k.BitValueAt may overrun the key storage.
+		// currentNode is a leaf and has no children. Calling k.BitValueAt may
+		// overrun the key storage.
 		if currentNode.prefixLen >= t.maxPrefix {
 			return
 		}
@@ -216,7 +214,7 @@ func (t *trie[K, T]) traverse(prefixLen uint, k Key[K], fn func(currentNode *nod
 		return
 	}
 	for currentNode := t.root; currentNode != nil; currentNode = currentNode.children[k.BitValueAt(currentNode.prefixLen)] {
-		matchLen := prefixMatch(currentNode, prefixLen, k)
+		matchLen := currentNode.prefixMatch(prefixLen, k)
 		// The current-node does not match.
 		if matchLen < currentNode.prefixLen {
 			return
@@ -291,9 +289,9 @@ func (t *trie[K, T]) traverse(prefixLen uint, k Key[K], fn func(currentNode *nod
 // Note: Upsert sets any "prefixLen" argument that exceeds the maximum
 // prefix allowed by the trie to the maximum prefix allowed by the
 // trie.
-func (t *trie[K, T]) Upsert(prefixLen uint, k Key[K], value T) {
+func (t *trie[K, T]) Upsert(prefixLen uint, k Key[K], value T) bool {
 	if k == nil {
-		return
+		return false
 	}
 	prefixLen = min(prefixLen, t.maxPrefix)
 	upsertNode := &node[K, T]{
@@ -310,7 +308,7 @@ func (t *trie[K, T]) Upsert(prefixLen uint, k Key[K], value T) {
 
 	currentNode := t.root
 	for currentNode != nil {
-		matchLen = prefixMatch(currentNode, prefixLen, k)
+		matchLen = currentNode.prefixMatch(prefixLen, k)
 		// The current node does not match the upsert-{prefix,key}
 		// or the current node matches to the maximum extent
 		// allowable by either the trie or the upsert-prefix.
@@ -331,7 +329,7 @@ func (t *trie[K, T]) Upsert(prefixLen uint, k Key[K], value T) {
 		} else {
 			parent.children[bitVal] = upsertNode
 		}
-		return
+		return true
 	}
 	// There are three cases:
 	// 1. The current-node matches the upsert-node to the exact
@@ -370,7 +368,7 @@ func (t *trie[K, T]) Upsert(prefixLen uint, k Key[K], value T) {
 		}
 		upsertNode.children[0] = currentNode.children[0]
 		upsertNode.children[1] = currentNode.children[1]
-		return
+		return false
 	}
 
 	// The upsert-node matches the current-node up to
@@ -384,7 +382,7 @@ func (t *trie[K, T]) Upsert(prefixLen uint, k Key[K], value T) {
 		}
 		bitVal = currentNode.key.BitValueAt(matchLen)
 		upsertNode.children[bitVal] = currentNode
-		return
+		return true
 	}
 	// The upsert-node does not match the current-node
 	// up to the upsert-node's prefix and the current-node
@@ -408,6 +406,7 @@ func (t *trie[K, T]) Upsert(prefixLen uint, k Key[K], value T) {
 		intermediateNode.children[0] = currentNode
 		intermediateNode.children[1] = upsertNode
 	}
+	return true
 }
 
 // Delete deletes only keys that match the exact values of the
@@ -439,7 +438,7 @@ func (t *trie[K, T]) Delete(prefixLen uint, k Key[K]) bool {
 	for currentNode != nil {
 		// Find to what extent the current node matches with the
 		// delete-{prefix,key}.
-		matchLen = prefixMatch(currentNode, prefixLen, k)
+		matchLen = currentNode.prefixMatch(prefixLen, k)
 		// The current-node does not match or it has the same
 		// prefix length (the only potential deletion in the
 		// trie).
@@ -530,15 +529,17 @@ func (t *trie[K, T]) ForEach(fn func(prefix uint, key Key[K], value T) bool) {
 // prefixMatch returns the length that the node key and
 // the argument key match, with the limit of the match being
 // the lesser of the node-key prefix or the argument-key prefix.
-func prefixMatch[K, T any](node *node[K, T], prefix uint, k Key[K]) uint {
-	limit := min(node.prefixLen, prefix)
-	prefixLen := node.key.CommonPrefix(k.Value())
+func (n *node[K, T]) prefixMatch(prefix uint, k Key[K]) uint {
+	limit := min(n.prefixLen, prefix)
+	prefixLen := n.key.CommonPrefix(k.Value())
 	if prefixLen >= limit {
 		return limit
 	}
 	return prefixLen
 }
 
+// forEach calls the argument function for each key and value in
+// the subtree rooted at the current node
 func (n *node[K, T]) forEach(fn func(prefix uint, key Key[K], value T) bool) {
 	if !n.intermediate {
 		if !fn(n.prefixLen, n.key, n.value) {

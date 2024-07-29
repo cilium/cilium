@@ -1,3 +1,21 @@
+# v1.171.0 (2024-07-18)
+
+* **Feature**: Amazon VPC IP Address Manager (IPAM) now supports Bring-Your-Own-IP (BYOIP) for IP addresses registered with any Internet Registry. This feature uses DNS TXT records to validate ownership of a public IP address range.
+
+# v1.170.0 (2024-07-10.2)
+
+* **Feature**: Add parameters to enable provisioning IPAM BYOIPv4 space at a Local Zone Network Border Group level
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.169.0 (2024-07-10)
+
+* **Feature**: Add parameters to enable provisioning IPAM BYOIPv4 space at a Local Zone Network Border Group level
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.168.0 (2024-07-02)
+
+* **Feature**: Documentation updates for Elastic Compute Cloud (EC2).
+
 # v1.167.1 (2024-06-28)
 
 * **Dependency Update**: Updated to the latest SDK module versions

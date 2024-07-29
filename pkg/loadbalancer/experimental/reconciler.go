@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 // ReconcilerCell implements a mock reconciliation of the load-balancing state.
@@ -26,39 +25,25 @@ var ReconcilerCell = cell.Module(
 	"reconciler",
 	"Mock reconciler for load-balancing",
 
-	cell.ProvidePrivate(
-		newMockOps,
-		newReconcilerConfig,
-	),
-
-	cell.Invoke(
-		registerReconciler,
-	),
+	cell.ProvidePrivate(newMockOps),
+	cell.Invoke(registerReconciler),
 )
 
-func registerReconciler(cfg reconciler.Config[*Frontend], p reconciler.Params, s *Writer) error {
-	if !s.IsEnabled() {
+func registerReconciler(p reconciler.Params, ops *mockOps, w *Writer) error {
+	if !w.IsEnabled() {
 		return nil
 	}
-	return reconciler.Register(cfg, p)
-}
+	_, err := reconciler.Register(
+		p,
+		w.fes,
 
-func newReconcilerConfig(ops *mockOps, s *Writer) reconciler.Config[*Frontend] {
-	if !s.IsEnabled() {
-		return reconciler.Config[*Frontend]{}
-	}
-	return reconciler.Config[*Frontend]{
-		FullReconcilationInterval: time.Minute,
-		RetryBackoffMinDuration:   100 * time.Millisecond,
-		RetryBackoffMaxDuration:   time.Minute,
-		IncrementalRoundSize:      500,
-		GetObjectStatus:           (*Frontend).getStatus,
-		SetObjectStatus:           (*Frontend).setStatus,
-		CloneObject:               (*Frontend).Clone,
-		Operations:                ops,
-		BatchOperations:           nil,
-		Table:                     s.fes,
-	}
+		(*Frontend).Clone,
+		(*Frontend).setStatus,
+		(*Frontend).getStatus,
+		ops,
+		nil,
+	)
+	return err
 }
 
 type mockOps struct {

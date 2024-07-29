@@ -15,6 +15,24 @@ body:
       options:
       - label: I have searched the existing issues
         required: true
+  - type: dropdown
+    id: version
+    attributes:
+      label: Version
+      description: |
+        What version of Cilium was running when you discovered this issue? (run `cilium version`)
+        **NOTE: If your version is NOT listed then please upgrade before opening the GH issue. Thank you**
+      options:
+        # renovate: datasource=github-tags depName=cilium/cilium
+        - 'higher than v1.16.0 and lower than v1.17.0'
+        # renovate: datasource=github-tags depName=cilium/cilium
+        - 'higher than v1.15.7 and lower than v1.16.0'
+        # renovate: datasource=github-tags depName=cilium/cilium
+        - 'higher than v1.14.13 and lower than v1.15.0'
+        # renovate: datasource=github-tags depName=cilium/cilium
+        - 'higher than v1.13.18 and lower than v1.14.0'
+    validations:
+      required: true
   - type: textarea
     id: what-happened
     attributes:
@@ -29,12 +47,22 @@ body:
     validations:
       required: true
   - type: textarea
+    id: how-happened
+    attributes:
+      label: How can we reproduce the issue?
+      description: Please give us reproducible steps so that it is easier to find the root cause.
+      placeholder: |
+        1. Install cilium with helm
+        2. Helm flags `helm install --set enable.ipv4=true ...`
+    validations:
+      required: true
+  - type: textarea
     id: cilium-version
+    validations:
+      required: true
     attributes:
       label: Cilium Version
       description: What version of the software was running when you discovered this issue? (run `cilium version`)
-    validations:
-      required: true
   - type: textarea
     id: kernel-version
     attributes:

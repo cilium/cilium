@@ -19,6 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -81,7 +82,7 @@ type linuxNodeHandler struct {
 	// Node-scoped unique IDs for the nodes.
 	nodeIDsByIPs map[string]uint16
 	// reverse map of the above
-	nodeIPsByIDs map[uint16]string
+	nodeIPsByIDs map[uint16]sets.Set[string]
 
 	ipsecMetricCollector prometheus.Collector
 	ipsecMetricOnce      sync.Once
@@ -135,7 +136,7 @@ func newNodeHandler(
 		nodeMap:                nodeMap,
 		nodeIDs:                idpool.NewIDPool(minNodeID, maxNodeID),
 		nodeIDsByIPs:           map[string]uint16{},
-		nodeIPsByIDs:           map[uint16]string{},
+		nodeIPsByIDs:           map[uint16]sets.Set[string]{},
 		ipsecMetricCollector:   ipsec.NewXFRMCollector(),
 		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
 		nodeNeighborQueue:      nbq,
@@ -969,7 +970,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		oldKey, newKey                           uint8
 		isLocalNode                              = false
 	)
-	remoteNodeID, err := n.allocateIDForNode(oldNode, newNode)
+	nodeID, err := n.allocateIDForNode(oldNode, newNode)
 	if err != nil {
 		errs = errors.Join(errs, fmt.Errorf("failed to allocate ID for node %s: %w", newNode.Name, err))
 	}
@@ -985,7 +986,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	if n.nodeConfig.EnableIPSec {
-		errs = errors.Join(errs, n.enableIPsec(oldNode, newNode, remoteNodeID))
+		errs = errors.Join(errs, n.enableIPsec(oldNode, newNode, nodeID))
 		newKey = newNode.EncryptionKey
 	}
 
@@ -1213,14 +1214,15 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		case !option.Config.EnableL2NeighDiscovery:
 			n.enableNeighDiscovery = false
 		case option.Config.DirectRoutingDeviceRequired():
-			if option.Config.DirectRoutingDevice == "" {
+			if newConfig.DirectRoutingDevice == nil {
 				return fmt.Errorf("direct routing device is required, but not defined")
 			}
 
+			drd := newConfig.DirectRoutingDevice
 			devices := n.nodeConfig.DeviceNames()
 
 			targetDevices := make([]string, 0, len(devices)+1)
-			targetDevices = append(targetDevices, option.Config.DirectRoutingDevice)
+			targetDevices = append(targetDevices, drd.Name)
 			targetDevices = append(targetDevices, devices...)
 
 			var err error
@@ -1289,13 +1291,13 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		if err := n.removeEncryptRules(); err != nil {
 			n.log.Warn("Cannot cleanup previous encryption rule state.", logfields.Error, err)
 		}
-		if err := ipsec.DeleteXFRM(n.log); err != nil {
+		if err := ipsec.DeleteXFRM(n.log, ipsec.AllReqID); err != nil {
 			return fmt.Errorf("failed to delete xfrm policies on node configuration changed: %w", err)
 		}
 	}
 
 	if !newConfig.EnableIPSecEncryptedOverlay {
-		if err := ipsec.DeleteXFRMWithReqID(n.log, ipsec.EncryptedOverlayReqID); err != nil {
+		if err := ipsec.DeleteXFRM(n.log, ipsec.EncryptedOverlayReqID); err != nil {
 			return fmt.Errorf("failed to delete encrypt overlay xfrm policies on node configuration change: %w", err)
 		}
 	}

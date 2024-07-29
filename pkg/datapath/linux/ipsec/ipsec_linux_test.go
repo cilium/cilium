@@ -30,7 +30,7 @@ func setupIPSecSuitePrivileged(tb testing.TB) *slog.Logger {
 	tb.Cleanup(func() {
 		ipSecKeysGlobal = make(map[string]*ipSecKey)
 		node.UnsetTestLocalNodeStore()
-		err := DeleteXFRM(log)
+		err := DeleteXFRM(log, AllReqID)
 		if err != nil {
 			tb.Errorf("Failed cleaning XFRM state: %v", err)
 		}
@@ -147,7 +147,7 @@ func TestUpsertIPSecEquals(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, len(result))
 
-	err = DeleteXFRM(log)
+	err = DeleteXFRM(log, AllReqID)
 	require.NoError(t, err)
 
 	_, aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")
@@ -222,7 +222,7 @@ func TestUpsertIPSecEndpoint(t *testing.T) {
 	// ESN bit is not set, so ReplayWindow should be 0
 	require.Equal(t, 0, state.ReplayWindow)
 
-	err = DeleteXFRM(log)
+	err = DeleteXFRM(log, AllReqID)
 	require.NoError(t, err)
 
 	_, aeadKey, err := decodeIPSecKey("44434241343332312423222114131211f4f3f2f1")

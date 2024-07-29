@@ -674,6 +674,8 @@ func (m *HealthCheck) validate(all bool) error {
 
 	// no validation rules for AlwaysLogHealthCheckFailures
 
+	// no validation rules for AlwaysLogHealthCheckSuccess
+
 	if all {
 		switch v := interface{}(m.GetTlsOptions()).(type) {
 		case interface{ ValidateAll() error }:
@@ -1173,7 +1175,7 @@ func (m *HealthCheck_HttpHealthCheck) validate(all bool) error {
 	if !_HealthCheck_HttpHealthCheck_Host_Pattern.MatchString(m.GetHost()) {
 		err := HealthCheck_HttpHealthCheckValidationError{
 			field:  "Host",
-			reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
+			reason: "value does not match regex pattern \"^[^\\x00-\\b\\n-\\x1f\\x7f]*$\"",
 		}
 		if !all {
 			return err
@@ -1195,7 +1197,7 @@ func (m *HealthCheck_HttpHealthCheck) validate(all bool) error {
 	if !_HealthCheck_HttpHealthCheck_Path_Pattern.MatchString(m.GetPath()) {
 		err := HealthCheck_HttpHealthCheckValidationError{
 			field:  "Path",
-			reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
+			reason: "value does not match regex pattern \"^[^\\x00-\\b\\n-\\x1f\\x7f]*$\"",
 		}
 		if !all {
 			return err
@@ -1553,9 +1555,9 @@ var _ interface {
 	ErrorName() string
 } = HealthCheck_HttpHealthCheckValidationError{}
 
-var _HealthCheck_HttpHealthCheck_Host_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
+var _HealthCheck_HttpHealthCheck_Host_Pattern = regexp.MustCompile("^[^\x00-\b\n-\x1f\x7f]*$")
 
-var _HealthCheck_HttpHealthCheck_Path_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
+var _HealthCheck_HttpHealthCheck_Path_Pattern = regexp.MustCompile("^[^\x00-\b\n-\x1f\x7f]*$")
 
 var _HealthCheck_HttpHealthCheck_RequestHeadersToRemove_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
 

@@ -419,7 +419,7 @@
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"image":{"digest":"sha256:169d93fd8f2f9009db3b9d5ccd37c2b753d0989e1e7cd8fe79f9160c459eef4f","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.0","useDigest":true},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
+     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"image":{"digest":"sha256:ab6b1928e9c5f424f6b0f51c68065b9fd85e2f8d3e5f21fbd1a3cb27e6fb9321","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.1","useDigest":true},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
    * - :spelling:ignore:`certgen.affinity`
      - Affinity for certgen
      - object
@@ -472,6 +472,10 @@
      - List of rate limit options to be used for the CiliumEndpointSlice controller. Each object in the list must have the following fields: nodes: Count of nodes at which to apply the rate limit. limit: The sustained request rate in requests per second. The maximum rate that can be configured is 50. burst: The burst request rate in requests per second. The maximum burst that can be configured is 100.
      - list
      - ``[{"burst":20,"limit":10,"nodes":0},{"burst":15,"limit":7,"nodes":100},{"burst":10,"limit":5,"nodes":500}]``
+   * - :spelling:ignore:`ciliumEndpointSlice.sliceMode`
+     - The slicing mode to use for CiliumEndpointSlices. identity groups together CiliumEndpoints that share the same identity. fcfs groups together CiliumEndpoints in a first-come-first-serve basis, filling in the largest non-full slice first.
+     - string
+     - ``"identity"``
    * - :spelling:ignore:`cleanBpfState`
      - Clean all eBPF datapath state from the initContainer of the cilium-agent DaemonSet.  WARNING: Use with care!
      - bool
@@ -713,7 +717,7 @@
      - object
      - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}``
    * - :spelling:ignore:`clustermesh.apiserver.service.annotations`
-     - Annotations for the clustermesh-apiserver For GKE LoadBalancer, use annotation cloud.google.com/load-balancer-type: "Internal" For EKS LoadBalancer, use annotation service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+     - Annotations for the clustermesh-apiserver service. Example annotations to configure an internal load balancer on different cloud providers: * AKS: service.beta.kubernetes.io/azure-load-balancer-internal: "true" * EKS: service.beta.kubernetes.io/aws-load-balancer-scheme: "internal" * GKE: networking.gke.io/load-balancer-type: "Internal"
      - object
      - ``{}``
    * - :spelling:ignore:`clustermesh.apiserver.service.enableSessionAffinity`
@@ -996,6 +1000,10 @@
      - The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.
      - string
      - ``"100ms"``
+   * - :spelling:ignore:`dnsProxy.socketLingerTimeout`
+     - Timeout (in seconds) when closing the connection between the DNS proxy and the upstream server. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background.
+     - int
+     - ``10``
    * - :spelling:ignore:`egressGateway.enabled`
      - Enables egress gateway to redirect and SNAT the traffic that leaves the cluster.
      - bool
@@ -1231,7 +1239,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:fe3cec76ecdd22c4c70e7643228850562e8b1f5122fc11021bc6725254190064","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.29.7-fb2df6ec59fed2589e65e924bd6eb7bfecbb5108","useDigest":true}``
+     - ``{"digest":"sha256:e1f46cc7ebffa3421913220f3c5d6d200fd61ef7c802f548b5b39634e099cd83","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.30.4-48fa07fc1729f182860151fbfe5a17132607bda2","useDigest":true}``
    * - :spelling:ignore:`envoy.livenessProbe.failureThreshold`
      - failure threshold of liveness probe
      - int
@@ -1545,7 +1553,7 @@
      - object
      - ``{}``
    * - :spelling:ignore:`hubble.dropEventEmitter`
-     - Emit v1.Events related to pods on detection of packet drops.
+     - Emit v1.Events related to pods on detection of packet drops.    This feature is alpha, please provide feedback at https://github.com/cilium/cilium/issues/33975.
      - object
      - ``{"enabled":false,"interval":"2m","reasons":["auth_required","policy_denied"]}``
    * - :spelling:ignore:`hubble.dropEventEmitter.interval`
@@ -2040,6 +2048,10 @@
      - hubble-ui ingress configuration.
      - object
      - ``{"annotations":{},"className":"","enabled":false,"hosts":["chart-example.local"],"labels":{},"tls":[]}``
+   * - :spelling:ignore:`hubble.ui.labels`
+     - Additional labels to be added to 'hubble-ui' deployment object
+     - object
+     - ``{}``
    * - :spelling:ignore:`hubble.ui.nodeSelector`
      - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -2317,17 +2329,29 @@
      - bool
      - ``false``
    * - :spelling:ignore:`k8sClientRateLimit`
-     - Configure the client side rate limit for the agent and operator  If the amount of requests to the Kubernetes API server exceeds the configured rate limit, the agent and operator will start to throttle requests by delaying them until there is budget or the request times out.
+     - Configure the client side rate limit for the agent  If the amount of requests to the Kubernetes API server exceeds the configured rate limit, the agent will start to throttle requests by delaying them until there is budget or the request times out.
      - object
-     - ``{"burst":null,"qps":null}``
+     - ``{"burst":null,"operator":{"burst":null,"qps":null},"qps":null}``
    * - :spelling:ignore:`k8sClientRateLimit.burst`
      - The burst request rate in requests per second. The rate limiter will allow short bursts with a higher rate.
      - int
-     - 10 for k8s up to 1.26. 20 for k8s version 1.27+
+     - 20
+   * - :spelling:ignore:`k8sClientRateLimit.operator`
+     - Configure the client side rate limit for the Cilium Operator
+     - object
+     - ``{"burst":null,"qps":null}``
+   * - :spelling:ignore:`k8sClientRateLimit.operator.burst`
+     - The burst request rate in requests per second. The rate limiter will allow short bursts with a higher rate.
+     - int
+     - 200
+   * - :spelling:ignore:`k8sClientRateLimit.operator.qps`
+     - The sustained request rate in requests per second.
+     - int
+     - 100
    * - :spelling:ignore:`k8sClientRateLimit.qps`
      - The sustained request rate in requests per second.
      - int
-     - 5 for k8s up to 1.26. 10 for k8s version 1.27+
+     - 10
    * - :spelling:ignore:`k8sNetworkPolicy.enabled`
      - Enable support for K8s NetworkPolicy
      - bool
@@ -2444,6 +2468,14 @@
      - Agent container name.
      - string
      - ``"cilium"``
+   * - :spelling:ignore:`nat.mapStatsEntries`
+     - Number of the top-k SNAT map connections to track in Cilium statedb.
+     - int
+     - ``32``
+   * - :spelling:ignore:`nat.mapStatsInterval`
+     - Interval between how often SNAT map is counted for stats.
+     - string
+     - ``"30s"``
    * - :spelling:ignore:`nat46x64Gateway`
      - Configure standalone NAT46/NAT64 gateway
      - object

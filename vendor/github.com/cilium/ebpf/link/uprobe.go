@@ -222,6 +222,8 @@ func (ex *Executable) address(symbol string, address, offset uint64) (uint64, er
 //
 // Functions provided by shared libraries can currently not be traced and
 // will result in an ErrNotSupported.
+//
+// The returned Link may implement [PerfEvent].
 func (ex *Executable) Uprobe(symbol string, prog *ebpf.Program, opts *UprobeOptions) (Link, error) {
 	u, err := ex.uprobe(symbol, prog, opts, false)
 	if err != nil {
@@ -256,6 +258,8 @@ func (ex *Executable) Uprobe(symbol string, prog *ebpf.Program, opts *UprobeOpti
 //
 // Functions provided by shared libraries can currently not be traced and
 // will result in an ErrNotSupported.
+//
+// The returned Link may implement [PerfEvent].
 func (ex *Executable) Uretprobe(symbol string, prog *ebpf.Program, opts *UprobeOptions) (Link, error) {
 	u, err := ex.uprobe(symbol, prog, opts, true)
 	if err != nil {

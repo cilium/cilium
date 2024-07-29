@@ -185,6 +185,64 @@ func TestUnsignedUpsert(t *testing.T) {
 	}
 }
 
+// TestUnsignedUpsertReturnValue tests to see that the Upsert method
+// of the Trie returns true only when a new key is being inserted.
+func TestUnsignedUpsertReturnValue(t *testing.T) {
+	tests := []struct {
+		name   string
+		ranges []uint16Range
+	}{
+		{
+			ranges: uint16Range65535,
+		},
+		{
+			name:   " least entries for largest range",
+			ranges: uint16Range0_65535,
+		},
+		{
+			name:   " most entries for largest range",
+			ranges: uint16Range1_65534,
+		},
+		{
+			ranges: uint16Range0_1023,
+		},
+		{
+			ranges: uint16Range1_1023,
+		},
+		{
+			ranges: uint16Range0_7,
+		},
+		{
+			ranges: uint16Range1_7,
+		},
+		{
+			ranges: uint16Range0_1,
+		},
+		{
+			ranges: uint16Range1_1,
+		},
+	}
+	for _, tt := range tests {
+		name := fmt.Sprintf("%d_%d%s", tt.ranges[0].start,
+			tt.ranges[len(tt.ranges)-1].end, tt.name)
+		// Check that the whole trie is what it should be
+		// on each update.
+		t.Run(name, func(t *testing.T) {
+			ut := NewUintTrie[uint16, string]()
+			for _, pr := range tt.ranges {
+				isNewA := ut.Upsert(pr.prefix(), pr.start, fmt.Sprintf("%d-%d", pr.start, pr.end))
+				if !isNewA {
+					t.Fatalf("Expected Upsert of port-range (%d-%d) to be a new insert, but it is not...", pr.start, pr.end)
+				}
+				isNewB := ut.Upsert(pr.prefix(), pr.start, fmt.Sprintf("%d-%d-replace", pr.start, pr.end))
+				if isNewB {
+					t.Fatalf("Expected Upsert of port-range (%d-%d) to be a replacement, but it is not...", pr.start, pr.end)
+				}
+			}
+		})
+	}
+}
+
 // TestUnsignedExactLookup looks up every entry expressed
 // in a trie structure to ensure that exact lookup only returns
 // on when keys match exactly.

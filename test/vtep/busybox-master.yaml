@@ -11,6 +11,6 @@ spec:
     dedicated: master
   containers:
   - name: busybox
-    image: busybox
+    image: cgr.dev/chainguard/busybox:latest
     imagePullPolicy: IfNotPresent
     command: ['sh', '-c', 'echo Container 1 is Running ; sleep 3600']

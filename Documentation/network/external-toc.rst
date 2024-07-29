@@ -14,4 +14,3 @@ External networking
    :glob:
 
    external-workloads
-   egress-gateway

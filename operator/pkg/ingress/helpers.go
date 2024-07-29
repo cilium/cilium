@@ -6,16 +6,18 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-func isCiliumManagedIngress(ctx context.Context, c client.Client, logger logrus.FieldLogger, ing networkingv1.Ingress) bool {
+func isCiliumManagedIngress(ctx context.Context, c client.Client, logger *slog.Logger, ing networkingv1.Ingress) bool {
 	ingressClassName := ingressClassName(ing)
 
 	if ingressClassName != nil && *ingressClassName == ciliumIngressClassName {
@@ -26,11 +28,11 @@ func isCiliumManagedIngress(ctx context.Context, c client.Client, logger logrus.
 	return (ingressClassName == nil || *ingressClassName == "") && isCiliumDefaultIngressController(ctx, c, logger)
 }
 
-func isCiliumDefaultIngressController(ctx context.Context, c client.Client, logger logrus.FieldLogger) bool {
+func isCiliumDefaultIngressController(ctx context.Context, c client.Client, logger *slog.Logger) bool {
 	ciliumIngressClass := &networkingv1.IngressClass{}
 	if err := c.Get(ctx, types.NamespacedName{Name: ciliumIngressClassName}, ciliumIngressClass); err != nil {
 		if !errors.IsNotFound(err) {
-			logger.WithError(err).Warn("Failed to load Cilium IngressClass")
+			logger.Warn("Failed to load Cilium IngressClass", logfields.Error, err)
 		}
 
 		return false
@@ -38,7 +40,7 @@ func isCiliumDefaultIngressController(ctx context.Context, c client.Client, logg
 
 	isDefault, err := isIngressClassMarkedAsDefault(*ciliumIngressClass)
 	if err != nil {
-		logger.WithError(err).Warn("Failed to detect default class on IngressClass cilium")
+		logger.Warn("Failed to detect default class on IngressClass cilium", logfields.Error, err)
 		return false
 	}
 

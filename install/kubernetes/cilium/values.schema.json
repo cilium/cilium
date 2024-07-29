@@ -782,6 +782,12 @@
             ]
           },
           "type": "array"
+        },
+        "sliceMode": {
+          "enum": [
+            "identity",
+            "fcfs"
+          ]
         }
       },
       "type": "object"
@@ -1588,6 +1594,9 @@
         },
         "proxyResponseMaxDelay": {
           "type": "string"
+        },
+        "socketLingerTimeout": {
+          "type": "integer"
         }
       },
       "type": "object"
@@ -3296,6 +3305,9 @@
               },
               "type": "object"
             },
+            "labels": {
+              "type": "object"
+            },
             "nodeSelector": {
               "properties": {
                 "kubernetes.io/os": {
@@ -3725,6 +3737,23 @@
             "integer"
           ]
         },
+        "operator": {
+          "properties": {
+            "burst": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
+            "qps": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            }
+          },
+          "type": "object"
+        },
         "qps": {
           "type": [
             "null",
@@ -3849,6 +3878,17 @@
     },
     "name": {
       "type": "string"
+    },
+    "nat": {
+      "properties": {
+        "mapStatsEntries": {
+          "type": "integer"
+        },
+        "mapStatsInterval": {
+          "type": "string"
+        }
+      },
+      "type": "object"
     },
     "nat46x64Gateway": {
       "properties": {

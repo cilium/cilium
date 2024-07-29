@@ -23,6 +23,9 @@ type remoteCluster struct {
 	// name is the name of the cluster
 	name string
 
+	clusterMeshEnableEndpointSync bool
+	clusterMeshEnableMCSAPI       bool
+
 	globalServices *common.GlobalServiceCache
 
 	// remoteServices is the shared store representing services in remote clusters
@@ -53,9 +56,11 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		adapter = kvstore.StateToCachePrefix
 	}
 
-	mgr.Register(adapter(serviceStore.ServiceStorePrefix), func(ctx context.Context) {
-		rc.remoteServices.Watch(ctx, backend, path.Join(adapter(serviceStore.ServiceStorePrefix), rc.name))
-	})
+	if rc.clusterMeshEnableEndpointSync {
+		mgr.Register(adapter(serviceStore.ServiceStorePrefix), func(ctx context.Context) {
+			rc.remoteServices.Watch(ctx, backend, path.Join(adapter(serviceStore.ServiceStorePrefix), rc.name))
+		})
+	}
 
 	close(ready)
 	for _, clusterAddHook := range rc.clusterAddHooks {
@@ -103,7 +108,7 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 	status.NumSharedServices = int64(rc.remoteServices.NumEntries())
 
 	status.Synced = &models.RemoteClusterSynced{
-		Services: rc.remoteServices.Synced(),
+		Services: !rc.clusterMeshEnableEndpointSync || rc.remoteServices.Synced(),
 		// The operator does not watch nodes, endpoints and identities, hence
 		// let's pretend them to be synchronized by default.
 		Nodes:      true,

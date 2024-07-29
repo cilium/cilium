@@ -11,8 +11,14 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the specified placement groups or all of your placement groups. For
-// more information, see [Placement groups]in the Amazon EC2 User Guide.
+// Describes the specified placement groups or all of your placement groups.
+//
+// To describe a specific placement group that is shared with your account, you
+// must specify the ID of the placement group using the GroupId parameter.
+// Specifying the name of a shared placement group using the GroupNames parameter
+// will result in an error.
+//
+// For more information, see [Placement groups] in the Amazon EC2 User Guide.
 //
 // [Placement groups]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html
 func (c *Client) DescribePlacementGroups(ctx context.Context, params *DescribePlacementGroupsInput, optFns ...func(*Options)) (*DescribePlacementGroupsOutput, error) {
@@ -66,7 +72,12 @@ type DescribePlacementGroupsInput struct {
 
 	// The names of the placement groups.
 	//
-	// Default: Describes all your placement groups, or only those otherwise specified.
+	// Constraints:
+	//
+	//   - You can specify a name only if the placement group is owned by your account.
+	//
+	//   - If a placement group is shared with your account, specifying the name
+	//   results in an error. You must use the GroupId parameter instead.
 	GroupNames []string
 
 	noSmithyDocumentSerde

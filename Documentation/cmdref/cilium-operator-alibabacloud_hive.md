@@ -13,7 +13,7 @@ cilium-operator-alibabacloud hive [flags]
 ```
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                               Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
-      --ces-slice-mode string                                Slicing mode defines how CiliumEndpoints are grouped into CES: either batched by their Identity ("cesSliceModeIdentity") or batched on a "First Come, First Served" basis ("cesSliceModeFCFS") (default "cesSliceModeIdentity")
+      --ces-slice-mode string                                Slicing mode defines how CiliumEndpoints are grouped into CES: either batched by their Identity ("identity") or batched on a "First Come, First Served" basis ("fcfs") (default "identity")
       --cluster-id uint32                                    Unique identifier of the cluster
       --cluster-name string                                  Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character. (default "default")
       --clustermesh-concurrent-service-endpoint-syncs int    The number of remote cluster service syncing operations that will be done concurrently. Larger number = faster endpoint slice updating, but more CPU (and network) load. (default 5)
@@ -61,10 +61,8 @@ cilium-operator-alibabacloud hive [flags]
       --ingress-secrets-namespace string                     Namespace having tls secrets used by Ingress and CEC. (default "cilium-secrets")
       --ingress-shared-lb-service-name string                Name of shared LB service name for Ingress. (default "cilium-ingress")
       --k8s-api-server string                                Kubernetes API server URL
-      --k8s-client-burst int                                 Burst value allowed for the K8s client
       --k8s-client-connection-keep-alive duration            Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration               Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)
-      --k8s-client-qps float32                               Queries per second limit for the K8s client
       --k8s-heartbeat-timeout duration                       Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                           Absolute path of the kubernetes kubeconfig file
       --k8s-service-proxy-name string                        Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
@@ -79,6 +77,8 @@ cilium-operator-alibabacloud hive [flags]
       --mesh-auth-spire-server-address string                SPIRE server endpoint. (default "spire-server.spire.svc:8081")
       --mesh-auth-spire-server-connection-timeout duration   SPIRE server connection timeout. (default 10s)
       --operator-api-serve-addr string                       Address to serve API requests (default "localhost:9234")
+      --operator-k8s-client-burst int                        Burst value allowed for the K8s client (default 200)
+      --operator-k8s-client-qps float32                      Queries per second limit for the K8s client (default 100)
       --operator-pprof                                       Enable serving pprof debugging API
       --operator-pprof-address string                        Address that pprof listens on (default "localhost")
       --operator-pprof-port uint16                           Port that pprof listens on (default 6061)

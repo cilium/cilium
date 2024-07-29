@@ -110,7 +110,7 @@ func (i *identityManagerObserver) LocalEndpointIdentityRemoved(identity *identit
 func TestLocalEndpointIdentityAdded(t *testing.T) {
 	idm := NewIdentityManager()
 	observer := newIdentityManagerObserver([]identity.NumericIdentity{}, []identity.NumericIdentity{})
-	idm.subscribe(observer)
+	idm.Subscribe(observer)
 
 	// No-op: nil Identity.
 	idm.Add(nil)
@@ -164,7 +164,7 @@ func TestLocalEndpointIdentityRemoved(t *testing.T) {
 	idm := NewIdentityManager()
 	require.NotNil(t, idm.identities)
 	observer := newIdentityManagerObserver([]identity.NumericIdentity{}, []identity.NumericIdentity{})
-	idm.subscribe(observer)
+	idm.Subscribe(observer)
 
 	// No-ops:
 	// - nil Identity.
@@ -182,7 +182,7 @@ func TestLocalEndpointIdentityRemoved(t *testing.T) {
 	idm = NewIdentityManager()
 	require.NotNil(t, idm.identities)
 	observer = newIdentityManagerObserver(nil, []identity.NumericIdentity{})
-	idm.subscribe(observer)
+	idm.Subscribe(observer)
 
 	// Refcount remove
 	idm.Add(fooIdentity)    // foo = 1

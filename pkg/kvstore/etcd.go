@@ -407,44 +407,32 @@ func (e *etcdClient) StatusCheckErrors() <-chan error {
 	return e.statusCheckErrors
 }
 
-func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan error {
-	initLockSucceeded := make(chan error)
+func (e *etcdClient) maybeWaitForInitLock(ctx context.Context) error {
+	if e.extraOptions != nil && e.extraOptions.NoLockQuorumCheck {
+		return nil
+	}
 
-	go func() {
-		for {
-			select {
-			case <-e.client.Ctx().Done():
-				initLockSucceeded <- fmt.Errorf("client context ended: %w", e.client.Ctx().Err())
-				close(initLockSucceeded)
-				return
-			case <-ctx.Done():
-				initLockSucceeded <- fmt.Errorf("caller context ended: %w", ctx.Err())
-				close(initLockSucceeded)
-				return
-			default:
-			}
-
-			if e.extraOptions != nil && e.extraOptions.NoLockQuorumCheck {
-				close(initLockSucceeded)
-				return
-			}
-
-			// Generate a random number so that we can acquire a lock even
-			// if other agents are killed while locking this path.
-			randNumber := strconv.FormatUint(rand.Uint64(), 16)
-			locker, err := e.LockPath(ctx, InitLockPath+"/"+randNumber)
-			if err == nil {
-				locker.Unlock(context.Background())
-				close(initLockSucceeded)
-				e.logger.Debug("Distributed lock successful, etcd has quorum")
-				return
-			}
-
-			time.Sleep(100 * time.Millisecond)
+	for {
+		select {
+		case <-e.client.Ctx().Done():
+			return fmt.Errorf("client context ended: %w", e.client.Ctx().Err())
+		case <-ctx.Done():
+			return fmt.Errorf("caller context ended: %w", ctx.Err())
+		default:
 		}
-	}()
 
-	return initLockSucceeded
+		// Generate a random number so that we can acquire a lock even
+		// if other agents are killed while locking this path.
+		randNumber := strconv.FormatUint(rand.Uint64(), 16)
+		locker, err := e.LockPath(ctx, InitLockPath+"/"+randNumber)
+		if err == nil {
+			locker.Unlock(context.Background())
+			e.logger.Debug("Distributed lock successful, etcd has quorum")
+			return nil
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
@@ -466,8 +454,7 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
 		return fmt.Errorf("timeout while waiting for initial connection")
 	}
 
-	initLockSucceeded := e.waitForInitLock(ctxTimeout)
-	if err := <-initLockSucceeded; err != nil {
+	if err := e.maybeWaitForInitLock(ctxTimeout); err != nil {
 		recordQuorumError("lock timeout")
 		return fmt.Errorf("unable to acquire lock: %w", err)
 	}
@@ -561,8 +548,6 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		return nil, err
 	}
 
-	errorChan := make(chan error)
-
 	ec := &etcdClient{
 		client:               c,
 		config:               config,
@@ -612,91 +597,101 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	ec.leaseManager = newEtcdLeaseManager(c, leaseTTL, etcdMaxKeysPerLease, ec.expiredLeaseObserver, ec.logger)
 	ec.lockLeaseManager = newEtcdLeaseManager(c, defaults.LockLeaseTTL, etcdMaxKeysPerLease, nil, ec.logger)
 
-	// create session in parallel as this is a blocking operation
-	go func() {
-		ls, err := ec.lockLeaseManager.GetSession(ctx, InitLockPath)
-		if err != nil {
-			errorChan <- err
-			close(errorChan)
-			return
-		}
-
-		ec.logger.Infof("Got lock lease ID %x", ls.Lease())
-		close(errorChan)
-	}()
-
-	handleSessionError := func(err error) {
-		ec.RWMutex.Lock()
-		ec.sessionErr = err
-		ec.RWMutex.Unlock()
-
-		ec.statusLock.Lock()
-		ec.latestStatusSnapshot = "Failed to establish initial connection"
-		ec.latestErrorStatus = err
-		ec.statusLock.Unlock()
-
-		errChan <- err
-		ec.statusCheckErrors <- err
-	}
-
-	// wait for session to be created also in parallel
-	go func() {
-		err := func() (err error) {
-			select {
-			case err = <-errorChan:
-				if err != nil {
-					return err
-				}
-			case <-time.After(initialConnectionTimeout):
-				return fmt.Errorf("timed out while waiting for etcd session. Ensure that etcd is running on %s", config.Endpoints)
-			}
-
-			ec.logger.Info("Initial etcd session established")
-
-			return nil
-		}()
-
-		if err != nil {
-			handleSessionError(err)
-			close(errChan)
-			close(ec.firstSession)
-			close(ec.statusCheckErrors)
-			return
-		}
-
-		close(errChan)
-		close(ec.firstSession)
-
-		go ec.statusChecker()
-
-		watcher := ec.ListAndWatch(ctx, HeartbeatPath, 128)
-
-		for {
-			select {
-			case _, ok := <-watcher.Events:
-				if !ok {
-					ec.logger.Debug("Stopping heartbeat watcher")
-					watcher.Stop()
-					return
-				}
-
-				// It is tempting to compare against the
-				// heartbeat value stored in the key. However,
-				// this would require the time on all nodes to
-				// be synchronized. Instead, assume current
-				// time and print the heartbeat value in debug
-				// messages for troubleshooting
-				ec.RWMutex.Lock()
-				ec.lastHeartbeat = time.Now()
-				ec.RWMutex.Unlock()
-				ec.logger.Debug("Received update notification of heartbeat")
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+	go ec.asyncConnectEtcdClient(errChan)
 
 	return ec, nil
+}
+
+func (e *etcdClient) asyncConnectEtcdClient(errChan chan<- error) {
+	var (
+		ctx      = e.client.Ctx()
+		listDone = make(chan struct{})
+	)
+
+	propagateError := func(err error) {
+		e.statusLock.Lock()
+		e.latestStatusSnapshot = "Failed to establish initial connection"
+		e.latestErrorStatus = err
+		e.statusLock.Unlock()
+
+		errChan <- err
+		close(errChan)
+
+		e.statusCheckErrors <- err
+		close(e.statusCheckErrors)
+	}
+
+	wctx, wcancel := context.WithTimeout(ctx, initialConnectionTimeout)
+
+	// Don't create a session when running with lock quorum check disabled
+	// (i.e., for clustermesh clients), to not introduce unnecessary overhead
+	// on the target etcd instance, considering that the session would never
+	// be used again. Instead, we'll just rely on the successful synchronization
+	// of the heartbeat watcher as a signal that we successfully connected.
+	if e.extraOptions == nil || !e.extraOptions.NoLockQuorumCheck {
+		_, err := e.lockLeaseManager.GetSession(wctx, InitLockPath)
+		if err != nil {
+			wcancel()
+			if errors.Is(err, context.DeadlineExceeded) {
+				err = fmt.Errorf("timed out while waiting for etcd connection. Ensure that etcd is running on %s", e.config.Endpoints)
+			}
+
+			e.RWMutex.Lock()
+			e.sessionErr = err
+			e.RWMutex.Unlock()
+
+			propagateError(err)
+			close(e.firstSession)
+			return
+		}
+	}
+
+	// This channel needs to be closed here to allow starting the heartbeat
+	// ListAndWatch operation below.
+	close(e.firstSession)
+
+	go func() {
+		// Report connection established to the caller and start the status
+		// checker only after successfully starting the heatbeat watcher, as
+		// additional sanity check. This also guarantees that there's already
+		// been an interaction with the target etcd instance at that point,
+		// and its corresponding cluster ID has been retrieved if using the
+		// "clusterLock" interceptors.
+		select {
+		case <-wctx.Done():
+			propagateError(fmt.Errorf("timed out while starting the heartbeat watcher. Ensure that etcd is running on %s", e.config.Endpoints))
+			return
+		case <-listDone:
+			e.logger.Info("Initial etcd connection established")
+			close(errChan)
+		}
+
+		wcancel()
+		e.statusChecker()
+	}()
+
+	watcher := e.ListAndWatch(ctx, HeartbeatPath, 0)
+	for event := range watcher.Events {
+		switch event.Typ {
+		case EventTypeDelete:
+			// A deletion event is not an heartbeat signal
+			continue
+
+		case EventTypeListDone:
+			// A list done event signals the initial connection, but
+			// is also not an heartbeat signal.
+			close(listDone)
+			continue
+		}
+
+		// It is tempting to compare against the heartbeat value stored in
+		// the key. However, this would require the time on all nodes to
+		// be synchronized. Instead, let's just assume current time.
+		e.RWMutex.Lock()
+		e.lastHeartbeat = time.Now()
+		e.RWMutex.Unlock()
+		e.logger.Debug("Received update notification of heartbeat")
+	}
 }
 
 // makeSessionName builds up a session/locksession controller name
@@ -763,6 +758,7 @@ func (e *etcdClient) DeletePrefix(ctx context.Context, path string) (err error) 
 
 // watch starts watching for changes in a prefix
 func (e *etcdClient) watch(ctx context.Context, w *Watcher) {
+	scope := GetScopeFromKey(strings.TrimRight(w.Prefix, "/"))
 	localCache := watcherCache{}
 	listSignalSent := false
 
@@ -844,7 +840,7 @@ reList:
 				Value: key.Value,
 				Typ:   t,
 			}
-			trackEventQueued(string(key.Key), t, queueStart.End(true).Total())
+			trackEventQueued(scope, t, queueStart.End(true).Total())
 		}
 
 		nextRev := revision + 1
@@ -864,7 +860,7 @@ reList:
 
 			queueStart := spanstat.Start()
 			w.Events <- event
-			trackEventQueued(k, EventTypeDelete, queueStart.End(true).Total())
+			trackEventQueued(scope, EventTypeDelete, queueStart.End(true).Total())
 		})
 
 		// Only send the list signal once
@@ -954,7 +950,7 @@ reList:
 
 					queueStart := spanstat.Start()
 					w.Events <- event
-					trackEventQueued(string(ev.Kv.Key), event.Typ, queueStart.End(true).Total())
+					trackEventQueued(scope, event.Typ, queueStart.End(true).Total())
 				}
 			}
 		}
@@ -1021,6 +1017,16 @@ func (e *etcdClient) statusChecker() {
 	statusTimer, statusTimerDone := inctimer.New()
 	defer statusTimerDone()
 
+	e.RWMutex.Lock()
+	// Ensure that lastHearbeat is always set to a non-zero value when starting
+	// the status checker, to guarantee that we can correctly compute the time
+	// difference even in case we don't receive any heartbeat event. Indeed, we
+	// want to consider that as an heartbeat failure after the usual timeout.
+	if e.lastHeartbeat.IsZero() {
+		e.lastHeartbeat = time.Now()
+	}
+	e.RWMutex.Unlock()
+
 	for {
 		newStatus := []string{}
 		ok := 0
@@ -1031,7 +1037,7 @@ func (e *etcdClient) statusChecker() {
 		lastHeartbeat := e.lastHeartbeat
 		e.RWMutex.RUnlock()
 
-		if heartbeatDelta := time.Since(lastHeartbeat); !lastHeartbeat.IsZero() && heartbeatDelta > 2*HeartbeatWriteInterval {
+		if heartbeatDelta := time.Since(lastHeartbeat); heartbeatDelta > 2*HeartbeatWriteInterval {
 			recordQuorumError("no event received")
 			quorumError = fmt.Errorf("%s since last heartbeat update has been received", heartbeatDelta)
 		}

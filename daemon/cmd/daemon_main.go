@@ -62,6 +62,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -248,9 +249,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.DebugVerbose, []string{}, "List of enabled verbose debug groups")
 	option.BindEnv(vp, option.DebugVerbose)
 
-	flags.String(option.DirectRoutingDevice, "", "Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF host routing; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)")
-	option.BindEnv(vp, option.DirectRoutingDevice)
-
 	flags.Bool(option.EnableRuntimeDeviceDetection, true, "Enable runtime device detection and datapath reconfiguration (experimental)")
 	option.BindEnv(vp, option.EnableRuntimeDeviceDetection)
 	flags.MarkDeprecated(option.EnableRuntimeDeviceDetection, "Runtime device detection and datapath reconfiguration is now the default and only mode of operation")
@@ -347,6 +345,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableSocketLB, false, "Enable socket-based LB for E/W traffic")
 	option.BindEnv(vp, option.EnableSocketLB)
+
+	flags.Bool(option.EnableSocketLBPodConnectionTermination, true, "Enable terminating connections to deleted service backends when socket-LB is enabled")
+	flags.MarkHidden(option.EnableSocketLBPodConnectionTermination)
+	option.BindEnv(vp, option.EnableSocketLBPodConnectionTermination)
 
 	flags.Bool(option.EnableSocketLBTracing, true, "Enable tracing for socket-based LB")
 	option.BindEnv(vp, option.EnableSocketLBTracing)
@@ -860,6 +862,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.DNSProxyLockTimeout)
 	option.BindEnv(vp, option.DNSProxyLockTimeout)
 
+	flags.Int(option.DNSProxySocketLingerTimeout, defaults.DNSProxySocketLingerTimeout, "Timeout (in seconds) when closing the connection between the DNS proxy and the upstream server. "+
+		"If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background")
+	option.BindEnv(vp, option.DNSProxySocketLingerTimeout)
+
 	flags.Bool(option.DNSProxyEnableTransparentMode, defaults.DNSProxyEnableTransparentMode, "Enable DNS proxy transparent mode")
 	option.BindEnv(vp, option.DNSProxyEnableTransparentMode)
 
@@ -981,7 +987,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.HubbleRedactHttpHeadersDeny, []string{}, "HTTP headers to redact from flows")
 	option.BindEnv(vp, option.HubbleRedactHttpHeadersDeny)
 
-	flags.Bool(option.HubbleDropEvents, defaults.HubbleDropEventsEnabled, "Emit packet drop Events related to pods")
+	flags.Bool(option.HubbleDropEvents, defaults.HubbleDropEventsEnabled, "Emit packet drop Events related to pods (alpha)")
 	option.BindEnv(vp, option.HubbleDropEvents)
 
 	flags.Duration(option.HubbleDropEventsInterval, defaults.HubbleDropEventsInterval, "Minimum time between emitting same events")
@@ -1382,7 +1388,7 @@ func initEnv(vp *viper.Viper) {
 		}
 		option.Config.KubeProxyReplacement = option.KubeProxyReplacementFalse
 		option.Config.EnableSocketLB = true
-		option.Config.EnableSocketLBTracing = true
+		option.Config.EnableSocketLBPodConnectionTermination = true
 		option.Config.EnableHostPort = false
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
@@ -1680,9 +1686,9 @@ type daemonParams struct {
 	APILimiterSet          *rate.APILimiterSet
 	AuthManager            *auth.AuthManager
 	Settings               cellSettings
-	DeviceManager          *linuxdatapath.DeviceManager `optional:"true"`
 	Devices                statedb.Table[*datapathTables.Device]
 	NodeAddrs              statedb.Table[datapathTables.NodeAddress]
+	DirectRoutingDevice    datapathTables.DirectRoutingDevice
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.
 	// This is currently necessary because these maps have not yet been modularized,
 	// and because it depends on parameters which are not provided through hive.
@@ -1705,6 +1711,7 @@ type daemonParams struct {
 	Recorder            *recorder.Recorder
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
+	IdentityManager     *identitymanager.IdentityManager
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig], promise.Promise[policyK8s.PolicyManager]) {
@@ -1976,7 +1983,11 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		controller.ControllerParams{
 			Group:  cfgGroup,
 			Health: params.Health,
-			DoFunc: option.Config.ValidateUnchanged,
+			DoFunc: func(context.Context) error {
+				// Validate that Daemon config has not changed, ignoring 'Opts'
+				// that may be modified via config patch events.
+				return option.Config.ValidateUnchanged()
+			},
 			// avoid synhronized run with other
 			// controllers started at same time
 			RunInterval: 61 * time.Second,

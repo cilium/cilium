@@ -92,7 +92,7 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        {{- if .Values.clustermesh.enableEndpointSliceSynchronization }}
+        {{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.enableMCSAPISupport }}
         - name: CILIUM_CLUSTERMESH_CONFIG
           value: /var/lib/cilium/clustermesh/
         {{- end }}
@@ -215,7 +215,7 @@ spec:
           readOnly: true
         {{- end }}
         {{- end }}
-        {{- if .Values.clustermesh.enableEndpointSliceSynchronization }}
+        {{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.enableMCSAPISupport }}
         - name: clustermesh-secrets
           mountPath: /var/lib/cilium/clustermesh
           readOnly: true
@@ -285,7 +285,7 @@ spec:
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}
-      {{- if and .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.config.enabled (not (and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.kvstoremesh.enabled )) }}
+      {{- if and (or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.enableMCSAPISupport) .Values.clustermesh.config.enabled (not (and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.kvstoremesh.enabled )) }}
       hostAliases:
       {{- range $cluster := .Values.clustermesh.config.clusters }}
       {{- range $ip := $cluster.ips }}
@@ -351,7 +351,7 @@ spec:
       {{- with .Values.operator.extraVolumes }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
-      {{- if .Values.clustermesh.enableEndpointSliceSynchronization }}
+      {{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.enableMCSAPISupport }}
         # To read the clustermesh configuration
       - name: clustermesh-secrets
         projected:

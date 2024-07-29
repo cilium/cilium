@@ -161,10 +161,3 @@ func (e *Endpoint) SetCiliumEndpointUID(uid types.UID) {
 	e.ciliumEndpointUID = uid
 	e.unlock()
 }
-
-// GetEndpointNetnsCookie returns the endpoint's netns cookie.
-func (e *Endpoint) GetEndpointNetnsCookie() uint64 {
-	e.unconditionalRLock()
-	defer e.runlock()
-	return e.NetNsCookie
-}

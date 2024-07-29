@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/option"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
@@ -89,6 +90,8 @@ func TestReadEPsFromDirNames(t *testing.T) {
 		os.RemoveAll(tmpDir)
 	}()
 
+	const unsupportedTestOption = "unsupported-test-only-option-xyz"
+
 	os.Chdir(tmpDir)
 	require.Nil(t, err)
 	epsNames := []string{}
@@ -99,8 +102,14 @@ func TestReadEPsFromDirNames(t *testing.T) {
 		err := os.MkdirAll(fullDirName, 0777)
 		require.Nil(t, err)
 
+		// Add an unsupported option and see that it is removed on "restart"
+		ep.Options.SetValidated(unsupportedTestOption, option.OptionEnabled)
+
 		err = ep.writeHeaderfile(fullDirName)
 		require.Nil(t, err)
+
+		// Remove unsupported option so that equality check works after restore
+		ep.Options.Delete(unsupportedTestOption)
 
 		switch ep.ID {
 		case 256, 257:

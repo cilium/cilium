@@ -59,7 +59,8 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 		identity.NumericIdentity(identityBar): labelsBar,
 	}
 
-	s.do.repo = policy.NewPolicyRepository(identityCache, nil, nil)
+	s.do.idmgr = identitymanager.NewIdentityManager()
+	s.do.repo = policy.NewPolicyRepository(identityCache, nil, nil, s.do.idmgr)
 	s.do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 	s.rsp = &RedirectSuiteProxy{
@@ -76,7 +77,7 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	s.stats = new(regenerationStatistics)
 
 	tb.Cleanup(func() {
-		identitymanager.RemoveAll()
+		s.do.idmgr.RemoveAll()
 		s.mgr.Close()
 		policy.SetPolicyEnabled(s.oldPolicyEnable)
 	})
@@ -126,7 +127,8 @@ func (d *DummyIdentityAllocatorOwner) GetNodeSuffix() string {
 
 // DummyOwner implements pkg/endpoint/regeneration/Owner. Used for unit testing.
 type DummyOwner struct {
-	repo *policy.Repository
+	repo  *policy.Repository
+	idmgr *identitymanager.IdentityManager
 }
 
 // GetPolicyRepository returns the policy repository of the owner.
@@ -163,7 +165,12 @@ func (s *DummyOwner) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }
 
-func (s *DummyOwner) RemoveRestoredDNSRules(epID uint16) {
+func (s *DummyOwner) RemoveRestoredDNSRules(epID uint16) {}
+
+func (s *DummyOwner) AddIdentity(id *identity.Identity)    { s.idmgr.Add(id) }
+func (s *DummyOwner) RemoveIdentity(id *identity.Identity) { s.idmgr.Remove(id) }
+func (s *DummyOwner) RemoveOldAddNewIdentity(old, new *identity.Identity) {
+	s.idmgr.RemoveOldAddNew(old, new)
 }
 
 // GetNodeSuffix does nothing.
@@ -201,7 +208,7 @@ func (s *RedirectSuite) AddRules(rules api.Rules) {
 }
 
 func (s *RedirectSuite) TearDownTest(t *testing.T) {
-	identitymanager.RemoveAll()
+	s.do.idmgr.RemoveAll()
 	s.mgr.Close()
 	policy.SetPolicyEnabled(s.oldPolicyEnable)
 }
@@ -393,6 +400,10 @@ func combineL4L7(l4 []api.PortRule, l7 *api.L7Rules) []api.PortRule {
 	return result
 }
 
+func (s *RedirectSuite) testMapState(initMap map[policy.Key]policy.MapStateEntry) policy.MapState {
+	return policy.NewMapState().WithState(initMap, s.do.repo.GetSelectorCache())
+}
+
 func TestRedirectWithDeny(t *testing.T) {
 	s := setupRedirectSuite(t)
 	ep := s.NewTestEndpoint(t)
@@ -408,7 +419,7 @@ func TestRedirectWithDeny(t *testing.T) {
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
 
-	expected := policy.NewMapState(map[policy.Key]policy.MapStateEntry{
+	expected := s.testMapState(map[policy.Key]policy.MapStateEntry{
 		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
@@ -437,7 +448,7 @@ func TestRedirectWithDeny(t *testing.T) {
 	// entries and make any conclusions from it.
 	require.Equal(t, 1, len(desiredRedirects))
 
-	expected2 := policy.NewMapState(map[policy.Key]policy.MapStateEntry{
+	expected2 := s.testMapState(map[policy.Key]policy.MapStateEntry{
 		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
@@ -571,7 +582,7 @@ func TestRedirectWithPriority(t *testing.T) {
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
 
-	expected := policy.NewMapState(map[policy.Key]policy.MapStateEntry{
+	expected := s.testMapState(map[policy.Key]policy.MapStateEntry{
 		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
@@ -598,7 +609,7 @@ func TestRedirectWithPriority(t *testing.T) {
 	require.Equal(t, crd1Port, desiredRedirects["12345:ingress:TCP:80:/cec1/listener1"])
 	require.Equal(t, 2, len(desiredRedirects))
 
-	expected2 := policy.NewMapState(map[policy.Key]policy.MapStateEntry{
+	expected2 := s.testMapState(map[policy.Key]policy.MapStateEntry{
 		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
@@ -652,7 +663,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	err = ep.setDesiredPolicy(res)
 	require.Nil(t, err)
 
-	expected := policy.NewMapState(map[policy.Key]policy.MapStateEntry{
+	expected := s.testMapState(map[policy.Key]policy.MapStateEntry{
 		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
@@ -679,7 +690,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	require.Equal(t, crd1Port, desiredRedirects["12345:ingress:TCP:80:/cec1/listener1"])
 	require.Equal(t, 2, len(desiredRedirects))
 
-	expected2 := policy.NewMapState(map[policy.Key]policy.MapStateEntry{
+	expected2 := s.testMapState(map[policy.Key]policy.MapStateEntry{
 		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},

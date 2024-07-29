@@ -125,20 +125,7 @@ Second, fetch a VM image:
 
 .. code-block:: shell-session
 
-    $ mkdir images/
-    $ docker run -v $(pwd)/images:/mnt/images \
-        quay.io/lvh-images/kind:6.0-main \
-        cp /data/images/kind_6.0.qcow2.zst /mnt/images
-    $ cd images/
-    $ zstd -d kind_6.0.qcow2.zst
-
-Alternatively, you can use the ``scripts/pull_image.sh``:
-
-.. code-block:: shell-session
-
-    $ mkdir images/
-    $ git clone https://github.com/cilium/little-vm-helper
-    $ IMAGE_DIR=./images ./little-vm-helper/scripts/pull_image.sh quay.io/lvh-images/kind:6.0-main
+    $ lvh images pull quay.io/lvh-images/kind:6.1-main --dir .
 
 See `<https://quay.io/repository/lvh-images/kind?tab=tags>`_ for all available
 images. To build a new VM image (or to update any existing) please refer to
@@ -148,7 +135,7 @@ Next, start a VM:
 
 .. code-block:: shell-session
 
-    $ lvh run --image ./images/kind_6.0.qcow2 --host-mount $GOPATH/src/github.com/cilium/ --daemonize -p 2222:22 --cpu=3 --mem=6G
+    $ lvh run --image ./images/kind_6.1.qcow2 --host-mount $GOPATH/src/github.com/cilium/ --daemonize -p 2222:22 --cpu=3 --mem=6G
 
 .. _test_cilium_on_lvh:
 

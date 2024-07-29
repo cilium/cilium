@@ -224,7 +224,7 @@ func (s *Writer) deleteService(txn WriteTxn, svc *Service) error {
 func (s *Writer) DeleteServicesBySource(txn WriteTxn, source source.Source) error {
 	// Iterating over all as this is a rare operation and it would be costly
 	// to always index by source.
-	iter, _ := s.svcs.All(txn)
+	iter := s.svcs.All(txn)
 	for svc, _, ok := iter.Next(); ok; svc, _, ok = iter.Next() {
 		if svc.Source == source {
 			if err := s.deleteService(txn, svc); err != nil {
@@ -272,7 +272,7 @@ func (s *Writer) DeleteBackendsBySource(txn WriteTxn, source source.Source) erro
 	// Iterating over all as this is a rare operation and it would be costly
 	// to always index by source.
 	names := sets.New[loadbalancer.ServiceName]()
-	iter, _ := s.bes.All(txn)
+	iter := s.bes.All(txn)
 	for be, _, ok := iter.Next(); ok; be, _, ok = iter.Next() {
 		if be.Source == source {
 			names.Insert(be.ReferencedBy.AsSlice()...)
@@ -320,21 +320,21 @@ func (s *Writer) DebugDump(txn statedb.ReadTxn, to io.Writer) {
 
 	fmt.Fprintln(w, "--- Services ---")
 	fmt.Fprintln(w, strings.Join((*Service)(nil).TableHeader(), "\t"))
-	iter, _ := s.svcs.All(txn)
+	iter := s.svcs.All(txn)
 	for svc, _, ok := iter.Next(); ok; svc, _, ok = iter.Next() {
 		fmt.Fprintln(w, strings.Join(svc.TableRow(), "\t"))
 	}
 
 	fmt.Fprintln(w, "--- Frontends ---")
 	fmt.Fprintln(w, strings.Join((*Frontend)(nil).TableHeader(), "\t"))
-	iterFe, _ := s.bes.All(txn)
+	iterFe := s.fes.All(txn)
 	for be, _, ok := iterFe.Next(); ok; be, _, ok = iterFe.Next() {
 		fmt.Fprintln(w, strings.Join(be.TableRow(), "\t"))
 	}
 
 	fmt.Fprintln(w, "--- Backends ---")
 	fmt.Fprintln(w, strings.Join((*Backend)(nil).TableHeader(), "\t"))
-	iterBe, _ := s.bes.All(txn)
+	iterBe := s.bes.All(txn)
 	for be, _, ok := iterBe.Next(); ok; be, _, ok = iterBe.Next() {
 		fmt.Fprintln(w, strings.Join(be.TableRow(), "\t"))
 	}

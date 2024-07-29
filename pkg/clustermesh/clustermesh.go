@@ -238,7 +238,7 @@ func (cm *ClusterMesh) IPIdentitiesSynced(ctx context.Context) error {
 }
 
 func (cm *ClusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster) wait.Fn) error {
-	wctx, cancel := context.WithTimeout(ctx, cm.conf.Timeout())
+	wctx, cancel := context.WithTimeout(ctx, cm.conf.ClusterMeshSyncTimeout)
 	defer cancel()
 
 	waiters := make([]wait.Fn, 0)

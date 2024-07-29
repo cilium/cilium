@@ -8,30 +8,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check_changes:
-    name: Deduce required tests from code changes
-    runs-on: ubuntu-22.04
-    outputs:
-      tested: ${{ steps.tested-tree.outputs.src }}
-    steps:
-      - name: Check code changes
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: tested-tree
-        with:
-          filters: |
-            src:
-              - '!(test|Documentation)/**'
-
   build-hubble-cli-release-binaries:
     name: Build Hubble CLI release binaries
-    needs: check_changes
-    if: ${{ needs.check_changes.outputs.tested == 'true' }}
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repository
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Setup go
-        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
         with:
           # renovate: datasource=golang-version depName=go
           go-version: 1.22.5

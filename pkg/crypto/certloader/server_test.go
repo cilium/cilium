@@ -126,6 +126,8 @@ func TestNewWatchedServerConfig(t *testing.T) {
 	assert.Equal(t, tls.RequireAndVerifyClientCert, tlsConfig.ClientAuth)
 	// Check that our base option is honored.
 	assert.Equal(t, uint16(tls.VersionTLS13), tlsConfig.MinVersion)
+	// check that the ALPN protocol is set.
+	assert.Contains(t, tlsConfig.NextProtos, alpnProtocolH2)
 }
 
 func TestWatchedServerConfigRotation(t *testing.T) {
@@ -175,4 +177,6 @@ func TestWatchedServerConfigRotation(t *testing.T) {
 	assert.Equal(t, tls.RequireAndVerifyClientCert, tlsConfig.ClientAuth)
 	// Check that our base option is honored.
 	assert.Equal(t, uint16(tls.VersionTLS13), tlsConfig.MinVersion)
+	// check that the ALPN protocol is set.
+	assert.Contains(t, tlsConfig.NextProtos, alpnProtocolH2)
 }

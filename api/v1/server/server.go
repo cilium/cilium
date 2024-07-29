@@ -580,9 +580,6 @@ func (s *Server) Start(cell.HookContext) (err error) {
 			s.Fatalf("no certificate was configured for TLS")
 		}
 
-		// must have at least one certificate or panics
-		httpsServer.TLSConfig.BuildNameToCertificate()
-
 		configureServer(httpsServer, "https", s.httpsServerL.Addr().String())
 
 		s.servers = append(s.servers, httpsServer)

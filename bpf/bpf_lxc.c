@@ -1591,10 +1591,10 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int ifindex, __u32 src_
 
 skip_policy_enforcement:
 	if (ret == CT_NEW) {
-#ifdef ENABLE_NODEPORT
+#if defined(ENABLE_NODEPORT) && defined(ENABLE_IPSEC)
 		ct_state_new.node_port = ct_has_nodeport_egress_entry6(get_ct_map6(tuple),
 								       tuple, NULL, false);
-#endif /* ENABLE_NODEPORT */
+#endif /* ENABLE_NODEPORT && ENABLE_IPSEC */
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
 		ct_state_new.proxy_redirect = *proxy_port > 0;
@@ -1654,6 +1654,9 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 			  &ext_err, &proxy_port, from_tunnel);
 	switch (ret) {
 	case POLICY_ACT_PROXY_REDIRECT:
+		if (from_tunnel)
+			ctx_change_type(ctx, PACKET_HOST);
+
 		ret = ctx_redirect_to_proxy6(ctx, &tuple, proxy_port, from_host);
 		proxy_redirect = true;
 		break;
@@ -1934,10 +1937,13 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 
 skip_policy_enforcement:
 	if (ret == CT_NEW) {
-#ifdef ENABLE_NODEPORT
+#if defined(ENABLE_NODEPORT) && defined(ENABLE_IPSEC)
+		/* Needed for hostport support, until
+		 * https://github.com/cilium/cilium/issues/32897 is fixed.
+		 */
 		ct_state_new.node_port = ct_has_nodeport_egress_entry4(get_ct_map4(tuple),
 								       tuple, NULL, false);
-#endif /* ENABLE_NODEPORT */
+#endif /* ENABLE_NODEPORT && ENABLE_IPSEC */
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
 		ct_state_new.proxy_redirect = *proxy_port > 0;
@@ -1999,6 +2005,9 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 			  &ext_err, &proxy_port, from_tunnel);
 	switch (ret) {
 	case POLICY_ACT_PROXY_REDIRECT:
+		if (from_tunnel)
+			ctx_change_type(ctx, PACKET_HOST);
+
 		ret = ctx_redirect_to_proxy4(ctx, &tuple, proxy_port, from_host);
 		proxy_redirect = true;
 		break;

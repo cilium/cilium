@@ -4,7 +4,7 @@ kind: CiliumClusterwideNetworkPolicy
 metadata:
   name: allow-ingress-egress
 spec:
-  description: "Allow all the egress traffic from revered ingress identity to any endpoints in the cluster"
+  description: "Allow all the egress traffic from reserved ingress identity to any endpoints in the cluster"
   endpointSelector:
     matchExpressions:
     - key: reserved:ingress

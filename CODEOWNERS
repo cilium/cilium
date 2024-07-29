@@ -234,6 +234,7 @@
 /.github/actions/ @cilium/github-sec @cilium/ci-structure
 /.github/actions/kvstore/ @cilium/sig-clustermesh @cilium/kvstore @cilium/github-sec @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
+/.github/workflows/auto-approve.yaml @cilium/cilium-maintainers
 /.github/workflows/*clustermesh*.yaml @cilium/sig-clustermesh @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*datapath*.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*gateway-api*.yaml @cilium/sig-servicemesh @cilium/github-sec @cilium/ci-structure
@@ -267,6 +268,7 @@ Makefile* @cilium/build
 /bpf/lib/auth.h @cilium/sig-datapath @cilium/sig-servicemesh
 /bpf/lib/encrypt.h @cilium/ipsec
 /bpf/lib/wireguard.h @cilium/wireguard @cilium/sig-datapath
+/bpf/bpf_wireguard.c @cilium/wireguard @cilium/sig-datapath
 /bpf/lib/ids.h @cilium/loader
 /bpf/include/bpf/tailcall.h @cilium/loader
 /bugtool/ @cilium/cli
@@ -338,7 +340,8 @@ Makefile* @cilium/build
 /Documentation/network/concepts/ipam/azure* @cilium/sig-ipam @cilium/azure @cilium/docs-structure
 /Documentation/network/concepts/ipam/eni* @cilium/sig-ipam @cilium/aws @cilium/docs-structure
 /Documentation/network/ebpf/ @cilium/sig-datapath @cilium/docs-structure
-/Documentation/network/egress-gateway.rst @cilium/egress-gateway @cilium/docs-structure
+/Documentation/network/egress-gateway-toc.rst @cilium/egress-gateway @cilium/docs-structure
+/Documentation/network/egress-gateway/ @cilium/egress-gateway @cilium/docs-structure
 /Documentation/network/kubernetes/ @cilium/sig-k8s @cilium/docs-structure
 /Documentation/network/kubernetes/bandwidth-manager.rst @cilium/sig-datapath @cilium/docs-structure
 /Documentation/network/kubernetes/ipam* @cilium/sig-ipam @cilium/docs-structure
@@ -402,6 +405,7 @@ Makefile* @cilium/build
 /operator/pkg/networkpolicy @cilium/sig-policy
 /operator/pkg/secretsync @cilium/sig-servicemesh
 /operator/watchers/bgp.go @cilium/sig-bgp
+/pkg/act/ @cilium/sig-datapath @cilium/metrics
 /pkg/annotation @cilium/sig-k8s
 /pkg/alibabacloud/ @cilium/alibabacloud
 /pkg/alignchecker/ @cilium/sig-datapath @cilium/loader
@@ -485,6 +489,7 @@ Makefile* @cilium/build
 /pkg/k8s/apis/cilium.io/v2/cegp_types.go @cilium/egress-gateway
 /pkg/k8s/apis/cilium.io/v2/ @cilium/api @cilium/sig-k8s
 /pkg/kvstore/ @cilium/kvstore
+/pkg/kvstore/etcdinit @cilium/sig-clustermesh @cilium/kvstore
 /pkg/l2announcer/ @cilium/sig-agent
 /pkg/labels @cilium/sig-policy @cilium/api
 /pkg/labelsfilter @cilium/sig-policy

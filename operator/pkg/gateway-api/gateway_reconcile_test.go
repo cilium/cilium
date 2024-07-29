@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -303,12 +304,15 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		WithStatusSubresource(&gatewayv1.Gateway{}).
 		Build()
 
+	logger := hivetest.Logger(t)
+
 	cecTranslator := translation.NewCECTranslator("", false, false, true, 60, false, nil, false, false, 0)
 	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, false, string(corev1.ServiceExternalTrafficPolicyCluster))
 
 	r := &gatewayReconciler{
 		Client:     c,
 		translator: gatewayAPITranslator,
+		logger:     logger,
 	}
 
 	t.Run("non-existent gateway", func(t *testing.T) {

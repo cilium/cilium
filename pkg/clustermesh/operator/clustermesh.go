@@ -27,8 +27,10 @@ type clusterMesh struct {
 	// common implements the common logic to connect to remote clusters.
 	common common.ClusterMesh
 
-	logger  logrus.FieldLogger
-	Metrics Metrics
+	cfg       ClusterMeshConfig
+	cfgMCSAPI MCSAPIConfig
+	logger    logrus.FieldLogger
+	Metrics   Metrics
 
 	// globalServices is a list of all global services. The datastructure
 	// is protected by its own mutex inside the structure.
@@ -67,14 +69,20 @@ type ClusterMesh interface {
 }
 
 func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, ClusterMesh) {
-	if params.ClusterMeshConfig == "" || !params.Cfg.ClusterMeshEnableEndpointSync {
+	if params.ClusterInfo.ID == 0 || params.ClusterMeshConfig == "" {
+		return nil, nil
+	}
+
+	if !params.Cfg.ClusterMeshEnableEndpointSync && !params.CfgMCSAPI.ClusterMeshEnableMCSAPI {
 		return nil, nil
 	}
 
 	params.Logger.Info("Operator ClusterMesh component enabled")
 
 	cm := clusterMesh{
-		logger: params.Logger,
+		cfg:       params.Cfg,
+		cfgMCSAPI: params.CfgMCSAPI,
+		logger:    params.Logger,
 		globalServices: common.NewGlobalServiceCache(
 			params.Metrics.TotalGlobalServices.WithLabelValues(params.ClusterInfo.Name),
 		),
@@ -136,13 +144,15 @@ func (cm *clusterMesh) GlobalServices() *common.GlobalServiceCache {
 
 func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
 	rc := &remoteCluster{
-		name:               name,
-		globalServices:     cm.globalServices,
-		storeFactory:       cm.storeFactory,
-		synced:             newSynced(),
-		status:             status,
-		clusterAddHooks:    cm.clusterAddHooks,
-		clusterDeleteHooks: cm.clusterDeleteHooks,
+		name:                          name,
+		clusterMeshEnableEndpointSync: cm.cfg.ClusterMeshEnableEndpointSync,
+		clusterMeshEnableMCSAPI:       cm.cfgMCSAPI.ClusterMeshEnableMCSAPI,
+		globalServices:                cm.globalServices,
+		storeFactory:                  cm.storeFactory,
+		synced:                        newSynced(),
+		status:                        status,
+		clusterAddHooks:               cm.clusterAddHooks,
+		clusterDeleteHooks:            cm.clusterDeleteHooks,
 	}
 
 	rc.remoteServices = cm.storeFactory.NewWatchStore(
@@ -188,7 +198,7 @@ func (cm *clusterMesh) ServicesSynced(ctx context.Context) error {
 }
 
 func (cm *clusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster) wait.Fn) error {
-	wctx, cancel := context.WithTimeout(ctx, cm.syncTimeoutConfig.Timeout())
+	wctx, cancel := context.WithTimeout(ctx, cm.syncTimeoutConfig.ClusterMeshSyncTimeout)
 	defer cancel()
 
 	waiters := make([]wait.Fn, 0)

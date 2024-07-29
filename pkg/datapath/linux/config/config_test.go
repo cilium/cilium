@@ -92,6 +92,7 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 		t.Logf("  Testing %s configuration: %s", header, test.description)
 		h := hive.New(
 			provideNodemap,
+			tables.DirectRoutingDeviceCell,
 			cell.Provide(
 				fakeTypes.NewNodeAddressing,
 				func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },

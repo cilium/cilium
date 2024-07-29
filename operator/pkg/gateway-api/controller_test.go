@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -249,8 +250,9 @@ var namespaceFixtures = []client.Object{
 }
 
 func Test_hasMatchingController(t *testing.T) {
+	logger := hivetest.Logger(t)
 	c := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(controllerTestFixture...).Build()
-	fn := hasMatchingController(context.Background(), c, "io.cilium/gateway-controller")
+	fn := hasMatchingController(context.Background(), c, "io.cilium/gateway-controller", logger)
 
 	t.Run("invalid object", func(t *testing.T) {
 		res := fn(&corev1.Pod{})
@@ -278,6 +280,7 @@ func Test_hasMatchingController(t *testing.T) {
 
 func Test_getGatewaysForSecret(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(controllerTestFixture...).Build()
+	logger := hivetest.Logger(t)
 
 	t.Run("secret is used in gateway", func(t *testing.T) {
 		gwList := getGatewaysForSecret(context.Background(), c, &corev1.Secret{
@@ -285,7 +288,7 @@ func Test_getGatewaysForSecret(t *testing.T) {
 				Name:      "tls-secret",
 				Namespace: "default",
 			},
-		})
+		}, logger)
 
 		require.Len(t, gwList, 1)
 		require.Equal(t, "valid-gateway", gwList[0].Name)
@@ -297,7 +300,7 @@ func Test_getGatewaysForSecret(t *testing.T) {
 				Name:      "tls-secret-not-used",
 				Namespace: "default",
 			},
-		})
+		}, logger)
 
 		require.Len(t, gwList, 0)
 	})
@@ -309,6 +312,7 @@ func Test_getGatewaysForNamespace(t *testing.T) {
 		WithObjects(namespaceFixtures...).
 		WithObjects(controllerTestFixture...).
 		Build()
+	logger := hivetest.Logger(t)
 
 	type args struct {
 		namespace string
@@ -346,7 +350,7 @@ func Test_getGatewaysForNamespace(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: tt.args.namespace,
 				},
-			})
+			}, logger)
 			names := make([]string, 0, len(gwList))
 			for _, gw := range gwList {
 				names = append(names, gw.Name)

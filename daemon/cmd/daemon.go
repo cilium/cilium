@@ -98,6 +98,7 @@ type Daemon struct {
 	svc              service.ServiceManager
 	rec              *recorder.Recorder
 	policy           *policy.Repository
+	idmgr            *identitymanager.IdentityManager
 
 	statusCollectMutex lock.RWMutex
 	statusResponse     models.StatusResponse
@@ -106,8 +107,9 @@ type Daemon struct {
 	monitorAgent monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
-	devices   statedb.Table[*datapathTables.Device]
-	nodeAddrs statedb.Table[datapathTables.NodeAddress]
+	directRoutingDev datapathTables.DirectRoutingDevice
+	devices          statedb.Table[*datapathTables.Device]
+	nodeAddrs        statedb.Table[datapathTables.NodeAddress]
 
 	// dnsNameManager tracks which api.FQDNSelector are present in policy which
 	// apply to locally running endpoints.
@@ -382,6 +384,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
 		datapath:          params.Datapath,
+		directRoutingDev:  params.DirectRoutingDevice,
 		devices:           params.Devices,
 		nodeAddrs:         params.NodeAddrs,
 		nodeDiscovery:     params.NodeDiscovery,
@@ -395,6 +398,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		identityAllocator: params.IdentityAllocator,
 		ipcache:           params.IPCache,
 		policy:            params.Policy,
+		idmgr:             params.IdentityManager,
 		cniConfigManager:  params.CNIConfigManager,
 		clusterInfo:       params.ClusterInfo,
 		clustermesh:       params.ClusterMesh,
@@ -626,26 +630,31 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	var devices []string
-	if params.DeviceManager != nil {
-		if devices, err = params.DeviceManager.Detect(params.Clientset.IsEnabled()); err != nil {
-			if option.Config.AreDevicesRequired() {
-				// Fail hard if devices are required to function.
-				return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
-			}
-			log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
-			disableNodePort()
+
+	rxn := d.db.ReadTxn()
+	drdName := ""
+	directRoutingDevice, _ := params.DirectRoutingDevice.Get(ctx, rxn)
+	if directRoutingDevice == nil {
+		if option.Config.AreDevicesRequired() {
+			// Fail hard if devices are required to function.
+			return nil, nil, fmt.Errorf("unable to determine direct routing device. Use --%s to specify it",
+				option.DirectRoutingDevice)
 		}
+
+		log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
+		disableNodePort()
+	} else {
+		drdName = directRoutingDevice.Name
+		log.WithField(option.DirectRoutingDevice, drdName).Info("Direct routing device detected")
 	}
 
-	nativeDevices, _ := datapathTables.SelectedDevices(d.devices, d.db.ReadTxn())
-	if err := finishKubeProxyReplacementInit(params.Sysctl, nativeDevices); err != nil {
+	nativeDevices, _ := datapathTables.SelectedDevices(d.devices, rxn)
+	if err := finishKubeProxyReplacementInit(params.Sysctl, nativeDevices, drdName); err != nil {
 		log.WithError(err).Error("failed to finalise LB initialization")
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
 
-	// BPF masquerade depends on BPF NodePort and require socket-LB to
-	// be enabled in the tunneling mode, so the following checks should
+	// BPF masquerade depends on BPF NodePort, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
 	if option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
 
@@ -657,17 +666,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		case len(option.Config.MasqueradeInterfaces) > 0:
 			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
 				option.MasqueradeInterfaces, option.Devices)
-		case option.Config.TunnelingEnabled() && !option.Config.EnableSocketLB:
-			err = fmt.Errorf("BPF masquerade requires socket-LB (--%s=\"false\")",
-				option.EnableSocketLB)
 		}
 		if err != nil {
 			log.WithError(err).Error("unable to initialize BPF masquerade support")
 			return nil, nil, fmt.Errorf("unable to initialize BPF masquerade support: %w", err)
 		}
-	}
-
-	if option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
 		if option.Config.EnableMasqueradeRouteSource {
 			log.Error("BPF masquerading does not yet support masquerading to source IP from routing layer")
 			return nil, nil, fmt.Errorf("BPF masquerading to route source (--%s=\"true\") currently not supported with BPF-based masquerading (--%s=\"true\")", option.EnableMasqueradeRouteSource, option.EnableBPFMasquerade)
@@ -679,7 +682,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		log.Error("IPv4 and IPv6 masquerading are both disabled, BPF masquerading requires at least one to be enabled")
 		return nil, nil, fmt.Errorf("BPF masquerade requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
 	}
-	if len(devices) == 0 {
+	if len(nativeDevices) == 0 {
 		if option.Config.EnableHostFirewall {
 			msg := "Host firewall's external facing device could not be determined. Use --%s to specify."
 			log.WithError(err).Errorf(msg, option.Devices)
@@ -891,7 +894,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 // Close shuts down a daemon
 func (d *Daemon) Close() {
-	identitymanager.RemoveAll()
+	d.idmgr.RemoveAll()
 
 	// Ensures all controllers are stopped!
 	d.controllers.RemoveAllAndWait()

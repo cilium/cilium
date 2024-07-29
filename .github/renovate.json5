@@ -22,6 +22,7 @@
     ".github/actions/lvh-kind/**",
     ".github/actions/set-env-variables/action.yml",
     ".github/workflows/**",
+    ".github/ISSUE_TEMPLATE/bug_report.yaml",
     "images/**",
     "examples/hubble/*",
     "go.mod",
@@ -84,15 +85,8 @@
     "^make generate-k8s-api$",
     "^make manifests$"
   ],
+  "assignAutomerge": true,
   "packageRules": [
-    {
-      "matchPackageNames": [
-        "github.com/aws/aws-sdk-go-v2/service/ec2",
-        "github.com/aliyun/alibaba-cloud-sdk-go",
-        "renovatebot/github-action"
-      ],
-      "schedule": ["on the 1st day instance on sunday"]
-    },
     {
       "matchPackageNames": [
         "go", // golang version directive upgrade in go.mod
@@ -131,7 +125,11 @@
       ],
       "automerge": true,
       "automergeType": "pr",
-      "groupName": "auto-merge-trusted-deps"
+      "groupName": "auto-merge-trusted-deps",
+      // Replace the list of reviewers with just ciliumbot
+      "reviewers":[
+        "ciliumbot",
+      ]
     },
     {
       // Try to group all updates for all dependencies in a single PR. More
@@ -278,6 +276,17 @@
       ]
     },
     {
+      // Do not upgrade etcd as they have removed bash starting from v3.5.5
+      "matchDepNames": [
+        "quay.io/coreos/etcd"
+      ],
+      "allowedVersions": "<3.5.5",
+      "matchBaseBranches": [
+        "v1.14",
+        "v1.13"
+      ]
+    },
+    {
       "matchFiles": [
         "install/kubernetes/Makefile.values"
       ],
@@ -309,9 +318,17 @@
       "matchPackageNames": [
         "docker.io/library/ubuntu"
       ],
-      "allowedVersions": "22.04",
+      "allowedVersions": "24.04",
       "matchBaseBranches": [
         "main",
+      ],
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/ubuntu"
+      ],
+      "allowedVersions": "22.04",
+      "matchBaseBranches": [
         "v1.16",
         "v1.15",
         "v1.14",
@@ -325,26 +342,8 @@
       ],
       "allowedVersions": "<1.23",
       "matchBaseBranches": [
-        "v1.16"
-      ]
-    },
-    {
-      "matchPackageNames": [
-        "docker.io/library/golang",
-        "go"
-      ],
-      "allowedVersions": "<1.22",
-      "matchBaseBranches": [
-        "v1.15"
-      ]
-    },
-    {
-      "matchPackageNames": [
-        "docker.io/library/golang",
-        "go"
-      ],
-      "allowedVersions": "<1.22",
-      "matchBaseBranches": [
+        "v1.16",
+        "v1.15",
         "v1.14",
         "v1.13"
       ]
@@ -388,6 +387,24 @@
         "v1.14",
         "v1.13"
       ]
+    },
+    {
+      // Avoid updating patch version for statedb as it might contain breaking changes
+      "enabled": false,
+      "matchPackageNames": [
+        "github.com/cilium/statedb",
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "pin",
+        "pinDigest",
+        "digest",
+        "lockFileMaintenance",
+        "rollback",
+        "bump",
+        "replacement",
+      ],
     },
     {
       // It's returning 500s for git clones.
@@ -580,12 +597,73 @@
         "quay.io/cilium/cilium-envoy"
       ],
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-.*$",
+      "allowedVersions": "<1.29",
+      "matchBaseBranches": [
+        "v1.15",
+        "v1.14",
+        "v1.13"
+      ]
+    },
+    {
+      "matchDepNames": [
+        "quay.io/cilium/cilium-envoy"
+      ],
+      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-.*$",
+      "allowedVersions": "<1.30",
+      "matchBaseBranches": [
+        "v1.16",
+      ]
+    },
+    {
+      "matchDepNames": [
+        "quay.io/cilium/cilium-envoy"
+      ],
+      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-.*$",
+      "allowedVersions": "<1.31",
+      "matchBaseBranches": [
+        "main",
+      ]
     },
     {
       "matchDepNames": [
         "grpc/grpc-go"
       ],
       "versioning": "regex:cmd/protoc-gen-go-grpc/v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+    },
+    {
+      "matchPackageNames": [
+        "github.com/aws/aws-sdk-go-v2/service/ec2",
+        "github.com/aliyun/alibaba-cloud-sdk-go",
+        "renovatebot/github-action"
+      ],
+      "schedule": ["on the 1st day instance on sunday"]
+    },
+    {
+      // Separate major minor and patch so that renovate can update the patch
+      // versions of cilium.
+      "matchFileNames": [
+        ".github/ISSUE_TEMPLATE/bug_report.yaml"
+      ],
+      "matchDepNames": [
+        "cilium/cilium",
+      ],
+      "separateMajorMinor": true,
+      "separateMinorPatch": true,
+      "ignoreUnstable": false,
+      "versioning": "semver"
+    },
+    {
+      "enabled": false,
+      "matchFileNames": [
+        ".github/ISSUE_TEMPLATE/bug_report.yaml"
+      ],
+      "matchDepNames": [
+        "cilium/cilium",
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
     }
   ],
   "kubernetes": {
@@ -618,6 +696,17 @@
     },
     {
       "fileMatch": [
+        ".github/ISSUE_TEMPLATE/bug_report.yaml"
+      ],
+      // These regexes manage version and digest strings in shell scripts,
+      // similar to the examples shown here:
+      //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+- \'higher than (?<currentValue>.*) and lower than.+"
+      ],
+    },
+    {
+      "fileMatch": [
         "^\\.github/workflows/[^/]+\\.ya?ml$",
         "^\\.github/actions/ginkgo/[^/]+\\.ya?ml$"
       ],
@@ -630,7 +719,8 @@
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+kernel: '(?<currentValue>.*)'",
         '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+kernel: "(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
         '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+image-version: "(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
-        '# renovate: datasource=(?<datasource>.*?)\\s+.+kube-image: "(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"'
+        '# renovate: datasource=(?<datasource>.*?)\\s+.+kube-image: "(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
+        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) branch=(?<currentValue>.*?)\\s+.+_ref: (?<currentDigest>.*)'
       ]
     },
     {

@@ -3,18 +3,14 @@
 
 package gateway_api
 
-import (
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-)
-
 const (
 	Subsys = "gateway-controller"
 
-	gatewayClass = "gatewayClass"
-	gateway      = "gateway"
-	httpRoute    = "httpRoute"
-	grpcRoute    = "grpcRoute"
+	gatewayClass   = "gatewayClass"
+	gateway        = "gateway"
+	httpRoute      = "httpRoute"
+	grpcRoute      = "grpcRoute"
+	tlsRoute       = "tlsRoute"
+	gammaHTTPRoute = "gammaHTTPRoute"
+	referenceGrant = "referenceGrant"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsys)

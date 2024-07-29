@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -50,22 +49,7 @@ func newRegenerator(in struct {
 	return &Regenerator{
 		logger:        in.Logger,
 		cmWaitFn:      waitFn,
-		cmWaitTimeout: in.Config.Timeout(),
-	}
-}
-
-// CapTimeoutForSynchronousRegeneration caps the timeout to a value suitable in
-// case the regeneration of an endpoint needs to be performed synchronously
-// (currently required when IPSec is enabled). In particular, this is necessary
-// to not block the agent bootstrap, as that prevents the scheduling of new
-// workloads. This logic is implemented as a separate function to avoid
-// forgetting to remove it when the synchronous regeneration is removed.
-func (r *Regenerator) CapTimeoutForSynchronousRegeneration() {
-	const maxTimeout = 5 * time.Second
-	if r.cmWaitTimeout > maxTimeout {
-		r.cmWaitTimeout = maxTimeout
-		r.logger.WithField(logfields.Value, maxTimeout).
-			Info("Capped clustermesh-sync-timeout because endpoint regeneration needs to be performed synchronously")
+		cmWaitTimeout: in.Config.ClusterMeshSyncTimeout,
 	}
 }
 

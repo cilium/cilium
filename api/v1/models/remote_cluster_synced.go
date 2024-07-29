@@ -34,6 +34,9 @@ type RemoteClusterSynced struct {
 	// Nodes synchronization status
 	Nodes bool `json:"nodes,omitempty"`
 
+	// MCS-API service exports synchronization status (null means that the component is not watching service exports)
+	ServiceExports *bool `json:"service-exports,omitempty"`
+
 	// Services synchronization status
 	Services bool `json:"services,omitempty"`
 }

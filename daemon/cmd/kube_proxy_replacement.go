@@ -314,6 +314,7 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 		}
 	} else {
 		option.Config.EnableSocketLBTracing = false
+		option.Config.EnableSocketLBPodConnectionTermination = false
 	}
 
 	if option.Config.EnableSessionAffinity && option.Config.EnableSocketLB {
@@ -343,7 +344,7 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
-func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Device) error {
+func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Device, directRoutingDevice string) error {
 	if !option.Config.EnableNodePort {
 		// Make sure that NodePort dependencies are disabled
 		disableNodePort()
@@ -412,6 +413,7 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 	if option.Config.EnableIPv4 &&
 		!option.Config.TunnelingEnabled() &&
 		option.Config.LoadBalancerUsesDSR() &&
+		directRoutingDevice != "" &&
 		len(devices) > 1 {
 
 		// In the case of the multi-dev NodePort DSR, if a request from an
@@ -421,15 +423,14 @@ func finishKubeProxyReplacementInit(sysctl sysctl.Sysctl, devices []*tables.Devi
 		// and the client IP is reachable via other device than the direct
 		// routing one.
 
-		iface := option.Config.DirectRoutingDevice
-		if val, err := sysctl.Read(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface)); err != nil {
+		if val, err := sysctl.Read(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", directRoutingDevice)); err != nil {
 			log.Warnf("Unable to read net.ipv4.conf.%s.rp_filter: %s. Ignoring the check",
-				iface, err)
+				directRoutingDevice, err)
 		} else {
 			if val == "1" {
 				log.Warnf(`DSR might not work for requests sent to other than %s device. `+
 					`Run 'sysctl -w net.ipv4.conf.%s.rp_filter=2' (or set to '0') on each node to fix`,
-					iface, iface)
+					directRoutingDevice, directRoutingDevice)
 			}
 		}
 	}

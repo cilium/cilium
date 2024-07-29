@@ -106,7 +106,7 @@ func (p *selectorPolicy) Detach() {
 func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *EndpointPolicy {
 	calculatedPolicy := &EndpointPolicy{
 		selectorPolicy: p,
-		policyMapState: NewMapState(nil),
+		policyMapState: NewMapState(),
 		PolicyOwner:    policyOwner,
 	}
 
@@ -130,12 +130,10 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 	// Must come after the 'insertUser()' above to guarantee
 	// PolicyMapChanges will contain all changes that are applied
 	// after the computation of PolicyMapState has started.
-	p.SelectorCache.mutex.RLock()
 	calculatedPolicy.toMapState()
 	if !isHost {
 		calculatedPolicy.policyMapState.determineAllowLocalhostIngress()
 	}
-	p.SelectorCache.mutex.RUnlock()
 
 	return calculatedPolicy
 }
@@ -151,7 +149,7 @@ func (p *EndpointPolicy) GetPolicyMap() MapState {
 // will initialize a new MapState object for the caller.
 func (p *EndpointPolicy) SetPolicyMap(ms MapState) {
 	if ms == nil {
-		p.policyMapState = NewMapState(nil)
+		p.policyMapState = NewMapState()
 		return
 	}
 	p.policyMapState = ms
@@ -162,6 +160,37 @@ func (p *EndpointPolicy) SetPolicyMap(ms MapState) {
 // PolicyOwner (aka Endpoint) is also locked during this call.
 func (p *EndpointPolicy) Detach() {
 	p.selectorPolicy.removeUser(p)
+}
+
+// NewMapStateWithInsert returns a new MapState and an insert function that can be used to populate
+// it. We keep general insert functions private so that the caller can only insert to this specific
+// map.
+func NewMapStateWithInsert() (MapState, func(k Key, e MapStateEntry)) {
+	currentMap := NewMapState()
+
+	return currentMap, func(k Key, e MapStateEntry) {
+		currentMap.insert(k, e, nil)
+	}
+}
+
+func (p *EndpointPolicy) InsertMapState(key Key, entry MapStateEntry) {
+	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
+	p.policyMapState.insert(key, entry, p.SelectorCache)
+}
+
+func (p *EndpointPolicy) DeleteMapState(key Key) {
+	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
+	p.policyMapState.delete(key, p.SelectorCache)
+}
+
+func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
+	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
+	p.policyMapState.revertChanges(p.SelectorCache, changes)
+}
+
+func (p *EndpointPolicy) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMeta *VisibilityMetadata, changes ChangeState) {
+	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
+	p.policyMapState.addVisibilityKeys(e, redirectPort, visMeta, p.SelectorCache, changes)
 }
 
 // toMapState transforms the EndpointPolicy.L4Policy into
@@ -205,10 +234,6 @@ func (p *EndpointPolicy) UpdateRedirects(ingress bool, createRedirects createRed
 }
 
 func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedirects createRedirectsFunc, changes ChangeState) {
-	// Selectorcache needs to be locked for toMapState (GetLabels()) call
-	p.SelectorCache.mutex.RLock()
-	defer p.SelectorCache.mutex.RUnlock()
-
 	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
 		if l4.IsRedirect() {
 			// Check if we are denying this specific L4 first regardless the L3, if there are any deny policies
@@ -226,21 +251,21 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedir
 	})
 }
 
-// ConsumeMapChanges transfers the changes from MapChanges to the caller,
-// locking the selector cache to make sure concurrent identity updates
-// have completed.
-// PolicyOwner (aka Endpoint) is also locked during this call.
+// ConsumeMapChanges transfers the changes from MapChanges to the caller.
+// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock.
+// Endpoints explicitly wait for a WaitGroup signaling completion of AccumulatePolicyMapChanges
+// calls before calling ConsumeMapChanges so that if we see any partial changes here, there will be
+// another call after to cover for the rest.
+// PolicyOwner (aka Endpoint) is locked during this call.
 func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
-	p.selectorPolicy.SelectorCache.mutex.RLock()
-	defer p.selectorPolicy.SelectorCache.mutex.RUnlock()
 	features := p.selectorPolicy.L4Policy.Ingress.features | p.selectorPolicy.L4Policy.Egress.features
-	return p.policyMapChanges.consumeMapChanges(p.PolicyOwner, p.policyMapState, features, p.SelectorCache)
+	return p.policyMapChanges.consumeMapChanges(p.PolicyOwner, p.policyMapState, p.SelectorCache, features)
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
 func NewEndpointPolicy(repo *Repository) *EndpointPolicy {
 	return &EndpointPolicy{
 		selectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
-		policyMapState: NewMapState(nil),
+		policyMapState: NewMapState(),
 	}
 }

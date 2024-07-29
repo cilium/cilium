@@ -65,7 +65,7 @@ func (e *ErrLocalRedirectServiceExists) Is(target error) bool {
 	return e.frontend.DeepEqual(&t.frontend) && e.name == t.name
 }
 
-// healthServer is used to manage HealtCheckNodePort listeners
+// healthServer is used to manage HealthCheckNodePort listeners
 type healthServer interface {
 	UpsertService(svcID lb.ID, svcNS, svcName string, localEndpoints int, port uint16)
 	DeleteService(svcID lb.ID)
@@ -847,13 +847,23 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 			// HealthCheckNodePort is used by external systems to poll the state of the Service,
 			// it should never take into consideration Terminating backends, even when there are only
 			// Terminating backends.
+			//
+			// There is one special case is L7 proxy service, which never have any
+			// backends because the traffic will be redirected.
 			activeBackends := 0
-			for _, b := range backendsCopy {
-				if b.State == lb.BackendStateActive {
-					activeBackends++
+			if l7lbInfo != nil {
+				// Set this to 1 because Envoy will be running in this case.
+				getScopedLog().WithField(logfields.ServiceHealthCheckNodePort, svc.svcHealthCheckNodePort).
+					Debug("L7 service with HealthcheckNodePort enabled")
+				activeBackends = 1
+			} else {
+				for _, b := range backendsCopy {
+					if b.State == lb.BackendStateActive {
+						activeBackends++
+					}
 				}
 			}
-			s.healthServer.UpsertService(lb.ID(svc.frontend.ID), svc.svcName.Namespace, svc.svcName.Name,
+			s.healthServer.UpsertService(svc.frontend.ID, svc.svcName.Namespace, svc.svcName.Name,
 				activeBackends, svc.svcHealthCheckNodePort)
 
 			if err = s.upsertNodePortHealthService(svc, &nodeMetaCollector{}); err != nil {
@@ -1174,6 +1184,19 @@ func (s *Service) GetDeepCopyServices() []*lb.SVC {
 	svcs := make([]*lb.SVC, 0, len(s.svcByHash))
 	for _, svc := range s.svcByHash {
 		svcs = append(svcs, svc.deepCopyToLBSVC())
+	}
+
+	return svcs
+}
+
+// GetServiceIDs returns a list of IDs of all installed services.
+func (s *Service) GetServiceIDs() []lb.ServiceID {
+	s.RLock()
+	defer s.RUnlock()
+
+	svcs := make([]lb.ServiceID, 0, len(s.svcByID))
+	for _, svc := range s.svcByID {
+		svcs = append(svcs, lb.ServiceID(svc.frontend.ID))
 	}
 
 	return svcs

@@ -35,13 +35,8 @@ const (
 )
 
 const (
-	enabled                          = "enabled"
-	disabled                         = "disabled"
-	defaultTCPKeepAliveEnabled       = 1  // 1 - Enabled, 0 - Disabled
-	defaultTCPKeepAliveInitialIdle   = 10 // in seconds
-	defaultTCPKeepAliveProbeInterval = 5  // in seconds
-	defaultTCPKeepAliveMaxProbeCount = 10
-	defaultWebsocketEnabled          = 0 // 1 - Enabled, 0 - Disabled
+	enabled  = "enabled"
+	disabled = "disabled"
 )
 
 const (

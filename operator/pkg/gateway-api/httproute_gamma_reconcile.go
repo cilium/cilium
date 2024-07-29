@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,10 +31,10 @@ import (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.2/pkg/reconcile
 func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	scopedLog := log.WithContext(ctx).WithFields(logrus.Fields{
-		logfields.Controller: "gammaHttpRoute",
-		logfields.Resource:   req.NamespacedName,
-	})
+	scopedLog := r.logger.With(
+		logfields.Controller, gammaHTTPRoute,
+		logfields.Resource, req.NamespacedName,
+	)
 	scopedLog.Info("Reconciling GAMMA HTTPRoute")
 
 	// Fetch the HTTPRoute instance
@@ -44,7 +43,7 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if k8serrors.IsNotFound(err) {
 			return controllerruntime.Success()
 		}
-		scopedLog.WithError(err).Error("Unable to fetch HTTPRoute")
+		scopedLog.ErrorContext(ctx, "Unable to fetch HTTPRoute", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
 
@@ -63,14 +62,14 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	servicesList := &corev1.ServiceList{}
 	if err := r.Client.List(ctx, servicesList); err != nil {
-		scopedLog.WithError(err).Error("Unable to list Services")
+		scopedLog.ErrorContext(ctx, "Unable to list Services", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
 	}
 
 	// input for the validators
 	i := &routechecks.HTTPRouteInput{
 		Ctx:       ctx,
-		Logger:    scopedLog.WithField(logfields.Resource, hr),
+		Logger:    scopedLog.With(logfields.Resource, hr),
 		Client:    r.Client,
 		Grants:    grants,
 		HTTPRoute: hr,
@@ -136,22 +135,21 @@ func (r *gammaHttpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	cec, svc, cep, err := r.translator.Translate(&model.Model{HTTP: httpListeners})
 	if err != nil {
-		scopedLog.WithError(err).Error("Unable to translate resources")
+		scopedLog.ErrorContext(ctx, "Unable to translate resources", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
 	}
 
-	scopedLog.
-		WithField("service", fmt.Sprintf("%#v", svc)).
-		WithField("endpoints", fmt.Sprintf("%#v", cep)).
-		Debug("GAMMA translation result")
+	scopedLog.DebugContext(ctx, "GAMMA translation result",
+		"service", fmt.Sprintf("%#v", svc),
+		logfields.Endpoint, fmt.Sprintf("%#v", cep))
 
 	if err = r.ensureEnvoyConfig(ctx, cec); err != nil {
-		scopedLog.WithError(err).Error("Unable to ensure CiliumEnvoyConfig")
+		scopedLog.ErrorContext(ctx, "Unable to ensure CiliumEnvoyConfig", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
 	}
 
 	if err = r.ensureEndpoints(ctx, cep); err != nil {
-		scopedLog.WithError(err).Error("Unable to ensure Endpoints")
+		scopedLog.ErrorContext(ctx, "Unable to ensure Endpoints", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, hr)
 	}
 

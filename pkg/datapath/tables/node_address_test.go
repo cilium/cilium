@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -57,8 +57,12 @@ func TestNodeAddressConfig(t *testing.T) {
 	}
 }
 
-var ciliumHostIP = net.ParseIP("9.9.9.9")
-var ciliumHostIPLinkScoped = net.ParseIP("9.9.9.8")
+var (
+	testNodeIPv4           = netip.MustParseAddr("172.16.0.1")
+	testNodeIPv6           = netip.MustParseAddr("2222::1")
+	ciliumHostIP           = net.ParseIP("9.9.9.9")
+	ciliumHostIPLinkScoped = net.ParseIP("9.9.9.8")
+)
 
 var nodeAddressTests = []struct {
 	name         string
@@ -245,6 +249,53 @@ var nodeAddressTests = []struct {
 			net.ParseIP("2001:db8::1"),
 		},
 	},
+
+	{
+		name: "node IP preferred",
+		addrs: []DeviceAddress{
+			{
+				Addr:  netip.MustParseAddr("10.0.0.1"),
+				Scope: RT_SCOPE_UNIVERSE,
+			},
+			{
+				Addr:  netip.MustParseAddr("1.1.1.1"),
+				Scope: RT_SCOPE_UNIVERSE,
+			},
+			{
+				Addr:  testNodeIPv4,
+				Scope: RT_SCOPE_UNIVERSE,
+			},
+			{
+				Addr:  netip.MustParseAddr("2001:db8::1"),
+				Scope: RT_SCOPE_UNIVERSE,
+			},
+			{
+				Addr:  testNodeIPv6,
+				Scope: RT_SCOPE_UNIVERSE,
+			},
+		},
+
+		wantAddrs: []net.IP{
+			ciliumHostIP,
+			ciliumHostIPLinkScoped,
+			net.ParseIP("10.0.0.1"),
+			net.ParseIP("1.1.1.1"),
+			net.ParseIP("2001:db8::1"),
+			testNodeIPv4.AsSlice(),
+			testNodeIPv6.AsSlice(),
+		},
+
+		wantPrimary: []net.IP{
+			ciliumHostIP,
+			testNodeIPv4.AsSlice(),
+			testNodeIPv6.AsSlice(),
+		},
+
+		wantNodePort: []net.IP{
+			testNodeIPv4.AsSlice(),
+			testNodeIPv6.AsSlice(),
+		},
+	},
 }
 
 func TestNodeAddress(t *testing.T) {
@@ -252,9 +303,9 @@ func TestNodeAddress(t *testing.T) {
 
 	// Use a shared fixture so that we're dealing with an evolving set of addresses
 	// for the device.
-	db, devices, nodeAddrs := fixture(t, defaults.AddressScopeMax, nil)
+	db, devices, nodeAddrs, _ := fixture(t, defaults.AddressScopeMax, nil)
 
-	_, watch := nodeAddrs.All(db.ReadTxn())
+	_, watch := nodeAddrs.AllWatch(db.ReadTxn())
 	txn := db.WriteTxn(devices)
 	devices.Insert(txn, &Device{
 		Index: 2,
@@ -280,7 +331,7 @@ func TestNodeAddress(t *testing.T) {
 
 	// Wait for cilium_host addresses to be processed.
 	<-watch
-	iter, _ := nodeAddrs.All(db.ReadTxn())
+	iter := nodeAddrs.All(db.ReadTxn())
 	addrs := statedb.Collect(statedb.Map(iter, func(n NodeAddress) string { return n.String() }))
 	assert.Equal(t, addrs,
 		[]string{"::1 (*)", "9.9.9.8 (cilium_host)", "9.9.9.9 (cilium_host)", "127.0.0.1 (*)"},
@@ -290,7 +341,7 @@ func TestNodeAddress(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			txn := db.WriteTxn(devices)
-			_, watch := nodeAddrs.All(txn)
+			_, watch := nodeAddrs.AllWatch(txn)
 
 			shuffleSlice(tt.addrs) // For extra bit of randomness
 			devices.Insert(txn,
@@ -305,7 +356,7 @@ func TestNodeAddress(t *testing.T) {
 			txn.Commit()
 			<-watch // wait for propagation
 
-			iter, _ := nodeAddrs.All(db.ReadTxn())
+			iter := nodeAddrs.All(db.ReadTxn())
 			addrs := statedb.Collect(iter)
 			local := []string{}
 			nodePort := []string{}
@@ -331,7 +382,7 @@ func TestNodeAddress(t *testing.T) {
 	}
 
 	// Delete the devices and check that node addresses is cleaned up.
-	_, watch = nodeAddrs.All(db.ReadTxn())
+	_, watch = nodeAddrs.AllWatch(db.ReadTxn())
 	txn = db.WriteTxn(devices)
 	devices.Delete(txn, &Device{Index: 1})
 	devices.Delete(txn, &Device{Index: 2})
@@ -339,8 +390,7 @@ func TestNodeAddress(t *testing.T) {
 	txn.Commit()
 	<-watch // wait for propagation
 
-	assert.Equal(t, nodeAddrs.NumObjects(db.ReadTxn()), 0, "expected no NodeAddresses after device deletion")
-
+	assert.Equal(t, 0, nodeAddrs.NumObjects(db.ReadTxn()), "expected no NodeAddresses after device deletion")
 }
 
 // TestNodeAddressHostDevice checks that the for cilium_host the link scope'd
@@ -349,10 +399,10 @@ func TestNodeAddress(t *testing.T) {
 func TestNodeAddressHostDevice(t *testing.T) {
 	t.Parallel()
 
-	db, devices, nodeAddrs := fixture(t, int(RT_SCOPE_SITE), nil)
+	db, devices, nodeAddrs, _ := fixture(t, int(RT_SCOPE_SITE), nil)
 
 	txn := db.WriteTxn(devices)
-	_, watch := nodeAddrs.All(txn)
+	_, watch := nodeAddrs.AllWatch(txn)
 
 	devices.Insert(txn, &Device{
 		Index: 1,
@@ -372,8 +422,7 @@ func TestNodeAddressHostDevice(t *testing.T) {
 	txn.Commit()
 	<-watch // wait for propagation
 
-	iter, _ := nodeAddrs.All(db.ReadTxn())
-	addrs := statedb.Collect(iter)
+	addrs := statedb.Collect(nodeAddrs.All(db.ReadTxn()))
 
 	if assert.Len(t, addrs, 2) {
 		// The addresses are sorted by IP, so we see the link-scoped address first.
@@ -382,6 +431,58 @@ func TestNodeAddressHostDevice(t *testing.T) {
 
 		assert.Equal(t, addrs[1].Addr.String(), ciliumHostIP.String())
 		assert.True(t, addrs[1].Primary)
+	}
+}
+
+// TestNodeAddressLoopback tests that non-loopback addresses from the loopback
+// device are always taken, regardless of whether the lo device gets selected or not.
+// This allows assigning VIPs to the loopback device and make Cilium consider them
+// as node IPs.
+func TestNodeAddressLoopback(t *testing.T) {
+	t.Parallel()
+
+	db, devices, nodeAddrs, _ := fixture(t, int(RT_SCOPE_SITE), nil)
+
+	txn := db.WriteTxn(devices)
+	_, watch := nodeAddrs.AllWatch(txn)
+
+	devices.Insert(txn, &Device{
+		Index: 1,
+		Name:  "lo",
+		Flags: net.FlagUp | net.FlagLoopback,
+		Addrs: []DeviceAddress{
+			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("2001::1"), Scope: RT_SCOPE_UNIVERSE},
+		},
+		Selected: false,
+	})
+
+	txn.Commit()
+	<-watch // wait for propagation
+
+	addrs := statedb.Collect(nodeAddrs.All(db.ReadTxn()))
+
+	if assert.Len(t, addrs, 4) {
+		assert.Equal(t, addrs[0].Addr.String(), "10.0.0.1")
+		assert.Equal(t, addrs[0].DeviceName, "*")
+		assert.True(t, addrs[0].Primary)
+		assert.False(t, addrs[0].NodePort)
+
+		assert.Equal(t, addrs[1].Addr.String(), "10.0.0.1")
+		assert.Equal(t, addrs[1].DeviceName, "lo")
+		assert.True(t, addrs[1].Primary)
+		assert.True(t, addrs[1].NodePort)
+
+		assert.Equal(t, addrs[2].Addr.String(), "2001::1")
+		assert.Equal(t, addrs[2].DeviceName, "*")
+		assert.True(t, addrs[2].Primary)
+		assert.False(t, addrs[2].NodePort)
+
+		assert.Equal(t, addrs[3].Addr.String(), "2001::1")
+		assert.Equal(t, addrs[3].DeviceName, "lo")
+		assert.True(t, addrs[3].Primary)
+		assert.True(t, addrs[3].NodePort)
+
 	}
 }
 
@@ -491,13 +592,13 @@ func TestNodeAddressWhitelist(t *testing.T) {
 
 	for _, tt := range nodeAddressWhitelistTests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, devices, nodeAddrs := fixture(t, defaults.AddressScopeMax,
+			db, devices, nodeAddrs, _ := fixture(t, defaults.AddressScopeMax,
 				func(h *hive.Hive) {
 					h.Viper().Set("nodeport-addresses", tt.cidrs)
 				})
 
 			txn := db.WriteTxn(devices)
-			_, watch := nodeAddrs.All(txn)
+			_, watch := nodeAddrs.AllWatch(txn)
 
 			devices.Insert(txn, &Device{
 				Index: 1,
@@ -523,7 +624,7 @@ func TestNodeAddressWhitelist(t *testing.T) {
 			txn.Commit()
 			<-watch // wait for propagation
 
-			iter, _ := nodeAddrs.All(db.ReadTxn())
+			iter := nodeAddrs.All(db.ReadTxn())
 			local := []string{}
 			nodePort := []string{}
 			fallback := []string{}
@@ -542,25 +643,170 @@ func TestNodeAddressWhitelist(t *testing.T) {
 			assert.ElementsMatch(t, fallback, ipStrings(tt.wantFallback), "fallback addresses do not match")
 		})
 	}
-
 }
 
-func fixture(t *testing.T, addressScopeMax int, beforeStart func(*hive.Hive)) (*statedb.DB, statedb.RWTable[*Device], statedb.Table[NodeAddress]) {
+// TestNodeAddressUpdate tests incremental updates to the node addresses.
+func TestNodeAddressUpdate(t *testing.T) {
+	db, devices, nodeAddrs, _ := fixture(t, defaults.AddressScopeMax, func(*hive.Hive) {})
+
+	// Insert 10.0.0.1
+	txn := db.WriteTxn(devices)
+	_, watch := nodeAddrs.AllWatch(txn)
+	devices.Insert(txn, &Device{
+		Index: 1,
+		Name:  "test",
+		Flags: net.FlagUp,
+		Addrs: []DeviceAddress{
+			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: RT_SCOPE_UNIVERSE},
+		},
+		Selected: true,
+	})
+	txn.Commit()
+	<-watch // wait for propagation
+
+	addrs := statedb.Collect(nodeAddrs.All(db.ReadTxn()))
+	if assert.Len(t, addrs, 2) {
+		assert.Equal(t, addrs[0].Addr.String(), "10.0.0.1")
+		assert.Equal(t, addrs[0].DeviceName, "*")
+		assert.Equal(t, addrs[1].Addr.String(), "10.0.0.1")
+		assert.Equal(t, addrs[1].DeviceName, "test")
+	}
+
+	// Insert 10.0.0.2 and validate that both present.
+	txn = db.WriteTxn(devices)
+	_, watch = nodeAddrs.AllWatch(txn)
+
+	devices.Insert(txn, &Device{
+		Index: 1,
+		Name:  "test",
+		Flags: net.FlagUp,
+		Addrs: []DeviceAddress{
+			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: RT_SCOPE_UNIVERSE},
+			{Addr: netip.MustParseAddr("10.0.0.2"), Scope: RT_SCOPE_UNIVERSE},
+		},
+		Selected: true,
+	})
+	txn.Commit()
+	<-watch // wait for propagation
+
+	addrs = statedb.Collect(nodeAddrs.All(db.ReadTxn()))
+	if assert.Len(t, addrs, 3) {
+		assert.Equal(t, addrs[0].Addr.String(), "10.0.0.1")
+		assert.Equal(t, addrs[0].DeviceName, "*")
+		assert.Equal(t, addrs[1].Addr.String(), "10.0.0.1")
+		assert.Equal(t, addrs[1].DeviceName, "test")
+		assert.True(t, addrs[1].Primary)
+		assert.True(t, addrs[1].NodePort)
+		assert.Equal(t, addrs[2].Addr.String(), "10.0.0.2")
+		assert.Equal(t, addrs[2].DeviceName, "test")
+		assert.False(t, addrs[2].Primary)
+		assert.False(t, addrs[2].NodePort)
+	}
+
+	// Drop 10.0.0.1
+	txn = db.WriteTxn(devices)
+	_, watch = nodeAddrs.AllWatch(txn)
+
+	devices.Insert(txn, &Device{
+		Index: 1,
+		Name:  "test",
+		Flags: net.FlagUp,
+		Addrs: []DeviceAddress{
+			{Addr: netip.MustParseAddr("10.0.0.2"), Scope: RT_SCOPE_UNIVERSE},
+		},
+		Selected: true,
+	})
+	txn.Commit()
+	<-watch // wait for propagation
+
+	addrs = statedb.Collect(nodeAddrs.All(db.ReadTxn()))
+	if assert.Len(t, addrs, 2) {
+		assert.Equal(t, addrs[0].Addr.String(), "10.0.0.2")
+		assert.Equal(t, addrs[0].DeviceName, "*")
+		assert.Equal(t, addrs[1].Addr.String(), "10.0.0.2")
+		assert.Equal(t, addrs[1].DeviceName, "test")
+		assert.True(t, addrs[1].Primary)
+		assert.True(t, addrs[1].NodePort)
+	}
+
+	// Drop 10.0.0.2
+	txn = db.WriteTxn(devices)
+	_, watch = nodeAddrs.AllWatch(txn)
+
+	devices.Insert(txn, &Device{
+		Index:    1,
+		Name:     "test",
+		Flags:    net.FlagUp,
+		Addrs:    []DeviceAddress{},
+		Selected: true,
+	})
+	txn.Commit()
+	<-watch // wait for propagation
+
+	assert.Zero(t, nodeAddrs.NumObjects(db.ReadTxn()))
+}
+
+func TestNodeAddressNodeIPChange(t *testing.T) {
+	db, devices, nodeAddrs, localNodeStore := fixture(t, defaults.AddressScopeMax, func(*hive.Hive) {})
+
+	// Insert 10.0.0.1 and the current node IP
+	txn := db.WriteTxn(devices)
+	_, watch := nodeAddrs.AllWatch(txn)
+	devices.Insert(txn, &Device{
+		Index: 1,
+		Name:  "test",
+		Flags: net.FlagUp,
+		Addrs: []DeviceAddress{
+			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: RT_SCOPE_UNIVERSE},
+			{Addr: testNodeIPv4, Scope: RT_SCOPE_UNIVERSE},
+		},
+		Selected: true,
+	})
+	txn.Commit()
+	<-watch // wait for propagation
+
+	iter, watch := nodeAddrs.ListWatch(db.ReadTxn(), NodeAddressNodePortIndex.Query(true))
+	addrs := statedb.Collect(iter)
+	if assert.Len(t, addrs, 1) {
+		assert.Equal(t, testNodeIPv4, addrs[0].Addr)
+		assert.Equal(t, "test", addrs[0].DeviceName)
+	}
+
+	// Make the 10.0.0.1 the new NodeIP.
+	localNodeStore.Update(func(n *node.LocalNode) {
+		n.SetNodeExternalIP(net.ParseIP("10.0.0.1"))
+	})
+	<-watch
+
+	// The new node IP should now be preferred for NodePort.
+	iter = nodeAddrs.List(db.ReadTxn(), NodeAddressNodePortIndex.Query(true))
+	addrs = statedb.Collect(iter)
+	if assert.Len(t, addrs, 1) {
+		assert.Equal(t, "10.0.0.1", addrs[0].Addr.String())
+		assert.Equal(t, "test", addrs[0].DeviceName)
+	}
+}
+
+func fixture(t *testing.T, addressScopeMax int, beforeStart func(*hive.Hive)) (*statedb.DB, statedb.RWTable[*Device], statedb.Table[NodeAddress], *node.LocalNodeStore) {
 	var (
-		db        *statedb.DB
-		devices   statedb.RWTable[*Device]
-		nodeAddrs statedb.Table[NodeAddress]
+		db             *statedb.DB
+		devices        statedb.RWTable[*Device]
+		nodeAddrs      statedb.Table[NodeAddress]
+		localNodeStore *node.LocalNodeStore
 	)
 	h := hive.New(
 		NodeAddressCell,
+		node.LocalNodeStoreCell,
 		cell.Provide(
 			NewDeviceTable,
 			statedb.RWTable[*Device].ToTable,
 		),
-		cell.Invoke(func(db_ *statedb.DB, d statedb.RWTable[*Device], na statedb.Table[NodeAddress]) {
+		cell.Provide(func() node.LocalNodeSynchronizer { return testLocalNodeSync{} }),
+		cell.Invoke(func(db_ *statedb.DB, d statedb.RWTable[*Device], na statedb.Table[NodeAddress], lns *node.LocalNodeStore) {
 			db = db_
 			devices = d
 			nodeAddrs = na
+			localNodeStore = lns
 			db.RegisterTable(d)
 		}),
 
@@ -568,8 +814,7 @@ func fixture(t *testing.T, addressScopeMax int, beforeStart func(*hive.Hive)) (*
 		// in a follow-up PR.
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{
-				ConfigPatchMutex: new(lock.RWMutex),
-				AddressScopeMax:  addressScopeMax,
+				AddressScopeMax: addressScopeMax,
 			}
 		}),
 	)
@@ -579,11 +824,28 @@ func fixture(t *testing.T, addressScopeMax int, beforeStart func(*hive.Hive)) (*
 
 	tlog := hivetest.Logger(t)
 	require.NoError(t, h.Start(tlog, context.TODO()), "Start")
+
 	t.Cleanup(func() {
 		assert.NoError(t, h.Stop(tlog, context.TODO()), "Stop")
 	})
-	return db, devices, nodeAddrs
+	return db, devices, nodeAddrs, localNodeStore
 }
+
+type testLocalNodeSync struct {
+}
+
+// InitLocalNode implements node.LocalNodeSynchronizer.
+func (t testLocalNodeSync) InitLocalNode(_ context.Context, n *node.LocalNode) error {
+	n.SetNodeExternalIP(testNodeIPv4.AsSlice())
+	n.SetNodeExternalIP(testNodeIPv6.AsSlice())
+	return nil
+}
+
+// SyncLocalNode implements node.LocalNodeSynchronizer.
+func (t testLocalNodeSync) SyncLocalNode(context.Context, *node.LocalNodeStore) {
+}
+
+var _ node.LocalNodeSynchronizer = testLocalNodeSync{}
 
 // ipStrings converts net.IP to a string. Used to assert equalence without having to deal
 // with e.g. IPv4-mapped IPv6 presentation etc.
@@ -693,45 +955,61 @@ func TestSortedAddresses(t *testing.T) {
 func TestFallbackAddresses(t *testing.T) {
 	var f fallbackAddresses
 
-	f.update(&Device{
+	updated := f.update(&Device{
 		Index: 2,
 		Addrs: []DeviceAddress{
 			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: RT_SCOPE_SITE},
 		},
 	})
 	assert.Equal(t, f.ipv4.addr.Addr.String(), "10.0.0.1")
-	f.update(&Device{
+	assert.True(t, updated, "updated")
+
+	updated = f.update(&Device{
 		Index: 3,
 		Addrs: []DeviceAddress{
 			{Addr: netip.MustParseAddr("1001::1"), Scope: RT_SCOPE_SITE},
 		},
 	})
 	assert.Equal(t, f.ipv6.addr.Addr.String(), "1001::1")
+	assert.True(t, updated, "updated")
 
 	// Lower scope wins
-	f.update(&Device{
+	updated = f.update(&Device{
 		Index: 4,
 		Addrs: []DeviceAddress{
 			{Addr: netip.MustParseAddr("10.0.0.2"), Scope: RT_SCOPE_UNIVERSE},
 		},
 	})
 	assert.Equal(t, f.ipv4.addr.Addr.String(), "10.0.0.2")
+	assert.True(t, updated, "updated")
 
 	// Lower ifindex wins
-	f.update(&Device{
+	updated = f.update(&Device{
 		Index: 1,
 		Addrs: []DeviceAddress{
 			{Addr: netip.MustParseAddr("10.0.0.3"), Scope: RT_SCOPE_UNIVERSE},
 		},
 	})
 	assert.Equal(t, f.ipv4.addr.Addr.String(), "10.0.0.3")
+	assert.True(t, updated, "updated")
 
 	// Public wins over private
-	f.update(&Device{
+	updated = f.update(&Device{
 		Index: 5,
 		Addrs: []DeviceAddress{
 			{Addr: netip.MustParseAddr("20.0.0.1"), Scope: RT_SCOPE_SITE},
 		},
 	})
 	assert.Equal(t, f.ipv4.addr.Addr.String(), "20.0.0.1")
+	assert.True(t, updated, "updated")
+
+	// Update with the same set of addresses does nothing.
+	updated = f.update(&Device{
+		Index: 5,
+		Addrs: []DeviceAddress{
+			{Addr: netip.MustParseAddr("20.0.0.1"), Scope: RT_SCOPE_SITE},
+		},
+	})
+	assert.Equal(t, f.ipv4.addr.Addr.String(), "20.0.0.1")
+	assert.False(t, updated, "updated")
 }

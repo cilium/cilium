@@ -5,7 +5,9 @@ package k8s
 
 import (
 	"github.com/cilium/hive/cell"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -30,6 +32,7 @@ var (
 		cell.Config(k8s.DefaultConfig),
 		cell.Provide(
 			k8s.ServiceResource,
+			mcsapi.ServiceExportResource,
 			k8s.EndpointsResource,
 			k8s.LBIPPoolsResource,
 			k8s.CiliumIdentityResource,
@@ -56,6 +59,7 @@ type Resources struct {
 	cell.In
 
 	Services             resource.Resource[*slim_corev1.Service]
+	ServiceExports       resource.Resource[*mcsapiv1alpha1.ServiceExport]
 	Endpoints            resource.Resource[*k8s.Endpoints]
 	LBIPPools            resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
 	Identities           resource.Resource[*cilium_api_v2.CiliumIdentity]
@@ -65,4 +69,15 @@ type Resources struct {
 	CiliumNodes          resource.Resource[*cilium_api_v2.CiliumNode]
 	Pods                 resource.Resource[*slim_corev1.Pod]
 	Namespaces           resource.Resource[*slim_corev1.Namespace]
+}
+
+// HasCEWithIdentity returns true or false if the Cilium Endpoint store has
+// the given identity.
+func HasCEWithIdentity(cepStore resource.Store[*cilium_api_v2.CiliumEndpoint], identity string) bool {
+	if cepStore == nil {
+		return false
+	}
+	ces, _ := cepStore.IndexKeys(CiliumEndpointIndexIdentity, identity)
+
+	return len(ces) != 0
 }

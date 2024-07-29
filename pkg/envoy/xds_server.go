@@ -1614,11 +1614,11 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 	PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, l4Policy.Len())
 	l4Policy.ForEach(func(l4 *policy.L4Filter) bool {
 		var protocol envoy_config_core.SocketAddress_Protocol
-		switch l4.Protocol {
-		case api.ProtoTCP:
+		switch l4.U8Proto {
+		case u8proto.TCP, u8proto.ANY:
 			protocol = envoy_config_core.SocketAddress_TCP
-		case api.ProtoUDP, api.ProtoSCTP:
-			// UDP/SCTP rules not sent to Envoy for now.
+		default:
+			// Other protocol rules not sent to Envoy for now.
 			return true
 		}
 

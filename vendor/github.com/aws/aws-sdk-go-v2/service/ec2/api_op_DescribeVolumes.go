@@ -115,7 +115,7 @@ type DescribeVolumesInput struct {
 	// the end of the items returned by the previous request.
 	NextToken *string
 
-	// The volume IDs.
+	// The volume IDs. If not specified, then all volumes are included in the response.
 	VolumeIds []string
 
 	noSmithyDocumentSerde

@@ -5,10 +5,10 @@ package ingress
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	networkingv1 "k8s.io/api/networking/v1"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
@@ -89,7 +89,7 @@ func (r ingressConfig) Flags(flags *pflag.FlagSet) {
 type ingressParams struct {
 	cell.In
 
-	Logger             logrus.FieldLogger
+	Logger             *slog.Logger
 	CtrlRuntimeManager ctrlRuntime.Manager
 	AgentConfig        *option.DaemonConfig
 	OperatorConfig     *operatorOption.OperatorConfig

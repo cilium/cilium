@@ -323,7 +323,7 @@ rules:
   - delete
 {{- end }}
 {{- end }}
-{{- if .Values.clustermesh.enableMCSAPISupport }}
+{{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.enableMCSAPISupport }}
 - apiGroups:
   - multicluster.x-k8s.io
   resources:

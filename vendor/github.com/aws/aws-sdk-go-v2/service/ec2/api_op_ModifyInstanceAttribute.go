@@ -143,10 +143,11 @@ type ModifyInstanceAttributeInput struct {
 	// PV instance can make it unreachable.
 	SriovNetSupport *types.AttributeValue
 
-	// Changes the instance's user data to the specified value. If you are using an
-	// Amazon Web Services SDK or command line tool, base64-encoding is performed for
-	// you, and you can load the text from a file. Otherwise, you must provide
-	// base64-encoded text.
+	// Changes the instance's user data to the specified value. User data must be
+	// base64-encoded. Depending on the tool or SDK that you're using, the
+	// base64-encoding might be performed for you. For more information, see [Work with instance user data].
+	//
+	// [Work with instance user data]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-add-user-data.html
 	UserData *types.BlobAttributeValue
 
 	// A new value for the attribute. Use only with the kernel , ramdisk , userData ,
