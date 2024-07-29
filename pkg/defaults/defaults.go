@@ -574,6 +574,9 @@ const (
 
 	// EnableNonDefaultDenyPolicies allows policies to define whether they are operating in default-deny mode
 	EnableNonDefaultDenyPolicies = true
+
+	// EnableSourceIPVerification is the default value for source ip validation
+	EnableSourceIPVerification = true
 )
 
 var (
