@@ -786,6 +786,10 @@ data:
 {{- end }}
 {{- if hasKey .Values.loadBalancer "serviceTopology" }}
   enable-service-topology: {{ .Values.loadBalancer.serviceTopology | quote }}
+# {{- end }}
+
+{{- if hasKey .Values.loadBalancer "experimental" }}
+  enable-experimental-lb: {{ .Values.loadBalancer.experimental | quote }}
 {{- end }}
 
 {{- end }}
