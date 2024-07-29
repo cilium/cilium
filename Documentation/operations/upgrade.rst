@@ -384,7 +384,7 @@ communicating via the proxy must reconnect to re-establish connections.
   This means that unless explicitly configured otherwise, the first and last IP addresses of the IP pool
   are available for allocation. If you rely on the previous behavior, you should explicitly set
   ``allowFirstLastIPs: no`` in your IP pool configuration before the upgrade.
-* The ``CiliumLoadBalancerIPPool.spec.cidrs`` field has been deprecated in v1.15 favor of 
+* The ``CiliumLoadBalancerIPPool.spec.cidrs`` field has been deprecated in v1.15 favor of
   ``CiliumLoadBalancerIPPool.spec.blocks``. As of v1.15 both fields have the same behavior. The
   ``cidrs`` field will be removed in v1.16. Please update your IP pool configurations to use
   ``blocks`` instead of ``cidrs`` before upgrading.
@@ -446,6 +446,12 @@ Helm Options
   and other related Helm configurations have been removed.
 * The Clustermesh option ``clustermesh.apiserver.kvstoremesh.enabled`` is now set to ``true`` by default.
   To disable KVStoreMesh, set ``clustermesh.apiserver.kvstoremesh.enabled=false`` explicitly during the upgrade.
+* The Helm options ``hubble.tls.server.cert``, ``hubble.tls.server.key``,
+  ``hubble.relay.tls.client.cert``, ``hubble.relay.tls.client.key``,
+  ``hubble.relay.tls.server.cert``, ``hubble.relay.tls.server.key``,
+  ``hubble.ui.tls.client.cert``, and ``hubble.ui.tls.client.key`` have been
+  deprecated in favor of the associated ``existingSecret`` options and will be
+  removed in a future release.
 
 Added Metrics
 ~~~~~~~~~~~~~
