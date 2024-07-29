@@ -104,13 +104,20 @@ type CreateIpamPoolInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// In IPAM, the locale is the Amazon Web Services Region or, for IPAM IPv4 pools
-	// in the public scope, the network border group for an Amazon Web Services Local
-	// Zone where you want to make an IPAM pool available for allocations ([supported Local Zones] ). If you
-	// do not choose a locale, resources in Regions others than the IPAM's home region
-	// cannot use CIDRs from this pool.
+	// The locale for the pool should be one of the following:
 	//
-	// Possible values: Any Amazon Web Services Region, such as us-east-1.
+	//   - An Amazon Web Services Region where you want this IPAM pool to be available
+	//   for allocations.
+	//
+	//   - The network border group for an Amazon Web Services Local Zone where you
+	//   want this IPAM pool to be available for allocations ([supported Local Zones] ). This option is only
+	//   available for IPAM IPv4 pools in the public scope.
+	//
+	// If you do not choose a locale, resources in Regions others than the IPAM's home
+	// region cannot use CIDRs from this pool.
+	//
+	// Possible values: Any Amazon Web Services Region or supported Amazon Web
+	// Services Local Zone.
 	//
 	// [supported Local Zones]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-byoip.html#byoip-zone-avail
 	Locale *string

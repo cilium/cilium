@@ -122,7 +122,7 @@ documented methods:
 
 #. First, install `cert-manager <https://cert-manager.io/docs/installation/>`__
    and setup an `issuer <https://cert-manager.io/docs/configuration/>`_.
-   Please make sure that your issuer is be able to create certificates under the
+   Please make sure that your issuer is able to create certificates under the
    ``cilium.io`` domain name.
 #. Install/upgrade Cilium including the following Helm flags:
 

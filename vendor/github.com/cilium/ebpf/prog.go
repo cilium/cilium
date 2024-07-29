@@ -46,13 +46,13 @@ const (
 	outputPad = 256 + 2
 )
 
-// DefaultVerifierLogSize is the default number of bytes allocated for the
-// verifier log.
+// Deprecated: the correct log size is now detected automatically and this
+// constant is unused.
 const DefaultVerifierLogSize = 64 * 1024
 
-// maxVerifierLogSize is the maximum size of verifier log buffer the kernel
-// will accept before returning EINVAL.
-const maxVerifierLogSize = math.MaxUint32 >> 2
+// minVerifierLogSize is the default number of bytes allocated for the
+// verifier log.
+const minVerifierLogSize = 64 * 1024
 
 // ProgramOptions control loading a program into the kernel.
 type ProgramOptions struct {
@@ -73,15 +73,8 @@ type ProgramOptions struct {
 	// attempt at loading the program.
 	LogLevel LogLevel
 
-	// Controls the output buffer size for the verifier log, in bytes. See the
-	// documentation on ProgramOptions.LogLevel for details about how this value
-	// is used.
-	//
-	// If this value is set too low to fit the verifier log, the resulting
-	// [ebpf.VerifierError]'s Truncated flag will be true, and the error string
-	// will also contain a hint to that effect.
-	//
-	// Defaults to DefaultVerifierLogSize.
+	// Deprecated: the correct log buffer size is determined automatically
+	// and this field is ignored.
 	LogSize int
 
 	// Disables the verifier log completely, regardless of other options.
@@ -262,10 +255,6 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, er
 		return nil, fmt.Errorf("can't load %s program on %s", spec.ByteOrder, internal.NativeEndian)
 	}
 
-	if opts.LogSize < 0 {
-		return nil, errors.New("ProgramOptions.LogSize must be a positive value; disable verifier logs using ProgramOptions.LogDisabled")
-	}
-
 	// Kernels before 5.0 (6c4fc209fcf9 "bpf: remove useless version check for prog load")
 	// require the version field to be set to the value of the KERNEL_VERSION
 	// macro for kprobe-type programs.
@@ -404,37 +393,59 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, er
 		}
 	}
 
-	if opts.LogSize == 0 {
-		opts.LogSize = DefaultVerifierLogSize
-	}
-
-	// The caller requested a specific verifier log level. Set up the log buffer.
+	// The caller requested a specific verifier log level. Set up the log buffer
+	// so that there is a chance of loading the program in a single shot.
 	var logBuf []byte
 	if !opts.LogDisabled && opts.LogLevel != 0 {
-		logBuf = make([]byte, opts.LogSize)
+		logBuf = make([]byte, minVerifierLogSize)
 		attr.LogLevel = opts.LogLevel
 		attr.LogSize = uint32(len(logBuf))
 		attr.LogBuf = sys.NewSlicePointer(logBuf)
 	}
 
-	fd, err := sys.ProgLoad(attr)
-	if err == nil {
-		return &Program{unix.ByteSliceToString(logBuf), fd, spec.Name, "", spec.Type}, nil
-	}
+	for {
+		var fd *sys.FD
+		fd, err = sys.ProgLoad(attr)
+		if err == nil {
+			return &Program{unix.ByteSliceToString(logBuf), fd, spec.Name, "", spec.Type}, nil
+		}
 
-	// An error occurred loading the program, but the caller did not explicitly
-	// enable the verifier log. Re-run with branch-level verifier logs enabled to
-	// obtain more info. Preserve the original error to return it to the caller.
-	// An undersized log buffer will result in ENOSPC regardless of the underlying
-	// cause.
-	var err2 error
-	if !opts.LogDisabled && opts.LogLevel == 0 {
-		logBuf = make([]byte, opts.LogSize)
-		attr.LogLevel = LogLevelBranch
-		attr.LogSize = uint32(len(logBuf))
+		if opts.LogDisabled {
+			break
+		}
+
+		if attr.LogTrueSize != 0 && attr.LogSize >= attr.LogTrueSize {
+			// The log buffer already has the correct size.
+			break
+		}
+
+		if attr.LogSize != 0 && !errors.Is(err, unix.ENOSPC) {
+			// Logging is enabled and the error is not ENOSPC, so we can infer
+			// that the log buffer is large enough.
+			break
+		}
+
+		if attr.LogLevel == 0 {
+			// Logging is not enabled but loading the program failed. Enable
+			// basic logging.
+			attr.LogLevel = LogLevelBranch
+		}
+
+		// Make an educated guess how large the buffer should be. Start
+		// at minVerifierLogSize and then double the size.
+		logSize := uint32(max(len(logBuf)*2, minVerifierLogSize))
+		if int(logSize) < len(logBuf) {
+			return nil, errors.New("overflow while probing log buffer size")
+		}
+
+		if attr.LogTrueSize != 0 {
+			// The kernel has given us a hint how large the log buffer has to be.
+			logSize = attr.LogTrueSize
+		}
+
+		logBuf = make([]byte, logSize)
+		attr.LogSize = logSize
 		attr.LogBuf = sys.NewSlicePointer(logBuf)
-
-		_, err2 = sys.ProgLoad(attr)
 	}
 
 	end := bytes.IndexByte(logBuf, 0)
@@ -452,10 +463,6 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, er
 		}
 
 	case errors.Is(err, unix.EINVAL):
-		if opts.LogSize > maxVerifierLogSize {
-			return nil, fmt.Errorf("load program: %w (ProgramOptions.LogSize exceeds maximum value of %d)", err, maxVerifierLogSize)
-		}
-
 		if bytes.Contains(tail, coreBadCall) {
 			err = errBadRelocation
 			break
@@ -479,8 +486,7 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions) (*Program, er
 		}
 	}
 
-	truncated := errors.Is(err, unix.ENOSPC) || errors.Is(err2, unix.ENOSPC)
-	return nil, internal.ErrorWithLog("load program", err, logBuf, truncated)
+	return nil, internal.ErrorWithLog("load program", err, logBuf)
 }
 
 // NewProgramFromFD creates a program from a raw fd.

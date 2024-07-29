@@ -638,6 +638,35 @@ func (m *AttributeContext_HttpRequest) validate(all bool) error {
 
 	// no validation rules for Headers
 
+	if all {
+		switch v := interface{}(m.GetHeaderMap()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, AttributeContext_HttpRequestValidationError{
+					field:  "HeaderMap",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, AttributeContext_HttpRequestValidationError{
+					field:  "HeaderMap",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetHeaderMap()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return AttributeContext_HttpRequestValidationError{
+				field:  "HeaderMap",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	// no validation rules for Path
 
 	// no validation rules for Host

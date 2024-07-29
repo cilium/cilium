@@ -14,7 +14,8 @@ type Univariate struct {
 	Sampler
 }
 
-// Jitter the duration by drawing from a univariate distribution
+// Jitter the duration by adding a delay that has been drawn
+// from the supplied univariate distribution.
 func (u Univariate) Jitter(d time.Duration) time.Duration {
 	return d + time.Duration(u.Rand())
 }

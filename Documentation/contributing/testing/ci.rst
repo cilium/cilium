@@ -52,18 +52,12 @@ them all at once:
 +==================+==========================+
 | main             | /test                    |
 +------------------+--------------------------+
+| v1.16            | /test-backport-1.16      |
++------------------+--------------------------+
 | v1.15            | /test-backport-1.15      |
 +------------------+--------------------------+
 | v1.14            | /test-backport-1.14      |
 +------------------+--------------------------+
-| v1.13            | /test-backport-1.13      |
-+------------------+--------------------------+
-| v1.12            | /test-backport-1.12      |
-+------------------+--------------------------+
-
-Pull requests submitted against older stable branches such as v1.13 may also be
-subject to Jenkins CI jobs. For more information, see
-`v1.13 CI <https://docs.cilium.io/en/v1.13/contributing/testing/ci/#ci-jenkins>`__.
 
 For a full list of GHA, see `GitHub Actions Page <https://github.com/cilium/cilium/actions>`_
 

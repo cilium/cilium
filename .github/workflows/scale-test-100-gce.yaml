@@ -105,10 +105,17 @@ jobs:
             SHA="${{ github.sha }}"
           fi
 
+          # Adding k8s.local to the end makes kops happy
+          # has stricter DNS naming requirements.
+          CLUSTER_NAME="${{ env.test_name }}-${{ env.cluster_name }}.k8s.local"
+
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --set pprof.enabled=true \
             --helm-set=prometheus.enabled=true \
             --helm-set=cluster.name=${{ env.cluster_name }} \
+            --helm-set=k8sServiceHost=api.internal.${CLUSTER_NAME} \
+            --helm-set=k8sServicePort=443 \
+            --helm-set=kubeProxyReplacement=true \
             --wait=false"
 
           # only add SHA to the image tags if it was set
@@ -128,10 +135,6 @@ jobs:
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set=hubble.relay.image.useDigest=false"
           fi
-
-          # Adding k8s.local to the end makes kops happy
-          # has stricter DNS naming requirements.
-          CLUSTER_NAME="${{ env.test_name }}-${{ env.cluster_name }}.k8s.local"
 
           echo SHA=${SHA} >> $GITHUB_OUTPUT
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
@@ -193,6 +196,7 @@ jobs:
           node_count: 100
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+          kube_proxy_enabled: false
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13

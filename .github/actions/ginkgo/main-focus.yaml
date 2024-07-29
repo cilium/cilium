@@ -188,7 +188,7 @@ include:
     cliFocus: 'K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) TFTP|K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) with'
 
   ###
-  # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Tests NodePort inside cluster (kube-proxy) 
+  # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Tests NodePort inside cluster (kube-proxy) vanilla
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Tests NodePort inside cluster (kube-proxy) with externalTrafficPolicy=Local
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Tests NodePort inside cluster (kube-proxy) with IPSec and externalTrafficPolicy=Local
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Tests NodePort inside cluster (kube-proxy) with the host firewall and externalTrafficPolicy=Local

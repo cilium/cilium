@@ -85,10 +85,8 @@ cilium-operator-azure [flags]
       --instance-tags-filter map                             EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --ipam string                                          Backend to use for IPAM (default "azure")
       --k8s-api-server string                                Kubernetes API server URL
-      --k8s-client-burst int                                 Burst value allowed for the K8s client
       --k8s-client-connection-keep-alive duration            Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration               Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)
-      --k8s-client-qps float32                               Queries per second limit for the K8s client
       --k8s-heartbeat-timeout duration                       Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                           Absolute path of the kubernetes kubeconfig file
       --k8s-namespace string                                 Name of the Kubernetes namespace in which Cilium Operator is deployed in
@@ -114,6 +112,8 @@ cilium-operator-azure [flags]
       --mesh-auth-spire-server-connection-timeout duration   SPIRE server connection timeout. (default 10s)
       --nodes-gc-interval duration                           GC interval for CiliumNodes (default 5m0s)
       --operator-api-serve-addr string                       Address to serve API requests (default "localhost:9234")
+      --operator-k8s-client-burst int                        Burst value allowed for the K8s client (default 200)
+      --operator-k8s-client-qps float32                      Queries per second limit for the K8s client (default 100)
       --operator-pprof                                       Enable serving pprof debugging API
       --operator-pprof-address string                        Address that pprof listens on (default "localhost")
       --operator-pprof-port uint16                           Port that pprof listens on (default 6061)

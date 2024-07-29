@@ -465,13 +465,11 @@ const (
 	// policy updates are invoked.
 	PolicyTriggerInterval = 1 * time.Second
 
-	// K8sClientQPSLimit is the default qps for the k8s client. It is set to 0 because the k8s client
-	// has its own default.
-	K8sClientQPSLimit float32 = 0.0
+	// K8sClientQPSLimit is the default qps for the cilium-agent k8s client.
+	K8sClientQPSLimit float32 = 10.0
 
-	// K8sClientBurst is the default burst for the k8s client. It is set to 0 because the k8s client
-	// has its own default.
-	K8sClientBurst = 0
+	// K8sClientBurst is the default burst for the cilium-agent k8s client.
+	K8sClientBurst = 20
 
 	// K8sServiceCacheSize is the default value for option.K8sServiceCacheSize
 	// which denotes the value of Cilium's K8s service cache size.

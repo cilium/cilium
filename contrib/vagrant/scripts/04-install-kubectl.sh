@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Installs and configures kubernetes kubect, it will use default values from
+# Installs and configures kubernetes kubectl, it will use default values from
 # ./helpers.bash
 # Globals:
 #   INSTALL, if set installs k8s binaries, otherwise it will only configure k8s

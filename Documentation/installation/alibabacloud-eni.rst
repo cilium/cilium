@@ -21,8 +21,8 @@ the list below has to be deleted to prevent conflicts.
 .. note::
 
     If you are using ACK with Flannel (DaemonSet ``kube-flannel-ds``),
-    the Cloud Controller Manager (CCM) will create route (Pod CIDR) in VPC.
-    If your cluster is an Managed Kubernetes you cannot disable this behavior.
+    the Cloud Controller Manager (CCM) will create a route (Pod CIDR) in VPC.
+    If your cluster is a Managed Kubernetes you cannot disable this behavior.
     Please consider creating a new cluster.
 
 .. code-block:: shell-session

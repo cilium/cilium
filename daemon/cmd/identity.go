@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/labels"
@@ -59,7 +58,7 @@ func getIdentityIDHandler(d *Daemon, params GetIdentityIDParams) middleware.Resp
 func getIdentityEndpointsHandler(d *Daemon, params GetIdentityEndpointsParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /identity/endpoints request")
 
-	identities := identitymanager.GetIdentityModels()
+	identities := d.idmgr.GetIdentityModels()
 
 	return NewGetIdentityEndpointsOK().WithPayload(identities)
 }
@@ -85,4 +84,14 @@ type CachingIdentityAllocator interface {
 	ReleaseRestoredIdentities()
 
 	Close()
+}
+
+func (d *Daemon) AddIdentity(id *identity.Identity) {
+	d.idmgr.Add(id)
+}
+func (d *Daemon) RemoveIdentity(id *identity.Identity) {
+	d.idmgr.Remove(id)
+}
+func (d *Daemon) RemoveOldAddNewIdentity(old, new *identity.Identity) {
+	d.idmgr.RemoveOldAddNew(old, new)
 }

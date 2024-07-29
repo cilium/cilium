@@ -5,10 +5,14 @@ Tickers with random jitter
 [![Godoc Reference](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://godoc.org/github.com/lthibault/jitterbug)
 [![Go Report Card](https://goreportcard.com/badge/github.com/SentimensRG/ctx?style=flat-square)](https://goreportcard.com/report/github.com/lthibault/jitterbug)
 
+Jitterbug provides functionality similar to `time.Ticker`, but with a configurable random jitter.
+
+Jitterbug has no external dependencies, has a stable API, and is production-ready.
+
 ## Installation
 
 ```bash
-go get -u github.com/lthibault/jitterbug
+go get -u github.com/lthibault/jitterbug/v2
 ```
 
 ## Usage
@@ -59,10 +63,3 @@ t := jitterbug.New(
 
 - [GoNum](https://github.com/gonum/gonum), specifically the [univariate distributions](https://godoc.org/gonum.org/v1/gonum/stat/distuv).
 - [Suture](https://github.com/thejerf/suture) can use jitterbug for it's backoff [durations](https://godoc.org/github.com/thejerf/suture#Jitter).
-
-## RFC
-
-If you find this useful please let me know:  <l.thibault@sentimens.com>
-
-Seriously, even if you just used it in your weekend project, I'd like to hear
-about it :)

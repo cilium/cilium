@@ -59,7 +59,7 @@ jobs:
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
-      
+
       - name: Get Cilium's default values
         id: default_vars
         uses: ./.github/actions/helm-default
@@ -113,7 +113,7 @@ jobs:
         with:
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           version: ${{ env.gcloud_version }}
-      
+
       - name: Clone ClusterLoader2
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
@@ -178,7 +178,7 @@ jobs:
       - name: Wait for Cilium status to be ready
         run: |
           cilium status --wait
-      
+
       - name: Run CL2
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2

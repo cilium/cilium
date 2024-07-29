@@ -456,7 +456,7 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 	if option.Config.EnableIPv6 {
 		log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
 
-		if c := option.Config.GetIPv6NativeRoutingCIDR(); c != nil {
+		if c := option.Config.IPv6NativeRoutingCIDR; c != nil {
 			log.Infof("  IPv6 native routing prefix: %s", c.String())
 		}
 
@@ -476,7 +476,7 @@ func (d *Daemon) allocateIPs(ctx context.Context, router restoredIPs) error {
 	if option.Config.EnableIPv4 {
 		log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
 
-		if c := option.Config.GetIPv4NativeRoutingCIDR(); c != nil {
+		if c := option.Config.IPv4NativeRoutingCIDR; c != nil {
 			log.Infof("  IPv4 native routing prefix: %s", c.String())
 		}
 

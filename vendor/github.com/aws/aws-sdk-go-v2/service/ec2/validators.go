@@ -1350,6 +1350,26 @@ func (m *validateOpCreateInstanceExportTask) HandleInitialize(ctx context.Contex
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpCreateIpamExternalResourceVerificationToken struct {
+}
+
+func (*validateOpCreateIpamExternalResourceVerificationToken) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateIpamExternalResourceVerificationToken) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateIpamExternalResourceVerificationTokenInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateIpamExternalResourceVerificationTokenInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpCreateIpamPool struct {
 }
 
@@ -2665,6 +2685,26 @@ func (m *validateOpDeleteInternetGateway) HandleInitialize(ctx context.Context, 
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpDeleteInternetGatewayInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpDeleteIpamExternalResourceVerificationToken struct {
+}
+
+func (*validateOpDeleteIpamExternalResourceVerificationToken) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDeleteIpamExternalResourceVerificationToken) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DeleteIpamExternalResourceVerificationTokenInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDeleteIpamExternalResourceVerificationTokenInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -9018,6 +9058,10 @@ func addOpCreateInstanceExportTaskValidationMiddleware(stack *middleware.Stack) 
 	return stack.Initialize.Add(&validateOpCreateInstanceExportTask{}, middleware.After)
 }
 
+func addOpCreateIpamExternalResourceVerificationTokenValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateIpamExternalResourceVerificationToken{}, middleware.After)
+}
+
 func addOpCreateIpamPoolValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateIpamPool{}, middleware.After)
 }
@@ -9280,6 +9324,10 @@ func addOpDeleteInstanceEventWindowValidationMiddleware(stack *middleware.Stack)
 
 func addOpDeleteInternetGatewayValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeleteInternetGateway{}, middleware.After)
+}
+
+func addOpDeleteIpamExternalResourceVerificationTokenValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDeleteIpamExternalResourceVerificationToken{}, middleware.After)
 }
 
 func addOpDeleteIpamValidationMiddleware(stack *middleware.Stack) error {
@@ -12546,6 +12594,21 @@ func validateOpCreateInstanceExportTaskInput(v *CreateInstanceExportTaskInput) e
 	}
 }
 
+func validateOpCreateIpamExternalResourceVerificationTokenInput(v *CreateIpamExternalResourceVerificationTokenInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateIpamExternalResourceVerificationTokenInput"}
+	if v.IpamId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("IpamId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpCreateIpamPoolInput(v *CreateIpamPoolInput) error {
 	if v == nil {
 		return nil
@@ -13711,6 +13774,21 @@ func validateOpDeleteInternetGatewayInput(v *DeleteInternetGatewayInput) error {
 	invalidParams := smithy.InvalidParamsError{Context: "DeleteInternetGatewayInput"}
 	if v.InternetGatewayId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("InternetGatewayId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpDeleteIpamExternalResourceVerificationTokenInput(v *DeleteIpamExternalResourceVerificationTokenInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DeleteIpamExternalResourceVerificationTokenInput"}
+	if v.IpamExternalResourceVerificationTokenId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("IpamExternalResourceVerificationTokenId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

@@ -11,6 +11,7 @@ import (
 	cmmetrics "github.com/cilium/cilium/clustermesh-apiserver/metrics"
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
+	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -28,6 +29,7 @@ var Cell = cell.Module(
 	"Cilium ClusterMesh",
 
 	cell.Config(option.DefaultLegacyClusterMeshConfig),
+	cell.Config(operator.MCSAPIConfig{}),
 
 	// We don't validate that the ClusterID is different from 0 (and the
 	// ClusterName is not the default one), because they are valid in

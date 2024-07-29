@@ -101,6 +101,12 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 							return fmt.Errorf("failed to restart endpoint (check failed: %w): %w", err, launchErr)
 						}
 						return launchErr
+					} else {
+						// Now that we relaunched, retry so that the cleanup and time
+						// to bring up the health endpoint does not skew the probing
+						if pingErr := client.PingEndpoint(); pingErr == nil {
+							lastSuccessfulPing = time.Now()
+						}
 					}
 				}
 				return err
@@ -117,16 +123,15 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 	)
 
 	// Make sure to clean up the endpoint namespace when cilium-agent terminates
-	cleaner.cleanupFuncs.Add(health.KillEndpoint)
-	cleaner.cleanupFuncs.Add(health.CleanupEndpoint)
+	cleaner.cleanupFuncs.Add(d.cleanupHealthEndpoint)
 }
 
 func (d *Daemon) cleanupHealthEndpoint() {
-	// Delete the process
-	health.KillEndpoint()
+	var ep *endpoint.Endpoint
+
+	log.Info("Cleaning up Cilium health endpoint")
 
 	// Clean up agent resources
-	var ep *endpoint.Endpoint
 	healthIPv4 := node.GetEndpointHealthIPv4()
 	healthIPv6 := node.GetEndpointHealthIPv6()
 	if healthIPv4 != nil {
@@ -139,12 +144,16 @@ func (d *Daemon) cleanupHealthEndpoint() {
 		log.Debug("Didn't find existing cilium-health endpoint to delete")
 	} else {
 		log.Debug("Removing existing cilium-health endpoint")
-		errs := d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
-			NoIPRelease: true,
-		})
-		for _, err := range errs {
-			log.WithError(err).Debug("Error occurred while deleting cilium-health endpoint")
-		}
+		d.deleteEndpointRelease(ep, true)
 	}
+
+	// The CNI plugin is not invoked for the health endpoint since it was
+	// spawned by the agent itself. The endpoint manager will only down the
+	// device, but not remove it. Hence we need to trigger final removal.
+
+	// Delete the process
+	health.KillEndpoint()
+
+	// Remove health endpoint devices
 	health.CleanupEndpoint()
 }

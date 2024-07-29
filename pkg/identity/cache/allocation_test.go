@@ -27,8 +27,7 @@ import (
 )
 
 var fakeConfig = &option.DaemonConfig{
-	ConfigPatchMutex: new(lock.RWMutex),
-	K8sNamespace:     "kube-system",
+	K8sNamespace: "kube-system",
 }
 
 func TestAllocateIdentityReserved(t *testing.T) {

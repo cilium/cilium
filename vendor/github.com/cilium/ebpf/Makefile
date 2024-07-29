@@ -106,7 +106,7 @@ testdata/loader-%-eb.elf: testdata/loader.c
 	$(STRIP) -g $@
 
 .PHONY: update-kernel-deps
-update-kernel-deps: export KERNEL_VERSION?=6.7
+update-kernel-deps: export KERNEL_VERSION?=6.8
 update-kernel-deps:
 	./testdata/sh/update-kernel-deps.sh
 	$(MAKE) container-all

@@ -94,4 +94,8 @@ type CiliumClusterConfigCapabilities struct {
 
 	// The maximum number of clusters the given cluster can support in a ClusterMesh.
 	MaxConnectedClusters uint32 `json:"maxConnectedClusters,omitempty"`
+
+	// Whether or not MCS-API ServiceExports is enabled by the cluster.
+	// Additionally a nil values means that it's not supported.
+	ServiceExportsEnabled *bool `json:"serviceExportsEnabled,omitempty"`
 }

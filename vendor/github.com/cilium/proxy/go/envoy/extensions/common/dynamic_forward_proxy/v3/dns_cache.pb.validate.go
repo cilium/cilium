@@ -258,12 +258,12 @@ func (m *DnsCacheConfig) validate(all bool) error {
 			errors = append(errors, err)
 		} else {
 
-			gte := time.Duration(5*time.Second + 0*time.Nanosecond)
+			gte := time.Duration(1*time.Second + 0*time.Nanosecond)
 
 			if dur < gte {
 				err := DnsCacheConfigValidationError{
 					field:  "DnsMinRefreshRate",
-					reason: "value must be greater than or equal to 5s",
+					reason: "value must be greater than or equal to 1s",
 				}
 				if !all {
 					return err

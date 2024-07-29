@@ -4750,7 +4750,13 @@ type FleetLaunchTemplateOverrides struct {
 	// The ID of the subnet in which to launch the instances.
 	SubnetId *string
 
-	// The number of units provided by the specified instance type.
+	// The number of units provided by the specified instance type. These are the same
+	// units that you chose to set the target capacity in terms of instances, or a
+	// performance characteristic such as vCPUs, memory, or I/O.
+	//
+	// If the target capacity divided by this value is not a whole number, Amazon EC2
+	// rounds the number of instances to the next whole number. If this value is not
+	// specified, the default is 1.
 	//
 	// When specifying weights, the price used in the lowest-price and
 	// price-capacity-optimized allocation strategies is per unit hour (where the
@@ -4820,7 +4826,13 @@ type FleetLaunchTemplateOverridesRequest struct {
 	// ID.
 	SubnetId *string
 
-	// The number of units provided by the specified instance type.
+	// The number of units provided by the specified instance type. These are the same
+	// units that you chose to set the target capacity in terms of instances, or a
+	// performance characteristic such as vCPUs, memory, or I/O.
+	//
+	// If the target capacity divided by this value is not a whole number, Amazon EC2
+	// rounds the number of instances to the next whole number. If this value is not
+	// specified, the default is 1.
 	//
 	// When specifying weights, the price used in the lowest-price and
 	// price-capacity-optimized allocation strategies is per unit hour (where the
@@ -8470,7 +8482,8 @@ type IpamDiscoveredResourceCidr struct {
 	// The resource discovery ID.
 	IpamResourceDiscoveryId *string
 
-	// For elastic IP addresses, this is the status of an attached network interface.
+	// For elastic network interfaces, this is the status of whether or not the
+	// elastic network interface is attached.
 	NetworkInterfaceAttachmentStatus IpamNetworkInterfaceAttachmentStatus
 
 	// The resource CIDR.
@@ -8527,6 +8540,48 @@ type IpamDiscoveryFailureReason struct {
 
 	// The discovery failure message.
 	Message *string
+
+	noSmithyDocumentSerde
+}
+
+// A verification token is an Amazon Web Services-generated random value that you
+// can use to prove ownership of an external resource. For example, you can use a
+// verification token to validate that you control a public IP address range when
+// you bring an IP address range to Amazon Web Services (BYOIP).
+type IpamExternalResourceVerificationToken struct {
+
+	// ARN of the IPAM that created the token.
+	IpamArn *string
+
+	// Token ARN.
+	IpamExternalResourceVerificationTokenArn *string
+
+	// The ID of the token.
+	IpamExternalResourceVerificationTokenId *string
+
+	// The ID of the IPAM that created the token.
+	IpamId *string
+
+	// Region of the IPAM that created the token.
+	IpamRegion *string
+
+	// Token expiration.
+	NotAfter *time.Time
+
+	// Token state.
+	State IpamExternalResourceVerificationTokenState
+
+	// Token status.
+	Status TokenState
+
+	// Token tags.
+	Tags []Tag
+
+	// Token name.
+	TokenName *string
+
+	// Token value.
+	TokenValue *string
 
 	noSmithyDocumentSerde
 }
@@ -8624,12 +8679,19 @@ type IpamPool struct {
 	// overlap or conflict.
 	IpamScopeType IpamScopeType
 
-	// The locale of the IPAM pool. In IPAM, the locale is the Amazon Web Services
-	// Region or, for IPAM IPv4 pools in the public scope, the network border group for
-	// an Amazon Web Services Local Zone where you want to make an IPAM pool available
-	// for allocations ([supported Local Zones] ). If you choose an Amazon Web Services Region for locale that
-	// has not been configured as an operating Region for the IPAM, you'll get an
-	// error.
+	// The locale of the IPAM pool.
+	//
+	// The locale for the pool should be one of the following:
+	//
+	//   - An Amazon Web Services Region where you want this IPAM pool to be available
+	//   for allocations.
+	//
+	//   - The network border group for an Amazon Web Services Local Zone where you
+	//   want this IPAM pool to be available for allocations ([supported Local Zones] ). This option is only
+	//   available for IPAM IPv4 pools in the public scope.
+	//
+	// If you choose an Amazon Web Services Region for locale that has not been
+	// configured as an operating Region for the IPAM, you'll get an error.
 	//
 	// [supported Local Zones]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-byoip.html#byoip-zone-avail
 	Locale *string
@@ -10285,10 +10347,16 @@ type LaunchTemplateOverrides struct {
 	// The ID of the subnet in which to launch the instances.
 	SubnetId *string
 
-	// The number of units provided by the specified instance type.
+	// The number of units provided by the specified instance type. These are the same
+	// units that you chose to set the target capacity in terms of instances, or a
+	// performance characteristic such as vCPUs, memory, or I/O.
 	//
-	// When specifying weights, the price used in the lowest-price and
-	// price-capacity-optimized allocation strategies is per unit hour (where the
+	// If the target capacity divided by this value is not a whole number, Amazon EC2
+	// rounds the number of instances to the next whole number. If this value is not
+	// specified, the default is 1.
+	//
+	// When specifying weights, the price used in the lowestPrice and
+	// priceCapacityOptimized allocation strategies is per unit hour (where the
 	// instance price is divided by the specified weight). However, if all the
 	// specified weights are above the requested TargetCapacity , resulting in only 1
 	// instance being launched, the price used is per instance hour.
@@ -15812,6 +15880,12 @@ type SpotFleetLaunchSpecification struct {
 	// If the target capacity divided by this value is not a whole number, Amazon EC2
 	// rounds the number of instances to the next whole number. If this value is not
 	// specified, the default is 1.
+	//
+	// When specifying weights, the price used in the lowestPrice and
+	// priceCapacityOptimized allocation strategies is per unit hour (where the
+	// instance price is divided by the specified weight). However, if all the
+	// specified weights are above the requested TargetCapacity , resulting in only 1
+	// instance being launched, the price used is per instance hour.
 	WeightedCapacity *float64
 
 	noSmithyDocumentSerde
@@ -19282,15 +19356,12 @@ type VolumeDetail struct {
 }
 
 // Describes the modification status of an EBS volume.
-//
-// If the volume has never been modified, some element values will be null.
 type VolumeModification struct {
 
 	// The modification completion or failure time.
 	EndTime *time.Time
 
-	// The current modification state. The modification state is null for unmodified
-	// volumes.
+	// The current modification state.
 	ModificationState VolumeModificationState
 
 	// The original IOPS rate of the volume.

@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -856,9 +855,9 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 	// identity for the endpoint.
 	if newEndpoint {
 		// TODO - GH-9354.
-		identitymanager.Add(identity)
+		e.owner.AddIdentity(identity)
 	} else {
-		identitymanager.RemoveOldAddNew(e.SecurityIdentity, identity)
+		e.owner.RemoveOldAddNewIdentity(e.SecurityIdentity, identity)
 	}
 	e.SecurityIdentity = identity
 	e.replaceIdentityLabels(labels.LabelSourceAny, identity.Labels)

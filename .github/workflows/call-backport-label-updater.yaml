@@ -5,40 +5,17 @@
       types:
         - closed
       branches:
-        - v[0-9]+.[0-9]+
+        - v[0-9]+.[0-9]+*
 
   jobs:
-    get-branch:
-      name: Detect base branch
-      runs-on: ubuntu-latest
-      strategy:
-        matrix:
-          branch: ["1.14", "1.15", "1.16", "1.17"]
-      outputs:
-          version: ${{ steps.get-branch.outputs.version }}
+    call-backport-label-updater:
+      name: Update backport labels for upstream PR
       if: |
         github.event.pull_request.merged == true &&
         contains(github.event.pull_request.body, 'upstream-prs') &&
         contains(join(github.event.pull_request.labels.*.name, ', '), 'backport/')
-      steps:
-        - name: Get Branch
-          id: get-branch
-          env:
-            LABELS: ${{ toJson(github.event.pull_request.labels) }}
-          run: |
-            echo "${LABELS}" | jq -c -r '.[].name' | while read -r label; do
-              if [ "${label}" = "backport/${{ matrix.branch }}" ]; then
-                echo "version=${{ matrix.branch }}" >> "$GITHUB_OUTPUT"
-                break
-              fi
-            done
-
-    call-backport-label-updater:
-      name: Update backport labels for upstream PR
-      needs: get-branch
-      if: ${{needs.get-branch.outputs.version}} != ''
       uses: cilium/cilium/.github/workflows/update-label-backport-pr.yaml@main
       with:
         pr-body: ${{ github.event.pull_request.body }}
-        branch: ${{needs.get-branch.outputs.version}}
+        branch: ${{ github.base_ref }}
       secrets: inherit

@@ -238,7 +238,7 @@ jobs:
           EOF
           cat pool.yaml
           kubectl apply -f pool.yaml
-          
+
           echo "Deploying L2-Announcement Policy..."
           cat << 'EOF' > l2policy.yaml
           apiVersion: "cilium.io/v2alpha1"
@@ -274,7 +274,7 @@ jobs:
       - name: Run Sanity check (external)
         timeout-minutes: 5
         run: |
-          lb=$(kubectl get ingress basic-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')     
+          lb=$(kubectl get ingress basic-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --retry-all-errors --retry-delay 5 --fail -- http://"$lb"
 
           # By now the service should be up, no need to do the manual retries for the second request
@@ -289,7 +289,7 @@ jobs:
           else
             node_port=$(kubectl get -n kube-system svc cilium-ingress -o jsonpath='{.spec.ports[?(@.port==80)].nodePort}')
           fi
-          docker exec -i chart-testing-control-plane curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail http://localhost:$node_port/details/1 
+          docker exec -i chart-testing-control-plane curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail http://localhost:$node_port/details/1
 
       - name: Run Sanity check (headless service)
         timeout-minutes: 5
@@ -382,7 +382,7 @@ jobs:
             sleep 3
           done
           lb=$(kubectl get ingress basic-ingress-headless -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          curl -s -v --connect-timeout 2 --max-time 20 --retry 3 --retry-all-errors --retry-delay 3 --fail -- http://"$lb"/details/1      
+          curl -s -v --connect-timeout 2 --max-time 20 --retry 3 --retry-all-errors --retry-delay 3 --fail -- http://"$lb"/details/1
           curl -s -v --connect-timeout 2 --max-time 20 --retry 3 --retry-all-errors --retry-delay 3 --fail -- http://"$lb"/details/2
 
       - name: Cleanup Sanity check
@@ -430,7 +430,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1  
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.ingress-conformance-test.result }}

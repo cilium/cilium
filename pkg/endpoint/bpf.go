@@ -533,6 +533,10 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	stats.waitingForLock.End(true)
 	defer e.owner.GetCompilationLock().RUnlock()
 
+	if err := e.aliveCtx.Err(); err != nil {
+		return 0, fmt.Errorf("endpoint was closed while waiting for datapath lock: %w", err)
+	}
+
 	datapathRegenCtxt.prepareForProxyUpdates(regenContext.parentContext)
 	defer datapathRegenCtxt.completionCancel()
 

@@ -70,10 +70,10 @@ func (m *RingHash) validate(all bool) error {
 
 	if wrapper := m.GetMinimumRingSize(); wrapper != nil {
 
-		if wrapper.GetValue() > 8388608 {
+		if val := wrapper.GetValue(); val < 1 || val > 8388608 {
 			err := RingHashValidationError{
 				field:  "MinimumRingSize",
-				reason: "value must be less than or equal to 8388608",
+				reason: "value must be inside range [1, 8388608]",
 			}
 			if !all {
 				return err

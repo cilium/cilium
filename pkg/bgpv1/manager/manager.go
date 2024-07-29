@@ -5,6 +5,7 @@ package manager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/cilium/hive/cell"
@@ -810,23 +811,28 @@ func (m *BGPRouterManager) ReconcileInstances(ctx context.Context,
 // registerV2 instantiates and configures BGP Instance(s) as instructed by the provided
 // work diff.
 func (m *BGPRouterManager) registerV2(ctx context.Context, rd *reconcileDiffV2) error {
-	var instancesWithError []string
+	var (
+		instancesWithError []string
+		lastErr            error
+	)
 	for _, name := range rd.register {
 		var config *v2alpha1api.CiliumBGPNodeInstance
 		var ok bool
 		if config, ok = rd.seen[name]; !ok {
-			m.Logger.WithField(types.InstanceLogField, name).Error("Work diff (add) contains unseen instance, skipping")
+			m.Logger.WithField(types.InstanceLogField, name).Debug("Work diff (add) contains unseen instance, skipping")
 			instancesWithError = append(instancesWithError, name)
+			lastErr = errors.New("unseen instance")
 			continue
 		}
 		if rErr := m.registerBGPInstance(ctx, config, rd.ciliumNode); rErr != nil {
 			// we'll log the error and attempt to register the next instance.
-			m.Logger.WithField(types.InstanceLogField, name).WithError(rErr).Errorf("Error while registering new BGP instance")
+			m.Logger.WithField(types.InstanceLogField, name).WithError(rErr).Debug("Error registering new BGP instance")
 			instancesWithError = append(instancesWithError, name)
+			lastErr = rErr
 		}
 	}
 	if len(instancesWithError) > 0 {
-		return fmt.Errorf("encountered error adding new BGP instances: %v", instancesWithError)
+		return fmt.Errorf("error registering new BGP instances: %v (last error: %w)", instancesWithError, lastErr)
 	}
 	return nil
 }
@@ -923,7 +929,6 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 //
 // Each reconcilier is responsible for getting the desired configuration from
 // resource store and applying it to the BGP Instance.
-// TODO if there is an error in reconciliation, we should attempt to retry.
 func (m *BGPRouterManager) reconcileBGPConfigV2(ctx context.Context,
 	i *instance.BGPInstance,
 	newc *v2alpha1api.CiliumBGPNodeInstance,
@@ -983,7 +988,10 @@ func (m *BGPRouterManager) withdrawAllV2(ctx context.Context, rd *reconcileDiffV
 
 // reconcile evaluates existing BGP Instance(s).
 func (m *BGPRouterManager) reconcileV2(ctx context.Context, rd *reconcileDiffV2) error {
-	var instancesWithError []string
+	var (
+		instancesWithError []string
+		lastErr            error
+	)
 	for _, name := range rd.reconcile {
 		var (
 			i    = m.BGPInstances[name]
@@ -1001,13 +1009,14 @@ func (m *BGPRouterManager) reconcileV2(ctx context.Context, rd *reconcileDiffV2)
 		}
 
 		if err := m.reconcileBGPConfigV2(ctx, i, newc, rd.ciliumNode); err != nil {
-			m.Logger.WithField(types.InstanceLogField, name).WithError(err).Error("Encountered error reconciling BGP instance, shutting down this server")
+			m.Logger.WithField(types.InstanceLogField, name).WithError(err).Debug("Error reconciling BGP instance")
 			instancesWithError = append(instancesWithError, name)
+			lastErr = err
 		}
 	}
 
 	if len(instancesWithError) > 0 {
-		return fmt.Errorf("encountered error reconciling BGP instances: %v", instancesWithError)
+		return fmt.Errorf("error reconciling BGP instances: %v (last error: %w)", instancesWithError, lastErr)
 	}
 	return nil
 }

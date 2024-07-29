@@ -20,7 +20,6 @@ import (
 	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -126,7 +125,6 @@ func newFixture(ctx context.Context, req *require.Assertions) (*fixture, func())
 
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{
-				ConfigPatchMutex:      new(lock.RWMutex),
 				EnableBGPControlPlane: true,
 				Debug:                 true,
 			}

@@ -125,6 +125,9 @@ var haveProgramTypeMatrix = internal.FeatureMatrix[ebpf.ProgramType]{
 				Name: "a",
 				Type: &btf.FuncProto{
 					Return: &btf.Int{},
+					Params: []btf.FuncParam{
+						{Name: "ctx", Type: &btf.Pointer{Target: &btf.Struct{Name: "xdp_md"}}},
+					},
 				},
 				Linkage: btf.GlobalFunc,
 			}

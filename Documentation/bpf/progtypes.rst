@@ -59,7 +59,7 @@ advantages:
   the kernel. For example, it can operate in "busy polling" or "interrupt
   driven" mode. Explicitly dedicating CPUs to XDP is not required. There
   are no special hardware requirements and it does not rely on hugepages.
-* XDP does not require any third party kernel modules or licensing. It is
+* XDP does not require any third-party kernel modules or licensing. It is
   a long-term architectural solution, a core part of the Linux kernel, and
   developed by the kernel community.
 * XDP is already enabled and shipped everywhere with major distributions
@@ -157,7 +157,7 @@ default packet handling behavior without XDP. With ``XDP_TX`` the BPF program
 has an efficient option to transmit the network packet out of the same NIC it
 just arrived on again. This is typically useful when few nodes are implementing,
 for example, firewalling with subsequent load balancing in a cluster and
-thus act as a hairpinned load balancer pushing the incoming packets back
+thus, act as a hairpinned load balancer pushing the incoming packets back
 into the switch after rewriting them in XDP BPF. ``XDP_REDIRECT`` is similar
 to ``XDP_TX`` in that it is able to transmit the XDP packet, but through
 another NIC. Another option for the ``XDP_REDIRECT`` case is to redirect
@@ -221,7 +221,7 @@ cases.
   traffic can be dropped right away. This has the advantage that packets
   do not need to traverse various entities like GRO engine, the kernel's
   flow dissector and others before it can be determined to drop them and
-  thus this allows for reducing the kernel's attack surface. Thanks to
+  thus, this allows for reducing the kernel's attack surface. Thanks to
   XDP's early processing stage, this effectively 'pretends' to the kernel's
   networking stack that these packets have never been seen by the networking
   device. Additionally, if a potential bug in the stack's receive path
@@ -254,7 +254,7 @@ cases.
   For complex packet analysis, XDP provides a facility to efficiently push
   network packets (truncated or with full payload) and custom metadata into
   a fast lockless per CPU memory mapped ring buffer provided from the Linux
-  perf infrastructure to an user space application. This also allows for
+  perf infrastructure to a user space application. This also allows for
   cases where only a flow's initial data can be analyzed and once determined
   as good traffic having the monitoring bypassed. Thanks to the flexibility
   brought by BPF, this allows for implementing any sort of custom monitoring
@@ -263,7 +263,7 @@ cases.
 ..
 
 One example of XDP BPF production usage is Facebook's SHIV and Droplet
-infrastructure which implement their L4 load-balancing and DDoS countermeasures.
+infrastructure which implements their L4 load-balancing and DDoS countermeasures.
 Migrating their production infrastructure away from netfilter's IPVS
 (IP Virtual Server) over to XDP BPF allowed for a 10x speedup compared
 to their previous IPVS setup. This was first presented at the netdev 2.1
@@ -304,7 +304,7 @@ talked about XDP this mode is typically implied.
   extremely low per-packet cost is pushed off the host CPU entirely and
   executed on the NIC, providing even higher performance than running in
   native XDP. This offload is typically implemented by SmartNICs
-  containing multi-threaded, multicore flow processors where a in-kernel
+  containing multi-threaded, multicore flow processors where an in-kernel
   JIT compiler translates BPF into native instructions for the latter.
   Drivers supporting offloaded XDP usually also support native XDP for
   cases where some BPF helpers may not yet or only be available for the
@@ -522,7 +522,7 @@ While the tc terminology describes the BPF attachment point as a "classifier",
 this is a bit misleading since it under-represents what ``cls_bpf`` is
 capable of. That is to say, a fully programmable packet processor being able
 not only to read the ``skb`` metadata and packet data, but to also arbitrarily
-mangle both, and terminate the tc processing with an action verdict. ``cls_bpf``
+mangle both and terminate the tc processing with an action verdict. ``cls_bpf``
 can thus be regarded as a self-contained entity that manages and executes tc
 BPF programs.
 
@@ -554,7 +554,7 @@ under the kernel's qdisc root lock. Thus, both tc ingress and egress hooks
 are executed in a lockless manner in the fast-path. In either case, preemption
 is disabled and execution happens under RCU read side.
 
-Typically on egress there are qdiscs attached to netdevices such as ``sch_mq``,
+Typically, on egress there are qdiscs attached to netdevices such as ``sch_mq``,
 ``sch_fq``, ``sch_fq_codel`` or ``sch_htb`` where some of them are classful
 qdiscs that contain subclasses and thus require a packet classification
 mechanism to determine a verdict where to demux the packet. This is handled
@@ -563,7 +563,7 @@ by a call to ``tcf_classify()`` which calls into tc classifiers if present.
 happens under the qdisc root lock and can be subject to lock contention. The
 ``sch_clsact`` qdisc's egress hook comes at a much earlier point however which
 does not fall under that and operates completely independent from conventional
-egress qdiscs. Thus for cases like ``sch_htb`` the ``sch_clsact`` qdisc could
+egress qdiscs. Thus, for cases like ``sch_htb`` the ``sch_clsact`` qdisc could
 perform the heavy lifting packet classification through tc BPF outside of the
 qdisc root lock, setting the ``skb->mark`` or ``skb->priority`` from there such
 that ``sch_htb`` only requires a flat mapping without expensive packet
@@ -574,7 +574,7 @@ combination with ``cls_bpf`` where the prior loaded BPF program was JITed
 from a SmartNIC driver to be run natively on the NIC. Only ``cls_bpf``
 programs operating in ``direct-action`` mode are supported to be offloaded.
 ``cls_bpf`` only supports offloading a single program and cannot offload
-multiple programs. Furthermore only the ingress hook supports offloading
+multiple programs. Furthermore, only the ingress hook supports offloading
 BPF programs.
 
 One ``cls_bpf`` instance is able to hold multiple tc BPF programs internally.
@@ -624,7 +624,7 @@ tc BPF program itself through ``skb->tc_classid`` from the BPF context.
 
 ``TC_ACT_SHOT`` instructs the kernel to drop the packet, meaning, upper
 layers of the networking stack will never see the ``skb`` on ingress and
-similarly the packet will never be submitted for transmission on egress.
+similarly, the packet will never be submitted for transmission on egress.
 ``TC_ACT_SHOT`` and ``TC_ACT_STOLEN`` are both similar in nature with few
 differences: ``TC_ACT_SHOT`` will indicate to the kernel that the ``skb``
 was released through ``kfree_skb()`` and return ``NET_XMIT_DROP`` to the
@@ -695,7 +695,7 @@ Also here, the list is non-exhaustive and given the programmability and efficien
 of tc BPF, it can easily be tailored and integrated into orchestration systems
 in order to solve very specific use cases. While some use cases with XDP may overlap,
 tc BPF and XDP BPF are mostly complementary to each other and both can also be
-used at the same time or one over the other depending which is most suitable for a
+used at the same time or one over the other depending on which is most suitable for a
 given problem to solve.
 
 * **Policy enforcement for containers**

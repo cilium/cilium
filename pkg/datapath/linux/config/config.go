@@ -656,7 +656,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 					cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapNameIPv4
 
 					// native-routing-cidr is optional with ip-masq-agent and may be nil
-					excludeCIDR = option.Config.GetIPv4NativeRoutingCIDR()
+					excludeCIDR = option.Config.IPv4NativeRoutingCIDR
 				} else {
 					excludeCIDR = datapath.RemoteSNATDstAddrExclusionCIDRv4()
 				}
@@ -676,7 +676,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 					cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV6"] = "1"
 					cDefinesMap["IP_MASQ_AGENT_IPV6"] = ipmasq.MapNameIPv6
 
-					excludeCIDR = option.Config.GetIPv6NativeRoutingCIDR()
+					excludeCIDR = option.Config.IPv6NativeRoutingCIDR
 				} else {
 					excludeCIDR = datapath.RemoteSNATDstAddrExclusionCIDRv6()
 				}

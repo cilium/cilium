@@ -154,7 +154,8 @@ jobs:
             --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.cidrs='{192.168.16.0/20}' \
             --helm-set=ipam.operator.autoCreateCiliumPodIPPools.echo-other-node-pool.ipv4.maskSize=27"
 
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
+          CONNECTIVITY_TEST_DEFAULTS="--test-concurrency=5 \
+            --flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
             --external-target bing.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.4.4 --external-other-ip 8.8.8.8 \
             --namespace-annotations='{\"ipam.cilium.io/ip-pool\":\"cilium-test-pool\"}' \
             --deployment-pod-annotations='{ \
@@ -223,7 +224,7 @@ jobs:
         id: ips
         run: |
           for pod in client client2 echo-same-node echo-other-node; do
-            kubectl get pod -n cilium-test -l "name=${pod}" -o jsonpath="${pod}={.items[*].status.podIP}{'\n'}" >> "$GITHUB_OUTPUT"
+            kubectl get pod -A -l "name=${pod}" -o jsonpath="${pod}={.items[*].status.podIP}{'\n'}" >> "$GITHUB_OUTPUT"
           done
 
           for pool in cilium-test-pool client-pool echo-other-node-pool; do
@@ -235,10 +236,17 @@ jobs:
         run: |
           from ipaddress import ip_address, ip_network
 
-          assert ip_address("${{ steps.ips.outputs.client }}") in ip_network("${{ steps.ips.outputs.client-pool }}"), "client pool mismatch"
-          assert ip_address("${{ steps.ips.outputs.client2 }}") in ip_network("${{ steps.ips.outputs.cilium-test-pool }}"), "client2 pool mismatch"
-          assert ip_address("${{ steps.ips.outputs.echo-same-node }}") in ip_network("${{ steps.ips.outputs.cilium-test-pool }}"), "echo-same-node pool mismatch"
-          assert ip_address("${{ steps.ips.outputs.echo-other-node }}") in ip_network("${{ steps.ips.outputs.echo-other-node-pool }}"), "echo-other-node pool mismatch"
+          for ip in "${{ steps.ips.outputs.client }}".split():
+            assert ip_address(ip) in ip_network("${{ steps.ips.outputs.client-pool }}"), "client pool mismatch"
+
+          for ip in "${{ steps.ips.outputs.client2 }}".split():
+            assert ip_address(ip) in ip_network("${{ steps.ips.outputs.cilium-test-pool }}"), "client2 pool mismatch"
+
+          for ip in "${{ steps.ips.outputs.echo-same-node }}".split():
+            assert ip_address(ip) in ip_network("${{ steps.ips.outputs.cilium-test-pool }}"), "echo-same-node pool mismatch"
+
+          for ip in "${{ steps.ips.outputs.echo-other-node }}".split():
+            assert ip_address(ip) in ip_network("${{ steps.ips.outputs.echo-other-node-pool }}"), "echo-other-node pool mismatch"
 
       - name: Post-test information gathering
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}

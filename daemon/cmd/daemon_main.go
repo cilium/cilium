@@ -62,6 +62,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -983,7 +984,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.HubbleRedactHttpHeadersDeny, []string{}, "HTTP headers to redact from flows")
 	option.BindEnv(vp, option.HubbleRedactHttpHeadersDeny)
 
-	flags.Bool(option.HubbleDropEvents, defaults.HubbleDropEventsEnabled, "Emit packet drop Events related to pods")
+	flags.Bool(option.HubbleDropEvents, defaults.HubbleDropEventsEnabled, "Emit packet drop Events related to pods (alpha)")
 	option.BindEnv(vp, option.HubbleDropEvents)
 
 	flags.Duration(option.HubbleDropEventsInterval, defaults.HubbleDropEventsInterval, "Minimum time between emitting same events")
@@ -1384,7 +1385,6 @@ func initEnv(vp *viper.Viper) {
 		}
 		option.Config.KubeProxyReplacement = option.KubeProxyReplacementFalse
 		option.Config.EnableSocketLB = true
-		option.Config.EnableSocketLBTracing = true
 		option.Config.EnableSocketLBPodConnectionTermination = true
 		option.Config.EnableHostPort = false
 		option.Config.EnableNodePort = true
@@ -1708,6 +1708,7 @@ type daemonParams struct {
 	Recorder            *recorder.Recorder
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
+	IdentityManager     *identitymanager.IdentityManager
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig], promise.Promise[policyK8s.PolicyManager]) {
@@ -1979,7 +1980,11 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		controller.ControllerParams{
 			Group:  cfgGroup,
 			Health: params.Health,
-			DoFunc: option.Config.ValidateUnchanged,
+			DoFunc: func(context.Context) error {
+				// Validate that Daemon config has not changed, ignoring 'Opts'
+				// that may be modified via config patch events.
+				return option.Config.ValidateUnchanged()
+			},
 			// avoid synhronized run with other
 			// controllers started at same time
 			RunInterval: 61 * time.Second,

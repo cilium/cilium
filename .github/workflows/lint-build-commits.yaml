@@ -1,7 +1,7 @@
 name: Build Commits
 
 # Any change in triggers needs to be reflected in the concurrency group.
-on: 
+on:
   pull_request: {}
 
 permissions: read-all

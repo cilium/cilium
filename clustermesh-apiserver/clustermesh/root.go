@@ -19,6 +19,8 @@ import (
 	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
+	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
+	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/hive"
@@ -76,6 +78,7 @@ type parameters struct {
 	cell.In
 
 	ExternalWorkloadsConfig
+	CfgMCSAPI      operator.MCSAPIConfig
 	ClusterInfo    cmtypes.ClusterInfo
 	Clientset      k8sClient.Clientset
 	Resources      cmk8s.Resources
@@ -96,7 +99,7 @@ func registerHooks(lc cell.Lifecycle, params parameters) error {
 				return err
 			}
 
-			startServer(ctx, params.ClusterInfo, params.EnableExternalWorkloads, params.Clientset, backend, params.Resources, params.StoreFactory, params.SyncState)
+			startServer(ctx, params.ClusterInfo, params.EnableExternalWorkloads, params.Clientset, backend, params.Resources, params.StoreFactory, params.SyncState, params.CfgMCSAPI.ClusterMeshEnableMCSAPI)
 			return nil
 		},
 	})
@@ -351,6 +354,7 @@ func startServer(
 	resources cmk8s.Resources,
 	factory store.Factory,
 	syncState syncstate.SyncState,
+	clusterMeshEnableMCSAPI bool,
 ) {
 	log.WithFields(logrus.Fields{
 		"cluster-name": cinfo.Name,
@@ -360,8 +364,9 @@ func startServer(
 	config := cmtypes.CiliumClusterConfig{
 		ID: cinfo.ID,
 		Capabilities: cmtypes.CiliumClusterConfigCapabilities{
-			SyncedCanaries:       true,
-			MaxConnectedClusters: cinfo.MaxConnectedClusters,
+			SyncedCanaries:        true,
+			MaxConnectedClusters:  cinfo.MaxConnectedClusters,
+			ServiceExportsEnabled: &clusterMeshEnableMCSAPI,
 		},
 	}
 
@@ -383,6 +388,16 @@ func startServer(
 		SharedOnly:   !allServices,
 		StoreFactory: factory,
 		SyncCallback: syncState.WaitForResource(),
+	})
+	go mcsapi.StartSynchronizingServiceExports(ctx, mcsapi.ServiceExportSyncParameters{
+		ClusterName:             cinfo.Name,
+		ClusterMeshEnableMCSAPI: clusterMeshEnableMCSAPI,
+		Clientset:               clientset,
+		ServiceExports:          resources.ServiceExports,
+		Services:                resources.Services,
+		Backend:                 backend,
+		StoreFactory:            factory,
+		SyncCallback:            syncState.WaitForResource(),
 	})
 	syncState.Stop()
 
