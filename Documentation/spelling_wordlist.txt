@@ -280,9 +280,9 @@ decrypt
 decrypted
 deduplicate
 deepcopy
+defaultLBServiceIPAM
 deletetopic
 demux
-defaultLBServiceIPAM
 denylist
 dereference
 deserialization
@@ -309,6 +309,7 @@ effectful
 egressing
 elfutils
 ena
+enableSourceIPVerification
 enablement
 endPort
 endian
