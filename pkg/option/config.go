@@ -1301,6 +1301,9 @@ const (
 
 	// EnableExternalWorkloads enables the support for external workloads.
 	EnableExternalWorkloads = "enable-external-workloads"
+
+	// EnableSourceIPVerification enables the source ip verification, defaults to true
+	EnableSourceIPVerification = "enable-source-ip-verification"
 )
 
 const (
@@ -2474,6 +2477,9 @@ type DaemonConfig struct {
 	// EnableSocketLBPodConnectionTermination enables the termination of connections from pods
 	// to deleted service backends when socket-LB is enabled
 	EnableSocketLBPodConnectionTermination bool
+
+	// SourceIPVerification enables the source ip validation of connection from endpoints to endpoints
+	EnableSourceIPVerification bool
 }
 
 var (
@@ -2529,6 +2535,8 @@ var (
 		BPFEventsPolicyVerdictEnabled: defaults.BPFEventsPolicyVerdictEnabled,
 		BPFEventsTraceEnabled:         defaults.BPFEventsTraceEnabled,
 		EnableEnvoyConfig:             defaults.EnableEnvoyConfig,
+
+		EnableSourceIPVerification: defaults.EnableSourceIPVerification,
 	}
 )
 
@@ -3615,6 +3623,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	if c.KVStore != "" {
 		c.IdentityRestoreGracePeriod = defaults.IdentityRestoreGracePeriodKvstore
 	}
+
+	c.EnableSourceIPVerification = vp.GetBool(EnableSourceIPVerification)
 }
 
 func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
