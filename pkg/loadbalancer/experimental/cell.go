@@ -20,9 +20,6 @@ var Cell = cell.Module(
 	// Reflects Kubernetes services and endpoints to the load-balancing tables
 	// using the [Writer].
 	ReflectorCell,
-
-	// Emulates reconciliation of the load-balancing state to the BPF maps.
-	ReconcilerCell,
 )
 
 // TablesCell provides the [Writer] API for configuring load-balancing and the
