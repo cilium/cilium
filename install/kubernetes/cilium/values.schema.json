@@ -1502,6 +1502,12 @@
             "string"
           ]
         },
+        "enableSourceIPVerification": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
         "runPath": {
           "type": "string"
         }
@@ -2095,7 +2101,7 @@
                       {
                         "properties": {
                           "replacement": {
-                            "type": "string"
+                            "type": "null"
                           },
                           "sourceLabels": {
                             "items": {
@@ -2616,7 +2622,7 @@
                       {
                         "properties": {
                           "replacement": {
-                            "type": "string"
+                            "type": "null"
                           },
                           "sourceLabels": {
                             "items": {
@@ -4805,7 +4811,7 @@
                   {
                     "properties": {
                       "replacement": {
-                        "type": "string"
+                        "type": "null"
                       },
                       "sourceLabels": {
                         "items": {

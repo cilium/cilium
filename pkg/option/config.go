@@ -1317,6 +1317,9 @@ const (
 
 	// EnableExternalWorkloads enables the support for external workloads.
 	EnableExternalWorkloads = "enable-external-workloads"
+
+	// EnableSourceIPVerification enables the source ip verification, defaults to true
+	EnableSourceIPVerification = "enable-source-ip-verification"
 )
 
 const (
@@ -2491,6 +2494,9 @@ type DaemonConfig struct {
 
 	// EnableNonDefaultDenyPolicies allows policies to define whether they are operating in default-deny mode
 	EnableNonDefaultDenyPolicies bool
+
+	// EnableSourceIPVerification enables the source ip validation of connection from endpoints to endpoints
+	EnableSourceIPVerification bool
 }
 
 var (
@@ -2549,6 +2555,8 @@ var (
 		EnableInternalTrafficPolicy:   defaults.EnableInternalTrafficPolicy,
 
 		EnableNonDefaultDenyPolicies: defaults.EnableNonDefaultDenyPolicies,
+
+		EnableSourceIPVerification: defaults.EnableSourceIPVerification,
 	}
 )
 
@@ -3606,6 +3614,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.LoadBalancerProtocolDifferentiation = vp.GetBool(LoadBalancerProtocolDifferentiation)
 
 	c.EnableInternalTrafficPolicy = vp.GetBool(EnableInternalTrafficPolicy)
+
+	c.EnableSourceIPVerification = vp.GetBool(EnableSourceIPVerification)
 }
 
 func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
