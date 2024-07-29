@@ -273,7 +273,7 @@ type Endpoint struct {
 
 	// dnsHistoryTrigger is the trigger to write down the ep_config.h to make
 	// sure that restores when DNS policy is in there are correct
-	dnsHistoryTrigger *trigger.Trigger
+	dnsHistoryTrigger atomic.Pointer[trigger.Trigger]
 
 	// state is the state the endpoint is in. See setState()
 	state State
@@ -587,8 +587,6 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 		properties:       map[string]interface{}{},
 	}
 
-	ep.initDNSHistoryTrigger()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	ep.aliveCancel = cancel
 	ep.aliveCtx = ctx
@@ -601,16 +599,22 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 }
 
 func (e *Endpoint) initDNSHistoryTrigger() {
+	if e.dnsHistoryTrigger.Load() != nil {
+		// Already initialized, bail out.
+		return
+	}
+
 	// Note: This can only fail if the trigger func is nil.
-	var err error
-	e.dnsHistoryTrigger, err = trigger.NewTrigger(trigger.Parameters{
+	trigger, err := trigger.NewTrigger(trigger.Parameters{
 		Name:        "sync_endpoint_header_file",
 		MinInterval: 5 * time.Second,
 		TriggerFunc: e.syncEndpointHeaderFile,
 	})
 	if err != nil {
 		log.WithField(logfields.EndpointID, e.ID).WithError(err).Error("Failed to create the endpoint header file sync trigger")
+		return
 	}
+	e.dnsHistoryTrigger.Store(trigger)
 }
 
 // CreateIngressEndpoint creates the endpoint corresponding to Cilium Ingress.
@@ -1239,8 +1243,8 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	e.controllers.RemoveAll()
 	e.cleanPolicySignals()
 
-	if e.dnsHistoryTrigger != nil {
-		e.dnsHistoryTrigger.Shutdown()
+	if trigger := e.dnsHistoryTrigger.Swap(nil); trigger != nil {
+		trigger.Shutdown()
 	}
 
 	if e.ConntrackLocalLocked() {
@@ -2448,8 +2452,8 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 // SyncEndpointHeaderFile triggers the header file sync to the ep_config.h
 // file. This includes updating the current DNS History information.
 func (e *Endpoint) SyncEndpointHeaderFile() {
-	if e.dnsHistoryTrigger != nil {
-		e.dnsHistoryTrigger.Trigger()
+	if trigger := e.dnsHistoryTrigger.Load(); trigger != nil {
+		trigger.Trigger()
 	}
 }
 
