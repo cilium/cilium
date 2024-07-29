@@ -31,40 +31,6 @@ provided) or generate automatically via either:
 * cilium's `certgen <https://github.com/cilium/certgen>`__ (using a Kubernetes ``CronJob``)
 * `cert-manager <https://cert-manager.io/>`__
 
-User provided certificates
---------------------------
-
-In order to use custom TLS certificates, ``hubble.tls.auto.enabled`` must be set
-to ``false`` and TLS certificates manually provided.  This can be done by
-specifying the options below to Helm at install or upgrade time.
-
-::
-
-    --set hubble.tls.auto.enabled=false                          # disable automatic TLS certificate generation
-    --set-file tls.ca.cert=ca.crt.b64                            # certificate of the CA that signs all certificates
-    --set-file hubble.tls.server.cert=server.crt.b64             # certificate for Hubble server
-    --set-file hubble.tls.server.key=server.key.b64              # private key for the Hubble server certificate
-    --set-file hubble.relay.tls.client.cert=relay-client.crt.b64 # client certificate for Hubble Relay to connect to Hubble instances
-    --set-file hubble.relay.tls.client.key=relay-client.key.b64  # private key for Hubble Relay client certificate
-    --set-file hubble.relay.tls.server.cert=relay-server.crt.b64 # server certificate for Hubble Relay
-    --set-file hubble.relay.tls.server.key=relay-server.key.b64  # private key for Hubble Relay server certificate
-    --set-file hubble.ui.tls.client.cert=ui-client.crt.b64       # client certificate for Hubble UI
-    --set-file hubble.ui.tls.client.key=ui-client.key.b64        # private key for Hubble UI client certificate
-
-Options ``hubble.relay.tls.server.cert``, ``hubble.relay.tls.server.key``
-``hubble.ui.tls.client.cert`` and ``hubble.ui.tls.client.key``
-only need to be provided when ``hubble.relay.tls.server.enabled=true`` (default ``false``)
-which enable TLS for the Hubble Relay server.
-
-.. note::
-
-   Provided files must be **base64 encoded** PEM certificates.
-
-   In addition, the **Common Name (CN)** and **Subject Alternative Name (SAN)**
-   of the certificate for Hubble server MUST be set to
-   ``*.{cluster-name}.hubble-grpc.cilium.io`` where ``{cluster-name}`` is the
-   cluster name defined by ``cluster.name`` (defaults to ``default``).
-
 Auto generated certificates via Helm
 ------------------------------------
 
@@ -196,6 +162,40 @@ resolve this issue. Pick one of the options below:
                     --set webhook.tolerations='["operator": "Exists"]'
 
         Then configure an issuer and install Cilium.
+
+User provided certificates
+--------------------------
+
+In order to use custom TLS certificates, ``hubble.tls.auto.enabled`` must be set
+to ``false`` and TLS certificates manually provided.  This can be done by
+specifying the options below to Helm at install or upgrade time.
+
+::
+
+    --set hubble.tls.auto.enabled=false                          # disable automatic TLS certificate generation
+    --set-file tls.ca.cert=ca.crt.b64                            # certificate of the CA that signs all certificates
+    --set-file hubble.tls.server.cert=server.crt.b64             # certificate for Hubble server
+    --set-file hubble.tls.server.key=server.key.b64              # private key for the Hubble server certificate
+    --set-file hubble.relay.tls.client.cert=relay-client.crt.b64 # client certificate for Hubble Relay to connect to Hubble instances
+    --set-file hubble.relay.tls.client.key=relay-client.key.b64  # private key for Hubble Relay client certificate
+    --set-file hubble.relay.tls.server.cert=relay-server.crt.b64 # server certificate for Hubble Relay
+    --set-file hubble.relay.tls.server.key=relay-server.key.b64  # private key for Hubble Relay server certificate
+    --set-file hubble.ui.tls.client.cert=ui-client.crt.b64       # client certificate for Hubble UI
+    --set-file hubble.ui.tls.client.key=ui-client.key.b64        # private key for Hubble UI client certificate
+
+Options ``hubble.relay.tls.server.cert``, ``hubble.relay.tls.server.key``
+``hubble.ui.tls.client.cert`` and ``hubble.ui.tls.client.key``
+only need to be provided when ``hubble.relay.tls.server.enabled=true`` (default ``false``)
+which enable TLS for the Hubble Relay server.
+
+.. note::
+
+   Provided files must be **base64 encoded** PEM certificates.
+
+   In addition, the **Common Name (CN)** and **Subject Alternative Name (SAN)**
+   of the certificate for Hubble server MUST be set to
+   ``*.{cluster-name}.hubble-grpc.cilium.io`` where ``{cluster-name}`` is the
+   cluster name defined by ``cluster.name`` (defaults to ``default``).
 
 .. _hubble_configure_metrics_tls:
 
