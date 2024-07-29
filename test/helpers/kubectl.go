@@ -1537,13 +1537,63 @@ func (kub *Kubectl) waitForNPods(checkStatus checkPodStatusFunc, namespace strin
 		return currScheduled >= required
 	}
 
-	return WithTimeout(
+	timeoutErr := WithTimeout(
 		body,
 		fmt.Sprintf("timed out waiting for pods with filter %s to be ready", filter),
 		&TimeoutConfig{Timeout: timeout})
+	if timeoutErr != nil {
+		// Find Pod that has label type=client and at least one restart
+		// and print its logs
+		podList := &v1.PodList{}
+		err := kub.GetPods(namespace, filter).Unmarshal(podList)
+		if err != nil {
+			kub.Logger().Infof("Error while getting PodList: %s", err)
+			return timeoutErr
+		}
+		for _, pod := range podList.Items {
+			fmt.Println("[tom-debug] checking pod", pod.Name, "restarts", pod.Status.ContainerStatuses[0].RestartCount)
+			// Check number of restarts
+			for _, container := range pod.Status.ContainerStatuses {
+				if container.RestartCount > 0 {
+					fmt.Println("[tom-debug] Pod", pod.Name, "has restarts", container.RestartCount, "in container:", container.Name)
+					logs := kub.ExecShort(fmt.Sprintf("%s -n %s logs %s", KubectlCmd, namespace, pod.Name))
+					fmt.Println("[tom-debug] ----------------------")
+					fmt.Println(logs.Stdout())
+					fmt.Println("[tom-debug] ----------------------")
+					fmt.Println(logs.Stderr())
+				}
+			}
+		}
+	}
+	return timeoutErr
 }
 
 func (kub *Kubectl) waitForSinglePod(checkStatus checkPodStatusFunc, namespace string, podname string, timeout time.Duration) error {
+	waitForImage := func() bool {
+		pod := v1.Pod{}
+		err := kub.GetPods(namespace, podname).Unmarshal(&pod)
+		if err != nil {
+			kub.Logger().Infof("Error while getting Pod %s in namespace %s: %s", podname, namespace, err)
+			return false
+		}
+		// Check if Pod is waiting for an image to be pulled or is in a image pull backoff state.
+		for _, container := range pod.Status.ContainerStatuses {
+			if container.State.Waiting != nil &&
+				(container.State.Waiting.Reason == "ImagePullBackOff" || container.State.Waiting.Reason == "ErrImagePull") {
+				return false
+			}
+		}
+		return true
+	}
+	// We do a seperate wait for image pull timeout, as image pulls can be rate limited leading to temporary failures.
+	if err := WithTimeout(
+		waitForImage,
+		fmt.Sprintf("timed out waiting for pod %s to pull images, this may be caused by image registry rate-limiting", podname),
+		&TimeoutConfig{Timeout: timeout},
+	); err != nil {
+		return err
+	}
+
 	body := func() bool {
 		pod := v1.Pod{}
 		// Result unmarshals to a v1.Pod only if the filter is a
