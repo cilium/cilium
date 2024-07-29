@@ -314,6 +314,13 @@ Deprecated Options
 Helm Options
 ~~~~~~~~~~~~
 
+* The Helm options ``hubble.tls.server.cert``, ``hubble.tls.server.key``,
+  ``hubble.relay.tls.client.cert``, ``hubble.relay.tls.client.key``,
+  ``hubble.relay.tls.server.cert``, ``hubble.relay.tls.server.key``,
+  ``hubble.ui.tls.client.cert``, and ``hubble.ui.tls.client.key`` have been
+  deprecated in favor of the associated ``existingSecret`` options and will be
+  removed in a future release.
+
 Added Metrics
 ~~~~~~~~~~~~~
 
