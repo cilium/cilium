@@ -61,16 +61,16 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4fd812986e6c8c2a69e18311145f9371337f27d4 # v3.4.0
+        uses: docker/setup-buildx-action@aa33708b10e362ff993539393ff100fa93ed6a27 # v3.5.0
 
       - name: Login to DockerHub
-        uses: docker/login-action@0d4c9c5ea7693da7b068278f7b52bda2a190a446 # v3.2.0
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           username: ${{ secrets.DOCKER_HUB_RELEASE_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_RELEASE_PASSWORD }}
 
       - name: Login to quay.io
-        uses: docker/login-action@0d4c9c5ea7693da7b068278f7b52bda2a190a446 # v3.2.0
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
@@ -87,7 +87,7 @@ jobs:
           persist-credentials: false
 
       - name: Release Build ${{ matrix.name }}
-        uses: docker/build-push-action@1a162644f9a7e87d8f4b053101d1d9a712edc18c # v6.3.0
+        uses: docker/build-push-action@5176d81f87c23d6fc96624dfdbcd9f3830bbe445 # v6.5.0
         id: docker_build_release
         with:
           provenance: false
@@ -111,7 +111,7 @@ jobs:
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@e8d2a6937ecead383dfe75190d104edd1f9c5751 # v0.16.0
+        uses: anchore/sbom-action@d94f46e13c6c62f59525ac9a1e147a99dc0b9bf5 # v0.17.0
         with:
           artifact-name: sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json

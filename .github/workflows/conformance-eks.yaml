@@ -60,7 +60,7 @@ env:
   CILIUM_CLI_MODE: helm
   eksctl_version: v0.143.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.30.2
+  kubectl_version: v1.30.3
 
 jobs:
   echo-inputs:
