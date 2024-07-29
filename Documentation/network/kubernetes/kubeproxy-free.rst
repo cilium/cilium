@@ -360,6 +360,40 @@ depending on the external and internal traffic policies:
 | Local    | Local    | Node-local only         | Node-local only       |
 +----------+----------+-------------------------+-----------------------+
 
+Selective Service Exposure
+**************************
+
+By default, Cilium exposes Kubernetes services on all nodes in the cluster. To expose a
+service only on a subset of the nodes instead, use the ``service.cilium.io/node`` label for
+the relevant nodes. For example, label a node as follows:
+
+.. code-block:: shell-session
+
+  $ kubectl label node node_name service.cilium.io/node=beefy
+
+To add a new service that should only be exposed to nodes with label ``service.cilium.io/node=beefy``, install the service as follows:
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    labels:
+      service.cilium.io/node: beefy
+  spec:
+    selector:
+      app: example
+    ports:
+      - port: 8765
+        targetPort: 9376
+    type: LoadBalancer
+
+Note that changing a node label after a service has been exposed matching that label does not
+automatically update the list of nodes where the service is exposed. To update exposure of the
+service after changing node labels, restart the Cilium agent. Generally it is advised to fixate the
+node label upon joining the Kubernetes cluster and retain it throughout the node's lifetime.
+
 .. _maglev:
 
 Maglev Consistent Hashing
