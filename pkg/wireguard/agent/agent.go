@@ -12,12 +12,15 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"os"
+	"slices"
 	"strconv"
 
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
@@ -56,9 +59,10 @@ type wireguardClient interface {
 
 // Agent needs to be initialized with Init(). In Init(), the WireGuard tunnel
 // device will be created and the proper routes set.  During Init(), existing
-// peer keys are placed into `restoredPubKeys`.  Once RestoreFinished() is
-// called obsolete keys and peers are removed.  UpdatePeer() inserts or updates
-// the public key of peer discovered via the node manager.
+// peer keys (and the associated AllowedIPs) are placed into `restoredPeers`.
+// Once RestoreFinished() is called, obsolete keys and peers, as well as stale
+// AllowedIPs are removed.  UpdatePeer() inserts or updates the public key of
+// peers discovered via the node manager.
 type Agent struct {
 	lock.RWMutex
 
@@ -71,7 +75,17 @@ type Agent struct {
 	peerByNodeName   map[string]*peerConfig
 	nodeNameByNodeIP map[string]string
 	nodeNameByPubKey map[wgtypes.Key]string
-	restoredPubKeys  map[wgtypes.Key]struct{}
+
+	// A given allowed IP can belong to a single WireGuard peer only. To this
+	// end, we keep a parallel map keyed by prefix, so that we can detect the
+	// case in which, upon restore, a prefix is associated with a given peer, but
+	// we later receive an event associating it with a different peer. This is
+	// required to prevent temporarily associating it with both peers in our cache,
+	// which would cause a flipping configuration depending on which peer gets
+	// applied last. We use netip.Prefix rather than net.IPNet as key, because
+	// the latter is not comparable.
+	restoredPeers      map[wgtypes.Key][]net.IPNet
+	restoredAllowedIPs map[netip.Prefix]wgtypes.Key
 
 	cleanup []func()
 
@@ -100,7 +114,9 @@ func NewAgent(privKeyPath string, sysctl sysctl.Sysctl) (*Agent, error) {
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
 		nodeNameByPubKey: map[wgtypes.Key]string{},
-		restoredPubKeys:  map[wgtypes.Key]struct{}{},
+
+		restoredPeers:      map[wgtypes.Key][]net.IPNet{},
+		restoredAllowedIPs: map[netip.Prefix]wgtypes.Key{},
 
 		cleanup: []func(){},
 	}, nil
@@ -282,16 +298,28 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.MTU) error {
 		return fmt.Errorf("failed to set link up: %w", err)
 	}
 
-	dev, err := a.wgClient.Device(types.IfaceName)
-	if err != nil {
-		return fmt.Errorf("failed to obtain WireGuard device: %w", err)
-	}
-	for _, peer := range dev.Peers {
-		a.restoredPubKeys[peer.PublicKey] = struct{}{}
+	if err := a.restoreFromDevice(types.IfaceName); err != nil {
+		return err
 	}
 
 	// this is read by the defer statement above
 	addIPCacheListener = true
+
+	return nil
+}
+
+func (a *Agent) restoreFromDevice(name string) error {
+	dev, err := a.wgClient.Device(name)
+	if err != nil {
+		return fmt.Errorf("failed to obtain WireGuard device: %w", err)
+	}
+
+	for _, peer := range dev.Peers {
+		a.restoredPeers[peer.PublicKey] = peer.AllowedIPs
+		for _, ipn := range peer.AllowedIPs {
+			a.restoredAllowedIPs[ipnetToPrefix(ipn)] = peer.PublicKey
+		}
+	}
 
 	return nil
 }
@@ -301,6 +329,9 @@ func (a *Agent) RestoreFinished(cm *clustermesh.ClusterMesh) error {
 		// Wait until we received the initial list of nodes from all remote clusters,
 		// otherwise we might remove valid peers and disrupt existing connections.
 		cm.NodesSynced(context.Background())
+		// Additionally wait for ipcache synchronization, so that we don't garbage
+		// collect non-stale AllowedIPs too early.
+		cm.IPIdentitiesSynced(context.Background())
 	}
 
 	a.Lock()
@@ -308,16 +339,39 @@ func (a *Agent) RestoreFinished(cm *clustermesh.ClusterMesh) error {
 
 	// Delete obsolete peers
 	for _, p := range a.peerByNodeName {
-		delete(a.restoredPubKeys, p.pubKey)
+		staleIPs := a.computeRestoredIPs(p.pubKey)
+		if len(staleIPs) > 0 {
+			log.WithFields(logrus.Fields{
+				logfields.Endpoint: p.endpoint,
+				logfields.PubKey:   p.pubKey,
+				logfields.StaleIPs: staleIPs,
+			}).Info("Removing obsolete AllowedIPs from WireGuard peer")
+
+			for _, ip := range staleIPs {
+				p.removeAllowedIP(ip)
+			}
+
+			if err := a.updatePeerByConfig(p); err != nil {
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.Endpoint: p.endpoint,
+					logfields.PubKey:   p.pubKey,
+					logfields.StaleIPs: staleIPs,
+				}).Error("Failed to remove stale AllowedIPs from WireGuard peer")
+			}
+		}
+
+		delete(a.restoredPeers, p.pubKey)
 	}
-	for pubKey := range a.restoredPubKeys {
+
+	for pubKey := range a.restoredPeers {
 		log.WithField(logfields.PubKey, pubKey).Info("Removing obsolete peer")
 		if err := a.deletePeerByPubKey(pubKey); err != nil {
 			return err
 		}
 	}
 
-	a.restoredPubKeys = nil
+	a.restoredPeers = nil
+	a.restoredAllowedIPs = nil
 
 	log.Debug("Finished restore")
 
@@ -391,6 +445,13 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 			})
 		}
 		allowedIPs = append(allowedIPs, a.ipCache.LookupByHostRLocked(lookupIPv4, lookupIPv6)...)
+
+		// Remove all allowed IPs that we have seen from the restored list, and
+		// add the remaining ones to the list of allowed IPs that we push down
+		// to the WireGuard subsystem, to prevent temporarily breaking connections
+		// in case we haven't yet retrieved the full list of remote IPs.
+		a.markRestoredIPsSeen(pubKey, allowedIPs...)
+		allowedIPs = append(allowedIPs, a.computeRestoredIPs(pubKey)...)
 	}
 
 	ep := ""
@@ -451,6 +512,7 @@ func (a *Agent) DeletePeer(nodeName string) error {
 		return err
 	}
 
+	delete(a.restoredPeers, peer.pubKey)
 	delete(a.peerByNodeName, nodeName)
 	delete(a.nodeNameByPubKey, peer.pubKey)
 
@@ -570,6 +632,7 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 	case modType == ipcache.Upsert && newHostIP != nil:
 		if nodeName, ok := a.nodeNameByNodeIP[newHostIP.String()]; ok {
 			if peer := a.peerByNodeName[nodeName]; peer != nil {
+				a.markRestoredIPsSeen(peer.pubKey, ipnet)
 				if peer.insertAllowedIP(ipnet) {
 					updatedPeer = peer
 				}
@@ -689,4 +752,70 @@ func (p *peerConfig) insertAllowedIP(ip net.IPNet) (updated bool) {
 
 	p.allowedIPs = append(p.allowedIPs, ip)
 	return true
+}
+
+// markRestoredIPsSeen removes the seen IPs from the list of restored allowed IPs.
+// Additionally, it cross-checks whether they were originally associated with the
+// expected peer, and removes them from the previous peer(s) otherwise.
+func (a *Agent) markRestoredIPsSeen(pubKey wgtypes.Key, seen ...net.IPNet) {
+	if len(a.restoredAllowedIPs) == 0 {
+		return
+	}
+
+	for _, ipn := range seen {
+		pfx := ipnetToPrefix(ipn)
+		prevKey, ok := a.restoredAllowedIPs[pfx]
+		delete(a.restoredAllowedIPs, pfx)
+
+		if !ok || prevKey == pubKey {
+			continue
+		}
+
+		// The restored allowed IP appears to be associated with a different
+		// peer. Hence, let's drop it from the other peer, to prevent flipping
+		// depending on which configuration gets applied last.
+		prevNode, ok := a.nodeNameByPubKey[prevKey]
+		if !ok {
+			continue
+		}
+
+		prevPeer, ok := a.peerByNodeName[prevNode]
+		if !ok {
+			continue
+		}
+
+		// It is not necessary that we push down this update, as WireGuard will
+		// automatically remove it from the old peer once it gets associated
+		// with the new one. However, we need to remove it from the local cache,
+		// to avoid reverting the change again upon a subsequent update.
+		prevPeer.removeAllowedIP(ipn)
+	}
+}
+
+// computeRestoredIPs computes and returns the set of restored but not yet observed
+// allowed IPs associated with the given peer. The computation is performed lazily
+// here, rather than directly as part of Agent.markRestoredIPsSeen, for performance
+// reasons, to limit the number of times we need to iterate over the list of restored
+// IPs and convert net.IPNet objects to netip.Prefix. Indeed, in the common case,
+// computeRestoredIPs is expected to be called twice for each peer, once during the
+// initial update (in which the majority of IPs is expected to be restored), and once
+// when restoration completes (when all IPs except stale ones need to be filtered).
+func (a *Agent) computeRestoredIPs(pubKey wgtypes.Key) []net.IPNet {
+	restored := a.restoredPeers[pubKey]
+	if len(restored) == 0 {
+		return nil
+	}
+
+	restored = slices.DeleteFunc(restored, func(r net.IPNet) bool {
+		_, found := a.restoredAllowedIPs[ipnetToPrefix(r)]
+		return !found
+	})
+
+	a.restoredPeers[pubKey] = restored
+	return restored
+}
+
+func ipnetToPrefix(ipn net.IPNet) netip.Prefix {
+	cidr, _ := ipn.Mask.Size()
+	return netip.PrefixFrom(netipx.MustFromStdIP(ipn.IP), cidr)
 }
