@@ -4,11 +4,14 @@
 package loadbalancer
 
 import (
+	"encoding/binary"
 	"fmt"
 	"net"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/cilium/statedb/part"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -346,6 +349,19 @@ var AllProtocols = []L4Type{TCP, UDP, SCTP}
 
 // L4Type name.
 type L4Type = string
+
+func L4TypeAsByte(l4 L4Type) byte {
+	switch l4 {
+	case TCP:
+		return 'T'
+	case UDP:
+		return 'U'
+	case SCTP:
+		return 'S'
+	default:
+		return '?'
+	}
+}
 
 // FEPortName is the name of the frontend's port.
 type FEPortName string
@@ -838,6 +854,23 @@ func (l *L3n4Addr) ProtocolsEqual(o *L3n4Addr) bool {
 			l.AddrCluster.Is6() && o.AddrCluster.Is6())
 }
 
+// Bytes returns the address as a byte slice for indexing purposes.
+// Similar to Hash() but includes the L4 protocol.
+func (l L3n4Addr) Bytes() []byte {
+	const keySize = cmtypes.AddrClusterLen +
+		2 /* Port */ +
+		1 /* Protocol */ +
+		1 /* Scope */
+
+	key := make([]byte, 0, keySize)
+	addr20 := l.AddrCluster.As20()
+	key = append(key, addr20[:]...)
+	key = binary.BigEndian.AppendUint16(key, l.Port)
+	key = append(key, L4TypeAsByte(l.Protocol))
+	key = append(key, l.Scope)
+	return key
+}
+
 // L3n4AddrID is used to store, as an unique L3+L4 plus the assigned ID, in the
 // KVStore.
 //
@@ -865,4 +898,11 @@ func NewL3n4AddrID(protocol L4Type, addrCluster cmtypes.AddrCluster, portNumber 
 // IsIPv6 returns true if the IP address in L3n4Addr's L3n4AddrID is IPv6 or not.
 func (l *L3n4AddrID) IsIPv6() bool {
 	return l.L3n4Addr.IsIPv6()
+}
+
+func init() {
+	// Register the types for use with part.Map and part.Set.
+	part.RegisterKeyType(
+		func(name ServiceName) []byte { return []byte(name.String()) })
+	part.RegisterKeyType(L3n4Addr.Bytes)
 }
