@@ -8,9 +8,11 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/node/manager"
+	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
@@ -49,16 +51,26 @@ type DatapathParams struct {
 	Orchestrator   datapath.Orchestrator
 	NodeHandler    datapath.NodeHandler
 	NodeNeighbors  datapath.NodeNeighbors
+	ExpConfig      experimental.Config
 }
 
 // NewDatapath creates a new Linux datapath
 func NewDatapath(p DatapathParams) datapath.Datapath {
+	var lbm datapath.LBMap
+	if p.ExpConfig.EnableExperimentalLB {
+		// The experimental control-plane is enabled. Use a fake LBMap
+		// to effectively disable the other code paths writing to LBMaps.
+		lbm = mockmaps.NewLBMockMap()
+	} else {
+		lbm = lbmap.New()
+	}
+
 	dp := &linuxDatapath{
 		ConfigWriter:    p.ConfigWriter,
 		IptablesManager: p.RuleManager,
 		nodeAddressing:  p.NodeAddressing,
 		wgAgent:         p.WGAgent,
-		lbmap:           lbmap.New(),
+		lbmap:           lbm,
 		bwmgr:           p.BWManager,
 		orchestrator:    p.Orchestrator,
 		nodeHandler:     p.NodeHandler,
