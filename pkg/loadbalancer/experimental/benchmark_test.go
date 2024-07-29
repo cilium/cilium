@@ -47,11 +47,10 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 				Name:   name,
 				Source: source.Kubernetes,
 			},
-			&experimental.Frontend{
+			experimental.FrontendParams{
 				Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal),
 				Type:     loadbalancer.SVCTypeClusterIP,
 				PortName: "foo",
-				ID:       0,
 			},
 		)
 	}
@@ -74,11 +73,10 @@ func benchmark_UpsertServiceAndFrontends(b *testing.B, numObjects int) {
 					Name:   name,
 					Source: source.Kubernetes,
 				},
-				&experimental.Frontend{
+				experimental.FrontendParams{
 					Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster, 12345, loadbalancer.ScopeExternal),
 					Type:     loadbalancer.SVCTypeClusterIP,
 					PortName: "",
-					ID:       0,
 				},
 			)
 		}
@@ -104,37 +102,20 @@ func BenchmarkInsertBackend(b *testing.B) {
 			Name:   name,
 			Source: source.Kubernetes,
 		},
-		&experimental.Frontend{
+		experimental.FrontendParams{
 			Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
 			Type:     loadbalancer.SVCTypeClusterIP,
 			PortName: "",
-			ID:       0,
 		},
 	)
 	wtxn.Commit()
 
-	numObjects := 1000
-
-	// Add 'numObjects' existing objects to the table.
-	wtxn = p.Writer.WriteTxn()
-	for i := 0; i < numObjects; i++ {
-		beAddr := *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, uint16(i), loadbalancer.ScopeExternal)
-		p.Writer.UpsertBackends(
-			wtxn,
-			name,
-			source.Kubernetes,
-			&loadbalancer.Backend{
-				L3n4Addr: beAddr,
-				State:    loadbalancer.BackendStateActive,
-			},
-		)
-	}
-	wtxn.Commit()
-
 	b.ResetTimer()
 
-	// Benchmark the speed at which a new backend is upserted. 'numObjects' are inserted in one
-	// WriteTxn to amortize the cost of WriteTxn&Commit.
+	// Create 100 backends for the single service & frontend to benchmark a more extreme
+	// case.
+	numObjects := 100
+
 	for n := 0; n < b.N; n++ {
 		wtxn = p.Writer.WriteTxn()
 		for i := 0; i < numObjects; i++ {
@@ -143,7 +124,7 @@ func BenchmarkInsertBackend(b *testing.B) {
 				wtxn,
 				name,
 				source.Kubernetes,
-				&loadbalancer.Backend{
+				experimental.BackendParams{
 					L3n4Addr: beAddr,
 					State:    loadbalancer.BackendStateActive,
 				},
@@ -156,6 +137,7 @@ func BenchmarkInsertBackend(b *testing.B) {
 	b.StopTimer()
 	b.ReportMetric(float64(b.N*numObjects)/b.Elapsed().Seconds(), "objects/sec")
 }
+
 func BenchmarkReplaceBackend(b *testing.B) {
 	p := fixture(b)
 
@@ -171,11 +153,10 @@ func BenchmarkReplaceBackend(b *testing.B) {
 			Name:   name,
 			Source: source.Kubernetes,
 		},
-		&experimental.Frontend{
+		experimental.FrontendParams{
 			Address:  *loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 12345, loadbalancer.ScopeExternal),
 			Type:     loadbalancer.SVCTypeClusterIP,
 			PortName: "",
-			ID:       0,
 		},
 	)
 
@@ -184,7 +165,7 @@ func BenchmarkReplaceBackend(b *testing.B) {
 		wtxn,
 		name,
 		source.Kubernetes,
-		&loadbalancer.Backend{
+		experimental.BackendParams{
 			L3n4Addr: beAddr,
 			State:    loadbalancer.BackendStateActive,
 		},
@@ -198,7 +179,7 @@ func BenchmarkReplaceBackend(b *testing.B) {
 			wtxn,
 			name,
 			source.Kubernetes,
-			&loadbalancer.Backend{
+			experimental.BackendParams{
 				L3n4Addr: beAddr,
 				State:    loadbalancer.BackendStateActive,
 			},
@@ -225,11 +206,10 @@ func BenchmarkReplaceService(b *testing.B) {
 			Name:   name,
 			Source: source.Kubernetes,
 		},
-		&experimental.Frontend{
+		experimental.FrontendParams{
 			Address:  l3n4Addr,
 			Type:     loadbalancer.SVCTypeClusterIP,
 			PortName: "",
-			ID:       0,
 		},
 	)
 
@@ -246,11 +226,10 @@ func BenchmarkReplaceService(b *testing.B) {
 				Name:   name,
 				Source: source.Kubernetes,
 			},
-			&experimental.Frontend{
+			experimental.FrontendParams{
 				Address:  l3n4Addr,
 				Type:     loadbalancer.SVCTypeClusterIP,
 				PortName: "",
-				ID:       0,
 			},
 		)
 	}
