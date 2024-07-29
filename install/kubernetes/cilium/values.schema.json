@@ -3868,6 +3868,9 @@
         "acceleration": {
           "type": "string"
         },
+        "experimental": {
+          "type": "boolean"
+        },
         "l7": {
           "properties": {
             "algorithm": {
