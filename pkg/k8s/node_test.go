@@ -4,13 +4,16 @@
 package k8s
 
 import (
+	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/cidr"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	nodeAddressing "github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -336,4 +339,77 @@ func Test_ParseNodeAddressType(t *testing.T) {
 			require.EqualValues(t, tt.want, res)
 		})
 	}
+}
+
+func TestParseNodeWithService(t *testing.T) {
+	prevAnnotateK8sNode := option.Config.AnnotateK8sNode
+	option.Config.AnnotateK8sNode = false
+	defer func() {
+		option.Config.AnnotateK8sNode = prevAnnotateK8sNode
+	}()
+
+	k8sNode := &slim_corev1.Node{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name: "node1",
+			Labels: map[string]string{
+				annotation.ServiceNodeExposure: "beefy",
+			},
+		},
+		Spec: slim_corev1.NodeSpec{
+			PodCIDR: "10.1.0.0/16",
+		},
+	}
+
+	n1 := ParseNode(k8sNode, source.Local)
+	require.Equal(t, "node1", n1.Name)
+	require.NotNil(t, n1.IPv4AllocCIDR)
+	require.Equal(t, "10.1.0.0/16", n1.IPv4AllocCIDR.String())
+	require.Equal(t, "beefy", n1.Labels[annotation.ServiceNodeExposure])
+
+	k8sNode = &slim_corev1.Node{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name: "node2",
+		},
+		Spec: slim_corev1.NodeSpec{
+			PodCIDR: "10.2.0.0/16",
+		},
+	}
+
+	n2 := ParseNode(k8sNode, source.Local)
+	require.Equal(t, "node2", n2.Name)
+	require.NotNil(t, n2.IPv4AllocCIDR)
+	require.Equal(t, "10.2.0.0/16", n2.IPv4AllocCIDR.String())
+	require.Equal(t, "", n2.Labels[annotation.ServiceNodeExposure])
+
+	objMeta := slim_metav1.ObjectMeta{
+		Name:      "foo",
+		Namespace: "bar",
+		Labels: map[string]string{
+			annotation.ServiceNodeExposure: "beefy",
+		},
+	}
+	k8sSvc := &slim_corev1.Service{
+		ObjectMeta: objMeta,
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "127.0.0.1",
+			Selector: map[string]string{
+				"foo": "bar",
+			},
+			Type: slim_corev1.ServiceTypeClusterIP,
+		},
+	}
+
+	id, svc := ParseService(k8sSvc, nil)
+	require.EqualValues(t, ServiceID{Namespace: "bar", Name: "foo"}, id)
+	require.EqualValues(t, &Service{
+		ExtTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
+		FrontendIPs:              []net.IP{net.ParseIP("127.0.0.1")},
+		Selector:                 map[string]string{"foo": "bar"},
+		Labels:                   map[string]string{annotation.ServiceNodeExposure: "beefy"},
+		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
+		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
+		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
+		Type:                     loadbalancer.SVCTypeClusterIP,
+	}, svc)
 }
