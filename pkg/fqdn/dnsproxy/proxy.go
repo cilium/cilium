@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
+	ippkt "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -1183,7 +1184,7 @@ func (p *DNSProxy) GetBindPort() uint16 {
 // the lowest applicable TTL, rcode, anwer rr types and question types
 // When a CNAME is returned the chain is collapsed down, keeping the lowest TTL,
 // and CNAME targets are returned.
-func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []net.IP, TTL uint32, CNAMEs []string, rcode int, answerTypes []uint16, qTypes []uint16, err error) {
+func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []netip.Addr, TTL uint32, CNAMEs []string, rcode int, answerTypes []uint16, qTypes []uint16, err error) {
 	if len(msg.Question) == 0 {
 		return "", nil, 0, nil, 0, nil, nil, errors.New("Invalid DNS message")
 	}
@@ -1205,12 +1206,13 @@ func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []net.IP, TTL ui
 		// Handle A, AAAA and CNAME records by accumulating IPs and lowest TTL
 		switch ans := ans.(type) {
 		case *dns.A:
-			responseIPs = append(responseIPs, ans.A)
+			// Parsing of the DNS message does the IP validation for us.
+			responseIPs = append(responseIPs, ippkt.MustAddrFromIP(ans.A))
 			if TTL > ans.Hdr.Ttl {
 				TTL = ans.Hdr.Ttl
 			}
 		case *dns.AAAA:
-			responseIPs = append(responseIPs, ans.AAAA)
+			responseIPs = append(responseIPs, ippkt.MustAddrFromIP(ans.AAAA))
 			if TTL > ans.Hdr.Ttl {
 				TTL = ans.Hdr.Ttl
 			}

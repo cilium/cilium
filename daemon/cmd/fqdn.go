@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
-	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -363,9 +362,8 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// doesn't happen in the case, we play it safe and don't purge the zombie
 		// in case of races.
 		log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
-		responseAddrs := ippkg.MustAddrsFromIPs(responseIPs)
-		if updated := ep.DNSHistory.Update(lookupTime, qname, responseAddrs, int(TTL)); updated {
-			ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseAddrs...)
+		if updated := ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)); updated {
+			ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseIPs...)
 			ep.SyncEndpointHeaderFile()
 		}
 
@@ -380,7 +378,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 
 		dpUpdates := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
 			qname: {
-				IPs: responseAddrs,
+				IPs: responseIPs,
 				TTL: int(TTL),
 			}})
 
