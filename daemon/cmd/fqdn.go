@@ -7,9 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/netip"
-	"strconv"
 	"strings"
 
 	"github.com/cilium/dns"
@@ -291,18 +289,11 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		log.WithError(err).Error("cannot extract DNS message details")
 	}
 
-	var serverPort uint16
-	_, serverPortStr, err := net.SplitHostPort(serverAddr)
+	serverAddrPort, err := netip.ParseAddrPort(serverAddr)
 	if err != nil {
-		log.WithError(err).Error("cannot extract destination IP from DNS request")
-	} else {
-		if serverPortUint64, err := strconv.ParseUint(serverPortStr, 10, 16); err != nil {
-			log.WithError(err).WithField(logfields.Port, serverPortStr).Error("cannot parse destination port")
-		} else {
-			serverPort = uint16(serverPortUint64)
-		}
+		log.WithError(err).Error("cannot extract destination IP/port from DNS request")
 	}
-	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverPort, proxy.DefaultDNSProxy.GetBindPort(), false, !msg.Response, verdict)
+	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), proxy.DefaultDNSProxy.GetBindPort(), false, !msg.Response, verdict)
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
 		stat.PolicyGenerationTime.Start()
