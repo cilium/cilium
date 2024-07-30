@@ -68,7 +68,7 @@ func NewTest(name string, verbose bool, debug bool) *Test {
 		cegps:       make(map[string]*ciliumv2.CiliumEgressGatewayPolicy),
 		clrps:       make(map[string]*ciliumv2.CiliumLocalRedirectPolicy),
 		logBuf:      &bytes.Buffer{}, // maintain internal buffer by default
-		conditionFn: func() bool { return true },
+		conditionFn: nil,
 	}
 	// Setting the internal buffer to nil causes the logger to
 	// write directly to stdout in verbose or debug mode.
@@ -153,7 +153,7 @@ type Test struct {
 	// conditionFn is a function that returns true if the test needs to run,
 	// and false otherwise. By default, it's set to a function that returns
 	// true.
-	conditionFn func() bool
+	conditionFn []func() bool
 
 	// List of functions to be called when Run() returns.
 	finalizers []func(ctx context.Context) error
@@ -252,6 +252,15 @@ func (t *Test) versionInRange(version semver.Version) (bool, string) {
 	return true, "running version within range"
 }
 
+func (t *Test) checkConditions() bool {
+	for _, fn := range t.conditionFn {
+		if !fn() {
+			return false
+		}
+	}
+	return true
+}
+
 // willRun returns false if all of the Test's Scenarios are skipped by the user,
 // if any of its FeatureRequirements are not met, or if the running Cilium
 // version is not within range of the one specified using WithCiliumVersion.
@@ -262,7 +271,7 @@ func (t *Test) versionInRange(version semver.Version) (bool, string) {
 // excluding tests, they're most likely interested in other reasons why their
 // test is not being executed.
 func (t *Test) willRun() (bool, string) {
-	if !t.conditionFn() {
+	if !t.checkConditions() {
 		return false, "skipped by condition"
 	}
 
@@ -428,9 +437,11 @@ func configureNamespaceInPolicySpec(spec *api.Rule, namespace string) {
 }
 
 // WithCondition takes a function containing condition check logic that
-// returns true if the test needs to be run, and false otherwise.
+// returns true if the test needs to be run, and false otherwise. If
+// WithCondition gets called multiple times, all the conditions need to be
+// satisfied for the test to run.
 func (t *Test) WithCondition(fn func() bool) *Test {
-	t.conditionFn = fn
+	t.conditionFn = append(t.conditionFn, fn)
 	return t
 }
 
