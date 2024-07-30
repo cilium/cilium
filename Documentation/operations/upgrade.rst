@@ -763,10 +763,10 @@ Handling policy-cidr-match-mode during upgrades
 ===============================================
 
 
-From version 1.17 onwards, the default value of `policy-cidr-match-mode` is set to `nodes`. 
-Previously, this was set to `nil`. This change allows `ToCIDR` and `IPBlock` selectors to 
+From version 1.17 onwards, the default value of ``policy-cidr-match-mode`` is set to ``nodes``. 
+Previously, this was not set to ``""``. This change allows ``ToCIDR`` and ``IPBlock`` selectors to 
 include nodes by default, a feature that was previously only available by explicitly 
-setting `policy-cidr-match-mode=nodes`. It is important to review this change during 
+setting ``policy-cidr-match-mode=nodes``. It is important to review this change during 
 an upgrade of Cilium, as it may lead to unexpected behavior in existing installations.
 
 Impacted versions / configurations
@@ -774,21 +774,21 @@ Impacted versions / configurations
 
 This change impacts versions 1.17 and onwards, as it modifies the default value of this configuration.
 
-It also affects versions prior to 1.17 because, during an upgrade, the `policy-cidr-match-mode` is set to `nodes`. 
+It also affects versions prior to 1.17 because, during an upgrade, the ``policy-cidr-match-mode`` is set to ``nodes``. 
 This could potentially alter the traffic patterns, either allowing or denying traffic that was not previously allowed or denied. 
 For more details about this configuration, see the [Cilium documentation](https://docs.cilium.io/en/latest/security/policy/language/#selecting-nodes-with-cidr-ipblock).
 
 Mitigation
 ----------
 
-In order to ensure this change does not affect existing installations, pass `--set upgradeCompatibility=1.X` 
+In order to ensure this change does not affect existing installations, pass ``--set upgradeCompatibility=1.X`` 
 (where X is the version prior to 1.17) while generating the Helm template. 
-This will keep the `policy-cidr-match-mode` value unchanged from the existing installation.
+This will keep the ``policy-cidr-match-mode`` value unchanged from the existing installation.
 
 Migration
 ---------
 
-If you are already using the `--policy-cidr-match-mode=nodes` configuration in your existing cluster, this change will not affect you, and no migration is needed.
+If you are already using the ``--policy-cidr-match-mode=nodes`` configuration in your existing cluster, this change will not affect you, and no migration is needed.
 
-If you do not use `--policy-cidr-match-mode=nodes`, explicitly pass `--set policy-cidr-match-mode=""` during the upgrade. 
-If you use a `values.yaml` file local to your deployment, you can also set it there.
+If you do not use ``--policy-cidr-match-mode=nodes``, explicitly pass ``--set policy-cidr-match-mode=""`` during the upgrade. 
+If you use a ``values.yaml`` file local to your deployment, you can also set it there.
