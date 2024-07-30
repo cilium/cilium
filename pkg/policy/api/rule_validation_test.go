@@ -590,6 +590,10 @@ func TestCIDRsanitize(t *testing.T) {
 	err = cidr.sanitize()
 	require.Nil(t, err)
 
+	cidr = CIDRRule{Cidr: "", CIDRGroupRef: "cidrgroup"}
+	err = cidr.sanitize()
+	require.Nil(t, err)
+
 	cidr = CIDRRule{Cidr: "2001:0db8:85a3:0000:0000:8a2e:0370:7334/128"}
 	err = cidr.sanitize()
 	require.Nil(t, err)
