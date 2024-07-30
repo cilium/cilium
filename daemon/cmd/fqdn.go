@@ -363,8 +363,9 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// doesn't happen in the case, we play it safe and don't purge the zombie
 		// in case of races.
 		log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
-		if updated := ep.DNSHistory.Update(lookupTime, qname, ippkg.MustAddrsFromIPs(responseIPs), int(TTL)); updated {
-			ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseIPs...)
+		responseAddrs := ippkg.MustAddrsFromIPs(responseIPs)
+		if updated := ep.DNSHistory.Update(lookupTime, qname, responseAddrs, int(TTL)); updated {
+			ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseAddrs...)
 			ep.SyncEndpointHeaderFile()
 		}
 
