@@ -1835,6 +1835,16 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	if params.WGAgent != nil {
 		go func() {
+			select {
+			case <-d.nodeDiscovery.Registered:
+				// Wait until the kvstore synchronization completed, to avoid
+				// causing connectivity blips due incorrectly removing
+				// WireGuard peers that have not yet been discovered. The
+				// Registered channel is immediately closed in CRD mode.
+			case <-d.ctx.Done():
+				return
+			}
+
 			if err := params.WGAgent.RestoreFinished(d.clustermesh); err != nil {
 				log.WithError(err).Error("Failed to set up WireGuard peers")
 			}

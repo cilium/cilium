@@ -81,8 +81,4 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 type SharedConfig struct {
 	// IdentityAllocationMode specifies what mode to use for identity allocation
 	IdentityAllocationMode string
-	// EnableOperatorManageCIDs enables operator to manage CID by
-	// running a CID controller. If enabled, Identity GC cell is
-	// then disabled because CID controller takes care of garbage collection.
-	EnableOperatorManageCIDs bool
 }

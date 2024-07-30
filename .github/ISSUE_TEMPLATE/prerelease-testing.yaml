@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this prerelease testing report! This report is for tracking all contributions as part of the prerelease testing initiative. If you found a new bug while testing, please file a separate bug report if you are able. If you any questions, please try the [prerelease-testing slack channel](http://slack.cilium.io/) first.
+        Thanks for taking the time to fill out this prerelease testing report! This report is for tracking all contributions as part of the prerelease testing initiative. If you found a new bug while testing, please file a separate bug report if you are able. If you any questions, please try the [prerelease-testing slack channel](https://slack.cilium.io) first.
 
         **Important**: For security related issues: We strongly encourage you to report security vulnerabilities to the private security mailing list: security@cilium.io - first, before disclosing them in any public forums.
   - type: dropdown
