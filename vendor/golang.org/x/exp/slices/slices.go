@@ -104,8 +104,8 @@ func CompareFunc[E1, E2 any](s1 []E1, s2 []E2, cmp func(E1, E2) int) int {
 // Index returns the index of the first occurrence of v in s,
 // or -1 if not present.
 func Index[E comparable](s []E, v E) int {
-	for i := range s {
-		if v == s[i] {
+	for i, vs := range s {
+		if v == vs {
 			return i
 		}
 	}
@@ -115,8 +115,8 @@ func Index[E comparable](s []E, v E) int {
 // IndexFunc returns the first index i satisfying f(s[i]),
 // or -1 if none do.
 func IndexFunc[E any](s []E, f func(E) bool) int {
-	for i := range s {
-		if f(s[i]) {
+	for i, v := range s {
+		if f(v) {
 			return i
 		}
 	}
@@ -207,12 +207,12 @@ func Compact[S ~[]E, E comparable](s S) S {
 		return s
 	}
 	i := 1
-	for k := 1; k < len(s); k++ {
-		if s[k] != s[k-1] {
-			if i != k {
-				s[i] = s[k]
-			}
+	last := s[0]
+	for _, v := range s[1:] {
+		if v != last {
+			s[i] = v
 			i++
+			last = v
 		}
 	}
 	return s[:i]
@@ -224,12 +224,12 @@ func CompactFunc[S ~[]E, E any](s S, eq func(E, E) bool) S {
 		return s
 	}
 	i := 1
-	for k := 1; k < len(s); k++ {
-		if !eq(s[k], s[k-1]) {
-			if i != k {
-				s[i] = s[k]
-			}
+	last := s[0]
+	for _, v := range s[1:] {
+		if !eq(v, last) {
+			s[i] = v
 			i++
+			last = v
 		}
 	}
 	return s[:i]
