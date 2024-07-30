@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strconv"
 
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -56,4 +58,25 @@ func CiliumEndpointSliceResource(lc cell.Lifecycle, cs client.Clientset, opts ..
 		opts...,
 	)
 	return resource.New[*cilium_api_v2alpha1.CiliumEndpointSlice](lc, lw, resource.WithMetric("CiliumEndpointSlice")), nil
+}
+
+func PodResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Pod], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*slim_corev1.PodList](cs.Slim().CoreV1().Pods("")),
+		opts...,
+	)
+
+	indexers := cache.Indexers{
+		// Thix index is used for IPAM by the ciliumNodeSynchronizer.
+		PodNodeNameIndex: PodNodeNameIndexFunc,
+	}
+
+	return resource.New[*slim_corev1.Pod](lc, lw,
+			resource.WithMetric("Pod"),
+			resource.WithIndexers(indexers),
+		),
+		nil
 }
