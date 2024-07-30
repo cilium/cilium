@@ -4,7 +4,7 @@
 package fqdn
 
 import (
-	"net"
+	"net/netip"
 )
 
 // DNSIPRecords mimics the RR data from an A or AAAA response.
@@ -15,5 +15,5 @@ type DNSIPRecords struct {
 	TTL int
 
 	// IPs are the IPs associated with a DNS Name
-	IPs []net.IP
+	IPs []netip.Addr
 }

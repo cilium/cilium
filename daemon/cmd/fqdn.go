@@ -380,7 +380,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 
 		dpUpdates := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
 			qname: {
-				IPs: responseIPs,
+				IPs: responseAddrs,
 				TTL: int(TTL),
 			}})
 
