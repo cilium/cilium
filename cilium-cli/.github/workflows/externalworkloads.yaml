@@ -159,6 +159,7 @@ jobs:
           # Install Cilium in cluster
           cilium install \
             --version "${{ env.cilium_version }}" \
+            --set cluster.id=1 \
             --set cluster.name="${{ env.clusterName }}" \
             --set bpf.monitorAggregation=none \
             --datapath-mode=tunnel \
