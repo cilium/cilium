@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/cilium/cilium-cli/utils/features"
 )
 
@@ -51,4 +53,27 @@ func TestWithFeatureRequirements(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWithCondition(t *testing.T) {
+	mytest := NewTest("my-test", false, false)
+	assert.True(t, mytest.checkConditions())
+
+	mytest = NewTest("my-test", false, false).
+		WithCondition(func() bool { return true })
+	assert.True(t, mytest.checkConditions())
+
+	mytest = NewTest("my-test", false, false).
+		WithCondition(func() bool { return false })
+	assert.False(t, mytest.checkConditions())
+
+	mytest = NewTest("my-test", false, false).
+		WithCondition(func() bool { return true }).
+		WithCondition(func() bool { return false })
+	assert.False(t, mytest.checkConditions())
+
+	mytest = NewTest("my-test", false, false).
+		WithCondition(func() bool { return false }).
+		WithCondition(func() bool { return true })
+	assert.False(t, mytest.checkConditions())
 }
