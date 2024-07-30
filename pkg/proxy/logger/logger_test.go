@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
-	"net"
+	"net/netip"
 	"strings"
 	"sync"
 	"testing"
@@ -50,10 +50,10 @@ func mockLogRecord() *LogRecord {
 		}),
 		LogTags.DNS(&accesslog.LogRecordDNS{
 			Query: "data.test.svc.cluster.local",
-			IPs: []net.IP{
-				net.IPv4(1, 1, 1, 1),
-				net.IPv4(2, 2, 2, 2),
-				net.IPv4(3, 3, 3, 3),
+			IPs: []netip.Addr{
+				netip.MustParseAddr("1.1.1.1"),
+				netip.MustParseAddr("2.2.2.2"),
+				netip.MustParseAddr("3.3.3.3"),
 			},
 			TTL: 43200,
 			CNAMEs: []string{
