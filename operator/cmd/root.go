@@ -661,6 +661,15 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 	ciliumNodeSynchronizer := newCiliumNodeSynchronizer(legacy.clientset, nodeManager, withKVStore)
 
 	if legacy.clientset.IsEnabled() {
+		// ciliumNodeSynchronizer uses operatorWatchers.PodStore for IPAM surge
+		// allocation. Initializing PodStore from Pod resource is temporary until
+		// ciliumNodeSynchronizer is migrated to a cell.
+		podStore, err := legacy.resources.Pods.Store(legacy.ctx)
+		if err != nil {
+			log.WithError(err).Fatal("Unable to retrieve Pod store from Pod resource watcher")
+		}
+		operatorWatchers.PodStore = podStore.CacheStore()
+
 		if err := ciliumNodeSynchronizer.Start(legacy.ctx, &legacy.wg); err != nil {
 			log.WithError(err).Fatal("Unable to setup cilium node synchronizer")
 		}

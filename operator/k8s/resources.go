@@ -17,6 +17,7 @@ import (
 
 const (
 	CiliumEndpointIndexIdentity = "identity"
+	PodNodeNameIndex            = "pod-node"
 )
 
 var (
@@ -80,4 +81,13 @@ func HasCEWithIdentity(cepStore resource.Store[*cilium_api_v2.CiliumEndpoint], i
 	ces, _ := cepStore.IndexKeys(CiliumEndpointIndexIdentity, identity)
 
 	return len(ces) != 0
+}
+
+// podNodeNameIndexFunc indexes pods by node name.
+func PodNodeNameIndexFunc(obj interface{}) ([]string, error) {
+	pod := obj.(*slim_corev1.Pod)
+	if pod.Spec.NodeName != "" {
+		return []string{pod.Spec.NodeName}, nil
+	}
+	return []string{}, nil
 }
