@@ -282,6 +282,7 @@ func renderTemplates(param check.Parameters) (map[string]string, error) {
 		"clientEgressL7TLSPolicyPortRangeYAML":             clientEgressL7TLSPolicyPortRangeYAML,
 		"clientEgressL7HTTPMatchheaderSecretYAML":          clientEgressL7HTTPMatchheaderSecretYAML,
 		"clientEgressL7HTTPMatchheaderSecretPortRangeYAML": clientEgressL7HTTPMatchheaderSecretPortRangeYAML,
+		"clientEgressL7HTTPExternalYAML":                   clientEgressL7HTTPExternalYAML,
 		"clientEgressNodeLocalDNSYAML":                     clientEgressNodeLocalDNSYAML,
 		"echoIngressFromCIDRYAML":                          echoIngressFromCIDRYAML,
 		"denyCIDRPolicyYAML":                               denyCIDRPolicyYAML,

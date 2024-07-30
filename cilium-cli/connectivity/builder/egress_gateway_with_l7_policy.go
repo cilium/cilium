@@ -21,14 +21,14 @@ var clientEgressL7HTTPExternalYAML string
 
 type egressGatewayWithL7Policy struct{}
 
-func (t egressGatewayWithL7Policy) build(ct *check.ConnectivityTest, _ map[string]string) {
+func (t egressGatewayWithL7Policy) build(ct *check.ConnectivityTest, templates map[string]string) {
 	newTest("egress-gateway-with-l7-policy", ct).
 		WithCondition(func() bool {
 			return versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) && ct.Params().IncludeUnsafeTests
 		}).
 		WithCiliumPolicy(clientEgressICMPYAML).
-		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).  // DNS resolution only
-		WithCiliumPolicy(clientEgressL7HTTPExternalYAML). // L7 allow policy with HTTP introspection
+		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).               // DNS resolution only
+		WithCiliumPolicy(templates["clientEgressL7HTTPExternalYAML"]). // L7 allow policy with HTTP introspection
 		WithCiliumEgressGatewayPolicy(check.CiliumEgressGatewayPolicyParams{
 			Name:            "cegp-sample-client",
 			PodSelectorKind: "client",
