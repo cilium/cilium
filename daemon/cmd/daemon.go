@@ -296,13 +296,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	bootstrapStats.daemonInit.Start()
 
-	// Validate configuration options that depend on other cells.
-	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD &&
-		!option.Config.LoadBalancerExternalControlPlane &&
-		!params.Clientset.IsEnabled() {
-		return nil, nil, fmt.Errorf("CRD Identity allocation mode requires k8s to be configured")
-	}
-
 	// EncryptedOverlay feature must check the TunnelProtocol if enabled, since
 	// it only supports VXLAN right now.
 	if option.Config.EncryptionEnabled() && option.Config.EnableIPSecEncryptedOverlay {
@@ -839,7 +832,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// well known identities have already been initialized above.
 	// Ignore the channel returned by this function, as we want the global
 	// identity allocator to run asynchronously.
-	if !option.Config.LoadBalancerExternalControlPlane {
+	if option.Config.IdentityAllocationMode != option.IdentityAllocationModeCRD ||
+		params.Clientset.IsEnabled() {
 		realIdentityAllocator := d.identityAllocator
 		realIdentityAllocator.InitIdentityAllocator(params.Clientset)
 	}
