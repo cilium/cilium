@@ -2616,7 +2616,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		if err != nil {
 			return err
 		}
-		devices := fmt.Sprintf(`'{%s,%s,%s}'`, privateIface, defaultIfaceIPv4, defaultIfaceIPv6)
+		devices := fmt.Sprintf(`{%s,%s,%s}`, privateIface, defaultIfaceIPv4, defaultIfaceIPv6)
 		addIfNotOverwritten(options, "devices", devices)
 	}
 
@@ -2787,7 +2787,11 @@ func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, o
 	optionsString := ""
 
 	for k, v := range options {
-		optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
+		if v == "true" || v == "false" {
+			optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
+		} else {
+			optionsString += fmt.Sprintf(" --set '%s=%s' ", k, v)
+		}
 	}
 
 	return kub.ExecMiddle(fmt.Sprintf("helm %s %s %s "+
@@ -4333,7 +4337,11 @@ func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options m
 	optionsString := ""
 
 	for k, v := range options {
-		optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
+		if v == "true" || v == "false" {
+			optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
+		} else {
+			optionsString += fmt.Sprintf(" --set '%s=%s' ", k, v)
+		}
 	}
 
 	return kub.ExecMiddle("helm template --validate " +
