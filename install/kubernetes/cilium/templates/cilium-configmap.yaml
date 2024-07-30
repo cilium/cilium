@@ -189,8 +189,13 @@ data:
   enable-policy: "{{ lower .Values.policyEnforcementMode }}"
 {{- end }}
 
-{{- if hasKey .Values "policyCIDRMatchMode" }}
-  policy-cidr-match-mode: {{ join " " .Values.policyCIDRMatchMode | quote }}
+{{- /* from 1.17 and onwards default value of policy-cidr-match-mode is 'nodes' */ -}}
+# if no upgradeCompatibility is supplied or if a value >= 1.17 is supllied, value 
+# of policy-cidr-match-mode is changed to the one defined in values.yaml
+{{- if semverCompare ">=1.17" (default "1.17" .Values.upgradeCompatibility) -}}
+  {{- if hasKey .Values "policyCIDRMatchMode" }}
+    policy-cidr-match-mode: {{ join " " .Values.policyCIDRMatchMode | quote }}
+  {{- end}}
 {{- end}}
 
 

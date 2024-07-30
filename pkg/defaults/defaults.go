@@ -628,5 +628,5 @@ var (
 		"cilium_lb6_affinity_match": "enabled,128,0",
 	}
 
-	PolicyCIDRMatchMode = []string{}
+	PolicyCIDRMatchMode = []string{"nodes"}
 )
