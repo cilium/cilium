@@ -40,6 +40,8 @@ type CiliumTestConfigType struct {
 	Kubeconfig           string
 	KubectlPath          string
 	RegistryCredentials  string
+	InstallHelmOverrides string
+
 	// Multinode enables the running of tests that involve more than one
 	// node. If false, some tests will silently skip multinode checks.
 	Multinode      bool
@@ -97,6 +99,9 @@ func (c *CiliumTestConfigType) ParseFlags() {
 	flagset.BoolVar(&c.RunQuarantined, "cilium.runQuarantined", false,
 		"Run tests that are under quarantine.")
 	flagset.BoolVar(&c.Help, "cilium.help", false, "Display this help message.")
+	flagset.StringVar(&c.InstallHelmOverrides, "cilium.install-helm-overrides", "",
+		"Comma separated list of cilium install helm --set overrides. "+
+			"*note*: This will take precedence over any other value set by the tests")
 
 	args := make([]string, 0, len(os.Args))
 	for index, flag := range os.Args {

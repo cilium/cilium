@@ -6,9 +6,11 @@ package helpers
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path"
@@ -78,6 +80,9 @@ const (
 )
 
 var (
+	// cliOverrideOptions are populated from -cilium.install-helm-overrides.
+	cliOverrideOptions = map[string]string{}
+
 	// defaultHelmOptions are passed to helm in ciliumInstallHelm, unless
 	// overridden by options passed in at invocation. In those cases, the test
 	// has a specific need to override the option.
@@ -280,6 +285,33 @@ func Init() {
 	// preflight must match the cilium agent image (that's the point)
 	defaultHelmOptions["preflight.image.repository"] = defaultHelmOptions["image.repository"]
 	defaultHelmOptions["preflight.image.tag"] = defaultHelmOptions["image.tag"]
+
+	if config.CiliumTestConfig.InstallHelmOverrides != "" {
+		parseHelmOverrides(config.CiliumTestConfig.InstallHelmOverrides, cliOverrideOptions)
+	}
+}
+
+func parseHelmOverrides(overridesStr string, overrides map[string]string) {
+	rdr := csv.NewReader(strings.NewReader(overridesStr))
+	rdr.LazyQuotes = true
+	for {
+		record, err := rdr.Read()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			fmt.Fprintf(os.Stderr, "failed to parse install-helm-overrides %q: %v\n", config.CiliumTestConfig.InstallHelmOverrides, err)
+			os.Exit(1)
+		}
+		for _, row := range record {
+			toks := strings.Split(row, "=")
+			if len(toks) != 2 {
+				fmt.Fprintf(os.Stderr, "failed to parse install-helm-overrides value %q, unexpected format (should be x.y.z=foo)\n", row)
+				os.Exit(1)
+			}
+			overrides[toks[0]] = toks[1]
+		}
+	}
 }
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
@@ -2600,6 +2632,10 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 
 	if !SupportIPv6Connectivity() {
 		options["ipv6.enabled"] = "false"
+	}
+
+	for k, v := range cliOverrideOptions {
+		options[k] = v
 	}
 
 	return nil
