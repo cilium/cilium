@@ -411,7 +411,7 @@ jobs:
              -cilium.hubble-relay-tag=${{ needs.setup-vars.outputs.SHA }} \
              -cilium.kubeconfig=/root/.kube/config \
              -cilium.provision-k8s=false \
-             -cilium.operator-suffix=-ci"
+             -cilium.operator-suffix=-ci ${{ env.CILIUM_GINKGO_EXTRA_ARGS }}"
 
               ./test.test \
                --ginkgo.focus="${{ matrix.cliFocus }}" \
@@ -427,7 +427,7 @@ jobs:
                -cilium.hubble-relay-tag=${{ needs.setup-vars.outputs.SHA }} \
                -cilium.kubeconfig=/root/.kube/config \
                -cilium.provision-k8s=false \
-               -cilium.operator-suffix=-ci
+               -cilium.operator-suffix=-ci ${{ env.CILIUM_GINKGO_EXTRA_ARGS }}
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
