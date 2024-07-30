@@ -15,6 +15,7 @@ import (
 
 const (
 	CiliumEndpointIndexIdentity = "identity"
+	PodNodeNameIndex            = "pod-node"
 )
 
 var (
@@ -65,4 +66,13 @@ type Resources struct {
 	CiliumNodes          resource.Resource[*cilium_api_v2.CiliumNode]
 	Pods                 resource.Resource[*slim_corev1.Pod]
 	Namespaces           resource.Resource[*slim_corev1.Namespace]
+}
+
+// podNodeNameIndexFunc indexes pods by node name.
+func PodNodeNameIndexFunc(obj interface{}) ([]string, error) {
+	pod := obj.(*slim_corev1.Pod)
+	if pod.Spec.NodeName != "" {
+		return []string{pod.Spec.NodeName}, nil
+	}
+	return []string{}, nil
 }
