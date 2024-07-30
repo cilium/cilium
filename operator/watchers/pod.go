@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
 
+	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -19,8 +20,6 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 )
-
-const PodNodeNameIndex = "pod-node"
 
 var (
 	// PodStore has a minimal copy of all pods running in the cluster.
@@ -42,19 +41,13 @@ var (
 	UnmanagedPodStoreSynced = make(chan struct{})
 )
 
-// podNodeNameIndexFunc indexes pods by node name
-func podNodeNameIndexFunc(obj interface{}) ([]string, error) {
-	pod := obj.(*slim_corev1.Pod)
-	if pod.Spec.NodeName != "" {
-		return []string{pod.Spec.NodeName}, nil
-	}
-	return []string{}, nil
-}
-
+// PodsInit and PodStore will be deprecated with other watchers, once all of
+// their uses move to hive/cell model that uses k8s resources instead of
+// separately initializing informers.
 func PodsInit(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
 	var podInformer cache.Controller
 	PodStore = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{
-		PodNodeNameIndex: podNodeNameIndexFunc,
+		operatorK8s.PodNodeNameIndex: operatorK8s.PodNodeNameIndexFunc,
 	})
 	podInformer = informer.NewInformerWithStore(
 		k8sUtils.ListerWatcherWithFields(
