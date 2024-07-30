@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/tools/cache"
 
+	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -310,7 +311,7 @@ func getPendingPodCount(nodeName string) (int, error) {
 	if watchers.PodStore == nil {
 		return pendingPods, fmt.Errorf("pod store uninitialized")
 	}
-	values, err := watchers.PodStore.(cache.Indexer).ByIndex(watchers.PodNodeNameIndex, nodeName)
+	values, err := watchers.PodStore.(cache.Indexer).ByIndex(operatorK8s.PodNodeNameIndex, nodeName)
 	if err != nil {
 		return pendingPods, fmt.Errorf("unable to access pod to node name index: %w", err)
 	}
