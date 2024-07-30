@@ -102,12 +102,6 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 		ciliumIOSel             = api.FQDNSelector{MatchName: "cilium.io"}
 		ciliumIOSelMatchPattern = api.FQDNSelector{MatchPattern: "*cilium.io."}
 		ebpfIOSel               = api.FQDNSelector{MatchName: "ebpf.io"}
-		ciliumDNSRecord         = map[string]*fqdn.DNSIPRecords{
-			dns.FQDN("cilium.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("192.0.2.3")}},
-		}
-		ebpfDNSRecord = map[string]*fqdn.DNSIPRecords{
-			dns.FQDN("ebpf.io"): {TTL: 60, IPs: []net.IP{net.ParseIP("192.0.2.4")}},
-		}
 
 		wg sync.WaitGroup
 	)
@@ -160,7 +154,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 					}},
 					Answer: []ciliumdns.RR{&ciliumdns.A{
 						Hdr: ciliumdns.RR_Header{Name: dns.FQDN("cilium.io")},
-						A:   ciliumDNSRecord[dns.FQDN("cilium.io")].IPs[0],
+						A:   net.ParseIP("192.0.2.3"),
 					}}}, "udp", true, &dnsproxy.ProxyRequestContext{}))
 
 				require.Nil(b, ds.d.notifyOnDNSMsg(time.Now(), ep, "10.96.64.4:54321", 0, "10.96.64.1:53", &ciliumdns.Msg{
@@ -173,7 +167,7 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 					}},
 					Answer: []ciliumdns.RR{&ciliumdns.A{
 						Hdr: ciliumdns.RR_Header{Name: dns.FQDN("ebpf.io")},
-						A:   ebpfDNSRecord[dns.FQDN("ebpf.io")].IPs[0],
+						A:   net.ParseIP("192.0.2.4"),
 					}}}, "udp", true, &dnsproxy.ProxyRequestContext{}))
 			}()
 		}
