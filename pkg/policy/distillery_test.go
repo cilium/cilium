@@ -1400,6 +1400,12 @@ var (
 	worldIPIdentity = localIdentity(16324)
 	worldCIDR       = api.CIDR("192.0.2.3/32")
 	lblWorldIP      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, worldCIDR))
+
+	worldIPIdentity2         = localIdentity(16326)
+	worldCIDR2               = api.CIDR("192.0.2.4/32")
+	lblWorldIP2              = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, worldCIDR2))
+	mapKeyL3WorldCIDR2Egress = Key{worldIPIdentity2.Uint32(), 0, 0, trafficdirection.Egress.Uint8()}
+
 	hostIPv4        = api.CIDR("172.19.0.1/32")
 	hostIPv6        = api.CIDR("fc00:c111::3/64")
 	lblHostIPv4CIDR = labels.GetCIDRLabels(netip.MustParsePrefix(string(hostIPv4)))
@@ -1450,6 +1456,23 @@ var (
 	}}).WithEgressRules([]api.EgressRule{{
 		EgressCommonRule: api.EgressCommonRule{
 			ToCIDRSet: api.CIDRRuleSlice{api.CIDRRule{Cidr: worldSubnet}},
+		},
+	}}).WithEndpointSelector(api.WildcardEndpointSelector)
+
+	ruleL3AllowWorldCIDRs = api.NewRule().WithEgressRules([]api.EgressRule{{
+		EgressCommonRule: api.EgressCommonRule{
+			ToCIDRSet: api.CIDRRuleSlice{
+				api.CIDRRule{Cidr: worldCIDR},
+				api.CIDRRule{Cidr: worldCIDR2},
+			},
+		},
+	}}).WithEndpointSelector(api.WildcardEndpointSelector)
+	ruleL3DenyLargerSubnetExcept = api.NewRule().WithEgressDenyRules([]api.EgressDenyRule{{
+		EgressCommonRule: api.EgressCommonRule{
+			ToCIDRSet: api.CIDRRuleSlice{api.CIDRRule{
+				Cidr:        worldSubnet,
+				ExceptCIDRs: []api.CIDR{worldCIDR},
+			}},
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 
@@ -1597,35 +1620,84 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 
 	SetPolicyEnabled(option.DefaultEnforcement)
 
-	identityCache := cache.IdentityCache{
-		identity.NumericIdentity(identityFoo): labelsFoo,
-		identity.ReservedIdentityWorld:        labels.LabelWorld.LabelArray(),
-		worldIPIdentity:                       lblWorldIP,                  // "192.0.2.3/32"
-		worldSubnetIdentity:                   lblWorldSubnet.LabelArray(), // "192.0.2.0/24"
+	defaultIDs := func() cache.IdentityCache {
+		return cache.IdentityCache{
+			identity.NumericIdentity(identityFoo): labelsFoo,
+			identity.ReservedIdentityWorld:        labels.LabelWorld.LabelArray(),
+			worldIPIdentity:                       lblWorldIP,                  // "192.0.2.3/32"
+			worldSubnetIdentity:                   lblWorldSubnet.LabelArray(), // "192.0.2.0/24"
+		}
 	}
-	selectorCache := testNewSelectorCache(identityCache)
-	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
+	mapKeyL3WorldCIDR3 := Key{uint32(localIdentity(16327)), 0, 0, trafficdirection.Egress.Uint8()}
+	mapKeyL3WorldCIDR4 := Key{uint32(localIdentity(16328)), 0, 0, trafficdirection.Egress.Uint8()}
+	mapKeyL3WorldCIDR5 := Key{uint32(localIdentity(16329)), 0, 0, trafficdirection.Egress.Uint8()}
+	mapKeyL3WorldCIDR6 := Key{uint32(localIdentity(16330)), 0, 0, trafficdirection.Egress.Uint8()}
+	mapKeyL3WorldCIDR7 := Key{uint32(localIdentity(16331)), 0, 0, trafficdirection.Egress.Uint8()}
+	mapKeyL3WorldCIDR8 := Key{uint32(localIdentity(16332)), 0, 0, trafficdirection.Egress.Uint8()}
+	mapKeyL3WorldCIDR9 := Key{uint32(localIdentity(16333)), 0, 0, trafficdirection.Egress.Uint8()}
+	mapKeyL3WorldCIDR10 := Key{uint32(localIdentity(16334)), 0, 0, trafficdirection.Egress.Uint8()}
+
+	populatePrefixAndIDCache := func(rules api.Rules, prefixCache map[netip.Prefix]struct{}, identityCache cache.IdentityCache) {
+		for _, lbls := range identityCache {
+			for _, l := range lbls {
+				if l.Source == labels.LabelSourceCIDR {
+					prefixCache[netip.MustParsePrefix(l.Key)] = struct{}{}
+				}
+			}
+		}
+		index := 0
+		for _, p := range GetCIDRPrefixes(rules) {
+			if _, exists := prefixCache[p]; exists {
+				continue
+			}
+			prefixCache[p] = struct{}{}
+			// Start the index from the start of the new key's identity, e.g.
+			// mapKeyL3WorldCIDR3.
+			identityCache[localIdentity(mapKeyL3WorldCIDR3.Identity+uint32(index))] = labels.GetCIDRLabels(p).LabelArray()
+			index++
+		}
+	}
+
+	realFooID := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 	tests := []struct {
-		test   string
-		rules  api.Rules
-		result MapState
+		test     string
+		rules    api.Rules
+		setupIDs func() cache.IdentityCache
+		result   MapState
 	}{
-		{"deny_world_no_labels", api.Rules{ruleL3DenyWorld, ruleL3AllowWorldIP}, newMapState(map[Key]MapStateEntry{
+		{"deny_world_no_labels", api.Rules{ruleL3DenyWorld, ruleL3AllowWorldIP}, defaultIDs, newMapState(map[Key]MapStateEntry{
 			mapKeyL3WorldIngress: mapEntryDeny,
 			mapKeyL3WorldEgress:  mapEntryDeny,
-		})}, {"deny_world_with_labels", api.Rules{ruleL3DenyWorldWithLabels, ruleL3AllowWorldIP}, newMapState(map[Key]MapStateEntry{
+		})}, {"deny_world_with_labels", api.Rules{ruleL3DenyWorldWithLabels, ruleL3AllowWorldIP}, defaultIDs, newMapState(map[Key]MapStateEntry{
 			mapKeyL3WorldIngress: mapEntryWorldDenyWithLabels,
 			mapKeyL3WorldEgress:  mapEntryWorldDenyWithLabels,
-		})}, {"deny_one_ip_with_a_larger_subnet", api.Rules{ruleL3DenySubnet, ruleL3AllowWorldIP}, newMapState(map[Key]MapStateEntry{
+		})}, {"deny_one_ip_with_a_larger_subnet", api.Rules{ruleL3DenySubnet, ruleL3AllowWorldIP}, defaultIDs, newMapState(map[Key]MapStateEntry{
 			mapKeyL3SubnetIngress: mapEntryDeny,
 			mapKeyL3SubnetEgress:  mapEntryDeny,
-		})}, {"deny_part_of_a_subnet_with_an_ip", api.Rules{ruleL3DenySmallerSubnet, ruleL3AllowLargerSubnet}, newMapState(map[Key]MapStateEntry{
+		})}, {"deny_part_of_a_subnet_with_an_ip", api.Rules{ruleL3DenySmallerSubnet, ruleL3AllowLargerSubnet}, defaultIDs, newMapState(map[Key]MapStateEntry{
 			mapKeyL3SmallerSubnetIngress: mapEntryDeny,
 			mapKeyL3SmallerSubnetEgress:  mapEntryDeny,
 			mapKeyL3SubnetIngress:        mapEntryAllow,
 			mapKeyL3SubnetEgress:         mapEntryAllow,
-		})}, {"broad_deny_is_a_portproto_subset_of_a_specific_allow", api.Rules{ruleL3L4Port8080ProtoAnyDenyWorld, ruleL3AllowWorldIP}, newMapState(map[Key]MapStateEntry{
+		})}, {"todo", api.Rules{ruleL3AllowWorldCIDRs, ruleL3DenyLargerSubnetExcept}, func() cache.IdentityCache {
+			d := defaultIDs()
+			d[worldIPIdentity2] = lblWorldIP2
+			return d
+		}, newMapState(map[Key]MapStateEntry{
+			mapKeyL3UnknownIngress:      mapEntryL3UnknownIngress,
+			mapKeyL3SmallerSubnetEgress: mapEntryAllow,
+			mapKeyL3WorldCIDR2Egress:    mapEntryDeny, /* expected but bug */
+
+			mapKeyL3WorldCIDR3:  mapEntryDeny,
+			mapKeyL3WorldCIDR4:  mapEntryDeny,
+			mapKeyL3WorldCIDR5:  mapEntryDeny,
+			mapKeyL3WorldCIDR6:  mapEntryDeny,
+			mapKeyL3WorldCIDR7:  mapEntryDeny,
+			mapKeyL3WorldCIDR8:  mapEntryDeny,
+			mapKeyL3WorldCIDR9:  mapEntryDeny,
+			mapKeyL3WorldCIDR10: mapEntryDeny,
+		})}, {"broad_deny_is_a_portproto_subset_of_a_specific_allow", api.Rules{ruleL3L4Port8080ProtoAnyDenyWorld, ruleL3AllowWorldIP}, defaultIDs, newMapState(map[Key]MapStateEntry{
 			mapKeyL3L4Port8080ProtoTCPWorldIngress:    mapEntryDeny,
 			mapKeyL3L4Port8080ProtoTCPWorldEgress:     mapEntryDeny,
 			mapKeyL3L4Port8080ProtoUDPWorldIngress:    mapEntryDeny,
@@ -1640,7 +1712,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyL3L4Port8080ProtoSCTPWorldSNEgress:  mapEntryDeny,
 			mapKeyL3SmallerSubnetIngress:              mapEntryAllow,
 			mapKeyL3SmallerSubnetEgress:               mapEntryAllow,
-		})}, {"broad_allow_is_a_portproto_subset_of_a_specific_deny", api.Rules{ruleL3AllowWorldSubnet, ruleL3DenyWorldIP}, newMapState(map[Key]MapStateEntry{
+		})}, {"broad_allow_is_a_portproto_subset_of_a_specific_deny", api.Rules{ruleL3AllowWorldSubnet, ruleL3DenyWorldIP}, defaultIDs, newMapState(map[Key]MapStateEntry{
 			mapKeyL3L4Port8080ProtoTCPWorldSNIngress:  mapEntryAllow,
 			mapKeyL3L4Port8080ProtoTCPWorldSNEgress:   mapEntryAllow,
 			mapKeyL3L4Port8080ProtoUDPWorldSNIngress:  mapEntryAllow,
@@ -1666,6 +1738,10 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 	option.Config.EnableIPv4 = true
 	option.Config.EnableIPv6 = false
 	for _, tt := range tests {
+		prefixCache := make(map[netip.Prefix]struct{})
+		identityCache := tt.setupIDs()
+		populatePrefixAndIDCache(tt.rules, prefixCache, identityCache)
+		selectorCache := testNewSelectorCache(identityCache)
 		repo := newPolicyDistillery(selectorCache)
 		for _, rule := range tt.rules {
 			if rule != nil {
@@ -1675,7 +1751,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 		t.Run(tt.test, func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
-			mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo, identity)
+			mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo, realFooID)
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
