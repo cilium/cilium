@@ -6,6 +6,12 @@ package experimental
 import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
+	"github.com/cilium/stream"
+
+	daemonK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
 var Cell = cell.Module(
@@ -20,6 +26,10 @@ var Cell = cell.Module(
 	// Reflects Kubernetes services and endpoints to the load-balancing tables
 	// using the [Writer].
 	ReflectorCell,
+
+	// Bridge Resource[XYZ] to Observable[Event[XYZ]]. Makes it easier to
+	// test [ReflectorCell].
+	cell.ProvidePrivate(resourcesToStreams),
 
 	// ReconcilerCell reconciles the load-balancing state with the BPF maps.
 	ReconcilerCell,
@@ -54,6 +64,33 @@ var TablesCell = cell.Module(
 	),
 )
 
-func newLBMaps() lbmaps {
+func newLBMaps(w *Writer) lbmaps {
+	if !w.IsEnabled() {
+		return nil
+	}
 	return &realLBMaps{}
+}
+
+type resourceIn struct {
+	cell.In
+	ServicesResource  resource.Resource[*slim_corev1.Service]
+	EndpointsResource resource.Resource[*k8s.Endpoints]
+	PodsResource      daemonK8s.LocalPodResource
+}
+
+type streamsOut struct {
+	cell.Out
+	ServicesStream  stream.Observable[resource.Event[*slim_corev1.Service]]
+	EndpointsStream stream.Observable[resource.Event[*k8s.Endpoints]]
+	PodsStream      stream.Observable[resource.Event[*slim_corev1.Pod]]
+}
+
+// resourcesToStreams extracts the stream.Observable from resource.Resource.
+// This makes the reflector easier to test as its API surface is reduced.
+func resourcesToStreams(in resourceIn) streamsOut {
+	return streamsOut{
+		ServicesStream:  in.ServicesResource,
+		EndpointsStream: in.EndpointsResource,
+		PodsStream:      in.PodsResource,
+	}
 }
