@@ -231,7 +231,7 @@ jobs:
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
           echo image_tag=${IMAGE_TAG} >> $GITHUB_OUTPUT
 
-      - name: Call actions/checkout again to remove credentials
+      - name: Checkout pull request branch (NOT TRUSTED)
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ inputs.context-ref || github.sha }}
