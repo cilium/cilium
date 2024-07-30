@@ -6,7 +6,6 @@ package fqdn
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/netip"
 	"strconv"
 	"testing"
@@ -69,13 +68,13 @@ func BenchmarkUpdateGenerateDNS(b *testing.B) {
 		nameManager.UpdateGenerateDNS(context.Background(), t, map[string]*DNSIPRecords{
 			dns.FQDN(fmt.Sprintf("%d.example.com", k)): {
 				TTL: 60,
-				IPs: []net.IP{ip.AsSlice()},
+				IPs: []netip.Addr{ip},
 			}})
 
 		nameManager.UpdateGenerateDNS(context.Background(), t, map[string]*DNSIPRecords{
 			dns.FQDN(fmt.Sprintf("example.%d.example.com", k)): {
 				TTL: 60,
-				IPs: []net.IP{ip.AsSlice()},
+				IPs: []netip.Addr{ip},
 			}})
 	}
 }
