@@ -15,10 +15,10 @@ spec:
       any:kind: client
   egress:
   - toFQDNs:
-    - matchName: "echo-external-node.cilium-test.svc.cluster.local"
+    - matchName: "echo-external-node.{{.TestNamespace}}.svc.cluster.local"
     toPorts:
     - ports:
-      - port: "8080"
+      - port: "{{.ExternalDeploymentPort}}"
         protocol: TCP
       rules:
         http:
