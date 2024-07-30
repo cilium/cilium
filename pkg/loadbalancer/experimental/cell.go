@@ -20,6 +20,12 @@ var Cell = cell.Module(
 	// Reflects Kubernetes services and endpoints to the load-balancing tables
 	// using the [Writer].
 	ReflectorCell,
+
+	// ReconcilerCell reconciles the load-balancing state with the BPF maps.
+	ReconcilerCell,
+
+	// Provide [lbmaps], abstraction for the load-balancing BPF map access.
+	cell.ProvidePrivate(newLBMaps),
 )
 
 // TablesCell provides the [Writer] API for configuring load-balancing and the
@@ -47,3 +53,7 @@ var TablesCell = cell.Module(
 		statedb.RWTable[*Backend].ToTable,
 	),
 )
+
+func newLBMaps() lbmaps {
+	return &realLBMaps{}
+}
