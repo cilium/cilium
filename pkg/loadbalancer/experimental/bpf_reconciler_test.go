@@ -857,12 +857,15 @@ func TestBPFOps(t *testing.T) {
 	// here.
 	option.Config.EnableSessionAffinity = true
 
+	cfg := DefaultConfig
+	cfg.EnableExperimentalLB = true
+
 	for _, testCaseSet := range testCases {
 		// Run each set with IPv4 and IPv6 addresses.
 		for _, addr := range frontendAddrs {
 			// For each set of test cases, use a fresh instance so each set gets
 			// fresh IDs.
-			ops := newBPFOps(lc, log, Config{true}, &realLBMaps{})
+			ops := newBPFOps(lc, log, cfg, &realLBMaps{})
 			for _, testCase := range testCaseSet {
 				t.Run(testCase.name, func(t *testing.T) {
 					frontend := testCase.frontend

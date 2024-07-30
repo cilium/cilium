@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -39,7 +38,7 @@ var ReconcilerCell = cell.Module(
 	),
 )
 
-func registerBPFReconciler(p reconciler.Params, ops *bpfOps, w *Writer) error {
+func registerBPFReconciler(p reconciler.Params, cfg Config, ops *bpfOps, w *Writer) error {
 	if !w.IsEnabled() {
 		return nil
 	}
@@ -54,8 +53,8 @@ func registerBPFReconciler(p reconciler.Params, ops *bpfOps, w *Writer) error {
 		nil,
 
 		reconciler.WithRetry(
-			100*time.Millisecond, // minimum
-			time.Second,          // maximum
+			cfg.RetryBackoffMin,
+			cfg.RetryBackoffMax,
 		),
 	)
 	return err

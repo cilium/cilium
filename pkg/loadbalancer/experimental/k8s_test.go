@@ -154,7 +154,13 @@ func TestIntegrationK8s(t *testing.T) {
 			"loadbalancer-test",
 			"Test module",
 
-			cell.Config(DefaultConfig),
+			cell.Provide(func() Config {
+				return Config{
+					EnableExperimentalLB: true,
+					RetryBackoffMin:      time.Millisecond,
+					RetryBackoffMax:      time.Millisecond,
+				}
+			}),
 
 			cell.Provide(func() streamsOut {
 				return streamsOut{
@@ -222,10 +228,6 @@ func TestIntegrationK8s(t *testing.T) {
 			}),
 		),
 	)
-
-	hive.AddConfigOverride(h, func(cfg *Config) {
-		cfg.EnableExperimentalLB = true
-	})
 
 	require.NoError(t, h.Start(log, context.TODO()))
 
@@ -331,7 +333,7 @@ func TestIntegrationK8s(t *testing.T) {
 					return len(lastDump) == 0
 				},
 				time.Minute,
-				100*time.Millisecond) {
+				50*time.Millisecond) {
 				t.Logf("BPF cleanup failed. State: %#v", bo)
 				t.Fatalf("Expected BPF maps to be empty, instead they contain: %v", lastDump)
 			}
