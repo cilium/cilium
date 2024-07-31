@@ -46,7 +46,7 @@ import (
 
 type linuxPrivilegedBaseTestSuite struct {
 	sysctl     sysctl.Sysctl
-	mtuConfig  mtu.Configuration
+	mtuCalc    mtu.RouteMTU
 	enableIPv4 bool
 	enableIPv6 bool
 
@@ -103,7 +103,8 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 	s.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
 	rlimit.RemoveMemlock()
-	s.mtuConfig = mtu.NewConfiguration(0, false, false, false, false, 1500, nil, false)
+	mtuConfig := mtu.NewConfiguration(0, false, false, false, false)
+	s.mtuCalc = mtuConfig.Calculate(1500)
 	s.enableIPv6 = enableIPv6
 	s.enableIPv4 = enableIPv4
 
@@ -143,9 +144,9 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 		AllocCIDRIPv6:       addressing.IPv6().AllocationCIDR(),
 		EnableIPv4:          s.enableIPv4,
 		EnableIPv6:          s.enableIPv6,
-		DeviceMTU:           s.mtuConfig.GetDeviceMTU(),
-		RouteMTU:            s.mtuConfig.GetRouteMTU(),
-		RoutePostEncryptMTU: s.mtuConfig.GetRoutePostEncryptMTU(),
+		DeviceMTU:           s.mtuCalc.DeviceMTU,
+		RouteMTU:            s.mtuCalc.RouteMTU,
+		RoutePostEncryptMTU: s.mtuCalc.RoutePostEncryptMTU,
 	}
 
 	tunnel.SetTunnelMap(tunnel.NewTunnelMap("test_cilium_tunnel_map"))
