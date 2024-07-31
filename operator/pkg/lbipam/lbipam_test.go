@@ -518,6 +518,101 @@ func TestSharingKey(t *testing.T) {
 	}
 }
 
+func TestRegressionSharedKeyReaddBug(t *testing.T) {
+	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
+	fixture := mkTestFixture(true, true)
+	fixture.UpsertPool(t, poolA)
+
+	svcA := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-a",
+			Namespace: "default",
+			UID:       serviceAUID,
+			Annotations: map[string]string{
+				"io.cilium/lb-ipam-sharing-key": "key-a",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+		},
+	}
+	fixture.UpsertSvc(t, svcA)
+
+	svcA = fixture.GetSvc("default", "service-a")
+	if len(svcA.Status.LoadBalancer.Ingress) != 1 {
+		t.Error("Expected service to receive exactly one ingress IP")
+	}
+
+	if net.ParseIP(svcA.Status.LoadBalancer.Ingress[0].IP).To4() == nil {
+		t.Error("Expected service to receive a IPv4 address")
+	}
+
+	svcIP := svcA.Status.LoadBalancer.Ingress[0].IP
+
+	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
+		t.Fatal("Service IP hasn't been allocated")
+	}
+
+	svcB := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-b",
+			Namespace: "default",
+			UID:       serviceBUID,
+			Annotations: map[string]string{
+				"io.cilium/lb-ipam-sharing-key": "key-a",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+		},
+	}
+	fixture.UpsertSvc(t, svcB)
+
+	svcB = fixture.GetSvc("default", "service-b")
+	if len(svcB.Status.LoadBalancer.Ingress) != 1 {
+		t.Error("Expected service to receive exactly one ingress IP")
+	}
+
+	if net.ParseIP(svcB.Status.LoadBalancer.Ingress[0].IP).To4() == nil {
+		t.Error("Expected service to receive a IPv4 address")
+	}
+
+	if svcB.Status.LoadBalancer.Ingress[0].IP != svcIP {
+		t.Error("Expected service to receive the same IP as service-a")
+	}
+
+	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
+		t.Fatal("Service IP hasn't been allocated")
+	}
+
+	fixture.DeleteSvc(t, svcB)
+
+	fixture.UpsertSvc(t, svcB)
+
+	svcB = fixture.GetSvc("default", "service-b")
+	if len(svcB.Status.LoadBalancer.Ingress) != 1 {
+		t.Error("Expected service to receive exactly one ingress IP")
+	}
+
+	if net.ParseIP(svcB.Status.LoadBalancer.Ingress[0].IP).To4() == nil {
+		t.Error("Expected service to receive a IPv4 address")
+	}
+
+	if svcB.Status.LoadBalancer.Ingress[0].IP != svcIP {
+		t.Error("Expected service to receive the same IP as service-a")
+	}
+
+	if _, has := fixture.lbipam.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
+		t.Fatal("Service IP hasn't been allocated")
+	}
+}
+
 // TestSharingCrossNamespace tests that the sharing of IPs is possible cross namespace when allowed.
 func TestSharingCrossNamespace(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
