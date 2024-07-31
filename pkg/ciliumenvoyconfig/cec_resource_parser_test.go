@@ -609,6 +609,7 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	assert.Equal(t, "namespace/name/multi-resource-listener", resources.Listeners[0].Name)
+	assert.Nil(t, resources.Listeners[0].GetInternalListener())
 	assert.Equal(t, uint32(10000), resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
 	assert.Len(t, resources.Listeners[0].FilterChains, 1)
 	chain := resources.Listeners[0].FilterChains[0]
@@ -753,6 +754,103 @@ spec:
                 address: 127.0.0.1
                 port_value: 10001
 `
+
+var ciliumEnvoyConfigInternalListener = `apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: missing-internal-listener
+spec:
+  version_info: "0"
+  resources:
+  - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+    cluster_name: internal_listener_cluster
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            envoy_internal_address:
+              server_listener_name: internal-listener
+  - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+    name: internal-listener
+    internal_listener: {}
+`
+
+func TestCiliumEnvoyConfigInternalListener(t *testing.T) {
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	parser := cecResourceParser{
+		logger:        logger,
+		portAllocator: NewMockPortAllocator(),
+	}
+
+	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigInternalListener))
+	require.NoError(t, err)
+	cec := &cilium_v2.CiliumEnvoyConfig{}
+	err = json.Unmarshal(jsonBytes, cec)
+	require.NoError(t, err)
+	assert.Len(t, cec.Spec.Resources, 2)
+	assert.Equal(t, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment", cec.Spec.Resources[0].TypeUrl)
+	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[1].TypeUrl)
+
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, true)
+	require.NoError(t, err)
+
+	//
+	// Check internal endpoint resource
+	//
+	assert.Len(t, resources.Endpoints, 1)
+	assert.Equal(t, "namespace/name/internal_listener_cluster", resources.Endpoints[0].ClusterName)
+	assert.Len(t, resources.Endpoints[0].Endpoints, 1)
+	assert.Len(t, resources.Endpoints[0].Endpoints[0].LbEndpoints, 1)
+	addr := resources.Endpoints[0].Endpoints[0].LbEndpoints[0].GetEndpoint().Address
+	assert.NotNil(t, addr)
+	assert.NotNil(t, addr.GetEnvoyInternalAddress())
+	assert.Equal(t, "namespace/name/internal-listener", addr.GetEnvoyInternalAddress().GetServerListenerName())
+
+	//
+	// Check internal listener
+	//
+	assert.Len(t, resources.Listeners, 1)
+	assert.Equal(t, "namespace/name/internal-listener", resources.Listeners[0].Name)
+	assert.NotNil(t, resources.Listeners[0].GetInternalListener())
+}
+
+var ciliumEnvoyConfigMissingInternalListener = `apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: missing-internal-listener
+spec:
+  version_info: "0"
+  resources:
+  - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
+    cluster_name: internal_listener_cluster
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            envoy_internal_address:
+              server_listener_name: internal-listener
+`
+
+func TestCiliumEnvoyConfigMissingInternalListener(t *testing.T) {
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	parser := cecResourceParser{
+		logger:        logger,
+		portAllocator: NewMockPortAllocator(),
+	}
+
+	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigMissingInternalListener))
+	require.NoError(t, err)
+	cec := &cilium_v2.CiliumEnvoyConfig{}
+	err = json.Unmarshal(jsonBytes, cec)
+	require.NoError(t, err)
+	assert.Len(t, cec.Spec.Resources, 1)
+	assert.Equal(t, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment", cec.Spec.Resources[0].TypeUrl)
+
+	_, err = parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, true)
+	assert.ErrorContains(t, err, "missing internal listener: internal-listener")
+}
 
 func TestCiliumEnvoyConfigTCPProxy(t *testing.T) {
 	logger := logrus.New()
