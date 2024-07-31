@@ -503,6 +503,8 @@ func (m *Manager) inboundProxyRedirectRule(cmd string) []string {
 	// 1. route return traffic to the proxy
 	// 2. route original direction traffic that would otherwise be intercepted
 	//    by ip_early_demux
+	// Explicitly support chaining Envoy listeners via the loopback device by
+	// excluding traffic for the loopback device.
 	toProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
 	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 	matchProxyToWorld := fmt.Sprintf("%#08x/%#08x", linux_defaults.MarkProxyToWorld, linux_defaults.RouteMarkMask)
@@ -510,6 +512,7 @@ func (m *Manager) inboundProxyRedirectRule(cmd string) []string {
 		"-t", "mangle",
 		cmd, ciliumPreMangleChain,
 		"-m", "socket", "--transparent",
+		"!", "-o", "lo",
 		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt,
 		"-m", "mark", "!", "--mark", matchProxyToWorld,
 		"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
