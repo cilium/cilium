@@ -123,26 +123,12 @@ jobs:
           image: quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}
           upload-release-assets: false
 
-      - name: Attach SBOM to container images
+      - name: Attach SBOM attestation to container image
         run: |
           if [ "${{ env.PUSH_TO_DOCKER_HUB }}" == "true" ]; then
-            cosign attach sbom --sbom sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json docker.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
+            cosign attest -r -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson docker.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
           fi
-          cosign attach sbom --sbom sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
-
-      - name: Sign SBOM Image
-        run: |
-          if [ "${{ env.PUSH_TO_DOCKER_HUB }}" == "true" ]; then
-            docker_build_release_digest="${{ steps.docker_build_release.outputs.digest }}"
-            image_name="docker.io/${{ github.repository_owner }}/${{ matrix.name }}:${docker_build_release_digest/:/-}.sbom"
-            docker_build_release_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-            cosign sign -y "docker.io/${{ github.repository_owner }}/${{ matrix.name }}@${docker_build_release_sbom_digest}"
-          fi
-
-          docker_build_release_digest="${{ steps.docker_build_release.outputs.digest }}"
-          image_name="quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}:${docker_build_release_digest/:/-}.sbom"
-          docker_build_release_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign -y "quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}@${docker_build_release_sbom_digest}"
+          cosign attest -r -y --predicate sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Image Release Digest
         shell: bash
