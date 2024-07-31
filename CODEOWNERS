@@ -290,7 +290,6 @@ Makefile* @cilium/build
 /daemon/cmd/hubble.go @cilium/sig-hubble
 /daemon/cmd/ipcache* @cilium/ipcache
 /daemon/cmd/kube_proxy* @cilium/sig-datapath
-/daemon/cmd/loadbalancer.go @cilium/sig-lb
 /daemon/cmd/metrics.go @cilium/metrics
 /daemon/cmd/policy* @cilium/sig-policy
 /daemon/cmd/state.go @cilium/endpoint

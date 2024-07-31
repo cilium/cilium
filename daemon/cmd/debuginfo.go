@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -44,7 +45,7 @@ func getDebugInfoHandler(d *Daemon, params restapi.GetDebuginfoParams) middlewar
 		dr.EnvironmentVariables = append(dr.EnvironmentVariables, k+":"+v)
 	}
 
-	dr.ServiceList = getServiceList(d.svc)
+	dr.ServiceList = service.GetServiceModelList(d.svc)
 
 	dr.Encryption = &models.DebugInfoEncryption{}
 	if option.Config.EnableWireguard {
