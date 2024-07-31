@@ -35,7 +35,7 @@ var Cell = cell.Module(
 	ReconcilerCell,
 
 	// Provide [lbmaps], abstraction for the load-balancing BPF map access.
-	cell.ProvidePrivate(newLBMaps),
+	cell.ProvidePrivate(newLBMaps, newLBMapsConfig),
 )
 
 // TablesCell provides the [Writer] API for configuring load-balancing and the
@@ -64,11 +64,13 @@ var TablesCell = cell.Module(
 	),
 )
 
-func newLBMaps(w *Writer) lbmaps {
+func newLBMaps(lc cell.Lifecycle, cfg LBMapsConfig, w *Writer) lbmaps {
 	if !w.IsEnabled() {
 		return nil
 	}
-	return &realLBMaps{}
+	r := &realLBMaps{pinned: true, cfg: cfg}
+	lc.Append(r)
+	return r
 }
 
 type resourceIn struct {

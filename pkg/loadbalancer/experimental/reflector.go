@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -260,6 +261,14 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 		Labels:              labels.Map2Labels(svc.Labels, string(source.Kubernetes)),
 		Annotations:         svc.Annotations,
 		HealthCheckNodePort: uint16(svc.Spec.HealthCheckNodePort),
+	}
+
+	for _, srcRange := range svc.Spec.LoadBalancerSourceRanges {
+		cidr, err := cidr.ParseCIDR(srcRange)
+		if err != nil {
+			continue
+		}
+		s.SourceRanges = append(s.SourceRanges, *cidr)
 	}
 
 	switch svc.Spec.ExternalTrafficPolicy {

@@ -21,7 +21,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
@@ -821,27 +820,11 @@ func parseAddrPort(s string) loadbalancer.L3n4Addr {
 func TestBPFOps(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	lbmap.Init(lbmap.InitParams{
-		IPv4:                     true,
-		IPv6:                     true,
-		MaxSockRevNatMapEntries:  1000,
-		ServiceMapMaxEntries:     1000,
-		BackEndMapMaxEntries:     1000,
-		RevNatMapMaxEntries:      1000,
-		AffinityMapMaxEntries:    1000,
-		SourceRangeMapMaxEntries: 1000,
-		MaglevMapMaxEntries:      1000,
-	})
-	require.NoError(t, lbmap.Service4MapV2.CreateUnpinned())
-	require.NoError(t, lbmap.Service6MapV2.CreateUnpinned())
-	require.NoError(t, lbmap.Backend4MapV3.CreateUnpinned())
-	require.NoError(t, lbmap.Backend6MapV3.CreateUnpinned())
-	require.NoError(t, lbmap.RevNat4Map.CreateUnpinned())
-	require.NoError(t, lbmap.RevNat6Map.CreateUnpinned())
-	require.NoError(t, lbmap.AffinityMatchMap.CreateUnpinned())
-
 	lc := hivetest.Lifecycle(t)
 	log := hivetest.Logger(t)
+
+	lbmaps := &realLBMaps{pinned: false}
+	lc.Append(lbmaps)
 
 	// Initialize the metrics registry. Otherwise the bpf.Map ops will incur a 1 second
 	// delay as they try to update the pressure gauge.
@@ -865,7 +848,7 @@ func TestBPFOps(t *testing.T) {
 		for _, addr := range frontendAddrs {
 			// For each set of test cases, use a fresh instance so each set gets
 			// fresh IDs.
-			ops := newBPFOps(lc, log, cfg, &realLBMaps{})
+			ops := newBPFOps(lc, log, cfg, lbmaps)
 			for _, testCase := range testCaseSet {
 				t.Run(testCase.name, func(t *testing.T) {
 					frontend := testCase.frontend
@@ -906,7 +889,7 @@ func TestBPFOps(t *testing.T) {
 						),
 						"Prune")
 
-					out := dump(addr, false)
+					out := dump(lbmaps, addr, false)
 					if !slices.Equal(out, testCase.maps) {
 						t.Fatalf("BPF map contents differ!\nexpected:\n%s\nactual:\n%s", showMaps(testCase.maps), showMaps(out))
 					}
@@ -914,7 +897,7 @@ func TestBPFOps(t *testing.T) {
 			}
 
 			// Verify that the BPF maps are empty after the test set.
-			assert.Empty(t, dump(addr, false), "BPF maps not empty")
+			assert.Empty(t, dump(lbmaps, addr, false), "BPF maps not empty")
 
 			// Verify that all internal state has been cleaned up.
 			assert.Empty(t, ops.backendIDAlloc.entities, "Backend ID allocations remain")
@@ -956,7 +939,7 @@ func sanitizeID[Num numeric](n Num, sanitize bool) string {
 }
 
 // dump the load-balancing maps into a concise format for assertions in tests.
-func dump(feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []mapDump) {
+func dump(lbmaps lbmaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []mapDump) {
 	out = []string{}
 
 	replaceAddr := func(addr net.IP, port uint16) (s string) {
@@ -981,9 +964,7 @@ func dump(feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []mapDump) {
 		return
 	}
 
-	svcCB := func(key bpf.MapKey, value bpf.MapValue) {
-		svcKey := key.(lbmap.ServiceKey).ToHost()
-		svcValue := value.(lbmap.ServiceValue).ToHost()
+	svcCB := func(svcKey lbmap.ServiceKey, svcValue lbmap.ServiceValue) {
 		addr := svcKey.GetAddress()
 		addrS := replaceAddr(addr, svcKey.GetPort())
 		if svcKey.GetScope() == loadbalancer.ScopeInternal {
@@ -1000,12 +981,11 @@ func dump(feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []mapDump) {
 				", ", "+"),
 		))
 	}
-	lbmap.Service4MapV2.DumpWithCallback(svcCB)
-	lbmap.Service6MapV2.DumpWithCallback(svcCB)
+	if err := lbmaps.DumpService(svcCB); err != nil {
+		panic(err)
+	}
 
-	beCB := func(key bpf.MapKey, value bpf.MapValue) {
-		beKey := key.(lbmap.BackendKey)
-		beValue := value.(lbmap.BackendValue).ToHost()
+	beCB := func(beKey lbmap.BackendKey, beValue lbmap.BackendValue) {
 		addr := beValue.GetAddress()
 		addrS := addr.String()
 		if addr.To4() == nil {
@@ -1019,12 +999,11 @@ func dump(feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []mapDump) {
 			stateS,
 		))
 	}
-	lbmap.Backend4MapV3.DumpWithCallback(beCB)
-	lbmap.Backend6MapV3.DumpWithCallback(beCB)
+	if err := lbmaps.DumpBackend(beCB); err != nil {
+		panic(err)
+	}
 
-	revCB := func(key bpf.MapKey, value bpf.MapValue) {
-		revKey := key.(lbmap.RevNatKey).ToHost()
-		revValue := value.(lbmap.RevNatValue).ToHost()
+	revCB := func(revKey lbmap.RevNatKey, revValue lbmap.RevNatValue) {
 		var addr string
 
 		switch v := revValue.(type) {
@@ -1040,17 +1019,18 @@ func dump(feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []mapDump) {
 			addr,
 		))
 	}
-	lbmap.RevNat4Map.DumpWithCallback(revCB)
-	lbmap.RevNat6Map.DumpWithCallback(revCB)
+	if err := lbmaps.DumpRevNat(revCB); err != nil {
+		panic(err)
+	}
 
-	affCB := func(key bpf.MapKey, value bpf.MapValue) {
-		affKey := key.(*lbmap.AffinityMatchKey).ToHost()
+	affCB := func(affKey *lbmap.AffinityMatchKey, _ *lbmap.AffinityMatchValue) {
 		out = append(out, fmt.Sprintf("AFF: ID=%s BEID=%d",
 			sanitizeID(affKey.RevNATID, sanitizeIDs),
 			affKey.BackendID,
 		))
 	}
-	if err := lbmap.AffinityMatchMap.DumpWithCallback(affCB); err != nil {
+
+	if err := lbmaps.DumpAffinityMatch(affCB); err != nil {
 		panic(err)
 	}
 
