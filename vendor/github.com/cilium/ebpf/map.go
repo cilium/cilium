@@ -513,9 +513,6 @@ func handleMapCreateError(attr sys.MapCreateAttr, spec *MapSpec, err error) erro
 			return fmt.Errorf("map create: %w (ring map size %d not a multiple of page size %d)", err, maxEntries, pageSize)
 		}
 	}
-	if attr.BtfFd == 0 {
-		return fmt.Errorf("map create: %w (without BTF k/v)", err)
-	}
 
 	return fmt.Errorf("map create: %w", err)
 }

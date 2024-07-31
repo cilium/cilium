@@ -119,6 +119,7 @@ type HTTPRouteSpec struct {
 	// +optional
 	// +kubebuilder:validation:MaxItems=16
 	// +kubebuilder:default={{matches: {{path: {type: "PathPrefix", value: "/"}}}}}
+	// +kubebuilder:validation:XValidation:message="While 16 rules and 64 matches per rule are allowed, the total number of matches across all rules in a route must be less than 128",rule="(self.size() > 0 ? self[0].matches.size() : 0) + (self.size() > 1 ? self[1].matches.size() : 0) + (self.size() > 2 ? self[2].matches.size() : 0) + (self.size() > 3 ? self[3].matches.size() : 0) + (self.size() > 4 ? self[4].matches.size() : 0) + (self.size() > 5 ? self[5].matches.size() : 0) + (self.size() > 6 ? self[6].matches.size() : 0) + (self.size() > 7 ? self[7].matches.size() : 0) + (self.size() > 8 ? self[8].matches.size() : 0) + (self.size() > 9 ? self[9].matches.size() : 0) + (self.size() > 10 ? self[10].matches.size() : 0) + (self.size() > 11 ? self[11].matches.size() : 0) + (self.size() > 12 ? self[12].matches.size() : 0) + (self.size() > 13 ? self[13].matches.size() : 0) + (self.size() > 14 ? self[14].matches.size() : 0) + (self.size() > 15 ? self[15].matches.size() : 0) <= 128"
 	Rules []HTTPRouteRule `json:"rules,omitempty"`
 }
 
@@ -190,7 +191,7 @@ type HTTPRouteRule struct {
 	// parent a request is coming from, a HTTP 404 status code MUST be returned.
 	//
 	// +optional
-	// +kubebuilder:validation:MaxItems=8
+	// +kubebuilder:validation:MaxItems=64
 	// +kubebuilder:default={{path:{ type: "PathPrefix", value: "/"}}}
 	Matches []HTTPRouteMatch `json:"matches,omitempty"`
 
