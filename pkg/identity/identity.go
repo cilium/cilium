@@ -209,7 +209,7 @@ func ScopeForLabels(lbls labels.Labels) NumericIdentity {
 
 	for _, label := range lbls {
 		switch label.Source {
-		case labels.LabelSourceCIDR, labels.LabelSourceFQDN, labels.LabelSourceReserved:
+		case labels.LabelSourceCIDR, labels.LabelSourceFQDN, labels.LabelSourceReserved, labels.LabelSourceCIDRGroup:
 			scope = IdentityScopeLocal
 		default:
 			return IdentityScopeGlobal

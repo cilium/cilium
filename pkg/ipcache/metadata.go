@@ -14,6 +14,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache/types"
@@ -73,6 +74,9 @@ type metadata struct {
 	// m is the actual map containing the mappings.
 	m map[netip.Prefix]prefixInfo
 
+	// prefixes is a trie of prefixes, for finding descendants efficiently
+	prefixes *bitlpm.CIDRTrie[struct{}]
+
 	// queued* handle updates into the IPCache. Whenever a label is added
 	// or removed from a specific IP prefix, that prefix is added into
 	// 'queuedPrefixes'. Each time label injection is triggered, it will
@@ -107,6 +111,7 @@ type metadata struct {
 func newMetadata() *metadata {
 	return &metadata{
 		m:              make(map[netip.Prefix]prefixInfo),
+		prefixes:       bitlpm.NewCIDRTrie[struct{}](),
 		queuedPrefixes: make(map[netip.Prefix]struct{}),
 		queuedRevision: 1,
 
@@ -206,6 +211,7 @@ func (m *metadata) upsertLocked(prefix netip.Prefix, src source.Source, resource
 	if _, ok := m.m[prefix]; !ok {
 		changed = true
 		m.m[prefix] = make(prefixInfo)
+		m.prefixes.Upsert(prefix, struct{}{})
 	}
 	if _, ok := m.m[prefix][resource]; !ok {
 		changed = true
@@ -240,17 +246,35 @@ func (m *metadata) getLocked(prefix netip.Prefix) prefixInfo {
 	return m.m[canonicalPrefix(prefix)]
 }
 
-// findCIDRParentPrefix returns the closest parent prefix has a parent prefix with a CIDR label
-// in the metadata cache
-func (m *metadata) findCIDRParentPrefix(prefix netip.Prefix) (parent netip.Prefix, ok bool) {
+// mergeParentLabels pulls down all labels from parent prefixes, with "longer" prefixes having
+// preference.
+//
+// Thus, if the ipcache contains:
+// - 10.0.0.0/8 -> "a=b, foo=bar"
+// - 10.1.0.0/16 -> "a=c"
+// - 10.1.1.0/24 -> "d=e"
+// the complete set of labels for 10.1.1.0/24 is [a=c, d=e, foo=bar]
+func (m *metadata) mergeParentLabels(lbls labels.Labels, prefix netip.Prefix) {
+	hasCIDR := lbls.HasSource(labels.LabelSourceCIDR) // we should only merge one CIDR label
+
+	// Iterate over all shorter prefixes, from `prefix` to 0.0.0.0/0 // ::/0
+	// merge all labels, preferring longer prefixes, but only merge a single "cidr:XXX" label at most.
 	for bits := prefix.Bits() - 1; bits > 0; bits-- {
-		parent, _ = prefix.Addr().Unmap().Prefix(bits) // canonical
-		if info, ok := m.m[parent]; ok && info.hasLabelSource(labels.LabelSourceCIDR) {
-			return parent, true
+		parent, _ := prefix.Addr().Unmap().Prefix(bits) // canonical
+		if info, ok := m.m[parent]; ok {
+			for k, v := range info.ToLabels() {
+				if v.Source == labels.LabelSourceCIDR && hasCIDR {
+					continue
+				}
+				if _, ok := lbls[k]; !ok {
+					lbls[k] = v
+					if v.Source == labels.LabelSourceCIDR {
+						hasCIDR = true
+					}
+				}
+			}
 		}
 	}
-
-	return netip.Prefix{}, false
 }
 
 func isChildPrefix(parent, child netip.Prefix) bool {
@@ -268,11 +292,10 @@ func (m *metadata) findAffectedChildPrefixes(parent netip.Prefix) (children []ne
 		return []netip.Prefix{parent} // no children
 	}
 
-	for child := range m.m {
-		if isChildPrefix(parent, child) {
-			children = append(children, child)
-		}
-	}
+	m.prefixes.Descendants(parent, func(child netip.Prefix, _ struct{}) bool {
+		children = append(children, child)
+		return true
+	})
 
 	return children
 }
@@ -596,45 +619,11 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 
 	lbls := info.ToLabels()
 
-	// If there is a parent with an explicit CIDR label, then we want to inherit
-	// that - unless prefix already has a CIDR label, has a reserved
-	// label, or is a global identity
-	if !lbls.HasSource(labels.LabelSourceReserved) &&
-		!lbls.HasSource(labels.LabelSourceCIDR) &&
-		identity.ScopeForLabels(lbls) != identity.IdentityScopeGlobal {
-		// Note: We attach the CIDR label of the parent, not prefix. This ensures
-		// that two prefixes with the same identity and the same parent will
-		// have the same identity.
-		if parent, ok := ipc.metadata.findCIDRParentPrefix(prefix); ok {
-			cidrLabels := labels.GetCIDRLabels(parent)
-			lbls.MergeLabels(cidrLabels)
-		}
-	}
+	// unconditionally merge any parent labels down in to this prefix
+	ipc.metadata.mergeParentLabels(lbls, prefix)
 
-	// Ensure any prefix with a FQDN label also has the world label set
-	if lbls.HasSource(labels.LabelSourceFQDN) {
-		labels.AddWorldLabel(prefix.Addr(), lbls)
-	}
-
-	// If the prefix is associated with the host or remote-node, then
-	// force-remove the world label.
-	if lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) ||
-		lbls.Has(labels.LabelHost[labels.IDNameHost]) {
-		n := lbls.Remove(labels.LabelWorld)
-		n = n.Remove(labels.LabelWorldIPv4)
-		n = n.Remove(labels.LabelWorldIPv6)
-
-		// It is not allowed for nodes to have CIDR labels, unless policy-cidr-match-mode
-		// includes "nodes". Then CIDR labels are required.
-		if !option.Config.PolicyCIDRMatchesNodes() {
-			n = n.Remove(labels.GetCIDRLabels(prefix))
-		}
-		if !option.Config.PerNodeLabelsEnabled() {
-			nodeLabels := n.GetFromSource(labels.LabelSourceNode)
-			n = n.Remove(nodeLabels)
-		}
-		lbls = n
-	}
+	// Enforce certain label invariants.
+	lbls = resolveLabels(prefix, lbls)
 
 	if lbls.Has(labels.LabelHost[labels.IDNameHost]) {
 		// Associate any new labels with the host identity.
@@ -660,25 +649,6 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 		return i, false, nil
 	}
 
-	// If no other labels are associated with this IP, we assume that it's
-	// outside of the cluster and hence needs a CIDR identity.
-	//
-	// This is trying to ensure that remote nodes are assigned the reserved
-	// identity "remote-node" (6) or "kube-apiserver" (7). The datapath
-	// later makes assumptions about remote cluster nodes in the function
-	// identity_is_remote_node(). For now, there is no way to associate any
-	// other labels with such IPs, but this assumption will break if/when
-	// we allow more arbitrary labels to be associated with these IPs that
-	// correspond to remote nodes.
-	if !lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) &&
-		!lbls.Has(labels.LabelHealth[labels.IDNameHealth]) &&
-		!lbls.Has(labels.LabelIngress[labels.IDNameIngress]) &&
-		!lbls.HasSource(labels.LabelSourceFQDN) &&
-		!lbls.HasSource(labels.LabelSourceCIDR) {
-		cidrLabels := labels.GetCIDRLabels(prefix)
-		lbls.MergeLabels(cidrLabels)
-	}
-
 	// This should only ever allocate an identity locally on the node,
 	// which could theoretically fail if we ever allocate a very large
 	// number of identities.
@@ -696,6 +666,66 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix.String()})
 	}
 	return id, isNew, err
+}
+
+// resolveLabels applies certain prefix-level invariants to the set of labels.
+//
+// At a high level, this function makes it so that in-cluster entities
+// are not selectable by CIDR and CIDR-equivalent policies. By default,
+// in-cluster entities such as remote-node, host, and health should not be
+// selectable by CIDR / ToFQDN / CIDRGroup policies.
+//
+// In-cluster entities are prefixes with any of the labels:
+// - reserved:host
+// - reserved:remote-node
+// - reserved:health
+// - reserved:ingress
+//
+// However, nodes *are* allowed to be selectable by CIDR and CIDR equivalents
+// if PolicyCIDRMatchesNodes() is true
+func resolveLabels(prefix netip.Prefix, lbls labels.Labels) labels.Labels {
+	out := labels.NewFrom(lbls)
+
+	isInCluster := (lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) ||
+		lbls.Has(labels.LabelHost[labels.IDNameHost]) ||
+		lbls.Has(labels.LabelHealth[labels.IDNameHealth]) ||
+		lbls.Has(labels.LabelIngress[labels.IDNameIngress]))
+
+	isNode := (lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) ||
+		lbls.Has(labels.LabelHost[labels.IDNameHost]))
+
+	// In-cluster entities must not have reserved:world.
+	if isInCluster {
+		out = out.Remove(labels.LabelWorld)
+		out = out.Remove(labels.LabelWorldIPv4)
+		out = out.Remove(labels.LabelWorldIPv6)
+	}
+
+	// In-cluster entities must not have cidr-style labels,
+	// Exception: nodes may, when PolicyCIDRMatchesNodes() is enabled.
+	if isInCluster && !(isNode && option.Config.PolicyCIDRMatchesNodes()) {
+		out = out.RemoveFromSource(labels.LabelSourceCIDR)
+		out = out.RemoveFromSource(labels.LabelSourceFQDN)
+		out = out.RemoveFromSource(labels.LabelSourceCIDRGroup)
+	}
+
+	// Remove all node: labels, unless this is a node *and* node labels are enabled.
+	if !(isNode && option.Config.PerNodeLabelsEnabled()) {
+		out = out.RemoveFromSource(labels.LabelSourceNode)
+	}
+
+	// No empty labels allowed.
+	// Generate cidr: label as a fallback.
+	if len(out) == 0 {
+		out = labels.GetCIDRLabels(prefix)
+	}
+
+	// add world if not in-cluster.
+	if !isInCluster {
+		labels.AddWorldLabel(prefix.Addr(), out)
+	}
+
+	return out
 }
 
 // updateReservedHostLabels adds or removes labels that apply to the local host.
@@ -790,6 +820,7 @@ func (m *metadata) remove(prefix netip.Prefix, resource types.ResourceID, aux ..
 	}
 	if !info.isValid() { // Labels empty, delete
 		delete(m.m, prefix)
+		m.prefixes.Delete(prefix)
 	}
 
 	return affected

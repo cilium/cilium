@@ -138,6 +138,9 @@ const (
 	// LabelSourceCIDR is the label source for generated CIDRs.
 	LabelSourceCIDR = "cidr"
 
+	// LabelSourceCIDRGroup is the label source used for labels from CIDRGroups
+	LabelSourceCIDRGroup = "cidrgroup"
+
 	// LabelSourceNode is the label source for remote-nodes.
 	LabelSourceNode = "node"
 
@@ -221,6 +224,17 @@ func (l Labels) GetFromSource(source string) Labels {
 	lbls := Labels{}
 	for k, v := range l {
 		if v.Source == source {
+			lbls[k] = v
+		}
+	}
+	return lbls
+}
+
+// RemoveFromSource removes all labels that are from the given source
+func (l Labels) RemoveFromSource(source string) Labels {
+	lbls := Labels{}
+	for k, v := range l {
+		if v.Source != source {
 			lbls[k] = v
 		}
 	}
