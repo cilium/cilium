@@ -11,9 +11,8 @@ import (
 
 type Config struct {
 	EnableExperimentalLB bool
-
-	RetryBackoffMin time.Duration `mapstructure:"lb-retry-backoff-min"`
-	RetryBackoffMax time.Duration `mapstructure:"lb-retry-backoff-max"`
+	RetryBackoffMin      time.Duration `mapstructure:"lb-retry-backoff-min"`
+	RetryBackoffMax      time.Duration `mapstructure:"lb-retry-backoff-max"`
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {

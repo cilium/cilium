@@ -34,7 +34,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_fake "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -92,32 +91,10 @@ func deleteEvent[Obj k8sRuntime.Object](obj Obj) resource.Event[Obj] {
 func TestIntegrationK8s(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	// TODO: clean up once there's a LBMap cell of sorts. Need
-	// support for unpinned maps though...?
-	lbmap.Init(lbmap.InitParams{
-		IPv4:                     true,
-		IPv6:                     true,
-		MaxSockRevNatMapEntries:  1000,
-		ServiceMapMaxEntries:     1000,
-		BackEndMapMaxEntries:     1000,
-		RevNatMapMaxEntries:      1000,
-		AffinityMapMaxEntries:    1000,
-		SourceRangeMapMaxEntries: 1000,
-		MaglevMapMaxEntries:      1000,
-	})
-
 	// TODO: Move this option somewhere sane.
 	option.Config.EnableK8sTerminatingEndpoint = true
 
 	log := hivetest.Logger(t)
-
-	require.NoError(t, lbmap.Service4MapV2.CreateUnpinned())
-	require.NoError(t, lbmap.Service6MapV2.CreateUnpinned())
-	require.NoError(t, lbmap.Backend4MapV3.CreateUnpinned())
-	require.NoError(t, lbmap.Backend6MapV3.CreateUnpinned())
-	require.NoError(t, lbmap.RevNat4Map.CreateUnpinned())
-	require.NoError(t, lbmap.RevNat6Map.CreateUnpinned())
-	require.NoError(t, lbmap.AffinityMatchMap.CreateUnpinned())
 
 	services := make(chan resource.Event[*slim_corev1.Service], 1)
 	services <- resource.Event[*slim_corev1.Service]{
@@ -141,6 +118,8 @@ func TestIntegrationK8s(t *testing.T) {
 		db     *statedb.DB
 		bo     *bpfOps
 	)
+
+	maps := &realLBMaps{pinned: false}
 
 	h := hive.New(
 		// FIXME.  Need this to avoid 1 second delay on metric operations.
@@ -171,9 +150,10 @@ func TestIntegrationK8s(t *testing.T) {
 			}),
 
 			cell.Provide(
-				func() lbmaps {
+				func(lc cell.Lifecycle) lbmaps {
+					lc.Append(maps)
 					return &faultyLBMaps{
-						impl:               &realLBMaps{},
+						impl:               maps,
 						failureProbability: 0.05, // 5% chance of failure.
 					}
 				},
@@ -298,7 +278,7 @@ func TestIntegrationK8s(t *testing.T) {
 			if !assert.Eventually(
 				t,
 				func() bool {
-					return checkTablesAndMaps(db, writer, testDataPath)
+					return checkTablesAndMaps(db, writer, maps, testDataPath)
 				},
 				5*time.Second,
 				10*time.Millisecond,
@@ -329,7 +309,7 @@ func TestIntegrationK8s(t *testing.T) {
 			if !assert.Eventually(
 				t,
 				func() bool {
-					lastDump = dump(frontendAddrs[0], true)
+					lastDump = dump(maps, frontendAddrs[0], true)
 					return len(lastDump) == 0
 				},
 				time.Minute,
@@ -364,7 +344,7 @@ func sanitizeTables(dump []byte) []byte {
 	return r.ReplaceAll(dump, []byte("(??? ago)"))
 }
 
-func checkTablesAndMaps(db *statedb.DB, writer *Writer, testDataPath string) bool {
+func checkTablesAndMaps(db *statedb.DB, writer *Writer, maps lbmaps, testDataPath string) bool {
 	var tableBuf bytes.Buffer
 	writer.DebugDump(db.ReadTxn(), &tableBuf)
 	actualTables := tableBuf.Bytes()
@@ -382,7 +362,7 @@ func checkTablesAndMaps(db *statedb.DB, writer *Writer, testDataPath string) boo
 	if expectedData, err := os.ReadFile(path.Join(testDataPath, "expected.maps")); err == nil {
 		expectedMaps = strings.Split(strings.TrimSpace(string(expectedData)), "\n")
 	}
-	actualMaps := dump(frontendAddrs[0], true)
+	actualMaps := dump(maps, frontendAddrs[0], true)
 
 	actualPath := path.Join(testDataPath, "actual.maps")
 	os.WriteFile(
