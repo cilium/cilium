@@ -94,6 +94,12 @@ Users (Alphabetically)
       L: https://cloud.arangodb.com
       Q: @ewoutp @Robert-Stam
 
+    * N: Archer Aviation
+      D: Archer Aviation uses Cilium as part of the foundation of the Kubernetes cluster.
+      U: Networking, Observability, Security
+      L: https://www.archer.com
+      Q: @Hongbo Miao
+
     * N: Ascend.io
       D: Ascend.io is using Cilium as a consistent CNI for our Data Automation Platform on GKE, EKS, and AKS.
       U: Transparent Encryption, Overlay Networking, Cluster Mesh, Egress Gateway, Network Policy, Hubble
