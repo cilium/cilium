@@ -58,6 +58,10 @@ const (
 	// SupportGatewayHTTPListenerIsolation option indicates support for the isolation
 	// of HTTP listeners.
 	SupportGatewayHTTPListenerIsolation SupportedFeature = "GatewayHTTPListenerIsolation"
+
+	// SupportGatewayInfrastructureAnnotations option indicates support for
+	// spec.infrastructure.annotations and spec.infrastrucutre.labels
+	SupportGatewayInfrastructurePropagation SupportedFeature = "GatewayInfrastructurePropagation"
 )
 
 // GatewayExtendedFeatures are extra generic features that implementations may
@@ -66,6 +70,7 @@ var GatewayExtendedFeatures = sets.New(
 	SupportGatewayPort8080,
 	SupportGatewayStaticAddresses,
 	SupportGatewayHTTPListenerIsolation,
+	SupportGatewayInfrastructurePropagation,
 )
 
 // -----------------------------------------------------------------------------

@@ -26,6 +26,9 @@ import (
 // +kubebuilder:storageversion
 // +kubebuilder:resource:categories=gateway-api,shortName=blbpolicy
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+//
+// BackendLBPolicy is a Direct Attached Policy.
+// +kubebuilder:metadata:labels="gateway.networking.k8s.io/policy=Direct"
 
 // BackendLBPolicy provides a way to define load balancing rules
 // for a backend.

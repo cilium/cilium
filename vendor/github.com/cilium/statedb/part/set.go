@@ -40,8 +40,9 @@ func (s Set[T]) Set(v T) Set[T] {
 	if s.tree == nil {
 		return NewSet(v)
 	}
-	_, _, tree := s.tree.Insert(s.toBytes(v), v)
-	s.tree = tree // As Set is passed by value we can just modify it.
+	txn := s.tree.Txn()
+	txn.Insert(s.toBytes(v), v)
+	s.tree = txn.CommitOnly() // As Set is passed by value we can just modify it.
 	return s
 }
 
@@ -51,8 +52,9 @@ func (s Set[T]) Delete(v T) Set[T] {
 	if s.tree == nil {
 		return s
 	}
-	_, _, tree := s.tree.Delete(s.toBytes(v))
-	s.tree = tree
+	txn := s.tree.Txn()
+	txn.Delete(s.toBytes(v))
+	s.tree = txn.CommitOnly()
 	return s
 }
 
