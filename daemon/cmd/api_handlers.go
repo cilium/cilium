@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
-	"github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -58,11 +57,6 @@ type handlersOut struct {
 	PolicyGetPolicyHandler            policy.GetPolicyHandler
 	PolicyGetPolicySelectorsHandler   policy.GetPolicySelectorsHandler
 	PolicyPutPolicyHandler            policy.PutPolicyHandler
-
-	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
-	ServiceGetServiceHandler      service.GetServiceHandler
-	ServiceGetServiceIDHandler    service.GetServiceIDHandler
-	ServicePutServiceIDHandler    service.PutServiceIDHandler
 }
 
 // apiHandler implements Handle() for the given parameter type.
@@ -103,14 +97,6 @@ func wrapAPIHandler[Params any](dp promise.Promise[*Daemon], handler func(d *Dae
 func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ *deletionQueue) (out handlersOut) {
 	// /healthz/
 	out.DaemonGetHealthzHandler = wrapAPIHandler(dp, getHealthzHandler)
-
-	// /service/
-	out.ServiceGetServiceHandler = wrapAPIHandler(dp, getServiceHandler)
-
-	// /service/{id}/
-	out.ServiceGetServiceIDHandler = wrapAPIHandler(dp, getServiceIDHandler)
-	out.ServiceDeleteServiceIDHandler = wrapAPIHandler(dp, deleteServiceIDHandler)
-	out.ServicePutServiceIDHandler = wrapAPIHandler(dp, putServiceIDHandler)
 
 	// /cluster/nodes
 	out.DaemonGetClusterNodesHandler = NewGetClusterNodesHandler(dp)
