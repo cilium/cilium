@@ -15,7 +15,6 @@ import (
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 )
 
@@ -41,7 +40,21 @@ func (rm *resourceMock) Store(context.Context) (resource.Store[*ciliumv2.CiliumN
 	return nil, errors.New("unimplemented")
 }
 
-var mtuMock = mtu.NewConfiguration(0, false, false, false, false, 1500, nil, false)
+type fakeMTU struct{}
+
+func (f *fakeMTU) GetDeviceMTU() int {
+	return 1500
+}
+
+func (f *fakeMTU) GetRouteMTU() int {
+	return 1500
+}
+
+func (f *fakeMTU) GetRoutePostEncryptMTU() int {
+	return 1500
+}
+
+var mtuMock = fakeMTU{}
 
 func TestAllocatedIPDump(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()

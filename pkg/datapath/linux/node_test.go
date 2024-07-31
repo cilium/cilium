@@ -32,11 +32,12 @@ var (
 		NodeIPv6:            fakeNodeAddressing.IPv6().PrimaryExternal(),
 		CiliumInternalIPv4:  fakeNodeAddressing.IPv4().Router(),
 		CiliumInternalIPv6:  fakeNodeAddressing.IPv6().Router(),
-		DeviceMTU:           mtuConfig.GetDeviceMTU(),
-		RouteMTU:            mtuConfig.GetRouteMTU(),
-		RoutePostEncryptMTU: mtuConfig.GetRoutePostEncryptMTU(),
+		DeviceMTU:           calcMtu.DeviceMTU,
+		RouteMTU:            calcMtu.RouteMTU,
+		RoutePostEncryptMTU: calcMtu.RoutePostEncryptMTU,
 	}
-	mtuConfig = mtu.NewConfiguration(0, false, false, false, false, 100, net.IP("1.1.1.1"), false)
+	mtuConfig = mtu.NewConfiguration(0, false, false, false, false)
+	calcMtu   = mtuConfig.Calculate(100)
 	nh        = linuxNodeHandler{
 		nodeConfig: nodeConfig,
 		datapathConfig: DatapathConfiguration{
