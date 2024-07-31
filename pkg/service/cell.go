@@ -19,6 +19,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(newServiceInternal),
 	cell.Provide(func(svc *Service) ServiceManager { return svc }),
 	cell.Provide(func(svc *Service) ServiceHealthCheckManager { return svc }),
+	cell.Provide(newServiceRestApiHandler),
 
 	cell.ProvidePrivate(func(sm ServiceManager) syncNodePort { return sm }),
 	cell.Invoke(registerServiceReconciler),
