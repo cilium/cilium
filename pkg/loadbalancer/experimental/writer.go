@@ -319,6 +319,7 @@ func (w *Writer) DeleteServicesBySource(txn WriteTxn, source source.Source) erro
 	return nil
 }
 
+// UpsertBackends adds/updates backends for the given service.
 func (w *Writer) UpsertBackends(txn WriteTxn, serviceName loadbalancer.ServiceName, source source.Source, bes ...BackendParams) error {
 	refs, err := w.updateBackends(txn, serviceName, source, bes)
 	if err != nil {
@@ -330,6 +331,46 @@ func (w *Writer) UpsertBackends(txn WriteTxn, serviceName loadbalancer.ServiceNa
 			return err
 		}
 	}
+	return nil
+}
+
+// SetBackends sets the backends associated with a service. Existing backends from this source that
+// are associated with the service but are not given are released.
+func (w *Writer) SetBackends(txn WriteTxn, name loadbalancer.ServiceName, source source.Source, bes ...BackendParams) error {
+	addrs := sets.New[loadbalancer.L3n4Addr]()
+	for _, be := range bes {
+		addrs.Insert(be.L3n4Addr)
+	}
+	orphans := statedb.Filter(
+		w.bes.List(txn, BackendByServiceName(name)),
+		func(be *Backend) bool { return !addrs.Has(be.L3n4Addr) })
+
+	refs, err := w.updateBackends(txn, name, source, bes)
+	if err != nil {
+		return err
+	}
+
+	// Release orphaned backends, e.g. all backends from this source referencing this
+	// service.
+	for orphan, _, ok := orphans.Next(); ok; orphan, _, ok = orphans.Next() {
+		iter := orphan.Instances.All()
+		for _, inst, ok := iter.Next(); ok; _, inst, ok = iter.Next() {
+			if inst.Source == source {
+				if err := w.removeBackendRef(txn, name, orphan); err != nil {
+					return err
+				}
+			}
+			break
+		}
+	}
+
+	// Recompute the backends associated with each frontend.
+	for svc := range refs {
+		if err := w.refreshFrontendsOfService(txn, svc); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -473,6 +514,23 @@ func (w *Writer) ReleaseBackend(txn WriteTxn, name loadbalancer.ServiceName, add
 
 	if err := w.removeBackendRef(txn, name, be); err != nil {
 		return err
+	}
+	return w.refreshFrontendsOfService(txn, name)
+}
+
+func (w *Writer) ReleaseBackendsFromSource(txn WriteTxn, name loadbalancer.ServiceName, source source.Source) error {
+	bes := w.bes.List(txn, BackendByServiceName(name))
+	for be, _, ok := bes.Next(); ok; be, _, ok = bes.Next() {
+		iter := be.Instances.All()
+		for _, inst, ok := iter.Next(); ok; _, inst, ok = iter.Next() {
+			if inst.Source != source {
+				continue
+			}
+			if err := w.removeBackendRef(txn, name, be); err != nil {
+				return err
+			}
+			break
+		}
 	}
 	return w.refreshFrontendsOfService(txn, name)
 }

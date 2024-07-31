@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/part"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/source"
@@ -60,6 +61,10 @@ type Service struct {
 	// LoopbackHostPort defines that HostPort frontends for this service should
 	// only be exposed internally to the node.
 	LoopbackHostPort bool
+
+	// SourceRanges if non-empty will restrict access to the service to the specified
+	// client addresses.
+	SourceRanges []cidr.CIDR
 
 	// Properties are additional untyped properties that can carry feature
 	// specific metadata about the service.

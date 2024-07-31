@@ -137,6 +137,11 @@ ClusterMesh is implemented by merging the external services and endpoints in Ser
 ClusterMesh services and backends are essentially the same as those coming from Kubernetes
 and do not require any special handling.
 
+One notable requirement for ClusterMesh is the need to prune non-global services before
+ClusterMesh-sourced services are initialized. See cf4279c68202bae83917b65b8e7da21e20869def
+for context. Yet unclear how to cleanly implement this. The reconciler currently won't
+perform the Prune() operation if there are any pending initializers.
+
 ### ServiceCache replacement
 
 ServiceCache in addition to merging Services with Endpoints and forwarding as events to a
