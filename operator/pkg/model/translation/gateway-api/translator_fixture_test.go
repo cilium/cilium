@@ -2498,14 +2498,14 @@ var methodMatchingHTTPListenersHTTPListenersCiliumEnvoyConfig = &ciliumv2.Cilium
 												HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
 													StringMatch: &envoy_type_matcher_v3.StringMatcher{
 														MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
-															Exact: "POST",
+															Exact: "GET",
 														},
 													},
 												},
 											},
 										},
 									},
-									Action: routeActionBackendV1,
+									Action: routeActionBackendV2,
 								},
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
@@ -2518,14 +2518,14 @@ var methodMatchingHTTPListenersHTTPListenersCiliumEnvoyConfig = &ciliumv2.Cilium
 												HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
 													StringMatch: &envoy_type_matcher_v3.StringMatcher{
 														MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
-															Exact: "GET",
+															Exact: "POST",
 														},
 													},
 												},
 											},
 										},
 									},
-									Action: routeActionBackendV2,
+									Action: routeActionBackendV1,
 								},
 							},
 						},
