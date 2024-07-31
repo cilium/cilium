@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/act"
 	"github.com/cilium/cilium/pkg/datapath/agentliveness"
@@ -155,7 +157,7 @@ var Cell = cell.Module(
 	act.Cell,
 )
 
-func newWireguardAgent(lc cell.Lifecycle, sysctl sysctl.Sysctl) *wg.Agent {
+func newWireguardAgent(lc cell.Lifecycle, sysctl sysctl.Sysctl, health cell.Health, registry job.Registry, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) *wg.Agent {
 	var wgAgent *wg.Agent
 	if option.Config.EnableWireguard {
 		if option.Config.EnableIPSec {
@@ -163,9 +165,12 @@ func newWireguardAgent(lc cell.Lifecycle, sysctl sysctl.Sysctl) *wg.Agent {
 				option.EnableWireguard, option.EnableIPSecName)
 		}
 
+		jobGroup := registry.NewGroup(health)
+		lc.Append(jobGroup)
+
 		var err error
 		privateKeyPath := filepath.Join(option.Config.StateDir, wgTypes.PrivKeyFilename)
-		wgAgent, err = wg.NewAgent(privateKeyPath, sysctl)
+		wgAgent, err = wg.NewAgent(privateKeyPath, sysctl, jobGroup, db, mtuTable)
 		if err != nil {
 			log.Fatalf("failed to initialize WireGuard: %s", err)
 		}
