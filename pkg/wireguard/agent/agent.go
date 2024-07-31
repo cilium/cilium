@@ -17,6 +17,8 @@ import (
 	"strconv"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -32,6 +34,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -43,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -71,6 +75,9 @@ type Agent struct {
 	privKey     wgtypes.Key
 	privKeyPath string
 	sysctl      sysctl.Sysctl
+	jobGroup    job.Group
+	db          *statedb.DB
+	mtuTable    statedb.Table[mtu.RouteMTU]
 
 	peerByNodeName   map[string]*peerConfig
 	nodeNameByNodeIP map[string]string
@@ -83,7 +90,7 @@ type Agent struct {
 }
 
 // NewAgent creates a new WireGuard Agent
-func NewAgent(privKeyPath string, sysctl sysctl.Sysctl) (*Agent, error) {
+func NewAgent(privKeyPath string, sysctl sysctl.Sysctl, jobGroup job.Group, db *statedb.DB, mtuTable statedb.Table[mtu.RouteMTU]) (*Agent, error) {
 	wgClient, err := wgctrl.New()
 	if err != nil {
 		return nil, err
@@ -93,6 +100,9 @@ func NewAgent(privKeyPath string, sysctl sysctl.Sysctl) (*Agent, error) {
 		privKeyPath: privKeyPath,
 		listenPort:  types.ListenPort,
 		sysctl:      sysctl,
+		jobGroup:    jobGroup,
+		db:          db,
+		mtuTable:    mtuTable,
 
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
@@ -213,7 +223,7 @@ func (a *Agent) initUserspaceDevice(linkMTU int) (netlink.Link, error) {
 }
 
 // Init creates and configures the local WireGuard tunnel device.
-func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.MTU) error {
+func (a *Agent) Init(ipcache *ipcache.IPCache) error {
 	addIPCacheListener := false
 	a.Lock()
 	a.ipCache = ipcache
@@ -226,7 +236,20 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.MTU) error {
 		}
 	}()
 
-	linkMTU := mtuConfig.GetDeviceMTU() - mtu.WireguardOverhead
+	var mtuConfig mtu.RouteMTU
+	for {
+		var (
+			found bool
+			watch <-chan struct{}
+		)
+		mtuConfig, _, watch, found = a.mtuTable.GetWatch(a.db.ReadTxn(), mtu.MTURouteIndex.Query(mtu.DefaultPrefixV4))
+		if found {
+			break
+		}
+		<-watch
+	}
+
+	linkMTU := mtuConfig.DeviceMTU - mtu.WireguardOverhead
 
 	// try to remove any old tun devices created by userspace mode
 	link, _ := netlink.LinkByName(types.IfaceName)
@@ -287,10 +310,58 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.MTU) error {
 		return fmt.Errorf("failed to set link up: %w", err)
 	}
 
+	a.jobGroup.Add(job.OneShot("mtu-reconciler", a.mtuReconciler))
+
 	// this is read by the defer statement above
 	addIPCacheListener = true
 
 	return nil
+}
+
+// mtuReconciler is a job that reconciles changes to the MTU to the WireGuard interface.
+// If an error is encountered, the job will retry with exponential backoff.
+func (a *Agent) mtuReconciler(ctx context.Context, health cell.Health) error {
+	retryTimer := backoff.Exponential{Min: 100 * time.Millisecond, Max: 1 * time.Minute}
+	retry := false
+	for {
+		mtuRoute, _, watch, found := a.mtuTable.GetWatch(a.db.ReadTxn(), mtu.MTURouteIndex.Query(mtu.DefaultPrefixV4))
+		if found {
+			link, err := netlink.LinkByName(types.IfaceName)
+			if err != nil {
+				health.Degraded("failed to get WireGuard link", err)
+				retry = true
+				goto next
+			}
+
+			linkMTU := mtuRoute.DeviceMTU - mtu.WireguardOverhead
+
+			if link.Attrs().MTU != linkMTU {
+				if err = netlink.LinkSetMTU(link, linkMTU); err != nil {
+					health.Degraded("failed to set WireGuard link mtu", err)
+					retry = true
+					goto next
+				}
+			}
+
+			health.OK(fmt.Sprintf("OK (%d)", linkMTU))
+		}
+
+		retryTimer.Reset()
+		retry = false
+
+	next:
+		if retry {
+			if err := retryTimer.Wait(ctx); err != nil {
+				return nil
+			}
+		} else {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-watch:
+			}
+		}
+	}
 }
 
 func (a *Agent) RestoreFinished(cm *clustermesh.ClusterMesh) error {
