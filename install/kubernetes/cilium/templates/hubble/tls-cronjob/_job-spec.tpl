@@ -10,10 +10,6 @@ spec:
         {{- end }}
     spec:
       securityContext:
-        {{- if semverCompare "<1.30.0" (printf "%d.%d.0" (semver .Capabilities.KubeVersion.Version).Major (semver .Capabilities.KubeVersion.Version).Minor) }}
-        appArmorProfile:
-          type: RuntimeDefault
-        {{- end }}
         seccompProfile:
           type: RuntimeDefault
       containers:
