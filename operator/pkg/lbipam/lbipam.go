@@ -485,13 +485,12 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 
 			if len(sharingGroup) == 0 {
 				alloc.Origin.alloc.Free(alloc.IP)
+				ipam.rangesStore.DeleteServiceViewIPForSharingKey(sv.SharingKey, &alloc)
 			} else {
 				alloc.Origin.alloc.Update(alloc.IP, sharingGroup)
 			}
 
 			sv.AllocatedIPs = slices.Delete(sv.AllocatedIPs, allocIdx, allocIdx+1)
-
-			ipam.rangesStore.DeleteServiceViewIPForSharingKey(sv.SharingKey, &alloc)
 
 			return nil
 		}
@@ -739,15 +738,15 @@ func (ipam *LBIPAM) handleDeletedService(svc *slim_core_v1.Service) {
 			alloc.Origin.alloc.Update(alloc.IP, sharingGroupIPs)
 		} else {
 			alloc.Origin.alloc.Free(alloc.IP)
+			// The `ServiceView` has a sharing key, remove the IP from the `rangeStore` index
+			if sv.SharingKey != "" {
+				ipam.rangesStore.DeleteServiceViewIPForSharingKey(sv.SharingKey, &ServiceViewIP{
+					IP:     alloc.IP,
+					Origin: alloc.Origin,
+				})
+			}
 		}
 
-		// The `ServiceView` has a sharing key, remove the IP from the `rangeStore` index
-		if sv.SharingKey != "" {
-			ipam.rangesStore.DeleteServiceViewIPForSharingKey(sv.SharingKey, &ServiceViewIP{
-				IP:     alloc.IP,
-				Origin: alloc.Origin,
-			})
-		}
 	}
 
 	ipam.serviceStore.Delete(key)
