@@ -324,7 +324,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 			}
 
 			if cluster.LoadAssignment != nil {
-				cluster.LoadAssignment.ClusterName, _ = api.ResourceQualifiedName(cecNamespace, cecName, cluster.LoadAssignment.ClusterName)
+				qualifyEDSEndpoints(cecNamespace, cecName, cluster.LoadAssignment)
 			}
 
 			name := cluster.Name
@@ -357,7 +357,7 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 			}
 
 			name := endpoints.ClusterName
-			endpoints.ClusterName, _ = api.ResourceQualifiedName(cecNamespace, cecName, name)
+			qualifyEDSEndpoints(cecNamespace, cecName, endpoints)
 
 			// Check for duplicate after the name has been qualified
 			for i := range resources.Endpoints {
@@ -458,6 +458,21 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 		}
 	}
 
+	// Validate that internal listeners exist
+	for _, cluster := range resources.Clusters {
+		if cluster.LoadAssignment != nil {
+			if err := validateEDSEndpoints(cecNamespace, cecName, cluster.LoadAssignment, resources.Listeners); err != nil {
+				return envoy.Resources{}, fmt.Errorf("ParseResources: Cluster refers to missing internal listener %q (%w): %s", cluster.Name, err, cluster.String())
+			}
+		}
+
+	}
+	for _, endpoints := range resources.Endpoints {
+		if err := validateEDSEndpoints(cecNamespace, cecName, endpoints, resources.Listeners); err != nil {
+			return envoy.Resources{}, fmt.Errorf("ParseResources: Endpoint refers to missing internal listener %q (%w): %s", endpoints.ClusterName, err, endpoints.String())
+		}
+	}
+
 	if injectCiliumUpstreamFilters {
 		for _, cluster := range resources.Clusters {
 			opts := &envoy_config_upstream.HttpProtocolOptions{}
@@ -549,6 +564,84 @@ func (r *cecResourceParser) getBPFMetadataListenerFilter(useOriginalSourceAddr b
 			TypedConfig: toAny(conf),
 		},
 	}
+}
+
+// qualifyAddress finds if there is a ServerListenerName in the address and qualifies it
+func qualifyAddress(namespace, name string, address *envoy_config_core.Address) {
+	internalAddress := address.GetEnvoyInternalAddress()
+	if internalAddress != nil {
+		if x, ok := internalAddress.GetAddressNameSpecifier().(*envoy_config_core.EnvoyInternalAddress_ServerListenerName); ok && x.ServerListenerName != "" {
+			x.ServerListenerName, _ =
+				api.ResourceQualifiedName(namespace, name, x.ServerListenerName)
+		}
+	}
+}
+
+// qualifyEDSEndpoints qualifies resource names in a ClusterLoadAssignment (aka EDS endpoint)
+func qualifyEDSEndpoints(namespace, name string, eds *envoy_config_endpoint.ClusterLoadAssignment) {
+	eds.ClusterName, _ = api.ResourceQualifiedName(namespace, name, eds.ClusterName)
+
+	for _, cla := range eds.Endpoints {
+		for _, lbe := range cla.LbEndpoints {
+			endpoint := lbe.GetEndpoint()
+			if endpoint != nil {
+				qualifyAddress(namespace, name, endpoint.Address)
+			}
+			for i := range endpoint.AdditionalAddresses {
+				qualifyAddress(namespace, name, endpoint.AdditionalAddresses[i].Address)
+			}
+		}
+	}
+}
+
+// validateAddress checks that the referred to internal listener is specified, if it is in the same CRD
+func validateAddress(namespace, name string, address *envoy_config_core.Address,
+	listeners []*envoy_config_listener.Listener) error {
+	internalAddress := address.GetEnvoyInternalAddress()
+	if internalAddress != nil {
+		if x, ok := internalAddress.GetAddressNameSpecifier().(*envoy_config_core.EnvoyInternalAddress_ServerListenerName); ok && x.ServerListenerName != "" {
+
+			internalNamespace, internalName, listenerName := api.ParseQualifiedName(x.ServerListenerName)
+			if internalNamespace == namespace && internalName == name {
+				found := false
+				// Check that the listener exists and is an internal listener
+				for i := range listeners {
+					if x.ServerListenerName == listeners[i].Name &&
+						listeners[i].GetInternalListener() != nil {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return fmt.Errorf("missing internal listener: %s", listenerName)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// validateEDSEndpoints checks internal listener references, if any
+func validateEDSEndpoints(namespace, name string, eds *envoy_config_endpoint.ClusterLoadAssignment,
+	listeners []*envoy_config_listener.Listener) error {
+	for _, cla := range eds.Endpoints {
+		for _, lbe := range cla.LbEndpoints {
+			endpoint := lbe.GetEndpoint()
+			if endpoint != nil {
+				err := validateAddress(namespace, name, endpoint.Address, listeners)
+				if err != nil {
+					return err
+				}
+			}
+			for i := range endpoint.AdditionalAddresses {
+				err := validateAddress(namespace, name, endpoint.AdditionalAddresses[i].Address, listeners)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func qualifyTcpProxyResourceNames(namespace, name string, tcpProxy *envoy_config_tcp.TcpProxy) (updated bool) {
