@@ -507,7 +507,7 @@ func (a *ACT) reconcileServices(ctx context.Context) error {
 	svcs := a.svcIDs()
 	tracked := make(map[uint16]bool, len(svcs))
 	for _, svc := range svcs {
-		tracked[uint16(svc)] = true
+		tracked[byteorder.HostToNetwork16(uint16(svc))] = true
 	}
 	select {
 	case <-ctx.Done():
