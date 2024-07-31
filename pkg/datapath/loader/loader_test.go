@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf/rlimit"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
@@ -56,13 +55,19 @@ func initEndpoint(tb testing.TB, ep *testutils.TestEndpoint) {
 			}
 		})
 	}
+}
+
+func initBpffs(tb testing.TB) {
+	testutils.PrivilegedTest(tb)
+
+	tb.Helper()
+
+	require.NoError(tb, bpf.MkdirBPF(bpf.TCGlobalsPath()))
+	require.NoError(tb, bpf.MkdirBPF(bpf.CiliumPath()))
 
 	tb.Cleanup(func() {
-		files, err := filepath.Glob("/sys/fs/bpf/tc/globals/test_*")
-		require.Nil(tb, err)
-		for _, f := range files {
-			assert.Nil(tb, os.Remove(f))
-		}
+		require.NoError(tb, os.RemoveAll(bpf.TCGlobalsPath()))
+		require.NoError(tb, os.RemoveAll(bpf.CiliumPath()))
 	})
 }
 
@@ -85,6 +90,8 @@ func getEpDirs(ep *testutils.TestEndpoint) *directoryInfo {
 }
 
 func testReloadDatapath(t *testing.T, ep *testutils.TestEndpoint) {
+	initBpffs(t)
+
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 	stats := &metrics.SpanStat{}
