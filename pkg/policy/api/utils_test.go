@@ -125,14 +125,6 @@ func TestResourceQualifiedName(t *testing.T) {
 	require.Equal(t, "", name)
 	require.Equal(t, false, updated)
 
-	name, updated = ResourceQualifiedName("a", "", "")
-	require.Equal(t, "", name)
-	require.Equal(t, false, updated)
-
-	name, updated = ResourceQualifiedName("a", "", "")
-	require.Equal(t, "", name)
-	require.Equal(t, false, updated)
-
 	name, updated = ResourceQualifiedName("", "b", "")
 	require.Equal(t, "", name)
 	require.Equal(t, false, updated)
@@ -222,4 +214,65 @@ func TestResourceQualifiedName(t *testing.T) {
 	name, updated = ResourceQualifiedName("", "test-name", "/resource", ForceNamespace)
 	require.Equal(t, "/resource", name)
 	require.Equal(t, false, updated)
+}
+
+func TestParseQualifiedName(t *testing.T) {
+	setUpSuite(t)
+
+	// Empty name is passed through
+	namespace, name, resourceName := ParseQualifiedName("")
+	require.Equal(t, "", namespace)
+	require.Equal(t, "", name)
+	require.Equal(t, "", resourceName)
+
+	// Unqualified name is passed through
+	namespace, name, resourceName = ParseQualifiedName("resource")
+	require.Equal(t, "", namespace)
+	require.Equal(t, "", name)
+	require.Equal(t, "resource", resourceName)
+
+	// Cluster-scope resources have no namespace
+	namespace, name, resourceName = ParseQualifiedName("//test-resource")
+	require.Equal(t, "", namespace)
+	require.Equal(t, "", name)
+	require.Equal(t, "test-resource", resourceName)
+
+	// Every resource has a name of a CEC they originate from
+	namespace, name, resourceName = ParseQualifiedName("/test-name/test-resource")
+	require.Equal(t, "", namespace)
+	require.Equal(t, "test-name", name)
+	require.Equal(t, "test-resource", resourceName)
+
+	// namespaced resources have a namespace
+	namespace, name, resourceName = ParseQualifiedName("test-namespace//test-resource")
+	require.Equal(t, "test-namespace", namespace)
+	require.Equal(t, "", name)
+	require.Equal(t, "test-resource", resourceName)
+
+	namespace, name, resourceName = ParseQualifiedName("test-namespace/test-name/test-resource")
+	require.Equal(t, "test-namespace", namespace)
+	require.Equal(t, "test-name", name)
+	require.Equal(t, "test-resource", resourceName)
+
+	// resource names with slashes is considered to already be qualified, and will not be prepended with namespace/cec-name
+	namespace, name, resourceName = ParseQualifiedName("test/resource")
+	require.Equal(t, "", namespace)
+	require.Equal(t, "", name)
+	require.Equal(t, "test/resource", resourceName)
+
+	namespace, name, resourceName = ParseQualifiedName("/resource")
+	require.Equal(t, "", namespace)
+	require.Equal(t, "", name)
+	require.Equal(t, "/resource", resourceName)
+
+	// extra slashes are part of the resource name
+	namespace, name, resourceName = ParseQualifiedName("test-namespace/test-name//resource")
+	require.Equal(t, "test-namespace", namespace)
+	require.Equal(t, "test-name", name)
+	require.Equal(t, "/resource", resourceName)
+
+	namespace, name, resourceName = ParseQualifiedName("/test-name/test/resource")
+	require.Equal(t, "", namespace)
+	require.Equal(t, "test-name", name)
+	require.Equal(t, "test/resource", resourceName)
 }
