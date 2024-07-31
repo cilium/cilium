@@ -136,6 +136,10 @@ jobs:
             EXEMPT_FEATURES+=",HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout"
           fi
 
+          if [ ${{ matrix.conformance-profile }} == "true" ]; then
+            SKIPPED_TESTS+="GatewayStaticAddresses,MeshConsumerRoute,HTTPRouteListenerPortMatching"
+          fi
+
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=kubeProxyReplacement=true \
             --helm-set=extraArgs={--envoy-config-retry-interval=5s} \
@@ -263,7 +267,7 @@ jobs:
               -v ./operator/pkg/gateway-api \
               --gateway-class cilium \
               --all-features \
-              --exempt-features "${{ steps.vars.outputs.exempt-features }}" \
+              --skip-tests "${{ steps.vars.outputs.skipped_tests }}" \
               --conformance-profiles GATEWAY-HTTP,GATEWAY-TLS,GATEWAY-GRPC,MESH-HTTP,MESH-GRPC \
               --organization cilium \
               --project cilium \
@@ -272,7 +276,6 @@ jobs:
               --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md \
               --report-output report.yaml \
               -test.run "TestConformance" \
-              -test.skip "${{ steps.vars.outputs.skipped_tests }}" \
               -json \
             | tparse -progress
           else
