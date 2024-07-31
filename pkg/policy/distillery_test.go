@@ -8,14 +8,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	stdlog "log"
 	"net/netip"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -23,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var (
@@ -1859,6 +1864,194 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 				t.Errorf("Policy test, %q, obtained didn't match expected for endpoint %s", tt.test, labelsFoo)
 			}
+		})
+	}
+}
+
+func mapStateAllowsKey(ms *mapState, key Key) bool {
+	var ok bool
+	ms.denies.trie.Ancestors(key.PrefixLength(), key,
+		func(_ uint, _ bitlpm.Key[types.Key], is IDSet) bool {
+			if _, exists := is.ids[identity.NumericIdentity(key.Identity)]; exists {
+				ok = true
+			}
+			return true
+		})
+	if ok {
+		return false
+	}
+	ms.allows.trie.Ancestors(key.PrefixLength(), key,
+		func(_ uint, _ bitlpm.Key[types.Key], is IDSet) bool {
+
+			if _, exists := is.ids[identity.NumericIdentity(key.Identity)]; exists {
+				ok = true
+			}
+			return true
+		})
+	return ok
+}
+
+func TestEgressPortRangePrecedence(t *testing.T) {
+	td := newTestData()
+	identityCache := identity.IdentityMap{
+		identity.NumericIdentity(100): labelsA,
+	}
+	td.sc.UpdateIdentities(identityCache, nil, &sync.WaitGroup{})
+	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(100), labelsA)
+
+	type portRange struct {
+		startPort, endPort uint16
+		isAllow            bool
+	}
+	tests := []struct {
+		name       string
+		rules      []portRange
+		rangeTests []portRange
+	}{
+		{
+			name: "deny range (1-1024) covers port allow (80)",
+			rules: []portRange{
+				{80, 0, true},
+				{1, 1024, false},
+			},
+			rangeTests: []portRange{
+				{79, 81, false},
+				{1023, 1025, false},
+			},
+		},
+		{
+			name: "deny port (80) in broader allow range (1-1024)",
+			rules: []portRange{
+				{80, 0, false},
+				{1, 1024, true},
+			},
+			rangeTests: []portRange{
+				{1, 2, true},
+				{79, 0, true},
+				{80, 0, false},
+				{81, 0, true},
+				{1023, 1024, true},
+				{1025, 1026, false},
+			},
+		},
+		{
+			name: "wildcard deny (*) covers broad allow range (1-1024)",
+			rules: []portRange{
+				{0, 0, false},
+				{1, 1024, true},
+			},
+			rangeTests: []portRange{
+				{1, 2, false},
+				{1023, 1025, false},
+			},
+		},
+		{
+			name: "wildcard allow (*) has an deny range hole (1-1024)",
+			rules: []portRange{
+				{0, 0, true},
+				{1, 1024, false},
+			},
+			rangeTests: []portRange{
+				{1, 2, false},
+				{1023, 1024, false},
+				{1025, 1026, true},
+				{65534, 0, true},
+			},
+		},
+		{
+			name: "two allow ranges (80-90, 90-100) with overlapping deny (85-95)",
+			rules: []portRange{
+				{80, 90, true},
+				{85, 95, false},
+				{90, 100, true},
+			},
+			rangeTests: []portRange{
+				{79, 0, false},
+				{80, 84, true},
+				{85, 95, false},
+				{96, 100, true},
+				{101, 0, true},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tr := &rule{
+				Rule: api.Rule{
+					EndpointSelector: endpointSelectorA,
+				},
+			}
+			for _, rul := range tt.rules {
+				pp := api.PortProtocol{
+					Port:     fmt.Sprintf("%d", rul.startPort),
+					EndPort:  int32(rul.endPort),
+					Protocol: api.ProtoTCP,
+				}
+				if rul.isAllow {
+					tr.Rule.Egress = append(tr.Rule.Egress, api.EgressRule{
+						EgressCommonRule: api.EgressCommonRule{
+							ToEndpoints: []api.EndpointSelector{endpointSelectorA},
+						},
+						ToPorts: []api.PortRule{{
+							Ports: []api.PortProtocol{pp},
+						}},
+					})
+				} else {
+					tr.Rule.EgressDeny = append(tr.Rule.EgressDeny, api.EgressDenyRule{
+						EgressCommonRule: api.EgressCommonRule{
+							ToEndpoints: []api.EndpointSelector{endpointSelectorA},
+						},
+						ToPorts: []api.PortDenyRule{{
+							Ports: []api.PortProtocol{pp},
+						}},
+					})
+				}
+			}
+			buffer := new(bytes.Buffer)
+			ctxFromA := SearchContext{From: labelsA, Trace: TRACE_VERBOSE}
+			ctxFromA.Logging = stdlog.New(buffer, "", 0)
+			defer t.Log(buffer)
+
+			require.NoError(t, tr.Sanitize())
+			state := traceState{}
+			res, err := tr.resolveEgressPolicy(td.testPolicyContext, &ctxFromA, &state, NewL4PolicyMap(), nil, nil)
+			require.NoError(t, err)
+			require.NotNil(t, res)
+
+			repo := newPolicyDistillery(td.sc)
+			repo.MustAddList(api.Rules{&tr.Rule})
+			repo = repo.WithLogBuffer(buffer)
+			ms, err := repo.distillPolicy(DummyOwner{}, labelsA, identity)
+
+			require.NoError(t, err)
+			require.NotNil(t, ms)
+			mapStateP, ok := ms.(*mapState)
+			require.True(t, ok, "failed type coercion")
+
+			for _, rt := range tt.rangeTests {
+				for i := rt.startPort; i <= rt.endPort; i++ {
+					ctxFromA.DPorts = []*models.Port{{Port: i, Protocol: models.PortProtocolTCP}}
+					key := Key{
+						Identity:         identity.ID.Uint32(),
+						DestPort:         i,
+						Nexthdr:          uint8(u8proto.TCP),
+						TrafficDirection: trafficdirection.Egress.Uint8(),
+					}
+					if rt.isAllow {
+						// IngressCoversContext just checks the "From" labels of the search context.
+						require.Equalf(t, api.Allowed.String(), res.IngressCoversContext(&ctxFromA).String(), "Requesting port %d", i)
+
+						require.Truef(t, mapStateAllowsKey(mapStateP, key), "key (%v) not allowed", key)
+					} else {
+						// IngressCoversContext just checks the "From" labels of the search context.
+						require.Equalf(t, api.Denied.String(), res.IngressCoversContext(&ctxFromA).String(), "Requesting port %d", i)
+						require.Falsef(t, mapStateAllowsKey(mapStateP, key), "key (%v) allowed", key)
+
+					}
+				}
+			}
+
 		})
 	}
 }
