@@ -42,6 +42,7 @@ type VirtualHostMutator func(*envoy_config_route_v3.VirtualHost) *envoy_config_r
 //   - Exact Match length
 //   - Regex Match length
 //   - Prefix match length
+//   - Method match
 //   - Number of header matches
 //   - Number of query parameter matches
 //
@@ -81,6 +82,20 @@ func (s SortableRoute) Less(i, j int) bool {
 		return prefixMatch1 > prefixMatch2
 	}
 
+	// Next up, sort by method based on :method header
+	// Give higher priority for the route having method specified
+	method1 := getMethod(s[i].Match.GetHeaders())
+	method2 := getMethod(s[j].Match.GetHeaders())
+	if method1 == nil && method2 != nil {
+		return false
+	}
+	if method1 != nil && method2 == nil {
+		return true
+	}
+	if method1 != nil && *method1 != *method2 {
+		return *method1 < *method2
+	}
+
 	// If that's the same, then sort by header length
 	if headerMatch1 != headerMatch2 {
 		return headerMatch1 > headerMatch2
@@ -88,6 +103,15 @@ func (s SortableRoute) Less(i, j int) bool {
 
 	// lastly, sort by query match length
 	return queryMatch1 > queryMatch2
+}
+
+func getMethod(headers []*envoy_config_route_v3.HeaderMatcher) *string {
+	for _, h := range headers {
+		if h.Name == ":method" {
+			return model.AddressOf(h.GetStringMatch().GetExact())
+		}
+	}
+	return nil
 }
 
 func (s SortableRoute) Swap(i, j int) {

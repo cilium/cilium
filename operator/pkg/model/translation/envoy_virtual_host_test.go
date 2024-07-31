@@ -91,7 +91,6 @@ func TestSortableRoute(t *testing.T) {
 				},
 			},
 		},
-
 		{
 			Name: "regex match with two headers",
 			Match: &envoy_config_route_v3.RouteMatch{
@@ -124,7 +123,6 @@ func TestSortableRoute(t *testing.T) {
 				},
 			},
 		},
-
 		{
 			Name: "exact match short",
 			Match: &envoy_config_route_v3.RouteMatch{
@@ -138,6 +136,46 @@ func TestSortableRoute(t *testing.T) {
 			Match: &envoy_config_route_v3.RouteMatch{
 				PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
 					Path: "/exact/match/longest",
+				},
+			},
+		},
+		{
+			Name: "exact match long with POST method",
+			Match: &envoy_config_route_v3.RouteMatch{
+				PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
+					Path: "/exact/match/longest",
+				},
+				Headers: []*envoy_config_route_v3.HeaderMatcher{
+					{
+						Name: ":method",
+						HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+							StringMatch: &envoy_type_matcher_v3.StringMatcher{
+								MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+									Exact: "POST",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "exact match long with GET method",
+			Match: &envoy_config_route_v3.RouteMatch{
+				PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
+					Path: "/exact/match/longest",
+				},
+				Headers: []*envoy_config_route_v3.HeaderMatcher{
+					{
+						Name: ":method",
+						HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+							StringMatch: &envoy_type_matcher_v3.StringMatcher{
+								MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+									Exact: "GET",
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -224,6 +262,46 @@ func TestSortableRoute(t *testing.T) {
 			Match: &envoy_config_route_v3.RouteMatch{
 				PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
 					PathSeparatedPrefix: "/prefix/match",
+				},
+			},
+		},
+		{
+			Name: "prefix match short with HEAD method",
+			Match: &envoy_config_route_v3.RouteMatch{
+				PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+					PathSeparatedPrefix: "/prefix/match",
+				},
+				Headers: []*envoy_config_route_v3.HeaderMatcher{
+					{
+						Name: ":method",
+						HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+							StringMatch: &envoy_type_matcher_v3.StringMatcher{
+								MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+									Exact: "HEAD",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "prefix match short with GET method",
+			Match: &envoy_config_route_v3.RouteMatch{
+				PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+					PathSeparatedPrefix: "/prefix/match",
+				},
+				Headers: []*envoy_config_route_v3.HeaderMatcher{
+					{
+						Name: ":method",
+						HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+							StringMatch: &envoy_type_matcher_v3.StringMatcher{
+								MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+									Exact: "GET",
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -328,10 +406,14 @@ func TestSortableRoute(t *testing.T) {
 		"regex match with two headers",
 		"exact match short",
 		"exact match long",
+		"exact match long with POST method",
+		"exact match long with GET method",
 		"exact match with one header",
 		"exact match with one header and one query",
 		"exact match with two headers",
 		"prefix match short",
+		"prefix match short with HEAD method",
+		"prefix match short with GET method",
 		"prefix match long",
 		"prefix match with one header",
 		"prefix match with one header and one query",
@@ -342,6 +424,8 @@ func TestSortableRoute(t *testing.T) {
 
 	namesAfterSort := buildNameSlice(arr)
 	assert.Equal(t, []string{
+		"exact match long with GET method",
+		"exact match long with POST method",
 		"exact match long",
 		"exact match with two headers",
 		"exact match with one header and one query",
@@ -353,6 +437,8 @@ func TestSortableRoute(t *testing.T) {
 		"regex match with one header",
 		"regex match short",
 		"prefix match long",
+		"prefix match short with GET method",
+		"prefix match short with HEAD method",
 		"prefix match short",
 		"prefix match with two headers",
 		"prefix match with one header and one query",
