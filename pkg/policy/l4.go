@@ -1123,7 +1123,7 @@ type L4PolicyMap interface {
 	Upsert(port string, endPort uint16, protocol string, l4 *L4Filter)
 	Delete(port string, endPort uint16, protocol string)
 	ExactLookup(port string, endPort uint16, protocol string) *L4Filter
-	LongestPrefixMatch(port string, protocol string) *L4Filter
+	MatchesLabels(port, protocol string, labels labels.LabelArray) (match, isDeny bool)
 	Detach(selectorCache *SelectorCache)
 	IngressCoversContext(ctx *SearchContext) api.Decision
 	EgressCoversContext(ctx *SearchContext) api.Decision
@@ -1289,34 +1289,32 @@ func (l4M *l4PolicyMap) ExactLookup(port string, endPort uint16, protocol string
 	return nil
 }
 
-// LongestPrefixMatch looks up an L4Filter by protocol/port that contains the port and protocol
-// by longest prefix match. If a named port is passed, then a simple lookup in the named port
-// map is used, not a prefix match.
-func (l4M *l4PolicyMap) LongestPrefixMatch(port string, protocol string) *L4Filter {
+// MatchesLabels checks if a given port, protocol, and labels matches
+// any Rule in the L4PolicyMap.
+func (l4M *l4PolicyMap) MatchesLabels(port, protocol string, labels labels.LabelArray) (match, isDeny bool) {
 	if iana.IsSvcName(port) {
-		return l4M.namedPortMap[port+"/"+protocol]
+		l4 := l4M.namedPortMap[port+"/"+protocol]
+		if l4 != nil {
+			return l4.matchesLabels(labels)
+		}
+		return
 	}
+
 	portU, protoU := parsePortProtocol(port, protocol)
-	portProtoMap, ok := l4M.rangePortMap.LongestPrefixMatch(makePolicyMapKey(portU, 0xffff, protoU))
-	if !ok {
-		return nil
-	}
-	var (
-		shortestPortRange uint16 = 0xffff
-		lastL4            *L4Filter
-	)
-	// Use the smallest port range
-	for k, v := range portProtoMap {
-		// single port match
-		if k.endPort <= k.port {
-			return v
-		}
-		if shortestPortRange > (k.endPort - k.port) {
-			lastL4 = v
-			shortestPortRange = (k.endPort - k.port)
-		}
-	}
-	return lastL4
+	l4PortProtoKeys := make(map[portProtoKey]struct{})
+	l4M.rangePortMap.Ancestors(32, makePolicyMapKey(portU, 0xffff, protoU),
+		func(_ uint, _ uint32, portProtoMap map[portProtoKey]*L4Filter) bool {
+			for k, v := range portProtoMap {
+				if _, ok := l4PortProtoKeys[k]; !ok {
+					match, isDeny = v.matchesLabels(labels)
+					if isDeny {
+						return false
+					}
+				}
+			}
+			return true
+		})
+	return
 }
 
 // ForEach iterates over all L4Filters in the l4PolicyMap.
@@ -1493,36 +1491,16 @@ func (l4M *l4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*model
 			portStr = strconv.FormatUint(uint64(l4Ctx.Port), 10)
 		}
 		lwrProtocol := l4Ctx.Protocol
-		var isUDPDeny, isTCPDeny, isSCTPDeny bool
 		switch lwrProtocol {
 		case "", models.PortProtocolANY:
-			tcpFilter := l4M.LongestPrefixMatch(portStr, "TCP")
-			tcpmatch := tcpFilter != nil
-			if tcpmatch {
-				tcpmatch, isTCPDeny = tcpFilter.matchesLabels(labels)
-			}
-
-			udpFilter := l4M.LongestPrefixMatch(portStr, "UDP")
-			udpmatch := udpFilter != nil
-			if udpmatch {
-				udpmatch, isUDPDeny = udpFilter.matchesLabels(labels)
-			}
-
-			sctpFilter := l4M.LongestPrefixMatch(portStr, "SCTP")
-			sctpmatch := sctpFilter != nil
-			if sctpmatch {
-				sctpmatch, isSCTPDeny = sctpFilter.matchesLabels(labels)
-			}
-
+			tcpmatch, isTCPDeny := l4M.MatchesLabels(portStr, "TCP", labels)
+			udpmatch, isUDPDeny := l4M.MatchesLabels(portStr, "UDP", labels)
+			sctpmatch, isSCTPDeny := l4M.MatchesLabels(portStr, "SCTP", labels)
 			if (!tcpmatch && !udpmatch && !sctpmatch) || (isTCPDeny && isUDPDeny && isSCTPDeny) {
 				return api.Denied
 			}
 		default:
-			filter := l4M.LongestPrefixMatch(portStr, lwrProtocol)
-			if filter == nil {
-				return api.Denied
-			}
-			matches, isDeny := filter.matchesLabels(labels)
+			matches, isDeny := l4M.MatchesLabels(portStr, lwrProtocol, labels)
 			if !matches || isDeny {
 				return api.Denied
 			}
