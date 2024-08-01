@@ -224,20 +224,20 @@ kind-image-fast-agent: kind-ready build-cli build-agent ## Build cilium cli and 
 	$(eval dst:=/cilium-binaries)
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
 		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
-			docker exec -ti $${node_name} mkdir -p "${dst}"; \
+			docker exec $${node_name} mkdir -p "${dst}"; \
 			\
-			docker exec -ti $${node_name} rm -rf "${dst}/var/lib/cilium"; \
-			docker exec -ti $${node_name} mkdir -p "${dst}/var/lib/cilium"; \
+			docker exec $${node_name} rm -rf "${dst}/var/lib/cilium"; \
+			docker exec $${node_name} mkdir -p "${dst}/var/lib/cilium"; \
 			docker cp "./bpf/" $${node_name}:"${dst}/var/lib/cilium/bpf"; \
-			docker exec -ti $${node_name} find "${dst}/var/lib/cilium/bpf" -type f -exec chmod 0644 {} + ;\
+			docker exec $${node_name} find "${dst}/var/lib/cilium/bpf" -type f -exec chmod 0644 {} + ;\
 			\
-			docker exec -ti $${node_name} rm -f "${dst}/cilium-dbg"; \
+			docker exec $${node_name} rm -f "${dst}/cilium-dbg"; \
 			docker cp "./cilium-dbg/cilium-dbg" $${node_name}:"${dst}"; \
-			docker exec -ti $${node_name} chmod +x "${dst}/cilium-dbg"; \
+			docker exec $${node_name} chmod +x "${dst}/cilium-dbg"; \
 			\
-			docker exec -ti $${node_name} rm -f "${dst}/cilium-agent"; \
+			docker exec $${node_name} rm -f "${dst}/cilium-agent"; \
 			docker cp "./daemon/cilium-agent" $${node_name}:"${dst}"; \
-			docker exec -ti $${node_name} chmod +x "${dst}/cilium-agent"; \
+			docker exec $${node_name} chmod +x "${dst}/cilium-agent"; \
 		done; \
 		kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=cilium --force; \
 	done
@@ -247,11 +247,11 @@ kind-image-fast-operator: kind-ready build-operator ## Build cilium operator bin
 	$(eval dst:=/cilium-binaries)
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
 		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
-			docker exec -ti $${node_name} mkdir -p "${dst}"; \
+			docker exec $${node_name} mkdir -p "${dst}"; \
 			\
-			docker exec -ti $${node_name} rm -f "${dst}/cilium-operator-generic"; \
+			docker exec $${node_name} rm -f "${dst}/cilium-operator-generic"; \
 			docker cp "./operator/cilium-operator-generic" $${node_name}:"${dst}"; \
-			docker exec -ti $${node_name} chmod +x "${dst}/cilium-operator-generic"; \
+			docker exec $${node_name} chmod +x "${dst}/cilium-operator-generic"; \
 		done; \
 	kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l name=cilium-operator --force; \
 	done
@@ -261,11 +261,11 @@ kind-image-fast-clustermesh-apiserver: kind-ready build-clustermesh-apiserver ##
 	$(eval dst:=/cilium-binaries)
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
 		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
-			docker exec -ti $${node_name} mkdir -p "${dst}"; \
+			docker exec $${node_name} mkdir -p "${dst}"; \
 			\
-			docker exec -ti $${node_name} rm -f "${dst}/clustermesh-apiserver"; \
+			docker exec $${node_name} rm -f "${dst}/clustermesh-apiserver"; \
 			docker cp "./clustermesh-apiserver/clustermesh-apiserver" $${node_name}:"${dst}"; \
-			docker exec -ti $${node_name} chmod +x "${dst}/clustermesh-apiserver"; \
+			docker exec $${node_name} chmod +x "${dst}/clustermesh-apiserver"; \
 		done; \
 	kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=clustermesh-apiserver --force; \
 	done
