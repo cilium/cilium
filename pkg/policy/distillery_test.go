@@ -1399,7 +1399,7 @@ var (
 
 	worldIPIdentity = localIdentity(16324)
 	worldCIDR       = api.CIDR("192.0.2.3/32")
-	lblWorldIP      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, worldCIDR))
+	lblWorldIP      = labels.GetCIDRLabels(netip.MustParsePrefix(string(worldCIDR)))
 
 	worldIPIdentity2         = localIdentity(16326)
 	worldCIDR2               = api.CIDR("192.0.2.4/32")
@@ -1541,6 +1541,13 @@ var (
 	mapKeyL3L4Port8080ProtoSCTPWorldSNIngress = Key{worldSubnetIdentity.Uint32(), 8080, 132, trafficdirection.Ingress.Uint8()}
 	mapKeyL3L4Port8080ProtoSCTPWorldSNEgress  = Key{worldSubnetIdentity.Uint32(), 8080, 132, trafficdirection.Egress.Uint8()}
 
+	mapKeyL3L4Port8080ProtoTCPWorldIPIngress  = Key{worldIPIdentity.Uint32(), 8080, 6, trafficdirection.Ingress.Uint8()}
+	mapKeyL3L4Port8080ProtoTCPWorldIPEgress   = Key{worldIPIdentity.Uint32(), 8080, 6, trafficdirection.Egress.Uint8()}
+	mapKeyL3L4Port8080ProtoUDPWorldIPIngress  = Key{worldIPIdentity.Uint32(), 8080, 17, trafficdirection.Ingress.Uint8()}
+	mapKeyL3L4Port8080ProtoUDPWorldIPEgress   = Key{worldIPIdentity.Uint32(), 8080, 17, trafficdirection.Egress.Uint8()}
+	mapKeyL3L4Port8080ProtoSCTPWorldIPIngress = Key{worldIPIdentity.Uint32(), 8080, 132, trafficdirection.Ingress.Uint8()}
+	mapKeyL3L4Port8080ProtoSCTPWorldIPEgress  = Key{worldIPIdentity.Uint32(), 8080, 132, trafficdirection.Egress.Uint8()}
+
 	ruleL3AllowWorldSubnet = api.NewRule().WithIngressRules([]api.IngressRule{{
 		ToPorts: api.PortRules{
 			api.PortRule{
@@ -1624,7 +1631,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 		return cache.IdentityCache{
 			identity.NumericIdentity(identityFoo): labelsFoo,
 			identity.ReservedIdentityWorld:        labels.LabelWorld.LabelArray(),
-			worldIPIdentity:                       lblWorldIP,                  // "192.0.2.3/32"
+			worldIPIdentity:                       lblWorldIP.LabelArray(),     // "192.0.2.3/32"
 			worldSubnetIdentity:                   lblWorldSubnet.LabelArray(), // "192.0.2.0/24"
 		}
 	}
@@ -1667,14 +1674,24 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 		result   MapState
 	}{
 		{"deny_world_no_labels", api.Rules{ruleL3DenyWorld, ruleL3AllowWorldIP}, defaultIDs, newMapState(map[Key]MapStateEntry{
-			mapKeyL3WorldIngress: mapEntryDeny,
-			mapKeyL3WorldEgress:  mapEntryDeny,
+			mapKeyL3WorldIngress:         mapEntryDeny,
+			mapKeyL3WorldEgress:          mapEntryDeny,
+			mapKeyL3SubnetIngress:        mapEntryDeny,
+			mapKeyL3SubnetEgress:         mapEntryDeny,
+			mapKeyL3SmallerSubnetIngress: mapEntryDeny,
+			mapKeyL3SmallerSubnetEgress:  mapEntryDeny,
 		})}, {"deny_world_with_labels", api.Rules{ruleL3DenyWorldWithLabels, ruleL3AllowWorldIP}, defaultIDs, newMapState(map[Key]MapStateEntry{
-			mapKeyL3WorldIngress: mapEntryWorldDenyWithLabels,
-			mapKeyL3WorldEgress:  mapEntryWorldDenyWithLabels,
+			mapKeyL3WorldIngress:         mapEntryWorldDenyWithLabels,
+			mapKeyL3WorldEgress:          mapEntryWorldDenyWithLabels,
+			mapKeyL3SubnetIngress:        mapEntryDeny,
+			mapKeyL3SubnetEgress:         mapEntryDeny,
+			mapKeyL3SmallerSubnetIngress: mapEntryDeny,
+			mapKeyL3SmallerSubnetEgress:  mapEntryDeny,
 		})}, {"deny_one_ip_with_a_larger_subnet", api.Rules{ruleL3DenySubnet, ruleL3AllowWorldIP}, defaultIDs, newMapState(map[Key]MapStateEntry{
-			mapKeyL3SubnetIngress: mapEntryDeny,
-			mapKeyL3SubnetEgress:  mapEntryDeny,
+			mapKeyL3SubnetIngress:        mapEntryDeny,
+			mapKeyL3SubnetEgress:         mapEntryDeny,
+			mapKeyL3SmallerSubnetIngress: mapEntryDeny,
+			mapKeyL3SmallerSubnetEgress:  mapEntryDeny,
 		})}, {"deny_part_of_a_subnet_with_an_ip", api.Rules{ruleL3DenySmallerSubnet, ruleL3AllowLargerSubnet}, defaultIDs, newMapState(map[Key]MapStateEntry{
 			mapKeyL3SmallerSubnetIngress: mapEntryDeny,
 			mapKeyL3SmallerSubnetEgress:  mapEntryDeny,
@@ -1710,6 +1727,12 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyL3L4Port8080ProtoUDPWorldSNEgress:   mapEntryDeny,
 			mapKeyL3L4Port8080ProtoSCTPWorldSNIngress: mapEntryDeny,
 			mapKeyL3L4Port8080ProtoSCTPWorldSNEgress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldIPIngress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoTCPWorldIPEgress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIPIngress:  mapEntryDeny,
+			mapKeyL3L4Port8080ProtoUDPWorldIPEgress:   mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIPIngress: mapEntryDeny,
+			mapKeyL3L4Port8080ProtoSCTPWorldIPEgress:  mapEntryDeny,
 			mapKeyL3SmallerSubnetIngress:              mapEntryAllow,
 			mapKeyL3SmallerSubnetEgress:               mapEntryAllow,
 		})}, {"broad_allow_is_a_portproto_subset_of_a_specific_deny", api.Rules{ruleL3AllowWorldSubnet, ruleL3DenyWorldIP}, defaultIDs, newMapState(map[Key]MapStateEntry{
