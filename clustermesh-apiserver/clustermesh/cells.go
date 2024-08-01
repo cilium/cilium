@@ -50,7 +50,7 @@ var Cell = cell.Module(
 	k8sClient.Cell,
 	cmk8s.ResourcesCell,
 
-	kvstore.Cell(kvstore.EtcdBackendName),
+	kvstore.Cell,
 	cell.Provide(func(ss syncstate.SyncState) *kvstore.ExtraOptions {
 		return &kvstore.ExtraOptions{
 			BootstrapComplete: ss.WaitChannel(),
