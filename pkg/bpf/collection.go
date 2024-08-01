@@ -333,14 +333,18 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts *CollectionOptions) (*ebpf.C
 		return nil, nil, err
 	}
 
+	// Collect Maps that need their bpffs pins replaced. Pull out Map objects
+	// before returning the Collection, since commit() still needs to work when
+	// the Map is removed from the Collection, e.g. by [ebpf.Collection.Assign].
+	pins, err := mapsToReplace(toReplace, spec, coll, opts.CollectionOptions)
+	if err != nil {
+		return nil, nil, fmt.Errorf("collecting map pins to replace: %w", err)
+	}
+
 	// Load successful, return a function that must be invoked after attaching the
 	// Collection's entrypoint programs to their respective hooks.
 	commit := func() error {
-		// Commit maps that need their bpffs pins replaced.
-		if err := commitMapPins(toReplace, spec, coll, opts.CollectionOptions); err != nil {
-			return fmt.Errorf("replacing map pins on bpffs: %w", err)
-		}
-		return nil
+		return commitMapPins(pins)
 	}
 	return coll, commit, nil
 }

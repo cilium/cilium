@@ -8,7 +8,8 @@ TESTDATA_DIR := $(ROOT_DIR)/pkg/bpf/testdata
 UIDGID := $(shell stat -c '%u:%g' ${ROOT_DIR})
 
 TARGETS := \
-	unreachable-tailcall
+	unreachable-tailcall \
+	upgrade-map
 
 .PHONY: docker build clean
 
