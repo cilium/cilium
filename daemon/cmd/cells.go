@@ -81,10 +81,7 @@ var (
 
 		// Register the pprof HTTP handlers, to get runtime profiling data.
 		pprof.Cell,
-		cell.Config(pprof.Config{
-			PprofAddress: option.PprofAddressAgent,
-			PprofPort:    option.PprofPortAgent,
-		}),
+		cell.Config(pprofConfig),
 
 		// Runs the gops agent, a tool to diagnose Go processes.
 		gops.Cell(defaults.GopsPortAgent),
@@ -312,4 +309,10 @@ func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, db *statedb.
 	mux.Handle("/", s.GetHandler())
 	mux.Handle("/statedb/", http.StripPrefix("/statedb", db.HTTPHandler()))
 	s.SetHandler(mux)
+}
+
+var pprofConfig = pprof.Config{
+	Pprof:        false,
+	PprofAddress: option.PprofAddressAgent,
+	PprofPort:    option.PprofPortAgent,
 }

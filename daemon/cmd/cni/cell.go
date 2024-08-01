@@ -56,8 +56,13 @@ type CNIConfigManager interface {
 }
 
 var defaultConfig = Config{
-	CNIChainingMode: "none",
-	CNILogFile:      "/var/run/cilium/cilium-cni.log",
+	WriteCNIConfWhenReady: "",
+	ReadCNIConf:           "",
+	CNIChainingMode:       "none",
+	CNILogFile:            "/var/run/cilium/cilium-cni.log",
+	CNIExclusive:          false,
+	CNIChainingTarget:     "",
+	CNIExternalRouting:    false,
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
