@@ -18,7 +18,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(func(epMgr endpointmanager.EndpointManager) localEndpointCache {
 		return epMgr
 	}),
-	cell.Config(Config{}),
+	cell.Config(defaultConfig),
 )
 
 type Config struct {
@@ -29,6 +29,10 @@ type Config struct {
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.Bool("enable-stale-cilium-endpoint-cleanup", true, "Enable running cleanup init procedure of local CiliumEndpoints which are not being managed.")
+	flags.Bool("enable-stale-cilium-endpoint-cleanup", def.EnableStaleCiliumEndpointCleanup, "Enable running cleanup init procedure of local CiliumEndpoints which are not being managed.")
 	flags.MarkHidden("enable-stale-cilium-endpoint-cleanup")
+}
+
+var defaultConfig = Config{
+	EnableStaleCiliumEndpointCleanup: true,
 }
