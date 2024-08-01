@@ -30,10 +30,7 @@ var Cell = cell.Module(
 	cell.Invoke(registerClusterInfoValidator),
 
 	pprof.Cell,
-	cell.Config(pprof.Config{
-		PprofAddress: option.PprofAddress,
-		PprofPort:    option.PprofPortKVStoreMesh,
-	}),
+	cell.Config(pprofConfig),
 	controller.Cell,
 
 	gops.Cell(defaults.GopsPortKVStoreMesh),
@@ -56,3 +53,9 @@ var Cell = cell.Module(
 
 	cell.Invoke(func(*kvstoremesh.KVStoreMesh) {}),
 )
+
+var pprofConfig = pprof.Config{
+	Pprof:        false,
+	PprofAddress: option.PprofAddress,
+	PprofPort:    option.PprofPortKVStoreMesh,
+}

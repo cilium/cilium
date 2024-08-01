@@ -20,7 +20,7 @@ var Cell = cell.Module(
 		newAPIClustersHandler,
 	),
 
-	cell.Config(common.Config{}),
+	cell.Config(common.DefaultConfig),
 	store.Cell,
 
 	metrics.Metric(common.MetricsProvider("")),
