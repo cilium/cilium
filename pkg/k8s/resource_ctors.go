@@ -48,6 +48,7 @@ type Config struct {
 // DefaultConfig represents the default k8s resources config values.
 var DefaultConfig = Config{
 	EnableK8sEndpointSlice: true,
+	K8sServiceProxyName:    "",
 }
 
 const (
