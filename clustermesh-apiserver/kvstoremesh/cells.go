@@ -44,7 +44,7 @@ var Cell = cell.Module(
 
 	APIServerCell,
 
-	kvstore.Cell(kvstore.EtcdBackendName),
+	kvstore.Cell,
 	cell.Provide(func(ss syncstate.SyncState) *kvstore.ExtraOptions {
 		return &kvstore.ExtraOptions{
 			BootstrapComplete: ss.WaitChannel(),
