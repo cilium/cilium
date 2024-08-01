@@ -33,6 +33,8 @@ func TestSingleDynamicRateLimit(t *testing.T) {
 	p := params{
 		Logger: log,
 		Cfg: Config{
+			CESMaxCEPsInCES:           100,
+			CESSlicingMode:            identityMode,
 			CESDynamicRateLimitConfig: "[{\"nodes\": 5, \"limit\": 15.0, \"burst\": 30}]",
 		},
 	}
@@ -69,6 +71,8 @@ func TestMultipleUnsortedDynamicRateLimit(t *testing.T) {
 	p := params{
 		Logger: log,
 		Cfg: Config{
+			CESMaxCEPsInCES:           100,
+			CESSlicingMode:            identityMode,
 			CESDynamicRateLimitConfig: string(rlJson),
 		},
 	}
