@@ -351,10 +351,10 @@ data:
 
 
 
-{{- if .Values.bpf.events.default.rateLimit }}
-  bpf-events-default-rate-limit: {{ .Values.bpf.events.default.rateLimit | quote }}
+{{- if (((.Values.bpf).events).default).rateLimit }}
+  bpf-events-default-rate-limit: {{ (((.Values.bpf).events).default).rateLimit | quote }}
 {{- end }}
-{{- if .Values.bpf.events.default.burstLimit }}
+{{- if (((.Values.bpf).events).default).burstLimit }}
   bpf-events-default-burst-limit: {{ .Values.bpf.events.default.burstLimit | quote }}
 {{- end}}
 
@@ -1053,7 +1053,7 @@ data:
   enable-node-ipam: "true"
 {{- end }}
 
-{{- if .Values.LBIPAM.requireLBClass }}
+{{- if (.Values.LBIPAM).requireLBClass }}
   lbipam-require-lb-class: "true"
 {{- end }}
 
@@ -1193,17 +1193,17 @@ data:
   annotate-k8s-node: "true"
 {{- end }}
 
-{{- with .Values.k8sClientRateLimit.qps }}
+{{- with (.Values.k8sClientRateLimit).qps }}
   k8s-client-qps: {{ . | quote }}
 {{- end }}
-{{- with .Values.k8sClientRateLimit.burst }}
+{{- with (.Values.k8sClientRateLimit).burst }}
   k8s-client-burst: {{ . | quote }}
 {{- end }}
 
-{{- with .Values.k8sClientRateLimit.operator.qps }}
+{{- with ((.Values.k8sClientRateLimit).operator).qps }}
   operator-k8s-client-qps: {{ .| quote }}
 {{- end }}
-{{- with .Values.k8sClientRateLimit.operator.burst }}
+{{- with ((.Values.k8sClientRateLimit).operator).burst }}
   operator-k8s-client-burst: {{ .| quote }}
 {{- end }}
 
@@ -1315,8 +1315,8 @@ data:
   clustermesh-enable-endpoint-sync: {{ .Values.clustermesh.enableEndpointSliceSynchronization | quote }}
   clustermesh-enable-mcs-api: {{ .Values.clustermesh.enableMCSAPISupport | quote }}
 
-  nat-map-stats-entries: {{ .Values.nat.mapStatsEntries | quote }}
-  nat-map-stats-interval: {{ .Values.nat.mapStatsInterval | quote }}
+  nat-map-stats-entries: {{ (.Values.nat).mapStatsEntries | quote }}
+  nat-map-stats-interval: {{ (.Values.nat).mapStatsInterval | quote }}
 
 # Extra config allows adding arbitrary properties to the cilium config.
 # By putting it at the end of the ConfigMap, it's also possible to override existing properties.
