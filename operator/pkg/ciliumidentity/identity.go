@@ -25,6 +25,10 @@ func (c CIDItem) Key() resource.Key {
 func (c CIDItem) Reconcile(reconciler *reconciler) error {
 	return reconciler.reconcileCID(c.key)
 }
+func (c CIDItem) Meter(enqueuedLatency float64, processingLatency float64, isErr bool, metrics *Metrics) {
+	metrics.meterLatency(LabelValueCID, enqueuedLatency, processingLatency)
+	metrics.markEvent(LabelValueCID, isErr)
+}
 
 func (c *Controller) processCiliumIdentityEvents(ctx context.Context) error {
 	for event := range c.ciliumIdentity.Events(ctx) {
