@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/job"
+	prometheustestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/k8s"
@@ -23,6 +24,7 @@ import (
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -31,7 +33,7 @@ const (
 )
 
 func TestRegisterControllerWithOperatorManagingCIDs(t *testing.T) {
-	cidResource, cesResource, fakeClient, h := initHiveTest(true)
+	cidResource, cesResource, fakeClient, m, h := initHiveTest(true)
 
 	ctx := context.Background()
 	tlog := hivetest.Logger(t)
@@ -53,13 +55,21 @@ func TestRegisterControllerWithOperatorManagingCIDs(t *testing.T) {
 		t.Errorf("Failed to verify CID usage in CES, got %v", err)
 	}
 
+	if count := prometheustestutil.CollectAndCount(m.EventCount); count < 1 {
+		t.Errorf("Expected at least one element in EventCount, but got %d", count)
+	}
+
+	if count := prometheustestutil.CollectAndCount(m.QueueLatency); count < 1 {
+		t.Errorf("Expected at least one element in QueueLatency, but got %d", count)
+	}
+
 	if err := h.Stop(tlog, ctx); err != nil {
 		t.Fatalf("stopping hive encountered an error: %v", err)
 	}
 }
 
 func TestRegisterController(t *testing.T) {
-	cidResource, _, fakeClient, h := initHiveTest(false)
+	cidResource, _, fakeClient, m, h := initHiveTest(false)
 
 	ctx := context.Background()
 	tlog := hivetest.Logger(t)
@@ -76,18 +86,29 @@ func TestRegisterController(t *testing.T) {
 		t.Errorf("Expected no CIDs to be present in the store, but found %d", len(cidStore.List()))
 	}
 
+	if count := prometheustestutil.CollectAndCount(m.EventCount); count != 0 {
+		t.Errorf("Expected no elements in EventCount, but found %d", count)
+	}
+
+	if count := prometheustestutil.CollectAndCount(m.QueueLatency); count != 0 {
+		t.Errorf("Expected no elements in QueueLatency, but found %d", count)
+	}
+
 	if err := h.Stop(tlog, ctx); err != nil {
 		t.Fatalf("stopping hive encountered an error: %v", err)
 	}
 }
 
-func initHiveTest(operatorManagingCID bool) (*resource.Resource[*capi_v2.CiliumIdentity], *resource.Resource[*capi_v2a1.CiliumEndpointSlice], *k8sClient.FakeClientset, *hive.Hive) {
+func initHiveTest(operatorManagingCID bool) (*resource.Resource[*capi_v2.CiliumIdentity], *resource.Resource[*capi_v2a1.CiliumEndpointSlice], *k8sClient.FakeClientset, *Metrics, *hive.Hive) {
 	var cidResource resource.Resource[*capi_v2.CiliumIdentity]
 	var cesResource resource.Resource[*capi_v2a1.CiliumEndpointSlice]
 	var fakeClient k8sClient.FakeClientset
+	var cidMetrics Metrics
+
 	h := hive.New(
 		k8sClient.FakeClientCell,
 		k8s.ResourcesCell,
+		metrics.Metric(NewMetrics),
 		cell.Provide(func() SharedConfig {
 			return SharedConfig{
 				EnableOperatorManageCIDs:  operatorManagingCID,
@@ -108,14 +129,16 @@ func initHiveTest(operatorManagingCID bool) (*resource.Resource[*capi_v2.CiliumI
 			c *k8sClient.FakeClientset,
 			cid resource.Resource[*capi_v2.CiliumIdentity],
 			ces resource.Resource[*capi_v2a1.CiliumEndpointSlice],
+			m *Metrics,
 		) error {
 			fakeClient = *c
 			cidResource = cid
 			cesResource = ces
+			cidMetrics = *m
 			return nil
 		}),
 	)
-	return &cidResource, &cesResource, &fakeClient, h
+	return &cidResource, &cesResource, &fakeClient, &cidMetrics, h
 }
 
 func createNsAndPod(ctx context.Context, fakeClient *k8sClient.FakeClientset) error {

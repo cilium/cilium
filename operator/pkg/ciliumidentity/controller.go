@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/job"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/clock"
 
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -36,6 +37,7 @@ const (
 type QueuedItem interface {
 	Key() resource.Key
 	Reconcile(reconciler *reconciler) error
+	Meter(enqueuedLatency float64, processingLatency float64, isErr bool, metrics *Metrics)
 }
 type queueOperation interface {
 	enqueueReconciliation(item QueuedItem, delay time.Duration)
@@ -49,6 +51,7 @@ type params struct {
 	Clientset           k8sClient.Clientset
 	SharedCfg           SharedConfig
 	JobGroup            job.Group
+	Metrics             *Metrics
 	Namespace           resource.Resource[*slim_corev1.Namespace]
 	Pod                 resource.Resource[*slim_corev1.Pod]
 	CiliumIdentity      resource.Resource[*cilium_api_v2.CiliumIdentity]
@@ -63,6 +66,7 @@ type Controller struct {
 	clientset           k8sClient.Clientset
 	reconciler          *reconciler
 	jobGroup            job.Group
+	metrics             *Metrics
 	namespace           resource.Resource[*slim_corev1.Namespace]
 	pod                 resource.Resource[*slim_corev1.Pod]
 	ciliumIdentity      resource.Resource[*cilium_api_v2.CiliumIdentity]
@@ -80,6 +84,8 @@ type Controller struct {
 	// oldNSSecurityLabels is a map between namespace, and it's security labels.
 	// It's used to track previous state of labels, to detect when labels changed.
 	oldNSSecurityLabels map[string]labels.Labels
+
+	enqueueTimeTracker *EnqueueTimeTracker
 }
 
 func registerController(p params) {
@@ -93,11 +99,13 @@ func registerController(p params) {
 		namespace:           p.Namespace,
 		pod:                 p.Pod,
 		jobGroup:            p.JobGroup,
+		metrics:             p.Metrics,
 		ciliumIdentity:      p.CiliumIdentity,
 		ciliumEndpoint:      p.CiliumEndpoint,
 		ciliumEndpointSlice: p.CiliumEndpointSlice,
 		oldNSSecurityLabels: make(map[string]labels.Labels),
 		cesEnabled:          p.SharedCfg.EnableCiliumEndpointSlice,
+		enqueueTimeTracker:  &EnqueueTimeTracker{clock: clock.RealClock{}, enqueuedAt: make(map[string]time.Time)},
 	}
 
 	cidController.initializeQueues()
@@ -221,6 +229,7 @@ func (c *Controller) runResourceWorker(context context.Context) error {
 }
 
 func (c *Controller) enqueueReconciliation(item QueuedItem, delay time.Duration) {
+	c.enqueueTimeTracker.Track(item.Key().String())
 	c.resourceQueue.AddAfter(item, delay)
 }
 
@@ -230,9 +239,11 @@ func (c *Controller) processNextItem() bool {
 		return false
 	}
 	defer c.resourceQueue.Done(item)
+	processingStartTime := time.Now()
 
 	qItem := item.(QueuedItem)
-	if err := qItem.Reconcile(c.reconciler); err != nil {
+	err := qItem.Reconcile(c.reconciler)
+	if err != nil {
 		retries := c.resourceQueue.NumRequeues(item)
 		c.logger.Warn("Failed to process resource item", logfields.Key, qItem.Key().String(), "retries", retries, "maxRetries", maxProcessRetries, logfields.Error, err)
 
@@ -243,6 +254,15 @@ func (c *Controller) processNextItem() bool {
 
 		// Drop the pod from queue, exceeded max retries
 		c.logger.Error("Dropping item from resource queue, exceeded maxRetries", logfields.Key, qItem.Key().String(), "maxRetries", maxProcessRetries, logfields.Error, err)
+	}
+
+	enqueueTime, exists := c.enqueueTimeTracker.GetAndReset(qItem.Key().String())
+	if exists {
+		enqueuedLatency := processingStartTime.Sub(enqueueTime).Seconds()
+		processingLatency := time.Since(processingStartTime).Seconds()
+		qItem.Meter(enqueuedLatency, processingLatency, err != nil, c.metrics)
+	} else {
+		c.logger.Warn("Enqueue time not found for queue item", logfields.Key, qItem.Key().String())
 	}
 
 	c.resourceQueue.Forget(item)

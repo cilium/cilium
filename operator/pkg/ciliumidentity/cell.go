@@ -5,6 +5,8 @@ package ciliumidentity
 
 import (
 	"github.com/cilium/hive/cell"
+
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 // Cell implements the CID Controller. It subscribes to CID, CES, Pods
@@ -13,6 +15,7 @@ var Cell = cell.Module(
 	"k8s-cid-controller",
 	"Cilium Identity Controller Operator",
 	cell.Invoke(registerController),
+	metrics.Metric(NewMetrics),
 )
 
 // SharedConfig contains the configuration that is shared between
