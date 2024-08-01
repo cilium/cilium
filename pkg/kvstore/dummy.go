@@ -7,8 +7,15 @@ import (
 	"context"
 	"testing"
 
+	client "go.etcd.io/etcd/client/v3"
+
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/time"
+)
+
+var (
+	// etcdDummyAddress can be overwritten from test invokers using ldflags
+	etcdDummyAddress = "http://127.0.0.1:4002"
 )
 
 // SetupDummy sets up kvstore for tests. A lock mechanism it used to prevent
@@ -84,4 +91,13 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 			tb.Fatal("Timed out waiting to acquire the kvstore lock")
 		}
 	}
+}
+
+func EtcdDummyAddress() string {
+	return etcdDummyAddress
+}
+
+func (e *etcdModule) setConfigDummy() {
+	e.config = &client.Config{}
+	e.config.Endpoints = []string{etcdDummyAddress}
 }
