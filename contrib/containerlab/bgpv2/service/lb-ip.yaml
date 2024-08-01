@@ -38,6 +38,9 @@ metadata:
     bgp: blue
 spec:
   type: LoadBalancer
+  ipFamilyPolicy: PreferDualStack
+  selector:
+    app: curl-blue
   ports:
     - port: 1234
   externalTrafficPolicy: Local
@@ -52,5 +55,8 @@ metadata:
     bgp: red
 spec:
   type: LoadBalancer
+  ipFamilyPolicy: PreferDualStack
+  selector:
+    app: curl-red
   ports:
     - port: 1236

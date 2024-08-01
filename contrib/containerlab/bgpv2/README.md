@@ -19,6 +19,4 @@ Each lab contains a 'Makefile' which can be used to deploy, destroy or reload la
 - make destroy
 - make reload
 
-Version of Cilium in these labs is pinned to commit 8c97a2119d, since BGPv2 feature is not yet available in official release.
-It can be overridden by VERSION environment variable. 
-
+Version of Cilium in these labs is pinned to v1.16.0. It can be overridden by VERSION environment variable.
