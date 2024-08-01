@@ -9,11 +9,11 @@ ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:9f1bfe736009afb1fbb562718bbc42e
 ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:0db3a73729ceb42e947d826bb96a655be79e5317@sha256:de23c9546c4eafab33f75d6f5d129947bbbafc132dbd113c0cecc9a61929e6b0
 ARG CILIUM_IPTABLES_IMAGE=quay.io/cilium/iptables:67f517af50e18f64cd12625021f1c39246bb4f92@sha256:d075f03e89aacf51908346ec8ed5d251b8d3ad528ce30a710fcd074cdf91f11d
 
-FROM ${CILIUM_LLVM_IMAGE} as llvm-dist
-FROM ${CILIUM_BPFTOOL_IMAGE} as bpftool-dist
-FROM ${CILIUM_IPTABLES_IMAGE} as iptables-dist
+FROM ${CILIUM_LLVM_IMAGE} AS llvm-dist
+FROM ${CILIUM_BPFTOOL_IMAGE} AS bpftool-dist
+FROM ${CILIUM_IPTABLES_IMAGE} AS iptables-dist
 
-FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} as gops-cni-builder
+FROM --platform=${BUILDPLATFORM} ${GOLANG_IMAGE} AS gops-cni-builder
 
 RUN apt-get update && apt-get install -y binutils-aarch64-linux-gnu binutils-x86-64-linux-gnu
 
@@ -25,7 +25,7 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/r
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
     ./download-cni.sh
 
-FROM ${UBUNTU_IMAGE} as rootfs
+FROM ${UBUNTU_IMAGE} AS rootfs
 
 # Change the number to force the generation of a new git-tree SHA. Useful when
 # we want to re-run 'apt-get upgrade' for stale images.
@@ -53,7 +53,7 @@ ARG TARGETPLATFORM
 COPY --from=gops-cni-builder /out/${TARGETPLATFORM}/bin/loopback /cni/loopback
 COPY --from=gops-cni-builder /out/${TARGETPLATFORM}/bin/gops /bin/gops
 
-FROM ${TESTER_IMAGE} as test
+FROM ${TESTER_IMAGE} AS test
 COPY --from=rootfs / /
 COPY --from=llvm-dist /test /test
 COPY --from=bpftool-dist /test /test
