@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -133,6 +134,8 @@ func TestInlineGlobalData(t *testing.T) {
 }
 
 func TestRemoveUnreachableTailcalls(t *testing.T) {
+	// Use upstream LoadCollectionSpec to defer the call to
+	// removeUnreachableTailcalls.
 	spec, err := ebpf.LoadCollectionSpec("testdata/unreachable-tailcall.o")
 	if err != nil {
 		t.Fatal(err)
@@ -155,4 +158,43 @@ func TestRemoveUnreachableTailcalls(t *testing.T) {
 	assert.Contains(t, spec.Programs, "c")
 	assert.NotContains(t, spec.Programs, "d")
 	assert.NotContains(t, spec.Programs, "e")
+}
+
+func TestUpgradeMap(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	temp := testutils.TempBPFFS(t)
+
+	// Pin a dummy map in order to test upgrading it.
+	_, err := ebpf.NewMapWithOptions(&ebpf.MapSpec{
+		Name:       "upgraded_map",
+		Type:       ebpf.Array,
+		KeySize:    4,
+		ValueSize:  4,
+		MaxEntries: 1,
+		Pinning:    ebpf.PinByName,
+	}, ebpf.MapOptions{PinPath: temp})
+	require.NoError(t, err)
+
+	spec, err := LoadCollectionSpec("testdata/upgrade-map.o")
+	require.NoError(t, err)
+
+	// Use LoadAndAssign to make sure commit works through map upgrades. This is a
+	// regression test, as [ebpf.Collection.Assign] deletes Map objects from the
+	// Collection when successful, causing commit() to fail afterwards if it uses
+	// stringly references to Collection.Maps entries.
+	obj := struct {
+		UpgradedMap *ebpf.Map `ebpf:"upgraded_map"`
+	}{}
+	commit, err := LoadAndAssign(&obj, spec, &CollectionOptions{
+		CollectionOptions: ebpf.CollectionOptions{
+			Maps: ebpf.MapOptions{PinPath: temp},
+		},
+	})
+	require.NoError(t, err)
+	require.NoError(t, commit())
+
+	// Check if the map was upgraded correctly.
+	assert.True(t, obj.UpgradedMap.IsPinned())
+	assert.EqualValues(t, 10, obj.UpgradedMap.MaxEntries())
 }
