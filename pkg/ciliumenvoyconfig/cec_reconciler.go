@@ -83,6 +83,7 @@ func (r *ciliumEnvoyConfigReconciler) handleCECEvent(ctx context.Context, event 
 		r.cecSynced.Store(true)
 	case resource.Upsert:
 		scopedLogger.Debug("Received CiliumEnvoyConfig upsert event")
+		//exhaustruct:ignore // CEC config does not need to be fully specified
 		err = r.configUpserted(ctx, event.Key, &config{meta: event.Object.ObjectMeta, spec: &event.Object.Spec})
 		if err != nil {
 			scopedLogger.WithError(err).Info("Failed to handle CEC upsert, Hive will retry")
@@ -115,6 +116,7 @@ func (r *ciliumEnvoyConfigReconciler) handleCCECEvent(ctx context.Context, event
 		r.ccecSynced.Store(true)
 	case resource.Upsert:
 		scopedLogger.Debug("Received CiliumClusterwideEnvoyConfig upsert event")
+		//exhaustruct:ignore // CEC config does not need to be fully specified
 		err = r.configUpserted(ctx, event.Key, &config{meta: event.Object.ObjectMeta, spec: &event.Object.Spec})
 		if err != nil {
 			scopedLogger.WithError(err).Info("Failed to handle CCEC upsert, Hive will retry")

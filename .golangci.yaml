@@ -50,6 +50,19 @@ linters-settings:
         deny:
           - pkg: "math/rand$"
             desc: "Use math/rand/v2 instead"
+  exhaustruct:
+    # Ensure that command-line flags are explicitly default-initialized.
+    include:
+      - '.+\.[Cc]onfig'
+      - '.+[Cc]fg'
+    exclude:
+      - '.+cache\.Config' # k8s
+      - '.+fqdn\.Config' # internal API
+      - '.+tls\.Config' # Go TLS
+      - '.+v3\.Config' # etcd
+    # Uninitialized config as input to tests is not as big of an issue as the
+    # scope is limited to the usage of the related structures in the test.
+    test: false
   govet:
     enable:
       - nilness
@@ -119,6 +132,7 @@ linters:
     - depguard
     - errorlint
     - err113
+    - exhaustruct
     - gofmt
     - goimports
     - govet
