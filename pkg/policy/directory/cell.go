@@ -60,7 +60,9 @@ const (
 	staticCNPPath = "static-cnp-path"
 )
 
-var defaultConfig = Config{}
+var defaultConfig = Config{
+	StaticCNPPath: "", // Disabled
+}
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.String(staticCNPPath, defaultConfig.StaticCNPPath, "Directory path to watch and load static cilium network policy yaml files.")

@@ -17,6 +17,7 @@ import (
 
 func TestInstallCNIConfFile(t *testing.T) {
 	workdir := t.TempDir()
+	//exhaustruct:ignore
 	cfg := Config{
 		CNILogFile:            `/opt"/cni.log`,
 		CNIChainingMode:       "none",
@@ -47,6 +48,7 @@ func TestInstallCNIConfFile(t *testing.T) {
 }
 
 func TestRenderCNIConfUnchained(t *testing.T) {
+	//exhaustruct:ignore
 	cfg := Config{
 		CNILogFile: `/opt"/cni.log`,
 	}
@@ -63,6 +65,7 @@ func TestRenderCNIConfUnchained(t *testing.T) {
 }
 
 func TestRenderCNIConfChained(t *testing.T) {
+	//exhaustruct:ignore
 	cfg := Config{
 		CNILogFile:        `/opt"/cni.log`,
 		CNIChainingMode:   "testing",
@@ -232,6 +235,7 @@ func TestRenderCNIConfChained(t *testing.T) {
 
 func TestCleanupOtherCNI(t *testing.T) {
 	workdir := t.TempDir()
+	//exhaustruct:ignore
 	cfg := Config{
 		CNIExclusive:          true,
 		WriteCNIConfWhenReady: path.Join(workdir, "42-keep.json"),

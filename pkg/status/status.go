@@ -84,6 +84,13 @@ type Config struct {
 	StackdumpPath    string
 }
 
+var DefaultConfig = Config{
+	WarningThreshold: defaults.StatusCollectorWarningThreshold,
+	FailureThreshold: defaults.StatusCollectorFailureThreshold,
+	Interval:         defaults.StatusCollectorInterval,
+	StackdumpPath:    "/run/cilium/state/agent.stack.gz",
+}
+
 // NewCollector creates a collector and starts the given probes.
 //
 // Each probe runs in a separate goroutine.
