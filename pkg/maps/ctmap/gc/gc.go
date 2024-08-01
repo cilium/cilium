@@ -23,6 +23,10 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+// initialGCInterval sets the time after which the agent will begin to warn
+// regarding a long ctmap gc duration.
+const initialGCInterval = 30 * time.Second
+
 type Enabler interface {
 	// Enable enables the connection tracking garbage collection.
 	Enable()
@@ -220,15 +224,26 @@ func (gc *GC) Enable() {
 		}
 	}()
 
-	select {
-	case <-initialScanComplete:
-		gc.logger.Info("Initial scan of connection tracking completed")
-	case <-time.After(30 * time.Second):
-		gc.logger.Fatal("Timeout while waiting for initial conntrack scan")
-	}
+	// Start a background go routine that waits to see if either the initial scan completes before
+	// our expected time of 30 seconds.
+	// This is to notify users of potential issues affecting initial scan performance.
+	go func() {
+		select {
+		case <-initialScanComplete:
+		case <-inctimer.After(initialGCInterval):
+			gc.logger.Warn("Failed to perform initial ctmap gc scan within expected duration." +
+				"This may be caused by large ctmap sizes or by constraint CPU resources upon start." +
+				"Delayed initial ctmap scan may result in delayed map pressure metrics for ctmap.")
+		}
+	}()
 
-	// Not supporting BPF map pressure for local CT maps as of yet.
-	ctmap.CalculateCTMapPressure(gc.controllerManager, ctmap.GlobalMaps(gc.ipv4, gc.ipv6)...)
+	// Wait until after initial scan is complete prior to starting ctmap metrics controller.
+	go func() {
+		<-initialScanComplete
+		gc.logger.Info("Initial scan of connection tracking completed, starting ctmap pressure metrics controller")
+		// Not supporting BPF map pressure for local CT maps as of yet.
+		ctmap.CalculateCTMapPressure(gc.controllerManager, ctmap.GlobalMaps(gc.ipv4, gc.ipv6)...)
+	}()
 }
 
 // runGC run CT's garbage collector for the given endpoint. `isLocal` refers if
