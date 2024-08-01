@@ -5,7 +5,6 @@ package nld
 
 import (
 	"context"
-	"slices"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -16,11 +15,9 @@ import (
 )
 
 const (
-	nldLabel        = "k8s:k8s-app=node-local-dns"
-	systemNamespace = "kube-system"
-	queryLabel      = "dnsQuery"
-	responseLabel   = "dnsReponse"
-	dnsPort         = 53
+	queryLabel    = "dnsQuery"
+	responseLabel = "dnsReponse"
+	dnsPort       = 53
 )
 
 type nldHandler struct {
@@ -172,7 +169,9 @@ func checkSourcePort(l4 *flowpb.Layer4) bool {
 }
 
 func isNodeLocalDNSPod(endpoint *flowpb.Endpoint) bool {
-	return endpoint.GetNamespace() == systemNamespace && slices.Contains(endpoint.Labels, nldLabel)
+	id := endpoint.GetIdentity()
+	return id == uint32(identity.ReservedNodeLocalDNS) ||
+		id == uint32(identity.ReservedNodeLocalDNS2)
 }
 
 func isHostTraffic(flow *flowpb.Flow) bool {
