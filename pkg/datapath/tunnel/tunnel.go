@@ -59,6 +59,15 @@ type newConfigIn struct {
 	Enablers []enabler `group:"request-enable-tunneling"`
 }
 
+var (
+	configDisabled = Config{
+		protocol:       Disabled,
+		port:           0,
+		deviceName:     "",
+		shouldAdaptMTU: false,
+	}
+)
+
 func newConfig(in newConfigIn) (Config, error) {
 	switch Protocol(in.Cfg.TunnelProtocol) {
 	case VXLAN, Geneve:
@@ -67,8 +76,10 @@ func newConfig(in newConfigIn) (Config, error) {
 	}
 
 	cfg := Config{
-		protocol: Protocol(in.Cfg.TunnelProtocol),
-		port:     in.Cfg.TunnelPort,
+		protocol:       Protocol(in.Cfg.TunnelProtocol),
+		port:           in.Cfg.TunnelPort,
+		deviceName:     "",
+		shouldAdaptMTU: false,
 	}
 
 	var enabled bool
@@ -79,14 +90,14 @@ func newConfig(in newConfigIn) (Config, error) {
 
 			for _, validator := range e.validators {
 				if err := validator(cfg.protocol); err != nil {
-					return Config{}, err
+					return configDisabled, err
 				}
 			}
 		}
 	}
 
 	if !enabled {
-		return Config{protocol: Disabled}, nil
+		return configDisabled, nil
 	}
 
 	switch cfg.protocol {
@@ -109,6 +120,7 @@ func newConfig(in newConfigIn) (Config, error) {
 
 // NewTestConfig returns a new TunnelConfig for testing purposes.
 func NewTestConfig(proto Protocol) Config {
+	//exhaustruct:ignore // Test code can underspecify the default config
 	cfg := Config{protocol: proto}
 
 	switch proto {
@@ -218,4 +230,9 @@ type userCfg struct {
 func (def userCfg) Flags(flags *pflag.FlagSet) {
 	flags.String("tunnel-protocol", def.TunnelProtocol, "Encapsulation protocol to use for the overlay (\"vxlan\" or \"geneve\")")
 	flags.Uint16("tunnel-port", def.TunnelPort, fmt.Sprintf("Tunnel port (default %d for \"vxlan\" and %d for \"geneve\")", defaults.TunnelPortVXLAN, defaults.TunnelPortGeneve))
+}
+
+var defaultConfig = userCfg{
+	TunnelProtocol: defaults.TunnelProtocol,
+	TunnelPort:     0, // auto-detect based on the protocol.
 }
