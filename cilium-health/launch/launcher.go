@@ -48,6 +48,7 @@ func Launch(spec *healthApi.Spec, initialized <-chan struct{}) (*CiliumHealth, e
 	)
 
 	config := server.Config{
+		CiliumURI:     ciliumPkg.DefaultSockPath(),
 		Debug:         option.Config.Opts.IsEnabled(option.Debug),
 		ProbeInterval: serverProbeInterval,
 		ProbeDeadline: serverProbeDeadline,
