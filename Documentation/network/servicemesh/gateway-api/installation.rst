@@ -31,6 +31,8 @@ Prerequisites
   so your environment will need to support this. Alternatively, since Cilium 1.16+,
   you can directly expose the Cilium L7 proxy on the :ref:`host network <gs_gateway_host_network_mode>`.
 
+.. include:: ../ingress-known-issues.rst
+
 Installation
 ############
 
