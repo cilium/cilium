@@ -344,6 +344,7 @@ func createConfig(apiServerURL, kubeCfgPath string, qps float32, burst int, user
 		}
 		config.Host = apiServerURL
 	default:
+		//exhaustruct:ignore
 		config = &rest.Config{Host: apiServerURL, UserAgent: userAgent}
 	}
 
@@ -498,10 +499,12 @@ func (c *FakeClientset) Disable() {
 }
 
 func (c *FakeClientset) Config() Config {
+	//exhaustruct:ignore
 	return Config{}
 }
 
 func (c *FakeClientset) RestConfig() *rest.Config {
+	//exhaustruct:ignore
 	return &rest.Config{}
 }
 

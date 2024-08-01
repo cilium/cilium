@@ -128,6 +128,7 @@ func ParseLabelPrefixCfg(prefixes, nodePrefixes []string, file string) error {
 		fromCustomFile = true
 	}
 
+	//exhaustruct:ignore // Reading clean configuration, no need to initialize
 	nodeCfg = &labelPrefixCfg{}
 	log.Infof("Parsing node label prefixes from user inputs: %v", nodePrefixes)
 	for _, label := range nodePrefixes {
@@ -202,7 +203,7 @@ type labelPrefixCfg struct {
 	LabelPrefixes []*LabelPrefix `json:"valid-prefixes"`
 	// whitelist if true, indicates that an inclusive rule has to match
 	// in order for the label to be considered
-	whitelist bool
+	whitelist bool `exhaustruct:"optional"`
 }
 
 // defaultLabelPrefixCfg returns a default LabelPrefixCfg using the latest
@@ -259,6 +260,7 @@ func readLabelPrefixCfgFrom(fileName string) (*labelPrefixCfg, error) {
 		return nil, err
 	}
 	defer f.Close()
+	//exhaustruct:ignore // Reading clean configuration, no need to initialize
 	lpc := labelPrefixCfg{}
 	err = json.NewDecoder(f).Decode(&lpc)
 	if err != nil {
