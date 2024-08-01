@@ -84,9 +84,6 @@ var (
 	// the etcd server
 	initialConnectionTimeout = 15 * time.Minute
 
-	// etcdDummyAddress can be overwritten from test invokers using ldflags
-	etcdDummyAddress = "http://127.0.0.1:4002"
-
 	etcdInstance = newEtcdModule()
 
 	// etcd3ClientLogger is the logger used for the underlying etcd clients. We
@@ -94,10 +91,6 @@ var (
 	// automatically creating a new one, which comes with a significant memory cost.
 	etcd3ClientLogger *zap.Logger
 )
-
-func EtcdDummyAddress() string {
-	return etcdDummyAddress
-}
 
 func newEtcdModule() backendModule {
 	return &etcdModule{
@@ -160,11 +153,6 @@ func (e *etcdModule) createInstance() backendModule {
 
 func (e *etcdModule) getName() string {
 	return EtcdBackendName
-}
-
-func (e *etcdModule) setConfigDummy() {
-	e.config = &client.Config{}
-	e.config.Endpoints = []string{etcdDummyAddress}
 }
 
 func (e *etcdModule) setConfig(opts map[string]string) error {
