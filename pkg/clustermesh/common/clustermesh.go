@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/cilium/hive/cell"
-	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
@@ -19,15 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
-
-type Config struct {
-	// ClusterMeshConfig is the path to the clustermesh configuration directory.
-	ClusterMeshConfig string
-}
-
-func (def Config) Flags(flags *pflag.FlagSet) {
-	flags.String("clustermesh-config", def.ClusterMeshConfig, "Path to the ClusterMesh configuration directory")
-}
 
 type StatusFunc func() *models.RemoteCluster
 type RemoteClusterCreatorFunc func(name string, status StatusFunc) RemoteCluster

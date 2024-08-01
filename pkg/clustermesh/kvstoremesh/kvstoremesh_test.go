@@ -544,7 +544,7 @@ func TestRemoteClusterRemoveShutdown(t *testing.T) {
 
 		cell.Provide(
 			func() types.ClusterInfo { return types.ClusterInfo{ID: 10, Name: "local"} },
-			func() Config { return Config{} },
+			func() Config { return DefaultConfig },
 			func() promise.Promise[kvstore.BackendOperations] {
 				clr, clp := promise.New[kvstore.BackendOperations]()
 				clr.Resolve(kvstore.Client())
@@ -718,14 +718,22 @@ func TestRemoteClusterSync(t *testing.T) {
 		{
 			name: "remote cluster fails to connect",
 			// use very low timeouts to speed up the test since we expect failures
-			config:  Config{PerClusterReadyTimeout: 1 * time.Millisecond, GlobalReadyTimeout: 1 * time.Millisecond},
+			config: Config{
+				PerClusterReadyTimeout:      1 * time.Millisecond,
+				GlobalReadyTimeout:          1 * time.Millisecond,
+				DisableDrainOnDisconnection: false,
+			},
 			connect: false,
 			sync:    false,
 		},
 		{
 			name: "remote cluster connects but fails to sync",
 			// use a low timeout only for global sync to avoid racing the connected signal
-			config:  Config{PerClusterReadyTimeout: 5 * time.Second, GlobalReadyTimeout: 1 * time.Millisecond},
+			config: Config{
+				PerClusterReadyTimeout:      5 * time.Second,
+				GlobalReadyTimeout:          1 * time.Millisecond,
+				DisableDrainOnDisconnection: false,
+			},
 			connect: true,
 			sync:    false,
 		},
