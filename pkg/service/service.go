@@ -220,7 +220,10 @@ type L7LBInfo struct {
 // 'ports' is typically short for no point optimizing the search.
 func (i *L7LBInfo) isProtoAndPortMatch(fe *lb.L4Addr) bool {
 	// L7 LB redirect is only supported for TCP frontends
-	if fe.Protocol != lb.TCP {
+	// The below is to make sure that UDP and SCTP are not allowed instead of comparing with lb.TCP
+	// The reason is to avoid extra dependencies with ongoing work to differentiate protocols in datapath,
+	// which might add more values such as lb.Any, lb.None, etc.
+	if fe.Protocol == lb.UDP || fe.Protocol == lb.SCTP {
 		return false
 	}
 
