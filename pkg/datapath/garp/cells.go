@@ -26,6 +26,12 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool(EnableL2PodAnnouncements, def.EnableL2PodAnnouncements, "Enable announcing Pod IPs with Gratuitous ARP")
 }
 
+// This cell can't be enabled by default, it's entirely env dependent.
+var defaultConfig = Config{
+	EnableL2PodAnnouncements:    false,
+	L2PodAnnouncementsInterface: "",
+}
+
 // Cell processes k8s pod events for the local node and determines if a
 // Gratuitous ARP packet needs to be sent.
 var Cell = cell.Module(
@@ -34,8 +40,7 @@ var Cell = cell.Module(
 
 	cell.Provide(newGARPSender),
 
-	// This cell can't have a default config, it's entirely env dependent.
-	cell.Config(Config{}),
+	cell.Config(defaultConfig),
 
 	cell.Invoke(newGARPProcessor),
 )

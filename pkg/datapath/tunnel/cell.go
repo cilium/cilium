@@ -6,7 +6,6 @@ package tunnel
 import (
 	"github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -16,7 +15,7 @@ var Cell = cell.Module(
 	"datapath-tunnel-config",
 	"Tunneling configurations",
 
-	cell.Config(userCfg{TunnelProtocol: defaults.TunnelProtocol}),
+	cell.Config(defaultConfig),
 
 	cell.Provide(
 		newConfig,
