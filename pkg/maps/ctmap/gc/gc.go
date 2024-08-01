@@ -186,6 +186,8 @@ func (gc *GC) Enable() {
 			if initialScan {
 				close(initialScanComplete)
 				initialScan = false
+				gc.logger.WithField("duration", time.Since(gcStart)).
+					Info("initial gc of ct and nat maps completed")
 			}
 
 			triggeredBySignal = false
@@ -315,6 +317,7 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 		}
 
 		for _, vsn := range vsns {
+			startTime := time.Now()
 			ctMapTCP, ctMapAny := ctmap.FilterMapsByProto(maps, vsn)
 			stats := ctmap.PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
 			if stats != nil && (stats.EgressDeleted != 0 || stats.IngressDeleted != 0) {
@@ -324,6 +327,7 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 					"ingressAlive":   stats.IngressAlive,
 					"egressAlive":    stats.EgressAlive,
 					"ctMapIPVersion": vsn,
+					"duration":       time.Since(startTime),
 				}).Info("Deleted orphan SNAT entries from map")
 			}
 		}
