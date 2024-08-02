@@ -5,6 +5,7 @@ package experimental
 
 import (
 	"errors"
+	"fmt"
 	"math/rand/v2"
 	"reflect"
 
@@ -81,9 +82,9 @@ type affinityMaps interface {
 }
 
 type sourceRangeMaps interface {
-	UpdateSourceRange(lbmap.SourceRangeKey, lbmap.SourceRangeValue) error
+	UpdateSourceRange(lbmap.SourceRangeKey, *lbmap.SourceRangeValue) error
 	DeleteSourceRange(lbmap.SourceRangeKey) error
-	DumpSourceRange(cb func(lbmap.SourceRangeKey, lbmap.SourceRangeValue)) error
+	DumpSourceRange(cb func(lbmap.SourceRangeKey, *lbmap.SourceRangeValue)) error
 }
 
 // lbmaps defines the map operations performed by the reconciliation.
@@ -217,7 +218,7 @@ func (r *realLBMaps) Start(cell.HookContext) error {
 		*desc.target = m
 
 		if err := m.OpenOrCreate(); err != nil {
-			return err
+			return fmt.Errorf("opening map %s: %w", desc.spec.Name, err)
 		}
 	}
 	return nil
@@ -396,7 +397,15 @@ func (r *realLBMaps) UpdateAffinityMatch(key *lbmap.AffinityMatchKey, value *lbm
 
 // DeleteSourceRange implements lbmaps.
 func (r *realLBMaps) DeleteSourceRange(key lbmap.SourceRangeKey) error {
-	err := r.DeleteSourceRange(key)
+	var err error
+	switch key.(type) {
+	case *lbmap.SourceRangeKey4:
+		err = r.sourceRange4Map.Delete(key)
+	case *lbmap.SourceRangeKey6:
+		err = r.sourceRange6Map.Delete(key)
+	default:
+		panic("unknown SourceRangeKey")
+	}
 	if errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
 	}
@@ -404,10 +413,11 @@ func (r *realLBMaps) DeleteSourceRange(key lbmap.SourceRangeKey) error {
 }
 
 // DumpSourceRange implements lbmaps.
-func (r *realLBMaps) DumpSourceRange(cb func(lbmap.SourceRangeKey, lbmap.SourceRangeValue)) error {
+func (r *realLBMaps) DumpSourceRange(cb func(lbmap.SourceRangeKey, *lbmap.SourceRangeValue)) error {
 	cbWrap := func(key, value any) {
 		svcKey := key.(lbmap.SourceRangeKey).ToHost()
-		svcValue := value.(lbmap.SourceRangeValue)
+		svcValue := value.(*lbmap.SourceRangeValue)
+
 		cb(svcKey, svcValue)
 	}
 
@@ -418,7 +428,7 @@ func (r *realLBMaps) DumpSourceRange(cb func(lbmap.SourceRangeKey, lbmap.SourceR
 }
 
 // UpdateSourceRange implements lbmaps.
-func (r *realLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value lbmap.SourceRangeValue) error {
+func (r *realLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value *lbmap.SourceRangeValue) error {
 	switch key.(type) {
 	case *lbmap.SourceRangeKey4:
 		return r.sourceRange4Map.Update(key, value, 0)
@@ -443,23 +453,23 @@ func (f *faultyLBMaps) DeleteSourceRange(key lbmap.SourceRangeKey) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
-	return f.DeleteSourceRange(key)
+	return f.impl.DeleteSourceRange(key)
 }
 
 // DumpSourceRange implements lbmaps.
-func (f *faultyLBMaps) DumpSourceRange(cb func(lbmap.SourceRangeKey, lbmap.SourceRangeValue)) error {
+func (f *faultyLBMaps) DumpSourceRange(cb func(lbmap.SourceRangeKey, *lbmap.SourceRangeValue)) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
-	return f.DumpSourceRange(cb)
+	return f.impl.DumpSourceRange(cb)
 }
 
 // UpdateSourceRange implements lbmaps.
-func (f *faultyLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value lbmap.SourceRangeValue) error {
+func (f *faultyLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value *lbmap.SourceRangeValue) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
-	return f.UpdateSourceRange(key, value)
+	return f.impl.UpdateSourceRange(key, value)
 }
 
 // DeleteAffinityMatch implements lbmaps.

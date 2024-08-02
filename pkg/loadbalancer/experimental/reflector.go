@@ -645,10 +645,6 @@ func deleteHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 }
 
 func bufferEvent[Obj runtime.Object](buf map[resource.Key]resource.Event[Obj], ev resource.Event[Obj]) map[resource.Key]resource.Event[Obj] {
-	if ev.Kind == resource.Sync {
-		ev.Done(nil)
-		return buf
-	}
 	if buf == nil {
 		buf = map[resource.Key]resource.Event[Obj]{}
 	}

@@ -5,6 +5,7 @@ package experimental
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
@@ -91,6 +92,7 @@ func (svc *Service) TableHeader() []string {
 		"L7ProxyPort",
 		"HealthCheckNodePort",
 		"LoopbackHostPort",
+		"SourceRanges",
 	}
 }
 
@@ -108,6 +110,14 @@ func (svc *Service) TableRow() []string {
 		}
 	}
 
+	showSourceRanges := func(cidrs []cidr.CIDR) string {
+		ss := make([]string, len(cidrs))
+		for i := range cidrs {
+			ss[i] = cidrs[i].String()
+		}
+		return strings.Join(ss, ", ")
+	}
+
 	return []string{
 		svc.Name.String(),
 		string(svc.Source),
@@ -118,6 +128,7 @@ func (svc *Service) TableRow() []string {
 		strconv.FormatUint(uint64(svc.L7ProxyPort), 10),
 		strconv.FormatUint(uint64(svc.HealthCheckNodePort), 10),
 		showBool(svc.LoopbackHostPort),
+		showSourceRanges(svc.SourceRanges),
 	}
 }
 
