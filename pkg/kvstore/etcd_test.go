@@ -7,7 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"path"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -1469,4 +1471,68 @@ func TestPaginatedList(t *testing.T) {
 
 	// Batch size = 11
 	run(11)
+}
+
+func TestListWatchRace(t *testing.T) {
+	testutils.IntegrationTest(t)
+	SetupDummyWithConfigOpts(t, "etcd", opts("etcd"))
+
+	prefix := "test/listwatchrace"
+
+	ctx := context.Background()
+
+	require.Nil(t, Client().DeletePrefix(ctx, prefix))
+	Client().(*etcdClient).listBatchSize = 1
+	want := make(map[string]string, 100)
+	got := make(map[string]string, 100)
+
+	for i := 0; i < 100; i++ {
+		key := path.Join(prefix, strconv.Itoa(i))
+		want[key] = "1"
+		_, err := Client().(*etcdClient).client.Put(ctx, key, "1")
+		require.NoError(t, err)
+	}
+
+	errC := make(chan error, 1)
+	defer close(errC)
+
+	// Do 100 puts in parallel with ListAndWatch across random keys
+	// in the existing keyspace.
+	go func() {
+		for i := 0; i < 100; i++ {
+			n := rand.IntN(100)
+			key := path.Join(prefix, strconv.Itoa(n))
+			want[key] = strconv.Itoa(i)
+			_, err := Client().(*etcdClient).client.Put(ctx, key, strconv.Itoa(i))
+			if err != nil {
+				errC <- err
+				return
+			}
+		}
+		errC <- nil
+	}()
+
+	watcher := Client().ListAndWatch(ctx, prefix, 200)
+	defer watcher.Stop()
+	err := <-errC
+	require.NoError(t, err)
+
+	timer := time.NewTimer(time.Second * 5)
+	func() {
+		for {
+			select {
+			case event := <-watcher.Events:
+				got[event.Key] = string(event.Value)
+				if string(event.Value) == "99" {
+					return
+				}
+			case <-timer.C:
+				return
+			}
+		}
+	}()
+
+	for k, v := range want {
+		require.Equal(t, v, got[k])
+	}
 }

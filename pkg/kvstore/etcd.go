@@ -981,7 +981,10 @@ func (e *etcdClient) paginatedList(ctx context.Context, log *logrus.Entry, prefi
 
 		kvs = append(kvs, res.Kvs...)
 
-		revision = res.Header.Revision
+		if revision == 0 {
+			revision = res.Header.Revision
+		}
+
 		if !res.More || len(res.Kvs) == 0 {
 			return kvs, revision, nil
 		}
