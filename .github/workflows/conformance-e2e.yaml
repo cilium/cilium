@@ -380,6 +380,7 @@ jobs:
           tunnel: ${{ matrix.tunnel }}
           devices: ${{ matrix.devices }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
+          ipv4: ${{ matrix.ipv4 }}
           ipv6: ${{ matrix.ipv6 }}
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
@@ -401,6 +402,9 @@ jobs:
           IP_FAM="dual"
           if [ "${{ matrix.ipv6 }}" == "false" ]; then
             IP_FAM="ipv4"
+          fi
+          if [ "${{ matrix.ipv4 }}" == "false" ]; then
+            IP_FAM="ipv6"
           fi
           echo params="--xdp --secondary-network \"\" 3 \"\" \"\" ${{ matrix.kube-proxy }} $IP_FAM" >> $GITHUB_OUTPUT
 
