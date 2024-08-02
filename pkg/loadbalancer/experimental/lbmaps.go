@@ -8,10 +8,13 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"reflect"
+	"unsafe"
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -259,8 +262,8 @@ func (r *realLBMaps) DeleteRevNat(key lbmap.RevNatKey) error {
 func (r *realLBMaps) DumpRevNat(cb func(lbmap.RevNatKey, lbmap.RevNatValue)) error {
 	cbWrap := func(key, value any) {
 		cb(
-			key.(lbmap.RevNatKey).ToHost(),
-			value.(lbmap.RevNatValue).ToHost(),
+			key.(lbmap.RevNatKey),
+			value.(lbmap.RevNatValue),
 		)
 	}
 	return errors.Join(
@@ -286,7 +289,7 @@ func (r *realLBMaps) DumpBackend(cb func(lbmap.BackendKey, lbmap.BackendValue)) 
 	cbWrap := func(key, value any) {
 		cb(
 			key.(lbmap.BackendKey),
-			value.(lbmap.BackendValue).ToHost(),
+			value.(lbmap.BackendValue),
 		)
 	}
 	return errors.Join(
@@ -332,8 +335,8 @@ func (r *realLBMaps) DeleteService(key lbmap.ServiceKey) error {
 // DumpService implements lbmaps.
 func (r *realLBMaps) DumpService(cb func(lbmap.ServiceKey, lbmap.ServiceValue)) error {
 	cbWrap := func(key, value any) {
-		svcKey := key.(lbmap.ServiceKey).ToHost()
-		svcValue := value.(lbmap.ServiceValue).ToHost()
+		svcKey := key.(lbmap.ServiceKey)
+		svcValue := value.(lbmap.ServiceValue)
 		cb(svcKey, svcValue)
 	}
 
@@ -379,7 +382,7 @@ func (r *realLBMaps) DeleteAffinityMatch(key *lbmap.AffinityMatchKey) error {
 // DumpAffinityMatch implements lbmaps.
 func (r *realLBMaps) DumpAffinityMatch(cb func(*lbmap.AffinityMatchKey, *lbmap.AffinityMatchValue)) error {
 	cbWrap := func(key, value any) {
-		affKey := key.(*lbmap.AffinityMatchKey).ToHost()
+		affKey := key.(*lbmap.AffinityMatchKey)
 		affValue := value.(*lbmap.AffinityMatchValue)
 		cb(affKey, affValue)
 	}
@@ -415,7 +418,7 @@ func (r *realLBMaps) DeleteSourceRange(key lbmap.SourceRangeKey) error {
 // DumpSourceRange implements lbmaps.
 func (r *realLBMaps) DumpSourceRange(cb func(lbmap.SourceRangeKey, *lbmap.SourceRangeValue)) error {
 	cbWrap := func(key, value any) {
-		svcKey := key.(lbmap.SourceRangeKey).ToHost()
+		svcKey := key.(lbmap.SourceRangeKey)
 		svcValue := value.(*lbmap.SourceRangeValue)
 
 		cb(svcKey, svcValue)
@@ -568,3 +571,128 @@ func (f *faultyLBMaps) isFaulty() bool {
 var errFaulty = errors.New("faulty")
 
 var _ lbmaps = &faultyLBMaps{}
+
+type kvpair struct {
+	a, b any
+}
+type fakeBPFMap struct {
+	lock.Map[string, kvpair]
+}
+
+func (fm *fakeBPFMap) delete(key bpf.MapKey) error {
+	fm.Map.Delete(bpfKey(key))
+	return nil
+}
+
+func (fm *fakeBPFMap) update(key bpf.MapKey, value any) error {
+	fm.Map.Store(bpfKey(key), kvpair{key, value})
+	return nil
+}
+
+func bpfKey(key any) string {
+	v := reflect.ValueOf(key)
+	size := int(v.Type().Elem().Size())
+	keyBytes := unsafe.Slice((*byte)(v.UnsafePointer()), size)
+	return string(keyBytes)
+}
+
+func dumpFakeBPFMap[K any, V any](m *fakeBPFMap, cb func(K, V)) {
+	m.Range(func(_ string, pair kvpair) bool {
+		cb(pair.a.(K), pair.b.(V))
+		return true
+	})
+}
+
+type fakeLBMaps struct {
+	aff      fakeBPFMap
+	be       fakeBPFMap
+	svc      fakeBPFMap
+	revNat   fakeBPFMap
+	srcRange fakeBPFMap
+}
+
+func newFakeLBMaps() lbmaps {
+	return &fakeLBMaps{}
+}
+
+// DeleteAffinityMatch implements lbmaps.
+func (f *fakeLBMaps) DeleteAffinityMatch(key *lbmap.AffinityMatchKey) error {
+	return f.aff.delete(key)
+}
+
+// DeleteBackend implements lbmaps.
+func (f *fakeLBMaps) DeleteBackend(key lbmap.BackendKey) error {
+	return f.be.delete(key)
+}
+
+// DeleteRevNat implements lbmaps.
+func (f *fakeLBMaps) DeleteRevNat(key lbmap.RevNatKey) error {
+	return f.revNat.delete(key)
+}
+
+// DeleteService implements lbmaps.
+func (f *fakeLBMaps) DeleteService(key lbmap.ServiceKey) error {
+	return f.svc.delete(key)
+}
+
+// DeleteSourceRange implements lbmaps.
+func (f *fakeLBMaps) DeleteSourceRange(key lbmap.SourceRangeKey) error {
+	return f.srcRange.delete(key)
+}
+
+// DumpAffinityMatch implements lbmaps.
+func (f *fakeLBMaps) DumpAffinityMatch(cb func(*lbmap.AffinityMatchKey, *lbmap.AffinityMatchValue)) error {
+	dumpFakeBPFMap(&f.aff, cb)
+	return nil
+}
+
+// DumpBackend implements lbmaps.
+func (f *fakeLBMaps) DumpBackend(cb func(lbmap.BackendKey, lbmap.BackendValue)) error {
+	dumpFakeBPFMap(&f.be, cb)
+	return nil
+}
+
+// DumpRevNat implements lbmaps.
+func (f *fakeLBMaps) DumpRevNat(cb func(lbmap.RevNatKey, lbmap.RevNatValue)) error {
+	dumpFakeBPFMap(&f.revNat, cb)
+	return nil
+}
+
+// DumpService implements lbmaps.
+func (f *fakeLBMaps) DumpService(cb func(lbmap.ServiceKey, lbmap.ServiceValue)) error {
+	dumpFakeBPFMap(&f.svc, cb)
+	return nil
+}
+
+// DumpSourceRange implements lbmaps.
+func (f *fakeLBMaps) DumpSourceRange(cb func(lbmap.SourceRangeKey, *lbmap.SourceRangeValue)) error {
+	dumpFakeBPFMap(&f.srcRange, cb)
+	return nil
+}
+
+// UpdateAffinityMatch implements lbmaps.
+func (f *fakeLBMaps) UpdateAffinityMatch(key *lbmap.AffinityMatchKey, value *lbmap.AffinityMatchValue) error {
+	return f.aff.update(key, value)
+}
+
+// UpdateBackend implements lbmaps.
+func (f *fakeLBMaps) UpdateBackend(key lbmap.BackendKey, value lbmap.BackendValue) error {
+	return f.be.update(key, value)
+}
+
+// UpdateRevNat implements lbmaps.
+func (f *fakeLBMaps) UpdateRevNat(key lbmap.RevNatKey, value lbmap.RevNatValue) error {
+	return f.revNat.update(key, value)
+}
+
+// UpdateService implements lbmaps.
+func (f *fakeLBMaps) UpdateService(key lbmap.ServiceKey, value lbmap.ServiceValue) error {
+	return f.svc.update(key, value)
+}
+
+// UpdateSourceRange implements lbmaps.
+func (f *fakeLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value *lbmap.SourceRangeValue) error {
+	return f.srcRange.update(key, value)
+}
+
+var _ lbmaps = &fakeLBMaps{}
