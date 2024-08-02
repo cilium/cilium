@@ -223,7 +223,7 @@ func (gc *GC) Enable() {
 	select {
 	case <-initialScanComplete:
 		gc.logger.Info("Initial scan of connection tracking completed")
-	case <-time.After(30 * time.Second):
+	case <-time.After(option.Config.CTMapInitialGCTimeout):
 		gc.logger.Fatal("Timeout while waiting for initial conntrack scan")
 	}
 

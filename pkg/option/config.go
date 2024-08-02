@@ -1245,6 +1245,11 @@ const (
 
 	// BPFEventsTraceEnabled defines the TraceNotification setting for any endpoint
 	BPFEventsTraceEnabled = "bpf-events-trace-enabled"
+
+	// CTMapInitialGCTimeout defines the timeout for how long to wait for first ctmap gc pass
+	// can take before terminating the agent.
+	// TODO: We should refactor the ctmap code so it doesn't need this timeout and remove this option.
+	CTMapInitialGCTimeout = "ctmap-initial-gc-timeout"
 )
 
 // Default string arguments
@@ -2461,6 +2466,10 @@ type DaemonConfig struct {
 	// EnableSocketLBPodConnectionTermination enables the termination of connections from pods
 	// to deleted service backends when socket-LB is enabled
 	EnableSocketLBPodConnectionTermination bool
+
+	// CTMapInitialGCTimeout is the initial timeout for the garbage collection of the connection tracking map
+	// prior to terminating the agent.
+	CTMapInitialGCTimeout time.Duration
 }
 
 var (
@@ -3144,6 +3153,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BPFEventsPolicyVerdictEnabled = vp.GetBool(BPFEventsPolicyVerdictEnabled)
 	c.BPFEventsTraceEnabled = vp.GetBool(BPFEventsTraceEnabled)
 	c.EnableIPSecEncryptedOverlay = vp.GetBool(EnableIPSecEncryptedOverlay)
+	c.CTMapInitialGCTimeout = vp.GetDuration(CTMapInitialGCTimeout)
 
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {

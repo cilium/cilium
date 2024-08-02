@@ -383,6 +383,11 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.BPFEventsTraceEnabled, defaults.BPFEventsTraceEnabled, "Expose 'trace' events for Cilium monitor and/or Hubble")
 	option.BindEnv(vp, option.BPFEventsTraceEnabled)
 
+	flags.Duration(option.CTMapInitialGCTimeout, 30*time.Second, "Initial timeout for garbage collection of connection tracking maps. "+
+		"If the initial gc fails to complete in this time then cilium will terminate. "+
+		"This may need to be increased in environments with large ctmap sizes or high CPU contention to avoid startup failures")
+	flags.MarkHidden(option.CTMapInitialGCTimeout)
+
 	flags.Bool(option.EnableTracing, false, "Enable tracing while determining policy (debugging)")
 	option.BindEnv(vp, option.EnableTracing)
 
