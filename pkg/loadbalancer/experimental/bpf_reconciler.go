@@ -17,10 +17,13 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -55,6 +58,10 @@ func registerBPFReconciler(p reconciler.Params, cfg Config, ops *bpfOps, w *Writ
 			cfg.RetryBackoffMin,
 			cfg.RetryBackoffMax,
 		),
+
+		reconciler.WithPruning(
+			30*time.Minute,
+		),
 	)
 	return err
 }
@@ -76,6 +83,8 @@ type bpfOps struct {
 	// backendReferences maps from frontend address to the set of referenced
 	// backends.
 	backendReferences map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]
+
+	prevSourceRanges map[loadbalancer.L3n4Addr]sets.Set[cidr.CIDR]
 
 	// nodePortAddrs are the last used NodePort addresses for a given NodePort
 	// (or HostPort) ervice (by port).
@@ -102,6 +111,7 @@ func newBPFOps(lc cell.Lifecycle, log *slog.Logger, cfg Config, lbmaps lbmaps) *
 		backendStates:      map[loadbalancer.L3n4Addr]backendState{},
 		backendReferences:  map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{},
 		nodePortAddrs:      map[uint16][]netip.Addr{},
+		prevSourceRanges:   map[loadbalancer.L3n4Addr]sets.Set[cidr.CIDR]{},
 		lbmaps:             lbmaps,
 	}
 	lc.Append(cell.Hook{OnStart: ops.start})
@@ -231,6 +241,19 @@ func (ops *bpfOps) deleteFrontend(fe *Frontend) error {
 		return fmt.Errorf("delete reverse nat %d: %w", feID, err)
 	}
 
+	for cidr := range ops.prevSourceRanges[fe.Address] {
+		if cidr.IP.To4() == nil != fe.Address.IsIPv6() {
+			continue
+		}
+		err := ops.lbmaps.DeleteSourceRange(
+			srcRangeKey(&cidr, uint16(feID), fe.Address.IsIPv6()),
+		)
+		if err != nil {
+			return fmt.Errorf("update source range: %w", err)
+		}
+	}
+	delete(ops.prevSourceRanges, fe.Address)
+
 	// Decrease the backend reference counts and drop state associated with the frontend.
 	ops.updateBackendRefCounts(fe.Address, nil)
 	delete(ops.backendReferences, fe.Address)
@@ -314,10 +337,9 @@ func (ops *bpfOps) pruneRestoredIDs() error {
 func (ops *bpfOps) pruneRevNat() error {
 	toDelete := []lbmap.RevNatKey{}
 	cb := func(key lbmap.RevNatKey, value lbmap.RevNatValue) {
-		revNatKey := key.ToHost()
-		if _, ok := ops.serviceIDAlloc.entitiesID[loadbalancer.ID(revNatKey.GetKey())]; !ok {
-			ops.log.Info("pruneRevNat: deleting", "id", revNatKey.GetKey())
-			toDelete = append(toDelete, revNatKey)
+		if _, ok := ops.serviceIDAlloc.entitiesID[loadbalancer.ID(key.GetKey())]; !ok {
+			ops.log.Info("pruneRevNat: deleting", "id", key.GetKey())
+			toDelete = append(toDelete, key)
 		}
 	}
 	err := ops.lbmaps.DumpRevNat(cb)
@@ -335,6 +357,7 @@ func (ops *bpfOps) pruneRevNat() error {
 
 // Prune implements reconciler.Operations.
 func (ops *bpfOps) Prune(_ context.Context, _ statedb.ReadTxn, _ statedb.Iterator[*Frontend]) error {
+	ops.log.Info("Pruning")
 	return errors.Join(
 		ops.pruneRestoredIDs(),
 		ops.pruneServiceMaps(),
@@ -433,8 +456,6 @@ func (ops *bpfOps) updateFrontend(fe *Frontend) error {
 	// Gather backends for the service
 	orderedBackends := sortedBackends(fe.Backends)
 
-	ops.log.Info("orderedBackends", "backends", orderedBackends)
-
 	// Clean up any orphan backends to make room for new backends
 	backendAddrs := sets.New[loadbalancer.L3n4Addr]()
 	for _, be := range orderedBackends {
@@ -509,6 +530,47 @@ func (ops *bpfOps) updateFrontend(fe *Frontend) error {
 
 	// Backends updated successfully, we can now update the references.
 	numPreviousBackends := len(ops.backendReferences[fe.Address])
+
+	// Update source ranges. Maintain the invariant that [ops.prevSourceRanges]
+	// always reflects what was successfully added to the BPF maps in order
+	// not to leak a source range on failed operation.
+	prevSourceRanges := ops.prevSourceRanges[fe.Address]
+	if prevSourceRanges == nil {
+		prevSourceRanges = sets.New[cidr.CIDR]()
+		ops.prevSourceRanges[fe.Address] = prevSourceRanges
+	}
+	orphanSourceRanges := prevSourceRanges.Clone()
+	srcRangeValue := &lbmap.SourceRangeValue{}
+	for _, cidr := range fe.service.SourceRanges {
+		if cidr.IP.To4() == nil != fe.Address.IsIPv6() {
+			continue
+		}
+
+		err := ops.lbmaps.UpdateSourceRange(
+			srcRangeKey(&cidr, uint16(feID), fe.Address.IsIPv6()),
+			srcRangeValue,
+		)
+		if err != nil {
+			return fmt.Errorf("update source range: %w", err)
+		}
+
+		orphanSourceRanges.Delete(cidr)
+		prevSourceRanges.Insert(cidr)
+	}
+	// Remove orphan source ranges.
+	for cidr := range orphanSourceRanges {
+		if cidr.IP.To4() == nil != fe.Address.IsIPv6() {
+			continue
+		}
+		err := ops.lbmaps.DeleteSourceRange(
+			srcRangeKey(&cidr, uint16(feID), fe.Address.IsIPv6()),
+		)
+		if err != nil {
+			return fmt.Errorf("update source range: %w", err)
+		}
+
+		prevSourceRanges.Delete(cidr)
+	}
 
 	// Update RevNat
 	ops.log.Info("Update RevNat", "id", feID, "address", fe.Address)
@@ -887,5 +949,23 @@ func newID(svc loadbalancer.L3n4Addr, id loadbalancer.ID) *loadbalancer.L3n4Addr
 	return &loadbalancer.L3n4AddrID{
 		L3n4Addr: svc,
 		ID:       loadbalancer.ID(id),
+	}
+}
+
+func srcRangeKey(cidr *cidr.CIDR, revNATID uint16, ipv6 bool) lbmap.SourceRangeKey {
+	const (
+		lpmPrefixLen4 = 16 + 16 // sizeof(SourceRangeKey4.RevNATID)+sizeof(SourceRangeKey4.Pad)
+		lpmPrefixLen6 = 16 + 16 // sizeof(SourceRangeKey6.RevNATID)+sizeof(SourceRangeKey6.Pad)
+	)
+	ones, _ := cidr.Mask.Size()
+	id := byteorder.HostToNetwork16(revNATID)
+	if ipv6 {
+		key := &lbmap.SourceRangeKey6{PrefixLen: uint32(ones) + lpmPrefixLen6, RevNATID: id}
+		copy(key.Address[:], cidr.IP.To16())
+		return key
+	} else {
+		key := &lbmap.SourceRangeKey4{PrefixLen: uint32(ones) + lpmPrefixLen4, RevNATID: id}
+		copy(key.Address[:], cidr.IP.To4())
+		return key
 	}
 }

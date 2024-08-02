@@ -154,6 +154,5 @@ These are all easy to replace by queries against the service/frontend/backend ta
 ### Misc features
 
 - ServiceAffinity/"Preferred"
-- SourceRanges
 - TopologyAware/Zones
 - LoopbackHostPort
