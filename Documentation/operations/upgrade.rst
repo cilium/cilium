@@ -776,7 +776,7 @@ This change impacts versions 1.17 and onwards, as it modifies the default value 
 
 It also affects versions prior to 1.17 because, during an upgrade, the ``policy-cidr-match-mode`` is set to ``nodes``. 
 This could potentially alter the traffic patterns, either allowing or denying traffic that was not previously allowed or denied. 
-For more details about this configuration, see the [Cilium documentation](https://docs.cilium.io/en/latest/security/policy/language/#selecting-nodes-with-cidr-ipblock).
+For more details about this configuration, see the `Cilium documentation <https://docs.cilium.io/en/latest/security/policy/language/#selecting-nodes-with-cidr-ipblock>`_.
 
 Mitigation
 ----------
