@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model"
+	"github.com/cilium/cilium/pkg/annotation"
 )
 
 const (
@@ -40,14 +41,25 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListen
 	var resHTTP []model.HTTPListener
 	var resTLSPassthrough []model.TLSPassthroughListener
 
-	var labels, annotations map[string]string
+	labels := make(map[string]string)
+	annotations := make(map[string]string)
 	if input.Gateway.Spec.Infrastructure != nil {
 		labels = toMapString(input.Gateway.Spec.Infrastructure.Labels)
 		annotations = toMapString(input.Gateway.Spec.Infrastructure.Annotations)
 	}
-
+	ips := make([]string, 0, len(input.Gateway.Spec.Addresses))
+	for _, address := range input.Gateway.Spec.Addresses {
+		if address.Type == nil || *address.Type == gatewayv1.IPAddressType {
+			ips = append(ips, address.Value)
+		}
+	}
+	// If already use the LBIPAMIPKeyAlias to specify the IP, don't overwrite it.
+	// At a future date this annotation will be removed if no spec.addresses are set.
+	if len(ips) != 0 && annotations[annotation.LBIPAMIPKeyAlias] == "" {
+		annotations[annotation.LBIPAMIPKeyAlias] = strings.Join(ips, ",")
+	}
 	var infra *model.Infrastructure
-	if labels != nil || annotations != nil {
+	if len(labels) != 0 || len(annotations) != 0 {
 		infra = &model.Infrastructure{
 			Labels:      labels,
 			Annotations: annotations,
