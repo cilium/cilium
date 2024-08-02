@@ -283,6 +283,7 @@ jobs:
             misc: 'bpf.datapathMode=netkit,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
             kube-proxy: 'none'
             kpr: 'true'
+            ipv4: 'false'
             ipv6: 'true'
             tunnel: 'disabled'
             devices: '{eth0,eth1}'
