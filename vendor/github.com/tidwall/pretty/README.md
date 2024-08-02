@@ -114,7 +114,7 @@ BenchmarkJSONCompact-16       685111    1699 ns/op    442 B/op     0 allocs/op
 *These benchmarks were run on a MacBook Pro 2.4 GHz 8-Core Intel Core i9.*
 
 ## Contact
-Josh Baker [@tidwall](http://twitter.com/tidwall)
+Josh Baker [@tidwall](http://x.com/tidwall)
 
 ## License
 
