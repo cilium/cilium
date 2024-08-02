@@ -16,31 +16,16 @@ addressType: IPv4
 endpoints:
 - addresses:
   - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
   nodeName: nodeport-worker
-- addresses:
-  - 10.244.1.2
-  nodeName: nodeport-worker
-- addresses:
-  - 10.244.1.3
-  nodeName: nodeport-worker
-- addresses:
-  - 10.244.1.4
-  nodeName: nodeport-worker
-- addresses:
-  - 10.244.1.5
-  nodeName: nodeport-worker
-- addresses:
-  - 10.244.1.6
-  nodeName: nodeport-worker
-- addresses:
-  - 10.244.1.7
-  nodeName: nodeport-worker2
-- addresses:
-  - 10.244.1.8
-  nodeName: nodeport-worker2
-- addresses:
-  - 10.244.1.9
-  nodeName: nodeport-worker2
+  targetRef:
+    kind: Pod
+    name: echo-757d4cb97f-9gmf7
+    namespace: test
+    uid: 88542b9d-6369-4ec3-a5eb-fd53720013e8
 ports:
 - name: http
   port: 80

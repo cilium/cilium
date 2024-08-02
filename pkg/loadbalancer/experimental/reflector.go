@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"net"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/cilium/hive/cell"
@@ -410,14 +409,6 @@ func convertService(svc *slim_corev1.Service) (s *Service, fes []FrontendParams)
 			fes = append(fes, fe)
 		}
 	}
-
-	// Sort the frontends by their address for stable ordering.
-	sort.Slice(
-		fes,
-		func(i, j int) bool {
-			return fes[i].Address.AddrCluster.Addr().Less(
-				fes[j].Address.AddrCluster.Addr())
-		})
 
 	return
 }

@@ -23,6 +23,8 @@ const (
 )
 
 type SourceRangeKey interface {
+	bpf.MapKey
+
 	GetCIDR() *cidr.CIDR
 	GetRevNATID() uint16
 

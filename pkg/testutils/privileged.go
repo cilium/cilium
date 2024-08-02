@@ -22,6 +22,10 @@ func PrivilegedTest(tb testing.TB) {
 	}
 }
 
+func IsPrivileged() bool {
+	return os.Getenv(privilegedEnv) != ""
+}
+
 // IntegrationTests returns true if integration tests are requested.
 func IntegrationTests() bool {
 	return os.Getenv(integrationEnv) != ""

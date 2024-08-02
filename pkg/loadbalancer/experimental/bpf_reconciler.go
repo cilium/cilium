@@ -122,6 +122,8 @@ func (ops *bpfOps) start(_ cell.HookContext) error {
 	// Restore the ID allocations from the BPF maps in order to reuse
 	// them and thus avoiding traffic disruptions.
 	err := ops.lbmaps.DumpService(func(key lbmap.ServiceKey, value lbmap.ServiceValue) {
+		key = key.ToHost()
+		value = value.ToHost()
 		if key.GetBackendSlot() != 0 {
 			return
 		}
@@ -134,6 +136,7 @@ func (ops *bpfOps) start(_ cell.HookContext) error {
 	}
 
 	err = ops.lbmaps.DumpBackend(func(key lbmap.BackendKey, value lbmap.BackendValue) {
+		value = value.ToHost()
 		ops.backendIDAlloc.addID(beValueToAddr(value), loadbalancer.ID(key.GetID()))
 		ops.restoredBackendIDs.Insert(key.GetID())
 	})
@@ -294,6 +297,7 @@ func (ops *bpfOps) pruneServiceMaps() error {
 func (ops *bpfOps) pruneBackendMaps() error {
 	toDelete := []lbmap.BackendKey{}
 	beCB := func(beKey lbmap.BackendKey, beValue lbmap.BackendValue) {
+		beValue = beValue.ToHost()
 		if _, ok := ops.backendStates[beValueToAddr(beValue)]; !ok {
 			ops.log.Info("pruneBackendMaps: deleting", "id", beKey.GetID(), "addr", beValueToAddr(beValue))
 			toDelete = append(toDelete, beKey)
@@ -337,6 +341,7 @@ func (ops *bpfOps) pruneRestoredIDs() error {
 func (ops *bpfOps) pruneRevNat() error {
 	toDelete := []lbmap.RevNatKey{}
 	cb := func(key lbmap.RevNatKey, value lbmap.RevNatValue) {
+		key = key.ToHost()
 		if _, ok := ops.serviceIDAlloc.entitiesID[loadbalancer.ID(key.GetKey())]; !ok {
 			ops.log.Info("pruneRevNat: deleting", "id", key.GetKey())
 			toDelete = append(toDelete, key)
