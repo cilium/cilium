@@ -28,7 +28,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -119,7 +118,18 @@ func TestIntegrationK8s(t *testing.T) {
 		bo     *bpfOps
 	)
 
-	maps := &realLBMaps{pinned: false}
+	maps := &realLBMaps{
+		pinned: false,
+		cfg: LBMapsConfig{
+			MaxSockRevNatMapEntries:  1000,
+			ServiceMapMaxEntries:     1000,
+			BackendMapMaxEntries:     1000,
+			RevNatMapMaxEntries:      1000,
+			AffinityMapMaxEntries:    1000,
+			SourceRangeMapMaxEntries: 1000,
+			MaglevMapMaxEntries:      1000,
+		},
+	}
 
 	h := hive.New(
 		// FIXME.  Need this to avoid 1 second delay on metric operations.
@@ -154,7 +164,7 @@ func TestIntegrationK8s(t *testing.T) {
 					lc.Append(maps)
 					return &faultyLBMaps{
 						impl:               maps,
-						failureProbability: 0.05, // 5% chance of failure.
+						failureProbability: 0.10, // 10% chance of failure.
 					}
 				},
 			),
@@ -211,9 +221,6 @@ func TestIntegrationK8s(t *testing.T) {
 
 	require.NoError(t, h.Start(log, context.TODO()))
 
-	timeoutTimer, stopTimeoutTimer := inctimer.New()
-	defer stopTimeoutTimer()
-
 	dirs, err := os.ReadDir("testdata")
 	require.NoError(t, err, "ReadDir(testdata)")
 
@@ -248,40 +255,13 @@ func TestIntegrationK8s(t *testing.T) {
 				endpoints <- upsertEvent(k8s.ParseEndpointSliceV1(obj))
 			}
 
-			// Wait for reconciliation.
-			timeout := timeoutTimer.After(time.Minute)
-			for {
-				iter, watch := writer.Frontends().AllWatch(db.ReadTxn())
-				allDone := true
-				unreconciledCount := 0
-				count := 0
-				for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
-					if obj.Status.Kind != reconciler.StatusKindDone {
-						unreconciledCount++
-						allDone = false
-					}
-					count++
-				}
-				if count > 0 && allDone {
-					break
-				}
-				t.Logf("not reconciled yet, %d/%d remain", unreconciledCount, count)
-
-				select {
-				case <-timeout:
-					writer.DebugDump(db.ReadTxn(), os.Stdout)
-					t.Fatalf("TIMEOUT")
-				case <-watch:
-				}
-			}
-
 			if !assert.Eventually(
 				t,
 				func() bool {
 					return checkTablesAndMaps(db, writer, maps, testDataPath)
 				},
 				5*time.Second,
-				10*time.Millisecond,
+				50*time.Millisecond,
 				"Mismatching tables and/or BPF maps",
 			) {
 				logDiff(t, path.Join(testDataPath, "actual.tables"), path.Join(testDataPath, "expected.tables"))
@@ -345,6 +325,19 @@ func sanitizeTables(dump []byte) []byte {
 }
 
 func checkTablesAndMaps(db *statedb.DB, writer *Writer, maps lbmaps, testDataPath string) bool {
+	iter := writer.Frontends().All(db.ReadTxn())
+	allDone := true
+	count := 0
+	for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
+		if obj.Status.Kind != reconciler.StatusKindDone {
+			allDone = false
+		}
+		count++
+	}
+	if count == 0 || !allDone {
+		return false
+	}
+
 	var tableBuf bytes.Buffer
 	writer.DebugDump(db.ReadTxn(), &tableBuf)
 	actualTables := tableBuf.Bytes()

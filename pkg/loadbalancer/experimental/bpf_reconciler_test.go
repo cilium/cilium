@@ -823,7 +823,18 @@ func TestBPFOps(t *testing.T) {
 	lc := hivetest.Lifecycle(t)
 	log := hivetest.Logger(t)
 
-	lbmaps := &realLBMaps{pinned: false}
+	lbmaps := &realLBMaps{
+		pinned: false,
+		cfg: LBMapsConfig{
+			MaxSockRevNatMapEntries:  1000,
+			ServiceMapMaxEntries:     1000,
+			BackendMapMaxEntries:     1000,
+			RevNatMapMaxEntries:      1000,
+			AffinityMapMaxEntries:    1000,
+			SourceRangeMapMaxEntries: 1000,
+			MaglevMapMaxEntries:      1000,
+		},
+	}
 	lc.Append(lbmaps)
 
 	// Initialize the metrics registry. Otherwise the bpf.Map ops will incur a 1 second
@@ -1031,6 +1042,16 @@ func dump(lbmaps lbmaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []
 	}
 
 	if err := lbmaps.DumpAffinityMatch(affCB); err != nil {
+		panic(err)
+	}
+
+	srcRangeCB := func(key lbmap.SourceRangeKey, _ *lbmap.SourceRangeValue) {
+		out = append(out, fmt.Sprintf("SRCRANGE: ID=%s CIDR=%s",
+			sanitizeID(key.GetRevNATID(), sanitizeIDs),
+			key.GetCIDR(),
+		))
+	}
+	if err := lbmaps.DumpSourceRange(srcRangeCB); err != nil {
 		panic(err)
 	}
 
