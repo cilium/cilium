@@ -25,6 +25,7 @@ ADD ./requirements.txt /tmp/requirements.txt
 RUN pip install -r /tmp/requirements.txt
 
 ENV HOME=/tmp
+ARG READTHEDOCS_VERSION
 ENV READTHEDOCS_VERSION=$READTHEDOCS_VERSION
 ENV MAKE_GIT_REPO_SAFE=1
 
