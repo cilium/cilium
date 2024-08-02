@@ -622,18 +622,17 @@ func (e *MapStateEntry) HasDependent(key Key) bool {
 	return ok
 }
 
-// HasSameOwners returns true if both MapStateEntries
-// have the same owners as one another (which means that
-// one of the entries is redundant).
-func (e *MapStateEntry) HasSameOwners(bEntry *MapStateEntry) bool {
-	if e == nil && bEntry == nil {
+// CoversOwners returns true if the receiver MapStateEntry
+// has all the owners that the argument MapStateEntry has.
+func (e *MapStateEntry) CoversOwners(bEntry *MapStateEntry) bool {
+	if bEntry == nil || len(bEntry.owners) == 0 {
 		return true
 	}
-	if len(e.owners) != len(bEntry.owners) {
+	if len(e.owners) < len(bEntry.owners) {
 		return false
 	}
-	for _, owner := range e.owners {
-		if _, ok := bEntry.owners[owner]; !ok {
+	for _, owner := range bEntry.owners {
+		if _, ok := e.owners[owner]; !ok {
 			return false
 		}
 	}
@@ -1182,7 +1181,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				ms.validator.isBroaderOrEqual(k, newKey)
 				ms.validator.isSupersetOrSame(k, newKey, identities)
 			}
-			if !v.HasDependent(newKey) && v.HasSameOwners(&newEntry) {
+			if !v.HasDependent(newKey) && v.CoversOwners(&newEntry) {
 				// If this iterated-deny-entry is a supserset (or equal) of the new-entry and
 				// the iterated-deny-entry has a broader (or equal) port-protocol and
 				// the ownership between the entries is the same then we
@@ -1203,7 +1202,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				ms.validator.isBroaderOrEqual(newKey, k)
 				ms.validator.isSupersetOrSame(newKey, k, identities)
 			}
-			if !newEntry.HasDependent(k) && newEntry.HasSameOwners(&v) {
+			if !newEntry.HasDependent(k) && newEntry.CoversOwners(&v) {
 				// If this iterated-deny-entry is a subset (or equal) of the new-entry and
 				// the new-entry has a broader (or equal) port-protocol and
 				// the ownership between the entries is the same then we
