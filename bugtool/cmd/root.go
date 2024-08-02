@@ -257,6 +257,17 @@ func runTool() {
 			if err := dumpEnvoy(cmdDir, "http://admin/config_dump?include_eds", "envoy-config.json", envoySecretMask); err != nil {
 				fmt.Fprintf(os.Stderr, "Unable to dump envoy config: %s\n", err)
 			}
+			if err := dumpEnvoy(cmdDir, "http://admin/listeners", "envoy-listeners.txt", nil); err != nil {
+				fmt.Fprintf(os.Stderr, "Unable to dump envoy listeners: %s\n", err)
+			}
+
+			if err := dumpEnvoy(cmdDir, "http://admin/clusters", "envoy-clusters.txt", nil); err != nil {
+				fmt.Fprintf(os.Stderr, "Unable to dump envoy clusters: %s\n", err)
+			}
+
+			if err := dumpEnvoy(cmdDir, "http://admin/server_info", "envoy-server-info.json", nil); err != nil {
+				fmt.Fprintf(os.Stderr, "Unable to dump envoy server info: %s\n", err)
+			}
 		}
 
 		if envoyMetrics {
