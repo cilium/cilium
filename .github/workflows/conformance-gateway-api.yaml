@@ -122,7 +122,7 @@ jobs:
         run: |
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
-          EXEMPT_FEATURES="GatewayStaticAddresses,HTTPRouteParentRefPort,MeshConsumerRoute"
+          EXEMPT_FEATURES="HTTPRouteParentRefPort,MeshConsumerRoute"
           if [ ${{ matrix.crd-channel }} == "standard" ]; then
             EXEMPT_FEATURES+=",HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout,GatewayInfrastructurePropagation"
           fi
@@ -260,8 +260,17 @@ jobs:
       - name: Run Gateway API conformance test
         timeout-minutes: 30
         run: |
+          KIND_NET_CIDR=$(docker network inspect kind -f '{{json .IPAM.Config}}' | jq -r '.[] | select(.Subnet | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")) | .Subnet')
+          echo "KIND_NET_CIDR: $KIND_NET_CIDR"
+          GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.206@")
+          GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.216@")
+          echo "GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES: $GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES"
+          echo "GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES: $GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES"
           if [ ${{ matrix.conformance-profile }} == "true" ]; then
-            GATEWAY_API_CONFORMANCE_TESTS=1 go test \
+            GATEWAY_API_CONFORMANCE_TESTS=1 \
+            GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES  \
+            GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES \
+            go test \
               -p 4 \
               -v ./operator/pkg/gateway-api \
               --gateway-class cilium \
@@ -279,7 +288,10 @@ jobs:
               -json \
             | tparse -progress
           else
-            GATEWAY_API_CONFORMANCE_TESTS=1 go test \
+            GATEWAY_API_CONFORMANCE_TESTS=1 \
+            GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES  \
+            GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES \
+            go test \
               -p 4 \
               -v ./operator/pkg/gateway-api \
               --gateway-class cilium \
