@@ -5,7 +5,7 @@
     https://docs.cilium.io
 
 Host network mode
-#################
+*****************
 
 .. note::
     Supported since Cilium 1.16+
