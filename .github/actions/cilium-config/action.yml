@@ -124,7 +124,7 @@ runs:
           fi
 
           IPV4=""
-          if [ "${{ inputs.ipv4 }}" != "true" ]; then
+          if [ "${{ inputs.ipv4 }}" == "false" ]; then
             IPV4="--helm-set=ipv4.enabled=false"
           fi
 
