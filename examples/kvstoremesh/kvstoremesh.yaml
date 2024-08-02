@@ -1,0 +1,42 @@
+cluster:
+  id: 1
+  name: cluster1
+clustermesh:
+  apiserver:
+    enabled: false
+    etcd:
+      enabled: false
+    extraVolumes:
+      - configMap:
+          defaultMode: 256
+          items:
+          - key: etcd-config
+            path: etcd.config
+          name: cilium-config
+        name: etcd-config-path
+    kvstoremesh:
+      enabled: true
+      extraArgs:
+        - --kvstore-opt=etcd.config=/var/lib/etcd-config/etcd.config
+      extraVolumeMounts:
+        - mountPath: /var/lib/etcd-config
+          name: etcd-config-path
+          readOnly: true
+  config:
+    clusters:
+      - name: cluster2
+        address: 172.20.0.1
+        port: 2579
+    enabled: true
+  useAPIServer: true
+etcd:
+  enabled: true
+  endpoints:
+    - http://172.20.0.1:2479
+identityAllocationMode: kvstore
+image:
+  pullPolicy: IfNotPresent
+ipam:
+  mode: kubernetes
+nodePort:
+  enabled: true
