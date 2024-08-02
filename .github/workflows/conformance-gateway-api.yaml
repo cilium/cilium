@@ -123,7 +123,7 @@ jobs:
         run: |
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
-          EXEMPT_FEATURES="GatewayStaticAddresses,HTTPRouteParentRefPort,MeshConsumerRoute"
+          EXEMPT_FEATURES="HTTPRouteParentRefPort,MeshConsumerRoute"
           if [ ${{ matrix.crd-channel }} == "standard" ]; then
             EXEMPT_FEATURES+=",HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout"
           fi
@@ -215,11 +215,15 @@ jobs:
           kubectl -n kube-system get pods
 
       - name: Install Cilium LB IPPool and L2 Announcement Policy
+        id: lb
         timeout-minutes: 10
         run: |
           KIND_NET_CIDR=$(docker network inspect kind -f '{{json .IPAM.Config}}' | jq -r '.[] | select(.Subnet | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")) | .Subnet')
           echo "KIND_NET_CIDR: $KIND_NET_CIDR"
           LB_CIDR=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200/28@")
+          USABLE_NETWORK_ADDRESSES=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.213@")
+          UNUSABLE_NETWORK_ADDRESSES="192.168.0.1"
+
           echo "LB_CIDR: $LB_CIDR"
 
           echo "Deploying LB-IPAM Pool..."
@@ -253,11 +257,17 @@ jobs:
           cat l2policy.yaml
           kubectl apply -f l2policy.yaml
 
+          echo usable_network_addresses=${USABLE_NETWORK_ADDRESSES} >> $GITHUB_OUTPUT
+          echo unusable_network_addresses=${UNUSABLE_NETWORK_ADDRESSES} >> $GITHUB_OUTPUT
+
       - name: Run Gateway API conformance test
         timeout-minutes: 30
         run: |
           if [ ${{ matrix.conformance-profile }} == "true" ]; then
-            GATEWAY_API_CONFORMANCE_TESTS=1 go test \
+            GATEWAY_API_CONFORMANCE_TESTS=1 \
+            GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES="${{ steps.lb.outputs.usable_network_addresses }}" \
+            GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES="${{ steps.lb.outputs.unusable_network_addresses }}" \
+              go test \
               -p 4 \
               -v ./operator/pkg/gateway-api \
               --gateway-class cilium \
@@ -276,7 +286,10 @@ jobs:
               -json \
             | tparse -progress
           else
-            GATEWAY_API_CONFORMANCE_TESTS=1 go test \
+            GATEWAY_API_CONFORMANCE_TESTS=1 \
+            GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES="${{ steps.lb.outputs.usable_network_addresses }}" \
+            GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES="${{ steps.lb.outputs.unusable_network_addresses }}" \
+              go test \
               -p 4 \
               -v ./operator/pkg/gateway-api \
               --gateway-class cilium \

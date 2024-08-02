@@ -18,6 +18,7 @@ func Test_gatewayStatusScheduledCondition(t *testing.T) {
 		gw        *gatewayv1.Gateway
 		scheduled bool
 		msg       string
+		reason    gatewayv1.GatewayConditionReason
 	}
 	tests := []struct {
 		name string
@@ -32,6 +33,7 @@ func Test_gatewayStatusScheduledCondition(t *testing.T) {
 						Generation: 100,
 					},
 				},
+				reason:    gatewayv1.GatewayReasonAccepted,
 				scheduled: true,
 				msg:       "Scheduled Gateway",
 			},
@@ -52,6 +54,7 @@ func Test_gatewayStatusScheduledCondition(t *testing.T) {
 					},
 				},
 				scheduled: false,
+				reason:    gatewayv1.GatewayReasonNoResources,
 				msg:       "Invalid Gateway",
 			},
 			want: metav1.Condition{
@@ -65,7 +68,7 @@ func Test_gatewayStatusScheduledCondition(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := gatewayStatusAcceptedCondition(tt.args.gw, tt.args.scheduled, tt.args.msg)
+			got := gatewayStatusAcceptedCondition(tt.args.gw, tt.args.scheduled, tt.args.msg, tt.args.reason)
 			assert.True(t, cmp.Equal(got, tt.want, cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime")), "gatewayStatusAcceptedCondition() = %v, want %v", got, tt.want)
 		})
 	}
