@@ -818,24 +818,29 @@ func parseAddrPort(s string) loadbalancer.L3n4Addr {
 }
 
 func TestBPFOps(t *testing.T) {
-	testutils.PrivilegedTest(t)
 
 	lc := hivetest.Lifecycle(t)
 	log := hivetest.Logger(t)
 
-	lbmaps := &realLBMaps{
-		pinned: false,
-		cfg: LBMapsConfig{
-			MaxSockRevNatMapEntries:  1000,
-			ServiceMapMaxEntries:     1000,
-			BackendMapMaxEntries:     1000,
-			RevNatMapMaxEntries:      1000,
-			AffinityMapMaxEntries:    1000,
-			SourceRangeMapMaxEntries: 1000,
-			MaglevMapMaxEntries:      1000,
-		},
+	var lbmaps lbmaps
+	if testutils.IsPrivileged() {
+		r := &realLBMaps{
+			pinned: false,
+			cfg: LBMapsConfig{
+				MaxSockRevNatMapEntries:  1000,
+				ServiceMapMaxEntries:     1000,
+				BackendMapMaxEntries:     1000,
+				RevNatMapMaxEntries:      1000,
+				AffinityMapMaxEntries:    1000,
+				SourceRangeMapMaxEntries: 1000,
+				MaglevMapMaxEntries:      1000,
+			},
+		}
+		lc.Append(r)
+		lbmaps = r
+	} else {
+		lbmaps = newFakeLBMaps()
 	}
-	lc.Append(lbmaps)
 
 	// Initialize the metrics registry. Otherwise the bpf.Map ops will incur a 1 second
 	// delay as they try to update the pressure gauge.
@@ -976,6 +981,8 @@ func dump(lbmaps lbmaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []
 	}
 
 	svcCB := func(svcKey lbmap.ServiceKey, svcValue lbmap.ServiceValue) {
+		svcKey = svcKey.ToHost()
+		svcValue = svcValue.ToHost()
 		addr := svcKey.GetAddress()
 		addrS := replaceAddr(addr, svcKey.GetPort())
 		if svcKey.GetScope() == loadbalancer.ScopeInternal {
@@ -997,6 +1004,7 @@ func dump(lbmaps lbmaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []
 	}
 
 	beCB := func(beKey lbmap.BackendKey, beValue lbmap.BackendValue) {
+		beValue = beValue.ToHost()
 		addr := beValue.GetAddress()
 		addrS := addr.String()
 		if addr.To4() == nil {
@@ -1015,6 +1023,9 @@ func dump(lbmaps lbmaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []
 	}
 
 	revCB := func(revKey lbmap.RevNatKey, revValue lbmap.RevNatValue) {
+		revKey = revKey.ToHost()
+		revValue = revValue.ToHost()
+
 		var addr string
 
 		switch v := revValue.(type) {
@@ -1035,6 +1046,7 @@ func dump(lbmaps lbmaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []
 	}
 
 	affCB := func(affKey *lbmap.AffinityMatchKey, _ *lbmap.AffinityMatchValue) {
+		affKey = affKey.ToHost()
 		out = append(out, fmt.Sprintf("AFF: ID=%s BEID=%d",
 			sanitizeID(affKey.RevNATID, sanitizeIDs),
 			affKey.BackendID,
@@ -1046,6 +1058,7 @@ func dump(lbmaps lbmaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []
 	}
 
 	srcRangeCB := func(key lbmap.SourceRangeKey, _ *lbmap.SourceRangeValue) {
+		key = key.ToHost()
 		out = append(out, fmt.Sprintf("SRCRANGE: ID=%s CIDR=%s",
 			sanitizeID(key.GetRevNATID(), sanitizeIDs),
 			key.GetCIDR(),

@@ -88,7 +88,24 @@ func deleteEvent[Obj k8sRuntime.Object](obj Obj) resource.Event[Obj] {
 }
 
 func TestIntegrationK8s(t *testing.T) {
-	testutils.PrivilegedTest(t)
+	var maps lbmaps
+
+	if testutils.IsPrivileged() {
+		maps = &realLBMaps{
+			pinned: false,
+			cfg: LBMapsConfig{
+				MaxSockRevNatMapEntries:  1000,
+				ServiceMapMaxEntries:     1000,
+				BackendMapMaxEntries:     1000,
+				RevNatMapMaxEntries:      1000,
+				AffinityMapMaxEntries:    1000,
+				SourceRangeMapMaxEntries: 1000,
+				MaglevMapMaxEntries:      1000,
+			},
+		}
+	} else {
+		maps = newFakeLBMaps()
+	}
 
 	// TODO: Move this option somewhere sane.
 	option.Config.EnableK8sTerminatingEndpoint = true
@@ -117,19 +134,6 @@ func TestIntegrationK8s(t *testing.T) {
 		db     *statedb.DB
 		bo     *bpfOps
 	)
-
-	maps := &realLBMaps{
-		pinned: false,
-		cfg: LBMapsConfig{
-			MaxSockRevNatMapEntries:  1000,
-			ServiceMapMaxEntries:     1000,
-			BackendMapMaxEntries:     1000,
-			RevNatMapMaxEntries:      1000,
-			AffinityMapMaxEntries:    1000,
-			SourceRangeMapMaxEntries: 1000,
-			MaglevMapMaxEntries:      1000,
-		},
-	}
 
 	h := hive.New(
 		// FIXME.  Need this to avoid 1 second delay on metric operations.
@@ -161,7 +165,9 @@ func TestIntegrationK8s(t *testing.T) {
 
 			cell.Provide(
 				func(lc cell.Lifecycle) lbmaps {
-					lc.Append(maps)
+					if rm, ok := maps.(*realLBMaps); ok {
+						lc.Append(rm)
+					}
 					return &faultyLBMaps{
 						impl:               maps,
 						failureProbability: 0.10, // 10% chance of failure.
@@ -261,7 +267,7 @@ func TestIntegrationK8s(t *testing.T) {
 					return checkTablesAndMaps(db, writer, maps, testDataPath)
 				},
 				5*time.Second,
-				50*time.Millisecond,
+				10*time.Millisecond,
 				"Mismatching tables and/or BPF maps",
 			) {
 				logDiff(t, path.Join(testDataPath, "actual.tables"), path.Join(testDataPath, "expected.tables"))
