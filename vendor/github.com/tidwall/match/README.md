@@ -22,7 +22,7 @@ match.Match("hello", "h*o")
 
 ## Contact
 
-Josh Baker [@tidwall](http://twitter.com/tidwall)
+Josh Baker [@tidwall](http://x.com/tidwall)
 
 ## License
 

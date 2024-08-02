@@ -271,7 +271,7 @@ widget.text.onMouseUp
 *These benchmarks were run on a MacBook Pro 15" 2.8 GHz Intel Core i7 using Go 1.7 and can be be found [here](https://github.com/tidwall/sjson-benchmarks)*.
 
 ## Contact
-Josh Baker [@tidwall](http://twitter.com/tidwall)
+Josh Baker [@tidwall](http://x.com/tidwall)
 
 ## License
 
