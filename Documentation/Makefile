@@ -44,6 +44,7 @@ endif
 # documentation to be generated correctly.
 cilium-build:
 ifndef SKIP_BUILD
+	$(MAKE) builder-image
 	../contrib/scripts/builder.sh env MAKEFLAGS="$(MAKEFLAGS)" make build
 else
 	echo "SKIP_BUILD set, assuming all build artifacts are already present."
@@ -71,7 +72,7 @@ api-flaggen: ## Update the table of API flags restrictions.
 		> configuration/api-restrictions-table.rst
 
 .PHONY: update-cmdref
-update-cmdref: builder-image cilium-build ## Update the command reference documents (agent, bugtool, operators, etc.).
+update-cmdref: cilium-build ## Update the command reference documents (agent, bugtool, operators, etc.).
 	@$(ECHO_GEN)cmdref
 	-$(QUIET)rm -rf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
