@@ -266,7 +266,7 @@ func removeOldCiliumHostIPs(ctx context.Context, restoredRouterIPv4, restoredRou
 		if option.Config.EnableIPv6 {
 			errs = errors.Join(errs, removeOldRouterState(true, restoredRouterIPv6))
 		}
-		if resiliency.IsRetryable(errs) {
+		if resiliency.IsRetryable(errs) && !errors.As(errs, &netlink.LinkNotFoundError{}) {
 			log.WithField(logfields.Attempt, retries).WithError(errs).Warnf("Failed to remove old router IPs from cilium_host.")
 			return false, nil
 		}
