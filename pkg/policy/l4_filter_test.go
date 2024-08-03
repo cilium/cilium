@@ -851,7 +851,6 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 	l4Filter := res.ExactLookup("443", 0, "TCP")
 	require.NotNil(t, l4Filter)
 	require.Equal(t, ParserTypeTLS, l4Filter.L7Parser)
-	log.Infof("res: %v", res)
 }
 
 func TestMergeTLSHTTPPolicy(t *testing.T) {
@@ -946,7 +945,6 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 	l4Filter := res.ExactLookup("443", 0, "TCP")
 	require.NotNil(t, l4Filter)
 	require.Equal(t, ParserTypeHTTP, l4Filter.L7Parser)
-	log.Infof("res: %v", res)
 }
 
 func TestMergeTLSSNIPolicy(t *testing.T) {
@@ -1060,7 +1058,6 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 	l4Filter := res.ExactLookup("443", 0, "TCP")
 	require.NotNil(t, l4Filter)
 	require.Equal(t, ParserTypeHTTP, l4Filter.L7Parser)
-	log.Infof("res: %v", res)
 }
 
 func TestMergeListenerPolicy(t *testing.T) {
@@ -1196,7 +1193,6 @@ func TestMergeListenerPolicy(t *testing.T) {
 	l4Filter := res.ExactLookup("443", 0, "TCP")
 	require.NotNil(t, l4Filter)
 	require.Equal(t, ParserTypeCRD, l4Filter.L7Parser)
-	log.Infof("res: %v", res)
 
 	//
 	// namespace in policyContext (Namespaced policy): Can refer to EnvoyConfig
@@ -1278,7 +1274,6 @@ func TestMergeListenerPolicy(t *testing.T) {
 	l4Filter = res.ExactLookup("443", 0, "TCP")
 	require.NotNil(t, l4Filter)
 	require.Equal(t, ParserTypeCRD, l4Filter.L7Parser)
-	log.Infof("res: %v", res)
 
 	//
 	// namespace in policyContext (Namespaced policy): Can refer to Cluster-socoped
@@ -1361,7 +1356,6 @@ func TestMergeListenerPolicy(t *testing.T) {
 	l4Filter = res.ExactLookup("443", 0, "TCP")
 	require.NotNil(t, l4Filter)
 	require.Equal(t, ParserTypeCRD, l4Filter.L7Parser)
-	log.Infof("res: %v", res)
 }
 
 // Case 6: allow all at L3/L7 in one rule, and select an endpoint and allow all on L7
