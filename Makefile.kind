@@ -203,10 +203,6 @@ kind-install-cilium-fast: check_deps kind-ready ## "Fast" Install a local Cilium
 			--version= >/dev/null 2>&1 & \
 	done
 
-.PHONY: build-cli
-build-cli: ## Build cilium cli binary
-	$(QUIET)$(MAKE) -C cilium-dbg GOOS=linux
-
 .PHONY: build-agent
 build-agent: ## Build cilium daemon binary
 	$(QUIET)$(MAKE) -C daemon GOOS=linux
@@ -220,7 +216,7 @@ build-clustermesh-apiserver: ## Build cilium clustermesh-apiserver binary
 	$(QUIET)$(MAKE) -C clustermesh-apiserver  GOOS=linux
 
 .PHONY: kind-image-fast-agent
-kind-image-fast-agent: kind-ready build-cli build-agent ## Build cilium cli and daemon binaries. Copy the bins and bpf files to kind nodes.
+kind-image-fast-agent: kind-ready build-agent ## Build cilium cli and daemon binaries. Copy the bins and bpf files to kind nodes.
 	$(eval dst:=/cilium-binaries)
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
 		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
@@ -230,14 +226,10 @@ kind-image-fast-agent: kind-ready build-cli build-agent ## Build cilium cli and 
 			docker exec -ti $${node_name} mkdir -p "${dst}/var/lib/cilium"; \
 			docker cp "./bpf/" $${node_name}:"${dst}/var/lib/cilium/bpf"; \
 			docker exec -ti $${node_name} find "${dst}/var/lib/cilium/bpf" -type f -exec chmod 0644 {} + ;\
-			\
-			docker exec -ti $${node_name} rm -f "${dst}/cilium-dbg"; \
-			docker cp "./cilium-dbg/cilium-dbg" $${node_name}:"${dst}"; \
-			docker exec -ti $${node_name} chmod +x "${dst}/cilium-dbg"; \
-			\
 			docker exec -ti $${node_name} rm -f "${dst}/cilium-agent"; \
 			docker cp "./daemon/cilium-agent" $${node_name}:"${dst}"; \
 			docker exec -ti $${node_name} chmod +x "${dst}/cilium-agent"; \
+			docker exec -ti $${node_name} ln -sf "${dst}/cilium-agent ${dst}cilium-dbg"; \
 		done; \
 		kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=cilium --force; \
 	done

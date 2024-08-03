@@ -1,8 +1,4 @@
 extraVolumes:
-- name: cilium-dbg-binary
-  hostPath:
-    path: /cilium-binaries/cilium-dbg
-    type: File
 - name: cilium-agent-binary
   hostPath:
     path: /cilium-binaries/cilium-agent
@@ -12,9 +8,6 @@ extraVolumes:
     path: /cilium-binaries/var/lib/cilium/bpf
     type: Directory
 extraVolumeMounts:
-- name: cilium-dbg-binary
-  mountPath: /usr/bin/cilium-dbg
-  readOnly: true
 - name: cilium-agent-binary
   mountPath: /usr/bin/cilium-agent
   readOnly: true

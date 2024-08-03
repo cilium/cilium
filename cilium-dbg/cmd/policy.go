@@ -27,6 +27,15 @@ import (
 var PolicyCmd = &cobra.Command{
 	Use:   "policy",
 	Short: "Manage security policies",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// Initialize LRU here because the policy subcommands (validate, import)
+		// will call down to sanitizing the FQDN rules which contains regexes.
+		// Regexes need to be compiled as part of the FQDN rule validation.
+		//
+		// It's not necessary to pass a useful size here because it's not
+		// necessary to cache regexes in a short-lived binary (CLI).
+		re.InitRegexCompileLRU(1)
+	},
 }
 
 var (
@@ -37,14 +46,6 @@ var (
 
 func init() {
 	RootCmd.AddCommand(PolicyCmd)
-
-	// Initialize LRU here because the policy subcommands (validate, import)
-	// will call down to sanitizing the FQDN rules which contains regexes.
-	// Regexes need to be compiled as part of the FQDN rule validation.
-	//
-	// It's not necessary to pass a useful size here because it's not
-	// necessary to cache regexes in a short-lived binary (CLI).
-	re.InitRegexCompileLRU(1)
 }
 
 func getContext(content []byte, offset int64) (int, string, int) {
