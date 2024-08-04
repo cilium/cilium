@@ -338,7 +338,7 @@ func (s *SpireDelegateClient) initWatcher(ctx context.Context) (delegatedidentit
 
 	unixPath := fmt.Sprintf("unix://%s", s.cfg.SpireAdminSocketPath)
 
-	conn, err := grpc.Dial(unixPath, grpc.WithTransportCredentials(insecure.NewCredentials()),
+	conn, err := grpc.NewClient(unixPath, grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(20*1024*1024),
 			grpc.MaxCallSendMsgSize(20*1024*1024))) // setting this to 20MB to handle large bundles TODO: improve this once fixed upstream (https://github.com/cilium/cilium/issues/24297)
