@@ -24,7 +24,7 @@ jobs:
         dry-run: false
         language: go
     - name: Upload Crash
-      uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+      uses: actions/upload-artifact@89ef406dd8d7e03cfd12d9e0a4a378f454709029 # v4.3.5
       if: failure() && steps.build.outcome == 'success'
       with:
         name: artifacts
