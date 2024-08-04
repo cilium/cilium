@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/timestamp"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
 )
@@ -307,6 +308,7 @@ func DeleteMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
 
 		m.SilentDelete(&key)
 		m.SilentDelete(&rkey)
+		metrics.NatDeleteMappingv4Events.Inc()
 	}
 	return nil
 }
@@ -331,6 +333,7 @@ func DeleteMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
 
 		m.SilentDelete(&key)
 		m.SilentDelete(&rkey)
+		metrics.NatDeleteMappingv6Events.Inc()
 	}
 	return nil
 }
