@@ -179,7 +179,7 @@ func (c *Client) connect(ctx context.Context) (*grpc.ClientConn, error) {
 		logfields.Address: c.cfg.SpireServerAddress,
 		logfields.IPAddr:  resolvedTarget,
 	}).Info("Trying to connect to SPIRE server")
-	conn, err := grpc.Dial(*resolvedTarget, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	conn, err := grpc.NewClient(*resolvedTarget, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create connection to SPIRE server: %w", err)
 	}
