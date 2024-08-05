@@ -46,8 +46,9 @@ func (s *SharedClients) ExchangeContext(ctx context.Context, key string, conf *d
 	return r, rtt, closer, err
 }
 
-// Called by wrapped TCP connection once downstream connection breaks/is closed as a notfication to close upstream conn.
-func (s *SharedClients) ShutdownClient(key string) {
+// Called by wrapped TCP connection once the downstream connection breaks/is
+// closed. Used as a signal to close the upstream connection.
+func (s *SharedClients) ShutdownTCPClient(key string) {
 	// lock for s.clients access
 	s.lock.Lock()
 	client := s.clients[key]
@@ -55,24 +56,16 @@ func (s *SharedClients) ShutdownClient(key string) {
 		s.lock.Unlock()
 		return
 	}
+	delete(s.clients, key)
 	s.lock.Unlock()
 
+	// The reference counting in the shared client is not authoritative for TCP.
+	// It is increased on acquiring a reference to it, but never decreased,
+	// since we don't want it to hit zero while the downstream connection is
+	// open. Hence we also don't check for it being zero when closing.
 	client.Lock()
 	defer client.Unlock()
-	client.refcount--
-	if client.refcount == 0 {
-		// connection close must be completed while holding the client's lock to
-		// avoid a race where a new client dials using the same 5-tuple and gets a
-		// bind error.
-		// The client remains findable so that new users with the same key may wait
-		// for this closing to be done with.
-		client.close()
-		// Make client unreachable
-		// Must take s.lock for this.
-		s.lock.Lock()
-		delete(s.clients, key)
-		s.lock.Unlock()
-	}
+	client.close()
 }
 
 // GetSharedClient gets or creates an instance of SharedClient keyed with 'key'.  if 'key' is an
@@ -112,7 +105,7 @@ func (s *SharedClients) GetSharedClient(key string, conf *dns.Client, serverAddr
 		client = nil
 	}
 
-	// TCP shared clients don't need the closer func as they are cleaned up via ShutdownClient.
+	// TCP clients are cleaned up on downstream connection close.
 	if conf.Net == "tcp" {
 		return client, func() {}
 	}
