@@ -63,6 +63,22 @@ func (r *ServiceReconciler) Priority() int {
 	return 40
 }
 
+func (r *ServiceReconciler) Init(sc *instance.ServerWithConfig) error {
+	if sc == nil {
+		return fmt.Errorf("BUG: service reconciler initialization with nil ServerWithConfig")
+	}
+	r.diffStore.InitDiff(r.diffID(sc.ASN))
+	r.epDiffStore.InitDiff(r.diffID(sc.ASN))
+	return nil
+}
+
+func (r *ServiceReconciler) Cleanup(sc *instance.ServerWithConfig) {
+	if sc != nil {
+		r.diffStore.CleanupDiff(r.diffID(sc.ASN))
+		r.epDiffStore.CleanupDiff(r.diffID(sc.ASN))
+	}
+}
+
 func (r *ServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
 	if p.CiliumNode == nil {
 		return fmt.Errorf("attempted service reconciliation with nil local CiliumNode")
@@ -100,6 +116,8 @@ func (r *ServiceReconciler) requiresFullReconciliation(p ReconcileParams) bool {
 	var existingSelector *slim_metav1.LabelSelector
 	if p.CurrentServer != nil && p.CurrentServer.Config != nil {
 		existingSelector = p.CurrentServer.Config.ServiceSelector
+	} else {
+		return true // the first reconciliation should be always full
 	}
 	// If the existing selector was updated, went from nil to something or something to nil, we need to perform full
 	// reconciliation and check if every existing announcement's service still matches the selector.
@@ -174,7 +192,7 @@ func (r *ServiceReconciler) fullReconciliation(ctx context.Context, sc *instance
 // svcDiffReconciliation performs reconciliation, only on services which have been created, updated or deleted since
 // the last diff reconciliation.
 func (r *ServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *instance.ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, ls localServices) error {
-	toReconcile, toWithdraw, err := r.diffReconciliationServiceList()
+	toReconcile, toWithdraw, err := r.diffReconciliationServiceList(sc)
 	if err != nil {
 		return err
 	}
@@ -195,6 +213,12 @@ func (r *ServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *insta
 // fullReconciliationServiceList return a list of services to reconcile and to withdraw when performing
 // full service reconciliation.
 func (r *ServiceReconciler) fullReconciliationServiceList(sc *instance.ServerWithConfig) (toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, err error) {
+	// Init diff in diffstores, so that it contains only changes since the last full reconciliation.
+	// Despite doing it in Init(), we still need this InitDiff to clean up the old diff when the instance is re-created
+	// by the preflight reconciler. Once Init() is called upon re-create by preflight, we can remove this.
+	r.diffStore.InitDiff(r.diffID(sc.ASN))
+	r.epDiffStore.InitDiff(r.diffID(sc.ASN))
+
 	// Loop over all existing announcements, find announcements for services which no longer exist
 	serviceAnnouncements := r.getMetadata(sc)
 	for svcKey := range serviceAnnouncements {
@@ -220,8 +244,8 @@ func (r *ServiceReconciler) fullReconciliationServiceList(sc *instance.ServerWit
 
 // diffReconciliationServiceList returns a list of services to reconcile and to withdraw when
 // performing partial (diff) service reconciliation.
-func (r *ServiceReconciler) diffReconciliationServiceList() (toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, err error) {
-	upserted, deleted, err := r.diffStore.Diff()
+func (r *ServiceReconciler) diffReconciliationServiceList(sc *instance.ServerWithConfig) (toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, err error) {
+	upserted, deleted, err := r.diffStore.Diff(r.diffID(sc.ASN))
 	if err != nil {
 		return nil, nil, fmt.Errorf("svc store diff: %w", err)
 	}
@@ -232,7 +256,7 @@ func (r *ServiceReconciler) diffReconciliationServiceList() (toReconcile []*slim
 	// We don't handle service deletion here since we only see
 	// the key, we cannot resolve associated service, so we have
 	// nothing to do.
-	epsUpserted, _, err := r.epDiffStore.Diff()
+	epsUpserted, _, err := r.epDiffStore.Diff(r.diffID(sc.ASN))
 	if err != nil {
 		return nil, nil, fmt.Errorf("endpoints store diff: %w", err)
 	}
@@ -459,6 +483,10 @@ func (r *ServiceReconciler) withdrawService(ctx context.Context, sc *instance.Se
 	delete(serviceAnnouncements, key)
 
 	return nil
+}
+
+func (r *ServiceReconciler) diffID(asn uint32) string {
+	return fmt.Sprintf("%s-%d", r.Name(), asn)
 }
 
 func serviceLabelSet(svc *slim_corev1.Service) labels.Labels {
