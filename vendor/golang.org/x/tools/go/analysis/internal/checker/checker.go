@@ -17,7 +17,6 @@ import (
 	"go/format"
 	"go/token"
 	"go/types"
-	"io/ioutil"
 	"log"
 	"os"
 	"reflect"
@@ -32,6 +31,7 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/internal/analysisflags"
 	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/internal/analysisinternal"
 	"golang.org/x/tools/internal/diff"
 	"golang.org/x/tools/internal/robustio"
 )
@@ -172,6 +172,7 @@ func load(patterns []string, allSyntax bool) ([]*packages.Package, error) {
 	if allSyntax {
 		mode = packages.LoadAllSyntax
 	}
+	mode |= packages.NeedModule
 	conf := packages.Config{
 		Mode:  mode,
 		Tests: IncludeTests,
@@ -342,20 +343,28 @@ func applyFixes(roots []*action) error {
 				for _, edit := range sf.TextEdits {
 					// Validate the edit.
 					// Any error here indicates a bug in the analyzer.
-					file := act.pkg.Fset.File(edit.Pos)
+					start, end := edit.Pos, edit.End
+					file := act.pkg.Fset.File(start)
 					if file == nil {
 						return fmt.Errorf("analysis %q suggests invalid fix: missing file info for pos (%v)",
-							act.a.Name, edit.Pos)
+							act.a.Name, start)
 					}
-					if edit.Pos > edit.End {
+					if !end.IsValid() {
+						end = start
+					}
+					if start > end {
 						return fmt.Errorf("analysis %q suggests invalid fix: pos (%v) > end (%v)",
-							act.a.Name, edit.Pos, edit.End)
+							act.a.Name, start, end)
 					}
-					if eof := token.Pos(file.Base() + file.Size()); edit.End > eof {
+					if eof := token.Pos(file.Base() + file.Size()); end > eof {
 						return fmt.Errorf("analysis %q suggests invalid fix: end (%v) past end of file (%v)",
-							act.a.Name, edit.End, eof)
+							act.a.Name, end, eof)
 					}
-					edit := diff.Edit{Start: file.Offset(edit.Pos), End: file.Offset(edit.End), New: string(edit.NewText)}
+					edit := diff.Edit{
+						Start: file.Offset(start),
+						End:   file.Offset(end),
+						New:   string(edit.NewText),
+					}
 					editsForTokenFile[file] = append(editsForTokenFile[file], edit)
 				}
 			}
@@ -424,7 +433,9 @@ func applyFixes(roots []*action) error {
 
 	// Now we've got a set of valid edits for each file. Apply them.
 	for path, edits := range editsByPath {
-		contents, err := ioutil.ReadFile(path)
+		// TODO(adonovan): this should really work on the same
+		// gulp from the file system that fed the analyzer (see #62292).
+		contents, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
@@ -439,7 +450,7 @@ func applyFixes(roots []*action) error {
 			out = formatted
 		}
 
-		if err := ioutil.WriteFile(path, out, 0644); err != nil {
+		if err := os.WriteFile(path, out, 0644); err != nil {
 			return err
 		}
 	}
@@ -479,17 +490,17 @@ func validateEdits(edits []diff.Edit) ([]diff.Edit, int) {
 // diff3Conflict returns an error describing two conflicting sets of
 // edits on a file at path.
 func diff3Conflict(path string, xlabel, ylabel string, xedits, yedits []diff.Edit) error {
-	contents, err := ioutil.ReadFile(path)
+	contents, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
 	oldlabel, old := "base", string(contents)
 
-	xdiff, err := diff.ToUnified(oldlabel, xlabel, old, xedits)
+	xdiff, err := diff.ToUnified(oldlabel, xlabel, old, xedits, diff.DefaultContextLines)
 	if err != nil {
 		return err
 	}
-	ydiff, err := diff.ToUnified(oldlabel, ylabel, old, yedits)
+	ydiff, err := diff.ToUnified(oldlabel, ylabel, old, yedits, diff.DefaultContextLines)
 	if err != nil {
 		return err
 	}
@@ -758,6 +769,7 @@ func (act *action) execOnce() {
 		AllObjectFacts:    act.allObjectFacts,
 		AllPackageFacts:   act.allPackageFacts,
 	}
+	pass.ReadFile = analysisinternal.MakeReadFile(pass)
 	act.pass = pass
 
 	var err error
