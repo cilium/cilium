@@ -59,9 +59,12 @@ BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);
 /* Random numbers */
 static __u32 BPF_FUNC(get_prandom_u32);
 
-/* Checksumming */
-static int BPF_FUNC_REMAP(csum_diff_external, const void *from, __u32 size_from,
-			  const void *to, __u32 size_to, __u32 seed) =
+/* Checksumming size_from and size_to parameters have __u64 type
+ * intentional which corresponds to ARG_CONST_SIZE_OR_ZERO type
+ * used in the eBPF verifier.
+ */
+static int BPF_FUNC_REMAP(csum_diff_external, const void *from, __u64 size_from,
+			  const void *to, __u64 size_to, __u32 seed) =
 	(void *)BPF_FUNC_csum_diff;
 
 /* Tail calls */

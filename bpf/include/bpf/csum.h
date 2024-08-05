@@ -29,8 +29,8 @@ static __always_inline __wsum csum_sub(__wsum csum, __wsum addend)
 	return csum_add(csum, ~addend);
 }
 
-static __always_inline __wsum csum_diff(const void *from, __u32 size_from,
-					const void *to,   __u32 size_to,
+static __always_inline __wsum csum_diff(const void *from, __u64 size_from,
+					const void *to,   __u64 size_to,
 					__u32 seed)
 {
 	if (__builtin_constant_p(size_from) &&
