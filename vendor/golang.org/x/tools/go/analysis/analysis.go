@@ -112,6 +112,19 @@ type Pass struct {
 	// analysis's ResultType.
 	ResultOf map[*Analyzer]interface{}
 
+	// ReadFile returns the contents of the named file.
+	//
+	// The only valid file names are the elements of OtherFiles
+	// and IgnoredFiles, and names returned by
+	// Fset.File(f.FileStart).Name() for each f in Files.
+	//
+	// Analyzers must use this function (if provided) instead of
+	// accessing the file system directly. This allows a driver to
+	// provide a virtualized file tree (including, for example,
+	// unsaved editor buffers) and to track dependencies precisely
+	// to avoid unnecessary recomputation.
+	ReadFile func(filename string) ([]byte, error)
+
 	// -- facts --
 
 	// ImportObjectFact retrieves a fact associated with obj.
@@ -139,28 +152,24 @@ type Pass struct {
 	// See comments for ExportObjectFact.
 	ExportPackageFact func(fact Fact)
 
-	// AllPackageFacts returns a new slice containing all package facts of the analysis's FactTypes
-	// in unspecified order.
-	// WARNING: This is an experimental API and may change in the future.
+	// AllPackageFacts returns a new slice containing all package
+	// facts of the analysis's FactTypes in unspecified order.
 	AllPackageFacts func() []PackageFact
 
-	// AllObjectFacts returns a new slice containing all object facts of the analysis's FactTypes
-	// in unspecified order.
-	// WARNING: This is an experimental API and may change in the future.
+	// AllObjectFacts returns a new slice containing all object
+	// facts of the analysis's FactTypes in unspecified order.
 	AllObjectFacts func() []ObjectFact
 
 	/* Further fields may be added in future. */
 }
 
 // PackageFact is a package together with an associated fact.
-// WARNING: This is an experimental API and may change in the future.
 type PackageFact struct {
 	Package *types.Package
 	Fact    Fact
 }
 
 // ObjectFact is an object together with an associated fact.
-// WARNING: This is an experimental API and may change in the future.
 type ObjectFact struct {
 	Object types.Object
 	Fact   Fact
