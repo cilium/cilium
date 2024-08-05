@@ -1322,14 +1322,14 @@ func (w *wrappedTCPConn) Read(b []byte) (int, error) {
 	n, err := w.TCPConn.Read(b)
 	if err != nil {
 		// Any error is reason enough to close the upstream conn.
-		w.sc.ShutdownClient(w.key())
+		w.sc.ShutdownTCPClient(w.key())
 	}
 	return n, err
 }
 func (w *wrappedTCPConn) Write(b []byte) (int, error) {
 	n, err := w.TCPConn.Write(b)
 	if err != nil {
-		w.sc.ShutdownClient(w.key())
+		w.sc.ShutdownTCPClient(w.key())
 	}
 	return n, err
 }
@@ -1340,7 +1340,7 @@ func (w *wrappedTCPConn) Close() error {
 	// It's possible that there is no shared client behind this key, as we don't
 	// always use the original source address. That's okay, since ShutdownClient
 	// does nothing for keys it doesn't know.
-	w.sc.ShutdownClient(w.key())
+	w.sc.ShutdownTCPClient(w.key())
 	return w.TCPConn.Close()
 }
 
