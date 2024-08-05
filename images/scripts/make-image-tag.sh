@@ -38,12 +38,9 @@ if [ "$#" -eq 1 ] ; then
     echo "${image_dir} is not a directory (path is relative to git root)"
     exit 1
   fi
-  git_ls_tree="$(git ls-tree --full-tree HEAD -- "${image_dir}")"
-  if [ -z "${git_ls_tree}" ] ; then
-    echo "${image_dir} exists, but it is not checked in git (path is relative to git root)"
-    exit 1
-  fi
-  image_tag="$(printf "%s" "${git_ls_tree}" | sed 's/^[0-7]\{6\} tree \([0-9a-f]\{40\}\).*/\1/')"
+  timestamp="$(git log -1 --pretty=format:"%ct" "${image_dir}")"
+  short_commit="$(git log -1 --pretty=format:"%h" "${image_dir}")"
+  image_tag="${timestamp}-${short_commit}"
 else
   # if no arguments are given, attempt detecting if version tag is present,
   # otherwise use the a short commit hash

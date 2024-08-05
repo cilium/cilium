@@ -50,7 +50,7 @@ binaries or libraries are included.
 ## `runtime` & `builder`
 
 These images are wholly defined by the contents of the image directory, and are
-tagged with git tree hash  for the image directory (see
+tagged with the timestamp of the last commit of the image directory + its short commit sha1 (see
 [`cilium/image-tools` documentation](https://github.com/cilium/image-tools#usage)
 for details).
 
