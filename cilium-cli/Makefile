@@ -12,7 +12,7 @@ STRIP_DEBUG=-w -s
 ifdef DEBUG
 	STRIP_DEBUG=
 endif
-GO_BUILD_LDFLAGS ?= $(STRIP_DEBUG) -X 'github.com/cilium/cilium-cli/defaults.CLIVersion=$(VERSION)'
+GO_BUILD_LDFLAGS ?= $(STRIP_DEBUG) -X 'github.com/cilium/cilium/cilium-cli/defaults.CLIVersion=$(VERSION)'
 
 TEST_TIMEOUT ?= 5s
 RELEASE_UID ?= $(shell id -u)

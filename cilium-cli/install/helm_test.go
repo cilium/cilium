@@ -8,11 +8,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cilium/cilium-cli/k8s"
-
 	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
+
+	"github.com/cilium/cilium/cilium-cli/k8s"
 )
 
 func TestK8sInstaller_getHelmValuesKind(t *testing.T) {

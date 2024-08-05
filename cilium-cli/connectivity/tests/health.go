@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/cilium/pkg/inctimer"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/jsonpath"
 
-	"github.com/cilium/cilium-cli/connectivity/check"
-	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/pkg/inctimer"
 )
 
 func CiliumHealth() check.Scenario {

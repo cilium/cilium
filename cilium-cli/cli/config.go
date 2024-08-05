@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium-cli/config"
+	"github.com/cilium/cilium/cilium-cli/config"
 )
 
 func newCmdConfig() *cobra.Command {

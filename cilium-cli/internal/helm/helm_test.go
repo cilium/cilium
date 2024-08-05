@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cilium/cilium-cli/defaults"
-
 	"github.com/blang/semver/v4"
+
+	"github.com/cilium/cilium/cilium-cli/defaults"
 )
 
 func TestResolveHelmChartVersion(t *testing.T) {
