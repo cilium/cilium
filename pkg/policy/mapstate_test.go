@@ -2792,9 +2792,9 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		worldSubnetIdentity:            lblWorldSubnet.LabelArray(), // "192.0.2.0/24"
 	}
 
-	reservedWorldID := identity.ReservedIdentityWorld
-	worldIPID := worldIPIdentity
-	worldSubnetID := worldSubnetIdentity
+	reservedWorldSelections := identity.ReservedIdentityWorld
+	worldIPSelections := worldIPIdentity
+	worldSubnetSelections := worldSubnetIdentity
 	selectorCache := testNewSelectorCache(identityCache)
 	type action uint16
 	const (
@@ -2830,118 +2830,118 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		outcome              action
 	}{
 		// deny-allow insertions
-		{"deny-allow: a superset a|b L3-only; subset allow inserted as deny", WithAllowAll, reservedWorldID, worldSubnetID, true, false, 0, 0, 0, 0, insertAllowAll | insertA | insertBasDeny},
-		{"deny-allow: a superset a|b L3-only; without allow-all", WithoutAllowAll, reservedWorldID, worldSubnetID, true, false, 0, 0, 0, 0, insertA | insertBasDeny},
+		{"deny-allow: a superset a|b L3-only; subset allow inserted as deny", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 0, 0, 0, insertAllowAll | insertA | insertBasDeny},
+		{"deny-allow: a superset a|b L3-only; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 0, 0, 0, insertA | insertBasDeny},
 
-		{"deny-allow: b superset a|b L3-only", WithAllowAll, worldIPID, worldSubnetID, true, false, 0, 0, 0, 0, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a|b L3-only; without allow-all", WithoutAllowAll, worldIPID, worldSubnetID, true, false, 0, 0, 0, 0, insertBoth},
+		{"deny-allow: b superset a|b L3-only", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 0, 0, 0, insertAllowAll | insertBoth},
+		{"deny-allow: b superset a|b L3-only; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 0, 0, 0, insertBoth},
 
-		{"deny-allow: a superset a L3-only, b L4; subset allow inserted as deny", WithAllowAll, reservedWorldID, worldSubnetID, true, false, 0, 0, 0, 6, insertAllowAll | insertA | insertBasDeny},
-		{"deny-allow: a superset a L3-only, b L4; without allow-all, subset allow inserted as deny", WithoutAllowAll, reservedWorldID, worldSubnetID, true, false, 0, 0, 0, 6, insertA | insertBasDeny},
+		{"deny-allow: a superset a L3-only, b L4; subset allow inserted as deny", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 0, 0, 6, insertAllowAll | insertA | insertBasDeny},
+		{"deny-allow: a superset a L3-only, b L4; without allow-all, subset allow inserted as deny", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 0, 0, 6, insertA | insertBasDeny},
 
-		{"deny-allow: b superset a L3-only, b L4", WithAllowAll, worldIPID, worldSubnetID, true, false, 0, 0, 0, 6, insertAllowAll | insertBoth | insertAWithBProto},
-		{"deny-allow: b superset a L3-only, b L4; without allow-all, added deny TCP due to intersecting deny", WithoutAllowAll, worldIPID, worldSubnetID, true, false, 0, 0, 0, 6, insertBoth | insertAWithBProto},
+		{"deny-allow: b superset a L3-only, b L4", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 0, 0, 6, insertAllowAll | insertBoth | insertAWithBProto},
+		{"deny-allow: b superset a L3-only, b L4; without allow-all, added deny TCP due to intersecting deny", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 0, 0, 6, insertBoth | insertAWithBProto},
 
-		{"deny-allow: a superset a L3-only, b L3L4; subset allow inserted as deny", WithAllowAll, reservedWorldID, worldSubnetID, true, false, 0, 0, 80, 6, insertAllowAll | insertA | insertBasDeny},
-		{"deny-allow: a superset a L3-only, b L3L4; without allow-all, subset allow inserted as deny", WithoutAllowAll, reservedWorldID, worldSubnetID, true, false, 0, 0, 80, 6, insertA | insertBasDeny},
+		{"deny-allow: a superset a L3-only, b L3L4; subset allow inserted as deny", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 0, 80, 6, insertAllowAll | insertA | insertBasDeny},
+		{"deny-allow: a superset a L3-only, b L3L4; without allow-all, subset allow inserted as deny", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 0, 80, 6, insertA | insertBasDeny},
 
-		{"deny-allow: b superset a L3-only, b L3L4; added deny TCP/80 due to intersecting deny", WithAllowAll, worldIPID, worldSubnetID, true, false, 0, 0, 80, 6, insertAllowAll | insertBoth | insertAWithBProto},
-		{"deny-allow: b superset a L3-only, b L3L4; without allow-all, added deny TCP/80 due to intersecting deny", WithoutAllowAll, worldIPID, worldSubnetID, true, false, 0, 0, 80, 6, insertBoth | insertAWithBProto},
+		{"deny-allow: b superset a L3-only, b L3L4; added deny TCP/80 due to intersecting deny", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 0, 80, 6, insertAllowAll | insertBoth | insertAWithBProto},
+		{"deny-allow: b superset a L3-only, b L3L4; without allow-all, added deny TCP/80 due to intersecting deny", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 0, 80, 6, insertBoth | insertAWithBProto},
 
-		{"deny-allow: a superset a L4, b L3-only", WithAllowAll, reservedWorldID, worldSubnetID, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth | insertBWithAProtoAsDeny},
-		{"deny-allow: a superset a L4, b L3-only; without allow-all", WithoutAllowAll, reservedWorldID, worldSubnetID, true, false, 0, 6, 0, 0, insertBoth | insertBWithAProtoAsDeny},
+		{"deny-allow: a superset a L4, b L3-only", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth | insertBWithAProtoAsDeny},
+		{"deny-allow: a superset a L4, b L3-only; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 0, 0, insertBoth | insertBWithAProtoAsDeny},
 
-		{"deny-allow: b superset a L4, b L3-only", WithAllowAll, worldIPID, worldSubnetID, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L4, b L3-only; without allow-all", WithoutAllowAll, worldIPID, worldSubnetID, true, false, 0, 6, 0, 0, insertBoth},
+		{"deny-allow: b superset a L4, b L3-only", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth},
+		{"deny-allow: b superset a L4, b L3-only; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 0, 0, insertBoth},
 
-		{"deny-allow: a superset a L4, b L4; subset allow inserted as deny", WithAllowAll, reservedWorldID, worldSubnetID, true, false, 0, 6, 0, 6, insertAllowAll | insertA | insertBasDeny},
-		{"deny-allow: a superset a L4, b L4; without allow-all, subset allow inserted as deny", WithoutAllowAll, reservedWorldID, worldSubnetID, true, false, 0, 6, 0, 6, insertA | insertBasDeny},
+		{"deny-allow: a superset a L4, b L4; subset allow inserted as deny", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 0, 6, insertAllowAll | insertA | insertBasDeny},
+		{"deny-allow: a superset a L4, b L4; without allow-all, subset allow inserted as deny", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 0, 6, insertA | insertBasDeny},
 
-		{"deny-allow: b superset a L4, b L4", WithAllowAll, worldIPID, worldSubnetID, true, false, 0, 6, 0, 6, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L4, b L4; without allow-all", WithoutAllowAll, worldIPID, worldSubnetID, true, false, 0, 6, 0, 6, insertBoth},
+		{"deny-allow: b superset a L4, b L4", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 0, 6, insertAllowAll | insertBoth},
+		{"deny-allow: b superset a L4, b L4; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 0, 6, insertBoth},
 
-		{"deny-allow: a superset a L4, b L3L4; subset allow inserted as deny", WithAllowAll, reservedWorldID, worldSubnetID, true, false, 0, 6, 80, 6, insertAllowAll | insertA | insertBasDeny},
-		{"deny-allow: a superset a L4, b L3L4; without allow-all, subset allow inserted as deny", WithoutAllowAll, reservedWorldID, worldSubnetID, true, false, 0, 6, 80, 6, insertA | insertBasDeny},
+		{"deny-allow: a superset a L4, b L3L4; subset allow inserted as deny", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 80, 6, insertAllowAll | insertA | insertBasDeny},
+		{"deny-allow: a superset a L4, b L3L4; without allow-all, subset allow inserted as deny", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 80, 6, insertA | insertBasDeny},
 
-		{"deny-allow: b superset a L4, b L3L4", WithAllowAll, worldIPID, worldSubnetID, true, false, 0, 6, 80, 6, insertAllowAll | insertBoth | insertAWithBProto},
-		{"deny-allow: b superset a L4, b L3L4; without allow-all", WithoutAllowAll, worldIPID, worldSubnetID, true, false, 0, 6, 80, 6, insertBoth | insertAWithBProto},
+		{"deny-allow: b superset a L4, b L3L4", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 80, 6, insertAllowAll | insertBoth | insertAWithBProto},
+		{"deny-allow: b superset a L4, b L3L4; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 80, 6, insertBoth | insertAWithBProto},
 
-		{"deny-allow: a superset a L3L4, b L3-only", WithAllowAll, reservedWorldID, worldSubnetID, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth | insertBWithAProtoAsDeny},
-		{"deny-allow: a superset a L3L4, b L3-only; without allow-all", WithoutAllowAll, reservedWorldID, worldSubnetID, true, false, 80, 6, 0, 0, insertBoth | insertBWithAProtoAsDeny},
+		{"deny-allow: a superset a L3L4, b L3-only", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth | insertBWithAProtoAsDeny},
+		{"deny-allow: a superset a L3L4, b L3-only; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 0, 0, insertBoth | insertBWithAProtoAsDeny},
 
-		{"deny-allow: b superset a L3L4, b L3-only", WithAllowAll, worldIPID, worldSubnetID, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L3L4, b L3-only; without allow-all", WithoutAllowAll, worldIPID, worldSubnetID, true, false, 80, 6, 0, 0, insertBoth},
+		{"deny-allow: b superset a L3L4, b L3-only", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth},
+		{"deny-allow: b superset a L3L4, b L3-only; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 0, 0, insertBoth},
 
-		{"deny-allow: a superset a L3L4, b L4", WithAllowAll, reservedWorldID, worldSubnetID, true, false, 80, 6, 0, 6, insertAllowAll | insertBoth | insertBWithAProtoAsDeny},
-		{"deny-allow: a superset a L3L4, b L4; without allow-all", WithoutAllowAll, reservedWorldID, worldSubnetID, true, false, 80, 6, 0, 6, insertBoth | insertBWithAProtoAsDeny},
+		{"deny-allow: a superset a L3L4, b L4", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 0, 6, insertAllowAll | insertBoth | insertBWithAProtoAsDeny},
+		{"deny-allow: a superset a L3L4, b L4; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 0, 6, insertBoth | insertBWithAProtoAsDeny},
 
-		{"deny-allow: b superset a L3L4, b L4", WithAllowAll, worldIPID, worldSubnetID, true, false, 80, 6, 0, 6, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L3L4, b L4 without allow-all", WithoutAllowAll, worldIPID, worldSubnetID, true, false, 80, 6, 0, 6, insertBoth},
+		{"deny-allow: b superset a L3L4, b L4", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 0, 6, insertAllowAll | insertBoth},
+		{"deny-allow: b superset a L3L4, b L4 without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 0, 6, insertBoth},
 
-		{"deny-allow: a superset a L3L4, b L3L4", WithAllowAll, reservedWorldID, worldSubnetID, true, false, 80, 6, 80, 6, insertAllowAll | insertA | insertBasDeny},
-		{"deny-allow: a superset a L3L4, b L3L4 without allow-all", WithoutAllowAll, reservedWorldID, worldSubnetID, true, false, 80, 6, 80, 6, insertA | insertBasDeny},
+		{"deny-allow: a superset a L3L4, b L3L4", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 80, 6, insertAllowAll | insertA | insertBasDeny},
+		{"deny-allow: a superset a L3L4, b L3L4 without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 80, 6, insertA | insertBasDeny},
 
-		{"deny-allow: b superset a L3L4, b L3L4", WithAllowAll, worldIPID, worldSubnetID, true, false, 80, 6, 80, 6, insertAllowAll | insertBoth},
-		{"deny-allow: b superset a L3L4, b L3L4; without allow-all", WithoutAllowAll, worldIPID, worldSubnetID, true, false, 80, 6, 80, 6, insertBoth},
+		{"deny-allow: b superset a L3L4, b L3L4", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 80, 6, insertAllowAll | insertBoth},
+		{"deny-allow: b superset a L3L4, b L3L4; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 80, 6, insertBoth},
 
 		// deny-deny insertions: Note: There is no dedundancy between different non-zero security IDs on the
 		// datapath, even if one would be a CIDR subset of another. Situation would be different if we could
 		// completely remove (or not add in the first place) the redundant ID from the ipcache so that
 		// datapath could never assign that ID to a packet for policy enforcement.
 		// These test case are left here for such future improvement.
-		{"deny-deny: a superset a|b L3-only", WithAllowAll, worldSubnetID, worldIPID, true, true, 0, 0, 0, 0, insertAllowAll | insertBoth},
-		{"deny-deny: a superset a|b L3-only; without allow-all", WithoutAllowAll, worldSubnetID, worldIPID, true, true, 0, 0, 0, 0, insertBoth},
+		{"deny-deny: a superset a|b L3-only", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 0, 0, 0, insertAllowAll | insertBoth},
+		{"deny-deny: a superset a|b L3-only; without allow-all", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 0, 0, 0, insertBoth},
 
-		{"deny-deny: b superset a|b L3-only", WithAllowAll, worldSubnetID, reservedWorldID, true, true, 0, 0, 0, 0, insertAllowAll | insertBoth},
-		{"deny-deny: b superset a|b L3-only; without allow-all", WithoutAllowAll, worldSubnetID, reservedWorldID, true, true, 0, 0, 0, 0, insertBoth},
+		{"deny-deny: b superset a|b L3-only", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 0, 0, 0, insertAllowAll | insertBoth},
+		{"deny-deny: b superset a|b L3-only; without allow-all", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 0, 0, 0, insertBoth},
 
-		{"deny-deny: a superset a L3-only, b L4", WithAllowAll, worldSubnetID, worldIPID, true, true, 0, 0, 0, 6, insertAllowAll | insertBoth},
-		{"deny-deny: a superset a L3-only, b L4", WithoutAllowAll, worldSubnetID, worldIPID, true, true, 0, 0, 0, 6, insertBoth},
+		{"deny-deny: a superset a L3-only, b L4", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 0, 0, 6, insertAllowAll | insertBoth},
+		{"deny-deny: a superset a L3-only, b L4", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 0, 0, 6, insertBoth},
 
-		{"deny-deny: b superset a L3-only, b L4", WithAllowAll, worldSubnetID, reservedWorldID, true, true, 0, 0, 0, 6, insertAllowAll | insertBoth},
-		{"deny-deny: b superset a L3-only, b L4", WithoutAllowAll, worldSubnetID, reservedWorldID, true, true, 0, 0, 0, 6, insertBoth},
+		{"deny-deny: b superset a L3-only, b L4", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 0, 0, 6, insertAllowAll | insertBoth},
+		{"deny-deny: b superset a L3-only, b L4", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 0, 0, 6, insertBoth},
 
-		{"deny-deny: a superset a L3-only, b L3L4", WithAllowAll, worldSubnetID, worldIPID, true, true, 0, 0, 80, 6, insertAllowAll | insertBoth},
-		{"deny-deny: a superset a L3-only, b L3L4", WithoutAllowAll, worldSubnetID, worldIPID, true, true, 0, 0, 80, 6, insertBoth},
+		{"deny-deny: a superset a L3-only, b L3L4", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 0, 80, 6, insertAllowAll | insertBoth},
+		{"deny-deny: a superset a L3-only, b L3L4", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 0, 80, 6, insertBoth},
 
-		{"deny-deny: b superset a L3-only, b L3L4", WithAllowAll, worldSubnetID, reservedWorldID, true, true, 0, 0, 80, 6, insertAllowAll | insertBoth},
-		{"deny-deny: b superset a L3-only, b L3L4", WithoutAllowAll, worldSubnetID, reservedWorldID, true, true, 0, 0, 80, 6, insertBoth},
+		{"deny-deny: b superset a L3-only, b L3L4", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 0, 80, 6, insertAllowAll | insertBoth},
+		{"deny-deny: b superset a L3-only, b L3L4", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 0, 80, 6, insertBoth},
 
-		{"deny-deny: a superset a L4, b L3-only", WithAllowAll, worldSubnetID, worldIPID, true, true, 0, 6, 0, 0, insertAllowAll | insertBoth},
-		{"deny-deny: a superset a L4, b L3-only", WithoutAllowAll, worldSubnetID, worldIPID, true, true, 0, 6, 0, 0, insertBoth},
+		{"deny-deny: a superset a L4, b L3-only", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 6, 0, 0, insertAllowAll | insertBoth},
+		{"deny-deny: a superset a L4, b L3-only", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 6, 0, 0, insertBoth},
 
-		{"deny-deny: b superset a L4, b L3-only", WithAllowAll, worldSubnetID, reservedWorldID, true, true, 0, 6, 0, 0, insertAllowAll | insertBoth},
-		{"deny-deny: b superset a L4, b L3-only", WithoutAllowAll, worldSubnetID, reservedWorldID, true, true, 0, 6, 0, 0, insertBoth},
+		{"deny-deny: b superset a L4, b L3-only", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 6, 0, 0, insertAllowAll | insertBoth},
+		{"deny-deny: b superset a L4, b L3-only", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 6, 0, 0, insertBoth},
 
-		{"deny-deny: a superset a L4, b L4", WithAllowAll, worldSubnetID, worldIPID, true, true, 0, 6, 0, 6, insertAllowAll | insertBoth},
-		{"deny-deny: a superset a L4, b L4", WithoutAllowAll, worldSubnetID, worldIPID, true, true, 0, 6, 0, 6, insertBoth},
+		{"deny-deny: a superset a L4, b L4", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 6, 0, 6, insertAllowAll | insertBoth},
+		{"deny-deny: a superset a L4, b L4", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 6, 0, 6, insertBoth},
 
-		{"deny-deny: b superset a L4, b L4", WithAllowAll, worldSubnetID, reservedWorldID, true, true, 0, 6, 0, 6, insertAllowAll | insertBoth},
-		{"deny-deny: b superset a L4, b L4", WithoutAllowAll, worldSubnetID, reservedWorldID, true, true, 0, 6, 0, 6, insertBoth},
+		{"deny-deny: b superset a L4, b L4", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 6, 0, 6, insertAllowAll | insertBoth},
+		{"deny-deny: b superset a L4, b L4", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 6, 0, 6, insertBoth},
 
-		{"deny-deny: a superset a L4, b L3L4", WithAllowAll, worldSubnetID, worldIPID, true, true, 0, 6, 80, 6, insertAllowAll | insertBoth},
-		{"deny-deny: a superset a L4, b L3L4", WithoutAllowAll, worldSubnetID, worldIPID, true, true, 0, 6, 80, 6, insertBoth},
+		{"deny-deny: a superset a L4, b L3L4", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 6, 80, 6, insertAllowAll | insertBoth},
+		{"deny-deny: a superset a L4, b L3L4", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 0, 6, 80, 6, insertBoth},
 
-		{"deny-deny: b superset a L4, b L3L4", WithAllowAll, worldSubnetID, reservedWorldID, true, true, 0, 6, 80, 6, insertAllowAll | insertBoth},
-		{"deny-deny: b superset a L4, b L3L4", WithoutAllowAll, worldSubnetID, reservedWorldID, true, true, 0, 6, 80, 6, insertBoth},
+		{"deny-deny: b superset a L4, b L3L4", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 6, 80, 6, insertAllowAll | insertBoth},
+		{"deny-deny: b superset a L4, b L3L4", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 0, 6, 80, 6, insertBoth},
 
-		{"deny-deny: a superset a L3L4, b L3-only", WithAllowAll, worldSubnetID, worldIPID, true, true, 80, 6, 0, 0, insertAllowAll | insertBoth},
-		{"deny-deny: a superset a L3L4, b L3-only", WithoutAllowAll, worldSubnetID, worldIPID, true, true, 80, 6, 0, 0, insertBoth},
+		{"deny-deny: a superset a L3L4, b L3-only", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 80, 6, 0, 0, insertAllowAll | insertBoth},
+		{"deny-deny: a superset a L3L4, b L3-only", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 80, 6, 0, 0, insertBoth},
 
-		{"deny-deny: b superset a L3L4, b L3-only", WithAllowAll, worldSubnetID, reservedWorldID, true, true, 80, 6, 0, 0, insertAllowAll | insertBoth},
-		{"deny-deny: b superset a L3L4, b L3-only", WithoutAllowAll, worldSubnetID, reservedWorldID, true, true, 80, 6, 0, 0, insertBoth},
+		{"deny-deny: b superset a L3L4, b L3-only", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 80, 6, 0, 0, insertAllowAll | insertBoth},
+		{"deny-deny: b superset a L3L4, b L3-only", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 80, 6, 0, 0, insertBoth},
 
-		{"deny-deny: a superset a L3L4, b L4", WithAllowAll, worldSubnetID, worldIPID, true, true, 80, 6, 0, 6, insertAllowAll | insertBoth},
-		{"deny-deny: a superset a L3L4, b L4", WithoutAllowAll, worldSubnetID, worldIPID, true, true, 80, 6, 0, 6, insertBoth},
+		{"deny-deny: a superset a L3L4, b L4", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 80, 6, 0, 6, insertAllowAll | insertBoth},
+		{"deny-deny: a superset a L3L4, b L4", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 80, 6, 0, 6, insertBoth},
 
-		{"deny-deny: b superset a L3L4, b L4", WithAllowAll, worldSubnetID, reservedWorldID, true, true, 80, 6, 0, 6, insertAllowAll | insertBoth},
-		{"deny-deny: b superset a L3L4, b L4", WithoutAllowAll, worldSubnetID, reservedWorldID, true, true, 80, 6, 0, 6, insertBoth},
+		{"deny-deny: b superset a L3L4, b L4", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 80, 6, 0, 6, insertAllowAll | insertBoth},
+		{"deny-deny: b superset a L3L4, b L4", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 80, 6, 0, 6, insertBoth},
 
-		{"deny-deny: a superset a L3L4, b L3L4", WithAllowAll, worldSubnetID, worldIPID, true, true, 80, 6, 80, 6, insertAllowAll | insertBoth},
-		{"deny-deny: a superset a L3L4, b L3L4", WithoutAllowAll, worldSubnetID, worldIPID, true, true, 80, 6, 80, 6, insertBoth},
+		{"deny-deny: a superset a L3L4, b L3L4", WithAllowAll, worldSubnetSelections, worldIPSelections, true, true, 80, 6, 80, 6, insertAllowAll | insertBoth},
+		{"deny-deny: a superset a L3L4, b L3L4", WithoutAllowAll, worldSubnetSelections, worldIPSelections, true, true, 80, 6, 80, 6, insertBoth},
 
-		{"deny-deny: b superset a L3L4, b L3L4", WithAllowAll, worldSubnetID, reservedWorldID, true, true, 80, 6, 80, 6, insertAllowAll | insertBoth},
-		{"deny-deny: b superset a L3L4, b L3L4", WithoutAllowAll, worldSubnetID, reservedWorldID, true, true, 80, 6, 80, 6, insertBoth},
+		{"deny-deny: b superset a L3L4, b L3L4", WithAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 80, 6, 80, 6, insertAllowAll | insertBoth},
+		{"deny-deny: b superset a L3L4, b L3L4", WithoutAllowAll, worldSubnetSelections, reservedWorldSelections, true, true, 80, 6, 80, 6, insertBoth},
 
 		// allow-allow insertions do not need tests as their affect on one another does not matter.
 	}
