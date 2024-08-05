@@ -117,15 +117,15 @@ func TestInjectLabels(t *testing.T) {
 	// -- prefix2 should have remote-node and cidr
 	id1 := IPIdentityCache.IdentityAllocator.LookupIdentityByID(ctx, nid1)
 	assert.NotNil(t, id1)
-	assert.True(t, id1.Labels.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]))
-	assert.True(t, id1.Labels.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]))
+	assert.True(t, id1.Labels.HasRemoteNodeLabel())
+	assert.True(t, id1.Labels.HasKubeAPIServerLabel())
 	assert.True(t, id1.Labels.Has(labels.ParseLabel("cidr:10.0.0.4/32")))
 	assert.False(t, id1.Labels.Has(labels.ParseLabel("cidr:10.0.0.5/32")))
 
 	id2 := IPIdentityCache.IdentityAllocator.LookupIdentityByID(ctx, nid2)
 	assert.NotNil(t, id2)
-	assert.True(t, id2.Labels.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]))
-	assert.False(t, id2.Labels.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]))
+	assert.True(t, id2.Labels.HasRemoteNodeLabel())
+	assert.False(t, id2.Labels.HasKubeAPIServerLabel())
 	assert.False(t, id2.Labels.Has(labels.ParseLabel("cidr:10.0.0.4/32")))
 	assert.True(t, id2.Labels.Has(labels.ParseLabel("cidr:10.0.0.5/32")))
 
@@ -143,15 +143,15 @@ func TestInjectLabels(t *testing.T) {
 
 	id1 = IPIdentityCache.IdentityAllocator.LookupIdentityByID(ctx, nid1)
 	assert.NotNil(t, id1)
-	assert.False(t, id1.Labels.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]))
-	assert.True(t, id1.Labels.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]))
+	assert.False(t, id1.Labels.HasRemoteNodeLabel())
+	assert.True(t, id1.Labels.HasKubeAPIServerLabel())
 	assert.True(t, id1.Labels.Has(labels.ParseLabel("cidr:10.0.0.4/32")))
 	assert.False(t, id1.Labels.Has(labels.ParseLabel("cidr:10.0.0.5/32")))
 
 	id2 = IPIdentityCache.IdentityAllocator.LookupIdentityByID(ctx, nid2)
 	assert.NotNil(t, id2)
-	assert.False(t, id2.Labels.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]))
-	assert.False(t, id2.Labels.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]))
+	assert.False(t, id2.Labels.HasRemoteNodeLabel())
+	assert.False(t, id2.Labels.HasKubeAPIServerLabel())
 	assert.False(t, id2.Labels.Has(labels.ParseLabel("cidr:10.0.0.4/32")))
 	assert.True(t, id2.Labels.Has(labels.ParseLabel("cidr:10.0.0.5/32")))
 

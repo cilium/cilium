@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	worldLabelNonDualStack = Label{Key: IDNameWorld, Source: LabelSourceReserved}
+	worldLabelNonDualStack = Label{Source: LabelSourceReserved, Key: IDNameWorld}
 	worldLabelV4           = Label{Source: LabelSourceReserved, Key: IDNameWorldIPv4}
 	worldLabelV6           = Label{Source: LabelSourceReserved, Key: IDNameWorldIPv6}
 )
@@ -93,12 +93,12 @@ func GetCIDRLabels(prefix netip.Prefix) Labels {
 		l.cidr = &prefix
 		lbls[l.Key] = l
 	}
-	AddWorldLabel(prefix.Addr(), lbls)
+	lbls.AddWorldLabel(prefix.Addr())
 
 	return lbls
 }
 
-func AddWorldLabel(addr netip.Addr, lbls Labels) {
+func (lbls Labels) AddWorldLabel(addr netip.Addr) {
 	switch {
 	case !option.Config.IsDualStack():
 		lbls[worldLabelNonDualStack.Key] = worldLabelNonDualStack
