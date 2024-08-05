@@ -710,6 +710,8 @@ func Test_ServiceLBReconciler(t *testing.T) {
 
 			svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
 			testBGPInstance := instance.NewFakeBGPInstance()
+			svcReconciler.Init(testBGPInstance)
+			defer svcReconciler.Cleanup(testBGPInstance)
 
 			// reconcile twice to validate idempotency
 			for i := 0; i < 2; i++ {
@@ -930,6 +932,8 @@ func Test_ServiceExternalIPReconciler(t *testing.T) {
 
 			svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
 			testBGPInstance := instance.NewFakeBGPInstance()
+			svcReconciler.Init(testBGPInstance)
+			defer svcReconciler.Cleanup(testBGPInstance)
 
 			// reconcile twice to validate idempotency
 			for i := 0; i < 2; i++ {
@@ -1150,6 +1154,8 @@ func Test_ServiceClusterIPReconciler(t *testing.T) {
 
 			svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
 			testBGPInstance := instance.NewFakeBGPInstance()
+			svcReconciler.Init(testBGPInstance)
+			defer svcReconciler.Cleanup(testBGPInstance)
 
 			// reconcile twice to validate idempotency
 			for i := 0; i < 2; i++ {
@@ -1493,6 +1499,8 @@ func Test_ServiceAndAdvertisementModifications(t *testing.T) {
 
 	svcReconciler := NewServiceReconciler(params).Reconciler.(*ServiceReconciler)
 	testBGPInstance := instance.NewFakeBGPInstance()
+	svcReconciler.Init(testBGPInstance)
+	defer svcReconciler.Cleanup(testBGPInstance)
 
 	for _, tt := range steps {
 		t.Logf("Running step - %s", tt.name)
