@@ -53,6 +53,12 @@ func (r *NeighborReconciler) Priority() int {
 	return 60
 }
 
+func (r *NeighborReconciler) Init(_ *instance.ServerWithConfig) error {
+	return nil
+}
+
+func (r *NeighborReconciler) Cleanup(_ *instance.ServerWithConfig) {}
+
 func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
 	if p.DesiredConfig == nil {
 		return fmt.Errorf("attempted neighbor reconciliation with nil CiliumBGPPeeringPolicy")
