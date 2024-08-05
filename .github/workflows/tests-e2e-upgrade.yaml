@@ -167,9 +167,7 @@ jobs:
             lb-mode: 'snat'
             egress-gateway: 'true'
             lb-acceleration: 'testing-only'
-            # Disable until https://github.com/cilium/cilium/issues/30717
-            # has been resolved.
-            # ingress-controller: 'true'
+            ingress-controller: 'true'
             local-redirect-policy: 'true'
             node-local-dns: 'true'
 
@@ -216,9 +214,7 @@ jobs:
             encryption-node: 'true'
             lb-mode: 'snat'
             egress-gateway: 'true'
-            # Disable until https://github.com/cilium/cilium/issues/30717
-            # has been resolved.
-            # ingress-controller: 'true'
+            ingress-controller: 'true'
 
           - name: '12'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -258,9 +254,7 @@ jobs:
             devices: '{eth0,eth1}'
             secondary-network: 'true'
             tunnel: 'disabled'
-            # Disable until https://github.com/cilium/cilium/issues/30717
-            # has been resolved.
-            # ingress-controller: 'true'
+            ingress-controller: 'true'
             # Disable bpf.tproxy=true until https://github.com/cilium/cilium/issues/31918
             # has been resolved.
             misc: 'bpfClockProbe=false,cni.uninstall=false'
