@@ -110,10 +110,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto)
 #endif /* !ENABLE_NODE_ENCRYPTION */
 
 	/* We don't want to encrypt any traffic that originates from outside
-	 * the cluster.
-	 * Without this check, that may happen for the egress gateway, when
-	 * reply traffic arrives from the cluster-external server and goes to
-	 * the client pod.
+	 * the cluster. This check excludes DSR traffic from the LB node to a remote backend.
 	 */
 	if (!src || !identity_is_cluster(src->sec_identity))
 		goto out;
