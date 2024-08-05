@@ -16,10 +16,6 @@
 
 #define DISABLE_LOOPBACK_LB
 
-/* Skip ingress policy checks, not needed to validate hairpin flow */
-#define USE_BPF_PROG_FOR_INGRESS_POLICY
-#undef FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
-
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
 #define CLIENT_IP_2		v4_ext_two
@@ -40,6 +36,8 @@
 #define BACKEND_IFACE		25
 #define SVC_EGRESS_IFACE	26
 
+#define BACKEND_EP_ID		127
+
 #define fib_lookup mock_fib_lookup
 
 static volatile const __u8 *client_mac = mac_one;
@@ -48,6 +46,31 @@ static volatile const __u8 lb_mac[ETH_ALEN]	= { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x
 static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *local_backend_mac = mac_four;
 static volatile const __u8 *remote_backend_mac = mac_five;
+
+__section("mock-handle-policy")
+int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
+{
+	return TC_ACT_REDIRECT;
+}
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__uint(key_size, sizeof(__u32));
+	__uint(max_entries, 256);
+	__array(values, int());
+} mock_policy_call_map __section(".maps") = {
+	.values = {
+		[BACKEND_EP_ID] = &mock_handle_policy,
+	},
+};
+
+#define tail_call_dynamic mock_tail_call_dynamic
+static __always_inline __maybe_unused void
+mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
+		       const void *map __maybe_unused, __u32 slot __maybe_unused)
+{
+	tail_call(ctx, &mock_policy_call_map, slot);
+}
 
 struct mock_settings {
 	__be16 nat_source_port;
@@ -185,7 +208,7 @@ int nodeport_local_backend_setup(struct __ctx_buff *ctx)
 			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_TCP, 0);
 
 	/* add local backend */
-	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, 0, 0, 0,
+	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, BACKEND_EP_ID, 0, 0,
 			      (__u8 *)local_backend_mac, (__u8 *)node_mac);
 
 	ipcache_v4_add_entry(BACKEND_IP_LOCAL, 0, 112233, 0, 0);
