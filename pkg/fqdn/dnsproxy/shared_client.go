@@ -50,9 +50,9 @@ func (s *SharedClients) ExchangeContext(ctx context.Context, key string, conf *d
 func (s *SharedClients) ShutdownClient(key string) {
 	// lock for s.clients access
 	s.lock.Lock()
-	// locate client to re-use if possible.
 	client := s.clients[key]
 	if client == nil {
+		s.lock.Unlock()
 		return
 	}
 	s.lock.Unlock()
