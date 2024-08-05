@@ -26,7 +26,7 @@ func (t egressGatewayWithL7Policy) build(ct *check.ConnectivityTest, templates m
 			return versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) && ct.Params().IncludeUnsafeTests
 		}).
 		WithCiliumPolicy(clientEgressICMPYAML).
-		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML). // DNS resolution only
+		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).               // DNS resolution only
 		WithCiliumPolicy(templates["clientEgressL7HTTPExternalYAML"]). // L7 allow policy with HTTP introspection
 		WithCiliumEgressGatewayPolicy(check.CiliumEgressGatewayPolicyParams{
 			Name:            "cegp-sample-client",
