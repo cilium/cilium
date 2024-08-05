@@ -47,6 +47,12 @@ func (r *ExportPodCIDRReconciler) Priority() int {
 	return 30
 }
 
+func (r *ExportPodCIDRReconciler) Init(_ *instance.ServerWithConfig) error {
+	return nil
+}
+
+func (r *ExportPodCIDRReconciler) Cleanup(_ *instance.ServerWithConfig) {}
+
 func (r *ExportPodCIDRReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
 	if p.DesiredConfig == nil {
 		return fmt.Errorf("attempted pod CIDR advertisements reconciliation with nil CiliumBGPPeeringPolicy")

@@ -269,6 +269,14 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context,
 	// the server creation which already succeeded.
 	m.Servers[c.LocalASN] = s
 
+	// initialize the reconcilers for this instance
+	for _, r := range m.Reconcilers {
+		err = r.Init(s)
+		if err != nil {
+			return fmt.Errorf("%s reconciler initialization failed: %w", r.Name(), err)
+		}
+	}
+
 	if err = m.reconcileBGPConfig(ctx, s, c, ciliumNode); err != nil {
 		return fmt.Errorf("failed initial reconciliation for peer config with local ASN %v: %w", c.LocalASN, err)
 	}
@@ -294,6 +302,9 @@ func (m *BGPRouterManager) withdraw(ctx context.Context, rd *reconcileDiff) erro
 		if s, ok = m.Servers[asn]; !ok {
 			l.Warnf("Server with local ASN %v marked for deletion but does not exist", asn)
 			continue
+		}
+		for _, r := range m.Reconcilers {
+			r.Cleanup(s)
 		}
 		s.Server.Stop()
 		delete(m.Servers, asn)

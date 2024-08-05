@@ -61,6 +61,12 @@ func (r *PodIPPoolReconciler) Priority() int {
 	return 50
 }
 
+func (r *PodIPPoolReconciler) Init(_ *instance.ServerWithConfig) error {
+	return nil
+}
+
+func (r *PodIPPoolReconciler) Cleanup(_ *instance.ServerWithConfig) {}
+
 func (r *PodIPPoolReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
 	lp := r.populateLocalPools(p.CiliumNode)
 

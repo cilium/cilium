@@ -19,14 +19,25 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-var ErrStoreUninitialized = errors.New("the store has not initialized yet")
+var (
+	ErrStoreUninitialized = errors.New("the store has not initialized yet")
+	ErrDiffUninitialized  = errors.New("diff not initialized for caller")
+)
 
 // DiffStore is a wrapper around the resource.Store. The diffStore tracks all changes made to it since the
 // last time the user synced up. This allows a user to get a list of just the changed objects while still being able
 // to query the full store for a full sync.
 type DiffStore[T k8sRuntime.Object] interface {
-	// Diff returns a list of items that have been upserted(updated or inserted) and deleted since the last call to Diff.
-	Diff() (upserted []T, deleted []resource.Key, err error)
+	// InitDiff initializes tracking io items to Diff for the given callerID.
+	InitDiff(callerID string)
+
+	// Diff returns a list of items that have been upserted (updated or inserted) and deleted
+	// since InitDiff or the last call to Diff with the same callerID.
+	// Init(callerID) has to be called before Diff(callerID).
+	Diff(callerID string) (upserted []T, deleted []resource.Key, err error)
+
+	// CleanupDiff cleans up all caller-specific diff state.
+	CleanupDiff(callerID string)
 
 	// GetByKey returns the latest version of the object with given key.
 	GetByKey(key resource.Key) (item T, exists bool, err error)
@@ -47,6 +58,9 @@ type diffStoreParams[T k8sRuntime.Object] struct {
 	Signaler    *signaler.BGPCPSignaler
 }
 
+// updatedKeysMap is a map of updated resource keys since the last diff against the map.
+type updatedKeysMap map[resource.Key]bool
+
 // diffStore takes a resource.Resource[T] and watches for events, it stores all of the keys that have been changed.
 // diffStore can still be used as a normal store, but adds the Diff function to get a Diff of all changes.
 // The diffStore also takes in Signaler which it will signal after the initial sync and every update thereafter.
@@ -58,8 +72,8 @@ type diffStore[T k8sRuntime.Object] struct {
 
 	initialSync bool
 
-	mu          lock.Mutex
-	updatedKeys map[resource.Key]bool
+	mu                lock.Mutex
+	callerUpdatedKeys map[string]updatedKeysMap // updated keys per caller ID
 }
 
 func NewDiffStore[T k8sRuntime.Object](params diffStoreParams[T]) DiffStore[T] {
@@ -71,7 +85,7 @@ func NewDiffStore[T k8sRuntime.Object](params diffStoreParams[T]) DiffStore[T] {
 		resource: params.Resource,
 		signaler: params.Signaler,
 
-		updatedKeys: make(map[resource.Key]bool),
+		callerUpdatedKeys: make(map[string]updatedKeysMap),
 	}
 
 	jobGroup := params.JobRegistry.NewGroup(
@@ -99,7 +113,9 @@ func NewDiffStore[T k8sRuntime.Object](params diffStoreParams[T]) DiffStore[T] {
 func (ds *diffStore[T]) handleEvent(event resource.Event[T]) {
 	update := func(k resource.Key) {
 		ds.mu.Lock()
-		ds.updatedKeys[k] = true
+		for _, updatedKeys := range ds.callerUpdatedKeys {
+			updatedKeys[k] = true
+		}
 		ds.mu.Unlock()
 
 		// Start triggering the signaler after initialization to reduce reconciliation load.
@@ -119,8 +135,18 @@ func (ds *diffStore[T]) handleEvent(event resource.Event[T]) {
 	event.Done(nil)
 }
 
-// Diff returns a list of items that have been upserted(updated or inserted) and deleted since the last call to Diff.
-func (ds *diffStore[T]) Diff() (upserted []T, deleted []resource.Key, err error) {
+// InitDiff initializes tracking io items to Diff for the given callerID.
+func (ds *diffStore[T]) InitDiff(callerID string) {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	ds.callerUpdatedKeys[callerID] = make(updatedKeysMap)
+}
+
+// Diff returns a list of items that have been upserted (updated or inserted) and deleted
+// since InitDiff or the last call to Diff with the same callerID.
+// Init(callerID) has to be called before Diff(callerID).
+func (ds *diffStore[T]) Diff(callerID string) (upserted []T, deleted []resource.Key, err error) {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 
@@ -128,13 +154,18 @@ func (ds *diffStore[T]) Diff() (upserted []T, deleted []resource.Key, err error)
 		return nil, nil, ErrStoreUninitialized
 	}
 
+	updatedKeys, ok := ds.callerUpdatedKeys[callerID]
+	if !ok {
+		return nil, nil, ErrDiffUninitialized
+	}
+
 	// Deleting keys doesn't shrink the memory size. So if the size of updateKeys ever reaches above this threshold
 	// we should re-create it to reduce memory usage. Below the threshold, don't bother to avoid unnecessary allocation.
 	// Note: this value is arbitrary, can be changed to tune CPU/Memory tradeoff
 	const shrinkThreshold = 64
-	shrink := len(ds.updatedKeys) > shrinkThreshold
+	shrink := len(updatedKeys) > shrinkThreshold
 
-	for k := range ds.updatedKeys {
+	for k := range updatedKeys {
 		item, found, err := ds.store.GetByKey(k)
 		if err != nil {
 			return nil, nil, err
@@ -147,15 +178,23 @@ func (ds *diffStore[T]) Diff() (upserted []T, deleted []resource.Key, err error)
 		}
 
 		if !shrink {
-			delete(ds.updatedKeys, k)
+			delete(updatedKeys, k)
 		}
 	}
 
 	if shrink {
-		ds.updatedKeys = make(map[resource.Key]bool, shrinkThreshold)
+		ds.callerUpdatedKeys[callerID] = make(updatedKeysMap, shrinkThreshold)
 	}
 
 	return upserted, deleted, err
+}
+
+// CleanupDiff cleans up all caller-specific diff state.
+func (ds *diffStore[T]) CleanupDiff(callerID string) {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+
+	delete(ds.callerUpdatedKeys, callerID)
 }
 
 // GetByKey returns the latest version of the object with given key.
