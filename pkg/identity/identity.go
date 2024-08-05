@@ -203,7 +203,7 @@ func ScopeForLabels(lbls labels.Labels) NumericIdentity {
 	// Note that this is not reachable when policy-cidr-selects-nodes is false or
 	// when enable-node-selector-labels is false, since
 	// callers will already have gotten a value from LookupReservedIdentityByLabels.
-	if lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) {
+	if lbls.HasRemoteNodeLabel() {
 		return IdentityScopeRemoteNode
 	}
 
@@ -268,9 +268,9 @@ func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
 	}
 
 	var nid NumericIdentity
-	if lbls.Has(labels.LabelHost[labels.IDNameHost]) {
+	if lbls.HasHostLabel() {
 		nid = ReservedIdentityHost
-	} else if lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) {
+	} else if lbls.HasRemoteNodeLabel() {
 		// If selecting remote-nodes via CIDR policies is allowed, then
 		// they no longer have a reserved identity.
 		if option.Config.PolicyCIDRMatchesNodes() {
@@ -283,7 +283,7 @@ func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
 			return nil
 		}
 		nid = ReservedIdentityRemoteNode
-		if lbls.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]) {
+		if lbls.HasKubeAPIServerLabel() {
 			// If there's a kube-apiserver label, then we know this is
 			// kube-apiserver reserved ID, so change it as such.
 			// Only traffic from non-kube-apiserver nodes should be
