@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium-cli/multicast"
-	"github.com/cilium/cilium-cli/status"
+	"github.com/cilium/cilium/cilium-cli/multicast"
+	"github.com/cilium/cilium/cilium-cli/status"
 )
 
 func newCmdMulticast() *cobra.Command {

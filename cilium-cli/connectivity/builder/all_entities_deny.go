@@ -6,8 +6,8 @@ package builder
 import (
 	_ "embed"
 
-	"github.com/cilium/cilium-cli/connectivity/check"
-	"github.com/cilium/cilium-cli/connectivity/tests"
+	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
 )
 
 //go:embed manifests/deny-all-entities.yaml

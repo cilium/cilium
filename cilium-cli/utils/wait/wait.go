@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/defaults"
 )
 
 type LogFunc func(err error, waitTime string)

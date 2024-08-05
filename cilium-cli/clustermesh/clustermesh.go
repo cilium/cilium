@@ -22,8 +22,6 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/cilium/cilium/api/v1/models"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"golang.org/x/exp/maps"
 	"helm.sh/helm/v3/pkg/release"
 	appsv1 "k8s.io/api/apps/v1"
@@ -32,11 +30,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/helm"
-	"github.com/cilium/cilium-cli/k8s"
-	"github.com/cilium/cilium-cli/status"
-	"github.com/cilium/cilium-cli/utils/wait"
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/internal/helm"
+	"github.com/cilium/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/cilium-cli/status"
+	"github.com/cilium/cilium/cilium-cli/utils/wait"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 const (

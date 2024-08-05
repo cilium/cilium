@@ -6,12 +6,11 @@ package sysdump
 import (
 	"regexp"
 
+	"github.com/google/gops/signal"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/google/gops/signal"
-
-	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/defaults"
 )
 
 const (

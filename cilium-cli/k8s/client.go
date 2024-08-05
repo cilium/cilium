@@ -18,12 +18,6 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/cilium/cilium/api/v1/models"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	"github.com/cilium/cilium/pkg/safeio"
-	"github.com/cilium/cilium/pkg/versioncheck"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli/output"
 	appsv1 "k8s.io/api/apps/v1"
@@ -50,7 +44,13 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/transport/spdy"
 
-	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	ciliumClientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/safeio"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 type Client struct {

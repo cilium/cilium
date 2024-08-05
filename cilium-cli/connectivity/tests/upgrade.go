@@ -9,9 +9,9 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/cilium/cilium-cli/connectivity/check"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 )
 
 // NoInterruptedConnections checks whether there are no interruptions in

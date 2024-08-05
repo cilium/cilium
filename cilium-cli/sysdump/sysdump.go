@@ -31,12 +31,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/cilium-cli/utils/features"
 	ciliumdef "github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/versioncheck"
-
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/k8s"
-	"github.com/cilium/cilium-cli/utils/features"
 )
 
 const sysdumpLogFile = "cilium-sysdump.log"

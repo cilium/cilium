@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium-cli/api"
-	"github.com/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/api"
+	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 )
 
 func TestNewConnectivityTests(t *testing.T) {
