@@ -24,6 +24,11 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 )
 
+const (
+	testCallerID1 = "test1"
+	testCallerID2 = "test2"
+)
+
 type DiffStoreFixture struct {
 	diffStore DiffStore[*slimv1.Service]
 	signaler  *signaler.BGPCPSignaler
@@ -95,8 +100,18 @@ func TestDiffSignal(t *testing.T) {
 	fixture := newDiffStoreFixture()
 	tracker := fixture.slimCs.Tracker()
 
+	tlog := hivetest.Logger(t)
+	err := fixture.hive.Start(tlog, context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-fixture.watching
+
+	fixture.diffStore.InitDiff(testCallerID1)
+	fixture.diffStore.InitDiff(testCallerID2)
+
 	// Add an initial object.
-	err := tracker.Add(&slimv1.Service{
+	err = tracker.Add(&slimv1.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "service-a",
 		},
@@ -104,13 +119,6 @@ func TestDiffSignal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	tlog := hivetest.Logger(t)
-	err = fixture.hive.Start(tlog, context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	<-fixture.watching
 
 	timer := time.NewTimer(5 * time.Second)
 	select {
@@ -120,15 +128,14 @@ func TestDiffSignal(t *testing.T) {
 		t.Fatal("No signal sent by diffstore")
 	}
 
-	upserted, deleted, err := fixture.diffStore.Diff()
+	// 1 upsert for the caller 1
+	upserted, deleted, err := fixture.diffStore.Diff(testCallerID1)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	if len(upserted) != 1 {
 		t.Fatal("Initial upserted not one")
 	}
-
 	if len(deleted) != 0 {
 		t.Fatal("Initial deleted not zero")
 	}
@@ -152,15 +159,26 @@ func TestDiffSignal(t *testing.T) {
 		t.Fatal("No signal sent by diffstore")
 	}
 
-	upserted, deleted, err = fixture.diffStore.Diff()
+	// 1 upsert for the caller 1
+	upserted, deleted, err = fixture.diffStore.Diff(testCallerID1)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	if len(upserted) != 1 {
 		t.Fatal("Runtime upserted not one")
 	}
+	if len(deleted) != 0 {
+		t.Fatal("Runtime deleted not zero")
+	}
 
+	// 2 upserts for the caller 2
+	upserted, deleted, err = fixture.diffStore.Diff(testCallerID2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(upserted) != 2 {
+		t.Fatal("Runtime upserted not two")
+	}
 	if len(deleted) != 0 {
 		t.Fatal("Runtime deleted not zero")
 	}
@@ -180,15 +198,26 @@ func TestDiffSignal(t *testing.T) {
 		t.Fatal("No signal sent by diffstore")
 	}
 
-	upserted, deleted, err = fixture.diffStore.Diff()
+	// 1 deleted for the caller 1
+	upserted, deleted, err = fixture.diffStore.Diff(testCallerID1)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	if len(upserted) != 0 {
 		t.Fatal("Runtime upserted not zero")
 	}
+	if len(deleted) != 1 {
+		t.Fatal("Runtime deleted not one")
+	}
 
+	// 1 deleted for the caller 2
+	upserted, deleted, err = fixture.diffStore.Diff(testCallerID2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(upserted) != 0 {
+		t.Fatal("Runtime upserted not zero")
+	}
 	if len(deleted) != 1 {
 		t.Fatal("Runtime deleted not one")
 	}
@@ -210,6 +239,8 @@ func TestDiffUpsertCoalesce(t *testing.T) {
 		t.Fatal(err)
 	}
 	<-fixture.watching
+
+	fixture.diffStore.InitDiff(testCallerID1)
 
 	// Add first object
 	err = tracker.Add(&slimv1.Service{
@@ -243,7 +274,7 @@ func TestDiffUpsertCoalesce(t *testing.T) {
 		t.Fatal("No signal sent by diffstore")
 	}
 
-	upserted, deleted, err := fixture.diffStore.Diff()
+	upserted, deleted, err := fixture.diffStore.Diff(testCallerID1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,7 +321,7 @@ func TestDiffUpsertCoalesce(t *testing.T) {
 		t.Fatal("No signal sent by diffstore")
 	}
 
-	upserted, deleted, err = fixture.diffStore.Diff()
+	upserted, deleted, err = fixture.diffStore.Diff(testCallerID1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -349,7 +380,7 @@ func TestDiffUpsertCoalesce(t *testing.T) {
 		t.Fatal("No signal sent by diffstore")
 	}
 
-	upserted, deleted, err = fixture.diffStore.Diff()
+	upserted, deleted, err = fixture.diffStore.Diff(testCallerID1)
 	if err != nil {
 		t.Fatal(err)
 	}
