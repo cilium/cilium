@@ -138,7 +138,7 @@ jobs:
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
-          image-tag: ${{ env.CILIUM_CLI_VERSION }}
+          image-tag: ${{ steps.vars.outputs.tag }}
 
       - name: Report cluster failure status and capture cilium-sysdump
         if: ${{ failure() && steps.install-cilium.outcome != 'skipped' }}
