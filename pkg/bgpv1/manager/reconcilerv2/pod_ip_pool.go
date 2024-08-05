@@ -76,6 +76,12 @@ func (r *PodIPPoolReconciler) Priority() int {
 	return 50
 }
 
+func (r *PodIPPoolReconciler) Init(_ *instance.BGPInstance) error {
+	return nil
+}
+
+func (r *PodIPPoolReconciler) Cleanup(_ *instance.BGPInstance) {}
+
 func (r *PodIPPoolReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
 	if p.DesiredConfig == nil {
 		return fmt.Errorf("BUG: PodIPPoolReconciler reconciler called with nil CiliumBGPNodeConfig")

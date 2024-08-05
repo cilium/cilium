@@ -27,6 +27,12 @@ type ConfigReconciler interface {
 	// Priority is used to determine the order in which reconcilers are called. Reconcilers are called from lowest to
 	// highest.
 	Priority() int
+	// Init is called upon virtual router instance creation. Reconcilers can initialize any instance-specific
+	// resources here, and clean them up upon Cleanup call.
+	Init(i *instance.BGPInstance) error
+	// Cleanup is called upon virtual router instance deletion. When called, reconcilers are supposed
+	// to clean up all instance-specific resources saved outside the instance Metadata.
+	Cleanup(i *instance.BGPInstance)
 	// Reconcile performs the reconciliation actions for given BGPInstance.
 	Reconcile(ctx context.Context, params ReconcileParams) error
 }

@@ -629,19 +629,22 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 			testSC.Config = oldc
 
 			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
+			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
+
+			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+			reconciler.Init(testSC)
+			defer reconciler.Cleanup(testSC)
+
 			for _, obj := range tt.upsertedServices {
 				diffstore.Upsert(obj)
 			}
 			for _, key := range tt.deletedServices {
 				diffstore.Delete(key)
 			}
-
-			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 			for _, obj := range tt.upsertedEndpoints {
 				epDiffStore.Upsert(obj)
 			}
 
-			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
 			serviceAnnouncements := reconciler.getMetadata(testSC)
 
 			for svcKey, cidrs := range tt.advertised {
@@ -1285,19 +1288,22 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 			testSC.Config = oldc
 
 			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
+			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
+
+			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+			reconciler.Init(testSC)
+			defer reconciler.Cleanup(testSC)
+
 			for _, obj := range tt.upsertedServices {
 				diffstore.Upsert(obj)
 			}
 			for _, key := range tt.deletedServices {
 				diffstore.Delete(key)
 			}
-
-			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 			for _, obj := range tt.upsertedEndpoints {
 				epDiffStore.Upsert(obj)
 			}
 
-			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
 			serviceAnnouncements := reconciler.getMetadata(testSC)
 
 			for svcKey, cidrs := range tt.advertised {
@@ -1939,19 +1945,22 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 			testSC.Config = oldc
 
 			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
+			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
+
+			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+			reconciler.Init(testSC)
+			defer reconciler.Cleanup(testSC)
+
 			for _, obj := range tt.upsertedServices {
 				diffstore.Upsert(obj)
 			}
 			for _, key := range tt.deletedServices {
 				diffstore.Delete(key)
 			}
-
-			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 			for _, obj := range tt.upsertedEndpoints {
 				epDiffStore.Upsert(obj)
 			}
 
-			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
 			serviceAnnouncements := reconciler.getMetadata(testSC)
 
 			for svcKey, cidrs := range tt.advertised {
@@ -2151,6 +2160,8 @@ func TestEPUpdateOnly(t *testing.T) {
 	diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
 	epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 	reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+	reconciler.Init(testSC)
+	defer reconciler.Cleanup(testSC)
 
 	for _, step := range steps {
 		t.Logf("running step: %s", step.name)
@@ -2282,19 +2293,22 @@ func TestServiceReconcilerWithExternalIPAndClusterIP(t *testing.T) {
 			testSC.Config = oldc
 
 			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
+			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
+
+			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
+			reconciler.Init(testSC)
+			defer reconciler.Cleanup(testSC)
+
 			for _, obj := range tt.upsertedServices {
 				diffstore.Upsert(obj)
 			}
 			for _, key := range tt.deletedServices {
 				diffstore.Delete(key)
 			}
-
-			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 			for _, obj := range tt.upsertedEndpoints {
 				epDiffStore.Upsert(obj)
 			}
 
-			reconciler := NewServiceReconciler(diffstore, epDiffStore).Reconciler.(*ServiceReconciler)
 			serviceAnnouncements := reconciler.getMetadata(testSC)
 
 			for svcKey, cidrs := range tt.advertised {

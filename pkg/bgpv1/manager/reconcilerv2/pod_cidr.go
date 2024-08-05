@@ -64,6 +64,12 @@ func (r *PodCIDRReconciler) Priority() int {
 	return 30
 }
 
+func (r *PodCIDRReconciler) Init(_ *instance.BGPInstance) error {
+	return nil
+}
+
+func (r *PodCIDRReconciler) Cleanup(_ *instance.BGPInstance) {}
+
 func (r *PodCIDRReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
 	if p.DesiredConfig == nil {
 		return fmt.Errorf("BUG: PodCIDR reconciler called with nil CiliumBGPNodeConfig")
