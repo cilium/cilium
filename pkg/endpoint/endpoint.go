@@ -2050,7 +2050,7 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, sourceFilter string, identi
 	// - the endpoint is in this init state.
 	if len(identityLabels) != 0 &&
 		sourceFilter != labels.LabelSourceAny &&
-		!identityLabels.Has(labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved)) &&
+		!identityLabels.HasInitLabel() &&
 		e.IsInit() {
 
 		idLabls := e.OpLabels.IdentityLabels()
