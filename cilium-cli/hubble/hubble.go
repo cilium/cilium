@@ -8,13 +8,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/helm"
-	"github.com/cilium/cilium-cli/k8s"
-
 	"helm.sh/helm/v3/pkg/cli/values"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/internal/helm"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 )
 
 type k8sHubbleImplementation interface {

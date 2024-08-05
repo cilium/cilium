@@ -11,8 +11,8 @@ import (
 	"helm.sh/helm/v3/pkg/getter"
 	"sigs.k8s.io/yaml"
 
-	"github.com/cilium/cilium-cli/internal/helm"
-	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/cilium-cli/internal/helm"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 )
 
 func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient *k8s.Client) error {

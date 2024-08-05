@@ -18,18 +18,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/api/v1/observer"
-	"github.com/cilium/cilium/api/v1/relay"
-	hubprinter "github.com/cilium/cilium/hubble/pkg/printer"
-	"github.com/cilium/cilium/pkg/inctimer"
-	"github.com/cilium/cilium/pkg/lock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/cilium/cilium-cli/connectivity/filters"
-	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/api/v1/observer"
+	"github.com/cilium/cilium/api/v1/relay"
+	"github.com/cilium/cilium/cilium-cli/connectivity/filters"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/utils/features"
+	hubprinter "github.com/cilium/cilium/hubble/pkg/printer"
+	"github.com/cilium/cilium/pkg/inctimer"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 const (

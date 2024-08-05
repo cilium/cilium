@@ -10,15 +10,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/api/v1/models"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/go-openapi/strfmt"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 var (

@@ -4,8 +4,8 @@
 package builder
 
 import (
-	"github.com/cilium/cilium-cli/connectivity/check"
-	"github.com/cilium/cilium-cli/connectivity/tests"
+	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
 )
 
 type noPoliciesExtra struct{}

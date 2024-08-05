@@ -19,7 +19,6 @@ import (
 
 	"github.com/blang/semver/v4"
 	helm "github.com/cilium/charts"
-	"github.com/cilium/cilium/pkg/versioncheck"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -30,7 +29,8 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/strvals"
 
-	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 var settings = cli.New()

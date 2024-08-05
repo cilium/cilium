@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cilium/cilium-cli/connectivity/internal/junit"
+	"github.com/cilium/cilium/cilium-cli/connectivity/internal/junit"
 )
 
 // NewJUnitCollector factory function that returns JUnitCollector.

@@ -12,7 +12,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 
-	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 )
 
 // metricsURLFormat is the path format to retrieve the metrics on the
