@@ -628,19 +628,22 @@ func TestLBServiceReconciler(t *testing.T) {
 			testSC.Config = oldc
 
 			diffstore := store.NewFakeDiffStore[*slim_corev1.Service]()
+			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
+
+			reconciler := NewLBServiceReconciler(diffstore, epDiffStore).Reconciler.(*LBServiceReconciler)
+			reconciler.Init(testSC)
+			defer reconciler.Cleanup(testSC)
+
 			for _, obj := range tt.upsertedServices {
 				diffstore.Upsert(obj)
 			}
 			for _, key := range tt.deletedServices {
 				diffstore.Delete(key)
 			}
-
-			epDiffStore := store.NewFakeDiffStore[*k8s.Endpoints]()
 			for _, obj := range tt.upsertedEndpoints {
 				epDiffStore.Upsert(obj)
 			}
 
-			reconciler := NewLBServiceReconciler(diffstore, epDiffStore).Reconciler.(*LBServiceReconciler)
 			serviceAnnouncements := reconciler.getMetadata(testSC)
 
 			for svcKey, cidrs := range tt.advertised {

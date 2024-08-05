@@ -65,6 +65,12 @@ func (r *RoutePolicyReconciler) Priority() int {
 	return 70
 }
 
+func (r *RoutePolicyReconciler) Init(_ *instance.ServerWithConfig) error {
+	return nil
+}
+
+func (r *RoutePolicyReconciler) Cleanup(_ *instance.ServerWithConfig) {}
+
 func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileParams) error {
 	l := log.WithFields(logrus.Fields{"component": "RoutePolicyReconciler"})
 
