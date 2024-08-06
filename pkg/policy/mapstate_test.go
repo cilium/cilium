@@ -4290,6 +4290,41 @@ func prefixesContainsAny(a, b []netip.Prefix) bool {
 	return false
 }
 
+var worldNets = map[identity.NumericIdentity][]netip.Prefix{
+	identity.ReservedIdentityWorld: {
+		netip.PrefixFrom(netip.IPv4Unspecified(), 0),
+		netip.PrefixFrom(netip.IPv6Unspecified(), 0),
+	},
+	identity.ReservedIdentityWorldIPv4: {
+		netip.PrefixFrom(netip.IPv4Unspecified(), 0),
+	},
+	identity.ReservedIdentityWorldIPv6: {
+		netip.PrefixFrom(netip.IPv6Unspecified(), 0),
+	},
+}
+
+// getNets returns the most specific CIDR for an identity. For the "World" identity
+// it returns both IPv4 and IPv6.
+func getNets(identities Identities, ident uint32) []netip.Prefix {
+	// World identities are handled explicitly for two reasons:
+	// 1. 'identities' may be nil, but world identities are still expected to be considered
+	// 2. SelectorCache is not be informed of reserved/world identities in all test cases
+	// 3. identities.GetPrefix() does not return world identities
+	id := identity.NumericIdentity(ident)
+	if id <= identity.ReservedIdentityWorldIPv6 {
+		return worldNets[id]
+	}
+	// CIDR identities have a local scope, so we can skip the rest if id is not of local scope.
+	if !id.HasLocalScope() || identities == nil {
+		return nil
+	}
+	prefix := identities.GetPrefix(id)
+	if prefix.IsValid() {
+		return []netip.Prefix{prefix}
+	}
+	return nil
+}
+
 // identityIsSupersetOf compares two entries and keys to see if the primary identity contains
 // the compared identity. This means that either that primary identity is 0 (i.e. it is a superset
 // of every other identity), or one of the subnets of the primary identity fully contains or is
