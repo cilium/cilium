@@ -21,4 +21,5 @@ about the different roles.
 
    review_process
    review_docs
+   review_vendor
    duties
