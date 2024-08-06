@@ -1,1 +1,8 @@
+"gettingstarted/hubble-configuration.rst" "observability/hubble/configuration/tls.rst"
+"gettingstarted/hubble-install.rst" "observability/hubble/hubble-cli.rst"
+"gettingstarted/hubble.rst" "observability/hubble/hubble-ui.rst"
+"gettingstarted/hubble_cli.rst" "observability/hubble/hubble-cli.rst"
+"gettingstarted/hubble_intro.rst" "observability/hubble/index.rst"
+"gettingstarted/hubble_setup.rst" "observability/hubble/setup.rst"
 "network/egress-gateway.rst" "network/egress-gateway/egress-gateway.rst"
+"observability/hubble-exporter.rst" "observability/hubble/configuration/export.rst"

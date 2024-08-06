@@ -4,13 +4,11 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _hubble_configure:
+**********
+Hubble TLS
+**********
 
-********************
-Hubble Configuration
-********************
-
-This page provides guidance to configure Hubble in a way that suits your
+This page provides guidance to configure Hubble with TLS in a way that suits your
 environment. Instructions to enable Hubble are provided as part of each
 Cilium :ref:`getting_started` guide.
 
