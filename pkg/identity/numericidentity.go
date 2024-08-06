@@ -170,9 +170,6 @@ const (
 	// ReservedCiliumEtcdOperator is the reserved identity used for the Cilium etcd operator
 	ReservedCiliumEtcdOperator
 
-	// ReservedNodeLocalDNS is the reserved identity used for nodelocaldns addon
-	ReservedNodeLocalDNS
-
 	// Second identities for all above components
 	ReservedETCDOperator2
 	ReservedCiliumKVStore2
@@ -182,7 +179,6 @@ const (
 	ReservedCiliumOperator2
 	ReservedEKSCoreDNS2
 	ReservedCiliumEtcdOperator2
-	ReservedNodeLocalDNS2
 )
 
 // localNodeIdentity is the endpoint identity allocated for the local node
@@ -393,17 +389,6 @@ func InitWellKnownIdentities(c Configuration, cinfo cmtypes.ClusterInfo) int {
 	WellKnown.add(ReservedCiliumEtcdOperator, ciliumEtcdOperatorLabels)
 	WellKnown.add(ReservedCiliumEtcdOperator2, append(ciliumEtcdOperatorLabels,
 		k8sLabel(api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
-
-	// NodeLocalDNS labels
-	//   k8s:io.kubernetes.pod.namespace=kube-system
-	//   k8s:k8s-app=node-local-dns
-	nodelocaldnsDNSLabels := []string{
-		"k8s:k8s-app=node-local-dns",
-		k8sLabel(api.PodNamespaceLabel, "kube-system"),
-	}
-	WellKnown.add(ReservedNodeLocalDNS, nodelocaldnsDNSLabels)
-	WellKnown.add(ReservedNodeLocalDNS2, append(nodelocaldnsDNSLabels,
-		k8sLabel(api.PodNamespaceMetaNameLabel, "kube-system")))
 
 	return len(WellKnown)
 }
