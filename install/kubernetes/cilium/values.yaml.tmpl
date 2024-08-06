@@ -2947,6 +2947,8 @@ clustermesh:
     #     key: ""
     #     caCert: ""
   apiserver:
+    # -- Enable/disable apiserver container
+    enabled: true
     # -- Clustermesh API server image.
     image:
       # @schema
@@ -2969,6 +2971,9 @@ clustermesh:
       # The etcd binary is included in the clustermesh API server image, so the same image from above is reused.
       # Independent override isn't supported, because clustermesh-apiserver is tested against the etcd version it is
       # built with.
+
+      # -- Enable/disable etcd container
+      enabled: true
 
       # -- Specifies the resources for etcd container in the apiserver
       resources: {}

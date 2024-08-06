@@ -500,6 +500,14 @@
      - Affinity for clustermesh.apiserver
      - object
      - ``{"podAntiAffinity":{"preferredDuringSchedulingIgnoredDuringExecution":[{"podAffinityTerm":{"labelSelector":{"matchLabels":{"k8s-app":"clustermesh-apiserver"}},"topologyKey":"kubernetes.io/hostname"},"weight":100}]}}``
+   * - :spelling:ignore:`clustermesh.apiserver.enabled`
+     - Enable the apiserver container in clustermesh-apiserver
+     - bool
+     - ``true``
+   * - :spelling:ignore:`clustermesh.apiserver.etcd.enabled`
+     - Enable the etcd container in clustermesh-apiserver
+     - bool
+     - ``true``
    * - :spelling:ignore:`clustermesh.apiserver.etcd.init.extraArgs`
      - Additional arguments to ``clustermesh-apiserver etcdinit``.
      - list

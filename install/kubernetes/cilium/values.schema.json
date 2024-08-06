@@ -861,8 +861,14 @@
               },
               "type": "object"
             },
+            "enabled": {
+              "type": "boolean"
+            },
             "etcd": {
               "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
                 "init": {
                   "properties": {
                     "extraArgs": {
