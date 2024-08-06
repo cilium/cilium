@@ -414,6 +414,9 @@ func (in *EndpointSelector) DeepEqual(other *EndpointSelector) bool {
 	if in.cachedLabelSelectorString != other.cachedLabelSelectorString {
 		return false
 	}
+	if in.Generated != other.Generated {
+		return false
+	}
 
 	return true
 }
@@ -1375,6 +1378,9 @@ func (in *ServiceSelector) DeepEqual(other *ServiceSelector) bool {
 	}
 
 	if in.cachedLabelSelectorString != other.cachedLabelSelectorString {
+		return false
+	}
+	if in.Generated != other.Generated {
 		return false
 	}
 

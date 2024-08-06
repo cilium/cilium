@@ -34,6 +34,10 @@ type EndpointSelector struct {
 	// EndpointSelectors are created via `NewESFromMatchRequirements`. It is
 	// immutable after its creation.
 	cachedLabelSelectorString string `json:"-"`
+
+	// Generated indicates whether the rule was generated based on other rules
+	// or provided by user
+	Generated bool `json:"-"`
 }
 
 // LabelSelectorString returns a user-friendly string representation of
