@@ -133,7 +133,7 @@ jobs:
 
           EXEMPT_FEATURES="GatewayStaticAddresses,HTTPRouteParentRefPort,MeshConsumerRoute"
           if [ ${{ matrix.crd-channel }} == "standard" ]; then
-            EXEMPT_FEATURES+=",HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout"
+            EXEMPT_FEATURES+=",HTTPRouteDestinationPortMatching,HTTPRouteRequestTimeout,HTTPRouteBackendTimeout,GatewayInfrastructurePropagation"
           fi
 
           if [ ${{ matrix.conformance-profile }} == "true" ]; then
