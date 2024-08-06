@@ -310,11 +310,11 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 	return nil
 }
 
-// reloadHostDatapath (re)attaches programs from bpf_host.c to:
+// reloadHostEndpoint (re)attaches programs from bpf_host.c to:
 // - cilium_host: cil_to_host ingress and cil_from_host to egress
 // - cilium_net: cil_to_host to ingress
 // - native devices: cil_from_netdev to ingress and (optionally) cil_to_netdev to egress if certain features require it
-func (l *loader) reloadHostDatapath(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec, devices []string) error {
+func (l *loader) reloadHostEndpoint(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	// Replace programs on cilium_host.
 	host, err := netlink.LinkByName(ep.InterfaceName())
 	if err != nil {
@@ -386,6 +386,13 @@ func (l *loader) reloadHostDatapath(cfg *datapath.LocalNodeConfiguration, ep dat
 
 	if err := commit(); err != nil {
 		return fmt.Errorf("committing bpf pins: %w", err)
+	}
+
+	devices := cfg.DeviceNames()
+
+	// Selectively attach bpf_host to cilium_wg0.
+	if option.Config.NeedBPFHostOnWireGuardDevice() {
+		devices = append(devices, wgTypes.IfaceName)
 	}
 
 	// Replace programs on physical devices, ignoring devices that don't exist.
@@ -460,76 +467,64 @@ func (l *loader) reloadHostDatapath(cfg *datapath.LocalNodeConfiguration, ep dat
 	return nil
 }
 
-// reloadDatapath loads programs in spec into the device used by ep.
+// reloadEndpoint loads programs in spec into the device used by ep.
 //
 // spec is modified by the method and it is the callers responsibility to copy
 // it if necessary.
-func (l *loader) reloadDatapath(ep datapath.Endpoint, cfg *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
+func (l *loader) reloadEndpoint(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
 
-	if ep.IsHost() {
-		devices := cfg.DeviceNames()
+	var obj lxcObjects
+	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+		CollectionOptions: ebpf.CollectionOptions{
+			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+		},
+		MapRenames: ELFMapSubstitutions(ep),
+		Constants:  ELFVariableSubstitutions(ep),
+	})
+	if err != nil {
+		return err
+	}
+	defer obj.Close()
 
-		if option.Config.NeedBPFHostOnWireGuardDevice() {
-			devices = append(devices, wgTypes.IfaceName)
-		}
+	// Insert policy programs before attaching entrypoints to tc hooks.
+	// Inserting a policy program is considered an attachment, since it makes
+	// the code reachable by bpf_host when it evaluates policy for the endpoint.
+	// All internal tail call plumbing needs to be done before this point.
+	// If the agent dies uncleanly after the first program has been inserted,
+	// the endpoint's connectivity will be partially broken or exhibit undefined
+	// behaviour like missed tail calls or drops.
+	if err := obj.PolicyMap.Update(uint32(ep.GetID()), obj.PolicyProg, ebpf.UpdateAny); err != nil {
+		return fmt.Errorf("inserting endpoint policy program: %w", err)
+	}
+	if err := obj.EgressPolicyMap.Update(uint32(ep.GetID()), obj.EgressPolicyProg, ebpf.UpdateAny); err != nil {
+		return fmt.Errorf("inserting endpoint egress policy program: %w", err)
+	}
 
-		if err := l.reloadHostDatapath(cfg, ep, spec, devices); err != nil {
-			return err
+	iface, err := netlink.LinkByName(device)
+	if err != nil {
+		return fmt.Errorf("retrieving device %s: %w", device, err)
+	}
+
+	linkDir := bpffsEndpointLinksDir(bpf.CiliumPath(), ep)
+	if err := attachSKBProgram(iface, obj.FromContainer, symbolFromEndpoint,
+		linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
+		return fmt.Errorf("interface %s ingress: %w", device, err)
+	}
+
+	if ep.RequireEgressProg() {
+		if err := attachSKBProgram(iface, obj.ToContainer, symbolToEndpoint,
+			linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
+			return fmt.Errorf("interface %s egress: %w", device, err)
 		}
 	} else {
-		var obj lxcObjects
-		commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
-			CollectionOptions: ebpf.CollectionOptions{
-				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
-			},
-			MapRenames: ELFMapSubstitutions(ep),
-			Constants:  ELFVariableSubstitutions(ep),
-		})
-		if err != nil {
-			return err
+		if err := detachSKBProgram(iface, symbolToEndpoint, linkDir, netlink.HANDLE_MIN_EGRESS); err != nil {
+			log.WithField("device", device).Error(err)
 		}
-		defer obj.Close()
+	}
 
-		// Insert policy programs before attaching entrypoints to tc hooks.
-		// Inserting a policy program is considered an attachment, since it makes
-		// the code reachable by bpf_host when it evaluates policy for the endpoint.
-		// All internal tail call plumbing needs to be done before this point.
-		// If the agent dies uncleanly after the first program has been inserted,
-		// the endpoint's connectivity will be partially broken or exhibit undefined
-		// behaviour like missed tail calls or drops.
-		if err := obj.PolicyMap.Update(uint32(ep.GetID()), obj.PolicyProg, ebpf.UpdateAny); err != nil {
-			return fmt.Errorf("inserting endpoint policy program: %w", err)
-		}
-		if err := obj.EgressPolicyMap.Update(uint32(ep.GetID()), obj.EgressPolicyProg, ebpf.UpdateAny); err != nil {
-			return fmt.Errorf("inserting endpoint egress policy program: %w", err)
-		}
-
-		iface, err := netlink.LinkByName(device)
-		if err != nil {
-			return fmt.Errorf("retrieving device %s: %w", device, err)
-		}
-
-		linkDir := bpffsEndpointLinksDir(bpf.CiliumPath(), ep)
-		if err := attachSKBProgram(iface, obj.FromContainer, symbolFromEndpoint,
-			linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
-			return fmt.Errorf("interface %s ingress: %w", device, err)
-		}
-
-		if ep.RequireEgressProg() {
-			if err := attachSKBProgram(iface, obj.ToContainer, symbolToEndpoint,
-				linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
-				return fmt.Errorf("interface %s egress: %w", device, err)
-			}
-		} else {
-			if err := detachSKBProgram(iface, symbolToEndpoint, linkDir, netlink.HANDLE_MIN_EGRESS); err != nil {
-				log.WithField("device", device).Error(err)
-			}
-		}
-
-		if err := commit(); err != nil {
-			return fmt.Errorf("committing bpf pins: %w", err)
-		}
+	if err := commit(); err != nil {
+		return fmt.Errorf("committing bpf pins: %w", err)
 	}
 
 	if ep.RequireEndpointRoute() {
@@ -656,8 +651,17 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, cfg *
 		return "", err
 	}
 
+	if ep.IsHost() {
+		// Reload bpf programs on cilium_host and cilium_net.
+		stats.BpfLoadProg.Start()
+		err = l.reloadHostEndpoint(cfg, ep, spec)
+		stats.BpfLoadProg.End(err == nil)
+		return hash, err
+	}
+
+	// Reload an lxc endpoint program.
 	stats.BpfLoadProg.Start()
-	err = l.reloadDatapath(ep, cfg, spec)
+	err = l.reloadEndpoint(ep, spec)
 	stats.BpfLoadProg.End(err == nil)
 	return hash, err
 }
