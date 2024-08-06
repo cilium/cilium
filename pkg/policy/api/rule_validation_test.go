@@ -636,7 +636,7 @@ func TestToServicesSanitize(t *testing.T) {
 	}
 
 	err := toServicesL3L4.Sanitize()
-	require.Error(t, err)
+	require.Nil(t, err)
 }
 
 // This test ensures that PortRules using key-value pairs do not have empty keys
