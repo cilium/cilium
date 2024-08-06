@@ -35,6 +35,7 @@ var (
 		"Agent Kubernetes resources",
 
 		cell.Config(k8s.DefaultConfig),
+		cell.Provide(k8s.SetListTimeout),
 		LocalNodeCell,
 		ServiceNonHeadlessCell,
 		cell.Provide(
@@ -67,12 +68,10 @@ var (
 				)
 			},
 			func(params k8s.CiliumResourceParams) (LocalCiliumNodeResource, error) {
-				return k8s.CiliumNodeResource(
-					params,
-					func(opts *metav1.ListOptions) {
-						opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + nodeTypes.GetName()).String()
-					},
-				)
+				params.ListOpts = append(params.ListOpts, func(opts *metav1.ListOptions) {
+					opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + nodeTypes.GetName()).String()
+				})
+				return k8s.CiliumNodeResource(params)
 			},
 			func(lc cell.Lifecycle, cs client.Clientset) (LocalPodResource, error) {
 				return k8s.PodResource(
@@ -90,41 +89,37 @@ var (
 		"Agent Kubernetes non headless service resources",
 
 		cell.Provide(
-			func(lc cell.Lifecycle, cfg k8s.Config, cs client.Clientset) (ServiceNonHeadless, error) {
-				return k8s.ServiceResource(
-					lc, cfg, cs,
-					func(opts *metav1.ListOptions) {
-						nonHeadlessServiceSelector, err := labels.NewRequirement(v1.IsHeadlessService, selection.DoesNotExist, nil)
-						if err != nil {
-							panic(fmt.Sprintf("can't create headless service requirement: %s", err))
-						}
+			func(params k8s.CiliumResourceParams) (ServiceNonHeadless, error) {
+				params.ListOpts = append(params.ListOpts, func(opts *metav1.ListOptions) {
+					nonHeadlessServiceSelector, err := labels.NewRequirement(v1.IsHeadlessService, selection.DoesNotExist, nil)
+					if err != nil {
+						panic(fmt.Sprintf("can't create headless service requirement: %s", err))
+					}
 
-						labelSelector, err := labels.Parse(opts.LabelSelector)
-						if err != nil {
-							panic(fmt.Sprintf("can't parse existing service label selector: %s", err))
-						}
-						labelSelector = labelSelector.Add(*nonHeadlessServiceSelector)
-						opts.LabelSelector = labelSelector.String()
-					},
-				)
+					labelSelector, err := labels.Parse(opts.LabelSelector)
+					if err != nil {
+						panic(fmt.Sprintf("can't parse existing service label selector: %s", err))
+					}
+					labelSelector = labelSelector.Add(*nonHeadlessServiceSelector)
+					opts.LabelSelector = labelSelector.String()
+				})
+				return k8s.ServiceResource(params)
 			},
-			func(lc cell.Lifecycle, cfg k8s.Config, cs client.Clientset) (EndpointsNonHeadless, error) {
-				return k8s.EndpointsResource(
-					lc, cfg, cs,
-					func(opts *metav1.ListOptions) {
-						nonHeadlessServiceSelector, err := labels.NewRequirement(v1.IsHeadlessService, selection.DoesNotExist, nil)
-						if err != nil {
-							panic(fmt.Sprintf("can't create headless service requirement: %s", err))
-						}
+			func(params k8s.CiliumResourceParams) (EndpointsNonHeadless, error) {
+				params.ListOpts = append(params.ListOpts, func(opts *metav1.ListOptions) {
+					nonHeadlessServiceSelector, err := labels.NewRequirement(v1.IsHeadlessService, selection.DoesNotExist, nil)
+					if err != nil {
+						panic(fmt.Sprintf("can't create headless service requirement: %s", err))
+					}
 
-						labelSelector, err := labels.Parse(opts.LabelSelector)
-						if err != nil {
-							panic(fmt.Sprintf("can't parse existing endpoints label selector: %s", err))
-						}
-						labelSelector = labelSelector.Add(*nonHeadlessServiceSelector)
-						opts.LabelSelector = labelSelector.String()
-					},
-				)
+					labelSelector, err := labels.Parse(opts.LabelSelector)
+					if err != nil {
+						panic(fmt.Sprintf("can't parse existing endpoints label selector: %s", err))
+					}
+					labelSelector = labelSelector.Add(*nonHeadlessServiceSelector)
+					opts.LabelSelector = labelSelector.String()
+				})
+				return k8s.EndpointsResource(params)
 			},
 		),
 	)
