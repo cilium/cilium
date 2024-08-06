@@ -147,21 +147,12 @@ type mapStateMap struct {
 	trie bitlpm.Trie[bitlpm.Key[Key], IDSet]
 }
 
-type IDSet struct {
-	// ids contains all IDs in the set
-	ids map[identity.NumericIdentity]struct{}
-	// cidr contains the subset of IDs that have a valid prefix
-	// nil if not needed
-	cidr *bitlpm.CIDRTrie[map[identity.NumericIdentity]struct{}]
-}
+type IDSet map[identity.NumericIdentity]struct{}
 
 func (msm *mapStateMap) Lookup(k Key) (MapStateEntry, bool) {
 	v, ok := msm.entries[k]
 	return v, ok
 }
-
-var ip4ZeroPrefix = netip.MustParsePrefix("0.0.0.0/0")
-var ip6ZeroPrefix = netip.MustParsePrefix("::/0")
 
 func (msm *mapStateMap) upsert(k Key, e MapStateEntry, identities Identities) {
 	_, exists := msm.entries[k]
@@ -174,46 +165,15 @@ func (msm *mapStateMap) upsert(k Key, e MapStateEntry, identities Identities) {
 		// Update trie
 		idSet, ok := msm.trie.ExactLookup(k.PrefixLength(), k)
 		if !ok {
-			idSet = IDSet{ids: make(map[identity.NumericIdentity]struct{})}
+			idSet = make(IDSet)
 			kCpy := k
 			kCpy.Identity = 0
 			msm.trie.Upsert(kCpy.PrefixLength(), kCpy, idSet)
 		}
 
 		id := identity.NumericIdentity(k.Identity)
-		idSet.ids[id] = struct{}{}
-
-		// update CIDR and ANY indices
-		switch {
-		case id == identity.ReservedIdentityWorld:
-			msm.insertCidr(ip4ZeroPrefix, k, &idSet)
-			msm.insertCidr(ip6ZeroPrefix, k, &idSet)
-		case id == identity.ReservedIdentityWorldIPv4:
-			msm.insertCidr(ip4ZeroPrefix, k, &idSet)
-		case id == identity.ReservedIdentityWorldIPv6:
-			msm.insertCidr(ip6ZeroPrefix, k, &idSet)
-		case id.HasLocalScope() && identities != nil:
-			prefix := identities.GetPrefix(id)
-			if prefix.IsValid() {
-				msm.insertCidr(prefix, k, &idSet)
-			}
-		}
+		idSet[id] = struct{}{}
 	}
-}
-
-func (msm *mapStateMap) insertCidr(prefix netip.Prefix, k Key, idSet *IDSet) {
-	if idSet.cidr == nil {
-		idSet.cidr = bitlpm.NewCIDRTrie[map[identity.NumericIdentity]struct{}]()
-		kCpy := k
-		kCpy.Identity = 0
-		msm.trie.Upsert(kCpy.PrefixLength(), kCpy, *idSet)
-	}
-	idMap, ok := idSet.cidr.ExactLookup(prefix)
-	if !ok || idMap == nil {
-		idMap = make(map[identity.NumericIdentity]struct{})
-		idSet.cidr.Upsert(prefix, idMap)
-	}
-	idMap[identity.NumericIdentity(k.Identity)] = struct{}{}
 }
 
 func (msm *mapStateMap) delete(k Key, identities Identities) {
@@ -224,49 +184,9 @@ func (msm *mapStateMap) delete(k Key, identities Identities) {
 		id := identity.NumericIdentity(k.Identity)
 		idSet, ok := msm.trie.ExactLookup(k.PrefixLength(), k)
 		if ok {
-			delete(idSet.ids, id)
-			if len(idSet.ids) == 0 {
+			delete(idSet, id)
+			if len(idSet) == 0 {
 				msm.trie.Delete(k.PrefixLength(), k)
-				// IDSet is no longer in the trie
-				idSet.cidr = nil
-			}
-		}
-
-		// update CIDR and ANY indices
-		switch {
-		case id == identity.ReservedIdentityWorld:
-			msm.deleteCidr(ip4ZeroPrefix, k, &idSet)
-			msm.deleteCidr(ip6ZeroPrefix, k, &idSet)
-		case id == identity.ReservedIdentityWorldIPv4:
-			msm.deleteCidr(ip4ZeroPrefix, k, &idSet)
-		case id == identity.ReservedIdentityWorldIPv6:
-			msm.deleteCidr(ip6ZeroPrefix, k, &idSet)
-		case id.HasLocalScope() && identities != nil:
-			prefix := identities.GetPrefix(id)
-			if prefix.IsValid() {
-				msm.deleteCidr(prefix, k, &idSet)
-			}
-		}
-	}
-}
-
-func (msm *mapStateMap) deleteCidr(prefix netip.Prefix, k Key, idSet *IDSet) {
-	if idSet.cidr != nil {
-		idMap, ok := idSet.cidr.ExactLookup(prefix)
-		if ok {
-			if idMap != nil {
-				delete(idMap, identity.NumericIdentity(k.Identity))
-			}
-			// remove the idMap if empty
-			if len(idMap) == 0 {
-				idSet.cidr.Delete(prefix)
-				// remove the CIDR index if empty
-				if idSet.cidr.Len() == 0 {
-					idSet.cidr = nil
-					kCpy := k
-					kCpy.Identity = 0
-					msm.trie.Upsert(kCpy.PrefixLength(), kCpy, *idSet)
-				}
 			}
 		}
 	}
@@ -291,9 +211,62 @@ func (msm *mapStateMap) forKey(k Key, f func(Key, MapStateEntry) bool) bool {
 	return true
 }
 
+type IPFamily int
+
+const (
+	ipFamilyNone = IPFamily(iota)
+	ipFamilyV4
+	ipFamilyV6
+)
+
+// getIPFamily returns the IP family of the given identity, if any.
+func getIPFamily(identities Identities, id identity.NumericIdentity) IPFamily {
+	// CIDR identities have a local scope, so we can skip the rest if id is not of local scope.
+	if !id.HasLocalScope() || identities == nil {
+		return ipFamilyNone
+	}
+	prefix := identities.GetPrefix(id)
+	if prefix.IsValid() {
+		if prefix.Addr().Is4() || prefix.Addr().Is4In6() {
+			return ipFamilyV4
+		}
+		return ipFamilyV6
+	}
+	return ipFamilyNone
+}
+
+func (msm *mapStateMap) forWorld(ipFamily IPFamily, k Key, idSet IDSet, f func(Key, MapStateEntry) bool) bool {
+	switch ipFamily {
+	case ipFamilyNone:
+		return true
+	case ipFamilyV4:
+		if _, exists := idSet[identity.ReservedIdentityWorldIPv4]; exists {
+			k.Identity = identity.ReservedIdentityWorldIPv4.Uint32()
+			if !msm.forKey(k, f) {
+				return false
+			}
+		}
+	case ipFamilyV6:
+		if _, exists := idSet[identity.ReservedIdentityWorldIPv6]; exists {
+			k.Identity = identity.ReservedIdentityWorldIPv6.Uint32()
+			if !msm.forKey(k, f) {
+				return false
+			}
+		}
+	}
+	// both families check for WORLD
+	if _, exists := idSet[identity.ReservedIdentityWorld]; exists {
+		k.Identity = identity.ReservedIdentityWorld.Uint32()
+		if !msm.forKey(k, f) {
+			return false
+		}
+	}
+	return true
+}
+
 // ForEachNarrowerKeyWithBroaderID iterates over narrower port/proto's and broader IDs in the trie.
 // Equal port/protos or identities are not included.
-func (msm *mapStateMap) ForEachNarrowerKeyWithBroaderID(key Key, prefixes []netip.Prefix, f func(Key, MapStateEntry) bool) {
+func (msm *mapStateMap) ForEachNarrowerKeyWithBroaderID(key Key, ipFamily IPFamily, f func(Key, MapStateEntry) bool) {
 	msm.trie.Descendants(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.Key], idSet IDSet) bool {
 		// k is the key from trie with 0'ed ID
 		k := lpmKey.Value()
@@ -306,7 +279,7 @@ func (msm *mapStateMap) ForEachNarrowerKeyWithBroaderID(key Key, prefixes []neti
 		// ANY identities are not in the CIDR trie, but they are ancestors of all
 		// identities, visit them first, but not if key is also ANY
 		if key.Identity != 0 {
-			if _, exists := idSet.ids[0]; exists {
+			if _, exists := idSet[0]; exists {
 				k.Identity = 0
 				if !msm.forKey(k, f) {
 					return false
@@ -314,25 +287,9 @@ func (msm *mapStateMap) ForEachNarrowerKeyWithBroaderID(key Key, prefixes []neti
 			}
 		}
 
-		// cidr is nil when empty
-		if idSet.cidr == nil {
-			return true
-		}
-		for _, prefix := range prefixes {
-			bailed := false
-			idSet.cidr.Ancestors(prefix, func(cidr netip.Prefix, ids map[identity.NumericIdentity]struct{}) bool {
-				for id := range ids {
-					if id != identity.NumericIdentity(key.Identity) {
-						k.Identity = uint32(id)
-						if !msm.forKey(k, f) {
-							bailed = true
-							return false
-						}
-					}
-				}
-				return true
-			})
-			if bailed {
+		// World IDs are ancestors of all local scope IDs
+		if identity.NumericIdentity(key.Identity).HasLocalScope() {
+			if !msm.forWorld(ipFamily, k, idSet, f) {
 				return false
 			}
 		}
@@ -341,51 +298,34 @@ func (msm *mapStateMap) ForEachNarrowerKeyWithBroaderID(key Key, prefixes []neti
 }
 
 // ForEachBroaderOrEqualKey iterates over broader or equal keys in the trie.
-func (msm *mapStateMap) ForEachBroaderOrEqualKey(key Key, prefixes []netip.Prefix, f func(Key, MapStateEntry) bool) {
+func (msm *mapStateMap) ForEachBroaderOrEqualKey(key Key, ipFamily IPFamily, f func(Key, MapStateEntry) bool) {
 	msm.trie.Ancestors(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.Key], idSet IDSet) bool {
 		// k is the key from trie with 0'ed ID
 		k := lpmKey.Value()
 
-		// ANY identities are not in the CIDR trie, but they are ancestors of all
-		// identities, visit them first
-		if _, exists := idSet.ids[0]; exists {
+		// ANY identity is an ancestor of all identities, visit them first
+		if _, exists := idSet[0]; exists {
 			k.Identity = 0
 			if !msm.forKey(k, f) {
 				return false
 			}
 		}
 
-		// identities without prefixes are not in the cidr trie,
-		// but need to visit all keys with the same identity
+		// Need to visit all keys with the same identity
 		// ANY identity was already visited above
-		if len(prefixes) == 0 && key.Identity != 0 {
-			_, exists := idSet.ids[identity.NumericIdentity(key.Identity)]
+		if key.Identity != 0 {
+			_, exists := idSet[identity.NumericIdentity(key.Identity)]
 			if exists {
 				k.Identity = key.Identity
 				if !msm.forKey(k, f) {
 					return false
 				}
 			}
-			return true
 		}
 
-		// cidr is nil when empty
-		if idSet.cidr == nil {
-			return true
-		}
-		for _, prefix := range prefixes {
-			bailed := false
-			idSet.cidr.Ancestors(prefix, func(cidr netip.Prefix, ids map[identity.NumericIdentity]struct{}) bool {
-				for id := range ids {
-					k.Identity = uint32(id)
-					if !msm.forKey(k, f) {
-						bailed = true
-						return false
-					}
-				}
-				return true
-			})
-			if bailed {
+		// World ID is an ancestor of all local scope IDs
+		if identity.NumericIdentity(key.Identity).HasLocalScope() {
+			if !msm.forWorld(ipFamily, k, idSet, f) {
 				return false
 			}
 		}
@@ -393,64 +333,74 @@ func (msm *mapStateMap) ForEachBroaderOrEqualKey(key Key, prefixes []netip.Prefi
 	})
 }
 
-// ForEachNarrowerOrEqualKey iterates over narrower or equal keys in the trie.
-func (msm *mapStateMap) ForEachNarrowerOrEqualKey(key Key, prefixes []netip.Prefix, f func(Key, MapStateEntry) bool) {
-	msm.trie.Descendants(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.Key], idSet IDSet) bool {
-		// k is the key from trie with 0'ed ID
-		k := lpmKey.Value()
-
-		// ANY identities are not in the CIDR trie, but all identities are descendants of
-		// them.
-		if key.Identity == 0 {
-			for id := range idSet.ids {
+func (msm *mapStateMap) forDescendantIDs(keyIdentity identity.NumericIdentity, k Key, identities Identities, idSet IDSet, f func(Key, MapStateEntry) bool) bool {
+	switch identity.NumericIdentity(keyIdentity) {
+	case identity.IdentityUnknown: // 0
+		// All identities are descendants of ANY
+		for id := range idSet {
+			if id != 0 {
 				k.Identity = uint32(id)
 				if !msm.forKey(k, f) {
 					return false
 				}
 			}
 		}
-
-		// identities without prefixes are not in the cidr trie,
-		// but need to visit all keys with the same identity
-		// ANY identity was already visited above
-		if len(prefixes) == 0 && key.Identity != 0 {
-			_, exists := idSet.ids[identity.NumericIdentity(key.Identity)]
-			if exists {
-				k.Identity = key.Identity
+	case identity.ReservedIdentityWorld:
+		// All local scope IDs are descendants of World ID
+		for id := range idSet {
+			if id.HasLocalScope() {
+				k.Identity = uint32(id)
 				if !msm.forKey(k, f) {
 					return false
 				}
 			}
-			return true
 		}
-
-		// cidr is nil when empty
-		if idSet.cidr == nil {
-			return true
-		}
-		for _, prefix := range prefixes {
-			bailed := false
-			idSet.cidr.Descendants(prefix, func(cidr netip.Prefix, ids map[identity.NumericIdentity]struct{}) bool {
-				for id := range ids {
-					k.Identity = uint32(id)
-					if !msm.forKey(k, f) {
-						bailed = true
-						return false
-					}
+	case identity.ReservedIdentityWorldIPv4:
+		// All IPv4 local scope IDs are descendants of WorldIPv4
+		for id := range idSet {
+			if getIPFamily(identities, id) == ipFamilyV4 {
+				k.Identity = uint32(id)
+				if !msm.forKey(k, f) {
+					return false
 				}
-				return true
-			})
-			if bailed {
+			}
+		}
+	case identity.ReservedIdentityWorldIPv6:
+		// All IPv6 local scope IDs are descendants of WorldIPv6
+		for id := range idSet {
+			if getIPFamily(identities, id) == ipFamilyV6 {
+				k.Identity = uint32(id)
+				if !msm.forKey(k, f) {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+
+// ForEachNarrowerOrEqualKey iterates over narrower or equal keys in the trie.
+func (msm *mapStateMap) ForEachNarrowerOrEqualKey(key Key, identities Identities, f func(Key, MapStateEntry) bool) {
+	msm.trie.Descendants(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.Key], idSet IDSet) bool {
+		// k is the key from trie with 0'ed ID
+		k := lpmKey.Value()
+
+		// Need to visit all keys with the same identity
+		_, exists := idSet[identity.NumericIdentity(key.Identity)]
+		if exists {
+			k.Identity = key.Identity
+			if !msm.forKey(k, f) {
 				return false
 			}
 		}
-		return true
+
+		return msm.forDescendantIDs(identity.NumericIdentity(key.Identity), k, identities, idSet, f)
 	})
 }
 
 // ForEachBroaderKeyWithNarrowerID iterates over broader proto/port with narrower identity in the trie.
 // Equal port/protos or identities are not included.
-func (msm *mapStateMap) ForEachBroaderKeyWithNarrowerID(key Key, prefixes []netip.Prefix, f func(Key, MapStateEntry) bool) {
+func (msm *mapStateMap) ForEachBroaderKeyWithNarrowerID(key Key, identities Identities, f func(Key, MapStateEntry) bool) {
 	msm.trie.Ancestors(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.Key], idSet IDSet) bool {
 		// k is the key from trie with 0'ed ID
 		k := lpmKey.Value()
@@ -460,42 +410,7 @@ func (msm *mapStateMap) ForEachBroaderKeyWithNarrowerID(key Key, prefixes []neti
 			return true
 		}
 
-		// ANY identities are not in the CIDR trie, but all identities are descendants of
-		// them.
-		if key.Identity == 0 {
-			for id := range idSet.ids {
-				if id != 0 {
-					k.Identity = uint32(id)
-					if !msm.forKey(k, f) {
-						return false
-					}
-				}
-			}
-		}
-
-		// cidr is nil when empty
-		if idSet.cidr == nil {
-			return true
-		}
-		for _, prefix := range prefixes {
-			bailed := false
-			idSet.cidr.Descendants(prefix, func(cidr netip.Prefix, ids map[identity.NumericIdentity]struct{}) bool {
-				for id := range ids {
-					if id != identity.NumericIdentity(key.Identity) {
-						k.Identity = uint32(id)
-						if !msm.forKey(k, f) {
-							bailed = true
-							return false
-						}
-					}
-				}
-				return true
-			})
-			if bailed {
-				return false
-			}
-		}
-		return true
+		return msm.forDescendantIDs(identity.NumericIdentity(key.Identity), k, identities, idSet, f)
 	})
 }
 
@@ -508,7 +423,7 @@ func (msm *mapStateMap) ForEachBroaderOrEqualDatapathKey(key Key, f func(Key, Ma
 		k := lpmKey.Value()
 
 		// ANY identities are ancestors of all identities, visit them first
-		if _, exists := idSet.ids[0]; exists {
+		if _, exists := idSet[0]; exists {
 			k.Identity = 0
 			if !msm.forKey(k, f) {
 				return false
@@ -518,7 +433,7 @@ func (msm *mapStateMap) ForEachBroaderOrEqualDatapathKey(key Key, f func(Key, Ma
 		// Need to visit all keys with the same identity
 		// ANY identity was already visited above
 		if key.Identity != 0 {
-			_, exists := idSet.ids[identity.NumericIdentity(key.Identity)]
+			_, exists := idSet[identity.NumericIdentity(key.Identity)]
 			if exists {
 				k.Identity = key.Identity
 				if !msm.forKey(k, f) {
@@ -540,7 +455,7 @@ func (msm *mapStateMap) ForEachNarrowerOrEqualDatapathKey(key Key, f func(Key, M
 
 		// All identities are descendants of ANY identity.
 		if key.Identity == 0 {
-			for id := range idSet.ids {
+			for id := range idSet {
 				k.Identity = uint32(id)
 				if !msm.forKey(k, f) {
 					return false
@@ -551,7 +466,7 @@ func (msm *mapStateMap) ForEachNarrowerOrEqualDatapathKey(key Key, f func(Key, M
 		// Need to visit all keys with the same identity.
 		// ANY identity was already visited above.
 		if key.Identity != 0 {
-			_, exists := idSet.ids[identity.NumericIdentity(key.Identity)]
+			_, exists := idSet[identity.NumericIdentity(key.Identity)]
 			if exists {
 				k.Identity = key.Identity
 				if !msm.forKey(k, f) {
@@ -567,7 +482,7 @@ func (msm *mapStateMap) ForEachNarrowerOrEqualDatapathKey(key Key, f func(Key, M
 func (msm *mapStateMap) ForEachKeyWithBroaderOrEqualPortProto(key Key, f func(Key, MapStateEntry) bool) {
 	msm.trie.Ancestors(key.PrefixLength(), key, func(prefix uint, lpmKey bitlpm.Key[Key], idSet IDSet) bool {
 		k := lpmKey.Value()
-		for id := range idSet.ids {
+		for id := range idSet {
 			k.Identity = uint32(id)
 			if !msm.forKey(k, f) {
 				return false
@@ -581,7 +496,7 @@ func (msm *mapStateMap) ForEachKeyWithBroaderOrEqualPortProto(key Key, f func(Ke
 func (msm *mapStateMap) ForEachKeyWithNarrowerOrEqualPortProto(key Key, f func(Key, MapStateEntry) bool) {
 	msm.trie.Descendants(key.PrefixLength(), key, func(prefix uint, lpmKey bitlpm.Key[Key], idSet IDSet) bool {
 		k := lpmKey.Value()
-		for id := range idSet.ids {
+		for id := range idSet {
 			k.Identity = uint32(id)
 			if !msm.forKey(k, f) {
 				return false
@@ -701,41 +616,6 @@ func (e *MapStateEntry) HasSameOwners(bEntry *MapStateEntry) bool {
 		}
 	}
 	return true
-}
-
-var worldNets = map[identity.NumericIdentity][]netip.Prefix{
-	identity.ReservedIdentityWorld: {
-		netip.PrefixFrom(netip.IPv4Unspecified(), 0),
-		netip.PrefixFrom(netip.IPv6Unspecified(), 0),
-	},
-	identity.ReservedIdentityWorldIPv4: {
-		netip.PrefixFrom(netip.IPv4Unspecified(), 0),
-	},
-	identity.ReservedIdentityWorldIPv6: {
-		netip.PrefixFrom(netip.IPv6Unspecified(), 0),
-	},
-}
-
-// getNets returns the most specific CIDR for an identity. For the "World" identity
-// it returns both IPv4 and IPv6.
-func getNets(identities Identities, ident uint32) []netip.Prefix {
-	// World identities are handled explicitly for two reasons:
-	// 1. 'identities' may be nil, but world identities are still expected to be considered
-	// 2. SelectorCache is not be informed of reserved/world identities in all test cases
-	// 3. identities.GetPrefix() does not return world identities
-	id := identity.NumericIdentity(ident)
-	if id <= identity.ReservedIdentityWorldIPv6 {
-		return worldNets[id]
-	}
-	// CIDR identities have a local scope, so we can skip the rest if id is not of local scope.
-	if !id.HasLocalScope() || identities == nil {
-		return nil
-	}
-	prefix := identities.GetPrefix(id)
-	if prefix.IsValid() {
-		return []netip.Prefix{prefix}
-	}
-	return nil
 }
 
 // NewMapState creates a new MapState interface
@@ -1199,7 +1079,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		updates []MapChange
 		deletes []Key
 	)
-	prefixes := getNets(identities, newKey.Identity)
+	ipFamily := getIPFamily(identities, identity.NumericIdentity(newKey.Identity))
 	if newEntry.IsDeny {
 		// Test for bailed case first so that we avoid unnecessary computation if entry is
 		// not going to be added.
@@ -1230,7 +1110,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 
 		// Deny takes precedence for the port/proto of the newKey
 		// for each allow with broader port/proto and narrower ID.
-		ms.allows.ForEachBroaderKeyWithNarrowerID(newKey, prefixes, func(k Key, v MapStateEntry) bool {
+		ms.allows.ForEachBroaderKeyWithNarrowerID(newKey, identities, func(k Key, v MapStateEntry) bool {
 			if ms.validator != nil {
 				ms.validator.isBroader(k, newKey)
 				ms.validator.isSupersetOf(newKey, k, identities)
@@ -1253,7 +1133,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 
 		// Only a non-wildcard key can have a wildcard superset key
 		if newKey.Identity != 0 {
-			ms.allows.ForEachNarrowerKeyWithBroaderID(newKey, prefixes, func(k Key, v MapStateEntry) bool {
+			ms.allows.ForEachNarrowerKeyWithBroaderID(newKey, ipFamily, func(k Key, v MapStateEntry) bool {
 				if ms.validator != nil {
 					ms.validator.isBroader(newKey, k)
 					ms.validator.isSupersetOf(k, newKey, identities)
@@ -1278,7 +1158,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			})
 		}
 
-		ms.allows.ForEachNarrowerOrEqualKey(newKey, prefixes, func(k Key, v MapStateEntry) bool {
+		ms.allows.ForEachNarrowerOrEqualKey(newKey, identities, func(k Key, v MapStateEntry) bool {
 			if ms.validator != nil {
 				ms.validator.isBroaderOrEqual(newKey, k)
 				ms.validator.isSupersetOrSame(newKey, k, identities)
@@ -1344,7 +1224,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		// not going to be added, or is going to be changed to a deny entry.
 		bailed := false
 		changeToDeny := false
-		ms.denies.ForEachBroaderOrEqualKey(newKey, prefixes, func(k Key, v MapStateEntry) bool {
+		ms.denies.ForEachBroaderOrEqualKey(newKey, ipFamily, func(k Key, v MapStateEntry) bool {
 			if ms.validator != nil {
 				ms.validator.isBroaderOrEqual(k, newKey)
 				ms.validator.isSupersetOrSame(k, newKey, identities)
@@ -1380,7 +1260,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 
 		// Deny takes precedence for the identity of the newKey and the port/proto of the
 		// iterated narrower port/proto due to broader ID (CIDR or ANY)
-		ms.denies.ForEachNarrowerKeyWithBroaderID(newKey, prefixes, func(k Key, v MapStateEntry) bool {
+		ms.denies.ForEachNarrowerKeyWithBroaderID(newKey, ipFamily, func(k Key, v MapStateEntry) bool {
 			if ms.validator != nil {
 				ms.validator.isBroader(newKey, k)
 				ms.validator.isSupersetOf(k, newKey, identities)
@@ -1409,7 +1289,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		})
 
 		if newKey.Identity == 0 {
-			ms.denies.ForEachBroaderKeyWithNarrowerID(newKey, prefixes, func(k Key, v MapStateEntry) bool {
+			ms.denies.ForEachBroaderKeyWithNarrowerID(newKey, identities, func(k Key, v MapStateEntry) bool {
 				if ms.validator != nil {
 					ms.validator.isBroader(k, newKey)
 					ms.validator.isSupersetOf(newKey, k, identities)
@@ -1663,7 +1543,7 @@ func (msm *mapStateMap) ForEachKeyWithPortProto(key Key, f func(Key, MapStateEnt
 	// 'Identity' field in 'key' is ignored on by ExactLookup
 	idSet, ok := msm.trie.ExactLookup(key.PrefixLength(), key)
 	if ok {
-		for id := range idSet.ids {
+		for id := range idSet {
 			k := key
 			k.Identity = uint32(id)
 			if !msm.forKey(k, f) {

@@ -1838,7 +1838,7 @@ func mapStateAllowsKey(ms *mapState, key Key) bool {
 	var ok bool
 	ms.denies.trie.Ancestors(key.PrefixLength(), key,
 		func(_ uint, _ bitlpm.Key[types.Key], is IDSet) bool {
-			if _, exists := is.ids[identity.NumericIdentity(key.Identity)]; exists {
+			if _, exists := is[identity.NumericIdentity(key.Identity)]; exists {
 				ok = true
 			}
 			return true
@@ -1849,7 +1849,7 @@ func mapStateAllowsKey(ms *mapState, key Key) bool {
 	ms.allows.trie.Ancestors(key.PrefixLength(), key,
 		func(_ uint, _ bitlpm.Key[types.Key], is IDSet) bool {
 
-			if _, exists := is.ids[identity.NumericIdentity(key.Identity)]; exists {
+			if _, exists := is[identity.NumericIdentity(key.Identity)]; exists {
 				ok = true
 			}
 			return true
