@@ -5,7 +5,6 @@ package policy
 
 import (
 	"fmt"
-	"net/netip"
 	"slices"
 	"strconv"
 
@@ -116,10 +115,10 @@ type mapState struct {
 	validator mapStateValidator
 }
 
-// Identities is a convenience interface for looking up CIDRs
+// Identities is a convenience interface for looking up IP family
 // associated with an identity
 type Identities interface {
-	GetPrefix(identity.NumericIdentity) netip.Prefix
+	GetIPFamily(identity.NumericIdentity) IPFamily
 }
 
 // mapStateMap is a convience type representing the actual structure mapping
@@ -211,28 +210,13 @@ func (msm *mapStateMap) forKey(k Key, f func(Key, MapStateEntry) bool) bool {
 	return true
 }
 
-type IPFamily int
-
-const (
-	ipFamilyNone = IPFamily(iota)
-	ipFamilyV4
-	ipFamilyV6
-)
-
-// getIPFamily returns the IP family of the given identity, if any.
-func getIPFamily(identities Identities, id identity.NumericIdentity) IPFamily {
+// GetIPFamily returns the IP family of the given identity, if any.
+func GetIPFamily(identities Identities, id identity.NumericIdentity) IPFamily {
 	// CIDR identities have a local scope, so we can skip the rest if id is not of local scope.
 	if !id.HasLocalScope() || identities == nil {
 		return ipFamilyNone
 	}
-	prefix := identities.GetPrefix(id)
-	if prefix.IsValid() {
-		if prefix.Addr().Is4() || prefix.Addr().Is4In6() {
-			return ipFamilyV4
-		}
-		return ipFamilyV6
-	}
-	return ipFamilyNone
+	return identities.GetIPFamily(id)
 }
 
 func (msm *mapStateMap) forWorld(ipFamily IPFamily, k Key, idSet IDSet, f func(Key, MapStateEntry) bool) bool {
@@ -358,7 +342,7 @@ func (msm *mapStateMap) forDescendantIDs(keyIdentity identity.NumericIdentity, k
 	case identity.ReservedIdentityWorldIPv4:
 		// All IPv4 local scope IDs are descendants of WorldIPv4
 		for id := range idSet {
-			if getIPFamily(identities, id) == ipFamilyV4 {
+			if GetIPFamily(identities, id) == ipFamilyV4 {
 				k.Identity = uint32(id)
 				if !msm.forKey(k, f) {
 					return false
@@ -368,7 +352,7 @@ func (msm *mapStateMap) forDescendantIDs(keyIdentity identity.NumericIdentity, k
 	case identity.ReservedIdentityWorldIPv6:
 		// All IPv6 local scope IDs are descendants of WorldIPv6
 		for id := range idSet {
-			if getIPFamily(identities, id) == ipFamilyV6 {
+			if GetIPFamily(identities, id) == ipFamilyV6 {
 				k.Identity = uint32(id)
 				if !msm.forKey(k, f) {
 					return false
@@ -1079,7 +1063,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		updates []MapChange
 		deletes []Key
 	)
-	ipFamily := getIPFamily(identities, identity.NumericIdentity(newKey.Identity))
+	ipFamily := GetIPFamily(identities, identity.NumericIdentity(newKey.Identity))
 	if newEntry.IsDeny {
 		// Test for bailed case first so that we avoid unnecessary computation if entry is
 		// not going to be added.

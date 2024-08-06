@@ -78,14 +78,45 @@ type userNotification struct {
 	wg         *sync.WaitGroup
 }
 
+type IPFamily uint8
+
+const (
+	ipFamilyNone = IPFamily(iota)
+	ipFamilyV4
+	ipFamilyV6
+)
+
+// getIPFamily returns the IP family of most specific CIDR for a local scope identity.
+// WORLD IDs are not considered here.
+func getIPFamily(id identity.NumericIdentity, lbls labels.LabelArray) IPFamily {
+	prefix := getLocalScopePrefix(id, lbls)
+	if prefix.IsValid() {
+		if prefix.Addr().Is4() || prefix.Addr().Is4In6() {
+			return ipFamilyV4
+		}
+		return ipFamilyV6
+	}
+	return ipFamilyNone
+}
+
+// Capacity for the slice of IDs to be removed.
+const versionedIDCapacity = 128
+
 // SelectorCache caches identities, identity selectors, and the
 // subsets of identities each selector selects.
 type SelectorCache struct {
 	versionManager *versioned.Manager
 
-	prefixMap lock.Map[identity.NumericIdentity, netip.Prefix]
+	// ipFamilyMap maps the numeric identity to an IP family, if any
+	//
+	// While this it not "versioned" we postpone removal of entries until versioned users no longer need them.
+	// New items are added immediately, but those would not be used by versioned users that do not know about the new
+	// identity yet.
+	ipFamilyMap lock.Map[identity.NumericIdentity, IPFamily]
 
 	mutex lock.RWMutex
+
+	idRemovals versioned.PairSlice[identity.NumericIdentity]
 
 	// idCache contains all known identities as informed by the
 	// kv-store and the local identity facility via our
@@ -236,22 +267,32 @@ func (sc *SelectorCache) queueNotifiedUsersSync(handleFunc GetHandleFunc, wg *sy
 // NewSelectorCache creates a new SelectorCache with the given identities.
 func NewSelectorCache(ids identity.IdentityMap) *SelectorCache {
 	sc := &SelectorCache{
-		idCache:   make(map[identity.NumericIdentity]scIdentity, len(ids)),
-		selectors: make(map[string]*identitySelector),
+		idRemovals: versioned.NewPairSlice[identity.NumericIdentity](versionedIDCapacity),
+		idCache:    make(map[identity.NumericIdentity]scIdentity, len(ids)),
+		selectors:  make(map[string]*identitySelector),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
 	sc.versionManager = versioned.NewVersionManager(func(keepVersion versioned.Version) {
-		// Scanning through all selections for this is not very efficient
+		// This is called when we call the 'cleaner' callback, and we always do that while holding sc.mutex.
+
+		// Scanning through all selections is not very efficient, but we do not currently know which selectors
+		// need the cleanup.
 		for _, idSel := range sc.selectors {
 			versioned.Cleaner(&idSel.selections, keepVersion)
 		}
+
+		// clean up stale IDs from ipFamilyMap
+		n := versioned.ForEachUpToVersion(sc.idRemovals, keepVersion, func(nid identity.NumericIdentity) {
+			sc.ipFamilyMap.Delete(nid)
+		})
+		sc.idRemovals = versioned.TrimFrontPairSlice(sc.idRemovals, n, versionedIDCapacity)
 	})
 
 	for nid, lbls := range ids {
-		// store prefix into prefix map
-		prefix := getLocalScopePrefix(nid, lbls)
-		if prefix.IsValid() {
-			sc.prefixMap.Store(nid, prefix)
+		// store IPFamily into the map
+		family := getIPFamily(nid, lbls)
+		if family != ipFamilyNone {
+			sc.ipFamilyMap.Store(nid, family)
 		}
 		sc.idCache[nid] = newIdentity(nid, lbls)
 	}
@@ -453,6 +494,8 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
+	currentVersion, nextVersion := sc.versionManager.GetVersion()
+
 	// Update idCache so that newly added selectors get
 	// prepopulated with all matching numeric identities.
 	for numericID := range deleted {
@@ -462,7 +505,9 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				logfields.Labels:   old.lbls,
 			}).Debug("UpdateIdentities: Deleting identity")
 			delete(sc.idCache, numericID)
-			sc.prefixMap.Delete(numericID)
+
+			// Defer deletion until 'currentVersion' is not used by any versioned users
+			sc.idRemovals = versioned.AppendPair(sc.idRemovals, nextVersion, numericID)
 		} else {
 			log.WithFields(logrus.Fields{
 				logfields.Identity: numericID,
@@ -505,14 +550,13 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 			}).Debug("UpdateIdentities: Adding a new identity")
 		}
 		// store prefix into prefix map
-		prefix := getLocalScopePrefix(numericID, lbls)
-		if prefix.IsValid() {
-			sc.prefixMap.Store(numericID, prefix)
+		family := getIPFamily(numericID, lbls)
+		if family != ipFamilyNone {
+			sc.ipFamilyMap.Store(numericID, family)
 		}
 		sc.idCache[numericID] = newIdentity(numericID, lbls)
 	}
 
-	currentVersion, nextVersion := sc.versionManager.GetVersion()
 	if len(deleted)+len(added) > 0 {
 		// Iterate through all locally used identity selectors and
 		// update the cached numeric identities as required.
@@ -548,8 +592,8 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 	sc.versionManager.PublishVersion(currentVersion, nextVersion)
 }
 
-// GetPrefix returns the most specific CIDR for an identity, if any.
-func (sc *SelectorCache) GetPrefix(id identity.NumericIdentity) netip.Prefix {
-	p, _ := sc.prefixMap.Load(id)
+// GetPrefix returns the IP Family of the most specific CIDR for an identity, if any.
+func (sc *SelectorCache) GetIPFamily(id identity.NumericIdentity) IPFamily {
+	p, _ := sc.ipFamilyMap.Load(id)
 	return p
 }
