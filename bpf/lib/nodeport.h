@@ -67,7 +67,8 @@ static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
 static __always_inline int
 nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			  __be32 dst_ip, __u32 src_sec_identity, __u32 dst_sec_identity,
-			  enum trace_reason ct_reason, __u32 monitor, int *ifindex)
+			  void *opt, __u32 opt_len, enum trace_reason ct_reason,
+			  __u32 monitor, int *ifindex)
 {
 	/* Let kernel choose the outer source ip */
 	if (ctx_is_skb())
@@ -75,25 +76,8 @@ nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 
 	return __encap_with_nodeid(ctx, src_ip, src_port, dst_ip,
 				   src_sec_identity, dst_sec_identity, NOT_VTEP_DST,
-				   ct_reason, monitor, ifindex);
+				   opt, opt_len, ct_reason, monitor, ifindex);
 }
-
-# if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-static __always_inline int
-nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
-			      __be32 dst_ip, __u32 src_sec_identity, __u32 dst_sec_identity,
-			      void *opt, __u32 opt_len, enum trace_reason ct_reason,
-			      __u32 monitor, int *ifindex)
-{
-	/* Let kernel choose the outer source ip */
-	if (ctx_is_skb())
-		src_ip = 0;
-
-	return __encap_with_nodeid_opt(ctx, src_ip, src_port, dst_ip,
-				       src_sec_identity, dst_sec_identity, NOT_VTEP_DST,
-				       opt, opt_len, ct_reason, monitor, ifindex);
-}
-# endif
 #endif /* HAVE_ENCAP */
 
 static __always_inline bool dsr_fail_needs_reply(int code __maybe_unused)
@@ -411,25 +395,14 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 		return DROP_FRAG_NEEDED;
 	}
 
-	if (need_opt)
-		return nodeport_add_tunnel_encap_opt(ctx,
-						     IPV4_DIRECT_ROUTING,
-						     src_port,
-						     tunnel_endpoint,
-						     WORLD_IPV6_ID,
-						     dst_sec_identity,
-						     &gopt,
-						     sizeof(gopt),
-						     (enum trace_reason)CT_NEW,
-						     TRACE_PAYLOAD_LEN,
-						     ifindex);
-
 	return nodeport_add_tunnel_encap(ctx,
 					 IPV4_DIRECT_ROUTING,
 					 src_port,
 					 tunnel_endpoint,
 					 WORLD_IPV6_ID,
 					 dst_sec_identity,
+					 need_opt ? &gopt : NULL,
+					 need_opt ? sizeof(gopt) : 0,
 					 (enum trace_reason)CT_NEW,
 					 TRACE_PAYLOAD_LEN,
 					 ifindex);
@@ -967,6 +940,7 @@ encap_redirect:
 
 	ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
 					tunnel_endpoint, SECLABEL, dst_sec_identity,
+					NULL, 0,
 					trace->reason, trace->monitor, &ifindex);
 	if (IS_ERR(ret))
 		return ret;
@@ -1212,6 +1186,8 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 						tunnel_endpoint,
 						WORLD_IPV6_ID,
 						dst_sec_identity,
+						NULL,
+						0,
 						trace.reason,
 						trace.monitor,
 						&oif);
@@ -2011,25 +1987,14 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 	}
 #endif
 
-	if (need_opt)
-		return nodeport_add_tunnel_encap_opt(ctx,
-						     IPV4_DIRECT_ROUTING,
-						     src_port,
-						     tunnel_endpoint,
-						     src_sec_identity,
-						     dst_sec_identity,
-						     &gopt,
-						     sizeof(gopt),
-						     (enum trace_reason)CT_NEW,
-						     TRACE_PAYLOAD_LEN,
-						     ifindex);
-
 	return nodeport_add_tunnel_encap(ctx,
 					 IPV4_DIRECT_ROUTING,
 					 src_port,
 					 tunnel_endpoint,
 					 src_sec_identity,
 					 dst_sec_identity,
+					 need_opt ? &gopt : NULL,
+					 need_opt ? sizeof(gopt) : 0,
 					 (enum trace_reason)CT_NEW,
 					 TRACE_PAYLOAD_LEN,
 					 ifindex);
@@ -2522,7 +2487,7 @@ redirect:
 
 		ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
 						tunnel_endpoint, src_sec_identity, dst_sec_identity,
-						trace->reason, trace->monitor, &ifindex);
+						NULL, 0, trace->reason, trace->monitor, &ifindex);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -2790,6 +2755,8 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 						tunnel_endpoint,
 						src_sec_identity,
 						dst_sec_identity,
+						NULL,
+						0,
 						trace.reason,
 						trace.monitor,
 						&oif);

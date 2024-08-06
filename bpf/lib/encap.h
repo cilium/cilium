@@ -28,6 +28,7 @@ static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		    __be32 tunnel_endpoint,
 		    __u32 seclabel, __u32 dstid, __u32 vni __maybe_unused,
+		    void *opt, __u32 opt_len,
 		    enum trace_reason ct_reason, __u32 monitor, int *ifindex)
 {
 	__u32 node_id;
@@ -53,7 +54,7 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			  *ifindex, ct_reason, monitor);
 
 	return ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, vni,
-				  NULL, 0);
+				  opt, opt_len);
 }
 
 static __always_inline int
@@ -66,7 +67,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_un
 	int ret = 0;
 
 	ret = __encap_with_nodeid(ctx, src_ip, 0, tunnel_endpoint, seclabel, dstid,
-				  vni, trace->reason, trace->monitor,
+				  vni, NULL, 0, trace->reason, trace->monitor,
 				  &ifindex);
 	if (ret != CTX_ACT_REDIRECT)
 		return ret;
@@ -215,40 +216,6 @@ tunnel_gen_src_port_v6(struct ipv6_ct_tuple *tuple __maybe_unused)
 }
 
 #if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-static __always_inline int
-__encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
-			__u32 tunnel_endpoint,
-			__u32 seclabel, __u32 dstid, __u32 vni,
-			void *opt, __u32 opt_len,
-			enum trace_reason ct_reason,
-			__u32 monitor, int *ifindex)
-{
-	__u32 node_id;
-
-	/* When encapsulating, a packet originating from the local host is
-	 * being considered as a packet from a remote node as it is being
-	 * received.
-	 */
-	if (seclabel == HOST_ID)
-		seclabel = LOCAL_NODE_ID;
-
-	node_id = bpf_ntohl(tunnel_endpoint);
-
-	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
-
-#if __ctx_is == __ctx_skb
-	*ifindex = ENCAP_IFINDEX;
-#else
-	*ifindex = 0;
-#endif
-
-	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, TRACE_EP_ID_UNKNOWN,
-			  *ifindex, ct_reason, monitor);
-
-	return ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, vni, opt,
-				  opt_len);
-}
-
 static __always_inline void
 set_geneve_dsr_opt4(__be16 port, __be32 addr, struct geneve_dsr_opt4 *gopt)
 {
