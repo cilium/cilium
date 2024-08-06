@@ -15,7 +15,7 @@ rotation, size limits, filters, and field masks.
 Prerequisites
 =============
 
-.. include:: ../installation/k8s-install-download-release.rst
+.. include:: /installation/k8s-install-download-release.rst
 
 Basic Configuration
 ===================

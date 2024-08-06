@@ -19,7 +19,8 @@ The documentation is divided into the following sections:
 * :ref:`network_policy` : Detailed walkthrough of the policy language structure
   and the supported formats.
 
-* :ref:`metrics` : Instructions for configuring metrics collection from Cilium.
+* :ref:`observability` : Provides instructions on setting up and configuring
+  :ref:`hubble_intro` and configuring :ref:`metrics collection from Cilium and Hubble<metrics>`.
 
 * :ref:`admin_guide` : Describes how to troubleshoot Cilium in different
   deployment modes.
@@ -53,11 +54,6 @@ get started and experiment with Cilium.
    :caption: Getting Started
 
    gettingstarted/k8s-install-default
-   gettingstarted/hubble_intro
-   gettingstarted/hubble_setup
-   gettingstarted/hubble-configuration
-   gettingstarted/hubble
-   gettingstarted/hubble_cli.rst
    gettingstarted/demo
    gettingstarted/terminology
    gettingstarted/gettinghelp
@@ -103,11 +99,12 @@ get started and experiment with Cilium.
 .. toctree::
    :maxdepth: 2
    :caption: Observability
+   :name: observability
 
+   observability/hubble/index
    observability/grafana
    observability/metrics
    observability/visibility
-   observability/hubble-exporter
 
 .. toctree::
    :maxdepth: 2
