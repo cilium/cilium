@@ -169,9 +169,9 @@ func (l *loader) bpfMasqAddrs(ifName string, cfg *datapath.LocalNodeConfiguratio
 	return
 }
 
-// patchHostNetdevDatapath calculates the changes necessary
-// to attach the host endpoint datapath to different interfaces.
-func (l *loader) patchHostNetdevDatapath(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, ifName string) (map[string]uint64, map[string]string, error) {
+// hostRewrites calculates the changes necessary to attach the host endpoint
+// programs to different interfaces.
+func (l *loader) hostRewrites(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, ifName string) (map[string]uint64, map[string]string, error) {
 	opts := ELFVariableSubstitutions(ep)
 	strings := ELFMapSubstitutions(ep)
 
@@ -310,12 +310,33 @@ func removeObsoleteNetdevPrograms(devices []string) error {
 	return nil
 }
 
-// reloadHostEndpoint (re)attaches programs from bpf_host.c to:
-// - cilium_host: cil_to_host ingress and cil_from_host to egress
-// - cilium_net: cil_to_host to ingress
-// - native devices: cil_from_netdev to ingress and (optionally) cil_to_netdev to egress if certain features require it
+// reloadHostEndpoint (re)attaches programs from bpf_host.c to cilium_host,
+// cilium_net and external (native) devices.
 func (l *loader) reloadHostEndpoint(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	// Replace programs on cilium_host.
+	if err := attachCiliumHost(ep, spec); err != nil {
+		return fmt.Errorf("attaching cilium_host: %w", err)
+	}
+
+	if err := l.attachCiliumNet(cfg, ep, spec); err != nil {
+		return fmt.Errorf("attaching cilium_host: %w", err)
+	}
+
+	if err := l.attachNetworkDevices(cfg, ep, spec); err != nil {
+		return fmt.Errorf("attaching cilium_host: %w", err)
+	}
+
+	l.hostDpInitializedOnce.Do(func() {
+		log.Debug("Initialized host datapath")
+		close(l.hostDpInitialized)
+	})
+
+	return nil
+}
+
+// attachCiliumHost inserts the host endpoint's policy program into the global
+// cilium_call_policy map and attaches programs from bpf_host.c to cilium_host.
+func attachCiliumHost(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	host, err := netlink.LinkByName(ep.InterfaceName())
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", ep.InterfaceName(), err)
@@ -354,24 +375,28 @@ func (l *loader) reloadHostEndpoint(cfg *datapath.LocalNodeConfiguration, ep dat
 		return fmt.Errorf("committing bpf pins: %w", err)
 	}
 
-	// Replace program on cilium_net.
+	return nil
+}
+
+// attachCiliumNet attaches programs from bpf_host.c to cilium_net.
+func (l *loader) attachCiliumNet(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	net, err := netlink.LinkByName(defaults.SecondHostDevice)
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", defaults.SecondHostDevice, err)
 	}
 
-	secondConsts, secondRenames, err := l.patchHostNetdevDatapath(cfg, ep, defaults.SecondHostDevice)
+	consts, renames, err := l.hostRewrites(cfg, ep, defaults.SecondHostDevice)
 	if err != nil {
 		return err
 	}
 
 	var netObj hostNetObjects
-	commit, err = bpf.LoadAndAssign(&netObj, spec, &bpf.CollectionOptions{
+	commit, err := bpf.LoadAndAssign(&netObj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-		MapRenames: secondRenames,
-		Constants:  secondConsts,
+		MapRenames: renames,
+		Constants:  consts,
 	})
 	if err != nil {
 		return err
@@ -388,6 +413,13 @@ func (l *loader) reloadHostEndpoint(cfg *datapath.LocalNodeConfiguration, ep dat
 		return fmt.Errorf("committing bpf pins: %w", err)
 	}
 
+	return nil
+}
+
+// attachNetworkDevices attaches programs from bpf_host.c to externally-facing
+// devices and the wireguard device. Attaches cil_from_netdev to ingress and
+// optionally cil_to_netdev to egress if enabled features require it.
+func (l *loader) attachNetworkDevices(cfg *datapath.LocalNodeConfiguration, ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	devices := cfg.DeviceNames()
 
 	// Selectively attach bpf_host to cilium_wg0.
@@ -405,7 +437,7 @@ func (l *loader) reloadHostEndpoint(cfg *datapath.LocalNodeConfiguration, ep dat
 
 		linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), iface)
 
-		netdevConsts, netdevRenames, err := l.patchHostNetdevDatapath(cfg, ep, device)
+		consts, renames, err := l.hostRewrites(cfg, ep, device)
 		if err != nil {
 			return err
 		}
@@ -415,8 +447,8 @@ func (l *loader) reloadHostEndpoint(cfg *datapath.LocalNodeConfiguration, ep dat
 			CollectionOptions: ebpf.CollectionOptions{
 				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 			},
-			MapRenames: netdevRenames,
-			Constants:  netdevConsts,
+			MapRenames: renames,
+			Constants:  consts,
 		})
 		if err != nil {
 			return err
@@ -453,16 +485,11 @@ func (l *loader) reloadHostEndpoint(cfg *datapath.LocalNodeConfiguration, ep dat
 		}
 	}
 
-	// call at the end of the function so that we can easily detect if this removes necessary
-	// programs that have just been attached.
+	// Call immediately after attaching programs to make it obvious that a
+	// program was wrongfully detached due to a bug or misconfiguration.
 	if err := removeObsoleteNetdevPrograms(devices); err != nil {
 		log.WithError(err).Error("Failed to remove obsolete netdev programs")
 	}
-
-	l.hostDpInitializedOnce.Do(func() {
-		log.Debug("Initialized host datapath")
-		close(l.hostDpInitialized)
-	})
 
 	return nil
 }
