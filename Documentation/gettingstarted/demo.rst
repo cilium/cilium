@@ -399,3 +399,6 @@ Clean-up
 
    $ kubectl delete -f \ |SCM_WEB|\/examples/minikube/http-sw-app.yaml
    $ kubectl delete cnp rule1
+
+
+.. include:: ../installation/next-steps.rst

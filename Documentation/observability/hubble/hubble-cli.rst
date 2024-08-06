@@ -17,18 +17,22 @@ The best way to get help if you get stuck is to ask a question on `Cilium
 Slack`_. With Cilium contributors across the globe, there is almost always
 someone available to help.
 
-.. tip::
-
-   This guide assumes that Cilium has been correctly installed in your
-   Kubernetes cluster and that Hubble has been enabled. Please see
-   :ref:`k8s_quick_install` and :ref:`hubble_setup` for more information. If
-   unsure, run ``cilium status`` and validate that Cilium and Hubble are up and
-   running.
-
 .. note::
 
     This guide uses examples based on the Demo App. If you would like to run them,
     deploy the Demo App first. Please refer to :ref:`gs_http` for more details.
+
+Pre-Requisites
+==============
+
+* Cilium has been correctly :ref:`installed in your Kubernetes cluster<k8s_quick_install>`.
+* :ref:`Hubble is enabled<hubble_setup>`.
+* :ref:`Hubble CLI is installed<hubble_cli_install>`.
+* :ref:`The Hubble API is accessible<hubble_validate_api_access>`.
+
+If unsure, run ``cilium status`` and validate that Cilium and Hubble are up and
+running then run ``hubble status`` to verify you can communicate with the
+Hubble API .
 
 Inspecting the cluster's network traffic with Hubble Relay
 ==========================================================

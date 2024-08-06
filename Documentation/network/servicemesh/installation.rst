@@ -93,6 +93,5 @@ Installation
 
             $ cilium status
 
-Hubble CLI is also used to observe the traffic in later steps.
-
-.. include:: ../../gettingstarted/hubble-install.rst
+It is also recommended that you :ref:`install Hubble CLI<hubble_cli_install>`
+which will be used used to observe the traffic in later steps.
