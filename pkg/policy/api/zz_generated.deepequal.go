@@ -684,6 +684,23 @@ func (in *IngressCommonRule) deepEqual(other *IngressCommonRule) bool {
 		}
 	}
 
+	if ((in.FromServices != nil) && (other.FromServices != nil)) || ((in.FromServices == nil) != (other.FromServices == nil)) {
+		in, other := &in.FromServices, &other.FromServices
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
+		}
+	}
+
 	if ((in.FromGroups != nil) && (other.FromGroups != nil)) || ((in.FromGroups == nil) != (other.FromGroups == nil)) {
 		in, other := &in.FromGroups, &other.FromGroups
 		if other == nil {

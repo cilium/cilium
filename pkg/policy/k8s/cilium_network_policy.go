@@ -74,12 +74,12 @@ func (p *policyWatcher) onUpsert(
 	}
 
 	// check if this cnp was referencing or is now referencing at least one ToServices rule
-	if hasToServices(cnp) {
-		p.toServicesPolicies[key] = struct{}{}
+	if hasMatchServices(cnp) {
+		p.matchServicesPolicies[key] = struct{}{}
 	} else {
 		if _, hadToServices := p.toServicesPolicies[key]; hadToServices {
 			// transitioning from with toServices to without toServices
-			delete(p.toServicesPolicies, key)
+			delete(p.matchServicesPolicies, key)
 			// Clear ToServices index
 			for svcID := range p.cnpByServiceID {
 				p.clearCNPForService(key, svcID)
@@ -113,11 +113,11 @@ func (p *policyWatcher) onDelete(
 		}
 	}
 
-	// Clear ToServices index
+	// Clear ToServices/FromServices index
 	for svcID := range p.cnpByServiceID {
 		p.clearCNPForService(key, svcID)
 	}
-	delete(p.toServicesPolicies, key)
+	delete(p.matchServicesPolicies, key)
 
 	p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 
