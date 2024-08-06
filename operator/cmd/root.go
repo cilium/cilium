@@ -27,8 +27,6 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
-	"github.com/cilium/cilium/pkg/labelsfilter"
-
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	ciliumdbg "github.com/cilium/cilium/cilium-dbg/cmd"
 	"github.com/cilium/cilium/operator/api"
@@ -41,6 +39,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/bgpv2"
 	"github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
 	"github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
+	"github.com/cilium/cilium/operator/pkg/ciliumidentity"
 	"github.com/cilium/cilium/operator/pkg/client"
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
@@ -66,6 +65,7 @@ import (
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -181,6 +181,14 @@ var (
 			}
 		}),
 
+		cell.Provide(func(
+			daemonCfg *option.DaemonConfig,
+		) ciliumidentity.SharedConfig {
+			return ciliumidentity.SharedConfig{
+				EnableCiliumEndpointSlice: daemonCfg.EnableCiliumEndpointSlice,
+			}
+		}),
+
 		api.HealthHandlerCell(
 			kvstoreEnabled,
 			isLeader.Load,
@@ -213,6 +221,11 @@ var (
 			// setup operations. This is a hacky workaround until the kvstore is
 			// refactored into a proper cell.
 			identitygc.Cell,
+
+			// CiliumIdentity controller manages Cilium Identity API objects. It
+			// creates and updates Cilium Identities (CIDs) based on CID,
+			// Pod, Namespace and CES events.
+			ciliumidentity.Cell,
 
 			// When the Double Write Identity Allocation mode is enabled, the Double Write
 			// Metric Reporter helps with monitoring the state of identities in KVStore and CRD
