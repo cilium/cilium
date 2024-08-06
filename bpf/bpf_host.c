@@ -1617,6 +1617,7 @@ __section_entry
 int cil_to_host(struct __ctx_buff *ctx)
 {
 	__u32 magic = ctx_load_meta(ctx, CB_PROXY_MAGIC);
+	__u32 host_magic = magic & MARK_MAGIC_HOST_MASK;
 	__u16 __maybe_unused proto = 0;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -1627,7 +1628,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 	__u32 src_id = 0;
 	__s8 ext_err = 0;
 
-	if ((magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
+	if (host_magic == MARK_MAGIC_ENCRYPT) {
 		ctx->mark = magic; /* CB_ENCRYPT_MAGIC */
 		src_id = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
 	} else if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {
@@ -1650,7 +1651,8 @@ int cil_to_host(struct __ctx_buff *ctx)
 	 * know correct MAC address which will cause the stack
 	 * to mark as PACKET_OTHERHOST and drop.
 	 */
-	ctx_change_type(ctx, PACKET_HOST);
+	if (host_magic == MARK_MAGIC_ENCRYPT || host_magic == MARK_MAGIC_DECRYPT)
+		ctx_change_type(ctx, PACKET_HOST);
 #endif
 #ifdef ENABLE_HOST_FIREWALL
 	if (!validate_ethertype(ctx, &proto)) {
