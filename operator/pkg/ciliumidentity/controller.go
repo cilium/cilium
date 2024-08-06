@@ -47,6 +47,7 @@ type params struct {
 	cell.In
 
 	Logger              *slog.Logger
+	Config              config
 	Lifecycle           cell.Lifecycle
 	Clientset           k8sClient.Clientset
 	SharedCfg           SharedConfig
@@ -89,7 +90,7 @@ type Controller struct {
 }
 
 func registerController(p params) {
-	if !p.Clientset.IsEnabled() || !p.SharedCfg.EnableOperatorManageCIDs {
+	if !p.Clientset.IsEnabled() || !p.Config.EnableOperatorManageCIDs {
 		return
 	}
 
