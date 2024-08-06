@@ -59,8 +59,14 @@ func (c *Controller) initializeQueue() {
 		logfields.WorkQueueBurstLimit:  c.rateLimit.current.Burst,
 		logfields.WorkQueueSyncBackOff: defaultSyncBackOff,
 	}).Info("CES controller workqueue configuration")
-	c.queue = workqueue.NewRateLimitingQueueWithConfig(
-		workqueue.NewItemExponentialFailureRateLimiter(defaultSyncBackOff, maxSyncBackOff),
+
+	// single rateLimiter controls the number of failures in both queues
+	c.rateLimiter = workqueue.NewItemExponentialFailureRateLimiter(defaultSyncBackOff, maxSyncBackOff)
+	c.fastQueue = workqueue.NewRateLimitingQueueWithConfig(
+		c.rateLimiter,
+		workqueue.RateLimitingQueueConfig{Name: "cilium_endpoint_slice"})
+	c.standardQueue = workqueue.NewRateLimitingQueueWithConfig(
+		c.rateLimiter,
 		workqueue.RateLimitingQueueConfig{Name: "cilium_endpoint_slice"})
 }
 
@@ -78,11 +84,28 @@ func (c *Controller) onEndpointDelete(cep *cilium_api_v2.CiliumEndpoint) {
 }
 
 func (c *Controller) onSliceUpdate(ces *capi_v2a1.CiliumEndpointSlice) {
-	c.enqueueCESReconciliation([]CESName{NewCESName(ces.Name)})
+	c.enqueueCESReconciliation([]CESName{NewCESNameNamespace(ces.Name, ces.Namespace)})
 }
 
 func (c *Controller) onSliceDelete(ces *capi_v2a1.CiliumEndpointSlice) {
-	c.enqueueCESReconciliation([]CESName{NewCESName(ces.Name)})
+	c.enqueueCESReconciliation([]CESName{NewCESNameNamespace(ces.Name, ces.Namespace)})
+}
+
+func (c *Controller) addToQueue(ces CESName) {
+	_, ok := c.priorityNamespaces[ces.Namespace]
+
+	if ok {
+		time.AfterFunc(c.defaultCESSyncTime, func() {
+			c.fastQueue.Add(ces)
+			c.cond.Signal()
+		})
+
+	} else {
+		time.AfterFunc(c.defaultCESSyncTime, func() {
+			c.standardQueue.Add(ces)
+			c.cond.Signal()
+		})
+	}
 }
 
 func (c *Controller) enqueueCESReconciliation(cess []CESName) {
@@ -96,7 +119,7 @@ func (c *Controller) enqueueCESReconciliation(cess []CESName) {
 				c.enqueuedAt[ces] = time.Now()
 			}
 			c.enqueuedAtLock.Unlock()
-			c.queue.AddAfter(ces, DefaultCESSyncTime)
+			c.addToQueue(ces)
 		}
 	}
 }
@@ -161,7 +184,8 @@ func (c *Controller) Start(ctx cell.HookContext) error {
 
 func (c *Controller) Stop(ctx cell.HookContext) error {
 	c.wp.Close()
-	c.queue.ShutDown()
+	c.fastQueue.ShutDown()
+	c.standardQueue.ShutDown()
 	c.contextCancel()
 	return nil
 }
@@ -252,17 +276,34 @@ func (c *Controller) rateLimitProcessing() {
 	}
 }
 
+func (c *Controller) getQueue() workqueue.RateLimitingInterface {
+	c.cond.L.Lock()
+	defer c.cond.L.Unlock()
+
+	if c.fastQueue.Len() == 0 && c.standardQueue.Len() == 0 {
+		c.cond.Wait()
+	}
+
+	if c.fastQueue.Len() == 0 {
+		return c.standardQueue
+	} else {
+		return c.fastQueue
+	}
+}
+
 func (c *Controller) processNextWorkItem() bool {
 	c.rateLimitProcessing()
-	cKey, quit := c.queue.Get()
+	queue := c.getQueue()
+	cKey, quit := queue.Get()
 	if quit {
 		return false
 	}
 	key := cKey.(CESName)
+	defer queue.Done(key)
+
 	c.logger.WithFields(logrus.Fields{
 		logfields.CESName: key.string(),
 	}).Debug("Processing CES")
-	defer c.queue.Done(key)
 
 	queueDelay := c.getAndResetCESProcessingDelay(key)
 	err := c.reconciler.reconcileCES(key)
@@ -273,19 +314,22 @@ func (c *Controller) processNextWorkItem() bool {
 		c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelValueOutcomeSuccess).Inc()
 	}
 
-	c.handleErr(err, key)
+	c.handleErr(queue, err, key)
 
 	return true
 }
 
-func (c *Controller) handleErr(err error, key CESName) {
+func (c *Controller) handleErr(queue workqueue.RateLimitingInterface, err error, key CESName) {
 	if err == nil {
-		c.queue.Forget(key)
+		queue.Forget(key)
 		return
 	}
 
-	if c.queue.NumRequeues(key) < maxRetries {
-		c.queue.AddRateLimited(key)
+	if queue.NumRequeues(key) < maxRetries {
+		time.AfterFunc(c.rateLimiter.When(key), func() {
+			queue.Add(key)
+			c.cond.Signal()
+		})
 		return
 	}
 
@@ -293,5 +337,5 @@ func (c *Controller) handleErr(err error, key CESName) {
 	c.logger.WithError(err).WithFields(logrus.Fields{
 		logfields.CESName: key.string(),
 	}).Error("Dropping the CES from queue, exceeded maxRetries")
-	c.queue.Forget(key)
+	queue.Forget(key)
 }

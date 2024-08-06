@@ -167,6 +167,10 @@ func NewCESName(name string) CESName {
 	return CESName(resource.Key{Name: name})
 }
 
+func NewCESNameNamespace(name string, namespace string) CESName {
+	return CESName(resource.Key{Name: name, Namespace: namespace})
+}
+
 func NewCEPName(name, ns string) CEPName {
 	return CEPName(resource.Key{Name: name, Namespace: ns})
 }

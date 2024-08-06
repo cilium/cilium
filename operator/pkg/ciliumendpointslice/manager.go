@@ -121,7 +121,7 @@ func (c *cesManagerFcfs) UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns 
 			logfields.CEPName: cepName.string(),
 			logfields.CESName: cesName.string(),
 		}).Debug("CEP already mapped to CES")
-		return []CESName{cesName}
+		return []CESName{NewCESNameNamespace(cesName.Name, ns)}
 	}
 
 	// Get the largest available CES.
@@ -136,7 +136,7 @@ func (c *cesManagerFcfs) UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns 
 		logfields.CEPName: cepName.string(),
 		logfields.CESName: cesName.string(),
 	}).Debug("CEP mapped to CES")
-	return []CESName{cesName}
+	return []CESName{NewCESNameNamespace(cesName.Name, ns)}
 }
 
 func (c *cesManagerFcfs) RemoveCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) CESName {
@@ -154,7 +154,7 @@ func (c *cesManagerFcfs) RemoveCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns 
 		if c.mapping.countCEPsInCES(cesName) == 0 {
 			c.mapping.deleteCES(cesName)
 		}
-		return cesName
+		return NewCESNameNamespace(cesName.Name, ns)
 	}
 	return CESName(resource.Key{})
 }
@@ -211,7 +211,7 @@ func (c *cesManagerIdentity) UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint,
 				logfields.CEPName: cepName.string(),
 				logfields.CESName: cesName.string(),
 			}).Debug("CEP already mapped to CES")
-			return []CESName{cesName}
+			return []CESName{NewCESNameNamespace(cesName.Name, ns)}
 		}
 	}
 
@@ -229,7 +229,7 @@ func (c *cesManagerIdentity) UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint,
 		logfields.CEPName: cepName.string(),
 		logfields.CESName: cesName.string(),
 	}).Debug("CEP mapped to CES")
-	return []CESName{removedFromCES, cesName}
+	return []CESName{removedFromCES, NewCESNameNamespace(cesName.Name, ns)}
 }
 
 func (c *cesManagerIdentity) getLargestAvailableCESForIdentity(id int64, ns string) CESName {
