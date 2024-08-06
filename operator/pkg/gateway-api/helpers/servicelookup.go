@@ -34,7 +34,7 @@ func GetBackendServiceName(k8sclient client.Client, namespace string, backendObj
 		}
 
 	default:
-		return "", fmt.Errorf("Unsupported backend kind %s", *backendObjectReference.Kind)
+		return "", fmt.Errorf("unsupported backend kind %s", *backendObjectReference.Kind)
 	}
 
 	return backendServiceName, nil

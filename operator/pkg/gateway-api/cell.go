@@ -22,6 +22,7 @@ import (
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
@@ -51,13 +52,17 @@ var Cell = cell.Module(
 	cell.Provide(registerSecretSync),
 )
 
-var requiredGVK = []schema.GroupVersionKind{
-	gatewayv1.SchemeGroupVersion.WithKind("gatewayclasses"),
-	gatewayv1.SchemeGroupVersion.WithKind("gateways"),
-	gatewayv1.SchemeGroupVersion.WithKind("httproutes"),
-	gatewayv1.SchemeGroupVersion.WithKind("grpcroutes"),
-	gatewayv1beta1.SchemeGroupVersion.WithKind("referencegrants"),
-	gatewayv1alpha2.SchemeGroupVersion.WithKind("tlsroutes"),
+var requiredGVKs = []schema.GroupVersionKind{
+	gatewayv1.SchemeGroupVersion.WithKind(helpers.GatewayClassKind),
+	gatewayv1.SchemeGroupVersion.WithKind(helpers.GatewayKind),
+	gatewayv1.SchemeGroupVersion.WithKind(helpers.HTTPRouteKind),
+	gatewayv1.SchemeGroupVersion.WithKind(helpers.GRPCRouteKind),
+	gatewayv1beta1.SchemeGroupVersion.WithKind(helpers.ReferenceGrantKind),
+}
+
+var optionalGVKs = []schema.GroupVersionKind{
+	gatewayv1alpha2.SchemeGroupVersion.WithKind(helpers.TLSRouteKind),
+	mcsapiv1alpha1.SchemeGroupVersion.WithKind(helpers.ServiceImportKind),
 }
 
 type gatewayApiConfig struct {
@@ -119,17 +124,14 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		return err
 	}
 
-	params.Logger.Info("Checking for required GatewayAPI resources", "requiredGVK", requiredGVK)
-	if err := checkRequiredCRDs(context.Background(), params.K8sClient); err != nil {
+	params.Logger.Info("Checking for required and optional GatewayAPI resources", "requiredGVK", requiredGVKs, "optionalGVK", optionalGVKs)
+	installedKinds, err := checkCRDs(context.Background(), params.K8sClient, params.Logger, requiredGVKs, optionalGVKs)
+	if err != nil {
 		params.Logger.Error("Required GatewayAPI resources are not found, please refer to docs for installation instructions", logfields.Error, err)
 		return nil
 	}
 
-	if err := registerGatewayAPITypesToScheme(params.Scheme); err != nil {
-		return err
-	}
-
-	if err := registerMCSAPITypesToScheme(params.K8sClient, params.Scheme, params.Logger); err != nil {
+	if err := registerGatewayAPITypesToScheme(params.Scheme, installedKinds); err != nil {
 		return err
 	}
 
@@ -158,6 +160,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		params.CtrlRuntimeManager,
 		gatewayAPITranslator,
 		params.Logger,
+		installedKinds,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -168,7 +171,8 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 // registerSecretSync registers the Gateway API for secret synchronization based on TLS secrets referenced
 // by a Cilium Gateway resource.
 func registerSecretSync(params gatewayAPIParams) secretsync.SecretSyncRegistrationOut {
-	if err := checkRequiredCRDs(context.Background(), params.K8sClient); err != nil {
+	// In this case, we don't care about optional CRDs, so we ignore the second parameter.
+	if _, err := checkCRDs(context.Background(), params.K8sClient, params.Logger, requiredGVKs, optionalGVKs); err != nil {
 		return secretsync.SecretSyncRegistrationOut{}
 	}
 
@@ -221,58 +225,115 @@ func checkCRD(ctx context.Context, clientset k8sClient.Clientset, gvk schema.Gro
 	return nil
 }
 
-func checkRequiredCRDs(ctx context.Context, clientset k8sClient.Clientset) error {
+// checkCRDs checks if required and optional CRDs are present in the cluster,
+// returns an error if the required CRDs are not installed, and returns the
+// schema.GroupVersionKind of any optional CRDs that are installed.
+func checkCRDs(ctx context.Context, clientset k8sClient.Clientset, logger *slog.Logger, requiredGVKs, optionalGVKs []schema.GroupVersionKind) ([]schema.GroupVersionKind, error) {
 	var res error
-	for _, gvk := range requiredGVK {
+	var presentGVKs []schema.GroupVersionKind
+
+	for _, gvk := range requiredGVKs {
 		if err := checkCRD(ctx, clientset, gvk); err != nil {
 			res = errors.Join(res, err)
 		}
 	}
-	return res
+
+	for _, optionalGVK := range optionalGVKs {
+		if err := checkCRD(ctx, clientset, optionalGVK); err != nil {
+			logger.Debug("CRD is not present, will not handle it", "optionalGVK", optionalGVK.String())
+			continue
+		}
+		// note that the .Kind field contains the _resource_ name -
+		// the plural, lowercase version of the name.
+		presentGVKs = append(presentGVKs, optionalGVK)
+	}
+
+	return presentGVKs, res
 }
 
-// registerReconcilers registers the Gateway API reconcilers to the controller-runtime library manager.
-func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator, logger *slog.Logger) error {
-	reconcilers := []interface {
+// registerReconcilers registers Gateway API reconcilers to the controller-runtime library manager.
+// optionalKinds are previously autodetected based on what CRDs are present in the cluster.
+func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind) error {
+	requiredReconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
 		newGatewayClassReconciler(mgr, logger),
-		newGatewayReconciler(mgr, translator, logger),
+		newGatewayReconciler(mgr, translator, logger, installedCRDs),
 		newReferenceGrantReconciler(mgr, logger),
 		newHTTPRouteReconciler(mgr, logger),
 		newGammaHttpRouteReconciler(mgr, translator, logger),
 		newGRPCRouteReconciler(mgr, logger),
-		newTLSRouteReconciler(mgr, logger),
 	}
 
-	for _, r := range reconcilers {
+	for _, r := range requiredReconcilers {
 		if err := r.SetupWithManager(mgr); err != nil {
 			return fmt.Errorf("failed to setup reconciler: %w", err)
 		}
 	}
 
+	// To add a new optionalKind, remember you also need to add the GVK into
+	// the optionalGVKs global.
+	// Note that optionalKinds contains the lower-case, plural version of the
+	// name.
+	for _, gvk := range installedCRDs {
+		switch gvk.Kind {
+		case helpers.TLSRouteKind:
+			logger.Info("TLSRoute CRD is installed, TLSRoute support is enabled")
+			tlsReconciler := newTLSRouteReconciler(mgr, logger)
+			if err := tlsReconciler.SetupWithManager(mgr); err != nil {
+				return fmt.Errorf("failed to setup optional reconciler: %w", err)
+			}
+		case helpers.ServiceImportKind:
+			// we don't need a reconciler, but we do need to tell folks that the
+			// support is working.
+			logger.Info("ServiceImport CRD is installed, ServiceImport support is enabled")
+		default:
+			panic(fmt.Sprintf("No reconciler available for GVK %s", gvk))
+		}
+	}
 	return nil
 }
 
-func registerGatewayAPITypesToScheme(scheme *runtime.Scheme) error {
-	for gv, f := range map[fmt.Stringer]func(s *runtime.Scheme) error{
-		gatewayv1.GroupVersion:       gatewayv1.AddToScheme,
-		gatewayv1beta1.GroupVersion:  gatewayv1beta1.AddToScheme,
-		gatewayv1alpha2.GroupVersion: gatewayv1alpha2.AddToScheme,
-	} {
-		if err := f(scheme); err != nil {
-			return fmt.Errorf("failed to add types from %s to scheme: %w", gv, err)
+func registerGatewayAPITypesToScheme(scheme *runtime.Scheme, optionalKinds []schema.GroupVersionKind) error {
+	// Autodetection of installed types means we have to add things to the scheme
+	// ourselves for non-Standard GroupVersions, we can't use the generated
+	// functions.
+
+	addToSchema := make(map[fmt.Stringer]func(s *runtime.Scheme) error)
+
+	// We can safely install the GA resources
+	addToSchema[gatewayv1.GroupVersion] = gatewayv1.AddToScheme
+	// We can also safely install the v1beta1 resources, as these are legacy
+	// and also included in the Standard install
+	addToSchema[gatewayv1beta1.GroupVersion] = gatewayv1beta1.AddToScheme
+
+	for _, optionalKind := range optionalKinds {
+		// Note that we're using the full GVK as the map key here - this is fine
+		// because the key is just a fmt.Stringer
+		// We need to do this because there needs to be one entry
+		//
+		// Note that these calls are usually done using the package-level
+		// AddToScheme, but we can't use that here because we want to only
+		// enable things on a per-resource basis.
+		addToSchema[optionalKind] = func(s *runtime.Scheme) error {
+			s.AddKnownTypes(optionalKind.GroupVersion(), helpers.GetConcreteObject(optionalKind))
+			// We also need to add the List version to the Schema
+			listKind := optionalKind.Kind[:len(optionalKind.Kind)-1] + "lists"
+			optionalKindList := schema.GroupVersionKind{
+				Group:   optionalKind.Group,
+				Version: optionalKind.Version,
+				Kind:    listKind,
+			}
+			s.AddKnownTypes(optionalKind.GroupVersion(), helpers.GetConcreteObject(optionalKindList))
+			metav1.AddToGroupVersion(s, optionalKind.GroupVersion())
+			return nil
 		}
 	}
 
-	return nil
-}
-
-func registerMCSAPITypesToScheme(clientset k8sClient.Clientset, scheme *runtime.Scheme, logger *slog.Logger) error {
-	serviceImportSupport := checkCRD(context.Background(), clientset, mcsapiv1alpha1.SchemeGroupVersion.WithKind("serviceimports")) == nil
-	logger.Info("Multi-cluster Service API ServiceImport GatewayAPI integration", "enabled", serviceImportSupport)
-	if serviceImportSupport {
-		return mcsapiv1alpha1.AddToScheme(scheme)
+	for gv, f := range addToSchema {
+		if err := f(scheme); err != nil {
+			return fmt.Errorf("failed to add types from %s to scheme: %w", gv, err)
+		}
 	}
 
 	return nil

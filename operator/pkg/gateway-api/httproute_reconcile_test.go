@@ -1350,9 +1350,7 @@ func Test_httpRouteReconciler_Reconcile_NoServiceImportCRD(t *testing.T) {
 		require.Equal(t, "ResolvedRefs", route.Status.RouteStatus.Parents[0].Conditions[1].Type)
 		require.Equal(t, metav1.ConditionStatus("False"), route.Status.RouteStatus.Parents[0].Conditions[1].Status)
 		require.Equal(t, "BackendNotFound", route.Status.RouteStatus.Parents[0].Conditions[1].Reason)
-		require.Equal(t, "Attempt to reference a ServiceImport backend while "+
-			"the corresponding CRD is not installed, "+
-			"please restart the cilium-operator if the CRD is already installed",
+		require.Equal(t, "serviceimports.multicluster.x-k8s.io \"dummy-backend\" not found",
 			route.Status.RouteStatus.Parents[0].Conditions[1].Message)
 	})
 }
