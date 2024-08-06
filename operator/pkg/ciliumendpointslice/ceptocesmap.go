@@ -10,7 +10,8 @@ import (
 )
 
 type CEPName resource.Key
-type CESName resource.Key
+type CESKey resource.Key
+type CESName string
 
 // CESToCEPMapping is used to map Cilium Endpoints to CiliumEndpointSlices and
 // retrieving all the Cilium Endpoints mapped to the given CiliumEndpointSlice.
@@ -147,7 +148,7 @@ func (c *CESToCEPMapping) getCESData(name CESName) CESData {
 	return data
 }
 
-func (ces CESName) key() resource.Key {
+func (ces CESKey) key() resource.Key {
 	return resource.Key(ces)
 }
 
@@ -155,7 +156,7 @@ func (cep CEPName) key() resource.Key {
 	return resource.Key(cep)
 }
 
-func (ces CESName) string() string {
+func (ces CESKey) string() string {
 	return ces.key().String()
 }
 
@@ -163,8 +164,14 @@ func (cep CEPName) string() string {
 	return cep.key().String()
 }
 
-func NewCESName(name string) CESName {
-	return CESName(resource.Key{Name: name})
+func (c CESName) string() string {
+	return string(c)
+}
+
+// NewCESKey is used with namespace only to determine which queue CES should be in.
+// CES is a cluster-scope object and it does not contain the metadata namespace field.
+func NewCESKey(name string, namespace string) CESKey {
+	return CESKey(resource.Key{Name: name, Namespace: namespace})
 }
 
 func NewCEPName(name, ns string) CEPName {

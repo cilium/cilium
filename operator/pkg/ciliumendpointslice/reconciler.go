@@ -57,7 +57,7 @@ func (r *reconciler) reconcileCES(cesName CESName) (err error) {
 	desiredCEPsNumber := r.cesManager.getCEPCountInCES(cesName)
 	r.metrics.CiliumEndpointSliceDensity.Observe(float64(desiredCEPsNumber))
 	// Check the CES exists is in cesStore i.e. in api-server copy of CESs, if exist update or delete the CES.
-	cesObj, exists, err := r.cesStore.GetByKey(cesName.key())
+	cesObj, exists, err := r.cesStore.GetByKey(NewCESKey(cesName.string(), "").key())
 	if err != nil {
 		return
 	}
@@ -85,7 +85,7 @@ func (r *reconciler) reconcileCESCreate(cesName CESName) (err error) {
 			APIVersion: cilium_v2.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name: cesName.Name,
+			Name: cesName.string(),
 		},
 		Endpoints: make([]cilium_v2a1.CoreCiliumEndpoint, 0, len(ceps)),
 	}

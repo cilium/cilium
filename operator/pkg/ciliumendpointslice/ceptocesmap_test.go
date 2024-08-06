@@ -19,31 +19,31 @@ func TestCepToCESCounts(t *testing.T) {
 		{
 			name:    "Insert CEPs - 1",
 			cepName: NewCEPName("cilium-adf8-kube-system", "ns"),
-			cesName: NewCESName("ces-dfbkjswert-twis"),
+			cesName: CESName("ces-dfbkjswert-twis"),
 			count:   1,
 		},
 		{
 			name:    "Insert CEPs - 2",
 			cepName: NewCEPName("cilium-dtyr-kube-system", "ns"),
-			cesName: NewCESName("ces-dfbkjswert-twis"),
+			cesName: CESName("ces-dfbkjswert-twis"),
 			count:   2,
 		},
 		{
 			name:    "Insert CEPs - 3",
 			cepName: NewCEPName("cilium-fgh8-kube-system", "ns"),
-			cesName: NewCESName("ces-dfbkjswert-twis"),
+			cesName: CESName("ces-dfbkjswert-twis"),
 			count:   3,
 		},
 		{
 			name:    "Insert CEPs - 4",
 			cepName: NewCEPName("cilium-cspn-kube-system", "ns"),
-			cesName: NewCESName("ces-dfbkjswert-twis"),
+			cesName: CESName("ces-dfbkjswert-twis"),
 			count:   4,
 		},
 		{
 			name:    "Check same CEP-name with CES name",
 			cepName: NewCEPName("cilium-cspn-kube-system", "ns"),
-			cesName: NewCESName("ces-dfbkjswert-0wis"),
+			cesName: CESName("ces-dfbkjswert-0wis"),
 			count:   4,
 		},
 	}
