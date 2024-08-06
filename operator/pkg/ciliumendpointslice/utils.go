@@ -32,7 +32,7 @@ func uniqueCESliceName(mapping *CESToCEPMapping) string {
 		sb.WriteRune('-')
 		sb.WriteString(rn2)
 		cesName := sb.String()
-		if !mapping.hasCESName(NewCESName(cesName)) {
+		if !mapping.hasCESName(CESName(cesName)) {
 			return cesName
 		}
 	}
