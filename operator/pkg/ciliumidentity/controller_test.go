@@ -109,9 +109,13 @@ func initHiveTest(operatorManagingCID bool) (*resource.Resource[*capi_v2.CiliumI
 		k8sClient.FakeClientCell,
 		k8s.ResourcesCell,
 		metrics.Metric(NewMetrics),
+		cell.Provide(func() config {
+			return config{
+				EnableOperatorManageCIDs: operatorManagingCID,
+			}
+		}),
 		cell.Provide(func() SharedConfig {
 			return SharedConfig{
-				EnableOperatorManageCIDs:  operatorManagingCID,
 				EnableCiliumEndpointSlice: true,
 			}
 		}),
