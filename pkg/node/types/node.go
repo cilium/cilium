@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"path"
 	"slices"
 
@@ -298,6 +299,25 @@ func (a Address) ToString() string {
 
 func (a Address) AddrType() addressing.AddressType {
 	return a.Type
+}
+
+// IsNodeIP determines if addr is one of the node's IP addresses,
+// and returns which type of address it is. "" is returned if addr
+// is not one of the node's IP addresses.
+func (n *Node) IsNodeIP(addr netip.Addr) addressing.AddressType {
+	for _, a := range n.IPAddresses {
+		// for IPv4 this should not allocate memory
+		// this conversion will go away once net.IP is replaced with netip.Addr
+		ip := a.IP.To4()
+		if ip == nil {
+			ip = a.IP
+		}
+		if na, ok := netip.AddrFromSlice(ip); ok && na == addr {
+			return a.Type
+		}
+	}
+
+	return ""
 }
 
 // GetNodeIP returns one of the node's IP addresses available with the
