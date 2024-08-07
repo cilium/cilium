@@ -191,7 +191,7 @@ type restoredIPRule struct {
 type restoredEPs map[netip.Addr]*endpoint.Endpoint
 
 // asIPRule returns a new restore.IPRule representing the rules, including the provided IP map.
-func asIPRule(r *regexp.Regexp, IPs map[string]struct{}) restore.IPRule {
+func asIPRule(r *regexp.Regexp, IPs map[restore.RuleIPOrCIDR]struct{}) restore.IPRule {
 	pattern := "^-$"
 	if r != nil {
 		pattern = r.String()
@@ -216,12 +216,32 @@ func (p *DNSProxy) checkRestored(endpointID uint64, destPortProto restore.PortPr
 		}
 	}
 
+	dest, err := restore.ParseRuleIPOrCIDR(destIP)
+	if err != nil || !dest.IsAddr() {
+		return false
+	}
+
 	for i := range ipRules {
 		ipRule := ipRules[i]
-		if _, exists := ipRule.IPs[destIP]; exists || len(ipRule.IPs) == 0 {
-			if ipRule.regex != nil && ipRule.regex.MatchString(name) {
-				return true
+		if IPs := ipRule.IPs; len(IPs) == 0 {
+			// ok
+		} else if _, exists := IPs[dest]; exists {
+			// ok
+		} else if _, exists := IPs[dest.ToSingleCIDR()]; exists {
+			// ok
+		} else {
+			for ip := range IPs {
+				if ip.ContainsAddr(dest) {
+					exists = true
+					break
+				}
 			}
+			if !exists {
+				continue
+			}
+		}
+		if ipRule.regex != nil && ipRule.regex.MatchString(name) {
+			return true
 		}
 	}
 	return false
@@ -276,7 +296,7 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 				ipRules = append(ipRules, asIPRule(selRegex.re, nil))
 				continue
 			}
-			ips := make(map[string]struct{})
+			ips := make(map[restore.RuleIPOrCIDR]struct{})
 			count := 0
 			nids := selRegex.cs.GetSelections()
 		Loop:
@@ -285,10 +305,21 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 				nidIPs := p.LookupIPsBySecID(nid)
 				p.RLock()
 				for _, ip := range nidIPs {
-					if p.skipIPInRestorationRLocked(ip) {
+					rip, err := restore.ParseRuleIPOrCIDR(ip)
+					if err != nil {
+						log.WithFields(logrus.Fields{
+							logfields.EndpointID:            endpointID,
+							logfields.Port:                  pp.Port(),
+							logfields.Protocol:              pp.Protocol(),
+							logfields.EndpointLabelSelector: selRegex.cs,
+							logfields.IPAddr:                ip,
+						}).Warning("Could not parse IP for a DNS rule (?!), skipping")
 						continue
 					}
-					ips[ip] = struct{}{}
+					if rip.IsAddr() && p.skipIPInRestorationRLocked(ip) {
+						continue
+					}
+					ips[rip] = struct{}{}
 					count++
 					if count > p.maxIPsPerRestoredDNSRule {
 						log.WithFields(logrus.Fields{

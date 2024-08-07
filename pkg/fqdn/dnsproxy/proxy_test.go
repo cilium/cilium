@@ -542,6 +542,16 @@ func TestCheckAllowedTwiceRemovedOnce(t *testing.T) {
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 }
 
+func makeMapOfRuleIPOrCIDR(addrs ...string) map[restore.RuleIPOrCIDR]struct{} {
+	m := make(map[restore.RuleIPOrCIDR]struct{}, len(addrs))
+	for _, addr := range addrs {
+		if ripc, err := restore.ParseRuleIPOrCIDR(addr); err == nil {
+			m[ripc] = struct{}{}
+		}
+	}
+	return m
+}
+
 func TestFullPathDependence(t *testing.T) {
 	s := setupDNSProxyTestSuite(t)
 
@@ -762,14 +772,14 @@ func TestFullPathDependence(t *testing.T) {
 	// Get rules for restoration
 	expected1 := restore.DNSRules{
 		udpProtoPort53: restore.IPRules{
-			asIPRule(s.proxy.allowed[epID1][udpProtoPort53][cachedDstID1Selector], map[string]struct{}{"::": {}}),
-			asIPRule(s.proxy.allowed[epID1][udpProtoPort53][cachedDstID2Selector], map[string]struct{}{"127.0.0.1": {}, "127.0.0.2": {}}),
+			asIPRule(s.proxy.allowed[epID1][udpProtoPort53][cachedDstID1Selector], makeMapOfRuleIPOrCIDR("::")),
+			asIPRule(s.proxy.allowed[epID1][udpProtoPort53][cachedDstID2Selector], makeMapOfRuleIPOrCIDR("127.0.0.1", "127.0.0.2")),
 		}.Sort(nil),
 		udpProtoPort54: restore.IPRules{
 			asIPRule(s.proxy.allowed[epID1][udpProtoPort54][cachedWildcardSelector], nil),
 		},
 		tcpProtoPort53: restore.IPRules{
-			asIPRule(s.proxy.allowed[epID1][tcpProtoPort53][cachedDstID1Selector], map[string]struct{}{"::": {}}),
+			asIPRule(s.proxy.allowed[epID1][tcpProtoPort53][cachedDstID1Selector], makeMapOfRuleIPOrCIDR("::")),
 		},
 	}
 	restored1, _ := s.proxy.GetRules(uint16(epID1))
@@ -783,12 +793,12 @@ func TestFullPathDependence(t *testing.T) {
 
 	expected3 := restore.DNSRules{
 		udpProtoPort53: restore.IPRules{
-			asIPRule(s.proxy.allowed[epID3][udpProtoPort53][cachedDstID1Selector], map[string]struct{}{"::": {}}),
-			asIPRule(s.proxy.allowed[epID3][udpProtoPort53][cachedDstID3Selector], map[string]struct{}{}),
-			asIPRule(s.proxy.allowed[epID3][udpProtoPort53][cachedDstID4Selector], map[string]struct{}{}),
+			asIPRule(s.proxy.allowed[epID3][udpProtoPort53][cachedDstID1Selector], makeMapOfRuleIPOrCIDR("::")),
+			asIPRule(s.proxy.allowed[epID3][udpProtoPort53][cachedDstID3Selector], makeMapOfRuleIPOrCIDR()),
+			asIPRule(s.proxy.allowed[epID3][udpProtoPort53][cachedDstID4Selector], makeMapOfRuleIPOrCIDR()),
 		}.Sort(nil),
 		tcpProtoPort53: restore.IPRules{
-			asIPRule(s.proxy.allowed[epID3][tcpProtoPort53][cachedDstID3Selector], map[string]struct{}{}),
+			asIPRule(s.proxy.allowed[epID3][tcpProtoPort53][cachedDstID3Selector], makeMapOfRuleIPOrCIDR()),
 		},
 	}
 	restored3, _ := s.proxy.GetRules(uint16(epID3))
@@ -801,14 +811,14 @@ func TestFullPathDependence(t *testing.T) {
 
 	expected1b := restore.DNSRules{
 		udpProtoPort53: restore.IPRules{
-			asIPRule(s.proxy.allowed[epID1][udpProtoPort53][cachedDstID1Selector], map[string]struct{}{}),
-			asIPRule(s.proxy.allowed[epID1][udpProtoPort53][cachedDstID2Selector], map[string]struct{}{"127.0.0.2": {}}),
+			asIPRule(s.proxy.allowed[epID1][udpProtoPort53][cachedDstID1Selector], makeMapOfRuleIPOrCIDR()),
+			asIPRule(s.proxy.allowed[epID1][udpProtoPort53][cachedDstID2Selector], makeMapOfRuleIPOrCIDR("127.0.0.2")),
 		}.Sort(nil),
 		udpProtoPort54: restore.IPRules{
 			asIPRule(s.proxy.allowed[epID1][udpProtoPort54][cachedWildcardSelector], nil),
 		},
 		tcpProtoPort53: restore.IPRules{
-			asIPRule(s.proxy.allowed[epID1][tcpProtoPort53][cachedDstID1Selector], map[string]struct{}{}),
+			asIPRule(s.proxy.allowed[epID1][tcpProtoPort53][cachedDstID1Selector], makeMapOfRuleIPOrCIDR()),
 		},
 	}
 	restored1b, _ := s.proxy.GetRules(uint16(epID1))
