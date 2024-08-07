@@ -1368,6 +1368,20 @@ new policy YAML files as well as any updates or deletions, making corresponding
 updates to the policy engine's rules. It is important to note that this feature 
 only supports CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy.
 
+The directory that the Cilium agent needs to monitor should be mounted from the host 
+using volume mounts. For users deploying via Helm, this can be enabled via ``extraArgs``
+and ``extraHostPathMounts`` as follows:
+
+.. code-block:: yaml
+
+   extraArgs:                                                                                                                                        
+   - --static-cnp-path=/policies                                                                                                                   
+   extraHostPathMounts:                                                                                                                              
+   - name: static-policies                                                                                                                         
+      mountPath: /policies                                                                                                                          
+      hostPath: /policies                                                                                                                           
+      hostPathType: Directory  
+
 To determine whether a policy was established via Kubernetes CRD or directly from a directory, 
 execute the command ``cilium policy get`` and examine the source attribute within the policy. 
 In output, you could notice policies that have been sourced from a directory will have the 
