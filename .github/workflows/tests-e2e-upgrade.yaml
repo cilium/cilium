@@ -218,22 +218,19 @@ jobs:
             # has been resolved.
             # ingress-controller: 'true'
 
-          # Disable until https://github.com/cilium/cilium/pull/31622
-          # has been released. Otherwise, the health-ep is failing quite
-          # often.
-          #- name: '12'
-          #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #  kernel: 'bpf-next-20240711.013133'
-          #  kube-proxy: 'none'
-          #  kpr: 'true'
-          #  devices: '{eth0,eth1}'
-          #  secondary-network: 'true'
-          #  tunnel: 'disabled'
-          #  encryption: 'wireguard'
-          #  encryption-node: 'true'
-          #  lb-mode: 'snat'
-          #  egress-gateway: 'true'
-          #  ingress-controller: 'true'
+          - name: '12'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-next-20240711.013133'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'disabled'
+            encryption: 'wireguard'
+            encryption-node: 'true'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
+            ingress-controller: 'true'
 
           - name: '14'
             # Switch to 5.15 until https://github.com/cilium/cilium/issues/27642
