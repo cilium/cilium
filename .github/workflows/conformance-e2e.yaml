@@ -92,258 +92,162 @@ jobs:
           # ! NOTE: keep tests-e2e-upgrade.yaml config in sync !
           # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+          # BPF masq off
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'rhel8-20240404.144247'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'vxlan'
-            host-fw: 'true'
-
-          - name: '2'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20240710.064909'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            host-fw: 'true'
-
-          - name: '3'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20240710.064909'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            endpoint-routes: 'true'
-
-          - name: '4'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20240710.064909'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-
-          - name: '5'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20240710.064909'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'dsr'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            host-fw: 'true'
-
-          - name: '6'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20240710.064909'
+            kernel: 'bpf-next-20240711.013133'
+            misc: 'loadBalancer.dsrDispatch=geneve'
+            bpf-masquerade: 'false'
             kube-proxy: 'none'
             kpr: 'true'
+            lb-mode: 'dsr'
+            tunnel: 'geneve'
             devices: '{eth0,eth1}'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            host-fw: 'true'
-            lb-acceleration: 'testing-only'
-            ingress-controller: 'true'
-            bgp-control-plane: 'true'
+            secondary-network: 'true'
 
+          # BPF masq off with ep-routes
+          - name: '2'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-next-20240711.013133'
+            misc: 'loadBalancer.dsrDispatch=geneve'
+            bpf-masquerade: 'false'
+            kube-proxy: 'none'
+            kpr: 'true'
+            lb-mode: 'dsr'
+            tunnel: 'geneve'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            endpoint-routes: 'true'
+
+          # BPF masq on, legacy routing
+          - name: '3'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-next-20240711.013133'
+            misc: 'loadBalancer.dsrDispatch=geneve,bpf.hostLegacyRouting=true'
+            kube-proxy: 'none'
+            kpr: 'true'
+            lb-mode: 'dsr'
+            tunnel: 'geneve'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+
+          # BPF masq on with ep-routes, legacy routing
+          - name: '4'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-next-20240711.013133'
+            misc: 'loadBalancer.dsrDispatch=geneve,bpf.hostLegacyRouting=true'
+            kube-proxy: 'none'
+            kpr: 'true'
+            lb-mode: 'dsr'
+            tunnel: 'geneve'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            endpoint-routes: 'true'
+
+          # BPF masq on
+          - name: '5'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-next-20240711.013133'
+            misc: 'loadBalancer.dsrDispatch=geneve'
+            kube-proxy: 'none'
+            kpr: 'true'
+            lb-mode: 'dsr'
+            tunnel: 'geneve'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+
+          # BPF masq on with ep-routes
+          - name: '6'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-next-20240711.013133'
+            misc: 'loadBalancer.dsrDispatch=geneve'
+            kube-proxy: 'none'
+            kpr: 'true'
+            lb-mode: 'dsr'
+            tunnel: 'geneve'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            endpoint-routes: 'true'
+
+          # The same for DSR with IP-Options:
+
+          # BPF masq off
           - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: 'bpf-next-20240711.013133'
+            misc: 'loadBalancer.dsrDispatch=opt'
+            bpf-masquerade: 'false'
             kube-proxy: 'none'
             kpr: 'true'
+            lb-mode: 'dsr'
+            tunnel: 'disabled'
             devices: '{eth0,eth1}'
             secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            lb-acceleration: 'testing-only'
-            ingress-controller: 'true'
-            local-redirect-policy: 'true'
 
+          # BPF masq off with ep-routes
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: 'bpf-next-20240711.013133'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'geneve'
-            endpoint-routes: 'true'
-            misc: 'socketLB.enabled=false,nodePort.enabled=true,bpf.masquerade=true'
-
-          - name: '9'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20240710.064909'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-
-          - name: '10'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20240710.064909'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-
-          - name: '11'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20240710.064909'
+            misc: 'loadBalancer.dsrDispatch=opt'
+            bpf-masquerade: 'false'
             kube-proxy: 'none'
             kpr: 'true'
+            lb-mode: 'dsr'
+            tunnel: 'disabled'
             devices: '{eth0,eth1}'
             secondary-network: 'true'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
+            endpoint-routes: 'true'
 
+          # BPF masq on, legacy routing
+          - name: '9'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-next-20240711.013133'
+            misc: 'loadBalancer.dsrDispatch=opt,bpf.hostLegacyRouting=true'
+            kube-proxy: 'none'
+            kpr: 'true'
+            lb-mode: 'dsr'
+            tunnel: 'disabled'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+
+          # BPF masq on with ep-routes, legacy routing
+          - name: '10'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-next-20240711.013133'
+            misc: 'loadBalancer.dsrDispatch=opt,bpf.hostLegacyRouting=true'
+            kube-proxy: 'none'
+            kpr: 'true'
+            lb-mode: 'dsr'
+            tunnel: 'disabled'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            endpoint-routes: 'true'
+
+          # BPF masq on
+          - name: '11'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-next-20240711.013133'
+            misc: 'loadBalancer.dsrDispatch=opt'
+            kube-proxy: 'none'
+            kpr: 'true'
+            lb-mode: 'dsr'
+            tunnel: 'disabled'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+
+          # BPF masq on with ep-routes
           - name: '12'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: 'bpf-next-20240711.013133'
+            misc: 'loadBalancer.dsrDispatch=opt'
             kube-proxy: 'none'
             kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            ingress-controller: 'true'
-
-          - name: '13'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'rhel8-20240404.144247'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'vxlan'
-            misc: 'policyCIDRMatchMode=nodes'
-
-          - name: '14'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20240710.064909'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            lb-acceleration: 'testing-only'
-            ingress-controller: 'true'
-
-          - name: '15'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240711.013133'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            ingress-controller: 'true'
-            misc: 'bpf.tproxy=true'
-            ciliumendpointslice: 'true'
-
-          - name: '16'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20240710.064909'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            host-fw: 'true'
-            ciliumendpointslice: 'true'
-            ingress-controller: 'true'
-
-          - name: '17'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240711.013133'
-            misc: 'bpf.datapathMode=netkit,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
+            lb-mode: 'dsr'
             tunnel: 'disabled'
             devices: '{eth0,eth1}'
             secondary-network: 'true'
-            ingress-controller: 'true'
+            endpoint-routes: 'true'
 
-          - name: '18'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240711.013133'
-            misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            ipv6: 'true'
-            tunnel: 'disabled'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '19'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240711.013133'
-            misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '20'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240711.013133'
-            misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '21'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240711.013133'
-            misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'geneve'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
-
-          - name: '22'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-20240711.013133'
-            misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'geneve'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            ingress-controller: 'true'
 
     timeout-minutes: 60
     steps:
@@ -382,6 +286,7 @@ jobs:
           endpoint-routes: ${{ matrix.endpoint-routes }}
           ipv6: ${{ matrix.ipv6 }}
           kpr: ${{ matrix.kpr }}
+          bpf-masquerade: ${{ matrix.bpf-masquerade }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: ${{ matrix.encryption }}

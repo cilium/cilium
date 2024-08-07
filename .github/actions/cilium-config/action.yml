@@ -61,6 +61,9 @@ inputs:
   bgp-control-plane:
     description: 'Enable BGP Control Plane'
     default: 'false'
+  bpf-masquerade:
+    description: 'Enable BPF masquerade'
+    default: ''
 outputs:
   config:
     description: 'Cilium installation config'
@@ -128,7 +131,11 @@ runs:
           MASQ=""
           if [ "${{ inputs.kpr }}" == "true" ]; then
             # BPF-masq requires KPR=true.
-            MASQ="--helm-set=bpf.masquerade=true"
+            if [ "${{ inputs.bpf-masquerade }}" != "" ]; then
+              MASQ="--helm-set=bpf.masquerade=${{ inputs.bpf-masquerade }}"
+            else
+              MASQ="--helm-set=bpf.masquerade=true"
+            fi
           fi
 
           EGRESS_GATEWAY=""
