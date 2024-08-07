@@ -52,10 +52,10 @@ var (
 )
 
 func registerMetrics(exp *DynamicExporter) {
-	metrics.Register(&dynamicExporterGaugeCollector{exporter: exp})
-	metrics.Register(DynamicExporterReconfigurations)
-	metrics.Register(DynamicExporterConfigHash)
-	metrics.Register(DynamicExporterConfigLastApplied)
+	metrics.Registry.MustRegister(&dynamicExporterGaugeCollector{exporter: exp})
+	metrics.Registry.MustRegister(DynamicExporterReconfigurations)
+	metrics.Registry.MustRegister(DynamicExporterConfigHash)
+	metrics.Registry.MustRegister(DynamicExporterConfigLastApplied)
 }
 
 type dynamicExporterGaugeCollector struct {
