@@ -23,6 +23,13 @@ func initExcludedIPs() {
 		return
 	}
 	for _, l := range links {
+		// Don't exclude dummy devices, since they may be setup by
+		// processes like nodelocaldns and they aren't always brought up. See
+		// https://github.com/kubernetes/dns/blob/fa0192f004c9571cf24d8e9868be07f57380fccb/pkg/netif/netif.go#L24-L36
+		// Such devices in down state may still be relevant.
+		if l.Type() == "dummy" {
+			continue
+		}
 		// ... also all down devices since they won't be reachable.
 		//
 		// We need to check for both "up" and "unknown" state, as some

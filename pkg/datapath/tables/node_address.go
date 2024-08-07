@@ -455,12 +455,17 @@ var whitelistDevices = []string{
 }
 
 func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddress {
-	if dev.Flags&net.FlagUp == 0 {
+	// Don't exclude addresses attached to dummy devices, since they may be setup by
+	// processes like nodelocaldns, and these devices aren't always brought up. See
+	// https://github.com/kubernetes/dns/blob/fa0192f004c9571cf24d8e9868be07f57380fccb/pkg/netif/netif.go#L24-L36
+	// Failure to include these addresses in node addresses will trigger fib_lookup
+	// when bpf host routing is enabled and result in packet drops.
+	if dev.Type != "dummy" && dev.Flags&net.FlagUp == 0 {
 		return nil
 	}
 
 	// Ignore non-whitelisted & non-selected devices.
-	if !slices.Contains(whitelistDevices, dev.Name) && !dev.Selected {
+	if !slices.Contains(whitelistDevices, dev.Name) && (!dev.Selected && dev.Type != "dummy") {
 		return nil
 	}
 
@@ -534,7 +539,7 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device) []NodeAddres
 			})
 	}
 
-	if len(n.Config.NodePortAddresses) == 0 && dev.Name != defaults.HostDevice {
+	if len(n.Config.NodePortAddresses) == 0 && dev.Name != defaults.HostDevice && dev.Flags&net.FlagUp != 0 {
 		// Pick the NodePort addresses. Prefer private addresses if possible.
 		if ipv4PrivateIndex >= 0 {
 			addrs[ipv4PrivateIndex].NodePort = true
