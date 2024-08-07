@@ -534,6 +534,8 @@ func (ops *bpfOps) updateFrontend(fe *Frontend) error {
 		ops.releaseBackend(orphanState.id, orphanState.addr)
 	}
 
+	activeCount, inactiveCount := 0, 0
+
 	// Update backends that are new or changed.
 	for i, be := range orderedBackends {
 		var beID loadbalancer.BackendID
@@ -561,15 +563,13 @@ func (ops *bpfOps) updateFrontend(fe *Frontend) error {
 		// changed.
 		// Since backends are iterated in the order of their state with active first
 		// the slot ids here are sequential.
-		if be.State == loadbalancer.BackendStateActive {
-			ops.log.Info("Update service slot", "id", beID, "slot", i+1, "backendID", beID)
+		ops.log.Info("Update service slot", "id", beID, "slot", i+1, "backendID", beID)
 
-			svcVal.SetBackendID(beID)
-			svcVal.SetRevNat(int(feID))
-			svcKey.SetBackendSlot(i + 1)
-			if err := ops.upsertService(svcKey, svcVal); err != nil {
-				return fmt.Errorf("upsert service: %w", err)
-			}
+		svcVal.SetBackendID(beID)
+		svcVal.SetRevNat(int(feID))
+		svcKey.SetBackendSlot(i + 1)
+		if err := ops.upsertService(svcKey, svcVal); err != nil {
+			return fmt.Errorf("upsert service: %w", err)
 		}
 
 		// TODO: Most likely we'll just need to keep some state on the reconciled SessionAffinity
@@ -586,6 +586,12 @@ func (ops *bpfOps) updateFrontend(fe *Frontend) error {
 			if err := ops.deleteAffinityMatch(feID, beID); err != nil {
 				return fmt.Errorf("delete affinity match: %w", err)
 			}
+		}
+
+		if be.State == loadbalancer.BackendStateActive {
+			activeCount++
+		} else {
+			inactiveCount++
 		}
 	}
 
@@ -641,13 +647,12 @@ func (ops *bpfOps) updateFrontend(fe *Frontend) error {
 	}
 
 	ops.log.Info("Update master service", "id", feID)
-	numActiveBackends := numActive(orderedBackends)
-	if err := ops.upsertMaster(svcKey, svcVal, fe, numActiveBackends); err != nil {
+	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, inactiveCount); err != nil {
 		return fmt.Errorf("upsert service master: %w", err)
 	}
 
-	ops.log.Info("Cleanup service slots", "id", feID, "active", numActiveBackends, "previous", numPreviousBackends)
-	if err := ops.cleanupSlots(svcKey, numPreviousBackends, numActiveBackends); err != nil {
+	ops.log.Info("Cleanup service slots", "id", feID, "active", activeCount, "previous", numPreviousBackends)
+	if err := ops.cleanupSlots(svcKey, numPreviousBackends, activeCount+inactiveCount); err != nil {
 		return fmt.Errorf("cleanup service slots: %w", err)
 	}
 
@@ -674,9 +679,10 @@ func (ops *bpfOps) upsertService(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceVa
 	return err
 }
 
-func (ops *bpfOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue, fe *Frontend, activeBackends int) error {
+func (ops *bpfOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceValue, fe *Frontend, activeBackends, inactiveBackends int) error {
 	svcKey.SetBackendSlot(0)
 	svcVal.SetCount(activeBackends)
+	svcVal.SetQCount(inactiveBackends)
 	svcVal.SetBackendID(0)
 
 	svc := fe.Service()
@@ -881,15 +887,6 @@ func sortedBackends(bes []BackendWithRevision) []BackendWithRevision {
 		}
 	})
 	return bes
-}
-
-func numActive(bes []BackendWithRevision) int {
-	for i, be := range bes {
-		if be.State != loadbalancer.BackendStateActive {
-			return i
-		}
-	}
-	return len(bes)
 }
 
 // idAllocator contains an internal state of the ID allocator.
