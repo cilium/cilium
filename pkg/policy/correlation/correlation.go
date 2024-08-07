@@ -172,31 +172,37 @@ func toProto(derivedFrom labels.LabelArrayList, rev uint64) (policies []*flowpb.
 			Labels:   lbl.GetModel(),
 			Revision: rev,
 		}
-
-		var kind, ns, name string
-		for _, l := range lbl {
-			if l.Source != string(source.Kubernetes) {
-				continue
-			}
-			switch l.Key {
-			case k8sConst.PolicyLabelName:
-				name = l.Value
-			case k8sConst.PolicyLabelNamespace:
-				ns = l.Value
-			case k8sConst.PolicyLabelDerivedFrom:
-				kind = l.Value
-			}
-
-			if kind != "" && name != "" && ns != "" {
-				policy.Name = name
-				policy.Namespace = ns
-				policy.Kind = kind
-				break
-			}
-		}
-
+		populate(policy, lbl)
 		policies = append(policies, policy)
 	}
 
 	return policies
+}
+
+// populate derives and sets fields in the flow policy from the label set array.
+//
+// This function supports namespaced and cluster-scoped resources.
+func populate(f *flowpb.Policy, lbl labels.LabelArray) {
+	var kind, ns, name string
+	for _, l := range lbl {
+		if l.Source != string(source.Kubernetes) {
+			continue
+		}
+		switch l.Key {
+		case k8sConst.PolicyLabelName:
+			name = l.Value
+		case k8sConst.PolicyLabelNamespace:
+			ns = l.Value
+		case k8sConst.PolicyLabelDerivedFrom:
+			kind = l.Value
+		}
+
+		if kind != "" && name != "" && ns != "" {
+			break
+		}
+	}
+
+	f.Kind = kind
+	f.Namespace = ns
+	f.Name = name
 }
