@@ -14,29 +14,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  setup-vars:
+    name: Setup Variables
+    runs-on: ubuntu-latest
+    outputs:
+      build-and-push-images: ${{ steps.vars.outputs.build-and-push-images }}
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          echo build-and-push-images=${BUILD_AND_PUSH_IMAGES} >> $GITHUB_OUTPUT
+
   cache-cleaner:
     name: Clean Image Cache
+    needs: [ setup-vars ]
     runs-on: ubuntu-22.04
     strategy:
       matrix:
         include:
-          - name: cilium
-
-          - name: operator-aws
-
-          - name: operator-azure
-
-          - name: operator-alibabacloud
-
-          - name: operator-generic
-
-          - name: hubble-relay
-
-          - name: clustermesh-apiserver
-
-          - name: kvstoremesh
-
-          - name: docker-plugin
+          ${{ fromJSON(needs.setup-vars.outputs.build-and-push-images) }}
 
     steps:
       # Fetch the source code so that we can get the right cache key
