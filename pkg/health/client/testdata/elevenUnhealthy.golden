@@ -1,0 +1,12 @@
+Cluster health:	0/11 reachable	(2023-04-01T12:00:00Z)
+  node0	192.168.1.0	unreachable	unreachable
+  node1	192.168.1.1	unreachable	unreachable
+  node10	192.168.1.10	unreachable	unreachable
+  node2	192.168.1.2	unreachable	unreachable
+  node3	192.168.1.3	unreachable	unreachable
+  node4	192.168.1.4	unreachable	unreachable
+  node5	192.168.1.5	unreachable	unreachable
+  node6	192.168.1.6	unreachable	unreachable
+  node7	192.168.1.7	unreachable	unreachable
+  node8	192.168.1.8	unreachable	unreachable
+  ...

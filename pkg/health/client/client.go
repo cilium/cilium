@@ -310,26 +310,13 @@ func GetAllEndpointAddresses(node *models.NodeStatus) []*models.PathStatus {
 	return append([]*models.PathStatus{node.HealthEndpoint.PrimaryAddress}, node.HealthEndpoint.SecondaryAddresses...)
 }
 
-func formatNodeStatus(w io.Writer, node *models.NodeStatus, printAll, succinct, verbose, localhost bool) {
+func formatNodeStatus(w io.Writer, node *models.NodeStatus, allNodes, verbose, localhost bool) bool {
 	localStr := ""
 	if localhost {
 		localStr = " (localhost)"
 	}
-	if succinct {
-		if printAll || !nodeIsHealthy(node) {
-			ips := []string{getPrimaryAddressIP(node)}
-			for _, addr := range GetHostSecondaryAddresses(node) {
-				if addr == nil {
-					continue
-				}
-				ips = append(ips, addr.IP)
-			}
-			fmt.Fprintf(w, "  %s%s\t%s\t%s\t%s\n", node.Name,
-				localStr, strings.Join(ips, ","),
-				SummarizePathConnectivityStatusType(GetAllHostAddresses(node)).String(),
-				SummarizePathConnectivityStatusType(GetAllEndpointAddresses(node)).String())
-		}
-	} else {
+
+	if verbose {
 		fmt.Fprintf(w, "  %s%s:\n", node.Name, localStr)
 		formatPathStatus(w, "Host", GetHostPrimaryAddress(node), "    ", verbose)
 		unhealthyPaths := !allPathsAreHealthyOrUnknown(GetHostSecondaryAddresses(node))
@@ -345,20 +332,48 @@ func formatNodeStatus(w io.Writer, node *models.NodeStatus, printAll, succinct, 
 				formatPathStatus(w, "Secondary", addr, "      ", verbose)
 			}
 		}
+		return true
 	}
+
+	if !nodeIsHealthy(node) {
+		printNode(w, node, localStr)
+		return true
+	}
+
+	if allNodes {
+		printNode(w, node, localStr)
+		return true
+	}
+
+	return false
+}
+
+// printNode prints the node name, primary address, and connectivity status to the writer.
+func printNode(w io.Writer, node *models.NodeStatus, localStr string) {
+	ips := []string{getPrimaryAddressIP(node)}
+	for _, addr := range GetHostSecondaryAddresses(node) {
+		if addr == nil {
+			continue
+		}
+		ips = append(ips, addr.IP)
+	}
+	fmt.Fprintf(w, "  %s%s\t%s\t%s\t%s\n", node.Name,
+		localStr, strings.Join(ips, ","),
+		SummarizePathConnectivityStatusType(GetAllHostAddresses(node)).String(),
+		SummarizePathConnectivityStatusType(GetAllEndpointAddresses(node)).String())
 }
 
 // FormatHealthStatusResponse writes a HealthStatusResponse as a string to the
 // writer.
 //
-// 'printAll', if true, causes all nodes to be printed regardless of status
-// 'succinct', if true, causes node health to be output as one line per node
-// 'verbose', if true, overrides 'succinct' and prints all information
+// 'allNodes', if true, causes all nodes to be printed regardless of status
+// 'verbose', if true, prints all information
 // 'maxLines', if nonzero, determines the maximum number of lines to print
-func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, printAll, succinct, verbose bool, maxLines int) {
+func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, allNodes bool, verbose bool, maxLines int) {
 	var (
-		healthy   int
-		localhost *models.NodeStatus
+		healthy      int
+		localhost    *models.NodeStatus
+		printedLines int
 	)
 	for _, node := range sr.Nodes {
 		if nodeIsHealthy(node) {
@@ -368,37 +383,33 @@ func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, pr
 			localhost = node
 		}
 	}
-	if succinct {
-		fmt.Fprintf(w, "Cluster health:\t%d/%d reachable\t(%s)\n",
-			healthy, len(sr.Nodes), sr.Timestamp)
-		if printAll || healthy < len(sr.Nodes) {
-			fmt.Fprintf(w, "  Name\tIP\tNode\tEndpoints\n")
-		}
-	} else {
-		fmt.Fprintf(w, "Probe time:\t%s\n", sr.Timestamp)
-		fmt.Fprintf(w, "Nodes:\n")
-	}
+
+	fmt.Fprintf(w, "Cluster health:\t%d/%d reachable\t(%s)\n",
+		healthy, len(sr.Nodes), sr.Timestamp)
 
 	if localhost != nil {
-		formatNodeStatus(w, localhost, printAll, succinct, verbose, true)
-		maxLines--
+		if formatNodeStatus(w, localhost, allNodes, verbose, true) {
+			printedLines++
+		}
 	}
 
 	nodes := sr.Nodes
 	sort.Slice(nodes, func(i, j int) bool {
 		return strings.Compare(nodes[i].Name, nodes[j].Name) < 0
 	})
-	for n, node := range nodes {
-		if maxLines > 0 && n > maxLines {
+	for _, node := range nodes {
+		if printedLines == maxLines {
 			break
 		}
 		if node == localhost {
 			continue
 		}
-		formatNodeStatus(w, node, printAll, succinct, verbose, false)
+		if formatNodeStatus(w, node, allNodes, verbose, false) {
+			printedLines++
+		}
 	}
-	if maxLines > 0 && len(sr.Nodes)-healthy > maxLines {
-		fmt.Fprintf(w, "  ...")
+	if len(sr.Nodes)-printedLines-healthy > 0 {
+		fmt.Fprintf(w, "  ...\n")
 	}
 }
 
@@ -406,9 +417,9 @@ func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, pr
 // daemon via the default channel and formats its output as a string to the
 // writer.
 //
-// 'succinct', 'verbose' and 'maxLines' are handled the same as in
+// 'verbose' and 'maxLines' are handled the same as in
 // FormatHealthStatusResponse().
-func GetAndFormatHealthStatus(w io.Writer, succinct, verbose bool, maxLines int) {
+func GetAndFormatHealthStatus(w io.Writer, allNodes bool, verbose bool, maxLines int) {
 	client, err := NewClient("")
 	if err != nil {
 		fmt.Fprintf(w, "Cluster health:\t\t\tClient error: %s\n", err)
@@ -420,5 +431,5 @@ func GetAndFormatHealthStatus(w io.Writer, succinct, verbose bool, maxLines int)
 		fmt.Fprintf(w, "Cluster health:\t\t\tWarning\tcilium-health daemon unreachable\n")
 		return
 	}
-	FormatHealthStatusResponse(w, hr.Payload, verbose, succinct, verbose, maxLines)
+	FormatHealthStatusResponse(w, hr.Payload, allNodes, verbose, maxLines)
 }
