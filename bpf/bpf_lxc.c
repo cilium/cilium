@@ -308,6 +308,11 @@ int NAME(struct __ctx_buff *ctx)						\
 				      &cluster_id, false);			\
 		if (ct_state_new.rev_nat_index)					\
 			scope = SCOPE_FORWARD;					\
+		if (is_defined(ENABLE_L7_LB) && proxy_port)			\
+			scope = SCOPE_FORWARD;					\
+		if (is_defined(ENABLE_L7_LB) &&					\
+		    (ctx_load_meta(ctx, CB_FROM_HOST == FROM_HOST_L7_LB)))	\
+			scope = SCOPE_FORWARD;					\
 	}									\
 										\
 	ct_buffer.ret = ct_lookup4(map, tuple, ctx, ip4, ct_buffer.l4_off,	\
@@ -363,6 +368,11 @@ int NAME(struct __ctx_buff *ctx)						\
 										\
 		lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port, false);	\
 		if (ct_state_new.rev_nat_index)					\
+			scope = SCOPE_FORWARD;					\
+		if (is_defined(ENABLE_L7_LB) && proxy_port)			\
+			scope = SCOPE_FORWARD;					\
+		if (is_defined(ENABLE_L7_LB) &&					\
+		    (ctx_load_meta(ctx, CB_FROM_HOST == FROM_HOST_L7_LB)))	\
 			scope = SCOPE_FORWARD;					\
 	}									\
 										\
