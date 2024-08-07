@@ -281,7 +281,7 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedir
 // calls before calling ConsumeMapChanges so that if we see any partial changes here, there will be
 // another call after to cover for the rest.
 // PolicyOwner (aka Endpoint) is locked during this call.
-func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
+func (p *EndpointPolicy) ConsumeMapChanges() ChangeState {
 	features := p.selectorPolicy.L4Policy.Ingress.features | p.selectorPolicy.L4Policy.Egress.features
 	return p.policyMapChanges.consumeMapChanges(p.PolicyOwner, p.policyMapState, p.SelectorCache, features)
 }
