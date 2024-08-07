@@ -107,7 +107,9 @@ func TestIntegrationK8s(t *testing.T) {
 		maps = newFakeLBMaps()
 	}
 
-	// TODO: Move this option somewhere sane.
+	//  As we're using k8s.Endpoints we need to set this to ask ParseEndpoint*
+	// to handle the termination state. Eventually this should migrate to the
+	// package for the k8s data source.
 	option.Config.EnableK8sTerminatingEndpoint = true
 
 	log := hivetest.Logger(t)
@@ -133,6 +135,7 @@ func TestIntegrationK8s(t *testing.T) {
 		writer *Writer
 		db     *statedb.DB
 		bo     *bpfOps
+		rec    reconciler.Reconciler[*Frontend]
 	)
 
 	h := hive.New(
@@ -170,15 +173,16 @@ func TestIntegrationK8s(t *testing.T) {
 					}
 					return &faultyLBMaps{
 						impl:               maps,
-						failureProbability: 0.10, // 10% chance of failure.
+						failureProbability: 0.1, // 10% chance of failure.
 					}
 				},
 			),
 
-			cell.Invoke(func(db_ *statedb.DB, w *Writer, bo_ *bpfOps) {
+			cell.Invoke(func(db_ *statedb.DB, w *Writer, bo_ *bpfOps, rec_ reconciler.Reconciler[*Frontend]) {
 				db = db_
 				writer = w
 				bo = bo_
+				rec = rec_
 			}),
 
 			// Provides [Writer] API and the load-balancing tables.
@@ -275,6 +279,32 @@ func TestIntegrationK8s(t *testing.T) {
 				t.FailNow()
 			}
 
+			// Force pruning and check again to make sure pruning did not mess things up.
+			rec.Prune()
+
+			if !assert.Eventually(
+				t,
+				func() bool {
+					ok := checkTablesAndMaps(db, writer, maps, testDataPath)
+					if !ok {
+						// Keep re-pruning since a fault may have been injected.
+						// FIXME: Reconciler likely should retry pruning automatically!
+						rec.Prune()
+					}
+					return ok
+				},
+				5*time.Second,
+				10*time.Millisecond,
+				"Mismatching tables and/or BPF maps AFTER PRUNING",
+			) {
+				logDiff(t, path.Join(testDataPath, "actual.tables"), path.Join(testDataPath, "expected.tables"))
+				logDiff(t, path.Join(testDataPath, "actual.maps"), path.Join(testDataPath, "expected.maps"))
+				t.FailNow()
+			}
+
+			// Snapshot the contents of the maps to test out pruning of state has been cleared.
+			snapshot := snapshotMaps(maps)
+
 			//
 			// Feed in deletions of all objects.
 			//
@@ -298,9 +328,8 @@ func TestIntegrationK8s(t *testing.T) {
 					lastDump = dump(maps, frontendAddrs[0], true)
 					return len(lastDump) == 0
 				},
-				time.Minute,
+				5*time.Second,
 				50*time.Millisecond) {
-				t.Logf("BPF cleanup failed. State: %#v", bo)
 				t.Fatalf("Expected BPF maps to be empty, instead they contain: %v", lastDump)
 			}
 
@@ -319,6 +348,28 @@ func TestIntegrationK8s(t *testing.T) {
 			// Test passed, remove the actual files in order not to leave them around.
 			os.Remove(path.Join(testDataPath, "actual.tables"))
 			os.Remove(path.Join(testDataPath, "actual.maps"))
+
+			// Test pruning by feeding back in the copy of the data in the maps
+			// and forcing the pruning.
+			snapshot.restore(maps)
+			rec.Prune()
+
+			lastDump = nil
+			if !assert.Eventually(
+				t,
+				func() bool {
+					lastDump = dump(maps, frontendAddrs[0], true)
+					ok := len(lastDump) == 0
+					if !ok {
+						// Keep re-pruning as a fault may have been injected.
+						rec.Prune()
+					}
+					return ok
+				},
+				5*time.Second,
+				50*time.Millisecond) {
+				t.Fatalf("Expected BPF maps to be empty after pruning, instead they contain: %v", lastDump)
+			}
 		})
 	}
 	h.Stop(log, context.TODO())

@@ -34,17 +34,19 @@ var ReconcilerCell = cell.Module(
 
 	cell.Provide(
 		newBPFOps,
+		newBPFReconciler,
 	),
 	cell.Invoke(
-		registerBPFReconciler,
+		// Force the registration even if none uses Reconciler[*Frontend].
+		func(reconciler.Reconciler[*Frontend]) {},
 	),
 )
 
-func registerBPFReconciler(p reconciler.Params, cfg Config, ops *bpfOps, w *Writer) error {
+func newBPFReconciler(p reconciler.Params, cfg Config, ops *bpfOps, w *Writer) (reconciler.Reconciler[*Frontend], error) {
 	if !w.IsEnabled() {
-		return nil
+		return nil, nil
 	}
-	_, err := reconciler.Register(
+	return reconciler.Register(
 		p,
 		w.fes,
 
@@ -63,7 +65,6 @@ func registerBPFReconciler(p reconciler.Params, cfg Config, ops *bpfOps, w *Writ
 			30*time.Minute,
 		),
 	)
-	return err
 }
 
 type bpfOps struct {
@@ -84,10 +85,12 @@ type bpfOps struct {
 	// backends.
 	backendReferences map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]
 
-	prevSourceRanges map[loadbalancer.L3n4Addr]sets.Set[cidr.CIDR]
+	// prevSourceRanges is the source ranges that were previously reconciled.
+	// This is used when updating to remove orphans.
+	prevSourceRanges map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]
 
 	// nodePortAddrs are the last used NodePort addresses for a given NodePort
-	// (or HostPort) ervice (by port).
+	// (or HostPort) service (by port).
 	nodePortAddrs map[uint16][]netip.Addr
 }
 
@@ -111,7 +114,7 @@ func newBPFOps(lc cell.Lifecycle, log *slog.Logger, cfg Config, lbmaps lbmaps) *
 		backendStates:      map[loadbalancer.L3n4Addr]backendState{},
 		backendReferences:  map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{},
 		nodePortAddrs:      map[uint16][]netip.Addr{},
-		prevSourceRanges:   map[loadbalancer.L3n4Addr]sets.Set[cidr.CIDR]{},
+		prevSourceRanges:   map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]{},
 		lbmaps:             lbmaps,
 	}
 	lc.Append(cell.Hook{OnStart: ops.start})
@@ -245,11 +248,11 @@ func (ops *bpfOps) deleteFrontend(fe *Frontend) error {
 	}
 
 	for cidr := range ops.prevSourceRanges[fe.Address] {
-		if cidr.IP.To4() == nil != fe.Address.IsIPv6() {
+		if cidr.Addr().Is6() != fe.Address.IsIPv6() {
 			continue
 		}
 		err := ops.lbmaps.DeleteSourceRange(
-			srcRangeKey(&cidr, uint16(feID), fe.Address.IsIPv6()),
+			srcRangeKey(cidr, uint16(feID), fe.Address.IsIPv6()),
 		)
 		if err != nil {
 			return fmt.Errorf("update source range: %w", err)
@@ -267,7 +270,9 @@ func (ops *bpfOps) deleteFrontend(fe *Frontend) error {
 
 func (ops *bpfOps) pruneServiceMaps() error {
 	toDelete := []lbmap.ServiceKey{}
-	svcCB := func(svcKey lbmap.ServiceKey, _ lbmap.ServiceValue) {
+	svcCB := func(svcKey lbmap.ServiceKey, svcValue lbmap.ServiceValue) {
+		svcKey = svcKey.ToHost()
+		svcValue = svcValue.ToHost()
 		ac, ok := cmtypes.AddrClusterFromIP(svcKey.GetAddress())
 		if !ok {
 			ops.log.Warn("Prune: bad address in service key", "key", svcKey)
@@ -279,7 +284,11 @@ func (ops *bpfOps) pruneServiceMaps() error {
 			Scope:       svcKey.GetScope(),
 		}
 		if _, ok := ops.backendReferences[addr]; !ok {
-			toDelete = append(toDelete, svcKey.ToNetwork())
+			addr.L4Addr.Protocol = loadbalancer.UDP
+			if _, ok := ops.backendReferences[addr]; !ok {
+				ops.log.Info("pruneServiceMaps: deleting", "id", svcValue.GetRevNat(), "addr", addr)
+				toDelete = append(toDelete, svcKey.ToNetwork())
+			}
 		}
 	}
 	if err := ops.lbmaps.DumpService(svcCB); err != nil {
@@ -298,14 +307,23 @@ func (ops *bpfOps) pruneBackendMaps() error {
 	toDelete := []lbmap.BackendKey{}
 	beCB := func(beKey lbmap.BackendKey, beValue lbmap.BackendValue) {
 		beValue = beValue.ToHost()
-		if _, ok := ops.backendStates[beValueToAddr(beValue)]; !ok {
-			ops.log.Info("pruneBackendMaps: deleting", "id", beKey.GetID(), "addr", beValueToAddr(beValue))
-			toDelete = append(toDelete, beKey)
+		addr := beValueToAddr(beValue)
+
+		// TODO TCP/UDP differentation.
+		addr.L4Addr.Protocol = loadbalancer.TCP
+		if _, ok := ops.backendStates[addr]; !ok {
+			addr.L4Addr.Protocol = loadbalancer.UDP
+			if _, ok := ops.backendStates[addr]; !ok {
+				ops.log.Info("pruneBackendMaps: deleting", "id", beKey.GetID(), "addr", addr)
+				toDelete = append(toDelete, beKey)
+			}
+
 		}
 	}
 	if err := ops.lbmaps.DumpBackend(beCB); err != nil {
 		ops.log.Warn("Failed to prune backend maps", "error", err)
 	}
+
 	for _, key := range toDelete {
 		if err := ops.lbmaps.DeleteBackend(key); err != nil {
 			ops.log.Warn("Failed to delete from backend map", "error", err)
@@ -360,6 +378,41 @@ func (ops *bpfOps) pruneRevNat() error {
 	return nil
 }
 
+func (ops *bpfOps) pruneSourceRanges() error {
+	toDelete := []lbmap.SourceRangeKey{}
+	cb := func(key lbmap.SourceRangeKey, value *lbmap.SourceRangeValue) {
+		key = key.ToHost()
+
+		// A SourceRange is OK if there's a service with this ID and the
+		// CIDR is part of the current set.
+		addr, ok := ops.serviceIDAlloc.entitiesID[loadbalancer.ID(key.GetRevNATID())]
+		if ok {
+			cidr := key.GetCIDR()
+			cidrAddr, _ := netip.AddrFromSlice(cidr.IP)
+			ones, _ := cidr.Mask.Size()
+			prefix := netip.PrefixFrom(cidrAddr, ones)
+			var cidrs sets.Set[netip.Prefix]
+			cidrs, ok = ops.prevSourceRanges[addr.L3n4Addr]
+			ok = ok && cidrs.Has(prefix)
+		}
+		if !ok {
+			ops.log.Info("pruneSourceRanges: deleting", "id", key.GetRevNATID(), "cidr", key.GetCIDR())
+			toDelete = append(toDelete, key)
+		}
+	}
+	err := ops.lbmaps.DumpSourceRange(cb)
+	if err != nil {
+		return err
+	}
+	for _, key := range toDelete {
+		err := ops.lbmaps.DeleteSourceRange(key.ToNetwork())
+		if err != nil {
+			ops.log.Warn("Failed to delete from source range map", "error", err)
+		}
+	}
+	return nil
+}
+
 // Prune implements reconciler.Operations.
 func (ops *bpfOps) Prune(_ context.Context, _ statedb.ReadTxn, _ statedb.Iterator[*Frontend]) error {
 	ops.log.Info("Pruning")
@@ -368,6 +421,7 @@ func (ops *bpfOps) Prune(_ context.Context, _ statedb.ReadTxn, _ statedb.Iterato
 		ops.pruneServiceMaps(),
 		ops.pruneBackendMaps(),
 		ops.pruneRevNat(),
+		ops.pruneSourceRanges(),
 		// TODO rest of the maps.
 	)
 }
@@ -541,7 +595,7 @@ func (ops *bpfOps) updateFrontend(fe *Frontend) error {
 	// not to leak a source range on failed operation.
 	prevSourceRanges := ops.prevSourceRanges[fe.Address]
 	if prevSourceRanges == nil {
-		prevSourceRanges = sets.New[cidr.CIDR]()
+		prevSourceRanges = sets.New[netip.Prefix]()
 		ops.prevSourceRanges[fe.Address] = prevSourceRanges
 	}
 	orphanSourceRanges := prevSourceRanges.Clone()
@@ -550,25 +604,26 @@ func (ops *bpfOps) updateFrontend(fe *Frontend) error {
 		if cidr.IP.To4() == nil != fe.Address.IsIPv6() {
 			continue
 		}
+		prefix := cidrToPrefix(cidr)
 
 		err := ops.lbmaps.UpdateSourceRange(
-			srcRangeKey(&cidr, uint16(feID), fe.Address.IsIPv6()),
+			srcRangeKey(prefix, uint16(feID), fe.Address.IsIPv6()),
 			srcRangeValue,
 		)
 		if err != nil {
 			return fmt.Errorf("update source range: %w", err)
 		}
 
-		orphanSourceRanges.Delete(cidr)
-		prevSourceRanges.Insert(cidr)
+		orphanSourceRanges.Delete(prefix)
+		prevSourceRanges.Insert(prefix)
 	}
 	// Remove orphan source ranges.
 	for cidr := range orphanSourceRanges {
-		if cidr.IP.To4() == nil != fe.Address.IsIPv6() {
+		if cidr.Addr().Is6() != fe.Address.IsIPv6() {
 			continue
 		}
 		err := ops.lbmaps.DeleteSourceRange(
-			srcRangeKey(&cidr, uint16(feID), fe.Address.IsIPv6()),
+			srcRangeKey(cidr, uint16(feID), fe.Address.IsIPv6()),
 		)
 		if err != nil {
 			return fmt.Errorf("update source range: %w", err)
@@ -957,20 +1012,28 @@ func newID(svc loadbalancer.L3n4Addr, id loadbalancer.ID) *loadbalancer.L3n4Addr
 	}
 }
 
-func srcRangeKey(cidr *cidr.CIDR, revNATID uint16, ipv6 bool) lbmap.SourceRangeKey {
+func srcRangeKey(cidr netip.Prefix, revNATID uint16, ipv6 bool) lbmap.SourceRangeKey {
 	const (
 		lpmPrefixLen4 = 16 + 16 // sizeof(SourceRangeKey4.RevNATID)+sizeof(SourceRangeKey4.Pad)
 		lpmPrefixLen6 = 16 + 16 // sizeof(SourceRangeKey6.RevNATID)+sizeof(SourceRangeKey6.Pad)
 	)
-	ones, _ := cidr.Mask.Size()
+	ones := cidr.Bits()
 	id := byteorder.HostToNetwork16(revNATID)
 	if ipv6 {
 		key := &lbmap.SourceRangeKey6{PrefixLen: uint32(ones) + lpmPrefixLen6, RevNATID: id}
-		copy(key.Address[:], cidr.IP.To16())
+		as16 := cidr.Addr().As16()
+		copy(key.Address[:], as16[:])
 		return key
 	} else {
 		key := &lbmap.SourceRangeKey4{PrefixLen: uint32(ones) + lpmPrefixLen4, RevNATID: id}
-		copy(key.Address[:], cidr.IP.To4())
+		as4 := cidr.Addr().As4()
+		copy(key.Address[:], as4[:])
 		return key
 	}
+}
+
+func cidrToPrefix(cidr cidr.CIDR) netip.Prefix {
+	cidrAddr, _ := netip.AddrFromSlice(cidr.IP)
+	ones, _ := cidr.Mask.Size()
+	return netip.PrefixFrom(cidrAddr, ones)
 }
