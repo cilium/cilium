@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
@@ -79,6 +80,8 @@ type userNotification struct {
 // SelectorCache caches identities, identity selectors, and the
 // subsets of identities each selector selects.
 type SelectorCache struct {
+	versionManager *versioned.Manager
+
 	prefixMap lock.Map[identity.NumericIdentity, netip.Prefix]
 
 	mutex lock.RWMutex
@@ -105,6 +108,13 @@ type SelectorCache struct {
 	startNotificationsHandlerOnce sync.Once
 }
 
+// GetHandle returns a Handle for the current version and a closer for releasing old versions held
+// for this version.
+// 'name' is for debugging purposes only
+func (sc *SelectorCache) GetHandle(name string) versioned.Handle {
+	return sc.versionManager.GetHandle(name)
+}
+
 // GetModel returns the API model of the SelectorCache.
 func (sc *SelectorCache) GetModel() models.SelectorCache {
 	sc.mutex.RLock()
@@ -112,8 +122,13 @@ func (sc *SelectorCache) GetModel() models.SelectorCache {
 
 	selCacheMdl := make(models.SelectorCache, 0, len(sc.selectors))
 
+	// Get handle to the current version. Any concurrent updates will not be visible in the
+	// returned model.
+	handle := sc.versionManager.GetHandle("GetModel")
+	defer handle.Release()
+
 	for selector, idSel := range sc.selectors {
-		selections := idSel.GetSelections()
+		selections := idSel.GetSelections(handle)
 		ids := make([]int64, 0, len(selections))
 		for i := range selections {
 			ids = append(ids, int64(selections[i]))
@@ -185,6 +200,12 @@ func NewSelectorCache(ids identity.IdentityMap) *SelectorCache {
 		selectors: make(map[string]*identitySelector),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
+	sc.versionManager = versioned.NewVersionManager(func(keepVersion versioned.Version) {
+		// Scanning through all selections for this is not very efficient
+		for _, idSel := range sc.selectors {
+			versioned.Cleaner(&idSel.selections, keepVersion)
+		}
+	})
 
 	for nid, lbls := range ids {
 		// store prefix into prefix map
@@ -208,8 +229,6 @@ func (sc *SelectorCache) SetLocalIdentityNotifier(pop identityNotifier) {
 }
 
 var (
-	// Empty slice of numeric identities used for all selectors that select nothing
-	emptySelection identity.NumericIdentitySlice
 	// wildcardSelectorKey is used to compare if a key is for a wildcard
 	wildcardSelectorKey = api.WildcardEndpointSelector.LabelSelector.String()
 	// noneSelectorKey is used to compare if a key is for "reserved:none"
@@ -262,6 +281,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls labels.L
 	return sc.addSelector(user, lbls, key, source)
 }
 
+// must hold lock for writing
 func (sc *SelectorCache) addSelector(user CachedSelectionUser, lbls labels.LabelArray, key string, source selectorSource) (CachedSelector, bool) {
 	idSel := &identitySelector{
 		key:              key,
@@ -270,6 +290,7 @@ func (sc *SelectorCache) addSelector(user CachedSelectionUser, lbls labels.Label
 		source:           source,
 		metadataLbls:     lbls,
 	}
+
 	sc.selectors[key] = idSel
 
 	// Scan the cached set of IDs to determine any new matchers
@@ -287,7 +308,9 @@ func (sc *SelectorCache) addSelector(user CachedSelectionUser, lbls labels.Label
 
 	// Create the immutable slice representation of the selected
 	// numeric identities
-	idSel.updateSelections()
+	currentVersion, nextVersion := sc.versionManager.GetVersion()
+	idSel.updateSelections(nextVersion)
+	sc.versionManager.PublishVersion(currentVersion, nextVersion)
 
 	return idSel, idSel.addUser(user)
 
@@ -297,9 +320,9 @@ func (sc *SelectorCache) addSelector(user CachedSelectionUser, lbls labels.Label
 // selector cache, returning nil if one can not be found.
 func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelector) CachedSelector {
 	key := selector.CachedString()
-	sc.mutex.Lock()
+	sc.mutex.RLock()
 	idSel := sc.selectors[key]
-	sc.mutex.Unlock()
+	sc.mutex.RUnlock()
 	return idSel
 }
 
@@ -449,6 +472,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 		sc.idCache[numericID] = newIdentity(numericID, lbls)
 	}
 
+	currentVersion, nextVersion := sc.versionManager.GetVersion()
 	if len(deleted)+len(added) > 0 {
 		// Iterate through all locally used identity selectors and
 		// update the cached numeric identities as required.
@@ -473,11 +497,12 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				}
 			}
 			if len(dels)+len(adds) > 0 {
-				idSel.updateSelections()
+				idSel.updateSelections(nextVersion)
 				idSel.notifyUsers(sc, adds, dels, wg)
 			}
 		}
 	}
+	sc.versionManager.PublishVersion(currentVersion, nextVersion)
 }
 
 // GetPrefix returns the most specific CIDR for an identity, if any.

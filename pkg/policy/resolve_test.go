@@ -241,7 +241,8 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		_ = ip.DistillPolicy(DummyOwner{}, false)
+		policy := ip.DistillPolicy(DummyOwner{}, false)
+		policy.Ready()
 		ip.Detach()
 	}
 }
@@ -252,7 +253,8 @@ func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		_ = ip.DistillPolicy(DummyOwner{}, false)
+		policy := ip.DistillPolicy(DummyOwner{}, false)
+		policy.Ready()
 		ip.Detach()
 	}
 }
@@ -263,7 +265,8 @@ func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		_ = ip.DistillPolicy(DummyOwner{}, false)
+		policy := ip.DistillPolicy(DummyOwner{}, false)
+		policy.Ready()
 		ip.Detach()
 	}
 }
@@ -313,6 +316,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	require.Equal(t, redirectTypeEnvoy, selPolicy.L4Policy.redirectTypes)
 
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+	policy.Ready()
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -412,10 +416,11 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
-
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
+
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+	policy.Ready()
 
 	cachedSelectorHost := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameHost])
 	require.NotNil(t, cachedSelectorHost)
@@ -516,7 +521,9 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	defer repo.Mutex.RUnlock()
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
+
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+	policy.Ready()
 
 	rule1MapStateEntry := NewMapStateEntry(td.wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, 0, "", 0, false, DefaultAuthType, AuthTypeDisabled)
 	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
@@ -640,7 +647,9 @@ func TestMapStateWithIngress(t *testing.T) {
 	defer repo.Mutex.RUnlock()
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
+
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+	policy.Ready()
 
 	// Add new identity to test accumulation of MapChanges
 	added1 := identity.IdentityMap{
