@@ -526,6 +526,7 @@ openSUSE
 openapi
 openssl
 originatingTLS
+oseq
 pahole
 parsable
 parserfactory
