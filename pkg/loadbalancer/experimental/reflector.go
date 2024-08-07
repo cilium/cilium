@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -73,12 +74,16 @@ func registerK8sReflector(p reflectorParams) {
 }
 
 func runResourceReflector(ctx context.Context, p reflectorParams, initComplete func(WriteTxn)) {
+	const (
+		bufferSize = 300
+		waitTime   = 10 * time.Millisecond
+	)
+
 	// Buffer the events to commit in larger write transactions.
 	svcEvents := stream.ToChannel(ctx,
 		stream.Buffer(
 			p.ServicesResource,
-			300,                 // buffer size
-			10*time.Millisecond, // wait time
+			bufferSize, waitTime,
 			bufferEvent[*slim_corev1.Service],
 		),
 	)
@@ -86,8 +91,7 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 		ctx,
 		stream.Buffer(
 			p.EndpointsResource,
-			300,                 // buffer size
-			10*time.Millisecond, // wait time
+			bufferSize, waitTime,
 			bufferEvent[*k8s.Endpoints],
 		),
 	)
@@ -95,8 +99,7 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 		ctx,
 		stream.Buffer(
 			p.PodsResource,
-			300,                 // buffer size
-			10*time.Millisecond, // wait time
+			bufferSize, waitTime,
 			bufferEvent[*slim_corev1.Pod],
 		),
 	)
@@ -104,11 +107,32 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 	// Keep track of currently existing backends by endpoint slice.
 	currentBackends := map[string]sets.Set[loadbalancer.L3n4Addr]{}
 
+	// Track which service has associated endpoints to avoid creating the service&frontends
+	// when there are no endpoints for it yet. This is critical during restoration to avoid
+	// going temporarily to zero backends on restart.
+	endpointsByService := counter.Counter[loadbalancer.ServiceName]{}
+
+	// Services that are waiting for backends to appear before they're committed.
+	pendingServices := map[loadbalancer.ServiceName]*slim_corev1.Service{}
+
 	remainingSyncs := 3
 	markSync := func(txn WriteTxn) {
 		remainingSyncs--
 		if remainingSyncs == 0 {
 			initComplete(txn)
+		}
+	}
+
+	upsertService := func(txn WriteTxn, obj *slim_corev1.Service) {
+		svc, fes := convertService(obj)
+		if svc == nil {
+			return
+		}
+		if err := p.Writer.UpsertServiceAndFrontends(txn, svc, fes...); err != nil {
+			// NOTE: Opting to panic on these failures for now to catch issues early.
+			// The production version of this needs to handle potential validation or
+			// conflict issues correctly.
+			panic(fmt.Sprintf("FIXME: UpsertServiceAndFrontends failed: %s", err))
 		}
 	}
 
@@ -137,18 +161,19 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 					markSync(txn)
 
 				case resource.Upsert:
-					svc, fes := convertService(obj)
-					if svc == nil {
-						continue
+					name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
+
+					if endpointsByService[name] == 0 {
+						// We have not yet seen backends for this service. Postpone its handling
+						// until they've been seen.
+						pendingServices[name] = obj
+						break
 					}
-					if err := p.Writer.UpsertServiceAndFrontends(txn, svc, fes...); err != nil {
-						// NOTE: Opting to panic on these failures for now to catch issues early.
-						// The production version of this needs to handle potential validation or
-						// conflict issues correctly.
-						panic(fmt.Sprintf("FIXME: UpsertServiceAndFrontends failed: %s", err))
-					}
+					upsertService(txn, obj)
+
 				case resource.Delete:
 					name := loadbalancer.ServiceName{Namespace: obj.Namespace, Name: obj.Name}
+					delete(pendingServices, name)
 					if err := p.Writer.DeleteServiceAndFrontends(txn, name); err != nil {
 						// NOTE: Opting to panic on these failures for now to catch issues early.
 						// The production version of this needs to handle potential validation or
@@ -200,6 +225,13 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 						p.Writer.ReleaseBackend(txn, name, orphan)
 					}
 					currentBackends[obj.EndpointSliceName] = newAddrs
+					endpointsByService.Add(name)
+
+					// See if there was a service waiting for the endpoints.
+					if svc, found := pendingServices[name]; found {
+						upsertService(txn, svc)
+						delete(pendingServices, name)
+					}
 
 				case resource.Delete:
 					// Release the backends created before.
@@ -207,6 +239,7 @@ func runResourceReflector(ctx context.Context, p reflectorParams, initComplete f
 						Name:      obj.ServiceID.Name,
 						Namespace: obj.ServiceID.Namespace,
 					}
+					endpointsByService.Delete(name)
 					for be := range currentBackends[obj.EndpointSliceName] {
 						p.Writer.ReleaseBackend(txn, name, be)
 					}
