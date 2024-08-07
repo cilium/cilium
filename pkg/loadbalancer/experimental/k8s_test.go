@@ -87,8 +87,45 @@ func deleteEvent[Obj k8sRuntime.Object](obj Obj) resource.Event[Obj] {
 }
 
 func TestIntegrationK8s(t *testing.T) {
-	var maps lbmaps
+	t.Parallel()
 
+	dirs, err := os.ReadDir("testdata")
+	require.NoError(t, err, "ReadDir(testdata)")
+
+	for _, ent := range dirs {
+		if !ent.IsDir() {
+			continue
+		}
+
+		testDataPath := path.Join("testdata", ent.Name())
+
+		// Skip directories that don't have any yaml files. This avoids issues when
+		// switching branches and having leftover "actual" files.
+		if !hasYamlFiles(testDataPath) {
+			continue
+		}
+		t.Run(ent.Name(), func(t *testing.T) {
+			testIntegrationK8s(t, testDataPath)
+		})
+	}
+}
+
+func testIntegrationK8s(t *testing.T, testDataPath string) {
+	//  As we're using k8s.Endpoints we need to set this to ask ParseEndpoint*
+	// to handle the termination state. Eventually this should migrate to the
+	// package for the k8s data source.
+	option.Config.EnableK8sTerminatingEndpoint = true
+
+	extConfig := externalConfig{
+		ExternalClusterIP:     false,
+		EnableSessionAffinity: true,
+		NodePortMin:           option.NodePortMinDefault,
+		NodePortMax:           option.NodePortMaxDefault,
+	}
+
+	log := hivetest.Logger(t)
+
+	var maps lbmaps
 	if testutils.IsPrivileged() {
 		maps = &realLBMaps{
 			pinned: false,
@@ -105,20 +142,6 @@ func TestIntegrationK8s(t *testing.T) {
 	} else {
 		maps = newFakeLBMaps()
 	}
-
-	//  As we're using k8s.Endpoints we need to set this to ask ParseEndpoint*
-	// to handle the termination state. Eventually this should migrate to the
-	// package for the k8s data source.
-	option.Config.EnableK8sTerminatingEndpoint = true
-
-	extConfig := externalConfig{
-		ExternalClusterIP:     false,
-		EnableSessionAffinity: true,
-		NodePortMin:           option.NodePortMinDefault,
-		NodePortMax:           option.NodePortMaxDefault,
-	}
-
-	log := hivetest.Logger(t)
 
 	services := make(chan resource.Event[*slim_corev1.Service], 1)
 	services <- resource.Event[*slim_corev1.Service]{
@@ -232,149 +255,132 @@ func TestIntegrationK8s(t *testing.T) {
 	)
 
 	require.NoError(t, h.Start(log, context.TODO()))
+	t.Cleanup(func() {
+		assert.NoError(t, h.Stop(log, context.TODO()))
+	})
 
-	dirs, err := os.ReadDir("testdata")
-	require.NoError(t, err, "ReadDir(testdata)")
+	//
+	// Feed in all the test objects
+	//
+	// TODO: allow multiple stages in the style of test/controlplane.
 
-	for _, ent := range dirs {
-		if !ent.IsDir() {
-			continue
-		}
-		testDataPath := path.Join("testdata", ent.Name())
-
-		// Skip directories that don't have any yaml files. This avoids issues when
-		// switching branches and having leftover "actual" files.
-		if !hasYamlFiles(testDataPath) {
-			continue
-		}
-
-		t.Run(ent.Name(), func(t *testing.T) {
-
-			//
-			// Feed in all the test objects
-			//
-			// TODO: allow multiple stages in the style of test/controlplane.
-
-			for _, obj := range readObjects[*slim_corev1.Service](t, testDataPath, "service") {
-				services <- upsertEvent(obj)
-			}
-
-			for _, obj := range readObjects[*slim_corev1.Pod](t, testDataPath, "pod") {
-				pods <- upsertEvent(obj)
-			}
-
-			for _, obj := range readObjects[*slim_discovery_v1.EndpointSlice](t, testDataPath, "endpointslice") {
-				endpoints <- upsertEvent(k8s.ParseEndpointSliceV1(obj))
-			}
-
-			if !assert.Eventually(
-				t,
-				func() bool {
-					return checkTablesAndMaps(db, writer, maps, testDataPath)
-				},
-				5*time.Second,
-				10*time.Millisecond,
-				"Mismatching tables and/or BPF maps",
-			) {
-				logDiff(t, path.Join(testDataPath, "actual.tables"), path.Join(testDataPath, "expected.tables"))
-				logDiff(t, path.Join(testDataPath, "actual.maps"), path.Join(testDataPath, "expected.maps"))
-				t.FailNow()
-			}
-
-			// Force pruning and check again to make sure pruning did not mess things up.
-			rec.Prune()
-
-			if !assert.Eventually(
-				t,
-				func() bool {
-					ok := checkTablesAndMaps(db, writer, maps, testDataPath)
-					if !ok {
-						// Keep re-pruning since a fault may have been injected.
-						// FIXME: Reconciler likely should retry pruning automatically!
-						rec.Prune()
-					}
-					return ok
-				},
-				5*time.Second,
-				10*time.Millisecond,
-				"Mismatching tables and/or BPF maps AFTER PRUNING",
-			) {
-				logDiff(t, path.Join(testDataPath, "actual.tables"), path.Join(testDataPath, "expected.tables"))
-				logDiff(t, path.Join(testDataPath, "actual.maps"), path.Join(testDataPath, "expected.maps"))
-				t.FailNow()
-			}
-
-			// Snapshot the contents of the maps to test out pruning of state has been cleared.
-			snapshot := snapshotMaps(maps)
-
-			//
-			// Feed in deletions of all objects.
-			//
-			for _, obj := range readObjects[*slim_corev1.Service](t, testDataPath, "service") {
-				services <- deleteEvent(obj)
-			}
-
-			for _, obj := range readObjects[*slim_corev1.Pod](t, testDataPath, "pod") {
-				pods <- deleteEvent(obj)
-			}
-
-			for _, obj := range readObjects[*slim_discovery_v1.EndpointSlice](t, testDataPath, "endpointslice") {
-				endpoints <- deleteEvent(k8s.ParseEndpointSliceV1(obj))
-			}
-
-			// The reconciler should eventually clean up all the maps.
-			var lastDump []mapDump
-			if !assert.Eventually(
-				t,
-				func() bool {
-					lastDump = dump(maps, frontendAddrs[0], true)
-					return len(lastDump) == 0
-				},
-				5*time.Second,
-				50*time.Millisecond) {
-				t.Fatalf("Expected BPF maps to be empty, instead they contain: %v", lastDump)
-			}
-
-			// The tables should now all be empty.
-			require.Zero(t, writer.Frontends().NumObjects(db.ReadTxn()))
-			require.Zero(t, writer.Backends().NumObjects(db.ReadTxn()))
-			require.Zero(t, writer.Services().NumObjects(db.ReadTxn()))
-
-			// Reconciler state should be clean
-			assert.Len(t, bo.backendReferences, 0)
-			assert.Len(t, bo.backendStates, 0)
-			assert.Len(t, bo.nodePortAddrs, 0)
-			assert.Len(t, bo.serviceIDAlloc.entities, 0)
-			assert.Len(t, bo.backendIDAlloc.entities, 0)
-
-			// Test passed, remove the actual files in order not to leave them around.
-			os.Remove(path.Join(testDataPath, "actual.tables"))
-			os.Remove(path.Join(testDataPath, "actual.maps"))
-
-			// Test pruning by feeding back in the copy of the data in the maps
-			// and forcing the pruning.
-			snapshot.restore(maps)
-			rec.Prune()
-
-			lastDump = nil
-			if !assert.Eventually(
-				t,
-				func() bool {
-					lastDump = dump(maps, frontendAddrs[0], true)
-					ok := len(lastDump) == 0
-					if !ok {
-						// Keep re-pruning as a fault may have been injected.
-						rec.Prune()
-					}
-					return ok
-				},
-				5*time.Second,
-				50*time.Millisecond) {
-				t.Fatalf("Expected BPF maps to be empty after pruning, instead they contain: %v", lastDump)
-			}
-		})
+	for _, obj := range readObjects[*slim_corev1.Service](t, testDataPath, "service") {
+		services <- upsertEvent(obj)
 	}
-	h.Stop(log, context.TODO())
+
+	for _, obj := range readObjects[*slim_corev1.Pod](t, testDataPath, "pod") {
+		pods <- upsertEvent(obj)
+	}
+
+	for _, obj := range readObjects[*slim_discovery_v1.EndpointSlice](t, testDataPath, "endpointslice") {
+		endpoints <- upsertEvent(k8s.ParseEndpointSliceV1(obj))
+	}
+
+	if !assert.Eventually(
+		t,
+		func() bool {
+			return checkTablesAndMaps(db, writer, maps, testDataPath)
+		},
+		5*time.Second,
+		10*time.Millisecond,
+		"Mismatching tables and/or BPF maps",
+	) {
+		logDiff(t, path.Join(testDataPath, "actual.tables"), path.Join(testDataPath, "expected.tables"))
+		logDiff(t, path.Join(testDataPath, "actual.maps"), path.Join(testDataPath, "expected.maps"))
+		t.FailNow()
+	}
+
+	// Force pruning and check again to make sure pruning did not mess things up.
+	rec.Prune()
+
+	if !assert.Eventually(
+		t,
+		func() bool {
+			ok := checkTablesAndMaps(db, writer, maps, testDataPath)
+			if !ok {
+				// Keep re-pruning since a fault may have been injected.
+				// FIXME: Reconciler likely should retry pruning automatically!
+				rec.Prune()
+			}
+			return ok
+		},
+		5*time.Second,
+		10*time.Millisecond,
+		"Mismatching tables and/or BPF maps AFTER PRUNING",
+	) {
+		logDiff(t, path.Join(testDataPath, "actual.tables"), path.Join(testDataPath, "expected.tables"))
+		logDiff(t, path.Join(testDataPath, "actual.maps"), path.Join(testDataPath, "expected.maps"))
+		t.FailNow()
+	}
+
+	// Snapshot the contents of the maps to test out pruning of state has been cleared.
+	snapshot := snapshotMaps(maps)
+
+	//
+	// Feed in deletions of all objects.
+	//
+	for _, obj := range readObjects[*slim_corev1.Service](t, testDataPath, "service") {
+		services <- deleteEvent(obj)
+	}
+
+	for _, obj := range readObjects[*slim_corev1.Pod](t, testDataPath, "pod") {
+		pods <- deleteEvent(obj)
+	}
+
+	for _, obj := range readObjects[*slim_discovery_v1.EndpointSlice](t, testDataPath, "endpointslice") {
+		endpoints <- deleteEvent(k8s.ParseEndpointSliceV1(obj))
+	}
+
+	// The reconciler should eventually clean up all the maps.
+	var lastDump []mapDump
+	if !assert.Eventually(
+		t,
+		func() bool {
+			lastDump = dump(maps, frontendAddrs[0], true)
+			return len(lastDump) == 0
+		},
+		5*time.Second,
+		50*time.Millisecond) {
+		t.Fatalf("Expected BPF maps to be empty, instead they contain: %v", lastDump)
+	}
+
+	// The tables should now all be empty.
+	require.Zero(t, writer.Frontends().NumObjects(db.ReadTxn()))
+	require.Zero(t, writer.Backends().NumObjects(db.ReadTxn()))
+	require.Zero(t, writer.Services().NumObjects(db.ReadTxn()))
+
+	// Reconciler state should be clean
+	assert.Len(t, bo.backendReferences, 0)
+	assert.Len(t, bo.backendStates, 0)
+	assert.Len(t, bo.nodePortAddrs, 0)
+	assert.Len(t, bo.serviceIDAlloc.entities, 0)
+	assert.Len(t, bo.backendIDAlloc.entities, 0)
+
+	// Test passed, remove the actual files in order not to leave them around.
+	os.Remove(path.Join(testDataPath, "actual.tables"))
+	os.Remove(path.Join(testDataPath, "actual.maps"))
+
+	// Test pruning by feeding back in the copy of the data in the maps
+	// and forcing the pruning.
+	snapshot.restore(maps)
+	rec.Prune()
+
+	lastDump = nil
+	if !assert.Eventually(
+		t,
+		func() bool {
+			lastDump = dump(maps, frontendAddrs[0], true)
+			ok := len(lastDump) == 0
+			if !ok {
+				// Keep re-pruning as a fault may have been injected.
+				rec.Prune()
+			}
+			return ok
+		},
+		5*time.Second,
+		50*time.Millisecond) {
+		t.Fatalf("Expected BPF maps to be empty after pruning, instead they contain: %v", lastDump)
+	}
 }
 
 // sanitizeTables clears non-deterministic data in the table output such as timestamps.
