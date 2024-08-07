@@ -153,7 +153,7 @@ live-preview: builder-image ## Build and serve the documentation locally.
 update-requirements: base-image $(REQUIREMENTS_NODEP) ## Regenerate the requirements.txt file from requirements-min/requirements.txt.
 	@echo '## Auto-generated from $(REQUIREMENTS_NODEP) with "make update-requirements"' > $(REQUIREMENTS)
 	$(QUIET)$(DOCKER_CTR_BASE) $(DOCS_BASE_IMG) \
-		bash -c "pip install -r $(REQUIREMENTS_NODEP) && pip freeze -r $(REQUIREMENTS_NODEP) >> $(REQUIREMENTS)"
+		bash -c "export HOME=/tmp && pip install --no-warn-script-location -r $(REQUIREMENTS_NODEP) && pip freeze -r $(REQUIREMENTS_NODEP) >> $(REQUIREMENTS)"
 
 clean: ## Clean up all artefacts from documentation.
 	-$(QUIET)rm -rf _build _exts/__pycache__ _preview Pipfile Pipfile.lock
