@@ -15,6 +15,7 @@ sphinxcontrib-googleanalytics==0.4
 sphinxcontrib-openapi==0.8.1
 sphinxcontrib-spelling==8.0.0
 sphinxcontrib-websupport==1.2.4
+sphinxext-rediraffe==0.2.7
 
 # Linters
 rstcheck==6.2.0

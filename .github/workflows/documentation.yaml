@@ -61,6 +61,8 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           persist-credentials: false
+          # Needed to detect missing redirects
+          fetch-depth: 0
       - name: Build HTML
         uses: docker://quay.io/cilium/docs-builder:ea8511e4d2b39d2ef7a4c71edbe6eddb19e8bb5c@sha256:3a04bb23e017dfb229c0139a3ff7208a6d4ec3944bc24b8441c73ed7d70d781f
         with:
@@ -76,6 +78,7 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           persist-credentials: false
+          # Needed to detect missing redirects
       - name: Install Go
         uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
         with:
