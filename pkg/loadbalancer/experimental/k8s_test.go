@@ -33,7 +33,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_fake "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -112,6 +111,13 @@ func TestIntegrationK8s(t *testing.T) {
 	// package for the k8s data source.
 	option.Config.EnableK8sTerminatingEndpoint = true
 
+	extConfig := externalConfig{
+		ExternalClusterIP:     false,
+		EnableSessionAffinity: true,
+		NodePortMin:           option.NodePortMinDefault,
+		NodePortMax:           option.NodePortMaxDefault,
+	}
+
 	log := hivetest.Logger(t)
 
 	services := make(chan resource.Event[*slim_corev1.Service], 1)
@@ -139,24 +145,20 @@ func TestIntegrationK8s(t *testing.T) {
 	)
 
 	h := hive.New(
-		// FIXME.  Need this to avoid 1 second delay on metric operations.
-		// Figure out a better way to deal with this.
-		metrics.Cell,
-		cell.Provide(func() *option.DaemonConfig {
-			return &option.DaemonConfig{}
-		}),
-
 		cell.Module(
 			"loadbalancer-test",
 			"Test module",
 
-			cell.Provide(func() Config {
-				return Config{
-					EnableExperimentalLB: true,
-					RetryBackoffMin:      time.Millisecond,
-					RetryBackoffMax:      time.Millisecond,
-				}
-			}),
+			cell.Provide(
+				func() Config {
+					return Config{
+						EnableExperimentalLB: true,
+						RetryBackoffMin:      time.Millisecond,
+						RetryBackoffMax:      time.Millisecond,
+					}
+				},
+				func() externalConfig { return extConfig },
+			),
 
 			cell.Provide(func() streamsOut {
 				return streamsOut{
