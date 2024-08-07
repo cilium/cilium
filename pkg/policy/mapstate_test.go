@@ -1796,11 +1796,11 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, selectorCache, denyRules)
+		changes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, selectorCache, denyRules)
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equals(tt.state), "%s (MapState):\n%s", tt.name, policyMapState.Diff(tt.state))
-		require.EqualValues(t, tt.adds, adds, tt.name+" (adds)")
-		require.EqualValues(t, tt.deletes, deletes, tt.name+" (deletes)")
+		require.EqualValues(t, tt.adds, changes.Adds, tt.name+" (adds)")
+		require.EqualValues(t, tt.deletes, changes.Deletes, tt.name+" (deletes)")
 	}
 }
 
@@ -2136,11 +2136,11 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, x.hasAuth, x.authType)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, nil, authRules|denyRules)
+		changes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, nil, authRules|denyRules)
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equals(tt.state), "%s (MapState):\n%s", tt.name, policyMapState.Diff(tt.state))
-		require.EqualValues(t, tt.adds, adds, tt.name+" (adds)")
-		require.EqualValues(t, tt.deletes, deletes, tt.name+" (deletes)")
+		require.EqualValues(t, tt.adds, changes.Adds, tt.name+" (adds)")
+		require.EqualValues(t, tt.deletes, changes.Deletes, tt.name+" (deletes)")
 	}
 }
 
@@ -2719,12 +2719,8 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, selectorCache, denyRules)
-		changes = ChangeState{
-			Adds:    adds,
-			Deletes: deletes,
-			Old:     make(MapStateMap),
-		}
+		changes = policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, selectorCache, denyRules)
+		changes.Old = make(MapStateMap)
 
 		// Visibilty redirects need to be re-applied after consumeMapChanges()
 		for _, arg := range tt.visArgs {

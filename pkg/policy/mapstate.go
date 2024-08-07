@@ -2015,11 +2015,12 @@ func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []id
 
 // consumeMapChanges transfers the incremental changes from MapChanges to the caller,
 // while applying the changes to PolicyMapState.
-func (mc *MapChanges) consumeMapChanges(policyOwner PolicyOwner, policyMapState MapState, identities Identities, features policyFeatures) (adds, deletes Keys) {
+func (mc *MapChanges) consumeMapChanges(policyOwner PolicyOwner, policyMapState MapState, identities Identities, features policyFeatures) ChangeState {
 	mc.mutex.Lock()
 	changes := ChangeState{
 		Adds:    make(Keys, len(mc.changes)),
 		Deletes: make(Keys, len(mc.changes)),
+		Old:     make(map[Key]MapStateEntry),
 	}
 	var redirects map[string]uint16
 	if policyOwner != nil {
@@ -2058,5 +2059,5 @@ func (mc *MapChanges) consumeMapChanges(policyOwner PolicyOwner, policyMapState 
 	}
 	mc.changes = nil
 	mc.mutex.Unlock()
-	return changes.Adds, changes.Deletes
+	return changes
 }
