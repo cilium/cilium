@@ -1249,8 +1249,7 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	//  ConsumeMapChanges() applies the incremental updates to the
 	//  desired policy and only returns changes that need to be
 	//  applied to the Endpoint's bpf policy map.
-	adds, deletes := e.desiredPolicy.ConsumeMapChanges()
-	changes := policy.ChangeState{Adds: adds}
+	changes := e.desiredPolicy.ConsumeMapChanges()
 
 	// Add possible visibility redirects due to incrementally added keys
 	if e.visibilityPolicy != nil {
@@ -1271,10 +1270,10 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	}
 
 	// Add policy map entries before deleting to avoid transient drops
-	for keyToAdd := range adds {
+	for keyToAdd := range changes.Adds {
 		// AddVisibilityKeys() records changed keys in both 'deletes' (old value) and 'adds' (new value).
 		// Remove the key from 'deletes' to keep the new entry.
-		delete(deletes, keyToAdd)
+		delete(changes.Deletes, keyToAdd)
 
 		entry, exists := e.desiredPolicy.GetPolicyMap().Get(keyToAdd)
 		if !exists {
@@ -1289,7 +1288,7 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 		}
 	}
 
-	for keyToDelete := range deletes {
+	for keyToDelete := range changes.Deletes {
 		if !e.deletePolicyKey(keyToDelete, true) {
 			errors++
 		}
@@ -1298,10 +1297,10 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	if errors > 0 {
 		return fmt.Errorf("updating desired PolicyMap state failed")
 	}
-	if len(adds)+len(deletes) > 0 {
+	if len(changes.Adds)+len(changes.Deletes) > 0 {
 		e.getLogger().WithFields(logrus.Fields{
-			logfields.AddedPolicyID:   adds,
-			logfields.DeletedPolicyID: deletes,
+			logfields.AddedPolicyID:   changes.Adds,
+			logfields.DeletedPolicyID: changes.Deletes,
 		}).Debug("Applied policy map updates due identity changes")
 	}
 

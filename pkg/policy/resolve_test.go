@@ -742,17 +742,17 @@ func TestMapStateWithIngress(t *testing.T) {
 	cachedSelectorTest = td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.Nil(t, cachedSelectorTest)
 
-	adds, deletes := policy.ConsumeMapChanges()
+	changes := policy.ConsumeMapChanges()
 	// maps on the policy got cleared
 	require.Nil(t, policy.policyMapChanges.changes)
 
 	require.Equal(t, Keys{
 		{Identity: 192, DestPort: 80, Nexthdr: 6}: {},
 		{Identity: 194, DestPort: 80, Nexthdr: 6}: {},
-	}, adds)
+	}, changes.Adds)
 	require.Equal(t, Keys{
 		{Identity: 193, DestPort: 80, Nexthdr: 6}: {},
-	}, deletes)
+	}, changes.Deletes)
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.

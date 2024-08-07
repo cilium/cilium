@@ -635,16 +635,16 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 		}, td.sc),
 	}
 
-	adds, deletes := policy.ConsumeMapChanges()
+	changes := policy.ConsumeMapChanges()
 	// maps on the policy got cleared
 
 	require.Equal(t, Keys{
 		{Identity: 192, DestPort: 80, Nexthdr: 6}: {},
 		{Identity: 194, DestPort: 80, Nexthdr: 6}: {},
-	}, adds)
+	}, changes.Adds)
 	require.Equal(t, Keys{
 		{Identity: 193, DestPort: 80, Nexthdr: 6}: {},
-	}, deletes)
+	}, changes.Deletes)
 
 	// Have to remove circular reference before testing for Equality to avoid an infinite loop
 	policy.selectorPolicy.Detach()
