@@ -69,8 +69,8 @@ type CiliumLoadBalancerIPPoolSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	ServiceSelector *slimv1.LabelSelector `json:"serviceSelector"`
-	// AllowFirstLastIPs, if set to `yes` means that the first and last IPs of each CIDR will be allocatable.
-	// If `no` or undefined, these IPs will be reserved. This field is ignored for /{31,32} and /{127,128} CIDRs since
+	// AllowFirstLastIPs, if set to `Yes` or undefined means that the first and last IPs of each CIDR will be allocatable.
+	// If `No`, these IPs will be reserved. This field is ignored for /{31,32} and /{127,128} CIDRs since
 	// reserving the first and last IPs would make the CIDRs unusable.
 	//
 	// +kubebuilder:validation:Optional
