@@ -5,8 +5,10 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -26,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/exporter"
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
+	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/hubble/monitor"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
@@ -186,16 +189,32 @@ func (d *Daemon) launchHubble() {
 		}()
 	}
 
+	var srv *http.Server
 	if option.Config.HubbleMetricsServer != "" {
 		logger.WithFields(logrus.Fields{
 			"address": option.Config.HubbleMetricsServer,
 			"metrics": option.Config.HubbleMetrics,
 			"tls":     option.Config.HubbleMetricsServerTLSEnabled,
 		}).Info("Starting Hubble Metrics server")
-		if err := metrics.EnableMetrics(log, option.Config.HubbleMetricsServer, metricsTLSConfig, option.Config.HubbleMetrics, grpcMetrics, option.Config.EnableHubbleOpenMetrics); err != nil {
-			logger.WithError(err).Warn("Failed to initialize Hubble metrics server")
+
+		err := metrics.InitMetrics(metrics.Registry, api.ParseMetricList(option.Config.HubbleMetrics), grpcMetrics)
+		if err != nil {
+			log.WithError(err).Error("Unable to setup metrics: %w", err)
 			return
 		}
+
+		srv = &http.Server{
+			Addr:    option.Config.HubbleMetricsServer,
+			Handler: nil,
+		}
+		metrics.InitMetricsServerHandler(srv, metrics.Registry, option.Config.EnableHubbleOpenMetrics)
+
+		go func() {
+			if err := metrics.StartMetricsServer(srv, log, metricsTLSConfig, grpcMetrics); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				logger.WithError(err).Error("Hubble metrics server encountered an error")
+				return
+			}
+		}()
 
 		observerOpts = append(observerOpts,
 			observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
@@ -342,6 +361,9 @@ func (d *Daemon) launchHubble() {
 		<-d.ctx.Done()
 		localSrv.Stop()
 		peerSvc.Close()
+		if srv != nil {
+			srv.Close()
+		}
 	}()
 
 	// configure another hubble instance that serve fewer gRPC services
