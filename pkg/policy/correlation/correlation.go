@@ -153,6 +153,23 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 			Nexthdr:          key.Nexthdr,
 			TrafficDirection: key.TrafficDirection,
 		})
+	case monitorAPI.PolicyMatchProtoOnly:
+		// Check for protocol-only policies.
+		//
+		// Consider the network policy:
+		//
+		// spec:
+		//  podSelector: {}
+		//  ingress:
+		//  - ports:
+		//    - protocol: TCP
+		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
+			Identity:         0,
+			DestPort:         0,
+			InvertedPortMask: 0xffff, // this is a wildcard
+			Nexthdr:          key.Nexthdr,
+			TrafficDirection: key.TrafficDirection,
+		})
 	case monitorAPI.PolicyMatchL3Only:
 		// Check for L3 policy rules
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
