@@ -1,3 +1,17 @@
+{{/* validate deprecated options are not being used */}}
+{{- if .Values.tunnel }}
+  {{ fail "tunnel was deprecated in v1.14 and has been removed in v1.15. For details please refer to https://docs.cilium.io/en/v1.15/operations/upgrade/#helm-options" }}
+{{- end }}
+{{- if or (dig "clustermesh" "apiserver" "tls" "ca" "cert" "" .Values.AsMap) (dig "clustermesh" "apiserver" "tls" "ca" "key" "" .Values.AsMap) }}
+  {{ fail "clustermesh.apiserver.tls.ca.cert and clustermesh.apiserver.tls.ca.key were deprecated in v1.14 and has been removed in v1.15. For details please refer to https://docs.cilium.io/en/v1.15/operations/upgrade/#helm-options" }}
+{{- end }}
+{{- if .Values.enableK8sEventHandover }}
+  {{ fail "enableK8sEventHandover was deprecated in v1.14 and has been removed in v1.15. For details please refer to https://docs.cilium.io/en/v1.15/operations/upgrade/#helm-options" }}
+{{- end }}
+{{- if .Values.enableCnpStatusUpdates }}
+  {{ fail "enableCnpStatusUpdates was deprecated in v1.14 and has been removed in v1.15. For details please refer to https://docs.cilium.io/en/v1.15/operations/upgrade/#helm-options" }}
+{{- end }}
+
 {{/* validate hubble config */}}
 {{- if and .Values.hubble.ui.enabled (not .Values.hubble.ui.standalone.enabled) }}
   {{- if not .Values.hubble.relay.enabled }}
