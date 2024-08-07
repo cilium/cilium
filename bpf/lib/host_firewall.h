@@ -69,7 +69,7 @@ ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	}
 	ct_buffer->l4_off = l3_off + hdrlen;
 	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ct_buffer->l4_off,
-				    CT_EGRESS, NULL, &ct_buffer->monitor);
+				    CT_EGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
 	return true;
 }
 
@@ -196,7 +196,7 @@ ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	}
 	ct_buffer->l4_off = ETH_HLEN + hdrlen;
 	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ct_buffer->l4_off,
-				    CT_INGRESS, NULL, &ct_buffer->monitor);
+				    CT_INGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
 
 	return true;
 }
@@ -345,7 +345,7 @@ ipv4_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	tuple->saddr = ip4->saddr;
 	ct_buffer->l4_off = l3_off + ipv4_hdrlen(ip4);
 	ct_buffer->ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, ip4, ct_buffer->l4_off,
-				    CT_EGRESS, NULL, &ct_buffer->monitor);
+				    CT_EGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
 	return true;
 }
 
@@ -466,7 +466,7 @@ ipv4_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct iphdr *ip4,
 	tuple->saddr = ip4->saddr;
 	ct_buffer->l4_off = l3_off + ipv4_hdrlen(ip4);
 	ct_buffer->ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, ip4, ct_buffer->l4_off,
-				    CT_INGRESS, NULL, &ct_buffer->monitor);
+				    CT_INGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
 
 	return true;
 }
