@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -21,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -179,6 +181,14 @@ func GetIPv4AllocRange() *cidr.CIDR {
 // GetIPv6AllocRange returns the IPv6 allocation prefix of this node
 func GetIPv6AllocRange() *cidr.CIDR {
 	return getLocalNode().IPv6AllocCIDR.DeepCopy()
+}
+
+// IsNodeIP determines if addr is one of the node's IP addresses,
+// and returns which type of address it is. "" is returned if addr
+// is not one of the node's IP addresses.
+func IsNodeIP(addr netip.Addr) addressing.AddressType {
+	n := getLocalNode()
+	return n.IsNodeIP(addr)
 }
 
 // GetIPv4 returns one of the IPv4 node address available with the following

@@ -81,11 +81,11 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	}
 	proxy, err := StartDNSProxy(dnsProxyConfig, // any address, any port, enable ipv4, enable ipv6, enable compression, max 1000 restore IPs
 		// LookupEPByIP
-		func(ip netip.Addr) (*endpoint.Endpoint, error) {
+		func(ip netip.Addr) (*endpoint.Endpoint, bool, error) {
 			if s.restoring {
-				return nil, fmt.Errorf("No EPs available when restoring")
+				return nil, false, fmt.Errorf("No EPs available when restoring")
 			}
-			return endpoint.NewTestEndpointWithState(tb, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), uint16(epID1), endpoint.StateReady), nil
+			return endpoint.NewTestEndpointWithState(tb, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), uint16(epID1), endpoint.StateReady), false, nil
 		},
 		// LookupSecIDByIP
 		func(ip netip.Addr) (ipcache.Identity, bool) {
