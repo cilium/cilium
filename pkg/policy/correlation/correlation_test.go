@@ -293,6 +293,63 @@ func TestCorrelatePolicy(t *testing.T) {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
+	// check allow-all rule.
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
+			Type: monitorAPI.MessageTypePolicyVerdict,
+		},
+		Verdict:          flowpb.Verdict_FORWARDED,
+		TrafficDirection: flowpb.TrafficDirection_EGRESS,
+		IP: &flowpb.IP{
+			Source:      localIP,
+			Destination: remoteIP,
+		},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
+			},
+		},
+		Source: &flowpb.Endpoint{
+			ID:       uint32(localID),
+			Identity: uint32(localIdentity),
+		},
+		Destination: &flowpb.Endpoint{
+			ID:       uint32(remoteID),
+			Identity: uint32(remoteIdentity),
+		},
+		PolicyMatchType: monitorAPI.PolicyMatchAll,
+	}
+
+	policyKey = policy.Key{
+		Identity:         uint32(0),
+		DestPort:         uint16(0),
+		InvertedPortMask: 0xffff, // this is a wildcard
+		Nexthdr:          uint8(u8proto.ANY),
+		TrafficDirection: trafficdirection.Egress.Uint8(),
+	}
+	ep = &testutils.FakeEndpointInfo{
+		ID:           localID,
+		IPv4:         net.ParseIP(localIP),
+		PodName:      "xwing",
+		PodNamespace: "default",
+		Labels:       []string{"a", "b", "c"},
+		PolicyMap: map[policy.Key]labels.LabelArrayList{
+			policyKey: {policyLabel},
+		},
+		PolicyRevision: 1,
+	}
+
+	CorrelatePolicy(endpointGetter, flow)
+
+	require.Nil(t, flow.EgressDeniedBy)
+	require.Nil(t, flow.IngressDeniedBy)
+	require.Nil(t, flow.IngressAllowedBy)
+	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+		t.Fatalf("not equal (-want +got):\n%s", diff)
+	}
+
 	// check same flow at ingress
 	flow = &flowpb.Flow{
 		EventType: &flowpb.CiliumEventType{
