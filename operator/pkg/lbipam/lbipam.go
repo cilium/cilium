@@ -518,27 +518,9 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 
 		// Check if all AllocatedIPs that are part of a sharing group, if this service is still compatible with them.
 		// If this service is no longer compatible, we have to remove the IP from the sharing group and re-allocate.
-		for _, allocIP := range sv.AllocatedIPs {
-			sharedViews, _ := allocIP.Origin.alloc.Get(allocIP.IP)
-			if len(sharedViews) == 1 {
-				// The allocation isn't shared, we can continue
-				continue
-			}
-
-			compatible := true
-			for _, sharedView := range sharedViews {
-				if sv != sharedView {
-					if c, _ := sharedView.isCompatible(sv); !c {
-						compatible = false
-						break
-					}
-				}
-			}
-
-			if !compatible {
-				errs = errors.Join(errs, releaseAllocIP())
-				break
-			}
+		if !ipam.checkSharingGroupCompatibility(sv) {
+			errs = errors.Join(errs, releaseAllocIP())
+			continue
 		}
 
 		// If the service is requesting specific IPs
@@ -575,6 +557,26 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 	}
 
 	return errs
+}
+
+func (ipam *LBIPAM) checkSharingGroupCompatibility(sv *ServiceView) bool {
+	for _, allocIP := range sv.AllocatedIPs {
+		sharedViews, _ := allocIP.Origin.alloc.Get(allocIP.IP)
+		if len(sharedViews) == 1 {
+			// The allocation isn't shared, we can continue
+			continue
+		}
+
+		for _, sharedView := range sharedViews {
+			if sv != sharedView {
+				if c, _ := sharedView.isCompatible(sv); !c {
+					return false
+				}
+			}
+		}
+	}
+
+	return true
 }
 
 func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool, err error) {
