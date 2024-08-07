@@ -468,6 +468,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 		{
 			Name:      "web-policy",
 			Namespace: "foo-namespace",
+			Kind:      "CiliumNetworkPolicy",
 			Labels: []string{
 				"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
 				"k8s:io.cilium.k8s.policy.name=web-policy",
