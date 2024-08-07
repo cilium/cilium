@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
@@ -1070,4 +1071,74 @@ func dump(lbmaps lbmaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []
 
 	sort.Strings(out)
 	return
+}
+
+type mapKeyValue struct {
+	key   bpf.MapKey
+	value bpf.MapValue
+}
+type mapSnapshot = []mapKeyValue
+
+type mapSnapshots struct {
+	services mapSnapshot
+	backends mapSnapshot
+	revNat   mapSnapshot
+	affinity mapSnapshot
+	srcRange mapSnapshot
+}
+
+func snapshotMaps(lbmaps lbmaps) (s mapSnapshots) {
+	svcCB := func(svcKey lbmap.ServiceKey, svcValue lbmap.ServiceValue) {
+		s.services = append(s.services, mapKeyValue{svcKey, svcValue})
+	}
+	if err := lbmaps.DumpService(svcCB); err != nil {
+		panic(err)
+	}
+
+	beCB := func(beKey lbmap.BackendKey, beValue lbmap.BackendValue) {
+		s.backends = append(s.backends, mapKeyValue{beKey, beValue})
+	}
+	if err := lbmaps.DumpBackend(beCB); err != nil {
+		panic(err)
+	}
+
+	revCB := func(revKey lbmap.RevNatKey, revValue lbmap.RevNatValue) {
+		s.revNat = append(s.revNat, mapKeyValue{revKey, revValue})
+	}
+	if err := lbmaps.DumpRevNat(revCB); err != nil {
+		panic(err)
+	}
+
+	affCB := func(affKey *lbmap.AffinityMatchKey, affValue *lbmap.AffinityMatchValue) {
+		s.affinity = append(s.revNat, mapKeyValue{affKey, affValue})
+	}
+	if err := lbmaps.DumpAffinityMatch(affCB); err != nil {
+		panic(err)
+	}
+
+	srcRangeCB := func(key lbmap.SourceRangeKey, value *lbmap.SourceRangeValue) {
+		s.srcRange = append(s.srcRange, mapKeyValue{key, value})
+	}
+	if err := lbmaps.DumpSourceRange(srcRangeCB); err != nil {
+		panic(err)
+	}
+	return
+}
+
+func (s *mapSnapshots) restore(lbmaps lbmaps) {
+	for _, kv := range s.services {
+		lbmaps.UpdateService(kv.key.(lbmap.ServiceKey), kv.value.(lbmap.ServiceValue))
+	}
+	for _, kv := range s.backends {
+		lbmaps.UpdateBackend(kv.key.(lbmap.BackendKey), kv.value.(lbmap.BackendValue))
+	}
+	for _, kv := range s.revNat {
+		lbmaps.UpdateRevNat(kv.key.(lbmap.RevNatKey), kv.value.(lbmap.RevNatValue))
+	}
+	for _, kv := range s.affinity {
+		lbmaps.UpdateAffinityMatch(kv.key.(*lbmap.AffinityMatchKey), kv.value.(*lbmap.AffinityMatchValue))
+	}
+	for _, kv := range s.srcRange {
+		lbmaps.UpdateSourceRange(kv.key.(lbmap.SourceRangeKey), kv.value.(*lbmap.SourceRangeValue))
+	}
 }
