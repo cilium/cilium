@@ -964,8 +964,9 @@ latter rule will have no effect.
           endpoint. This might change in the future when support for ranges is
           added.
 
-.. note:: Layer 7 rules are not currently supported in `HostPolicies`, i.e.,
-          policies that use :ref:`NodeSelector`.
+.. note:: In `HostPolicies`, i.e. policies that use :ref:`NodeSelector`,
+          only DNS layer 7 rules are currently supported.
+          Other types of layer 7 rules are not supported in `HostPolicies`.
 
 .. note:: Layer 7 policies will proxy traffic through a node-local :ref:`envoy`
           instance, which will either be deployed as a DaemonSet or embedded in the agent pod.
