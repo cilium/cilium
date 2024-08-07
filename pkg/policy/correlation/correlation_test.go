@@ -96,6 +96,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		{
 			Name:      "web-policy",
 			Namespace: "foo-namespace",
+			Kind:      utils.ResourceTypeCiliumNetworkPolicy,
 			Labels: []string{
 				"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
 				"k8s:io.cilium.k8s.policy.name=web-policy",
