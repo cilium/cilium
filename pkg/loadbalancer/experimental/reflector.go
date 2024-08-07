@@ -480,9 +480,6 @@ func netnsCookieSupported() bool {
 }
 
 func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod) error {
-	// FIXME: Remove orphaned backends (old pod IPs!). Instead of "UpsertBackends" could have
-	// "SetBackends" that specifies the complete set of backends for a service (from a specific source).
-
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	containers := slices.Concat(pod.Spec.InitContainers, pod.Spec.Containers)
 
@@ -510,13 +507,6 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 				Namespace: pod.ObjectMeta.Namespace,
 			}
 
-			// Collect the set of old backends to clean up later.
-			oldBackends := map[loadbalancer.L3n4Addr]*Backend{}
-			iter := params.Writer.Backends().List(wtxn, BackendByServiceName(serviceName))
-			for be, _, ok := iter.Next(); ok; be, _, ok = iter.Next() {
-				oldBackends[be.L3n4Addr] = be
-			}
-
 			var ipv4, ipv6 bool
 
 			// Construct the backends from the pod IPs and container ports.
@@ -539,20 +529,6 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 					},
 				}
 				bes = append(bes, bep)
-
-				// Remove this from the set of old backends so we don't clean it up.
-				delete(oldBackends, bep.L3n4Addr)
-			}
-
-			// Insert the new set of backends.
-			err = params.Writer.UpsertBackends(wtxn, serviceName, source.Kubernetes, bes...)
-			if err != nil {
-				return fmt.Errorf("UpsertBackends: %w", err)
-			}
-
-			// Release the orphaned backends.
-			for addr := range oldBackends {
-				params.Writer.ReleaseBackend(wtxn, serviceName, addr)
 			}
 
 			loopbackHostport := false
@@ -603,7 +579,7 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 			if err != nil {
 				return fmt.Errorf("UpsertService: %w", err)
 			}
-			if err := params.Writer.UpsertBackends(wtxn, serviceName, source.Kubernetes, bes...); err != nil {
+			if err := params.Writer.SetBackends(wtxn, serviceName, source.Kubernetes, bes...); err != nil {
 				return fmt.Errorf("UpsertBackends: %w", err)
 			}
 
