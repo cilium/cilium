@@ -268,6 +268,7 @@ __section_tail(CILIUM_MAP_CALLS, ID)						\
 static __always_inline								\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
+	enum ct_scope scope = SCOPE_BIDIR;					\
 	struct ct_buffer4 ct_buffer = {};					\
 	struct ipv4_ct_tuple *tuple;						\
 	struct ct_state *ct_state;						\
@@ -294,8 +295,22 @@ int NAME(struct __ctx_buff *ctx)						\
 		return drop_for_direction(ctx, DIR, DROP_CT_NO_MAP_FOUND,	\
 					  ext_err);				\
 										\
+	/* After a per-packet LB action, we only want the CT lookup to match	\
+	 * in forward direction.						\
+	 */									\
+	if (is_defined(ENABLE_PER_PACKET_LB) && DIR == CT_EGRESS) {		\
+		struct ct_state ct_state_new = {};				\
+		__u32 cluster_id;						\
+		__u16 proxy_port;						\
+										\
+		lb4_ctx_restore_state(ctx, &ct_state_new, &proxy_port,		\
+				      &cluster_id, false);			\
+		if (ct_state_new.rev_nat_index)					\
+			scope = SCOPE_FORWARD;					\
+	}									\
+										\
 	ct_buffer.ret = ct_lookup4(map, tuple, ctx, ip4, ct_buffer.l4_off,	\
-				   DIR, SCOPE_BIDIR, ct_state,			\
+				   DIR, scope, ct_state,			\
 				   &ct_buffer.monitor);				\
 	if (ct_buffer.ret < 0)							\
 		return drop_for_direction(ctx, DIR, ct_buffer.ret, ext_err);	\
@@ -315,6 +330,7 @@ __section_tail(CILIUM_MAP_CALLS, ID)						\
 static __always_inline								\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
+	enum ct_scope scope = SCOPE_BIDIR;					\
 	struct ct_buffer6 ct_buffer = {};					\
 	int ret = CTX_ACT_OK, hdrlen;						\
 	struct ipv6_ct_tuple *tuple;						\
@@ -340,8 +356,17 @@ int NAME(struct __ctx_buff *ctx)						\
 										\
 	ct_buffer.l4_off = ETH_HLEN + hdrlen;					\
 										\
+	if (is_defined(ENABLE_PER_PACKET_LB) && DIR == CT_EGRESS) {		\
+		struct ct_state ct_state_new = {};				\
+		__u16 proxy_port;						\
+										\
+		lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port, false);	\
+		if (ct_state_new.rev_nat_index)					\
+			scope = SCOPE_FORWARD;					\
+	}									\
+										\
 	ct_buffer.ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx,		\
-				   ct_buffer.l4_off, DIR, SCOPE_BIDIR,		\
+				   ct_buffer.l4_off, DIR, scope,		\
 				   ct_state, &ct_buffer.monitor);		\
 	if (ct_buffer.ret < 0)							\
 		return drop_for_direction(ctx, DIR, ct_buffer.ret, ext_err);	\
@@ -449,7 +474,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 #ifdef ENABLE_PER_PACKET_LB
 	/* Restore ct_state from per packet lb handling in the previous tail call. */
-	lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port);
+	lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port, true);
 	/* No hairpin/loopback support for IPv6, see lb6_local(). */
 #endif /* ENABLE_PER_PACKET_LB */
 
@@ -865,7 +890,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 #ifdef ENABLE_PER_PACKET_LB
 	/* Restore ct_state from per packet lb handling in the previous tail call. */
-	lb4_ctx_restore_state(ctx, &ct_state_new, &proxy_port, &cluster_id);
+	lb4_ctx_restore_state(ctx, &ct_state_new, &proxy_port, &cluster_id, true);
 	hairpin_flow = ct_state_new.loopback;
 #endif /* ENABLE_PER_PACKET_LB */
 
