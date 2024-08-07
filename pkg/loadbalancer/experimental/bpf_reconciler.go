@@ -69,6 +69,7 @@ func newBPFReconciler(p reconciler.Params, cfg Config, ops *bpfOps, w *Writer) (
 
 type bpfOps struct {
 	log    *slog.Logger
+	cfg    externalConfig
 	lbmaps lbmaps
 
 	serviceIDAlloc     idAllocator
@@ -101,11 +102,12 @@ type backendState struct {
 	id       loadbalancer.BackendID
 }
 
-func newBPFOps(lc cell.Lifecycle, log *slog.Logger, cfg Config, lbmaps lbmaps) *bpfOps {
+func newBPFOps(lc cell.Lifecycle, log *slog.Logger, cfg Config, extCfg externalConfig, lbmaps lbmaps) *bpfOps {
 	if !cfg.EnableExperimentalLB {
 		return nil
 	}
 	ops := &bpfOps{
+		cfg:                extCfg,
 		serviceIDAlloc:     newIDAllocator(firstFreeServiceID, maxSetOfServiceID),
 		restoredServiceIDs: sets.New[loadbalancer.ID](),
 		backendIDAlloc:     newIDAllocator(firstFreeBackendID, maxSetOfBackendID),
@@ -495,7 +497,7 @@ func (ops *bpfOps) updateFrontend(fe *Frontend) error {
 
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !svcKey.IsSurrogate() &&
-		(fe.Type != loadbalancer.SVCTypeClusterIP || option.Config.ExternalClusterIP)
+		(fe.Type != loadbalancer.SVCTypeClusterIP || ops.cfg.ExternalClusterIP)
 	svc := fe.Service()
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          fe.Type,
@@ -736,7 +738,7 @@ func (ops *bpfOps) deleteBackend(ipv6 bool, id loadbalancer.BackendID) error {
 }
 
 func (ops *bpfOps) upsertAffinityMatch(id loadbalancer.ID, beID loadbalancer.BackendID) error {
-	if !option.Config.EnableSessionAffinity {
+	if !ops.cfg.EnableSessionAffinity {
 		return nil
 	}
 
@@ -750,7 +752,7 @@ func (ops *bpfOps) upsertAffinityMatch(id loadbalancer.ID, beID loadbalancer.Bac
 }
 
 func (ops *bpfOps) deleteAffinityMatch(id loadbalancer.ID, beID loadbalancer.BackendID) error {
-	if !option.Config.EnableSessionAffinity {
+	if !ops.cfg.EnableSessionAffinity {
 		return nil
 	}
 

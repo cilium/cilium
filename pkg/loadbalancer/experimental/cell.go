@@ -19,6 +19,7 @@ var Cell = cell.Module(
 	"Experimental load-balancing control-plane",
 
 	cell.Config(DefaultConfig),
+	cell.ProvidePrivate(newExternalConfig),
 
 	// Provides [Writer] API and the load-balancing tables.
 	TablesCell,

@@ -24,10 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
-	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
@@ -843,19 +840,10 @@ func TestBPFOps(t *testing.T) {
 		lbmaps = newFakeLBMaps()
 	}
 
-	// Initialize the metrics registry. Otherwise the bpf.Map ops will incur a 1 second
-	// delay as they try to update the pressure gauge.
-	metrics.NewRegistry(metrics.RegistryParams{
-		Lifecycle:    lc,
-		Logger:       logging.DefaultLogger,
-		DaemonConfig: option.Config,
-	})
-
 	// Enable features.
-	// TODO: Get rid of direct uses of option.Config and bridge them to an internal
-	// struct at the cell.Module level. And eventually move them into a config struct
-	// here.
-	option.Config.EnableSessionAffinity = true
+	extCfg := externalConfig{
+		EnableSessionAffinity: true,
+	}
 
 	cfg := DefaultConfig
 	cfg.EnableExperimentalLB = true
@@ -865,7 +853,7 @@ func TestBPFOps(t *testing.T) {
 		for _, addr := range frontendAddrs {
 			// For each set of test cases, use a fresh instance so each set gets
 			// fresh IDs.
-			ops := newBPFOps(lc, log, cfg, lbmaps)
+			ops := newBPFOps(lc, log, cfg, extCfg, lbmaps)
 			for _, testCase := range testCaseSet {
 				t.Run(testCase.name, func(t *testing.T) {
 					frontend := testCase.frontend

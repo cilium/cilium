@@ -6,6 +6,7 @@ package experimental
 import (
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -30,4 +31,21 @@ var DefaultConfig = Config{
 	EnableExperimentalLB: false,
 	RetryBackoffMin:      50 * time.Millisecond,
 	RetryBackoffMax:      time.Minute,
+}
+
+// externalConfig are configuration options derived from external sources such as
+// DaemonConfig. This avoids direct access of larger configuration structs.
+type externalConfig struct {
+	ExternalClusterIP        bool
+	EnableSessionAffinity    bool
+	NodePortMin, NodePortMax uint16
+}
+
+func newExternalConfig(cfg *option.DaemonConfig) externalConfig {
+	return externalConfig{
+		ExternalClusterIP:     cfg.ExternalClusterIP,
+		EnableSessionAffinity: cfg.EnableSessionAffinity,
+		NodePortMin:           uint16(cfg.NodePortMin),
+		NodePortMax:           uint16(cfg.NodePortMax),
+	}
 }

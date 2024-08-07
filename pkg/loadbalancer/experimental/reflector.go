@@ -25,7 +25,6 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -59,6 +58,7 @@ type reflectorParams struct {
 	EndpointsResource stream.Observable[resource.Event[*k8s.Endpoints]]
 	PodsResource      stream.Observable[resource.Event[*slim_corev1.Pod]]
 	Writer            *Writer
+	ExtConfig         externalConfig
 }
 
 func registerK8sReflector(p reflectorParams) {
@@ -460,10 +460,10 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 				continue
 			}
 
-			if int(p.HostPort) >= option.Config.NodePortMin &&
-				int(p.HostPort) <= option.Config.NodePortMax {
+			if uint16(p.HostPort) >= params.ExtConfig.NodePortMin &&
+				uint16(p.HostPort) <= params.ExtConfig.NodePortMax {
 				params.Log.Warn("The requested hostPort is colliding with the configured NodePort range. Ignoring.",
-					"HostPort", p.HostPort, "NodePortMin", option.Config.NodePortMin, "NodePortMax", option.Config.NodePortMax)
+					"HostPort", p.HostPort, "NodePortMin", params.ExtConfig.NodePortMin, "NodePortMax", params.ExtConfig.NodePortMax)
 				continue
 			}
 
