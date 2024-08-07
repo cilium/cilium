@@ -295,7 +295,8 @@ int NAME(struct __ctx_buff *ctx)						\
 					  ext_err);				\
 										\
 	ct_buffer.ret = ct_lookup4(map, tuple, ctx, ip4, ct_buffer.l4_off,	\
-				   DIR, ct_state, &ct_buffer.monitor);		\
+				   DIR, SCOPE_BIDIR, ct_state,			\
+				   &ct_buffer.monitor);				\
 	if (ct_buffer.ret < 0)							\
 		return drop_for_direction(ctx, DIR, ct_buffer.ret, ext_err);	\
 	if (map_update_elem(&CT_TAIL_CALL_BUFFER4, &zero, &ct_buffer, 0) < 0)	\
@@ -340,8 +341,8 @@ int NAME(struct __ctx_buff *ctx)						\
 	ct_buffer.l4_off = ETH_HLEN + hdrlen;					\
 										\
 	ct_buffer.ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx,		\
-				   ct_buffer.l4_off, DIR, ct_state,		\
-				   &ct_buffer.monitor);				\
+				   ct_buffer.l4_off, DIR, SCOPE_BIDIR,		\
+				   ct_state, &ct_buffer.monitor);		\
 	if (ct_buffer.ret < 0)							\
 		return drop_for_direction(ctx, DIR, ct_buffer.ret, ext_err);	\
 										\
