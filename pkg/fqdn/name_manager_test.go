@@ -5,7 +5,6 @@ package fqdn
 
 import (
 	"context"
-	"net"
 	"net/netip"
 	"regexp"
 	"testing"
@@ -79,20 +78,6 @@ func (m *mockIPCache) WaitForRevision(ctx context.Context, rev uint64) error {
 	return nil
 }
 
-func ipsFromPrefixes(t *testing.T, prefixes ...netip.Prefix) (ips []net.IP) {
-	t.Helper()
-
-	for _, p := range prefixes {
-		if !p.IsSingleIP() {
-			t.Fatalf("invalid prefix: %s", p)
-		}
-
-		ips = append(ips, p.Addr().AsSlice())
-	}
-
-	return ips
-}
-
 func TestNameManagerIPCacheUpdates(t *testing.T) {
 	ipc := newMockIPCache()
 	nameManager := NewNameManager(Config{
@@ -105,7 +90,7 @@ func TestNameManagerIPCacheUpdates(t *testing.T) {
 
 	// Simulate lookup for single selector
 	prefix := netip.MustParsePrefix("1.1.1.1/32")
-	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), map[string]*DNSIPRecords{dns.FQDN("cilium.io"): {TTL: 60, IPs: ipsFromPrefixes(t, prefix)}})
+	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), map[string]*DNSIPRecords{dns.FQDN("cilium.io"): {TTL: 60, IPs: []netip.Addr{prefix.Addr()}}})
 	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}))
 
 	// Add match pattern
@@ -118,15 +103,15 @@ func TestNameManagerIPCacheUpdates(t *testing.T) {
 	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel()}))
 
 	// Same IP matched by two selectors
-	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), map[string]*DNSIPRecords{dns.FQDN("github.com"): {TTL: 60, IPs: ipsFromPrefixes(t, prefix)}})
+	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), map[string]*DNSIPRecords{dns.FQDN("github.com"): {TTL: 60, IPs: []netip.Addr{prefix.Addr()}}})
 	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel(), githubSel.IdentityLabel()}))
 
 	// Additional unique IPs for each selector
 	githubPrefix := netip.MustParsePrefix("10.0.0.2/32")
 	awesomePrefix := netip.MustParsePrefix("10.0.0.3/32")
 	nameManager.UpdateGenerateDNS(context.TODO(), time.Now(), map[string]*DNSIPRecords{
-		dns.FQDN("github.com"):       {TTL: 60, IPs: ipsFromPrefixes(t, githubPrefix)},
-		dns.FQDN("awesomecilium.io"): {TTL: 60, IPs: ipsFromPrefixes(t, awesomePrefix)},
+		dns.FQDN("github.com"):       {TTL: 60, IPs: []netip.Addr{githubPrefix.Addr()}},
+		dns.FQDN("awesomecilium.io"): {TTL: 60, IPs: []netip.Addr{awesomePrefix.Addr()}},
 	})
 	require.Equal(t, ipc.labelsForPrefix(prefix), labels.FromSlice([]labels.Label{ciliumIOSelMatchPattern.IdentityLabel(), githubSel.IdentityLabel()}))
 	require.Equal(t, ipc.labelsForPrefix(githubPrefix), labels.FromSlice([]labels.Label{githubSel.IdentityLabel()}))

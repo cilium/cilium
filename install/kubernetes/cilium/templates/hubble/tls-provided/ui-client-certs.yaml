@@ -1,4 +1,4 @@
-{{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (not .Values.hubble.tls.auto.enabled) .Values.hubble.ui.enabled .Values.hubble.relay.enabled .Values.hubble.relay.tls.server.enabled }}
+{{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (not .Values.hubble.tls.auto.enabled) .Values.hubble.ui.enabled .Values.hubble.relay.enabled .Values.hubble.relay.tls.server.enabled (not .Values.hubble.ui.tls.client.existingSecret) }}
 apiVersion: v1
 kind: Secret
 metadata:

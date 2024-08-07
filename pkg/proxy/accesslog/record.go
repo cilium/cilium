@@ -4,8 +4,8 @@
 package accesslog
 
 import (
-	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 
 	"github.com/cilium/cilium/pkg/labels"
@@ -264,7 +264,7 @@ type LogRecordDNS struct {
 
 	// IPs are any IPs seen in this response.
 	// This field is filled only for DNS responses with IPs.
-	IPs []net.IP `json:"IPs,omitempty"`
+	IPs []netip.Addr `json:"IPs,omitempty"`
 
 	// TTL is the lowest applicable TTL for this data
 	// This field is filled only for DNS responses.

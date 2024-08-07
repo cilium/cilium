@@ -5,7 +5,6 @@ package fqdn
 
 import (
 	"encoding/json"
-	"net"
 	"net/netip"
 	"regexp"
 	"sort"
@@ -1097,7 +1096,7 @@ func (zombies *DNSZombieMappings) ForceExpire(expireLookupsBefore time.Time, nam
 	return zombies.forceExpireLocked(expireLookupsBefore, nameMatch, nil)
 }
 
-func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Time, nameMatch *regexp.Regexp, cidr *net.IPNet) (namesAffected []string) {
+func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Time, nameMatch *regexp.Regexp, cidr *netip.Prefix) (namesAffected []string) {
 	var toDelete []*DNSZombieMapping
 
 	for _, zombie := range zombies.deletes {
@@ -1108,7 +1107,7 @@ func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Tim
 		}
 
 		// If cidr is provided, skip zombies with IPs outside the range
-		if cidr != nil && !cidr.Contains(zombie.IP.AsSlice()) {
+		if cidr != nil && !cidr.Contains(zombie.IP) {
 			continue
 		}
 
@@ -1142,7 +1141,7 @@ func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Tim
 // new DNS lookup.
 // The error return is for errors compiling the internal regexp. This should
 // never happen.
-func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.Time, name string, ips ...net.IP) error {
+func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.Time, name string, ips ...netip.Addr) error {
 	reStr := matchpattern.ToAnchoredRegexp(name)
 	re, err := re.CompileRegex(reStr)
 	if err != nil {
@@ -1152,8 +1151,7 @@ func (zombies *DNSZombieMappings) ForceExpireByNameIP(expireLookupsBefore time.T
 	zombies.Lock()
 	defer zombies.Unlock()
 	for _, ip := range ips {
-		cidr := net.IPNet{Mask: net.CIDRMask(len(ip)*8, len(ip)*8)}
-		cidr.IP = ip.Mask(cidr.Mask)
+		cidr := netip.PrefixFrom(ip, ip.BitLen())
 		zombies.forceExpireLocked(expireLookupsBefore, re, &cidr)
 	}
 	return nil

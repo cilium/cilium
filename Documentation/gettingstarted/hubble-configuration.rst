@@ -31,40 +31,6 @@ provided) or generate automatically via either:
 * cilium's `certgen <https://github.com/cilium/certgen>`__ (using a Kubernetes ``CronJob``)
 * `cert-manager <https://cert-manager.io/>`__
 
-User provided certificates
---------------------------
-
-In order to use custom TLS certificates, ``hubble.tls.auto.enabled`` must be set
-to ``false`` and TLS certificates manually provided.  This can be done by
-specifying the options below to Helm at install or upgrade time.
-
-::
-
-    --set hubble.tls.auto.enabled=false                          # disable automatic TLS certificate generation
-    --set-file tls.ca.cert=ca.crt.b64                            # certificate of the CA that signs all certificates
-    --set-file hubble.tls.server.cert=server.crt.b64             # certificate for Hubble server
-    --set-file hubble.tls.server.key=server.key.b64              # private key for the Hubble server certificate
-    --set-file hubble.relay.tls.client.cert=relay-client.crt.b64 # client certificate for Hubble Relay to connect to Hubble instances
-    --set-file hubble.relay.tls.client.key=relay-client.key.b64  # private key for Hubble Relay client certificate
-    --set-file hubble.relay.tls.server.cert=relay-server.crt.b64 # server certificate for Hubble Relay
-    --set-file hubble.relay.tls.server.key=relay-server.key.b64  # private key for Hubble Relay server certificate
-    --set-file hubble.ui.tls.client.cert=ui-client.crt.b64       # client certificate for Hubble UI
-    --set-file hubble.ui.tls.client.key=ui-client.key.b64        # private key for Hubble UI client certificate
-
-Options ``hubble.relay.tls.server.cert``, ``hubble.relay.tls.server.key``
-``hubble.ui.tls.client.cert`` and ``hubble.ui.tls.client.key``
-only need to be provided when ``hubble.relay.tls.server.enabled=true`` (default ``false``)
-which enable TLS for the Hubble Relay server.
-
-.. note::
-
-   Provided files must be **base64 encoded** PEM certificates.
-
-   In addition, the **Common Name (CN)** and **Subject Alternative Name (SAN)**
-   of the certificate for Hubble server MUST be set to
-   ``*.{cluster-name}.hubble-grpc.cilium.io`` where ``{cluster-name}`` is the
-   cluster name defined by ``cluster.name`` (defaults to ``default``).
-
 Auto generated certificates via Helm
 ------------------------------------
 
@@ -196,6 +162,74 @@ resolve this issue. Pick one of the options below:
                     --set webhook.tolerations='["operator": "Exists"]'
 
         Then configure an issuer and install Cilium.
+
+User provided certificates
+--------------------------
+
+In order to use custom TLS certificates, ``hubble.tls.auto.enabled`` must be
+set to ``false``, secrets containing the certificates must be created in the
+``kube-system`` namespace, and the secret names must be provided to Helm.
+
+Provided files must be **base64 encoded** PEM certificates.
+
+In addition, the **Common Name (CN)** and **Subject Alternative Name (SAN)**
+of the certificate for Hubble server MUST be set to
+``*.{cluster-name}.hubble-grpc.cilium.io`` where ``{cluster-name}`` is the
+cluster name defined by ``cluster.name`` (defaults to ``default``).
+
+Once the certificates have been issued, the secrets must be created in the ``kube-system`` namespace.
+
+Each secret must contain the following keys:
+
+- ``tls.crt``: The certificate file.
+- ``tls.key``: The private key file.
+- ``ca.crt``: The CA certificate file.
+
+The following examples demonstrates how to create the secrets.
+
+Create the hubble server certificate secret:
+
+.. code-block:: shell-session
+
+  $ kubectl -n kube-system create secret generic hubble-server-certs --from-file=hubble-server.crt --from-file=hubble-server.key --from-file=ca.crt
+
+If hubble-relay is enabled, the following secrets must be created:
+
+.. code-block:: shell-session
+
+  $ kubectl -n kube-system create secret generic hubble-relay-server-certs --from-file=hubble-relay-server.crt --from-file=hubble-relay-server.key --from-file=ca.crt
+  $ kubectl -n kube-system create secret generic hubble-relay-client-certs --from-file=hubble-relay-client.crt --from-file=hubble-relay-client.key --from-file=ca.crt
+
+If hubble-ui is enabled, the following secret must be created:
+
+.. code-block:: shell-session
+
+  $ kubectl -n kube-system create secret generic hubble-ui-client-certs --from-file=hubble-ui-client.crt --from-file=hubble-ui-client.key --from-file=ca.crt
+
+Lastly, if the Hubble metrics API is enabled, the following secret must be created:
+
+.. code-block:: shell-session
+
+  $ kubectl -n kube-system create secret generic hubble-metrics-certs --from-file=hubble-metrics.crt --from-file=hubble-metrics.key --from-file=ca.crt
+
+After the secrets have been created, the secret names must be provided to Helm and automatic certificate generation must be disabled:
+
+::
+
+    --set hubble.tls.auto.enabled=false                                       # Disable automatic TLS certificate generation
+    --set hubble.tls.server.existingSecret="hubble-server-certs"
+    --set hubble.relay.tls.server.enabled=true                                # Enable TLS on Hubble Relay (optional)
+    --set hubble.relay.tls.server.existingSecret="hubble-relay-server-certs"
+    --set hubble.relay.tls.client.existingSecret="hubble-relay-client-certs"
+    --set hubble.ui.tls.client.existingSecret="hubble-ui-client-certs"
+    --set hubble.metrics.tls.enabled=true                                     # Enable TLS on the Hubble metrics API (optional)
+    --set hubble.metrics.tls.server.existingSecret="hubble-metrics-certs"
+
+- ``hubble.relay.tls.server.existingSecret`` and ``hubble.ui.tls.client.existingSecret``
+  only need to be provided when ``hubble.relay.tls.server.enabled=true`` (default ``false``).
+- ``hubble.ui.tls.client.existingSecret`` only needs to be provided when ``hubble.ui.enabled`` (default ``false``).
+- ``hubble.metrics.tls.server.existingSecret`` only needs to be provided when ``hubble.metrics.tls.enabled`` (default ``false``).
+  For more details on configuring the Hubble metrics API with TLS, see :ref:`hubble_configure_metrics_tls`.
 
 .. _hubble_configure_metrics_tls:
 

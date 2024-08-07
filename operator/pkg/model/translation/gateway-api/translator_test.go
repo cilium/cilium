@@ -556,7 +556,8 @@ func Test_getService(t *testing.T) {
 					Name:      "cilium-gateway-test-long-long-long-long-long-long-lo-8tfth549c6",
 					Namespace: "default",
 					Labels: map[string]string{
-						owningGatewayLabel: "test-long-long-long-long-long-long-long-long-long-lo-4bftbgh5ht",
+						owningGatewayLabel:                       "test-long-long-long-long-long-long-long-long-long-lo-4bftbgh5ht",
+						"gateway.networking.k8s.io/gateway-name": "test-long-long-long-long-long-long-long-long-long-lo-4bftbgh5ht",
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{
@@ -599,7 +600,8 @@ func Test_getService(t *testing.T) {
 					Name:      "cilium-gateway-test-externaltrafficpolicy-local",
 					Namespace: "default",
 					Labels: map[string]string{
-						owningGatewayLabel: "test-externaltrafficpolicy-local",
+						owningGatewayLabel:                       "test-externaltrafficpolicy-local",
+						"gateway.networking.k8s.io/gateway-name": "test-externaltrafficpolicy-local",
 					},
 					OwnerReferences: []metav1.OwnerReference{
 						{

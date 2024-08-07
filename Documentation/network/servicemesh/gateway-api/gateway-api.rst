@@ -40,6 +40,8 @@ tests are passed.
 
 .. include:: installation.rst
 
+.. include:: ../ingress-reference.rst
+
 .. _gs_gateway_host_network_mode:
 .. include:: host-network-mode.rst
 

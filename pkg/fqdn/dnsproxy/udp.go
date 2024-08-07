@@ -237,42 +237,26 @@ func parseDstFromOOB(oob []byte) (*net.UDPAddr, error) {
 	}
 
 	for _, msg := range msgs {
-		if msg.Header.Level == unix.SOL_IP && msg.Header.Type == unix.IP_ORIGDSTADDR {
-			pp := &unix.RawSockaddrInet4{}
-			// Address family is in native byte order
-			family := *(*uint16)(unsafe.Pointer(&msg.Data[unsafe.Offsetof(pp.Family)]))
-			if family != unix.AF_INET {
-				return nil, fmt.Errorf("original destination is not IPv4")
-			}
-			// Port is in big-endian byte order
-			if err = binary.Read(bytes.NewReader(msg.Data), binary.BigEndian, pp); err != nil {
-				return nil, fmt.Errorf("reading original destination address: %w", err)
-			}
-			laddr := &net.UDPAddr{
-				IP:   net.IPv4(pp.Addr[0], pp.Addr[1], pp.Addr[2], pp.Addr[3]),
-				Port: int(pp.Port),
-			}
-			return laddr, nil
+		sockaddr, err := unix.ParseOrigDstAddr(&msg)
+		if err != nil {
+			// The above will _only_ fail if the message was not a OrigDstAddr,
+			// hence we just skip here and error later if we don't find any.
+			continue
 		}
-		if msg.Header.Level == unix.SOL_IPV6 && msg.Header.Type == unix.IPV6_ORIGDSTADDR {
-			pp := &unix.RawSockaddrInet6{}
-			// Address family is in native byte order
-			family := *(*uint16)(unsafe.Pointer(&msg.Data[unsafe.Offsetof(pp.Family)]))
-			if family != unix.AF_INET6 {
-				return nil, fmt.Errorf("original destination is not IPv6")
-			}
-			// Scope ID is in native byte order
-			scopeId := *(*uint32)(unsafe.Pointer(&msg.Data[unsafe.Offsetof(pp.Scope_id)]))
-			// Rest of the data is big-endian (port)
-			if err = binary.Read(bytes.NewReader(msg.Data), binary.BigEndian, pp); err != nil {
-				return nil, fmt.Errorf("reading original destination address: %w", err)
-			}
-			laddr := &net.UDPAddr{
-				IP:   net.IP(pp.Addr[:]),
-				Port: int(pp.Port),
-				Zone: strconv.Itoa(int(scopeId)),
-			}
-			return laddr, nil
+		switch sa := sockaddr.(type) {
+		case *unix.SockaddrInet4:
+			return &net.UDPAddr{
+				IP:   net.IP(sa.Addr[:]),
+				Port: sa.Port,
+			}, nil
+		case *unix.SockaddrInet6:
+			return &net.UDPAddr{
+				IP:   net.IP(sa.Addr[:]),
+				Port: sa.Port,
+				Zone: strconv.Itoa(int(sa.ZoneId)),
+			}, nil
+		default:
+			return nil, fmt.Errorf("original destination is neither IPv4 nor IPv6")
 		}
 	}
 	return nil, fmt.Errorf("no original destination found")

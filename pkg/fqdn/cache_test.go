@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand/v2"
-	"net"
 	"net/netip"
 	"regexp"
 	"sort"
@@ -909,7 +908,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	zombies.Upsert(now, netip.MustParseAddr("2.2.2.2"), "test.com")
 
 	// Don't expire if the IP doesn't match
-	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", net.ParseIP("1.1.1.1"))
+	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", netip.MustParseAddr("1.1.1.1"))
 	require.Nil(t, err)
 	alive, dead = zombies.GC()
 	require.Len(t, dead, 0)
@@ -918,7 +917,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	})
 
 	// Expire 1 name for this IP but leave other names
-	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", net.ParseIP("2.2.2.2"))
+	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", netip.MustParseAddr("2.2.2.2"))
 	require.Nil(t, err)
 	alive, dead = zombies.GC()
 	require.Len(t, dead, 0)
@@ -927,7 +926,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	})
 
 	// Don't remove if the name doesn't match
-	err = zombies.ForceExpireByNameIP(time.Time{}, "blarg.com", net.ParseIP("2.2.2.2"))
+	err = zombies.ForceExpireByNameIP(time.Time{}, "blarg.com", netip.MustParseAddr("2.2.2.2"))
 	require.Nil(t, err)
 	alive, dead = zombies.GC()
 	require.Len(t, dead, 0)
@@ -936,7 +935,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	})
 
 	// Clear everything
-	err = zombies.ForceExpireByNameIP(time.Time{}, "test.com", net.ParseIP("2.2.2.2"))
+	err = zombies.ForceExpireByNameIP(time.Time{}, "test.com", netip.MustParseAddr("2.2.2.2"))
 	require.Nil(t, err)
 	alive, dead = zombies.GC()
 	require.Len(t, dead, 0)

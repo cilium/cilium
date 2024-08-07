@@ -170,7 +170,7 @@ spec:
           defaultMode: 0400
           sources:
           - secret:
-              name: hubble-relay-client-certs
+              name: {{ .Values.hubble.relay.tls.client.existingSecret | default "hubble-relay-client-certs" }}
               items:
                 - key: tls.crt
                   path: client.crt
@@ -188,7 +188,7 @@ spec:
           {{- end }}
           {{- if .Values.hubble.relay.tls.server.enabled }}
           - secret:
-              name: hubble-relay-server-certs
+              name: {{ .Values.hubble.relay.tls.server.existingSecret | default "hubble-relay-server-certs" }}
               items:
                 - key: tls.crt
                   path: server.crt

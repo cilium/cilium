@@ -4,7 +4,7 @@
 package seven
 
 import (
-	"net"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -32,7 +32,7 @@ func TestDecodeL7DNSRecord(t *testing.T) {
 		DropReason:          nil,
 		DNS: &accesslog.LogRecordDNS{
 			Query:             "deathstar.empire.svc.cluster.local.",
-			IPs:               []net.IP{net.ParseIP("1.2.3.4")},
+			IPs:               []netip.Addr{netip.MustParseAddr("1.2.3.4")},
 			TTL:               5,
 			ObservationSource: accesslog.DNSSourceProxy,
 			RCode:             0,

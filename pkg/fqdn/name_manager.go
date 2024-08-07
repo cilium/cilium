@@ -319,8 +319,7 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 	updatedMetadata := make(map[string]nameMetadata, len(updatedDNSIPs))
 
 	for dnsName, lookupIPs := range updatedDNSIPs {
-		addrs := ip.MustAddrsFromIPs(lookupIPs.IPs)
-		updated := n.updateIPsForName(lookupTime, dnsName, addrs, lookupIPs.TTL)
+		updated := n.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL)
 
 		// The IPs didn't change. No more to be done for this dnsName
 		if !updated && n.bootstrapCompleted {
@@ -332,7 +331,7 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 		}
 
 		// record the IPs that were different
-		updatedNames[dnsName] = addrs
+		updatedNames[dnsName] = lookupIPs.IPs
 
 		// accumulate the new labels affected by new IPs
 		if len(n.allSelectors) == 0 {
@@ -353,7 +352,7 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 		}
 
 		updatedMetadata[dnsName] = nameMetadata{
-			addrs:  addrs,
+			addrs:  lookupIPs.IPs,
 			labels: nameLabels,
 		}
 	}

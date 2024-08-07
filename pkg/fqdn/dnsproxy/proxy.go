@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
-	ippkg "github.com/cilium/cilium/pkg/ip"
+	ippkt "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 const (
@@ -111,7 +112,7 @@ type DNSProxy struct {
 	// lookupTargetDNSServer extracts the originally intended target of a DNS
 	// query. It is always set to lookupTargetDNSServer in
 	// helpers.go but is modified during testing.
-	lookupTargetDNSServer func(w dns.ResponseWriter) (serverIP net.IP, serverPort restore.PortProto, addrStr string, err error)
+	lookupTargetDNSServer func(w dns.ResponseWriter) (network u8proto.U8proto, server netip.AddrPort, err error)
 
 	// maxIPsPerRestoredDNSRule is the maximum number of IPs to maintain for each
 	// restored DNS rule.
@@ -779,7 +780,7 @@ func (p *DNSProxy) UpdateAllowedFromSelectorRegexes(endpointID uint64, destPortP
 // CheckAllowed checks endpointID, destPortProto, destID, destIP, and name against the rules
 // added to the proxy or restored during restart, and only returns true if this all match
 // something that was added (via UpdateAllowed or RestoreRules) previously.
-func (p *DNSProxy) CheckAllowed(endpointID uint64, destPortProto restore.PortProto, destID identity.NumericIdentity, destIP net.IP, name string) (allowed bool, err error) {
+func (p *DNSProxy) CheckAllowed(endpointID uint64, destPortProto restore.PortProto, destID identity.NumericIdentity, destIP netip.Addr, name string) (allowed bool, err error) {
 	name = strings.ToLower(dns.Fqdn(name))
 	p.RLock()
 	defer p.RUnlock()
@@ -975,7 +976,8 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		logfields.Identity:   ep.GetIdentity(),
 	})
 
-	targetServerIP, targetServerPortProto, targetServerAddrStr, err := p.lookupTargetDNSServer(w)
+	proto, targetServer, err := p.lookupTargetDNSServer(w)
+	targetServerAddrStr := targetServer.String()
 	if err != nil {
 		log.WithError(err).Error("cannot extract destination IP:port from DNS request")
 		stat.Err = fmt.Errorf("Cannot extract destination IP:port from DNS request: %w", err)
@@ -984,15 +986,15 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		p.sendRefused(scopedLog, w, request)
 		return
 	}
+	targetServerPortProto := restore.MakeV2PortProto(targetServer.Port(), uint8(proto))
 
 	// Ignore invalid IP - getter will handle invalid value.
-	targetServerAddr, _ := ippkg.AddrFromIP(targetServerIP)
-	targetServerID := identity.GetWorldIdentityFromIP(targetServerAddr)
-	if serverSecID, exists := p.LookupSecIDByIP(targetServerAddr); !exists {
-		scopedLog.WithField("server", targetServerAddrStr).Debug("cannot find server ip in ipcache, defaulting to WORLD")
+	targetServerID := identity.GetWorldIdentityFromIP(targetServer.Addr())
+	if serverSecID, exists := p.LookupSecIDByIP(targetServer.Addr()); !exists {
+		scopedLog.WithField("server", targetServer.Addr()).Debug("cannot find server ip in ipcache, defaulting to WORLD")
 	} else {
 		targetServerID = serverSecID.ID
-		scopedLog.WithField("server", targetServerAddrStr).Debugf("Found target server to of DNS request secID %+v", serverSecID)
+		scopedLog.WithField("server", targetServer.Addr()).Debugf("Found target server to of DNS request secID %+v", serverSecID)
 	}
 
 	// The allowed check is first because we don't want to use DNS responses that
@@ -1001,7 +1003,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	// it won't enforce any separation between results from different endpoints.
 	// This isn't ideal but we are trusting the DNS responses anyway.
 	stat.PolicyCheckTime.Start()
-	allowed, err := p.CheckAllowed(uint64(ep.ID), targetServerPortProto, targetServerID, targetServerIP, qname)
+	allowed, err := p.CheckAllowed(uint64(ep.ID), targetServerPortProto, targetServerID, targetServer.Addr(), qname)
 	stat.PolicyCheckTime.End(err == nil)
 	switch {
 	case err != nil:
@@ -1044,7 +1046,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	stat.UpstreamTime.Start()
 
 	var ipFamily ipfamily.IPFamily
-	if targetServerAddr.Is4() {
+	if targetServer.Addr().Is4() {
 		ipFamily = ipfamily.IPv4()
 	} else {
 		ipFamily = ipfamily.IPv6()
@@ -1119,7 +1121,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		p.Lock()
 		// Add the server to the set of used DNS servers. This set is never GCd, but is limited by set
 		// of DNS server IPs that are allowed by a policy and for which successful response was received.
-		p.usedServers[targetServerIP.String()] = struct{}{}
+		p.usedServers[targetServer.Addr().String()] = struct{}{}
 		p.Unlock()
 	}
 }
@@ -1182,7 +1184,7 @@ func (p *DNSProxy) GetBindPort() uint16 {
 // the lowest applicable TTL, rcode, anwer rr types and question types
 // When a CNAME is returned the chain is collapsed down, keeping the lowest TTL,
 // and CNAME targets are returned.
-func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []net.IP, TTL uint32, CNAMEs []string, rcode int, answerTypes []uint16, qTypes []uint16, err error) {
+func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []netip.Addr, TTL uint32, CNAMEs []string, rcode int, answerTypes []uint16, qTypes []uint16, err error) {
 	if len(msg.Question) == 0 {
 		return "", nil, 0, nil, 0, nil, nil, errors.New("Invalid DNS message")
 	}
@@ -1204,12 +1206,13 @@ func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []net.IP, TTL ui
 		// Handle A, AAAA and CNAME records by accumulating IPs and lowest TTL
 		switch ans := ans.(type) {
 		case *dns.A:
-			responseIPs = append(responseIPs, ans.A)
+			// Parsing of the DNS message does the IP validation for us.
+			responseIPs = append(responseIPs, ippkt.MustAddrFromIP(ans.A))
 			if TTL > ans.Hdr.Ttl {
 				TTL = ans.Hdr.Ttl
 			}
 		case *dns.AAAA:
-			responseIPs = append(responseIPs, ans.AAAA)
+			responseIPs = append(responseIPs, ippkt.MustAddrFromIP(ans.AAAA))
 			if TTL > ans.Hdr.Ttl {
 				TTL = ans.Hdr.Ttl
 			}
