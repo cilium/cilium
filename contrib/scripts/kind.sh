@@ -247,11 +247,11 @@ if [ "${xdp}" = true ]; then
   done
 fi
 
-# 1) Replace "forward . /etc/resolv.conf" in the coredns cm with "forward . 8.8.8.8".
+# 1) Replace "forward . /etc/resolv.conf" in the coredns cm with "forward . 1.1.1.1".
 # This is required because in case of BPF Host Routing we bypass iptables thus
 # breaking DNS. See https://github.com/cilium/cilium/issues/23330
 # 2) Enable the log plugin to log all DNS queries for debugging.
-NewCoreFile=$(kubectl get cm -n kube-system coredns -o jsonpath='{.data.Corefile}' | "${SED}" 's,forward . /etc/resolv.conf,forward . 8.8.8.8,' | "${SED}" 's/loadbalance/loadbalance\n    log/' | awk ' { printf "%s\\n", $0 } ')
+NewCoreFile=$(kubectl get cm -n kube-system coredns -o jsonpath='{.data.Corefile}' | "${SED}" 's,forward . /etc/resolv.conf,forward . 1.1.1.1,' | "${SED}" 's/loadbalance/loadbalance\n    log/' | awk ' { printf "%s\\n", $0 } ')
 kubectl patch configmap/coredns -n kube-system --type merge -p '{"data":{"Corefile": "'"$NewCoreFile"'"}}'
 
 set +e
