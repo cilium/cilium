@@ -294,10 +294,13 @@ errors.
    Cluster Mesh where several clusters need to be updated), you can increase the
    delay before cleanup with agent flag ``ipsec-key-rotation-duration``.
 
- * ``XfrmInStateProtoError`` errors can happen if the key is updated without
-   incrementing the SPI (also called ``KEYID`` in :ref:`ipsec_key_rotation`
-   instructions above). It can be fixed by performing a new key rotation,
-   properly.
+ * ``XfrmInStateProtoError`` errors can happen for the following reasons:
+   1. If the key is updated without incrementing the SPI (also called ``KEYID``
+   in :ref:`ipsec_key_rotation` instructions above). It can be fixed by
+   performing a new key rotation, properly.
+   2. If the source node encrypts the packets using a different anti-replay seq
+   from the anti-reply oseq on the destination node. This can be fixed by
+   properly performing a new key rotation.
 
  * ``XfrmFwdHdrError`` and ``XfrmInError`` happen when the kernel fails to
    lookup the route for a packet it decrypted. This can legitimately happen
@@ -321,7 +324,8 @@ errors.
                             packet for a pod that was deleted or (2) failed to
                             allocate memory.
    XfrmInNoStates           Bug in the XFRM configuration for decryption.
-   XfrmInStateProtoError    There is a key mismatch between nodes.
+   XfrmInStateProtoError    There is a key or anti-replay seq mismatch between
+                            nodes.
    XfrmInStateInvalid       A received packet matched an XFRM state that is
                             being deleted.
    XfrmInTmplMismatch       Bug in the XFRM configuration for decryption.
