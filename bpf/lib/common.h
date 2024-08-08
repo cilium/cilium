@@ -137,9 +137,7 @@ enum {
 #define CILIUM_CALL_IPV4_NO_SERVICE		47
 #define CILIUM_CALL_IPV6_NO_SERVICE		48
 #define CILIUM_CALL_MULTICAST_EP_DELIVERY       49
-#define CILIUM_CALL_IPV4_NODEPORT_REVNAT_EGRESS 50
-#define CILIUM_CALL_IPV6_NODEPORT_REVNAT_EGRESS	51
-#define CILIUM_CALL_SIZE			52
+#define CILIUM_CALL_SIZE			50
 
 typedef __u64 mac_t;
 
@@ -835,6 +833,7 @@ enum {
 #define	CB_CLUSTER_ID_INGRESS	CB_POLICY	/* Alias, non-overlapping */
 #define CB_HSIPC_PORT		CB_POLICY	/* Alias, non-overlapping */
 #define CB_DSR_SRC_LABEL	CB_POLICY	/* Alias, non-overlapping */
+#define CB_NAT_FWD		CB_POLICY	/* Alias, non-overlapping */
 	CB_3,
 #define	CB_ADDR_V6_3		CB_3		/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_3		/* Alias, non-overlapping */
