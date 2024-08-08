@@ -416,3 +416,8 @@ func (d *Daemon) Loader() datapath.Loader {
 func (d *Daemon) Orchestrator() datapath.Orchestrator {
 	return d.orchestrator
 }
+
+// BandwidthManager returns a reference to the bandwidth manager implementation.
+func (d *Daemon) BandwidthManager() datapath.BandwidthManager {
+	return d.bwManager
+}
