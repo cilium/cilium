@@ -4,14 +4,9 @@
 package linux
 
 import (
-	"github.com/cilium/statedb"
-
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
-	"github.com/cilium/cilium/pkg/maps/nodemap"
-	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
@@ -37,12 +32,8 @@ type linuxDatapath struct {
 type DatapathParams struct {
 	ConfigWriter   datapath.ConfigWriter
 	RuleManager    datapath.IptablesManager
-	NodeMap        nodemap.MapV2
 	BWManager      datapath.BandwidthManager
 	NodeAddressing datapath.NodeAddressing
-	NodeManager    manager.NodeManager
-	DB             *statedb.DB
-	Devices        statedb.Table[*tables.Device]
 	Orchestrator   datapath.Orchestrator
 	ExpConfig      experimental.Config
 }

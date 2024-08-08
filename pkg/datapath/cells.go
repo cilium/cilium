@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/act"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -38,10 +37,8 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
-	"github.com/cilium/cilium/pkg/maps/nodemap"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/mtu"
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -176,12 +173,8 @@ func newDatapath(params datapathParams) types.Datapath {
 	datapath := linuxdatapath.NewDatapath(linuxdatapath.DatapathParams{
 		ConfigWriter:   params.ConfigWriter,
 		RuleManager:    params.IptablesManager,
-		NodeMap:        params.NodeMap,
 		NodeAddressing: params.NodeAddressing,
 		BWManager:      params.BandwidthManager,
-		NodeManager:    params.NodeManager,
-		DB:             params.DB,
-		Devices:        params.Devices,
 		Orchestrator:   params.Orchestrator,
 		ExpConfig:      params.ExpConfig,
 	})
@@ -210,26 +203,13 @@ type datapathParams struct {
 	// Some of the entries in this slice may be nil.
 	BpfMaps []bpf.BpfMap `group:"bpf-maps"`
 
-	NodeMap nodemap.MapV2
-
 	NodeAddressing types.NodeAddressing
 
-	DB      *statedb.DB
-	Devices statedb.Table[*tables.Device]
-
 	BandwidthManager types.BandwidthManager
-
-	ModulesManager *modules.Manager
 
 	IptablesManager *iptables.Manager
 
 	ConfigWriter types.ConfigWriter
-
-	TunnelConfig tunnel.Config
-
-	Loader types.Loader
-
-	NodeManager nodeManager.NodeManager
 
 	Orchestrator types.Orchestrator
 

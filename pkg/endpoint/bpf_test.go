@@ -40,7 +40,6 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 	dp := linux.NewDatapath(linux.DatapathParams{
 		RuleManager:    nil,
 		NodeAddressing: nil,
-		NodeMap:        nil,
 		ConfigWriter:   &config.HeaderfileWriter{},
 	})
 	cfg := datapath.LocalNodeConfiguration{}
