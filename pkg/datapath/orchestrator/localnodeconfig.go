@@ -41,6 +41,7 @@ func newLocalNodeConfig(
 	directRoutingDevTbl tables.DirectRoutingDevice,
 	devices statedb.Table[*tables.Device],
 	nodeAddresses statedb.Table[tables.NodeAddress],
+	masqInterface string,
 	xdpConfig xdp.Config,
 ) (datapath.LocalNodeConfiguration, <-chan struct{}, <-chan struct{}, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
@@ -78,6 +79,7 @@ func newLocalNodeConfig(
 		Devices:                      nativeDevices,
 		NodeAddresses:                statedb.Collect(nodeAddrsIter),
 		DirectRoutingDevice:          directRoutingDevice,
+		DeriveMasqIPAddrFromDevice:   masqInterface,
 		HostEndpointID:               node.GetEndpointID(),
 		DeviceMTU:                    mtu.GetDeviceMTU(),
 		RouteMTU:                     mtu.GetRouteMTU(),

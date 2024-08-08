@@ -58,7 +58,6 @@ func newTestLoader(tb testing.TB) *loader {
 	setupCompilationDirectories(tb)
 
 	l := newLoader(Params{
-		Config: DefaultConfig,
 		Sysctl: sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
 	})
 	cw := configWriterForTest(tb)

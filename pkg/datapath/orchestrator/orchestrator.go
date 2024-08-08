@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -43,6 +44,29 @@ const (
 	reinitRetryDuration = 10 * time.Second
 )
 
+var DefaultConfig = Config{
+	// By default the masquerading IP is the primary IP address of the device in
+	// question.
+	DeriveMasqIPAddrFromDevice: "",
+}
+
+type Config struct {
+	// DeriveMasqIPAddrFromDevice specifies which device's IP addr is used for BPF masquerade.
+	// This is a hidden option and by default not set. Only needed in very specific setups
+	// with ECMP and multiple devices.
+	// See commit d204d789746b1389cc2ba02fdd55b81a2f55b76e for original context.
+	// This can be removed once https://github.com/cilium/cilium/issues/17158 is resolved.
+	DeriveMasqIPAddrFromDevice string
+}
+
+func (def Config) Flags(flags *pflag.FlagSet) {
+	const deriveFlag = "derive-masq-ip-addr-from-device"
+	flags.String(
+		deriveFlag, def.DeriveMasqIPAddrFromDevice,
+		"Device name from which Cilium derives the IP addr for BPF masquerade")
+	flags.MarkHidden(deriveFlag)
+}
+
 type orchestrator struct {
 	params orchestratorParams
 
@@ -60,6 +84,7 @@ type reinitializeRequest struct {
 type orchestratorParams struct {
 	cell.In
 
+	Config              Config
 	Log                 *slog.Logger
 	Loader              datapath.Loader
 	TunnelConfig        tunnel.Config
@@ -161,6 +186,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.DirectRoutingDevice,
 			o.params.Devices,
 			o.params.NodeAddresses,
+			o.params.Config.DeriveMasqIPAddrFromDevice,
 			o.params.XDPConfig,
 		)
 		if err != nil {
