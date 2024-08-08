@@ -36,7 +36,7 @@ func New(vp *viper.Viper) *cobra.Command {
 connectivity health check.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			hubbleConn, err := conn.New(ctx, vp.GetString(config.KeyServer), vp.GetDuration(config.KeyTimeout))
+			hubbleConn, err := conn.New(vp.GetString(config.KeyServer))
 			if err != nil {
 				return err
 			}
