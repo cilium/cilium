@@ -503,17 +503,53 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	trace.reason = (enum trace_reason)ret;
 	l4_off = ct_buffer->l4_off;
 
+	/* Apply network policy: */
+	switch (ct_status) {
+	case CT_NEW:
+	case CT_ESTABLISHED:
 #if defined(ENABLE_L7_LB)
-	if (proxy_port > 0) {
-		/* tuple addresses have been swapped by CT lookup */
-		cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr.p4, tuple->saddr.p4,
-			    bpf_ntohs(proxy_port));
-		goto skip_policy_enforcement;
-	}
+		from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+
+		/* Forward to L7 LB first before applying network policy: */
+		if (proxy_port > 0) {
+			/* tuple addresses have been swapped by CT lookup */
+			cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr.p4, tuple->saddr.p4,
+				    bpf_ntohs(proxy_port));
+			break;
+		}
 #endif /* ENABLE_L7_LB */
 
-	/* Skip policy enforcement for return traffic. */
-	if (ct_status == CT_REPLY || ct_status == CT_RELATED) {
+		/* If the packet is in the establishing direction and it's destined
+		 * within the cluster, it must match policy or be dropped. If it's
+		 * bound for the host/outside, perform the CIDR policy check.
+		 */
+		verdict = policy_can_egress6(ctx, &POLICY_MAP, tuple, l4_off, SECLABEL_IPV6,
+					     *dst_sec_identity, &policy_match_type, &audited,
+					     ext_err, &proxy_port);
+
+		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+			auth_type = (__u8)*ext_err;
+			verdict = auth_lookup(ctx, SECLABEL_IPV6, *dst_sec_identity,
+					      tunnel_endpoint, auth_type);
+		}
+
+		/* Emit verdict if drop or if allow for CT_NEW. */
+		if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
+			send_policy_verdict_notify(ctx, *dst_sec_identity, tuple->dport,
+						   tuple->nexthdr, POLICY_EGRESS, 1,
+						   verdict, proxy_port,
+						   policy_match_type, audited,
+						   auth_type);
+		}
+
+		if (verdict != CTX_ACT_OK)
+			return verdict;
+
+		break;
+	case CT_RELATED:
+	case CT_REPLY:
+		/* Skip policy enforcement for return traffic. */
+
 		/* Check if this is return traffic to an ingress proxy. */
 		if (ct_state->proxy_redirect) {
 			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6,
@@ -524,39 +560,11 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			return ctx_redirect_to_proxy6(ctx, tuple, 0, false);
 		}
 		/* proxy_port remains 0 in this case */
-		goto skip_policy_enforcement;
+		break;
+	default:
+		return DROP_UNKNOWN_CT;
 	}
 
-	/* If the packet is in the establishing direction and it's destined
-	 * within the cluster, it must match policy or be dropped. If it's
-	 * bound for the host/outside, perform the CIDR policy check.
-	 */
-	verdict = policy_can_egress6(ctx, &POLICY_MAP, tuple, l4_off, SECLABEL_IPV6,
-				     *dst_sec_identity, &policy_match_type, &audited,
-				     ext_err, &proxy_port);
-
-	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-		auth_type = (__u8)*ext_err;
-		verdict = auth_lookup(ctx, SECLABEL_IPV6, *dst_sec_identity, tunnel_endpoint,
-				      auth_type);
-	}
-
-	/* Emit verdict if drop or if allow for CT_NEW. */
-	if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
-		send_policy_verdict_notify(ctx, *dst_sec_identity, tuple->dport,
-					   tuple->nexthdr, POLICY_EGRESS, 1,
-					   verdict, proxy_port,
-					   policy_match_type, audited,
-					   auth_type);
-	}
-
-	if (verdict != CTX_ACT_OK)
-		return verdict;
-
-skip_policy_enforcement:
-#if defined(ENABLE_L7_LB)
-	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
-#endif
 	switch (ct_status) {
 	case CT_NEW:
 ct_recreate6:
@@ -937,16 +945,62 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	trace.reason = (enum trace_reason)ret;
 	l4_off = ct_buffer->l4_off;
 
+	/* Apply network policy: */
+	switch (ct_status) {
+	case CT_NEW:
+	case CT_ESTABLISHED:
 #if defined(ENABLE_L7_LB)
-	if (proxy_port > 0) {
-		/* tuple addresses have been swapped by CT lookup */
-		cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr, tuple->saddr, bpf_ntohs(proxy_port));
-		goto skip_policy_enforcement;
-	}
+		from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+
+		/* Forward to L7 LB first before applying network policy: */
+		if (proxy_port > 0) {
+			/* tuple addresses have been swapped by CT lookup */
+			cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr, tuple->saddr,
+				    bpf_ntohs(proxy_port));
+			break;
+		}
 #endif /* ENABLE_L7_LB */
 
-	/* Skip policy enforcement for return traffic. */
-	if (ct_status == CT_REPLY || ct_status == CT_RELATED) {
+		/* When an endpoint connects to itself via service clusterIP, we need
+		 * to skip the policy enforcement. If we didn't, the user would have to
+		 * define policy rules to allow pods to talk to themselves. We still
+		 * want to execute the conntrack logic so that replies can be correctly
+		 * matched.
+		 */
+		if (hairpin_flow)
+			break;
+
+		/* If the packet is in the establishing direction and it's destined
+		 * within the cluster, it must match policy or be dropped. If it's
+		 * bound for the host/outside, perform the CIDR policy check.
+		 */
+		verdict = policy_can_egress4(ctx, &POLICY_MAP, tuple, l4_off, SECLABEL_IPV4,
+					     *dst_sec_identity, &policy_match_type, &audited,
+					     ext_err, &proxy_port);
+
+		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+			auth_type = (__u8)*ext_err;
+			verdict = auth_lookup(ctx, SECLABEL_IPV4, *dst_sec_identity,
+					      tunnel_endpoint, auth_type);
+		}
+
+		/* Emit verdict if drop or if allow for CT_NEW. */
+		if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
+			send_policy_verdict_notify(ctx, *dst_sec_identity, tuple->dport,
+						   tuple->nexthdr, POLICY_EGRESS, 0,
+						   verdict, proxy_port,
+						   policy_match_type, audited,
+						   auth_type);
+		}
+
+		if (verdict != CTX_ACT_OK)
+			return verdict;
+
+		break;
+	case CT_RELATED:
+	case CT_REPLY:
+		/* Skip policy enforcement for return traffic. */
+
 		/* Check if this is return traffic to an ingress proxy. */
 		if (ct_state->proxy_redirect) {
 			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4,
@@ -957,48 +1011,11 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			return ctx_redirect_to_proxy4(ctx, tuple, 0, false);
 		}
 		/* proxy_port remains 0 in this case */
-		goto skip_policy_enforcement;
+		break;
+	default:
+		return DROP_UNKNOWN_CT;
 	}
 
-	/* When an endpoint connects to itself via service clusterIP, we need
-	 * to skip the policy enforcement. If we didn't, the user would have to
-	 * define policy rules to allow pods to talk to themselves. We still
-	 * want to execute the conntrack logic so that replies can be correctly
-	 * matched.
-	 */
-	if (hairpin_flow)
-		goto skip_policy_enforcement;
-
-	/* If the packet is in the establishing direction and it's destined
-	 * within the cluster, it must match policy or be dropped. If it's
-	 * bound for the host/outside, perform the CIDR policy check.
-	 */
-	verdict = policy_can_egress4(ctx, &POLICY_MAP, tuple, l4_off, SECLABEL_IPV4,
-				     *dst_sec_identity, &policy_match_type, &audited,
-				     ext_err, &proxy_port);
-
-	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-		auth_type = (__u8)*ext_err;
-		verdict = auth_lookup(ctx, SECLABEL_IPV4, *dst_sec_identity, tunnel_endpoint,
-				      auth_type);
-	}
-
-	/* Emit verdict if drop or if allow for CT_NEW. */
-	if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
-		send_policy_verdict_notify(ctx, *dst_sec_identity, tuple->dport,
-					   tuple->nexthdr, POLICY_EGRESS, 0,
-					   verdict, proxy_port,
-					   policy_match_type, audited,
-					   auth_type);
-	}
-
-	if (verdict != CTX_ACT_OK)
-		return verdict;
-
-skip_policy_enforcement:
-#if defined(ENABLE_L7_LB)
-	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
-#endif
 	switch (ct_status) {
 	case CT_NEW:
 ct_recreate4:
