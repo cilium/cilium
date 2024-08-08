@@ -195,7 +195,6 @@ func newDatapath(params datapathParams) types.Datapath {
 				return fmt.Errorf("requirements failed: %w", err)
 			}
 
-			params.NodeIDHandler.RestoreNodeIDs()
 			return nil
 		},
 	})
@@ -239,8 +238,6 @@ type datapathParams struct {
 	Orchestrator types.Orchestrator
 
 	NodeHandler types.NodeHandler
-
-	NodeIDHandler types.NodeIDHandler
 
 	NodeNeighbors types.NodeNeighbors
 

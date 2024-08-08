@@ -853,8 +853,8 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 //
 // The removal logic in this function should mirror the upsert logic in NodeUpdated.
 func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcacheTypes.ResourceID,
-	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded []netip.Prefix) {
-
+	ipsetEntries, nodeIPsAdded, healthIPsAdded, ingressIPsAdded []netip.Prefix,
+) {
 	var oldNodeIP netip.Addr
 	if nIP := oldNode.GetNodeIP(false); nIP != nil {
 		// See comment in NodeUpdated().
