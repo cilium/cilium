@@ -176,7 +176,6 @@ func newDatapath(params datapathParams) types.Datapath {
 	datapath := linuxdatapath.NewDatapath(linuxdatapath.DatapathParams{
 		ConfigWriter:   params.ConfigWriter,
 		RuleManager:    params.IptablesManager,
-		WGAgent:        params.WgAgent,
 		NodeMap:        params.NodeMap,
 		NodeAddressing: params.NodeAddressing,
 		BWManager:      params.BandwidthManager,
@@ -205,8 +204,7 @@ type datapathParams struct {
 
 	Log *slog.Logger
 
-	LC      cell.Lifecycle
-	WgAgent *wg.Agent
+	LC cell.Lifecycle
 
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.

@@ -96,10 +96,6 @@ func (m *FakeDatapath) InstallNoTrackRules(ip netip.Addr, port uint16) {
 func (m *FakeDatapath) RemoveNoTrackRules(ip netip.Addr, port uint16) {
 }
 
-func (f *FakeDatapath) WireguardAgent() datapath.WireguardAgent {
-	return nil
-}
-
 func (f *FakeDatapath) LBMap() datapath.LBMap {
 	return f.lbmap
 }
@@ -117,8 +113,7 @@ func (f *FakeDatapath) Orchestrator() datapath.Orchestrator {
 }
 
 // Loader is an interface to abstract out loading of datapath programs.
-type FakeLoader struct {
-}
+type FakeLoader struct{}
 
 func (f *FakeLoader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {
 	panic("implement me")
