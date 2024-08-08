@@ -16,6 +16,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/cilium/hive/cell"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -101,6 +102,7 @@ var (
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath
 func NewNodeHandler(
+	lifecycle cell.Lifecycle,
 	log *slog.Logger,
 	tunnelConfig dpTunnel.Config,
 	nodeMap nodemap.MapV2,
@@ -112,6 +114,16 @@ func NewNodeHandler(
 	}
 
 	handler := newNodeHandler(log, datapathConfig, nodeMap, nodeManager)
+
+	nodeManager.Subscribe(handler)
+
+	lifecycle.Append(cell.Hook{
+		OnStart: func(_ cell.HookContext) error {
+			handler.RestoreNodeIDs()
+			return nil
+		},
+	})
+
 	return handler, handler, handler
 }
 
@@ -153,7 +165,8 @@ func (l *linuxNodeHandler) Name() string {
 // node are provided as context. The caller expects the tunnel mapping in the
 // datapath to be updated.
 func updateTunnelMapping(log *slog.Logger, oldCIDR, newCIDR cmtypes.PrefixCluster, oldIP, newIP net.IP,
-	firstAddition, encapEnabled bool, oldEncryptKey, newEncryptKey uint8) error {
+	firstAddition, encapEnabled bool, oldEncryptKey, newEncryptKey uint8,
+) error {
 	var errs error
 	if !encapEnabled {
 		// When the protocol family is disabled, the initial node addition will
@@ -337,7 +350,6 @@ func installDirectRoute(log *slog.Logger, CIDR *cidr.CIDR, nodeIP net.IP, skipUn
 }
 
 func (n *linuxNodeHandler) updateDirectRoutes(oldCIDRs, newCIDRs []*cidr.CIDR, oldIP, newIP net.IP, firstAddition, directRouteEnabled bool, directRouteSkipUnreachable bool) error {
-
 	if !directRouteEnabled {
 		// When the protocol family is disabled, the initial node addition will
 		// trigger a deletion to clean up leftover entries. The deletion happens
