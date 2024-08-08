@@ -1662,6 +1662,7 @@ type daemonParams struct {
 	K8sResourceSynced      *k8sSynced.Resources
 	K8sAPIGroups           *k8sSynced.APIGroups
 	NodeManager            nodeManager.NodeManager
+	NodeHandler            datapath.NodeHandler
 	EndpointManager        endpointmanager.EndpointManager
 	CertManager            certificatemanager.CertificateManager
 	SecretManager          certificatemanager.SecretManager
