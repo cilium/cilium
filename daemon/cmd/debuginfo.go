@@ -49,7 +49,7 @@ func getDebugInfoHandler(d *Daemon, params restapi.GetDebuginfoParams) middlewar
 
 	dr.Encryption = &models.DebugInfoEncryption{}
 	if option.Config.EnableWireguard {
-		if wgStatus, err := d.datapath.WireguardAgent().Status(true); err == nil {
+		if wgStatus, err := d.wireguardAgent.Status(true); err == nil {
 			dr.Encryption.Wireguard = wgStatus
 		}
 	}

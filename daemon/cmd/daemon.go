@@ -78,6 +78,7 @@ import (
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/time"
+	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
 const (
@@ -186,6 +187,8 @@ type Daemon struct {
 	// Tunnel-related configuration
 	tunnelConfig tunnel.Config
 	bwManager    datapath.BandwidthManager
+
+	wireguardAgent *wireguard.Agent
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -396,6 +399,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		k8sSvcCache:       params.K8sSvcCache,
 		rec:               params.Recorder,
 		ipam:              params.IPAM,
+		wireguardAgent:    params.WGAgent,
 	}
 
 	// Collect CIDR identities from the "old" bpf ipcache and restore them

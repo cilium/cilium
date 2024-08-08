@@ -29,7 +29,6 @@ type linuxDatapath struct {
 	datapath.ConfigWriter
 	datapath.IptablesManager
 	nodeAddressing datapath.NodeAddressing
-	wgAgent        datapath.WireguardAgent
 	lbmap          datapath.LBMap
 	bwmgr          datapath.BandwidthManager
 	orchestrator   datapath.Orchestrator
@@ -38,7 +37,6 @@ type linuxDatapath struct {
 type DatapathParams struct {
 	ConfigWriter   datapath.ConfigWriter
 	RuleManager    datapath.IptablesManager
-	WGAgent        datapath.WireguardAgent
 	NodeMap        nodemap.MapV2
 	BWManager      datapath.BandwidthManager
 	NodeAddressing datapath.NodeAddressing
@@ -65,7 +63,6 @@ func NewDatapath(p DatapathParams) datapath.Datapath {
 		ConfigWriter:    p.ConfigWriter,
 		IptablesManager: p.RuleManager,
 		nodeAddressing:  p.NodeAddressing,
-		wgAgent:         p.WGAgent,
 		lbmap:           lbm,
 		bwmgr:           p.BWManager,
 		orchestrator:    p.Orchestrator,
@@ -82,10 +79,6 @@ func (l *linuxDatapath) Name() string {
 // node
 func (l *linuxDatapath) LocalNodeAddressing() datapath.NodeAddressing {
 	return l.nodeAddressing
-}
-
-func (l *linuxDatapath) WireguardAgent() datapath.WireguardAgent {
-	return l.wgAgent
 }
 
 func (l *linuxDatapath) LBMap() datapath.LBMap {
