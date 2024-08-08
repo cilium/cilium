@@ -40,7 +40,6 @@ type DatapathParams struct {
 	NodeMap        nodemap.MapV2
 	BWManager      datapath.BandwidthManager
 	NodeAddressing datapath.NodeAddressing
-	MTU            datapath.MTUConfiguration
 	NodeManager    manager.NodeManager
 	DB             *statedb.DB
 	Devices        statedb.Table[*tables.Device]
