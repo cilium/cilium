@@ -10,9 +10,6 @@ type Datapath interface {
 	ConfigWriter
 	IptablesManager
 
-	// Node must return the handler for node events
-	Node() NodeHandler
-
 	NodeNeighbors() NodeNeighbors
 
 	// LocalNodeAddressing must return the node addressing implementation
