@@ -108,10 +108,6 @@ func (f *FakeDatapath) BandwidthManager() datapath.BandwidthManager {
 	return &BandwidthManager{}
 }
 
-func (f *FakeDatapath) Orchestrator() datapath.Orchestrator {
-	return &FakeOrchestrator{}
-}
-
 // Loader is an interface to abstract out loading of datapath programs.
 type FakeLoader struct{}
 
