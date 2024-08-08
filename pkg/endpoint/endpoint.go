@@ -1599,12 +1599,11 @@ func (e *Endpoint) OnDNSPolicyUpdateLocked(rules restore.DNSRules) {
 	}
 }
 
-func (e *Endpoint) GetPolicyVersionHandle() versioned.Handle {
+func (e *Endpoint) GetPolicyVersionHold() *versioned.VersionHold {
 	if e.desiredPolicy != nil {
-		return e.desiredPolicy.Handle
+		return e.desiredPolicy.VersionHold
 	}
-	// Zero handle is invalid
-	return versioned.Handle{}
+	return nil
 }
 
 // getProxyStatistics gets the ProxyStatistics for the flows with the

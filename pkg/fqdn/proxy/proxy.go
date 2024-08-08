@@ -11,7 +11,7 @@ import (
 )
 
 type DNSProxier interface {
-	GetRules(versioned.Handle, uint16) (restore.DNSRules, error)
+	GetRules(*versioned.VersionHold, uint16) (restore.DNSRules, error)
 	RemoveRestoredRules(uint16)
 	UpdateAllowed(endpointID uint64, destPort restore.PortProto, newRules policy.L7DataMap) error
 	GetBindPort() uint16
@@ -22,7 +22,7 @@ type DNSProxier interface {
 
 type MockFQDNProxy struct{}
 
-func (m MockFQDNProxy) GetRules(versioned.Handle, uint16) (restore.DNSRules, error) {
+func (m MockFQDNProxy) GetRules(*versioned.VersionHold, uint16) (restore.DNSRules, error) {
 	return nil, nil
 }
 

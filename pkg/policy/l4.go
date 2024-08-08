@@ -645,7 +645,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 			continue
 		}
 
-		idents := cs.GetSelections(p.Handle)
+		idents := cs.GetSelections(p.VersionHold)
 		if option.Config.Debug {
 			if isDenyRule {
 				logger.WithFields(logrus.Fields{
@@ -1016,7 +1016,7 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSe
 	// everything from host, then wildcard Host at L7.
 	if len(hostWildcardL7) > 0 {
 		for cs, l7 := range filter.PerSelectorPolicies {
-			if l7.IsRedirect() && cs.Selects(versioned.AllHandle(), identity.ReservedIdentityHost) {
+			if l7.IsRedirect() && cs.Selects(versioned.Latest(), identity.ReservedIdentityHost) {
 				for _, name := range hostWildcardL7 {
 					selector := api.ReservedEndpointSelectors[name]
 					filter.cacheIdentitySelector(selector, ruleLabels, policyCtx.GetSelectorCache())

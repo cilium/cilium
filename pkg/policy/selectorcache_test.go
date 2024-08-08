@@ -76,7 +76,7 @@ func (csu *cachedSelectionUser) AddIdentitySelector(sel api.EndpointSelector) Ca
 	_, exists := csu.selections[cached]
 	// Not added if already exists for this user
 	require.Equal(csu.t, !exists, added)
-	csu.selections[cached] = cached.GetSelections(versioned.AllHandle())
+	csu.selections[cached] = cached.GetSelections(versioned.Latest())
 
 	// Pre-existing selections are not notified as updates
 	require.False(csu.t, csu.sc.haveUserNotifications())
@@ -94,7 +94,7 @@ func (csu *cachedSelectionUser) AddFQDNSelector(sel api.FQDNSelector) CachedSele
 	_, exists := csu.selections[cached]
 	// Not added if already exists for this user
 	require.Equal(csu.t, !exists, added)
-	csu.selections[cached] = cached.GetSelections(versioned.AllHandle())
+	csu.selections[cached] = cached.GetSelections(versioned.Latest())
 
 	// Pre-existing selections are not notified as updates
 	require.False(csu.t, csu.sc.haveUserNotifications())
@@ -136,7 +136,7 @@ func (csu *cachedSelectionUser) IdentitySelectionUpdated(selector CachedSelector
 	csu.adds += len(added)
 	csu.deletes += len(deleted)
 
-	selections := selector.GetSelections(versioned.AllHandle())
+	selections := selector.GetSelections(versioned.Latest())
 
 	// Validate added & deleted against the selections
 	for _, add := range added {
@@ -181,7 +181,7 @@ func (cs *testCachedSelector) addSelections(selections ...int) (adds []identity.
 		if cs == nil {
 			continue
 		}
-		if !cs.Selects(versioned.AllHandle(), nid) {
+		if !cs.Selects(versioned.Latest(), nid) {
 			cs.selections = append(cs.selections, nid)
 		}
 	}
@@ -208,14 +208,14 @@ func (cs *testCachedSelector) deleteSelections(selections ...int) (deletes []ide
 
 // CachedSelector interface
 
-func (cs *testCachedSelector) GetSelections(_ versioned.Handle) identity.NumericIdentitySlice {
+func (cs *testCachedSelector) GetSelections(*versioned.VersionHold) identity.NumericIdentitySlice {
 	return cs.selections
 }
 
 func (cs *testCachedSelector) GetMetadataLabels() labels.LabelArray {
 	return nil
 }
-func (cs *testCachedSelector) Selects(_ versioned.Handle, nid identity.NumericIdentity) bool {
+func (cs *testCachedSelector) Selects(_ *versioned.VersionHold, nid identity.NumericIdentity) bool {
 	for _, id := range cs.selections {
 		if id == nid {
 			return true
@@ -255,7 +255,7 @@ func TestAddRemoveSelector(t *testing.T) {
 	cached := user1.AddIdentitySelector(testSelector)
 
 	// Current selections contain the numeric identities of existing identities that match
-	selections := cached.GetSelections(versioned.AllHandle())
+	selections := cached.GetSelections(versioned.Latest())
 	require.Equal(t, 1, len(selections))
 	require.Equal(t, identity.NumericIdentity(1234), selections[0])
 
@@ -317,7 +317,7 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 	cached := user1.AddIdentitySelector(testSelector)
 
 	// Current selections contain the numeric identities of existing identities that match
-	selections := cached.GetSelections(versioned.AllHandle())
+	selections := cached.GetSelections(versioned.Latest())
 	require.Equal(t, 1, len(selections))
 	require.Equal(t, identity.NumericIdentity(1234), selections[0])
 
@@ -326,13 +326,13 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 	require.NotEqual(t, cached, cached2)
 
 	// Current selections contain the numeric identities of existing identities that match
-	selections2 := cached2.GetSelections(versioned.AllHandle())
+	selections2 := cached2.GetSelections(versioned.Latest())
 	require.Equal(t, 1, len(selections2))
 	require.Equal(t, identity.NumericIdentity(2345), selections2[0])
 
 	shouldSelect := func(sel api.EndpointSelector, wantIDs ...identity.NumericIdentity) {
 		csel := user1.AddIdentitySelector(sel)
-		selections := csel.GetSelections(versioned.AllHandle())
+		selections := csel.GetSelections(versioned.Latest())
 		require.EqualValues(t, identity.NumericIdentitySlice(wantIDs), selections)
 		user1.RemoveSelector(csel)
 	}
@@ -367,7 +367,7 @@ func TestIdentityUpdates(t *testing.T) {
 	cached := user1.AddIdentitySelector(testSelector)
 
 	// Current selections contain the numeric identities of existing identities that match
-	selections := cached.GetSelections(versioned.AllHandle())
+	selections := cached.GetSelections(versioned.Latest())
 	require.Equal(t, 1, len(selections))
 	require.Equal(t, identity.NumericIdentity(1234), selections[0])
 
@@ -376,7 +376,7 @@ func TestIdentityUpdates(t *testing.T) {
 	require.NotEqual(t, cached, cached2)
 
 	// Current selections contain the numeric identities of existing identities that match
-	selections2 := cached2.GetSelections(versioned.AllHandle())
+	selections2 := cached2.GetSelections(versioned.Latest())
 	require.Equal(t, 1, len(selections2))
 	require.Equal(t, identity.NumericIdentity(2345), selections2[0])
 
@@ -393,7 +393,7 @@ func TestIdentityUpdates(t *testing.T) {
 	require.Equal(t, 0, deletes)
 
 	// Current selections contain the numeric identities of existing identities that match
-	selections = cached.GetSelections(versioned.AllHandle())
+	selections = cached.GetSelections(versioned.Latest())
 	require.Equal(t, 2, len(selections))
 	require.Equal(t, identity.NumericIdentity(1234), selections[0])
 	require.Equal(t, identity.NumericIdentity(12345), selections[1])
@@ -411,7 +411,7 @@ func TestIdentityUpdates(t *testing.T) {
 	require.Equal(t, 1, deletes)
 
 	// Current selections contain the numeric identities of existing identities that match
-	selections = cached.GetSelections(versioned.AllHandle())
+	selections = cached.GetSelections(versioned.Latest())
 	require.Equal(t, 1, len(selections))
 	require.Equal(t, identity.NumericIdentity(1234), selections[0])
 
@@ -462,13 +462,13 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	require.Equal(t, 0, deletes)
 
 	// Current selections contain the numeric identities of existing identities that match
-	selections := cached.GetSelections(versioned.AllHandle())
+	selections := cached.GetSelections(versioned.Latest())
 	require.Equal(t, 3, len(selections))
 	require.Equal(t, identity.NumericIdentity(123), selections[0])
 	require.Equal(t, identity.NumericIdentity(345), selections[1])
 	require.Equal(t, identity.NumericIdentity(1234), selections[2])
 
-	require.EqualValues(t, cached2.GetSelections(versioned.AllHandle()), cached.GetSelections(versioned.AllHandle()))
+	require.EqualValues(t, cached2.GetSelections(versioned.Latest()), cached.GetSelections(versioned.Latest()))
 
 	user1.Reset()
 	user2.Reset()
@@ -488,12 +488,12 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	require.Equal(t, 1, deletes)
 
 	// Current selections contain the numeric identities of existing identities that match
-	selections = cached.GetSelections(versioned.AllHandle())
+	selections = cached.GetSelections(versioned.Latest())
 	require.Equal(t, 2, len(selections))
 	require.Equal(t, identity.NumericIdentity(345), selections[0])
 	require.Equal(t, identity.NumericIdentity(1234), selections[1])
 
-	require.EqualValues(t, cached2.GetSelections(versioned.AllHandle()), cached.GetSelections(versioned.AllHandle()))
+	require.EqualValues(t, cached2.GetSelections(versioned.Latest()), cached.GetSelections(versioned.Latest()))
 
 	user1.RemoveSelector(cached)
 	user2.RemoveSelector(cached2)
@@ -528,8 +528,8 @@ func TestTransactionalUpdate(t *testing.T) {
 	cs8 := user1.AddIdentitySelector(cidr8Selector)
 	cs7 := user1.AddIdentitySelector(cidr7Selector)
 
-	handle := sc.versionManager.GetHandle("TestTransactionalUpdate")
-	defer handle.Release()
+	handle := sc.versionManager.GetCurrentVersionHold()
+	defer handle.Close()
 	require.Equal(t, identity.NumericIdentitySlice{li1}, cs32.GetSelections(handle))
 	require.Equal(t, identity.NumericIdentitySlice{li1}, cs24.GetSelections(handle))
 	require.Equal(t, identity.NumericIdentitySlice{li1, li2}, cs8.GetSelections(handle))
@@ -552,8 +552,8 @@ func TestTransactionalUpdate(t *testing.T) {
 	require.Equal(t, identity.NumericIdentitySlice{li1, li2}, cs7.GetSelections(handle))
 
 	// New verstion handle sees the new updates on all selectors
-	handle2 := sc.versionManager.GetHandle("TestTransactionalUpdate2")
-	defer handle2.Release()
+	handle2 := sc.versionManager.GetCurrentVersionHold()
+	defer handle2.Close()
 
 	require.Equal(t, identity.NumericIdentitySlice{li1}, cs32.GetSelections(handle2))
 	require.Equal(t, identity.NumericIdentitySlice{li1, li3}, cs24.GetSelections(handle2))
@@ -579,8 +579,8 @@ func TestTransactionalUpdate(t *testing.T) {
 	require.Equal(t, identity.NumericIdentitySlice{li1, li2, li3, li4}, cs7.GetSelections(handle2))
 
 	// New verstion handle sees the removal
-	handle3 := sc.versionManager.GetHandle("TestTransactionalUpdate3")
-	defer handle3.Release()
+	handle3 := sc.versionManager.GetCurrentVersionHold()
+	defer handle3.Close()
 
 	require.Equal(t, identity.NumericIdentitySlice(nil), cs32.GetSelections(handle3))
 	require.Equal(t, identity.NumericIdentitySlice{li3}, cs24.GetSelections(handle3))
@@ -606,7 +606,7 @@ func TestSelectorManagerCanGetBeforeSet(t *testing.T) {
 		key:   "test",
 		users: make(map[CachedSelectionUser]struct{}),
 	}
-	selections := idSel.GetSelections(versioned.AllHandle())
+	selections := idSel.GetSelections(versioned.Latest())
 	require.NotEqual(t, nil, selections)
 	require.Equal(t, 0, len(selections))
 }

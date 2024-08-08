@@ -141,8 +141,8 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 	}
 
 	// Need a valid handle to be able to update the network policy, get one if needed
-	if !e.desiredPolicy.Handle.IsValid() {
-		e.desiredPolicy.Handle = e.desiredPolicy.SelectorCache.GetHandle("updateNetworkPolicy")
+	if !e.desiredPolicy.VersionHold.IsValid() {
+		e.desiredPolicy.VersionHold = e.desiredPolicy.SelectorCache.GetCurrentVersionHold()
 		defer e.desiredPolicy.Ready()
 	}
 

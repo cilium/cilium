@@ -1890,7 +1890,7 @@ func (mc *MapChanges) SyncMapChanges(handleFunc GetHandleFunc) {
 
 // consumeMapChanges transfers the incremental changes from MapChanges to the caller,
 // while applying the changes to PolicyMapState.
-func (mc *MapChanges) consumeMapChanges(policyOwner PolicyOwner, policyMapState MapState, identities Identities, features policyFeatures) (versioned.Handle, ChangeState) {
+func (mc *MapChanges) consumeMapChanges(policyOwner PolicyOwner, policyMapState MapState, identities Identities, features policyFeatures) (*versioned.VersionHold, ChangeState) {
 	mc.mutex.Lock()
 	changes := ChangeState{
 		Adds:    make(Keys, len(mc.synced)),
@@ -1934,14 +1934,14 @@ func (mc *MapChanges) consumeMapChanges(policyOwner PolicyOwner, policyMapState 
 		}
 	}
 
-	var handle versioned.Handle
+	var version *versioned.VersionHold
 	if !changes.Empty() && mc.handleFunc != nil {
-		handle = mc.handleFunc()
+		version = mc.handleFunc()
 	}
 
 	mc.synced = nil
 	mc.handleFunc = nil
 	mc.mutex.Unlock()
 
-	return handle, changes
+	return version, changes
 }

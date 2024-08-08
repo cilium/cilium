@@ -12,92 +12,86 @@ import (
 func TestVersionedValue(t *testing.T) {
 	var value1 Value[[]uint32]
 
-	cv := NewVersionManager(func(keepVersion Version) {
-		Cleaner(&value1, keepVersion)
+	cv := NewManager(func(keepVersion KeepVersion) {
+		value1.RemoveBefore(keepVersion)
 	})
 
 	// Initially empty
-	handle := cv.GetHandle("empty")
-	assert.Empty(t, GetValue(&value1, handle))
-	assert.True(t, handle.Release())
-	// 2ns call does nothing
-	assert.False(t, handle.Release())
+	handle := cv.GetCurrentVersionHold()
+	assert.Empty(t, value1.At(handle))
+	assert.Nil(t, handle.Close())
+	// 2nd call does nothing
+	assert.NotNil(t, handle.Close())
 
 	// Add first value
-	handle1 := cv.GetHandle("first")
-	assert.Empty(t, GetValue(&value1, handle1))
+	handle1 := cv.GetCurrentVersionHold()
+	assert.Empty(t, value1.At(handle1))
 
-	current, next := cv.GetVersion()
-	assert.Less(t, current, next)
+	next := cv.GetNextVersion()
 
-	SetValueAtVersion(&value1, []uint32{100, 200}, next)
-	assert.True(t, cv.PublishVersion(current, next))
+	assert.Nil(t, value1.SetAt([]uint32{100, 200}, next))
+	assert.Nil(t, cv.Publish(next))
 
-	current, _ = cv.GetVersion()
-	assert.Equal(t, next, current)
+	current := next
+	next = cv.GetNextVersion()
+	assert.Equal(t, next, current+1)
 
 	// New value is invisible for the old handle
-	assert.Empty(t, GetValue(&value1, handle))
+	assert.Empty(t, value1.At(handle))
 
 	// But is visible for any new handles
-	handle2 := cv.GetHandle("second")
+	handle2 := cv.GetCurrentVersionHold()
 
-	v := GetValue(&value1, handle2)
-	assert.Len(t, v, 2)
+	v := value1.At(handle2)
 	assert.Equal(t, []uint32{100, 200}, v)
 
 	// Set a new value
-	current, next = cv.GetVersion()
-	SetValueAtVersion(&value1, []uint32{100, 150, 200}, next)
-	assert.True(t, cv.PublishVersion(current, next))
+	next = cv.GetNextVersion()
+	assert.Nil(t, value1.SetAt([]uint32{100, 150, 200}, next))
+	assert.Nil(t, cv.Publish(next))
 
 	// new handle sees the new value
-	handle3 := cv.GetHandle("third")
-	v = GetValue(&value1, handle3)
-	assert.Len(t, v, 3)
+	handle3 := cv.GetCurrentVersionHold()
+	v = value1.At(handle3)
 	assert.Equal(t, []uint32{100, 150, 200}, v)
 
 	// Old handle sees the previous value
-	v = GetValue(&value1, handle2)
-	assert.Len(t, v, 2)
+	v = value1.At(handle2)
 	assert.Equal(t, []uint32{100, 200}, v)
 
 	// first handle still sees no value
-	assert.Empty(t, GetValue(&value1, handle))
+	assert.Empty(t, value1.At(handle))
 
 	// delete the value at next version
-	current, next = cv.GetVersion()
-	RemoveValueAtVersion(&value1, next)
-	assert.True(t, cv.PublishVersion(current, next))
+	next = cv.GetNextVersion()
+	assert.Nil(t, value1.RemoveAt(next))
+	assert.Nil(t, cv.Publish(next))
 
 	// new handle sees an empty value
-	handle4 := cv.GetHandle("fourth")
-	assert.Empty(t, GetValue(&value1, handle4))
-	assert.Empty(t, GetValue(&value1, handle))
-	v = GetValue(&value1, handle3)
-	assert.Len(t, v, 3)
+	handle4 := cv.GetCurrentVersionHold()
+	assert.Empty(t, value1.At(handle4))
+	assert.Empty(t, value1.At(handle))
+	v = value1.At(handle3)
 	assert.Equal(t, []uint32{100, 150, 200}, v)
-	v = GetValue(&value1, handle2)
-	assert.Len(t, v, 2)
+	v = value1.At(handle2)
 	assert.Equal(t, []uint32{100, 200}, v)
 
 	// closers can be called in any order
-	assert.True(t, handle2.Release())
-	assert.True(t, handle1.Release())
+	assert.Nil(t, handle2.Close())
+	assert.Nil(t, handle1.Close())
 
 	// stale handle should now get an empty value after it's closer has been called and a new
 	// value has been inserted
-	assert.Empty(t, GetValue(&value1, handle2))
+	assert.Empty(t, value1.At(handle2))
 
-	v = GetValue(&value1, handle3)
-	assert.Len(t, v, 3)
+	v = value1.At(handle3)
 	assert.Equal(t, []uint32{100, 150, 200}, v)
 
-	assert.True(t, handle3.Release())
+	assert.Nil(t, handle3.Close())
 
-	assert.Empty(t, GetValue(&value1, handle3))
+	assert.Empty(t, value1.At(handle3))
 
-	assert.True(t, handle4.Release())
+	assert.Nil(t, handle4.Close())
 
 	// old values have been cleaned off
 	assert.Nil(t, value1.head.Load())
@@ -107,113 +101,102 @@ func TestVersionedValueMultiple(t *testing.T) {
 	var value1 Value[[]uint32]
 	var value2 Value[[]uint32]
 
-	cv := NewVersionManager(func(keepVersion Version) {
-		Cleaner(&value1, keepVersion)
-		Cleaner(&value2, keepVersion)
+	cv := NewManager(func(keepVersion KeepVersion) {
+		value1.RemoveBefore(keepVersion)
+		value2.RemoveBefore(keepVersion)
 	})
 
 	// Initially empty
-	handle := cv.GetHandle("empty")
-	assert.Empty(t, GetValue(&value1, handle))
-	assert.Empty(t, GetValue(&value2, handle))
-	assert.True(t, handle.Release())
-	assert.False(t, handle.Release())
+	handle := cv.GetCurrentVersionHold()
+	assert.Empty(t, value1.At(handle))
+	assert.Empty(t, value2.At(handle))
+	assert.Nil(t, handle.Close())
+	assert.NotNil(t, handle.Close())
 
 	// Add first values
-	handle1 := cv.GetHandle("first")
-	assert.Empty(t, GetValue(&value1, handle1))
-	assert.Empty(t, GetValue(&value2, handle1))
+	handle1 := cv.GetCurrentVersionHold()
+	assert.Empty(t, value1.At(handle1))
+	assert.Empty(t, value2.At(handle1))
 
-	current, next := cv.GetVersion()
-	assert.Less(t, current, next)
+	next := cv.GetNextVersion()
 
-	SetValueAtVersion(&value1, []uint32{100, 200}, next)
-	SetValueAtVersion(&value2, []uint32{110, 190}, next)
-	assert.True(t, cv.PublishVersion(current, next))
+	assert.Nil(t, value1.SetAt([]uint32{100, 200}, next))
+	assert.Nil(t, value2.SetAt([]uint32{110, 190}, next))
+	assert.Nil(t, cv.Publish(next))
 
-	current, _ = cv.GetVersion()
-	assert.Equal(t, next, current)
+	current := next
+	next = cv.GetNextVersion()
+	assert.Equal(t, next, current+1)
 
 	// New value is invisible for the old handle
-	assert.Empty(t, GetValue(&value1, handle1))
-	assert.Empty(t, GetValue(&value2, handle1))
+	assert.Empty(t, value1.At(handle1))
+	assert.Empty(t, value2.At(handle1))
 
 	// But is visible for any new handles
-	handle2 := cv.GetHandle("second")
+	handle2 := cv.GetCurrentVersionHold()
 
-	v := GetValue(&value1, handle2)
-	assert.Len(t, v, 2)
+	v := value1.At(handle2)
 	assert.Equal(t, []uint32{100, 200}, v)
 
-	v = GetValue(&value2, handle2)
-	assert.Len(t, v, 2)
+	v = value2.At(handle2)
 	assert.Equal(t, []uint32{110, 190}, v)
 
 	// New value appears at both values at the same version
-	current, next = cv.GetVersion()
-	SetValueAtVersion(&value1, []uint32{100, 150, 200}, next)
-	SetValueAtVersion(&value2, []uint32{110, 150, 190}, next)
-	assert.True(t, cv.PublishVersion(current, next))
+	next = cv.GetNextVersion()
+	assert.Nil(t, value1.SetAt([]uint32{100, 150, 200}, next))
+	assert.Nil(t, value2.SetAt([]uint32{110, 150, 190}, next))
+	assert.Nil(t, cv.Publish(next))
 
 	// new handle sees the new value
-	handle3 := cv.GetHandle("third")
-	v = GetValue(&value1, handle3)
-	assert.Len(t, v, 3)
+	handle3 := cv.GetCurrentVersionHold()
+	v = value1.At(handle3)
 	assert.Equal(t, []uint32{100, 150, 200}, v)
 
-	v = GetValue(&value2, handle3)
-	assert.Len(t, v, 3)
+	v = value2.At(handle3)
 	assert.Equal(t, []uint32{110, 150, 190}, v)
 
 	// Old handle sees the previous values
-	v = GetValue(&value1, handle2)
-	assert.Len(t, v, 2)
+	v = value1.At(handle2)
 	assert.Equal(t, []uint32{100, 200}, v)
 
-	v = GetValue(&value2, handle2)
-	assert.Len(t, v, 2)
+	v = value2.At(handle2)
 	assert.Equal(t, []uint32{110, 190}, v)
 
 	// first handle still sees no value
-	assert.Empty(t, GetValue(&value1, handle))
+	assert.Empty(t, value1.At(handle))
 
 	// delete the value1 at next version
-	current, next = cv.GetVersion()
-	RemoveValueAtVersion(&value1, next)
-	assert.True(t, cv.PublishVersion(current, next))
+	next = cv.GetNextVersion()
+	assert.Nil(t, value1.RemoveAt(next))
+	assert.Nil(t, cv.Publish(next))
 
 	// new handle sees an empty value1, but value2 remains
-	handle4 := cv.GetHandle("fourth")
-	assert.Empty(t, GetValue(&value1, handle4))
+	handle4 := cv.GetCurrentVersionHold()
+	assert.Empty(t, value1.At(handle4))
 
-	v = GetValue(&value2, handle4)
-	assert.Len(t, v, 3)
+	v = value2.At(handle4)
 	assert.Equal(t, []uint32{110, 150, 190}, v)
 
-	assert.Empty(t, GetValue(&value1, handle))
-	assert.Empty(t, GetValue(&value2, handle))
+	assert.Empty(t, value1.At(handle))
+	assert.Empty(t, value2.At(handle))
 
-	v = GetValue(&value1, handle3)
-	assert.Len(t, v, 3)
+	v = value1.At(handle3)
 	assert.Equal(t, []uint32{100, 150, 200}, v)
 
-	v = GetValue(&value2, handle3)
-	assert.Len(t, v, 3)
+	v = value2.At(handle3)
 	assert.Equal(t, []uint32{110, 150, 190}, v)
 
-	v = GetValue(&value1, handle2)
-	assert.Len(t, v, 2)
+	v = value1.At(handle2)
 	assert.Equal(t, []uint32{100, 200}, v)
 
-	v = GetValue(&value2, handle2)
-	assert.Len(t, v, 2)
+	v = value2.At(handle2)
 	assert.Equal(t, []uint32{110, 190}, v)
 
 	// handle closers can be called in any order
-	assert.True(t, handle2.Release())
-	assert.True(t, handle3.Release())
-	assert.True(t, handle1.Release())
-	assert.True(t, handle4.Release())
+	assert.Nil(t, handle2.Close())
+	assert.Nil(t, handle3.Close())
+	assert.Nil(t, handle1.Close())
+	assert.Nil(t, handle4.Close())
 
 	// old value1 have been cleaned off
 	assert.Nil(t, value1.head.Load())
@@ -223,67 +206,49 @@ func TestVersionedValueMultiple(t *testing.T) {
 }
 
 func TestPairSlice(t *testing.T) {
-	var version Version
-	s := NewPairSlice[int](10)
+	var nextVersion NextVersion
+	s := make(VersionedSlice[int], 0, 10)
 
 	// 1st value '2000' at version 0
-	s = AppendPair(s, version, 2000)
+	s = s.Append(nextVersion, 2000)
 	assert.Len(t, s, 1)
-	assert.Equal(t, Version(0), s[0].version)
+	assert.Equal(t, version(0), s[0].version)
 	assert.Equal(t, 2000, s[0].value)
 
-	version++
+	nextVersion++
 
 	// 2nd value '1000' at version 1
-	s = AppendPair(s, version, 1000)
+	s = s.Append(nextVersion, 1000)
 	assert.Len(t, s, 2)
-	assert.Equal(t, Version(0), s[0].version)
+	assert.Equal(t, version(0), s[0].version)
 	assert.Equal(t, 2000, s[0].value)
-	assert.Equal(t, Version(1), s[1].version)
+	assert.Equal(t, version(1), s[1].version)
 	assert.Equal(t, 1000, s[1].value)
 
 	// 3rd value '3000' at version 'maxVersion'
-	s = AppendPair(s, maxVersion, 3000)
+	s = s.Append(NextVersion(maxVersion), 3000)
 	assert.Len(t, s, 3)
-	assert.Equal(t, Version(0), s[0].version)
+	assert.Equal(t, version(0), s[0].version)
 	assert.Equal(t, 2000, s[0].value)
-	assert.Equal(t, Version(1), s[1].version)
+	assert.Equal(t, version(1), s[1].version)
 	assert.Equal(t, 1000, s[1].value)
 	assert.Equal(t, maxVersion, s[2].version)
 	assert.Equal(t, 3000, s[2].value)
 
-	// get all values upto maxVersion - 1; excluding the last value
+	// get all values before maxVersion; excluding the last value
 	var values []int
-	n := ForEachUpToVersion(s, maxVersion-1, func(i int) {
+	n := s.ForEachBefore(KeepVersion(maxVersion), func(i int) {
 		values = append(values, i)
 	})
-
-	assert.Equal(t, 2, n)
 	assert.Equal(t, []int{2000, 1000}, values)
-
-	assert.Len(t, s, 3)
-	assert.Equal(t, 10, cap(s))
-
-	// Trim the iterated values off the front
-	s = TrimFrontPairSlice(s, n, 5)
-	assert.Len(t, s, 1)
-	assert.Equal(t, 8, cap(s))
+	s = s[n:]
 
 	// get all values upto and including maxVersion; get the lone value
 	values = nil
-	n = ForEachUpToVersion(s, maxVersion, func(i int) {
+	n = s.ForEachBefore(KeepVersion(invalidVersion), func(i int) {
 		values = append(values, i)
 	})
-
 	assert.Equal(t, []int{3000}, values)
-	assert.Equal(t, 1, n)
-
-	assert.Len(t, s, 1)
-	assert.Equal(t, 8, cap(s))
-
-	// Trim the iterated value off the front, check that the  max capacity (5) is honored
-	s = TrimFrontPairSlice(s, n, 5)
+	s = s[n:]
 	assert.Len(t, s, 0)
-	assert.NotNil(t, s)
-	assert.Equal(t, 5, cap(s))
 }

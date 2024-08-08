@@ -37,5 +37,5 @@ type EndpointUpdater interface {
 	// 'rules' is a fresh copy of the DNS rules passed to the callee.
 	OnDNSPolicyUpdateLocked(rules restore.DNSRules)
 
-	GetPolicyVersionHandle() versioned.Handle
+	GetPolicyVersionHold() *versioned.VersionHold
 }

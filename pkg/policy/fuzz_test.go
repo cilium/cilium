@@ -85,6 +85,6 @@ func FuzzAccumulateMapChange(f *testing.F) {
 		value := NewMapStateEntry(csFoo, nil, proxyPort, "", 0, deny, DefaultAuthType, AuthTypeDisabled)
 		policyMaps := MapChanges{}
 		policyMaps.AccumulateMapChanges(csFoo, adds, deletes, []Key{key}, value)
-		policyMaps.SyncMapChanges(testGetInvalidHandle)
+		policyMaps.SyncMapChanges(testLatestVersionHold)
 	})
 }

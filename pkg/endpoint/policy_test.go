@@ -185,7 +185,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		// This mirrors the existing code, where we consume map changes
 		// while holding the endpoint lock
 		handle, _ := res.endpointPolicy.ConsumeMapChanges()
-		handle.Release()
+		handle.Close()
 
 		haveIDs := make(sets.Set[identity.NumericIdentity], testfactor)
 		res.endpointPolicy.GetPolicyMap().ForEach(func(k policy.Key, _ policy.MapStateEntry) bool {

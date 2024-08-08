@@ -625,7 +625,7 @@ func (r *rule) matchesSubject(securityIdentity *identity.Identity) bool {
 		return r.getSelector().Matches(securityIdentity.LabelArray)
 	}
 
-	return r.subjectSelector.Selects(versioned.AllHandle(), securityIdentity.ID)
+	return r.subjectSelector.Selects(versioned.Latest(), securityIdentity.ID)
 }
 
 // ****************** EGRESS POLICY ******************

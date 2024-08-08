@@ -116,7 +116,7 @@ type SelectorCache struct {
 
 	mutex lock.RWMutex
 
-	idRemovals versioned.PairSlice[identity.NumericIdentity]
+	idRemovals versioned.VersionedSlice[identity.NumericIdentity]
 
 	// idCache contains all known identities as informed by the
 	// kv-store and the local identity facility via our
@@ -142,21 +142,22 @@ type SelectorCache struct {
 	startNotificationsHandlerOnce sync.Once
 }
 
-// GetHandleFunc calls the given function with a versioned.Handle to the current version of
+// GetCurrentVersionHoldFunc calls the given function with a versioned.VersionHold for the current version of
 // SelectorCache selections while selector cache is locked for writing, so that the caller may get
 // ready for getting incremental updates that are possible right after the lock is released.
 // This should only be used with trivial functions that can not lock or sleep!
-// Use the plain 'GetHandle' whenever possible, as it does not lock the selector cache.
-func (sc *SelectorCache) GetHandleFunc(f func(versioned.Handle)) {
+// Use the plain 'GetCurrentVersionHold' whenever possible, as it does not lock the selector cache.
+// The returned VersionHold must be closed with Close()
+func (sc *SelectorCache) GetCurrentVersionHoldFunc(f func(*versioned.VersionHold)) {
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
-	f(sc.GetHandle("GetHandle"))
+	f(sc.GetCurrentVersionHold())
 }
 
-// GetHandle returns a Handle for the current version
-// 'name' is for debugging purposes only
-func (sc *SelectorCache) GetHandle(name string) versioned.Handle {
-	return sc.versionManager.GetHandle(name)
+// GetCurrentVersionHold returns a VersoionHandle for the current version.
+// The returned VersionHold must be closed with Close()
+func (sc *SelectorCache) GetCurrentVersionHold() *versioned.VersionHold {
+	return sc.versionManager.GetCurrentVersionHold()
 }
 
 // GetModel returns the API model of the SelectorCache.
@@ -168,8 +169,8 @@ func (sc *SelectorCache) GetModel() models.SelectorCache {
 
 	// Get handle to the current version. Any concurrent updates will not be visible in the
 	// returned model.
-	handle := sc.versionManager.GetHandle("GetModel")
-	defer handle.Release()
+	handle := sc.versionManager.GetCurrentVersionHold()
+	defer handle.Close()
 
 	for selector, idSel := range sc.selectors {
 		selections := idSel.GetSelections(handle)
@@ -245,7 +246,7 @@ func (sc *SelectorCache) queueUserNotification(user CachedSelectionUser, selecto
 	sc.userCond.Signal()
 }
 
-type GetHandleFunc func() versioned.Handle
+type GetHandleFunc func() *versioned.VersionHold
 
 func (sc *SelectorCache) queueNotifiedUsersSync(handleFunc GetHandleFunc, wg *sync.WaitGroup) {
 	sc.userMutex.Lock()
@@ -267,25 +268,25 @@ func (sc *SelectorCache) queueNotifiedUsersSync(handleFunc GetHandleFunc, wg *sy
 // NewSelectorCache creates a new SelectorCache with the given identities.
 func NewSelectorCache(ids identity.IdentityMap) *SelectorCache {
 	sc := &SelectorCache{
-		idRemovals: versioned.NewPairSlice[identity.NumericIdentity](versionedIDCapacity),
+		idRemovals: make([]versioned.Versioned[identity.NumericIdentity], 0, versionedIDCapacity),
 		idCache:    make(map[identity.NumericIdentity]scIdentity, len(ids)),
 		selectors:  make(map[string]*identitySelector),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
-	sc.versionManager = versioned.NewVersionManager(func(keepVersion versioned.Version) {
-		// This is called when we call the 'cleaner' callback, and we always do that while holding sc.mutex.
-
-		// Scanning through all selections is not very efficient, but we do not currently know which selectors
-		// need the cleanup.
+	sc.versionManager = versioned.NewManager(func(keepVersion versioned.KeepVersion) {
+		// This is called when we call the 'cleaner' callback, and we always do that while
+		// holding sc.mutex.
+		// Scanning through all selections is not very efficient, but we do not currently
+		// know which selectors need the cleanup.
 		for _, idSel := range sc.selectors {
-			versioned.Cleaner(&idSel.selections, keepVersion)
+			idSel.selections.RemoveBefore(keepVersion)
 		}
 
 		// clean up stale IDs from ipFamilyMap
-		n := versioned.ForEachUpToVersion(sc.idRemovals, keepVersion, func(nid identity.NumericIdentity) {
+		n := sc.idRemovals.ForEachBefore(keepVersion, func(nid identity.NumericIdentity) {
 			sc.ipFamilyMap.Delete(nid)
 		})
-		sc.idRemovals = versioned.TrimFrontPairSlice(sc.idRemovals, n, versionedIDCapacity)
+		sc.idRemovals = sc.idRemovals[n:]
 	})
 
 	for nid, lbls := range ids {
@@ -389,9 +390,9 @@ func (sc *SelectorCache) addSelector(user CachedSelectionUser, lbls labels.Label
 
 	// Create the immutable slice representation of the selected
 	// numeric identities
-	currentVersion, nextVersion := sc.versionManager.GetVersion()
+	nextVersion := sc.versionManager.GetNextVersion()
 	idSel.updateSelections(nextVersion)
-	sc.versionManager.PublishVersion(currentVersion, nextVersion)
+	sc.versionManager.Publish(nextVersion)
 
 	return idSel, idSel.addUser(user)
 
@@ -494,7 +495,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
-	currentVersion, nextVersion := sc.versionManager.GetVersion()
+	nextVersion := sc.versionManager.GetNextVersion()
 
 	// Update idCache so that newly added selectors get
 	// prepopulated with all matching numeric identities.
@@ -507,7 +508,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 			delete(sc.idCache, numericID)
 
 			// Defer deletion until 'currentVersion' is not used by any versioned users
-			sc.idRemovals = versioned.AppendPair(sc.idRemovals, nextVersion, numericID)
+			sc.idRemovals = sc.idRemovals.Append(nextVersion, numericID)
 		} else {
 			log.WithFields(logrus.Fields{
 				logfields.Identity: numericID,
@@ -585,11 +586,11 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				idSel.notifyUsers(sc, adds, dels, wg)
 			}
 		}
-		sc.queueNotifiedUsersSync(func() versioned.Handle {
-			return sc.versionManager.GetHandleForVersion(nextVersion, "UpdateIdentities")
+		sc.queueNotifiedUsersSync(func() *versioned.VersionHold {
+			return sc.versionManager.GetNextVersionHold(nextVersion)
 		}, wg)
 	}
-	sc.versionManager.PublishVersion(currentVersion, nextVersion)
+	sc.versionManager.Publish(nextVersion)
 }
 
 // GetPrefix returns the IP Family of the most specific CIDR for an identity, if any.

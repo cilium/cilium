@@ -37,10 +37,10 @@ var (
 	IPv4Addr = "10.1.1.1"
 
 	ep endpoint.EndpointUpdater = &test.ProxyUpdaterMock{
-		Id:     1000,
-		Ipv4:   "10.0.0.1",
-		Ipv6:   "f00d::1",
-		Handle: versioned.AllHandle(),
+		Id:          1000,
+		Ipv4:        "10.0.0.1",
+		Ipv6:        "f00d::1",
+		VersionHold: versioned.Latest(),
 	}
 )
 
@@ -459,7 +459,7 @@ func TestGetHTTPRule(t *testing.T) {
 }
 
 func Test_getWildcardNetworkPolicyRule(t *testing.T) {
-	handle := versioned.AllHandle()
+	handle := versioned.Latest()
 	perSelectorPoliciesWithWildcard := policy.L7DataMap{
 		cachedSelector1:           nil,
 		cachedRequiresV2Selector1: nil,
@@ -483,7 +483,7 @@ func Test_getWildcardNetworkPolicyRule(t *testing.T) {
 }
 
 func TestGetPortNetworkPolicyRule(t *testing.T) {
-	handle := versioned.AllHandle()
+	handle := versioned.Latest()
 	obtained, canShortCircuit := getPortNetworkPolicyRule(handle, cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12, false)
 	require.Equal(t, ExpectedPortNetworkPolicyRule12, obtained)
 	require.Equal(t, true, canShortCircuit)

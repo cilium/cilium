@@ -10,10 +10,10 @@ import (
 )
 
 type ProxyUpdaterMock struct {
-	Id     uint64
-	Ipv4   string
-	Ipv6   string
-	Handle versioned.Handle
+	Id          uint64
+	Ipv4        string
+	Ipv6        string
+	VersionHold *versioned.VersionHold
 }
 
 func (m *ProxyUpdaterMock) GetID() uint64 { return m.Id }
@@ -34,6 +34,6 @@ func (m *ProxyUpdaterMock) UpdateProxyStatistics(proxyTypet, l4Protocol string, 
 
 func (m *ProxyUpdaterMock) OnDNSPolicyUpdateLocked(rules restore.DNSRules) {}
 
-func (m *ProxyUpdaterMock) GetPolicyVersionHandle() versioned.Handle {
-	return m.Handle
+func (m *ProxyUpdaterMock) GetPolicyVersionHold() *versioned.VersionHold {
+	return m.VersionHold
 }

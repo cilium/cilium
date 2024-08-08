@@ -1415,13 +1415,13 @@ func GetEnvoyHTTPRules(secretManager certificatemanager.SecretManager, l7Rules *
 	return nil, true
 }
 
-func getPortNetworkPolicyRule(handle versioned.Handle, sel policy.CachedSelector, wildcard bool, l7Parser policy.L7ParserType, l7Rules *policy.PerSelectorPolicy, useFullTLSContext bool) (*cilium.PortNetworkPolicyRule, bool) {
+func getPortNetworkPolicyRule(version *versioned.VersionHold, sel policy.CachedSelector, wildcard bool, l7Parser policy.L7ParserType, l7Rules *policy.PerSelectorPolicy, useFullTLSContext bool) (*cilium.PortNetworkPolicyRule, bool) {
 	r := &cilium.PortNetworkPolicyRule{}
 
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
 	if !wildcard {
-		selections := sel.GetSelections(handle)
+		selections := sel.GetSelections(version)
 
 		// No remote policies would match this rule. Discard it.
 		if len(selections) == 0 {
@@ -1520,14 +1520,14 @@ func getPortNetworkPolicyRule(handle versioned.Handle, sel policy.CachedSelector
 
 // getWildcardNetworkPolicyRule returns the rule for port 0, which
 // will be considered after port-specific rules.
-func getWildcardNetworkPolicyRule(handle versioned.Handle, selectors policy.L7DataMap) *cilium.PortNetworkPolicyRule {
+func getWildcardNetworkPolicyRule(version *versioned.VersionHold, selectors policy.L7DataMap) *cilium.PortNetworkPolicyRule {
 	// selections are pre-sorted, so sorting is only needed if merging selections from multiple selectors
 	if len(selectors) == 1 {
 		for sel := range selectors {
 			if sel.IsWildcard() {
 				return &cilium.PortNetworkPolicyRule{}
 			}
-			selections := sel.GetSelections(handle)
+			selections := sel.GetSelections(version)
 			if len(selections) == 0 {
 				// No remote policies would match this rule. Discard it.
 				return nil
@@ -1555,7 +1555,7 @@ func getWildcardNetworkPolicyRule(handle versioned.Handle, selectors policy.L7Da
 			log.Warningf("L3-only rule for selector %v surprisingly requires proxy redirection (%v)!", sel, *l7)
 		}
 
-		selections := sel.GetSelections(handle)
+		selections := sel.GetSelections(version)
 		if len(selections) == 0 {
 			continue
 		}
@@ -1586,7 +1586,7 @@ func getWildcardNetworkPolicyRule(handle versioned.Handle, selectors policy.L7Da
 }
 
 func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, useFullTLSContext bool, vis policy.DirectionalVisibilityPolicy, dir string) []*cilium.PortNetworkPolicy {
-	handle := ep.GetPolicyVersionHandle()
+	handle := ep.GetPolicyVersionHold()
 
 	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {

@@ -242,7 +242,7 @@ func (p *DNSProxy) skipIPInRestorationRLocked(ip string) bool {
 
 // GetRules creates a fresh copy of EP's DNS rules to be stored
 // for later restoration.
-func (p *DNSProxy) GetRules(handle versioned.Handle, endpointID uint16) (restore.DNSRules, error) {
+func (p *DNSProxy) GetRules(version *versioned.VersionHold, endpointID uint16) (restore.DNSRules, error) {
 	// Lock ordering note: Acquiring the IPCache read lock (as LookupIPsBySecID does) while holding
 	// the proxy lock can lead to a deadlock. Avoid this by reading the state from DNSProxy while
 	// holding the read lock, then perform the IPCache lookups.
@@ -279,7 +279,7 @@ func (p *DNSProxy) GetRules(handle versioned.Handle, endpointID uint16) (restore
 			}
 			ips := make(map[string]struct{})
 			count := 0
-			nids := selRegex.cs.GetSelections(handle)
+			nids := selRegex.cs.GetSelections(version)
 		Loop:
 			for _, nid := range nids {
 				// Note: p.RLock must not be held during this call to IPCache
@@ -794,7 +794,7 @@ func (p *DNSProxy) CheckAllowed(endpointID uint64, destPortProto restore.PortPro
 	for selector, regex := range epAllow {
 		// The port was matched in getPortRulesForID, above.
 		// versioned.AllHandle() always gets the latest version of selectors
-		if regex != nil && selector.Selects(versioned.AllHandle(), destID) && (regex.String() == matchpattern.MatchAllAnchoredPattern || regex.MatchString(name)) {
+		if regex != nil && selector.Selects(versioned.Latest(), destID) && (regex.String() == matchpattern.MatchAllAnchoredPattern || regex.MatchString(name)) {
 			return true, nil
 		}
 	}

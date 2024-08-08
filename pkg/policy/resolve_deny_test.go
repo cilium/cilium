@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
@@ -467,7 +466,6 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 			{TrafficDirection: trafficdirection.Egress.Uint8(), InvertedPortMask: 0xffff /* This is a wildcard */}: allowEgressMapStateEntry,
 			{DestPort: 80, Nexthdr: 6}: rule1MapStateEntry,
 		}, td.sc),
-		Handle: versioned.Handle{},
 	}
 
 	// Add new identity to test accumulation of MapChanges
@@ -638,7 +636,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	}
 
 	handle, changes := policy.ConsumeMapChanges()
-	handle.Release()
+	handle.Close()
 	// maps on the policy got cleared
 
 	require.Equal(t, Keys{

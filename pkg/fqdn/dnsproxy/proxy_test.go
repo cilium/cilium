@@ -766,12 +766,12 @@ func TestFullPathDependence(t *testing.T) {
 			asIPRule(s.proxy.allowed[epID1][tcpProtoPort53][cachedDstID1Selector], map[string]struct{}{"::": {}}),
 		},
 	}
-	restored1, _ := s.proxy.GetRules(versioned.AllHandle(), uint16(epID1))
+	restored1, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
 	restored1.Sort(nil)
 	require.EqualValues(t, expected1, restored1)
 
 	expected2 := restore.DNSRules{}
-	restored2, _ := s.proxy.GetRules(versioned.AllHandle(), uint16(epID2))
+	restored2, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID2))
 	restored2.Sort(nil)
 	require.EqualValues(t, expected2, restored2)
 
@@ -785,7 +785,7 @@ func TestFullPathDependence(t *testing.T) {
 			asIPRule(s.proxy.allowed[epID3][tcpProtoPort53][cachedDstID3Selector], map[string]struct{}{}),
 		},
 	}
-	restored3, _ := s.proxy.GetRules(versioned.AllHandle(), uint16(epID3))
+	restored3, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID3))
 	restored3.Sort(nil)
 	require.EqualValues(t, expected3, restored3)
 
@@ -805,7 +805,7 @@ func TestFullPathDependence(t *testing.T) {
 			asIPRule(s.proxy.allowed[epID1][tcpProtoPort53][cachedDstID1Selector], map[string]struct{}{}),
 		},
 	}
-	restored1b, _ := s.proxy.GetRules(versioned.AllHandle(), uint16(epID1))
+	restored1b, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
 	restored1b.Sort(nil)
 	require.EqualValues(t, expected1b, restored1b)
 
@@ -1091,7 +1091,7 @@ func TestRestoredEndpoint(t *testing.T) {
 	}
 
 	// Get restored rules
-	restored, _ := s.proxy.GetRules(versioned.AllHandle(), uint16(epID1))
+	restored, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
 	restored.Sort(nil)
 
 	// remove rules
@@ -1192,7 +1192,7 @@ type selectorMock struct {
 	key string
 }
 
-func (t selectorMock) GetSelections(versioned.Handle) identity.NumericIdentitySlice {
+func (t selectorMock) GetSelections(*versioned.VersionHold) identity.NumericIdentitySlice {
 	panic("implement me")
 }
 
@@ -1200,7 +1200,7 @@ func (t selectorMock) GetMetadataLabels() labels.LabelArray {
 	panic("implement me")
 }
 
-func (t selectorMock) Selects(versioned.Handle, identity.NumericIdentity) bool {
+func (t selectorMock) Selects(*versioned.VersionHold, identity.NumericIdentity) bool {
 	panic("implement me")
 }
 

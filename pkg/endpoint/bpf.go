@@ -1249,17 +1249,17 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	//  ConsumeMapChanges() applies the incremental updates to the
 	//  desired policy and only returns changes that need to be
 	//  applied to the Endpoint's bpf policy map.
-	handle, changes := e.desiredPolicy.ConsumeMapChanges()
+	version, changes := e.desiredPolicy.ConsumeMapChanges()
 	if changes.Empty() {
 		// no changes, nothing to do
 		return nil
 	}
 	// update a valid handle
-	if e.desiredPolicy.Handle.IsValid() {
-		e.desiredPolicy.Handle.Release()
-		e.desiredPolicy.Handle = handle
+	if e.desiredPolicy.VersionHold.IsValid() {
+		e.desiredPolicy.VersionHold.Close()
+		e.desiredPolicy.VersionHold = version
 	} else {
-		handle.Release()
+		version.Close()
 	}
 
 	// Add possible visibility redirects due to incrementally added keys

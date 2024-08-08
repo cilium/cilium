@@ -177,7 +177,7 @@ func (cache *PolicyCache) GetAuthTypes(localID, remoteID identityPkg.NumericIden
 		}
 		// Only check if 'cs' selects 'remoteID' if one of the authTypes is still missing
 		// from the result
-		if missing && cs.Selects(versioned.AllHandle(), remoteID) {
+		if missing && cs.Selects(versioned.Latest(), remoteID) {
 			if resTypes == nil {
 				resTypes = make(AuthTypes, 1)
 			}

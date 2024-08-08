@@ -18,8 +18,8 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-func testGetInvalidHandle() versioned.Handle {
-	return versioned.Handle{}
+func testLatestVersionHold() *versioned.VersionHold {
+	return versioned.Latest()
 }
 
 func Test_IsSuperSetOf(t *testing.T) {
@@ -2772,9 +2772,9 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		policyMaps.SyncMapChanges(testGetInvalidHandle)
+		policyMaps.SyncMapChanges(testLatestVersionHold)
 		handle, changes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, selectorCache, denyRules)
-		handle.Release()
+		handle.Close()
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equals(tt.state), "%s (MapState):\n%s", tt.name, policyMapState.Diff(tt.state))
 		require.EqualValues(t, tt.adds, changes.Adds, tt.name+" (adds)")
@@ -3118,9 +3118,9 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, x.hasAuth, x.authType)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		policyMaps.SyncMapChanges(testGetInvalidHandle)
+		policyMaps.SyncMapChanges(testLatestVersionHold)
 		handle, changes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, nil, authRules|denyRules)
-		handle.Release()
+		handle.Close()
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equals(tt.state), "%s (MapState):\n%s", tt.name, policyMapState.Diff(tt.state))
 		require.EqualValues(t, tt.adds, changes.Adds, tt.name+" (adds)")
@@ -3707,9 +3707,9 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		policyMaps.SyncMapChanges(testGetInvalidHandle)
+		policyMaps.SyncMapChanges(testLatestVersionHold)
 		handle, changes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, selectorCache, denyRules)
-		handle.Release()
+		handle.Close()
 		changes.Old = make(map[Key]MapStateEntry)
 
 		// Visibilty redirects need to be re-applied after consumeMapChanges()
@@ -4441,10 +4441,10 @@ func TestDenyPreferredInsertLogic(t *testing.T) {
 	mapState.validator = &validator{} // insert validator
 
 	// This is DistillPolicy, but with MapState validator injected
-	handle := p.SelectorCache.versionManager.GetHandle("TestDenyPreferredInsertLogic")
+	handle := p.SelectorCache.versionManager.GetCurrentVersionHold()
 	epPolicy := &EndpointPolicy{
 		selectorPolicy: p,
-		Handle:         handle,
+		VersionHold:    handle,
 		policyMapState: mapState,
 		PolicyOwner:    DummyOwner{},
 	}

@@ -743,7 +743,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	require.Nil(t, cachedSelectorTest)
 
 	handle, changes := policy.ConsumeMapChanges()
-	handle.Release()
+	handle.Close()
 
 	// maps on the policy got cleared
 	require.Nil(t, policy.policyMapChanges.synced)

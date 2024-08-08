@@ -10,8 +10,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hashicorp/go-hclog"
-
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -23,7 +21,7 @@ type CachedSelector interface {
 	// GetSelections returns the cached set of numeric identities
 	// selected by the CachedSelector.  The retuned slice must NOT
 	// be modified, as it is shared among multiple users.
-	GetSelections(versioned.Handle) identity.NumericIdentitySlice
+	GetSelections(*versioned.VersionHold) identity.NumericIdentitySlice
 
 	// GetMetadataLabels returns metadata labels for additional context
 	// surrounding the selector. These are typically the labels associated with
@@ -32,7 +30,7 @@ type CachedSelector interface {
 
 	// Selects return 'true' if the CachedSelector selects the given
 	// numeric identity.
-	Selects(handle versioned.Handle, nid identity.NumericIdentity) bool
+	Selects(*versioned.VersionHold, identity.NumericIdentity) bool
 
 	// IsWildcard returns true if the endpoint selector selects
 	// all endpoints.
@@ -237,12 +235,8 @@ func (i *identitySelector) Equal(b *identitySelector) bool {
 // that case GetSelections() will return either the old or new version
 // of the selections. If the old version is returned, the user is
 // guaranteed to receive a notification including the update.
-func (i *identitySelector) GetSelections(handle versioned.Handle) identity.NumericIdentitySlice {
-	if !handle.IsValid() {
-		stacktrace := hclog.Stacktrace()
-		log.Errorf("Invalid handle in GetSelections(); Stacktrace: %s", stacktrace)
-	}
-	return versioned.GetValue(&i.selections, handle)
+func (i *identitySelector) GetSelections(version *versioned.VersionHold) identity.NumericIdentitySlice {
+	return i.selections.At(version)
 }
 
 func (i *identitySelector) GetMetadataLabels() labels.LabelArray {
@@ -251,11 +245,11 @@ func (i *identitySelector) GetMetadataLabels() labels.LabelArray {
 
 // Selects return 'true' if the CachedSelector selects the given
 // numeric identity.
-func (i *identitySelector) Selects(handle versioned.Handle, nid identity.NumericIdentity) bool {
+func (i *identitySelector) Selects(version *versioned.VersionHold, nid identity.NumericIdentity) bool {
 	if i.IsWildcard() {
 		return true
 	}
-	nids := i.GetSelections(handle)
+	nids := i.GetSelections(version)
 	idx := sort.Search(len(nids), func(i int) bool { return nids[i] >= nid })
 	return idx < len(nids) && nids[idx] == nid
 }
@@ -304,7 +298,7 @@ func (i *identitySelector) numUsers() int {
 // cached selections after the cached selections have been changed.
 //
 // lock must be held
-func (i *identitySelector) updateSelections(nextVersion versioned.Version) {
+func (i *identitySelector) updateSelections(nextVersion versioned.NextVersion) {
 	selections := make(identity.NumericIdentitySlice, len(i.cachedSelections))
 	idx := 0
 	for nid := range i.cachedSelections {
@@ -320,10 +314,10 @@ func (i *identitySelector) updateSelections(nextVersion versioned.Version) {
 	i.setSelections(selections, nextVersion)
 }
 
-func (i *identitySelector) setSelections(selections identity.NumericIdentitySlice, nextVersion versioned.Version) {
+func (i *identitySelector) setSelections(selections identity.NumericIdentitySlice, nextVersion versioned.NextVersion) {
 	if len(selections) > 0 {
-		versioned.SetValueAtVersion(&i.selections, selections, nextVersion)
+		i.selections.SetAt(selections, nextVersion)
 	} else {
-		versioned.RemoveValueAtVersion(&i.selections, nextVersion)
+		i.selections.RemoveAt(nextVersion)
 	}
 }

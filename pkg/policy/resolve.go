@@ -43,9 +43,9 @@ type EndpointPolicy struct {
 	// referring to a shared selectorPolicy!
 	*selectorPolicy
 
-	// Handle represents the version of the SelectorCache 'policyMapState' was generated from.
-	// Changes after this version appear in 'policyMapChanges'
-	Handle versioned.Handle
+	// VersionHold represents the version of the SelectorCache 'policyMapState' was generated
+	// from.  Changes after this version appear in 'policyMapChanges'.
+	VersionHold *versioned.VersionHold
 
 	// policyMapState contains the state of this policy as it relates to the
 	// datapath. In the future, this will be factored out of this object to
@@ -123,10 +123,10 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 	//   transactions, i.e, changes to all selectors due to addition or deletion of new/old
 	//   identities are visible in the set of changes processed and returned by
 	//   ConsumeMapChanges().
-	p.SelectorCache.GetHandleFunc(func(handle versioned.Handle) {
+	p.SelectorCache.GetCurrentVersionHoldFunc(func(version *versioned.VersionHold) {
 		calculatedPolicy = &EndpointPolicy{
 			selectorPolicy: p,
-			Handle:         handle,
+			VersionHold:    version,
 			policyMapState: NewMapState(),
 			PolicyOwner:    policyOwner,
 		}
@@ -153,9 +153,11 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 
 // Ready releases the selector cache handle so that stale state can be released.
 // This should be called when the policy has been realized.
-func (p *EndpointPolicy) Ready() (released bool) {
+func (p *EndpointPolicy) Ready() bool {
 	// release resources held for this version
-	return p.Handle.Release()
+	closed := p.VersionHold.Close() == nil
+	p.VersionHold = nil
+	return closed
 }
 
 // GetPolicyMap gets the policy map state as the interface
@@ -281,7 +283,7 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedir
 // calls before calling ConsumeMapChanges so that if we see any partial changes here, there will be
 // another call after to cover for the rest.
 // PolicyOwner (aka Endpoint) is locked during this call.
-func (p *EndpointPolicy) ConsumeMapChanges() (versioned.Handle, ChangeState) {
+func (p *EndpointPolicy) ConsumeMapChanges() (*versioned.VersionHold, ChangeState) {
 	features := p.selectorPolicy.L4Policy.Ingress.features | p.selectorPolicy.L4Policy.Egress.features
 	return p.policyMapChanges.consumeMapChanges(p.PolicyOwner, p.policyMapState, p.SelectorCache, features)
 }
