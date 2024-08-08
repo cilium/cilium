@@ -14,9 +14,6 @@ type Datapath interface {
 	// of the local node
 	LocalNodeAddressing() NodeAddressing
 
-	// WireguardAgent returns the WireGuard agent for the local node
-	WireguardAgent() WireguardAgent
-
 	// LBMap returns the load-balancer map
 	LBMap() LBMap
 
