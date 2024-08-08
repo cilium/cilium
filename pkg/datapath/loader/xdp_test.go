@@ -55,7 +55,7 @@ func TestMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 		err = attachXDPProgram(veth1, prog, symbolFromHostNetdevXDP, veth1LinkPath, link.XDPDriverMode)
 		require.NoError(t, err)
 
-		newTestLoader(t).maybeUnloadObsoleteXDPPrograms(
+		maybeUnloadObsoleteXDPPrograms(
 			[]string{"veth0"}, option.XDPModeLinkDriver, basePath,
 		)
 
@@ -183,7 +183,7 @@ func TestAttachXDPWithExistingLink(t *testing.T) {
 		require.NoError(t, err)
 
 		// Detach the program.
-		err = newTestLoader(t).DetachXDP(veth.Attrs().Name, basePath, "test")
+		err = DetachXDP(veth.Attrs().Name, basePath, "test")
 		require.NoError(t, err)
 
 		err = netlink.LinkDel(veth)
@@ -214,11 +214,11 @@ func TestDetachXDPWithPreviousAttach(t *testing.T) {
 		require.True(t, getLink(t, veth).Attrs().Xdp.Attached)
 
 		// Detach with the wrong name, leaving the program attached.
-		err = newTestLoader(t).DetachXDP(veth.Attrs().Name, basePath, "foo")
+		err = DetachXDP(veth.Attrs().Name, basePath, "foo")
 		require.NoError(t, err)
 		require.True(t, getLink(t, veth).Attrs().Xdp.Attached)
 
-		err = newTestLoader(t).DetachXDP(veth.Attrs().Name, basePath, "test")
+		err = DetachXDP(veth.Attrs().Name, basePath, "test")
 		require.NoError(t, err)
 		require.False(t, getLink(t, veth).Attrs().Xdp.Attached)
 
