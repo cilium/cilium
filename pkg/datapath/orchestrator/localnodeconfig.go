@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
@@ -36,20 +37,20 @@ func newLocalNodeConfig(
 	ctx context.Context,
 	config *option.DaemonConfig,
 	localNode node.LocalNode,
-	mtu mtu.MTU,
 	txn statedb.ReadTxn,
 	directRoutingDevTbl tables.DirectRoutingDevice,
 	devices statedb.Table[*tables.Device],
 	nodeAddresses statedb.Table[tables.NodeAddress],
 	masqInterface string,
 	xdpConfig xdp.Config,
-) (datapath.LocalNodeConfiguration, <-chan struct{}, <-chan struct{}, <-chan struct{}, error) {
+	mtuTbl statedb.Table[mtu.RouteMTU],
+) (datapath.LocalNodeConfiguration, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
 	if config.IPv4ServiceRange != AutoCIDR {
 		serviceCIDR, err := cidr.ParseCIDR(config.IPv4ServiceRange)
 		if err != nil {
-			return datapath.LocalNodeConfiguration{}, nil, nil, nil, fmt.Errorf("Invalid IPv4 service prefix %q: %w", config.IPv4ServiceRange, err)
+			return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("Invalid IPv4 service prefix %q: %w", config.IPv4ServiceRange, err)
 		}
 
 		auxPrefixes = append(auxPrefixes, serviceCIDR)
@@ -58,7 +59,7 @@ func newLocalNodeConfig(
 	if config.IPv6ServiceRange != AutoCIDR {
 		serviceCIDR, err := cidr.ParseCIDR(config.IPv6ServiceRange)
 		if err != nil {
-			return datapath.LocalNodeConfiguration{}, nil, nil, nil, fmt.Errorf("Invalid IPv6 service prefix %q: %w", config.IPv6ServiceRange, err)
+			return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("Invalid IPv6 service prefix %q: %w", config.IPv6ServiceRange, err)
 		}
 
 		auxPrefixes = append(auxPrefixes, serviceCIDR)
@@ -67,6 +68,7 @@ func newLocalNodeConfig(
 	directRoutingDevice, directRoutingDevWatch := directRoutingDevTbl.Get(ctx, txn)
 	nativeDevices, devsWatch := tables.SelectedDevices(devices, txn)
 	nodeAddrsIter, addrsWatch := nodeAddresses.AllWatch(txn)
+	mtuRoute, _, mtuWatch, _ := mtuTbl.GetWatch(txn, mtu.MTURouteIndex.Query(mtu.DefaultPrefixV4))
 
 	return datapath.LocalNodeConfiguration{
 		NodeIPv4:                     localNode.GetNodeIP(false),
@@ -81,9 +83,9 @@ func newLocalNodeConfig(
 		DirectRoutingDevice:          directRoutingDevice,
 		DeriveMasqIPAddrFromDevice:   masqInterface,
 		HostEndpointID:               node.GetEndpointID(),
-		DeviceMTU:                    mtu.GetDeviceMTU(),
-		RouteMTU:                     mtu.GetRouteMTU(),
-		RoutePostEncryptMTU:          mtu.GetRoutePostEncryptMTU(),
+		DeviceMTU:                    mtuRoute.DeviceMTU,
+		RouteMTU:                     mtuRoute.RouteMTU,
+		RoutePostEncryptMTU:          mtuRoute.RoutePostEncryptMTU,
 		AuxiliaryPrefixes:            auxPrefixes,
 		EnableIPv4:                   config.EnableIPv4,
 		EnableIPv6:                   config.EnableIPv6,
@@ -97,5 +99,5 @@ func newLocalNodeConfig(
 		IPv4PodSubnets:               cidr.NewCIDRSlice(config.IPv4PodSubnets),
 		IPv6PodSubnets:               cidr.NewCIDRSlice(config.IPv6PodSubnets),
 		XDPConfig:                    xdpConfig,
-	}, devsWatch, addrsWatch, directRoutingDevWatch, nil
+	}, common.MergeChannels(devsWatch, addrsWatch, directRoutingDevWatch, mtuWatch), nil
 }

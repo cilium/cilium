@@ -88,7 +88,8 @@ type orchestratorParams struct {
 	Log                 *slog.Logger
 	Loader              datapath.Loader
 	TunnelConfig        tunnel.Config
-	MTU                 mtu.MTU
+	OldMTU              mtu.MTU
+	MTU                 statedb.Table[mtu.RouteMTU]
 	IPTablesManager     datapath.IptablesManager
 	Proxy               *proxy.Proxy
 	DB                  *statedb.DB
@@ -114,13 +115,26 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			// Reinitialize the host device in a separate, blocking start hook to make sure all
-			// our dependencies can access the host device. This is necessary because one of these
-			// is the Daemon, which the main reconciliation loop has to wait for.
-			if err := o.params.Loader.ReinitializeHostDev(ctx, params.MTU.GetDeviceMTU()); err != nil {
-				return fmt.Errorf("failed to reinitialize host device: %w", err)
+			for {
+				rxt := params.DB.ReadTxn()
+				mtuRoute, _, watch, found := params.MTU.GetWatch(rxt, mtu.MTURouteIndex.Query(mtu.DefaultPrefixV4))
+				if !found {
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case <-watch:
+						continue
+					}
+				}
+
+				// Reinitialize the host device in a separate, blocking start hook to make sure all
+				// our dependencies can access the host device. This is necessary because one of these
+				// is the Daemon, which the main reconciliation loop has to wait for.
+				if err := o.params.Loader.ReinitializeHostDev(ctx, mtuRoute.DeviceMTU); err != nil {
+					return fmt.Errorf("failed to reinitialize host device: %w", err)
+				}
+				return nil
 			}
-			return nil
 		},
 	})
 
@@ -177,17 +191,17 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 	retryTimer, stopRetryTimer := inctimer.New()
 	defer stopRetryTimer()
 	for {
-		localNodeConfig, devsWatch, addrsWatch, directRoutingDevWatch, err := newLocalNodeConfig(
+		localNodeConfig, localNodeConfigWatch, err := newLocalNodeConfig(
 			ctx,
 			option.Config,
 			localNode,
-			o.params.MTU,
 			o.params.DB.ReadTxn(),
 			o.params.DirectRoutingDevice,
 			o.params.Devices,
 			o.params.NodeAddresses,
 			o.params.Config.DeriveMasqIPAddrFromDevice,
 			o.params.XDPConfig,
+			o.params.MTU,
 		)
 		if err != nil {
 			health.Degraded("failed to get local node configuration", err)
@@ -217,9 +231,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-devsWatch:
-		case <-addrsWatch:
-		case <-directRoutingDevWatch:
+		case <-localNodeConfigWatch:
 		case <-retryChan:
 		case localNode = <-localNodes:
 		case request = <-o.trigger:
