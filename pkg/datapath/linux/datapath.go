@@ -22,18 +22,16 @@ type DatapathConfiguration struct {
 
 type linuxDatapath struct {
 	datapath.IptablesManager
-	nodeAddressing datapath.NodeAddressing
-	lbmap          datapath.LBMap
-	bwmgr          datapath.BandwidthManager
-	orchestrator   datapath.Orchestrator
+	lbmap        datapath.LBMap
+	bwmgr        datapath.BandwidthManager
+	orchestrator datapath.Orchestrator
 }
 
 type DatapathParams struct {
-	RuleManager    datapath.IptablesManager
-	BWManager      datapath.BandwidthManager
-	NodeAddressing datapath.NodeAddressing
-	Orchestrator   datapath.Orchestrator
-	ExpConfig      experimental.Config
+	RuleManager  datapath.IptablesManager
+	BWManager    datapath.BandwidthManager
+	Orchestrator datapath.Orchestrator
+	ExpConfig    experimental.Config
 }
 
 // NewDatapath creates a new Linux datapath
@@ -49,7 +47,6 @@ func NewDatapath(p DatapathParams) datapath.Datapath {
 
 	dp := &linuxDatapath{
 		IptablesManager: p.RuleManager,
-		nodeAddressing:  p.NodeAddressing,
 		lbmap:           lbm,
 		bwmgr:           p.BWManager,
 		orchestrator:    p.Orchestrator,
@@ -60,12 +57,6 @@ func NewDatapath(p DatapathParams) datapath.Datapath {
 
 func (l *linuxDatapath) Name() string {
 	return "linux-datapath"
-}
-
-// LocalNodeAddressing returns the node addressing implementation of the local
-// node
-func (l *linuxDatapath) LocalNodeAddressing() datapath.NodeAddressing {
-	return l.nodeAddressing
 }
 
 func (l *linuxDatapath) LBMap() datapath.LBMap {

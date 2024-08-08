@@ -45,7 +45,7 @@ type parameters struct {
 	NodeAddrs       statedb.Table[tables.NodeAddress]
 	DaemonConfig    *option.DaemonConfig
 	EndpointManager EndpointManager
-	Datapath        types.Datapath
+	NodeAddressing  types.NodeAddressing
 	SignalManager   SignalHandler
 
 	PerClusterCTMapsRetriever PerClusterCTMapsRetriever `optional:"true"`
@@ -79,7 +79,7 @@ func New(params parameters) *GC {
 		nodeAddrs: params.NodeAddrs,
 
 		endpointsManager: params.EndpointManager,
-		nodeAddressing:   params.Datapath.LocalNodeAddressing(),
+		nodeAddressing:   params.NodeAddressing,
 		signalHandler:    params.SignalManager,
 
 		controllerManager: controller.NewManager(),
@@ -319,5 +319,6 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 
 type fakeCTMapGC struct{}
 
-func NewFake() Enabler      { return fakeCTMapGC{} }
+func NewFake() Enabler { return fakeCTMapGC{} }
+
 func (fakeCTMapGC) Enable() {}

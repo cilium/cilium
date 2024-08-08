@@ -1667,6 +1667,7 @@ type daemonParams struct {
 	NodeManager            nodeManager.NodeManager
 	NodeHandler            datapath.NodeHandler
 	NodeNeighbors          datapath.NodeNeighbors
+	NodeAddressing         datapath.NodeAddressing
 	EndpointManager        endpointmanager.EndpointManager
 	CertManager            certificatemanager.CertificateManager
 	SecretManager          certificatemanager.SecretManager
