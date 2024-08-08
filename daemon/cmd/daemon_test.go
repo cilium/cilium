@@ -311,6 +311,10 @@ func (ds *DaemonSuite) Orchestrator() datapath.Orchestrator {
 	return ds.d.orchestrator
 }
 
+func (ds *DaemonSuite) BandwidthManager() datapath.BandwidthManager {
+	return ds.d.bwManager
+}
+
 func (ds *DaemonSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }
