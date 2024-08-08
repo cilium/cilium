@@ -61,6 +61,7 @@ runs:
       run: |
         DEFAULTS="--wait \
             --chart-directory=${{ inputs.chart-dir }} \
+            --helm-set=ipam.mode=kubernetes \
             --helm-set=debug.enabled=true \
             --helm-set=debug.verbose=envoy \
             --helm-set=hubble.eventBufferCapacity=65535 \
