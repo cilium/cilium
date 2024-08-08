@@ -28,7 +28,7 @@ var Cell = cell.Module(
 type serviceManagerParams struct {
 	cell.In
 
-	Datapath     types.Datapath
+	LBMap        types.LBMap
 	MonitorAgent monitorAgent.Agent
 
 	HealthCheckers []HealthChecker `group:"healthCheckers"`
@@ -44,5 +44,5 @@ func newServiceInternal(params serviceManagerParams) *Service {
 		}
 	}
 
-	return newService(params.MonitorAgent, params.Datapath.LBMap(), params.NodeNeighbors, enabledHealthCheckers, params.Clientset.IsEnabled())
+	return newService(params.MonitorAgent, params.LBMap, params.NodeNeighbors, enabledHealthCheckers, params.Clientset.IsEnabled())
 }
