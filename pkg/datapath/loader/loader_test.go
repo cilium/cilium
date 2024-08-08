@@ -212,9 +212,7 @@ func TestBPFMasqAddrs(t *testing.T) {
 		option.Config.EnableIPv6Masquerade = old6
 	})
 
-	l := newTestLoader(t)
-
-	masq4, masq6 := l.bpfMasqAddrs("test", &localNodeConfig)
+	masq4, masq6 := bpfMasqAddrs("test", &localNodeConfig)
 	require.Equal(t, masq4.IsValid(), false)
 	require.Equal(t, masq6.IsValid(), false)
 
@@ -246,11 +244,11 @@ func TestBPFMasqAddrs(t *testing.T) {
 		},
 	}
 
-	masq4, masq6 = l.bpfMasqAddrs("test", &newConfig)
+	masq4, masq6 = bpfMasqAddrs("test", &newConfig)
 	require.Equal(t, masq4.String(), "1.0.0.1")
 	require.Equal(t, masq6.String(), "1000::1")
 
-	masq4, masq6 = l.bpfMasqAddrs("unknown", &newConfig)
+	masq4, masq6 = bpfMasqAddrs("unknown", &newConfig)
 	require.Equal(t, masq4.String(), "2.0.0.2")
 	require.Equal(t, masq6.String(), "2000::2")
 }
