@@ -560,6 +560,8 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			return ctx_redirect_to_proxy6(ctx, tuple, 0, false);
 		}
 		/* proxy_port remains 0 in this case */
+
+		policy_mark_skip(ctx);
 		break;
 	default:
 		return DROP_UNKNOWN_CT;
@@ -597,8 +599,6 @@ ct_recreate6:
 
 	case CT_RELATED:
 	case CT_REPLY:
-		policy_mark_skip(ctx);
-
 #ifdef ENABLE_NODEPORT
 		/* See comment in handle_ipv4_from_lxc(). */
 		if (ct_state->node_port && lb_is_svc_proto(tuple->nexthdr)) {
@@ -1011,6 +1011,8 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			return ctx_redirect_to_proxy4(ctx, tuple, 0, false);
 		}
 		/* proxy_port remains 0 in this case */
+
+		policy_mark_skip(ctx);
 		break;
 	default:
 		return DROP_UNKNOWN_CT;
@@ -1068,8 +1070,6 @@ ct_recreate4:
 
 	case CT_RELATED:
 	case CT_REPLY:
-		policy_mark_skip(ctx);
-
 #ifdef ENABLE_NODEPORT
 		/* This handles reply traffic for the case where the nodeport EP
 		 * is local to the node. We'll do the tail call to perform
