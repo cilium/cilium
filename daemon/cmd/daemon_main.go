@@ -1663,6 +1663,7 @@ type daemonParams struct {
 	K8sAPIGroups           *k8sSynced.APIGroups
 	NodeManager            nodeManager.NodeManager
 	NodeHandler            datapath.NodeHandler
+	NodeNeighbors          datapath.NodeNeighbors
 	EndpointManager        endpointmanager.EndpointManager
 	CertManager            certificatemanager.CertificateManager
 	SecretManager          certificatemanager.SecretManager
@@ -1956,19 +1957,19 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	// Watches for node neighbors link updates.
-	d.nodeDiscovery.Manager.StartNodeNeighborLinkUpdater(d.datapath.NodeNeighbors())
+	d.nodeDiscovery.Manager.StartNodeNeighborLinkUpdater(params.NodeNeighbors)
 
 	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-		if !d.datapath.NodeNeighbors().NodeNeighDiscoveryEnabled() {
+		if !params.NodeNeighbors.NodeNeighDiscoveryEnabled() {
 			// Remove all non-GC'ed neighbor entries that might have previously set
 			// by a Cilium instance.
-			d.datapath.NodeNeighbors().NodeCleanNeighbors(false)
+			params.NodeNeighbors.NodeCleanNeighbors(false)
 		} else {
 			// If we came from an agent upgrade, migrate entries.
-			d.datapath.NodeNeighbors().NodeCleanNeighbors(true)
+			params.NodeNeighbors.NodeCleanNeighbors(true)
 			// Start periodical refresh of the neighbor table from the agent if needed.
 			if option.Config.ARPPingRefreshPeriod != 0 && !option.Config.ARPPingKernelManaged {
-				d.nodeDiscovery.Manager.StartNeighborRefresh(d.datapath.NodeNeighbors())
+				d.nodeDiscovery.Manager.StartNeighborRefresh(params.NodeNeighbors)
 			}
 		}
 	}
