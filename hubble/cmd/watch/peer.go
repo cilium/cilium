@@ -29,7 +29,7 @@ func newPeerCommand(vp *viper.Viper) *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			hubbleConn, err := conn.New(ctx, vp.GetString(config.KeyServer), vp.GetDuration(config.KeyTimeout))
+			hubbleConn, err := conn.New(vp.GetString(config.KeyServer))
 			if err != nil {
 				return err
 			}
