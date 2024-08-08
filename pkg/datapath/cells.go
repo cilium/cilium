@@ -183,9 +183,8 @@ func newWireguardAgent(lc cell.Lifecycle, sysctl sysctl.Sysctl) *wg.Agent {
 
 func newDatapath(params datapathParams) types.Datapath {
 	datapath := linuxdatapath.NewDatapath(linuxdatapath.DatapathParams{
-		RuleManager:  params.IptablesManager,
-		BWManager:    params.BandwidthManager,
-		Orchestrator: params.Orchestrator,
+		RuleManager: params.IptablesManager,
+		BWManager:   params.BandwidthManager,
 	})
 
 	params.LC.Append(cell.Hook{
@@ -215,6 +214,4 @@ type datapathParams struct {
 	BandwidthManager types.BandwidthManager
 
 	IptablesManager *iptables.Manager
-
-	Orchestrator types.Orchestrator
 }

@@ -172,7 +172,8 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	for _, s := range []string{
 		string(models.EndpointStateReady),
 		string(models.EndpointStateWaitingDashForDashIdentity),
-		string(models.EndpointStateWaitingDashToDashRegenerate)} {
+		string(models.EndpointStateWaitingDashToDashRegenerate),
+	} {
 		metrics.EndpointStateCount.WithLabelValues(s).Set(0.0)
 	}
 
@@ -306,14 +307,20 @@ func (ds *DaemonSuite) Loader() datapath.Loader {
 	return ds.d.loader
 }
 
+func (ds *DaemonSuite) Orchestrator() datapath.Orchestrator {
+	return ds.d.orchestrator
+}
+
 func (ds *DaemonSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }
 
 func (ds *DaemonSuite) RemoveRestoredDNSRules(epID uint16) {}
 
-func (ds *DaemonSuite) AddIdentity(id *identity.Identity)                   {}
-func (ds *DaemonSuite) RemoveIdentity(id *identity.Identity)                {}
+func (ds *DaemonSuite) AddIdentity(id *identity.Identity) {}
+
+func (ds *DaemonSuite) RemoveIdentity(id *identity.Identity) {}
+
 func (ds *DaemonSuite) RemoveOldAddNewIdentity(old, new *identity.Identity) {}
 
 func TestMemoryMap(t *testing.T) {

@@ -10,6 +10,4 @@ type Datapath interface {
 	IptablesManager
 
 	BandwidthManager() BandwidthManager
-
-	Orchestrator() Orchestrator
 }

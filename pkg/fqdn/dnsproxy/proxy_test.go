@@ -189,14 +189,20 @@ func (s *DNSProxyTestSuite) Loader() datapath.Loader {
 	return nil
 }
 
+func (s *DNSProxyTestSuite) Orchestrator() datapath.Orchestrator {
+	return nil
+}
+
 func (s *DNSProxyTestSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }
 
 func (s *DNSProxyTestSuite) RemoveRestoredDNSRules(epID uint16) {}
 
-func (s *DNSProxyTestSuite) AddIdentity(id *identity.Identity)                   {}
-func (s *DNSProxyTestSuite) RemoveIdentity(id *identity.Identity)                {}
+func (s *DNSProxyTestSuite) AddIdentity(id *identity.Identity) {}
+
+func (s *DNSProxyTestSuite) RemoveIdentity(id *identity.Identity) {}
+
 func (s *DNSProxyTestSuite) RemoveOldAddNewIdentity(old, new *identity.Identity) {}
 
 func setupServer(tb testing.TB) (dnsServer *dns.Server) {

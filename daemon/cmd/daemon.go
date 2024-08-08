@@ -191,6 +191,7 @@ type Daemon struct {
 	bwManager    datapath.BandwidthManager
 
 	wireguardAgent *wireguard.Agent
+	orchestrator   datapath.Orchestrator
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -403,6 +404,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		rec:               params.Recorder,
 		ipam:              params.IPAM,
 		wireguardAgent:    params.WGAgent,
+		orchestrator:      params.Orchestrator,
 	}
 
 	// Collect CIDR identities from the "old" bpf ipcache and restore them

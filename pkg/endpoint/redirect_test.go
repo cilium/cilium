@@ -166,14 +166,20 @@ func (d *DummyOwner) Loader() datapath.Loader {
 	return nil
 }
 
+func (d *DummyOwner) Orchestrator() datapath.Orchestrator {
+	return nil
+}
+
 func (s *DummyOwner) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }
 
 func (s *DummyOwner) RemoveRestoredDNSRules(epID uint16) {}
 
-func (s *DummyOwner) AddIdentity(id *identity.Identity)    { s.idmgr.Add(id) }
+func (s *DummyOwner) AddIdentity(id *identity.Identity) { s.idmgr.Add(id) }
+
 func (s *DummyOwner) RemoveIdentity(id *identity.Identity) { s.idmgr.Remove(id) }
+
 func (s *DummyOwner) RemoveOldAddNewIdentity(old, new *identity.Identity) {
 	s.idmgr.RemoveOldAddNew(old, new)
 }
