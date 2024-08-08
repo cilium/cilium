@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/rate"
 	ratemetrics "github.com/cilium/cilium/pkg/rate/metrics"
 	"github.com/cilium/cilium/pkg/time"
@@ -21,22 +22,26 @@ var rateLimiterCell = cell.Module(
 )
 
 type rateLimiterConfig struct {
-	APIRateLimit map[string]string
+	APIRateLimit string
 }
 
 func (def rateLimiterConfig) Flags(flags *pflag.FlagSet) {
-	flags.StringToString(
+	flags.String(
 		"api-rate-limit",
 		def.APIRateLimit,
 		"API rate limiting configuration (example: --api-rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)")
 }
 
 var defaultRateLimiterConfig = rateLimiterConfig{
-	APIRateLimit: make(map[string]string),
+	APIRateLimit: "",
 }
 
 func newApiRateLimiter(cfg rateLimiterConfig) (*rate.APILimiterSet, error) {
-	return rate.NewAPILimiterSet(cfg.APIRateLimit, apiRateLimitDefaults, ratemetrics.APILimiterObserver())
+	config, err := command.ToStringMapStringE(cfg.APIRateLimit)
+	if err != nil {
+		return nil, err
+	}
+	return rate.NewAPILimiterSet(config, apiRateLimitDefaults, ratemetrics.APILimiterObserver())
 }
 
 const (
