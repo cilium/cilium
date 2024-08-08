@@ -6,6 +6,4 @@ package types
 // Datapath is the interface to abstract all datapath interactions. The
 // abstraction allows to implement the datapath requirements with multiple
 // implementations
-type Datapath interface {
-	IptablesManager
-}
+type Datapath interface{}

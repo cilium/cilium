@@ -190,8 +190,9 @@ type Daemon struct {
 	tunnelConfig tunnel.Config
 	bwManager    datapath.BandwidthManager
 
-	wireguardAgent *wireguard.Agent
-	orchestrator   datapath.Orchestrator
+	wireguardAgent  *wireguard.Agent
+	orchestrator    datapath.Orchestrator
+	iptablesManager datapath.IptablesManager
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -405,6 +406,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		ipam:              params.IPAM,
 		wireguardAgent:    params.WGAgent,
 		orchestrator:      params.Orchestrator,
+		iptablesManager:   params.IPTablesManager,
 	}
 
 	// Collect CIDR identities from the "old" bpf ipcache and restore them
