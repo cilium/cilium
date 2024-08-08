@@ -1651,7 +1651,6 @@ type daemonParams struct {
 	Lifecycle              cell.Lifecycle
 	Health                 cell.Health
 	Clientset              k8sClient.Clientset
-	Datapath               datapath.Datapath
 	Loader                 datapath.Loader
 	WGAgent                *wireguard.Agent
 	LocalNodeStore         *node.LocalNodeStore

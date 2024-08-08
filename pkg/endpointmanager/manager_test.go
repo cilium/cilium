@@ -84,10 +84,6 @@ func (s *EndpointManagerSuite) SendNotification(msg monitorAPI.AgentNotifyMessag
 	return nil
 }
 
-func (s *EndpointManagerSuite) Datapath() datapath.Datapath {
-	return nil
-}
-
 func (s *EndpointManagerSuite) Loader() datapath.Loader {
 	return nil
 }

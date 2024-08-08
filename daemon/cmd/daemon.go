@@ -124,10 +124,6 @@ type Daemon struct {
 
 	mtuConfig mtu.MTU
 
-	// datapath is the underlying datapath implementation to use to
-	// implement all aspects of an agent
-	datapath datapath.Datapath
-
 	loader datapath.Loader
 
 	nodeAddressing datapath.NodeAddressing
@@ -368,7 +364,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
-		datapath:          params.Datapath,
 		directRoutingDev:  params.DirectRoutingDevice,
 		loader:            params.Loader,
 		nodeAddressing:    params.NodeAddressing,

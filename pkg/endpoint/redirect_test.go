@@ -157,11 +157,6 @@ func (d *DummyOwner) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
 }
 
 // Datapath returns a nil datapath.
-func (d *DummyOwner) Datapath() datapath.Datapath {
-	return nil
-}
-
-// Datapath returns a nil datapath.
 func (d *DummyOwner) Loader() datapath.Loader {
 	return nil
 }

@@ -24,9 +24,6 @@ type Owner interface {
 	// SendNotification is called to emit an agent notification
 	SendNotification(msg monitorAPI.AgentNotifyMessage) error
 
-	// Datapath returns a reference to the datapath implementation.
-	Datapath() datapath.Datapath
-
 	// Loader returns a reference to the loader implementation.
 	Loader() datapath.Loader
 
