@@ -19,19 +19,16 @@ type DatapathConfiguration struct {
 
 type linuxDatapath struct {
 	datapath.IptablesManager
-	bwmgr datapath.BandwidthManager
 }
 
 type DatapathParams struct {
 	RuleManager datapath.IptablesManager
-	BWManager   datapath.BandwidthManager
 }
 
 // NewDatapath creates a new Linux datapath
 func NewDatapath(p DatapathParams) datapath.Datapath {
 	dp := &linuxDatapath{
 		IptablesManager: p.RuleManager,
-		bwmgr:           p.BWManager,
 	}
 
 	return dp
@@ -39,8 +36,4 @@ func NewDatapath(p DatapathParams) datapath.Datapath {
 
 func (l *linuxDatapath) Name() string {
 	return "linux-datapath"
-}
-
-func (l *linuxDatapath) BandwidthManager() datapath.BandwidthManager {
-	return l.bwmgr
 }

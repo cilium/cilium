@@ -170,6 +170,10 @@ func (d *DummyOwner) Orchestrator() datapath.Orchestrator {
 	return nil
 }
 
+func (d *DummyOwner) BandwidthManager() datapath.BandwidthManager {
+	return nil
+}
+
 func (s *DummyOwner) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }

@@ -104,10 +104,6 @@ func (f *FakeDatapath) LBMockMap() *mockmaps.LBMockMap {
 	return f.lbmap
 }
 
-func (f *FakeDatapath) BandwidthManager() datapath.BandwidthManager {
-	return &BandwidthManager{}
-}
-
 // Loader is an interface to abstract out loading of datapath programs.
 type FakeLoader struct{}
 

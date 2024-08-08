@@ -193,6 +193,10 @@ func (s *DNSProxyTestSuite) Orchestrator() datapath.Orchestrator {
 	return nil
 }
 
+func (s *DNSProxyTestSuite) BandwidthManager() datapath.BandwidthManager {
+	return nil
+}
+
 func (s *DNSProxyTestSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }

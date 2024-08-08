@@ -32,6 +32,8 @@ type Owner interface {
 
 	Orchestrator() datapath.Orchestrator
 
+	BandwidthManager() datapath.BandwidthManager
+
 	// GetDNSRules creates a fresh copy of DNS rules that can be used when
 	// endpoint is restored on a restart.
 	// The endpoint lock must not be held while calling this function.
