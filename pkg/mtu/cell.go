@@ -27,6 +27,7 @@ var Cell = cell.Module(
 		statedb.RWTable[RouteMTU].ToTable,
 		newForCell,
 	),
+	cell.Invoke(newEndpointUpdater),
 	cell.Config(defaultConfig),
 )
 
