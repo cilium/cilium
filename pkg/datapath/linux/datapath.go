@@ -28,7 +28,6 @@ type DatapathConfiguration struct {
 type linuxDatapath struct {
 	datapath.ConfigWriter
 	datapath.IptablesManager
-	nodeHandler    datapath.NodeHandler
 	nodeNeighbors  datapath.NodeNeighbors
 	nodeAddressing datapath.NodeAddressing
 	wgAgent        datapath.WireguardAgent
@@ -49,7 +48,6 @@ type DatapathParams struct {
 	DB             *statedb.DB
 	Devices        statedb.Table[*tables.Device]
 	Orchestrator   datapath.Orchestrator
-	NodeHandler    datapath.NodeHandler
 	NodeNeighbors  datapath.NodeNeighbors
 	ExpConfig      experimental.Config
 }
@@ -73,7 +71,6 @@ func NewDatapath(p DatapathParams) datapath.Datapath {
 		lbmap:           lbm,
 		bwmgr:           p.BWManager,
 		orchestrator:    p.Orchestrator,
-		nodeHandler:     p.NodeHandler,
 		nodeNeighbors:   p.NodeNeighbors,
 	}
 
@@ -82,11 +79,6 @@ func NewDatapath(p DatapathParams) datapath.Datapath {
 
 func (l *linuxDatapath) Name() string {
 	return "linux-datapath"
-}
-
-// Node returns the handler for node events
-func (l *linuxDatapath) Node() datapath.NodeHandler {
-	return l.nodeHandler
 }
 
 func (l *linuxDatapath) NodeNeighbors() datapath.NodeNeighbors {
