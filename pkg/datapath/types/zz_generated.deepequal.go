@@ -158,6 +158,9 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 		}
 	}
 
+	if in.DeriveMasqIPAddrFromDevice != other.DeriveMasqIPAddrFromDevice {
+		return false
+	}
 	if in.HostEndpointID != other.HostEndpointID {
 		return false
 	}

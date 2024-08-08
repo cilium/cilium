@@ -13,6 +13,7 @@ var Cell = cell.Module(
 	"orchestrator",
 	"Orchestrator",
 
+	cell.Config(DefaultConfig),
 	cell.Provide(NewOrchestrator),
 )
 

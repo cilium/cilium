@@ -550,9 +550,7 @@ func removeTCFilters(linkAndFilters map[string][]*netlink.BpfFilter) error {
 }
 
 func removeXDPAttachments(links []netlink.Link) error {
-	loader := loader.NewLoader(loader.Params{
-		Config: loader.DefaultConfig,
-	})
+	loader := loader.NewLoader(loader.Params{})
 
 	for _, link := range links {
 		if err := loader.DetachXDP(link.Attrs().Name, bpf.CiliumPath(), "cil_xdp_entry"); err != nil {
