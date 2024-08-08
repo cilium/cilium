@@ -74,6 +74,10 @@ type LocalNodeConfiguration struct {
 	// Mutable at runtime.
 	NodeAddresses []tables.NodeAddress
 
+	// DeriveMasqIPAddrFromDevice overrides the interface name to use for deriving
+	// the masquerading IP address for the node.
+	DeriveMasqIPAddrFromDevice string
+
 	// HostEndpointID is the endpoint ID assigned to the host endpoint.
 	// Immutable at runtime.
 	HostEndpointID uint64

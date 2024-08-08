@@ -70,8 +70,6 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 // loader is a wrapper structure around operations related to compiling,
 // loading, and reloading datapath programs.
 type loader struct {
-	cfg Config
-
 	// templateCache is the cache of pre-compiled datapaths. Only set after
 	// a call to Reinitialize.
 	templateCache *objectCache
@@ -91,7 +89,6 @@ type loader struct {
 type Params struct {
 	cell.In
 
-	Config          Config
 	Sysctl          sysctl.Sysctl
 	Prefilter       datapath.PreFilter
 	CompilationLock datapath.CompilationLock
@@ -106,7 +103,6 @@ type Params struct {
 // newLoader returns a new loader.
 func newLoader(p Params) *loader {
 	return &loader{
-		cfg:               p.Config,
 		templateCache:     newObjectCache(p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
 		sysctl:            p.Sysctl,
 		hostDpInitialized: make(chan struct{}),
@@ -137,8 +133,8 @@ func removeEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
 }
 
 func (l *loader) bpfMasqAddrs(ifName string, cfg *datapath.LocalNodeConfiguration) (masq4, masq6 netip.Addr) {
-	if l.cfg.DeriveMasqIPAddrFromDevice != "" {
-		ifName = l.cfg.DeriveMasqIPAddrFromDevice
+	if cfg.DeriveMasqIPAddrFromDevice != "" {
+		ifName = cfg.DeriveMasqIPAddrFromDevice
 	}
 
 	find := func(devName string) bool {
