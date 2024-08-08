@@ -37,9 +37,11 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -78,6 +80,16 @@ var Cell = cell.Module(
 		newWireguardAgent,
 		newDatapath,
 	),
+
+	cell.Provide(func(expConfig experimental.Config) types.LBMap {
+		if expConfig.EnableExperimentalLB {
+			// The experimental control-plane is enabled. Use a fake LBMap
+			// to effectively disable the other code paths writing to LBMaps.
+			return mockmaps.NewLBMockMap()
+		}
+
+		return lbmap.New()
+	}),
 
 	// Provides the Table[NodeAddress] and the controller that populates it from Table[*Device]
 	tables.NodeAddressCell,
@@ -174,7 +186,6 @@ func newDatapath(params datapathParams) types.Datapath {
 		RuleManager:  params.IptablesManager,
 		BWManager:    params.BandwidthManager,
 		Orchestrator: params.Orchestrator,
-		ExpConfig:    params.ExpConfig,
 	})
 
 	params.LC.Append(cell.Hook{
@@ -206,6 +217,4 @@ type datapathParams struct {
 	IptablesManager *iptables.Manager
 
 	Orchestrator types.Orchestrator
-
-	ExpConfig experimental.Config
 }

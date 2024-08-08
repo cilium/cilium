@@ -9,9 +9,6 @@ package types
 type Datapath interface {
 	IptablesManager
 
-	// LBMap returns the load-balancer map
-	LBMap() LBMap
-
 	BandwidthManager() BandwidthManager
 
 	Orchestrator() Orchestrator

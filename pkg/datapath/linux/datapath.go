@@ -5,9 +5,6 @@ package linux
 
 import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
-	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
@@ -22,7 +19,6 @@ type DatapathConfiguration struct {
 
 type linuxDatapath struct {
 	datapath.IptablesManager
-	lbmap        datapath.LBMap
 	bwmgr        datapath.BandwidthManager
 	orchestrator datapath.Orchestrator
 }
@@ -31,23 +27,12 @@ type DatapathParams struct {
 	RuleManager  datapath.IptablesManager
 	BWManager    datapath.BandwidthManager
 	Orchestrator datapath.Orchestrator
-	ExpConfig    experimental.Config
 }
 
 // NewDatapath creates a new Linux datapath
 func NewDatapath(p DatapathParams) datapath.Datapath {
-	var lbm datapath.LBMap
-	if p.ExpConfig.EnableExperimentalLB {
-		// The experimental control-plane is enabled. Use a fake LBMap
-		// to effectively disable the other code paths writing to LBMaps.
-		lbm = mockmaps.NewLBMockMap()
-	} else {
-		lbm = lbmap.New()
-	}
-
 	dp := &linuxDatapath{
 		IptablesManager: p.RuleManager,
-		lbmap:           lbm,
 		bwmgr:           p.BWManager,
 		orchestrator:    p.Orchestrator,
 	}
@@ -57,10 +42,6 @@ func NewDatapath(p DatapathParams) datapath.Datapath {
 
 func (l *linuxDatapath) Name() string {
 	return "linux-datapath"
-}
-
-func (l *linuxDatapath) LBMap() datapath.LBMap {
-	return l.lbmap
 }
 
 func (l *linuxDatapath) BandwidthManager() datapath.BandwidthManager {
