@@ -101,7 +101,7 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 25
+      max-parallel: 26
       matrix:
         include:
           - name: '1'
@@ -411,6 +411,14 @@ jobs:
             ciliumendpointslice: 'true'
             endpoint-routes: 'true'
             skip-upgrade: 'true'
+
+          - name: '26'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-20241104.074922'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            lb-experimental: 'true'
 
           # Example of a feature that is being introduced, and we want to test
           # it without performing an upgrade, we use skip-upgrade: 'true'
