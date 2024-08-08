@@ -28,7 +28,6 @@ type DatapathConfiguration struct {
 type linuxDatapath struct {
 	datapath.ConfigWriter
 	datapath.IptablesManager
-	nodeNeighbors  datapath.NodeNeighbors
 	nodeAddressing datapath.NodeAddressing
 	wgAgent        datapath.WireguardAgent
 	lbmap          datapath.LBMap
@@ -48,7 +47,6 @@ type DatapathParams struct {
 	DB             *statedb.DB
 	Devices        statedb.Table[*tables.Device]
 	Orchestrator   datapath.Orchestrator
-	NodeNeighbors  datapath.NodeNeighbors
 	ExpConfig      experimental.Config
 }
 
@@ -71,7 +69,6 @@ func NewDatapath(p DatapathParams) datapath.Datapath {
 		lbmap:           lbm,
 		bwmgr:           p.BWManager,
 		orchestrator:    p.Orchestrator,
-		nodeNeighbors:   p.NodeNeighbors,
 	}
 
 	return dp
@@ -79,10 +76,6 @@ func NewDatapath(p DatapathParams) datapath.Datapath {
 
 func (l *linuxDatapath) Name() string {
 	return "linux-datapath"
-}
-
-func (l *linuxDatapath) NodeNeighbors() datapath.NodeNeighbors {
-	return l.nodeNeighbors
 }
 
 // LocalNodeAddressing returns the node addressing implementation of the local

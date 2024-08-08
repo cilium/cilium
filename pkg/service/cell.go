@@ -33,6 +33,7 @@ type serviceManagerParams struct {
 
 	HealthCheckers []HealthChecker `group:"healthCheckers"`
 	Clientset      k8sClient.Clientset
+	NodeNeighbors  types.NodeNeighbors
 }
 
 func newServiceInternal(params serviceManagerParams) *Service {
@@ -43,5 +44,5 @@ func newServiceInternal(params serviceManagerParams) *Service {
 		}
 	}
 
-	return newService(params.MonitorAgent, params.Datapath.LBMap(), params.Datapath.NodeNeighbors(), enabledHealthCheckers, params.Clientset.IsEnabled())
+	return newService(params.MonitorAgent, params.Datapath.LBMap(), params.NodeNeighbors, enabledHealthCheckers, params.Clientset.IsEnabled())
 }

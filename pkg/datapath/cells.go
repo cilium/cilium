@@ -184,7 +184,6 @@ func newDatapath(params datapathParams) types.Datapath {
 		DB:             params.DB,
 		Devices:        params.Devices,
 		Orchestrator:   params.Orchestrator,
-		NodeNeighbors:  params.NodeNeighbors,
 		ExpConfig:      params.ExpConfig,
 	})
 
@@ -235,8 +234,6 @@ type datapathParams struct {
 	NodeManager nodeManager.NodeManager
 
 	Orchestrator types.Orchestrator
-
-	NodeNeighbors types.NodeNeighbors
 
 	ExpConfig experimental.Config
 }
