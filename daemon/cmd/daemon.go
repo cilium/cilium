@@ -130,6 +130,8 @@ type Daemon struct {
 
 	loader datapath.Loader
 
+	nodeAddressing datapath.NodeAddressing
+
 	// nodeDiscovery defines the node discovery logic of the agent
 	nodeDiscovery  *nodediscovery.NodeDiscovery
 	nodeLocalStore *node.LocalNodeStore
@@ -367,6 +369,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		datapath:          params.Datapath,
 		directRoutingDev:  params.DirectRoutingDevice,
 		loader:            params.Loader,
+		nodeAddressing:    params.NodeAddressing,
 		devices:           params.Devices,
 		nodeAddrs:         params.NodeAddrs,
 		nodeDiscovery:     params.NodeDiscovery,
