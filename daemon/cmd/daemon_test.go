@@ -299,10 +299,6 @@ func (ds *DaemonSuite) GetCIDRPrefixLengths() ([]int, []int) {
 	panic("GetCIDRPrefixLengths should not have been called")
 }
 
-func (ds *DaemonSuite) Datapath() datapath.Datapath {
-	return ds.d.datapath
-}
-
 func (ds *DaemonSuite) Loader() datapath.Loader {
 	return ds.d.loader
 }

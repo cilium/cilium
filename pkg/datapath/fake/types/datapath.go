@@ -15,8 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
-var _ datapath.Datapath = (*FakeDatapath)(nil)
-
 type FakeDatapath struct {
 	node           *FakeNodeHandler
 	nodeAddressing datapath.NodeAddressing

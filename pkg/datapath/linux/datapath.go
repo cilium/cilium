@@ -3,10 +3,6 @@
 
 package linux
 
-import (
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
-)
-
 // DatapathConfiguration is the static configuration of the datapath. The
 // configuration cannot change throughout the lifetime of a datapath object.
 type DatapathConfiguration struct {
@@ -15,19 +11,4 @@ type DatapathConfiguration struct {
 
 	// TunnelDevice is the name of the tunnel device (if any).
 	TunnelDevice string
-}
-
-type linuxDatapath struct{}
-
-type DatapathParams struct{}
-
-// NewDatapath creates a new Linux datapath
-func NewDatapath(p DatapathParams) datapath.Datapath {
-	dp := &linuxDatapath{}
-
-	return dp
-}
-
-func (l *linuxDatapath) Name() string {
-	return "linux-datapath"
 }

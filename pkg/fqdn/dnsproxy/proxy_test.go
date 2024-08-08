@@ -181,10 +181,6 @@ func (s *DNSProxyTestSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) 
 	return nil
 }
 
-func (s *DNSProxyTestSuite) Datapath() datapath.Datapath {
-	return nil
-}
-
 func (s *DNSProxyTestSuite) Loader() datapath.Loader {
 	return nil
 }

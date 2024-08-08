@@ -75,10 +75,9 @@ var Cell = cell.Module(
 	// Manages Cilium-specific iptables rules.
 	iptables.Cell,
 
-	cell.Provide(
-		newWireguardAgent,
-		newDatapath,
-	),
+	cell.Invoke(initDatapath),
+
+	cell.Provide(newWireguardAgent),
 
 	cell.Provide(func(expConfig experimental.Config) types.LBMap {
 		if expConfig.EnableExperimentalLB {
@@ -180,26 +179,14 @@ func newWireguardAgent(lc cell.Lifecycle, sysctl sysctl.Sysctl) *wg.Agent {
 	return wgAgent
 }
 
-func newDatapath(params datapathParams) types.Datapath {
-	datapath := linuxdatapath.NewDatapath(linuxdatapath.DatapathParams{})
-
-	params.LC.Append(cell.Hook{
+func initDatapath(logger *slog.Logger, lifecycle cell.Lifecycle) {
+	lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
-			if err := linuxdatapath.CheckRequirements(params.Log); err != nil {
+			if err := linuxdatapath.CheckRequirements(logger); err != nil {
 				return fmt.Errorf("requirements failed: %w", err)
 			}
 
 			return nil
 		},
 	})
-
-	return datapath
-}
-
-type datapathParams struct {
-	cell.In
-
-	Log *slog.Logger
-
-	LC cell.Lifecycle
 }
