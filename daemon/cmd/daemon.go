@@ -349,8 +349,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 	lbmap.Init(lbmapInitParams)
 
-	params.NodeManager.Subscribe(params.Datapath.Node())
-
 	identity.IterateReservedIdentities(func(_ identity.NumericIdentity, _ *identity.Identity) {
 		metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
 		metrics.IdentityLabelSources.WithLabelValues(labels.LabelSourceReserved).Inc()
