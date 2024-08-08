@@ -9,10 +9,6 @@ package types
 type Datapath interface {
 	IptablesManager
 
-	// LocalNodeAddressing must return the node addressing implementation
-	// of the local node
-	LocalNodeAddressing() NodeAddressing
-
 	// LBMap returns the load-balancer map
 	LBMap() LBMap
 
