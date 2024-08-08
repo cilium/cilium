@@ -16,13 +16,13 @@ on:
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
-        default: '{}'
+        default: "{}"
   push:
     branches:
-      - 'renovate/main-**'
+      - "renovate/main-**"
   # Run every 6 hours
   schedule:
-    - cron:  '0 1/6 * * *'
+    - cron: "0 1/6 * * *"
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -202,6 +202,7 @@ jobs:
             --helm-set loadBalancer.l7.backend=envoy \
             --helm-set tls.secretsBackend=k8s \
             --helm-set=bpf.monitorAggregation=none \
+            --helm-set egress-masquerade-interface=ens5 \
             --wait=false"
           if [[ "${{ matrix.ipsec }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=ipsec"
@@ -364,7 +365,7 @@ jobs:
         if: ${{ matrix.ipsec == true }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
-          full-test: 'true'
+          full-test: "true"
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Post-test information gathering
@@ -436,8 +437,7 @@ jobs:
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ github.event_name != 'schedule' && 'success' || 'failure' }}
-          description: 'Skipped'
-
+          description: "Skipped"
 
   cleanup:
     name: Cleanup EKS Clusters
