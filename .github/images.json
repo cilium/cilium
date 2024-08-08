@@ -1,0 +1,34 @@
+[
+  {
+    'name': 'cilium',
+    'dockerfile': './images/cilium/Dockerfile'
+  },
+  {
+    'name': 'operator-aws',
+    'dockerfile': './images/operator/Dockerfile'
+  },
+  {
+    'name': 'operator-azure',
+    'dockerfile': './images/operator/Dockerfile'
+  },
+  {
+    'name': 'operator-alibabacloud',
+    'dockerfile': './images/operator/Dockerfile'
+  },
+  {
+    'name': 'operator-generic',
+    'dockerfile': './images/operator/Dockerfile'
+  },
+  {
+    'name': 'hubble-relay',
+    'dockerfile': './images/hubble-relay/Dockerfile'
+  },
+  {
+    'name': 'clustermesh-apiserver',
+    'dockerfile': './images/clustermesh-apiserver/Dockerfile'
+  },
+  {
+    'name': 'docker-plugin',
+    'dockerfile': './images/cilium-docker-plugin/Dockerfile'
+  }
+]

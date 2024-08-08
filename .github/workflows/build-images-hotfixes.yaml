@@ -12,7 +12,28 @@ permissions:
   id-token: write
 
 jobs:
+  setup-vars:
+    name: Setup Variables
+    runs-on: ubuntu-latest
+    outputs:
+      build-and-push-images: ${{ steps.vars.outputs.build-and-push-images }}
+    steps:
+      - name: Checkout main branch to access local actions
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          echo build-and-push-images=${BUILD_AND_PUSH_IMAGES} >> $GITHUB_OUTPUT
+
   build-and-push:
+    needs: [ setup-vars ]
     timeout-minutes: 45
     name: Build and Push Images
     environment: release-developer-images
@@ -20,32 +41,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: cilium
-            dockerfile: ./images/cilium/Dockerfile
-
-          - name: operator
-            dockerfile: ./images/operator/Dockerfile
-
-          - name: operator-aws
-            dockerfile: ./images/operator/Dockerfile
-
-          - name: operator-azure
-            dockerfile: ./images/operator/Dockerfile
-
-          - name: operator-alibabacloud
-            dockerfile: ./images/operator/Dockerfile
-
-          - name: operator-generic
-            dockerfile: ./images/operator/Dockerfile
-
-          - name: hubble-relay
-            dockerfile: ./images/hubble-relay/Dockerfile
-
-          - name: clustermesh-apiserver
-            dockerfile: ./images/clustermesh-apiserver/Dockerfile
-
-          - name: docker-plugin
-            dockerfile: ./images/cilium-docker-plugin/Dockerfile
+          ${{ fromJSON(env.BUILD_AND_PUSH_IMAGES) }}
 
     steps:
       - name: Checkout main branch to access local actions
