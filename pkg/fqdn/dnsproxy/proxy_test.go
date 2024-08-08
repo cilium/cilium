@@ -197,6 +197,10 @@ func (s *DNSProxyTestSuite) BandwidthManager() datapath.BandwidthManager {
 	return nil
 }
 
+func (s *DNSProxyTestSuite) IPTablesManager() datapath.IptablesManager {
+	return nil
+}
+
 func (s *DNSProxyTestSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }

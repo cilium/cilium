@@ -315,6 +315,10 @@ func (ds *DaemonSuite) BandwidthManager() datapath.BandwidthManager {
 	return ds.d.bwManager
 }
 
+func (ds *DaemonSuite) IPTablesManager() datapath.IptablesManager {
+	return ds.d.iptablesManager
+}
+
 func (ds *DaemonSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }

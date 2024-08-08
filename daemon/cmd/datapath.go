@@ -421,3 +421,7 @@ func (d *Daemon) Orchestrator() datapath.Orchestrator {
 func (d *Daemon) BandwidthManager() datapath.BandwidthManager {
 	return d.bwManager
 }
+
+func (d *Daemon) IPTablesManager() datapath.IptablesManager {
+	return d.iptablesManager
+}
