@@ -39,7 +39,6 @@ import (
 type EndpointSuite struct {
 	orchestrator datapath.Orchestrator
 	repo         *policy.Repository
-	datapath     datapath.Datapath
 	mgr          *cache.CachingIdentityAllocator
 
 	// Owners interface mock
@@ -106,10 +105,6 @@ func (s *EndpointSuite) GetCompilationLock() datapath.CompilationLock {
 
 func (s *EndpointSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
 	return nil
-}
-
-func (s *EndpointSuite) Datapath() datapath.Datapath {
-	return s.datapath
 }
 
 func (s *EndpointSuite) GetDNSRules(epID uint16) restore.DNSRules {
@@ -690,14 +685,6 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 	option.Config.EndpointQueueSize = 1
 	defer func() {
 		option.Config.EndpointQueueSize = oldQueueSize
-	}()
-
-	oldDatapath := s.datapath
-
-	s.datapath = fakeTypes.NewDatapath()
-
-	defer func() {
-		s.datapath = oldDatapath
 	}()
 
 	ep := NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)

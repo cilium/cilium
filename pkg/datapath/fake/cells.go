@@ -43,10 +43,10 @@ var Cell = cell.Module(
 	"Fake Datapath",
 
 	cell.Provide(
-		func(lifecycle cell.Lifecycle, na types.NodeAddressing, nodeManager manager.NodeManager) (*fakeTypes.FakeDatapath, types.Datapath, types.NodeIDHandler, types.NodeHandler, types.NodeNeighbors, types.LBMap) {
+		func(lifecycle cell.Lifecycle, na types.NodeAddressing, nodeManager manager.NodeManager) (*fakeTypes.FakeDatapath, types.NodeIDHandler, types.NodeHandler, types.NodeNeighbors, types.LBMap) {
 			dp := fakeTypes.NewDatapathWithNodeAddressing(na)
 			nodeManager.Subscribe(dp.Node())
-			return dp, dp, dp.NodeIDs(), dp.Node(), dp.NodeNeighbors(), dp.LBMap()
+			return dp, dp.NodeIDs(), dp.Node(), dp.NodeNeighbors(), dp.LBMap()
 		},
 		func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
 		func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
