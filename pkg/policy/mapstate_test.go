@@ -11,11 +11,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
+
+func testGetInvalidHandle() versioned.Handle {
+	return versioned.Handle{}
+}
 
 func Test_IsSuperSetOf(t *testing.T) {
 	tests := []struct {
@@ -2747,7 +2752,9 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		changes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, selectorCache, denyRules)
+		policyMaps.SyncMapChanges(testGetInvalidHandle)
+		handle, changes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, selectorCache, denyRules)
+		handle.Release()
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equals(tt.state), "%s (MapState):\n%s", tt.name, policyMapState.Diff(tt.state))
 		require.EqualValues(t, tt.adds, changes.Adds, tt.name+" (adds)")
@@ -3091,7 +3098,9 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, x.hasAuth, x.authType)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		changes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, nil, authRules|denyRules)
+		policyMaps.SyncMapChanges(testGetInvalidHandle)
+		handle, changes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, nil, authRules|denyRules)
+		handle.Release()
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equals(tt.state), "%s (MapState):\n%s", tt.name, policyMapState.Diff(tt.state))
 		require.EqualValues(t, tt.adds, changes.Adds, tt.name+" (adds)")
@@ -3678,7 +3687,9 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		changes = policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, selectorCache, denyRules)
+		policyMaps.SyncMapChanges(testGetInvalidHandle)
+		handle, changes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, selectorCache, denyRules)
+		handle.Release()
 		changes.Old = make(map[Key]MapStateEntry)
 
 		// Visibilty redirects need to be re-applied after consumeMapChanges()

@@ -24,6 +24,9 @@ type DummySelectorCacheUser struct{}
 func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector CachedSelector, added, deleted []identity.NumericIdentity) {
 }
 
+func (d *DummySelectorCacheUser) IdentitySelectionSync(GetHandleFunc) {
+}
+
 type cachedSelectionUser struct {
 	t    *testing.T
 	sc   *SelectorCache
@@ -145,7 +148,9 @@ func (csu *cachedSelectionUser) IdentitySelectionUpdated(selector CachedSelector
 
 	// update selections
 	csu.selections[selector] = selections
+}
 
+func (csu *cachedSelectionUser) IdentitySelectionSync(GetHandleFunc) {
 	csu.updateCond.Signal()
 }
 

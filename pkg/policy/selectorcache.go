@@ -70,11 +70,12 @@ func getLocalScopePrefix(id identity.NumericIdentity, lbls labels.LabelArray) ne
 // identity changes. These are queued to be able to call the callbacks
 // in FIFO order while not holding any locks.
 type userNotification struct {
-	user     CachedSelectionUser
-	selector CachedSelector
-	added    []identity.NumericIdentity
-	deleted  []identity.NumericIdentity
-	wg       *sync.WaitGroup
+	user       CachedSelectionUser
+	selector   CachedSelector // nil for a sync notification
+	handleFunc GetHandleFunc  // invalid for non-sync notifications
+	added      []identity.NumericIdentity
+	deleted    []identity.NumericIdentity
+	wg         *sync.WaitGroup
 }
 
 // SelectorCache caches identities, identity selectors, and the
@@ -103,13 +104,25 @@ type SelectorCache struct {
 	userMutex lock.Mutex
 	// userNotes holds a FIFO list of user notifications to be made
 	userNotes []userNotification
+	// notifiedUsers is a set of all notified userNotes
+	notifiedUsers map[CachedSelectionUser]struct{}
 
 	// used to lazily start the handler for user notifications.
 	startNotificationsHandlerOnce sync.Once
 }
 
-// GetHandle returns a Handle for the current version and a closer for releasing old versions held
-// for this version.
+// GetHandleFunc calls the given function with a versioned.Handle to the current version of
+// SelectorCache selections while selector cache is locked for writing, so that the caller may get
+// ready for getting incremental updates that are possible right after the lock is released.
+// This should only be used with trivial functions that can not lock or sleep!
+// Use the plain 'GetHandle' whenever possible, as it does not lock the selector cache.
+func (sc *SelectorCache) GetHandleFunc(f func(versioned.Handle)) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+	f(sc.GetHandle("GetHandle"))
+}
+
+// GetHandle returns a Handle for the current version
 // 'name' is for debugging purposes only
 func (sc *SelectorCache) GetHandle(name string) versioned.Handle {
 	return sc.versionManager.GetHandle(name)
@@ -170,7 +183,11 @@ func (sc *SelectorCache) handleUserNotifications() {
 		sc.userMutex.Unlock()
 
 		for _, n := range notifications {
-			n.user.IdentitySelectionUpdated(n.selector, n.added, n.deleted)
+			if n.selector == nil {
+				n.user.IdentitySelectionSync(n.handleFunc)
+			} else {
+				n.user.IdentitySelectionUpdated(n.selector, n.added, n.deleted)
+			}
 			n.wg.Done()
 		}
 	}
@@ -182,6 +199,10 @@ func (sc *SelectorCache) queueUserNotification(user CachedSelectionUser, selecto
 	})
 	wg.Add(1)
 	sc.userMutex.Lock()
+	if sc.notifiedUsers == nil {
+		sc.notifiedUsers = make(map[CachedSelectionUser]struct{})
+	}
+	sc.notifiedUsers[user] = struct{}{}
 	sc.userNotes = append(sc.userNotes, userNotification{
 		user:     user,
 		selector: selector,
@@ -189,6 +210,25 @@ func (sc *SelectorCache) queueUserNotification(user CachedSelectionUser, selecto
 		deleted:  deleted,
 		wg:       wg,
 	})
+	sc.userMutex.Unlock()
+	sc.userCond.Signal()
+}
+
+type GetHandleFunc func() versioned.Handle
+
+func (sc *SelectorCache) queueNotifiedUsersSync(handleFunc GetHandleFunc, wg *sync.WaitGroup) {
+	sc.userMutex.Lock()
+	for user := range sc.notifiedUsers {
+		wg.Add(1)
+
+		// sync notification has a nil selector
+		sc.userNotes = append(sc.userNotes, userNotification{
+			user:       user,
+			handleFunc: handleFunc,
+			wg:         wg,
+		})
+	}
+	sc.notifiedUsers = nil
 	sc.userMutex.Unlock()
 	sc.userCond.Signal()
 }
@@ -501,6 +541,9 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				idSel.notifyUsers(sc, adds, dels, wg)
 			}
 		}
+		sc.queueNotifiedUsersSync(func() versioned.Handle {
+			return sc.versionManager.GetHandleForVersion(nextVersion, "UpdateIdentities")
+		}, wg)
 	}
 	sc.versionManager.PublishVersion(currentVersion, nextVersion)
 }

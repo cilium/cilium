@@ -14,6 +14,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/container/bitlpm"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -1970,8 +1971,10 @@ func (ms *mapState) getIdentities(log *logrus.Logger, denied bool) (ingIdentitie
 // granularity of individual mapstate key-value pairs for both adds
 // and deletes. 'mutex' must be held for any access.
 type MapChanges struct {
-	mutex   lock.Mutex
-	changes []MapChange
+	mutex      lock.Mutex
+	changez    []MapChange
+	synced     []MapChange
+	handleFunc GetHandleFunc
 }
 
 type MapChange struct {
@@ -1991,37 +1994,49 @@ func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []id
 	for _, id := range adds {
 		for _, k := range keys {
 			k.Identity = id.Uint32()
-			mc.changes = append(mc.changes, MapChange{Add: true, Key: k, Value: value})
+			mc.changez = append(mc.changez, MapChange{Add: true, Key: k, Value: value})
 		}
 	}
 	for _, id := range deletes {
 		for _, k := range keys {
 			k.Identity = id.Uint32()
-			mc.changes = append(mc.changes, MapChange{Add: false, Key: k, Value: value})
+			mc.changez = append(mc.changez, MapChange{Add: false, Key: k, Value: value})
 		}
 	}
 }
 
+// SyncMapChanges moves the current batch of changes to 'synced' to be consumed as a unit
+func (mc *MapChanges) SyncMapChanges(handleFunc GetHandleFunc) {
+	mc.mutex.Lock()
+	if len(mc.changez) > 0 {
+		mc.synced = append(mc.synced, mc.changez...)
+		mc.changez = nil
+		mc.handleFunc = handleFunc
+	}
+	mc.mutex.Unlock()
+}
+
 // consumeMapChanges transfers the incremental changes from MapChanges to the caller,
 // while applying the changes to PolicyMapState.
-func (mc *MapChanges) consumeMapChanges(policyOwner PolicyOwner, policyMapState MapState, identities Identities, features policyFeatures) ChangeState {
+func (mc *MapChanges) consumeMapChanges(policyOwner PolicyOwner, policyMapState MapState, identities Identities, features policyFeatures) (versioned.Handle, ChangeState) {
 	mc.mutex.Lock()
 	changes := ChangeState{
-		Adds:    make(Keys, len(mc.changes)),
-		Deletes: make(Keys, len(mc.changes)),
-		Old:     make(map[Key]MapStateEntry),
+		Adds:    make(Keys, len(mc.synced)),
+		Deletes: make(Keys, len(mc.synced)),
+		Old:     make(map[Key]MapStateEntry, len(mc.synced)),
 	}
+
 	var redirects map[string]uint16
 	if policyOwner != nil {
 		redirects = policyOwner.GetRealizedRedirects()
 	}
 
-	for i := range mc.changes {
-		if mc.changes[i].Add {
+	for i := range mc.synced {
+		if mc.synced[i].Add {
 			// Redirect entries for unrealized redirects come in with an invalid
 			// redirect port (65535), replace it with the actual proxy port number.
-			key := mc.changes[i].Key
-			entry := mc.changes[i].Value
+			key := mc.synced[i].Key
+			entry := mc.synced[i].Value
 			if entry.ProxyPort == unrealizedRedirectPort {
 				var exists bool
 				proxyID := ProxyIDFromKey(uint16(policyOwner.GetID()), key, entry.Listener)
@@ -2041,12 +2056,20 @@ func (mc *MapChanges) consumeMapChanges(policyOwner PolicyOwner, policyMapState 
 			policyMapState.denyPreferredInsertWithChanges(key, entry, identities, features, changes)
 		} else {
 			// Delete the contribution of this cs to the key and collect incremental changes
-			for cs := range mc.changes[i].Value.owners { // get the sole selector
-				policyMapState.deleteKeyWithChanges(mc.changes[i].Key, cs, identities, changes)
+			for cs := range mc.synced[i].Value.owners { // get the sole selector
+				policyMapState.deleteKeyWithChanges(mc.synced[i].Key, cs, identities, changes)
 			}
 		}
 	}
-	mc.changes = nil
+
+	var handle versioned.Handle
+	if !changes.Empty() && mc.handleFunc != nil {
+		handle = mc.handleFunc()
+	}
+
+	mc.synced = nil
+	mc.handleFunc = nil
 	mc.mutex.Unlock()
-	return changes
+
+	return handle, changes
 }

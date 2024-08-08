@@ -96,6 +96,10 @@ type CachedSelectionUser interface {
 	// The caller is responsible for making sure the same identity is not
 	// present in both 'added' and 'deleted'.
 	IdentitySelectionUpdated(selector CachedSelector, added, deleted []identity.NumericIdentity)
+
+	// IdentitySelectionSync implementations MUST NOT call back
+	// to the name manager or the selector cache while executing this function!
+	IdentitySelectionSync(GetHandleFunc)
 }
 
 // identitySelector is the internal type for all selectors in the
