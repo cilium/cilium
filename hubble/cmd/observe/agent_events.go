@@ -45,7 +45,7 @@ func newAgentEventsCommand(vp *viper.Viper) *cobra.Command {
 			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 			defer cancel()
 
-			hubbleConn, err := conn.New(ctx, vp.GetString(config.KeyServer), vp.GetDuration(config.KeyTimeout))
+			hubbleConn, err := conn.New(vp.GetString(config.KeyServer))
 			if err != nil {
 				return err
 			}

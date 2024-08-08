@@ -4,7 +4,6 @@
 package conn
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -14,7 +13,6 @@ import (
 
 	"github.com/cilium/cilium/hubble/cmd/common/config"
 	"github.com/cilium/cilium/hubble/pkg/defaults"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 // GRPCOptionFunc is a function that configures a gRPC dial option.
@@ -26,24 +24,9 @@ var GRPCOptionFuncs []GRPCOptionFunc
 func init() {
 	GRPCOptionFuncs = append(
 		GRPCOptionFuncs,
-		grpcOptionBlock,
-		grpcOptionFailOnNonTempDialError,
-		grpcOptionConnError,
 		grpcInterceptors,
 		grpcOptionTLS,
 	)
-}
-
-func grpcOptionBlock(_ *viper.Viper) (grpc.DialOption, error) {
-	return grpc.WithBlock(), nil
-}
-
-func grpcOptionFailOnNonTempDialError(_ *viper.Viper) (grpc.DialOption, error) {
-	return grpc.FailOnNonTempDialError(true), nil
-}
-
-func grpcOptionConnError(_ *viper.Viper) (grpc.DialOption, error) {
-	return grpc.WithReturnConnectionError(), nil
 }
 
 func grpcInterceptors(vp *viper.Viper) (grpc.DialOption, error) {
@@ -66,14 +49,11 @@ func Init(vp *viper.Viper) error {
 }
 
 // New creates a new gRPC client connection to the target.
-func New(ctx context.Context, target string, dialTimeout time.Duration) (*grpc.ClientConn, error) {
-	dialCtx, cancel := context.WithTimeout(ctx, dialTimeout)
-	defer cancel()
-
+func New(target string) (*grpc.ClientConn, error) {
 	t := strings.TrimPrefix(target, defaults.TargetTLSPrefix)
-	conn, err := grpc.DialContext(dialCtx, t, grpcDialOptions...)
+	conn, err := grpc.NewClient(t, grpcDialOptions...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to '%s': %w", target, err)
+		return nil, fmt.Errorf("failed to create gRPC client to '%s': %w", target, err)
 	}
 	return conn, nil
 }
