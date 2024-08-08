@@ -345,6 +345,14 @@ jobs:
             secondary-network: 'true'
             ingress-controller: 'true'
 
+          - name: '23'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-20240711.013133'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            lb-experimental: 'true'
+
     timeout-minutes: 60
     steps:
       - name: Collect Workflow Telemetry
