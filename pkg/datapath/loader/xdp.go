@@ -59,7 +59,7 @@ func xdpAttachedModeToFlag(mode uint32) link.XDPAttachFlags {
 //
 // bpffsBase is typically set to /sys/fs/bpf/cilium, but can be a temp directory
 // during tests.
-func (l *loader) maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode xdp.Mode, bpffsBase string) {
+func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode xdp.Mode, bpffsBase string) {
 	links, err := netlink.LinkList()
 	if err != nil {
 		log.WithError(err).Warn("Failed to list links for XDP unload")
@@ -87,7 +87,7 @@ func (l *loader) maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode xdp.Mo
 			}
 		}
 		if !used {
-			if err := l.DetachXDP(link.Attrs().Name, bpffsBase, symbolFromHostNetdevXDP); err != nil {
+			if err := DetachXDP(link.Attrs().Name, bpffsBase, symbolFromHostNetdevXDP); err != nil {
 				log.WithError(err).Warn("Failed to detach obsolete XDP program")
 			}
 		}
@@ -284,7 +284,7 @@ func attachXDPProgram(iface netlink.Link, prog *ebpf.Program, progName, bpffsDir
 //
 // bpffsBase is typically /sys/fs/bpf/cilium, but can be overridden to a tempdir
 // during tests.
-func (l *loader) DetachXDP(ifaceName string, bpffsBase, progName string) error {
+func DetachXDP(ifaceName string, bpffsBase, progName string) error {
 	iface, err := netlink.LinkByName(ifaceName)
 	if err != nil {
 		return fmt.Errorf("getting link '%s' by name: %w", ifaceName, err)
