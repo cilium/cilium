@@ -8,6 +8,4 @@ package types
 // implementations
 type Datapath interface {
 	IptablesManager
-
-	BandwidthManager() BandwidthManager
 }
