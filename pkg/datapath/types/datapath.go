@@ -7,7 +7,6 @@ package types
 // abstraction allows to implement the datapath requirements with multiple
 // implementations
 type Datapath interface {
-	ConfigWriter
 	IptablesManager
 
 	// LocalNodeAddressing must return the node addressing implementation
