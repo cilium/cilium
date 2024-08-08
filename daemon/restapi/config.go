@@ -101,7 +101,7 @@ type configModifyEventHandlerParams struct {
 	Lifecycle cell.Lifecycle
 	Logger    logrus.FieldLogger
 
-	Datapath        datapath.Datapath
+	Orchestrator    datapath.Orchestrator
 	Policy          *policy.Repository
 	EndpointManager endpointmanager.EndpointManager
 	L7Proxy         *proxy.Proxy
@@ -113,7 +113,7 @@ func newConfigModifyEventHandler(params configModifyEventHandlerParams) *ConfigM
 	eventHandler := &ConfigModifyEventHandler{
 		ctx:             ctx,
 		logger:          params.Logger,
-		datapath:        params.Datapath,
+		orchestrator:    params.Orchestrator,
 		policy:          params.Policy,
 		endpointManager: params.EndpointManager,
 		l7Proxy:         params.L7Proxy,
@@ -160,7 +160,7 @@ type ConfigModifyEventHandler struct {
 	// event queue for serializing configuration updates to the daemon.
 	configModifyQueue *eventqueue.EventQueue
 
-	datapath        datapath.Datapath
+	orchestrator    datapath.Orchestrator
 	policy          *policy.Repository
 	endpointManager endpointmanager.EndpointManager
 	l7Proxy         *proxy.Proxy
@@ -228,7 +228,7 @@ func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigPara
 	if changes > 0 {
 		// Only recompile if configuration has changed.
 		h.logger.Debug("daemon configuration has changed; recompiling base programs")
-		if err := h.datapath.Orchestrator().Reinitialize(h.ctx); err != nil {
+		if err := h.orchestrator.Reinitialize(h.ctx); err != nil {
 			msg := fmt.Errorf("unable to recompile base programs: %w", err)
 			// Revert configuration changes
 			if policyEnforcementChanged {
