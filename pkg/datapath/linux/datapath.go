@@ -21,7 +21,6 @@ type DatapathConfiguration struct {
 }
 
 type linuxDatapath struct {
-	datapath.ConfigWriter
 	datapath.IptablesManager
 	nodeAddressing datapath.NodeAddressing
 	lbmap          datapath.LBMap
@@ -30,7 +29,6 @@ type linuxDatapath struct {
 }
 
 type DatapathParams struct {
-	ConfigWriter   datapath.ConfigWriter
 	RuleManager    datapath.IptablesManager
 	BWManager      datapath.BandwidthManager
 	NodeAddressing datapath.NodeAddressing
@@ -50,7 +48,6 @@ func NewDatapath(p DatapathParams) datapath.Datapath {
 	}
 
 	dp := &linuxDatapath{
-		ConfigWriter:    p.ConfigWriter,
 		IptablesManager: p.RuleManager,
 		nodeAddressing:  p.NodeAddressing,
 		lbmap:           lbm,
