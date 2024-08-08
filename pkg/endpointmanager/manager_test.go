@@ -100,6 +100,10 @@ func (s *EndpointManagerSuite) BandwidthManager() datapath.BandwidthManager {
 	return nil
 }
 
+func (s *EndpointManagerSuite) IPTablesManager() datapath.IptablesManager {
+	return nil
+}
+
 func (s *EndpointManagerSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }

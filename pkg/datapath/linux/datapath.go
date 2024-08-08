@@ -17,19 +17,13 @@ type DatapathConfiguration struct {
 	TunnelDevice string
 }
 
-type linuxDatapath struct {
-	datapath.IptablesManager
-}
+type linuxDatapath struct{}
 
-type DatapathParams struct {
-	RuleManager datapath.IptablesManager
-}
+type DatapathParams struct{}
 
 // NewDatapath creates a new Linux datapath
 func NewDatapath(p DatapathParams) datapath.Datapath {
-	dp := &linuxDatapath{
-		IptablesManager: p.RuleManager,
-	}
+	dp := &linuxDatapath{}
 
 	return dp
 }

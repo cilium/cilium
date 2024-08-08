@@ -182,9 +182,7 @@ func newWireguardAgent(lc cell.Lifecycle, sysctl sysctl.Sysctl) *wg.Agent {
 }
 
 func newDatapath(params datapathParams) types.Datapath {
-	datapath := linuxdatapath.NewDatapath(linuxdatapath.DatapathParams{
-		RuleManager: params.IptablesManager,
-	})
+	datapath := linuxdatapath.NewDatapath(linuxdatapath.DatapathParams{})
 
 	params.LC.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
@@ -209,6 +207,4 @@ type datapathParams struct {
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
 	BpfMaps []bpf.BpfMap `group:"bpf-maps"`
-
-	IptablesManager *iptables.Manager
 }
