@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -34,7 +35,7 @@ func (p *policyWatcher) isSelectableService(svc *k8s.Service) bool {
 	if svc == nil {
 		return false
 	}
-	return p.config.EnableHighScaleIPcache || svc.IsExternal()
+	return p.config.EnableHighScaleIPcache
 }
 
 // onServiceEvent processes a ServiceNotification and (if necessary)
@@ -311,12 +312,22 @@ func (s *serviceEndpoints) processRule(rule *api.Rule) (numMatches int) {
 		for _, toService := range egress.ToServices {
 			if sel := toService.K8sServiceSelector; sel != nil {
 				if serviceSelectorMatches(sel, s.svcID, s.svc) {
-					appendEndpoints(&rule.Egress[i].ToCIDRSet, s.endpoints())
+					if s.svc.IsExternal() {
+						appendEndpoints(&rule.Egress[i].ToCIDRSet, s.endpoints())
+					} else {
+						rule.Egress[i].ToEndpoints = append(rule.Egress[i].ToEndpoints, api.EndpointSelector{
+							LabelSelector: &slim_metav1.LabelSelector{MatchLabels: s.svc.Selector}})
+					}
 					numMatches++
 				}
 			} else if ref := toService.K8sService; ref != nil {
 				if serviceRefMatches(ref, s.svcID) {
-					appendEndpoints(&rule.Egress[i].ToCIDRSet, s.endpoints())
+					if s.svc.IsExternal() {
+						appendEndpoints(&rule.Egress[i].ToCIDRSet, s.endpoints())
+					} else {
+						rule.Egress[i].ToEndpoints = append(rule.Egress[i].ToEndpoints, api.EndpointSelector{
+							LabelSelector: &slim_metav1.LabelSelector{MatchLabels: s.svc.Selector}})
+					}
 					numMatches++
 				}
 			}
