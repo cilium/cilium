@@ -16,6 +16,7 @@ package signers
 
 import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/utils"
 )
 
 type StsTokenSigner struct {
@@ -50,5 +51,5 @@ func (signer *StsTokenSigner) GetExtraParam() map[string]string {
 
 func (signer *StsTokenSigner) Sign(stringToSign, secretSuffix string) string {
 	secret := signer.credential.AccessKeySecret + secretSuffix
-	return ShaHmac1(stringToSign, secret)
+	return utils.ShaHmac1(stringToSign, secret)
 }

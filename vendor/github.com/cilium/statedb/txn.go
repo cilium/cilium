@@ -55,19 +55,22 @@ func txnFinalizer(txn *txn) {
 	}
 }
 
-func (txn *txn) getRevision(meta TableMeta) Revision {
+func (txn *txn) getTableEntry(meta TableMeta) *tableEntry {
 	if txn.modifiedTables != nil {
 		entry := txn.modifiedTables[meta.tablePos()]
 		if entry != nil {
-			return entry.revision
+			return entry
 		}
 	}
-	return txn.root[meta.tablePos()].revision
+	return &txn.root[meta.tablePos()]
 }
 
 // indexReadTxn returns a transaction to read from the specific index.
 // If the table or index is not found this returns nil & error.
 func (txn *txn) indexReadTxn(meta TableMeta, indexPos int) (indexReadTxn, error) {
+	if meta.tablePos() < 0 {
+		return indexReadTxn{}, tableError(meta.Name(), ErrTableNotRegistered)
+	}
 	if txn.modifiedTables != nil {
 		entry := txn.modifiedTables[meta.tablePos()]
 		if entry != nil {

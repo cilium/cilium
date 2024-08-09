@@ -16,6 +16,7 @@ package signers
 
 import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/utils"
 )
 
 type SignerV2 struct {
@@ -50,5 +51,5 @@ func (signer *SignerV2) GetAccessKeyId() (accessKeyId string, err error) {
 
 func (signer *SignerV2) Sign(stringToSign, secretSuffix string) string {
 	secret := signer.credential.PrivateKey
-	return Sha256WithRsa(stringToSign, secret)
+	return utils.Sha256WithRsa(stringToSign, secret)
 }

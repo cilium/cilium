@@ -138,7 +138,7 @@ func Run(args []string, analyzers []*analysis.Analyzer) (exitcode int) {
 	}
 
 	pkgsExitCode := 0
-	// Print package errors regardless of RunDespiteErrors.
+	// Print package and module errors regardless of RunDespiteErrors.
 	// Do not exit if there are errors, yet.
 	if n := packages.PrintErrors(initial); n > 0 {
 		pkgsExitCode = 1
@@ -720,6 +720,13 @@ func (act *action) execOnce() {
 		}
 	}
 
+	module := &analysis.Module{} // possibly empty (non nil) in go/analysis drivers.
+	if mod := act.pkg.Module; mod != nil {
+		module.Path = mod.Path
+		module.Version = mod.Version
+		module.GoVersion = mod.GoVersion
+	}
+
 	// Run the analysis.
 	pass := &analysis.Pass{
 		Analyzer:     act.a,
@@ -731,6 +738,7 @@ func (act *action) execOnce() {
 		TypesInfo:    act.pkg.TypesInfo,
 		TypesSizes:   act.pkg.TypesSizes,
 		TypeErrors:   act.pkg.TypeErrors,
+		Module:       module,
 
 		ResultOf:          inputs,
 		Report:            func(d analysis.Diagnostic) { act.diagnostics = append(act.diagnostics, d) },
