@@ -2429,6 +2429,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	 */
 	if (egress_gw_reply_needs_redirect_hook(ip4, &tunnel_endpoint, &dst_sec_identity)) {
 		trace->reason = TRACE_REASON_CT_REPLY;
+		src_sec_identity = WORLD_ID;
 		goto redirect;
 	}
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
