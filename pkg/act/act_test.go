@@ -306,7 +306,8 @@ func TestReconcileServices(t *testing.T) {
 		123: {24: nl, 26: nl, 27: nl, 29: nl},
 		124: {25: nl, 26: nl, 27: nl, 28: nl},
 	}
-	activeServices := []loadbalancer.ServiceID{24, 26, 27}
+	// {24, 26, 27} but in host byte order
+	activeServices := []loadbalancer.ServiceID{24 * 256, 26 * 256, 27 * 256}
 	a.svcIDs = func() []loadbalancer.ServiceID {
 		return activeServices
 	}
