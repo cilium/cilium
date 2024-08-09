@@ -74,6 +74,7 @@ cilium-agent hive [flags]
       --k8s-client-qps float32                                    Queries per second limit for the K8s client (default 10)
       --k8s-heartbeat-timeout duration                            Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                                Absolute path of the kubernetes kubeconfig file
+      --k8s-list-timeout-seconds int                              The maximum duration to wait before giving up on a list operation
       --k8s-service-proxy-name string                             Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --l2-pod-announcements-interface string                     Interface used for sending gratuitous arp messages
       --max-connected-clusters uint32                             Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)

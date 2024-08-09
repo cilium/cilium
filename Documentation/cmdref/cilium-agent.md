@@ -266,6 +266,7 @@ cilium-agent [flags]
       --k8s-client-qps float32                                    Queries per second limit for the K8s client (default 10)
       --k8s-heartbeat-timeout duration                            Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                                Absolute path of the kubernetes kubeconfig file
+      --k8s-list-timeout-seconds int                              The maximum duration to wait before giving up on a list operation
       --k8s-namespace string                                      Name of the Kubernetes namespace in which Cilium is deployed in
       --k8s-require-ipv4-pod-cidr                                 Require IPv4 PodCIDR to be specified in node resource
       --k8s-require-ipv6-pod-cidr                                 Require IPv6 PodCIDR to be specified in node resource
