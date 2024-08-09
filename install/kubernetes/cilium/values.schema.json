@@ -765,19 +765,6 @@
                     "type": "integer"
                   }
                 }
-              },
-              {
-                "properties": {
-                  "burst": {
-                    "type": "integer"
-                  },
-                  "limit": {
-                    "type": "integer"
-                  },
-                  "nodes": {
-                    "type": "integer"
-                  }
-                }
               }
             ]
           },
