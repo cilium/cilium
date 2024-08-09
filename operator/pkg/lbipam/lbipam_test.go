@@ -1393,6 +1393,101 @@ func TestRequestIPs(t *testing.T) {
 	}
 }
 
+func TestSharedServicesUpdateSharingKeyAndRequestedIP(t *testing.T) {
+	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
+	fixture := mkTestFixture(true, false)
+	fixture.UpsertPool(t, poolA)
+
+	svcA := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-a",
+			Namespace: "default",
+			UID:       serviceAUID,
+			Annotations: map[string]string{
+				annotation.LBIPAMIPsKey:     "10.0.10.22",
+				annotation.LBIPAMSharingKey: "key-1",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+			Ports: []slim_core_v1.ServicePort{{
+				Port: 80,
+			}},
+		},
+	}
+	fixture.UpsertSvc(t, svcA)
+
+	svcB := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-b",
+			Namespace: "default",
+			UID:       serviceAUID,
+			Annotations: map[string]string{
+				annotation.LBIPAMIPsKey:     "10.0.10.33",
+				annotation.LBIPAMSharingKey: "key-2",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+			Ports: []slim_core_v1.ServicePort{{
+				Port: 81,
+			}},
+		},
+	}
+	fixture.UpsertSvc(t, svcB)
+
+	svcC := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-c",
+			Namespace: "default",
+			UID:       serviceAUID,
+			Annotations: map[string]string{
+				annotation.LBIPAMIPsKey:     "10.0.10.33",
+				annotation.LBIPAMSharingKey: "key-2",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+			Ports: []slim_core_v1.ServicePort{{
+				Port: 82,
+			}},
+		},
+	}
+	fixture.UpsertSvc(t, svcC)
+
+	svcA = fixture.GetSvc("default", "service-a")
+	svcB = fixture.GetSvc("default", "service-b")
+	svcC = fixture.GetSvc("default", "service-c")
+
+	if svcB.Status.LoadBalancer.Ingress[0].IP != svcC.Status.LoadBalancer.Ingress[0].IP {
+		t.Fatal("IPs of service B & C should be the same")
+	}
+
+	svcC.Annotations[annotation.LBIPAMIPsKey] = "10.0.10.22"
+	svcC.Annotations[annotation.LBIPAMSharingKey] = "key-1"
+
+	fixture.UpsertSvc(t, svcC)
+
+	svcC = fixture.GetSvc("default", "service-c")
+
+	if svcA.Status.LoadBalancer.Ingress[0].IP != svcC.Status.LoadBalancer.Ingress[0].IP {
+		t.Fatal("IPs of service A & C should be the same")
+	}
+
+	if svcB.Status.LoadBalancer.Ingress[0].IP == svcC.Status.LoadBalancer.Ingress[0].IP {
+		t.Error("Expected service B & C to receive a different ingress IP")
+	}
+}
+
 // TestAddPool tests that adding a new pool will satisfy services.
 func TestAddPool(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
