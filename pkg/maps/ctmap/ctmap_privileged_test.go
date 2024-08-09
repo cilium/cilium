@@ -206,7 +206,7 @@ func TestCtGcIcmp(t *testing.T) {
 	require.Equal(t, 2, len(buf))
 
 	// GC and check whether NAT entries have been collected
-	filter := &GCFilter{
+	filter := GCFilter{
 		RemoveExpired: true,
 		Time:          39000,
 	}
@@ -317,7 +317,7 @@ func TestCtGcTcp(t *testing.T) {
 	require.Equal(t, 2, len(buf))
 
 	// GC and check whether NAT entries have been collected
-	filter := &GCFilter{
+	filter := GCFilter{
 		RemoveExpired: true,
 		Time:          39000,
 	}
@@ -408,7 +408,7 @@ func TestCtGcDsr(t *testing.T) {
 	require.Equal(t, 1, len(buf))
 
 	// GC and check whether NAT entry has been collected
-	filter := &GCFilter{
+	filter := GCFilter{
 		RemoveExpired: true,
 		Time:          39000,
 	}

@@ -147,6 +147,10 @@ func (gc *GC) Enable() {
 					}
 				}
 
+				gcFilter = ctmap.GCFilter{
+					RemoveExpired: true,
+					EmitCTEntryCB: emitEntryCB}
+
 				success = false
 			)
 
@@ -164,14 +168,14 @@ func (gc *GC) Enable() {
 
 			if len(eps) > 0 || initialScan {
 				gc.logger.Info("Starting initial GC of connection tracking")
-				maxDeleteRatio, success = gc.runGC(nil, ipv4, ipv6, triggeredBySignal, &ctmap.GCFilter{RemoveExpired: true, EmitCTEntryCB: emitEntryCB})
+				maxDeleteRatio, success = gc.runGC(nil, ipv4, ipv6, triggeredBySignal, gcFilter)
 			}
 			for _, e := range eps {
 				if !e.ConntrackLocal() {
 					// Skip because GC was handled above.
 					continue
 				}
-				_, epSuccess := gc.runGC(e, ipv4, ipv6, triggeredBySignal, &ctmap.GCFilter{RemoveExpired: true, EmitCTEntryCB: emitEntryCB})
+				_, epSuccess := gc.runGC(e, ipv4, ipv6, triggeredBySignal, gcFilter)
 				success = success && epSuccess
 			}
 
@@ -256,7 +260,7 @@ func (gc *GC) Enable() {
 // The provided endpoint is optional; if it is provided, then its map will be
 // garbage collected and any failures will be logged to the endpoint log.
 // Otherwise it will garbage-collect the global map and use the global log.
-func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, filter *ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
+func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 	var maps []*ctmap.Map
 	success = true
 
