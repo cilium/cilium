@@ -47,8 +47,6 @@ func (b GRPCClientConnBuilder) ClientConn(target, hostname string) (poolTypes.Cl
 		return nil, fmt.Errorf("unexpected TLS ServerName %s for %s", hostname, target)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), b.DialTimeout)
-	defer cancel()
 	opts := make([]grpc.DialOption, len(b.Options))
 	copy(opts, b.Options)
 
@@ -69,7 +67,7 @@ func (b GRPCClientConnBuilder) ClientConn(target, hostname string) (poolTypes.Cl
 			},
 		))
 	}
-	return grpc.DialContext(ctx, target, opts...)
+	return grpc.NewClient(target, opts...)
 }
 
 var _ credentials.TransportCredentials = &grpcTLSCredentialsWrapper{}

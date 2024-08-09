@@ -90,12 +90,8 @@ func New(options ...Option) (*Server, error) {
 		pool.WithPeerClientBuilder(peerClientBuilder),
 		pool.WithClientConnBuilder(pool.GRPCClientConnBuilder{
 			DialTimeout: opts.dialTimeout,
-			Options: []grpc.DialOption{
-				grpc.WithBlock(),
-				grpc.FailOnNonTempDialError(true),
-				grpc.WithReturnConnectionError(),
-			},
-			TLSConfig: opts.clientTLSConfig,
+			Options:     []grpc.DialOption{},
+			TLSConfig:   opts.clientTLSConfig,
 		}),
 		pool.WithRetryTimeout(opts.retryTimeout),
 		pool.WithLogger(opts.log),
