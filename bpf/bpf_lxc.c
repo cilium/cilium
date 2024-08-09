@@ -1070,6 +1070,8 @@ ct_recreate4:
 
 	case CT_RELATED:
 	case CT_REPLY:
+		hairpin_flow |= ct_state->loopback;
+
 #ifdef ENABLE_NODEPORT
 		/* This handles reply traffic for the case where the nodeport EP
 		 * is local to the node. We'll do the tail call to perform
@@ -1112,8 +1114,6 @@ ct_recreate4:
 		}
 	}
 #endif /* ENABLE_SRV6 */
-
-	hairpin_flow |= ct_state->loopback;
 
 	/* L7 LB does L7 policy enforcement, so we only redirect packets
 	 * NOT from L7 LB.
