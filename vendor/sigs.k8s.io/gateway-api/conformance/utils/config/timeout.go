@@ -19,6 +19,10 @@ package config
 import "time"
 
 type TimeoutConfig struct {
+	// TestIsolation represents the time block between test cases to enhance test isolation.
+	// Max value for conformant implementation: None
+	TestIsolation time.Duration
+
 	// CreateTimeout represents the maximum time for a Kubernetes object to be created.
 	// Max value for conformant implementation: None
 	CreateTimeout time.Duration
