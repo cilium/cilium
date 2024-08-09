@@ -92,7 +92,7 @@ jobs:
 
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'rhel8-20240404.144247'
+            kernel: 'rhel8-20240806.173325'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
@@ -105,7 +105,7 @@ jobs:
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20240710.064909'
+            kernel: '5.4-20240806.173325'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
@@ -118,7 +118,7 @@ jobs:
 
           - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20240710.064909'
+            kernel: '5.10-20240806.173325'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
@@ -132,7 +132,7 @@ jobs:
 
           - name: '4'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240711.013133'
+            kernel: 'bpf-next-20240806.173325'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'geneve'
@@ -146,7 +146,7 @@ jobs:
 
           - name: '5'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20240710.064909'
+            kernel: '5.4-20240806.173325'
             kube-proxy: 'none'
             kpr: 'true'
             tunnel: 'disabled'
@@ -159,7 +159,7 @@ jobs:
 
           - name: '6'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20240710.064909'
+            kernel: '5.10-20240806.173325'
             kube-proxy: 'none'
             kpr: 'true'
             tunnel: 'disabled'
@@ -173,7 +173,7 @@ jobs:
 
           - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20240710.064909'
+            kernel: '5.15-20240806.173325'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
@@ -187,7 +187,7 @@ jobs:
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240711.013133'
+            kernel: 'bpf-next-20240806.173325'
             kube-proxy: 'none'
             kpr: 'true'
             tunnel: 'vxlan'
