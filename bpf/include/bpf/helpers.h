@@ -60,8 +60,8 @@ BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);
 static __u32 BPF_FUNC(get_prandom_u32);
 
 /* Checksumming */
-static int BPF_FUNC_REMAP(csum_diff_external, const void *from, __u32 size_from,
-			  const void *to, __u32 size_to, __u32 seed) =
+static int BPF_FUNC_REMAP(csum_diff_external, const void *from, __u64 size_from,
+			  const void *to, __u64 size_to, __u32 seed) =
 	(void *)BPF_FUNC_csum_diff;
 
 /* Tail calls */
