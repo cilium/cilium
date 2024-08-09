@@ -891,7 +891,7 @@ func (r *ServiceReconciler) diffID(asn uint32) string {
 // checkServiceAdvertisement checks if the service advertisement is enabled in the advertisement.
 func checkServiceAdvertisement(advert v2alpha1.BGPAdvertisement, advertServiceType v2alpha1.BGPServiceAddressType) (bool, error) {
 	if advert.Service == nil {
-		return false, fmt.Errorf("BUG: advertisement has no service options")
+		return false, fmt.Errorf("advertisement has no service options")
 	}
 
 	// If selector is nil, we do not use this advertisement.
