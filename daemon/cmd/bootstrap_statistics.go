@@ -4,27 +4,10 @@
 package cmd
 
 import (
-	"fmt"
-
-	"github.com/go-openapi/runtime/middleware"
-
-	restapi "github.com/cilium/cilium/api/v1/server/restapi/metrics"
-	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-func getMetricsHandler(_ *Daemon, params restapi.GetMetricsParams) middleware.Responder {
-	metrics, err := metrics.DumpMetrics()
-	if err != nil {
-		return api.Error(
-			restapi.GetMetricsInternalServerErrorCode,
-			fmt.Errorf("Cannot gather metrics from daemon"))
-	}
-
-	return restapi.NewGetMetricsOK().WithPayload(metrics)
-}
 
 type bootstrapStatistics struct {
 	overall         spanstat.SpanStat
