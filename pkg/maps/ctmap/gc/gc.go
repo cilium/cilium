@@ -65,7 +65,6 @@ type GC struct {
 	nodeAddrs statedb.Table[tables.NodeAddress]
 
 	endpointsManager EndpointManager
-	nodeAddressing   types.NodeAddressing
 	signalHandler    SignalHandler
 
 	perClusterCTMapsRetriever PerClusterCTMapsRetriever
@@ -83,7 +82,6 @@ func New(params parameters) *GC {
 		nodeAddrs: params.NodeAddrs,
 
 		endpointsManager: params.EndpointManager,
-		nodeAddressing:   params.NodeAddressing,
 		signalHandler:    params.SignalManager,
 
 		controllerManager: controller.NewManager(),
