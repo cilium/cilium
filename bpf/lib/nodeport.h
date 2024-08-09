@@ -1471,7 +1471,7 @@ skip_service_lookup:
 }
 
 static __always_inline int
-nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
+nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, bool *snat_done, __u32 fwd __maybe_unused,
 			   struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
 {
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {};
@@ -1496,6 +1496,9 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 		return CTX_ACT_OK;
 
 #if defined(IS_BPF_HOST) && !defined(ENABLE_SKIP_FIB)
+	if (!fwd)
+		goto skip_fib;
+
 	fib_params.l.family = AF_INET6;
 	fib_params.l.ifindex = ctx_get_ifindex(ctx);
 	ipv6_addr_copy((union v6addr *)fib_params.l.ipv6_src,
@@ -1506,6 +1509,8 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 	ret = nodeport_fib_lookup_and_redirect(ctx, &fib_params, ext_err);
 	if (ret != CTX_ACT_OK)
 		return ret;
+
+skip_fib:
 #endif
 
 	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
@@ -1563,16 +1568,14 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 }
 
 static __always_inline int
-__handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
+__handle_nat_ipv6(struct __ctx_buff *ctx, __u32 fwd, struct trace_ctx *trace,
 		      __s8 *ext_err)
 {
 	bool snat_done = false;
 	int ret;
 
-	ret = nodeport_rev_dnat_fwd_ipv6(ctx, &snat_done, trace, ext_err);
-#if !defined(IS_BPF_WIREGUARD)
-	if (ret != CTX_ACT_OK)
-#endif /* !IS_BPF_WIREGUARD */
+	ret = nodeport_rev_dnat_ipv6(ctx, &snat_done, fwd, trace, ext_err);
+	if (ret != CTX_ACT_OK || !fwd)
 		return ret;
 
 #if !defined(ENABLE_DSR) ||						\
@@ -1590,10 +1593,11 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 }
 
 static __always_inline int
-handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
+handle_nat_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		    __s8 *ext_err)
 {
-	return __handle_nat_fwd_ipv6(ctx, trace, ext_err);
+	__u32 fwd = ctx_load_and_clear_meta(ctx, CB_NAT_FWD);
+	return __handle_nat_ipv6(ctx, fwd, trace, ext_err);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT_FWD)
@@ -1614,7 +1618,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = handle_nat_fwd_ipv6(ctx, &trace, &ext_err);
+	ret = handle_nat_ipv6(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
@@ -3055,7 +3059,7 @@ skip_service_lookup:
 }
 
 static __always_inline int
-nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
+nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, bool *snat_done, __u32 fwd __maybe_unused,
 			   struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
 {
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {};
@@ -3086,6 +3090,9 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
 		return CTX_ACT_OK;
 
 #if defined(IS_BPF_HOST) && !defined(ENABLE_SKIP_FIB)
+	if (!fwd)
+		goto skip_fib;
+
 	/* Perform FIB lookup with post-RevDNAT src IP, and redirect
 	 * packet to the correct egress interface:
 	 */
@@ -3097,6 +3104,8 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
 	ret = nodeport_fib_lookup_and_redirect(ctx, &fib_params, ext_err);
 	if (ret != CTX_ACT_OK)
 		return ret;
+
+skip_fib:
 #endif
 
 	/* Cache is_fragment in advance, nodeport_fib_lookup_and_redirect may invalidate ip4. */
@@ -3182,16 +3191,14 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 }
 
 static __always_inline int
-__handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
-		      struct trace_ctx *trace, __s8 *ext_err)
+__handle_nat_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
+		      __u32 fwd, struct trace_ctx *trace, __s8 *ext_err)
 {
 	bool snat_done = false;
 	int ret;
 
-	ret = nodeport_rev_dnat_fwd_ipv4(ctx, &snat_done, trace, ext_err);
-#if !defined(IS_BPF_WIREGUARD)
-	if (ret != CTX_ACT_OK)
-#endif /* !IS_BPF_WIREGUARD */
+	ret = nodeport_rev_dnat_ipv4(ctx, &snat_done, fwd, trace, ext_err);
+	if (ret != CTX_ACT_OK || !fwd)
 		return ret;
 
 #if !defined(ENABLE_DSR) ||						\
@@ -3212,12 +3219,13 @@ __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
 }
 
 static __always_inline int
-handle_nat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
+handle_nat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		    __s8 *ext_err)
 {
 	__u32 cluster_id = ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS);
+	__u32 fwd = ctx_load_and_clear_meta(ctx, CB_NAT_FWD);
 
-	return __handle_nat_fwd_ipv4(ctx, cluster_id, trace, ext_err);
+	return __handle_nat_ipv4(ctx, cluster_id, fwd, trace, ext_err);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT_FWD)
@@ -3238,7 +3246,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = handle_nat_fwd_ipv4(ctx, &trace, &ext_err);
+	ret = handle_nat_ipv4(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
@@ -3347,13 +3355,14 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 #endif /* ENABLE_HEALTH_CHECK */
 
 static __always_inline int
-handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __be16 proto,
-	       struct trace_ctx *trace __maybe_unused,
-	       __s8 *ext_err __maybe_unused)
+handle_nat(struct __ctx_buff *ctx, __u32 cluster_id, __be16 proto,
+	   __u32 fwd, struct trace_ctx *trace __maybe_unused,
+           __s8 *ext_err __maybe_unused)
 {
 	int ret = CTX_ACT_OK;
 
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
+	ctx_store_meta(ctx, CB_NAT_FWD, fwd);
 
 	switch (proto) {
 #ifdef ENABLE_IPV4
@@ -3367,7 +3376,7 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __be16 proto,
 						      __and(is_defined(ENABLE_EGRESS_GATEWAY_COMMON),
 							    is_defined(IS_BPF_HOST))),
 						CILIUM_CALL_IPV4_NODEPORT_NAT_FWD,
-						handle_nat_fwd_ipv4, trace, ext_err);
+						handle_nat_ipv4, trace, ext_err);
 		break;
 #endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
@@ -3377,7 +3386,7 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __be16 proto,
 						     __and(is_defined(ENABLE_HOST_FIREWALL),
 							   is_defined(IS_BPF_HOST))),
 						CILIUM_CALL_IPV6_NODEPORT_NAT_FWD,
-						handle_nat_fwd_ipv6, trace, ext_err);
+						handle_nat_ipv6, trace, ext_err);
 		break;
 #endif /* ENABLE_IPV6 */
 	default:

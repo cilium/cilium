@@ -1583,10 +1583,10 @@ skip_egress_gateway:
 #ifdef ENABLE_NODEPORT
 	if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx)) {
 		/*
-		 * handle_nat_fwd tail calls in the majority of cases,
+		 * handle_nat tail calls in the majority of cases,
 		 * so control might never return to this program.
 		 */
-		ret = handle_nat_fwd(ctx, 0, proto, &trace, &ext_err);
+		ret = handle_nat(ctx, 0, proto, 1, &trace, &ext_err);
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
 	}
@@ -1651,7 +1651,23 @@ int cil_to_host(struct __ctx_buff *ctx)
 	 * to mark as PACKET_OTHERHOST and drop.
 	 */
 	ctx_change_type(ctx, PACKET_HOST);
-#endif
+
+# ifdef ENABLE_NODEPORT
+	if (!validate_ethertype(ctx, &proto)) {
+		ret = DROP_UNSUPPORTED_L2;
+		goto out;
+	}
+	/* handle_nat() tail calls in the majority of cases, so control
+	 * might never return to this program. Since IPsec is not compatible
+	 * iwth Host Firewall, this won't be an issue.
+	 */
+	ret = handle_nat(ctx, 0, proto, 0, &trace, &ext_err);
+	if (IS_ERR(ret))
+		goto out;
+
+# endif /* ENABLE_NODEPORT */
+
+#endif /* ENABLE_IPSEC */
 #ifdef ENABLE_HOST_FIREWALL
 	if (!validate_ethertype(ctx, &proto)) {
 		ret = DROP_UNSUPPORTED_L2;
