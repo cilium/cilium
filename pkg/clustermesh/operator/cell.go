@@ -29,7 +29,7 @@ var Cell = cell.Module(
 		newAPIClustersHandler,
 	),
 
-	cell.Config(common.Config{}),
+	cell.Config(common.DefaultConfig),
 	cell.Config(wait.TimeoutConfigDefault),
 
 	metrics.Metric(NewMetrics),

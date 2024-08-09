@@ -39,8 +39,9 @@ type Config struct {
 }
 
 var DefaultConfig = Config{
-	PerClusterReadyTimeout: 15 * time.Second,
-	GlobalReadyTimeout:     10 * time.Minute,
+	PerClusterReadyTimeout:      15 * time.Second,
+	GlobalReadyTimeout:          10 * time.Minute,
+	DisableDrainOnDisconnection: false,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {

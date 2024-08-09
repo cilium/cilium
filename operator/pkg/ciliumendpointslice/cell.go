@@ -64,12 +64,12 @@ var Cell = cell.Module(
 type Config struct {
 	CESMaxCEPsInCES             int      `mapstructure:"ces-max-ciliumendpoints-per-ces"`
 	CESSlicingMode              string   `mapstructure:"ces-slice-mode"`
-	CESWriteQPSLimit            float64  `mapstructure:"ces-write-qps-limit"`
-	CESWriteQPSBurst            int      `mapstructure:"ces-write-qps-burst"`
-	CESEnableDynamicRateLimit   bool     `mapstructure:"ces-enable-dynamic-rate-limit"`
-	CESDynamicRateLimitNodes    []string `mapstructure:"ces-dynamic-rate-limit-nodes"`
-	CESDynamicRateLimitQPSLimit []string `mapstructure:"ces-dynamic-rate-limit-qps-limit"`
-	CESDynamicRateLimitQPSBurst []string `mapstructure:"ces-dynamic-rate-limit-qps-burst"`
+	CESWriteQPSLimit            float64  `mapstructure:"ces-write-qps-limit" exhaustruct:"optional"`
+	CESWriteQPSBurst            int      `mapstructure:"ces-write-qps-burst" exhaustruct:"optional"`
+	CESEnableDynamicRateLimit   bool     `mapstructure:"ces-enable-dynamic-rate-limit" exhaustruct:"optional"`
+	CESDynamicRateLimitNodes    []string `mapstructure:"ces-dynamic-rate-limit-nodes" exhaustruct:"optional"`
+	CESDynamicRateLimitQPSLimit []string `mapstructure:"ces-dynamic-rate-limit-qps-limit" exhaustruct:"optional"`
+	CESDynamicRateLimitQPSBurst []string `mapstructure:"ces-dynamic-rate-limit-qps-burst" exhaustruct:"optional"`
 	CESDynamicRateLimitConfig   string   `mapstructure:"ces-rate-limits"`
 }
 
