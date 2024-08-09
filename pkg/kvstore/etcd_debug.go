@@ -81,7 +81,7 @@ func EtcdDbg(ctx context.Context, cfgfile string, dialer EtcdDbgDialer, w io.Wri
 	iiw := iw.WithExtraIndent(3)
 	cfg.Context = ctx
 	cfg.Logger = zap.NewNop()
-	cfg.DialOptions = append(cfg.DialOptions, grpc.WithBlock(), grpc.WithContextDialer(dialer.DialContext))
+	cfg.DialOptions = append(cfg.DialOptions, grpc.WithContextDialer(dialer.DialContext))
 	cfg.DialTimeout = 1 * time.Second // The client hangs in case the connection fails, hence set a short timeout.
 
 	cl, err := client.New(*cfg)
