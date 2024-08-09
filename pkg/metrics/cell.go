@@ -23,6 +23,7 @@ var Cell = cell.Module("metrics", "Metrics",
 		// phase are emitted as metrics.
 		FlushLoggingMetrics()
 	}),
+	cell.Provide(newMetricsRestApiHandler),
 )
 
 // Metric constructs a new metric cell.
