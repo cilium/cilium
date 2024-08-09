@@ -159,7 +159,7 @@ var GetHubbleClientFunc = func(ctx context.Context, vp *viper.Viper) (client obs
 		return client, cleanup, nil
 	}
 	// read flows from a hubble server
-	hubbleConn, err := conn.New(ctx, vp.GetString(config.KeyServer), vp.GetDuration(config.KeyTimeout))
+	hubbleConn, err := conn.New(vp.GetString(config.KeyServer))
 	if err != nil {
 		return nil, nil, err
 	}
