@@ -44,7 +44,7 @@ runs:
           spot: ${{ inputs.spot }}
           privateNetworking: true
           volumeType: "gp3"
-          volumeSize: 10
+          volumeSize: 20
           taints:
            - key: "node.cilium.io/agent-not-ready"
              value: "true"
@@ -56,7 +56,7 @@ runs:
           spot: ${{ inputs.spot }}
           privateNetworking: true
           volumeType: "gp3"
-          volumeSize: 10
+          volumeSize: 20
           taints:
            - key: "node.cilium.io/agent-not-ready"
              value: "true"

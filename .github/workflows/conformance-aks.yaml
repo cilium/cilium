@@ -213,6 +213,12 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
+      - name: Install AKS preview extension
+        if: ${{ matrix.preview }}
+        run: |
+          az extension add --name aks-preview
+          az extension update --name aks-preview
+
       - name: Create AKS cluster
         run: |
           # Create group
