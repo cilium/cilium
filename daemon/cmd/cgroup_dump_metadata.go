@@ -23,11 +23,17 @@ func getCgroupDumpMetadataHandler(d *Daemon, params restapi.GetCgroupDumpMetadat
 			}
 			respCms = append(respCms, respCm)
 		}
+
+		ips := make([]string, 0, len(pm.IPs))
+		for i := range pm.IPs {
+			ips = append(ips, pm.IPs[i].String())
+		}
+
 		respPm := &models.CgroupPodMetadata{
 			Name:       pm.Name,
 			Namespace:  pm.Namespace,
 			Containers: respCms,
-			Ips:        pm.IPs,
+			Ips:        ips,
 		}
 		resp.PodMetadatas = append(resp.PodMetadatas, respPm)
 	}
