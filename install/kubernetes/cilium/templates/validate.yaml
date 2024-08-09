@@ -1,3 +1,47 @@
+{{/* validate deprecated options are not being used */}}
+
+{{/* Options deprecated in v1.15 and removed in v1.16 */}}
+{{- if or
+  (dig "encryption" "keyFile" "" .Values.AsMap)
+  (dig "encryption" "mountPath" "" .Values.AsMap)
+  (dig "encryption" "secretName" "" .Values.AsMap)
+  (dig "encryption" "interface" "" .Values.AsMap)
+}}
+  {{ fail "encryption.{keyFile,mountPath,secretName,interface} were deprecated in v1.14 and has been removed in v1.16. For details please refer to https://docs.cilium.io/en/v1.16/operations/upgrade/#helm-options" }}
+{{- end }}
+{{- if or
+  ((dig "proxy" "prometheus" "enabled" "" .Values.AsMap) | toString)
+  (dig "proxy" "prometheus" "port" "" .Values.AsMap)
+}}
+  {{ fail "proxy.prometheus.enabled and proxy.prometheus.port were deprecated in v1.14 and has been removed in v1.16. For details please refer to https://docs.cilium.io/en/v1.16/operations/upgrade/#helm-options" }}
+{{- end }}
+{{- if (dig "endpointStatus" "" .Values.AsMap) }}
+  {{ fail "endpointStatus has been removed in v1.16. For details please refer to https://docs.cilium.io/en/v1.16/operations/upgrade/#helm-options" }}
+{{- end }}
+{{- if (dig "remoteNodeIdentity" "" .Values.AsMap) }}
+  {{ fail "remoteNodeIdentity was deprecated in v1.15 and has been removed in v1.16. For details please refer to https://docs.cilium.io/en/v1.16/operations/upgrade/#helm-options" }}
+{{- end }}
+{{- if (dig "containerRuntime" "integration" "" .Values.AsMap) }}
+  {{ fail "containerRuntime.integration was deprecated in v1.14 and has been removed in v1.16. For details please refer to https://docs.cilium.io/en/v1.16/operations/upgrade/#helm-options" }}
+{{- end }}
+{{- if (dig "etcd" "managed" "" .Values.AsMap) }}
+  {{ fail "etcd.managed was deprecated in v1.10 has been removed in v1.16. For details please refer to https://docs.cilium.io/en/v1.16/operations/upgrade/#helm-options" }}
+{{- end }}
+
+{{/* Options deprecated in v1.14 and removed in v1.15 */}}
+{{- if .Values.tunnel }}
+  {{ fail "tunnel was deprecated in v1.14 and has been removed in v1.15. For details please refer to https://docs.cilium.io/en/v1.15/operations/upgrade/#helm-options" }}
+{{- end }}
+{{- if or (dig "clustermesh" "apiserver" "tls" "ca" "cert" "" .Values.AsMap) (dig "clustermesh" "apiserver" "tls" "ca" "key" "" .Values.AsMap) }}
+  {{ fail "clustermesh.apiserver.tls.ca.cert and clustermesh.apiserver.tls.ca.key were deprecated in v1.14 and has been removed in v1.15. For details please refer to https://docs.cilium.io/en/v1.15/operations/upgrade/#helm-options" }}
+{{- end }}
+{{- if .Values.enableK8sEventHandover }}
+  {{ fail "enableK8sEventHandover was deprecated in v1.14 and has been removed in v1.15. For details please refer to https://docs.cilium.io/en/v1.15/operations/upgrade/#helm-options" }}
+{{- end }}
+{{- if .Values.enableCnpStatusUpdates }}
+  {{ fail "enableCnpStatusUpdates was deprecated in v1.14 and has been removed in v1.15. For details please refer to https://docs.cilium.io/en/v1.15/operations/upgrade/#helm-options" }}
+{{- end }}
+
 {{/* validate hubble config */}}
 {{- if and .Values.hubble.ui.enabled (not .Values.hubble.ui.standalone.enabled) }}
   {{- if not .Values.hubble.relay.enabled }}
