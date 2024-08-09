@@ -254,6 +254,12 @@ const (
 	LabelAddressType          = "address_type"
 	LabelAddressTypePrimary   = "primary"
 	LabelAddressTypeSecondary = "secondary"
+
+	// LabelConnectivityStatus is the label for connectivity statuses
+	LabelConnectivityStatus = "status"
+	LabelReachable          = "reachable"
+	LabelUnreachable        = "unreachable"
+	LabelUnknown            = "unknown"
 )
 
 var (
@@ -284,6 +290,14 @@ var (
 	// NodeConnectivityLatency is the connectivity latency between local node to
 	// other node intra or inter cluster.
 	NodeConnectivityLatency = NoOpGaugeDeletableVec
+
+	// NodeHealthConnectivityStatus is the number of connections with connectivity status
+	// between local node to other node intra or inter cluster.
+	NodeHealthConnectivityStatus = NoOpGaugeVec
+
+	// NodeHealthConnectivityLatency is the histogram connectivity latency between local node to
+	// other node intra or inter cluster.
+	NodeHealthConnectivityLatency = NoOpObserverVec
 
 	// Endpoint
 
@@ -657,6 +671,8 @@ type LegacyMetrics struct {
 	APIInteractions                  metric.Vec[metric.Observer]
 	NodeConnectivityStatus           metric.DeletableVec[metric.Gauge]
 	NodeConnectivityLatency          metric.DeletableVec[metric.Gauge]
+	NodeHealthConnectivityStatus     metric.Vec[metric.Gauge]
+	NodeHealthConnectivityLatency    metric.Vec[metric.Observer]
 	Endpoint                         metric.GaugeFunc
 	EndpointMaxIfindex               metric.Gauge
 	EndpointRegenerationTotal        metric.Vec[metric.Counter]
@@ -1352,6 +1368,32 @@ func NewLegacyMetrics() *LegacyMetrics {
 			LabelAddressType,
 		}),
 
+		NodeHealthConnectivityStatus: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_node_health_connectivity_status",
+			Namespace:  Namespace,
+			Name:       "node_health_connectivity_status",
+			Help:       "The number of endpoints with last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes",
+		}, []string{
+			LabelSourceCluster,
+			LabelSourceNodeName,
+			LabelType,
+			LabelConnectivityStatus,
+		}),
+
+		NodeHealthConnectivityLatency: metric.NewHistogramVec(metric.HistogramOpts{
+			ConfigName: Namespace + "_node_health_connectivity_latency_seconds",
+			Namespace:  Namespace,
+			Name:       "node_health_connectivity_latency_seconds",
+			Help:       "The histogram for last observed latency between the current Cilium agent and other Cilium nodes in seconds",
+			Buckets:    []float64{0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0},
+		}, []string{
+			LabelSourceCluster,
+			LabelSourceNodeName,
+			LabelType,
+			LabelProtocol,
+			LabelAddressType,
+		}),
+
 		WorkQueueDepth:                   WorkQueueDepth,
 		WorkQueueAddsTotal:               WorkQueueAddsTotal,
 		WorkQueueLatency:                 WorkQueueLatency,
@@ -1378,6 +1420,8 @@ func NewLegacyMetrics() *LegacyMetrics {
 	APIInteractions = lm.APIInteractions
 	NodeConnectivityStatus = lm.NodeConnectivityStatus
 	NodeConnectivityLatency = lm.NodeConnectivityLatency
+	NodeHealthConnectivityStatus = lm.NodeHealthConnectivityStatus
+	NodeHealthConnectivityLatency = lm.NodeHealthConnectivityLatency
 	Endpoint = lm.Endpoint
 	EndpointMaxIfindex = lm.EndpointMaxIfindex
 	EndpointRegenerationTotal = lm.EndpointRegenerationTotal

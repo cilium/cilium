@@ -232,7 +232,7 @@ func (r *Registry) DumpMetrics() ([]*models.Metric, error) {
 			case dto.MetricType_SUMMARY:
 				value = metricLabel.GetSummary().GetSampleSum()
 			case dto.MetricType_HISTOGRAM:
-				value = metricLabel.GetHistogram().GetSampleSum()
+				value = float64(metricLabel.GetHistogram().GetSampleCount())
 			default:
 				continue
 			}
