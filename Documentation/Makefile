@@ -114,7 +114,7 @@ $(HELM_VALUES): FORCE
 	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $(TMP_FILE_3))" > $@
 	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2) $(TMP_FILE_3)
 
-check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values update-codeowners ## Validate command and Helm references, policy examples, and others.
+check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values update-codeowners update-redirects ## Validate command and Helm references, policy examples, and others.
 	@$(ECHO_CHECK) cmdref
 	$(QUIET) ./check-cmdref.sh
 	@$(ECHO_CHECK) $(HELM_VALUES)
@@ -127,6 +127,8 @@ check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values
 	$(QUIET) ./check-flaggen.sh
 	@$(ECHO_CHECK) crdlist.rst
 	$(QUIET) ./check-crdlist.sh
+	@$(ECHO_CHECK) redirects.txt
+	$(QUIET) ./check-redirects.sh
 
 ##@ Build
 
