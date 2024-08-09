@@ -20,16 +20,10 @@ import (
 // defaultOptions is the reference point for default values.
 var defaultOptions = options{
 	peerServiceAddress: defaults.PeerTarget,
-	peerClientBuilder: peerTypes.LocalClientBuilder{
-		DialTimeout: defaults.DialTimeout,
-	},
+	peerClientBuilder:  peerTypes.LocalClientBuilder{},
 	clientConnBuilder: GRPCClientConnBuilder{
-		DialTimeout: defaults.DialTimeout,
 		Options: []grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithBlock(),
-			grpc.FailOnNonTempDialError(true),
-			grpc.WithReturnConnectionError(),
 		},
 	},
 	backoff: &backoff.Exponential{

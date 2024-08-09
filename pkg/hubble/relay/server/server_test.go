@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
-	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	relayObserver "github.com/cilium/cilium/pkg/hubble/relay/observer"
 	"github.com/cilium/cilium/pkg/hubble/relay/pool"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
@@ -209,12 +208,8 @@ func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 
 	// Create hubble relay server and connect to all peers from previous step.
 	ccb := pool.GRPCClientConnBuilder{
-		DialTimeout: defaults.DialTimeout,
 		Options: []grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithBlock(),
-			grpc.FailOnNonTempDialError(true),
-			grpc.WithReturnConnectionError(),
 		},
 	}
 	plr := &testutils.FakePeerLister{

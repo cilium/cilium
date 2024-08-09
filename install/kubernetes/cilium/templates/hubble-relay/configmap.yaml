@@ -28,7 +28,6 @@ data:
     {{- if .Values.hubble.relay.prometheus.enabled }}
     metrics-listen-address: ":{{ .Values.hubble.relay.prometheus.port }}"
     {{- end }}
-    dial-timeout: {{ .Values.hubble.relay.dialTimeout }}
     retry-timeout: {{ .Values.hubble.relay.retryTimeout }}
     sort-buffer-len-max: {{ .Values.hubble.relay.sortBufferLenMax }}
     sort-buffer-drain-timeout: {{ .Values.hubble.relay.sortBufferDrainTimeout }}

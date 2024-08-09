@@ -25,7 +25,6 @@ const MinTLSVersion = tls.VersionTLS13
 // options stores all the configuration values for the hubble-relay server.
 type options struct {
 	peerTarget             string
-	dialTimeout            time.Duration
 	retryTimeout           time.Duration
 	listenAddress          string
 	healthListenAddress    string
@@ -45,7 +44,6 @@ type options struct {
 // defaultOptions is the reference point for default values.
 var defaultOptions = options{
 	peerTarget:          defaults.PeerTarget,
-	dialTimeout:         defaults.DialTimeout,
 	retryTimeout:        defaults.RetryTimeout,
 	listenAddress:       defaults.ListenAddress,
 	healthListenAddress: defaults.HealthListenAddress,
@@ -63,15 +61,6 @@ type Option func(o *options) error
 func WithPeerTarget(t string) Option {
 	return func(o *options) error {
 		o.peerTarget = t
-		return nil
-	}
-}
-
-// WithDialTimeout sets the dial timeout that is used when establishing a
-// connection to a hubble peer.
-func WithDialTimeout(t time.Duration) Option {
-	return func(o *options) error {
-		o.dialTimeout = t
 		return nil
 	}
 }

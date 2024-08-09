@@ -633,7 +633,7 @@ func TestPeerManager(t *testing.T) {
 			},
 			want: want{
 				log: []string{
-					`level=warning msg="Failed to create peer notify client for peers change notification; will try again after the timeout has expired" connection timeout=30s error="Don't feel like workin' today"`,
+					`level=info msg="Failed to create peer notify client for peers change notification; will try again after the timeout has expired" connection timeout=30s error="Don't feel like workin' today"`,
 				},
 			},
 		}, {

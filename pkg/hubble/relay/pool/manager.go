@@ -114,7 +114,7 @@ connect:
 			m.opts.log.WithFields(logrus.Fields{
 				"error":              err,
 				"connection timeout": m.opts.retryTimeout,
-			}).Warning("Failed to create peer notify client for peers change notification; will try again after the timeout has expired")
+			}).Info("Failed to create peer notify client for peers change notification; will try again after the timeout has expired")
 			select {
 			case <-m.stop:
 				return

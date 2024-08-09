@@ -328,6 +328,11 @@ Agent Options
 * The ``CONNTRACK_LOCAL`` option has been deprecated and will be removed in a
   future release.
 
+Hubble Relay Options
+~~~~~~~~~~~~~~~~~~~~
+
+* The ``hubble.relay.dialTimeout`` helm option has been deprecated and is now a no-op.
+
 Added Metrics
 ~~~~~~~~~~~~~
 * ``cilium_node_health_connectivity_status``

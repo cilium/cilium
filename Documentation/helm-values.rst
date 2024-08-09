@@ -1733,7 +1733,7 @@
      - object
      - ``{}``
    * - :spelling:ignore:`hubble.relay.dialTimeout`
-     - Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
+     - Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").  This option has been deprecated and is a no-op.
      - string
      - ``nil``
    * - :spelling:ignore:`hubble.relay.enabled`
