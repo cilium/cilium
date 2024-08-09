@@ -166,10 +166,13 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync
 	go func() {
 		// Wait for all the eps to have applied policy map
 		// changes before waiting for the changes to be ACKed
+		log.Debug("Waiting for endpoints to have applied policy map changes...")
 		epWG.Wait()
+		log.Debug("Calling waitForProxyCompletions...")
 		if err := waitForProxyCompletions(proxyWaitGroup); err != nil {
 			log.WithError(err).Warning("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.")
 		}
+		log.Debug("waitForProxyCompletions DONE")
 		wg.Done()
 	}()
 
@@ -177,10 +180,13 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync
 	for _, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
 			// Proceed only after all notifications have been delivered to endpoints
+			ep.Logger("endpointmanager").Debug("Waiting for the incremental updates to have propagated...")
 			notifyWg.Wait()
+			ep.Logger("endpointmanager").Debug("Calling ApplyPolicyMapChanges...")
 			if err := ep.ApplyPolicyMapChanges(proxyWaitGroup); err != nil && !errors.Is(err, endpoint.ErrNotAlive) {
 				ep.Logger("endpointmanager").WithError(err).Warning("Failed to apply policy map changes. These will be re-applied in future updates.")
 			}
+			ep.Logger("endpointmanager").Debug("ApplyPolicyMapChanges DONE")
 			epWG.Done()
 		}(ep)
 	}

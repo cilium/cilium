@@ -1224,10 +1224,10 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 	// to push changes to Envoy.
 	if e.desiredPolicy.L4Policy.HasEnvoyRedirect() || e.isIngress {
 		// Ignoring the revertFunc; keep all successful changes even if some fail.
-		e.getLogger().Debug("Endpoint has envoy redirects, applying changes to Envoy")
+		e.getLogger().Debug("Endpoint has Envoy redirects, applying changes to Envoy")
 		err, _ = e.updateNetworkPolicy(proxyWaitGroup)
 	} else {
-		e.getLogger().Debug("Endpoint has no envoy redirects, skipping Envoy update")
+		e.getLogger().Debug("Endpoint has no Envoy redirects, skipping Envoy update")
 	}
 
 	return err
