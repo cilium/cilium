@@ -171,10 +171,6 @@ type GCFilter struct {
 	// removed
 	Time uint32
 
-	// ValidIPs is the list of valid IPs to scrub all entries for which the
-	// source or destination IP is *not* matching one of the valid IPs.
-	ValidIPs map[netip.Addr]struct{}
-
 	// MatchIPs is the list of IPs to remove from the conntrack table
 	MatchIPs map[netip.Addr]struct{}
 
@@ -586,13 +582,6 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 func (f *GCFilter) doFiltering(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) action {
 	if f.RemoveExpired && entry.Lifetime < f.Time {
 		return deleteEntry
-	}
-	if f.ValidIPs != nil {
-		_, srcIPExists := f.ValidIPs[srcIP]
-		_, dstIPExists := f.ValidIPs[dstIP]
-		if !srcIPExists && !dstIPExists {
-			return deleteEntry
-		}
 	}
 
 	if f.MatchIPs != nil {
