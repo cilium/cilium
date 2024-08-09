@@ -60,7 +60,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+  clusterName: ${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   cilium_cli_ci_version:
   test_name: gke-perf
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
