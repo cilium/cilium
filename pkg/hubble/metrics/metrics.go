@@ -26,6 +26,7 @@ import (
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/http"              // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/icmp"              // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/kafka"             // invoke init
+	_ "github.com/cilium/cilium/pkg/hubble/metrics/nld"               // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/policy"            // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/port-distribution" // invoke init
 	_ "github.com/cilium/cilium/pkg/hubble/metrics/tcp"               // invoke init
