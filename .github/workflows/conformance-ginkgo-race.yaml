@@ -1,0 +1,531 @@
+name: Conformance Ginkgo Race Detection (ci-ginkgo-race)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+  push:
+    branches:
+      - 'renovate/main-**'
+  # Run every 6 hours
+  schedule:
+    - cron:  '0 1/6 * * *'
+  pull_request: {}
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with catchpoint/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  setup-vars:
+    name: Setup Vars
+    runs-on: ubuntu-latest
+    outputs:
+      SHA: ${{ steps.vars.outputs.SHA }}
+      context-ref: ${{ steps.vars.outputs.context-ref }}
+      owner: ${{ steps.vars.outputs.owner }}
+    steps:
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.SHA }}"
+            CONTEXT_REF="${{ inputs.context-ref }}"
+            OWNER="${{ inputs.PR-number }}"
+          else
+            if [ "${{ github.event.pull_request.head.sha }}" != "" ]; then
+              SHA="${{ github.event.pull_request.head.sha }}"
+            else
+              SHA="${{ github.sha }}"
+            fi
+            CONTEXT_REF="${{ github.sha }}"
+            OWNER="${{ github.ref_name }}"
+            OWNER="${OWNER//[.\/]/-}"
+          fi
+
+          echo SHA=${SHA} >> $GITHUB_OUTPUT
+          echo context-ref=${CONTEXT_REF} >> $GITHUB_OUTPUT
+          echo owner=${OWNER} >> $GITHUB_OUTPUT
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  # Pre-build the ginkgo binary so that we don't have to build it for all
+  # runners.
+  build-ginkgo-binary:
+    runs-on: ubuntu-latest
+    name: Build Ginkgo E2E
+    timeout-minutes: 30
+    steps:
+      # If any of these steps are modified, please update the copy of these
+      # steps further down under the 'setup-and-test' jobs.
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ inputs.SHA || github.sha }}
+          persist-credentials: false
+
+      # Load Ginkgo build from GitHub
+      - name: Load ginkgo E2E from GH cache
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        id: cache
+        with:
+          path: /tmp/.ginkgo-build/
+          key: ${{ runner.os }}-ginkgo-e2e-${{ hashFiles('**/*.go') }}
+
+      - name: Install Go
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.22.5
+
+      - name: Build Ginkgo
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          go install github.com/onsi/ginkgo/ginkgo@v1.16.5
+          mkdir -p /tmp/.ginkgo-build
+
+      - name: Build Test
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          cd test
+          /home/runner/go/bin/ginkgo build
+          strip test.test
+          tar -cz test.test -f test.tgz
+
+      - name: Store Ginkgo Test in GitHub cache path
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.ginkgo-build/
+          if [ -f test/test.tgz ]; then
+            cp test/test.tgz /tmp/.ginkgo-build/
+            echo "file copied"
+          fi
+
+  wait-for-images:
+    needs: setup-vars
+    runs-on: ubuntu-latest
+    name: Wait for images
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ needs.setup-vars.outputs.SHA }}-race &> /dev/null; do sleep 45s; done
+          done
+
+  generate-matrix:
+    name: Generate Job Matrix from YAMLs
+    needs: setup-vars
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Convert YAML to JSON
+        run: |
+          work_dir=".github/actions/ginkgo"
+          destination_directory="/tmp/generated/ginkgo"
+          mkdir -p "${destination_directory}"
+          for file in "${work_dir}"/main*.yaml; do
+              if [[ -f "$file" ]]; then
+                  filename=$(basename "$file")
+                  new_filename="${filename%.yaml}.json"
+
+                  yq -o=json "${file}" | jq . > "${destination_directory}/${new_filename}"
+              fi
+          done
+
+      - name: Generate Matrix
+        id: set-matrix
+        run: |
+          # Use separate version files for race detection workflow
+          # due to mismatched GLIBC version in kind node images.
+          # TODO: (eventually) add support for more k8s versions
+          if ${{ github.event_name == 'schedule' }}; then
+            k8s_versions_to_run='main-scheduled-race.json'
+          else
+            k8s_versions_to_run='main-prs-race.json'
+          fi
+
+          # Generate a Matrix from all k8s versions defined in '${k8s_versions_to_run}'
+          # combined with 'main-focus.yaml'.
+          # Use 'main-k8s-versions.yaml' to
+          # retrieve which kernel versions should be used for which k8s version.
+
+          dir="/tmp/generated/ginkgo"
+          cd ${dir}
+          jq --argjson prs "$(jq '.["k8s-version"]' ${k8s_versions_to_run})" \
+            --argfile focus main-focus.json \
+            '.include |= map(select(.["k8s-version"] as $k | $prs[] | select($k == .))) + $focus.include |
+            . + {"k8s-version": $prs} |
+            .focus = $focus.focus | .exclude = $focus.exclude' \
+            main-k8s-versions-race.json> /tmp/merged.json
+          echo "Generated matrix:"
+          cat /tmp/merged.json
+          echo "matrix=$(jq -c . < /tmp/merged.json)" >> $GITHUB_OUTPUT
+
+  setup-and-test:
+    needs: [setup-vars, build-ginkgo-binary, generate-matrix, wait-for-images]
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER }}
+    timeout-minutes: 45
+    name: "E2E Test (${{ matrix.k8s-version }}, ${{matrix.focus}})"
+    env:
+      job_name: "E2E Test (${{ matrix.k8s-version }}, ${{matrix.focus}})"
+    strategy:
+      fail-fast: false
+      max-parallel: 60
+      matrix: ${{ fromJSON(needs.generate-matrix.outputs.matrix) }}
+
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ inputs.SHA || github.sha }}
+          persist-credentials: false
+
+      - name: Install cilium-cli
+        uses: cilium/cilium-cli@1afb3ff7eb6ace8ab5f8d4d844afe02e2018bb4e # v0.16.13
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          ci-version: ${{ env.CILIUM_CLI_VERSION }}
+          binary-dir: '.'
+
+      - name: Install helm
+        shell: bash
+        run: |
+          # renovate: datasource=github-releases depName=helm/helm
+          HELM_VERSION=v3.13.1
+          wget "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          tar -xf "helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          mv ./linux-amd64/helm ./helm
+
+      - name: Provision LVH VMs
+        id: provision-vh-vms
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        with:
+          test-name: datapath-conformance
+          install-dependencies: true
+          image-version: ${{ matrix.kernel }}
+          host-mount: ./
+          cpu: 4
+          mem: 12G
+          cmd: |
+            git config --global --add safe.directory /host
+            mv /host/helm /usr/bin
+            mv /host/cilium /usr/bin/cilium-cli
+
+      - name: Provision kind
+        timeout-minutes: 5
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/
+            if [[ "${{ matrix.kernel }}" == bpf-next-* ]]; then
+              ./contrib/scripts/kind.sh "" 2 "" "${{ matrix.kube-image }}" "none" "${{ matrix.ip-family }}"
+              kubectl label node kind-worker2 cilium.io/ci-node=kind-worker2
+              # Avoid re-labeling this node by setting "node-role.kubernetes.io/controlplane"
+              kubectl label node kind-worker2 node-role.kubernetes.io/controlplane=
+            else
+              ./contrib/scripts/kind.sh "" 1 "" "${{ matrix.kube-image }}" "iptables" "${{ matrix.ip-family }}"
+            fi
+            # Some tests using demo-customcalls.yaml are mounting this directoy
+            mkdir -p /home/vagrant/go/src/github.com/cilium
+            ln -s /host /home/vagrant/go/src/github.com/cilium/cilium
+            git config --add safe.directory /cilium
+
+      # Load Ginkgo build from GitHub
+      - name: Load ${{ matrix.name }} Ginkgo build from GitHub
+        uses: actions/cache/restore@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        id: cache
+        with:
+          path: /tmp/.ginkgo-build/
+          key: ${{ runner.os }}-ginkgo-e2e-${{ hashFiles('**/*.go') }}
+
+      # Re-build the tests if it was a cache miss.
+      - name: Install Go
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.22.5
+
+      - name: Build Ginkgo
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          go install github.com/onsi/ginkgo/ginkgo@v1.16.5
+          mkdir -p /tmp/.ginkgo-build
+
+      - name: Build Test
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          cd test
+          /home/runner/go/bin/ginkgo build
+          strip test.test
+          tar -cz test.test -f test.tgz
+
+      - name: Store Ginkgo Test in GitHub cache path
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.ginkgo-build/
+          if [ -f test/test.tgz ]; then
+            cp test/test.tgz /tmp/.ginkgo-build/
+            echo "file copied"
+          fi
+
+      - name: Copy Ginkgo binary
+        shell: bash
+        run: |
+          cd test/
+          tar -xf /tmp/.ginkgo-build/test.tgz
+
+      - name: Run tests
+        id: run-tests
+        timeout-minutes: 40
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/test/
+            kubectl get ns -A -o wide
+            kubectl get pods -A -o wide
+            export K8S_NODES=2
+            export NETNEXT=0
+            if [[ "${{ matrix.kernel }}" == bpf-next-* ]]; then
+               export KERNEL=net-next
+               export NETNEXT=1
+               export KUBEPROXY=0
+               export K8S_NODES=3
+               export NO_CILIUM_ON_NODES=kind-worker2
+            elif [[ "${{ matrix.kernel }}" == 5.4-* ]]; then
+               export KERNEL=54
+            fi
+            export K8S_VERSION=${{ matrix.k8s-version }}
+            export CNI_INTEGRATION=kind
+            export INTEGRATION_TESTS=true
+            # GitHub actions do not support IPv6 connectivity to outside
+            # world.
+            export CILIUM_NO_IPV6_OUTSIDE=true
+            # Race detection variables
+            export RACE=1
+            export LOCKDEBUG=1
+            echo "/root/go/bin/ginkgo \
+             --focus=\"${{ matrix.cliFocus }}\" \
+             --skip=\"${{ matrix.cliSkip }}\" \
+             --seed=1679952881 \
+             -v -- \
+             -cilium.provision=false \
+             -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+             -cilium.tag=${{ needs.setup-vars.outputs.SHA }}-race  \
+             -cilium.operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+             -cilium.operator-tag=${{ needs.setup-vars.outputs.SHA }}-race \
+             -cilium.hubble-relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+             -cilium.hubble-relay-tag=${{ needs.setup-vars.outputs.SHA }}-race \
+             -cilium.kubeconfig=/root/.kube/config \
+             -cilium.provision-k8s=false \
+             -cilium.operator-suffix=-ci"
+
+              ./test.test \
+               --ginkgo.focus="${{ matrix.cliFocus }}" \
+               --ginkgo.skip="${{ matrix.cliSkip }}" \
+               --ginkgo.seed=1679952881 \
+               --ginkgo.v -- \
+               -cilium.provision=false \
+               -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+               -cilium.tag=${{ needs.setup-vars.outputs.SHA }}-race  \
+               -cilium.operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+               -cilium.operator-tag=${{ needs.setup-vars.outputs.SHA }}-race \
+               -cilium.hubble-relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+               -cilium.hubble-relay-tag=${{ needs.setup-vars.outputs.SHA }}-race \
+               -cilium.kubeconfig=/root/.kube/config \
+               -cilium.provision-k8s=false \
+               -cilium.operator-suffix=-ci
+
+      - name: Fetch artifacts
+        if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
+        uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            kubectl get pods --all-namespaces -o wide
+            tar -zcf "test_results-${{ env.job_name }}.tar.gz" /host/test/test_results
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        with:
+          name: cilium-sysdumps-${{ matrix.k8s-version }}-${{matrix.focus}}
+          path: |
+            cilium-sysdump-*.zip
+            bugtool-*.tar.gz
+            test_results-*.tar.gz
+
+      - name: Fetch JUnits
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+          cd test/
+          junit_filename="${{ env.job_name }}.xml"
+          for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
+
+      - name: Upload JUnits [junit]
+        if: ${{ always() }}
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        with:
+          name: cilium-junits-${{ matrix.k8s-version }}-${{matrix.focus}}
+          path: cilium-junits/*.xml
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
+
+  merge-upload:
+    if: ${{ always() }}
+    name: Merge and Upload Artifacts
+    runs-on: ubuntu-latest
+    needs: setup-and-test
+    steps:
+      - name: Merge Sysdumps
+        if: ${{ needs.setup-and-test.result == 'failure' }}
+        uses: actions/upload-artifact/merge@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        with:
+          name: cilium-sysdumps
+          pattern: cilium-sysdumps-*
+          retention-days: 5
+          delete-merged: true
+        continue-on-error: true
+      - name: Merge JUnits
+        uses: actions/upload-artifact/merge@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
+        with:
+          name: cilium-junits
+          pattern: cilium-junits-*
+          retention-days: 5
+          delete-merged: true
+
+  commit-status-final:
+    if: ${{ always() }}
+    name: Commit Status Final
+    needs: setup-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine final commit status
+        id: commit-status
+        shell: bash
+        run: |
+          # When one of the prerequisites of setup-and-test fails, then that
+          # job gets skipped. Let's convert the status so that we correctly
+          # report that as a proper failure.
+          if [ "${{ needs.setup-and-test.result }}" != "skipped" ]; then
+            echo "status=${{ needs.setup-and-test.result }}" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ steps.commit-status.outputs.status }}

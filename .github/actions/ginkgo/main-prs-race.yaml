@@ -1,0 +1,5 @@
+# This file contain which k8s-versions should be executed for each PR
+---
+k8s-version:
+  - "1.30"
+

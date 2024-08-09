@@ -13,6 +13,7 @@ triggers:
     - conformance-externalworkloads.yaml
     - conformance-gateway-api.yaml
     - conformance-ginkgo.yaml
+    - conformance-ginkgo-race.yaml
     - conformance-gke.yaml
     - conformance-ingress.yaml
     - conformance-multi-pool.yaml
@@ -58,6 +59,9 @@ triggers:
   /ci-ginkgo:
     workflows:
     - conformance-ginkgo.yaml
+  /ci-ginkgo-race:
+    workflows:
+    - conformance-ginkgo-race.yaml
   /ci-gke:
     workflows:
     - conformance-gke.yaml
@@ -113,6 +117,8 @@ workflows:
   conformance-gateway-api.yaml:
     paths-ignore-regex: (test|Documentation|hubble)/
   conformance-ginkgo.yaml:
+    paths-ignore-regex: Documentation/
+  conformance-ginkgo-race.yaml:
     paths-ignore-regex: Documentation/
   conformance-gke.yaml:
     paths-ignore-regex: (test|Documentation|hubble)/

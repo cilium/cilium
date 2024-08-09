@@ -369,11 +369,11 @@ jobs:
           --ginkgo.v -- \
           -cilium.provision=false \
           -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-          -cilium.tag=${{ steps.vars.outputs.sha }}  \
+          -cilium.tag=${{ steps.vars.outputs.sha }}-race  \
           -cilium.operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-          -cilium.operator-tag=${{ steps.vars.outputs.sha }} \
+          -cilium.operator-tag=${{ steps.vars.outputs.sha }}-race \
           -cilium.hubble-relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-          -cilium.hubble-relay-tag=${{ steps.vars.outputs.sha }} \
+          -cilium.hubble-relay-tag=${{ steps.vars.outputs.sha }}-race \
           -cilium.operator-suffix=-ci \
           -cilium.SSHConfig="cat ./cilium-ssh-config.txt"
 
