@@ -1,12 +1,7 @@
 {{- if and .Values.agent (not .Values.preflight.enabled) }}
 
 {{- /*  Default values with backwards compatibility */ -}}
-{{- $defaultKeepDeprecatedProbes := true -}}
-
-{{- /* Default values when 1.8 was initially deployed */ -}}
-{{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
-  {{- $defaultKeepDeprecatedProbes = false -}}
-{{- end -}}
+{{- $defaultKeepDeprecatedProbes := false -}}
 
 {{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement "false") -}}
 {{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
