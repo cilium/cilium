@@ -72,6 +72,13 @@ type GetHealthzParams struct {
 	*/
 	Brief *bool
 
+	/* WithoutK8sConnectivity.
+
+	   Controls whether the result of connectivity check to kube-apiserver should affect the result of health status of daemon.
+
+	*/
+	WithoutK8sConnectivity *bool
+
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
@@ -136,6 +143,17 @@ func (o *GetHealthzParams) SetBrief(brief *bool) {
 	o.Brief = brief
 }
 
+// WithWithoutK8sConnectivity adds the withoutK8sConnectivity to the get healthz params
+func (o *GetHealthzParams) WithWithoutK8sConnectivity(withoutK8sConnectivity *bool) *GetHealthzParams {
+	o.SetWithoutK8sConnectivity(withoutK8sConnectivity)
+	return o
+}
+
+// SetWithoutK8sConnectivity adds the withoutK8sConnectivity to the get healthz params
+func (o *GetHealthzParams) SetWithoutK8sConnectivity(withoutK8sConnectivity *bool) {
+	o.WithoutK8sConnectivity = withoutK8sConnectivity
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *GetHealthzParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -148,6 +166,14 @@ func (o *GetHealthzParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Re
 
 		// header param brief
 		if err := r.SetHeaderParam("brief", swag.FormatBool(*o.Brief)); err != nil {
+			return err
+		}
+	}
+
+	if o.WithoutK8sConnectivity != nil {
+
+		// header param without-k8s-connectivity
+		if err := r.SetHeaderParam("without-k8s-connectivity", swag.FormatBool(*o.WithoutK8sConnectivity)); err != nil {
 			return err
 		}
 	}
