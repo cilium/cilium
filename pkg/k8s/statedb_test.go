@@ -35,8 +35,10 @@ func ExampleRegisterReflector() {
 
 			// ReflectorConfig defines the ListerWatcher to use the fetch the objects
 			// and how to write them to the table.
-			func(client k8sClient.Clientset) k8s.ReflectorConfig[*corev1.Node] {
+			func(client k8sClient.Clientset, tbl statedb.RWTable[*corev1.Node]) k8s.ReflectorConfig[*corev1.Node] {
 				return k8s.ReflectorConfig[*corev1.Node]{
+					Name:          "nodes",
+					Table:         tbl,
 					ListerWatcher: utils.ListerWatcherFromTyped(client.CoreV1().Nodes()),
 				}
 			},
@@ -144,8 +146,10 @@ func testStateDBReflector(t *testing.T, doTransform, doQueryAll bool) {
 		cell.Provide(func() k8sClient.Clientset { return cs }),
 		cell.Module("test", "test",
 			cell.ProvidePrivate(
-				func(client k8sClient.Clientset) k8s.ReflectorConfig[*corev1.Node] {
+				func(client k8sClient.Clientset, tbl statedb.RWTable[*corev1.Node]) k8s.ReflectorConfig[*corev1.Node] {
 					return k8s.ReflectorConfig[*corev1.Node]{
+						Name:           "nodes",
+						Table:          tbl,
 						BufferSize:     10,
 						BufferWaitTime: time.Millisecond,
 						ListerWatcher:  utils.ListerWatcherFromTyped(client.CoreV1().Nodes()),
@@ -258,5 +262,15 @@ func testStateDBReflector(t *testing.T, doTransform, doQueryAll bool) {
 	if doQueryAll {
 		assert.True(t, queryAllCalled.Load(), "provided query all func not used")
 	}
+}
 
+func TestStateDBReflector_jobName(t *testing.T) {
+	cfg := k8s.ReflectorConfig[corev1.Node]{
+		Name: "test",
+	}
+	assert.Equal(
+		t,
+		"k8s-reflector[v1.Node]/test",
+		cfg.JobName(),
+	)
 }
