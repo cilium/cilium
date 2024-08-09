@@ -139,7 +139,7 @@ func TestSysctl(t *testing.T) {
 		cell.Module(
 			"sysctl-test",
 			"sysctl-test",
-			cell.Config(Config{}),
+			cell.Config(defaultConfig),
 
 			cell.Provide(
 				func() afero.Fs {
@@ -238,7 +238,7 @@ func TestSysctlIgnoreErr(t *testing.T) {
 		cell.Module(
 			"sysctl-test",
 			"sysctl-test",
-			cell.Config(Config{}),
+			cell.Config(defaultConfig),
 
 			cell.Provide(
 				func() afero.Fs {

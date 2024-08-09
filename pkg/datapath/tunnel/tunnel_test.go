@@ -16,6 +16,8 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 )
 
+var defaultTestConfig = userCfg{TunnelProtocol: string(Geneve), TunnelPort: 0}
+
 func TestConfig(t *testing.T) {
 	enabler := func(enable bool, opts ...enablerOpt) any {
 		return func() EnablerOut { return NewEnabler(enable, opts...) }
@@ -34,23 +36,23 @@ func TestConfig(t *testing.T) {
 	}{
 		{
 			name:      "invalid protocol",
-			ucfg:      userCfg{TunnelProtocol: "invalid"},
+			ucfg:      userCfg{TunnelProtocol: "invalid", TunnelPort: 0},
 			shallFail: true,
 		},
 		{
 			name:  "tunnel not enabled",
-			ucfg:  userCfg{TunnelProtocol: string(Geneve)},
+			ucfg:  defaultTestConfig,
 			proto: Disabled,
 		},
 		{
 			name:     "tunnel not enabled, with enablers",
-			ucfg:     userCfg{TunnelProtocol: string(Geneve)},
+			ucfg:     defaultTestConfig,
 			enablers: []any{enabler(false), enabler(false)},
 			proto:    Disabled,
 		},
 		{
 			name:           "tunnel enabled, vxlan",
-			ucfg:           userCfg{TunnelProtocol: string(VXLAN)},
+			ucfg:           userCfg{TunnelProtocol: string(VXLAN), TunnelPort: 0},
 			enablers:       []any{enabler(true), enabler(false)},
 			proto:          VXLAN,
 			port:           defaults.TunnelPortVXLAN,
@@ -68,7 +70,7 @@ func TestConfig(t *testing.T) {
 		},
 		{
 			name:           "tunnel enabled, geneve",
-			ucfg:           userCfg{TunnelProtocol: string(Geneve)},
+			ucfg:           defaultTestConfig,
 			enablers:       []any{enabler(true), enabler(true)},
 			proto:          Geneve,
 			port:           defaults.TunnelPortGeneve,
@@ -86,7 +88,7 @@ func TestConfig(t *testing.T) {
 		},
 		{
 			name: "tunnel enabled, validation function",
-			ucfg: userCfg{TunnelProtocol: string(Geneve)},
+			ucfg: defaultTestConfig,
 			enablers: []any{enabler(true, WithValidator(func(proto Protocol) error {
 				if proto == Geneve {
 					return errors.New("invalid protocol")
@@ -97,7 +99,7 @@ func TestConfig(t *testing.T) {
 		},
 		{
 			name:           "tunnel enabled, don't need MTU adaptation, one",
-			ucfg:           userCfg{TunnelProtocol: string(Geneve)},
+			ucfg:           defaultTestConfig,
 			enablers:       []any{enabler(true, WithoutMTUAdaptation()), enabler(true)},
 			proto:          Geneve,
 			port:           defaults.TunnelPortGeneve,
@@ -106,7 +108,7 @@ func TestConfig(t *testing.T) {
 		},
 		{
 			name:           "tunnel enabled, don't need MTU adaptation, all",
-			ucfg:           userCfg{TunnelProtocol: string(Geneve)},
+			ucfg:           defaultTestConfig,
 			enablers:       []any{enabler(true, WithoutMTUAdaptation()), enabler(false)},
 			proto:          Geneve,
 			port:           defaults.TunnelPortGeneve,
@@ -176,9 +178,10 @@ func TestConfigDatapathProvider(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			out, _ := Config{
-				protocol:   tt.proto,
-				port:       1234,
-				deviceName: "device",
+				protocol:       tt.proto,
+				port:           1234,
+				deviceName:     "device",
+				shouldAdaptMTU: false,
 			}.datapathConfigProvider()
 
 			assert.Equal(t, out.NodeDefines, tt.expected)

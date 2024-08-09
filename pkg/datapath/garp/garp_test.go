@@ -49,7 +49,7 @@ func TestGARPCell(t *testing.T) {
 		"test-garp-cell",
 		"TestGARPCell",
 
-		cell.Config(Config{}),
+		cell.Config(defaultConfig),
 		cell.Provide(newGARPSender),
 		cell.Invoke(testGARPCell),
 	))

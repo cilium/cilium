@@ -18,7 +18,7 @@ var Cell = cell.Module(
 	"sysctl",
 	"Manages sysctl settings",
 
-	cell.Config(Config{}),
+	cell.Config(defaultConfig),
 
 	cell.Provide(
 		newReconcilingSysctl,
@@ -41,7 +41,11 @@ type Config struct {
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
-	flags.String("procfs", "/proc", "Path to the host's proc filesystem mount")
+	flags.String("procfs", cfg.ProcFs, "Path to the host's proc filesystem mount")
+}
+
+var defaultConfig = Config{
+	ProcFs: "/proc",
 }
 
 func newReconciler(

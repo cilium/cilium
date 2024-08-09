@@ -268,6 +268,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.MTU) error {
 		ListenPort:   &a.listenPort,
 		ReplacePeers: false,
 		FirewallMark: &fwMark,
+		Peers:        nil,
 	}
 	if err := a.wgClient.ConfigureDevice(types.IfaceName, cfg); err != nil {
 		return fmt.Errorf("failed to configure WireGuard device: %w", err)
@@ -472,7 +473,13 @@ func (a *Agent) deletePeerByPubKey(pubKey wgtypes.Key) error {
 		Remove:    true,
 	}
 
-	cfg := &wgtypes.Config{Peers: []wgtypes.PeerConfig{peerCfg}}
+	cfg := &wgtypes.Config{
+		PrivateKey:   nil,
+		ListenPort:   nil,
+		FirewallMark: nil,
+		ReplacePeers: false,
+		Peers:        []wgtypes.PeerConfig{peerCfg},
+	}
 	if err := a.wgClient.ConfigureDevice(types.IfaceName, *cfg); err != nil {
 		return err
 	}
@@ -492,6 +499,9 @@ func (a *Agent) updatePeerByConfig(p *peerConfig) error {
 		peer.PersistentKeepaliveInterval = &option.Config.WireguardPersistentKeepalive
 	}
 	cfg := wgtypes.Config{
+		PrivateKey:   nil,
+		ListenPort:   nil,
+		FirewallMark: nil,
 		ReplacePeers: false,
 		Peers:        []wgtypes.PeerConfig{peer},
 	}

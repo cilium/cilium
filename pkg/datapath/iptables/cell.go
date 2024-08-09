@@ -66,8 +66,10 @@ type Config struct {
 }
 
 var defaultConfig = Config{
-	IPTablesLockTimeout:   5 * time.Second,
-	PrependIptablesChains: true,
+	IPTablesLockTimeout:        5 * time.Second,
+	PrependIptablesChains:      true,
+	DisableIptablesFeederRules: []string{},
+	IPTablesRandomFully:        false,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
