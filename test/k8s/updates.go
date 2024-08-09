@@ -286,6 +286,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 				opts)
 		}, time.Second*30, time.Second*1).Should(helpers.CMDSuccess(), fmt.Sprintf("Cilium %q was not able to be deployed", oldHelmChartVersion))
 
+		helpers.SetRunningCiliumVersion(oldHelmChartVersion)
+
 		// Cilium is only ready if kvstore is ready, the kvstore is ready if
 		// kube-dns is running.
 		ExpectCiliumReady(kubectl)
@@ -474,6 +476,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 				opts)
 		}, time.Second*30, time.Second*1).Should(helpers.CMDSuccess(), fmt.Sprintf("Cilium %q was not able to be deployed", newHelmChartVersion))
 
+		helpers.SetRunningCiliumVersion(newHelmChartVersion)
+
 		By("Validating pods have the right image version upgraded")
 		err = helpers.WithTimeout(
 			waitForUpdateImage(newImageVersion),
@@ -515,6 +519,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		// cilium with in this updates test.
 		cmd = kubectl.ExecMiddle("helm rollback cilium 1 --namespace=" + helpers.CiliumNamespace)
 		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Cilium %q was not able to be deployed", oldHelmChartVersion)
+
+		helpers.SetRunningCiliumVersion(oldHelmChartVersion)
 
 		err = helpers.WithTimeout(
 			waitForUpdateImage(oldImageVersion),

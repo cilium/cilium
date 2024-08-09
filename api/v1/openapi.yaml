@@ -2975,6 +2975,9 @@ definitions:
       ip:
         description: Layer 3 address
         type: string
+      protocol:
+        description: Layer 4 protocol (TCP, UDP, etc)
+        type: string
       port:
         description: Layer 4 port number
         type: integer

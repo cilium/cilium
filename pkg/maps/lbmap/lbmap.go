@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -76,10 +75,10 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 	backendsOk := ipv6 || !ipv6 && p.NatPolicy != loadbalancer.SVCNatPolicyNat46
 
 	if ipv6 {
-		svcKey = NewService6Key(p.IP, p.Port, u8proto.ANY, p.Scope, 0)
+		svcKey = NewService6Key(p.IP, p.Port, u8proto.U8proto(p.Protocol), p.Scope, 0)
 		svcVal = &Service6Value{}
 	} else {
-		svcKey = NewService4Key(p.IP, p.Port, u8proto.ANY, p.Scope, 0)
+		svcKey = NewService4Key(p.IP, p.Port, u8proto.U8proto(p.Protocol), p.Scope, 0)
 		svcVal = &Service4Value{}
 	}
 
@@ -207,11 +206,16 @@ func deleteServiceProto(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev
 		revNATKey RevNatKey
 	)
 
+	u8p, err := u8proto.ParseProtocol(svc.Protocol)
+	if err != nil {
+		return err
+	}
+
 	if ipv6 {
-		svcKey = NewService6Key(svc.AddrCluster.AsNetIP(), svc.Port, u8proto.ANY, svc.Scope, 0)
+		svcKey = NewService6Key(svc.AddrCluster.AsNetIP(), svc.Port, u8p, svc.Scope, 0)
 		revNATKey = NewRevNat6Key(uint16(svc.ID))
 	} else {
-		svcKey = NewService4Key(svc.AddrCluster.AsNetIP(), svc.Port, u8proto.ANY, svc.Scope, 0)
+		svcKey = NewService4Key(svc.AddrCluster.AsNetIP(), svc.Port, u8p, svc.Scope, 0)
 		revNATKey = NewRevNat4Key(uint16(svc.ID))
 	}
 
@@ -461,11 +465,8 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		if svcKey.GetBackendSlot() == 0 {
 			// Build a cache of flags stored in the value of the master key to
 			// map it later.
-			// FIXME proto is being ignored everywhere in the datapath.
-			addrStr := svcKey.GetAddress().String()
-			portStr := strconv.Itoa(int(svcKey.GetPort()))
-			flagsCache[net.JoinHostPort(addrStr, portStr)] = loadbalancer.ServiceFlags(svcValue.GetFlags())
 
+			flagsCache[fe.String()] = loadbalancer.ServiceFlags(svcValue.GetFlags())
 			newSVCMap.addFE(fe)
 			return
 		}
@@ -509,13 +510,11 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	newSVCList := make([]*loadbalancer.SVC, 0, len(newSVCMap))
 	for hash := range newSVCMap {
 		svc := newSVCMap[hash]
-		addrStr := svc.Frontend.AddrCluster.String()
-		portStr := strconv.Itoa(int(svc.Frontend.Port))
-		host := net.JoinHostPort(addrStr, portStr)
-		svc.Type = flagsCache[host].SVCType()
-		svc.ExtTrafficPolicy = flagsCache[host].SVCExtTrafficPolicy()
-		svc.IntTrafficPolicy = flagsCache[host].SVCIntTrafficPolicy()
-		svc.NatPolicy = flagsCache[host].SVCNatPolicy(svc.Frontend.L3n4Addr)
+		key := svc.Frontend.String()
+		svc.Type = flagsCache[key].SVCType()
+		svc.ExtTrafficPolicy = flagsCache[key].SVCExtTrafficPolicy()
+		svc.IntTrafficPolicy = flagsCache[key].SVCIntTrafficPolicy()
+		svc.NatPolicy = flagsCache[key].SVCNatPolicy(svc.Frontend.L3n4Addr)
 		newSVCList = append(newSVCList, &svc)
 	}
 
@@ -553,7 +552,7 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 		ip := backendVal.GetAddress()
 		addrCluster := cmtypes.MustAddrClusterFromIP(ip)
 		port := backendVal.GetPort()
-		proto := loadbalancer.NONE
+		proto := loadbalancer.NewL4TypeFromNumber(backendVal.GetProtocol())
 		state := loadbalancer.GetBackendStateFromFlags(backendVal.GetFlags())
 		zone := backendVal.GetZone()
 		lbBackend := loadbalancer.NewBackendWithState(backendID, proto, addrCluster, port, zone, state)
@@ -620,11 +619,17 @@ func getBackend(backend *loadbalancer.Backend, ipv6 bool) (Backend, error) {
 		return lbBackend, fmt.Errorf("invalid backend ID 0")
 	}
 
+	u8p, err := u8proto.ParseProtocol(backend.Protocol)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse protocol lbBackend (%d, %s, %d, %s, %t): %w",
+			backend.ID, backend.AddrCluster.String(), backend.Port, backend.Protocol, ipv6, err)
+	}
+
 	if ipv6 {
-		lbBackend, err = NewBackend6V3(backend.ID, backend.AddrCluster, backend.Port, u8proto.ANY,
+		lbBackend, err = NewBackend6V3(backend.ID, backend.AddrCluster, backend.Port, u8p,
 			backend.State, backend.ZoneID)
 	} else {
-		lbBackend, err = NewBackend4V3(backend.ID, backend.AddrCluster, backend.Port, u8proto.ANY,
+		lbBackend, err = NewBackend4V3(backend.ID, backend.AddrCluster, backend.Port, u8p,
 			backend.State, backend.ZoneID)
 	}
 	if err != nil {

@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // SVCType is a type of a service.
@@ -249,7 +250,10 @@ func (s ServiceFlags) UInt16() uint16 {
 }
 
 const (
+	// NONE type.
 	NONE = L4Type("NONE")
+	// ANY type.
+	ANY = L4Type("ANY")
 	// TCP type.
 	TCP = L4Type("TCP")
 	// UDP type.
@@ -584,6 +588,10 @@ func IsValidBackendState(state string) bool {
 
 func NewL4Type(name string) (L4Type, error) {
 	switch strings.ToLower(name) {
+	case "none":
+		return NONE, nil
+	case "any":
+		return ANY, nil
 	case "tcp":
 		return TCP, nil
 	case "udp":
@@ -592,6 +600,19 @@ func NewL4Type(name string) (L4Type, error) {
 		return SCTP, nil
 	default:
 		return "", fmt.Errorf("unknown L4 protocol")
+	}
+}
+
+func NewL4TypeFromNumber(proto uint8) L4Type {
+	switch proto {
+	case 6:
+		return TCP
+	case 17:
+		return UDP
+	case 132:
+		return SCTP
+	default:
+		return ANY
 	}
 }
 
@@ -616,6 +637,22 @@ func (l *L4Addr) DeepEqual(o *L4Addr) bool {
 // NewL4Addr creates a new L4Addr.
 func NewL4Addr(protocol L4Type, number uint16) *L4Addr {
 	return &L4Addr{Protocol: protocol, Port: number}
+}
+
+// Equals returns true if both L4Addr are considered equal.
+func (l *L4Addr) Equals(o *L4Addr) bool {
+	switch {
+	case (l == nil) != (o == nil):
+		return false
+	case (l == nil) && (o == nil):
+		return true
+	}
+	return l.Port == o.Port && l.Protocol == o.Protocol
+}
+
+// String returns a string representation of an L4Addr
+func (l *L4Addr) String() string {
+	return fmt.Sprintf("%d/%s", l.Port, l.Protocol)
 }
 
 // L3n4Addr is used to store, as an unique L3+L4 address in the KVStore. It also
@@ -711,8 +748,7 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 		return nil, fmt.Errorf("missing IP address")
 	}
 
-	// FIXME: Should this be NONE ?
-	l4addr := NewL4Addr(NONE, base.Port)
+	l4addr := NewL4Addr(base.Protocol, base.Port)
 	addrCluster, err := cmtypes.ParseAddrCluster(*base.IP)
 	if err != nil {
 		return nil, err
@@ -746,8 +782,7 @@ func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error)
 		return nil, fmt.Errorf("missing IP address")
 	}
 
-	// FIXME: Should this be NONE ?
-	l4addr := NewL4Addr(NONE, base.Port)
+	l4addr := NewL4Addr(base.Protocol, base.Port)
 	addrCluster, err := cmtypes.ParseAddrCluster(*base.IP)
 	if err != nil {
 		return nil, err
@@ -765,9 +800,10 @@ func (a *L3n4Addr) GetModel() *models.FrontendAddress {
 		scope = models.FrontendAddressScopeInternal
 	}
 	return &models.FrontendAddress{
-		IP:    a.AddrCluster.String(),
-		Port:  a.Port,
-		Scope: scope,
+		IP:       a.AddrCluster.String(),
+		Protocol: a.Protocol,
+		Port:     a.Port,
+		Scope:    scope,
 	}
 }
 
@@ -780,6 +816,7 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 	stateStr, _ := b.State.String()
 	return &models.BackendAddress{
 		IP:        &addrClusterStr,
+		Protocol:  b.Protocol,
 		Port:      b.Port,
 		NodeName:  b.NodeName,
 		Zone:      option.Config.GetZone(b.ZoneID),
@@ -789,17 +826,10 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 	}
 }
 
-// String returns the L3n4Addr in the "IPv4:Port[/Scope]" format for IPv4 and
-// "[IPv6]:Port[/Scope]" format for IPv6.
+// String returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]" format for IPv4 and
+// "[IPv6]:Port/Protocol[/Scope]" format for IPv6.
 func (a *L3n4Addr) String() string {
-	var scope string
-	if a.Scope == ScopeInternal {
-		scope = "/i"
-	}
-	if a.IsIPv6() {
-		return "[" + a.AddrCluster.String() + "]:" + strconv.FormatUint(uint64(a.Port), 10) + scope
-	}
-	return a.AddrCluster.String() + ":" + strconv.FormatUint(uint64(a.Port), 10) + scope
+	return a.StringWithProtocol()
 }
 
 // StringWithProtocol returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]"
@@ -817,8 +847,6 @@ func (a *L3n4Addr) StringWithProtocol() string {
 
 // StringID returns the L3n4Addr as string to be used for unique identification
 func (a *L3n4Addr) StringID() string {
-	// This does not include the protocol right now as the datapath does
-	// not include the protocol in the lookup of the service IP.
 	return a.String()
 }
 
@@ -826,14 +854,15 @@ func (a *L3n4Addr) StringID() string {
 // Note: the resulting string is meant to be used as a key for maps and is not
 // readable by a human eye when printed out.
 func (a L3n4Addr) Hash() string {
-	const lenProto = 0 // proto is omitted for now
+	const lenProto = 1 // proto is uint8
 	const lenScope = 1 // scope is uint8 which is an alias for byte
 	const lenPort = 2  // port is uint16 which is 2 bytes
 
 	b := make([]byte, cmtypes.AddrClusterLen+lenProto+lenScope+lenPort)
 	ac20 := a.AddrCluster.As20()
 	copy(b, ac20[:])
-	// FIXME: add Protocol once we care about protocols
+	u8p, _ := u8proto.ParseProtocol(a.Protocol)
+	b[net.IPv6len] = byte(u8p)
 	// scope is a uint8 which is an alias for byte so a cast is safe
 	b[net.IPv6len+lenProto] = byte(a.Scope)
 	// port is a uint16, so 2 bytes

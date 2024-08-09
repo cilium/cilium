@@ -524,10 +524,18 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 }
 
 static __always_inline void
+lb6_key_set_protocol(struct lb6_key *key __maybe_unused,
+		     __u8 protocol __maybe_unused)
+{
+#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
+	key->proto = protocol;
+#endif
+}
+
+static __always_inline void
 lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
 {
-	/* FIXME: set after adding support for different L4 protocols in LB */
-	key->proto = 0;
+	lb6_key_set_protocol(key, tuple->nexthdr);
 	ipv6_addr_copy(&key->address, &tuple->daddr);
 	key->dport = tuple->sport;
 }
@@ -630,6 +638,15 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	key->backend_slot = 0;
 	svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
+
+#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
+	/* If there are no elements for a specific protocol, check for ANY entries. */
+	if (!svc && key->proto != 0) {
+		key->proto = 0;
+		svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
+	}
+#endif
+
 	if (svc) {
 		if (!scope_switch || !lb6_svc_is_two_scopes(svc))
 			return svc;
@@ -1076,6 +1093,12 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key __maybe_unused,
 	return NULL;
 }
 
+static __always_inline void
+lb6_key_set_protocol(struct lb6_key *key __maybe_unused,
+		     __u8 protocol __maybe_unused)
+{
+}
+
 static __always_inline
 struct lb6_service *__lb6_lookup_backend_slot(struct lb6_key *key __maybe_unused)
 {
@@ -1194,10 +1217,18 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 }
 
 static __always_inline void
+lb4_key_set_protocol(struct lb4_key *key __maybe_unused,
+		     __u8 protocol __maybe_unused)
+{
+#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
+	key->proto = protocol;
+#endif
+}
+
+static __always_inline void
 lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
 {
-	/* FIXME: set after adding support for different L4 protocols in LB */
-	key->proto = 0;
+	lb4_key_set_protocol(key, tuple->nexthdr);
 	key->address = tuple->daddr;
 	/* CT tuple has ports in reverse order: */
 	key->dport = tuple->sport;
@@ -1290,6 +1321,15 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	key->backend_slot = 0;
 	svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
+
+#if defined(ENABLE_SERVICE_PROTOCOL_DIFFERENTIATION)
+	/* If there are no elements for a specific protocol, check for ANY entries. */
+	if (!svc && key->proto != 0) {
+		key->proto = 0;
+		svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
+	}
+#endif
+
 	if (svc) {
 		if (!scope_switch || !lb4_svc_is_two_scopes(svc))
 			return svc;

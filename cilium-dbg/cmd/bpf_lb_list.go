@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 const (
@@ -105,12 +106,12 @@ func dumpSVC(serviceList map[string][]string) {
 		} else if backend, found := backendMap[backendID]; !found {
 			entry = fmt.Sprintf("backend %d not found", backendID)
 		} else {
-			fmtStr := "%s:%d (%d) (%d)"
+			fmtStr := "%s:%d/%s (%d) (%d)"
 			if svcKey.IsIPv6() {
-				fmtStr = "[%s]:%d (%d) (%d)"
+				fmtStr = "[%s]:%d/%s (%d) (%d)"
 			}
 			entry = fmt.Sprintf(fmtStr, backend.GetAddress(),
-				backend.GetPort(), revNATID, backendSlot)
+				backend.GetPort(), u8proto.U8proto(backend.GetProtocol()).String(), revNATID, backendSlot)
 		}
 
 		serviceList[svc] = append(serviceList[svc], entry)

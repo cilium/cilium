@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // ErrLocalRedirectServiceExists represents an error when a Local redirect
@@ -1055,6 +1056,7 @@ func (s *Service) UpdateBackendsStateMultiple(svcMapping map[lb.ID]*svcInfo, bac
 		be.State = updatedB.State
 		be.Preferred = updatedB.Preferred
 
+	nextService:
 		for id, info := range svcMapping {
 			var p *datapathTypes.UpsertServiceParams
 			for i, b := range info.backends {
@@ -1069,10 +1071,17 @@ func (s *Service) UpdateBackendsStateMultiple(svcMapping map[lb.ID]*svcInfo, bac
 				found := false
 
 				if p, found = updateSvcs[id]; !found {
+					proto, err := u8proto.ParseProtocol(info.frontend.L4Addr.Protocol)
+					if err != nil {
+						errs = errors.Join(errs, fmt.Errorf("failed to parse service protocol for frontend %+v: %w", info.frontend, err))
+						continue nextService
+					}
+
 					p = &datapathTypes.UpsertServiceParams{
 						ID:                        uint16(id),
 						IP:                        info.frontend.L3n4Addr.AddrCluster.AsNetIP(),
 						Port:                      info.frontend.L3n4Addr.L4Addr.Port,
+						Protocol:                  byte(proto),
 						PrevBackendsCount:         len(info.backends),
 						IPv6:                      info.frontend.IsIPv6(),
 						Type:                      info.svcType,
@@ -1402,8 +1411,36 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 	prevSessionAffinity := false
 	prevLoadBalancerSourceRanges := []*cidr.CIDR{}
 
+	// when Cilium is upgraded to a version that supports service protocol differentiation, and such feature is
+	// enabled, we may end up in a situation where some existing services do not have the protocol set.
+	//
+	// As in such cases we want to preserve the existing services (in order to not break existing connections to
+	// those services), when trying to create a new one check first if an "old" service without the protocol
+	// already exists, by overwriting its protocol to NONE.
+	// If it doesn't then do a second lookup in the svcByHash map with the protocol set.
+	//
+	// Note that this logic can be removed once we stop supporting services without protocol.
+	proto := p.Frontend.L3n4Addr.L4Addr.Protocol
+	p.Frontend.L3n4Addr.L4Addr.Protocol = "NONE"
+
+	backendProtos := []lb.L4Type{}
+	for _, backend := range p.Backends {
+		backendProtos = append(backendProtos, backend.L3n4Addr.L4Addr.Protocol)
+		backend.L3n4Addr.L4Addr.Protocol = "NONE"
+	}
+
 	hash := p.Frontend.Hash()
 	svc, found := s.svcByHash[hash]
+	if !found {
+		p.Frontend.L3n4Addr.L4Addr.Protocol = proto
+		for i, backend := range p.Backends {
+			backend.L3n4Addr.L4Addr.Protocol = backendProtos[i]
+		}
+
+		hash = p.Frontend.Hash()
+		svc, found = s.svcByHash[hash]
+	}
+
 	if !found {
 		// Allocate service ID for the new service
 		addrID, err := AcquireID(p.Frontend.L3n4Addr, uint32(p.Frontend.ID))
@@ -1619,11 +1656,16 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 		}
 	}
 	svc.svcNatPolicy = natPolicy
+	protocol, err := u8proto.ParseProtocol(svc.frontend.L3n4Addr.L4Addr.Protocol)
+	if err != nil {
+		return err
+	}
 
 	p := &datapathTypes.UpsertServiceParams{
 		ID:                        uint16(svc.frontend.ID),
 		IP:                        svc.frontend.L3n4Addr.AddrCluster.AsNetIP(),
 		Port:                      svc.frontend.L3n4Addr.L4Addr.Port,
+		Protocol:                  uint8(protocol),
 		PreferredBackends:         preferredBackends,
 		ActiveBackends:            activeBackends,
 		NonActiveBackends:         nonActiveBackends,

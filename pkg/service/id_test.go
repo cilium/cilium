@@ -64,11 +64,9 @@ func TestServices(t *testing.T) {
 	require.Equal(t, nil, err)
 	require.Equal(t, loadbalancer.ID(ffsIDu16+1), l3n4AddrID.ID)
 
-	// l3n4Addr3 should have the same ID as l3n4Addr2 since we are omitting the
-	// protocol type.
 	l3n4AddrID, err = AcquireID(l3n4Addr3, 0)
 	require.Equal(t, nil, err)
-	require.Equal(t, loadbalancer.ID(ffsIDu16+1), l3n4AddrID.ID)
+	require.Equal(t, loadbalancer.ID(ffsIDu16+2), l3n4AddrID.ID)
 
 	gotL3n4AddrID, err := GetID(FirstFreeServiceID)
 	require.Equal(t, nil, err)

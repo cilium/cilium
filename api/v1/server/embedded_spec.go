@@ -1909,6 +1909,10 @@ func init() {
           "description": "Indicator if this backend is preferred in the context of clustermesh service affinity. The value is set based\non related annotation of global service. Applicable for active state only.",
           "type": "boolean"
         },
+        "protocol": {
+          "description": "Layer 4 protocol (TCP, UDP, etc)",
+          "type": "string"
+        },
         "state": {
           "description": "State of the backend for load-balancing service traffic",
           "type": "string",
@@ -7597,6 +7601,10 @@ func init() {
         "preferred": {
           "description": "Indicator if this backend is preferred in the context of clustermesh service affinity. The value is set based\non related annotation of global service. Applicable for active state only.",
           "type": "boolean"
+        },
+        "protocol": {
+          "description": "Layer 4 protocol (TCP, UDP, etc)",
+          "type": "string"
         },
         "state": {
           "description": "State of the backend for load-balancing service traffic",
