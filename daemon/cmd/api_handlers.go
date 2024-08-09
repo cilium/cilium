@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
-	"github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/option"
@@ -38,8 +37,6 @@ type handlersOut struct {
 	EndpointPatchEndpointIDHandler       endpoint.PatchEndpointIDHandler
 	EndpointPatchEndpointIDLabelsHandler endpoint.PatchEndpointIDLabelsHandler
 	EndpointPutEndpointIDHandler         endpoint.PutEndpointIDHandler
-
-	MetricsGetMetricsHandler metrics.GetMetricsHandler
 
 	PolicyDeleteFqdnCacheHandler      policy.DeleteFqdnCacheHandler
 	PolicyDeletePolicyHandler         policy.DeletePolicyHandler
@@ -136,9 +133,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 
 	// /cgroup-dump-metadata
 	out.DaemonGetCgroupDumpMetadataHandler = wrapAPIHandler(dp, getCgroupDumpMetadataHandler)
-
-	// metrics
-	out.MetricsGetMetricsHandler = wrapAPIHandler(dp, getMetricsHandler)
 
 	// /fqdn/cache
 	out.PolicyGetFqdnCacheHandler = wrapAPIHandler(dp, getFqdnCacheHandler)
