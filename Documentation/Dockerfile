@@ -11,6 +11,7 @@ RUN apk add --no-cache --virtual --update \
     ca-certificates \
     enchant2 \
     enchant2-dev \
+    imagemagick \
     git \
     libc6-compat \
     py-pip \
