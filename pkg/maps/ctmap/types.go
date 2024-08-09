@@ -537,10 +537,10 @@ func (k *CtKey6Global) GetTupleKey() tuple.TupleKey {
 
 // CtEntry represents an entry in the connection tracking table.
 type CtEntry struct {
-	Reserved0 uint64 `align:"reserved0"`
-	BackendID uint64 `align:"backend_id"`
-	Packets   uint64 `align:"packets"`
-	Bytes     uint64 `align:"bytes"`
+	Reserved0 uint64 `align:"$union0.$struct0.reserved0"`
+	BackendID uint64 `align:"$union0.$struct0.backend_id"`
+	Packets   uint64 `align:"$union0.$struct0.packets"`
+	Bytes     uint64 `align:"$union0.$struct0.bytes"`
 	Lifetime  uint32 `align:"lifetime"`
 	Flags     uint16 `align:"rx_closing"`
 	// RevNAT is in network byte order
@@ -558,7 +558,7 @@ const SizeofCtEntry = int(unsafe.Sizeof(CtEntry{}))
 const (
 	RxClosing = 1 << iota
 	TxClosing
-	Nat64
+	DSRExternal
 	LBLoopback
 	SeenNonSyn
 	NodePort
@@ -584,8 +584,8 @@ func (c *CtEntry) flagsString() string {
 	if (c.Flags & TxClosing) != 0 {
 		sb.WriteString("TxClosing ")
 	}
-	if (c.Flags & Nat64) != 0 {
-		sb.WriteString("Nat64 ")
+	if (c.Flags & DSRExternal) != 0 {
+		sb.WriteString("DSRExternal ")
 	}
 	if (c.Flags & LBLoopback) != 0 {
 		sb.WriteString("LBLoopback ")
