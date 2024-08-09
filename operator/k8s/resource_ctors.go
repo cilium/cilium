@@ -105,9 +105,11 @@ func PodResource(lc cell.Lifecycle, cs client.Clientset, opts ...func(*metav1.Li
 		opts...,
 	)
 
-	// The index will be used only by Operator Managing CIDs to reconcile NS labels changes
 	indexers := cache.Indexers{
+		// The index will be used only by Operator Managing CIDs to reconcile NS labels changes.
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+		// Thix index is used for IPAM by the ciliumNodeSynchronizer.
+		PodNodeNameIndex: PodNodeNameIndexFunc,
 	}
 
 	return resource.New[*slim_corev1.Pod](lc, lw,
