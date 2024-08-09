@@ -79,6 +79,8 @@ var defaultBuildConfigCfg = buildConfigCfg{
 		resolver.KindConfigMap + ":cilium-config",
 		resolver.KindNodeConfig + ":" + os.Getenv("CILIUM_K8S_NAMESPACE"),
 	},
+	AllowConfigKeys: []string{},
+	DenyConfigKeys:  []string{},
 }
 
 type buildConfig struct {
