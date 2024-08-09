@@ -212,9 +212,6 @@ func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 		DialTimeout: defaults.DialTimeout,
 		Options: []grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithBlock(),
-			grpc.FailOnNonTempDialError(true),
-			grpc.WithReturnConnectionError(),
 		},
 	}
 	plr := &testutils.FakePeerLister{

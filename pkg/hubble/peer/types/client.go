@@ -50,13 +50,10 @@ type LocalClientBuilder struct {
 
 // Client implements ClientBuilder.Client.
 func (b LocalClientBuilder) Client(target string) (Client, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), b.DialTimeout)
-	defer cancel()
 	// The connection is local, so we assume using insecure connection is safe in
 	// this context.
-	conn, err := grpc.DialContext(ctx, target,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock())
+	conn, err := grpc.NewClient(target,
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +70,7 @@ type RemoteClientBuilder struct {
 
 // Client implements ClientBuilder.Client.
 func (b RemoteClientBuilder) Client(target string) (Client, error) {
-	opts := []grpc.DialOption{grpc.WithBlock()}
+	opts := []grpc.DialOption{}
 	if b.TLSConfig == nil {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
@@ -85,9 +82,7 @@ func (b RemoteClientBuilder) Client(target string) (Client, error) {
 		})
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), b.DialTimeout)
-	defer cancel()
-	conn, err := grpc.DialContext(ctx, target, opts...)
+	conn, err := grpc.NewClient(target, opts...)
 	if err != nil {
 		return nil, err
 	}

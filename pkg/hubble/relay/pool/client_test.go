@@ -40,11 +40,7 @@ func TestGRPCClientConnBuilder_CertificateChange(t *testing.T) {
 	}
 	cb := GRPCClientConnBuilder{
 		DialTimeout: 5 * time.Second,
-		Options: []grpc.DialOption{
-			grpc.WithBlock(),
-			grpc.FailOnNonTempDialError(true),
-			grpc.WithReturnConnectionError(),
-		},
+		Options: []grpc.DialOption{},
 		TLSConfig: fTLSb,
 	}
 	dir, err := os.MkdirTemp("", t.Name())
