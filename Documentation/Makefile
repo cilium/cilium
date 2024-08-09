@@ -54,6 +54,9 @@ READTHEDOCS_VERSION ?= latest
 DOCKER_CTR_ROOT_DIR := /src
 DOCKER_CTR_BASE := $(CONTAINER_ENGINE) container run --rm \
 		--workdir $(DOCKER_CTR_ROOT_DIR)/Documentation \
+		--env GIT_CONFIG_COUNT=1 \
+		--env GIT_CONFIG_KEY_0=safe.directory \
+		--env GIT_CONFIG_VALUE_0=$(DOCKER_CTR_ROOT_DIR) \
 		--volume $(CURDIR)/..:$(DOCKER_CTR_ROOT_DIR) \
 		--user "$(shell id -u):$(shell id -g)"
 DOCKER_CTR := $(DOCKER_CTR_BASE) \
@@ -148,12 +151,18 @@ live-preview: builder-image ## Build and serve the documentation locally.
 			$(DOCS_BUILDER_IMG) \
 		sphinx-autobuild --open-browser --host 0.0.0.0 --port $(DOCS_PORT) $(SPHINX_OPTS) --ignore *.swp -Q . _preview
 
+update-redirects: builder-image ## Build and serve the documentation locally.
+	@echo "$$(tput setaf 2)Writing redirects$$(tput sgr0)"
+	$(QUIET)$(DOCKER_CTR) \
+		$(DOCS_BUILDER_IMG) \
+		sphinx-build -M rediraffewritediff . _preview
+
 ##@ Development
 
 update-requirements: base-image $(REQUIREMENTS_NODEP) ## Regenerate the requirements.txt file from requirements-min/requirements.txt.
 	@echo '## Auto-generated from $(REQUIREMENTS_NODEP) with "make update-requirements"' > $(REQUIREMENTS)
 	$(QUIET)$(DOCKER_CTR_BASE) $(DOCS_BASE_IMG) \
-		bash -c "pip install -r $(REQUIREMENTS_NODEP) && pip freeze -r $(REQUIREMENTS_NODEP) >> $(REQUIREMENTS)"
+		bash -c "export HOME=/tmp && pip install --no-warn-script-location -r $(REQUIREMENTS_NODEP) && pip freeze -r $(REQUIREMENTS_NODEP) >> $(REQUIREMENTS)"
 
 clean: ## Clean up all artefacts from documentation.
 	-$(QUIET)rm -rf _build _exts/__pycache__ _preview Pipfile Pipfile.lock

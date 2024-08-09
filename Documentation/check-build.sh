@@ -17,13 +17,15 @@ root_dir="$(dirname "${script_dir}")"
 build_dir="${script_dir}/_build"
 warnings="${build_dir}/warnings.txt"
 spelldir="${build_dir}/spelling"
+redirect_warnings="${build_dir}/redirect-warnings.txt"
+redirectdir="${build_dir}/redirect"
 
 target="${1:-"html"}"
 shift
 
 cd "${script_dir}"
 mkdir -p "${build_dir}"
-rm -f -- "${warnings}"
+rm -f -- "${warnings}" "${redirect_warnings}"
 
 has_spelling_errors() {
     # If spelling errors were found, Sphinx wrote them to files under
@@ -58,6 +60,17 @@ describe_spelling_errors() {
         "Documentation/update-spelling_wordlist.sh" "${new_words}"
 }
 
+# Returns non-0 if we have relevant redirect warnings
+has_redirect_errors() {
+    test -s "${redirect_warnings}"
+}
+
+describe_redirect_errors() {
+    cat "${redirect_warnings}"
+
+    printf "\nTip, try running:\nmake -C Documentation update-redirects\n"
+}
+
 build_with_spellchecker() {
     # The spell checker runs some Git commands to retreive the name of authors
     # and consider them as acceptable words.
@@ -73,10 +86,11 @@ build_with_spellchecker() {
     # If running in a container, tell Git that the repository is safe.
     set +o nounset
     if [[ -n "$MAKE_GIT_REPO_SAFE" ]]; then
-        git config --global --add safe.directory "${root_dir}"
+        export GIT_CONFIG_COUNT=1
+        export GIT_CONFIG_KEY_0=safe.directory
+        export GIT_CONFIG_VALUE_0="${root_dir}"
     fi
     set -o nounset
-
     rm -rf "${spelldir}"
     # Call with -W --keep-going: suppresses regular output (keeps warning;
     # -Q would suppress warnings as well including those we write to a file),
@@ -85,6 +99,52 @@ build_with_spellchecker() {
     sphinx-build -b spelling \
         -d "${build_dir}/doctrees" . "${spelldir}" \
         -E -n --color -w "${warnings}" -W --keep-going 2>/dev/null
+}
+
+build_with_redirectchecker() {
+    # The redirect checker runs some Git commands to determine which files have
+    # moved and been deleted so it can generate and check for missing
+    # redirects.
+    #
+    # Recent Git versions refuse to work by default if the repository owner is
+    # different from the user. This is the case when we run this script in a
+    # container on macOS, because pass --user "uid:gid", and these values
+    # differ from what Linux is used to (The gid from macOS seems to be 20,
+    # which corresponds to the "dialout" group in the container). We pass
+    # --user "uid:gid" to have the "install" command work in the workaround for
+    # versionwarning above.
+    #
+    # If running in a container, tell Git that the repository is safe.
+    set +o nounset
+    if [[ -n "$MAKE_GIT_REPO_SAFE" ]]; then
+        export GIT_CONFIG_COUNT=1
+        export GIT_CONFIG_KEY_0=safe.directory
+        export GIT_CONFIG_VALUE_0="${root_dir}"
+    fi
+    set -o nounset
+    rm -rf "${redirectdir}"
+    # Call with -W --keep-going: suppresses regular output (keeps warning;
+    # -Q would suppress warnings as well including those we write to a file),
+    # consider warnings as errors for exit status, but keep going on
+    # warning/errors so that we get the full list of errors.
+    sphinx-build -b rediraffecheckdiff \
+        -d "${build_dir}/doctrees" . "${redirectdir}" \
+        -E -n --color -w "${redirect_warnings}" -W --keep-going 2>/dev/null
+}
+
+run_checks() {
+    code=0
+    echo "Running spellcheck"
+    if ! build_with_spellchecker; then
+      echo "spellcheck failed"
+      code=1
+    fi
+    echo "Running redirect check"
+    if ! build_with_redirectchecker; then
+      echo "redirect check failed"
+      code=1
+    fi
+    return $code
 }
 
 run_linter() {
@@ -129,8 +189,9 @@ else
   run_linter
 
   echo ""
-  echo "Validating documentation (syntax, spelling)..."
-  if ! build_with_spellchecker ; then
+  echo "Validating documentation (syntax, spelling, redirects)..."
+
+  if ! run_checks; then
     status_ok=0
     if has_build_warnings ; then
         printf "\nPlease fix the following documentation warnings:\n"
@@ -141,6 +202,12 @@ else
     if has_spelling_errors ; then
         printf "\nPlease fix the following spelling mistakes:\n"
         describe_spelling_errors
+        status_ok=1
+    fi
+
+    if has_redirect_errors ; then
+        printf "\nPlease fix the following missing redirects:\n"
+        describe_redirect_errors
         status_ok=1
     fi
 
