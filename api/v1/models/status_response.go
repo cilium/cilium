@@ -60,6 +60,9 @@ type StatusResponse struct {
 	// Status of the CNI configuration file
 	CniFile *Status `json:"cni-file,omitempty"`
 
+	// Status of configmap settings synchronization
+	ConfigSettings *ConfigSettings `json:"config-settings,omitempty"`
+
 	// Status of local container runtime
 	ContainerRuntime *Status `json:"container-runtime,omitempty"`
 
@@ -159,6 +162,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateCniFile(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateConfigSettings(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -424,6 +431,25 @@ func (m *StatusResponse) validateCniFile(formats strfmt.Registry) error {
 				return ve.ValidateName("cni-file")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("cni-file")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateConfigSettings(formats strfmt.Registry) error {
+	if swag.IsZero(m.ConfigSettings) { // not required
+		return nil
+	}
+
+	if m.ConfigSettings != nil {
+		if err := m.ConfigSettings.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("config-settings")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("config-settings")
 			}
 			return err
 		}
@@ -830,6 +856,10 @@ func (m *StatusResponse) ContextValidate(ctx context.Context, formats strfmt.Reg
 		res = append(res, err)
 	}
 
+	if err := m.contextValidateConfigSettings(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidateContainerRuntime(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -1107,6 +1137,27 @@ func (m *StatusResponse) contextValidateCniFile(ctx context.Context, formats str
 				return ve.ValidateName("cni-file")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("cni-file")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateConfigSettings(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.ConfigSettings != nil {
+
+		if swag.IsZero(m.ConfigSettings) { // not required
+			return nil
+		}
+
+		if err := m.ConfigSettings.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("config-settings")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("config-settings")
 			}
 			return err
 		}
