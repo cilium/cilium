@@ -22,6 +22,7 @@ import (
 	client "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/time"
@@ -81,21 +82,28 @@ func EtcdDbg(ctx context.Context, cfgfile string, dialer EtcdDbgDialer, w io.Wri
 	iiw := iw.WithExtraIndent(3)
 	cfg.Context = ctx
 	cfg.Logger = zap.NewNop()
-	cfg.DialOptions = append(cfg.DialOptions, grpc.WithBlock(), grpc.WithContextDialer(dialer.DialContext))
-	cfg.DialTimeout = 1 * time.Second // The client hangs in case the connection fails, hence set a short timeout.
+	cfg.DialOptions = append(cfg.DialOptions, grpc.WithContextDialer(dialer.DialContext))
 
 	cl, err := client.New(*cfg)
 	if err != nil {
-		iiw.Println("❌ Failed to establish connection: %s", err)
+		iiw.Println("❌ Failed to create etcd client: %s", err)
 		return
 	}
 	defer cl.Close()
 
 	// Try to retrieve the heartbeat key, as a basic authorization check.
 	// It doesn't really matter whether the heartbeat key exists or not.
-	out, err := cl.Get(ctx, HeartbeatPath)
+	// Client.New() does not block on connection failure, and hence
+	// we need to check the connection state to determine the type of failure.
+	ctxGet, cancelGet := context.WithTimeout(ctx, 1*time.Second)
+	defer cancelGet()
+	out, err := cl.Get(ctxGet, HeartbeatPath)
 	if err != nil {
-		iiw.Println("❌ Failed to retrieve key from etcd: %s", err)
+		if cl.ActiveConnection().GetState() == connectivity.TransientFailure {
+			iiw.Println("❌ Failed to establish connection: %s", err)
+		} else {
+			iiw.Println("❌ Failed to retrieve key from etcd: %s", err)
+		}
 		return
 	}
 
