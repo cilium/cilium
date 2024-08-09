@@ -1507,42 +1507,6 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					DerivedFromRules: nil,
 					IsDeny:           true,
 				},
-			}),
-			wantAdds: Keys{
-				Key{
-					Identity:         1,
-					DestPort:         0,
-					InvertedPortMask: 0xffff,
-					Nexthdr:          0,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-			},
-			wantDeletes: Keys{
-				Key{
-					Identity:         1,
-					DestPort:         80,
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-				Key{
-					Identity:         1,
-					DestPort:         80,
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-			},
-			wantOld: map[Key]MapStateEntry{
-				{
-					Identity:         1,
-					DestPort:         80,
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: {
-					ProxyPort:        8080,
-					priority:         8080,
-					DerivedFromRules: nil,
-					IsDeny:           false,
-				},
 				{
 					Identity:         1,
 					DestPort:         80,
@@ -1553,7 +1517,18 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					DerivedFromRules: nil,
 					IsDeny:           true,
 				},
+			}),
+			wantAdds: Keys{
+				Key{
+					Identity:         1,
+					DestPort:         0,
+					InvertedPortMask: 0xffff,
+					Nexthdr:          0,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
 			},
+			wantDeletes: Keys{},
+			wantOld:     map[Key]MapStateEntry{},
 		},
 		{
 			name: "test-10b - L3 ingress deny KV should overwrite a L3-L4-L7 port-range ingress allow and a L3-L4 port-range deny",
@@ -1608,45 +1583,6 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					DerivedFromRules: nil,
 					IsDeny:           true,
 				},
-			}),
-			wantAdds: Keys{
-				Key{
-					Identity:         1,
-					DestPort:         0,
-					InvertedPortMask: 0xffff,
-					Nexthdr:          0,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-			},
-			wantDeletes: Keys{
-				Key{
-					Identity:         1,
-					DestPort:         64,
-					InvertedPortMask: ^uint16(0xffc0), // port range 64-127
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-				Key{
-					Identity:         1,
-					DestPort:         64,
-					InvertedPortMask: ^uint16(0xffc0), // port range 64-127
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-			},
-			wantOld: map[Key]MapStateEntry{
-				{
-					Identity:         1,
-					DestPort:         64,
-					InvertedPortMask: ^uint16(0xffc0), // port range 64-127
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: {
-					ProxyPort:        8080,
-					priority:         8080,
-					DerivedFromRules: nil,
-					IsDeny:           false,
-				},
 				{
 					Identity:         1,
 					DestPort:         64,
@@ -1658,7 +1594,18 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					DerivedFromRules: nil,
 					IsDeny:           true,
 				},
+			}),
+			wantAdds: Keys{
+				Key{
+					Identity:         1,
+					DestPort:         0,
+					InvertedPortMask: 0xffff,
+					Nexthdr:          0,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
 			},
+			wantDeletes: Keys{},
+			wantOld:     map[Key]MapStateEntry{},
 		},
 		{
 			name: "test-11a - L3 ingress allow should not be allowed if there is a L3 'all' deny",

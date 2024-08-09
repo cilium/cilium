@@ -687,15 +687,17 @@ func (e *MapStateEntry) HasDependent(key Key) bool {
 	return ok
 }
 
-// HasSameOwners returns true if both MapStateEntries
-// have the same owners as one another (which means that
-// one of the entries is redundant).
-func (e *MapStateEntry) HasSameOwners(bEntry *MapStateEntry) bool {
-	if len(e.owners) != len(bEntry.owners) {
+// CoversOwners returns true if the receiver MapStateEntry
+// has all the owners that the argument MapStateEntry has.
+func (e *MapStateEntry) CoversOwners(bEntry *MapStateEntry) bool {
+	if bEntry == nil || len(bEntry.owners) == 0 {
+		return true
+	}
+	if len(e.owners) < len(bEntry.owners) {
 		return false
 	}
-	for owner := range e.owners {
-		if _, ok := bEntry.owners[owner]; !ok {
+	for _, owner := range bEntry.owners {
+		if _, ok := e.owners[owner]; !ok {
 			return false
 		}
 	}
@@ -1214,7 +1216,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				ms.validator.isAnyOrSame(k, newKey, identities)
 			}
 			// Identical key needs to be added if owners are different (to merge them).
-			if !(k == newKey && !v.HasSameOwners(&newEntry)) {
+			if k == newKey && v.CoversOwners(&newEntry) {
 				// If the ID of this iterated-deny-entry is ANY or equal of
 				// the new-entry and the iterated-deny-entry has a broader (or
 				// equal) port-protocol then we need not insert the new entry.
@@ -1307,7 +1309,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				ms.validator.isAnyOrSame(newKey, k, identities)
 			}
 			// Identical key needs to remain if owners are different to merge them
-			if !(k == newKey && !v.HasSameOwners(&newEntry)) {
+			if newKey == k && (&newEntry).CoversOwners(&v) {
 				// If this iterated-deny-entry is a subset (or equal) of the
 				// new-entry and the new-entry has a broader (or equal)
 				// port-protocol the newKey will match all the packets the iterated
