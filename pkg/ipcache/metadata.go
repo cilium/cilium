@@ -133,6 +133,20 @@ func (m *metadata) dequeuePrefixUpdates() (modifiedPrefixes []netip.Prefix, revi
 	return
 }
 
+// getCurrentRevision returns the most recent queue revision number to wait for when there are no
+// new changes to enqueue.
+func (m *metadata) getCurrentRevision() uint64 {
+	m.queuedChangesMU.Lock()
+	defer m.queuedChangesMU.Unlock()
+
+	if len(m.queuedPrefixes) == 0 {
+		// The queue is empty, so the previous revision is the current one.
+		return m.queuedRevision - 1
+	}
+	// There are queued prefixes, return the revision for them
+	return m.queuedRevision
+}
+
 // enqueuePrefixUpdates queues prefixes for label injection. It returns the "next"
 // queue revision number, which can be passed to waitForRevision.
 func (m *metadata) enqueuePrefixUpdates(prefixes ...netip.Prefix) uint64 {
@@ -142,12 +156,22 @@ func (m *metadata) enqueuePrefixUpdates(prefixes ...netip.Prefix) uint64 {
 	for _, prefix := range prefixes {
 		m.queuedPrefixes[prefix] = struct{}{}
 	}
+
+	if len(m.queuedPrefixes) == 0 {
+		// The queue is empty, but must wait for the previous revision.
+		// The prefixes the caller depends on might have been enqueued previously instead.
+		return m.queuedRevision - 1
+	}
 	return m.queuedRevision
 }
 
 // setInjectectRevision updates the injected revision to a new value and
 // wakes all waiters.
 func (m *metadata) setInjectedRevision(rev uint64) {
+	log.WithFields(logrus.Fields{
+		"ipcacheRevision": rev,
+	}).Debug("setInjectedRevision")
+
 	m.injectedRevisionCond.L.Lock()
 	m.injectedRevision = rev
 	m.injectedRevisionCond.Broadcast()
@@ -170,14 +194,25 @@ func (m *metadata) waitForRevision(ctx context.Context, rev uint64) error {
 	})
 	defer cleanupCancellation()
 
+	log.WithFields(logrus.Fields{
+		"ipcacheRevision": rev,
+	}).Debug("waitForRevision...")
+
 	m.injectedRevisionCond.L.Lock()
 	defer m.injectedRevisionCond.L.Unlock()
 	for m.injectedRevision < rev {
 		m.injectedRevisionCond.Wait()
 		if ctx.Err() != nil {
+			log.WithError(ctx.Err()).WithFields(logrus.Fields{
+				"ipcacheRevision": rev,
+			}).Debug("waitForRevision aborted")
 			return ctx.Err()
 		}
 	}
+
+	log.WithFields(logrus.Fields{
+		"ipcacheRevision": rev,
+	}).Debug("waitForRevision DONE")
 
 	return nil
 }
@@ -464,6 +499,8 @@ func (ipc *IPCache) doInjectLabels(ctx context.Context, modifiedPrefixes []netip
 	// Recalculate policy first before upserting into the ipcache.
 	if len(idsToAdd) > 0 {
 		ipc.UpdatePolicyMaps(ctx, idsToAdd, nil)
+	} else {
+		log.Debugf("no idsToAdd, skipping UpdatePolicyMaps")
 	}
 
 	ipc.mutex.Lock()
@@ -560,11 +597,16 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 		ipc.PolicyHandler.UpdateIdentities(nil, deletedIdentities, &wg)
 	}
 	if len(addedIdentities) != 0 {
+		log.Debugf("Calling UpdateIdentities with %v", addedIdentities)
 		ipc.PolicyHandler.UpdateIdentities(addedIdentities, nil, &wg)
 	}
 
+	log.Debug("Calling UpdatePolicyMaps...")
 	policyImplementedWG := ipc.DatapathHandler.UpdatePolicyMaps(ctx, &wg)
+	log.Debug("Waiting for UpdatePolicyMaps to complete...")
+
 	policyImplementedWG.Wait()
+	log.Debug("UpdatePolicyMaps DONE")
 }
 
 // resolveIdentity will either return a previously-allocated identity for the
