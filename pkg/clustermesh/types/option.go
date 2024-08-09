@@ -6,11 +6,9 @@ package types
 import (
 	"fmt"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -47,29 +45,28 @@ func (def ClusterInfo) Flags(flags *pflag.FlagSet) {
 
 // Validate validates that the ClusterID is in the valid range (including ClusterID == 0),
 // and that the ClusterName is different from the default value if the ClusterID != 0.
-func (c ClusterInfo) Validate(log logrus.FieldLogger) error {
+func (c ClusterInfo) Validate() error {
 	if c.ID < ClusterIDMin || c.ID > ClusterIDMax {
 		return fmt.Errorf("invalid cluster id %d: must be in range %d..%d",
 			c.ID, ClusterIDMin, ClusterIDMax)
 	}
 
-	return c.validateName(log)
+	return c.validateName()
 }
 
 // ValidateStrict validates that the ClusterID is in the valid range, but not 0,
 // and that the ClusterName is different from the default value.
-func (c ClusterInfo) ValidateStrict(log logrus.FieldLogger) error {
+func (c ClusterInfo) ValidateStrict() error {
 	if err := ValidateClusterID(c.ID); err != nil {
 		return err
 	}
 
-	return c.validateName(log)
+	return c.validateName()
 }
 
-func (c ClusterInfo) validateName(log logrus.FieldLogger) error {
+func (c ClusterInfo) validateName() error {
 	if err := ValidateClusterName(c.Name); err != nil {
-		log.WithField(logfields.ClusterName, c.Name).WithError(err).
-			Error("Invalid cluster name. This may cause degraded functionality, and will be strictly forbidden starting from Cilium v1.17")
+		return fmt.Errorf("invalid cluster name: %w", err)
 	}
 
 	if c.ID != 0 && c.Name == defaults.ClusterName {

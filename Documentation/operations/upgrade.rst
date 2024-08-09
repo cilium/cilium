@@ -301,6 +301,9 @@ communicating via the proxy must reconnect to re-establish connections.
   100 QPS/200 Burst. To configure the rate limit for Cilium Operator, use the
   ``--operator-k8s-client-qps`` and ``--operator-k8s-client-burst`` flags or the corresponding
   Helm values.
+* The Cilium cluster name validation cannot be bypassed anymore, both for the local and
+  remote clusters. The cluster name is strictly enforced to consist of at most 32 lower
+  case alphanumeric characters and '-', start and end with an alphanumeric character.
 
 Removed Options
 ~~~~~~~~~~~~~~~
