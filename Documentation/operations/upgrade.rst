@@ -323,13 +323,16 @@ Helm Options
 
 Added Metrics
 ~~~~~~~~~~~~~
+* ``cilium_node_health_connectivity_status``
+* ``cilium_node_health_connectivity_latency_seconds``
 
 Removed Metrics
 ~~~~~~~~~~~~~~~
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
-* ``cilium_node_connectivity_latency_seconds`` is now a histogram metric. This metric and ``cilium_node_connectivity_status`` have dropped labels related to the destination cluster/node.
+* ``cilium_node_connectivity_status`` is now deprecated. Please use ``cilium_node_health_connectivity_status`` instead.
+* ``cilium_node_connectivity_latency_seconds`` is now deprecated. Please use ``cilium_node_health_connectivity_latency_seconds`` instead.
 
 Advanced
 ========

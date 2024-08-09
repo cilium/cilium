@@ -224,6 +224,19 @@ const (
 	// LabelTargetCluster is the label for target cluster name
 	LabelTargetCluster = "target_cluster"
 
+	// LabelTargetNodeIP is the label for target node IP
+	LabelTargetNodeIP = "target_node_ip"
+
+	// LabelTargetNodeName is the label for target node name
+	LabelTargetNodeName = "target_node_name"
+
+	// LabelTargetNodeType is the label for target node type (local_node, remote_intra_cluster, vs remote_inter_cluster)
+	LabelTargetNodeType = "target_node_type"
+
+	LabelLocationLocalNode          = "local_node"
+	LabelLocationRemoteIntraCluster = "remote_intra_cluster"
+	LabelLocationRemoteInterCluster = "remote_inter_cluster"
+
 	// Rule label is a label for a L7 rule name.
 	LabelL7Rule = "rule"
 
@@ -272,11 +285,19 @@ var (
 
 	// NodeConnectivityStatus is the connectivity status between local node to
 	// other node intra or inter cluster.
-	NodeConnectivityStatus = NoOpGaugeVec
+	NodeConnectivityStatus = NoOpGaugeDeletableVec
 
 	// NodeConnectivityLatency is the connectivity latency between local node to
 	// other node intra or inter cluster.
-	NodeConnectivityLatency = NoOpObserverVec
+	NodeConnectivityLatency = NoOpGaugeDeletableVec
+
+	// NodeHealthConnectivityStatus is the number of connections with connectivity status
+	// between local node to other node intra or inter cluster.
+	NodeHealthConnectivityStatus = NoOpGaugeVec
+
+	// NodeHealthConnectivityLatency is the histogram connectivity latency between local node to
+	// other node intra or inter cluster.
+	NodeHealthConnectivityLatency = NoOpObserverVec
 
 	// Endpoint
 
@@ -648,8 +669,10 @@ var (
 type LegacyMetrics struct {
 	BootstrapTimes                   metric.Vec[metric.Observer]
 	APIInteractions                  metric.Vec[metric.Observer]
-	NodeConnectivityStatus           metric.Vec[metric.Gauge]
-	NodeConnectivityLatency          metric.Vec[metric.Observer]
+	NodeConnectivityStatus           metric.DeletableVec[metric.Gauge]
+	NodeConnectivityLatency          metric.DeletableVec[metric.Gauge]
+	NodeHealthConnectivityStatus     metric.Vec[metric.Gauge]
+	NodeHealthConnectivityLatency    metric.Vec[metric.Observer]
 	Endpoint                         metric.GaugeFunc
 	EndpointMaxIfindex               metric.Gauge
 	EndpointRegenerationTotal        metric.Vec[metric.Counter]
@@ -1322,15 +1345,46 @@ func NewLegacyMetrics() *LegacyMetrics {
 		}, []string{
 			LabelSourceCluster,
 			LabelSourceNodeName,
+			LabelTargetCluster,
+			LabelTargetNodeName,
+			LabelTargetNodeType,
 			LabelType,
-			LabelConnectivityStatus,
 		}),
 
-		NodeConnectivityLatency: metric.NewHistogramVec(metric.HistogramOpts{
+		NodeConnectivityLatency: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_node_connectivity_latency_seconds",
 			Namespace:  Namespace,
 			Name:       "node_connectivity_latency_seconds",
 			Help:       "The last observed latency between the current Cilium agent and other Cilium nodes in seconds",
+		}, []string{
+			LabelSourceCluster,
+			LabelSourceNodeName,
+			LabelTargetCluster,
+			LabelTargetNodeName,
+			LabelTargetNodeIP,
+			LabelTargetNodeType,
+			LabelType,
+			LabelProtocol,
+			LabelAddressType,
+		}),
+
+		NodeHealthConnectivityStatus: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_node_health_connectivity_status",
+			Namespace:  Namespace,
+			Name:       "node_health_connectivity_status",
+			Help:       "The number of endpoints with last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes",
+		}, []string{
+			LabelSourceCluster,
+			LabelSourceNodeName,
+			LabelType,
+			LabelConnectivityStatus,
+		}),
+
+		NodeHealthConnectivityLatency: metric.NewHistogramVec(metric.HistogramOpts{
+			ConfigName: Namespace + "_node_health_connectivity_latency_seconds",
+			Namespace:  Namespace,
+			Name:       "node_health_connectivity_latency_seconds",
+			Help:       "The histogram for last observed latency between the current Cilium agent and other Cilium nodes in seconds",
 			Buckets:    []float64{0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0},
 		}, []string{
 			LabelSourceCluster,
@@ -1366,6 +1420,8 @@ func NewLegacyMetrics() *LegacyMetrics {
 	APIInteractions = lm.APIInteractions
 	NodeConnectivityStatus = lm.NodeConnectivityStatus
 	NodeConnectivityLatency = lm.NodeConnectivityLatency
+	NodeHealthConnectivityStatus = lm.NodeHealthConnectivityStatus
+	NodeHealthConnectivityLatency = lm.NodeHealthConnectivityLatency
 	Endpoint = lm.Endpoint
 	EndpointMaxIfindex = lm.EndpointMaxIfindex
 	EndpointRegenerationTotal = lm.EndpointRegenerationTotal
