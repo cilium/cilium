@@ -35,7 +35,13 @@ Deploy Cilium release via Helm:
 
 The ``devices`` flag refers to the network devices Cilium is configured on,
 such as ``eth0``. If you omit this option, Cilium auto-detects what interfaces
-the host firewall applies to.
+the host firewall applies to. The resulting interfaces are shown in the
+output of the ``cilium-dbg status`` command:
+
+.. code-block:: shell-session
+
+    $ kubectl exec -n kube-system ds/cilium -- \
+         cilium-dbg status | grep 'Host firewall'
 
 At this point, the Cilium-managed nodes are ready to enforce network policies.
 
@@ -79,6 +85,8 @@ given node with the following commands:
     $ CILIUM_POD_NAME=$(kubectl -n $CILIUM_NAMESPACE get pods -l "k8s-app=cilium" -o jsonpath="{.items[?(@.spec.nodeName=='$NODE_NAME')].metadata.name}")
     $ alias kexec="kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME --"
     $ HOST_EP_ID=$(kexec cilium-dbg endpoint list -o jsonpath='{[?(@.status.identity.id==1)].id}')
+    $ kexec cilium-dbg status | grep 'Host firewall'
+    Host firewall:           Enabled   [eth0]
     $ kexec cilium-dbg endpoint config $HOST_EP_ID PolicyAuditMode=Enabled
     Endpoint 3353 configuration updated successfully
     $ kexec cilium-dbg endpoint config $HOST_EP_ID | grep PolicyAuditMode
