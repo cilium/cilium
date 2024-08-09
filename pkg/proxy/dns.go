@@ -48,6 +48,8 @@ func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7Data
 	}
 	dr.currentRules = copyRules(dr.redirect.rules)
 
+	log.Infof("Updating the DNS rules for endpoint %d", dr.redirect.endpointID)
+	dr.redirect.localEndpoint.SyncEndpointHeaderFile()
 	return nil
 }
 
@@ -68,6 +70,7 @@ func (dr *dnsRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, rev
 	return func() {
 		dr.proxyRuleUpdater.UpdateAllowed(dr.redirect.endpointID, dr.redirect.dstPortProto, nil)
 		dr.redirect.localEndpoint.OnDNSPolicyUpdateLocked(nil)
+		dr.redirect.localEndpoint.SyncEndpointHeaderFile()
 		dr.currentRules = nil
 	}, nil
 }
