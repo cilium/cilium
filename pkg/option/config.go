@@ -1253,6 +1253,9 @@ const (
 
 	// BPFEventsTraceEnabled defines the TraceNotification setting for any endpoint
 	BPFEventsTraceEnabled = "bpf-events-trace-enabled"
+
+	// EnableIPOptionTracing defines setting the trace option for packet ip options
+	EnableIPOptionTracing = "enable-ip-option-tracing"
 )
 
 // Default string arguments
@@ -2469,6 +2472,9 @@ type DaemonConfig struct {
 	// EnableSocketLBPodConnectionTermination enables the termination of connections from pods
 	// to deleted service backends when socket-LB is enabled
 	EnableSocketLBPodConnectionTermination bool
+
+	// EnableIPOptionTracing enables the use of tracing from packet IP options
+	EnableIPOptionTracing uint
 }
 
 var (
@@ -2523,6 +2529,7 @@ var (
 		BPFEventsPolicyVerdictEnabled: defaults.BPFEventsPolicyVerdictEnabled,
 		BPFEventsTraceEnabled:         defaults.BPFEventsTraceEnabled,
 		EnableEnvoyConfig:             defaults.EnableEnvoyConfig,
+		EnableIPOptionTracing:         defaults.EnableIPOptionTracing,
 	}
 )
 
@@ -3152,6 +3159,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BPFEventsPolicyVerdictEnabled = vp.GetBool(BPFEventsPolicyVerdictEnabled)
 	c.BPFEventsTraceEnabled = vp.GetBool(BPFEventsTraceEnabled)
 	c.EnableIPSecEncryptedOverlay = vp.GetBool(EnableIPSecEncryptedOverlay)
+	c.EnableIPOptionTracing = vp.GetUint(EnableIPOptionTracing)
 
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {

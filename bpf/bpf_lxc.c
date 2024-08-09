@@ -1486,6 +1486,11 @@ int cil_from_container(struct __ctx_buff *ctx)
 	bpf_clear_meta(ctx);
 	reset_queue_mapping(ctx);
 
+#ifdef ENABLE_PACKET_IP_TRACING
+	if (ENABLE_PACKET_IP_TRACING > 0)
+		check_and_store_ip_trace_id(ctx, ENABLE_PACKET_IP_TRACING);
+#endif
+
 	send_trace_notify(ctx, TRACE_FROM_LXC, sec_label, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
 			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);

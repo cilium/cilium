@@ -595,6 +595,9 @@ const (
 
 	// NetNsPath is the default path to the mounted network namespaces directory
 	NetNsPath = "/var/run/cilium/netns"
+
+	// EnablePacketIPTracing is the default value for option.EnablePacketIPTracing
+	EnableIPOptionTracing = 0
 )
 
 var (
