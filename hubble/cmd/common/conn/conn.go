@@ -53,7 +53,7 @@ func New(target string) (*grpc.ClientConn, error) {
 	t := strings.TrimPrefix(target, defaults.TargetTLSPrefix)
 	conn, err := grpc.NewClient(t, grpcDialOptions...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to '%s': %w", target, err)
+		return nil, fmt.Errorf("failed to create gRPC client to '%s': %w", target, err)
 	}
 	return conn, nil
 }
