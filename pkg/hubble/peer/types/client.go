@@ -4,7 +4,6 @@
 package types
 
 import (
-	"context"
 	"crypto/tls"
 	"io"
 
