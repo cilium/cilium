@@ -73,13 +73,14 @@ that they are all up-to-date:
 
 .. code-block:: makefile
 
-   check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values update-codeowners
-   	./check-cmdref.sh
-   	./check-helmvalues.sh
-   	$(DOCKER_RUN) ./check-examples.sh   # Runs "cilium policy validate" and "yamllint"
-   	./check-codeowners.sh
-   	./check-flaggen.sh
-   	./check-crdlist.sh
+   check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values update-codeowners update-redirects
+     ./check-cmdref.sh
+     ./check-helmvalues.sh
+     $(DOCKER_RUN) ./check-examples.sh # Runs "cilium policy validate" and "yamllint"
+     ./check-codeowners.sh
+     ./check-flaggen.sh
+     ./check-crdlist.sh
+     ./check-redirects.sh
 
 Regeneration happens when the different dependency targets for ``check`` are
 run. They are:
@@ -112,6 +113,13 @@ run. They are:
   - ``./update-codeowners.sh``
   - Synchronizes teams description from ``CODEOWNERS``
   - Generates ``Documentation/codeowners.rst``
+
+- ``update-redirects``
+
+  - ``make -C Documentation update-redirects``
+  - Automatically generates redirects based on moved files based on git history.
+  - Validates that all moved or deleted files have a redirect.
+  - Generates ``Documentation/redirects.txt``
 
 Other auto-generated contents include:
 
