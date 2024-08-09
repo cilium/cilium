@@ -51,6 +51,9 @@ repository in the Cilium project:
   code owner is not expected to validate the technical correctness of
   submissions. Correctness is typically handled by another code owner group
   which is also assigned to any given piece of documentation.
+- `@cilium/sig-encryption <https://github.com/orgs/cilium/teams/sig-encryption>`__
+  Review control and data plane logic related with encryption (IPSec and
+  WireGuard).
 - `@cilium/sig-foundations <https://github.com/orgs/cilium/teams/sig-foundations>`__:
   Review changes to the core libraries and provide guidance to overall
   software architecture.

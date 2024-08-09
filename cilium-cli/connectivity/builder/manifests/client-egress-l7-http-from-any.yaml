@@ -1,0 +1,21 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-l7-http-from-any
+spec:
+  description: "Allow client to GET on echo"
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        kind: echo
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/$"

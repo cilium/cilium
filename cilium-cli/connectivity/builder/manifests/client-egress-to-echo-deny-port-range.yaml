@@ -1,0 +1,18 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-to-echo-deny-port-range
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egressDeny:
+  - toPorts:
+    - ports:
+      - port: "4096"
+        endPort: 8191
+        protocol: TCP
+    toEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: cilium-test
+        kind: echo

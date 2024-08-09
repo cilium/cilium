@@ -1,0 +1,20 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: echo-ingress-mutual-authentication-fail-port-range
+spec:
+  description: "Allow other client port range to contact echo but fail on auth"
+  endpointSelector:
+    matchLabels:
+      kind: echo
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        kind: client
+    toPorts:
+    - ports:
+      - port: "4096"
+        endPort: 8191
+        protocol: TCP
+    authentication:
+      mode: test-always-fail

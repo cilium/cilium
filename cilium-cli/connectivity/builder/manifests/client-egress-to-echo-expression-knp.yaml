@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: client-egress-to-echo-expression
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: 'other', operator: Exists }
+  policyTypes:
+    - Egress # Be explicit otherwise by default Ingress is denied.
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              kind: echo
+      ports:
+        - protocol: TCP
+          port: 8080
