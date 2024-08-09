@@ -189,8 +189,13 @@ You can also query the flow API and look for flows:
    ``hubble help observe`` as well as ``hubble config`` for  configuring Hubble
    CLI.
 
+.. note::
+
+   If you have :ref:`enabled TLS<hubble_enable_tls>` then you will need to specify additional flags to :ref:`access the Hubble API<hubble_api_tls>`.
+
 Next Steps
 ==========
 
- * :ref:`hubble_cli`
- * :ref:`hubble_ui`
+* :ref:`hubble_cli`
+* :ref:`hubble_ui`
+* :ref:`hubble_enable_tls`

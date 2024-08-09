@@ -4,18 +4,18 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-**********
-Hubble TLS
-**********
+.. _hubble_enable_tls:
+
+*************************
+Configure TLS with Hubble
+*************************
 
 This page provides guidance to configure Hubble with TLS in a way that suits your
 environment. Instructions to enable Hubble are provided as part of each
 Cilium :ref:`getting_started` guide.
 
-.. _hubble_configure_tls_certs:
-
-TLS certificates
-================
+Enable TLS on the Hubble API
+============================
 
 When Hubble Relay is deployed, Hubble listens on a TCP port on the host network.
 This allows Hubble Relay to communicate with all Hubble instances in the
@@ -174,7 +174,7 @@ restart Hubble server or Hubble Relay.
 Troubleshooting
 ---------------
 
-If you encounter issues after enabling TLS, you can use the instructions below to help diagnose the problem.
+If you encounter issues after enabling TLS, you can use the following instructions to help diagnose the problem.
 
 .. tabs::
 
@@ -189,7 +189,7 @@ If you encounter issues after enabling TLS, you can use the instructions below t
 
         This happens when cert-manager's webhook (which is used to verify the
         ``Certificate``'s CRD resources) is not available. There are several ways to
-        resolve this issue. Pick one of the options below:
+        resolve this issue. Pick one of the following options:
 
         .. tabs::
 
@@ -343,3 +343,41 @@ Hubble metrics API.
   provide the path to the CA certificate. When using mTLS you will also need to
   provide a client certificate and key signed by the CA certificate for
   Prometheus to authenticate to the Hubble metrics API.
+
+.. _hubble_api_tls:
+
+Access the Hubble API with TLS Enabled
+======================================
+
+The examples are adapted from :ref:`hubble_cli`.
+
+Before you can access the Hubble API with TLS enabled, you need to obtain the
+CA certificate from the secret that was created when enabling TLS. The
+following examples demonstrate how to obtain the CA certificate and use it to
+access the Hubble API.
+
+Run the following command to obtain the CA certificate from the ``hubble-relay-server-certs`` secret:
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system get secret hubble-relay-server-certs -o jsonpath='{.data.ca\.crt}' | base64 -d > hubble-ca.crt
+
+After obtaining the CA certificate you can use the  ``--tls`` to enable TLS and
+``--tls-ca-cert-files`` flag to specify the CA certificate. Additionally, when
+port-forwarding to Hubble Relay, you will need to specify the
+``--tls-server-name`` flag:
+
+.. code-block:: shell-session
+
+    $ hubble observe --tls --tls-ca-cert-files ./hubble-ca.crt --tls-server-name hubble.hubble-relay.cilium.io --pod deathstar --protocol http
+    May  4 13:23:40.501: default/tiefighter:42690 -> default/deathstar-c74d84667-cx5kp:80 http-request FORWARDED (HTTP/1.1 POST http://deathstar.default.svc.cluster.local/v1/request-landing)
+    May  4 13:23:40.502: default/tiefighter:42690 <- default/deathstar-c74d84667-cx5kp:80 http-response FORWARDED (HTTP/1.1 200 0ms (POST http://deathstar.default.svc.cluster.local/v1/request-landing))
+    May  4 13:23:43.791: default/tiefighter:42742 -> default/deathstar-c74d84667-cx5kp:80 http-request DROPPED (HTTP/1.1 PUT http://deathstar.default.svc.cluster.local/v1/exhaust-port)
+
+To persist these options for the shell session, set the following environment variables:
+
+.. code-block:: shell-session
+
+    $ export HUBBLE_TLS=true
+    $ export HUBBLE_TLS_CA_CERT_FILES=./hubble-ca.crt
+    $ export HUBBLE_TLS_SERVER_NAME=hubble.hubble-relay.cilium.io
