@@ -181,11 +181,19 @@ func (s *DNSProxyTestSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) 
 	return nil
 }
 
-func (s *DNSProxyTestSuite) Datapath() datapath.Datapath {
+func (s *DNSProxyTestSuite) Loader() datapath.Loader {
 	return nil
 }
 
-func (s *DNSProxyTestSuite) Loader() datapath.Loader {
+func (s *DNSProxyTestSuite) Orchestrator() datapath.Orchestrator {
+	return nil
+}
+
+func (s *DNSProxyTestSuite) BandwidthManager() datapath.BandwidthManager {
+	return nil
+}
+
+func (s *DNSProxyTestSuite) IPTablesManager() datapath.IptablesManager {
 	return nil
 }
 
@@ -195,8 +203,10 @@ func (s *DNSProxyTestSuite) GetDNSRules(epID uint16) restore.DNSRules {
 
 func (s *DNSProxyTestSuite) RemoveRestoredDNSRules(epID uint16) {}
 
-func (s *DNSProxyTestSuite) AddIdentity(id *identity.Identity)                   {}
-func (s *DNSProxyTestSuite) RemoveIdentity(id *identity.Identity)                {}
+func (s *DNSProxyTestSuite) AddIdentity(id *identity.Identity) {}
+
+func (s *DNSProxyTestSuite) RemoveIdentity(id *identity.Identity) {}
+
 func (s *DNSProxyTestSuite) RemoveOldAddNewIdentity(old, new *identity.Identity) {}
 
 func setupServer(tb testing.TB) (dnsServer *dns.Server) {

@@ -157,12 +157,19 @@ func (d *DummyOwner) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
 }
 
 // Datapath returns a nil datapath.
-func (d *DummyOwner) Datapath() datapath.Datapath {
+func (d *DummyOwner) Loader() datapath.Loader {
 	return nil
 }
 
-// Datapath returns a nil datapath.
-func (d *DummyOwner) Loader() datapath.Loader {
+func (d *DummyOwner) Orchestrator() datapath.Orchestrator {
+	return nil
+}
+
+func (d *DummyOwner) BandwidthManager() datapath.BandwidthManager {
+	return nil
+}
+
+func (d *DummyOwner) IPTablesManager() datapath.IptablesManager {
 	return nil
 }
 
@@ -172,8 +179,10 @@ func (s *DummyOwner) GetDNSRules(epID uint16) restore.DNSRules {
 
 func (s *DummyOwner) RemoveRestoredDNSRules(epID uint16) {}
 
-func (s *DummyOwner) AddIdentity(id *identity.Identity)    { s.idmgr.Add(id) }
+func (s *DummyOwner) AddIdentity(id *identity.Identity) { s.idmgr.Add(id) }
+
 func (s *DummyOwner) RemoveIdentity(id *identity.Identity) { s.idmgr.Remove(id) }
+
 func (s *DummyOwner) RemoveOldAddNewIdentity(old, new *identity.Identity) {
 	s.idmgr.RemoveOldAddNew(old, new)
 }

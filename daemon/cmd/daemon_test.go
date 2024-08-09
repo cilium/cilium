@@ -172,7 +172,8 @@ func setupDaemonSuite(tb testing.TB) *DaemonSuite {
 	for _, s := range []string{
 		string(models.EndpointStateReady),
 		string(models.EndpointStateWaitingDashForDashIdentity),
-		string(models.EndpointStateWaitingDashToDashRegenerate)} {
+		string(models.EndpointStateWaitingDashToDashRegenerate),
+	} {
 		metrics.EndpointStateCount.WithLabelValues(s).Set(0.0)
 	}
 
@@ -298,12 +299,20 @@ func (ds *DaemonSuite) GetCIDRPrefixLengths() ([]int, []int) {
 	panic("GetCIDRPrefixLengths should not have been called")
 }
 
-func (ds *DaemonSuite) Datapath() datapath.Datapath {
-	return ds.d.datapath
-}
-
 func (ds *DaemonSuite) Loader() datapath.Loader {
 	return ds.d.loader
+}
+
+func (ds *DaemonSuite) Orchestrator() datapath.Orchestrator {
+	return ds.d.orchestrator
+}
+
+func (ds *DaemonSuite) BandwidthManager() datapath.BandwidthManager {
+	return ds.d.bwManager
+}
+
+func (ds *DaemonSuite) IPTablesManager() datapath.IptablesManager {
+	return ds.d.iptablesManager
 }
 
 func (ds *DaemonSuite) GetDNSRules(epID uint16) restore.DNSRules {
@@ -312,8 +321,10 @@ func (ds *DaemonSuite) GetDNSRules(epID uint16) restore.DNSRules {
 
 func (ds *DaemonSuite) RemoveRestoredDNSRules(epID uint16) {}
 
-func (ds *DaemonSuite) AddIdentity(id *identity.Identity)                   {}
-func (ds *DaemonSuite) RemoveIdentity(id *identity.Identity)                {}
+func (ds *DaemonSuite) AddIdentity(id *identity.Identity) {}
+
+func (ds *DaemonSuite) RemoveIdentity(id *identity.Identity) {}
+
 func (ds *DaemonSuite) RemoveOldAddNewIdentity(old, new *identity.Identity) {}
 
 func TestMemoryMap(t *testing.T) {

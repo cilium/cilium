@@ -84,11 +84,19 @@ func (s *EndpointManagerSuite) SendNotification(msg monitorAPI.AgentNotifyMessag
 	return nil
 }
 
-func (s *EndpointManagerSuite) Datapath() datapath.Datapath {
+func (s *EndpointManagerSuite) Loader() datapath.Loader {
 	return nil
 }
 
-func (s *EndpointManagerSuite) Loader() datapath.Loader {
+func (s *EndpointManagerSuite) Orchestrator() datapath.Orchestrator {
+	return nil
+}
+
+func (s *EndpointManagerSuite) BandwidthManager() datapath.BandwidthManager {
+	return nil
+}
+
+func (s *EndpointManagerSuite) IPTablesManager() datapath.IptablesManager {
 	return nil
 }
 
@@ -98,8 +106,10 @@ func (s *EndpointManagerSuite) GetDNSRules(epID uint16) restore.DNSRules {
 
 func (s *EndpointManagerSuite) RemoveRestoredDNSRules(epID uint16) {}
 
-func (s *EndpointManagerSuite) AddIdentity(id *identity.Identity)                   {}
-func (s *EndpointManagerSuite) RemoveIdentity(id *identity.Identity)                {}
+func (s *EndpointManagerSuite) AddIdentity(id *identity.Identity) {}
+
+func (s *EndpointManagerSuite) RemoveIdentity(id *identity.Identity) {}
+
 func (s *EndpointManagerSuite) RemoveOldAddNewIdentity(old, new *identity.Identity) {}
 
 type DummyRuleCacheOwner struct{}
@@ -328,7 +338,8 @@ func TestLookup(t *testing.T) {
 				return want{
 					ep:       true,
 					err:      nil,
-					errCheck: assert.EqualValues}
+					errCheck: assert.EqualValues,
+				}
 			},
 		},
 		{

@@ -15,7 +15,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	fake "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
@@ -78,12 +77,6 @@ func (s *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdentit
 
 func TestReadEPsFromDirNames(t *testing.T) {
 	s := setupEndpointSuite(t)
-	oldDatapath := s.datapath
-	defer func() {
-		s.datapath = oldDatapath
-	}()
-
-	s.datapath = fake.NewDatapath()
 	epsWanted, _ := s.createEndpoints()
 	tmpDir, err := os.MkdirTemp("", "cilium-tests")
 	defer func() {
@@ -156,13 +149,6 @@ func TestReadEPsFromDirNames(t *testing.T) {
 func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	oldDatapath := s.datapath
-	defer func() {
-		s.datapath = oldDatapath
-	}()
-
-	s.datapath = fake.NewDatapath()
-
 	eps, _ := s.createEndpoints()
 	ep := eps[0]
 	require.NotNil(t, ep)
@@ -225,12 +211,6 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 
 	// For this benchmark, the real linux datapath is necessary to properly
 	// serialize config files to disk and benchmark the restore.
-	oldDatapath := s.datapath
-	defer func() {
-		s.datapath = oldDatapath
-	}()
-
-	s.datapath = fake.NewDatapath()
 
 	epsWanted, _ := s.createEndpoints()
 	tmpDir, err := os.MkdirTemp("", "cilium-tests")

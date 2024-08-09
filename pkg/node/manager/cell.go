@@ -85,7 +85,8 @@ func newAllNodeManager(in struct {
 	IPSetFilter IPSetFilterFn `optional:"true"`
 	NodeMetrics *nodeMetrics
 	Health      cell.Health
-}) (NodeManager, error) {
+},
+) (NodeManager, error) {
 	mngr, err := New(option.Config, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health)
 	if err != nil {
 		return nil, err

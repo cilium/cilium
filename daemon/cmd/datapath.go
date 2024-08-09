@@ -66,7 +66,6 @@ func clearCiliumVeths() error {
 		}
 		return -1
 	})
-
 	if err != nil {
 		return fmt.Errorf("unable to retrieve host network interfaces: %w", err)
 	}
@@ -403,12 +402,21 @@ func setupRouteToVtepCidr() error {
 	return nil
 }
 
-// Datapath returns a reference to the datapath implementation.
-func (d *Daemon) Datapath() datapath.Datapath {
-	return d.datapath
-}
-
 // Loader returns a reference to the loader implementation.
 func (d *Daemon) Loader() datapath.Loader {
 	return d.loader
+}
+
+// Orchestrator returns a reference to the orchestrator implementation.
+func (d *Daemon) Orchestrator() datapath.Orchestrator {
+	return d.orchestrator
+}
+
+// BandwidthManager returns a reference to the bandwidth manager implementation.
+func (d *Daemon) BandwidthManager() datapath.BandwidthManager {
+	return d.bwManager
+}
+
+func (d *Daemon) IPTablesManager() datapath.IptablesManager {
+	return d.iptablesManager
 }

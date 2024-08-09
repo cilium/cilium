@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -37,19 +36,14 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 	s := setupEndpointSuite(b)
 
 	e := NewTestEndpointWithState(b, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
-	dp := linux.NewDatapath(linux.DatapathParams{
-		RuleManager:    nil,
-		NodeAddressing: nil,
-		NodeMap:        nil,
-		ConfigWriter:   &config.HeaderfileWriter{},
-	})
+	configWriter := &config.HeaderfileWriter{}
 	cfg := datapath.LocalNodeConfiguration{}
 
 	targetComments := func(w io.Writer) error {
 		return e.writeInformationalComments(w)
 	}
 	targetConfig := func(w io.Writer) error {
-		return dp.WriteEndpointConfig(w, &cfg, e)
+		return configWriter.WriteEndpointConfig(w, &cfg, e)
 	}
 
 	var buf bytes.Buffer

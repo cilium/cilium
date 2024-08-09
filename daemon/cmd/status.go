@@ -1040,7 +1040,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 					}, nil
 				case option.Config.EnableWireguard:
 					var msg string
-					status, err := d.datapath.WireguardAgent().Status(false)
+					status, err := d.wireguardAgent.Status(false)
 					if err != nil {
 						msg = err.Error()
 					}

@@ -2511,10 +2511,10 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		}).Debug("Deleting endpoint NOTRACK rules")
 
 		if e.IPv4.IsValid() {
-			e.owner.Datapath().RemoveNoTrackRules(e.IPv4, e.noTrackPort)
+			e.owner.IPTablesManager().RemoveNoTrackRules(e.IPv4, e.noTrackPort)
 		}
 		if e.IPv6.IsValid() {
-			e.owner.Datapath().RemoveNoTrackRules(e.IPv6, e.noTrackPort)
+			e.owner.IPTablesManager().RemoveNoTrackRules(e.IPv6, e.noTrackPort)
 		}
 	}
 
@@ -2527,7 +2527,7 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		}
 
 		// Detach the endpoint program from any tc(x) hooks.
-		e.owner.Datapath().Orchestrator().Unload(e.createEpInfoCache(""))
+		e.owner.Orchestrator().Unload(e.createEpInfoCache(""))
 
 		// Delete the endpoint's entries from the global cilium_(egress)call_policy
 		// maps and remove per-endpoint cilium_calls_ and cilium_policy_ map pins.
