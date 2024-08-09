@@ -88,6 +88,8 @@ option is set in the ``scrape_configs`` section:
           replacement: ${1}:${2}
           target_label: __address__
 
+.. _hubble_metrics:
+
 Hubble Metrics
 ==============
 
@@ -118,6 +120,9 @@ section for the full list of available metrics and their options.
 
 The port of the Hubble metrics can be configured with the
 ``hubble.metrics.port`` Helm value.
+
+For details on enabling Hubble metrics with TLS see the
+:ref:`hubble_configure_metrics_tls` section of the documentation.
 
 .. Note::
 
