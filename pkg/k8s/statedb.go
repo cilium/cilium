@@ -5,7 +5,6 @@ package k8s
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -19,44 +18,44 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var errListerWatcherNil = errors.New("ReflectorConfig.ListerWatcher must be defined (was nil)")
-
 // RegisterReflector registers a Kubernetes to StateDB table reflector.
 //
 // Intended to be used with [cell.Invoke] and the module's job group.
 // See [ExampleRegisterReflector] for example usage.
-func RegisterReflector[Obj any](jobGroup job.Group, db *statedb.DB, targetTable statedb.RWTable[Obj], cfg ReflectorConfig[Obj]) error {
-	if cfg.ListerWatcher == nil {
-		return errListerWatcherNil
+func RegisterReflector[Obj any](jobGroup job.Group, db *statedb.DB, cfg ReflectorConfig[Obj]) error {
+	cfg = cfg.withDefaults()
+	if err := cfg.validate(); err != nil {
+		return err
 	}
 
 	// Register initializer that marks when the table has been initially populated,
 	// e.g. the initial "List" has concluded.
+	targetTable := cfg.Table
 	r := &k8sReflector[Obj]{
 		ReflectorConfig: cfg.withDefaults(),
 		db:              db,
 		table:           targetTable,
 	}
 	wtxn := db.WriteTxn(targetTable)
-	r.initDone = targetTable.RegisterInitializer(wtxn, "k8s-reflector")
+	r.initDone = targetTable.RegisterInitializer(wtxn, r.ReflectorConfig.Name)
 	wtxn.Commit()
 
 	jobGroup.Add(job.OneShot(
-		fmt.Sprintf("k8s-reflector-[%T]", *new(Obj)),
+		r.ReflectorConfig.JobName(),
 		r.run))
 
 	return nil
 }
 
 type ReflectorConfig[Obj any] struct {
-	// Maximum number of objects to commit in one transaction. Uses default if left zero.
-	// This does not apply to the initial listing which is committed in one go.
-	BufferSize int
+	// Mandatory name of the reflector. This is used as the table initializer name and as
+	// the reflector job name.
+	Name string
 
-	// The amount of time to wait for the buffer to fill. Uses default if left zero.
-	BufferWaitTime time.Duration
+	// Mandatory table to reflect the objects to.
+	Table statedb.RWTable[Obj]
 
-	// The ListerWatcher to use to retrieve the objects.
+	// Mandatory ListerWatcher to use to retrieve the objects.
 	//
 	// Use [utils.ListerWatcherFromTyped] to create one from the Clientset, e.g.
 	//
@@ -64,6 +63,13 @@ type ReflectorConfig[Obj any] struct {
 	//   utils.ListerWatcherFromTyped(cs.CoreV1().Nodes())
 	//
 	ListerWatcher cache.ListerWatcher
+
+	// Optional maximum number of objects to commit in one transaction. Uses default if left zero.
+	// This does not apply to the initial listing which is committed in one go.
+	BufferSize int
+
+	// Optional amount of time to wait for the buffer to fill. Uses default if left zero.
+	BufferWaitTime time.Duration
 
 	// Optional function to transform the objects given by the ListerWatcher. This can
 	// be used to convert into an internal model on the fly to save space and add additional
@@ -74,6 +80,12 @@ type ReflectorConfig[Obj any] struct {
 	// This can be used to "namespace" the objects managed by this reflector, e.g. on
 	// source.Source etc.
 	QueryAll QueryAllFunc[Obj]
+}
+
+// JobName returns the name of the background reflector job.
+func (cfg ReflectorConfig[Obj]) JobName() string {
+	var obj Obj
+	return fmt.Sprintf("k8s-reflector[%T]/%s", obj, cfg.Name)
 }
 
 // TransformFunc is an optional function to give to the Kubernetes reflector
@@ -106,6 +118,25 @@ func (cfg ReflectorConfig[Obj]) withDefaults() ReflectorConfig[Obj] {
 		cfg.BufferWaitTime = DefaultBufferWaitTime
 	}
 	return cfg
+}
+
+func (cfg ReflectorConfig[Obj]) validate() error {
+	if cfg.Name == "" {
+		return fmt.Errorf("%T.Name cannot be empty", cfg)
+	}
+	if cfg.Table == nil {
+		return fmt.Errorf("%T.Table cannot be nil", cfg)
+	}
+	if cfg.ListerWatcher == nil {
+		return fmt.Errorf("%T.ListerWatcher cannot be nil", cfg)
+	}
+	if cfg.BufferSize <= 0 {
+		return fmt.Errorf("%T.BufferSize (%d) must be larger than zero", cfg, cfg.BufferSize)
+	}
+	if cfg.BufferWaitTime <= 0 {
+		return fmt.Errorf("%T.BufferWaitTime (%d) must be larger than zero", cfg, cfg.BufferWaitTime)
+	}
+	return nil
 }
 
 type k8sReflector[Obj any] struct {
