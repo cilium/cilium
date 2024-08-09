@@ -159,7 +159,7 @@ func (c *DefaultClient) ensureConnection(address string, req *RequestMetadata) e
 		dialOpts = append(dialOpts, grpc.WithAuthority(req.Authority))
 	}
 
-	c.Conn, err = grpc.Dial(address, dialOpts...)
+	c.Conn, err = grpc.NewClient(address, dialOpts...)
 	if err != nil {
 		c.Conn = nil
 		return err

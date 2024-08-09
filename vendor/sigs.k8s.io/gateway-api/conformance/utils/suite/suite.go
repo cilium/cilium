@@ -392,10 +392,8 @@ func (suite *ConformanceTestSuite) Run(t *testing.T, tests []ConformanceTest) er
 
 	// run all tests and collect the test results for conformance reporting
 	results := make(map[string]testResult)
+	sleepForTestIsolation := false
 	for _, test := range tests {
-		succeeded := t.Run(test.ShortName, func(t *testing.T) {
-			test.Run(t, suite)
-		})
 		res := testSucceeded
 		if suite.SkipTests.Has(test.ShortName) {
 			res = testSkipped
@@ -404,6 +402,16 @@ func (suite *ConformanceTestSuite) Run(t *testing.T, tests []ConformanceTest) er
 			res = testNotSupported
 		}
 
+		// TODO(wstcliyu): need a better long term solution for test isolation
+		// https://github.com/kubernetes-sigs/gateway-api/issues/3233
+		if res != testSkipped && res != testNotSupported && sleepForTestIsolation {
+			tlog.Logf(t, "Sleeping %v for test isolation", suite.TimeoutConfig.TestIsolation)
+			time.Sleep(suite.TimeoutConfig.TestIsolation)
+		}
+
+		succeeded := t.Run(test.ShortName, func(t *testing.T) {
+			test.Run(t, suite)
+		})
 		if !succeeded {
 			res = testFailed
 		}
@@ -411,6 +419,9 @@ func (suite *ConformanceTestSuite) Run(t *testing.T, tests []ConformanceTest) er
 		results[test.ShortName] = testResult{
 			test:   test,
 			result: res,
+		}
+		if res == testSucceeded || res == testFailed {
+			sleepForTestIsolation = true
 		}
 	}
 
