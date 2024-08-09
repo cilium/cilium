@@ -59,6 +59,7 @@ func TestConsulClientOk(t *testing.T) {
 		close(doneC)
 	}
 
+	//exhaustruct:ignore // Consul API configuration does not need to be fully specified.
 	_, err := newConsulClient(context.TODO(), &consulAPI.Config{
 		Address: ":8000",
 	}, nil)

@@ -439,6 +439,13 @@ returns a cell that "provides" the parsed configuration to the application:
         cell.Provide(New),
     )
 
+Every field in the default configuration structure must be explicitly populated.
+When selecting defaults for the option, consider which option will introduce
+the minimal disruption to existing users during upgrade. For instance, if the
+flag retains existing behavior from a previous release, then the default flag
+value should retain that behavior. If you are introducing a new optional
+feature, consider disabling the option by default.
+
 In tests the configuration can be populated in various ways:
 
 .. code-block:: go
