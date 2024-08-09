@@ -147,6 +147,7 @@ jobs:
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
+            secondary-network: 'true'
             tunnel: 'vxlan'
             lb-mode: 'snat'
             egress-gateway: 'true'
