@@ -17,6 +17,10 @@ import (
 // the policy repository and ready to be distilled against a set of identities
 // to compute datapath-level policy configuration.
 type SelectorPolicy interface {
+	// CreateRedirects is used to ensure the endpoint has created all the needed redirects
+	// before a new EndpointPolicy is created.
+	CreateRedirects(createRedirectsFunc) error
+
 	// Consume returns the policy in terms of connectivity to peer
 	// Identities.
 	Consume(owner PolicyOwner) *EndpointPolicy
@@ -235,4 +239,8 @@ func (cip *cachedSelectorPolicy) Consume(owner PolicyOwner) *EndpointPolicy {
 	// EndpointPolicy for this Identity and emit datapath deltas instead.
 	isHost := cip.identity.ID == identityPkg.ReservedIdentityHost
 	return cip.getPolicy().DistillPolicy(owner, isHost)
+}
+
+func (cip *cachedSelectorPolicy) CreateRedirects(createRedirects createRedirectsFunc) error {
+	return cip.getPolicy().CreateRedirects(createRedirects)
 }

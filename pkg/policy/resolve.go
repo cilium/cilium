@@ -245,36 +245,29 @@ func (l4policy L4DirectionPolicy) toMapState(p *EndpointPolicy) {
 
 // createRedirectsFunc returns 'nil' if map changes should not be applied immemdiately,
 // otherwise the returned map is to be used to find redirect ports for map updates.
-type createRedirectsFunc func(*L4Filter) map[string]uint16
+type createRedirectsFunc func(*L4Filter) error
 
-// UpdateRedirects updates redirects in the EndpointPolicy's PolicyMapState by using the provided
-// function to create redirects. Changes to 'p.PolicyMapState' are collected in
-// 'adds' and 'updated' so that they can be reverted when needed.
-func (p *EndpointPolicy) UpdateRedirects(ingress bool, createRedirects createRedirectsFunc, changes ChangeState) {
-	l4policy := &p.L4Policy.Ingress
-	if ingress {
-		l4policy = &p.L4Policy.Egress
+// CreateRedirects creates redirects needed by the selectorPolicy by using the provided function.
+func (p *selectorPolicy) CreateRedirects(createRedirects createRedirectsFunc) error {
+	err := p.L4Policy.Ingress.createRedirects(createRedirects)
+	if err != nil {
+		return err
 	}
-
-	l4policy.updateRedirects(p, createRedirects, changes)
+	return p.L4Policy.Egress.createRedirects(createRedirects)
 }
 
-func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedirects createRedirectsFunc, changes ChangeState) {
+func (l4policy L4DirectionPolicy) createRedirects(createRedirects createRedirectsFunc) error {
+	var err error
 	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
 		if l4.IsRedirect() {
-			// Check if we are denying this specific L4 first regardless the L3, if there are any deny policies
-			if l4policy.features.contains(denyRules) && p.policyMapState.deniesL4(p.PolicyOwner, l4) {
-				return true
-			}
-
-			redirects := createRedirects(l4)
-			if redirects != nil {
-				// Set the proxy port in the policy map.
-				l4.toMapState(p, l4policy.features, redirects, changes)
+			err = createRedirects(l4)
+			if err != nil {
+				return false
 			}
 		}
 		return true
 	})
+	return err
 }
 
 // ConsumeMapChanges transfers the changes from MapChanges to the caller.

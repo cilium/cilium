@@ -171,6 +171,9 @@ func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 
 type DummyOwner struct{}
 
+func (d DummyOwner) CreateRedirects(*L4Filter) {
+}
+
 func (d DummyOwner) LookupRedirectPort(bool, string, uint16, string) (uint16, error) {
 	return 1, nil
 }
