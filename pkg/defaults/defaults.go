@@ -595,6 +595,9 @@ const (
 
 	// NetNsPath is the default path to the mounted network namespaces directory
 	NetNsPath = "/var/run/cilium/netns"
+
+	// EnableSourceIPVerification is the default value for source ip validation
+	EnableSourceIPVerification = true
 )
 
 var (
