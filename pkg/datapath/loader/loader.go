@@ -97,6 +97,10 @@ type Params struct {
 	CompilationLock datapath.CompilationLock
 	ConfigWriter    datapath.ConfigWriter
 	NodeHandler     datapath.NodeHandler
+
+	// Force map initialisation before loader. You should not use these otherwise.
+	// Some of the entries in this slice may be nil.
+	BpfMaps []bpf.BpfMap `group:"bpf-maps"`
 }
 
 // newLoader returns a new loader.
