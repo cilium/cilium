@@ -186,7 +186,6 @@ func (s *Server) collectNodeConnectivityMetrics() {
 	}
 	localClusterName, localNodeName := getClusterNodeName(s.localStatus.Name)
 
-	// new
 	endpointStatuses := make(map[healthClientPkg.ConnectivityStatusType]int)
 	nodeStatuses := make(map[healthClientPkg.ConnectivityStatusType]int)
 
@@ -201,11 +200,8 @@ func (s *Server) collectNodeConnectivityMetrics() {
 
 		endpointPathStatus := n.HealthEndpoint
 
-		// TODO: merge from 4=>2 function calls.
-		// old
 		isEndpointReachable := healthClientPkg.SummarizePathConnectivityStatus(healthClientPkg.GetAllEndpointAddresses(n)) == healthClientPkg.ConnStatusReachable
 		isNodeReachable := healthClientPkg.SummarizePathConnectivityStatus(healthClientPkg.GetAllHostAddresses(n)) == healthClientPkg.ConnStatusReachable
-		// new
 		isHealthEndpointReachable := healthClientPkg.SummarizePathConnectivityStatusType(healthClientPkg.GetAllEndpointAddresses(n))
 		isHealthNodeReachable := healthClientPkg.SummarizePathConnectivityStatusType(healthClientPkg.GetAllHostAddresses(n))
 
@@ -315,10 +311,10 @@ func collectConnectivityMetric(status *healthModels.ConnectivityStatus, labels .
 	if status != nil {
 		if status.Status == "" {
 			metricValue := float64(status.Latency) / float64(time.Second)
-			metrics.NodeConnectivityLatency.WithLabelValues(labels...).Observe(metricValue)
-			metrics.NodeHealthConnectivityLatency.WithLabelValues(healthLabels).Observe(metricValue)
+			metrics.NodeConnectivityLatency.WithLabelValues(labels...).Set(metricValue)
+			metrics.NodeHealthConnectivityLatency.WithLabelValues(healthLabels...).Observe(metricValue)
 		} else {
-			metrics.NodeHealthConnectivityLatency.WithLabelValues(healthLabels).Observe(60)
+			metrics.NodeHealthConnectivityLatency.WithLabelValues(healthLabels...).Observe(60)
 		}
 	}
 	metrics.NodeConnectivityLatency.WithLabelValues(labels...).Set(-1)
