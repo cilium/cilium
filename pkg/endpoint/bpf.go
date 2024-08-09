@@ -572,6 +572,15 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 
 	// Skip BPF if the endpoint has no policy map
 	if e.isProperty(PropertySkipBPFPolicy) {
+		// Even endpints without policy need entry in the endpoints map
+		// so that IPv6 ND works for them
+		stats.mapSync.Start()
+		err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
+		stats.mapSync.End(err == nil)
+		if err != nil {
+			return 0, fmt.Errorf("Exposing endpoint in endpoints BPF map failed: %w", err)
+		}
+
 		// Allow another builder to start while we wait for the proxy
 		if regenContext.DoneFunc != nil {
 			regenContext.DoneFunc()
@@ -788,6 +797,9 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 
 	// Endpoints without policy maps only need Network Policy Updates
 	if e.isProperty(PropertySkipBPFPolicy) {
+		// epInfoCache needed for endpointmap population
+		datapathRegenCtxt.epInfoCache = e.createEpInfoCache(currentDir)
+
 		if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
 			log.WithField(logfields.EndpointID, e.ID).Debug("Ingress Endpoint skipping bpf regeneration")
 		}
