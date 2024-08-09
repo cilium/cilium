@@ -38,5 +38,6 @@ type EndpointDNSInfo struct {
 type IPCache interface {
 	UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64)
 	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
+	GetCurrentRevision() (revision uint64)
 	WaitForRevision(ctx context.Context, rev uint64) error
 }

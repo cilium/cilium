@@ -226,17 +226,19 @@ func TestAddVisibilityRedirects(t *testing.T) {
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return firstAnno, nil
 	})
-	res, err := ep.regeneratePolicy(s.stats)
+	res, err := ep.regenerateSelectorPolicy(s.stats)
 	require.Nil(t, err)
-	err = ep.setDesiredPolicy(res)
-	require.Nil(t, err)
+	res.endpointPolicy = res.selectorPolicy.Consume(ep)
+	ep.setDesiredPolicy(res)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	cmp := completion.NewWaitGroup(ctx)
 
-	_, err, _, _ = ep.addNewRedirects(cmp)
+	d, err, _, _ := ep.addNewRedirects(res.selectorPolicy, cmp)
 	require.Nil(t, err)
+	ep.addVisibilityKeys(d)
+
 	v, ok := ep.desiredPolicy.GetPolicyMap().Get(policy.Key{
 		Identity:         0,
 		DestPort:         uint16(80),
@@ -251,13 +253,15 @@ func TestAddVisibilityRedirects(t *testing.T) {
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return secondAnno, nil
 	})
-	res, err = ep.regeneratePolicy(s.stats)
+	res, err = ep.regenerateSelectorPolicy(s.stats)
 	require.Nil(t, err)
-	err = ep.setDesiredPolicy(res)
-	require.Nil(t, err)
+	res.endpointPolicy = res.selectorPolicy.Consume(ep)
+	ep.setDesiredPolicy(res)
 
-	d, err, _, _ := ep.addNewRedirects(cmp)
+	d, err, _, _ = ep.addNewRedirects(res.selectorPolicy, cmp)
 	require.Nil(t, err)
+	ep.addVisibilityKeys(d)
+
 	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.Key{
 		Identity:         0,
 		DestPort:         uint16(80),
@@ -274,14 +278,16 @@ func TestAddVisibilityRedirects(t *testing.T) {
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return thirdAnno, nil
 	})
-	res, err = ep.regeneratePolicy(s.stats)
+	res, err = ep.regenerateSelectorPolicy(s.stats)
 	require.Nil(t, err)
-	err = ep.setDesiredPolicy(res)
-	require.Nil(t, err)
+	res.endpointPolicy = res.selectorPolicy.Consume(ep)
+	ep.setDesiredPolicy(res)
 
 	realizedRedirects := ep.GetRealizedRedirects()
-	d2, err, _, _ := ep.addNewRedirects(cmp)
+	d2, err, _, _ := ep.addNewRedirects(res.selectorPolicy, cmp)
 	require.Nil(t, err)
+	ep.addVisibilityKeys(d2)
+
 	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.Key{
 		Identity:         0,
 		DestPort:         uint16(80),
@@ -325,13 +331,13 @@ func TestAddVisibilityRedirects(t *testing.T) {
 	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 		return noAnno, nil
 	})
-	res, err = ep.regeneratePolicy(s.stats)
+	res, err = ep.regenerateSelectorPolicy(s.stats)
 	require.Nil(t, err)
-	err = ep.setDesiredPolicy(res)
-	require.Nil(t, err)
+	res.endpointPolicy = res.selectorPolicy.Consume(ep)
+	ep.setDesiredPolicy(res)
 
 	realizedRedirects = ep.GetRealizedRedirects()
-	d, err, _, _ = ep.addNewRedirects(cmp)
+	d, err, _, _ = ep.addNewRedirects(res.selectorPolicy, cmp)
 	require.Nil(t, err)
 	ep.removeOldRedirects(d, realizedRedirects, cmp)
 	require.Equal(t, 0, len(d))
@@ -409,6 +415,45 @@ func (s *RedirectSuite) testMapState(initMap map[policy.Key]policy.MapStateEntry
 	return policy.NewMapState().WithState(initMap, s.do.repo.GetSelectorCache())
 }
 
+func (s *RedirectSuite) computePolicyForTest(t *testing.T, ep *Endpoint, cmp *completion.WaitGroup) (desiredRedirects map[string]uint16, revertFunc revert.RevertFunc) {
+	var (
+		finalizeList revert.FinalizeList
+		revertStack  revert.RevertStack
+	)
+
+	res, err := ep.regenerateSelectorPolicy(s.stats)
+	require.Nil(t, err)
+
+	realizedRedirects := ep.GetRealizedRedirects()
+	desiredRedirects, err, ff, rf := ep.addNewRedirects(res.selectorPolicy, cmp)
+	require.Nil(t, err)
+
+	finalizeList.Append(ff)
+	revertStack.Push(rf)
+
+	res.endpointPolicy = res.selectorPolicy.Consume(ep)
+
+	ff, rf = ep.addVisibilityKeys(desiredRedirects)
+	finalizeList.Append(ff)
+	revertStack.Push(rf)
+
+	oldDesiredPolicy := ep.desiredPolicy
+	revertStack.Push(func() error {
+		ep.desiredPolicy = oldDesiredPolicy
+		return nil
+	})
+	ep.setDesiredPolicy(res)
+
+	// Keep only desired redirects
+	ff, rf = ep.removeOldRedirects(desiredRedirects, realizedRedirects, cmp)
+	finalizeList.Append(ff)
+	revertStack.Push(rf)
+
+	finalizeList.Finalize()
+
+	return desiredRedirects, revertStack.Revert
+}
+
 func TestRedirectWithDeny(t *testing.T) {
 	s := setupRedirectSuite(t)
 	ep := s.NewTestEndpoint(t)
@@ -419,33 +464,10 @@ func TestRedirectWithDeny(t *testing.T) {
 		ruleL4L7Allow.WithEndpointSelector(selectBar_),
 	})
 
-	res, err := ep.regeneratePolicy(s.stats)
-	require.Nil(t, err)
-	err = ep.setDesiredPolicy(res)
-	require.Nil(t, err)
-
-	expected := s.testMapState(map[policy.Key]policy.MapStateEntry{
-		mapKeyAllowAllE: {
-			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
-		},
-		mapKeyFoo: {
-			IsDeny:           true,
-			DerivedFromRules: labels.LabelArrayList{lblsL3DenyFoo},
-		},
-	})
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
-		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	cmp := completion.NewWaitGroup(ctx)
-
-	realizedRedirects := ep.GetRealizedRedirects()
-	desiredRedirects, err, finalizeFunc, revertFunc := ep.addNewRedirects(cmp)
-	require.Nil(t, err)
-	finalizeFunc()
+	desiredRedirects, revertFunc := s.computePolicyForTest(t, ep, cmp)
 
 	// Redirect is still created, even if all MapState entries may have been overridden by a
 	// deny entry.  A new FQDN redirect may have no MapState entries as the associated CIDR
@@ -479,22 +501,21 @@ func TestRedirectWithDeny(t *testing.T) {
 			ep.desiredPolicy.GetPolicyMap().Diff(expected2))
 	}
 
-	// Keep only desired redirects
-	ep.removeOldRedirects(desiredRedirects, realizedRedirects, cmp)
-
-	// Check that the redirect is still realized
+	// Check that the redirect is realized
 	require.Equal(t, 1, len(desiredRedirects))
 	require.Equal(t, 4, ep.desiredPolicy.GetPolicyMap().Len())
 
 	// Pretend that something failed and revert the changes
 	revertFunc()
+	require.Equal(t, 0, len(ep.GetRealizedRedirects()))
+
+	expected := s.testMapState(map[policy.Key]policy.MapStateEntry{})
 
 	// Check that the state before addRedirects is restored
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
 			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
-	require.Equal(t, 2, ep.desiredPolicy.GetPolicyMap().Len())
 }
 
 var (
@@ -582,32 +603,10 @@ func TestRedirectWithPriority(t *testing.T) {
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
 	})
 
-	res, err := ep.regeneratePolicy(s.stats)
-	require.Nil(t, err)
-	err = ep.setDesiredPolicy(res)
-	require.Nil(t, err)
-
-	expected := s.testMapState(map[policy.Key]policy.MapStateEntry{
-		mapKeyAllowAllE: {
-			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
-		},
-		mapKeyAllL7: {
-			DerivedFromRules: labels.LabelArrayList{lblsL4AllowListener1, lblsL4AllowPort80, lblsL4L7AllowListener2Priority1},
-		},
-	})
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
-		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	cmp := completion.NewWaitGroup(ctx)
-
-	realizedRedirects := ep.GetRealizedRedirects()
-	desiredRedirects, err, finalizeFunc, revertFunc := ep.addNewRedirects(cmp)
-	require.Nil(t, err)
-	finalizeFunc()
+	desiredRedirects, revertFunc := s.computePolicyForTest(t, ep, cmp)
 
 	// Check that all redirects have been created.
 	require.Equal(t, crd2Port, desiredRedirects["12345:ingress:TCP:80:/cec2/listener2"])
@@ -632,22 +631,21 @@ func TestRedirectWithPriority(t *testing.T) {
 			ep.desiredPolicy.GetPolicyMap().Diff(expected2))
 	}
 
-	// Keep only desired redirects
-	ep.removeOldRedirects(desiredRedirects, realizedRedirects, cmp)
-
-	// Check that the redirect is still realized
+	// Check that the redirect is realized
 	require.Equal(t, 2, len(desiredRedirects))
 	require.Equal(t, 3, ep.desiredPolicy.GetPolicyMap().Len())
 
 	// Pretend that something failed and revert the changes
 	revertFunc()
+	require.Equal(t, 0, len(ep.GetRealizedRedirects()))
+
+	expected := s.testMapState(map[policy.Key]policy.MapStateEntry{})
 
 	// Check that the state before addRedirects is restored
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
 			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
-	require.Equal(t, 2, ep.desiredPolicy.GetPolicyMap().Len())
 }
 
 func TestRedirectWithEqualPriority(t *testing.T) {
@@ -663,32 +661,10 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
 	})
 
-	res, err := ep.regeneratePolicy(s.stats)
-	require.Nil(t, err)
-	err = ep.setDesiredPolicy(res)
-	require.Nil(t, err)
-
-	expected := s.testMapState(map[policy.Key]policy.MapStateEntry{
-		mapKeyAllowAllE: {
-			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
-		},
-		mapKeyAllL7: {
-			DerivedFromRules: labels.LabelArrayList{lblsL4L7AllowListener1Priority1, lblsL4AllowPort80, lblsL4L7AllowListener2Priority1},
-		},
-	})
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
-		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	cmp := completion.NewWaitGroup(ctx)
-
-	realizedRedirects := ep.GetRealizedRedirects()
-	desiredRedirects, err, finalizeFunc, revertFunc := ep.addNewRedirects(cmp)
-	require.Nil(t, err)
-	finalizeFunc()
+	desiredRedirects, revertFunc := s.computePolicyForTest(t, ep, cmp)
 
 	// Check that all redirects have been created.
 	require.Equal(t, crd2Port, desiredRedirects["12345:ingress:TCP:80:/cec2/listener2"])
@@ -713,20 +689,19 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 			ep.desiredPolicy.GetPolicyMap().Diff(expected2))
 	}
 
-	// Keep only desired redirects
-	ep.removeOldRedirects(desiredRedirects, realizedRedirects, cmp)
-
-	// Check that the redirect is still realized
+	// Check that the redirect is realized
 	require.Equal(t, 2, len(desiredRedirects))
 	require.Equal(t, 3, ep.desiredPolicy.GetPolicyMap().Len())
 
 	// Pretend that something failed and revert the changes
 	revertFunc()
+	require.Equal(t, 0, len(ep.GetRealizedRedirects()))
+
+	expected := s.testMapState(map[policy.Key]policy.MapStateEntry{})
 
 	// Check that the state before addRedirects is restored
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
 			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
-	require.Equal(t, 2, ep.desiredPolicy.GetPolicyMap().Len())
 }

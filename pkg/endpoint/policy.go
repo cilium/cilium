@@ -53,7 +53,6 @@ func (e *Endpoint) HasBPFPolicyMap() bool {
 }
 
 // GetNamedPort returns the port for the given name.
-// Must be called with e.mutex NOT held
 func (e *Endpoint) GetNamedPort(ingress bool, name string, proto uint8) uint16 {
 	if ingress {
 		// Ingress only needs the ports of the POD itself
@@ -141,6 +140,12 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 		return nil, nil
 	}
 
+	// Need a valid handle to be able to update the network policy, get one if needed
+	if !e.desiredPolicy.VersionHold.IsValid() {
+		e.desiredPolicy.VersionHold = e.desiredPolicy.SelectorCache.GetCurrentVersionHold()
+		defer e.desiredPolicy.Ready()
+	}
+
 	if e.IsProxyDisabled() {
 		return nil, nil
 	}
@@ -165,7 +170,7 @@ type policyGenerateResult struct {
 	identityRevision int
 }
 
-// regeneratePolicy computes the policy for the given endpoint based off of the
+// regenerateSelectorPolicy computes the policy for the given endpoint based off of the
 // rules in regeneration.Owner's policy repository.
 //
 // Policy generation may fail, and in that case we exit before actually changing
@@ -197,7 +202,7 @@ type policyGenerateResult struct {
 //
 // Returns a result that should be passed to setDesiredPolicy after the endpoint's
 // write lock has been acquired, or err if recomputing policy failed.
-func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics) (*policyGenerateResult, error) {
+func (e *Endpoint) regenerateSelectorPolicy(stats *regenerationStatistics) (*policyGenerateResult, error) {
 	var err error
 
 	// lock the endpoint, read our values, then unlock
@@ -289,27 +294,12 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics) (*policyGener
 	}
 	repo.Mutex.RUnlock() // Done with policy repository; release this now as Consume() can be slow
 
-	// Consume converts a SelectorPolicy in to an EndpointPolicy
-	result.endpointPolicy = result.selectorPolicy.Consume(e)
+	result.endpointPolicy = nil // mark for recompute
 	return result, nil
 }
 
-// setDesiredPolicy updates the endpoint with the results of a policy calculation.
-//
-// The endpoint write lock must be held and not released until the desired policy has
-// been pushed in to the policymaps via `syncPolicyMap`. This is so that we block
-// ApplyPolicyMapChanges, which has the effect of blocking the ipcache from updating
-// the ipcache bpf map. It is required that any pending changes are pushed in to
-// the policymap before the ipcache map, otherwise endpoints could experience transient
-// policy drops.
-//
-// Specifically, since policy is calculated asynchronously from the ipcacache's apply loop,
-// it is probable that the new policy diverges from the bpf PolicyMap. So, we cannot safely
-// consume incremental changes (and thus allow the ipcache to continue) until we have
-// successfully performed a full sync with the endpoints PolicyMap. Otherwise,
-// the ipcache may remove an identity from the ipcache that the bpf PolicyMap is still
-// relying on.
-func (e *Endpoint) setDesiredPolicy(res *policyGenerateResult) error {
+// isIdentityValid checks if the endpoint's is still the same as during policy computation.
+func (e *Endpoint) isIdentityValid(res *policyGenerateResult) error {
 	// nil result means endpoint had no identity while policy was calculated
 	if res == nil {
 		if e.SecurityIdentity != nil {
@@ -324,14 +314,30 @@ func (e *Endpoint) setDesiredPolicy(res *policyGenerateResult) error {
 		e.getLogger().Info("Endpoint SecurityIdentity changed during policy regeneration")
 		return fmt.Errorf("endpoint %d SecurityIdentity changed during policy regeneration", e.ID)
 	}
+	return nil
+}
 
+// setDesiredPolicy updates the endpoint with the results of a policy calculation.
+//
+// The endpoint write lock must be held and not released until the desired policy has
+// been pushed in to the policymaps via `syncPolicyMap`. This is so that we block
+// ApplyPolicyMapChanges, which has the effect of blocking the ipcache from updating
+// the ipcache bpf map. It is required that any pending changes are pushed in to
+// the policymap before the ipcache map, otherwise endpoints could experience transient
+// policy drops.
+//
+// Specifically, since policy is calculated asynchronously from the ipcache's apply loop,
+// it is probable that the new policy diverges from the bpf PolicyMap. So, we cannot safely
+// consume incremental changes (and thus allow the ipcache to continue) until we have
+// successfully performed a full sync with the endpoints PolicyMap. Otherwise,
+// the ipcache may remove an identity from the ipcache that the bpf PolicyMap is still
+// relying on.
+func (e *Endpoint) setDesiredPolicy(res *policyGenerateResult) {
 	// Set the revision of this endpoint to the current revision of the policy
 	// repository.
 	e.setNextPolicyRevision(res.policyRevision)
 	e.selectorPolicy = res.selectorPolicy
 	e.desiredPolicy = res.endpointPolicy
-
-	return nil
 }
 
 // updateAndOverrideEndpointOptions updates the boolean configuration options for the endpoint

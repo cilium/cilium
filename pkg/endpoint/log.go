@@ -179,7 +179,7 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
 		}
 
 		if e.SecurityIdentity != nil {
-			f[logfields.Identity] = e.SecurityIdentity.ID.StringID
+			f[logfields.Identity] = e.SecurityIdentity.ID
 		}
 
 		policyLogger = policyLogger.WithFields(f)

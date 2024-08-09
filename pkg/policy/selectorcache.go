@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
@@ -69,19 +70,53 @@ func getLocalScopePrefix(id identity.NumericIdentity, lbls labels.LabelArray) ne
 // identity changes. These are queued to be able to call the callbacks
 // in FIFO order while not holding any locks.
 type userNotification struct {
-	user     CachedSelectionUser
-	selector CachedSelector
-	added    []identity.NumericIdentity
-	deleted  []identity.NumericIdentity
-	wg       *sync.WaitGroup
+	user       CachedSelectionUser
+	selector   CachedSelector // nil for a sync notification
+	handleFunc GetHandleFunc  // invalid for non-sync notifications
+	added      []identity.NumericIdentity
+	deleted    []identity.NumericIdentity
+	wg         *sync.WaitGroup
 }
+
+type IPFamily uint8
+
+const (
+	ipFamilyNone = IPFamily(iota)
+	ipFamilyV4
+	ipFamilyV6
+)
+
+// getIPFamily returns the IP family of most specific CIDR for a local scope identity.
+// WORLD IDs are not considered here.
+func getIPFamily(id identity.NumericIdentity, lbls labels.LabelArray) IPFamily {
+	prefix := getLocalScopePrefix(id, lbls)
+	if prefix.IsValid() {
+		if prefix.Addr().Is4() || prefix.Addr().Is4In6() {
+			return ipFamilyV4
+		}
+		return ipFamilyV6
+	}
+	return ipFamilyNone
+}
+
+// Capacity for the slice of IDs to be removed.
+const versionedIDCapacity = 128
 
 // SelectorCache caches identities, identity selectors, and the
 // subsets of identities each selector selects.
 type SelectorCache struct {
-	prefixMap lock.Map[identity.NumericIdentity, netip.Prefix]
+	versionManager *versioned.Manager
+
+	// ipFamilyMap maps the numeric identity to an IP family, if any
+	//
+	// While this it not "versioned" we postpone removal of entries until versioned users no longer need them.
+	// New items are added immediately, but those would not be used by versioned users that do not know about the new
+	// identity yet.
+	ipFamilyMap lock.Map[identity.NumericIdentity, IPFamily]
 
 	mutex lock.RWMutex
+
+	idRemovals versioned.VersionedSlice[identity.NumericIdentity]
 
 	// idCache contains all known identities as informed by the
 	// kv-store and the local identity facility via our
@@ -100,9 +135,29 @@ type SelectorCache struct {
 	userMutex lock.Mutex
 	// userNotes holds a FIFO list of user notifications to be made
 	userNotes []userNotification
+	// notifiedUsers is a set of all notified userNotes
+	notifiedUsers map[CachedSelectionUser]struct{}
 
 	// used to lazily start the handler for user notifications.
 	startNotificationsHandlerOnce sync.Once
+}
+
+// GetCurrentVersionHoldFunc calls the given function with a versioned.VersionHold for the current version of
+// SelectorCache selections while selector cache is locked for writing, so that the caller may get
+// ready for getting incremental updates that are possible right after the lock is released.
+// This should only be used with trivial functions that can not lock or sleep!
+// Use the plain 'GetCurrentVersionHold' whenever possible, as it does not lock the selector cache.
+// The returned VersionHold must be closed with Close()
+func (sc *SelectorCache) GetCurrentVersionHoldFunc(f func(*versioned.VersionHold)) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+	f(sc.GetCurrentVersionHold())
+}
+
+// GetCurrentVersionHold returns a VersoionHandle for the current version.
+// The returned VersionHold must be closed with Close()
+func (sc *SelectorCache) GetCurrentVersionHold() *versioned.VersionHold {
+	return sc.versionManager.GetCurrentVersionHold()
 }
 
 // GetModel returns the API model of the SelectorCache.
@@ -112,8 +167,13 @@ func (sc *SelectorCache) GetModel() models.SelectorCache {
 
 	selCacheMdl := make(models.SelectorCache, 0, len(sc.selectors))
 
+	// Get handle to the current version. Any concurrent updates will not be visible in the
+	// returned model.
+	handle := sc.versionManager.GetCurrentVersionHold()
+	defer handle.Close()
+
 	for selector, idSel := range sc.selectors {
-		selections := idSel.GetSelections()
+		selections := idSel.GetSelections(handle)
 		ids := make([]int64, 0, len(selections))
 		for i := range selections {
 			ids = append(ids, int64(selections[i]))
@@ -155,7 +215,11 @@ func (sc *SelectorCache) handleUserNotifications() {
 		sc.userMutex.Unlock()
 
 		for _, n := range notifications {
-			n.user.IdentitySelectionUpdated(n.selector, n.added, n.deleted)
+			if n.selector == nil {
+				n.user.IdentitySelectionSync(n.handleFunc)
+			} else {
+				n.user.IdentitySelectionUpdated(n.selector, n.added, n.deleted)
+			}
 			n.wg.Done()
 		}
 	}
@@ -167,6 +231,10 @@ func (sc *SelectorCache) queueUserNotification(user CachedSelectionUser, selecto
 	})
 	wg.Add(1)
 	sc.userMutex.Lock()
+	if sc.notifiedUsers == nil {
+		sc.notifiedUsers = make(map[CachedSelectionUser]struct{})
+	}
+	sc.notifiedUsers[user] = struct{}{}
 	sc.userNotes = append(sc.userNotes, userNotification{
 		user:     user,
 		selector: selector,
@@ -178,19 +246,54 @@ func (sc *SelectorCache) queueUserNotification(user CachedSelectionUser, selecto
 	sc.userCond.Signal()
 }
 
+type GetHandleFunc func() *versioned.VersionHold
+
+func (sc *SelectorCache) queueNotifiedUsersSync(handleFunc GetHandleFunc, wg *sync.WaitGroup) {
+	sc.userMutex.Lock()
+	for user := range sc.notifiedUsers {
+		wg.Add(1)
+
+		// sync notification has a nil selector
+		sc.userNotes = append(sc.userNotes, userNotification{
+			user:       user,
+			handleFunc: handleFunc,
+			wg:         wg,
+		})
+	}
+	sc.notifiedUsers = nil
+	sc.userMutex.Unlock()
+	sc.userCond.Signal()
+}
+
 // NewSelectorCache creates a new SelectorCache with the given identities.
 func NewSelectorCache(ids identity.IdentityMap) *SelectorCache {
 	sc := &SelectorCache{
-		idCache:   make(map[identity.NumericIdentity]scIdentity, len(ids)),
-		selectors: make(map[string]*identitySelector),
+		idRemovals: make([]versioned.Versioned[identity.NumericIdentity], 0, versionedIDCapacity),
+		idCache:    make(map[identity.NumericIdentity]scIdentity, len(ids)),
+		selectors:  make(map[string]*identitySelector),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
+	sc.versionManager = versioned.NewManager(func(keepVersion versioned.KeepVersion) {
+		// This is called when we call the 'cleaner' callback, and we always do that while
+		// holding sc.mutex.
+		// Scanning through all selections is not very efficient, but we do not currently
+		// know which selectors need the cleanup.
+		for _, idSel := range sc.selectors {
+			idSel.selections.RemoveBefore(keepVersion)
+		}
+
+		// clean up stale IDs from ipFamilyMap
+		n := sc.idRemovals.ForEachBefore(keepVersion, func(nid identity.NumericIdentity) {
+			sc.ipFamilyMap.Delete(nid)
+		})
+		sc.idRemovals = sc.idRemovals[n:]
+	})
 
 	for nid, lbls := range ids {
-		// store prefix into prefix map
-		prefix := getLocalScopePrefix(nid, lbls)
-		if prefix.IsValid() {
-			sc.prefixMap.Store(nid, prefix)
+		// store IPFamily into the map
+		family := getIPFamily(nid, lbls)
+		if family != ipFamilyNone {
+			sc.ipFamilyMap.Store(nid, family)
 		}
 		sc.idCache[nid] = newIdentity(nid, lbls)
 	}
@@ -208,8 +311,6 @@ func (sc *SelectorCache) SetLocalIdentityNotifier(pop identityNotifier) {
 }
 
 var (
-	// Empty slice of numeric identities used for all selectors that select nothing
-	emptySelection identity.NumericIdentitySlice
 	// wildcardSelectorKey is used to compare if a key is for a wildcard
 	wildcardSelectorKey = api.WildcardEndpointSelector.LabelSelector.String()
 	// noneSelectorKey is used to compare if a key is for "reserved:none"
@@ -262,6 +363,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls labels.L
 	return sc.addSelector(user, lbls, key, source)
 }
 
+// must hold lock for writing
 func (sc *SelectorCache) addSelector(user CachedSelectionUser, lbls labels.LabelArray, key string, source selectorSource) (CachedSelector, bool) {
 	idSel := &identitySelector{
 		key:              key,
@@ -270,6 +372,7 @@ func (sc *SelectorCache) addSelector(user CachedSelectionUser, lbls labels.Label
 		source:           source,
 		metadataLbls:     lbls,
 	}
+
 	sc.selectors[key] = idSel
 
 	// Scan the cached set of IDs to determine any new matchers
@@ -287,7 +390,9 @@ func (sc *SelectorCache) addSelector(user CachedSelectionUser, lbls labels.Label
 
 	// Create the immutable slice representation of the selected
 	// numeric identities
-	idSel.updateSelections()
+	nextVersion := sc.versionManager.GetNextVersion()
+	idSel.updateSelections(nextVersion)
+	sc.versionManager.Publish(nextVersion)
 
 	return idSel, idSel.addUser(user)
 
@@ -297,9 +402,9 @@ func (sc *SelectorCache) addSelector(user CachedSelectionUser, lbls labels.Label
 // selector cache, returning nil if one can not be found.
 func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelector) CachedSelector {
 	key := selector.CachedString()
-	sc.mutex.Lock()
+	sc.mutex.RLock()
 	idSel := sc.selectors[key]
-	sc.mutex.Unlock()
+	sc.mutex.RUnlock()
 	return idSel
 }
 
@@ -390,6 +495,8 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
+	nextVersion := sc.versionManager.GetNextVersion()
+
 	// Update idCache so that newly added selectors get
 	// prepopulated with all matching numeric identities.
 	for numericID := range deleted {
@@ -399,7 +506,9 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				logfields.Labels:   old.lbls,
 			}).Debug("UpdateIdentities: Deleting identity")
 			delete(sc.idCache, numericID)
-			sc.prefixMap.Delete(numericID)
+
+			// Defer deletion until 'currentVersion' is not used by any versioned users
+			sc.idRemovals = sc.idRemovals.Append(nextVersion, numericID)
 		} else {
 			log.WithFields(logrus.Fields{
 				logfields.Identity: numericID,
@@ -442,9 +551,9 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 			}).Debug("UpdateIdentities: Adding a new identity")
 		}
 		// store prefix into prefix map
-		prefix := getLocalScopePrefix(numericID, lbls)
-		if prefix.IsValid() {
-			sc.prefixMap.Store(numericID, prefix)
+		family := getIPFamily(numericID, lbls)
+		if family != ipFamilyNone {
+			sc.ipFamilyMap.Store(numericID, family)
 		}
 		sc.idCache[numericID] = newIdentity(numericID, lbls)
 	}
@@ -473,15 +582,19 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				}
 			}
 			if len(dels)+len(adds) > 0 {
-				idSel.updateSelections()
+				idSel.updateSelections(nextVersion)
 				idSel.notifyUsers(sc, adds, dels, wg)
 			}
 		}
+		sc.queueNotifiedUsersSync(func() *versioned.VersionHold {
+			return sc.versionManager.GetNextVersionHold(nextVersion)
+		}, wg)
 	}
+	sc.versionManager.Publish(nextVersion)
 }
 
-// GetPrefix returns the most specific CIDR for an identity, if any.
-func (sc *SelectorCache) GetPrefix(id identity.NumericIdentity) netip.Prefix {
-	p, _ := sc.prefixMap.Load(id)
+// GetPrefix returns the IP Family of the most specific CIDR for an identity, if any.
+func (sc *SelectorCache) GetIPFamily(id identity.NumericIdentity) IPFamily {
+	p, _ := sc.ipFamilyMap.Load(id)
 	return p
 }

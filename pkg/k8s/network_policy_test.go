@@ -96,6 +96,9 @@ func testNewPolicyRepository() *policy.Repository {
 func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, added, deleted []identity.NumericIdentity) {
 }
 
+func (d *DummySelectorCacheUser) IdentitySelectionSync(policy.GetHandleFunc) {
+}
+
 func TestParseNetworkPolicyIngress(t *testing.T) {
 	netPolicy := &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{

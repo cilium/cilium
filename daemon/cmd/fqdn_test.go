@@ -93,6 +93,9 @@ type dummySelectorCacheUser struct{}
 func (d *dummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, added, deleted []identity.NumericIdentity) {
 }
 
+func (d *dummySelectorCacheUser) IdentitySelectionSync(policy.GetHandleFunc) {
+}
+
 // BenchmarkNotifyOnDNSMsg stresses the main callback function for the DNS
 // proxy path, which is called on every DNS request and response.
 func BenchmarkNotifyOnDNSMsg(b *testing.B) {

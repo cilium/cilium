@@ -595,6 +595,10 @@ func (ipc *IPCache) RemoveIdentityOverride(cidr netip.Prefix, identityLabels lab
 	ipc.RemoveMetadata(cidr, resource, overrideIdentity(true), identityLabels)
 }
 
+func (ipc *IPCache) GetCurrentRevision() (revision uint64) {
+	return ipc.metadata.getCurrentRevision()
+}
+
 // WaitForRevision will block until the desired revision has been reached (or passed).
 // It can be used in concert with the revision number returned by Upsert* calls to
 // ensure that an update has been applied.

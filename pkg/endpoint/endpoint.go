@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
@@ -1598,6 +1599,13 @@ func (e *Endpoint) OnDNSPolicyUpdateLocked(rules restore.DNSRules) {
 	}
 }
 
+func (e *Endpoint) GetPolicyVersionHold() *versioned.VersionHold {
+	if e.desiredPolicy != nil {
+		return e.desiredPolicy.VersionHold
+	}
+	return nil
+}
+
 // getProxyStatistics gets the ProxyStatistics for the flows with the
 // given characteristics, or adds a new one and returns it.
 func (e *Endpoint) getProxyStatistics(key string, l7Protocol string, port uint16, ingress bool, redirectPort uint16) *models.ProxyStatistics {
@@ -2050,7 +2058,7 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, sourceFilter string, identi
 	// - the endpoint is in this init state.
 	if len(identityLabels) != 0 &&
 		sourceFilter != labels.LabelSourceAny &&
-		!identityLabels.Has(labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved)) &&
+		!identityLabels.HasInitLabel() &&
 		e.IsInit() {
 
 		idLabls := e.OpLabels.IdentityLabels()

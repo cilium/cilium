@@ -171,6 +171,9 @@ func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 
 type DummyOwner struct{}
 
+func (d DummyOwner) CreateRedirects(*L4Filter) {
+}
+
 func (d DummyOwner) LookupRedirectPort(bool, string, uint16, string) (uint16, error) {
 	return 1, nil
 }
@@ -241,7 +244,8 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		_ = ip.DistillPolicy(DummyOwner{}, false)
+		policy := ip.DistillPolicy(DummyOwner{}, false)
+		policy.Ready()
 		ip.Detach()
 	}
 }
@@ -252,7 +256,8 @@ func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		_ = ip.DistillPolicy(DummyOwner{}, false)
+		policy := ip.DistillPolicy(DummyOwner{}, false)
+		policy.Ready()
 		ip.Detach()
 	}
 }
@@ -263,7 +268,8 @@ func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		_ = ip.DistillPolicy(DummyOwner{}, false)
+		policy := ip.DistillPolicy(DummyOwner{}, false)
+		policy.Ready()
 		ip.Detach()
 	}
 }
@@ -313,6 +319,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	require.Equal(t, redirectTypeEnvoy, selPolicy.L4Policy.redirectTypes)
 
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+	policy.Ready()
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -412,10 +419,11 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
-
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
+
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+	policy.Ready()
 
 	cachedSelectorHost := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameHost])
 	require.NotNil(t, cachedSelectorHost)
@@ -516,7 +524,9 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	defer repo.Mutex.RUnlock()
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
+
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+	policy.Ready()
 
 	rule1MapStateEntry := NewMapStateEntry(td.wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, 0, "", 0, false, DefaultAuthType, AuthTypeDisabled)
 	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
@@ -560,7 +570,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(added1, nil, wg)
 	wg.Wait()
-	require.Equal(t, 0, len(policy.policyMapChanges.changes))
+	require.Equal(t, 0, len(policy.policyMapChanges.synced)) // XXX why 0?
 
 	// Have to remove circular reference before testing to avoid an infinite loop
 	policy.selectorPolicy.Detach()
@@ -640,7 +650,9 @@ func TestMapStateWithIngress(t *testing.T) {
 	defer repo.Mutex.RUnlock()
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
+
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+	policy.Ready()
 
 	// Add new identity to test accumulation of MapChanges
 	added1 := identity.IdentityMap{
@@ -651,7 +663,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(added1, nil, wg)
 	wg.Wait()
-	require.Len(t, policy.policyMapChanges.changes, 3)
+	require.Len(t, policy.policyMapChanges.synced, 3)
 
 	deleted1 := identity.IdentityMap{
 		identity.NumericIdentity(193): labels.ParseSelectLabelArray("id=resolve_test_1", "num=2"),
@@ -659,7 +671,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	wg = &sync.WaitGroup{}
 	td.sc.UpdateIdentities(nil, deleted1, wg)
 	wg.Wait()
-	require.Len(t, policy.policyMapChanges.changes, 4)
+	require.Len(t, policy.policyMapChanges.synced, 4)
 
 	cachedSelectorWorld := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorld])
 	require.NotNil(t, cachedSelectorWorld)
@@ -733,17 +745,19 @@ func TestMapStateWithIngress(t *testing.T) {
 	cachedSelectorTest = td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.Nil(t, cachedSelectorTest)
 
-	adds, deletes := policy.ConsumeMapChanges()
+	handle, changes := policy.ConsumeMapChanges()
+	handle.Close()
+
 	// maps on the policy got cleared
-	require.Nil(t, policy.policyMapChanges.changes)
+	require.Nil(t, policy.policyMapChanges.synced)
 
 	require.Equal(t, Keys{
 		{Identity: 192, DestPort: 80, Nexthdr: 6}: {},
 		{Identity: 194, DestPort: 80, Nexthdr: 6}: {},
-	}, adds)
+	}, changes.Adds)
 	require.Equal(t, Keys{
 		{Identity: 193, DestPort: 80, Nexthdr: 6}: {},
-	}, deletes)
+	}, changes.Deletes)
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
