@@ -757,19 +757,19 @@ func toGRPCHeaderMatch(match gatewayv1.GRPCRouteMatch) []model.KeyValueMatch {
 	}
 	res := make([]model.KeyValueMatch, 0, len(match.Headers))
 	for _, h := range match.Headers {
-		t := gatewayv1.HeaderMatchExact
+		t := gatewayv1.GRPCHeaderMatchExact
 		if h.Type != nil {
 			t = *h.Type
 		}
 		switch t {
-		case gatewayv1.HeaderMatchExact:
+		case gatewayv1.GRPCHeaderMatchExact:
 			res = append(res, model.KeyValueMatch{
 				Key: string(h.Name),
 				Match: model.StringMatch{
 					Exact: h.Value,
 				},
 			})
-		case gatewayv1.HeaderMatchRegularExpression:
+		case gatewayv1.GRPCHeaderMatchRegularExpression:
 			res = append(res, model.KeyValueMatch{
 				Key: string(h.Name),
 				Match: model.StringMatch{

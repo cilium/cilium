@@ -60,7 +60,7 @@ type GatewayClass struct {
 	// Implementations MUST populate status on all GatewayClass resources which
 	// specify their controller name.
 	//
-	// +kubebuilder:default={conditions: {{type: "Accepted", status: "Unknown", message: "Waiting for controller", reason: "Waiting", lastTransitionTime: "1970-01-01T00:00:00Z"}}}
+	// +kubebuilder:default={conditions: {{type: "Accepted", status: "Unknown", message: "Waiting for controller", reason: "Pending", lastTransitionTime: "1970-01-01T00:00:00Z"}}}
 	Status GatewayClassStatus `json:"status,omitempty"`
 }
 
@@ -261,9 +261,10 @@ type GatewayClassStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// SupportedFeatures is the set of features the GatewayClass support.
-	// It MUST be sorted in ascending alphabetical order.
+	// It MUST be sorted in ascending alphabetical order by the Name key.
 	// +optional
-	// +listType=set
+	// +listType=map
+	// +listMapKey=name
 	// <gateway:experimental>
 	// +kubebuilder:validation:MaxItems=64
 	SupportedFeatures []SupportedFeature `json:"supportedFeatures,omitempty"`
@@ -278,6 +279,10 @@ type GatewayClassList struct {
 	Items           []GatewayClass `json:"items"`
 }
 
-// SupportedFeature is used to describe distinct features that are covered by
+// FeatureName is used to describe distinct features that are covered by
 // conformance tests.
-type SupportedFeature string
+type FeatureName string
+
+type SupportedFeature struct {
+	Name FeatureName `json:"name"`
+}

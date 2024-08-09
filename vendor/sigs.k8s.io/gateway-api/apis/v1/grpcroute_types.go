@@ -388,7 +388,7 @@ type GRPCHeaderMatch struct {
 	//
 	// +optional
 	// +kubebuilder:default=Exact
-	Type *HeaderMatchType `json:"type,omitempty"`
+	Type *GRPCHeaderMatchType `json:"type,omitempty"`
 
 	// Name is the name of the gRPC Header to be matched.
 	//
