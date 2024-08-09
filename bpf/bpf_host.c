@@ -1871,15 +1871,17 @@ from_host_to_lxc(struct __ctx_buff *ctx, __s8 *ext_err)
 
 	return ret;
 }
+#endif /* ENABLE_HOST_FIREWALL */
 
 /* When per-endpoint routes are enabled, packets to and from local endpoints
  * will tail call into this program to enforce egress and ingress host policies.
  * Packets to the local endpoints will then tail call back to the original
  * bpf_lxc program.
  */
-__section_tail(CILIUM_MAP_POLICY, TEMPLATE_HOST_EP_ID)
-int handle_lxc_traffic(struct __ctx_buff *ctx)
+__section_entry
+int handle_lxc_traffic(struct __ctx_buff *ctx __maybe_unused)
 {
+#ifdef ENABLE_HOST_FIREWALL
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
 	__u32 lxc_id;
 	int ret;
@@ -1899,7 +1901,9 @@ int handle_lxc_traffic(struct __ctx_buff *ctx)
 	}
 
 	return to_host_from_lxc(ctx);
-}
+#else
+	return 0;
 #endif /* ENABLE_HOST_FIREWALL */
+}
 
 BPF_LICENSE("Dual BSD/GPL");

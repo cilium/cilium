@@ -571,8 +571,8 @@ const (
 	// A BPF program wants to tail call into bpf_host, but the host datapath
 	// hasn't been loaded yet.
 	DropReason_DROP_HOST_NOT_READY DropReason = 202
-	// A BPF program wants to tail call some endpoint's policy program in the
-	// POLICY_CALL_MAP, but the program is not available.
+	// A BPF program wants to tail call some endpoint's policy program in
+	// cilium_call_policy, but the program is not available.
 	DropReason_DROP_EP_NOT_READY DropReason = 203
 )
 

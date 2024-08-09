@@ -7,19 +7,16 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -33,121 +30,6 @@ func directionToParent(dir string) uint32 {
 		return netlink.HANDLE_MIN_EGRESS
 	}
 	return 0
-}
-
-// loadDatapath returns a Collection given the ELF obj, renames maps according
-// to mapRenames and overrides the given constants.
-//
-// When successful, returns a function that commits pending map pins to the bpf
-// file system, for maps that were found to be incompatible with their pinned
-// counterparts, or for maps with certain flags that modify the default pinning
-// behaviour.
-//
-// When attaching multiple programs from the same ELF in a loop, the returned
-// function should only be run after all entrypoints have been attached. For
-// example, attach both bpf_host.c:cil_to_netdev and cil_from_netdev before
-// invoking the returned function, otherwise missing tail calls will occur.
-func loadDatapath(spec *ebpf.CollectionSpec, mapRenames map[string]string, constants map[string]uint64) (*ebpf.Collection, func() error, error) {
-	spec, err := renameMaps(spec, mapRenames)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Inserting a program into these maps will immediately cause other BPF
-	// programs to call into it, even if other maps like cilium_calls haven't been
-	// fully populated for the current ELF. Save their contents and avoid sending
-	// them to the ELF loader.
-	var policyProgs, egressPolicyProgs []ebpf.MapKV
-	if pm, ok := spec.Maps[policymap.PolicyCallMapName]; ok {
-		policyProgs = append(policyProgs, pm.Contents...)
-		pm.Contents = nil
-	}
-	if pm, ok := spec.Maps[policymap.PolicyEgressCallMapName]; ok {
-		egressPolicyProgs = append(egressPolicyProgs, pm.Contents...)
-		pm.Contents = nil
-	}
-
-	// Load the CollectionSpec into the kernel, picking up any pinned maps from
-	// bpffs in the process.
-	pinPath := bpf.TCGlobalsPath()
-	collOpts := bpf.CollectionOptions{
-		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: pinPath},
-		},
-		Constants: constants,
-	}
-	if err := bpf.MkdirBPF(pinPath); err != nil {
-		return nil, nil, fmt.Errorf("creating bpffs pin path: %w", err)
-	}
-
-	log.Debug("Loading Collection into kernel")
-
-	coll, commit, err := bpf.LoadCollection(spec, &collOpts)
-	var ve *ebpf.VerifierError
-	if errors.As(err, &ve) {
-		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
-			return nil, nil, fmt.Errorf("writing verifier log to stderr: %w", err)
-		}
-	}
-	if err != nil {
-		return nil, nil, fmt.Errorf("loading eBPF collection into the kernel: %w", err)
-	}
-
-	// If an ELF contains one of the policy call maps, resolve and insert the
-	// programs it refers to into the map. This always needs to happen _before_
-	// attaching the ELF's entrypoint(s), but after the ELF's internal tail call
-	// map (cilium_calls) has been populated, as doing so means the ELF's programs
-	// become reachable through its policy programs, which hold references to the
-	// endpoint's cilium_calls. Therefore, inserting policy programs is considered
-	// an 'attachment', just not through the typical bpf hooks.
-	//
-	// For example, a packet can enter to-container, jump into the bpf_host policy
-	// program, which then jumps into the endpoint's policy program that are
-	// installed by the loops below. If we allow packets to enter the endpoint's
-	// bpf programs through its tc hook(s), _all_ this plumbing needs to be done
-	// first, or we risk missing tail calls.
-	if len(policyProgs) != 0 {
-		if err := resolveAndInsertCalls(coll, policymap.PolicyCallMapName, policyProgs); err != nil {
-			return nil, nil, fmt.Errorf("inserting policy programs: %w", err)
-		}
-	}
-
-	if len(egressPolicyProgs) != 0 {
-		if err := resolveAndInsertCalls(coll, policymap.PolicyEgressCallMapName, egressPolicyProgs); err != nil {
-			return nil, nil, fmt.Errorf("inserting egress policy programs: %w", err)
-		}
-	}
-
-	return coll, commit, nil
-}
-
-// resolveAndInsertCalls resolves a given slice of ebpf.MapKV containing u32 keys
-// and string values (typical for a prog array) to the Programs they point to in
-// the Collection. The Programs are then inserted into the Map with the given
-// mapName contained within the Collection.
-func resolveAndInsertCalls(coll *ebpf.Collection, mapName string, calls []ebpf.MapKV) error {
-	m, ok := coll.Maps[mapName]
-	if !ok {
-		return fmt.Errorf("call map %s not found in Collection", mapName)
-	}
-
-	for _, v := range calls {
-		name := v.Value.(string)
-		slot := v.Key.(uint32)
-
-		p, ok := coll.Programs[name]
-		if !ok {
-			return fmt.Errorf("program %s not found in Collection", name)
-		}
-
-		if err := m.Update(slot, p, ebpf.UpdateAny); err != nil {
-			return fmt.Errorf("inserting program %s into slot %d", name, slot)
-		}
-
-		log.Debugf("Inserted program %s into %s slot %d", name, mapName, slot)
-	}
-
-	return nil
 }
 
 // enableForwarding puts the given link into the up state and enables IP forwarding.
