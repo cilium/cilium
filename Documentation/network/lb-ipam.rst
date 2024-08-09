@@ -64,25 +64,26 @@ An IP pool can have multiple blocks of IPs. A block can be specified with CIDR
 notation (<prefix>/<bits>) or a range notation with a start and stop IP. As
 pictured in :ref:`lb_ipam_pools`.
 
-CIDRs are often used to specify routable IP ranges. By convention, the first
-and the last IP of a CIDR are reserved. The first IP is the 
+When CIDRs are used to specify routable IP ranges, you might not want to allocate
+the first and the last IP of a CIDR. Typically the first IP is the 
 "network address" and the last IP is the "broadcast address". In some networks
 these IPs are not usable and they do not always play well with all network 
-equipment. LB-IPAM will not assign these by default. Exceptions are /32 and 
-/31 IPv4 CIDRs and /128 and /127 IPv6 CIDRs since these only have 1 or 2 IPs 
-respectively.
+equipment. By default, LB-IPAM uses all IPs in a given CIDR.
 
-If you wish to use the first and last IPs of CIDRs, you can set the 
-``.spec.allowFirstLastIPs`` field to ``yes``.
+If you wish to reserve the first and last IPs of CIDRs, you can set the 
+``.spec.allowFirstLastIPs`` field to ``No``.
 
-Since Ranges are typically used to indicate subsections of routable IP ranges,
-no IPs are reserved.
+This option is ignored for /32 and /31 IPv4 CIDRs and /128 and /127 IPv6 CIDRs 
+since these only have 1 or 2 IPs respectively.
+
+This setting only applies to blocks specified with ``.spec.blocks[].cidr`` and not to
+blocks specified with ``.spec.blocks[].start`` and ``.spec.blocks[].stop``.
 
 .. warning::
 
-  In v1.15, ``.spec.allowFirstLastIPs`` defaults to ``no``. This will change to
-  ``yes`` in v1.16. Please set this field explicitly if you rely on the field
-  being set to ``no``.
+  In v1.15, ``.spec.allowFirstLastIPs`` defaults to ``No``. This has changed to
+  ``Yes`` in v1.16. Please set this field explicitly if you rely on the field
+  being set to ``No``.
 
 Service Selectors
 -----------------
