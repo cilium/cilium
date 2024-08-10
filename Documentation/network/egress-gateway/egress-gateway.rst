@@ -278,6 +278,17 @@ setting the ``--devices`` agent option accordingly.
 
    The ``egressIP`` and ``interface`` properties cannot both be specified in the ``egressGateway`` spec. Egress Gateway Policies that contain both of these properties will be ignored by Cilium.
 
+.. note::
+
+   When Cilium is unable to select the Egress IP for an Egress Gateway policy (for example because the specified ``egressIP`` is not configured for any
+   network interface on the gateway node), then the gateway node will drop traffic that matches the policy with the reason ``No Egress IP configured``.
+
+.. note::
+
+   After Cilium has selected the Egress IP for an Egress Gateway policy (or failed to do so), it does not automatically respond to a change in the
+   gateway node's network configuration (for example if an IP address is added or deleted). You can force a fresh selection by re-applying the
+   Egress Gateway policy.
+
 Example policy
 --------------
 
