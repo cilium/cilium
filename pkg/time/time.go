@@ -12,28 +12,11 @@ import (
 )
 
 const (
-	Layout      = time.Layout
-	ANSIC       = time.ANSIC
-	UnixDate    = time.UnixDate
-	RubyDate    = time.RubyDate
-	RFC822      = time.RFC822
-	RFC822Z     = time.RFC822Z
-	RFC850      = time.RFC850
-	RFC1123     = time.RFC1123
 	RFC1123Z    = time.RFC1123Z
 	RFC3339     = time.RFC3339
 	RFC3339Nano = time.RFC3339Nano
-	Kitchen     = time.Kitchen
-	Stamp       = time.Stamp
 	StampMilli  = time.StampMilli
-	StampMicro  = time.StampMicro
-	StampNano   = time.StampNano
-	DateTime    = time.DateTime
-	DateOnly    = time.DateOnly
-	TimeOnly    = time.TimeOnly
 
-	Nanosecond  = time.Nanosecond
-	Microsecond = time.Microsecond
 	Millisecond = time.Millisecond
 	Second      = time.Second
 	Minute      = time.Minute
@@ -41,20 +24,13 @@ const (
 )
 
 var (
-	ParseDuration          = time.ParseDuration
-	Since                  = time.Since
-	Until                  = time.Until
-	FixedZone              = time.FixedZone
-	LoadLocation           = time.LoadLocation
-	LoadLocationFromTZData = time.LoadLocationFromTZData
-	Date                   = time.Date
-	Now                    = time.Now
-	Parse                  = time.Parse
-	ParseInLocation        = time.ParseInLocation
-	UTC                    = time.UTC
-	Unix                   = time.Unix
-	UnixMicro              = time.UnixMicro
-	UnixMilli              = time.UnixMilli
+	ParseDuration = time.ParseDuration
+	Since         = time.Since
+	FixedZone     = time.FixedZone
+	Date          = time.Date
+	Now           = time.Now
+	Parse         = time.Parse
+	Unix          = time.Unix
 )
 
 type (
