@@ -310,7 +310,7 @@ int NAME(struct __ctx_buff *ctx)						\
 		if (is_defined(ENABLE_L7_LB) && proxy_port)			\
 			scope = SCOPE_FORWARD;					\
 		if (is_defined(ENABLE_L7_LB) &&					\
-		    (ctx_load_meta(ctx, CB_FROM_HOST == FROM_HOST_L7_LB)))	\
+		    (ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB))	\
 			scope = SCOPE_FORWARD;					\
 	}									\
 										\
@@ -371,7 +371,7 @@ int NAME(struct __ctx_buff *ctx)						\
 		if (is_defined(ENABLE_L7_LB) && proxy_port)			\
 			scope = SCOPE_FORWARD;					\
 		if (is_defined(ENABLE_L7_LB) &&					\
-		    (ctx_load_meta(ctx, CB_FROM_HOST == FROM_HOST_L7_LB)))	\
+		    (ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB))	\
 			scope = SCOPE_FORWARD;					\
 	}									\
 										\
