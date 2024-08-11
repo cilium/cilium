@@ -25,9 +25,9 @@ us to see what paths are forwarded to what backends.
 .. code-block:: shell-session
 
     $ # Apply the base definitions
-    $ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/examples/kubernetes/servicemesh/ingress-path-types.yaml
+    $ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/main/examples/kubernetes/servicemesh/ingress-path-types.yaml
     $ # Apply the Ingress
-    $ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/examples/kubernetes/servicemesh/ingress-path-types-ingress.yaml
+    $ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/main/examples/kubernetes/servicemesh/ingress-path-types-ingress.yaml
 
 
 Review the Ingress
@@ -161,6 +161,6 @@ Finally, we clean up our example:
 .. code-block:: shell-session
 
     $ # Apply the base definitions
-    $ kubectl delete -f https://raw.githubusercontent.com/cilium/cilium/examples/kubernetes/servicemesh/ingress-path-types.yaml
+    $ kubectl delete -f https://raw.githubusercontent.com/cilium/cilium/main/examples/kubernetes/servicemesh/ingress-path-types.yaml
     $ # Apply the Ingress
-    $ kubectl delete -f https://raw.githubusercontent.com/cilium/cilium/examples/kubernetes/servicemesh/ingress-path-types-ingress.yaml
+    $ kubectl delete -f https://raw.githubusercontent.com/cilium/cilium/main/examples/kubernetes/servicemesh/ingress-path-types-ingress.yaml
