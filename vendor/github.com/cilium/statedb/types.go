@@ -390,10 +390,16 @@ type tableEntry struct {
 
 func (t *tableEntry) numObjects() int {
 	indexEntry := t.indexes[t.meta.indexPos(RevisionIndex)]
+	if indexEntry.txn != nil {
+		return indexEntry.txn.Len()
+	}
 	return indexEntry.tree.Len()
 }
 
 func (t *tableEntry) numDeletedObjects() int {
 	indexEntry := t.indexes[t.meta.indexPos(GraveyardIndex)]
+	if indexEntry.txn != nil {
+		return indexEntry.txn.Len()
+	}
 	return indexEntry.tree.Len()
 }

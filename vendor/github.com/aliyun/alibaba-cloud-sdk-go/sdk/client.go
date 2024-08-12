@@ -232,7 +232,7 @@ func (client *Client) getHttpProxy(scheme string) (proxy *url.URL, err error) {
 	return proxy, err
 }
 
-func (client *Client) getNoProxy(scheme string) []string {
+func (client *Client) getNoProxy() []string {
 	var urls []string
 	if client.GetNoProxy() != "" {
 		urls = strings.Split(client.noProxy, ",")
@@ -369,7 +369,7 @@ func (client *Client) DoAction(request requests.AcsRequest, response responses.A
 func (client *Client) GetEndpointRules(regionId string, product string) (endpointRaw string, err error) {
 	if client.EndpointType == "regional" {
 		if regionId == "" {
-			err = fmt.Errorf("RegionId is empty, please set a valid RegionId.")
+			err = fmt.Errorf("RegionId is empty, please set a valid RegionId")
 			return "", err
 		}
 		endpointRaw = strings.Replace("<product><network>.<region_id>.aliyuncs.com", "<region_id>", regionId, 1)
@@ -584,7 +584,7 @@ func (client *Client) DoActionWithSigner(request requests.AcsRequest, response r
 		return err
 	}
 
-	noProxy := client.getNoProxy(httpRequest.URL.Scheme)
+	noProxy := client.getNoProxy()
 
 	var flag bool
 	for _, value := range noProxy {
@@ -853,6 +853,7 @@ func NewClientWithEcsRamRole(regionId string, roleName string) (client *Client, 
 	return
 }
 
+// Deprecated: the RsaKeyPair is deprecated
 func NewClientWithRsaKeyPair(regionId string, publicKeyId, privateKey string, sessionExpiration int) (client *Client, err error) {
 	client = &Client{}
 	err = client.InitWithRsaKeyPair(regionId, publicKeyId, privateKey, sessionExpiration)

@@ -33,14 +33,14 @@ func init() {
 	debug = utils.Init("sdk")
 }
 
-func signRoaRequest(request requests.AcsRequest, signer Signer, regionId string) (err error) {
+func signRoaRequest(request requests.AcsRequest, signer Signer) (err error) {
 	// 先获取 accesskey，确保刷新 credential
 	accessKeyId, err := signer.GetAccessKeyId()
 	if err != nil {
 		return err
 	}
 
-	completeROASignParams(request, signer, regionId)
+	completeROASignParams(request, signer)
 	stringToSign := buildRoaStringToSign(request)
 	request.SetStringToSign(stringToSign)
 
@@ -50,7 +50,7 @@ func signRoaRequest(request requests.AcsRequest, signer Signer, regionId string)
 	return
 }
 
-func completeROASignParams(request requests.AcsRequest, signer Signer, regionId string) {
+func completeROASignParams(request requests.AcsRequest, signer Signer) {
 	headerParams := request.GetHeaders()
 
 	// complete query params

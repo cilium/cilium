@@ -24,6 +24,7 @@ import (
 	"encoding/base64"
 )
 
+// Deprecated: use utils.ShaHmac1() instead of
 func ShaHmac1(source, secret string) string {
 	key := []byte(secret)
 	hmac := hmac.New(sha1.New, key)
@@ -33,6 +34,7 @@ func ShaHmac1(source, secret string) string {
 	return signedString
 }
 
+// Deprecated: use utils.Sha256WithRsa() instead of
 func Sha256WithRsa(source, secret string) string {
 	// block, _ := pem.Decode([]byte(secret))
 	decodeString, err := base64.StdEncoding.DecodeString(secret)
