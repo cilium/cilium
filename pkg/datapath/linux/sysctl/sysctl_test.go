@@ -53,6 +53,10 @@ func TestFullPath(t *testing.T) {
 			name:        "invalid.char$",
 			expectedErr: true,
 		},
+		{
+			name:     "Foo.Bar",
+			expected: "/proc/sys/Foo/Bar",
+		},
 	}
 
 	for _, tc := range testCases {
