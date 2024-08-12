@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -55,9 +56,6 @@ const (
 
 	// epIfaceName is the endpoint-side link device name for cilium-health.
 	epIfaceName = "cilium"
-
-	// PidfilePath
-	PidfilePath = "health-endpoint.pid"
 
 	// LaunchTime is the expected time within which the health endpoint
 	// should be able to be successfully run and its BPF program attached.
@@ -170,7 +168,7 @@ func (c *Client) PingEndpoint() error {
 //   - The health endpoint crashed during the current run of the Cilium agent
 //     and needs to be cleaned up before it is restarted.
 func KillEndpoint() {
-	path := filepath.Join(option.Config.StateDir, PidfilePath)
+	path := filepath.Join(option.Config.StateDir, healthDefaults.PidfilePath)
 	scopedLog := log.WithField(logfields.PIDFile, path)
 	scopedLog.Debug("Killing old health endpoint process")
 	pid, err := pidfile.Kill(path)
@@ -302,7 +300,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		return nil, fmt.Errorf("failed configure health interface %q: %w", epIfaceName, err)
 	}
 
-	pidfile := filepath.Join(option.Config.StateDir, PidfilePath)
+	pidfile := filepath.Join(option.Config.StateDir, healthDefaults.PidfilePath)
 	args := []string{"--listen", strconv.Itoa(option.Config.ClusterHealthPort), "--pidfile", pidfile}
 	cmd.SetTarget(binaryName)
 	cmd.SetArgs(args)

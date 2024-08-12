@@ -20,4 +20,7 @@ const (
 	// HealthEPName is the name used for the health endpoint, which is also
 	// used by the CLI client to detect when connectivity health is enabled
 	HealthEPName = "cilium-health-ep"
+
+	// PidfilePath
+	PidfilePath = "health-endpoint.pid"
 )

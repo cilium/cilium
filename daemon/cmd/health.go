@@ -48,7 +48,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup, sysctl
 		// When Cilium starts up in k8s mode, it is guaranteed to be
 		// running inside a new PID namespace which means that existing
 		// PIDfiles are referring to PIDs that may be reused. Clean up.
-		pidfilePath := filepath.Join(option.Config.StateDir, health.PidfilePath)
+		pidfilePath := filepath.Join(option.Config.StateDir, defaults.PidfilePath)
 		if err := pidfile.Remove(pidfilePath); err != nil {
 			log.WithField(logfields.PIDFile, pidfilePath).
 				WithError(err).

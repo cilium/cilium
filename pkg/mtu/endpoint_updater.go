@@ -23,8 +23,11 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
+	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/cilium/hive/cell"
@@ -151,6 +154,9 @@ func (emu *endpointUpdater) Updater(ctx context.Context, health cell.Health) err
 			errs = append(errs, err)
 		}
 		if err := emu.updateEndpoints(newMtus); err != nil {
+			errs = append(errs, err)
+		}
+		if err := emu.updateHealthEndpoint(newMtus); err != nil {
 			errs = append(errs, err)
 		}
 
@@ -325,6 +331,80 @@ func defaultRouteHook(routeMTUs []RouteMTU) error {
 	}
 
 	return nil
+}
+
+func (emu *endpointUpdater) updateHealthEndpoint(routeMTUs []RouteMTU) error {
+	// The PID file is written to at a different time than the health endpoint netns file is
+	// created, so we might need a few retries under certain conditions.
+	// Five retries of a second each seem reasonable before reporting errors,
+	// after that let the retry logic take care of it.
+	const healthEPRetries = 5
+
+	healthPIDPath := filepath.Join(option.Config.StateDir, healthDefaults.PidfilePath)
+
+	var (
+		pid int
+		err error
+	)
+
+	for i := 0; i < healthEPRetries; i++ {
+		pid, err = pidfile.Read(healthPIDPath)
+		if err == nil {
+			break
+		}
+
+		time.Sleep(time.Second)
+	}
+	if err != nil {
+		return err
+	}
+
+	// If the health endpoint is not running, we don't need to update its MTU
+	if pid == 0 {
+		return nil
+	}
+
+	file := fmt.Sprintf("/proc/%d/ns/net", pid)
+	var healthNS *netns.NetNS
+	for i := 0; i < healthEPRetries; i++ {
+		healthNS, err = netns.OpenPinned(file)
+		if err == nil {
+			break
+		}
+
+		time.Sleep(time.Second)
+	}
+	if err != nil {
+		return err
+	}
+
+	var errs []error
+
+	err = healthNS.Do(func() error {
+		for _, hook := range emu.hooks {
+			if err := hook(routeMTUs); err != nil {
+				errs = append(errs, err)
+				emu.logger.Error("error while updating MTU for health endpoint",
+					"netns", file,
+					logfields.Error, err,
+					"hook", runtime.FuncForPC(reflect.ValueOf(hook).Pointer()).Name(),
+				)
+			}
+		}
+		return nil
+	})
+	healthNS.Close()
+
+	// Even though we never return an error from ns.Do, it can still fail internally
+	if err != nil {
+		emu.logger.Error("Error updating MTU for health endpoint",
+			"pid", pid,
+			logfields.Error, err,
+		)
+		errs = append(errs, err)
+	}
+
+	return errors.Join(errs...)
 }
 
 // convert the route destination to a netip.Prefix
