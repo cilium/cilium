@@ -16,6 +16,7 @@ var Cell = cell.Module(
 	"CGroup Manager",
 
 	cell.Provide(newCGroupManager),
+	cell.Provide(newGetCgroupDumpMetadataRestApiHandler),
 )
 
 type cgroupManagerParams struct {
