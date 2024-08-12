@@ -251,7 +251,7 @@ Users (Alphabetically)
       D: Equinix Metal is using Cilium for production and non-production environments on bare metal
       U: CNI, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, BGP advertisements, Hubble, network visibility
       L: https://metal.equinix.com/
-      Q: @matoszz
+      Q: @tylerauerbeck, @fishnix, @tenyo, @hegartyk
 
     * N: Equinix
       D: Equinix NL Managed Services is using Cilium with their Managed Kubernetes offering
