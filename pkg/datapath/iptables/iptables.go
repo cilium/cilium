@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -291,7 +292,7 @@ type params struct {
 	Devices  statedb.Table[*tables.Device]
 }
 
-func newIptablesManager(p params) *Manager {
+func newIptablesManager(p params) datapath.IptablesManager {
 	iptMgr := &Manager{
 		logger:     p.Logger,
 		modulesMgr: p.ModulesMgr,

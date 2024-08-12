@@ -7,7 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/datapath/iptables"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
@@ -46,7 +46,7 @@ type proxyParams struct {
 
 	Lifecycle             cell.Lifecycle
 	Config                ProxyConfig
-	IPTablesManager       *iptables.Manager
+	IPTablesManager       datapath.IptablesManager
 	EndpointInfoRegistry  logger.EndpointInfoRegistry
 	MonitorAgent          monitoragent.Agent
 	EnvoyProxyIntegration *envoyProxyIntegration
@@ -90,7 +90,7 @@ func newProxy(params proxyParams) *Proxy {
 type envoyProxyIntegrationParams struct {
 	cell.In
 
-	IPTablesManager *iptables.Manager
+	IptablesManager datapath.IptablesManager
 	XdsServer       envoy.XDSServer
 	AdminClient     *envoy.EnvoyAdminClient
 }
@@ -102,7 +102,7 @@ func newEnvoyProxyIntegration(params envoyProxyIntegrationParams) *envoyProxyInt
 
 	return &envoyProxyIntegration{
 		xdsServer:       params.XdsServer,
-		iptablesManager: params.IPTablesManager,
+		iptablesManager: params.IptablesManager,
 		adminClient:     params.AdminClient,
 	}
 }
