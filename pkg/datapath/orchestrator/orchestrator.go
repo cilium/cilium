@@ -16,11 +16,10 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 
-	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/datapath/types"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -50,7 +49,7 @@ type orchestrator struct {
 	initDone              bool
 	dpInitialized         chan struct{}
 	trigger               chan reinitializeRequest
-	latestLocalNodeConfig atomic.Pointer[types.LocalNodeConfiguration]
+	latestLocalNodeConfig atomic.Pointer[datapath.LocalNodeConfiguration]
 }
 
 type reinitializeRequest struct {
@@ -62,10 +61,10 @@ type orchestratorParams struct {
 	cell.In
 
 	Log                 *slog.Logger
-	Loader              types.Loader
+	Loader              datapath.Loader
 	TunnelConfig        tunnel.Config
 	MTU                 mtu.MTU
-	IPTablesManager     *iptables.Manager
+	IPTablesManager     datapath.IptablesManager
 	Proxy               *proxy.Proxy
 	DB                  *statedb.DB
 	Devices             statedb.Table[*tables.Device]
@@ -217,7 +216,7 @@ func (o *orchestrator) Reinitialize(ctx context.Context) error {
 	return <-errChan
 }
 
-func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest, localNodeConfig *types.LocalNodeConfiguration) error {
+func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest, localNodeConfig *datapath.LocalNodeConfiguration) error {
 	if req.ctx != nil {
 		ctx = req.ctx
 	}
@@ -266,7 +265,7 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 	return err
 }
 
-func (o *orchestrator) ReloadDatapath(ctx context.Context, ep types.Endpoint, stats *metrics.SpanStat) (string, error) {
+func (o *orchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (string, error) {
 	select {
 	case <-o.dpInitialized:
 	case <-ctx.Done():
@@ -286,17 +285,17 @@ func (o *orchestrator) ReinitializeXDP(ctx context.Context, extraCArgs []string)
 	return o.params.Loader.ReinitializeXDP(ctx, o.latestLocalNodeConfig.Load(), extraCArgs)
 }
 
-func (o *orchestrator) EndpointHash(cfg types.EndpointConfiguration) (string, error) {
+func (o *orchestrator) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
 	<-o.dpInitialized
 	return o.params.Loader.EndpointHash(cfg, o.latestLocalNodeConfig.Load())
 }
 
-func (o *orchestrator) Unload(ep types.Endpoint) {
+func (o *orchestrator) Unload(ep datapath.Endpoint) {
 	<-o.dpInitialized
 	o.params.Loader.Unload(ep)
 }
 
-func (o *orchestrator) WriteEndpointConfig(w io.Writer, cfg types.EndpointConfiguration) error {
+func (o *orchestrator) WriteEndpointConfig(w io.Writer, cfg datapath.EndpointConfiguration) error {
 	<-o.dpInitialized
 	return o.params.Loader.WriteEndpointConfig(w, cfg, o.latestLocalNodeConfig.Load())
 }
