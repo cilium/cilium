@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package maps
 
 import (
 	"fmt"
@@ -31,6 +31,7 @@ func (m *fakeMap) DumpAndSubscribe(cb bpf.EventCallbackFunc, follow bool) (*bpf.
 	cb(&bpf.Event{Timestamp: s})
 	return nil, nil
 }
+
 func (m *fakeMap) IsEventsEnabled() bool { return true }
 
 type fakeMapGetter struct {
@@ -56,10 +57,12 @@ func (f *fakeProducer) Produce(w io.Writer, i any) error {
 
 func Test_getMapNameEvents(t *testing.T) {
 	assert := assert.New(t)
-	eh := NewGetMapNameEventsHandler(&Daemon{}, &fakeMapGetter{
-		name: "test_map_name",
-		m:    &fakeMap{},
-	})
+	eh := &getMapNameEventsHandler{
+		mapGetter: &fakeMapGetter{
+			name: "test_map_name",
+			m:    &fakeMap{},
+		},
+	}
 	req, err := http.NewRequest(http.MethodGet, "https://localhost/v1/map/test_map_name/events", nil)
 	assert.NoError(err)
 	restreq := restapi.GetMapNameEventsParams{
@@ -81,9 +84,11 @@ func Test_getMapNameEvents(t *testing.T) {
 func Test_getMapNameEventsMapErrors(t *testing.T) {
 	assert := assert.New(t)
 	m := &fakeMap{err: fmt.Errorf("test0")}
-	eh := NewGetMapNameEventsHandler(&Daemon{}, &fakeMapGetter{
-		m: m,
-	})
+	eh := &getMapNameEventsHandler{
+		mapGetter: &fakeMapGetter{
+			m: m,
+		},
+	}
 	req, err := http.NewRequest(http.MethodGet, "https://localhost/v1/map/test_map_name_fake/events", nil)
 	assert.NoError(err)
 	restreq := restapi.GetMapNameEventsParams{

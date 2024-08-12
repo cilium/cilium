@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package maps
 
 import (
 	"encoding/json"
@@ -12,6 +12,7 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
@@ -34,18 +35,6 @@ type mapGetterImpl struct{}
 func (mg mapGetterImpl) GetMap(name string) (eventsDumper, bool) {
 	m := bpf.GetMap(name)
 	return m, m != nil
-}
-
-type getMapNameEvents struct {
-	daemon    *Daemon
-	mapGetter mapRefGetter
-}
-
-func NewGetMapNameEventsHandler(d *Daemon, maps mapRefGetter) restapi.GetMapNameEventsHandler {
-	return &getMapNameEvents{
-		daemon:    d,
-		mapGetter: maps,
-	}
 }
 
 // TODO: This will be easy to break, is there a way we can refactor to make changes to metrics.ResponderWrapper fail
@@ -76,12 +65,12 @@ func (fw *flushWriter) Write(p []byte) (n int, err error) {
 	return
 }
 
-func getMapNameEventsHandler(d *Daemon, params restapi.GetMapNameEventsParams) middleware.Responder {
-	g := &getMapNameEvents{daemon: d, mapGetter: mapGetterImpl{}}
-	return g.Handle(params)
+type getMapNameEventsHandler struct {
+	logger    logrus.FieldLogger
+	mapGetter mapRefGetter
 }
 
-func (h *getMapNameEvents) Handle(params restapi.GetMapNameEventsParams) middleware.Responder {
+func (h *getMapNameEventsHandler) Handle(params restapi.GetMapNameEventsParams) middleware.Responder {
 	follow := false
 	if params.Follow != nil {
 		follow = *params.Follow
@@ -94,7 +83,7 @@ func (h *getMapNameEvents) Handle(params restapi.GetMapNameEventsParams) middlew
 	return middleware.ResponderFunc(func(w http.ResponseWriter, _ runtime.Producer) {
 		flusher, err := getFlusher(w)
 		if err != nil {
-			log.WithError(err).Error("BUG: could not get flushed from ResponseWriter")
+			h.logger.WithError(err).Error("BUG: could not get flushed from ResponseWriter")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -114,16 +103,15 @@ func (h *getMapNameEvents) Handle(params restapi.GetMapNameEventsParams) middlew
 				Timestamp:     strfmt.DateTime(e.Timestamp),
 				DesiredAction: e.GetDesiredAction().String(),
 			})
-
 			if err != nil {
 				panic(err)
 			}
 			flusher.Flush()
 		}
 
-		h, err := m.DumpAndSubscribe(writeEventFn, follow)
+		handle, err := m.DumpAndSubscribe(writeEventFn, follow)
 		if err != nil {
-			log.WithError(err).Error("api handler failed to subscribe to map events")
+			h.logger.WithError(err).Error("api handler failed to subscribe to map events")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -131,16 +119,18 @@ func (h *getMapNameEvents) Handle(params restapi.GetMapNameEventsParams) middlew
 		if follow && h != nil {
 			go func() {
 				<-params.HTTPRequest.Context().Done()
-				h.Close()
+				handle.Close()
 			}()
-			for e := range h.C() {
+			for e := range handle.C() {
 				writeEventFn(e)
 			}
 		}
 	})
 }
 
-func getMapNameHandler(_ *Daemon, params restapi.GetMapNameParams) middleware.Responder {
+type getMapNameHandler struct{}
+
+func (h *getMapNameHandler) Handle(params restapi.GetMapNameParams) middleware.Responder {
 	m := bpf.GetMap(params.Name)
 	if m == nil {
 		return restapi.NewGetMapNameNotFound()
@@ -149,7 +139,9 @@ func getMapNameHandler(_ *Daemon, params restapi.GetMapNameParams) middleware.Re
 	return restapi.NewGetMapNameOK().WithPayload(m.GetModel())
 }
 
-func getMapHandler(_ *Daemon, params restapi.GetMapParams) middleware.Responder {
+type getMapHandler struct{}
+
+func (h *getMapHandler) Handle(params restapi.GetMapParams) middleware.Responder {
 	mapList := &models.BPFMapList{
 		Maps: append(bpf.GetOpenMaps(), ebpf.GetOpenMaps()...),
 	}
