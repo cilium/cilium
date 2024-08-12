@@ -1,5 +1,56 @@
 # Changelog
 
+## v1.14.14
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* DNS Proxy: Allow SO_LINGER to be set to the socket to upstream (Backport PR #33815, Upstream PR #33592, @gandro)
+* Fix bug causing etcd upsertion/deletion events to be potentially missed during the initial synchronization, when Cilium operates in KVStore mode, or Cluster Mesh is enabled. (Backport PR #34184, Upstream PR #34091, @giorio94)
+* Fix rare race condition afflicting clustermesh while stopping the retrieval of the remote cluster configuration, possibly causing a deadlock (Backport PR #33815, Upstream PR #33735, @giorio94)
+* pkg/metrics: fix data race warning on metrics init hook. (Backport PR #33963, Upstream PR #33823, @tommyp1ckles)
+* Report the correct drop reason when a packet is dropped by the bpf_lxc program. (Backport PR #31735, Upstream PR #33551, @julianwiedmann)
+* The cilium agent will now recover from stale nodeID mappings which could occur in clusters with high node churn, possibly manifesting itself in dropped IPsec traffic. (Backport PR #34150, Upstream PR #33666, @bimmlerd)
+
+**CI Changes:**
+* [v1.14] ci/ipsec: add missing config for patch-upgrade test with 6.6 kernel (cilium/cilium#33737, @julianwiedmann)
+* gha: Add http client timeout in Ingress (Backport PR #33815, Upstream PR #33683, @sayboras)
+* gha: add spot input to setup-eks-cluster action (cilium/cilium#33848, @giorio94)
+* gha: don't fail if all cloud provider matrix entries are filtered out (Backport PR #33963, Upstream PR #33819, @giorio94)
+* gha: ensure that helm values.schema.json is not accidentally backported (Backport PR #33963, Upstream PR #33845, @giorio94)
+* gha: lint absence of trailing spaces in workflow files (Backport PR #34150, Upstream PR #33908, @giorio94)
+* gha: simplify the call-backport-label-updater workflow (Backport PR #33963, Upstream PR #33934, @giorio94)
+* test: use cgr.dev/chainguard/busybox:latest instead of docker.io image. (Backport PR #34150, Upstream PR #34004, @tommyp1ckles)
+* workflow: Use per-tunnel keys for the IPsec upgrade test (Backport PR #34150, Upstream PR #33769, @pchaigno)
+
+**Misc Changes:**
+* [v1.14] Update Docker dependency (cilium/cilium#34189, @ferozsalam)
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#34054, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#34171, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.14) (cilium/cilium#33651, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.14) (cilium/cilium#34052, @cilium-renovate[bot])
+* chore(deps): update cilium/little-vm-helper action to v0.0.19 (v1.14) (cilium/cilium#33800, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.13 (v1.14) (cilium/cilium#33801, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/hubble to v1 (v1.14) (cilium/cilium#34055, @cilium-renovate[bot])
+* chore(deps): update go to v1.22.6 (v1.14) (cilium/cilium#34264, @cilium-renovate[bot])
+* daemon/ipam: don't swallow parse error of CIDR (Backport PR #33815, Upstream PR #33283, @bimmlerd)
+* doc: update slack channel reference (Backport PR #34150, Upstream PR #34044, @Huweicai)
+* docs,LRP: Add steps to restart agent and operator pods and update feature roadmap status (Backport PR #33815, Upstream PR #33655, @aditighag)
+* docs: Extend LRP guide with troubleshooting section (Backport PR #33815, Upstream PR #33373, @aditighag)
+* docs: remove mention of outdated clustermesh + L7 policies + tunnel limitation (Backport PR #33815, Upstream PR #33626, @giorio94)
+* docs: Update LVH VM image pull instructions (Backport PR #33815, Upstream PR #33621, @brb)
+* Documentation: Add --set cni.exclusive=false for Azure Chain Mode (Backport PR #33815, Upstream PR #33708, @Mais316)
+* helm: Allow socket linger timeout to be set to zero (Backport PR #33963, Upstream PR #33887, @gandro)
+* renovate: onboard etcd image used in integration tests (Backport PR #33815, Upstream PR #33679, @giorio94)
+
+**Other Changes:**
+* [v1.14] ci: use base and head SHAs from context in lint-build-commits workflow (cilium/cilium#34268, @tklauser)
+* [v1.14] Revert "docs: Update LRP feature status" (cilium/cilium#34239, @ysksuzuki)
+* chore(deps): update go to v1.22.5 (cilium/cilium#34073, @YutaroHayakawa)
+* Fix IPSec XfrmInStateProtoError errors on agent restart in cluster pool IPAM mode (cilium/cilium#34030, @dylandreimerink)
+* install: Update image digests for v1.14.13 (cilium/cilium#33746, @cilium-release-bot[bot])
+
 ## v1.14.13
 
 Summary of Changes
