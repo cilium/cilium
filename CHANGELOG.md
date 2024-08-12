@@ -1,5 +1,82 @@
 # Changelog
 
+## v1.15.8
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* helm: Add validation to prevent users from using deprecated values that have been removed (cilium/cilium#34213, @chancez)
+* helm: Cleanup old k8s version check and deprecated atributes (Backport PR #34157, Upstream PR #31940, @sayboras)
+* Make hubble-relay more resilient to transient errors (Backport PR #34157, Upstream PR #33894, @chancez)
+
+**Bugfixes:**
+* add support for validation of stringToString values in ConfigMap (Backport PR #33962, Upstream PR #33779, @alex-berger)
+* auth: Fix data race in Upsert (Backport PR #34157, Upstream PR #33905, @chaunceyjiang)
+* auth: fix fatal error: concurrent map iteration and map write (Backport PR #33809, Upstream PR #33634, @chaunceyjiang)
+* cert: Adding H2 Protocol Support when Get gRPC Config For Client (Backport PR #33809, Upstream PR #33616, @mrproliu)
+* DNS Proxy: Allow SO_LINGER to be set to the socket to upstream (Backport PR #33809, Upstream PR #33592, @gandro)
+* Fix an issue in updates to node addresses which may have caused missing NodePort frontend IP addresses. May have affected NodePort/LoadBalancer services for users running with runtime device detection enabled when node's IP addresses were changed after Cilium had started. Node IP as defined in the Kubernetes Node is now preferred when selecting the NodePort frontend IPs. (Backport PR #33818, Upstream PR #33629, @joamaki)
+* Fix bug causing etcd upsertion/deletion events to be potentially missed during the initial synchronization, when Cilium operates in KVStore mode, or Cluster Mesh is enabled. (Backport PR #34183, Upstream PR #34091, @giorio94)
+* Fix issue in picking node IP addresses from the loopback device. This fixes a regression in v1.15 and v1.16 where VIPs assigned to the lo device were not considered by Cilium. Fix spurious updates node addresses to avoid unnecessary datapath reinitializations. (Backport PR #34086, Upstream PR #34012, @joamaki)
+* Fix rare race condition afflicting clustermesh while stopping the retrieval of the remote cluster configuration, possibly causing a deadlock (Backport PR #33809, Upstream PR #33735, @giorio94)
+* Fixes a race condition during agent startup that causes the k8s node label updates to not get propagated to the host endpoint. (Backport PR #33663, Upstream PR #33511, @skmatti)
+* gateway-api: Add HTTP method condition in sortable routes (Backport PR #34157, Upstream PR #34109, @sayboras)
+* gateway-api: Enqueue gateway for Reference Grant changes (Backport PR #34157, Upstream PR #34032, @sayboras)
+* helm: remove duplicate metrics for Envoy pod (Backport PR #34157, Upstream PR #33803, @mhofstetter)
+* lbipam: fixed bug in sharing key logic (Backport PR #34157, Upstream PR #34106, @dylandreimerink)
+* pkg/metrics: fix data race warning on metrics init hook. (Backport PR #33962, Upstream PR #33823, @tommyp1ckles)
+* Reduce conntrack lifetime for closing service connections. (Backport PR #33962, Upstream PR #33907, @julianwiedmann)
+* Skip regenerating host endpoint on k8s node labels update if identity labels are unchanged (Backport PR #33809, Upstream PR #33306, @skmatti)
+* The cilium agent will now recover from stale nodeID mappings which could occur in clusters with high node churn, possibly manifesting itself in dropped IPsec traffic. (Backport PR #34157, Upstream PR #33666, @bimmlerd)
+
+**CI Changes:**
+* [v1.15] ci/ipsec: add missing config for patch-upgrade test with 6.6 kernel (cilium/cilium#33736, @julianwiedmann)
+* [v1.15] gh/e2e: fix up config 15 to not use bpf-next (cilium/cilium#33738, @julianwiedmann)
+* gha: Add http client timeout in Ingress (Backport PR #33809, Upstream PR #33683, @sayboras)
+* gha: don't fail if all cloud provider matrix entries are filtered out (Backport PR #33962, Upstream PR #33819, @giorio94)
+* gha: ensure that helm values.schema.json is not accidentally backported (cilium/cilium#33845, @giorio94)
+* gha: lint absence of trailing spaces in workflow files (Backport PR #34157, Upstream PR #33908, @giorio94)
+* gha: simplify the call-backport-label-updater workflow (Backport PR #33962, Upstream PR #33934, @giorio94)
+* test: use cgr.dev/chainguard/busybox:latest instead of docker.io image. (Backport PR #34157, Upstream PR #34004, @tommyp1ckles)
+* tests-clustermesh-upgrade: Don't hardcode test namespace (Backport PR #34157, Upstream PR #34121, @michi-covalent)
+* workflow: Use per-tunnel keys for the IPsec upgrade test (Backport PR #33809, Upstream PR #33769, @pchaigno)
+
+**Misc Changes:**
+* [v1.15] Update Docker dependency (cilium/cilium#34196, @ferozsalam)
+* bugtool: dumping more Envoy information (Backport PR #34157, Upstream PR #34110, @mhofstetter)
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#34170, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#33649, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#34168, @cilium-renovate[bot])
+* chore(deps): update cilium/little-vm-helper action to v0.0.19 (v1.15) (cilium/cilium#33793, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.13 (v1.15) (cilium/cilium#33794, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/hubble to v1 (v1.15) (cilium/cilium#34051, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.21.12 docker digest to 7e0e13a (v1.15) (cilium/cilium#33792, @cilium-renovate[bot])
+* chore(deps): update go to v1.22.5 (v1.15) (cilium/cilium#33857, @cilium-renovate[bot])
+* chore(deps): update go to v1.22.6 (v1.15) (cilium/cilium#34167, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.15) (patch) (cilium/cilium#33798, @cilium-renovate[bot])
+* daemon/ipam: don't swallow parse error of CIDR (Backport PR #33809, Upstream PR #33283, @bimmlerd)
+* doc: update slack channel reference (Backport PR #34157, Upstream PR #34044, @Huweicai)
+* docs,LRP: Add steps to restart agent and operator pods and update feature roadmap status (Backport PR #33809, Upstream PR #33655, @aditighag)
+* docs: Add node about socketLB.hostNamespaceOnly to Kata page (Backport PR #33809, Upstream PR #33725, @brb)
+* docs: Extend LRP guide with troubleshooting section (Backport PR #33809, Upstream PR #33373, @aditighag)
+* docs: generalize version specific notes section (Backport PR #33962, Upstream PR #33888, @giorio94)
+* docs: Remove CNCF graduation from the roadmap (Backport PR #33809, Upstream PR #33680, @joestringer)
+* docs: remove mention of outdated clustermesh + L7 policies + tunnel limitation (Backport PR #33809, Upstream PR #33626, @giorio94)
+* docs: Update LVH VM image pull instructions (Backport PR #33809, Upstream PR #33621, @brb)
+* Documentation: Add --set cni.exclusive=false for Azure Chain Mode (Backport PR #33809, Upstream PR #33708, @Mais316)
+* helm: Allow socket linger timeout to be set to zero (Backport PR #33962, Upstream PR #33887, @gandro)
+* policy: Fix `mapstate.Diff()` used in tests (Backport PR #33809, Upstream PR #33449, @jrajahalme)
+* Remove stable tags from v1.15 releases (cilium/cilium#33985, @joestringer)
+* renovate: onboard etcd image used in integration tests (Backport PR #33809, Upstream PR #33679, @giorio94)
+* Revert "fix: support validation of stringToString values in ConfigMap" (Backport PR #34306, Upstream PR #34277, @aanm)
+
+**Other Changes:**
+* [v1.15] ci: use base and head SHAs from context in lint-build-commits workflow (cilium/cilium#34267, @tklauser)
+* [v1.15] Revert "docs: Update LRP feature status" (cilium/cilium#34238, @ysksuzuki)
+* Fix bug in Bandwidth Manager that caused it to not find native devices. (cilium/cilium#33910, @joamaki)
+* install: Update image digests for v1.15.7 (cilium/cilium#33744, @cilium-release-bot[bot])
+
 ## v1.15.7
 
 Summary of Changes
