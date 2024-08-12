@@ -5,6 +5,7 @@ package kvstore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"testing"
@@ -13,6 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 	v3rpcErrors "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
 	client "go.etcd.io/etcd/client/v3"
+)
+
+var (
+	// ErrNotImplemented is the error which is returned when a functionality is not implemented.
+	ErrNotImplemented = errors.New("not implemented")
 )
 
 type fakeEtcdLeaseClient struct {

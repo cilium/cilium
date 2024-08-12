@@ -292,7 +292,7 @@ func Test_isValidKeyValuePair(t *testing.T) {
 		{
 			name: "valid format with colon",
 			args: args{
-				str: "consul.address=127.0.0.1:8500",
+				str: "etcd.address=127.0.0.1:4001",
 			},
 			want: true,
 		},

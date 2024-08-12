@@ -262,6 +262,5 @@ func (d *doubleWriteBackend) Status() (string, error) {
 
 func (d *doubleWriteBackend) Encode(v string) string {
 	// Works for both CRD and etcd as the KVStore.
-	// Note that this is not compatible with Consul as the KVStore.
 	return v
 }

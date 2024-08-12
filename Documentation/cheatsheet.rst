@@ -106,7 +106,7 @@ Check the status of the agent
 .. code-block:: shell-session
 
     $ cilium-dbg status
-    KVStore:                Ok         Consul: 172.17.0.3:8300
+    KVStore:                Ok         Etcd: 172.17.0.3:4001
     ContainerRuntime:       Ok
     Kubernetes:             Disabled
     Cilium:                 Ok         OK
@@ -122,7 +122,7 @@ Get a detailed status of the agent:
 .. code-block:: shell-session
 
     $ cilium-dbg status --all-controllers --all-health --all-redirects
-    KVStore:                Ok         Consul: 172.17.0.3:8300
+    KVStore:                Ok         Etcd: 172.17.0.3:4001
     ContainerRuntime:       Ok
     Kubernetes:             Disabled
     Cilium:                 Ok         OK

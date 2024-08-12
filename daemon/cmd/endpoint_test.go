@@ -43,11 +43,6 @@ func getEPTemplate(t *testing.T, d *Daemon) *models.EndpointChangeRequest {
 	}
 }
 
-func TestEndpointAddReservedLabelConsul(t *testing.T) {
-	ds := setupDaemonConsulSuite(t)
-	ds.testEndpointAddReservedLabel(t)
-}
-
 func TestEndpointAddReservedLabelEtcd(t *testing.T) {
 	ds := setupDaemonEtcdSuite(t)
 	ds.testEndpointAddReservedLabel(t)
@@ -80,11 +75,6 @@ func (ds *DaemonSuite) testEndpointAddReservedLabel(t *testing.T) {
 	assertOnMetric(t, string(models.EndpointStateInvalid), 0)
 }
 
-func TestEndpointAddInvalidLabelConsul(t *testing.T) {
-	ds := setupDaemonConsulSuite(t)
-	ds.testEndpointAddInvalidLabel(t)
-}
-
 func TestEndpointAddInvalidLabelEtcd(t *testing.T) {
 	ds := setupDaemonEtcdSuite(t)
 	ds.testEndpointAddInvalidLabel(t)
@@ -103,11 +93,6 @@ func (ds *DaemonSuite) testEndpointAddInvalidLabel(t *testing.T) {
 	// WaitingForIdentity -> Invalid.
 	assertOnMetric(t, string(models.EndpointStateWaitingDashForDashIdentity), 0)
 	assertOnMetric(t, string(models.EndpointStateInvalid), 0)
-}
-
-func TestEndpointAddNoLabelsConsul(t *testing.T) {
-	ds := setupDaemonConsulSuite(t)
-	ds.testEndpointAddNoLabels(t)
 }
 
 func TestEndpointAddNoLabelsEtcd(t *testing.T) {
@@ -155,11 +140,6 @@ func (ds *DaemonSuite) testUpdateSecLabels(t *testing.T) {
 	require.Equal(t, apiEndpoint.PatchEndpointIDLabelsUpdateFailedCode, code)
 }
 
-func TestUpdateSecLabelsConsul(t *testing.T) {
-	ds := setupDaemonConsulSuite(t)
-	ds.testUpdateSecLabels(t)
-}
-
 func TestUpdateSecLabelsEtcd(t *testing.T) {
 	ds := setupDaemonEtcdSuite(t)
 	ds.testUpdateSecLabels(t)
@@ -175,11 +155,6 @@ func (ds *DaemonSuite) testUpdateLabelsFailed(t *testing.T) {
 	require.ErrorContains(t, err, "request cancelled while resolving identity")
 
 	assertOnMetric(t, string(models.EndpointStateReady), 0)
-}
-
-func TestUpdateLabelsFailedConsul(t *testing.T) {
-	ds := setupDaemonConsulSuite(t)
-	ds.testUpdateLabelsFailed(t)
 }
 
 func TestUpdateLabelsFailedEtcd(t *testing.T) {

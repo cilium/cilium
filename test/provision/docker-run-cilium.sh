@@ -2,9 +2,9 @@
 
 # all args are passed as cilium-agent options (except for "uninstall" below)
 CILIUM_OPTS=$@
-# Default kvstore to consul
+# Default kvstore to etcd
 if [[ "${CILIUM_OPTS}" != *--kvstore* ]]; then
-    CILIUM_OPTS+=" --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500"
+    CILIUM_OPTS+=" --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001"
 fi
 
 CILIUM_IMAGE=${CILIUM_IMAGE:-cilium/cilium:latest}

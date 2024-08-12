@@ -89,12 +89,8 @@ func newTestType() Key {
 
 func TestStoreCreation(t *testing.T) {
 	testutils.IntegrationTest(t)
-	for _, backendName := range []string{"etcd", "consul"} {
-		t.Run(backendName, func(t *testing.T) {
-			kvstore.SetupDummy(t, backendName)
-			testStoreCreation(t)
-		})
-	}
+	kvstore.SetupDummy(t, "etcd")
+	testStoreCreation(t)
 }
 
 func testStoreCreation(t *testing.T) {
@@ -125,12 +121,8 @@ func testStoreCreation(t *testing.T) {
 
 func TestStoreOperations(t *testing.T) {
 	testutils.IntegrationTest(t)
-	for _, backendName := range []string{"etcd", "consul"} {
-		t.Run(backendName, func(t *testing.T) {
-			kvstore.SetupDummy(t, backendName)
-			testStoreOperations(t)
-		})
-	}
+	kvstore.SetupDummy(t, "etcd")
+	testStoreOperations(t)
 }
 
 func testStoreOperations(t *testing.T) {
@@ -182,12 +174,8 @@ func testStoreOperations(t *testing.T) {
 
 func TestStorePeriodicSync(t *testing.T) {
 	testutils.IntegrationTest(t)
-	for _, backendName := range []string{"etcd", "consul"} {
-		t.Run(backendName, func(t *testing.T) {
-			kvstore.SetupDummy(t, backendName)
-			testStorePeriodicSync(t)
-		})
-	}
+	kvstore.SetupDummy(t, "etcd")
+	testStorePeriodicSync(t)
 }
 
 func testStorePeriodicSync(t *testing.T) {
@@ -223,12 +211,8 @@ func testStorePeriodicSync(t *testing.T) {
 
 func TestStoreLocalKeyProtection(t *testing.T) {
 	testutils.IntegrationTest(t)
-	for _, backendName := range []string{"etcd", "consul"} {
-		t.Run(backendName, func(t *testing.T) {
-			kvstore.SetupDummy(t, backendName)
-			testStoreLocalKeyProtection(t)
-		})
-	}
+	kvstore.SetupDummy(t, "etcd")
+	testStoreLocalKeyProtection(t)
 }
 
 func testStoreLocalKeyProtection(t *testing.T) {
@@ -286,12 +270,8 @@ func setupStoreCollaboration(t *testing.T, storePrefix, keyPrefix string) *Share
 
 func TestStoreCollaboration(t *testing.T) {
 	testutils.IntegrationTest(t)
-	for _, backendName := range []string{"etcd", "consul"} {
-		t.Run(backendName, func(t *testing.T) {
-			kvstore.SetupDummy(t, backendName)
-			testStoreCollaboration(t)
-		})
-	}
+	kvstore.SetupDummy(t, "etcd")
+	testStoreCollaboration(t)
 }
 
 func testStoreCollaboration(t *testing.T) {

@@ -62,8 +62,6 @@ ETCD_IMAGE_VERSION = v3.5.15
 ETCD_IMAGE_SHA = sha256:9a01b7da0a3cde485c03fcf58fef9b2a09c81b4926b2b7d7ae6d1e9b20a2a192
 ETCD_IMAGE=gcr.io/etcd-development/etcd:$(ETCD_IMAGE_VERSION)@$(ETCD_IMAGE_SHA)
 
-CONSUL_IMAGE=consul:1.7.2
-
 CILIUM_BUILDER_IMAGE=$(shell cat $(ROOT_DIR)/images/cilium/Dockerfile | grep "ARG CILIUM_BUILDER_IMAGE=" | cut -d"=" -f2)
 
 export CILIUM_CLI ?= cilium

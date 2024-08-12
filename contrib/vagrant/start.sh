@@ -334,14 +334,14 @@ function write_cilium_cfg() {
         cilium_operator_options+=" --identity-allocation-mode=crd"
     else
         if [[ "${IPV4}" -eq "1" ]]; then
-            cilium_options+=" --kvstore-opt consul.address=${MASTER_IPV4}:8500"
-            cilium_operator_options+=" --kvstore-opt consul.address=${MASTER_IPV4}:8500"
+            cilium_options+=" --kvstore-opt etcd.address=${MASTER_IPV4}:4001"
+            cilium_operator_options+=" --kvstore-opt etcd.address=${MASTER_IPV4}:4001"
         else
-            cilium_options+=" --kvstore-opt consul.address=[${ipv6_addr}]:8500"
-            cilium_operator_options+=" --kvstore-opt consul.address=[${ipv6_addr}]:8500"
+            cilium_options+=" --kvstore-opt etcd.address=[${ipv6_addr}]:4001"
+            cilium_operator_options+=" --kvstore-opt etcd.address=[${ipv6_addr}]:4001"
         fi
-        cilium_options+=" --kvstore consul"
-        cilium_operator_options+=" --kvstore consul"
+        cilium_options+=" --kvstore etcd"
+        cilium_operator_options+=" --kvstore etcd"
     fi
 
 cat <<EOF >> "$filename"
