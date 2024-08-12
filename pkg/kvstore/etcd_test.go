@@ -46,7 +46,7 @@ func TestHint(t *testing.T) {
 func setupEtcdLockedSuite(tb testing.TB) *etcdAPI.Client {
 	testutils.IntegrationTest(tb)
 
-	SetupDummyWithConfigOpts(tb, "etcd", opts("etcd"))
+	SetupDummyWithConfigOpts(tb, "etcd", etcdOpts)
 
 	// setup client
 	cfg := etcdAPI.Config{}
@@ -1426,7 +1426,7 @@ func (kvw *kvWrapper) Get(ctx context.Context, key string, opts ...etcdAPI.OpOpt
 
 func TestPaginatedList(t *testing.T) {
 	testutils.IntegrationTest(t)
-	SetupDummyWithConfigOpts(t, "etcd", opts("etcd"))
+	SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
 
 	const prefix = "list/paginated"
 	ctx := context.Background()

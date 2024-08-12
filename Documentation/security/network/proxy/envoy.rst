@@ -585,7 +585,7 @@ and adding the ``--debug-verbose=flow`` flag.
 
   $ sudo service cilium stop 
   
-  $ sudo /usr/bin/cilium-agent --debug --ipv4-range 10.11.0.0/16 --kvstore-opt consul.address=192.168.60.11:8500 --kvstore consul -t vxlan --fixed-identity-mapping=128=kv-store --fixed-identity-mapping=129=kube-dns --debug-verbose=flow
+  $ sudo /usr/bin/cilium-agent --debug --ipv4-range 10.11.0.0/16 --kvstore-opt etcd.address=192.168.60.11:4001 --kvstore etcd -t vxlan --fixed-identity-mapping=128=kv-store --fixed-identity-mapping=129=kube-dns --debug-verbose=flow
 
 
 Step 13: Add Runtime Tests
