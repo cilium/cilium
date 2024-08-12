@@ -1646,7 +1646,26 @@ int cil_to_host(struct __ctx_buff *ctx)
 	 * to mark as PACKET_OTHERHOST and drop.
 	 */
 	ctx_change_type(ctx, PACKET_HOST);
-#endif
+
+# ifdef ENABLE_NODEPORT
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_ENCRYPT)
+		goto skip_ipsec_nodeport_revdnat;
+
+	if (!validate_ethertype(ctx, &proto))
+		goto skip_ipsec_nodeport_revdnat;
+
+	/* handle_nat_fwd() tail calls in the majority of cases, so control
+	 * might never return to this program. Since IPsec is not compatible
+	 * iwth Host Firewall, this won't be an issue.
+	 */
+	ret = handle_nat_fwd(ctx, 0, proto, true, &trace, &ext_err);
+	if (IS_ERR(ret))
+		goto out;
+
+skip_ipsec_nodeport_revdnat:
+# endif /* ENABLE_NODEPORT */
+
+#endif /* ENABLE_IPSEC */
 #ifdef ENABLE_HOST_FIREWALL
 	if (!validate_ethertype(ctx, &proto)) {
 		ret = DROP_UNSUPPORTED_L2;
