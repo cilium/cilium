@@ -149,5 +149,6 @@ func DefaultFilters(log logrus.FieldLogger) []OnBuildFilter {
 		&TrafficDirectionFilter{},
 		&CELExpressionFilter{log: log},
 		&NetworkInterfaceFilter{},
+		&IPTraceIDFilter{},
 	}
 }
