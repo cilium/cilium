@@ -1381,11 +1381,14 @@ func (s *BgpServer) propagateUpdateToNeighbors(rib *table.TableManager, source *
 						knownPathList := destination.GetKnownPathList(targetPeer.TableID(), targetPeer.AS())
 						toAdd := make([]*table.Path, 0, len(knownPathList))
 						for _, p := range knownPathList {
-							// if the path is filtered, there is no need to send the path
+							// If the path is filtered by policies, there is no need to send the path
+							// Otherwise, we send only paths that were previously filtered because of the max path limit
 							p := s.filterpath(targetPeer, p, nil)
 							if p == nil || !targetPeer.isPathSendMaxFiltered(p) {
 								continue
 							}
+							// We unset the flag as the path is not filtered anymore
+							targetPeer.unsetPathSendMaxFiltered(p)
 							toAdd = append(toAdd, p)
 							if len(toAdd) == len(toActuallyDelete) {
 								break

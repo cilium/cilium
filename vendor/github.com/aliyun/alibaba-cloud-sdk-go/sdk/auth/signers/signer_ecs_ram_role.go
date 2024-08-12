@@ -24,6 +24,7 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/responses"
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/utils"
 	jmespath "github.com/jmespath/go-jmespath"
 )
 
@@ -89,7 +90,7 @@ func (signer *EcsRamRoleSigner) GetExtraParam() map[string]string {
 
 func (signer *EcsRamRoleSigner) Sign(stringToSign, secretSuffix string) string {
 	secret := signer.sessionCredential.AccessKeySecret + secretSuffix
-	return ShaHmac1(stringToSign, secret)
+	return utils.ShaHmac1(stringToSign, secret)
 }
 
 func (signer *EcsRamRoleSigner) buildCommonRequest() (request *requests.CommonRequest, err error) {

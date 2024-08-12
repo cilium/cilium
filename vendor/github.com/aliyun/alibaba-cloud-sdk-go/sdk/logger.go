@@ -12,7 +12,6 @@ import (
 )
 
 var logChannel string
-var defaultChannel = "AlibabaCloud"
 
 type Logger struct {
 	*log.Logger
@@ -110,7 +109,7 @@ func (client *Client) printLog(fieldMap map[string]string, err error) {
 			logMsg = strings.Replace(logMsg, key, value, -1)
 		}
 		client.logger.lastLogMsg = logMsg
-		if client.logger.isOpen == true {
+		if client.logger.isOpen {
 			client.logger.Output(2, logMsg)
 		}
 	}

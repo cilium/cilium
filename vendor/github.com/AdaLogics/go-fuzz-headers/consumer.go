@@ -233,6 +233,14 @@ func (f *ConsumeFuzzer) fuzzStruct(e reflect.Value, customFunctions bool) error 
 		if e.CanSet() {
 			e.Set(uu)
 		}
+	case reflect.Uint:
+		newInt, err := f.GetUint()
+		if err != nil {
+			return err
+		}
+		if e.CanSet() {
+			e.SetUint(uint64(newInt))
+		}
 	case reflect.Uint16:
 		newInt, err := f.GetUint16()
 		if err != nil {
@@ -317,6 +325,14 @@ func (f *ConsumeFuzzer) fuzzStruct(e reflect.Value, customFunctions bool) error 
 		}
 		if e.CanSet() {
 			e.SetUint(uint64(b))
+		}
+	case reflect.Bool:
+		b, err := f.GetBool()
+		if err != nil {
+			return err
+		}
+		if e.CanSet() {
+			e.SetBool(b)
 		}
 	}
 	return nil
@@ -417,6 +433,23 @@ func (f *ConsumeFuzzer) GetUint64() (uint64, error) {
 		return binary.LittleEndian.Uint64(u64), nil
 	}
 	return binary.BigEndian.Uint64(u64), nil
+}
+
+func (f *ConsumeFuzzer) GetUint() (uint, error) {
+	var zero uint
+	size := int(unsafe.Sizeof(zero))
+	if size == 8 {
+		u64, err := f.GetUint64()
+		if err != nil {
+			return 0, err
+		}
+		return uint(u64), nil
+	}
+	u32, err := f.GetUint32()
+	if err != nil {
+		return 0, err
+	}
+	return uint(u32), nil
 }
 
 func (f *ConsumeFuzzer) GetBytes() ([]byte, error) {
