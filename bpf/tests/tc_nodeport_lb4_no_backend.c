@@ -147,7 +147,7 @@ int nodeport_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	 * context with the runner option and importing the packet into
 	 * wireshark
 	 */
-	assert(l4->checksum == bpf_htons(0x2de7));
+	assert(l4->checksum == bpf_htons(0x2c3f));
 
 	test_finish();
 }

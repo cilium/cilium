@@ -53,7 +53,9 @@ clean:
 	rm -f $(wildcard *.i)
 	rm -f $(wildcard *.d)
 
-BPF_TEST_FLAGS:=
+# BPF_TEST_FLAGS:=TestBPF/tc_nodeport_lb4_nat_lb.o -dump-ctx -test.v
+BPF_TEST_FLAGS:=-dump-ctx
+BPF_TEST_FLAGS += -test.v
 ifneq ($(shell id -u), 0)
 		BPF_TEST_FLAGS += -exec "sudo -E"
 endif
