@@ -14,16 +14,16 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
 ## Default:             ""
 ## ServiceRestart:      cilium
 
-# Set Key-value store(etcd/consul):
-# --kvstore consul
+# Set Key-value store (etcd):
+# --kvstore etcd
 # Set Key-value store options:
-# --kvstore-opt consul.address=127.0.0.1:8500
+# --kvstore-opt etcd.address=127.0.0.1:4001
 #
 # Note: A key-value store is require for cilium to function.
 # Check more cli options using cilium-agent -h
 CILIUM_IMAGE=cilium/cilium:latest
-CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500
-CILIUM_OPERATOR_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --k8s-kubeconfig-path=/home/vagrant/.kube/config
+CILIUM_OPTS=--kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001
+CILIUM_OPERATOR_OPTS=--kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001 --k8s-kubeconfig-path=/home/vagrant/.kube/config
 
 HOME=/home/vagrant
 

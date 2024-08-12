@@ -21,7 +21,6 @@ var allowedLicenses = []string{
 // Do not add all exceptions from the above link, only packages that we
 // actually use.
 var pkgExceptions = []string{
-	"github.com/hashicorp/consul/api",
 	"github.com/hashicorp/errwrap",
 	"github.com/hashicorp/go-cleanhttp",
 	"github.com/hashicorp/go-immutable-radix",

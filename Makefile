@@ -49,8 +49,7 @@ SKIP_CUSTOMVET_CHECK ?= "false"
 
 JOB_BASE_NAME ?= cilium_test
 
-TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 \
-	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002"
+TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002"
 
 TEST_UNITTEST_LDFLAGS=
 
@@ -86,9 +85,9 @@ tests-privileged: ## Run Go tests including ones that require elevated privilege
 		$(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 
-start-kvstores: ## Start running kvstores (etcd and consul containers) for integration tests.
+start-kvstores: ## Start running kvstores (etcd container) for integration tests.
 ifeq ($(SKIP_KVSTORES),"false")
-	@echo Starting key-value store containers...
+	@echo Starting key-value store container...
 	-$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-etcd-test-container" 2> /dev/null
 	$(QUIET)$(CONTAINER_ENGINE) run -d \
 		-e ETCD_UNSUPPORTED_ARCH=$(GOARCH) \
@@ -101,25 +100,11 @@ ifeq ($(SKIP_KVSTORES),"false")
 		-listen-peer-urls http://0.0.0.0:2380 \
 		-initial-cluster-token etcd-cluster-1 \
 		-initial-cluster-state new
-	-$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-consul-test-container" 2> /dev/null
-	$(QUIET)rm -rf /tmp/cilium-consul-certs
-	$(QUIET)mkdir /tmp/cilium-consul-certs
-	$(QUIET)cp $(CURDIR)/test/consul/* /tmp/cilium-consul-certs
-	$(QUIET)chmod -R a+rX /tmp/cilium-consul-certs
-	$(QUIET)$(CONTAINER_ENGINE) run -d \
-		--name "cilium-consul-test-container" \
-		-p 8501:8443 \
-		-e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true, "disable_update_check": true}' \
-		-v /tmp/cilium-consul-certs:/cilium-consul/ \
-		$(CONSUL_IMAGE) \
-		agent -client=0.0.0.0 -server -bootstrap-expect 1 -config-file=/cilium-consul/consul-config.json
 endif
 
-stop-kvstores: ## Forcefully removes running kvstore components (etcd and consul containers) for integration tests.
+stop-kvstores: ## Forcefully removes running kvstore components (etcd container) for integration tests.
 ifeq ($(SKIP_KVSTORES),"false")
 	$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-etcd-test-container"
-	$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-consul-test-container"
-	$(QUIET)rm -rf /tmp/cilium-consul-certs
 endif
 
 generate-cov: ## Generate HTML coverage report at coverage-all.html.

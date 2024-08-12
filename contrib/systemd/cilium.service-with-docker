@@ -1,7 +1,7 @@
 [Unit]
 Description=cilium
 Documentation=http://docs.cilium.io
-Requires=docker.service cilium-consul.service cilium-docker.service
+Requires=docker.service cilium-docker.service
 
 [Service]
 Type=oneshot

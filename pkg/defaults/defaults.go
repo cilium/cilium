@@ -407,7 +407,7 @@ const (
 	LockLeaseTTL = 25 * time.Second
 
 	// KVstoreLeaseMaxTTL is the upper bound for KVStore lease TTL value.
-	// It is calculated as Min(int64 positive max, etcd MaxLeaseTTL, consul MaxLeaseTTL)
+	// It is calculated as Min(int64 positive max, etcd MaxLeaseTTL)
 	KVstoreLeaseMaxTTL = 86400 * time.Second
 
 	// IPAMPreAllocation is the default value for

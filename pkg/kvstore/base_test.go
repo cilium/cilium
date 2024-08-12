@@ -14,14 +14,14 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
+var (
+	etcdOpts = map[string]string{EtcdRateLimitOption: "100"}
+)
+
 func TestLock(t *testing.T) {
 	testutils.IntegrationTest(t)
-	for _, backendName := range []string{"etcd", "consul"} {
-		t.Run(backendName, func(t *testing.T) {
-			SetupDummyWithConfigOpts(t, backendName, opts(backendName))
-			testLock(t)
-		})
-	}
+	SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
+	testLock(t)
 }
 
 func testLock(t *testing.T) {
@@ -48,12 +48,8 @@ func testValue(i int) string {
 
 func TestGetSet(t *testing.T) {
 	testutils.IntegrationTest(t)
-	for _, backendName := range []string{"etcd", "consul"} {
-		t.Run(backendName, func(t *testing.T) {
-			SetupDummyWithConfigOpts(t, backendName, opts(backendName))
-			testGetSet(t)
-		})
-	}
+	SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
+	testGetSet(t)
 }
 
 func testGetSet(t *testing.T) {
@@ -98,12 +94,8 @@ func testGetSet(t *testing.T) {
 
 func BenchmarkGet(b *testing.B) {
 	testutils.IntegrationTest(b)
-	for _, backendName := range []string{"etcd", "consul"} {
-		b.Run(backendName, func(b *testing.B) {
-			SetupDummyWithConfigOpts(b, backendName, opts(backendName))
-			benchmarkGet(b)
-		})
-	}
+	SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
+	benchmarkGet(b)
 }
 
 func benchmarkGet(b *testing.B) {
@@ -123,12 +115,8 @@ func benchmarkGet(b *testing.B) {
 
 func BenchmarkSet(b *testing.B) {
 	testutils.IntegrationTest(b)
-	for _, backendName := range []string{"etcd", "consul"} {
-		b.Run(backendName, func(b *testing.B) {
-			SetupDummyWithConfigOpts(b, backendName, opts(backendName))
-			benchmarkSet(b)
-		})
-	}
+	SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
+	benchmarkSet(b)
 }
 
 func benchmarkSet(b *testing.B) {
@@ -145,12 +133,8 @@ func benchmarkSet(b *testing.B) {
 
 func TestUpdate(t *testing.T) {
 	testutils.IntegrationTest(t)
-	for _, backendName := range []string{"etcd", "consul"} {
-		t.Run(backendName, func(t *testing.T) {
-			SetupDummyWithConfigOpts(t, backendName, opts(backendName))
-			testUpdate(t)
-		})
-	}
+	SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
+	testUpdate(t)
 }
 
 func testUpdate(t *testing.T) {
@@ -176,12 +160,8 @@ func testUpdate(t *testing.T) {
 
 func TestCreateOnly(t *testing.T) {
 	testutils.IntegrationTest(t)
-	for _, backendName := range []string{"etcd", "consul"} {
-		t.Run(backendName, func(t *testing.T) {
-			SetupDummyWithConfigOpts(t, backendName, opts(backendName))
-			testCreateOnly(t)
-		})
-	}
+	SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
+	testCreateOnly(t)
 }
 
 func testCreateOnly(t *testing.T) {
@@ -214,11 +194,7 @@ func expectEvent(t *testing.T, w *Watcher, typ EventType, key string, val string
 
 		if event.Typ != EventTypeListDone {
 			require.EqualValues(t, key, event.Key)
-
-			// etcd does not provide the value of deleted keys
-			if selectedModule == "consul" {
-				require.EqualValues(t, val, event.Value)
-			}
+			// etcd does not provide the value of deleted keys so we can't check it.
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("timeout while waiting for kvstore watcher event")
@@ -227,12 +203,8 @@ func expectEvent(t *testing.T, w *Watcher, typ EventType, key string, val string
 
 func TestListAndWatch(t *testing.T) {
 	testutils.IntegrationTest(t)
-	for _, backendName := range []string{"etcd", "consul"} {
-		t.Run(backendName, func(t *testing.T) {
-			SetupDummyWithConfigOpts(t, backendName, opts(backendName))
-			testListAndWatch(t)
-		})
-	}
+	SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
+	testListAndWatch(t)
 }
 
 func testListAndWatch(t *testing.T) {
@@ -275,13 +247,4 @@ func testListAndWatch(t *testing.T) {
 	expectEvent(t, w, EventTypeDelete, key2, val2)
 
 	w.Stop()
-}
-
-func opts(backendName string) map[string]string {
-	if backendName == "etcd" {
-		// Explicitly set higher QPS than the default to speedup the test
-		return map[string]string{EtcdRateLimitOption: "100"}
-	}
-
-	return nil
 }

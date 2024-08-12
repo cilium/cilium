@@ -237,20 +237,6 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonEtcdSuite {
 	}
 }
 
-type DaemonConsulSuite struct {
-	DaemonSuite
-}
-
-func setupDaemonConsulSuite(tb testing.TB) *DaemonConsulSuite {
-	testutils.IntegrationTest(tb)
-	kvstore.SetupDummy(tb, "consul")
-
-	ds := setupDaemonSuite(tb)
-	return &DaemonConsulSuite{
-		DaemonSuite: *ds,
-	}
-}
-
 func TestMinimumWorkerThreadsIsSet(t *testing.T) {
 	require.Equal(t, true, numWorkerThreads() >= 2)
 	require.Equal(t, true, numWorkerThreads() >= runtime.NumCPU())

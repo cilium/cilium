@@ -31,6 +31,8 @@ const (
 var (
 	tick    = 10 * time.Millisecond
 	timeout = 5 * time.Second
+
+	etcdOpts = map[string]string{kvstore.EtcdRateLimitOption: "100"}
 )
 
 // FIXME: this should be named better, it implements pkg/allocator.Backend
@@ -66,12 +68,8 @@ func randomTestName() string {
 
 func BenchmarkAllocate(b *testing.B) {
 	testutils.IntegrationTest(b)
-	for _, backendName := range []string{"etcd", "consul"} {
-		b.Run(backendName, func(b *testing.B) {
-			kvstore.SetupDummyWithConfigOpts(b, backendName, opts(backendName))
-			benchmarkAllocate(b)
-		})
-	}
+	kvstore.SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
+	benchmarkAllocate(b)
 }
 
 func benchmarkAllocate(b *testing.B) {
@@ -94,12 +92,8 @@ func benchmarkAllocate(b *testing.B) {
 
 func BenchmarkRunLocksGC(b *testing.B) {
 	testutils.IntegrationTest(b)
-	for _, backendName := range []string{"etcd", "consul"} {
-		b.Run(backendName, func(b *testing.B) {
-			kvstore.SetupDummyWithConfigOpts(b, backendName, opts(backendName))
-			benchmarkRunLocksGC(b, backendName)
-		})
-	}
+	kvstore.SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
+	benchmarkRunLocksGC(b, "etcd")
 }
 
 func benchmarkRunLocksGC(b *testing.B, backendName string) {
@@ -129,26 +123,13 @@ func benchmarkRunLocksGC(b *testing.B, backendName string) {
 		lock1, err = backend1.Lock(context.Background(), shortKey)
 		require.NoError(b, err)
 		close(gotLock1)
-		var client kvstore.BackendOperations
-		switch backendName {
-		case "etcd":
-			client, _ = kvstore.NewClient(context.Background(),
-				backendName,
-				map[string]string{
-					kvstore.EtcdAddrOption: kvstore.EtcdDummyAddress(),
-				},
-				nil,
-			)
-		case "consul":
-			client, _ = kvstore.NewClient(context.Background(),
-				backendName,
-				map[string]string{
-					kvstore.ConsulAddrOption:   kvstore.ConsulDummyAddress(),
-					kvstore.ConsulOptionConfig: kvstore.ConsulDummyConfigFile(),
-				},
-				nil,
-			)
-		}
+		client, _ := kvstore.NewClient(context.Background(),
+			backendName,
+			map[string]string{
+				kvstore.EtcdAddrOption: kvstore.EtcdDummyAddress(),
+			},
+			nil,
+		)
 		lock2, err = client.LockPath(context.Background(), allocatorName+"/locks/"+kvstore.Client().Encode([]byte(shortKey.GetKey())))
 		require.NoError(b, err)
 		close(gotLock2)
@@ -169,14 +150,7 @@ func benchmarkRunLocksGC(b *testing.B, backendName string) {
 	// Check which locks are stale, it should be lock1 and lock2
 	staleLocks, err = allocator.RunLocksGC(context.Background(), staleLocks)
 	require.NoError(b, err)
-	switch backendName {
-	case "consul":
-		// Contrary to etcd, consul does not create a lock in the kvstore
-		// if a lock is already being held.
-		require.Len(b, staleLocks, 1)
-	case "etcd":
-		require.Len(b, staleLocks, 2)
-	}
+	require.Len(b, staleLocks, 2)
 
 	var (
 		oldestRev     = uint64(math.MaxUint64)
@@ -207,17 +181,9 @@ func benchmarkRunLocksGC(b *testing.B, backendName string) {
 	// GC lock1 because it's the oldest lock being held.
 	staleLocks, err = allocator.RunLocksGC(context.Background(), staleLocks)
 	require.NoError(b, err)
-	switch backendName {
-	case "consul":
-		// Contrary to etcd, consul does not create a lock in the kvstore
-		// if a lock is already being held. So we have GCed the only lock
-		// available.
-		require.Len(b, staleLocks, 0)
-	case "etcd":
-		// There are 2 clients trying to get the lock, we have GC one of them
-		// so that is way we have 1 staleLock in the map.
-		require.Len(b, staleLocks, 1)
-	}
+	// There are 2 clients trying to get the lock, we have GC one of them
+	// so that is way we have 1 staleLock in the map.
+	require.Len(b, staleLocks, 1)
 
 	// Wait until lock2 is gotten as it should have happen since we have
 	// GC lock1.
@@ -236,12 +202,8 @@ func benchmarkRunLocksGC(b *testing.B, backendName string) {
 
 func BenchmarkGC(b *testing.B) {
 	testutils.IntegrationTest(b)
-	for _, backendName := range []string{"etcd", "consul"} {
-		b.Run(backendName, func(b *testing.B) {
-			kvstore.SetupDummyWithConfigOpts(b, backendName, opts(backendName))
-			benchmarkGC(b)
-		})
-	}
+	kvstore.SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
+	benchmarkGC(b)
 }
 
 func benchmarkGC(b *testing.B) {
@@ -295,12 +257,8 @@ func benchmarkGC(b *testing.B) {
 
 func BenchmarkGCShouldSkipOutOfRangeIdentities(b *testing.B) {
 	testutils.IntegrationTest(b)
-	for _, backendName := range []string{"etcd", "consul"} {
-		b.Run(backendName, func(b *testing.B) {
-			kvstore.SetupDummyWithConfigOpts(b, backendName, opts(backendName))
-			benchmarkGCShouldSkipOutOfRangeIdentities(b)
-		})
-	}
+	kvstore.SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
+	benchmarkGCShouldSkipOutOfRangeIdentities(b)
 }
 
 func benchmarkGCShouldSkipOutOfRangeIdentities(b *testing.B) {
@@ -378,12 +336,8 @@ func benchmarkGCShouldSkipOutOfRangeIdentities(b *testing.B) {
 
 func TestAllocateCached(t *testing.T) {
 	testutils.IntegrationTest(t)
-	for _, backendName := range []string{"etcd", "consul"} {
-		t.Run(backendName, func(t *testing.T) {
-			kvstore.SetupDummyWithConfigOpts(t, backendName, opts(backendName))
-			testAllocatorCached(t, idpool.ID(32), randomTestName()) // enable use of local cache
-		})
-	}
+	kvstore.SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
+	testAllocatorCached(t, idpool.ID(32), randomTestName()) // enable use of local cache
 }
 
 func testAllocatorCached(t *testing.T, maxID idpool.ID, allocatorName string) {
@@ -476,12 +430,8 @@ func testAllocatorCached(t *testing.T, maxID idpool.ID, allocatorName string) {
 
 func TestKeyToID(t *testing.T) {
 	testutils.IntegrationTest(t)
-	for _, backendName := range []string{"etcd", "consul"} {
-		t.Run(backendName, func(t *testing.T) {
-			kvstore.SetupDummyWithConfigOpts(t, backendName, opts(backendName))
-			testKeyToID(t)
-		})
-	}
+	kvstore.SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
+	testKeyToID(t)
 }
 
 func testKeyToID(t *testing.T) {
@@ -511,12 +461,8 @@ func testKeyToID(t *testing.T) {
 
 func TestGetNoCache(t *testing.T) {
 	testutils.IntegrationTest(t)
-	for _, backendName := range []string{"etcd", "consul"} {
-		t.Run(backendName, func(t *testing.T) {
-			kvstore.SetupDummyWithConfigOpts(t, backendName, opts(backendName))
-			testGetNoCache(t, idpool.ID(256))
-		})
-	}
+	kvstore.SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
+	testGetNoCache(t, idpool.ID(256))
 }
 
 func testGetNoCache(t *testing.T, maxID idpool.ID) {
@@ -599,12 +545,8 @@ func TestPrefixMatchesKey(t *testing.T) {
 
 func TestRemoteCache(t *testing.T) {
 	testutils.IntegrationTest(t)
-	for _, backendName := range []string{"etcd", "consul"} {
-		t.Run(backendName, func(t *testing.T) {
-			kvstore.SetupDummyWithConfigOpts(t, backendName, opts(backendName))
-			testRemoteCache(t)
-		})
-	}
+	kvstore.SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
+	testRemoteCache(t)
 }
 
 func testRemoteCache(t *testing.T) {
@@ -697,13 +639,4 @@ func testRemoteCache(t *testing.T) {
 	for i := range cache {
 		require.Equal(t, 2, cache[i])
 	}
-}
-
-func opts(backendName string) map[string]string {
-	if backendName == "etcd" {
-		// Explicitly set higher QPS than the default to speedup the test
-		return map[string]string{kvstore.EtcdRateLimitOption: "100"}
-	}
-
-	return nil
 }

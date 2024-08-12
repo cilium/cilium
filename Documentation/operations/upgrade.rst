@@ -301,6 +301,7 @@ communicating via the proxy must reconnect to re-establish connections.
   100 QPS/200 Burst. To configure the rate limit for Cilium Operator, use the
   ``--operator-k8s-client-qps`` and ``--operator-k8s-client-burst`` flags or the corresponding
   Helm values.
+* Support for Consul, deprecated since v1.12, has been removed.
 
 Removed Options
 ~~~~~~~~~~~~~~~

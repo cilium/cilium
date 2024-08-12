@@ -58,6 +58,4 @@ var _ = Describe("RuntimeAgentChaos", func() {
 	})
 
 	Context("Cilium agent", agentChaosTests)
-
-	Context("KVStore", kvstoreChaosTests)
 })
