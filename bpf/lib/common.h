@@ -801,6 +801,8 @@ static __always_inline __u32 or_encrypt_key(__u8 key)
 #define TC_INDEX_F_UNUSED		8
 #define TC_INDEX_F_SKIP_HOST_FIREWALL	16
 
+#define CB_NAT_FLAGS_REVDNAT_ONLY	(1 << 0)
+
 /*
  * For use in ctx_{load,store}_meta(), which operates on sk_buff->cb or
  * the cilium_xdp_scratch pad.
@@ -834,6 +836,7 @@ enum {
 #define	CB_CLUSTER_ID_INGRESS	CB_POLICY	/* Alias, non-overlapping */
 #define CB_HSIPC_PORT		CB_POLICY	/* Alias, non-overlapping */
 #define CB_DSR_SRC_LABEL	CB_POLICY	/* Alias, non-overlapping */
+#define CB_NAT_FLAGS		CB_POLICY	/* Alias, non-overlapping */
 	CB_3,
 #define	CB_ADDR_V6_3		CB_3		/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_3		/* Alias, non-overlapping */
