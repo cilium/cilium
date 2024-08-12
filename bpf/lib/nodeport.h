@@ -1441,14 +1441,13 @@ redo:
 			return DROP_UNKNOWN_CT;
 		}
 
+		ret = neigh_record_ip6(ctx);
+		if (ret < 0)
+			return ret;
 		if (backend_local) {
 			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 			return CTX_ACT_OK;
 		}
-
-		ret = neigh_record_ip6(ctx);
-		if (ret < 0)
-			return ret;
 	}
 
 	/* TX request to remote backend: */
@@ -3010,14 +3009,13 @@ redo:
 			return DROP_UNKNOWN_CT;
 		}
 
+		ret = neigh_record_ip4(ctx);
+		if (ret < 0)
+			return ret;
 		if (backend_local) {
 			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 			return CTX_ACT_OK;
 		}
-
-		ret = neigh_record_ip4(ctx);
-		if (ret < 0)
-			return ret;
 	}
 
 	/* TX request to remote backend: */
