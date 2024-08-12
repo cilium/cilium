@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/types"
 	agentOption "github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
 type trackerAndDecoder struct {
@@ -59,7 +60,8 @@ type ControlPlaneTest struct {
 	trackers            []trackerAndDecoder
 	agentHandle         *agentHandle
 	operatorHandle      *operatorHandle
-	Datapath            *fakeTypes.FakeDatapath
+	FakeNodeHandler     *fakeTypes.FakeNodeHandler
+	FakeLbMap           *mockmaps.LBMockMap
 	establishedWatchers *lock.Map[string, struct{}]
 }
 
@@ -142,7 +144,8 @@ func (cpt *ControlPlaneTest) StartAgent(modConfig func(*agentOption.DaemonConfig
 		cpt.t.Fatalf("Failed to start cilium agent: %s", err)
 	}
 	cpt.agentHandle.d = daemon
-	cpt.Datapath = cpt.agentHandle.dp
+	cpt.FakeNodeHandler = cpt.agentHandle.fnh
+	cpt.FakeLbMap = cpt.agentHandle.flbMap
 
 	return cpt
 }
@@ -150,7 +153,8 @@ func (cpt *ControlPlaneTest) StartAgent(modConfig func(*agentOption.DaemonConfig
 func (cpt *ControlPlaneTest) StopAgent() *ControlPlaneTest {
 	cpt.agentHandle.tearDown()
 	cpt.agentHandle = nil
-	cpt.Datapath = nil
+	cpt.FakeNodeHandler = nil
+	cpt.FakeLbMap = nil
 
 	return cpt
 }
@@ -598,7 +602,6 @@ func augmentTracker[T fakeWithTracker](f T, t *testing.T, watchers *lock.Map[str
 			filterList(ret, action.GetListRestrictions())
 		}
 		return
-
 	})
 
 	f.PrependWatchReactor(
@@ -621,7 +624,6 @@ func augmentTracker[T fakeWithTracker](f T, t *testing.T, watchers *lock.Map[str
 				restrictions: w.GetWatchRestrictions(),
 			}
 			return true, fw, nil
-
 		})
 
 	return f

@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	"github.com/cilium/cilium/pkg/time"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 )
@@ -43,10 +44,14 @@ var Cell = cell.Module(
 	"Fake Datapath",
 
 	cell.Provide(
-		func(lifecycle cell.Lifecycle, na types.NodeAddressing, nodeManager manager.NodeManager) (*fakeTypes.FakeDatapath, types.NodeIDHandler, types.NodeHandler, types.NodeNeighbors, types.LBMap) {
-			dp := fakeTypes.NewDatapathWithNodeAddressing(na)
-			nodeManager.Subscribe(dp.Node())
-			return dp, dp.NodeIDs(), dp.Node(), dp.NodeNeighbors(), dp.LBMap()
+		func(lifecycle cell.Lifecycle, na types.NodeAddressing, nodeManager manager.NodeManager) (types.NodeIDHandler, types.NodeHandler, types.NodeNeighbors, *fakeTypes.FakeNodeHandler) {
+			fakeNodeHandler := fakeTypes.NewNodeHandler()
+			nodeManager.Subscribe(fakeNodeHandler)
+			return fakeNodeHandler, fakeNodeHandler, fakeNodeHandler, fakeNodeHandler
+		},
+		func(lifecycle cell.Lifecycle, na types.NodeAddressing, nodeManager manager.NodeManager) (types.LBMap, *mockmaps.LBMockMap) {
+			lbMap := mockmaps.NewLBMockMap()
+			return lbMap, lbMap
 		},
 		func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
 		func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },

@@ -16,7 +16,6 @@ import (
 
 func init() {
 	suite.AddTestCase("Pod/HostPort", testHostPort)
-
 }
 
 func testHostPort(t *testing.T) {
@@ -42,15 +41,15 @@ func testHostPort(t *testing.T) {
 		// Step 1: Create the first hostport pod.
 		// lbmap1.golden: Hostport service exists in the Datapath with hostport-1 pod as backend.
 		UpdateObjectsFromFile(abs("state1.yaml")).
-		Eventually(func() error { return helpers.ValidateLBMapGoldenFile(abs("lbmap1.golden"), test.Datapath) }).
+		Eventually(func() error { return helpers.ValidateLBMapGoldenFile(abs("lbmap1.golden"), test.FakeLbMap) }).
 
 		// Step 2: Mark the first pod as "completed", and create a second hostport pod using the same port
 		// lbmap2.golden: Hostport service exists in the Datapath with hostport-2 pod as backend.
 		UpdateObjectsFromFile(abs("state2.yaml")).
-		Eventually(func() error { return helpers.ValidateLBMapGoldenFile(abs("lbmap2.golden"), test.Datapath) }).
+		Eventually(func() error { return helpers.ValidateLBMapGoldenFile(abs("lbmap2.golden"), test.FakeLbMap) }).
 
 		// Step 3: Delete the completed pod, and verify that the hostport service doesn't get deleted.
 		// lbmap3.golden: Hostport service still exists in the Datapath, with hostport-2 pod as backend.
 		UpdateObjectsFromFile(abs("state3.yaml")).
-		Eventually(func() error { return helpers.ValidateLBMapGoldenFile(abs("lbmap3.golden"), test.Datapath) })
+		Eventually(func() error { return helpers.ValidateLBMapGoldenFile(abs("lbmap3.golden"), test.FakeLbMap) })
 }
