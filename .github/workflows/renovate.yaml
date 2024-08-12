@@ -34,13 +34,13 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Self-hosted Renovate
-        uses: renovatebot/github-action@8ce0fe8066eb6b16e1bf499b21bc96e5ccd962a4 # v40.2.3
+        uses: renovatebot/github-action@0c94129d48b4e92addf23686b8a735b3057a0448 # v40.2.5
         env:
           # default to DEBUG log level, this is always useful
           LOG_LEVEL: ${{ github.event.inputs.renovate_log_level_debug == 'false' && 'INFO' || 'DEBUG' }}
         with:
           # renovate: datasource=github-releases depName=renovatebot/renovate
-          renovate-version: 38.8.3
+          renovate-version: 38.25.1
           docker-user: root
           docker-cmd-file: .github/actions/renovate/entrypoint.sh
           configurationFile: .github/renovate.json5
