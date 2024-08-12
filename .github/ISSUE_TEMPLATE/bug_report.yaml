@@ -29,8 +29,6 @@ body:
         - 'equal or higher than v1.15.7 and lower than v1.16.0'
         # renovate: datasource=github-tags depName=cilium/cilium
         - 'equal or higher than v1.14.13 and lower than v1.15.0'
-        # renovate: datasource=github-tags depName=cilium/cilium
-        - 'equal or higher than v1.13.18 and lower than v1.14.0'
     validations:
       required: true
   - type: textarea
