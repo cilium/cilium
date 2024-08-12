@@ -16,6 +16,8 @@ runs:
           /opt/microsoft/msedge \
           /opt/microsoft/powershell \
           /opt/pipx \
+          /opt/ghc \
+          /usr/local/.ghcup \
           /usr/lib/mono \
           /usr/local/julia* \
           /usr/local/lib/android \
