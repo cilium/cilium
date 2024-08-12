@@ -21,6 +21,7 @@ var Cell = cell.Module(
 	"node-manager",
 	"Manages the collection of Cilium nodes",
 	cell.Provide(newAllNodeManager),
+	cell.Provide(newGetClusterNodesRestAPIHandler),
 	metrics.Metric(NewNodeMetrics),
 )
 
@@ -85,7 +86,8 @@ func newAllNodeManager(in struct {
 	IPSetFilter IPSetFilterFn `optional:"true"`
 	NodeMetrics *nodeMetrics
 	Health      cell.Health
-}) (NodeManager, error) {
+},
+) (NodeManager, error) {
 	mngr, err := New(option.Config, in.IPCache, in.IPSetMgr, in.IPSetFilter, in.NodeMetrics, in.Health)
 	if err != nil {
 		return nil, err
