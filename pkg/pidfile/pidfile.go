@@ -4,7 +4,9 @@
 package pidfile
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"strconv"
 	"strings"
@@ -59,13 +61,34 @@ func Clean() {
 	cleanUPWg = &sync.WaitGroup{}
 }
 
-// kill parses the PID in the provided slice and attempts to kill the process
-// associated with that PID.
-func kill(buf []byte, pidfile string) (int, error) {
+func Read(pidfilePath string) (int, error) {
+	return read(pidfilePath)
+}
+
+func read(pidfilePath string) (int, error) {
+	buf, err := os.ReadFile(pidfilePath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+
 	pidStr := strings.TrimSpace(string(buf))
 	pid, err := strconv.Atoi(pidStr)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse pid from %q: %w", pidStr, err)
+	}
+
+	return pid, nil
+}
+
+// kill parses the PID in the provided slice and attempts to kill the process
+// associated with that PID.
+func kill(pidfile string) (int, error) {
+	pid, err := read(pidfile)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read pid file %q: %w", pidfile, err)
 	}
 	oldProc, err := os.FindProcess(pid)
 	if err != nil {
@@ -98,16 +121,7 @@ func kill(buf []byte, pidfile string) (int, error) {
 // On success, deletes the pidfile from the filesystem. Otherwise, leaves it
 // in place.
 func Kill(pidfilePath string) (int, error) {
-	if _, err := os.Stat(pidfilePath); os.IsNotExist(err) {
-		return 0, nil
-	}
-
-	pidfile, err := os.ReadFile(pidfilePath)
-	if err != nil {
-		return 0, err
-	}
-
-	pid, err := kill(pidfile, pidfilePath)
+	pid, err := kill(pidfilePath)
 	if err != nil {
 		return pid, err
 	}
