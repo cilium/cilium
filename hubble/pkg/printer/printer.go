@@ -293,6 +293,13 @@ func (p Printer) getAuth(f *flowpb.Flow) string {
 	}
 }
 
+func (p Printer) GetIpTraceID(f *flowpb.Flow) string {
+	if f.GetIpTraceId() != nil {
+		return p.color.identity(fmt.Sprintf(" [ip_trace_id: %#x]", f.GetIpTraceId().GetTraceId()))
+	}
+	return ""
+}
+
 // WriteProtoFlow writes v1.Flow into the output writer.
 func (p *Printer) WriteProtoFlow(res *observerpb.GetFlowsResponse) error {
 	f := res.GetFlow()
@@ -355,7 +362,7 @@ func (p *Printer) WriteProtoFlow(res *observerpb.GetFlowsResponse) error {
 			return fmt.Errorf("failed to write out packet: %w", ew.err)
 		}
 	case CompactOutput:
-		var node string
+		var node, traceID string
 		src, dst := p.GetHostNames(f)
 		srcIdentity, dstIdentity := p.GetSecurityIdentities(f)
 
@@ -372,10 +379,16 @@ func (p *Printer) WriteProtoFlow(res *observerpb.GetFlowsResponse) error {
 			srcIdentity, dstIdentity = dstIdentity, srcIdentity
 			arrow = "<-"
 		}
+
+		if f.GetIpTraceId().GetTraceId() != 0 {
+			traceID = p.GetIpTraceID(f)
+		}
+
 		_, err := fmt.Fprintf(p.opts.w,
-			"%s%s: %s %s %s %s %s %s %s (%s)\n",
+			"%s%s%s: %s %s %s %s %s %s %s (%s)\n",
 			fmtTimestamp(p.opts.timeFormat, f.GetTime()),
 			node,
+			traceID,
 			src,
 			srcIdentity,
 			arrow,
