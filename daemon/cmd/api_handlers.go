@@ -21,9 +21,8 @@ import (
 type handlersOut struct {
 	cell.Out
 
-	DaemonGetCgroupDumpMetadataHandler daemon.GetCgroupDumpMetadataHandler
-	DaemonGetDebuginfoHandler          daemon.GetDebuginfoHandler
-	DaemonGetHealthzHandler            daemon.GetHealthzHandler
+	DaemonGetDebuginfoHandler daemon.GetDebuginfoHandler
+	DaemonGetHealthzHandler   daemon.GetHealthzHandler
 
 	EndpointDeleteEndpointHandler        endpoint.DeleteEndpointHandler
 	EndpointDeleteEndpointIDHandler      endpoint.DeleteEndpointIDHandler
@@ -130,9 +129,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 
 	// /debuginfo
 	out.DaemonGetDebuginfoHandler = wrapAPIHandler(dp, getDebugInfoHandler)
-
-	// /cgroup-dump-metadata
-	out.DaemonGetCgroupDumpMetadataHandler = wrapAPIHandler(dp, getCgroupDumpMetadataHandler)
 
 	// /fqdn/cache
 	out.PolicyGetFqdnCacheHandler = wrapAPIHandler(dp, getFqdnCacheHandler)

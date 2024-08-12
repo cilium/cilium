@@ -1,18 +1,28 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package manager
 
 import (
 	"github.com/go-openapi/runtime/middleware"
 
 	"github.com/cilium/cilium/api/v1/models"
-	restapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	daemonrestapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 )
 
-func getCgroupDumpMetadataHandler(d *Daemon, params restapi.GetCgroupDumpMetadataParams) middleware.Responder {
+type getCgroupDumpMetadataRestApiHandler struct {
+	cgroupManager CGroupManager
+}
+
+func newGetCgroupDumpMetadataRestApiHandler(cgroupManager CGroupManager) daemonrestapi.GetCgroupDumpMetadataHandler {
+	return &getCgroupDumpMetadataRestApiHandler{
+		cgroupManager: cgroupManager,
+	}
+}
+
+func (h *getCgroupDumpMetadataRestApiHandler) Handle(params daemonrestapi.GetCgroupDumpMetadataParams) middleware.Responder {
 	resp := models.CgroupDumpMetadata{}
-	metadata := d.cgroupManager.DumpPodMetadata()
+	metadata := h.cgroupManager.DumpPodMetadata()
 
 	for _, pm := range metadata {
 		var respCms []*models.CgroupContainerMetadata
@@ -32,5 +42,5 @@ func getCgroupDumpMetadataHandler(d *Daemon, params restapi.GetCgroupDumpMetadat
 		resp.PodMetadatas = append(resp.PodMetadatas, respPm)
 	}
 
-	return restapi.NewGetCgroupDumpMetadataOK().WithPayload(&resp)
+	return daemonrestapi.NewGetCgroupDumpMetadataOK().WithPayload(&resp)
 }
