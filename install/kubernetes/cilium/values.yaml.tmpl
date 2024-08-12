@@ -2229,8 +2229,24 @@ envoy:
   # Only needs to be changed if multiple Envoy instances will run on the same node and may have conflicts. Supported values: 0 - 4294967295. Defaults to '0'
   baseID: 0
   log:
-    # -- The format string to use for laying out the log message metadata of Envoy.
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- The format string to use for laying out the log message metadata of Envoy. If specified, Envoy will use text format output.
+    # This setting is mutually exclusive with envoy.log.format_json.
     format: "[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v"
+    # @schema
+    # type: [null, object]
+    # @schema
+    # -- The JSON logging format to use for Envoy. This setting is mutually exclusive with envoy.log.format.
+    # ref: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/bootstrap/v3/bootstrap.proto#envoy-v3-api-field-config-bootstrap-v3-bootstrap-applicationlogconfig-logformat-json-format
+    format_json: null
+      # date: "%Y-%m-%dT%T.%e"
+      # thread_id: "%t"
+      # source_line: "%s:%#"
+      # level: "%l"
+      # logger: "%n"
+      # message: "%j"
     # -- Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
     path: ""
     # @schema
