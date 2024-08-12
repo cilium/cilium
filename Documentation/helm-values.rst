@@ -1273,9 +1273,13 @@
      - string
      - Defaults to the default log level of the Cilium Agent - ``info``
    * - :spelling:ignore:`envoy.log.format`
-     - The format string to use for laying out the log message metadata of Envoy.
+     - The format string to use for laying out the log message metadata of Envoy. If specified, Envoy will use text format output. This setting is mutually exclusive with envoy.log.format_json.
      - string
      - ``"[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v"``
+   * - :spelling:ignore:`envoy.log.format_json`
+     - The JSON logging format to use for Envoy. This setting is mutually exclusive with envoy.log.format. ref: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/bootstrap/v3/bootstrap.proto#envoy-v3-api-field-config-bootstrap-v3-bootstrap-applicationlogconfig-logformat-json-format
+     - string
+     - ``nil``
    * - :spelling:ignore:`envoy.log.path`
      - Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
      - string
