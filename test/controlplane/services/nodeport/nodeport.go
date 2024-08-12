@@ -54,7 +54,7 @@ func init() {
 }
 
 func validate(test *suite.ControlPlaneTest, goldenFile string) error {
-	if err := helpers.ValidateLBMapGoldenFile(goldenFile, test.Datapath); err != nil {
+	if err := helpers.ValidateLBMapGoldenFile(goldenFile, test.FakeLbMap); err != nil {
 		return err
 	}
 	if err := validateExternalTrafficPolicyLocal(test); err != nil {
@@ -64,14 +64,12 @@ func validate(test *suite.ControlPlaneTest, goldenFile string) error {
 }
 
 func validateExternalTrafficPolicyLocal(test *suite.ControlPlaneTest) error {
-	dp := test.Datapath
-	lbmap := dp.LBMockMap()
-	lbmap.Lock()
-	defer lbmap.Unlock()
+	test.FakeLbMap.Lock()
+	defer test.FakeLbMap.Unlock()
 
 	// Collect all echo-local services with internal ("local") scope.
 	localServices := []*lb.SVC{}
-	for _, svc := range dp.LBMockMap().ServiceByID {
+	for _, svc := range test.FakeLbMap.ServiceByID {
 		if svc.Name.Name == "echo-local" && svc.Frontend.Scope == lb.ScopeInternal {
 			localServices = append(localServices, svc)
 		}

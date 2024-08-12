@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
 type agentHandle struct {
@@ -40,7 +41,8 @@ type agentHandle struct {
 	nodeAddrs statedb.Table[datapathTables.NodeAddress]
 	d         *cmd.Daemon
 	p         promise.Promise[*cmd.Daemon]
-	dp        *fakeTypes.FakeDatapath
+	fnh       *fakeTypes.FakeNodeHandler
+	flbMap    *mockmaps.LBMockMap
 
 	hive *hive.Hive
 	log  *slog.Logger
@@ -83,9 +85,10 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 		metrics.Cell,
 		store.Cell,
 		cmd.ControlPlane,
-		cell.Invoke(func(p promise.Promise[*cmd.Daemon], dp *fakeTypes.FakeDatapath) {
+		cell.Invoke(func(p promise.Promise[*cmd.Daemon], nh *fakeTypes.FakeNodeHandler, lbMap *mockmaps.LBMockMap) {
 			h.p = p
-			h.dp = dp
+			h.fnh = nh
+			h.flbMap = lbMap
 		}),
 
 		cell.Invoke(func(db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress]) {

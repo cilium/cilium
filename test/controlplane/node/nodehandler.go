@@ -37,8 +37,8 @@ var (
 	}
 )
 
-func validateNodes(dp *fakeTypes.FakeDatapath) error {
-	nodes := dp.FakeNode().Nodes
+func validateNodes(fnh *fakeTypes.FakeNodeHandler) error {
+	nodes := fnh.Nodes
 
 	if len(nodes) != 1 {
 		return fmt.Errorf("expected 1 node, found %d (%v)", len(nodes), nodes)
@@ -70,7 +70,7 @@ func init() {
 			UpdateObjects(minimalNode).
 			SetupEnvironment().
 			StartAgent(func(*option.DaemonConfig) {}).
-			Eventually(func() error { return validateNodes(test.Datapath) }).
+			Eventually(func() error { return validateNodes(test.FakeNodeHandler) }).
 			StopAgent().
 			ClearEnvironment()
 	})
