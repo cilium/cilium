@@ -792,7 +792,7 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 		goto out;
 	}
 
-	ret = handle_nat_fwd(ctx, cluster_id, proto, &trace, &ext_err);
+	ret = handle_nat_fwd(ctx, cluster_id, proto, false, &trace, &ext_err);
 out:
 #endif
 	if (IS_ERR(ret))
