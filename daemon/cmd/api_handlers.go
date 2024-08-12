@@ -25,9 +25,6 @@ type handlersOut struct {
 	DaemonGetCgroupDumpMetadataHandler daemon.GetCgroupDumpMetadataHandler
 	DaemonGetDebuginfoHandler          daemon.GetDebuginfoHandler
 	DaemonGetHealthzHandler            daemon.GetHealthzHandler
-	DaemonGetMapHandler                daemon.GetMapHandler
-	DaemonGetMapNameEventsHandler      daemon.GetMapNameEventsHandler
-	DaemonGetMapNameHandler            daemon.GetMapNameHandler
 
 	EndpointDeleteEndpointHandler        endpoint.DeleteEndpointHandler
 	EndpointDeleteEndpointIDHandler      endpoint.DeleteEndpointIDHandler
@@ -139,11 +136,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 
 	// /cgroup-dump-metadata
 	out.DaemonGetCgroupDumpMetadataHandler = wrapAPIHandler(dp, getCgroupDumpMetadataHandler)
-
-	// /map
-	out.DaemonGetMapHandler = wrapAPIHandler(dp, getMapHandler)
-	out.DaemonGetMapNameHandler = wrapAPIHandler(dp, getMapNameHandler)
-	out.DaemonGetMapNameEventsHandler = wrapAPIHandler(dp, getMapNameEventsHandler)
 
 	// metrics
 	out.MetricsGetMetricsHandler = wrapAPIHandler(dp, getMetricsHandler)
