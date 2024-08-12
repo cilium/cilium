@@ -270,7 +270,7 @@ func (ay *directSysctl) ReadInt(name string) (int64, error) {
 }
 
 // parameterElemRx matches an element of a sysctl parameter.
-var parameterElemRx = regexp.MustCompile(`\A[-0-9_a-z]+\z`)
+var parameterElemRx = regexp.MustCompile(`(?i)\A[-0-9_a-z]+\z`)
 
 // parameterPath returns the path to the sysctl file for parameter name.
 //
