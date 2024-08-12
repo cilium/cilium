@@ -85,7 +85,6 @@ spec:
         {{- else }}
         - '--log-level info'
         {{- end }}
-        - '--log-format {{ .Values.envoy.log.format }}'
         {{- if .Values.envoy.log.path }}
         - '--log-path {{ .Values.envoy.log.path }}'
         {{- end }}
