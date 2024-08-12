@@ -13,6 +13,10 @@ var (
 	// that share the same table name.
 	ErrDuplicateTable = errors.New("table already exists")
 
+	// ErrTableNotRegistered indicates that a user tries to write to a table that has not been
+	// registered with this StateDB instance.
+	ErrTableNotRegistered = errors.New("table not registered")
+
 	// ErrPrimaryIndexNotUnique indicates that the primary index for the table is not marked unique.
 	ErrPrimaryIndexNotUnique = errors.New("primary index not unique")
 

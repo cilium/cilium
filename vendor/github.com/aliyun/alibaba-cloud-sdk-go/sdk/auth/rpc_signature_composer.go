@@ -32,9 +32,8 @@ func signRpcRequest(request requests.AcsRequest, signer Signer, regionId string)
 		return
 	}
 	// remove while retry
-	if _, containsSign := request.GetQueryParams()["Signature"]; containsSign {
-		delete(request.GetQueryParams(), "Signature")
-	}
+	delete(request.GetQueryParams(), "Signature")
+
 	stringToSign := buildRpcStringToSign(request)
 	request.SetStringToSign(stringToSign)
 	signature := signer.Sign(stringToSign, "&")

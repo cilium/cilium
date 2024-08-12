@@ -2,8 +2,6 @@ syntax = "proto3";
 package spire.api.types;
 option go_package = "github.com/spiffe/spire-api-sdk/proto/spire/api/types";
 
-import "google/protobuf/wrappers.proto";
-
 // The logger log levels.
 enum LogLevel {
 	UNSPECIFIED = 0;

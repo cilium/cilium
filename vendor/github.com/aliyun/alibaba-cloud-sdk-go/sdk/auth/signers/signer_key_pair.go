@@ -24,9 +24,11 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/responses"
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/utils"
 	jmespath "github.com/jmespath/go-jmespath"
 )
 
+// Deprecated: RSA key pair is deprecated
 type SignerKeyPair struct {
 	*credentialUpdater
 	sessionCredential *SessionCredential
@@ -98,7 +100,7 @@ func (signer *SignerKeyPair) GetExtraParam() map[string]string {
 
 func (signer *SignerKeyPair) Sign(stringToSign, secretSuffix string) string {
 	secret := signer.sessionCredential.AccessKeySecret + secretSuffix
-	return ShaHmac1(stringToSign, secret)
+	return utils.ShaHmac1(stringToSign, secret)
 }
 
 func (signer *SignerKeyPair) buildCommonRequest() (request *requests.CommonRequest, err error) {

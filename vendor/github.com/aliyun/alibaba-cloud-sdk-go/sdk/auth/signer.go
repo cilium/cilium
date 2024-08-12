@@ -83,7 +83,7 @@ func Sign(request requests.AcsRequest, signer Signer, regionId string) (err erro
 	switch request.GetStyle() {
 	case requests.ROA:
 		{
-			err = signRoaRequest(request, signer, regionId)
+			err = signRoaRequest(request, signer)
 		}
 	case requests.RPC:
 		{

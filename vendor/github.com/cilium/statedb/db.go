@@ -249,6 +249,9 @@ func (h Handle) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
 	smus := internal.SortableMutexes{}
 	for _, table := range allTables {
 		smus = append(smus, table.sortableMutex())
+		if table.tablePos() < 0 {
+			panic(tableError(table.Name(), ErrTableNotRegistered))
+		}
 	}
 	lockAt := time.Now()
 	smus.Lock()

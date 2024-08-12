@@ -16,11 +16,17 @@ package utils
 
 import (
 	"bytes"
+	"crypto"
+	"crypto/hmac"
 	"crypto/md5"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha1"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"math/rand"
+	mathrand "math/rand"
 	"net/url"
 	"reflect"
 	"runtime"
@@ -46,7 +52,7 @@ func GetNonce() (uuidHex string) {
 	routineId := getGID()
 	currentTime := time.Now().UnixNano() / 1e6
 	seq := atomic.AddInt64(&seqId, 1)
-	randNum := rand.Int63()
+	randNum := mathrand.Int63()
 	msg := fmt.Sprintf("%d-%d-%d-%d-%d", processStartTime, routineId, currentTime, seq, randNum)
 	h := md5.New()
 	h.Write([]byte(msg))
@@ -105,4 +111,36 @@ func InitStructWithDefaultTag(bean interface{}) {
 			setter.SetBool(boolValue)
 		}
 	}
+}
+
+func ShaHmac1(source, secret string) string {
+	key := []byte(secret)
+	hmac := hmac.New(sha1.New, key)
+	hmac.Write([]byte(source))
+	signedBytes := hmac.Sum(nil)
+	signedString := base64.StdEncoding.EncodeToString(signedBytes)
+	return signedString
+}
+
+func Sha256WithRsa(source, secret string) string {
+	// block, _ := pem.Decode([]byte(secret))
+	decodeString, err := base64.StdEncoding.DecodeString(secret)
+	if err != nil {
+		panic(err)
+	}
+	private, err := x509.ParsePKCS8PrivateKey(decodeString)
+	if err != nil {
+		panic(err)
+	}
+
+	h := crypto.Hash.New(crypto.SHA256)
+	h.Write([]byte(source))
+	hashed := h.Sum(nil)
+	signature, err := rsa.SignPKCS1v15(rand.Reader, private.(*rsa.PrivateKey),
+		crypto.SHA256, hashed)
+	if err != nil {
+		panic(err)
+	}
+
+	return base64.StdEncoding.EncodeToString(signature)
 }
