@@ -241,7 +241,7 @@ const (
 	failedToListCRDs           = "the server could not find the requested resource"                   // cf. https://github.com/cilium/cilium/issues/16425
 	retrieveResLock            = "retrieving resource lock kube-system/cilium-operator-resource-lock" // cf. https://github.com/cilium/cilium/issues/16402#issuecomment-871155492
 	failedToRelLockEmptyName   = "Failed to release lock: resource name may not be empty"             // cf. https://github.com/cilium/cilium/issues/16402#issuecomment-985819560
-	failedToUpdateLock         = "Failed to update lock:"
+	failedToUpdateLock         = "Failed to update lock"
 	failedToReleaseLock        = "Failed to release lock:"
 	errorCreatingInitialLeader = "error initially creating leader election record:"
 	cantEnableJIT              = "bpf_jit_enable: no such file or directory"                             // Because we run tests in Kind.
