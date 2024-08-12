@@ -4270,6 +4270,15 @@ func TestMapState_Get_stacktrace(t *testing.T) {
 
 type validator struct{}
 
+func (sc *SelectorCache) getPrefix(id identity.NumericIdentity) netip.Prefix {
+	sc.mutex.RLock()
+	defer sc.mutex.RUnlock()
+
+	lbls := sc.idCache[id].lbls
+
+	return getLocalScopePrefix(id, lbls)
+}
+
 // prefixesContainsAny checks that any subnet in the `a` subnet group *fully*
 // contains any of the subnets in the `b` subnet group.
 func prefixesContainsAny(a, b []netip.Prefix) bool {
@@ -4318,7 +4327,7 @@ func getNets(identities Identities, ident uint32) []netip.Prefix {
 	if !id.HasLocalScope() || identities == nil {
 		return nil
 	}
-	prefix := identities.GetPrefix(id)
+	prefix := identities.(*SelectorCache).getPrefix(id)
 	if prefix.IsValid() {
 		return []netip.Prefix{prefix}
 	}
@@ -4399,8 +4408,8 @@ func (v *validator) isSupersetOf(a, d Key, identities Identities) {
 	}
 	if !identityIsSupersetOf(a.Identity, d.Identity, identities) {
 		panic(fmt.Sprintf("superset mismatch %s !> %s",
-			identities.GetPrefix(identity.NumericIdentity(a.Identity)).String(),
-			identities.GetPrefix(identity.NumericIdentity(d.Identity)).String()))
+			identities.(*SelectorCache).getPrefix(identity.NumericIdentity(a.Identity)).String(),
+			identities.(*SelectorCache).getPrefix(identity.NumericIdentity(d.Identity)).String()))
 	}
 }
 
@@ -4411,8 +4420,8 @@ func (v *validator) isSupersetOrSame(a, d Key, identities Identities) {
 	if !(a.Identity == d.Identity ||
 		identityIsSupersetOf(a.Identity, d.Identity, identities)) {
 		panic(fmt.Sprintf("superset or equal mismatch %s !>= %s",
-			identities.GetPrefix(identity.NumericIdentity(a.Identity)).String(),
-			identities.GetPrefix(identity.NumericIdentity(d.Identity)).String()))
+			identities.(*SelectorCache).getPrefix(identity.NumericIdentity(a.Identity)).String(),
+			identities.(*SelectorCache).getPrefix(identity.NumericIdentity(d.Identity)).String()))
 	}
 }
 
@@ -4422,8 +4431,8 @@ func (v *validator) isAnyOrSame(a, d Key, identities Identities) {
 	}
 	if !(a.Identity == d.Identity || a.Identity == 0) {
 		panic(fmt.Sprintf("ANY or equal mismatch %s !>= %s",
-			identities.GetPrefix(identity.NumericIdentity(a.Identity)).String(),
-			identities.GetPrefix(identity.NumericIdentity(d.Identity)).String()))
+			identities.(*SelectorCache).getPrefix(identity.NumericIdentity(a.Identity)).String(),
+			identities.(*SelectorCache).getPrefix(identity.NumericIdentity(d.Identity)).String()))
 	}
 }
 

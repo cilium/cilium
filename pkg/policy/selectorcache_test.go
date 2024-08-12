@@ -617,30 +617,28 @@ func testNewSelectorCache(ids identity.IdentityMap) *SelectorCache {
 	return sc
 }
 
-func Test_getLocalScopePrefix(t *testing.T) {
-	prefix := getLocalScopePrefix(identity.ReservedIdentityWorld, nil)
-	require.False(t, prefix.IsValid())
+func Test_getIPFamily(t *testing.T) {
+	// not a local scope ID, no labels
+	ipFamily := getIPFamily(identity.ReservedIdentityWorld, nil)
+	require.Equal(t, ipFamilyNone, ipFamily)
 
-	prefix = getLocalScopePrefix(identity.ReservedIdentityWorld, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "0.0.0.0/0"}})
-	require.False(t, prefix.IsValid())
+	// not a local scope ID
+	ipFamily = getIPFamily(identity.ReservedIdentityWorld, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "0.0.0.0/0"}})
+	require.Equal(t, ipFamilyNone, ipFamily)
 
-	prefix = getLocalScopePrefix(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "0.0.0.0/0"}})
-	require.True(t, prefix.IsValid())
-	require.Equal(t, "0.0.0.0/0", prefix.String())
+	ipFamily = getIPFamily(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "0.0.0.0/0"}})
+	require.Equal(t, ipFamilyV4, ipFamily)
 
-	prefix = getLocalScopePrefix(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "::/0"}})
-	require.True(t, prefix.IsValid())
-	require.Equal(t, "::/0", prefix.String())
+	ipFamily = getIPFamily(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "::/0"}})
+	require.Equal(t, ipFamilyV6, ipFamily)
 
-	prefix = getLocalScopePrefix(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "--/0"}})
-	require.True(t, prefix.IsValid())
-	require.Equal(t, "::/0", prefix.String())
+	ipFamily = getIPFamily(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "--/0"}})
+	require.Equal(t, ipFamilyV6, ipFamily)
 
-	prefix = getLocalScopePrefix(identity.IdentityScopeLocal, labels.LabelArray{
+	ipFamily = getIPFamily(identity.IdentityScopeLocal, labels.LabelArray{
 		labels.Label{Source: labels.LabelSourceCIDR, Key: "ff--/8"},
 		labels.Label{Source: labels.LabelSourceCIDR, Key: "--/0"},
 		labels.Label{Source: labels.LabelSourceCIDR, Key: "--1/128"},
 	})
-	require.True(t, prefix.IsValid())
-	require.Equal(t, "::1/128", prefix.String())
+	require.Equal(t, ipFamilyV6, ipFamily)
 }
