@@ -40,7 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	"github.com/cilium/cilium/pkg/datapath/iptables"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
@@ -1715,7 +1714,7 @@ type daemonParams struct {
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
 	IdentityManager     *identitymanager.IdentityManager
 	Orchestrator        datapath.Orchestrator
-	IPTablesManager     *iptables.Manager
+	IPTablesManager     datapath.IptablesManager
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[policyK8s.PolicyManager]) {

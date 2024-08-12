@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/datapath/iptables"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
@@ -28,7 +28,7 @@ type envoyRedirect struct {
 type envoyProxyIntegration struct {
 	adminClient     *envoy.EnvoyAdminClient
 	xdsServer       envoy.XDSServer
-	iptablesManager *iptables.Manager
+	iptablesManager datapath.IptablesManager
 }
 
 // createRedirect creates a redirect with corresponding proxy configuration. This will launch a proxy instance.
