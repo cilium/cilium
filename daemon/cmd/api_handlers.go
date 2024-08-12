@@ -23,7 +23,6 @@ type handlersOut struct {
 	cell.Out
 
 	DaemonGetCgroupDumpMetadataHandler daemon.GetCgroupDumpMetadataHandler
-	DaemonGetClusterNodesHandler       daemon.GetClusterNodesHandler
 	DaemonGetDebuginfoHandler          daemon.GetDebuginfoHandler
 	DaemonGetHealthzHandler            daemon.GetHealthzHandler
 	DaemonGetMapHandler                daemon.GetMapHandler
@@ -97,9 +96,6 @@ func wrapAPIHandler[Params any](dp promise.Promise[*Daemon], handler func(d *Dae
 func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ *deletionQueue) (out handlersOut) {
 	// /healthz/
 	out.DaemonGetHealthzHandler = wrapAPIHandler(dp, getHealthzHandler)
-
-	// /cluster/nodes
-	out.DaemonGetClusterNodesHandler = NewGetClusterNodesHandler(dp)
 
 	// /endpoint/
 	out.EndpointDeleteEndpointHandler = wrapAPIHandler(dp, deleteEndpointHandler)
