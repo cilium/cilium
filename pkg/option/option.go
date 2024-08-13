@@ -45,6 +45,9 @@ type Option struct {
 	Format FormatFunc
 	// Verify is called prior to applying the option
 	Verify VerifyFunc
+	// Deprecated is true if this option is deprecated and a warning
+	// should be printed.
+	Deprecated bool
 }
 
 // OptionSetting specifies the different choices each Option has.
@@ -104,7 +107,7 @@ func NormalizeBool(value string) (OptionSetting, error) {
 func (l *OptionLibrary) ValidateConfigurationMap(n models.ConfigurationMap) (OptionMap, error) {
 	o := make(OptionMap)
 	for k, v := range n {
-		_, newVal, err := l.parseKeyValue(k, v)
+		_, newVal, _, err := l.parseKeyValue(k, v)
 		if err != nil {
 			return nil, err
 		}
@@ -302,7 +305,7 @@ func (o *IntOptions) InheritDefault(parent *IntOptions, key string) {
 	o.optsMU.RUnlock()
 }
 
-func (l *OptionLibrary) ParseOption(arg string) (string, OptionSetting, error) {
+func (l *OptionLibrary) ParseOption(arg string) (string, OptionSetting, bool, error) {
 	result := OptionEnabled
 
 	if arg[0] == '!' {
@@ -314,21 +317,21 @@ func (l *OptionLibrary) ParseOption(arg string) (string, OptionSetting, error) {
 	arg = optionSplit[0]
 	if len(optionSplit) > 1 {
 		if result == OptionDisabled {
-			return "", OptionDisabled, fmt.Errorf("invalid boolean format")
+			return "", OptionDisabled, false, fmt.Errorf("invalid boolean format")
 		}
 
 		return l.parseKeyValue(arg, optionSplit[1])
 	}
 
-	return "", OptionDisabled, fmt.Errorf("invalid option format")
+	return "", OptionDisabled, false, fmt.Errorf("invalid option format")
 }
 
-func (l *OptionLibrary) parseKeyValue(arg, value string) (string, OptionSetting, error) {
+func (l *OptionLibrary) parseKeyValue(arg, value string) (string, OptionSetting, bool, error) {
 	var result OptionSetting
 
 	key, spec := l.Lookup(arg)
 	if key == "" {
-		return "", OptionDisabled, fmt.Errorf("unknown option %q", arg)
+		return "", OptionDisabled, false, fmt.Errorf("unknown option %q", arg)
 	}
 
 	var err error
@@ -338,14 +341,14 @@ func (l *OptionLibrary) parseKeyValue(arg, value string) (string, OptionSetting,
 		result, err = NormalizeBool(value)
 	}
 	if err != nil {
-		return "", OptionDisabled, err
+		return "", OptionDisabled, false, err
 	}
 
 	if spec.Immutable {
-		return "", OptionDisabled, fmt.Errorf("specified option is immutable (read-only)")
+		return "", OptionDisabled, spec.Deprecated, fmt.Errorf("specified option is immutable (read-only)")
 	}
 
-	return key, result, nil
+	return key, result, spec.Deprecated, nil
 }
 
 // getFmtOpt returns #define name if option exists and is set to true in endpoint's Opts
@@ -419,7 +422,7 @@ func (o *IntOptions) Validate(n models.ConfigurationMap) error {
 	o.optsMU.RLock()
 	defer o.optsMU.RUnlock()
 	for k, v := range n {
-		_, newVal, err := o.library.parseKeyValue(k, v)
+		_, newVal, _, err := o.library.parseKeyValue(k, v)
 		if err != nil {
 			return err
 		}
