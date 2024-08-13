@@ -220,8 +220,11 @@ var (
 		// Auth is responsible for authenticating a request if required by a policy.
 		auth.Cell,
 
-		// IPCache, policy.Repository and CachingIdentityAllocator.
+		// IPCache and CachingIdentityAllocator.
 		cell.Provide(newPolicyTrifecta),
+
+		// Provides PolicyRepository
+		cell.Provide(newPolicyRepo),
 
 		// IPAM provides IP address management.
 		ipamcell.Cell,
