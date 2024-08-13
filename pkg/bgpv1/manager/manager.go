@@ -515,7 +515,7 @@ func (m *BGPRouterManager) getRoutesFromServer(ctx context.Context, sc *instance
 func (m *BGPRouterManager) getRoutesV2(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error) {
 	// validate router ASN
 	if params.RouterAsn != nil {
-		if m.asnExistsInInstances(*params.RouterAsn) {
+		if !m.asnExistsInInstances(*params.RouterAsn) {
 			return nil, fmt.Errorf("virtual router with ASN %d does not exist", *params.RouterAsn)
 		}
 	}
@@ -636,7 +636,7 @@ func (m *BGPRouterManager) getRoutePoliciesV1(ctx context.Context, params restap
 func (m *BGPRouterManager) getRoutePoliciesV2(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error) {
 	// validate router ASN
 	if params.RouterAsn != nil {
-		if m.asnExistsInInstances(*params.RouterAsn) {
+		if !m.asnExistsInInstances(*params.RouterAsn) {
 			return nil, fmt.Errorf("virtual router with ASN %d does not exist", *params.RouterAsn)
 		}
 	}

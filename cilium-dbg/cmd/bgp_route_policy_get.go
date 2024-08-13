@@ -68,7 +68,7 @@ func printBGPRoutePoliciesTable(policies []*models.BgpRoutePolicy) {
 	fmt.Fprintln(w, "VRouter\tPolicy Name\tType\tMatch Peers\tMatch Prefixes (Min..Max Len)\tRIB Action\tPath Actions")
 	for _, policy := range policies {
 		fmt.Fprintf(w, "%d\t", policy.RouterAsn)
-		fmt.Fprintf(w, "%s\t", trimString(policy.Name, 40))
+		fmt.Fprintf(w, "%s\t", policy.Name)
 		fmt.Fprintf(w, "%s\t", policy.Type)
 
 		for i, stmt := range policy.Statements {
@@ -86,13 +86,6 @@ func printBGPRoutePoliciesTable(policies []*models.BgpRoutePolicy) {
 		}
 	}
 	w.Flush()
-}
-
-func trimString(str string, length int) string {
-	if len(str) <= length {
-		return str
-	}
-	return str[:length] + "..."
 }
 
 func formatStringArray(arr []string) string {
