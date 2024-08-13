@@ -84,10 +84,14 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 			continue
 		}
 
-		name, value, err := option.ParseDaemonOption(opts[k])
+		name, value, deprecated, err := option.ParseDaemonOption(opts[k])
 		if err != nil {
 			fmt.Printf("%s\n", err)
 			os.Exit(1)
+		}
+
+		if deprecated {
+			fmt.Fprintf(os.Stderr, "Option %s is deprecated", name)
 		}
 
 		if opt, ok := option.DaemonMutableOptionLibrary[name]; !ok || opt.Parse == nil {

@@ -37,6 +37,6 @@ func init() {
 }
 
 // ParseDaemonOption parses a string as daemon option
-func ParseDaemonOption(opt string) (string, OptionSetting, error) {
+func ParseDaemonOption(opt string) (string, OptionSetting, bool, error) {
 	return DaemonOptionLibrary.ParseOption(opt)
 }
