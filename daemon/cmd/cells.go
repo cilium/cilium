@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/gops"
+	identity "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
 	ipcache "github.com/cilium/cilium/pkg/ipcache/cell"
@@ -222,8 +223,8 @@ var (
 		// Auth is responsible for authenticating a request if required by a policy.
 		auth.Cell,
 
-		// Provides the different types of IdentityAllocators
-		cell.Provide(newIdentityAllocator),
+		// Provides IdentityAllocators (Responsible for allocating security identities)
+		identity.Cell,
 
 		// IPCache cell provides IPCache (IP to identity mappings)
 		ipcache.Cell,

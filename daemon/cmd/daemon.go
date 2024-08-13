@@ -45,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
+	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -139,7 +140,7 @@ type Daemon struct {
 
 	endpointRestoreComplete chan struct{}
 
-	identityAllocator CachingIdentityAllocator
+	identityAllocator identitycell.CachingIdentityAllocator
 
 	ipcache *ipcache.IPCache
 
