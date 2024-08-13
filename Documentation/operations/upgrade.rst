@@ -321,6 +321,12 @@ Helm Options
   deprecated in favor of the associated ``existingSecret`` options and will be
   removed in a future release.
 
+Agent Options
+~~~~~~~~~~~~~
+
+* The ``CONNTRACK_LOCAL`` option has been deprecated and will be removed in a
+  future release.
+
 Added Metrics
 ~~~~~~~~~~~~~
 
