@@ -186,8 +186,6 @@ jobs:
           ###
           # RuntimeAgentChaos Cilium agent Checking for file-descriptor leak
           # RuntimeAgentChaos Cilium agent removing leftover Cilium interfaces
-          # RuntimeAgentChaos Connectivity over restarts Checking that during restart no traffic is dropped using Egress + Ingress Traffic
-          # RuntimeAgentChaos Endpoint Endpoint recovery on restart
           # RuntimeAgentChaos KVStore Delete event on KVStore with CIDR identities
           # RuntimeAgentChaos KVStore Validate that delete events on KVStore do not release in use identities
           # RuntimeAgentFQDNPolicies Can update L7 DNS policy rules
