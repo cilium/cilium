@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
+	ipcache "github.com/cilium/cilium/pkg/ipcache/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
@@ -221,11 +222,11 @@ var (
 		// Auth is responsible for authenticating a request if required by a policy.
 		auth.Cell,
 
-		// Provides the IPCache
-		cell.Provide(newIPCache),
-
 		// Provides the different types of IdentityAllocators
 		cell.Provide(newIdentityAllocator),
+
+		// IPCache cell provides IPCache (IP to identity mappings)
+		ipcache.Cell,
 
 		// IPAM provides IP address management.
 		ipamcell.Cell,
