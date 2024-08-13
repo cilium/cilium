@@ -52,6 +52,7 @@ import (
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
+	policy "github.com/cilium/cilium/pkg/policy/cell"
 	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
@@ -223,12 +224,6 @@ var (
 		// Provides the IPCache
 		cell.Provide(newIPCache),
 
-		// Provides PolicyRepository
-		cell.Provide(newPolicyRepo),
-
-		// Provides PolicyUpdater
-		cell.Provide(newPolicyUpdater),
-
 		// Provides the different types of IdentityAllocators
 		cell.Provide(newIdentityAllocator),
 
@@ -240,6 +235,9 @@ var (
 
 		// ServiceCache holds the list of known services correlated with the matching endpoints.
 		k8s.ServiceCacheCell,
+
+		// Provides PolicyRepository (List of policy rules)
+		policy.Cell,
 
 		// K8s policy resource watcher cell. It depends on the half-initialized daemon which is
 		// resolved by newDaemonPromise()
