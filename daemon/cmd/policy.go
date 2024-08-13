@@ -49,13 +49,10 @@ import (
 type policyParams struct {
 	cell.In
 
-	Lifecycle       cell.Lifecycle
-	EndpointManager endpointmanager.EndpointManager
-	CertManager     certificatemanager.CertificateManager
-	SecretManager   certificatemanager.SecretManager
-	IdentityManager *identitymanager.IdentityManager
-	CacheStatus     synced.CacheStatus
-	ClusterInfo     cmtypes.ClusterInfo
+	Lifecycle        cell.Lifecycle
+	PolicyRepository *policy.Repository
+	EndpointManager  endpointmanager.EndpointManager
+	CacheStatus      synced.CacheStatus
 }
 
 type policyOut struct {
@@ -66,18 +63,21 @@ type policyOut struct {
 	RemoteIdentityWatcher  clustermesh.RemoteIdentityWatcher
 	IdentityObservable     stream.Observable[cache.IdentityChange]
 
-	Repository *policy.Repository
-	Updater    *policy.Updater
-	IPCache    *ipcache.IPCache
+	Updater *policy.Updater
+	IPCache *ipcache.IPCache
 }
 
-// newPolicyTrifecta instantiates CachingIdentityAllocator, Repository and IPCache,
-// which in turn creates the SelectorCache and other policy components.
-//
-// The three have a complicated dependency on each other and therefore require
-// special care.
-func newPolicyTrifecta(params policyParams) (policyOut, error) {
-	ctx, cancel := context.WithCancel(context.Background())
+type policyRepoParams struct {
+	cell.In
+
+	Lifecycle       cell.Lifecycle
+	CertManager     certificatemanager.CertificateManager
+	SecretManager   certificatemanager.SecretManager
+	IdentityManager *identitymanager.IdentityManager
+	ClusterInfo     cmtypes.ClusterInfo
+}
+
+func newPolicyRepo(params policyRepoParams) *policy.Repository {
 	if option.Config.EnableWellKnownIdentities {
 		// Must be done before calling policy.NewPolicyRepository() below.
 		num := identity.InitWellKnownIdentities(option.Config, params.ClusterInfo)
@@ -92,23 +92,41 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	// policy repository: maintains list of active Rules and their subject
 	// security identities. Also constructs the SelectorCache, a precomputed
 	// cache of label selector -> identities for policy peers.
-	repo := policy.NewStoppedPolicyRepository(
+	policyRepo := policy.NewStoppedPolicyRepository(
 		identity.ListReservedIdentities(), // Load SelectorCache with reserved identities
 		params.CertManager,
 		params.SecretManager,
 		params.IdentityManager,
 	)
-	repo.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
+	policyRepo.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
+
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
+			policyRepo.Start()
+			return nil
+		},
+	})
+
+	return policyRepo
+}
+
+// newPolicyTrifecta instantiates CachingIdentityAllocator, Repository and IPCache,
+// which in turn creates the SelectorCache and other policy components.
+//
+// The three have a complicated dependency on each other and therefore require
+// special care.
+func newPolicyTrifecta(params policyParams) (policyOut, error) {
+	ctx, cancel := context.WithCancel(context.Background())
 
 	// policyUpdater: forces policy recalculation on all endpoints.
 	// Called for various events, such as named port changes
 	// or certain identity updates.
-	policyUpdater := policy.NewUpdater(repo, params.EndpointManager)
+	policyUpdater := policy.NewUpdater(params.PolicyRepository, params.EndpointManager)
 
 	// iao: updates SelectorCache and regenerates endpoints when
 	// identity allocation / deallocation has occurred.
 	iao := &identityAllocatorOwner{
-		policy:        repo,
+		policy:        params.PolicyRepository,
 		policyUpdater: policyUpdater,
 	}
 
@@ -128,10 +146,6 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	})
 
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(hc cell.HookContext) error {
-			iao.policy.Start()
-			return nil
-		},
 		OnStop: func(hc cell.HookContext) error {
 			cancel()
 
@@ -150,7 +164,6 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		CacheIdentityAllocator: idAlloc,
 		RemoteIdentityWatcher:  idAlloc,
 		IdentityObservable:     idAlloc,
-		Repository:             iao.policy,
 		Updater:                policyUpdater,
 		IPCache:                ipc,
 	}, nil
