@@ -12,10 +12,12 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -215,6 +217,11 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 }
 
 func TestCreateL4FilterMissingSecret(t *testing.T) {
+	// Suppress the expected warning logs for this test
+	oldLevel := logging.DefaultLogger.GetLevel()
+	logging.DefaultLogger.SetLevel(logrus.ErrorLevel)
+	defer logging.DefaultLogger.SetLevel(oldLevel)
+
 	td := newTestData()
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{

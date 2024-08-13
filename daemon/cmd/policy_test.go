@@ -33,7 +33,6 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -641,9 +640,6 @@ func TestL3DependentL7Etcd(t *testing.T) {
 }
 
 func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
-	logging.SetLogLevelToDebug()
-	defer logging.SetDefaultLogLevel()
-
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
