@@ -29,6 +29,8 @@ const (
 	EgressBandwidth = "kubernetes.io/egress-bandwidth"
 	// IngressBandwidth is the K8s Pod annotation.
 	IngressBandwidth = "kubernetes.io/ingress-bandwidth"
+	// Priority is the Cilium Pod priority annotation.
+	Priority = "bandwidth.cilium.io/priority"
 
 	// FqDefaultHorizon represents maximum allowed departure
 	// time delta in future. Given applications can set SO_TXTIME
@@ -66,12 +68,12 @@ func (m *manager) defines() (defines.Map, error) {
 	return cDefinesMap, nil
 }
 
-func (m *manager) UpdateBandwidthLimit(epID uint16, bytesPerSecond uint64) {
+func (m *manager) UpdateBandwidthLimit(epID uint16, bytesPerSecond uint64, prio uint32) {
 	if m.enabled {
 		txn := m.params.DB.WriteTxn(m.params.EdtTable)
 		m.params.EdtTable.Insert(
 			txn,
-			bwmap.NewEdt(epID, bytesPerSecond),
+			bwmap.NewEdt(epID, bytesPerSecond, prio),
 		)
 		txn.Commit()
 	}

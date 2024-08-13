@@ -421,8 +421,9 @@ func (k *K8sPodWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) er
 	oldAnno := oldK8sPod.ObjectMeta.Annotations
 	newAnno := newK8sPod.ObjectMeta.Annotations
 	annoChangedBandwidth := !k8s.AnnotationsEqual([]string{bandwidth.EgressBandwidth}, oldAnno, newAnno)
+	annoChangedPriority := !k8s.AnnotationsEqual([]string{bandwidth.Priority}, oldAnno, newAnno)
 	annoChangedNoTrack := !k8s.AnnotationsEqual([]string{annotation.NoTrack, annotation.NoTrackAlias}, oldAnno, newAnno)
-	annotationsChanged := annoChangedBandwidth || annoChangedNoTrack
+	annotationsChanged := annoChangedBandwidth || annoChangedPriority || annoChangedNoTrack
 
 	// Check label updates too.
 	oldK8sPodLabels, _ := labelsfilter.Filter(labels.Map2Labels(oldK8sPod.ObjectMeta.Labels, labels.LabelSourceK8s))
@@ -493,12 +494,12 @@ func (k *K8sPodWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) er
 
 		if annotationsChanged {
 			if annoChangedBandwidth {
-				podEP.UpdateBandwidthPolicy(k.bandwidthManager, func(ns, podName string) (bandwidthEgress string, err error) {
+				podEP.UpdateBandwidthPolicy(k.bandwidthManager, func(ns, podName string) (bandwidthEgress string, priority string, err error) {
 					p, err := k.GetCachedPod(ns, podName)
 					if err != nil {
-						return "", nil
+						return "", "", nil
 					}
-					return p.ObjectMeta.Annotations[bandwidth.EgressBandwidth], nil
+					return p.ObjectMeta.Annotations[bandwidth.EgressBandwidth], p.Annotations[bandwidth.Priority], nil
 				})
 			}
 			if annoChangedNoTrack {
