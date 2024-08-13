@@ -213,6 +213,9 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst TCP port hasn't been NATed to backend port");
 
+	if (l4->check != bpf_htons(0xd7d0))
+		test_fatal("L4 checksum is invalid: %d", bpf_htons(l4->check));
+
 	test_finish();
 }
 

@@ -334,6 +334,10 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, __u32 expected_result)
 	if (l4->dest != DST_PORT)
 		test_fatal("dest TCP port was not dnatted");
 
+	//todo: uncomment
+	// if (l4->check != bpf_htons(0x589c))
+		// test_fatal("L4 checksum is invalid: %d", bpf_htons(l4->check));
+
 	payload = (void *)l4 + sizeof(struct tcphdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
 		test_fatal("payload out of bounds");

@@ -184,6 +184,9 @@ int test1_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port != backend port");
 
+	if (l4->check != bpf_htons(0xc9ee))
+		test_fatal("L4 checksum is invalid: %d", bpf_htons(l4->check));
+
 	char msg[20] = "Should not change!!";
 
 	if (data + sizeof(msg) > data_end)
