@@ -305,7 +305,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_WIREGUARD"] = "1"
 		ifindex, err := link.GetIfIndex(wgtypes.IfaceName)
 		if err != nil {
-			return err
+			return fmt.Errorf("getting %s ifindex: %w", wgtypes.IfaceName, err)
 		}
 		cDefinesMap["WG_IFINDEX"] = fmt.Sprintf("%d", ifindex)
 
@@ -540,7 +540,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	macByIfIndexMacro, isL3DevMacro, err := devMacros(nativeDevices)
 	if err != nil {
-		return err
+		return fmt.Errorf("generating device macros: %w", err)
 	}
 	cDefinesMap["NATIVE_DEV_MAC_BY_IFINDEX(IFINDEX)"] = macByIfIndexMacro
 	cDefinesMap["IS_L3_DEV(ifindex)"] = isL3DevMacro
@@ -719,7 +719,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	vlanFilter, err := vlanFilterMacros(nativeDevices)
 	if err != nil {
-		return err
+		return fmt.Errorf("rendering vlan filter macros: %w", err)
 	}
 	cDefinesMap["VLAN_FILTER(ifindex, vlan_id)"] = vlanFilter
 
@@ -754,12 +754,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	ephemeralMin, err := getEphemeralPortRangeMin(h.sysctl)
 	if err != nil {
-		return err
+		return fmt.Errorf("getting ephemeral port range minimun: %w", err)
 	}
 	cDefinesMap["EPHEMERAL_MIN"] = fmt.Sprintf("%d", ephemeralMin)
 
 	if err := cDefinesMap.Merge(h.nodeExtraDefines); err != nil {
-		return err
+		return fmt.Errorf("merging extra node defines: %w", err)
 	}
 
 	for _, fn := range h.nodeExtraDefineFns {
@@ -769,7 +769,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 
 		if err := cDefinesMap.Merge(defines); err != nil {
-			return err
+			return fmt.Errorf("merging extra node define func results: %w", err)
 		}
 	}
 
@@ -777,14 +777,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.IPv4Enabled() {
 			ipip4, err := netlink.LinkByName(defaults.IPIPv4Device)
 			if err != nil {
-				return err
+				return fmt.Errorf("looking up link %s: %w", defaults.IPIPv4Device, err)
 			}
 			cDefinesMap["ENCAP4_IFINDEX"] = fmt.Sprintf("%d", ipip4.Attrs().Index)
 		}
 		if option.Config.IPv6Enabled() {
 			ipip6, err := netlink.LinkByName(defaults.IPIPv6Device)
 			if err != nil {
-				return err
+				return fmt.Errorf("looking up link %s: %w", defaults.IPIPv6Device, err)
 			}
 			cDefinesMap["ENCAP6_IFINDEX"] = fmt.Sprintf("%d", ipip6.Attrs().Index)
 		}
@@ -870,7 +870,7 @@ func vlanFilterMacros(nativeDevices []*tables.Device) (string, error) {
 
 	links, err := netlink.LinkList()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("listing network interfaces: %w", err)
 	}
 
 	for _, l := range links {
