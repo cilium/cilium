@@ -187,12 +187,12 @@ func (ev *EndpointNoTrackEvent) Handle(res chan interface{}) {
 type EndpointPolicyBandwidthEvent struct {
 	bwm    datapath.BandwidthManager
 	ep     *Endpoint
-	annoCB AnnotationsResolverCB
+	annoCB AnnotationsResolverCBBW
 }
 
 // Handle handles the policy bandwidth update.
 func (ev *EndpointPolicyBandwidthEvent) Handle(res chan interface{}) {
-	var bps uint64
+	var bps, prio uint64
 
 	if !ev.bwm.Enabled() {
 		res <- &EndpointRegenerationResult{
@@ -214,20 +214,33 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan interface{}) {
 		e.unlock()
 	}()
 
-	bandwidthEgress, err := ev.annoCB(e.K8sNamespace, e.K8sPodName)
+	bandwidthEgress, priority, err := ev.annoCB(e.K8sNamespace, e.K8sPodName)
 	if err != nil {
 		res <- &EndpointRegenerationResult{
 			err: err,
 		}
 		return
 	}
+	bwmUpdateNeeded := false
 	if bandwidthEgress != "" {
 		bps, err = bandwidth.GetBytesPerSec(bandwidthEgress)
-		if err == nil {
-			ev.bwm.UpdateBandwidthLimit(e.ID, bps)
-		} else {
-			e.getLogger().WithError(err).Debugf("failed to parse bandwidth limit %q", bandwidthEgress)
-		}
+	}
+	if err != nil {
+		e.getLogger().WithError(err).Debugf("failed to parse bandwidth limit %q", bandwidthEgress)
+	} else {
+		bwmUpdateNeeded = true
+	}
+	if priority != "" {
+		prio, err = strconv.ParseUint(priority, 10, 32)
+	}
+	if err != nil {
+		e.getLogger().WithError(err).Debugf("failed to parse priority value limit %q", priority)
+	} else {
+		bwmUpdateNeeded = true
+	}
+
+	if bwmUpdateNeeded {
+		ev.bwm.UpdateBandwidthLimit(e.ID, bps, uint32(prio))
 	} else {
 		ev.bwm.DeleteBandwidthLimit(e.ID)
 	}

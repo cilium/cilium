@@ -32,6 +32,6 @@ type BandwidthManager interface {
 	BBREnabled() bool
 	Enabled() bool
 
-	UpdateBandwidthLimit(endpointID uint16, bytesPerSecond uint64)
+	UpdateBandwidthLimit(endpointID uint16, bytesPerSecond uint64, prio uint32)
 	DeleteBandwidthLimit(endpointID uint16)
 }

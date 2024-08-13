@@ -1792,12 +1792,12 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 		value, _ := annotation.Get(po, annotation.NoTrack, annotation.NoTrackAlias)
 		return value, nil
 	})
-	e.UpdateBandwidthPolicy(bwm, func(ns, podName string) (bandwidthEgress string, err error) {
+	e.UpdateBandwidthPolicy(bwm, func(ns, podName string) (bandwidthEgress string, prio string, err error) {
 		_, k8sMetadata, err := resolveMetadata(ns, podName)
 		if err != nil {
-			return "", filterResolveMetadataError(err)
+			return "", "", filterResolveMetadataError(err)
 		}
-		return k8sMetadata.Annotations[bandwidth.EgressBandwidth], nil
+		return k8sMetadata.Annotations[bandwidth.EgressBandwidth], k8sMetadata.Annotations[bandwidth.Priority], nil
 	})
 
 	// If 'baseLabels' are not set then 'controllerBaseLabels' only contains

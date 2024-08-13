@@ -38,10 +38,12 @@ type EdtInfo struct {
 	Bps             uint64    `align:"bps"`
 	TimeLast        uint64    `align:"t_last"`
 	TimeHorizonDrop uint64    `align:"t_horizon_drop"`
-	Pad             [4]uint64 `align:"pad"`
+	Prio            uint32    `align:"prio"`
+	Pad32           uint32    `align:"pad_32"`
+	Pad             [3]uint64 `align:"pad"`
 }
 
-func (v *EdtInfo) String() string    { return fmt.Sprintf("%d", int(v.Bps)) }
+func (v *EdtInfo) String() string    { return fmt.Sprintf("%d, %d", int(v.Bps), int(v.Prio)) }
 func (v *EdtInfo) New() bpf.MapValue { return &EdtInfo{} }
 
 type throttleMap struct {
