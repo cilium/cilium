@@ -46,23 +46,6 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-type policyParams struct {
-	cell.In
-
-	Lifecycle              cell.Lifecycle
-	CacheIdentityAllocator cache.IdentityAllocator
-	PolicyRepository       *policy.Repository
-	PolicyUpdater          *policy.Updater
-	EndpointManager        endpointmanager.EndpointManager
-	CacheStatus            synced.CacheStatus
-}
-
-type policyOut struct {
-	cell.Out
-
-	IPCache *ipcache.IPCache
-}
-
 type policyRepoParams struct {
 	cell.In
 
@@ -174,12 +157,17 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 	}
 }
 
-// newPolicyTrifecta instantiates CachingIdentityAllocator, Repository and IPCache,
-// which in turn creates the SelectorCache and other policy components.
-//
-// The three have a complicated dependency on each other and therefore require
-// special care.
-func newPolicyTrifecta(params policyParams) (policyOut, error) {
+type ipCacheParams struct {
+	cell.In
+
+	Lifecycle              cell.Lifecycle
+	CacheIdentityAllocator cache.IdentityAllocator
+	PolicyRepository       *policy.Repository
+	EndpointManager        endpointmanager.EndpointManager
+	CacheStatus            synced.CacheStatus
+}
+
+func newIPCache(params ipCacheParams) *ipcache.IPCache {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// IPCache: aggregates node-local prefix labels and allocates
@@ -201,9 +189,7 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		},
 	})
 
-	return policyOut{
-		IPCache: ipc,
-	}, nil
+	return ipc
 }
 
 // identityAllocatorOwner is used to break the circular dependency between
