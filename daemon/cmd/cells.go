@@ -226,6 +226,9 @@ var (
 		// Provides PolicyRepository
 		cell.Provide(newPolicyRepo),
 
+		// Provides PolicyUpdater
+		cell.Provide(newPolicyUpdater),
+
 		// IPAM provides IP address management.
 		ipamcell.Cell,
 
