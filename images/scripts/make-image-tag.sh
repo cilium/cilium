@@ -43,7 +43,9 @@ if [ "$#" -eq 1 ] ; then
     echo "${image_dir} exists, but it is not checked in git (path is relative to git root)"
     exit 1
   fi
-  image_tag="$(printf "%s" "${git_ls_tree}" | sed 's/^[0-7]\{6\} tree \([0-9a-f]\{40\}\).*/\1/')"
+  timestamp="$(git log -1 --pretty=format:"%ct" ./images/runtime)"
+  tree="$(printf "%s" "${git_ls_tree}" | sed 's/^[0-7]\{6\} tree \([0-9a-f]\{40\}\).*/\1/')"
+  image_tag="${timestamp}-${tree}"
 else
   # if no arguments are given, attempt detecting if version tag is present,
   # otherwise use the a short commit hash

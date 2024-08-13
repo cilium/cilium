@@ -76,6 +76,7 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           persist-credentials: false
+          fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set-up git
@@ -86,7 +87,9 @@ jobs:
       - name: Generating image tag for Cilium-Runtime
         id: runtime-tag
         run: |
-          echo tag="$(git ls-tree --full-tree HEAD -- ./images/runtime | awk '{ print $3 }')" >> $GITHUB_OUTPUT
+          timestamp="$(git log -1 --pretty=format:"%ct" ./images/runtime)"
+          tree="$(git ls-tree --full-tree HEAD -- ./images/runtime | awk '{ print $3 }')"
+          echo tag="${timestamp}-${tree}" >> $GITHUB_OUTPUT
 
       - name: Checking if tag for Cilium-Runtime already exists
         id: cilium-runtime-tag-in-repositories
@@ -165,7 +168,9 @@ jobs:
       - name: Generating image tag for Cilium-Builder
         id: builder-tag
         run: |
-          echo tag="$(git ls-tree --full-tree HEAD -- ./images/builder | awk '{ print $3 }')" >> $GITHUB_OUTPUT
+          timestamp="$(git log -1 --pretty=format:"%ct" ./images/builder)"
+          tree="$(git ls-tree --full-tree HEAD -- ./images/builder | awk '{ print $3 }')"
+          echo tag="${timestamp}-${tree}" >> $GITHUB_OUTPUT
 
       - name: Checking if tag for Cilium-Builder already exists
         id: cilium-builder-tag-in-repositories

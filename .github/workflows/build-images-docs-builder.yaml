@@ -50,12 +50,15 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           persist-credentials: false
+          fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Generate image tag for docs-builder
         id: docs-builder-tag
         run: |
-          echo tag="$(git ls-tree --full-tree HEAD -- ./Documentation | awk '{ print $3 }')" >> $GITHUB_OUTPUT
+          timestamp="$(git log -1 --pretty=format:"%ct" ./Documentation)"
+          tree="$(git ls-tree --full-tree HEAD -- ./Documentation | awk '{ print $3 }')"
+          echo tag="${timestamp}-${tree}" >> $GITHUB_OUTPUT
 
       - name: Check if tag for docs-builder already exists
         id: docs-builder-tag-in-repositories
