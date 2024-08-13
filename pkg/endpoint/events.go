@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 
@@ -231,7 +232,23 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan interface{}) {
 		bwmUpdateNeeded = true
 	}
 	if priority != "" {
-		prio, err = strconv.ParseUint(priority, 10, 32)
+		priority = strings.ReplaceAll(priority, "-", "")
+		switch strings.ToLower(priority) {
+		case "besteffort":
+			prio = bandwidth.BestEffortQoSDefaultPriority
+		case "burstable":
+			prio = bandwidth.BurstableQoSDefaultPriority
+		case "guaranteed":
+			prio = bandwidth.GuaranteedQoSDefaultPriority
+		default:
+			// Also support explicitly setting priority values.
+			prio, err = strconv.ParseUint(priority, 10, 32)
+			if err != nil {
+				e.getLogger().WithError(err).Debugf("failed to parse priority value %q", priority)
+			} else {
+				prio += 1
+			}
+		}
 	}
 	if err != nil {
 		e.getLogger().WithError(err).Debugf("failed to parse priority value limit %q", priority)

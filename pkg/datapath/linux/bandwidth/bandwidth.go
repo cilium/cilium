@@ -40,6 +40,19 @@ const (
 	// FqDefaultBuckets is the default 32k (2^15) bucket limit for bwm.
 	// Too low bucket limit can cause scalability issue.
 	FqDefaultBuckets = 15
+
+	// FQ priomap starting from index 0 is 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+	// Constants below map priority levels to bands high, medium and low.
+	// TODO: These are picked arbitrarily for each QoS class amongst different possible
+	// values. Revisit to see if picking these values would have any unintended side effects.
+	// HACK: Increment prio values by 1 to allow for distinguishing between 0 prio and no prio set.
+
+	// GuaranteedQoSDefaultPriority prio value to classify packets to high prio band
+	GuaranteedQoSDefaultPriority = 6 + 1
+	// BurstableQoSDefaultPriority prio value to classify packets to medium prio band
+	BurstableQoSDefaultPriority = 8 + 1
+	// BestEffortQoSDefaultPriority prio value to classify packets to medium prio band
+	BestEffortQoSDefaultPriority = 5 + 1
 )
 
 type manager struct {
