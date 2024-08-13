@@ -1,5 +1,78 @@
 # Changelog
 
+## v1.16.1
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Deprecate providing Hubble TLS secrets in helm values (Backport PR #34297, Upstream PR #34114, @chancez)
+* gateway-api: Add required labels and annotations (Backport PR #34215, Upstream PR #33990, @sayboras)
+* helm: add config for nat-map-stats-{interval, entries} config. (Backport PR #34158, Upstream PR #33847, @tommyp1ckles)
+* Internal listener references are now properly qualified with namespace and CEC name. (Backport PR #34158, Upstream PR #34104, @jrajahalme)
+* Support configuring imagePullSecrets for spire agent/server pods (Backport PR #34158, Upstream PR #33952, @chancez)
+
+**Bugfixes:**
+* auth: Fix data race in Upsert (Backport PR #34158, Upstream PR #33905, @chaunceyjiang)
+* BGPv1 + BGPv2: Fix incorrect service reconciliation in setups with multiple BGP instances (virtual routers) (Backport PR #34297, Upstream PR #34177, @rastislavs)
+* bgpv1: Fix data race in bgppSelection (Backport PR #34158, Upstream PR #33904, @chaunceyjiang)
+* bgpv2: Avoid duplicate route policy naming (Backport PR #34158, Upstream PR #34031, @rastislavs)
+* BGPv2: Fix `Service` advertisement selector: do not require matching `CiliumLoadBalancerIPPool` (Backport PR #34201, Upstream PR #34182, @rastislavs)
+* Fix a nil dereference crash during cilium-agent initialization affecting setups with FQDN policies. The crash is triggered when a restored endpoint performs a DNS request just a the right time during early cilium-agent restoration. Problem is not expected to be persistent and the agent should get pass the problematic part of the initialization on restart. (Backport PR #34158, Upstream PR #34059, @joamaki)
+* Fix appArmorProfile condition for CronJob helm template (Backport PR #34297, Upstream PR #34100, @sathieu)
+* Fix bug causing etcd upsertion/deletion events to be potentially missed during the initial synchronization, when Cilium operates in KVStore mode, or Cluster Mesh is enabled. (Backport PR #34181, Upstream PR #34091, @giorio94)
+* Fix issue in picking node IP addresses from the loopback device. This fixes a regression in v1.15 and v1.16 where VIPs assigned to the lo device were not considered by Cilium. Fix spurious updates node addresses to avoid unnecessary datapath reinitializations. (Backport PR #34085, Upstream PR #34012, @joamaki)
+* Fix possible connection disruption on agent restart with WireGuard + kvstore (Backport PR #34158, Upstream PR #34062, @giorio94)
+* Fixes DNS proxy "connect: cannot assign requested address" errors in transparent mode, which were due to opening multiple TCP connections to the upstream DNS server. (Backport PR #34201, Upstream PR #33989, @bimmlerd)
+* gateway-api: Add HTTP method condition in sortable routes (Backport PR #34158, Upstream PR #34109, @sayboras)
+* gateway-api: Enqueue gateway for Reference Grant changes (Backport PR #34158, Upstream PR #34032, @sayboras)
+* lbipam: fixed bug in sharing key logic (Backport PR #34158, Upstream PR #34106, @dylandreimerink)
+* policy: Fix policy cache covers context lookup. (cilium/cilium#34322, @nathanjsweet)
+* service: Relax protocol matching for L7 Service (Backport PR #34195, Upstream PR #34131, @sayboras)
+
+**CI Changes:**
+* .github: ginkgo: remove duplicate datapath ipv4only test in f09/f21. (Backport PR #34297, Upstream PR #34071, @tommyp1ckles)
+* bpf: egressgw: don't install allow-all policy in to-netdev tests (Backport PR #34201, Upstream PR #34143, @julianwiedmann)
+* ci: multi pool run tests concurrently (Backport PR #34297, Upstream PR #33945, @viktor-kurchenko)
+* Fix workflow telemetry in ci-ipsec-upgrade (Backport PR #34158, Upstream PR #34097, @chancez)
+* gha: Add extended features in gateway profile run (Backport PR #34215, Upstream PR #34098, @sayboras)
+* gha: Free up Github runner disk space (Backport PR #34297, Upstream PR #34247, @sayboras)
+* gha: lint absence of trailing spaces in workflow files (Backport PR #34158, Upstream PR #33908, @giorio94)
+* gha: simplify the call-backport-label-updater workflow (Backport PR #34158, Upstream PR #33934, @giorio94)
+* ginkgo-ci: split f09 into two groups to reduce timeouts & flakes (Backport PR #34297, Upstream PR #34038, @tommyp1ckles)
+* test: use cgr.dev/chainguard/busybox:latest instead of docker.io image. (Backport PR #34158, Upstream PR #34004, @tommyp1ckles)
+* tests-clustermesh-upgrade: Don't hardcode test namespace (Backport PR #34158, Upstream PR #34121, @michi-covalent)
+
+**Misc Changes:**
+* [v1.16] docs: Add note for CNP empty slices semantic under v1.16 section (cilium/cilium#34008, @pippolo84)
+* Add source IP visibility info to Ingress and Gateway API docs (Backport PR #34297, Upstream PR #34137, @youngnick)
+* bgpv1: Reconcile with retry in BGP Controller (Backport PR #34158, Upstream PR #33971, @rastislavs)
+* bgpv2: deprecate local port setting in transport config (Backport PR #34209, Upstream PR #33438, @harsimran-pabla)
+* bgpv2: use correct path key in path reconciler (Backport PR #34158, Upstream PR #33947, @harsimran-pabla)
+* bitlpm: Avoid allocs in CIDR trie lookups (Backport PR #34158, Upstream PR #33518, @jrajahalme)
+* bitlpm: Simplify matchPrefix() (Backport PR #34158, Upstream PR #33517, @jrajahalme)
+* bugtool: dump cilium_skip_lb{4,6} (Backport PR #34158, Upstream PR #34017, @ysksuzuki)
+* bugtool: dumping more Envoy information (Backport PR #34158, Upstream PR #34110, @mhofstetter)
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#34166, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v27.3 (v1.16) (cilium/cilium#34165, @cilium-renovate[bot])
+* chore(deps): update gcr.io/etcd-development/etcd docker tag to v3.5.15 (v1.16) (cilium/cilium#34049, @cilium-renovate[bot])
+* Clean up documentation make targets for cases of nesting make builds inside container invocations (Backport PR #34297, Upstream PR #34151, @joestringer)
+* doc: update slack channel reference (Backport PR #34158, Upstream PR #34044, @Huweicai)
+* docs: Add warning on CRDs requirement for using the Gateway API (Backport PR #34297, Upstream PR #33974, @xtineskim)
+* Documentation: Introduce support for redirects (Backport PR #34297, Upstream PR #34233, @chancez)
+* Documentation: Update readthedocs configuration (Backport PR #34297, Upstream PR #34190, @joestringer)
+* Fix two bugs in dnsproxy tcp conn reuse (Backport PR #34201, Upstream PR #34175, @bimmlerd)
+* Improve documentation on configuring Hubble TLS (Backport PR #34297, Upstream PR #34115, @chancez)
+* iptables: Support Envoy listener chaining (Backport PR #34297, Upstream PR #34105, @jrajahalme)
+* Makefile: Fix docker flags for fast image targets (Backport PR #34297, Upstream PR #34132, @joestringer)
+* policy: Sanitize DNS Rules to Disallow Port Ranges (Backport PR #34201, Upstream PR #34023, @nathanjsweet)
+* Revert "fix: support validation of stringToString values in ConfigMap" (Backport PR #34305, Upstream PR #34277, @aanm)
+* vendor: Bump StateDB to version v0.2.1 (Backport PR #34246, Upstream PR #33587, @joamaki)
+
+**Other Changes:**
+* install: Update image digests for v1.16.0 (cilium/cilium#33994, @cilium-release-bot[bot])
+* v1.16: Remove leftover backporter state file (cilium/cilium#34210, @gandro)
+
 ## v1.16.0
 
 Summary of Changes
