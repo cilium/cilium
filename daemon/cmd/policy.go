@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -22,13 +21,10 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
-	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -84,41 +80,6 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 		RemoteIdentityWatcher:  idAlloc,
 		IdentityObservable:     idAlloc,
 	}
-}
-
-type ipCacheParams struct {
-	cell.In
-
-	Lifecycle              cell.Lifecycle
-	CacheIdentityAllocator cache.IdentityAllocator
-	PolicyRepository       *policy.Repository
-	EndpointManager        endpointmanager.EndpointManager
-	CacheStatus            synced.CacheStatus
-}
-
-func newIPCache(params ipCacheParams) *ipcache.IPCache {
-	ctx, cancel := context.WithCancel(context.Background())
-
-	// IPCache: aggregates node-local prefix labels and allocates
-	// local identities. Generates incremental updates, pushes
-	// to endpoints.
-	ipc := ipcache.NewIPCache(&ipcache.Configuration{
-		Context:           ctx,
-		IdentityAllocator: params.CacheIdentityAllocator,
-		PolicyHandler:     params.PolicyRepository.GetSelectorCache(),
-		DatapathHandler:   params.EndpointManager,
-		CacheStatus:       params.CacheStatus,
-	})
-
-	params.Lifecycle.Append(cell.Hook{
-		OnStop: func(hc cell.HookContext) error {
-			cancel()
-
-			return ipc.Shutdown()
-		},
-	})
-
-	return ipc
 }
 
 // identityAllocatorOwner is used to break the circular dependency between
