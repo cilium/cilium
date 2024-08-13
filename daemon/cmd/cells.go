@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/dial"
+	"github.com/cilium/cilium/pkg/dynamicconfig"
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointcleanup"
@@ -283,6 +284,9 @@ var (
 
 		// Provide pcap recorder
 		recorder.Cell,
+
+		// Provides a wrapper of the cilium config that can be watched dynamically
+		dynamicconfig.Cell,
 	)
 )
 
