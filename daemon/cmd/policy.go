@@ -51,6 +51,7 @@ type policyParams struct {
 
 	Lifecycle        cell.Lifecycle
 	PolicyRepository *policy.Repository
+	PolicyUpdater    *policy.Updater
 	EndpointManager  endpointmanager.EndpointManager
 	CacheStatus      synced.CacheStatus
 }
@@ -63,7 +64,6 @@ type policyOut struct {
 	RemoteIdentityWatcher  clustermesh.RemoteIdentityWatcher
 	IdentityObservable     stream.Observable[cache.IdentityChange]
 
-	Updater *policy.Updater
 	IPCache *ipcache.IPCache
 }
 
@@ -110,6 +110,30 @@ func newPolicyRepo(params policyRepoParams) *policy.Repository {
 	return policyRepo
 }
 
+type policyUpdaterParams struct {
+	cell.In
+
+	Lifecycle        cell.Lifecycle
+	PolicyRepository *policy.Repository
+	EndpointManager  endpointmanager.EndpointManager
+}
+
+func newPolicyUpdater(params policyUpdaterParams) *policy.Updater {
+	// policyUpdater: forces policy recalculation on all endpoints.
+	// Called for various events, such as named port changes
+	// or certain identity updates.
+	policyUpdater := policy.NewUpdater(params.PolicyRepository, params.EndpointManager)
+
+	params.Lifecycle.Append(cell.Hook{
+		OnStop: func(hc cell.HookContext) error {
+			policyUpdater.Shutdown()
+			return nil
+		},
+	})
+
+	return policyUpdater
+}
+
 // newPolicyTrifecta instantiates CachingIdentityAllocator, Repository and IPCache,
 // which in turn creates the SelectorCache and other policy components.
 //
@@ -118,16 +142,11 @@ func newPolicyRepo(params policyRepoParams) *policy.Repository {
 func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// policyUpdater: forces policy recalculation on all endpoints.
-	// Called for various events, such as named port changes
-	// or certain identity updates.
-	policyUpdater := policy.NewUpdater(params.PolicyRepository, params.EndpointManager)
-
 	// iao: updates SelectorCache and regenerates endpoints when
 	// identity allocation / deallocation has occurred.
 	iao := &identityAllocatorOwner{
 		policy:        params.PolicyRepository,
-		policyUpdater: policyUpdater,
+		policyUpdater: params.PolicyUpdater,
 	}
 
 	// Allocator: allocates local and cluster-wide security identities.
@@ -152,7 +171,6 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 			// Preserve the order of shutdown but still propagate the error
 			// to hive.
 			err := ipc.Shutdown()
-			policyUpdater.Shutdown()
 			idAlloc.Close()
 
 			return err
@@ -164,7 +182,6 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		CacheIdentityAllocator: idAlloc,
 		RemoteIdentityWatcher:  idAlloc,
 		IdentityObservable:     idAlloc,
-		Updater:                policyUpdater,
 		IPCache:                ipc,
 	}, nil
 }
