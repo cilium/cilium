@@ -144,40 +144,21 @@ func ZeroNet(family int) *net.IPNet {
 // ContainsAll returns true if 'ipNets1' contains all net.IPNet of 'ipNets2'
 func ContainsAll(ipNets1, ipNets2 []*net.IPNet) bool {
 	for _, n := range ipNets2 {
-		if !Contains(ipNets1, n) {
+		if !contains(ipNets1, n) {
 			return false
 		}
 	}
 	return true
 }
 
-// Contains returns true if 'ipNets' contains ipNet.
-func Contains(ipNets []*net.IPNet, ipNet *net.IPNet) bool {
+// contains returns true if 'ipNets' contains ipNet.
+func contains(ipNets []*net.IPNet, ipNet *net.IPNet) bool {
 	for _, n := range ipNets {
 		if Equal(n, ipNet) {
 			return true
 		}
 	}
 	return false
-}
-
-// RemoveAll removes all cidrs specified in 'toRemove' from 'ipNets'. ipNets
-// is clobbered (to ensure removed CIDRs can be garbage collected) and
-// must not be used after this function has been called.
-// Example usage:
-//
-//	cidrs = cidr.RemoveAll(cidrs, toRemove)
-func RemoveAll(ipNets, toRemove []*net.IPNet) []*net.IPNet {
-	newIPNets := ipNets[:0]
-	for _, n := range ipNets {
-		if !Contains(toRemove, n) {
-			newIPNets = append(newIPNets, n)
-		}
-	}
-	for i := len(newIPNets); i < len(ipNets); i++ {
-		ipNets[i] = nil // or the zero value of T
-	}
-	return newIPNets
 }
 
 // ParseCIDR parses the CIDR string using net.ParseCIDR
