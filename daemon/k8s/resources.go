@@ -82,6 +82,14 @@ var (
 					},
 				)
 			},
+			func(lc cell.Lifecycle, cs client.Clientset, c k8s.Config) (DynamicConfigMapResource, error) {
+				return k8s.ConfigMapResource(
+					lc, cs,
+					func(opts *metav1.ListOptions) {
+						opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + c.DynamicConfigMapName).String()
+					},
+				)
+			},
 		),
 	)
 
@@ -149,6 +157,10 @@ type ServiceNonHeadless resource.Resource[*slim_corev1.Service]
 // EndpointsNonHeadless is a resource.Resource[*slim_corev1.Service] but one which will only stream updates for
 // Endpoints from non headless Services.
 type EndpointsNonHeadless resource.Resource[*k8s.Endpoints]
+
+// DynamicConfigMapResource is a resource.Resource[*v1.ConfigMap] but one which will only stream updates for
+// the ConfigMap configured in k8s.Config.DynamicConfigMapName.
+type DynamicConfigMapResource resource.Resource[*v1.ConfigMap]
 
 // Resources is a convenience struct to group all the agent k8s resources as cell constructor parameters.
 type Resources struct {

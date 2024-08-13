@@ -43,11 +43,14 @@ type Config struct {
 	// the label is not present. For more details -
 	// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/2447-Make-kube-proxy-service-abstraction-optional
 	K8sServiceProxyName string
+
+	DynamicConfigMapName string
 }
 
 // DefaultConfig represents the default k8s resources config values.
 var DefaultConfig = Config{
 	EnableK8sEndpointSlice: true,
+	DynamicConfigMapName:   "cilium-config",
 }
 
 const (
@@ -59,6 +62,7 @@ const (
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-k8s-endpoint-slice", def.EnableK8sEndpointSlice, "Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it")
 	flags.String("k8s-service-proxy-name", def.K8sServiceProxyName, "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
+	flags.String("dynamic-config-map-name", def.DynamicConfigMapName, "Specifies the name of the ConfigMap to be used for dynamic configuration")
 }
 
 // namespaceIndexFunc is an IndexFunc that indexes Namespace of Kubernetes
