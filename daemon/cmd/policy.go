@@ -49,20 +49,16 @@ import (
 type policyParams struct {
 	cell.In
 
-	Lifecycle        cell.Lifecycle
-	PolicyRepository *policy.Repository
-	PolicyUpdater    *policy.Updater
-	EndpointManager  endpointmanager.EndpointManager
-	CacheStatus      synced.CacheStatus
+	Lifecycle              cell.Lifecycle
+	CacheIdentityAllocator cache.IdentityAllocator
+	PolicyRepository       *policy.Repository
+	PolicyUpdater          *policy.Updater
+	EndpointManager        endpointmanager.EndpointManager
+	CacheStatus            synced.CacheStatus
 }
 
 type policyOut struct {
 	cell.Out
-
-	IdentityAllocator      CachingIdentityAllocator
-	CacheIdentityAllocator cache.IdentityAllocator
-	RemoteIdentityWatcher  clustermesh.RemoteIdentityWatcher
-	IdentityObservable     stream.Observable[cache.IdentityChange]
 
 	IPCache *ipcache.IPCache
 }
@@ -134,14 +130,24 @@ func newPolicyUpdater(params policyUpdaterParams) *policy.Updater {
 	return policyUpdater
 }
 
-// newPolicyTrifecta instantiates CachingIdentityAllocator, Repository and IPCache,
-// which in turn creates the SelectorCache and other policy components.
-//
-// The three have a complicated dependency on each other and therefore require
-// special care.
-func newPolicyTrifecta(params policyParams) (policyOut, error) {
-	ctx, cancel := context.WithCancel(context.Background())
+type identityAllocatorParams struct {
+	cell.In
 
+	Lifecycle        cell.Lifecycle
+	PolicyRepository *policy.Repository
+	PolicyUpdater    *policy.Updater
+}
+
+type identityAllocatorOut struct {
+	cell.Out
+
+	IdentityAllocator      CachingIdentityAllocator
+	CacheIdentityAllocator cache.IdentityAllocator
+	RemoteIdentityWatcher  clustermesh.RemoteIdentityWatcher
+	IdentityObservable     stream.Observable[cache.IdentityChange]
+}
+
+func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 	// iao: updates SelectorCache and regenerates endpoints when
 	// identity allocation / deallocation has occurred.
 	iao := &identityAllocatorOwner{
@@ -153,13 +159,36 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	idAlloc := cache.NewCachingIdentityAllocator(iao)
 	idAlloc.EnableCheckpointing()
 
+	params.Lifecycle.Append(cell.Hook{
+		OnStop: func(hc cell.HookContext) error {
+			idAlloc.Close()
+			return nil
+		},
+	})
+
+	return identityAllocatorOut{
+		IdentityAllocator:      idAlloc,
+		CacheIdentityAllocator: idAlloc,
+		RemoteIdentityWatcher:  idAlloc,
+		IdentityObservable:     idAlloc,
+	}
+}
+
+// newPolicyTrifecta instantiates CachingIdentityAllocator, Repository and IPCache,
+// which in turn creates the SelectorCache and other policy components.
+//
+// The three have a complicated dependency on each other and therefore require
+// special care.
+func newPolicyTrifecta(params policyParams) (policyOut, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	// IPCache: aggregates node-local prefix labels and allocates
 	// local identities. Generates incremental updates, pushes
 	// to endpoints.
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           ctx,
-		IdentityAllocator: idAlloc,
-		PolicyHandler:     iao.policy.GetSelectorCache(),
+		IdentityAllocator: params.CacheIdentityAllocator,
+		PolicyHandler:     params.PolicyRepository.GetSelectorCache(),
 		DatapathHandler:   params.EndpointManager,
 		CacheStatus:       params.CacheStatus,
 	})
@@ -168,21 +197,12 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		OnStop: func(hc cell.HookContext) error {
 			cancel()
 
-			// Preserve the order of shutdown but still propagate the error
-			// to hive.
-			err := ipc.Shutdown()
-			idAlloc.Close()
-
-			return err
+			return ipc.Shutdown()
 		},
 	})
 
 	return policyOut{
-		IdentityAllocator:      idAlloc,
-		CacheIdentityAllocator: idAlloc,
-		RemoteIdentityWatcher:  idAlloc,
-		IdentityObservable:     idAlloc,
-		IPCache:                ipc,
+		IPCache: ipc,
 	}, nil
 }
 

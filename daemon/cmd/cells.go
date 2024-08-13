@@ -229,6 +229,9 @@ var (
 		// Provides PolicyUpdater
 		cell.Provide(newPolicyUpdater),
 
+		// Provides the different types of IdentityAllocators
+		cell.Provide(newIdentityAllocator),
+
 		// IPAM provides IP address management.
 		ipamcell.Cell,
 
