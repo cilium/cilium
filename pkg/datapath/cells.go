@@ -230,10 +230,6 @@ type datapathParams struct {
 
 	ConfigWriter types.ConfigWriter
 
-	TunnelConfig tunnel.Config
-
-	Loader types.Loader
-
 	NodeManager nodeManager.NodeManager
 
 	Orchestrator types.Orchestrator
