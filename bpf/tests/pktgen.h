@@ -878,11 +878,11 @@ static __always_inline void pktgen__finish_ipv6(const struct pktgen *builder, in
 		break;
 	}
 
-	v6len = (__be16)(builder->cur_off + sizeof(struct ipv6hdr) -
+	v6len = (__be16)(builder->cur_off - sizeof(struct ipv6hdr) -
 		builder->layer_offsets[i]);
 
 	/* Calculate payload length, which doesn't include the header size */
-	ipv6_layer->payload_len = __bpf_htons(v6len);
+	ipv6_layer->payload_len = bpf_htons(v6len);
 }
 
 static __always_inline void pktgen__finish_ipv6_opt(const struct pktgen *builder, int i)
@@ -928,11 +928,76 @@ static __always_inline void pktgen__finish_ipv6_opt(const struct pktgen *builder
 	}
 }
 
+static __always_inline void pktgen__udp_csum(const struct pktgen *builder, int i, struct udphdr *udp_layer)
+{
+	__u16 udp_len;
+	__u32 udp_csum;
+	__u32 tmp;
+
+	if (i == 0)
+		return;
+
+	udp_layer->check = 0;
+
+	switch (builder->layers[i-1]) {
+		case PKT_LAYER_IPV4:
+			if (builder->layer_offsets[i-1] >= MAX_PACKET_OFF - sizeof(struct iphdr))
+				return;
+
+			struct iphdr *ipv4_layer = ctx_data(builder->ctx) + builder->layer_offsets[i-1];
+			if ((void *)ipv4_layer + sizeof(struct iphdr) > ctx_data_end(builder->ctx))
+				return;
+
+			udp_csum = csum_diff(NULL, 0, &ipv4_layer->saddr, sizeof(__be32), 0);
+			udp_csum = csum_diff(NULL, 0, &ipv4_layer->daddr, sizeof(__be32), udp_csum);
+			tmp = (__u16)ipv4_layer->protocol << 8;
+			udp_csum = csum_diff(NULL, 0, &tmp, sizeof(__u32), udp_csum);
+			udp_csum = csum_diff(NULL, 0, &udp_layer->len, sizeof(__u32), udp_csum);
+
+			udp_len = sizeof(struct udphdr) + sizeof(default_data);
+			if ((void *)udp_layer + udp_len > ctx_data_end(builder->ctx))
+				return;
+
+			udp_csum = csum_diff(NULL, 0, udp_layer, udp_len, udp_csum);
+			udp_layer->check = csum_fold(udp_csum);
+			return;
+
+		case PKT_LAYER_IPV6:
+			if (builder->layer_offsets[i-1] >= MAX_PACKET_OFF - sizeof(struct ipv6hdr))
+				return;
+
+			struct ipv6hdr *ipv6_layer = ctx_data(builder->ctx) + builder->layer_offsets[i-1];
+			if ((void *)ipv6_layer + sizeof(struct ipv6hdr) > ctx_data_end(builder->ctx))
+				return;
+
+			udp_csum = csum_diff(NULL, 0, &ipv6_layer->saddr, sizeof(struct in6_addr), 0);
+			udp_csum = csum_diff(NULL, 0, &ipv6_layer->daddr, sizeof(struct in6_addr), udp_csum);
+			tmp = (__u16)ipv6_layer->nexthdr << 8;
+			udp_csum = csum_diff(NULL, 0, &tmp, sizeof(__u32), udp_csum);
+			udp_csum = csum_diff(NULL, 0, &udp_layer->len, sizeof(__u32), udp_csum);
+
+			udp_len = sizeof(struct udphdr) + sizeof(default_data);
+			if ((void *)udp_layer + udp_len > ctx_data_end(builder->ctx))
+				return;
+
+			udp_csum = csum_diff(NULL, 0, udp_layer, udp_len, udp_csum);
+			udp_layer->check = csum_fold(udp_csum);
+			return;
+
+		default:
+			return;
+	}
+	// 	//check_reg_args
+}
+
 static __always_inline void pktgen__tcp_csum(const struct pktgen *builder, int i, struct tcphdr *tcp_layer)
 {
 	__u32 tcp_len;
 	__u32 tcp_csum;
 	__u32 tmp;
+
+	if (i == 0)
+		return;
 
 	tcp_layer->check = 0;
 
@@ -1028,68 +1093,7 @@ static __always_inline void pktgen__finish_tcp(const struct pktgen *builder, int
 	}
 
 	tcp_layer->doff = (__u16)hdr_size / 4;
-
-	if (i == 0)
-		return;
-	
 	pktgen__tcp_csum(builder, i, tcp_layer);
-
-	// switch (builder->layers[i-1]) {
-	// 	case PKT_LAYER_IPV4:
-	// 		if (builder->layer_offsets[i-1] >= MAX_PACKET_OFF - sizeof(struct iphdr))
-	// 			return;
-
-	// 		struct iphdr *ipv4_layer;
-
-	// 		ipv4_layer = ctx_data(builder->ctx) + builder->layer_offsets[i-1];
-	// 		if ((void *)ipv4_layer + sizeof(struct iphdr) > ctx_data_end(builder->ctx))
-	// 			return;
-
-	// 		tcp_layer->check = 0;
-	// 		tcp_csum = csum_diff(NULL, 0, &ipv4_layer->saddr, sizeof(__be32), 0);
-	// 		tcp_csum = csum_diff(NULL, 0, &ipv4_layer->daddr, sizeof(__be32), tcp_csum);
-	// 		tmp = (__u16)ipv4_layer->protocol << 8;
-	// 		tcp_csum = csum_diff(NULL, 0, &tmp, sizeof(__u32), tcp_csum);
-	// 		tmp = bpf_htons((__be16)(builder->cur_off - builder->layer_offsets[i]));
-	// 		tcp_csum = csum_diff(NULL, 0, &tmp, sizeof(__u32), tcp_csum);
-
-	// 		tcp_len = sizeof(struct tcphdr) + sizeof(default_data);
-	// 		if ((void *)tcp_layer + tcp_len > ctx_data_end(builder->ctx))
-	// 			return;
-
-	// 		tcp_csum = csum_diff(NULL, 0, tcp_layer, tcp_len, tcp_csum);
-	// 		tcp_layer->check = csum_fold(tcp_csum);
-	// 		return;
-
-	// 	case PKT_LAYER_IPV6:
-	// 		if (builder->layer_offsets[i-1] >= MAX_PACKET_OFF - sizeof(struct ipv6hdr))
-	// 			return;
-
-	// 		struct ipv6hdr *ipv6_layer;
-
-	// 		ipv6_layer = ctx_data(builder->ctx) + builder->layer_offsets[i-1];
-	// 		if ((void *)ipv6_layer + sizeof(struct ipv6hdr) > ctx_data_end(builder->ctx))
-	// 			return;
-
-	// 		tcp_layer->check = 0;
-	// 		tcp_csum = csum_diff(NULL, 0, &ipv6_layer->saddr, sizeof(struct in6_addr), 0);
-	// 		tcp_csum = csum_diff(NULL, 0, &ipv6_layer->daddr, sizeof(struct in6_addr), tcp_csum);
-	// 		tmp = bpf_htons((__be16)(builder->cur_off - builder->layer_offsets[i]));
-	// 		tcp_csum = csum_diff(NULL, 0, &tmp, sizeof(__u32), tcp_csum);
-	// 		tmp = (__u16)ipv6_layer->nexthdr << 8;
-	// 		tcp_csum = csum_diff(NULL, 0, &tmp, sizeof(__u32), tcp_csum);
-
-	// 		tcp_len = sizeof(struct tcphdr) + sizeof(default_data);
-	// 		if ((void *)tcp_layer + tcp_len > ctx_data_end(builder->ctx))
-	// 			return;
-
-	// 		tcp_csum = csum_diff(NULL, 0, tcp_layer, tcp_len, tcp_csum);
-	// 		tcp_layer->check = csum_fold(tcp_csum);
-	// 		return;
-
-	// 	default:
-	// 		return;
-	// }
 }
 
 static __always_inline void pktgen__finish_udp(const struct pktgen *builder, int i)
@@ -1110,48 +1114,7 @@ static __always_inline void pktgen__finish_udp(const struct pktgen *builder, int
 		return;
 
 	udp_layer->len = bpf_htons((__be16)(builder->cur_off - builder->layer_offsets[i]));
-
-	if (i == 0)
-		return;
-
-	switch (builder->layers[i-1]) {
-		case PKT_LAYER_IPV4:
-			if (builder->layer_offsets[i-1] >= MAX_PACKET_OFF - sizeof(struct iphdr))
-				return;
-
-			struct iphdr *ipv4_layer;
-			__u64 ipv4_offset;
-			__u32 udp_protocol;
-			__u16 udp_len;
-			__u32 udp_csum;
-
-			ipv4_offset =  builder->layer_offsets[i-1];
-			ipv4_layer = ctx_data(builder->ctx) + ipv4_offset;
-			if ((void *)ipv4_layer + sizeof(struct iphdr) > ctx_data_end(builder->ctx))
-				return;
-
-			udp_layer->check = 0;
-			udp_csum = csum_diff(NULL, 0, &ipv4_layer->saddr, sizeof(__be32), 0);
-			udp_csum = csum_diff(NULL, 0, &ipv4_layer->daddr, sizeof(__be32), udp_csum);
-			udp_protocol = (__u16)ipv4_layer->protocol << 8;
-			udp_csum = csum_diff(NULL, 0, &udp_protocol, sizeof(__u32), udp_csum);
-			udp_csum = csum_diff(NULL, 0, &udp_layer->len, sizeof(__u32), udp_csum);
-
-			udp_len = sizeof(struct udphdr) + sizeof(default_data);
-			if ((void *)udp_layer + udp_len > ctx_data_end(builder->ctx))
-				return;
-
-			udp_csum = csum_diff(NULL, 0, udp_layer, udp_len, udp_csum);
-			udp_layer->check = csum_fold(udp_csum);
-			return;
-
-		case PKT_LAYER_IPV6:
-			return;
-
-		default:
-			return;
-	}
-	// 	//check_reg_args
+	pktgen__udp_csum(builder, i, udp_layer);
 }
 
 static __always_inline void pktgen__finish_icmp(const struct pktgen *builder, int i)
