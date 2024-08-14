@@ -29,6 +29,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium debuginfo](cilium_debuginfo.md)	 - Request available debugging information from agent
 * [cilium encrypt](cilium_encrypt.md)	 - Manage transparent encryption
 * [cilium endpoint](cilium_endpoint.md)	 - Manage endpoints
+* [cilium envoy](cilium_envoy.md)	 - Manage Envoy Proxy
 * [cilium fqdn](cilium_fqdn.md)	 - Manage fqdn proxy
 * [cilium identity](cilium_identity.md)	 - Manage security identities
 * [cilium ip](cilium_ip.md)	 - Manage IP addresses and associated information
