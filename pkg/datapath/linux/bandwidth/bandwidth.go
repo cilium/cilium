@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 const (
@@ -84,6 +85,20 @@ func (m *manager) defines() (defines.Map, error) {
 func (m *manager) UpdateBandwidthLimit(epID uint16, bytesPerSecond uint64, prio uint32) {
 	if m.enabled {
 		txn := m.params.DB.WriteTxn(m.params.EdtTable)
+
+		// Set host endpoint to guaranteed QoS class
+		// TODO: This attempts to lookup host endpoint for every BW manager update event.
+		// Find a way to get host endpoint ID during BW manager initialization and move this section to init().
+		// * init() seems to be too early to call node.GetEndpointID()
+		// * Adding a dependency to node manager to call GetHostEndpoint() introduces a nested import.
+		hostEpID := uint16(node.GetEndpointID())
+		_, _, found := m.params.EdtTable.Get(txn, bwmap.EdtIDIndex.Query(hostEpID))
+		if !found {
+			m.params.EdtTable.Insert(
+				txn,
+				bwmap.NewEdt(hostEpID, 0, GuaranteedQoSDefaultPriority),
+			)
+		}
 		m.params.EdtTable.Insert(
 			txn,
 			bwmap.NewEdt(epID, bytesPerSecond, prio),
