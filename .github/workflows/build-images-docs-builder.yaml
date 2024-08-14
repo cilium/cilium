@@ -141,7 +141,7 @@ jobs:
           REF: ${{ github.event.pull_request.head.ref }}
         run: |
           git diff HEAD^
-          git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.QUAY_ORGANIZATION }}/cilium.git HEAD:"$REF"
+          git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ github.event.pull_request.head.repo.full_name }}.git HEAD:"$REF"
 
   image-digest:
     name: Retrieve and display image digest
