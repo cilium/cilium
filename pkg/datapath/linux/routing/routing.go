@@ -11,6 +11,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -165,7 +166,7 @@ func Delete(ip netip.Addr, compat bool) error {
 		return errors.New("IP not compatible")
 	}
 
-	ipWithMask := iputil.AddrToIPNet(ip)
+	ipWithMask := netipx.AddrIPNet(ip)
 
 	scopedLog := log.WithFields(logrus.Fields{
 		"ip": ipWithMask.String(),
