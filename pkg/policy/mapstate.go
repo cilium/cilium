@@ -161,7 +161,7 @@ type mapStateMap struct {
 	entries MapStateMap
 	// trie is a Trie that indexes policy Keys without their identity
 	// and stores the identities in an associated builtin map.
-	trie bitlpm.Trie[bitlpm.Key[Key], IDSet]
+	trie bitlpm.Trie[bitlpm.Key[policyTypes.LPMKey], IDSet]
 }
 
 type IDSet struct {
@@ -313,9 +313,11 @@ func (msm *mapStateMap) forKey(k Key, f func(Key, MapStateEntry) bool) bool {
 // ForEachNarrowerKeyWithBroaderID iterates over narrower port/proto's and broader IDs in the trie.
 // Equal port/protos or identities are not included.
 func (msm *mapStateMap) ForEachNarrowerKeyWithBroaderID(key Key, prefixes []netip.Prefix, f func(Key, MapStateEntry) bool) {
-	msm.trie.Descendants(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.Key], idSet IDSet) bool {
+	msm.trie.Descendants(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.LPMKey], idSet IDSet) bool {
 		// k is the key from trie with 0'ed ID
-		k := lpmKey.Value()
+		k := Key{
+			LPMKey: lpmKey.Value(),
+		}
 
 		// Descendants iterates over equal port/proto, caller expects to see only narrower keys so skip it
 		if k.PortProtoIsEqual(key) {
@@ -361,9 +363,11 @@ func (msm *mapStateMap) ForEachNarrowerKeyWithBroaderID(key Key, prefixes []neti
 
 // ForEachBroaderOrEqualKey iterates over broader or equal keys in the trie.
 func (msm *mapStateMap) ForEachBroaderOrEqualKey(key Key, prefixes []netip.Prefix, f func(Key, MapStateEntry) bool) {
-	msm.trie.Ancestors(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.Key], idSet IDSet) bool {
+	msm.trie.Ancestors(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.LPMKey], idSet IDSet) bool {
 		// k is the key from trie with 0'ed ID
-		k := lpmKey.Value()
+		k := Key{
+			LPMKey: lpmKey.Value(),
+		}
 
 		// ANY identities are not in the CIDR trie, but they are ancestors of all
 		// identities, visit them first
@@ -414,9 +418,11 @@ func (msm *mapStateMap) ForEachBroaderOrEqualKey(key Key, prefixes []netip.Prefi
 
 // ForEachNarrowerOrEqualKey iterates over narrower or equal keys in the trie.
 func (msm *mapStateMap) ForEachNarrowerOrEqualKey(key Key, prefixes []netip.Prefix, f func(Key, MapStateEntry) bool) {
-	msm.trie.Descendants(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.Key], idSet IDSet) bool {
+	msm.trie.Descendants(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.LPMKey], idSet IDSet) bool {
 		// k is the key from trie with 0'ed ID
-		k := lpmKey.Value()
+		k := Key{
+			LPMKey: lpmKey.Value(),
+		}
 
 		// ANY identities are not in the CIDR trie, but all identities are descendants of
 		// them.
@@ -470,9 +476,11 @@ func (msm *mapStateMap) ForEachNarrowerOrEqualKey(key Key, prefixes []netip.Pref
 // ForEachBroaderKeyWithNarrowerID iterates over broader proto/port with narrower identity in the trie.
 // Equal port/protos or identities are not included.
 func (msm *mapStateMap) ForEachBroaderKeyWithNarrowerID(key Key, prefixes []netip.Prefix, f func(Key, MapStateEntry) bool) {
-	msm.trie.Ancestors(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.Key], idSet IDSet) bool {
+	msm.trie.Ancestors(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.LPMKey], idSet IDSet) bool {
 		// k is the key from trie with 0'ed ID
-		k := lpmKey.Value()
+		k := Key{
+			LPMKey: lpmKey.Value(),
+		}
 
 		// Skip equal PortProto
 		if k.PortProtoIsEqual(key) {
@@ -522,9 +530,11 @@ func (msm *mapStateMap) ForEachBroaderKeyWithNarrowerID(key Key, prefixes []neti
 // Visits all keys that datapath would match IF the 'key' was not added to the policy map.
 // NOTE that CIDRs are not considered here as datapath does not support LPM matching in security IDs.
 func (msm *mapStateMap) ForEachBroaderOrEqualDatapathKey(key Key, f func(Key, MapStateEntry) bool) {
-	msm.trie.Ancestors(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.Key], idSet IDSet) bool {
+	msm.trie.Ancestors(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.LPMKey], idSet IDSet) bool {
 		// k is the key from trie with 0'ed ID
-		k := lpmKey.Value()
+		k := Key{
+			LPMKey: lpmKey.Value(),
+		}
 
 		// ANY identities are ancestors of all identities, visit them first
 		if _, exists := idSet.ids[0]; exists {
@@ -553,9 +563,11 @@ func (msm *mapStateMap) ForEachBroaderOrEqualDatapathKey(key Key, f func(Key, Ma
 // Visits all keys that datapath matches that would match 'key' if those keys were not in the policy map.
 // NOTE that CIDRs are not considered here as datapath does not support LPM matching in security IDs.
 func (msm *mapStateMap) ForEachNarrowerOrEqualDatapathKey(key Key, f func(Key, MapStateEntry) bool) {
-	msm.trie.Descendants(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.Key], idSet IDSet) bool {
+	msm.trie.Descendants(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.LPMKey], idSet IDSet) bool {
 		// k is the key from trie with 0'ed ID
-		k := lpmKey.Value()
+		k := Key{
+			LPMKey: lpmKey.Value(),
+		}
 
 		// All identities are descendants of ANY identity.
 		if key.Identity == 0 {
@@ -584,8 +596,10 @@ func (msm *mapStateMap) ForEachNarrowerOrEqualDatapathKey(key Key, f func(Key, M
 
 // ForEachKeyWithBroaderOrEqualPortProto iterates over broader or equal port/proto entries in the trie.
 func (msm *mapStateMap) ForEachKeyWithBroaderOrEqualPortProto(key Key, f func(Key, MapStateEntry) bool) {
-	msm.trie.Ancestors(key.PrefixLength(), key, func(prefix uint, lpmKey bitlpm.Key[Key], idSet IDSet) bool {
-		k := lpmKey.Value()
+	msm.trie.Ancestors(key.PrefixLength(), key, func(prefix uint, lpmKey bitlpm.Key[policyTypes.LPMKey], idSet IDSet) bool {
+		k := Key{
+			LPMKey: lpmKey.Value(),
+		}
 		for id := range idSet.ids {
 			k.Identity = uint32(id)
 			if !msm.forKey(k, f) {
@@ -598,8 +612,10 @@ func (msm *mapStateMap) ForEachKeyWithBroaderOrEqualPortProto(key Key, f func(Ke
 
 // ForEachKeyWithNarrowerOrEqualPortProto iterates over narrower or equal port/proto entries in the trie.
 func (msm *mapStateMap) ForEachKeyWithNarrowerOrEqualPortProto(key Key, f func(Key, MapStateEntry) bool) {
-	msm.trie.Descendants(key.PrefixLength(), key, func(prefix uint, lpmKey bitlpm.Key[Key], idSet IDSet) bool {
-		k := lpmKey.Value()
+	msm.trie.Descendants(key.PrefixLength(), key, func(prefix uint, lpmKey bitlpm.Key[policyTypes.LPMKey], idSet IDSet) bool {
+		k := Key{
+			LPMKey: lpmKey.Value(),
+		}
 		for id := range idSet.ids {
 			k.Identity = uint32(id)
 			if !msm.forKey(k, f) {
@@ -761,7 +777,7 @@ func (ms *mapState) withState(initMap MapStateMap, identities Identities) *mapSt
 func newMapStateMap() mapStateMap {
 	return mapStateMap{
 		entries: make(MapStateMap),
-		trie:    bitlpm.NewTrie[Key, IDSet](policyTypes.MapStatePrefixLen),
+		trie:    bitlpm.NewTrie[policyTypes.LPMKey, IDSet](policyTypes.MapStatePrefixLen),
 	}
 }
 
