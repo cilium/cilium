@@ -305,7 +305,7 @@ func PrefixToIps(prefixCidr string, maxIPs int) ([]string, error) {
 	}
 	netWithRange := ipNetToRange(*ipNet)
 	// Ensure last IP in the prefix is included
-	for ip := *netWithRange.First; len(prefixIps) < maxIPs || maxIPs == 0; ip = GetNextIP(ip) {
+	for ip := *netWithRange.First; len(prefixIps) < maxIPs || maxIPs == 0; ip = getNextIP(ip) {
 		prefixIps = append(prefixIps, ip.String())
 		if ip.Equal(*netWithRange.Last) {
 			break
@@ -368,9 +368,9 @@ func getPreviousIP(ip net.IP) net.IP {
 	return previousIP
 }
 
-// GetNextIP returns the next IP from the given IP address. If the given IP is
+// getNextIP returns the next IP from the given IP address. If the given IP is
 // the last IP of a v4 or v6 range, the same IP is returned.
-func GetNextIP(ip net.IP) net.IP {
+func getNextIP(ip net.IP) net.IP {
 	if ip.Equal(upperIPv4) || ip.Equal(upperIPv6) {
 		return ip
 	}
@@ -595,7 +595,7 @@ func rangeToCIDRs(firstIP, lastIP net.IP) []*net.IPNet {
 	if bytes.Compare(*lastIPSpanning, lastIP) > 0 {
 		// Split on the next IP of the last IP so that the left list of IPs
 		// of the partition include the lastIP.
-		nextFirstRangeIP := GetNextIP(lastIP)
+		nextFirstRangeIP := getNextIP(lastIP)
 		var bitLen int
 		if nextFirstRangeIP.To4() != nil {
 			bitLen = ipv4BitLen

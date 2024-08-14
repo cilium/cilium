@@ -547,47 +547,47 @@ func TestPreviousIP(t *testing.T) {
 func TestNextIP(t *testing.T) {
 	expectedNext := net.ParseIP("10.0.0.0")
 	ip := net.ParseIP("9.255.255.255")
-	nextIP := GetNextIP(ip)
+	nextIP := getNextIP(ip)
 	require.EqualValues(t, expectedNext, nextIP)
 
 	// Check that overflow does not occur.
 	ip = net.ParseIP("255.255.255.255")
-	nextIP = GetNextIP(ip)
+	nextIP = getNextIP(ip)
 	expectedNext = ip
 	require.EqualValues(t, expectedNext, nextIP)
 
 	ip = net.ParseIP("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
-	nextIP = GetNextIP(ip)
+	nextIP = getNextIP(ip)
 	expectedNext = ip
 	require.EqualValues(t, expectedNext, nextIP)
 
 	ip = []byte{0xa, 0, 0, 0}
-	nextIP = GetNextIP(ip)
+	nextIP = getNextIP(ip)
 	expectedNext = []byte{0xa, 0, 0, 1}
 	require.EqualValues(t, expectedNext, nextIP)
 
 	ip = []byte{0xff, 0xff, 0xff, 0xff}
-	nextIP = GetNextIP(ip)
+	nextIP = getNextIP(ip)
 	expectedNext = []byte{0xff, 0xff, 0xff, 0xff}
 	require.EqualValues(t, expectedNext, nextIP)
 
 	ip = net.ParseIP("10.0.0.0")
-	nextIP = GetNextIP(ip)
+	nextIP = getNextIP(ip)
 	expectedNext = net.ParseIP("10.0.0.1")
 	require.EqualValues(t, expectedNext, nextIP)
 
 	ip = net.ParseIP("0:0:0:0:ffff:ffff:ffff:ffff")
-	nextIP = GetNextIP(ip)
+	nextIP = getNextIP(ip)
 	expectedNext = net.ParseIP("0:0:0:1:0:0:0:0")
 	require.EqualValues(t, expectedNext, nextIP)
 
 	ip = net.ParseIP("ffff:ffff:ffff:fffe:ffff:ffff:ffff:ffff")
-	nextIP = GetNextIP(ip)
+	nextIP = getNextIP(ip)
 	expectedNext = net.ParseIP("ffff:ffff:ffff:ffff:0:0:0:0")
 	require.EqualValues(t, expectedNext, nextIP)
 
 	ip = net.ParseIP("ffff:ffff:ffff:ffff:ffff:ffff:ffff:fffe")
-	nextIP = GetNextIP(ip)
+	nextIP = getNextIP(ip)
 	expectedNext = net.ParseIP("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff")
 	require.EqualValues(t, expectedNext, nextIP)
 }
