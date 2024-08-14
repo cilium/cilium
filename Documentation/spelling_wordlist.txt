@@ -662,6 +662,7 @@ secretName
 secretsNamespace
 selftest
 selftests
+serverinfo
 serviceAccount
 serviceMonitor
 setrlimit
