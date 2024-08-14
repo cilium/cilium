@@ -5,6 +5,7 @@ package k8s_test
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 	"testing"
 
@@ -20,18 +21,37 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 func ExampleRegisterReflector() {
-	var module = cell.Module(
+	nodeNameIndex := statedb.Index[*corev1.Node, string]{
+		Name: "name",
+		FromObject: func(obj *corev1.Node) index.KeySet {
+			return index.NewKeySet(index.String(obj.Name))
+		},
+		FromKey: index.String,
+		Unique:  true,
+	}
+
+	module := cell.Module(
 		"example-reflector",
 		"Reflector example",
 
 		cell.ProvidePrivate(
-			// The table the reflector writes to (RWTable[*Node]).
-			newTestNodeTable,
+			// Construct the table we're reflecting to.
+			func(db *statedb.DB) (statedb.RWTable[*corev1.Node], error) {
+				tbl, err := statedb.NewTable(
+					"nodes",
+					nodeNameIndex,
+				)
+				if err != nil {
+					return nil, err
+				}
+				return tbl, db.RegisterTable(tbl)
+			},
 
 			// ReflectorConfig defines the ListerWatcher to use the fetch the objects
 			// and how to write them to the table.
@@ -54,10 +74,20 @@ func ExampleRegisterReflector() {
 	hive.New(module)
 }
 
+type testObject struct {
+	metav1.PartialObjectMetadata
+	Status string
+}
+
+func (t *testObject) DeepCopy() *testObject {
+	t2 := *t
+	return &t2
+}
+
 var (
-	testNodeNameIndex = statedb.Index[*corev1.Node, string]{
+	testNameIndex = statedb.Index[*testObject, string]{
 		Name: "name",
-		FromObject: func(obj *corev1.Node) index.KeySet {
+		FromObject: func(obj *testObject) index.KeySet {
 			return index.NewKeySet(index.String(obj.Name))
 		},
 		FromKey: index.String,
@@ -65,10 +95,10 @@ var (
 	}
 )
 
-func newTestNodeTable(db *statedb.DB) (statedb.RWTable[*corev1.Node], error) {
+func newTestTable(db *statedb.DB) (statedb.RWTable[*testObject], error) {
 	tbl, err := statedb.NewTable(
-		"test-nodes",
-		testNodeNameIndex,
+		"test",
+		testNameIndex,
 	)
 	if err != nil {
 		return nil, err
@@ -94,47 +124,44 @@ func TestStateDBReflector_TransformQueryAll(t *testing.T) {
 
 func testStateDBReflector(t *testing.T, doTransform, doQueryAll bool) {
 	var (
-		node1Name = "node1"
-		node2Name = "node2"
-		node      = &corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            node1Name,
-				ResourceVersion: "0",
+		obj1Name = "obj1"
+		obj2Name = "obj2"
+		obj      = &testObject{
+			PartialObjectMetadata: metav1.PartialObjectMetadata{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            obj1Name,
+					ResourceVersion: "0",
+				},
 			},
-			Status: corev1.NodeStatus{
-				Phase: "init",
-			},
+			Status: "init",
 		}
-		fakeClient, cs = k8sClient.NewFakeClientset()
 
 		db                              *statedb.DB
-		nodeTable                       statedb.Table[*corev1.Node]
+		table                           statedb.Table[*testObject]
 		transformCalled, queryAllCalled atomic.Bool
 	)
 
-	// Create the initial version of the node. Do this before anything
-	// starts watching the resources to avoid a race.
-	fakeClient.KubernetesFakeClientset.Tracker().Create(
-		corev1.SchemeGroupVersion.WithResource("nodes"),
-		node.DeepCopy(), "")
+	lw := testutils.NewFakeListerWatcher(
+		obj.DeepCopy(),
+	)
 
 	var testTimeout = 10 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
-	var transformFunc k8s.TransformFunc[*corev1.Node]
+	var transformFunc k8s.TransformFunc[*testObject]
 	if doTransform {
-		transformFunc = func(a any) (obj *corev1.Node, ok bool) {
+		transformFunc = func(a any) (obj *testObject, ok bool) {
 			transformCalled.Store(true)
-			obj = a.(*corev1.Node).DeepCopy()
+			obj = a.(*testObject).DeepCopy()
 			obj.ObjectMeta.GenerateName = "transformed"
 			return obj, true
 		}
 	}
 
-	var queryAllFunc k8s.QueryAllFunc[*corev1.Node]
+	var queryAllFunc k8s.QueryAllFunc[*testObject]
 	if doQueryAll {
-		queryAllFunc = func(txn statedb.ReadTxn, tbl statedb.Table[*corev1.Node]) statedb.Iterator[*corev1.Node] {
+		queryAllFunc = func(txn statedb.ReadTxn, tbl statedb.Table[*testObject]) statedb.Iterator[*testObject] {
 			// This method is called on the initial synchronization (e.g. Replace()) and whenever
 			// connection is lost to api-server and resynchronization is needed.
 			queryAllCalled.Store(true)
@@ -143,37 +170,36 @@ func testStateDBReflector(t *testing.T, doTransform, doQueryAll bool) {
 	}
 
 	hive := hive.New(
-		cell.Provide(func() k8sClient.Clientset { return cs }),
 		cell.Module("test", "test",
 			cell.ProvidePrivate(
-				func(client k8sClient.Clientset, tbl statedb.RWTable[*corev1.Node]) k8s.ReflectorConfig[*corev1.Node] {
-					return k8s.ReflectorConfig[*corev1.Node]{
-						Name:           "nodes",
+				func(tbl statedb.RWTable[*testObject]) k8s.ReflectorConfig[*testObject] {
+					return k8s.ReflectorConfig[*testObject]{
+						Name:           "test",
 						Table:          tbl,
 						BufferSize:     10,
 						BufferWaitTime: time.Millisecond,
-						ListerWatcher:  utils.ListerWatcherFromTyped(client.CoreV1().Nodes()),
+						ListerWatcher:  lw,
 						Transform:      transformFunc,
 						QueryAll:       queryAllFunc,
 					}
 				},
-				newTestNodeTable,
+				newTestTable,
 			),
 			cell.Invoke(
-				k8s.RegisterReflector[*corev1.Node],
-				func(db_ *statedb.DB, tbl statedb.RWTable[*corev1.Node]) {
+				k8s.RegisterReflector[*testObject],
+				func(db_ *statedb.DB, tbl statedb.RWTable[*testObject]) {
 					// Insert a dummy node into the table to verify that the initial synchronization
 					// cleans things up.
 					// BTW, if you don't want everything cleaned up you can specify the QueryAll
 					// function to "namespace" what the reflector is managing.
 					wtxn := db_.WriteTxn(tbl)
-					var garbageNode corev1.Node
+					var garbageNode testObject
 					garbageNode.Name = "garbage"
 					tbl.Insert(wtxn, &garbageNode)
 					wtxn.Commit()
 
 					db = db_
-					nodeTable = tbl
+					table = tbl
 				}),
 		),
 	)
@@ -186,69 +212,61 @@ func testStateDBReflector(t *testing.T, doTransform, doQueryAll bool) {
 	// Wait until the table has been initialized.
 	require.Eventually(
 		t,
-		func() bool { return nodeTable.Initialized(db.ReadTxn()) },
+		func() bool { return table.Initialized(db.ReadTxn()) },
 		time.Second,
 		5*time.Millisecond)
 
 	// After initialization we should see the node that was created
 	// before starting.
-	iter, watch := nodeTable.AllWatch(db.ReadTxn())
-	nodes := statedb.Collect(iter)
-	require.Len(t, nodes, 1)
-	require.Equal(t, node1Name, nodes[0].Name)
+	iter, watch := table.AllWatch(db.ReadTxn())
+	objs := statedb.Collect(iter)
+	require.Len(t, objs, 1)
+	require.Equal(t, obj1Name, objs[0].Name)
 
 	if doTransform {
 		// Transform func set, check that it was used.
-		require.Equal(t, "transformed", nodes[0].GenerateName)
+		require.Equal(t, "transformed", objs[0].GenerateName)
 	}
 
-	// Update the node and check that it updated.
-	node.Status.Phase = "update1"
-	node.ObjectMeta.ResourceVersion = "1"
-	fakeClient.KubernetesFakeClientset.Tracker().Update(
-		corev1.SchemeGroupVersion.WithResource("nodes"),
-		node.DeepCopy(), "")
+	// Update the object and check that it updated.
+	obj.Status = "update1"
+	obj.ObjectMeta.ResourceVersion = "1"
+	lw.Upsert(obj.DeepCopy())
 
 	<-watch
-	iter, watch = nodeTable.AllWatch(db.ReadTxn())
-	nodes = statedb.Collect(iter)
-	require.Len(t, nodes, 1)
-	require.EqualValues(t, "update1", nodes[0].Status.Phase)
+	iter, watch = table.AllWatch(db.ReadTxn())
+	objs = statedb.Collect(iter)
+	require.Len(t, objs, 1)
+	require.EqualValues(t, "update1", objs[0].Status)
 
 	// Create another node after initialization.
-	node2 := node.DeepCopy()
-	node2.ObjectMeta.Name = node2Name
-	fakeClient.KubernetesFakeClientset.Tracker().Create(
-		corev1.SchemeGroupVersion.WithResource("nodes"),
-		node2.DeepCopy(), "")
+	node2 := obj.DeepCopy()
+	node2.ObjectMeta.Name = obj2Name
+	lw.Upsert(node2.DeepCopy())
 
 	// Wait until updated.
 	<-watch
-	iter, watch = nodeTable.AllWatch(db.ReadTxn())
-	nodes = statedb.Collect(iter)
-	require.Len(t, nodes, 2)
-	require.Equal(t, node1Name, nodes[0].Name)
-	require.Equal(t, node2Name, nodes[1].Name)
+	iter, watch = table.AllWatch(db.ReadTxn())
+	objs = statedb.Collect(iter)
+	require.Len(t, objs, 2)
+	require.Equal(t, obj1Name, objs[0].Name)
+	require.Equal(t, obj2Name, objs[1].Name)
 
 	// Finally delete the nodes
-	fakeClient.KubernetesFakeClientset.Tracker().Delete(
-		corev1.SchemeGroupVersion.WithResource("nodes"),
-		"", node1Name)
+	lw.Delete(obj)
 
 	<-watch
-	iter, watch = nodeTable.AllWatch(db.ReadTxn())
-	nodes = statedb.Collect(iter)
-	require.Len(t, nodes, 1)
-	require.EqualValues(t, node2Name, nodes[0].Name)
+	iter, watch = table.AllWatch(db.ReadTxn())
+	objs = statedb.Collect(iter)
+	require.Len(t, objs, 1)
+	require.EqualValues(t, obj2Name, objs[0].Name)
 
-	fakeClient.KubernetesFakeClientset.Tracker().Delete(
-		corev1.SchemeGroupVersion.WithResource("nodes"),
-		"", node2Name)
+	lw.Delete(node2)
 
 	<-watch
-	iter, _ = nodeTable.AllWatch(db.ReadTxn())
-	nodes = statedb.Collect(iter)
-	require.Len(t, nodes, 0)
+	iter, _ = table.AllWatch(db.ReadTxn())
+	objs = statedb.Collect(iter)
+	require.Len(t, objs, 0)
 
 	// Finally check that the hive stops correctly. Note that we're not doing this in a
 	// defer to avoid potentially deadlocking on the Fatal calls.
@@ -273,4 +291,93 @@ func TestStateDBReflector_jobName(t *testing.T) {
 		"k8s-reflector[v1.Node]/test",
 		cfg.JobName(),
 	)
+}
+
+func BenchmarkStateDBReflector(b *testing.B) {
+	var (
+		db    *statedb.DB
+		table statedb.Table[*testObject]
+	)
+
+	lw := testutils.NewFakeListerWatcher()
+
+	hive := hive.New(
+		cell.Module("test", "test",
+			cell.ProvidePrivate(
+				func(tbl statedb.RWTable[*testObject]) k8s.ReflectorConfig[*testObject] {
+					return k8s.ReflectorConfig[*testObject]{
+						Name:           "test",
+						Table:          tbl,
+						ListerWatcher:  lw,
+						BufferSize:     1024,
+						BufferWaitTime: time.Millisecond,
+					}
+				},
+				newTestTable,
+			),
+			cell.Invoke(
+				k8s.RegisterReflector[*testObject],
+				func(db_ *statedb.DB, tbl statedb.RWTable[*testObject]) {
+					db = db_
+					table = tbl
+				}),
+		),
+	)
+
+	tlog := hivetest.Logger(b)
+	if err := hive.Start(tlog, context.TODO()); err != nil {
+		b.Fatalf("hive.Start failed: %s", err)
+	}
+
+	// Wait until the table has been initialized.
+	require.Eventually(
+		b,
+		func() bool { return table.Initialized(db.ReadTxn()) },
+		time.Second,
+		5*time.Millisecond)
+
+	const numObjects = 10000
+
+	objs := make([]*testObject, numObjects)
+	for i := range objs {
+		obj := &testObject{}
+		obj.Name = fmt.Sprintf("obj-%d", i)
+		objs[i] = obj
+	}
+
+	b.ResetTimer()
+
+	// Do n rounds of upserting and deleting [numObjects] to benchmark the throughput
+	for n := 0; n < b.N; n++ {
+		for _, obj := range objs {
+			lw.Upsert(obj.DeepCopy())
+		}
+		for {
+			if table.NumObjects(db.ReadTxn()) == numObjects {
+				break
+			}
+			time.Sleep(time.Millisecond)
+		}
+		for _, obj := range objs {
+			lw.Delete(obj.DeepCopy())
+		}
+		for {
+			if table.NumObjects(db.ReadTxn()) == 0 {
+				break
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}
+
+	b.StopTimer()
+
+	// Slightly wonky metric as we're doing both Upsert and Delete, so it's averaging
+	// over the cost of these.
+	b.ReportMetric(float64(b.N*numObjects*2)/b.Elapsed().Seconds(), "objects/sec")
+
+	// Finally check that the hive stops correctly. Note that we're not doing this in a
+	// defer to avoid potentially deadlocking on the Fatal calls.
+	if err := hive.Stop(tlog, context.TODO()); err != nil {
+		b.Fatalf("hive.Stop failed: %s", err)
+	}
 }
