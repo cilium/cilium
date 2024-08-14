@@ -22,6 +22,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
 	vns "github.com/vishvananda/netns"
+	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -29,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/inctimer"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
@@ -387,7 +387,7 @@ func (dc *devicesController) processUpdates(
 
 func deviceAddressFromAddrUpdate(upd netlink.AddrUpdate) tables.DeviceAddress {
 	return tables.DeviceAddress{
-		Addr:      ip.MustAddrFromIP(upd.LinkAddress.IP),
+		Addr:      netipx.MustFromStdIP(upd.LinkAddress.IP),
 		Secondary: upd.Flags&unix.IFA_F_SECONDARY != 0,
 
 		// ifaddrmsg.ifa_scope is uint8, vishvananda/netlink has wrong type
@@ -683,7 +683,7 @@ func makeNetlinkFuncs() (*netlinkFuncs, error) {
 func ipnetToPrefix(family int, ipn *net.IPNet) netip.Prefix {
 	if ipn != nil {
 		cidr, _ := ipn.Mask.Size()
-		return netip.PrefixFrom(ip.MustAddrFromIP(ipn.IP), cidr)
+		return netip.PrefixFrom(netipx.MustFromStdIP(ipn.IP), cidr)
 	}
 	return netip.PrefixFrom(zeroAddr(family), 0)
 }
