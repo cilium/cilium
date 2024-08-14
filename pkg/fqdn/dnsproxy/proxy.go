@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/dns"
 	"github.com/sirupsen/logrus"
+	"go4.org/netipx"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/sys/unix"
 
@@ -27,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
-	ippkt "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -1249,12 +1249,12 @@ func ExtractMsgDetails(msg *dns.Msg) (qname string, responseIPs []netip.Addr, TT
 		switch ans := ans.(type) {
 		case *dns.A:
 			// Parsing of the DNS message does the IP validation for us.
-			responseIPs = append(responseIPs, ippkt.MustAddrFromIP(ans.A))
+			responseIPs = append(responseIPs, netipx.MustFromStdIP(ans.A))
 			if TTL > ans.Hdr.Ttl {
 				TTL = ans.Hdr.Ttl
 			}
 		case *dns.AAAA:
-			responseIPs = append(responseIPs, ippkt.MustAddrFromIP(ans.AAAA))
+			responseIPs = append(responseIPs, netipx.MustFromStdIP(ans.AAAA))
 			if TTL > ans.Hdr.Ttl {
 				TTL = ans.Hdr.Ttl
 			}
