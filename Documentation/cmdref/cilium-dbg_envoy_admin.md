@@ -23,6 +23,7 @@ Access Envoy Admin Interface
 * [cilium-dbg envoy](cilium-dbg_envoy.md)	 - Manage Envoy Proxy
 * [cilium-dbg envoy admin clusters](cilium-dbg_envoy_admin_clusters.md)	 - List configured clusters of Envoy Proxy
 * [cilium-dbg envoy admin config](cilium-dbg_envoy_admin_config.md)	 - View config dump of Envoy Proxy
+* [cilium-dbg envoy admin listeners](cilium-dbg_envoy_admin_listeners.md)	 - List configured listeners of Envoy Proxy
 * [cilium-dbg envoy admin metrics](cilium-dbg_envoy_admin_metrics.md)	 - List Prometheus statistics of Envoy Proxy
 * [cilium-dbg envoy admin serverinfo](cilium-dbg_envoy_admin_serverinfo.md)	 - View server info of Envoy Proxy
 
