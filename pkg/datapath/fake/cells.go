@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
+	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath"
@@ -21,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
@@ -105,8 +105,8 @@ func fakeDevices(db *statedb.DB, devices statedb.RWTable[*tables.Device]) stated
 		HardwareAddr: []byte{1, 2, 3, 4, 5, 6},
 		Flags:        net.FlagUp,
 		Addrs: []tables.DeviceAddress{
-			{Addr: ip.MustAddrFromIP(fakeTypes.IPv4NodePortAddress), Scope: unix.RT_SCOPE_UNIVERSE},
-			{Addr: ip.MustAddrFromIP(fakeTypes.IPv6NodePortAddress), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netipx.MustFromStdIP(fakeTypes.IPv4NodePortAddress), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netipx.MustFromStdIP(fakeTypes.IPv6NodePortAddress), Scope: unix.RT_SCOPE_UNIVERSE},
 		},
 		Type:     "test",
 		Selected: true,
@@ -119,8 +119,8 @@ func fakeDevices(db *statedb.DB, devices statedb.RWTable[*tables.Device]) stated
 		HardwareAddr: []byte{2, 3, 4, 5, 6, 7},
 		Flags:        net.FlagUp,
 		Addrs: []tables.DeviceAddress{
-			{Addr: ip.MustAddrFromIP(fakeTypes.IPv4InternalAddress), Scope: unix.RT_SCOPE_UNIVERSE},
-			{Addr: ip.MustAddrFromIP(fakeTypes.IPv6InternalAddress), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netipx.MustFromStdIP(fakeTypes.IPv4InternalAddress), Scope: unix.RT_SCOPE_UNIVERSE},
+			{Addr: netipx.MustFromStdIP(fakeTypes.IPv6InternalAddress), Scope: unix.RT_SCOPE_UNIVERSE},
 
 			{Addr: netip.MustParseAddr("10.0.0.4"), Scope: unix.RT_SCOPE_UNIVERSE, Secondary: true},
 			{Addr: netip.MustParseAddr("f00d::3"), Scope: unix.RT_SCOPE_UNIVERSE, Secondary: true},

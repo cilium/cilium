@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/identity"
@@ -192,7 +193,7 @@ func (s *syncHostIPs) sync(addrs statedb.Iterator[tables.NodeAddress]) error {
 
 		lbls := ipIDLblsPair.Labels
 		if ipIDLblsPair.ID.IsWorld() {
-			p := netip.PrefixFrom(ippkg.MustAddrFromIP(ipIDLblsPair.IP), 0)
+			p := netip.PrefixFrom(netipx.MustFromStdIP(ipIDLblsPair.IP), 0)
 			s.params.IPCache.OverrideIdentity(p, lbls, source.Local, daemonResourceID)
 		} else {
 			s.params.IPCache.UpsertLabels(ippkg.IPToNetPrefix(ipIDLblsPair.IP),

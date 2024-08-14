@@ -8,8 +8,8 @@ import (
 	"net"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/types"
+	"go4.org/netipx"
 )
 
 // Must be in sync with ENDPOINT_KEY_* in <bpf/lib/common.h>
@@ -62,7 +62,7 @@ func (k EndpointKey) ToIP() net.IP {
 func (k EndpointKey) String() string {
 	if ip := k.ToIP(); ip != nil {
 		addrCluster := cmtypes.AddrClusterFrom(
-			ippkg.MustAddrFromIP(ip),
+			netipx.MustFromStdIP(ip),
 			uint32(k.ClusterID),
 		)
 		return addrCluster.String() + ":" + fmt.Sprintf("%d", k.Key)

@@ -14,10 +14,10 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/inctimer"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/types"
@@ -125,7 +125,7 @@ func TestDirectRoutingDevice(t *testing.T) {
 	// If one of the devices matches the K8s Node IP, it is returned.
 	want.Addrs = []DeviceAddress{
 		{
-			Addr: ip.MustAddrFromIP(testIP),
+			Addr: netipx.MustFromStdIP(testIP),
 		},
 	}
 	tctx, cancel = context.WithTimeout(ctx, time.Millisecond)

@@ -19,10 +19,10 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -312,8 +312,8 @@ func TestNodeAddress(t *testing.T) {
 		Name:  "cilium_host",
 		Flags: net.FlagUp,
 		Addrs: []DeviceAddress{
-			{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: RT_SCOPE_UNIVERSE},
-			{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: RT_SCOPE_LINK},
+			{Addr: netipx.MustFromStdIP(ciliumHostIP), Scope: RT_SCOPE_UNIVERSE},
+			{Addr: netipx.MustFromStdIP(ciliumHostIPLinkScoped), Scope: RT_SCOPE_LINK},
 		},
 		Selected: false,
 	})
@@ -410,9 +410,9 @@ func TestNodeAddressHostDevice(t *testing.T) {
 		Flags: net.FlagUp,
 		Addrs: []DeviceAddress{
 			// <SITE
-			{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: RT_SCOPE_UNIVERSE},
+			{Addr: netipx.MustFromStdIP(ciliumHostIP), Scope: RT_SCOPE_UNIVERSE},
 			// >SITE, but included
-			{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: RT_SCOPE_LINK},
+			{Addr: netipx.MustFromStdIP(ciliumHostIPLinkScoped), Scope: RT_SCOPE_LINK},
 			// >SITE, skipped
 			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: RT_SCOPE_HOST},
 		},
@@ -605,8 +605,8 @@ func TestNodeAddressWhitelist(t *testing.T) {
 				Name:  "cilium_host",
 				Flags: net.FlagUp,
 				Addrs: []DeviceAddress{
-					{Addr: ip.MustAddrFromIP(ciliumHostIP), Scope: RT_SCOPE_UNIVERSE},
-					{Addr: ip.MustAddrFromIP(ciliumHostIPLinkScoped), Scope: RT_SCOPE_LINK},
+					{Addr: netipx.MustFromStdIP(ciliumHostIP), Scope: RT_SCOPE_UNIVERSE},
+					{Addr: netipx.MustFromStdIP(ciliumHostIPLinkScoped), Scope: RT_SCOPE_LINK},
 				},
 				Selected: false,
 			})
