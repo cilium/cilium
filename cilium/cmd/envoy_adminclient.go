@@ -93,3 +93,7 @@ func (a *envoyAdminClient) GetPrometheusStatistics(filterRegex string) (string, 
 func (a *envoyAdminClient) GetClusters(format string) (string, error) {
 	return a.get(fmt.Sprintf("clusters?format=%s", format))
 }
+
+func (a *envoyAdminClient) GetListeners(format string) (string, error) {
+	return a.get(fmt.Sprintf("listeners?format=%s", format))
+}
