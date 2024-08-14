@@ -76,6 +76,10 @@ type ReflectorConfig[Obj any] struct {
 	// fields or to for example implement TableRow/TableHeader for a cilium-dbg statedb command.
 	Transform TransformFunc[Obj]
 
+	// Optional function to transform the object to a set of objects to insert into the table.
+	// If set, [Transform] must be nil.
+	TransformMany TransformManyFunc[Obj]
+
 	// Optional function to query all objects. Used when replacing the objects on resync.
 	// This can be used to "namespace" the objects managed by this reflector, e.g. on
 	// source.Source etc.
@@ -93,6 +97,12 @@ func (cfg ReflectorConfig[Obj]) JobName() string {
 // target object. If the function returns false the object is silently
 // skipped.
 type TransformFunc[Obj any] func(any) (obj Obj, ok bool)
+
+// TransformManyFunc is an optional function to give to the Kubernetes reflector
+// to transform the object returned by the ListerWatcher to the desired set of
+// target objects to insert into the table. If the function returns false the object is silently
+// skipped.
+type TransformManyFunc[Obj any] func(any) (objs []Obj)
 
 // QueryAllFunc is an optional function to give to the Kubernetes reflector
 // to query all objects in the table that are managed by the reflector.
@@ -136,6 +146,9 @@ func (cfg ReflectorConfig[Obj]) validate() error {
 	if cfg.BufferWaitTime <= 0 {
 		return fmt.Errorf("%T.BufferWaitTime (%d) must be larger than zero", cfg, cfg.BufferWaitTime)
 	}
+	if cfg.Transform != nil && cfg.TransformMany != nil {
+		return fmt.Errorf("Both %T.Transform and .TransformMany cannot be set", cfg)
+	}
 	return nil
 }
 
@@ -152,7 +165,7 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 		deleted   bool
 		name      string
 		namespace string
-		obj       Obj
+		obj       any
 	}
 	type buffer struct {
 		replaceItems []any
@@ -162,10 +175,26 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 	waitTime := r.BufferWaitTime
 	table := r.table
 
-	transform := r.Transform
-	if transform == nil {
-		// No provided transform function, use the identity function instead.
-		transform = TransformFunc[Obj](func(obj any) (Obj, bool) { return obj.(Obj), true })
+	transformMany := r.TransformMany
+	if transformMany == nil {
+		// Reusing the same buffer for efficiency.
+		buf := make([]Obj, 1)
+		if r.Transform != nil {
+			// Implement TransformMany with Transform.
+			transformMany = TransformManyFunc[Obj](func(obj any) []Obj {
+				var ok bool
+				if buf[0], ok = r.Transform(obj); ok {
+					return buf
+				}
+				return nil
+			})
+		} else {
+			// No provided transform function, use the identity function instead.
+			transformMany = TransformManyFunc[Obj](func(obj any) []Obj {
+				buf[0] = obj.(Obj)
+				return buf
+			})
+		}
 	}
 
 	queryAll := r.QueryAll
@@ -201,11 +230,7 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 			}
 
 			var entry entry
-			var ok bool
-			entry.obj, ok = transform(ev.Obj)
-			if !ok {
-				return buf
-			}
+			entry.obj = ev.Obj
 			entry.deleted = ev.Kind == CacheStoreEventDelete
 
 			meta, err := meta.Accessor(ev.Obj)
@@ -236,7 +261,7 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 				table.Delete(txn, obj)
 			}
 			for _, item := range buf.replaceItems {
-				if obj, ok := transform(item); ok {
+				for _, obj := range transformMany(item) {
 					table.Insert(txn, obj)
 					numUpserted++
 				}
@@ -247,12 +272,14 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 		}
 
 		for _, entry := range buf.entries {
-			if !entry.deleted {
-				numUpserted++
-				table.Insert(txn, entry.obj)
-			} else {
-				numDeleted++
-				table.Delete(txn, entry.obj)
+			for _, obj := range transformMany(entry.obj) {
+				if !entry.deleted {
+					numUpserted++
+					table.Insert(txn, obj)
+				} else {
+					numDeleted++
+					table.Delete(txn, obj)
+				}
 			}
 		}
 
