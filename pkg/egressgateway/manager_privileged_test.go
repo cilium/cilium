@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,7 +38,7 @@ import (
 
 const (
 	testInterface1 = "cilium_egw1"
-	testInterface2 = "cilium_egw2"
+	testInterface2 = "cilium_egw2.100" // VLAN interface
 
 	node1 = "k8s1"
 	node2 = "k8s2"
@@ -529,7 +530,7 @@ func createTestInterface(tb testing.TB, sysctl sysctl.Sysctl, iface string, addr
 }
 
 func ensureRPFilterIsEnabled(tb testing.TB, sysctl sysctl.Sysctl, iface string) {
-	rpFilterSetting := fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface)
+	rpFilterSetting := fmt.Sprintf("net.ipv4.conf.%s.rp_filter", strings.ReplaceAll(iface, ".", "/"))
 
 	for i := 0; i < 10; i++ {
 		if err := sysctl.Enable(rpFilterSetting); err != nil {
@@ -677,7 +678,7 @@ func assertRPFilter(t *testing.T, sysctl sysctl.Sysctl, rpFilterSettings []rpFil
 
 func tryAssertRPFilterSettings(sysctl sysctl.Sysctl, rpFilterSettings []rpFilterSetting) error {
 	for _, setting := range rpFilterSettings {
-		if val, err := sysctl.Read(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", setting.iFaceName)); err != nil {
+		if val, err := sysctl.Read(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", strings.ReplaceAll(setting.iFaceName, ".", "/"))); err != nil {
 			return fmt.Errorf("failed to read rp_filter")
 		} else if val != setting.rpFilterSetting {
 			return fmt.Errorf("mismatched rp_filter iface: %s rp_filter: %s", setting.iFaceName, val)
