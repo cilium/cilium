@@ -458,6 +458,9 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 				err = errors.Join(err, err2)
 			} else {
 				pod = newPod
+				// Clear the error so the code can proceed below as we've
+				// succeeded here.
+				err = nil
 			}
 		}
 
