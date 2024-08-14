@@ -42,6 +42,7 @@ cilium-agent hive dot-graph [flags]
       --enable-bbr                                                Enable BBR for the bandwidth manager
       --enable-cilium-api-server-access strings                   List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-cilium-health-api-server-access strings            List of cilium health API APIs which are administratively enabled. Supports '*'. (default [*])
+      --enable-dynamic-config                                     Enables support for dynamic agent config
       --enable-gateway-api                                        Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-ingress-controller                                 Enables Envoy secret sync for Ingress controller related TLS secrets
       --enable-ipv4-big-tcp                                       Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4

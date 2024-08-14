@@ -22,6 +22,7 @@ Experimental
 
 * [cilium-dbg statedb](cilium-dbg_statedb.md)	 - Inspect StateDB
 * [cilium-dbg statedb experimental backends](cilium-dbg_statedb_experimental_backends.md)	 - Show contents of table "backends"
+* [cilium-dbg statedb experimental cilium-configs](cilium-dbg_statedb_experimental_cilium-configs.md)	 - Show contents of table "cilium-configs"
 * [cilium-dbg statedb experimental frontends](cilium-dbg_statedb_experimental_frontends.md)	 - Show contents of table "frontends"
 * [cilium-dbg statedb experimental services](cilium-dbg_statedb_experimental_services.md)	 - Show contents of table "services"
 
