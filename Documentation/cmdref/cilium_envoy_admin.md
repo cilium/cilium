@@ -21,6 +21,7 @@ Access Envoy Admin Interface
 ### SEE ALSO
 
 * [cilium envoy](cilium_envoy.md)	 - Manage Envoy Proxy
+* [cilium envoy admin certs](cilium_envoy_admin_certs.md)	 - List configured TLS certificates of Envoy Proxy
 * [cilium envoy admin clusters](cilium_envoy_admin_clusters.md)	 - List configured clusters of Envoy Proxy
 * [cilium envoy admin config](cilium_envoy_admin_config.md)	 - View config dump of Envoy Proxy
 * [cilium envoy admin listeners](cilium_envoy_admin_listeners.md)	 - List configured listeners of Envoy Proxy
