@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"net"
 
+	"go4.org/netipx"
+
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/types"
-	"go4.org/netipx"
 )
 
 // Must be in sync with ENDPOINT_KEY_* in <bpf/lib/common.h>
