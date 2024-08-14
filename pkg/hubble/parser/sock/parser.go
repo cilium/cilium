@@ -10,12 +10,12 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
+	"go4.org/netipx"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
-	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -86,9 +86,9 @@ func (p *Parser) Decode(data []byte, decoded *flowpb.Flow) error {
 
 	// Ignore invalid IPs - getters will handle invalid values.
 	// IPs can be empty for Ethernet-only packets.
-	dstIP, _ := ippkg.AddrFromIP(sock.IP())
+	dstIP, _ := netipx.FromStdIP(sock.IP())
 	dstPort := sock.DstPort
-	srcIP, _ := ippkg.AddrFromIP(epIP)
+	srcIP, _ := netipx.FromStdIP(epIP)
 	srcPort := uint16(0) // source port is not known for TraceSock events
 
 	datapathContext := common.DatapathContext{

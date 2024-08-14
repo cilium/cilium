@@ -15,7 +15,6 @@ import (
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	ippkg "github.com/cilium/cilium/pkg/ip"
 )
 
 //
@@ -147,10 +146,10 @@ func MustParseAddrCluster(s string) AddrCluster {
 	return addrCluster
 }
 
-// AddrClusterFromIP parses the given net.IP using ip.AddrFromIP and returns
+// AddrClusterFromIP parses the given net.IP using netipx.FromStdIP and returns
 // AddrCluster with ClusterID = 0.
 func AddrClusterFromIP(ip net.IP) (AddrCluster, bool) {
-	addr, ok := ippkg.AddrFromIP(ip)
+	addr, ok := netipx.FromStdIP(ip)
 	if !ok {
 		return AddrCluster{}, false
 	}
@@ -364,7 +363,7 @@ func PrefixClusterFromCIDR(c *cidr.CIDR, opts ...PrefixClusterOpts) PrefixCluste
 		return PrefixCluster{}
 	}
 
-	addr, ok := ippkg.AddrFromIP(c.IP)
+	addr, ok := netipx.FromStdIP(c.IP)
 	if !ok {
 		return PrefixCluster{}
 	}

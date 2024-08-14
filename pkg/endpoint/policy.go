@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
@@ -24,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
@@ -810,7 +810,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				}
 
 				ID := e.SecurityIdentity.ID
-				hostIP, ok := ip.AddrFromIP(node.GetIPv4())
+				hostIP, ok := netipx.FromStdIP(node.GetIPv4())
 				if !ok {
 					return controller.NewExitReason("Failed to convert node IPv4 address")
 				}

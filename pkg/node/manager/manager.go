@@ -23,6 +23,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"go4.org/netipx"
 	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/pkg/backoff"
@@ -610,7 +611,7 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels
 		nodeLabels = labels.NewFrom(labels.LabelHost)
 		if m.conf.PolicyCIDRMatchesNodes() {
 			for _, address := range n.IPAddresses {
-				addr, ok := ip.AddrFromIP(address.IP)
+				addr, ok := netipx.FromStdIP(address.IP)
 				if ok {
 					bitLen := addr.BitLen()
 					if m.conf.EnableIPv4 && bitLen == net.IPv4len*8 ||
@@ -661,7 +662,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		// the IP is valid as long as it's coming from nodeTypes.Node. This
 		// object is created either from the node discovery (K8s) or from an
 		// event from the kvstore.
-		nodeIP, _ = ip.AddrFromIP(nIP)
+		nodeIP, _ = netipx.FromStdIP(nIP)
 	}
 
 	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
@@ -858,7 +859,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 	var oldNodeIP netip.Addr
 	if nIP := oldNode.GetNodeIP(false); nIP != nil {
 		// See comment in NodeUpdated().
-		oldNodeIP, _ = ip.AddrFromIP(nIP)
+		oldNodeIP, _ = netipx.FromStdIP(nIP)
 	}
 	oldNodeLabels, oldNodeIdentityOverride := m.nodeIdentityLabels(oldNode)
 
@@ -871,7 +872,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 		}
 
 		if address.Type == addressing.NodeInternalIP && !slices.Contains(ipsetEntries, oldPrefix) {
-			addr, ok := ip.AddrFromIP(address.IP)
+			addr, ok := netipx.FromStdIP(address.IP)
 			if !ok {
 				log.WithField(logfields.IPAddr, address.IP).Error("unable to convert to netip.Addr")
 				continue
