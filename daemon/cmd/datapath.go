@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/ipmasq"
@@ -239,6 +240,12 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
+	if option.Config.EnableIPSec {
+		if err := encrypt.MapCreate(); err != nil {
+			return fmt.Errorf("initializing IPsec map: %w", err)
+		}
+	}
+
 	if !option.Config.RestoreState {
 		// If we are not restoring state, all endpoints can be
 		// deleted. Entries will be re-populated.
@@ -278,6 +285,11 @@ func (d *Daemon) initMaps() error {
 		if err := lbmap.InitMaglevMaps(option.Config.EnableIPv4, option.Config.EnableIPv6, uint32(option.Config.MaglevTableSize)); err != nil {
 			return fmt.Errorf("initializing maglev maps: %w", err)
 		}
+	}
+
+	_, err := lbmap.NewSkipLBMap()
+	if err != nil {
+		return fmt.Errorf("initializing local redirect policy maps: %w", err)
 	}
 
 	return nil
