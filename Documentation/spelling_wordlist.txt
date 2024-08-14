@@ -983,6 +983,7 @@ selftest
 selftests
 sendmsg
 serverAddress
+serverinfo
 serviceAccount
 serviceAccountName
 serviceAccounts
