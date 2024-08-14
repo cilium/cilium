@@ -930,14 +930,6 @@ func (k *K8sPodWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPo
 	specEqual := oldPod != nil && newPod.Spec.DeepEqual(&oldPod.Spec)
 	hostIPEqual := oldPod != nil && newPod.Status.HostIP != oldPod.Status.HostIP
 
-	// only upsert HostPort Mapping if spec or ip slice is different
-	if !specEqual || !ipSliceEqual {
-		err := k.upsertHostPortMapping(oldPod, newPod, oldPodIPs, newPodIPs)
-		if err != nil {
-			return fmt.Errorf("cannot upsert hostPort for PodIPs: %s", newPodIPs)
-		}
-	}
-
 	// is spec and hostIPs are the same there no need to perform the remaining
 	// operations
 	if specEqual && hostIPEqual {
@@ -1012,6 +1004,17 @@ func (k *K8sPodWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPo
 	}
 	if len(errs) != 0 {
 		return errors.New(strings.Join(errs, ", "))
+	}
+
+	nodeNameEqual := newPod.Spec.NodeName == nodeTypes.GetName()
+
+	// only upsert HostPort Mapping if the pod is on the local node
+	// and spec or ip slice is different
+	if nodeNameEqual && (!specEqual || !ipSliceEqual) {
+		err := k.upsertHostPortMapping(oldPod, newPod, oldPodIPs, newPodIPs)
+		if err != nil {
+			return fmt.Errorf("cannot upsert hostPort for PodIPs: %s", newPodIPs)
+		}
 	}
 
 	return nil
