@@ -9,11 +9,11 @@ package endpoint
 import (
 	"context"
 	"fmt"
-	"net/netip"
 	"sort"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -50,14 +50,6 @@ func (e *Endpoint) GetLabelsModel() (*models.LabelConfiguration, error) {
 	}
 	e.runlock()
 	return &cfg, nil
-}
-
-func parsePrefixOrAddr(ip string) (netip.Addr, error) {
-	prefix, err := netip.ParsePrefix(ip)
-	if err != nil {
-		return netip.ParseAddr(ip)
-	}
-	return prefix.Addr(), nil
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
@@ -115,7 +107,7 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 
 	if base.Addressing != nil {
 		if ip := base.Addressing.IPV6; ip != "" {
-			ip6, err := parsePrefixOrAddr(ip)
+			ip6, err := netipx.ParsePrefixOrAddr(ip)
 			if err != nil {
 				return nil, err
 			}
@@ -127,7 +119,7 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 		}
 
 		if ip := base.Addressing.IPV4; ip != "" {
-			ip4, err := parsePrefixOrAddr(ip)
+			ip4, err := netipx.ParsePrefixOrAddr(ip)
 			if err != nil {
 				return nil, err
 			}
