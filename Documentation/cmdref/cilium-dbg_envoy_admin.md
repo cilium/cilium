@@ -21,6 +21,7 @@ Access Envoy Admin Interface
 ### SEE ALSO
 
 * [cilium-dbg envoy](cilium-dbg_envoy.md)	 - Manage Envoy Proxy
+* [cilium-dbg envoy admin certs](cilium-dbg_envoy_admin_certs.md)	 - List configured TLS certificates of Envoy Proxy
 * [cilium-dbg envoy admin clusters](cilium-dbg_envoy_admin_clusters.md)	 - List configured clusters of Envoy Proxy
 * [cilium-dbg envoy admin config](cilium-dbg_envoy_admin_config.md)	 - View config dump of Envoy Proxy
 * [cilium-dbg envoy admin listeners](cilium-dbg_envoy_admin_listeners.md)	 - List configured listeners of Envoy Proxy
