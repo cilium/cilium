@@ -79,3 +79,13 @@ func (a *envoyAdminClient) GetConfigDump(resourceType string, resourceName strin
 func (a *envoyAdminClient) GetServerInfo() (string, error) {
 	return a.get("server_info")
 }
+
+func (a *envoyAdminClient) GetPrometheusStatistics(filterRegex string) (string, error) {
+	path := "stats/prometheus"
+
+	if len(filterRegex) > 0 {
+		path = path + "?filter=" + filterRegex
+	}
+
+	return a.get(path)
+}
