@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -27,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -563,12 +563,12 @@ func (l *loader) reloadEndpoint(ep datapath.Endpoint, spec *ebpf.CollectionSpec)
 			logfields.Interface: device,
 		})
 		if ip := ep.IPv4Address(); ip.IsValid() {
-			if err := upsertEndpointRoute(ep, *iputil.AddrToIPNet(ip)); err != nil {
+			if err := upsertEndpointRoute(ep, *netipx.AddrIPNet(ip)); err != nil {
 				scopedLog.WithError(err).Warn("Failed to upsert route")
 			}
 		}
 		if ip := ep.IPv6Address(); ip.IsValid() {
-			if err := upsertEndpointRoute(ep, *iputil.AddrToIPNet(ip)); err != nil {
+			if err := upsertEndpointRoute(ep, *netipx.AddrIPNet(ip)); err != nil {
 				scopedLog.WithError(err).Warn("Failed to upsert route")
 			}
 		}
@@ -701,11 +701,11 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, cfg *
 func (l *loader) Unload(ep datapath.Endpoint) {
 	if ep.RequireEndpointRoute() {
 		if ip := ep.IPv4Address(); ip.IsValid() {
-			removeEndpointRoute(ep, *iputil.AddrToIPNet(ip))
+			removeEndpointRoute(ep, *netipx.AddrIPNet(ip))
 		}
 
 		if ip := ep.IPv6Address(); ip.IsValid() {
-			removeEndpointRoute(ep, *iputil.AddrToIPNet(ip))
+			removeEndpointRoute(ep, *netipx.AddrIPNet(ip))
 		}
 	}
 
