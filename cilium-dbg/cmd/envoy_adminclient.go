@@ -97,3 +97,7 @@ func (a *envoyAdminClient) GetClusters(format string) (string, error) {
 func (a *envoyAdminClient) GetListeners(format string) (string, error) {
 	return a.get(fmt.Sprintf("listeners?format=%s", format))
 }
+
+func (a *envoyAdminClient) GetCerts() (string, error) {
+	return a.get("certs")
+}
