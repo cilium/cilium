@@ -75,3 +75,7 @@ func (a *envoyAdminClient) GetConfigDump(resourceType string, resourceName strin
 
 	return a.get(path)
 }
+
+func (a *envoyAdminClient) GetServerInfo() (string, error) {
+	return a.get("server_info")
+}
