@@ -42,27 +42,39 @@ jobs:
         include:
           - name: cilium
             dockerfile: ./images/cilium/Dockerfile
+            platforms: linux/amd64,linux/arm64
+
+          - name: cilium-cli
+            dockerfile: ./cilium-cli/Dockerfile
+            platforms: linux/amd64
 
           - name: operator-aws
             dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
 
           - name: operator-azure
             dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
 
           - name: operator-alibabacloud
             dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
 
           - name: operator-generic
             dockerfile: ./images/operator/Dockerfile
+            platforms: linux/amd64,linux/arm64
 
           - name: hubble-relay
             dockerfile: ./images/hubble-relay/Dockerfile
+            platforms: linux/amd64,linux/arm64
 
           - name: clustermesh-apiserver
             dockerfile: ./images/clustermesh-apiserver/Dockerfile
+            platforms: linux/amd64,linux/arm64
 
           - name: docker-plugin
             dockerfile: ./images/cilium-docker-plugin/Dockerfile
+            platforms: linux/amd64,linux/arm64
 
     steps:
       - name: Checkout default branch (trusted)
@@ -154,7 +166,7 @@ jobs:
           # re-pushing the image tags when we only want to re-create the Golang
           # docker cache after the workflow "Image CI Cache Cleaner" was terminated.
           push: ${{ github.event_name == 'push' }}
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platforms }}
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
@@ -281,7 +293,7 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platforms }}
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
           target: release
