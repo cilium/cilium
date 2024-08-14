@@ -1848,7 +1848,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 func mapStateAllowsKey(ms *mapState, key Key) bool {
 	var ok bool
 	ms.denies.trie.Ancestors(key.PrefixLength(), key,
-		func(_ uint, _ bitlpm.Key[types.Key], is IDSet) bool {
+		func(_ uint, _ bitlpm.Key[types.LPMKey], is IDSet) bool {
 			if _, exists := is.ids[identity.NumericIdentity(key.Identity)]; exists {
 				ok = true
 			}
@@ -1858,7 +1858,7 @@ func mapStateAllowsKey(ms *mapState, key Key) bool {
 		return false
 	}
 	ms.allows.trie.Ancestors(key.PrefixLength(), key,
-		func(_ uint, _ bitlpm.Key[types.Key], is IDSet) bool {
+		func(_ uint, _ bitlpm.Key[types.LPMKey], is IDSet) bool {
 
 			if _, exists := is.ids[identity.NumericIdentity(key.Identity)]; exists {
 				ok = true

@@ -17,16 +17,20 @@ const MapStatePrefixLen = uint(32)
 // Key is the userspace representation of a policy key in BPF. It is
 // intentionally duplicated from pkg/maps/policymap to avoid pulling in the
 // BPF dependency to this package.
-type Key struct {
-	// Identity is the numeric identity to / from which traffic is allowed.
-	Identity uint32
+type LPMKey struct {
+	// bits contains the TrafficDirection in the highest bit and the port prefix length in the 5 lowest bits.
+	bits uint8
+	// NextHdr is the protocol which is allowed.
+	Nexthdr uint8
 	// DestPort is the port at L4 to / from which traffic is allowed, in
 	// host-byte order.
 	DestPort uint16
-	// NextHdr is the protocol which is allowed.
-	Nexthdr uint8
-	// bits contains the TrafficDirection in the highest bit and the port prefix length in the 5 lowest bits.
-	bits uint8
+}
+
+type Key struct {
+	LPMKey
+	// Identity is the numeric identity to / from which traffic is allowed.
+	Identity uint32
 }
 
 const (
@@ -46,20 +50,22 @@ func NewKey(direction uint8, identity uint32, proto uint8, port uint16, prefixLe
 		prefixLen = 16
 	}
 	return Key{
+		LPMKey: LPMKey{
+			bits:     direction<<directionBitShift | prefixLen,
+			Nexthdr:  proto,
+			DestPort: port,
+		},
 		Identity: identity,
-		Nexthdr:  proto,
-		DestPort: port,
-		bits:     direction<<directionBitShift | prefixLen,
 	}
 }
 
 // TrafficDirection() returns the direction of the Key, 0 == ingress, 1 == egress
-func (k Key) TrafficDirection() uint8 {
+func (k LPMKey) TrafficDirection() uint8 {
 	return k.bits >> directionBitShift
 }
 
 // PortPrefixLen returns the length of the bitwise mask that should be applied to the DestPort.
-func (k Key) PortPrefixLen() uint8 {
+func (k LPMKey) PortPrefixLen() uint8 {
 	return k.bits & ^directionBitMask
 }
 
@@ -76,17 +82,17 @@ func (k Key) String() string {
 }
 
 // IsIngress returns true if the key refers to an ingress policy key
-func (k Key) IsIngress() bool {
+func (k LPMKey) IsIngress() bool {
 	return k.TrafficDirection() == trafficdirection.Ingress.Uint8()
 }
 
 // IsEgress returns true if the key refers to an egress policy key
-func (k Key) IsEgress() bool {
+func (k LPMKey) IsEgress() bool {
 	return k.TrafficDirection() == trafficdirection.Egress.Uint8()
 }
 
 // EndPort returns the end-port of the Key based on the Mask.
-func (k Key) EndPort() uint16 {
+func (k LPMKey) EndPort() uint16 {
 	return k.DestPort + uint16(0xffff)>>k.PortPrefixLen()
 }
 
@@ -101,14 +107,14 @@ func (k Key) PortProtoIsBroader(c Key) bool {
 
 // PortProtoIsEqual returns true if the port-protocols of the
 // two keys are exactly equal.
-func (k Key) PortProtoIsEqual(c Key) bool {
+func (k LPMKey) PortProtoIsEqual(c Key) bool {
 	return k.Nexthdr == c.Nexthdr && k.PortIsEqual(c)
 }
 
 // PortIsBroader returns true if the receiver Key's
 // port range covers the argument Key's port range,
 // but returns false if they are equal.
-func (k Key) PortIsBroader(c Key) bool {
+func (k LPMKey) PortIsBroader(c Key) bool {
 	// Broader port must have shorter prefix and a common part needs to be the same
 	kPrefixLen := k.PortPrefixLen()
 	cPrefixLen := c.PortPrefixLen()
@@ -118,14 +124,14 @@ func (k Key) PortIsBroader(c Key) bool {
 
 // PortIsEqual returns true if the port ranges
 // between the two keys are exactly equal.
-func (k Key) PortIsEqual(c Key) bool {
+func (k LPMKey) PortIsEqual(c Key) bool {
 	return k.DestPort == c.DestPort && k.bits<<1 == c.bits<<1 // ignore traffic direction
 }
 
 // PrefixLength returns the prefix lenth of the key
 // for indexing it for the userspace cache (not the
 // BPF map or datapath).
-func (k Key) PrefixLength() uint {
+func (k LPMKey) PrefixLength() uint {
 	if k.Nexthdr == 0 {
 		return 1 // direction always specified
 	}
@@ -137,7 +143,7 @@ func (k Key) PrefixLength() uint {
 // bitlpm.Key interface. Identity is not indexed and is instead,
 // saved as a simple map per TrafficDirection-Protocol-Port index
 // key.
-func (k Key) CommonPrefix(b Key) uint {
+func (k LPMKey) CommonPrefix(b LPMKey) uint {
 	// if direction bits are different then there is nothing in common
 	if (k.bits^b.bits)>>directionBitShift != 0 {
 		return 0
@@ -152,7 +158,7 @@ func (k Key) CommonPrefix(b Key) uint {
 
 // BitValueAt implements the BitValueAt method for the
 // bitlpm.Key interface.
-func (k Key) BitValueAt(i uint) uint8 {
+func (k LPMKey) BitValueAt(i uint) uint8 {
 	switch {
 	case i == 0:
 		return k.bits >> directionBitShift
@@ -165,7 +171,7 @@ func (k Key) BitValueAt(i uint) uint8 {
 
 // Value implements the Value method for the
 // bitlpm.Key interface.
-func (k Key) Value() Key {
+func (k LPMKey) Value() LPMKey {
 	return k
 }
 
