@@ -34,6 +34,8 @@ tests are passed.
 
 .. include:: installation.rst
 
+.. include:: ../ingress-reference.rst
+
 Examples
 ########
 
