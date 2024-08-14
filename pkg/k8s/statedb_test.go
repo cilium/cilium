@@ -106,23 +106,28 @@ func newTestTable(db *statedb.DB) (statedb.RWTable[*testObject], error) {
 	return tbl, db.RegisterTable(tbl)
 }
 
+type reflectorTestParams struct {
+	doTransform     bool
+	doTransformMany bool
+	doQueryAll      bool
+}
+
 func TestStateDBReflector(t *testing.T) {
-	testStateDBReflector(t, false, false)
+	t.Run("Transform", func(t *testing.T) {
+		testStateDBReflector(t, reflectorTestParams{true, false, false})
+	})
+	t.Run("Transform-QueryAll", func(t *testing.T) {
+		testStateDBReflector(t, reflectorTestParams{true, false, true})
+	})
+	t.Run("TransformMany", func(t *testing.T) {
+		testStateDBReflector(t, reflectorTestParams{false, true, false})
+	})
+	t.Run("TransformMany-QueryAll", func(t *testing.T) {
+		testStateDBReflector(t, reflectorTestParams{false, true, true})
+	})
 }
 
-func TestStateDBReflector_Transform(t *testing.T) {
-	testStateDBReflector(t, true, false)
-}
-
-func TestStateDBReflector_QueryAll(t *testing.T) {
-	testStateDBReflector(t, false, true)
-}
-
-func TestStateDBReflector_TransformQueryAll(t *testing.T) {
-	testStateDBReflector(t, true, true)
-}
-
-func testStateDBReflector(t *testing.T, doTransform, doQueryAll bool) {
+func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	var (
 		obj1Name = "obj1"
 		obj2Name = "obj2"
@@ -150,7 +155,7 @@ func testStateDBReflector(t *testing.T, doTransform, doQueryAll bool) {
 	defer cancel()
 
 	var transformFunc k8s.TransformFunc[*testObject]
-	if doTransform {
+	if p.doTransform {
 		transformFunc = func(a any) (obj *testObject, ok bool) {
 			transformCalled.Store(true)
 			obj = a.(*testObject).DeepCopy()
@@ -158,9 +163,18 @@ func testStateDBReflector(t *testing.T, doTransform, doQueryAll bool) {
 			return obj, true
 		}
 	}
+	var transformManyFunc k8s.TransformManyFunc[*testObject]
+	if p.doTransformMany {
+		transformManyFunc = func(a any) (objs []*testObject) {
+			transformCalled.Store(true)
+			obj := a.(*testObject).DeepCopy()
+			obj.ObjectMeta.GenerateName = "transformed"
+			return []*testObject{obj}
+		}
+	}
 
 	var queryAllFunc k8s.QueryAllFunc[*testObject]
-	if doQueryAll {
+	if p.doQueryAll {
 		queryAllFunc = func(txn statedb.ReadTxn, tbl statedb.Table[*testObject]) statedb.Iterator[*testObject] {
 			// This method is called on the initial synchronization (e.g. Replace()) and whenever
 			// connection is lost to api-server and resynchronization is needed.
@@ -180,6 +194,7 @@ func testStateDBReflector(t *testing.T, doTransform, doQueryAll bool) {
 						BufferWaitTime: time.Millisecond,
 						ListerWatcher:  lw,
 						Transform:      transformFunc,
+						TransformMany:  transformManyFunc,
 						QueryAll:       queryAllFunc,
 					}
 				},
@@ -223,7 +238,7 @@ func testStateDBReflector(t *testing.T, doTransform, doQueryAll bool) {
 	require.Len(t, objs, 1)
 	require.Equal(t, obj1Name, objs[0].Name)
 
-	if doTransform {
+	if p.doTransform || p.doTransformMany {
 		// Transform func set, check that it was used.
 		require.Equal(t, "transformed", objs[0].GenerateName)
 	}
@@ -274,10 +289,10 @@ func testStateDBReflector(t *testing.T, doTransform, doQueryAll bool) {
 		t.Fatalf("hive.Stop failed: %s", err)
 	}
 
-	if doTransform {
+	if p.doTransform || p.doTransformMany {
 		assert.True(t, transformCalled.Load(), "provided transform func not used")
 	}
-	if doQueryAll {
+	if p.doQueryAll {
 		assert.True(t, queryAllCalled.Load(), "provided query all func not used")
 	}
 }
