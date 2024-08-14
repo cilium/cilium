@@ -23,6 +23,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -34,7 +35,6 @@ import (
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
-	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/hooks"
@@ -224,7 +224,7 @@ func addIPConfigToLink(ip netip.Addr, routes []route.Route, rules []route.Rule, 
 		logfields.Interface: ifName,
 	}).Debug("Configuring link")
 
-	addr := &netlink.Addr{IPNet: iputil.AddrToIPNet(ip)}
+	addr := &netlink.Addr{IPNet: netipx.AddrIPNet(ip)}
 	if ip.Is6() {
 		addr.Flags = unix.IFA_F_NODAD
 	}
@@ -370,7 +370,7 @@ func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, [
 	}
 
 	return &cniTypesV1.IPConfig{
-		Address: *iputil.AddrToIPNet(ip),
+		Address: *netipx.AddrIPNet(ip),
 		Gateway: gwIP,
 	}, rt, nil
 }

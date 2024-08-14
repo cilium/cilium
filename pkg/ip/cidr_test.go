@@ -11,24 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAddrToIPNet(t *testing.T) {
-	_, v4IPNet, err := net.ParseCIDR("1.1.1.1/32")
-	assert.NoError(t, err)
-	_, v6IPNet, err := net.ParseCIDR("::ff/128")
-	assert.NoError(t, err)
-
-	ip4 := netip.MustParseAddr("1.1.1.1")
-	assert.NoError(t, err)
-	assert.Equal(t, v4IPNet, AddrToIPNet(ip4))
-
-	ip6 := netip.MustParseAddr("::ff")
-	assert.NoError(t, err)
-	assert.Equal(t, v6IPNet, AddrToIPNet(ip6))
-
-	var nilNet *net.IPNet
-	assert.Equal(t, nilNet, AddrToIPNet(netip.Addr{}))
-}
-
 func TestIPToNetPrefix(t *testing.T) {
 	v4, _, err := net.ParseCIDR("1.1.1.1/32")
 	assert.NoError(t, err)
