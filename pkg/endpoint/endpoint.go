@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -37,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	ippkg "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
@@ -630,8 +630,8 @@ func CreateIngressEndpoint(owner regeneration.Owner, policyGetter policyRepoGett
 	ep.properties[PropertyWithouteBPFDatapath] = true
 
 	// node.GetIngressIPv4 has been parsed with net.ParseIP() and may be in IPv4 mapped IPv6
-	// address format. Use ippkg.AddrFromIP() to make sure we get a plain IPv4 address.
-	ep.IPv4, _ = ippkg.AddrFromIP(node.GetIngressIPv4())
+	// address format. Use netipx.FromStdIP() to make sure we get a plain IPv4 address.
+	ep.IPv4, _ = netipx.FromStdIP(node.GetIngressIPv4())
 	ep.IPv6, _ = netip.AddrFromSlice(node.GetIngressIPv6())
 
 	ep.setState(StateWaitingForIdentity, "Ingress Endpoint creation")

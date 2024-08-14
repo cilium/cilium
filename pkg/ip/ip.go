@@ -901,31 +901,6 @@ func GetIPFromListByFamily(ipList []net.IP, v4Family bool) net.IP {
 	return nil
 }
 
-// AddrFromIP converts a net.IP to netip.Addr using netip.AddrFromSlice, but preserves
-// the original address family. It assumes given net.IP is not an IPv4 mapped IPv6
-// address.
-//
-// The problem behind this is that when we convert the IPv4 net.IP address with
-// netip.AddrFromSlice, the address is interpreted as an IPv4 mapped IPv6 address in some
-// cases.
-//
-// For example, when we do netip.AddrFromSlice(net.ParseIP("1.1.1.1")), it is interpreted
-// as an IPv6 address "::ffff:1.1.1.1". This is because 1) net.IP created with
-// net.ParseIP(IPv4 string) holds IPv4 address as an IPv4 mapped IPv6 address internally
-// and 2) netip.AddrFromSlice recognizes address family with length of the slice (4-byte =
-// IPv4 and 16-byte = IPv6).
-//
-// By using AddrFromIP, we can preserve the address family, but since we cannot distinguish
-// IPv4 and IPv4 mapped IPv6 address only from net.IP value (see #37921 on golang/go) we
-// need an assumption that given net.IP is not an IPv4 mapped IPv6 address.
-func AddrFromIP(ip net.IP) (netip.Addr, bool) {
-	addr, ok := netip.AddrFromSlice(ip)
-	if !ok {
-		return addr, ok
-	}
-	return addr.Unmap(), ok
-}
-
 // MustAddrsFromIPs converts a slice of net.IP to a slice of netip.Addr. It assumes
 // the input slice contains only valid IP addresses and always returns a slice
 // containing valid netip.Addr.

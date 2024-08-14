@@ -984,42 +984,6 @@ func TestGetIPAtIndex(t *testing.T) {
 	}
 }
 
-func TestAddrFromIP(t *testing.T) {
-	type args struct {
-		ip       net.IP
-		wantAddr netip.Addr
-		wantOk   bool
-	}
-
-	tests := []args{
-		{
-			net.ParseIP("10.0.0.1"),
-			netip.MustParseAddr("10.0.0.1"),
-			true,
-		},
-		{
-			net.ParseIP("a::1"),
-			netip.MustParseAddr("a::1"),
-			true,
-		},
-		{
-			net.ParseIP("::ffff:10.0.0.1"),
-			netip.MustParseAddr("10.0.0.1"),
-			true,
-		},
-	}
-	for _, tt := range tests {
-		addr, ok := AddrFromIP(tt.ip)
-		if ok != tt.wantOk {
-			t.Errorf("AddrFromIP(net.IP(%v)) should success", []byte(tt.ip))
-		}
-
-		if addr != tt.wantAddr {
-			t.Errorf("AddrFromIP(net.IP(%v)) = %v want %v", []byte(tt.ip), addr, tt.wantAddr)
-		}
-	}
-}
-
 func TestMustAddrsFromIPs(t *testing.T) {
 	type args struct {
 		ips   []net.IP
