@@ -5,11 +5,11 @@ package api
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"k8s.io/utils/strings/slices"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
