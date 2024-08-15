@@ -547,7 +547,7 @@ Best Practices for Writing Tests
 
 * Provide informative output to console during a test using the `By construct <https://onsi.github.io/ginkgo/#documenting-complex-specs-by>`_. This helps with debugging and gives those who did not write the test a good idea of what is going on. The lower the barrier of entry is for understanding tests, the better our tests will be!
 * Leave the testing environment in the same state that it was in when the test started by deleting resources, resetting configuration, etc.
-* Gather logs in the case that a test fails. If a test fails while running on Jenkins, a postmortem needs to be done to analyze why. So, dumping logs to a location where Jenkins can pick them up is of the highest imperative. Use the following code in an ``AfterFailed`` method:
+* Gather logs in the case that a test fails. If a test fails while running on Ginkgo, a postmortem needs to be done to analyze why. So, dumping logs to a location where Ginkgo can pick them up is of the highest imperative. Use the following code in an ``AfterFailed`` method:
 
 .. code-block:: go
 

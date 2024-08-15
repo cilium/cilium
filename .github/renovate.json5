@@ -29,7 +29,6 @@
     "go.mod",
     "go.sum",
     "Makefile.defs",
-    "test/kubernetes-test.sh",
     "test/packet/scripts/install.sh",
     "install/kubernetes/cilium/templates/spire/**",
     "install/kubernetes/cilium/values.yaml.tmpl",
@@ -715,8 +714,6 @@
     },
     {
       "fileMatch": [
-        "^test/kubernetes-test\\.sh$",
-        "^test/packet/scripts/install\\.sh$",
         "^.github/actions/set-env-variables/action\\.yml$"
       ],
       "matchStrings": [
