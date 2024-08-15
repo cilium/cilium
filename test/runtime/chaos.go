@@ -57,7 +57,11 @@ var _ = Describe("RuntimeAgentChaos", func() {
 		vm.ReportFailed()
 	})
 
+	Context("Endpoint", endpointChaosTest)
+
 	Context("Cilium agent", agentChaosTests)
+
+	Context("Connectivity over restarts", restartChaosTest)
 
 	Context("KVStore", kvstoreChaosTests)
 })

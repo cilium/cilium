@@ -1239,7 +1239,13 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
+<<<<<<< HEAD
      - ``{"digest":"sha256:47bf8d5324241e37da93e995fa23c5b11ac83c430fa54b492c6547b85b3d4f72","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.30.4-1723547155-0cb6b7d34a032ee945a80495681ecf2ea109a54c","useDigest":true}``
+||||||| parent of eb3a2d7b6c (fix helm values using correct make file arguments)
+     - ``{"digest":"sha256:fe3cec76ecdd22c4c70e7643228850562e8b1f5122fc11021bc6725254190064","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.29.7-fb2df6ec59fed2589e65e924bd6eb7bfecbb5108","useDigest":true}``
+=======
+     - ``{"digest":"sha256:c3d94362c24e80b7147aeb28dd5ab26990463a3dc423cc78022c5767708095ff","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.30.4-f265ea3e1dcea9e3439f84c621fb1b8d3a078099","useDigest":true}``
+>>>>>>> eb3a2d7b6c (fix helm values using correct make file arguments)
    * - :spelling:ignore:`envoy.livenessProbe.failureThreshold`
      - failure threshold of liveness probe
      - int
@@ -1556,6 +1562,10 @@
      - Emit v1.Events related to pods on detection of packet drops.    This feature is alpha, please provide feedback at https://github.com/cilium/cilium/issues/33975.
      - object
      - ``{"enabled":false,"interval":"2m","reasons":["auth_required","policy_denied"]}``
+   * - :spelling:ignore:`hubble.dropEventEmitter.enabled`
+     - Enable dropEventEmitter
+     - bool
+     - ``false``
    * - :spelling:ignore:`hubble.dropEventEmitter.interval`
      - - Minimum time between emitting same events.
      - string

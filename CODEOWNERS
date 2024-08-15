@@ -589,6 +589,7 @@ Makefile* @cilium/build
 /test/k8s/updates.go @cilium/sig-agent @cilium/ci-structure
 /test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
 /test/runtime/chaos_agent.go @cilium/sig-agent @cilium/ci-structure
+/test/runtime/chaos_endpoint.go @cilium/endpoint @cilium/ci-structure
 /tools/ @cilium/contributing
 /USERS.md @cilium/community
 Vagrantfile @cilium/ci-structure

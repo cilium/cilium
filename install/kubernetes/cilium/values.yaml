@@ -1803,6 +1803,7 @@ hubble:
   # -- Emit v1.Events related to pods on detection of packet drops.
   #    This feature is alpha, please provide feedback at https://github.com/cilium/cilium/issues/33975.
   dropEventEmitter:
+    # -- Enable dropEventEmitter
     enabled: false
     # --- Minimum time between emitting same events.
     interval: 2m
@@ -2221,9 +2222,21 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
+<<<<<<< HEAD
     tag: "v1.30.4-1723547155-0cb6b7d34a032ee945a80495681ecf2ea109a54c"
+||||||| parent of eb3a2d7b6c (fix helm values using correct make file arguments)
+    tag: "v1.29.7-fb2df6ec59fed2589e65e924bd6eb7bfecbb5108"
+=======
+    tag: "v1.30.4-f265ea3e1dcea9e3439f84c621fb1b8d3a078099"
+>>>>>>> eb3a2d7b6c (fix helm values using correct make file arguments)
     pullPolicy: "Always"
+<<<<<<< HEAD
     digest: "sha256:47bf8d5324241e37da93e995fa23c5b11ac83c430fa54b492c6547b85b3d4f72"
+||||||| parent of eb3a2d7b6c (fix helm values using correct make file arguments)
+    digest: "sha256:fe3cec76ecdd22c4c70e7643228850562e8b1f5122fc11021bc6725254190064"
+=======
+    digest: "sha256:c3d94362c24e80b7147aeb28dd5ab26990463a3dc423cc78022c5767708095ff"
+>>>>>>> eb3a2d7b6c (fix helm values using correct make file arguments)
     useDigest: true
   # -- Additional containers added to the cilium Envoy DaemonSet.
   extraContainers: []

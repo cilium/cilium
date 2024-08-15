@@ -63,7 +63,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
-	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -1669,7 +1668,7 @@ type daemonParams struct {
 	EndpointManager        endpointmanager.EndpointManager
 	CertManager            certificatemanager.CertificateManager
 	SecretManager          certificatemanager.SecretManager
-	IdentityAllocator      identitycell.CachingIdentityAllocator
+	IdentityAllocator      CachingIdentityAllocator
 	Policy                 *policy.Repository
 	IPCache                *ipcache.IPCache
 	DirectoryPolicyWatcher *policyDirectory.PolicyResourcesWatcher

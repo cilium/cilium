@@ -4,31 +4,232 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/netip"
 	"sync"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/stream"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/google/uuid"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/clustermesh"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/eventqueue"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
+
+type policyRepoParams struct {
+	cell.In
+
+	Lifecycle       cell.Lifecycle
+	CertManager     certificatemanager.CertificateManager
+	SecretManager   certificatemanager.SecretManager
+	IdentityManager *identitymanager.IdentityManager
+	ClusterInfo     cmtypes.ClusterInfo
+}
+
+func newPolicyRepo(params policyRepoParams) *policy.Repository {
+	if option.Config.EnableWellKnownIdentities {
+		// Must be done before calling policy.NewPolicyRepository() below.
+		num := identity.InitWellKnownIdentities(option.Config, params.ClusterInfo)
+		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
+		identity.WellKnown.ForEach(func(i *identity.Identity) {
+			for labelSource := range i.Labels.CollectSources() {
+				metrics.IdentityLabelSources.WithLabelValues(labelSource).Inc()
+			}
+		})
+	}
+
+	// policy repository: maintains list of active Rules and their subject
+	// security identities. Also constructs the SelectorCache, a precomputed
+	// cache of label selector -> identities for policy peers.
+	policyRepo := policy.NewStoppedPolicyRepository(
+		identity.ListReservedIdentities(), // Load SelectorCache with reserved identities
+		params.CertManager,
+		params.SecretManager,
+		params.IdentityManager,
+	)
+	policyRepo.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
+
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
+			policyRepo.Start()
+			return nil
+		},
+	})
+
+	return policyRepo
+}
+
+type policyUpdaterParams struct {
+	cell.In
+
+	Lifecycle        cell.Lifecycle
+	PolicyRepository *policy.Repository
+	EndpointManager  endpointmanager.EndpointManager
+}
+
+func newPolicyUpdater(params policyUpdaterParams) *policy.Updater {
+	// policyUpdater: forces policy recalculation on all endpoints.
+	// Called for various events, such as named port changes
+	// or certain identity updates.
+	policyUpdater := policy.NewUpdater(params.PolicyRepository, params.EndpointManager)
+
+	params.Lifecycle.Append(cell.Hook{
+		OnStop: func(hc cell.HookContext) error {
+			policyUpdater.Shutdown()
+			return nil
+		},
+	})
+
+	return policyUpdater
+}
+
+type identityAllocatorParams struct {
+	cell.In
+
+	Lifecycle        cell.Lifecycle
+	PolicyRepository *policy.Repository
+	PolicyUpdater    *policy.Updater
+}
+
+type identityAllocatorOut struct {
+	cell.Out
+
+	IdentityAllocator      CachingIdentityAllocator
+	CacheIdentityAllocator cache.IdentityAllocator
+	RemoteIdentityWatcher  clustermesh.RemoteIdentityWatcher
+	IdentityObservable     stream.Observable[cache.IdentityChange]
+}
+
+func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
+	// iao: updates SelectorCache and regenerates endpoints when
+	// identity allocation / deallocation has occurred.
+	iao := &identityAllocatorOwner{
+		policy:        params.PolicyRepository,
+		policyUpdater: params.PolicyUpdater,
+	}
+
+	// Allocator: allocates local and cluster-wide security identities.
+	idAlloc := cache.NewCachingIdentityAllocator(iao)
+	idAlloc.EnableCheckpointing()
+
+	params.Lifecycle.Append(cell.Hook{
+		OnStop: func(hc cell.HookContext) error {
+			idAlloc.Close()
+			return nil
+		},
+	})
+
+	return identityAllocatorOut{
+		IdentityAllocator:      idAlloc,
+		CacheIdentityAllocator: idAlloc,
+		RemoteIdentityWatcher:  idAlloc,
+		IdentityObservable:     idAlloc,
+	}
+}
+
+type ipCacheParams struct {
+	cell.In
+
+	Lifecycle              cell.Lifecycle
+	CacheIdentityAllocator cache.IdentityAllocator
+	PolicyRepository       *policy.Repository
+	EndpointManager        endpointmanager.EndpointManager
+	CacheStatus            synced.CacheStatus
+}
+
+func newIPCache(params ipCacheParams) *ipcache.IPCache {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// IPCache: aggregates node-local prefix labels and allocates
+	// local identities. Generates incremental updates, pushes
+	// to endpoints.
+	ipc := ipcache.NewIPCache(&ipcache.Configuration{
+		Context:           ctx,
+		IdentityAllocator: params.CacheIdentityAllocator,
+		PolicyHandler:     params.PolicyRepository.GetSelectorCache(),
+		DatapathHandler:   params.EndpointManager,
+		CacheStatus:       params.CacheStatus,
+	})
+
+	params.Lifecycle.Append(cell.Hook{
+		OnStop: func(hc cell.HookContext) error {
+			cancel()
+
+			return ipc.Shutdown()
+		},
+	})
+
+	return ipc
+}
+
+// identityAllocatorOwner is used to break the circular dependency between
+// CachingIdentityAllocator and policy.Repository.
+type identityAllocatorOwner struct {
+	policy        *policy.Repository
+	policyUpdater *policy.Updater
+}
+
+// UpdateIdentities informs the policy package of all identity changes
+// and also triggers policy updates.
+//
+// The caller is responsible for making sure the same identity is not
+// present in both 'added' and 'deleted'.
+func (iao *identityAllocatorOwner) UpdateIdentities(added, deleted identity.IdentityMap) {
+	wg := &sync.WaitGroup{}
+	iao.policy.GetSelectorCache().UpdateIdentities(added, deleted, wg)
+	// Wait for update propagation to endpoints before triggering policy updates
+	wg.Wait()
+	iao.policyUpdater.TriggerPolicyUpdates(false, "one or more identities created or deleted")
+}
+
+// GetNodeSuffix returns the suffix to be appended to kvstore keys of this
+// agent
+func (iao *identityAllocatorOwner) GetNodeSuffix() string {
+	var ip net.IP
+
+	switch {
+	case option.Config.EnableIPv4:
+		ip = node.GetIPv4()
+	case option.Config.EnableIPv6:
+		ip = node.GetIPv6()
+	}
+
+	if ip == nil {
+		log.Fatal("Node IP not available yet")
+	}
+
+	return ip.String()
+}
 
 // PolicyAddEvent is a wrapper around the parameters for policyAdd.
 type PolicyAddEvent struct {
