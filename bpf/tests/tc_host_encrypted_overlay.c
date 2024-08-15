@@ -129,7 +129,7 @@ int tc_host_encrypted_overlay_01_check(const struct __ctx_buff *ctx)
 	struct vxlanhdr *vxlan;
 	void *data, *data_end;
 	__u32 *status_code;
-	struct udphdr *l4;
+	struct udphdr *l4; //todo: csum incorrect!
 	struct ethhdr *l2;
 	struct iphdr *l3;
 

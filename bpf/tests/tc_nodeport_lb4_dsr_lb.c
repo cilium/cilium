@@ -194,5 +194,8 @@ int nodeport_dsr_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port hasn't been NATed to backend port");
 
+	if (l4->check != bpf_htons(0xd7cf))
+		test_fatal("L4 checksum is invalid: %d", bpf_htons(l4->check));
+
 	test_finish();
 }

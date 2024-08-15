@@ -106,7 +106,7 @@ int nodeport_dsr_backend_pktgen(struct __ctx_buff *ctx)
 	opt->port = FRONTEND_PORT;
 
 	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_default_tcphdr(&builder); //todo: incorrect csum!!!
 	if (!l4)
 		return TEST_ERROR;
 
@@ -214,6 +214,9 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port has changed");
+
+	if (l4->check != bpf_htons(0x5f4e))
+		test_fatal("L4 checksum is invalid: %d", bpf_htons(l4->check));
 
 	struct ipv6_ct_tuple tuple __align_stack_8;
 	struct ct_entry *ct_entry;
@@ -328,6 +331,9 @@ int check_reply(const struct __ctx_buff *ctx)
 
 	if (l4->dest != CLIENT_PORT)
 		test_fatal("dst port has changed");
+
+	if (l4->check != bpf_htons(0x2dbc))
+		test_fatal("L4 checksum is invalid: %d", bpf_htons(l4->check));
 
 	test_finish();
 }

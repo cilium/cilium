@@ -1025,30 +1025,31 @@ static __always_inline void pktgen__tcp_csum(const struct pktgen *builder, int i
 			tcp_layer->check = csum_fold(tcp_csum);
 			return;
 
-		// case PKT_LAYER_IPV6:
-		// 	if (builder->layer_offsets[i-1] >= MAX_PACKET_OFF - sizeof(struct ipv6hdr))
-		// 		return;
+		case PKT_LAYER_IPV6:
+		// case PKT_LAYER_IPV6_AUTH:
+		// case PKT_LAYER_IPV6_DEST:
+		// case PKT_LAYER_IPV6_HOP_BY_HOP:
+			if (builder->layer_offsets[i-1] >= MAX_PACKET_OFF - sizeof(struct ipv6hdr))
+				return;
 
-		// 	struct ipv6hdr *ipv6_layer;
+			struct ipv6hdr *ipv6_layer = ctx_data(builder->ctx) + builder->layer_offsets[i-1];
+			if ((void *)ipv6_layer + sizeof(struct ipv6hdr) > ctx_data_end(builder->ctx))
+				return;
 
-		// 	ipv6_layer = ctx_data(builder->ctx) + builder->layer_offsets[i-1];
-		// 	if ((void *)ipv6_layer + sizeof(struct ipv6hdr) > ctx_data_end(builder->ctx))
-		// 		return;
+			tcp_csum = csum_diff(NULL, 0, &ipv6_layer->saddr, sizeof(struct in6_addr), 0);
+			tcp_csum = csum_diff(NULL, 0, &ipv6_layer->daddr, sizeof(struct in6_addr), tcp_csum);
+			tmp = (__u16)ipv6_layer->nexthdr << 8;
+			tcp_csum = csum_diff(NULL, 0, &tmp, sizeof(__u32), tcp_csum);
+			tmp = bpf_htons((__be16)(builder->cur_off - builder->layer_offsets[i]));
+			tcp_csum = csum_diff(NULL, 0, &tmp, sizeof(__u32), tcp_csum);
 
-		// 	tcp_csum = csum_diff(NULL, 0, &ipv6_layer->saddr, sizeof(struct in6_addr), 0);
-		// 	tcp_csum = csum_diff(NULL, 0, &ipv6_layer->daddr, sizeof(struct in6_addr), tcp_csum);
-		// 	tmp = bpf_htons((__be16)(builder->cur_off - builder->layer_offsets[i]));
-		// 	tcp_csum = csum_diff(NULL, 0, &tmp, sizeof(__u32), tcp_csum);
-		// 	tmp = (__u16)ipv6_layer->nexthdr << 8;
-		// 	tcp_csum = csum_diff(NULL, 0, &tmp, sizeof(__u32), tcp_csum);
+			tcp_len = sizeof(struct tcphdr) + sizeof(default_data);
+			if ((void *)tcp_layer + tcp_len > ctx_data_end(builder->ctx))
+				return;
 
-		// 	tcp_len = sizeof(struct tcphdr) + sizeof(default_data);
-		// 	if ((void *)tcp_layer + tcp_len > ctx_data_end(builder->ctx))
-		// 		return;
-
-		// 	tcp_csum = csum_diff(NULL, 0, tcp_layer, tcp_len, tcp_csum);
-		// 	tcp_layer->check = csum_fold(tcp_csum);
-		// 	return;
+			tcp_csum = csum_diff(NULL, 0, tcp_layer, tcp_len, tcp_csum);
+			tcp_layer->check = csum_fold(tcp_csum);
+			return;
 
 		default:
 			return;
@@ -1060,9 +1061,6 @@ static __always_inline void pktgen__finish_tcp(const struct pktgen *builder, int
 	struct tcphdr *tcp_layer;
 	__u64 layer_off;
 	__u64 hdr_size;
-	// __u32 tcp_len;
-	// __u32 tcp_csum;
-	// __u32 tmp;
 
 
 	layer_off = builder->layer_offsets[i];

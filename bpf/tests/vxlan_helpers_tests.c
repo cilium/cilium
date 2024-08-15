@@ -69,7 +69,7 @@ mk_packet(struct __ctx_buff *ctx) {
 	if (!data)
 		return TEST_ERROR;
 
-	pktgen__finish(&builder);
+	pktgen__finish(&builder); //todo: csum incorrect!!!
 
 	return 0;
 }

@@ -128,7 +128,7 @@ int ipv6_with_hop_auth_tcp_pktgen(struct __ctx_buff *ctx)
 	if (!l3_next)
 		return TEST_ERROR;
 
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_default_tcphdr(&builder); //todo: incorrect csum!
 	if (!l4)
 		return TEST_ERROR;
 

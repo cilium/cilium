@@ -240,10 +240,6 @@ check_ctx(const struct __ctx_buff *ctx, __u32 expected_result, bool v4)
 	if (l4->dest != DST_TCP_PORT)
 		test_fatal("dest TCP port was changed");
 
-	//todo: uncomment
-	// if (l4->check != bpf_htons(0x0545))
-		// test_fatal("L4 checksum is invalid: %d", bpf_htons(l4->check));
-
 	payload = (void *)l4 + sizeof(struct tcphdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
 		test_fatal("payload out of bounds");
