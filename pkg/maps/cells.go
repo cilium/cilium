@@ -5,7 +5,9 @@ package maps
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/sirupsen/logrus"
 
+	daemonapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/maps/act"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
@@ -24,6 +26,8 @@ import (
 var Cell = cell.Module(
 	"maps",
 	"BPF Maps",
+
+	cell.Provide(newMapApiHandler),
 
 	// Provides the auth.Map which contains the authentication state between Cilium security identities.
 	authmap.Cell,
@@ -50,7 +54,7 @@ var Cell = cell.Module(
 	// Provides access to the multicast maps.
 	multicast.Cell,
 
-	// Provies access to the SRv6 maps.
+	// Provides access to the SRv6 maps.
 	srv6map.Cell,
 
 	// Bandwidth (cilium_throttle) map contains the per-endpoint bandwidth limits.
@@ -63,3 +67,19 @@ var Cell = cell.Module(
 	// Provides access to NAT maps.
 	nat.Cell,
 )
+
+type mapApiHandlerOut struct {
+	cell.Out
+
+	GetMapHandler           daemonapi.GetMapHandler
+	GetMapNameHandler       daemonapi.GetMapNameHandler
+	GetMapNameEventsHandler daemonapi.GetMapNameEventsHandler
+}
+
+func newMapApiHandler(logger logrus.FieldLogger) mapApiHandlerOut {
+	return mapApiHandlerOut{
+		GetMapHandler:           &getMapHandler{},
+		GetMapNameHandler:       &getMapNameHandler{},
+		GetMapNameEventsHandler: &getMapNameEventsHandler{logger: logger, mapGetter: &mapGetterImpl{}},
+	}
+}

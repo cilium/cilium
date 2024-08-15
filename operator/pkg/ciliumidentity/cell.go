@@ -5,6 +5,7 @@ package ciliumidentity
 
 import (
 	"github.com/cilium/hive/cell"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/metrics"
 )
@@ -18,15 +19,19 @@ var Cell = cell.Module(
 	metrics.Metric(NewMetrics),
 )
 
+type config struct {
+	EnableOperatorManageCIDs bool
+}
+
+func (c config) Flags(flags *pflag.FlagSet) {
+	flags.Bool("operator-manages-identities", c.EnableOperatorManageCIDs, "Enables operator to manage Cilium Identities by running a Cilium Identity controller")
+}
+
 // SharedConfig contains the configuration that is shared between
 // this module and others.
 // It is a temporary solution meant to avoid polluting this module with a direct
 // dependency on global operator and daemon configurations.
 type SharedConfig struct {
-	// EnableOperatorManageCIDs enables operator to manage Cilium Identities by
-	// running a Cilium Identity controller.
-	EnableOperatorManageCIDs bool
-
 	// EnableCiliumEndpointSlice indicates if the Cilium Endpoint Slice feature is
 	// enabled.
 	EnableCiliumEndpointSlice bool

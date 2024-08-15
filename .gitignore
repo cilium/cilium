@@ -72,6 +72,9 @@ test/cilium-[0-9a-f]*.yaml
 test/*tmp
 test/cilium-istioctl
 
+# Testdata, includes generated .o
+!**/testdata/*
+
 # Updates E2E Test
 old-charts/
 

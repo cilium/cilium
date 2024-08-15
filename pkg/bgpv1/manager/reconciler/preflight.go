@@ -48,6 +48,12 @@ func (r *PreflightReconciler) Priority() int {
 	return 10
 }
 
+func (r *PreflightReconciler) Init(_ *instance.ServerWithConfig) error {
+	return nil
+}
+
+func (r *PreflightReconciler) Cleanup(_ *instance.ServerWithConfig) {}
+
 func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
 	var (
 		l = log.WithFields(

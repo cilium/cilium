@@ -30,6 +30,7 @@ func setUpTest(_ testing.TB) *StatusTestSuite {
 		Interval:         10 * time.Millisecond,
 		WarningThreshold: 20 * time.Millisecond,
 		FailureThreshold: 80 * time.Millisecond,
+		StackdumpPath:    "",
 	}
 	s.mutex.Unlock()
 

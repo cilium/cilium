@@ -4,6 +4,7 @@
 package orchestrator
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/cilium/statedb"
@@ -31,20 +32,21 @@ const (
 // LocalNodeConfiguration instance is generated. Previous LocalNodeConfiguration
 // is never mutated in-place.
 func newLocalNodeConfig(
+	ctx context.Context,
 	config *option.DaemonConfig,
 	localNode node.LocalNode,
 	mtu mtu.MTU,
 	txn statedb.ReadTxn,
+	directRoutingDevTbl tables.DirectRoutingDevice,
 	devices statedb.Table[*tables.Device],
-	directRoutingDev *tables.Device,
 	nodeAddresses statedb.Table[tables.NodeAddress],
-) (datapath.LocalNodeConfiguration, error) {
+) (datapath.LocalNodeConfiguration, <-chan struct{}, <-chan struct{}, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
 	if config.IPv4ServiceRange != AutoCIDR {
 		serviceCIDR, err := cidr.ParseCIDR(config.IPv4ServiceRange)
 		if err != nil {
-			return datapath.LocalNodeConfiguration{}, fmt.Errorf("Invalid IPv4 service prefix %q: %w", config.IPv4ServiceRange, err)
+			return datapath.LocalNodeConfiguration{}, nil, nil, nil, fmt.Errorf("Invalid IPv4 service prefix %q: %w", config.IPv4ServiceRange, err)
 		}
 
 		auxPrefixes = append(auxPrefixes, serviceCIDR)
@@ -53,13 +55,15 @@ func newLocalNodeConfig(
 	if config.IPv6ServiceRange != AutoCIDR {
 		serviceCIDR, err := cidr.ParseCIDR(config.IPv6ServiceRange)
 		if err != nil {
-			return datapath.LocalNodeConfiguration{}, fmt.Errorf("Invalid IPv6 service prefix %q: %w", config.IPv6ServiceRange, err)
+			return datapath.LocalNodeConfiguration{}, nil, nil, nil, fmt.Errorf("Invalid IPv6 service prefix %q: %w", config.IPv6ServiceRange, err)
 		}
 
 		auxPrefixes = append(auxPrefixes, serviceCIDR)
 	}
 
-	nativeDevices, _ := tables.SelectedDevices(devices, txn)
+	directRoutingDevice, directRoutingDevWatch := directRoutingDevTbl.Get(ctx, txn)
+	nativeDevices, devsWatch := tables.SelectedDevices(devices, txn)
+	nodeAddrsIter, addrsWatch := nodeAddresses.AllWatch(txn)
 
 	return datapath.LocalNodeConfiguration{
 		NodeIPv4:                     localNode.GetNodeIP(false),
@@ -70,8 +74,8 @@ func newLocalNodeConfig(
 		AllocCIDRIPv6:                localNode.IPv6AllocCIDR,
 		LoopbackIPv4:                 node.GetIPv4Loopback(),
 		Devices:                      nativeDevices,
-		NodeAddresses:                statedb.Collect(nodeAddresses.All(txn)),
-		DirectRoutingDevice:          directRoutingDev,
+		NodeAddresses:                statedb.Collect(nodeAddrsIter),
+		DirectRoutingDevice:          directRoutingDevice,
 		HostEndpointID:               node.GetEndpointID(),
 		DeviceMTU:                    mtu.GetDeviceMTU(),
 		RouteMTU:                     mtu.GetRouteMTU(),
@@ -86,7 +90,7 @@ func newLocalNodeConfig(
 		EnableIPSec:                  config.EnableIPSec,
 		EnableIPSecEncryptedOverlay:  config.EnableIPSecEncryptedOverlay,
 		EncryptNode:                  config.EncryptNode,
-		IPv4PodSubnets:               config.IPv4PodSubnets,
-		IPv6PodSubnets:               config.IPv6PodSubnets,
-	}, nil
+		IPv4PodSubnets:               cidr.NewCIDRSlice(config.IPv4PodSubnets),
+		IPv6PodSubnets:               cidr.NewCIDRSlice(config.IPv6PodSubnets),
+	}, devsWatch, addrsWatch, directRoutingDevWatch, nil
 }

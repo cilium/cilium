@@ -46,38 +46,17 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-type policyParams struct {
+type policyRepoParams struct {
 	cell.In
 
 	Lifecycle       cell.Lifecycle
-	EndpointManager endpointmanager.EndpointManager
 	CertManager     certificatemanager.CertificateManager
 	SecretManager   certificatemanager.SecretManager
 	IdentityManager *identitymanager.IdentityManager
-	CacheStatus     synced.CacheStatus
 	ClusterInfo     cmtypes.ClusterInfo
 }
 
-type policyOut struct {
-	cell.Out
-
-	IdentityAllocator      CachingIdentityAllocator
-	CacheIdentityAllocator cache.IdentityAllocator
-	RemoteIdentityWatcher  clustermesh.RemoteIdentityWatcher
-	IdentityObservable     stream.Observable[cache.IdentityChange]
-
-	Repository *policy.Repository
-	Updater    *policy.Updater
-	IPCache    *ipcache.IPCache
-}
-
-// newPolicyTrifecta instantiates CachingIdentityAllocator, Repository and IPCache,
-// which in turn creates the SelectorCache and other policy components.
-//
-// The three have a complicated dependency on each other and therefore require
-// special care.
-func newPolicyTrifecta(params policyParams) (policyOut, error) {
-	ctx, cancel := context.WithCancel(context.Background())
+func newPolicyRepo(params policyRepoParams) *policy.Repository {
 	if option.Config.EnableWellKnownIdentities {
 		// Must be done before calling policy.NewPolicyRepository() below.
 		num := identity.InitWellKnownIdentities(option.Config, params.ClusterInfo)
@@ -92,68 +71,125 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	// policy repository: maintains list of active Rules and their subject
 	// security identities. Also constructs the SelectorCache, a precomputed
 	// cache of label selector -> identities for policy peers.
-	repo := policy.NewStoppedPolicyRepository(
+	policyRepo := policy.NewStoppedPolicyRepository(
 		identity.ListReservedIdentities(), // Load SelectorCache with reserved identities
 		params.CertManager,
 		params.SecretManager,
 		params.IdentityManager,
 	)
-	repo.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
+	policyRepo.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
 
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
+			policyRepo.Start()
+			return nil
+		},
+	})
+
+	return policyRepo
+}
+
+type policyUpdaterParams struct {
+	cell.In
+
+	Lifecycle        cell.Lifecycle
+	PolicyRepository *policy.Repository
+	EndpointManager  endpointmanager.EndpointManager
+}
+
+func newPolicyUpdater(params policyUpdaterParams) *policy.Updater {
 	// policyUpdater: forces policy recalculation on all endpoints.
 	// Called for various events, such as named port changes
 	// or certain identity updates.
-	policyUpdater := policy.NewUpdater(repo, params.EndpointManager)
+	policyUpdater := policy.NewUpdater(params.PolicyRepository, params.EndpointManager)
 
+	params.Lifecycle.Append(cell.Hook{
+		OnStop: func(hc cell.HookContext) error {
+			policyUpdater.Shutdown()
+			return nil
+		},
+	})
+
+	return policyUpdater
+}
+
+type identityAllocatorParams struct {
+	cell.In
+
+	Lifecycle        cell.Lifecycle
+	PolicyRepository *policy.Repository
+	PolicyUpdater    *policy.Updater
+}
+
+type identityAllocatorOut struct {
+	cell.Out
+
+	IdentityAllocator      CachingIdentityAllocator
+	CacheIdentityAllocator cache.IdentityAllocator
+	RemoteIdentityWatcher  clustermesh.RemoteIdentityWatcher
+	IdentityObservable     stream.Observable[cache.IdentityChange]
+}
+
+func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 	// iao: updates SelectorCache and regenerates endpoints when
 	// identity allocation / deallocation has occurred.
 	iao := &identityAllocatorOwner{
-		policy:        repo,
-		policyUpdater: policyUpdater,
+		policy:        params.PolicyRepository,
+		policyUpdater: params.PolicyUpdater,
 	}
 
 	// Allocator: allocates local and cluster-wide security identities.
 	idAlloc := cache.NewCachingIdentityAllocator(iao)
 	idAlloc.EnableCheckpointing()
 
+	params.Lifecycle.Append(cell.Hook{
+		OnStop: func(hc cell.HookContext) error {
+			idAlloc.Close()
+			return nil
+		},
+	})
+
+	return identityAllocatorOut{
+		IdentityAllocator:      idAlloc,
+		CacheIdentityAllocator: idAlloc,
+		RemoteIdentityWatcher:  idAlloc,
+		IdentityObservable:     idAlloc,
+	}
+}
+
+type ipCacheParams struct {
+	cell.In
+
+	Lifecycle              cell.Lifecycle
+	CacheIdentityAllocator cache.IdentityAllocator
+	PolicyRepository       *policy.Repository
+	EndpointManager        endpointmanager.EndpointManager
+	CacheStatus            synced.CacheStatus
+}
+
+func newIPCache(params ipCacheParams) *ipcache.IPCache {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	// IPCache: aggregates node-local prefix labels and allocates
 	// local identities. Generates incremental updates, pushes
 	// to endpoints.
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           ctx,
-		IdentityAllocator: idAlloc,
-		PolicyHandler:     iao.policy.GetSelectorCache(),
+		IdentityAllocator: params.CacheIdentityAllocator,
+		PolicyHandler:     params.PolicyRepository.GetSelectorCache(),
 		DatapathHandler:   params.EndpointManager,
 		CacheStatus:       params.CacheStatus,
 	})
 
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(hc cell.HookContext) error {
-			iao.policy.Start()
-			return nil
-		},
 		OnStop: func(hc cell.HookContext) error {
 			cancel()
 
-			// Preserve the order of shutdown but still propagate the error
-			// to hive.
-			err := ipc.Shutdown()
-			policyUpdater.Shutdown()
-			idAlloc.Close()
-
-			return err
+			return ipc.Shutdown()
 		},
 	})
 
-	return policyOut{
-		IdentityAllocator:      idAlloc,
-		CacheIdentityAllocator: idAlloc,
-		RemoteIdentityWatcher:  idAlloc,
-		IdentityObservable:     idAlloc,
-		Repository:             iao.policy,
-		Updater:                policyUpdater,
-		IPCache:                ipc,
-	}, nil
+	return ipc
 }
 
 // identityAllocatorOwner is used to break the circular dependency between

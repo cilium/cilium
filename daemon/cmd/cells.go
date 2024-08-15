@@ -81,10 +81,7 @@ var (
 
 		// Register the pprof HTTP handlers, to get runtime profiling data.
 		pprof.Cell,
-		cell.Config(pprof.Config{
-			PprofAddress: option.PprofAddressAgent,
-			PprofPort:    option.PprofPortAgent,
-		}),
+		cell.Config(pprofConfig),
 
 		// Runs the gops agent, a tool to diagnose Go processes.
 		gops.Cell(defaults.GopsPortAgent),
@@ -223,8 +220,17 @@ var (
 		// Auth is responsible for authenticating a request if required by a policy.
 		auth.Cell,
 
-		// IPCache, policy.Repository and CachingIdentityAllocator.
-		cell.Provide(newPolicyTrifecta),
+		// Provides the IPCache
+		cell.Provide(newIPCache),
+
+		// Provides PolicyRepository
+		cell.Provide(newPolicyRepo),
+
+		// Provides PolicyUpdater
+		cell.Provide(newPolicyUpdater),
+
+		// Provides the different types of IdentityAllocators
+		cell.Provide(newIdentityAllocator),
 
 		// IPAM provides IP address management.
 		ipamcell.Cell,
@@ -255,9 +261,6 @@ var (
 
 		// Redirect policy manages the Local Redirect Policies.
 		redirectpolicy.Cell,
-
-		// The device reloader reloads the datapath when the devices change at runtime.
-		cell.Invoke(registerDeviceReloader),
 
 		// The node discovery cell provides the local node configuration and node discovery
 		// which communicate changes in local node information to the API server or KVStore.
@@ -315,4 +318,10 @@ func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, db *statedb.
 	mux.Handle("/", s.GetHandler())
 	mux.Handle("/statedb/", http.StripPrefix("/statedb", db.HTTPHandler()))
 	s.SetHandler(mux)
+}
+
+var pprofConfig = pprof.Config{
+	Pprof:        false,
+	PprofAddress: option.PprofAddressAgent,
+	PprofPort:    option.PprofPortAgent,
 }

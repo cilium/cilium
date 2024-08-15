@@ -27,25 +27,23 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } METRICS_MAP __section_maps_btf;
 
-
 #ifndef SKIP_POLICY_MAP
 /* Global map to jump into policy enforcement of receiving endpoint */
-struct bpf_elf_map __section_maps POLICY_CALL_MAP = {
-	.type		= BPF_MAP_TYPE_PROG_ARRAY,
-	.id		= CILIUM_MAP_POLICY,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u32),
-	.pinning	= LIBBPF_PIN_BY_NAME,
-	.max_elem	= POLICY_PROG_MAP_SIZE,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, POLICY_PROG_MAP_SIZE);
+} cilium_call_policy __section_maps_btf;
 
 static __always_inline __must_check int
 tail_call_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 {
 	if (__builtin_constant_p(endpoint_id)) {
-		tail_call_static(ctx, POLICY_CALL_MAP, endpoint_id);
+		tail_call_static(ctx, cilium_call_policy, endpoint_id);
 	} else {
-		tail_call_dynamic(ctx, &POLICY_CALL_MAP, endpoint_id);
+		tail_call_dynamic(ctx, &cilium_call_policy, endpoint_id);
 	}
 
 	/* When forwarding from a BPF program to some endpoint,
@@ -57,26 +55,22 @@ tail_call_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 }
 #endif /* SKIP_POLICY_MAP */
 
-#ifdef ENABLE_L7_LB
 /* Global map to jump into policy enforcement of sending endpoint */
-struct bpf_elf_map __section_maps POLICY_EGRESSCALL_MAP = {
-	.type		= BPF_MAP_TYPE_PROG_ARRAY,
-	.id		= CILIUM_MAP_EGRESSPOLICY,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u32),
-	.pinning	= LIBBPF_PIN_BY_NAME,
-	.max_elem	= POLICY_PROG_MAP_SIZE,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, POLICY_PROG_MAP_SIZE);
+} cilium_egresscall_policy __section_maps_btf;
 
 static __always_inline __must_check int
 tail_call_egress_policy(struct __ctx_buff *ctx, __u16 endpoint_id)
 {
-	tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, endpoint_id);
-	/* same issue as for the POLICY_CALL_MAP calls */
+	tail_call_dynamic(ctx, &cilium_egresscall_policy, endpoint_id);
+	/* same issue as for the cilium_call_policy calls */
 	return DROP_EP_NOT_READY;
 }
-
-#endif
 
 #ifdef POLICY_MAP
 /* Per-endpoint policy enforcement map */
@@ -137,14 +131,13 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
  * to use the map, so we do not want to compile this definition if
  * CUSTOM_CALLS_MAP has not been #define-d.
  */
-struct bpf_elf_map __section_maps CUSTOM_CALLS_MAP = {
-	.type		= BPF_MAP_TYPE_PROG_ARRAY,
-	.id		= CILIUM_MAP_CUSTOM_CALLS,
-	.size_key	= sizeof(__u32),
-	.size_value	= sizeof(__u32),
-	.pinning	= LIBBPF_PIN_BY_NAME,
-	.max_elem	= 4,	/* ingress and egress, IPv4 and IPv6 */
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 4); /* ingress and egress, IPv4 and IPv6 */
+} CUSTOM_CALLS_MAP __section_maps_btf;
 
 #define CUSTOM_CALLS_IDX_IPV4_INGRESS	0
 #define CUSTOM_CALLS_IDX_IPV4_EGRESS	1

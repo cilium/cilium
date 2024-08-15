@@ -15,9 +15,9 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -37,10 +37,9 @@ import (
 )
 
 type EndpointSuite struct {
-	regeneration.Owner
-	repo     *policy.Repository
-	datapath datapath.Datapath
-	mgr      *cache.CachingIdentityAllocator
+	orchestrator datapath.Orchestrator
+	repo         *policy.Repository
+	mgr          *cache.CachingIdentityAllocator
 
 	// Owners interface mock
 	OnGetPolicyRepository     func() *policy.Repository
@@ -54,8 +53,12 @@ type EndpointSuite struct {
 func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	testutils.IntegrationTest(tb)
 
-	s := &EndpointSuite{}
-	s.repo = policy.NewPolicyRepository(nil, nil, nil, nil)
+	s := &EndpointSuite{
+		orchestrator: &fakeTypes.FakeOrchestrator{},
+		repo:         policy.NewPolicyRepository(nil, nil, nil, nil),
+		mgr:          cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}),
+	}
+
 	// GetConfig the default labels prefix filter
 	err := labelsfilter.ParseLabelPrefixCfg(nil, nil, "")
 	if err != nil {
@@ -68,9 +71,7 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	/* Required to test endpoint CEP policy model */
 	kvstore.SetupDummy(tb, "etcd")
 	// The nils are only used by k8s CRD identities. We default to kvstore.
-	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
-	<-mgr.InitIdentityAllocator(nil)
-	s.mgr = mgr
+	<-s.mgr.InitIdentityAllocator(nil)
 	node.SetTestLocalNodeStore()
 
 	tb.Cleanup(func() {
@@ -106,16 +107,37 @@ func (s *EndpointSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) erro
 	return nil
 }
 
-func (s *EndpointSuite) Datapath() datapath.Datapath {
-	return s.datapath
-}
-
 func (s *EndpointSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }
 
 func (s *EndpointSuite) RemoveRestoredDNSRules(epID uint16) {
 }
+
+// Loader returns a reference to the loader implementation.
+func (s *EndpointSuite) Loader() datapath.Loader {
+	return nil
+}
+
+// Orchestrator returns a reference to the orchestrator implementation.
+func (s *EndpointSuite) Orchestrator() datapath.Orchestrator {
+	return s.orchestrator
+}
+
+// BandwidthManager returns a reference to the bandwidth manager implementation.
+func (s *EndpointSuite) BandwidthManager() datapath.BandwidthManager {
+	return nil
+}
+
+func (s *EndpointSuite) IPTablesManager() datapath.IptablesManager {
+	return nil
+}
+
+func (s *EndpointSuite) AddIdentity(*identity.Identity) {}
+
+func (s *EndpointSuite) RemoveIdentity(*identity.Identity) {}
+
+func (s *EndpointSuite) RemoveOldAddNewIdentity(*identity.Identity, *identity.Identity) {}
 
 func TestEndpointStatus(t *testing.T) {
 	setupEndpointSuite(t)
@@ -384,8 +406,8 @@ func TestEndpointState(t *testing.T) {
 func assertStateTransition(t *testing.T,
 	e *Endpoint, stateSetter func(toState State, reason string) bool,
 	from, to State,
-	success bool) {
-
+	success bool,
+) {
 	e.state = from
 
 	currStateOldMetric := getMetricValue(e.state)
@@ -663,14 +685,6 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 	option.Config.EndpointQueueSize = 1
 	defer func() {
 		option.Config.EndpointQueueSize = oldQueueSize
-	}()
-
-	oldDatapath := s.datapath
-
-	s.datapath = fakeTypes.NewDatapath()
-
-	defer func() {
-		s.datapath = oldDatapath
 	}()
 
 	ep := NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)

@@ -290,7 +290,7 @@ Makefile* @cilium/build
 /daemon/cmd/hubble.go @cilium/sig-hubble
 /daemon/cmd/ipcache* @cilium/ipcache
 /daemon/cmd/kube_proxy* @cilium/sig-datapath
-/daemon/cmd/metrics.go @cilium/metrics
+/daemon/cmd/bootstrap_statistics.go @cilium/metrics
 /daemon/cmd/policy* @cilium/sig-policy
 /daemon/cmd/state.go @cilium/endpoint
 /daemon/cmd/cells*.go @cilium/sig-foundations
@@ -316,8 +316,6 @@ Makefile* @cilium/build
 /Documentation/Dockerfile @cilium/docs-structure
 /Documentation/gettingstarted/demo.rst @cilium/docs-structure
 /Documentation/gettingstarted/gettinghelp.rst @cilium/contributing @cilium/docs-structure
-/Documentation/gettingstarted/hubble* @cilium/sig-hubble @cilium/docs-structure
-/Documentation/gettingstarted/hubble-configuration.rst @cilium/sig-hubble @cilium/docs-structure
 /Documentation/glossary.rst @cilium/docs-structure
 /Documentation/helm-values.rst
 /Documentation/images/re-request-review.png @cilium/contributing @cilium/docs-structure
@@ -350,6 +348,7 @@ Makefile* @cilium/build
 /Documentation/network/multicast.rst @cilium/sig-datapath @cilium/docs-structure
 /Documentation/network/servicemesh/ @cilium/sig-servicemesh @cilium/docs-structure
 /Documentation/observability/ @cilium/sig-policy @cilium/docs-structure
+/Documentation/observability/hubble* @cilium/sig-hubble @cilium/docs-structure
 /Documentation/operations/performance/ @cilium/sig-datapath @cilium/docs-structure
 /Documentation/operations/system_requirements.rst @cilium/sig-datapath @cilium/docs-structure
 /Documentation/operations/troubleshooting_clustermesh.rst @cilium/sig-clustermesh @cilium/docs-structure

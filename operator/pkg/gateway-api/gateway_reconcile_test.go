@@ -156,56 +156,6 @@ var gwFixture = []client.Object{
 		},
 	},
 
-	// Valid TLSRoute
-	&gatewayv1alpha2.TLSRoute{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "tls-route",
-			Namespace: "default",
-		},
-		Spec: gatewayv1alpha2.TLSRouteSpec{
-			CommonRouteSpec: gatewayv1.CommonRouteSpec{
-				ParentRefs: []gatewayv1.ParentReference{
-					{
-						Name: "valid-tlsroute-gateway",
-					},
-				},
-			},
-			Hostnames: []gatewayv1alpha2.Hostname{
-				"sni.cilium.rocks",
-			},
-			Rules: []gatewayv1alpha2.TLSRouteRule{
-				{
-					BackendRefs: []gatewayv1.BackendRef{
-						{
-							BackendObjectReference: gatewayv1.BackendObjectReference{
-								Name: "dummy-backend",
-								Port: model.AddressOf[gatewayv1.PortNumber](443),
-							},
-						},
-					},
-				},
-			},
-		},
-		Status: gatewayv1alpha2.TLSRouteStatus{
-			RouteStatus: gatewayv1.RouteStatus{
-				Parents: []gatewayv1.RouteParentStatus{
-					{
-						ParentRef: gatewayv1.ParentReference{
-							Name: "valid-tlsroute-gateway",
-						},
-						ControllerName: "io.cilium/gateway-controller",
-						Conditions: []metav1.Condition{
-							{
-								Type:   "Accepted",
-								Status: "True",
-							},
-						},
-					},
-				},
-			},
-		},
-	},
-
 	// Valid gateway
 	&gatewayv1.Gateway{
 		TypeMeta: metav1.TypeMeta{
@@ -297,10 +247,63 @@ var gwFixture = []client.Object{
 	},
 }
 
+var tlsRouteFixtures = []client.Object{
+	// Valid TLSRoute
+	&gatewayv1alpha2.TLSRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "tls-route",
+			Namespace: "default",
+		},
+		Spec: gatewayv1alpha2.TLSRouteSpec{
+			CommonRouteSpec: gatewayv1.CommonRouteSpec{
+				ParentRefs: []gatewayv1.ParentReference{
+					{
+						Name: "valid-tlsroute-gateway",
+					},
+				},
+			},
+			Hostnames: []gatewayv1alpha2.Hostname{
+				"sni.cilium.rocks",
+			},
+			Rules: []gatewayv1alpha2.TLSRouteRule{
+				{
+					BackendRefs: []gatewayv1.BackendRef{
+						{
+							BackendObjectReference: gatewayv1.BackendObjectReference{
+								Name: "dummy-backend",
+								Port: model.AddressOf[gatewayv1.PortNumber](443),
+							},
+						},
+					},
+				},
+			},
+		},
+		Status: gatewayv1alpha2.TLSRouteStatus{
+			RouteStatus: gatewayv1.RouteStatus{
+				Parents: []gatewayv1.RouteParentStatus{
+					{
+						ParentRef: gatewayv1.ParentReference{
+							Name: "valid-tlsroute-gateway",
+						},
+						ControllerName: "io.cilium/gateway-controller",
+						Conditions: []metav1.Condition{
+							{
+								Type:   "Accepted",
+								Status: "True",
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 func Test_gatewayReconciler_Reconcile(t *testing.T) {
 	c := fake.NewClientBuilder().
 		WithScheme(testScheme()).
 		WithObjects(gwFixture...).
+		WithObjects(tlsRouteFixtures...).
 		WithStatusSubresource(&gatewayv1.Gateway{}).
 		Build()
 

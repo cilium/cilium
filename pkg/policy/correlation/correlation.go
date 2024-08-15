@@ -132,11 +132,67 @@ func extractFlowKey(f *flowpb.Flow) (
 
 func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint32) (derivedFrom labels.LabelArrayList, rev uint64, ok bool) {
 	switch matchType {
-	case monitorAPI.PolicyMatchL3L4, monitorAPI.PolicyMatchL4Only:
-		// Check for L4 policy rules
+	case monitorAPI.PolicyMatchL3L4:
+		// Check for L4 policy rules.
+		//
+		// Consider the network policy:
+		//
+		// spec:
+		//  podSelector: {}
+		//  ingress:
+		//  - podSelector:
+		//      matchLabels:
+		//        app: client
+		//    ports:
+		//    - port: 80
+		//      protocol: TCP
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(key)
+	case monitorAPI.PolicyMatchL4Only:
+		// Check for port-specific rules.
+		// This covers the case where one or more identities are allowed by network policy.
+		//
+		// Consider the network policy:
+		//
+		// spec:
+		//  podSelector: {}
+		//  ingress:
+		//  - ports:
+		//    - port: 80
+		//      protocol: TCP // protocol is optional for this match.
+		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
+			Identity:         0,
+			DestPort:         key.DestPort,
+			Nexthdr:          key.Nexthdr,
+			TrafficDirection: key.TrafficDirection,
+		})
+	case monitorAPI.PolicyMatchProtoOnly:
+		// Check for protocol-only policies.
+		//
+		// Consider the network policy:
+		//
+		// spec:
+		//  podSelector: {}
+		//  ingress:
+		//  - ports:
+		//    - protocol: TCP
+		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
+			Identity:         0,
+			DestPort:         0,
+			InvertedPortMask: 0xffff, // this is a wildcard
+			Nexthdr:          key.Nexthdr,
+			TrafficDirection: key.TrafficDirection,
+		})
 	case monitorAPI.PolicyMatchL3Only:
-		// Check for L3 policy rules
+		// Check for L3 policy rules.
+		//
+		// Consider the network policy:
+		//
+		// spec:
+		//  podSelector: {}
+		//  ingress:
+		//  - podSelector:
+		//      matchLabels:
+		//        app: client
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
 			Identity:         key.Identity,
 			DestPort:         0,
@@ -145,7 +201,14 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 			TrafficDirection: key.TrafficDirection,
 		})
 	case monitorAPI.PolicyMatchAll:
-		// Check for allow-all policy rules
+		// Check for allow-all policy rules.
+		//
+		// Consider the network policy:
+		//
+		// spec:
+		//  podSelector: {}
+		//  ingress:
+		//  - {}
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
 			Identity:         0,
 			DestPort:         0,
@@ -172,27 +235,37 @@ func toProto(derivedFrom labels.LabelArrayList, rev uint64) (policies []*flowpb.
 			Labels:   lbl.GetModel(),
 			Revision: rev,
 		}
-
-		var ns, name string
-		for _, l := range lbl {
-			if l.Source == string(source.Kubernetes) {
-				switch l.Key {
-				case k8sConst.PolicyLabelName:
-					name = l.Value
-				case k8sConst.PolicyLabelNamespace:
-					ns = l.Value
-				}
-			}
-
-			if name != "" && ns != "" {
-				policy.Name = name
-				policy.Namespace = ns
-				break
-			}
-		}
-
+		populate(policy, lbl)
 		policies = append(policies, policy)
 	}
 
 	return policies
+}
+
+// populate derives and sets fields in the flow policy from the label set array.
+//
+// This function supports namespaced and cluster-scoped resources.
+func populate(f *flowpb.Policy, lbl labels.LabelArray) {
+	var kind, ns, name string
+	for _, l := range lbl {
+		if l.Source != string(source.Kubernetes) {
+			continue
+		}
+		switch l.Key {
+		case k8sConst.PolicyLabelName:
+			name = l.Value
+		case k8sConst.PolicyLabelNamespace:
+			ns = l.Value
+		case k8sConst.PolicyLabelDerivedFrom:
+			kind = l.Value
+		}
+
+		if kind != "" && name != "" && ns != "" {
+			break
+		}
+	}
+
+	f.Kind = kind
+	f.Namespace = ns
+	f.Name = name
 }

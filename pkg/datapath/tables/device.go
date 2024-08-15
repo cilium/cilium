@@ -82,6 +82,8 @@ func (a *HardwareAddr) UnmarshalJSON(bs []byte) error {
 // The devices that are selected are the external facing native devices that
 // Cilium will use with features such as load-balancing, host firewall and routing.
 // For the selection logic applied see 'pkg/datapath/linux/devices_controller.go'.
+//
+// +deepequal-gen=true
 type Device struct {
 	Index        int             // positive integer that starts at one, zero is never used
 	MTU          int             // maximum transmission unit
@@ -142,6 +144,7 @@ func (d *Device) TableRow() []string {
 	}
 }
 
+// NOTE: Update DeepEqual() when changing this struct.
 type DeviceAddress struct {
 	Addr      netip.Addr
 	Secondary bool
@@ -154,6 +157,12 @@ func (d *DeviceAddress) AsIP() net.IP {
 
 func (d *DeviceAddress) String() string {
 	return fmt.Sprintf("%s (secondary=%v, scope=%d)", d.Addr, d.Secondary, d.Scope)
+}
+
+func (d *DeviceAddress) DeepEqual(other *DeviceAddress) bool {
+	return d.Addr == other.Addr &&
+		d.Secondary == other.Secondary &&
+		d.Scope == other.Scope
 }
 
 // SelectedDevices returns the external facing network devices to use for

@@ -12,7 +12,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
-	"github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/option"
@@ -23,12 +22,8 @@ type handlersOut struct {
 	cell.Out
 
 	DaemonGetCgroupDumpMetadataHandler daemon.GetCgroupDumpMetadataHandler
-	DaemonGetClusterNodesHandler       daemon.GetClusterNodesHandler
 	DaemonGetDebuginfoHandler          daemon.GetDebuginfoHandler
 	DaemonGetHealthzHandler            daemon.GetHealthzHandler
-	DaemonGetMapHandler                daemon.GetMapHandler
-	DaemonGetMapNameEventsHandler      daemon.GetMapNameEventsHandler
-	DaemonGetMapNameHandler            daemon.GetMapNameHandler
 
 	EndpointDeleteEndpointHandler        endpoint.DeleteEndpointHandler
 	EndpointDeleteEndpointIDHandler      endpoint.DeleteEndpointIDHandler
@@ -42,8 +37,6 @@ type handlersOut struct {
 	EndpointPatchEndpointIDHandler       endpoint.PatchEndpointIDHandler
 	EndpointPatchEndpointIDLabelsHandler endpoint.PatchEndpointIDLabelsHandler
 	EndpointPutEndpointIDHandler         endpoint.PutEndpointIDHandler
-
-	MetricsGetMetricsHandler metrics.GetMetricsHandler
 
 	PolicyDeleteFqdnCacheHandler      policy.DeleteFqdnCacheHandler
 	PolicyDeletePolicyHandler         policy.DeletePolicyHandler
@@ -98,9 +91,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 	// /healthz/
 	out.DaemonGetHealthzHandler = wrapAPIHandler(dp, getHealthzHandler)
 
-	// /cluster/nodes
-	out.DaemonGetClusterNodesHandler = NewGetClusterNodesHandler(dp)
-
 	// /endpoint/
 	out.EndpointDeleteEndpointHandler = wrapAPIHandler(dp, deleteEndpointHandler)
 	out.EndpointGetEndpointHandler = wrapAPIHandler(dp, getEndpointHandler)
@@ -143,14 +133,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 
 	// /cgroup-dump-metadata
 	out.DaemonGetCgroupDumpMetadataHandler = wrapAPIHandler(dp, getCgroupDumpMetadataHandler)
-
-	// /map
-	out.DaemonGetMapHandler = wrapAPIHandler(dp, getMapHandler)
-	out.DaemonGetMapNameHandler = wrapAPIHandler(dp, getMapNameHandler)
-	out.DaemonGetMapNameEventsHandler = wrapAPIHandler(dp, getMapNameEventsHandler)
-
-	// metrics
-	out.MetricsGetMetricsHandler = wrapAPIHandler(dp, getMetricsHandler)
 
 	// /fqdn/cache
 	out.PolicyGetFqdnCacheHandler = wrapAPIHandler(dp, getFqdnCacheHandler)

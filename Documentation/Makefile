@@ -20,7 +20,9 @@ define build_image
   # Pre-pull FROM docker image due to Buildkit sometimes failing to pull them.
   grep -m 1 "^FROM " $(1) | tr -d '\r' | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
   $(QUIET)tar c $(REQUIREMENTS) Dockerfile \
-    | $(CONTAINER_ENGINE) build $(DOCKER_BUILD_FLAGS) --target $(2) --tag $(3) -
+    | $(CONTAINER_ENGINE) build $(DOCKER_BUILD_FLAGS) \
+                          --build-arg READTHEDOCS_VERSION \
+                          --target $(2) --tag $(3) -
 endef
 
 ##@ Development Images
@@ -42,15 +44,19 @@ endif
 # documentation to be generated correctly.
 cilium-build:
 ifndef SKIP_BUILD
+	$(MAKE) builder-image
 	../contrib/scripts/builder.sh env MAKEFLAGS="$(MAKEFLAGS)" make build
 else
 	echo "SKIP_BUILD set, assuming all build artifacts are already present."
 endif
 
-READTHEDOCS_VERSION:=$(READTHEDOCS_VERSION)
+READTHEDOCS_VERSION ?= latest
 DOCKER_CTR_ROOT_DIR := /src
 DOCKER_CTR_BASE := $(CONTAINER_ENGINE) container run --rm \
 		--workdir $(DOCKER_CTR_ROOT_DIR)/Documentation \
+		--env GIT_CONFIG_COUNT=1 \
+		--env GIT_CONFIG_KEY_0=safe.directory \
+		--env GIT_CONFIG_VALUE_0=$(DOCKER_CTR_ROOT_DIR) \
 		--volume $(CURDIR)/..:$(DOCKER_CTR_ROOT_DIR) \
 		--user "$(shell id -u):$(shell id -g)"
 DOCKER_CTR := $(DOCKER_CTR_BASE) \
@@ -69,7 +75,7 @@ api-flaggen: ## Update the table of API flags restrictions.
 		> configuration/api-restrictions-table.rst
 
 .PHONY: update-cmdref
-update-cmdref: builder-image cilium-build ## Update the command reference documents (agent, bugtool, operators, etc.).
+update-cmdref: cilium-build ## Update the command reference documents (agent, bugtool, operators, etc.).
 	@$(ECHO_GEN)cmdref
 	-$(QUIET)rm -rf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
@@ -108,7 +114,7 @@ $(HELM_VALUES): FORCE
 	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $(TMP_FILE_3))" > $@
 	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2) $(TMP_FILE_3)
 
-check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values update-codeowners ## Validate command and Helm references, policy examples, and others.
+check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values update-codeowners update-redirects ## Validate command and Helm references, policy examples, and others.
 	@$(ECHO_CHECK) cmdref
 	$(QUIET) ./check-cmdref.sh
 	@$(ECHO_CHECK) $(HELM_VALUES)
@@ -121,6 +127,8 @@ check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values
 	$(QUIET) ./check-flaggen.sh
 	@$(ECHO_CHECK) crdlist.rst
 	$(QUIET) ./check-crdlist.sh
+	@$(ECHO_CHECK) redirects.txt
+	$(QUIET) ./check-redirects.sh
 
 ##@ Build
 
@@ -145,12 +153,18 @@ live-preview: builder-image ## Build and serve the documentation locally.
 			$(DOCS_BUILDER_IMG) \
 		sphinx-autobuild --open-browser --host 0.0.0.0 --port $(DOCS_PORT) $(SPHINX_OPTS) --ignore *.swp -Q . _preview
 
+update-redirects: builder-image ## Build and serve the documentation locally.
+	@echo "$$(tput setaf 2)Writing redirects$$(tput sgr0)"
+	$(QUIET)$(DOCKER_CTR) \
+		$(DOCS_BUILDER_IMG) \
+		sphinx-build -M rediraffewritediff . _preview
+
 ##@ Development
 
 update-requirements: base-image $(REQUIREMENTS_NODEP) ## Regenerate the requirements.txt file from requirements-min/requirements.txt.
 	@echo '## Auto-generated from $(REQUIREMENTS_NODEP) with "make update-requirements"' > $(REQUIREMENTS)
 	$(QUIET)$(DOCKER_CTR_BASE) $(DOCS_BASE_IMG) \
-		bash -c "pip install -r $(REQUIREMENTS_NODEP) && pip freeze -r $(REQUIREMENTS_NODEP) >> $(REQUIREMENTS)"
+		bash -c "export HOME=/tmp && pip install --no-warn-script-location -r $(REQUIREMENTS_NODEP) && pip freeze -r $(REQUIREMENTS_NODEP) >> $(REQUIREMENTS)"
 
 clean: ## Clean up all artefacts from documentation.
 	-$(QUIET)rm -rf _build _exts/__pycache__ _preview Pipfile Pipfile.lock

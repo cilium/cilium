@@ -10,7 +10,6 @@ import (
 	"maps"
 	"net"
 	"net/netip"
-	"os"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -79,6 +78,7 @@ import (
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/time"
+	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
 const (
@@ -124,9 +124,9 @@ type Daemon struct {
 
 	mtuConfig mtu.MTU
 
-	// datapath is the underlying datapath implementation to use to
-	// implement all aspects of an agent
-	datapath datapath.Datapath
+	loader datapath.Loader
+
+	nodeAddressing datapath.NodeAddressing
 
 	// nodeDiscovery defines the node discovery logic of the agent
 	nodeDiscovery  *nodediscovery.NodeDiscovery
@@ -185,6 +185,10 @@ type Daemon struct {
 	// Tunnel-related configuration
 	tunnelConfig tunnel.Config
 	bwManager    datapath.BandwidthManager
+
+	wireguardAgent  *wireguard.Agent
+	orchestrator    datapath.Orchestrator
+	iptablesManager datapath.IptablesManager
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -199,27 +203,13 @@ func (d *Daemon) GetCompilationLock() datapath.CompilationLock {
 }
 
 func (d *Daemon) init() error {
-	globalsDir := option.Config.GetGlobalsDir()
-	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
-		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create runtime directory")
-	}
-
-	if err := os.Chdir(option.Config.StateDir); err != nil {
-		log.WithError(err).WithField(logfields.Path, option.Config.StateDir).Fatal("Could not change to runtime directory")
-	}
-
 	if !option.Config.DryMode {
-		if err := d.Datapath().Orchestrator().Reinitialize(d.ctx); err != nil {
-			return fmt.Errorf("failed while reinitializing datapath: %w", err)
-		}
-
 		if option.Config.EnableL7Proxy {
 			if err := linuxdatapath.NodeEnsureLocalRoutingRule(); err != nil {
 				return fmt.Errorf("ensuring local routing rule: %w", err)
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -279,7 +269,7 @@ func removeOldCiliumHostIPs(ctx context.Context, restoredRouterIPv4, restoredRou
 		if option.Config.EnableIPv6 {
 			errs = errors.Join(errs, removeOldRouterState(true, restoredRouterIPv6))
 		}
-		if resiliency.IsRetryable(errs) {
+		if resiliency.IsRetryable(errs) && !errors.As(errs, &netlink.LinkNotFoundError{}) {
 			log.WithField(logfields.Attempt, retries).WithError(errs).Warnf("Failed to remove old router IPs from cilium_host.")
 			return false, nil
 		}
@@ -362,8 +352,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 	lbmap.Init(lbmapInitParams)
 
-	params.NodeManager.Subscribe(params.Datapath.Node())
-
 	identity.IterateReservedIdentities(func(_ identity.NumericIdentity, _ *identity.Identity) {
 		metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
 		metrics.IdentityLabelSources.WithLabelValues(labels.LabelSourceReserved).Inc()
@@ -376,8 +364,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationLock:   params.CompilationLock,
 		mtuConfig:         params.MTU,
-		datapath:          params.Datapath,
 		directRoutingDev:  params.DirectRoutingDevice,
+		loader:            params.Loader,
+		nodeAddressing:    params.NodeAddressing,
 		devices:           params.Devices,
 		nodeAddrs:         params.NodeAddrs,
 		nodeDiscovery:     params.NodeDiscovery,
@@ -410,6 +399,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		k8sSvcCache:       params.K8sSvcCache,
 		rec:               params.Recorder,
 		ipam:              params.IPAM,
+		wireguardAgent:    params.WGAgent,
+		orchestrator:      params.Orchestrator,
+		iptablesManager:   params.IPTablesManager,
 	}
 
 	// Collect CIDR identities from the "old" bpf ipcache and restore them
@@ -879,7 +871,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// we populate the IPCache with the host's IP(s).
 	d.ipcache.InitIPIdentityWatcher(d.ctx, params.StoreFactory)
 
-	if err := params.IPsecKeyCustodian.StartBackgroundJobs(d.Datapath().Node()); err != nil {
+	if err := params.IPsecKeyCustodian.StartBackgroundJobs(params.NodeHandler); err != nil {
 		log.WithError(err).Error("Unable to start IPsec key watcher")
 	}
 
@@ -892,28 +884,6 @@ func (d *Daemon) Close() {
 
 	// Ensures all controllers are stopped!
 	d.controllers.RemoveAllAndWait()
-}
-
-// TriggerReload causes all BPF programs and maps to be reloaded. It first attempts
-// to recompile the base programs, and if this fails returns an error. If base
-// program load is successful, it subsequently triggers regeneration of all
-// endpoints and returns a waitgroup that may be used by the caller to wait for
-// all endpoint regeneration to complete.
-//
-// If an error is returned, then no regeneration was successful. If no error
-// is returned, then the base programs were successfully regenerated, but
-// endpoints may or may not have successfully regenerated.
-func (d *Daemon) TriggerReload(reason string) (*sync.WaitGroup, error) {
-	log.Debugf("BPF reload triggered from %s", reason)
-	if err := d.Datapath().Orchestrator().Reinitialize(d.ctx); err != nil {
-		return nil, fmt.Errorf("unable to recompile base programs from %s: %w", reason, err)
-	}
-
-	regenRequest := &regeneration.ExternalRegenerationMetadata{
-		Reason:            reason,
-		RegenerationLevel: regeneration.RegenerateWithDatapath,
-	}
-	return d.endpointManager.RegenerateAllEndpoints(regenRequest), nil
 }
 
 // numWorkerThreads returns the number of worker threads with a minimum of 2.

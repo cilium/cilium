@@ -7,9 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/netip"
-	"strconv"
 	"strings"
 
 	"github.com/cilium/dns"
@@ -24,9 +22,9 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
-	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -180,13 +178,20 @@ func (d *Daemon) updateDNSDatapathRules(ctx context.Context) error {
 }
 
 // lookupEPByIP returns the endpoint that this IP belongs to
-func (d *Daemon) lookupEPByIP(endpointAddr netip.Addr) (endpoint *endpoint.Endpoint, err error) {
-	e := d.endpointManager.LookupIP(endpointAddr)
-	if e == nil {
-		return nil, fmt.Errorf("cannot find endpoint with IP %s", endpointAddr)
+func (d *Daemon) lookupEPByIP(endpointAddr netip.Addr) (endpoint *endpoint.Endpoint, isHost bool, err error) {
+	if e := d.endpointManager.LookupIP(endpointAddr); e != nil {
+		return e, e.IsHost(), nil
 	}
 
-	return e, nil
+	if node.IsNodeIP(endpointAddr) != "" {
+		if e := d.endpointManager.GetHostEndpoint(); e != nil {
+			return e, true, nil
+		} else {
+			return nil, true, errors.New("host endpoint has not been created yet")
+		}
+	}
+
+	return nil, false, fmt.Errorf("cannot find endpoint with IP %s", endpointAddr)
 }
 
 // notifyOnDNSMsg handles DNS data in the daemon by emitting monitor
@@ -292,18 +297,11 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		log.WithError(err).Error("cannot extract DNS message details")
 	}
 
-	var serverPort uint16
-	_, serverPortStr, err := net.SplitHostPort(serverAddr)
+	serverAddrPort, err := netip.ParseAddrPort(serverAddr)
 	if err != nil {
-		log.WithError(err).Error("cannot extract destination IP from DNS request")
-	} else {
-		if serverPortUint64, err := strconv.ParseUint(serverPortStr, 10, 16); err != nil {
-			log.WithError(err).WithField(logfields.Port, serverPortStr).Error("cannot parse destination port")
-		} else {
-			serverPort = uint16(serverPortUint64)
-		}
+		log.WithError(err).Error("cannot extract destination IP/port from DNS request")
 	}
-	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverPort, proxy.DefaultDNSProxy.GetBindPort(), false, !msg.Response, verdict)
+	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), proxy.DefaultDNSProxy.GetBindPort(), false, !msg.Response, verdict)
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
 		stat.PolicyGenerationTime.Start()
@@ -363,7 +361,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// doesn't happen in the case, we play it safe and don't purge the zombie
 		// in case of races.
 		log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
-		if updated := ep.DNSHistory.Update(lookupTime, qname, ippkg.MustAddrsFromIPs(responseIPs), int(TTL)); updated {
+		if updated := ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)); updated {
 			ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseIPs...)
 			ep.SyncEndpointHeaderFile()
 		}

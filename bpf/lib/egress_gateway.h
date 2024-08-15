@@ -165,15 +165,6 @@ egress_gw_request_needs_redirect_hook(struct ipv4_ct_tuple *rtuple,
 				      enum ct_status ct_status,
 				      __be32 *gateway_ip)
 {
-#if defined(IS_BPF_LXC)
-	/* If the packet is a reply or is related, it means that outside
-	 * has initiated the connection, and so we should skip egress
-	 * gateway, since an egress policy is only matching connections
-	 * originating from a pod.
-	 */
-	if (ct_status == CT_REPLY || ct_status == CT_RELATED)
-		return CTX_ACT_OK;
-#else
 	/* We lookup CT in forward direction at to-netdev and expect to
 	 * get CT_ESTABLISHED for outbound connection as
 	 * from_container should have already created a CT entry.
@@ -183,7 +174,6 @@ egress_gw_request_needs_redirect_hook(struct ipv4_ct_tuple *rtuple,
 	 */
 	if (ct_status != CT_ESTABLISHED)
 		return CTX_ACT_OK;
-#endif
 
 	return egress_gw_request_needs_redirect(rtuple, gateway_ip);
 }

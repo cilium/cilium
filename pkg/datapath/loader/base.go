@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/backoff"
@@ -234,11 +235,16 @@ func (l *loader) reinitializeIPSec() error {
 		return fmt.Errorf("loading eBPF ELF %s: %w", networkObj, err)
 	}
 
-	coll, commit, err := loadDatapath(spec, nil, nil)
+	var obj networkObjects
+	commit, err := bpf.LoadAndAssign(&obj, spec, &bpf.CollectionOptions{
+		CollectionOptions: ebpf.CollectionOptions{
+			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
+		},
+	})
 	if err != nil {
-		return fmt.Errorf("loading %s: %w", networkObj, err)
+		return err
 	}
-	defer coll.Close()
+	defer obj.Close()
 
 	var errs error
 	for _, iface := range interfaces {
@@ -248,7 +254,7 @@ func (l *loader) reinitializeIPSec() error {
 			continue
 		}
 
-		if err := attachSKBProgram(device, coll.Programs[symbolFromNetwork], symbolFromNetwork,
+		if err := attachSKBProgram(device, obj.FromNetwork, symbolFromNetwork,
 			bpffsDeviceLinksDir(bpf.CiliumPath(), device), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 
 			// Collect errors, keep attaching to other interfaces.
@@ -326,6 +332,7 @@ func (l *loader) reinitializeWireguard(ctx context.Context) (err error) {
 	opts := []string{
 		fmt.Sprintf("-DSECLABEL=%d", identity.ReservedIdentityWorld),
 		fmt.Sprintf("-DTHIS_INTERFACE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
+		fmt.Sprintf("-DNATIVE_DEV_IFINDEX=%d", link.Attrs().Index),
 		fmt.Sprintf("-DCALLS_MAP=cilium_calls_wireguard_%d", identity.ReservedIdentityWorld),
 	}
 
@@ -368,18 +375,27 @@ func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string,
 // ReinitializeXDP (re-)configures the XDP datapath only. This includes recompilation
 // and reinsertion of the object into the kernel as well as an atomic program replacement
 // at the XDP hook. extraCArgs can be passed-in in order to alter BPF code defines.
-func (l *loader) ReinitializeXDP(ctx context.Context, extraCArgs []string) error {
+func (l *loader) ReinitializeXDP(ctx context.Context, cfg *datapath.LocalNodeConfiguration, extraCArgs []string) error {
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
-	devices := l.nodeConfig.Load().DeviceNames()
+	devices := cfg.DeviceNames()
 	return l.reinitializeXDPLocked(ctx, extraCArgs, devices)
+}
+
+func (l *loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
+	_, _, err := setupBaseDevice(l.sysctl, mtu)
+	if err != nil {
+		return fmt.Errorf("failed to setup base devices: %w", err)
+	}
+
+	return nil
 }
 
 // Reinitialize (re-)configures the base datapath configuration including global
 // BPF programs, netfilter rule configuration and reserving routes in IPAM for
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
-func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (l *loader) Reinitialize(ctx context.Context, cfg *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	sysSettings := []tables.Sysctl{
 		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
 		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
@@ -392,11 +408,9 @@ func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfigu
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
 
-	// Store the new LocalNodeConfiguration
-	l.nodeConfig.Store(&cfg)
 	// Startup relies on not returning an error here, maybe something we
 	// can fix in the future.
-	_ = l.templateCache.UpdateDatapathHash(&cfg)
+	_ = l.templateCache.UpdateDatapathHash(cfg)
 
 	var internalIPv4, internalIPv6 net.IP
 	if option.Config.EnableIPv4 {
@@ -409,6 +423,11 @@ func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfigu
 		// Enable IPv6 for now
 		sysSettings = append(sysSettings,
 			tables.Sysctl{Name: "net.ipv6.conf.all.disable_ipv6", Val: "0", IgnoreErr: false})
+	}
+
+	// BPF file system setup.
+	if err := bpf.MkdirBPF(bpf.TCGlobalsPath()); err != nil {
+		return fmt.Errorf("failed to create bpffs directory: %w", err)
 	}
 
 	// Datapath initialization
@@ -457,7 +476,7 @@ func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfigu
 		return err
 	}
 
-	if err := l.writeNodeConfigHeader(&cfg); err != nil {
+	if err := l.writeNodeConfigHeader(cfg); err != nil {
 		log.WithError(err).Error("Unable to write node config header")
 		return err
 	}
@@ -525,7 +544,7 @@ func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfigu
 		return err
 	}
 
-	if err := l.nodeHandler.NodeConfigurationChanged(cfg); err != nil {
+	if err := l.nodeHandler.NodeConfigurationChanged(*cfg); err != nil {
 		return err
 	}
 

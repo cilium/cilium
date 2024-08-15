@@ -46,7 +46,6 @@
 #include "lib/dbg.h"
 #include "lib/trace.h"
 #include "lib/csum.h"
-#include "lib/egress_gateway.h"
 #include "lib/srv6.h"
 #include "lib/encap.h"
 #include "lib/eps.h"
@@ -269,6 +268,7 @@ __section_tail(CILIUM_MAP_CALLS, ID)						\
 static __always_inline								\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
+	enum ct_scope scope = SCOPE_BIDIR;					\
 	struct ct_buffer4 ct_buffer = {};					\
 	struct ipv4_ct_tuple *tuple;						\
 	struct ct_state *ct_state;						\
@@ -295,8 +295,28 @@ int NAME(struct __ctx_buff *ctx)						\
 		return drop_for_direction(ctx, DIR, DROP_CT_NO_MAP_FOUND,	\
 					  ext_err);				\
 										\
+	/* After a per-packet LB action, we only want the CT lookup to match	\
+	 * in forward direction.						\
+	 */									\
+	if (is_defined(ENABLE_PER_PACKET_LB) && DIR == CT_EGRESS) {		\
+		struct ct_state ct_state_new = {};				\
+		__u32 cluster_id;						\
+		__u16 proxy_port;						\
+										\
+		lb4_ctx_restore_state(ctx, &ct_state_new, &proxy_port,		\
+				      &cluster_id, false);			\
+		if (ct_state_new.rev_nat_index)					\
+			scope = SCOPE_FORWARD;					\
+		if (is_defined(ENABLE_L7_LB) && proxy_port)			\
+			scope = SCOPE_FORWARD;					\
+		if (is_defined(ENABLE_L7_LB) &&					\
+		    (ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB))	\
+			scope = SCOPE_FORWARD;					\
+	}									\
+										\
 	ct_buffer.ret = ct_lookup4(map, tuple, ctx, ip4, ct_buffer.l4_off,	\
-				   DIR, ct_state, &ct_buffer.monitor);		\
+				   DIR, scope, ct_state,			\
+				   &ct_buffer.monitor);				\
 	if (ct_buffer.ret < 0)							\
 		return drop_for_direction(ctx, DIR, ct_buffer.ret, ext_err);	\
 	if (map_update_elem(&CT_TAIL_CALL_BUFFER4, &zero, &ct_buffer, 0) < 0)	\
@@ -315,6 +335,7 @@ __section_tail(CILIUM_MAP_CALLS, ID)						\
 static __always_inline								\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
+	enum ct_scope scope = SCOPE_BIDIR;					\
 	struct ct_buffer6 ct_buffer = {};					\
 	int ret = CTX_ACT_OK, hdrlen;						\
 	struct ipv6_ct_tuple *tuple;						\
@@ -340,9 +361,23 @@ int NAME(struct __ctx_buff *ctx)						\
 										\
 	ct_buffer.l4_off = ETH_HLEN + hdrlen;					\
 										\
+	if (is_defined(ENABLE_PER_PACKET_LB) && DIR == CT_EGRESS) {		\
+		struct ct_state ct_state_new = {};				\
+		__u16 proxy_port;						\
+										\
+		lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port, false);	\
+		if (ct_state_new.rev_nat_index)					\
+			scope = SCOPE_FORWARD;					\
+		if (is_defined(ENABLE_L7_LB) && proxy_port)			\
+			scope = SCOPE_FORWARD;					\
+		if (is_defined(ENABLE_L7_LB) &&					\
+		    (ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB))	\
+			scope = SCOPE_FORWARD;					\
+	}									\
+										\
 	ct_buffer.ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx,		\
-				   ct_buffer.l4_off, DIR, ct_state,		\
-				   &ct_buffer.monitor);				\
+				   ct_buffer.l4_off, DIR, scope,		\
+				   ct_state, &ct_buffer.monitor);		\
 	if (ct_buffer.ret < 0)							\
 		return drop_for_direction(ctx, DIR, ct_buffer.ret, ext_err);	\
 										\
@@ -449,7 +484,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 #ifdef ENABLE_PER_PACKET_LB
 	/* Restore ct_state from per packet lb handling in the previous tail call. */
-	lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port);
+	lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port, true);
 	/* No hairpin/loopback support for IPv6, see lb6_local(). */
 #endif /* ENABLE_PER_PACKET_LB */
 
@@ -468,17 +503,53 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	trace.reason = (enum trace_reason)ret;
 	l4_off = ct_buffer->l4_off;
 
+	/* Apply network policy: */
+	switch (ct_status) {
+	case CT_NEW:
+	case CT_ESTABLISHED:
 #if defined(ENABLE_L7_LB)
-	if (proxy_port > 0) {
-		/* tuple addresses have been swapped by CT lookup */
-		cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr.p4, tuple->saddr.p4,
-			    bpf_ntohs(proxy_port));
-		goto skip_policy_enforcement;
-	}
+		from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+
+		/* Forward to L7 LB first before applying network policy: */
+		if (proxy_port > 0) {
+			/* tuple addresses have been swapped by CT lookup */
+			cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr.p4, tuple->saddr.p4,
+				    bpf_ntohs(proxy_port));
+			break;
+		}
 #endif /* ENABLE_L7_LB */
 
-	/* Skip policy enforcement for return traffic. */
-	if (ct_status == CT_REPLY || ct_status == CT_RELATED) {
+		/* If the packet is in the establishing direction and it's destined
+		 * within the cluster, it must match policy or be dropped. If it's
+		 * bound for the host/outside, perform the CIDR policy check.
+		 */
+		verdict = policy_can_egress6(ctx, &POLICY_MAP, tuple, l4_off, SECLABEL_IPV6,
+					     *dst_sec_identity, &policy_match_type, &audited,
+					     ext_err, &proxy_port);
+
+		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+			auth_type = (__u8)*ext_err;
+			verdict = auth_lookup(ctx, SECLABEL_IPV6, *dst_sec_identity,
+					      tunnel_endpoint, auth_type);
+		}
+
+		/* Emit verdict if drop or if allow for CT_NEW. */
+		if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
+			send_policy_verdict_notify(ctx, *dst_sec_identity, tuple->dport,
+						   tuple->nexthdr, POLICY_EGRESS, 1,
+						   verdict, proxy_port,
+						   policy_match_type, audited,
+						   auth_type);
+		}
+
+		if (verdict != CTX_ACT_OK)
+			return verdict;
+
+		break;
+	case CT_RELATED:
+	case CT_REPLY:
+		/* Skip policy enforcement for return traffic. */
+
 		/* Check if this is return traffic to an ingress proxy. */
 		if (ct_state->proxy_redirect) {
 			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6,
@@ -489,39 +560,13 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			return ctx_redirect_to_proxy6(ctx, tuple, 0, false);
 		}
 		/* proxy_port remains 0 in this case */
-		goto skip_policy_enforcement;
+
+		policy_mark_skip(ctx);
+		break;
+	default:
+		return DROP_UNKNOWN_CT;
 	}
 
-	/* If the packet is in the establishing direction and it's destined
-	 * within the cluster, it must match policy or be dropped. If it's
-	 * bound for the host/outside, perform the CIDR policy check.
-	 */
-	verdict = policy_can_egress6(ctx, &POLICY_MAP, tuple, l4_off, SECLABEL_IPV6,
-				     *dst_sec_identity, &policy_match_type, &audited,
-				     ext_err, &proxy_port);
-
-	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-		auth_type = (__u8)*ext_err;
-		verdict = auth_lookup(ctx, SECLABEL_IPV6, *dst_sec_identity, tunnel_endpoint,
-				      auth_type);
-	}
-
-	/* Emit verdict if drop or if allow for CT_NEW. */
-	if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
-		send_policy_verdict_notify(ctx, *dst_sec_identity, tuple->dport,
-					   tuple->nexthdr, POLICY_EGRESS, 1,
-					   verdict, proxy_port,
-					   policy_match_type, audited,
-					   auth_type);
-	}
-
-	if (verdict != CTX_ACT_OK)
-		return verdict;
-
-skip_policy_enforcement:
-#if defined(ENABLE_L7_LB)
-	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
-#endif
 	switch (ct_status) {
 	case CT_NEW:
 ct_recreate6:
@@ -554,8 +599,6 @@ ct_recreate6:
 
 	case CT_RELATED:
 	case CT_REPLY:
-		policy_mark_skip(ctx);
-
 #ifdef ENABLE_NODEPORT
 		/* See comment in handle_ipv4_from_lxc(). */
 		if (ct_state->node_port && lb_is_svc_proto(tuple->nexthdr)) {
@@ -865,7 +908,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 #ifdef ENABLE_PER_PACKET_LB
 	/* Restore ct_state from per packet lb handling in the previous tail call. */
-	lb4_ctx_restore_state(ctx, &ct_state_new, &proxy_port, &cluster_id);
+	lb4_ctx_restore_state(ctx, &ct_state_new, &proxy_port, &cluster_id, true);
 	hairpin_flow = ct_state_new.loopback;
 #endif /* ENABLE_PER_PACKET_LB */
 
@@ -902,16 +945,62 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	trace.reason = (enum trace_reason)ret;
 	l4_off = ct_buffer->l4_off;
 
+	/* Apply network policy: */
+	switch (ct_status) {
+	case CT_NEW:
+	case CT_ESTABLISHED:
 #if defined(ENABLE_L7_LB)
-	if (proxy_port > 0) {
-		/* tuple addresses have been swapped by CT lookup */
-		cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr, tuple->saddr, bpf_ntohs(proxy_port));
-		goto skip_policy_enforcement;
-	}
+		from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+
+		/* Forward to L7 LB first before applying network policy: */
+		if (proxy_port > 0) {
+			/* tuple addresses have been swapped by CT lookup */
+			cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr, tuple->saddr,
+				    bpf_ntohs(proxy_port));
+			break;
+		}
 #endif /* ENABLE_L7_LB */
 
-	/* Skip policy enforcement for return traffic. */
-	if (ct_status == CT_REPLY || ct_status == CT_RELATED) {
+		/* When an endpoint connects to itself via service clusterIP, we need
+		 * to skip the policy enforcement. If we didn't, the user would have to
+		 * define policy rules to allow pods to talk to themselves. We still
+		 * want to execute the conntrack logic so that replies can be correctly
+		 * matched.
+		 */
+		if (hairpin_flow)
+			break;
+
+		/* If the packet is in the establishing direction and it's destined
+		 * within the cluster, it must match policy or be dropped. If it's
+		 * bound for the host/outside, perform the CIDR policy check.
+		 */
+		verdict = policy_can_egress4(ctx, &POLICY_MAP, tuple, l4_off, SECLABEL_IPV4,
+					     *dst_sec_identity, &policy_match_type, &audited,
+					     ext_err, &proxy_port);
+
+		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+			auth_type = (__u8)*ext_err;
+			verdict = auth_lookup(ctx, SECLABEL_IPV4, *dst_sec_identity,
+					      tunnel_endpoint, auth_type);
+		}
+
+		/* Emit verdict if drop or if allow for CT_NEW. */
+		if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
+			send_policy_verdict_notify(ctx, *dst_sec_identity, tuple->dport,
+						   tuple->nexthdr, POLICY_EGRESS, 0,
+						   verdict, proxy_port,
+						   policy_match_type, audited,
+						   auth_type);
+		}
+
+		if (verdict != CTX_ACT_OK)
+			return verdict;
+
+		break;
+	case CT_RELATED:
+	case CT_REPLY:
+		/* Skip policy enforcement for return traffic. */
+
 		/* Check if this is return traffic to an ingress proxy. */
 		if (ct_state->proxy_redirect) {
 			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4,
@@ -922,48 +1011,13 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			return ctx_redirect_to_proxy4(ctx, tuple, 0, false);
 		}
 		/* proxy_port remains 0 in this case */
-		goto skip_policy_enforcement;
+
+		policy_mark_skip(ctx);
+		break;
+	default:
+		return DROP_UNKNOWN_CT;
 	}
 
-	/* When an endpoint connects to itself via service clusterIP, we need
-	 * to skip the policy enforcement. If we didn't, the user would have to
-	 * define policy rules to allow pods to talk to themselves. We still
-	 * want to execute the conntrack logic so that replies can be correctly
-	 * matched.
-	 */
-	if (hairpin_flow)
-		goto skip_policy_enforcement;
-
-	/* If the packet is in the establishing direction and it's destined
-	 * within the cluster, it must match policy or be dropped. If it's
-	 * bound for the host/outside, perform the CIDR policy check.
-	 */
-	verdict = policy_can_egress4(ctx, &POLICY_MAP, tuple, l4_off, SECLABEL_IPV4,
-				     *dst_sec_identity, &policy_match_type, &audited,
-				     ext_err, &proxy_port);
-
-	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-		auth_type = (__u8)*ext_err;
-		verdict = auth_lookup(ctx, SECLABEL_IPV4, *dst_sec_identity, tunnel_endpoint,
-				      auth_type);
-	}
-
-	/* Emit verdict if drop or if allow for CT_NEW. */
-	if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
-		send_policy_verdict_notify(ctx, *dst_sec_identity, tuple->dport,
-					   tuple->nexthdr, POLICY_EGRESS, 0,
-					   verdict, proxy_port,
-					   policy_match_type, audited,
-					   auth_type);
-	}
-
-	if (verdict != CTX_ACT_OK)
-		return verdict;
-
-skip_policy_enforcement:
-#if defined(ENABLE_L7_LB)
-	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
-#endif
 	switch (ct_status) {
 	case CT_NEW:
 ct_recreate4:
@@ -1016,8 +1070,6 @@ ct_recreate4:
 
 	case CT_RELATED:
 	case CT_REPLY:
-		policy_mark_skip(ctx);
-
 #ifdef ENABLE_NODEPORT
 		/* This handles reply traffic for the case where the nodeport EP
 		 * is local to the node. We'll do the tail call to perform
@@ -1144,18 +1196,6 @@ ct_recreate4:
 						   false, 0);
 		}
 	}
-
-#ifdef ENABLE_EGRESS_GATEWAY_COMMON
-	/* We handle traffic to Egress GW that is not redirected to L7 proxy here.
-	 * The traffic that has been redirected is processed by to-netdev@bpf_host.
-	 * This code is retained in v1.16 to prevent disruptions during the upgrade.
-	 * It will be removed in v1.17.
-	 */
-	ret = egress_gw_handle_packet(ctx, tuple, ct_status, SECLABEL_IPV4,
-				      *dst_sec_identity, &trace);
-	if (ret != CTX_ACT_OK)
-		return ret;
-#endif
 
 	/* L7 proxy result in VTEP redirection in bpf_host, but when L7 proxy disabled
 	 * We want VTEP redirection handled earlier here to avoid packets passing to
@@ -2170,7 +2210,7 @@ TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS, tail_ipv4_ct_ingress, CT_INGRESS,
  * bpf_host, bpf_overlay (if coming from the tunnel), or bpf_lxc (if coming
  * from another local pod).
  */
-__section_tail(CILIUM_MAP_POLICY, TEMPLATE_LXC_ID)
+__section_entry
 int handle_policy(struct __ctx_buff *ctx)
 {
 	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
@@ -2221,10 +2261,10 @@ out:
  * This program will be tail called from bpf_host for packets sent by
  * a L7 LB.
  */
-#if defined(ENABLE_L7_LB)
-__section_tail(CILIUM_MAP_EGRESSPOLICY, TEMPLATE_LXC_ID)
-int handle_policy_egress(struct __ctx_buff *ctx)
+__section_entry
+int handle_policy_egress(struct __ctx_buff *ctx __maybe_unused)
 {
+#if defined(ENABLE_L7_LB)
 	__u16 proto;
 	int ret;
 	__u32 sec_label = SECLABEL;
@@ -2267,8 +2307,10 @@ out:
 					    CTX_ACT_DROP, METRIC_EGRESS);
 
 	return ret;
-}
+#else
+	return 0;
 #endif
+}
 
 /* Attached to the lxc device on the way to the container, only if endpoint
  * routes are enabled.

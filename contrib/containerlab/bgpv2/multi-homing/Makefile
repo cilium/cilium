@@ -1,5 +1,5 @@
 # version of cilium to deploy
-VERSION ?= v1.16.0-rc.0
+VERSION ?= v1.16.0
 
 deploy:
 	kind create cluster --config cluster.yaml

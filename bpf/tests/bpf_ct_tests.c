@@ -127,7 +127,7 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 		l4_off = l3_off + ipv4_hdrlen(ip4);
 
 		ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, ip4, l4_off,
-				 CT_EGRESS, &ct_state, &monitor);
+				 CT_EGRESS, SCOPE_BIDIR, &ct_state, &monitor);
 		switch (ret) {
 		case CT_NEW:
 			ct_state_new.node_port = ct_state.node_port;
@@ -186,7 +186,7 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 		l4_off = l3_off + ipv4_hdrlen(ip4);
 
 		ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, ip4, l4_off,
-			   CT_INGRESS, NULL, &monitor);
+			   CT_INGRESS, SCOPE_BIDIR, NULL, &monitor);
 
 		if (data + pkt_size > data_end)
 			test_fatal("packet shrank");

@@ -17,15 +17,16 @@ import (
 type Loader interface {
 	CallsMapPath(id uint16) string
 	CustomCallsMapPath(id uint16) string
-	ReloadDatapath(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) (string, error)
-	ReinitializeXDP(ctx context.Context, extraCArgs []string) error
-	EndpointHash(cfg EndpointConfiguration) (string, error)
 	Unload(ep Endpoint)
-	Reinitialize(ctx context.Context, cfg LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr IptablesManager, p Proxy) error
 	HostDatapathInitialized() <-chan struct{}
-	DetachXDP(iface string, bpffsBase, progName string) error
 
-	WriteEndpointConfig(w io.Writer, cfg EndpointConfiguration) error
+	ReloadDatapath(ctx context.Context, ep Endpoint, cfg *LocalNodeConfiguration, stats *metrics.SpanStat) (string, error)
+	ReinitializeXDP(ctx context.Context, cfg *LocalNodeConfiguration, extraCArgs []string) error
+	EndpointHash(cfg EndpointConfiguration, lnCfg *LocalNodeConfiguration) (string, error)
+	ReinitializeHostDev(ctx context.Context, mtu int) error
+	Reinitialize(ctx context.Context, cfg *LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr IptablesManager, p Proxy) error
+	DetachXDP(iface string, bpffsBase, progName string) error
+	WriteEndpointConfig(w io.Writer, cfg EndpointConfiguration, lnCfg *LocalNodeConfiguration) error
 }
 
 // PreFilter an interface for an XDP pre-filter.
@@ -45,19 +46,6 @@ type Proxy interface {
 
 // IptablesManager manages iptables rules.
 type IptablesManager interface {
-	// InstallProxyRules creates the necessary datapath config (e.g., iptables
-	// rules for redirecting host proxy traffic on a specific ProxyPort)
-	InstallProxyRules(proxyPort uint16, name string)
-
-	// SupportsOriginalSourceAddr tells if the datapath supports
-	// use of original source addresses in proxy upstream
-	// connections.
-	SupportsOriginalSourceAddr() bool
-
-	// GetProxyPorts fetches the existing proxy ports configured in the
-	// datapath. Used early in bootstrap to reopen proxy ports.
-	GetProxyPorts() map[string]uint16
-
 	// InstallNoTrackRules is explicitly called when a pod has valid
 	// "policy.cilium.io/no-track-port" annotation.  When
 	// InstallNoConntrackIptRules flag is set, a super set of v4 NOTRACK

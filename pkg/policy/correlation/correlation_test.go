@@ -96,6 +96,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		{
 			Name:      "web-policy",
 			Namespace: "foo-namespace",
+			Kind:      utils.ResourceTypeCiliumNetworkPolicy,
 			Labels: []string{
 				"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
 				"k8s:io.cilium.k8s.policy.name=web-policy",
@@ -148,6 +149,204 @@ func TestCorrelatePolicy(t *testing.T) {
 	require.Nil(t, flow.IngressAllowedBy)
 	require.Nil(t, flow.IngressDeniedBy)
 	if diff := cmp.Diff(expected, flow.EgressDeniedBy, protocmp.Transform()); diff != "" {
+		t.Fatalf("not equal (-want +got):\n%s", diff)
+	}
+
+	// check port+proto rule.
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
+			Type: monitorAPI.MessageTypePolicyVerdict,
+		},
+		Verdict:          flowpb.Verdict_FORWARDED,
+		TrafficDirection: flowpb.TrafficDirection_EGRESS,
+		IP: &flowpb.IP{
+			Source:      localIP,
+			Destination: remoteIP,
+		},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
+			},
+		},
+		Source: &flowpb.Endpoint{
+			ID:       uint32(localID),
+			Identity: uint32(localIdentity),
+		},
+		Destination: &flowpb.Endpoint{
+			ID:       uint32(remoteID),
+			Identity: uint32(remoteIdentity),
+		},
+		PolicyMatchType: monitorAPI.PolicyMatchL4Only,
+	}
+
+	policyKey = policy.Key{
+		Identity:         uint32(0),
+		DestPort:         uint16(dstPort),
+		Nexthdr:          uint8(u8proto.TCP),
+		TrafficDirection: trafficdirection.Egress.Uint8(),
+	}
+	ep = &testutils.FakeEndpointInfo{
+		ID:           localID,
+		IPv4:         net.ParseIP(localIP),
+		PodName:      "xwing",
+		PodNamespace: "default",
+		Labels:       []string{"a", "b", "c"},
+		PolicyMap: map[policy.Key]labels.LabelArrayList{
+			policyKey: {policyLabel},
+		},
+		PolicyRevision: 1,
+	}
+
+	CorrelatePolicy(endpointGetter, flow)
+
+	require.Nil(t, flow.EgressDeniedBy)
+	require.Nil(t, flow.IngressDeniedBy)
+	require.Nil(t, flow.IngressAllowedBy)
+	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+		t.Fatalf("not equal (-want +got):\n%s", diff)
+	}
+
+	// check port-only rule.
+	policyKey = policy.Key{
+		Identity:         uint32(0),
+		DestPort:         uint16(dstPort),
+		Nexthdr:          uint8(u8proto.ANY),
+		TrafficDirection: trafficdirection.Egress.Uint8(),
+	}
+	ep = &testutils.FakeEndpointInfo{
+		ID:           localID,
+		IPv4:         net.ParseIP(localIP),
+		PodName:      "xwing",
+		PodNamespace: "default",
+		Labels:       []string{"a", "b", "c"},
+		PolicyMap: map[policy.Key]labels.LabelArrayList{
+			policyKey: {policyLabel},
+		},
+		PolicyRevision: 1,
+	}
+
+	CorrelatePolicy(endpointGetter, flow)
+
+	require.Nil(t, flow.EgressDeniedBy)
+	require.Nil(t, flow.IngressDeniedBy)
+	require.Nil(t, flow.IngressAllowedBy)
+	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+		t.Fatalf("not equal (-want +got):\n%s", diff)
+	}
+
+	// check protocol-only rule.
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
+			Type: monitorAPI.MessageTypePolicyVerdict,
+		},
+		Verdict:          flowpb.Verdict_FORWARDED,
+		TrafficDirection: flowpb.TrafficDirection_EGRESS,
+		IP: &flowpb.IP{
+			Source:      localIP,
+			Destination: remoteIP,
+		},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
+			},
+		},
+		Source: &flowpb.Endpoint{
+			ID:       uint32(localID),
+			Identity: uint32(localIdentity),
+		},
+		Destination: &flowpb.Endpoint{
+			ID:       uint32(remoteID),
+			Identity: uint32(remoteIdentity),
+		},
+		PolicyMatchType: monitorAPI.PolicyMatchProtoOnly,
+	}
+
+	policyKey = policy.Key{
+		Identity:         uint32(0),
+		DestPort:         uint16(0),
+		InvertedPortMask: 0xffff, // this is a wildcard
+		Nexthdr:          uint8(u8proto.TCP),
+		TrafficDirection: trafficdirection.Egress.Uint8(),
+	}
+	ep = &testutils.FakeEndpointInfo{
+		ID:           localID,
+		IPv4:         net.ParseIP(localIP),
+		PodName:      "xwing",
+		PodNamespace: "default",
+		Labels:       []string{"a", "b", "c"},
+		PolicyMap: map[policy.Key]labels.LabelArrayList{
+			policyKey: {policyLabel},
+		},
+		PolicyRevision: 1,
+	}
+
+	CorrelatePolicy(endpointGetter, flow)
+
+	require.Nil(t, flow.EgressDeniedBy)
+	require.Nil(t, flow.IngressDeniedBy)
+	require.Nil(t, flow.IngressAllowedBy)
+	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
+		t.Fatalf("not equal (-want +got):\n%s", diff)
+	}
+
+	// check allow-all rule.
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
+			Type: monitorAPI.MessageTypePolicyVerdict,
+		},
+		Verdict:          flowpb.Verdict_FORWARDED,
+		TrafficDirection: flowpb.TrafficDirection_EGRESS,
+		IP: &flowpb.IP{
+			Source:      localIP,
+			Destination: remoteIP,
+		},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
+			},
+		},
+		Source: &flowpb.Endpoint{
+			ID:       uint32(localID),
+			Identity: uint32(localIdentity),
+		},
+		Destination: &flowpb.Endpoint{
+			ID:       uint32(remoteID),
+			Identity: uint32(remoteIdentity),
+		},
+		PolicyMatchType: monitorAPI.PolicyMatchAll,
+	}
+
+	policyKey = policy.Key{
+		Identity:         uint32(0),
+		DestPort:         uint16(0),
+		InvertedPortMask: 0xffff, // this is a wildcard
+		Nexthdr:          uint8(u8proto.ANY),
+		TrafficDirection: trafficdirection.Egress.Uint8(),
+	}
+	ep = &testutils.FakeEndpointInfo{
+		ID:           localID,
+		IPv4:         net.ParseIP(localIP),
+		PodName:      "xwing",
+		PodNamespace: "default",
+		Labels:       []string{"a", "b", "c"},
+		PolicyMap: map[policy.Key]labels.LabelArrayList{
+			policyKey: {policyLabel},
+		},
+		PolicyRevision: 1,
+	}
+
+	CorrelatePolicy(endpointGetter, flow)
+
+	require.Nil(t, flow.EgressDeniedBy)
+	require.Nil(t, flow.IngressDeniedBy)
+	require.Nil(t, flow.IngressAllowedBy)
+	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 
@@ -252,6 +451,87 @@ func TestCorrelatePolicy(t *testing.T) {
 	require.Nil(t, flow.IngressAllowedBy)
 	require.Nil(t, flow.EgressDeniedBy)
 	if diff := cmp.Diff(expected, flow.IngressDeniedBy, protocmp.Transform()); diff != "" {
+		t.Fatalf("not equal (-want +got):\n%s", diff)
+	}
+
+	// match ccnp
+	flow = &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
+			Type: monitorAPI.MessageTypePolicyVerdict,
+		},
+		Verdict:          flowpb.Verdict_FORWARDED,
+		TrafficDirection: flowpb.TrafficDirection_EGRESS,
+		IP: &flowpb.IP{
+			Source:      localIP,
+			Destination: remoteIP,
+		},
+		L4: &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
+					DestinationPort: dstPort,
+				},
+			},
+		},
+		Source: &flowpb.Endpoint{
+			ID:       uint32(localID),
+			Identity: uint32(localIdentity),
+		},
+		Destination: &flowpb.Endpoint{
+			ID:       uint32(remoteID),
+			Identity: uint32(remoteIdentity),
+		},
+		PolicyMatchType: monitorAPI.PolicyMatchL3L4,
+	}
+
+	policyLabel = utils.GetPolicyLabels("", "ccnp", "1234-5678", utils.ResourceTypeCiliumClusterwideNetworkPolicy)
+	policyKey = policy.Key{
+		Identity:         uint32(remoteIdentity),
+		DestPort:         uint16(dstPort),
+		Nexthdr:          uint8(u8proto.TCP),
+		TrafficDirection: trafficdirection.Egress.Uint8(),
+	}
+	ep = &testutils.FakeEndpointInfo{
+		ID:           localID,
+		Identity:     identity.NumericIdentity(localIdentity),
+		IPv4:         net.ParseIP(localIP),
+		PodName:      "xwing",
+		PodNamespace: "default",
+		Labels:       []string{"a", "b", "c"},
+		PolicyMap: map[policy.Key]labels.LabelArrayList{
+			policyKey: {policyLabel},
+		},
+		PolicyRevision: 1,
+	}
+
+	endpointGetter = &testutils.FakeEndpointGetter{
+		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+			if uint64(id) == ep.ID {
+				return ep, true
+			}
+			t.Fatalf("did not expect endpoint retrieval for non-local endpoint: %d", id)
+			return nil, false
+		},
+	}
+
+	CorrelatePolicy(endpointGetter, flow)
+
+	expected = []*flowpb.Policy{
+		{
+			Name: "ccnp",
+			Kind: utils.ResourceTypeCiliumClusterwideNetworkPolicy,
+			Labels: []string{
+				"k8s:io.cilium.k8s.policy.derived-from=CiliumClusterwideNetworkPolicy",
+				"k8s:io.cilium.k8s.policy.name=ccnp",
+				"k8s:io.cilium.k8s.policy.uid=1234-5678",
+			},
+			Revision: 1,
+		},
+	}
+
+	require.Nil(t, flow.EgressDeniedBy)
+	require.Nil(t, flow.IngressDeniedBy)
+	require.Nil(t, flow.IngressAllowedBy)
+	if diff := cmp.Diff(expected, flow.EgressAllowedBy, protocmp.Transform()); diff != "" {
 		t.Fatalf("not equal (-want +got):\n%s", diff)
 	}
 }

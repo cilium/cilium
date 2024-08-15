@@ -1,5 +1,4 @@
-#include <bpf/loader.h>
-#include <bpf/section.h>
+#include "common.h"
 
 #include <bpf/ctx/skb.h>
 #include <bpf/tailcall.h>

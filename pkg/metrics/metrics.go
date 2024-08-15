@@ -1562,9 +1562,9 @@ func Unregister(c prometheus.Collector) bool {
 	return false
 }
 
-// DumpMetrics gets the current Cilium metrics and dumps all into a
+// dumpMetrics gets the current Cilium metrics and dumps all into a
 // models.Metrics structure.If metrics cannot be retrieved, returns an error
-func DumpMetrics() ([]*models.Metric, error) {
+func dumpMetrics() ([]*models.Metric, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	reg, err := registry.Await(ctx)

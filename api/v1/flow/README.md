@@ -591,6 +591,7 @@ that happened before the events were captured by Hubble.
 | namespace | [string](#string) |  |  |
 | labels | [string](#string) | repeated |  |
 | revision | [uint64](#uint64) |  |  |
+| kind | [string](#string) |  |  |
 
 
 
@@ -1035,7 +1036,7 @@ here.
 | IGMP_SUBSCRIBED | 200 |  |
 | MULTICAST_HANDLED | 201 |  |
 | DROP_HOST_NOT_READY | 202 | A BPF program wants to tail call into bpf_host, but the host datapath hasn&#39;t been loaded yet. |
-| DROP_EP_NOT_READY | 203 | A BPF program wants to tail call some endpoint&#39;s policy program in the POLICY_CALL_MAP, but the program is not available. |
+| DROP_EP_NOT_READY | 203 | A BPF program wants to tail call some endpoint&#39;s policy program in cilium_call_policy, but the program is not available. |
 
 
 

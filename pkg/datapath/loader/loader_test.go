@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
@@ -56,13 +56,19 @@ func initEndpoint(tb testing.TB, ep *testutils.TestEndpoint) {
 			}
 		})
 	}
+}
+
+func initBpffs(tb testing.TB) {
+	testutils.PrivilegedTest(tb)
+
+	tb.Helper()
+
+	require.NoError(tb, bpf.MkdirBPF(bpf.TCGlobalsPath()))
+	require.NoError(tb, bpf.MkdirBPF(bpf.CiliumPath()))
 
 	tb.Cleanup(func() {
-		files, err := filepath.Glob("/sys/fs/bpf/tc/globals/test_*")
-		require.Nil(tb, err)
-		for _, f := range files {
-			assert.Nil(tb, os.Remove(f))
-		}
+		require.NoError(tb, os.RemoveAll(bpf.TCGlobalsPath()))
+		require.NoError(tb, os.RemoveAll(bpf.CiliumPath()))
 	})
 }
 
@@ -85,12 +91,14 @@ func getEpDirs(ep *testutils.TestEndpoint) *directoryInfo {
 }
 
 func testReloadDatapath(t *testing.T, ep *testutils.TestEndpoint) {
+	initBpffs(t)
+
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 	stats := &metrics.SpanStat{}
 
 	l := newTestLoader(t)
-	_, err := l.ReloadDatapath(ctx, ep, stats)
+	_, err := l.ReloadDatapath(ctx, ep, &localNodeConfig, stats)
 	require.NoError(t, err)
 }
 
@@ -131,19 +139,21 @@ func TestReload(t *testing.T) {
 	require.NoError(t, err)
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
-	linkDir := testutils.TempBPFFS(t)
+	tmp := testutils.TempBPFFS(t)
 
 	for range 2 {
 		spec, err := bpf.LoadCollectionSpec(objPath)
 		require.NoError(t, err)
 
-		coll, commit, err := loadDatapath(spec, nil, nil)
+		coll, commit, err := bpf.LoadCollection(spec, &bpf.CollectionOptions{
+			CollectionOptions: ebpf.CollectionOptions{Maps: ebpf.MapOptions{PinPath: tmp}},
+		})
 		require.NoError(t, err)
 
 		require.NoError(t, attachSKBProgram(l, coll.Programs[symbolFromEndpoint],
-			symbolFromEndpoint, linkDir, netlink.HANDLE_MIN_INGRESS, true))
+			symbolFromEndpoint, tmp, netlink.HANDLE_MIN_INGRESS, true))
 		require.NoError(t, attachSKBProgram(l, coll.Programs[symbolToEndpoint],
-			symbolToEndpoint, linkDir, netlink.HANDLE_MIN_EGRESS, true))
+			symbolToEndpoint, tmp, netlink.HANDLE_MIN_EGRESS, true))
 
 		require.NoError(t, commit())
 
@@ -171,7 +181,7 @@ func testCompileFailure(t *testing.T, ep *testutils.TestEndpoint) {
 	var err error
 	stats := &metrics.SpanStat{}
 	for err == nil && time.Now().Before(timeout) {
-		_, err = l.ReloadDatapath(ctx, ep, stats)
+		_, err = l.ReloadDatapath(ctx, ep, &localNodeConfig, stats)
 	}
 	require.Error(t, err)
 }
@@ -204,12 +214,11 @@ func TestBPFMasqAddrs(t *testing.T) {
 
 	l := newTestLoader(t)
 
-	masq4, masq6 := l.bpfMasqAddrs("test")
+	masq4, masq6 := l.bpfMasqAddrs("test", &localNodeConfig)
 	require.Equal(t, masq4.IsValid(), false)
 	require.Equal(t, masq6.IsValid(), false)
 
-	newConfig := *l.nodeConfig.Load()
-
+	newConfig := localNodeConfig
 	newConfig.NodeAddresses = []tables.NodeAddress{
 		{
 			Addr:       netip.MustParseAddr("1.0.0.1"),
@@ -236,13 +245,12 @@ func TestBPFMasqAddrs(t *testing.T) {
 			DeviceName: tables.WildcardDeviceName,
 		},
 	}
-	l.nodeConfig.Store(&newConfig)
 
-	masq4, masq6 = l.bpfMasqAddrs("test")
+	masq4, masq6 = l.bpfMasqAddrs("test", &newConfig)
 	require.Equal(t, masq4.String(), "1.0.0.1")
 	require.Equal(t, masq6.String(), "1000::1")
 
-	masq4, masq6 = l.bpfMasqAddrs("unknown")
+	masq4, masq6 = l.bpfMasqAddrs("unknown", &newConfig)
 	require.Equal(t, masq4.String(), "2.0.0.2")
 	require.Equal(t, masq6.String(), "2000::2")
 }
@@ -269,6 +277,8 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
+	tmp := testutils.TempBPFFS(b)
+
 	ep := testutils.NewTestEndpoint()
 	initEndpoint(b, &ep)
 
@@ -286,7 +296,9 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 			b.Fatal(err)
 		}
 
-		coll, commit, err := loadDatapath(spec, nil, nil)
+		coll, commit, err := bpf.LoadCollection(spec, &bpf.CollectionOptions{
+			CollectionOptions: ebpf.CollectionOptions{Maps: ebpf.MapOptions{PinPath: tmp}},
+		})
 		if err != nil {
 			b.Fatal(err)
 		}

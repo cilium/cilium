@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
@@ -1292,8 +1293,8 @@ func initEnv(vp *viper.Viper) {
 	if err := os.MkdirAll(globalsDir, defaults.StateDirRights); err != nil {
 		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create runtime directory")
 	}
-	if err := os.Chdir(option.Config.LibDir); err != nil {
-		log.WithError(err).WithField(logfields.Path, option.Config.LibDir).Fatal("Could not change to runtime directory")
+	if err := os.Chdir(option.Config.StateDir); err != nil {
+		log.WithError(err).WithField(logfields.Path, option.Config.StateDir).Fatal("Could not change to runtime directory")
 	}
 	if _, err := os.Stat(option.Config.BpfDir); os.IsNotExist(err) {
 		log.WithError(err).Fatalf("BPF template directory: NOT OK. Please run 'make install-bpf'")
@@ -1631,6 +1632,7 @@ var daemonCell = cell.Module(
 	cell.Provide(
 		newDaemonPromise,
 		promise.New[endpointstate.Restorer],
+		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
 	),
 	// Provide a read-only copy of the current daemon settings to be consumed
@@ -1644,10 +1646,12 @@ var daemonCell = cell.Module(
 type daemonParams struct {
 	cell.In
 
+	CfgResolver promise.Resolver[*option.DaemonConfig]
+
 	Lifecycle              cell.Lifecycle
 	Health                 cell.Health
 	Clientset              k8sClient.Clientset
-	Datapath               datapath.Datapath
+	Loader                 datapath.Loader
 	WGAgent                *wireguard.Agent
 	LocalNodeStore         *node.LocalNodeStore
 	Shutdowner             hive.Shutdowner
@@ -1658,6 +1662,9 @@ type daemonParams struct {
 	K8sResourceSynced      *k8sSynced.Resources
 	K8sAPIGroups           *k8sSynced.APIGroups
 	NodeManager            nodeManager.NodeManager
+	NodeHandler            datapath.NodeHandler
+	NodeNeighbors          datapath.NodeNeighbors
+	NodeAddressing         datapath.NodeAddressing
 	EndpointManager        endpointmanager.EndpointManager
 	CertManager            certificatemanager.CertificateManager
 	SecretManager          certificatemanager.SecretManager
@@ -1706,11 +1713,12 @@ type daemonParams struct {
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
 	IdentityManager     *identitymanager.IdentityManager
+	Orchestrator        datapath.Orchestrator
+	IPTablesManager     *iptables.Manager
 }
 
-func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[*option.DaemonConfig], promise.Promise[policyK8s.PolicyManager]) {
+func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[policyK8s.PolicyManager]) {
 	daemonResolver, daemonPromise := promise.New[*Daemon]()
-	cfgResolver, cfgPromise := promise.New[*option.DaemonConfig]()
 	policyManagerResolver, policyManagerPromise := promise.New[policyK8s.PolicyManager]()
 
 	// daemonCtx is the daemon-wide context cancelled when stopping.
@@ -1725,7 +1733,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 			defer func() {
 				// Reject promises on error
 				if err != nil {
-					cfgResolver.Reject(err)
+					params.CfgResolver.Reject(err)
 					policyManagerResolver.Reject(err)
 					daemonResolver.Reject(err)
 				}
@@ -1763,7 +1771,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 
 			// 'option.Config' is assumed to be stable at this point, execpt for
 			// 'option.Config.Opts' that are explicitly deemed to be runtime-changeable
-			cfgResolver.Resolve(option.Config)
+			params.CfgResolver.Resolve(option.Config)
 			policyManagerResolver.Resolve(daemon)
 
 			if option.Config.DryMode {
@@ -1789,7 +1797,7 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 			return nil
 		},
 	})
-	return daemonPromise, cfgPromise, policyManagerPromise
+	return daemonPromise, policyManagerPromise
 }
 
 // startDaemon starts the old unmodular part of the cilium-agent.
@@ -1952,19 +1960,19 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	// Watches for node neighbors link updates.
-	d.nodeDiscovery.Manager.StartNodeNeighborLinkUpdater(d.datapath.NodeNeighbors())
+	d.nodeDiscovery.Manager.StartNodeNeighborLinkUpdater(params.NodeNeighbors)
 
 	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-		if !d.datapath.NodeNeighbors().NodeNeighDiscoveryEnabled() {
+		if !params.NodeNeighbors.NodeNeighDiscoveryEnabled() {
 			// Remove all non-GC'ed neighbor entries that might have previously set
 			// by a Cilium instance.
-			d.datapath.NodeNeighbors().NodeCleanNeighbors(false)
+			params.NodeNeighbors.NodeCleanNeighbors(false)
 		} else {
 			// If we came from an agent upgrade, migrate entries.
-			d.datapath.NodeNeighbors().NodeCleanNeighbors(true)
+			params.NodeNeighbors.NodeCleanNeighbors(true)
 			// Start periodical refresh of the neighbor table from the agent if needed.
 			if option.Config.ARPPingRefreshPeriod != 0 && !option.Config.ARPPingKernelManaged {
-				d.nodeDiscovery.Manager.StartNeighborRefresh(d.datapath.NodeNeighbors())
+				d.nodeDiscovery.Manager.StartNeighborRefresh(params.NodeNeighbors)
 			}
 		}
 	}

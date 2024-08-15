@@ -31,7 +31,7 @@ var (
 var Cell = cell.Module(
 	"controller",
 	"Controllers and Controller Lifecycle management",
-	cell.Config(Config{}),
+	cell.Config(defaultConfig),
 	metrics.Metric(NewMetrics),
 	cell.Invoke(Init),
 )
@@ -62,6 +62,10 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 		"List of controller group names for which to to enable metrics. "+
 			"Accepts 'all' and 'none'. "+
 			"The set of controller group names available is not guaranteed to be stable between Cilium versions.")
+}
+
+var defaultConfig = Config{
+	ControllerGroupMetrics: []string{},
 }
 
 func Init(cfg Config, m Metrics) {

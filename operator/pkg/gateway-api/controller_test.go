@@ -39,7 +39,7 @@ func testScheme() *runtime.Scheme {
 	utilruntime.Must(ciliumv2.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 
-	registerGatewayAPITypesToScheme(scheme)
+	registerGatewayAPITypesToScheme(scheme, optionalGVKs)
 
 	return scheme
 }

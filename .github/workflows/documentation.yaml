@@ -61,8 +61,10 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           persist-credentials: false
+          # Needed to detect missing redirects
+          fetch-depth: 0
       - name: Build HTML
-        uses: docker://quay.io/cilium/docs-builder:9ccbdd04a50d599e9e699face6231e59c0036a51@sha256:6d1a0eaeb32ba98b60df52c69e7c8031a38e8aa6a0d4738bef35bd48a3bfbc0e
+        uses: docker://quay.io/cilium/docs-builder:7ca68722994a8fb0bf5778d3d13b2f29cd8472c8@sha256:94947b159622d7bcd280ce72a9df79575b09b3930b14051c6af948b0ffc5bab6
         with:
           entrypoint: ./Documentation/check-build.sh
           args: html
@@ -76,11 +78,13 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           persist-credentials: false
+          # Needed to detect missing redirects
+          fetch-depth: 0
       - name: Install Go
         uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.22.5
+          go-version: 1.22.6
 
       # Building Cilium as precondition to generate documentation artifacts.
       - name: Build Cilium

@@ -30,7 +30,7 @@ var Cell = cell.Module(
 	}),
 	cell.ProvidePrivate(idsMgrProvider),
 
-	cell.Config(common.Config{}),
+	cell.Config(common.DefaultConfig),
 	cell.Config(wait.TimeoutConfigDefault),
 
 	metrics.Metric(NewMetrics),

@@ -73,13 +73,14 @@ that they are all up-to-date:
 
 .. code-block:: makefile
 
-   check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values update-codeowners
-   	./check-cmdref.sh
-   	./check-helmvalues.sh
-   	$(DOCKER_RUN) ./check-examples.sh   # Runs "cilium policy validate" and "yamllint"
-   	./check-codeowners.sh
-   	./check-flaggen.sh
-   	./check-crdlist.sh
+   check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values update-codeowners update-redirects
+     ./check-cmdref.sh
+     ./check-helmvalues.sh
+     $(DOCKER_RUN) ./check-examples.sh # Runs "cilium policy validate" and "yamllint"
+     ./check-codeowners.sh
+     ./check-flaggen.sh
+     ./check-crdlist.sh
+     ./check-redirects.sh
 
 Regeneration happens when the different dependency targets for ``check`` are
 run. They are:
@@ -112,6 +113,13 @@ run. They are:
   - ``./update-codeowners.sh``
   - Synchronizes teams description from ``CODEOWNERS``
   - Generates ``Documentation/codeowners.rst``
+
+- ``update-redirects``
+
+  - ``make -C Documentation update-redirects``
+  - Automatically generates redirects based on moved files based on git history.
+  - Validates that all moved or deleted files have a redirect.
+  - Generates ``Documentation/redirects.txt``
 
 Other auto-generated contents include:
 
@@ -194,6 +202,21 @@ contexts, but never as ``Wireguard``. This filter is implemented in
 
 .. _spell-checker module: https://github.com/sphinx-contrib/spelling
 .. _builder: https://www.sphinx-doc.org/en/master/usage/builders
+
+Redirect checker/builder
+------------------------
+
+The build system relies on the Sphinx extension `sphinxext-rediraffe`_ (considered a
+`builder`_ in Sphinx) for redirects.
+
+The redirect checker uses the git history to determine if a file has been moved or deleted in order to validate that a redirect for the file has been created in ``Documentation/redirects.txt``.
+Redirects are defined as a mapping from the original source file location to the new location within the ``Documentation/`` directory. The extension uses the ``rediraffe_branch`` as the git ref to diff against to determine which files have been moved or deleted. Any changes prior to the ref specified by ``rediraffe_branch`` will not be detected.
+
+To add new entries to the ``redirects.txt``, run ``make -C Documentation update-redirects``.
+
+If a file has been deleted, or has been moved and is not similar enough to the original source file, then you must manually update ``redirects.txt`` with the correct mapping.
+
+.. _sphinxext-rediraffe: https://github.com/wpilibsuite/sphinxext-rediraffe
 
 :spelling:word:`rstcheck`
 -------------------------

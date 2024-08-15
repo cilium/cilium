@@ -38,6 +38,8 @@ const WildcardDeviceName = "*"
 
 // NodeAddress is an IP address assigned to a network interface on a Cilium node
 // that is considered a "host" IP address.
+//
+// NOTE: Update DeepEqual() when this struct is modified
 type NodeAddress struct {
 	Addr netip.Addr
 
@@ -55,6 +57,13 @@ type NodeAddress struct {
 	// DeviceName is the name of the network device from which this address
 	// is derived from.
 	DeviceName string
+}
+
+func (n *NodeAddress) DeepEqual(other *NodeAddress) bool {
+	return n.Addr == other.Addr &&
+		n.NodePort == other.NodePort &&
+		n.Primary == other.Primary &&
+		n.DeviceName == other.DeviceName
 }
 
 func (n *NodeAddress) IP() net.IP {

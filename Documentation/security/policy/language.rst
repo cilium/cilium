@@ -964,8 +964,9 @@ latter rule will have no effect.
           endpoint. This might change in the future when support for ranges is
           added.
 
-.. note:: Layer 7 rules are not currently supported in `HostPolicies`, i.e.,
-          policies that use :ref:`NodeSelector`.
+.. note:: In `HostPolicies`, i.e. policies that use :ref:`NodeSelector`,
+          only DNS layer 7 rules are currently supported.
+          Other types of layer 7 rules are not supported in `HostPolicies`.
 
 .. note:: Layer 7 policies will proxy traffic through a node-local :ref:`envoy`
           instance, which will either be deployed as a DaemonSet or embedded in the agent pod.
@@ -1367,6 +1368,20 @@ the policy engine. Additionally, the Cilium agent monitors this directory for an
 new policy YAML files as well as any updates or deletions, making corresponding 
 updates to the policy engine's rules. It is important to note that this feature 
 only supports CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy.
+
+The directory that the Cilium agent needs to monitor should be mounted from the host 
+using volume mounts. For users deploying via Helm, this can be enabled via ``extraArgs``
+and ``extraHostPathMounts`` as follows:
+
+.. code-block:: yaml
+
+   extraArgs:                                                                                                                                        
+   - --static-cnp-path=/policies                                                                                                                   
+   extraHostPathMounts:                                                                                                                              
+   - name: static-policies                                                                                                                         
+      mountPath: /policies                                                                                                                          
+      hostPath: /policies                                                                                                                           
+      hostPathType: Directory  
 
 To determine whether a policy was established via Kubernetes CRD or directly from a directory, 
 execute the command ``cilium policy get`` and examine the source attribute within the policy. 

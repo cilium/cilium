@@ -314,6 +314,13 @@ Deprecated Options
 Helm Options
 ~~~~~~~~~~~~
 
+* The Helm options ``hubble.tls.server.cert``, ``hubble.tls.server.key``,
+  ``hubble.relay.tls.client.cert``, ``hubble.relay.tls.client.key``,
+  ``hubble.relay.tls.server.cert``, ``hubble.relay.tls.server.key``,
+  ``hubble.ui.tls.client.cert``, and ``hubble.ui.tls.client.key`` have been
+  deprecated in favor of the associated ``existingSecret`` options and will be
+  removed in a future release.
+
 Added Metrics
 ~~~~~~~~~~~~~
 
@@ -468,36 +475,48 @@ As the :term:`ConfigMap` is successfully upgraded we can start upgrading Cilium
 Migrating from kvstore-backed identities to Kubernetes CRD-backed identities
 ----------------------------------------------------------------------------
 
-Beginning with cilium 1.6, Kubernetes CRD-backed security identities can be
-used for smaller clusters. Along with other changes in 1.6 this allows
+Beginning with Cilium 1.6, Kubernetes CRD-backed security identities can be
+used for smaller clusters. Along with other changes in 1.6, this allows
 kvstore-free operation if desired. It is possible to migrate identities from an
 existing kvstore deployment to CRD-backed identities. This minimizes
 disruptions to traffic as the update rolls out through the cluster.
 
-Affected versions
-~~~~~~~~~~~~~~~~~
+Migration
+~~~~~~~~~
 
-* Cilium 1.6 deployments using kvstore-backend identities
-
-Mitigation
-~~~~~~~~~~
-
-When identities change, existing connections can be disrupted while cilium
+When identities change, existing connections can be disrupted while Cilium
 initializes and synchronizes with the shared identity store. The disruption
 occurs when new numeric identities are used for existing pods on some instances
 and others are used on others. When converting to CRD-backed identities, it is
 possible to pre-allocate CRD identities so that the numeric identities match
-those in the kvstore. This allows new and old cilium instances in the rollout
+those in the kvstore. This allows new and old Cilium instances in the rollout
 to agree.
 
-The steps below show an example of such a migration. It is safe to re-run the
-command if desired. It will identify already allocated identities or ones that
+There are two ways to achieve this: you can either run a one-off ``cilium preflight migrate-identity`` script
+which will perform a point-in-time copy of all identities from the kvstore to CRDs (added in Cilium 1.6), or use the "Double Write" identity
+allocation mode which will have Cilium manage identities in both the kvstore and CRD at the same time for a seamless migration (added in Cilium 1.17).
+
+Migration with the ``cilium preflight migrate-identity`` script
+###############################################################
+
+The ``cilium preflight migrate-identity`` script is a one-off tool that can be used to copy identities from the kvstore into CRDs.
+It has a couple of limitations:
+
+* If an identity is created in the kvstore after the one-off migration has been completed, it will not be copied into a CRD.
+  This means that you need to perform the migration on a cluster with no identity churn.
+* There is no easy way to revert back to ``--identity-allocation-mode=kvstore`` if something goes wrong after
+  Cilium has been migrated to ``--identity-allocation-mode=crd``
+
+If these limitations are not acceptable, it is recommended to use the ":ref:`Double Write <double_write_migration>`" identity allocation mode instead.
+
+The following steps show an example of performing the migration using the ``cilium preflight migrate-identity`` script.
+It is safe to re-run the command if desired. It will identify already allocated identities or ones that
 cannot be migrated. Note that identity ``34815`` is migrated, ``17003`` is
 already migrated, and ``11730`` has a conflict and a new ID allocated for those
 labels.
 
 The steps below assume a stable cluster with no new identities created during
-the rollout. Once a cilium using CRD-backed identities is running, it may begin
+the rollout. Once Cilium using CRD-backed identities is running, it may begin
 allocating identities in a way that conflicts with older ones in the kvstore.
 
 The cilium preflight manifest requires etcd support and can be built with:
@@ -568,11 +587,61 @@ Once the migration is complete, confirm the endpoint identities match by listing
 Clearing CRD identities
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-If a migration has gone wrong, it possible to start with a clean slate. Ensure that no cilium instances are running with identity-allocation-mode crd and execute:
+If a migration has gone wrong, it possible to start with a clean slate. Ensure that no Cilium instances are running with ``--identity-allocation-mode=crd`` and execute:
 
 .. code-block:: shell-session
 
       $ kubectl delete ciliumid --all
+
+.. _double_write_migration:
+
+Migration with the "Double Write" identity allocation mode
+##########################################################
+
+.. include:: ../beta.rst
+
+The "Double Write" Identity Allocation Mode allows Cilium to allocate identities as KVStore values *and* as CRDs at the
+same time. This mode also has two versions: one where the source of truth comes from the kvstore (``--identity-allocation-mode=doublewrite-readkvstore``),
+and one where the source of truth comes from CRDs (``--identity-allocation-mode=doublewrite-readcrd``).
+
+.. note::
+
+    "Double Write" mode is not compatible with Consul as the KVStore
+
+The high-level migration plan looks as follows:
+
+#. Starting state: Cilium is running in KVStore mode.
+#. Switch Cilium to “Double Write” mode with all reads happening from the KVStore. This is almost the same as the
+   pure KVStore mode with the only difference being that all identities are duplicated as CRDs but are not used.
+#. Switch Cilium to “Double Write” mode with all reads happening from CRDs. This is equivalent to Cilium running in
+   pure CRD mode but identities will still be updated in the KVStore to allow for the possibility of a fast rollback.
+#. Switch Cilium to CRD mode. The KVStore will no longer be used and will be ready for decommission.
+
+This will allow you to perform a gradual and seamless migration with the possibility of a fast rollback at steps two or three.
+
+Furthermore, when the "Double Write" mode is enabled, the Operator will emit additional metrics to help monitor the
+migration progress. These metrics can be used for alerting about identity inconsistencies between the KVStore and CRDs.
+
+Note that you can also use this to migrate from CRD to KVStore mode. All operations simply need to be repeated in reverse order.
+
+Rollout Instructions
+~~~~~~~~~~~~~~~~~~~~
+
+#. Re-deploy first the Operator and then the Agents with ``--identity-allocation-mode=doublewrite-readkvstore``.
+#. Monitor the Operator metrics and logs to ensure that all identities have converged between the KVStore and CRDs. The relevant metrics emitted by the Operator are:
+
+   * ``cilium_operator_identity_crd_total_count`` and ``cilium_operator_identity_kvstore_total_count`` report the total number of identities in CRDs and KVStore respectively.
+   * ``cilium_operator_identity_crd_only_count`` and ``cilium_operator_identity_kvstore_only_count`` report the number of
+     identities that are only in CRDs or only in the KVStore respectively, to help detect inconsistencies.
+
+   In case further investigation is needed, the Operator logs will contain detailed information about the discrepancies between KVStore and CRD identities.
+   Note that Garbage Collection for KVStore identities and CRD identities happens at slightly different times, so it is possible to see discrepancies in the metrics
+   for certain periods of time, depending on ``--identity-gc-interval`` and ``--identity-heartbeat-timeout`` settings.
+#. Once all identities have converged, re-deploy the Operator and the Agents with ``--identity-allocation-mode=doublewrite-readcrd``.
+   This will cause Cilium to read identities only from CRDs, but continue to write them to the KVStore.
+#. Once you are ready to decommission the KVStore, re-deploy first the Agents and then the Operator with ``--identity-allocation-mode=crd``.
+   This will make Cilium read and write identities only to CRDs.
+#. You can now decommission the KVStore.
 
 .. _cnp_validation:
 

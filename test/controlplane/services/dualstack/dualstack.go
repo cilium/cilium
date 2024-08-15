@@ -51,11 +51,11 @@ func testDualStack(t *testing.T) {
 }
 
 func validate(file string, test *suite.ControlPlaneTest) error {
-	if err := helpers.ValidateLBMapGoldenFile(file, test.Datapath); err != nil {
+	if err := helpers.ValidateLBMapGoldenFile(file, test.FakeLbMap); err != nil {
 		return err
 	}
 
-	assert := helpers.NewLBMapAssert(test.Datapath.LBMockMap())
+	assert := helpers.NewLBMapAssert(test.FakeLbMap)
 
 	// Verify that default/echo-dualstack service exists
 	// for both NodePort and ClusterIP, and that it has backends
@@ -81,5 +81,4 @@ func validate(file string, test *suite.ControlPlaneTest) error {
 	}
 
 	return nil
-
 }

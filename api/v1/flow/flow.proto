@@ -434,8 +434,8 @@ enum DropReason {
     // A BPF program wants to tail call into bpf_host, but the host datapath
     // hasn't been loaded yet.
     DROP_HOST_NOT_READY = 202;
-    // A BPF program wants to tail call some endpoint's policy program in the
-    // POLICY_CALL_MAP, but the program is not available.
+    // A BPF program wants to tail call some endpoint's policy program in
+    // cilium_call_policy, but the program is not available.
     DROP_EP_NOT_READY = 203;
 }
 
@@ -464,6 +464,7 @@ message Policy {
 	string namespace = 2;
 	repeated string labels = 3;
 	uint64 revision = 4;
+	string kind = 5;
 }
 
 // EventTypeFilter is a filter describing a particular event type.

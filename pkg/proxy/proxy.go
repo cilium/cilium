@@ -53,7 +53,6 @@ const (
 
 type DatapathUpdater interface {
 	InstallProxyRules(proxyPort uint16, name string)
-	SupportsOriginalSourceAddr() bool
 	GetProxyPorts() map[string]uint16
 }
 

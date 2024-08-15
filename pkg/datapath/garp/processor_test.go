@@ -39,7 +39,7 @@ func TestProcessorCell(t *testing.T) {
 		"test-garp-processor-cell",
 		"TestProcessorCell",
 
-		cell.Config(Config{}),
+		cell.Config(defaultConfig),
 
 		// Provide the mock GARP Sender cell, passing in feedback
 		// channel.

@@ -11,6 +11,7 @@
 #include "auth.h"
 #include "policy.h"
 #include "policy_log.h"
+#include "proxy.h"
 #include "trace.h"
 
 # ifdef ENABLE_IPV6
@@ -69,7 +70,7 @@ ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	}
 	ct_buffer->l4_off = l3_off + hdrlen;
 	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ct_buffer->l4_off,
-				    CT_EGRESS, NULL, &ct_buffer->monitor);
+				    CT_EGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
 	return true;
 }
 
@@ -146,6 +147,15 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 					   tuple->nexthdr, POLICY_EGRESS, 1,
 					   verdict, proxy_port, policy_match_type, audited,
 					   auth_type);
+
+	if (proxy_port > 0 && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
+		/* Trace the packet before it is forwarded to proxy */
+		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6, UNKNOWN_ID,
+				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
+				  trace->reason, trace->monitor);
+		return ctx_redirect_to_proxy_host_egress(ctx, proxy_port);
+	}
+
 	return verdict;
 }
 
@@ -196,7 +206,7 @@ ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	}
 	ct_buffer->l4_off = ETH_HLEN + hdrlen;
 	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ct_buffer->l4_off,
-				    CT_INGRESS, NULL, &ct_buffer->monitor);
+				    CT_INGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
 
 	return true;
 }
@@ -345,7 +355,7 @@ ipv4_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	tuple->saddr = ip4->saddr;
 	ct_buffer->l4_off = l3_off + ipv4_hdrlen(ip4);
 	ct_buffer->ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, ip4, ct_buffer->l4_off,
-				    CT_EGRESS, NULL, &ct_buffer->monitor);
+				    CT_EGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
 	return true;
 }
 
@@ -422,6 +432,15 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 					   tuple->nexthdr, POLICY_EGRESS, 0,
 					   verdict, proxy_port, policy_match_type, audited,
 					   auth_type);
+
+	if (proxy_port > 0 && (ret == CT_NEW || ret == CT_ESTABLISHED)) {
+		/* Trace the packet before it is forwarded to proxy */
+		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4, UNKNOWN_ID,
+				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
+				  trace->reason, trace->monitor);
+		return ctx_redirect_to_proxy_host_egress(ctx, proxy_port);
+	}
+
 	return verdict;
 }
 
@@ -466,7 +485,7 @@ ipv4_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct iphdr *ip4,
 	tuple->saddr = ip4->saddr;
 	ct_buffer->l4_off = l3_off + ipv4_hdrlen(ip4);
 	ct_buffer->ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, ip4, ct_buffer->l4_off,
-				    CT_INGRESS, NULL, &ct_buffer->monitor);
+				    CT_INGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
 
 	return true;
 }

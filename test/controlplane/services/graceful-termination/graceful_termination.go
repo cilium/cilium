@@ -16,7 +16,6 @@ import (
 
 func init() {
 	suite.AddTestCase("Services/GracefulTermination", testGracefulTermination)
-
 }
 
 func testGracefulTermination(t *testing.T) {
@@ -46,16 +45,16 @@ func testGracefulTermination(t *testing.T) {
 		// Step 1: Initial creation of the services and backends
 		// lbmap1.golden: Shows graceful-term-svc service with an active backend
 		UpdateObjectsFromFile(abs("state1.yaml")).
-		Eventually(func() error { return helpers.ValidateLBMapGoldenFile(abs("lbmap1.golden"), test.Datapath) }).
+		Eventually(func() error { return helpers.ValidateLBMapGoldenFile(abs("lbmap1.golden"), test.FakeLbMap) }).
 
 		// Step 2: Pod is being deleted and endpoint is set to terminating state
 		// lbmap2.golden: The backend state is 'terminating'
 		UpdateObjectsFromFile(abs("state2.yaml")).
-		Eventually(func() error { return helpers.ValidateLBMapGoldenFile(abs("lbmap2.golden"), test.Datapath) }).
+		Eventually(func() error { return helpers.ValidateLBMapGoldenFile(abs("lbmap2.golden"), test.FakeLbMap) }).
 
 		// Step 3: Endpoint has now been removed from the endpoint slice.
 		// lbmap3.golden: The graceful-term-svc service no longer has any backeds
 		UpdateObjectsFromFile(abs("state3.yaml")).
-		Eventually(func() error { return helpers.ValidateLBMapGoldenFile(abs("lbmap3.golden"), test.Datapath) }).
+		Eventually(func() error { return helpers.ValidateLBMapGoldenFile(abs("lbmap3.golden"), test.FakeLbMap) }).
 		ClearEnvironment()
 }
