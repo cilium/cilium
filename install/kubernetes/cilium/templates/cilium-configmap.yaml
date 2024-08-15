@@ -53,6 +53,14 @@
   {{- $defaultDNSProxyEnableTransparentMode = "true" -}}
 {{- end -}}
 
+{{- $policyCIDRMatchMode := ""}}
+{{- /* Default values when 1.6 was initially deployed */ -}}
+{{- if semverCompare ">=1.17" (default "1.17" .Values.upgradeCompatibility) -}}
+  {{- if hasKey .Values "policyCIDRMatchMode"}}
+    {{- $policyCIDRMatchMode =  (join " " .Values.policyCIDRMatchMode | quote ) -}}
+  {{- end}}
+{{- end}}
+
 {{- /* Default values when 1.14 was initially deployed */ -}}
 {{- if semverCompare ">=1.14" (default "1.14" .Values.upgradeCompatibility) -}}
   {{- /* KPR default for 1.14 needed to override earlier version defaults set above when upgradeCompatibility is not specified */ -}}
@@ -189,14 +197,13 @@ data:
   enable-policy: "{{ lower .Values.policyEnforcementMode }}"
 {{- end }}
 
-{{- /* from 1.17 and onwards default value of policy-cidr-match-mode is 'nodes' */ -}}
+
 # if no upgradeCompatibility is supplied or if a value >= 1.17 is supllied, value 
 # of policy-cidr-match-mode is changed to the one defined in values.yaml
-{{- if semverCompare ">=1.17" (default "1.17" .Values.upgradeCompatibility) -}}
-  {{- if hasKey .Values "policyCIDRMatchMode" }}
-    policy-cidr-match-mode: {{ join " " .Values.policyCIDRMatchMode | quote }}
-  {{- end}}
+{{- if not (eq $policyCIDRMatchMode "") }}
+  policy-cidr-match-mode: {{ $policyCIDRMatchMode}}
 {{- end}}
+
 
 
 {{- if .Values.prometheus.enabled }}
