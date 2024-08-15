@@ -208,13 +208,16 @@ int nodeport_geneve_dsr_lb_xdp1_local_backend_check(const struct __ctx_buff *ctx
 		test_fatal("dst IP hasn't been NATed to local backend IP");
 
 	if (l3->check != bpf_htons(0x4112))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst TCP port hasn't been NATed to backend port");
+
+	if (l4->check != bpf_htons(0xd7d0))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -345,7 +348,7 @@ int nodeport_geneve_dsr_lb_xdp_fwd_check(__maybe_unused const struct __ctx_buff 
 		test_fatal("outerDstIP is not correct");
 
 	if (l3->check != bpf_htons(0x5371))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (udp->dest != bpf_htons(TUNNEL_PORT))
 		test_fatal("outerDstPort is not tunnel port");
@@ -383,13 +386,16 @@ int nodeport_geneve_dsr_lb_xdp_fwd_check(__maybe_unused const struct __ctx_buff 
 		test_fatal("innerDstIP hasn't been NATed to remote backend IP");
 
 	if (inner_l3->check != bpf_htons(0x4111))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(inner_l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(inner_l3->check));
 
 	if (tcp_inner->source != CLIENT_PORT)
 		test_fatal("innerSrcPort has changed");
 
 	if (tcp_inner->dest != BACKEND_PORT)
 		test_fatal("innerDstPort hasn't been NATed to backend port");
+
+	if (tcp_inner->check != bpf_htons(0xd7cf))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(tcp_inner->check));
 
 	test_finish();
 }
