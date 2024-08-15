@@ -9,10 +9,8 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
 
-	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -27,100 +25,12 @@ var (
 	// operations in k8s as some of its fields are not populated.
 	PodStore cache.Store
 
-	// PodStoreSynced is closed once the PodStore is synced with k8s.
-	PodStoreSynced = make(chan struct{})
-
 	// UnmanagedPodStore has a minimal copy of the unmanaged pods running
 	// in the cluster.
 	// Warning: The pods stored in the cache are not intended to be used for Update
 	// operations in k8s as some of its fields are not populated.
 	UnmanagedPodStore cache.Store
-
-	// UnmanagedPodStoreSynced is closed once the UnmanagedKubeDNSPodStore is synced
-	// with k8s.
-	UnmanagedPodStoreSynced = make(chan struct{})
 )
-
-// PodsInit and PodStore will be deprecated with other watchers, once all of
-// their uses move to hive/cell model that uses k8s resources instead of
-// separately initializing informers.
-func PodsInit(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
-	var podInformer cache.Controller
-	PodStore = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{
-		operatorK8s.PodNodeNameIndex: operatorK8s.PodNodeNameIndexFunc,
-	})
-	podInformer = informer.NewInformerWithStore(
-		k8sUtils.ListerWatcherWithFields(
-			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](clientset.Slim().CoreV1().Pods("")),
-			fields.Everything()),
-		&slim_corev1.Pod{},
-		0,
-		cache.ResourceEventHandlerFuncs{},
-		transformToPod,
-		PodStore,
-	)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		podInformer.Run(ctx.Done())
-	}()
-
-	cache.WaitForCacheSync(ctx.Done(), podInformer.HasSynced)
-}
-
-// transformToPod stores a minimal version of the pod as it is only intended
-// for it to check if a pod is running in the cluster or not. The stored pod
-// should not be used to update an existing pod in the kubernetes cluster.
-// If the given obj can't be cast into either Pod nor DeletedFinalStateUnknown,
-// an error is returned.
-func transformToPod(obj interface{}) (interface{}, error) {
-	switch concreteObj := obj.(type) {
-	case *slim_corev1.Pod:
-		p := &slim_corev1.Pod{
-			TypeMeta: concreteObj.TypeMeta,
-			ObjectMeta: slim_metav1.ObjectMeta{
-				Name:            concreteObj.Name,
-				Namespace:       concreteObj.Namespace,
-				ResourceVersion: concreteObj.ResourceVersion,
-			},
-			Spec: slim_corev1.PodSpec{
-				NodeName: concreteObj.Spec.NodeName,
-			},
-			Status: slim_corev1.PodStatus{
-				Phase: concreteObj.Status.Phase,
-			},
-		}
-		*concreteObj = slim_corev1.Pod{}
-		return p, nil
-	case cache.DeletedFinalStateUnknown:
-		pod, ok := concreteObj.Obj.(*slim_corev1.Pod)
-		if !ok {
-			return nil, fmt.Errorf("unknown object type %T", concreteObj.Obj)
-		}
-		dfsu := cache.DeletedFinalStateUnknown{
-			Key: concreteObj.Key,
-			Obj: &slim_corev1.Pod{
-				TypeMeta: pod.TypeMeta,
-				ObjectMeta: slim_metav1.ObjectMeta{
-					Name:            pod.Name,
-					Namespace:       pod.Namespace,
-					ResourceVersion: pod.ResourceVersion,
-				},
-				Spec: slim_corev1.PodSpec{
-					NodeName: pod.Spec.NodeName,
-				},
-				Status: slim_corev1.PodStatus{
-					Phase: pod.Status.Phase,
-				},
-			},
-		}
-		// Small GC optimization
-		*pod = slim_corev1.Pod{}
-		return dfsu, nil
-	default:
-		return nil, fmt.Errorf("unknown object type %T", concreteObj)
-	}
-}
 
 func UnmanagedPodsInit(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
 	var unmanagedPodInformer cache.Controller
