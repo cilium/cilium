@@ -251,10 +251,13 @@ func (h *ConfigModifyEventHandler) configModify(params daemonapi.PatchConfigPara
 
 func (h *ConfigModifyEventHandler) changedOption(key string, value option.OptionSetting, _ interface{}) {
 	if key == option.Debug {
-		// Set the debug toggle (this can be a no-op)
+		// Set the log level of the agent (this can be a no-op)
 		if option.Config.Opts.IsEnabled(option.Debug) {
 			logging.SetLogLevelToDebug()
+		} else {
+			logging.SetDefaultLogLevel()
 		}
+
 		// Reflect log level change to proxies
 		// Might not be initialized yet
 		if option.Config.EnableL7Proxy {
