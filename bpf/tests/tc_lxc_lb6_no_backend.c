@@ -147,7 +147,7 @@ int lxc_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	 * context with the runner option and importing the packet into
 	 * wireshark
 	 */
-	assert(l4->icmp6_cksum == bpf_htons(0x7da8));
+	assert(l4->icmp6_cksum == bpf_htons(0x9e14));
 
 	test_finish();
 }

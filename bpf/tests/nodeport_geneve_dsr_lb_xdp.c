@@ -216,6 +216,9 @@ int nodeport_geneve_dsr_lb_xdp1_local_backend_check(const struct __ctx_buff *ctx
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst TCP port hasn't been NATed to backend port");
 
+	if (l4->check != bpf_htons(0xd7d0))
+		test_fatal("L4 checksum is invalid: %d", bpf_htons(l4->check));
+
 	test_finish();
 }
 
@@ -390,6 +393,9 @@ int nodeport_geneve_dsr_lb_xdp_fwd_check(__maybe_unused const struct __ctx_buff 
 
 	if (tcp_inner->dest != BACKEND_PORT)
 		test_fatal("innerDstPort hasn't been NATed to backend port");
+
+	if (tcp_inner->check != bpf_htons(0xd7cf))
+		test_fatal("L4 checksum is invalid: %d", bpf_htons(tcp_inner->check));
 
 	test_finish();
 }

@@ -214,6 +214,9 @@ int tc_nodeport_lb_terminating_backend_0_check(const struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port hasn't been NATed to backend port");
 
+	if (l4->check != bpf_htons(0x699a))
+		test_fatal("L4 checksum is invalid: %d", bpf_htons(l4->check));
+
 	test_finish();
 }
 
@@ -317,6 +320,9 @@ int tc_nodeport_lb_terminating_backend_1_check(const struct __ctx_buff *ctx)
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port hasn't been NATed to backend port");
+
+	if (l4->check != bpf_htons(0x699a))
+		test_fatal("L4 checksum is invalid: %d", bpf_htons(l4->check));
 
 	test_finish();
 }

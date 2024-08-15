@@ -188,6 +188,9 @@ int ipv4_from_lxc_encrypt_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l4->dest != tcp_svc_one)
 		test_fatal("dst TCP port was changed");
 
+	if (l4->check != bpf_htons(0x589c))
+		test_fatal("L4 checksum is invalid: %d", bpf_htons(l4->check));
+
 	payload = (void *)l4 + sizeof(struct tcphdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
 		test_fatal("paylaod out of bounds\n");
@@ -387,6 +390,9 @@ int ipv6_from_lxc_encrypt_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	if (l4->dest != tcp_svc_one)
 		test_fatal("dst TCP port was changed");
+
+	if (l4->check != bpf_htons(0xdfe3))
+		test_fatal("L4 checksum is invalid: %d", bpf_htons(l4->check));
 
 	payload = (void *)l4 + sizeof(struct tcphdr);
 	if ((void *)payload + sizeof(default_data) > data_end)
