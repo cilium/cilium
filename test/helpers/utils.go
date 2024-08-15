@@ -43,6 +43,9 @@ func IsRunningOnJenkins() bool {
 			log.Infof("build is not running on Jenkins; environment variable '%v' is not set", varName)
 		}
 	}
+	if result {
+		panic("Jenkins is no longer supported")
+	}
 	return result
 }
 
@@ -633,10 +636,6 @@ func ExistNodeWithoutCilium() bool {
 // DoesNotExistNodeWithoutCilium is the complement function of ExistNodeWithoutCilium.
 func DoesNotExistNodeWithoutCilium() bool {
 	return !ExistNodeWithoutCilium()
-}
-
-func RunsOnJenkins() bool {
-	return os.Getenv("JENKINS_HOME") != ""
 }
 
 // HasSocketLB returns true if the given Cilium pod has TCP and/or
