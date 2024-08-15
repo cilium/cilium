@@ -181,13 +181,44 @@ func (wd *reconcileDiffV2) registerOrReconcileDiff(existingInstances map[string]
 		} else {
 			return fmt.Errorf("encountered duplicate BGP instance with name %s", config.Name)
 		}
-		if _, ok := existingInstances[config.Name]; !ok {
+		if existing, ok := existingInstances[config.Name]; !ok {
+			// new instance
 			wd.register = append(wd.register, config.Name)
 		} else {
-			wd.reconcile = append(wd.reconcile, config.Name)
+			// existing instance
+			recreate, err := wd.requiresRecreate(existing, &desiredConfig.Spec.BGPInstances[i])
+			if err != nil {
+				return err
+			}
+			if recreate {
+				wd.withdraw = append(wd.withdraw, config.Name)
+				wd.register = append(wd.register, config.Name) // register does an initial reconciliation as well
+			} else {
+				wd.reconcile = append(wd.reconcile, config.Name)
+			}
 		}
 	}
 	return nil
+}
+
+// requiresRecreate returns true if the desired config change requires full recreate of the BGP instance.
+func (wd *reconcileDiffV2) requiresRecreate(existing *instance.BGPInstance, desiredConfig *v2alpha1api.CiliumBGPNodeInstance) (bool, error) {
+	localASN, err := getLocalASN(desiredConfig)
+	if err != nil {
+		return false, fmt.Errorf("failed to get local ASN for instance %v: %w", desiredConfig.Name, err)
+	}
+
+	localPort, err := getLocalPort(desiredConfig, wd.ciliumNode, localASN)
+	if err != nil {
+		return false, fmt.Errorf("failed to get local port for instance %v: %w", desiredConfig.Name, err)
+	}
+
+	routerID, err := getRouterID(desiredConfig, wd.ciliumNode, localASN)
+	if err != nil {
+		return false, fmt.Errorf("failed to get router ID for instance %v: %w", desiredConfig.Name, err)
+	}
+
+	return localASN != int64(existing.Global.ASN) || localPort != existing.Global.ListenPort || routerID != existing.Global.RouterID, nil
 }
 
 // withdrawDiff will populate the `withdraw` field of a reconcileDiff, indicating which
