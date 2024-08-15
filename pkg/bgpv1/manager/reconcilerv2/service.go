@@ -98,8 +98,8 @@ func (r *ServiceReconciler) Init(i *instance.BGPInstance) error {
 	if i == nil {
 		return fmt.Errorf("BUG: service reconciler initialization with nil BGPInstance")
 	}
-	r.svcDiffStore.CleanupDiff(r.diffID(i.ASN))
-	r.epDiffStore.CleanupDiff(r.diffID(i.ASN))
+	r.svcDiffStore.InitDiff(r.diffID(i.ASN))
+	r.epDiffStore.InitDiff(r.diffID(i.ASN))
 	return nil
 }
 
