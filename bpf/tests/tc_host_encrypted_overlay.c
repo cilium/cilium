@@ -170,7 +170,7 @@ int tc_host_encrypted_overlay_01_check(const struct __ctx_buff *ctx)
 		test_fatal("dst IP has changed");
 
 	if (l3->check != bpf_htons(0x7da4))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != NODE1_TUNNEL_SPORT)
 		test_fatal("src port has changed");

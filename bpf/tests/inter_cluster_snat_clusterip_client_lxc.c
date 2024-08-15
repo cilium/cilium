@@ -215,13 +215,16 @@ int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 		test_fatal("dst IP hasn't been NATed to remote backend IP");
 
 	if (l3->check != bpf_htons(0xf968))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port hasn't been NATed to backend port");
+
+	if (l4->check != bpf_htons(0xd64b))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	/* Check service conntrack state is in the default CT */
 	tuple.daddr = FRONTEND_IP;
@@ -322,13 +325,16 @@ int overlay_to_lxc_synack_check(struct __ctx_buff *ctx)
 		test_fatal("dst IP is not client IP");
 
 	if (l3->check != bpf_htons(0x402))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != FRONTEND_PORT)
 		test_fatal("src port is not service frontend port");
 
 	if (l4->dest != CLIENT_PORT)
 		test_fatal("dst port is not client port");
+
+	if (l4->check != bpf_htons(0x6325))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	/* Make sure we hit the conntrack entry */
 	tuple.daddr   = CLIENT_IP;
@@ -410,13 +416,16 @@ int lxc_to_overlay_ack_check(struct __ctx_buff *ctx)
 		test_fatal("dst IP hasn't been NATed to remote backend IP");
 
 	if (l3->check != bpf_htons(0xf968))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port hasn't been NATed to backend port");
+
+	if (l4->check != bpf_htons(0xd63d))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	/* Make sure we hit the conntrack entry */
 	tuple.daddr   = CLIENT_IP;
