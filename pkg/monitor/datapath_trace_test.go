@@ -18,22 +18,23 @@ import (
 func TestDecodeTraceNotifyV0(t *testing.T) {
 	// This check on the struct length constant is there to ensure that this
 	// test is updated when the struct changes.
-	require.Equal(t, 32, traceNotifyV0Len)
+	require.Equal(t, 40, traceNotifyV0Len)
 
 	input := TraceNotifyV0{
-		Type:     0x00,
-		ObsPoint: 0x02,
-		Source:   0x03_04,
-		Hash:     0x05_06_07_08,
-		OrigLen:  0x09_0a_0b_0c,
-		CapLen:   0x0d_0e,
-		Version:  TraceNotifyVersion0,
-		SrcLabel: identity.NumericIdentity(0x_11_12_13_14),
-		DstLabel: identity.NumericIdentity(0x_15_16_17_18),
-		DstID:    0x19_1a,
-		Reason:   0x1b,
-		Flags:    0x1c,
-		Ifindex:  0x1d_1e_1f_20,
+		Type:      0x00,
+		ObsPoint:  0x02,
+		Source:    0x03_04,
+		Hash:      0x05_06_07_08,
+		OrigLen:   0x09_0a_0b_0c,
+		CapLen:    0x0d_0e,
+		Version:   TraceNotifyVersion0,
+		SrcLabel:  identity.NumericIdentity(0x_11_12_13_14),
+		DstLabel:  identity.NumericIdentity(0x_15_16_17_18),
+		DstID:     0x19_1a,
+		Reason:    0x1b,
+		Flags:     0x1c,
+		Ifindex:   0x1d_1e_1f_20,
+		IPTraceID: 0x123456789abcdef0,
 	}
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, input)
@@ -55,28 +56,30 @@ func TestDecodeTraceNotifyV0(t *testing.T) {
 	require.Equal(t, input.Reason, output.Reason)
 	require.Equal(t, input.Flags, output.Flags)
 	require.Equal(t, input.Ifindex, output.Ifindex)
+	require.Equal(t, input.IPTraceID, output.IPTraceID)
 }
 
 func TestDecodeTraceNotifyV1(t *testing.T) {
 	// This check on the struct length constant is there to ensure that this
 	// test is updated when the struct changes.
-	require.Equal(t, 48, traceNotifyV1Len)
+	require.Equal(t, 56, traceNotifyV1Len)
 
 	in := TraceNotifyV1{
 		TraceNotifyV0: TraceNotifyV0{
-			Type:     0x00,
-			ObsPoint: 0x02,
-			Source:   0x03_04,
-			Hash:     0x05_06_07_08,
-			OrigLen:  0x09_0a_0b_0c,
-			CapLen:   0x0d_0e,
-			Version:  TraceNotifyVersion1,
-			SrcLabel: identity.NumericIdentity(0x_11_12_13_14),
-			DstLabel: identity.NumericIdentity(0x_15_16_17_18),
-			DstID:    0x19_1a,
-			Reason:   0x1b,
-			Flags:    0x1c,
-			Ifindex:  0x1d_1e_1f_20,
+			Type:      0x00,
+			ObsPoint:  0x02,
+			Source:    0x03_04,
+			Hash:      0x05_06_07_08,
+			OrigLen:   0x09_0a_0b_0c,
+			CapLen:    0x0d_0e,
+			Version:   TraceNotifyVersion1,
+			SrcLabel:  identity.NumericIdentity(0x_11_12_13_14),
+			DstLabel:  identity.NumericIdentity(0x_15_16_17_18),
+			DstID:     0x19_1a,
+			Reason:    0x1b,
+			Flags:     0x1c,
+			Ifindex:   0x1d_1e_1f_20,
+			IPTraceID: 0x123456789abcdef0,
 		},
 		OrigIP: types.IPv6{
 			0x21, 0x22,
@@ -107,6 +110,7 @@ func TestDecodeTraceNotifyV1(t *testing.T) {
 	require.Equal(t, in.Flags, out.Flags)
 	require.Equal(t, in.Ifindex, out.Ifindex)
 	require.Equal(t, in.OrigIP, out.OrigIP)
+	require.Equal(t, in.IPTraceID, out.IPTraceID)
 }
 
 func TestDecodeTraceNotifyErrors(t *testing.T) {
