@@ -17,6 +17,13 @@ import (
 
 type MockIPCache struct{}
 
+// Initialized returns a closed channel so that potential waiters can continue immediately.
+func (m *MockIPCache) Initialized() <-chan struct{} {
+	initialized := make(chan struct{})
+	close(initialized)
+	return initialized
+}
+
 func (m *MockIPCache) GetNamedPorts() types.NamedPortMultiMap {
 	return nil
 }

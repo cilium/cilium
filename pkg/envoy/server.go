@@ -231,7 +231,7 @@ func StartXDSServer(ipcache IPCacheEventSource, envoySocketDir string) (*XDSServ
 		SecretTypeURL:             sdsConfig,
 		NetworkPolicyTypeURL:      npdsConfig,
 		NetworkPolicyHostsTypeURL: nphdsConfig,
-	}, 5*time.Second)
+	}, 5*time.Second, ipcache.Initialized())
 
 	return &XDSServer{
 		socketPath:             xdsSocketPath,

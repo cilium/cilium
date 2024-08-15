@@ -729,6 +729,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if len(oldIngressIPs) > 0 {
 		log.WithField(logfields.Ingress, oldIngressIPs).Info("Restored ingress IPs")
 	}
+	// Mark the ipcache as initialized so that anyone waiting for it can continue
+	d.ipcache.MarkInitialized()
 
 	// Read the service IDs of existing services from the BPF map and
 	// reserve them. This must be done *before* connecting to the

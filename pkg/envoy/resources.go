@@ -66,6 +66,10 @@ type NPHDSCache struct {
 
 type IPCacheEventSource interface {
 	AddListener(ipcache.IPIdentityMappingListener)
+
+	// Initialized returns a channel that is closed when ipcache has been (re)initialized upon
+	// restart or during a fresh bootstrap
+	Initialized() <-chan struct{}
 }
 
 func newNPHDSCache(ipcache IPCacheEventSource) NPHDSCache {

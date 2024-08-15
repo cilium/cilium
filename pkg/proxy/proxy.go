@@ -52,6 +52,10 @@ type IPCacheManager interface {
 	// AddListener is required for envoy.StartXDSServer()
 	AddListener(ipcache.IPIdentityMappingListener)
 
+	// Initialized returns a channel that is closed when ipcache has been (re)initialized upon
+	// restart or during a fresh bootstrap
+	Initialized() <-chan struct{}
+
 	LookupByIP(IP string) (ipcache.Identity, bool)
 }
 

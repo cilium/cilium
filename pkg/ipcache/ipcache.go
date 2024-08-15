@@ -129,6 +129,9 @@ type IPCache struct {
 	// references to identities and removing the corresponding IPCache
 	// entries if unused.
 	deferredPrefixRelease *asyncPrefixReleaser
+
+	// initialized is a channel that gets closed when the agent has reinitialized the ipcache map on restart
+	initialized chan struct{}
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
@@ -144,9 +147,21 @@ func NewIPCache(c *Configuration) *IPCache {
 		namedPorts:        types.NewNamedPortMultiMap(),
 		metadata:          newMetadata(),
 		Configuration:     c,
+		initialized:       make(chan struct{}),
 	}
 	ipc.deferredPrefixRelease = newAsyncPrefixReleaser(c.Context, ipc, 1*time.Millisecond)
 	return ipc
+}
+
+// Initialized returns the intialized channel that gets closed when the ipcache has been properly
+// initialize upon bootstrap/restart.
+func (ipc *IPCache) Initialized() <-chan struct{} {
+	return ipc.initialized
+}
+
+// MarkInitialized closes the initialize channel so that anyone waiting on it can continue.
+func (ipc *IPCache) MarkInitialized() {
+	close(ipc.initialized)
 }
 
 // Shutdown cleans up asynchronous routines associated with the IPCache.
