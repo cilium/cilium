@@ -4,6 +4,7 @@
 package manager
 
 import (
+	"net"
 	"os"
 	"strings"
 
@@ -75,7 +76,7 @@ type cgroupManager struct {
 type PodMetadata struct {
 	Name      string
 	Namespace string
-	IPs       []string
+	IPs       []net.IP
 }
 
 // FullPodMetadata stores selected metadata of a pod and associated containers.
@@ -83,7 +84,7 @@ type FullPodMetadata struct {
 	Name       string
 	Namespace  string
 	Containers []*cgroupMetadata
-	IPs        []string
+	IPs        []net.IP
 }
 
 type cgroupMetadata struct {
@@ -161,7 +162,7 @@ type podUID = string
 type podMetadata struct {
 	name       string
 	namespace  string
-	ips        []string
+	ips        []net.IP
 	containers map[string]struct{}
 }
 
@@ -267,9 +268,17 @@ func (m *cgroupManager) updatePodMetadata(pod, oldPod *v1.Pod) {
 	// Only update the metadata that can change. This excludes pod's name,
 	// namespace, id, and qos class.
 	podIPs := pod.Status.PodIPs
-	pm.ips = make([]string, len(podIPs))
+	pm.ips = make([]net.IP, len(podIPs))
+
+	var ip net.IP
 	for i := range podIPs {
-		pm.ips[i] = podIPs[i].IP
+		ip = net.ParseIP(podIPs[i].IP)
+		if ip == nil {
+			m.logger.WithField(logfields.IPAddr, podIPs[i].IP).Debug("failed to parse pod IP")
+			continue
+		}
+
+		pm.ips[i] = ip
 	}
 	// Get metadata for pod's containers that are in the running state. Containers
 	// can get re-created, and their ids can change. Update the new containers.
