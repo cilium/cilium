@@ -98,15 +98,15 @@ func (r *ServiceReconciler) Init(i *instance.BGPInstance) error {
 	if i == nil {
 		return fmt.Errorf("BUG: service reconciler initialization with nil BGPInstance")
 	}
-	r.svcDiffStore.InitDiff(r.diffID(i.ASN))
-	r.epDiffStore.InitDiff(r.diffID(i.ASN))
+	r.svcDiffStore.InitDiff(r.diffID(i.Global.ASN))
+	r.epDiffStore.InitDiff(r.diffID(i.Global.ASN))
 	return nil
 }
 
 func (r *ServiceReconciler) Cleanup(i *instance.BGPInstance) {
 	if i != nil {
-		r.svcDiffStore.CleanupDiff(r.diffID(i.ASN))
-		r.epDiffStore.CleanupDiff(r.diffID(i.ASN))
+		r.svcDiffStore.CleanupDiff(r.diffID(i.Global.ASN))
+		r.epDiffStore.CleanupDiff(r.diffID(i.Global.ASN))
 	}
 }
 
@@ -146,8 +146,8 @@ func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcilePa
 		// Init diff in diffstores, so that it contains only changes since the last full reconciliation.
 		// Despite doing it in Init(), we still need this InitDiff to clean up the old diff when the instance is re-created
 		// by the preflight reconciler. Once Init() is called upon re-create by preflight, we can remove this.
-		r.svcDiffStore.InitDiff(r.diffID(p.BGPInstance.ASN))
-		r.epDiffStore.InitDiff(r.diffID(p.BGPInstance.ASN))
+		r.svcDiffStore.InitDiff(r.diffID(p.BGPInstance.Global.ASN))
+		r.epDiffStore.InitDiff(r.diffID(p.BGPInstance.Global.ASN))
 
 		desiredSvcRoutePolicies, err = r.getAllRoutePolicies(p, ls)
 		if err != nil {
@@ -512,7 +512,7 @@ func (r *ServiceReconciler) getDiffPaths(p ReconcileParams, toReconcile []*slim_
 // diffReconciliationServiceList returns a list of services to reconcile and to withdraw when
 // performing partial (diff) service reconciliation.
 func (r *ServiceReconciler) diffReconciliationServiceList(p ReconcileParams) (toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, err error) {
-	upserted, deleted, err := r.svcDiffStore.Diff(r.diffID(p.BGPInstance.ASN))
+	upserted, deleted, err := r.svcDiffStore.Diff(r.diffID(p.BGPInstance.Global.ASN))
 	if err != nil {
 		return nil, nil, fmt.Errorf("svc store diff: %w", err)
 	}
@@ -523,7 +523,7 @@ func (r *ServiceReconciler) diffReconciliationServiceList(p ReconcileParams) (to
 	// We don't handle service deletion here since we only see
 	// the key, we cannot resolve associated service, so we have
 	// nothing to do.
-	epsUpserted, _, err := r.epDiffStore.Diff(r.diffID(p.BGPInstance.ASN))
+	epsUpserted, _, err := r.epDiffStore.Diff(r.diffID(p.BGPInstance.Global.ASN))
 	if err != nil {
 		return nil, nil, fmt.Errorf("EPs store diff: %w", err)
 	}

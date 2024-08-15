@@ -802,13 +802,14 @@ func (m *BGPRouterManager) ReconcileInstances(ctx context.Context,
 	}
 	l.WithField("diff", rd.String()).Debug("Reconciling BGP instances")
 
+	// withdraw before registering to ensure re-create works properly
+	if len(rd.withdraw) > 0 {
+		m.withdrawV2(ctx, rd)
+	}
 	if len(rd.register) > 0 {
 		if err := m.registerV2(ctx, rd); err != nil {
 			return err
 		}
-	}
-	if len(rd.withdraw) > 0 {
-		m.withdrawV2(ctx, rd)
 	}
 	if len(rd.reconcile) > 0 {
 		if err := m.reconcileV2(ctx, rd); err != nil {
@@ -860,46 +861,17 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 
 	l.Info("Registering BGP instance")
 
-	var localASN int64
-	if c.LocalASN != nil {
-		localASN = *c.LocalASN
-	} else {
-		// TODO for now we require a local ASN to be specified
-		// remove this check once we support auto-ASN assignment.
-		return fmt.Errorf("local ASN must be specified")
-	}
-
-	annoMap, err := agent.NewAnnotationMap(ciliumNode.Annotations)
+	localASN, err := getLocalASN(c)
 	if err != nil {
-		return fmt.Errorf("unable to parse local node annotations: %w", err)
+		return err
 	}
-
-	// resolve local port from kubernetes annotations
-	var localPort int32
-	localPort = -1
-	if attrs, ok := annoMap[localASN]; ok {
-		if attrs.LocalPort != 0 {
-			localPort = int32(attrs.LocalPort)
-		}
-	}
-
-	routerID, err := annoMap.ResolveRouterID(localASN)
+	localPort, err := getLocalPort(c, ciliumNode, localASN)
 	if err != nil {
-		if nodeIP := ciliumNode.GetIP(false); nodeIP == nil {
-			return fmt.Errorf("failed to get cilium node IP %v: %w", nodeIP, err)
-		} else {
-			routerID = nodeIP.String()
-		}
+		return err
 	}
-
-	// override configuration via CiliumBGPNodeConfigOverride, it will take precedence over
-	// the annotations.
-	if c.LocalPort != nil {
-		localPort = *c.LocalPort
-	}
-
-	if c.RouterID != nil {
-		routerID = *c.RouterID
+	routerID, err := getRouterID(c, ciliumNode, localASN)
+	if err != nil {
+		return err
 	}
 
 	globalConfig := types.ServerParameters{
@@ -1040,4 +1012,68 @@ func (m *BGPRouterManager) reconcileV2(ctx context.Context, rd *reconcileDiffV2)
 		return fmt.Errorf("error reconciling BGP instances: %v (last error: %w)", instancesWithError, lastErr)
 	}
 	return nil
+}
+
+// getLocalASN returns the local ASN for the given BGP instance. If the local ASN is defined in the desired config, it
+// will be returned. Currently, we do not support auto-ASN assignment, so if the local ASN is not defined in the
+// desired config, an error will be returned.
+func getLocalASN(config *v2alpha1api.CiliumBGPNodeInstance) (int64, error) {
+	if config.LocalASN != nil {
+		return *config.LocalASN, nil
+	}
+	// NOTE: for now we require a local ASN to be specified
+	// remove this check once we support auto-ASN assignment.
+	return 0, fmt.Errorf("missing ASN in desired config")
+}
+
+// getRouterID returns the router ID for the given ASN. If the router ID is defined in the desired config, it will
+// be returned. Otherwise, the router ID will be resolved from the ciliumnode annotations. If the router ID is not
+// defined in the annotations, the node IP from cilium node will be returned.
+func getRouterID(config *v2alpha1api.CiliumBGPNodeInstance, ciliumNode *v2api.CiliumNode, asn int64) (string, error) {
+	if config.RouterID != nil {
+		return *config.RouterID, nil
+	}
+
+	// parse Node annotations into helper Annotation map
+	annoMap, err := agent.NewAnnotationMap(ciliumNode.Annotations)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse Node annotations for instance %v: %w", config.Name, err)
+	}
+
+	routerID, err := annoMap.ResolveRouterID(asn)
+	if err != nil {
+		if nodeIP := ciliumNode.GetIP(false); nodeIP == nil {
+			return "", fmt.Errorf("failed to get CiliumNode IP %v: %w", nodeIP, err)
+		} else {
+			routerID = nodeIP.String()
+		}
+	}
+
+	return routerID, nil
+}
+
+// getLocalPort returns the local port for the given ASN. If the local port is defined in the desired config, it will
+// be returned. Otherwise, the local port will be resolved from the ciliumnode annotations. If the local port is not
+// defined in the annotations, -1 will be returned.
+//
+// In gobgp, with -1 as the local port, bgp instance will start in non-listening mode.
+func getLocalPort(config *v2alpha1api.CiliumBGPNodeInstance, ciliumNode *v2api.CiliumNode, asn int64) (int32, error) {
+	if config.LocalPort != nil {
+		return *config.LocalPort, nil
+	}
+
+	// parse Node annotations into helper Annotation map
+	annoMap, err := agent.NewAnnotationMap(ciliumNode.Annotations)
+	if err != nil {
+		return -1, fmt.Errorf("failed to parse Node annotations for instance %v: %w", config.Name, err)
+	}
+
+	localPort := int32(-1)
+	if attrs, ok := annoMap[asn]; ok {
+		if attrs.LocalPort != 0 {
+			localPort = attrs.LocalPort
+		}
+	}
+
+	return localPort, nil
 }
