@@ -7,6 +7,7 @@ package labels
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/klog/v2"
-	stringslices "k8s.io/utils/strings/slices"
 
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 )
@@ -283,7 +283,7 @@ func (r Requirement) Equal(x Requirement) bool {
 	if r.operator != x.operator {
 		return false
 	}
-	return stringslices.Equal(r.strValues, x.strValues)
+	return slices.Equal(r.strValues, x.strValues)
 }
 
 // Empty returns true if the internalSelector doesn't restrict selection space
