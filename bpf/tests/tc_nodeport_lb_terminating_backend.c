@@ -203,13 +203,16 @@ int tc_nodeport_lb_terminating_backend_0_check(const struct __ctx_buff *ctx)
 		test_fatal("dst IP hasn't been NATed to local backend IP");
 
 	if (l3->check != bpf_htons(0x4213))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port hasn't been NATed to backend port");
+
+	if (l4->check != bpf_htons(0x699a))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -307,13 +310,16 @@ int tc_nodeport_lb_terminating_backend_1_check(const struct __ctx_buff *ctx)
 		test_fatal("dst IP hasn't been NATed to local backend IP");
 
 	if (l3->check != bpf_htons(0x4213))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
 
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port hasn't been NATed to backend port");
+
+	if (l4->check != bpf_htons(0x699a))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
