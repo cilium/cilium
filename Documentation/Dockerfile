@@ -28,6 +28,7 @@ ENV HOME=/tmp
 ARG READTHEDOCS_VERSION
 ENV READTHEDOCS_VERSION=$READTHEDOCS_VERSION
 ENV MAKE_GIT_REPO_SAFE=1
+ENV TEST=1
 
 ## Workaround odd behaviour of sphinx versionwarning extension. It wants to
 ## write runtime data inside a system directory.
