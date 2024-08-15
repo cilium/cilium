@@ -23,21 +23,21 @@ type Key struct {
 	// DestPort is the port at L4 to / from which traffic is allowed, in
 	// host-byte order.
 	DestPort uint16
-	// InvertedPortMask is the mask that should be applied to the DestPort to
+	// invertedPortMask is the mask that should be applied to the DestPort to
 	// define a range of ports for the policy-key, encoded as the bitwise inverse
 	// of its true/useful value. This is done so that the default value of the
 	// Key is a full port mask (that is, "0" represents 0xffff), as that is
-	// the most likely value to be used. InvertedPortMask is also, conveniently,
+	// the most likely value to be used. invertedPortMask is also, conveniently,
 	// the number or ports on top of DestPort that define that range. That is
-	// the end port is equal to the DestPort added to the InvertedPortMask.
+	// the end port is equal to the DestPort added to the invertedPortMask.
 	//
 	// It is **not** the prefix that is applied for the BPF key entries.
 	// That value is calculated in the maps/policymap package.
 	//
 	// For example:
-	// range 2-3 would be DestPort:2 and InvertedPortMask:0x1 (i.e 0xfffe)
-	// range 32768-49151 would be DestPort:32768 and InvertedPortMask:0x3fff (i.e. 0xc000)
-	InvertedPortMask uint16
+	// range 2-3 would be DestPort:2 and invertedPortMask:0x1 (i.e 0xfffe)
+	// range 32768-49151 would be DestPort:32768 and invertedPortMask:0x3fff (i.e. 0xc000)
+	invertedPortMask uint16
 	// NextHdr is the protocol which is allowed.
 	Nexthdr uint8
 	// TrafficDirection indicates in which direction Identity is allowed
@@ -45,17 +45,38 @@ type Key struct {
 	TrafficDirection uint8
 }
 
+// NewKey returns an ingress key for the given parameters
+func NewKey(direction uint8, identity uint32, proto uint8, port uint16, prefixLen uint8) Key {
+	// Sanity check for test convenience, so that most times prefix can be passed as 0
+	if port == 0 {
+		prefixLen = 0
+	} else if port != 0 && prefixLen == 0 {
+		prefixLen = 16
+	}
+	return Key{
+		TrafficDirection: direction,
+		Identity:         identity,
+		Nexthdr:          proto,
+		DestPort:         port,
+		invertedPortMask: uint16(0xffff) >> prefixLen,
+	}
+}
+
 // PortMask returns the bitwise mask that should be applied
 // to the DestPort.
 func (k Key) PortMask() uint16 {
-	return ^k.InvertedPortMask
+	return ^k.invertedPortMask
+}
+
+func (k Key) PortPrefixLen() uint8 {
+	return uint8(bits.LeadingZeros16(k.invertedPortMask))
 }
 
 // String returns a string representation of the Key
 func (k Key) String() string {
 	dPort := strconv.FormatUint(uint64(k.DestPort), 10)
-	if k.DestPort != 0 && k.InvertedPortMask != 0 {
-		dPort += "-" + strconv.FormatUint(uint64(k.DestPort+k.InvertedPortMask), 10)
+	if k.DestPort != 0 && k.invertedPortMask != 0 {
+		dPort += "-" + strconv.FormatUint(uint64(k.DestPort+k.invertedPortMask), 10)
 	}
 	return "Identity=" + strconv.FormatUint(uint64(k.Identity), 10) +
 		",DestPort=" + dPort +
@@ -75,7 +96,7 @@ func (k Key) IsEgress() bool {
 
 // EndPort returns the end-port of the Key based on the Mask.
 func (k Key) EndPort() uint16 {
-	return k.DestPort + k.InvertedPortMask
+	return k.DestPort + k.invertedPortMask
 }
 
 // PortProtoIsBroader returns true if the receiver Key has broader
@@ -93,7 +114,7 @@ func (k Key) PortProtoIsBroader(c Key) bool {
 // two keys are exactly equal.
 func (k Key) PortProtoIsEqual(c Key) bool {
 	return k.DestPort == c.DestPort &&
-		k.InvertedPortMask == c.InvertedPortMask &&
+		k.invertedPortMask == c.invertedPortMask &&
 		k.Nexthdr == c.Nexthdr
 }
 
@@ -118,7 +139,7 @@ func (k Key) PortIsBroader(c Key) bool {
 // between the two keys are exactly equal.
 func (k Key) PortIsEqual(c Key) bool {
 	return k.DestPort == c.DestPort &&
-		k.InvertedPortMask == c.InvertedPortMask
+		k.invertedPortMask == c.invertedPortMask
 }
 
 // PrefixLength returns the prefix lenth of the key

@@ -32,24 +32,42 @@ import (
 type Key = policyTypes.Key
 type Keys = policyTypes.Keys
 
+type MapStateMap map[Key]MapStateEntry
+
+// NewKey returns an ingress key for the given parameters
+func NewKey(direction uint8, identity uint32, proto uint8, port uint16, prefixLen uint8) Key {
+	return policyTypes.NewKey(direction, identity, proto, port, prefixLen)
+}
+
+func NewL3OnlyKey(direction uint8, identity uint32) Key {
+	return NewKey(direction, identity, 0, 0, 0)
+}
+
+func IngressKey(identity uint32, proto uint8, port uint16, prefixLen uint8) Key {
+	return NewKey(0, identity, proto, port, prefixLen)
+}
+
+func IngressL3OnlyKey(identity uint32) Key {
+	return IngressKey(identity, 0, 0, 0)
+}
+
+func EgressKey(identity uint32, proto uint8, port uint16, prefixLen uint8) Key {
+	return NewKey(1, identity, proto, port, prefixLen)
+}
+
+func EgressL3OnlyKey(identity uint32) Key {
+	return EgressKey(identity, 0, 0, 0)
+}
+
 var (
 	// localHostKey represents an ingress L3 allow from the local host.
-	localHostKey = Key{
-		Identity:         identity.ReservedIdentityHost.Uint32(),
-		InvertedPortMask: 0xffff, // This is a wildcard
-		TrafficDirection: trafficdirection.Ingress.Uint8(),
-	}
+	localHostKey = IngressL3OnlyKey(identity.ReservedIdentityHost.Uint32())
 	// allKey represents a key for unknown traffic, i.e., all traffic.
 	// We have one for each traffic direction
-	allKey = [2]Key{{
-		Identity:         identity.IdentityUnknown.Uint32(),
-		InvertedPortMask: 0xffff,
-		TrafficDirection: 0,
-	}, {
-		Identity:         identity.IdentityUnknown.Uint32(),
-		InvertedPortMask: 0xffff,
-		TrafficDirection: 1,
-	}}
+	allKey = [2]Key{
+		IngressL3OnlyKey(identity.IdentityUnknown.Uint32()),
+		EgressL3OnlyKey(identity.IdentityUnknown.Uint32()),
+	}
 )
 
 const (
@@ -93,7 +111,7 @@ type MapState interface {
 	// For testing from other packages only
 	Equals(MapState) bool
 	Diff(expected MapState) string
-	WithState(initMap map[Key]MapStateEntry, identities Identities) MapState
+	WithState(initMap MapStateMap, identities Identities) MapState
 }
 
 type mapStateValidator interface {
@@ -140,7 +158,7 @@ type Identities interface {
 // deletion, and insertion times.
 type mapStateMap struct {
 	// entries is the map containing the MapStateEntries
-	entries map[Key]MapStateEntry
+	entries MapStateMap
 	// trie is a Trie that indexes policy Keys without their identity
 	// and stores the identities in an associated builtin map.
 	trie bitlpm.Trie[bitlpm.Key[Key], IDSet]
@@ -285,9 +303,8 @@ func (msm *mapStateMap) forKey(k Key, f func(Key, MapStateEntry) bool) bool {
 	if ok {
 		return f(k, e)
 	}
-	stacktrace := hclog.Stacktrace()
 	log.WithFields(logrus.Fields{
-		logfields.Stacktrace: stacktrace,
+		logfields.Stacktrace: hclog.Stacktrace(),
 		logfields.PolicyKey:  k,
 	}).Errorf("Missing MapStateEntry")
 	return true
@@ -730,11 +747,11 @@ func NewMapState() MapState {
 	return newMapState()
 }
 
-func (ms *mapState) WithState(initMap map[Key]MapStateEntry, identities Identities) MapState {
+func (ms *mapState) WithState(initMap MapStateMap, identities Identities) MapState {
 	return ms.withState(initMap, identities)
 }
 
-func (ms *mapState) withState(initMap map[Key]MapStateEntry, identities Identities) *mapState {
+func (ms *mapState) withState(initMap MapStateMap, identities Identities) *mapState {
 	for k, v := range initMap {
 		ms.insert(k, v, identities)
 	}
@@ -743,7 +760,7 @@ func (ms *mapState) withState(initMap map[Key]MapStateEntry, identities Identiti
 
 func newMapStateMap() mapStateMap {
 	return mapStateMap{
-		entries: make(map[Key]MapStateEntry),
+		entries: make(MapStateMap),
 		trie:    bitlpm.NewTrie[Key, IDSet](policyTypes.MapStatePrefixLen),
 	}
 }
@@ -757,12 +774,11 @@ func newMapState() *mapState {
 
 // Get the MapStateEntry that matches the Key.
 func (ms *mapState) Get(k Key) (MapStateEntry, bool) {
-	if k.DestPort == 0 && k.InvertedPortMask != 0xffff {
-		stacktrace := hclog.Stacktrace()
+	if k.DestPort == 0 && k.PortPrefixLen() > 0 {
 		log.WithFields(logrus.Fields{
-			logfields.Stacktrace: stacktrace,
+			logfields.Stacktrace: hclog.Stacktrace(),
 			logfields.PolicyKey:  k,
-		}).Errorf("mapState.Get: invalid wildcard port with non-zero mask")
+		}).Errorf("mapState.Get: invalid port prefix length for wildcard port")
 	}
 	v, ok := ms.denies.Lookup(k)
 	if ok {
@@ -774,12 +790,11 @@ func (ms *mapState) Get(k Key) (MapStateEntry, bool) {
 // insert the Key and matcthing MapStateEntry into the
 // MapState
 func (ms *mapState) insert(k Key, v MapStateEntry, identities Identities) {
-	if k.DestPort == 0 && k.InvertedPortMask != 0xffff {
-		stacktrace := hclog.Stacktrace()
+	if k.DestPort == 0 && k.PortPrefixLen() > 0 {
 		log.WithFields(logrus.Fields{
-			logfields.Stacktrace: stacktrace,
+			logfields.Stacktrace: hclog.Stacktrace(),
 			logfields.PolicyKey:  k,
-		}).Errorf("mapState.insert: invalid wildcard port with non-zero mask")
+		}).Errorf("mapState.Get: invalid port prefix length for wildcard port")
 	}
 	if v.IsDeny {
 		ms.allows.delete(k, identities)
@@ -893,8 +908,7 @@ func (ms *mapState) RemoveDependent(owner Key, dependent Key, identities Identit
 func (e *MapStateEntry) Merge(entry *MapStateEntry) {
 	// Bail out loudly if both entries are not denies or allows
 	if e.IsDeny != entry.IsDeny {
-		stacktrace := hclog.Stacktrace()
-		log.WithField(logfields.Stacktrace, stacktrace).
+		log.WithField(logfields.Stacktrace, hclog.Stacktrace()).
 			Errorf("MapStateEntry.Merge: both entries must be allows or denies")
 		return
 	}
@@ -1166,9 +1180,8 @@ func (ms *mapState) revertChanges(identities Identities, changes ChangeState) {
 func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStateEntry, identities Identities, features policyFeatures, changes ChangeState) {
 	// Sanity check on the newKey
 	if newKey.TrafficDirection >= trafficdirection.Invalid.Uint8() {
-		stacktrace := hclog.Stacktrace()
 		log.WithFields(logrus.Fields{
-			logfields.Stacktrace:       stacktrace,
+			logfields.Stacktrace:       hclog.Stacktrace(),
 			logfields.TrafficDirection: newKey.TrafficDirection,
 		}).Errorf("mapState.denyPreferredInsertWithChanges: invalid traffic direction in key")
 		return
@@ -1514,7 +1527,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, iden
 			// New entry has a default auth type.
 			// Fill in the AuthType from more generic entries with an explicit auth type
 			maxSpecificity := 0
-			l3l4State := newMapStateMap()
+			var l3l4State MapStateMap
 
 			ms.allows.ForEachKeyWithBroaderOrEqualPortProto(newKey, func(k Key, v MapStateEntry) bool {
 				// Nothing to be done if entry has default AuthType
@@ -1548,7 +1561,11 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, iden
 						newKeyCpy.Identity = k.Identity
 						l3l4AuthEntry := NewMapStateEntry(k, v.DerivedFromRules, newEntry.ProxyPort, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType)
 						l3l4AuthEntry.DerivedFromRules.MergeSorted(newEntry.DerivedFromRules)
-						l3l4State.upsert(newKeyCpy, l3l4AuthEntry, identities)
+
+						if l3l4State == nil {
+							l3l4State = make(MapStateMap)
+						}
+						l3l4State[newKeyCpy] = l3l4AuthEntry
 					}
 				}
 				return true
@@ -1558,14 +1575,13 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, iden
 			// entries are not needed as the L4-only entry with an overridden AuthType
 			// will be matched before the L3-only entries in the datapath.
 			if maxSpecificity == 0 {
-				l3l4State.ForEach(func(k Key, v MapStateEntry) bool {
+				for k, v := range l3l4State {
 					ms.addKeyWithChanges(k, v, identities, changes)
 					// L3-only entries can be deleted incrementally so we need to track their
 					// effects on other entries so that those effects can be reverted when the
 					// identity is removed.
 					newEntry.AddDependent(k)
-					return true
-				})
+				}
 			}
 		} else {
 			// New entry has an explicit auth type.
@@ -1719,17 +1735,7 @@ func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 		direction = trafficdirection.Ingress
 	}
 
-	var invertedPortMask uint16
-	if visMeta.Port == 0 {
-		invertedPortMask = 0xffff
-	}
-	key := Key{
-		DestPort:         visMeta.Port,
-		InvertedPortMask: invertedPortMask,
-		Nexthdr:          uint8(visMeta.Proto),
-		TrafficDirection: direction.Uint8(),
-	}
-
+	key := NewKey(direction.Uint8(), 0, uint8(visMeta.Proto), visMeta.Port, 0)
 	entry := NewMapStateEntry(nil, visibilityDerivedFrom, redirectPort, "", 0, false, DefaultAuthType, AuthTypeDisabled)
 
 	_, haveAllowAllKey := ms.Get(allKey[direction])
@@ -1824,10 +1830,8 @@ func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 	if addL4OnlyKey {
 		ms.denies.ForEachKeyWithPortProto(allKey[key.TrafficDirection], func(k Key, v MapStateEntry) bool {
 			if k.Identity != 0 {
-				k2 := k
-				k2.DestPort = key.DestPort
-				k2.InvertedPortMask = key.InvertedPortMask
-				k2.Nexthdr = key.Nexthdr
+				k2 := key
+				k2.Identity = k.Identity
 				// 5. If a new L4-only key was added: For each L3-only DENY
 				//    key add the corresponding L3/L4 DENY key if no L3/L4
 				//    key already exists.
