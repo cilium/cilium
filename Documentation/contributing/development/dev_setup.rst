@@ -223,6 +223,7 @@ Making Changes
    tests
 #. If you are making documentation changes, you can generate documentation files
    and serve them locally on ``http://localhost:9081`` by running ``make render-docs``.
+   This make target works assuming that ``docker`` is running in the environment.
 
 Dev Container
 -------------
@@ -417,8 +418,7 @@ Minor version
    - ``Documentation/network/kubernetes/compatibility.rst``
    - ``Documentation/network/kubernetes/requirements.rst``
 
-#. Update the Kubernetes version with the newer version in ``test/Vagrantfile``,
-   ``test/test_suite_test.go`` and ``test/vagrant-local-start.sh``.
+#. Update the Kubernetes version with the newer version in``test/test_suite_test.go``.
 
 #. Add the new coredns files specific for the Kubernetes version,
    for ``1.19`` is ``test/provision/manifest/1.19``. The coredns deployment
@@ -426,19 +426,12 @@ Minor version
    coredns files. Perform a diff with the previous versions to check which
    changes are required for our CI and which changes were added upstream.
 
-#. If necessary, update the ``coredns`` files from
-   ``contrib/vagrant/deployments`` with newer the file versions from upstream.
-
 #. Update the constraint in the function ``getK8sSupportedConstraints``, that
    exists in the ``test/helpers/utils.go``, with the new Kubernetes version that
    Cilium supports. It is possible that a new ``IsCiliumV1*`` var in that file
    is required as well.
 
-#. Add the new version in ``test/provision/k8s_install.sh``, if it is an RC
-   install it using binaries.
-
 #. Bump the kindest/node version in all of kind's config files (for example, ``.github/kind-config*``).
-
 #. Run ``./contrib/scripts/check-k8s-code-gen.sh``
 
 #. Run ``go mod vendor && go mod tidy``
@@ -468,10 +461,6 @@ Minor version
 
 Patch version
 ~~~~~~~~~~~~~
-
-#. Bump the Kubernetes version in ``contrib/vagrant/scripts/helpers.bash``.
-
-#. Bump the Kubernetes version in ``test/provision/k8s_install.sh``.
 
 #. Submit all your changes into a new PR.
 

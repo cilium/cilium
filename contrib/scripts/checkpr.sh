@@ -108,31 +108,6 @@ check_smoke_test() {
 	done
 }
 
-check_jenkins() {
-	PR_ID=$1
-	statuses=$(curl -s https://api.github.com/repos/cilium/cilium/pulls/${PR_ID} | jq -r '._links.statuses.href')
-	jenkins_urls=($(curl -s $statuses | jq -r '.[] | select(.target_url != null) | select(.target_url | contains("jenkins")) | .target_url' | sort | uniq))
-
-	for base_url in "${jenkins_urls[@]}"; do
-		result="null"
-		first=true
-		until [ "$result" != "null" ]; do
-			if [ $first = true ]; then
-				first=false
-			else
-				sleep 60
-			fi
-			result=$(curl -s ${base_url}/api/json | jq ".result")
-		done
-		echo "PR $PR_ID result: $result"
-		echo "See $base_url for more details."
-	done
-
-	notify "PR $PR_ID checks terminated" "Result: $result\nSee $base_url for more details."
-}
-
 if [ $smoke_tests -eq 1 ]; then
 	check_smoke_test $1
-else
-	check_jenkins $1
 fi
