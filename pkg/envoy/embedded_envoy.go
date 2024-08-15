@@ -62,7 +62,8 @@ func EnableTracing() {
 }
 
 func mapLogLevel(level logrus.Level) string {
-	if tracing {
+	// Set Envoy loglevel to trace if debug AND verbose Engoy logging is enabled
+	if level == logrus.DebugLevel && tracing {
 		return "trace"
 	}
 
@@ -70,6 +71,7 @@ func mapLogLevel(level logrus.Level) string {
 	if level == logrus.DebugLevel && !flowdebug.Enabled() {
 		level = logrus.InfoLevel
 	}
+
 	return envoyLevelMap[level]
 }
 
