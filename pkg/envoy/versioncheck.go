@@ -22,8 +22,6 @@ func checkEnvoyVersion(envoyVersionFunc func() (string, error)) error {
 		return fmt.Errorf("failed to retrieve Envoy version: %w", err)
 	}
 
-	log.Infof("Envoy: Version %s", envoyVersion)
-
 	// Make sure Envoy version matches the required one
 	if !strings.HasPrefix(envoyVersion, requiredEnvoyVersionSHA) {
 		return fmt.Errorf("envoy version %s does not match with required version %s", envoyVersion, requiredEnvoyVersionSHA)
