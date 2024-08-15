@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
@@ -375,14 +376,14 @@ func TestDecodeDropNotify(t *testing.T) {
 func TestDecodePolicyVerdictNotify(t *testing.T) {
 	localIP := "1.2.3.4"
 	localID := uint64(12)
-	localIdentity := uint64(1234)
+	localIdentity := uint32(1234)
 	remoteIP := "5.6.7.8"
-	remoteIdentity := uint64(5678)
+	remoteIdentity := uint32(5678)
 	dstPort := uint32(443)
 
 	identityGetter := &testutils.FakeIdentityGetter{
 		OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
-			if securityIdentity == uint32(remoteIdentity) {
+			if securityIdentity == remoteIdentity {
 				return &identity.Identity{ID: identity.NumericIdentity(remoteIdentity), Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label"})}, nil
 			}
 			return nil, fmt.Errorf("identity not found for %d", securityIdentity)
@@ -390,12 +391,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	}
 
 	policyLabel := utils.GetPolicyLabels("foo-namespace", "web-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
-	policyKey := policyTypes.Key{
-		Identity:         uint32(remoteIdentity),
-		DestPort:         uint16(dstPort),
-		Nexthdr:          uint8(u8proto.TCP),
-		TrafficDirection: trafficdirection.Egress.Uint8(),
-	}
+	policyKey := policy.EgressKey(remoteIdentity, uint8(u8proto.TCP), uint16(dstPort), 0)
 	ep := &testutils.FakeEndpointInfo{
 		ID:           localID,
 		Identity:     identity.NumericIdentity(localIdentity),
@@ -662,14 +658,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 
 	policyLabel := labels.LabelArrayList{labels.ParseLabelArray("foo=bar")}
-	policyKey := policyTypes.Key{
-		Identity:         remoteID,
-		DestPort:         0,
-		InvertedPortMask: 0xffff, // this is a wildcard
-		Nexthdr:          0,
-		TrafficDirection: trafficdirection.Egress.Uint8(),
-	}
-
+	policyKey := policy.EgressL3OnlyKey(remoteID)
 	endpointGetter := &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
 			if ip == localIP {
@@ -861,11 +850,9 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	ep, ok := endpointGetter.GetEndpointInfo(localIP)
 	assert.Equal(t, true, ok)
-	lbls, rev, ok := ep.GetRealizedPolicyRuleLabelsForKey(policyTypes.Key{
-		Identity:         f.GetDestination().GetIdentity(),
-		InvertedPortMask: 0xffff, // this is a wildcard
-		TrafficDirection: directionFromProto(f.GetTrafficDirection()).Uint8(),
-	})
+	lbls, rev, ok := ep.GetRealizedPolicyRuleLabelsForKey(
+		policy.NewL3OnlyKey(directionFromProto(f.GetTrafficDirection()).Uint8(),
+			f.GetDestination().GetIdentity()))
 	assert.Equal(t, true, ok)
 	assert.Equal(t, lbls, policyLabel)
 	assert.Equal(t, uint64(1), rev)
