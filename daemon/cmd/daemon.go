@@ -1327,10 +1327,13 @@ func (d *Daemon) TriggerDatapathRegen(force bool, reason string) {
 func changedOption(key string, value option.OptionSetting, data interface{}) {
 	d := data.(*Daemon)
 	if key == option.Debug {
-		// Set the debug toggle (this can be a no-op)
-		if d.DebugEnabled() {
+		// Set the log level of the agent (this can be a no-op)
+		if option.Config.Opts.IsEnabled(option.Debug) {
 			logging.SetLogLevelToDebug()
+		} else {
+			logging.SetDefaultLogLevel()
 		}
+
 		// Reflect log level change to proxies
 		proxy.ChangeLogLevel(logging.GetLevel(logging.DefaultLogger))
 	}
