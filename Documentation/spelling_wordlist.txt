@@ -291,6 +291,7 @@ dns
 dockerd
 dockerhub
 dpaa
+dropEventEmitter
 dropdown
 dryRun
 dwarfris
