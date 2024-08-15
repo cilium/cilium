@@ -293,6 +293,269 @@ If you encounter issues after enabling TLS, you can use the following instructio
         ``*.{cluster-name}.hubble-grpc.cilium.io`` where ``{cluster-name}`` is
         the cluster name defined by ``cluster.name`` (defaults to ``default``).
 
+
+Validating the Installation
+---------------------------
+
+The following section guides you through validating that TLS is enabled for Hubble
+and the connection between Hubble Relay and Hubble Server is using mTLS to secure the session.
+Additionally, the commands below can be used to troubleshoot issues with your TLS configuration if you encounter any issues.
+
+Before beginning verify TLS has been configured correctly by running the following command:
+
+.. code-block:: shell-session
+
+   $ kubectl get configmap -n kube-system cilium-config -oyaml | grep hubble-disable-tls
+     hubble-disable-tls: "false"
+
+You should see that the ``hubble-disable-tls`` configuration option is set to ``false``.
+
+Start by creating a Hubble CLI pod within the namespace that Hubble components are running in (for example: ``kube-system``):
+
+.. code-block:: shell-session
+
+    $ kubectl apply -n kube-system -f https://raw.githubusercontent.com/cilium/cilium/main/examples/hubble/hubble-cli.yaml
+
+List Hubble Servers by running ``hubble watch peers`` within the newly created pod:
+
+.. code-block:: shell-session
+
+    $ kubectl exec -it -n kube-system deployment/hubble-cli -- \
+    hubble watch peers --server unix:///var/run/cilium/hubble.sock
+
+    PEER_ADDED   172.18.0.2 kind-worker (TLS.ServerName: kind-worker.default.hubble-grpc.cilium.io)
+    PEER_ADDED   172.18.0.3 kind-control-plane (TLS.ServerName: kind-control-plane.kind.hubble-grpc.cilium.io)
+
+Copy the IP and the server name of the first peer into the following environment variables for the next steps:
+
+.. note::
+
+    If the ``TLS.ServerName`` is missing from your output then TLS is not enabled for the Hubble server and the following steps will not work.
+    If this is the case, please refer to the previous sections to enable TLS.
+
+.. code-block:: shell-session
+
+    $ IP=172.18.0.2
+    $ SERVERNAME=kind-worker.default.hubble-grpc.cilium.io
+
+Connect to the first peer with the Hubble Relay client certificate to confirm
+that the Hubble server is accepting connections from clients who present the
+correct certificate:
+
+.. code-block:: shell-session
+
+    $ kubectl exec -it -n kube-system deployment/hubble-cli -- \
+    hubble observe --server ${IP?}:4244 \
+        --tls-server-name ${SERVERNAME?} \
+        --tls-ca-cert-files /var/lib/hubble-relay/tls/hubble-server-ca.crt \
+        --tls-client-cert-file /var/lib/hubble-relay/tls/client.crt \
+        --tls-client-key-file /var/lib/hubble-relay/tls/client.key
+
+    Dec 13 08:49:58.888: 10.20.1.124:60588 (host) -> kube-system/coredns-565d847f94-pp8zs:8181 (ID:7518) to-endpoint FORWARDED (TCP Flags: SYN)
+    Dec 13 08:49:58.888: 10.20.1.124:36308 (host) <- kube-system/coredns-565d847f94-pp8zs:8080 (ID:7518) to-stack FORWARDED (TCP Flags: SYN, ACK)
+    Dec 13 08:49:58.888: 10.20.1.124:60588 (host) <- kube-system/coredns-565d847f94-pp8zs:8181 (ID:7518) to-stack FORWARDED (TCP Flags: SYN, ACK)
+    ...
+    ...
+
+Now try to query the Hubble server without providing any client certificate:
+
+.. code-block:: shell-session
+
+    $ kubectl exec -it -n kube-system deployment/hubble-cli -- \
+    hubble observe --server ${IP?}:4244 \
+        --tls-server-name ${SERVERNAME?} \
+        --tls-ca-cert-files /var/lib/hubble-relay/tls/hubble-server-ca.crt
+
+    failed to connect to '172.18.0.2:4244': context deadline exceeded: connection error: desc = "transport: authentication handshake failed: mTLS client certificate requested, but not provided"
+    command terminated with exit code 1
+
+You can also try to connect without TLS:
+
+.. code-block:: shell-session
+
+    $ kubectl exec -it -n kube-system deployment/hubble-cli -- \
+    hubble observe --server ${IP?}:4244
+
+    failed to connect to '172.18.0.2:4244': context deadline exceeded: connection error: desc = "error reading server preface: EOF"
+    command terminated with exit code 1
+
+To troubleshoot the connection, install OpenSSL in the Hubble CLI pod:
+
+.. code-block:: shell-session
+
+    $ kubectl exec -it -n kube-system deployment/hubble-cli -- apk add --update openssl
+
+Then, use OpenSSL to connect to the Hubble server get more details about the TLS handshake:
+
+.. code-block:: shell-session
+
+    $ kubectl exec -it -n kube-system deployment/hubble-cli -- \
+    openssl s_client -showcerts -servername ${SERVERNAME} -connect ${IP?}:4244 \
+    -CAfile /var/lib/hubble-relay/tls/hubble-server-ca.crt
+
+    CONNECTED(00000004)
+    depth=1 C = US, ST = San Francisco, L = CA, O = Cilium, OU = Cilium, CN = Cilium CA
+    verify return:1
+    depth=0 CN = *.default.hubble-grpc.cilium.io
+    verify return:1
+    ---
+    Certificate chain
+     0 s:CN = *.default.hubble-grpc.cilium.io
+       i:C = US, ST = San Francisco, L = CA, O = Cilium, OU = Cilium, CN = Cilium CA
+       a:PKEY: id-ecPublicKey, 256 (bit); sigalg: ecdsa-with-SHA256
+       v:NotBefore: Aug 15 17:39:00 2024 GMT; NotAfter: Aug 15 17:39:00 2027 GMT
+    -----BEGIN CERTIFICATE-----
+    MIICNzCCAd2gAwIBAgIUAlgykDuc1J+mzseHS0pREX6Uv3cwCgYIKoZIzj0EAwIw
+    aDELMAkGA1UEBhMCVVMxFjAUBgNVBAgTDVNhbiBGcmFuY2lzY28xCzAJBgNVBAcT
+    AkNBMQ8wDQYDVQQKEwZDaWxpdW0xDzANBgNVBAsTBkNpbGl1bTESMBAGA1UEAxMJ
+    Q2lsaXVtIENBMB4XDTI0MDgxNTE3MzkwMFoXDTI3MDgxNTE3MzkwMFowKjEoMCYG
+    A1UEAwwfKi5kZWZhdWx0Lmh1YmJsZS1ncnBjLmNpbGl1bS5pbzBZMBMGByqGSM49
+    AgEGCCqGSM49AwEHA0IABGjtY50MM21TolEy5RUrBa6WqHsw7PjNB3MhYLCsuJmO
+    aQ1tIy6J2e7a9Cw2jmBlyj+dL8g0YLhRQX4n+leItSSjgaIwgZ8wDgYDVR0PAQH/
+    BAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMBMAwGA1UdEwEB/wQCMAAwHQYDVR0O
+    BBYEFCDf5epVs8yyyZCdtBzc90HrQzpFMB8GA1UdIwQYMBaAFDKuJMmhNPJ71FvB
+    AyHEMztI62NbMCoGA1UdEQQjMCGCHyouZGVmYXVsdC5odWJibGUtZ3JwYy5jaWxp
+    dW0uaW8wCgYIKoZIzj0EAwIDSAAwRQIhAP0kyl0Eb7FBQw1uZE+LWnRyr5GDsB3+
+    6rA/Rx042XZgAiBZML3lOW60tWMI1Pyn4cR4trFbzZpsUSwnQmOAb+paEw==
+    -----END CERTIFICATE-----
+    ---
+    Server certificate
+    subject=CN = *.default.hubble-grpc.cilium.io
+    issuer=C = US, ST = San Francisco, L = CA, O = Cilium, OU = Cilium, CN = Cilium CA
+    ---
+    Acceptable client certificate CA names
+    C = US, ST = San Francisco, L = CA, O = Cilium, OU = Cilium, CN = Cilium CA
+    Requested Signature Algorithms: RSA-PSS+SHA256:ECDSA+SHA256:Ed25519:RSA-PSS+SHA384:RSA-PSS+SHA512:RSA+SHA256:RSA+SHA384:RSA+SHA512:ECDSA+SHA384:ECDSA+SHA512:RSA+SHA1:ECDSA+SHA1
+    Shared Requested Signature Algorithms: RSA-PSS+SHA256:ECDSA+SHA256:Ed25519:RSA-PSS+SHA384:RSA-PSS+SHA512:RSA+SHA256:RSA+SHA384:RSA+SHA512:ECDSA+SHA384:ECDSA+SHA512
+    Peer signing digest: SHA256
+    Peer signature type: ECDSA
+    Server Temp Key: X25519, 253 bits
+    ---
+    SSL handshake has read 1106 bytes and written 437 bytes
+    Verification: OK
+    ---
+    New, TLSv1.3, Cipher is TLS_AES_128_GCM_SHA256
+    Server public key is 256 bit
+    This TLS version forbids renegotiation.
+    No ALPN negotiated
+    Early data was not sent
+    Verify return code: 0 (ok)
+    ---
+    08EBFFFFFF7F0000:error:0A00045C:SSL routines:ssl3_read_bytes:tlsv13 alert certificate required:ssl/record/rec_layer_s3.c:1605:SSL alert number 116
+    command terminated with exit code 1
+
+Breaking the output down:
+
+- ``Server Certificate``: This is the server certificate presented by the server.
+- ``Acceptable client certificate CA names``: These are the CA names that the server accepts for client certificates.
+- ``SSL handshake has read 1108 bytes and written 387 bytes``: Details on the handshake. Errors could be presented here if any occurred.
+- ``Verification: OK``: The server certificate is valid.
+- ``Verify return code: 0 (ok)``: The server certificate was verified successfully.
+- ``error:0A00045C:SSL routines:ssl3_read_bytes:tlsv13 alert certificate required``: The server requires a client certificate to be provided. Since a client certificate was not provided, the connection failed.
+
+If you provide the correct client certificate and key, the connection should be successful:
+
+.. code-block:: shell-session
+
+    $ kubectl exec -i -n kube-system deployment/hubble-cli -- \
+    openssl s_client -showcerts -servername ${SERVERNAME} -connect ${IP?}:4244 \
+      -CAfile /var/lib/hubble-relay/tls/hubble-server-ca.crt \
+      -cert /var/lib/hubble-relay/tls/client.crt \
+      -key /var/lib/hubble-relay/tls/client.key
+
+    CONNECTED(00000004)
+    depth=1 C = US, ST = San Francisco, L = CA, O = Cilium, OU = Cilium, CN = Cilium CA
+    verify return:1
+    depth=0 CN = *.default.hubble-grpc.cilium.io
+    verify return:1
+    ---
+    Certificate chain
+     0 s:CN = *.default.hubble-grpc.cilium.io
+       i:C = US, ST = San Francisco, L = CA, O = Cilium, OU = Cilium, CN = Cilium CA
+       a:PKEY: id-ecPublicKey, 256 (bit); sigalg: ecdsa-with-SHA256
+       v:NotBefore: Aug 15 17:39:00 2024 GMT; NotAfter: Aug 15 17:39:00 2027 GMT
+    -----BEGIN CERTIFICATE-----
+    MIICNzCCAd2gAwIBAgIUAlgykDuc1J+mzseHS0pREX6Uv3cwCgYIKoZIzj0EAwIw
+    aDELMAkGA1UEBhMCVVMxFjAUBgNVBAgTDVNhbiBGcmFuY2lzY28xCzAJBgNVBAcT
+    AkNBMQ8wDQYDVQQKEwZDaWxpdW0xDzANBgNVBAsTBkNpbGl1bTESMBAGA1UEAxMJ
+    Q2lsaXVtIENBMB4XDTI0MDgxNTE3MzkwMFoXDTI3MDgxNTE3MzkwMFowKjEoMCYG
+    A1UEAwwfKi5kZWZhdWx0Lmh1YmJsZS1ncnBjLmNpbGl1bS5pbzBZMBMGByqGSM49
+    AgEGCCqGSM49AwEHA0IABGjtY50MM21TolEy5RUrBa6WqHsw7PjNB3MhYLCsuJmO
+    aQ1tIy6J2e7a9Cw2jmBlyj+dL8g0YLhRQX4n+leItSSjgaIwgZ8wDgYDVR0PAQH/
+    BAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMBMAwGA1UdEwEB/wQCMAAwHQYDVR0O
+    BBYEFCDf5epVs8yyyZCdtBzc90HrQzpFMB8GA1UdIwQYMBaAFDKuJMmhNPJ71FvB
+    AyHEMztI62NbMCoGA1UdEQQjMCGCHyouZGVmYXVsdC5odWJibGUtZ3JwYy5jaWxp
+    dW0uaW8wCgYIKoZIzj0EAwIDSAAwRQIhAP0kyl0Eb7FBQw1uZE+LWnRyr5GDsB3+
+    6rA/Rx042XZgAiBZML3lOW60tWMI1Pyn4cR4trFbzZpsUSwnQmOAb+paEw==
+    -----END CERTIFICATE-----
+    ---
+    Server certificate
+    subject=CN = *.default.hubble-grpc.cilium.io
+    issuer=C = US, ST = San Francisco, L = CA, O = Cilium, OU = Cilium, CN = Cilium CA
+    ---
+    Acceptable client certificate CA names
+    C = US, ST = San Francisco, L = CA, O = Cilium, OU = Cilium, CN = Cilium CA
+    Requested Signature Algorithms: RSA-PSS+SHA256:ECDSA+SHA256:Ed25519:RSA-PSS+SHA384:RSA-PSS+SHA512:RSA+SHA256:RSA+SHA384:RSA+SHA512:ECDSA+SHA384:ECDSA+SHA512:RSA+SHA1:ECDSA+SHA1
+    Shared Requested Signature Algorithms: RSA-PSS+SHA256:ECDSA+SHA256:Ed25519:RSA-PSS+SHA384:RSA-PSS+SHA512:RSA+SHA256:RSA+SHA384:RSA+SHA512:ECDSA+SHA384:ECDSA+SHA512
+    Peer signing digest: SHA256
+    Peer signature type: ECDSA
+    Server Temp Key: X25519, 253 bits
+    ---
+    SSL handshake has read 1106 bytes and written 1651 bytes
+    Verification: OK
+    ---
+    New, TLSv1.3, Cipher is TLS_AES_128_GCM_SHA256
+    Server public key is 256 bit
+    This TLS version forbids renegotiation.
+    No ALPN negotiated
+    Early data was not sent
+    Verify return code: 0 (ok)
+    ---
+    ---
+    Post-Handshake New Session Ticket arrived:
+    SSL-Session:
+        Protocol  : TLSv1.3
+        Cipher    : TLS_AES_128_GCM_SHA256
+        Session-ID: 9ADFAFBDFFB876A9A8D4CC025470168D25485FF51929615199E9561F46FBF97B
+        Session-ID-ctx:
+        Resumption PSK: 58DD7621E7B353BD5C6FC3AAB5A907FF3D3251FAA184D28D2C69560E96806495
+        PSK identity: None
+        PSK identity hint: None
+        SRP username: None
+        TLS session ticket lifetime hint: 604800 (seconds)
+        TLS session ticket:
+        0000 - 55 93 99 70 30 37 6a 77-43 d7 0c 34 9f 24 51 40   U..p07jwC..4.$Q@
+        ...
+        ...
+        0690 - 11 6d 26 ec 99 3a 6e a9-56 c9 ad a0 49 e2 f5 6a   .m&..:n.V...I..j
+
+Press ``ctrl-d`` to signal the TLS session and connection should be terminated.
+After the session has ended you will see output similar to the following:
+
+.. code-block:: shell-session
+
+    @DONE
+        06a0 - bf eb 8b 1d 8d 43 46 2a-07 02 e1 44 35 45 b1 a0   .....CF*...D5E..
+        06b0 - 7d bb 27 2f 1a 35 b2 da-0d 00 15 fd 6c 1f 00 3b   }.'/.5......l..;
+        06c0 - 9a 6e ff c9 5d ad 6b af-f7 20 39 99 5b ae 72 03   .n..].k.. 9.[.r.
+        06d0 - c8 2d 93 7a e5 a7 e0 d5-70 95 8f b5 0b 56 9c      .-.z....p....V.
+
+        Start Time: 1723744378
+        Timeout   : 7200 (sec)
+        Verify return code: 0 (ok)
+        Extended master secret: no
+        Max Early Data: 0
+    ---
+    read R BLOCK
+
+The output of this OpenSSL command is similar to the previous output, but without the error message.
+
+There is also an additional section, starting with ``Post-Handshake
+New Session Ticket arrived``, the presence of which indicates that the client
+certificate is valid and a TLS session was established. The summary of the TLS
+session printed after the connection has ended can also be used as an indicator
+of the established TLS session.
+
 .. _hubble_configure_metrics_tls:
 
 Hubble Metrics TLS and Authentication
