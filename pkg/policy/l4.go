@@ -529,9 +529,9 @@ func (l4 *L4Filter) Equals(_ *testing.T, bL4 *L4Filter) bool {
 
 // ChangeState allows caller to revert changes made by (multiple) toMapState call(s)
 type ChangeState struct {
-	Adds    Keys                  // Added or modified keys, if not nil
-	Deletes Keys                  // deleted keys, if not nil
-	Old     map[Key]MapStateEntry // Old values of all modified or deleted keys, if not nil
+	Adds    Keys        // Added or modified keys, if not nil
+	Deletes Keys        // deleted keys, if not nil
+	Old     MapStateMap // Old values of all modified or deleted keys, if not nil
 }
 
 // toMapState converts a single filter into a MapState entries added to 'p.PolicyMapState'.
@@ -572,13 +572,8 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 
 	var keysToAdd []Key
 	for _, mp := range PortRangeToMaskedPorts(port, l4.EndPort) {
-		keysToAdd = append(keysToAdd, Key{
-			Identity:         0,       // Set in the loop below (if not wildcard)
-			DestPort:         mp.port, // NOTE: Port is in host byte-order!
-			InvertedPortMask: ^mp.mask,
-			Nexthdr:          proto,
-			TrafficDirection: direction.Uint8(),
-		})
+		keysToAdd = append(keysToAdd,
+			NewKey(direction.Uint8(), 0, proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 	}
 
 	// find the L7 rules for the wildcard entry, if any
@@ -1633,12 +1628,8 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 		}
 		var keysToAdd []Key
 		for _, mp := range PortRangeToMaskedPorts(port, l4.EndPort) {
-			keysToAdd = append(keysToAdd, Key{
-				DestPort:         mp.port, // NOTE: Port is in host byte-order!
-				InvertedPortMask: ^mp.mask,
-				Nexthdr:          proto,
-				TrafficDirection: direction.Uint8(),
-			})
+			keysToAdd = append(keysToAdd,
+				NewKey(direction.Uint8(), 0, proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 		}
 		value := NewMapStateEntry(cs, derivedFrom, proxyPort, listener, priority, isDeny, hasAuth, authType)
 

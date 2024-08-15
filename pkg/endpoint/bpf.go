@@ -243,7 +243,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 
 	changes := policy.ChangeState{
 		Adds: make(policy.Keys),
-		Old:  make(map[policy.Key]policy.MapStateEntry),
+		Old:  make(policy.MapStateMap),
 	}
 
 	// create or update proxy redirects
@@ -329,7 +329,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		revertStack  revert.RevertStack
 		changes      = policy.ChangeState{
 			Adds: make(policy.Keys),
-			Old:  make(map[policy.Key]policy.MapStateEntry),
+			Old:  make(policy.MapStateMap),
 		}
 	)
 
@@ -1394,13 +1394,12 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 	cb := func(key bpf.MapKey, value bpf.MapValue) {
 		policymapKey := key.(*policymap.PolicyKey)
 		// Convert from policymap.Key to policy.Key
-		policyKey := policy.Key{
-			Identity:         policymapKey.Identity,
-			DestPort:         policymapKey.GetDestPort(),
-			InvertedPortMask: ^policymapKey.GetPortMask(),
-			Nexthdr:          policymapKey.Nexthdr,
-			TrafficDirection: policymapKey.TrafficDirection,
-		}
+		policyKey := policy.NewKey(
+			policymapKey.TrafficDirection,
+			policymapKey.Identity,
+			policymapKey.Nexthdr,
+			policymapKey.GetDestPort(),
+			policymapKey.GetPortPrefixLen())
 		policymapEntry := value.(*policymap.PolicyEntry)
 		// Convert from policymap.PolicyEntry to policy.MapStateEntry.
 		policyEntry := policy.MapStateEntry{

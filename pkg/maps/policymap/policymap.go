@@ -139,6 +139,15 @@ func (k *PolicyKey) GetPortMask() uint16 {
 	return ^portLen
 }
 
+// GetPortPrefixLen returns the prefix length applicable to the port in the key
+func (k *PolicyKey) GetPortPrefixLen() uint8 {
+	prefixLen := k.Prefixlen - StaticPrefixBits
+	if prefixLen <= NexthdrBits {
+		return 0
+	}
+	return uint8(prefixLen - NexthdrBits)
+}
+
 const (
 	sizeofPolicyKey = int(unsafe.Sizeof(PolicyKey{}))
 	sizeofPrefixlen = int(unsafe.Sizeof(PolicyKey{}.Prefixlen))
