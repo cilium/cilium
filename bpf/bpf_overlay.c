@@ -421,10 +421,12 @@ not_esp:
 
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	{
+		__u32 egress_ifindex = 0;
 		__be32 snat_addr, daddr;
 
 		daddr = ip4->daddr;
-		if (egress_gw_snat_needed_hook(ip4->saddr, daddr, &snat_addr)) {
+		if (egress_gw_snat_needed_hook(ip4->saddr, daddr, &snat_addr,
+					       &egress_ifindex)) {
 			if (snat_addr == EGRESS_GATEWAY_NO_EGRESS_IP)
 				return DROP_NO_EGRESS_IP;
 
@@ -436,7 +438,8 @@ not_esp:
 
 			/* to-netdev@bpf_host handles SNAT, so no need to do it here. */
 			ret = egress_gw_fib_lookup_and_redirect(ctx, snat_addr,
-								daddr, ext_err);
+								daddr, egress_ifindex,
+								ext_err);
 			if (ret != CTX_ACT_OK)
 				return ret;
 

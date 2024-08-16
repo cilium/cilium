@@ -31,11 +31,17 @@
 
 static __always_inline
 int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, __be32 daddr,
-				      __s8 *ext_err)
+				      __u32 egress_ifindex, __s8 *ext_err)
 {
 	struct bpf_fib_lookup_padded fib_params = {};
 	int oif = 0;
 	int ret;
+
+	/* Immediate redirect to egress_ifindex requires L2 resolution.
+	 * Fall back to FIB lookup on older kernels.
+	 */
+	if (egress_ifindex && neigh_resolver_available())
+		return redirect_neigh(egress_ifindex, NULL, 0, 0);
 
 	ret = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr, 0);
 
@@ -115,7 +121,8 @@ egress_gw_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 static __always_inline
 bool egress_gw_snat_needed(__be32 saddr __maybe_unused,
 			   __be32 daddr __maybe_unused,
-			   __be32 *snat_addr __maybe_unused)
+			   __be32 *snat_addr __maybe_unused,
+			   __u32 *egress_ifindex __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
 	struct egress_gw_policy_entry *egress_gw_policy;
@@ -129,6 +136,10 @@ bool egress_gw_snat_needed(__be32 saddr __maybe_unused,
 		return false;
 
 	*snat_addr = egress_gw_policy->egress_ip;
+#ifdef EGRESS_IFINDEX
+	*egress_ifindex = EGRESS_IFINDEX;
+#endif
+
 	return true;
 #else
 	return false;
@@ -173,7 +184,8 @@ egress_gw_request_needs_redirect_hook(struct ipv4_ct_tuple *rtuple,
 }
 
 static __always_inline
-bool egress_gw_snat_needed_hook(__be32 saddr, __be32 daddr, __be32 *snat_addr)
+bool egress_gw_snat_needed_hook(__be32 saddr, __be32 daddr, __be32 *snat_addr,
+				__u32 *egress_ifindex)
 {
 	struct remote_endpoint_info *remote_ep;
 
@@ -186,7 +198,7 @@ bool egress_gw_snat_needed_hook(__be32 saddr, __be32 daddr, __be32 *snat_addr)
 	    identity_is_cluster(remote_ep->sec_identity))
 		return false;
 
-	return egress_gw_snat_needed(saddr, daddr, snat_addr);
+	return egress_gw_snat_needed(saddr, daddr, snat_addr, egress_ifindex);
 }
 
 static __always_inline

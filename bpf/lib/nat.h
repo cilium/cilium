@@ -108,6 +108,7 @@ struct ipv4_nat_target {
 	bool egress_gateway; /* NAT is needed because of an egress gateway policy */
 	__u32 cluster_id;
 	bool needs_ct;
+	__u32 ifindex; /* Obtained from EGW policy */
 };
 
 #if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
@@ -635,7 +636,8 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	if (is_reply)
 		goto skip_egress_gateway;
 
-	if (egress_gw_snat_needed_hook(tuple->saddr, tuple->daddr, &target->addr)) {
+	if (egress_gw_snat_needed_hook(tuple->saddr, tuple->daddr, &target->addr,
+				       &target->ifindex)) {
 		if (target->addr == EGRESS_GATEWAY_NO_EGRESS_IP)
 			return DROP_NO_EGRESS_IP;
 
