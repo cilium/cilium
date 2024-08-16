@@ -54,7 +54,7 @@
 {{- end -}}
 
 {{- $policyCIDRMatchMode := ""}}
-{{- /* Default values when 1.6 was initially deployed */ -}}
+{{- /* Default values when 1.17 was initially deployed */ -}}
 {{- if semverCompare ">=1.17" (default "1.17" .Values.upgradeCompatibility) -}}
   {{- if hasKey .Values "policyCIDRMatchMode"}}
     {{- $policyCIDRMatchMode =  (join " " .Values.policyCIDRMatchMode | quote ) -}}
