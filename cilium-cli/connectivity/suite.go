@@ -16,7 +16,7 @@ import (
 type Hooks interface {
 	check.SetupHooks
 	// AddConnectivityTests is an hook to register additional connectivity tests.
-	AddConnectivityTests(ct *check.ConnectivityTest) error
+	AddConnectivityTests(cts ...*check.ConnectivityTest) error
 }
 
 func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) error {
