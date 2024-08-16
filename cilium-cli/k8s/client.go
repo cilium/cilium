@@ -701,6 +701,26 @@ func (c *Client) ListCiliumBGPPeeringPolicies(ctx context.Context, opts metav1.L
 	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPPeeringPolicies().List(ctx, opts)
 }
 
+func (c *Client) ListCiliumBGPClusterConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPClusterConfigList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPClusterConfigs().List(ctx, opts)
+}
+
+func (c *Client) ListCiliumBGPPeerConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeerConfigList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPPeerConfigs().List(ctx, opts)
+}
+
+func (c *Client) ListCiliumBGPAdvertisements(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPAdvertisementList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPAdvertisements().List(ctx, opts)
+}
+
+func (c *Client) ListCiliumBGPNodeConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPNodeConfigList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPNodeConfigs().List(ctx, opts)
+}
+
+func (c *Client) ListCiliumBGPNodeConfigOverrides(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPNodeConfigOverrideList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPNodeConfigOverrides().List(ctx, opts)
+}
+
 func (c *Client) ListCiliumCIDRGroups(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumCIDRGroupList, error) {
 	return c.CiliumClientset.CiliumV2alpha1().CiliumCIDRGroups().List(ctx, opts)
 }
