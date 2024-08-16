@@ -34,6 +34,7 @@ type PodCIDRReconcilerIn struct {
 type PodCIDRReconciler struct {
 	logger     logrus.FieldLogger
 	peerAdvert *CiliumPeerAdvertisement
+	metadata   map[uint32]PodCIDRReconcilerMetadata
 }
 
 // PodCIDRReconcilerMetadata is a map of advertisements per family, key is family type
@@ -52,6 +53,7 @@ func NewPodCIDRReconciler(params PodCIDRReconcilerIn) PodCIDRReconcilerOut {
 		Reconciler: &PodCIDRReconciler{
 			logger:     params.Logger.WithField(types.ReconcilerLogField, "PodCIDR"),
 			peerAdvert: params.PeerAdvert,
+			metadata:   make(map[uint32]PodCIDRReconcilerMetadata),
 		},
 	}
 }
@@ -64,11 +66,19 @@ func (r *PodCIDRReconciler) Priority() int {
 	return 30
 }
 
-func (r *PodCIDRReconciler) Init(_ *instance.BGPInstance) error {
+func (r *PodCIDRReconciler) Init(i *instance.BGPInstance) error {
+	r.metadata[i.Global.ASN] = PodCIDRReconcilerMetadata{
+		AFPaths:       make(AFPathsMap),
+		RoutePolicies: make(RoutePolicyMap),
+	}
 	return nil
 }
 
-func (r *PodCIDRReconciler) Cleanup(_ *instance.BGPInstance) {}
+func (r *PodCIDRReconciler) Cleanup(i *instance.BGPInstance) {
+	if i != nil {
+		delete(r.metadata, i.Global.ASN)
+	}
+}
 
 func (r *PodCIDRReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
 	if p.DesiredConfig == nil {
@@ -227,15 +237,9 @@ func (r *PodCIDRReconciler) getDesiredRoutePolicies(p ReconcileParams, desiredPe
 }
 
 func (r *PodCIDRReconciler) getMetadata(i *instance.BGPInstance) PodCIDRReconcilerMetadata {
-	if _, found := i.Metadata[r.Name()]; !found {
-		i.Metadata[r.Name()] = PodCIDRReconcilerMetadata{
-			AFPaths:       make(AFPathsMap),
-			RoutePolicies: make(RoutePolicyMap),
-		}
-	}
-	return i.Metadata[r.Name()].(PodCIDRReconcilerMetadata)
+	return r.metadata[i.Global.ASN]
 }
 
 func (r *PodCIDRReconciler) setMetadata(i *instance.BGPInstance, metadata PodCIDRReconcilerMetadata) {
-	i.Metadata[r.Name()] = metadata
+	r.metadata[i.Global.ASN] = metadata
 }
