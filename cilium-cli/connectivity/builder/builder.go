@@ -91,11 +91,11 @@ type testBuilder interface {
 // GetTestSuites returns a slice of functions, that when invoked, result in a
 // collection of tests being built. These functions use helper methods to add various
 // collections of test builders depending upon the provided parameters.
-func GetTestSuites(params check.Parameters) ([]func(connTests []*check.ConnectivityTest, extraTests func(ct *check.ConnectivityTest) error) error, error) {
+func GetTestSuites(params check.Parameters) ([]func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error, error) {
 	switch {
 	case params.Perf:
-		return []func(connTests []*check.ConnectivityTest, extraTests func(ct *check.ConnectivityTest) error) error{
-			func(connTests []*check.ConnectivityTest, _ func(ct *check.ConnectivityTest) error) error {
+		return []func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error{
+			func(connTests []*check.ConnectivityTest, _ func(cts ...*check.ConnectivityTest) error) error {
 				return networkPerformanceTests(connTests[0])
 			},
 		}, nil
@@ -103,14 +103,14 @@ func GetTestSuites(params check.Parameters) ([]func(connTests []*check.Connectiv
 		// Exit early, as --conn-disrupt-test-setup is only needed to deploy pods which
 		// will be used by another invocation of "cli connectivity test"
 		// with include --include-conn-disrupt-test"
-		return []func(connTests []*check.ConnectivityTest, extraTests func(ct *check.ConnectivityTest) error) error{
-			func(connTests []*check.ConnectivityTest, _ func(ct *check.ConnectivityTest) error) error {
+		return []func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error{
+			func(connTests []*check.ConnectivityTest, _ func(cts ...*check.ConnectivityTest) error) error {
 				return connDisruptTests(connTests[0])
 			},
 		}, nil
 	case params.TestConcurrency > 1:
-		return []func(connTests []*check.ConnectivityTest, extraTests func(ct *check.ConnectivityTest) error) error{
-			func(connTests []*check.ConnectivityTest, _ func(ct *check.ConnectivityTest) error) error {
+		return []func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error{
+			func(connTests []*check.ConnectivityTest, _ func(cts ...*check.ConnectivityTest) error) error {
 				if connTests[0].Params().IncludeConnDisruptTest {
 					if err := connDisruptTests(connTests[0]); err != nil {
 						return err
@@ -118,19 +118,19 @@ func GetTestSuites(params check.Parameters) ([]func(connTests []*check.Connectiv
 				}
 				return concurrentTests(connTests)
 			},
-			func(connTests []*check.ConnectivityTest, extraTests func(ct *check.ConnectivityTest) error) error {
+			func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error {
 				if err := sequentialTests(connTests[0]); err != nil {
 					return err
 				}
-				if err := extraTests(connTests[0]); err != nil {
+				if err := extraTests(connTests...); err != nil {
 					return err
 				}
 				return finalTests(connTests[0])
 			},
 		}, nil
 	default: // fallback to the sequential run
-		return []func(connTests []*check.ConnectivityTest, extraTests func(ct *check.ConnectivityTest) error) error{
-			func(connTests []*check.ConnectivityTest, extraTests func(ct *check.ConnectivityTest) error) error {
+		return []func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error{
+			func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error {
 				if connTests[0].Params().IncludeConnDisruptTest {
 					if err := connDisruptTests(connTests[0]); err != nil {
 						return err
@@ -142,7 +142,7 @@ func GetTestSuites(params check.Parameters) ([]func(connTests []*check.Connectiv
 				if err := sequentialTests(connTests[0]); err != nil {
 					return err
 				}
-				if err := extraTests(connTests[0]); err != nil {
+				if err := extraTests(connTests...); err != nil {
 					return err
 				}
 				return finalTests(connTests[0])
