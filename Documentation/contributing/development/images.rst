@@ -192,6 +192,10 @@ Image dependency:
 Update cilium-builder and cilium-runtime images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. warning::
+    These following steps should not be used anymore as the workflow ``build-images-base``  
+    automates the update of cilium-builder and cilium-runtime when a commit changes their respective directories.
+
 The steps described here, starting with a commit that updates the image
 versions, build the necessary images and update all the appropriate
 locations in the Cilium codebase. Hence, before executing the following steps,
