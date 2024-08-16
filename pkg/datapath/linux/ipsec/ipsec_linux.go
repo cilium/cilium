@@ -928,17 +928,6 @@ func UpsertIPsecEndpoint(log *slog.Logger, local, remote *net.IPNet, outerLocal,
 	return spi, nil
 }
 
-// UpsertIPsecEndpointPolicy adds a policy to the xfrm rules. Used to add a policy when the state
-// rule is already available.
-func UpsertIPsecEndpointPolicy(local, remote *net.IPNet, localTmpl, remoteTmpl net.IP, remoteNodeID uint16, dir IPSecDir, reqID int) error {
-	if err := ipSecReplacePolicyOut(local, remote, localTmpl, remoteTmpl, remoteNodeID, dir, reqID); err != nil {
-		if !os.IsExist(err) {
-			return fmt.Errorf("unable to replace templated policy out: %w", err)
-		}
-	}
-	return nil
-}
-
 // DeleteIPsecEndpoint deletes a endpoint associated with the remote IP address
 func DeleteIPsecEndpoint(log *slog.Logger, nodeID uint16) error {
 	log = log.With(logfields.LogSubsys, subsystem)
