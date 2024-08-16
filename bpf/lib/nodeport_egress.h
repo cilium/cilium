@@ -353,9 +353,14 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
 	if (target.egress_gateway) {
+		/* Stay on the desired egress interface: */
+		if (target.ifindex && target.ifindex == NATIVE_DEV_IFINDEX)
+			goto apply_snat;
+
 		/* Send packet to the correct egress interface, and SNAT it there. */
 		ret = egress_gw_fib_lookup_and_redirect(ctx, target.addr,
-							tuple.daddr, ext_err);
+							tuple.daddr, target.ifindex,
+							ext_err);
 		if (ret != CTX_ACT_OK)
 			return ret;
 
