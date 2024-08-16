@@ -743,20 +743,6 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
-			Description: "Collecting Cilium BGP Peering Policies",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumBGPPeeringPolicies(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Peering policies: %w", err)
-				}
-				if err := c.WriteYAML(ciliumBPGPeeringPoliciesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Peering policies: %w", err)
-				}
-				return nil
-			},
-		},
-		{
 			Description: "Collecting Cilium LoadBalancer IP Pools",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
@@ -1625,6 +1611,9 @@ func (c *Collector) Run() error {
 	if c.FeatureSet[features.EnableEnvoyConfig].Enabled {
 		tasks = append(tasks, c.getEnvoyConfigTasks()...)
 	}
+	if c.FeatureSet[features.BGPControlPlane].Enabled {
+		tasks = append(tasks, c.getBGPControlPlaneTasks()...)
+	}
 
 	// First, run each serial task in its own workerpool.
 	var r []workerpool.Task
@@ -2036,6 +2025,95 @@ func (c *Collector) getEnvoyConfigTasks() []Task {
 				}
 				if err := c.WriteYAML(ciliumEnvoyConfigsFileName, v); err != nil {
 					return fmt.Errorf("failed to collect CiliumEnvoyConfigs: %w", err)
+				}
+				return nil
+			},
+		},
+	}
+}
+
+func (c *Collector) getBGPControlPlaneTasks() []Task {
+	return []Task{
+		{
+			Description: "Collecting Cilium BGP Peering Policies",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListCiliumBGPPeeringPolicies(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Cilium BGP Peering policies: %w", err)
+				}
+				if err := c.WriteYAML(ciliumBPGPeeringPoliciesFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Cilium BGP Peering policies: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Cilium BGP Cluster Configs",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListCiliumBGPClusterConfigs(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Cilium BGP Cluster Configs: %w", err)
+				}
+				if err := c.WriteYAML(ciliumBPGClusterConfigsFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Cilium BGP Cluster Configs: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Cilium BGP Peer Configs",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListCiliumBGPPeerConfigs(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Cilium BGP Peer Configs: %w", err)
+				}
+				if err := c.WriteYAML(ciliumBPGPeerConfigsFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Cilium BGP Peer Configs: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Cilium BGP Advertisements",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListCiliumBGPAdvertisements(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Cilium BGP Advertisements: %w", err)
+				}
+				if err := c.WriteYAML(ciliumBPGAdvertisementsFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Cilium BGP Advertisements: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Cilium BGP Node Configs",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListCiliumBGPNodeConfigs(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Cilium BGP Node Configs: %w", err)
+				}
+				if err := c.WriteYAML(ciliumBPGNodeConfigsFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Cilium BGP Node Configs: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Cilium BGP Node Config Overrides",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListCiliumBGPNodeConfigOverrides(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Cilium BGP Node Config Overrides: %w", err)
+				}
+				if err := c.WriteYAML(ciliumBPGNodeConfigOverridesFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Cilium BGP Node Config Overrides: %w", err)
 				}
 				return nil
 			},

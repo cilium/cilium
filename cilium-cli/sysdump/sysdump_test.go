@@ -261,6 +261,26 @@ func (c *fakeClient) ListCiliumBGPPeeringPolicies(_ context.Context, _ metav1.Li
 	panic("implement me")
 }
 
+func (c *fakeClient) ListCiliumBGPClusterConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPClusterConfigList, error) {
+	panic("implement me")
+}
+
+func (c *fakeClient) ListCiliumBGPPeerConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeerConfigList, error) {
+	panic("implement me")
+}
+
+func (c *fakeClient) ListCiliumBGPAdvertisements(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPAdvertisementList, error) {
+	panic("implement me")
+}
+
+func (c *fakeClient) ListCiliumBGPNodeConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPNodeConfigList, error) {
+	panic("implement me")
+}
+
+func (c *fakeClient) ListCiliumBGPNodeConfigOverrides(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPNodeConfigOverrideList, error) {
+	panic("implement me")
+}
+
 func (c *fakeClient) ListCiliumLoadBalancerIPPools(_ context.Context, _ metav1.ListOptions) (*ciliumv2alpha1.CiliumLoadBalancerIPPoolList, error) {
 	panic("implement me")
 }
