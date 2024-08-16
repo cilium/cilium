@@ -220,7 +220,7 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 func registerCommonFlags(flags *pflag.FlagSet) {
 	flags.BoolVarP(&params.Debug, "debug", "d", false, "Show debug messages")
 	flags.Var(option.NewNamedMapOptions("node-selector", &params.NodeSelector, nil), "node-selector", "Restrict connectivity pods to nodes matching this label")
-	flags.StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to perform the connectivity in")
+	flags.StringVar(&params.TestNamespace, "test-namespace", defaults.ConnectivityCheckNamespace, "Namespace to perform the connectivity in (always suffixed with a sequence number to be compliant with test-concurrency param, e.g.: cilium-test-1)")
 	flags.Var(&params.DeploymentAnnotations, "deployment-pod-annotations", "Add annotations to the connectivity pods, e.g. '{\"client\":{\"foo\":\"bar\"}}'")
 }
 
