@@ -502,7 +502,7 @@ func InitMapInfo(maxEntries int) {
 }
 
 // InitCallMap creates the policy call maps in the kernel.
-func InitCallMaps(haveEgressCallMap bool) error {
+func InitCallMaps() error {
 	policyCallMap := bpf.NewMap(PolicyCallMapName,
 		ebpf.ProgramArray,
 		&CallKey{},
@@ -512,7 +512,7 @@ func InitCallMaps(haveEgressCallMap bool) error {
 	)
 	err := policyCallMap.Create()
 
-	if err == nil && haveEgressCallMap {
+	if err == nil {
 		policyEgressCallMap := bpf.NewMap(PolicyEgressCallMapName,
 			ebpf.ProgramArray,
 			&CallKey{},

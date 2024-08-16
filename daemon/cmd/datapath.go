@@ -175,7 +175,7 @@ func (d *Daemon) initMaps() error {
 		log.WithError(err).Fatal("Unable to initialize service maps")
 	}
 
-	if err := policymap.InitCallMaps(option.Config.EnableEnvoyConfig); err != nil {
+	if err := policymap.InitCallMaps(); err != nil {
 		return fmt.Errorf("initializing policy map: %w", err)
 	}
 
