@@ -100,6 +100,9 @@ jobs:
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
           - kernel: '6.6-20240710.064909'
+            ci-kernel: '61'
+          # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
+          - kernel: '6.6-20240710.064909'
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
