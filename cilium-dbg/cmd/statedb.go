@@ -20,11 +20,11 @@ import (
 	"gopkg.in/yaml.v3"
 
 	clientPkg "github.com/cilium/cilium/pkg/client"
-	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
-
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/dynamicconfig"
 	"github.com/cilium/cilium/pkg/hive/health"
 	"github.com/cilium/cilium/pkg/hive/health/types"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/nat/stats"
 )
@@ -210,6 +210,7 @@ func init() {
 		statedbTableCommand[*experimental.Service](experimental.ServiceTableName),
 		statedbTableCommand[*experimental.Frontend](experimental.FrontendTableName),
 		statedbTableCommand[*experimental.Backend](experimental.BackendTableName),
+		statedbTableCommand[dynamicconfig.DynamicConfig](dynamicconfig.TableName),
 	)
 	StatedbCmd.AddCommand(
 		statedbDumpCmd,
