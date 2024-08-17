@@ -39,7 +39,7 @@ const (
 )
 
 type manager struct {
-	resetQueues, enabled bool
+	enabled bool
 
 	params bandwidthManagerParams
 }
@@ -54,9 +54,6 @@ func (m *manager) BBREnabled() bool {
 
 func (m *manager) defines() (defines.Map, error) {
 	cDefinesMap := make(defines.Map)
-	if m.resetQueues {
-		cDefinesMap["RESET_QUEUES"] = "1"
-	}
 
 	if m.Enabled() {
 		cDefinesMap["ENABLE_BANDWIDTH_MANAGER"] = "1"
@@ -104,7 +101,6 @@ func (m *manager) probe() error {
 	// and writable queue_mapping that we use. Below helper is
 	// available for 5.1 kernels and onwards.
 	kernelGood := probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkbEcnSetCe) == nil
-	m.resetQueues = kernelGood
 	if !m.params.Config.EnableBandwidthManager {
 		return nil
 	}

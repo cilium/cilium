@@ -7,7 +7,7 @@
 
 static inline void reset_queue_mapping(struct __ctx_buff *ctx __maybe_unused)
 {
-#ifdef RESET_QUEUES
+#ifdef HAVE_WRITEABLE_QUEUE_MAPPING
 	if (!ctx_is_skb())
 		return;
 
