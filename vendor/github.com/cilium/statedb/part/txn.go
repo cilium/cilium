@@ -56,6 +56,18 @@ func (txn *Txn[T]) Insert(key []byte, value T) (old T, hadOld bool) {
 	return
 }
 
+// Modify a value in the tree. If the key does not exist the modify
+// function is called with the zero value for T. It is up to the
+// caller to not mutate the value in-place and to return a clone.
+// Returns the old value if it exists.
+func (txn *Txn[T]) Modify(key []byte, mod func(T) T) (old T, hadOld bool) {
+	old, hadOld, txn.root = txn.modify(txn.root, key, mod)
+	if !hadOld {
+		txn.size++
+	}
+	return
+}
+
 // Delete the given key from the tree.
 // Returns the old value if it exists.
 func (txn *Txn[T]) Delete(key []byte) (old T, hadOld bool) {
@@ -155,6 +167,10 @@ func (txn *Txn[T]) cloneNode(n *header[T]) *header[T] {
 }
 
 func (txn *Txn[T]) insert(root *header[T], key []byte, value T) (oldValue T, hadOld bool, newRoot *header[T]) {
+	return txn.modify(root, key, func(_ T) T { return value })
+}
+
+func (txn *Txn[T]) modify(root *header[T], key []byte, mod func(T) T) (oldValue T, hadOld bool, newRoot *header[T]) {
 	fullKey := key
 
 	this := root
@@ -195,7 +211,8 @@ func (txn *Txn[T]) insert(root *header[T], key []byte, value T) (oldValue T, had
 				// Node is big enough, clone it so we can mutate it
 				this = txn.cloneNode(this)
 			}
-			this.insert(idx, newLeaf(txn.opts, key, fullKey, value).self())
+			var zero T
+			this.insert(idx, newLeaf(txn.opts, key, fullKey, mod(zero)).self())
 			*thisp = this
 			return
 		}
@@ -220,7 +237,7 @@ func (txn *Txn[T]) insert(root *header[T], key []byte, value T) (oldValue T, had
 			hadOld = true
 			this = txn.cloneNode(this)
 			*thisp = this
-			this.getLeaf().value = value
+			this.getLeaf().value = mod(oldValue)
 		} else {
 			// Partially matching prefix.
 			newNode := &node4[T]{
@@ -234,7 +251,8 @@ func (txn *Txn[T]) insert(root *header[T], key []byte, value T) (oldValue T, had
 			oldLeaf := &oldLeafCopy
 			oldLeaf.prefix = oldLeaf.prefix[len(common):]
 			key = key[len(common):]
-			newLeaf := newLeaf(txn.opts, key, fullKey, value)
+			var zero T
+			newLeaf := newLeaf(txn.opts, key, fullKey, mod(zero))
 
 			// Insert the two leaves into the node we created. If one has
 			// a key that is a subset of the other, then we can insert them
@@ -279,11 +297,12 @@ func (txn *Txn[T]) insert(root *header[T], key []byte, value T) (oldValue T, had
 			oldValue = leaf.value
 			hadOld = true
 			leaf = txn.cloneNode(leaf.self()).getLeaf()
-			leaf.value = value
+			leaf.value = mod(oldValue)
 			this.setLeaf(leaf)
 		} else {
 			// Set the leaf
-			this.setLeaf(newLeaf(txn.opts, this.prefix, fullKey, value))
+			var zero T
+			this.setLeaf(newLeaf(txn.opts, this.prefix, fullKey, mod(zero)))
 		}
 
 	default:
@@ -295,7 +314,8 @@ func (txn *Txn[T]) insert(root *header[T], key []byte, value T) (oldValue T, had
 		this.prefix = this.prefix[len(common):]
 		key = key[len(common):]
 
-		newLeaf := newLeaf(txn.opts, key, fullKey, value)
+		var zero T
+		newLeaf := newLeaf(txn.opts, key, fullKey, mod(zero))
 		newNode := &node4[T]{
 			header: header[T]{prefix: common},
 		}

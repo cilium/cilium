@@ -95,6 +95,17 @@ func (t *Tree[T]) Insert(key []byte, value T) (old T, hadOld bool, tree *Tree[T]
 	return
 }
 
+// Modify a value in the tree. If the key does not exist the modify
+// function is called with the zero value for T. It is up to the
+// caller to not mutate the value in-place and to return a clone.
+// Returns the old value if it exists.
+func (t *Tree[T]) Modify(key []byte, mod func(T) T) (old T, hadOld bool, tree *Tree[T]) {
+	txn := t.Txn()
+	old, hadOld = txn.Modify(key, mod)
+	tree = txn.Commit()
+	return
+}
+
 // Delete the given key from the tree.
 // Returns the old value if it exists and the new tree.
 func (t *Tree[T]) Delete(key []byte) (old T, hadOld bool, tree *Tree[T]) {

@@ -122,6 +122,10 @@ func (txn *txn) mustIndexWriteTxn(meta TableMeta, indexPos int) indexTxn {
 }
 
 func (txn *txn) insert(meta TableMeta, guardRevision Revision, data any) (object, bool, error) {
+	return txn.modify(meta, guardRevision, data, func(_ any) any { return data })
+}
+
+func (txn *txn) modify(meta TableMeta, guardRevision Revision, newData any, merge func(any) any) (object, bool, error) {
 	if txn.modifiedTables == nil {
 		return object{}, false, ErrTransactionClosed
 	}
@@ -136,26 +140,35 @@ func (txn *txn) insert(meta TableMeta, guardRevision Revision, data any) (object
 	table.revision++
 	revision := table.revision
 
-	obj := object{
-		revision: revision,
-		data:     data,
-	}
-
 	// Update the primary index first
-	idKey := meta.primary().fromObject(obj).First()
+	idKey := meta.primary().fromObject(object{data: newData}).First()
 	idIndexTxn := txn.mustIndexWriteTxn(meta, PrimaryIndexPos)
-	oldObj, oldExists := idIndexTxn.Insert(idKey, obj)
+
+	var obj object
+	oldObj, oldExists := idIndexTxn.Modify(idKey,
+		func(old object) object {
+			obj = object{
+				revision: revision,
+			}
+			if old.revision == 0 {
+				// Zero revision: the object did not exist so no need to call merge.
+				obj.data = newData
+			} else {
+				obj.data = merge(old.data)
+			}
+			return obj
+		})
 
 	// Sanity check: is the same object being inserted back and thus the
 	// immutable object is being mutated?
 	if oldExists {
-		val := reflect.ValueOf(data)
+		val := reflect.ValueOf(obj.data)
 		if val.Kind() == reflect.Pointer {
 			oldVal := reflect.ValueOf(oldObj.data)
 			if val.UnsafePointer() == oldVal.UnsafePointer() {
 				panic(fmt.Sprintf(
 					"Insert() of the same object (%T) back into the table. Is the immutable object being mutated?",
-					data))
+					obj.data))
 			}
 		}
 	}
