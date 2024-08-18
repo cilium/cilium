@@ -1350,6 +1350,8 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		// not going to be added, or is going to be changed to a deny entry.
 		bailed := false
 		changeToDeny := false
+		var denyEntry MapStateEntry
+		var denyKey Key
 		ms.denies.ForEachBroaderOrEqualKey(newKey, prefixes, func(k Key, v MapStateEntry) bool {
 			if ms.validator != nil {
 				ms.validator.isBroaderOrEqual(k, newKey)
@@ -1368,6 +1370,8 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			// change this allow entry to a deny entry so that the covering deny policy
 			// is honored also for this ID in the datapath.
 			changeToDeny = true
+			denyKey = k
+			denyEntry = v
 			return true
 		})
 		if bailed || changeToDeny {
@@ -1380,7 +1384,10 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			newEntry.priority = 0
 			newEntry.hasAuthType = DefaultAuthType
 			newEntry.AuthType = AuthTypeDisabled
+			newEntry.DerivedFromRules.MergeSorted(denyEntry.DerivedFromRules)
 			ms.authPreferredInsert(newKey, newEntry, identities, features, changes)
+			ms.addDependentOnEntry(denyKey, denyEntry, newKey, identities, changes)
+
 			return
 		}
 
