@@ -31,6 +31,20 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 )
 
+const (
+	InterfacesCreateOrUpdate        = "Interfaces.CreateOrUpdate"
+	InterfacesGet                   = "Interfaces.Get"
+	InterfacesListAll               = "Interfaces.ListAll"
+	InterfacesListComplete          = "Interfaces.ListComplete"
+	VirtualMachineScaleSetsListAll  = "VirtualMachineScaleSets.ListAll"
+	VirtualMachineScaleSetVMsGet    = "VirtualMachineScaleSetVMs.Get"
+	VirtualMachineScaleSetVMsUpdate = "VirtualMachineScaleSetVMs.Update"
+	VirtualNetworksList             = "VirtualNetworks.List"
+	virtualnetworksListAll          = "virtualnetworks.ListAll"
+
+	InterfacesListVirtualMachineScaleSetNetworkInterfacesComplete = "Interfaces.ListVirtualMachineScaleSetNetworkInterfacesComplete"
+)
+
 var (
 	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, "azure-api")
 	userAgent = fmt.Sprintf("cilium/%s", version.Version)
@@ -137,10 +151,10 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]network.Inter
 func (c *Client) vmNetworkInterfaces(ctx context.Context) ([]network.Interface, error) {
 	var networkInterfaces []network.Interface
 
-	c.limiter.Limit(ctx, "Interfaces.ListComplete")
+	c.limiter.Limit(ctx, InterfacesListComplete)
 	sinceStart := spanstat.Start()
 	result, err := c.interfaces.ListComplete(ctx, c.resourceGroup)
-	c.metricsAPI.ObserveAPICall("Interfaces.ListComplete", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall(InterfacesListComplete, deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return nil, err
 	}
@@ -166,10 +180,10 @@ func (c *Client) vmNetworkInterfaces(ctx context.Context) ([]network.Interface, 
 func (c *Client) vmssNetworkInterfaces(ctx context.Context) ([]network.Interface, error) {
 	var networkInterfaces []network.Interface
 
-	c.limiter.Limit(ctx, "VirtualMachineScaleSets.ListAll")
+	c.limiter.Limit(ctx, VirtualMachineScaleSetsListAll)
 	sinceStart := spanstat.Start()
 	result, err := c.vmscalesets.ListComplete(ctx, c.resourceGroup)
-	c.metricsAPI.ObserveAPICall("VirtualMachineScaleSets.ListAll", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall(VirtualMachineScaleSetsListAll, deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return nil, err
 	}
@@ -186,10 +200,10 @@ func (c *Client) vmssNetworkInterfaces(ctx context.Context) ([]network.Interface
 			continue
 		}
 
-		c.limiter.Limit(ctx, "Interfaces.ListAll")
+		c.limiter.Limit(ctx, InterfacesListAll)
 		sinceStart := spanstat.Start()
 		result2, err2 := c.interfaces.ListVirtualMachineScaleSetNetworkInterfacesComplete(ctx, c.resourceGroup, *scaleset.Name)
-		c.metricsAPI.ObserveAPICall("Interfaces.ListVirtualMachineScaleSetNetworkInterfacesComplete", deriveStatus(err2), sinceStart.Seconds())
+		c.metricsAPI.ObserveAPICall(InterfacesListVirtualMachineScaleSetNetworkInterfacesComplete, deriveStatus(err2), sinceStart.Seconds())
 		if err2 != nil {
 			// For scale set created by AKS node group (otherwise it will return an empty list) without any instances API will return not found. Then it can be skipped.
 			var v autorest.DetailedError
@@ -301,11 +315,11 @@ func (c *Client) GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) 
 
 // describeVpcs lists all VPCs
 func (c *Client) describeVpcs(ctx context.Context) ([]network.VirtualNetwork, error) {
-	c.limiter.Limit(ctx, "VirtualNetworks.List")
+	c.limiter.Limit(ctx, VirtualNetworksList)
 
 	sinceStart := spanstat.Start()
 	result, err := c.virtualnetworks.ListAllComplete(ctx)
-	c.metricsAPI.ObserveAPICall("virtualnetworks.ListAll", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall(virtualnetworksListAll, deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return nil, err
 	}
@@ -384,10 +398,10 @@ func generateIpConfigName() string {
 func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, vmssName, subnetID, interfaceName string, addresses int) error {
 	var netIfConfig *compute.VirtualMachineScaleSetNetworkConfiguration
 
-	c.limiter.Limit(ctx, "VirtualMachineScaleSetVMs.Get")
+	c.limiter.Limit(ctx, VirtualMachineScaleSetVMsGet)
 	sinceStart := spanstat.Start()
 	result, err := c.vmss.Get(ctx, c.resourceGroup, vmssName, instanceID, compute.InstanceViewTypesInstanceView)
-	c.metricsAPI.ObserveAPICall("VirtualMachineScaleSetVMs.Get", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall(VirtualMachineScaleSetVMsGet, deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return fmt.Errorf("failed to get VM %s from VMSS %s: %w", instanceID, vmssName, err)
 	}
@@ -441,10 +455,10 @@ func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, v
 		result.StorageProfile.ImageReference = nil
 	}
 
-	c.limiter.Limit(ctx, "VirtualMachineScaleSetVMs.Update")
+	c.limiter.Limit(ctx, VirtualMachineScaleSetVMsUpdate)
 	sinceStart = spanstat.Start()
 	future, err := c.vmss.Update(ctx, c.resourceGroup, vmssName, instanceID, result)
-	defer c.metricsAPI.ObserveAPICall("VirtualMachineScaleSetVMs.Update", deriveStatus(err), sinceStart.Seconds())
+	defer c.metricsAPI.ObserveAPICall(VirtualMachineScaleSetVMsUpdate, deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return fmt.Errorf("unable to update virtualmachinescaleset: %w", err)
 	}
@@ -458,10 +472,10 @@ func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, v
 
 // AssignPrivateIpAddressesVM assign a private IP to an interface attached to a standalone instance
 func (c *Client) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, interfaceName string, addresses int) error {
-	c.limiter.Limit(ctx, "Interfaces.Get")
+	c.limiter.Limit(ctx, InterfacesGet)
 	sinceStart := spanstat.Start()
 	iface, err := c.interfaces.Get(ctx, c.resourceGroup, interfaceName, "")
-	c.metricsAPI.ObserveAPICall("Interfaces.Get", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall(InterfacesGet, deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return fmt.Errorf("failed to get standalone instance's interface %s: %w", interfaceName, err)
 	}
@@ -491,10 +505,10 @@ func (c *Client) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, inter
 	ipConfigurations = append(*iface.IPConfigurations, ipConfigurations...)
 	iface.IPConfigurations = &ipConfigurations
 
-	c.limiter.Limit(ctx, "Interfaces.CreateOrUpdate")
+	c.limiter.Limit(ctx, InterfacesCreateOrUpdate)
 	sinceStart = spanstat.Start()
 	future, err := c.interfaces.CreateOrUpdate(ctx, c.resourceGroup, interfaceName, iface)
-	defer c.metricsAPI.ObserveAPICall("Interfaces.CreateOrUpdate", deriveStatus(err), sinceStart.Seconds())
+	defer c.metricsAPI.ObserveAPICall(InterfacesCreateOrUpdate, deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return fmt.Errorf("unable to update interface %s: %w", interfaceName, err)
 	}
