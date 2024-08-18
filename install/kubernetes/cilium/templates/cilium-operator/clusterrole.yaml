@@ -332,7 +332,14 @@ rules:
   - delete
 {{- end }}
 {{- end }}
-{{- if or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.enableMCSAPISupport }}
+{{- if .Values.clustermesh.enableMCSAPISupport }}
+- apiGroups:
+  - multicluster.x-k8s.io
+  resources:
+  - serviceimports/status
+  verbs:
+  - update
+  - patch
 - apiGroups:
   - multicluster.x-k8s.io
   resources:
@@ -341,6 +348,13 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - multicluster.x-k8s.io
+  resources:
+  - serviceexports/status
+  verbs:
+  - update
+  - patch
 - apiGroups:
   - ""
   resources:
