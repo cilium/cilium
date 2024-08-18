@@ -20,6 +20,9 @@
 #define ENDPOINT_NETNS_COOKIE 5000
 
 #include <bpf_lxc.c>
+#include "lib/lb.h"
+#include "lib/ipcache.h"
+#include "lib/endpoint.h"
 
 #define FROM_CONTAINER 0
 
@@ -45,31 +48,17 @@ PKTGEN("tc", "v4_local_redirect")
 int  v4_local_backend_to_service_packetgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	volatile const __u8 *src = mac_one;
-	volatile const __u8 *dst = mac_two;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	struct tcphdr *l4;
 	void *data;
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-	ethhdr__set_macs(l2, (__u8 *)src, (__u8 *)dst);
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-	l3->saddr = V4_BACKEND_IP;
-	l3->daddr = V4_SERVICE_IP;
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder, (__u8 *)mac_one,
+					  (__u8 *)mac_two, V4_BACKEND_IP, V4_SERVICE_IP,
+					  tcp_src_one, SERVICE_PORT);
 	if (!l4)
 		return TEST_ERROR;
-	l4->source = tcp_src_one;
-	l4->dest = SERVICE_PORT;
+
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
 		return TEST_ERROR;
@@ -81,35 +70,10 @@ int  v4_local_backend_to_service_packetgen(struct __ctx_buff *ctx)
 SETUP("tc", "v4_local_redirect")
 int v4_local_backend_to_service_setup(struct __ctx_buff *ctx)
 {
-	__u16 revnat_id = 1;
-	struct lb4_key lb_svc_key = {};
-	struct lb4_service lb_svc_value = {};
-	struct lb4_reverse_nat revnat_value = {};
-	struct lb4_backend backend = {};
-	struct ipcache_key cache_key = {};
-	struct remote_endpoint_info cache_value = {};
-	struct endpoint_key ep_key = {};
-	struct endpoint_info ep_value = {};
-	/* Register a fake LB backend for our local redirect service */
-	lb_svc_key.address = V4_SERVICE_IP;
-	lb_svc_key.dport = SERVICE_PORT;
-	lb_svc_key.scope = LB_LOOKUP_SCOPE_EXT;
-	/* Create a LRP service with one backend */
-	lb_svc_value.count = 1;
-	lb_svc_value.flags = SVC_FLAG_ROUTABLE;
-	lb_svc_value.flags2 = SVC_FLAG_LOCALREDIRECT;
-	lb_svc_value.rev_nat_index = revnat_id;
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-	/* Insert a reverse NAT entry for the above service */
-	revnat_value.address = V4_SERVICE_IP;
-	revnat_value.port = SERVICE_PORT;
-	map_update_elem(&LB4_REVERSE_NAT_MAP, &revnat_id, &revnat_value, BPF_ANY);
-	/* A backend between 1 and .count is chosen, since we have only one backend
-	 * it is always backend_slot 1. Point it to backend_id 124.
-	 */
-	lb_svc_key.backend_slot = 1;
-	lb_svc_value.backend_id = 124;
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
+	lb_v4_add_service_with_flags(V4_SERVICE_IP, SERVICE_PORT, 1, 1,
+				     SVC_FLAG_ROUTABLE, SVC_FLAG_LOCALREDIRECT);
+	lb_v4_add_backend(V4_SERVICE_IP, SERVICE_PORT, 1, 124,
+			  V4_BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
 
 	/* Add the service in LB4_SKIP_MAP to skip service translation for request originating from the local backend */
 	struct skip_lb4_key key = {
@@ -118,27 +82,11 @@ int v4_local_backend_to_service_setup(struct __ctx_buff *ctx)
 		.port = SERVICE_PORT,
 	};
 	__u8 val = 0;
-
 	map_update_elem(&LB4_SKIP_MAP, &key, &val, BPF_ANY);
 
-	/* Create backend id 124 which contains the IP and port to send the
-	 * packet to.
-	 */
-	backend.address = V4_BACKEND_IP;
-	backend.port = BACKEND_PORT;
-	backend.proto = IPPROTO_TCP;
-	backend.flags = 0;
-	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
-	/* Add an IPCache entry for pod 1 */
-	cache_key.lpm_key.prefixlen = 32;
-	cache_key.family = ENDPOINT_KEY_IPV4;
-	cache_key.ip4 = V4_BACKEND_IP;
-	/* a random sec id for the pod */
-	cache_value.sec_identity = 112233;
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
-	ep_key.ip4 = V4_BACKEND_IP;
-	ep_key.family = ENDPOINT_KEY_IPV4;
-	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
+	/* Add an IPCache entry for the backend pod */
+	ipcache_v4_add_entry(V4_BACKEND_IP, 0, 112233, 0, 0);
+	endpoint_v4_add_entry(V4_BACKEND_IP, 0, 0, 0, 0, NULL, NULL);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
@@ -192,32 +140,17 @@ PKTGEN("tc", "v6_local_redirect")
 int  v6_local_backend_to_service_packetgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	volatile const __u8 *src = mac_one;
-	volatile const __u8 *dst = mac_two;
-	struct ethhdr *l2;
-	struct ipv6hdr *l3;
 	struct tcphdr *l4;
 	void *data;
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-	ethhdr__set_macs(l2, (__u8 *)src, (__u8 *)dst);
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_ipv6hdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-	memcpy(&l3->saddr, (__u8 *)V6_BACKEND_IP, sizeof(l3->saddr));
-	memcpy(&l3->daddr, (__u8 *)V6_SERVICE_IP, sizeof(l3->daddr));
 
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv6_tcp_packet(&builder, (__u8 *)mac_one,
+					  (__u8 *)mac_two, (__u8 *)V6_BACKEND_IP,
+					  (__u8 *)V6_SERVICE_IP, tcp_src_one, SERVICE_PORT);
 	if (!l4)
 		return TEST_ERROR;
-	l4->source = tcp_src_one;
-	l4->dest = SERVICE_PORT;
+
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
 		return TEST_ERROR;
@@ -229,35 +162,17 @@ int  v6_local_backend_to_service_packetgen(struct __ctx_buff *ctx)
 SETUP("tc", "v6_local_redirect")
 int v6_local_backend_to_service_setup(struct __ctx_buff *ctx)
 {
-	__u16 revnat_id = 1;
-	struct lb6_key lb_svc_key = {};
-	struct lb6_service lb_svc_value = {};
-	struct lb6_reverse_nat revnat_value = {};
-	struct lb6_backend backend = {};
-	struct ipcache_key cache_key = {};
-	struct remote_endpoint_info cache_value = {};
-	struct endpoint_key ep_key = {};
-	struct endpoint_info ep_value = {};
-	/* Register a fake LB backend for our local redirect service */
-	memcpy(&lb_svc_key.address, (__u8 *)V6_SERVICE_IP, sizeof(V6_SERVICE_IP));
-	lb_svc_key.dport = SERVICE_PORT;
-	lb_svc_key.scope = LB_LOOKUP_SCOPE_EXT;
-	/* Create a LRP service with one backend */
-	lb_svc_value.count = 1;
-	lb_svc_value.flags = SVC_FLAG_ROUTABLE;
-	lb_svc_value.flags2 = SVC_FLAG_LOCALREDIRECT;
-	lb_svc_value.rev_nat_index = revnat_id;
-	map_update_elem(&LB6_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-	/* Insert a reverse NAT entry for the above service */
-	memcpy(&revnat_value.address, (__u8 *)V6_SERVICE_IP, sizeof(V6_SERVICE_IP));
-	revnat_value.port = SERVICE_PORT;
-	map_update_elem(&LB6_REVERSE_NAT_MAP, &revnat_id, &revnat_value, BPF_ANY);
-	/* A backend between 1 and .count is chosen, since we have only one backend
-	 * it is always backend_slot 1. Point it to backend_id 124.
-	 */
-	lb_svc_key.backend_slot = 1;
-	lb_svc_value.backend_id = 124;
-	map_update_elem(&LB6_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
+	union v6addr service_ip = {};
+	union v6addr backend_ip = {};
+
+	memcpy(service_ip.addr, (void *)V6_SERVICE_IP, 16);
+	memcpy(backend_ip.addr, (void *)V6_BACKEND_IP, 16);
+
+	lb_v6_add_service_with_flags(&service_ip, SERVICE_PORT, 1, 1,
+				     SVC_FLAG_ROUTABLE, SVC_FLAG_LOCALREDIRECT);
+	lb_v6_add_backend(&service_ip, SERVICE_PORT, 1, 124, &backend_ip,
+			  BACKEND_PORT, IPPROTO_TCP, 0);
+
 
 	/* Add the service in LB6_SKIP_MAP to skip service translation for request originating from the local backend */
 	struct skip_lb6_key key = {
@@ -269,24 +184,9 @@ int v6_local_backend_to_service_setup(struct __ctx_buff *ctx)
 	memcpy(&key.address, (__u8 *)V6_SERVICE_IP, sizeof(V6_SERVICE_IP));
 	map_update_elem(&LB6_SKIP_MAP, &key, &val, BPF_ANY);
 
-	/* Create backend id 124 which contains the IP and port to send the
-	 * packet to.
-	 */
-	memcpy(&backend.address, (__u8 *)V6_BACKEND_IP, sizeof(V6_BACKEND_IP));
-	backend.port = BACKEND_PORT;
-	backend.proto = IPPROTO_TCP;
-	backend.flags = 0;
-	map_update_elem(&LB6_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
-	/* Add an IPCache entry for pod 1 */
-	cache_key.lpm_key.prefixlen = 32;
-	cache_key.family = ENDPOINT_KEY_IPV6;
-	memcpy(&cache_key.ip6, (__u8 *)V6_BACKEND_IP, sizeof(V6_BACKEND_IP));
-	/* a random sec id for the pod */
-	cache_value.sec_identity = 112233;
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
-	memcpy(&ep_key.ip6, (__u8 *)V6_BACKEND_IP, sizeof(V6_BACKEND_IP));
-	ep_key.family = ENDPOINT_KEY_IPV6;
-	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
+	/* Add an IPCache entry for the backend pod */
+	ipcache_v6_add_entry(&backend_ip, 0, 112233, 0, 0);
+	endpoint_v6_add_entry(&backend_ip, 0, 0, 0, 0, NULL, NULL);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
