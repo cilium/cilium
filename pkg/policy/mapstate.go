@@ -690,21 +690,6 @@ func (e *MapStateEntry) HasDependent(key Key) bool {
 	return ok
 }
 
-// HasSameOwners returns true if both MapStateEntries
-// have the same owners as one another (which means that
-// one of the entries is redundant).
-func (e *MapStateEntry) HasSameOwners(bEntry *MapStateEntry) bool {
-	if len(e.owners) != len(bEntry.owners) {
-		return false
-	}
-	for owner := range e.owners {
-		if _, ok := bEntry.owners[owner]; !ok {
-			return false
-		}
-	}
-	return true
-}
-
 var worldNets = map[identity.NumericIdentity][]netip.Prefix{
 	identity.ReservedIdentityWorld: {
 		netip.PrefixFrom(netip.IPv4Unspecified(), 0),
@@ -901,22 +886,20 @@ func (ms *mapState) RemoveDependent(owner Key, dependent Key, identities Identit
 
 // Merge adds owners, dependents, and DerivedFromRules from a new 'entry' to an existing
 // entry 'e'. 'entry' is not modified.
-// IsDeny, ProxyPort, and AuthType are merged by giving precedence to deny over non-deny, proxy
-// redirection over no proxy redirection, and explicit auth type over default auth type.
+// Merge is only called if both entries are allow or deny entries, so deny precedence is not
+// considered here.
+// ProxyPort, and AuthType are merged by giving precedence to proxy redirection over no proxy
+// redirection, and explicit auth type over default auth type.
 func (e *MapStateEntry) Merge(entry *MapStateEntry) {
-	// Deny is sticky
-	if !e.IsDeny {
-		e.IsDeny = entry.IsDeny
+	// Bail out loudly if both entries are not denies or allows
+	if e.IsDeny != entry.IsDeny {
+		stacktrace := hclog.Stacktrace()
+		log.WithField(logfields.Stacktrace, stacktrace).
+			Errorf("MapStateEntry.Merge: both entries must be allows or denies")
+		return
 	}
-
-	// Deny entries have no proxy redirection nor auth requirement
-	if e.IsDeny {
-		e.ProxyPort = 0
-		e.Listener = ""
-		e.priority = 0
-		e.hasAuthType = DefaultAuthType
-		e.AuthType = AuthTypeDisabled
-	} else {
+	// Only allow entries have proxy redirection or auth requirement
+	if !e.IsDeny {
 		// Proxy port takes precedence, but may be updated due to priority
 		if entry.IsRedirectEntry() {
 			// Lower number has higher priority, but non-redirects have 0 priority
@@ -1059,12 +1042,8 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, identities I
 	// Keep all owners that need this entry so that it is deleted only if all the owners delete their contribution
 	var datapathEqual bool
 	oldEntry, exists := ms.Get(key)
-	if exists {
-		// Deny entry can only be overridden by another deny entry
-		if oldEntry.IsDeny && !entry.IsDeny {
-			return
-		}
-
+	// Only merge if both old and new are allows or denies
+	if exists && (oldEntry.IsDeny == entry.IsDeny) {
 		// Do nothing if entries are equal
 		if entry.DeepEqual(&oldEntry) {
 			return // nothing to do
@@ -1078,9 +1057,13 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, identities I
 		// Compare for datapath equalness before merging, as the old entry is updated in
 		// place!
 		datapathEqual = oldEntry.DatapathEqual(&entry)
+
 		oldEntry.Merge(&entry)
 		ms.insert(key, oldEntry, identities)
-	} else {
+	} else if !exists || entry.IsDeny {
+		// Insert a new entry if one did not exist or a deny entry is overwriting an allow
+		// entry.
+
 		// Newly inserted entries must have their own containers, so that they
 		// remain separate when new owners/dependents are added to existing entries
 		entry.DerivedFromRules = slices.Clone(entry.DerivedFromRules)
@@ -1237,8 +1220,9 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				ms.validator.isBroaderOrEqual(k, newKey)
 				ms.validator.isAnyOrSame(k, newKey, identities)
 			}
-			// Identical key needs to be added if owners are different (to merge them).
-			if !(k == newKey && !v.HasSameOwners(&newEntry)) {
+			// No need to add if the keys are different or if they are the same and the entries are also the same.
+			// Identical key needs to be added if the entries are different (to merge them).
+			if k != newKey || v.DeepEqual(&newEntry) {
 				// If the ID of this iterated-deny-entry is ANY or equal of
 				// the new-entry and the iterated-deny-entry has a broader (or
 				// equal) port-protocol then we need not insert the new entry.
@@ -1331,7 +1315,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				ms.validator.isAnyOrSame(newKey, k, identities)
 			}
 			// Identical key needs to remain if owners are different to merge them
-			if !(k == newKey && !v.HasSameOwners(&newEntry)) {
+			if k != newKey || v.DeepEqual(&newEntry) {
 				// If this iterated-deny-entry is a subset (or equal) of the
 				// new-entry and the new-entry has a broader (or equal)
 				// port-protocol the newKey will match all the packets the iterated
@@ -1360,38 +1344,35 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		// Test for bailed case first so that we avoid unnecessary computation if entry is
 		// not going to be added, or is going to be changed to a deny entry.
 		bailed := false
-		changeToDeny := false
+		insertAsDeny := false
+		var denyEntry MapStateEntry
 		ms.denies.ForEachBroaderOrEqualKey(newKey, prefixes, func(k Key, v MapStateEntry) bool {
 			if ms.validator != nil {
 				ms.validator.isBroaderOrEqual(k, newKey)
 				ms.validator.isSupersetOrSame(k, newKey, identities)
 			}
-			// If the iterated-deny-entry is a superset (or equal) of the new-allow-entry we should bail it
+			// If the iterated-deny-entry is a wildcard or has the same identity then it
+			// can be bailed out.
 			if k.Identity == 0 || k.Identity == newKey.Identity {
-				// If the iterated-deny-entry is a datapath superset (or equal) of
-				// the new-entry and has a broader (or equal) port-protocol than the
-				// new-entry then the new entry should not be inserted.
 				bailed = true
 				return false
 			}
-			// if newKey is not bailed due to being covered in the datapath by a deny
-			// ANY entry, but is covered by a deny entry with a different ID, we must
-			// change this allow entry to a deny entry so that the covering deny policy
-			// is honored also for this ID in the datapath.
-			changeToDeny = true
+			// if any deny key covers this new allow key, then it needs to be inserted
+			// as deny, if not bailed out.
+			if !insertAsDeny {
+				insertAsDeny = true
+				denyEntry = NewMapStateEntry(k, v.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
+			} else {
+				// Collect the owners and labels of all the contributing deny rules
+				denyEntry.Merge(&v)
+			}
 			return true
 		})
-		if bailed || changeToDeny {
-			if bailed {
-				return
-			}
-			newEntry.IsDeny = true
-			newEntry.ProxyPort = 0
-			newEntry.Listener = ""
-			newEntry.priority = 0
-			newEntry.hasAuthType = DefaultAuthType
-			newEntry.AuthType = AuthTypeDisabled
-			ms.authPreferredInsert(newKey, newEntry, identities, features, changes)
+		if bailed {
+			return
+		}
+		if insertAsDeny {
+			ms.authPreferredInsert(newKey, denyEntry, identities, features, changes)
 			return
 		}
 
