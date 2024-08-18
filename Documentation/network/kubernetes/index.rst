@@ -18,6 +18,7 @@ Kubernetes Networking
    configuration
    policy
    kubeproxy-free
+   ciliumcidrgroup
    ciliumendpoint
    ciliumendpointslice
    compatibility
