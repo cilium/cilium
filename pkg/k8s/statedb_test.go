@@ -76,7 +76,9 @@ func ExampleRegisterReflector() {
 
 type testObject struct {
 	metav1.PartialObjectMetadata
-	Status string
+	Status    string
+	Merge     string
+	Transform string
 }
 
 func (t *testObject) DeepCopy() *testObject {
@@ -110,20 +112,34 @@ type reflectorTestParams struct {
 	doTransform     bool
 	doTransformMany bool
 	doQueryAll      bool
+	doMerge         bool
 }
 
 func TestStateDBReflector(t *testing.T) {
-	t.Run("Transform", func(t *testing.T) {
-		testStateDBReflector(t, reflectorTestParams{true, false, false})
+	t.Run("default", func(t *testing.T) {
+		testStateDBReflector(t, reflectorTestParams{})
 	})
-	t.Run("Transform-QueryAll", func(t *testing.T) {
-		testStateDBReflector(t, reflectorTestParams{true, false, true})
+	t.Run("Transform", func(t *testing.T) {
+		testStateDBReflector(t, reflectorTestParams{
+			doTransform: true,
+		})
 	})
 	t.Run("TransformMany", func(t *testing.T) {
-		testStateDBReflector(t, reflectorTestParams{false, true, false})
+		testStateDBReflector(t, reflectorTestParams{
+			doTransformMany: true,
+		})
 	})
 	t.Run("TransformMany-QueryAll", func(t *testing.T) {
-		testStateDBReflector(t, reflectorTestParams{false, true, true})
+		testStateDBReflector(t, reflectorTestParams{
+			doTransformMany: true,
+			doQueryAll:      true,
+		})
+	})
+	t.Run("TransformMany-Merge", func(t *testing.T) {
+		testStateDBReflector(t, reflectorTestParams{
+			doTransformMany: true,
+			doMerge:         true,
+		})
 	})
 }
 
@@ -139,11 +155,12 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 				},
 			},
 			Status: "init",
+			Merge:  "X",
 		}
 
-		db                              *statedb.DB
-		table                           statedb.Table[*testObject]
-		transformCalled, queryAllCalled atomic.Bool
+		db                                           *statedb.DB
+		table                                        statedb.Table[*testObject]
+		transformCalled, queryAllCalled, mergeCalled atomic.Bool
 	)
 
 	lw := testutils.NewFakeListerWatcher(
@@ -159,7 +176,7 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 		transformFunc = func(a any) (obj *testObject, ok bool) {
 			transformCalled.Store(true)
 			obj = a.(*testObject).DeepCopy()
-			obj.ObjectMeta.GenerateName = "transformed"
+			obj.Transform = "transform"
 			return obj, true
 		}
 	}
@@ -168,7 +185,7 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 		transformManyFunc = func(a any) (objs []*testObject) {
 			transformCalled.Store(true)
 			obj := a.(*testObject).DeepCopy()
-			obj.ObjectMeta.GenerateName = "transformed"
+			obj.Transform = "transform-many"
 			return []*testObject{obj}
 		}
 	}
@@ -180,6 +197,15 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 			// connection is lost to api-server and resynchronization is needed.
 			queryAllCalled.Store(true)
 			return tbl.All(txn)
+		}
+	}
+
+	var mergeFunc k8s.MergeFunc[*testObject]
+	if p.doMerge {
+		mergeFunc = func(old, new *testObject) *testObject {
+			mergeCalled.Store(true)
+			new.Merge = old.Merge + new.Merge
+			return new
 		}
 	}
 
@@ -196,6 +222,7 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 						Transform:      transformFunc,
 						TransformMany:  transformManyFunc,
 						QueryAll:       queryAllFunc,
+						Merge:          mergeFunc,
 					}
 				},
 				newTestTable,
@@ -238,21 +265,30 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	require.Len(t, objs, 1)
 	require.Equal(t, obj1Name, objs[0].Name)
 
-	if p.doTransform || p.doTransformMany {
-		// Transform func set, check that it was used.
-		require.Equal(t, "transformed", objs[0].GenerateName)
+	if p.doTransform {
+		require.Equal(t, "transform", objs[0].Transform)
+	}
+	if p.doTransformMany {
+		require.Equal(t, "transform-many", objs[0].Transform)
 	}
 
 	// Update the object and check that it updated.
 	obj.Status = "update1"
-	obj.ObjectMeta.ResourceVersion = "1"
+	obj.Merge = "Y"
 	lw.Upsert(obj.DeepCopy())
 
 	<-watch
 	iter, watch = table.AllWatch(db.ReadTxn())
 	objs = statedb.Collect(iter)
 	require.Len(t, objs, 1)
-	require.EqualValues(t, "update1", objs[0].Status)
+	require.Equal(t, "update1", objs[0].Status)
+	if p.doMerge {
+		// Merge is set, "Merge" fields are concat'd
+		require.Equal(t, "XY", objs[0].Merge)
+	} else {
+		// Merge is not set, only the new "Merge" field is kept.
+		require.Equal(t, "Y", objs[0].Merge)
+	}
 
 	// Create another node after initialization.
 	node2 := obj.DeepCopy()

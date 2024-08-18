@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/hive/cell"
@@ -83,7 +84,15 @@ type ReflectorConfig[Obj any] struct {
 	// Optional function to query all objects. Used when replacing the objects on resync.
 	// This can be used to "namespace" the objects managed by this reflector, e.g. on
 	// source.Source etc.
+	//
+	// This function becomes mandatory when working with multiple sources to avoid deleting
+	// all objects when the underlying `cache.Reflector` needs to `Replace()` all items during
+	// a resync.
 	QueryAll QueryAllFunc[Obj]
+
+	// Optional function to merge the new object with an existing object in the target
+	// table.
+	Merge MergeFunc[Obj]
 }
 
 // JobName returns the name of the background reflector job.
@@ -109,6 +118,10 @@ type TransformManyFunc[Obj any] func(any) (objs []Obj)
 // It is used to delete all objects when the underlying cache.Reflector needs
 // to Replace() all items for a resync.
 type QueryAllFunc[Obj any] func(statedb.ReadTxn, statedb.Table[Obj]) statedb.Iterator[Obj]
+
+// MergeFunc is an optional function to merge the new object with an existing
+// object in th target table. Only invoked if an old object exists.
+type MergeFunc[Obj any] func(old Obj, new Obj) Obj
 
 const (
 	// DefaultBufferSize is the maximum number of objects to commit to the table in one write transaction.
@@ -205,6 +218,13 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 		})
 	}
 
+	merge := r.Merge
+	if merge == nil {
+		merge = func(old, new Obj) Obj {
+			return new
+		}
+	}
+
 	// Construct a stream of K8s objects, buffered into chunks every [waitTime] period
 	// and then committed.
 	// This reduces the number of write transactions required and thus the number of times
@@ -255,17 +275,26 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 
 		txn := r.db.WriteTxn(table)
 		if buf.replaceItems != nil {
-			iter := queryAll(txn, table)
-			for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
-				numDeleted++
-				table.Delete(txn, obj)
-			}
+			indexer := table.PrimaryIndexer()
+			inserted := sets.New[string]()
+
 			for _, item := range buf.replaceItems {
 				for _, obj := range transformMany(item) {
 					table.Insert(txn, obj)
 					numUpserted++
+					inserted.Insert(string(indexer.ObjectToKey(obj)))
 				}
 			}
+
+			// Delete the remaining objects that we did not insert.
+			iter := queryAll(txn, table)
+			for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
+				if !inserted.Has(string(indexer.ObjectToKey(obj))) {
+					numDeleted++
+					table.Delete(txn, obj)
+				}
+			}
+
 			// Mark the table as initialized. Internally this has a sync.Once
 			// so safe to call multiple times.
 			r.initDone(txn)
@@ -275,7 +304,7 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 			for _, obj := range transformMany(entry.obj) {
 				if !entry.deleted {
 					numUpserted++
-					table.Insert(txn, obj)
+					table.Modify(txn, obj, merge)
 				} else {
 					numDeleted++
 					table.Delete(txn, obj)
@@ -286,7 +315,7 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 		numTotal := table.NumObjects(txn)
 		txn.Commit()
 
-		health.OK(fmt.Sprintf("%d inserted, %d deleted, %d total", numUpserted, numDeleted, numTotal))
+		health.OK(fmt.Sprintf("%d upserted, %d deleted, %d total objects", numUpserted, numDeleted, numTotal))
 	}
 
 	errs := make(chan error)
