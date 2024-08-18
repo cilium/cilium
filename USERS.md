@@ -344,6 +344,12 @@ Users (Alphabetically)
       L: https://www.cloud-migration.ch/
       Q: @fakod
 
+    * N: Intility AS
+      D: Intility is a managed service provider for enterprises and we use Cilium, Tetragon and Hubble to deliver world class managed Kubernetes clusters to customers from our own private cloud
+      U: Networking, CiliumNetworkPolicy, CiliumCIDRGroup, security, CNI
+      L: https://intility.com/container-platform/
+      Q: @jonasks, @daniwk, @stianfro
+
      * N: Isovalent
        D: Cilium is the platform that powers Isovalent’s enterprise networking, observability, and security solutions
        U: Networking, network policy, observability, cluster mesh, kube-proxy replacement, security, egress gateway, service load balancing, CNI
