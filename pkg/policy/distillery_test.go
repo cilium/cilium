@@ -1425,6 +1425,12 @@ var (
 		IsDeny:           true,
 		owners:           map[MapStateOwner]struct{}{},
 	}
+	mapEntryWorldDenyWithAllowLabels = MapStateEntry{
+		ProxyPort:        0,
+		DerivedFromRules: worldLabelArrayList.MergeSorted(mapEntryAllow.DerivedFromRules),
+		IsDeny:           true,
+		owners:           map[MapStateOwner]struct{}{},
+	}
 
 	worldIPIdentity = localIdentity(16324)
 	worldIPCIDR     = api.CIDR("192.0.2.3/32")
@@ -1713,10 +1719,10 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyAnyIngress:             mapEntryAllow,
 			mapKeyL3WorldIngress:         mapEntryWorldDenyWithLabels,
 			mapKeyL3WorldEgress:          mapEntryWorldDenyWithLabels,
-			mapKeyL3SubnetIngress:        mapEntryDeny,
-			mapKeyL3SubnetEgress:         mapEntryDeny,
-			mapKeyL3SmallerSubnetIngress: mapEntryDeny,
-			mapKeyL3SmallerSubnetEgress:  mapEntryDeny,
+			mapKeyL3SubnetIngress:        mapEntryWorldDenyWithLabels,
+			mapKeyL3SubnetEgress:         mapEntryWorldDenyWithLabels,
+			mapKeyL3SmallerSubnetIngress: mapEntryWorldDenyWithAllowLabels,
+			mapKeyL3SmallerSubnetEgress:  mapEntryWorldDenyWithAllowLabels,
 		})}, {"deny_one_ip_with_a_larger_subnet", api.Rules{ruleAllowAllIngress, ruleL3DenySubnet, ruleL3AllowWorldIP}, testMapState(map[Key]MapStateEntry{
 			mapKeyAnyIngress:             mapEntryAllow,
 			mapKeyL3SubnetIngress:        mapEntryDeny,
