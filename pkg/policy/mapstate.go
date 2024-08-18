@@ -822,7 +822,7 @@ func (msA *mapState) Equals(msB MapState) bool {
 	}
 	return msA.ForEach(func(kA Key, vA MapStateEntry) bool {
 		vB, ok := msB.Get(kA)
-		return ok && (&vB).DatapathEqual(&vA)
+		return ok && (&vB).DatapathAndDerivedFromEqual(&vA)
 	})
 }
 
@@ -833,7 +833,7 @@ func (obtained *mapState) Diff(expected MapState) (res string) {
 	res += "Missing (-), Unexpected (+):\n"
 	expected.ForEach(func(kE Key, vE MapStateEntry) bool {
 		if vO, ok := obtained.Get(kE); ok {
-			if !(&vO).DatapathEqual(&vE) {
+			if !(&vO).DatapathAndDerivedFromEqual(&vE) {
 				res += "- " + kE.String() + ": " + vE.String() + "\n"
 				res += "+ " + kE.String() + ": " + vO.String() + "\n"
 			}
@@ -967,6 +967,19 @@ func (e *MapStateEntry) DatapathEqual(o *MapStateEntry) bool {
 	}
 
 	return e.IsDeny == o.IsDeny && e.ProxyPort == o.ProxyPort && e.AuthType == o.AuthType
+}
+
+// DatapathAndDerivedFromEqual returns true of two entries are equal in the datapath's PoV,
+// i.e., IsDeny, ProxyPort and AuthType are the same for both entries, and the DerivedFromRules
+// fields are also equal.
+// This is used for testing only via mapState.Equal and mapState.Diff.
+func (e *MapStateEntry) DatapathAndDerivedFromEqual(o *MapStateEntry) bool {
+	if e == nil || o == nil {
+		return e == o
+	}
+
+	return e.IsDeny == o.IsDeny && e.ProxyPort == o.ProxyPort && e.AuthType == o.AuthType &&
+		e.DerivedFromRules.DeepEqual(&o.DerivedFromRules)
 }
 
 // DeepEqual is a manually generated deepequal function, deeply comparing the
