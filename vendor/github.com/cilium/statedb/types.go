@@ -151,6 +151,17 @@ type RWTable[Obj any] interface {
 	// revision.
 	Insert(WriteTxn, Obj) (oldObj Obj, hadOld bool, err error)
 
+	// Modify an existing object or insert a new object into the table. If an old object
+	// exists the [merge] function is called with the old and new objects.
+	//
+	// Modify is semantically equal to Get + Insert, but avoids extra lookups making
+	// it significantly more efficient.
+	//
+	// Possible errors:
+	// - ErrTableNotLockedForWriting: table was not locked for writing
+	// - ErrTransactionClosed: the write transaction already committed or aborted
+	Modify(txn WriteTxn, new Obj, merge func(old, new Obj) Obj) (oldObj Obj, hadOld bool, err error)
+
 	// CompareAndSwap compares the existing object's revision against the
 	// given revision and if equal it replaces the object.
 	//
