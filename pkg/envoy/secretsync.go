@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
-	envoy_entensions_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	envoy_extensions_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -76,7 +76,7 @@ func (r *secretSyncer) upsertK8sSecretV1(ctx context.Context, secret *slim_corev
 	}
 
 	resource := Resources{
-		Secrets: []*envoy_entensions_tls_v3.Secret{k8sToEnvoySecret(secret)},
+		Secrets: []*envoy_extensions_tls_v3.Secret{k8sToEnvoySecret(secret)},
 	}
 	return r.envoyXdsServer.UpsertEnvoyResources(ctx, resource)
 }
@@ -88,7 +88,7 @@ func (r *secretSyncer) deleteK8sSecretV1(ctx context.Context, key resource.Key) 
 	}
 
 	resource := Resources{
-		Secrets: []*envoy_entensions_tls_v3.Secret{
+		Secrets: []*envoy_extensions_tls_v3.Secret{
 			{
 				// For deletion, only the name is required.
 				Name: getEnvoySecretName(key.Namespace, key.Name),
@@ -99,17 +99,17 @@ func (r *secretSyncer) deleteK8sSecretV1(ctx context.Context, key resource.Key) 
 }
 
 // k8sToEnvoySecret converts k8s secret object to envoy TLS secret object
-func k8sToEnvoySecret(secret *slim_corev1.Secret) *envoy_entensions_tls_v3.Secret {
+func k8sToEnvoySecret(secret *slim_corev1.Secret) *envoy_extensions_tls_v3.Secret {
 	if secret == nil {
 		return nil
 	}
-	envoySecret := &envoy_entensions_tls_v3.Secret{
+	envoySecret := &envoy_extensions_tls_v3.Secret{
 		Name: getEnvoySecretName(secret.GetNamespace(), secret.GetName()),
 	}
 
 	if len(secret.Data[tlsCrtAttribute]) > 0 || len(secret.Data[tlsKeyAttribute]) > 0 {
-		envoySecret.Type = &envoy_entensions_tls_v3.Secret_TlsCertificate{
-			TlsCertificate: &envoy_entensions_tls_v3.TlsCertificate{
+		envoySecret.Type = &envoy_extensions_tls_v3.Secret_TlsCertificate{
+			TlsCertificate: &envoy_extensions_tls_v3.TlsCertificate{
 				CertificateChain: &envoy_config_core_v3.DataSource{
 					Specifier: &envoy_config_core_v3.DataSource_InlineBytes{
 						InlineBytes: secret.Data[tlsCrtAttribute],
@@ -123,8 +123,8 @@ func k8sToEnvoySecret(secret *slim_corev1.Secret) *envoy_entensions_tls_v3.Secre
 			},
 		}
 	} else if len(secret.Data[caCrtAttribute]) > 0 {
-		envoySecret.Type = &envoy_entensions_tls_v3.Secret_ValidationContext{
-			ValidationContext: &envoy_entensions_tls_v3.CertificateValidationContext{
+		envoySecret.Type = &envoy_extensions_tls_v3.Secret_ValidationContext{
+			ValidationContext: &envoy_extensions_tls_v3.CertificateValidationContext{
 				TrustedCa: &envoy_config_core_v3.DataSource{
 					Specifier: &envoy_config_core_v3.DataSource_InlineBytes{
 						InlineBytes: secret.Data[caCrtAttribute],
