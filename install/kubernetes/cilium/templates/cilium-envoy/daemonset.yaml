@@ -26,10 +26,6 @@ spec:
   template:
     metadata:
       annotations:
-        {{- if and .Values.envoy.prometheus.enabled (not .Values.envoy.prometheus.serviceMonitor.enabled) }}
-        prometheus.io/port: "{{ .Values.envoy.prometheus.port }}"
-        prometheus.io/scrape: "true"
-        {{- end }}
         {{- if .Values.envoy.rollOutPods }}
         # ensure pods roll when configmap updates
         cilium.io/cilium-envoy-configmap-checksum: {{ include (print $.Template.BasePath "/cilium-envoy/configmap.yaml") . | sha256sum | quote }}
