@@ -835,32 +835,39 @@ func injectCiliumUpstreamL7Filter(opts *envoy_config_upstream.HttpProtocolOption
 	return changed, nil
 }
 
-func fillInTlsContextXDS(cecNamespace string, cecName string, tls *envoy_config_tls.CommonTlsContext) (updated bool) {
-	qualify := func(sc *envoy_config_tls.SdsSecretConfig) {
-		if sc.SdsConfig == nil {
-			sc.SdsConfig = envoy.CiliumXDSConfigSource
-			updated = true
-		}
-		var nameUpdated bool
-		sc.Name, nameUpdated = api.ResourceQualifiedName(cecNamespace, cecName, sc.Name)
-		if nameUpdated {
-			updated = true
-		}
+func qualifySdsSecretConfig(sc *envoy_config_tls.SdsSecretConfig, cecNamespace string, cecName string) bool {
+	updated := false
+
+	if sc.SdsConfig == nil {
+		sc.SdsConfig = envoy.CiliumXDSConfigSource
+		updated = true
 	}
+	var nameUpdated bool
+	sc.Name, nameUpdated = api.ResourceQualifiedName(cecNamespace, cecName, sc.Name)
+	if nameUpdated {
+		updated = true
+	}
+
+	return updated
+}
+
+func fillInTlsContextXDS(cecNamespace string, cecName string, tls *envoy_config_tls.CommonTlsContext) bool {
+	updated := false
 
 	if tls != nil {
 		for _, sc := range tls.TlsCertificateSdsSecretConfigs {
-			qualify(sc)
+			updated = qualifySdsSecretConfig(sc, cecNamespace, cecName) || updated
 		}
 		if sc := tls.GetValidationContextSdsSecretConfig(); sc != nil {
-			qualify(sc)
+			updated = qualifySdsSecretConfig(sc, cecNamespace, cecName) || updated
 		}
 		if cvc := tls.GetCombinedValidationContext(); cvc != nil {
 			if sc := cvc.GetValidationContextSdsSecretConfig(); sc != nil {
-				qualify(sc)
+				updated = qualifySdsSecretConfig(sc, cecNamespace, cecName) || updated
 			}
 		}
 	}
+
 	return updated
 }
 
@@ -874,7 +881,14 @@ func fillInTransportSocketXDS(cecNamespace string, cecName string, ts *envoy_con
 			var updated *anypb.Any
 			switch tls := any.(type) {
 			case *envoy_config_tls.DownstreamTlsContext:
-				if fillInTlsContextXDS(cecNamespace, cecName, tls.CommonTlsContext) {
+
+				wasUpdated := fillInTlsContextXDS(cecNamespace, cecName, tls.CommonTlsContext)
+
+				if tls.GetSessionTicketKeysSdsSecretConfig() != nil {
+					wasUpdated = qualifySdsSecretConfig(tls.GetSessionTicketKeysSdsSecretConfig(), cecNamespace, cecName) || wasUpdated
+				}
+
+				if wasUpdated {
 					updated = toAny(tls)
 				}
 			case *envoy_config_tls.UpstreamTlsContext:
