@@ -259,6 +259,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["LB4_REVERSE_NAT_SK_MAP"] = lbmap.SockRevNat4MapName
 	cDefinesMap["LB4_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", lbmap.MaxSockRevNat4MapEntries)
 	cDefinesMap["LB4_SKIP_MAP"] = lbmap.SkipLB4MapName
+	cDefinesMap["LB6_SKIP_MAP"] = lbmap.SkipLB6MapName
 
 	if option.Config.EnableSessionAffinity {
 		cDefinesMap["ENABLE_SESSION_AFFINITY"] = "1"
