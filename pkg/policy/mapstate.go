@@ -365,12 +365,7 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Cha
 	// Keep all owners that need this entry so that it is deleted only if all the owners delete their contribution
 	oldEntry, exists := keys[key]
 	var datapathEqual bool
-	if exists {
-		// Deny entry can only be overridden by another deny entry
-		if oldEntry.IsDeny && !entry.IsDeny {
-			return
-		}
-
+	if exists && oldEntry.IsDeny == entry.IsDeny {
 		if entry.DeepEqual(&oldEntry) {
 			return // nothing to do
 		}
@@ -383,7 +378,7 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Cha
 		datapathEqual = oldEntry.DatapathEqual(&entry)
 		oldEntry.Merge(&entry)
 		keys[key] = oldEntry
-	} else {
+	} else if !exists || entry.IsDeny {
 		// Newly inserted entries must have their own containers, so that they
 		// remain separate when new owners/dependents are added to existing entries
 		entry.DerivedFromRules = slices.Clone(entry.DerivedFromRules)
@@ -564,6 +559,7 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 		return
 	}
 	if newEntry.IsDeny {
+		bailed := false
 		for k, v := range keys {
 			// Protocols and traffic directions that don't match ensure that the policies
 			// do not interact in anyway.
@@ -587,44 +583,96 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 						// identity is removed.
 						newEntry.AddDependent(newKeyCpy)
 					}
-				} else if (newKey.Identity == k.Identity ||
-					identityIsSupersetOf(newKey.Identity, k.Identity, identities)) &&
-					(newKey.PortProtoIsBroader(k) || newKey.PortProtoIsEqual(k)) {
-					// If the new-entry is a superset (or equal) of the iterated-allow-entry and
-					// the new-entry has a broader (or equal) port-protocol then we
-					// should delete the iterated-allow-entry
-					keys.deleteKeyWithChanges(k, nil, changes)
+				} else if newKey.PortProtoIsBroader(k) || newKey.PortProtoIsEqual(k) {
+					// If newKey has a broader (or equal) port-protocol then we should
+					// either delete the iterated-allow-entry (if the identity is the
+					// same or the newKey is L3 wildcard), or change it to a deny entry
+					// if the newKey's identity is a superset of the iterated identity
+					// (e.g., newKey has a wider CIDR (say 10/8 covering the iterated
+					// identity of more specific CIDR (say 10.1.1.1). Note that the
+					// security identities assigned to these CIDRs have no numerical
+					// relation to each other (e.g, they could be any numbers X and Y)
+					// and the datapath does an exact match on them.
+					if newKey.Identity == 0 || newKey.Identity == k.Identity {
+						keys.deleteKeyWithChanges(k, nil, changes)
+					} else if identityIsSupersetOf(newKey.Identity, k.Identity, identities) {
+						// When newKey.Identity is not ANY and is different from the
+						// subset key, but still a superset (e.g., in CIDR sense) we
+						// must keep the subset key and make it a deny instead.
+						l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
+						keys.addKeyWithChanges(k, l3l4DenyEntry, changes)
+						newEntry.AddDependent(k)
+					}
+				} else if newKey.Identity != 0 {
+					if identityIsSupersetOf(newKey.Identity, k.Identity, identities) {
+						// k.PortProtoIsBroader(newKey) // due to if statements above
+
+						// Deny takes precedence for the port/proto of the newKey
+						// for each allow with broader port/proto and narrower ID.
+
+						// If newKey is a superset of the iterated allow key and newKey has
+						// more specific port-protocol than the iterated allow key then an
+						// additional deny entry with port/proto of newKey and with the
+						// identity of the iterated allow key must be added.
+						denyKeyCpy := newKey
+						denyKeyCpy.Identity = k.Identity
+						l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
+						keys.addKeyWithChanges(denyKeyCpy, l3l4DenyEntry, changes)
+						newEntry.AddDependent(denyKeyCpy)
+					}
 				}
-			} else if (newKey.Identity == k.Identity ||
-				identityIsSupersetOf(k.Identity, newKey.Identity, identities)) &&
-				k.DestPort == 0 && k.Nexthdr == 0 &&
-				!v.HasDependent(newKey) {
-				// If this iterated-deny-entry is a supserset (or equal) of the new-entry and
-				// the iterated-deny-entry is an L3-only policy then we
-				// should not insert the new entry (as long as it is not one
-				// of the special L4-only denies we created to cover the special
-				// case of a superset-allow with a more specific port-protocol).
 				//
-				// NOTE: This condition could be broader to reject more deny entries,
-				// but there *may* be performance tradeoffs.
-				return
-			} else if (newKey.Identity == k.Identity ||
-				identityIsSupersetOf(newKey.Identity, k.Identity, identities)) &&
-				newKey.DestPort == 0 && newKey.Nexthdr == 0 &&
+				// END OF ITERATED-ALLOW PROCESSING, ALL REMAINING CONDITIONS HIT
+				// ITERATED-DENY ENTRIES
+				//
+			} else if bailed {
+				// Skip processing further deny entries if we are bailing out.
+				// We still need to loop through all the allow entries, so we can not
+				// break out when bailing!
+				continue
+			} else if (k.Identity == 0 || k.Identity == newKey.Identity) &&
+				(k.PortProtoIsEqual(newKey) || k.PortProtoIsBroader(newKey)) {
+				// A narrower of two deny keys is redundant in the datapath only if
+				// the broader ID is 0, or the IDs are the same. This is because the
+				// ID will be assigned from the ipcache and datapath has no notion
+				// of one ID being related to another (e.g., in a CIDR sense).
+
+				// If this iterated-deny-entry is an deny-all-L3 or has the same ID
+				// as the new-entry and the iterated-deny-entry has a broader (or
+				// equal) port-protocol it will match all the packets the newKey
+				// would, given that we do not allow more specific allow rules to be
+				// inserted.
+
+				// Identical key needs to be added if entries are different (to merge
+				// them). This has no effect on the datapath policy map but is
+				// needed for internal bookkeeping.
+				if k != newKey || v.DeepEqual(&newEntry) {
+					bailed = true
+					continue
+				}
+			} else if (newKey.Identity == 0 || newKey.Identity == k.Identity) &&
+				(newKey.PortProtoIsEqual(k) || newKey.PortProtoIsBroader(k)) &&
 				!newEntry.HasDependent(k) {
-				// If this iterated-deny-entry is a subset (or equal) of the new-entry and
-				// the new-entry is an L3-only policy then we
-				// should delete the iterated-deny-entry (as long as it is not one
-				// of the special L4-only denies we created to cover the special
-				// case of a superset-allow with a more specific port-protocol).
-				//
-				// NOTE: This condition could be broader to reject more deny entries,
-				// but there *may* be performance tradeoffs.
+				// If this iterated-deny-entry is a subset (or equal) of the
+				// new-entry and the new-entry has a broader (or equal)
+				// port-protocol the newKey will match all the packets the iterated
+				// key would, given that there are no more specific or L4-only allow
+				// entries. We remove(d) the more specific allow rules in the blocks
+				// above, and added more specific deny rules if there was an L4-only
+				// allow rule. We use 'HasDependant' to figure out that 'k' must
+				// remain to take precedence over the L4-only allow key.
+
+				// Identical key would have been captured in the block above, so we
+				// do not need to check for it here.
 				keys.deleteKeyWithChanges(k, nil, changes)
 			}
 		}
-		keys.addKeyWithChanges(newKey, newEntry, changes)
+		if !bailed {
+			keys.addKeyWithChanges(newKey, newEntry, changes)
+		}
 	} else {
+		insertAsDeny := false
+		var denyEntry MapStateEntry
 		for k, v := range keys {
 			// Protocols and traffic directions that don't match ensure that the policies
 			// do not interact in anyway.
@@ -650,16 +698,54 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 						// identity is removed.
 						keys.addDependentOnEntry(k, v, denyKeyCpy, changes)
 					}
-				} else if (k.Identity == newKey.Identity ||
-					identityIsSupersetOf(k.Identity, newKey.Identity, identities)) &&
-					(k.PortProtoIsBroader(newKey) || k.PortProtoIsEqual(newKey)) &&
-					!v.HasDependent(newKey) {
-					// If the iterated-deny-entry is a superset (or equal) of the new-entry and has a
-					// broader (or equal) port-protocol than the new-entry then the new
-					// entry should not be inserted.
-					return
+				} else if k.PortProtoIsBroader(newKey) || k.PortProtoIsEqual(newKey) {
+					if k.Identity == 0 || k.Identity == newKey.Identity {
+						// If the iterated-deny-entry is a datapath superset (or
+						// equal) of the new-entry and has a broader (or equal)
+						// port-protocol than the new-entry then the new entry
+						// should not be inserted.
+						return
+					} else if identityIsSupersetOf(k.Identity, newKey.Identity, identities) {
+						// if newKey is not bailed due to being covered in the
+						// datapath by a deny entry, but is covered by a deny entry
+						// in the CIDR sense, we must change this allow entry to a
+						// deny entry so that the covering deny policy is honored
+						// also for this ID in the datapath.
+						if !insertAsDeny {
+							insertAsDeny = true
+							denyEntry = NewMapStateEntry(k, v.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
+						} else {
+							// Collect the owners and labels of all the contributing deny rules
+							denyEntry.Merge(&v)
+						}
+					}
+				} else if k.Identity != 0 {
+					// newKey.PortProtoIsBroader(k) as per previous if statements
+					//
+					// New L3/4 deny entry is not needed if the iterated key has wildcard L3,
+					// as in that case it has precedence due to it having more specific L4.
+					// So here we are only concerned about 'k' having a superset identity in
+					// the CIDR sense, in which case a new L3/4 deny entry is needed.
+					if identityIsSupersetOf(k.Identity, newKey.Identity, identities) {
+						// If the new-entry is a subset of the iterated-deny-entry
+						// and the new-entry has a less specific port-protocol than
+						// the iterated-deny-entry then an additional copy of the
+						// iterated-deny-entry with the identity of the new-entry
+						// must be added.
+						denyKeyCpy := k
+						denyKeyCpy.Identity = newKey.Identity
+						l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
+						keys.addKeyWithChanges(denyKeyCpy, l3l4DenyEntry, changes)
+						// L3-only entries can be deleted incrementally so we need
+						// to track their effects on other entries so that those
+						// effects can be reverted when the identity is removed.
+						keys.addDependentOnEntry(k, v, denyKeyCpy, changes)
+					}
 				}
 			}
+		}
+		if insertAsDeny {
+			newEntry = denyEntry
 		}
 		keys.authPreferredInsert(newKey, newEntry, features, changes)
 	}
