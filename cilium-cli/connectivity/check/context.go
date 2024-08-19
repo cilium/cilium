@@ -654,7 +654,7 @@ func (ct *ConnectivityTest) detectNodeCIDRs(ctx context.Context) error {
 	}
 
 	if len(nodeIPs) == 0 {
-		return fmt.Errorf("detectNodeCIDRs failed: no node IPs disovered")
+		return fmt.Errorf("detectNodeCIDRs failed: no node IPs discovered")
 	}
 
 	// collapse set of IPs in to CIDRs
@@ -1006,14 +1006,14 @@ func (ct *ConnectivityTest) DigCommand(peer TestPeer, ipFam features.IPFamily) [
 	return cmd
 }
 
-func (ct *ConnectivityTest) DigCommandService(peer TestPeer, ipFam features.IPFamily) []string {
-	cmd := []string{"dig"}
+func (ct *ConnectivityTest) NsLookupCommandService(peer TestPeer, ipFam features.IPFamily) []string {
+	cmd := []string{"nslookup"}
 	if ipFam == features.IPFamilyV4 {
-		cmd = append(cmd, "A")
+		cmd = append(cmd, "-query=A")
 	} else if ipFam == features.IPFamilyV6 {
-		cmd = append(cmd, "AAAA")
+		cmd = append(cmd, "-query=AAAA")
 	}
-	cmd = append(cmd, "+time=2", peer.Name())
+	cmd = append(cmd, "-timeout=2", peer.Name())
 	return cmd
 }
 
