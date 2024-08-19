@@ -1,3 +1,8 @@
+# Add 'cilium-cli' label to any file changes in 'cilium-cli/'
+cilium-cli:
+- changed-files:
+  - any-glob-to-any-file:
+    - cilium-cli/**
 # Add 'hubble-cli' label to any file changes in 'hubble/'
 hubble-cli:
 - changed-files:
