@@ -99,6 +99,7 @@ struct {
 	__type(value, __u8);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 } LB6_SKIP_MAP __section_maps_btf;
 #endif /* ENABLE_IPV6 */
 
