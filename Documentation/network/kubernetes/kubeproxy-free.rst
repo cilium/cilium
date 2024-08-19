@@ -1642,10 +1642,23 @@ Limitations
       which uses eBPF cgroup hooks to implement the service translation. Using it with libceph
       deployments currently requires support for the getpeername(2) hook address translation in
       eBPF, which is only available for kernels v5.8 and higher.
-    * In order to support nfs in the kernel with the socket-LB feature, ensure that
-      kernel commit ``0bdf399342c5 ("net: Avoid address overwrite in kernel_connect")``
-      is part of your underlying kernel. Linux kernels v6.6 and higher support it. Older
-      stable kernels are TBD. For a more detailed discussion see :gh-issue:`21541`.
+    * NFS and SMB mounts may break when mounted to a ``Service`` cluster IP while using socket-LB.
+      This issue is known to impact Longhorn, Portworx, and Robin, but may impact other storage
+      systems that implement ``ReadWriteMany`` volumes using this pattern. To avoid this problem,
+      ensure that the following commits are part of your underlying kernel:
+
+      * ``0bdf399342c5 ("net: Avoid address overwrite in kernel_connect")``
+      * ``86a7e0b69bd5 ("net: prevent rewrite of msg_name in sock_sendmsg()")``
+      * ``01b2885d9415 ("net: Save and restore msg_namelen in sock_sendmsg")``
+      * ``cedc019b9f26 ("smb: use kernel_connect() and kernel_bind()")`` (SMB only)
+
+      These patches have been backported to all stable kernels and some distro-specific kernels:
+
+      * **Ubuntu**: ``5.4.0-187-generic``, ``5.15.0-113-generic``, ``6.5.0-41-generic`` or newer.
+      * **RHEL 8**: ``4.18.0-553.8.1.el8_10.x86_64`` or newer (RHEL 8.10+).
+      * **RHEL 9**: ``kernel-5.14.0-427.31.1.el9_4`` or newer (RHEL 9.4+).
+
+      For a more detailed discussion see :gh-issue:`21541`.
     * Cilium's DSR NodePort mode currently does not operate well in environments with
       TCP Fast Open (TFO) enabled. It is recommended to switch to ``snat`` mode in this
       situation.
