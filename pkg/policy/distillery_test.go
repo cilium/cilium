@@ -1428,7 +1428,7 @@ var (
 
 	worldIPIdentity = localIdentity(16324)
 	worldIPCIDR     = api.CIDR("192.0.2.3/32")
-	lblWorldIP      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, worldIPCIDR))
+	lblWorldIP      = labels.GetCIDRLabels(netip.MustParsePrefix(string(worldIPCIDR)))
 	hostIPv4        = api.CIDR("172.19.0.1/32")
 	hostIPv6        = api.CIDR("fc00:c111::3/64")
 	lblHostIPv4CIDR = labels.GetCIDRLabels(netip.MustParsePrefix(string(hostIPv4)))
@@ -1686,7 +1686,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 		identity.ReservedIdentityWorld:        labels.LabelWorld.LabelArray(),
-		worldIPIdentity:                       lblWorldIP,                  // "192.0.2.3/32"
+		worldIPIdentity:                       lblWorldIP.LabelArray(),     // "192.0.2.3/32"
 		worldSubnetIdentity:                   lblWorldSubnet.LabelArray(), // "192.0.2.0/24"
 	}
 	selectorCache := testNewSelectorCache(identityCache)
@@ -1713,10 +1713,10 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyAnyIngress:             mapEntryAllow,
 			mapKeyL3WorldIngress:         mapEntryWorldDenyWithLabels,
 			mapKeyL3WorldEgress:          mapEntryWorldDenyWithLabels,
-			mapKeyL3SubnetIngress:        mapEntryDeny,
-			mapKeyL3SubnetEgress:         mapEntryDeny,
-			mapKeyL3SmallerSubnetIngress: mapEntryDeny,
-			mapKeyL3SmallerSubnetEgress:  mapEntryDeny,
+			mapKeyL3SubnetIngress:        mapEntryWorldDenyWithLabels,
+			mapKeyL3SubnetEgress:         mapEntryWorldDenyWithLabels,
+			mapKeyL3SmallerSubnetIngress: mapEntryWorldDenyWithLabels,
+			mapKeyL3SmallerSubnetEgress:  mapEntryWorldDenyWithLabels,
 		})}, {"deny_one_ip_with_a_larger_subnet", api.Rules{ruleAllowAllIngress, ruleL3DenySubnet, ruleL3AllowWorldIP}, testMapState(map[Key]MapStateEntry{
 			mapKeyAnyIngress:             mapEntryAllow,
 			mapKeyL3SubnetIngress:        mapEntryDeny,
