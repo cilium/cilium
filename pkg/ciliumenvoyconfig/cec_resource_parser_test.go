@@ -1089,7 +1089,7 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 }
 
 func checkCiliumXDS(t *testing.T, cs *envoy_config_core.ConfigSource) {
-	assert.NotNil(t, cs)
+	require.NotNil(t, cs)
 	assert.Equal(t, envoy_config_core.ApiVersion_V3, cs.ResourceApiVersion)
 	acs := cs.GetApiConfigSource()
 	assert.NotNil(t, acs)
@@ -1305,6 +1305,90 @@ func TestCiliumEnvoyConfigCombinedValidationContext(t *testing.T) {
 	checkCiliumXDS(t, sdsConfig.SdsConfig)
 	// Check that secret name was qualified
 	assert.Equal(t, "namespace/name/validation_context", sdsConfig.Name)
+
+	assert.Len(t, chain.Filters, 1)
+	assert.Equal(t, "envoy.filters.network.http_connection_manager", chain.Filters[0].Name)
+	message, err := chain.Filters[0].GetTypedConfig().UnmarshalNew()
+	require.NoError(t, err)
+	assert.NotNil(t, message)
+	hcm, ok := message.(*envoy_config_http.HttpConnectionManager)
+	assert.True(t, ok)
+	assert.NotNil(t, hcm)
+}
+
+var ciliumEnvoyConfigTlsSessionTicketKeys = `apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: sessionticket-keys
+spec:
+  version_info: "0"
+  resources:
+  - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+    name: sessionticket-keys
+    address:
+      socket_address:
+        address: 127.0.0.1
+        port_value: 10000
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          rds:
+            route_config_name: local_route
+          http_filters:
+          - name: envoy.filters.http.router
+      transport_socket:
+        name: envoy.transport_sockets.tls
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+          require_client_certificate: true
+          session_ticket_keys_sds_secret_config:
+            name: sessionticketkeys
+`
+
+func TestCiliumEnvoyConfigTlsSessionTicketKeys(t *testing.T) {
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	parser := cecResourceParser{
+		logger:        logger,
+		portAllocator: NewMockPortAllocator(),
+	}
+
+	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigTlsSessionTicketKeys))
+	require.NoError(t, err)
+	cec := &cilium_v2.CiliumEnvoyConfig{}
+	err = json.Unmarshal(jsonBytes, cec)
+	require.NoError(t, err)
+	assert.Len(t, cec.Spec.Resources, 1)
+	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
+
+	resources, err := parser.parseResources("namespace", "name", cec.Spec.Resources, false, false, true)
+	require.NoError(t, err)
+
+	require.Len(t, resources.Listeners, 1)
+	assert.Equal(t, "namespace/name/sessionticket-keys", resources.Listeners[0].Name)
+	assert.Equal(t, uint32(10000), resources.Listeners[0].Address.GetSocketAddress().GetPortValue())
+	assert.Len(t, resources.Listeners[0].FilterChains, 1)
+	chain := resources.Listeners[0].FilterChains[0]
+
+	assert.NotNil(t, chain.TransportSocket)
+	assert.Equal(t, "envoy.transport_sockets.tls", chain.TransportSocket.Name)
+	msg, err := chain.TransportSocket.GetTypedConfig().UnmarshalNew()
+	require.NoError(t, err)
+	assert.NotNil(t, msg)
+	tls, ok := msg.(*envoy_config_tls.DownstreamTlsContext)
+	assert.True(t, ok)
+	assert.NotNil(t, tls)
+
+	//
+	// Check that missing SDS config sources are automatically filled in
+	//
+	sdsConfig := tls.GetSessionTicketKeysSdsSecretConfig()
+	assert.NotNil(t, sdsConfig)
+	checkCiliumXDS(t, sdsConfig.SdsConfig)
+	// Check that secret name was qualified
+	assert.Equal(t, "namespace/name/sessionticketkeys", sdsConfig.Name)
 
 	assert.Len(t, chain.Filters, 1)
 	assert.Equal(t, "envoy.filters.network.http_connection_manager", chain.Filters[0].Name)
