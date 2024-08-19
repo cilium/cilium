@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
@@ -26,6 +27,12 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+// allService is a resource.Resource[*slim_corev1.Service]
+type allService resource.Resource[*slim_corev1.Service]
+
+// allEndpoint is a resource.Resource[*slim_corev1.Service]
+type allEndpoint resource.Resource[*k8s.Endpoints]
+
 // Cell provides support for the CRD CiliumEnvoyConfig that backs Ingress, Gateway API
 // and L7 loadbalancing.
 var Cell = cell.Module(
@@ -36,6 +43,14 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(newCECManager),
 	cell.ProvidePrivate(newCECResourceParser),
 	cell.ProvidePrivate(newEnvoyServiceBackendSyncer),
+	cell.ProvidePrivate(
+		func(lc cell.Lifecycle, cfg k8s.Config, cs client.Clientset) (allService, error) {
+			return k8s.ServiceResource(lc, cfg, cs)
+		},
+		func(lc cell.Lifecycle, cfg k8s.Config, cs client.Clientset) (allEndpoint, error) {
+			return k8s.EndpointsResource(lc, cfg, cs)
+		},
+	),
 	cell.Config(cecConfig{}),
 )
 
@@ -66,6 +81,8 @@ type reconcilerParams struct {
 	CECResources   resource.Resource[*ciliumv2.CiliumEnvoyConfig]
 	CCECResources  resource.Resource[*ciliumv2.CiliumClusterwideEnvoyConfig]
 	LocalNodeStore *node.LocalNodeStore
+
+	EndpointResources allEndpoint
 }
 
 func registerCECK8sReconciler(params reconcilerParams) {
@@ -114,11 +131,13 @@ func registerCECK8sReconciler(params reconcilerParams) {
 	// Note: LocalNodeStore (in comparison to `resource.Resource`) doesn't provide a retry mechanism
 	params.JobGroup.Add(job.Observer("local-node-events", reconciler.handleLocalNodeEvent, params.LocalNodeStore))
 
+	// Observing service events for headless services
+	params.JobGroup.Add(job.Observer("headless-endpoint-events", reconciler.syncEndpoints, params.EndpointResources))
+
 	// TimerJob periodically reconciles all existing configs.
 	// This covers the cases were the reconciliation fails after changing the labels of a node.
 	if params.Config.EnvoyConfigRetryInterval > 0 {
 		params.JobGroup.Add(job.Timer("reconcile-existing-configs", reconciler.reconcileExistingConfigs, params.Config.EnvoyConfigRetryInterval))
-		params.JobGroup.Add(job.Timer("sync-headless-service", reconciler.syncHeadlessService, params.Config.EnvoyConfigRetryInterval))
 	}
 }
 
@@ -136,8 +155,8 @@ type managerParams struct {
 	BackendSyncer  *envoyServiceBackendSyncer
 	ResourceParser *cecResourceParser
 
-	Services  resource.Resource[*slim_corev1.Service]
-	Endpoints resource.Resource[*k8s.Endpoints]
+	Services  allService
+	Endpoints allEndpoint
 }
 
 func newCECManager(params managerParams) ciliumEnvoyConfigManager {
