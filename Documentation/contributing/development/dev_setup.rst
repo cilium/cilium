@@ -437,7 +437,8 @@ Minor version
 #. Add the new version in ``test/provision/k8s_install.sh``, if it is an RC
    install it using binaries.
 
-#. Bump the kindest/node version in all of kind's config files (for example, ``.github/kind-config*``).
+#. Bump the kindest/node version in
+   ``.github/actions/ginkgo/main-k8s-versions.yaml``.
 
 #. Run ``./contrib/scripts/check-k8s-code-gen.sh``
 
