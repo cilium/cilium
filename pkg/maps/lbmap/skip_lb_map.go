@@ -42,34 +42,32 @@ type SkipLBMap interface {
 func NewSkipLBMap() (SkipLBMap, error) {
 	skipLBMap := &skipLBMap{}
 
-	if option.Config.EnableLocalRedirectPolicy {
-		if option.Config.EnableIPv4 {
-			skipLBMap.bpfMap4 = ebpf.NewMap(&ebpf.MapSpec{
-				Name:       SkipLB4MapName,
-				Type:       ebpf.Hash,
-				KeySize:    uint32(unsafe.Sizeof(SkipLB4Key{})),
-				ValueSize:  uint32(unsafe.Sizeof(SkipLB4Value{})),
-				MaxEntries: SkipLBMapMaxEntries,
-				Flags:      bpf.BPF_F_NO_PREALLOC,
-				Pinning:    ebpf.PinByName},
-			)
-			if err := skipLBMap.bpfMap4.OpenOrCreate(); err != nil {
-				return nil, fmt.Errorf("failed to open or create %s: %w", SkipLB4MapName, err)
-			}
+	if option.Config.EnableIPv4 {
+		skipLBMap.bpfMap4 = ebpf.NewMap(&ebpf.MapSpec{
+			Name:       SkipLB4MapName,
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(SkipLB4Key{})),
+			ValueSize:  uint32(unsafe.Sizeof(SkipLB4Value{})),
+			MaxEntries: SkipLBMapMaxEntries,
+			Flags:      bpf.BPF_F_NO_PREALLOC,
+			Pinning:    ebpf.PinByName},
+		)
+		if err := skipLBMap.bpfMap4.OpenOrCreate(); err != nil {
+			return nil, fmt.Errorf("failed to open or create %s: %w", SkipLB4MapName, err)
 		}
-		if option.Config.EnableIPv6 {
-			skipLBMap.bpfMap6 = ebpf.NewMap(&ebpf.MapSpec{
-				Name:       SkipLB6MapName,
-				Type:       ebpf.Hash,
-				KeySize:    uint32(unsafe.Sizeof(SkipLB6Key{})),
-				ValueSize:  uint32(unsafe.Sizeof(SkipLB6Value{})),
-				MaxEntries: SkipLBMapMaxEntries,
-				Flags:      bpf.BPF_F_NO_PREALLOC,
-				Pinning:    ebpf.PinByName},
-			)
-			if err := skipLBMap.bpfMap6.OpenOrCreate(); err != nil {
-				return nil, fmt.Errorf("failed to open or create %s: %w", SkipLB6MapName, err)
-			}
+	}
+	if option.Config.EnableIPv6 {
+		skipLBMap.bpfMap6 = ebpf.NewMap(&ebpf.MapSpec{
+			Name:       SkipLB6MapName,
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(SkipLB6Key{})),
+			ValueSize:  uint32(unsafe.Sizeof(SkipLB6Value{})),
+			MaxEntries: SkipLBMapMaxEntries,
+			Flags:      bpf.BPF_F_NO_PREALLOC,
+			Pinning:    ebpf.PinByName},
+		)
+		if err := skipLBMap.bpfMap6.OpenOrCreate(); err != nil {
+			return nil, fmt.Errorf("failed to open or create %s: %w", SkipLB6MapName, err)
 		}
 	}
 
