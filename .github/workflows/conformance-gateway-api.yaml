@@ -151,7 +151,6 @@ jobs:
 
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=kubeProxyReplacement=true \
-            --helm-set=extraArgs={--envoy-config-retry-interval=5s} \
             --helm-set=gatewayAPI.enabled=true \
             --helm-set=l2announcements.enabled=true"
 
