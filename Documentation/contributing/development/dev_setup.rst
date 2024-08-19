@@ -431,7 +431,9 @@ Minor version
    Cilium supports. It is possible that a new ``IsCiliumV1*`` var in that file
    is required as well.
 
-#. Bump the kindest/node version in all of kind's config files (for example, ``.github/kind-config*``).
+#. Bump the kindest/node version in
+   ``.github/actions/ginkgo/main-k8s-versions.yaml``.
+
 #. Run ``./contrib/scripts/check-k8s-code-gen.sh``
 
 #. Run ``go mod vendor && go mod tidy``
