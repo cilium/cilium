@@ -465,7 +465,6 @@ func (r *cecResourceParser) parseResources(cecNamespace string, cecName string, 
 				return envoy.Resources{}, fmt.Errorf("ParseResources: Cluster refers to missing internal listener %q (%w): %s", cluster.Name, err, cluster.String())
 			}
 		}
-
 	}
 	for _, endpoints := range resources.Endpoints {
 		if err := validateEDSEndpoints(cecNamespace, cecName, endpoints, resources.Listeners); err != nil {
@@ -571,8 +570,7 @@ func qualifyAddress(namespace, name string, address *envoy_config_core.Address) 
 	internalAddress := address.GetEnvoyInternalAddress()
 	if internalAddress != nil {
 		if x, ok := internalAddress.GetAddressNameSpecifier().(*envoy_config_core.EnvoyInternalAddress_ServerListenerName); ok && x.ServerListenerName != "" {
-			x.ServerListenerName, _ =
-				api.ResourceQualifiedName(namespace, name, x.ServerListenerName)
+			x.ServerListenerName, _ = api.ResourceQualifiedName(namespace, name, x.ServerListenerName)
 		}
 	}
 }
@@ -596,7 +594,8 @@ func qualifyEDSEndpoints(namespace, name string, eds *envoy_config_endpoint.Clus
 
 // validateAddress checks that the referred to internal listener is specified, if it is in the same CRD
 func validateAddress(namespace, name string, address *envoy_config_core.Address,
-	listeners []*envoy_config_listener.Listener) error {
+	listeners []*envoy_config_listener.Listener,
+) error {
 	internalAddress := address.GetEnvoyInternalAddress()
 	if internalAddress != nil {
 		if x, ok := internalAddress.GetAddressNameSpecifier().(*envoy_config_core.EnvoyInternalAddress_ServerListenerName); ok && x.ServerListenerName != "" {
@@ -623,7 +622,8 @@ func validateAddress(namespace, name string, address *envoy_config_core.Address,
 
 // validateEDSEndpoints checks internal listener references, if any
 func validateEDSEndpoints(namespace, name string, eds *envoy_config_endpoint.ClusterLoadAssignment,
-	listeners []*envoy_config_listener.Listener) error {
+	listeners []*envoy_config_listener.Listener,
+) error {
 	for _, cla := range eds.Endpoints {
 		for _, lbe := range cla.LbEndpoints {
 			endpoint := lbe.GetEndpoint()
@@ -854,6 +854,11 @@ func fillInTlsContextXDS(cecNamespace string, cecName string, tls *envoy_config_
 		}
 		if sc := tls.GetValidationContextSdsSecretConfig(); sc != nil {
 			qualify(sc)
+		}
+		if cvc := tls.GetCombinedValidationContext(); cvc != nil {
+			if sc := cvc.GetValidationContextSdsSecretConfig(); sc != nil {
+				qualify(sc)
+			}
 		}
 	}
 	return updated
