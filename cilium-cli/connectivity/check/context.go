@@ -1011,14 +1011,14 @@ func (ct *ConnectivityTest) DigCommand(peer TestPeer, ipFam features.IPFamily) [
 	return cmd
 }
 
-func (ct *ConnectivityTest) DigCommandService(peer TestPeer, ipFam features.IPFamily) []string {
-	cmd := []string{"dig"}
+func (ct *ConnectivityTest) NSLookupCommandService(peer TestPeer, ipFam features.IPFamily) []string {
+	cmd := []string{"nslookup"}
 	if ipFam == features.IPFamilyV4 {
-		cmd = append(cmd, "A")
+		cmd = append(cmd, "-type=A")
 	} else if ipFam == features.IPFamilyV6 {
-		cmd = append(cmd, "AAAA")
+		cmd = append(cmd, "-type=AAAA")
 	}
-	cmd = append(cmd, "+time=2", peer.Name())
+	cmd = append(cmd, "-timeout=2", peer.Address(features.IPFamilyAny))
 	return cmd
 }
 

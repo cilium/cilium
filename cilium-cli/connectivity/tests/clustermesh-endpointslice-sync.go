@@ -32,7 +32,7 @@ func (s *clusterMeshEndpointSliceSync) Run(ctx context.Context, t *check.Test) {
 
 	t.ForEachIPFamily(func(ipFam features.IPFamily) {
 		t.NewAction(s, fmt.Sprintf("dig-%s", ipFam), client, service, ipFam).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.DigCommandService(service, ipFam))
+			a.ExecInPod(ctx, ct.NSLookupCommandService(service, ipFam))
 		})
 	})
 }
