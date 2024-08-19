@@ -3714,7 +3714,7 @@ func (e MapStateEntry) asDeny() MapStateEntry {
 func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 	identityCache := identity.IdentityMap{
 		identity.ReservedIdentityWorld: labels.LabelWorld.LabelArray(),
-		worldIPIdentity:                lblWorldIP,                  // "192.0.2.3/32"
+		worldIPIdentity:                lblWorldIP.LabelArray(),     // "192.0.2.3/32"
 		worldSubnetIdentity:            lblWorldSubnet.LabelArray(), // "192.0.2.0/24"
 	}
 
