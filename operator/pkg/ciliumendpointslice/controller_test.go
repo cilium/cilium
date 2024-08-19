@@ -20,10 +20,10 @@ import (
 	tu "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/health/types"
-	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -37,7 +37,7 @@ func TestRegisterController(t *testing.T) {
 		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Typed[...]).updateUnfinishedWorkLoop"),
 	)
 	var fakeClient k8sClient.Clientset
-	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
+	var pod resource.Resource[*slim_corev1.Pod]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	hive := hive.New(
 		k8sClient.FakeClientBuilderCell,
@@ -65,9 +65,9 @@ func TestRegisterController(t *testing.T) {
 			clientset, _ := f("test-ces-registered")
 			return clientset
 		}),
-		cell.Invoke(func(c k8sClient.Clientset, cep resource.Resource[*cilium_v2.CiliumEndpoint], ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) error {
+		cell.Invoke(func(c k8sClient.Clientset, p resource.Resource[*slim_corev1.Pod], ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) error {
 			fakeClient = c
-			ciliumEndpoint = cep
+			pod = p
 			ciliumEndpointSlice = ces
 			return nil
 		}),
@@ -76,7 +76,7 @@ func TestRegisterController(t *testing.T) {
 	if err := hive.Start(tlog, context.Background()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
-	cesCreated, err := createCEPandVerifyCESCreated(fakeClient, ciliumEndpoint, ciliumEndpointSlice)
+	cesCreated, err := createPodandVerifyCESCreated(fakeClient, pod, ciliumEndpointSlice)
 	if err != nil {
 		t.Fatalf("Couldn't verify if CES is created: %s", err)
 	}
@@ -96,7 +96,7 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop"),
 	)
 	var fakeClient k8sClient.Clientset
-	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
+	var pod resource.Resource[*slim_corev1.Pod]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	h := hive.New(
 		k8sClient.FakeClientBuilderCell,
@@ -124,9 +124,9 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 			clientset, _ := f("test-ces-unregistered")
 			return clientset
 		}),
-		cell.Invoke(func(c k8sClient.Clientset, cep resource.Resource[*cilium_v2.CiliumEndpoint], ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) error {
+		cell.Invoke(func(c k8sClient.Clientset, p resource.Resource[*slim_corev1.Pod], ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) error {
 			fakeClient = c
-			ciliumEndpoint = cep
+			pod = p
 			ciliumEndpointSlice = ces
 			return nil
 		}),
@@ -135,7 +135,7 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 	if err := h.Start(tlog, context.Background()); err != nil {
 		t.Fatalf("failed to start: %s", err)
 	}
-	cesCreated, err := createCEPandVerifyCESCreated(fakeClient, ciliumEndpoint, ciliumEndpointSlice)
+	cesCreated, err := createPodandVerifyCESCreated(fakeClient, pod, ciliumEndpointSlice)
 	if err != nil {
 		t.Fatalf("Couldn't verify if CES is created: %s", err)
 	}
@@ -146,14 +146,15 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 	}
 }
 
-func createCEPandVerifyCESCreated(fakeClient k8sClient.Clientset, ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint], ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) (bool, error) {
-	cep := tu.CreateStoreEndpoint("cep1", "ns", 1)
-	fakeClient.CiliumV2().CiliumEndpoints("ns").Create(context.Background(), cep, meta_v1.CreateOptions{})
-	cepStore, _ := ciliumEndpoint.Store(context.Background())
+func createPodandVerifyCESCreated(fakeClient k8sClient.Clientset, pod resource.Resource[*slim_corev1.Pod], ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]) (bool, error) {
+	pod_store := tu.CreateStorePod("cep1", "ns", 1)
+	fakeClient.Slim().CoreV1().Pods("ns").Create(context.Background(), pod_store, meta_v1.CreateOptions{}) //slim
+
+	podStore, _ := pod.Store(context.Background())
 	if err := testutils.WaitUntil(func() bool {
-		return len(cepStore.List()) > 0
+		return len(podStore.List()) > 0
 	}, time.Second); err != nil {
-		return false, fmt.Errorf("failed to get CEP: %w", err)
+		return false, fmt.Errorf("failed to get Pod: %w", err)
 	}
 	cesStore, _ := ciliumEndpointSlice.Store(context.Background())
 

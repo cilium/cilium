@@ -10,11 +10,11 @@ import (
 	"github.com/sirupsen/logrus"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -25,7 +25,7 @@ type reconciler struct {
 	client     clientset.CiliumV2alpha1Interface
 	context    context.Context
 	cesManager operations
-	cepStore   resource.Store[*cilium_v2.CiliumEndpoint]
+	podStore   resource.Store[*slim_corev1.Pod]
 	cesStore   resource.Store[*cilium_v2a1.CiliumEndpointSlice]
 	metrics    *Metrics
 }
@@ -36,18 +36,18 @@ func newReconciler(
 	client clientset.CiliumV2alpha1Interface,
 	cesMgr operations,
 	logger logrus.FieldLogger,
-	ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint],
+	pod resource.Resource[*slim_corev1.Pod],
 	ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
 	metrics *Metrics,
 ) *reconciler {
-	cepStore, _ := ciliumEndpoint.Store(ctx)
 	cesStore, _ := ciliumEndpointSlice.Store(ctx)
+	podStore, _ := pod.Store(ctx)
 	return &reconciler{
 		context:    ctx,
 		logger:     logger,
 		client:     client,
 		cesManager: cesMgr,
-		cepStore:   cepStore,
+		podStore:   podStore,
 		cesStore:   cesStore,
 		metrics:    metrics,
 	}
@@ -206,9 +206,9 @@ func (r *reconciler) reconcileCESDelete(ces *cilium_v2a1.CiliumEndpointSlice) (e
 }
 
 func (r *reconciler) getCoreEndpointFromStore(cepName CEPName) *cilium_v2a1.CoreCiliumEndpoint {
-	cepObj, exists, err := r.cepStore.GetByKey(cepName.key())
+	podObj, exists, err := r.podStore.GetByKey(cepName.key())
 	if err == nil && exists {
-		return k8s.ConvertCEPToCoreCEP(cepObj)
+		return ConvertPodToCoreCEP(podObj)
 	}
 	r.logger.WithFields(logrus.Fields{
 		logfields.CEPName: cepName.string(),

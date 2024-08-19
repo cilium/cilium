@@ -34,6 +34,7 @@ type params struct {
 	CiliumEndpoint      resource.Resource[*v2.CiliumEndpoint]
 	CiliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
 	CiliumNodes         resource.Resource[*v2.CiliumNode]
+	Pods                resource.Resource[*slim_corev1.Pod]
 	Namespace           resource.Resource[*slim_corev1.Namespace]
 
 	Cfg       Config
@@ -54,6 +55,7 @@ type Controller struct {
 	ciliumEndpoint      resource.Resource[*v2.CiliumEndpoint]
 	ciliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
 	ciliumNodes         resource.Resource[*v2.CiliumNode]
+	pods                resource.Resource[*slim_corev1.Pod]
 	namespace           resource.Resource[*slim_corev1.Namespace]
 	// reconciler is an util used to reconcile CiliumEndpointSlice changes.
 	reconciler *reconciler
@@ -113,25 +115,47 @@ func registerController(p params) error {
 
 	checkDeprecatedOpts(p.Cfg, p.Logger)
 
-	cesController := &Controller{
-		logger:              p.Logger,
-		clientset:           clientset,
-		ciliumEndpoint:      p.CiliumEndpoint,
-		ciliumEndpointSlice: p.CiliumEndpointSlice,
-		ciliumNodes:         p.CiliumNodes,
-		namespace:           p.Namespace,
-		slicingMode:         p.Cfg.CESSlicingMode,
-		maxCEPsInCES:        p.Cfg.CESMaxCEPsInCES,
-		rateLimit:           rateLimitConfig,
-		enqueuedAt:          make(map[CESKey]time.Time),
-		metrics:             p.Metrics,
-		syncDelay:           DefaultCESSyncTime,
-		priorityNamespaces:  make(map[string]struct{}),
-		cond:                *sync.NewCond(&lock.Mutex{}),
-		Job:                 p.Job,
+	if p.Pods != nil {
+		cesController := &Controller{
+			logger:              p.Logger,
+			clientset:           clientset,
+			ciliumEndpointSlice: p.CiliumEndpointSlice,
+			ciliumNodes:         p.CiliumNodes,
+			pods:                p.Pods,
+			namespace:           p.Namespace,
+			slicingMode:         p.Cfg.CESSlicingMode,
+			maxCEPsInCES:        p.Cfg.CESMaxCEPsInCES,
+			rateLimit:           rateLimitConfig,
+			enqueuedAt:          make(map[CESKey]time.Time),
+			metrics:             p.Metrics,
+			syncDelay:           DefaultCESSyncTime,
+			priorityNamespaces:  make(map[string]struct{}),
+			cond:                *sync.NewCond(&lock.Mutex{}),
+			Job:                 p.Job,
+		}
+		p.Lifecycle.Append(cesController)
+		return nil
+	} else {
+		cesController := &Controller{
+			logger:              p.Logger,
+			clientset:           clientset,
+			ciliumEndpointSlice: p.CiliumEndpointSlice,
+			ciliumNodes:         p.CiliumNodes,
+			ciliumEndpoint:      p.CiliumEndpoint,
+			namespace:           p.Namespace,
+			slicingMode:         p.Cfg.CESSlicingMode,
+			maxCEPsInCES:        p.Cfg.CESMaxCEPsInCES,
+			rateLimit:           rateLimitConfig,
+			enqueuedAt:          make(map[CESKey]time.Time),
+			metrics:             p.Metrics,
+			syncDelay:           DefaultCESSyncTime,
+			priorityNamespaces:  make(map[string]struct{}),
+			cond:                *sync.NewCond(&lock.Mutex{}),
+			Job:                 p.Job,
+		}
+		p.Lifecycle.Append(cesController)
+		return nil
 	}
-	p.Lifecycle.Append(cesController)
-	return nil
 }
 
 // checkDeprecatedOpts will log an error if the user has supplied any of the

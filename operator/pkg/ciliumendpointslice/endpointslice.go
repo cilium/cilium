@@ -19,6 +19,7 @@ import (
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -90,6 +91,16 @@ func (c *Controller) onSliceUpdate(ces *capi_v2a1.CiliumEndpointSlice) {
 
 func (c *Controller) onSliceDelete(ces *capi_v2a1.CiliumEndpointSlice) {
 	c.enqueueCESReconciliation([]CESKey{NewCESKey(ces.Name, ces.Namespace)})
+}
+
+func (c *Controller) onPodUpdate(pod *slim_corev1.Pod) {
+	touchedCESs := c.manager.UpdateCEPMapping(ConvertPodToCoreCEP(pod), pod.Namespace)
+	c.enqueueCESReconciliation(touchedCESs)
+}
+
+func (c *Controller) onPodDelete(pod *slim_corev1.Pod) {
+	touchedCES := c.manager.RemoveCEPMapping(ConvertPodToCoreCEP(pod), pod.Namespace)
+	c.enqueueCESReconciliation([]CESKey{touchedCES})
 }
 
 func (c *Controller) addToQueue(ces CESKey) {
@@ -177,7 +188,7 @@ func (c *Controller) Start(ctx cell.HookContext) error {
 		return fmt.Errorf("Invalid slicing mode: %s", c.slicingMode)
 	}
 
-	c.reconciler = newReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.ciliumEndpoint, c.ciliumEndpointSlice, c.metrics)
+	c.reconciler = newReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.pods, c.ciliumEndpointSlice, c.metrics)
 
 	c.initializeQueue()
 
@@ -192,9 +203,13 @@ func (c *Controller) Start(ctx cell.HookContext) error {
 	)
 	// Start the work pools processing CEP events only after syncing CES in local cache.
 	c.wp = workerpool.New(3)
-	c.wp.Submit("cilium-endpoints-updater", c.runCiliumEndpointsUpdater)
 	c.wp.Submit("cilium-endpoint-slices-updater", c.runCiliumEndpointSliceUpdater)
 	c.wp.Submit("cilium-nodes-updater", c.runCiliumNodesUpdater)
+	if c.pods != nil {
+		c.wp.Submit("pods-updater", c.runPodsUpdater)
+	} else {
+		c.wp.Submit("cilium-endpoints-updater", c.runCiliumEndpointsUpdater)
+	}
 
 	c.logger.Info("Starting CES controller reconciler.")
 	c.Job.Add(
@@ -215,23 +230,6 @@ func (c *Controller) Stop(ctx cell.HookContext) error {
 	return nil
 }
 
-func (c *Controller) runCiliumEndpointsUpdater(ctx context.Context) error {
-	for event := range c.ciliumEndpoint.Events(ctx) {
-		switch event.Kind {
-		case resource.Upsert:
-			c.logger.WithFields(logrus.Fields{
-				logfields.CEPName: event.Key.String()}).Debug("Got Upsert Endpoint event")
-			c.onEndpointUpdate(event.Object)
-		case resource.Delete:
-			c.logger.WithFields(logrus.Fields{
-				logfields.CEPName: event.Key.String()}).Debug("Got Delete Endpoint event")
-			c.onEndpointDelete(event.Object)
-		}
-		event.Done(nil)
-	}
-	return nil
-}
-
 func (c *Controller) runCiliumEndpointSliceUpdater(ctx context.Context) error {
 	for event := range c.ciliumEndpointSlice.Events(ctx) {
 		switch event.Kind {
@@ -243,6 +241,23 @@ func (c *Controller) runCiliumEndpointSliceUpdater(ctx context.Context) error {
 			c.logger.WithFields(logrus.Fields{
 				logfields.CESName: event.Key.String()}).Debug("Got Delete Endpoint Slice event")
 			c.onSliceDelete(event.Object)
+		}
+		event.Done(nil)
+	}
+	return nil
+}
+
+func (c *Controller) runCiliumEndpointsUpdater(ctx context.Context) error {
+	for event := range c.ciliumEndpoint.Events(ctx) {
+		switch event.Kind {
+		case resource.Upsert:
+			c.logger.WithFields(logrus.Fields{
+				logfields.CEPName: event.Key.String()}).Debug("Got Upsert Endpoint event")
+			c.onEndpointUpdate(event.Object)
+		case resource.Delete:
+			c.logger.WithFields(logrus.Fields{
+				logfields.CEPName: event.Key.String()}).Debug("Got Delete Endpoint event")
+			c.onEndpointDelete(event.Object)
 		}
 		event.Done(nil)
 	}
@@ -264,6 +279,23 @@ func (c *Controller) runCiliumNodesUpdater(ctx context.Context) error {
 				logfields.WorkQueueBurstLimit: c.rateLimit.current.Burst,
 			}).Info("Updated CES controller workqueue configuration")
 		}
+	}
+	return nil
+}
+
+func (c *Controller) runPodsUpdater(ctx context.Context) error {
+	for event := range c.pods.Events(ctx) {
+		switch kind := event.Kind; kind {
+		case resource.Upsert:
+			c.logger.WithFields(logrus.Fields{
+				logfields.K8sPodName: event.Key.String()}).Debug("Got Upsert Pod event")
+			c.onPodUpdate(event.Object)
+		case resource.Delete:
+			c.logger.WithFields(logrus.Fields{
+				logfields.K8sPodName: event.Key.String()}).Debug("Got Delete Pod event")
+			c.onPodDelete(event.Object)
+		}
+		event.Done(nil)
 	}
 	return nil
 }
