@@ -4,6 +4,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -38,10 +39,10 @@ func (a *APIError) GetCode() int {
 // Error creates a new API error from the code and error.
 func Error(code int, err error) *APIError {
 	if err == nil {
-		err = fmt.Errorf("Error pointer was nil")
+		err = errors.New("Error pointer was nil")
 	}
 
-	return New(code, err.Error())
+	return New(code, err.Error()) //nolint:govet
 }
 
 // Error returns the API error message.

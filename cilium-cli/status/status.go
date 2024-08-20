@@ -354,13 +354,13 @@ func (s *Status) Format() string {
 	var buf bytes.Buffer
 	w := tabwriter.NewWriter(&buf, 0, 0, 4, ' ', 0)
 
-	fmt.Fprintf(w, Yellow+"    /¯¯\\\n")
-	fmt.Fprintf(w, Cyan+" /¯¯"+Yellow+"\\__/"+Green+"¯¯\\"+Reset+"\tCilium:\t"+s.statusSummary(defaults.AgentDaemonSetName)+"\n")
-	fmt.Fprintf(w, Cyan+" \\__"+Red+"/¯¯\\"+Green+"__/"+Reset+"\tOperator:\t"+s.statusSummary(defaults.OperatorDeploymentName)+"\n")
-	fmt.Fprintf(w, Green+" /¯¯"+Red+"\\__/"+Magenta+"¯¯\\"+Reset+"\tEnvoy DaemonSet:\t"+envoyStatusSummary(s.statusSummary(defaults.EnvoyDaemonSetName))+"\n")
-	fmt.Fprintf(w, Green+" \\__"+Blue+"/¯¯\\"+Magenta+"__/"+Reset+"\tHubble Relay:\t"+s.statusSummary(defaults.RelayDeploymentName)+"\n")
-	fmt.Fprintf(w, Blue+Blue+Blue+"    \\__/"+Reset+"\tClusterMesh:\t"+s.statusSummary(defaults.ClusterMeshDeploymentName)+"\n")
-	fmt.Fprintf(w, "\n")
+	fmt.Fprint(w, Yellow+"    /¯¯\\\n")
+	fmt.Fprint(w, Cyan+" /¯¯"+Yellow+"\\__/"+Green+"¯¯\\"+Reset+"\tCilium:\t"+s.statusSummary(defaults.AgentDaemonSetName)+"\n")
+	fmt.Fprint(w, Cyan+" \\__"+Red+"/¯¯\\"+Green+"__/"+Reset+"\tOperator:\t"+s.statusSummary(defaults.OperatorDeploymentName)+"\n")
+	fmt.Fprint(w, Green+" /¯¯"+Red+"\\__/"+Magenta+"¯¯\\"+Reset+"\tEnvoy DaemonSet:\t"+envoyStatusSummary(s.statusSummary(defaults.EnvoyDaemonSetName))+"\n")
+	fmt.Fprint(w, Green+" \\__"+Blue+"/¯¯\\"+Magenta+"__/"+Reset+"\tHubble Relay:\t"+s.statusSummary(defaults.RelayDeploymentName)+"\n")
+	fmt.Fprint(w, Blue+Blue+Blue+"    \\__/"+Reset+"\tClusterMesh:\t"+s.statusSummary(defaults.ClusterMeshDeploymentName)+"\n")
+	fmt.Fprint(w, "\n")
 
 	if len(s.PodState) > 0 {
 		for name, podState := range s.PodState {

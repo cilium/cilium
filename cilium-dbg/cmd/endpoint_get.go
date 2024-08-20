@@ -67,7 +67,7 @@ var endpointGetCmd = &cobra.Command{
 
 		expandedResult, err := expandNestedJSON(result)
 		if err != nil {
-			Fatalf(err.Error())
+			Fatalf("Cannot expand nested JSON: %s", err)
 		}
 		fmt.Println(expandedResult.String())
 	},

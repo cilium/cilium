@@ -228,7 +228,7 @@ func (t *Test) flush() {
 	if _, err := io.Copy(buf, t.logBuf); err != nil {
 		panic(err)
 	}
-	t.ctx.logger.Printf(t, buf.String())
+	t.ctx.logger.Print(t, buf.String())
 
 	// Assign a nil buffer so future writes go to user-specified writer.
 	t.logBuf = nil

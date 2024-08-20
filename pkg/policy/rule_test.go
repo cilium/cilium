@@ -1588,23 +1588,23 @@ func TestL4RuleLabels(t *testing.T) {
 			rule.resolveEgressPolicy(td.testPolicyContext, fromBar, &traceState{}, finalPolicy.Egress.PortRules, nil, nil)
 		}
 
-		require.Equal(t, len(test.expectedIngressLabels), finalPolicy.Ingress.PortRules.Len(), fmt.Sprintf(test.description))
+		require.Equal(t, len(test.expectedIngressLabels), finalPolicy.Ingress.PortRules.Len(), test.description)
 		for portProto := range test.expectedIngressLabels {
 			portProtoSlice := strings.Split(portProto, "/")
 			out := finalPolicy.Ingress.PortRules.ExactLookup(portProtoSlice[0], 0, portProtoSlice[1])
 			require.NotNil(t, out, test.description)
-			require.Equal(t, 1, len(out.RuleOrigin), fmt.Sprintf(test.description))
-			require.EqualValues(t, test.expectedIngressLabels[portProto], out.RuleOrigin[out.wildcard], fmt.Sprintf(test.description))
+			require.Equal(t, 1, len(out.RuleOrigin), test.description)
+			require.EqualValues(t, test.expectedIngressLabels[portProto], out.RuleOrigin[out.wildcard], test.description)
 		}
 
-		require.Equal(t, len(test.expectedEgressLabels), finalPolicy.Egress.PortRules.Len(), fmt.Sprintf(test.description))
+		require.Equal(t, len(test.expectedEgressLabels), finalPolicy.Egress.PortRules.Len(), test.description)
 		for portProto := range test.expectedEgressLabels {
 			portProtoSlice := strings.Split(portProto, "/")
 			out := finalPolicy.Egress.PortRules.ExactLookup(portProtoSlice[0], 0, portProtoSlice[1])
 			require.NotNil(t, out, test.description)
 
-			require.Equal(t, 1, len(out.RuleOrigin), fmt.Sprintf(test.description))
-			require.EqualValues(t, test.expectedEgressLabels[portProto], out.RuleOrigin[out.wildcard], fmt.Sprintf(test.description))
+			require.Equal(t, 1, len(out.RuleOrigin), test.description)
+			require.EqualValues(t, test.expectedEgressLabels[portProto], out.RuleOrigin[out.wildcard], test.description)
 		}
 		finalPolicy.Detach(td.sc)
 	}
