@@ -498,9 +498,10 @@ func (he httpEndpoint) FlowFilters() []*flow.FlowFilter {
 }
 
 type LRPFrontend struct {
-	name string
-	ip   string
-	port string
+	name     string
+	ip       string
+	port     string
+	protocol string
 }
 
 func NewLRPFrontend(frontend ciliumv2.RedirectFrontend) *LRPFrontend {
@@ -508,7 +509,8 @@ func NewLRPFrontend(frontend ciliumv2.RedirectFrontend) *LRPFrontend {
 	if f := frontend.AddressMatcher; f != nil {
 		lf.ip = f.IP
 		lf.port = f.ToPorts[0].Port
-		lf.name = fmt.Sprintf("%s:%s", lf.ip, lf.port)
+		lf.protocol = string(f.ToPorts[0].Protocol)
+		lf.name = fmt.Sprintf("%s:%s/%s", lf.ip, lf.port, lf.protocol)
 
 		return &lf
 	}
@@ -538,6 +540,10 @@ func (l LRPFrontend) Port() uint32 {
 		return 0
 	}
 	return uint32(p)
+}
+
+func (l LRPFrontend) Protocol() string {
+	return l.protocol
 }
 
 func (l LRPFrontend) HasLabel(string, string) bool {
