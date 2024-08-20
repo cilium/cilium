@@ -172,8 +172,14 @@ type Collector struct {
 }
 
 // NewCollector returns a new sysdump collector.
-func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion string) (*Collector, error) {
-	c := Collector{
+func NewCollector(
+	k KubernetesClient,
+	o Options,
+	hooks Hooks,
+	startTime time.Time,
+	cliVersion string,
+) (*Collector, error) {
+	c := &Collector{
 		Client:     k,
 		Options:    o,
 		startTime:  startTime,
@@ -293,7 +299,11 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 		}
 	}
 
-	return &c, nil
+	if err := hooks.AddSysdumpTasks(c); err != nil {
+		return nil, fmt.Errorf("failed to add custom sysdump tasks: %w", err)
+	}
+
+	return c, nil
 }
 
 // GatherResourceUnstructured queries resources with the given GroupVersionResource, storing them in the file specified by fname.
