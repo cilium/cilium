@@ -27,20 +27,22 @@ var ciliumbgppeerconfigsKind = v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPPe
 
 // Get takes name of the ciliumBGPPeerConfig, and returns the corresponding ciliumBGPPeerConfig object, and an error if there is any.
 func (c *FakeCiliumBGPPeerConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumBGPPeerConfig, err error) {
+	emptyResult := &v2alpha1.CiliumBGPPeerConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(ciliumbgppeerconfigsResource, name), &v2alpha1.CiliumBGPPeerConfig{})
+		Invokes(testing.NewRootGetActionWithOptions(ciliumbgppeerconfigsResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPPeerConfig), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumBGPPeerConfigs that match those selectors.
 func (c *FakeCiliumBGPPeerConfigs) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.CiliumBGPPeerConfigList, err error) {
+	emptyResult := &v2alpha1.CiliumBGPPeerConfigList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(ciliumbgppeerconfigsResource, ciliumbgppeerconfigsKind, opts), &v2alpha1.CiliumBGPPeerConfigList{})
+		Invokes(testing.NewRootListActionWithOptions(ciliumbgppeerconfigsResource, ciliumbgppeerconfigsKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -59,25 +61,27 @@ func (c *FakeCiliumBGPPeerConfigs) List(ctx context.Context, opts v1.ListOptions
 // Watch returns a watch.Interface that watches the requested ciliumBGPPeerConfigs.
 func (c *FakeCiliumBGPPeerConfigs) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(ciliumbgppeerconfigsResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumbgppeerconfigsResource, opts))
 }
 
 // Create takes the representation of a ciliumBGPPeerConfig and creates it.  Returns the server's representation of the ciliumBGPPeerConfig, and an error, if there is any.
 func (c *FakeCiliumBGPPeerConfigs) Create(ctx context.Context, ciliumBGPPeerConfig *v2alpha1.CiliumBGPPeerConfig, opts v1.CreateOptions) (result *v2alpha1.CiliumBGPPeerConfig, err error) {
+	emptyResult := &v2alpha1.CiliumBGPPeerConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(ciliumbgppeerconfigsResource, ciliumBGPPeerConfig), &v2alpha1.CiliumBGPPeerConfig{})
+		Invokes(testing.NewRootCreateActionWithOptions(ciliumbgppeerconfigsResource, ciliumBGPPeerConfig, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPPeerConfig), err
 }
 
 // Update takes the representation of a ciliumBGPPeerConfig and updates it. Returns the server's representation of the ciliumBGPPeerConfig, and an error, if there is any.
 func (c *FakeCiliumBGPPeerConfigs) Update(ctx context.Context, ciliumBGPPeerConfig *v2alpha1.CiliumBGPPeerConfig, opts v1.UpdateOptions) (result *v2alpha1.CiliumBGPPeerConfig, err error) {
+	emptyResult := &v2alpha1.CiliumBGPPeerConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(ciliumbgppeerconfigsResource, ciliumBGPPeerConfig), &v2alpha1.CiliumBGPPeerConfig{})
+		Invokes(testing.NewRootUpdateActionWithOptions(ciliumbgppeerconfigsResource, ciliumBGPPeerConfig, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPPeerConfig), err
 }
@@ -91,7 +95,7 @@ func (c *FakeCiliumBGPPeerConfigs) Delete(ctx context.Context, name string, opts
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCiliumBGPPeerConfigs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(ciliumbgppeerconfigsResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumbgppeerconfigsResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2alpha1.CiliumBGPPeerConfigList{})
 	return err
@@ -99,10 +103,11 @@ func (c *FakeCiliumBGPPeerConfigs) DeleteCollection(ctx context.Context, opts v1
 
 // Patch applies the patch and returns the patched ciliumBGPPeerConfig.
 func (c *FakeCiliumBGPPeerConfigs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumBGPPeerConfig, err error) {
+	emptyResult := &v2alpha1.CiliumBGPPeerConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(ciliumbgppeerconfigsResource, name, pt, data, subresources...), &v2alpha1.CiliumBGPPeerConfig{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumbgppeerconfigsResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPPeerConfig), err
 }

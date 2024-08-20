@@ -27,7 +27,7 @@ var (
 )
 
 func init() {
-	runtime.ErrorHandlers = []func(error){
+	runtime.ErrorHandlers = []runtime.ErrorHandler{
 		k8s.K8sErrorHandler,
 	}
 }

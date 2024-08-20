@@ -20,6 +20,12 @@ import "time"
 
 // Controller contains configuration options for a controller.
 type Controller struct {
+	// SkipNameValidation allows skipping the name validation that ensures that every controller name is unique.
+	// Unique controller names are important to get unique metrics and logs for a controller.
+	// Can be overwritten for a controller via the SkipNameValidation setting on the controller.
+	// Defaults to false if SkipNameValidation setting on controller and Manager are unset.
+	SkipNameValidation *bool
+
 	// GroupKindConcurrency is a map from a Kind to the number of concurrent reconciliation
 	// allowed for that controller.
 	//
@@ -40,7 +46,8 @@ type Controller struct {
 	CacheSyncTimeout time.Duration
 
 	// RecoverPanic indicates whether the panic caused by reconcile should be recovered.
-	// Defaults to the Controller.RecoverPanic setting from the Manager if unset.
+	// Can be overwritten for a controller via the RecoverPanic setting on the controller.
+	// Defaults to true if RecoverPanic setting on controller and Manager are unset.
 	RecoverPanic *bool
 
 	// NeedLeaderElection indicates whether the controller needs to use leader election.

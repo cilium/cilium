@@ -27,20 +27,22 @@ var ciliumidentitiesKind = v2.SchemeGroupVersion.WithKind("CiliumIdentity")
 
 // Get takes name of the ciliumIdentity, and returns the corresponding ciliumIdentity object, and an error if there is any.
 func (c *FakeCiliumIdentities) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumIdentity, err error) {
+	emptyResult := &v2.CiliumIdentity{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(ciliumidentitiesResource, name), &v2.CiliumIdentity{})
+		Invokes(testing.NewRootGetActionWithOptions(ciliumidentitiesResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumIdentity), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumIdentities that match those selectors.
 func (c *FakeCiliumIdentities) List(ctx context.Context, opts v1.ListOptions) (result *v2.CiliumIdentityList, err error) {
+	emptyResult := &v2.CiliumIdentityList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(ciliumidentitiesResource, ciliumidentitiesKind, opts), &v2.CiliumIdentityList{})
+		Invokes(testing.NewRootListActionWithOptions(ciliumidentitiesResource, ciliumidentitiesKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -59,25 +61,27 @@ func (c *FakeCiliumIdentities) List(ctx context.Context, opts v1.ListOptions) (r
 // Watch returns a watch.Interface that watches the requested ciliumIdentities.
 func (c *FakeCiliumIdentities) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(ciliumidentitiesResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumidentitiesResource, opts))
 }
 
 // Create takes the representation of a ciliumIdentity and creates it.  Returns the server's representation of the ciliumIdentity, and an error, if there is any.
 func (c *FakeCiliumIdentities) Create(ctx context.Context, ciliumIdentity *v2.CiliumIdentity, opts v1.CreateOptions) (result *v2.CiliumIdentity, err error) {
+	emptyResult := &v2.CiliumIdentity{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(ciliumidentitiesResource, ciliumIdentity), &v2.CiliumIdentity{})
+		Invokes(testing.NewRootCreateActionWithOptions(ciliumidentitiesResource, ciliumIdentity, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumIdentity), err
 }
 
 // Update takes the representation of a ciliumIdentity and updates it. Returns the server's representation of the ciliumIdentity, and an error, if there is any.
 func (c *FakeCiliumIdentities) Update(ctx context.Context, ciliumIdentity *v2.CiliumIdentity, opts v1.UpdateOptions) (result *v2.CiliumIdentity, err error) {
+	emptyResult := &v2.CiliumIdentity{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(ciliumidentitiesResource, ciliumIdentity), &v2.CiliumIdentity{})
+		Invokes(testing.NewRootUpdateActionWithOptions(ciliumidentitiesResource, ciliumIdentity, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumIdentity), err
 }
@@ -91,7 +95,7 @@ func (c *FakeCiliumIdentities) Delete(ctx context.Context, name string, opts v1.
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCiliumIdentities) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(ciliumidentitiesResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumidentitiesResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2.CiliumIdentityList{})
 	return err
@@ -99,10 +103,11 @@ func (c *FakeCiliumIdentities) DeleteCollection(ctx context.Context, opts v1.Del
 
 // Patch applies the patch and returns the patched ciliumIdentity.
 func (c *FakeCiliumIdentities) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumIdentity, err error) {
+	emptyResult := &v2.CiliumIdentity{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(ciliumidentitiesResource, name, pt, data, subresources...), &v2.CiliumIdentity{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumidentitiesResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumIdentity), err
 }

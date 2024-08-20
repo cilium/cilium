@@ -27,20 +27,22 @@ var ciliumclusterwideenvoyconfigsKind = v2.SchemeGroupVersion.WithKind("CiliumCl
 
 // Get takes name of the ciliumClusterwideEnvoyConfig, and returns the corresponding ciliumClusterwideEnvoyConfig object, and an error if there is any.
 func (c *FakeCiliumClusterwideEnvoyConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumClusterwideEnvoyConfig, err error) {
+	emptyResult := &v2.CiliumClusterwideEnvoyConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(ciliumclusterwideenvoyconfigsResource, name), &v2.CiliumClusterwideEnvoyConfig{})
+		Invokes(testing.NewRootGetActionWithOptions(ciliumclusterwideenvoyconfigsResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumClusterwideEnvoyConfig), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumClusterwideEnvoyConfigs that match those selectors.
 func (c *FakeCiliumClusterwideEnvoyConfigs) List(ctx context.Context, opts v1.ListOptions) (result *v2.CiliumClusterwideEnvoyConfigList, err error) {
+	emptyResult := &v2.CiliumClusterwideEnvoyConfigList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(ciliumclusterwideenvoyconfigsResource, ciliumclusterwideenvoyconfigsKind, opts), &v2.CiliumClusterwideEnvoyConfigList{})
+		Invokes(testing.NewRootListActionWithOptions(ciliumclusterwideenvoyconfigsResource, ciliumclusterwideenvoyconfigsKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -59,25 +61,27 @@ func (c *FakeCiliumClusterwideEnvoyConfigs) List(ctx context.Context, opts v1.Li
 // Watch returns a watch.Interface that watches the requested ciliumClusterwideEnvoyConfigs.
 func (c *FakeCiliumClusterwideEnvoyConfigs) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(ciliumclusterwideenvoyconfigsResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumclusterwideenvoyconfigsResource, opts))
 }
 
 // Create takes the representation of a ciliumClusterwideEnvoyConfig and creates it.  Returns the server's representation of the ciliumClusterwideEnvoyConfig, and an error, if there is any.
 func (c *FakeCiliumClusterwideEnvoyConfigs) Create(ctx context.Context, ciliumClusterwideEnvoyConfig *v2.CiliumClusterwideEnvoyConfig, opts v1.CreateOptions) (result *v2.CiliumClusterwideEnvoyConfig, err error) {
+	emptyResult := &v2.CiliumClusterwideEnvoyConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(ciliumclusterwideenvoyconfigsResource, ciliumClusterwideEnvoyConfig), &v2.CiliumClusterwideEnvoyConfig{})
+		Invokes(testing.NewRootCreateActionWithOptions(ciliumclusterwideenvoyconfigsResource, ciliumClusterwideEnvoyConfig, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumClusterwideEnvoyConfig), err
 }
 
 // Update takes the representation of a ciliumClusterwideEnvoyConfig and updates it. Returns the server's representation of the ciliumClusterwideEnvoyConfig, and an error, if there is any.
 func (c *FakeCiliumClusterwideEnvoyConfigs) Update(ctx context.Context, ciliumClusterwideEnvoyConfig *v2.CiliumClusterwideEnvoyConfig, opts v1.UpdateOptions) (result *v2.CiliumClusterwideEnvoyConfig, err error) {
+	emptyResult := &v2.CiliumClusterwideEnvoyConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(ciliumclusterwideenvoyconfigsResource, ciliumClusterwideEnvoyConfig), &v2.CiliumClusterwideEnvoyConfig{})
+		Invokes(testing.NewRootUpdateActionWithOptions(ciliumclusterwideenvoyconfigsResource, ciliumClusterwideEnvoyConfig, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumClusterwideEnvoyConfig), err
 }
@@ -91,7 +95,7 @@ func (c *FakeCiliumClusterwideEnvoyConfigs) Delete(ctx context.Context, name str
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCiliumClusterwideEnvoyConfigs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(ciliumclusterwideenvoyconfigsResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumclusterwideenvoyconfigsResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2.CiliumClusterwideEnvoyConfigList{})
 	return err
@@ -99,10 +103,11 @@ func (c *FakeCiliumClusterwideEnvoyConfigs) DeleteCollection(ctx context.Context
 
 // Patch applies the patch and returns the patched ciliumClusterwideEnvoyConfig.
 func (c *FakeCiliumClusterwideEnvoyConfigs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumClusterwideEnvoyConfig, err error) {
+	emptyResult := &v2.CiliumClusterwideEnvoyConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(ciliumclusterwideenvoyconfigsResource, name, pt, data, subresources...), &v2.CiliumClusterwideEnvoyConfig{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumclusterwideenvoyconfigsResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumClusterwideEnvoyConfig), err
 }

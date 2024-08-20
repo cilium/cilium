@@ -32,7 +32,7 @@ func TestRegisterController(t *testing.T) {
 		// To ignore goroutine started by the workqueue. It reports metrics
 		// on unfinished work with default tick period of 0.5s - it terminates
 		// no longer than 0.5s after the workqueue is stopped.
-		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Type).updateUnfinishedWorkLoop"),
+		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*Typed[...]).updateUnfinishedWorkLoop"),
 	)
 	var fakeClient k8sClient.Clientset
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]

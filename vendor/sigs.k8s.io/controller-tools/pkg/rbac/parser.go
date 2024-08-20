@@ -19,7 +19,7 @@ limitations under the License.
 //
 // The markers take the form:
 //
-//  +kubebuilder:rbac:groups=<groups>,resources=<resources>,resourceNames=<resource names>,verbs=<verbs>,urls=<non resource urls>
+//	+kubebuilder:rbac:groups=<groups>,resources=<resources>,resourceNames=<resource names>,verbs=<verbs>,urls=<non resource urls>
 package rbac
 
 import (
@@ -93,6 +93,18 @@ func (r *Rule) key() ruleKey {
 	}
 }
 
+func (r *Rule) keyWithGroupResourceNamesURLsVerbs() string {
+	key := r.key()
+	verbs := strings.Join(r.Verbs, "&")
+	return fmt.Sprintf("%s + %s + %s + %s", key.Groups, key.ResourceNames, key.URLs, verbs)
+}
+
+func (r *Rule) keyWithResourcesResourceNamesURLsVerbs() string {
+	key := r.key()
+	verbs := strings.Join(r.Verbs, "&")
+	return fmt.Sprintf("%s + %s + %s + %s", key.Resources, key.ResourceNames, key.URLs, verbs)
+}
+
 // addVerbs adds new verbs into a Rule.
 // The duplicates in `r.Verbs` will be removed, and then `r.Verbs` will be sorted.
 func (r *Rule) addVerbs(verbs []string) {
@@ -149,6 +161,12 @@ func (r *Rule) ToRule() rbacv1.PolicyRule {
 type Generator struct {
 	// RoleName sets the name of the generated ClusterRole.
 	RoleName string
+
+	// HeaderFile specifies the header text (e.g. license) to prepend to generated files.
+	HeaderFile string `marker:",optional"`
+
+	// Year specifies the year to substitute for " YEAR" in the header file.
+	Year string `marker:",optional"`
 }
 
 func (Generator) RegisterMarkers(into *markers.Registry) error {
@@ -162,22 +180,28 @@ func (Generator) RegisterMarkers(into *markers.Registry) error {
 // GenerateRoles generate a slice of objs representing either a ClusterRole or a Role object
 // The order of the objs in the returned slice is stable and determined by their namespaces.
 func GenerateRoles(ctx *genall.GenerationContext, roleName string) ([]interface{}, error) {
-	rulesByNS := make(map[string][]*Rule)
+	rulesByNSResource := make(map[string][]*Rule)
 	for _, root := range ctx.Roots {
 		markerSet, err := markers.PackageMarkers(ctx.Collector, root)
 		if err != nil {
 			root.AddError(err)
 		}
 
-		// group RBAC markers by namespace
+		// group RBAC markers by namespace and separate by resource
 		for _, markerValue := range markerSet[RuleDefinition.Name] {
 			rule := markerValue.(Rule)
-			namespace := rule.Namespace
-			if _, ok := rulesByNS[namespace]; !ok {
-				rules := make([]*Rule, 0)
-				rulesByNS[namespace] = rules
+			for _, resource := range rule.Resources {
+				r := Rule{
+					Groups:        rule.Groups,
+					Resources:     []string{resource},
+					ResourceNames: rule.ResourceNames,
+					URLs:          rule.URLs,
+					Namespace:     rule.Namespace,
+					Verbs:         rule.Verbs,
+				}
+				namespace := r.Namespace
+				rulesByNSResource[namespace] = append(rulesByNSResource[namespace], &r)
 			}
-			rulesByNS[namespace] = append(rulesByNS[namespace], &rule)
 		}
 	}
 
@@ -194,6 +218,45 @@ func GenerateRoles(ctx *genall.GenerationContext, roleName string) ([]interface{
 			ruleMap[key].addVerbs(rule.Verbs)
 		}
 
+		// deduplicate resources
+		// 1. create map based on key without resources
+		ruleMapWithoutResources := make(map[string][]*Rule)
+		for _, rule := range ruleMap {
+			// get key without Resources
+			key := rule.keyWithGroupResourceNamesURLsVerbs()
+			ruleMapWithoutResources[key] = append(ruleMapWithoutResources[key], rule)
+		}
+		// 2. merge to ruleMap
+		ruleMap = make(map[ruleKey]*Rule)
+		for _, rules := range ruleMapWithoutResources {
+			rule := rules[0]
+			for _, mergeRule := range rules[1:] {
+				rule.Resources = append(rule.Resources, mergeRule.Resources...)
+			}
+
+			key := rule.key()
+			ruleMap[key] = rule
+		}
+
+		// deduplicate groups
+		// 1. create map based on key without group
+		ruleMapWithoutGroup := make(map[string][]*Rule)
+		for _, rule := range ruleMap {
+			// get key without Group
+			key := rule.keyWithResourcesResourceNamesURLsVerbs()
+			ruleMapWithoutGroup[key] = append(ruleMapWithoutGroup[key], rule)
+		}
+		// 2. merge to ruleMap
+		ruleMap = make(map[ruleKey]*Rule)
+		for _, rules := range ruleMapWithoutGroup {
+			rule := rules[0]
+			for _, mergeRule := range rules[1:] {
+				rule.Groups = append(rule.Groups, mergeRule.Groups...)
+			}
+			key := rule.key()
+			ruleMap[key] = rule
+		}
+
 		// sort the Rules in rules according to their ruleKeys
 		keys := make([]ruleKey, 0, len(ruleMap))
 		for key := range ruleMap {
@@ -204,14 +267,13 @@ func GenerateRoles(ctx *genall.GenerationContext, roleName string) ([]interface{
 		var policyRules []rbacv1.PolicyRule
 		for _, key := range keys {
 			policyRules = append(policyRules, ruleMap[key].ToRule())
-
 		}
 		return policyRules
 	}
 
 	// collect all the namespaces and sort them
 	var namespaces []string
-	for ns := range rulesByNS {
+	for ns := range rulesByNSResource {
 		namespaces = append(namespaces, ns)
 	}
 	sort.Strings(namespaces)
@@ -219,7 +281,7 @@ func GenerateRoles(ctx *genall.GenerationContext, roleName string) ([]interface{
 	// process the items in rulesByNS by the order specified in `namespaces` to make sure that the Role order is stable
 	var objs []interface{}
 	for _, ns := range namespaces {
-		rules := rulesByNS[ns]
+		rules := rulesByNSResource[ns]
 		policyRules := NormalizeRules(rules)
 		if len(policyRules) == 0 {
 			continue
@@ -263,5 +325,15 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 		return nil
 	}
 
-	return ctx.WriteYAML("role.yaml", objs...)
+	var headerText string
+	if g.HeaderFile != "" {
+		headerBytes, err := ctx.ReadFile(g.HeaderFile)
+		if err != nil {
+			return err
+		}
+		headerText = string(headerBytes)
+	}
+	headerText = strings.ReplaceAll(headerText, " YEAR", " "+g.Year)
+
+	return ctx.WriteYAML("role.yaml", headerText, objs, genall.WithTransform(genall.TransformRemoveCreationTimestamp))
 }

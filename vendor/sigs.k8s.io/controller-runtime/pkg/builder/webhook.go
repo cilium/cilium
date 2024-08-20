@@ -42,7 +42,7 @@ type WebhookBuilder struct {
 	gvk             schema.GroupVersionKind
 	mgr             manager.Manager
 	config          *rest.Config
-	recoverPanic    bool
+	recoverPanic    *bool
 	logConstructor  func(base logr.Logger, req *admission.Request) logr.Logger
 	err             error
 }
@@ -84,8 +84,9 @@ func (blder *WebhookBuilder) WithLogConstructor(logConstructor func(base logr.Lo
 }
 
 // RecoverPanic indicates whether panics caused by the webhook should be recovered.
-func (blder *WebhookBuilder) RecoverPanic() *WebhookBuilder {
-	blder.recoverPanic = true
+// Defaults to true.
+func (blder *WebhookBuilder) RecoverPanic(recoverPanic bool) *WebhookBuilder {
+	blder.recoverPanic = &recoverPanic
 	return blder
 }
 
@@ -169,10 +170,18 @@ func (blder *WebhookBuilder) registerDefaultingWebhook() {
 
 func (blder *WebhookBuilder) getDefaultingWebhook() *admission.Webhook {
 	if defaulter := blder.customDefaulter; defaulter != nil {
-		return admission.WithCustomDefaulter(blder.mgr.GetScheme(), blder.apiType, defaulter).WithRecoverPanic(blder.recoverPanic)
+		w := admission.WithCustomDefaulter(blder.mgr.GetScheme(), blder.apiType, defaulter)
+		if blder.recoverPanic != nil {
+			w = w.WithRecoverPanic(*blder.recoverPanic)
+		}
+		return w
 	}
 	if defaulter, ok := blder.apiType.(admission.Defaulter); ok {
-		return admission.DefaultingWebhookFor(blder.mgr.GetScheme(), defaulter).WithRecoverPanic(blder.recoverPanic)
+		w := admission.DefaultingWebhookFor(blder.mgr.GetScheme(), defaulter)
+		if blder.recoverPanic != nil {
+			w = w.WithRecoverPanic(*blder.recoverPanic)
+		}
+		return w
 	}
 	log.Info(
 		"skip registering a mutating webhook, object does not implement admission.Defaulter or WithDefaulter wasn't called",
@@ -200,10 +209,18 @@ func (blder *WebhookBuilder) registerValidatingWebhook() {
 
 func (blder *WebhookBuilder) getValidatingWebhook() *admission.Webhook {
 	if validator := blder.customValidator; validator != nil {
-		return admission.WithCustomValidator(blder.mgr.GetScheme(), blder.apiType, validator).WithRecoverPanic(blder.recoverPanic)
+		w := admission.WithCustomValidator(blder.mgr.GetScheme(), blder.apiType, validator)
+		if blder.recoverPanic != nil {
+			w = w.WithRecoverPanic(*blder.recoverPanic)
+		}
+		return w
 	}
 	if validator, ok := blder.apiType.(admission.Validator); ok {
-		return admission.ValidatingWebhookFor(blder.mgr.GetScheme(), validator).WithRecoverPanic(blder.recoverPanic)
+		w := admission.ValidatingWebhookFor(blder.mgr.GetScheme(), validator)
+		if blder.recoverPanic != nil {
+			w = w.WithRecoverPanic(*blder.recoverPanic)
+		}
+		return w
 	}
 	log.Info(
 		"skip registering a validating webhook, object does not implement admission.Validator or WithValidator wasn't called",
