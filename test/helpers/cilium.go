@@ -779,6 +779,9 @@ func (s *SSHMeta) SetUpCiliumWithOptions(ciliumOpts string) error {
 	ciliumOpts += " --exclude-local-address=" + DockerBridgeIP + "/32"
 	ciliumOpts += " --exclude-local-address=" + FakeIPv4WorldAddress + "/32"
 	ciliumOpts += " --exclude-local-address=" + FakeIPv6WorldAddress + "/128"
+	if config.CiliumTestConfig.CiliumExtraOpts != "" {
+		ciliumOpts += " " + config.CiliumTestConfig.CiliumExtraOpts
+	}
 
 	// Get the current CILIUM_IMAGE from the service definition
 	res := s.Exec("grep CILIUM_IMAGE= /etc/sysconfig/cilium")

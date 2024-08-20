@@ -41,6 +41,7 @@ type CiliumTestConfigType struct {
 	KubectlPath          string
 	RegistryCredentials  string
 	InstallHelmOverrides string
+	CiliumExtraOpts      string
 
 	// Multinode enables the running of tests that involve more than one
 	// node. If false, some tests will silently skip multinode checks.
@@ -102,6 +103,9 @@ func (c *CiliumTestConfigType) ParseFlags() {
 	flagset.StringVar(&c.InstallHelmOverrides, "cilium.install-helm-overrides", "",
 		"Comma separated list of cilium install helm --set overrides. "+
 			"*note*: This will take precedence over any other value set by the tests")
+	flagset.StringVar(&c.CiliumExtraOpts, "cilium.extra-opts", "",
+		"Extra options to pass to cilium install command, options will be passed as is to cilium-agent command "+
+			"for tests that start cilium directly.")
 
 	args := make([]string, 0, len(os.Args))
 	for index, flag := range os.Args {
