@@ -244,7 +244,7 @@ func newConnectivityTests(
 		}
 		params.ExternalDeploymentPort += i
 		params.EchoServerHostPort += i
-		cc, err := check.NewConnectivityTest(k8sClient, params, hooks, defaults.CLIVersion, logger)
+		cc, err := check.NewConnectivityTest(k8sClient, params, hooks, logger)
 		if err != nil {
 			return nil, err
 		}

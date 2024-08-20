@@ -54,7 +54,7 @@ func TestSysdumpCollector(t *testing.T) {
 	}
 	startTime := time.Unix(946713600, 0)
 	timestamp := startTime.Format(timeFormat)
-	collector, err := NewCollector(&client, options, &nopHooks{}, startTime, "cilium-cli-version")
+	collector, err := NewCollector(&client, options, &nopHooks{}, startTime)
 	assert.NoError(t, err)
 	assert.Equal(t, "my-sysdump-"+timestamp, path.Base(collector.sysdumpDir))
 	tempFile := collector.AbsoluteTempPath("my-file-<ts>")
@@ -76,7 +76,7 @@ func TestNodeList(t *testing.T) {
 			},
 		},
 	}
-	collector, err := NewCollector(&client, options, &nopHooks{}, time.Now(), "cilium-cli-version")
+	collector, err := NewCollector(&client, options, &nopHooks{}, time.Now())
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"node-a", "node-b", "node-c"}, collector.NodeList)
 
@@ -84,7 +84,7 @@ func TestNodeList(t *testing.T) {
 		Writer:   io.Discard,
 		NodeList: "node-a,node-c",
 	}
-	collector, err = NewCollector(&client, options, &nopHooks{}, time.Now(), "cilium-cli-version")
+	collector, err = NewCollector(&client, options, &nopHooks{}, time.Now())
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"node-a", "node-c"}, collector.NodeList)
 }
@@ -112,7 +112,7 @@ func TestAddTasks(t *testing.T) {
 			},
 		},
 	}
-	collector, err := NewCollector(&client, options, &nopHooks{}, time.Now(), "cilium-cli-version")
+	collector, err := NewCollector(&client, options, &nopHooks{}, time.Now())
 	assert.NoError(t, err)
 	assert.Len(t, collector.additionalTasks, 0)
 	collector.AddTasks([]Task{{}, {}, {}})
@@ -120,7 +120,7 @@ func TestAddTasks(t *testing.T) {
 	collector.AddTasks([]Task{{}, {}, {}})
 	assert.Len(t, collector.additionalTasks, 6)
 
-	collector, err = NewCollector(&client, options, &extendingHooks{}, time.Now(), "cilium-cli-version")
+	collector, err = NewCollector(&client, options, &extendingHooks{}, time.Now())
 	assert.NoError(t, err)
 	assert.Len(t, collector.additionalTasks, 1)
 	assert.Equal(t, collector.additionalTasks[0].Description, "extended")
@@ -206,7 +206,7 @@ func TestKVStoreTask(t *testing.T) {
 		OutputFileName: "my-sysdump-<ts>",
 		Writer:         io.Discard,
 	}
-	collector, err := NewCollector(client, options, &nopHooks{}, time.Now(), "cilium-cli-version")
+	collector, err := NewCollector(client, options, &nopHooks{}, time.Now())
 	assert.NoError(err)
 	collector.submitKVStoreTasks(context.Background(), &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
