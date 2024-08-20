@@ -23,6 +23,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
 # Check more cli options using cilium-agent -h
 CILIUM_IMAGE=cilium/cilium:latest
 CILIUM_OPTS=--kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001
+CILIUM_EXTRA_OPTS=
 CILIUM_OPERATOR_OPTS=--kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001 --k8s-kubeconfig-path=/home/vagrant/.kube/config
 
 HOME=/home/vagrant

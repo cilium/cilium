@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+CILIUM_EXTRA_OPTS=${@}
+
 if ! [[ -z $DOCKER_LOGIN && -z $DOCKER_PASSWORD ]]; then
     echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_LOGIN}" --password-stdin
 fi
@@ -31,7 +33,7 @@ cat /etc/resolv.conf
 service docker restart
 
 if [[ "${PROVISION_EXTERNAL_WORKLOAD}" == "false" ]]; then
-    "${PROVISIONSRC}"/compile.sh
+    "${PROVISIONSRC}"/compile.sh ${CILIUM_EXTRA_OPTS}
     "${PROVISIONSRC}"/wait-cilium-in-docker.sh
 else
     "${PROVISIONSRC}"/externalworkload_install.sh
