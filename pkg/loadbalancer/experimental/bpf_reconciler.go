@@ -69,7 +69,7 @@ func newBPFReconciler(p reconciler.Params, cfg Config, ops *bpfOps, w *Writer) (
 
 type bpfOps struct {
 	log    *slog.Logger
-	cfg    externalConfig
+	cfg    ExternalConfig
 	lbmaps lbmaps
 
 	serviceIDAlloc     idAllocator
@@ -102,7 +102,7 @@ type backendState struct {
 	id       loadbalancer.BackendID
 }
 
-func newBPFOps(lc cell.Lifecycle, log *slog.Logger, cfg Config, extCfg externalConfig, lbmaps lbmaps) *bpfOps {
+func newBPFOps(lc cell.Lifecycle, log *slog.Logger, cfg Config, extCfg ExternalConfig, lbmaps lbmaps) *bpfOps {
 	if !cfg.EnableExperimentalLB {
 		return nil
 	}

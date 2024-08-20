@@ -116,7 +116,7 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 	// package for the k8s data source.
 	option.Config.EnableK8sTerminatingEndpoint = true
 
-	extConfig := externalConfig{
+	extConfig := ExternalConfig{
 		ExternalClusterIP:     false,
 		EnableSessionAffinity: true,
 		NodePortMin:           option.NodePortMinDefault,
@@ -180,7 +180,7 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 						RetryBackoffMax:      time.Millisecond,
 					}
 				},
-				func() externalConfig { return extConfig },
+				func() ExternalConfig { return extConfig },
 			),
 
 			cell.Provide(func() streamsOut {

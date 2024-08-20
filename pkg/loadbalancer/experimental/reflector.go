@@ -59,7 +59,7 @@ type reflectorParams struct {
 	EndpointsResource stream.Observable[resource.Event[*k8s.Endpoints]]
 	PodsResource      stream.Observable[resource.Event[*slim_corev1.Pod]]
 	Writer            *Writer
-	ExtConfig         externalConfig
+	ExtConfig         ExternalConfig
 }
 
 func registerK8sReflector(p reflectorParams) {

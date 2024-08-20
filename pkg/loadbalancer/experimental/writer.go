@@ -39,7 +39,7 @@ type writerParams struct {
 	Config        Config
 	Log           *slog.Logger
 	DB            *statedb.DB
-	NodeAddresses statedb.Table[tables.NodeAddress]
+	NodeAddresses statedb.Table[tables.NodeAddress] `optional:"true"`
 	Services      statedb.RWTable[*Service]
 	Frontends     statedb.RWTable[*Frontend]
 	Backends      statedb.RWTable[*Backend]
@@ -185,6 +185,9 @@ func (w *Writer) UpsertServiceAndFrontends(txn WriteTxn, svc *Service, fes ...Fr
 // need to make sure it references minimal part of the radix tree to avoid holding on to too much
 // potentially stale data. Keeping [Writer] stateless would be nice.
 func (w *Writer) nodePortAddrs(txn statedb.ReadTxn) []netip.Addr {
+	if w.nodeAddrs == nil {
+		return nil
+	}
 	return statedb.Collect(
 		statedb.Map(
 			w.nodeAddrs.List(txn, tables.NodeAddressNodePortIndex.Query(true)),
