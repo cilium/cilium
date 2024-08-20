@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/proxy"
 )
 
 const (
@@ -64,14 +63,14 @@ type parserParams struct {
 	Logger    logrus.FieldLogger
 	Lifecycle cell.Lifecycle
 
-	Proxy          *proxy.Proxy
+	PortAllocator  PortAllocator
 	LocalNodeStore *node.LocalNodeStore
 }
 
 func newCECResourceParser(params parserParams) *cecResourceParser {
 	parser := &cecResourceParser{
 		logger:        params.Logger,
-		portAllocator: params.Proxy,
+		portAllocator: params.PortAllocator,
 	}
 
 	// Retrieve Ingress IPs from local Node.
