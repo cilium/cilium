@@ -103,7 +103,7 @@ func (a AnnotationMap) ResolveRouterID(localASN int64) (string, error) {
 // An error is returned containing one or more parsing errors.
 //
 // This is for convenience so the caller can log all parsing errors at once.
-// The error should still be treated as a normal descrete error and an empty
+// The error should still be treated as a normal discrete error and an empty
 // AnnotationMap is returned.
 func NewAnnotationMap(a map[string]string) (AnnotationMap, error) {
 	am := AnnotationMap{}

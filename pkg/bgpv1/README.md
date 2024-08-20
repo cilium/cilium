@@ -188,7 +188,7 @@ This allows for selecting subsets of nodes which peer to a particular BGP router
 
 A `CiliumBGPPeeringPolicy` can apply to multiple nodes. 
 
-When a `CiliumBGPPeeringPolicy` applies to one or more nodes each node will instantiate one or more BGP routers as defined by the list of `CiliumBGPVirutalRouter`.
+When a `CiliumBGPPeeringPolicy` applies to one or more nodes each node will instantiate one or more BGP routers as defined by the list of `CiliumBGPVirtualRouter`.
 
 However, there are times where fine-grained control over an instantiated virtual router's configuration needs to take place. 
 
@@ -268,9 +268,9 @@ sequenceDiagram
 	C ->> I: Query shared informers for current cached state
 	C ->> C: Evaluate if any reconciliation is necessary
 	alt reconciliation is necessary
-		C ->> M: Call down to BGPRouterMananger
+		C ->> M: Call down to BGPRouterManager
 		M ->> M: Reconcile configured BGP servers
-	else reconcilation is not necessary
+	else reconciliation is not necessary
 		C ->> C: Sleep until next event
 	end
 ```
