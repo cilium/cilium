@@ -1898,7 +1898,7 @@ func TestIPBlockToCIDRRule(t *testing.T) {
 		require.Equal(t, false, cidrRule.Generated)
 		require.Equal(t, api.CIDR(block.CIDR), cidrRule.Cidr)
 
-		if block.Except == nil || len(block.Except) == 0 {
+		if len(block.Except) == 0 {
 			require.Nil(t, cidrRule.ExceptCIDRs)
 		} else {
 			require.EqualValues(t, exceptCIDRs, cidrRule.ExceptCIDRs)

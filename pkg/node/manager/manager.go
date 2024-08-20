@@ -1044,7 +1044,7 @@ func (m *manager) MeshNodeSync() {
 
 func (m *manager) pruneNodes(includeMeshed bool) {
 	m.mutex.Lock()
-	if m.restoredNodes == nil || len(m.restoredNodes) == 0 {
+	if len(m.restoredNodes) == 0 {
 		m.mutex.Unlock()
 		return
 	}
