@@ -935,13 +935,10 @@ func (t *Test) EgressGatewayNode() string {
 
 func (t *Test) collectSysdump() {
 	for _, client := range t.ctx.Clients() {
-		collector, err := sysdump.NewCollector(client, t.ctx.params.SysdumpOptions, time.Now(), t.ctx.version)
+		collector, err := sysdump.NewCollector(client, t.ctx.params.SysdumpOptions, t.ctx.sysdumpHooks, time.Now(), t.ctx.version)
 		if err != nil {
 			t.Failf("Failed to create sysdump collector: %v", err)
 			return
-		}
-		if err := t.ctx.sysdumpHooks.AddSysdumpTasks(collector); err != nil {
-			t.Failf("Failed to add custom sysdump tasks: %w", err)
 		}
 		if err = collector.Run(); err != nil {
 			t.Failf("Failed to collect sysdump: %v", err)
