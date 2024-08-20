@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/cilium-cli/utils/wait"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 // LRP runs test scenarios for local redirect policy. It tests local redirection
@@ -51,6 +52,9 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 		policies = append(policies, policy)
 		frontend := check.NewLRPFrontend(spec.RedirectFrontend)
 		frontendStr := net.JoinHostPort(frontend.Address(features.IPFamilyV4), fmt.Sprint(frontend.Port()))
+		if versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
+			frontendStr += fmt.Sprintf("/%s", frontend.Protocol())
+		}
 		lrpBackendsMap := make(map[string][]string)
 		// Check for LRP backend pods deployed on nodes in the cluster.
 		for _, pod := range t.Context().LrpBackendPods() {
