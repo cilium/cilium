@@ -1028,7 +1028,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		p.sendRefused(scopedLog, w, request)
 		return
 	}
-	targetServerPortProto := restore.MakeV2PortProto(targetServer.Port(), uint8(proto))
+	targetServerPortProto := restore.MakeV2PortProto(targetServer.Port(), proto)
 
 	// Ignore invalid IP - getter will handle invalid value.
 	targetServerID := identity.GetWorldIdentityFromIP(targetServer.Addr())

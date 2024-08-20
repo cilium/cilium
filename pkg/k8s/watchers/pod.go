@@ -971,7 +971,7 @@ func (k *K8sPodWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPo
 			}
 			k8sMeta.NamedPorts[port.Name] = ciliumTypes.PortProto{
 				Port:  uint16(port.ContainerPort),
-				Proto: uint8(p),
+				Proto: p,
 			}
 		}
 	}

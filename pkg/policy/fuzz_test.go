@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 func FuzzResolveEgressPolicy(f *testing.F) {
@@ -64,10 +65,11 @@ func FuzzAccumulateMapChange(f *testing.F) {
 		if err != nil {
 			t.Skip()
 		}
-		proto, err := ff.GetByte()
+		protoUint8, err := ff.GetByte()
 		if err != nil {
 			t.Skip()
 		}
+		proto := u8proto.U8proto(protoUint8)
 		dir := trafficdirection.Ingress
 		redirect, err := ff.GetBool()
 		if err != nil {
@@ -81,7 +83,7 @@ func FuzzAccumulateMapChange(f *testing.F) {
 		if redirect {
 			proxyPort = 1
 		}
-		key := NewKey(dir.Uint8(), 0, proto, port, 0)
+		key := NewKey(dir, 0, proto, port, 0)
 		value := NewMapStateEntry(csFoo, nil, proxyPort, "", 0, deny, DefaultAuthType, AuthTypeDisabled)
 		policyMaps := MapChanges{}
 		policyMaps.AccumulateMapChanges(csFoo, adds, deletes, []Key{key}, value)

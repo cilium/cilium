@@ -6,6 +6,7 @@ package test
 import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 type ProxyUpdaterMock struct {
@@ -20,7 +21,7 @@ func (m *ProxyUpdaterMock) GetIPv4Address() string { return m.Ipv4 }
 
 func (m *ProxyUpdaterMock) GetIPv6Address() string { return m.Ipv6 }
 
-func (m *ProxyUpdaterMock) GetNamedPort(bool, string, uint8) uint16 { return 0 }
+func (m *ProxyUpdaterMock) GetNamedPort(bool, string, u8proto.U8proto) uint16 { return 0 }
 
 func (m *ProxyUpdaterMock) ConntrackNameLocked() string { return "global" }
 

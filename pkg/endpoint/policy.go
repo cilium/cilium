@@ -54,7 +54,7 @@ func (e *Endpoint) HasBPFPolicyMap() bool {
 
 // GetNamedPort returns the port for the given name.
 // Must be called with e.mutex NOT held
-func (e *Endpoint) GetNamedPort(ingress bool, name string, proto uint8) uint16 {
+func (e *Endpoint) GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16 {
 	if ingress {
 		// Ingress only needs the ports of the POD itself
 		return e.getNamedPortIngress(e.GetK8sPorts(), name, proto)
@@ -63,7 +63,7 @@ func (e *Endpoint) GetNamedPort(ingress bool, name string, proto uint8) uint16 {
 	return e.getNamedPortEgress(e.namedPortsGetter.GetNamedPorts(), name, proto)
 }
 
-func (e *Endpoint) getNamedPortIngress(npMap types.NamedPortMap, name string, proto uint8) uint16 {
+func (e *Endpoint) getNamedPortIngress(npMap types.NamedPortMap, name string, proto u8proto.U8proto) uint16 {
 	port, err := npMap.GetNamedPort(name, proto)
 	if err != nil && e.logLimiter.Allow() {
 		e.getLogger().WithFields(logrus.Fields{
@@ -75,7 +75,7 @@ func (e *Endpoint) getNamedPortIngress(npMap types.NamedPortMap, name string, pr
 	return port
 }
 
-func (e *Endpoint) getNamedPortEgress(npMap types.NamedPortMultiMap, name string, proto uint8) uint16 {
+func (e *Endpoint) getNamedPortEgress(npMap types.NamedPortMultiMap, name string, proto u8proto.U8proto) uint16 {
 	port, err := npMap.GetNamedPort(name, proto)
 	// Skip logging for ErrUnknownNamedPort on egress, as the destination POD with the port name
 	// is likely not scheduled yet.
@@ -94,14 +94,14 @@ func (e *Endpoint) getNamedPortEgress(npMap types.NamedPortMultiMap, name string
 // For port ranges the proxy is identified by the first port in
 // the range, as overlapping proxy port ranges are not supported.
 // Must be called with e.mutex held.
-func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string) (string, uint16, uint8) {
+func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string) (string, uint16, u8proto.U8proto) {
 	port := l4.Port
-	protocol := uint8(l4.U8Proto)
+	protocol := l4.U8Proto
 	// Calculate protocol if it is 0 (default) and
 	// is not "ANY" (that is, it was not calculated).
 	if protocol == 0 && !l4.Protocol.IsAny() {
 		proto, _ := u8proto.ParseProtocol(string(l4.Protocol))
-		protocol = uint8(proto)
+		protocol = proto
 	}
 	if port == 0 && l4.PortName != "" {
 		port = e.GetNamedPort(l4.Ingress, l4.PortName, protocol)
