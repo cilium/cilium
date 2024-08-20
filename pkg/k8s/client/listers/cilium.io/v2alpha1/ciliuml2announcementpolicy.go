@@ -7,8 +7,8 @@ package v2alpha1
 
 import (
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -26,30 +26,10 @@ type CiliumL2AnnouncementPolicyLister interface {
 
 // ciliumL2AnnouncementPolicyLister implements the CiliumL2AnnouncementPolicyLister interface.
 type ciliumL2AnnouncementPolicyLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v2alpha1.CiliumL2AnnouncementPolicy]
 }
 
 // NewCiliumL2AnnouncementPolicyLister returns a new CiliumL2AnnouncementPolicyLister.
 func NewCiliumL2AnnouncementPolicyLister(indexer cache.Indexer) CiliumL2AnnouncementPolicyLister {
-	return &ciliumL2AnnouncementPolicyLister{indexer: indexer}
-}
-
-// List lists all CiliumL2AnnouncementPolicies in the indexer.
-func (s *ciliumL2AnnouncementPolicyLister) List(selector labels.Selector) (ret []*v2alpha1.CiliumL2AnnouncementPolicy, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v2alpha1.CiliumL2AnnouncementPolicy))
-	})
-	return ret, err
-}
-
-// Get retrieves the CiliumL2AnnouncementPolicy from the index for a given name.
-func (s *ciliumL2AnnouncementPolicyLister) Get(name string) (*v2alpha1.CiliumL2AnnouncementPolicy, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v2alpha1.Resource("ciliuml2announcementpolicy"), name)
-	}
-	return obj.(*v2alpha1.CiliumL2AnnouncementPolicy), nil
+	return &ciliumL2AnnouncementPolicyLister{listers.New[*v2alpha1.CiliumL2AnnouncementPolicy](indexer, v2alpha1.Resource("ciliuml2announcementpolicy"))}
 }

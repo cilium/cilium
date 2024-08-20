@@ -3,8 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: ciliumbgppeerconfigs.cilium.io
 spec:
   group: cilium.io
@@ -29,14 +28,19 @@ spec:
       openAPIV3Schema:
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -45,51 +49,59 @@ spec:
               CiliumBGPPeerConfig.
             properties:
               authSecretRef:
-                description: "AuthSecretRef is the name of the secret to use to fetch
-                  a TCP authentication password for this peer. \n If not specified,
-                  no authentication is used."
+                description: |-
+                  AuthSecretRef is the name of the secret to use to fetch a TCP
+                  authentication password for this peer.
+
+                  If not specified, no authentication is used.
                 type: string
               ebgpMultihop:
                 default: 1
-                description: "EBGPMultihopTTL controls the multi-hop feature for eBGP
-                  peers. Its value defines the Time To Live (TTL) value used in BGP
-                  packets sent to the peer. \n If not specified, EBGP multihop is
-                  disabled. This field is ignored for iBGP neighbors."
+                description: |-
+                  EBGPMultihopTTL controls the multi-hop feature for eBGP peers.
+                  Its value defines the Time To Live (TTL) value used in BGP
+                  packets sent to the peer.
+
+                  If not specified, EBGP multihop is disabled. This field is ignored for iBGP neighbors.
                 format: int32
                 maximum: 255
                 minimum: 1
                 type: integer
               families:
-                description: "Families, if provided, defines a set of AFI/SAFIs the
-                  speaker will negotiate with it's peer. \n If not specified, the
-                  default families of IPv6/unicast and IPv4/unicast will be created."
+                description: |-
+                  Families, if provided, defines a set of AFI/SAFIs the speaker will
+                  negotiate with it's peer.
+
+                  If not specified, the default families of IPv6/unicast and IPv4/unicast will be created.
                 items:
                   description: CiliumBGPFamilyWithAdverts represents a AFI/SAFI address
                     family pair along with reference to BGP Advertisements.
                   properties:
                     advertisements:
-                      description: "Advertisements selects group of BGP Advertisement(s)
-                        to advertise for this family. \n If not specified, no advertisements
-                        are sent for this family. \n This field is ignored in CiliumBGPNeighbor
-                        which is used in CiliumBGPPeeringPolicy. Use CiliumBGPPeeringPolicy
-                        advertisement options instead."
+                      description: |-
+                        Advertisements selects group of BGP Advertisement(s) to advertise for this family.
+
+                        If not specified, no advertisements are sent for this family.
+
+                        This field is ignored in CiliumBGPNeighbor which is used in CiliumBGPPeeringPolicy.
+                        Use CiliumBGPPeeringPolicy advertisement options instead.
                       properties:
                         matchExpressions:
                           description: matchExpressions is a list of label selector
                             requirements. The requirements are ANDed.
                           items:
-                            description: A label selector requirement is a selector
-                              that contains values, a key, and an operator that relates
-                              the key and values.
+                            description: |-
+                              A label selector requirement is a selector that contains values, a key, and an operator that
+                              relates the key and values.
                             properties:
                               key:
                                 description: key is the label key that the selector
                                   applies to.
                                 type: string
                               operator:
-                                description: operator represents a key's relationship
-                                  to a set of values. Valid operators are In, NotIn,
-                                  Exists and DoesNotExist.
+                                description: |-
+                                  operator represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists and DoesNotExist.
                                 enum:
                                 - In
                                 - NotIn
@@ -97,11 +109,11 @@ spec:
                                 - DoesNotExist
                                 type: string
                               values:
-                                description: values is an array of string values.
-                                  If the operator is In or NotIn, the values array
-                                  must be non-empty. If the operator is Exists or
-                                  DoesNotExist, the values array must be empty. This
-                                  array is replaced during a strategic merge patch.
+                                description: |-
+                                  values is an array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. This array is replaced during a strategic
+                                  merge patch.
                                 items:
                                   type: string
                                 type: array
@@ -119,13 +131,13 @@ spec:
                             maxLength: 63
                             pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                             type: string
-                          description: matchLabels is a map of {key,value} pairs.
-                            A single {key,value} in the matchLabels map is equivalent
-                            to an element of matchExpressions, whose key field is
-                            "key", the operator is "In", and the values array contains
-                            only "value". The requirements are ANDed.
+                          description: |-
+                            matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                            map is equivalent to an element of matchExpressions, whose key field is "key", the
+                            operator is "In", and the values array contains only "value". The requirements are ANDed.
                           type: object
                       type: object
+                      x-kubernetes-map-type: atomic
                     afi:
                       description: Afi is the Address Family Identifier (AFI) of the
                         family.
@@ -162,19 +174,22 @@ spec:
                   type: object
                 type: array
               gracefulRestart:
-                description: "GracefulRestart defines graceful restart parameters
-                  which are negotiated with this peer. \n If not specified, the graceful
-                  restart capability is disabled."
+                description: |-
+                  GracefulRestart defines graceful restart parameters which are negotiated
+                  with this peer.
+
+                  If not specified, the graceful restart capability is disabled.
                 properties:
                   enabled:
                     description: Enabled flag, when set enables graceful restart capability.
                     type: boolean
                   restartTimeSeconds:
                     default: 120
-                    description: RestartTimeSeconds is the estimated time it will
-                      take for the BGP session to be re-established with peer after
-                      a restart. After this period, peer will remove stale routes.
-                      This is described RFC 4724 section 4.2.
+                    description: |-
+                      RestartTimeSeconds is the estimated time it will take for the BGP
+                      session to be re-established with peer after a restart.
+                      After this period, peer will remove stale routes. This is
+                      described RFC 4724 section 4.2.
                     format: int32
                     maximum: 4095
                     minimum: 1
@@ -183,57 +198,69 @@ spec:
                 - enabled
                 type: object
               timers:
-                description: "Timers defines the BGP timers for the peer. \n If not
-                  specified, the default timers are used."
+                description: |-
+                  Timers defines the BGP timers for the peer.
+
+                  If not specified, the default timers are used.
                 properties:
                   connectRetryTimeSeconds:
                     default: 120
-                    description: "ConnectRetryTimeSeconds defines the initial value
-                      for the BGP ConnectRetryTimer (RFC 4271, Section 8). \n If not
-                      specified, defaults to 120 seconds."
+                    description: |-
+                      ConnectRetryTimeSeconds defines the initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8).
+
+                      If not specified, defaults to 120 seconds.
                     format: int32
                     maximum: 2147483647
                     minimum: 1
                     type: integer
                   holdTimeSeconds:
                     default: 90
-                    description: "HoldTimeSeconds defines the initial value for the
-                      BGP HoldTimer (RFC 4271, Section 4.2). Updating this value will
-                      cause a session reset. \n If not specified, defaults to 90 seconds."
+                    description: |-
+                      HoldTimeSeconds defines the initial value for the BGP HoldTimer (RFC 4271, Section 4.2).
+                      Updating this value will cause a session reset.
+
+                      If not specified, defaults to 90 seconds.
                     format: int32
                     maximum: 65535
                     minimum: 3
                     type: integer
                   keepAliveTimeSeconds:
                     default: 30
-                    description: "KeepaliveTimeSeconds defines the initial value for
-                      the BGP KeepaliveTimer (RFC 4271, Section 8). It can not be
-                      larger than HoldTimeSeconds. Updating this value will cause
-                      a session reset. \n If not specified, defaults to 30 seconds."
+                    description: |-
+                      KeepaliveTimeSeconds defines the initial value for the BGP KeepaliveTimer (RFC 4271, Section 8).
+                      It can not be larger than HoldTimeSeconds. Updating this value will cause a session reset.
+
+                      If not specified, defaults to 30 seconds.
                     format: int32
                     maximum: 65535
                     minimum: 1
                     type: integer
                 type: object
               transport:
-                description: "Transport defines the BGP transport parameters for the
-                  peer. \n If not specified, the default transport parameters are
-                  used."
+                description: |-
+                  Transport defines the BGP transport parameters for the peer.
+
+                  If not specified, the default transport parameters are used.
                 properties:
                   localPort:
-                    description: "Deprecated LocalPort is the local port to be used
-                      for the BGP session. \n If not specified, ephemeral port will
-                      be picked to initiate a connection. \n This field is deprecated
-                      and will be removed in a future release. Local port configuration
-                      is unnecessary and is not recommended."
+                    description: |-
+                      Deprecated
+                      LocalPort is the local port to be used for the BGP session.
+
+                      If not specified, ephemeral port will be picked to initiate a connection.
+
+                      This field is deprecated and will be removed in a future release.
+                      Local port configuration is unnecessary and is not recommended.
                     format: int32
                     maximum: 65535
                     minimum: 1
                     type: integer
                   peerPort:
                     default: 179
-                    description: "PeerPort is the peer port to be used for the BGP
-                      session. \n If not specified, defaults to TCP port 179."
+                    description: |-
+                      PeerPort is the peer port to be used for the BGP session.
+
+                      If not specified, defaults to TCP port 179.
                     format: int32
                     maximum: 65535
                     minimum: 1
@@ -247,9 +274,3 @@ spec:
     served: true
     storage: true
     subresources: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

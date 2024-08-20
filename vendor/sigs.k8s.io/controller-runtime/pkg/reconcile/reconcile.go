@@ -89,7 +89,14 @@ driven by actual cluster state read from the apiserver or a local cache.
 For example if responding to a Pod Delete Event, the Request won't contain that a Pod was deleted,
 instead the reconcile function observes this when reading the cluster state and seeing the Pod as missing.
 */
-type Reconciler interface {
+type Reconciler = TypedReconciler[Request]
+
+// TypedReconciler implements an API for a specific Resource by Creating, Updating or Deleting Kubernetes
+// objects, or by making changes to systems external to the cluster (e.g. cloudproviders, github, etc).
+//
+// The request type is what event handlers put into the workqueue. The workqueue then de-duplicates identical
+// requests.
+type TypedReconciler[request comparable] interface {
 	// Reconcile performs a full reconciliation for the object referred to by the Request.
 	//
 	// If the returned error is non-nil, the Result is ignored and the request will be
@@ -101,40 +108,45 @@ type Reconciler interface {
 	//
 	// If the error is nil and result.RequeueAfter is zero and result.Requeue is true, the request
 	// will be requeued using exponential backoff.
-	Reconcile(context.Context, Request) (Result, error)
+	Reconcile(context.Context, request) (Result, error)
 }
 
 // Func is a function that implements the reconcile interface.
-type Func func(context.Context, Request) (Result, error)
+type Func = TypedFunc[Request]
+
+// TypedFunc is a function that implements the reconcile interface.
+type TypedFunc[request comparable] func(context.Context, request) (Result, error)
 
 var _ Reconciler = Func(nil)
 
 // Reconcile implements Reconciler.
-func (r Func) Reconcile(ctx context.Context, o Request) (Result, error) { return r(ctx, o) }
+func (r TypedFunc[request]) Reconcile(ctx context.Context, req request) (Result, error) {
+	return r(ctx, req)
+}
 
 // ObjectReconciler is a specialized version of Reconciler that acts on instances of client.Object. Each reconciliation
 // event gets the associated object from Kubernetes before passing it to Reconcile. An ObjectReconciler can be used in
 // Builder.Complete by calling AsReconciler. See Reconciler for more details.
-type ObjectReconciler[T client.Object] interface {
-	Reconcile(context.Context, T) (Result, error)
+type ObjectReconciler[object client.Object] interface {
+	Reconcile(context.Context, object) (Result, error)
 }
 
 // AsReconciler creates a Reconciler based on the given ObjectReconciler.
-func AsReconciler[T client.Object](client client.Client, rec ObjectReconciler[T]) Reconciler {
-	return &objectReconcilerAdapter[T]{
+func AsReconciler[object client.Object](client client.Client, rec ObjectReconciler[object]) Reconciler {
+	return &objectReconcilerAdapter[object]{
 		objReconciler: rec,
 		client:        client,
 	}
 }
 
-type objectReconcilerAdapter[T client.Object] struct {
-	objReconciler ObjectReconciler[T]
+type objectReconcilerAdapter[object client.Object] struct {
+	objReconciler ObjectReconciler[object]
 	client        client.Client
 }
 
 // Reconcile implements Reconciler.
-func (a *objectReconcilerAdapter[T]) Reconcile(ctx context.Context, req Request) (Result, error) {
-	o := reflect.New(reflect.TypeOf(*new(T)).Elem()).Interface().(T)
+func (a *objectReconcilerAdapter[object]) Reconcile(ctx context.Context, req Request) (Result, error) {
+	o := reflect.New(reflect.TypeOf(*new(object)).Elem()).Interface().(object)
 	if err := a.client.Get(ctx, req.NamespacedName, o); err != nil {
 		return Result{}, client.IgnoreNotFound(err)
 	}

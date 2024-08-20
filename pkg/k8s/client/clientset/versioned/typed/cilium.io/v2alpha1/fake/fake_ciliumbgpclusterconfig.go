@@ -27,20 +27,22 @@ var ciliumbgpclusterconfigsKind = v2alpha1.SchemeGroupVersion.WithKind("CiliumBG
 
 // Get takes name of the ciliumBGPClusterConfig, and returns the corresponding ciliumBGPClusterConfig object, and an error if there is any.
 func (c *FakeCiliumBGPClusterConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumBGPClusterConfig, err error) {
+	emptyResult := &v2alpha1.CiliumBGPClusterConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(ciliumbgpclusterconfigsResource, name), &v2alpha1.CiliumBGPClusterConfig{})
+		Invokes(testing.NewRootGetActionWithOptions(ciliumbgpclusterconfigsResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPClusterConfig), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumBGPClusterConfigs that match those selectors.
 func (c *FakeCiliumBGPClusterConfigs) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.CiliumBGPClusterConfigList, err error) {
+	emptyResult := &v2alpha1.CiliumBGPClusterConfigList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(ciliumbgpclusterconfigsResource, ciliumbgpclusterconfigsKind, opts), &v2alpha1.CiliumBGPClusterConfigList{})
+		Invokes(testing.NewRootListActionWithOptions(ciliumbgpclusterconfigsResource, ciliumbgpclusterconfigsKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -59,25 +61,27 @@ func (c *FakeCiliumBGPClusterConfigs) List(ctx context.Context, opts v1.ListOpti
 // Watch returns a watch.Interface that watches the requested ciliumBGPClusterConfigs.
 func (c *FakeCiliumBGPClusterConfigs) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(ciliumbgpclusterconfigsResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumbgpclusterconfigsResource, opts))
 }
 
 // Create takes the representation of a ciliumBGPClusterConfig and creates it.  Returns the server's representation of the ciliumBGPClusterConfig, and an error, if there is any.
 func (c *FakeCiliumBGPClusterConfigs) Create(ctx context.Context, ciliumBGPClusterConfig *v2alpha1.CiliumBGPClusterConfig, opts v1.CreateOptions) (result *v2alpha1.CiliumBGPClusterConfig, err error) {
+	emptyResult := &v2alpha1.CiliumBGPClusterConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(ciliumbgpclusterconfigsResource, ciliumBGPClusterConfig), &v2alpha1.CiliumBGPClusterConfig{})
+		Invokes(testing.NewRootCreateActionWithOptions(ciliumbgpclusterconfigsResource, ciliumBGPClusterConfig, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPClusterConfig), err
 }
 
 // Update takes the representation of a ciliumBGPClusterConfig and updates it. Returns the server's representation of the ciliumBGPClusterConfig, and an error, if there is any.
 func (c *FakeCiliumBGPClusterConfigs) Update(ctx context.Context, ciliumBGPClusterConfig *v2alpha1.CiliumBGPClusterConfig, opts v1.UpdateOptions) (result *v2alpha1.CiliumBGPClusterConfig, err error) {
+	emptyResult := &v2alpha1.CiliumBGPClusterConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(ciliumbgpclusterconfigsResource, ciliumBGPClusterConfig), &v2alpha1.CiliumBGPClusterConfig{})
+		Invokes(testing.NewRootUpdateActionWithOptions(ciliumbgpclusterconfigsResource, ciliumBGPClusterConfig, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPClusterConfig), err
 }
@@ -91,7 +95,7 @@ func (c *FakeCiliumBGPClusterConfigs) Delete(ctx context.Context, name string, o
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCiliumBGPClusterConfigs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(ciliumbgpclusterconfigsResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumbgpclusterconfigsResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2alpha1.CiliumBGPClusterConfigList{})
 	return err
@@ -99,10 +103,11 @@ func (c *FakeCiliumBGPClusterConfigs) DeleteCollection(ctx context.Context, opts
 
 // Patch applies the patch and returns the patched ciliumBGPClusterConfig.
 func (c *FakeCiliumBGPClusterConfigs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumBGPClusterConfig, err error) {
+	emptyResult := &v2alpha1.CiliumBGPClusterConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(ciliumbgpclusterconfigsResource, name, pt, data, subresources...), &v2alpha1.CiliumBGPClusterConfig{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumbgpclusterconfigsResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPClusterConfig), err
 }

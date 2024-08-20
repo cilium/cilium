@@ -374,7 +374,8 @@ func (c *copyMethodMaker) genMapDeepCopy(actualName *namingInfo, mapType *types.
 				c.IfElse("val == nil", func() {
 					c.Line("(*out)[key] = nil")
 				}, func() {
-					c.Line("in, out := &val, &outVal")
+					c.Line("inVal := (*in)[key]")
+					c.Line("in, out := &inVal, &outVal")
 					c.genDeepCopyIntoBlock(&namingInfo{typeInfo: mapType.Elem()}, mapType.Elem())
 				})
 				c.Line("(*out)[key] = outVal")
@@ -735,11 +736,14 @@ func hasAnyDeepCopyMethod(pkg *loader.Package, typeInfo types.Type) bool {
 // eventualUnderlyingType gets the "final" type in a sequence of named aliases.
 // It's effectively a shortcut for calling Underlying in a loop.
 func eventualUnderlyingType(typeInfo types.Type) types.Type {
-	last := typeInfo
-	for underlying := typeInfo.Underlying(); underlying != last; last, underlying = underlying, underlying.Underlying() {
-		// get the actual underlying type
+	for {
+		underlying := typeInfo.Underlying()
+		if underlying == typeInfo {
+			break
+		}
+		typeInfo = underlying
 	}
-	return last
+	return typeInfo
 }
 
 // fineToShallowCopy checks if a shallow-copying a type is equivalent to deepcopy-ing it.

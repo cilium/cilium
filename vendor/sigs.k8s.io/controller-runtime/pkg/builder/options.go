@@ -37,7 +37,7 @@ type OwnsOption interface {
 // WatchesOption is some configuration that modifies options for a watches request.
 type WatchesOption interface {
 	// ApplyToWatches applies this configuration to the given watches options.
-	ApplyToWatches(*WatchesInput)
+	ApplyToWatches(untypedWatchesInput)
 }
 
 // }}}
@@ -67,8 +67,8 @@ func (w Predicates) ApplyToOwns(opts *OwnsInput) {
 }
 
 // ApplyToWatches applies this configuration to the given WatchesInput options.
-func (w Predicates) ApplyToWatches(opts *WatchesInput) {
-	opts.predicates = w.predicates
+func (w Predicates) ApplyToWatches(opts untypedWatchesInput) {
+	opts.setPredicates(w.predicates)
 }
 
 var _ ForOption = &Predicates{}
@@ -95,8 +95,8 @@ func (p projectAs) ApplyToOwns(opts *OwnsInput) {
 }
 
 // ApplyToWatches applies this configuration to the given WatchesInput options.
-func (p projectAs) ApplyToWatches(opts *WatchesInput) {
-	opts.objectProjection = objectProjection(p)
+func (p projectAs) ApplyToWatches(opts untypedWatchesInput) {
+	opts.setObjectProjection(objectProjection(p))
 }
 
 var (

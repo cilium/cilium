@@ -27,20 +27,22 @@ var ciliumloadbalancerippoolsKind = v2alpha1.SchemeGroupVersion.WithKind("Cilium
 
 // Get takes name of the ciliumLoadBalancerIPPool, and returns the corresponding ciliumLoadBalancerIPPool object, and an error if there is any.
 func (c *FakeCiliumLoadBalancerIPPools) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumLoadBalancerIPPool, err error) {
+	emptyResult := &v2alpha1.CiliumLoadBalancerIPPool{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(ciliumloadbalancerippoolsResource, name), &v2alpha1.CiliumLoadBalancerIPPool{})
+		Invokes(testing.NewRootGetActionWithOptions(ciliumloadbalancerippoolsResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumLoadBalancerIPPool), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumLoadBalancerIPPools that match those selectors.
 func (c *FakeCiliumLoadBalancerIPPools) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.CiliumLoadBalancerIPPoolList, err error) {
+	emptyResult := &v2alpha1.CiliumLoadBalancerIPPoolList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(ciliumloadbalancerippoolsResource, ciliumloadbalancerippoolsKind, opts), &v2alpha1.CiliumLoadBalancerIPPoolList{})
+		Invokes(testing.NewRootListActionWithOptions(ciliumloadbalancerippoolsResource, ciliumloadbalancerippoolsKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -59,36 +61,39 @@ func (c *FakeCiliumLoadBalancerIPPools) List(ctx context.Context, opts v1.ListOp
 // Watch returns a watch.Interface that watches the requested ciliumLoadBalancerIPPools.
 func (c *FakeCiliumLoadBalancerIPPools) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(ciliumloadbalancerippoolsResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumloadbalancerippoolsResource, opts))
 }
 
 // Create takes the representation of a ciliumLoadBalancerIPPool and creates it.  Returns the server's representation of the ciliumLoadBalancerIPPool, and an error, if there is any.
 func (c *FakeCiliumLoadBalancerIPPools) Create(ctx context.Context, ciliumLoadBalancerIPPool *v2alpha1.CiliumLoadBalancerIPPool, opts v1.CreateOptions) (result *v2alpha1.CiliumLoadBalancerIPPool, err error) {
+	emptyResult := &v2alpha1.CiliumLoadBalancerIPPool{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(ciliumloadbalancerippoolsResource, ciliumLoadBalancerIPPool), &v2alpha1.CiliumLoadBalancerIPPool{})
+		Invokes(testing.NewRootCreateActionWithOptions(ciliumloadbalancerippoolsResource, ciliumLoadBalancerIPPool, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumLoadBalancerIPPool), err
 }
 
 // Update takes the representation of a ciliumLoadBalancerIPPool and updates it. Returns the server's representation of the ciliumLoadBalancerIPPool, and an error, if there is any.
 func (c *FakeCiliumLoadBalancerIPPools) Update(ctx context.Context, ciliumLoadBalancerIPPool *v2alpha1.CiliumLoadBalancerIPPool, opts v1.UpdateOptions) (result *v2alpha1.CiliumLoadBalancerIPPool, err error) {
+	emptyResult := &v2alpha1.CiliumLoadBalancerIPPool{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(ciliumloadbalancerippoolsResource, ciliumLoadBalancerIPPool), &v2alpha1.CiliumLoadBalancerIPPool{})
+		Invokes(testing.NewRootUpdateActionWithOptions(ciliumloadbalancerippoolsResource, ciliumLoadBalancerIPPool, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumLoadBalancerIPPool), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeCiliumLoadBalancerIPPools) UpdateStatus(ctx context.Context, ciliumLoadBalancerIPPool *v2alpha1.CiliumLoadBalancerIPPool, opts v1.UpdateOptions) (*v2alpha1.CiliumLoadBalancerIPPool, error) {
+func (c *FakeCiliumLoadBalancerIPPools) UpdateStatus(ctx context.Context, ciliumLoadBalancerIPPool *v2alpha1.CiliumLoadBalancerIPPool, opts v1.UpdateOptions) (result *v2alpha1.CiliumLoadBalancerIPPool, err error) {
+	emptyResult := &v2alpha1.CiliumLoadBalancerIPPool{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(ciliumloadbalancerippoolsResource, "status", ciliumLoadBalancerIPPool), &v2alpha1.CiliumLoadBalancerIPPool{})
+		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(ciliumloadbalancerippoolsResource, "status", ciliumLoadBalancerIPPool, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumLoadBalancerIPPool), err
 }
@@ -102,7 +107,7 @@ func (c *FakeCiliumLoadBalancerIPPools) Delete(ctx context.Context, name string,
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCiliumLoadBalancerIPPools) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(ciliumloadbalancerippoolsResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumloadbalancerippoolsResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2alpha1.CiliumLoadBalancerIPPoolList{})
 	return err
@@ -110,10 +115,11 @@ func (c *FakeCiliumLoadBalancerIPPools) DeleteCollection(ctx context.Context, op
 
 // Patch applies the patch and returns the patched ciliumLoadBalancerIPPool.
 func (c *FakeCiliumLoadBalancerIPPools) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumLoadBalancerIPPool, err error) {
+	emptyResult := &v2alpha1.CiliumLoadBalancerIPPool{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(ciliumloadbalancerippoolsResource, name, pt, data, subresources...), &v2alpha1.CiliumLoadBalancerIPPool{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumloadbalancerippoolsResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumLoadBalancerIPPool), err
 }

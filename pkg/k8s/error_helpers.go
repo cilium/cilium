@@ -4,6 +4,7 @@
 package k8s
 
 import (
+	"context"
 	"regexp"
 	"strings"
 
@@ -42,7 +43,7 @@ var k8sObjDecodeErrRe = regexp.MustCompile("invalid character.*looking for begin
 // K8sErrorHandler handles the error messages in a non verbose way by omitting
 // repeated instances of the same error message for a timeout defined with
 // k8sErrLogTimeout.
-func K8sErrorHandler(e error) {
+func K8sErrorHandler(_ context.Context, e error, _ string, _ ...interface{}) {
 	if e == nil {
 		return
 	}

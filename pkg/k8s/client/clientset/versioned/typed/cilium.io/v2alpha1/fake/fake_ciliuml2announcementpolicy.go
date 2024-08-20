@@ -27,20 +27,22 @@ var ciliuml2announcementpoliciesKind = v2alpha1.SchemeGroupVersion.WithKind("Cil
 
 // Get takes name of the ciliumL2AnnouncementPolicy, and returns the corresponding ciliumL2AnnouncementPolicy object, and an error if there is any.
 func (c *FakeCiliumL2AnnouncementPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumL2AnnouncementPolicy, err error) {
+	emptyResult := &v2alpha1.CiliumL2AnnouncementPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(ciliuml2announcementpoliciesResource, name), &v2alpha1.CiliumL2AnnouncementPolicy{})
+		Invokes(testing.NewRootGetActionWithOptions(ciliuml2announcementpoliciesResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumL2AnnouncementPolicy), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumL2AnnouncementPolicies that match those selectors.
 func (c *FakeCiliumL2AnnouncementPolicies) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.CiliumL2AnnouncementPolicyList, err error) {
+	emptyResult := &v2alpha1.CiliumL2AnnouncementPolicyList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(ciliuml2announcementpoliciesResource, ciliuml2announcementpoliciesKind, opts), &v2alpha1.CiliumL2AnnouncementPolicyList{})
+		Invokes(testing.NewRootListActionWithOptions(ciliuml2announcementpoliciesResource, ciliuml2announcementpoliciesKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -59,36 +61,39 @@ func (c *FakeCiliumL2AnnouncementPolicies) List(ctx context.Context, opts v1.Lis
 // Watch returns a watch.Interface that watches the requested ciliumL2AnnouncementPolicies.
 func (c *FakeCiliumL2AnnouncementPolicies) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(ciliuml2announcementpoliciesResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliuml2announcementpoliciesResource, opts))
 }
 
 // Create takes the representation of a ciliumL2AnnouncementPolicy and creates it.  Returns the server's representation of the ciliumL2AnnouncementPolicy, and an error, if there is any.
 func (c *FakeCiliumL2AnnouncementPolicies) Create(ctx context.Context, ciliumL2AnnouncementPolicy *v2alpha1.CiliumL2AnnouncementPolicy, opts v1.CreateOptions) (result *v2alpha1.CiliumL2AnnouncementPolicy, err error) {
+	emptyResult := &v2alpha1.CiliumL2AnnouncementPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(ciliuml2announcementpoliciesResource, ciliumL2AnnouncementPolicy), &v2alpha1.CiliumL2AnnouncementPolicy{})
+		Invokes(testing.NewRootCreateActionWithOptions(ciliuml2announcementpoliciesResource, ciliumL2AnnouncementPolicy, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumL2AnnouncementPolicy), err
 }
 
 // Update takes the representation of a ciliumL2AnnouncementPolicy and updates it. Returns the server's representation of the ciliumL2AnnouncementPolicy, and an error, if there is any.
 func (c *FakeCiliumL2AnnouncementPolicies) Update(ctx context.Context, ciliumL2AnnouncementPolicy *v2alpha1.CiliumL2AnnouncementPolicy, opts v1.UpdateOptions) (result *v2alpha1.CiliumL2AnnouncementPolicy, err error) {
+	emptyResult := &v2alpha1.CiliumL2AnnouncementPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(ciliuml2announcementpoliciesResource, ciliumL2AnnouncementPolicy), &v2alpha1.CiliumL2AnnouncementPolicy{})
+		Invokes(testing.NewRootUpdateActionWithOptions(ciliuml2announcementpoliciesResource, ciliumL2AnnouncementPolicy, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumL2AnnouncementPolicy), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeCiliumL2AnnouncementPolicies) UpdateStatus(ctx context.Context, ciliumL2AnnouncementPolicy *v2alpha1.CiliumL2AnnouncementPolicy, opts v1.UpdateOptions) (*v2alpha1.CiliumL2AnnouncementPolicy, error) {
+func (c *FakeCiliumL2AnnouncementPolicies) UpdateStatus(ctx context.Context, ciliumL2AnnouncementPolicy *v2alpha1.CiliumL2AnnouncementPolicy, opts v1.UpdateOptions) (result *v2alpha1.CiliumL2AnnouncementPolicy, err error) {
+	emptyResult := &v2alpha1.CiliumL2AnnouncementPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(ciliuml2announcementpoliciesResource, "status", ciliumL2AnnouncementPolicy), &v2alpha1.CiliumL2AnnouncementPolicy{})
+		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(ciliuml2announcementpoliciesResource, "status", ciliumL2AnnouncementPolicy, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumL2AnnouncementPolicy), err
 }
@@ -102,7 +107,7 @@ func (c *FakeCiliumL2AnnouncementPolicies) Delete(ctx context.Context, name stri
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCiliumL2AnnouncementPolicies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(ciliuml2announcementpoliciesResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(ciliuml2announcementpoliciesResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2alpha1.CiliumL2AnnouncementPolicyList{})
 	return err
@@ -110,10 +115,11 @@ func (c *FakeCiliumL2AnnouncementPolicies) DeleteCollection(ctx context.Context,
 
 // Patch applies the patch and returns the patched ciliumL2AnnouncementPolicy.
 func (c *FakeCiliumL2AnnouncementPolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumL2AnnouncementPolicy, err error) {
+	emptyResult := &v2alpha1.CiliumL2AnnouncementPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(ciliuml2announcementpoliciesResource, name, pt, data, subresources...), &v2alpha1.CiliumL2AnnouncementPolicy{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliuml2announcementpoliciesResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumL2AnnouncementPolicy), err
 }

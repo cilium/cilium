@@ -6,6 +6,7 @@
 // +k8s:protobuf-gen=package
 // +deepequal-gen=package
 // +groupGoName=core
+// +groupName=
 
 // Package v1 is the v1 version of the core API.
 package v1

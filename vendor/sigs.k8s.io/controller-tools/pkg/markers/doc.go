@@ -19,7 +19,7 @@ limitations under the License.
 // avoid confusing with struct tags).  Parsed result (output) values take the
 // form of Go values, much like the "encoding/json" package.
 //
-// Definitions and Parsing
+// # Definitions and Parsing
 //
 // Markers are defined as structured Definitions which can be used to
 // consistently parse marker comments.  A Definition contains an concrete
@@ -29,20 +29,20 @@ limitations under the License.
 //
 // Markers take the general form
 //
-//  +path:to:marker=val
+//	+path:to:marker=val
 //
-//  +path:to:marker:arg1=val,arg2=val2
+//	+path:to:marker:arg1=val,arg2=val2
 //
-//  +path:to:marker
+//	+path:to:marker
 //
 // Arguments may be ints, bools, strings, and slices.  Ints and bool take their
 // standard form from Go.  Strings may take any of their standard forms, or any
 // sequence of unquoted characters up until a `,` or `;` is encountered.  Lists
 // take either of the following forms:
 //
-//  val;val;val
+//	val;val;val
 //
-//  {val, val, val}
+//	{val, val, val}
 //
 // Note that the first form will not properly parse nested slices, but is
 // generally convenient and is the form used in many existing markers.
@@ -61,7 +61,7 @@ limitations under the License.
 // non-optional fields aren't mentioned, an error will be raised unless
 // `Strict` is set to false.
 //
-// Registries and Lookup
+// # Registries and Lookup
 //
 // Definitions can be added to registries to facilitate lookups.  Each
 // definition is marked as either describing a type, struct field, or package
@@ -69,7 +69,7 @@ limitations under the License.
 // long as each describes a different construct (type, field, or package).
 // Definitions can then be looked up by passing unparsed markers.
 //
-// Collection and Extraction
+// # Collection and Extraction
 //
 // Markers can be collected from a loader.Package using a Collector.  The
 // Collector will read from a given Registry, collecting comments that look
@@ -85,7 +85,7 @@ limitations under the License.
 // Like loader.Package, Collector's methods are idempotent and will not
 // reperform work.
 //
-// Traversal
+// # Traversal
 //
 // EachType function iterates over each type in a Package, providing
 // conveniently structured type and field information with marker values
@@ -93,14 +93,14 @@ limitations under the License.
 //
 // PackageMarkers can be used to fetch just package-level markers.
 //
-// Help
+// # Help
 //
 // Help can be defined for each marker using the DefinitionHelp struct.  It's
 // mostly intended to be generated off of godocs using cmd/helpgen, which takes
 // the first line as summary (removing the type/field name), and considers the
 // rest as details.  It looks for the
 //
-//   +controllertools:generateHelp[:category=<string>]
+//	+controllertools:generateHelp[:category=<string>]
 //
 // marker to start generation.
 //

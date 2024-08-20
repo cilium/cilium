@@ -27,20 +27,22 @@ var ciliumnodesKind = v2.SchemeGroupVersion.WithKind("CiliumNode")
 
 // Get takes name of the ciliumNode, and returns the corresponding ciliumNode object, and an error if there is any.
 func (c *FakeCiliumNodes) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumNode, err error) {
+	emptyResult := &v2.CiliumNode{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(ciliumnodesResource, name), &v2.CiliumNode{})
+		Invokes(testing.NewRootGetActionWithOptions(ciliumnodesResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumNode), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumNodes that match those selectors.
 func (c *FakeCiliumNodes) List(ctx context.Context, opts v1.ListOptions) (result *v2.CiliumNodeList, err error) {
+	emptyResult := &v2.CiliumNodeList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(ciliumnodesResource, ciliumnodesKind, opts), &v2.CiliumNodeList{})
+		Invokes(testing.NewRootListActionWithOptions(ciliumnodesResource, ciliumnodesKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -59,36 +61,39 @@ func (c *FakeCiliumNodes) List(ctx context.Context, opts v1.ListOptions) (result
 // Watch returns a watch.Interface that watches the requested ciliumNodes.
 func (c *FakeCiliumNodes) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(ciliumnodesResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumnodesResource, opts))
 }
 
 // Create takes the representation of a ciliumNode and creates it.  Returns the server's representation of the ciliumNode, and an error, if there is any.
 func (c *FakeCiliumNodes) Create(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.CreateOptions) (result *v2.CiliumNode, err error) {
+	emptyResult := &v2.CiliumNode{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(ciliumnodesResource, ciliumNode), &v2.CiliumNode{})
+		Invokes(testing.NewRootCreateActionWithOptions(ciliumnodesResource, ciliumNode, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumNode), err
 }
 
 // Update takes the representation of a ciliumNode and updates it. Returns the server's representation of the ciliumNode, and an error, if there is any.
 func (c *FakeCiliumNodes) Update(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (result *v2.CiliumNode, err error) {
+	emptyResult := &v2.CiliumNode{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(ciliumnodesResource, ciliumNode), &v2.CiliumNode{})
+		Invokes(testing.NewRootUpdateActionWithOptions(ciliumnodesResource, ciliumNode, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumNode), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeCiliumNodes) UpdateStatus(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (*v2.CiliumNode, error) {
+func (c *FakeCiliumNodes) UpdateStatus(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (result *v2.CiliumNode, err error) {
+	emptyResult := &v2.CiliumNode{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(ciliumnodesResource, "status", ciliumNode), &v2.CiliumNode{})
+		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(ciliumnodesResource, "status", ciliumNode, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumNode), err
 }
@@ -102,7 +107,7 @@ func (c *FakeCiliumNodes) Delete(ctx context.Context, name string, opts v1.Delet
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCiliumNodes) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(ciliumnodesResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumnodesResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2.CiliumNodeList{})
 	return err
@@ -110,10 +115,11 @@ func (c *FakeCiliumNodes) DeleteCollection(ctx context.Context, opts v1.DeleteOp
 
 // Patch applies the patch and returns the patched ciliumNode.
 func (c *FakeCiliumNodes) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumNode, err error) {
+	emptyResult := &v2.CiliumNode{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(ciliumnodesResource, name, pt, data, subresources...), &v2.CiliumNode{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumnodesResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumNode), err
 }

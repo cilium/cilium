@@ -173,14 +173,14 @@ func (cw *CertWatcher) ReadCertificate() error {
 
 func (cw *CertWatcher) handleEvent(event fsnotify.Event) {
 	// Only care about events which may modify the contents of the file.
-	if !(isWrite(event) || isRemove(event) || isCreate(event)) {
+	if !(isWrite(event) || isRemove(event) || isCreate(event) || isChmod(event)) {
 		return
 	}
 
 	log.V(1).Info("certificate event", "event", event)
 
-	// If the file was removed, re-add the watch.
-	if isRemove(event) {
+	// If the file was removed or renamed, re-add the watch to the previous name
+	if isRemove(event) || isChmod(event) {
 		if err := cw.watcher.Add(event.Name); err != nil {
 			log.Error(err, "error re-watching file")
 		}
@@ -201,4 +201,8 @@ func isCreate(event fsnotify.Event) bool {
 
 func isRemove(event fsnotify.Event) bool {
 	return event.Op.Has(fsnotify.Remove)
+}
+
+func isChmod(event fsnotify.Event) bool {
+	return event.Op.Has(fsnotify.Chmod)
 }

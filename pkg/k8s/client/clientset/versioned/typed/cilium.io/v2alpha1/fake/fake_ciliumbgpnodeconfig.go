@@ -27,20 +27,22 @@ var ciliumbgpnodeconfigsKind = v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPNo
 
 // Get takes name of the ciliumBGPNodeConfig, and returns the corresponding ciliumBGPNodeConfig object, and an error if there is any.
 func (c *FakeCiliumBGPNodeConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumBGPNodeConfig, err error) {
+	emptyResult := &v2alpha1.CiliumBGPNodeConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(ciliumbgpnodeconfigsResource, name), &v2alpha1.CiliumBGPNodeConfig{})
+		Invokes(testing.NewRootGetActionWithOptions(ciliumbgpnodeconfigsResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPNodeConfig), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumBGPNodeConfigs that match those selectors.
 func (c *FakeCiliumBGPNodeConfigs) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.CiliumBGPNodeConfigList, err error) {
+	emptyResult := &v2alpha1.CiliumBGPNodeConfigList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(ciliumbgpnodeconfigsResource, ciliumbgpnodeconfigsKind, opts), &v2alpha1.CiliumBGPNodeConfigList{})
+		Invokes(testing.NewRootListActionWithOptions(ciliumbgpnodeconfigsResource, ciliumbgpnodeconfigsKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -59,36 +61,39 @@ func (c *FakeCiliumBGPNodeConfigs) List(ctx context.Context, opts v1.ListOptions
 // Watch returns a watch.Interface that watches the requested ciliumBGPNodeConfigs.
 func (c *FakeCiliumBGPNodeConfigs) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(ciliumbgpnodeconfigsResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumbgpnodeconfigsResource, opts))
 }
 
 // Create takes the representation of a ciliumBGPNodeConfig and creates it.  Returns the server's representation of the ciliumBGPNodeConfig, and an error, if there is any.
 func (c *FakeCiliumBGPNodeConfigs) Create(ctx context.Context, ciliumBGPNodeConfig *v2alpha1.CiliumBGPNodeConfig, opts v1.CreateOptions) (result *v2alpha1.CiliumBGPNodeConfig, err error) {
+	emptyResult := &v2alpha1.CiliumBGPNodeConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(ciliumbgpnodeconfigsResource, ciliumBGPNodeConfig), &v2alpha1.CiliumBGPNodeConfig{})
+		Invokes(testing.NewRootCreateActionWithOptions(ciliumbgpnodeconfigsResource, ciliumBGPNodeConfig, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPNodeConfig), err
 }
 
 // Update takes the representation of a ciliumBGPNodeConfig and updates it. Returns the server's representation of the ciliumBGPNodeConfig, and an error, if there is any.
 func (c *FakeCiliumBGPNodeConfigs) Update(ctx context.Context, ciliumBGPNodeConfig *v2alpha1.CiliumBGPNodeConfig, opts v1.UpdateOptions) (result *v2alpha1.CiliumBGPNodeConfig, err error) {
+	emptyResult := &v2alpha1.CiliumBGPNodeConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(ciliumbgpnodeconfigsResource, ciliumBGPNodeConfig), &v2alpha1.CiliumBGPNodeConfig{})
+		Invokes(testing.NewRootUpdateActionWithOptions(ciliumbgpnodeconfigsResource, ciliumBGPNodeConfig, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPNodeConfig), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeCiliumBGPNodeConfigs) UpdateStatus(ctx context.Context, ciliumBGPNodeConfig *v2alpha1.CiliumBGPNodeConfig, opts v1.UpdateOptions) (*v2alpha1.CiliumBGPNodeConfig, error) {
+func (c *FakeCiliumBGPNodeConfigs) UpdateStatus(ctx context.Context, ciliumBGPNodeConfig *v2alpha1.CiliumBGPNodeConfig, opts v1.UpdateOptions) (result *v2alpha1.CiliumBGPNodeConfig, err error) {
+	emptyResult := &v2alpha1.CiliumBGPNodeConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(ciliumbgpnodeconfigsResource, "status", ciliumBGPNodeConfig), &v2alpha1.CiliumBGPNodeConfig{})
+		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(ciliumbgpnodeconfigsResource, "status", ciliumBGPNodeConfig, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPNodeConfig), err
 }
@@ -102,7 +107,7 @@ func (c *FakeCiliumBGPNodeConfigs) Delete(ctx context.Context, name string, opts
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCiliumBGPNodeConfigs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(ciliumbgpnodeconfigsResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumbgpnodeconfigsResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2alpha1.CiliumBGPNodeConfigList{})
 	return err
@@ -110,10 +115,11 @@ func (c *FakeCiliumBGPNodeConfigs) DeleteCollection(ctx context.Context, opts v1
 
 // Patch applies the patch and returns the patched ciliumBGPNodeConfig.
 func (c *FakeCiliumBGPNodeConfigs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumBGPNodeConfig, err error) {
+	emptyResult := &v2alpha1.CiliumBGPNodeConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(ciliumbgpnodeconfigsResource, name, pt, data, subresources...), &v2alpha1.CiliumBGPNodeConfig{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumbgpnodeconfigsResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumBGPNodeConfig), err
 }

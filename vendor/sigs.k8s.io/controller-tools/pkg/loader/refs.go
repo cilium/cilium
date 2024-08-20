@@ -18,7 +18,6 @@ package loader
 
 import (
 	"fmt"
-
 	"go/ast"
 	"strconv"
 	"sync"
@@ -133,9 +132,14 @@ func (c *referenceCollector) Visit(node ast.Node) ast.Visitor {
 		// local reference or dot-import, ignore
 		return nil
 	case *ast.SelectorExpr:
-		pkgName := typedNode.X.(*ast.Ident).Name
-		c.refs.external(pkgName)
-		return nil
+		switch x := typedNode.X.(type) {
+		case *ast.Ident:
+			pkgName := x.Name
+			c.refs.external(pkgName)
+			return nil
+		default:
+			return c
+		}
 	default:
 		return c
 	}
@@ -159,7 +163,7 @@ func allReferencedPackages(pkg *Package, filterNodes NodeFilter) []*Package {
 		refsByFile[file] = refs
 	}
 
-	EachType(pkg, func(file *ast.File, decl *ast.GenDecl, spec *ast.TypeSpec) {
+	EachType(pkg, func(file *ast.File, _ *ast.GenDecl, spec *ast.TypeSpec) {
 		refs := refsByFile[file]
 		refs.collectReferences(spec.Type, filterNodes)
 	})

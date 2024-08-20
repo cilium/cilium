@@ -46,6 +46,13 @@ var (
 		Help: "Total number of terminal reconciliation errors per controller",
 	}, []string{"controller"})
 
+	// ReconcilePanics is a prometheus counter metrics which holds the total
+	// number of panics from the Reconciler.
+	ReconcilePanics = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "controller_runtime_reconcile_panics_total",
+		Help: "Total number of reconciliation panics per controller",
+	}, []string{"controller"})
+
 	// ReconcileTime is a prometheus metric which keeps track of the duration
 	// of reconciliations.
 	ReconcileTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -75,6 +82,7 @@ func init() {
 		ReconcileTotal,
 		ReconcileErrors,
 		TerminalReconcileErrors,
+		ReconcilePanics,
 		ReconcileTime,
 		WorkerCount,
 		ActiveWorkers,

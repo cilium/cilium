@@ -7,8 +7,8 @@ package v2
 
 import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -25,25 +25,17 @@ type CiliumEnvoyConfigLister interface {
 
 // ciliumEnvoyConfigLister implements the CiliumEnvoyConfigLister interface.
 type ciliumEnvoyConfigLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v2.CiliumEnvoyConfig]
 }
 
 // NewCiliumEnvoyConfigLister returns a new CiliumEnvoyConfigLister.
 func NewCiliumEnvoyConfigLister(indexer cache.Indexer) CiliumEnvoyConfigLister {
-	return &ciliumEnvoyConfigLister{indexer: indexer}
-}
-
-// List lists all CiliumEnvoyConfigs in the indexer.
-func (s *ciliumEnvoyConfigLister) List(selector labels.Selector) (ret []*v2.CiliumEnvoyConfig, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v2.CiliumEnvoyConfig))
-	})
-	return ret, err
+	return &ciliumEnvoyConfigLister{listers.New[*v2.CiliumEnvoyConfig](indexer, v2.Resource("ciliumenvoyconfig"))}
 }
 
 // CiliumEnvoyConfigs returns an object that can list and get CiliumEnvoyConfigs.
 func (s *ciliumEnvoyConfigLister) CiliumEnvoyConfigs(namespace string) CiliumEnvoyConfigNamespaceLister {
-	return ciliumEnvoyConfigNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return ciliumEnvoyConfigNamespaceLister{listers.NewNamespaced[*v2.CiliumEnvoyConfig](s.ResourceIndexer, namespace)}
 }
 
 // CiliumEnvoyConfigNamespaceLister helps list and get CiliumEnvoyConfigs.
@@ -61,26 +53,5 @@ type CiliumEnvoyConfigNamespaceLister interface {
 // ciliumEnvoyConfigNamespaceLister implements the CiliumEnvoyConfigNamespaceLister
 // interface.
 type ciliumEnvoyConfigNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all CiliumEnvoyConfigs in the indexer for a given namespace.
-func (s ciliumEnvoyConfigNamespaceLister) List(selector labels.Selector) (ret []*v2.CiliumEnvoyConfig, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v2.CiliumEnvoyConfig))
-	})
-	return ret, err
-}
-
-// Get retrieves the CiliumEnvoyConfig from the indexer for a given namespace and name.
-func (s ciliumEnvoyConfigNamespaceLister) Get(name string) (*v2.CiliumEnvoyConfig, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v2.Resource("ciliumenvoyconfig"), name)
-	}
-	return obj.(*v2.CiliumEnvoyConfig), nil
+	listers.ResourceIndexer[*v2.CiliumEnvoyConfig]
 }

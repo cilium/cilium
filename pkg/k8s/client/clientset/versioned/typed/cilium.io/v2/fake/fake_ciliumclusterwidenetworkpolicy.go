@@ -27,20 +27,22 @@ var ciliumclusterwidenetworkpoliciesKind = v2.SchemeGroupVersion.WithKind("Ciliu
 
 // Get takes name of the ciliumClusterwideNetworkPolicy, and returns the corresponding ciliumClusterwideNetworkPolicy object, and an error if there is any.
 func (c *FakeCiliumClusterwideNetworkPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumClusterwideNetworkPolicy, err error) {
+	emptyResult := &v2.CiliumClusterwideNetworkPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(ciliumclusterwidenetworkpoliciesResource, name), &v2.CiliumClusterwideNetworkPolicy{})
+		Invokes(testing.NewRootGetActionWithOptions(ciliumclusterwidenetworkpoliciesResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumClusterwideNetworkPolicy), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumClusterwideNetworkPolicies that match those selectors.
 func (c *FakeCiliumClusterwideNetworkPolicies) List(ctx context.Context, opts v1.ListOptions) (result *v2.CiliumClusterwideNetworkPolicyList, err error) {
+	emptyResult := &v2.CiliumClusterwideNetworkPolicyList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(ciliumclusterwidenetworkpoliciesResource, ciliumclusterwidenetworkpoliciesKind, opts), &v2.CiliumClusterwideNetworkPolicyList{})
+		Invokes(testing.NewRootListActionWithOptions(ciliumclusterwidenetworkpoliciesResource, ciliumclusterwidenetworkpoliciesKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -59,36 +61,39 @@ func (c *FakeCiliumClusterwideNetworkPolicies) List(ctx context.Context, opts v1
 // Watch returns a watch.Interface that watches the requested ciliumClusterwideNetworkPolicies.
 func (c *FakeCiliumClusterwideNetworkPolicies) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(ciliumclusterwidenetworkpoliciesResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumclusterwidenetworkpoliciesResource, opts))
 }
 
 // Create takes the representation of a ciliumClusterwideNetworkPolicy and creates it.  Returns the server's representation of the ciliumClusterwideNetworkPolicy, and an error, if there is any.
 func (c *FakeCiliumClusterwideNetworkPolicies) Create(ctx context.Context, ciliumClusterwideNetworkPolicy *v2.CiliumClusterwideNetworkPolicy, opts v1.CreateOptions) (result *v2.CiliumClusterwideNetworkPolicy, err error) {
+	emptyResult := &v2.CiliumClusterwideNetworkPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(ciliumclusterwidenetworkpoliciesResource, ciliumClusterwideNetworkPolicy), &v2.CiliumClusterwideNetworkPolicy{})
+		Invokes(testing.NewRootCreateActionWithOptions(ciliumclusterwidenetworkpoliciesResource, ciliumClusterwideNetworkPolicy, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumClusterwideNetworkPolicy), err
 }
 
 // Update takes the representation of a ciliumClusterwideNetworkPolicy and updates it. Returns the server's representation of the ciliumClusterwideNetworkPolicy, and an error, if there is any.
 func (c *FakeCiliumClusterwideNetworkPolicies) Update(ctx context.Context, ciliumClusterwideNetworkPolicy *v2.CiliumClusterwideNetworkPolicy, opts v1.UpdateOptions) (result *v2.CiliumClusterwideNetworkPolicy, err error) {
+	emptyResult := &v2.CiliumClusterwideNetworkPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(ciliumclusterwidenetworkpoliciesResource, ciliumClusterwideNetworkPolicy), &v2.CiliumClusterwideNetworkPolicy{})
+		Invokes(testing.NewRootUpdateActionWithOptions(ciliumclusterwidenetworkpoliciesResource, ciliumClusterwideNetworkPolicy, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumClusterwideNetworkPolicy), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeCiliumClusterwideNetworkPolicies) UpdateStatus(ctx context.Context, ciliumClusterwideNetworkPolicy *v2.CiliumClusterwideNetworkPolicy, opts v1.UpdateOptions) (*v2.CiliumClusterwideNetworkPolicy, error) {
+func (c *FakeCiliumClusterwideNetworkPolicies) UpdateStatus(ctx context.Context, ciliumClusterwideNetworkPolicy *v2.CiliumClusterwideNetworkPolicy, opts v1.UpdateOptions) (result *v2.CiliumClusterwideNetworkPolicy, err error) {
+	emptyResult := &v2.CiliumClusterwideNetworkPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(ciliumclusterwidenetworkpoliciesResource, "status", ciliumClusterwideNetworkPolicy), &v2.CiliumClusterwideNetworkPolicy{})
+		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(ciliumclusterwidenetworkpoliciesResource, "status", ciliumClusterwideNetworkPolicy, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumClusterwideNetworkPolicy), err
 }
@@ -102,7 +107,7 @@ func (c *FakeCiliumClusterwideNetworkPolicies) Delete(ctx context.Context, name 
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCiliumClusterwideNetworkPolicies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(ciliumclusterwidenetworkpoliciesResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumclusterwidenetworkpoliciesResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2.CiliumClusterwideNetworkPolicyList{})
 	return err
@@ -110,10 +115,11 @@ func (c *FakeCiliumClusterwideNetworkPolicies) DeleteCollection(ctx context.Cont
 
 // Patch applies the patch and returns the patched ciliumClusterwideNetworkPolicy.
 func (c *FakeCiliumClusterwideNetworkPolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumClusterwideNetworkPolicy, err error) {
+	emptyResult := &v2.CiliumClusterwideNetworkPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(ciliumclusterwidenetworkpoliciesResource, name, pt, data, subresources...), &v2.CiliumClusterwideNetworkPolicy{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumclusterwidenetworkpoliciesResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumClusterwideNetworkPolicy), err
 }

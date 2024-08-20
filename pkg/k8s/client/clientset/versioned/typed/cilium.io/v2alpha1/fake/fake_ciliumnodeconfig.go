@@ -28,22 +28,24 @@ var ciliumnodeconfigsKind = v2alpha1.SchemeGroupVersion.WithKind("CiliumNodeConf
 
 // Get takes name of the ciliumNodeConfig, and returns the corresponding ciliumNodeConfig object, and an error if there is any.
 func (c *FakeCiliumNodeConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumNodeConfig, err error) {
+	emptyResult := &v2alpha1.CiliumNodeConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(ciliumnodeconfigsResource, c.ns, name), &v2alpha1.CiliumNodeConfig{})
+		Invokes(testing.NewGetActionWithOptions(ciliumnodeconfigsResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumNodeConfig), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumNodeConfigs that match those selectors.
 func (c *FakeCiliumNodeConfigs) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.CiliumNodeConfigList, err error) {
+	emptyResult := &v2alpha1.CiliumNodeConfigList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(ciliumnodeconfigsResource, ciliumnodeconfigsKind, c.ns, opts), &v2alpha1.CiliumNodeConfigList{})
+		Invokes(testing.NewListActionWithOptions(ciliumnodeconfigsResource, ciliumnodeconfigsKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -62,28 +64,30 @@ func (c *FakeCiliumNodeConfigs) List(ctx context.Context, opts v1.ListOptions) (
 // Watch returns a watch.Interface that watches the requested ciliumNodeConfigs.
 func (c *FakeCiliumNodeConfigs) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(ciliumnodeconfigsResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(ciliumnodeconfigsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a ciliumNodeConfig and creates it.  Returns the server's representation of the ciliumNodeConfig, and an error, if there is any.
 func (c *FakeCiliumNodeConfigs) Create(ctx context.Context, ciliumNodeConfig *v2alpha1.CiliumNodeConfig, opts v1.CreateOptions) (result *v2alpha1.CiliumNodeConfig, err error) {
+	emptyResult := &v2alpha1.CiliumNodeConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(ciliumnodeconfigsResource, c.ns, ciliumNodeConfig), &v2alpha1.CiliumNodeConfig{})
+		Invokes(testing.NewCreateActionWithOptions(ciliumnodeconfigsResource, c.ns, ciliumNodeConfig, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumNodeConfig), err
 }
 
 // Update takes the representation of a ciliumNodeConfig and updates it. Returns the server's representation of the ciliumNodeConfig, and an error, if there is any.
 func (c *FakeCiliumNodeConfigs) Update(ctx context.Context, ciliumNodeConfig *v2alpha1.CiliumNodeConfig, opts v1.UpdateOptions) (result *v2alpha1.CiliumNodeConfig, err error) {
+	emptyResult := &v2alpha1.CiliumNodeConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(ciliumnodeconfigsResource, c.ns, ciliumNodeConfig), &v2alpha1.CiliumNodeConfig{})
+		Invokes(testing.NewUpdateActionWithOptions(ciliumnodeconfigsResource, c.ns, ciliumNodeConfig, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumNodeConfig), err
 }
@@ -98,7 +102,7 @@ func (c *FakeCiliumNodeConfigs) Delete(ctx context.Context, name string, opts v1
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCiliumNodeConfigs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(ciliumnodeconfigsResource, c.ns, listOpts)
+	action := testing.NewDeleteCollectionActionWithOptions(ciliumnodeconfigsResource, c.ns, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2alpha1.CiliumNodeConfigList{})
 	return err
@@ -106,11 +110,12 @@ func (c *FakeCiliumNodeConfigs) DeleteCollection(ctx context.Context, opts v1.De
 
 // Patch applies the patch and returns the patched ciliumNodeConfig.
 func (c *FakeCiliumNodeConfigs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumNodeConfig, err error) {
+	emptyResult := &v2alpha1.CiliumNodeConfig{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(ciliumnodeconfigsResource, c.ns, name, pt, data, subresources...), &v2alpha1.CiliumNodeConfig{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(ciliumnodeconfigsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumNodeConfig), err
 }

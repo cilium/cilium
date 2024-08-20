@@ -27,20 +27,22 @@ var ciliumegressgatewaypoliciesKind = v2.SchemeGroupVersion.WithKind("CiliumEgre
 
 // Get takes name of the ciliumEgressGatewayPolicy, and returns the corresponding ciliumEgressGatewayPolicy object, and an error if there is any.
 func (c *FakeCiliumEgressGatewayPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumEgressGatewayPolicy, err error) {
+	emptyResult := &v2.CiliumEgressGatewayPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(ciliumegressgatewaypoliciesResource, name), &v2.CiliumEgressGatewayPolicy{})
+		Invokes(testing.NewRootGetActionWithOptions(ciliumegressgatewaypoliciesResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumEgressGatewayPolicy), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumEgressGatewayPolicies that match those selectors.
 func (c *FakeCiliumEgressGatewayPolicies) List(ctx context.Context, opts v1.ListOptions) (result *v2.CiliumEgressGatewayPolicyList, err error) {
+	emptyResult := &v2.CiliumEgressGatewayPolicyList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(ciliumegressgatewaypoliciesResource, ciliumegressgatewaypoliciesKind, opts), &v2.CiliumEgressGatewayPolicyList{})
+		Invokes(testing.NewRootListActionWithOptions(ciliumegressgatewaypoliciesResource, ciliumegressgatewaypoliciesKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -59,25 +61,27 @@ func (c *FakeCiliumEgressGatewayPolicies) List(ctx context.Context, opts v1.List
 // Watch returns a watch.Interface that watches the requested ciliumEgressGatewayPolicies.
 func (c *FakeCiliumEgressGatewayPolicies) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(ciliumegressgatewaypoliciesResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumegressgatewaypoliciesResource, opts))
 }
 
 // Create takes the representation of a ciliumEgressGatewayPolicy and creates it.  Returns the server's representation of the ciliumEgressGatewayPolicy, and an error, if there is any.
 func (c *FakeCiliumEgressGatewayPolicies) Create(ctx context.Context, ciliumEgressGatewayPolicy *v2.CiliumEgressGatewayPolicy, opts v1.CreateOptions) (result *v2.CiliumEgressGatewayPolicy, err error) {
+	emptyResult := &v2.CiliumEgressGatewayPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(ciliumegressgatewaypoliciesResource, ciliumEgressGatewayPolicy), &v2.CiliumEgressGatewayPolicy{})
+		Invokes(testing.NewRootCreateActionWithOptions(ciliumegressgatewaypoliciesResource, ciliumEgressGatewayPolicy, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumEgressGatewayPolicy), err
 }
 
 // Update takes the representation of a ciliumEgressGatewayPolicy and updates it. Returns the server's representation of the ciliumEgressGatewayPolicy, and an error, if there is any.
 func (c *FakeCiliumEgressGatewayPolicies) Update(ctx context.Context, ciliumEgressGatewayPolicy *v2.CiliumEgressGatewayPolicy, opts v1.UpdateOptions) (result *v2.CiliumEgressGatewayPolicy, err error) {
+	emptyResult := &v2.CiliumEgressGatewayPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(ciliumegressgatewaypoliciesResource, ciliumEgressGatewayPolicy), &v2.CiliumEgressGatewayPolicy{})
+		Invokes(testing.NewRootUpdateActionWithOptions(ciliumegressgatewaypoliciesResource, ciliumEgressGatewayPolicy, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumEgressGatewayPolicy), err
 }
@@ -91,7 +95,7 @@ func (c *FakeCiliumEgressGatewayPolicies) Delete(ctx context.Context, name strin
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCiliumEgressGatewayPolicies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(ciliumegressgatewaypoliciesResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumegressgatewaypoliciesResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2.CiliumEgressGatewayPolicyList{})
 	return err
@@ -99,10 +103,11 @@ func (c *FakeCiliumEgressGatewayPolicies) DeleteCollection(ctx context.Context, 
 
 // Patch applies the patch and returns the patched ciliumEgressGatewayPolicy.
 func (c *FakeCiliumEgressGatewayPolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumEgressGatewayPolicy, err error) {
+	emptyResult := &v2.CiliumEgressGatewayPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(ciliumegressgatewaypoliciesResource, name, pt, data, subresources...), &v2.CiliumEgressGatewayPolicy{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumegressgatewaypoliciesResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumEgressGatewayPolicy), err
 }
