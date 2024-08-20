@@ -189,10 +189,10 @@ jobs:
         timeout-minutes: 60
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          control_plane_size: n1-standard-8
+          control_plane_size: n2-standard-8
           control_plane_count: 1
           node_size: e2-medium
-          node_count: 10
+          node_count: 100
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           kube_proxy_enabled: false
@@ -260,7 +260,7 @@ jobs:
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2
         shell: bash
-        timeout-minutes: 40
+        timeout-minutes: 60
         run: |
           mkdir ./report
           export CL2_PROMETHEUS_PVC_ENABLED=false
@@ -275,7 +275,7 @@ jobs:
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
-            --nodes=10 \
+            --nodes=100 \
             --enable-exec-service=false \
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
@@ -292,7 +292,7 @@ jobs:
 
       - name: Export results to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/create-cluster@0992f6cf525ecdaea81a27c8d1c26ecb63ac0f8c # main
+        uses: cilium/scale-tests-action/export-results@0992f6cf525ecdaea81a27c8d1c26ecb63ac0f8c # main
         with:
           test_name: ${{ env.test_name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
