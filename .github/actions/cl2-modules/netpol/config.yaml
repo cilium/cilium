@@ -28,6 +28,9 @@ tuningSets:
   globalQPSLoad:
     qps: {{$QPS}}
     burst: 1
+- name: RandomizedSaturationTimeLimited
+  RandomizedTimeLimitedLoad:
+    timeLimit: 180s
 
 steps:
 - module:
@@ -40,7 +43,7 @@ steps:
     params:
       actionName: "create"
       namespaces: {{$namespaces}}
-      tuningSet: default
+      tuningSet: RandomizedSaturationTimeLimited
       operationTimeout: 15m
       replicasPerDeployment: {{$PODS_PER_DEPLOYMENT}}
       deploymentsPerNamespace: {{$deployments}}
