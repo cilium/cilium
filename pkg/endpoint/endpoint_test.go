@@ -34,6 +34,7 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	"github.com/cilium/cilium/pkg/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 type EndpointSuite struct {
@@ -553,7 +554,7 @@ func TestProxyID(t *testing.T) {
 	id, port, proto := e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true}, "")
 	require.NotEqual(t, "", id)
 	require.Equal(t, uint16(8080), port)
-	require.Equal(t, uint8(6), proto)
+	require.Equal(t, u8proto.TCP, proto)
 
 	endpointID, ingress, protocol, port, listener, err := policy.ParseProxyID(id)
 	require.Equal(t, uint16(123), endpointID)
@@ -566,7 +567,7 @@ func TestProxyID(t *testing.T) {
 	id, port, proto = e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true, L7Parser: policy.ParserTypeCRD}, "test-listener")
 	require.NotEqual(t, "", id)
 	require.Equal(t, uint16(8080), port)
-	require.Equal(t, uint8(6), proto)
+	require.Equal(t, u8proto.TCP, proto)
 	endpointID, ingress, protocol, port, listener, err = policy.ParseProxyID(id)
 	require.Equal(t, uint16(123), endpointID)
 	require.Equal(t, true, ingress)
@@ -579,7 +580,7 @@ func TestProxyID(t *testing.T) {
 	id, port, proto = e.proxyID(&policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, Ingress: true}, "")
 	require.Equal(t, "", id)
 	require.Equal(t, uint16(0), port)
-	require.Equal(t, uint8(0), proto)
+	require.Equal(t, u8proto.ANY, proto)
 }
 
 func TestEndpoint_GetK8sPodLabels(t *testing.T) {

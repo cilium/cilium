@@ -56,7 +56,7 @@ func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
 	}
 
 	derivedFrom, rev, ok := lookupPolicyForKey(epInfo,
-		policy.NewKey(uint8(direction), uint32(remoteIdentity), uint8(proto), dport, 0),
+		policy.NewKey(direction, remoteIdentity, proto, dport, 0),
 		f.GetPolicyMatchType())
 	if !ok {
 		logger.WithFields(logrus.Fields{

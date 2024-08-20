@@ -787,7 +787,7 @@ func (e *Endpoint) Allows(id identity.NumericIdentity) bool {
 	e.unconditionalRLock()
 	defer e.runlock()
 
-	keyToLookup := policy.IngressL3OnlyKey(uint32(id))
+	keyToLookup := policy.IngressL3OnlyKey(id)
 
 	v, ok := e.desiredPolicy.GetPolicyMap().Get(keyToLookup)
 	return ok && !v.IsDeny

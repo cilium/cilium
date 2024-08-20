@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // RedirectImplementation is the generic proxy redirect interface that each
@@ -45,7 +46,7 @@ type Redirect struct {
 	rules policy.L7DataMap
 }
 
-func newRedirect(localEndpoint endpoint.EndpointUpdater, name string, listener *ProxyPort, port uint16, proto uint8) *Redirect {
+func newRedirect(localEndpoint endpoint.EndpointUpdater, name string, listener *ProxyPort, port uint16, proto u8proto.U8proto) *Redirect {
 	return &Redirect{
 		name:          name,
 		listener:      listener,

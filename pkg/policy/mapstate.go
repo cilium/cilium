@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // Key and Keys are types used both internally and externally.
@@ -35,38 +36,38 @@ type Keys = policyTypes.Keys
 type MapStateMap map[Key]MapStateEntry
 
 // NewKey returns an ingress key for the given parameters
-func NewKey(direction uint8, identity uint32, proto uint8, port uint16, prefixLen uint8) Key {
+func NewKey(direction trafficdirection.TrafficDirection, identity identity.NumericIdentity, proto u8proto.U8proto, port uint16, prefixLen uint8) Key {
 	return policyTypes.NewKey(direction, identity, proto, port, prefixLen)
 }
 
-func NewL3OnlyKey(direction uint8, identity uint32) Key {
+func NewL3OnlyKey(direction trafficdirection.TrafficDirection, identity identity.NumericIdentity) Key {
 	return NewKey(direction, identity, 0, 0, 0)
 }
 
-func IngressKey(identity uint32, proto uint8, port uint16, prefixLen uint8) Key {
+func IngressKey(identity identity.NumericIdentity, proto u8proto.U8proto, port uint16, prefixLen uint8) Key {
 	return NewKey(0, identity, proto, port, prefixLen)
 }
 
-func IngressL3OnlyKey(identity uint32) Key {
+func IngressL3OnlyKey(identity identity.NumericIdentity) Key {
 	return IngressKey(identity, 0, 0, 0)
 }
 
-func EgressKey(identity uint32, proto uint8, port uint16, prefixLen uint8) Key {
+func EgressKey(identity identity.NumericIdentity, proto u8proto.U8proto, port uint16, prefixLen uint8) Key {
 	return NewKey(1, identity, proto, port, prefixLen)
 }
 
-func EgressL3OnlyKey(identity uint32) Key {
+func EgressL3OnlyKey(identity identity.NumericIdentity) Key {
 	return EgressKey(identity, 0, 0, 0)
 }
 
 var (
 	// localHostKey represents an ingress L3 allow from the local host.
-	localHostKey = IngressL3OnlyKey(identity.ReservedIdentityHost.Uint32())
+	localHostKey = IngressL3OnlyKey(identity.ReservedIdentityHost)
 	// allKey represents a key for unknown traffic, i.e., all traffic.
 	// We have one for each traffic direction
 	allKey = [2]Key{
-		IngressL3OnlyKey(identity.IdentityUnknown.Uint32()),
-		EgressL3OnlyKey(identity.IdentityUnknown.Uint32()),
+		IngressL3OnlyKey(0),
+		EgressL3OnlyKey(0),
 	}
 )
 
@@ -197,7 +198,7 @@ func (msm *mapStateMap) upsert(k Key, e MapStateEntry, identities Identities) {
 			msm.trie.Upsert(kCpy.PrefixLength(), kCpy, idSet)
 		}
 
-		id := identity.NumericIdentity(k.Identity)
+		id := k.Identity
 		idSet.ids[id] = struct{}{}
 
 		// update CIDR and ANY indices
@@ -230,7 +231,7 @@ func (msm *mapStateMap) insertCidr(prefix netip.Prefix, k Key, idSet *IDSet) {
 		idMap = make(map[identity.NumericIdentity]struct{})
 		idSet.cidr.Upsert(prefix, idMap)
 	}
-	idMap[identity.NumericIdentity(k.Identity)] = struct{}{}
+	idMap[k.Identity] = struct{}{}
 }
 
 func (msm *mapStateMap) delete(k Key, identities Identities) {
@@ -238,7 +239,7 @@ func (msm *mapStateMap) delete(k Key, identities Identities) {
 	if exists {
 		delete(msm.entries, k)
 
-		id := identity.NumericIdentity(k.Identity)
+		id := k.Identity
 		idSet, ok := msm.trie.ExactLookup(k.PrefixLength(), k)
 		if ok {
 			delete(idSet.ids, id)
@@ -272,7 +273,7 @@ func (msm *mapStateMap) deleteCidr(prefix netip.Prefix, k Key, idSet *IDSet) {
 		idMap, ok := idSet.cidr.ExactLookup(prefix)
 		if ok {
 			if idMap != nil {
-				delete(idMap, identity.NumericIdentity(k.Identity))
+				delete(idMap, k.Identity)
 			}
 			// remove the idMap if empty
 			if len(idMap) == 0 {
@@ -343,8 +344,8 @@ func (msm *mapStateMap) ForEachNarrowerKeyWithBroaderID(key Key, prefixes []neti
 			bailed := false
 			idSet.cidr.Ancestors(prefix, func(cidr netip.Prefix, ids map[identity.NumericIdentity]struct{}) bool {
 				for id := range ids {
-					if id != identity.NumericIdentity(key.Identity) {
-						k.Identity = uint32(id)
+					if id != key.Identity {
+						k.Identity = id
 						if !msm.forKey(k, f) {
 							bailed = true
 							return false
@@ -382,7 +383,7 @@ func (msm *mapStateMap) ForEachBroaderOrEqualKey(key Key, prefixes []netip.Prefi
 		// but need to visit all keys with the same identity
 		// ANY identity was already visited above
 		if len(prefixes) == 0 && key.Identity != 0 {
-			_, exists := idSet.ids[identity.NumericIdentity(key.Identity)]
+			_, exists := idSet.ids[key.Identity]
 			if exists {
 				k.Identity = key.Identity
 				if !msm.forKey(k, f) {
@@ -400,7 +401,7 @@ func (msm *mapStateMap) ForEachBroaderOrEqualKey(key Key, prefixes []netip.Prefi
 			bailed := false
 			idSet.cidr.Ancestors(prefix, func(cidr netip.Prefix, ids map[identity.NumericIdentity]struct{}) bool {
 				for id := range ids {
-					k.Identity = uint32(id)
+					k.Identity = id
 					if !msm.forKey(k, f) {
 						bailed = true
 						return false
@@ -428,7 +429,7 @@ func (msm *mapStateMap) ForEachNarrowerOrEqualKey(key Key, prefixes []netip.Pref
 		// them.
 		if key.Identity == 0 {
 			for id := range idSet.ids {
-				k.Identity = uint32(id)
+				k.Identity = id
 				if !msm.forKey(k, f) {
 					return false
 				}
@@ -439,7 +440,7 @@ func (msm *mapStateMap) ForEachNarrowerOrEqualKey(key Key, prefixes []netip.Pref
 		// but need to visit all keys with the same identity
 		// ANY identity was already visited above
 		if len(prefixes) == 0 && key.Identity != 0 {
-			_, exists := idSet.ids[identity.NumericIdentity(key.Identity)]
+			_, exists := idSet.ids[key.Identity]
 			if exists {
 				k.Identity = key.Identity
 				if !msm.forKey(k, f) {
@@ -457,7 +458,7 @@ func (msm *mapStateMap) ForEachNarrowerOrEqualKey(key Key, prefixes []netip.Pref
 			bailed := false
 			idSet.cidr.Descendants(prefix, func(cidr netip.Prefix, ids map[identity.NumericIdentity]struct{}) bool {
 				for id := range ids {
-					k.Identity = uint32(id)
+					k.Identity = id
 					if !msm.forKey(k, f) {
 						bailed = true
 						return false
@@ -492,7 +493,7 @@ func (msm *mapStateMap) ForEachBroaderKeyWithNarrowerID(key Key, prefixes []neti
 		if key.Identity == 0 {
 			for id := range idSet.ids {
 				if id != 0 {
-					k.Identity = uint32(id)
+					k.Identity = id
 					if !msm.forKey(k, f) {
 						return false
 					}
@@ -508,8 +509,8 @@ func (msm *mapStateMap) ForEachBroaderKeyWithNarrowerID(key Key, prefixes []neti
 			bailed := false
 			idSet.cidr.Descendants(prefix, func(cidr netip.Prefix, ids map[identity.NumericIdentity]struct{}) bool {
 				for id := range ids {
-					if id != identity.NumericIdentity(key.Identity) {
-						k.Identity = uint32(id)
+					if id != key.Identity {
+						k.Identity = id
 						if !msm.forKey(k, f) {
 							bailed = true
 							return false
@@ -547,7 +548,7 @@ func (msm *mapStateMap) ForEachBroaderOrEqualDatapathKey(key Key, f func(Key, Ma
 		// Need to visit all keys with the same identity
 		// ANY identity was already visited above
 		if key.Identity != 0 {
-			_, exists := idSet.ids[identity.NumericIdentity(key.Identity)]
+			_, exists := idSet.ids[key.Identity]
 			if exists {
 				k.Identity = key.Identity
 				if !msm.forKey(k, f) {
@@ -572,7 +573,7 @@ func (msm *mapStateMap) ForEachNarrowerOrEqualDatapathKey(key Key, f func(Key, M
 		// All identities are descendants of ANY identity.
 		if key.Identity == 0 {
 			for id := range idSet.ids {
-				k.Identity = uint32(id)
+				k.Identity = id
 				if !msm.forKey(k, f) {
 					return false
 				}
@@ -582,7 +583,7 @@ func (msm *mapStateMap) ForEachNarrowerOrEqualDatapathKey(key Key, f func(Key, M
 		// Need to visit all keys with the same identity.
 		// ANY identity was already visited above.
 		if key.Identity != 0 {
-			_, exists := idSet.ids[identity.NumericIdentity(key.Identity)]
+			_, exists := idSet.ids[key.Identity]
 			if exists {
 				k.Identity = key.Identity
 				if !msm.forKey(k, f) {
@@ -601,7 +602,7 @@ func (msm *mapStateMap) ForEachKeyWithBroaderOrEqualPortProto(key Key, f func(Ke
 			LPMKey: lpmKey.Value(),
 		}
 		for id := range idSet.ids {
-			k.Identity = uint32(id)
+			k.Identity = id
 			if !msm.forKey(k, f) {
 				return false
 			}
@@ -617,7 +618,7 @@ func (msm *mapStateMap) ForEachKeyWithNarrowerOrEqualPortProto(key Key, f func(K
 			LPMKey: lpmKey.Value(),
 		}
 		for id := range idSet.ids {
-			k.Identity = uint32(id)
+			k.Identity = id
 			if !msm.forKey(k, f) {
 				return false
 			}
@@ -738,12 +739,11 @@ var worldNets = map[identity.NumericIdentity][]netip.Prefix{
 
 // getNets returns the most specific CIDR for an identity. For the "World" identity
 // it returns both IPv4 and IPv6.
-func getNets(identities Identities, ident uint32) []netip.Prefix {
+func getNets(identities Identities, id identity.NumericIdentity) []netip.Prefix {
 	// World identities are handled explicitly for two reasons:
 	// 1. 'identities' may be nil, but world identities are still expected to be considered
 	// 2. SelectorCache is not be informed of reserved/world identities in all test cases
 	// 3. identities.GetPrefix() does not return world identities
-	id := identity.NumericIdentity(ident)
 	if id <= identity.ReservedIdentityWorldIPv6 {
 		return worldNets[id]
 	}
@@ -1195,7 +1195,7 @@ func (ms *mapState) revertChanges(identities Identities, changes ChangeState) {
 // See https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw#gid=2109052536 for details
 func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStateEntry, identities Identities, features policyFeatures, changes ChangeState) {
 	// Sanity check on the newKey
-	if newKey.TrafficDirection() >= trafficdirection.Invalid.Uint8() {
+	if newKey.TrafficDirection() >= trafficdirection.Invalid {
 		log.WithFields(logrus.Fields{
 			logfields.Stacktrace:       hclog.Stacktrace(),
 			logfields.TrafficDirection: newKey.TrafficDirection,
@@ -1693,7 +1693,7 @@ func (msm *mapStateMap) ForEachKeyWithPortProto(key Key, f func(Key, MapStateEnt
 	if ok {
 		for id := range idSet.ids {
 			k := key
-			k.Identity = uint32(id)
+			k.Identity = id
 			if !msm.forKey(k, f) {
 				return
 			}
@@ -1751,7 +1751,7 @@ func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 		direction = trafficdirection.Ingress
 	}
 
-	key := NewKey(direction.Uint8(), 0, uint8(visMeta.Proto), visMeta.Port, 0)
+	key := NewKey(direction, 0, visMeta.Proto, visMeta.Port, 0)
 	entry := NewMapStateEntry(nil, visibilityDerivedFrom, redirectPort, "", 0, false, DefaultAuthType, AuthTypeDisabled)
 
 	_, haveAllowAllKey := ms.Get(allKey[direction])
@@ -1916,7 +1916,7 @@ func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 
 func (ms *mapState) deniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 	port := uint16(l4.Port)
-	proto := uint8(l4.U8Proto)
+	proto := l4.U8Proto
 
 	// resolve named port
 	if port == 0 && l4.PortName != "" {
@@ -1964,11 +1964,11 @@ func (ms *mapState) GetDenyIdentities(log *logrus.Logger) (ingIdentities, egIden
 // MapState.
 // Used only for API requests.
 func (ms *mapState) getIdentities(log *logrus.Logger, denied bool) (ingIdentities, egIdentities []int64) {
-	ms.ForEach(func(policyMapKey Key, policyMapValue MapStateEntry) bool {
-		if denied != policyMapValue.IsDeny {
+	ms.ForEach(func(key Key, entry MapStateEntry) bool {
+		if denied != entry.IsDeny {
 			return true
 		}
-		if policyMapKey.DestPort != 0 {
+		if key.DestPort != 0 {
 			// If the port is non-zero, then the Key no longer only applies
 			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
 			// contain sets of which identities (i.e., label-based L3 only)
@@ -1976,13 +1976,13 @@ func (ms *mapState) getIdentities(log *logrus.Logger, denied bool) (ingIdentitie
 			// not be added to these sets.
 			return true
 		}
-		switch trafficdirection.TrafficDirection(policyMapKey.TrafficDirection()) {
+		switch key.TrafficDirection() {
 		case trafficdirection.Ingress:
-			ingIdentities = append(ingIdentities, int64(policyMapKey.Identity))
+			ingIdentities = append(ingIdentities, int64(key.Identity))
 		case trafficdirection.Egress:
-			egIdentities = append(egIdentities, int64(policyMapKey.Identity))
+			egIdentities = append(egIdentities, int64(key.Identity))
 		default:
-			td := trafficdirection.TrafficDirection(policyMapKey.TrafficDirection())
+			td := key.TrafficDirection()
 			log.WithField(logfields.TrafficDirection, td).
 				Errorf("Unexpected traffic direction present in policy map state for endpoint")
 		}
@@ -2015,13 +2015,13 @@ func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []id
 	defer mc.mutex.Unlock()
 	for _, id := range adds {
 		for _, k := range keys {
-			k.Identity = id.Uint32()
+			k.Identity = id
 			mc.changes = append(mc.changes, MapChange{Add: true, Key: k, Value: value})
 		}
 	}
 	for _, id := range deletes {
 		for _, k := range keys {
-			k.Identity = id.Uint32()
+			k.Identity = id
 			mc.changes = append(mc.changes, MapChange{Add: false, Key: k, Value: value})
 		}
 	}

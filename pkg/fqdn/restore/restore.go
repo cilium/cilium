@@ -14,6 +14,8 @@ import (
 	"net/netip"
 	"sort"
 	"testing"
+
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // PortProtoV2 is 1 value at bit position 24.
@@ -31,11 +33,11 @@ const PortProtoV2 = 1 << 24
 // This works because Version 1 will naturally encode
 // no values at postions 16-31 as the original Version 1
 // was a uint16. Version 2 enforces a 1 value at the 24th
-// bit position, so it will alway be legible.
+// bit position, so it will always be legible.
 type PortProto uint32
 
 // MakeV2PortProto returns a Version 2 port protocol.
-func MakeV2PortProto(port uint16, proto uint8) PortProto {
+func MakeV2PortProto(port uint16, proto u8proto.U8proto) PortProto {
 	return PortProto(PortProtoV2 | (uint32(proto) << 16) | uint32(port))
 }
 

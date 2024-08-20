@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -163,22 +164,20 @@ const (
 	deny
 )
 
-type direction int
-
 const (
-	ingress direction = iota
-	egress
+	ingress = trafficdirection.Ingress
+	egress  = trafficdirection.Egress
 )
 
 func TestPolicyMapWildcarding(t *testing.T) {
 	type args struct {
 		op               opType
-		id               int
-		dport            int
-		proto            int
-		trafficDirection direction
+		id               identity.NumericIdentity
+		dport            uint16
+		proto            u8proto.U8proto
+		trafficDirection trafficdirection.TrafficDirection
 		authType         int
-		proxyPort        int
+		proxyPort        uint16
 	}
 	tests := []struct {
 		name string
@@ -252,18 +251,18 @@ func TestPolicyMapWildcarding(t *testing.T) {
 	for _, tt := range tests {
 		// Validate test data
 		if tt.args.proto == 0 {
-			require.Equal(t, 0, tt.args.dport, "Test: %s data error: dport must be wildcarded when protocol is wildcarded", tt.name)
+			require.Equal(t, uint16(0), tt.args.dport, "Test: %s data error: dport must be wildcarded when protocol is wildcarded", tt.name)
 		}
 		if tt.args.dport == 0 {
-			require.Equal(t, 0, tt.args.proxyPort, "Test: %s data error: proxyPort must be zero when dport is wildcarded", tt.name)
+			require.Equal(t, uint16(0), tt.args.proxyPort, "Test: %s data error: proxyPort must be zero when dport is wildcarded", tt.name)
 		}
 		if tt.args.op == deny {
-			require.Equal(t, 0, tt.args.proxyPort, "Test: %s data error: proxyPort must be zero with a deny key", tt.name)
+			require.Equal(t, uint16(0), tt.args.proxyPort, "Test: %s data error: proxyPort must be zero with a deny key", tt.name)
 			require.Equal(t, 0, tt.args.authType, "Test: %s data error: authType must be zero with a deny key", tt.name)
 		}
 
 		// Get key
-		key := newKey(trafficdirection.TrafficDirection(tt.args.trafficDirection), uint32(tt.args.id), u8proto.U8proto(tt.args.proto), uint16(tt.args.dport), SinglePortPrefixLen)
+		key := NewKey(tt.args.trafficDirection, tt.args.id, tt.args.proto, tt.args.dport, SinglePortPrefixLen)
 
 		// Compure entry & validate key and entry
 		var entry PolicyEntry
