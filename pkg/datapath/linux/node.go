@@ -884,7 +884,7 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	var links []netlink.Link
 
 	n.neighLock.Lock()
-	if n.neighDiscoveryLinks == nil || len(n.neighDiscoveryLinks) == 0 {
+	if len(n.neighDiscoveryLinks) == 0 {
 		n.neighLock.Unlock()
 		// Nothing to do - the discovery link was not set yet
 		return nil

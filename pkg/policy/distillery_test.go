@@ -1231,7 +1231,7 @@ func Test_MergeRules(t *testing.T) {
 			// ignore it and test only for the MapState that we are expecting
 			// to be plumbed into the datapath.
 			mapstate.ForEach(func(k Key, v MapStateEntry) bool {
-				if v.DerivedFromRules == nil || len(v.DerivedFromRules) == 0 {
+				if len(v.DerivedFromRules) == 0 {
 					return true
 				}
 				v.DerivedFromRules = labels.LabelArrayList(nil).Sort()
