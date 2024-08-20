@@ -74,7 +74,7 @@ func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 
 		logger := check.NewConcurrentLogger(params.Writer, params.TestConcurrency)
 
-		connTests, err := newConnectivityTests(params, logger)
+		connTests, err := newConnectivityTests(params, hooks, logger)
 		if err != nil {
 			return err
 		}
@@ -224,7 +224,11 @@ func registerCommonFlags(flags *pflag.FlagSet) {
 	flags.Var(&params.DeploymentAnnotations, "deployment-pod-annotations", "Add annotations to the connectivity pods, e.g. '{\"client\":{\"foo\":\"bar\"}}'")
 }
 
-func newConnectivityTests(params check.Parameters, logger *check.ConcurrentLogger) ([]*check.ConnectivityTest, error) {
+func newConnectivityTests(
+	params check.Parameters,
+	hooks api.Hooks,
+	logger *check.ConcurrentLogger,
+) ([]*check.ConnectivityTest, error) {
 	if params.TestConcurrency < 1 {
 		fmt.Printf("--test-concurrency parameter value is invalid [%d], using 1 instead\n", params.TestConcurrency)
 		params.TestConcurrency = 1
@@ -240,7 +244,7 @@ func newConnectivityTests(params check.Parameters, logger *check.ConcurrentLogge
 		}
 		params.ExternalDeploymentPort += i
 		params.EchoServerHostPort += i
-		cc, err := check.NewConnectivityTest(k8sClient, params, defaults.CLIVersion, logger)
+		cc, err := check.NewConnectivityTest(k8sClient, params, hooks, defaults.CLIVersion, logger)
 		if err != nil {
 			return nil, err
 		}

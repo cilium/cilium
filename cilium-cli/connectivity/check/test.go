@@ -940,7 +940,9 @@ func (t *Test) collectSysdump() {
 			t.Failf("Failed to create sysdump collector: %v", err)
 			return
 		}
-
+		if err := t.ctx.sysdumpHooks.AddSysdumpTasks(collector); err != nil {
+			t.Failf("Failed to add custom sysdump tasks: %w", err)
+		}
 		if err = collector.Run(); err != nil {
 			t.Failf("Failed to collect sysdump: %v", err)
 		}

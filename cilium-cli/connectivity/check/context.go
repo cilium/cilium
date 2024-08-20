@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/perf/common"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/cilium-cli/sysdump"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -46,6 +47,8 @@ type ConnectivityTest struct {
 
 	// Parameters to the test suite, specified by the CLI user.
 	params Parameters
+
+	sysdumpHooks sysdump.Hooks
 
 	logger *ConcurrentLogger
 
@@ -189,7 +192,13 @@ func (ct *ConnectivityTest) failedActions() []*Action {
 }
 
 // NewConnectivityTest returns a new ConnectivityTest.
-func NewConnectivityTest(client *k8s.Client, p Parameters, version string, logger *ConcurrentLogger) (*ConnectivityTest, error) {
+func NewConnectivityTest(
+	client *k8s.Client,
+	p Parameters,
+	sysdumpHooks sysdump.Hooks,
+	version string,
+	logger *ConcurrentLogger,
+) (*ConnectivityTest, error) {
 	if err := p.validate(); err != nil {
 		return nil, err
 	}
@@ -197,6 +206,7 @@ func NewConnectivityTest(client *k8s.Client, p Parameters, version string, logge
 	k := &ConnectivityTest{
 		client:                   client,
 		params:                   p,
+		sysdumpHooks:             sysdumpHooks,
 		logger:                   logger,
 		version:                  version,
 		ciliumPods:               make(map[string]Pod),
