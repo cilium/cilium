@@ -336,7 +336,8 @@ jobs:
 
       - name: Install Cilium on VM
         run: |
-          cilium clustermesh vm install install-external-workload.sh --config debug
+          extra_args=${{ env.CILIUM_RUNTIME_EXTRA_ARGS }}
+          cilium clustermesh vm install install-external-workload.sh --config debug$([ ! -z $extra_args ] && echo ",${extra_args}")
           gcloud compute scp install-external-workload.sh ${{ env.vmName }}-${{ matrix.vmIndex }}:~/ --zone ${{ matrix.zone }}
           gcloud compute ssh ${{ env.vmName }}-${{ matrix.vmIndex }} --zone ${{ matrix.zone }} \
             --command "~/install-external-workload.sh"
