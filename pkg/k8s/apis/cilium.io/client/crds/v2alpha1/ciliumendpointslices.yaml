@@ -3,8 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: ciliumendpointslices.cilium.io
 spec:
   group: cilium.io
@@ -25,9 +24,11 @@ spec:
         description: CiliumEndpointSlice contains a group of CoreCiliumendpoints.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           endpoints:
             description: Endpoints is a list of coreCEPs packed in a CiliumEndpointSlice
@@ -39,8 +40,9 @@ spec:
                     of a node.
                   properties:
                     key:
-                      description: Key is the index to the key to use for encryption
-                        or 0 if encryption is disabled.
+                      description: |-
+                        Key is the index to the key to use for encryption or 0 if encryption is
+                        disabled.
                       type: integer
                   type: object
                 id:
@@ -51,12 +53,16 @@ spec:
                   description: Name indicate as CiliumEndpoint name.
                   type: string
                 named-ports:
-                  description: "NamedPorts List of named Layer 4 port and protocol
-                    pairs which will be used in Network Policy specs. \n swagger:model
-                    NamedPorts"
+                  description: |-
+                    NamedPorts List of named Layer 4 port and protocol pairs which will be used in Network
+                    Policy specs.
+
+                    swagger:model NamedPorts
                   items:
-                    description: "Port Layer 4 port / protocol pair \n swagger:model
-                      Port"
+                    description: |-
+                      Port Layer 4 port / protocol pair
+
+                      swagger:model Port
                     properties:
                       name:
                         description: Optional layer 4 port name
@@ -65,8 +71,9 @@ spec:
                         description: Layer 4 port number
                         type: integer
                       protocol:
-                        description: 'Layer 4 protocol Enum: [TCP UDP SCTP ICMP ICMPV6
-                          ANY]'
+                        description: |-
+                          Layer 4 protocol
+                          Enum: [TCP UDP SCTP ICMP ICMPV6 ANY]
                         type: string
                     type: object
                   type: array
@@ -86,8 +93,9 @@ spec:
                         type: object
                       type: array
                     node:
-                      description: NodeIP is the IP of the node the endpoint is running
-                        on. The IP must be reachable between nodes.
+                      description: |-
+                        NodeIP is the IP of the node the endpoint is running on. The IP must
+                        be reachable between nodes.
                       type: string
                   required:
                   - addressing
@@ -95,15 +103,20 @@ spec:
               type: object
             type: array
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
           namespace:
-            description: Namespace indicate as CiliumEndpointSlice namespace. All
-              the CiliumEndpoints within the same namespace are put together in CiliumEndpointSlice.
+            description: |-
+              Namespace indicate as CiliumEndpointSlice namespace.
+              All the CiliumEndpoints within the same namespace are put together
+              in CiliumEndpointSlice.
             type: string
         required:
         - endpoints
@@ -111,9 +124,3 @@ spec:
         type: object
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

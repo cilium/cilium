@@ -17,13 +17,13 @@ limitations under the License.
 // Package pretty contains utilities for formatting terminal help output,
 // and a use of those to display marker help.
 //
-// Terminal Output
+// # Terminal Output
 //
 // The Span interface and Table struct allow you to construct tables with
 // colored formatting, without causing ANSI formatting characters to mess up width
 // calculations.
 //
-// Marker Help
+// # Marker Help
 //
 // The MarkersSummary prints a summary table for marker help, while the MarkersDetails
 // prints out more detailed information, with explainations of the individual marker fields.

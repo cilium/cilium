@@ -18,7 +18,7 @@ package schemapatcher
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
@@ -92,7 +92,7 @@ func (g Generator) Generate(ctx *genall.GenerationContext) (result error) {
 		Collector: ctx.Collector,
 		Checker:   ctx.Checker,
 		// Indicates the parser on whether to register the ObjectMeta type or not
-		GenerateEmbeddedObjectMeta: g.GenerateEmbeddedObjectMeta != nil && *g.GenerateEmbeddedObjectMeta == true,
+		GenerateEmbeddedObjectMeta: g.GenerateEmbeddedObjectMeta != nil && *g.GenerateEmbeddedObjectMeta,
 	}
 
 	crdgen.AddKnownTypes(parser)
@@ -113,7 +113,7 @@ func (g Generator) Generate(ctx *genall.GenerationContext) (result error) {
 	}
 
 	// generate schemata for the types we care about, and save them to be written later.
-	for groupKind := range crdgen.FindKubeKinds(parser, metav1Pkg) {
+	for _, groupKind := range crdgen.FindKubeKinds(parser, metav1Pkg) {
 		existingSet, wanted := partialCRDSets[groupKind]
 		if !wanted {
 			continue
@@ -335,7 +335,7 @@ func (e *partialCRD) setVersionedSchemata(newSchemata map[string]apiext.JSONSche
 // minimally invasive.  Returned CRDs are mapped by group-kind.
 func crdsFromDirectory(ctx *genall.GenerationContext, dir string) (map[schema.GroupKind]*partialCRDSet, error) {
 	res := map[schema.GroupKind]*partialCRDSet{}
-	dirEntries, err := ioutil.ReadDir(dir)
+	dirEntries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -358,11 +358,15 @@ func crdsFromDirectory(ctx *genall.GenerationContext, dir string) (map[schema.Gr
 		if err := kyaml.Unmarshal(rawContent, &typeMeta); err != nil {
 			continue
 		}
+
+		if typeMeta.APIVersion == "" || typeMeta.Kind != "CustomResourceDefinition" {
+			// If there's no API version this file probably isn't a CRD.
+			// Likewise we don't need to care if the Kind isn't CustomResourceDefinition.
+			continue
+		}
+
 		if !isSupportedAPIExtGroupVer(typeMeta.APIVersion) {
 			return nil, fmt.Errorf("load %q: apiVersion %q not supported", filepath.Join(dir, fileInfo.Name()), typeMeta.APIVersion)
-		}
-		if typeMeta.Kind != "CustomResourceDefinition" {
-			continue
 		}
 
 		// collect the group-kind and versions from the actual structured form

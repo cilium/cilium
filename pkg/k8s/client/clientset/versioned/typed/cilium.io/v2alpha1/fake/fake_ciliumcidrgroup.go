@@ -27,20 +27,22 @@ var ciliumcidrgroupsKind = v2alpha1.SchemeGroupVersion.WithKind("CiliumCIDRGroup
 
 // Get takes name of the ciliumCIDRGroup, and returns the corresponding ciliumCIDRGroup object, and an error if there is any.
 func (c *FakeCiliumCIDRGroups) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumCIDRGroup, err error) {
+	emptyResult := &v2alpha1.CiliumCIDRGroup{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(ciliumcidrgroupsResource, name), &v2alpha1.CiliumCIDRGroup{})
+		Invokes(testing.NewRootGetActionWithOptions(ciliumcidrgroupsResource, name, options), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumCIDRGroup), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumCIDRGroups that match those selectors.
 func (c *FakeCiliumCIDRGroups) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.CiliumCIDRGroupList, err error) {
+	emptyResult := &v2alpha1.CiliumCIDRGroupList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(ciliumcidrgroupsResource, ciliumcidrgroupsKind, opts), &v2alpha1.CiliumCIDRGroupList{})
+		Invokes(testing.NewRootListActionWithOptions(ciliumcidrgroupsResource, ciliumcidrgroupsKind, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -59,25 +61,27 @@ func (c *FakeCiliumCIDRGroups) List(ctx context.Context, opts v1.ListOptions) (r
 // Watch returns a watch.Interface that watches the requested ciliumCIDRGroups.
 func (c *FakeCiliumCIDRGroups) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(ciliumcidrgroupsResource, opts))
+		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumcidrgroupsResource, opts))
 }
 
 // Create takes the representation of a ciliumCIDRGroup and creates it.  Returns the server's representation of the ciliumCIDRGroup, and an error, if there is any.
 func (c *FakeCiliumCIDRGroups) Create(ctx context.Context, ciliumCIDRGroup *v2alpha1.CiliumCIDRGroup, opts v1.CreateOptions) (result *v2alpha1.CiliumCIDRGroup, err error) {
+	emptyResult := &v2alpha1.CiliumCIDRGroup{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(ciliumcidrgroupsResource, ciliumCIDRGroup), &v2alpha1.CiliumCIDRGroup{})
+		Invokes(testing.NewRootCreateActionWithOptions(ciliumcidrgroupsResource, ciliumCIDRGroup, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumCIDRGroup), err
 }
 
 // Update takes the representation of a ciliumCIDRGroup and updates it. Returns the server's representation of the ciliumCIDRGroup, and an error, if there is any.
 func (c *FakeCiliumCIDRGroups) Update(ctx context.Context, ciliumCIDRGroup *v2alpha1.CiliumCIDRGroup, opts v1.UpdateOptions) (result *v2alpha1.CiliumCIDRGroup, err error) {
+	emptyResult := &v2alpha1.CiliumCIDRGroup{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(ciliumcidrgroupsResource, ciliumCIDRGroup), &v2alpha1.CiliumCIDRGroup{})
+		Invokes(testing.NewRootUpdateActionWithOptions(ciliumcidrgroupsResource, ciliumCIDRGroup, opts), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumCIDRGroup), err
 }
@@ -91,7 +95,7 @@ func (c *FakeCiliumCIDRGroups) Delete(ctx context.Context, name string, opts v1.
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCiliumCIDRGroups) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(ciliumcidrgroupsResource, listOpts)
+	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumcidrgroupsResource, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2alpha1.CiliumCIDRGroupList{})
 	return err
@@ -99,10 +103,11 @@ func (c *FakeCiliumCIDRGroups) DeleteCollection(ctx context.Context, opts v1.Del
 
 // Patch applies the patch and returns the patched ciliumCIDRGroup.
 func (c *FakeCiliumCIDRGroups) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumCIDRGroup, err error) {
+	emptyResult := &v2alpha1.CiliumCIDRGroup{}
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(ciliumcidrgroupsResource, name, pt, data, subresources...), &v2alpha1.CiliumCIDRGroup{})
+		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumcidrgroupsResource, name, pt, data, opts, subresources...), emptyResult)
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2alpha1.CiliumCIDRGroup), err
 }

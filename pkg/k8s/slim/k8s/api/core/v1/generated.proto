@@ -105,7 +105,7 @@ message ContainerState {
 message ContainerStateRunning {
   // Time at which the container was last (re-)started
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startedAt = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startedAt = 1;
 }
 
 // ContainerStatus contains details for the current status of this container.
@@ -219,7 +219,7 @@ message Endpoints {
   // Standard object's metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
 
   // The set of all endpoints is the union of all subsets. Addresses are placed into
   // subsets according to the IPs they share. A single address with multiple ports,
@@ -238,7 +238,7 @@ message EndpointsList {
   // Standard list metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
 
   // List of endpoints.
   repeated Endpoints items = 2;
@@ -288,7 +288,7 @@ message Namespace {
   // Standard object's metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
 }
 
 // NamespaceList is a list of Namespaces.
@@ -296,7 +296,7 @@ message NamespaceList {
   // Standard list metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
 
   // Items is the list of Namespace objects in the list.
   // More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
@@ -309,7 +309,7 @@ message Node {
   // Standard object's metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
 
   // Spec defines the behavior of a node.
   // https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
@@ -351,7 +351,7 @@ message NodeList {
   // Standard list metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
 
   // List of nodes
   repeated Node items = 2;
@@ -416,7 +416,7 @@ message Pod {
   // Standard object's metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
 
   // Specification of the desired behavior of the pod.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
@@ -445,11 +445,11 @@ message PodCondition {
 
   // Last time we probed the condition.
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time lastProbeTime = 3;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time lastProbeTime = 3;
 
   // Last time the condition transitioned from one status to another.
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time lastTransitionTime = 4;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time lastTransitionTime = 4;
 
   // Unique, one-word, CamelCase reason for the condition's last transition.
   // +optional
@@ -463,6 +463,7 @@ message PodCondition {
 // PodIP represents a single IP address allocated to the pod.
 message PodIP {
   // IP is the IP address assigned to the pod
+  // +required
   optional string ip = 1;
 }
 
@@ -471,7 +472,7 @@ message PodList {
   // Standard list metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
 
   // List of pods.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md
@@ -520,10 +521,11 @@ message PodSpec {
   // +optional
   optional string serviceAccountName = 8;
 
-  // NodeName is a request to schedule this pod onto a specific node. If it is non-empty,
-  // the scheduler simply schedules this pod onto that node, assuming that it fits resource
-  // requirements.
-  // +optional
+  // NodeName indicates in which node this pod is scheduled.
+  // If empty, this pod is a candidate for scheduling by the scheduler defined in schedulerName.
+  // Once this field is set, the kubelet for this node becomes responsible for the lifecycle of this pod.
+  // This field should not be used to express a desire for the pod to be scheduled on a specific node.
+  // https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename
   optional string nodeName = 10;
 
   // Host networking requested for this pod. Use the host's network namespace.
@@ -592,7 +594,7 @@ message PodStatus {
   // RFC 3339 date and time at which the object was acknowledged by the Kubelet.
   // This is before the Kubelet pulled the container image(s) for the pod.
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startTime = 7;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startTime = 7;
 
   // The list has one entry per container in the manifest.
   // More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status
@@ -637,7 +639,7 @@ message Secret {
   // Standard object's metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
 
   // Immutable, if set to true, ensures that data stored in the Secret cannot
   // be updated (only object metadata can be modified).
@@ -672,7 +674,7 @@ message SecretList {
   // Standard list metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
 
   // Items is a list of secret objects.
   // More info: https://kubernetes.io/docs/concepts/configuration/secret
@@ -686,7 +688,7 @@ message Service {
   // Standard object's metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
 
   // Spec defines the behavior of a service.
   // https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
@@ -706,7 +708,7 @@ message ServiceList {
   // Standard list metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
 
   // List of services
   repeated Service items = 2;
@@ -758,7 +760,7 @@ message ServicePort {
   // omitted or set equal to the 'port' field.
   // More info: https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.util.intstr.IntOrString targetPort = 4;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.util.intstr.IntOrString targetPort = 4;
 
   // The port on each node on which this service is exposed when type is
   // NodePort or LoadBalancer.  Usually assigned by the system. If a value is
@@ -1003,7 +1005,7 @@ message ServiceStatus {
   // +patchStrategy=merge
   // +listType=map
   // +listMapKey=type
-  repeated github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Condition conditions = 2;
+  repeated .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Condition conditions = 2;
 }
 
 // SessionAffinityConfig represents the configurations of session affinity.
@@ -1031,7 +1033,7 @@ message Taint {
   // TimeAdded represents the time at which the taint was added.
   // It is only written for NoExecute taints.
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time timeAdded = 4;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time timeAdded = 4;
 }
 
 // TypedLocalObjectReference contains enough information to let you locate the

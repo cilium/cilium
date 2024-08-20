@@ -7,8 +7,8 @@ package v2alpha1
 
 import (
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -26,30 +26,10 @@ type CiliumBGPClusterConfigLister interface {
 
 // ciliumBGPClusterConfigLister implements the CiliumBGPClusterConfigLister interface.
 type ciliumBGPClusterConfigLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v2alpha1.CiliumBGPClusterConfig]
 }
 
 // NewCiliumBGPClusterConfigLister returns a new CiliumBGPClusterConfigLister.
 func NewCiliumBGPClusterConfigLister(indexer cache.Indexer) CiliumBGPClusterConfigLister {
-	return &ciliumBGPClusterConfigLister{indexer: indexer}
-}
-
-// List lists all CiliumBGPClusterConfigs in the indexer.
-func (s *ciliumBGPClusterConfigLister) List(selector labels.Selector) (ret []*v2alpha1.CiliumBGPClusterConfig, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v2alpha1.CiliumBGPClusterConfig))
-	})
-	return ret, err
-}
-
-// Get retrieves the CiliumBGPClusterConfig from the index for a given name.
-func (s *ciliumBGPClusterConfigLister) Get(name string) (*v2alpha1.CiliumBGPClusterConfig, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v2alpha1.Resource("ciliumbgpclusterconfig"), name)
-	}
-	return obj.(*v2alpha1.CiliumBGPClusterConfig), nil
+	return &ciliumBGPClusterConfigLister{listers.New[*v2alpha1.CiliumBGPClusterConfig](indexer, v2alpha1.Resource("ciliumbgpclusterconfig"))}
 }
