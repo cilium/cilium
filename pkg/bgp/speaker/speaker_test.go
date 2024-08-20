@@ -103,19 +103,19 @@ func TestSpeakerOnUpdateService(t *testing.T) {
 		t.Fatalf("got: %v, want: %v", rr.name, serviceID.String())
 	}
 	if !cmp.Equal(rr.svc, &metallbService) {
-		t.Fatalf(cmp.Diff(rr.svc, metallbService))
+		t.Fatal(cmp.Diff(rr.svc, metallbService))
 	}
 	if !cmp.Equal(rr.eps, &metallbendpoints) {
-		t.Fatalf(cmp.Diff(rr.eps, metallbendpoints))
+		t.Fatal(cmp.Diff(rr.eps, metallbendpoints))
 	}
 
 	// confirm spkr appended service to map
 	servicePrime, ok := spkr.services[serviceID]
 	if !ok {
-		t.Fatalf("speaker did not append slim_corev1.Service object to its services map.")
+		t.Fatal("speaker did not append slim_corev1.Service object to its services map.")
 	}
 	if !cmp.Equal(servicePrime, &service) {
-		t.Fatalf(cmp.Diff(servicePrime, service))
+		t.Fatal(cmp.Diff(servicePrime, service))
 	}
 }
 
@@ -199,7 +199,7 @@ func TestSpeakerOnDeleteService(t *testing.T) {
 	// confirm spkr removed service to map
 	_, ok := spkr.services[serviceID]
 	if ok {
-		t.Fatalf("speaker did not delete slim_corev1.Service object to its services map.")
+		t.Fatal("speaker did not delete slim_corev1.Service object to its services map.")
 	}
 }
 
@@ -276,10 +276,10 @@ func TestSpeakerOnUpdateEndpoints(t *testing.T) {
 	// confirm the recorded MetalLBService and MetalLBEndpoints
 	// are equal to our generated mocks.
 	if !cmp.Equal(rr.svc, &metallbService) {
-		t.Fatalf(cmp.Diff(rr.svc, metallbService))
+		t.Fatal(cmp.Diff(rr.svc, metallbService))
 	}
 	if !cmp.Equal(rr.eps, &metallbendpoints) {
-		t.Fatalf(cmp.Diff(rr.eps, metallbendpoints))
+		t.Fatal(cmp.Diff(rr.eps, metallbendpoints))
 	}
 }
 
@@ -386,10 +386,10 @@ func TestSpeakerOnUpdateNode(t *testing.T) {
 	// confirm the recorded Labels and bgp advertisements
 	// are equal to our generated mocks.
 	if !cmp.Equal(rr.labels, node.Labels) {
-		t.Fatalf(cmp.Diff(rr.labels, node.Labels))
+		t.Fatal(cmp.Diff(rr.labels, node.Labels))
 	}
 	if !cmp.Equal(rr.advs, advs) {
-		t.Fatalf(cmp.Diff(rr.advs, advs))
+		t.Fatal(cmp.Diff(rr.advs, advs))
 	}
 }
 
@@ -490,12 +490,12 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 	// confirm we recorded an empty slice of advertisements
 	// this informs MetalLB to withdrawal all routes.
 	if !cmp.Equal(rr.advs, advs) {
-		t.Fatalf(cmp.Diff(rr.advs, advs))
+		t.Fatal(cmp.Diff(rr.advs, advs))
 	}
 
 	// confirm speaker rejects any further events.
 	if !spkr.shutDown() {
-		t.Fatalf("wanted speaker to be shutdown")
+		t.Fatal("wanted speaker to be shutdown")
 	}
 	if err := spkr.notifyNodeEvent(Add, nil, nil, true); !errors.Is(err, ErrShutDown) {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
@@ -570,12 +570,12 @@ func TestSpeakerOnUpdateAndDeleteCiliumNode(t *testing.T) {
 
 	receivedLabels := <-labelChan
 	if !cmp.Equal(receivedLabels, node.Labels) {
-		t.Fatalf(cmp.Diff(receivedLabels, node.Labels))
+		t.Fatal(cmp.Diff(receivedLabels, node.Labels))
 	}
 
 	receivedAdvs := <-advertisementChan
 	if !cmp.Equal(receivedAdvs, advs) {
-		t.Fatalf(cmp.Diff(receivedAdvs, advs))
+		t.Fatal(cmp.Diff(receivedAdvs, advs))
 	}
 
 	// Add two additional pod CIDRs to CiliumNode
@@ -587,12 +587,12 @@ func TestSpeakerOnUpdateAndDeleteCiliumNode(t *testing.T) {
 
 	receivedLabels = <-labelChan
 	if !cmp.Equal(receivedLabels, node.Labels) {
-		t.Fatalf(cmp.Diff(receivedLabels, node.Labels))
+		t.Fatal(cmp.Diff(receivedLabels, node.Labels))
 	}
 
 	receivedAdvs = <-advertisementChan
 	if !cmp.Equal(receivedAdvs, advs) {
-		t.Fatalf(cmp.Diff(receivedAdvs, advs))
+		t.Fatal(cmp.Diff(receivedAdvs, advs))
 	}
 
 	// Delete CiliumNode
@@ -604,6 +604,6 @@ func TestSpeakerOnUpdateAndDeleteCiliumNode(t *testing.T) {
 	// Withdrawal is represented as an empty list of advertisements
 	receivedAdvs = <-advertisementChan
 	if !cmp.Equal(len(receivedAdvs), 0) {
-		t.Fatalf(cmp.Diff(len(receivedAdvs), 0))
+		t.Fatal(cmp.Diff(len(receivedAdvs), 0))
 	}
 }

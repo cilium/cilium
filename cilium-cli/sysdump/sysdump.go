@@ -2234,7 +2234,7 @@ func zipDirectory(src string, dst string) error {
 func (c *Collector) submitCiliumBugtoolTasks(pods []*corev1.Pod) error {
 	for _, p := range pods {
 		p := p
-		if err := c.Pool.Submit(fmt.Sprintf("cilium-bugtool-"+p.Name), func(ctx context.Context) error {
+		if err := c.Pool.Submit("cilium-bugtool-"+p.Name, func(ctx context.Context) error {
 			p, containerName, cleanupFunc, err := c.ensureExecTarget(ctx, p, ciliumAgentContainerName)
 			if err != nil {
 				return fmt.Errorf("failed to pick exec target: %w", err)
@@ -2307,7 +2307,7 @@ func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod
 	hubbleFlowsTimeout := strconv.FormatInt(int64(c.Options.HubbleFlowsTimeout/time.Second), 10)
 	for _, p := range pods {
 		p := p
-		if err := c.Pool.Submit(fmt.Sprintf("hubble-flows-"+p.Name), func(ctx context.Context) error {
+		if err := c.Pool.Submit("hubble-flows-"+p.Name, func(ctx context.Context) error {
 			b, e, err := c.Client.ExecInPodWithStderr(ctx, p.Namespace, p.Name, containerName, []string{
 				"timeout", "--signal", "SIGINT", "--preserve-status", hubbleFlowsTimeout, "bash", "-c",
 				fmt.Sprintf("hubble observe --last %d --debug -o jsonpb", c.Options.HubbleFlowsCount),
@@ -2335,7 +2335,7 @@ func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod
 func (c *Collector) submitSpireEntriesTasks(pods []*corev1.Pod) error {
 	for _, p := range pods {
 		p := p
-		if err := c.Pool.Submit(fmt.Sprintf("spire-entries-"+p.Name), func(ctx context.Context) error {
+		if err := c.Pool.Submit("spire-entries-"+p.Name, func(ctx context.Context) error {
 			p, containerName, cleanupFunc, err := c.ensureExecTarget(ctx, p, spireServerContainerName)
 			if err != nil {
 				return fmt.Errorf("failed to pick exec target: %w", err)

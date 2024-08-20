@@ -151,7 +151,7 @@ func TestDescendants(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Logf("Running test case '" + tt.name + "'")
+		t.Logf("Running test case %q", tt.name)
 		tr := NewCIDRTrie[string]()
 		for _, v := range tt.prefixes {
 			tr.Upsert(v, v.String())

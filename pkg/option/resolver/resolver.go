@@ -246,8 +246,7 @@ func readNodeConfigsAllVersions(ctx context.Context, client client.Clientset, no
 		log.WithFields(logrus.Fields{logfields.Node: nodeName}).Errorf("CiliumNodeConfig v2alpha1 not found: %s", errv2alpha1)
 		// return the errors for the two versions
 		if errv2 != nil {
-			msg := fmt.Sprintf("CiliumNodeConfig v2 and v2alpha1 not found: %s and %s\n", errv2, errv2alpha1)
-			return nil, nil, fmt.Errorf(msg)
+			return nil, nil, fmt.Errorf("CiliumNodeConfig v2 and v2alpha1 not found: %w and %w\n", errv2, errv2alpha1)
 		}
 		return nil, nil, errv2alpha1
 	}

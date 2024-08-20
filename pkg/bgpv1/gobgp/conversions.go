@@ -305,11 +305,11 @@ func policyStatementName(policyName string, cnt int) string {
 }
 
 func policyNeighborDefinedSetName(policyStatementName string) string {
-	return fmt.Sprintf(policyStatementName + "-neighbor")
+	return policyStatementName + "-neighbor"
 }
 
 func policyPrefixDefinedSetName(policyStatementName string) string {
-	return fmt.Sprintf(policyStatementName + "-prefix")
+	return policyStatementName + "-prefix"
 }
 
 func toGoBGPRouteAction(a types.RoutePolicyAction) gobgp.RouteAction {
