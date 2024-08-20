@@ -1377,19 +1377,19 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 	}
 }
 
-func testIngressKey(id uint32, port uint16, proto uint8) Key {
+func testIngressKey(id identity.NumericIdentity, port uint16, proto u8proto.U8proto) Key {
 	return IngressKey(id, proto, port, 0)
 }
 
-func testEgressKey(id uint32, port uint16, proto uint8) Key {
+func testEgressKey(id identity.NumericIdentity, port uint16, proto u8proto.U8proto) Key {
 	return EgressKey(id, proto, port, 0)
 }
 
-func DNSUDPEgressKey(id uint32) Key {
+func DNSUDPEgressKey(id identity.NumericIdentity) Key {
 	return EgressKey(id, 17, 53, 0)
 }
 
-func DNSTCPEgressKey(id uint32) Key {
+func DNSTCPEgressKey(id identity.NumericIdentity) Key {
 	return EgressKey(id, 6, 53, 0)
 }
 
@@ -1405,11 +1405,11 @@ func AnyEgressKey() Key {
 	return testEgressKey(0, 0, 0)
 }
 
-func HttpIngressKey(id uint32) Key {
+func HttpIngressKey(id identity.NumericIdentity) Key {
 	return testIngressKey(id, 80, 6)
 }
 
-func HttpEgressKey(id uint32) Key {
+func HttpEgressKey(id identity.NumericIdentity) Key {
 	return testEgressKey(id, 80, 6)
 }
 
@@ -1464,7 +1464,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		adds     []int
 		deletes  []int
 		port     uint16
-		proto    uint8
+		proto    u8proto.U8proto
 		ingress  bool
 		redirect bool
 		deny     bool
@@ -1780,7 +1780,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			if x.cs != nil {
 				cs = x.cs
 			}
-			key := NewKey(dir.Uint8(), 0, x.proto, x.port, 0)
+			key := NewKey(dir, 0, x.proto, x.port, 0)
 			var proxyPort uint16
 			if x.redirect {
 				proxyPort = 1
@@ -1814,7 +1814,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		adds     []int
 		deletes  []int
 		port     uint16
-		proto    uint8
+		proto    u8proto.U8proto
 		ingress  bool
 		redirect bool
 		deny     bool
@@ -2120,7 +2120,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			if x.cs != nil {
 				cs = x.cs
 			}
-			key := NewKey(dir.Uint8(), 0, x.proto, x.port, 0)
+			key := NewKey(dir, 0, x.proto, x.port, 0)
 			var proxyPort uint16
 			if x.redirect {
 				proxyPort = 1
@@ -2359,7 +2359,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 		adds     []int
 		deletes  []int
 		port     uint16
-		proto    uint8
+		proto    u8proto.U8proto
 		ingress  bool
 		redirect bool
 		deny     bool
@@ -2703,7 +2703,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			if x.cs != nil {
 				cs = x.cs
 			}
-			key := NewKey(dir.Uint8(), 0, x.proto, x.port, 0)
+			key := NewKey(dir, 0, x.proto, x.port, 0)
 			var proxyPort uint16
 			if x.redirect {
 				proxyPort = 1
@@ -2751,9 +2751,9 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		worldSubnetIdentity:            lblWorldSubnet.LabelArray(), // "192.0.2.0/24"
 	}
 
-	reservedWorldID := identity.ReservedIdentityWorld.Uint32()
-	worldIPID := worldIPIdentity.Uint32()
-	worldSubnetID := worldSubnetIdentity.Uint32()
+	reservedWorldID := identity.ReservedIdentityWorld
+	worldIPID := worldIPIdentity
+	worldSubnetID := worldSubnetIdentity
 	selectorCache := testNewSelectorCache(identityCache)
 	type action uint16
 	const (
@@ -2780,12 +2780,12 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 	tests := []struct {
 		name                 string
 		withAllowAll         withAllowAll
-		aIdentity, bIdentity uint32
+		aIdentity, bIdentity identity.NumericIdentity
 		aIsDeny, bIsDeny     bool
 		aPort                uint16
-		aProto               uint8
+		aProto               u8proto.U8proto
 		bPort                uint16
-		bProto               uint8
+		bProto               u8proto.U8proto
 		outcome              action
 	}{
 		// deny-allow insertions
@@ -3101,7 +3101,7 @@ func prefixesContainsAny(a, b []netip.Prefix) bool {
 // the compared identity. This means that either that primary identity is 0 (i.e. it is a superset
 // of every other identity), or one of the subnets of the primary identity fully contains or is
 // equal to one of the subnets in the compared identity (note:this covers cases like "reserved:world").
-func identityIsSupersetOf(primaryIdentity, compareIdentity uint32, identities Identities) bool {
+func identityIsSupersetOf(primaryIdentity, compareIdentity identity.NumericIdentity, identities Identities) bool {
 	// If the identities are equal then neither is a superset (for the purposes of our business logic).
 	if primaryIdentity == compareIdentity {
 		return false

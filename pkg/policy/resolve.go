@@ -5,6 +5,8 @@ package policy
 
 import (
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // selectorPolicy is a structure which contains the resolved policy for a
@@ -64,7 +66,7 @@ type PolicyOwner interface {
 	LookupRedirectPort(ingress bool, protocol string, port uint16, listener string) (uint16, error)
 	GetRealizedRedirects() map[string]uint16
 	HasBPFPolicyMap() bool
-	GetNamedPort(ingress bool, name string, proto uint8) uint16
+	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
 	PolicyDebug(fields logrus.Fields, msg string)
 }
 

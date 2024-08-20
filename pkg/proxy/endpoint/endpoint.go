@@ -6,6 +6,7 @@ package endpoint
 import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // EndpointInfoSource returns information about an endpoint being proxied.
@@ -15,7 +16,7 @@ type EndpointInfoSource interface {
 	GetIPv4Address() string
 	GetIPv6Address() string
 	ConntrackNameLocked() string
-	GetNamedPort(ingress bool, name string, proto uint8) uint16
+	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
 }
 
 // EndpointUpdater returns information about an endpoint being proxied and

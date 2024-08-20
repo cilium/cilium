@@ -206,14 +206,14 @@ type PolicyUpdateArgs struct {
 	trafficDirection trafficdirection.TrafficDirection
 
 	// label represents the identity of the label provided as argument.
-	label uint32
+	label identity.NumericIdentity
 
 	// port represents the port associated with the command, if specified.
 	port uint16
 
 	// protocols represents the set of protocols associated with the
 	// command, if specified.
-	protocols []uint8
+	protocols []u8proto.U8proto
 
 	isDeny bool
 }
@@ -286,10 +286,10 @@ func parsePolicyUpdateArgsHelper(args []string, isDeny bool) (*PolicyUpdateArgs,
 	if err != nil {
 		return nil, fmt.Errorf("Failed to convert %s", args[2])
 	}
-	label := uint32(peerLbl)
+	label := identity.NumericIdentity(peerLbl)
 
 	port := uint16(0)
-	protos := []uint8{}
+	protos := []u8proto.U8proto{}
 	if len(args) > 3 {
 		pp, err := parseL4PortsSlice([]string{args[3]})
 		if err != nil {
@@ -300,10 +300,10 @@ func parsePolicyUpdateArgsHelper(args []string, isDeny bool) (*PolicyUpdateArgs,
 			proto, _ := u8proto.ParseProtocol(pp[0].Protocol)
 			if proto == 0 {
 				for _, proto := range u8proto.ProtoIDs {
-					protos = append(protos, uint8(proto))
+					protos = append(protos, proto)
 				}
 			} else {
-				protos = append(protos, uint8(proto))
+				protos = append(protos, proto)
 			}
 		}
 	}

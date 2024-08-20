@@ -209,8 +209,8 @@ func (p *fakeProxyPolicy) GetPort() uint16 {
 	return uint16(80)
 }
 
-func (p *fakeProxyPolicy) GetProtocol() uint8 {
-	return uint8(u8proto.UDP)
+func (p *fakeProxyPolicy) GetProtocol() u8proto.U8proto {
+	return u8proto.UDP
 }
 
 func (p *fakeProxyPolicy) GetListener() string {

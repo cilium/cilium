@@ -54,8 +54,8 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	<-s.mgr.InitIdentityAllocator(nil)
 
 	identityCache := identity.IdentityMap{
-		identity.NumericIdentity(identityFoo): labelsFoo,
-		identity.NumericIdentity(identityBar): labelsBar,
+		identityFoo: labelsFoo,
+		identityBar: labelsBar,
 	}
 
 	s.do.idmgr = identitymanager.NewIdentityManager()
@@ -209,7 +209,7 @@ func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 	ep := NewTestEndpointWithState(t, s.do, s.do, testipcache.NewMockIPCache(), s.rsp, s.mgr, 12345, StateRegenerating)
 	ep.SetPropertyValue(PropertyFakeEndpoint, false)
 
-	epIdentity, _, err := s.mgr.AllocateIdentity(context.Background(), labelsBar.Labels(), true, identity.NumericIdentity(identityBar))
+	epIdentity, _, err := s.mgr.AllocateIdentity(context.Background(), labelsBar.Labels(), true, identityBar)
 	require.Nil(t, err)
 	ep.SetIdentity(epIdentity, true)
 
@@ -245,7 +245,7 @@ func TestAddVisibilityRedirects(t *testing.T) {
 
 	_, err, _, _ = ep.addNewRedirects(cmp)
 	require.Nil(t, err)
-	v, ok := ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey(0, uint8(u8proto.TCP), 80, 0))
+	v, ok := ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey(0, u8proto.TCP, 80, 0))
 	require.Equal(t, true, ok)
 	require.Equal(t, httpPort, v.ProxyPort)
 
@@ -261,7 +261,7 @@ func TestAddVisibilityRedirects(t *testing.T) {
 
 	d, err, _, _ := ep.addNewRedirects(cmp)
 	require.Nil(t, err)
-	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey(0, uint8(u8proto.TCP), 80, 0))
+	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey(0, u8proto.TCP, 80, 0))
 	require.Equal(t, true, ok)
 	// Check that proxyport was updated accordingly.
 	require.Equal(t, kafkaPort, v.ProxyPort)
@@ -280,15 +280,15 @@ func TestAddVisibilityRedirects(t *testing.T) {
 	realizedRedirects := ep.GetRealizedRedirects()
 	d2, err, _, _ := ep.addNewRedirects(cmp)
 	require.Nil(t, err)
-	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey(0, uint8(u8proto.TCP), 80, 0))
+	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey(0, u8proto.TCP, 80, 0))
 	require.Equal(t, true, ok)
 	require.Equal(t, kafkaPort, v.ProxyPort)
 
-	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey(0, uint8(u8proto.TCP), 80, 0))
+	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey(0, u8proto.TCP, 80, 0))
 	require.Equal(t, true, ok)
 	require.Equal(t, kafkaPort, v.ProxyPort)
 
-	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.EgressKey(0, uint8(u8proto.TCP), 80, 0))
+	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.EgressKey(0, u8proto.TCP, 80, 0))
 	require.Equal(t, true, ok)
 	require.Equal(t, httpPort, v.ProxyPort)
 	pID := policy.ProxyID(ep.ID, false, u8proto.TCP.String(), uint16(80), "")
@@ -322,13 +322,13 @@ func TestAddVisibilityRedirects(t *testing.T) {
 
 var (
 	// Identity, labels, selectors for an endpoint named "foo"
-	identityFoo = uint32(100)
+	identityFoo = identity.NumericIdentity(100)
 	labelsFoo   = labels.ParseSelectLabelArray("foo", "red")
 	selectFoo_  = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
 	selectRed_  = api.NewESFromLabels(labels.ParseSelectLabel("red"))
 	denyFooL3__ = selectFoo_
 
-	identityBar = uint32(200)
+	identityBar = identity.NumericIdentity(200)
 
 	labelsBar  = labels.ParseSelectLabelArray("bar", "blue")
 	selectBar_ = api.NewESFromLabels(labels.ParseSelectLabel("bar"))

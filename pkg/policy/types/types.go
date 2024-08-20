@@ -7,7 +7,9 @@ import (
 	"math/bits"
 	"strconv"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // MapStatePrefixLen is the length, in bits, of the Key when converted
@@ -21,7 +23,7 @@ type LPMKey struct {
 	// bits contains the TrafficDirection in the highest bit and the port prefix length in the 5 lowest bits.
 	bits uint8
 	// NextHdr is the protocol which is allowed.
-	Nexthdr uint8
+	Nexthdr u8proto.U8proto
 	// DestPort is the port at L4 to / from which traffic is allowed, in
 	// host-byte order.
 	DestPort uint16
@@ -30,7 +32,7 @@ type LPMKey struct {
 type Key struct {
 	LPMKey
 	// Identity is the numeric identity to / from which traffic is allowed.
-	Identity uint32
+	Identity identity.NumericIdentity
 }
 
 const (
@@ -39,7 +41,7 @@ const (
 )
 
 // NewKey returns an ingress key for the given parameters
-func NewKey(direction uint8, identity uint32, proto uint8, port uint16, prefixLen uint8) Key {
+func NewKey(direction trafficdirection.TrafficDirection, identity identity.NumericIdentity, proto u8proto.U8proto, port uint16, prefixLen uint8) Key {
 	if direction > 1 {
 		direction = 1
 	}
@@ -51,7 +53,7 @@ func NewKey(direction uint8, identity uint32, proto uint8, port uint16, prefixLe
 	}
 	return Key{
 		LPMKey: LPMKey{
-			bits:     direction<<directionBitShift | prefixLen,
+			bits:     uint8(direction)<<directionBitShift | prefixLen,
 			Nexthdr:  proto,
 			DestPort: port,
 		},
@@ -60,8 +62,8 @@ func NewKey(direction uint8, identity uint32, proto uint8, port uint16, prefixLe
 }
 
 // TrafficDirection() returns the direction of the Key, 0 == ingress, 1 == egress
-func (k LPMKey) TrafficDirection() uint8 {
-	return k.bits >> directionBitShift
+func (k LPMKey) TrafficDirection() trafficdirection.TrafficDirection {
+	return trafficdirection.TrafficDirection(k.bits >> directionBitShift)
 }
 
 // PortPrefixLen returns the length of the bitwise mask that should be applied to the DestPort.
@@ -83,12 +85,12 @@ func (k Key) String() string {
 
 // IsIngress returns true if the key refers to an ingress policy key
 func (k LPMKey) IsIngress() bool {
-	return k.TrafficDirection() == trafficdirection.Ingress.Uint8()
+	return k.TrafficDirection() == trafficdirection.Ingress
 }
 
 // IsEgress returns true if the key refers to an egress policy key
 func (k LPMKey) IsEgress() bool {
-	return k.TrafficDirection() == trafficdirection.Egress.Uint8()
+	return k.TrafficDirection() == trafficdirection.Egress
 }
 
 // EndPort returns the end-port of the Key based on the Mask.
@@ -148,7 +150,7 @@ func (k LPMKey) CommonPrefix(b LPMKey) uint {
 	if (k.bits^b.bits)>>directionBitShift != 0 {
 		return 0
 	}
-	v := 1 + bits.LeadingZeros8(k.Nexthdr^b.Nexthdr)
+	v := 1 + bits.LeadingZeros8(uint8(k.Nexthdr^b.Nexthdr))
 	// if protocols are different then there is no need to look at the ports
 	if v < 9 {
 		return uint(v)
@@ -163,7 +165,7 @@ func (k LPMKey) BitValueAt(i uint) uint8 {
 	case i == 0:
 		return k.bits >> directionBitShift
 	case i < 9:
-		return (k.Nexthdr >> (8 - i)) & 1
+		return uint8((k.Nexthdr >> (8 - i)) & 1)
 	default:
 		return uint8(k.DestPort>>(24-i)) & 1
 	}

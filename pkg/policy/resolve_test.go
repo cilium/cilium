@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var (
@@ -185,11 +186,11 @@ func (d DummyOwner) HasBPFPolicyMap() bool {
 	return true
 }
 
-func (d DummyOwner) GetNamedPort(ingress bool, name string, proto uint8) uint16 {
+func (d DummyOwner) GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16 {
 	return 80
 }
 
-func (d DummyOwner) GetNamedPortLocked(ingress bool, name string, proto uint8) uint16 {
+func (d DummyOwner) GetNamedPortLocked(ingress bool, name string, proto u8proto.U8proto) uint16 {
 	return 80
 }
 
@@ -717,11 +718,11 @@ func TestMapStateWithIngress(t *testing.T) {
 		PolicyOwner: DummyOwner{},
 		policyMapState: newMapState().withState(MapStateMap{
 			EgressL3OnlyKey(0): allowEgressMapStateEntry,
-			IngressKey(uint32(identity.ReservedIdentityWorld), 6, 80, 0):     rule1MapStateEntry.WithOwners(cachedSelectorWorld),
-			IngressKey(uint32(identity.ReservedIdentityWorldIPv4), 6, 80, 0): rule1MapStateEntry.WithOwners(cachedSelectorWorld, cachedSelectorWorldV4),
-			IngressKey(uint32(identity.ReservedIdentityWorldIPv6), 6, 80, 0): rule1MapStateEntry.WithOwners(cachedSelectorWorld, cachedSelectorWorldV6),
-			IngressKey(192, 6, 80, 0): rule1MapStateEntry.WithAuthType(AuthTypeDisabled),
-			IngressKey(194, 6, 80, 0): rule1MapStateEntry.WithAuthType(AuthTypeDisabled),
+			IngressKey(identity.ReservedIdentityWorld, 6, 80, 0):     rule1MapStateEntry.WithOwners(cachedSelectorWorld),
+			IngressKey(identity.ReservedIdentityWorldIPv4, 6, 80, 0): rule1MapStateEntry.WithOwners(cachedSelectorWorld, cachedSelectorWorldV4),
+			IngressKey(identity.ReservedIdentityWorldIPv6, 6, 80, 0): rule1MapStateEntry.WithOwners(cachedSelectorWorld, cachedSelectorWorldV6),
+			IngressKey(192, 6, 80, 0):                                rule1MapStateEntry.WithAuthType(AuthTypeDisabled),
+			IngressKey(194, 6, 80, 0):                                rule1MapStateEntry.WithAuthType(AuthTypeDisabled),
 		}, td.sc),
 	}
 
@@ -765,7 +766,7 @@ func (p *EndpointPolicy) allowsIdentity(identity identity.NumericIdentity) (ingr
 	if !p.IngressPolicyEnabled {
 		ingress = true
 	} else {
-		key := IngressL3OnlyKey(uint32(identity))
+		key := IngressL3OnlyKey(identity)
 		if v, exists := p.policyMapState.Get(key); exists && !v.IsDeny {
 			ingress = true
 		}
@@ -774,7 +775,7 @@ func (p *EndpointPolicy) allowsIdentity(identity identity.NumericIdentity) (ingr
 	if !p.EgressPolicyEnabled {
 		egress = true
 	} else {
-		key := EgressL3OnlyKey(uint32(identity))
+		key := EgressL3OnlyKey(identity)
 		if v, exists := p.policyMapState.Get(key); exists && !v.IsDeny {
 			egress = true
 		}

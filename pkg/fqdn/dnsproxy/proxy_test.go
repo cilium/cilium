@@ -133,7 +133,7 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	s.proxy.lookupTargetDNSServer = func(w dns.ResponseWriter) (network u8proto.U8proto, server netip.AddrPort, err error) {
 		return u8proto.UDP, DNSServerListenerAddr.AddrPort(), nil
 	}
-	dstPortProto = restore.MakeV2PortProto(uint16(DNSServerListenerAddr.Port), udpProto)
+	dstPortProto = restore.MakeV2PortProto(uint16(DNSServerListenerAddr.Port), u8proto.UDP)
 
 	tb.Cleanup(func() {
 		for epID := range s.proxy.allowed {
@@ -267,11 +267,11 @@ var (
 	dstID2           = identity.NumericIdentity(2002)
 	dstID3           = identity.NumericIdentity(3003)
 	dstID4           = identity.NumericIdentity(4004)
-	dstPortProto     = restore.MakeV2PortProto(53, udpProto) // Set below when we setup the server!
+	dstPortProto     = restore.MakeV2PortProto(53, u8proto.UDP) // Set below when we setup the server!
 	udpProtoPort53   = dstPortProto
-	udpProtoPort54   = restore.MakeV2PortProto(54, udpProto)
-	udpProtoPort8053 = restore.MakeV2PortProto(8053, udpProto)
-	tcpProtoPort53   = restore.MakeV2PortProto(53, tcpProto)
+	udpProtoPort54   = restore.MakeV2PortProto(54, u8proto.UDP)
+	udpProtoPort8053 = restore.MakeV2PortProto(8053, u8proto.UDP)
+	tcpProtoPort53   = restore.MakeV2PortProto(53, u8proto.TCP)
 )
 
 func TestRejectFromDifferentEndpoint(t *testing.T) {
@@ -943,18 +943,18 @@ func TestFullPathDependence(t *testing.T) {
 
 	expected := `
 	{
-		"` + restore.MakeV2PortProto(53, tcpProto).String() + `":[{
+		"` + restore.MakeV2PortProto(53, u8proto.TCP).String() + `":[{
 			"Re":"^(?:sub[.]ubuntu[.]com[.])$",
 			"IPs":{"::":{}}
 		}],
-		"` + restore.MakeV2PortProto(53, udpProto).String() + `":[{
+		"` + restore.MakeV2PortProto(53, u8proto.UDP).String() + `":[{
 			"Re":"^(?:[-a-zA-Z0-9_]*[.]ubuntu[.]com[.]|aws[.]amazon[.]com[.])$",
 			"IPs":{"::":{}}
 		},{
 			"Re":"^(?:cilium[.]io[.])$",
 			"IPs":{"127.0.0.1":{},"127.0.0.2":{}}
 		}],
-		"` + restore.MakeV2PortProto(54, udpProto).String() + `":[{
+		"` + restore.MakeV2PortProto(54, u8proto.UDP).String() + `":[{
 			"Re":"^(?:example[.]com[.])$",
 			"IPs":null
 		}]

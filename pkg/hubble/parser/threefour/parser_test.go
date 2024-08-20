@@ -376,25 +376,25 @@ func TestDecodeDropNotify(t *testing.T) {
 func TestDecodePolicyVerdictNotify(t *testing.T) {
 	localIP := "1.2.3.4"
 	localID := uint64(12)
-	localIdentity := uint32(1234)
+	localIdentity := identity.NumericIdentity(1234)
 	remoteIP := "5.6.7.8"
-	remoteIdentity := uint32(5678)
+	remoteIdentity := identity.NumericIdentity(5678)
 	dstPort := uint32(443)
 
 	identityGetter := &testutils.FakeIdentityGetter{
 		OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
-			if securityIdentity == remoteIdentity {
-				return &identity.Identity{ID: identity.NumericIdentity(remoteIdentity), Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label"})}, nil
+			if identity.NumericIdentity(securityIdentity) == remoteIdentity {
+				return &identity.Identity{ID: remoteIdentity, Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label"})}, nil
 			}
 			return nil, fmt.Errorf("identity not found for %d", securityIdentity)
 		},
 	}
 
 	policyLabel := utils.GetPolicyLabels("foo-namespace", "web-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
-	policyKey := policy.EgressKey(remoteIdentity, uint8(u8proto.TCP), uint16(dstPort), 0)
+	policyKey := policy.EgressKey(remoteIdentity, u8proto.TCP, uint16(dstPort), 0)
 	ep := &testutils.FakeEndpointInfo{
 		ID:           localID,
-		Identity:     identity.NumericIdentity(localIdentity),
+		Identity:     localIdentity,
 		IPv4:         net.ParseIP(localIP),
 		PodName:      "xwing",
 		PodNamespace: "default",
@@ -430,7 +430,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 		Type:        byte(monitorAPI.MessageTypePolicyVerdict),
 		SubType:     0,
 		Flags:       flags,
-		RemoteLabel: identity.NumericIdentity(remoteIdentity),
+		RemoteLabel: remoteIdentity,
 		Verdict:     0, // CTX_ACT_OK
 		Source:      uint16(localID),
 	}
@@ -484,7 +484,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 		Type:        byte(monitorAPI.MessageTypePolicyVerdict),
 		SubType:     0,
 		Flags:       flags,
-		RemoteLabel: identity.NumericIdentity(remoteIdentity),
+		RemoteLabel: remoteIdentity,
 		Verdict:     -151, // drop reason: Stale or unroutable IP
 	}
 	data, err = testutils.CreateL3L4Payload(pvn)
@@ -645,7 +645,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	localEP := uint16(1234)
 	hostEP := uint16(0x1092)
 	remoteIP := netip.MustParseAddr("5.6.7.8")
-	remoteID := uint32(5678)
+	remoteID := identity.NumericIdentity(5678)
 
 	directionFromProto := func(direction flowpb.TrafficDirection) trafficdirection.TrafficDirection {
 		switch direction {
@@ -842,7 +842,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 		Type:        byte(monitorAPI.MessageTypePolicyVerdict),
 		Source:      localEP,
 		Flags:       monitorAPI.PolicyEgress,
-		RemoteLabel: identity.NumericIdentity(remoteID),
+		RemoteLabel: remoteID,
 	}
 	f = parseFlow(pvn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
@@ -851,8 +851,8 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	ep, ok := endpointGetter.GetEndpointInfo(localIP)
 	assert.Equal(t, true, ok)
 	lbls, rev, ok := ep.GetRealizedPolicyRuleLabelsForKey(
-		policy.NewL3OnlyKey(directionFromProto(f.GetTrafficDirection()).Uint8(),
-			f.GetDestination().GetIdentity()))
+		policy.NewL3OnlyKey(directionFromProto(f.GetTrafficDirection()),
+			identity.NumericIdentity(f.GetDestination().GetIdentity())))
 	assert.Equal(t, true, ok)
 	assert.Equal(t, lbls, policyLabel)
 	assert.Equal(t, uint64(1), rev)

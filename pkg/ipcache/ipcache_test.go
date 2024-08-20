@@ -253,7 +253,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 		Namespace: "default",
 		PodName:   "app1",
 		NamedPorts: types.NamedPortMap{
-			"http": types.PortProto{Port: 80, Proto: uint8(u8proto.TCP)},
+			"http": types.PortProto{Port: 80, Proto: u8proto.TCP},
 			"dns":  types.PortProto{Port: 53},
 		},
 	}
@@ -281,10 +281,10 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	npm := IPIdentityCache.GetNamedPorts()
 	require.NotNil(t, npm)
 	require.Equal(t, 2, npm.Len())
-	port, err := npm.GetNamedPort("http", uint8(6))
+	port, err := npm.GetNamedPort("http", u8proto.TCP)
 	require.Nil(t, err)
 	require.Equal(t, uint16(80), port)
-	port, err = npm.GetNamedPort("dns", uint8(0))
+	port, err = npm.GetNamedPort("dns", u8proto.ANY)
 	require.Nil(t, err)
 	require.Equal(t, uint16(53), port)
 
@@ -307,7 +307,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 		Namespace: "testing",
 		PodName:   "app2",
 		NamedPorts: types.NamedPortMap{
-			"https": types.PortProto{Port: 443, Proto: uint8(u8proto.TCP)},
+			"https": types.PortProto{Port: 443, Proto: u8proto.TCP},
 			"dns":   types.PortProto{Port: 53},
 		},
 	}
@@ -334,13 +334,13 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	npm = IPIdentityCache.GetNamedPorts()
 	require.NotNil(t, npm)
 	require.Equal(t, 3, npm.Len())
-	port, err = npm.GetNamedPort("http", uint8(6))
+	port, err = npm.GetNamedPort("http", u8proto.TCP)
 	require.Nil(t, err)
 	require.Equal(t, uint16(80), port)
-	port, err = npm.GetNamedPort("dns", uint8(0))
+	port, err = npm.GetNamedPort("dns", u8proto.ANY)
 	require.Nil(t, err)
 	require.Equal(t, uint16(53), port)
-	port, err = npm.GetNamedPort("https", uint8(6))
+	port, err = npm.GetNamedPort("https", u8proto.TCP)
 	require.Nil(t, err)
 	require.Equal(t, uint16(443), port)
 
@@ -350,10 +350,10 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	require.NotNil(t, npm)
 	require.Equal(t, 2, npm.Len())
 
-	port, err = npm.GetNamedPort("dns", uint8(0))
+	port, err = npm.GetNamedPort("dns", u8proto.ANY)
 	require.Nil(t, err)
 	require.Equal(t, uint16(53), port)
-	port, err = npm.GetNamedPort("https", uint8(6))
+	port, err = npm.GetNamedPort("https", u8proto.TCP)
 	require.Nil(t, err)
 	require.Equal(t, uint16(443), port)
 
@@ -429,7 +429,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	endpointIPs := []string{"192.168.0.1", "20.3.75.3", "27.2.2.2", "127.0.0.1", "127.0.0.1"}
 	identities := []identityPkg.NumericIdentity{5, 67, 29, 29, 29}
 	k8sMeta.NamedPorts = types.NamedPortMap{
-		"http2": types.PortProto{Port: 8080, Proto: uint8(u8proto.TCP)},
+		"http2": types.PortProto{Port: 8080, Proto: u8proto.TCP},
 	}
 
 	for index := range endpointIPs {
@@ -441,7 +441,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 		require.Nil(t, err)
 		npm = IPIdentityCache.GetNamedPorts()
 		require.NotNil(t, npm)
-		port, err := npm.GetNamedPort("http2", uint8(6))
+		port, err := npm.GetNamedPort("http2", u8proto.TCP)
 		require.Nil(t, err)
 		require.Equal(t, uint16(8080), port)
 		// only the first changes named ports, as they are all the same
@@ -526,7 +526,7 @@ func benchmarkIPCacheUpsert(b *testing.B, num int) {
 		Namespace: "default",
 		PodName:   "app",
 		NamedPorts: types.NamedPortMap{
-			"http": types.PortProto{Port: 80, Proto: uint8(u8proto.TCP)},
+			"http": types.PortProto{Port: 80, Proto: u8proto.TCP},
 			"dns":  types.PortProto{Port: 53},
 		},
 	}

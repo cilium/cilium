@@ -619,11 +619,11 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
 			EgressL3OnlyKey(0): allowEgressMapStateEntry,
-			IngressKey(uint32(identity.ReservedIdentityWorld), 6, 80, 0):     rule1MapStateEntry.WithOwners(cachedSelectorWorld),
-			IngressKey(uint32(identity.ReservedIdentityWorldIPv4), 6, 80, 0): rule1MapStateEntry.WithOwners(cachedSelectorWorldV4, cachedSelectorWorld),
-			IngressKey(uint32(identity.ReservedIdentityWorldIPv6), 6, 80, 0): rule1MapStateEntry.WithOwners(cachedSelectorWorldV6, cachedSelectorWorld),
-			IngressKey(192, 6, 80, 0): rule1MapStateEntry,
-			IngressKey(194, 6, 80, 0): rule1MapStateEntry,
+			IngressKey(identity.ReservedIdentityWorld, 6, 80, 0):     rule1MapStateEntry.WithOwners(cachedSelectorWorld),
+			IngressKey(identity.ReservedIdentityWorldIPv4, 6, 80, 0): rule1MapStateEntry.WithOwners(cachedSelectorWorldV4, cachedSelectorWorld),
+			IngressKey(identity.ReservedIdentityWorldIPv6, 6, 80, 0): rule1MapStateEntry.WithOwners(cachedSelectorWorldV6, cachedSelectorWorld),
+			IngressKey(192, 6, 80, 0):                                rule1MapStateEntry,
+			IngressKey(194, 6, 80, 0):                                rule1MapStateEntry,
 		}, td.sc),
 	}
 

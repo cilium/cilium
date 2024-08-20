@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -36,8 +37,10 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -201,11 +204,11 @@ type proxyPolicy struct {
 	*policy.L4Filter
 	ps       *policy.PerSelectorPolicy
 	port     uint16
-	protocol uint8
+	protocol u8proto.U8proto
 }
 
 // newProxyPolicy returns a new instance of proxyPolicy by value
-func (e *Endpoint) newProxyPolicy(l4 *policy.L4Filter, ps *policy.PerSelectorPolicy, port uint16, proto uint8) proxyPolicy {
+func (e *Endpoint) newProxyPolicy(l4 *policy.L4Filter, ps *policy.PerSelectorPolicy, port uint16, proto u8proto.U8proto) proxyPolicy {
 	return proxyPolicy{L4Filter: l4, ps: ps, port: port, protocol: proto}
 }
 
@@ -216,7 +219,7 @@ func (p *proxyPolicy) GetPort() uint16 {
 }
 
 // GetProtocol returns the destination protocol number on which the proxy policy applies
-func (p *proxyPolicy) GetProtocol() uint8 {
+func (p *proxyPolicy) GetProtocol() u8proto.U8proto {
 	return p.protocol
 }
 
@@ -1393,9 +1396,9 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 		policymapKey := key.(*policymap.PolicyKey)
 		// Convert from policymap.Key to policy.Key
 		policyKey := policy.NewKey(
-			policymapKey.TrafficDirection,
-			policymapKey.Identity,
-			policymapKey.Nexthdr,
+			trafficdirection.TrafficDirection(policymapKey.TrafficDirection),
+			identity.NumericIdentity(policymapKey.Identity),
+			u8proto.U8proto(policymapKey.Nexthdr),
 			policymapKey.GetDestPort(),
 			policymapKey.GetPortPrefixLen())
 		policymapEntry := value.(*policymap.PolicyEntry)

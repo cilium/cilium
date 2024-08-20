@@ -133,14 +133,14 @@ func TestCachePopulation(t *testing.T) {
 
 var (
 	// Identity, labels, selectors for an endpoint named "foo"
-	identityFoo = uint32(100)
+	identityFoo = identity.NumericIdentity(100)
 	labelsFoo   = labels.ParseSelectLabelArray("foo", "blue")
 	selectFoo_  = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
 	allowFooL3_ = selectFoo_
 	denyFooL3__ = selectFoo_
 
 	// Identity, labels, selectors for an endpoint named "bar"
-	identityBar = uint32(200)
+	identityBar = identity.NumericIdentity(200)
 	labelsBar   = labels.ParseSelectLabelArray("bar", "blue")
 	selectBar_  = api.NewESFromLabels(labels.ParseSelectLabel("bar"))
 	allowBarL3_ = selectBar_
@@ -464,8 +464,8 @@ func Test_MergeL3(t *testing.T) {
 	SetPolicyEnabled(option.DefaultEnforcement)
 
 	identityCache := identity.IdentityMap{
-		identity.NumericIdentity(identityFoo): labelsFoo,
-		identity.NumericIdentity(identityBar): labelsBar,
+		identityFoo: labelsFoo,
+		identityBar: labelsBar,
 	}
 	selectorCache := testNewSelectorCache(identityCache)
 
@@ -488,8 +488,8 @@ func Test_MergeL3(t *testing.T) {
 				mapKeyAllowBar__: mapEntryL7None_(lblsL3__AllowBar),
 			}),
 			authResult{
-				identity.NumericIdentity(identityBar): AuthTypes{},
-				identity.NumericIdentity(identityFoo): AuthTypes{},
+				identityBar: AuthTypes{},
+				identityFoo: AuthTypes{},
 			},
 		},
 		{
@@ -500,8 +500,8 @@ func Test_MergeL3(t *testing.T) {
 				mapKeyAllowFooL4: mapEntryL7None_(lblsL3L4__Allow),
 			}),
 			authResult{
-				identity.NumericIdentity(identityBar): AuthTypes{},
-				identity.NumericIdentity(identityFoo): AuthTypes{},
+				identityBar: AuthTypes{},
+				identityFoo: AuthTypes{},
 			},
 		},
 		{
@@ -512,8 +512,8 @@ func Test_MergeL3(t *testing.T) {
 				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
 			}),
 			authResult{
-				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeAlwaysFail: struct{}{}},
-				identity.NumericIdentity(identityFoo): AuthTypes{},
+				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}},
+				identityFoo: AuthTypes{},
 			},
 		},
 		{
@@ -525,8 +525,8 @@ func Test_MergeL3(t *testing.T) {
 				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
 			}),
 			authResult{
-				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeAlwaysFail: struct{}{}, AuthTypeSpire: struct{}{}},
-				identity.NumericIdentity(identityFoo): AuthTypes{AuthTypeSpire: struct{}{}},
+				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}, AuthTypeSpire: struct{}{}},
+				identityFoo: AuthTypes{AuthTypeSpire: struct{}{}},
 			},
 		},
 		{
@@ -537,8 +537,8 @@ func Test_MergeL3(t *testing.T) {
 				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
 			}),
 			authResult{
-				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeAlwaysFail: struct{}{}},
-				identity.NumericIdentity(identityFoo): AuthTypes{},
+				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}},
+				identityFoo: AuthTypes{},
 			},
 		},
 		{
@@ -549,8 +549,8 @@ func Test_MergeL3(t *testing.T) {
 				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeSpire, lblsL3__AllowBar),
 			}),
 			authResult{
-				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeSpire: struct{}{}},
-				identity.NumericIdentity(identityFoo): AuthTypes{AuthTypeSpire: struct{}{}},
+				identityBar: AuthTypes{AuthTypeSpire: struct{}{}},
+				identityFoo: AuthTypes{AuthTypeSpire: struct{}{}},
 			},
 		},
 		{
@@ -561,8 +561,8 @@ func Test_MergeL3(t *testing.T) {
 				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeSpire, lbls__L4__Allow),
 			}),
 			authResult{
-				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeSpire: struct{}{}},
-				identity.NumericIdentity(identityFoo): AuthTypes{AuthTypeSpire: struct{}{}},
+				identityBar: AuthTypes{AuthTypeSpire: struct{}{}},
+				identityFoo: AuthTypes{AuthTypeSpire: struct{}{}},
 			},
 		},
 		{
@@ -574,8 +574,8 @@ func Test_MergeL3(t *testing.T) {
 				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeSpire, lblsL3__AllowBar),
 			}),
 			authResult{
-				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeSpire: struct{}{}},
-				identity.NumericIdentity(identityFoo): AuthTypes{AuthTypeSpire: struct{}{}},
+				identityBar: AuthTypes{AuthTypeSpire: struct{}{}},
+				identityFoo: AuthTypes{AuthTypeSpire: struct{}{}},
 			},
 		},
 		{
@@ -587,8 +587,8 @@ func Test_MergeL3(t *testing.T) {
 				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeDisabled, lblsL3__AllowBar),
 			}),
 			authResult{
-				identity.NumericIdentity(identityBar): AuthTypes{},
-				identity.NumericIdentity(identityFoo): AuthTypes{},
+				identityBar: AuthTypes{},
+				identityFoo: AuthTypes{},
 			},
 		},
 		{
@@ -601,8 +601,8 @@ func Test_MergeL3(t *testing.T) {
 				mapKeyAllowBarL4: mapEntryL7Auth_(AuthTypeAlwaysFail, lbls__L4__Allow, lblsL3__AllowBar),
 			}),
 			authResult{
-				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeAlwaysFail: struct{}{}},
-				identity.NumericIdentity(identityFoo): AuthTypes{},
+				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}},
+				identityFoo: AuthTypes{},
 			},
 		},
 		{
@@ -615,8 +615,8 @@ func Test_MergeL3(t *testing.T) {
 				mapKeyAllowBarL4: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3L4AllowBar, lbls__L4__Allow, lblsL3__AllowBar),
 			}),
 			authResult{
-				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeAlwaysFail: struct{}{}},
-				identity.NumericIdentity(identityFoo): AuthTypes{},
+				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}},
+				identityFoo: AuthTypes{},
 			},
 		},
 	}
@@ -1319,8 +1319,8 @@ func Test_AllowAll(t *testing.T) {
 	SetPolicyEnabled(option.DefaultEnforcement)
 
 	identityCache := identity.IdentityMap{
-		identity.NumericIdentity(identityFoo): labelsFoo,
-		identity.NumericIdentity(identityBar): labelsBar,
+		identityFoo: labelsFoo,
+		identityBar: labelsBar,
 	}
 	selectorCache := testNewSelectorCache(identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
@@ -1381,7 +1381,7 @@ var (
 
 	cpyRule                   = *ruleL3DenyWorld
 	ruleL3DenyWorldWithLabels = (&cpyRule).WithLabels(labels.LabelWorld.LabelArray())
-	worldReservedID           = identity.ReservedIdentityWorld.Uint32()
+	worldReservedID           = identity.ReservedIdentityWorld
 	mapKeyL3WorldIngress      = IngressL3OnlyKey(worldReservedID)
 	mapKeyL3WorldEgress       = EgressL3OnlyKey(worldReservedID)
 	mapEntryDeny              = MapStateEntry{
@@ -1436,8 +1436,8 @@ var (
 			ToCIDRSet: api.CIDRRuleSlice{worldSubnetRule},
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
-	mapKeyL3SubnetIngress = IngressL3OnlyKey(worldSubnetIdentity.Uint32())
-	mapKeyL3SubnetEgress  = EgressL3OnlyKey(worldSubnetIdentity.Uint32())
+	mapKeyL3SubnetIngress = IngressL3OnlyKey(worldSubnetIdentity)
+	mapKeyL3SubnetEgress  = EgressL3OnlyKey(worldSubnetIdentity)
 
 	ruleL3DenySmallerSubnet = api.NewRule().WithIngressDenyRules([]api.IngressDenyRule{{
 		IngressCommonRule: api.IngressCommonRule{
@@ -1459,8 +1459,8 @@ var (
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 
-	mapKeyL3SmallerSubnetIngress = IngressL3OnlyKey(worldIPIdentity.Uint32())
-	mapKeyL3SmallerSubnetEgress  = EgressL3OnlyKey(worldIPIdentity.Uint32())
+	mapKeyL3SmallerSubnetIngress = IngressL3OnlyKey(worldIPIdentity)
+	mapKeyL3SmallerSubnetEgress  = EgressL3OnlyKey(worldIPIdentity)
 
 	ruleL3AllowHostEgress = api.NewRule().WithEgressRules([]api.EgressRule{{
 		EgressCommonRule: api.EgressCommonRule{
@@ -1468,14 +1468,14 @@ var (
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 
-	mapKeyL3UnknownIngress = IngressL3OnlyKey(identity.IdentityUnknown.Uint32())
+	mapKeyL3UnknownIngress = IngressL3OnlyKey(identity.IdentityUnknown)
 	derivedFrom            = labels.LabelArrayList{
 		labels.LabelArray{
 			labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
 		},
 	}
 	mapEntryL3UnknownIngress          = NewMapStateEntry(nil, derivedFrom, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
-	mapKeyL3HostEgress                = EgressL3OnlyKey(identity.ReservedIdentityHost.Uint32())
+	mapKeyL3HostEgress                = EgressL3OnlyKey(identity.ReservedIdentityHost)
 	ruleL3L4Port8080ProtoAnyDenyWorld = api.NewRule().WithIngressDenyRules([]api.IngressDenyRule{
 		{
 			ToPorts: api.PortDenyRules{
@@ -1516,19 +1516,19 @@ var (
 	mapKeyL3L4Port8080ProtoSCTPWorldIngress = IngressKey(worldReservedID, 132, 8080, 0)
 	mapKeyL3L4Port8080ProtoSCTPWorldEgress  = EgressKey(worldReservedID, 132, 8080, 0)
 
-	mapKeyL3L4Port8080ProtoTCPWorldSNIngress  = IngressKey(worldSubnetIdentity.Uint32(), 6, 8080, 0)
-	mapKeyL3L4Port8080ProtoTCPWorldSNEgress   = EgressKey(worldSubnetIdentity.Uint32(), 6, 8080, 0)
-	mapKeyL3L4Port8080ProtoUDPWorldSNIngress  = IngressKey(worldSubnetIdentity.Uint32(), 17, 8080, 0)
-	mapKeyL3L4Port8080ProtoUDPWorldSNEgress   = EgressKey(worldSubnetIdentity.Uint32(), 17, 8080, 0)
-	mapKeyL3L4Port8080ProtoSCTPWorldSNIngress = IngressKey(worldSubnetIdentity.Uint32(), 132, 8080, 0)
-	mapKeyL3L4Port8080ProtoSCTPWorldSNEgress  = EgressKey(worldSubnetIdentity.Uint32(), 132, 8080, 0)
+	mapKeyL3L4Port8080ProtoTCPWorldSNIngress  = IngressKey(worldSubnetIdentity, 6, 8080, 0)
+	mapKeyL3L4Port8080ProtoTCPWorldSNEgress   = EgressKey(worldSubnetIdentity, 6, 8080, 0)
+	mapKeyL3L4Port8080ProtoUDPWorldSNIngress  = IngressKey(worldSubnetIdentity, 17, 8080, 0)
+	mapKeyL3L4Port8080ProtoUDPWorldSNEgress   = EgressKey(worldSubnetIdentity, 17, 8080, 0)
+	mapKeyL3L4Port8080ProtoSCTPWorldSNIngress = IngressKey(worldSubnetIdentity, 132, 8080, 0)
+	mapKeyL3L4Port8080ProtoSCTPWorldSNEgress  = EgressKey(worldSubnetIdentity, 132, 8080, 0)
 
-	mapKeyL3L4Port8080ProtoTCPWorldIPIngress  = IngressKey(worldIPIdentity.Uint32(), 6, 8080, 0)
-	mapKeyL3L4Port8080ProtoTCPWorldIPEgress   = EgressKey(worldIPIdentity.Uint32(), 6, 8080, 0)
-	mapKeyL3L4Port8080ProtoUDPWorldIPIngress  = IngressKey(worldIPIdentity.Uint32(), 17, 8080, 0)
-	mapKeyL3L4Port8080ProtoUDPWorldIPEgress   = EgressKey(worldIPIdentity.Uint32(), 17, 8080, 0)
-	mapKeyL3L4Port8080ProtoSCTPWorldIPIngress = IngressKey(worldIPIdentity.Uint32(), 132, 8080, 0)
-	mapKeyL3L4Port8080ProtoSCTPWorldIPEgress  = EgressKey(worldIPIdentity.Uint32(), 132, 8080, 0)
+	mapKeyL3L4Port8080ProtoTCPWorldIPIngress  = IngressKey(worldIPIdentity, 6, 8080, 0)
+	mapKeyL3L4Port8080ProtoTCPWorldIPEgress   = EgressKey(worldIPIdentity, 6, 8080, 0)
+	mapKeyL3L4Port8080ProtoUDPWorldIPIngress  = IngressKey(worldIPIdentity, 17, 8080, 0)
+	mapKeyL3L4Port8080ProtoUDPWorldIPEgress   = EgressKey(worldIPIdentity, 17, 8080, 0)
+	mapKeyL3L4Port8080ProtoSCTPWorldIPIngress = IngressKey(worldIPIdentity, 132, 8080, 0)
+	mapKeyL3L4Port8080ProtoSCTPWorldIPEgress  = EgressKey(worldIPIdentity, 132, 8080, 0)
 
 	ruleL3AllowWorldSubnet = api.NewRule().WithIngressRules([]api.IngressRule{{
 		ToPorts: api.PortRules{
@@ -1570,14 +1570,14 @@ var (
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 	mapKeyAnyIngress                        = IngressL3OnlyKey(0)
-	mapKeyL4AnyPortProtoWorldIPIngress      = IngressL3OnlyKey(worldIPIdentity.Uint32())
-	mapKeyL4AnyPortProtoWorldIPEgress       = EgressL3OnlyKey(worldIPIdentity.Uint32())
-	mapKeyL4Port8080ProtoTCPWorldIPIngress  = IngressKey(worldIPIdentity.Uint32(), 6, 8080, 0)
-	mapKeyL4Port8080ProtoTCPWorldIPEgress   = EgressKey(worldIPIdentity.Uint32(), 6, 8080, 0)
-	mapKeyL4Port8080ProtoUDPWorldIPIngress  = IngressKey(worldIPIdentity.Uint32(), 17, 8080, 0)
-	mapKeyL4Port8080ProtoUDPWorldIPEgress   = EgressKey(worldIPIdentity.Uint32(), 17, 8080, 0)
-	mapKeyL4Port8080ProtoSCTPWorldIPIngress = IngressKey(worldIPIdentity.Uint32(), 132, 8080, 0)
-	mapKeyL4Port8080ProtoSCTPWorldIPEgress  = EgressKey(worldIPIdentity.Uint32(), 132, 8080, 0)
+	mapKeyL4AnyPortProtoWorldIPIngress      = IngressL3OnlyKey(worldIPIdentity)
+	mapKeyL4AnyPortProtoWorldIPEgress       = EgressL3OnlyKey(worldIPIdentity)
+	mapKeyL4Port8080ProtoTCPWorldIPIngress  = IngressKey(worldIPIdentity, 6, 8080, 0)
+	mapKeyL4Port8080ProtoTCPWorldIPEgress   = EgressKey(worldIPIdentity, 6, 8080, 0)
+	mapKeyL4Port8080ProtoUDPWorldIPIngress  = IngressKey(worldIPIdentity, 17, 8080, 0)
+	mapKeyL4Port8080ProtoUDPWorldIPEgress   = EgressKey(worldIPIdentity, 17, 8080, 0)
+	mapKeyL4Port8080ProtoSCTPWorldIPIngress = IngressKey(worldIPIdentity, 132, 8080, 0)
+	mapKeyL4Port8080ProtoSCTPWorldIPEgress  = EgressKey(worldIPIdentity, 132, 8080, 0)
 	mapEntryL4WorldIPDependentsIngressDeny  = MapStateEntry{
 		ProxyPort:        0,
 		IsDeny:           true,
@@ -1616,8 +1616,8 @@ var (
 			FromCIDR: api.CIDRSlice{worldSubnet},
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
-	mapKeyL3L4NamedPortHTTPProtoTCPWorldSubNetIngress = IngressKey(worldSubnetIdentity.Uint32(), 6, 80, 0)
-	mapKeyL3L4NamedPortHTTPProtoTCPWorldIPIngress     = IngressKey(worldIPIdentity.Uint32(), 6, 80, 0)
+	mapKeyL3L4NamedPortHTTPProtoTCPWorldSubNetIngress = IngressKey(worldSubnetIdentity, 6, 80, 0)
+	mapKeyL3L4NamedPortHTTPProtoTCPWorldIPIngress     = IngressKey(worldIPIdentity, 6, 80, 0)
 
 	ruleL3AllowWorldSubnetPortRange = api.NewRule().WithIngressRules([]api.IngressRule{{
 		ToPorts: api.PortRules{
@@ -1640,16 +1640,16 @@ var (
 			FromCIDR: api.CIDRSlice{worldSubnet},
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
-	mapKeyL3L4Port64To127ProtoTCPWorldSubNetIngress = IngressKey(worldSubnetIdentity.Uint32(), 6, 64, 10)
-	mapKeyL3L4Port5ProtoTCPWorldSubNetIngress       = IngressKey(worldSubnetIdentity.Uint32(), 6, 5, 0)
-	mapKeyL3L4Port6To7ProtoTCPWorldSubNetIngress    = IngressKey(worldSubnetIdentity.Uint32(), 6, 6, 15)
-	mapKeyL3L4Port8To9ProtoTCPWorldSubNetIngress    = IngressKey(worldSubnetIdentity.Uint32(), 6, 8, 15)
-	mapKeyL3L4Port10ProtoTCPWorldSubNetIngress      = IngressKey(worldSubnetIdentity.Uint32(), 6, 10, 0)
-	mapKeyL3L4Port64To127ProtoTCPWorldIPIngress     = IngressKey(worldIPIdentity.Uint32(), 6, 64, 10)
-	mapKeyL3L4Port5ProtoTCPWorldIPIngress           = IngressKey(worldIPIdentity.Uint32(), 6, 5, 0)
-	mapKeyL3L4Port6To7ProtoTCPWorldIPIngress        = IngressKey(worldIPIdentity.Uint32(), 6, 6, 15)
-	mapKeyL3L4Port8To9ProtoTCPWorldIPIngress        = IngressKey(worldIPIdentity.Uint32(), 6, 8, 15)
-	mapKeyL3L4Port10ProtoTCPWorldIPIngress          = IngressKey(worldIPIdentity.Uint32(), 6, 10, 0)
+	mapKeyL3L4Port64To127ProtoTCPWorldSubNetIngress = IngressKey(worldSubnetIdentity, 6, 64, 10)
+	mapKeyL3L4Port5ProtoTCPWorldSubNetIngress       = IngressKey(worldSubnetIdentity, 6, 5, 0)
+	mapKeyL3L4Port6To7ProtoTCPWorldSubNetIngress    = IngressKey(worldSubnetIdentity, 6, 6, 15)
+	mapKeyL3L4Port8To9ProtoTCPWorldSubNetIngress    = IngressKey(worldSubnetIdentity, 6, 8, 15)
+	mapKeyL3L4Port10ProtoTCPWorldSubNetIngress      = IngressKey(worldSubnetIdentity, 6, 10, 0)
+	mapKeyL3L4Port64To127ProtoTCPWorldIPIngress     = IngressKey(worldIPIdentity, 6, 64, 10)
+	mapKeyL3L4Port5ProtoTCPWorldIPIngress           = IngressKey(worldIPIdentity, 6, 5, 0)
+	mapKeyL3L4Port6To7ProtoTCPWorldIPIngress        = IngressKey(worldIPIdentity, 6, 6, 15)
+	mapKeyL3L4Port8To9ProtoTCPWorldIPIngress        = IngressKey(worldIPIdentity, 6, 8, 15)
+	mapKeyL3L4Port10ProtoTCPWorldIPIngress          = IngressKey(worldIPIdentity, 6, 10, 0)
 )
 
 func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
@@ -1849,7 +1849,7 @@ func mapStateAllowsKey(ms *mapState, key Key) bool {
 	var ok bool
 	ms.denies.trie.Ancestors(key.PrefixLength(), key,
 		func(_ uint, _ bitlpm.Key[types.LPMKey], is IDSet) bool {
-			if _, exists := is.ids[identity.NumericIdentity(key.Identity)]; exists {
+			if _, exists := is.ids[key.Identity]; exists {
 				ok = true
 			}
 			return true
@@ -1860,7 +1860,7 @@ func mapStateAllowsKey(ms *mapState, key Key) bool {
 	ms.allows.trie.Ancestors(key.PrefixLength(), key,
 		func(_ uint, _ bitlpm.Key[types.LPMKey], is IDSet) bool {
 
-			if _, exists := is.ids[identity.NumericIdentity(key.Identity)]; exists {
+			if _, exists := is.ids[key.Identity]; exists {
 				ok = true
 			}
 			return true
@@ -2009,7 +2009,7 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 			for _, rt := range tt.rangeTests {
 				for i := rt.startPort; i <= rt.endPort; i++ {
 					ctxFromA.DPorts = []*models.Port{{Port: i, Protocol: models.PortProtocolTCP}}
-					key := EgressKey(identity.ID.Uint32(), uint8(u8proto.TCP), i, 0)
+					key := EgressKey(identity.ID, u8proto.TCP, i, 0)
 					if rt.isAllow {
 						// IngressCoversContext just checks the "From" labels of the search context.
 						require.Equalf(t, api.Allowed.String(), res.IngressCoversContext(&ctxFromA).String(), "Requesting port %d", i)

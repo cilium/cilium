@@ -20,18 +20,13 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-const (
-	udpProto = uint8(u8proto.UDP)
-	tcpProto = uint8(u8proto.TCP)
-)
-
 func TestSetPortRulesForID(t *testing.T) {
 	re.InitRegexCompileLRU(1)
 	rules := policy.L7DataMap{}
 	epID := uint64(1)
 	pea := perEPAllow{}
 	cache := make(regexCache)
-	udpProtoPort8053 := restore.MakeV2PortProto(8053, udpProto)
+	udpProtoPort8053 := restore.MakeV2PortProto(8053, u8proto.UDP)
 
 	rules[new(MockCachedSelector)] = &policy.PerSelectorPolicy{
 		L7Rules: api.L7Rules{
@@ -92,7 +87,7 @@ func TestSetPortRulesForIDFromUnifiedFormat(t *testing.T) {
 	epID := uint64(1)
 	pea := perEPAllow{}
 	cache := make(regexCache)
-	udpProtoPort8053 := restore.MakeV2PortProto(8053, udpProto)
+	udpProtoPort8053 := restore.MakeV2PortProto(8053, u8proto.UDP)
 	rules[new(MockCachedSelector)] = regexp.MustCompile("^.*[.]cilium[.]io$")
 	rules[new(MockCachedSelector)] = regexp.MustCompile("^.*[.]cilium[.]io$")
 

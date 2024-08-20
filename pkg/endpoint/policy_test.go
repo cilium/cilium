@@ -187,7 +187,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		res.endpointPolicy.ConsumeMapChanges()
 		haveIDs := make(sets.Set[identity.NumericIdentity], testfactor)
 		res.endpointPolicy.GetPolicyMap().ForEach(func(k policy.Key, _ policy.MapStateEntry) bool {
-			haveIDs.Insert(identity.NumericIdentity(k.Identity))
+			haveIDs.Insert(k.Identity)
 			return true
 		})
 
