@@ -17,14 +17,14 @@ limitations under the License.
 // Package genall defines entrypoints for generation tools to hook into and
 // share the same set of parsing, typechecking, and marker information.
 //
-// Generators
+// # Generators
 //
 // Each Generator knows how to register its markers into a central Registry,
 // and then how to generate output using a Collector and some root packages.
 // Each generator can be considered to be the output type of a marker, for easy
 // command line parsing.
 //
-// Output and Input
+// # Output and Input
 //
 // Generators output artifacts via an OutputRule.  OutputRules know how to
 // write output for different package-associated (code) files, as well as
@@ -40,7 +40,7 @@ limitations under the License.
 // InputRule defines custom input loading, but its shared across all
 // Generators.  There's currently only a filesystem implementation.
 //
-// Runtime and Context
+// # Runtime and Context
 //
 // Runtime maps together Generators, and constructs "contexts" which provide
 // the common collector and roots, plus the output rule for that generator, and
@@ -50,7 +50,7 @@ limitations under the License.
 // skipping type-checking errors (since those are commonly caused by the
 // partial type-checking of loader.TypeChecker).
 //
-// Options
+// # Options
 //
 // The FromOptions (and associated helpers) function makes it easy to use generators
 // and output rules as markers that can be parsed from the command line, producing

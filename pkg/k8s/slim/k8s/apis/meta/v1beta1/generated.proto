@@ -20,9 +20,9 @@ message PartialObjectMetadataList {
   // Standard list metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 2;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 2;
 
   // items contains each of the included items.
-  repeated github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.PartialObjectMetadata items = 1;
+  repeated .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.PartialObjectMetadata items = 1;
 }
 

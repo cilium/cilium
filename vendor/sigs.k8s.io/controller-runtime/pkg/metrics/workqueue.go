@@ -42,27 +42,27 @@ var (
 		Subsystem: WorkQueueSubsystem,
 		Name:      DepthKey,
 		Help:      "Current depth of workqueue",
-	}, []string{"name"})
+	}, []string{"name", "controller"})
 
 	adds = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Subsystem: WorkQueueSubsystem,
 		Name:      AddsKey,
 		Help:      "Total number of adds handled by workqueue",
-	}, []string{"name"})
+	}, []string{"name", "controller"})
 
 	latency = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Subsystem: WorkQueueSubsystem,
 		Name:      QueueLatencyKey,
 		Help:      "How long in seconds an item stays in workqueue before being requested",
 		Buckets:   prometheus.ExponentialBuckets(10e-9, 10, 12),
-	}, []string{"name"})
+	}, []string{"name", "controller"})
 
 	workDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Subsystem: WorkQueueSubsystem,
 		Name:      WorkDurationKey,
 		Help:      "How long in seconds processing an item from workqueue takes.",
 		Buckets:   prometheus.ExponentialBuckets(10e-9, 10, 12),
-	}, []string{"name"})
+	}, []string{"name", "controller"})
 
 	unfinished = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Subsystem: WorkQueueSubsystem,
@@ -71,20 +71,20 @@ var (
 			"is in progress and hasn't been observed by work_duration. Large " +
 			"values indicate stuck threads. One can deduce the number of stuck " +
 			"threads by observing the rate at which this increases.",
-	}, []string{"name"})
+	}, []string{"name", "controller"})
 
 	longestRunningProcessor = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Subsystem: WorkQueueSubsystem,
 		Name:      LongestRunningProcessorKey,
 		Help: "How many seconds has the longest running " +
 			"processor for workqueue been running.",
-	}, []string{"name"})
+	}, []string{"name", "controller"})
 
 	retries = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Subsystem: WorkQueueSubsystem,
 		Name:      RetriesKey,
 		Help:      "Total number of retries handled by workqueue",
-	}, []string{"name"})
+	}, []string{"name", "controller"})
 )
 
 func init() {
@@ -102,29 +102,29 @@ func init() {
 type workqueueMetricsProvider struct{}
 
 func (workqueueMetricsProvider) NewDepthMetric(name string) workqueue.GaugeMetric {
-	return depth.WithLabelValues(name)
+	return depth.WithLabelValues(name, name)
 }
 
 func (workqueueMetricsProvider) NewAddsMetric(name string) workqueue.CounterMetric {
-	return adds.WithLabelValues(name)
+	return adds.WithLabelValues(name, name)
 }
 
 func (workqueueMetricsProvider) NewLatencyMetric(name string) workqueue.HistogramMetric {
-	return latency.WithLabelValues(name)
+	return latency.WithLabelValues(name, name)
 }
 
 func (workqueueMetricsProvider) NewWorkDurationMetric(name string) workqueue.HistogramMetric {
-	return workDuration.WithLabelValues(name)
+	return workDuration.WithLabelValues(name, name)
 }
 
 func (workqueueMetricsProvider) NewUnfinishedWorkSecondsMetric(name string) workqueue.SettableGaugeMetric {
-	return unfinished.WithLabelValues(name)
+	return unfinished.WithLabelValues(name, name)
 }
 
 func (workqueueMetricsProvider) NewLongestRunningProcessorSecondsMetric(name string) workqueue.SettableGaugeMetric {
-	return longestRunningProcessor.WithLabelValues(name)
+	return longestRunningProcessor.WithLabelValues(name, name)
 }
 
 func (workqueueMetricsProvider) NewRetriesMetric(name string) workqueue.CounterMetric {
-	return retries.WithLabelValues(name)
+	return retries.WithLabelValues(name, name)
 }

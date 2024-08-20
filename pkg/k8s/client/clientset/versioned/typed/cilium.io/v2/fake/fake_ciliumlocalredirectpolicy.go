@@ -28,22 +28,24 @@ var ciliumlocalredirectpoliciesKind = v2.SchemeGroupVersion.WithKind("CiliumLoca
 
 // Get takes name of the ciliumLocalRedirectPolicy, and returns the corresponding ciliumLocalRedirectPolicy object, and an error if there is any.
 func (c *FakeCiliumLocalRedirectPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumLocalRedirectPolicy, err error) {
+	emptyResult := &v2.CiliumLocalRedirectPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(ciliumlocalredirectpoliciesResource, c.ns, name), &v2.CiliumLocalRedirectPolicy{})
+		Invokes(testing.NewGetActionWithOptions(ciliumlocalredirectpoliciesResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumLocalRedirectPolicy), err
 }
 
 // List takes label and field selectors, and returns the list of CiliumLocalRedirectPolicies that match those selectors.
 func (c *FakeCiliumLocalRedirectPolicies) List(ctx context.Context, opts v1.ListOptions) (result *v2.CiliumLocalRedirectPolicyList, err error) {
+	emptyResult := &v2.CiliumLocalRedirectPolicyList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(ciliumlocalredirectpoliciesResource, ciliumlocalredirectpoliciesKind, c.ns, opts), &v2.CiliumLocalRedirectPolicyList{})
+		Invokes(testing.NewListActionWithOptions(ciliumlocalredirectpoliciesResource, ciliumlocalredirectpoliciesKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -62,40 +64,43 @@ func (c *FakeCiliumLocalRedirectPolicies) List(ctx context.Context, opts v1.List
 // Watch returns a watch.Interface that watches the requested ciliumLocalRedirectPolicies.
 func (c *FakeCiliumLocalRedirectPolicies) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(ciliumlocalredirectpoliciesResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(ciliumlocalredirectpoliciesResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a ciliumLocalRedirectPolicy and creates it.  Returns the server's representation of the ciliumLocalRedirectPolicy, and an error, if there is any.
 func (c *FakeCiliumLocalRedirectPolicies) Create(ctx context.Context, ciliumLocalRedirectPolicy *v2.CiliumLocalRedirectPolicy, opts v1.CreateOptions) (result *v2.CiliumLocalRedirectPolicy, err error) {
+	emptyResult := &v2.CiliumLocalRedirectPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(ciliumlocalredirectpoliciesResource, c.ns, ciliumLocalRedirectPolicy), &v2.CiliumLocalRedirectPolicy{})
+		Invokes(testing.NewCreateActionWithOptions(ciliumlocalredirectpoliciesResource, c.ns, ciliumLocalRedirectPolicy, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumLocalRedirectPolicy), err
 }
 
 // Update takes the representation of a ciliumLocalRedirectPolicy and updates it. Returns the server's representation of the ciliumLocalRedirectPolicy, and an error, if there is any.
 func (c *FakeCiliumLocalRedirectPolicies) Update(ctx context.Context, ciliumLocalRedirectPolicy *v2.CiliumLocalRedirectPolicy, opts v1.UpdateOptions) (result *v2.CiliumLocalRedirectPolicy, err error) {
+	emptyResult := &v2.CiliumLocalRedirectPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(ciliumlocalredirectpoliciesResource, c.ns, ciliumLocalRedirectPolicy), &v2.CiliumLocalRedirectPolicy{})
+		Invokes(testing.NewUpdateActionWithOptions(ciliumlocalredirectpoliciesResource, c.ns, ciliumLocalRedirectPolicy, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumLocalRedirectPolicy), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeCiliumLocalRedirectPolicies) UpdateStatus(ctx context.Context, ciliumLocalRedirectPolicy *v2.CiliumLocalRedirectPolicy, opts v1.UpdateOptions) (*v2.CiliumLocalRedirectPolicy, error) {
+func (c *FakeCiliumLocalRedirectPolicies) UpdateStatus(ctx context.Context, ciliumLocalRedirectPolicy *v2.CiliumLocalRedirectPolicy, opts v1.UpdateOptions) (result *v2.CiliumLocalRedirectPolicy, err error) {
+	emptyResult := &v2.CiliumLocalRedirectPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(ciliumlocalredirectpoliciesResource, "status", c.ns, ciliumLocalRedirectPolicy), &v2.CiliumLocalRedirectPolicy{})
+		Invokes(testing.NewUpdateSubresourceActionWithOptions(ciliumlocalredirectpoliciesResource, "status", c.ns, ciliumLocalRedirectPolicy, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumLocalRedirectPolicy), err
 }
@@ -110,7 +115,7 @@ func (c *FakeCiliumLocalRedirectPolicies) Delete(ctx context.Context, name strin
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCiliumLocalRedirectPolicies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(ciliumlocalredirectpoliciesResource, c.ns, listOpts)
+	action := testing.NewDeleteCollectionActionWithOptions(ciliumlocalredirectpoliciesResource, c.ns, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2.CiliumLocalRedirectPolicyList{})
 	return err
@@ -118,11 +123,12 @@ func (c *FakeCiliumLocalRedirectPolicies) DeleteCollection(ctx context.Context, 
 
 // Patch applies the patch and returns the patched ciliumLocalRedirectPolicy.
 func (c *FakeCiliumLocalRedirectPolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumLocalRedirectPolicy, err error) {
+	emptyResult := &v2.CiliumLocalRedirectPolicy{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(ciliumlocalredirectpoliciesResource, c.ns, name, pt, data, subresources...), &v2.CiliumLocalRedirectPolicy{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(ciliumlocalredirectpoliciesResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v2.CiliumLocalRedirectPolicy), err
 }

@@ -143,7 +143,7 @@ message EndpointPort {
 message EndpointSlice {
   // Standard object's metadata.
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
 
   // addressType specifies the type of address carried by this EndpointSlice.
   // All addresses in this slice must be the same type. This field is
@@ -173,7 +173,7 @@ message EndpointSlice {
 message EndpointSliceList {
   // Standard list metadata.
   // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
+  optional .github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
 
   // items is the list of endpoint slices
   repeated EndpointSlice items = 2;

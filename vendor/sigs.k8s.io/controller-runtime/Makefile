@@ -24,6 +24,11 @@
 SHELL:=/usr/bin/env bash
 .DEFAULT_GOAL:=help
 
+#
+# Go.
+#
+GO_VERSION ?= 1.22.5
+
 # Use GOPROXY environment variable if set
 GOPROXY := $(shell go env GOPROXY)
 ifeq ($(GOPROXY),)
@@ -33,6 +38,13 @@ export GOPROXY
 
 # Active module mode, as we use go modules to manage dependencies
 export GO111MODULE=on
+
+# Hosts running SELinux need :z added to volume mounts
+SELINUX_ENABLED := $(shell cat /sys/fs/selinux/enforce 2> /dev/null || echo 0)
+
+ifeq ($(SELINUX_ENABLED),1)
+  DOCKER_VOL_OPTS?=:z
+endif
 
 # Tools.
 TOOLS_DIR := hack/tools
@@ -92,6 +104,13 @@ GOLANGCI_LINT_PKG := github.com/golangci/golangci-lint/cmd/golangci-lint
 $(GOLANGCI_LINT): # Build golangci-lint from tools folder.
 	GOBIN=$(TOOLS_BIN_DIR) $(GO_INSTALL) $(GOLANGCI_LINT_PKG) $(GOLANGCI_LINT_BIN) $(GOLANGCI_LINT_VER)
 
+GO_MOD_CHECK_DIR := $(abspath ./hack/tools/cmd/gomodcheck)
+GO_MOD_CHECK := $(abspath $(TOOLS_BIN_DIR)/gomodcheck)
+GO_MOD_CHECK_IGNORE := $(abspath .gomodcheck.yaml)
+.PHONY: $(GO_MOD_CHECK)
+$(GO_MOD_CHECK): # Build gomodcheck
+	go build -C $(GO_MOD_CHECK_DIR) -o $(GO_MOD_CHECK)
+
 ## --------------------------------------
 ## Linting
 ## --------------------------------------
@@ -117,6 +136,48 @@ modules: ## Runs go mod to ensure modules are up to date.
 	cd $(SCRATCH_ENV_DIR); go mod tidy
 
 ## --------------------------------------
+## Release
+## --------------------------------------
+
+RELEASE_DIR := tools/setup-envtest/out
+
+.PHONY: $(RELEASE_DIR)
+$(RELEASE_DIR):
+	mkdir -p $(RELEASE_DIR)/
+
+.PHONY: release
+release: clean-release $(RELEASE_DIR) ## Build release.
+	@if ! [ -z "$$(git status --porcelain)" ]; then echo "Your local git repository contains uncommitted changes, use git clean before proceeding."; exit 1; fi
+
+	# Build binaries first.
+	$(MAKE) release-binaries
+
+.PHONY: release-binaries
+release-binaries: ## Build release binaries.
+	RELEASE_BINARY=setup-envtest-linux-amd64       GOOS=linux   GOARCH=amd64   $(MAKE) release-binary
+	RELEASE_BINARY=setup-envtest-linux-arm64       GOOS=linux   GOARCH=arm64   $(MAKE) release-binary
+	RELEASE_BINARY=setup-envtest-linux-ppc64le     GOOS=linux   GOARCH=ppc64le $(MAKE) release-binary
+	RELEASE_BINARY=setup-envtest-linux-s390x       GOOS=linux   GOARCH=s390x   $(MAKE) release-binary
+	RELEASE_BINARY=setup-envtest-darwin-amd64      GOOS=darwin  GOARCH=amd64   $(MAKE) release-binary
+	RELEASE_BINARY=setup-envtest-darwin-arm64      GOOS=darwin  GOARCH=arm64   $(MAKE) release-binary
+	RELEASE_BINARY=setup-envtest-windows-amd64.exe GOOS=windows GOARCH=amd64   $(MAKE) release-binary
+
+.PHONY: release-binary
+release-binary: $(RELEASE_DIR)
+	docker run \
+		--rm \
+		-e CGO_ENABLED=0 \
+		-e GOOS=$(GOOS) \
+		-e GOARCH=$(GOARCH) \
+		-e GOCACHE=/tmp/ \
+		--user $$(id -u):$$(id -g) \
+		-v "$$(pwd):/workspace$(DOCKER_VOL_OPTS)" \
+		-w /workspace/tools/setup-envtest \
+		golang:$(GO_VERSION) \
+		go build -a -trimpath -ldflags "-extldflags '-static'" \
+		-o ./out/$(RELEASE_BINARY) ./
+
+## --------------------------------------
 ## Cleanup / Verification
 ## --------------------------------------
 
@@ -129,12 +190,17 @@ clean: ## Cleanup.
 clean-bin: ## Remove all generated binaries.
 	rm -rf hack/tools/bin
 
+.PHONY: clean-release
+clean-release: ## Remove the release folder
+	rm -rf $(RELEASE_DIR)
+
 .PHONY: verify-modules
-verify-modules: modules ## Verify go modules are up to date
+verify-modules: modules $(GO_MOD_CHECK) ## Verify go modules are up to date
 	@if !(git diff --quiet HEAD -- go.sum go.mod $(TOOLS_DIR)/go.mod $(TOOLS_DIR)/go.sum $(ENVTEST_DIR)/go.mod $(ENVTEST_DIR)/go.sum $(SCRATCH_ENV_DIR)/go.sum); then \
 		git diff; \
 		echo "go module files are out of date, please run 'make modules'"; exit 1; \
 	fi
+	$(GO_MOD_CHECK) $(GO_MOD_CHECK_IGNORE)
 
 APIDIFF_OLD_COMMIT ?= $(shell git rev-parse origin/main)
 
@@ -142,4 +208,11 @@ APIDIFF_OLD_COMMIT ?= $(shell git rev-parse origin/main)
 verify-apidiff: $(GO_APIDIFF) ## Check for API differences
 	$(GO_APIDIFF) $(APIDIFF_OLD_COMMIT) --print-compatible
 
+## --------------------------------------
+## Helpers
+## --------------------------------------
 
+##@ helpers:
+
+go-version: ## Print the go version we use to compile our binaries and images
+	@echo $(GO_VERSION)

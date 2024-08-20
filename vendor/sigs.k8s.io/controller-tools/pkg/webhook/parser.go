@@ -19,11 +19,12 @@ limitations under the License.
 //
 // The markers take the form:
 //
-//  +kubebuilder:webhook:webhookVersions=<[]string>,failurePolicy=<string>,matchPolicy=<string>,groups=<[]string>,resources=<[]string>,verbs=<[]string>,versions=<[]string>,name=<string>,path=<string>,mutating=<bool>,sideEffects=<string>,admissionReviewVersions=<[]string>
+//	+kubebuilder:webhook:webhookVersions=<[]string>,failurePolicy=<string>,matchPolicy=<string>,groups=<[]string>,resources=<[]string>,verbs=<[]string>,versions=<[]string>,name=<string>,path=<string>,mutating=<bool>,sideEffects=<string>,timeoutSeconds=<int>,admissionReviewVersions=<[]string>,reinvocationPolicy=<string>
 package webhook
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	admissionregv1 "k8s.io/api/admissionregistration/v1"
@@ -80,6 +81,11 @@ type Config struct {
 	// If the value is "NoneOnDryRun", then the webhook is responsible for inspecting the "dryRun" property of the
 	// AdmissionReview sent in the request, and avoiding side effects if that value is "true."
 	SideEffects string `marker:",optional"`
+	// TimeoutSeconds allows configuring how long the API server should wait for a webhook to respond before treating the call as a failure.
+	// If the timeout expires before the webhook responds, the webhook call will be ignored or the API call will be rejected based on the failure policy.
+	// The timeout value must be between 1 and 30 seconds.
+	// The timeout for an admission webhook defaults to 10 seconds.
+	TimeoutSeconds int `marker:",optional"`
 
 	// Groups specifies the API groups that this webhook receives requests for.
 	Groups []string
@@ -102,7 +108,7 @@ type Config struct {
 	// are substituted for hyphens. For example, a validating webhook path for type
 	// batch.tutorial.kubebuilder.io/v1,Kind=CronJob would be
 	// /validate-batch-tutorial-kubebuilder-io-v1-cronjob
-	Path string
+	Path string `marker:"path,optional"`
 
 	// WebhookVersions specifies the target API versions of the {Mutating,Validating}WebhookConfiguration objects
 	// itself to generate. The only supported value is v1. Defaults to v1.
@@ -111,6 +117,22 @@ type Config struct {
 	// AdmissionReviewVersions is an ordered list of preferred `AdmissionReview`
 	// versions the Webhook expects.
 	AdmissionReviewVersions []string `marker:"admissionReviewVersions"`
+
+	// ReinvocationPolicy allows mutating webhooks to request reinvocation after other mutations
+	//
+	// To allow mutating admission plugins to observe changes made by other plugins,
+	// built-in mutating admission plugins are re-run if a mutating webhook modifies
+	// an object, and mutating webhooks can specify a reinvocationPolicy to control
+	// whether they are reinvoked as well.
+	ReinvocationPolicy string `marker:"reinvocationPolicy,optional"`
+
+	// URL allows mutating webhooks configuration to specify an external URL when generating
+	// the manifests, instead of using the internal service communication. Should be in format of
+	// https://address:port/path
+	// When this option is specified, the serviceConfig.Service is removed from webhook the manifest.
+	// The URL configuration should be between quotes.
+	// `url` cannot be specified when `path` is specified.
+	URL string `marker:"url,optional"`
 }
 
 // verbToAPIVariant converts a marker's verb to the proper value for the API.
@@ -143,14 +165,21 @@ func (c Config) ToMutatingWebhook() (admissionregv1.MutatingWebhook, error) {
 		return admissionregv1.MutatingWebhook{}, err
 	}
 
+	clientConfig, err := c.clientConfig()
+	if err != nil {
+		return admissionregv1.MutatingWebhook{}, err
+	}
+
 	return admissionregv1.MutatingWebhook{
 		Name:                    c.Name,
 		Rules:                   c.rules(),
 		FailurePolicy:           c.failurePolicy(),
 		MatchPolicy:             matchPolicy,
-		ClientConfig:            c.clientConfig(),
+		ClientConfig:            clientConfig,
 		SideEffects:             c.sideEffects(),
+		TimeoutSeconds:          c.timeoutSeconds(),
 		AdmissionReviewVersions: c.AdmissionReviewVersions,
+		ReinvocationPolicy:      c.reinvocationPolicy(),
 	}, nil
 }
 
@@ -165,13 +194,19 @@ func (c Config) ToValidatingWebhook() (admissionregv1.ValidatingWebhook, error) 
 		return admissionregv1.ValidatingWebhook{}, err
 	}
 
+	clientConfig, err := c.clientConfig()
+	if err != nil {
+		return admissionregv1.ValidatingWebhook{}, err
+	}
+
 	return admissionregv1.ValidatingWebhook{
 		Name:                    c.Name,
 		Rules:                   c.rules(),
 		FailurePolicy:           c.failurePolicy(),
 		MatchPolicy:             matchPolicy,
-		ClientConfig:            c.clientConfig(),
+		ClientConfig:            clientConfig,
 		SideEffects:             c.sideEffects(),
+		TimeoutSeconds:          c.timeoutSeconds(),
 		AdmissionReviewVersions: c.AdmissionReviewVersions,
 	}, nil
 }
@@ -234,15 +269,26 @@ func (c Config) matchPolicy() (*admissionregv1.MatchPolicyType, error) {
 }
 
 // clientConfig returns the client config for a webhook.
-func (c Config) clientConfig() admissionregv1.WebhookClientConfig {
-	path := c.Path
-	return admissionregv1.WebhookClientConfig{
-		Service: &admissionregv1.ServiceReference{
-			Name:      "webhook-service",
-			Namespace: "system",
-			Path:      &path,
-		},
+func (c Config) clientConfig() (admissionregv1.WebhookClientConfig, error) {
+	if (c.Path != "" && c.URL != "") || (c.Path == "" && c.URL == "") {
+		return admissionregv1.WebhookClientConfig{}, fmt.Errorf("`url` or `path` markers are required and mutually exclusive")
 	}
+
+	path := c.Path
+	if path != "" {
+		return admissionregv1.WebhookClientConfig{
+			Service: &admissionregv1.ServiceReference{
+				Name:      "webhook-service",
+				Namespace: "system",
+				Path:      &path,
+			},
+		}, nil
+	}
+
+	url := c.URL
+	return admissionregv1.WebhookClientConfig{
+		URL: &url,
+	}, nil
 }
 
 // sideEffects returns the sideEffects config for a webhook.
@@ -263,6 +309,29 @@ func (c Config) sideEffects() *admissionregv1.SideEffectClass {
 	return &sideEffects
 }
 
+// timeoutSeconds returns the timeoutSeconds config for a webhook.
+func (c Config) timeoutSeconds() *int32 {
+	if c.TimeoutSeconds != 0 {
+		timeoutSeconds := int32(c.TimeoutSeconds)
+		return &timeoutSeconds
+	}
+	return nil
+}
+
+// reinvocationPolicy returns the reinvocationPolicy config for a mutating webhook.
+func (c Config) reinvocationPolicy() *admissionregv1.ReinvocationPolicyType {
+	var reinvocationPolicy admissionregv1.ReinvocationPolicyType
+	switch strings.ToLower(c.ReinvocationPolicy) {
+	case strings.ToLower(string(admissionregv1.NeverReinvocationPolicy)):
+		reinvocationPolicy = admissionregv1.NeverReinvocationPolicy
+	case strings.ToLower(string(admissionregv1.IfNeededReinvocationPolicy)):
+		reinvocationPolicy = admissionregv1.IfNeededReinvocationPolicy
+	default:
+		return nil
+	}
+	return &reinvocationPolicy
+}
+
 // webhookVersions returns the target API versions of the {Mutating,Validating}WebhookConfiguration objects for a webhook.
 func (c Config) webhookVersions() ([]string, error) {
 	// If WebhookVersions is not specified, we default it to `v1`.
@@ -281,7 +350,13 @@ func (c Config) webhookVersions() ([]string, error) {
 // +controllertools:marker:generateHelp
 
 // Generator generates (partial) {Mutating,Validating}WebhookConfiguration objects.
-type Generator struct{}
+type Generator struct {
+	// HeaderFile specifies the header text (e.g. license) to prepend to generated files.
+	HeaderFile string `marker:",optional"`
+
+	// Year specifies the year to substitute for " YEAR" in the header file.
+	Year string `marker:",optional"`
+}
 
 func (Generator) RegisterMarkers(into *markers.Registry) error {
 	if err := into.Register(ConfigDefinition); err != nil {
@@ -291,7 +366,7 @@ func (Generator) RegisterMarkers(into *markers.Registry) error {
 	return nil
 }
 
-func (Generator) Generate(ctx *genall.GenerationContext) error {
+func (g Generator) Generate(ctx *genall.GenerationContext) error {
 	supportedWebhookVersions := supportedWebhookVersions()
 	mutatingCfgs := make(map[string][]admissionregv1.MutatingWebhook, len(supportedWebhookVersions))
 	validatingCfgs := make(map[string][]admissionregv1.ValidatingWebhook, len(supportedWebhookVersions))
@@ -301,7 +376,12 @@ func (Generator) Generate(ctx *genall.GenerationContext) error {
 			root.AddError(err)
 		}
 
-		for _, cfg := range markerSet[ConfigDefinition.Name] {
+		cfgs := markerSet[ConfigDefinition.Name]
+		sort.SliceStable(cfgs, func(i, j int) bool {
+			return cfgs[i].(Config).Name < cfgs[j].(Config).Name
+		})
+
+		for _, cfg := range cfgs {
 			cfg := cfg.(Config)
 			webhookVersions, err := cfg.webhookVersions()
 			if err != nil {
@@ -346,6 +426,11 @@ func (Generator) Generate(ctx *genall.GenerationContext) error {
 				if err := checkSideEffectsForV1(objRaw.Webhooks[i].SideEffects); err != nil {
 					return err
 				}
+				// TimeoutSeconds must be nil or between 1 and 30 seconds, otherwise,
+				// return an error
+				if err := checkTimeoutSeconds(objRaw.Webhooks[i].TimeoutSeconds); err != nil {
+					return err
+				}
 				// AdmissionReviewVersions is required in admissionregistration/v1, if this is not set,
 				// return an error
 				if len(objRaw.Webhooks[i].AdmissionReviewVersions) == 0 {
@@ -372,6 +457,11 @@ func (Generator) Generate(ctx *genall.GenerationContext) error {
 				if err := checkSideEffectsForV1(objRaw.Webhooks[i].SideEffects); err != nil {
 					return err
 				}
+				// TimeoutSeconds must be nil or between 1 and 30 seconds, otherwise,
+				// return an error
+				if err := checkTimeoutSeconds(objRaw.Webhooks[i].TimeoutSeconds); err != nil {
+					return err
+				}
 				// AdmissionReviewVersions is required in admissionregistration/v1, if this is not set,
 				// return an error
 				if len(objRaw.Webhooks[i].AdmissionReviewVersions) == 0 {
@@ -382,14 +472,24 @@ func (Generator) Generate(ctx *genall.GenerationContext) error {
 		}
 	}
 
+	var headerText string
+	if g.HeaderFile != "" {
+		headerBytes, err := ctx.ReadFile(g.HeaderFile)
+		if err != nil {
+			return err
+		}
+		headerText = string(headerBytes)
+	}
+	headerText = strings.ReplaceAll(headerText, " YEAR", " "+g.Year)
+
 	for k, v := range versionedWebhooks {
 		var fileName string
 		if k == defaultWebhookVersion {
-			fileName = fmt.Sprintf("manifests.yaml")
+			fileName = "manifests.yaml"
 		} else {
 			fileName = fmt.Sprintf("manifests.%s.yaml", k)
 		}
-		if err := ctx.WriteYAML(fileName, v...); err != nil {
+		if err := ctx.WriteYAML(fileName, headerText, v, genall.WithTransform(genall.TransformRemoveCreationTimestamp)); err != nil {
 			return err
 		}
 	}
@@ -403,6 +503,13 @@ func checkSideEffectsForV1(sideEffects *admissionregv1.SideEffectClass) error {
 	if *sideEffects == admissionregv1.SideEffectClassUnknown ||
 		*sideEffects == admissionregv1.SideEffectClassSome {
 		return fmt.Errorf("SideEffects should not be set to `Some` or `Unknown` for v1 {Mutating,Validating}WebhookConfiguration")
+	}
+	return nil
+}
+
+func checkTimeoutSeconds(timeoutSeconds *int32) error {
+	if timeoutSeconds != nil && (*timeoutSeconds < 1 || *timeoutSeconds > 30) {
+		return fmt.Errorf("TimeoutSeconds must be between 1 and 30 seconds")
 	}
 	return nil
 }
