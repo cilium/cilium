@@ -83,7 +83,7 @@ func FuzzAccumulateMapChange(f *testing.F) {
 		if redirect {
 			proxyPort = 1
 		}
-		key := NewKey(dir, 0, proto, port, 0)
+		key := KeyForDirection(dir).WithPortProto(proto, port)
 		value := NewMapStateEntry(csFoo, nil, proxyPort, "", 0, deny, DefaultAuthType, AuthTypeDisabled)
 		policyMaps := MapChanges{}
 		policyMaps.AccumulateMapChanges(csFoo, adds, deletes, []Key{key}, value)

@@ -56,7 +56,7 @@ func CorrelatePolicy(endpointGetter getters.EndpointGetter, f *flowpb.Flow) {
 	}
 
 	derivedFrom, rev, ok := lookupPolicyForKey(epInfo,
-		policy.NewKey(direction, remoteIdentity, proto, dport, 0),
+		policy.KeyForDirection(direction).WithIdentity(remoteIdentity).WithPortProto(proto, dport),
 		f.GetPolicyMatchType())
 	if !ok {
 		logger.WithFields(logrus.Fields{
@@ -157,7 +157,7 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		//    - port: 80
 		//      protocol: TCP // protocol is optional for this match.
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(
-			policy.NewKey(key.TrafficDirection(), 0, key.Nexthdr, key.DestPort, 0))
+			policy.KeyForDirection(key.TrafficDirection()).WithPortProto(key.Nexthdr, key.DestPort))
 	case monitorAPI.PolicyMatchProtoOnly:
 		// Check for protocol-only policies.
 		//
@@ -169,7 +169,7 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		//  - ports:
 		//    - protocol: TCP
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(
-			policy.NewKey(key.TrafficDirection(), 0, key.Nexthdr, 0, 0))
+			policy.KeyForDirection(key.TrafficDirection()).WithProto(key.Nexthdr))
 	case monitorAPI.PolicyMatchL3Only:
 		// Check for L3 policy rules.
 		//
@@ -182,7 +182,7 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		//      matchLabels:
 		//        app: client
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(
-			policy.NewL3OnlyKey(key.TrafficDirection(), key.Identity))
+			policy.KeyForDirection(key.TrafficDirection()).WithIdentity(key.Identity))
 	case monitorAPI.PolicyMatchAll:
 		// Check for allow-all policy rules.
 		//
@@ -193,7 +193,7 @@ func lookupPolicyForKey(ep getters.EndpointInfo, key policy.Key, matchType uint3
 		//  ingress:
 		//  - {}
 		derivedFrom, rev, ok = ep.GetRealizedPolicyRuleLabelsForKey(
-			policy.NewL3OnlyKey(key.TrafficDirection(), 0))
+			policy.KeyForDirection(key.TrafficDirection()))
 	}
 
 	return derivedFrom, rev, ok

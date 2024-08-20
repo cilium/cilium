@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var (
@@ -341,16 +340,16 @@ var (
 		}})
 
 	// Desired map keys for L3, L3-dependent L4, L4
-	mapKeyAllowFoo__ = IngressL3OnlyKey(identityFoo)
-	mapKeyAllowBar__ = IngressL3OnlyKey(identityBar)
-	mapKeyAllowBarL4 = IngressKey(identityBar, 6, 80, 0)
-	mapKeyAllowFooL4 = IngressKey(identityFoo, 6, 80, 0)
+	mapKeyAllowFoo__ = IngressKey().WithIdentity(identityFoo)
+	mapKeyAllowBar__ = IngressKey().WithIdentity(identityBar)
+	mapKeyAllowBarL4 = IngressKey().WithIdentity(identityBar).WithTCPPort(80)
+	mapKeyAllowFooL4 = IngressKey().WithIdentity(identityFoo).WithTCPPort(80)
 	mapKeyDeny_Foo__ = mapKeyAllowFoo__
 	mapKeyDeny_FooL4 = mapKeyAllowFooL4
-	mapKeyAllow___L4 = IngressKey(0, 6, 80, 0)
+	mapKeyAllow___L4 = IngressKey().WithTCPPort(80)
 	mapKeyDeny____L4 = mapKeyAllow___L4
-	mapKeyAllowAll__ = IngressL3OnlyKey(0)
-	mapKeyAllowAllE_ = EgressL3OnlyKey(0)
+	mapKeyAllowAll__ = IngressKey()
+	mapKeyAllowAllE_ = EgressKey()
 	// Desired map entries for no L7 redirect / redirect to Proxy
 	mapEntryL7None_ = func(lbls ...labels.LabelArray) MapStateEntry {
 		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), 0, "", 0, false, DefaultAuthType, AuthTypeDisabled).WithOwners()
@@ -1382,8 +1381,8 @@ var (
 	cpyRule                   = *ruleL3DenyWorld
 	ruleL3DenyWorldWithLabels = (&cpyRule).WithLabels(labels.LabelWorld.LabelArray())
 	worldReservedID           = identity.ReservedIdentityWorld
-	mapKeyL3WorldIngress      = IngressL3OnlyKey(worldReservedID)
-	mapKeyL3WorldEgress       = EgressL3OnlyKey(worldReservedID)
+	mapKeyL3WorldIngress      = IngressKey().WithIdentity(worldReservedID)
+	mapKeyL3WorldEgress       = EgressKey().WithIdentity(worldReservedID)
 	mapEntryDeny              = MapStateEntry{
 		ProxyPort:        0,
 		DerivedFromRules: labels.LabelArrayList{nil},
@@ -1436,8 +1435,8 @@ var (
 			ToCIDRSet: api.CIDRRuleSlice{worldSubnetRule},
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
-	mapKeyL3SubnetIngress = IngressL3OnlyKey(worldSubnetIdentity)
-	mapKeyL3SubnetEgress  = EgressL3OnlyKey(worldSubnetIdentity)
+	mapKeyL3SubnetIngress = IngressKey().WithIdentity(worldSubnetIdentity)
+	mapKeyL3SubnetEgress  = EgressKey().WithIdentity(worldSubnetIdentity)
 
 	ruleL3DenySmallerSubnet = api.NewRule().WithIngressDenyRules([]api.IngressDenyRule{{
 		IngressCommonRule: api.IngressCommonRule{
@@ -1459,8 +1458,8 @@ var (
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 
-	mapKeyL3SmallerSubnetIngress = IngressL3OnlyKey(worldIPIdentity)
-	mapKeyL3SmallerSubnetEgress  = EgressL3OnlyKey(worldIPIdentity)
+	mapKeyL3SmallerSubnetIngress = IngressKey().WithIdentity(worldIPIdentity)
+	mapKeyL3SmallerSubnetEgress  = EgressKey().WithIdentity(worldIPIdentity)
 
 	ruleL3AllowHostEgress = api.NewRule().WithEgressRules([]api.EgressRule{{
 		EgressCommonRule: api.EgressCommonRule{
@@ -1468,14 +1467,14 @@ var (
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
 
-	mapKeyL3UnknownIngress = IngressL3OnlyKey(identity.IdentityUnknown)
+	mapKeyL3UnknownIngress = IngressKey()
 	derivedFrom            = labels.LabelArrayList{
 		labels.LabelArray{
 			labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
 		},
 	}
 	mapEntryL3UnknownIngress          = NewMapStateEntry(nil, derivedFrom, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
-	mapKeyL3HostEgress                = EgressL3OnlyKey(identity.ReservedIdentityHost)
+	mapKeyL3HostEgress                = EgressKey().WithIdentity(identity.ReservedIdentityHost)
 	ruleL3L4Port8080ProtoAnyDenyWorld = api.NewRule().WithIngressDenyRules([]api.IngressDenyRule{
 		{
 			ToPorts: api.PortDenyRules{
@@ -1509,26 +1508,26 @@ var (
 			},
 		},
 	}).WithEndpointSelector(api.WildcardEndpointSelector)
-	mapKeyL3L4Port8080ProtoTCPWorldIngress  = IngressKey(worldReservedID, 6, 8080, 0)
-	mapKeyL3L4Port8080ProtoTCPWorldEgress   = EgressKey(worldReservedID, 6, 8080, 0)
-	mapKeyL3L4Port8080ProtoUDPWorldIngress  = IngressKey(worldReservedID, 17, 8080, 0)
-	mapKeyL3L4Port8080ProtoUDPWorldEgress   = EgressKey(worldReservedID, 17, 8080, 0)
-	mapKeyL3L4Port8080ProtoSCTPWorldIngress = IngressKey(worldReservedID, 132, 8080, 0)
-	mapKeyL3L4Port8080ProtoSCTPWorldEgress  = EgressKey(worldReservedID, 132, 8080, 0)
+	mapKeyL3L4Port8080ProtoTCPWorldIngress  = IngressKey().WithIdentity(worldReservedID).WithTCPPort(8080)
+	mapKeyL3L4Port8080ProtoTCPWorldEgress   = EgressKey().WithIdentity(worldReservedID).WithTCPPort(8080)
+	mapKeyL3L4Port8080ProtoUDPWorldIngress  = IngressKey().WithIdentity(worldReservedID).WithUDPPort(8080)
+	mapKeyL3L4Port8080ProtoUDPWorldEgress   = EgressKey().WithIdentity(worldReservedID).WithUDPPort(8080)
+	mapKeyL3L4Port8080ProtoSCTPWorldIngress = IngressKey().WithIdentity(worldReservedID).WithSCTPPort(8080)
+	mapKeyL3L4Port8080ProtoSCTPWorldEgress  = EgressKey().WithIdentity(worldReservedID).WithSCTPPort(8080)
 
-	mapKeyL3L4Port8080ProtoTCPWorldSNIngress  = IngressKey(worldSubnetIdentity, 6, 8080, 0)
-	mapKeyL3L4Port8080ProtoTCPWorldSNEgress   = EgressKey(worldSubnetIdentity, 6, 8080, 0)
-	mapKeyL3L4Port8080ProtoUDPWorldSNIngress  = IngressKey(worldSubnetIdentity, 17, 8080, 0)
-	mapKeyL3L4Port8080ProtoUDPWorldSNEgress   = EgressKey(worldSubnetIdentity, 17, 8080, 0)
-	mapKeyL3L4Port8080ProtoSCTPWorldSNIngress = IngressKey(worldSubnetIdentity, 132, 8080, 0)
-	mapKeyL3L4Port8080ProtoSCTPWorldSNEgress  = EgressKey(worldSubnetIdentity, 132, 8080, 0)
+	mapKeyL3L4Port8080ProtoTCPWorldSNIngress  = IngressKey().WithIdentity(worldSubnetIdentity).WithTCPPort(8080)
+	mapKeyL3L4Port8080ProtoTCPWorldSNEgress   = EgressKey().WithIdentity(worldSubnetIdentity).WithTCPPort(8080)
+	mapKeyL3L4Port8080ProtoUDPWorldSNIngress  = IngressKey().WithIdentity(worldSubnetIdentity).WithUDPPort(8080)
+	mapKeyL3L4Port8080ProtoUDPWorldSNEgress   = EgressKey().WithIdentity(worldSubnetIdentity).WithUDPPort(8080)
+	mapKeyL3L4Port8080ProtoSCTPWorldSNIngress = IngressKey().WithIdentity(worldSubnetIdentity).WithSCTPPort(8080)
+	mapKeyL3L4Port8080ProtoSCTPWorldSNEgress  = EgressKey().WithIdentity(worldSubnetIdentity).WithSCTPPort(8080)
 
-	mapKeyL3L4Port8080ProtoTCPWorldIPIngress  = IngressKey(worldIPIdentity, 6, 8080, 0)
-	mapKeyL3L4Port8080ProtoTCPWorldIPEgress   = EgressKey(worldIPIdentity, 6, 8080, 0)
-	mapKeyL3L4Port8080ProtoUDPWorldIPIngress  = IngressKey(worldIPIdentity, 17, 8080, 0)
-	mapKeyL3L4Port8080ProtoUDPWorldIPEgress   = EgressKey(worldIPIdentity, 17, 8080, 0)
-	mapKeyL3L4Port8080ProtoSCTPWorldIPIngress = IngressKey(worldIPIdentity, 132, 8080, 0)
-	mapKeyL3L4Port8080ProtoSCTPWorldIPEgress  = EgressKey(worldIPIdentity, 132, 8080, 0)
+	mapKeyL3L4Port8080ProtoTCPWorldIPIngress  = IngressKey().WithIdentity(worldIPIdentity).WithTCPPort(8080)
+	mapKeyL3L4Port8080ProtoTCPWorldIPEgress   = EgressKey().WithIdentity(worldIPIdentity).WithTCPPort(8080)
+	mapKeyL3L4Port8080ProtoUDPWorldIPIngress  = IngressKey().WithIdentity(worldIPIdentity).WithUDPPort(8080)
+	mapKeyL3L4Port8080ProtoUDPWorldIPEgress   = EgressKey().WithIdentity(worldIPIdentity).WithUDPPort(8080)
+	mapKeyL3L4Port8080ProtoSCTPWorldIPIngress = IngressKey().WithIdentity(worldIPIdentity).WithSCTPPort(8080)
+	mapKeyL3L4Port8080ProtoSCTPWorldIPEgress  = EgressKey().WithIdentity(worldIPIdentity).WithSCTPPort(8080)
 
 	ruleL3AllowWorldSubnet = api.NewRule().WithIngressRules([]api.IngressRule{{
 		ToPorts: api.PortRules{
@@ -1569,15 +1568,15 @@ var (
 			ToCIDR: api.CIDRSlice{worldIPCIDR},
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
-	mapKeyAnyIngress                        = IngressL3OnlyKey(0)
-	mapKeyL4AnyPortProtoWorldIPIngress      = IngressL3OnlyKey(worldIPIdentity)
-	mapKeyL4AnyPortProtoWorldIPEgress       = EgressL3OnlyKey(worldIPIdentity)
-	mapKeyL4Port8080ProtoTCPWorldIPIngress  = IngressKey(worldIPIdentity, 6, 8080, 0)
-	mapKeyL4Port8080ProtoTCPWorldIPEgress   = EgressKey(worldIPIdentity, 6, 8080, 0)
-	mapKeyL4Port8080ProtoUDPWorldIPIngress  = IngressKey(worldIPIdentity, 17, 8080, 0)
-	mapKeyL4Port8080ProtoUDPWorldIPEgress   = EgressKey(worldIPIdentity, 17, 8080, 0)
-	mapKeyL4Port8080ProtoSCTPWorldIPIngress = IngressKey(worldIPIdentity, 132, 8080, 0)
-	mapKeyL4Port8080ProtoSCTPWorldIPEgress  = EgressKey(worldIPIdentity, 132, 8080, 0)
+	mapKeyAnyIngress                        = IngressKey()
+	mapKeyL4AnyPortProtoWorldIPIngress      = IngressKey().WithIdentity(worldIPIdentity)
+	mapKeyL4AnyPortProtoWorldIPEgress       = EgressKey().WithIdentity(worldIPIdentity)
+	mapKeyL4Port8080ProtoTCPWorldIPIngress  = IngressKey().WithIdentity(worldIPIdentity).WithTCPPort(8080)
+	mapKeyL4Port8080ProtoTCPWorldIPEgress   = EgressKey().WithIdentity(worldIPIdentity).WithTCPPort(8080)
+	mapKeyL4Port8080ProtoUDPWorldIPIngress  = IngressKey().WithIdentity(worldIPIdentity).WithUDPPort(8080)
+	mapKeyL4Port8080ProtoUDPWorldIPEgress   = EgressKey().WithIdentity(worldIPIdentity).WithUDPPort(8080)
+	mapKeyL4Port8080ProtoSCTPWorldIPIngress = IngressKey().WithIdentity(worldIPIdentity).WithSCTPPort(8080)
+	mapKeyL4Port8080ProtoSCTPWorldIPEgress  = EgressKey().WithIdentity(worldIPIdentity).WithSCTPPort(8080)
 	mapEntryL4WorldIPDependentsIngressDeny  = MapStateEntry{
 		ProxyPort:        0,
 		IsDeny:           true,
@@ -1616,8 +1615,8 @@ var (
 			FromCIDR: api.CIDRSlice{worldSubnet},
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
-	mapKeyL3L4NamedPortHTTPProtoTCPWorldSubNetIngress = IngressKey(worldSubnetIdentity, 6, 80, 0)
-	mapKeyL3L4NamedPortHTTPProtoTCPWorldIPIngress     = IngressKey(worldIPIdentity, 6, 80, 0)
+	mapKeyL3L4NamedPortHTTPProtoTCPWorldSubNetIngress = IngressKey().WithIdentity(worldSubnetIdentity).WithTCPPort(80)
+	mapKeyL3L4NamedPortHTTPProtoTCPWorldIPIngress     = IngressKey().WithIdentity(worldIPIdentity).WithTCPPort(80)
 
 	ruleL3AllowWorldSubnetPortRange = api.NewRule().WithIngressRules([]api.IngressRule{{
 		ToPorts: api.PortRules{
@@ -1640,16 +1639,16 @@ var (
 			FromCIDR: api.CIDRSlice{worldSubnet},
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
-	mapKeyL3L4Port64To127ProtoTCPWorldSubNetIngress = IngressKey(worldSubnetIdentity, 6, 64, 10)
-	mapKeyL3L4Port5ProtoTCPWorldSubNetIngress       = IngressKey(worldSubnetIdentity, 6, 5, 0)
-	mapKeyL3L4Port6To7ProtoTCPWorldSubNetIngress    = IngressKey(worldSubnetIdentity, 6, 6, 15)
-	mapKeyL3L4Port8To9ProtoTCPWorldSubNetIngress    = IngressKey(worldSubnetIdentity, 6, 8, 15)
-	mapKeyL3L4Port10ProtoTCPWorldSubNetIngress      = IngressKey(worldSubnetIdentity, 6, 10, 0)
-	mapKeyL3L4Port64To127ProtoTCPWorldIPIngress     = IngressKey(worldIPIdentity, 6, 64, 10)
-	mapKeyL3L4Port5ProtoTCPWorldIPIngress           = IngressKey(worldIPIdentity, 6, 5, 0)
-	mapKeyL3L4Port6To7ProtoTCPWorldIPIngress        = IngressKey(worldIPIdentity, 6, 6, 15)
-	mapKeyL3L4Port8To9ProtoTCPWorldIPIngress        = IngressKey(worldIPIdentity, 6, 8, 15)
-	mapKeyL3L4Port10ProtoTCPWorldIPIngress          = IngressKey(worldIPIdentity, 6, 10, 0)
+	mapKeyL3L4Port64To127ProtoTCPWorldSubNetIngress = IngressKey().WithIdentity(worldSubnetIdentity).WithTCPPortPrefix(64, 10)
+	mapKeyL3L4Port5ProtoTCPWorldSubNetIngress       = IngressKey().WithIdentity(worldSubnetIdentity).WithTCPPort(5)
+	mapKeyL3L4Port6To7ProtoTCPWorldSubNetIngress    = IngressKey().WithIdentity(worldSubnetIdentity).WithTCPPortPrefix(6, 15)
+	mapKeyL3L4Port8To9ProtoTCPWorldSubNetIngress    = IngressKey().WithIdentity(worldSubnetIdentity).WithTCPPortPrefix(8, 15)
+	mapKeyL3L4Port10ProtoTCPWorldSubNetIngress      = IngressKey().WithIdentity(worldSubnetIdentity).WithTCPPort(10)
+	mapKeyL3L4Port64To127ProtoTCPWorldIPIngress     = IngressKey().WithIdentity(worldIPIdentity).WithTCPPortPrefix(64, 10)
+	mapKeyL3L4Port5ProtoTCPWorldIPIngress           = IngressKey().WithIdentity(worldIPIdentity).WithTCPPort(5)
+	mapKeyL3L4Port6To7ProtoTCPWorldIPIngress        = IngressKey().WithIdentity(worldIPIdentity).WithTCPPortPrefix(6, 15)
+	mapKeyL3L4Port8To9ProtoTCPWorldIPIngress        = IngressKey().WithIdentity(worldIPIdentity).WithTCPPortPrefix(8, 15)
+	mapKeyL3L4Port10ProtoTCPWorldIPIngress          = IngressKey().WithIdentity(worldIPIdentity).WithTCPPort(10)
 )
 
 func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
@@ -2009,7 +2008,7 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 			for _, rt := range tt.rangeTests {
 				for i := rt.startPort; i <= rt.endPort; i++ {
 					ctxFromA.DPorts = []*models.Port{{Port: i, Protocol: models.PortProtocolTCP}}
-					key := EgressKey(identity.ID, u8proto.TCP, i, 0)
+					key := EgressKey().WithIdentity(identity.ID).WithTCPPort(i)
 					if rt.isAllow {
 						// IngressCoversContext just checks the "From" labels of the search context.
 						require.Equalf(t, api.Allowed.String(), res.IngressCoversContext(&ctxFromA).String(), "Requesting port %d", i)

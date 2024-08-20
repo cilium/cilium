@@ -573,7 +573,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 	var keysToAdd []Key
 	for _, mp := range PortRangeToMaskedPorts(port, l4.EndPort) {
 		keysToAdd = append(keysToAdd,
-			NewKey(direction, 0, proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
+			KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 	}
 
 	// find the L7 rules for the wildcard entry, if any
@@ -1629,7 +1629,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 		var keysToAdd []Key
 		for _, mp := range PortRangeToMaskedPorts(port, l4.EndPort) {
 			keysToAdd = append(keysToAdd,
-				NewKey(direction, 0, proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
+				KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 		}
 		value := NewMapStateEntry(cs, derivedFrom, proxyPort, listener, priority, isDeny, hasAuth, authType)
 
