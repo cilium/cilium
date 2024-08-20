@@ -2,10 +2,19 @@
 {{$PODS_PER_NODE := 30}}
 {{$PODS_PER_DEPLOYMENT := 5}}
 {{$CNPS_PER_DEPLOYMENT := 2}}
+{{$namespaces := MaxInt (DivideInt .Nodes 100) 1}}
+# number of deployments is 30 * #nodes / 5
+# for 1 node -> 6 deployments x 1 namespace
+# for 100 nodes -> 600 deployments x 1 namespace
+# for 500 nodes -> 600 deployments x 5 namespaces
+# for 1000 nodes -> 600 deployments x 10 namespaces
 
-{{$namespaces := 1}}
+# Each deployment has #CNPS_PER_DEPLOYMENT CNPs
+# pointing to one random deployment within the same namespace
+
 {{$totalPods := MultiplyInt .Nodes $PODS_PER_NODE}}
 {{$deployments := DivideInt $totalPods $PODS_PER_DEPLOYMENT}}
+{{$deploymentsPerNamespace := DivideInt $deployments $namespaces}}
 
 name: load
 namespace:
