@@ -52,9 +52,6 @@ type ConnectivityTest struct {
 
 	logger *ConcurrentLogger
 
-	// version is the version string of the cilium-cli itself
-	version string
-
 	// Clients for source and destination clusters.
 	clients *deploymentClients
 
@@ -196,7 +193,6 @@ func NewConnectivityTest(
 	client *k8s.Client,
 	p Parameters,
 	sysdumpHooks sysdump.Hooks,
-	version string,
 	logger *ConcurrentLogger,
 ) (*ConnectivityTest, error) {
 	if err := p.validate(); err != nil {
@@ -208,7 +204,6 @@ func NewConnectivityTest(
 		params:                   p,
 		sysdumpHooks:             sysdumpHooks,
 		logger:                   logger,
-		version:                  version,
 		ciliumPods:               make(map[string]Pod),
 		echoPods:                 make(map[string]Pod),
 		echoExternalPods:         make(map[string]Pod),

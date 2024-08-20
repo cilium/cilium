@@ -177,7 +177,6 @@ func NewCollector(
 	o Options,
 	hooks Hooks,
 	startTime time.Time,
-	cliVersion string,
 ) (*Collector, error) {
 	c := &Collector{
 		Client:     k,
@@ -197,7 +196,7 @@ func NewCollector(
 		return nil, err
 	}
 	c.logDebug("Using %v as a temporary directory", c.sysdumpDir)
-	c.logTask("Collecting sysdump with cilium-cli version: %s, args: %s", cliVersion, os.Args[1:])
+	c.logTask("Collecting sysdump with cilium-cli version: %s, args: %s", defaults.CLIVersion, os.Args[1:])
 
 	if c.Options.CiliumNamespace == "" {
 		ns, err := detectCiliumNamespace(k)
