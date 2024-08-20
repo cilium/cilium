@@ -337,7 +337,7 @@ jobs:
             export VMUSER=root
             echo '127.0.0.1 localhost' >> /etc/hosts
             echo '::1 localhost' >> /etc/hosts
-            /tmp/provision/runtime_install.sh
+            /tmp/provision/runtime_install.sh ${{ env.CILIUM_RUNTIME_EXTRA_ARGS }}
             service docker restart
 
       - name: Runtime tests

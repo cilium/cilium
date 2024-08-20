@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+CILIUM_EXTRA_OPTS=${@}
+
 export CILIUM_DS_TAG="k8s-app=cilium"
 export KUBE_SYSTEM_NAMESPACE="kube-system"
 export KUBECTL="/usr/bin/kubectl"
@@ -132,7 +134,9 @@ else
     sudo cp ${PROVISIONSRC}/docker-run-cilium.sh /usr/bin/docker-run-cilium
 
     sudo mkdir -p /etc/sysconfig/
-    sed -e "s|CILIUM_IMAGE[^[:space:]]*$|CILIUM_IMAGE=${CILIUM_IMAGE}|" -e "s|HOME=/home/vagrant|HOME=/home/${VMUSER}|" contrib/systemd/cilium | sudo tee /etc/sysconfig/cilium
+    sed -e "s|CILIUM_IMAGE[^[:space:]]*$|CILIUM_IMAGE=${CILIUM_IMAGE}|" \
+        -e "s|HOME=/home/vagrant|HOME=/home/${VMUSER}|" \
+        -e "s|CILIUM_EXTRA_OPTS=.*|CILIUM_EXTRA_OPTS=${CILIUM_EXTRA_OPTS}|" contrib/systemd/cilium | sudo tee /etc/sysconfig/cilium
 
     sudo cp -f contrib/systemd/*.* /etc/systemd/system/
     # Use dockerized Cilium with runtime tests
