@@ -59,8 +59,13 @@ func (ut *UintTrie[K, T]) ExactLookup(prefix uint, k K) (T, bool) {
 	return ut.trie.ExactLookup(prefix, ut.getKey(k))
 }
 
-func (ut *UintTrie[K, T]) LongestPrefixMatch(k K) (T, bool) {
-	return ut.trie.LongestPrefixMatch(ut.getKey(k))
+func (ut *UintTrie[K, T]) LongestPrefixMatch(k K) (K, T, bool) {
+	k2, v, ok := ut.trie.LongestPrefixMatch(ut.getKey(k))
+	if ok {
+		return k2.Value(), v, ok
+	}
+	var empty K
+	return empty, v, ok
 }
 
 func (ut *UintTrie[K, T]) Ancestors(prefix uint, k K, fn func(prefix uint, key K, value T) bool) {

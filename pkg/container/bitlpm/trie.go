@@ -30,7 +30,7 @@ type Trie[K, T any] interface {
 	ExactLookup(prefix uint, key K) (v T, ok bool)
 	// LongestPrefixMatch returns the longest prefix match for a specific
 	// key.
-	LongestPrefixMatch(key K) (v T, ok bool)
+	LongestPrefixMatch(key K) (k K, v T, ok bool)
 	// Ancestors iterates over every prefix-key pair that contains
 	// the prefix-key argument pair. If the Ancestors function argument
 	// returns false the iteration will stop. Ancestors will iterate
@@ -129,19 +129,16 @@ func (t *trie[K, T]) ExactLookup(prefixLen uint, k Key[K]) (ret T, found bool) {
 
 // LongestPrefixMatch returns the value for the key with the
 // longest prefix match of the argument key.
-func (t *trie[K, T]) LongestPrefixMatch(k Key[K]) (T, bool) {
-	// default return value
-	var (
-		empty T
-		ok    bool
-	)
-	ret := &empty
-	t.traverse(t.maxPrefix, k, func(currentNode *node[K, T], matchLen uint) bool {
-		ret = &currentNode.value
-		ok = true
+func (t *trie[K, T]) LongestPrefixMatch(k Key[K]) (key Key[K], value T, ok bool) {
+	var lpmNode *node[K, T]
+	t.traverse(t.maxPrefix, k, func(currentNode *node[K, T], _ uint) bool {
+		lpmNode = currentNode
 		return true
 	})
-	return *ret, ok
+	if lpmNode != nil {
+		return lpmNode.key, lpmNode.value, true
+	}
+	return
 }
 
 // Ancestors calls the function argument for every prefix/key/value in the trie
