@@ -1,0 +1,29 @@
+name: Cilium CLI tests
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-cilium-cli-binaries:
+    name: Build Cilium CLI binaries
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+      - name: Setup go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.22.6
+      - name: Build Cilium CLI binaries
+        run: |
+          make -C cilium-cli local-release
