@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/envoy"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 type MockPort struct {
@@ -36,6 +37,7 @@ type MockPort struct {
 }
 
 type MockPortAllocator struct {
+	mu    lock.Mutex
 	port  uint16
 	ports map[string]*MockPort
 }
@@ -48,6 +50,9 @@ func NewMockPortAllocator() *MockPortAllocator {
 }
 
 func (m *MockPortAllocator) AllocateCRDProxyPort(name string) (uint16, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if mp, exists := m.ports[name]; exists {
 		return mp.port, nil
 	}
@@ -58,6 +63,9 @@ func (m *MockPortAllocator) AllocateCRDProxyPort(name string) (uint16, error) {
 }
 
 func (m *MockPortAllocator) AckProxyPort(ctx context.Context, name string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	mp, exists := m.ports[name]
 	if !exists {
 		return fmt.Errorf("Non-allocated port %s", name)
@@ -67,6 +75,9 @@ func (m *MockPortAllocator) AckProxyPort(ctx context.Context, name string) error
 }
 
 func (m *MockPortAllocator) ReleaseProxyPort(name string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	mp, exists := m.ports[name]
 	if !exists {
 		return fmt.Errorf("Non-allocated port %s", name)
