@@ -33,12 +33,19 @@ const (
 type TestKey struct {
 	Key uint32
 }
+type TestLPMKey struct {
+	PrefixLen uint32
+	Key       uint32
+}
 type TestValue struct {
 	Value uint32
 }
 
 func (k *TestKey) String() string { return fmt.Sprintf("key=%d", k.Key) }
 func (k *TestKey) New() MapKey    { return &TestKey{} }
+
+func (k *TestLPMKey) String() string { return fmt.Sprintf("len=%d, key=%d", k.PrefixLen, k.Key) }
+func (k *TestLPMKey) New() MapKey    { return &TestLPMKey{} }
 
 func (v *TestValue) String() string { return fmt.Sprintf("value=%d", v.Value) }
 func (v *TestValue) New() MapValue  { return &TestValue{} }
