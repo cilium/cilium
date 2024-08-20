@@ -245,7 +245,7 @@ func TestAddVisibilityRedirects(t *testing.T) {
 
 	_, err, _, _ = ep.addNewRedirects(cmp)
 	require.Nil(t, err)
-	v, ok := ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey(0, u8proto.TCP, 80, 0))
+	v, ok := ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey().WithTCPPort(80))
 	require.Equal(t, true, ok)
 	require.Equal(t, httpPort, v.ProxyPort)
 
@@ -261,7 +261,7 @@ func TestAddVisibilityRedirects(t *testing.T) {
 
 	d, err, _, _ := ep.addNewRedirects(cmp)
 	require.Nil(t, err)
-	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey(0, u8proto.TCP, 80, 0))
+	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey().WithTCPPort(80))
 	require.Equal(t, true, ok)
 	// Check that proxyport was updated accordingly.
 	require.Equal(t, kafkaPort, v.ProxyPort)
@@ -280,15 +280,15 @@ func TestAddVisibilityRedirects(t *testing.T) {
 	realizedRedirects := ep.GetRealizedRedirects()
 	d2, err, _, _ := ep.addNewRedirects(cmp)
 	require.Nil(t, err)
-	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey(0, u8proto.TCP, 80, 0))
+	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey().WithTCPPort(80))
 	require.Equal(t, true, ok)
 	require.Equal(t, kafkaPort, v.ProxyPort)
 
-	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey(0, u8proto.TCP, 80, 0))
+	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.IngressKey().WithTCPPort(80))
 	require.Equal(t, true, ok)
 	require.Equal(t, kafkaPort, v.ProxyPort)
 
-	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.EgressKey(0, u8proto.TCP, 80, 0))
+	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.EgressKey().WithTCPPort(80))
 	require.Equal(t, true, ok)
 	require.Equal(t, httpPort, v.ProxyPort)
 	pID := policy.ProxyID(ep.ID, false, u8proto.TCP.String(), uint16(80), "")
@@ -367,10 +367,10 @@ var (
 		policy.LabelAllowAnyEgress,
 		labels.LabelSourceReserved)}
 
-	mapKeyAllL7     = policy.IngressKey(0, 6, 80, 0)
-	mapKeyFoo       = policy.IngressL3OnlyKey(identityFoo)
-	mapKeyFooL7     = policy.IngressKey(identityFoo, 6, 80, 0)
-	mapKeyAllowAllE = policy.EgressL3OnlyKey(0)
+	mapKeyAllL7     = policy.IngressKey().WithTCPPort(80)
+	mapKeyFoo       = policy.IngressKey().WithIdentity(identityFoo)
+	mapKeyFooL7     = policy.IngressKey().WithIdentity(identityFoo).WithTCPPort(80)
+	mapKeyAllowAllE = policy.EgressKey()
 )
 
 // combineL4L7 returns a new PortRule that refers to the specified l4 ports and

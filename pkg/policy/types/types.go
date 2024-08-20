@@ -40,25 +40,94 @@ const (
 	directionBitMask  = uint8(1) << directionBitShift
 )
 
-// NewKey returns an ingress key for the given parameters
-func NewKey(direction trafficdirection.TrafficDirection, identity identity.NumericIdentity, proto u8proto.U8proto, port uint16, prefixLen uint8) Key {
-	if direction > 1 {
-		direction = 1
-	}
-	// Sanity check for test convenience, so that most times prefix can be passed as 0
-	if port == 0 {
-		prefixLen = 0
-	} else if port != 0 && prefixLen == 0 || prefixLen > 16 {
-		prefixLen = 16
-	}
+//
+// Key initialization utility functions
+//
+
+func EgressKey() Key {
 	return Key{
 		LPMKey: LPMKey{
-			bits:     uint8(direction)<<directionBitShift | prefixLen,
-			Nexthdr:  proto,
-			DestPort: port,
+			bits: 1 << directionBitShift,
 		},
-		Identity: identity,
 	}
+}
+
+func IngressKey() Key {
+	return Key{
+		LPMKey: LPMKey{
+			bits: 0 << directionBitShift,
+		},
+	}
+}
+
+func KeyForDirection(direction trafficdirection.TrafficDirection) Key {
+	return Key{
+		LPMKey: LPMKey{
+			bits: uint8(direction) << directionBitShift,
+		},
+	}
+}
+
+func (k Key) WithProto(proto u8proto.U8proto) Key {
+	k.Nexthdr = proto
+	return k
+}
+
+func (k Key) WithPort(port uint16) Key {
+	k.DestPort = port
+	k.bits &= directionBitMask
+
+	if port != 0 {
+		// non-wildcarded port
+		k.bits |= 16
+	}
+	return k
+}
+
+func (k Key) WithPortPrefix(port uint16, prefixLen uint8) Key {
+	if prefixLen > 16 || port != 0 && prefixLen == 0 {
+		prefixLen = 16
+	}
+	// set up the port wildcard
+	k.DestPort = port & (0xffff << (16 - prefixLen))
+	k.bits = k.bits&directionBitMask | prefixLen
+	return k
+}
+
+func (k Key) WithPortProto(proto u8proto.U8proto, port uint16) Key {
+	return k.WithProto(proto).WithPort(port)
+}
+
+func (k Key) WithPortProtoPrefix(proto u8proto.U8proto, port uint16, prefixLen uint8) Key {
+	return k.WithProto(proto).WithPortPrefix(port, prefixLen)
+}
+
+func (k Key) WithTCPPort(port uint16) Key {
+	return k.WithPortProto(u8proto.TCP, port)
+}
+
+func (k Key) WithTCPPortPrefix(port uint16, prefixLen uint8) Key {
+	return k.WithPortProtoPrefix(u8proto.TCP, port, prefixLen)
+}
+
+func (k Key) WithUDPPort(port uint16) Key {
+	return k.WithPortProto(u8proto.UDP, port)
+}
+
+func (k Key) WithUDPPortPrefix(port uint16, prefixLen uint8) Key {
+	return k.WithPortProtoPrefix(u8proto.UDP, port, prefixLen)
+}
+func (k Key) WithSCTPPort(port uint16) Key {
+	return k.WithPortProto(u8proto.SCTP, port)
+}
+
+func (k Key) WithSCTPPortPrefix(port uint16, prefixLen uint8) Key {
+	return k.WithPortProtoPrefix(u8proto.SCTP, port, prefixLen)
+}
+
+func (k Key) WithIdentity(nid identity.NumericIdentity) Key {
+	k.Identity = nid
+	return k
 }
 
 // TrafficDirection() returns the direction of the Key, 0 == ingress, 1 == egress

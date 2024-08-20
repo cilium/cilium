@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // Key and Keys are types used both internally and externally.
@@ -35,39 +34,26 @@ type Keys = policyTypes.Keys
 
 type MapStateMap map[Key]MapStateEntry
 
-// NewKey returns an ingress key for the given parameters
-func NewKey(direction trafficdirection.TrafficDirection, identity identity.NumericIdentity, proto u8proto.U8proto, port uint16, prefixLen uint8) Key {
-	return policyTypes.NewKey(direction, identity, proto, port, prefixLen)
+func EgressKey() policyTypes.Key {
+	return policyTypes.EgressKey()
 }
 
-func NewL3OnlyKey(direction trafficdirection.TrafficDirection, identity identity.NumericIdentity) Key {
-	return NewKey(direction, identity, 0, 0, 0)
+func IngressKey() policyTypes.Key {
+	return policyTypes.IngressKey()
 }
 
-func IngressKey(identity identity.NumericIdentity, proto u8proto.U8proto, port uint16, prefixLen uint8) Key {
-	return NewKey(0, identity, proto, port, prefixLen)
-}
-
-func IngressL3OnlyKey(identity identity.NumericIdentity) Key {
-	return IngressKey(identity, 0, 0, 0)
-}
-
-func EgressKey(identity identity.NumericIdentity, proto u8proto.U8proto, port uint16, prefixLen uint8) Key {
-	return NewKey(1, identity, proto, port, prefixLen)
-}
-
-func EgressL3OnlyKey(identity identity.NumericIdentity) Key {
-	return EgressKey(identity, 0, 0, 0)
+func KeyForDirection(direction trafficdirection.TrafficDirection) Key {
+	return policyTypes.KeyForDirection(direction)
 }
 
 var (
 	// localHostKey represents an ingress L3 allow from the local host.
-	localHostKey = IngressL3OnlyKey(identity.ReservedIdentityHost)
+	localHostKey = IngressKey().WithIdentity(identity.ReservedIdentityHost)
 	// allKey represents a key for unknown traffic, i.e., all traffic.
 	// We have one for each traffic direction
 	allKey = [2]Key{
-		IngressL3OnlyKey(0),
-		EgressL3OnlyKey(0),
+		IngressKey(),
+		EgressKey(),
 	}
 )
 
@@ -1751,7 +1737,7 @@ func (ms *mapState) addVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 		direction = trafficdirection.Ingress
 	}
 
-	key := NewKey(direction, 0, visMeta.Proto, visMeta.Port, 0)
+	key := KeyForDirection(direction).WithPortProto(visMeta.Proto, visMeta.Port)
 	entry := NewMapStateEntry(nil, visibilityDerivedFrom, redirectPort, "", 0, false, DefaultAuthType, AuthTypeDisabled)
 
 	_, haveAllowAllKey := ms.Get(allKey[direction])

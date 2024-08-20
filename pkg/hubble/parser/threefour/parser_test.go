@@ -39,7 +39,6 @@ import (
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/types"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var log *logrus.Logger
@@ -391,7 +390,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	}
 
 	policyLabel := utils.GetPolicyLabels("foo-namespace", "web-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
-	policyKey := policy.EgressKey(remoteIdentity, u8proto.TCP, uint16(dstPort), 0)
+	policyKey := policy.EgressKey().WithIdentity(remoteIdentity).WithTCPPort(uint16(dstPort))
 	ep := &testutils.FakeEndpointInfo{
 		ID:           localID,
 		Identity:     localIdentity,
@@ -658,7 +657,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	}
 
 	policyLabel := labels.LabelArrayList{labels.ParseLabelArray("foo=bar")}
-	policyKey := policy.EgressL3OnlyKey(remoteID)
+	policyKey := policy.EgressKey().WithIdentity(remoteID)
 	endpointGetter := &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
 			if ip == localIP {
@@ -851,8 +850,8 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	ep, ok := endpointGetter.GetEndpointInfo(localIP)
 	assert.Equal(t, true, ok)
 	lbls, rev, ok := ep.GetRealizedPolicyRuleLabelsForKey(
-		policy.NewL3OnlyKey(directionFromProto(f.GetTrafficDirection()),
-			identity.NumericIdentity(f.GetDestination().GetIdentity())))
+		policy.KeyForDirection(directionFromProto(f.GetTrafficDirection())).
+			WithIdentity(identity.NumericIdentity(f.GetDestination().GetIdentity())))
 	assert.Equal(t, true, ok)
 	assert.Equal(t, lbls, policyLabel)
 	assert.Equal(t, uint64(1), rev)

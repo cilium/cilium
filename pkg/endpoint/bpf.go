@@ -1395,12 +1395,9 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 	cb := func(key bpf.MapKey, value bpf.MapValue) {
 		policymapKey := key.(*policymap.PolicyKey)
 		// Convert from policymap.Key to policy.Key
-		policyKey := policy.NewKey(
-			trafficdirection.TrafficDirection(policymapKey.TrafficDirection),
-			identity.NumericIdentity(policymapKey.Identity),
-			u8proto.U8proto(policymapKey.Nexthdr),
-			policymapKey.GetDestPort(),
-			policymapKey.GetPortPrefixLen())
+		policyKey := policy.KeyForDirection(trafficdirection.TrafficDirection(policymapKey.TrafficDirection)).
+			WithIdentity(identity.NumericIdentity(policymapKey.Identity)).
+			WithPortProtoPrefix(u8proto.U8proto(policymapKey.Nexthdr), policymapKey.GetDestPort(), policymapKey.GetPortPrefixLen())
 		policymapEntry := value.(*policymap.PolicyEntry)
 		// Convert from policymap.PolicyEntry to policy.MapStateEntry.
 		policyEntry := policy.MapStateEntry{
