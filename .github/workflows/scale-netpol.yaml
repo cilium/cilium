@@ -259,6 +259,7 @@ jobs:
           export CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR=true
           export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT=true
           export CL2_PROMETHEUS_MEMORY_SCALE_FACTOR=1.0
+          export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL=5s
 
           cp -r .github/actions/cl2-modules ./perf-tests/clusterloader2/testing/custom
           gcloud compute config-ssh
@@ -270,18 +271,12 @@ jobs:
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
             --nodes=10 \
+            --enable-exec-service=false \
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
             --kubeconfig=$HOME/.kube/config \
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             2>&1 | tee cl2-output.txt
-
-      - name: Get sysdump
-        if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        run: |
-          cilium status
-          cilium sysdump --output-filename cilium-sysdump-final
-          sudo chmod +r cilium-sysdump-final.zip
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
