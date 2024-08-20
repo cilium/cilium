@@ -14,13 +14,13 @@ import (
 )
 
 func TestKeyMask(t *testing.T) {
-	key := NewKey(0, 0, 0, 0, 0)
+	key := IngressKey()
 	require.Equal(t, trafficdirection.Ingress, key.TrafficDirection())
 	require.Equal(t, uint8(0), key.PortPrefixLen())
 	require.Equal(t, uint16(0), key.DestPort)
 	require.Equal(t, uint16(0xffff), key.EndPort())
 
-	key = NewKey(1, 42, 6, 80, 16)
+	key = EgressKey().WithIdentity(42).WithTCPPort(80)
 	require.Equal(t, trafficdirection.Egress, key.TrafficDirection())
 	require.Equal(t, identity.NumericIdentity(42), key.Identity)
 	require.Equal(t, u8proto.TCP, key.Nexthdr)
@@ -29,7 +29,7 @@ func TestKeyMask(t *testing.T) {
 	require.Equal(t, uint16(80), key.EndPort())
 
 	// for convenience in testing, 0 prefix len gets translated to 16 when port is non-zero
-	key = NewKey(1, 42, 17, 80, 0)
+	key = EgressKey().WithIdentity(42).WithUDPPortPrefix(80, 0)
 	require.Equal(t, trafficdirection.Egress, key.TrafficDirection())
 	require.Equal(t, identity.NumericIdentity(42), key.Identity)
 	require.Equal(t, u8proto.UDP, key.Nexthdr)
@@ -37,7 +37,7 @@ func TestKeyMask(t *testing.T) {
 	require.Equal(t, uint16(80), key.DestPort)
 	require.Equal(t, uint16(80), key.EndPort())
 
-	key = NewKey(1, 42, 132, 80, 14)
+	key = EgressKey().WithIdentity(42).WithSCTPPortPrefix(80, 14)
 	require.Equal(t, trafficdirection.Egress, key.TrafficDirection())
 	require.Equal(t, identity.NumericIdentity(42), key.Identity)
 	require.Equal(t, u8proto.SCTP, key.Nexthdr)

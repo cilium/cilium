@@ -457,8 +457,8 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 		policyMapState: newMapState().withState(MapStateMap{
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
-			EgressL3OnlyKey(0):      allowEgressMapStateEntry,
-			IngressKey(0, 6, 80, 0): rule1MapStateEntry,
+			EgressKey():                  allowEgressMapStateEntry,
+			IngressKey().WithTCPPort(80): rule1MapStateEntry,
 		}, td.sc),
 	}
 
@@ -618,12 +618,12 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 		policyMapState: newMapState().withState(MapStateMap{
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
-			EgressL3OnlyKey(0): allowEgressMapStateEntry,
-			IngressKey(identity.ReservedIdentityWorld, 6, 80, 0):     rule1MapStateEntry.WithOwners(cachedSelectorWorld),
-			IngressKey(identity.ReservedIdentityWorldIPv4, 6, 80, 0): rule1MapStateEntry.WithOwners(cachedSelectorWorldV4, cachedSelectorWorld),
-			IngressKey(identity.ReservedIdentityWorldIPv6, 6, 80, 0): rule1MapStateEntry.WithOwners(cachedSelectorWorldV6, cachedSelectorWorld),
-			IngressKey(192, 6, 80, 0):                                rule1MapStateEntry,
-			IngressKey(194, 6, 80, 0):                                rule1MapStateEntry,
+			EgressKey(): allowEgressMapStateEntry,
+			IngressKey().WithIdentity(identity.ReservedIdentityWorld).WithTCPPort(80):     rule1MapStateEntry.WithOwners(cachedSelectorWorld),
+			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv4).WithTCPPort(80): rule1MapStateEntry.WithOwners(cachedSelectorWorldV4, cachedSelectorWorld),
+			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv6).WithTCPPort(80): rule1MapStateEntry.WithOwners(cachedSelectorWorldV6, cachedSelectorWorld),
+			IngressKey().WithIdentity(192).WithTCPPort(80):                                rule1MapStateEntry,
+			IngressKey().WithIdentity(194).WithTCPPort(80):                                rule1MapStateEntry,
 		}, td.sc),
 	}
 
@@ -631,11 +631,11 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	// maps on the policy got cleared
 
 	require.Equal(t, Keys{
-		IngressKey(192, 6, 80, 0): {},
-		IngressKey(194, 6, 80, 0): {},
+		ingressKey(192, 6, 80, 0): {},
+		ingressKey(194, 6, 80, 0): {},
 	}, adds)
 	require.Equal(t, Keys{
-		IngressKey(193, 6, 80, 0): {},
+		ingressKey(193, 6, 80, 0): {},
 	}, deletes)
 
 	// Have to remove circular reference before testing for Equality to avoid an infinite loop

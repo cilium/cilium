@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -61,7 +60,7 @@ func TestCorrelatePolicy(t *testing.T) {
 	}
 
 	policyLabel := utils.GetPolicyLabels("foo-namespace", "web-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
-	policyKey := policy.EgressKey(identity.NumericIdentity(remoteIdentity), u8proto.TCP, uint16(dstPort), 0)
+	policyKey := policy.EgressKey().WithIdentity(identity.NumericIdentity(remoteIdentity)).WithTCPPort(uint16(dstPort))
 	ep := &testutils.FakeEndpointInfo{
 		ID:           uint64(localID),
 		Identity:     identity.NumericIdentity(localIdentity),
@@ -176,7 +175,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyMatchType: monitorAPI.PolicyMatchL4Only,
 	}
 
-	policyKey = policy.NewKey(trafficdirection.Egress, 0, u8proto.TCP, uint16(dstPort), 0)
+	policyKey = policy.EgressKey().WithTCPPort(uint16(dstPort))
 	ep = &testutils.FakeEndpointInfo{
 		ID:           uint64(localID),
 		IPv4:         net.ParseIP(localIP),
@@ -199,7 +198,7 @@ func TestCorrelatePolicy(t *testing.T) {
 	}
 
 	// check port-only rule.
-	policyKey = policy.NewKey(trafficdirection.Egress, 0, u8proto.ANY, uint16(dstPort), 0)
+	policyKey = policy.EgressKey().WithPort(uint16(dstPort))
 	ep = &testutils.FakeEndpointInfo{
 		ID:           uint64(localID),
 		IPv4:         net.ParseIP(localIP),
@@ -250,7 +249,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyMatchType: monitorAPI.PolicyMatchProtoOnly,
 	}
 
-	policyKey = policy.NewKey(trafficdirection.Egress, 0, u8proto.TCP, 0, 0)
+	policyKey = policy.EgressKey().WithProto(u8proto.TCP)
 	ep = &testutils.FakeEndpointInfo{
 		ID:           uint64(localID),
 		IPv4:         net.ParseIP(localIP),
@@ -301,7 +300,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyMatchType: monitorAPI.PolicyMatchAll,
 	}
 
-	policyKey = policy.NewKey(trafficdirection.Egress, 0, u8proto.ANY, 0, 0)
+	policyKey = policy.EgressKey()
 	ep = &testutils.FakeEndpointInfo{
 		ID:           uint64(localID),
 		IPv4:         net.ParseIP(localIP),
@@ -352,7 +351,7 @@ func TestCorrelatePolicy(t *testing.T) {
 		PolicyMatchType: monitorAPI.PolicyMatchL3Only,
 	}
 
-	policyKey = policy.IngressL3OnlyKey(identity.NumericIdentity(localIdentity))
+	policyKey = policy.IngressKey().WithIdentity(identity.NumericIdentity(localIdentity))
 	ep = &testutils.FakeEndpointInfo{
 		ID:           uint64(remoteID),
 		Identity:     identity.NumericIdentity(remoteIdentity),
@@ -451,9 +450,7 @@ func TestCorrelatePolicy(t *testing.T) {
 	}
 
 	policyLabel = utils.GetPolicyLabels("", "ccnp", "1234-5678", utils.ResourceTypeCiliumClusterwideNetworkPolicy)
-	policyKey = policy.NewKey(
-		trafficdirection.Egress, identity.NumericIdentity(remoteIdentity),
-		u8proto.TCP, uint16(dstPort), 0)
+	policyKey = policy.EgressKey().WithIdentity(identity.NumericIdentity(remoteIdentity)).WithTCPPort(uint16(dstPort))
 	ep = &testutils.FakeEndpointInfo{
 		ID:           uint64(localID),
 		Identity:     identity.NumericIdentity(localIdentity),
