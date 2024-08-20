@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -135,7 +136,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 			if recommendation := recommendInstead(); recommendation != "" {
 				return fmt.Errorf("%s (use %s)", errMsg, recommendation)
 			}
-			return fmt.Errorf(errMsg)
+			return errors.New(errMsg)
 		}
 
 		switch binaryName {

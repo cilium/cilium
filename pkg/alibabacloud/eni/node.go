@@ -5,6 +5,7 @@ package eni
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -96,7 +97,7 @@ func (n *Node) PopulateStatusFields(resource *v2.CiliumNode) {
 func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *logrus.Entry) (int, string, error) {
 	l, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
-		return 0, unableToDetermineLimits, fmt.Errorf(errUnableToDetermineLimits)
+		return 0, unableToDetermineLimits, errors.New(errUnableToDetermineLimits)
 	}
 
 	n.mutex.RLock()
@@ -239,7 +240,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 	// An ECS instance has at least one ENI attached, no ENI found implies instance not found.
 	if enis == 0 {
 		scopedLog.Warning("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
-		return nil, stats, fmt.Errorf("unable to retrieve ENIs")
+		return nil, stats, errors.New("unable to retrieve ENIs")
 	}
 
 	stats.RemainingAvailableInterfaceCount += limits.Adapters - len(n.enis)
@@ -251,7 +252,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (*ipam.AllocationAction, error) {
 	l, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
-		return nil, fmt.Errorf(errUnableToDetermineLimits)
+		return nil, errors.New(errUnableToDetermineLimits)
 	}
 	a := &ipam.AllocationAction{}
 
@@ -454,7 +455,7 @@ func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec eniTypes.Spec) (
 		})
 
 	if len(securityGroups) <= 0 {
-		return nil, fmt.Errorf("failed to get security group ids")
+		return nil, errors.New("failed to get security group ids")
 	}
 
 	return securityGroups, nil

@@ -6,7 +6,6 @@ package xds
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -64,8 +63,8 @@ func (w *ResourceWatcher) HandleNewResourceVersion(typeURL string, version uint6
 		log.WithFields(logrus.Fields{
 			logfields.XDSCachedVersion: version,
 			logfields.XDSTypeURL:       typeURL,
-		}).Panicf(fmt.Sprintf("decreasing version number found for resources of type %s: %d < %d",
-			typeURL, version, w.version))
+		}).Panicf("decreasing version number found for resources of type %s: %d < %d",
+			typeURL, version, w.version)
 	}
 	w.version = version
 
