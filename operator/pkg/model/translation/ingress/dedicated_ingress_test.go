@@ -24,7 +24,7 @@ func Test_getService(t *testing.T) {
 	}
 
 	t.Run("Default LB service", func(t *testing.T) {
-		res := getService(resource, nil)
+		res := getService(resource, nil, false)
 		require.Equal(t, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cilium-ingress-dummy-ingress",
@@ -58,10 +58,40 @@ func Test_getService(t *testing.T) {
 		}, res)
 	})
 
+	t.Run("Default LB service with TLS only", func(t *testing.T) {
+		res := getService(resource, nil, true)
+		require.Equal(t, &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cilium-ingress-dummy-ingress",
+				Namespace: "dummy-namespace",
+				Labels:    map[string]string{"cilium.io/ingress": "true"},
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: "networking.k8s.io/v1",
+						Kind:       "Ingress",
+						Name:       "dummy-ingress",
+						UID:        "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
+						Controller: model.AddressOf(true),
+					},
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Type: corev1.ServiceTypeLoadBalancer,
+				Ports: []corev1.ServicePort{
+					{
+						Name:     "https",
+						Protocol: "TCP",
+						Port:     443,
+					},
+				},
+			},
+		}, res)
+	})
+
 	t.Run("Invalid LB service annotation, defaults to LoadBalancer", func(t *testing.T) {
 		res := getService(resource, &model.Service{
 			Type: "InvalidServiceType",
-		})
+		}, false)
 		require.Equal(t, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cilium-ingress-dummy-ingress",
@@ -102,7 +132,7 @@ func Test_getService(t *testing.T) {
 			Type:             "NodePort",
 			InsecureNodePort: &insecureNodePort,
 			SecureNodePort:   &secureNodePort,
-		})
+		}, false)
 		require.Equal(t, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cilium-ingress-dummy-ingress",

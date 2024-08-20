@@ -50,6 +50,7 @@ func (d *DedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 	var sourceResource model.FullyQualifiedResource
 	var modelService *model.Service
 	var cecName string
+	var tlsOnly bool
 
 	if len(m.HTTP) == 0 {
 		name = fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.TLS[0].Sources[0].Name)
@@ -57,6 +58,7 @@ func (d *DedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 		sourceResource = m.TLS[0].Sources[0]
 		modelService = m.TLS[0].Service
 		cecName = fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, namespace, m.TLS[0].Sources[0].Name)
+		tlsOnly = true
 	} else {
 		name = fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.HTTP[0].Sources[0].Name)
 		namespace = m.HTTP[0].Sources[0].Namespace
@@ -75,22 +77,34 @@ func (d *DedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 
 	// Set the name to avoid any breaking change during upgrade.
 	cec.Name = cecName
-	return cec, getService(sourceResource, modelService), getEndpoints(sourceResource), err
+	return cec, getService(sourceResource, modelService, tlsOnly), getEndpoints(sourceResource), err
 }
 
-func getService(resource model.FullyQualifiedResource, service *model.Service) *corev1.Service {
+func getService(resource model.FullyQualifiedResource, service *model.Service, tlsOnly bool) *corev1.Service {
 	serviceType := corev1.ServiceTypeLoadBalancer
-	ports := []corev1.ServicePort{
-		{
-			Name:     "http",
-			Protocol: "TCP",
-			Port:     80,
-		},
-		{
-			Name:     "https",
-			Protocol: "TCP",
-			Port:     443,
-		},
+
+	var ports []corev1.ServicePort
+	if tlsOnly {
+		ports = []corev1.ServicePort{
+			{
+				Name:     "https",
+				Protocol: "TCP",
+				Port:     443,
+			},
+		}
+	} else {
+		ports = []corev1.ServicePort{
+			{
+				Name:     "http",
+				Protocol: "TCP",
+				Port:     80,
+			},
+			{
+				Name:     "https",
+				Protocol: "TCP",
+				Port:     443,
+			},
+		}
 	}
 
 	if service != nil {
