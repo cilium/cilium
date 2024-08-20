@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -104,6 +105,13 @@ type Service struct {
 	Ports []string `json:"number,omitempty"`
 }
 
+func (l *Service) ServiceName() loadbalancer.ServiceName {
+	return loadbalancer.ServiceName{
+		Namespace: l.Namespace,
+		Name:      l.Name,
+	}
+}
+
 type ServiceListener struct {
 	// Name is the name of a destination Kubernetes service that identifies traffic
 	// to be redirected.
@@ -133,6 +141,13 @@ type ServiceListener struct {
 	//
 	// +kubebuilder:validation:Optional
 	Listener string `json:"listener"`
+}
+
+func (l *ServiceListener) ServiceName() loadbalancer.ServiceName {
+	return loadbalancer.ServiceName{
+		Namespace: l.Namespace,
+		Name:      l.Name,
+	}
 }
 
 // +kubebuilder:pruning:PreserveUnknownFields

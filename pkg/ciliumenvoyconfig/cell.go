@@ -19,10 +19,12 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -51,7 +53,10 @@ var Cell = cell.Module(
 			return k8s.EndpointsResource(lc, cfg, cs)
 		},
 	),
+	cell.ProvidePrivate(newPortAllocator),
 	cell.Config(cecConfig{}),
+
+	experimentalCell,
 )
 
 type cecConfig struct {
@@ -75,8 +80,9 @@ type reconcilerParams struct {
 	K8sResourceSynced *synced.Resources
 	K8sAPIGroups      *synced.APIGroups
 
-	Config  cecConfig
-	Manager ciliumEnvoyConfigManager
+	Config    cecConfig
+	ExpConfig experimental.Config
+	Manager   ciliumEnvoyConfigManager
 
 	CECResources   resource.Resource[*ciliumv2.CiliumEnvoyConfig]
 	CCECResources  resource.Resource[*ciliumv2.CiliumClusterwideEnvoyConfig]
@@ -86,7 +92,7 @@ type reconcilerParams struct {
 }
 
 func registerCECK8sReconciler(params reconcilerParams) {
-	if !option.Config.EnableL7Proxy || !option.Config.EnableEnvoyConfig {
+	if !option.Config.EnableL7Proxy || !option.Config.EnableEnvoyConfig || params.ExpConfig.EnableExperimentalLB {
 		return
 	}
 
@@ -162,4 +168,8 @@ type managerParams struct {
 func newCECManager(params managerParams) ciliumEnvoyConfigManager {
 	return newCiliumEnvoyConfigManager(params.Logger, params.PolicyUpdater, params.ServiceManager, params.XdsServer,
 		params.BackendSyncer, params.ResourceParser, params.Config.EnvoyConfigTimeout, params.Services, params.Endpoints)
+}
+
+func newPortAllocator(proxy *proxy.Proxy) PortAllocator {
+	return proxy
 }
