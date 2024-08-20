@@ -88,8 +88,8 @@ func writeTable(wr io.Writer, spec *loads.Document) {
 }
 
 func writeFlagPreamble(wr io.Writer, binary, flag string) {
-	fmt.Fprintf(wr, "The following API flags are compatible with the ``"+
-		binary+"`` flag\n``"+flag+"``.\n\n")
+	fmt.Fprintf(wr, "The following API flags are compatible with the ``%s`` flag\n``%s``.\n\n",
+		binary, flag)
 }
 
 func writeTitle(wr io.Writer, title string) {

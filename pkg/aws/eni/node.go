@@ -207,7 +207,7 @@ func (n *Node) ReleaseIPs(ctx context.Context, r *ipam.ReleaseAction) error {
 func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationAction, err error) {
 	limits, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
-		return nil, fmt.Errorf(errUnableToDetermineLimits)
+		return nil, errors.New(errUnableToDetermineLimits)
 	}
 
 	a = &ipam.AllocationAction{}
@@ -331,7 +331,7 @@ func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec eniTypes.ENISpec
 		})
 
 	if securityGroups == nil {
-		return nil, fmt.Errorf("failed to get security group ids")
+		return nil, errors.New("failed to get security group ids")
 	}
 
 	return securityGroups, nil
@@ -405,7 +405,7 @@ const (
 func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationAction, scopedLog *logrus.Entry) (int, string, error) {
 	limits, limitsAvailable := n.getLimits()
 	if !limitsAvailable {
-		return 0, unableToDetermineLimits, fmt.Errorf(errUnableToDetermineLimits)
+		return 0, unableToDetermineLimits, errors.New(errUnableToDetermineLimits)
 	}
 
 	n.mutex.RLock()
