@@ -6,6 +6,7 @@ for ((i = 0 ; i < 12; i++)); do
         break
     fi
     sleep 5s
+    docker logs cilium | tail --lines=10
     echo "Waiting for Cilium daemon to come up..."
 done
 
