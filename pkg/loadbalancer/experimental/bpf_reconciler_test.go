@@ -121,7 +121,7 @@ var baseService = Service{
 	IntTrafficPolicy:       loadbalancer.SVCTrafficPolicyLocal,
 	SessionAffinity:        false,
 	SessionAffinityTimeout: 0,
-	L7ProxyPort:            0,
+	ProxyRedirect:          nil,
 	LoopbackHostPort:       false,
 }
 
@@ -450,7 +450,9 @@ var proxyTestCases = []testCase{
 			// from how the backend ID is normally stored (host byte-order). Hence to make this
 			// work on both little and big-endian machine's the port is set to a value that's the
 			// same in both byte orders.
-			svc.L7ProxyPort = 0x0a0a // 2570
+			svc.ProxyRedirect = &ProxyRedirect{
+				ProxyPort: 0x0a0a, // 2570
+			}
 			return false, []Backend{baseBackend}
 		},
 		[]mapDump{

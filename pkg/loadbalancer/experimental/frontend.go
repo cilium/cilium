@@ -30,6 +30,12 @@ type FrontendParams struct {
 	// PortName if set will select only backends with matching
 	// port name.
 	PortName loadbalancer.FEPortName
+
+	// ServicePort is the associated "ClusterIP" port of this frontend.
+	// Same as [Address.L4Addr.Port] except when [Type] NodePort or
+	// LoadBalancer. This is used to match frontends with the [Ports] of
+	// [Service.ProxyRedirect].
+	ServicePort uint16
 }
 
 type Frontend struct {

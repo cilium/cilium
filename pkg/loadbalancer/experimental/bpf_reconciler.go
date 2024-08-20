@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"slices"
 	"sort"
 
 	"github.com/cilium/hive/cell"
@@ -507,7 +508,7 @@ func (ops *bpfOps) updateFrontend(fe *Frontend) error {
 		SessionAffinity:  svc.SessionAffinity,
 		IsRoutable:       isRoutable,
 		CheckSourceRange: len(svc.SourceRanges) > 0,
-		L7LoadBalancer:   svc.L7ProxyPort != 0,
+		L7LoadBalancer:   svc.ProxyRedirect != nil,
 		LoopbackHostport: svc.LoopbackHostPort,
 		Quarantined:      false,
 	})
@@ -691,8 +692,10 @@ func (ops *bpfOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceVal
 	if svc.SessionAffinity {
 		svcVal.SetSessionAffinityTimeoutSec(uint32(svc.SessionAffinityTimeout.Seconds()))
 	}
-	if svc.L7ProxyPort != 0 {
-		svcVal.SetL7LBProxyPort(svc.L7ProxyPort)
+	if svc.ProxyRedirect != nil {
+		if len(svc.ProxyRedirect.Ports) == 0 || slices.Contains(svc.ProxyRedirect.Ports, fe.ServicePort) {
+			svcVal.SetL7LBProxyPort(svc.ProxyRedirect.ProxyPort)
+		}
 	}
 	return ops.upsertService(svcKey, svcVal)
 }
