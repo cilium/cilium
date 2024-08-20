@@ -1,7 +1,7 @@
 # Total number of DNS requests per node is qps * namespaces
 {{$PODS_PER_NODE := 30}}
 {{$PODS_PER_DEPLOYMENT := 5}}
-{{$CNPS_PER_DEPLOYMENT := 2}}
+{{$CNPS_PER_DEPLOYMENT := 5}}
 {{$namespaces := MaxInt (DivideInt .Nodes 100) 1}}
 {{$QPS := DefaultParam .CL2_QPS 10}}
 # number of deployments is 30 * #nodes / 5
@@ -30,7 +30,7 @@ tuningSets:
     burst: 1
 - name: RandomizedSaturationTimeLimited
   RandomizedTimeLimitedLoad:
-    timeLimit: 180s
+    timeLimit: 30m
 
 steps:
 - module:
@@ -44,7 +44,7 @@ steps:
       actionName: "create"
       namespaces: {{$namespaces}}
       tuningSet: RandomizedSaturationTimeLimited
-      operationTimeout: 15m
+      operationTimeout: 30m
       replicasPerDeployment: {{$PODS_PER_DEPLOYMENT}}
       deploymentsPerNamespace: {{$deployments}}
       cnpsPerDeployment: {{$CNPS_PER_DEPLOYMENT}}
