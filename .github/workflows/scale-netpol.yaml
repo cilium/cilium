@@ -107,7 +107,6 @@ jobs:
             --set pprof.enabled=true \
             --helm-set=prometheus.enabled=true \
             --helm-set=cluster.name=${{ env.cluster_name }} \
-            --helm-set=operator.extraArgs=\"{--k8s-client-qps=10,--k8s-client-burst=20}\" \
             --helm-set=endpointHealthChecking.enabled=false \
             --helm-set=healthChecking=false \
             --helm-set=ciliumEndpointSlice.enabled=false \
@@ -190,7 +189,7 @@ jobs:
         timeout-minutes: 60
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          control_plane_size: n2-standard-4
+          control_plane_size: n1-standard-8
           control_plane_count: 1
           node_size: e2-medium
           node_count: 10
