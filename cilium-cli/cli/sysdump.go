@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
-	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
 )
 
@@ -49,7 +48,7 @@ func newCmdSysdump(hooks sysdump.Hooks) *cobra.Command {
 			// Silence klog to avoid displaying "throttling" messages - those are expected.
 			klog.SetOutput(io.Discard)
 			// Collect the sysdump.
-			collector, err := sysdump.NewCollector(k8sClient, sysdumpOptions, hooks, time.Now(), defaults.CLIVersion)
+			collector, err := sysdump.NewCollector(k8sClient, sysdumpOptions, hooks, time.Now())
 			if err != nil {
 				return fmt.Errorf("failed to create sysdump collector: %w", err)
 			}
