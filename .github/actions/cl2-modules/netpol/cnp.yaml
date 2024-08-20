@@ -1,7 +1,7 @@
 {{$deployments := .Deployments}}
 {{$cnps := .CNPs}}
-{{$dp :=  Mod .Index $cnps}}
-{{$cnpno :=  DivideInt .Index $deployments}}
+{{$dp :=  DivideInt .Index $cnps}}
+{{$cnpno :=  Mod .Index $deployments}}
 
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
