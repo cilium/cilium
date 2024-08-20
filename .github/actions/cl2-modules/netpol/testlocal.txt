@@ -1,0 +1,17 @@
+export CL2_PROMETHEUS_PVC_ENABLED=false
+export CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR=true
+export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT=true
+
+clusterloader \
+  -v=2 \
+  --testconfig=.github/actions/cl2-modules/netpol/config.yaml \
+  --provider=kind \
+  --enable-prometheus-server \
+  --tear-down-prometheus-server=false \
+  --nodes=1 \
+  --report-dir=./report \
+  --experimental-prometheus-snapshot-to-report-dir=true \
+  --prometheus-scrape-kube-proxy=false \
+  --prometheus-apiserver-scrape-port=6443 \
+  --enable-exec-service=false \
+  --kubeconfig=$HOME/.kube/config
