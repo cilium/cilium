@@ -3,6 +3,7 @@
 {{$PODS_PER_DEPLOYMENT := 5}}
 {{$CNPS_PER_DEPLOYMENT := 2}}
 {{$namespaces := MaxInt (DivideInt .Nodes 100) 1}}
+{{$QPS := DefaultParam .CL2_QPS 10}}
 # number of deployments is 30 * #nodes / 5
 # for 1 node -> 6 deployments x 1 namespace
 # for 100 nodes -> 600 deployments x 1 namespace
@@ -11,6 +12,8 @@
 
 # Each deployment has #CNPS_PER_DEPLOYMENT CNPs
 # pointing to one random deployment within the same namespace
+
+# QPS says how fast deployments and CNPs are created (counts towards both)
 
 {{$totalPods := MultiplyInt .Nodes $PODS_PER_NODE}}
 {{$deployments := DivideInt $totalPods $PODS_PER_DEPLOYMENT}}
@@ -23,7 +26,7 @@ namespace:
 tuningSets:
 - name: default
   globalQPSLoad:
-    qps: 10
+    qps: {{$QPS}}
     burst: 1
 
 steps:
