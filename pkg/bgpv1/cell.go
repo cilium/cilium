@@ -40,7 +40,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(
 		// BGP Peering Policy resource provides the module with a stream of events for the BGPPeeringPolicy resource.
 		newBGPPeeringPolicyResource,
-		// Secret resource provides secrets in the BGP secret namepsace
+		// Secret resource provides secrets in the BGP secret namespace
 		newSecretResource,
 		// CiliumLoadBalancerIPPool resource is used by the BGP CP to realize configured LB IP pools.
 		newLoadBalancerIPPoolResource,
