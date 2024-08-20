@@ -1,0 +1,20 @@
+{{$deployments := .Deployments}}
+{{$cnps := .CNPs}}
+{{$dp :=  Mod .Index $cnps}}
+{{$cnpno :=  DivideInt .Index $deployments}}
+
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{.Name}}-{{.dp}}-{{.cnpno}}
+  labels:
+    group: load
+spec:
+  endpointSelector:
+    matchLabels:
+      group: load
+      indexing: id-{{$dp}}
+  egress:
+    - toEndpoints:
+      - matchLabels:
+          indexing: id-{{RandIntRange 0 $deployments}}

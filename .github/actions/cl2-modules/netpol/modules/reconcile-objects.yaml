@@ -4,6 +4,7 @@
 {{$operationTimeout := .operationTimeout}}
 {{$deploymentsPerNamespace := .deploymentsPerNamespace}}
 {{$replicasPerDeployment := .replicasPerDeployment}}
+{{$cnpsPerDeployment := .cnpsPerDeployment }}
 
 steps:
 - name: Starting measurement for '{{$actionName}}'
@@ -32,6 +33,17 @@ steps:
       objectTemplatePath: deployment.yaml
       templateFillMap:
         Replicas: {{$replicasPerDeployment}}
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{MultiplyInt $deploymentsPerNamespace $cnpsPerDeployment}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: small-deployment-cnp
+      objectTemplatePath: cnp.yaml
+      templateFillMap:
+        Deployments: {{$deploymentsPerNamespace}}
+        CNPs: {{$cnpsPerDeployment}}
 
 - name: Waiting for '{{$actionName}}' to be completed
   measurements:

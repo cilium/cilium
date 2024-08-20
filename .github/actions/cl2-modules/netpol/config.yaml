@@ -1,7 +1,7 @@
 # Total number of DNS requests per node is qps * namespaces
 {{$PODS_PER_NODE := 30}}
 {{$PODS_PER_DEPLOYMENT := 5}}
-{{$CNPS_PER_DEPLOYMENT := 1}}
+{{$CNPS_PER_DEPLOYMENT := 2}}
 
 {{$namespaces := 1}}
 {{$totalPods := MultiplyInt .Nodes $PODS_PER_NODE}}
@@ -10,6 +10,7 @@
 name: load
 namespace:
   number: {{$namespaces}}
+  deleteAutomanagedNamespaces: false
 tuningSets:
 - name: default
   globalQPSLoad:
@@ -31,6 +32,14 @@ steps:
       operationTimeout: 15m
       replicasPerDeployment: {{$PODS_PER_DEPLOYMENT}}
       deploymentsPerNamespace: {{$deployments}}
+      cnpsPerDeployment: {{$CNPS_PER_DEPLOYMENT}}
+
+- name: Wait for gathering metrics
+  measurements:
+  - Identifier: sleep
+    Method: Sleep
+    Params:
+      duration: 10s
 
 - module:
     path: ./modules/metrics.yaml
