@@ -1,0 +1,38 @@
+# Total number of DNS requests per node is qps * namespaces
+{{$PODS_PER_NODE := 30}}
+{{$PODS_PER_DEPLOYMENT := 5}}
+{{$CNPS_PER_DEPLOYMENT := 1}}
+
+{{$namespaces := 1}}
+{{$totalPods := MultiplyInt .Nodes $PODS_PER_NODE}}
+{{$deployments := DivideInt $totalPods $PODS_PER_DEPLOYMENT}}
+
+name: load
+namespace:
+  number: {{$namespaces}}
+tuningSets:
+- name: default
+  globalQPSLoad:
+    qps: 10
+    burst: 1
+
+steps:
+- module:
+    path: ./modules/metrics.yaml
+    params:
+      action: start
+
+- module:
+    path: /modules/reconcile-objects.yaml
+    params:
+      actionName: "create"
+      namespaces: {{$namespaces}}
+      tuningSet: default
+      operationTimeout: 15m
+      replicasPerDeployment: {{$PODS_PER_DEPLOYMENT}}
+      deploymentsPerNamespace: {{$deployments}}
+
+- module:
+    path: ./modules/metrics.yaml
+    params:
+      action: gather
