@@ -248,6 +248,14 @@ jobs:
         run: |
           cilium status --wait
 
+      - name: Setup CL2
+        run: |
+          # CL2 needs ssh access to control plane nodes
+          gcloud compute config-ssh
+
+          # Copy the custom configs to the folder where CL2 expects them.
+          cp -r .github/actions/cl2-modules ./perf-tests/clusterloader2/testing/custom
+
       - name: Run CL2
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2
@@ -260,9 +268,6 @@ jobs:
           export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT=true
           export CL2_PROMETHEUS_MEMORY_SCALE_FACTOR=1.0
           export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL=5s
-
-          cp -r .github/actions/cl2-modules ./perf-tests/clusterloader2/testing/custom
-          gcloud compute config-ssh
 
           go run ./cmd/clusterloader.go \
             -v=2 \
