@@ -102,6 +102,46 @@ func Test_MapOps(t *testing.T) {
 	assert.Len(t, data, 0)
 }
 
+func Test_MapOpsPrune(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	// This tests pruning with an LPM trie. This ensures we do not regress, as
+	// previously we had issues with Prune concurrently iterating and deleting
+	// entries, which caused the iteration to skip entries
+	testMap := NewMap(
+		"cilium_ops_prune_test",
+		ebpf.LPMTrie,
+		&TestLPMKey{},
+		&TestValue{},
+		maxEntries,
+		BPF_F_NO_PREALLOC,
+	)
+	err := testMap.OpenOrCreate()
+	require.NoError(t, err, "OpenOrCreate")
+	defer testMap.Close()
+
+	ctx := context.TODO()
+	ops := NewMapOps[*TestObject](testMap)
+
+	// Fill map with similarly prefixed entries
+	err = testMap.Update(&TestLPMKey{32, 0xFF00_00FF}, &TestValue{0})
+	assert.NoError(t, err, "Update 0")
+	err = testMap.Update(&TestLPMKey{32, 0xFF01_01FF}, &TestValue{1})
+	assert.NoError(t, err, "Update 1")
+	err = testMap.Update(&TestLPMKey{32, 0xFF02_02FF}, &TestValue{2})
+	assert.NoError(t, err, "Update 2")
+	err = testMap.Update(&TestLPMKey{32, 0xFF03_03FF}, &TestValue{3})
+	assert.NoError(t, err, "Update 3")
+
+	// Prune should now remove everything
+	err = ops.Prune(ctx, nil, &emptyIterator{})
+	assert.NoError(t, err, "Prune")
+
+	data := map[string][]string{}
+	testMap.Dump(data)
+	assert.Len(t, data, 0)
+}
+
 // Test_MapOps_ReconcilerExample serves as a testable example for the map ops.
 // This is not an "Example*" function as it can only run privileged.
 func Test_MapOps_ReconcilerExample(t *testing.T) {

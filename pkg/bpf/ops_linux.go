@@ -117,15 +117,24 @@ func (ops *mapOps[KV]) toStringKey(kv KV) string {
 func (ops *mapOps[KV]) Prune(ctx context.Context, txn statedb.ReadTxn, iter statedb.Iterator[KV]) error {
 	return ops.withMap(func(m *ebpf.Map) error {
 		desiredKeys := sets.New(statedb.Collect(statedb.Map(iter, func(kv KV) string { return ops.toStringKey(kv) }))...)
-		var errs []error
+
+		// We need to collect the keys to prune first, as it is not safe to
+		// delete entries while iterating
+		keysToPrune := [][]byte{}
 		mapIter := &keyIterator{m, nil, nil, m.MaxEntries()}
 		for key := mapIter.Next(); key != nil; key = mapIter.Next() {
 			if !desiredKeys.Has(string(key)) {
-				if err := m.Delete(key); err != nil {
-					errs = append(errs, err)
-				}
+				keysToPrune = append(keysToPrune, key)
 			}
 		}
+
+		var errs []error
+		for _, key := range keysToPrune {
+			if err := m.Delete(key); err != nil {
+				errs = append(errs, err)
+			}
+		}
+
 		errs = append(errs, mapIter.Err())
 		return errors.Join(errs...)
 	})
