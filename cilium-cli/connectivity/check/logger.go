@@ -69,11 +69,25 @@ func (m message) nsTest() string {
 	return fmt.Sprintf("%s:%s", m.namespace, m.testName)
 }
 
+// Print schedules message for the test to be printed.
+func (c *ConcurrentLogger) Print(test *Test, msg string) {
+	buf := &bytes.Buffer{}
+	if test.ctx.timestamp() {
+		mustFprint(buf, timestamp())
+	}
+	mustFprint(buf, msg)
+	c.messageCh <- message{
+		namespace: test.ctx.params.TestNamespace,
+		testName:  test.name,
+		data:      buf.String(),
+	}
+}
+
 // Printf schedules message for the test to be printed.
 func (c *ConcurrentLogger) Printf(test *Test, format string, args ...interface{}) {
 	buf := &bytes.Buffer{}
 	if test.ctx.timestamp() {
-		mustFprintf(buf, timestamp())
+		mustFprint(buf, timestamp())
 	}
 	mustFprintf(buf, format, args...)
 	c.messageCh <- message{
@@ -161,7 +175,7 @@ func (c *ConcurrentLogger) printTestMessages(nsTest string) {
 			continue
 		}
 		for ; printedMessageIndex < len(messages); printedMessageIndex++ {
-			mustFprintf(c.writer, messages[printedMessageIndex].data)
+			mustFprint(c.writer, messages[printedMessageIndex].data)
 			if messages[printedMessageIndex].finish {
 				c.nsTestFinishCount++
 				return
@@ -170,6 +184,11 @@ func (c *ConcurrentLogger) printTestMessages(nsTest string) {
 	}
 }
 
+func mustFprint(writer io.Writer, msg string) {
+	if _, err := fmt.Fprint(writer, msg); err != nil {
+		panic(fmt.Errorf("failed to print log message: %w", err))
+	}
+}
 func mustFprintf(writer io.Writer, format string, args ...interface{}) {
 	if _, err := fmt.Fprintf(writer, format, args...); err != nil {
 		panic(fmt.Errorf("failed to print log message: %w", err))

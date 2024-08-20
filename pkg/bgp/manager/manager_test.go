@@ -86,15 +86,14 @@ func TestManagerEventNoService(t *testing.T) {
 	defer rr.Unlock()
 
 	if !cmp.Equal(rr.name, serviceID.String()) {
-		t.Fatalf(cmp.Diff(rr.name, serviceID.String()))
+		t.Fatal(cmp.Diff(rr.name, serviceID.String()))
 	}
 	if rr.srvRo != nil {
-		t.Fatalf("expected srvRo to be nil")
+		t.Fatal("expected srvRo to be nil")
 	}
 	if !cmp.Equal(rr.eps, emptyEps) {
-		t.Fatalf(cmp.Diff(rr.eps, serviceID))
+		t.Fatal(cmp.Diff(rr.eps, serviceID))
 	}
-
 }
 
 // TestManagerEvent confirms the Manager
@@ -154,12 +153,12 @@ func TestManagerEvent(t *testing.T) {
 	defer rr.Unlock()
 
 	if !cmp.Equal(rr.name, serviceID.String()) {
-		t.Fatalf(cmp.Diff(rr.name, serviceID.String()))
+		t.Fatal(cmp.Diff(rr.name, serviceID.String()))
 	}
 	if !cmp.Equal(rr.srvRo, &v1Service) {
-		t.Fatalf(cmp.Diff(rr.srvRo, &v1Service))
+		t.Fatal(cmp.Diff(rr.srvRo, &v1Service))
 	}
 	if !cmp.Equal(rr.eps, emptyEps) {
-		t.Fatalf(cmp.Diff(rr.eps, emptyEps))
+		t.Fatal(cmp.Diff(rr.eps, emptyEps))
 	}
 }

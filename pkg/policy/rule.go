@@ -362,7 +362,7 @@ func traceL3(ctx *SearchContext, peerEndpoints api.EndpointSelectorSlice, direct
 			result.WriteString("\n")
 		}
 	}
-	ctx.PolicyTrace(result.String())
+	ctx.PolicyTrace(result.String()) //nolint:govet
 }
 
 // portRulesCoverContext determines whether L4 portions of rules cover the

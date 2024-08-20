@@ -89,7 +89,7 @@ func (k *K8sConfig) View(ctx context.Context) (string, error) {
 	sort.Strings(keys)
 
 	for _, key := range keys {
-		fmt.Fprintf(w, key+"\t"+cm.Data[key]+"\n")
+		fmt.Fprintf(w, "%s\t%s\n", key, cm.Data[key])
 	}
 
 	w.Flush()
