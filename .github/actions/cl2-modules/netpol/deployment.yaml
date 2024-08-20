@@ -8,6 +8,7 @@ metadata:
   name: {{.Name}}
   labels:
     group: load
+    indexing: id-{{.Index}}
 spec:
   replicas: {{.Replicas}}
   selector:
@@ -18,6 +19,7 @@ spec:
       labels:
         group: load
         name: {{.Name}}
+        indexing: id-{{.Index}}
     spec:
       containers:
       - image: "registry.k8s.io/pause:3.9"
