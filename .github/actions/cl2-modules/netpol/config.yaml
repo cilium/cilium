@@ -30,7 +30,7 @@ tuningSets:
     burst: 1
 - name: RandomizedSaturationTimeLimited
   RandomizedTimeLimitedLoad:
-    timeLimit: 15m
+    timeLimit: 30m
 
 steps:
 - module:
