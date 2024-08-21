@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
@@ -1596,6 +1597,13 @@ func (e *Endpoint) OnDNSPolicyUpdateLocked(rules restore.DNSRules) {
 			e.DNSRules[pp.ToV1()] = rules
 		}
 	}
+}
+
+func (e *Endpoint) GetPolicyVersionHandle() *versioned.VersionHandle {
+	if e.desiredPolicy != nil {
+		return e.desiredPolicy.VersionHandle
+	}
+	return nil
 }
 
 // getProxyStatistics gets the ProxyStatistics for the flows with the

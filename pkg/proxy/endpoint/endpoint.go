@@ -4,6 +4,7 @@
 package endpoint
 
 import (
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
@@ -35,4 +36,6 @@ type EndpointUpdater interface {
 	// OnDNSPolicyUpdateLocked is called when the Endpoint's DNS policy has been updated.
 	// 'rules' is a fresh copy of the DNS rules passed to the callee.
 	OnDNSPolicyUpdateLocked(rules restore.DNSRules)
+
+	GetPolicyVersionHandle() *versioned.VersionHandle
 }

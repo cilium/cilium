@@ -9,10 +9,13 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 
+	"github.com/hashicorp/go-hclog"
+
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -21,7 +24,7 @@ type CachedSelector interface {
 	// GetSelections returns the cached set of numeric identities
 	// selected by the CachedSelector.  The retuned slice must NOT
 	// be modified, as it is shared among multiple users.
-	GetSelections() identity.NumericIdentitySlice
+	GetSelections(*versioned.VersionHandle) identity.NumericIdentitySlice
 
 	// GetMetadataLabels returns metadata labels for additional context
 	// surrounding the selector. These are typically the labels associated with
@@ -30,7 +33,7 @@ type CachedSelector interface {
 
 	// Selects return 'true' if the CachedSelector selects the given
 	// numeric identity.
-	Selects(nid identity.NumericIdentity) bool
+	Selects(*versioned.VersionHandle, identity.NumericIdentity) bool
 
 	// IsWildcard returns true if the endpoint selector selects
 	// all endpoints.
@@ -134,7 +137,7 @@ type CachedSelectionUser interface {
 type identitySelector struct {
 	source           selectorSource
 	key              string
-	selections       atomic.Pointer[identity.NumericIdentitySlice]
+	selections       versioned.Value[identity.NumericIdentitySlice]
 	users            map[CachedSelectionUser]struct{}
 	cachedSelections map[identity.NumericIdentity]struct{}
 	metadataLbls     labels.LabelArray
@@ -231,12 +234,13 @@ func (i *identitySelector) Equal(b *identitySelector) bool {
 // that case GetSelections() will return either the old or new version
 // of the selections. If the old version is returned, the user is
 // guaranteed to receive a notification including the update.
-func (i *identitySelector) GetSelections() identity.NumericIdentitySlice {
-	selections := i.selections.Load()
-	if selections == nil {
-		return emptySelection
+func (i *identitySelector) GetSelections(version *versioned.VersionHandle) identity.NumericIdentitySlice {
+	if version == nil || !version.IsValid() {
+		stacktrace := hclog.Stacktrace()
+		log.WithField(logfields.Stacktrace, stacktrace).Error("GetSelections: Invalid VersionHandle finds nothing")
+		return identity.NumericIdentitySlice{}
 	}
-	return *selections
+	return i.selections.At(version)
 }
 
 func (i *identitySelector) GetMetadataLabels() labels.LabelArray {
@@ -245,11 +249,11 @@ func (i *identitySelector) GetMetadataLabels() labels.LabelArray {
 
 // Selects return 'true' if the CachedSelector selects the given
 // numeric identity.
-func (i *identitySelector) Selects(nid identity.NumericIdentity) bool {
+func (i *identitySelector) Selects(version *versioned.VersionHandle, nid identity.NumericIdentity) bool {
 	if i.IsWildcard() {
 		return true
 	}
-	nids := i.GetSelections()
+	nids := i.GetSelections(version)
 	idx := sort.Search(len(nids), func(i int) bool { return nids[i] >= nid })
 	return idx < len(nids) && nids[idx] == nid
 }
@@ -298,7 +302,7 @@ func (i *identitySelector) numUsers() int {
 // cached selections after the cached selections have been changed.
 //
 // lock must be held
-func (i *identitySelector) updateSelections() {
+func (i *identitySelector) updateSelections(nextVersion *versioned.Tx) {
 	selections := make(identity.NumericIdentitySlice, len(i.cachedSelections))
 	idx := 0
 	for nid := range i.cachedSelections {
@@ -311,13 +315,18 @@ func (i *identitySelector) updateSelections() {
 	sort.Slice(selections, func(i, j int) bool {
 		return selections[i] < selections[j]
 	})
-	i.setSelections(&selections)
+	i.setSelections(selections, nextVersion)
 }
 
-func (i *identitySelector) setSelections(selections *identity.NumericIdentitySlice) {
-	if len(*selections) > 0 {
-		i.selections.Store(selections)
+func (i *identitySelector) setSelections(selections identity.NumericIdentitySlice, nextVersion *versioned.Tx) {
+	var err error
+	if len(selections) > 0 {
+		err = i.selections.SetAt(selections, nextVersion)
 	} else {
-		i.selections.Store(&emptySelection)
+		err = i.selections.RemoveAt(nextVersion)
+	}
+	if err != nil {
+		stacktrace := hclog.Stacktrace()
+		log.WithError(err).WithField(logfields.Stacktrace, stacktrace).Error("setSelections failed")
 	}
 }

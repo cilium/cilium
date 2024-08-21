@@ -757,6 +757,8 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 	if err := e.setDesiredPolicy(policyResult); err != nil {
 		return err
 	}
+	// Mark the desired policy as ready when done before the lock is released
+	defer e.desiredPolicy.Ready()
 
 	// We cannot obtain the rules while e.mutex is held, because obtaining
 	// fresh DNSRules requires the IPCache lock (which must not be taken while
