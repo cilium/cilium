@@ -56,7 +56,7 @@ func registerClusterInfoValidator(lc cell.Lifecycle, cinfo types.ClusterInfo, lo
 			if err := cinfo.InitClusterIDMax(); err != nil {
 				return err
 			}
-			if err := cinfo.ValidateStrict(log); err != nil {
+			if err := cinfo.ValidateStrict(); err != nil {
 				return err
 			}
 			return nil
