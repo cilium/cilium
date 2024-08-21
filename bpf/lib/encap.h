@@ -167,7 +167,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 
 static __always_inline int
 encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
-			  __u8 encrypt_key __maybe_unused,
+			  bool check_encrypt __maybe_unused,
 			  __u32 seclabel, const struct trace_ctx *trace)
 {
 	struct tunnel_value *tunnel;
@@ -177,8 +177,8 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 		return DROP_NO_TUNNEL_ENDPOINT;
 
 #ifdef ENABLE_IPSEC
-	if (encrypt_key)
-		return set_ipsec_encrypt(ctx, encrypt_key, tunnel->ip4,
+	if (check_encrypt && tunnel->key)
+		return set_ipsec_encrypt(ctx, tunnel->key, tunnel->ip4,
 					 seclabel, true, false);
 #endif
 
