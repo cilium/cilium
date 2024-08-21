@@ -13,7 +13,7 @@ runs:
         echo "BGP_CONTROL_PLANE_HELM_VALUES=--helm-set=bgpControlPlane.enabled=true" >> $GITHUB_ENV
         echo "CILIUM_CLI_RELEASE_REPO=cilium/cilium-cli" >> $GITHUB_ENV
         # renovate: datasource=github-releases depName=cilium/cilium-cli
-        CILIUM_CLI_VERSION="v0.16.15"
+        CILIUM_CLI_VERSION="v0.16.16"
         echo "CILIUM_CLI_VERSION=$CILIUM_CLI_VERSION" >> $GITHUB_ENV
         echo "CILIUM_CLI_IMAGE_REPO=quay.io/cilium/cilium-cli-ci" >> $GITHUB_ENV
         echo "CILIUM_CLI_SKIP_BUILD=true" >> $GITHUB_ENV
