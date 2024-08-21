@@ -85,7 +85,7 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 22
+      max-parallel: 24
       matrix:
         include:
           # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -345,6 +345,28 @@ jobs:
             devices: '{eth0,eth1}'
             secondary-network: 'true'
             ingress-controller: 'true'
+
+          - name: '23'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-20240711.013133'
+            misc: 'bpf.datapathMode=netkit,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
+            kube-proxy: 'none'
+            kpr: 'true'
+            ipv6: 'true'
+            tunnel: 'disabled'
+            ciliumendpointslice: 'true'
+            endpoint-routes: 'true'
+
+          - name: '24'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-20240711.013133'
+            misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
+            kube-proxy: 'none'
+            kpr: 'true'
+            ipv6: 'true'
+            tunnel: 'disabled'
+            ciliumendpointslice: 'true'
+            endpoint-routes: 'true'
 
     timeout-minutes: 60
     steps:
