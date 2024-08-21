@@ -68,6 +68,7 @@ type Parameters struct {
 	ExternalIP             string
 	ExternalDeploymentPort int
 	ExternalOtherIP        string
+	ServiceType            string
 	EchoServerHostPort     int
 	PodCIDRs               []podCIDRs
 	NodeCIDRs              []string
