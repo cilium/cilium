@@ -417,6 +417,8 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 	// the extra egress allow-all is technically correct, but omitted from the
 	// expected output that's asserted against for the sake of brevity.
 	epp.policyMapState.delete(mapKeyAllowAllE_, nil)
+	epp.Ready()
+	epp.Detach()
 
 	return epp.policyMapState, nil
 }

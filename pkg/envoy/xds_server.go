@@ -37,6 +37,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	_ "github.com/cilium/cilium/pkg/envoy/resource"
@@ -1414,13 +1415,13 @@ func GetEnvoyHTTPRules(secretManager certificatemanager.SecretManager, l7Rules *
 	return nil, true
 }
 
-func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser policy.L7ParserType, l7Rules *policy.PerSelectorPolicy, useFullTLSContext bool) (*cilium.PortNetworkPolicyRule, bool) {
+func getPortNetworkPolicyRule(version *versioned.VersionHandle, sel policy.CachedSelector, wildcard bool, l7Parser policy.L7ParserType, l7Rules *policy.PerSelectorPolicy, useFullTLSContext bool) (*cilium.PortNetworkPolicyRule, bool) {
 	r := &cilium.PortNetworkPolicyRule{}
 
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
 	if !wildcard {
-		selections := sel.GetSelections()
+		selections := sel.GetSelections(version)
 
 		// No remote policies would match this rule. Discard it.
 		if len(selections) == 0 {
@@ -1519,14 +1520,14 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser
 
 // getWildcardNetworkPolicyRule returns the rule for port 0, which
 // will be considered after port-specific rules.
-func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetworkPolicyRule {
+func getWildcardNetworkPolicyRule(version *versioned.VersionHandle, selectors policy.L7DataMap) *cilium.PortNetworkPolicyRule {
 	// selections are pre-sorted, so sorting is only needed if merging selections from multiple selectors
 	if len(selectors) == 1 {
 		for sel := range selectors {
 			if sel.IsWildcard() {
 				return &cilium.PortNetworkPolicyRule{}
 			}
-			selections := sel.GetSelections()
+			selections := sel.GetSelections(version)
 			if len(selections) == 0 {
 				// No remote policies would match this rule. Discard it.
 				return nil
@@ -1554,7 +1555,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 			log.Warningf("L3-only rule for selector %v surprisingly requires proxy redirection (%v)!", sel, *l7)
 		}
 
-		selections := sel.GetSelections()
+		selections := sel.GetSelections(version)
 		if len(selections) == 0 {
 			continue
 		}
@@ -1585,6 +1586,8 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 }
 
 func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, useFullTLSContext bool, vis policy.DirectionalVisibilityPolicy, dir string) []*cilium.PortNetworkPolicy {
+	version := ep.GetPolicyVersionHandle()
+
 	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {
 		PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis)+1)
@@ -1642,7 +1645,7 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 		if port == 0 {
 			// L3-only rule, must generate L7 allow-all in case there are other
 			// port-specific rules. Otherwise traffic from allowed remotes could be dropped.
-			rule := getWildcardNetworkPolicyRule(l4.PerSelectorPolicies)
+			rule := getWildcardNetworkPolicyRule(version, l4.PerSelectorPolicies)
 			if rule != nil {
 				log.WithFields(logrus.Fields{
 					logfields.EndpointID:       ep.GetID(),
@@ -1666,7 +1669,7 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 				// then the proxy may need to drop some allowed l3 due to l7 rules potentially
 				// being different between the selectors.
 				wildcard := nSelectors == 1 || sel.IsWildcard()
-				rule, cs := getPortNetworkPolicyRule(sel, wildcard, l4.L7Parser, l7, useFullTLSContext)
+				rule, cs := getPortNetworkPolicyRule(version, sel, wildcard, l4.L7Parser, l7, useFullTLSContext)
 				if rule != nil {
 					if !cs {
 						canShortCircuit = false
