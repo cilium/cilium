@@ -392,6 +392,13 @@ func HaveFibIfindex() error {
 	return features.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer)
 }
 
+// HaveWriteableQueueMapping checks if kernel has 74e31ca850c1 ("bpf: add
+// skb->queue_mapping write access from tc clsact") which is 5.1+. This got merged
+// in the same kernel as the bpf_skb_ecn_set_ce() helper.
+func HaveWriteableQueueMapping() error {
+	return features.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkbEcnSetCe)
+}
+
 // HaveV2ISA is a wrapper around features.HaveV2ISA() to check if the kernel
 // supports the V2 ISA.
 // On unexpected probe results this function will terminate with log.Fatal().
