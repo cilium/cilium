@@ -189,21 +189,24 @@ jobs:
         timeout-minutes: 60
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          control_plane_size: n2-standard-8
+          control_plane_size: n2-standard-16
           control_plane_count: 1
+          control_plane_volume_size: 500
           node_size: e2-medium
-          node_count: 100
+          node_count: 200
+          node_volume_size: 50
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           kube_proxy_enabled: false
           allocate_node_cidrs: false
+          etcd_volume_size: 300
 
       - name: Create Instance Group for resource heavy deployments
         uses: cilium/scale-tests-action/create-instance-group@0992f6cf525ecdaea81a27c8d1c26ecb63ac0f8c # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          node_size: e2-standard-4
+          node_size: e2-standard-8
           node_count: 1
           ig_name: heapster
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
@@ -238,7 +241,7 @@ jobs:
 
       - name: Wait for cluster to be ready
         uses: cilium/scale-tests-action/validate-cluster@0992f6cf525ecdaea81a27c8d1c26ecb63ac0f8c # main
-        timeout-minutes: 15
+        timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
@@ -259,23 +262,21 @@ jobs:
       - name: Run CL2
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2
-        shell: bash
+        env:
+          CL2_PROMETHEUS_PVC_ENABLED: "false"
+          CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
+          CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 4.0
+          CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL: 10s
         timeout-minutes: 60
         run: |
-          mkdir ./report
-          export CL2_PROMETHEUS_PVC_ENABLED=false
-          export CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR=true
-          export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT=true
-          export CL2_PROMETHEUS_MEMORY_SCALE_FACTOR=1.0
-          export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL=5s
-
           go run ./cmd/clusterloader.go \
             -v=2 \
             --testconfig=./testing/custom/netpol/config.yaml \
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
-            --nodes=100 \
+            --nodes=200 \
             --enable-exec-service=false \
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
