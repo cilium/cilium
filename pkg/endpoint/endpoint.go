@@ -425,6 +425,24 @@ type Endpoint struct {
 	NetNsCookie uint64
 }
 
+// buildLock locks the buildMutex and logs a warning if build releated resources were already held
+func (e *Endpoint) buildLock() {
+	e.buildMutex.Lock()
+	if e.desiredPolicy != nil && e.desiredPolicy.VersionHandle.IsValid() {
+		e.getLogger().WithField(logfields.Version, e.desiredPolicy.VersionHandle).Warn("Selector cache version was held when getting the build mutex, closing")
+		e.desiredPolicy.VersionHandle.Close()
+	}
+}
+
+func (e *Endpoint) buildUnlock() {
+	// Close version handle
+	if e.desiredPolicy != nil && e.desiredPolicy.VersionHandle.IsValid() {
+		e.getLogger().WithField(logfields.Version, e.desiredPolicy.VersionHandle).Warn("Selector cache version was held when releasing the build mutex, closing")
+		e.desiredPolicy.VersionHandle.Close()
+	}
+	e.buildMutex.Unlock()
+}
+
 func (e *Endpoint) GetRealizedRedirects() (redirects map[string]uint16) {
 	if p := e.realizedRedirects.Load(); p != nil {
 		redirects = *p
@@ -2328,8 +2346,8 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 // revision.
 func (e *Endpoint) SetPolicyRevision(rev uint64) {
 	// Wait for any in-progress regenerations to finish.
-	e.buildMutex.Lock()
-	defer e.buildMutex.Unlock()
+	e.buildLock()
+	defer e.buildUnlock()
 
 	if err := e.lockAlive(); err != nil {
 		return
@@ -2435,8 +2453,8 @@ func (e *Endpoint) IsDisconnecting() bool {
 }
 
 func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
-	e.buildMutex.Lock()
-	defer e.buildMutex.Unlock()
+	e.buildLock()
+	defer e.buildUnlock()
 
 	// The following GetDNSRules call will acquire a read-lock on the IPCache.
 	// Because IPCache itself will potentially acquire endpoint locks in its
@@ -2485,8 +2503,8 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	// Wait for any pending endpoint regenerate() calls to finish. The
 	// latter bails out after taking the lock when it detects that the
 	// endpoint state is disconnecting.
-	e.buildMutex.Lock()
-	defer e.buildMutex.Unlock()
+	e.buildLock()
+	defer e.buildUnlock()
 
 	// Lock out any other writers to the endpoint.  In case multiple delete
 	// requests have been enqueued, have all of them except the first
