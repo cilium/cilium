@@ -68,11 +68,11 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 
 	log := hivetest.Logger(t)
 
-	var maps lbmaps
+	var maps LBMaps
 	if testutils.IsPrivileged() {
-		maps = &realLBMaps{
-			pinned: false,
-			cfg: LBMapsConfig{
+		maps = &BPFLBMaps{
+			Pinned: false,
+			Cfg: LBMapsConfig{
 				MaxSockRevNatMapEntries:  1000,
 				ServiceMapMaxEntries:     1000,
 				BackendMapMaxEntries:     1000,
@@ -83,7 +83,7 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 			},
 		}
 	} else {
-		maps = newFakeLBMaps()
+		maps = NewFakeLBMaps()
 	}
 
 	services := make(chan resource.Event[*slim_corev1.Service], 1)
@@ -106,7 +106,7 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 	var (
 		writer *Writer
 		db     *statedb.DB
-		bo     *bpfOps
+		bo     *BPFOps
 		rec    reconciler.Reconciler[*Frontend]
 	)
 
@@ -135,18 +135,18 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 			}),
 
 			cell.Provide(
-				func(lc cell.Lifecycle) lbmaps {
-					if rm, ok := maps.(*realLBMaps); ok {
+				func(lc cell.Lifecycle) LBMaps {
+					if rm, ok := maps.(*BPFLBMaps); ok {
 						lc.Append(rm)
 					}
-					return &faultyLBMaps{
+					return &FaultyLBMaps{
 						impl:               maps,
 						failureProbability: 0.1, // 10% chance of failure.
 					}
 				},
 			),
 
-			cell.Invoke(func(db_ *statedb.DB, w *Writer, bo_ *bpfOps, rec_ reconciler.Reconciler[*Frontend]) {
+			cell.Invoke(func(db_ *statedb.DB, w *Writer, bo_ *BPFOps, rec_ reconciler.Reconciler[*Frontend]) {
 				db = db_
 				writer = w
 				bo = bo_
@@ -208,21 +208,21 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 	// TODO: allow multiple stages in the style of test/controlplane.
 
 	for _, obj := range readObjects[*slim_corev1.Service](t, testDataPath, "service") {
-		services <- upsertEvent(obj)
+		services <- UpsertEvent(obj)
 	}
 
 	for _, obj := range readObjects[*slim_corev1.Pod](t, testDataPath, "pod") {
-		pods <- upsertEvent(obj)
+		pods <- UpsertEvent(obj)
 	}
 
 	for _, obj := range readObjects[*slim_discovery_v1.EndpointSlice](t, testDataPath, "endpointslice") {
-		endpoints <- upsertEvent(k8s.ParseEndpointSliceV1(obj))
+		endpoints <- UpsertEvent(k8s.ParseEndpointSliceV1(obj))
 	}
 
 	if !assert.Eventually(
 		t,
 		func() bool {
-			return checkTablesAndMaps(db, writer, maps, testDataPath)
+			return checkTablesAndMaps(db, writer, maps, readFileFromDir("expected.tables", testDataPath), readFileFromDir("expected.maps", testDataPath), writeToDir(testDataPath), nil)
 		},
 		5*time.Second,
 		10*time.Millisecond,
@@ -239,7 +239,7 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 	if !assert.Eventually(
 		t,
 		func() bool {
-			ok := checkTablesAndMaps(db, writer, maps, testDataPath)
+			ok := checkTablesAndMaps(db, writer, maps, readFileFromDir("expected.tables", testDataPath), readFileFromDir("expected.maps", testDataPath), writeToDir(testDataPath), nil)
 			if !ok {
 				// Keep re-pruning since a fault may have been injected.
 				// FIXME: Reconciler likely should retry pruning automatically!
@@ -263,23 +263,23 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 	// Feed in deletions of all objects.
 	//
 	for _, obj := range readObjects[*slim_corev1.Service](t, testDataPath, "service") {
-		services <- deleteEvent(obj)
+		services <- DeleteEvent(obj)
 	}
 
 	for _, obj := range readObjects[*slim_corev1.Pod](t, testDataPath, "pod") {
-		pods <- deleteEvent(obj)
+		pods <- DeleteEvent(obj)
 	}
 
 	for _, obj := range readObjects[*slim_discovery_v1.EndpointSlice](t, testDataPath, "endpointslice") {
-		endpoints <- deleteEvent(k8s.ParseEndpointSliceV1(obj))
+		endpoints <- DeleteEvent(k8s.ParseEndpointSliceV1(obj))
 	}
 
 	// The reconciler should eventually clean up all the maps.
-	var lastDump []mapDump
+	var lastDump []MapDump
 	if !assert.Eventually(
 		t,
 		func() bool {
-			lastDump = dump(maps, frontendAddrs[0], true)
+			lastDump = DumpLBMaps(maps, frontendAddrs[0], true, nil)
 			return len(lastDump) == 0
 		},
 		5*time.Second,
@@ -312,7 +312,7 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 	if !assert.Eventually(
 		t,
 		func() bool {
-			lastDump = dump(maps, frontendAddrs[0], true)
+			lastDump = DumpLBMaps(maps, frontendAddrs[0], true, nil)
 			ok := len(lastDump) == 0
 			if !ok {
 				// Keep re-pruning as a fault may have been injected.
