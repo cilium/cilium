@@ -104,7 +104,9 @@ func (signer *EcsRamRoleSigner) refreshApi(request *requests.CommonRequest) (res
 		err = fmt.Errorf("refresh Ecs sts token err: %s", err.Error())
 		return
 	}
-	httpClient := &http.Client{}
+	httpClient := &http.Client{
+		Timeout: 5 * time.Second,
+	}
 	httpResponse, err := httpClient.Do(httpRequest)
 	if err != nil {
 		err = fmt.Errorf("refresh Ecs sts token err: %s", err.Error())

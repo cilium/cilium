@@ -18,6 +18,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/utils"
 )
@@ -26,50 +27,47 @@ var hookGetNonce = func(fn func() string) string {
 	return fn()
 }
 
-func signRpcRequest(request requests.AcsRequest, signer Signer, regionId string) (err error) {
-	err = completeRpcSignParams(request, signer, regionId)
+func signRpcRequest(request requests.AcsRequest, regionId string, provider credentials.CredentialsProvider) (err error) {
+	cc, err := provider.GetCredentials()
 	if err != nil {
 		return
 	}
-	// remove while retry
-	delete(request.GetQueryParams(), "Signature")
 
-	stringToSign := buildRpcStringToSign(request)
-	request.SetStringToSign(stringToSign)
-	signature := signer.Sign(stringToSign, "&")
-	request.GetQueryParams()["Signature"] = signature
-
-	return
-}
-
-func completeRpcSignParams(request requests.AcsRequest, signer Signer, regionId string) (err error) {
 	queryParams := request.GetQueryParams()
 	queryParams["Version"] = request.GetVersion()
 	queryParams["Action"] = request.GetActionName()
 	queryParams["Format"] = request.GetAcceptFormat()
 	queryParams["Timestamp"] = hookGetDate(utils.GetTimeInFormatISO8601)
-	queryParams["SignatureMethod"] = signer.GetName()
-	queryParams["SignatureType"] = signer.GetType()
-	queryParams["SignatureVersion"] = signer.GetVersion()
+	queryParams["SignatureMethod"] = "HMAC-SHA1"
+	queryParams["SignatureVersion"] = "1.0"
+	queryParams["SignatureType"] = ""
 	queryParams["SignatureNonce"] = hookGetNonce(utils.GetNonce)
-	queryParams["AccessKeyId"], err = signer.GetAccessKeyId()
-
-	if err != nil {
-		return
-	}
+	queryParams["AccessKeyId"] = cc.AccessKeyId
 
 	if _, contains := queryParams["RegionId"]; !contains {
 		queryParams["RegionId"] = regionId
 	}
-	if extraParam := signer.GetExtraParam(); extraParam != nil {
-		for key, value := range extraParam {
-			queryParams[key] = value
-		}
+
+	if cc.SecurityToken != "" {
+		queryParams["SecurityToken"] = cc.SecurityToken
+	}
+
+	if cc.BearerToken != "" {
+		queryParams["BearerToken"] = cc.BearerToken
+		queryParams["SignatureType"] = "BEARERTOKEN"
 	}
 
 	request.GetHeaders()["Content-Type"] = requests.Form
 	formString := utils.GetUrlFormedMap(request.GetFormParams())
 	request.SetContent([]byte(formString))
+
+	// remove while retry
+	delete(request.GetQueryParams(), "Signature")
+
+	stringToSign := buildRpcStringToSign(request)
+	request.SetStringToSign(stringToSign)
+	secret := cc.AccessKeySecret + "&"
+	request.GetQueryParams()["Signature"] = utils.ShaHmac1(stringToSign, secret)
 
 	return
 }

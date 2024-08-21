@@ -14,5 +14,70 @@
 
 package auth
 
+import (
+	"fmt"
+	"reflect"
+
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
+)
+
 type Credential interface {
+}
+
+func ToCredentialsProvider(credential Credential) (provider credentials.CredentialsProvider, err error) {
+	if credential == nil {
+		provider = credentials.NewDefaultCredentialsProvider()
+		return
+	}
+
+	switch instance := credential.(type) {
+	case *credentials.AccessKeyCredential:
+		{
+			provider = credentials.NewStaticAKCredentialsProvider(instance.AccessKeyId, instance.AccessKeySecret)
+			return
+		}
+	case *credentials.StsTokenCredential:
+		{
+			provider = credentials.NewStaticSTSCredentialsProvider(instance.AccessKeyId, instance.AccessKeySecret, instance.AccessKeyStsToken)
+			return
+		}
+	case *credentials.BearerTokenCredential:
+		{
+			provider = credentials.NewBearerTokenCredentialsProvider(instance.BearerToken)
+			return
+		}
+	case *credentials.RamRoleArnCredential:
+		{
+			preProvider := credentials.NewStaticAKCredentialsProvider(instance.AccessKeyId, instance.AccessKeySecret)
+			provider, err = credentials.NewRAMRoleARNCredentialsProvider(
+				preProvider,
+				instance.RoleArn,
+				instance.RoleSessionName,
+				instance.RoleSessionExpiration,
+				instance.Policy,
+				instance.StsRegion,
+				instance.ExternalId)
+			return
+		}
+	case *credentials.RsaKeyPairCredential:
+		{
+			provider, err = credentials.NewRSAKeyPairCredentialsProvider(instance.PublicKeyId, instance.PrivateKey, instance.SessionExpiration)
+			return
+		}
+	case *credentials.EcsRamRoleCredential:
+		{
+			provider = credentials.NewECSRAMRoleCredentialsProvider(instance.RoleName)
+			return
+		}
+	case credentials.CredentialsProvider:
+		{
+			provider = instance
+			return
+		}
+	default:
+		message := fmt.Sprintf(errors.UnsupportedCredentialErrorMessage, reflect.TypeOf(credential))
+		err = errors.NewClientError(errors.UnsupportedCredentialErrorCode, message, nil)
+	}
+	return
 }

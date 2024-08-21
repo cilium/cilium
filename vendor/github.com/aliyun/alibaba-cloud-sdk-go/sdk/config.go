@@ -17,27 +17,33 @@ package sdk
 import (
 	"net/http"
 	"time"
-
-	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/utils"
 )
 
 type Config struct {
-	AutoRetry         bool              `default:"false"`
-	MaxRetryTime      int               `default:"3"`
-	UserAgent         string            `default:""`
-	Debug             bool              `default:"false"`
-	HttpTransport     *http.Transport   `default:""`
-	Transport         http.RoundTripper `default:""`
-	EnableAsync       bool              `default:"false"`
-	MaxTaskQueueSize  int               `default:"1000"`
-	GoRoutinePoolSize int               `default:"5"`
-	Scheme            string            `default:"HTTP"`
+	AutoRetry         bool
+	MaxRetryTime      int
+	UserAgent         string
+	Debug             bool
+	HttpTransport     *http.Transport
+	Transport         http.RoundTripper
+	EnableAsync       bool
+	MaxTaskQueueSize  int
+	GoRoutinePoolSize int
+	Scheme            string
 	Timeout           time.Duration
 }
 
 func NewConfig() (config *Config) {
-	config = &Config{}
-	utils.InitStructWithDefaultTag(config)
+	// with default vaule
+	config = &Config{
+		AutoRetry:         false,
+		MaxRetryTime:      3,
+		Debug:             false,
+		EnableAsync:       false,
+		MaxTaskQueueSize:  1000,
+		GoRoutinePoolSize: 5,
+		Scheme:            "HTTP",
+	}
 	return
 }
 

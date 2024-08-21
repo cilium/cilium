@@ -33,7 +33,7 @@ func (p *InstanceCredentialsProvider) Resolve() (auth.Credential, error) {
 		return nil, nil
 	}
 	if roleName == "" {
-		return nil, errors.New("Environmental variable 'ALIBABA_CLOUD_ECS_METADATA' are empty")
+		return nil, errors.New("environmental variable 'ALIBABA_CLOUD_ECS_METADATA' are empty")
 	}
 	status, content, err := HookGet(get)(securityCredURL + roleName)
 	if err != nil {
@@ -41,9 +41,9 @@ func (p *InstanceCredentialsProvider) Resolve() (auth.Credential, error) {
 	}
 	if status != 200 {
 		if status == 404 {
-			return nil, fmt.Errorf("The role was not found in the instance")
+			return nil, errors.New("the role was not found in the instance")
 		}
-		return nil, fmt.Errorf("Received %d when getting security credentials for %s", status, roleName)
+		return nil, fmt.Errorf("received %d when getting security credentials for %s", status, roleName)
 	}
 	body := make(map[string]interface{})
 
