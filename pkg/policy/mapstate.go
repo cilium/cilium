@@ -286,7 +286,10 @@ func (msm *mapStateMap) forKey(k Key, f func(Key, MapStateEntry) bool) bool {
 		return f(k, e)
 	}
 	stacktrace := hclog.Stacktrace()
-	log.Errorf("Missing MapStateEntry for key: %v. Stacktrace: %s", k, stacktrace)
+	log.WithFields(logrus.Fields{
+		logfields.Stacktrace: stacktrace,
+		logfields.PolicyKey:  k,
+	}).Errorf("Missing MapStateEntry")
 	return true
 }
 
@@ -771,7 +774,10 @@ func newMapState() *mapState {
 func (ms *mapState) Get(k Key) (MapStateEntry, bool) {
 	if k.DestPort == 0 && k.InvertedPortMask != 0xffff {
 		stacktrace := hclog.Stacktrace()
-		log.Errorf("mapState.Get: invalid wildcard port with non-zero mask: %v. Stacktrace: %s", k, stacktrace)
+		log.WithFields(logrus.Fields{
+			logfields.Stacktrace: stacktrace,
+			logfields.PolicyKey:  k,
+		}).Errorf("mapState.Get: invalid wildcard port with non-zero mask")
 	}
 	v, ok := ms.denies.Lookup(k)
 	if ok {
@@ -785,7 +791,10 @@ func (ms *mapState) Get(k Key) (MapStateEntry, bool) {
 func (ms *mapState) insert(k Key, v MapStateEntry, identities Identities) {
 	if k.DestPort == 0 && k.InvertedPortMask != 0xffff {
 		stacktrace := hclog.Stacktrace()
-		log.Errorf("mapState.insert: invalid wildcard port with non-zero mask: %v. Stacktrace: %s", k, stacktrace)
+		log.WithFields(logrus.Fields{
+			logfields.Stacktrace: stacktrace,
+			logfields.PolicyKey:  k,
+		}).Errorf("mapState.insert: invalid wildcard port with non-zero mask")
 	}
 	if v.IsDeny {
 		ms.allows.delete(k, identities)
@@ -1175,8 +1184,10 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 	// Sanity check on the newKey
 	if newKey.TrafficDirection >= trafficdirection.Invalid.Uint8() {
 		stacktrace := hclog.Stacktrace()
-		log.Errorf("mapState.denyPreferredInsertWithChanges: invalid traffic direction in key: %d. Stacktrace: %s",
-			newKey.TrafficDirection, stacktrace)
+		log.WithFields(logrus.Fields{
+			logfields.Stacktrace:       stacktrace,
+			logfields.TrafficDirection: newKey.TrafficDirection,
+		}).Errorf("mapState.denyPreferredInsertWithChanges: invalid traffic direction in key")
 		return
 	}
 	// Skip deny rules processing if the policy in this direction has no deny rules
