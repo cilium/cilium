@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -92,6 +93,9 @@ type ServiceEvent struct {
 	// Endpoints is the endpoints structured correlated with the service
 	Endpoints *Endpoints
 
+	// EndpointLastChangeTriggerTime is the time when the endpoints were last changed
+	EndpointLastChangeTriggerTime time.Time
+
 	// OldEndpoints is old endpoints structure.
 	OldEndpoints *Endpoints
 
@@ -139,6 +143,9 @@ type ServiceCache struct {
 	// externalEndpoints is a list of additional service backends derived from source other than the local cluster
 	externalEndpoints map[ServiceID]externalEndpoints
 
+	// endpointsChangeTracker tracks the last time when endpoints were changed
+	endpointsChangeTracker *EndpointsChangeTracker
+
 	selfNodeZoneLabel string
 
 	ServiceMutators []func(svc *slim_corev1.Service, svcInfo *Service)
@@ -153,16 +160,17 @@ func NewServiceCache(db *statedb.DB, nodeAddrs statedb.Table[datapathTables.Node
 	notifications, emitNotifications, completeNotifications := stream.Multicast[ServiceNotification]()
 
 	return &ServiceCache{
-		db:                    db,
-		nodeAddrs:             nodeAddrs,
-		services:              map[ServiceID]*Service{},
-		endpoints:             map[ServiceID]*EndpointSlices{},
-		externalEndpoints:     map[ServiceID]externalEndpoints{},
-		Events:                events,
-		sendEvents:            events,
-		notifications:         notifications,
-		emitNotifications:     emitNotifications,
-		completeNotifications: completeNotifications,
+		db:                     db,
+		nodeAddrs:              nodeAddrs,
+		services:               map[ServiceID]*Service{},
+		endpoints:              map[ServiceID]*EndpointSlices{},
+		externalEndpoints:      map[ServiceID]externalEndpoints{},
+		endpointsChangeTracker: NewEndpointsChangeTracker(),
+		Events:                 events,
+		sendEvents:             events,
+		notifications:          notifications,
+		emitNotifications:      emitNotifications,
+		completeNotifications:  completeNotifications,
 	}
 }
 
@@ -445,6 +453,7 @@ func (s *ServiceCache) UpdateEndpoints(newEndpoints *Endpoints, swg *lock.Stoppa
 	defer s.mutex.Unlock()
 
 	esID := newEndpoints.EndpointSliceID
+	triggerTime := s.endpointsChangeTracker.EndpointUpdate(esID.ServiceID, newEndpoints.Annotations, false)
 
 	var oldEPs *Endpoints
 	eps, ok := s.endpoints[esID.ServiceID]
@@ -466,12 +475,13 @@ func (s *ServiceCache) UpdateEndpoints(newEndpoints *Endpoints, swg *lock.Stoppa
 	if ok && serviceReady {
 		swg.Add()
 		s.emitEvent(ServiceEvent{
-			Action:       UpdateService,
-			ID:           esID.ServiceID,
-			Service:      svc,
-			Endpoints:    endpoints,
-			OldEndpoints: oldEPs,
-			SWG:          swg,
+			Action:                        UpdateService,
+			ID:                            esID.ServiceID,
+			Service:                       svc,
+			Endpoints:                     endpoints,
+			EndpointLastChangeTriggerTime: triggerTime,
+			OldEndpoints:                  oldEPs,
+			SWG:                           swg,
 		})
 	}
 
@@ -494,6 +504,13 @@ func (s *ServiceCache) DeleteEndpoints(svcID EndpointSliceID, swg *lock.Stoppabl
 			delete(s.endpoints, svcID.ServiceID)
 		}
 	}
+
+	// Delete the endpoint change tracker if it is not shared and has no endpoints
+	_, ok = s.endpoints[svcID.ServiceID]
+	if !ok {
+		s.endpointsChangeTracker.EndpointUpdate(svcID.ServiceID, nil, true)
+	}
+
 	endpoints, _ := s.correlateEndpoints(svcID.ServiceID)
 
 	if serviceOK {

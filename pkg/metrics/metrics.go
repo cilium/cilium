@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/sirupsen/logrus"
+	base_metrics "k8s.io/component-base/metrics"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/metrics/metric"
@@ -464,6 +465,15 @@ var (
 	// complete a CNP status update
 	KubernetesCNPStatusCompletion = NoOpObserverVec
 
+	// KubernetesNetworkProgrammingLatency is defined as the time it took to program the network - from the time
+	// the service or pod has changed to the time the change was propagated and the proper kube-proxy/cilium
+	// rules were synced. Exported for each endpoints object that were part of the rules sync.
+	// See https://github.com/kubernetes/community/blob/master/sig-scalability/slos/network_programming_latency.md
+	// Note that the metrics is partially based on the time exported by the endpoints controller on
+	// the master machine. The measurement may be inaccurate if there is a clock drift between the
+	// node and master machine.
+	KubernetesNetworkProgrammingLatency = NoOpHistogram
+
 	// TerminatingEndpointsEvents is the number of terminating endpoint events received from kubernetes.
 	TerminatingEndpointsEvents = NoOpCounter
 
@@ -653,87 +663,88 @@ var (
 )
 
 type LegacyMetrics struct {
-	BootstrapTimes                   metric.Vec[metric.Observer]
-	APIInteractions                  metric.Vec[metric.Observer]
-	NodeConnectivityStatus           metric.DeletableVec[metric.Gauge]
-	NodeConnectivityLatency          metric.DeletableVec[metric.Gauge]
-	Endpoint                         metric.GaugeFunc
-	EndpointMaxIfindex               metric.Gauge
-	EndpointRegenerationTotal        metric.Vec[metric.Counter]
-	EndpointStateCount               metric.Vec[metric.Gauge]
-	EndpointRegenerationTimeStats    metric.Vec[metric.Observer]
-	EndpointPropagationDelay         metric.Vec[metric.Observer]
-	Policy                           metric.Gauge
-	PolicyRegenerationCount          metric.Counter
-	PolicyRegenerationTimeStats      metric.Vec[metric.Observer]
-	PolicyRevision                   metric.Gauge
-	PolicyChangeTotal                metric.Vec[metric.Counter]
-	PolicyEndpointStatus             metric.Vec[metric.Gauge]
-	PolicyImplementationDelay        metric.Vec[metric.Observer]
-	CIDRGroupsReferenced             metric.Gauge
-	CIDRGroupTranslationTimeStats    metric.Histogram
-	Identity                         metric.Vec[metric.Gauge]
-	IdentityLabelSources             metric.Vec[metric.Gauge]
-	EventTS                          metric.Vec[metric.Gauge]
-	EventLagK8s                      metric.Gauge
-	ProxyRedirects                   metric.Vec[metric.Gauge]
-	ProxyPolicyL7Total               metric.Vec[metric.Counter]
-	ProxyUpstreamTime                metric.Vec[metric.Observer]
-	ProxyDatapathUpdateTimeout       metric.Counter
-	ConntrackGCRuns                  metric.Vec[metric.Counter]
-	ConntrackGCKeyFallbacks          metric.Vec[metric.Counter]
-	ConntrackGCSize                  metric.Vec[metric.Gauge]
-	NatGCSize                        metric.Vec[metric.Gauge]
-	ConntrackGCDuration              metric.Vec[metric.Observer]
-	ConntrackDumpResets              metric.Vec[metric.Counter]
-	SignalsHandled                   metric.Vec[metric.Counter]
-	ServicesEventsCount              metric.Vec[metric.Counter]
-	ServiceImplementationDelay       metric.Vec[metric.Observer]
-	ErrorsWarnings                   metric.Vec[metric.Counter]
-	ControllerRuns                   metric.Vec[metric.Counter]
-	ControllerRunsDuration           metric.Vec[metric.Observer]
-	SubprocessStart                  metric.Vec[metric.Counter]
-	KubernetesEventProcessed         metric.Vec[metric.Counter]
-	KubernetesEventReceived          metric.Vec[metric.Counter]
-	KubernetesAPIInteractions        metric.Vec[metric.Observer]
-	KubernetesAPIRateLimiterLatency  metric.Vec[metric.Observer]
-	KubernetesAPICallsTotal          metric.Vec[metric.Counter]
-	KubernetesCNPStatusCompletion    metric.Vec[metric.Observer]
-	TerminatingEndpointsEvents       metric.Counter
-	IPAMEvent                        metric.Vec[metric.Counter]
-	IPAMCapacity                     metric.Vec[metric.Gauge]
-	KVStoreOperationsDuration        metric.Vec[metric.Observer]
-	KVStoreEventsQueueDuration       metric.Vec[metric.Observer]
-	KVStoreQuorumErrors              metric.Vec[metric.Counter]
-	FQDNGarbageCollectorCleanedTotal metric.Counter
-	FQDNActiveNames                  metric.Vec[metric.Gauge]
-	FQDNActiveIPs                    metric.Vec[metric.Gauge]
-	FQDNAliveZombieConnections       metric.Vec[metric.Gauge]
-	FQDNSelectors                    metric.Gauge
-	FQDNSemaphoreRejectedTotal       metric.Counter
-	IPCacheErrorsTotal               metric.Vec[metric.Counter]
-	IPCacheEventsTotal               metric.Vec[metric.Counter]
-	BPFSyscallDuration               metric.Vec[metric.Observer]
-	BPFMapOps                        metric.Vec[metric.Counter]
-	BPFMapCapacity                   metric.Vec[metric.Gauge]
-	TriggerPolicyUpdateTotal         metric.Vec[metric.Counter]
-	TriggerPolicyUpdateFolds         metric.Gauge
-	TriggerPolicyUpdateCallDuration  metric.Vec[metric.Observer]
-	VersionMetric                    metric.Vec[metric.Gauge]
-	APILimiterWaitHistoryDuration    metric.Vec[metric.Observer]
-	APILimiterWaitDuration           metric.Vec[metric.Gauge]
-	APILimiterProcessingDuration     metric.Vec[metric.Gauge]
-	APILimiterRequestsInFlight       metric.Vec[metric.Gauge]
-	APILimiterRateLimit              metric.Vec[metric.Gauge]
-	APILimiterAdjustmentFactor       metric.Vec[metric.Gauge]
-	APILimiterProcessedRequests      metric.Vec[metric.Counter]
-	WorkQueueDepth                   metric.Vec[metric.Gauge]
-	WorkQueueAddsTotal               metric.Vec[metric.Counter]
-	WorkQueueLatency                 metric.Vec[metric.Observer]
-	WorkQueueDuration                metric.Vec[metric.Observer]
-	WorkQueueUnfinishedWork          metric.Vec[metric.Gauge]
-	WorkQueueLongestRunningProcessor metric.Vec[metric.Gauge]
-	WorkQueueRetries                 metric.Vec[metric.Counter]
+	BootstrapTimes                      metric.Vec[metric.Observer]
+	APIInteractions                     metric.Vec[metric.Observer]
+	NodeConnectivityStatus              metric.DeletableVec[metric.Gauge]
+	NodeConnectivityLatency             metric.DeletableVec[metric.Gauge]
+	Endpoint                            metric.GaugeFunc
+	EndpointMaxIfindex                  metric.Gauge
+	EndpointRegenerationTotal           metric.Vec[metric.Counter]
+	EndpointStateCount                  metric.Vec[metric.Gauge]
+	EndpointRegenerationTimeStats       metric.Vec[metric.Observer]
+	EndpointPropagationDelay            metric.Vec[metric.Observer]
+	Policy                              metric.Gauge
+	PolicyRegenerationCount             metric.Counter
+	PolicyRegenerationTimeStats         metric.Vec[metric.Observer]
+	PolicyRevision                      metric.Gauge
+	PolicyChangeTotal                   metric.Vec[metric.Counter]
+	PolicyEndpointStatus                metric.Vec[metric.Gauge]
+	PolicyImplementationDelay           metric.Vec[metric.Observer]
+	CIDRGroupsReferenced                metric.Gauge
+	CIDRGroupTranslationTimeStats       metric.Histogram
+	Identity                            metric.Vec[metric.Gauge]
+	IdentityLabelSources                metric.Vec[metric.Gauge]
+	EventTS                             metric.Vec[metric.Gauge]
+	EventLagK8s                         metric.Gauge
+	ProxyRedirects                      metric.Vec[metric.Gauge]
+	ProxyPolicyL7Total                  metric.Vec[metric.Counter]
+	ProxyUpstreamTime                   metric.Vec[metric.Observer]
+	ProxyDatapathUpdateTimeout          metric.Counter
+	ConntrackGCRuns                     metric.Vec[metric.Counter]
+	ConntrackGCKeyFallbacks             metric.Vec[metric.Counter]
+	ConntrackGCSize                     metric.Vec[metric.Gauge]
+	NatGCSize                           metric.Vec[metric.Gauge]
+	ConntrackGCDuration                 metric.Vec[metric.Observer]
+	ConntrackDumpResets                 metric.Vec[metric.Counter]
+	SignalsHandled                      metric.Vec[metric.Counter]
+	ServicesEventsCount                 metric.Vec[metric.Counter]
+	ServiceImplementationDelay          metric.Vec[metric.Observer]
+	ErrorsWarnings                      metric.Vec[metric.Counter]
+	ControllerRuns                      metric.Vec[metric.Counter]
+	ControllerRunsDuration              metric.Vec[metric.Observer]
+	SubprocessStart                     metric.Vec[metric.Counter]
+	KubernetesEventProcessed            metric.Vec[metric.Counter]
+	KubernetesEventReceived             metric.Vec[metric.Counter]
+	KubernetesAPIInteractions           metric.Vec[metric.Observer]
+	KubernetesAPIRateLimiterLatency     metric.Vec[metric.Observer]
+	KubernetesAPICallsTotal             metric.Vec[metric.Counter]
+	KubernetesCNPStatusCompletion       metric.Vec[metric.Observer]
+	KubernetesNetworkProgrammingLatency metric.Histogram
+	TerminatingEndpointsEvents          metric.Counter
+	IPAMEvent                           metric.Vec[metric.Counter]
+	IPAMCapacity                        metric.Vec[metric.Gauge]
+	KVStoreOperationsDuration           metric.Vec[metric.Observer]
+	KVStoreEventsQueueDuration          metric.Vec[metric.Observer]
+	KVStoreQuorumErrors                 metric.Vec[metric.Counter]
+	FQDNGarbageCollectorCleanedTotal    metric.Counter
+	FQDNActiveNames                     metric.Vec[metric.Gauge]
+	FQDNActiveIPs                       metric.Vec[metric.Gauge]
+	FQDNAliveZombieConnections          metric.Vec[metric.Gauge]
+	FQDNSelectors                       metric.Gauge
+	FQDNSemaphoreRejectedTotal          metric.Counter
+	IPCacheErrorsTotal                  metric.Vec[metric.Counter]
+	IPCacheEventsTotal                  metric.Vec[metric.Counter]
+	BPFSyscallDuration                  metric.Vec[metric.Observer]
+	BPFMapOps                           metric.Vec[metric.Counter]
+	BPFMapCapacity                      metric.Vec[metric.Gauge]
+	TriggerPolicyUpdateTotal            metric.Vec[metric.Counter]
+	TriggerPolicyUpdateFolds            metric.Gauge
+	TriggerPolicyUpdateCallDuration     metric.Vec[metric.Observer]
+	VersionMetric                       metric.Vec[metric.Gauge]
+	APILimiterWaitHistoryDuration       metric.Vec[metric.Observer]
+	APILimiterWaitDuration              metric.Vec[metric.Gauge]
+	APILimiterProcessingDuration        metric.Vec[metric.Gauge]
+	APILimiterRequestsInFlight          metric.Vec[metric.Gauge]
+	APILimiterRateLimit                 metric.Vec[metric.Gauge]
+	APILimiterAdjustmentFactor          metric.Vec[metric.Gauge]
+	APILimiterProcessedRequests         metric.Vec[metric.Counter]
+	WorkQueueDepth                      metric.Vec[metric.Gauge]
+	WorkQueueAddsTotal                  metric.Vec[metric.Counter]
+	WorkQueueLatency                    metric.Vec[metric.Observer]
+	WorkQueueDuration                   metric.Vec[metric.Observer]
+	WorkQueueUnfinishedWork             metric.Vec[metric.Gauge]
+	WorkQueueLongestRunningProcessor    metric.Vec[metric.Gauge]
+	WorkQueueRetries                    metric.Vec[metric.Counter]
 }
 
 func NewLegacyMetrics() *LegacyMetrics {
@@ -1083,6 +1094,20 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:       "cnp_status_completion_seconds",
 			Help:       "Duration in seconds in how long it took to complete a CNP status update",
 		}, []string{LabelAttempts, LabelOutcome}),
+
+		KubernetesNetworkProgrammingLatency: metric.NewHistogram(metric.HistogramOpts{
+			ConfigName: Namespace + "_" + SubsystemK8s + "_network_programming_duration_seconds",
+			Namespace:  Namespace,
+			Subsystem:  SubsystemK8s,
+			Buckets: base_metrics.MergeBuckets(
+				base_metrics.LinearBuckets(0.25, 0.25, 2), // 0.25s, 0.50s
+				base_metrics.LinearBuckets(1, 1, 59),      // 1s, 2s, 3s, ... 59s
+				base_metrics.LinearBuckets(60, 5, 12),     // 60s, 65s, 70s, ... 115s
+				base_metrics.LinearBuckets(120, 30, 7),    // 2min, 2.5min, 3min, ..., 5min
+			),
+			Name: "network_programming_duration_seconds",
+			Help: "In Cluster Network Programming Latency in seconds",
+		}),
 
 		TerminatingEndpointsEvents: metric.NewCounter(metric.CounterOpts{
 			ConfigName: Namespace + "_" + SubsystemK8s + "_terminating_endpoints_events_total",

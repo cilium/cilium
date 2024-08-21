@@ -188,6 +188,7 @@ func (k *K8sServiceWatcher) k8sServiceHandler() {
 		switch event.Action {
 		case k8s.UpdateService:
 			k.addK8sSVCs(event.ID, event.OldService, svc, event.Endpoints)
+			recordChangeTriggerTime(event, scopedLog)
 		case k8s.DeleteService:
 			k.delK8sSVCs(event.ID, event.Service)
 		}
@@ -524,4 +525,16 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 func (k *K8sServiceWatcher) k8sServiceEventProcessed(action string, startTime time.Time) {
 	duration, _ := safetime.TimeSinceSafe(startTime, log)
 	metrics.ServiceImplementationDelay.WithLabelValues(action).Observe(duration.Seconds())
+}
+
+// // Exported for each endpoints object that were part of the rules sync.
+// See https://github.com/kubernetes/community/blob/master/sig-scalability/slos/network_programming_latency.md
+func recordChangeTriggerTime(event k8s.ServiceEvent, scopedLog *logrus.Entry) {
+	if !event.EndpointLastChangeTriggerTime.IsZero() {
+		latency := time.Since(event.EndpointLastChangeTriggerTime).Seconds()
+		metrics.KubernetesNetworkProgrammingLatency.Observe(latency)
+		if logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel) {
+			scopedLog.WithField("elapsed", latency).Debug("Network programming")
+		}
+	}
 }
