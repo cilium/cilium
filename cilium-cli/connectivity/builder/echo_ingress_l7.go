@@ -47,16 +47,31 @@ func (t echoIngressL7) build(ct *check.ConnectivityTest, _ map[string]string) {
 		WithCondition(func() bool {
 			return versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion)
 		}).
-		WithFeatureRequirements(
-			features.RequireEnabled(features.L7Proxy),
-			// Once https://github.com/cilium/cilium/issues/33168 is fixed, we
-			// can enable for IPsec too.
-			features.RequireMode(features.EncryptionPod, "wireguard"),
-			// Otherwise pod->hostport traffic will be policy
-			// denied on the ingress of dest node when
-			// routing=vxlan + kpr=1 + bpf_masq=1
-			features.RequireEnabled(features.EncryptionNode),
-		).
+		WithCondition(func() bool {
+			if ok, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.L7Proxy)); !ok {
+				return false
+			}
+			// wireguard requires node encryption, otherwise
+			// pod->hostport traffic will be policy denied on the
+			// ingress of dest node when routing=tunnel + kpr=1.
+			if ok, _ := ct.Features.MatchRequirements(features.RequireMode(features.EncryptionPod, "wireguard")); ok {
+				ok, _ = ct.Features.MatchRequirements(features.RequireEnabled(features.EncryptionNode))
+				return ok
+			}
+			// ipsec can't do node encryption, so just skip the test when routing=tunnel + kpr=1.
+			if ok, _ := ct.Features.MatchRequirements(features.RequireMode(features.EncryptionPod, "ipsec")); ok {
+				// We can relax the version check to 1.16.x once backport lands.
+				if !versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
+					return false
+				}
+				ok, _ = ct.Features.MatchRequirements(
+					features.RequireEnabled(features.Tunnel),
+					features.RequireEnabled(features.KPRMode),
+				)
+				return !ok
+			}
+			return false
+		}).
 		WithCiliumPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
 		WithScenarios(tests.PodToHostPort()).
 		WithExpectations(expectation)
