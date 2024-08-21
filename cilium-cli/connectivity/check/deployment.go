@@ -309,7 +309,7 @@ var serviceLabels = map[string]string{
 	"kind": kindEchoName,
 }
 
-func newService(name string, selector map[string]string, labels map[string]string, portName string, port int) *corev1.Service {
+func newService(name string, selector map[string]string, labels map[string]string, portName string, port int, serviceType string) *corev1.Service {
 	ipFamPol := corev1.IPFamilyPolicyPreferDualStack
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -317,7 +317,7 @@ func newService(name string, selector map[string]string, labels map[string]strin
 			Labels: labels,
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeNodePort,
+			Type: corev1.ServiceType(serviceType),
 			Ports: []corev1.ServicePort{
 				{Name: portName, Port: int32(port)},
 			},
@@ -480,7 +480,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			_, err = client.GetService(ctx, ct.params.TestNamespace, testConnDisruptServiceName, metav1.GetOptions{})
 			if err != nil {
 				ct.Logf("✨ [%s] Deploying %s service...", client.ClusterName(), testConnDisruptServiceName)
-				svc := newService(testConnDisruptServiceName, map[string]string{"app": "test-conn-disrupt-server"}, nil, "http", 8000)
+				svc := newService(testConnDisruptServiceName, map[string]string{"app": "test-conn-disrupt-server"}, nil, "http", 8000, ct.Params().ServiceType)
 				svc.ObjectMeta.Annotations = map[string]string{"service.cilium.io/global": "true"}
 				_, err = client.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
 				if err != nil {
@@ -533,7 +533,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), echoSameNodeDeploymentName)
-		svc := newService(echoSameNodeDeploymentName, map[string]string{"name": echoSameNodeDeploymentName}, serviceLabels, "http", 8080)
+		svc := newService(echoSameNodeDeploymentName, map[string]string{"name": echoSameNodeDeploymentName}, serviceLabels, "http", 8080, ct.Params().ServiceType)
 		_, err = ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
 		if err != nil {
 			return err
@@ -542,7 +542,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 	if ct.params.MultiCluster != "" {
 		_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.GetOptions{})
-		svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080)
+		svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080, ct.Params().ServiceType)
 		svc.ObjectMeta.Annotations = map[string]string{}
 		svc.ObjectMeta.Annotations["service.cilium.io/global"] = "true"
 		svc.ObjectMeta.Annotations["io.cilium/global-service"] = "true"
@@ -773,7 +773,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	if !ct.params.SingleNode || ct.params.MultiCluster != "" {
 
 		_, err = ct.clients.dst.GetService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.GetOptions{})
-		svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080)
+		svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080, ct.Params().ServiceType)
 		if ct.params.MultiCluster != "" {
 			svc.ObjectMeta.Annotations = map[string]string{}
 			svc.ObjectMeta.Annotations["service.cilium.io/global"] = "true"
@@ -921,9 +921,8 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 				svc := newService(echoExternalNodeDeploymentName,
 					map[string]string{"name": echoExternalNodeDeploymentName, "kind": kindEchoExternalNodeName},
-					map[string]string{"kind": kindEchoExternalNodeName}, "http", port)
+					map[string]string{"kind": kindEchoExternalNodeName}, "http", port, "ClusterIP")
 				svc.Spec.ClusterIP = corev1.ClusterIPNone
-				svc.Spec.Type = corev1.ServiceTypeClusterIP
 				_, err := ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
 				if err != nil {
 					return fmt.Errorf("unable to create service %s: %w", echoExternalNodeDeploymentName, err)
