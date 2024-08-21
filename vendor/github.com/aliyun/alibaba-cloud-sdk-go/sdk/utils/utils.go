@@ -88,6 +88,7 @@ func GetUrlFormedMap(source map[string]string) (urlEncoded string) {
 	return
 }
 
+// Deprecated: don't use it
 func InitStructWithDefaultTag(bean interface{}) {
 	configType := reflect.TypeOf(bean)
 	for i := 0; i < configType.Elem().NumField(); i++ {

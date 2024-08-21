@@ -1,3 +1,9 @@
+# Release (2024-08-14)
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.20.4
+  * **Dependency Update**: Bump minimum Go version to 1.21.
+
 # Release (2024-06-27)
 
 ## Module Highlights

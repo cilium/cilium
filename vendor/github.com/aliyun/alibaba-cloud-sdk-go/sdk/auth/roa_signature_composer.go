@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/utils"
 )
@@ -33,49 +34,38 @@ func init() {
 	debug = utils.Init("sdk")
 }
 
-func signRoaRequest(request requests.AcsRequest, signer Signer) (err error) {
+func signRoaRequest(request requests.AcsRequest, credentialsProvider credentials.CredentialsProvider) (err error) {
 	// 先获取 accesskey，确保刷新 credential
-	accessKeyId, err := signer.GetAccessKeyId()
+	cc, err := credentialsProvider.GetCredentials()
 	if err != nil {
 		return err
 	}
 
-	completeROASignParams(request, signer)
+	completeROASignParams(request, cc)
 	stringToSign := buildRoaStringToSign(request)
 	request.SetStringToSign(stringToSign)
-
-	signature := signer.Sign(stringToSign, "")
-	request.GetHeaders()["Authorization"] = "acs " + accessKeyId + ":" + signature
+	secret := cc.AccessKeySecret + ""
+	signature := utils.ShaHmac1(stringToSign, secret)
+	request.GetHeaders()["Authorization"] = "acs " + cc.AccessKeyId + ":" + signature
 
 	return
 }
 
-func completeROASignParams(request requests.AcsRequest, signer Signer) {
+func completeROASignParams(request requests.AcsRequest, cc *credentials.Credentials) {
 	headerParams := request.GetHeaders()
 
-	// complete query params
-	queryParams := request.GetQueryParams()
-	//if _, ok := queryParams["RegionId"]; !ok {
-	//	queryParams["RegionId"] = regionId
-	//}
-	if extraParam := signer.GetExtraParam(); extraParam != nil {
-		for key, value := range extraParam {
-			if key == "SecurityToken" {
-				headerParams["x-acs-security-token"] = value
-				continue
-			}
-			if key == "BearerToken" {
-				headerParams["x-acs-bearer-token"] = value
-				continue
-			}
-			queryParams[key] = value
-		}
+	if cc.SecurityToken != "" {
+		headerParams["x-acs-security-token"] = cc.SecurityToken
+	}
+
+	if cc.BearerToken != "" {
+		headerParams["x-acs-bearer-token"] = cc.BearerToken
 	}
 
 	// complete header params
 	headerParams["Date"] = hookGetDate(utils.GetTimeInFormatRFC2616)
-	headerParams["x-acs-signature-method"] = signer.GetName()
-	headerParams["x-acs-signature-version"] = signer.GetVersion()
+	headerParams["x-acs-signature-method"] = "HMAC-SHA1"
+	headerParams["x-acs-signature-version"] = "1.0"
 	if request.GetFormParams() != nil && len(request.GetFormParams()) > 0 {
 		formString := utils.GetUrlFormedMap(request.GetFormParams())
 		request.SetContent([]byte(formString))

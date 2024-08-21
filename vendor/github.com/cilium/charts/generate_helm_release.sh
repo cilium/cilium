@@ -51,7 +51,7 @@ main() {
         git stash
         remote=$(git remote -v | grep "${ORG}/${PROJECT}" | awk '{print $1;exit}')
         git fetch "${remote}"
-        git checkout "$version"
+        git checkout -b "$version"
         cd -
     else
         git clone --depth 1 --branch "$version" "https://github.com/cilium/${PROJECT}.git"

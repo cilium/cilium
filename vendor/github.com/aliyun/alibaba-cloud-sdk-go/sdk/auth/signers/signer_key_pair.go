@@ -36,6 +36,7 @@ type SignerKeyPair struct {
 	commonApi         func(request *requests.CommonRequest, signer interface{}) (response *responses.CommonResponse, err error)
 }
 
+// Deprecated: RSA key pair is deprecated
 func NewSignerKeyPair(credential *credentials.RsaKeyPairCredential, commonApi func(*requests.CommonRequest, interface{}) (response *responses.CommonResponse, err error)) (signer *SignerKeyPair, err error) {
 	signer = &SignerKeyPair{
 		credential: credential,
