@@ -14,7 +14,6 @@
 # pointing to one random deployment within the same namespace
 
 # QPS says how fast deployments and CNPs are created (counts towards both)
-
 {{$totalPods := MultiplyInt .Nodes $PODS_PER_NODE}}
 {{$deployments := DivideInt $totalPods $PODS_PER_DEPLOYMENT}}
 {{$deploymentsPerNamespace := DivideInt $deployments $namespaces}}
@@ -46,7 +45,7 @@ steps:
       tuningSet: RandomizedSaturationTimeLimited
       operationTimeout: 15m
       replicasPerDeployment: {{$PODS_PER_DEPLOYMENT}}
-      deploymentsPerNamespace: {{$deployments}}
+      deploymentsPerNamespace: {{$deploymentsPerNamespace}}
       cnpsPerDeployment: {{$CNPS_PER_DEPLOYMENT}}
 
 - module:
