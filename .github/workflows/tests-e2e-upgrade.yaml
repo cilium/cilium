@@ -233,6 +233,7 @@ jobs:
             lb-mode: 'snat'
             egress-gateway: 'true'
             ingress-controller: 'true'
+            endpoint-routes: 'true'
 
           - name: '14'
             # Switch to 5.15 until https://github.com/cilium/cilium/issues/27642
