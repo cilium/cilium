@@ -697,8 +697,6 @@ func ExecuteHeaderProbes() *FeatureProbes {
 		{ebpf.CGroupSockAddr, asm.FnJiffies64},
 		{ebpf.SchedCLS, asm.FnJiffies64},
 		{ebpf.XDP, asm.FnJiffies64},
-		{ebpf.CGroupSockAddr, asm.FnSkLookupTcp},
-		{ebpf.CGroupSockAddr, asm.FnSkLookupUdp},
 		{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId},
 		{ebpf.CGroupSock, asm.FnSetRetval},
 		{ebpf.SchedCLS, asm.FnRedirectNeigh},
