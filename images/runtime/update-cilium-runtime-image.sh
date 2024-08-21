@@ -16,7 +16,7 @@ cd "${root_dir}"
 image="quay.io/cilium/cilium-runtime"
 
 # shellcheck disable=SC2207
-used_by=($(git grep -l CILIUM_RUNTIME_IMAGE= images/*/Dockerfile))
+used_by=($(find . -type f -name Dockerfile -print0 | xargs -0 git grep -l CILIUM_RUNTIME_IMAGE=))
 
 for i in "${used_by[@]}" ; do
   sed -E "s#((CILIUM_RUNTIME|BASE)_IMAGE=)${image}:.*\$#\1${image_full}#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
