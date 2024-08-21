@@ -250,10 +250,6 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           timeout: "15m"
 
-      - name: Wait for Cilium status to be ready
-        run: |
-          cilium status --wait
-
       - name: Setup CL2
         run: |
           # CL2 needs ssh access to control plane nodes
