@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	client "go.etcd.io/etcd/client/v3"
+	clientyaml "go.etcd.io/etcd/client/v3/yaml"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"sigs.k8s.io/yaml"
@@ -54,7 +55,7 @@ func EtcdDbg(ctx context.Context, cfgfile string, dialer EtcdDbgDialer, w io.Wri
 	iw := newIndentedWriter(w, 0)
 
 	iw.Println("📄 Configuration path: %s", cfgfile)
-	cfg, err := newConfig(cfgfile)
+	cfg, err := clientyaml.NewConfig(cfgfile)
 	if err != nil {
 		iw.Println("❌ Cannot parse etcd configuration: %s", err)
 		return
