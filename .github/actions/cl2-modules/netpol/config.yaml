@@ -29,7 +29,7 @@ tuningSets:
     burst: 1
 - name: RandomizedSaturationTimeLimited
   RandomizedTimeLimitedLoad:
-    timeLimit: 30m
+    timeLimit: 60m
 
 steps:
 - module:
@@ -58,4 +58,4 @@ steps:
   - Identifier: sleep
     Method: Sleep
     Params:
-      duration: 90s
+      duration: 10m
