@@ -186,6 +186,14 @@ jobs:
           sparse-checkout: clusterloader2
           path: perf-tests
 
+      - name: Setup CL2
+        run: |
+          # CL2 needs ssh access to control plane nodes
+          gcloud compute config-ssh
+
+          # Copy the custom configs to the folder where CL2 expects them.
+          cp -r .github/actions/cl2-modules ./perf-tests/clusterloader2/testing/custom
+
       - name: Deploy cluster
         id: deploy-cluster
         uses: cilium/scale-tests-action/create-cluster@0992f6cf525ecdaea81a27c8d1c26ecb63ac0f8c
@@ -196,7 +204,7 @@ jobs:
           control_plane_count: 1
           control_plane_volume_size: 500
           node_size: e2-medium
-          node_count: 500
+          node_count: 1000
           node_volume_size: 50
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
@@ -250,14 +258,6 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           timeout: "15m"
 
-      - name: Setup CL2
-        run: |
-          # CL2 needs ssh access to control plane nodes
-          gcloud compute config-ssh
-
-          # Copy the custom configs to the folder where CL2 expects them.
-          cp -r .github/actions/cl2-modules ./perf-tests/clusterloader2/testing/custom
-
       - name: Run CL2
         id: run-cl2
         working-directory: ./perf-tests/clusterloader2
@@ -265,9 +265,9 @@ jobs:
           CL2_PROMETHEUS_PVC_ENABLED: "false"
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
-          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 4.0
-          CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL: 10s
-        timeout-minutes: 60
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 8.0
+          CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL: 20s
+        timeout-minutes: 90
         run: |
           go run ./cmd/clusterloader.go \
             -v=2 \
@@ -275,7 +275,7 @@ jobs:
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
-            --nodes=500 \
+            --nodes=1000 \
             --enable-exec-service=false \
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
