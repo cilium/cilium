@@ -53,3 +53,10 @@ steps:
     path: ./modules/metrics.yaml
     params:
       action: gather
+
+- name: Wait no churn
+  measurements:
+  - Identifier: sleep
+    Method: Sleep
+    Params:
+      duration: 90s
