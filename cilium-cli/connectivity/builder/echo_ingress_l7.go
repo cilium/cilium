@@ -42,11 +42,8 @@ func (t echoIngressL7) build(ct *check.ConnectivityTest, _ map[string]string) {
 		WithScenarios(tests.PodToPodWithEndpoints()).
 		WithExpectations(expectation)
 
-	newTest("echo-ingress-l7-via-hostport-with-encryption", ct).
+	newTest("echo-ingress-l7-via-hostport", ct).
 		WithCondition(func() bool { return !ct.Params().SingleNode }).
-		WithCondition(func() bool {
-			return versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion)
-		}).
 		WithCondition(func() bool {
 			if ok, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.L7Proxy)); !ok {
 				return false
@@ -55,6 +52,10 @@ func (t echoIngressL7) build(ct *check.ConnectivityTest, _ map[string]string) {
 			// pod->hostport traffic will be policy denied on the
 			// ingress of dest node when routing=tunnel + kpr=1.
 			if ok, _ := ct.Features.MatchRequirements(features.RequireMode(features.EncryptionPod, "wireguard")); ok {
+				if !versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion) {
+					return false
+				}
+
 				ok, _ = ct.Features.MatchRequirements(features.RequireEnabled(features.EncryptionNode))
 				return ok
 			}
@@ -69,7 +70,10 @@ func (t echoIngressL7) build(ct *check.ConnectivityTest, _ map[string]string) {
 				)
 				return !ok
 			}
-			return false
+
+			// avoid masquerading, it causes network policy drops with the current config
+			ok, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.Tunnel))
+			return !ok
 		}).
 		WithCiliumPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
 		WithScenarios(tests.PodToHostPort()).
