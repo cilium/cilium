@@ -4,6 +4,7 @@
 package monitor
 
 import (
+	"io"
 	"testing"
 	"time"
 
@@ -120,4 +121,41 @@ func TestHubbleConsumer(t *testing.T) {
 		assert.Fail(t, "Unexpected event", ev)
 	default:
 	}
+}
+
+func BenchmarkHubbleConsumerSendEvent(b *testing.B) {
+	type benchType uint8
+	const (
+		btAllSent benchType = iota
+		btAllLost
+		btHalfSent
+	)
+
+	body := func(b *testing.B, bt benchType) {
+		observer := fakeObserver{
+			events: make(chan *observerTypes.MonitorEvent, 1),
+			logger: func() *logrus.Entry {
+				log := logrus.New()
+				log.SetOutput(io.Discard)
+				return logrus.NewEntry(log)
+			}(),
+		}
+
+		var (
+			cnsm = NewConsumer(observer)
+			data = []byte{0, 1, 2, 3, 4}
+			cpu  = 5
+		)
+
+		for i := range b.N {
+			cnsm.NotifyPerfEvent(data, cpu)
+			if bt == btAllSent || (bt == btHalfSent && i%2 == 0) {
+				<-observer.events
+			}
+		}
+	}
+
+	b.Run("all sent", func(b *testing.B) { body(b, btAllSent) })
+	b.Run("all lost", func(b *testing.B) { body(b, btAllLost) })
+	b.Run("half sent", func(b *testing.B) { body(b, btHalfSent) })
 }
