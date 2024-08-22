@@ -438,7 +438,7 @@ func (m *Manager) disableIPEarlyDemux() {
 		return
 	}
 
-	disabled := m.sysctl.DisableN([]string{"net", "ipv4", "ip_early_demux"}) == nil
+	disabled := m.sysctl.Disable([]string{"net", "ipv4", "ip_early_demux"}) == nil
 	if disabled {
 		m.ipEarlyDemuxDisabled = true
 		m.logger.Info("Disabled ip_early_demux to allow proxy redirection with original source/destination address without xt_socket support also in non-tunneled datapath modes.")

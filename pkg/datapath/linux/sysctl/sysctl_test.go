@@ -109,7 +109,7 @@ func TestWaitForReconciliation(t *testing.T) {
 	t.Cleanup(func() { time.MaxInternalTimerDelay = 0 })
 
 	sysctl := &reconcilingSysctl{db, settings, nil, ""}
-	sysctl.EnableN([]string{paramName})
+	sysctl.Enable([]string{paramName})
 
 	// waitForReconciliation should timeout
 	assert.Error(t, sysctl.waitForReconciliation([]string{paramName}))
@@ -188,33 +188,33 @@ func TestSysctl(t *testing.T) {
 	assert.NoError(t, hive.Start(tlog, context.Background()))
 
 	for _, s := range settings {
-		assert.NoError(t, sysctl.WriteN(s, "1"))
+		assert.NoError(t, sysctl.Write(s, "1"))
 
-		val, err := sysctl.ReadN(s)
+		val, err := sysctl.Read(s)
 		assert.NoError(t, err)
 		assert.Equal(t, "1", val, "unexpected value for parameter %q", s)
 	}
 
 	for _, s := range settings {
-		assert.NoError(t, sysctl.WriteIntN(s, 7))
+		assert.NoError(t, sysctl.WriteInt(s, 7))
 
-		val, err := sysctl.ReadIntN(s)
+		val, err := sysctl.ReadInt(s)
 		assert.NoError(t, err)
 		assert.Equal(t, int64(7), val, "unexpected value for parameter %q", s)
 	}
 
 	for _, s := range settings {
-		assert.NoError(t, sysctl.DisableN(s))
+		assert.NoError(t, sysctl.Disable(s))
 
-		val, err := sysctl.ReadN(s)
+		val, err := sysctl.Read(s)
 		assert.NoError(t, err)
 		assert.Equal(t, "0", val, "unexpected value for parameter %q", s)
 	}
 
 	for _, s := range settings {
-		assert.NoError(t, sysctl.EnableN(s))
+		assert.NoError(t, sysctl.Enable(s))
 
-		val, err := sysctl.ReadN(s)
+		val, err := sysctl.Read(s)
 		assert.NoError(t, err)
 		assert.Equal(t, "1", val, "unexpected value for parameter %q", s)
 	}
@@ -226,7 +226,7 @@ func TestSysctl(t *testing.T) {
 	}
 	assert.NoError(t, sysctl.ApplySettings(batch))
 	for _, s := range batch {
-		val, err := sysctl.ReadN(s.Name)
+		val, err := sysctl.Read(s.Name)
 		assert.NoError(t, err)
 		assert.Equal(t, s.Val, val, "unexpected value %q for parameter %q", val, s.Name)
 	}

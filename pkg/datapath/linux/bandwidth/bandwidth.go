@@ -110,7 +110,7 @@ func (m *manager) probe() error {
 	if !m.params.Config.EnableBandwidthManager {
 		return nil
 	}
-	if _, err := m.params.Sysctl.ReadN([]string{"net", "core", "default_qdisc"}); err != nil {
+	if _, err := m.params.Sysctl.Read([]string{"net", "core", "default_qdisc"}); err != nil {
 		m.params.Log.Warn("BPF bandwidth manager could not read procfs. Disabling the feature.", logfields.Error, err)
 		return nil
 	}
@@ -170,7 +170,7 @@ func setBaselineSysctls(p bandwidthManagerParams) error {
 	}
 
 	for _, setting := range baseIntSettings {
-		currentValue, err := p.Sysctl.ReadIntN(setting.name)
+		currentValue, err := p.Sysctl.ReadInt(setting.name)
 		if err != nil {
 			return fmt.Errorf("read sysctl %s failed: %w", strings.Join(setting.name, "."), err)
 		}
@@ -187,7 +187,7 @@ func setBaselineSysctls(p bandwidthManagerParams) error {
 		}
 
 		scopedLog.Info("Setting sysctl to baseline for BPF bandwidth manager")
-		if err := p.Sysctl.WriteIntN(setting.name, setting.val); err != nil {
+		if err := p.Sysctl.WriteInt(setting.name, setting.val); err != nil {
 			return fmt.Errorf("set sysctl %s=%d failed: %w", strings.Join(setting.name, "."), setting.val, err)
 		}
 	}
