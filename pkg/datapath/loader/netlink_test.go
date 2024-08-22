@@ -88,12 +88,12 @@ func TestSetupDev(t *testing.T) {
 			{"net", "ipv4", "conf", ifName, "send_redirects"},
 		}
 		for _, setting := range enabledSettings {
-			s, err := sysctl.ReadN(setting)
+			s, err := sysctl.Read(setting)
 			require.NoError(t, err)
 			require.Equal(t, s, "1")
 		}
 		for _, setting := range disabledSettings {
-			s, err := sysctl.ReadN(setting)
+			s, err := sysctl.Read(setting)
 			require.NoError(t, err)
 			require.Equal(t, s, "0")
 		}
