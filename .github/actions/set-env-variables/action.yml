@@ -23,7 +23,7 @@ runs:
         # renovate: datasource=github-releases depName=kubernetes-sigs/kind
         KIND_VERSION="v0.23.0"
         # renovate: datasource=docker
-        KIND_K8S_IMAGE="kindest/node:v1.30.2@sha256:ecfe5841b9bee4fe9690f49c118c33629fa345e3350a0c67a5a34482a99d6bba"
+        KIND_K8S_IMAGE="kindest/node:v1.30.4@sha256:976ea815844d5fa93be213437e3ff5754cd599b040946b5cca43ca45c2047114"
         KIND_K8S_VERSION=$(echo "$KIND_K8S_IMAGE" | sed -r 's|.+:(v[0-9a-z.-]+)(@.+)?|\1|')
 
         echo "KIND_VERSION=$KIND_VERSION" >> $GITHUB_ENV
