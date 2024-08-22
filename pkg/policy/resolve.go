@@ -205,28 +205,28 @@ func NewMapStateWithInsert() (MapState, func(k Key, e MapStateEntry)) {
 	currentMap := NewMapState()
 
 	return currentMap, func(k Key, e MapStateEntry) {
-		currentMap.insert(k, e, nil)
+		currentMap.insert(k, e)
 	}
 }
 
 func (p *EndpointPolicy) InsertMapState(key Key, entry MapStateEntry) {
 	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
-	p.policyMapState.insert(key, entry, p.SelectorCache)
+	p.policyMapState.insert(key, entry)
 }
 
 func (p *EndpointPolicy) DeleteMapState(key Key) {
 	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
-	p.policyMapState.delete(key, p.SelectorCache)
+	p.policyMapState.delete(key)
 }
 
 func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
 	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
-	p.policyMapState.revertChanges(p.SelectorCache, changes)
+	p.policyMapState.revertChanges(changes)
 }
 
 func (p *EndpointPolicy) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMeta *VisibilityMetadata, changes ChangeState) {
 	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
-	p.policyMapState.addVisibilityKeys(e, redirectPort, visMeta, p.SelectorCache, changes)
+	p.policyMapState.addVisibilityKeys(e, redirectPort, visMeta, changes)
 }
 
 // toMapState transforms the EndpointPolicy.L4Policy into
