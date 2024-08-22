@@ -576,6 +576,12 @@ Users (Alphabetically)
       U: Mainly Service load-balancing
       Q: @francoisj
 
+    * N: Qpoint
+      D: An eBPF-based egress observability platform for your cloud and production applications
+      U: CNI, bpf2go to compile a C source file into eBPF bytecode and then to Go
+      L: https://www.qpoint.io/ and https://github.com/qpoint-io
+      Q: @Marc Barry
+
     * N: Rancher Labs, now part of SUSE
       D: Rancher Labs certified Kubernetes distribution RKE2 can be deployed with Cilium.
       U: Networking and network policy
