@@ -90,6 +90,7 @@ type TLSRouteSpec struct {
 	//
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=16
+	// <gateway:experimental:validation:XValidation:message="Rule name must be unique within the route",rule="self.all(l1, !has(l1.name) || self.exists_one(l2, has(l2.name) && l1.name == l2.name))">
 	Rules []TLSRouteRule `json:"rules"`
 }
 
@@ -100,6 +101,12 @@ type TLSRouteStatus struct {
 
 // TLSRouteRule is the configuration for a given rule.
 type TLSRouteRule struct {
+	// Name is the name of the route rule. This name MUST be unique within a Route if it is set.
+	//
+	// Support: Extended
+	// +optional
+	Name *SectionName `json:"name,omitempty"`
+
 	// BackendRefs defines the backend(s) where matching requests should be
 	// sent. If unspecified or invalid (refers to a non-existent resource or
 	// a Service with no endpoints), the rule performs no forwarding; if no
