@@ -204,7 +204,7 @@ jobs:
           control_plane_count: 1
           control_plane_volume_size: 500
           node_size: e2-medium
-          node_count: 1000
+          node_count: 100
           node_volume_size: 50
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
@@ -275,7 +275,7 @@ jobs:
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
-            --nodes=1000 \
+            --nodes=100 \
             --enable-exec-service=false \
             --report-dir=./report \
             --experimental-prometheus-snapshot-to-report-dir=true \
