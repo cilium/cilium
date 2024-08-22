@@ -84,13 +84,16 @@ const (
 	dummyHostDeviceName     = "dummy_host"
 	dummyExternalDeviceName = "dummy_external"
 
-	baseIPv4Time = "net.ipv4.neigh.default.base_reachable_time_ms"
-	baseIPv6Time = "net.ipv6.neigh.default.base_reachable_time_ms"
-	baseTime     = 2500
+	baseTime = 2500
+	mcastNum = 6
+)
 
-	mcastNumIPv4 = "net.ipv4.neigh.default.mcast_solicit"
-	mcastNumIPv6 = "net.ipv6.neigh.default.mcast_solicit"
-	mcastNum     = 6
+var (
+	baseIPv4Time = []string{"net", "ipv4", "neigh", "default", "base_reachable_time_ms"}
+	baseIPv6Time = []string{"net", "ipv6", "neigh", "default", "base_reachable_time_ms"}
+
+	mcastNumIPv4 = []string{"net", "ipv4", "neigh", "default", "mcast_solicit"}
+	mcastNumIPv6 = []string{"net", "ipv6", "neigh", "default", "mcast_solicit"}
 )
 
 func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) *linuxPrivilegedBaseTestSuite {
@@ -1397,17 +1400,17 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 	tmpDir := t.TempDir()
 	option.Config.StateDir = tmpDir
 
-	baseTimeOld, err := s.sysctl.Read(baseIPv6Time)
+	baseTimeOld, err := s.sysctl.ReadN(baseIPv6Time)
 	require.NoError(t, err)
-	err = s.sysctl.Write(baseIPv6Time, fmt.Sprintf("%d", baseTime))
+	err = s.sysctl.WriteN(baseIPv6Time, fmt.Sprintf("%d", baseTime))
 	require.NoError(t, err)
-	defer func() { s.sysctl.Write(baseIPv6Time, baseTimeOld) }()
+	defer func() { s.sysctl.WriteN(baseIPv6Time, baseTimeOld) }()
 
-	mcastNumOld, err := s.sysctl.Read(mcastNumIPv6)
+	mcastNumOld, err := s.sysctl.ReadN(mcastNumIPv6)
 	require.NoError(t, err)
-	err = s.sysctl.Write(mcastNumIPv6, fmt.Sprintf("%d", mcastNum))
+	err = s.sysctl.WriteN(mcastNumIPv6, fmt.Sprintf("%d", mcastNum))
 	require.NoError(t, err)
-	defer func() { s.sysctl.Write(mcastNumIPv6, mcastNumOld) }()
+	defer func() { s.sysctl.WriteN(mcastNumIPv6, mcastNumOld) }()
 
 	// 1. Test whether another node in the same L2 subnet can be arpinged.
 	//    The other node is in the different netns reachable via the veth pair.
@@ -2026,17 +2029,17 @@ func TestArpPingHandlingForMultiDeviceIPv6(t *testing.T) {
 	tmpDir := t.TempDir()
 	option.Config.StateDir = tmpDir
 
-	baseTimeOld, err := s.sysctl.Read(baseIPv6Time)
+	baseTimeOld, err := s.sysctl.ReadN(baseIPv6Time)
 	require.NoError(t, err)
-	err = s.sysctl.Write(baseIPv6Time, fmt.Sprintf("%d", baseTime))
+	err = s.sysctl.WriteN(baseIPv6Time, fmt.Sprintf("%d", baseTime))
 	require.NoError(t, err)
-	defer func() { s.sysctl.Write(baseIPv6Time, baseTimeOld) }()
+	defer func() { s.sysctl.WriteN(baseIPv6Time, baseTimeOld) }()
 
-	mcastNumOld, err := s.sysctl.Read(mcastNumIPv6)
+	mcastNumOld, err := s.sysctl.ReadN(mcastNumIPv6)
 	require.NoError(t, err)
-	err = s.sysctl.Write(mcastNumIPv6, fmt.Sprintf("%d", mcastNum))
+	err = s.sysctl.WriteN(mcastNumIPv6, fmt.Sprintf("%d", mcastNum))
 	require.NoError(t, err)
-	defer func() { s.sysctl.Write(mcastNumIPv6, mcastNumOld) }()
+	defer func() { s.sysctl.WriteN(mcastNumIPv6, mcastNumOld) }()
 
 	// 1. Test whether another node with multiple paths can be arpinged.
 	//    Each node has two devices and the other node in the different netns
@@ -2425,17 +2428,17 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 	tmpDir := t.TempDir()
 	option.Config.StateDir = tmpDir
 
-	baseTimeOld, err := s.sysctl.Read(baseIPv4Time)
+	baseTimeOld, err := s.sysctl.ReadN(baseIPv4Time)
 	require.NoError(t, err)
-	err = s.sysctl.Write(baseIPv4Time, fmt.Sprintf("%d", baseTime))
+	err = s.sysctl.WriteN(baseIPv4Time, fmt.Sprintf("%d", baseTime))
 	require.NoError(t, err)
-	defer func() { s.sysctl.Write(baseIPv4Time, baseTimeOld) }()
+	defer func() { s.sysctl.WriteN(baseIPv4Time, baseTimeOld) }()
 
-	mcastNumOld, err := s.sysctl.Read(mcastNumIPv4)
+	mcastNumOld, err := s.sysctl.ReadN(mcastNumIPv4)
 	require.NoError(t, err)
-	err = s.sysctl.Write(mcastNumIPv4, fmt.Sprintf("%d", mcastNum))
+	err = s.sysctl.WriteN(mcastNumIPv4, fmt.Sprintf("%d", mcastNum))
 	require.NoError(t, err)
-	defer func() { s.sysctl.Write(mcastNumIPv4, mcastNumOld) }()
+	defer func() { s.sysctl.WriteN(mcastNumIPv4, mcastNumOld) }()
 
 	// 1. Test whether another node in the same L2 subnet can be arpinged.
 	//    The other node is in the different netns reachable via the veth pair.
@@ -3051,17 +3054,17 @@ func TestArpPingHandlingForMultiDeviceIPv4(t *testing.T) {
 	tmpDir := t.TempDir()
 	option.Config.StateDir = tmpDir
 
-	baseTimeOld, err := s.sysctl.Read(baseIPv4Time)
+	baseTimeOld, err := s.sysctl.ReadN(baseIPv4Time)
 	require.NoError(t, err)
-	err = s.sysctl.Write(baseIPv4Time, fmt.Sprintf("%d", baseTime))
+	err = s.sysctl.WriteN(baseIPv4Time, fmt.Sprintf("%d", baseTime))
 	require.NoError(t, err)
-	defer func() { s.sysctl.Write(baseIPv4Time, baseTimeOld) }()
+	defer func() { s.sysctl.WriteN(baseIPv4Time, baseTimeOld) }()
 
-	mcastNumOld, err := s.sysctl.Read(mcastNumIPv4)
+	mcastNumOld, err := s.sysctl.ReadN(mcastNumIPv4)
 	require.NoError(t, err)
-	err = s.sysctl.Write(mcastNumIPv4, fmt.Sprintf("%d", mcastNum))
+	err = s.sysctl.WriteN(mcastNumIPv4, fmt.Sprintf("%d", mcastNum))
 	require.NoError(t, err)
-	defer func() { s.sysctl.Write(mcastNumIPv4, mcastNumOld) }()
+	defer func() { s.sysctl.WriteN(mcastNumIPv4, mcastNumOld) }()
 
 	// 1. Test whether another node with multiple paths can be arpinged.
 	//    Each node has two devices and the other node in the different netns
