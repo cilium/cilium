@@ -46,14 +46,6 @@ GitHub Actions provide an alternative mode for running Cilium's end-to-end tests
 The configuration is set up to closely match the environment used in GHA. Refer
 to the relevant documentation for instructions on running tests using GHA.
 
-Running Tests with Vagrant
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To run tests locally using Vagrant, the test scripts invoke ``vagrant`` to create
-virtual machine(s). These tests utilize the Ginkgo testing framework, leveraging
-its rich capabilities and the benefits of Go's compilation-time checks and
-strong typing.
-
 Running End-To-End Tests
 ~~~~~~~~~~~~~~~~~~~~~~~~
 

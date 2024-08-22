@@ -159,26 +159,6 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			minVersion:    &semver.Version{Major: 3, Minor: 13, Patch: 0},
 		},
 		&binaryCheck{
-			name:          "vagrant",
-			ifNotFound:    checkInfo,
-			versionArgs:   []string{"--version"},
-			versionRegexp: regexp.MustCompile(`Vagrant ` + versionRegex),
-			minVersion:    &semver.Version{Major: 2, Minor: 0, Patch: 0},
-		},
-		&binaryCheck{
-			name:           "virtualbox",
-			alternateNames: []string{"VirtualBox"},
-			ifNotFound:     checkInfo,
-		},
-		&binaryCheck{
-			name:           "vboxheadless",
-			alternateNames: []string{"VBoxHeadless"},
-			ifNotFound:     checkInfo,
-			versionArgs:    []string{"--version"},
-			versionRegexp:  regexp.MustCompile(`Oracle VM VirtualBox Headless Interface ` + versionRegex),
-			hint:           "run \"VBoxHeadless --help\" to diagnose why vboxheadless failed to execute",
-		},
-		&binaryCheck{
 			name:          "pip3",
 			ifNotFound:    checkWarning,
 			versionArgs:   []string{"--version"},
