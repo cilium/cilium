@@ -90,13 +90,17 @@ func (s CachedSelectorSlice) SelectsAllEndpoints() bool {
 // CachedSelectionUser inserts selectors into the cache and gets update
 // callbacks whenever the set of selected numeric identities change for
 // the CachedSelectors pushed by it.
+// Callbacks are executed from a separate goroutine that does not take the
+// selector cache lock, so the implemenations generally may call back to
+// the selector cache.
 type CachedSelectionUser interface {
-	// IdentitySelectionUpdated implementations MUST NOT call back
-	// to the name manager or the selector cache while executing this function!
-	//
 	// The caller is responsible for making sure the same identity is not
 	// present in both 'added' and 'deleted'.
 	IdentitySelectionUpdated(selector CachedSelector, added, deleted []identity.NumericIdentity)
+
+	// IdentitySelectionCommit tells the user that all IdentitySelectionUpdated calls relating
+	// to a specific added or removed identity have been made.
+	IdentitySelectionCommit(*versioned.Tx)
 }
 
 // identitySelector is the internal type for all selectors in the

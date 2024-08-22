@@ -8,6 +8,7 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -85,5 +86,6 @@ func FuzzAccumulateMapChange(f *testing.F) {
 		value := NewMapStateEntry(csFoo, nil, proxyPort, "", 0, deny, DefaultAuthType, AuthTypeDisabled)
 		policyMaps := MapChanges{}
 		policyMaps.AccumulateMapChanges(csFoo, adds, deletes, []Key{key}, value)
+		policyMaps.SyncMapChanges(versioned.LatestTx)
 	})
 }

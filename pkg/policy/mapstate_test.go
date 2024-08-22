@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -2713,6 +2714,12 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 	},
 	}
 
+	epPolicy := &EndpointPolicy{
+		selectorPolicy: &selectorPolicy{
+			SelectorCache: selectorCache,
+		},
+		PolicyOwner: DummyOwner{},
+	}
 	policyMapState := newMapState()
 
 	for _, tt := range tests {
@@ -2724,6 +2731,8 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 				policyMapState = newMapState()
 			}
 		}
+		epPolicy.policyMapState = policyMapState
+
 		for _, x := range tt.args {
 			dir := trafficdirection.Egress
 			if x.ingress {
@@ -2747,7 +2756,11 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		changes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, selectorCache, denyRules)
+		policyMaps.SyncMapChanges(versioned.LatestTx)
+		handle, changes := policyMaps.consumeMapChanges(epPolicy, denyRules)
+		if handle != nil {
+			handle.Close()
+		}
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equals(tt.state), "%s (MapState):\n%s", tt.name, policyMapState.Diff(tt.state))
 		require.EqualValues(t, tt.adds, changes.Adds, tt.name+" (adds)")
@@ -3061,6 +3074,12 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 	},
 	}
 
+	epPolicy := &EndpointPolicy{
+		selectorPolicy: &selectorPolicy{
+			SelectorCache: selectorCache,
+		},
+		PolicyOwner: DummyOwner{},
+	}
 	policyMapState := newMapState()
 
 	for _, tt := range tests {
@@ -3068,6 +3087,8 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		if !tt.continued {
 			policyMapState = newMapState()
 		}
+		epPolicy.policyMapState = policyMapState
+
 		for _, x := range tt.args {
 			dir := trafficdirection.Egress
 			if x.ingress {
@@ -3091,7 +3112,11 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, x.hasAuth, x.authType)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		changes := policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, nil, authRules|denyRules)
+		policyMaps.SyncMapChanges(versioned.LatestTx)
+		handle, changes := policyMaps.consumeMapChanges(epPolicy, authRules|denyRules)
+		if handle != nil {
+			handle.Close()
+		}
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equals(tt.state), "%s (MapState):\n%s", tt.name, policyMapState.Diff(tt.state))
 		require.EqualValues(t, tt.adds, changes.Adds, tt.name+" (adds)")
@@ -3620,6 +3645,12 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 	},
 	}
 
+	epPolicy := &EndpointPolicy{
+		selectorPolicy: &selectorPolicy{
+			SelectorCache: selectorCache,
+		},
+		PolicyOwner: DummyOwner{},
+	}
 	policyMapState := newMapState()
 
 	for _, tt := range tests {
@@ -3644,6 +3675,8 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 				policyMapState = newMapState()
 			}
 		}
+		epPolicy.policyMapState = policyMapState
+
 		changes := ChangeState{
 			Adds:    make(Keys),
 			Deletes: make(Keys),
@@ -3678,7 +3711,11 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, DefaultAuthType, AuthTypeDisabled)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, []Key{key}, value)
 		}
-		changes = policyMaps.consumeMapChanges(DummyOwner{}, policyMapState, selectorCache, denyRules)
+		policyMaps.SyncMapChanges(versioned.LatestTx)
+		handle, changes := policyMaps.consumeMapChanges(epPolicy, denyRules)
+		if handle != nil {
+			handle.Close()
+		}
 		changes.Old = make(map[Key]MapStateEntry)
 
 		// Visibilty redirects need to be re-applied after consumeMapChanges()

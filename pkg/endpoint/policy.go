@@ -53,7 +53,6 @@ func (e *Endpoint) HasBPFPolicyMap() bool {
 }
 
 // GetNamedPort returns the port for the given name.
-// Must be called with e.mutex NOT held
 func (e *Endpoint) GetNamedPort(ingress bool, name string, proto uint8) uint16 {
 	if ingress {
 		// Ingress only needs the ports of the POD itself
