@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -31,6 +32,9 @@ type consumer struct {
 	numEventsLost uint64
 	lostLock      lock.Mutex
 	logLimiter    logging.Limiter
+
+	metricLostPerfEvents     prometheus.Counter
+	metricLostObserverEvents prometheus.Counter
 }
 
 // NewConsumer returns an initialized pointer to consumer.
@@ -39,6 +43,11 @@ func NewConsumer(observer Observer) monitorConsumer.MonitorConsumer {
 		observer:      observer,
 		numEventsLost: 0,
 		logLimiter:    logging.NewLimiter(30*time.Second, 1),
+
+		metricLostPerfEvents: metrics.LostEvents.WithLabelValues(
+			strings.ToLower(flowpb.LostEventSource_PERF_EVENT_RING_BUFFER.String())),
+		metricLostObserverEvents: metrics.LostEvents.WithLabelValues(
+			strings.ToLower(flowpb.LostEventSource_OBSERVER_EVENTS_QUEUE.String())),
 	}
 	return mc
 }
@@ -101,7 +110,7 @@ func (c *consumer) countDroppedEvent() {
 			Warning("hubble events queue is full: dropping messages; consider increasing the queue size (hubble-event-queue-size) or provisioning more CPU")
 	}
 	c.numEventsLost++
-	metrics.LostEvents.WithLabelValues(strings.ToLower(flowpb.LostEventSource_OBSERVER_EVENTS_QUEUE.String())).Inc()
+	c.metricLostObserverEvents.Inc()
 }
 
 // NotifyAgentEvent implements monitorConsumer.MonitorConsumer
@@ -142,5 +151,5 @@ func (c *consumer) NotifyPerfEventLost(numLostEvents uint64, cpu int) {
 			CPU:           cpu,
 		},
 	})
-	metrics.LostEvents.WithLabelValues(strings.ToLower(flowpb.LostEventSource_PERF_EVENT_RING_BUFFER.String())).Add(float64(numLostEvents))
+	c.metricLostPerfEvents.Inc()
 }
