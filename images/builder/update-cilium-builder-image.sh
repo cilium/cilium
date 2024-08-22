@@ -16,7 +16,7 @@ cd "${root_dir}"
 image="quay.io/cilium/cilium-builder"
 
 # shellcheck disable=SC2207
-used_by=($(find . -type f -name Dockerfile -print0 | xargs -0 git grep -l CILIUM_BUILDER_IMAGE=) "test/k8s/manifests/demo-customcalls.yaml")
+used_by=($(find . -type f -name Dockerfile -print0 | xargs -0 git grep -l CILIUM_BUILDER_IMAGE=))
 
 for i in "${used_by[@]}" ; do
   sed -E "s#(CILIUM_BUILDER_IMAGE=|image: )${image}:.*\$#\1${image_full}#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
