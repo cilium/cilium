@@ -6,11 +6,11 @@ package monitor
 import (
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/bufuuid"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/lock"
@@ -28,6 +28,7 @@ type Observer interface {
 
 // consumer implements monitorConsumer.MonitorConsumer
 type consumer struct {
+	uuider        *bufuuid.Generator
 	observer      Observer
 	numEventsLost uint64
 	lostLock      lock.Mutex
@@ -42,6 +43,7 @@ type consumer struct {
 // NewConsumer returns an initialized pointer to consumer.
 func NewConsumer(observer Observer) monitorConsumer.MonitorConsumer {
 	mc := &consumer{
+		uuider:        bufuuid.New(),
 		observer:      observer,
 		numEventsLost: 0,
 		logLimiter:    logging.NewLimiter(30*time.Second, 1),
@@ -119,12 +121,14 @@ func (c *consumer) sendEvent(payloader func() interface{}) {
 }
 
 func (c *consumer) newEvent(payloader func() interface{}) *observerTypes.MonitorEvent {
-	return &observerTypes.MonitorEvent{
-		UUID:      uuid.New(),
+	ev := &observerTypes.MonitorEvent{
 		Timestamp: time.Now(),
 		NodeName:  nodeTypes.GetAbsoluteNodeName(),
 		Payload:   payloader(),
 	}
+
+	c.uuider.NewInto(&ev.UUID)
+	return ev
 }
 
 // countDroppedEvent logs that the events channel is full
