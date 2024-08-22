@@ -614,7 +614,7 @@ func (manager *Manager) relaxRPFilter() error {
 		if _, ok := ifSet[ifaceName]; !ok {
 			ifSet[ifaceName] = struct{}{}
 			sysSettings = append(sysSettings, tables.Sysctl{
-				Name:      fmt.Sprintf("net.ipv4.conf.%s.rp_filter", ifaceName),
+				Name:      []string{"net", "ipv4", "conf", ifaceName, "rp_filter"},
 				Val:       "2",
 				IgnoreErr: false,
 			})
