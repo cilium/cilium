@@ -387,7 +387,7 @@ func combineL4L7(l4 []api.PortRule, l7 *api.L7Rules) []api.PortRule {
 }
 
 func (s *RedirectSuite) testMapState(initMap policy.MapStateMap) policy.MapState {
-	return policy.NewMapState().WithState(initMap, s.do.repo.GetSelectorCache())
+	return policy.NewMapState().WithState(initMap)
 }
 
 func TestRedirectWithDeny(t *testing.T) {
