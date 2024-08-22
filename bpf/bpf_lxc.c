@@ -598,17 +598,6 @@ ct_recreate6:
 
 	case CT_RELATED:
 	case CT_REPLY:
-#ifdef ENABLE_NODEPORT
-		/* See comment in handle_ipv4_from_lxc(). */
-		if (ct_state->node_port && lb_is_svc_proto(tuple->nexthdr)) {
-			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
-					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
-					  TRACE_IFINDEX_UNKNOWN,
-					  trace.reason, trace.monitor);
-			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT,
-						  ext_err);
-		}
-#endif /* ENABLE_NODEPORT */
 		break;
 	default:
 		return DROP_UNKNOWN_CT;
@@ -1069,24 +1058,6 @@ ct_recreate4:
 
 	case CT_RELATED:
 	case CT_REPLY:
-#ifdef ENABLE_NODEPORT
-		/* This handles reply traffic for the case where the nodeport EP
-		 * is local to the node. We'll do the tail call to perform
-		 * the reverse DNAT.
-		 *
-		 * This codepath currently doesn't support revDNAT for ICMP,
-		 * so make sure that we only send TCP/UDP/SCTP down this way.
-		 */
-		if (ct_state->node_port && lb_is_svc_proto(tuple->nexthdr)) {
-			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
-					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
-					  TRACE_IFINDEX_UNKNOWN,
-					  trace.reason, trace.monitor);
-			return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT,
-						  ext_err);
-		}
-#endif /* ENABLE_NODEPORT */
-
 		break;
 	default:
 		return DROP_UNKNOWN_CT;
@@ -1631,10 +1602,6 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int ifindex, __u32 src_
 
 skip_policy_enforcement:
 	if (ret == CT_NEW) {
-#if defined(ENABLE_NODEPORT) && defined(ENABLE_IPSEC)
-		ct_state_new.node_port = ct_has_nodeport_egress_entry6(get_ct_map6(tuple),
-								       tuple, NULL, false);
-#endif /* ENABLE_NODEPORT && ENABLE_IPSEC */
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
 		ct_state_new.proxy_redirect = *proxy_port > 0;
@@ -1977,13 +1944,6 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 
 skip_policy_enforcement:
 	if (ret == CT_NEW) {
-#if defined(ENABLE_NODEPORT) && (defined(ENABLE_IPSEC) || defined(ENABLE_SRV6))
-		/* Needed for hostport support, until
-		 * https://github.com/cilium/cilium/issues/32897 is fixed.
-		 */
-		ct_state_new.node_port = ct_has_nodeport_egress_entry4(get_ct_map4(tuple),
-								       tuple, NULL, false);
-#endif /* ENABLE_NODEPORT && ENABLE_IPSEC */
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
 		ct_state_new.proxy_redirect = *proxy_port > 0;
