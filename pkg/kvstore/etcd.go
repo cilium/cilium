@@ -18,7 +18,6 @@ import (
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	v3rpcErrors "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
 	"go.etcd.io/etcd/client/pkg/v3/logutil"
-	"go.etcd.io/etcd/client/pkg/v3/tlsutil"
 	client "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 	clientyaml "go.etcd.io/etcd/client/v3/yaml"
@@ -498,7 +497,7 @@ func (e *etcdClient) Disconnected() <-chan struct{} {
 
 func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath string, errChan chan error, clientOptions clientOptions, opts *ExtraOptions) (BackendOperations, error) {
 	if cfgPath != "" {
-		cfg, err := newConfig(cfgPath)
+		cfg, err := clientyaml.NewConfig(cfgPath)
 		if err != nil {
 			return nil, err
 		}
@@ -1630,46 +1629,6 @@ func (e *etcdClient) UserEnforceAbsence(ctx context.Context, name string) error 
 	return nil
 }
 
-// newConfig is a wrapper of clientyaml.NewConfig. Since etcd has deprecated
-// the `ca-file` field from yamlConfig in v3.4, the clientyaml.NewConfig won't
-// read that field from the etcd configuration file making Cilium fail to
-// connect to a TLS-enabled etcd server. Since we should have deprecated the
-// usage of this field a long time ago, in this galaxy, we will have this
-// wrapper function as a workaround which will still use the `ca-file` field to
-// avoid users breaking their connectivity to etcd when upgrading Cilium.
-// TODO remove this wrapper in cilium >= 1.8
-func newConfig(fpath string) (*client.Config, error) {
-	cfg, err := clientyaml.NewConfig(fpath)
-	if err != nil {
-		return nil, err
-	}
-	if cfg.TLS == nil || cfg.TLS.RootCAs != nil {
-		return cfg, nil
-	}
-
-	yc := &yamlConfig{}
-	b, err := os.ReadFile(fpath)
-	if err != nil {
-		return nil, err
-	}
-	err = yaml.Unmarshal(b, yc)
-	if err != nil {
-		return nil, err
-	}
-	if yc.InsecureTransport {
-		return cfg, nil
-	}
-
-	if yc.CAfile != "" {
-		cp, err := tlsutil.NewCertPool([]string{yc.CAfile})
-		if err != nil {
-			return nil, err
-		}
-		cfg.TLS.RootCAs = cp
-	}
-	return cfg, nil
-}
-
 // reload on-disk certificate and key when needed
 func getClientCertificateReloader(fpath string) (func(*tls.CertificateRequestInfo) (*tls.Certificate, error), error) {
 	yc := &yamlKeyPairConfig{}
@@ -1697,20 +1656,4 @@ func getClientCertificateReloader(fpath string) (func(*tls.CertificateRequestInf
 type yamlKeyPairConfig struct {
 	Certfile string `json:"cert-file"`
 	Keyfile  string `json:"key-file"`
-}
-
-// copy of the internal structure in github.com/etcd-io/etcd/clientv3/yaml so we
-// can still use the `ca-file` field for one more release.
-type yamlConfig struct {
-	client.Config
-
-	InsecureTransport     bool   `json:"insecure-transport"`
-	InsecureSkipTLSVerify bool   `json:"insecure-skip-tls-verify"`
-	Certfile              string `json:"cert-file"`
-	Keyfile               string `json:"key-file"`
-	TrustedCAfile         string `json:"trusted-ca-file"`
-
-	// CAfile is being deprecated. Use 'TrustedCAfile' instead.
-	// TODO: deprecate this in v4
-	CAfile string `json:"ca-file"`
 }

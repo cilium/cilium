@@ -5,7 +5,6 @@ package kvstore
 
 import (
 	"bytes"
-	"cmp"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -20,6 +19,7 @@ import (
 	"strings"
 
 	client "go.etcd.io/etcd/client/v3"
+	clientyaml "go.etcd.io/etcd/client/v3/yaml"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -55,7 +55,7 @@ func EtcdDbg(ctx context.Context, cfgfile string, dialer EtcdDbgDialer, w io.Wri
 	iw := newIndentedWriter(w, 0)
 
 	iw.Println("📄 Configuration path: %s", cfgfile)
-	cfg, err := newConfig(cfgfile)
+	cfg, err := clientyaml.NewConfig(cfgfile)
 	if err != nil {
 		iw.Println("❌ Cannot parse etcd configuration: %s", err)
 		return
@@ -330,7 +330,9 @@ func etcdDbgOutputIPs(ips []net.IP) string {
 }
 
 func etcdDbgRetrieveRootCAFile(cfgfile string) (certs [][]byte, err error) {
-	var yc yamlConfig
+	var yc struct {
+		TrustedCAfile string `json:"trusted-ca-file"`
+	}
 
 	b, err := os.ReadFile(cfgfile)
 	if err != nil {
@@ -342,12 +344,11 @@ func etcdDbgRetrieveRootCAFile(cfgfile string) (certs [][]byte, err error) {
 		return nil, err
 	}
 
-	crtfile := cmp.Or(yc.TrustedCAfile, yc.CAfile)
-	if crtfile == "" {
+	if yc.TrustedCAfile == "" {
 		return nil, errors.New("not provided")
 	}
 
-	data, err := os.ReadFile(crtfile)
+	data, err := os.ReadFile(yc.TrustedCAfile)
 	if err != nil {
 		return nil, err
 	}
