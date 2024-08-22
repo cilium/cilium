@@ -616,29 +616,3 @@ func testNewSelectorCache(ids identity.IdentityMap) *SelectorCache {
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return sc
 }
-
-func Test_getIPFamily(t *testing.T) {
-	// not a local scope ID, no labels
-	ipFamily := getIPFamily(identity.ReservedIdentityWorld, nil)
-	require.Equal(t, ipFamilyNone, ipFamily)
-
-	// not a local scope ID
-	ipFamily = getIPFamily(identity.ReservedIdentityWorld, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "0.0.0.0/0"}})
-	require.Equal(t, ipFamilyNone, ipFamily)
-
-	ipFamily = getIPFamily(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "0.0.0.0/0"}})
-	require.Equal(t, ipFamilyV4, ipFamily)
-
-	ipFamily = getIPFamily(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "::/0"}})
-	require.Equal(t, ipFamilyV6, ipFamily)
-
-	ipFamily = getIPFamily(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "--/0"}})
-	require.Equal(t, ipFamilyV6, ipFamily)
-
-	ipFamily = getIPFamily(identity.IdentityScopeLocal, labels.LabelArray{
-		labels.Label{Source: labels.LabelSourceCIDR, Key: "ff--/8"},
-		labels.Label{Source: labels.LabelSourceCIDR, Key: "--/0"},
-		labels.Label{Source: labels.LabelSourceCIDR, Key: "--1/128"},
-	})
-	require.Equal(t, ipFamilyV6, ipFamily)
-}

@@ -465,7 +465,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 			// will still allow egress to world.
 			{TrafficDirection: trafficdirection.Egress.Uint8(), InvertedPortMask: 0xffff /* This is a wildcard */}: allowEgressMapStateEntry,
 			{DestPort: 80, Nexthdr: 6}: rule1MapStateEntry,
-		}, td.sc),
+		}),
 	}
 
 	// Add new identity to test accumulation of MapChanges
@@ -632,7 +632,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 			{Identity: uint32(identity.ReservedIdentityWorldIPv6), DestPort: 80, Nexthdr: 6}:                       rule1MapStateEntry.WithOwners(cachedSelectorWorldV6, cachedSelectorWorld),
 			{Identity: 192, DestPort: 80, Nexthdr: 6}:                                                              rule1MapStateEntry,
 			{Identity: 194, DestPort: 80, Nexthdr: 6}:                                                              rule1MapStateEntry,
-		}, td.sc),
+		}),
 	}
 
 	closer, changes := policy.ConsumeMapChanges()
