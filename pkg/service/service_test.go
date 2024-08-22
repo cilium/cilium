@@ -2419,6 +2419,39 @@ func TestHealthCheckCB(t *testing.T) {
 	require.Equal(t, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 1)
 }
 
+func TestHealthCheckInitialSync(t *testing.T) {
+	m := setupManagerTestSuite(t)
+
+	backends := make([]*lb.Backend, len(backends1))
+	backends[0] = backends1[0].DeepCopy()
+	backends[1] = backends1[1].DeepCopy()
+	p1 := &lb.SVC{
+		Frontend: frontend1,
+		Backends: backends,
+		Type:     lb.SVCTypeClusterIP,
+		Name:     lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+	}
+
+	_, _, err := m.svc.UpsertService(p1)
+	require.NoError(t, err)
+
+	// Test the Subscribe call replays the current state
+	receivedServices := make([]lb.ServiceName, 0)
+
+	// Upsert the service before subscription
+	m.svc.UpsertService(p1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	m.svc.Subscribe(ctx, func(svcInfo HealthUpdateSvcInfo) {
+		receivedServices = append(receivedServices, svcInfo.Name)
+	})
+
+	require.Len(t, receivedServices, 1, "Unexpected number of events received")
+	require.Equal(t, receivedServices[0], p1.Name, "Received an unexpected service")
+}
+
 func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 	m := setupManagerTestSuite(t)
 

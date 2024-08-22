@@ -53,6 +53,15 @@ func (s *Service) HealthCheckCallback(event int, data any) {
 func (s *Service) Subscribe(ctx context.Context, updateCB HealthUpdateCallback) {
 	s.Lock()
 	defer s.Unlock()
+
+	// Replay the current state to let the subscriber to catch up
+	for _, svc := range s.svcByHash {
+		if svc == nil {
+			continue
+		}
+		updateCB(s.healthUpdateFromSvcInfo(svc))
+	}
+
 	s.healthCheckSubscribers = append(s.healthCheckSubscribers, HealthSubscriber{
 		Ctx:      ctx,
 		Callback: updateCB,
@@ -70,6 +79,14 @@ func (s *Service) notifyHealthCheckUpdateSubscribers(svcAddr lb.L3n4Addr) {
 		// Service not found in case it was deleted.
 		return
 	}
+	for _, subscriber := range s.healthCheckSubscribers {
+		if subscriber.Ctx.Err() == nil {
+			subscriber.Callback(s.healthUpdateFromSvcInfo(info))
+		}
+	}
+}
+
+func (s *Service) healthUpdateFromSvcInfo(info *svcInfo) HealthUpdateSvcInfo {
 	activeBes := make([]lb.Backend, 0, len(info.backends))
 	for _, backend := range info.backends {
 		if backend == nil {
@@ -80,15 +97,10 @@ func (s *Service) notifyHealthCheckUpdateSubscribers(svcAddr lb.L3n4Addr) {
 			activeBes = append(activeBes, *backend)
 		}
 	}
-	for _, subscriber := range s.healthCheckSubscribers {
-		if subscriber.Ctx.Err() == nil {
-			svcInfo := HealthUpdateSvcInfo{
-				Name:           info.svcName,
-				Addr:           svcAddr,
-				SvcType:        info.svcType,
-				ActiveBackends: activeBes,
-			}
-			subscriber.Callback(svcInfo)
-		}
+	return HealthUpdateSvcInfo{
+		Name:           info.svcName,
+		Addr:           info.frontend.L3n4Addr,
+		SvcType:        info.svcType,
+		ActiveBackends: activeBes,
 	}
 }
