@@ -118,10 +118,9 @@ func configureHealthInterface(ifName string, ip4Addr, ip6Addr *net.IPNet) error 
 		// Use the direct sysctl without reconciliation of errors since we're in a different
 		// network namespace and thus can't use the normal sysctl API.
 		sysctl := sysctl.NewDirectSysctl(afero.NewOsFs(), option.Config.ProcFs)
-		name := fmt.Sprintf("net.ipv6.conf.%s.disable_ipv6", ifName)
 		// Ignore the error; if IPv6 is completely disabled
 		// then it's okay if we can't write the sysctl.
-		_ = sysctl.Enable(name)
+		_ = sysctl.EnableN([]string{"net", "ipv6", "conf", ifName, "disable_ipv6"})
 	} else {
 		if err = netlink.AddrAdd(link, &netlink.Addr{IPNet: ip6Addr}); err != nil {
 			return err
