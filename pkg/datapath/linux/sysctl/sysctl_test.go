@@ -109,7 +109,7 @@ func TestWaitForReconciliation(t *testing.T) {
 	t.Cleanup(func() { time.MaxInternalTimerDelay = 0 })
 
 	sysctl := &reconcilingSysctl{db, settings, nil, ""}
-	sysctl.Enable(paramName)
+	sysctl.EnableN([]string{paramName})
 
 	// waitForReconciliation should timeout
 	assert.Error(t, sysctl.waitForReconciliation([]string{paramName}))
