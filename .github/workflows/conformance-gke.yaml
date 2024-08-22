@@ -63,7 +63,7 @@ env:
   cilium_cli_ci_version:
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 487.0.0
+  gcloud_version: 489.0.0
 
 jobs:
   echo-inputs:
@@ -130,7 +130,7 @@ jobs:
 
       - name: Set up gcloud credentials
         id: 'auth'
-        uses: google-github-actions/auth@f112390a2df9932162083945e46d439060d66ec2 # v2.1.4
+        uses: google-github-actions/auth@62cf5bd3e4211a0a0b51f2c6d6a37129d828611d # v2.1.5
         with:
           workload_identity_provider: ${{ secrets.GCP_PR_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PR_SA }}
@@ -229,7 +229,7 @@ jobs:
 
       - name: Set up gcloud credentials
         id: 'auth'
-        uses: google-github-actions/auth@f112390a2df9932162083945e46d439060d66ec2 # v2.1.4
+        uses: google-github-actions/auth@62cf5bd3e4211a0a0b51f2c6d6a37129d828611d # v2.1.5
         with:
           workload_identity_provider: ${{ secrets.GCP_PR_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_PR_SA }}

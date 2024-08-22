@@ -62,9 +62,9 @@ env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   cilium_cli_ci_version:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.188.0
+  eksctl_version: v0.189.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.30.3
+  kubectl_version: v1.31.0
 
 jobs:
   echo-inputs:
