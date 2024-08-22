@@ -332,7 +332,6 @@ Makefile* @cilium/build
 /clustermesh-apiserver @cilium/sig-clustermesh
 /contrib/ @cilium/contributing
 /contrib/containerlab/ @cilium/sig-bgp
-/contrib/vagrant/ @cilium/contributing
 /contrib/coccinelle/ @cilium/sig-datapath
 /daemon/ @cilium/sig-agent
 /daemon/cmd/datapath.go @cilium/sig-datapath
@@ -643,11 +642,8 @@ Makefile* @cilium/build
 /test/runtime/chaos_agent.go @cilium/sig-agent @cilium/ci-structure
 /tools/ @cilium/contributing
 /USERS.md @cilium/community
-Vagrantfile @cilium/ci-structure
-/Vagrantfile @cilium/contributing
 /go.sum @cilium/vendor
 /go.mod @cilium/vendor
-/vagrant_box_defaults.rb @cilium/ci-structure
 /vendor/ @cilium/vendor
 /VERSION @cilium/release-managers
 /.clang-format @cilium/contributing

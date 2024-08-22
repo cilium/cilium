@@ -1,1 +1,0 @@
-insert rule inet firewalld filter_IN_public_allow ip saddr 192.168.61.0/24 counter accept
