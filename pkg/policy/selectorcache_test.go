@@ -616,31 +616,3 @@ func testNewSelectorCache(ids identity.IdentityMap) *SelectorCache {
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return sc
 }
-
-func Test_getLocalScopePrefix(t *testing.T) {
-	prefix := getLocalScopePrefix(identity.ReservedIdentityWorld, nil)
-	require.False(t, prefix.IsValid())
-
-	prefix = getLocalScopePrefix(identity.ReservedIdentityWorld, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "0.0.0.0/0"}})
-	require.False(t, prefix.IsValid())
-
-	prefix = getLocalScopePrefix(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "0.0.0.0/0"}})
-	require.True(t, prefix.IsValid())
-	require.Equal(t, "0.0.0.0/0", prefix.String())
-
-	prefix = getLocalScopePrefix(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "::/0"}})
-	require.True(t, prefix.IsValid())
-	require.Equal(t, "::/0", prefix.String())
-
-	prefix = getLocalScopePrefix(identity.IdentityScopeLocal, labels.LabelArray{labels.Label{Source: labels.LabelSourceCIDR, Key: "--/0"}})
-	require.True(t, prefix.IsValid())
-	require.Equal(t, "::/0", prefix.String())
-
-	prefix = getLocalScopePrefix(identity.IdentityScopeLocal, labels.LabelArray{
-		labels.Label{Source: labels.LabelSourceCIDR, Key: "ff--/8"},
-		labels.Label{Source: labels.LabelSourceCIDR, Key: "--/0"},
-		labels.Label{Source: labels.LabelSourceCIDR, Key: "--1/128"},
-	})
-	require.True(t, prefix.IsValid())
-	require.Equal(t, "::1/128", prefix.String())
-}

@@ -468,7 +468,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 			// will still allow egress to world.
 			EgressKey():                  allowEgressMapStateEntry,
 			IngressKey().WithTCPPort(80): rule1MapStateEntry,
-		}, td.sc),
+		}),
 	}
 
 	// Add new identity to test accumulation of MapChanges
@@ -637,7 +637,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 			IngressKey().WithIdentity(identity.ReservedIdentityWorldIPv6).WithTCPPort(80): rule1MapStateEntry.WithOwners(cachedSelectorWorldV6, cachedSelectorWorld),
 			IngressKey().WithIdentity(192).WithTCPPort(80):                                rule1MapStateEntry,
 			IngressKey().WithIdentity(194).WithTCPPort(80):                                rule1MapStateEntry,
-		}, td.sc),
+		}),
 	}
 
 	closer, changes := policy.ConsumeMapChanges()

@@ -4,8 +4,6 @@
 package policy
 
 import (
-	"net/netip"
-	"strings"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -38,33 +36,6 @@ func newIdentity(nid identity.NumericIdentity, lbls labels.LabelArray) scIdentit
 	}
 }
 
-// getLocalScopePrefix returns the most specific CIDR for a local scope identity.
-// WORLD IDs are not considered here.
-func getLocalScopePrefix(id identity.NumericIdentity, lbls labels.LabelArray) netip.Prefix {
-	var mostSpecificCidr netip.Prefix
-	if id.HasLocalScope() {
-		maskSize := -1 // allow for 0-length prefix (e.g., "0.0.0.0/0")
-		for _, lbl := range lbls {
-			if lbl.Source == labels.LabelSourceCIDR {
-				// Reverse the transformation done in labels.maskedIPToLabel()
-				// as ':' is not allowed within a k8s label, colons are represented
-				// with '-'.
-				cidr := strings.ReplaceAll(lbl.Key, "-", ":")
-				prefix, err := netip.ParsePrefix(cidr)
-				if err == nil {
-					if n := prefix.Bits(); n > maskSize {
-						mostSpecificCidr = prefix.Masked()
-						maskSize = n
-					}
-				} else {
-					log.WithError(err).WithField(logfields.Prefix, lbl.Key).Error("getLocalScopePrefix: netip.ParsePrefix failed")
-				}
-			}
-		}
-	}
-	return mostSpecificCidr
-}
-
 // userNotification stores the information needed to call
 // IdentitySelectionUpdated callbacks to notify users of selector's
 // identity changes. These are queued to be able to call the callbacks
@@ -82,8 +53,6 @@ type userNotification struct {
 // subsets of identities each selector selects.
 type SelectorCache struct {
 	versioned *versioned.Coordinator
-
-	prefixMap lock.Map[identity.NumericIdentity, netip.Prefix]
 
 	mutex lock.RWMutex
 
@@ -253,11 +222,6 @@ func NewSelectorCache(ids identity.IdentityMap) *SelectorCache {
 	}
 
 	for nid, lbls := range ids {
-		// store prefix into prefix map
-		prefix := getLocalScopePrefix(nid, lbls)
-		if prefix.IsValid() {
-			sc.prefixMap.Store(nid, prefix)
-		}
 		sc.idCache[nid] = newIdentity(nid, lbls)
 	}
 
@@ -267,11 +231,11 @@ func NewSelectorCache(ids identity.IdentityMap) *SelectorCache {
 // oldVersionCleaner is called from a goroutine without holding any locks
 func (sc *SelectorCache) oldVersionCleaner(keepVersion versioned.KeepVersion) {
 	// Log before taking the lock so that if we ever have a deadlock here this log line will be seen
-	log.WithField(logfields.Version, keepVersion).Debug("Cleaning old selector versions")
+	log.WithField(logfields.Version, keepVersion).Debug("Cleaning old selector and identity versions")
 
 	// This is called when some versions are no longer needed, from wherever
 	// VersionHandle's may be kept, so we must take the lock to safely access
-	// 'sc.selectorUpdates'
+	// 'sc.selectorUpdates'.
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
@@ -489,7 +453,6 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				logfields.Labels:     old.lbls,
 			}).Debug("UpdateIdentities: Deleting identity")
 			delete(sc.idCache, numericID)
-			sc.prefixMap.Delete(numericID)
 		} else {
 			log.WithFields(logrus.Fields{
 				logfields.NewVersion: txn,
@@ -534,11 +497,6 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				logfields.Identity:   numericID,
 				logfields.Labels:     lbls,
 			}).Debug("UpdateIdentities: Adding a new identity")
-		}
-		// store prefix into prefix map
-		prefix := getLocalScopePrefix(numericID, lbls)
-		if prefix.IsValid() {
-			sc.prefixMap.Store(numericID, prefix)
 		}
 		sc.idCache[numericID] = newIdentity(numericID, lbls)
 	}
@@ -589,10 +547,4 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 		sc.queueNotifiedUsersCommit(txn, wg)
 		txn.Commit()
 	}
-}
-
-// GetPrefix returns the most specific CIDR for an identity, if any.
-func (sc *SelectorCache) GetPrefix(id identity.NumericIdentity) netip.Prefix {
-	p, _ := sc.prefixMap.Load(id)
-	return p
 }
