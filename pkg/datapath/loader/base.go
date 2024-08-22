@@ -125,7 +125,7 @@ func addENIRules(sysSettings []tables.Sysctl) ([]tables.Sysctl, error) {
 	}
 
 	retSettings := append(sysSettings, tables.Sysctl{
-		Name:      fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface.Attrs().Name),
+		Name:      []string{"net", "ipv4", "conf", iface.Attrs().Name, "rp_filter"},
 		Val:       "2",
 		IgnoreErr: false,
 	})
@@ -382,11 +382,11 @@ func (l *loader) ReinitializeXDP(ctx context.Context, extraCArgs []string) error
 // restore from a previous Cilium run, or during regular Cilium operation.
 func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	sysSettings := []tables.Sysctl{
-		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
-		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
-		{Name: "net.ipv4.fib_multipath_use_neigh", Val: "1", IgnoreErr: true},
-		{Name: "kernel.unprivileged_bpf_disabled", Val: "1", IgnoreErr: true},
-		{Name: "kernel.timer_migration", Val: "0", IgnoreErr: true},
+		{Name: []string{"net", "core", "bpf_jit_enable"}, Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
+		{Name: []string{"net", "ipv4", "conf", "all", "rp_filter"}, Val: "0", IgnoreErr: false},
+		{Name: []string{"net", "ipv4", "fib_multipath_use_neigh"}, Val: "1", IgnoreErr: true},
+		{Name: []string{"kernel", "unprivileged_bpf_disabled"}, Val: "1", IgnoreErr: true},
+		{Name: []string{"kernel", "timer_migration"}, Val: "0", IgnoreErr: true},
 	}
 
 	// Lock so that endpoints cannot be built while we are compile base programs.
@@ -409,7 +409,7 @@ func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfigu
 		// interface (https://github.com/docker/libnetwork/issues/1720)
 		// Enable IPv6 for now
 		sysSettings = append(sysSettings,
-			tables.Sysctl{Name: "net.ipv6.conf.all.disable_ipv6", Val: "0", IgnoreErr: false})
+			tables.Sysctl{Name: []string{"net", "ipv6", "conf", "all", "disable_ipv6"}, Val: "0", IgnoreErr: false})
 	}
 
 	// Datapath initialization
@@ -422,7 +422,7 @@ func (l *loader) Reinitialize(ctx context.Context, cfg datapath.LocalNodeConfigu
 		sysSettings = append(
 			sysSettings,
 			tables.Sysctl{
-				Name: "net.core.fb_tunnels_only_for_init_net", Val: "2", IgnoreErr: true,
+				Name: []string{"net", "core", "fb_tunnels_only_for_init_net"}, Val: "2", IgnoreErr: true,
 			},
 		)
 		if err := setupIPIPDevices(l.sysctl, option.Config.IPv4Enabled(), option.Config.IPv6Enabled()); err != nil {

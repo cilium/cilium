@@ -4,6 +4,8 @@
 package tables
 
 import (
+	"strings"
+
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/reconciler"
@@ -13,7 +15,7 @@ var (
 	SysctlNameIndex = statedb.Index[*Sysctl, string]{
 		Name: "name",
 		FromObject: func(s *Sysctl) index.KeySet {
-			return index.NewKeySet(index.String(s.Name))
+			return index.NewKeySet(index.String(strings.Join(s.Name, ".")))
 		},
 		FromKey: index.String,
 		Unique:  true,
@@ -38,12 +40,12 @@ func (*Sysctl) TableHeader() []string {
 }
 
 func (s *Sysctl) TableRow() []string {
-	return []string{s.Name, s.Val, s.Status.String()}
+	return []string{strings.Join(s.Name, "."), s.Val, s.Status.String()}
 }
 
 // Sysctl is the representation of a kernel sysctl parameter.
 type Sysctl struct {
-	Name      string
+	Name      []string
 	Val       string
 	IgnoreErr bool
 
