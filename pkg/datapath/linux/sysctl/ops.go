@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/spf13/afero"
 
@@ -29,7 +30,7 @@ type ops struct {
 
 func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, s *tables.Sysctl) error {
 	log := ops.log.With(
-		logfields.SysParamName, s.Name,
+		logfields.SysParamName, strings.Join(s.Name, "."),
 		logfields.SysParamValue, s.Val,
 	)
 

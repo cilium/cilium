@@ -44,14 +44,14 @@ func enableForwarding(sysctl sysctl.Sysctl, link netlink.Link) error {
 	sysSettings := make([]tables.Sysctl, 0, 5)
 	if option.Config.EnableIPv6 {
 		sysSettings = append(sysSettings, tables.Sysctl{
-			Name: fmt.Sprintf("net.ipv6.conf.%s.forwarding", ifName), Val: "1", IgnoreErr: false})
+			Name: []string{"net", "ipv6", "conf", ifName, "forwarding"}, Val: "1", IgnoreErr: false})
 	}
 	if option.Config.EnableIPv4 {
 		sysSettings = append(sysSettings, []tables.Sysctl{
-			{Name: fmt.Sprintf("net.ipv4.conf.%s.forwarding", ifName), Val: "1", IgnoreErr: false},
-			{Name: fmt.Sprintf("net.ipv4.conf.%s.rp_filter", ifName), Val: "0", IgnoreErr: false},
-			{Name: fmt.Sprintf("net.ipv4.conf.%s.accept_local", ifName), Val: "1", IgnoreErr: false},
-			{Name: fmt.Sprintf("net.ipv4.conf.%s.send_redirects", ifName), Val: "0", IgnoreErr: false},
+			{Name: []string{"net", "ipv4", "conf", ifName, "forwarding"}, Val: "1", IgnoreErr: false},
+			{Name: []string{"net", "ipv4", "conf", ifName, "rp_filter"}, Val: "0", IgnoreErr: false},
+			{Name: []string{"net", "ipv4", "conf", ifName, "accept_local"}, Val: "1", IgnoreErr: false},
+			{Name: []string{"net", "ipv4", "conf", ifName, "send_redirects"}, Val: "0", IgnoreErr: false},
 		}...)
 	}
 	if err := sysctl.ApplySettings(sysSettings); err != nil {
