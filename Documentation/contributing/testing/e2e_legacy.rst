@@ -172,9 +172,6 @@ usage information.
       # else
       #   ./contrib/scripts/kind.sh "" 1 "" "${kubernetes_image}" "iptables" "${ip_family}"
       # fi
-      ## Some tests using demo-customcalls.yaml are mounting this directoy
-      # mkdir -p /home/vagrant/go/src/github.com/cilium
-      # ln -s /host /home/vagrant/go/src/github.com/cilium/cilium
       # git config --global --add safe.directory /cilium
 
    Verify that kind is running inside the VM:
