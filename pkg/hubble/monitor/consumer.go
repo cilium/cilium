@@ -33,6 +33,8 @@ type consumer struct {
 	lostLock      lock.Mutex
 	logLimiter    logging.Limiter
 
+	cachedLostNotification *observerTypes.MonitorEvent
+
 	metricLostPerfEvents     prometheus.Counter
 	metricLostObserverEvents prometheus.Counter
 }
@@ -65,21 +67,27 @@ func (c *consumer) sendNumLostEvents() bool {
 		return true
 	}
 
-	numEventsLostNotification := &observerTypes.MonitorEvent{
-		UUID:      uuid.New(),
-		Timestamp: time.Now(),
-		NodeName:  nodeTypes.GetAbsoluteNodeName(),
-		Payload: &observerTypes.LostEvent{
-			Source:        observerTypes.LostEventSourceEventsQueue,
-			NumLostEvents: c.numEventsLost,
-		},
+	if c.cachedLostNotification == nil {
+		c.cachedLostNotification = c.newEvent(func() interface{} {
+			return &observerTypes.LostEvent{
+				Source:        observerTypes.LostEventSourceEventsQueue,
+				NumLostEvents: c.numEventsLost,
+			}
+		})
+	} else {
+		c.cachedLostNotification.Timestamp = time.Now()
+		c.cachedLostNotification.Payload.(*observerTypes.LostEvent).NumLostEvents = c.numEventsLost
 	}
+
 	select {
-	case c.observer.GetEventsChannel() <- numEventsLostNotification:
+	case c.observer.GetEventsChannel() <- c.cachedLostNotification:
 		// We now now safely reset the counter, as at this point have
 		// successfully notified the observer about the amount of events
-		// that were lost since the previous LostEvent message
+		// that were lost since the previous LostEvent message. Similarly,
+		// we reset the cached notification, so that a new one is created
+		// the next time.
 		c.numEventsLost = 0
+		c.cachedLostNotification = nil
 		return true
 	default:
 		// We do not need to bump the numEventsLost counter here, as we will
