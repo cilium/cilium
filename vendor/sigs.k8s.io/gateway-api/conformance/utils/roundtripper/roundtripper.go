@@ -99,11 +99,12 @@ type RedirectRequest struct {
 
 // CapturedResponse contains response metadata.
 type CapturedResponse struct {
-	StatusCode      int
-	ContentLength   int64
-	Protocol        string
-	Headers         map[string][]string
-	RedirectRequest *RedirectRequest
+	StatusCode       int
+	ContentLength    int64
+	Protocol         string
+	Headers          map[string][]string
+	RedirectRequest  *RedirectRequest
+	PeerCertificates []*x509.Certificate
 }
 
 // DefaultRoundTripper is the default implementation of a RoundTripper. It will
@@ -256,6 +257,10 @@ func (d *DefaultRoundTripper) defaultRoundTrip(request Request, transport http.R
 		ContentLength: resp.ContentLength,
 		Protocol:      resp.Proto,
 		Headers:       resp.Header,
+	}
+
+	if resp.TLS != nil {
+		cRes.PeerCertificates = resp.TLS.PeerCertificates
 	}
 
 	if IsRedirect(resp.StatusCode) {
