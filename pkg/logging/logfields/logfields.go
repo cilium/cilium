@@ -11,6 +11,18 @@ const (
 	// LogSubsys is the field denoting the subsystem when logging
 	LogSubsys = "subsys"
 
+	// Version is a field for a generic version number
+	Version = "version"
+
+	// NewVersion is a field for a new version number
+	NewVersion = "newVersion"
+
+	// OldVersion is a field for a old version number
+	OldVersion = "oldVersion"
+
+	// Stacktrace is a field for a stacktrace
+	Stacktrace = "stacktrace"
+
 	// Signal is the field to print os signals on exit etc.
 	Signal = "signal"
 
