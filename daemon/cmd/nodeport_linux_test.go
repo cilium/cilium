@@ -28,17 +28,17 @@ func setupNodePortSuite(tb testing.TB) *NodePortSuite {
 
 	s := &NodePortSuite{}
 	s.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
-	prevEphemeralPortRange, err := s.sysctl.ReadN([]string{"net", "ipv4", "ip_local_port_range"})
+	prevEphemeralPortRange, err := s.sysctl.Read([]string{"net", "ipv4", "ip_local_port_range"})
 	require.Nil(tb, err)
 	s.prevEphemeralPortRange = prevEphemeralPortRange
-	prevReservedPortRanges, err := s.sysctl.ReadN([]string{"net", "ipv4", "ip_local_reserved_ports"})
+	prevReservedPortRanges, err := s.sysctl.Read([]string{"net", "ipv4", "ip_local_reserved_ports"})
 	require.Nil(tb, err)
 	s.prevReservedPortRanges = prevReservedPortRanges
 
 	tb.Cleanup(func() {
-		err = s.sysctl.WriteN([]string{"net", "ipv4", "ip_local_port_range"}, s.prevEphemeralPortRange)
+		err = s.sysctl.Write([]string{"net", "ipv4", "ip_local_port_range"}, s.prevEphemeralPortRange)
 		require.Nil(tb, err)
-		err = s.sysctl.WriteN([]string{"net", "ipv4", "ip_local_reserved_ports"}, s.prevReservedPortRanges)
+		err = s.sysctl.Write([]string{"net", "ipv4", "ip_local_reserved_ports"}, s.prevReservedPortRanges)
 		require.Nil(tb, err)
 	})
 
@@ -73,10 +73,10 @@ func TestCheckNodePortAndEphemeralPortRanges(t *testing.T) {
 		option.Config.NodePortMin = test.npMin
 		option.Config.NodePortMax = test.npMax
 		option.Config.EnableAutoProtectNodePortRange = test.autoProtect
-		err := s.sysctl.WriteN([]string{"net", "ipv4", "ip_local_port_range"},
+		err := s.sysctl.Write([]string{"net", "ipv4", "ip_local_port_range"},
 			fmt.Sprintf("%d %d", test.epMin, test.epMax))
 		require.Nil(t, err)
-		err = s.sysctl.WriteN([]string{"net", "ipv4", "ip_local_reserved_ports"}, test.resPorts)
+		err = s.sysctl.Write([]string{"net", "ipv4", "ip_local_reserved_ports"}, test.resPorts)
 		require.Nil(t, err)
 
 		err = checkNodePortAndEphemeralPortRanges(s.sysctl)
@@ -84,7 +84,7 @@ func TestCheckNodePortAndEphemeralPortRanges(t *testing.T) {
 			require.Condition(t, errorMatch(err, test.expErrMatch))
 		} else {
 			require.Nil(t, err)
-			resPorts, err := s.sysctl.ReadN([]string{"net", "ipv4", "ip_local_reserved_ports"})
+			resPorts, err := s.sysctl.Read([]string{"net", "ipv4", "ip_local_reserved_ports"})
 			require.Nil(t, err)
 			require.Equal(t, test.expResPorts, resPorts)
 		}
