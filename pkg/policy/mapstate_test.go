@@ -5,7 +5,6 @@ package policy
 
 import (
 	"fmt"
-	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -212,12 +211,8 @@ func (ms *mapState) validatePortProto(t *testing.T) {
 }
 
 func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
-	identityCache := identity.IdentityMap{
-		identity.NumericIdentity(identityFoo): labelsFoo,
-	}
-	selectorCache := testNewSelectorCache(identityCache)
 	testMapState := func(initMap MapStateMap) *mapState {
-		return newMapState().withState(initMap, selectorCache)
+		return newMapState().withState(initMap)
 	}
 
 	type args struct {
@@ -1377,11 +1372,11 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		// copy the starting point
 		ms := testMapState(make(MapStateMap, tt.ms.Len()))
 		tt.ms.ForEach(func(k Key, v MapStateEntry) bool {
-			ms.insert(k, v, selectorCache)
+			ms.insert(k, v)
 			return true
 		})
 
-		ms.denyPreferredInsertWithChanges(tt.args.key, tt.args.entry, selectorCache, denyRules, changes)
+		ms.denyPreferredInsertWithChanges(tt.args.key, tt.args.entry, denyRules, changes)
 		ms.validatePortProto(t)
 		require.Truef(t, ms.Equals(tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.Diff(tt.want))
 		require.EqualValuesf(t, tt.wantAdds, changes.Adds, "%s: Adds mismatch", tt.name)
@@ -1389,7 +1384,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		require.EqualValuesf(t, tt.wantOld, changes.Old, "%s: OldValues mismatch allows", tt.name)
 
 		// Revert changes and check that we get the original mapstate
-		ms.revertChanges(selectorCache, changes)
+		ms.revertChanges(changes)
 		require.Truef(t, ms.Equals(tt.ms), "%s: MapState mismatch:\n%s", tt.name, ms.Diff(tt.ms))
 	}
 }
@@ -1465,7 +1460,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 	}
 	selectorCache := testNewSelectorCache(identityCache)
 	testMapState := func(initMap MapStateMap) *mapState {
-		return newMapState().withState(initMap, selectorCache)
+		return newMapState().withState(initMap)
 	}
 
 	type args struct {
@@ -1847,7 +1842,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 	}
 	selectorCache := testNewSelectorCache(identityCache)
 	testMapState := func(initMap MapStateMap) *mapState {
-		return newMapState().withState(initMap, selectorCache)
+		return newMapState().withState(initMap)
 	}
 
 	type args struct {
@@ -2197,12 +2192,8 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 	csFoo := newTestCachedSelector("Foo", false)
 	csBar := newTestCachedSelector("Bar", false)
 
-	identityCache := identity.IdentityMap{
-		identity.NumericIdentity(identityFoo): labelsFoo,
-	}
-	selectorCache := testNewSelectorCache(identityCache)
 	testMapState := func(initMap MapStateMap) *mapState {
-		return newMapState().withState(initMap, selectorCache)
+		return newMapState().withState(initMap)
 	}
 
 	type args struct {
@@ -2365,7 +2356,7 @@ func TestMapState_AddVisibilityKeys(t *testing.T) {
 			Adds: make(Keys),
 			Old:  make(MapStateMap),
 		}
-		tt.ms.addVisibilityKeys(DummyOwner{}, tt.args.redirectPort, &tt.args.visMeta, selectorCache, changes)
+		tt.ms.addVisibilityKeys(DummyOwner{}, tt.args.redirectPort, &tt.args.visMeta, changes)
 		tt.ms.validatePortProto(t)
 		require.True(t, tt.ms.Equals(tt.want), "%s:\n%s", tt.name, tt.ms.Diff(tt.want))
 		// Find new and updated entries
@@ -2404,7 +2395,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 	}
 	selectorCache := testNewSelectorCache(identityCache)
 	testMapState := func(initMap MapStateMap) *mapState {
-		return newMapState().withState(initMap, selectorCache)
+		return newMapState().withState(initMap)
 	}
 
 	type args struct {
@@ -2748,7 +2739,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 			Old:     make(MapStateMap),
 		}
 		for _, arg := range tt.visArgs {
-			policyMapState.addVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, selectorCache, changes)
+			policyMapState.addVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, changes)
 		}
 		require.EqualValues(t, tt.visAdds, changes.Adds, tt.name+" (visAdds)")
 		require.EqualValues(t, tt.visOld, changes.Old, tt.name+" (visOld)")
@@ -2781,7 +2772,7 @@ func TestMapState_AccumulateMapChangesOnVisibilityKeys(t *testing.T) {
 
 		// Visibilty redirects need to be re-applied after consumeMapChanges()
 		for _, arg := range tt.visArgs {
-			policyMapState.addVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, selectorCache, changes)
+			policyMapState.addVisibilityKeys(DummyOwner{}, arg.redirectPort, &arg.visMeta, changes)
 		}
 		for k := range changes.Old {
 			changes.Deletes[k] = struct{}{}
@@ -2806,12 +2797,6 @@ func (e MapStateEntry) asDeny() MapStateEntry {
 }
 
 func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
-	identityCache := identity.IdentityMap{
-		identity.ReservedIdentityWorld: labels.LabelWorld.LabelArray(),
-		worldIPIdentity:                lblWorldIP.LabelArray(),     // "192.0.2.3/32"
-		worldSubnetIdentity:            lblWorldSubnet.LabelArray(), // "192.0.2.0/24"
-	}
-
 	// Mock the identities what would be selected by the world, IP, and subnet selectors
 
 	// Selections for the label selector 'reserved:world'
@@ -2823,7 +2808,6 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 	// Selections for the CIDR selector 'cidr:192.0.2.0/24'
 	worldSubnetSelections := identity.NumericIdentitySlice{worldSubnetIdentity, worldIPIdentity}
 
-	selectorCache := testNewSelectorCache(identityCache)
 	type action uint32
 	const (
 		noAction       = action(iota)
@@ -3028,12 +3012,12 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}
 		expectedKeys := newMapState()
 		if tt.outcome&insertAllowAll > 0 {
-			expectedKeys.insert(anyIngressKey, allowEntry, selectorCache)
+			expectedKeys.insert(anyIngressKey, allowEntry)
 		}
 		// insert allow expectations before deny expectations to manage overlap
 		if tt.outcome&insertB > 0 {
 			for _, bKey := range bKeys {
-				expectedKeys.insert(bKey, bEntry, selectorCache)
+				expectedKeys.insert(bKey, bEntry)
 			}
 		}
 		if tt.outcome&insertAasB > 0 {
@@ -3059,8 +3043,8 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 					bEntryWithOwner := bEntry.WithOwners(bKey)
 					bEntryWithDep := bEntry.WithDependents(aKeyWithBProto)
 
-					expectedKeys.insert(bKey, bEntryWithDep, selectorCache)
-					expectedKeys.insert(aKeyWithBProto, bEntryWithOwner, selectorCache)
+					expectedKeys.insert(bKey, bEntryWithDep)
+					expectedKeys.insert(aKeyWithBProto, bEntryWithOwner)
 				}
 			}
 		}
@@ -3087,23 +3071,23 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 				bEntryWithProto := bEntry.WithOwners(bKey)
 				bEntryWithDep := bEntry.WithDependents(bKeyWithAProto)
 
-				expectedKeys.insert(bKey, bEntryWithDep, selectorCache)
-				expectedKeys.insert(bKeyWithAProto, bEntryWithProto, selectorCache)
+				expectedKeys.insert(bKey, bEntryWithDep)
+				expectedKeys.insert(bKeyWithAProto, bEntryWithProto)
 			}
 		}
 		if tt.outcome&insertA > 0 {
 			for _, aKey := range aKeys {
-				expectedKeys.insert(aKey, aEntry, selectorCache)
+				expectedKeys.insert(aKey, aEntry)
 			}
 		}
 		if tt.outcome&insertAasDeny > 0 {
 			for _, aKey := range aKeys {
-				expectedKeys.insert(aKey, aEntry.asDeny(), selectorCache)
+				expectedKeys.insert(aKey, aEntry.asDeny())
 			}
 		}
 		if tt.outcome&insertBasDeny > 0 {
 			for _, bKey := range bKeys {
-				expectedKeys.insert(bKey, bEntry.asDeny(), selectorCache)
+				expectedKeys.insert(bKey, bEntry.asDeny())
 			}
 		}
 		if tt.outcome&insertAWithBProto > 0 {
@@ -3129,8 +3113,8 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 				aEntryWithProto := aEntry.WithOwners(aKey)
 				aEntryWithDep := aEntry.WithDependents(aKeyWithBProto)
 
-				expectedKeys.insert(aKey, aEntryWithDep, selectorCache)
-				expectedKeys.insert(aKeyWithBProto, aEntryWithProto, selectorCache)
+				expectedKeys.insert(aKey, aEntryWithDep)
+				expectedKeys.insert(aKeyWithBProto, aEntryWithProto)
 			}
 		}
 		if tt.outcome&insertBWithAProtoAsDeny > 0 {
@@ -3158,39 +3142,38 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 					aEntryWithDep := aEntry
 
 					aEntryWithDep.AddDependent(bKeyWithAProto)
-					expectedKeys.insert(aKey, aEntryWithDep, selectorCache)
-					expectedKeys.insert(bKeyWithAProto, bEntryAsDeny, selectorCache)
+					expectedKeys.insert(aKey, aEntryWithDep)
+					expectedKeys.insert(bKeyWithAProto, bEntryAsDeny)
 				}
 			}
 		}
 		if tt.outcome&insertDenyWorld > 0 {
 			worldIngressKey := IngressKey().WithIdentity(2)
 			denyEntry := MapStateEntry{IsDeny: true}
-			expectedKeys.insert(worldIngressKey, denyEntry, selectorCache)
+			expectedKeys.insert(worldIngressKey, denyEntry)
 		}
 		if tt.outcome&insertDenyWorldTCP > 0 {
 			worldIngressKey := IngressKey().WithIdentity(2).WithTCPPort(0)
 			denyEntry := MapStateEntry{IsDeny: true}
-			expectedKeys.insert(worldIngressKey, denyEntry, selectorCache)
+			expectedKeys.insert(worldIngressKey, denyEntry)
 		}
 		if tt.outcome&insertDenyWorldHTTP > 0 {
 			worldIngressKey := IngressKey().WithIdentity(2).WithTCPPort(80)
 			denyEntry := MapStateEntry{IsDeny: true}
-			expectedKeys.insert(worldIngressKey, denyEntry, selectorCache)
+			expectedKeys.insert(worldIngressKey, denyEntry)
 		}
 		outcomeKeys := newMapState()
-		outcomeKeys.validator = &validator{} // insert validator
 
 		if tt.withAllowAll {
-			outcomeKeys.denyPreferredInsert(anyIngressKey, allowEntry, selectorCache, allFeatures)
+			outcomeKeys.denyPreferredInsert(anyIngressKey, allowEntry, allFeatures)
 		}
 		for _, idA := range tt.aIdentities {
 			aKey := IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort)
-			outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
+			outcomeKeys.denyPreferredInsert(aKey, aEntry, allFeatures)
 		}
 		for _, idB := range tt.bIdentities {
 			bKey := IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort)
-			outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
+			outcomeKeys.denyPreferredInsert(bKey, bEntry, allFeatures)
 		}
 		outcomeKeys.validatePortProto(t)
 		if !expectedKeys.Equals(outcomeKeys) {
@@ -3209,18 +3192,17 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 
 		// Test also with reverse insertion order
 		outcomeKeys = newMapState()
-		outcomeKeys.validator = &validator{} // insert validator
 
 		for _, idB := range tt.bIdentities {
 			bKey := IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort)
-			outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
+			outcomeKeys.denyPreferredInsert(bKey, bEntry, allFeatures)
 		}
 		for _, idA := range tt.aIdentities {
 			aKey := IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort)
-			outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
+			outcomeKeys.denyPreferredInsert(aKey, aEntry, allFeatures)
 		}
 		if tt.withAllowAll {
-			outcomeKeys.denyPreferredInsert(anyIngressKey, allowEntry, selectorCache, allFeatures)
+			outcomeKeys.denyPreferredInsert(anyIngressKey, allowEntry, allFeatures)
 		}
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equals(outcomeKeys), "%s (in reverse) (MapState):\n%s", tt.name, outcomeKeys.Diff(expectedKeys))
@@ -3244,45 +3226,43 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}
 		expectedKeys := newMapState()
 		if tt.outcome&insertAllowAll > 0 {
-			expectedKeys.insert(anyIngressKey, allowEntry, selectorCache)
-			expectedKeys.insert(anyEgressKey, allowEntry, selectorCache)
+			expectedKeys.insert(anyIngressKey, allowEntry)
+			expectedKeys.insert(anyEgressKey, allowEntry)
 		}
 		for _, aKey := range aKeys {
-			expectedKeys.insert(aKey, aEntry, selectorCache)
+			expectedKeys.insert(aKey, aEntry)
 		}
 		for _, bKey := range bKeys {
-			expectedKeys.insert(bKey, bEntry, selectorCache)
+			expectedKeys.insert(bKey, bEntry)
 		}
 
 		outcomeKeys := newMapState()
-		outcomeKeys.validator = &validator{} // insert validator
 
 		if tt.withAllowAll {
-			outcomeKeys.denyPreferredInsert(anyIngressKey, allowEntry, selectorCache, allFeatures)
-			outcomeKeys.denyPreferredInsert(anyEgressKey, allowEntry, selectorCache, allFeatures)
+			outcomeKeys.denyPreferredInsert(anyIngressKey, allowEntry, allFeatures)
+			outcomeKeys.denyPreferredInsert(anyEgressKey, allowEntry, allFeatures)
 		}
 		for _, aKey := range aKeys {
-			outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
+			outcomeKeys.denyPreferredInsert(aKey, aEntry, allFeatures)
 		}
 		for _, bKey := range bKeys {
-			outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
+			outcomeKeys.denyPreferredInsert(bKey, bEntry, allFeatures)
 		}
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equals(outcomeKeys), "%s different traffic directions (MapState):\n%s", tt.name, outcomeKeys.Diff(expectedKeys))
 
 		// Test also with reverse insertion order
 		outcomeKeys = newMapState()
-		outcomeKeys.validator = &validator{} // insert validator
 
 		for _, bKey := range bKeys {
-			outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache, allFeatures)
+			outcomeKeys.denyPreferredInsert(bKey, bEntry, allFeatures)
 		}
 		for _, aKey := range aKeys {
-			outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache, allFeatures)
+			outcomeKeys.denyPreferredInsert(aKey, aEntry, allFeatures)
 		}
 		if tt.withAllowAll {
-			outcomeKeys.denyPreferredInsert(anyEgressKey, allowEntry, selectorCache, allFeatures)
-			outcomeKeys.denyPreferredInsert(anyIngressKey, allowEntry, selectorCache, allFeatures)
+			outcomeKeys.denyPreferredInsert(anyEgressKey, allowEntry, allFeatures)
+			outcomeKeys.denyPreferredInsert(anyIngressKey, allowEntry, allFeatures)
 		}
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equals(outcomeKeys), "%s different traffic directions (in reverse) (MapState):\n%s", tt.name, outcomeKeys.Diff(expectedKeys))
@@ -3308,177 +3288,14 @@ func TestMapState_Get_stacktrace(t *testing.T) {
 	assert.False(t, ok)
 }
 
-type validator struct{}
-
-// prefixesContainsAny checks that any subnet in the `a` subnet group *fully*
-// contains any of the subnets in the `b` subnet group.
-func prefixesContainsAny(a, b []netip.Prefix) bool {
-	for _, an := range a {
-		aMask := an.Bits()
-		aIsIPv4 := an.Addr().Is4()
-		for _, bn := range b {
-			bIsIPv4 := bn.Addr().Is4()
-			isSameFamily := aIsIPv4 == bIsIPv4
-			if isSameFamily {
-				bMask := bn.Bits()
-				if bMask >= aMask && an.Contains(bn.Addr()) {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
-// identityIsSupersetOf compares two entries and keys to see if the primary identity contains
-// the compared identity. This means that either that primary identity is 0 (i.e. it is a superset
-// of every other identity), or one of the subnets of the primary identity fully contains or is
-// equal to one of the subnets in the compared identity (note:this covers cases like "reserved:world").
-func identityIsSupersetOf(primaryIdentity, compareIdentity identity.NumericIdentity, identities Identities) bool {
-	// If the identities are equal then neither is a superset (for the purposes of our business logic).
-	if primaryIdentity == compareIdentity {
-		return false
-	}
-
-	// Consider an identity that selects a broader CIDR as a superset of
-	// an identity that selects a narrower CIDR. For instance, an identity
-	// corresponding to 192.0.0.0/16 is a superset of the identity that
-	// corresponds to 192.0.2.3/32.
-	//
-	// The reasons we need to do this are surprisingly complex, taking into
-	// consideration design decisions around the handling of ToFQDNs policy
-	// and how L4PolicyMap/L4Filter structures cache the policies with
-	// respect to specific CIDRs. More specifically:
-	// - At the time of initial L4Filter creation, it is not known which
-	//   specific CIDRs (or corresponding identities) are selected by a
-	//   toFQDNs rule in the policy engine.
-	// - It is possible to have a CIDR deny rule that should deny peers
-	//   that are allowed by a ToFQDNs statement. The precedence rules in
-	//   the API for such policy conflicts define that the deny should take
-	//   precedence.
-	// - Consider a case where there is a deny rule for 192.0.0.0/16 with
-	//   an allow rule for cilium.io, and one of the IP addresses for
-	//   cilium.io is 192.0.2.3.
-	// - If the IP for cilium.io was known at initial policy computation
-	//   time, then we would calculate the MapState from the L4Filters and
-	//   immediately determine that there is a conflict between the
-	//   L4Filter that denies 192.0.0.0/16 vs. the allow for 192.0.2.3.
-	//   From this we could immediately discard the "allow to 192.0.2.3"
-	//   policymap entry during policy calculation. This would satisfy the
-	//   API constraint that deny rules take precedence over allow rules.
-	//   However, this is not the case for ToFQDNs -- the IPs are not known
-	//   until DNS resolution time by the selected application / endpoint.
-	// - In order to make ToFQDNs policy implementation efficient, it uses
-	//   a shorter incremental policy computation path that attempts to
-	//   directly implement the ToFQDNs allow into a MapState entry without
-	//   reaching back up to the L4Filter layer to iterate all selectors
-	//   to determine traffic reachability for this newly learned IP.
-	// - As such, when the new ToFQDNs allow for the 192.0.2.3 IP address
-	//   is implemented, we must iterate back through all existing MapState
-	//   entries to determine whether any of the other map entries already
-	//   denies this traffic by virtue of the IP prefix being a superset of
-	//   this new allow. This allows us to ensure that the broader CIDR
-	//   deny semantics are correctly applied when there is a combination
-	//   of CIDR deny rules and ToFQDNs allow rules.
-	//
-	// An alternative to this approach might be to change the ToFQDNs
-	// policy calculation layer to reference back to the L4Filter layer,
-	// and perhaps introduce additional CIDR caching somewhere there so
-	// that this policy computation can be efficient while handling DNS
-	// responses. As of the writing of this message, such there is no
-	// active proposal to implement this proposal. As a result, any time
-	// there is an incremental policy update for a new map entry, we must
-	// iterate through all entries in the map and re-evaluate superset
-	// relationships for deny entries to ensure that policy precedence is
-	// correctly implemented between the new and old entries, taking into
-	// account whether the identities may represent CIDRs that have a
-	// superset relationship.
-	return primaryIdentity == 0 && compareIdentity != 0 ||
-		prefixesContainsAny(getNets(identities, primaryIdentity),
-			getNets(identities, compareIdentity))
-}
-
-func (v *validator) isSupersetOf(a, d Key, identities Identities) {
-	if a.TrafficDirection() != d.TrafficDirection() {
-		panic("TrafficDirection mismatch")
-	}
-	if !identityIsSupersetOf(a.Identity, d.Identity, identities) {
-		panic(fmt.Sprintf("superset mismatch %s !> %s",
-			identities.GetPrefix(a.Identity).String(),
-			identities.GetPrefix(d.Identity).String()))
-	}
-}
-
-func (v *validator) isSupersetOrSame(a, d Key, identities Identities) {
-	if a.TrafficDirection() != d.TrafficDirection() {
-		panic("TrafficDirection mismatch")
-	}
-	if !(a.Identity == d.Identity ||
-		identityIsSupersetOf(a.Identity, d.Identity, identities)) {
-		panic(fmt.Sprintf("superset or equal mismatch %s !>= %s",
-			identities.GetPrefix(a.Identity).String(),
-			identities.GetPrefix(d.Identity).String()))
-	}
-}
-
-func (v *validator) isAnyOrSame(a, d Key, identities Identities) {
-	if a.TrafficDirection() != d.TrafficDirection() {
-		panic("TrafficDirection mismatch")
-	}
-	if !(a.Identity == d.Identity || a.Identity == 0) {
-		panic(fmt.Sprintf("ANY or equal mismatch %s !>= %s",
-			identities.GetPrefix(a.Identity).String(),
-			identities.GetPrefix(d.Identity).String()))
-	}
-}
-
-func (v *validator) isBroader(a, d Key) {
-	if a.TrafficDirection() != d.TrafficDirection() {
-		panic("TrafficDirection mismatch")
-	}
-
-	// Do not consider non-matching protocols
-	if !protocolsMatch(a, d) || !a.PortProtoIsBroader(d) {
-		panic(fmt.Sprintf("descendant (%v) is not narrower than ancestor (%v)", d, a))
-	}
-}
-
-func (v *validator) isBroaderOrEqual(a, d Key) {
-	if a.TrafficDirection() != d.TrafficDirection() {
-		panic("TrafficDirection mismatch")
-	}
-
-	// Do not consider non-matching protocols
-	if !protocolsMatch(a, d) || !(a.PortProtoIsBroader(d) || a.PortProtoIsEqual(d)) {
-		panic(fmt.Sprintf("descendant (%v) is not narrower than ancestor (%v)", d, a))
-	}
-}
-
+// TestDenyPreferredInsertLogic is now less valuable since we do not have the mapstate
+// validator any more, but may still catch bugs.
 func TestDenyPreferredInsertLogic(t *testing.T) {
 	td := newTestData()
 	td.bootstrapRepo(GenerateCIDRDenyRules, 1000, t)
 	p, _ := td.repo.resolvePolicyLocked(fooIdentity)
 
-	mapState := newMapState()
-	mapState.validator = &validator{} // insert validator
-
-	// This is DistillPolicy, but with MapState validator injected
-	version := p.SelectorCache.GetVersionHandle()
-	epPolicy := &EndpointPolicy{
-		selectorPolicy: p,
-		VersionHandle:  version,
-		policyMapState: mapState,
-		PolicyOwner:    DummyOwner{},
-	}
-
-	if !p.IngressPolicyEnabled || !p.EgressPolicyEnabled {
-		epPolicy.policyMapState.allowAllIdentities(
-			!p.IngressPolicyEnabled, !p.EgressPolicyEnabled)
-	}
-	p.insertUser(epPolicy)
-
-	epPolicy.toMapState()
-	epPolicy.policyMapState.determineAllowLocalhostIngress()
+	epPolicy := p.DistillPolicy(DummyOwner{}, false)
 	epPolicy.Ready()
 
 	n := epPolicy.policyMapState.Len()

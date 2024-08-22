@@ -628,7 +628,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 		if cs.IsWildcard() {
 			for _, keyToAdd := range keysToAdd {
 				keyToAdd.Identity = 0
-				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, features, changes)
 
 				if port == 0 {
 					// Allow-all
@@ -660,15 +660,15 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 		for _, id := range idents {
 			for _, keyToAdd := range keysToAdd {
 				keyToAdd.Identity = id
-				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, features, changes)
 				// If Cilium is in dual-stack mode then the "World" identity
 				// needs to be split into two identities to represent World
 				// IPv6 and IPv4 traffic distinctly from one another.
 				if id == identity.ReservedIdentityWorld && option.Config.IsDualStack() {
 					keyToAdd.Identity = identity.ReservedIdentityWorldIPv4
-					p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+					p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, features, changes)
 					keyToAdd.Identity = identity.ReservedIdentityWorldIPv6
-					p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+					p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, features, changes)
 				}
 			}
 		}
