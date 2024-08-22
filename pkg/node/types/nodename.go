@@ -5,6 +5,7 @@ package types
 
 import (
 	"os"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	k8sConsts "github.com/cilium/cilium/pkg/k8s/constants"
@@ -13,7 +14,9 @@ import (
 )
 
 var (
-	nodeName = "localhost"
+	nodeName             = "localhost"
+	absoluteNodeName     = nodeName
+	absoluteNodeNameOnce sync.Once
 )
 
 // SetName sets the name of the local node. This will overwrite the value that
@@ -24,6 +27,7 @@ var (
 // want to use this function in later stages, a mutex must be added first.
 func SetName(name string) {
 	nodeName = name
+	absoluteNodeName = getAbsoluteNodeName()
 }
 
 // GetName returns the name of the local node. The value returned was either
@@ -37,6 +41,14 @@ func GetName() string {
 // (prefixed)cluster name and the local node name in case of
 // clustered environments otherwise returns the name of the local node.
 func GetAbsoluteNodeName() string {
+	absoluteNodeNameOnce.Do(func() {
+		absoluteNodeName = getAbsoluteNodeName()
+	})
+
+	return absoluteNodeName
+}
+
+func getAbsoluteNodeName() string {
 	if clusterName := GetClusterName(); clusterName != "" {
 		return clusterName + "/" + nodeName
 	} else {
