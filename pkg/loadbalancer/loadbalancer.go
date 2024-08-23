@@ -480,6 +480,14 @@ func (n ServiceName) String() string {
 	return n.Namespace + "/" + n.Name
 }
 
+func (n ServiceName) AppendSuffix(suffix string) ServiceName {
+	return ServiceName{
+		Namespace: n.Namespace,
+		Name:      n.Name + suffix,
+		Cluster:   n.Cluster,
+	}
+}
+
 // BackendID is the backend's ID.
 type BackendID uint32
 

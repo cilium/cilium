@@ -40,28 +40,35 @@ type TestConfig struct {
 	// NodePortAlg mirrors option.Config.NodePortAlg. This can be removed when the NodePort config
 	// flags move away from option.DaemonConfig and can thus be set directly.
 	NodePortAlg string `mapstructure:"node-port-algorithm"`
+
+	// EnableHealthCheckNodePort is defined here to allow script tests to enable this.
+	// Can be removed once this option moves out from DaemonConfig into [Config].
+	EnableHealthCheckNodePort bool `mapstructure:"enable-health-check-nodeport"`
 }
 
 func (def TestConfig) Flags(flags *pflag.FlagSet) {
 	flags.Float32("lb-test-fault-probability", def.TestFaultProbability, "Probability for fault injection in LBMaps")
 	flags.String("node-port-algorithm", option.NodePortAlgRandom, "NodePort algorithm")
+	flags.Bool("enable-health-check-nodeport", false, "Enable the NodePort health check server")
 }
 
 // ExternalConfig are configuration options derived from external sources such as
 // DaemonConfig. This avoids direct access of larger configuration structs.
 type ExternalConfig struct {
-	ExternalClusterIP        bool
-	EnableSessionAffinity    bool
-	NodePortMin, NodePortMax uint16
-	NodePortAlg              string
+	ExternalClusterIP         bool
+	EnableSessionAffinity     bool
+	EnableHealthCheckNodePort bool
+	NodePortMin, NodePortMax  uint16
+	NodePortAlg               string
 }
 
 func newExternalConfig(cfg *option.DaemonConfig) ExternalConfig {
 	return ExternalConfig{
-		ExternalClusterIP:     cfg.ExternalClusterIP,
-		EnableSessionAffinity: cfg.EnableSessionAffinity,
-		NodePortMin:           uint16(cfg.NodePortMin),
-		NodePortMax:           uint16(cfg.NodePortMax),
-		NodePortAlg:           cfg.NodePortAlg,
+		ExternalClusterIP:         cfg.ExternalClusterIP,
+		EnableSessionAffinity:     cfg.EnableSessionAffinity,
+		EnableHealthCheckNodePort: cfg.EnableHealthCheckNodePort,
+		NodePortMin:               uint16(cfg.NodePortMin),
+		NodePortMax:               uint16(cfg.NodePortMax),
+		NodePortAlg:               cfg.NodePortAlg,
 	}
 }
