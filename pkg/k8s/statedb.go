@@ -6,6 +6,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -17,10 +18,40 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
+
+// OnDemandTable provides an "on-demand" table of Kubernetes-derived objects.
+// The table is not populated until it is first acquired. The table is cleared when
+// last reference is released.
+func OnDemandTable[Obj any](jobs job.Registry, health cell.Health, log *slog.Logger, db *statedb.DB, cfg ReflectorConfig[Obj]) (hive.OnDemand[statedb.Table[Obj]], error) {
+	// Job group for the reflector that will be started when the table
+	// is acquired.
+	jg := jobs.NewGroup(
+		health,
+		job.WithLogger(log),
+	)
+
+	// If no ListerWatcher is given we assume that reflection is not wanted.
+	if cfg.ListerWatcher == nil {
+		return hive.NewStaticOnDemand(cfg.Table.ToTable()), nil
+	}
+
+	cfg.ClearTableOnStop = true
+	err := RegisterReflector(jg, db, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return hive.NewOnDemand(
+		log,
+		cfg.Table.ToTable(),
+		jg,
+	), nil
+}
 
 // RegisterReflector registers a Kubernetes to StateDB table reflector.
 //
@@ -100,6 +131,10 @@ type ReflectorConfig[Obj any] struct {
 	// Optional promise for waiting for the CRD referenced by the [ListerWatcher] to
 	// be registered.
 	CRDSync promise.Promise[synced.CRDSync]
+
+	// ClearTableOnStop if true will cause all inserted objects to be deleted (using QueryAll)
+	// when the reflector is stopped. Set automatically by OnDemandReflector.
+	ClearTableOnStop bool
 }
 
 // JobName returns the name of the background reflector job.
@@ -348,7 +383,18 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 			close(errs)
 		},
 	)
-	return <-errs
+	err := <-errs
+
+	if r.ClearTableOnStop {
+		txn := r.db.WriteTxn(table)
+		iter := queryAll(txn, table)
+		for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
+			table.Delete(txn, obj)
+		}
+		txn.Commit()
+	}
+
+	return err
 }
 
 // ListerWatcherToObservable turns a ListerWatcher into an observable using the

@@ -374,6 +374,109 @@ func TestStateDBReflector_jobName(t *testing.T) {
 	)
 }
 
+func TestOnDemandTable(t *testing.T) {
+	obj := &testObject{
+		PartialObjectMetadata: metav1.PartialObjectMetadata{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+			},
+		},
+	}
+	lw := testutils.NewFakeListerWatcher(obj.DeepCopy())
+
+	var (
+		db     *statedb.DB
+		wtbl   statedb.RWTable[*testObject]
+		otable hive.OnDemand[statedb.Table[*testObject]]
+	)
+
+	hive := hive.New(
+		cell.Module("test", "test",
+			cell.ProvidePrivate(
+				func(tbl statedb.RWTable[*testObject]) k8s.ReflectorConfig[*testObject] {
+					wtbl = tbl
+					return k8s.ReflectorConfig[*testObject]{
+						Name:           "test",
+						Table:          tbl,
+						BufferSize:     10,
+						BufferWaitTime: time.Millisecond,
+						ListerWatcher:  lw,
+					}
+				},
+				newTestTable,
+				k8s.OnDemandTable[*testObject],
+			),
+			cell.Invoke(
+				func(db_ *statedb.DB, tbl hive.OnDemand[statedb.Table[*testObject]]) {
+					db = db_
+					otable = tbl
+				},
+			),
+		),
+	)
+
+	tlog := hivetest.Logger(t)
+	ctx := context.TODO()
+	require.NoError(t, hive.Start(tlog, ctx), "Start")
+
+	require.NotNil(t, otable)
+
+	// Table is not populated before it is acquired.
+	assert.Zero(t, wtbl.NumObjects(db.ReadTxn()), "expected empty table")
+
+	// Acquiring the table starts the reflector.
+	table, err := otable.Acquire(ctx)
+	assert.NoError(t, err, "Acquire")
+	require.NotNil(t, table)
+
+	// The initial object is inserted into the table now that we acquired
+	// it.
+	assert.Eventually(
+		t, func() bool { return table.NumObjects(db.ReadTxn()) == 1 },
+		5*time.Second, 10*time.Millisecond,
+		"Table not populated after Acquire",
+	)
+
+	obj2 := obj.DeepCopy()
+	obj2.Name = "test2"
+	lw.Upsert(obj2)
+
+	// Test with another acquired table.
+	table2, err := otable.Acquire(ctx)
+	assert.NoError(t, err)
+	require.Same(t, table, table2)
+
+	assert.Eventually(
+		t, func() bool { return table2.NumObjects(db.ReadTxn()) == 2 },
+		5*time.Second, 10*time.Millisecond,
+		"Second object not added",
+	)
+
+	// Release the second one. This does not yet stop the reflection.
+	otable.Release(table2)
+
+	obj3 := obj.DeepCopy()
+	obj3.Name = "test3"
+	lw.Upsert(obj3)
+
+	assert.Eventually(
+		t, func() bool { return table2.NumObjects(db.ReadTxn()) == 3 },
+		5*time.Second, 10*time.Millisecond,
+		"Third object not added after release of table",
+	)
+
+	// Release the last one. This stops the reflection and clears the table.
+	otable.Release(table)
+
+	assert.Eventually(
+		t, func() bool { return wtbl.NumObjects(db.ReadTxn()) == 0 },
+		5*time.Second, 10*time.Millisecond,
+		"Table not cleared after all have been released",
+	)
+
+	assert.NoError(t, hive.Stop(tlog, ctx), "Stop")
+}
+
 func BenchmarkStateDBReflector(b *testing.B) {
 	var (
 		db    *statedb.DB
