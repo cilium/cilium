@@ -21,8 +21,10 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -113,12 +115,18 @@ type reflectorTestParams struct {
 	doTransformMany bool
 	doQueryAll      bool
 	doMerge         bool
+	doCRDSync       bool
 }
 
 func TestStateDBReflector(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
 		testStateDBReflector(t, reflectorTestParams{})
 	})
+
+	t.Run("crdsync", func(t *testing.T) {
+		testStateDBReflector(t, reflectorTestParams{doCRDSync: true})
+	})
+
 	t.Run("Transform", func(t *testing.T) {
 		testStateDBReflector(t, reflectorTestParams{
 			doTransform: true,
@@ -209,6 +217,12 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 		}
 	}
 
+	var crdSyncPromise promise.Promise[synced.CRDSync]
+	var crdSyncResolver promise.Resolver[synced.CRDSync]
+	if p.doCRDSync {
+		crdSyncResolver, crdSyncPromise = promise.New[synced.CRDSync]()
+	}
+
 	hive := hive.New(
 		cell.Module("test", "test",
 			cell.ProvidePrivate(
@@ -223,6 +237,7 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 						TransformMany:  transformManyFunc,
 						QueryAll:       queryAllFunc,
 						Merge:          mergeFunc,
+						CRDSync:        crdSyncPromise,
 					}
 				},
 				newTestTable,
@@ -249,6 +264,13 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	tlog := hivetest.Logger(t)
 	if err := hive.Start(tlog, ctx); err != nil {
 		t.Fatalf("hive.Start failed: %s", err)
+	}
+
+	if p.doCRDSync {
+		// With CRDSync promise not resolved yet the reflector is not running
+		// and thus table should not be initialized.
+		require.False(t, table.Initialized(db.ReadTxn()), "table unexpectedly initialized with unresolved CRDSync")
+		crdSyncResolver.Resolve(synced.CRDSync{})
 	}
 
 	// Wait until the table has been initialized.

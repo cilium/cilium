@@ -16,6 +16,8 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 
+	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -93,6 +95,10 @@ type ReflectorConfig[Obj any] struct {
 	// Optional function to merge the new object with an existing object in the target
 	// table.
 	Merge MergeFunc[Obj]
+
+	// Optional promise for waiting for the CRD referenced by the [ListerWatcher] to
+	// be registered.
+	CRDSync promise.Promise[synced.CRDSync]
 }
 
 // JobName returns the name of the background reflector job.
@@ -125,6 +131,8 @@ type MergeFunc[Obj any] func(old Obj, new Obj) Obj
 
 const (
 	// DefaultBufferSize is the maximum number of objects to commit to the table in one write transaction.
+	// This limit does not apply to the initial listing (Replace()) which commits all listed objects in one
+	// transaction.
 	DefaultBufferSize = 10000
 
 	// DefaultBufferWaitTime is the amount of time to wait to fill the buffer before committing objects.
@@ -174,6 +182,14 @@ type k8sReflector[Obj any] struct {
 }
 
 func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
+	if r.CRDSync != nil {
+		// Wait for the CRD to be registered.
+		health.OK("Waiting for CRD registration")
+		if _, err := r.CRDSync.Await(ctx); err != nil {
+			return err
+		}
+	}
+
 	type entry struct {
 		deleted   bool
 		name      string
