@@ -45,7 +45,7 @@ spec:
 # L4 CIDR policy
   - toCIDR:
   {{ range $index := Loop $CIDRs }}
-    - 177.{{RandIntRange 0 256}}.{{RandIntRange 1 255}}.{{RandIntRange 1 255}}/32
+    - 177.{{RandIntRange 0 255}}.{{RandIntRange 1 255}}.{{RandIntRange 1 255}}/32
   {{ end }}
     toPorts:
     - ports:
