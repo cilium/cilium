@@ -101,7 +101,7 @@ jobs:
         include:
           - name: '1'
             tunnel: 'disabled'
-            ipfamily: 'ipv4'
+            ipFamily: 'ipv4'
             encryption: 'disabled'
             kube-proxy: 'iptables'
             mode: 'kvstoremesh'
@@ -113,7 +113,7 @@ jobs:
 
           - name: '2'
             tunnel: 'disabled'
-            ipfamily: 'dual'
+            ipFamily: 'dual'
             encryption: 'wireguard'
             kube-proxy: 'none'
             mode: 'clustermesh'
@@ -126,7 +126,7 @@ jobs:
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '3'
             tunnel: 'disabled'
-            ipfamily: 'dual'
+            ipFamily: 'dual'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
             mode: 'kvstoremesh'
@@ -140,7 +140,7 @@ jobs:
           # Wireguard encryption is currently affected by a bug in case of ipv6-only clusters (#23917)
           - name: '4'
             tunnel: 'disabled'
-            ipfamily: 'ipv6'
+            ipFamily: 'ipv6'
             encryption: 'disabled'
             kube-proxy: 'none'
             mode: 'clustermesh'
@@ -153,7 +153,7 @@ jobs:
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '5'
             tunnel: 'disabled'
-            ipfamily: 'dual'
+            ipFamily: 'dual'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
             mode: 'external'
@@ -163,7 +163,7 @@ jobs:
 
           - name: '6'
             tunnel: 'vxlan'
-            ipfamily: 'ipv4'
+            ipFamily: 'ipv4'
             encryption: 'disabled'
             kube-proxy: 'none'
             mode: 'clustermesh'
@@ -175,7 +175,7 @@ jobs:
 
           - name: '7'
             tunnel: 'geneve'
-            ipfamily: 'dual'
+            ipFamily: 'dual'
             encryption: 'wireguard'
             kube-proxy: 'iptables'
             mode: 'kvstoremesh'
@@ -188,7 +188,7 @@ jobs:
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '8'
             tunnel: 'vxlan'
-            ipfamily: 'dual'
+            ipFamily: 'dual'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
             mode: 'clustermesh'
@@ -201,7 +201,7 @@ jobs:
         # Tunneling is currently not supported in case of ipv6-only clusters (#17240)
         #  - name: '9'
         #    tunnel: 'vxlan'
-        #    ipfamily: 'ipv6'
+        #    ipFamily: 'ipv6'
         #    encryption: 'disabled'
         #    kube-proxy: 'none'
         #    mode: 'kvstoremesh'
@@ -211,7 +211,7 @@ jobs:
 
           - name: '10'
             tunnel: 'vxlan'
-            ipfamily: 'dual'
+            ipFamily: 'dual'
             encryption: 'wireguard'
             kube-proxy: 'iptables'
             mode: 'external'
