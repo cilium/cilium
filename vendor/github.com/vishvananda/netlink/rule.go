@@ -10,8 +10,8 @@ type Rule struct {
 	Priority          int
 	Family            int
 	Table             int
-	Mark              int
-	Mask              int
+	Mark              uint32
+	Mask              *uint32
 	Tos               uint
 	TunID             uint
 	Goto              int
@@ -51,8 +51,8 @@ func NewRule() *Rule {
 		SuppressIfgroup:   -1,
 		SuppressPrefixlen: -1,
 		Priority:          -1,
-		Mark:              -1,
-		Mask:              -1,
+		Mark:              0,
+		Mask:              nil,
 		Goto:              -1,
 		Flow:              -1,
 	}

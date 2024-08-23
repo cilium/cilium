@@ -488,10 +488,30 @@ func (req *NetlinkRequest) AddRawData(data []byte) {
 	req.RawData = append(req.RawData, data...)
 }
 
-// Execute the request against a the given sockType.
+// Execute the request against the given sockType.
 // Returns a list of netlink messages in serialized format, optionally filtered
 // by resType.
 func (req *NetlinkRequest) Execute(sockType int, resType uint16) ([][]byte, error) {
+	var res [][]byte
+	err := req.ExecuteIter(sockType, resType, func(msg []byte) bool {
+		res = append(res, msg)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// ExecuteIter executes the request against the given sockType.
+// Calls the provided callback func once for each netlink message.
+// If the callback returns false, it is not called again, but
+// the remaining messages are consumed/discarded.
+//
+// Thread safety: ExecuteIter holds a lock on the socket until
+// it finishes iteration so the callback must not call back into
+// the netlink API.
+func (req *NetlinkRequest) ExecuteIter(sockType int, resType uint16, f func(msg []byte) bool) error {
 	var (
 		s   *NetlinkSocket
 		err error
@@ -508,18 +528,18 @@ func (req *NetlinkRequest) Execute(sockType int, resType uint16) ([][]byte, erro
 	if s == nil {
 		s, err = getNetlinkSocket(sockType)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if err := s.SetSendTimeout(&SocketTimeoutTv); err != nil {
-			return nil, err
+			return err
 		}
 		if err := s.SetReceiveTimeout(&SocketTimeoutTv); err != nil {
-			return nil, err
+			return err
 		}
 		if EnableErrorMessageReporting {
 			if err := s.SetExtAck(true); err != nil {
-				return nil, err
+				return err
 			}
 		}
 
@@ -530,38 +550,36 @@ func (req *NetlinkRequest) Execute(sockType int, resType uint16) ([][]byte, erro
 	}
 
 	if err := s.Send(req); err != nil {
-		return nil, err
+		return err
 	}
 
 	pid, err := s.GetPid()
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	var res [][]byte
 
 done:
 	for {
 		msgs, from, err := s.Receive()
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if from.Pid != PidKernel {
-			return nil, fmt.Errorf("Wrong sender portid %d, expected %d", from.Pid, PidKernel)
+			return fmt.Errorf("Wrong sender portid %d, expected %d", from.Pid, PidKernel)
 		}
 		for _, m := range msgs {
 			if m.Header.Seq != req.Seq {
 				if sharedSocket {
 					continue
 				}
-				return nil, fmt.Errorf("Wrong Seq nr %d, expected %d", m.Header.Seq, req.Seq)
+				return fmt.Errorf("Wrong Seq nr %d, expected %d", m.Header.Seq, req.Seq)
 			}
 			if m.Header.Pid != pid {
 				continue
 			}
 
 			if m.Header.Flags&unix.NLM_F_DUMP_INTR != 0 {
-				return nil, syscall.Errno(unix.EINTR)
+				return syscall.Errno(unix.EINTR)
 			}
 
 			if m.Header.Type == unix.NLMSG_DONE || m.Header.Type == unix.NLMSG_ERROR {
@@ -600,18 +618,26 @@ done:
 					}
 				}
 
-				return nil, err
+				return err
 			}
 			if resType != 0 && m.Header.Type != resType {
 				continue
 			}
-			res = append(res, m.Data)
+			if cont := f(m.Data); !cont {
+				// Drain the rest of the messages from the kernel but don't
+				// pass them to the iterator func.
+				f = dummyMsgIterFunc
+			}
 			if m.Header.Flags&unix.NLM_F_MULTI == 0 {
 				break done
 			}
 		}
 	}
-	return res, nil
+	return nil
+}
+
+func dummyMsgIterFunc(msg []byte) bool {
+	return true
 }
 
 // Create a new netlink request from proto and flags
@@ -883,6 +909,12 @@ func Uint16Attr(v uint16) []byte {
 	return bytes
 }
 
+func BEUint16Attr(v uint16) []byte {
+	bytes := make([]byte, 2)
+	binary.BigEndian.PutUint16(bytes, v)
+	return bytes
+}
+
 func Uint32Attr(v uint32) []byte {
 	native := NativeEndian()
 	bytes := make([]byte, 4)
@@ -890,10 +922,22 @@ func Uint32Attr(v uint32) []byte {
 	return bytes
 }
 
+func BEUint32Attr(v uint32) []byte {
+	bytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(bytes, v)
+	return bytes
+}
+
 func Uint64Attr(v uint64) []byte {
 	native := NativeEndian()
 	bytes := make([]byte, 8)
 	native.PutUint64(bytes, v)
+	return bytes
+}
+
+func BEUint64Attr(v uint64) []byte {
+	bytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(bytes, v)
 	return bytes
 }
 

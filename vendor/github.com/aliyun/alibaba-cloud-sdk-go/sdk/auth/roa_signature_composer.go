@@ -53,6 +53,7 @@ func signRoaRequest(request requests.AcsRequest, credentialsProvider credentials
 
 func completeROASignParams(request requests.AcsRequest, cc *credentials.Credentials) {
 	headerParams := request.GetHeaders()
+	headerParams["x-acs-credentials-provider"] = cc.ProviderName
 
 	if cc.SecurityToken != "" {
 		headerParams["x-acs-security-token"] = cc.SecurityToken
