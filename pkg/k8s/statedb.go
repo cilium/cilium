@@ -6,6 +6,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -103,8 +104,12 @@ type ReflectorConfig[Obj any] struct {
 
 // JobName returns the name of the background reflector job.
 func (cfg ReflectorConfig[Obj]) JobName() string {
-	var obj Obj
-	return fmt.Sprintf("k8s-reflector[%T]/%s", obj, cfg.Name)
+	objType := reflect.TypeFor[Obj]()
+	if objType.Kind() == reflect.Pointer {
+		objType = objType.Elem()
+	}
+
+	return fmt.Sprintf("k8s-reflector[%s]-%s", objType.Name(), cfg.Name)
 }
 
 // TransformFunc is an optional function to give to the Kubernetes reflector

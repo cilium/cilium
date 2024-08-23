@@ -361,8 +361,16 @@ func TestStateDBReflector_jobName(t *testing.T) {
 	}
 	assert.Equal(
 		t,
-		"k8s-reflector[v1.Node]/test",
+		"k8s-reflector[Node]-test",
 		cfg.JobName(),
+	)
+	cfg2 := k8s.ReflectorConfig[*corev1.Node]{
+		Name: "test",
+	}
+	assert.Equal(
+		t,
+		"k8s-reflector[Node]-test",
+		cfg2.JobName(),
 	)
 }
 
