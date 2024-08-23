@@ -17,7 +17,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 
-	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	dptypes "github.com/cilium/cilium/pkg/datapath/types"
@@ -35,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
-	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -118,34 +116,6 @@ func (e *Endpoint) LookupRedirectPort(ingress bool, protocol string, port uint16
 		return 0, unrealizedRedirect
 	}
 	return proxyPort, nil
-}
-
-// Note that this function assumes that endpoint policy has already been generated!
-// must be called with endpoint.mutex held for reading
-func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (reterr error, revertFunc revert.RevertFunc) {
-	// Skip updating the NetworkPolicy if no identity has been computed for this
-	// endpoint.
-	if e.SecurityIdentity == nil {
-		return nil, nil
-	}
-
-	// If desired policy is nil then no policy change is needed.
-	if e.desiredPolicy == nil {
-		return nil, nil
-	}
-
-	// Need a valid handle to be able to update the network policy, get one if needed
-	if !e.desiredPolicy.VersionHandle.IsValid() {
-		e.desiredPolicy.VersionHandle = e.desiredPolicy.SelectorCache.GetVersionHandle()
-		defer e.desiredPolicy.Ready()
-	}
-
-	if e.IsProxyDisabled() {
-		return nil, nil
-	}
-
-	// Publish the updated policy to L7 proxies.
-	return e.proxy.UpdateNetworkPolicy(e, &e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, proxyWaitGroup)
 }
 
 // setNextPolicyRevision updates the desired policy revision field
