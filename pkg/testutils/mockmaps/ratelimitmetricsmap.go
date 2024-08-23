@@ -10,8 +10,8 @@ import (
 // RatelimitMetricsRecord designates a map entry (key + value).
 // This type is used for mock maps.
 type RatelimitMetricsRecord struct {
-	Key   ratelimitmap.Key
-	Value ratelimitmap.Value
+	Key   ratelimitmap.MetricsKey
+	Value ratelimitmap.MetricsValue
 }
 
 // RatelimitMetricsMockMap implements the RatelimitMetricsMap interface and can be used for unit tests.

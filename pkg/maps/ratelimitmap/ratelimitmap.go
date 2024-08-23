@@ -26,7 +26,7 @@ var Cell = cell.Module(
 // DumpCallback represents the signature of the callback function expected by
 // the DumpWithCallback method, which in turn is used to iterate all the
 // keys/values of a ratelimit metrics map.
-type DumpCallback func(*Key, *Value)
+type DumpCallback func(*MetricsKey, *MetricsValue)
 
 // RatelimitMetricsMap interface represents a ratelimit metrics map, and can be reused
 // to implement mock maps for unit tests.
@@ -39,24 +39,24 @@ type ratelimitMetricsMap struct {
 }
 
 var (
-	// RatelimitMetrics is the bpf ratelimit metrics map.
-	RatelimitMetrics = ratelimitMetricsMap{bpf.NewMap(
-		MapName,
+	// ratelimitMetrics is the bpf ratelimit metrics map.
+	ratelimitMetrics = ratelimitMetricsMap{bpf.NewMap(
+		MetricsMapName,
 		ebpf.Hash,
-		&Key{},
-		&Value{},
-		MaxEntries,
+		&MetricsKey{},
+		&MetricsValue{},
+		MaxMetricsEntries,
 		0,
 	)}
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ratelimit-map-metrics")
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ratelimit-map")
 )
 
 const (
-	// MapName for ratelimit metrics map.
-	MapName = "cilium_ratelimit_metrics"
-	// MaxEntries is the maximum number of keys that can be present in the
+	// MetricsMapName for ratelimit metrics map.
+	MetricsMapName = "cilium_ratelimit_metrics"
+	// MaxMetricsEntries is the maximum number of keys that can be present in the
 	// Ratelimit Metrics Map.
-	MaxEntries = 64
+	MaxMetricsEntries = 64
 )
 
 // usageType represents source of ratelimiter usage in datapath code.
@@ -79,32 +79,32 @@ func (t usageType) String() string {
 	return ""
 }
 
-// Key must be in sync with struct ratelimit_metrics_key in <bpf/lib/ratelimit.h>
-type Key struct {
+// MetricsKey must be in sync with struct ratelimit_metrics_key in <bpf/lib/ratelimit.h>
+type MetricsKey struct {
 	Usage usageType `align:"usage"`
 }
 
-func (k *Key) New() bpf.MapKey {
-	return &Key{}
+func (k *MetricsKey) New() bpf.MapKey {
+	return &MetricsKey{}
 }
 
-func (k *Key) String() string {
+func (k *MetricsKey) String() string {
 	if k == nil {
 		return ""
 	}
 	return fmt.Sprintf("%d", k.Usage)
 }
 
-// Value must be in sync with struct ratelimit_metrics_value in <bpf/lib/ratelimit.h>
-type Value struct {
+// MetricsValue must be in sync with struct ratelimit_metrics_value in <bpf/lib/ratelimit.h>
+type MetricsValue struct {
 	Dropped uint64 `align:"dropped"`
 }
 
-func (v *Value) New() bpf.MapValue {
-	return &Value{}
+func (v *MetricsValue) New() bpf.MapValue {
+	return &MetricsValue{}
 }
 
-func (v *Value) String() string {
+func (v *MetricsValue) String() string {
 	if v == nil {
 		return ""
 	}
@@ -115,8 +115,8 @@ func (v *Value) String() string {
 // passing each key/value pair to the cb callback
 func (rm ratelimitMetricsMap) DumpWithCallback(cb DumpCallback) error {
 	return rm.Map.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
-		key := k.(*Key)
-		value := v.(*Value)
+		key := k.(*MetricsKey)
+		value := v.(*MetricsValue)
 		cb(key, value)
 	})
 }
@@ -144,7 +144,7 @@ func (rc *ratelimitMetricsMapCollector) Collect(ch chan<- prometheus.Metric) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
 
-	err := RatelimitMetrics.DumpWithCallback(func(k *Key, val *Value) {
+	err := ratelimitMetrics.DumpWithCallback(func(k *MetricsKey, val *MetricsValue) {
 		rc.droppedMap[k.Usage] = float64(val.Dropped)
 	})
 	if err != nil {
@@ -171,4 +171,8 @@ func RegisterCollector() {
 		log.WithError(err).Error("Failed to register ratelimit metrics map collector to Prometheus registry. " +
 			"BPF ratelimit metrics will not be collected")
 	}
+}
+
+func InitMaps() error {
+	return ratelimitMetrics.OpenOrCreate()
 }
