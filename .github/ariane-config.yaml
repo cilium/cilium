@@ -113,7 +113,7 @@ workflows:
   conformance-gateway-api.yaml:
     paths-ignore-regex: (test|Documentation|hubble)/
   conformance-ginkgo.yaml:
-    paths-ignore-regex: Documentation/
+    paths-ignore-regex: (cilium-cli|Documentation)/
   conformance-gke.yaml:
     paths-ignore-regex: (test|Documentation|hubble)/
   conformance-ingress.yaml:
@@ -121,7 +121,7 @@ workflows:
   conformance-multi-pool.yaml:
     paths-ignore-regex: (test|Documentation|hubble)/
   conformance-runtime.yaml:
-    paths-ignore-regex: Documentation/
+    paths-ignore-regex: (cilium-cli|Documentation)/
   integration-test.yaml:
     paths-ignore-regex: Documentation/
   tests-clustermesh-upgrade.yaml:
