@@ -1335,3 +1335,30 @@ func TestDaemonConfig_StoreInFile(t *testing.T) {
 	assert.NoError(t, err)
 	Config.Opts.Delete("unit-test-key-only")
 }
+
+func stringToStringFlag(t *testing.T, name string) *flag.Flag {
+	var value map[string]string
+	fs := flag.NewFlagSet("cilium-agent", flag.PanicOnError)
+	fs.StringToString(name, value, "")
+	flag := fs.Lookup(name)
+	assert.NotNil(t, flag)
+	assert.Equal(t, flag.Value.Type(), "stringToString")
+	return flag
+}
+
+func TestApiRateLimitValidation(t *testing.T) {
+	const name = "api-rate-limit"
+	apiRateLimit := stringToStringFlag(t, name)
+	// This negative test checks that validateConfigMapFlag effectively works and rejects invalid values.
+	assert.Error(t, validateConfigMapFlag(apiRateLimit, name, 99), "must reject invalid values")
+	// These positive tests are regression tests, making sure validateConfigMapFlag accepts valid input.
+	assert.NoError(t, validateConfigMapFlag(apiRateLimit, name, "endpoint-create=rate-limit:100/s,rate-burst:300,max-wait-duration:60s,parallel-requests:300,log:true"), "must accept comma separated key value pairs")
+	assert.NoError(t, validateConfigMapFlag(apiRateLimit, name, "{}"), "must accept empty JSON object")
+	assert.NoError(t, validateConfigMapFlag(apiRateLimit, name, `{                                 
+		"endpoint-create": "auto-adjust:true,estimated-processing-duration:200ms,rate-limit:16/s,rate-burst:32,min-parallel-requests:16,max-parallel-requests:128,log:false", 
+		"endpoint-delete": "auto-adjust:true,estimated-processing-duration:200ms,rate-limit:16/s,rate-burst:32,min-parallel-requests:16,max-parallel-requests:128,log:false", 
+		"endpoint-get": "auto-adjust:true,estimated-processing-duration:100ms,rate-limit:16/s,rate-burst:32,min-parallel-requests:8,max-parallel-requests:16,log:false", 
+		"endpoint-list": "auto-adjust:true,estimated-processing-duration:300ms,rate-limit:16/s,rate-burst:32,min-parallel-requests:8,max-parallel-requests:16,log:false", 
+		"endpoint-patch": "auto-adjust:true,estimated-processing-duration:200ms,rate-limit:16/s,rate-burst:32,min-parallel-requests:16,max-parallel-requests:128,log:false"
+		}`), "must accept JSON object")
+}
