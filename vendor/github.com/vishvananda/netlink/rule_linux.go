@@ -102,14 +102,14 @@ func ruleHandle(rule *Rule, req *nl.NetlinkRequest) error {
 		native.PutUint32(b, uint32(rule.Priority))
 		req.AddData(nl.NewRtAttr(nl.FRA_PRIORITY, b))
 	}
-	if rule.Mark >= 0 {
+	if rule.Mark != 0 || rule.Mask != nil {
 		b := make([]byte, 4)
-		native.PutUint32(b, uint32(rule.Mark))
+		native.PutUint32(b, rule.Mark)
 		req.AddData(nl.NewRtAttr(nl.FRA_FWMARK, b))
 	}
-	if rule.Mask >= 0 {
+	if rule.Mask != nil {
 		b := make([]byte, 4)
-		native.PutUint32(b, uint32(rule.Mask))
+		native.PutUint32(b, *rule.Mask)
 		req.AddData(nl.NewRtAttr(nl.FRA_FWMASK, b))
 	}
 	if rule.Flow >= 0 {
@@ -242,9 +242,10 @@ func (h *Handle) RuleListFiltered(family int, filter *Rule, filterMask uint64) (
 					Mask: net.CIDRMask(int(msg.Dst_len), 8*len(attrs[j].Value)),
 				}
 			case nl.FRA_FWMARK:
-				rule.Mark = int(native.Uint32(attrs[j].Value[0:4]))
+				rule.Mark = native.Uint32(attrs[j].Value[0:4])
 			case nl.FRA_FWMASK:
-				rule.Mask = int(native.Uint32(attrs[j].Value[0:4]))
+				mask := native.Uint32(attrs[j].Value[0:4])
+				rule.Mask = &mask
 			case nl.FRA_TUN_ID:
 				rule.TunID = uint(native.Uint64(attrs[j].Value[0:8]))
 			case nl.FRA_IIFNAME:
@@ -297,7 +298,7 @@ func (h *Handle) RuleListFiltered(family int, filter *Rule, filterMask uint64) (
 				continue
 			case filterMask&RT_FILTER_MARK != 0 && rule.Mark != filter.Mark:
 				continue
-			case filterMask&RT_FILTER_MASK != 0 && rule.Mask != filter.Mask:
+			case filterMask&RT_FILTER_MASK != 0 && !ptrEqual(rule.Mask, filter.Mask):
 				continue
 			}
 		}
@@ -320,4 +321,14 @@ func (pr *RuleUIDRange) toRtAttrData() []byte {
 	native.PutUint32(b[0], pr.Start)
 	native.PutUint32(b[1], pr.End)
 	return bytes.Join(b, []byte{})
+}
+
+func ptrEqual(a, b *uint32) bool {
+	if a == b {
+		return true
+	}
+	if (a == nil) || (b == nil) {
+		return false
+	}
+	return *a == *b
 }

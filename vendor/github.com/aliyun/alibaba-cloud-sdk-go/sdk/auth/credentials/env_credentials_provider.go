@@ -29,17 +29,16 @@ func (provider *EnvironmentVariableCredentialsProvider) GetCredentials() (cc *Cr
 
 	securityToken := os.Getenv("ALIBABA_CLOUD_SECURITY_TOKEN")
 
-	if securityToken == "" {
-		cc = &Credentials{
-			AccessKeyId:     accessKeyId,
-			AccessKeySecret: accessKeySecret,
-		}
-	} else {
-		cc = &Credentials{
-			AccessKeyId:     accessKeyId,
-			AccessKeySecret: accessKeySecret,
-			SecurityToken:   securityToken,
-		}
+	cc = &Credentials{
+		AccessKeyId:     accessKeyId,
+		AccessKeySecret: accessKeySecret,
+		SecurityToken:   securityToken,
+		ProviderName:    provider.GetProviderName(),
 	}
+
 	return
+}
+
+func (provider *EnvironmentVariableCredentialsProvider) GetProviderName() string {
+	return "env"
 }

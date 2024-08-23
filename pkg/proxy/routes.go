@@ -22,7 +22,7 @@ var (
 		// table 255 to pref 100 during startup, to create space to insert its own
 		// rules between 0-99.
 		Priority: linux_defaults.RulePriorityToProxyIngress,
-		Mark:     int(linux_defaults.MagicMarkIsToProxy),
+		Mark:     linux_defaults.MagicMarkIsToProxy,
 		Mask:     linux_defaults.MagicMarkHostMask,
 		Table:    linux_defaults.RouteTableToProxy,
 		Protocol: linux_defaults.RTProto,
