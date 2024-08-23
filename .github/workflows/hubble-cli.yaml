@@ -1,7 +1,11 @@
 name: Hubble CLI tests
 
 on:
-  pull_request: {}
+  pull_request:
+    paths-ignore:
+      - 'cilium-cli/**'
+      - 'Documentation/**'
+      - 'test/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
