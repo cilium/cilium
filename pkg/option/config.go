@@ -29,6 +29,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
@@ -4166,6 +4167,52 @@ func sanitizeIntParam(vp *viper.Viper, paramName string, paramDefault int) int {
 	return intParam
 }
 
+func validateConfigMapFlag(flag *pflag.Flag, key string, value interface{}) error {
+	var err error
+	switch t := flag.Value.Type(); t {
+	case "bool":
+		_, err = cast.ToBoolE(value)
+	case "duration":
+		_, err = cast.ToDurationE(value)
+	case "float32":
+		_, err = cast.ToFloat32E(value)
+	case "float64":
+		_, err = cast.ToFloat64E(value)
+	case "int":
+		_, err = cast.ToIntE(value)
+	case "int8":
+		_, err = cast.ToInt8E(value)
+	case "int16":
+		_, err = cast.ToInt16E(value)
+	case "int32":
+		_, err = cast.ToInt32E(value)
+	case "int64":
+		_, err = cast.ToInt64E(value)
+	case "map":
+		// custom type, see pkg/option/map_options.go
+		err = flag.Value.Set(fmt.Sprintf("%s", value))
+	case "stringSlice":
+		_, err = cast.ToStringSliceE(value)
+	case "string":
+		_, err = cast.ToStringE(value)
+	case "uint":
+		_, err = cast.ToUintE(value)
+	case "uint8":
+		_, err = cast.ToUint8E(value)
+	case "uint16":
+		_, err = cast.ToUint16E(value)
+	case "uint32":
+		_, err = cast.ToUint32E(value)
+	case "uint64":
+		_, err = cast.ToUint64E(value)
+	case "stringToString":
+		_, err = command.ToStringMapStringE(value)
+	default:
+		log.Warnf("Unable to validate option %s value of type %s", key, t)
+	}
+	return err
+}
+
 // validateConfigMap checks whether the flag exists and validate its value
 func validateConfigMap(cmd *cobra.Command, m map[string]interface{}) error {
 	flags := cmd.Flags()
@@ -4175,56 +4222,11 @@ func validateConfigMap(cmd *cobra.Command, m map[string]interface{}) error {
 		if flag == nil {
 			continue
 		}
-
-		var err error
-
-		switch t := flag.Value.Type(); t {
-		case "bool":
-			_, err = cast.ToBoolE(value)
-		case "duration":
-			_, err = cast.ToDurationE(value)
-		case "float32":
-			_, err = cast.ToFloat32E(value)
-		case "float64":
-			_, err = cast.ToFloat64E(value)
-		case "int":
-			_, err = cast.ToIntE(value)
-		case "int8":
-			_, err = cast.ToInt8E(value)
-		case "int16":
-			_, err = cast.ToInt16E(value)
-		case "int32":
-			_, err = cast.ToInt32E(value)
-		case "int64":
-			_, err = cast.ToInt64E(value)
-		case "map":
-			// custom type, see pkg/option/map_options.go
-			err = flag.Value.Set(fmt.Sprintf("%s", value))
-		case "stringSlice":
-			_, err = cast.ToStringSliceE(value)
-		case "string":
-			_, err = cast.ToStringE(value)
-		case "uint":
-			_, err = cast.ToUintE(value)
-		case "uint8":
-			_, err = cast.ToUint8E(value)
-		case "uint16":
-			_, err = cast.ToUint16E(value)
-		case "uint32":
-			_, err = cast.ToUint32E(value)
-		case "uint64":
-			_, err = cast.ToUint64E(value)
-		case "stringToString":
-			_, err = command.ToStringMapStringE(value)
-		default:
-			log.Warnf("Unable to validate option %s value of type %s", key, t)
-		}
-
+		err := validateConfigMapFlag(flag, key, value)
 		if err != nil {
 			return fmt.Errorf("option %s: %w", key, err)
 		}
 	}
-
 	return nil
 }
 
