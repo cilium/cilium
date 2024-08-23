@@ -26,6 +26,7 @@ runs:
         else
           SHA="${{ github.sha }}"
         fi
+        SHA="${SHA}-race"
 
         CILIUM_INSTALL_DEFAULTS="--chart-directory=${{ inputs.chart-dir }} \
           --disable-check=minimum-version \
