@@ -90,7 +90,7 @@ func transparentSetsockopt(fd int, ipFamily ipfamily.IPFamily) error {
 
 // listenConfig sets the socket options for the fqdn proxy transparent socket.
 // Note that it is also used for TCP sockets.
-func listenConfig(mark int, ipFamily ipfamily.IPFamily) *net.ListenConfig {
+func listenConfig(mark uint32, ipFamily ipfamily.IPFamily) *net.ListenConfig {
 	return &net.ListenConfig{
 		Control: func(_, _ string, c syscall.RawConn) error {
 			var opErr error
@@ -100,7 +100,7 @@ func listenConfig(mark int, ipFamily ipfamily.IPFamily) *net.ListenConfig {
 					return
 				}
 				if mark != 0 {
-					if err := unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_MARK, mark); err != nil {
+					if err := unix.SetsockoptUint64(int(fd), unix.SOL_SOCKET, unix.SO_MARK, uint64(mark)); err != nil {
 						opErr = fmt.Errorf("setsockopt(SO_MARK) failed: %w", err)
 						return
 					}

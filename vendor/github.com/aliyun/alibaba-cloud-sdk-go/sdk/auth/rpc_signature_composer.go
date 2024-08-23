@@ -58,6 +58,7 @@ func signRpcRequest(request requests.AcsRequest, regionId string, provider crede
 	}
 
 	request.GetHeaders()["Content-Type"] = requests.Form
+	request.GetHeaders()["x-acs-credentials-provider"] = cc.ProviderName
 	formString := utils.GetUrlFormedMap(request.GetFormParams())
 	request.SetContent([]byte(formString))
 

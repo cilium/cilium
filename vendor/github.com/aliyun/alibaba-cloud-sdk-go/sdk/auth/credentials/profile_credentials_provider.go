@@ -97,11 +97,7 @@ func (provider *ProfileCredentialsProvider) getCredentialsProvider(ini *ini.File
 	return
 }
 
-func (provider *ProfileCredentialsProvider) GetCredentials() (cc *Credentials, err error) {
-	if provider.innerProvider != nil {
-		return provider.innerProvider.GetCredentials()
-	}
-
+func (provider *ProfileCredentialsProvider) getIni() (iniInfo *ini.File, err error) {
 	sharedCfgPath := os.Getenv("ALIBABA_CLOUD_CREDENTIALS_FILE")
 	if sharedCfgPath == "" {
 		homeDir := getHomePath()
@@ -113,16 +109,38 @@ func (provider *ProfileCredentialsProvider) GetCredentials() (cc *Credentials, e
 		sharedCfgPath = path.Join(homeDir, ".alibabacloud/credentials")
 	}
 
-	ini, err := ini.Load(sharedCfgPath)
+	iniInfo, err = ini.Load(sharedCfgPath)
 	if err != nil {
 		err = errors.New("ERROR: Can not open file" + err.Error())
 		return
 	}
 
-	provider.innerProvider, err = provider.getCredentialsProvider(ini)
+	return
+}
+
+func (provider *ProfileCredentialsProvider) GetCredentials() (cc *Credentials, err error) {
+	if provider.innerProvider == nil {
+		var iniInfo *ini.File
+		iniInfo, err = provider.getIni()
+		if err != nil {
+			return
+		}
+
+		provider.innerProvider, err = provider.getCredentialsProvider(iniInfo)
+		if err != nil {
+			return
+		}
+	}
+
+	cc, err = provider.innerProvider.GetCredentials()
 	if err != nil {
 		return
 	}
 
-	return provider.innerProvider.GetCredentials()
+	cc.ProviderName = fmt.Sprintf("%s/%s", provider.GetProviderName(), provider.innerProvider.GetProviderName())
+	return
+}
+
+func (provider ProfileCredentialsProvider) GetProviderName() string {
+	return "profile"
 }

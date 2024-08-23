@@ -32,7 +32,7 @@ package linux_defaults
 const (
 	// MagicMarkHostMask can be used to fetch the host/proxy-relevant magic
 	// bits from a mark.
-	MagicMarkHostMask int = 0x0F00
+	MagicMarkHostMask uint32 = 0x0F00
 	// MagicMarkProxyMask can be used to fetch the proxy-relevant magic
 	// bits from a mark.
 	MagicMarkProxyMask int = 0x0E00
@@ -71,10 +71,10 @@ const (
 
 	// MagicMarkIngress determines that the traffic is sourced from the
 	// proxy which is applying Ingress policy
-	MagicMarkIngress int = 0x0A00
+	MagicMarkIngress uint32 = 0x0A00
 	// MagicMarkEgress determines that the traffic is sourced from the
 	// proxy which is applying Egress policy
-	MagicMarkEgress int = 0x0B00
+	MagicMarkEgress uint32 = 0x0B00
 
 	// MagicMarkHost determines that the traffic is sourced from the local
 	// host and not from a proxy.
@@ -119,23 +119,3 @@ const (
 	// needs to encrypt a packet.
 	MagicMarkEncrypt = 0x0E00
 )
-
-// getMagicMark returns the magic marker with which each packet must be marked.
-// The mark is different depending on whether the proxy is injected at ingress
-// or egress.
-func GetMagicProxyMark(isIngress bool, identity int) int {
-	var mark int
-
-	if isIngress {
-		mark = MagicMarkIngress
-	} else {
-		mark = MagicMarkEgress
-	}
-
-	if identity != 0 {
-		mark |= (identity >> 16) & 0xFF
-		mark |= (identity & 0xFFFF) << 16
-	}
-
-	return mark
-}
