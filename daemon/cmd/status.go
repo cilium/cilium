@@ -423,7 +423,7 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 			},
 			{
 				Name: "Ratelimit metrics",
-				Size: int64(ratelimitmap.MaxEntries),
+				Size: int64(ratelimitmap.MaxMetricsEntries),
 			},
 			{
 				Name: "NAT",
