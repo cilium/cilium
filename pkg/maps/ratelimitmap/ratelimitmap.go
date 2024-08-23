@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package ratelimitmetricsmap
+package ratelimitmap
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ import (
 )
 
 var Cell = cell.Module(
-	"ratelimitmetricsmap",
+	"ratelimitmap",
 	"eBPF Ratelimit Metrics Map",
 	cell.Invoke(RegisterCollector),
 )
