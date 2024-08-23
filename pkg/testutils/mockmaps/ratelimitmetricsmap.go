@@ -14,7 +14,7 @@ type RatelimitMetricsRecord struct {
 	Value ratelimitmap.MetricsValue
 }
 
-// RatelimitMetricsMockMap implements the RatelimitMetricsMap interface and can be used for unit tests.
+// RatelimitMetricsMockMap implements the ratelimitmap interface and can be used for unit tests.
 type RatelimitMetricsMockMap struct {
 	Entries []RatelimitMetricsRecord
 }
