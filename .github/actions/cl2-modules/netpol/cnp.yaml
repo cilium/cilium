@@ -68,6 +68,6 @@ spec:
             - matchPattern: "*"
   - toFQDNs:
   {{ range $index := Loop $DNSs }}
-      - matchName: "{{RandIntRange 0 65000}}.my-remote-service.com"
+      - matchName: "{{RandIntRange 0 1000000}}.my-remote-service.com"
   {{ end }}
 {{end}}

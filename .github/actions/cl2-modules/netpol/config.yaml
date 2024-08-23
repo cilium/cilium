@@ -39,6 +39,11 @@ steps:
       action: start
 
 - module:
+    path: ../cilium-agent-pprofs.yaml
+    params:
+      action: start
+
+- module:
     path: /modules/reconcile-objects.yaml
     params:
       actionName: "create"
@@ -48,6 +53,11 @@ steps:
       replicasPerDeployment: {{$PODS_PER_DEPLOYMENT}}
       deploymentsPerNamespace: {{$deploymentsPerNamespace}}
       cnpsPerDeployment: {{$CNPS_PER_DEPLOYMENT}}
+
+- module:
+    path: ../cilium-agent-pprofs.yaml
+    params:
+      action: gather
 
 - module:
     path: ./modules/metrics.yaml
