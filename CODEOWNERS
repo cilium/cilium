@@ -307,6 +307,7 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/builder/no_ipsec_xfrm_errors.go @cilium/sig-encryption
 /cilium-cli/connectivity/builder/node_to_node_encryption.go @cilium/sig-encryption
 /cilium-cli/connectivity/builder/pod_to_pod_encryption.go @cilium/sig-encryption
+/cilium-cli/connectivity/perf/** @cilium/sig-scalability
 /cilium-cli/connectivity/tests/bgp.go @cilium/sig-bgp
 /cilium-cli/connectivity/tests/clustermesh-endpointslice-sync.go @cilium/sig-clustermesh
 /cilium-cli/connectivity/tests/egressgateway.go @cilium/egress-gateway
