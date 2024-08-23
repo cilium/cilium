@@ -110,19 +110,19 @@ func GetTestSuites(params check.Parameters) ([]func(connTests []*check.Connectiv
 		}, nil
 	case params.TestConcurrency > 1:
 		return []func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error{
-			func(connTests []*check.ConnectivityTest, _ func(cts ...*check.ConnectivityTest) error) error {
+			func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error {
 				if connTests[0].Params().IncludeConnDisruptTest {
 					if err := connDisruptTests(connTests[0]); err != nil {
 						return err
 					}
 				}
-				return concurrentTests(connTests)
-			},
-			func(connTests []*check.ConnectivityTest, extraTests func(cts ...*check.ConnectivityTest) error) error {
-				if err := sequentialTests(connTests[0]); err != nil {
+				if err := concurrentTests(connTests); err != nil {
 					return err
 				}
-				if err := extraTests(connTests...); err != nil {
+				return extraTests(connTests...)
+			},
+			func(connTests []*check.ConnectivityTest, _ func(cts ...*check.ConnectivityTest) error) error {
+				if err := sequentialTests(connTests[0]); err != nil {
 					return err
 				}
 				return finalTests(connTests[0])
