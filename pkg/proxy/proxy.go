@@ -902,6 +902,10 @@ func (p *Proxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.
 	return p.envoyIntegration.UpdateNetworkPolicy(ep, policy, ingressPolicyEnforced, egressPolicyEnforced, wg)
 }
 
+func (p *Proxy) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
+	p.envoyIntegration.UseCurrentNetworkPolicy(ep, policy, wg)
+}
+
 func (p *Proxy) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 	p.envoyIntegration.RemoveNetworkPolicy(ep)
 }
