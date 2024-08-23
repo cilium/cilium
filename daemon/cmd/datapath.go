@@ -152,7 +152,7 @@ func (d *Daemon) initMaps() error {
 		return fmt.Errorf("initializing metrics map: %w", err)
 	}
 
-	if err := ratelimitmap.RatelimitMetrics.OpenOrCreate(); err != nil {
+	if err := ratelimitmap.InitMaps(); err != nil {
 		return fmt.Errorf("initializing ratelimit metrics map: %w", err)
 	}
 
