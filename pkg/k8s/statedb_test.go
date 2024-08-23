@@ -29,32 +29,34 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func ExampleRegisterReflector() {
-	nodeNameIndex := statedb.Index[*corev1.Node, string]{
-		Name: "name",
-		FromObject: func(obj *corev1.Node) index.KeySet {
-			return index.NewKeySet(index.String(obj.Name))
-		},
-		FromKey: index.String,
-		Unique:  true,
-	}
+var nodeNameIndex = statedb.Index[*corev1.Node, string]{
+	Name: "name",
+	FromObject: func(obj *corev1.Node) index.KeySet {
+		return index.NewKeySet(index.String(obj.Name))
+	},
+	FromKey: index.String,
+	Unique:  true,
+}
 
+func newNodeTable(db *statedb.DB) (statedb.RWTable[*corev1.Node], error) {
+	tbl, err := statedb.NewTable(
+		"nodes",
+		nodeNameIndex,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return tbl, db.RegisterTable(tbl)
+}
+
+func ExampleRegisterReflector() {
 	module := cell.Module(
 		"example-reflector",
 		"Reflector example",
 
 		cell.ProvidePrivate(
 			// Construct the table we're reflecting to.
-			func(db *statedb.DB) (statedb.RWTable[*corev1.Node], error) {
-				tbl, err := statedb.NewTable(
-					"nodes",
-					nodeNameIndex,
-				)
-				if err != nil {
-					return nil, err
-				}
-				return tbl, db.RegisterTable(tbl)
-			},
+			newNodeTable,
 
 			// ReflectorConfig defines the ListerWatcher to use the fetch the objects
 			// and how to write them to the table.
@@ -72,6 +74,33 @@ func ExampleRegisterReflector() {
 
 		// Register the reflector to this module's job group.
 		cell.Invoke(k8s.RegisterReflector[*corev1.Node]),
+	)
+
+	hive.New(module)
+}
+
+func ExampleOnDemand() {
+	module := cell.Module(
+		"example-on-demand",
+		"OnDemand example",
+
+		cell.ProvidePrivate(
+			// Construct the table we're reflecting to.
+			newNodeTable,
+
+			// ReflectorConfig defines the ListerWatcher to use the fetch the objects
+			// and how to write them to the table.
+			func(client k8sClient.Clientset, tbl statedb.RWTable[*corev1.Node]) k8s.ReflectorConfig[*corev1.Node] {
+				return k8s.ReflectorConfig[*corev1.Node]{
+					Name:          "nodes",
+					Table:         tbl,
+					ListerWatcher: utils.ListerWatcherFromTyped(client.CoreV1().Nodes()),
+				}
+			},
+		),
+
+		// Provide OnDemand[Table[*Node]] to the application.
+		cell.Provide(k8s.OnDemandTable[*corev1.Node]),
 	)
 
 	hive.New(module)
@@ -369,6 +398,112 @@ func TestStateDBReflector_jobName(t *testing.T) {
 		"k8s-reflector-node-test",
 		cfg.JobName(),
 	)
+}
+
+func TestOnDemandTable(t *testing.T) {
+	obj := &testObject{
+		PartialObjectMetadata: metav1.PartialObjectMetadata{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+			},
+		},
+	}
+	lw := testutils.NewFakeListerWatcher(obj.DeepCopy())
+
+	var (
+		db     *statedb.DB
+		wtbl   statedb.RWTable[*testObject]
+		otable hive.OnDemand[statedb.Table[*testObject]]
+	)
+
+	hive := hive.New(
+		cell.Module("test", "test",
+			cell.ProvidePrivate(
+				func(tbl statedb.RWTable[*testObject]) k8s.ReflectorConfig[*testObject] {
+					wtbl = tbl
+					return k8s.ReflectorConfig[*testObject]{
+						Name:             "test",
+						Table:            tbl,
+						BufferSize:       10,
+						BufferWaitTime:   time.Millisecond,
+						ListerWatcher:    lw,
+						ClearTableOnStop: true,
+					}
+				},
+				newTestTable,
+				k8s.OnDemandTable[*testObject],
+			),
+			cell.Invoke(
+				func(db_ *statedb.DB, tbl hive.OnDemand[statedb.Table[*testObject]]) {
+					db = db_
+					otable = tbl
+				},
+			),
+		),
+	)
+
+	tlog := hivetest.Logger(t)
+	ctx := context.TODO()
+	require.NoError(t, hive.Start(tlog, ctx), "Start")
+
+	require.NotNil(t, otable)
+
+	// Table is not populated before it is acquired.
+	assert.Zero(t, wtbl.NumObjects(db.ReadTxn()), "expected empty table")
+
+	// Acquiring the table starts the reflector.
+	table, err := otable.Acquire(ctx)
+	assert.NoError(t, err, "Acquire")
+	require.NotNil(t, table)
+
+	// The initial object is inserted into the table now that we acquired
+	// it.
+	assert.Eventually(
+		t, func() bool { return table.NumObjects(db.ReadTxn()) == 1 },
+		5*time.Second, 10*time.Millisecond,
+		"Table not populated after Acquire",
+	)
+
+	obj2 := obj.DeepCopy()
+	obj2.Name = "test2"
+	lw.Upsert(obj2)
+
+	// Test with another acquired table.
+	table2, err := otable.Acquire(ctx)
+	assert.NoError(t, err, "Acquire")
+	require.Same(t, table, table2)
+
+	assert.Eventually(
+		t, func() bool { return table2.NumObjects(db.ReadTxn()) == 2 },
+		5*time.Second, 10*time.Millisecond,
+		"Second object not added",
+	)
+
+	// Release the second one. This does not yet stop the reflection.
+	err = otable.Release(table2)
+	assert.NoError(t, err, "Release")
+
+	obj3 := obj.DeepCopy()
+	obj3.Name = "test3"
+	lw.Upsert(obj3)
+
+	assert.Eventually(
+		t, func() bool { return table2.NumObjects(db.ReadTxn()) == 3 },
+		5*time.Second, 10*time.Millisecond,
+		"Third object not added after release of table",
+	)
+
+	// Release the last one. This stops the reflection and clears the table.
+	err = otable.Release(table)
+	assert.NoError(t, err, "Release")
+
+	assert.Eventually(
+		t, func() bool { return wtbl.NumObjects(db.ReadTxn()) == 0 },
+		5*time.Second, 10*time.Millisecond,
+		"Table not cleared after all have been released",
+	)
+
+	assert.NoError(t, hive.Stop(tlog, ctx), "Stop")
 }
 
 func BenchmarkStateDBReflector(b *testing.B) {
