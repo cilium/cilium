@@ -6,7 +6,7 @@ package check
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/components"
+	"github.com/cilium/cilium/cilium-cli/defaults"
 )
 
 const prometheusContainerPortName = "prometheus"
@@ -32,7 +32,7 @@ func (ct *ConnectivityTest) CiliumAgentMetrics() MetricsSource {
 	}
 
 	source := MetricsSource{
-		Name: components.CiliumAgentName,
+		Name: defaults.AgentContainerName,
 	}
 
 	// Retrieve the container port value for Prometheus.
@@ -40,7 +40,7 @@ func (ct *ConnectivityTest) CiliumAgentMetrics() MetricsSource {
 		source.Pods = append(source.Pods, p)
 		// parse all the containers
 		for _, c := range p.Pod.Spec.Containers {
-			if c.Name == components.CiliumAgentName {
+			if c.Name == defaults.AgentContainerName {
 				// parse all the container ports
 				for _, port := range c.Ports {
 					if port.Name == prometheusContainerPortName {

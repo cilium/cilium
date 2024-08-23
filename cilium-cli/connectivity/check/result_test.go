@@ -6,11 +6,11 @@ package check
 import (
 	"testing"
 
-	"github.com/cilium/cilium/pkg/components"
-
 	prommodel "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/cilium/cilium/cilium-cli/defaults"
 )
 
 func TestExpectMetricsToIncrease(t *testing.T) {
@@ -19,7 +19,7 @@ func TestExpectMetricsToIncrease(t *testing.T) {
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name: components.CiliumAgentName,
+						Name: defaults.AgentContainerName,
 						Ports: []corev1.ContainerPort{
 							{
 								Name:          "prometheus",
@@ -118,7 +118,7 @@ func TestExpectMetricsToIncrease(t *testing.T) {
 		"metric name not present in the metrics before, counters should be set 0": {
 			metrics: "cilium_forward_count_total",
 			source: MetricsSource{
-				Name: components.CiliumAgentName,
+				Name: defaults.AgentContainerName,
 				Pods: []Pod{ciliumPod},
 				Port: "9962",
 			},

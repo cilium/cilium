@@ -6,10 +6,10 @@ package check
 import (
 	"testing"
 
-	"github.com/cilium/cilium/pkg/components"
-
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/cilium/cilium/cilium-cli/defaults"
 )
 
 func TestConnectivityTestCiliumAgentMetrics(t *testing.T) {
@@ -18,7 +18,7 @@ func TestConnectivityTestCiliumAgentMetrics(t *testing.T) {
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name: components.CiliumAgentName,
+						Name: defaults.AgentContainerName,
 						Ports: []corev1.ContainerPort{
 							{
 								Name:          prometheusContainerPortName,
@@ -37,7 +37,7 @@ func TestConnectivityTestCiliumAgentMetrics(t *testing.T) {
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name: components.CiliumAgentName,
+						Name: defaults.AgentContainerName,
 						Ports: []corev1.ContainerPort{
 							{
 								Name:          "peer-service",
@@ -57,10 +57,10 @@ func TestConnectivityTestCiliumAgentMetrics(t *testing.T) {
 	}{
 		"nominal case": {
 			ct: ConnectivityTest{ciliumPods: map[string]Pod{
-				components.CiliumAgentName: ciliumPod,
+				defaults.AgentContainerName: ciliumPod,
 			}},
 			want: MetricsSource{
-				Name: components.CiliumAgentName,
+				Name: defaults.AgentContainerName,
 				Pods: []Pod{ciliumPod},
 				Port: "9962",
 			},
@@ -70,7 +70,7 @@ func TestConnectivityTestCiliumAgentMetrics(t *testing.T) {
 			want: MetricsSource{},
 		},
 		"no prometheus container port": {
-			ct:   ConnectivityTest{ciliumPods: map[string]Pod{components.CiliumAgentName: podWithPrometheusMissing}},
+			ct:   ConnectivityTest{ciliumPods: map[string]Pod{defaults.AgentContainerName: podWithPrometheusMissing}},
 			want: MetricsSource{},
 		},
 	}
