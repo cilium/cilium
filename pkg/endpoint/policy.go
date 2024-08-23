@@ -148,6 +148,14 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 	return e.proxy.UpdateNetworkPolicy(e, &e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, proxyWaitGroup)
 }
 
+// Note that this function assumes that endpoint policy has already been generated!
+// must be called with endpoint.mutex held for reading
+func (e *Endpoint) useCurrentNetworkPolicy(proxyWaitGroup *completion.WaitGroup) {
+	if e.SecurityIdentity != nil && e.desiredPolicy != nil && !e.IsProxyDisabled() {
+		e.proxy.UseCurrentNetworkPolicy(e, &e.desiredPolicy.L4Policy, proxyWaitGroup)
+	}
+}
+
 // setNextPolicyRevision updates the desired policy revision field
 // Must be called with the endpoint lock held for at least reading
 func (e *Endpoint) setNextPolicyRevision(revision uint64) {
