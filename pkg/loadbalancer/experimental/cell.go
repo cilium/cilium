@@ -37,6 +37,10 @@ var Cell = cell.Module(
 
 	// Provide [lbmaps], abstraction for the load-balancing BPF map access.
 	cell.ProvidePrivate(newLBMaps, newLBMapsConfig),
+
+	// Health server runs an HTTP server for each service on port [HealthCheckNodePort]
+	// (when non-zero) and responds with the number of healthy backends.
+	healthServerCell,
 )
 
 // TablesCell provides the [Writer] API for configuring load-balancing and the
