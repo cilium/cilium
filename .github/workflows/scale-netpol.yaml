@@ -21,7 +21,7 @@ on:
 # For testing uncomment following lines:
   push:
     branches:
-      - pr/marseel/scale_np
+      - pr/nathanjsweet/scale-test
 
 permissions:
   # To be able to access the repository with actions/checkout
@@ -110,8 +110,8 @@ jobs:
             --helm-set=endpointHealthChecking.enabled=false \
             --helm-set=healthChecking=false \
             --helm-set=healthChecking=false \
-            --helm-set=k8sClientRateLimit.operator.qps=20 \
-            --helm-set=k8sClientRateLimit.operator.burst=20 \
+            --helm-set=k8sClientRateLimit.operator.qps=100 \
+            --helm-set=k8sClientRateLimit.operator.burst=100 \
             --helm-set=ciliumEndpointSlice.enabled=true \
             --helm-set=ciliumEndpointSlice.sliceMode="fcfs" \
             --helm-set=ciliumEndpointSlice.rateLimits[0].nodes=1 \
@@ -200,7 +200,7 @@ jobs:
         timeout-minutes: 60
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          control_plane_size: n2-standard-32
+          control_plane_size: n2-standard-16
           control_plane_count: 1
           control_plane_volume_size: 500
           node_size: e2-medium
