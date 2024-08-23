@@ -120,6 +120,8 @@ func init() {
 		"auth_info":               {authmap.AuthInfo{}},
 		"skip_lb4_key":            {lbmap.SkipLB4Key{}},
 		"skip_lb6_key":            {lbmap.SkipLB6Key{}},
+		"ratelimit_key":           {ratelimitmap.Key{}},
+		"ratelimit_value":         {ratelimitmap.Value{}},
 		"ratelimit_metrics_key":   {ratelimitmap.MetricsKey{}},
 		"ratelimit_metrics_value": {ratelimitmap.MetricsValue{}},
 	})

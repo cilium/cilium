@@ -19,7 +19,7 @@ import (
 
 var Cell = cell.Module(
 	"ratelimitmap",
-	"eBPF Ratelimit Metrics Map",
+	"eBPF Ratelimit Map",
 	cell.Invoke(RegisterCollector),
 )
 
@@ -38,6 +38,10 @@ type ratelimitMetricsMap struct {
 	*bpf.Map
 }
 
+type ratelimitMap struct {
+	*bpf.Map
+}
+
 var (
 	// ratelimitMetrics is the bpf ratelimit metrics map.
 	ratelimitMetrics = ratelimitMetricsMap{bpf.NewMap(
@@ -48,15 +52,29 @@ var (
 		MaxMetricsEntries,
 		0,
 	)}
+	// ratelimit is the bpf ratelimit map.
+	ratelimit = ratelimitMap{bpf.NewMap(
+		MapName,
+		ebpf.LRUHash,
+		&Key{},
+		&Value{},
+		MaxEntries,
+		0,
+	)}
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ratelimit-map")
 )
 
 const (
 	// MetricsMapName for ratelimit metrics map.
 	MetricsMapName = "cilium_ratelimit_metrics"
-	// MaxMetricsEntries is the maximum number of keys that can be present in the
-	// Ratelimit Metrics Map.
+	// MapName for ratelimit map.
+	MapName = "cilium_ratelimit"
+	// MetricsMaxEntries is the maximum number of keys that can be present in
+	// the Ratelimit Metrics Map.
 	MaxMetricsEntries = 64
+	// MaxEntries is the maximum number of keys that can be present in the
+	// Ratelimit Map.
+	MaxEntries = 1024
 )
 
 // usageType represents source of ratelimiter usage in datapath code.
@@ -77,6 +95,40 @@ func (t usageType) String() string {
 	}
 
 	return ""
+}
+
+// Key must be in sync with struct ratelimit_key in <bpf/lib/ratelimit.h>
+type Key struct {
+	Usage usageType `align:"usage"`
+	Key   uint32    `align:"key"`
+}
+
+func (k *Key) New() bpf.MapKey {
+	return &Key{}
+}
+
+func (k *Key) String() string {
+	if k == nil {
+		return ""
+	}
+	return fmt.Sprintf("%d", k.Usage)
+}
+
+// Value must be in sync with struct ratelimit_value in <bpf/lib/ratelimit.h>
+type Value struct {
+	LastTopup uint64 `align:"last_topup"`
+	Tokens    uint64 `align:"tokens"`
+}
+
+func (v *Value) New() bpf.MapValue {
+	return &Value{}
+}
+
+func (v *Value) String() string {
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprintf("%d %d", v.LastTopup, v.Tokens)
 }
 
 // MetricsKey must be in sync with struct ratelimit_metrics_key in <bpf/lib/ratelimit.h>
@@ -174,5 +226,8 @@ func RegisterCollector() {
 }
 
 func InitMaps() error {
+	if err := ratelimit.OpenOrCreate(); err != nil {
+		return err
+	}
 	return ratelimitMetrics.OpenOrCreate()
 }

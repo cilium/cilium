@@ -153,7 +153,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if err := ratelimitmap.InitMaps(); err != nil {
-		return fmt.Errorf("initializing ratelimit metrics map: %w", err)
+		return fmt.Errorf("initializing ratelimit maps: %w", err)
 	}
 
 	if option.Config.TunnelingEnabled() {
