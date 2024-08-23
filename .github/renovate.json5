@@ -23,6 +23,7 @@
     ".github/actions/set-env-variables/action.yml",
     ".github/workflows/**",
     ".github/ISSUE_TEMPLATE/bug_report.yaml",
+    "cilium-cli/**",
     "images/**",
     "examples/hubble/*",
     "go.mod",
