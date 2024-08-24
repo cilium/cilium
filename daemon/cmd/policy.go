@@ -554,6 +554,16 @@ func getPolicyHandler(d *Daemon, params GetPolicyParams) middleware.Responder {
 		Revision: int64(repository.GetRevision()),
 		Policy:   policy.JSONMarshalRules(ruleList),
 	}
+
+	// debug potential policy race with cilium-cli:
+	// cilium-cli issues this command to get the current policy revision before updating policy,
+	// when it waits for all the endpoints to have been bumped to the next revision before
+	// proceeding with a test case. It seems that sometimes that happens too early, which could
+	// happen if the policy repository's revision if bumped for any other reason than a policy
+	// add during this wait. Log the current revision number here so that we know what to look
+	// for in this case.
+	log.WithField(logfields.PolicyRevision, policy.Revision).Debug("Policy Get Request")
+
 	return NewGetPolicyOK().WithPayload(policy)
 }
 
