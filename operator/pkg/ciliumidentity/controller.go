@@ -62,8 +62,6 @@ type params struct {
 
 type Controller struct {
 	logger              *slog.Logger
-	context             context.Context
-	contextCancel       context.CancelFunc
 	clientset           k8sClient.Clientset
 	reconciler          *reconciler
 	jobGroup            job.Group
@@ -118,32 +116,6 @@ func (c *Controller) Start(_ cell.HookContext) error {
 	c.logger.Info("Starting CID controller Operator")
 	defer utilruntime.HandleCrash()
 
-	var err error
-	c.context, c.contextCancel = context.WithCancel(context.Background())
-	c.reconciler, err = newReconciler(
-		c.context,
-		c.logger,
-		c.clientset,
-		c.namespace,
-		c.pod,
-		c.ciliumIdentity,
-		c.ciliumEndpoint,
-		c.ciliumEndpointSlice,
-		c.cesEnabled,
-		c,
-	)
-
-	if err != nil {
-		return fmt.Errorf("cid reconciler failed to init: %w", err)
-	}
-
-	c.logger.Info("Starting CID controller reconciler")
-
-	// The desired state needs to be calculated before the events are processed.
-	if err := c.reconciler.calcDesiredStateOnStartup(); err != nil {
-		return fmt.Errorf("cid controller failed to calculate the desired state: %w", err)
-	}
-
 	// The Cilium Identity (CID) controller running in cilium-operator is
 	// responsible only for managing CID API objects.
 	//
@@ -158,15 +130,20 @@ func (c *Controller) Start(_ cell.HookContext) error {
 	//---------------------------||
 	//----------------------------V
 	// Namespace event -> Resource work queue -> Mutate CID API objects
-	c.startEventProcessing()
-	c.startWorkQueues()
-
+	c.jobGroup.Add(
+		job.OneShot("op-managing-resource-wq", func(ctx context.Context, health cell.Health) error {
+			if err := c.initReconciler(ctx); err != nil {
+				return err
+			}
+			c.startEventProcessing()
+			return c.runResourceWorker(ctx)
+		}),
+	)
 	return nil
 }
 
 func (c *Controller) Stop(_ cell.HookContext) error {
 	c.resourceQueue.ShutDown()
-	c.contextCancel()
 
 	return nil
 }
@@ -202,14 +179,19 @@ func (c *Controller) startEventProcessing() {
 		}),
 	)
 }
+func (c *Controller) initReconciler(ctx context.Context) error {
+	var err error
+	c.reconciler, err = newReconciler(ctx, c.logger, c.clientset, c.namespace, c.pod, c.ciliumIdentity, c.ciliumEndpoint, c.ciliumEndpointSlice, c.cesEnabled, c)
+	if err != nil {
+		return fmt.Errorf("cid reconciler failed to init: %w", err)
+	}
+	c.logger.Info("Starting CID controller reconciler")
 
-func (c *Controller) startWorkQueues() {
-
-	c.jobGroup.Add(
-		job.OneShot("op-managing-resource-wq", func(ctx context.Context, health cell.Health) error {
-			return c.runResourceWorker(ctx)
-		}),
-	)
+	// The desired state needs to be calculated before the events are processed.
+	if err := c.reconciler.calcDesiredStateOnStartup(); err != nil {
+		return fmt.Errorf("cid controller failed to calculate the desired state: %w", err)
+	}
+	return nil
 }
 
 func (c *Controller) runResourceWorker(context context.Context) error {
@@ -219,8 +201,6 @@ func (c *Controller) runResourceWorker(context context.Context) error {
 	for c.processNextItem() {
 		select {
 		case <-context.Done():
-			return nil
-		case <-c.context.Done():
 			return nil
 		default:
 		}
