@@ -79,8 +79,7 @@ func WithEPConfigurator(cfg EndpointConfigurator) Option {
 	}
 }
 
-// NewCmd creates a new Cmd instance, whose Add, Del and Check methods can be
-// passed to skel.PluginMain
+// NewCmd creates a new Cmd instance with Add, Del and Check methods
 func NewCmd(opts ...Option) *Cmd {
 	cmd := &Cmd{
 		cfg: &DefaultConfigurator{},
@@ -89,6 +88,15 @@ func NewCmd(opts ...Option) *Cmd {
 		opt(cmd)
 	}
 	return cmd
+}
+
+// CNIFuncs returns the CNI functions supported by Cilium that can be passed to skel.PluginMainFuncs
+func (cmd *Cmd) CNIFuncs() skel.CNIFuncs {
+	return skel.CNIFuncs{
+		Add:   cmd.Add,
+		Del:   cmd.Del,
+		Check: cmd.Check,
+	}
 }
 
 type CmdState struct {
