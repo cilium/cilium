@@ -39,6 +39,10 @@ spec:
     metricRelabelings:
     {{- toYaml . | nindent 4 }}
     {{- end }}
+  # If envoy DaemonSet is enabled, we'll create a separate service for it
+  # If it is not enabled, that means envoy runs inside cilium-agent and we'll monitor using same service
+  {{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
+  {{- if and (not $envoyDS) (not .Values.preflight.enabled) .Values.envoy.prometheus.enabled .Values.envoy.prometheus.serviceMonitor.enabled }}
   {{- if .Values.envoy.prometheus.serviceMonitor.enabled }}
   - port: envoy-metrics
     interval: {{ .Values.envoy.prometheus.serviceMonitor.interval | quote }}
@@ -52,6 +56,7 @@ spec:
     metricRelabelings:
     {{- toYaml . | nindent 4 }}
     {{- end }}
+  {{- end }}
   {{- end }}
   targetLabels:
   - k8s-app
