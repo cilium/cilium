@@ -45,7 +45,7 @@ func configMapReflector(name string, cs k8sClient.Clientset, t statedb.RWTable[D
 			var entries []DynamicConfig
 			cm := o.(*v1.ConfigMap).DeepCopy()
 			for k, v := range cm.Data {
-				dc := DynamicConfig{Key: Key{Name: k, Source: cm.Name}, Value: v}
+				dc := DynamicConfig{Key: Key{Name: k, Source: cm.Name}, Value: v, Priority: priorities[name]}
 				entries = append(entries, dc)
 			}
 			return entries
