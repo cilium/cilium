@@ -53,10 +53,10 @@ require (
 	github.com/google/cel-go v0.21.0
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-licenses v1.6.1-0.20230903011517-706b9c60edd4
-	github.com/google/gopacket v1.1.19
 	github.com/google/gops v0.3.28
 	github.com/google/renameio/v2 v2.0.0
 	github.com/google/uuid v1.6.0
+	github.com/gopacket/gopacket v1.2.0
 	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.1.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
