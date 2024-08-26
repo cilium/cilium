@@ -6,46 +6,56 @@ package service
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
-
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+
+	"github.com/cilium/hive/cell"
+	"github.com/sirupsen/logrus"
 )
 
-func (s *Service) HealthCheckCallback(event int, data any) {
-	switch event {
-	case HealthCheckCBBackendEvent:
-		if d, ok := data.(HealthCheckCBBackendEventData); ok {
-			svcAddr := d.SvcAddr
-			beAddr := d.BeAddr
-			beState := d.BeState
-			log.WithFields(logrus.Fields{
-				"svc_addr": svcAddr,
-				"be":       beAddr,
-				"state":    beState,
-			}).Info("Health check backend update")
-			be := lb.NewBackendWithState(0, beAddr.Protocol, beAddr.AddrCluster, beAddr.Port, 0, beState)
+func (s *Service) healthCheckCallback(_ int, data any) {
+	s.healthCheckChan <- data
+}
 
-			var (
-				svcs []lb.L3n4Addr
-				err  error
-			)
-			if svcs, err = s.UpdateBackendStateServiceOnly(svcAddr, be); err != nil {
-				log.Errorf("health check cb: error updating backend state: %v", err)
-				return
-			}
+func (s *Service) handleHealthCheckEvent(ctx context.Context, health cell.Health) error {
+	health.OK("Waiting for health check events")
 
-			for _, svc := range svcs {
-				log.Infof("Notify health update subscribers for service %v", svc)
-				s.notifyHealthCheckUpdateSubscribers(svc)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case data := <-s.healthCheckChan:
+			switch d := data.(type) {
+			case HealthCheckCBBackendEventData:
+				svcAddr := d.SvcAddr
+				beAddr := d.BeAddr
+				beState := d.BeState
+				log.WithFields(logrus.Fields{
+					"svc_addr": svcAddr,
+					"be":       beAddr,
+					"state":    beState,
+				}).Debug("Health check backend update")
+				be := lb.NewBackendWithState(0, beAddr.Protocol, beAddr.AddrCluster, beAddr.Port, 0, beState)
+
+				var (
+					svcs []lb.L3n4Addr
+					err  error
+				)
+				if svcs, err = s.UpdateBackendStateServiceOnly(svcAddr, be); err != nil {
+					health.Degraded("Error updating backend state", err)
+					continue
+				}
+
+				for _, svc := range svcs {
+					log.Debugf("Notify health update subscribers for service %v", svc)
+					s.notifyHealthCheckUpdateSubscribers(svc)
+				}
+			case HealthCheckCBSvcEventData:
+				log.WithFields(logrus.Fields{
+					"svc_addr": d.SvcAddr,
+				}).Debug("Health check service update")
+				svcAddr := d.SvcAddr
+				s.notifyHealthCheckUpdateSubscribers(svcAddr)
 			}
-		}
-	case HealthCheckCBSvcEvent:
-		if d, ok := data.(HealthCheckCBSvcEventData); ok {
-			log.WithFields(logrus.Fields{
-				"svc_addr": d.SvcAddr,
-			}).Info("Health check service update")
-			svcAddr := d.SvcAddr
-			s.notifyHealthCheckUpdateSubscribers(svcAddr)
 		}
 	}
 }
