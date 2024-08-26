@@ -274,6 +274,7 @@ type Service struct {
 
 	healthCheckers         []HealthChecker
 	healthCheckSubscribers []HealthSubscriber
+	healthCheckChan        chan any
 
 	lbmap         datapathTypes.LBMap
 	lastUpdatedTs atomic.Value
@@ -300,6 +301,7 @@ func newService(monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, back
 		backendByHash:            map[string]*lb.Backend{},
 		monitorAgent:             monitorAgent,
 		healthServer:             localHealthServer,
+		healthCheckChan:          make(chan any),
 		lbmap:                    lbmap,
 		l7lbSvcs:                 map[lb.ServiceName]*L7LBInfo{},
 		backendConnectionHandler: backendConnectionHandler{},
@@ -310,7 +312,7 @@ func newService(monitorAgent monitorAgent.Agent, lbmap datapathTypes.LBMap, back
 	svc.lastUpdatedTs.Store(time.Now())
 
 	for _, hc := range healthCheckers {
-		hc.SetCallback(svc.HealthCheckCallback)
+		hc.SetCallback(svc.healthCheckCallback)
 	}
 
 	return svc
