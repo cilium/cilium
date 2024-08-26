@@ -5,6 +5,7 @@ package dynamicconfig
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/health/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/option/resolver"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -29,21 +31,22 @@ var (
 )
 
 func TestWatchKey(t *testing.T) {
-	_, db, dct, _ := fixture(t)
+	cSource := `[{"kind":"config-map","namespace":"kube-system","name":"aLowPriority"},{"kind":"config-map","namespace":"kube-system","name":"cilium-config"}]`
+	_, db, dct, _ := fixture(t, cSource)
 
 	key := "key"
 	lowPrioritySource := "aLowPriority" // leading 'a' to test that sources that are not in priority map have lower priority
 	value := "value"
 	newValue := "newValue"
 
-	upsertDummyEntry(db, dct, key, lowPrioritySource, value)
+	upsertDummyEntry(db, dct, key, lowPrioritySource, value, 1)
 
 	e, f, w := WatchKey(db.ReadTxn(), dct, key)
 	if !f || e.Key.Name != key || e.Value != value || e.Key.Source != lowPrioritySource {
 		t.Errorf("Entry mismatch for key %v: expected (key=%v, source=%v, value=%v), but got (key=%v, source=%v, value=%v)", key, key, lowPrioritySource, value, e.Key.Name, e.Key.Source, e.Value)
 	}
 
-	upsertDummyEntry(db, dct, key, cmName, newValue)
+	upsertDummyEntry(db, dct, key, cmName, newValue, 0)
 
 	select {
 	case <-w:
@@ -53,26 +56,27 @@ func TestWatchKey(t *testing.T) {
 
 	e, f, _ = WatchKey(db.ReadTxn(), dct, key)
 	if !f || e.Key.Name != key || e.Value != newValue || e.Key.Source != cmName {
-		t.Errorf("Entry mismatch for key %v: expected (key=%v, source=%v, value=%v), but got (key=%v, source=%v, value=%v)", key, key, cmName, value, e.Key.Name, e.Key.Source, e.Value)
+		t.Errorf("Entry mismatch for key %v: expected (key=%v, source=%v, value=%v), but got (key=%v, source=%v, value=%v, priority=%v)", key, key, cmName, value, e.Key.Name, e.Key.Source, e.Value, e.Priority)
 	}
 }
 
 func TestGetKey(t *testing.T) {
-	_, db, dct, _ := fixture(t)
+	cSource := `[{"kind":"config-map","namespace":"kube-system","name":"aLowPriority"},{"kind":"config-map","namespace":"kube-system","name":"cilium-config"}]`
+	_, db, dct, _ := fixture(t, cSource)
 
 	key := "key"
-	lowPrioritySource := "lowPriority"
+	lowPrioritySource := "aLowPriority"
 	value := "value"
 	newValue := "newValue"
 
-	upsertDummyEntry(db, dct, key, lowPrioritySource, value)
+	upsertDummyEntry(db, dct, key, lowPrioritySource, value, 1)
 
 	e, f := GetKey(db.ReadTxn(), dct, key)
 	if !f || e.Key.Name != key || e.Value != value || e.Key.Source != lowPrioritySource {
 		t.Errorf("Entry mismatch: expected (key=%v, source=%v, value=%v), but got (key=%v, source=%v, value=%v)", key, lowPrioritySource, value, e.Key.Name, e.Key.Source, e.Value)
 	}
 
-	upsertDummyEntry(db, dct, key, cmName, newValue)
+	upsertDummyEntry(db, dct, key, cmName, newValue, 0)
 
 	e, f = GetKey(db.ReadTxn(), dct, key)
 	if !f || e.Key.Name != key || e.Value != newValue || e.Key.Source != cmName {
@@ -83,15 +87,21 @@ func TestGetKey(t *testing.T) {
 func TestDynamicConfigMap(t *testing.T) {
 
 	testCases := []struct {
-		name           string
-		cms            []*v1.ConfigMap
-		expectedConfig map[string]string
+		name             string
+		cms              []*v1.ConfigMap
+		configSources    []resolver.ConfigSource
+		expectedConfig   map[string]string
+		expectedPriority map[string]int
 	}{
 		{
 			name: "default",
 			cms: []*v1.ConfigMap{
 				buildConfigMap(cmName, dummyConfigMap),
 				buildConfigMap("override-priority", dummyConfigMap),
+			},
+			configSources: []resolver.ConfigSource{
+				{Kind: resolver.KindConfigMap, Namespace: namespace, Name: cmName},
+				{Kind: resolver.KindConfigMap, Namespace: namespace, Name: "override-priority"},
 			},
 			expectedConfig: map[string]string{
 				"key1/cilium-config":     "value1",
@@ -102,6 +112,9 @@ func TestDynamicConfigMap(t *testing.T) {
 		},
 		{
 			name: "empty",
+			configSources: []resolver.ConfigSource{
+				{Kind: resolver.KindConfigMap, Namespace: namespace, Name: cmName},
+			},
 			cms: []*v1.ConfigMap{
 				buildConfigMap(cmName, map[string]string{}),
 			},
@@ -109,6 +122,9 @@ func TestDynamicConfigMap(t *testing.T) {
 		},
 		{
 			name: "no_config_map",
+			configSources: []resolver.ConfigSource{
+				{Kind: resolver.KindConfigMap, Namespace: namespace, Name: cmName},
+			},
 			cms: []*v1.ConfigMap{
 				buildConfigMap("other_name", map[string]string{}),
 			},
@@ -118,8 +134,9 @@ func TestDynamicConfigMap(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
+			configSources, _ := json.Marshal(tc.configSources)
 
-			_, db, dct, cs := fixture(t)
+			_, db, dct, cs := fixture(t, string(configSources))
 
 			for _, cm := range tc.cms {
 				_, err := cs.CoreV1().ConfigMaps(namespace).Create(ctx, cm, metav1.CreateOptions{})
@@ -133,7 +150,6 @@ func TestDynamicConfigMap(t *testing.T) {
 				for obj := range dct.All(db.ReadTxn()) {
 					gotMap[obj.Key.String()] = obj.Value
 				}
-
 				return len(gotMap) == len(tc.expectedConfig)
 			}, 2*time.Second); err != nil {
 				t.Errorf("waiting for confing table: %v", err)
@@ -155,7 +171,7 @@ func TestDynamicConfigMap(t *testing.T) {
 	}
 }
 
-func fixture(t *testing.T) (*hive.Hive, *statedb.DB, statedb.RWTable[DynamicConfig], *k8sClient.FakeClientset) {
+func fixture(t *testing.T, sources string) (*hive.Hive, *statedb.DB, statedb.RWTable[DynamicConfig], *k8sClient.FakeClientset) {
 	var (
 		db         *statedb.DB
 		table      statedb.RWTable[DynamicConfig]
@@ -178,7 +194,9 @@ func fixture(t *testing.T) (*hive.Hive, *statedb.DB, statedb.RWTable[DynamicConf
 			},
 			func() config {
 				return config{
-					EnableDynamicConfig: true,
+					EnableDynamicConfig:    true,
+					ConfigSources:          sources,
+					ConfigSourcesOverrides: "{\"allowConfigKeys\":null,\"denyConfigKeys\":null}",
 				}
 			}),
 		cell.Invoke(
@@ -216,10 +234,10 @@ func buildConfigMap(name string, data map[string]string) *v1.ConfigMap {
 	}
 }
 
-func upsertDummyEntry(db *statedb.DB, table statedb.RWTable[DynamicConfig], k string, s string, v string) {
+func upsertDummyEntry(db *statedb.DB, table statedb.RWTable[DynamicConfig], k string, s string, v string, priority int) {
 	txn := db.WriteTxn(table)
 	defer txn.Commit()
 
-	entry := DynamicConfig{Key: Key{Name: k, Source: s}, Value: v}
+	entry := DynamicConfig{Key: Key{Name: k, Source: s}, Value: v, Priority: priority}
 	_, _, _ = table.Insert(txn, entry)
 }
