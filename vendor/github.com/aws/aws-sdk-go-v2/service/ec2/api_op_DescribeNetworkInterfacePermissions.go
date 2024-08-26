@@ -41,7 +41,7 @@ type DescribeNetworkInterfacePermissionsInput struct {
 	//   - network-interface-permission.aws-account-id - The Amazon Web Services
 	//   account ID.
 	//
-	//   - network-interface-permission.aws-service - The Amazon Web Service.
+	//   - network-interface-permission.aws-service - The Amazon Web Services service.
 	//
 	//   - network-interface-permission.permission - The type of permission (
 	//   INSTANCE-ATTACH | EIP-ASSOCIATE ).
