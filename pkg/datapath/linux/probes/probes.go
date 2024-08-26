@@ -20,8 +20,8 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/features"
 	"github.com/cilium/ebpf/link"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
+	"github.com/gopacket/gopacket"
+	"github.com/gopacket/gopacket/layers"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/command/exec"

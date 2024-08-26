@@ -9,7 +9,7 @@ import (
 	"encoding/gob"
 	"fmt"
 
-	"github.com/google/gopacket"
+	"github.com/gopacket/gopacket"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/monitor"
