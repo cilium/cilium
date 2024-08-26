@@ -47,7 +47,7 @@ func init() {
 	slimDecoder = serializer.NewCodecFactory(slimScheme).UniversalDeserializer()
 }
 
-func decodeObject[Obj k8sRuntime.Object](t *testing.T, file string) Obj {
+func decodeObject[Obj k8sRuntime.Object](t testing.TB, file string) Obj {
 	bytes, err := os.ReadFile(file)
 	require.NoError(t, err, "ReadFile(%s)", file)
 	obj, _, err := slimDecoder.Decode(bytes, nil, nil)
@@ -55,7 +55,7 @@ func decodeObject[Obj k8sRuntime.Object](t *testing.T, file string) Obj {
 	return obj.(Obj)
 }
 
-func readObjects[Obj k8sRuntime.Object](t *testing.T, dataDir string, prefix string) (out []Obj) {
+func readObjects[Obj k8sRuntime.Object](t testing.TB, dataDir string, prefix string) (out []Obj) {
 	ents, err := os.ReadDir(dataDir)
 	require.NoError(t, err, "ReadDir(%s)", dataDir)
 
@@ -100,7 +100,7 @@ func TestIntegrationK8s(t *testing.T) {
 
 		// Skip directories that don't have any yaml files. This avoids issues when
 		// switching branches and having leftover "actual" files.
-		if !hasYamlFiles(testDataPath) {
+		if !hasYamlFiles(testDataPath) || strings.Contains(ent.Name(), "benchmark") {
 			continue
 		}
 		t.Run(ent.Name(), func(t *testing.T) {

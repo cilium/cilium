@@ -27,10 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func supply[T any](x T) cell.Cell {
-	return cell.Provide(func() T { return x })
-}
-
 func TestLRPController(t *testing.T) {
 	lrpFiles := []string{
 		"testdata/lrp_addr.yaml",
@@ -46,6 +42,15 @@ func TestLRPController(t *testing.T) {
 		"testdata/service2.yaml",
 	}
 
+	runLRPTest(
+		t,
+		lrpFiles,
+		podFiles,
+		lbFiles,
+	)
+}
+
+func runLRPTest(t *testing.T, lrpFiles, podFiles, lbFiles []string) {
 	lrpLW, podLW := testutils.NewFakeListerWatcher(), testutils.NewFakeListerWatcher()
 	log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
@@ -116,6 +121,9 @@ func TestLRPController(t *testing.T) {
 	// --------------------------
 
 	require.NoError(t, hive.Start(log, context.TODO()), "Start")
+	t.Cleanup(func() {
+		assert.NoError(t, hive.Stop(log, context.TODO()), "Stop")
+	})
 
 	for _, f := range podFiles {
 		require.NoError(
@@ -124,7 +132,6 @@ func TestLRPController(t *testing.T) {
 			"Upsert "+f,
 		)
 	}
-
 	assertTables("_before")
 
 	for _, f := range lrpFiles {
@@ -146,8 +153,10 @@ func TestLRPController(t *testing.T) {
 	}
 
 	assertTables("_after")
+}
 
-	assert.NoError(t, hive.Stop(log, context.TODO()), "Stop")
+func supply[T any](x T) cell.Cell {
+	return cell.Provide(func() T { return x })
 }
 
 func logDiff(t *testing.T, fileA, fileB string) {
