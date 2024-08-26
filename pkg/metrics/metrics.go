@@ -1099,6 +1099,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 			ConfigName: Namespace + "_" + SubsystemK8s + "_network_programming_duration_seconds",
 			Namespace:  Namespace,
 			Subsystem:  SubsystemK8s,
+			Disabled:   true,
 			Buckets: base_metrics.MergeBuckets(
 				base_metrics.LinearBuckets(0.25, 0.25, 2), // 0.25s, 0.50s
 				base_metrics.LinearBuckets(1, 1, 59),      // 1s, 2s, 3s, ... 59s
