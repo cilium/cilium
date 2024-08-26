@@ -6,6 +6,7 @@ package gateway_api
 import (
 	"context"
 	"log/slog"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -109,7 +110,10 @@ func (r *gammaHttpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	builder := ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
+		// By default, controllers are named using the lowercase version of their kind.
+		// For Gamma, we want to avoid conflict with existing HTTPRoute controller.
+		Named(strings.ToLower(gammaHTTPRoute)).
 		// Watch for changes to HTTPRoute
 		For(&gatewayv1.HTTPRoute{},
 			builder.WithPredicates(predicate.NewPredicateFuncs(r.hasGammaParent()))).
@@ -120,7 +124,7 @@ func (r *gammaHttpRouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changes to Reference Grants
 		Watches(&gatewayv1beta1.ReferenceGrant{}, r.enqueueRequestForReferenceGrant())
 
-	return builder.Complete(r)
+	return b.Complete(r)
 }
 
 func (r *gammaHttpRouteReconciler) hasGammaParent() func(object client.Object) bool {
