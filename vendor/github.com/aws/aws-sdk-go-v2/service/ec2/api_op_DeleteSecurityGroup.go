@@ -13,8 +13,8 @@ import (
 // Deletes a security group.
 //
 // If you attempt to delete a security group that is associated with an instance
-// or network interface or is referenced by another security group, the operation
-// fails with DependencyViolation .
+// or network interface or is referenced by another security group in the same VPC,
+// the operation fails with DependencyViolation .
 func (c *Client) DeleteSecurityGroup(ctx context.Context, params *DeleteSecurityGroupInput, optFns ...func(*Options)) (*DeleteSecurityGroupOutput, error) {
 	if params == nil {
 		params = &DeleteSecurityGroupInput{}

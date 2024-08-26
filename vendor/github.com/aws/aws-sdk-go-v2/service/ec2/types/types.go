@@ -474,7 +474,7 @@ type AnalysisRouteTableRoute struct {
 	// The destination IPv4 address, in CIDR notation.
 	DestinationCidr *string
 
-	// The prefix of the Amazon Web Service.
+	// The prefix of the Amazon Web Services service.
 	DestinationPrefixListId *string
 
 	// The ID of an egress-only internet gateway.
@@ -2679,8 +2679,7 @@ type DataQuery struct {
 	// in the query, the dataResponse identifies the query as MyQuery01 .
 	Id *string
 
-	// The metric, aggregation-latency , indicating that network latency is aggregated
-	// for the query. This is the only supported metric.
+	// The metric used for the network performance request.
 	Metric MetricType
 
 	// The aggregation period used for the data query.
@@ -2708,8 +2707,7 @@ type DataResponse struct {
 	// The ID passed in the DataQuery .
 	Id *string
 
-	// The metric used for the network performance request. Only aggregate-latency is
-	// supported, which shows network latency during a specified period.
+	// The metric used for the network performance request.
 	Metric MetricType
 
 	// A list of MetricPoint objects.
@@ -3504,6 +3502,33 @@ type EbsOptimizedInfo struct {
 
 	// The maximum throughput performance for an EBS-optimized instance type, in MB/s.
 	MaximumThroughputInMBps *float64
+
+	noSmithyDocumentSerde
+}
+
+// Describes the attached EBS status check for an instance.
+type EbsStatusDetails struct {
+
+	// The date and time when the attached EBS status check failed.
+	ImpairedSince *time.Time
+
+	// The name of the attached EBS status check.
+	Name StatusName
+
+	// The result of the attached EBS status check.
+	Status StatusType
+
+	noSmithyDocumentSerde
+}
+
+// Provides a summary of the attached EBS volume status for an instance.
+type EbsStatusSummary struct {
+
+	// Details about the attached EBS status check for an instance.
+	Details []EbsStatusDetails
+
+	// The current status.
+	Status SummaryStatus
 
 	noSmithyDocumentSerde
 }
@@ -7942,6 +7967,10 @@ type InstanceStateChange struct {
 // Describes the status of an instance.
 type InstanceStatus struct {
 
+	// Reports impaired functionality that stems from an attached Amazon EBS volume
+	// that is unreachable and unable to complete I/O operations.
+	AttachedEbsStatus *EbsStatusSummary
+
 	// The Availability Zone of the instance.
 	AvailabilityZone *string
 
@@ -8290,6 +8319,10 @@ type Ipam struct {
 	// The description for the IPAM.
 	Description *string
 
+	// Enable this option to use your own GUA ranges as private IPv6 addresses. This
+	// option is disabled by default.
+	EnablePrivateGua *bool
+
 	// The Amazon Resource Name (ARN) of the IPAM.
 	IpamArn *string
 
@@ -8520,6 +8553,11 @@ type IpamDiscoveredResourceCidr struct {
 
 	// The Availability Zone ID.
 	AvailabilityZoneId *string
+
+	// The source that allocated the IP address space. byoip or amazon indicates
+	// public IP address space allocated by Amazon or space that you have allocated
+	// with Bring your own IP (BYOIP). none indicates private space.
+	IpSource IpamResourceCidrIpSource
 
 	// The percentage of IP address space in use. To convert the decimal to a
 	// percentage, multiply the decimal by 100. Note the following:
@@ -11257,9 +11295,19 @@ type ModifyTransitGatewayOptions struct {
 	// The range is 64512 to 65534 for 16-bit ASNs and 4200000000 to 4294967294 for
 	// 32-bit ASNs.
 	//
-	// The modify ASN operation is not allowed on a transit gateway with active BGP
-	// sessions. You must first delete all transit gateway attachments that have BGP
-	// configured prior to modifying the ASN on the transit gateway.
+	// The modify ASN operation is not allowed on a transit gateway if it has the
+	// following attachments:
+	//
+	//   - Dynamic VPN
+	//
+	//   - Static VPN
+	//
+	//   - Direct Connect Gateway
+	//
+	//   - Connect
+	//
+	// You must first delete all transit gateway attachments configured prior to
+	// modifying the ASN on the transit gateway.
 	AmazonSideAsn *int64
 
 	// The ID of the default association route table.
@@ -12295,7 +12343,7 @@ type NetworkInterfacePermission struct {
 	// The Amazon Web Services account ID.
 	AwsAccountId *string
 
-	// The Amazon Web Service.
+	// The Amazon Web Services service.
 	AwsService *string
 
 	// The ID of the network interface.
@@ -13080,7 +13128,7 @@ type PortRange struct {
 // Describes prefixes for Amazon Web Services services.
 type PrefixList struct {
 
-	// The IP address range of the Amazon Web Service.
+	// The IP address range of the Amazon Web Services service.
 	Cidrs []string
 
 	// The ID of the prefix.
@@ -13739,7 +13787,7 @@ type RequestLaunchTemplateData struct {
 	// The name or Amazon Resource Name (ARN) of an IAM instance profile.
 	IamInstanceProfile *LaunchTemplateIamInstanceProfileSpecificationRequest
 
-	// The ID of the AMI in the format ami-17characters00000 .
+	// The ID of the AMI in the format ami-0ac394d6a3example .
 	//
 	// Alternatively, you can specify a Systems Manager parameter, using one of the
 	// following formats. The Systems Manager parameter will resolve to an AMI ID on
@@ -14542,7 +14590,7 @@ type Route struct {
 	// The IPv6 CIDR block used for the destination match.
 	DestinationIpv6CidrBlock *string
 
-	// The prefix of the Amazon Web Service.
+	// The prefix of the Amazon Web Services service.
 	DestinationPrefixListId *string
 
 	// The ID of the egress-only internet gateway.
@@ -17070,6 +17118,16 @@ type SubnetIpv6CidrBlockAssociation struct {
 
 	// The ID of the association.
 	AssociationId *string
+
+	// The source that allocated the IP address space. byoip or amazon indicates
+	// public IP address space allocated by Amazon or space that you have allocated
+	// with Bring your own IP (BYOIP). none indicates private space.
+	IpSource IpSource
+
+	// Public IPv6 addresses are those advertised on the internet from Amazon Web
+	// Services. Private IP addresses are not and cannot be advertised on the internet
+	// from Amazon Web Services.
+	Ipv6AddressAttribute Ipv6AddressAttribute
 
 	// The IPv6 CIDR block.
 	Ipv6CidrBlock *string
@@ -19789,6 +19847,16 @@ type VpcIpv6CidrBlockAssociation struct {
 
 	// The association ID for the IPv6 CIDR block.
 	AssociationId *string
+
+	// The source that allocated the IP address space. byoip or amazon indicates
+	// public IP address space allocated by Amazon or space that you have allocated
+	// with Bring your own IP (BYOIP). none indicates private space.
+	IpSource IpSource
+
+	// Public IPv6 addresses are those advertised on the internet from Amazon Web
+	// Services. Private IP addresses are not and cannot be advertised on the internet
+	// from Amazon Web Services.
+	Ipv6AddressAttribute Ipv6AddressAttribute
 
 	// The IPv6 CIDR block.
 	Ipv6CidrBlock *string

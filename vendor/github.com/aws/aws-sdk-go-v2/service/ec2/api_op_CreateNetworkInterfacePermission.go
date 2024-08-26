@@ -47,7 +47,7 @@ type CreateNetworkInterfacePermissionInput struct {
 	// The Amazon Web Services account ID.
 	AwsAccountId *string
 
-	// The Amazon Web Service. Currently not supported.
+	// The Amazon Web Services service. Currently not supported.
 	AwsService *string
 
 	// Checks whether you have the required permissions for the action, without
