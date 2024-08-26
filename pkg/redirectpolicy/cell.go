@@ -20,6 +20,8 @@ var Cell = cell.Module(
 
 	cell.Provide(newLRPManager),
 	cell.Provide(newLRPApiHandler),
+
+	experimentalCell,
 )
 
 type lrpManagerParams struct {

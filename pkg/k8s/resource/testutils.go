@@ -14,7 +14,7 @@ import (
 
 // EventStreamFromFiles returns an observable stream of events created from decoding the
 // given slice of files and emitted as Upserts.
-func EventStreamFromFiles[T runtime.Object](paths []string) func() stream.Observable[Event[T]] {
+func EventStreamFromFiles[T runtime.Object](paths []string, parseFuncs ...func(any) (T, bool)) func() stream.Observable[Event[T]] {
 	src := make(chan Event[T], 1)
 	src <- Event[T]{
 		Kind: Sync,
@@ -26,7 +26,18 @@ func EventStreamFromFiles[T runtime.Object](paths []string) func() stream.Observ
 			if err != nil {
 				panic(err)
 			}
-			obj := rawObj.(T)
+			var obj T
+			if len(parseFuncs) > 0 {
+				for _, parse := range parseFuncs {
+					var ok bool
+					obj, ok = parse(rawObj)
+					if ok {
+						break
+					}
+				}
+			} else {
+				obj = rawObj.(T)
+			}
 			src <- Event[T]{
 				Kind:   Upsert,
 				Key:    NewKey(obj),

@@ -8,7 +8,6 @@ import (
 	"context"
 	"os"
 	"path"
-	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -383,12 +382,6 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 	}
 }
 
-// sanitizeTables clears non-deterministic data in the table output such as timestamps.
-func sanitizeTables(dump []byte) []byte {
-	r := regexp.MustCompile(`\([^\)]* ago\)`)
-	return r.ReplaceAll(dump, []byte("(??? ago)"))
-}
-
 func checkTablesAndMaps(db *statedb.DB, writer *Writer, maps lbmaps, testDataPath string) bool {
 	iter := writer.Frontends().All(db.ReadTxn())
 	allDone := true
@@ -411,8 +404,8 @@ func checkTablesAndMaps(db *statedb.DB, writer *Writer, maps lbmaps, testDataPat
 	if expectedData, err := os.ReadFile(path.Join(testDataPath, "expected.tables")); err == nil {
 		expectedTables = expectedData
 	}
-	actualTables = sanitizeTables(actualTables)
-	expectedTables = sanitizeTables(expectedTables)
+	actualTables = SanitizeTableDump(actualTables)
+	expectedTables = SanitizeTableDump(expectedTables)
 
 	os.WriteFile(path.Join(testDataPath, "actual.tables"), actualTables, 0644)
 

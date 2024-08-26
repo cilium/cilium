@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/nat/stats"
+	"github.com/cilium/cilium/pkg/redirectpolicy"
 )
 
 var StatedbCmd = &cobra.Command{
@@ -213,6 +214,7 @@ func init() {
 		statedbTableCommand[*experimental.Backend](experimental.BackendTableName),
 		statedbTableCommand[dynamicconfig.DynamicConfig](dynamicconfig.TableName),
 		statedbTableCommand[*ciliumenvoyconfig.CEC](ciliumenvoyconfig.CECTableName),
+		statedbTableCommand[*redirectpolicy.LRPConfig](redirectpolicy.LRPTableName),
 	)
 	StatedbCmd.AddCommand(
 		statedbDumpCmd,

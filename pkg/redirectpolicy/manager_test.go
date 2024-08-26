@@ -46,33 +46,33 @@ func setupManagerSuite(tb testing.TB) *ManagerSuite {
 	m.epM = &fakeEpManager{}
 	m.rpm = NewRedirectPolicyManager(m.svc, nil, fpr, m.epM)
 	configAddrType = LRPConfig{
-		id: k8s.ServiceID{
+		ID: k8s.ServiceID{
 			Name:      "test-foo",
 			Namespace: "ns1",
 		},
-		lrpType:      lrpConfigTypeAddr,
-		frontendType: addrFrontendSinglePort,
-		frontendMappings: []*feMapping{{
-			feAddr:      fe1,
-			podBackends: nil,
-			fePort:      portName1,
+		LRPType:      lrpConfigTypeAddr,
+		FrontendType: addrFrontendSinglePort,
+		FrontendMappings: []*FEMapping{{
+			FEAddr:      fe1,
+			PodBackends: nil,
+			FEPort:      portName1,
 		}},
-		backendSelector: api.EndpointSelector{
+		BackendSelector: api.EndpointSelector{
 			LabelSelector: &slim_metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"test": "foo",
 				},
 			},
 		},
-		backendPorts: []bePortInfo{beP1},
+		BackendPorts: []bePortInfo{beP1},
 	}
 	configSvcType = LRPConfig{
-		id: k8s.ServiceID{
+		ID: k8s.ServiceID{
 			Name:      "test-foo",
 			Namespace: "ns1",
 		},
-		lrpType: lrpConfigTypeSvc,
-		backendSelector: api.EndpointSelector{
+		LRPType: lrpConfigTypeSvc,
+		BackendSelector: api.EndpointSelector{
 			LabelSelector: &slim_metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"test": "foo",
@@ -358,9 +358,9 @@ func TestManager_AddRedirectPolicy_AddrMatcherDuplicateConfig(t *testing.T) {
 	m := setupManagerSuite(t)
 
 	configFe := configAddrType
-	m.rpm.policyFrontendsByHash[fe1.Hash()] = configFe.id
+	m.rpm.policyFrontendsByHash[fe1.Hash()] = configFe.ID
 	dupConfigFe := configFe
-	dupConfigFe.id.Name = "test-foo2"
+	dupConfigFe.ID.Name = "test-foo2"
 
 	added, err := m.rpm.AddRedirectPolicy(dupConfigFe)
 
@@ -373,14 +373,14 @@ func TestManager_AddRedirectPolicy_SvcMatcherDuplicateConfig(t *testing.T) {
 	m := setupManagerSuite(t)
 
 	configSvc := configSvcType
-	configSvc.serviceID = &k8s.ServiceID{
+	configSvc.ServiceID = &k8s.ServiceID{
 		Name:      "foo",
 		Namespace: "ns1",
 	}
-	m.rpm.policyConfigs[configSvc.id] = &configSvc
-	m.rpm.policyServices[*configSvc.serviceID] = configSvc.id
+	m.rpm.policyConfigs[configSvc.ID] = &configSvc
+	m.rpm.policyServices[*configSvc.ServiceID] = configSvc.ID
 	invalidConfigSvc := configSvc
-	invalidConfigSvc.id.Name = "test-foo3"
+	invalidConfigSvc.ID.Name = "test-foo3"
 
 	added, err := m.rpm.AddRedirectPolicy(invalidConfigSvc)
 
@@ -409,17 +409,17 @@ func TestManager_AddrMatcherConfigSinglePort(t *testing.T) {
 	require.Equal(t, true, added)
 	require.Nil(t, err)
 	require.Equal(t, 1, len(m.rpm.policyConfigs))
-	require.Equal(t, configAddrType.id.Name, m.rpm.policyConfigs[configAddrType.id].id.Name)
-	require.Equal(t, configAddrType.id.Namespace, m.rpm.policyConfigs[configAddrType.id].id.Namespace)
+	require.Equal(t, configAddrType.ID.Name, m.rpm.policyConfigs[configAddrType.ID].ID.Name)
+	require.Equal(t, configAddrType.ID.Namespace, m.rpm.policyConfigs[configAddrType.ID].ID.Namespace)
 	require.Equal(t, 1, len(m.rpm.policyFrontendsByHash))
-	require.Equal(t, configAddrType.id, m.rpm.policyFrontendsByHash[configAddrType.frontendMappings[0].feAddr.Hash()])
-	require.Equal(t, 2, len(configAddrType.frontendMappings[0].podBackends))
-	for i := range configAddrType.frontendMappings[0].podBackends {
-		require.Equal(t, expectedbes[i], configAddrType.frontendMappings[0].podBackends[i])
+	require.Equal(t, configAddrType.ID, m.rpm.policyFrontendsByHash[configAddrType.FrontendMappings[0].FEAddr.Hash()])
+	require.Equal(t, 2, len(configAddrType.FrontendMappings[0].PodBackends))
+	for i := range configAddrType.FrontendMappings[0].PodBackends {
+		require.Equal(t, expectedbes[i], configAddrType.FrontendMappings[0].PodBackends[i])
 	}
 	require.Equal(t, 1, len(m.rpm.policyPods))
 	require.Equal(t, 1, len(m.rpm.policyPods[pod1ID]))
-	require.Equal(t, configAddrType.id, m.rpm.policyPods[pod1ID][0])
+	require.Equal(t, configAddrType.ID, m.rpm.policyPods[pod1ID][0])
 
 	// Add a new backend pod, this will add 2 more pod backends with each of the podIPs.
 	pod3 := pod2.DeepCopy()
@@ -439,10 +439,10 @@ func TestManager_AddrMatcherConfigSinglePort(t *testing.T) {
 
 	require.Equal(t, 2, len(m.rpm.policyPods))
 	require.Equal(t, 1, len(m.rpm.policyPods[pod3ID]))
-	require.Equal(t, configAddrType.id, m.rpm.policyPods[pod1ID][0])
-	require.Equal(t, 4, len(configAddrType.frontendMappings[0].podBackends))
-	for i := range configAddrType.frontendMappings[0].podBackends {
-		require.Equal(t, expectedbes2[i], configAddrType.frontendMappings[0].podBackends[i])
+	require.Equal(t, configAddrType.ID, m.rpm.policyPods[pod1ID][0])
+	require.Equal(t, 4, len(configAddrType.FrontendMappings[0].PodBackends))
+	for i := range configAddrType.FrontendMappings[0].PodBackends {
+		require.Equal(t, expectedbes2[i], configAddrType.FrontendMappings[0].PodBackends[i])
 	}
 
 	// When pod becomes un-ready
@@ -451,9 +451,9 @@ func TestManager_AddrMatcherConfigSinglePort(t *testing.T) {
 
 	require.Equal(t, 2, len(m.rpm.policyPods))
 	require.Equal(t, 1, len(m.rpm.policyPods[pod3ID]))
-	require.Equal(t, 2, len(configAddrType.frontendMappings[0].podBackends))
-	for i := range configAddrType.frontendMappings[0].podBackends {
-		require.Equal(t, expectedbes[i], configAddrType.frontendMappings[0].podBackends[i])
+	require.Equal(t, 2, len(configAddrType.FrontendMappings[0].PodBackends))
+	for i := range configAddrType.FrontendMappings[0].PodBackends {
+		require.Equal(t, expectedbes[i], configAddrType.FrontendMappings[0].PodBackends[i])
 	}
 
 	// When pod becomes ready
@@ -462,10 +462,10 @@ func TestManager_AddrMatcherConfigSinglePort(t *testing.T) {
 
 	require.Equal(t, 2, len(m.rpm.policyPods))
 	require.Equal(t, 1, len(m.rpm.policyPods[pod3ID]))
-	require.Equal(t, configAddrType.id, m.rpm.policyPods[pod1ID][0])
-	require.Equal(t, 4, len(configAddrType.frontendMappings[0].podBackends))
-	for i := range configAddrType.frontendMappings[0].podBackends {
-		require.Equal(t, expectedbes2[i], configAddrType.frontendMappings[0].podBackends[i])
+	require.Equal(t, configAddrType.ID, m.rpm.policyPods[pod1ID][0])
+	require.Equal(t, 4, len(configAddrType.FrontendMappings[0].PodBackends))
+	for i := range configAddrType.FrontendMappings[0].PodBackends {
+		require.Equal(t, expectedbes2[i], configAddrType.FrontendMappings[0].PodBackends[i])
 	}
 
 	// Delete the pod. This should delete the pod's backends.
@@ -474,9 +474,9 @@ func TestManager_AddrMatcherConfigSinglePort(t *testing.T) {
 	require.Equal(t, 1, len(m.rpm.policyPods))
 	_, found := m.rpm.policyPods[pod3ID]
 	require.Equal(t, false, found)
-	require.Equal(t, 2, len(configAddrType.frontendMappings[0].podBackends))
-	for i := range configAddrType.frontendMappings[0].podBackends {
-		require.Equal(t, expectedbes[i], configAddrType.frontendMappings[0].podBackends[i])
+	require.Equal(t, 2, len(configAddrType.FrontendMappings[0].PodBackends))
+	for i := range configAddrType.FrontendMappings[0].PodBackends {
+		require.Equal(t, expectedbes[i], configAddrType.FrontendMappings[0].PodBackends[i])
 	}
 
 	// Delete the LRP.
@@ -494,18 +494,18 @@ func TestManager_AddrMatcherConfigMultiplePorts(t *testing.T) {
 	m := setupManagerSuite(t)
 
 	// Add an addressMatcher type LRP with multiple named ports.
-	configAddrType.frontendType = addrFrontendNamedPorts
-	configAddrType.frontendMappings = append(configAddrType.frontendMappings, &feMapping{
-		feAddr:      fe2,
-		podBackends: nil,
-		fePort:      portName2,
+	configAddrType.FrontendType = addrFrontendNamedPorts
+	configAddrType.FrontendMappings = append(configAddrType.FrontendMappings, &FEMapping{
+		FEAddr:      fe2,
+		PodBackends: nil,
+		FEPort:      portName2,
 	})
 	beP1.name = portName1
 	beP2.name = portName2
-	configAddrType.backendPorts = []bePortInfo{beP1, beP2}
-	configAddrType.backendPortsByPortName = map[string]*bePortInfo{
-		beP1.name: &configAddrType.backendPorts[0],
-		beP2.name: &configAddrType.backendPorts[1]}
+	configAddrType.BackendPorts = []bePortInfo{beP1, beP2}
+	configAddrType.BackendPortsByPortName = map[string]*bePortInfo{
+		beP1.name: &configAddrType.BackendPorts[0],
+		beP2.name: &configAddrType.BackendPorts[1]}
 	podIPs := utils.ValidIPs(pod1.Status)
 	expectedbes := make([]backend, 0, len(podIPs))
 	for i := range podIPs {
@@ -520,44 +520,44 @@ func TestManager_AddrMatcherConfigMultiplePorts(t *testing.T) {
 	require.Equal(t, true, added)
 	require.Nil(t, err)
 	require.Equal(t, 1, len(m.rpm.policyConfigs))
-	require.Equal(t, configAddrType.id.Name, m.rpm.policyConfigs[configAddrType.id].id.Name)
-	require.Equal(t, configAddrType.id.Namespace, m.rpm.policyConfigs[configAddrType.id].id.Namespace)
+	require.Equal(t, configAddrType.ID.Name, m.rpm.policyConfigs[configAddrType.ID].ID.Name)
+	require.Equal(t, configAddrType.ID.Namespace, m.rpm.policyConfigs[configAddrType.ID].ID.Namespace)
 	require.Equal(t, 2, len(m.rpm.policyFrontendsByHash))
 	for _, id := range m.rpm.policyFrontendsByHash {
-		require.Equal(t, configAddrType.id, id)
+		require.Equal(t, configAddrType.ID, id)
 	}
 	// Frontend ports should be mapped to the corresponding backend ports.
-	for _, feM := range configAddrType.frontendMappings {
-		switch feM.fePort {
+	for _, feM := range configAddrType.FrontendMappings {
+		switch feM.FEPort {
 		case "test1":
-			require.Equal(t, 2, len(feM.podBackends))
+			require.Equal(t, 2, len(feM.PodBackends))
 			for i := range podIPs {
 				expectedbes[i] = backend{
 					L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(podIPs[i]), L4Addr: beP1.l4Addr},
 					podID:    pod1ID,
 				}
 			}
-			for i := range feM.podBackends {
-				require.Equal(t, expectedbes[i], feM.podBackends[i])
+			for i := range feM.PodBackends {
+				require.Equal(t, expectedbes[i], feM.PodBackends[i])
 			}
 		case "test2":
-			require.Equal(t, 2, len(feM.podBackends))
+			require.Equal(t, 2, len(feM.PodBackends))
 			for i := range podIPs {
 				expectedbes[i] = backend{
 					L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(podIPs[i]), L4Addr: beP2.l4Addr},
 					podID:    pod1ID,
 				}
 			}
-			for i := range feM.podBackends {
-				require.Equal(t, expectedbes[i], feM.podBackends[i])
+			for i := range feM.PodBackends {
+				require.Equal(t, expectedbes[i], feM.PodBackends[i])
 			}
 		default:
-			log.Errorf("Unknown port %s", feM.fePort)
+			log.Errorf("Unknown port %s", feM.FEPort)
 		}
 	}
 	require.Equal(t, 1, len(m.rpm.policyPods))
 	require.Equal(t, 1, len(m.rpm.policyPods[pod1ID]))
-	require.Equal(t, configAddrType.id, m.rpm.policyPods[pod1ID][0])
+	require.Equal(t, configAddrType.ID, m.rpm.policyPods[pod1ID][0])
 
 	// Delete the LRP.
 	err = m.rpm.DeleteRedirectPolicy(configAddrType)
@@ -603,27 +603,27 @@ func TestManager_AddrMatcherConfigDualStack(t *testing.T) {
 
 	require.Equal(t, true, added)
 	require.Nil(t, err)
-	require.Equal(t, len(expectedbes4), len(configAddrType.frontendMappings[0].podBackends))
-	for i := range configAddrType.frontendMappings[0].podBackends {
-		require.Equal(t, expectedbes4[i], configAddrType.frontendMappings[0].podBackends[i])
+	require.Equal(t, len(expectedbes4), len(configAddrType.FrontendMappings[0].PodBackends))
+	for i := range configAddrType.FrontendMappings[0].PodBackends {
+		require.Equal(t, expectedbes4[i], configAddrType.FrontendMappings[0].PodBackends[i])
 	}
 
 	// Only ipv6 backend(s) for ipv6 frontend
-	feM := []*feMapping{{
-		feAddr:      fe3v6,
-		podBackends: nil,
+	feM := []*FEMapping{{
+		FEAddr:      fe3v6,
+		PodBackends: nil,
 	}}
-	configAddrType.id.Name = "test-bar"
-	configAddrType.frontendMappings = feM
+	configAddrType.ID.Name = "test-bar"
+	configAddrType.FrontendMappings = feM
 
 	added, err = m.rpm.AddRedirectPolicy(configAddrType)
 
 	require.Equal(t, true, added)
 	require.Nil(t, err)
-	require.Equal(t, len(expectedbes6), len(configAddrType.frontendMappings[0].podBackends))
+	require.Equal(t, len(expectedbes6), len(configAddrType.FrontendMappings[0].PodBackends))
 
-	for i := range configAddrType.frontendMappings[0].podBackends {
-		require.Equal(t, expectedbes6[i], configAddrType.frontendMappings[0].podBackends[i])
+	for i := range configAddrType.FrontendMappings[0].PodBackends {
+		require.Equal(t, expectedbes6[i], configAddrType.FrontendMappings[0].PodBackends[i])
 	}
 }
 
@@ -632,9 +632,9 @@ func TestManager_OnAddandUpdatePod(t *testing.T) {
 	m := setupManagerSuite(t)
 
 	configFe := configAddrType
-	m.rpm.policyFrontendsByHash[fe1.Hash()] = configFe.id
+	m.rpm.policyFrontendsByHash[fe1.Hash()] = configFe.ID
 	configSvc := configSvcType
-	m.rpm.policyConfigs[configSvc.id] = &configSvc
+	m.rpm.policyConfigs[configSvc.ID] = &configSvc
 	pod := pod1.DeepCopy()
 	pod.Namespace = "ns2"
 	podID := k8s.ServiceID{
@@ -667,7 +667,7 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 	m.svc = sMgr
 	lbEvents := make(chan skipLBParams)
 	pc := configAddrType
-	pc.skipRedirectFromBackend = true
+	pc.SkipRedirectFromBackend = true
 	pods := make(map[resource.Key]*slimcorev1.Pod)
 	pk1 := resource.Key{
 		Name:      pod1.Name,
@@ -713,7 +713,7 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 		ev := <-sMgr.upsertEvents
 
 		require.Equal(t, lb.SVCTypeLocalRedirect, ev.Type)
-		require.Equal(t, configAddrType.frontendMappings[0].feAddr.String(), ev.Frontend.String())
+		require.Equal(t, configAddrType.FrontendMappings[0].FEAddr.String(), ev.Frontend.String())
 		require.Equal(t, 1, len(ev.Backends))
 		require.Equal(t, backend{
 			L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(pod1.Status.PodIP), L4Addr: beP1.l4Addr},
@@ -774,7 +774,7 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 		ev := <-sMgr.upsertEvents
 
 		require.Equal(t, lb.SVCTypeLocalRedirect, ev.Type)
-		require.Equal(t, configAddrType.frontendMappings[0].feAddr.String(), ev.Frontend.String())
+		require.Equal(t, configAddrType.FrontendMappings[0].FEAddr.String(), ev.Frontend.String())
 		require.Equal(t, 1, len(ev.Backends))
 		require.Equal(t, backend{
 			L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(pod.Status.PodIP), L4Addr: beP1.l4Addr},
@@ -838,7 +838,7 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 		ev := <-sMgr.upsertEvents
 
 		require.Equal(t, lb.SVCTypeLocalRedirect, ev.Type)
-		require.Equal(t, configAddrType.frontendMappings[0].feAddr.String(), ev.Frontend.String())
+		require.Equal(t, configAddrType.FrontendMappings[0].FEAddr.String(), ev.Frontend.String())
 		require.Equal(t, 1, len(ev.Backends))
 		require.Equal(t, backend{
 			L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(pod.Status.PodIP), L4Addr: beP1.l4Addr},
@@ -921,28 +921,28 @@ func TestManager_OnDeletePod(t *testing.T) {
 	beAddrs.Insert(lb.L3n4Addr{
 		AddrCluster: cmtypes.MustParseAddrCluster(podUDP.Status.PodIP), L4Addr: beUDPP2.l4Addr})
 	pc := LRPConfig{
-		id: k8s.ServiceID{
+		ID: k8s.ServiceID{
 			Name:      "test-foo",
 			Namespace: "ns1",
 		},
-		lrpType:      lrpConfigTypeAddr,
-		frontendType: addrFrontendNamedPorts,
-		frontendMappings: []*feMapping{{
-			feAddr:      fe2,
-			podBackends: nil,
-			fePort:      beUDPP1.name,
+		LRPType:      lrpConfigTypeAddr,
+		FrontendType: addrFrontendNamedPorts,
+		FrontendMappings: []*FEMapping{{
+			FEAddr:      fe2,
+			PodBackends: nil,
+			FEPort:      beUDPP1.name,
 		}, {
-			feAddr:      fe2,
-			podBackends: nil,
-			fePort:      beUDPP2.name,
+			FEAddr:      fe2,
+			PodBackends: nil,
+			FEPort:      beUDPP2.name,
 		}},
-		backendSelector: api.EndpointSelector{
+		BackendSelector: api.EndpointSelector{
 			LabelSelector: &slim_metav1.LabelSelector{
 				MatchLabels: labels,
 			},
 		},
-		backendPorts: []bePortInfo{beUDPP1, beUDPP2},
-		backendPortsByPortName: map[string]*bePortInfo{
+		BackendPorts: []bePortInfo{beUDPP1, beUDPP2},
+		BackendPortsByPortName: map[string]*bePortInfo{
 			beUDPP1.name: &beUDPP1,
 			beUDPP2.name: &beUDPP2,
 		},
