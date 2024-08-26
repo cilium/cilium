@@ -88,8 +88,8 @@ func TestReconcile(t *testing.T) {
 
 		sharedCEC := ciliumv2.CiliumEnvoyConfig{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: testCiliumNamespace, Name: testDefaultLoadbalancingServiceName}, &sharedCEC)
-		require.NoError(t, err, "Attempt to cleanup shared CiliumEnvoyConfig will create an empty one")
-		require.Empty(t, sharedCEC.Spec.Resources)
+		require.Error(t, err, "Empty CiliumEnvoyConfig must be removed")
+		require.True(t, k8sApiErrors.IsNotFound(err))
 	})
 
 	t.Run("Reconcile of Ingress without specific IngressClassName will create resources if cilium IngressClass is the default", func(t *testing.T) {
@@ -144,8 +144,8 @@ func TestReconcile(t *testing.T) {
 
 		sharedCEC := ciliumv2.CiliumEnvoyConfig{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: testCiliumNamespace, Name: testDefaultLoadbalancingServiceName}, &sharedCEC)
-		require.NoError(t, err, "Attempt to cleanup shared CiliumEnvoyConfig will create an empty one")
-		require.Empty(t, sharedCEC.Spec.Resources)
+		require.Error(t, err, "Empty CiliumEnvoyConfig must be removed")
+		require.True(t, k8sApiErrors.IsNotFound(err))
 	})
 
 	t.Run("Reconcile of Ingress without specific IngressClassName won't create resources if cilium IngressClass is not the default", func(t *testing.T) {
@@ -381,8 +381,8 @@ func TestReconcile(t *testing.T) {
 
 		sharedCEC := ciliumv2.CiliumEnvoyConfig{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: testCiliumNamespace, Name: testDefaultLoadbalancingServiceName}, &sharedCEC)
-		require.NoError(t, err, "Attempt to cleanup shared CiliumEnvoyConfig will replace it with an empty one")
-		require.Empty(t, sharedCEC.Spec.Resources)
+		require.Error(t, err, "Empty CiliumEnvoyConfig must be removed")
+		require.True(t, k8sApiErrors.IsNotFound(err))
 	})
 
 	t.Run("Reconcile of a non-existent, potentially deleted, Cilium Ingress will try to cleanup any potentially existing shared resources", func(t *testing.T) {
@@ -423,8 +423,8 @@ func TestReconcile(t *testing.T) {
 
 		sharedCEC := ciliumv2.CiliumEnvoyConfig{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: testCiliumNamespace, Name: testDefaultLoadbalancingServiceName}, &sharedCEC)
-		require.NoError(t, err, "Attempt to cleanup shared CiliumEnvoyConfig will replace it with an empty one")
-		require.Empty(t, sharedCEC.Spec.Resources)
+		require.Error(t, err, "Empty CiliumEnvoyConfig must be removed")
+		require.True(t, k8sApiErrors.IsNotFound(err))
 	})
 
 	t.Run("Reconcile of non Cilium Ingress will cleanup any potentially existing resources (dedicated and shared) and reset the Ingress status", func(t *testing.T) {
@@ -517,8 +517,8 @@ func TestReconcile(t *testing.T) {
 
 		sharedCEC := ciliumv2.CiliumEnvoyConfig{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: testCiliumNamespace, Name: testDefaultLoadbalancingServiceName}, &sharedCEC)
-		require.NoError(t, err, "Attempt to cleanup shared CiliumEnvoyConfig will replace it with an empty one")
-		require.Empty(t, sharedCEC.Spec.Resources)
+		require.Error(t, err, "Empty CiliumEnvoyConfig must be removed")
+		require.True(t, k8sApiErrors.IsNotFound(err))
 
 		ingress := networkingv1.Ingress{}
 		err = fakeClient.Get(context.Background(), types.NamespacedName{Namespace: "test", Name: "test"}, &ingress)
