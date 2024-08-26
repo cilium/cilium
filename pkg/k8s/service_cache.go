@@ -144,7 +144,7 @@ type ServiceCache struct {
 	externalEndpoints map[ServiceID]externalEndpoints
 
 	// endpointsChangeTracker tracks the last time when endpoints were changed
-	endpointsChangeTracker *EndpointsChangeTracker
+	endpointsChangeTracker *K8sEndpointsChangeTracker
 
 	selfNodeZoneLabel string
 
@@ -453,7 +453,7 @@ func (s *ServiceCache) UpdateEndpoints(newEndpoints *Endpoints, swg *lock.Stoppa
 	defer s.mutex.Unlock()
 
 	esID := newEndpoints.EndpointSliceID
-	triggerTime := s.endpointsChangeTracker.EndpointUpdate(esID.ServiceID, newEndpoints.Annotations, false)
+	triggerTime := s.endpointsChangeTracker.EndpointUpdate(esID.ServiceID, newEndpoints.Annotations)
 
 	var oldEPs *Endpoints
 	eps, ok := s.endpoints[esID.ServiceID]
@@ -508,7 +508,7 @@ func (s *ServiceCache) DeleteEndpoints(svcID EndpointSliceID, swg *lock.Stoppabl
 	// Delete the endpoint change tracker if it is not shared and has no endpoints
 	_, ok = s.endpoints[svcID.ServiceID]
 	if !ok {
-		s.endpointsChangeTracker.EndpointUpdate(svcID.ServiceID, nil, true)
+		s.endpointsChangeTracker.EndpointRemoved(svcID.ServiceID)
 	}
 
 	endpoints, _ := s.correlateEndpoints(svcID.ServiceID)

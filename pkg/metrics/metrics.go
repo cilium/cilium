@@ -1106,7 +1106,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 				base_metrics.LinearBuckets(120, 30, 7),    // 2min, 2.5min, 3min, ..., 5min
 			),
 			Name: "network_programming_duration_seconds",
-			Help: "In Cluster Network Programming Latency in seconds",
+			Help: "Duration of network programming in seconds",
 		}),
 
 		TerminatingEndpointsEvents: metric.NewCounter(metric.CounterOpts{

@@ -482,7 +482,7 @@ Name                                        Labels                              
 ``kubernetes_events_total``                 ``scope``, ``action``, ``outcome``                 Enabled    Number of Kubernetes events processed
 ``k8s_cnp_status_completion_seconds``       ``attempts``, ``outcome``                          Enabled    Duration in seconds in how long it took to complete a CNP status update
 ``k8s_terminating_endpoints_events_total``                                                     Enabled    Number of terminating endpoint events received from Kubernetes
-``k8s_network_programming_duration_seconds``                                                  Enabled    Duration in seconds of network programming
+``k8s_network_programming_duration_seconds``                                                   Enabled    Duration of network programming in seconds
 =========================================== ================================================== ========== ========================================================
 
 Kubernetes Rest Client

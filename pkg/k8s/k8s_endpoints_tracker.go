@@ -10,9 +10,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// EndpointsChangeTracker carries state about uncommitted changes to an arbitrary number of
+// K8sEndpointsChangeTracker carries state about uncommitted changes to an arbitrary number of
 // Endpoints, keyed by their namespace and name.
-type EndpointsChangeTracker struct {
+type K8sEndpointsChangeTracker struct {
 	// mutex protects the maps below including the concurrent access of each
 	// value.
 	mutex lock.RWMutex
@@ -29,24 +29,34 @@ type EndpointsChangeTracker struct {
 }
 
 // NewEndpointsChangeTracker returns a new EndpointsChangeTracker.
-func NewEndpointsChangeTracker() *EndpointsChangeTracker {
-	return &EndpointsChangeTracker{
+func NewEndpointsChangeTracker() *K8sEndpointsChangeTracker {
+	return &K8sEndpointsChangeTracker{
 		log:                   log.WithField(logfields.LogSubsys, "endpoints-tracker"),
 		lastChangeTriggerTime: make(map[ServiceID]time.Time),
 		trackerStartTime:      time.Now(),
 	}
 }
 
-// EndpointUpdate updates the EndpointsChangeTracker to record last change trigger time
-// Returns the time when the Endpoints last change trigger time.
-func (tracker *EndpointsChangeTracker) EndpointUpdate(serviceID ServiceID, annotations map[string]string, remove bool) (start time.Time) {
+// EndpointRemoved removes records from tracker 
+func (tracker *K8sEndpointsChangeTracker) EndpointRemoved(serviceID ServiceID){
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
 
-	scopedLog := tracker.log.WithField(logfields.EndpointID, serviceID.String())
-	if remove {
-		delete(tracker.lastChangeTriggerTime, serviceID)
-	} else if len(annotations) > 0 {
+	delete(tracker.lastChangeTriggerTime, serviceID)
+}
+
+// EndpointUpdate updates the EndpointsChangeTracker to record last change trigger time
+// Returns the time when the Endpoints last change trigger time.
+func (tracker *K8sEndpointsChangeTracker) EndpointUpdate(serviceID ServiceID, annotations map[string]string) (start time.Time) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+
+	scopedLog := tracker.log.WithFields(logrus.Fields{
+		"namespace": serviceID.Namespace,
+		"name":      serviceID.Name,
+	})
+
+	if len(annotations) > 0 {
 		// If the Endpoints object has been updated, update the time stored in
 		// lastChangeTriggerTimes.
 		old, ok := tracker.lastChangeTriggerTime[serviceID]
