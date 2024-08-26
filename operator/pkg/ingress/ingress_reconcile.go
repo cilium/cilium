@@ -307,6 +307,16 @@ func (r *ingressReconciler) getDedicatedListenerPorts(ingress *networkingv1.Ingr
 func (r *ingressReconciler) createOrUpdateCiliumEnvoyConfig(ctx context.Context, desiredCEC *ciliumv2.CiliumEnvoyConfig) error {
 	cec := desiredCEC.DeepCopy()
 
+	// Delete CiliumEnvoyConfig if no resources are defined.
+	// Otherwise, the subsequent CreateOrUpdate will fail as spec.resources is required field.
+	if len(cec.Spec.Resources) == 0 {
+		err := r.client.Delete(ctx, cec)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete CiliumEnvoyConfig: %w", err)
+		}
+		return nil
+	}
+
 	result, err := controllerutil.CreateOrUpdate(ctx, r.client, cec, func() error {
 		cec.Spec = desiredCEC.Spec
 		cec.OwnerReferences = desiredCEC.OwnerReferences
