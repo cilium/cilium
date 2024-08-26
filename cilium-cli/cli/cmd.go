@@ -85,7 +85,7 @@ cilium connectivity test`,
 	cmd.PersistentFlags().StringVar(&contextName, "context", "", "Kubernetes configuration context")
 	cmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "kube-system", "Namespace Cilium is running in")
 	cmd.PersistentFlags().StringVar(&helmReleaseName, "helm-release-name", "cilium", "Helm release name")
-	cmd.PersistentFlags().StringVar(&kubeConfig, "kubeconfig", "", "absolute path to the kubeconfig file")
+	cmd.PersistentFlags().StringVar(&kubeConfig, "kubeconfig", "", "Path to the kubeconfig file")
 
 	cmd.AddCommand(
 		newCmdBgp(),
