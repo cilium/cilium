@@ -615,9 +615,12 @@ spec:
                                       type: array
                                     host:
                                       description: "Host is an extended POSIX regex
-                                        matched against the host header of a request,
-                                        e.g. \"foo.com\" \n If omitted or empty, the
-                                        value of the host header is ignored."
+                                        matched against the host header of a request.
+                                        Examples: \n - foo.bar.com will match the
+                                        host fooXbar.com or foo-bar.com - foo\\.bar\\.com
+                                        will only match the host foo.bar.com \n If
+                                        omitted or empty, the value of the host header
+                                        is ignored."
                                       format: idn-hostname
                                       type: string
                                     method:
@@ -1984,9 +1987,12 @@ spec:
                                       type: array
                                     host:
                                       description: "Host is an extended POSIX regex
-                                        matched against the host header of a request,
-                                        e.g. \"foo.com\" \n If omitted or empty, the
-                                        value of the host header is ignored."
+                                        matched against the host header of a request.
+                                        Examples: \n - foo.bar.com will match the
+                                        host fooXbar.com or foo-bar.com - foo\\.bar\\.com
+                                        will only match the host foo.bar.com \n If
+                                        omitted or empty, the value of the host header
+                                        is ignored."
                                       format: idn-hostname
                                       type: string
                                     method:
@@ -3152,9 +3158,12 @@ spec:
                                         type: array
                                       host:
                                         description: "Host is an extended POSIX regex
-                                          matched against the host header of a request,
-                                          e.g. \"foo.com\" \n If omitted or empty,
-                                          the value of the host header is ignored."
+                                          matched against the host header of a request.
+                                          Examples: \n - foo.bar.com will match the
+                                          host fooXbar.com or foo-bar.com - foo\\.bar\\.com
+                                          will only match the host foo.bar.com \n
+                                          If omitted or empty, the value of the host
+                                          header is ignored."
                                         format: idn-hostname
                                         type: string
                                       method:
@@ -4542,9 +4551,12 @@ spec:
                                         type: array
                                       host:
                                         description: "Host is an extended POSIX regex
-                                          matched against the host header of a request,
-                                          e.g. \"foo.com\" \n If omitted or empty,
-                                          the value of the host header is ignored."
+                                          matched against the host header of a request.
+                                          Examples: \n - foo.bar.com will match the
+                                          host fooXbar.com or foo-bar.com - foo\\.bar\\.com
+                                          will only match the host foo.bar.com \n
+                                          If omitted or empty, the value of the host
+                                          header is ignored."
                                         format: idn-hostname
                                         type: string
                                       method:
