@@ -928,10 +928,6 @@ github.com/google/go-licenses/licenses
 ## explicit; go 1.12
 github.com/google/gofuzz
 github.com/google/gofuzz/bytesource
-# github.com/google/gopacket v1.1.19
-## explicit; go 1.12
-github.com/google/gopacket
-github.com/google/gopacket/layers
 # github.com/google/gops v0.3.28
 ## explicit; go 1.17
 github.com/google/gops/agent
@@ -950,6 +946,10 @@ github.com/google/shlex
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
+# github.com/gopacket/gopacket v1.2.0
+## explicit; go 1.20
+github.com/gopacket/gopacket
+github.com/gopacket/gopacket/layers
 # github.com/gorilla/mux v1.8.1
 ## explicit; go 1.20
 github.com/gorilla/mux

@@ -8,8 +8,8 @@ import (
 	"net/netip"
 	"strings"
 
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
+	"github.com/gopacket/gopacket"
+	"github.com/gopacket/gopacket/layers"
 	"github.com/sirupsen/logrus"
 	"go4.org/netipx"
 	"google.golang.org/protobuf/types/known/wrapperspb"

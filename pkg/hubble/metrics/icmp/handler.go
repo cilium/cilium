@@ -6,7 +6,7 @@ package icmp
 import (
 	"context"
 
-	"github.com/google/gopacket/layers"
+	"github.com/gopacket/gopacket/layers"
 	"github.com/prometheus/client_golang/prometheus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
