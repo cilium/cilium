@@ -49,8 +49,9 @@ func (k Key) String() string {
 }
 
 type DynamicConfig struct {
-	Key   Key
-	Value string
+	Key      Key
+	Value    string
+	Priority int
 }
 
 func (d DynamicConfig) TableHeader() []string {
@@ -66,7 +67,7 @@ func (d DynamicConfig) TableRow() []string {
 	return []string{
 		d.Key.Name,
 		d.Key.Source,
-		strconv.Itoa(priorities[d.Key.Source]),
+		strconv.Itoa(d.Priority),
 		d.Value,
 	}
 }
@@ -126,15 +127,6 @@ func WatchKey(txn statedb.ReadTxn, table statedb.Table[DynamicConfig], key strin
 
 func sortByPriority(entries []DynamicConfig) {
 	sort.Slice(entries, func(i, j int) bool {
-		return getPriority(entries[i].Key.Source) < getPriority(entries[j].Key.Source)
+		return entries[i].Priority < entries[j].Priority
 	})
-}
-
-func getPriority(name string) int {
-	priority, found := priorities[name]
-
-	if !found {
-		return len(priorities) + 1
-	}
-	return priority
 }
