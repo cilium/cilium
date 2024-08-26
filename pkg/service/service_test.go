@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/cilium/hive/cell"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -35,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/service/healthserver"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	testsockets "github.com/cilium/cilium/pkg/testutils/sockets"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func TestLocalRedirectServiceExistsError(t *testing.T) {
@@ -165,8 +167,10 @@ func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
 	serviceIDAlloc.resetLocalID()
 	backendIDAlloc.resetLocalID()
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	m.lbmap = mockmaps.NewLBMockMap()
-	m.newServiceMock(m.lbmap)
+	m.newServiceMock(ctx, m.lbmap)
 
 	m.svcHealth = healthserver.NewMockHealthHTTPServerFactory()
 	m.svc.healthServer = healthserver.WithHealthHTTPServerFactory(m.svcHealth)
@@ -214,14 +218,17 @@ func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
 		option.Config.DatapathMode = m.prevOptionDPMode
 		option.Config.ExternalClusterIP = m.prevOptionExternalClusterIP
 		option.Config.EnableIPv6 = m.ipv6
+		cancel()
 	})
 
 	return m
 }
 
-func (m *ManagerTestSuite) newServiceMock(lbmap datapathTypes.LBMap) {
+func (m *ManagerTestSuite) newServiceMock(ctx context.Context, lbmap datapathTypes.LBMap) {
 	m.svc = newService(&FakeMonitorAgent{}, lbmap, nil, nil, true)
 	m.svc.backendConnectionHandler = testsockets.NewMockSockets(make([]*testsockets.MockSocket, 0))
+	health, _ := cell.NewSimpleHealth()
+	go m.svc.handleHealthCheckEvent(ctx, health)
 }
 
 func TestUpsertAndDeleteService(t *testing.T) {
@@ -551,7 +558,11 @@ func TestRestoreServices(t *testing.T) {
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
 	option.Config.DatapathMode = datapathOpt.DatapathModeLBOnly
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.newServiceMock(lbmap)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	m.newServiceMock(ctx, lbmap)
 
 	// Restore services from lbmap
 	err = m.svc.RestoreServices()
@@ -624,7 +635,12 @@ func TestSyncWithK8sFinished(t *testing.T) {
 
 	// Restart service, but keep the lbmap to restore services from
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.newServiceMock(lbmap)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	m.newServiceMock(ctx, lbmap)
+
 	err = m.svc.RestoreServices()
 	require.Nil(t, err)
 	require.Equal(t, 2, len(m.svc.svcByID))
@@ -1448,7 +1464,11 @@ func TestRestoreServiceWithTerminatingBackends(t *testing.T) {
 
 	// Simulate agent restart.
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.newServiceMock(lbmap)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	m.newServiceMock(ctx, lbmap)
 
 	// Restore services from lbmap
 	err = m.svc.RestoreServices()
@@ -1900,7 +1920,11 @@ func TestRestoreServiceWithBackendStates(t *testing.T) {
 
 	// Simulate agent restart.
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.newServiceMock(lbmap)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	m.newServiceMock(ctx, lbmap)
 
 	// Restore services from lbmap
 	err = m.svc.RestoreServices()
@@ -2407,16 +2431,18 @@ func TestHealthCheckCB(t *testing.T) {
 	require.Equal(t, m.svc.svcByID[id1].backends[0].State, lb.BackendStateActive)
 
 	be := backends[0]
-	m.svc.HealthCheckCallback(HealthCheckCBBackendEvent,
+	m.svc.healthCheckCallback(HealthCheckCBBackendEvent,
 		HealthCheckCBBackendEventData{
 			SvcAddr: frontend1.L3n4Addr,
 			BeAddr:  be.L3n4Addr,
 			BeState: lb.BackendStateQuarantined,
 		})
 
-	require.Equal(t, len(m.lbmap.BackendByID), len(backends))
-	require.Equal(t, m.svc.svcByID[id1].backends[0].State, lb.BackendStateQuarantined)
-	require.Equal(t, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 1)
+	require.EventuallyWithT(t, func(ct *assert.CollectT) {
+		assert.Equal(ct, len(m.lbmap.BackendByID), len(backends))
+		assert.Equal(ct, m.svc.svcByID[id1].backends[0].State, lb.BackendStateQuarantined)
+		assert.Equal(ct, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 1)
+	}, 3*time.Second, 100*time.Millisecond)
 }
 
 func TestHealthCheckInitialSync(t *testing.T) {
@@ -2528,20 +2554,22 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 
 	// Health check CB with one of the backends quarantined
 	be := backends[0]
-	m.svc.HealthCheckCallback(HealthCheckCBBackendEvent,
+	m.svc.healthCheckCallback(HealthCheckCBBackendEvent,
 		HealthCheckCBBackendEventData{
 			SvcAddr: frontend1.L3n4Addr,
 			BeAddr:  be.L3n4Addr,
 			BeState: lb.BackendStateQuarantined,
 		})
-	m.svc.HealthCheckCallback(HealthCheckCBBackendEvent,
+	m.svc.healthCheckCallback(HealthCheckCBBackendEvent,
 		HealthCheckCBBackendEventData{
 			SvcAddr: frontend2.L3n4Addr,
 			BeAddr:  be.L3n4Addr,
 			BeState: lb.BackendStateQuarantined,
 		})
 
-	require.Equal(t, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 1)
+	require.EventuallyWithT(t, func(ct *assert.CollectT) {
+		assert.Equal(ct, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 1)
+	}, time.Second*3, time.Millisecond*100)
 
 	wg.Wait()
 
@@ -2550,13 +2578,15 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 	ctx.Done()
 
 	be = backends[0]
-	m.svc.HealthCheckCallback(HealthCheckCBBackendEvent,
+	m.svc.healthCheckCallback(HealthCheckCBBackendEvent,
 		HealthCheckCBBackendEventData{
 			SvcAddr: frontend1.L3n4Addr,
 			BeAddr:  be.L3n4Addr,
 			BeState: lb.BackendStateActive,
 		})
-	require.Equal(t, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 2)
+	require.EventuallyWithT(t, func(ct *assert.CollectT) {
+		assert.Equal(ct, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 2)
+	}, time.Second*3, time.Millisecond*100)
 
 	// Subscriber callback is not executed.
 
@@ -2598,7 +2628,7 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 	require.Equal(t, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 1)
 
 	// Send a CB service event
-	m.svc.HealthCheckCallback(HealthCheckCBSvcEvent,
+	m.svc.healthCheckCallback(HealthCheckCBSvcEvent,
 		HealthCheckCBSvcEventData{
 			SvcAddr: p1.Frontend.L3n4Addr,
 		})
