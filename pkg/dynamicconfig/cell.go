@@ -7,6 +7,8 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/pkg/option/resolver"
 )
 
 // Cell provides a reflector of cilium configs to DynamicConfigMap table.
@@ -43,13 +45,21 @@ var Cell = cell.Module(
 )
 
 var defaultConfig = config{
-	EnableDynamicConfig: false,
+	EnableDynamicConfig:    false,
+	ConfigSources:          `[{"kind":"config-map","namespace":"kube-system","name":"cilium-config"}]`, // See pkg/option/resolver.go for the JSON definition
+	ConfigSourcesOverrides: `{"allowConfigKeys":null,"denyConfigKeys":null}`,
 }
 
 type config struct {
-	EnableDynamicConfig bool
+	EnableDynamicConfig    bool
+	ConfigSources          string
+	ConfigSourcesOverrides string
 }
 
 func (c config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-dynamic-config", c.EnableDynamicConfig, "Enables support for dynamic agent config")
+	flags.String(resolver.ConfigSources, c.ConfigSources, "Ordered list of configuration sources")
+	flags.MarkHidden(resolver.ConfigSources)
+	flags.String(resolver.ConfigSourcesOverrides, c.ConfigSourcesOverrides, "List of configuration keys that are allowed and not allowed to be overridden. Allowed config keys takes precedence over deny config keys.")
+	flags.MarkHidden(resolver.ConfigSourcesOverrides)
 }
