@@ -1,3 +1,20 @@
+# v1.176.0 (2024-08-21)
+
+* **Feature**: DescribeInstanceStatus now returns health information on EBS volumes attached to Nitro instances
+
+# v1.175.1 (2024-08-15)
+
+* **Dependency Update**: Bump minimum Go version to 1.21.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.175.0 (2024-08-12)
+
+* **Feature**: This release adds new capabilities to manage On-Demand Capacity Reservations including the ability to split your reservation, move capacity between reservations, and modify the instance eligibility of your reservation.
+
+# v1.174.0 (2024-08-08)
+
+* **Feature**: Launch of private IPv6 addressing for VPCs and Subnets. VPC IPAM supports the planning and monitoring of private IPv6 usage.
+
 # v1.173.0 (2024-07-25)
 
 * **Feature**: EC2 Fleet now supports using custom identifiers to reference Amazon Machine Images (AMI) in launch requests that are configured to choose from a diversified list of instance types.

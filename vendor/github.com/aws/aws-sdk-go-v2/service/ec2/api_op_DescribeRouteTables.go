@@ -73,8 +73,8 @@ type DescribeRouteTablesInput struct {
 	//   - route.destination-ipv6-cidr-block - The IPv6 CIDR range specified in a route
 	//   in the route table.
 	//
-	//   - route.destination-prefix-list-id - The ID (prefix) of the Amazon Web Service
-	//   specified in a route in the table.
+	//   - route.destination-prefix-list-id - The ID (prefix) of the Amazon Web
+	//   Services service specified in a route in the table.
 	//
 	//   - route.egress-only-internet-gateway-id - The ID of an egress-only Internet
 	//   gateway specified in a route in the route table.

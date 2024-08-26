@@ -54,6 +54,10 @@ type ModifyIpamInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// Enable this option to use your own GUA ranges as private IPv6 addresses. This
+	// option is disabled by default.
+	EnablePrivateGua *bool
+
 	// The operating Regions to remove.
 	RemoveOperatingRegions []types.RemoveIpamOperatingRegion
 

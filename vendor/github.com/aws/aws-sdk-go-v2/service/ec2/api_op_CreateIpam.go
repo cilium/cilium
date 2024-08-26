@@ -51,6 +51,10 @@ type CreateIpamInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// Enable this option to use your own GUA ranges as private IPv6 addresses. This
+	// option is disabled by default.
+	EnablePrivateGua *bool
+
 	// The operating Regions for the IPAM. Operating Regions are Amazon Web Services
 	// Regions where the IPAM is allowed to manage IP address CIDRs. IPAM only
 	// discovers and monitors resources in the Amazon Web Services Regions you select

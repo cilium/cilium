@@ -1010,6 +1010,26 @@ func (m *validateOpCopySnapshot) HandleInitialize(ctx context.Context, in middle
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpCreateCapacityReservationBySplitting struct {
+}
+
+func (*validateOpCreateCapacityReservationBySplitting) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateCapacityReservationBySplitting) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateCapacityReservationBySplittingInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateCapacityReservationBySplittingInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpCreateCapacityReservationFleet struct {
 }
 
@@ -7570,6 +7590,26 @@ func (m *validateOpMoveByoipCidrToIpam) HandleInitialize(ctx context.Context, in
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpMoveCapacityReservationInstances struct {
+}
+
+func (*validateOpMoveCapacityReservationInstances) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpMoveCapacityReservationInstances) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*MoveCapacityReservationInstancesInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpMoveCapacityReservationInstancesInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpProvisionByoipCidr struct {
 }
 
@@ -8990,6 +9030,10 @@ func addOpCopySnapshotValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCopySnapshot{}, middleware.After)
 }
 
+func addOpCreateCapacityReservationBySplittingValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateCapacityReservationBySplitting{}, middleware.After)
+}
+
 func addOpCreateCapacityReservationFleetValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateCapacityReservationFleet{}, middleware.After)
 }
@@ -10300,6 +10344,10 @@ func addOpMoveAddressToVpcValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpMoveByoipCidrToIpamValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpMoveByoipCidrToIpam{}, middleware.After)
+}
+
+func addOpMoveCapacityReservationInstancesValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpMoveCapacityReservationInstances{}, middleware.After)
 }
 
 func addOpProvisionByoipCidrValidationMiddleware(stack *middleware.Stack) error {
@@ -12281,6 +12329,24 @@ func validateOpCopySnapshotInput(v *CopySnapshotInput) error {
 	}
 	if v.SourceSnapshotId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("SourceSnapshotId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpCreateCapacityReservationBySplittingInput(v *CreateCapacityReservationBySplittingInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateCapacityReservationBySplittingInput"}
+	if v.SourceCapacityReservationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SourceCapacityReservationId"))
+	}
+	if v.InstanceCount == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceCount"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -17753,6 +17819,27 @@ func validateOpMoveByoipCidrToIpamInput(v *MoveByoipCidrToIpamInput) error {
 	}
 	if v.IpamPoolOwner == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("IpamPoolOwner"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpMoveCapacityReservationInstancesInput(v *MoveCapacityReservationInstancesInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "MoveCapacityReservationInstancesInput"}
+	if v.SourceCapacityReservationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SourceCapacityReservationId"))
+	}
+	if v.DestinationCapacityReservationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("DestinationCapacityReservationId"))
+	}
+	if v.InstanceCount == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceCount"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
