@@ -18,16 +18,17 @@ type ciliumEnvoyConfigReconciler struct {
 	client client.Client
 	logger *slog.Logger
 
-	algorithm          string
-	ports              []string
-	maxRetries         int
-	idleTimeoutSeconds int
-	enableIpv4         bool
-	enableIpv6         bool
+	algorithm                string
+	ports                    []string
+	maxRetries               int
+	idleTimeoutSeconds       int
+	streamIdleTimeoutSeconds int
+	enableIpv4               bool
+	enableIpv6               bool
 }
 
 func newCiliumEnvoyConfigReconciler(c client.Client, logger *slog.Logger, defaultAlgorithm string, ports []string,
-	maxRetries int, idleTimeoutSeconds int, enableIpv4 bool, enableIpv6 bool,
+	maxRetries int, idleTimeoutSeconds int, streamIdleTimeoutSeconds int, enableIpv4 bool, enableIpv6 bool,
 ) *ciliumEnvoyConfigReconciler {
 	return &ciliumEnvoyConfigReconciler{
 		client: c,

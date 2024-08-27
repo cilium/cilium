@@ -1492,6 +1492,10 @@
      - interval between checks of the startup probe
      - int
      - ``2``
+   * - :spelling:ignore:`envoy.streamIdleTimeoutDurationSeconds`
+     - Set Envoy the amount of time that the connection manager will allow a stream to exist with no upstream or downstream activity. default 5 minutes
+     - int
+     - ``300``
    * - :spelling:ignore:`envoy.terminationGracePeriodSeconds`
      - Configure termination grace period for cilium-envoy DaemonSet.
      - int
