@@ -153,8 +153,9 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 			IPv6Enabled: params.AgentConfig.EnableIPv6,
 		},
 		ListenerConfig: translation.ListenerConfig{
-			UseProxyProtocol: params.GatewayApiConfig.EnableGatewayAPIProxyProtocol,
-			UseAlpn:          params.GatewayApiConfig.EnableGatewayAPIAlpn,
+			UseProxyProtocol:         params.GatewayApiConfig.EnableGatewayAPIProxyProtocol,
+			UseAlpn:                  params.GatewayApiConfig.EnableGatewayAPIAlpn,
+			StreamIdleTimeoutSeconds: params.OperatorConfig.ProxyStreamIdleTimeoutSeconds,
 		},
 		ClusterConfig: translation.ClusterConfig{
 			IdleTimeoutSeconds: params.OperatorConfig.ProxyIdleTimeoutSeconds,

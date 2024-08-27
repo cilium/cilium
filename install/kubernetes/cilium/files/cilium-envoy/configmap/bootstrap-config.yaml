@@ -54,7 +54,7 @@ staticResources:
             - addressPrefix: "::1"
               prefixLen: 128
             {{- end }}
-          streamIdleTimeout: "0s"
+          streamIdleTimeout: "{{ .Values.envoy.streamIdleTimeoutDurationSeconds }}s"
   {{- end }}
   {{- if and .Values.envoy.debug.admin.enabled }}
   - name: "envoy-admin-listener"
@@ -107,7 +107,7 @@ staticResources:
             - addressPrefix: "::1"
               prefixLen: 128
             {{- end }}
-          streamIdleTimeout: "0s"
+          streamIdleTimeout: "{{ .Values.envoy.streamIdleTimeoutDurationSeconds }}s"
   {{- end }}
   - name: "envoy-health-listener"
     address:
@@ -159,7 +159,7 @@ staticResources:
             - addressPrefix: "::1"
               prefixLen: 128
             {{- end }}
-          streamIdleTimeout: "0s"
+          streamIdleTimeout: "{{ .Values.envoy.streamIdleTimeoutDurationSeconds }}s"
   clusters:
   - name: "ingress-cluster"
     type: "ORIGINAL_DST"

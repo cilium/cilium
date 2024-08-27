@@ -119,7 +119,8 @@ func registerReconciler(params ingressParams) error {
 			IPv6Enabled: params.AgentConfig.EnableIPv6,
 		},
 		ListenerConfig: translation.ListenerConfig{
-			UseProxyProtocol: params.IngressConfig.EnableIngressProxyProtocol,
+			UseProxyProtocol:         params.IngressConfig.EnableIngressProxyProtocol,
+			StreamIdleTimeoutSeconds: params.OperatorConfig.ProxyStreamIdleTimeoutSeconds,
 		},
 		ClusterConfig: translation.ClusterConfig{
 			IdleTimeoutSeconds: params.OperatorConfig.ProxyIdleTimeoutSeconds,
