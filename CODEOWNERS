@@ -279,7 +279,7 @@ Makefile* @cilium/build
 /cilium-dbg/ @cilium/cli
 /cilium-dbg/cmd/encrypt* @cilium/ipsec @cilium/cli
 /cilium-dbg/cmd/preflight_k8s_valid_cnp.go @cilium/sig-k8s
-/cilium-cli/* @cilium/cli
+/cilium-cli/ @cilium/cli
 /cilium-cli/bgp/ @cilium/sig-bgp
 /cilium-cli/cmd/ @cilium/cli
 /cilium-cli/clustermesh/ @cilium/sig-clustermesh
