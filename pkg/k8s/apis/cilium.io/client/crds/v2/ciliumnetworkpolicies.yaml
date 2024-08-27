@@ -25,6 +25,9 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .status.conditions[?(@.type=='Valid')].status
+      name: Valid
+      type: string
     name: v2
     schema:
       openAPIV3Schema:
