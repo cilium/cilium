@@ -49,6 +49,9 @@ assign_socket_udp(struct __ctx_buff *ctx,
 	struct bpf_sock *sk;
 	__u32 dbg_ctx;
 
+	if (established)
+		goto out;
+
 	sk = sk_lookup_udp(ctx, tuple, len, BPF_F_CURRENT_NETNS, 0);
 	if (!sk)
 		goto out;
