@@ -1,3 +1,7 @@
+# v1.27.31 (2024-08-26)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.27.30 (2024-08-23)
 
 * **Bug Fix**: Don't fail credentials unit tests if credentials are found on a file
