@@ -1694,7 +1694,11 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 		}
 		// Short-circuit rules if a rule allows all and all other rules can be short-circuited
 		if allowAll && canShortCircuit {
-			log.Debug("Short circuiting HTTP rules due to rule allowing all and no other rules needing attention")
+			log.WithFields(logrus.Fields{
+				logfields.EndpointID:       ep.GetID(),
+				logfields.TrafficDirection: dir,
+				logfields.Port:             port,
+			}).Debug("Short circuiting HTTP rules due to rule allowing all and no other rules needing attention")
 			rules = nil
 		}
 
@@ -1703,6 +1707,11 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 		// In this case, just don't generate any PortNetworkPolicy for this
 		// port.
 		if !allowAll && len(rules) == 0 {
+			log.WithFields(logrus.Fields{
+				logfields.EndpointID:       ep.GetID(),
+				logfields.TrafficDirection: dir,
+				logfields.Port:             port,
+			}).Debug("Skipping PortNetworkPolicy due to no matching remote identities")
 			return true
 		}
 

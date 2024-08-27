@@ -42,6 +42,9 @@ type rule struct {
 func (r *rule) IdentitySelectionUpdated(_ CachedSelector, _, _ []identity.NumericIdentity) {
 }
 
+func (d *rule) IdentitySelectionCommit(*versioned.Tx) {
+}
+
 func (r *rule) String() string {
 	return r.EndpointSelector.String()
 }

@@ -763,6 +763,13 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 	// Mark the desired policy as ready when done before the lock is released
 	defer e.desiredPolicy.Ready()
 
+	// Apply pending policy map changes so that desired map is up-to-date before
+	// we update network policies and sync the maps below.
+	err = e.applyPolicyMapChanges()
+	if err != nil {
+		return err
+	}
+
 	// We cannot obtain the rules while e.mutex is held, because obtaining
 	// fresh DNSRules requires the IPCache lock (which must not be taken while
 	// holding e.mutex to avoid deadlocks). Therefore, rules are obtained
@@ -1249,7 +1256,13 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	//  ConsumeMapChanges() applies the incremental updates to the
 	//  desired policy and only returns changes that need to be
 	//  applied to the Endpoint's bpf policy map.
-	changes := e.desiredPolicy.ConsumeMapChanges()
+	closer, changes := e.desiredPolicy.ConsumeMapChanges()
+	defer closer()
+
+	if changes.Empty() {
+		// no changes, nothing to do
+		return nil
+	}
 
 	// Add possible visibility redirects due to incrementally added keys
 	if e.visibilityPolicy != nil {
@@ -1267,6 +1280,12 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 				e.desiredPolicy.AddVisibilityKeys(e, redirectPort, visMeta, changes)
 			}
 		}
+	}
+
+	// Ingress endpoint does not need to wait.
+	// This also lets daemon/cmd integration tests to proceed
+	if e.isProperty(PropertySkipBPFPolicy) {
+		return nil
 	}
 
 	// Add policy map entries before deleting to avoid transient drops
@@ -1311,13 +1330,6 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 // difference between the realized and desired policy state without
 // dumping the bpf policy map.
 func (e *Endpoint) syncPolicyMap() error {
-	// Apply pending policy map changes first so that desired map is up-to-date before
-	// we diff the maps below.
-	err := e.applyPolicyMapChanges()
-	if err != nil {
-		return err
-	}
-
 	// Nothing to do if the desired policy is already fully realized.
 	if e.realizedPolicy == e.desiredPolicy {
 		e.PolicyDebug(nil, "syncPolicyMap(): not syncing as desired == realized")
@@ -1325,7 +1337,7 @@ func (e *Endpoint) syncPolicyMap() error {
 	}
 
 	// Diffs between the maps are expected here, so do not bother collecting them
-	_, _, err = e.syncPolicyMapsWith(e.realizedPolicy.GetPolicyMap(), false)
+	_, _, err := e.syncPolicyMapsWith(e.realizedPolicy.GetPolicyMap(), false)
 	return err
 }
 
