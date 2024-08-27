@@ -162,8 +162,8 @@ int  v6_local_backend_to_service_packetgen(struct __ctx_buff *ctx)
 SETUP("tc", "v6_local_redirect")
 int v6_local_backend_to_service_setup(struct __ctx_buff *ctx)
 {
-	union v6addr service_ip = {};
-	union v6addr backend_ip = {};
+	union v6addr service_ip __align_stack_8 = {};
+	union v6addr backend_ip __align_stack_8 = {};
 
 	memcpy(service_ip.addr, (void *)V6_SERVICE_IP, 16);
 	memcpy(backend_ip.addr, (void *)V6_BACKEND_IP, 16);
@@ -173,9 +173,8 @@ int v6_local_backend_to_service_setup(struct __ctx_buff *ctx)
 	lb_v6_add_backend(&service_ip, SERVICE_PORT, 1, 124, &backend_ip,
 			  BACKEND_PORT, IPPROTO_TCP, 0);
 
-
 	/* Add the service in LB6_SKIP_MAP to skip service translation for request originating from the local backend */
-	struct skip_lb6_key key = {
+	struct skip_lb6_key key __align_stack_8 = {
 		.netns_cookie = ENDPOINT_NETNS_COOKIE,
 		.port = SERVICE_PORT,
 	};
