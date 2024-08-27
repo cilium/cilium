@@ -92,6 +92,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 	__u32 key = 0;
 	struct mock_settings *settings = map_lookup_elem(&settings_map, &key);
 
+	/* Innocent change. */
+
 	if (settings && settings->fail_fib)
 		return BPF_FIB_LKUP_RET_NO_NEIGH;
 
@@ -109,6 +111,10 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 		__bpf_memcpy_builtin(params->smac, (__u8 *)lb_mac, ETH_ALEN);
 		__bpf_memcpy_builtin(params->dmac, (__u8 *)client_mac, ETH_ALEN);
 	}
+
+	/* Not so innocent change: */
+	volatile long ptr = (long)(void *)ctx;
+	ptr *= 2;
 
 	return 0;
 }
