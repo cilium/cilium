@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 )
 
-func Test_k8sToEnvoySecret(t *testing.T) {
+func Test_k8sSecretToEnvoySecretTlsCertificate(t *testing.T) {
 	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "dummy-secret",
@@ -33,12 +33,189 @@ func Test_k8sToEnvoySecret(t *testing.T) {
 			"tls.crt": []byte{1, 2, 3},
 			"tls.key": []byte{4, 5, 6},
 		},
-		Type: "kubernetes.io/tls",
+		Type: slim_corev1.SecretTypeTLS,
 	})
 
 	require.Equal(t, "dummy-namespace/dummy-secret", envoySecret.Name)
 	require.Equal(t, []byte{1, 2, 3}, envoySecret.GetTlsCertificate().GetCertificateChain().GetInlineBytes())
 	require.Equal(t, []byte{4, 5, 6}, envoySecret.GetTlsCertificate().GetPrivateKey().GetInlineBytes())
+}
+
+func Test_k8sSecretToEnvoySecretValidationContext(t *testing.T) {
+	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "dummy-secret",
+			Namespace: "dummy-namespace",
+		},
+		Data: map[string]slim_corev1.Bytes{
+			"ca.crt": []byte{1, 2, 3},
+		},
+		Type: slim_corev1.SecretTypeOpaque,
+	})
+
+	require.Equal(t, "dummy-namespace/dummy-secret", envoySecret.Name)
+	require.Equal(t, []byte{1, 2, 3}, envoySecret.GetValidationContext().TrustedCa.GetInlineBytes())
+	require.Nil(t, envoySecret.GetTlsCertificate())
+}
+
+func testSessionKey(i byte) []byte {
+	b := make([]byte, 80)
+	b[0] = i
+	return b
+}
+
+func Test_k8sSecretToEnvoySecretTlsSessionKeys(t *testing.T) {
+	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "dummy-secret",
+			Namespace: "dummy-namespace",
+		},
+		Data: map[string]slim_corev1.Bytes{
+			"tls.sessionticket.key":   testSessionKey(0),
+			"tls.sessionticket.key.1": testSessionKey(1),
+			"tls.sessionticket.key.2": testSessionKey(2),
+			"tls.sessionticket.key.3": testSessionKey(3),
+			"tls.sessionticket.key.4": testSessionKey(4),
+		},
+		Type: slim_corev1.SecretTypeOpaque,
+	})
+
+	require.Equal(t, "dummy-namespace/dummy-secret", envoySecret.Name)
+	require.Len(t, envoySecret.GetSessionTicketKeys().Keys, 5)
+
+	require.Equal(t, testSessionKey(0), envoySecret.GetSessionTicketKeys().Keys[0].GetInlineBytes())
+	require.Equal(t, testSessionKey(1), envoySecret.GetSessionTicketKeys().Keys[1].GetInlineBytes())
+	require.Equal(t, testSessionKey(2), envoySecret.GetSessionTicketKeys().Keys[2].GetInlineBytes())
+	require.Equal(t, testSessionKey(3), envoySecret.GetSessionTicketKeys().Keys[3].GetInlineBytes())
+	require.Equal(t, testSessionKey(4), envoySecret.GetSessionTicketKeys().Keys[4].GetInlineBytes())
+
+	require.Nil(t, envoySecret.GetTlsCertificate())
+	require.Nil(t, envoySecret.GetValidationContext())
+}
+
+func Test_k8sSecretToEnvoySecretTlsSessionKeys_FirstKeyMandatory(t *testing.T) {
+	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "dummy-secret",
+			Namespace: "dummy-namespace",
+		},
+		Data: map[string]slim_corev1.Bytes{
+			"tls.sessionticket.key.1": testSessionKey(1),
+			"tls.sessionticket.key.2": testSessionKey(2),
+			"tls.sessionticket.key.3": testSessionKey(3),
+			"tls.sessionticket.key.4": testSessionKey(4),
+		},
+		Type: slim_corev1.SecretTypeOpaque,
+	})
+
+	require.Equal(t, "dummy-namespace/dummy-secret", envoySecret.Name)
+
+	require.Nil(t, envoySecret.GetSessionTicketKeys())
+	require.Nil(t, envoySecret.GetTlsCertificate())
+	require.Nil(t, envoySecret.GetValidationContext())
+}
+
+func Test_k8sSecretToEnvoySecretTlsSessionKeys_Max10Keys(t *testing.T) {
+	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "dummy-secret",
+			Namespace: "dummy-namespace",
+		},
+		Data: map[string]slim_corev1.Bytes{
+			"tls.sessionticket.key":    testSessionKey(0),
+			"tls.sessionticket.key.1":  testSessionKey(1),
+			"tls.sessionticket.key.2":  testSessionKey(2),
+			"tls.sessionticket.key.3":  testSessionKey(3),
+			"tls.sessionticket.key.4":  testSessionKey(4),
+			"tls.sessionticket.key.5":  testSessionKey(5),
+			"tls.sessionticket.key.6":  testSessionKey(6),
+			"tls.sessionticket.key.7":  testSessionKey(7),
+			"tls.sessionticket.key.8":  testSessionKey(8),
+			"tls.sessionticket.key.9":  testSessionKey(9),
+			"tls.sessionticket.key.10": testSessionKey(10),
+		},
+		Type: slim_corev1.SecretTypeOpaque,
+	})
+
+	require.Equal(t, "dummy-namespace/dummy-secret", envoySecret.Name)
+
+	require.Len(t, envoySecret.GetSessionTicketKeys().Keys, 10)
+
+	require.Equal(t, testSessionKey(0), envoySecret.GetSessionTicketKeys().Keys[0].GetInlineBytes())
+	require.Equal(t, testSessionKey(1), envoySecret.GetSessionTicketKeys().Keys[1].GetInlineBytes())
+	require.Equal(t, testSessionKey(2), envoySecret.GetSessionTicketKeys().Keys[2].GetInlineBytes())
+	require.Equal(t, testSessionKey(3), envoySecret.GetSessionTicketKeys().Keys[3].GetInlineBytes())
+	require.Equal(t, testSessionKey(4), envoySecret.GetSessionTicketKeys().Keys[4].GetInlineBytes())
+	require.Equal(t, testSessionKey(5), envoySecret.GetSessionTicketKeys().Keys[5].GetInlineBytes())
+	require.Equal(t, testSessionKey(6), envoySecret.GetSessionTicketKeys().Keys[6].GetInlineBytes())
+	require.Equal(t, testSessionKey(7), envoySecret.GetSessionTicketKeys().Keys[7].GetInlineBytes())
+	require.Equal(t, testSessionKey(8), envoySecret.GetSessionTicketKeys().Keys[8].GetInlineBytes())
+	require.Equal(t, testSessionKey(9), envoySecret.GetSessionTicketKeys().Keys[9].GetInlineBytes())
+
+	require.Nil(t, envoySecret.GetTlsCertificate())
+	require.Nil(t, envoySecret.GetValidationContext())
+}
+
+func Test_k8sSecretToEnvoySecretTlsSessionKeys_SkipAdditionalKeysOnMainKeySizeIssue(t *testing.T) {
+	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "dummy-secret",
+			Namespace: "dummy-namespace",
+		},
+		Data: map[string]slim_corev1.Bytes{
+			"tls.sessionticket.key":   []byte{}, // not 80 bytes
+			"tls.sessionticket.key.1": testSessionKey(1),
+			"tls.sessionticket.key.2": testSessionKey(2),
+			"tls.sessionticket.key.3": testSessionKey(3),
+			"tls.sessionticket.key.4": testSessionKey(4),
+		},
+		Type: slim_corev1.SecretTypeOpaque,
+	})
+
+	require.Equal(t, "dummy-namespace/dummy-secret", envoySecret.Name)
+
+	require.Nil(t, envoySecret.GetSessionTicketKeys())
+	require.Nil(t, envoySecret.GetTlsCertificate())
+	require.Nil(t, envoySecret.GetValidationContext())
+}
+
+func Test_k8sSecretToEnvoySecretTlsSessionKeys_SkipAdditionalKeyOnSizeIssue(t *testing.T) {
+	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "dummy-secret",
+			Namespace: "dummy-namespace",
+		},
+		Data: map[string]slim_corev1.Bytes{
+			"tls.sessionticket.key":    testSessionKey(0),
+			"tls.sessionticket.key.1":  testSessionKey(1),
+			"tls.sessionticket.key.2":  testSessionKey(2),
+			"tls.sessionticket.key.3":  []byte{}, // not 80 bytes -> will be skipped
+			"tls.sessionticket.key.4":  testSessionKey(4),
+			"tls.sessionticket.key.5":  testSessionKey(5),
+			"tls.sessionticket.key.6":  testSessionKey(6),
+			"tls.sessionticket.key.7":  make([]byte, 90), // not 80 bytes -> will be skipped
+			"tls.sessionticket.key.8":  testSessionKey(8),
+			"tls.sessionticket.key.9":  testSessionKey(9),
+			"tls.sessionticket.key.10": testSessionKey(10),
+		},
+		Type: slim_corev1.SecretTypeOpaque,
+	})
+
+	require.Equal(t, "dummy-namespace/dummy-secret", envoySecret.Name)
+
+	require.Len(t, envoySecret.GetSessionTicketKeys().Keys, 8)
+
+	require.Equal(t, testSessionKey(0), envoySecret.GetSessionTicketKeys().Keys[0].GetInlineBytes())
+	require.Equal(t, testSessionKey(1), envoySecret.GetSessionTicketKeys().Keys[1].GetInlineBytes())
+	require.Equal(t, testSessionKey(2), envoySecret.GetSessionTicketKeys().Keys[2].GetInlineBytes())
+	require.Equal(t, testSessionKey(4), envoySecret.GetSessionTicketKeys().Keys[3].GetInlineBytes())
+	require.Equal(t, testSessionKey(5), envoySecret.GetSessionTicketKeys().Keys[4].GetInlineBytes())
+	require.Equal(t, testSessionKey(6), envoySecret.GetSessionTicketKeys().Keys[5].GetInlineBytes())
+	require.Equal(t, testSessionKey(8), envoySecret.GetSessionTicketKeys().Keys[6].GetInlineBytes())
+	require.Equal(t, testSessionKey(9), envoySecret.GetSessionTicketKeys().Keys[7].GetInlineBytes())
+
+	require.Nil(t, envoySecret.GetTlsCertificate())
+	require.Nil(t, envoySecret.GetValidationContext())
 }
 
 func TestHandleSecretEvent(t *testing.T) {

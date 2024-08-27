@@ -106,6 +106,9 @@ type DescribeInstanceStatusInput struct {
 	//
 	//   - system-status.status - The system status of the instance ( ok | impaired |
 	//   initializing | insufficient-data | not-applicable ).
+	//
+	//   - attached-ebs-status.status - The status of the attached EBS volume for the
+	//   instance ( ok | impaired | initializing | insufficient-data | not-applicable ).
 	Filters []types.Filter
 
 	// When true , includes the health status for all instances. When false , includes

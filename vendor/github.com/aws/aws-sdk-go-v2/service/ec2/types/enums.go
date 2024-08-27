@@ -5298,6 +5298,27 @@ func (IpamPublicAddressType) Values() []IpamPublicAddressType {
 	}
 }
 
+type IpamResourceCidrIpSource string
+
+// Enum values for IpamResourceCidrIpSource
+const (
+	IpamResourceCidrIpSourceAmazon IpamResourceCidrIpSource = "amazon"
+	IpamResourceCidrIpSourceByoip  IpamResourceCidrIpSource = "byoip"
+	IpamResourceCidrIpSourceNone   IpamResourceCidrIpSource = "none"
+)
+
+// Values returns all known values for IpamResourceCidrIpSource. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpamResourceCidrIpSource) Values() []IpamResourceCidrIpSource {
+	return []IpamResourceCidrIpSource{
+		"amazon",
+		"byoip",
+		"none",
+	}
+}
+
 type IpamResourceDiscoveryAssociationState string
 
 // Enum values for IpamResourceDiscoveryAssociationState
@@ -5511,6 +5532,46 @@ func (IpamTier) Values() []IpamTier {
 	return []IpamTier{
 		"free",
 		"advanced",
+	}
+}
+
+type IpSource string
+
+// Enum values for IpSource
+const (
+	IpSourceAmazon IpSource = "amazon"
+	IpSourceByoip  IpSource = "byoip"
+	IpSourceNone   IpSource = "none"
+)
+
+// Values returns all known values for IpSource. Note that this can be expanded in
+// the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (IpSource) Values() []IpSource {
+	return []IpSource{
+		"amazon",
+		"byoip",
+		"none",
+	}
+}
+
+type Ipv6AddressAttribute string
+
+// Enum values for Ipv6AddressAttribute
+const (
+	Ipv6AddressAttributePublic  Ipv6AddressAttribute = "public"
+	Ipv6AddressAttributePrivate Ipv6AddressAttribute = "private"
+)
+
+// Values returns all known values for Ipv6AddressAttribute. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (Ipv6AddressAttribute) Values() []Ipv6AddressAttribute {
+	return []Ipv6AddressAttribute{
+		"public",
+		"private",
 	}
 }
 

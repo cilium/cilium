@@ -12,12 +12,14 @@ import (
 	"time"
 )
 
-// Modifies a Capacity Reservation's capacity and the conditions under which it is
-// to be released. You cannot change a Capacity Reservation's instance type, EBS
-// optimization, instance store settings, platform, Availability Zone, or instance
-// eligibility. If you need to modify any of these attributes, we recommend that
-// you cancel the Capacity Reservation, and then create a new one with the required
-// attributes.
+// Modifies a Capacity Reservation's capacity, instance eligibility, and the
+// conditions under which it is to be released. You can't modify a Capacity
+// Reservation's instance type, EBS optimization, platform, instance store
+// settings, Availability Zone, or tenancy. If you need to modify any of these
+// attributes, we recommend that you cancel the Capacity Reservation, and then
+// create a new one with the required attributes. For more information, see [Modify an active Capacity Reservation].
+//
+// [Modify an active Capacity Reservation]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/capacity-reservations-modify.html
 func (c *Client) ModifyCapacityReservation(ctx context.Context, params *ModifyCapacityReservationInput, optFns ...func(*Options)) (*ModifyCapacityReservationOutput, error) {
 	if params == nil {
 		params = &ModifyCapacityReservationInput{}
@@ -78,6 +80,17 @@ type ModifyCapacityReservationInput struct {
 	// The number of instances for which to reserve capacity. The number of instances
 	// can't be increased or decreased by more than 1000 in a single request.
 	InstanceCount *int32
+
+	//  The matching criteria (instance eligibility) that you want to use in the
+	// modified Capacity Reservation. If you change the instance eligibility of an
+	// existing Capacity Reservation from targeted to open , any running instances that
+	// match the attributes of the Capacity Reservation, have the
+	// CapacityReservationPreference set to open , and are not yet running in the
+	// Capacity Reservation, will automatically use the modified Capacity Reservation.
+	//
+	// To modify the instance eligibility, the Capacity Reservation must be completely
+	// idle (zero usage).
+	InstanceMatchCriteria types.InstanceMatchCriteria
 
 	noSmithyDocumentSerde
 }
