@@ -2415,6 +2415,9 @@ envoy:
   # -- Set Envoy upstream HTTP idle connection timeout seconds.
   # Does not apply to connections with pending requests. Default 60s
   idleTimeoutDurationSeconds: 60
+  # -- Set Envoy the amount of time that the connection manager will allow a stream to exist with no upstream or downstream activity.
+  # default 5 minutes
+  streamIdleTimeoutDurationSeconds: 300
   # -- Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners.
   xffNumTrustedHopsL7PolicyIngress: 0
   # -- Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.

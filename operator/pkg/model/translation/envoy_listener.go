@@ -19,6 +19,7 @@ import (
 	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -106,6 +107,39 @@ func withXffNumTrustedHops(xff uint32) ListenerMutator {
 							continue
 						}
 						hcmConfig.XffNumTrustedHops = xff
+						filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
+							TypedConfig: toAny(hcmConfig),
+						}
+					}
+				}
+			}
+		}
+		return listener
+	}
+}
+
+func WithStreamIdleTimeout(streamIdleTimeoutSeconds int) ListenerMutator {
+	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
+		if streamIdleTimeoutSeconds == 0 {
+			return listener
+		}
+		for _, filterChain := range listener.FilterChains {
+			for _, filter := range filterChain.Filters {
+				if filter.Name == httpConnectionManagerType {
+					tc := filter.GetTypedConfig()
+					switch tc.GetTypeUrl() {
+					case envoy.HttpConnectionManagerTypeURL:
+						hcm, err := tc.UnmarshalNew()
+						if err != nil {
+							continue
+						}
+						hcmConfig, ok := hcm.(*httpConnectionManagerv3.HttpConnectionManager)
+						if !ok {
+							continue
+						}
+						hcmConfig.StreamIdleTimeout = &durationpb.Duration{
+							Seconds: int64(streamIdleTimeoutSeconds),
+						}
 						filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
 							TypedConfig: toAny(hcmConfig),
 						}
@@ -249,6 +283,10 @@ func (i *cecTranslator) listenerMutators(m *model.Model) []ListenerMutator {
 
 	if i.Config.HostNetworkConfig.Enabled {
 		res = append(res, withHostNetworkPort(m, i.Config.IPConfig.IPv4Enabled, i.Config.IPConfig.IPv6Enabled))
+	}
+
+	if i.Config.ListenerConfig.StreamIdleTimeoutSeconds > 0 {
+		res = append(res, WithStreamIdleTimeout(i.Config.ListenerConfig.StreamIdleTimeoutSeconds))
 	}
 
 	if i.Config.OriginalIPDetectionConfig.XFFNumTrustedHops > 0 {

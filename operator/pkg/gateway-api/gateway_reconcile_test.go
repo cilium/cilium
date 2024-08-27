@@ -313,6 +313,9 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		RouteConfig: translation.RouteConfig{
 			HostNameSuffixMatch: true,
 		},
+		ListenerConfig: translation.ListenerConfig{
+			StreamIdleTimeoutSeconds: 300,
+		},
 		ClusterConfig: translation.ClusterConfig{
 			IdleTimeoutSeconds: 60,
 		},
