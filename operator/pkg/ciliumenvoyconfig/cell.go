@@ -71,6 +71,7 @@ func registerL7LoadBalancingController(params l7LoadbalancerParams) error {
 		params.Config.LoadBalancerL7Ports,
 		10,
 		operatorOption.Config.ProxyIdleTimeoutSeconds,
+		operatorOption.Config.ProxyStreamIdleTimeoutSeconds,
 		agentOption.Config.EnableIPv4,
 		agentOption.Config.EnableIPv6,
 	)

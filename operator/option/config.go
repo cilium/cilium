@@ -29,6 +29,9 @@ const (
 
 	// DefaultProxyIdleTimeoutSeconds is the default value for the proxy idle timeout
 	DefaultProxyIdleTimeoutSeconds = 60
+
+	// DefaultProxyStreamIdleTimeoutSeconds is the default value for the proxy stream idle timeout
+	DefaultProxyStreamIdleTimeoutSeconds = 300
 )
 
 const (
@@ -178,6 +181,9 @@ const (
 
 	// ProxyIdleTimeoutSeconds is the idle timeout for proxy connections to upstream clusters
 	ProxyIdleTimeoutSeconds = "proxy-idle-timeout-seconds"
+
+	// ProxyStreamIdleTimeoutSeconds is the stream timeout for proxy connections to upstream clusters
+	ProxyStreamIdleTimeoutSeconds = "proxy-stream-idle-timeout-seconds"
 
 	// EnableGatewayAPI enables support of Gateway API
 	// This must be enabled along with enable-envoy-config in cilium agent.
@@ -377,6 +383,9 @@ type OperatorConfig struct {
 	// ProxyIdleTimeoutSeconds is the idle timeout for the proxy to upstream cluster
 	ProxyIdleTimeoutSeconds int
 
+	// ProxyStreamIdleTimeoutSeconds is the stream idle timeout for the proxy to upstream cluster
+	ProxyStreamIdleTimeoutSeconds int
+
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace string
 
@@ -423,6 +432,10 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.ProxyIdleTimeoutSeconds = vp.GetInt(ProxyIdleTimeoutSeconds)
 	if c.ProxyIdleTimeoutSeconds == 0 {
 		c.ProxyIdleTimeoutSeconds = DefaultProxyIdleTimeoutSeconds
+	}
+	c.ProxyStreamIdleTimeoutSeconds = vp.GetInt(ProxyStreamIdleTimeoutSeconds)
+	if c.ProxyStreamIdleTimeoutSeconds == 0 {
+		c.ProxyStreamIdleTimeoutSeconds = DefaultProxyStreamIdleTimeoutSeconds
 	}
 	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
 	c.TaintSyncWorkers = vp.GetInt(TaintSyncWorkers)

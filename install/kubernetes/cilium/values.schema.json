@@ -2262,6 +2262,9 @@
           },
           "type": "object"
         },
+        "streamIdleTimeoutDurationSeconds": {
+          "type": "integer"
+        },
         "terminationGracePeriodSeconds": {
           "type": "integer"
         },

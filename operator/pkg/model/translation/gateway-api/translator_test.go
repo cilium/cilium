@@ -154,6 +154,9 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 						RouteConfig: translation.RouteConfig{
 							HostNameSuffixMatch: true,
 						},
+						ListenerConfig: translation.ListenerConfig{
+							StreamIdleTimeoutSeconds: 300,
+						},
 						ClusterConfig: translation.ClusterConfig{
 							IdleTimeoutSeconds: 60,
 						},
@@ -176,6 +179,9 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 						SecretsNamespace: "cilium-secrets",
 						RouteConfig: translation.RouteConfig{
 							HostNameSuffixMatch: true,
+						},
+						ListenerConfig: translation.ListenerConfig{
+							StreamIdleTimeoutSeconds: 300,
 						},
 						ClusterConfig: translation.ClusterConfig{
 							IdleTimeoutSeconds: 60,
@@ -236,6 +242,9 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 				cecTranslator: translation.NewCECTranslator(translation.Config{
 					OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
 						XFFNumTrustedHops: 2,
+					},
+					ListenerConfig: translation.ListenerConfig{
+						StreamIdleTimeoutSeconds: 300,
 					},
 					ClusterConfig: translation.ClusterConfig{
 						IdleTimeoutSeconds: 60,
