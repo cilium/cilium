@@ -22,7 +22,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      k8s-app: cilium
+      app.kubernetes.io/name: cilium-agent
   namespaceSelector:
     matchNames:
     - {{ .Release.Namespace }}
