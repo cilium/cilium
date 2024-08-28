@@ -69,7 +69,6 @@
     "v1.16",
     "v1.15",
     "v1.14",
-    "v1.13"
   ],
   "vulnerabilityAlerts": {
     "enabled": true
@@ -191,7 +190,6 @@
         "v1.16",
         "v1.15",
         "v1.14",
-        "v1.13"
       ]
     },
     {
@@ -207,7 +205,6 @@
         "v1.16",
         "v1.15",
         "v1.14",
-        "v1.13"
       ]
     },
     {
@@ -275,7 +272,6 @@
         "v1.16",
         "v1.15",
         "v1.14",
-        "v1.13"
       ]
     },
     {
@@ -286,7 +282,6 @@
       "allowedVersions": "<3.5.5",
       "matchBaseBranches": [
         "v1.14",
-        "v1.13"
       ]
     },
     {
@@ -335,7 +330,6 @@
         "v1.16",
         "v1.15",
         "v1.14",
-        "v1.13"
       ],
     },
     {
@@ -348,7 +342,6 @@
         "v1.16",
         "v1.15",
         "v1.14",
-        "v1.13"
       ]
     },
     {
@@ -372,15 +365,6 @@
     },
     {
       "matchPackageNames": [
-        "docker.io/library/alpine"
-      ],
-      "allowedVersions": "<3.18",
-      "matchBaseBranches": [
-        "v1.13"
-      ]
-    },
-    {
-      "matchPackageNames": [
         "quay.io/cilium/certgen",
       ],
       "allowedVersions": "<0.2.0",
@@ -388,7 +372,6 @@
         "v1.16",
         "v1.15",
         "v1.14",
-        "v1.13"
       ]
     },
     {
@@ -432,23 +415,6 @@
       ]
     },
     {
-      // Do not bump the minor version for Cilium <v1.14. Certain workflows
-      // are already using Cilium CLI v0.15.*, so let's enable patch versions.
-      "enabled": false,
-      "groupName": "Cilium CLI",
-      "groupSlug": "cilium-cli",
-      "matchDepNames": [
-        "cilium/cilium-cli"
-      ],
-      "matchUpdateTypes": [
-        "major",
-        "minor"
-      ],
-      "matchBaseBranches": [
-        "v1.13"
-      ]
-    },
-    {
       "groupName": "Hubble CLI",
       "groupSlug": "hubble-cli",
       "matchDepNames": [
@@ -481,7 +447,6 @@
         "v1.16",
         "v1.15",
         "v1.14",
-        "v1.13"
       ]
     },
     {
@@ -504,7 +469,6 @@
         "v1.16",
         "v1.15",
         "v1.14",
-        "v1.13"
       ],
     },
     {
@@ -604,7 +568,6 @@
       "matchBaseBranches": [
         "v1.15",
         "v1.14",
-        "v1.13"
       ]
     },
     {
