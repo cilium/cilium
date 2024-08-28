@@ -611,8 +611,25 @@ func toHTTPRewriteFilter(rewrite *gatewayv1.HTTPURLRewriteFilter) *model.HTTPURL
 }
 
 func toHTTPRequestMirror(svc corev1.Service, mirror *gatewayv1.HTTPRequestMirrorFilter, ns string) *model.HTTPRequestMirror {
+	var n, d int32
+
+	switch {
+	case mirror.Percent != nil:
+		n = *mirror.Percent
+		d = 100
+	case mirror.Fraction.Denominator != nil:
+		n = mirror.Fraction.Numerator
+		d = *mirror.Fraction.Denominator
+	default:
+		// default to 100%
+		n = 100
+		d = 100
+	}
+
 	return &model.HTTPRequestMirror{
-		Backend: model.AddressOf(backendRefToModelBackend(svc, mirror.BackendRef, ns)),
+		Backend:     model.AddressOf(backendRefToModelBackend(svc, mirror.BackendRef, ns)),
+		Numerator:   n,
+		Denominator: d,
 	}
 }
 
