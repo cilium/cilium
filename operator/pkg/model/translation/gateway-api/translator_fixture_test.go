@@ -5401,6 +5401,8 @@ var mirrorHTTPListeners = []model.HTTPListener{
 								Port: 8080,
 							},
 						},
+						Numerator:   100,
+						Denominator: 100,
 					},
 				},
 			},
@@ -5473,7 +5475,8 @@ var mirrorHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 													Cluster: fmt.Sprintf("%s:%s:%s", "gateway-conformance-infra", "infra-backend-v2", "8080"),
 													RuntimeFraction: &envoy_config_core_v3.RuntimeFractionalPercent{
 														DefaultValue: &envoy_type_v3.FractionalPercent{
-															Numerator: 100,
+															Numerator:   100,
+															Denominator: envoy_type_v3.FractionalPercent_HUNDRED,
 														},
 													},
 												},

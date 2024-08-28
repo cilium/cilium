@@ -571,6 +571,8 @@ func Test_requestMirrorMutation(t *testing.T) {
 						Name: "http",
 					},
 				},
+				Numerator:   100,
+				Denominator: 100,
 			},
 			{
 				Backend: &model.Backend{
@@ -581,6 +583,8 @@ func Test_requestMirrorMutation(t *testing.T) {
 						Name: "http",
 					},
 				},
+				Numerator:   100,
+				Denominator: 100,
 			},
 		}
 
