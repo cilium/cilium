@@ -550,6 +550,8 @@ type GRPCRouteFilter struct {
 	// Support: Extended
 	//
 	// +optional
+	//
+	// <gateway:experimental:validation:XValidation:message="Only one of percent or fraction may be specified in HTTPRequestMirrorFilter",rule="!(has(self.percent) && has(self.fraction))">
 	RequestMirror *HTTPRequestMirrorFilter `json:"requestMirror,omitempty"`
 
 	// ExtensionRef is an optional, implementation-specific extension to the
