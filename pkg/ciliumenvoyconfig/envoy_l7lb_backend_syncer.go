@@ -136,10 +136,10 @@ func getEndpointsForLBBackends(serviceName loadbalancer.ServiceName, backendMap 
 	for port, bes := range backendMap {
 		var lbEndpoints []*envoy_config_endpoint.LbEndpoint
 		for _, be := range bes {
-			if be.Protocol != loadbalancer.TCP {
-				// Only TCP services supported with Envoy for now
-				continue
-			}
+			//if be.Protocol != loadbalancer.TCP {
+			// Only TCP services supported with Envoy for now
+			//	continue
+			//}
 
 			lbEndpoints = append(lbEndpoints, &envoy_config_endpoint.LbEndpoint{
 				HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{
