@@ -293,13 +293,11 @@ jobs:
           # always go through the correct gateway
           EXTRA+=("--expected-drop-reasons=+No egress gateway found")
 
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          cilium connectivity test --include-unsafe-tests \
             --include-conn-disrupt-test \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --flush-ct \
             --test pod-to-ingress-service \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
             --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
             "${EXTRA[@]}"
@@ -334,12 +332,10 @@ jobs:
           # always go through the correct gateway
           EXTRA+=("--expected-drop-reasons=+No egress gateway found")
 
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          cilium connectivity test --include-unsafe-tests \
             --include-conn-disrupt-test \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --flush-ct \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
             --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
             "${EXTRA[@]}"

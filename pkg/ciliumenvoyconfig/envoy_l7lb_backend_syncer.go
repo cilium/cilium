@@ -58,13 +58,14 @@ func (r *envoyServiceBackendSyncer) Sync(svc *loadbalancer.SVC) error {
 
 	// Filter backend based on list of port numbers, then upsert backends
 	// as Envoy endpoints
-	be := filterServiceBackends(svc, frontendPorts)
+	be := filterServiceBackends(r.logger, svc, frontendPorts)
 
 	r.logger.
 		WithField("filteredBackends", be).
 		WithField(logfields.L7LBFrontendPorts, frontendPorts).
 		WithField(logfields.ServiceNamespace, svc.Name.Namespace).
 		WithField(logfields.ServiceName, svc.Name.Name).
+		WithField("all-backends", svc.Backends).
 		Debug("Upsert envoy endpoints")
 	if err := r.upsertEnvoyEndpoints(svc.Name, be); err != nil {
 		return fmt.Errorf("failed to update backends in Envoy: %w", err)
@@ -187,8 +188,9 @@ func getEndpointsForLBBackends(serviceName loadbalancer.ServiceName, backendMap 
 
 // filterServiceBackends returns the list of backends based on given front end ports.
 // The returned map will have key as port name/number, and value as list of respective backends.
-func filterServiceBackends(svc *loadbalancer.SVC, onlyPorts []string) map[string][]*loadbalancer.Backend {
+func filterServiceBackends(l logrus.FieldLogger, svc *loadbalancer.SVC, onlyPorts []string) map[string][]*loadbalancer.Backend {
 	preferredBackends := filterPreferredBackends(svc.Backends)
+	l.Debugf("all-backends, preferred backends: %+v", preferredBackends)
 
 	if len(onlyPorts) == 0 {
 		return map[string][]*loadbalancer.Backend{
@@ -196,9 +198,12 @@ func filterServiceBackends(svc *loadbalancer.SVC, onlyPorts []string) map[string
 		}
 	}
 
+	l.Debugf("all-backends, only ports: %+v", onlyPorts)
+
 	res := map[string][]*loadbalancer.Backend{}
 	for _, port := range onlyPorts {
 		// check for port number
+		l.Debugf("all-backends, port: %s, strconv.Itoa(svc.Frontend.Port): %s", port, strconv.Itoa(int(svc.Frontend.Port)))
 		if port == strconv.Itoa(int(svc.Frontend.Port)) {
 			res[port] = preferredBackends
 		}
@@ -206,6 +211,7 @@ func filterServiceBackends(svc *loadbalancer.SVC, onlyPorts []string) map[string
 		// Continue checking for either named port as the same service
 		// can be used with multiple port types together
 		for _, backend := range preferredBackends {
+			l.Debugf("all-backends, port: %s, backend.FEPortName: %s", port, backend.FEPortName)
 			if port == backend.FEPortName {
 				res[port] = append(res[port], backend)
 			}
