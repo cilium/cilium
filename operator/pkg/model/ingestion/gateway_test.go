@@ -2127,6 +2127,8 @@ var mirrorHTTPListeners = []model.HTTPListener{
 								Port: 8080,
 							},
 						},
+						Numerator:   100,
+						Denominator: 100,
 					},
 				},
 			},

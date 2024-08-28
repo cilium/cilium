@@ -251,6 +251,9 @@ type HTTPURLRewriteFilter struct {
 type HTTPRequestMirror struct {
 	// Backend is the backend handling the requests
 	Backend *Backend
+
+	Numerator   int32
+	Denominator int32
 }
 
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
