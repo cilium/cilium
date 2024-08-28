@@ -1426,12 +1426,12 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 	//
 	// Note that this logic can be removed once we stop supporting services without protocol.
 	proto := p.Frontend.L3n4Addr.L4Addr.Protocol
-	p.Frontend.L3n4Addr.L4Addr.Protocol = "NONE"
+	p.Frontend.L3n4Addr.L4Addr.Protocol = "ANY"
 
 	backendProtos := []lb.L4Type{}
 	for _, backend := range p.Backends {
 		backendProtos = append(backendProtos, backend.L3n4Addr.L4Addr.Protocol)
-		backend.L3n4Addr.L4Addr.Protocol = "NONE"
+		backend.L3n4Addr.L4Addr.Protocol = "ANY"
 	}
 
 	hash := p.Frontend.Hash()
