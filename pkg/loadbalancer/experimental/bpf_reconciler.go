@@ -162,14 +162,16 @@ func (ops *bpfOps) start(_ cell.HookContext) error {
 func svcKeyToAddr(svcKey lbmap.ServiceKey) loadbalancer.L3n4Addr {
 	feIP := svcKey.GetAddress()
 	feAddrCluster := cmtypes.MustAddrClusterFromIP(feIP)
-	feL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.TCP /* FIXME */, feAddrCluster, svcKey.GetPort(), svcKey.GetScope())
+	proto := loadbalancer.NewL4TypeFromNumber(svcKey.GetProtocol())
+	feL3n4Addr := loadbalancer.NewL3n4Addr(proto, feAddrCluster, svcKey.GetPort(), svcKey.GetScope())
 	return *feL3n4Addr
 }
 
 func beValueToAddr(beValue lbmap.BackendValue) loadbalancer.L3n4Addr {
 	beIP := beValue.GetAddress()
 	beAddrCluster := cmtypes.MustAddrClusterFromIP(beIP)
-	beL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.TCP /* FIXME */, beAddrCluster, beValue.GetPort(), 0)
+	proto := loadbalancer.NewL4TypeFromNumber(beValue.GetProtocol())
+	beL3n4Addr := loadbalancer.NewL3n4Addr(proto, beAddrCluster, beValue.GetPort(), 0)
 	return *beL3n4Addr
 }
 
@@ -232,11 +234,15 @@ func (ops *bpfOps) deleteFrontend(fe *Frontend) error {
 	var revNatKey lbmap.RevNatKey
 
 	ip := fe.Address.AddrCluster.AsNetIP()
+	u8p, err := u8proto.ParseProtocol(fe.Address.Protocol)
+	if err != nil {
+		return err
+	}
 	if fe.Address.IsIPv6() {
-		svcKey = lbmap.NewService6Key(ip, fe.Address.Port, u8proto.ANY, fe.Address.Scope, 0)
+		svcKey = lbmap.NewService6Key(ip, fe.Address.Port, u8p, fe.Address.Scope, 0)
 		revNatKey = lbmap.NewRevNat6Key(uint16(feID))
 	} else {
-		svcKey = lbmap.NewService4Key(ip, fe.Address.Port, u8proto.ANY, fe.Address.Scope, 0)
+		svcKey = lbmap.NewService4Key(ip, fe.Address.Port, u8p, fe.Address.Scope, 0)
 		revNatKey = lbmap.NewRevNat4Key(uint16(feID))
 	}
 
@@ -287,17 +293,15 @@ func (ops *bpfOps) pruneServiceMaps() error {
 			ops.log.Warn("Prune: bad address in service key", "key", svcKey)
 			return
 		}
+		proto := loadbalancer.NewL4TypeFromNumber(svcKey.GetProtocol())
 		addr := loadbalancer.L3n4Addr{
 			AddrCluster: ac,
-			L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP /* FIXME */, Port: svcKey.GetPort()},
+			L4Addr:      loadbalancer.L4Addr{Protocol: proto, Port: svcKey.GetPort()},
 			Scope:       svcKey.GetScope(),
 		}
 		if _, ok := ops.backendReferences[addr]; !ok {
-			addr.L4Addr.Protocol = loadbalancer.UDP
-			if _, ok := ops.backendReferences[addr]; !ok {
-				ops.log.Info("pruneServiceMaps: deleting", "id", svcValue.GetRevNat(), "addr", addr)
-				toDelete = append(toDelete, svcKey.ToNetwork())
-			}
+			ops.log.Info("pruneServiceMaps: deleting", "id", svcValue.GetRevNat(), "addr", addr)
+			toDelete = append(toDelete, svcKey.ToNetwork())
 		}
 	}
 	if err := ops.lbmaps.DumpService(svcCB); err != nil {
@@ -318,15 +322,9 @@ func (ops *bpfOps) pruneBackendMaps() error {
 		beValue = beValue.ToHost()
 		addr := beValueToAddr(beValue)
 
-		// TODO TCP/UDP differentation.
-		addr.L4Addr.Protocol = loadbalancer.TCP
 		if _, ok := ops.backendStates[addr]; !ok {
-			addr.L4Addr.Protocol = loadbalancer.UDP
-			if _, ok := ops.backendStates[addr]; !ok {
-				ops.log.Info("pruneBackendMaps: deleting", "id", beKey.GetID(), "addr", addr)
-				toDelete = append(toDelete, beKey)
-			}
-
+			ops.log.Info("pruneBackendMaps: deleting", "id", beKey.GetID(), "addr", addr)
+			toDelete = append(toDelete, beKey)
 		}
 	}
 	if err := ops.lbmaps.DumpBackend(beCB); err != nil {
@@ -494,11 +492,15 @@ func (ops *bpfOps) updateFrontend(fe *Frontend) error {
 	var svcVal lbmap.ServiceValue
 
 	ip := fe.Address.AddrCluster.AsNetIP()
+	u8p, err := u8proto.ParseProtocol(fe.Address.Protocol)
+	if err != nil {
+		return err
+	}
 	if fe.Address.IsIPv6() {
-		svcKey = lbmap.NewService6Key(ip, fe.Address.Port, u8proto.ANY, fe.Address.Scope, 0)
+		svcKey = lbmap.NewService6Key(ip, fe.Address.Port, u8p, fe.Address.Scope, 0)
 		svcVal = &lbmap.Service6Value{}
 	} else {
-		svcKey = lbmap.NewService4Key(ip, fe.Address.Port, u8proto.ANY, fe.Address.Scope, 0)
+		svcKey = lbmap.NewService4Key(ip, fe.Address.Port, u8p, fe.Address.Scope, 0)
 		svcVal = &lbmap.Service4Value{}
 	}
 
@@ -724,14 +726,19 @@ func (ops *bpfOps) cleanupSlots(svcKey lbmap.ServiceKey, oldCount, newCount int)
 
 func (ops *bpfOps) upsertBackend(id loadbalancer.BackendID, be *Backend) (err error) {
 	var lbbe lbmap.Backend
+
+	u8p, err := u8proto.ParseProtocol(be.L3n4Addr.Protocol)
+	if err != nil {
+		return err
+	}
 	if be.AddrCluster.Is6() {
-		lbbe, err = lbmap.NewBackend6V3(id, be.AddrCluster, be.Port, u8proto.ANY,
+		lbbe, err = lbmap.NewBackend6V3(id, be.AddrCluster, be.Port, u8p,
 			be.State, be.ZoneID)
 		if err != nil {
 			return err
 		}
 	} else {
-		lbbe, err = lbmap.NewBackend4V3(id, be.AddrCluster, be.Port, u8proto.ANY,
+		lbbe, err = lbmap.NewBackend4V3(id, be.AddrCluster, be.Port, u8p,
 			be.State, be.ZoneID)
 		if err != nil {
 			return err
