@@ -757,6 +757,8 @@ type HTTPRouteFilter struct {
 	// Support: Extended
 	//
 	// +optional
+	//
+	// <gateway:experimental:validation:XValidation:message="Only one of percent or fraction may be specified in HTTPRequestMirrorFilter",rule="!(has(self.percent) && has(self.fraction))">
 	RequestMirror *HTTPRequestMirrorFilter `json:"requestMirror,omitempty"`
 
 	// RequestRedirect defines a schema for a filter that responds to the
@@ -1153,6 +1155,29 @@ type HTTPRequestMirrorFilter struct {
 	//
 	// Support: Implementation-specific for any other resource
 	BackendRef BackendObjectReference `json:"backendRef"`
+
+	// Percent represents the percentage of requests that should be
+	// mirrored to BackendRef. Its minimum value is 0 (indicating 0% of
+	// requests) and its maximum value is 100 (indicating 100% of requests).
+	//
+	// Only one of Fraction or Percent may be specified. If neither field
+	// is specified, 100% of requests will be mirrored.
+	//
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=100
+	// <gateway:experimental>
+	Percent *int32 `json:"percent,omitempty"`
+
+	// Fraction represents the fraction of requests that should be
+	// mirrored to BackendRef.
+	//
+	// Only one of Fraction or Percent may be specified. If neither field
+	// is specified, 100% of requests will be mirrored.
+	//
+	// +optional
+	// <gateway:experimental>
+	Fraction Fraction `json:"fraction,omitempty"`
 }
 
 // HTTPBackendRef defines how a HTTPRoute forwards a HTTP request.
