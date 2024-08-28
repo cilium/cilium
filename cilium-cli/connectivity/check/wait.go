@@ -18,7 +18,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
@@ -238,14 +237,14 @@ func WaitForServiceEndpoints(ctx context.Context, log Logger, agent Pod, service
 
 func checkServiceEndpoints(ctx context.Context, agent Pod, service Service, backends uint, families []features.IPFamily) error {
 	buffer, err := agent.K8sClient.ExecInPod(ctx, agent.Namespace(), agent.NameWithoutNamespace(),
-		defaults.AgentContainerName, []string{"cilium", "service", "list", "--output=json"})
+		defaults.AgentContainerName, []string{"cilium-dbg", "bpf", "lb", "list", "--output=json"})
 	if err != nil {
 		return fmt.Errorf("failed to query service list: %w", err)
 	}
 
-	var services []*models.Service
-	if err := json.Unmarshal(buffer.Bytes(), &services); err != nil {
-		return fmt.Errorf("failed to unmarshal service list output: %w", err)
+	lbEntries := map[string][]string{}
+	if err := json.Unmarshal(buffer.Bytes(), &lbEntries); err != nil {
+		return fmt.Errorf("failed to unmarshal bpf lb list output: %w", err)
 	}
 
 	type l3n4 struct {
@@ -254,11 +253,22 @@ func checkServiceEndpoints(ctx context.Context, agent Pod, service Service, back
 	}
 
 	found := make(map[l3n4]uint)
-	for _, svc := range services {
-		found[l3n4{
-			addr: svc.Spec.FrontendAddress.IP,
-			port: svc.Spec.FrontendAddress.Port,
-		}] = uint(len(svc.Spec.BackendAddresses))
+	for fe, bes := range lbEntries {
+		addrPort, _, _ := strings.Cut(fe, " ")
+		i := strings.LastIndexByte(addrPort, ':')
+		if i < 0 {
+			return fmt.Errorf("failed to parse %q as addr:port", fe)
+		}
+		addr := addrPort[:i]
+		addr = strings.ReplaceAll(addr, "[", "")
+		addr = strings.ReplaceAll(addr, "]", "")
+		portS := addrPort[i+1:]
+		port, _ := strconv.ParseUint(portS, 10, 16)
+		l3n4 := l3n4{
+			addr: addr,
+			port: uint16(port),
+		}
+		found[l3n4] = uint(len(bes))
 	}
 
 	for _, ip := range service.Service.Spec.ClusterIPs {
