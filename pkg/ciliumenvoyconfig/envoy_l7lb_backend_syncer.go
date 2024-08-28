@@ -135,8 +135,10 @@ func getEndpointsForLBBackends(serviceName loadbalancer.ServiceName, backendMap 
 	for port, bes := range backendMap {
 		var lbEndpoints []*envoy_config_endpoint.LbEndpoint
 		for _, be := range bes {
-			if be.Protocol != loadbalancer.TCP {
-				// Only TCP services supported with Envoy for now
+			// The below is to make sure that UDP and SCTP are not allowed instead of comparing with lb.TCP
+			// The reason is to avoid extra dependencies with ongoing work to differentiate protocols in datapath,
+			// which might add more values such as lb.Any, lb.None, etc.
+			if be.Protocol == loadbalancer.UDP || be.Protocol == loadbalancer.SCTP {
 				continue
 			}
 
