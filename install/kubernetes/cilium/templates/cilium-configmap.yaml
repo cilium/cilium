@@ -1,6 +1,7 @@
 {{- if and ( or (.Values.agent) (.Values.operator.enabled) .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) (not .Values.preflight.enabled) }}
 {{- /*  Default values with backwards compatibility */ -}}
 {{- $defaultBpfMapDynamicSizeRatio := 0.0 -}}
+{{- $tunnelProto := ""}}
 {{- $defaultBpfMasquerade := "false" -}}
 {{- $defaultBpfClockProbe := "false" -}}
 {{- $defaultBpfTProxy := "false" -}}
@@ -83,6 +84,14 @@
 {{- if semverCompare ">=1.27-0" .Capabilities.KubeVersion.Version -}}
   {{- $defaultK8sClientQPS = 10 -}}
   {{- $defaultK8sClientBurst = 20 -}}
+{{- end -}}
+
+{{- if or (.Values.gke.enabled) (eq .Values.routingMode "native") -}}
+  {{- $tunnelProto = "" -}}
+{{- else if ne (.Values.tunnelProtocol) "" -}}
+  {{- $tunnelProto = .Values.tunnelProtocol -}}
+{{- else -}}
+  {{- $tunnelProto = "vxlan" -}}
 {{- end -}}
 ---
 apiVersion: v1
@@ -483,18 +492,14 @@ data:
     {{- fail (printf "RoutingMode must be set to tunnel when aksbyocni.enabled=true" )}}
   {{- end }}
   routing-mode: "tunnel"
-  tunnel-protocol: "vxlan"
 {{- else if .Values.routingMode }}
   routing-mode: {{ .Values.routingMode | quote }}
 {{- else }}
   # Default case
   routing-mode: "tunnel"
-  tunnel-protocol: "vxlan"
 {{- end }}
 
-{{- if .Values.tunnelProtocol }}
   tunnel-protocol: {{ .Values.tunnelProtocol | quote }}
-{{- end }}
 
 {{- if .Values.tunnelPort }}
   tunnel-port: {{ .Values.tunnelPort | quote }}
