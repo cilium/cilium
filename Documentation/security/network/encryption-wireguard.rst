@@ -372,6 +372,14 @@ table are not subject to encryption with WireGuard and therefore assumed to be u
   encrypted only between intermediate Node (which received client request first)
   and destination Node.
 
+Known Issues
+==========================
+
+* Packets may be dropped when configuring the WireGuard device leading to
+  connectivity issues. This happens when endpoints are added or removed or
+  when node updates occur. In some cases this may lead to failed calls to
+  ``sendmsg`` and ``sendto``. See :gh-issue:`33159` for more details.
+
 Legal
 =====
 
