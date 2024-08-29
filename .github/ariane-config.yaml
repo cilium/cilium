@@ -4,7 +4,6 @@ allowed-teams:
 triggers:
   /test-backport-1.14:
     workflows:
-    - conformance-aks.yaml
     - conformance-aws-cni.yaml
     - conformance-clustermesh.yaml
     - conformance-e2e.yaml
@@ -21,9 +20,6 @@ triggers:
     - tests-datapath-verifier.yaml
     - tests-l4lb.yaml
     - tests-ipsec-upgrade.yaml
-  /ci-aks:
-    workflows:
-    - conformance-aks.yaml
   /ci-awscni:
     workflows:
     - conformance-aws-cni.yaml
@@ -69,8 +65,6 @@ triggers:
     - tests-l4lb.yaml
 
 workflows:
-  conformance-aks.yaml:
-    paths-ignore-regex: (test|Documentation)/
   conformance-aws-cni.yaml:
     paths-ignore-regex: (test|Documentation)/
   conformance-clustermesh.yaml:

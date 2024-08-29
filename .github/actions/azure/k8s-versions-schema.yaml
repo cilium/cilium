@@ -1,6 +1,0 @@
-include: list(include('includeItem'))
----
-includeItem:
-  version: str()
-  location: str()
-  default: bool(required=False)
