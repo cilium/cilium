@@ -829,13 +829,13 @@ reList:
 				scopedLog.Debugf("Emitting list result as %s event for %s=%s", t, key.Key, key.Value)
 			}
 
-			queueStart := spanstat.Start()
-			w.Events <- KeyValueEvent{
+			if !w.emit(ctx, scope, KeyValueEvent{
 				Key:   string(key.Key),
 				Value: key.Value,
 				Typ:   t,
+			}) {
+				return
 			}
-			trackEventQueued(scope, t, queueStart.End(true).Total())
 		}
 
 		nextRev := revision + 1
@@ -843,7 +843,7 @@ reList:
 		// Send out deletion events for all keys that were deleted
 		// between our last known revision and the latest revision
 		// received via Get
-		localCache.RemoveDeleted(func(k string) {
+		if !localCache.RemoveDeleted(func(k string) bool {
 			event := KeyValueEvent{
 				Key: k,
 				Typ: EventTypeDelete,
@@ -852,15 +852,16 @@ reList:
 			if traceEnabled {
 				scopedLog.Debugf("Emitting EventTypeDelete event for %s", k)
 			}
-
-			queueStart := spanstat.Start()
-			w.Events <- event
-			trackEventQueued(scope, EventTypeDelete, queueStart.End(true).Total())
-		})
+			return w.emit(ctx, scope, event)
+		}) {
+			return
+		}
 
 		// Only send the list signal once
 		if !listSignalSent {
-			w.Events <- KeyValueEvent{Typ: EventTypeListDone}
+			if !w.emit(ctx, scope, KeyValueEvent{Typ: EventTypeListDone}) {
+				return
+			}
 			listSignalSent = true
 		}
 
@@ -873,6 +874,8 @@ reList:
 			case <-e.client.Ctx().Done():
 				return
 			case <-ctx.Done():
+				return
+			case <-w.stopWatch:
 				return
 			default:
 				goto recreateWatcher
@@ -942,10 +945,9 @@ reList:
 					if traceEnabled {
 						scopedLog.Debugf("Emitting %s event for %s=%s", event.Typ, event.Key, event.Value)
 					}
-
-					queueStart := spanstat.Start()
-					w.Events <- event
-					trackEventQueued(scope, event.Typ, queueStart.End(true).Total())
+					if !w.emit(ctx, scope, event) {
+						return
+					}
 				}
 			}
 		}

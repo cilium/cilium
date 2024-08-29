@@ -3,7 +3,10 @@
 package kvstore
 
 import (
+	"context"
 	"sync"
+
+	"github.com/cilium/cilium/pkg/spanstat"
 )
 
 // EventType defines the type of watch event that occurred
@@ -79,6 +82,21 @@ func newWatcher(prefix string, chanSize int) *Watcher {
 	w.stopWait.Add(1)
 
 	return w
+}
+
+// emit attempts to notify the watcher of an event within the given context.
+// returning false if the context is done before the event is emitted.
+func (w *Watcher) emit(ctx context.Context, scope string, event KeyValueEvent) bool {
+	queueStart := spanstat.Start()
+	var ok bool
+	select {
+	case <-ctx.Done():
+	case <-w.stopWatch:
+	case w.Events <- event:
+		ok = true
+	}
+	trackEventQueued(scope, event.Typ, queueStart.End(ok).Total())
+	return ok
 }
 
 // Stop stops a watcher previously created and started with Watch()
