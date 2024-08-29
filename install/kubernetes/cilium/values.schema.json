@@ -1389,6 +1389,9 @@
         "enableMCSAPISupport": {
           "type": "boolean"
         },
+        "kvstoremeshExternalKVStore": {
+          "type": "boolean"
+        },
         "maxConnectedClusters": {
           "type": "integer"
         },

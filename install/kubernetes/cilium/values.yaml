@@ -2923,6 +2923,8 @@ clustermesh:
   # maximum allocatable cluster-local identities.
   # Supported values are 255 and 511.
   maxConnectedClusters: 255
+  # -- Use external KVStore for KVStoreMesh.
+  kvstoremeshExternalKVStore: false
   # -- Enable the synchronization of Kubernetes EndpointSlices corresponding to
   # the remote endpoints of appropriately-annotated global services through ClusterMesh
   enableEndpointSliceSynchronization: false

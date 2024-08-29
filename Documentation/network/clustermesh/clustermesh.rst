@@ -147,6 +147,11 @@ Example install using the Cilium CLI:
   cilium install --set cluster.name=$CLUSTER1 --set cluster.id=1 --context $CLUSTER1
   cilium install --set cluster.name=$CLUSTER2 --set cluster.id=2 --context $CLUSTER2
 
+.. note::
+
+  If you are planning on using external etcd with your cluster, you have to set the value of the Helm option ``clustermesh.kvstoremeshExternalKVStore`` 
+  to ``true`` for the KVStoreMesh to run with the external etcd instead of creating a new etcd instance upon creation.
+
 .. important::
 
    If you change the cluster ID and/or cluster name in a cluster with running

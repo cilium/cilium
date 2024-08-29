@@ -46,6 +46,7 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if not .Values.clustermesh.kvstoremeshExternalKVStore}}
       initContainers:
       - name: etcd-init
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
@@ -98,7 +99,9 @@ spec:
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+      {{- end }}
       containers:
+      {{- if not .Values.clustermesh.kvstoremeshExternalKVStore}}
       - name: etcd
         # The clustermesh-apiserver container image includes an etcd binary.
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
@@ -260,6 +263,7 @@ spec:
         lifecycle:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+      {{- end }}
       {{- if .Values.clustermesh.apiserver.kvstoremesh.enabled }}
       - name: kvstoremesh
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
