@@ -419,6 +419,63 @@ spec:
                   for the node, if any.
                 format: int64
                 type: integer
+              volcengine:
+                description: Volcengine is the Volcengine IPAM specific configuration.
+                properties:
+                  availability-zone:
+                    description: AvailabilityZone is the availability zone to use
+                      when allocating ENIs.
+                    type: string
+                  cidr-block:
+                    description: CIDRBlock is VPC IPv4 CIDR
+                    type: string
+                  eni-tags:
+                    additionalProperties:
+                      type: string
+                    description: ENITags is the list of tags to use when evaluating
+                      what Volcengine ENIs to use for IP allocation.
+                    type: object
+                  instance-type:
+                    description: InstanceType is the Volcengine ECS instance type,
+                      e.g. "ecs.g2ine.large"
+                    type: string
+                  project-name:
+                    description: ProjectName is the project name to use for resource
+                      management.
+                    type: string
+                  security-group-tags:
+                    additionalProperties:
+                      type: string
+                    description: SecurityGroupTags is the list of tags to use when
+                      evaluating which security groups to use for the ENI.
+                    type: object
+                  security-groups:
+                    description: SecurityGroups is the list of security groups to
+                      attach to any ENI that is created and attached to the instance.
+                    items:
+                      type: string
+                    type: array
+                  subnet-ids:
+                    description: SubnetIDs is the list of subnet ids to use when evaluating
+                      what Volcengine subnets to use for ENI and IP allocation.
+                    items:
+                      type: string
+                    type: array
+                  subnet-tags:
+                    additionalProperties:
+                      type: string
+                    description: SubnetTags is the list of tags to use when evaluating
+                      what Volcengine subnets to use for ENI and IP allocation.
+                    type: object
+                  use-primary-address:
+                    description: UsePrimaryAddress determines whether a primary address
+                      of Volcengine ENI should be available for allocations on the
+                      node
+                    type: boolean
+                  vpc-id:
+                    description: VPCID is the VPC ID to use when allocating ENIs.
+                    type: string
+                type: object
             type: object
           status:
             description: Status defines the realized specification/configuration and
@@ -763,6 +820,98 @@ spec:
                       type: object
                     description: Used lists all IPv4 addresses out of Spec.IPAM.Pool
                       which have been allocated and are in use.
+                    type: object
+                type: object
+              volcengine:
+                description: Volcengine is the Volcengine specific status of the node.
+                properties:
+                  enis:
+                    additionalProperties:
+                      description: ENI represents a Volcengine Network Interface
+                      properties:
+                        device-id:
+                          description: DeviceID is the ID of the instance to which
+                            the ENI is attached
+                          type: string
+                        mac-address:
+                          description: MACAddress is the MAC address of the ENI
+                          type: string
+                        network-interface-id:
+                          description: NetworkInterfaceID is the ENI ID
+                          type: string
+                        primary-ip-address:
+                          description: PrimaryIPAddress is the primary private IPv4
+                            address of the ENI
+                          type: string
+                        private-ipsets:
+                          description: PrivateIPSets is the list of all private IP
+                            addresses of the ENI
+                          items:
+                            description: PrivateIPSet stores the information about
+                              a private IP address
+                            properties:
+                              primary:
+                                type: boolean
+                              private-ip-address:
+                                type: string
+                            type: object
+                          type: array
+                        project-name:
+                          description: ProjectName is the project name the ENI belongs
+                            to
+                          type: string
+                        security-group-ids:
+                          description: SecurityGroupIDs is the list of security group
+                            IDs associated with the ENI
+                          items:
+                            type: string
+                          type: array
+                        subnet:
+                          description: Subnet is the subnet to which the ENI is attached
+                          properties:
+                            cidr-block:
+                              description: CIDRBlock is the IPv4 CIDR of the subnet
+                              type: string
+                            ipv6-cidr-block:
+                              description: IPv6CIDRBlock is the IPv6 CIDR of the subnet
+                              type: string
+                            subnet-id:
+                              description: SubnetID is the ID of the subnet
+                              type: string
+                          type: object
+                        tags:
+                          additionalProperties:
+                            type: string
+                          description: Tags is the set of tags associated with the
+                            ENI
+                          type: object
+                        type:
+                          description: Type is the type of the ENI Primary or Secondary
+                          type: string
+                        vpc:
+                          description: VPC is the VPC to which the ENI is attached
+                          properties:
+                            cidr-block:
+                              description: CIDRBlock is the IPv4 CIDR of the VPC
+                              type: string
+                            ipv6-cidr-block:
+                              description: IPv6CIDRBlock is the IPv6 CIDR of the VPC
+                              type: string
+                            secondary-cidr-blocks:
+                              description: SecondaryCIDRBlocks is the list of secondary
+                                CIDR blocks of the VPC
+                              items:
+                                type: string
+                              type: array
+                            vpc-id:
+                              description: VPCID is the ID of the VPC
+                              type: string
+                          type: object
+                        zone-id:
+                          description: ZoneID is the zone to which the ENI is attached
+                          type: string
+                      type: object
+                    description: ENIs is the list of ENIs on the node
                     type: object
                 type: object
             type: object

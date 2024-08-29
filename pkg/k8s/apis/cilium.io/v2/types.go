@@ -15,6 +15,7 @@ import (
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/node/addressing"
+	volcengineTypes "github.com/cilium/cilium/pkg/volcengine/eni/types"
 )
 
 // +genclient
@@ -384,6 +385,11 @@ type NodeSpec struct {
 	// +kubebuilder:validation:Optional
 	AlibabaCloud alibabaCloudTypes.Spec `json:"alibaba-cloud,omitempty"`
 
+	// Volcengine is the Volcengine IPAM specific configuration.
+	//
+	// +kubebuilder:validation:Optional
+	Volcengine volcengineTypes.Spec `json:"volcengine,omitempty"`
+
 	// IPAM is the address management specification. This section can be
 	// populated by a user or it can be automatically populated by an IPAM
 	// operator.
@@ -441,6 +447,11 @@ type NodeStatus struct {
 	//
 	// +kubebuilder:validation:Optional
 	AlibabaCloud alibabaCloudTypes.ENIStatus `json:"alibaba-cloud,omitempty"`
+
+	// Volcengine is the Volcengine specific status of the node.
+	//
+	// +kubebuilder:validation:Optional
+	Volcengine volcengineTypes.ENIStatus `json:"volcengine,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

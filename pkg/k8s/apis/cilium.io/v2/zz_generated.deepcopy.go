@@ -1339,6 +1339,7 @@ func (in *NodeSpec) DeepCopyInto(out *NodeSpec) {
 	in.ENI.DeepCopyInto(&out.ENI)
 	out.Azure = in.Azure
 	in.AlibabaCloud.DeepCopyInto(&out.AlibabaCloud)
+	in.Volcengine.DeepCopyInto(&out.Volcengine)
 	in.IPAM.DeepCopyInto(&out.IPAM)
 	return
 }
@@ -1360,6 +1361,7 @@ func (in *NodeStatus) DeepCopyInto(out *NodeStatus) {
 	in.Azure.DeepCopyInto(&out.Azure)
 	in.IPAM.DeepCopyInto(&out.IPAM)
 	in.AlibabaCloud.DeepCopyInto(&out.AlibabaCloud)
+	in.Volcengine.DeepCopyInto(&out.Volcengine)
 	return
 }
 
