@@ -3229,6 +3229,11 @@ clustermesh:
             - ALL
       # -- lifecycle setting for the KVStoreMesh container
       lifecycle: {}
+      # -- Specify the KVStore mode when running KVStoreMesh
+      # Supported values:
+      # - "internal": remote cluster identities are cached in etcd that runs as a sidecar within ``clustermesh-apiserver`` pod.
+      # - "external": ``clustermesh-apiserver`` will sync remote cluster information to the etcd used as kvstore. This can't be enabled with crd identity allocation mode.
+      kvstoreMode: "internal"
     service:
       # -- The type of service used for apiserver access.
       type: NodePort
