@@ -558,12 +558,14 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 			return ret;
 	}
 
+#if 0
 	/* Emit verdict if drop or if allow for CT_NEW. */
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, *src_sec_identity, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 0,
 					   verdict, proxy_port, policy_match_type, audited,
 					   auth_type);
+#endif
 out:
 	/* This change is necessary for packets redirected from the lxc device to
 	 * the host device.

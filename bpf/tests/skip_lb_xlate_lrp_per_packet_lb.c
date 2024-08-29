@@ -230,13 +230,13 @@ SETUP("tc", "v6_local_redirect")
 int v6_local_backend_to_service_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
-	struct lb6_key lb_svc_key = {};
-	struct lb6_service lb_svc_value = {};
-	struct lb6_reverse_nat revnat_value = {};
-	struct lb6_backend backend = {};
-	struct ipcache_key cache_key = {};
+	struct lb6_key lb_svc_key __align_stack_8 = {};
+	struct lb6_service lb_svc_value __align_stack_8 = {};
+	struct lb6_reverse_nat revnat_value __align_stack_8 = {};
+	struct lb6_backend backend __align_stack_8 = {};
+	struct ipcache_key cache_key __align_stack_8 = {};
 	struct remote_endpoint_info cache_value = {};
-	struct endpoint_key ep_key = {};
+	struct endpoint_key ep_key __align_stack_8 = {};
 	struct endpoint_info ep_value = {};
 	/* Register a fake LB backend for our local redirect service */
 	memcpy(&lb_svc_key.address, (__u8 *)V6_SERVICE_IP, sizeof(V6_SERVICE_IP));

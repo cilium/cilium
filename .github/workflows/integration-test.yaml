@@ -137,7 +137,7 @@ jobs:
       - name: Install LLVM and Clang
         uses: KyleMayes/install-llvm-action@10c8957324ef77f0712d883b9ed08adb6da4a192 # v2.0.4
         with:
-          version: "17.0.6"
+          version: "18.1.4"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
 
       - name: Prepare environment
