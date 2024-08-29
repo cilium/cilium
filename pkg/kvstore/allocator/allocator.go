@@ -584,6 +584,7 @@ func (k *kvstoreBackend) ListIDs(ctx context.Context) (identityIDs []idpool.ID, 
 }
 
 func (k *kvstoreBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMutations, stopChan chan struct{}) {
+	ctx, cancel := context.WithCancel(ctx)
 	watcher := k.backend.ListAndWatch(ctx, k.idPrefix, 512)
 	for {
 		select {
@@ -640,6 +641,7 @@ func (k *kvstoreBackend) ListAndWatch(ctx context.Context, handler allocator.Cac
 	}
 
 abort:
+	cancel()
 	watcher.Stop()
 }
 
