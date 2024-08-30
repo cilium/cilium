@@ -4,7 +4,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: cilium-config-agent
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   {{- with .Values.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -18,7 +18,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccounts.cilium.name | quote }}
-    namespace: {{ .Release.Namespace }}
+    namespace: {{ include "cilium.namespace" . }}
 {{- end}}
 
 {{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.ingressController.enabled .Values.ingressController.secretsNamespace.name}}
@@ -41,7 +41,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccounts.cilium.name | quote }}
-    namespace: {{ .Release.Namespace }}
+    namespace: {{ include "cilium.namespace" . }}
 {{- end }}
 
 {{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.gatewayAPI.enabled .Values.gatewayAPI.secretsNamespace.name}}
@@ -64,7 +64,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{ .Values.serviceAccounts.cilium.name | quote }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
 {{- end}}
 
 {{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.envoyConfig.enabled .Values.envoyConfig.secretsNamespace.name}}
@@ -87,7 +87,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{ .Values.serviceAccounts.cilium.name | quote }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
 {{- end}}
 
 {{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.bgpControlPlane.enabled .Values.bgpControlPlane.secretsNamespace.name}}
@@ -106,5 +106,5 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{ .Values.serviceAccounts.cilium.name | quote }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
 {{- end}}

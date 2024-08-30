@@ -4,7 +4,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: hubble-ui-nginx
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   {{- with .Values.hubble.ui.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

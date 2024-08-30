@@ -542,6 +542,7 @@ myCA
 mysql
 nameError
 namespace
+namespaceOverride
 namespaced
 namespaces
 nat

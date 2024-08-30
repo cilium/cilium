@@ -4,7 +4,7 @@ kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: cilium-node-init
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   {{- with .Values.nodeinit.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

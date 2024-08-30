@@ -89,7 +89,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: cilium-config
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
 data:
 {{- if .Values.etcd.enabled }}
   # The kvstore configuration is used to enable use of a kvstore for state
@@ -1350,7 +1350,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ip-masq-agent
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
 data:
   config: |-
 {{ toJson .Values.ipMasqAgent.config | indent 4 }}

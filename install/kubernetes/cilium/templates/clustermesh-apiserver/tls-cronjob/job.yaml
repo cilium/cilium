@@ -4,7 +4,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: clustermesh-apiserver-generate-certs
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   labels:
     k8s-app: clustermesh-apiserver-generate-certs
     app.kubernetes.io/part-of: cilium

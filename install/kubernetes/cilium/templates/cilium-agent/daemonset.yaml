@@ -16,7 +16,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: cilium
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   {{- with .Values.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -27,7 +27,7 @@ metadata:
     app.kubernetes.io/name: cilium-agent
     {{- if .Values.keepDeprecatedLabels }}
     kubernetes.io/cluster-service: "true"
-    {{- if and .Values.gke.enabled (eq .Release.Namespace "kube-system" ) }}
+    {{- if and .Values.gke.enabled (eq (include "cilium.namespace" .) "kube-system" ) }}
       {{- fail "Invalid configuration: Installing Cilium on GKE with 'kubernetes.io/cluster-service' labels on 'kube-system' namespace causes Cilium DaemonSet to be removed by GKE. Either install Cilium on a different Namespace or install with '--set keepDeprecatedLabels=false'" }}
     {{- end }}
     {{- end }}

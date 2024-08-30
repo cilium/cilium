@@ -4,7 +4,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ .Values.hubble.export.dynamic.config.configMapName }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
 data:
   flowlogs.yaml: |
     flowLogs:

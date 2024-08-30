@@ -4,7 +4,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: hubble-relay-metrics
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   {{- with .Values.hubble.relay.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

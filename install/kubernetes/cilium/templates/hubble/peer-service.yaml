@@ -3,7 +3,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: hubble-peer
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   {{- with .Values.hubble.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

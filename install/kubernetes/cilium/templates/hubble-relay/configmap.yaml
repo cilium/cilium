@@ -8,7 +8,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: hubble-relay-config
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   {{- with .Values.hubble.relay.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -16,7 +16,7 @@ metadata:
 data:
   config.yaml: |
     cluster-name: {{ .Values.cluster.name }}
-    peer-service: "hubble-peer.{{ .Release.Namespace }}.svc.{{ .Values.hubble.peerService.clusterDomain }}:{{ $peerSvcPort }}"
+    peer-service: "hubble-peer.{{ include "cilium.namespace" . }}.svc.{{ .Values.hubble.peerService.clusterDomain }}:{{ $peerSvcPort }}"
     listen-address: {{ include "hubble-relay.config.listenAddress" . }}
     gops: {{ .Values.hubble.relay.gops.enabled }}
     gops-port: {{ .Values.hubble.relay.gops.port | quote }}

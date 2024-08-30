@@ -3,7 +3,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: hubble
-  namespace: {{ .Values.prometheus.serviceMonitor.namespace | default .Release.Namespace }}
+  namespace: {{ .Values.prometheus.serviceMonitor.namespace | default (include "cilium.namespace" .) }}
   labels:
     app.kubernetes.io/part-of: cilium
     {{- with .Values.hubble.metrics.serviceMonitor.labels }}
@@ -24,7 +24,7 @@ spec:
       k8s-app: hubble
   namespaceSelector:
     matchNames:
-    - {{ .Release.Namespace }}
+    - {{ include "cilium.namespace" . }}
   endpoints:
   - port: hubble-metrics
     interval: {{ .Values.hubble.metrics.serviceMonitor.interval | quote }}
