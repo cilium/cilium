@@ -331,6 +331,8 @@ func TestDecodeDropNotify(t *testing.T) {
 	buf := &bytes.Buffer{}
 	dn := monitor.DropNotify{
 		Type:     byte(monitorAPI.MessageTypeDrop),
+		File:     1, // bpf_host.c
+		Line:     42,
 		SrcLabel: 123,
 		DstLabel: 456,
 	}
@@ -370,6 +372,9 @@ func TestDecodeDropNotify(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"k8s:src=label"}, f.GetSource().GetLabels())
 	assert.Equal(t, []string{"k8s:dst=label"}, f.GetDestination().GetLabels())
+	assert.NotNil(t, f.GetFile())
+	assert.Equal(t, "bpf_host.c", f.GetFile().GetName())
+	assert.Equal(t, uint32(42), f.GetFile().GetLine())
 }
 
 func TestDecodePolicyVerdictNotify(t *testing.T) {

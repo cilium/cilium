@@ -433,7 +433,7 @@ struct metrics_key {
 	__u8      dir:2,	/* 1: ingress 2: egress */
 		  pad:6;
 	__u16	  line;		/* __MAGIC_LINE__ */
-	__u8	  file;		/* __MAGIC_FILE__, needs to fit __source_file_name_to_id */
+	__u8	  file;		/* __MAGIC_FILE__, needs to fit __id_for_file */
 	__u8	  reserved[3];	/* reserved for future extension */
 };
 

@@ -14,6 +14,7 @@
     - [EndpointUpdateNotification](#flow-EndpointUpdateNotification)
     - [Ethernet](#flow-Ethernet)
     - [EventTypeFilter](#flow-EventTypeFilter)
+    - [FileInfo](#flow-FileInfo)
     - [Flow](#flow-Flow)
     - [FlowFilter](#flow-FlowFilter)
     - [FlowFilter.Experimental](#flow-FlowFilter-Experimental)
@@ -259,6 +260,22 @@ EventTypeFilter is a filter describing a particular event type.
 
 
 
+<a name="flow-FileInfo"></a>
+
+### FileInfo
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  |  |
+| line | [uint32](#uint32) |  |  |
+
+
+
+
+
+
 <a name="flow-Flow"></a>
 
 ### Flow
@@ -291,6 +308,7 @@ EventTypeFilter is a filter describing a particular event type.
 | policy_match_type | [uint32](#uint32) |  | policy_match_type is only applicable to the cilium event type PolicyVerdict https://github.com/cilium/cilium/blob/e831859b5cc336c6d964a6d35bbd34d1840e21b9/pkg/monitor/datapath_policy.go#L50 |
 | trace_observation_point | [TraceObservationPoint](#flow-TraceObservationPoint) |  | Only applicable to cilium trace notifications, blank for other types. |
 | trace_reason | [TraceReason](#flow-TraceReason) |  | Cilium datapath trace reason info. |
+| file | [FileInfo](#flow-FileInfo) |  | Cilium datapath filename and line number. Currently only applicable when Verdict = DROPPED. |
 | drop_reason_desc | [DropReason](#flow-DropReason) |  | only applicable to Verdict = DROPPED. |
 | is_reply | [google.protobuf.BoolValue](#google-protobuf-BoolValue) |  | is_reply indicates that this was a packet (L4) or message (L7) in the reply direction. May be absent (in which case it is unknown whether it is a reply or not). |
 | debug_capture_point | [DebugCapturePoint](#flow-DebugCapturePoint) |  | Only applicable to cilium debug capture events, blank for other types |

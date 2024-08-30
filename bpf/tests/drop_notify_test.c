@@ -6,10 +6,11 @@
  * It contains function definitions for testing "send_drop_notify" and "__send_drop_notify".
  * It is used to perform unit test on the above two functions to demonstrate how
  * to handle tailcalls.
- * There is a tailcall at the end of function send_drop_notif which actually
+ * There is a tailcall at the end of function send_drop_notify which actually
  * calls function __send_drop_notify. We can stub the tailcall and actually call
  * the function with callback.
- * If other functions in drop.h need to be tested, please add the function definitions at the bottom.
+ * If other functions in drop.h need to be tested, please add the function
+ * definitions at the bottom.
  */
 
 #include "common.h"
