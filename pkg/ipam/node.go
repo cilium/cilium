@@ -191,6 +191,9 @@ type IPStatistics struct {
 	// InterfaceCandidates is the number of attached interfaces with IPs
 	// available for allocation.
 	InterfaceCandidates int
+
+	// AssignedStaticIP is the static IP address assigned to the node (ex: public Elastic IP address in AWS)
+	AssignedStaticIP string
 }
 
 // IsRunning returns true if the node is considered to be running
@@ -286,6 +289,14 @@ func (n *Node) getMaxAllocate() int {
 	}
 
 	return instanceMax
+}
+
+func (n *Node) getStaticIPTags() ipamTypes.Tags {
+	if n.resource.Spec.IPAM.StaticIPTags != nil {
+		return n.resource.Spec.IPAM.StaticIPTags
+	} else {
+		return ipamTypes.Tags{}
+	}
 }
 
 // GetNeededAddresses returns the number of needed addresses that need to be
@@ -474,6 +485,9 @@ func (n *Node) recalculate() {
 
 	n.ipv4Alloc.available = a
 	n.stats.IPv4.UsedIPs = len(n.resource.Status.IPAM.Used)
+	if stats.AssignedStaticIP != "" {
+		n.stats.IPv4.AssignedStaticIP = stats.AssignedStaticIP
+	}
 
 	// Get used IP count with prefixes included
 	usedIPForExcessCalc := n.stats.IPv4.UsedIPs
@@ -936,6 +950,16 @@ func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err er
 		n.removeStaleReleaseIPs()
 	}
 
+	if len(n.getStaticIPTags()) > 0 {
+		if n.stats.IPv4.AssignedStaticIP == "" {
+			ip, err := n.ops.AllocateStaticIP(ctx, n.getStaticIPTags())
+			if err != nil {
+				return false, err
+			}
+			n.stats.IPv4.AssignedStaticIP = ip
+		}
+	}
+
 	a, err := n.determineMaintenanceAction()
 	if err != nil {
 		n.abortNoLongerExcessIPs(nil)
@@ -1030,6 +1054,14 @@ func (n *Node) PopulateIPReleaseStatus(node *v2.CiliumNode) {
 	node.Status.IPAM.ReleaseIPs = releaseStatus
 }
 
+func (n *Node) PopulateStaticIPStatus(node *v2.CiliumNode) {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	if n.stats.IPv4.AssignedStaticIP != "" {
+		node.Status.IPAM.AssignedStaticIP = n.stats.IPv4.AssignedStaticIP
+	}
+}
+
 // syncToAPIServer synchronizes the contents of the CiliumNode resource
 // [(*Node).resource)] with the K8s apiserver. This operation occurs on an
 // interval to refresh the CiliumNode resource.
@@ -1078,6 +1110,7 @@ func (n *Node) syncToAPIServer() (err error) {
 
 		n.ops.PopulateStatusFields(node)
 		n.PopulateIPReleaseStatus(node)
+		n.PopulateStaticIPStatus(node)
 
 		err = n.update(origNode, node, retry, true)
 		if err == nil {
