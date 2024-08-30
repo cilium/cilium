@@ -4298,7 +4298,7 @@ func InitConfig(cmd *cobra.Command, programName, configName string, vp *viper.Vi
 			log.WithField(logfields.Path, vp.ConfigFileUsed()).
 				Info("Using config from file")
 		} else if Config.ConfigFile != "" {
-			log.WithField(logfields.Path, Config.ConfigFile).
+			log.WithField(logfields.Path, Config.ConfigFile).WithError(err).
 				Fatal("Error reading config file")
 		} else {
 			log.WithError(err).Debug("Skipped reading configuration file")
