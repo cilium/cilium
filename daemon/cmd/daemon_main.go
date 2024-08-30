@@ -1071,17 +1071,7 @@ func restoreExecPermissions(searchDir string, patterns ...string) error {
 	return err
 }
 
-func initLogging() {
-	// add hooks after setting up metrics in the option.Config
-	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook())
-
-	// Logging should always be bootstrapped first. Do not add any code above this!
-	if err := logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), "cilium-agent", option.Config.Debug); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func initDaemonConfig(vp *viper.Viper) {
+func initDaemonConfigAndLogging(vp *viper.Viper) {
 	option.Config.SetMapElementSizes(
 		// for the conntrack and NAT element size we assume the largest possible
 		// key size, i.e. IPv6 keys
@@ -1090,7 +1080,11 @@ func initDaemonConfig(vp *viper.Viper) {
 		neighborsmap.SizeofNeighKey6+neighborsmap.SizeOfNeighValue,
 		lbmap.SizeofSockRevNat6Key+lbmap.SizeofSockRevNat6Value)
 
+	option.Config.SetupLogging(vp, "cilium-agent")
 	option.Config.Populate(vp)
+
+	// add hooks after setting up metrics in the option.Config
+	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook())
 
 	time.MaxInternalTimerDelay = vp.GetDuration(option.MaxInternalTimerDelay)
 }
