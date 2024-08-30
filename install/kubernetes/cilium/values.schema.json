@@ -3914,6 +3914,12 @@
     "name": {
       "type": "string"
     },
+    "namespaceOverride": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
     "nat": {
       "properties": {
         "mapStatsEntries": {

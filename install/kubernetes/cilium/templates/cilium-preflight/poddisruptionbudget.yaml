@@ -4,7 +4,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: cilium-pre-flight-check
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   {{- with .Values.preflight.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

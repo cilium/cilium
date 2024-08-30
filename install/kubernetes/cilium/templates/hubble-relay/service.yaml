@@ -3,7 +3,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: hubble-relay
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   annotations:
     {{- with .Values.hubble.relay.annotations }}
     {{- toYaml . | nindent 4 }}

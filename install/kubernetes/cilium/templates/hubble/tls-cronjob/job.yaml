@@ -4,7 +4,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: hubble-generate-certs
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   labels:
     k8s-app: hubble-generate-certs
     app.kubernetes.io/name: hubble-generate-certs

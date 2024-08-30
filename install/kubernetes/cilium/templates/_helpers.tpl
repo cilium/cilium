@@ -6,6 +6,13 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
+Return the namespace to use for namespaced resources.
+*/}}
+{{- define "cilium.namespace" -}}
+{{- .Values.namespaceOverride | default .Release.Namespace -}}
+{{- end -}}
+
+{{/*
 Render full image name from given values, e.g:
 ```
 image:
@@ -65,7 +72,7 @@ and `commonCASecretName` variables.
     {{- if and $crt $key }}
       {{- $ca = buildCustomCert $crt $key -}}
     {{- else }}
-      {{- with lookup "v1" "Secret" .Release.Namespace $secretName }}
+      {{- with lookup "v1" "Secret" (include "cilium.namespace" .) $secretName }}
         {{- $crt := index .data "ca.crt" }}
         {{- $key := index .data "ca.key" }}
         {{- $ca = buildCustomCert $crt $key -}}
