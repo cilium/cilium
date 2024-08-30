@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -57,6 +58,124 @@ var statedbExperimentalCmd = &cobra.Command{
 	Short: "Experimental",
 }
 
+func init() {
+	statedbExperimentalCmd.AddCommand(
+		statedbTableCommand[*experimental.Service](experimental.ServiceTableName),
+		statedbTableCommand[*experimental.Frontend](experimental.FrontendTableName),
+		statedbTableCommand[*experimental.Backend](experimental.BackendTableName),
+		statedbTableCommand[dynamicconfig.DynamicConfig](dynamicconfig.TableName),
+	)
+	StatedbCmd.AddCommand(
+		statedbDumpCmd,
+		statedbExperimentalCmd,
+
+		statedbTableCommand[*tables.Device]("devices"),
+		statedbTableCommand[*tables.Route]("routes"),
+		statedbTableCommand[*tables.L2AnnounceEntry]("l2-announce"),
+		statedbTableCommand[*tables.BandwidthQDisc](tables.BandwidthQDiscTableName),
+		statedbTableCommand[tables.NodeAddress](tables.NodeAddressTableName),
+		statedbTableCommand[*tables.Sysctl](tables.SysctlTableName),
+		statedbTableCommand[types.Status](health.TableName),
+		statedbTableCommand[*tables.IPSetEntry](tables.IPSetsTableName),
+		statedbTableCommand[bwmap.Edt](bwmap.EdtTableName),
+		statedbTableCommand[stats.NatMapStats](stats.TableName),
+	)
+	RootCmd.AddCommand(StatedbCmd)
+}
+
+func statedbTableCommand[Obj statedb.TableWritable](tableName string) *cobra.Command {
+	var (
+		watch        bool
+		outputFormat string
+	)
+	cmd := &cobra.Command{
+		Use:   tableName,
+		Short: fmt.Sprintf("Show contents of table %q", tableName),
+		Run: func(cmd *cobra.Command, args []string) {
+			table := newRemoteTable[Obj](tableName)
+
+			var proto Obj
+			var outputter outputter
+			switch outputFormat {
+			case "table":
+				outputter = &tableOutput{
+					proto:               proto,
+					w:                   newTabWriter(&strikethroughWriter{w: os.Stdout}),
+					numLinesSinceHeader: 0,
+				}
+			case "json":
+				if watch {
+					Fatalf("--watch not supported with JSON output")
+				}
+				outputter = jsonOutput{json.NewEncoder(os.Stdout)}
+			case "yaml":
+				if watch {
+					Fatalf("--watch not supported with YAML output")
+				}
+				outputter = yamlOutput{yaml.NewEncoder(os.Stdout)}
+			default:
+				Fatalf("Unknown output format %q. Choose one of: table, yaml or json.", outputFormat)
+			}
+			outputter.writeHeader()
+			defer outputter.flush()
+
+			if watch {
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+
+				iter, errChan := table.Changes(ctx)
+				if iter != nil {
+					changes := make(chan statedb.Change[Obj], 1)
+					go func() {
+						defer close(changes)
+						for change, _, ok := iter.Next(); ok; change, _, ok = iter.Next() {
+							changes <- change
+						}
+					}()
+
+					ticker := time.NewTicker(100 * time.Millisecond)
+					defer ticker.Stop()
+
+					for {
+						select {
+						case <-ticker.C:
+							outputter.flush()
+						case change := <-changes:
+							err := outputter.writeObject(change.Object, change.Deleted)
+							if err != nil {
+								cancel()
+								for range changes {
+								}
+								return
+							}
+						}
+					}
+				}
+				if err := <-errChan; err != nil {
+					Fatalf("Changes: %s", err)
+				}
+			} else {
+				iter, errChan := table.LowerBound(context.Background(), statedb.ByRevision[Obj](0))
+				if iter != nil {
+					for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
+						err := outputter.writeObject(obj, false)
+						if err != nil {
+							return
+						}
+					}
+				}
+				if err := <-errChan; err != nil {
+					Fatalf("LowerBound: %s", err)
+				}
+			}
+
+		},
+	}
+	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "Watch for changes")
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "Output format, one of: table, json or yaml")
+	return cmd
+}
+
 // StateDB HTTP handler is mounted at /statedb by configureAPIServer() in daemon/cmd/cells.go.
 var statedbURL, _ = url.Parse("http://localhost/statedb")
 
@@ -88,9 +207,83 @@ const (
 
 type outputter interface {
 	writeHeader()
-	writeObject(obj statedb.TableWritable) error
+	writeObject(obj statedb.TableWritable, deleted bool) error
 	flush()
 }
+
+// strikethroughWriter writes a line of text that is striken through
+// if the line contains the magic character at the end before \n.
+// This is used to strike through a tab-formatted line without messing
+// up with the widths of the cells.
+type strikethroughWriter struct {
+	buf           []byte
+	strikethrough bool
+	w             io.Writer
+}
+
+var (
+	// Magic character to use at the end of the line to denote that this should be
+	// striken through.
+	// This is to avoid messing up the width calculations in the tab writer, which
+	// would happen if ANSI codes were used directly.
+	magicStrikethrough        = byte('\xfe')
+	magicStrikethroughNewline = []byte("\xfe\n")
+)
+
+func stripTrailingWhitespace(buf []byte) []byte {
+	idx := bytes.LastIndexFunc(
+		buf,
+		func(r rune) bool {
+			return r != ' ' && r != '\t'
+		},
+	)
+	if idx > 0 {
+		return buf[:idx+1]
+	}
+	return buf
+}
+
+func (s *strikethroughWriter) Write(p []byte) (n int, err error) {
+	write := func(bs []byte) {
+		if err == nil {
+			_, e := s.w.Write(bs)
+			if e != nil {
+				err = e
+			}
+		}
+	}
+	for _, c := range p {
+		switch c {
+		case '\n':
+			s.buf = stripTrailingWhitespace(s.buf)
+
+			if s.strikethrough {
+				write(beginStrikethrough)
+				write(s.buf)
+				write(endStrikethrough)
+			} else {
+				write(s.buf)
+			}
+			write(newline)
+
+			s.buf = s.buf[:0] // reset len for reuse.
+			s.strikethrough = false
+
+			if err != nil {
+				return 0, err
+			}
+
+		case magicStrikethrough:
+			s.strikethrough = true
+
+		default:
+			s.buf = append(s.buf, c)
+		}
+	}
+	return len(p), nil
+}
+
+var _ io.Writer = &strikethroughWriter{}
 
 type tableOutput struct {
 	proto               statedb.TableWritable
@@ -102,8 +295,20 @@ func (t *tableOutput) writeHeader() {
 	fmt.Fprintf(t.w, "# %s\n", strings.Join(t.proto.TableHeader(), "\t"))
 }
 
-func (t *tableOutput) writeObject(obj statedb.TableWritable) error {
-	_, err := fmt.Fprintf(t.w, "%s\n", strings.Join(obj.TableRow(), "\t"))
+var (
+	beginStrikethrough = []byte("\033[9m")
+	endStrikethrough   = []byte("\033[29m")
+	newline            = []byte("\n")
+)
+
+func (t *tableOutput) writeObject(obj statedb.TableWritable, deleted bool) error {
+	_, err := t.w.Write([]byte(strings.Join(obj.TableRow(), "\t")))
+	if deleted {
+		t.w.Write(magicStrikethroughNewline)
+	} else {
+		t.w.Write(newline)
+	}
+
 	t.numLinesSinceHeader++
 	return err
 }
@@ -121,7 +326,7 @@ type jsonOutput struct {
 }
 
 func (j jsonOutput) writeHeader() {}
-func (j jsonOutput) writeObject(obj statedb.TableWritable) error {
+func (j jsonOutput) writeObject(obj statedb.TableWritable, deleted bool) error {
 	return j.enc.Encode(obj)
 }
 func (j jsonOutput) flush() {}
@@ -131,101 +336,7 @@ type yamlOutput struct {
 }
 
 func (j yamlOutput) writeHeader() {}
-func (j yamlOutput) writeObject(obj statedb.TableWritable) error {
+func (j yamlOutput) writeObject(obj statedb.TableWritable, deleted bool) error {
 	return j.enc.Encode(obj)
 }
 func (j yamlOutput) flush() {}
-
-func statedbTableCommand[Obj statedb.TableWritable](tableName string) *cobra.Command {
-	var (
-		watchInterval time.Duration
-		outputFormat  string
-	)
-	cmd := &cobra.Command{
-		Use:   tableName,
-		Short: fmt.Sprintf("Show contents of table %q", tableName),
-		Run: func(cmd *cobra.Command, args []string) {
-			table := newRemoteTable[Obj](tableName)
-
-			var proto Obj
-			var outputter outputter
-			switch outputFormat {
-			case "table":
-				outputter = &tableOutput{
-					proto:               proto,
-					w:                   newTabWriter(os.Stdout),
-					numLinesSinceHeader: 0,
-				}
-			case "json":
-				outputter = jsonOutput{json.NewEncoder(os.Stdout)}
-			case "yaml":
-				outputter = yamlOutput{yaml.NewEncoder(os.Stdout)}
-			default:
-				Fatalf("Unknown output format %q. Choose one of: table, yaml or json.", outputFormat)
-			}
-			outputter.writeHeader()
-
-			revision := statedb.Revision(0)
-
-			for {
-				// Query the contents of the table by revision, so that objects
-				// that were last modified are shown last.
-				iter, errChan := table.LowerBound(context.Background(), statedb.ByRevision[Obj](revision))
-
-				if iter != nil {
-					err := statedb.ProcessEach(
-						iter,
-						func(obj Obj, rev statedb.Revision) error {
-							// Remember the latest revision to query from.
-							revision = rev + 1
-							return outputter.writeObject(obj)
-						})
-					outputter.flush()
-					if err != nil {
-						return
-					}
-				}
-
-				if err := <-errChan; err != nil {
-					Fatalf("LowerBound: %s", err)
-				}
-
-				if watchInterval == 0 {
-					break
-				}
-
-				time.Sleep(watchInterval)
-
-			}
-
-		},
-	}
-	cmd.Flags().DurationVarP(&watchInterval, "watch", "w", time.Duration(0), "Watch for new changes with the given interval (e.g. --watch=100ms)")
-	cmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "Output format, one of: table, json or yaml")
-	return cmd
-}
-
-func init() {
-	statedbExperimentalCmd.AddCommand(
-		statedbTableCommand[*experimental.Service](experimental.ServiceTableName),
-		statedbTableCommand[*experimental.Frontend](experimental.FrontendTableName),
-		statedbTableCommand[*experimental.Backend](experimental.BackendTableName),
-		statedbTableCommand[dynamicconfig.DynamicConfig](dynamicconfig.TableName),
-	)
-	StatedbCmd.AddCommand(
-		statedbDumpCmd,
-		statedbExperimentalCmd,
-
-		statedbTableCommand[*tables.Device]("devices"),
-		statedbTableCommand[*tables.Route]("routes"),
-		statedbTableCommand[*tables.L2AnnounceEntry]("l2-announce"),
-		statedbTableCommand[*tables.BandwidthQDisc](tables.BandwidthQDiscTableName),
-		statedbTableCommand[tables.NodeAddress](tables.NodeAddressTableName),
-		statedbTableCommand[*tables.Sysctl](tables.SysctlTableName),
-		statedbTableCommand[types.Status](health.TableName),
-		statedbTableCommand[*tables.IPSetEntry](tables.IPSetsTableName),
-		statedbTableCommand[bwmap.Edt](bwmap.EdtTableName),
-		statedbTableCommand[stats.NatMapStats](stats.TableName),
-	)
-	RootCmd.AddCommand(StatedbCmd)
-}
