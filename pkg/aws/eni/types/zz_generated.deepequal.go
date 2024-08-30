@@ -163,6 +163,10 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 		}
 	}
 
+	if in.PublicIP != other.PublicIP {
+		return false
+	}
+
 	return true
 }
 

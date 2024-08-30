@@ -455,6 +455,14 @@ spec:
                       get involved.
                     minimum: 0
                     type: integer
+                  static-ip-tags:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      StaticIPTags are used to determine the pool of IPs from which to
+                      attribute a static IP to the node. For example in AWS this is used to
+                      filter Elastic IP Addresses.
+                    type: object
                 type: object
               nodeidentity:
                 description: NodeIdentity is the Cilium numeric identity allocated
@@ -661,6 +669,10 @@ spec:
                           items:
                             type: string
                           type: array
+                        public-ip:
+                          description: PublicIP is the public IP associated with the
+                            ENI
+                          type: string
                         security-groups:
                           description: SecurityGroups are the security groups associated
                             with the ENI
@@ -711,6 +723,10 @@ spec:
               ipam:
                 description: IPAM is the IPAM status of the node.
                 properties:
+                  assigned-static-ip:
+                    description: 'AssignedStaticIP is the static IP assigned to the
+                      node (ex: public Elastic IP address in AWS)'
+                    type: string
                   ipv6-used:
                     additionalProperties:
                       description: |-

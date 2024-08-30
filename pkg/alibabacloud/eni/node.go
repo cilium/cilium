@@ -305,6 +305,11 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 	return err
 }
 
+func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (string, error) {
+	// TODO, see https://github.com/cilium/cilium/issues/34094
+	return "", fmt.Errorf("not implemented")
+}
+
 // PrepareIPRelease prepares the release of ENI IPs.
 func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.ReleaseAction {
 	r := &ipam.ReleaseAction{}
