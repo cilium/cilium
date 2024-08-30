@@ -67,13 +67,25 @@ func (m errAllocatorNotReady) Is(target error) bool {
 	return errors.Is(target, ErrAllocatorNotReady)
 }
 
+// addrsInPrefix calculates the number of usable addresses in a prefix p, or 0 if p is not valid.
 func addrsInPrefix(p netip.Prefix) *big.Int {
+	if !p.IsValid() {
+		return big.NewInt(0)
+	}
+
 	// compute number of addresses in prefix, i.e. 2^bits
 	addrs := new(big.Int)
 	addrs.Lsh(big.NewInt(1), uint(p.Addr().BitLen()-p.Bits()))
+
+	// prefix has less than 3 addresses
+	two := big.NewInt(2)
+	if addrs.Cmp(two) <= 0 {
+		return addrs
+	}
+
 	// subtract network and broadcast address, which are not available for
 	// allocation in the cilium/ipam library for now
-	addrs.Sub(addrs, big.NewInt(2))
+	addrs.Sub(addrs, two)
 	if addrs.Sign() < 0 {
 		return big.NewInt(0)
 	}

@@ -476,19 +476,19 @@ func Test_addrsInPrefix(t *testing.T) {
 			want: big.NewInt(0),
 		},
 		{
-			name: "two",
-			args: netip.MustParsePrefix("10.0.0.0/30"),
+			name: "/32",
+			args: netip.MustParsePrefix("10.0.0.0/32"),
+			want: big.NewInt(1),
+		},
+		{
+			name: "/31",
+			args: netip.MustParsePrefix("10.0.0.0/31"),
 			want: big.NewInt(2),
 		},
 		{
-			name: "underflow /31",
-			args: netip.MustParsePrefix("10.0.0.0/31"),
-			want: big.NewInt(0),
-		},
-		{
-			name: "underflow /32",
-			args: netip.MustParsePrefix("10.0.0.0/32"),
-			want: big.NewInt(0),
+			name: "/30",
+			args: netip.MustParsePrefix("10.0.0.0/30"),
+			want: big.NewInt(2),
 		},
 	}
 	for _, tt := range tests {
