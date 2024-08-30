@@ -9,7 +9,7 @@ RUN apk add --no-cache git make ca-certificates
 COPY . .
 RUN make -C cilium-cli
 
-FROM ubuntu:24.04@sha256:2e863c44b718727c860746568e1d54afd13b2fa71b160f5cd9058fc436217b30 AS release
+FROM ubuntu:24.04@sha256:8a37d68f4f73ebf3d4efafbcf66379bf3728902a8038616808f04e34a9ab63ee AS release
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /root/app
 COPY --from=builder /go/src/github.com/cilium/cilium/cilium-cli/cilium /usr/local/bin/cilium
