@@ -365,16 +365,12 @@ func registerOperatorHooks(log *slog.Logger, lc cell.Lifecycle, llc *LeaderLifec
 
 func initEnv(vp *viper.Viper) {
 	// Prepopulate option.Config with options from CLI.
+	option.Config.SetupLogging(vp, binaryName)
 	option.Config.Populate(vp)
 	operatorOption.Config.Populate(vp)
 
 	// add hooks after setting up metrics in the option.Config
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook())
-
-	// Logging should always be bootstrapped first. Do not add any code above this!
-	if err := logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), binaryName, option.Config.Debug); err != nil {
-		log.Fatal(err)
-	}
 
 	option.LogRegisteredOptions(vp, log)
 	log.Infof("Cilium Operator %s", version.Version)
