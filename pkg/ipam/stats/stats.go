@@ -26,4 +26,7 @@ type InterfaceStats struct {
 	// RemainingAvailableIPv6InterfaceCount is the number of interfaces currently available
 	// for IPv6 address allocation.
 	RemainingAvailableIPv6InterfaceCount int
+
+	// AssignedStaticIP is the static IP address assigned to the node (ex: public Elastic IP address in AWS)
+	AssignedStaticIP string
 }
