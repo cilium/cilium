@@ -165,6 +165,11 @@ Users (Alphabetically)
       U: CiliumNetworkPolicy, Hubble, ClusterMesh
       L: https://clickhouse.com
 
+    * N: Cloutomate
+      D: Cloutomate uses Cilium as CNI for itself and customer installations
+      U: Networking Observability and Security, Service Mesh, Cluster Mesh
+      L: https://cloutomate.de
+
     * N: Cognite
       D: Cognite is an industrial DataOps provider and uses Cilium as the CNI plugin
       Q: @Robert Collins
