@@ -60,10 +60,8 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 		PreRun: func(cmd *cobra.Command, args []string) {
 			// Overwrite the metrics namespace with the one specific for the ClusterMesh API Server
 			metrics.Namespace = metrics.CiliumClusterMeshAPIServerNamespace
+			option.Config.SetupLogging(h.Viper(), "clustermesh-apiserver")
 			option.Config.Populate(h.Viper())
-			if option.Config.Debug {
-				log.Logger.SetLevel(logrus.DebugLevel)
-			}
 			option.LogRegisteredOptions(h.Viper(), log)
 			log.Infof("Cilium ClusterMesh %s", version.Version)
 		},
