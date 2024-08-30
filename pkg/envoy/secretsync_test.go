@@ -218,6 +218,25 @@ func Test_k8sSecretToEnvoySecretTlsSessionKeys_SkipAdditionalKeyOnSizeIssue(t *t
 	require.Nil(t, envoySecret.GetValidationContext())
 }
 
+func Test_k8sSecretToEnvoySecretGeneric(t *testing.T) {
+	envoySecret := k8sToEnvoySecret(&slim_corev1.Secret{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "dummy-secret",
+			Namespace: "dummy-namespace",
+		},
+		Data: map[string]slim_corev1.Bytes{
+			"generic": []byte{1, 2, 3},
+		},
+		Type: slim_corev1.SecretTypeOpaque,
+	})
+
+	require.Equal(t, "dummy-namespace/dummy-secret", envoySecret.Name)
+	require.Equal(t, []byte{1, 2, 3}, envoySecret.GetGenericSecret().Secret.GetInlineBytes())
+	require.Nil(t, envoySecret.GetValidationContext())
+	require.Nil(t, envoySecret.GetTlsCertificate())
+	require.Nil(t, envoySecret.GetSessionTicketKeys())
+}
+
 func TestHandleSecretEvent(t *testing.T) {
 	tests := []struct {
 		name                 string

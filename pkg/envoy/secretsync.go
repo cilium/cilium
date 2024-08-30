@@ -35,6 +35,10 @@ const (
 	// easy rotation of keys by, for example, putting the new key first, and the previous key second.
 	// Additional keys are defined by using the Secret key 'tls.sessionticket.key.[1-9]'
 	tlsSessionTicketKeyAttribute = "tls.sessionticket.key"
+
+	// Key for a generic Envoy secret is fixed as 'generic' even though is not as "standard"
+	// as 'tls.crt' and 'tls.key' are via k8s tls secret type.
+	genericSecretAttribute = "generic"
 )
 
 // secretSyncer is responsible to sync K8s TLS Secrets in pre-defined namespaces
@@ -151,6 +155,17 @@ func k8sToEnvoySecret(secret *slim_corev1.Secret) *envoy_extensions_tls_v3.Secre
 		envoySecret.Type = &envoy_extensions_tls_v3.Secret_SessionTicketKeys{
 			SessionTicketKeys: &envoy_extensions_tls_v3.TlsSessionTicketKeys{
 				Keys: getTLSSessionTicketKeys(secret.Data),
+			},
+		}
+
+	case len(secret.Data[genericSecretAttribute]) > 0:
+		envoySecret.Type = &envoy_extensions_tls_v3.Secret_GenericSecret{
+			GenericSecret: &envoy_extensions_tls_v3.GenericSecret{
+				Secret: &envoy_config_core_v3.DataSource{
+					Specifier: &envoy_config_core_v3.DataSource_InlineBytes{
+						InlineBytes: secret.Data[genericSecretAttribute],
+					},
+				},
 			},
 		}
 	}
