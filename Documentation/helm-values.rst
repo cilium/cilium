@@ -2540,6 +2540,10 @@
      - Agent container name.
      - string
      - ``"cilium"``
+   * - :spelling:ignore:`namespaceOverride`
+     - namespaceOverride allows to override the destination namespace for Cilium resources. This property allows to use Cilium as part of an Umbrella Chart with different targets.
+     - string
+     - ``""``
    * - :spelling:ignore:`nat.mapStatsEntries`
      - Number of the top-k SNAT map connections to track in Cilium statedb.
      - int

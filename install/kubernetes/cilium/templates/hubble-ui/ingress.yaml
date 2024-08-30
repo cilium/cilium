@@ -4,7 +4,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: hubble-ui
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ include "cilium.namespace" . }}
   labels:
     k8s-app: hubble-ui
     app.kubernetes.io/name: hubble-ui
