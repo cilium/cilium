@@ -23,6 +23,18 @@ func (msg *Flow) UnmarshalJSON(b []byte) error {
 }
 
 // MarshalJSON implements json.Marshaler
+func (msg *FileInfo) MarshalJSON() ([]byte, error) {
+	return protojson.MarshalOptions{
+		UseProtoNames: true,
+	}.Marshal(msg)
+}
+
+// UnmarshalJSON implements json.Unmarshaler
+func (msg *FileInfo) UnmarshalJSON(b []byte) error {
+	return protojson.UnmarshalOptions{}.Unmarshal(b, msg)
+}
+
+// MarshalJSON implements json.Marshaler
 func (msg *Layer4) MarshalJSON() ([]byte, error) {
 	return protojson.MarshalOptions{
 		UseProtoNames: true,

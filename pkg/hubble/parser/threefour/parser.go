@@ -208,6 +208,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.AuthType = authType
 	decoded.DropReason = decodeDropReason(dn, pvn)
 	decoded.DropReasonDesc = pb.DropReason(decoded.DropReason)
+	decoded.File = decodeFileInfo(dn)
 	decoded.Ethernet = ether
 	decoded.IP = ip
 	decoded.L4 = l4
@@ -310,6 +311,17 @@ func decodeDropReason(dn *monitor.DropNotify, pvn *monitor.PolicyVerdictNotify) 
 		return uint32(-pvn.Verdict)
 	}
 	return 0
+}
+
+func decodeFileInfo(dn *monitor.DropNotify) *pb.FileInfo {
+	switch {
+	case dn != nil:
+		return &pb.FileInfo{
+			Name: monitorAPI.BPFFileName(dn.File),
+			Line: uint32(dn.Line),
+		}
+	}
+	return nil
 }
 
 func decodePolicyMatchType(pvn *monitor.PolicyVerdictNotify) uint32 {

@@ -344,6 +344,7 @@ var DebugEventType_name = flow.DebugEventType_name
 var DebugEventType_value = flow.DebugEventType_value
 
 type Flow = flow.Flow
+type FileInfo = flow.FileInfo
 type Layer4 = flow.Layer4
 type Layer4_TCP = flow.Layer4_TCP
 type Layer4_UDP = flow.Layer4_UDP
