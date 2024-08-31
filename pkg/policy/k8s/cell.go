@@ -100,8 +100,8 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		cidrGroupCache:    make(map[string]*cilium_v2_alpha1.CiliumCIDRGroup),
 		cidrGroupPolicies: make(map[resource.Key]struct{}),
 
-		toServicesPolicies: make(map[resource.Key]struct{}),
-		cnpByServiceID:     make(map[k8s.ServiceID]map[resource.Key]struct{}),
+		matchServicesPolicies: make(map[resource.Key]struct{}),
+		cnpByServiceID:        make(map[k8s.ServiceID]map[resource.Key]struct{}),
 	}
 
 	params.Lifecycle.Append(cell.Hook{

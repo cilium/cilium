@@ -48,9 +48,9 @@ type policyWatcher struct {
 	cidrGroupCache map[string]*cilium_api_v2alpha1.CiliumCIDRGroup
 	// cidrGroupPolicies is the set of policies that are referencing CiliumCIDRGroup objects.
 	cidrGroupPolicies map[resource.Key]struct{}
-	// cidrGroupPolicies is the set of policies that contain ToServices references
-	toServicesPolicies map[resource.Key]struct{}
-	cnpByServiceID     map[k8s.ServiceID]map[resource.Key]struct{}
+	// matchServicesPolicies is the set of policies that contain ToServices/FromServices references
+	matchServicesPolicies map[resource.Key]struct{}
+	cnpByServiceID        map[k8s.ServiceID]map[resource.Key]struct{}
 }
 
 func (p *policyWatcher) watchResources(ctx context.Context) {
