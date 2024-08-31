@@ -143,7 +143,7 @@ func (d *Daemon) restoreLocalIdentities() error {
 	return err
 }
 
-// dumpOldIPache reads the soon-to-be-overwritten ipcache BPF map, noting any prefixes
+// dumpOldIPCache reads the soon-to-be-overwritten ipcache BPF map, noting any prefixes
 // with a locally-scoped or ingress identity.
 func (d *Daemon) dumpOldIPCache() (map[netip.Prefix]identity.NumericIdentity, error) {
 	localPrefixes := map[netip.Prefix]identity.NumericIdentity{}
