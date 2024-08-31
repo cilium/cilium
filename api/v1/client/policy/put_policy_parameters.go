@@ -214,7 +214,7 @@ func (o *PutPolicyParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Reg
 	return nil
 }
 
-// bindParamPutPolicy binds the parameter replace-with-labels
+// bindParamReplaceWithLabels binds the parameter replace-with-labels
 func (o *PutPolicyParams) bindParamReplaceWithLabels(formats strfmt.Registry) []string {
 	replaceWithLabelsIR := o.ReplaceWithLabels
 
