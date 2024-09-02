@@ -183,7 +183,6 @@
         "golang-version"
       ],
       "matchUpdateTypes": [
-        "minor",
         "patch"
       ],
       matchBaseBranches: [
