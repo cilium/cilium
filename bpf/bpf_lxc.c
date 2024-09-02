@@ -1620,6 +1620,7 @@ skip_policy_enforcement:
 			ct_update_dsr(get_ct_map6(tuple), tuple, false);
 # endif /* ENABLE_DSR */
 		{
+# ifdef ENABLE_IPSEC
 			bool node_port =
 				ct_has_nodeport_egress_entry6(get_ct_map6(tuple),
 							      tuple, NULL, false);
@@ -1629,6 +1630,7 @@ skip_policy_enforcement:
 			    ct_state->node_port != node_port)
 				ct_update_nodeport(get_ct_map6(tuple), tuple,
 						   node_port);
+# endif /* ENABLE_IPSEC */
 		}
 	}
 #endif /* ENABLE_NODEPORT */
@@ -1986,6 +1988,7 @@ skip_policy_enforcement:
 			ct_update_dsr(get_ct_map4(tuple), tuple, false);
 # endif /* ENABLE_DSR */
 		{
+# ifdef ENABLE_IPSEC
 			bool node_port =
 				ct_has_nodeport_egress_entry4(get_ct_map4(tuple),
 							      tuple, NULL, false);
@@ -1995,6 +1998,7 @@ skip_policy_enforcement:
 			    ct_state->node_port != node_port)
 				ct_update_nodeport(get_ct_map4(tuple), tuple,
 						   node_port);
+# endif /* ENABLE_IPSEC */
 		}
 	}
 #endif /* ENABLE_NODEPORT */
