@@ -273,11 +273,12 @@ jobs:
 
       - name: Push changes into PR
         env:
-          REF: ${{ github.event.pull_request.head.ref || github.ref }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          repository:  ${{ startsWith(github.head_ref, 'renovate/') && github.repository || github.event.pull_request.head.repo.full_name }}
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' || steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
         run: |
           git diff HEAD^
-          git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ github.event.pull_request.head.repo.full_name }}.git HEAD:"$REF"
+          git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.repository }}.git HEAD:${{ env.ref }}
 
   image-digests:
     name: Display Digests
