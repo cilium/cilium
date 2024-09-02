@@ -615,8 +615,8 @@ jobs:
           kubectl --context ${{ env.contextName2 }} rollout restart -n kube-system ds/cilium
 
           # Wait until all agents successfully restarted before scaling the replicas again
-          kubectl --context ${{ env.contextName1 }} rollout status -n kube-system ds/cilium --timeout=5m
-          kubectl --context ${{ env.contextName2 }} rollout status -n kube-system ds/cilium --timeout=5m
+          kubectl --context ${{ env.contextName1 }} rollout status -n kube-system ds/cilium --timeout=10m
+          kubectl --context ${{ env.contextName2 }} rollout status -n kube-system ds/cilium --timeout=10m
 
       - name: Scale the clustermesh-apiserver replicas back to 1
         if: ${{ !matrix.external-kvstore }}
