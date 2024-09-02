@@ -6,10 +6,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net"
 
 	"github.com/cilium/hive/cell"
-	"golang.org/x/exp/maps"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/identity"

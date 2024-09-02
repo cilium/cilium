@@ -6,11 +6,11 @@ package reconciler
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/netip"
 	"slices"
 
 	"github.com/cilium/hive/cell"
-	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 

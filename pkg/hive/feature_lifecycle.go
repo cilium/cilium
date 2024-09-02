@@ -8,9 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
+	"slices"
 
 	"github.com/cilium/hive/cell"
-	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -123,5 +124,5 @@ func (fl *FeatureLifecycle) List() []Feature {
 	fl.mu.Lock()
 	defer fl.mu.Unlock()
 
-	return maps.Keys(fl.hooks)
+	return slices.Collect(maps.Keys(fl.hooks))
 }

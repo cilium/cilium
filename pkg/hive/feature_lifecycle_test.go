@@ -301,7 +301,7 @@ func TestFeatureLifecycle_GetFeatures(t *testing.T) {
 		{
 			name:         "empty",
 			initialHooks: map[Feature][]cell.Hook{},
-			wantFeatures: []Feature{},
+			wantFeatures: nil,
 		},
 		{
 			name: "single",

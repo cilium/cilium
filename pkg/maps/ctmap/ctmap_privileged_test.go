@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/fake"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	mapsexp "golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/nat"
@@ -747,7 +746,8 @@ func TestCount(t *testing.T) {
 	assert.Equal(t, initial, batchCount)
 	assert.NoError(t, err)
 
-	for _, k := range mapsexp.Keys(cache)[:size/4] {
+	toDelete := size / 4
+	for k := range cache {
 		if err := m.Delete(k); err != nil {
 			t.Fatal(err)
 		}
@@ -756,6 +756,11 @@ func TestCount(t *testing.T) {
 		batchCount, err := m.Count()
 		assert.Equal(t, len(cache), batchCount)
 		assert.NoError(t, err)
+
+		toDelete--
+		if toDelete <= 0 {
+			break
+		}
 	}
 
 	batchCount, err = m.Count()
