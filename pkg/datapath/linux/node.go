@@ -149,7 +149,7 @@ func newNodeHandler(
 		nodeIDs:                idpool.NewIDPool(minNodeID, maxNodeID),
 		nodeIDsByIPs:           map[string]uint16{},
 		nodeIPsByIDs:           map[uint16]sets.Set[string]{},
-		ipsecMetricCollector:   ipsec.NewXFRMCollector(),
+		ipsecMetricCollector:   ipsec.NewXFRMCollector(log),
 		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
 		nodeNeighborQueue:      nbq,
 		ipsecUpdateNeeded:      map[nodeTypes.Identity]bool{},

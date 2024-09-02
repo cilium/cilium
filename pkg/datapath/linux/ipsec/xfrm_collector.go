@@ -55,8 +55,9 @@ type xfrmCollector struct {
 	nbXFRMPolsDesc   *prometheus.Desc
 }
 
-func NewXFRMCollector() prometheus.Collector {
+func NewXFRMCollector(log *slog.Logger) prometheus.Collector {
 	return &xfrmCollector{
+		log: log,
 		xfrmErrorDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, subsystem, "xfrm_error"),
 			"Total number of xfrm errors",
