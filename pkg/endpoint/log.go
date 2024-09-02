@@ -155,6 +155,7 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
 			}
 			policyLog.SetOutput(lumberjackLogger)
 			policyLog.SetLevel(logrus.DebugLevel)
+			policyLog.SetFormatter(logging.GetFormatter(logging.DefaultLogFormatTimestamp))
 		})
 		policyLogger = logrus.NewEntry(policyLog)
 	}
