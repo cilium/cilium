@@ -1063,7 +1063,6 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		var (
-			oldSpi     uint8
 			aeadKey    []byte
 			authKey    []byte
 			esn        bool
@@ -1146,12 +1145,10 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 		ipSecKey.Spi = spi
 		ipSecKey.ESN = esn
 
-		if ipSecKeysGlobal[""] != nil {
-			oldSpi = ipSecKeysGlobal[""].Spi
+		if oldKey, ok := ipSecKeysGlobal[""]; ok {
+			ipSecKeysRemovalTime[oldKey.Spi] = time.Now()
 		}
 		ipSecKeysGlobal[""] = ipSecKey
-
-		ipSecKeysRemovalTime[oldSpi] = time.Now()
 		ipSecCurrentKeySPI = spi
 	}
 	return keyLen, spi, nil
