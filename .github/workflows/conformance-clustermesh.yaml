@@ -63,7 +63,7 @@ env:
   contextName2: kind-cluster2-${{ github.run_id }}
 
   # renovate: datasource=github-releases depName=cert-manager/cert-manager
-  CERT_MANAGER_VERSION: v1.15.2
+  CERT_MANAGER_VERSION: v1.15.3
 
 jobs:
   echo-inputs:
@@ -588,14 +588,14 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@89ef406dd8d7e03cfd12d9e0a4a378f454709029 # v4.3.5
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
         with:
           name: cilium-sysdumps-${{ matrix.name }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@89ef406dd8d7e03cfd12d9e0a4a378f454709029 # v4.3.5
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
         with:
           name: cilium-junits-${{ matrix.name }}
           path: cilium-junits/*.xml
@@ -614,7 +614,7 @@ jobs:
     steps:
       - name: Merge Sysdumps
         if: ${{ needs.installation-and-connectivity.result == 'failure' }}
-        uses: actions/upload-artifact/merge@89ef406dd8d7e03cfd12d9e0a4a378f454709029 # v4.3.5
+        uses: actions/upload-artifact/merge@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
         with:
           name: cilium-sysdumps
           pattern: cilium-sysdumps-*
@@ -622,7 +622,7 @@ jobs:
           delete-merged: true
         continue-on-error: true
       - name: Merge JUnits
-        uses: actions/upload-artifact/merge@89ef406dd8d7e03cfd12d9e0a4a378f454709029 # v4.3.5
+        uses: actions/upload-artifact/merge@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
         with:
           name: cilium-junits
           pattern: cilium-junits-*

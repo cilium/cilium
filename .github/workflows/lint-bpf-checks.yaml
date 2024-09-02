@@ -116,7 +116,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libtinfo5
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@82fd451e4380968e8336eefc5b8b9292a619de01 # v2.0.3
+        uses: KyleMayes/install-llvm-action@10c8957324ef77f0712d883b9ed08adb6da4a192 # v2.0.4
         with:
           version: "10.0"
           directory: ${{ needs.set_clang_dir.outputs.clang_dir }}
@@ -154,7 +154,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libtinfo5
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@82fd451e4380968e8336eefc5b8b9292a619de01 # v2.0.3
+        uses: KyleMayes/install-llvm-action@10c8957324ef77f0712d883b9ed08adb6da4a192 # v2.0.4
         with:
           version: "10.0"
           directory: ${{ needs.set_clang_dir.outputs.clang_dir }}
@@ -172,7 +172,7 @@ jobs:
         run: |
           make -C test run_bpf_tests COVER=1 NOCOVER="$NOCOVER_PATTERN" || (echo "Run 'make -C test run_bpf_tests COVER=1 NOCOVER=\"$NOCOVER_PATTERN\"' locally to investigate failures"; exit 1)
       - name: Archive code coverage results
-        uses: actions/upload-artifact@89ef406dd8d7e03cfd12d9e0a4a378f454709029 # v4.3.5
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
         with:
           name: bpf-code-coverage-report
           path: bpf-coverage.html

@@ -11,14 +11,14 @@ include:
   - k8s-version: "1.26"
     ip-family: "dual"
     # renovate: datasource=docker
-    kube-image: "kindest/node:v1.26.15@sha256:84333e26cae1d70361bb7339efb568df1871419f2019c80f9a12b7e2d485fe19"
+    kube-image: "kindest/node:v1.26.15@sha256:1cc15d7b1edd2126ef051e359bf864f37bbcf1568e61be4d2ed1df7a3e87b354"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
     kernel: "4.19-20240703.151759@sha256:3328382117067bbd8096eaa896acfd11eacab9c0d1053f49ad31ef584a6b4a92"
 
   - k8s-version: "1.25"
     ip-family: "dual"
     # renovate: datasource=docker
-    kube-image: "kindest/node:v1.25.16@sha256:5da57dfc290ac3599e775e63b8b6c49c0c85d3fec771cd7d55b45fae14b38d3b"
+    kube-image: "kindest/node:v1.25.16@sha256:6110314339b3b44d10da7d27881849a87e092124afab5956f2e10ecdb463b025"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
     kernel: "5.4-20240703.151759@sha256:9f1527182530e5411dcedf7160cb6b60cbc1f7d18aa49956826d468cdb0a7a6d"
 
