@@ -104,6 +104,10 @@ linters-settings:
               - maps
               - slices
             reason: "Go 1.23+ has support for maps and slices, see https://go.dev/doc/go1.23#iterators"
+        - golang.org/x/exp/constraints:
+            recommendations:
+              - cmp
+            reason: "Go 1.21+ has support for Ordered constraint, see https://go.dev/doc/go1.21#cmp"
   stylecheck:
     checks: ["ST1019"]
 
