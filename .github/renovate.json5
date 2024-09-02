@@ -83,7 +83,8 @@
     "^make -C install/kubernetes$",
     "^make -C Documentation update-helm-values$",
     "^make generate-k8s-api$",
-    "^make manifests$"
+    "^make manifests$",
+    "^make generate-apis$"
   ],
   "assignAutomerge": true,
   "packageRules": [
@@ -556,6 +557,17 @@
         "commands": [
           "make generate-k8s-api",
           "make manifests"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
+      matchPackageNames: [
+        "protocolbuffers/protobuf"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make generate-apis"
         ],
         "executionMode": "update"
       }
