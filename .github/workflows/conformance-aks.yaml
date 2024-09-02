@@ -131,7 +131,8 @@ jobs:
           jq -c '.include[]' /tmp/matrix.json | while read i; do
             VERSION=$(echo $i | jq -r '.version')
             LOCATION=$(echo $i | jq -r '.location')
-            az aks get-versions --location $LOCATION > /tmp/output
+            # Don't use LTS versions for AKS, it requires premium tier
+            az aks get-versions --location $LOCATION --query "values[?contains(capabilities.supportPlan,'KubernetesOfficial')].version" > /tmp/output
             if grep -q -F $VERSION /tmp/output; then
               echo "Version $VERSION is valid for location $LOCATION"
             else
