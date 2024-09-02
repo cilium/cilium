@@ -4,7 +4,7 @@
 package endpointmanager
 
 import (
-	"golang.org/x/exp/maps"
+	"maps"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/lock"
@@ -73,7 +73,7 @@ func (mgr *policyMapPressure) update() {
 
 	mgr.RLock()
 	max := float64(0)
-	for _, value := range maps.Values(mgr.current) {
+	for value := range maps.Values(mgr.current) {
 		if value > max {
 			max = value
 		}

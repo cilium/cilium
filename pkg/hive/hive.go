@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"reflect"
 	"runtime/pprof"
+	"slices"
 	"time"
 
 	upstream "github.com/cilium/hive"
@@ -14,7 +15,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/hive/health"

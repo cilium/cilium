@@ -6,8 +6,10 @@ package service
 import (
 	"context"
 	"errors"
+	"maps"
 	"net"
 	"net/netip"
+	"slices"
 	"sync"
 	"syscall"
 	"testing"
@@ -16,7 +18,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
-	"golang.org/x/exp/maps"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -753,7 +754,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 
 			require.Contains(t, lbmap.ServiceByID, uint16(id1), "lbmap not populated correctly")
 			require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "lbmap not populated correctly")
-			require.ElementsMatch(t, backendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "lbmap not populated correctly")
+			require.ElementsMatch(t, backendAddrs, toBackendAddrs(slices.Collect(maps.Values(lbmap.BackendByID))), "lbmap not populated correctly")
 
 			// Recreate the Service structure, but keep the lbmap to restore services from
 			svc = newService(&FakeMonitorAgent{}, lbmap, nil, nil, true)
@@ -769,7 +770,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 			// No backend should have been removed yet
 			require.Contains(t, lbmap.ServiceByID, uint16(id1), "lbmap incorrectly modified")
 			require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "lbmap incorrectly modified")
-			require.ElementsMatch(t, backendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "lbmap incorrectly modified")
+			require.ElementsMatch(t, backendAddrs, toBackendAddrs(slices.Collect(maps.Values(lbmap.BackendByID))), "lbmap incorrectly modified")
 
 			// Let's do it once more
 			_, id1ter, err := svc.upsertService(service("foo", "bar", "172.16.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.5"))
@@ -779,7 +780,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 			// No backend should have been removed yet
 			require.Contains(t, lbmap.ServiceByID, uint16(id1), "lbmap incorrectly modified")
 			require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "lbmap incorrectly modified")
-			require.ElementsMatch(t, backendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "lbmap incorrectly modified")
+			require.ElementsMatch(t, backendAddrs, toBackendAddrs(slices.Collect(maps.Values(lbmap.BackendByID))), "lbmap incorrectly modified")
 
 			svcID := k8s.ServiceID{Namespace: "foo", Name: "bar"}
 			localServices := sets.New[k8s.ServiceID]()
@@ -796,7 +797,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 			if tt.expectStaleBackends {
 				require.Empty(t, stale)
 				require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "stale backends should not have been removed from lbmap")
-				require.ElementsMatch(t, backendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "stale backends should not have been removed from lbmap")
+				require.ElementsMatch(t, backendAddrs, toBackendAddrs(slices.Collect(maps.Values(lbmap.BackendByID))), "stale backends should not have been removed from lbmap")
 			} else {
 				require.ElementsMatch(t, stale, []k8s.ServiceID{svcID})
 
@@ -805,7 +806,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 				require.NoError(t, err, "Failed to upsert service")
 
 				require.ElementsMatch(t, finalBackendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "stale backends not correctly removed from lbmap")
-				require.ElementsMatch(t, finalBackendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "stale backends not correctly removed from lbmap")
+				require.ElementsMatch(t, finalBackendAddrs, toBackendAddrs(slices.Collect(maps.Values(lbmap.BackendByID))), "stale backends not correctly removed from lbmap")
 			}
 		})
 	}

@@ -4,11 +4,12 @@
 package manager
 
 import (
+	"maps"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/cgroups"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -420,7 +421,7 @@ func (m *cgroupManager) dumpPodMetadata(allMetadataOut chan []*FullPodMetadata) 
 		fullPm.Containers = append(fullPm.Containers, cgroupMetadata)
 	}
 
-	allMetadataOut <- maps.Values(allMetas)
+	allMetadataOut <- slices.Collect(maps.Values(allMetas))
 	close(allMetadataOut)
 }
 

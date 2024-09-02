@@ -5,12 +5,13 @@ package agent
 
 import (
 	"context"
+	"maps"
 	"net"
 	"net/netip"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
@@ -48,7 +49,7 @@ func (f *fakeWgClient) Device(name string) (*wgtypes.Device, error) {
 
 	return &wgtypes.Device{
 		Name:  name,
-		Peers: maps.Values(f.peers),
+		Peers: slices.Collect(maps.Values(f.peers)),
 	}, nil
 }
 

@@ -7,14 +7,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"path"
+	"slices"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	etcdAPI "go.etcd.io/etcd/client/v3"
-	"golang.org/x/exp/maps"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/cilium/cilium/pkg/testutils"
@@ -1472,7 +1473,7 @@ func TestPaginatedList(t *testing.T) {
 						next = res.Header.Revision
 					}
 
-					_, err = cl.client.Delete(ctx, maps.Keys(keys)[0])
+					_, err = cl.client.Delete(ctx, slices.Collect(maps.Keys(keys))[0])
 					return err
 				},
 			}

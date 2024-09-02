@@ -4,7 +4,8 @@
 package operator
 
 import (
-	"golang.org/x/exp/maps"
+	"maps"
+	"slices"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -38,13 +39,13 @@ func NewGlobalServiceExportCache(metricTotalGlobalServiceExports metric.Gauge) *
 	}
 }
 
-// GetServiceExports returns all the service exports for a specific namespace
+// GetServiceExportsName returns all the service exports for a specific namespace
 // that have at least one service export in one of the remote cluster in the mesh.
 func (c *GlobalServiceExportCache) GetServiceExportsName(namespace string) []string {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	return maps.Keys(c.cache[namespace])
+	return slices.Collect(maps.Keys(c.cache[namespace]))
 }
 
 // GetServiceExportByCluster returns a shallow copy of the GlobalServiceExport

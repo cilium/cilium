@@ -4,7 +4,9 @@
 package store
 
 import (
-	"golang.org/x/exp/maps"
+	"maps"
+	"slices"
+
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -27,7 +29,7 @@ func NewMockBGPCPResourceStore[T runtime.Object]() *mockBGPCPResourceStore[T] {
 func (mds *mockBGPCPResourceStore[T]) List() ([]T, error) {
 	mds.objMu.Lock()
 	defer mds.objMu.Unlock()
-	return maps.Values(mds.objects), nil
+	return slices.Collect(maps.Values(mds.objects)), nil
 }
 
 func (mds *mockBGPCPResourceStore[T]) GetByKey(key resource.Key) (item T, exists bool, err error) {

@@ -6,8 +6,8 @@ package tests
 import (
 	"context"
 	"fmt"
+	"slices"
 
-	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"

@@ -99,7 +99,11 @@ linters-settings:
             recommendations:
               - errors
             reason: "Go 1.20+ has support for combining multiple errors, see https://go.dev/doc/go1.20#errors"
-
+        - golang.org/x/exp/maps:
+            recommendations:
+              - maps
+              - slices
+            reason: "Go 1.23+ has support for maps and slices, see https://go.dev/doc/go1.23#iterators"
   stylecheck:
     checks: ["ST1019"]
 

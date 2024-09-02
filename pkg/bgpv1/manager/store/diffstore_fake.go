@@ -4,7 +4,9 @@
 package store
 
 import (
-	"golang.org/x/exp/maps"
+	"maps"
+	"slices"
+
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -80,7 +82,7 @@ func (mds *fakeDiffStore[T]) CleanupDiff(callerID string) {
 func (mds *fakeDiffStore[T]) List() ([]T, error) {
 	mds.objMu.Lock()
 	defer mds.objMu.Unlock()
-	return maps.Values(mds.objects), nil
+	return slices.Collect(maps.Values(mds.objects)), nil
 }
 
 // GetByKey returns the latest version of the object with given key.
