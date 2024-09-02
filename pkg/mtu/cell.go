@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
+	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -58,12 +59,14 @@ type mtuParams struct {
 	CNI          cni.CNIConfigManager
 	TunnelConfig tunnel.Config
 
-	DB          *statedb.DB
-	MTUTable    statedb.RWTable[RouteMTU]
-	Devices     statedb.Table[*tables.Device]
-	JobRegistry job.Registry
-	Health      cell.Health
-	Log         *slog.Logger
+	DB              *statedb.DB
+	MTUTable        statedb.RWTable[RouteMTU]
+	Devices         statedb.Table[*tables.Device]
+	JobRegistry     job.Registry
+	Health          cell.Health
+	Log             *slog.Logger
+	DaemonConfig    *option.DaemonConfig
+	LocalCiliumNode k8s.LocalCiliumNodeResource
 
 	Config Config
 }
@@ -103,11 +106,15 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 
 			if configuredMTU == 0 {
 				mgr := &MTUManager{
-					mtuParams: p,
-					Config:    c,
+					mtuParams:     p,
+					Config:        c,
+					localNodeInit: make(chan struct{}),
 				}
 
 				group.Add(job.OneShot("mtu-updater", mgr.Updater))
+				if mgr.needLocalCiliumNode() {
+					group.Add(job.Observer("local-cilium-node-observer", mgr.observeLocalCiliumNode, p.LocalCiliumNode))
+				}
 			} else {
 				p.Log.Info("Using configured MTU", "mtu", configuredMTU)
 
