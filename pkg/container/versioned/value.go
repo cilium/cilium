@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"sync/atomic"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/lock"
@@ -291,9 +292,11 @@ func (v *Coordinator) getVersionHandle(version version) *VersionHandle {
 		version = v.oldestVersion
 		if v.Logger != nil {
 			v.Logger.WithFields(logrus.Fields{
+				logfields.Stacktrace: hclog.Stacktrace(),
 				logfields.Version:    version,
 				logfields.OldVersion: oldVersion,
 			}).Warn("GetVersionHandle: Handle to a stale version requested, returning oldest valid version instead")
+			panic("GetVersionHandle: Handle to a stale version requested, returning oldest valid version instead")
 		}
 	}
 	n, found := slices.BinarySearchFunc(v.versions, version, versionHandleCmp)

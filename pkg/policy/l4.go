@@ -710,7 +710,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(cs CachedSelector, added, deleted [
 }
 
 func (l4 *L4Filter) IdentitySelectionCommit(txn *versioned.Tx) {
-	log.Debug("identity selection updates done")
+	log.WithField(logfields.NewVersion, txn).Debug("identity selection updates done")
 
 	// Push endpoint policy incremental sync.
 	//
