@@ -223,7 +223,10 @@ func printPerNodeStatus(nodeMap map[string]models.EncryptionStatus, ikProps ipse
 					IPsecKeyRotationInProgress: int64(ikProps.expectedCount) != st.Ipsec.KeysInUse,
 				}
 			}
-			return printJSONStatus(ns)
+			if err := printJSONStatus(ns); err != nil {
+				return err
+			}
+			continue
 		}
 
 		builder := strings.Builder{}
@@ -244,8 +247,9 @@ func printPerNodeStatus(nodeMap map[string]models.EncryptionStatus, ikProps ipse
 				builder.WriteString(fmt.Sprintf("\t%s: %d\n", k, v))
 			}
 		}
-		_, err := fmt.Println(builder.String())
-		return err
+		if _, err := fmt.Println(builder.String()); err != nil {
+			return err
+		}
 	}
 	return nil
 }
