@@ -23,6 +23,9 @@ const (
 	// Stacktrace is a field for a stacktrace
 	Stacktrace = "stacktrace"
 
+	// Changes is a generic field for any relevant changes
+	Changes = "changes"
+
 	// Signal is the field to print os signals on exit etc.
 	Signal = "signal"
 
@@ -434,6 +437,9 @@ const (
 
 	// Selector is a selector of any sort: endpoint, CIDR, toFQDNs
 	Selector = "Selector"
+
+	// SelectorCacgeVersion is the version of the SelectorCache.
+	SelectorCacheVersion = "selectorCacheVersion"
 
 	// EndpointLabelSelector is a selector for Endpoints by label
 	EndpointLabelSelector = "EndpointLabelSelector"

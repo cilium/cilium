@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/container/bitlpm"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -1981,8 +1982,11 @@ func (ms *mapState) getIdentities(log *logrus.Logger, denied bool) (ingIdentitie
 // granularity of individual mapstate key-value pairs for both adds
 // and deletes. 'mutex' must be held for any access.
 type MapChanges struct {
-	mutex   lock.Mutex
-	changes []MapChange
+	firstVersion versioned.KeepVersion
+	mutex        lock.Mutex
+	changes      []MapChange
+	synced       []MapChange
+	version      *versioned.VersionHandle
 }
 
 type MapChange struct {
@@ -2013,29 +2017,61 @@ func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []id
 	}
 }
 
+// SyncMapChanges moves the current batch of changes to 'synced' to be consumed as a unit
+func (mc *MapChanges) SyncMapChanges(txn *versioned.Tx) {
+	mc.mutex.Lock()
+	defer mc.mutex.Unlock()
+	if len(mc.changes) > 0 {
+		// Only apply changes after the initial version
+		if txn.After(mc.firstVersion) {
+			mc.synced = append(mc.synced, mc.changes...)
+			mc.version.Close()
+			mc.version = txn.GetVersionHandle()
+			log.WithFields(logrus.Fields{
+				logfields.NewVersion: mc.version,
+			}).Debug("SyncMapChanges: Got handle on the new version")
+		} else {
+			log.WithFields(logrus.Fields{
+				logfields.Version:    mc.firstVersion,
+				logfields.OldVersion: txn,
+			}).Debug("SyncMapChanges: Discarding already applied changes")
+		}
+	}
+	mc.changes = nil
+}
+
+// detach releases any version handle we may hold
+func (mc *MapChanges) detach() {
+	mc.mutex.Lock()
+	mc.version.Close()
+	mc.mutex.Unlock()
+}
+
 // consumeMapChanges transfers the incremental changes from MapChanges to the caller,
 // while applying the changes to PolicyMapState.
-func (mc *MapChanges) consumeMapChanges(policyOwner PolicyOwner, policyMapState MapState, identities Identities, features policyFeatures) ChangeState {
+func (mc *MapChanges) consumeMapChanges(p *EndpointPolicy, features policyFeatures) (*versioned.VersionHandle, ChangeState) {
 	mc.mutex.Lock()
+	defer mc.mutex.Unlock()
 	changes := ChangeState{
-		Adds:    make(Keys, len(mc.changes)),
-		Deletes: make(Keys, len(mc.changes)),
-		Old:     make(map[Key]MapStateEntry),
-	}
-	var redirects map[string]uint16
-	if policyOwner != nil {
-		redirects = policyOwner.GetRealizedRedirects()
+		Adds:    make(Keys, len(mc.synced)),
+		Deletes: make(Keys, len(mc.synced)),
+		Old:     make(map[Key]MapStateEntry, len(mc.synced)),
 	}
 
-	for i := range mc.changes {
-		if mc.changes[i].Add {
+	var redirects map[string]uint16
+	if p.PolicyOwner != nil {
+		redirects = p.PolicyOwner.GetRealizedRedirects()
+	}
+
+	for i := range mc.synced {
+		if mc.synced[i].Add {
 			// Redirect entries for unrealized redirects come in with an invalid
 			// redirect port (65535), replace it with the actual proxy port number.
-			key := mc.changes[i].Key
-			entry := mc.changes[i].Value
+			key := mc.synced[i].Key
+			entry := mc.synced[i].Value
 			if entry.ProxyPort == unrealizedRedirectPort {
 				var exists bool
-				proxyID := ProxyIDFromKey(uint16(policyOwner.GetID()), key, entry.Listener)
+				proxyID := ProxyIDFromKey(uint16(p.PolicyOwner.GetID()), key, entry.Listener)
 				entry.ProxyPort, exists = redirects[proxyID]
 				if !exists {
 					log.WithFields(logrus.Fields{
@@ -2049,15 +2085,20 @@ func (mc *MapChanges) consumeMapChanges(policyOwner PolicyOwner, policyMapState 
 			// insert but do not allow non-redirect entries to overwrite a redirect entry,
 			// nor allow non-deny entries to overwrite deny entries.
 			// Collect the incremental changes to the overall state in 'mc.adds' and 'mc.deletes'.
-			policyMapState.denyPreferredInsertWithChanges(key, entry, identities, features, changes)
+			p.policyMapState.denyPreferredInsertWithChanges(key, entry, p.SelectorCache, features, changes)
 		} else {
 			// Delete the contribution of this cs to the key and collect incremental changes
-			for cs := range mc.changes[i].Value.owners { // get the sole selector
-				policyMapState.deleteKeyWithChanges(mc.changes[i].Key, cs, identities, changes)
+			for cs := range mc.synced[i].Value.owners { // get the sole selector
+				p.policyMapState.deleteKeyWithChanges(mc.synced[i].Key, cs, p.SelectorCache, changes)
 			}
 		}
 	}
-	mc.changes = nil
-	mc.mutex.Unlock()
-	return changes
+
+	// move version to the caller
+	version := mc.version
+	mc.version = nil
+
+	mc.synced = nil
+
+	return version, changes
 }

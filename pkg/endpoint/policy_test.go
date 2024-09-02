@@ -184,7 +184,9 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		// Apply any pending incremental changes
 		// This mirrors the existing code, where we consume map changes
 		// while holding the endpoint lock
-		res.endpointPolicy.ConsumeMapChanges()
+		closer, _ := res.endpointPolicy.ConsumeMapChanges()
+		closer()
+
 		haveIDs := make(sets.Set[identity.NumericIdentity], testfactor)
 		res.endpointPolicy.GetPolicyMap().ForEach(func(k policy.Key, _ policy.MapStateEntry) bool {
 			haveIDs.Insert(k.Identity)

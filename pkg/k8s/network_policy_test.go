@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -94,6 +95,9 @@ func testNewPolicyRepository() *policy.Repository {
 }
 
 func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, added, deleted []identity.NumericIdentity) {
+}
+
+func (d *DummySelectorCacheUser) IdentitySelectionCommit(*versioned.Tx) {
 }
 
 func TestParseNetworkPolicyIngress(t *testing.T) {
