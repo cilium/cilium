@@ -6,10 +6,10 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"maps"
 
 	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/authmap"

@@ -7,12 +7,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path"
+	"slices"
 	"strings"
 	"time"
-
-	"golang.org/x/exp/maps"
 )
 
 // LatencyMetric captures latency metrics of network performance test
@@ -178,7 +178,7 @@ func ExportPerfSummaries(summaries []PerfSummary, reportDir string) error {
 			}
 		}
 	}
-	return exportSummary(perfData{Version: "v1", DataItems: maps.Values(data)}, reportDir)
+	return exportSummary(perfData{Version: "v1", DataItems: slices.Collect(maps.Values(data))}, reportDir)
 }
 
 func exportSummary(content perfData, reportDir string) error {

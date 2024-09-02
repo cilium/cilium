@@ -6,6 +6,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"maps"
 	"net"
 	"testing"
 	"time"
@@ -13,7 +14,6 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"

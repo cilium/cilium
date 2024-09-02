@@ -14,15 +14,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"os"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
 
-	"golang.org/x/exp/maps"
 	"helm.sh/helm/v3/pkg/release"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -976,9 +976,7 @@ func (k *K8sClusterMesh) outputConnectivityStatus(agents, kvstoremesh *Connectiv
 	k.Log("")
 	if len(agents.Clusters) > 0 {
 		k.Log("🔌 Cluster Connections:")
-		clusters := maps.Keys(agents.Clusters)
-		sort.Strings(clusters)
-		for _, cluster := range clusters {
+		for _, cluster := range slices.Sorted(maps.Keys(agents.Clusters)) {
 			stats := agents.Clusters[cluster]
 
 			line := fmt.Sprintf("  - %s: %d/%d configured, %d/%d connected",
@@ -1018,9 +1016,7 @@ func (k *K8sClusterMesh) outputConnectivityStatus(agents, kvstoremesh *Connectiv
 		k.Log("❌ %d Errors:", errCount)
 
 		outputErrors := func(errs status.ErrorCountMapMap, container, cmd string, likelyKVStoreMesh bool) {
-			podNames := maps.Keys(errs)
-			sort.Strings(podNames)
-			for _, podName := range podNames {
+			for _, podName := range slices.Sorted(maps.Keys(errs)) {
 				clusters := errs[podName]
 				for clusterName, a := range clusters {
 					for _, err := range a.Errors {

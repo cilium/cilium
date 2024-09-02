@@ -5,15 +5,16 @@ package endpointslicesync
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	listersv1 "k8s.io/client-go/listers/core/v1"
-	cache "k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -60,7 +61,7 @@ func (i *meshNodeInformer) ListClusters() []string {
 	i.mutex.RLock()
 	defer i.mutex.RUnlock()
 
-	return maps.Keys(i.nodes)
+	return slices.Collect(maps.Keys(i.nodes))
 }
 
 func (i *meshNodeInformer) List(selector labels.Selector) ([]*v1.Node, error) {
@@ -71,7 +72,7 @@ func (i *meshNodeInformer) List(selector labels.Selector) ([]*v1.Node, error) {
 
 	i.mutex.RLock()
 	defer i.mutex.RUnlock()
-	return maps.Values(i.nodes), nil
+	return slices.Collect(maps.Values(i.nodes)), nil
 }
 
 func (i *meshNodeInformer) Get(name string) (*v1.Node, error) {

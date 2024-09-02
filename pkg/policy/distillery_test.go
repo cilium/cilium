@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	stdlog "log"
+	"maps"
 	"net/netip"
 	"strings"
 	"sync"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
