@@ -43,7 +43,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends libtinfo5
 
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@82fd451e4380968e8336eefc5b8b9292a619de01 # v2.0.3
+        uses: KyleMayes/install-llvm-action@10c8957324ef77f0712d883b9ed08adb6da4a192 # v2.0.4
         with:
           version: "10.0"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
