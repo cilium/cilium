@@ -30,6 +30,9 @@ type DummySelectorCacheUser struct{}
 func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, added, deleted []identity.NumericIdentity) {
 }
 
+func (d *DummySelectorCacheUser) IdentitySelectionCommit(*versioned.Tx) {
+}
+
 var (
 	IPv4Addr = "10.1.1.1"
 

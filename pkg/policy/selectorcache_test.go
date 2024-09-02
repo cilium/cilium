@@ -24,6 +24,9 @@ type DummySelectorCacheUser struct{}
 func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector CachedSelector, added, deleted []identity.NumericIdentity) {
 }
 
+func (d *DummySelectorCacheUser) IdentitySelectionCommit(*versioned.Tx) {
+}
+
 type cachedSelectionUser struct {
 	t    *testing.T
 	sc   *SelectorCache
@@ -145,7 +148,9 @@ func (csu *cachedSelectionUser) IdentitySelectionUpdated(selector CachedSelector
 
 	// update selections
 	csu.selections[selector] = selections
+}
 
+func (csu *cachedSelectionUser) IdentitySelectionCommit(*versioned.Tx) {
 	csu.updateCond.Signal()
 }
 
@@ -540,7 +545,7 @@ func TestTransactionalUpdate(t *testing.T) {
 	}, nil, wg)
 	wg.Wait()
 
-	// Old version hold still gets the same selections as before
+	// Old version handle still gets the same selections as before
 	require.Equal(t, identity.NumericIdentitySlice{li1}, cs32.GetSelections(version))
 	require.Equal(t, identity.NumericIdentitySlice{li1}, cs24.GetSelections(version))
 	require.Equal(t, identity.NumericIdentitySlice{li1, li2}, cs8.GetSelections(version))
@@ -562,7 +567,7 @@ func TestTransactionalUpdate(t *testing.T) {
 	}, wg)
 	wg.Wait()
 
-	// Oldest version hold still gets the same selections as before
+	// Oldest version handle still gets the same selections as before
 	require.Equal(t, identity.NumericIdentitySlice{li1}, cs32.GetSelections(version))
 	require.Equal(t, identity.NumericIdentitySlice{li1}, cs24.GetSelections(version))
 	require.Equal(t, identity.NumericIdentitySlice{li1, li2}, cs8.GetSelections(version))

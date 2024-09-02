@@ -535,6 +535,10 @@ type ChangeState struct {
 	Old     MapStateMap // Old values of all modified or deleted keys, if not nil
 }
 
+func (c *ChangeState) Empty() bool {
+	return len(c.Adds)+len(c.Deletes)+len(c.Old) == 0
+}
+
 // toMapState converts a single filter into a MapState entries added to 'p.PolicyMapState'.
 //
 // Note: It is possible for two selectors to select the same security ID.  To give priority to deny,
@@ -693,7 +697,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(cs CachedSelector, added, deleted [
 
 	// Skip updates on wildcard selectors, as datapath and L7
 	// proxies do not need enumeration of all ids for L3 wildcard.
-	// This mirrors the per-selector logic in ToMapState().
+	// This mirrors the per-selector logic in toMapState().
 	if cs.IsWildcard() {
 		return
 	}
@@ -705,6 +709,19 @@ func (l4 *L4Filter) IdentitySelectionUpdated(cs CachedSelector, added, deleted [
 	l4Policy := l4.policy.Load()
 	if l4Policy != nil {
 		l4Policy.AccumulateMapChanges(l4, cs, added, deleted)
+	}
+}
+
+func (l4 *L4Filter) IdentitySelectionCommit(txn *versioned.Tx) {
+	log.WithField(logfields.NewVersion, txn).Debug("identity selection updates done")
+
+	// Push endpoint policy incremental sync.
+	//
+	// `l4.policy` is nil when the filter is detached so
+	// that we could not push updates on an unstable policy.
+	l4Policy := l4.policy.Load()
+	if l4Policy != nil {
+		l4Policy.SyncMapChanges(l4, txn)
 	}
 }
 
@@ -1542,6 +1559,7 @@ func NewL4Policy(revision uint64) L4Policy {
 
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be forwarded to the users of it.
+// May not call into SelectorCache, as SelectorCache is locked during this call.
 func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 	l4.mutex.Lock()
 
@@ -1596,20 +1614,13 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 	hasAuth, authType := perSelectorPolicy.GetAuthType()
 	isDeny := perSelectorPolicy != nil && perSelectorPolicy.IsDeny
 
-	// Must take a copy of 'users' as GetNamedPort() will lock the Endpoint below and
-	// the Endpoint lock may not be taken while 'l4.mutex' is held.
+	// Can hold rlock here as neither GetNamedPort() nor LookupRedirectPort() no longer
+	// takes the Endpoint lock below.
+	// SelectorCache may not be called into while holding this lock!
 	l4Policy.mutex.RLock()
-	users := make(map[*EndpointPolicy]struct{}, len(l4Policy.users))
-	for user := range l4Policy.users {
-		users[user] = struct{}{}
-	}
-	l4Policy.mutex.RUnlock()
+	defer l4Policy.mutex.RUnlock()
 
-	for epPolicy := range users {
-		// Skip if endpoint has no policy maps
-		if !epPolicy.PolicyOwner.HasBPFPolicyMap() {
-			continue
-		}
+	for epPolicy := range l4Policy.users {
 		// resolve named port
 		if port == 0 && l4.PortName != "" {
 			port = epPolicy.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
@@ -1625,7 +1636,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 				// This happens for new redirects that have not been realized
 				// yet. The accumulated changes should only be consumed after new
 				// redirects have been realized. ConsumeMapChanges then maps this
-				// invalid valut to the real redirect port before the entry is
+				// invalid value to the real redirect port before the entry is
 				// visible to the endpoint package.
 				proxyPort = unrealizedRedirectPort
 			}
@@ -1657,6 +1668,16 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 		}
 		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, keysToAdd, value)
 	}
+}
+
+// SyncMapChanges marks earlier updates as completed
+func (l4Policy *L4Policy) SyncMapChanges(l4 *L4Filter, txn *versioned.Tx) {
+	// SelectorCache may not be called into while holding this lock!
+	l4Policy.mutex.RLock()
+	for epPolicy := range l4Policy.users {
+		epPolicy.policyMapChanges.SyncMapChanges(txn)
+	}
+	l4Policy.mutex.RUnlock()
 }
 
 // Detach makes the L4Policy ready for garbage collection, removing

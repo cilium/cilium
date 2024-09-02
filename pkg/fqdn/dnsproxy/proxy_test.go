@@ -246,6 +246,9 @@ type DummySelectorCacheUser struct{}
 func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, added, deleted []identity.NumericIdentity) {
 }
 
+func (d *DummySelectorCacheUser) IdentitySelectionCommit(*versioned.Tx) {
+}
+
 // Setup identities, ports and endpoint IDs we will need
 var (
 	cacheAllocator          = cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
