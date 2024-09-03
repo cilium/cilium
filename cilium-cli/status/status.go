@@ -5,6 +5,7 @@ package status
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"text/tabwriter"
@@ -77,6 +78,29 @@ type ErrorCount struct {
 type ErrorCountMap map[string]*ErrorCount
 
 type ErrorCountMapMap map[string]ErrorCountMap
+
+// custom marshaling for ErrorCount
+func (e *ErrorCount) MarshalJSON() ([]byte, error) {
+	// create an alias to avoid recursion
+	type Alias ErrorCount
+	return json.Marshal(&struct {
+		Errors   []string
+		Warnings []string
+		*Alias
+	}{
+		Errors:   errorsToStrings(e.Errors),
+		Warnings: errorsToStrings(e.Warnings),
+		Alias:    (*Alias)(e),
+	})
+}
+
+func errorsToStrings(errs []error) []string {
+	strs := make([]string, len(errs))
+	for i, err := range errs {
+		strs[i] = err.Error()
+	}
+	return strs
+}
 
 // Status is the overall status of Cilium
 type Status struct {
