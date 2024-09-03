@@ -105,7 +105,7 @@ func externalWorkloadsProvider(
 
 			mgr.ciliumExternalWorkloadStore = ewstore
 			mgr.backend = backend
-			mgr.identityAllocator = identityCache.NewCachingIdentityAllocator(mgr)
+			mgr.identityAllocator = identityCache.NewCachingIdentityAllocator(mgr, identityCache.AllocatorConfig{})
 			mgr.identityAllocator.InitIdentityAllocator(clientset)
 
 			if _, err = store.JoinSharedStore(store.Configuration{
