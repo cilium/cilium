@@ -29,7 +29,15 @@ var (
 func TestLookupReservedIdentity(t *testing.T) {
 	testutils.IntegrationTest(t)
 
-	mgr := NewCachingIdentityAllocator(newDummyOwner())
+	for _, testConfig := range testConfigs {
+		t.Run(testConfig.name, func(t *testing.T) {
+			testLookupReservedIdentity(t, testConfig)
+		})
+	}
+}
+
+func testLookupReservedIdentity(t *testing.T, testConfig testConfig) {
+	mgr := NewCachingIdentityAllocator(newDummyOwner(), testConfig.allocatorConfig)
 	<-mgr.InitIdentityAllocator(nil)
 
 	hostID := identity.GetReservedID("host")
