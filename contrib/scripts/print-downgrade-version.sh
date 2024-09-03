@@ -75,7 +75,7 @@ tag_exists() {
     local tag="refs/tags/${1}"
 
     # Check if the tag is already present locally.
-    if git rev-parse --verify --end-of-options "${tag}" &> /dev/null; then
+    if git rev-parse --verify --end-of-options "${tag}"; then
         return 0
     fi
 
@@ -95,10 +95,10 @@ tag_exists() {
     #   not work well, however, if the release manager pushes additional fixes
     #   on top of the prep commit.
     >&2 echo "INFO: tag '${tag}' not present locally, trying to fetch it from origin"
-    git fetch --depth=1 origin "+${tag}:${tag}" &> /dev/null || true
+    git fetch --depth=1 origin "+${tag}:${tag}" || true
 
     # Retry after the fetch attempt.
-    if git rev-parse --verify --end-of-options "${tag}" &> /dev/null; then
+    if git rev-parse --verify --end-of-options "${tag}"; then
         return 0
     fi
 
