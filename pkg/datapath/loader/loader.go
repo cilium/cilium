@@ -624,10 +624,12 @@ func (l *loader) replaceWireguardDatapath(ctx context.Context, cArgs []string, i
 	if err := compileWireguard(ctx, cArgs); err != nil {
 		return fmt.Errorf("compiling wireguard program: %w", err)
 	}
-	device, err := netlink.LinkByName(iface)
-	if err != nil {
-		return fmt.Errorf("retrieving device %s: %w", iface, err)
-	}
+	/*
+		device, err := netlink.LinkByName(iface)
+		if err != nil {
+			return fmt.Errorf("retrieving device %s: %w", iface, err)
+		}
+	*/
 
 	spec, err := bpf.LoadCollectionSpec(wireguardObj)
 	if err != nil {
@@ -645,11 +647,13 @@ func (l *loader) replaceWireguardDatapath(ctx context.Context, cArgs []string, i
 	}
 	defer obj.Close()
 
-	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
-	if err := attachSKBProgram(device, obj.ToWireguard, symbolToWireguard,
-		linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
-		return fmt.Errorf("interface %s egress: %w", device, err)
-	}
+	/*
+		linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
+			if err := attachSKBProgram(device, obj.ToWireguard, symbolToWireguard,
+				linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
+				return fmt.Errorf("interface %s egress: %w", device, err)
+			}
+	*/
 	if err := commit(); err != nil {
 		return fmt.Errorf("committing bpf pins: %w", err)
 	}
