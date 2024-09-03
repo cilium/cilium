@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/cilium/statedb/part"
 )
@@ -19,6 +20,7 @@ func (db *DB) HTTPHandler() http.Handler {
 	mux.HandleFunc("GET /dump", h.dumpAll)
 	mux.HandleFunc("GET /dump/{table}", h.dumpTable)
 	mux.HandleFunc("GET /query", h.query)
+	mux.HandleFunc("GET /changes/{table}", h.changes)
 	return mux
 }
 
@@ -79,6 +81,7 @@ func (h dbHandler) query(w http.ResponseWriter, r *http.Request) {
 	for _, e := range txn.root {
 		if e.meta.Name() == req.Table {
 			table = e.meta
+			break
 		}
 	}
 	if table == nil {
@@ -144,6 +147,62 @@ func runQuery(indexTxn indexReadTxn, lowerbound bool, queryKey []byte, onObject 
 		}
 		if err := onObject(obj); err != nil {
 			panic(err)
+		}
+	}
+}
+
+func (h dbHandler) changes(w http.ResponseWriter, r *http.Request) {
+	const keepaliveInterval = 30 * time.Second
+
+	enc := json.NewEncoder(w)
+	tableName := r.PathValue("table")
+
+	// Look up the table
+	var tableMeta TableMeta
+	for _, e := range h.db.ReadTxn().getTxn().root {
+		if e.meta.Name() == tableName {
+			tableMeta = e.meta
+			break
+		}
+	}
+	if tableMeta == nil {
+		w.WriteHeader(http.StatusNotFound)
+		enc.Encode(QueryResponse{Err: fmt.Sprintf("Table %q not found", tableName)})
+		return
+	}
+
+	// Register for changes.
+	wtxn := h.db.WriteTxn(tableMeta)
+	changeIter, err := tableMeta.anyChanges(wtxn)
+	wtxn.Commit()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	defer changeIter.Close()
+
+	w.WriteHeader(http.StatusOK)
+
+	ticker := time.NewTicker(keepaliveInterval)
+	defer ticker.Stop()
+
+	for {
+		for change, _, ok := changeIter.nextAny(); ok; change, _, ok = changeIter.nextAny() {
+			err := enc.Encode(change)
+			if err != nil {
+				panic(err)
+			}
+		}
+		w.(http.Flusher).Flush()
+		select {
+		case <-r.Context().Done():
+			return
+
+		case <-ticker.C:
+			// Send an empty keep-alive
+			enc.Encode(Change[any]{})
+
+		case <-changeIter.Watch(h.db.ReadTxn()):
 		}
 	}
 }

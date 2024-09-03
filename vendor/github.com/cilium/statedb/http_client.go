@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -77,13 +78,6 @@ func (t *RemoteTable[Obj]) query(ctx context.Context, lowerBound bool, q Query[O
 	}
 	return &remoteGetIterator[Obj]{json.NewDecoder(resp.Body), errChanSend}, errChan
 }
-func (t *RemoteTable[Obj]) Get(ctx context.Context, q Query[Obj]) (Iterator[Obj], <-chan error) {
-	return t.query(ctx, false, q)
-}
-
-func (t *RemoteTable[Obj]) LowerBound(ctx context.Context, q Query[Obj]) (Iterator[Obj], <-chan error) {
-	return t.query(ctx, true, q)
-}
 
 type remoteGetIterator[Obj any] struct {
 	decoder *json.Decoder
@@ -123,5 +117,74 @@ func (it *remoteGetIterator[Obj]) Next() (obj Obj, revision Revision, ok bool) {
 	obj = resp.Obj
 	revision = resp.Rev
 	ok = true
+	return
+}
+
+func (t *RemoteTable[Obj]) Get(ctx context.Context, q Query[Obj]) (Iterator[Obj], <-chan error) {
+	return t.query(ctx, false, q)
+}
+
+func (t *RemoteTable[Obj]) LowerBound(ctx context.Context, q Query[Obj]) (Iterator[Obj], <-chan error) {
+	return t.query(ctx, true, q)
+}
+
+func (t *RemoteTable[Obj]) Changes(ctx context.Context) (iter Iterator[Change[Obj]], errChan <-chan error) {
+	// Use a channel to return errors so we can use the same Iterator[Obj] interface as StateDB does.
+	errChanSend := make(chan error, 1)
+	errChan = errChanSend
+
+	url := t.base.JoinPath("/changes", t.tableName)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
+	if err != nil {
+		errChanSend <- err
+		close(errChanSend)
+		return
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+
+	resp, err := t.client.Do(req)
+	if err != nil {
+		errChanSend <- err
+		close(errChanSend)
+		return
+	}
+	return &remoteChangeIterator[Obj]{json.NewDecoder(resp.Body), errChanSend}, errChan
+}
+
+type remoteChangeIterator[Obj any] struct {
+	decoder *json.Decoder
+	errChan chan error
+}
+
+func (it *remoteChangeIterator[Obj]) Next() (change Change[Obj], revision Revision, ok bool) {
+	if it.decoder == nil {
+		return
+	}
+
+	for {
+		err := it.decoder.Decode(&change)
+		if err == nil && change.Revision == 0 {
+			// Keep-alive message, skip it.
+			continue
+		}
+
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				it.errChan <- nil
+				close(it.errChan)
+				return
+			}
+			it.decoder = nil
+			it.errChan <- fmt.Errorf("decode error: %w", err)
+			close(it.errChan)
+		} else {
+			ok = true
+			revision = change.Revision
+		}
+		break
+	}
+
 	return
 }
