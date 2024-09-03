@@ -124,6 +124,10 @@ func reconciliationLoop(
 ) error {
 	// The minimum interval between reconciliation attempts
 	const minReconciliationInterval = 200 * time.Millisecond
+	// The interval between consecutive reconciliations, in case no other
+	// changes occurred at the same time, to ensure eventual consistency
+	// and correct possible divergences.
+	const fullReconciliationInterval = 30 * time.Minute
 
 	// log limiter for partial (proxy and no track rules) reconciliation errors
 	partialLogLimiter := logging.NewLimiter(10*time.Second, 3)
@@ -156,6 +160,11 @@ func reconciliationLoop(
 	// lots of operations when e.g. ipset updates.
 	ticker := params.clock.NewTicker(minReconciliationInterval)
 	defer ticker.Stop()
+
+	// Refresher is a timer that allows to schedule periodic reconciliations
+	// to ensure eventual consistency and correct possible divergences.
+	refresher := params.clock.NewTimer(fullReconciliationInterval)
+	defer refresher.Stop()
 
 	// stateChanged is true when the desired state has changed or when reconciling it
 	// has failed. It's set to false when reconciling succeeds.
@@ -283,6 +292,8 @@ stop:
 			} else {
 				close(req.updated)
 			}
+		case <-refresher.C():
+			stateChanged = true
 		case <-ticker.C():
 			if !stateChanged {
 				continue
@@ -307,6 +318,19 @@ stop:
 				close(ch)
 			}
 			updatedChs = updatedChs[:0]
+
+			// Reset the timer so that it gets triggered again after fullReconciliationInterval,
+			// to avoid introducing unnecessary churn in case a full reconciliation was already
+			// triggered due to other reasons. The Stop and select steps can be dropped once
+			// switching to using go v1.23: https://go.dev/wiki/Go123Timer
+			if !refresher.Stop() {
+				select {
+				case <-ticker.C():
+				default:
+				}
+			}
+
+			refresher.Reset(fullReconciliationInterval)
 		}
 	}
 
