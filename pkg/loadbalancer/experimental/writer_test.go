@@ -415,9 +415,9 @@ func TestWriter_Initializers(t *testing.T) {
 	txn := p.DB.ReadTxn()
 	firstTxn := txn
 	require.Equal(t, 1, p.FrontendTable.NumObjects(txn), "expected one object")
-	require.False(t, p.FrontendTable.Initialized(txn), "expected frontends to be uninitialized")
-	require.False(t, p.BackendTable.Initialized(txn), "expected backends to be uninitialized")
-	require.False(t, p.ServiceTable.Initialized(txn), "expected services to be uninitialized")
+	require.NotEmpty(t, p.FrontendTable.PendingInitializers(txn), "expected frontends to be uninitialized")
+	require.NotEmpty(t, p.BackendTable.PendingInitializers(txn), "expected backends to be uninitialized")
+	require.NotEmpty(t, p.ServiceTable.PendingInitializers(txn), "expected services to be uninitialized")
 
 	wtxn = p.Writer.WriteTxn()
 	complete1(wtxn)
@@ -425,22 +425,22 @@ func TestWriter_Initializers(t *testing.T) {
 
 	// Still uninitialized as one initializer remaining.
 	txn = p.DB.ReadTxn()
-	require.False(t, p.FrontendTable.Initialized(txn), "expected frontends to be uninitialized")
-	require.False(t, p.BackendTable.Initialized(txn), "expected backends to be uninitialized")
-	require.False(t, p.ServiceTable.Initialized(txn), "expected services to be uninitialized")
+	require.NotEmpty(t, p.FrontendTable.PendingInitializers(txn), "expected frontends to be uninitialized")
+	require.NotEmpty(t, p.BackendTable.PendingInitializers(txn), "expected backends to be uninitialized")
+	require.NotEmpty(t, p.ServiceTable.PendingInitializers(txn), "expected services to be uninitialized")
 
 	wtxn = p.Writer.WriteTxn()
 	complete2(wtxn)
 	wtxn.Commit()
 
 	txn = p.DB.ReadTxn()
-	require.True(t, p.FrontendTable.Initialized(txn), "expected frontends to be initialized")
-	require.True(t, p.BackendTable.Initialized(txn), "expected backends to be initialized")
-	require.True(t, p.ServiceTable.Initialized(txn), "expected services to be initialized")
+	require.Empty(t, p.FrontendTable.PendingInitializers(txn), "expected frontends to be initialized")
+	require.Empty(t, p.BackendTable.PendingInitializers(txn), "expected backends to be initialized")
+	require.Empty(t, p.ServiceTable.PendingInitializers(txn), "expected services to be initialized")
 
 	// The original read transaction still shows the tables as uninitialized (since the data
 	// available to it is still incomplete).
-	require.False(t, p.FrontendTable.Initialized(firstTxn), "expected frontends to be uninitialized")
-	require.False(t, p.BackendTable.Initialized(firstTxn), "expected backends to be uninitialized")
-	require.False(t, p.ServiceTable.Initialized(firstTxn), "expected services to be uninitialized")
+	require.NotEmpty(t, p.FrontendTable.PendingInitializers(firstTxn), "expected frontends to be uninitialized")
+	require.NotEmpty(t, p.BackendTable.PendingInitializers(firstTxn), "expected backends to be uninitialized")
+	require.NotEmpty(t, p.ServiceTable.PendingInitializers(firstTxn), "expected services to be uninitialized")
 }

@@ -232,6 +232,19 @@ func (it *changeIterator[Obj]) Next() (ev Change[Obj], revision uint64, ok bool)
 	return
 }
 
+// nextAny is for implementing the /changes HTTP API where the concrete object
+// type is not known.
+func (it *changeIterator[Obj]) nextAny() (ev Change[any], revision uint64, ok bool) {
+	var evTyped Change[Obj]
+	evTyped, revision, ok = it.Next()
+	ev = Change[any]{
+		Object:   evTyped.Object,
+		Revision: evTyped.Revision,
+		Deleted:  evTyped.Deleted,
+	}
+	return
+}
+
 func (it *changeIterator[Obj]) Watch(txn ReadTxn) <-chan struct{} {
 	if it.iter == nil {
 		// Iterator has been exhausted, check if we need to requery
@@ -256,7 +269,9 @@ func (it *changeIterator[Obj]) Watch(txn ReadTxn) <-chan struct{} {
 		// Return a closed watch channel to immediately trigger iteration.
 		return closedWatchChannel
 	}
-	return it.watch
+
+	// Iterator not consumed yet, return a closed channel to trigger iteration.
+	return closedWatchChannel
 }
 
 func (it *changeIterator[Obj]) Close() {
@@ -264,4 +279,10 @@ func (it *changeIterator[Obj]) Close() {
 		it.dt.close()
 	}
 	*it = changeIterator[Obj]{}
+}
+
+type anyChangeIterator interface {
+	nextAny() (ev Change[any], revision uint64, ok bool)
+	Watch(ReadTxn) <-chan struct{}
+	Close()
 }

@@ -93,7 +93,7 @@ type DB struct {
 	defaultHandle       Handle
 }
 
-type dbRoot = []tableEntry
+type dbRoot []tableEntry
 
 type Option func(*opts)
 

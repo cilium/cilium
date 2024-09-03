@@ -31,8 +31,9 @@ type Table[Obj any] interface {
 	NumObjects(ReadTxn) int
 
 	// Initialized returns true if in this ReadTxn (snapshot of the database)
-	// the registered initializers have all been completed.
-	Initialized(ReadTxn) bool
+	// the registered initializers have all been completed. The returned
+	// watch channel will be closed when the table becomes initialized.
+	Initialized(ReadTxn) (bool, <-chan struct{})
 
 	// PendingInitializers returns the set of pending initializers that
 	// have not yet completed.
@@ -95,9 +96,9 @@ type Table[Obj any] interface {
 // Change is either an update or a delete of an object. Used by Changes() and
 // the Observable().
 type Change[Obj any] struct {
-	Object   Obj
-	Revision Revision
-	Deleted  bool
+	Object   Obj      `json:"obj"`
+	Revision Revision `json:"rev"`
+	Deleted  bool     `json:"deleted,omitempty"`
 }
 
 type ChangeIterator[Obj any] interface {
@@ -209,6 +210,7 @@ type RWTable[Obj any] interface {
 // the object type (the 'Obj' constraint).
 type TableMeta interface {
 	Name() TableName // The name of the table
+
 	tableEntry() tableEntry
 	tablePos() int
 	setTablePos(int)
@@ -217,6 +219,7 @@ type TableMeta interface {
 	primary() anyIndexer                   // The untyped primary indexer for the table
 	secondary() map[string]anyIndexer      // Secondary indexers (if any)
 	sortableMutex() internal.SortableMutex // The sortable mutex for locking the table for writing
+	anyChanges(txn WriteTxn) (anyChangeIterator, error)
 }
 
 // Iterator for iterating objects returned from queries.
@@ -397,6 +400,8 @@ type tableEntry struct {
 	deleteTrackers      *part.Tree[anyDeleteTracker]
 	revision            uint64
 	pendingInitializers []string
+	initialized         bool
+	initWatchChan       chan struct{}
 }
 
 func (t *tableEntry) numObjects() int {
