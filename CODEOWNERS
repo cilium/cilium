@@ -274,6 +274,7 @@ Makefile* @cilium/build
 /bpf/lib/wireguard.h @cilium/wireguard @cilium/sig-datapath
 /bpf/bpf_wireguard.c @cilium/wireguard @cilium/sig-datapath
 /bpf/lib/ids.h @cilium/loader
+/bpf/lib/proxy.h @cilium/proxy @cilium/sig-datapath
 /bpf/include/bpf/tailcall.h @cilium/loader
 /bugtool/ @cilium/cli
 /cilium-dbg/ @cilium/cli
