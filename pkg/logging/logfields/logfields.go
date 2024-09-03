@@ -320,6 +320,9 @@ const (
 	// ServiceType is the type of the service
 	ServiceType = "svcType"
 
+	// ServiceMode is the mode of the service (SNAT, DSR)
+	ServiceMode = "svcMode"
+
 	// ServiceHealthCheckNodePort is the port on which we serve health checks
 	ServiceHealthCheckNodePort = "svcHealthCheckNodePort"
 

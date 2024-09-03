@@ -122,6 +122,15 @@ const (
 	// service is ignored and not installed into their datapath.
 	ServiceNodeExposure = ServicePrefix + "/node"
 
+	// ServiceMode annotations determines the way packets are pushed to the
+	// remote backends.
+	// Allowed values are of type loadbalancer.SVCMode:
+	//  - dsr
+	//		use the configured DSR method
+	//  - snat
+	//		use SNAT so that reply traffic comes back
+	ServiceMode = ServicePrefix + "/mode"
+
 	// ProxyVisibility / ProxyVisibilityAlias is the annotation name used to
 	// indicate whether proxy visibility should be enabled for a given pod (i.e.,
 	// all traffic for the pod is redirected to the proxy for the given port /

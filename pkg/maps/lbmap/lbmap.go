@@ -134,8 +134,9 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %w", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), len(p.NonActiveBackends), int(p.ID), p.Type, p.ExtLocal, p.IntLocal, p.NatPolicy,
-		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport); err != nil {
+	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), len(p.NonActiveBackends), int(p.ID),
+		p.Type, p.Mode, p.ExtLocal, p.IntLocal, p.NatPolicy, p.SessionAffinity, p.SessionAffinityTimeoutSec,
+		p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %w", svcKey, err)
 	}
@@ -571,9 +572,10 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 	return maglevRecreatedIPv4
 }
 
-func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quarantinedBackends int, revNATID int, svcType loadbalancer.SVCType,
-	svcExtLocal, svcIntLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
-	sessionAffinityTimeoutSec uint32, checkSourceRange bool, l7lbProxyPort uint16, loopbackHostport bool) error {
+func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quarantinedBackends int, revNATID int,
+	svcType loadbalancer.SVCType, svcMode loadbalancer.SVCMode, svcExtLocal, svcIntLocal bool,
+	svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
+	checkSourceRange bool, l7lbProxyPort uint16, loopbackHostport bool) error {
 
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !fe.IsSurrogate() &&
@@ -585,6 +587,7 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quaranti
 	v.SetRevNat(revNATID)
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
+		SvcModeFlip:      svcMode == loadbalancer.SVCModeSNAT,
 		SvcExtLocal:      svcExtLocal,
 		SvcIntLocal:      svcIntLocal,
 		SvcNatPolicy:     svcNatPolicy,

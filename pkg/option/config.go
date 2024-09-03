@@ -1329,6 +1329,10 @@ const (
 	// NodePortModeHybrid is a dual mode of the above, that is, DSR for TCP and SNAT for UDP
 	NodePortModeHybrid = "hybrid"
 
+	// NodePortModeAnnotation is a dual mode of dsr and snat, specified through the
+	// service.cilium.io/dispatch annotation on the K8s service object
+	NodePortModeAnnotation = "annotation"
+
 	// NodePortAlgRandom is for randomly selecting a backend
 	NodePortAlgRandom = "random"
 
@@ -2758,7 +2762,8 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
 
 func (c *DaemonConfig) LoadBalancerUsesDSR() bool {
 	return c.NodePortMode == NodePortModeDSR ||
-		c.NodePortMode == NodePortModeHybrid
+		c.NodePortMode == NodePortModeHybrid ||
+		c.NodePortMode == NodePortModeAnnotation
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
