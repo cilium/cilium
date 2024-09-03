@@ -1,6 +1,5 @@
 module github.com/cilium/cilium
 
-// renovate: datasource=golang-version depName=go
 go 1.22.0
 
 require (
