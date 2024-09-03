@@ -51,6 +51,13 @@ const (
 	SVCNatPolicyNat64 = SVCNatPolicy("Nat64")
 )
 
+type SVCMode string
+
+const (
+	SVCModeDSR  = SVCMode("dsr")
+	SVCModeSNAT = SVCMode("snat")
+)
+
 // ServiceFlags is the datapath representation of the service flags that can be
 // used (lb{4,6}_service.flags)
 type ServiceFlags uint16
@@ -72,10 +79,12 @@ const (
 	serviceFlagIntLocalScope   = 1 << 12
 	serviceFlagTwoScopes       = 1 << 13
 	serviceFlagQuarantined     = 1 << 14
+	serviceFlagModeFlip        = 1 << 15
 )
 
 type SvcFlagParam struct {
 	SvcType          SVCType
+	SvcModeFlip      bool
 	SvcNatPolicy     SVCNatPolicy
 	SvcExtLocal      bool
 	SvcIntLocal      bool
@@ -137,6 +146,9 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 	}
 	if p.Quarantined {
 		flags |= serviceFlagQuarantined
+	}
+	if p.SvcModeFlip {
+		flags |= serviceFlagModeFlip
 	}
 
 	return flags
@@ -240,6 +252,9 @@ func (s ServiceFlags) String() string {
 	}
 	if s&serviceFlagQuarantined != 0 {
 		str = append(str, "quarantined")
+	}
+	if s&serviceFlagModeFlip != 0 {
+		str = append(str, "flip")
 	}
 	return strings.Join(str, ", ")
 }
@@ -457,6 +472,7 @@ type SVC struct {
 	Frontend                  L3n4AddrID       // SVC frontend addr and an allocated ID
 	Backends                  []*Backend       // List of service backends
 	Type                      SVCType          // Service type
+	Mode                      SVCMode          // Service mode (DSR vs SNAT)
 	ExtTrafficPolicy          SVCTrafficPolicy // Service external traffic policy
 	IntTrafficPolicy          SVCTrafficPolicy // Service internal traffic policy
 	NatPolicy                 SVCNatPolicy     // Service NAT 46/64 policy

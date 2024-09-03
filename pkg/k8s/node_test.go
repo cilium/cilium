@@ -411,5 +411,6 @@ func TestParseNodeWithService(t *testing.T) {
 		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 		Type:                     loadbalancer.SVCTypeClusterIP,
+		Mode:                     loadbalancer.SVCModeSNAT,
 	}, svc)
 }

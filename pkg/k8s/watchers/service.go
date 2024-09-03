@@ -415,6 +415,7 @@ func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoi
 
 	// apply common service properties
 	for i := range svcs {
+		svcs[i].Mode = svc.Mode
 		svcs[i].ExtTrafficPolicy = svc.ExtTrafficPolicy
 		svcs[i].IntTrafficPolicy = svc.IntTrafficPolicy
 		svcs[i].HealthCheckNodePort = svc.HealthCheckNodePort
@@ -542,6 +543,7 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 			Frontend:                  dpSvc.Frontend,
 			Backends:                  dpSvc.Backends,
 			Type:                      dpSvc.Type,
+			Mode:                      dpSvc.Mode,
 			ExtTrafficPolicy:          dpSvc.ExtTrafficPolicy,
 			IntTrafficPolicy:          dpSvc.IntTrafficPolicy,
 			SessionAffinity:           dpSvc.SessionAffinity,

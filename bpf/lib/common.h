@@ -896,13 +896,14 @@ enum {
 
 /* Service flags (lb{4,6}_service->flags2) */
 enum {
-	SVC_FLAG_LOCALREDIRECT  = (1 << 0),  /* local redirect */
+	SVC_FLAG_LOCALREDIRECT  = (1 << 0),  /* Local redirect service */
 	SVC_FLAG_NAT_46X64      = (1 << 1),  /* NAT-46/64 entry */
 	SVC_FLAG_L7LOADBALANCER = (1 << 2),  /* tproxy redirect to local l7 loadbalancer */
-	SVC_FLAG_LOOPBACK       = (1 << 3),  /* hostport with a loopback hostIP */
+	SVC_FLAG_LOOPBACK       = (1 << 3),  /* HostPort with a loopback hostIP */
 	SVC_FLAG_INT_LOCAL_SCOPE = (1 << 4), /* internalTrafficPolicy=Local */
-	SVC_FLAG_TWO_SCOPES     = (1 << 5),  /* two sets of backends are used for external/internal connections */
+	SVC_FLAG_TWO_SCOPES     = (1 << 5),  /* Two sets of backends are used for external/internal connections */
 	SVC_FLAG_QUARANTINED    = (1 << 6),  /* Backend slot (key: backend_slot > 0) is quarantined */
+	SVC_FLAG_MODE_FLIP      = (1 << 7),  /* If bit is set, use DSR/SNAT if SNAT/DSR is default */
 };
 
 /* Backend flags (lb{4,6}_backends->flags) */
