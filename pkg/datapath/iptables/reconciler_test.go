@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 	"k8s.io/apimachinery/pkg/util/sets"
+	baseclocktest "k8s.io/utils/clock/testing"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -33,6 +34,7 @@ func TestReconciliationLoop(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
 	var (
+		clock   = baseclocktest.NewFakeClock(time.Now())
 		db      *statedb.DB
 		devices statedb.RWTable[*tables.Device]
 		store   *node.LocalNodeStore
@@ -61,6 +63,7 @@ func TestReconciliationLoop(t *testing.T) {
 				db.RegisterTable(devices_)
 				health = health_.NewScope("iptables-reconciler-test")
 				params = &reconcilerParams{
+					clock:          clock,
 					localNodeStore: store_,
 					db:             db_,
 					devices:        devices_,
@@ -370,6 +373,11 @@ func TestReconciliationLoop(t *testing.T) {
 
 			// wait for reconciler to react to the update
 			assert.Eventuallyf(t, func() bool {
+				// Advance the clock, to trigger the ticker responsible to perform the update.
+				// This is called for every step to prevent the possibility of race conditions
+				// caused by the ticker channel being selected before the actual event.
+				clock.Step(200 * time.Millisecond)
+
 				mu.Lock()
 				defer mu.Unlock()
 				if err := assertIptablesState(state, tc.expected); err != nil {

@@ -154,7 +154,7 @@ func reconciliationLoop(
 
 	// Use a ticker to limit how often the desired state is reconciled to avoid doing
 	// lots of operations when e.g. ipset updates.
-	ticker := time.NewTicker(minReconciliationInterval)
+	ticker := params.clock.NewTicker(minReconciliationInterval)
 	defer ticker.Stop()
 
 	// stateChanged is true when the desired state has changed or when reconciling it
@@ -283,7 +283,7 @@ stop:
 			} else {
 				close(req.updated)
 			}
-		case <-ticker.C:
+		case <-ticker.C():
 			if !stateChanged {
 				continue
 			}
