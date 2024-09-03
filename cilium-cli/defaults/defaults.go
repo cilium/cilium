@@ -109,8 +109,9 @@ const (
 )
 
 var (
-	// renovate: datasource=github-releases depName=cilium/cilium
-	Version = "v1.16.1"
+	// Version is the default Cilium version to be installed. It is set during build based on
+	// the version in stable.txt.
+	Version string
 
 	// HelmRepository specifies Helm repository to download Cilium charts from.
 	HelmRepository = "https://helm.cilium.io"
