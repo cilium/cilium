@@ -389,6 +389,26 @@ func TestReconciliationLoop(t *testing.T) {
 		})
 	}
 
+	// Manually reset the current state, and assert that it eventually converges
+	// back to the desired one thanks to the periodic refresh logic.
+	updateFunc(desiredState{}, false)
+	clock.Step(30 * time.Minute)
+
+	// wait for reconciler to react to the update
+	expected := testCases[len(testCases)-1].expected
+	assert.Eventuallyf(t, func() bool {
+		// Advance the clock, to trigger the ticker responsible to perform the update.
+		clock.Step(200 * time.Millisecond)
+
+		mu.Lock()
+		defer mu.Unlock()
+		if err := assertIptablesState(state, expected); err != nil {
+			t.Logf("assertIptablesState: %s", err)
+			return false
+		}
+		return true
+	}, 10*time.Second, 10*time.Millisecond, "expected state not reached. %v", expected)
+
 	assert.NoError(t, h.Stop(tlog, ctx))
 
 	close(params.proxies)
