@@ -461,6 +461,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			}
 			if option.Config.NodePortMode == option.NodePortModeHybrid {
 				cDefinesMap["ENABLE_DSR_HYBRID"] = "1"
+			} else if option.Config.NodePortMode == option.NodePortModeAnnotation {
+				cDefinesMap["ENABLE_DSR_HYBRID"] = "1"
+				cDefinesMap["ENABLE_DSR_BYUSER"] = "1"
 			}
 			if option.Config.LoadBalancerDSRDispatch == option.DSRDispatchOption {
 				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapNone)
