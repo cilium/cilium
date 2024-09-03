@@ -225,14 +225,13 @@ func testCurlFromOutsideWithLocalPort(kubectl *helpers.Kubectl, ni *helpers.Node
 			ipStr := strings.TrimSpace(strings.Split(res.Stdout(), "=")[1])
 			sourceIP, err := netip.ParseAddr(ipStr)
 			ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IP %q", ipStr)
+			sourceIP = sourceIP.Unmap()
 			var outIP netip.Addr
 			switch {
 			case sourceIP.Is4():
 				outIP, err = netip.ParseAddr(ni.OutsideIP)
+				outIP = outIP.Unmap()
 				ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IPv4 address %q", ni.OutsideIP)
-			case sourceIP.Is4In6():
-				outIP, err = netip.ParseAddr(ni.OutsideIP)
-				ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IPv4-mapped IPv6 address %q", ni.OutsideIP)
 			default:
 				outIP, err = netip.ParseAddr(ni.OutsideIPv6)
 				ExpectWithOffset(1, err).Should(BeNil(), "Cannot parse IPv6 address %q", ni.OutsideIP)
