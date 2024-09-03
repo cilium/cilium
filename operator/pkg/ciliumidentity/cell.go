@@ -17,14 +17,19 @@ var Cell = cell.Module(
 	"Cilium Identity Controller Operator",
 	cell.Invoke(registerController),
 	metrics.Metric(NewMetrics),
+	cell.Config(defaultConfig),
 )
 
 type config struct {
-	EnableOperatorManageCIDs bool
+	EnableOperatorManageCIDs bool `mapstructure:"operator-manages-identities"`
 }
 
 func (c config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("operator-manages-identities", c.EnableOperatorManageCIDs, "Enables operator to manage Cilium Identities by running a Cilium Identity controller")
+}
+
+var defaultConfig = config{
+	EnableOperatorManageCIDs: false,
 }
 
 // SharedConfig contains the configuration that is shared between
