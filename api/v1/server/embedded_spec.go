@@ -2215,6 +2215,13 @@ func init() {
             "type": "string"
           }
         },
+        "match-families": {
+          "description": "Matches any of the provided address families. If empty matches all address families.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpFamily"
+          }
+        },
         "match-neighbors": {
           "description": "Matches any of the provided BGP neighbor IP addresses. If empty matches all neighbors.",
           "type": "array",
@@ -7906,6 +7913,13 @@ func init() {
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "match-families": {
+          "description": "Matches any of the provided address families. If empty matches all address families.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpFamily"
           }
         },
         "match-neighbors": {

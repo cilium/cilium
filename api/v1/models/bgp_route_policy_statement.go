@@ -30,6 +30,9 @@ type BgpRoutePolicyStatement struct {
 	// List of BGP large community values to be added to the matched route
 	AddLargeCommunities []string `json:"add-large-communities"`
 
+	// Matches any of the provided address families. If empty matches all address families.
+	MatchFamilies []*BgpFamily `json:"match-families"`
+
 	// Matches any of the provided BGP neighbor IP addresses. If empty matches all neighbors.
 	MatchNeighbors []string `json:"match-neighbors"`
 
@@ -48,6 +51,10 @@ type BgpRoutePolicyStatement struct {
 func (m *BgpRoutePolicyStatement) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateMatchFamilies(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateMatchPrefixes(formats); err != nil {
 		res = append(res, err)
 	}
@@ -59,6 +66,32 @@ func (m *BgpRoutePolicyStatement) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *BgpRoutePolicyStatement) validateMatchFamilies(formats strfmt.Registry) error {
+	if swag.IsZero(m.MatchFamilies) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.MatchFamilies); i++ {
+		if swag.IsZero(m.MatchFamilies[i]) { // not required
+			continue
+		}
+
+		if m.MatchFamilies[i] != nil {
+			if err := m.MatchFamilies[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("match-families" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("match-families" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
 	return nil
 }
 
@@ -137,6 +170,10 @@ func (m *BgpRoutePolicyStatement) validateRouteAction(formats strfmt.Registry) e
 func (m *BgpRoutePolicyStatement) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.contextValidateMatchFamilies(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidateMatchPrefixes(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -144,6 +181,31 @@ func (m *BgpRoutePolicyStatement) ContextValidate(ctx context.Context, formats s
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *BgpRoutePolicyStatement) contextValidateMatchFamilies(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.MatchFamilies); i++ {
+
+		if m.MatchFamilies[i] != nil {
+
+			if swag.IsZero(m.MatchFamilies[i]) { // not required
+				return nil
+			}
+
+			if err := m.MatchFamilies[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("match-families" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("match-families" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
 	return nil
 }
 

@@ -4100,6 +4100,11 @@ definitions:
         type: array
         items:
           type: string
+      match-families:
+        description:  Matches any of the provided address families. If empty matches all address families.
+        type: array
+        items:
+          "$ref": "#/definitions/BgpFamily"
       match-prefixes:
         description:  Matches any of the provided prefixes. If empty matches all prefixes.
         type: array
