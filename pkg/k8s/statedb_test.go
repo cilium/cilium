@@ -252,11 +252,8 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	}
 
 	// Wait until the table has been initialized.
-	require.Eventually(
-		t,
-		func() bool { return table.Initialized(db.ReadTxn()) },
-		time.Second,
-		5*time.Millisecond)
+	_, initWatch := table.Initialized(db.ReadTxn())
+	<-initWatch
 
 	// After initialization we should see the node that was created
 	// before starting.
@@ -381,11 +378,8 @@ func BenchmarkStateDBReflector(b *testing.B) {
 	}
 
 	// Wait until the table has been initialized.
-	require.Eventually(
-		b,
-		func() bool { return table.Initialized(db.ReadTxn()) },
-		time.Second,
-		5*time.Millisecond)
+	_, initWatch := table.Initialized(db.ReadTxn())
+	<-initWatch
 
 	const numObjects = 10000
 

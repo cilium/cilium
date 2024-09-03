@@ -45,8 +45,10 @@ func (r *reconciler[Obj]) reconcileLoop(ctx context.Context, health cell.Health)
 
 	tableWatchChan := closedWatchChannel
 
-	tableInitialized := false
 	externalPrune := false
+
+	tableInitialized := false
+	_, tableInitWatch := r.config.Table.Initialized(txn)
 
 	for {
 		// Throttle a bit before reconciliation to allow for a bigger batch to arrive and
@@ -54,6 +56,7 @@ func (r *reconciler[Obj]) reconcileLoop(ctx context.Context, health cell.Health)
 		if err := r.config.RateLimiter.Wait(ctx); err != nil {
 			return err
 		}
+
 		prune := false
 
 		// Wait for trigger
@@ -64,6 +67,13 @@ func (r *reconciler[Obj]) reconcileLoop(ctx context.Context, health cell.Health)
 			// Object(s) are ready to be retried
 		case <-tableWatchChan:
 			// Table has changed
+		case <-tableInitWatch:
+			tableInitialized = true
+			tableInitWatch = nil
+
+			// Do an immediate pruning now as the table has finished
+			// initializing and pruning is enabled.
+			prune = r.config.PruneInterval != 0
 		case <-pruneTickerChan:
 			prune = true
 		case <-r.externalPruneTrigger:
@@ -79,19 +89,7 @@ func (r *reconciler[Obj]) reconcileLoop(ctx context.Context, health cell.Health)
 		// objects.
 		errs := r.incremental(ctx, txn, changes)
 
-		if !tableInitialized {
-			if r.config.Table.Initialized(txn) {
-				tableInitialized = true
-
-				// Do an immediate pruning now as the table has finished
-				// initializing and pruning is enabled.
-				prune = r.config.PruneInterval != 0
-			} else {
-				// Table not initialized yet, skip this pruning round.
-				prune = false
-			}
-		}
-		if prune || (tableInitialized && externalPrune) {
+		if tableInitialized && (prune || externalPrune) {
 			if err := r.prune(ctx, txn); err != nil {
 				errs = append(errs, err)
 			}
