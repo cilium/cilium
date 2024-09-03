@@ -86,6 +86,18 @@ type CachingIdentityAllocator struct {
 	// checkpointPath is the file where local allocator state should be checkpoointed.
 	// The default is /run/cilium/state/local_allocator_state.json, changed only for testing.
 	checkpointPath string
+
+	// operatorIDManagement indicates if cilium-operator is managing Cilium Identities.
+	operatorIDManagement bool
+
+	// maxAllocAttempts is the number of attempted allocation requests
+	// performed before failing. This is mainly introduced for testing purposes.
+	maxAllocAttempts int
+}
+
+type AllocatorConfig struct {
+	EnableOperatorManageCIDs bool
+	maxAllocAttempts         int
 }
 
 // IdentityAllocatorOwner is the interface the owner of an identity allocator
@@ -248,11 +260,20 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 			log.Fatalf("Unsupported identity allocation mode %s", option.Config.IdentityAllocationMode)
 		}
 
-		a, err := allocator.NewAllocator(&key.GlobalIdentity{}, backend,
+		allocOptions := []allocator.AllocatorOption{
 			allocator.WithMax(maxID), allocator.WithMin(minID),
 			allocator.WithEvents(events),
-			allocator.WithMasterKeyProtection(),
-			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.GetClusterIDShift())))
+			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID << identity.GetClusterIDShift())),
+		}
+		if m.operatorIDManagement {
+			allocOptions = append(allocOptions, allocator.WithOperatorIDManagement())
+		} else {
+			allocOptions = append(allocOptions, allocator.WithMasterKeyProtection())
+		}
+		if m.maxAllocAttempts > 0 {
+			allocOptions = append(allocOptions, allocator.WithMaxAllocAttempts(m.maxAllocAttempts))
+		}
+		a, err := allocator.NewAllocator(&key.GlobalIdentity{}, backend, allocOptions...)
 		if err != nil {
 			log.WithError(err).Fatalf("Unable to initialize Identity Allocator with backend %s", option.Config.IdentityAllocationMode)
 		}
@@ -307,7 +328,7 @@ const eventsQueueSize = 1024
 
 // NewCachingIdentityAllocator creates a new instance of an
 // CachingIdentityAllocator.
-func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityAllocator {
+func NewCachingIdentityAllocator(owner IdentityAllocatorOwner, config AllocatorConfig) *CachingIdentityAllocator {
 	watcher := identityWatcher{
 		owner: owner,
 	}
@@ -318,6 +339,8 @@ func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityA
 		identitiesPath:                     IdentitiesPath,
 		watcher:                            watcher,
 		events:                             make(allocator.AllocatorEventChan, eventsQueueSize),
+		operatorIDManagement:               config.EnableOperatorManageCIDs,
+		maxAllocAttempts:                   config.maxAllocAttempts,
 	}
 	if option.Config.RunDir != "" { // disable checkpointing if this is a unit test
 		m.checkpointPath = filepath.Join(option.Config.StateDir, CheckpointFile)
