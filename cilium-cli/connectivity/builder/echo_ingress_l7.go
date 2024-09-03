@@ -60,8 +60,7 @@ func (t echoIngressL7) build(ct *check.ConnectivityTest, _ map[string]string) {
 			}
 			// ipsec can't do node encryption, so just skip the test when routing=tunnel + kpr=1.
 			if ok, _ := ct.Features.MatchRequirements(features.RequireMode(features.EncryptionPod, "ipsec")); ok {
-				// We can relax the version check to 1.16.x once backport lands.
-				if !versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
+				if !versioncheck.MustCompile(">=1.16.2")(ct.CiliumVersion) {
 					return false
 				}
 				ok, _ = ct.Features.MatchRequirements(
