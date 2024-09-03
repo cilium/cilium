@@ -21,6 +21,7 @@ import (
 	"github.com/mattn/go-shellwords"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	"k8s.io/utils/clock"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -265,6 +266,7 @@ type Manager struct {
 }
 
 type reconcilerParams struct {
+	clock          clock.WithTicker
 	localNodeStore *node.LocalNodeStore
 	db             *statedb.DB
 	devices        statedb.Table[*tables.Device]
@@ -300,6 +302,7 @@ func newIptablesManager(p params) datapath.IptablesManager {
 		cfg:        p.Cfg,
 		sharedCfg:  p.SharedCfg,
 		reconcilerParams: reconcilerParams{
+			clock:          clock.RealClock{},
 			localNodeStore: p.LocalNodeStore,
 			db:             p.DB,
 			devices:        p.Devices,
