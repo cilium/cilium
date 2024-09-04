@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type serviceStore struct {
@@ -103,10 +104,12 @@ func (sv *ServiceView) isCompatible(osv *ServiceView) (bool, string) {
 	// Compatible services don't have any overlapping ports with the same protocol.
 	// NOTE: The Cilium datapath can differentiate between protocols,thanks to the merge
 	//       of PR https://github.com/cilium/cilium/pull/33434.
+	diff := option.Config.LoadBalancerProtocolDifferentiation
 	for _, port1 := range sv.Ports {
 		for _, port2 := range osv.Ports {
-			if port1.Port == port2.Port && port1.Protocol == port2.Protocol && (port1.Protocol == slim_core_v1.ProtocolTCP || port1.Protocol == slim_core_v1.ProtocolUDP) {
-				return false, "same port and protocol"
+			if port1.Port == port2.Port &&
+				(!diff || (diff && port1.Protocol == port2.Protocol && (port1.Protocol == slim_core_v1.ProtocolTCP || port1.Protocol == slim_core_v1.ProtocolUDP))) {
+				return false, "same port"
 			}
 		}
 	}
