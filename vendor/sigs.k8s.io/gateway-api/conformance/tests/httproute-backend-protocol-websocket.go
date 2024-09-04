@@ -40,7 +40,7 @@ func init() {
 var HTTPRouteBackendProtocolWebSocket = suite.ConformanceTest{
 	ShortName:   "HTTPRouteBackendProtocolWebSocket",
 	Description: "A HTTPRoute with a BackendRef that has an appProtocol kubernetes.io/ws should be functional",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteBackendProtocolWebSocket,

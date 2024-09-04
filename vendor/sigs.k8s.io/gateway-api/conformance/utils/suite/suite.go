@@ -68,7 +68,7 @@ type ConformanceTestSuite struct {
 	BaseManifests            string
 	MeshManifests            string
 	Applier                  kubernetes.Applier
-	SupportedFeatures        sets.Set[features.SupportedFeature]
+	SupportedFeatures        sets.Set[features.FeatureName]
 	TimeoutConfig            config.TimeoutConfig
 	SkipTests                sets.Set[string]
 	RunTest                  string
@@ -109,11 +109,11 @@ type ConformanceTestSuite struct {
 
 	// extendedSupportedFeatures is a compiled list of named features that were
 	// marked as supported, and is used for reporting the test results.
-	extendedSupportedFeatures map[ConformanceProfileName]sets.Set[features.SupportedFeature]
+	extendedSupportedFeatures map[ConformanceProfileName]sets.Set[features.FeatureName]
 
 	// extendedUnsupportedFeatures is a compiled list of named features that were
 	// marked as not supported, and is used for reporting the test results.
-	extendedUnsupportedFeatures map[ConformanceProfileName]sets.Set[features.SupportedFeature]
+	extendedUnsupportedFeatures map[ConformanceProfileName]sets.Set[features.FeatureName]
 
 	// lock is a mutex to help ensure thread safety of the test suite object.
 	lock sync.RWMutex
@@ -137,8 +137,8 @@ type ConformanceOptions struct {
 	// CleanupBaseResources indicates whether or not the base test
 	// resources such as Gateways should be cleaned up after the run.
 	CleanupBaseResources       bool
-	SupportedFeatures          sets.Set[features.SupportedFeature]
-	ExemptFeatures             sets.Set[features.SupportedFeature]
+	SupportedFeatures          sets.Set[features.FeatureName]
+	ExemptFeatures             sets.Set[features.FeatureName]
 	EnableAllSupportedFeatures bool
 	TimeoutConfig              config.TimeoutConfig
 	// SkipTests contains all the tests not to be run and can be used to opt out
@@ -220,9 +220,9 @@ func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite,
 	// cover all features, if they don't they'll need to have provided a
 	// conformance profile or at least some specific features they support.
 	if options.EnableAllSupportedFeatures {
-		options.SupportedFeatures = features.AllFeatures
+		options.SupportedFeatures = features.SetsToNamesSet(features.AllFeatures)
 	} else if options.SupportedFeatures == nil {
-		options.SupportedFeatures = sets.New[features.SupportedFeature]()
+		options.SupportedFeatures = sets.New[features.FeatureName]()
 	}
 
 	for feature := range options.ExemptFeatures {
@@ -252,8 +252,8 @@ func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite,
 		UsableNetworkAddresses:      options.UsableNetworkAddresses,
 		UnusableNetworkAddresses:    options.UnusableNetworkAddresses,
 		results:                     make(map[string]testResult),
-		extendedUnsupportedFeatures: make(map[ConformanceProfileName]sets.Set[features.SupportedFeature]),
-		extendedSupportedFeatures:   make(map[ConformanceProfileName]sets.Set[features.SupportedFeature]),
+		extendedUnsupportedFeatures: make(map[ConformanceProfileName]sets.Set[features.FeatureName]),
+		extendedSupportedFeatures:   make(map[ConformanceProfileName]sets.Set[features.FeatureName]),
 		conformanceProfiles:         options.ConformanceProfiles,
 		implementation:              options.Implementation,
 		mode:                        mode,
@@ -276,12 +276,12 @@ func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite,
 		for _, f := range conformanceProfile.ExtendedFeatures.UnsortedList() {
 			if options.SupportedFeatures.Has(f) {
 				if suite.extendedSupportedFeatures[conformanceProfileName] == nil {
-					suite.extendedSupportedFeatures[conformanceProfileName] = sets.New[features.SupportedFeature]()
+					suite.extendedSupportedFeatures[conformanceProfileName] = sets.New[features.FeatureName]()
 				}
 				suite.extendedSupportedFeatures[conformanceProfileName].Insert(f)
 			} else {
 				if suite.extendedUnsupportedFeatures[conformanceProfileName] == nil {
-					suite.extendedUnsupportedFeatures[conformanceProfileName] = sets.New[features.SupportedFeature]()
+					suite.extendedUnsupportedFeatures[conformanceProfileName] = sets.New[features.FeatureName]()
 				}
 				suite.extendedUnsupportedFeatures[conformanceProfileName].Insert(f)
 			}

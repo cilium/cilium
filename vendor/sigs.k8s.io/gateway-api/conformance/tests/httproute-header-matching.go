@@ -34,7 +34,7 @@ func init() {
 var HTTPRouteHeaderMatching = suite.ConformanceTest{
 	ShortName:   "HTTPRouteHeaderMatching",
 	Description: "A single HTTPRoute with header matching for different backends",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 	},

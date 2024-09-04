@@ -34,7 +34,7 @@ func init() {
 var GatewayHTTPListenerIsolation = suite.ConformanceTest{
 	ShortName:   "GatewayHTTPListenerIsolation",
 	Description: "Listener isolation for HTTP listeners with multiple listeners and HTTPRoutes",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportGatewayHTTPListenerIsolation,
 		features.SupportHTTPRoute,

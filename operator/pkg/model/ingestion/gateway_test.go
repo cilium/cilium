@@ -47,7 +47,7 @@ var basicHTTP = Input{
 				},
 			},
 			Infrastructure: &gatewayv1.GatewayInfrastructure{
-				Labels: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{
+				Labels: map[gatewayv1.LabelKey]gatewayv1.LabelValue{
 					"internal-loadbalancer-label": "true",
 				},
 				Annotations: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{

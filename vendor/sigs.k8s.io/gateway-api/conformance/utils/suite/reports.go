@@ -107,7 +107,7 @@ func (p profileReportsMap) list() (profileReports []confv1.ProfileReport) {
 	return
 }
 
-func (p profileReportsMap) compileResults(supportedFeaturesMap map[ConformanceProfileName]sets.Set[features.SupportedFeature], unsupportedFeaturesMap map[ConformanceProfileName]sets.Set[features.SupportedFeature]) {
+func (p profileReportsMap) compileResults(supportedFeaturesMap map[ConformanceProfileName]sets.Set[features.FeatureName], unsupportedFeaturesMap map[ConformanceProfileName]sets.Set[features.FeatureName]) {
 	for key, report := range p {
 		// report the overall result for core features
 		switch {
