@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -16,8 +17,12 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 )
 
+const (
+	testNamespace = "default"
+)
+
 type endpointUpdate struct {
-	oldEp, newEp *types.CiliumEndpoint
+	OldEP, NewEP *types.CiliumEndpoint
 }
 
 func epToString(e *types.CiliumEndpoint) string {
@@ -27,8 +32,8 @@ func epToString(e *types.CiliumEndpoint) string {
 	return fmt.Sprintf("ep(id: %d)", e.Identity.ID)
 }
 
-func (u endpointUpdate) toString() string {
-	return fmt.Sprintf("(%s, %s)", epToString(u.oldEp), epToString(u.newEp))
+func (u endpointUpdate) String() string {
+	return fmt.Sprintf("(%s, %s)", epToString(u.OldEP), epToString(u.NewEP))
 }
 
 func epEqual(e1, e2 *types.CiliumEndpoint) bool {
@@ -36,43 +41,78 @@ func epEqual(e1, e2 *types.CiliumEndpoint) bool {
 }
 
 func updateEqual(u1, u2 endpointUpdate) bool {
-	return epEqual(u1.oldEp, u2.oldEp) && epEqual(u1.newEp, u2.newEp)
+	return epEqual(u1.OldEP, u2.OldEP) && epEqual(u1.NewEP, u2.NewEP)
+}
+
+// endpointLess compares two endpoints for the purposes of sorting.
+// Returns true if `b` is "greater".
+// This function only considers name and ID, as those are the variables used during tests.
+func endpointLess(a, b *types.CiliumEndpoint) bool {
+	if a == nil {
+		return true
+	}
+	if b == nil {
+		return false
+	}
+	if b.Name == a.Name {
+		return b.Identity.ID > a.Identity.ID
+	}
+	return b.Name > a.Name
+}
+
+// updateLess compares two endpoint updates for the purposes of sorting.
+// This is safe because an update always has a new endpoint.
+func updateLess(a, b endpointUpdate) bool {
+	return endpointLess(a.NewEP, b.NewEP)
 }
 
 type fakeEPWatcher struct {
-	lastUpdate endpointUpdate
-	lastDelete *types.CiliumEndpoint
+	updates []endpointUpdate
+	deleted []*types.CiliumEndpoint
 }
 
 func createFakeEPWatcher() *fakeEPWatcher {
 	return &fakeEPWatcher{}
 }
 
+func (fw *fakeEPWatcher) reset() {
+	fw.updates = []endpointUpdate(nil)
+	fw.deleted = []*types.CiliumEndpoint(nil)
+}
+
 func (fw *fakeEPWatcher) endpointUpdated(oldC, newC *types.CiliumEndpoint) {
-	fw.lastUpdate = endpointUpdate{oldC, newC}
+	fw.updates = append(fw.updates, endpointUpdate{oldC, newC})
 }
 
 func (fw *fakeEPWatcher) endpointDeleted(c *types.CiliumEndpoint) {
-	fw.lastDelete = c
+	fw.deleted = append(fw.deleted, c)
 }
 
 func (fw *fakeEPWatcher) assertUpdate(u endpointUpdate) (string, bool) {
-	if !updateEqual(fw.lastUpdate, u) {
-		return fmt.Sprintf("Expected %s, got %s", u.toString(), fw.lastUpdate.toString()), false
+	var latest endpointUpdate
+	if len(fw.updates) > 0 {
+		latest = fw.updates[len(fw.updates)-1]
+	}
+	if !updateEqual(latest, u) {
+		return fmt.Sprintf("Expected %s, got %s", u, latest), false
 	}
 	return "", true
 }
 
 func (fw *fakeEPWatcher) assertNoDelete() (string, bool) {
-	if fw.lastDelete != nil {
-		return fmt.Sprintf("Expected no delete, got %s", epToString(fw.lastDelete)), false
+	if len(fw.deleted) > 0 {
+		return fmt.Sprintf("Expected no delete, got %v", fw.deleted), false
 	}
 	return "", true
 }
 
 func (fw *fakeEPWatcher) assertDelete(e *types.CiliumEndpoint) (string, bool) {
-	if !epEqual(fw.lastDelete, e) {
-		return fmt.Sprintf("Expected no delete, got %s", epToString(fw.lastDelete)), false
+	var latest *types.CiliumEndpoint
+	if len(fw.deleted) > 0 {
+		latest = fw.deleted[len(fw.deleted)-1]
+	}
+	if !epEqual(latest, e) {
+		return fmt.Sprintf("Expected no delete, got %s", epToString(latest)), false
 	}
 	return "", true
 }
@@ -130,7 +170,7 @@ func TestCESSubscriber_CEPTransferOnStartup(t *testing.T) {
 			},
 		}))
 	diff, ok := fakeEPWatcher.assertUpdate(endpointUpdate{
-		newEp: createEndpoint("cep1", "ns1", newCEPID),
+		NewEP: createEndpoint("cep1", "ns1", newCEPID),
 	})
 	if !ok {
 		t.Fatal(diff)
@@ -144,8 +184,8 @@ func TestCESSubscriber_CEPTransferOnStartup(t *testing.T) {
 			},
 		}))
 	diff, ok = fakeEPWatcher.assertUpdate(endpointUpdate{
-		oldEp: createEndpoint("cep1", "ns1", newCEPID),
-		newEp: createEndpoint("cep1", "ns1", oldCEPID),
+		OldEP: createEndpoint("cep1", "ns1", newCEPID),
+		NewEP: createEndpoint("cep1", "ns1", oldCEPID),
 	})
 	if !ok {
 		t.Fatal(diff)
@@ -159,8 +199,8 @@ func TestCESSubscriber_CEPTransferOnStartup(t *testing.T) {
 			},
 		}))
 	diff, ok = fakeEPWatcher.assertUpdate(endpointUpdate{
-		oldEp: createEndpoint("cep1", "ns1", oldCEPID),
-		newEp: createEndpoint("cep1", "ns1", newCEPID),
+		OldEP: createEndpoint("cep1", "ns1", oldCEPID),
+		NewEP: createEndpoint("cep1", "ns1", newCEPID),
 	})
 	if !ok {
 		t.Fatal(diff)
@@ -205,7 +245,7 @@ func TestCESSubscriber_CEPTransferViaUpdate(t *testing.T) {
 			},
 		}))
 	diff, ok := fakeEPWatcher.assertUpdate(endpointUpdate{
-		newEp: createEndpoint("cep1", "ns1", oldCEPID),
+		NewEP: createEndpoint("cep1", "ns1", oldCEPID),
 	})
 	if !ok {
 		t.Fatal(diff)
@@ -234,7 +274,7 @@ func TestCESSubscriber_CEPTransferViaUpdate(t *testing.T) {
 			},
 		}))
 	diff, ok = fakeEPWatcher.assertUpdate(endpointUpdate{
-		newEp: createEndpoint("cep1", "ns1", newCEPID),
+		NewEP: createEndpoint("cep1", "ns1", newCEPID),
 	})
 	if !ok {
 		t.Fatal(diff)
@@ -283,8 +323,8 @@ func TestCESSubscriber_deleteCEPfromCES(t *testing.T) {
 			deletedCesName: "ces1",
 			deletedCep:     createEndpoint("cep1", "ns1", 2),
 			expectedUpdate: endpointUpdate{
-				oldEp: createEndpoint("cep1", "ns1", 2),
-				newEp: createEndpoint("cep1", "ns1", 3),
+				OldEP: createEndpoint("cep1", "ns1", 2),
+				NewEP: createEndpoint("cep1", "ns1", 3),
 			},
 		},
 		{
@@ -493,6 +533,249 @@ func TestCEPToCESmap_deleteCEP(t *testing.T) {
 			}
 			if diff := cmp.Diff(tc.wantCurrentCES, cepToCESmap.currentCES); diff != "" {
 				t.Fatalf("Unexpected currentCES map entries (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestCESSubscriber_OnAdd(t *testing.T) {
+	testCases := []struct {
+		name       string
+		ces        *v2alpha1.CiliumEndpointSlice
+		expectAdds []endpointUpdate
+		// Expected cepToCESmap.expectedCurrentCES
+		expectedCurrentCES map[string]string
+	}{
+		{
+			name: "one_cep",
+			ces: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{Name: "cep1"},
+			}),
+			expectAdds: []endpointUpdate{
+				{NewEP: createEndpoint("cep1", testNamespace, 0)},
+			},
+			expectedCurrentCES: map[string]string{
+				"default/cep1": "ces",
+			},
+		},
+		{
+			name: "two_ceps",
+			ces: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{Name: "cep1"},
+				{Name: "cep2"},
+			}),
+			expectAdds: []endpointUpdate{
+				{NewEP: createEndpoint("cep1", testNamespace, 0)},
+				{NewEP: createEndpoint("cep2", testNamespace, 0)},
+			},
+			expectedCurrentCES: map[string]string{
+				"default/cep1": "ces",
+				"default/cep2": "ces",
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			watcher := createFakeEPWatcher()
+			m := &cepToCESmap{
+				cepMap:     make(map[string]cesToCEPRef),
+				currentCES: make(map[string]string),
+			}
+			subscriber := &cesSubscriber{
+				epWatcher: watcher,
+				epCache:   &fakeEndpointCache{},
+				cepMap:    m,
+			}
+
+			subscriber.OnAdd(tc.ces)
+
+			if diff := cmp.Diff(tc.expectAdds, watcher.updates, cmpopts.SortSlices(updateLess)); diff != "" {
+				t.Errorf("Unexpected CEP updates(s) (-want +got):\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tc.expectedCurrentCES, m.currentCES); diff != "" {
+				t.Fatalf("Unexpected CEP to CES mapping (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestCESSubscriber_OnUpdate(t *testing.T) {
+	testCases := []struct {
+		name           string
+		newCES, oldCES *v2alpha1.CiliumEndpointSlice
+		expectUpdates  []endpointUpdate
+		// Expected cepToCESmap.expectedCurrentCES
+		expectedCurrentCES map[string]string
+	}{
+		{
+			name: "update_all",
+			oldCES: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{
+					Name:       "cep1",
+					IdentityID: 1,
+				},
+				{
+					Name:       "cep2",
+					IdentityID: 1,
+				},
+			}),
+			newCES: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{
+					Name:       "cep1",
+					IdentityID: 2,
+				},
+				{
+					Name:       "cep2",
+					IdentityID: 2,
+				},
+			}),
+			expectUpdates: []endpointUpdate{
+				{
+					OldEP: createEndpoint("cep1", testNamespace, 1),
+					NewEP: createEndpoint("cep1", testNamespace, 2),
+				},
+				{
+					OldEP: createEndpoint("cep2", testNamespace, 1),
+					NewEP: createEndpoint("cep2", testNamespace, 2),
+				},
+			},
+			expectedCurrentCES: map[string]string{
+				"default/cep1": "ces",
+				"default/cep2": "ces",
+			},
+		},
+		{
+			name: "update_one",
+			oldCES: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{
+					Name:       "cep1",
+					IdentityID: 1,
+				},
+				{
+					Name:       "cep2",
+					IdentityID: 1,
+				},
+			}),
+			newCES: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{
+					Name:       "cep1",
+					IdentityID: 2,
+				},
+				{
+					Name:       "cep2",
+					IdentityID: 1,
+				},
+			}),
+			expectUpdates: []endpointUpdate{
+				{
+					OldEP: createEndpoint("cep1", testNamespace, 1),
+					NewEP: createEndpoint("cep1", testNamespace, 2),
+				},
+			},
+			expectedCurrentCES: map[string]string{
+				"default/cep1": "ces",
+				"default/cep2": "ces",
+			},
+		},
+		{
+			name: "no_changes",
+			oldCES: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{Name: "cep1"},
+				{Name: "cep2"},
+			}),
+			newCES: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{Name: "cep1"},
+				{Name: "cep2"},
+			}),
+			expectedCurrentCES: map[string]string{
+				"default/cep1": "ces",
+				"default/cep2": "ces",
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			watcher := createFakeEPWatcher()
+			m := &cepToCESmap{
+				cepMap:     make(map[string]cesToCEPRef),
+				currentCES: make(map[string]string),
+			}
+			subscriber := &cesSubscriber{
+				epWatcher: watcher,
+				epCache:   &fakeEndpointCache{},
+				cepMap:    m,
+			}
+			// Initialize state, but do not record the events.
+			subscriber.OnAdd(tc.oldCES)
+			watcher.reset()
+
+			subscriber.OnUpdate(tc.oldCES, tc.newCES)
+
+			if diff := cmp.Diff(tc.expectUpdates, watcher.updates, cmpopts.SortSlices(updateLess)); diff != "" {
+				t.Errorf("Unexpected CEP updates(s) (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tc.expectedCurrentCES, m.currentCES); diff != "" {
+				t.Fatalf("Unexpected CEP to CES mapping (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestCESSubscriber_OnDelete(t *testing.T) {
+	testCases := []struct {
+		name          string
+		ces           *v2alpha1.CiliumEndpointSlice
+		expectDeleted []*types.CiliumEndpoint
+		// Expected cepToCESmap.expectedCurrentCES
+		expectedCurrentCES map[string]string
+	}{
+		{
+			name: "one_cep",
+			ces: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{Name: "cep1"},
+			}),
+			expectDeleted: []*types.CiliumEndpoint{
+				createEndpoint("cep1", testNamespace, 0),
+			},
+			expectedCurrentCES: map[string]string{},
+		},
+		{
+			name: "two_ceps",
+			ces: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{Name: "cep1"},
+				{Name: "cep2"},
+			}),
+			expectDeleted: []*types.CiliumEndpoint{
+				createEndpoint("cep1", testNamespace, 0),
+				createEndpoint("cep2", testNamespace, 0),
+			},
+			expectedCurrentCES: map[string]string{},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			watcher := createFakeEPWatcher()
+			m := &cepToCESmap{
+				cepMap:     make(map[string]cesToCEPRef),
+				currentCES: make(map[string]string),
+			}
+			subscriber := &cesSubscriber{
+				epWatcher: watcher,
+				epCache:   &fakeEndpointCache{},
+				cepMap:    m,
+			}
+			// Initialize state, but do not record the events.
+			subscriber.OnAdd(tc.ces)
+			watcher.reset()
+
+			subscriber.OnDelete(tc.ces)
+
+			if diff := cmp.Diff(tc.expectDeleted, watcher.deleted); diff != "" {
+				t.Errorf("Unexpected CEP deletion(s) (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tc.expectedCurrentCES, m.currentCES); diff != "" {
+				t.Fatalf("Unexpected CEP to CES mapping (-want +got):\n%s", diff)
 			}
 		})
 	}
