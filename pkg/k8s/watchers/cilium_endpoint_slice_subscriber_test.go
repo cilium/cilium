@@ -106,7 +106,7 @@ func (fw *fakeEPWatcher) assertNoDelete() (string, bool) {
 	return "", true
 }
 
-func (fw *fakeEPWatcher) assertDelete(e *types.CiliumEndpoint) (string, bool) {
+func (fw *fakeEPWatcher) assertLastDelete(e *types.CiliumEndpoint) (string, bool) {
 	var latest *types.CiliumEndpoint
 	if len(fw.deleted) > 0 {
 		latest = fw.deleted[len(fw.deleted)-1]
@@ -117,9 +117,30 @@ func (fw *fakeEPWatcher) assertDelete(e *types.CiliumEndpoint) (string, bool) {
 	return "", true
 }
 
-type fakeEndpointCache struct{}
+type cacheEntry struct {
+	Key   string
+	Value *endpoint.Endpoint
+}
+
+func newFakeEndpointCache(entries ...cacheEntry) *fakeEndpointCache {
+	epByName := map[string]*endpoint.Endpoint{}
+	for _, entry := range entries {
+		epByName[entry.Key] = entry.Value
+	}
+	return &fakeEndpointCache{
+		epByName: epByName,
+	}
+}
+
+type fakeEndpointCache struct {
+	epByName map[string]*endpoint.Endpoint
+}
 
 func (fe *fakeEndpointCache) LookupCEPName(namespacedName string) *endpoint.Endpoint {
+	// Current usage only necessitates returning non-nil object.
+	if _, ok := fe.epByName[namespacedName]; ok {
+		return &endpoint.Endpoint{}
+	}
 	return nil
 }
 
@@ -260,7 +281,7 @@ func TestCESSubscriber_CEPTransferViaUpdate(t *testing.T) {
 		}),
 		createCES("old-ces", cepNamespace, []v2alpha1.CoreCiliumEndpoint{}))
 
-	diff, ok = fakeEPWatcher.assertDelete(createEndpoint("cep1", "ns1", oldCEPID))
+	diff, ok = fakeEPWatcher.assertLastDelete(createEndpoint("cep1", "ns1", oldCEPID))
 	if !ok {
 		t.Fatal(diff)
 	}
@@ -358,7 +379,7 @@ func TestCESSubscriber_deleteCEPfromCES(t *testing.T) {
 			if !ok {
 				t.Error(diff)
 			}
-			diff, ok = fakeEPWatcher.assertDelete(tc.expectedDelete)
+			diff, ok = fakeEPWatcher.assertLastDelete(tc.expectedDelete)
 			if !ok {
 				t.Error(diff)
 			}
@@ -541,6 +562,7 @@ func TestCEPToCESmap_deleteCEP(t *testing.T) {
 func TestCESSubscriber_OnAdd(t *testing.T) {
 	testCases := []struct {
 		name       string
+		local      []cacheEntry
 		ces        *v2alpha1.CiliumEndpointSlice
 		expectAdds []endpointUpdate
 		// Expected cepToCESmap.expectedCurrentCES
@@ -573,6 +595,21 @@ func TestCESSubscriber_OnAdd(t *testing.T) {
 				"default/cep2": "ces",
 			},
 		},
+		{
+			name: "add_local",
+			local: []cacheEntry{
+				{Key: "default/cep1"},
+			},
+			ces: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{Name: "cep1"},
+			}),
+			expectAdds: []endpointUpdate{
+				{NewEP: createEndpoint("cep1", testNamespace, 0)},
+			},
+			expectedCurrentCES: map[string]string{
+				"default/cep1": "ces",
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -583,7 +620,7 @@ func TestCESSubscriber_OnAdd(t *testing.T) {
 			}
 			subscriber := &cesSubscriber{
 				epWatcher: watcher,
-				epCache:   &fakeEndpointCache{},
+				epCache:   newFakeEndpointCache(tc.local...),
 				cepMap:    m,
 			}
 
@@ -603,8 +640,10 @@ func TestCESSubscriber_OnAdd(t *testing.T) {
 func TestCESSubscriber_OnUpdate(t *testing.T) {
 	testCases := []struct {
 		name           string
+		local          []cacheEntry
 		newCES, oldCES *v2alpha1.CiliumEndpointSlice
 		expectUpdates  []endpointUpdate
+		expectDeleted  []*types.CiliumEndpoint
 		// Expected cepToCESmap.expectedCurrentCES
 		expectedCurrentCES map[string]string
 	}{
@@ -646,7 +685,7 @@ func TestCESSubscriber_OnUpdate(t *testing.T) {
 			},
 		},
 		{
-			name: "update_one",
+			name: "update_cep1",
 			oldCES: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
 				{
 					Name:       "cep1",
@@ -693,6 +732,93 @@ func TestCESSubscriber_OnUpdate(t *testing.T) {
 				"default/cep2": "ces",
 			},
 		},
+		{
+			name: "add_cep2",
+			oldCES: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{Name: "cep1"},
+			}),
+			newCES: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{Name: "cep1"},
+				{Name: "cep2"},
+			}),
+			expectUpdates: []endpointUpdate{
+				{NewEP: createEndpoint("cep2", testNamespace, 0)},
+			},
+			expectedCurrentCES: map[string]string{
+				"default/cep1": "ces",
+				"default/cep2": "ces",
+			},
+		},
+		{
+			name: "delete_cep2",
+			oldCES: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{Name: "cep1"},
+				{Name: "cep2"},
+			}),
+			newCES: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{Name: "cep1"},
+			}),
+			expectDeleted: []*types.CiliumEndpoint{
+				createEndpoint("cep2", testNamespace, 0),
+			},
+			expectedCurrentCES: map[string]string{
+				"default/cep1": "ces",
+			},
+		},
+		{
+			name: "add_update_delete",
+			oldCES: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{
+					Name:       "cep1",
+					IdentityID: 1,
+				},
+				{
+					Name: "cep2",
+				},
+			}),
+			newCES: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{
+					Name:       "cep1",
+					IdentityID: 2,
+				},
+				{
+					Name: "cep3",
+				},
+			}),
+			expectUpdates: []endpointUpdate{
+				{
+					NewEP: createEndpoint("cep3", testNamespace, 0),
+				},
+				{
+					OldEP: createEndpoint("cep1", testNamespace, 1),
+					NewEP: createEndpoint("cep1", testNamespace, 2),
+				},
+			},
+			expectDeleted: []*types.CiliumEndpoint{
+				createEndpoint("cep2", testNamespace, 0),
+			},
+			expectedCurrentCES: map[string]string{
+				"default/cep1": "ces",
+				"default/cep3": "ces",
+			},
+		},
+		{
+			name: "keep_local_cep2",
+			local: []cacheEntry{
+				{Key: "default/cep2"},
+			},
+			oldCES: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{Name: "cep1"},
+				{Name: "cep2"},
+			}),
+			newCES: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{Name: "cep1"},
+			}),
+			expectedCurrentCES: map[string]string{
+				"default/cep1": "ces",
+				"default/cep2": "ces",
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -703,7 +829,7 @@ func TestCESSubscriber_OnUpdate(t *testing.T) {
 			}
 			subscriber := &cesSubscriber{
 				epWatcher: watcher,
-				epCache:   &fakeEndpointCache{},
+				epCache:   newFakeEndpointCache(tc.local...),
 				cepMap:    m,
 			}
 			// Initialize state, but do not record the events.
@@ -715,6 +841,9 @@ func TestCESSubscriber_OnUpdate(t *testing.T) {
 			if diff := cmp.Diff(tc.expectUpdates, watcher.updates, cmpopts.SortSlices(updateLess)); diff != "" {
 				t.Errorf("Unexpected CEP updates(s) (-want +got):\n%s", diff)
 			}
+			if diff := cmp.Diff(tc.expectDeleted, watcher.deleted); diff != "" {
+				t.Errorf("Unexpected CEP deletion(s) (-want +got):\n%s", diff)
+			}
 			if diff := cmp.Diff(tc.expectedCurrentCES, m.currentCES); diff != "" {
 				t.Fatalf("Unexpected CEP to CES mapping (-want +got):\n%s", diff)
 			}
@@ -725,6 +854,7 @@ func TestCESSubscriber_OnUpdate(t *testing.T) {
 func TestCESSubscriber_OnDelete(t *testing.T) {
 	testCases := []struct {
 		name          string
+		local         []cacheEntry
 		ces           *v2alpha1.CiliumEndpointSlice
 		expectDeleted []*types.CiliumEndpoint
 		// Expected cepToCESmap.expectedCurrentCES
@@ -752,6 +882,22 @@ func TestCESSubscriber_OnDelete(t *testing.T) {
 			},
 			expectedCurrentCES: map[string]string{},
 		},
+		{
+			name: "keep_cep1",
+			local: []cacheEntry{
+				{Key: "default/cep1"},
+			},
+			ces: createCES("ces", testNamespace, []v2alpha1.CoreCiliumEndpoint{
+				{Name: "cep1"},
+				{Name: "cep2"},
+			}),
+			expectDeleted: []*types.CiliumEndpoint{
+				createEndpoint("cep2", testNamespace, 0),
+			},
+			expectedCurrentCES: map[string]string{
+				"default/cep1": "ces",
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -762,7 +908,7 @@ func TestCESSubscriber_OnDelete(t *testing.T) {
 			}
 			subscriber := &cesSubscriber{
 				epWatcher: watcher,
-				epCache:   &fakeEndpointCache{},
+				epCache:   newFakeEndpointCache(tc.local...),
 				cepMap:    m,
 			}
 			// Initialize state, but do not record the events.
