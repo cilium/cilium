@@ -154,7 +154,7 @@ jobs:
       - name: Prepare environment
         timeout-minutes: 15
         run: |
-          go install github.com/mfridman/tparse@28967170dce4f9f13de77ec857f7aed4c4294a5f # v0.12.3 (main) with -progress
+          go install github.com/mfridman/tparse@baf229e8494613f134bc0e1f4cb9dc9b12f66442 # v0.14.0
 
       - name: Run integration tests
         timeout-minutes: 60

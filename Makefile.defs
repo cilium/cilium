@@ -103,7 +103,7 @@ ifneq ($(shell command -v tparse),)
 	GOTEST_COVER_OPTS += -json
 	GOTEST_FORMATTER = tparse
 ifneq ($(V),0)
-	GOTEST_FORMATTER += -progress
+	GOTEST_FORMATTER += -follow
 endif
 endif
 
