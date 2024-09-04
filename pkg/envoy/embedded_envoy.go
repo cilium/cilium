@@ -20,13 +20,14 @@ import (
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
+	envoy_config_overload "github.com/cilium/proxy/go/envoy/config/overload/v3"
 	envoy_extensions_bootstrap_internal_listener_v3 "github.com/cilium/proxy/go/envoy/extensions/bootstrap/internal_listener/v3"
+	envoy_extensions_resource_monitors_downstream_connections "github.com/cilium/proxy/go/envoy/extensions/resource_monitors/downstream_connections/v3"
 	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -57,6 +58,8 @@ var (
 const (
 	ciliumEnvoyStarter = "cilium-envoy-starter"
 	ciliumEnvoy        = "cilium-envoy"
+
+	maxActiveDownstreamConnections = 50000
 )
 
 // EnableTracing changes Envoy log level to "trace", producing the most logs.
@@ -447,19 +450,15 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 				TypedConfig: toAny(&envoy_extensions_bootstrap_internal_listener_v3.InternalListener{}),
 			},
 		},
-		LayeredRuntime: &envoy_config_bootstrap.LayeredRuntime{
-			Layers: []*envoy_config_bootstrap.RuntimeLayer{
-				{
-					Name: "static_layer_0",
-					LayerSpecifier: &envoy_config_bootstrap.RuntimeLayer_StaticLayer{
-						StaticLayer: &structpb.Struct{Fields: map[string]*structpb.Value{
-							"overload": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-								"global_downstream_max_connections": {Kind: &structpb.Value_NumberValue{NumberValue: 50000}},
-							}}}},
-						}},
-					},
+		OverloadManager: &envoy_config_overload.OverloadManager{
+			ResourceMonitors: []*envoy_config_overload.ResourceMonitor{{
+				Name: "envoy.resource_monitors.global_downstream_max_connections",
+				ConfigType: &envoy_config_overload.ResourceMonitor_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_resource_monitors_downstream_connections.DownstreamConnectionsConfig{
+						MaxActiveDownstreamConnections: maxActiveDownstreamConnections,
+					}),
 				},
-			},
+			}},
 		},
 	}
 
