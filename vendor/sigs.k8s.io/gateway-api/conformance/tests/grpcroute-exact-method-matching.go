@@ -38,7 +38,7 @@ var GRPCExactMethodMatching = suite.ConformanceTest{
 	ShortName:   "GRPCExactMethodMatching",
 	Description: "A single GRPCRoute with exact method matching for different backends",
 	Manifests:   []string{"tests/grpcroute-exact-method-matching.yaml"},
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportGRPCRoute,
 	},

@@ -34,7 +34,7 @@ func init() {
 var HTTPRouteMatchingAcrossRoutes = suite.ConformanceTest{
 	ShortName:   "HTTPRouteMatchingAcrossRoutes",
 	Description: "Two HTTPRoutes with path matching for different backends",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 	},

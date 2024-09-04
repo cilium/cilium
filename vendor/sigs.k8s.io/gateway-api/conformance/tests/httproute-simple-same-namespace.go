@@ -35,7 +35,7 @@ func init() {
 var HTTPRouteSimpleSameNamespace = suite.ConformanceTest{
 	ShortName:   "HTTPRouteSimpleSameNamespace",
 	Description: "A single HTTPRoute in the gateway-conformance-infra namespace attaches to a Gateway in the same namespace",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 	},

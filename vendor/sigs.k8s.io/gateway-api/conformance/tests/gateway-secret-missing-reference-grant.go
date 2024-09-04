@@ -35,7 +35,7 @@ func init() {
 var GatewaySecretMissingReferenceGrant = suite.ConformanceTest{
 	ShortName:   "GatewaySecretMissingReferenceGrant",
 	Description: "A Gateway in the gateway-conformance-infra namespace should fail to become programmed if the Gateway has a certificateRef for a Secret in the gateway-conformance-web-backend namespace and a ReferenceGrant granting permission to the Secret does not exist",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportReferenceGrant,
 	},

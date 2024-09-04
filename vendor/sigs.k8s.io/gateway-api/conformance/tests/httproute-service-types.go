@@ -44,7 +44,7 @@ func init() {
 var HTTPRouteServiceTypes = suite.ConformanceTest{
 	ShortName:   "HTTPRouteServiceTypes",
 	Description: "A single HTTPRoute should be able to route traffic to various service type backends",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 	},

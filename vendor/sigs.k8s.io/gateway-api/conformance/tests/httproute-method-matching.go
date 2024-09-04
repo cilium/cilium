@@ -35,7 +35,7 @@ var HTTPRouteMethodMatching = suite.ConformanceTest{
 	ShortName:   "HTTPRouteMethodMatching",
 	Description: "A single HTTPRoute with method matching for different backends",
 	Manifests:   []string{"tests/httproute-method-matching.yaml"},
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteMethodMatching,

@@ -35,7 +35,7 @@ func init() {
 var GatewayInvalidTLSConfiguration = suite.ConformanceTest{
 	ShortName:   "GatewayInvalidTLSConfiguration",
 	Description: "A Gateway should fail to become ready if the Gateway has an invalid TLS configuration",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 	},
 	Manifests: []string{"tests/gateway-invalid-tls-configuration.yaml"},
@@ -77,7 +77,6 @@ var GatewayInvalidTLSConfiguration = suite.ConformanceTest{
 		}
 
 		for _, tc := range testCases {
-			tc := tc
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 				kubernetes.GatewayStatusMustHaveListeners(t, s.Client, s.TimeoutConfig, tc.gatewayNamespacedName, listeners)

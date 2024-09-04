@@ -57,7 +57,7 @@ func init() {
 var GatewayStaticAddresses = suite.ConformanceTest{
 	ShortName:   "GatewayStaticAddresses",
 	Description: "A Gateway in the gateway-conformance-infra namespace should be able to use previously determined addresses.",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportGatewayStaticAddresses,
 	},

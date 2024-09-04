@@ -206,8 +206,6 @@ func NamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig config.T
 				tlog.Errorf(t, "Error listing Gateways: %v", err)
 			}
 			for _, gw := range gwList.Items {
-				gw := gw
-
 				if val, ok := gw.Annotations[GatewayExcludedFromReadinessChecks]; ok && val == "true" {
 					tlog.Logf(t, "Gateway %s is skipped for setup and wont be tested", client.ObjectKeyFromObject(&gw))
 					continue
@@ -237,7 +235,6 @@ func NamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig config.T
 				tlog.Errorf(t, "Error listing Pods: %v", err)
 			}
 			for _, pod := range podList.Items {
-				pod := pod
 				if !findPodConditionInList(t, pod.Status.Conditions, "Ready", "True") &&
 					pod.Status.Phase != v1.PodSucceeded &&
 					pod.DeletionTimestamp == nil {
@@ -309,7 +306,6 @@ func MeshNamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig conf
 				tlog.Errorf(t, "Error listing Pods: %v", err)
 			}
 			for _, pod := range podList.Items {
-				pod := pod
 				if !findPodConditionInList(t, pod.Status.Conditions, "Ready", "True") &&
 					pod.Status.Phase != v1.PodSucceeded &&
 					pod.DeletionTimestamp == nil {

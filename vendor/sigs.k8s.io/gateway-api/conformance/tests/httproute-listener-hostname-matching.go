@@ -34,7 +34,7 @@ func init() {
 var HTTPRouteListenerHostnameMatching = suite.ConformanceTest{
 	ShortName:   "HTTPRouteListenerHostnameMatching",
 	Description: "Multiple HTTP listeners with the same port and different hostnames, each with a different HTTPRoute",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 	},

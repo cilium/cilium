@@ -36,7 +36,7 @@ var HTTPRouteRedirectScheme = suite.ConformanceTest{
 	ShortName:   "HTTPRouteRedirectScheme",
 	Description: "An HTTPRoute with a scheme redirect filter",
 	Manifests:   []string{"tests/httproute-redirect-scheme.yaml"},
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteSchemeRedirect,

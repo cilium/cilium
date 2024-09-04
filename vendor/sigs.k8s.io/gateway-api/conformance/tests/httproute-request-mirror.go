@@ -35,7 +35,7 @@ var HTTPRouteRequestMirror = suite.ConformanceTest{
 	ShortName:   "HTTPRouteRequestMirror",
 	Description: "An HTTPRoute with request mirror filter",
 	Manifests:   []string{"tests/httproute-request-mirror.yaml"},
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteRequestMirror,

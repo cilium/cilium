@@ -34,7 +34,7 @@ func init() {
 var HTTPRouteResponseHeaderModifier = suite.ConformanceTest{
 	ShortName:   "HTTPRouteResponseHeaderModifier",
 	Description: "An HTTPRoute has response header modifier filters applied correctly",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteResponseHeaderModification,

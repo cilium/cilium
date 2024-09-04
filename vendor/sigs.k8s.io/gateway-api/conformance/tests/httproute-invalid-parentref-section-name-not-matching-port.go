@@ -35,7 +35,7 @@ func init() {
 var HTTPRouteInvalidParentRefSectionNameNotMatchingPort = suite.ConformanceTest{
 	ShortName:   "HTTPRouteInvalidParentRefSectionNameNotMatchingPort",
 	Description: "A single HTTPRoute in the gateway-conformance-infra namespace should set the Accepted status to False with reason NoMatchingParent when attempting to bind to a Gateway that SectionName does not match Port value.",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteParentRefPort,

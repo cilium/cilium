@@ -32,7 +32,7 @@ func init() {
 var MeshFrontend = suite.ConformanceTest{
 	ShortName:   "MeshFrontend",
 	Description: "Mesh rules should only apply to the associated frontend",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportMesh,
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteResponseHeaderModification,

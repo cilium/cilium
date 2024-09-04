@@ -35,7 +35,7 @@ var HTTPRouteQueryParamMatching = suite.ConformanceTest{
 	ShortName:   "HTTPRouteQueryParamMatching",
 	Description: "A single HTTPRoute with query param matching for different backends",
 	Manifests:   []string{"tests/httproute-query-param-matching.yaml"},
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteQueryParamMatching,

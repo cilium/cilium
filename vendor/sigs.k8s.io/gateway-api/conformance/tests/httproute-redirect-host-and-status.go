@@ -35,7 +35,7 @@ func init() {
 var HTTPRouteRedirectHostAndStatus = suite.ConformanceTest{
 	ShortName:   "HTTPRouteRedirectHostAndStatus",
 	Description: "An HTTPRoute with hostname and statusCode redirect filters",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 	},

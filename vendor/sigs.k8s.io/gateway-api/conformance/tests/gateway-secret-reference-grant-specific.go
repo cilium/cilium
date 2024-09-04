@@ -35,7 +35,7 @@ func init() {
 var GatewaySecretReferenceGrantSpecific = suite.ConformanceTest{
 	ShortName:   "GatewaySecretReferenceGrantSpecific",
 	Description: "A Gateway in the gateway-conformance-infra namespace should become programmed if the Gateway has a certificateRef for a Secret in the gateway-conformance-web-backend namespace and a ReferenceGrant granting permission to the specific Secret exists",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportReferenceGrant,
 	},

@@ -35,7 +35,7 @@ var HTTPRouteRequestMultipleMirrors = suite.ConformanceTest{
 	ShortName:   "HTTPRouteRequestMultipleMirrors",
 	Description: "An HTTPRoute with multiple request mirror filters",
 	Manifests:   []string{"tests/httproute-request-multiple-mirrors.yaml"},
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteRequestMirror,

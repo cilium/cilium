@@ -17,6 +17,7 @@ limitations under the License.
 package suite
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -30,7 +31,7 @@ import (
 type ConformanceTest struct {
 	ShortName   string
 	Description string
-	Features    []features.SupportedFeature
+	Features    []features.FeatureName
 	Manifests   []string
 	Slow        bool
 	Parallel    bool
@@ -44,13 +45,19 @@ func (test *ConformanceTest) Run(t *testing.T, suite *ConformanceTestSuite) {
 		t.Parallel()
 	}
 
+	var featuresInfo string
 	// Test against features if the user hasn't focused on a single test
 	if suite.RunTest == "" {
 		// Check that all features exercised by the test have been opted into by
 		// the suite.
-		for _, feature := range test.Features {
-			if !suite.SupportedFeatures.Has(feature) {
-				t.Skipf("Skipping %s: suite does not support %s", test.ShortName, feature)
+		for i, featureName := range test.Features {
+			if !suite.SupportedFeatures.Has(featureName) {
+				t.Skipf("Skipping %s: suite does not support %s", test.ShortName, featureName)
+			}
+			feature := features.GetFeature(featureName)
+			featuresInfo = fmt.Sprintf("%s%s-%s", featuresInfo, feature.Name, feature.Channel)
+			if i < len(test.Features)-1 {
+				featuresInfo += ", "
 			}
 		}
 	}
@@ -65,18 +72,21 @@ func (test *ConformanceTest) Run(t *testing.T, suite *ConformanceTestSuite) {
 		suite.Applier.MustApplyWithCleanup(t, suite.Client, suite.TimeoutConfig, manifestLocation, true)
 	}
 
+	if featuresInfo != "" {
+		tlog.Logf(t, "Running %s, relying on the following features: %s", test.ShortName, featuresInfo)
+	}
 	test.Test(t, suite)
 }
 
 // ParseSupportedFeatures parses flag arguments and converts the string to
-// sets.Set[features.SupportedFeature]
-func ParseSupportedFeatures(f string) sets.Set[features.SupportedFeature] {
+// sets.Set[features.FeatureName]
+func ParseSupportedFeatures(f string) sets.Set[features.FeatureName] {
 	if f == "" {
 		return nil
 	}
-	res := sets.Set[features.SupportedFeature]{}
+	res := sets.Set[features.FeatureName]{}
 	for _, value := range strings.Split(f, ",") {
-		res.Insert(features.SupportedFeature(value))
+		res.Insert(features.FeatureName(value))
 	}
 	return res
 }

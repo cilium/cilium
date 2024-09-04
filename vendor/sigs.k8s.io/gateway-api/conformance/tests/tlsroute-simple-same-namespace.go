@@ -40,7 +40,7 @@ func init() {
 var TLSRouteSimpleSameNamespace = suite.ConformanceTest{
 	ShortName:   "TLSRouteSimpleSameNamespace",
 	Description: "A single TLSRoute in the gateway-conformance-infra namespace attaches to a Gateway in the same namespace",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportTLSRoute,
 	},

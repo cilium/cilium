@@ -35,7 +35,7 @@ func init() {
 var HTTPRouteBackendProtocolH2C = suite.ConformanceTest{
 	ShortName:   "HTTPRouteBackendProtocolH2C",
 	Description: "A HTTPRoute with a BackendRef that has an appProtocol kubernetes.io/h2c should be functional",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteBackendProtocolH2C,

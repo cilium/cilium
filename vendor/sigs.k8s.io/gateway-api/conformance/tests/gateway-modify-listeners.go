@@ -38,7 +38,7 @@ func init() {
 var GatewayModifyListeners = suite.ConformanceTest{
 	ShortName:   "GatewayModifyListeners",
 	Description: "A Gateway in the gateway-conformance-infra namespace should handle adding and removing listeners.",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 	},
 	Manifests: []string{"tests/gateway-modify-listeners.yaml"},
