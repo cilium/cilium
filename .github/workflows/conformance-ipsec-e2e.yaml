@@ -100,8 +100,6 @@ jobs:
             encryption-node: 'false'
             key-one: 'gcm(aes)'
             key-two: 'cbc(aes)'
-            key-type-one: '+'
-            key-type-two: '+'
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -113,8 +111,6 @@ jobs:
             encryption-node: 'false'
             key-one: 'cbc(aes)'
             key-two: 'cbc(aes)'
-            key-type-one: '+'
-            key-type-two: ''
 
           - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -127,8 +123,6 @@ jobs:
             endpoint-routes: 'true'
             key-one: 'gcm(aes)'
             key-two: 'gcm(aes)'
-            key-type-one: ''
-            key-type-two: '+'
 
           - name: '4'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -141,8 +135,6 @@ jobs:
             endpoint-routes: 'true'
             key-one: 'cbc(aes)'
             key-two: 'gcm(aes)'
-            key-type-one: ''
-            key-type-two: ''
 
           - name: '5'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -154,8 +146,6 @@ jobs:
             encryption-node: 'false'
             key-one: 'cbc(aes)'
             key-two: 'cbc(aes)'
-            key-type-one: '+'
-            key-type-two: '+'
 
           - name: '6'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -168,8 +158,6 @@ jobs:
             endpoint-routes: 'true'
             key-one: 'gcm(aes)'
             key-two: 'gcm(aes)'
-            key-type-one: '+'
-            key-type-two: '+'
 
           - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -182,8 +170,6 @@ jobs:
             encryption-overlay: 'true'
             key-one: 'gcm(aes)'
             key-two: 'gcm(aes)'
-            key-type-one: '+'
-            key-type-two: '+'
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -195,8 +181,6 @@ jobs:
             encryption-node: 'false'
             key-one: 'gcm(aes)'
             key-two: 'gcm(aes)'
-            key-type-one: '+'
-            key-type-two: '+'
 
     timeout-minutes: 75
     steps:
@@ -305,7 +289,7 @@ jobs:
             echo "Invalid key type"; exit 1
           fi
           kubectl create -n kube-system secret generic cilium-ipsec-keys \
-            --from-literal=keys="3${{ matrix.key-type-one }} ${key}"
+            --from-literal=keys="3+ ${key}"
 
           cilium install ${{ steps.cilium-config.outputs.config }}
           kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
@@ -361,8 +345,6 @@ jobs:
         uses: ./.github/actions/ipsec-key-rotate
         with:
           key-algo: ${{ matrix.key-two }}
-          key-type-one: ${{ matrix.key-type-one }}
-          key-type-two: ${{ matrix.key-type-two }}
           encryption-overlay: ${{ matrix.encryption-overlay }}
 
       - name: Assert that no unencrypted packets are leaked during key rotation

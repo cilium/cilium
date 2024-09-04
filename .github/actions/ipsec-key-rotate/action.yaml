@@ -5,14 +5,6 @@ inputs:
     required: true
     type: string
     description: "gcm(aes) or cbc(aes)"
-  key-type-one:
-    required: true
-    type: string
-    description: "'+' if we started with the per-tunnel key system"
-  key-type-two:
-    required: true
-    type: string
-    description: "'+' to rotate to the per-tunnel key system"
   encryption-overlay:
     required: true
     type: string
@@ -38,25 +30,10 @@ runs:
         echo "Updating IPsec secret with $data"
         kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
 
-        # Compute number of expected keys during key rotation depending on
-        # whether we use the single-key system (1 key) or the per-tunnel
-        # keys system (8 keys, 2x2 IPv4 and 2x2 IPv6).
         # If encryption-overlay is enabled, we have 4 more IPv4 keys for the overlay.
-        # Transition from single-key to per-tunnel keys goes like this 1 > 9(13) > 8(12).
-        # Transition from per-tunnel to single-key goes like this 8(12) > 9(13) > 1.
-        # Transition from per-tunnel keys to per-tunnel keys goes like this 8(12) > 16(24) > 8(12).
-        exp_nb_keys=2
-        if [[ "${{ inputs.key-type-one }}" == "+" ]]; then
-          ((exp_nb_keys+=7))
-          if [[ "${{ inputs.encryption-overlay }}" == "true" ]]; then
-            ((exp_nb_keys+=4))
-          fi
-        fi
-        if [[ "${{ inputs.key-type-two }}" == "+" ]]; then
-          ((exp_nb_keys+=7))
-          if [[ "${{ inputs.encryption-overlay }}" == "true" ]]; then
-            ((exp_nb_keys+=4))
-          fi
+        exp_nb_keys=16
+        if [[ "${{ inputs.encryption-overlay }}" == "true" ]]; then
+          ((exp_nb_keys+=8))
         fi
 
         # Wait until key rotation starts
@@ -70,12 +47,9 @@ runs:
           sleep 30s
         done
 
-        exp_nb_keys=1
-        if [[ "${{ inputs.key-type-two }}" == "+" ]]; then
-          exp_nb_keys=8
-          if [[ "${{ inputs.encryption-overlay }}" == "true" ]]; then
-            exp_nb_keys=12
-          fi
+        exp_nb_keys=8
+        if [[ "${{ inputs.encryption-overlay }}" == "true" ]]; then
+          exp_nb_keys=12
         fi
 
         # Wait until key rotation completes
