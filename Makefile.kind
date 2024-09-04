@@ -190,6 +190,10 @@ ifneq ("$(wildcard $(ROOT_DIR)/contrib/testing/kind-custom.yaml)","")
 	KIND_VALUES_FAST_FILES := $(KIND_VALUES_FAST_FILES) --helm-values=$(ROOT_DIR)/contrib/testing/kind-custom.yaml
 endif
 
+ifdef ADDITIONAL_KIND_VALUES_FILE
+	KIND_VALUES_FAST_FILES := $(KIND_VALUES_FAST_FILES) --helm-values=$(ROOT_DIR)/$(ADDITIONAL_KIND_VALUES_FILE)
+endif
+
 .PHONY: kind-install-cilium-fast
 kind-install-cilium-fast: check_deps kind-ready ## "Fast" Install a local Cilium version using volume-mounted binaries into all clusters.
 	@echo "  INSTALL cilium"
