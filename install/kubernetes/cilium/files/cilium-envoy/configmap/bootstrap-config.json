@@ -301,14 +301,21 @@
       "resourceApiVersion": "V3"
     }
   },
-  "layeredRuntime": {
-    "layers": [
+  "bootstrapExtensions": [
+    {
+      "name": "envoy.bootstrap.internal_listener",
+      "typed_config": {
+        "@type": "type.googleapis.com/envoy.extensions.bootstrap.internal_listener.v3.InternalListener"
+      }
+    }
+  ],
+  "overload_manager": {
+    "resource_monitors": [
       {
-        "name": "static_layer_0",
-        "staticLayer": {
-          "overload": {
-            "global_downstream_max_connections": 50000
-          }
+        "name": "envoy.resource_monitors.global_downstream_max_connections",
+        "typed_config": {
+          "@type": "type.googleapis.com/envoy.extensions.resource_monitors.downstream_connections.v3.DownstreamConnectionsConfig",
+          "max_active_downstream_connections": "50000"
         }
       }
     ]
