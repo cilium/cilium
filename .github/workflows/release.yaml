@@ -28,7 +28,7 @@ jobs:
   release:
     name: Release
     environment: release-tool
-    timeout-minutes: 10
+    timeout-minutes: 40
     runs-on: ubuntu-22.04
     steps:
       - name: Install Go
