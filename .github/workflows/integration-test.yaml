@@ -161,7 +161,8 @@ jobs:
         run: |
           export V=0
           export DOCKER_BUILD_FLAGS=--quiet
-          ./.github/actions/unit-tests/build.sh
+          export CFLAGS="-Werror"
+          make integration-tests
 
   commit-status-final:
     if: ${{ always() }}
