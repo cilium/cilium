@@ -7,7 +7,6 @@ package ipsec
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -20,7 +19,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -144,11 +142,6 @@ var (
 		Action:   netlink.XFRM_POLICY_BLOCK,
 		Priority: defaultDropPriority,
 	}
-
-	// To attempt to remove any stale XFRM configs once at startup, after
-	// we've added the catch-all default-drop policy.
-	removeStaleIPv4XFRMOnce sync.Once
-	removeStaleIPv6XFRMOnce sync.Once
 
 	oldXFRMInMark *netlink.XfrmMark = &netlink.XfrmMark{
 		Value: linux_defaults.RouteMarkDecrypt,
@@ -320,23 +313,10 @@ func xfrmStateReplace(log *slog.Logger, new *netlink.XfrmState, remoteRebooted b
 	// Check if the XFRM state already exists
 	for _, s := range states {
 		if xfrmIPEqual(s.Src, new.Src) && xfrmIPEqual(s.Dst, new.Dst) &&
-			xfrmMarkEqual(s.Mark, new.Mark) && s.Spi == new.Spi {
-			if !xfrmKeyEqual(&s, new) {
-				// The states are the same, including the SPI, but the
-				// encryption key changed. This is expected on upgrade because
-				// we changed the way we compute the per-node-pair key.
-				scopedLog.Info("Removing XFRM state with old IPsec key")
-				xfrmStateCache.XfrmStateDel(&s)
-				break
-			}
-			if !xfrmMarkEqual(s.OutputMark, new.OutputMark) {
-				// If only the output-marks differ, then we should be able
-				// to simply update the XFRM state atomically.
-				return xfrmStateCache.XfrmStateUpdate(new)
-			}
-			if remoteRebooted && new.ESN {
-				// This should happen only when a node reboots when the boot ID
-				// is used to compute the key (i.e., if ESN is also enabled).
+			xfrmMarkEqual(s.Mark, new.Mark) && xfrmMarkEqual(s.OutputMark, new.OutputMark) &&
+			s.Spi == new.Spi {
+			if remoteRebooted {
+				// This should happen only when a node reboots.
 				// We can safely perform a non-atomic swap of the XFRM state
 				// for both the IN and OUT directions because:
 				// - For the IN direction, we can't leak anything. At most
@@ -468,20 +448,6 @@ func xfrmMarkEqual(mark1, mark2 *netlink.XfrmMark) bool {
 	return mark1 == nil || (mark1.Value == mark2.Value && mark1.Mask == mark2.Mask)
 }
 
-// Returns true if the two XFRM states have the same encryption key.
-func xfrmKeyEqual(s1, s2 *netlink.XfrmState) bool {
-	if (s1.Aead == nil) != (s2.Aead == nil) ||
-		(s1.Crypt == nil) != (s2.Crypt == nil) ||
-		(s1.Auth == nil) != (s2.Auth == nil) {
-		return false
-	}
-	if s1.Aead != nil {
-		return bytes.Equal(s1.Aead.Key, s2.Aead.Key)
-	}
-	return bytes.Equal(s1.Crypt.Key, s2.Crypt.Key) &&
-		bytes.Equal(s1.Auth.Key, s2.Auth.Key)
-}
-
 func ipSecReplaceStateIn(log *slog.Logger, localIP, remoteIP net.IP, nodeID uint16, zeroMark bool, localBootID, remoteBootID string, remoteRebooted bool, reqID int) (uint8, error) {
 	key := getNodeIPsecKey(localIP, remoteIP, localBootID, remoteBootID, netlink.XFRM_DIR_IN)
 	if key == nil {
@@ -609,52 +575,15 @@ func IpSecReplacePolicyFwd(dst *net.IPNet, tmplDst net.IP, reqID int) error {
 //
 // We do need to match on the mark because there is also traffic flowing
 // through XFRM that we don't want to encrypt (e.g., hostns traffic).
-func IPsecDefaultDropPolicy(log *slog.Logger, ipv6 bool) error {
-	log = log.With(logfields.LogSubsys, subsystem)
-
+func IPsecDefaultDropPolicy(ipv6 bool) error {
 	defaultDropPolicy := defaultDropPolicyIPv4
-	family := netlink.FAMILY_V4
 	if ipv6 {
 		defaultDropPolicy = defaultDropPolicyIPv6
-		family = netlink.FAMILY_V6
 	}
 
 	err := netlink.XfrmPolicyUpdate(defaultDropPolicy)
 
-	// We move the old XFRM OUT policy. This code can be removed in Cilium v1.17.
-	removeStaleXFRMOnce := &removeStaleIPv4XFRMOnce
-	if ipv6 {
-		removeStaleXFRMOnce = &removeStaleIPv6XFRMOnce
-	}
-	removeStaleXFRMOnce.Do(func() {
-		removeOldOutPolicy(log, family)
-	})
-
 	return err
-}
-
-// Removes the old XFRM OUT policy. We rely on the mark mask and its lower
-// priority to identify it. We can rely on the priority because it was lowered
-// to a specific number in a previous upgrade.
-func removeOldOutPolicy(log *slog.Logger, family int) {
-	policies, err := netlink.XfrmPolicyList(family)
-	if err != nil {
-		log.Error("Cannot get XFRM policies", logfields.Error, err)
-	}
-	for _, p := range policies {
-		if p.Dir == netlink.XFRM_DIR_OUT && p.Priority == oldXFRMOutPolicyPriority &&
-			p.Mark.Mask == linux_defaults.IPsecOldMarkMaskOut {
-			if err := netlink.XfrmPolicyDel(&p); err != nil {
-				log.Error("Failed to remove old XFRM policy",
-					logfields.Error, err,
-					logfields.SourceCIDR, p.Src,
-					logfields.DestinationCIDR, p.Dst,
-					logfields.TrafficDirection, getDirFromXfrmMark(p.Mark),
-					logfields.NodeID, getNodeIDAsHexFromXfrmMark(p.Mark),
-				)
-			}
-		}
-	}
 }
 
 // ipSecXfrmMarkSetSPI takes a XfrmMark base value, an SPI, returns the mark

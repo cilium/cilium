@@ -168,7 +168,7 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 	wildcardIP := net.ParseIP(wildcardIPv4)
 	wildcardCIDR := &net.IPNet{IP: wildcardIP, Mask: net.IPv4Mask(0, 0, 0, 0)}
 
-	err := ipsec.IPsecDefaultDropPolicy(n.log, false)
+	err := ipsec.IPsecDefaultDropPolicy(false)
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "default-drop IPv4", wildcardCIDR, wildcardCIDR, spi, 0))
 
 	if newNode.IsLocal() {
@@ -303,7 +303,7 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 	wildcardIP := net.ParseIP(wildcardIPv6)
 	wildcardCIDR := &net.IPNet{IP: wildcardIP, Mask: net.CIDRMask(0, 128)}
 
-	err := ipsec.IPsecDefaultDropPolicy(n.log, true)
+	err := ipsec.IPsecDefaultDropPolicy(true)
 	if err != nil {
 		errs = errors.Join(errs, fmt.Errorf("failed to create default drop policy IPv6: %w", err))
 	}
