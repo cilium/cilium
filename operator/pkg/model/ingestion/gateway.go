@@ -611,19 +611,16 @@ func toHTTPRewriteFilter(rewrite *gatewayv1.HTTPURLRewriteFilter) *model.HTTPURL
 }
 
 func toHTTPRequestMirror(svc corev1.Service, mirror *gatewayv1.HTTPRequestMirrorFilter, ns string) *model.HTTPRequestMirror {
-	var n, d int32
+	var n, d int32 = 100, 100
 
 	switch {
 	case mirror.Percent != nil:
 		n = *mirror.Percent
-		d = 100
-	case mirror.Fraction.Denominator != nil:
+	case mirror.Fraction != nil:
 		n = mirror.Fraction.Numerator
-		d = *mirror.Fraction.Denominator
-	default:
-		// default to 100%
-		n = 100
-		d = 100
+		if mirror.Fraction.Denominator != nil {
+			d = *mirror.Fraction.Denominator
+		}
 	}
 
 	return &model.HTTPRequestMirror{
@@ -873,7 +870,7 @@ func toHTTPHeaders(headers []gatewayv1.HTTPHeader) []model.Header {
 	return res
 }
 
-func toMapString(in map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue) map[string]string {
+func toMapString[K, V ~string](in map[K]V) map[string]string {
 	out := make(map[string]string, len(in))
 	for k, v := range in {
 		out[string(k)] = string(v)

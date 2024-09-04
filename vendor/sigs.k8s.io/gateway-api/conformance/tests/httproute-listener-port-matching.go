@@ -35,7 +35,7 @@ func init() {
 var HTTPRouteListenerPortMatching = suite.ConformanceTest{
 	ShortName:   "HTTPRouteListenerPortMatching",
 	Description: "Multiple HTTP listeners with different ports, each with a different HTTPRoute",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteParentRefPort,

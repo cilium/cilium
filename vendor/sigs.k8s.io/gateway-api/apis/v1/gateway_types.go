@@ -224,11 +224,19 @@ type GatewaySpec struct {
 
 	// Infrastructure defines infrastructure level attributes about this Gateway instance.
 	//
-	// Support: Core
+	// Support: Extended
 	//
-	// <gateway:experimental>
 	// +optional
 	Infrastructure *GatewayInfrastructure `json:"infrastructure,omitempty"`
+
+	// BackendTLS configures TLS settings for when this Gateway is connecting to
+	// backends with TLS.
+	//
+	// Support: Core
+	//
+	// +optional
+	// <gateway:experimental>
+	BackendTLS *GatewayBackendTLS `json:"backendTLS,omitempty"`
 }
 
 // Listener embodies the concept of a logical endpoint where a Gateway accepts
@@ -373,6 +381,29 @@ const (
 	// Accepts UDP packets.
 	UDPProtocolType ProtocolType = "UDP"
 )
+
+// GatewayBackendTLS describes backend TLS configuration for gateway.
+type GatewayBackendTLS struct {
+	// ClientCertificateRef is a reference to an object that contains a Client
+	// Certificate and the associated private key.
+	//
+	// References to a resource in different namespace are invalid UNLESS there
+	// is a ReferenceGrant in the target namespace that allows the certificate
+	// to be attached. If a ReferenceGrant does not allow this reference, the
+	// "ResolvedRefs" condition MUST be set to False for this listener with the
+	// "RefNotPermitted" reason.
+	//
+	// ClientCertificateRef can reference to standard Kubernetes resources, i.e.
+	// Secret, or implementation-specific custom resources.
+	//
+	// This setting can be overridden on the service level by use of BackendTLSPolicy.
+	//
+	// Support: Core
+	//
+	// +optional
+	// <gateway:experimental>
+	ClientCertificateRef *SecretObjectReference `json:"clientCertificateRef,omitempty"`
+}
 
 // GatewayTLSConfig describes a TLS configuration.
 //
@@ -679,11 +710,16 @@ type GatewayInfrastructure struct {
 	//
 	// An implementation may chose to add additional implementation-specific labels as they see fit.
 	//
+	// If an implementation maps these labels to Pods, or any other resource that would need to be recreated when labels
+	// change, it SHOULD clearly warn about this behavior in documentation.
+	//
 	// Support: Extended
 	//
 	// +optional
 	// +kubebuilder:validation:MaxProperties=8
-	Labels map[AnnotationKey]AnnotationValue `json:"labels,omitempty"`
+	// +kubebuilder:validation:XValidation:message="Label keys must be in the form of an optional DNS subdomain prefix followed by a required name segment of up to 63 characters.",rule="self.all(key, key.matches(r\"\"\"^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?([A-Za-z0-9][-A-Za-z0-9_.]{0,61})?[A-Za-z0-9]$\"\"\"))"
+	// +kubebuilder:validation:XValidation:message="If specified, the label key's prefix must be a DNS subdomain not longer than 253 characters in total.",rule="self.all(key, key.split(\"/\")[0].size() < 253)"
+	Labels map[LabelKey]LabelValue `json:"labels,omitempty"`
 
 	// Annotations that SHOULD be applied to any resources created in response to this Gateway.
 	//
@@ -696,6 +732,8 @@ type GatewayInfrastructure struct {
 	//
 	// +optional
 	// +kubebuilder:validation:MaxProperties=8
+	// +kubebuilder:validation:XValidation:message="Annotation keys must be in the form of an optional DNS subdomain prefix followed by a required name segment of up to 63 characters.",rule="self.all(key, key.matches(r\"\"\"^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?([A-Za-z0-9][-A-Za-z0-9_.]{0,61})?[A-Za-z0-9]$\"\"\"))"
+	// +kubebuilder:validation:XValidation:message="If specified, the annotation key's prefix must be a DNS subdomain not longer than 253 characters in total.",rule="self.all(key, key.split(\"/\")[0].size() < 253)"
 	Annotations map[AnnotationKey]AnnotationValue `json:"annotations,omitempty"`
 
 	// ParametersRef is a reference to a resource that contains the configuration

@@ -36,7 +36,7 @@ func init() {
 var HTTPRouteInvalidBackendRefUnknownKind = suite.ConformanceTest{
 	ShortName:   "HTTPRouteInvalidBackendRefUnknownKind",
 	Description: "A single HTTPRoute in the gateway-conformance-infra namespace should set a ResolvedRefs status False with reason InvalidKind when attempting to bind to a Gateway in the same namespace if the route has a BackendRef that points to an unknown Kind.",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 	},

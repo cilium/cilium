@@ -117,7 +117,7 @@ require (
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240820151423-278611b39280
-	google.golang.org/grpc v1.65.0
+	google.golang.org/grpc v1.66.0
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -134,7 +134,7 @@ require (
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 	sigs.k8s.io/controller-runtime v0.18.4
 	sigs.k8s.io/controller-tools v0.15.0
-	sigs.k8s.io/gateway-api v1.1.1-0.20240827190856-650e404a67e1
+	sigs.k8s.io/gateway-api v1.1.1-0.20240906002847-ff517b37b82e
 	sigs.k8s.io/mcs-api v0.1.1-0.20240819144851-b512d0dec827
 	sigs.k8s.io/yaml v1.4.0
 )

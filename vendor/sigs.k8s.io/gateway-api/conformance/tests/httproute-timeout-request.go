@@ -39,7 +39,7 @@ var HTTPRouteTimeoutRequest = suite.ConformanceTest{
 	ShortName:   "HTTPRouteTimeoutRequest",
 	Description: "An HTTPRoute with request timeout",
 	Manifests:   []string{"tests/httproute-timeout-request.yaml"},
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteRequestTimeout,

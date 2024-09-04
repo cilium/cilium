@@ -35,8 +35,8 @@ import (
 // For more details see the relevant GEP: https://gateway-api.sigs.k8s.io/geps/gep-1709/
 type ConformanceProfile struct {
 	Name             ConformanceProfileName
-	CoreFeatures     sets.Set[features.SupportedFeature]
-	ExtendedFeatures sets.Set[features.SupportedFeature]
+	CoreFeatures     sets.Set[features.FeatureName]
+	ExtendedFeatures sets.Set[features.FeatureName]
 }
 
 type ConformanceProfileName string
@@ -77,9 +77,11 @@ var (
 			features.SupportReferenceGrant,
 			features.SupportHTTPRoute,
 		),
-		ExtendedFeatures: sets.New[features.SupportedFeature]().
-			Insert(features.GatewayExtendedFeatures.UnsortedList()...).
-			Insert(features.HTTPRouteExtendedFeatures.UnsortedList()...),
+		ExtendedFeatures: sets.New[features.FeatureName]().
+			Insert(features.SetsToNamesSet(
+				features.GatewayExtendedFeatures,
+				features.HTTPRouteExtendedFeatures,
+			).UnsortedList()...),
 	}
 
 	// GatewayTLSConformanceProfile is a ConformanceProfile that covers testing TLS
@@ -91,7 +93,7 @@ var (
 			features.SupportReferenceGrant,
 			features.SupportTLSRoute,
 		),
-		ExtendedFeatures: features.GatewayExtendedFeatures,
+		ExtendedFeatures: features.SetsToNamesSet(features.GatewayExtendedFeatures),
 	}
 
 	// GatewayGRPCConformanceProfile is a ConformanceProfile that covers testing GRPC
@@ -103,7 +105,7 @@ var (
 			features.SupportReferenceGrant,
 			features.SupportGRPCRoute,
 		),
-		ExtendedFeatures: features.GatewayExtendedFeatures,
+		ExtendedFeatures: features.SetsToNamesSet(features.GatewayExtendedFeatures),
 	}
 
 	// MeshHTTPConformanceProfile is a ConformanceProfile that covers testing HTTP
@@ -114,10 +116,11 @@ var (
 			features.SupportMesh,
 			features.SupportHTTPRoute,
 		),
-		ExtendedFeatures: sets.New[features.SupportedFeature]().
-			Insert(features.HTTPRouteExtendedFeatures.UnsortedList()...).
-			Insert(features.SupportMeshClusterIPMatching).
-			Insert(features.SupportMeshConsumerRoute),
+		ExtendedFeatures: sets.New[features.FeatureName]().
+			Insert(features.SetsToNamesSet(
+				features.MeshExtendedFeatures,
+				features.HTTPRouteExtendedFeatures,
+			).UnsortedList()...),
 	}
 
 	// MeshGRPCConformanceProfile is a ConformanceProfile that covers testing GRPC
@@ -128,9 +131,7 @@ var (
 			features.SupportMesh,
 			features.SupportGRPCRoute,
 		),
-		ExtendedFeatures: sets.New[features.SupportedFeature]().
-			Insert(features.SupportMeshClusterIPMatching).
-			Insert(features.SupportMeshConsumerRoute),
+		ExtendedFeatures: features.SetsToNamesSet(features.MeshExtendedFeatures),
 	}
 )
 

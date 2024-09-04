@@ -35,7 +35,7 @@ func init() {
 var HTTPRouteHTTPSListener = suite.ConformanceTest{
 	ShortName:   "HTTPRouteHTTPSListener",
 	Description: "HTTPRoute attaches to a Gateway's HTTPS listener in the same namespace",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,
 	},

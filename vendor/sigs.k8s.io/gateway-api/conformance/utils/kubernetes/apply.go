@@ -216,8 +216,6 @@ func (a Applier) prepareResources(t *testing.T, decoder *yaml.YAMLOrJSONDecoder)
 
 func (a Applier) MustApplyObjectsWithCleanup(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, resources []client.Object, cleanup bool) {
 	for _, resource := range resources {
-		resource := resource
-
 		ctx, cancel := context.WithTimeout(context.Background(), timeoutConfig.CreateTimeout)
 		defer cancel()
 

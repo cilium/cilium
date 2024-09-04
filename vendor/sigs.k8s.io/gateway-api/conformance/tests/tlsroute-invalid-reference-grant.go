@@ -35,7 +35,7 @@ func init() {
 var TLSRouteInvalidReferenceGrant = suite.ConformanceTest{
 	ShortName:   "TLSRouteInvalidReferenceGrant",
 	Description: "A single TLSRoute in the gateway-conformance-infra namespace, with a backendRef in another namespace without valid ReferenceGrant, should have the ResolvedRefs condition set to False",
-	Features: []features.SupportedFeature{
+	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportTLSRoute,
 		features.SupportReferenceGrant,
