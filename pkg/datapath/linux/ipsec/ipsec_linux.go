@@ -86,7 +86,6 @@ const (
 
 type ipSecKey struct {
 	Spi   uint8
-	ESN   bool
 	ReqID int
 	Auth  *netlink.XfrmStateAlgo
 	Crypt *netlink.XfrmStateAlgo
@@ -214,7 +213,6 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBoo
 	nodeKey := &ipSecKey{
 		Spi:   globalKey.Spi,
 		ReqID: globalKey.ReqID,
-		ESN:   globalKey.ESN,
 	}
 
 	srcNodeIP = canonicalIP(srcNodeIP)
@@ -244,19 +242,16 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBoo
 // We want one IPsec key per node pair. For a pair of nodes A and B with IP
 // addresses a and b, and boot ids x and y respectively, we will therefore
 // install two different keys:
-// Node A               <> Node B
+// Node A                   <> Node B
 // XFRM IN:  key(b+a+y+x)      XFRM IN:  key(a+b+x+y)
 // XFRM OUT: key(a+b+x+y)      XFRM OUT: key(b+a+y+x)
 // This is done such that, for each pair of nodes A, B, the key used for
 // decryption on A (XFRM IN) is the same key used for encryption on B (XFRM
-// OUT), and vice versa. And its ESN automatically resets on each node reboot.
+// OUT), and vice versa. And its key automatically resets on each node reboot.
 func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, localBootID, remoteBootID string, dir netlink.Dir) *ipSecKey {
 	globalKey := getGlobalIPsecKey(localNodeIP)
 	if globalKey == nil {
 		return nil
-	}
-	if !globalKey.ESN {
-		return globalKey
 	}
 
 	if dir == netlink.XFRM_DIR_OUT {
@@ -267,14 +262,12 @@ func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, localBootID, remoteBootID
 
 func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
 	state := netlink.XfrmState{
-		Mode:  netlink.XFRM_MODE_TUNNEL,
-		Proto: netlink.XFRM_PROTO_ESP,
-		ESN:   keys.ESN,
-		Spi:   int(keys.Spi),
-		Reqid: keys.ReqID,
-	}
-	if keys.ESN {
-		state.ReplayWindow = 1024
+		Mode:         netlink.XFRM_MODE_TUNNEL,
+		Proto:        netlink.XFRM_PROTO_ESP,
+		ESN:          true,
+		Spi:          int(keys.Spi),
+		Reqid:        keys.ReqID,
+		ReplayWindow: 1024,
 	}
 	if keys.Aead != nil {
 		state.Aead = keys.Aead
@@ -1066,7 +1059,6 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 			oldSpi     uint8
 			aeadKey    []byte
 			authKey    []byte
-			esn        bool
 			err        error
 			offsetBase int
 		)
@@ -1085,7 +1077,7 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 			return 0, 0, fmt.Errorf("missing IPSec key or invalid format")
 		}
 
-		spi, offsetBase, esn, err = parseSPI(log, s[offsetSPI])
+		spi, offsetBase, err = parseSPI(log, s[offsetSPI])
 		if err != nil {
 			return 0, 0, fmt.Errorf("failed to parse SPI: %w", err)
 		}
@@ -1144,7 +1136,6 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 		}
 
 		ipSecKey.Spi = spi
-		ipSecKey.ESN = esn
 
 		if ipSecKeysGlobal[""] != nil {
 			oldSpi = ipSecKeysGlobal[""].Spi
@@ -1157,26 +1148,21 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 	return keyLen, spi, nil
 }
 
-func parseSPI(log *slog.Logger, spiStr string) (uint8, int, bool, error) {
-	esn := false
+func parseSPI(log *slog.Logger, spiStr string) (uint8, int, error) {
 	if spiStr[len(spiStr)-1] == '+' {
-		esn = true
 		spiStr = spiStr[:len(spiStr)-1]
 	}
 	spi, err := strconv.Atoi(spiStr)
 	if err != nil {
-		return 0, 0, false, fmt.Errorf("the first argument of the IPsec secret is not a number. Attempted %q", spiStr)
+		return 0, 0, fmt.Errorf("the first argument of the IPsec secret is not a number. Attempted %q", spiStr)
 	}
 	if spi > linux_defaults.IPsecMaxKeyVersion {
-		return 0, 0, false, fmt.Errorf("encryption key space exhausted. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
+		return 0, 0, fmt.Errorf("encryption key space exhausted. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
 	}
 	if spi == 0 {
-		return 0, 0, false, fmt.Errorf("zero is not a valid key ID. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
+		return 0, 0, fmt.Errorf("zero is not a valid key ID. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
 	}
-	if !esn {
-		log.Warn(fmt.Sprintf("global IPsec keys are deprecated and will be removed in v1.17. Use per-tunnel keys instead by adding a '+' sign after the SPI (%d+ in your case).", spi))
-	}
-	return uint8(spi), 0, esn, nil
+	return uint8(spi), 0, nil
 }
 
 func SetIPSecSPI(log *slog.Logger, spi uint8) error {

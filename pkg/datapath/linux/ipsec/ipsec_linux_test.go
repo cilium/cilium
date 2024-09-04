@@ -89,25 +89,21 @@ func TestParseSPI(t *testing.T) {
 		input    string
 		expSPI   uint8
 		expOff   int
-		expESN   bool
 		expError bool
 	}{
-		{"254", 0, 0, false, true},
-		{"15", 15, 0, false, false},
-		{"3+", 3, 0, true, false},
-		{"abc", 0, 0, false, true},
-		{"0", 0, 0, false, true},
+		{"254", 0, 0, true},
+		{"15", 15, 0, false},
+		{"3+", 3, 0, false},
+		{"abc", 0, 0, true},
+		{"0", 0, 0, true},
 	}
 	for _, tc := range testCases {
-		spi, off, esn, err := parseSPI(log, tc.input)
+		spi, off, err := parseSPI(log, tc.input)
 		if spi != tc.expSPI {
 			t.Fatalf("For input %q, expected SPI %d, but got %d", tc.input, tc.expSPI, spi)
 		}
 		if off != tc.expOff {
 			t.Fatalf("For input %q, expected base offset %d, but got %d", tc.input, tc.expOff, off)
-		}
-		if esn != tc.expESN {
-			t.Fatalf("For input %q, expected ESN %t, but got %t", tc.input, tc.expESN, esn)
 		}
 		if tc.expError {
 			require.Error(t, err)
