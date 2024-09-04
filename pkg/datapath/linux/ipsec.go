@@ -394,7 +394,7 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 	var spi uint8
 	var errs error
 
-	errs = errors.Join(errs, ipsec.IPsecDefaultDropPolicy(n.log, false))
+	errs = errors.Join(errs, ipsec.IPsecDefaultDropPolicy(false))
 	errs = errors.Join(errs, upsertIPsecLog(n.log, errs, "default-drop IPv4", wildcardCIDR, wildcardCIDR, spi, 0))
 
 	// If we are the local node, we have much less work to do, handle this first.
@@ -588,7 +588,7 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 	var errs error
 	var spi uint8
 
-	errs = errors.Join(errs, ipsec.IPsecDefaultDropPolicy(n.log, true))
+	errs = errors.Join(errs, ipsec.IPsecDefaultDropPolicy(true))
 	errs = errors.Join(errs, upsertIPsecLog(n.log, errs, "default-drop IPv6", wildcardCIDR, wildcardCIDR, spi, 0))
 
 	if newNode.IsLocal() {
