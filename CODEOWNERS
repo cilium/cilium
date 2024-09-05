@@ -507,6 +507,7 @@ Makefile* @cilium/build
 /pkg/defaults @cilium/sig-agent
 /pkg/debug @cilium/sig-agent
 /pkg/dial @cilium/sig-agent
+/pkg/driftchecker @cilium/sig-foundations
 /pkg/dynamicconfig @cilium/sig-foundations
 /pkg/ebpf @cilium/sig-datapath
 /pkg/egressgateway/ @cilium/egress-gateway
