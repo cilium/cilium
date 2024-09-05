@@ -795,7 +795,4 @@ const (
 
 	// Target identifies a target value
 	Target = "target"
-
-	// StaleIPs represents a set of stale IPs.
-	StaleIPs = "staleIPs"
 )
