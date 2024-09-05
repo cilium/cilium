@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/gateway-api/conformance"
 	"sigs.k8s.io/gateway-api/pkg/features"
 
@@ -44,8 +43,8 @@ func TestConformance(t *testing.T) {
 	testutils.GatewayAPIConformanceTest(t)
 	var skipTests []string
 	options := conformance.DefaultOptions(t)
-	var usableNetworkAddresses []v1beta1.GatewayAddress
-	var unusableNetworkAddresses []v1beta1.GatewayAddress
+	var usableNetworkAddresses []v1.GatewayAddress
+	var unusableNetworkAddresses []v1.GatewayAddress
 	usableAddresses := os.Getenv(usableNetworkAddressesEnv)
 	if usableAddresses == "" {
 		t.Logf("Set %s to run this test", features.SupportGatewayStaticAddresses)
@@ -53,7 +52,7 @@ func TestConformance(t *testing.T) {
 	} else {
 		var addressType = v1.IPAddressType
 		for _, value := range strings.Split(usableAddresses, ",") {
-			usableNetworkAddresses = append(usableNetworkAddresses, v1beta1.GatewayAddress{
+			usableNetworkAddresses = append(usableNetworkAddresses, v1.GatewayAddress{
 				Type:  &addressType,
 				Value: value,
 			})
@@ -66,7 +65,7 @@ func TestConformance(t *testing.T) {
 	} else {
 		var addressType = v1.IPAddressType
 		for _, value := range strings.Split(unusableAddresses, ",") {
-			unusableNetworkAddresses = append(unusableNetworkAddresses, v1beta1.GatewayAddress{
+			unusableNetworkAddresses = append(unusableNetworkAddresses, v1.GatewayAddress{
 				Type:  &addressType,
 				Value: value,
 			})
