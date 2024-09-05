@@ -40,8 +40,14 @@ func setupIPSecSuitePrivileged(tb testing.TB) *slog.Logger {
 	return log
 }
 
+const (
+	path         = "ipsec_keys_test"
+	remoteNodeID = 1234
+	localBootID  = "5f616d5f-b237-aed6-4ac7-123456789abc"
+	remoteBootID = "5f616d5f-aed6-4ac7-b237-987654321abc"
+)
+
 var (
-	path           = "ipsec_keys_test"
 	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n2 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n3 digest_null \"\" cipher_null \"\"\n")
 	keysAeadDat    = []byte("4 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
 	keysAeadDat256 = []byte("5 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f144434241343332312423222114131211 128\n")
@@ -69,9 +75,9 @@ func TestInvalidLoadKeys(t *testing.T) {
 	require.NoError(t, err)
 
 	params := &IPSecParameters{
-		LocalBootID:    "local-boot-id",
-		RemoteBootID:   "remote-boot-id",
-		RemoteNodeID:   0,
+		LocalBootID:    localBootID,
+		RemoteBootID:   remoteBootID,
+		RemoteNodeID:   remoteNodeID,
 		Dir:            IPSecDirIn,
 		SourceSubnet:   local,
 		DestSubnet:     remote,
@@ -161,9 +167,9 @@ func TestUpsertIPSecEquals(t *testing.T) {
 	ipSecKeysGlobal[""] = key
 
 	params := &IPSecParameters{
-		LocalBootID:    "local-boot-id",
-		RemoteBootID:   "remote-boot-id",
-		RemoteNodeID:   0,
+		LocalBootID:    localBootID,
+		RemoteBootID:   remoteBootID,
+		RemoteNodeID:   remoteNodeID,
 		Dir:            IPSecDirIn,
 		SourceSubnet:   local,
 		DestSubnet:     remote,
@@ -245,8 +251,8 @@ func TestUpsertIPSecEndpointOut(t *testing.T) {
 	ipSecKeysGlobal[""] = key
 
 	params := &IPSecParameters{
-		LocalBootID:    "local-boot-id",
-		RemoteBootID:   "remote-boot-id",
+		LocalBootID:    localBootID,
+		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   0xBEEF,
 		Dir:            IPSecDirOut,
 		SourceSubnet:   local,
@@ -277,10 +283,12 @@ func TestUpsertIPSecEndpointOut(t *testing.T) {
 	require.Nil(t, state.Aead)
 	require.NotNil(t, state.Auth)
 	require.Equal(t, "hmac(sha256)", state.Auth.Name)
-	require.Equal(t, authKey, state.Auth.Key)
+	derivedAuthKey := computeNodeIPsecKey(authKey, local.IP, remote.IP, []byte(localBootID), []byte(remoteBootID))
+	require.Equal(t, derivedAuthKey, state.Auth.Key)
 	require.NotNil(t, state.Crypt)
 	require.Equal(t, "cbc(aes)", state.Crypt.Name)
-	require.Equal(t, cryptKey, state.Crypt.Key)
+	derivedCryptKey := computeNodeIPsecKey(cryptKey, local.IP, remote.IP, []byte(localBootID), []byte(remoteBootID))
+	require.Equal(t, derivedCryptKey, state.Crypt.Key)
 	// ESN bit is not set, so ReplayWindow should be 0
 	require.Equal(t, 0, state.ReplayWindow)
 	require.Equal(t, state.Mark, encryptionMark)
@@ -362,8 +370,8 @@ func TestUpsertIPSecEndpointFwd(t *testing.T) {
 	ipSecKeysGlobal[""] = key
 
 	params := &IPSecParameters{
-		LocalBootID:    "local-boot-id",
-		RemoteBootID:   "remote-boot-id",
+		LocalBootID:    localBootID,
+		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   0xBEEF,
 		Dir:            IPSecDirFwd,
 		SourceSubnet:   wildcardCIDRv4,
@@ -462,8 +470,8 @@ func TestUpsertIPSecEndpointIn(t *testing.T) {
 	ipSecKeysGlobal[""] = key
 
 	params := &IPSecParameters{
-		LocalBootID:    "local-boot-id",
-		RemoteBootID:   "remote-boot-id",
+		LocalBootID:    localBootID,
+		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   0xBEEF,
 		Dir:            IPSecDirIn,
 		SourceSubnet:   remote,
@@ -492,10 +500,12 @@ func TestUpsertIPSecEndpointIn(t *testing.T) {
 	require.Nil(t, state.Aead)
 	require.NotNil(t, state.Auth)
 	require.Equal(t, "hmac(sha256)", state.Auth.Name)
-	require.Equal(t, authKey, state.Auth.Key)
+	derivedAuthKey := computeNodeIPsecKey(authKey, remote.IP, local.IP, []byte(remoteBootID), []byte(localBootID))
+	require.Equal(t, derivedAuthKey, state.Auth.Key)
 	require.NotNil(t, state.Crypt)
 	require.Equal(t, "cbc(aes)", state.Crypt.Name)
-	require.Equal(t, cryptKey, state.Crypt.Key)
+	derivedCryptKey := computeNodeIPsecKey(cryptKey, remote.IP, local.IP, []byte(remoteBootID), []byte(localBootID))
+	require.Equal(t, derivedCryptKey, state.Crypt.Key)
 	// ESN bit is not set, so ReplayWindow should be 0
 	require.Equal(t, 0, state.ReplayWindow)
 
@@ -603,9 +613,9 @@ func TestUpsertIPSecKeyMissing(t *testing.T) {
 	require.NoError(t, err)
 
 	params := &IPSecParameters{
-		LocalBootID:    "local-boot-id",
-		RemoteBootID:   "remote-boot-id",
-		RemoteNodeID:   0,
+		LocalBootID:    localBootID,
+		RemoteBootID:   remoteBootID,
+		RemoteNodeID:   remoteNodeID,
 		Dir:            IPSecDirIn,
 		SourceSubnet:   remote,
 		DestSubnet:     local,
@@ -644,8 +654,8 @@ func TestUpdateExistingIPSecEndpoint(t *testing.T) {
 	ipSecKeysGlobal[""] = key
 
 	params := &IPSecParameters{
-		LocalBootID:    "local-boot-id",
-		RemoteBootID:   "remote-boot-id",
+		LocalBootID:    localBootID,
+		RemoteBootID:   remoteBootID,
 		RemoteNodeID:   0xBEEF,
 		Dir:            IPSecDirIn,
 		SourceSubnet:   remote,
