@@ -9,6 +9,14 @@ inputs:
     required: true
     type: string
     description: "'true' if encryption-overlay is enabled"
+  nb-nodes:
+    required: true
+    type: string
+    description: "Number of nodes in the cluster or clustermesh"
+  ipv6:
+    required: true
+    type: boolean
+    description: "Whether IPv6 is enabled. Note IPv4 is always enabled if IPsec is enabled."
 runs:
   using: composite
   steps:
@@ -30,10 +38,18 @@ runs:
         echo "Updating IPsec secret with $data"
         kubectl patch secret -n kube-system cilium-ipsec-keys -p="$data" -v=1
 
-        exp_nb_keys=16
-        if [[ "${{ inputs.encryption-overlay }}" == "true" ]]; then
-          ((exp_nb_keys+=8))
+        # We have two keys per node, per direction, per IP family. So a two-nodes IPv4-only cluster
+        # will have four keys. If encryption-overlay is enabled, we have 4 more IPv4 keys for the
+        # overlay. During the key rotation, the number of keys doubles.
+        exp_nb_keys=${{ inputs.nb-nodes }}
+        ((exp_nb_keys*=2))
+        if [[ "${{ inputs.ipv6 }}" == "true" ]]; then
+          ((exp_nb_keys*=2))
         fi
+        if [[ "${{ inputs.encryption-overlay }}" == "true" ]]; then
+          ((exp_nb_keys+=4))
+        fi
+        ((exp_nb_keys*=2))
 
         # Wait until key rotation starts
         # We expect the amount of keys in use to grow during rotation.
@@ -46,10 +62,9 @@ runs:
           sleep 30s
         done
 
-        exp_nb_keys=8
-        if [[ "${{ inputs.encryption-overlay }}" == "true" ]]; then
-          exp_nb_keys=12
-        fi
+        # After the key rotation is finished and old keys are cleaned up, the number of keys is
+        # halved.
+        ((exp_nb_keys/=2))
 
         # Wait until key rotation completes
         # By default the key rotation cleanup delay is 5min, let's sleep 4min before actively polling
