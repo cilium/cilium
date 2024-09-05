@@ -65,7 +65,7 @@ func TestConformance(t *testing.T) {
 		skipTests = append(skipTests, string(features.SupportGatewayStaticAddresses))
 	} else {
 		var addressType = v1.IPAddressType
-		for _, value := range strings.Split(usableAddresses, ",") {
+		for _, value := range strings.Split(unusableAddresses, ",") {
 			unusableNetworkAddresses = append(unusableNetworkAddresses, v1beta1.GatewayAddress{
 				Type:  &addressType,
 				Value: value,
