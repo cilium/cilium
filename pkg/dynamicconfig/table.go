@@ -125,6 +125,24 @@ func WatchKey(txn statedb.ReadTxn, table statedb.Table[DynamicConfig], key strin
 	return entries[0], true, w
 }
 
+// WatchAllKeys retrieves all DynamicConfig values accounting for priority when the
+// key is present in multiple config sources.
+func WatchAllKeys(txn statedb.ReadTxn, table statedb.Table[DynamicConfig]) (map[string]DynamicConfig, <-chan struct{}) {
+	keyValue := map[string]DynamicConfig{}
+	keyPriority := map[string]int{}
+
+	iter, w := table.AllWatch(txn)
+	for obj := range iter {
+		priority, found := keyPriority[obj.Key.Name]
+		if !found || priority > obj.Priority {
+			keyValue[obj.Key.Name] = obj
+			keyPriority[obj.Key.Name] = obj.Priority
+		}
+	}
+
+	return keyValue, w
+}
+
 func sortByPriority(entries []DynamicConfig) {
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].Priority < entries[j].Priority
