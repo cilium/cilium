@@ -175,8 +175,8 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		var epList *discovery.EndpointSliceList
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			epList, err = getEndpointSlice(&fakeClient, svcName)
-			assert.NoError(t, err)
-			assert.Len(t, epList.Items, 1)
+			assert.NoError(c, err)
+			assert.Len(c, epList.Items, 1)
 		}, timeout, tick, "endpointslice is not reconciled correctly")
 
 		require.Equal(t, map[string]string{
