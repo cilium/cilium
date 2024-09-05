@@ -16,6 +16,7 @@ steps:
       - name: BPF Map Pressure (Max)
         query: max_over_time(max(cilium_bpf_map_pressure)[%v:]) * 100
         threshold: 90
+      enableViolations: true
 
   - Identifier: WarningErrorLogs
     Method: GenericPrometheusQuery
@@ -31,6 +32,7 @@ steps:
       - name: Errors
         query: sum(cilium_errors_warnings_total{level="error"})
         threshold: 10
+      enableViolations: true
 
   - Identifier: ClusterMeshReconnections
     Method: GenericPrometheusQuery
@@ -46,6 +48,7 @@ steps:
       - name: KVStoreMesh
         query: sum(cilium_kvstoremesh_remote_cluster_failures)
         threshold: 0
+      enableViolations: true
 
   - Identifier: KVStoreMeshDataSynchronization
     Method: GenericPrometheusQuery
@@ -61,6 +64,7 @@ steps:
       - name: Sync Errors
         query: sum(cilium_kvstoremesh_kvstore_sync_errors_total)
         threshold: 0
+      enableViolations: true
 
   - Identifier: KVStoreMeshBootstrap
     Method: GenericPrometheusQuery
@@ -73,6 +77,7 @@ steps:
       - name: Bootstrap Time
         query: sum(cilium_kvstoremesh_bootstrap_seconds)
         threshold: 60
+      enableViolations: true
 
   - Identifier: KVStoreOperationsDurations
     Method: GenericPrometheusQuery
@@ -94,6 +99,7 @@ steps:
         query: histogram_quantile(0.9, sum(rate(cilium_kvstoremesh_kvstore_operations_duration_seconds_bucket{action="Delete"}[%v])) by (le))
       - name: Deletes - Perc 99
         query: histogram_quantile(0.99, sum(rate(cilium_kvstoremesh_kvstore_operations_duration_seconds_bucket{action="Delete"}[%v])) by (le))
+      enableViolations: true
 
   - Identifier: KVStoreEventsQueueTime
     Method: GenericPrometheusQuery
@@ -121,6 +127,7 @@ steps:
         query: histogram_quantile(0.9, sum(rate(cilium_kvstore_events_queue_seconds_bucket{scope="identities/v1"}[%v])) by (le))
       - name: Identities - Perc99
         query: histogram_quantile(0.99, sum(rate(cilium_kvstore_events_queue_seconds_bucket{scope="identities/v1"}[%v])) by (le))
+      enableViolations: true
 
   - Identifier: EtcdResources
     Method: GenericPrometheusQuery
@@ -138,6 +145,7 @@ steps:
         query: max_over_time(sum(etcd_mvcc_db_total_size_in_bytes{job="clustermesh-apiserver-metrics", container="etcd"})[%v:]) / 1e6
       - name: Process resident set (KVStoreMesh)
         query: max_over_time(sum(process_resident_memory_bytes{job="clustermesh-apiserver-metrics", container="etcd"})[%v:]) / 1e6
+      enableViolations: true
 
   - Identifier: EtcdWatchers
     Method: GenericPrometheusQuery
@@ -159,6 +167,7 @@ steps:
         query: max_over_time(sum(etcd_debugging_mvcc_watcher_total{job="clustermesh-apiserver-metrics", container="etcd"})[%v:])
       - name: Total slow watchers (KVStoreMesh)
         query: max_over_time(sum(etcd_debugging_mvcc_slow_watcher_total{job="clustermesh-apiserver-metrics", container="etcd"})[%v:])
+      enableViolations: true
 
   # For debugging cardinality of metrics, fetch prometheus snapshot and use
   # following query to get the cardinality of metrics:
@@ -173,3 +182,4 @@ steps:
       queries:
       - name: Max
         query: max_over_time(count({__name__=~"cilium_.+"})[%v:])
+      enableViolations: true

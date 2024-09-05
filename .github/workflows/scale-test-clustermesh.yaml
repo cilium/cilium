@@ -263,6 +263,7 @@ jobs:
           cp -r .github/actions/cl2-modules ./perf-tests/clusterloader2/testing/custom
 
       - name: Run CL2 to setup prometheus
+        shell: bash
         working-directory: ./perf-tests/clusterloader2
         env:
           CL2_PROMETHEUS_PVC_ENABLED: "false"
@@ -344,6 +345,7 @@ jobs:
 
       - name: Run CL2
         id: run-cl2
+        shell: bash
         working-directory: ./perf-tests/clusterloader2
         env:
           CL2_PROMETHEUS_PVC_ENABLED: "false"
