@@ -192,8 +192,8 @@ func fixture(t *testing.T, sources string) (*hive.Hive, *statedb.DB, statedb.RWT
 				lc.Append(jg)
 				return jg
 			},
-			func() config {
-				return config{
+			func() Config {
+				return Config{
 					EnableDynamicConfig:    true,
 					ConfigSources:          sources,
 					ConfigSourcesOverrides: "{\"allowConfigKeys\":null,\"denyConfigKeys\":null}",

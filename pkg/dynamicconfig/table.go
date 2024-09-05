@@ -85,7 +85,7 @@ func NewConfigTable(db *statedb.DB) (statedb.RWTable[DynamicConfig], error) {
 	return tbl, db.RegisterTable(tbl)
 }
 
-func RegisterConfigMapReflector(jobGroup job.Group, db *statedb.DB, rcs []k8s.ReflectorConfig[DynamicConfig], c config) error {
+func RegisterConfigMapReflector(jobGroup job.Group, db *statedb.DB, rcs []k8s.ReflectorConfig[DynamicConfig], c Config) error {
 	if !c.EnableDynamicConfig {
 		return nil
 	}
