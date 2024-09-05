@@ -308,7 +308,7 @@ func reinitializeOverlay(ctx context.Context, tunnelConfig tunnel.Config) error 
 		opts = append(opts, fmt.Sprintf("-DSECLABEL_IPV6=%d", identity.ReservedIdentityWorld))
 	}
 
-	if err := replaceOverlayDatapath(ctx, opts, iface); err != nil {
+	if err := replaceOverlayDatapath(ctx, opts, link); err != nil {
 		return fmt.Errorf("failed to load overlay programs: %w", err)
 	}
 
@@ -337,7 +337,7 @@ func reinitializeWireguard(ctx context.Context) (err error) {
 		fmt.Sprintf("-DCALLS_MAP=cilium_calls_wireguard_%d", identity.ReservedIdentityWorld),
 	}
 
-	if err := replaceWireguardDatapath(ctx, opts, wgTypes.IfaceName); err != nil {
+	if err := replaceWireguardDatapath(ctx, opts, link); err != nil {
 		return fmt.Errorf("failed to load wireguard programs: %w", err)
 	}
 	return
