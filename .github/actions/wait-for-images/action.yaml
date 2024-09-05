@@ -1,0 +1,32 @@
+name: Wait for images
+description: Wait for images
+inputs:
+  SHA:
+    description: 'inputs.sha'
+    required: true
+    default: 'incorrect-sha'
+  images:
+    description: 'list of images to wait for'
+    required: false
+    default: 'cilium-ci operator-generic-ci hubble-relay-ci cilium-cli-ci'
+runs:
+  using: composite
+  steps:
+    - name: Set environment variables
+      uses: ./.github/actions/set-env-variables
+    - name: Wait for images
+      shell: bash
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          SHA="${{ inputs.SHA }}"
+        else
+          SHA="${{ github.sha }}"
+        fi
+
+        for image in ${{ inputs.images }} ; do
+          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:$SHA &> /dev/null
+          do
+            echo "Waiting for quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:$SHA image to become available..."
+            sleep 45s
+          done
+        done
