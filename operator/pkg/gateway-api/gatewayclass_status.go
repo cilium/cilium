@@ -23,7 +23,6 @@ var supportedFeatures = features.AllFeatures
 var gatewayClassSupportedFeatures = getSupportedFeatures()
 
 var exemptFeatures = []features.SupportedFeature{
-	"GatewayStaticAddresses",
 	"HTTPRouteParentRefPort",
 	"MeshConsumerRoute",
 }
