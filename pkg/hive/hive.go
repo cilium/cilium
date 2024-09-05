@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 type (
@@ -42,18 +43,36 @@ func New(cells ...cell.Cell) *Hive {
 	cells = append(
 		slices.Clone(cells),
 
-		health.Cell,
 		job.Cell,
-		statedb.Cell,
 
+		// Module health
+		cell.Group(
+			health.Cell,
+			cell.Provide(
+				func(provider types.Provider) cell.Health {
+					return provider.ForModule(nil)
+				},
+			),
+		),
+
+		// StateDB and its metrics
+		cell.Group(
+			statedb.Cell,
+
+			metrics.Metric(NewStateDBMetrics),
+			metrics.Metric(NewStateDBReconcilerMetrics),
+			cell.Provide(
+				NewStateDBMetricsImpl,
+				NewStateDBReconcilerMetricsImpl,
+			),
+		),
+
+		// The root logrus FieldLogger.
 		cell.Provide(
-			NewStateDBMetrics,
-			NewStateDBReconcilerMetrics,
 			func() logrus.FieldLogger { return logging.DefaultLogger },
-			func(provider types.Provider) cell.Health {
-				return provider.ForModule(nil)
-			},
-		))
+		),
+	)
+
 	// Scope logging and health by module ID.
 	moduleDecorators := []cell.ModuleDecorator{
 		func(log logrus.FieldLogger, mid cell.ModuleID) logrus.FieldLogger {
