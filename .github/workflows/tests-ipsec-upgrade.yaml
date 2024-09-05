@@ -194,6 +194,10 @@ jobs:
           # make tags available to print-downgrade-version.sh.
           persist-credentials: true
 
+      - name: Cleanup Disk space in runner
+        if: runner.name == 'ubuntu-latest'
+        uses: ./.github/actions/disk-cleanup
+
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
