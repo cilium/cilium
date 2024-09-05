@@ -32,14 +32,20 @@ type Trie[K, T any] interface {
 	// key.
 	LongestPrefixMatch(key K) (k K, v T, ok bool)
 	// Ancestors iterates over every prefix-key pair that contains
-	// the prefix-key argument pair. If the Ancestors function argument
-	// returns false the iteration will stop. Ancestors will iterate
+	// the prefix-key argument pair. If the function argument
+	// returns false the iteration will stop. Ancestors iterates
 	// keys from shortest to longest prefix match (that is, the
 	// longest match will be returned last).
 	//
 	// Note: If the prefix argument exceeds the Trie's maximum
 	// prefix, it will be set to the Trie's maximum prefix.
 	Ancestors(prefix uint, key K, fn func(uint, K, T) bool)
+	// AncestorsLongestPrefixFirst iterates over every prefix-key pair that
+	// contains the prefix-key argument pair. If the function argument
+	// returns false the iteration will stop. AncestorsLongestPrefixFirst
+	// iterates keys from longest to shortest prefix match (that is, the
+	// longest matching prefix will be returned first).
+	AncestorsLongestPrefixFirst(prefix uint, key K, fn func(uint, K, T) bool)
 	// Descendants iterates over every prefix-key pair that is contained
 	// by the prefix-key argument pair. If the Descendants function argument
 	// returns false the iteration will stop. Descendants does **not** iterate
@@ -115,9 +121,9 @@ type node[K, T any] struct {
 // prefix, it will be set to the Trie's maximum prefix.
 func (t *trie[K, T]) ExactLookup(prefixLen uint, k Key[K]) (ret T, found bool) {
 	prefixLen = min(prefixLen, t.maxPrefix)
-	t.traverse(prefixLen, k, func(currentNode *node[K, T], matchLen uint) bool {
+	t.traverse(prefixLen, k, func(currentNode *node[K, T]) bool {
 		// Only copy node value if exact prefix length is found
-		if matchLen == prefixLen {
+		if currentNode.prefixLen == prefixLen {
 			ret = currentNode.value
 			found = true
 			return false // no need to continue
@@ -131,7 +137,7 @@ func (t *trie[K, T]) ExactLookup(prefixLen uint, k Key[K]) (ret T, found bool) {
 // longest prefix match of the argument key.
 func (t *trie[K, T]) LongestPrefixMatch(k Key[K]) (key Key[K], value T, ok bool) {
 	var lpmNode *node[K, T]
-	t.traverse(t.maxPrefix, k, func(currentNode *node[K, T], _ uint) bool {
+	t.traverse(t.maxPrefix, k, func(currentNode *node[K, T]) bool {
 		lpmNode = currentNode
 		return true
 	})
@@ -150,7 +156,14 @@ func (t *trie[K, T]) LongestPrefixMatch(k Key[K]) (key Key[K], value T, ok bool)
 // trie.
 func (t *trie[K, T]) Ancestors(prefixLen uint, k Key[K], fn func(prefix uint, key Key[K], value T) bool) {
 	prefixLen = min(prefixLen, t.maxPrefix)
-	t.traverse(prefixLen, k, func(currentNode *node[K, T], matchLen uint) bool {
+	t.traverse(prefixLen, k, func(currentNode *node[K, T]) bool {
+		return fn(currentNode.prefixLen, currentNode.key, currentNode.value)
+	})
+}
+
+func (t *trie[K, T]) AncestorsLongestPrefixFirst(prefixLen uint, k Key[K], fn func(prefix uint, key Key[K], value T) bool) {
+	prefixLen = min(prefixLen, t.maxPrefix)
+	t.treverse(prefixLen, k, func(currentNode *node[K, T]) bool {
 		return fn(currentNode.prefixLen, currentNode.key, currentNode.value)
 	})
 }
@@ -190,6 +203,7 @@ func (t *trie[K, T]) Descendants(prefixLen uint, k Key[K], fn func(prefix uint, 
 // match. If the function argument returns false the iteration will stop.
 //
 // traverse starts at the root node in the trie.
+//
 // The key and prefix being searched (the "search" key and prefix) are
 // compared to the a trie node's key and prefix (the "node" key and
 // prefix) to determine the extent to which the keys match (from MSB to
@@ -206,7 +220,7 @@ func (t *trie[K, T]) Descendants(prefixLen uint, k Key[K], fn func(prefix uint, 
 // determine which children of the current node to traverse (to
 // check if there is a more specific match). If there is no child then
 // traversal ends. Otherwise traversal continues.
-func (t *trie[K, T]) traverse(prefixLen uint, k Key[K], fn func(currentNode *node[K, T], matchLen uint) bool) {
+func (t *trie[K, T]) traverse(prefixLen uint, k Key[K], fn func(currentNode *node[K, T]) bool) {
 	if k == nil {
 		return
 	}
@@ -220,7 +234,46 @@ func (t *trie[K, T]) traverse(prefixLen uint, k Key[K], fn func(currentNode *nod
 		if currentNode.intermediate {
 			continue
 		}
-		if !fn(currentNode, matchLen) || matchLen == t.maxPrefix {
+		if !fn(currentNode) || matchLen == t.maxPrefix {
+			return
+		}
+	}
+}
+
+// nPointersOnCacheline is the number of 64-bit pointers on a typical 64-byte cacheline.
+// While allocations may cross cache line boundaries, it is still a good size to use for
+// a minimum allocation when a small number of pointers is likely needed.
+const nPointersOnCacheline = 8
+
+// treverse is like traverse, but it calls 'fn' in reverse order, starting from the most specific match
+func (t *trie[K, T]) treverse(prefixLen uint, k Key[K], fn func(currentNode *node[K, T]) bool) {
+	if k == nil {
+		return
+	}
+
+	// stack is used to reverse the order in which nodes are visited.
+	// Preallocate space for some pointers to reduce allocations and copies.
+	stack := make([]*node[K, T], 0, nPointersOnCacheline)
+
+	for currentNode := t.root; currentNode != nil; currentNode = currentNode.children[k.BitValueAt(currentNode.prefixLen)] {
+		matchLen := currentNode.prefixMatch(prefixLen, k)
+		// The current-node does not match.
+		if matchLen < currentNode.prefixLen {
+			break
+		}
+		// Skip over intermediate nodes
+		if currentNode.intermediate {
+			continue
+		}
+		stack = append(stack, currentNode)
+		if matchLen == t.maxPrefix {
+			break
+		}
+	}
+
+	// Call the function for stacked nodes in reverse order, i.e., longest-prefix-match first
+	for i := len(stack) - 1; i >= 0; i-- {
+		if !fn(stack[i]) {
 			return
 		}
 	}
