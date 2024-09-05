@@ -568,14 +568,9 @@ func reloadEndpoint(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	return nil
 }
 
-func replaceOverlayDatapath(ctx context.Context, cArgs []string, iface string) error {
+func replaceOverlayDatapath(ctx context.Context, cArgs []string, device netlink.Link) error {
 	if err := compileOverlay(ctx, cArgs); err != nil {
 		return fmt.Errorf("compiling overlay program: %w", err)
-	}
-
-	device, err := netlink.LinkByName(iface)
-	if err != nil {
-		return fmt.Errorf("retrieving device %s: %w", iface, err)
 	}
 
 	spec, err := bpf.LoadCollectionSpec(overlayObj)
@@ -611,13 +606,9 @@ func replaceOverlayDatapath(ctx context.Context, cArgs []string, iface string) e
 	return nil
 }
 
-func replaceWireguardDatapath(ctx context.Context, cArgs []string, iface string) (err error) {
+func replaceWireguardDatapath(ctx context.Context, cArgs []string, device netlink.Link) (err error) {
 	if err := compileWireguard(ctx, cArgs); err != nil {
 		return fmt.Errorf("compiling wireguard program: %w", err)
-	}
-	device, err := netlink.LinkByName(iface)
-	if err != nil {
-		return fmt.Errorf("retrieving device %s: %w", iface, err)
 	}
 
 	spec, err := bpf.LoadCollectionSpec(wireguardObj)
