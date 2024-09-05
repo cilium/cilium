@@ -71,6 +71,29 @@ loop:
 	t.Log(havePath)
 	assert.Equal(t, wantPath, havePath)
 
+	// Search should return the complete path to the prefix
+	// will look up 1.1.1.128/25.
+	wantPath = []string{
+		"last", // 1.1.1.129/32
+		"4b",   // 1.1.1.128/25
+		"3a",   // 1.1.1.0/24
+		"2a",   // 1.1.0.0/16
+		"1",    // 1.0.0.0/8
+		"0",    // 0.0.0.0/0
+	}
+
+	havePath = []string{}
+	trie.AncestorsLongestPrefixFirst(prefixes["last"], func(k netip.Prefix, v string) bool {
+		wantK := prefixes[v]
+		if wantK != k {
+			t.Errorf("Search(%s) returned an unexpected key-value pair: k %s v %s", prefixes["last"], k.String(), v)
+		}
+		havePath = append(havePath, v)
+		return true
+	})
+	t.Log(havePath)
+	assert.Equal(t, wantPath, havePath)
+
 	for _, tc := range []struct {
 		k string
 		v string
