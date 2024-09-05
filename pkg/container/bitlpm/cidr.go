@@ -54,6 +54,14 @@ func (c *CIDRTrie[T]) Ancestors(cidr netip.Prefix, fn func(k netip.Prefix, v T) 
 	})
 }
 
+// AncestorsLongestPrefixFirst iterates over every CIDR pair that contains the CIDR argument,
+// longest matching prefix first, then iterating towards the root of the trie.
+func (c *CIDRTrie[T]) AncestorsLongestPrefixFirst(cidr netip.Prefix, fn func(k netip.Prefix, v T) bool) {
+	c.treeForFamily(cidr).AncestorsLongestPrefixFirst(uint(cidr.Bits()), cidrKey(cidr), func(prefix uint, k Key[netip.Prefix], v T) bool {
+		return fn(k.Value(), v)
+	})
+}
+
 // Descendants iterates over every CIDR that is contained by the CIDR argument.
 func (c *CIDRTrie[T]) Descendants(cidr netip.Prefix, fn func(k netip.Prefix, v T) bool) {
 	c.treeForFamily(cidr).Descendants(uint(cidr.Bits()), cidrKey(cidr), func(prefix uint, k Key[netip.Prefix], v T) bool {
