@@ -70,6 +70,7 @@ steps:
       Method: PodStartupLatency
       Params:
         action: gather
+        enableViolations: true
 
 - name: Wait for Cluster Mesh API Server Mock Churn
   measurements:
