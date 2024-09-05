@@ -303,7 +303,7 @@ func (ipc *IPCache) upsertLocked(
 	if option.Config.Debug {
 		scopedLog = log.WithFields(logrus.Fields{
 			logfields.IPAddr:   ip,
-			logfields.Identity: newIdentity,
+			logfields.Identity: &newIdentity,
 			logfields.Key:      hostKey,
 		})
 		if k8sMeta != nil {
