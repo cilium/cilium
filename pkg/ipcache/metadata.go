@@ -249,21 +249,43 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 				break
 			}
 
-			// We can safely skip the ipcache upsert if the entry matches with
-			// the entry in the metadata cache exactly.
-			// Note that checking ID alone is insufficient, see GH-24502.
-			if oldID.ID == newID.ID && prefixInfo.Source() == oldID.Source &&
-				oldTunnelIP.Equal(prefixInfo.TunnelPeer().IP()) &&
-				oldEncryptionKey == prefixInfo.EncryptKey().Uint8() {
-				goto releaseIdentity
+			var newOverwrittenLegacySource source.Source
+			if entryExists {
+				// If an entry already exists for this prefix, then we want to
+				// retain its source, if it has been modified by the legacy API.
+				// This allows us to restore the original source if we remove all
+				// metadata for the prefix
+				switch {
+				case oldID.exclusivelyOwnedByLegacyAPI():
+					// This is the first time we have associated metadata for a
+					// modifiedByLegacyAPI=true entry. Store the old (legacy) source:
+					newOverwrittenLegacySource = oldID.Source
+				case oldID.ownedByLegacyAndMetadataAPI():
+					// The entry has modifiedByLegacyAPI=true, but has already been
+					// updated at least once by the metadata API. Retain the legacy
+					// source as is.
+					newOverwrittenLegacySource = oldID.overwrittenLegacySource
+				}
+
+				// We can safely skip the ipcache upsert if the entry matches with
+				// the entry in the metadata cache exactly.
+				// Note that checking ID alone is insufficient, see GH-24502.
+				if oldID.ID == newID.ID && prefixInfo.Source() == oldID.Source &&
+					oldID.overwrittenLegacySource == newOverwrittenLegacySource &&
+					oldTunnelIP.Equal(prefixInfo.TunnelPeer().IP()) &&
+					oldEncryptionKey == prefixInfo.EncryptKey().Uint8() {
+					goto releaseIdentity
+				}
 			}
 
 			idsToAdd[newID.ID] = newID.Labels.LabelArray()
 			entriesToReplace[prefix] = ipcacheEntry{
 				identity: Identity{
-					ID:                  newID.ID,
-					Source:              prefixInfo.Source(),
-					createdFromMetadata: true,
+					ID:                      newID.ID,
+					Source:                  prefixInfo.Source(),
+					overwrittenLegacySource: newOverwrittenLegacySource,
+					// Note: `modifiedByLegacyAPI` and `shadowed` will be
+					// set by the upsert call itself
 				},
 				tunnelPeer: prefixInfo.TunnelPeer().IP(),
 				encryptKey: prefixInfo.EncryptKey().Uint8(),
@@ -286,14 +308,14 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			// allocation from the prior InjectLabels() call by
 			// releasing the previous reference.
 			entry, entryToBeReplaced := entriesToReplace[prefix]
-			if !oldID.createdFromMetadata && entryToBeReplaced {
+			if oldID.exclusivelyOwnedByLegacyAPI() && entryToBeReplaced {
 				// If the previous ipcache entry for the prefix
 				// was not managed by this function, then the
 				// previous ipcache user to inject the IPCache
 				// entry retains its own reference to the
 				// Security Identity. Given that this function
-				// is going to assume responsibility for the
-				// IPCache entry now, this path must retain its
+				// is going to assume (non-exclusive) responsibility
+				// for the IPCache entry now, this path must retain its
 				// own reference to the Security Identity to
 				// ensure that if the other owner ever releases
 				// their reference, this reference stays live.
@@ -312,13 +334,40 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			// subsystem using the old Upsert API, then we can safely remove
 			// the IPCache entry associated with this prefix.
 			if prefixInfo == nil {
-				if oldID.createdFromMetadata {
+				if oldID.exclusivelyOwnedByMetadataAPI() {
 					entriesToDelete[prefix] = oldID
-				} else {
+				} else if oldID.ownedByLegacyAndMetadataAPI() {
 					// If, on the other hand, this prefix *was* touched by
-					// another, Upsert-based system, flag this prefix as
-					// potentially eligible for deletion if all references
-					// are removed.
+					// another, Upsert-based system, then we want to restore
+					// the original (legacy) source. This ensures that the legacy
+					// Delete call (with the legacy source) will be able to remove
+					// it.
+					unmanagedEntry := ipcacheEntry{
+						identity: Identity{
+							ID:                  oldID.ID,
+							Source:              oldID.overwrittenLegacySource,
+							modifiedByLegacyAPI: true,
+						},
+						tunnelPeer: oldTunnelIP,
+						encryptKey: oldEncryptionKey,
+						force:      true, /* overwrittenLegacySource is lower precedence */
+					}
+					entriesToReplace[prefix] = unmanagedEntry
+
+					// In addition, flag this prefix as potentially eligible
+					// for deletion if all references are removed (i.e. the legacy
+					// Delete call already happened).
+					unmanagedPrefixes[prefix] = unmanagedEntry.identity
+
+					if option.Config.Debug {
+						log.WithFields(logrus.Fields{
+							logfields.Prefix:      prefix,
+							logfields.OldIdentity: oldID.ID,
+						}).Debug("Previously managed IPCache entry is now unmanaged")
+					}
+				} else if oldID.exclusivelyOwnedByLegacyAPI() {
+					// Even if we never actually overwrote the legacy-owned
+					// entry, we should still remove it if all references are removed.
 					unmanagedPrefixes[prefix] = oldID
 				}
 			}
@@ -363,6 +412,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			meta,
 			entry.identity,
 			entry.force,
+			/* fromLegacyAPI */ false,
 		); err2 != nil {
 			// It's plausible to pull the same information twice
 			// from different sources, for instance in etcd mode
