@@ -91,3 +91,8 @@ ENV DEBUG_HOLD=${DEBUG_HOLD}
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/cilium-${OPERATOR_VARIANT} /usr/bin/cilium-${OPERATOR_VARIANT}-bin
 COPY --from=debug-tools /go/bin/dlv /usr/bin/dlv
 COPY --from=debug-tools /out/${TARGETOS}/${TARGETARCH}/bin/debug-wrapper /usr/bin/cilium-${OPERATOR_VARIANT}
+RUN addgroup -g 1000 cilium-operator
+RUN adduser -D -u 1000 -G cilium-operator cilium-operator
+USER cilium-operator
+
+

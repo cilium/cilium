@@ -2823,7 +2823,7 @@
    * - :spelling:ignore:`operator.securityContext`
      - Security context to be added to cilium-operator pods
      - object
-     - ``{}``
+     - ``{"runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000}``
    * - :spelling:ignore:`operator.setNodeNetworkStatus`
      - Set Node condition NetworkUnavailable to 'false' with the reason 'CiliumIsUp' for nodes that have a healthy Cilium pod.
      - bool

@@ -2645,8 +2645,10 @@ operator:
   #     memory: 128Mi
 
   # -- Security context to be added to cilium-operator pods
-  securityContext: {}
-  # runAsUser: 0
+  securityContext: 
+    runAsNonRoot: true
+    runAsGroup: 1000
+    runAsUser: 1000
 
   # -- Interval for endpoint garbage collection.
   endpointGCInterval: "5m0s"
