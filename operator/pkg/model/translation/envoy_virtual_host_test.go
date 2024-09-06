@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"sort"
 	"testing"
+	"time"
 
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
@@ -594,5 +595,48 @@ func Test_requestMirrorMutation(t *testing.T) {
 		require.Equal(t, res.Route.RequestMirrorPolicies[0].RuntimeFraction.DefaultValue.Numerator, uint32(100))
 		require.Equal(t, res.Route.RequestMirrorPolicies[1].Cluster, "default:another-dummy-service:8080")
 		require.Equal(t, res.Route.RequestMirrorPolicies[1].RuntimeFraction.DefaultValue.Numerator, uint32(100))
+	})
+}
+
+func Test_retryMutation(t *testing.T) {
+	t.Run("no retry", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		res := retryMutation(nil)(route)
+		require.Equal(t, route, res)
+	})
+
+	t.Run("with retry without backoff", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		retry := &model.HTTPRetry{
+			Codes:    []uint32{500, 503},
+			Attempts: model.AddressOf(3),
+		}
+
+		res := retryMutation(retry)(route)
+		require.Equal(t, []uint32{500, 503}, res.Route.RetryPolicy.RetriableStatusCodes)
+		require.Empty(t, res.Route.RetryPolicy.RetryBackOff)
+		require.Equal(t, uint32(3), res.Route.RetryPolicy.NumRetries.Value)
+	})
+
+	t.Run("with retry with backoff", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		retry := &model.HTTPRetry{
+			Codes:    []uint32{500, 503},
+			Attempts: model.AddressOf(3),
+			Backoff:  model.AddressOf(10 * time.Second),
+		}
+
+		res := retryMutation(retry)(route)
+		require.Equal(t, []uint32{500, 503}, res.Route.RetryPolicy.RetriableStatusCodes)
+		require.Equal(t, uint32(3), res.Route.RetryPolicy.NumRetries.Value)
+		require.NotEmpty(t, res.Route.RetryPolicy.RetryBackOff)
+		require.Equal(t, int64(10), res.Route.RetryPolicy.RetryBackOff.BaseInterval.Seconds)
+		require.Equal(t, int64(20), res.Route.RetryPolicy.RetryBackOff.MaxInterval.Seconds)
 	})
 }
