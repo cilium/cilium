@@ -3,6 +3,10 @@
 
 package bitlpm
 
+import (
+	"container/heap"
+)
+
 // Trie is a [non-preemptive] [binary] [trie] that indexes arbitrarily long
 // bit-based keys with associated prefix lengths indexed from [most significant bit]
 // ("MSB") to [least significant bit] ("LSB") using the
@@ -47,13 +51,19 @@ type Trie[K, T any] interface {
 	// longest matching prefix will be returned first).
 	AncestorsLongestPrefixFirst(prefix uint, key K, fn func(uint, K, T) bool)
 	// Descendants iterates over every prefix-key pair that is contained
-	// by the prefix-key argument pair. If the Descendants function argument
+	// by the prefix-key argument pair. If the function argument
 	// returns false the iteration will stop. Descendants does **not** iterate
 	// over matches in any guaranteed order.
 	//
 	// Note: If the prefix argument exceeds the Trie's maximum
 	// prefix, it will be set to the Trie's maximum prefix.
 	Descendants(prefix uint, key K, fn func(uint, K, T) bool)
+	// DescendantsShortestPrefixFirst iterates over every prefix-key pair that is contained by
+	// the prefix-key argument pair. If the function argument returns false the iteration will
+	// stop. DescendantsShortestPrefixFirst iterates keys starting from shortest prefix, and
+	// progressing towards keys with longer prefixes. Keys with equal prefix lengths are not
+	// iterated in any particular order.
+	DescendantsShortestPrefixFirst(prefix uint, key K, fn func(uint, K, T) bool)
 	// Upsert updates or inserts the trie with a a prefix, key,
 	// and value. The method returns true if the key is new, and
 	// false if the key already existed.
@@ -187,6 +197,37 @@ func (t *trie[K, T]) Descendants(prefixLen uint, k Key[K], fn func(prefix uint, 
 		// CurrentNode matches the prefix-key argument
 		if matchLen >= prefixLen {
 			currentNode.forEach(fn)
+			return
+		}
+		// currentNode is a leaf and has no children. Calling k.BitValueAt may
+		// overrun the key storage.
+		if currentNode.prefixLen >= t.maxPrefix {
+			return
+		}
+		currentNode = currentNode.children[k.BitValueAt(currentNode.prefixLen)]
+	}
+}
+
+// DescendantsShortestPrefixFirst iterates over every prefix-key pair that is contained by
+// the prefix-key argument pair. If the function argument returns false the iteration will
+// stop. DescendantsShortestPrefixFirst iterates keys starting from shortest prefix, and
+// progressing towards keys with longer prefixes. Keys with equal prefix lengths are not
+// iterated in any particular order.
+//
+// Note: Descendants sets any prefixLen argument that exceeds the maximum
+// prefix allowed by the trie to the maximum prefix allowed by the
+// trie.
+func (t *trie[K, T]) DescendantsShortestPrefixFirst(prefixLen uint, k Key[K], fn func(prefix uint, key Key[K], value T) bool) {
+	if k == nil {
+		return
+	}
+	prefixLen = min(prefixLen, t.maxPrefix)
+	currentNode := t.root
+	for currentNode != nil {
+		matchLen := currentNode.prefixMatch(prefixLen, k)
+		// CurrentNode matches the prefix-key argument
+		if matchLen >= prefixLen {
+			currentNode.forEachShortestPrefixFirst(fn)
 			return
 		}
 		// currentNode is a leaf and has no children. Calling k.BitValueAt may
@@ -592,7 +633,7 @@ func (n *node[K, T]) prefixMatch(prefix uint, k Key[K]) uint {
 }
 
 // forEach calls the argument function for each key and value in
-// the subtree rooted at the current node
+// the subtree rooted at the current node, iterating recursively in depth-first manner.
 func (n *node[K, T]) forEach(fn func(prefix uint, key Key[K], value T) bool) {
 	if !n.intermediate {
 		if !fn(n.prefixLen, n.key, n.value) {
@@ -604,5 +645,73 @@ func (n *node[K, T]) forEach(fn func(prefix uint, key Key[K], value T) bool) {
 	}
 	if n.children[1] != nil {
 		n.children[1].forEach(fn)
+	}
+}
+
+// nodes implements container/heap for trie nodes
+type nodes[K, T any] []*node[K, T]
+
+// container/heap interface functions
+func (nodes nodes[K, T]) Len() int { return len(nodes) }
+
+func (nodes nodes[K, T]) Less(i, j int) bool {
+	return nodes[i].prefixLen < nodes[j].prefixLen
+}
+
+func (nodes nodes[K, T]) Swap(i, j int) {
+	nodes[i], nodes[j] = nodes[j], nodes[i]
+}
+
+func (nodes *nodes[K, T]) Push(x any) {
+	node := x.(*node[K, T])
+	*nodes = append(*nodes, node)
+}
+
+func (nodes *nodes[K, T]) Pop() any {
+	old := *nodes
+	n := len(old)
+	node := old[n-1]
+	old[n-1] = nil // don't stop the GC from reclaiming the item eventually
+	*nodes = old[:n-1]
+	return node
+}
+
+// convenience wrappers
+func (nodes *nodes[K, T]) push(n *node[K, T]) {
+	heap.Push(nodes, n)
+}
+
+func (nodes *nodes[K, T]) pop() *node[K, T] {
+	return heap.Pop(nodes).(*node[K, T])
+}
+
+// forEachShortestPrefixFirst calls the argument function for each key and value in
+// trie, iterating from shortest to longest prefix in the trie.
+// A heap is used to track each un-visited subtree, starting from the root. Each node in the heap is
+// the node with the shortest prefix of the subtree it represents. To iterate in the order
+// of increasing prefix lengths, on each round we pop the node with the shortest prefix from the
+// heap, visit it, and push its children into the heap.
+func (n *node[K, T]) forEachShortestPrefixFirst(fn func(prefix uint, key Key[K], value T) bool) {
+	// nodes is a heap used to track the heads of each unvisited subtree. Each node in the heap
+	// has the shortest prefix length of any node in the subtree it represents.
+	// Preallocate space for some pointers to reduce allocations and copies.
+	nodes := make(nodes[K, T], 0, nPointersOnCacheline)
+	nodes.push(n)
+
+	for nodes.Len() > 0 {
+		// pop the node with the lowest prefix length from the heap
+		n := nodes.pop()
+		if !n.intermediate {
+			if !fn(n.prefixLen, n.key, n.value) {
+				return
+			}
+		}
+		// push the children, if any, into the heap
+		if n.children[0] != nil {
+			nodes.push(n.children[0])
+		}
+		if n.children[1] != nil {
+			nodes.push(n.children[1])
+		}
 	}
 }
