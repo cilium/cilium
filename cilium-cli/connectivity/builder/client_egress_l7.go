@@ -30,6 +30,7 @@ func clientEgressL7Test(ct *check.ConnectivityTest, templates map[string]string,
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML). // DNS resolution only
 		WithCiliumPolicy(templates[templateName]).       // L7 allow policy with HTTP introspection
+		WithCleanFqdnCache().
 		WithScenarios(
 			tests.PodToPod(),
 			tests.PodToWorld(tests.WithRetryDestPort(80), tests.WithRetryPodLabel("other", "client")),

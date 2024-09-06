@@ -26,6 +26,7 @@ func (t localRedirectPolicyWithNodeDNS) build(ct *check.ConnectivityTest, templa
 			features.RequireEnabled(features.LocalRedirectPolicy),
 			features.RequireEnabled(features.KPRSocketLB),
 		).
+		WithCleanFqdnCache().
 		WithScenarios(
 			tests.LRPWithNodeDNS(),
 		)

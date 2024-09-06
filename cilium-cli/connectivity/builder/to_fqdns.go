@@ -19,6 +19,7 @@ func (t toFqdns) build(ct *check.ConnectivityTest, templates map[string]string) 
 	newTest("to-fqdns", ct).
 		WithCiliumPolicy(templates["clientEgressToFQDNsPolicyYAML"]).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
+		WithCleanFqdnCache().
 		WithScenarios(
 			tests.PodToWorld(tests.WithRetryDestPort(80)),
 			tests.PodToWorld2(), // resolves cilium.io.

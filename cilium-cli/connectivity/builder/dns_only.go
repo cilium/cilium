@@ -16,6 +16,7 @@ func (t dnsOnly) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("dns-only", ct).
 		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
+		WithCleanFqdnCache().
 		WithScenarios(
 			tests.PodToPod(),   // connects to other Pods directly, no DNS
 			tests.PodToWorld(), // resolves set domain-name defaults to one.one.one.one

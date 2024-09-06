@@ -32,6 +32,7 @@ func clientEgressL7TlsHeadersTest(ct *check.ConnectivityTest, templates map[stri
 		WithCABundleSecret().
 		WithCertificate("externaltarget-tls", ct.Params().ExternalTarget).
 		WithCiliumPolicy(yamlFile). // L7 allow policy with TLS interception
+		WithCleanFqdnCache().
 		WithScenarios(tests.PodToWorldWithTLSIntercept("-H", "X-Very-Secret-Token: 42")).
 		WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 			return check.ResultOK, check.ResultNone

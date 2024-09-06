@@ -42,5 +42,6 @@ func (t egressGatewayWithL7Policy) build(ct *check.ConnectivityTest, templates m
 			features.RequireEnabled(features.L7Proxy),
 			features.RequireEnabled(features.NodeWithoutCilium),
 		).
+		WithCleanFqdnCache().
 		WithScenarios(tests.EgressGateway())
 }

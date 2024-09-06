@@ -137,6 +137,9 @@ type Test struct {
 	// List of callbacks to be executed before the test run as additional setup.
 	before []SetupFunc
 
+	// List of callbacks to be executed before each scenario run as additional setup.
+	beforeScenario []ScenarioSetupFunc
+
 	expectFunc ExpectationsFunc
 
 	// Start time of the test.
@@ -379,6 +382,12 @@ func (t *Test) Run(ctx context.Context, index int) error {
 		}
 
 		t.Logf("[-] Scenario [%s]", t.scenarioName(s))
+
+		for _, cb := range t.beforeScenario {
+			if err := cb(ctx, t, t.ctx, s); err != nil {
+				return fmt.Errorf("additional scenario setup callback: %w", err)
+			}
+		}
 
 		s.Run(ctx, t)
 	}
@@ -843,6 +852,17 @@ type SetupFunc func(ctx context.Context, t *Test, testCtx *ConnectivityTest) err
 // the test runs.
 func (t *Test) WithSetupFunc(f SetupFunc) *Test {
 	t.before = append(t.before, f)
+	return t
+}
+
+// ScenarioSetupFunc is a callback meanto to be called before running a scenario.
+// It performs additional per-scenario setup needed to run tests.
+type ScenarioSetupFunc func(ctx context.Context, t *Test, testCtx *ConnectivityTest, s Scenario) error
+
+// WithScenarioSetupFunc registers a ScenarioSetupFunc callback to be executed
+// just before the scenario runs.
+func (t *Test) WithScenarioSetupFunc(f ScenarioSetupFunc) *Test {
+	t.beforeScenario = append(t.beforeScenario, f)
 	return t
 }
 

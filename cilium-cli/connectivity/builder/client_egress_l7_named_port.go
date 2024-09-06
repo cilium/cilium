@@ -17,6 +17,7 @@ func (t clientEgressL7NamedPort) build(ct *check.ConnectivityTest, templates map
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).                      // DNS resolution only
 		WithCiliumPolicy(templates["clientEgressL7HTTPNamedPortPolicyYAML"]). // L7 allow policy with HTTP introspection (named port)
+		WithCleanFqdnCache().
 		WithScenarios(
 			tests.PodToPod(),
 			tests.PodToWorld(tests.WithRetryDestPort(80), tests.WithRetryPodLabel("other", "client")),
