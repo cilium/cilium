@@ -69,6 +69,13 @@ func (c *CIDRTrie[T]) Descendants(cidr netip.Prefix, fn func(k netip.Prefix, v T
 	})
 }
 
+// DescendantsShortestPrefixFirst iterates over every CIDR that is contained by the CIDR argument.
+func (c *CIDRTrie[T]) DescendantsShortestPrefixFirst(cidr netip.Prefix, fn func(k netip.Prefix, v T) bool) {
+	c.treeForFamily(cidr).DescendantsShortestPrefixFirst(uint(cidr.Bits()), cidrKey(cidr), func(prefix uint, k Key[netip.Prefix], v T) bool {
+		return fn(k.Value(), v)
+	})
+}
+
 // Upsert adds or updates the value for a given prefix.
 func (c *CIDRTrie[T]) Upsert(cidr netip.Prefix, v T) bool {
 	return c.treeForFamily(cidr).Upsert(uint(cidr.Bits()), cidrKey(cidr), v)
