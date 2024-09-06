@@ -56,7 +56,7 @@ func (a *EnvoyAdminClient) transact(query string) error {
 	if err != nil {
 		return err
 	}
-	ret := strings.Replace(string(body), "\r", "", -1)
+	ret := strings.ReplaceAll(string(body), "\r", "")
 	log.Debugf("Envoy: Admin response to %s: %s", query, ret)
 	return nil
 }
