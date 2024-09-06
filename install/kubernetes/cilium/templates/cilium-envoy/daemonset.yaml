@@ -80,6 +80,8 @@ spec:
         - '--log-level trace'
         {{- else if and (.Values.debug.enabled) (hasKey .Values.debug "verbose") (.Values.debug.verbose) (has "flow" ( splitList " " .Values.debug.verbose )) }}
         - '--log-level debug'
+        {{- else if .Values.envoy.log.defaultLevel }}
+        - '--log-level {{ .Values.envoy.log.defaultLevel }}'
         {{- else }}
         - '--log-level info'
         {{- end }}

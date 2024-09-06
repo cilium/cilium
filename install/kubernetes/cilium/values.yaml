@@ -2198,6 +2198,16 @@ envoy:
     format: "[%Y-%m-%d %T.%e][%t][%l][%n] [%g:%#] %v"
     # -- Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
     path: ""
+    # @schema
+    # oneOf:
+    # - type: [null]
+    # - enum: [trace,debug,info,warning,error,critical,off]
+    # @schema
+    # -- Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled.
+    # This option allows to have a different log level than the Cilium Agent - e.g. lower it to `critical`.
+    # Possible values: trace, debug, info, warning, error, critical, off
+    # @default -- Defaults to the default log level of the Cilium Agent - `info`
+    defaultLevel: ~
   # -- Time in seconds after which a TCP connection attempt times out
   connectTimeoutSeconds: 2
   # -- ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy

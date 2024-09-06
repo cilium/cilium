@@ -1982,6 +1982,24 @@
         },
         "log": {
           "properties": {
+            "defaultLevel": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "enum": [
+                    "trace",
+                    "debug",
+                    "info",
+                    "warning",
+                    "error",
+                    "critical",
+                    "off"
+                  ]
+                }
+              ]
+            },
             "format": {
               "type": "string"
             },
