@@ -1248,6 +1248,10 @@
      - interval between checks of the liveness probe
      - int
      - ``30``
+   * - :spelling:ignore:`envoy.log.defaultLevel`
+     - Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled. This option allows to have a different log level than the Cilium Agent - e.g. lower it to ``critical``. Possible values: trace, debug, info, warning, error, critical, off
+     - string
+     - Defaults to the default log level of the Cilium Agent - ``info``
    * - :spelling:ignore:`envoy.log.format`
      - The format string to use for laying out the log message metadata of Envoy.
      - string
