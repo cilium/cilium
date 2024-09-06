@@ -104,10 +104,6 @@ jobs:
       max-parallel: 22
       matrix:
         include:
-          # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          # ! NOTE: keep conformance-e2e.yaml config in sync !
-          # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: 'rhel8-20240404.144247'
