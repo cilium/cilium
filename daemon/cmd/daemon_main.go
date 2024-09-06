@@ -1877,7 +1877,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	if option.Config.EnableEnvoyConfig {
 		if !d.endpointManager.IngressEndpointExists() {
 			// Creating Ingress Endpoint depends on the Ingress IPs having been
-			// allocated first. This happens earlier in the agent bootstrap.
+			// allocated first. This happens earlier in the agent bootstrap.a
 			if (option.Config.EnableIPv4 && len(node.GetIngressIPv4()) == 0) ||
 				(option.Config.EnableIPv6 && len(node.GetIngressIPv6()) == 0) {
 				log.Warn("Ingress IPs are not available, skipping creation of the Ingress Endpoint: Policy enforcement on Cilium Ingress will not work as expected.")
