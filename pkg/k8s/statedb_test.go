@@ -252,8 +252,13 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	}
 
 	// Wait until the table has been initialized.
-	_, initWatch := table.Initialized(db.ReadTxn())
-	<-initWatch
+	for {
+		initialized, initWatch := table.Initialized(db.ReadTxn())
+		if initialized {
+			break
+		}
+		<-initWatch
+	}
 
 	// After initialization we should see the node that was created
 	// before starting.
@@ -378,8 +383,13 @@ func BenchmarkStateDBReflector(b *testing.B) {
 	}
 
 	// Wait until the table has been initialized.
-	_, initWatch := table.Initialized(db.ReadTxn())
-	<-initWatch
+	for {
+		initialized, initWatch := table.Initialized(db.ReadTxn())
+		if initialized {
+			break
+		}
+		<-initWatch
+	}
 
 	const numObjects = 10000
 
