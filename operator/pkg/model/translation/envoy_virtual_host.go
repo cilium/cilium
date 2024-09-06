@@ -343,6 +343,35 @@ func requestMirrorMutation(mirrors []*model.HTTPRequestMirror) routeActionMutati
 	}
 }
 
+func retryMutation(retry *model.HTTPRetry) routeActionMutation {
+	return func(route *envoy_config_route_v3.Route_Route) *envoy_config_route_v3.Route_Route {
+		if retry == nil {
+			return route
+		}
+
+		rp := &envoy_config_route_v3.RetryPolicy{
+			RetriableStatusCodes: retry.Codes,
+		}
+
+		if retry.Attempts != nil {
+			rp.NumRetries = wrapperspb.UInt32(uint32(*retry.Attempts))
+		}
+
+		if retry.Backoff != nil {
+			baseInterval := *retry.Backoff
+			rp.RetryBackOff = &envoy_config_route_v3.RetryPolicy_RetryBackOff{
+				BaseInterval: durationpb.New(baseInterval),
+				// By default, the maximum interval is 10 times the base interval, which is
+				// too high for most use cases. Reduce it to 2 times the base interval.
+				MaxInterval: durationpb.New(2 * baseInterval),
+			}
+		}
+
+		route.Route.RetryPolicy = rp
+		return route
+	}
+}
+
 func timeoutMutation(backend *time.Duration, request *time.Duration) routeActionMutation {
 	return func(route *envoy_config_route_v3.Route_Route) *envoy_config_route_v3.Route_Route {
 		if backend == nil && request == nil {
@@ -371,6 +400,7 @@ func getRouteAction(route *model.HTTPRoute, backends []model.Backend, backendHTT
 		pathFullReplaceMutation(rewrite),
 		requestMirrorMutation(mirrors),
 		timeoutMutation(route.Timeout.Backend, route.Timeout.Request),
+		retryMutation(route.Retry),
 	}
 
 	if len(backends) == 1 {
