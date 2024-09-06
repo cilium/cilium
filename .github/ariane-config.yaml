@@ -6,7 +6,6 @@ triggers:
     workflows:
     - conformance-aws-cni.yaml
     - conformance-clustermesh.yaml
-    - conformance-e2e.yaml
     - conformance-ipsec-e2e.yaml
     - conformance-eks.yaml
     - conformance-externalworkloads.yaml
@@ -31,9 +30,6 @@ triggers:
     workflows:
     - conformance-clustermesh.yaml
     - tests-clustermesh-upgrade.yaml
-  /ci-e2e:
-    workflows:
-    - conformance-e2e.yaml
   /ci-e2e-upgrade:
     workflows:
     - tests-e2e-upgrade.yaml
@@ -98,8 +94,6 @@ workflows:
   conformance-aws-cni.yaml:
     paths-ignore-regex: (test|Documentation|hubble|USERS.md)/
   conformance-clustermesh.yaml:
-    paths-ignore-regex: (test|Documentation|hubble|USERS.md)/
-  conformance-e2e.yaml:
     paths-ignore-regex: (test|Documentation|hubble|USERS.md)/
   conformance-ipsec-e2e.yaml:
     paths-ignore-regex: (test|Documentation|hubble|USERS.md)/
