@@ -432,14 +432,14 @@ func (k *K8sServiceWatcher) datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoi
 // checkServiceNodeExposure returns true if the service should be installed onto the
 // local node, and false if the node should ignore and not install the service.
 func (k *K8sServiceWatcher) checkServiceNodeExposure(svc *k8s.Service) (bool, error) {
-	if serviceLabelValue, serviceLabelExists := svc.Labels[annotation.ServiceNodeExposure]; serviceLabelExists {
+	if serviceAnnotationValue, serviceAnnotationExists := svc.Annotations[annotation.ServiceNodeExposure]; serviceAnnotationExists {
 		ln, err := k.localNodeStore.Get(context.Background())
 		if err != nil {
 			return false, fmt.Errorf("failed to retrieve local node: %w", err)
 		}
 
 		nodeLabelValue, nodeLabelExists := ln.Labels[annotation.ServiceNodeExposure]
-		if !nodeLabelExists || nodeLabelValue != serviceLabelValue {
+		if !nodeLabelExists || nodeLabelValue != serviceAnnotationValue {
 			return false, nil
 		}
 	}
