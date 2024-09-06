@@ -75,8 +75,24 @@ jobs:
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ inputs.SHA }}
+
   setup-and-test:
-    runs-on: ubuntu-latest-4cores-16gb
+    needs: [wait-for-images]
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER }}
     name: 'Setup & Test'
     env:
       job_name: 'Setup & Test'
@@ -349,15 +365,6 @@ jobs:
           path: untrusted/cilium-downgrade
           sparse-checkout: |
             install/kubernetes/cilium
-
-      - name: Wait for images to be available
-        if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        timeout-minutes: 30
-        shell: bash
-        run: |
-          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
-          done
 
       - name: Install Cilium ${{ steps.vars.outputs.downgrade_version }} (${{ matrix.name }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
