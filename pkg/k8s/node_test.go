@@ -384,7 +384,7 @@ func TestParseNodeWithService(t *testing.T) {
 	objMeta := slim_metav1.ObjectMeta{
 		Name:      "foo",
 		Namespace: "bar",
-		Labels: map[string]string{
+		Annotations: map[string]string{
 			annotation.ServiceNodeExposure: "beefy",
 		},
 	}
@@ -406,7 +406,7 @@ func TestParseNodeWithService(t *testing.T) {
 		IntTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
 		FrontendIPs:              []net.IP{net.ParseIP("127.0.0.1")},
 		Selector:                 map[string]string{"foo": "bar"},
-		Labels:                   map[string]string{annotation.ServiceNodeExposure: "beefy"},
+		Annotations:              map[string]string{annotation.ServiceNodeExposure: "beefy"},
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
