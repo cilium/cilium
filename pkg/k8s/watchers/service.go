@@ -25,6 +25,7 @@ import (
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -51,10 +52,15 @@ type k8sServiceWatcherParams struct {
 	LRPManager        *redirectpolicy.Manager
 	MetalLBBgpSpeaker speaker.MetalLBBgpSpeaker
 	LocalNodeStore    *node.LocalNodeStore
+
+	ExperimentalConfig experimental.Config
 }
 
 func newK8sServiceWatcher(params k8sServiceWatcherParams) *K8sServiceWatcher {
 	return &K8sServiceWatcher{
+		// Disable the service watcher only if the experimental control-plane is disabled.
+		disabled: params.ExperimentalConfig.EnableExperimentalLB,
+
 		k8sEventReporter:      params.K8sEventReporter,
 		k8sResourceSynced:     params.K8sResourceSynced,
 		k8sAPIGroups:          params.K8sAPIGroups,
@@ -69,6 +75,8 @@ func newK8sServiceWatcher(params k8sServiceWatcherParams) *K8sServiceWatcher {
 }
 
 type K8sServiceWatcher struct {
+	disabled bool
+
 	k8sEventReporter *K8sEventReporter
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
@@ -89,6 +97,10 @@ type K8sServiceWatcher struct {
 }
 
 func (k *K8sServiceWatcher) servicesInit() {
+	if k.disabled {
+		return
+	}
+
 	var synced atomic.Bool
 	swgSvcs := lock.NewStoppableWaitGroup()
 
@@ -104,7 +116,9 @@ func (k *K8sServiceWatcher) servicesInit() {
 }
 
 func (k *K8sServiceWatcher) stopWatcher() {
-	close(k.stop)
+	if !k.disabled {
+		close(k.stop)
+	}
 }
 
 func (k *K8sServiceWatcher) serviceEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitGroup) {
@@ -162,6 +176,10 @@ func (k *K8sServiceWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lo
 }
 
 func (k *K8sServiceWatcher) k8sServiceHandler() {
+	if k.disabled {
+		return
+	}
+
 	eventHandler := func(event k8s.ServiceEvent) {
 		defer func(startTime time.Time) {
 			event.SWG.Done()

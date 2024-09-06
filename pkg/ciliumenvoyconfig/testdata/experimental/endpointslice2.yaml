@@ -1,0 +1,26 @@
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo2
+  name: echo2-kvlm2
+  namespace: test
+  uid: f1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.2
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+  targetRef:
+    kind: Pod
+    name: echo2
+    namespace: test
+    uid: 98542b9d-6369-4ec3-a5eb-fd53720013e8
+ports:
+- name: tcp
+  port: 8080
+  protocol: TCP

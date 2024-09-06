@@ -21,8 +21,10 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -113,12 +115,18 @@ type reflectorTestParams struct {
 	doTransformMany bool
 	doQueryAll      bool
 	doMerge         bool
+	doCRDSync       bool
 }
 
 func TestStateDBReflector(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
 		testStateDBReflector(t, reflectorTestParams{})
 	})
+
+	t.Run("crdsync", func(t *testing.T) {
+		testStateDBReflector(t, reflectorTestParams{doCRDSync: true})
+	})
+
 	t.Run("Transform", func(t *testing.T) {
 		testStateDBReflector(t, reflectorTestParams{
 			doTransform: true,
@@ -209,6 +217,12 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 		}
 	}
 
+	var crdSyncPromise promise.Promise[synced.CRDSync]
+	var crdSyncResolver promise.Resolver[synced.CRDSync]
+	if p.doCRDSync {
+		crdSyncResolver, crdSyncPromise = promise.New[synced.CRDSync]()
+	}
+
 	hive := hive.New(
 		cell.Module("test", "test",
 			cell.ProvidePrivate(
@@ -223,6 +237,7 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 						TransformMany:  transformManyFunc,
 						QueryAll:       queryAllFunc,
 						Merge:          mergeFunc,
+						CRDSync:        crdSyncPromise,
 					}
 				},
 				newTestTable,
@@ -249,6 +264,13 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	tlog := hivetest.Logger(t)
 	if err := hive.Start(tlog, ctx); err != nil {
 		t.Fatalf("hive.Start failed: %s", err)
+	}
+
+	if p.doCRDSync {
+		// With CRDSync promise not resolved yet the reflector is not running
+		// and thus table should not be initialized.
+		require.False(t, table.Initialized(db.ReadTxn()), "table unexpectedly initialized with unresolved CRDSync")
+		crdSyncResolver.Resolve(synced.CRDSync{})
 	}
 
 	// Wait until the table has been initialized.
@@ -336,9 +358,120 @@ func TestStateDBReflector_jobName(t *testing.T) {
 	}
 	assert.Equal(
 		t,
-		"k8s-reflector[v1.Node]/test",
+		"k8s-reflector[Node]-test",
 		cfg.JobName(),
 	)
+	cfg2 := k8s.ReflectorConfig[*corev1.Node]{
+		Name: "test",
+	}
+	assert.Equal(
+		t,
+		"k8s-reflector[Node]-test",
+		cfg2.JobName(),
+	)
+}
+
+func TestOnDemandTable(t *testing.T) {
+	obj := &testObject{
+		PartialObjectMetadata: metav1.PartialObjectMetadata{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+			},
+		},
+	}
+	lw := testutils.NewFakeListerWatcher(obj.DeepCopy())
+
+	var (
+		db     *statedb.DB
+		wtbl   statedb.RWTable[*testObject]
+		otable hive.OnDemand[statedb.Table[*testObject]]
+	)
+
+	hive := hive.New(
+		cell.Module("test", "test",
+			cell.ProvidePrivate(
+				func(tbl statedb.RWTable[*testObject]) k8s.ReflectorConfig[*testObject] {
+					wtbl = tbl
+					return k8s.ReflectorConfig[*testObject]{
+						Name:           "test",
+						Table:          tbl,
+						BufferSize:     10,
+						BufferWaitTime: time.Millisecond,
+						ListerWatcher:  lw,
+					}
+				},
+				newTestTable,
+				k8s.OnDemandTable[*testObject],
+			),
+			cell.Invoke(
+				func(db_ *statedb.DB, tbl hive.OnDemand[statedb.Table[*testObject]]) {
+					db = db_
+					otable = tbl
+				},
+			),
+		),
+	)
+
+	tlog := hivetest.Logger(t)
+	ctx := context.TODO()
+	require.NoError(t, hive.Start(tlog, ctx), "Start")
+
+	require.NotNil(t, otable)
+
+	// Table is not populated before it is acquired.
+	assert.Zero(t, wtbl.NumObjects(db.ReadTxn()), "expected empty table")
+
+	// Acquiring the table starts the reflector.
+	table, err := otable.Acquire(ctx)
+	assert.NoError(t, err, "Acquire")
+	require.NotNil(t, table)
+
+	// The initial object is inserted into the table now that we acquired
+	// it.
+	assert.Eventually(
+		t, func() bool { return table.NumObjects(db.ReadTxn()) == 1 },
+		5*time.Second, 10*time.Millisecond,
+		"Table not populated after Acquire",
+	)
+
+	obj2 := obj.DeepCopy()
+	obj2.Name = "test2"
+	lw.Upsert(obj2)
+
+	// Test with another acquired table.
+	table2, err := otable.Acquire(ctx)
+	assert.NoError(t, err)
+	require.Same(t, table, table2)
+
+	assert.Eventually(
+		t, func() bool { return table2.NumObjects(db.ReadTxn()) == 2 },
+		5*time.Second, 10*time.Millisecond,
+		"Second object not added",
+	)
+
+	// Release the second one. This does not yet stop the reflection.
+	otable.Release(table2)
+
+	obj3 := obj.DeepCopy()
+	obj3.Name = "test3"
+	lw.Upsert(obj3)
+
+	assert.Eventually(
+		t, func() bool { return table2.NumObjects(db.ReadTxn()) == 3 },
+		5*time.Second, 10*time.Millisecond,
+		"Third object not added after release of table",
+	)
+
+	// Release the last one. This stops the reflection and clears the table.
+	otable.Release(table)
+
+	assert.Eventually(
+		t, func() bool { return wtbl.NumObjects(db.ReadTxn()) == 0 },
+		5*time.Second, 10*time.Millisecond,
+		"Table not cleared after all have been released",
+	)
+
+	assert.NoError(t, hive.Stop(tlog, ctx), "Stop")
 }
 
 func BenchmarkStateDBReflector(b *testing.B) {

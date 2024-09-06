@@ -36,6 +36,14 @@ func TestPromiseResolve(t *testing.T) {
 	}
 }
 
+func TestPromiseResolved(t *testing.T) {
+	promise := Resolved(123)
+	i, err := promise.Await(context.TODO())
+	if i != 123 || err != nil {
+		t.Fatalf("expected 123 and no error, got %d and %s", i, err)
+	}
+}
+
 func TestPromiseReject(t *testing.T) {
 	resolver, promise := New[int]()
 

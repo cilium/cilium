@@ -1,0 +1,13 @@
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: envoy-lb-listener
+  namespace: test
+spec:
+  services:
+    - name: echo
+      namespace: test
+      listener: envoy-lb-listener
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: envoy-lb-listener

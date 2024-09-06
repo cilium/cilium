@@ -121,7 +121,7 @@ var baseService = Service{
 	IntTrafficPolicy:       loadbalancer.SVCTrafficPolicyLocal,
 	SessionAffinity:        false,
 	SessionAffinityTimeout: 0,
-	L7ProxyPort:            0,
+	ProxyRedirect:          nil,
 	LoopbackHostPort:       false,
 }
 
@@ -450,7 +450,9 @@ var proxyTestCases = []testCase{
 			// from how the backend ID is normally stored (host byte-order). Hence to make this
 			// work on both little and big-endian machine's the port is set to a value that's the
 			// same in both byte orders.
-			svc.L7ProxyPort = 0x0a0a // 2570
+			svc.ProxyRedirect = &ProxyRedirect{
+				ProxyPort: 0x0a0a, // 2570
+			}
 			return false, []Backend{baseBackend}
 		},
 		[]mapDump{
@@ -626,17 +628,12 @@ var externalIPTestCases = []testCase{
 }
 
 var localRedirectTestCases = []testCase{
-	// TODO: The LocalRedirect mechanism needs to be thought through.
-	// One option is to implement it the same way as L7 redirect with a boolean
-	// field to enable it. Need to figure out how to query for the backends though.
-	// Could either play with the "-local" suffix, or just have a boolean in Backend
-	// to mark it as the "local redirect backend" and then just filter for these on
-	// the fly (if Frontend.LocalRedirect set, take the redirect backends that reference the service,
-	// otherwise non-redirect backends).
+	// If a frontend has a redirect set to another service it will have the "LocalRedirect" flag.
 	newTestCase(
 		"LocalRedirect",
 		func(svc *Service, fe *Frontend) (delete bool, bes []Backend) {
-			fe.Type = LocalRedirect
+			fe.Type = ClusterIP
+			fe.RedirectTo = &loadbalancer.ServiceName{Name: "foo", Namespace: "bar"}
 			fe.Address = autoAddr
 			return false, []Backend{}
 		},
@@ -843,7 +840,7 @@ func TestBPFOps(t *testing.T) {
 	}
 
 	// Enable features.
-	extCfg := externalConfig{
+	extCfg := ExternalConfig{
 		EnableSessionAffinity: true,
 	}
 

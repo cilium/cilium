@@ -120,7 +120,7 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 
-	if config.skipRedirectFromBackend {
+	if config.SkipRedirectFromBackend {
 		rpm.noNetnsCookieSupport = sync.OnceValue[bool](func() bool {
 			if _, err := netns.GetNetNSCookie(); errors.Is(err, unix.ENOPROTOOPT) {
 				return true
@@ -141,9 +141,9 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 			err := fmt.Errorf("policy with skipRedirectFromBackend flag set not applied" +
 				":SO_NETNS_COOKIE not supported. Needs kernel version >= 5.8")
 			log.WithFields(logrus.Fields{
-				logfields.LRPType:      config.lrpType,
-				logfields.K8sNamespace: config.id.Namespace,
-				logfields.LRPName:      config.id.Name,
+				logfields.LRPType:      config.LRPType,
+				logfields.K8sNamespace: config.ID.Namespace,
+				logfields.LRPName:      config.ID.Name,
 			}).Error(err)
 			return false, err
 		}
@@ -151,15 +151,15 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 			err := fmt.Errorf("policy with skipRedirectFromBackend flag set not applied:" +
 				"requires cilium_skip_lb maps")
 			log.WithFields(logrus.Fields{
-				logfields.LRPType:      config.lrpType,
-				logfields.K8sNamespace: config.id.Namespace,
-				logfields.LRPName:      config.id.Name,
+				logfields.LRPType:      config.LRPType,
+				logfields.K8sNamespace: config.ID.Namespace,
+				logfields.LRPName:      config.ID.Name,
 			}).Error(err)
 			return false, err
 		}
 	}
 
-	_, ok := rpm.policyConfigs[config.id]
+	_, ok := rpm.policyConfigs[config.ID]
 	if ok {
 		// TODO Existing policy update
 		log.Warn("Local redirect policy updates are not handled")
@@ -174,16 +174,16 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 	// New redirect policy
 	rpm.storePolicyConfig(config)
 
-	switch config.lrpType {
+	switch config.LRPType {
 	case lrpConfigTypeAddr:
 		log.WithFields(logrus.Fields{
-			logfields.LRPType:                  config.lrpType,
-			logfields.K8sNamespace:             config.id.Namespace,
-			logfields.LRPName:                  config.id.Name,
-			logfields.LRPFrontends:             config.frontendMappings,
-			logfields.LRPLocalEndpointSelector: config.backendSelector,
-			logfields.LRPBackendPorts:          config.backendPorts,
-			logfields.LRPFrontendType:          config.frontendType,
+			logfields.LRPType:                  config.LRPType,
+			logfields.K8sNamespace:             config.ID.Namespace,
+			logfields.LRPName:                  config.ID.Name,
+			logfields.LRPFrontends:             config.FrontendMappings,
+			logfields.LRPLocalEndpointSelector: config.BackendSelector,
+			logfields.LRPBackendPorts:          config.BackendPorts,
+			logfields.LRPFrontendType:          config.FrontendType,
 		}).Debug("Add local redirect policy")
 		pods, err := rpm.getLocalPodsForPolicy(&config)
 		if err != nil {
@@ -196,14 +196,14 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 
 	case lrpConfigTypeSvc:
 		log.WithFields(logrus.Fields{
-			logfields.LRPType:                  config.lrpType,
-			logfields.K8sNamespace:             config.id.Namespace,
-			logfields.LRPName:                  config.id.Name,
-			logfields.K8sSvcID:                 config.serviceID,
-			logfields.LRPFrontends:             config.frontendMappings,
-			logfields.LRPLocalEndpointSelector: config.backendSelector,
-			logfields.LRPBackendPorts:          config.backendPorts,
-			logfields.LRPFrontendType:          config.frontendType,
+			logfields.LRPType:                  config.LRPType,
+			logfields.K8sNamespace:             config.ID.Namespace,
+			logfields.LRPName:                  config.ID.Name,
+			logfields.K8sSvcID:                 config.ServiceID,
+			logfields.LRPFrontends:             config.FrontendMappings,
+			logfields.LRPLocalEndpointSelector: config.BackendSelector,
+			logfields.LRPBackendPorts:          config.BackendPorts,
+			logfields.LRPFrontendType:          config.FrontendType,
 		}).Debug("Add local redirect policy")
 
 		err := rpm.getAndUpsertPolicySvcConfig(&config)
@@ -220,26 +220,26 @@ func (rpm *Manager) DeleteRedirectPolicy(config LRPConfig) error {
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 
-	storedConfig := rpm.policyConfigs[config.id]
+	storedConfig := rpm.policyConfigs[config.ID]
 	if storedConfig == nil {
 		return fmt.Errorf("local redirect policy to be deleted not found")
 	}
-	log.WithFields(logrus.Fields{"policyID": config.id}).
+	log.WithFields(logrus.Fields{"policyID": config.ID}).
 		Debug("Delete local redirect policy")
 
-	switch storedConfig.lrpType {
+	switch storedConfig.LRPType {
 	case lrpConfigTypeSvc:
 		rpm.deletePolicyService(storedConfig)
 	case lrpConfigTypeAddr:
-		for _, feM := range storedConfig.frontendMappings {
-			rpm.deletePolicyFrontend(storedConfig, feM.feAddr)
+		for _, feM := range storedConfig.FrontendMappings {
+			rpm.deletePolicyFrontend(storedConfig, feM.FEAddr)
 		}
 	}
 
 	for p, pp := range rpm.policyPods {
 		var newPolicyList []policyID
 		for _, policy := range pp {
-			if policy != storedConfig.id {
+			if policy != storedConfig.ID {
 				newPolicyList = append(newPolicyList, policy)
 			}
 		}
@@ -337,7 +337,7 @@ func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod, removeOld bool, upser
 			if podData = rpm.getPodMetadata(pod); podData == nil {
 				return
 			}
-			if !config.skipRedirectFromBackend {
+			if !config.SkipRedirectFromBackend {
 				rpm.processConfig(config, podData)
 				continue
 			}
@@ -348,7 +348,7 @@ func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod, removeOld bool, upser
 	}
 	// Process redirect policies that need additional pod metadata.
 	for _, config := range rpm.policyConfigs {
-		if !config.skipRedirectFromBackend {
+		if !config.SkipRedirectFromBackend {
 			continue
 		}
 		if podData.netnsCookie != 0 {
@@ -363,7 +363,7 @@ func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod, removeOld bool, upser
 			}).Debug("Track pod for endpoint metadata")
 			// Netns cookie not available yet.
 			// Track the pod for this policy in order to retrieve metadata via endpoint events.
-			pendingPolicies.Insert(config.id)
+			pendingPolicies.Insert(config.ID)
 			continue
 		}
 		log.WithFields(logrus.Fields{
@@ -416,7 +416,7 @@ func (rpm *Manager) EndpointCreated(ep *endpoint.Endpoint) {
 		for _, id := range policyIDs.UnsortedList() {
 			config := rpm.policyConfigs[id]
 			// Track policies that need additional pod metadata for applying the policies.
-			if !config.skipRedirectFromBackend {
+			if !config.SkipRedirectFromBackend {
 				continue
 			}
 			podStore, _ := rpm.localPods.Store(context.TODO())
@@ -469,49 +469,49 @@ type podMetadata struct {
 // getAndUpsertPolicySvcConfig gets service frontends for the given config service
 // and upserts the service frontends.
 func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig) error {
-	switch config.frontendType {
+	switch config.FrontendType {
 	case svcFrontendAll:
 		// Get all the service frontends.
-		addrsByPort, feIPsCount := rpm.svcCache.GetServiceAddrsWithType(*config.serviceID,
+		addrsByPort, feIPsCount := rpm.svcCache.GetServiceAddrsWithType(*config.ServiceID,
 			lb.SVCTypeClusterIP)
-		config.frontendMappings = make([]*feMapping, 0, len(addrsByPort)*feIPsCount)
+		config.FrontendMappings = make([]*FEMapping, 0, len(addrsByPort)*feIPsCount)
 		for p, addrs := range addrsByPort {
 			for _, addr := range addrs {
-				feM := &feMapping{
-					feAddr: addr,
-					fePort: string(p),
+				feM := &FEMapping{
+					FEAddr: addr,
+					FEPort: string(p),
 				}
-				config.frontendMappings = append(config.frontendMappings, feM)
+				config.FrontendMappings = append(config.FrontendMappings, feM)
 			}
 			rpm.updateConfigSvcFrontend(config, addrs...)
 		}
 
 	case svcFrontendSinglePort:
 		// Get service frontend with the clusterIP and the policy config (unnamed) port.
-		ip := rpm.svcCache.GetServiceFrontendIP(*config.serviceID, lb.SVCTypeClusterIP)
+		ip := rpm.svcCache.GetServiceFrontendIP(*config.ServiceID, lb.SVCTypeClusterIP)
 		if ip == nil {
 			// The LRP will be applied when the selected service is added later.
 			return nil
 		}
 		addrCluster := cmtypes.MustAddrClusterFromIP(ip)
-		config.frontendMappings[0].feAddr.AddrCluster = addrCluster
-		rpm.updateConfigSvcFrontend(config, config.frontendMappings[0].feAddr)
+		config.FrontendMappings[0].FEAddr.AddrCluster = addrCluster
+		rpm.updateConfigSvcFrontend(config, config.FrontendMappings[0].FEAddr)
 
 	case svcFrontendNamedPorts:
 		// Get service frontends with the clusterIP and the policy config named ports.
-		ports := make([]string, len(config.frontendMappings))
-		for i, mapping := range config.frontendMappings {
-			ports[i] = mapping.fePort
+		ports := make([]string, len(config.FrontendMappings))
+		for i, mapping := range config.FrontendMappings {
+			ports[i] = mapping.FEPort
 		}
-		ip := rpm.svcCache.GetServiceFrontendIP(*config.serviceID, lb.SVCTypeClusterIP)
+		ip := rpm.svcCache.GetServiceFrontendIP(*config.ServiceID, lb.SVCTypeClusterIP)
 		if ip == nil {
 			// The LRP will be applied when the selected service is added later.
 			return nil
 		}
 		addrCluster := cmtypes.MustAddrClusterFromIP(ip)
-		for _, feM := range config.frontendMappings {
-			feM.feAddr.AddrCluster = addrCluster
-			rpm.updateConfigSvcFrontend(config, feM.feAddr)
+		for _, feM := range config.FrontendMappings {
+			feM.FEAddr.AddrCluster = addrCluster
+			rpm.updateConfigSvcFrontend(config, feM.FEAddr)
 		}
 	}
 
@@ -527,51 +527,51 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig) error {
 
 // storePolicyConfig stores various state for the given policy config.
 func (rpm *Manager) storePolicyConfig(config LRPConfig) {
-	rpm.policyConfigs[config.id] = &config
+	rpm.policyConfigs[config.ID] = &config
 
-	switch config.lrpType {
+	switch config.LRPType {
 	case lrpConfigTypeAddr:
-		for _, feM := range config.frontendMappings {
-			rpm.policyFrontendsByHash[feM.feAddr.Hash()] = config.id
+		for _, feM := range config.FrontendMappings {
+			rpm.policyFrontendsByHash[feM.FEAddr.Hash()] = config.ID
 		}
 	case lrpConfigTypeSvc:
-		rpm.policyServices[*config.serviceID] = config.id
+		rpm.policyServices[*config.ServiceID] = config.ID
 	}
 }
 
 // deletePolicyConfig cleans up stored state for the given policy config.
 func (rpm *Manager) deletePolicyConfig(config *LRPConfig) {
-	switch config.lrpType {
+	switch config.LRPType {
 	case lrpConfigTypeAddr:
-		for _, feM := range config.frontendMappings {
-			delete(rpm.policyFrontendsByHash, feM.feAddr.Hash())
+		for _, feM := range config.FrontendMappings {
+			delete(rpm.policyFrontendsByHash, feM.FEAddr.Hash())
 		}
 	case lrpConfigTypeSvc:
-		delete(rpm.policyServices, *config.serviceID)
+		delete(rpm.policyServices, *config.ServiceID)
 	}
-	delete(rpm.policyConfigs, config.id)
+	delete(rpm.policyConfigs, config.ID)
 }
 
 func (rpm *Manager) updateConfigSvcFrontend(config *LRPConfig, frontends ...*frontend) {
 	for _, f := range frontends {
-		rpm.policyFrontendsByHash[f.Hash()] = config.id
+		rpm.policyFrontendsByHash[f.Hash()] = config.ID
 	}
-	rpm.policyConfigs[config.id] = config
+	rpm.policyConfigs[config.ID] = config
 }
 
 func (rpm *Manager) deletePolicyBackends(config *LRPConfig, podID podID) {
 	l3nL4Addrs := sets.New[*lb.L3n4Addr]()
 
-	for _, fe := range config.frontendMappings {
-		newBes := make([]backend, 0, len(fe.podBackends))
-		for _, be := range fe.podBackends {
+	for _, fe := range config.FrontendMappings {
+		newBes := make([]backend, 0, len(fe.PodBackends))
+		for _, be := range fe.PodBackends {
 			// Remove the pod from the frontend's backends slice, keeping the
 			// order same.
 			if be.podID != podID {
 				newBes = append(newBes, be)
 				continue
 			}
-			if config.skipRedirectFromBackend {
+			if config.SkipRedirectFromBackend {
 				if be.AddrCluster.Is4() {
 					rpm.skipLBMap.DeleteLB4ByNetnsCookie(be.podNetnsCookie)
 				} else {
@@ -580,7 +580,7 @@ func (rpm *Manager) deletePolicyBackends(config *LRPConfig, podID podID) {
 			}
 			l3nL4Addrs.Insert(&be.L3n4Addr)
 		}
-		fe.podBackends = newBes
+		fe.PodBackends = newBes
 		rpm.notifyPolicyBackendDelete(config, fe)
 	}
 	for _, addr := range l3nL4Addrs.UnsortedList() {
@@ -594,9 +594,9 @@ func (rpm *Manager) deletePolicyFrontend(config *LRPConfig, frontend *frontend) 
 	delete(rpm.policyFrontendsByHash, frontend.Hash())
 	if !found || err != nil {
 		log.WithError(err).Debugf("Local redirect service for policy %v not deleted",
-			config.id)
+			config.ID)
 	}
-	if config.skipRedirectFromBackend {
+	if config.SkipRedirectFromBackend {
 		// Delete skip_lb map entries.
 		addr := frontend.AddrCluster
 		if addr.Is4() {
@@ -608,20 +608,20 @@ func (rpm *Manager) deletePolicyFrontend(config *LRPConfig, frontend *frontend) 
 }
 
 // Updates service manager with the new set of backends now configured in 'config'.
-func (rpm *Manager) notifyPolicyBackendDelete(config *LRPConfig, frontendMapping *feMapping) {
-	if len(frontendMapping.podBackends) > 0 {
+func (rpm *Manager) notifyPolicyBackendDelete(config *LRPConfig, frontendMapping *FEMapping) {
+	if len(frontendMapping.PodBackends) > 0 {
 		rpm.upsertService(config, frontendMapping)
 	} else {
 		// No backends so remove the service entry.
-		found, err := rpm.svcManager.DeleteService(*frontendMapping.feAddr)
+		found, err := rpm.svcManager.DeleteService(*frontendMapping.FEAddr)
 		if !found || err != nil {
 			log.WithError(err).Errorf("Local redirect service for policy (%v)"+
-				" with frontend (%v) not deleted", config.id, frontendMapping.feAddr)
+				" with frontend (%v) not deleted", config.ID, frontendMapping.FEAddr)
 		}
-		if config.lrpType == lrpConfigTypeSvc {
-			if restored := rpm.svcCache.EnsureService(*config.serviceID, lock.NewStoppableWaitGroup()); restored {
+		if config.LRPType == lrpConfigTypeSvc {
+			if restored := rpm.svcCache.EnsureService(*config.ServiceID, lock.NewStoppableWaitGroup()); restored {
 				log.WithFields(logrus.Fields{
-					logfields.K8sSvcID: *config.serviceID,
+					logfields.K8sSvcID: *config.ServiceID,
 				}).Info("Restored service")
 			}
 		}
@@ -630,22 +630,22 @@ func (rpm *Manager) notifyPolicyBackendDelete(config *LRPConfig, frontendMapping
 
 // deletePolicyService deletes internal state associated with the specified service.
 func (rpm *Manager) deletePolicyService(config *LRPConfig) {
-	for _, m := range config.frontendMappings {
-		rpm.deletePolicyFrontend(config, m.feAddr)
+	for _, m := range config.FrontendMappings {
+		rpm.deletePolicyFrontend(config, m.FEAddr)
 	}
-	switch config.frontendType {
+	switch config.FrontendType {
 	case svcFrontendAll:
-		config.frontendMappings = nil
+		config.FrontendMappings = nil
 	case svcFrontendSinglePort:
 		fallthrough
 	case svcFrontendNamedPorts:
-		for _, feM := range config.frontendMappings {
-			feM.feAddr.AddrCluster = cmtypes.AddrCluster{}
+		for _, feM := range config.FrontendMappings {
+			feM.FEAddr.AddrCluster = cmtypes.AddrCluster{}
 		}
 	}
 	// Retores the svc backends if there's still such a k8s svc.
 	swg := lock.NewStoppableWaitGroup()
-	svcID := *config.serviceID
+	svcID := *config.ServiceID
 	if restored := rpm.svcCache.EnsureService(svcID, swg); restored {
 		log.WithFields(logrus.Fields{
 			logfields.K8sSvcID: svcID,
@@ -663,31 +663,31 @@ func (rpm *Manager) deleteService(svcID k8s.ServiceID) {
 	}
 	// Get the policy config that selects this service.
 	config := rpm.policyConfigs[rp]
-	for _, m := range config.frontendMappings {
-		rpm.deletePolicyFrontend(config, m.feAddr)
+	for _, m := range config.FrontendMappings {
+		rpm.deletePolicyFrontend(config, m.FEAddr)
 	}
-	switch config.frontendType {
+	switch config.FrontendType {
 	case svcFrontendAll:
-		config.frontendMappings = nil
+		config.FrontendMappings = nil
 	case svcFrontendSinglePort:
 		fallthrough
 	case svcFrontendNamedPorts:
-		for _, feM := range config.frontendMappings {
-			feM.feAddr.AddrCluster = cmtypes.AddrCluster{}
+		for _, feM := range config.FrontendMappings {
+			feM.FEAddr.AddrCluster = cmtypes.AddrCluster{}
 		}
 	}
 }
 
-func (rpm *Manager) plumbSkipLBEntries(mapping *feMapping) error {
+func (rpm *Manager) plumbSkipLBEntries(mapping *FEMapping) error {
 	if rpm.skipLBMap == nil {
 		// We have early checks for the maps, so this is just for a sanity check.
 		return fmt.Errorf("failed to plumb skip LB entries")
 	}
-	for _, pb := range mapping.podBackends {
+	for _, pb := range mapping.PodBackends {
 		if pb.podNetnsCookie == 0 {
 			return fmt.Errorf("no valid pod netns cookie")
 		}
-		addr := mapping.feAddr
+		addr := mapping.FEAddr
 		if addr.AddrCluster.Is4() {
 			if err := rpm.skipLBMap.AddLB4(pb.podNetnsCookie, addr.AddrCluster.AsNetIP(), addr.Port); err != nil {
 				return fmt.Errorf("failed to add entry to skip_lb4 map: %w", err)
@@ -702,13 +702,13 @@ func (rpm *Manager) plumbSkipLBEntries(mapping *feMapping) error {
 	return nil
 }
 
-func (rpm *Manager) upsertPolicyMapping(config *LRPConfig, feMapping *feMapping) {
-	if config.skipRedirectFromBackend {
+func (rpm *Manager) upsertPolicyMapping(config *LRPConfig, feMapping *FEMapping) {
+	if config.SkipRedirectFromBackend {
 		if err := rpm.plumbSkipLBEntries(feMapping); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
-				logfields.LRPType:      config.lrpType,
-				logfields.K8sNamespace: config.id.Namespace,
-				logfields.LRPName:      config.id.Name,
+				logfields.LRPType:      config.LRPType,
+				logfields.K8sNamespace: config.ID.Namespace,
+				logfields.LRPName:      config.ID.Name,
 			}).Error("LRP not applied due to error in plumbing skip_lb map")
 			return
 		}
@@ -717,13 +717,13 @@ func (rpm *Manager) upsertPolicyMapping(config *LRPConfig, feMapping *feMapping)
 }
 
 // upsertService upserts a service entry for the given policy config that's ready.
-func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping) {
+func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *FEMapping) {
 	frontendAddr := lb.L3n4AddrID{
-		L3n4Addr: *frontendMapping.feAddr,
+		L3n4Addr: *frontendMapping.FEAddr,
 		ID:       lb.ID(0),
 	}
-	backendAddrs := make([]*lb.Backend, 0, len(frontendMapping.podBackends))
-	for _, be := range frontendMapping.podBackends {
+	backendAddrs := make([]*lb.Backend, 0, len(frontendMapping.PodBackends))
+	for _, be := range frontendMapping.PodBackends {
 		backendAddrs = append(backendAddrs, &lb.Backend{
 			NodeName: nodeTypes.GetName(),
 			L3n4Addr: be.L3n4Addr,
@@ -731,8 +731,8 @@ func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping)
 	}
 	p := &lb.SVC{
 		Name: lb.ServiceName{
-			Name:      config.id.Name + localRedirectSvcStr,
-			Namespace: config.id.Namespace,
+			Name:      config.ID.Name + localRedirectSvcStr,
+			Namespace: config.ID.Namespace,
 		},
 		Type:             lb.SVCTypeLocalRedirect,
 		Frontend:         frontendAddr,
@@ -777,7 +777,7 @@ func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig) ([]*podMetadata, er
 			continue
 		}
 		// The policy needs additional pod metadata.
-		if config.skipRedirectFromBackend {
+		if config.SkipRedirectFromBackend {
 			addr, _ := netip.ParseAddr(podData.ips[0])
 			cookie, err := rpm.epManager.GetEndpointNetnsCookieByIP(addr)
 			if err != nil {
@@ -792,11 +792,11 @@ func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig) ([]*podMetadata, er
 				}
 				pp, ok := rpm.policyEndpoints[podID]
 				if ok {
-					if !pp.Has(config.id) {
-						pp.Insert(config.id)
+					if !pp.Has(config.ID) {
+						pp.Insert(config.ID)
 					}
 				} else {
-					rpm.policyEndpoints[podID] = sets.New(config.id)
+					rpm.policyEndpoints[podID] = sets.New(config.ID)
 				}
 				continue
 			}
@@ -816,25 +816,25 @@ func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig) ([]*podMetadata, er
 // isValidConfig validates the given policy config for duplicates.
 // Note: The config is already sanitized.
 func (rpm *Manager) isValidConfig(config LRPConfig) error {
-	switch config.lrpType {
+	switch config.LRPType {
 	case lrpConfigTypeAddr:
-		for _, feM := range config.frontendMappings {
-			fe := feM.feAddr
+		for _, feM := range config.FrontendMappings {
+			fe := feM.FEAddr
 			id, ok := rpm.policyFrontendsByHash[fe.Hash()]
-			if ok && config.id.Name != id.Name {
+			if ok && config.ID.Name != id.Name {
 				return fmt.Errorf("CiliumLocalRedirectPolicy for"+
-					"frontend %v already exists : %v", fe, config.id.Name)
+					"frontend %v already exists : %v", fe, config.ID.Name)
 			}
 		}
 
 	case lrpConfigTypeSvc:
-		p, ok := rpm.policyServices[*config.serviceID]
+		p, ok := rpm.policyServices[*config.ServiceID]
 		// Only 1 serviceMatcher policy is allowed for a service name within a namespace.
-		if ok && config.id.Namespace != "" &&
-			config.id.Namespace == rpm.policyConfigs[p].id.Namespace {
+		if ok && config.ID.Namespace != "" &&
+			config.ID.Namespace == rpm.policyConfigs[p].ID.Namespace {
 			return fmt.Errorf("CiliumLocalRedirectPolicy for"+
-				" service %v already exists in namespace %v", config.serviceID,
-				config.id.Namespace)
+				" service %v already exists in namespace %v", config.ServiceID,
+				config.ID.Namespace)
 		}
 	}
 
@@ -842,11 +842,11 @@ func (rpm *Manager) isValidConfig(config LRPConfig) error {
 }
 
 func (rpm *Manager) processConfig(config *LRPConfig, pods ...*podMetadata) {
-	if config.lrpType == lrpConfigTypeSvc && len(config.frontendMappings) == 0 {
+	if config.LRPType == lrpConfigTypeSvc && len(config.FrontendMappings) == 0 {
 		// Frontend information will be available when the selected service is added.
 		return
 	}
-	switch config.frontendType {
+	switch config.FrontendType {
 	case svcFrontendSinglePort:
 		fallthrough
 	case addrFrontendSinglePort:
@@ -856,7 +856,7 @@ func (rpm *Manager) processConfig(config *LRPConfig, pods ...*podMetadata) {
 	case addrFrontendNamedPorts:
 		rpm.processConfigWithNamedPorts(config, pods...)
 	case svcFrontendAll:
-		if len(config.frontendMappings) > 1 {
+		if len(config.FrontendMappings) > 1 {
 			// The retrieved service frontend has multiple ports, in which case
 			// Kubernetes mandates that the ports be named.
 			rpm.processConfigWithNamedPorts(config, pods...)
@@ -882,8 +882,8 @@ func (rpm *Manager) processConfigWithSinglePort(config *LRPConfig, pods ...*podM
 	// We currently don't check which backends are updated before upserting a
 	// a service with the corresponding frontend. This can be optimized when LRPs
 	// are scaled up.
-	bePort := config.backendPorts[0]
-	feM := config.frontendMappings[0]
+	bePort := config.BackendPorts[0]
+	feM := config.FrontendMappings[0]
 	for _, pod := range pods {
 		for _, ip := range pod.ips {
 			beIP := net.ParseIP(ip)
@@ -899,11 +899,11 @@ func (rpm *Manager) processConfigWithSinglePort(config *LRPConfig, pods ...*podM
 					},
 				}, pod.id, pod.netnsCookie,
 			}
-			if feM.feAddr.AddrCluster.Is4() && be.AddrCluster.Is4() {
+			if feM.FEAddr.AddrCluster.Is4() && be.AddrCluster.Is4() {
 				if option.Config.EnableIPv4 {
 					bes4 = append(bes4, be)
 				}
-			} else if feM.feAddr.AddrCluster.Is6() && be.AddrCluster.Is6() {
+			} else if feM.FEAddr.AddrCluster.Is6() && be.AddrCluster.Is6() {
 				if option.Config.EnableIPv6 {
 					bes6 = append(bes6, be)
 				}
@@ -926,20 +926,20 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 	// We currently don't check which backends are updated before upserting a
 	// a service with the corresponding frontend. This can be optimized if LRPs
 	// are scaled up.
-	upsertFes := make([]*feMapping, 0, len(config.frontendMappings))
-	for _, feM := range config.frontendMappings {
-		namedPort := feM.fePort
+	upsertFes := make([]*FEMapping, 0, len(config.FrontendMappings))
+	for _, feM := range config.FrontendMappings {
+		namedPort := feM.FEPort
 		var (
 			bes4   []backend
 			bes6   []backend
 			bePort *bePortInfo
 			ok     bool
 		)
-		if bePort, ok = config.backendPortsByPortName[namedPort]; !ok {
+		if bePort, ok = config.BackendPortsByPortName[namedPort]; !ok {
 			// The frontend named port not found in the backend ports map.
 			continue
 		}
-		if bePort.l4Addr.Protocol != feM.feAddr.Protocol {
+		if bePort.l4Addr.Protocol != feM.FEAddr.Protocol {
 			continue
 		}
 		for _, pod := range pods {
@@ -960,11 +960,11 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 						},
 						pod.id, pod.netnsCookie,
 					}
-					if feM.feAddr.AddrCluster.Is4() && be.AddrCluster.Is4() {
+					if feM.FEAddr.AddrCluster.Is4() && be.AddrCluster.Is4() {
 						if option.Config.EnableIPv4 {
 							bes4 = append(bes4, be)
 						}
-					} else if feM.feAddr.AddrCluster.Is6() && be.AddrCluster.Is6() {
+					} else if feM.FEAddr.AddrCluster.Is6() && be.AddrCluster.Is6() {
 						if option.Config.EnableIPv6 {
 							bes6 = append(bes6, be)
 						}
@@ -988,11 +988,11 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 
 // updateFrontendMapping updates policy config internal state and updates
 // the policy frontend mapped backends.
-func (rpm *Manager) updateFrontendMapping(config *LRPConfig, frontendMapping *feMapping, podID podID, backends []backend) {
-	newFePods := make([]backend, 0, len(frontendMapping.podBackends)+len(backends))
+func (rpm *Manager) updateFrontendMapping(config *LRPConfig, frontendMapping *FEMapping, podID podID, backends []backend) {
+	newFePods := make([]backend, 0, len(frontendMapping.PodBackends)+len(backends))
 	updatePodBes := true
 	// Update the frontend mapped backends slice, keeping the order same.
-	for _, be := range frontendMapping.podBackends {
+	for _, be := range frontendMapping.PodBackends {
 		if be.podID == podID {
 			if updatePodBes {
 				updatePodBes = false
@@ -1008,24 +1008,24 @@ func (rpm *Manager) updateFrontendMapping(config *LRPConfig, frontendMapping *fe
 		// New backend pod for the frontend
 		newFePods = append(newFePods, backends...)
 	}
-	frontendMapping.podBackends = newFePods
+	frontendMapping.PodBackends = newFePods
 
 	if podPolicies, ok := rpm.policyPods[podID]; ok {
 		newPodPolicy := true
 		for _, poID := range podPolicies {
 			// Existing pod policy update
-			if poID == config.id {
+			if poID == config.ID {
 				newPodPolicy = false
 				break
 			}
 		}
 		if newPodPolicy {
 			// Pod selected by a new policy
-			rpm.policyPods[podID] = append(rpm.policyPods[podID], config.id)
+			rpm.policyPods[podID] = append(rpm.policyPods[podID], config.ID)
 		}
 	} else {
 		// Pod selected by a policy for the first time
-		pp := []policyID{config.id}
+		pp := []policyID{config.ID}
 		rpm.policyPods[podID] = pp
 	}
 }

@@ -39,6 +39,13 @@ func New[T any]() (Resolver[T], Promise[T]) {
 	return promise, promise
 }
 
+// Resolved creates a new resolved promise.
+func Resolved[T any](value T) Promise[T] {
+	r, p := New[T]()
+	r.Resolve(value)
+	return p
+}
+
 const (
 	promiseUnresolved = iota
 	promiseResolved

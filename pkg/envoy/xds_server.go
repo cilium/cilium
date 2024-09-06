@@ -1896,7 +1896,7 @@ type Resources struct {
 	Endpoints []*envoy_config_endpoint.ClusterLoadAssignment
 
 	// Callback functions that are called if the corresponding Listener change was successfully acked by Envoy
-	PortAllocationCallbacks map[string]func(context.Context) error
+	PortAllocationCallbacks map[string]func(context.Context) error `json:"-"`
 }
 
 // ListenersAddedOrDeleted returns 'true' if a listener is added or removed when updating from 'old'

@@ -47,29 +47,29 @@ const (
 
 // LRPConfig is the internal representation of Cilium Local Redirect Policy.
 type LRPConfig struct {
-	// id is the parsed config name and namespace
-	id k8s.ServiceID
-	// uid is the unique identifier assigned by Kubernetes
-	uid types.UID
-	// lrpType is the type of either address matcher or service matcher policy
-	lrpType lrpConfigType
-	// frontendType is the type for the parsed config frontend.
-	frontendType frontendConfigType
-	// frontendMappings is a slice of policy config frontend mappings that include
+	// ID is the parsed config name and namespace
+	ID k8s.ServiceID
+	// UID is the unique identifier assigned by Kubernetes
+	UID types.UID
+	// LRPType is the type of either address matcher or service matcher policy
+	LRPType lrpConfigType
+	// FrontendType is the type for the parsed config frontend.
+	FrontendType frontendConfigType
+	// FrontendMappings is a slice of policy config frontend mappings that include
 	// frontend address, frontend port name, and a slice of its associated backends
-	frontendMappings []*feMapping
-	// serviceID is the parsed service name and namespace
-	serviceID *k8s.ServiceID
-	// backendSelector is an endpoint selector generated from the parsed policy selector
-	backendSelector api.EndpointSelector
-	// backendPorts is a slice of backend port and protocol along with the port name
-	backendPorts []bePortInfo
-	// backendPortsByPortName is a map indexed by port name with the value as
+	FrontendMappings []*FEMapping
+	// ServiceID is the parsed service name and namespace
+	ServiceID *k8s.ServiceID
+	// BackendSelector is an endpoint selector generated from the parsed policy selector
+	BackendSelector api.EndpointSelector
+	// BackendPorts is a slice of backend port and protocol along with the port name
+	BackendPorts []bePortInfo
+	// BackendPortsByPortName is a map indexed by port name with the value as
 	// a pointer to bePortInfo for easy lookup into backendPorts
-	backendPortsByPortName map[portName]*bePortInfo
-	// skipRedirectFromBackend is the flag that enables/disables redirection
+	BackendPortsByPortName map[portName]*bePortInfo
+	// SkipRedirectFromBackend is the flag that enables/disables redirection
 	// for traffic matching the policy frontend(s) from the backends selected by the policy
-	skipRedirectFromBackend bool
+	SkipRedirectFromBackend bool
 }
 
 type frontend = lb.L3n4Addr
@@ -97,23 +97,23 @@ func (be *backend) GetModel() *models.LRPBackend {
 
 type portName = string
 
-// feMapping stores frontend address and a list of associated backend addresses.
-type feMapping struct {
-	feAddr      *frontend
-	podBackends []backend
-	fePort      portName
+// FEMapping stores frontend address and a list of associated backend addresses.
+type FEMapping struct {
+	FEAddr      *frontend
+	PodBackends []backend
+	FEPort      portName
 }
 
-func (feM *feMapping) GetModel() *models.FrontendMapping {
-	bes := make([]*models.LRPBackend, 0, len(feM.podBackends))
-	for _, be := range feM.podBackends {
+func (feM *FEMapping) GetModel() *models.FrontendMapping {
+	bes := make([]*models.LRPBackend, 0, len(feM.PodBackends))
+	for _, be := range feM.PodBackends {
 		bes = append(bes, be.GetModel())
 	}
 	return &models.FrontendMapping{
 		FrontendAddress: &models.FrontendAddress{
-			IP:       feM.feAddr.AddrCluster.String(),
-			Protocol: feM.feAddr.Protocol,
-			Port:     feM.feAddr.Port,
+			IP:       feM.FEAddr.AddrCluster.String(),
+			Protocol: feM.FEAddr.Protocol,
+			Port:     feM.FEAddr.Port,
 		},
 		Backends: bes,
 	}
@@ -146,7 +146,7 @@ func Parse(clrp *v2.CiliumLocalRedirectPolicy, sanitize bool) (*LRPConfig, error
 		return getSanitizedLRPConfig(name, namespace, clrp.UID, clrp.Spec)
 	} else {
 		return &LRPConfig{
-			id: k8s.ServiceID{
+			ID: k8s.ServiceID{
 				Name:      name,
 				Namespace: namespace,
 			},
@@ -165,7 +165,7 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 		lrpType        lrpConfigType
 		k8sSvc         *k8s.ServiceID
 		fe             *frontend
-		feMappings     []*feMapping
+		feMappings     []*FEMapping
 		bePorts        []bePortInfo
 		bePortsMap     = make(map[portName]*bePortInfo)
 	)
@@ -191,7 +191,7 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 		} else if len(addrMatcher.ToPorts) == 1 {
 			frontendType = addrFrontendSinglePort
 		}
-		feMappings = make([]*feMapping, len(addrMatcher.ToPorts))
+		feMappings = make([]*FEMapping, len(addrMatcher.ToPorts))
 		for i, portInfo := range addrMatcher.ToPorts {
 			p, pName, proto, err := portInfo.SanitizePortInfo(checkNamedPort)
 			if err != nil {
@@ -199,9 +199,9 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 			}
 			// Set the scope to ScopeExternal as the externalTrafficPolicy is set to Cluster.
 			fe = lb.NewL3n4Addr(proto, addrCluster, p, lb.ScopeExternal)
-			feM := &feMapping{
-				feAddr: fe,
-				fePort: pName,
+			feM := &FEMapping{
+				FEAddr: fe,
+				FEPort: pName,
 			}
 			feMappings[i] = feM
 		}
@@ -229,7 +229,7 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 			frontendType = svcFrontendNamedPorts
 			checkNamedPort = true
 		}
-		feMappings = make([]*feMapping, len(svcMatcher.ToPorts))
+		feMappings = make([]*FEMapping, len(svcMatcher.ToPorts))
 		for i, portInfo := range svcMatcher.ToPorts {
 			p, pName, proto, err := portInfo.SanitizePortInfo(checkNamedPort)
 			if err != nil {
@@ -238,9 +238,9 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 			// Set the scope to ScopeExternal as the externalTrafficPolicy is set to Cluster.
 			// frontend ip will later be populated with the clusterIP of the service.
 			fe = lb.NewL3n4Addr(proto, cmtypes.AddrCluster{}, p, lb.ScopeExternal)
-			feM := &feMapping{
-				feAddr: fe,
-				fePort: pName,
+			feM := &FEMapping{
+				FEAddr: fe,
+				FEPort: pName,
 			}
 			feMappings[i] = feM
 		}
@@ -282,7 +282,7 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 	// When a single port is specified in the LRP frontend, the protocol for frontend and
 	// backend must match.
 	if len(feMappings) == 1 {
-		if bePorts[0].l4Addr.Protocol != feMappings[0].feAddr.Protocol {
+		if bePorts[0].l4Addr.Protocol != feMappings[0].FEAddr.Protocol {
 			return nil, fmt.Errorf("backend protocol must match with " +
 				"frontend protocol")
 		}
@@ -292,16 +292,16 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 	selector := api.NewESFromK8sLabelSelector("", &redirectTo.LocalEndpointSelector)
 
 	return &LRPConfig{
-		uid:                     uid,
-		serviceID:               k8sSvc,
-		frontendMappings:        feMappings,
-		backendSelector:         selector,
-		backendPorts:            bePorts,
-		backendPortsByPortName:  bePortsMap,
-		lrpType:                 lrpType,
-		frontendType:            frontendType,
-		skipRedirectFromBackend: spec.SkipRedirectFromBackend,
-		id: k8s.ServiceID{
+		UID:                     uid,
+		ServiceID:               k8sSvc,
+		FrontendMappings:        feMappings,
+		BackendSelector:         selector,
+		BackendPorts:            bePorts,
+		BackendPortsByPortName:  bePortsMap,
+		LRPType:                 lrpType,
+		FrontendType:            frontendType,
+		SkipRedirectFromBackend: spec.SkipRedirectFromBackend,
+		ID: k8s.ServiceID{
 			Name:      name,
 			Namespace: namespace,
 		},
@@ -311,14 +311,14 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 // policyConfigSelectsPod determines if the given pod is selected by the policy
 // config based on matching labels of config and pod.
 func (config *LRPConfig) policyConfigSelectsPod(pod *slimcorev1.Pod) bool {
-	return config.backendSelector.Matches(labels.Set(pod.GetLabels()))
+	return config.BackendSelector.Matches(labels.Set(pod.GetLabels()))
 }
 
 // checkNamespace returns true if config namespace matches with the given namespace.
 // The namespace check isn't applicable for clusterwide LRPs.
 func (config *LRPConfig) checkNamespace(namespace string) bool {
-	if config.id.Namespace != "" {
-		return namespace == config.id.Namespace
+	if config.ID.Namespace != "" {
+		return namespace == config.ID.Namespace
 	}
 	return true
 }
@@ -329,7 +329,7 @@ func (config *LRPConfig) GetModel() *models.LRPSpec {
 	}
 
 	var feType, lrpType string
-	switch config.frontendType {
+	switch config.FrontendType {
 	case frontendTypeUnknown:
 		feType = "unknown"
 	case svcFrontendAll:
@@ -344,7 +344,7 @@ func (config *LRPConfig) GetModel() *models.LRPSpec {
 		feType = "IP + named ports"
 	}
 
-	switch config.lrpType {
+	switch config.LRPType {
 	case lrpConfigTypeNone:
 		lrpType = "none"
 	case lrpConfigTypeAddr:
@@ -353,20 +353,20 @@ func (config *LRPConfig) GetModel() *models.LRPSpec {
 		lrpType = "svc"
 	}
 
-	feMappingModelArray := make([]*models.FrontendMapping, 0, len(config.frontendMappings))
-	for _, feM := range config.frontendMappings {
+	feMappingModelArray := make([]*models.FrontendMapping, 0, len(config.FrontendMappings))
+	for _, feM := range config.FrontendMappings {
 		feMappingModelArray = append(feMappingModelArray, feM.GetModel())
 	}
 
 	var svcID string
-	if config.serviceID != nil {
-		svcID = config.serviceID.String()
+	if config.ServiceID != nil {
+		svcID = config.ServiceID.String()
 	}
 
 	return &models.LRPSpec{
-		UID:              string(config.uid),
-		Name:             config.id.Name,
-		Namespace:        config.id.Namespace,
+		UID:              string(config.UID),
+		Name:             config.ID.Name,
+		Namespace:        config.ID.Namespace,
 		FrontendType:     feType,
 		LrpType:          lrpType,
 		ServiceID:        svcID,

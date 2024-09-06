@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"slices"
 	"sort"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"golang.org/x/sys/unix"
+	"golang.org/x/time/rate"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -64,12 +66,17 @@ func newBPFReconciler(p reconciler.Params, cfg Config, ops *bpfOps, w *Writer) (
 		reconciler.WithPruning(
 			30*time.Minute,
 		),
+
+		reconciler.WithRoundLimits(
+			1000, // Number of objects
+			rate.NewLimiter(100.0, 1),
+		),
 	)
 }
 
 type bpfOps struct {
 	log    *slog.Logger
-	cfg    externalConfig
+	cfg    ExternalConfig
 	lbmaps lbmaps
 
 	serviceIDAlloc     idAllocator
@@ -102,7 +109,7 @@ type backendState struct {
 	id       loadbalancer.BackendID
 }
 
-func newBPFOps(lc cell.Lifecycle, log *slog.Logger, cfg Config, extCfg externalConfig, lbmaps lbmaps) *bpfOps {
+func newBPFOps(lc cell.Lifecycle, log *slog.Logger, cfg Config, extCfg ExternalConfig, lbmaps lbmaps) *bpfOps {
 	if !cfg.EnableExperimentalLB {
 		return nil
 	}
@@ -155,14 +162,16 @@ func (ops *bpfOps) start(_ cell.HookContext) error {
 func svcKeyToAddr(svcKey lbmap.ServiceKey) loadbalancer.L3n4Addr {
 	feIP := svcKey.GetAddress()
 	feAddrCluster := cmtypes.MustAddrClusterFromIP(feIP)
-	feL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.TCP /* FIXME */, feAddrCluster, svcKey.GetPort(), svcKey.GetScope())
+	proto := loadbalancer.NewL4TypeFromNumber(svcKey.GetProtocol())
+	feL3n4Addr := loadbalancer.NewL3n4Addr(proto, feAddrCluster, svcKey.GetPort(), svcKey.GetScope())
 	return *feL3n4Addr
 }
 
 func beValueToAddr(beValue lbmap.BackendValue) loadbalancer.L3n4Addr {
 	beIP := beValue.GetAddress()
 	beAddrCluster := cmtypes.MustAddrClusterFromIP(beIP)
-	beL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.TCP /* FIXME */, beAddrCluster, beValue.GetPort(), 0)
+	proto := loadbalancer.NewL4TypeFromNumber(beValue.GetProtocol())
+	beL3n4Addr := loadbalancer.NewL3n4Addr(proto, beAddrCluster, beValue.GetPort(), 0)
 	return *beL3n4Addr
 }
 
@@ -225,11 +234,15 @@ func (ops *bpfOps) deleteFrontend(fe *Frontend) error {
 	var revNatKey lbmap.RevNatKey
 
 	ip := fe.Address.AddrCluster.AsNetIP()
+	u8p, err := u8proto.ParseProtocol(fe.Address.Protocol)
+	if err != nil {
+		return err
+	}
 	if fe.Address.IsIPv6() {
-		svcKey = lbmap.NewService6Key(ip, fe.Address.Port, u8proto.ANY, fe.Address.Scope, 0)
+		svcKey = lbmap.NewService6Key(ip, fe.Address.Port, u8p, fe.Address.Scope, 0)
 		revNatKey = lbmap.NewRevNat6Key(uint16(feID))
 	} else {
-		svcKey = lbmap.NewService4Key(ip, fe.Address.Port, u8proto.ANY, fe.Address.Scope, 0)
+		svcKey = lbmap.NewService4Key(ip, fe.Address.Port, u8p, fe.Address.Scope, 0)
 		revNatKey = lbmap.NewRevNat4Key(uint16(feID))
 	}
 
@@ -280,17 +293,15 @@ func (ops *bpfOps) pruneServiceMaps() error {
 			ops.log.Warn("Prune: bad address in service key", "key", svcKey)
 			return
 		}
+		proto := loadbalancer.NewL4TypeFromNumber(svcKey.GetProtocol())
 		addr := loadbalancer.L3n4Addr{
 			AddrCluster: ac,
-			L4Addr:      loadbalancer.L4Addr{Protocol: loadbalancer.TCP /* FIXME */, Port: svcKey.GetPort()},
+			L4Addr:      loadbalancer.L4Addr{Protocol: proto, Port: svcKey.GetPort()},
 			Scope:       svcKey.GetScope(),
 		}
 		if _, ok := ops.backendReferences[addr]; !ok {
-			addr.L4Addr.Protocol = loadbalancer.UDP
-			if _, ok := ops.backendReferences[addr]; !ok {
-				ops.log.Info("pruneServiceMaps: deleting", "id", svcValue.GetRevNat(), "addr", addr)
-				toDelete = append(toDelete, svcKey.ToNetwork())
-			}
+			ops.log.Info("pruneServiceMaps: deleting", "id", svcValue.GetRevNat(), "addr", addr)
+			toDelete = append(toDelete, svcKey.ToNetwork())
 		}
 	}
 	if err := ops.lbmaps.DumpService(svcCB); err != nil {
@@ -311,15 +322,9 @@ func (ops *bpfOps) pruneBackendMaps() error {
 		beValue = beValue.ToHost()
 		addr := beValueToAddr(beValue)
 
-		// TODO TCP/UDP differentation.
-		addr.L4Addr.Protocol = loadbalancer.TCP
 		if _, ok := ops.backendStates[addr]; !ok {
-			addr.L4Addr.Protocol = loadbalancer.UDP
-			if _, ok := ops.backendStates[addr]; !ok {
-				ops.log.Info("pruneBackendMaps: deleting", "id", beKey.GetID(), "addr", addr)
-				toDelete = append(toDelete, beKey)
-			}
-
+			ops.log.Info("pruneBackendMaps: deleting", "id", beKey.GetID(), "addr", addr)
+			toDelete = append(toDelete, beKey)
 		}
 	}
 	if err := ops.lbmaps.DumpBackend(beCB); err != nil {
@@ -487,27 +492,36 @@ func (ops *bpfOps) updateFrontend(fe *Frontend) error {
 	var svcVal lbmap.ServiceValue
 
 	ip := fe.Address.AddrCluster.AsNetIP()
+	u8p, err := u8proto.ParseProtocol(fe.Address.Protocol)
+	if err != nil {
+		return err
+	}
 	if fe.Address.IsIPv6() {
-		svcKey = lbmap.NewService6Key(ip, fe.Address.Port, u8proto.ANY, fe.Address.Scope, 0)
+		svcKey = lbmap.NewService6Key(ip, fe.Address.Port, u8p, fe.Address.Scope, 0)
 		svcVal = &lbmap.Service6Value{}
 	} else {
-		svcKey = lbmap.NewService4Key(ip, fe.Address.Port, u8proto.ANY, fe.Address.Scope, 0)
+		svcKey = lbmap.NewService4Key(ip, fe.Address.Port, u8p, fe.Address.Scope, 0)
 		svcVal = &lbmap.Service4Value{}
+	}
+
+	svcType := fe.Type
+	if fe.RedirectTo != nil {
+		svcType = loadbalancer.SVCTypeLocalRedirect
 	}
 
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !svcKey.IsSurrogate() &&
-		(fe.Type != loadbalancer.SVCTypeClusterIP || ops.cfg.ExternalClusterIP)
+		(svcType != loadbalancer.SVCTypeClusterIP || ops.cfg.ExternalClusterIP)
 	svc := fe.Service()
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
-		SvcType:          fe.Type,
+		SvcType:          svcType,
 		SvcNatPolicy:     svc.NatPolicy,
 		SvcExtLocal:      svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal,
 		SvcIntLocal:      svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal,
 		SessionAffinity:  svc.SessionAffinity,
 		IsRoutable:       isRoutable,
 		CheckSourceRange: len(svc.SourceRanges) > 0,
-		L7LoadBalancer:   svc.L7ProxyPort != 0,
+		L7LoadBalancer:   svc.ProxyRedirect != nil,
 		LoopbackHostport: svc.LoopbackHostPort,
 		Quarantined:      false,
 	})
@@ -691,8 +705,10 @@ func (ops *bpfOps) upsertMaster(svcKey lbmap.ServiceKey, svcVal lbmap.ServiceVal
 	if svc.SessionAffinity {
 		svcVal.SetSessionAffinityTimeoutSec(uint32(svc.SessionAffinityTimeout.Seconds()))
 	}
-	if svc.L7ProxyPort != 0 {
-		svcVal.SetL7LBProxyPort(svc.L7ProxyPort)
+	if svc.ProxyRedirect != nil {
+		if len(svc.ProxyRedirect.Ports) == 0 || slices.Contains(svc.ProxyRedirect.Ports, fe.ServicePort) {
+			svcVal.SetL7LBProxyPort(svc.ProxyRedirect.ProxyPort)
+		}
 	}
 	return ops.upsertService(svcKey, svcVal)
 }
@@ -710,14 +726,19 @@ func (ops *bpfOps) cleanupSlots(svcKey lbmap.ServiceKey, oldCount, newCount int)
 
 func (ops *bpfOps) upsertBackend(id loadbalancer.BackendID, be *Backend) (err error) {
 	var lbbe lbmap.Backend
+
+	u8p, err := u8proto.ParseProtocol(be.L3n4Addr.Protocol)
+	if err != nil {
+		return err
+	}
 	if be.AddrCluster.Is6() {
-		lbbe, err = lbmap.NewBackend6V3(id, be.AddrCluster, be.Port, u8proto.ANY,
+		lbbe, err = lbmap.NewBackend6V3(id, be.AddrCluster, be.Port, u8p,
 			be.State, be.ZoneID)
 		if err != nil {
 			return err
 		}
 	} else {
-		lbbe, err = lbmap.NewBackend4V3(id, be.AddrCluster, be.Port, u8proto.ANY,
+		lbbe, err = lbmap.NewBackend4V3(id, be.AddrCluster, be.Port, u8p,
 			be.State, be.ZoneID)
 		if err != nil {
 			return err
