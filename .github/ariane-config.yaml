@@ -10,6 +10,7 @@ triggers:
     - conformance-ipsec-e2e.yaml
     - conformance-eks.yaml
     - conformance-externalworkloads.yaml
+    - conformance-gateway-api.yaml
     - conformance-ginkgo.yaml
     - conformance-ingress.yaml
     - conformance-multi-pool.yaml
