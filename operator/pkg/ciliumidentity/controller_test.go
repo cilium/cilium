@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/job"
+	"github.com/google/go-cmp/cmp"
 	prometheustestutil "github.com/prometheus/client_golang/prometheus/testutil"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -196,4 +197,332 @@ func verifyCIDUsageInCES(ctx context.Context, fakeClient *k8sClient.FakeClientse
 	}
 
 	return nil
+}
+
+func TestCreateTwoPodsWithSameLabels(t *testing.T) {
+	ns1 := testCreateNSObj("ns1", nil)
+
+	pod1 := testCreatePodObj("pod1", "ns1", testLbsA, nil)
+	pod2 := testCreatePodObj("pod2", "ns1", testLbsA, nil)
+	pod3 := testCreatePodObj("pod3", "ns1", testLbsB, nil)
+
+	cid1 := testCreateCIDObjNs("1000", pod1, ns1)
+	cid2 := testCreateCIDObjNs("2000", pod3, ns1)
+
+	// Start test hive.
+	cidResource, _, fakeClient, _, h := initHiveTest(true)
+	ctx, cancelCtxFunc := context.WithCancel(context.Background())
+	tlog := hivetest.Logger(t)
+	if err := h.Start(tlog, ctx); err != nil {
+		t.Fatalf("starting hive encountered an error: %s", err)
+	}
+	defer func() {
+		if err := h.Stop(tlog, ctx); err != nil {
+			t.Fatalf("stopping hive encountered an error: %v", err)
+		}
+		cancelCtxFunc()
+	}()
+
+	if _, err := fakeClient.Slim().CoreV1().Namespaces().Create(ctx, ns1, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("create namespace: %v", err)
+	}
+
+	// Start listening to identities events but discard all events being replayed.
+	events := (*cidResource).Events(ctx)
+	for ev := range events {
+		ev.Done(nil)
+		if ev.Kind == resource.Sync {
+			break
+		}
+	}
+
+	// Create the first pod.
+	if _, err := fakeClient.Slim().CoreV1().Pods(pod1.Namespace).Create(ctx, pod1, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("create pod: %v", err)
+	}
+
+	// Wait for update event to propagate.
+	ev := <-events
+	if ev.Kind != resource.Upsert {
+		t.Fatalf("expected upsert event, got %v", ev.Kind)
+	}
+	if !cmp.Equal(ev.Object.SecurityLabels, cid1.SecurityLabels) {
+		t.Fatalf("expected labels %v, got %v", cid1.SecurityLabels, ev.Object.SecurityLabels)
+	}
+	ev.Done(nil)
+
+	// Create the second pod with the same labels.
+	if _, err := fakeClient.Slim().CoreV1().Pods(pod2.Namespace).Create(ctx, pod2, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("create pod: %v", err)
+	}
+
+	// Create the third pod with different labels.
+	if _, err := fakeClient.Slim().CoreV1().Pods(pod3.Namespace).Create(ctx, pod3, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("create pod: %v", err)
+	}
+
+	// Wait for reconciler to create a new CID based on pod3.
+	// This also confirms that pod2 creation didn't trigger creation of a new CID.
+	ev = <-events
+	if ev.Kind != resource.Upsert {
+		t.Fatalf("expected upsert event, got %v", ev.Kind)
+	}
+	if !cmp.Equal(ev.Object.SecurityLabels, cid2.SecurityLabels) {
+		t.Fatalf("expected labels %v, got %v", cid2.SecurityLabels, ev.Object.SecurityLabels)
+	}
+	ev.Done(nil)
+}
+
+func TestUpdatePodLabels(t *testing.T) {
+	ns1 := testCreateNSObj("ns1", nil)
+
+	pod1 := testCreatePodObj("pod1", "ns1", testLbsA, nil)
+	pod1b := testCreatePodObj("pod1", "ns1", testLbsB, nil)
+
+	cid1 := testCreateCIDObjNs("1000", pod1, ns1)
+	cid2 := testCreateCIDObjNs("2000", pod1b, ns1)
+
+	// Start test hive.
+	cidResource, _, fakeClient, _, h := initHiveTest(true)
+	ctx, cancelCtxFunc := context.WithCancel(context.Background())
+	tlog := hivetest.Logger(t)
+	if err := h.Start(tlog, ctx); err != nil {
+		t.Fatalf("starting hive encountered an error: %s", err)
+	}
+	defer func() {
+		if err := h.Stop(tlog, ctx); err != nil {
+			t.Fatalf("stopping hive encountered an error: %v", err)
+		}
+		cancelCtxFunc()
+	}()
+
+	if _, err := fakeClient.Slim().CoreV1().Namespaces().Create(ctx, ns1, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("create namespace: %v", err)
+	}
+
+	// Start listening to identities events but discard all events being replayed.
+	events := (*cidResource).Events(ctx)
+	for ev := range events {
+		ev.Done(nil)
+		if ev.Kind == resource.Sync {
+			break
+		}
+	}
+
+	// Create the first pod.
+	if _, err := fakeClient.Slim().CoreV1().Pods(pod1.Namespace).Create(ctx, pod1, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("create pod: %v", err)
+	}
+
+	// Wait for update event to propagate.
+	ev := <-events
+	if ev.Kind != resource.Upsert {
+		t.Fatalf("expected upsert event, got %v", ev.Kind)
+	}
+	if !cmp.Equal(ev.Object.SecurityLabels, cid1.SecurityLabels) {
+		t.Fatalf("expected labels %v, got %v", cid1.SecurityLabels, ev.Object.SecurityLabels)
+	}
+	ev.Done(nil)
+
+	// Update labels of the first pod.
+	if _, err := fakeClient.Slim().CoreV1().Pods(pod1b.Namespace).Update(ctx, pod1b, metav1.UpdateOptions{}); err != nil {
+		t.Fatalf("update pod: %v", err)
+	}
+
+	// Wait for reconciler to create a new CID based on the updated pod.
+	ev = <-events
+	if ev.Kind != resource.Upsert {
+		t.Fatalf("expected upsert event, got %v", ev.Kind)
+	}
+	if !cmp.Equal(ev.Object.SecurityLabels, cid2.SecurityLabels) {
+		t.Fatalf("expected labels %v, got %v", cid2.SecurityLabels, ev.Object.SecurityLabels)
+	}
+	ev.Done(nil)
+}
+
+func TestUpdateUsedCIDIsReverted(t *testing.T) {
+	ns1 := testCreateNSObj("ns1", nil)
+
+	pod1 := testCreatePodObj("pod1", "ns1", testLbsC, nil)
+	pod2 := testCreatePodObj("pod2", "ns1", testLbsB, nil)
+
+	cid1 := testCreateCIDObjNs("1000", pod1, ns1)
+	cid2 := testCreateCIDObjNs("2000", pod2, ns1)
+
+	// Start test hive.
+	cidResource, _, fakeClient, _, h := initHiveTest(true)
+	ctx, cancelCtxFunc := context.WithCancel(context.Background())
+	tlog := hivetest.Logger(t)
+	if err := h.Start(tlog, ctx); err != nil {
+		t.Fatalf("starting hive encountered an error: %s", err)
+	}
+	defer func() {
+		if err := h.Stop(tlog, ctx); err != nil {
+			t.Fatalf("stopping hive encountered an error: %v", err)
+		}
+		cancelCtxFunc()
+	}()
+
+	if _, err := fakeClient.Slim().CoreV1().Namespaces().Create(ctx, ns1, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("create namespace: %v", err)
+	}
+
+	if _, err := fakeClient.Slim().CoreV1().Pods(pod1.Namespace).Create(ctx, pod1, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("create pod: %v", err)
+	}
+
+	// Check initial status of CiliumIdentity resource after pods creation.
+	store, err := (*cidResource).Store(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error while getting CID store: %s", err)
+	}
+
+	var (
+		lastErr  error
+		toUpdate *capi_v2.CiliumIdentity
+	)
+	if err := testutils.WaitUntil(func() bool {
+		cids := store.List()
+		if len(cids) != 1 {
+			lastErr = fmt.Errorf("expected 1 identity, got %d", len(cids))
+			return false
+		}
+		toUpdate = cids[0]
+		return true
+	}, WaitUntilTimeout); err != nil {
+		t.Fatalf("timeout waiting for identities in store: %s", lastErr)
+	}
+
+	// Start listening to identities events but discard all events being replayed.
+	events := (*cidResource).Events(ctx)
+	for ev := range events {
+		ev.Done(nil)
+		if ev.Kind == resource.Sync {
+			break
+		}
+	}
+
+	// Update identity.
+	updated := toUpdate.DeepCopy()
+	updated.Labels = cid2.Labels
+	updated.SecurityLabels = cid2.SecurityLabels
+	if _, err := fakeClient.CiliumV2().CiliumIdentities().Update(ctx, updated, metav1.UpdateOptions{}); err != nil {
+		t.Fatalf("update CID: %v", err)
+	}
+
+	// Wait for update event to propagate.
+	ev := <-events
+	if ev.Kind != resource.Upsert {
+		t.Fatalf("expected upsert event, got %v", ev.Kind)
+	}
+	if ev.Key.Name != toUpdate.Name {
+		t.Fatalf("expected upsert event for cid %s, got %v", toUpdate.Name, ev.Key.Name)
+	}
+	if !cmp.Equal(ev.Object.SecurityLabels, updated.SecurityLabels) {
+		t.Fatalf("expected labels %v, got %v", updated.SecurityLabels, ev.Object.SecurityLabels)
+	}
+	ev.Done(nil)
+
+	// Wait for reconciler to revert the change.
+	ev = <-events
+	if ev.Kind != resource.Upsert {
+		t.Fatalf("expected upsert event, got %v", ev.Kind)
+	}
+	if ev.Key.Name != toUpdate.Name {
+		t.Fatalf("expected upsert event for cid %s, got %v", toUpdate.Name, ev.Key.Name)
+	}
+	if !cmp.Equal(ev.Object.SecurityLabels, cid1.SecurityLabels) {
+		t.Fatalf("expected labels %v, got %v", cid1.SecurityLabels, ev.Object.SecurityLabels)
+	}
+	ev.Done(nil)
+}
+
+func TestDeleteUsedCIDIsRecreated(t *testing.T) {
+	ns1 := testCreateNSObj("ns1", nil)
+	pod1 := testCreatePodObj("pod1", "ns1", testLbsC, nil)
+	cid1 := testCreateCIDObjNs("1000", pod1, ns1)
+
+	// Start test hive.
+	cidResource, _, fakeClient, _, h := initHiveTest(true)
+	ctx, cancelCtxFunc := context.WithCancel(context.Background())
+	tlog := hivetest.Logger(t)
+	if err := h.Start(tlog, ctx); err != nil {
+		t.Fatalf("starting hive encountered an error: %s", err)
+	}
+	defer func() {
+		if err := h.Stop(tlog, ctx); err != nil {
+			t.Fatalf("stopping hive encountered an error: %v", err)
+		}
+		cancelCtxFunc()
+	}()
+
+	if _, err := fakeClient.Slim().CoreV1().Namespaces().Create(ctx, ns1, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("create namespace: %v", err)
+	}
+
+	if _, err := fakeClient.Slim().CoreV1().Pods(pod1.Namespace).Create(ctx, pod1, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("create pod: %v", err)
+	}
+
+	// Check initial status of CiliumIdentity resource after pods creation.
+	store, err := (*cidResource).Store(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error while getting CID store: %s", err)
+	}
+
+	var (
+		lastErr  error
+		toDelete *capi_v2.CiliumIdentity
+	)
+	if err := testutils.WaitUntil(func() bool {
+		cids := store.List()
+		if len(cids) != 1 {
+			lastErr = fmt.Errorf("expected 1 identity, got %d", len(cids))
+			return false
+		}
+		toDelete = cids[0]
+		return true
+	}, WaitUntilTimeout); err != nil {
+		t.Fatalf("timeout waiting for identities in store: %s", lastErr)
+	}
+
+	// Start listening to identities events but discard all events being replayed.
+	events := (*cidResource).Events(ctx)
+	for ev := range events {
+		ev.Done(nil)
+		if ev.Kind == resource.Sync {
+			break
+		}
+	}
+
+	// Update identity.
+	if err := fakeClient.CiliumV2().CiliumIdentities().Delete(ctx, toDelete.Name, metav1.DeleteOptions{}); err != nil {
+		t.Fatalf("delete CID: %v", err)
+	}
+
+	// Wait for delete event to propagate.
+	ev := <-events
+	if ev.Kind != resource.Delete {
+		t.Fatalf("expected delete event, got %v", ev.Kind)
+	}
+	if ev.Key.Name != toDelete.Name {
+		t.Fatalf("expected delete event for cid %s, got %v", toDelete.Name, ev.Key.Name)
+	}
+	if !cmp.Equal(ev.Object.SecurityLabels, toDelete.SecurityLabels) {
+		t.Fatalf("expected labels %v, got %v", toDelete.SecurityLabels, ev.Object.SecurityLabels)
+	}
+	ev.Done(nil)
+
+	// Wait for reconciler to recreate the CID.
+	ev = <-events
+	if ev.Kind != resource.Upsert {
+		t.Fatalf("expected upsert event, got %v", ev.Kind)
+	}
+	if ev.Key.Name != toDelete.Name {
+		t.Fatalf("expected upsert event for cid %s, got %v", toDelete.Name, ev.Key.Name)
+	}
+	if !cmp.Equal(ev.Object.SecurityLabels, cid1.SecurityLabels) {
+		t.Fatalf("expected labels %v, got %v", cid1.SecurityLabels, ev.Object.SecurityLabels)
+	}
+	ev.Done(nil)
 }
