@@ -1318,6 +1318,9 @@ data:
 {{- if .Values.envoy.log.path }}
   envoy-log: {{ .Values.envoy.log.path | quote }}
 {{- end }}
+{{- if .Values.envoy.log.defaultLevel }}
+  envoy-default-log-level: {{ .Values.envoy.log.defaultLevel | quote }}
+{{- end }}
 
   envoy-keep-cap-netbindservice: {{ .Values.envoy.securityContext.capabilities.keepCapNetBindService | quote }}
 
