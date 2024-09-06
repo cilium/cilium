@@ -379,7 +379,7 @@ To add a new service that should only be exposed to nodes with label ``service.c
   kind: Service
   metadata:
     name: example-service
-    labels:
+    annotations:
       service.cilium.io/node: beefy
   spec:
     selector:
