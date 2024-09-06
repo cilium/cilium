@@ -344,9 +344,6 @@ const (
 	// LogOpt sets log driver options for cilium
 	LogOpt = "log-opt"
 
-	// Logstash enables logstash integration
-	Logstash = "logstash"
-
 	// EnableIPv4Masquerade masquerades IPv4 packets from endpoints leaving the host.
 	EnableIPv4Masquerade = "enable-ipv4-masquerade"
 
@@ -1757,7 +1754,6 @@ type DaemonConfig struct {
 	Labels                        []string
 	LogDriver                     []string
 	LogOpt                        map[string]string
-	Logstash                      bool
 	LogSystemLoadConfig           bool
 
 	// Masquerade specifies whether or not to masquerade packets from endpoints
@@ -3103,7 +3099,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.LibDir = vp.GetString(LibDir)
 	c.LogDriver = vp.GetStringSlice(LogDriver)
 	c.LogSystemLoadConfig = vp.GetBool(LogSystemLoadConfigName)
-	c.Logstash = vp.GetBool(Logstash)
 	c.LoopbackIPv4 = vp.GetString(LoopbackIPv4)
 	c.LocalRouterIPv4 = vp.GetString(LocalRouterIPv4)
 	c.LocalRouterIPv6 = vp.GetString(LocalRouterIPv6)
