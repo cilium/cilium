@@ -327,6 +327,7 @@ func extractRoutes(listenerPort int32, hostnames []string, hr gatewayv1.HTTPRout
 				Rewrite:                rewriteFilter,
 				RequestMirrors:         requestMirrors,
 				Timeout:                toTimeout(rule.Timeouts),
+				Retry:                  toHTTPRetry(rule.Retry),
 			})
 		}
 
@@ -346,6 +347,7 @@ func extractRoutes(listenerPort int32, hostnames []string, hr gatewayv1.HTTPRout
 				Rewrite:                rewriteFilter,
 				RequestMirrors:         requestMirrors,
 				Timeout:                toTimeout(rule.Timeouts),
+				Retry:                  toHTTPRetry(rule.Retry),
 			})
 		}
 	}
@@ -367,6 +369,30 @@ func toTimeout(timeouts *gatewayv1.HTTPRouteTimeouts) model.Timeout {
 			res.Request = model.AddressOf(duration)
 		}
 	}
+	return res
+}
+
+func toHTTPRetry(retry *gatewayv1.HTTPRouteRetry) *model.HTTPRetry {
+	if retry == nil {
+		return nil
+	}
+
+	codes := make([]uint32, 0, len(retry.Codes))
+	for _, c := range retry.Codes {
+		codes = append(codes, uint32(c))
+	}
+
+	res := &model.HTTPRetry{
+		Codes:    codes,
+		Attempts: retry.Attempts,
+	}
+
+	if retry.Backoff != nil {
+		if duration, err := time.ParseDuration(string(*retry.Backoff)); err == nil {
+			res.Backoff = model.AddressOf(duration)
+		}
+	}
+
 	return res
 }
 
