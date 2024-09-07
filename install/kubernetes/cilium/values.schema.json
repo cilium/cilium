@@ -125,6 +125,9 @@
                         "annotations": {
                           "type": "object"
                         },
+                        "resources": {
+                          "type": "object"
+                        },
                         "image": {
                           "properties": {
                             "digest": {
@@ -281,6 +284,9 @@
                           "type": "object"
                         },
                         "annotations": {
+                          "type": "object"
+                        },
+                        "resources": {
                           "type": "object"
                         },
                         "ca": {
