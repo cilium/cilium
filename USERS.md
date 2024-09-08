@@ -502,6 +502,12 @@ Users (Alphabetically)
       L: https://northflank.com
       Q: @NorthflankWill, @Champgoblem
 
+    * N: Nutanix
+      D: Nutanix uses Cilium as the default CNI plugin for NKP (Nutanix Kubernetes Platform) when deployed on AHV
+      U: Networking, NetworkPolicy, Services
+      L: https://www.nutanix.com/products/kubernetes-management-platform
+      Q: @tuxtof
+
     * N: Overstock Inc.
       D: Overstock is using Cilium as the main CNI plugin on bare-metal clusters (self hosted k8s).
       U: Networking, network policy, hubble, observability
