@@ -140,7 +140,7 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev string, xdpMode xdp.Mode,
 	}
 	prog := &progInfo{
 		Source:     xdpProg,
-		Output:     xdpObj,
+		Output:     fmt.Sprintf("%s_%s.o", xdpPrefix, xdpDev),
 		OutputType: outputObject,
 		Options:    args,
 	}
