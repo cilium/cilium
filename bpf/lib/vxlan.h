@@ -14,9 +14,6 @@
  *
  * The caller must ensure the skb associated with these data buffers are infact
  * a vxlan encapsulated packet before invoking this function.
- *
- * This can be done by calling 'vxlan_skb_is_vxlan_v4'
- *
  */
 static __always_inline __u32
 vxlan_get_vni(const void *data, const void *data_end,
@@ -70,8 +67,6 @@ vxlan_get_inner_ipv4(const void *data, const void *data_end,
  *
  * The caller must ensure the skb associated with these data buffers are infact
  * a vxlan encapsulated packet before invoking this function.
- *
- * This can be done by calling 'vxlan_skb_is_vxlan_v4'
  */
 static __always_inline bool
 vxlan_rewrite_vni(void *ctx, const void *data, const void *data_end,
