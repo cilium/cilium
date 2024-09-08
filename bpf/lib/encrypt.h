@@ -11,6 +11,7 @@
 #include "lib/common.h"
 #include "lib/drop.h"
 #include "lib/eps.h"
+#include "lib/ipv4.h"
 #include "lib/vxlan.h"
 
 /* We cap key index at 4 bits because mark value is used to map ctx to key */
@@ -238,7 +239,7 @@ encrypt_overlay_and_redirect(struct __ctx_buff *ctx)
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	ret = vxlan_get_inner_ipv4(data, data_end, ip4, &inner_ipv4);
+	ret = vxlan_get_inner_ipv4(data, data_end, ETH_HLEN + ipv4_hdrlen(ip4), &inner_ipv4);
 	if (!ret)
 		return DROP_INVALID;
 
@@ -270,7 +271,7 @@ encrypt_overlay_and_redirect(struct __ctx_buff *ctx)
 	/* right now, the VNI of this packet is ENCRYPTED_OVERLAY_ID, we need
 	 * to rewrite this VNI to the source's sec id before we transmit it
 	 */
-	if (!vxlan_rewrite_vni(ctx, data, data_end, ip4,
+	if (!vxlan_rewrite_vni(ctx, data, data_end, ETH_HLEN + ipv4_hdrlen(ip4),
 			       ep_info->sec_id))
 		return DROP_INVALID;
 
