@@ -262,6 +262,7 @@ ctf
 customConf
 daemonset
 datacenter
+datagram
 datagrams
 datapath
 datastore
