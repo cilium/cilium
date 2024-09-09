@@ -450,7 +450,10 @@ Minor version
 
 #. Run ``git add vendor/ test/provision/manifest/ Documentation/ && git commit -sam "Update k8s tests and libraries to v1.28.0-rc.0"``
 
-#. Submit all your changes into a new PR.
+#. Submit all your changes into a new PR. Ensure the PR is opened against a
+   branch in ``cilium/cilium`` and *not* a fork. Otherwise, CI is not triggered
+   properly. Please open a thread on #development if you do not have
+   permissions to create a branch in ``cilium/cilium``.
 
 #. Ensure that the target CI workflows are running and passing after updating
    the target k8s versions in the GitHub action workflows.
