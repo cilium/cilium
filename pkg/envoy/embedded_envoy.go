@@ -39,15 +39,25 @@ import (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "envoy-manager")
 
+const (
+	envoyLogLevelOff      = "off"
+	envoyLogLevelCritical = "critical"
+	envoyLogLevelError    = "error"
+	envoyLogLevelWarning  = "warning"
+	envoyLogLevelInfo     = "info"
+	envoyLogLevelDebug    = "debug"
+	envoyLogLevelTrace    = "trace"
+)
+
 var (
 	// envoyLevelMap maps logrus.Level values to Envoy (spdlog) log levels.
 	envoyLevelMap = map[logrus.Level]string{
-		logrus.PanicLevel: "off",
-		logrus.FatalLevel: "critical",
-		logrus.ErrorLevel: "error",
-		logrus.WarnLevel:  "warning",
-		logrus.InfoLevel:  "info",
-		logrus.DebugLevel: "debug",
+		logrus.PanicLevel: envoyLogLevelOff,
+		logrus.FatalLevel: envoyLogLevelCritical,
+		logrus.ErrorLevel: envoyLogLevelError,
+		logrus.WarnLevel:  envoyLogLevelWarning,
+		logrus.InfoLevel:  envoyLogLevelInfo,
+		logrus.DebugLevel: envoyLogLevelDebug,
 		// spdlog "trace" not mapped
 	}
 
@@ -69,12 +79,12 @@ func EnableTracing() {
 func mapLogLevel(agentLogLevel logrus.Level, defaultEnvoyLogLevel string) string {
 	// Set Envoy loglevel to trace if debug AND verbose Engoy logging is enabled
 	if agentLogLevel == logrus.DebugLevel && tracing {
-		return "trace"
+		return envoyLogLevelTrace
 	}
 
 	// Suppress the debug level if not debugging at flow level.
 	if agentLogLevel == logrus.DebugLevel && !flowdebug.Enabled() {
-		return "info"
+		return envoyLogLevelInfo
 	}
 
 	// If defined, use explicit default log level for Envoy
@@ -279,13 +289,13 @@ func newEnvoyLogPiper() io.WriteCloser {
 
 			// Map the Envoy log level to a logrus level.
 			switch level {
-			case "off", "critical", "error":
+			case envoyLogLevelOff, envoyLogLevelCritical, envoyLogLevelError:
 				scopedLog.Error(msg)
-			case "warning":
+			case envoyLogLevelWarning:
 				scopedLog.Warn(msg)
-			case "info":
+			case envoyLogLevelInfo:
 				scopedLog.Info(msg)
-			case "debug", "trace":
+			case envoyLogLevelDebug, envoyLogLevelTrace:
 				scopedLog.Debug(msg)
 			default:
 				scopedLog.Debug(msg)
