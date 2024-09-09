@@ -265,9 +265,6 @@ func (txn *txn) addDeleteTracker(meta TableMeta, trackerName string, dt anyDelet
 	_, _, table.deleteTrackers = table.deleteTrackers.Insert([]byte(trackerName), dt)
 	txn.db.metrics.DeleteTrackerCount(meta.Name(), table.deleteTrackers.Len())
 
-	// Add a finalizer to make sure delete trackers are always closed.
-	runtime.SetFinalizer(dt, func(dt anyDeleteTracker) { dt.close() })
-
 	return nil
 }
 
@@ -462,9 +459,18 @@ func (txn *txn) Commit() ReadTxn {
 	root := *db.root.Load()
 	root = slices.Clone(root)
 
+	var initChansToClose []chan struct{}
+
 	// Insert the modified tables into the root tree of tables.
 	for pos, table := range txn.modifiedTables {
 		if table != nil {
+			// Check if tables become initialized. We close the channel only after
+			// we've swapped in the new root so that one cannot get a snapshot of
+			// an uninitialized table after observing the channel closing.
+			if !table.initialized && len(table.pendingInitializers) == 0 {
+				initChansToClose = append(initChansToClose, table.initWatchChan)
+				table.initialized = true
+			}
 			root[pos] = *table
 		}
 	}
@@ -481,6 +487,11 @@ func (txn *txn) Commit() ReadTxn {
 	// mutated radix tree nodes in all changed indexes and on the root itself.
 	for _, txn := range txnToNotify {
 		txn.Notify()
+	}
+
+	// Notify table initializations
+	for _, ch := range initChansToClose {
+		close(ch)
 	}
 
 	txn.db.metrics.WriteTxnDuration(

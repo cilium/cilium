@@ -6,6 +6,7 @@ package bandwidth
 import (
 	"context"
 	"fmt"
+	"iter"
 	"log/slog"
 
 	"github.com/cilium/statedb"
@@ -32,7 +33,7 @@ func (*ops) Delete(context.Context, statedb.ReadTxn, *tables.BandwidthQDisc) err
 }
 
 // Prune implements reconciler.Operations.
-func (*ops) Prune(context.Context, statedb.ReadTxn, statedb.Iterator[*tables.BandwidthQDisc]) error {
+func (*ops) Prune(context.Context, statedb.ReadTxn, iter.Seq2[*tables.BandwidthQDisc, statedb.Revision]) error {
 	// We don't touch qdiscs of other devices.
 	return nil
 }

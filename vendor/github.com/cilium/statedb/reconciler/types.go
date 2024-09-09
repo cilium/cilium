@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"iter"
 	"log/slog"
 	"slices"
 	"strings"
@@ -76,7 +77,7 @@ type Operations[Obj any] interface {
 	//
 	// Unlike failed Update()'s a failed Prune() operation is not retried until
 	// the next full reconciliation round.
-	Prune(context.Context, statedb.ReadTxn, statedb.Iterator[Obj]) error
+	Prune(ctx context.Context, txn statedb.ReadTxn, objects iter.Seq2[Obj, statedb.Revision]) error
 }
 
 type BatchEntry[Obj any] struct {

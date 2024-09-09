@@ -128,7 +128,7 @@ func statedbTableCommand[Obj statedb.TableWritable](tableName string) *cobra.Com
 					changes := make(chan statedb.Change[Obj], 1)
 					go func() {
 						defer close(changes)
-						for change, _, ok := iter.Next(); ok; change, _, ok = iter.Next() {
+						for change := range iter {
 							changes <- change
 						}
 					}()
@@ -157,7 +157,7 @@ func statedbTableCommand[Obj statedb.TableWritable](tableName string) *cobra.Com
 			} else {
 				iter, errChan := table.LowerBound(context.Background(), statedb.ByRevision[Obj](0))
 				if iter != nil {
-					for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
+					for obj := range iter {
 						err := outputter.writeObject(obj, false)
 						if err != nil {
 							return

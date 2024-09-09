@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"net/netip"
 	"sync/atomic"
 
@@ -81,20 +82,20 @@ func (ops *ops) Delete(ctx context.Context, _ statedb.ReadTxn, entry *tables.IPS
 	panic("Unexpectedly Delete() called for reconciliation")
 }
 
-func (ops *ops) Prune(ctx context.Context, _ statedb.ReadTxn, iter statedb.Iterator[*tables.IPSetEntry]) error {
+func (ops *ops) Prune(ctx context.Context, _ statedb.ReadTxn, objs iter.Seq2[*tables.IPSetEntry, statedb.Revision]) error {
 	if !ops.enabled || !ops.doPrune.Load() {
 		return nil
 	}
 
 	desiredV4Set, desiredV6Set := sets.Set[netip.Addr]{}, sets.Set[netip.Addr]{}
-	statedb.ProcessEach(iter, func(obj *tables.IPSetEntry, _ uint64) error {
+
+	for obj := range objs {
 		if obj.Name == CiliumNodeIPSetV4 {
 			desiredV4Set.Insert(obj.Addr)
 		} else if obj.Name == CiliumNodeIPSetV6 {
 			desiredV6Set.Insert(obj.Addr)
 		}
-		return nil
-	})
+	}
 
 	return errors.Join(
 		reconcile(ctx, ops.ipset, CiliumNodeIPSetV4, INetFamily, desiredV4Set),

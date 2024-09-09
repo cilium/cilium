@@ -6,8 +6,7 @@ package reconciler
 import (
 	"errors"
 	"fmt"
-
-	"golang.org/x/exp/slices"
+	"slices"
 )
 
 var closedWatchChannel = func() <-chan struct{} {

@@ -628,7 +628,7 @@ func TestNodeAddressWhitelist(t *testing.T) {
 			local := []string{}
 			nodePort := []string{}
 			fallback := []string{}
-			for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
+			for addr := range iter {
 				if addr.DeviceName == WildcardDeviceName {
 					fallback = append(fallback, addr.Addr.String())
 					continue

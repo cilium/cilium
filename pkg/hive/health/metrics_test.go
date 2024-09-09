@@ -5,6 +5,7 @@ package health
 
 import (
 	"context"
+	"iter"
 	"testing"
 
 	"github.com/cilium/hive"
@@ -100,8 +101,8 @@ func Test_Metrics(t *testing.T) {
 	assert.Equal(t, resMetrics[types.LevelStopped], stopped)
 }
 
-func count(it statedb.Iterator[types.Status]) (ok uint64, degraded uint64, stopped uint64) {
-	for obj, _, hasMore := it.Next(); hasMore; obj, _, hasMore = it.Next() {
+func count(it iter.Seq2[types.Status, statedb.Revision]) (ok uint64, degraded uint64, stopped uint64) {
+	for obj := range it {
 		switch obj.Level {
 		case types.LevelOK:
 			ok++

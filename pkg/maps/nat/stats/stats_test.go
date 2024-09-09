@@ -121,7 +121,7 @@ func Test_countNat(t *testing.T) {
 			assert.NoError(t, s.countNat(context.Background()))
 			it := s.table.All(s.db.ReadTxn())
 			freq := map[string]int{}
-			for o, _, ok := it.Next(); ok; o, _, ok = it.Next() {
+			for o := range it {
 				switch o.Type {
 				case "ipv4":
 					assert.Equal(t, fmt.Sprintf("10.0.0.%d", o.Count), o.EndpointIP)

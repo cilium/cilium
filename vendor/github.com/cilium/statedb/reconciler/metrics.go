@@ -41,10 +41,10 @@ func (m *ExpVarMetrics) PruneDuration(moduleID cell.FullModuleID, duration time.
 
 func (m *ExpVarMetrics) PruneError(moduleID cell.FullModuleID, err error) {
 	m.PruneCountVar.Add(moduleID.String(), 1)
-	m.PruneTotalErrorsVar.Add(moduleID.String(), 1)
 
 	var intVar expvar.Int
 	if err != nil {
+		m.PruneTotalErrorsVar.Add(moduleID.String(), 1)
 		intVar.Set(1)
 	}
 	m.PruneCurrentErrorsVar.Set(moduleID.String(), &intVar)

@@ -79,7 +79,7 @@ func validateExternalTrafficPolicyLocal(test *suite.ControlPlaneTest) error {
 
 	db, nodeAddrs := test.AgentDB()
 	iter := nodeAddrs.List(db.ReadTxn(), datapathTables.NodeAddressNodePortIndex.Query(true))
-	for addr, _, ok := iter.Next(); ok; addr, _, ok = iter.Next() {
+	for addr := range iter {
 		if addr.NodePort && addr.Addr.Is4() {
 			expectedFrontendIPs[addr.Addr.String()] = true
 		}

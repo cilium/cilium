@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"net/http"
 	"net/url"
 )
@@ -44,7 +45,7 @@ func (t *RemoteTable[Obj]) SetTransport(tr *http.Transport) {
 	t.client.Transport = tr
 }
 
-func (t *RemoteTable[Obj]) query(ctx context.Context, lowerBound bool, q Query[Obj]) (iter Iterator[Obj], errChan <-chan error) {
+func (t *RemoteTable[Obj]) query(ctx context.Context, lowerBound bool, q Query[Obj]) (seq iter.Seq2[Obj, Revision], errChan <-chan error) {
 	// Use a channel to return errors so we can use the same Iterator[Obj] interface as StateDB does.
 	errChanSend := make(chan error, 1)
 	errChan = errChanSend
@@ -76,12 +77,15 @@ func (t *RemoteTable[Obj]) query(ctx context.Context, lowerBound bool, q Query[O
 		errChanSend <- err
 		return
 	}
-	return &remoteGetIterator[Obj]{json.NewDecoder(resp.Body), errChanSend}, errChan
+	return remoteGetSeq[Obj](json.NewDecoder(resp.Body), errChanSend), errChan
 }
 
-type remoteGetIterator[Obj any] struct {
-	decoder *json.Decoder
-	errChan chan error
+func (t *RemoteTable[Obj]) Get(ctx context.Context, q Query[Obj]) (iter.Seq2[Obj, Revision], <-chan error) {
+	return t.query(ctx, false, q)
+}
+
+func (t *RemoteTable[Obj]) LowerBound(ctx context.Context, q Query[Obj]) (iter.Seq2[Obj, Revision], <-chan error) {
+	return t.query(ctx, true, q)
 }
 
 // responseObject is a typed counterpart of [queryResponseObject]
@@ -91,44 +95,33 @@ type responseObject[Obj any] struct {
 	Err string `json:"err,omitempty"`
 }
 
-func (it *remoteGetIterator[Obj]) Next() (obj Obj, revision Revision, ok bool) {
-	if it.decoder == nil {
-		return
-	}
-
-	var resp responseObject[Obj]
-	err := it.decoder.Decode(&resp)
-	errString := ""
-	if err != nil {
-		if errors.Is(err, io.EOF) {
-			close(it.errChan)
-			return
+func remoteGetSeq[Obj any](dec *json.Decoder, errChan chan error) iter.Seq2[Obj, Revision] {
+	return func(yield func(Obj, Revision) bool) {
+		for {
+			var resp responseObject[Obj]
+			err := dec.Decode(&resp)
+			errString := ""
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					close(errChan)
+					break
+				}
+				errString = "Decode error: " + err.Error()
+			} else {
+				errString = resp.Err
+			}
+			if errString != "" {
+				errChan <- errors.New(errString)
+				break
+			}
+			if !yield(resp.Obj, resp.Rev) {
+				break
+			}
 		}
-		errString = "Decode error: " + err.Error()
-	} else {
-		errString = resp.Err
 	}
-	if errString != "" {
-		it.decoder = nil
-		it.errChan <- errors.New(errString)
-		return
-	}
-
-	obj = resp.Obj
-	revision = resp.Rev
-	ok = true
-	return
 }
 
-func (t *RemoteTable[Obj]) Get(ctx context.Context, q Query[Obj]) (Iterator[Obj], <-chan error) {
-	return t.query(ctx, false, q)
-}
-
-func (t *RemoteTable[Obj]) LowerBound(ctx context.Context, q Query[Obj]) (Iterator[Obj], <-chan error) {
-	return t.query(ctx, true, q)
-}
-
-func (t *RemoteTable[Obj]) Changes(ctx context.Context) (iter Iterator[Change[Obj]], errChan <-chan error) {
+func (t *RemoteTable[Obj]) Changes(ctx context.Context) (seq iter.Seq2[Change[Obj], Revision], errChan <-chan error) {
 	// Use a channel to return errors so we can use the same Iterator[Obj] interface as StateDB does.
 	errChanSend := make(chan error, 1)
 	errChan = errChanSend
@@ -150,41 +143,30 @@ func (t *RemoteTable[Obj]) Changes(ctx context.Context) (iter Iterator[Change[Ob
 		close(errChanSend)
 		return
 	}
-	return &remoteChangeIterator[Obj]{json.NewDecoder(resp.Body), errChanSend}, errChan
+	return remoteChangeSeq[Obj](json.NewDecoder(resp.Body), errChanSend), errChan
 }
 
-type remoteChangeIterator[Obj any] struct {
-	decoder *json.Decoder
-	errChan chan error
-}
+func remoteChangeSeq[Obj any](dec *json.Decoder, errChan chan error) iter.Seq2[Change[Obj], Revision] {
+	return func(yield func(Change[Obj], Revision) bool) {
+		defer close(errChan)
+		for {
+			var change Change[Obj]
+			err := dec.Decode(&change)
+			if err == nil && change.Revision == 0 {
+				// Keep-alive message, skip it.
+				continue
+			}
 
-func (it *remoteChangeIterator[Obj]) Next() (change Change[Obj], revision Revision, ok bool) {
-	if it.decoder == nil {
-		return
-	}
-
-	for {
-		err := it.decoder.Decode(&change)
-		if err == nil && change.Revision == 0 {
-			// Keep-alive message, skip it.
-			continue
-		}
-
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				it.errChan <- nil
-				close(it.errChan)
+			if err != nil {
+				if !errors.Is(err, io.EOF) {
+					errChan <- fmt.Errorf("decode error: %w", err)
+				}
 				return
 			}
-			it.decoder = nil
-			it.errChan <- fmt.Errorf("decode error: %w", err)
-			close(it.errChan)
-		} else {
-			ok = true
-			revision = change.Revision
-		}
-		break
-	}
 
-	return
+			if !yield(change, change.Revision) {
+				return
+			}
+		}
+	}
 }

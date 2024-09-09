@@ -53,12 +53,7 @@ func (p *provider) Start(ctx cell.HookContext) error {
 func (p *provider) Stop(ctx cell.HookContext) error {
 	p.stopped.Store(true)
 	tx := p.db.ReadTxn()
-	iter := p.statusTable.All(tx)
-	for {
-		s, rev, ok := iter.Next()
-		if !ok {
-			break
-		}
+	for s, rev := range p.statusTable.All(tx) {
 		p.logger.Info(fmt.Sprintf("%s (rev=%d)", s.ID.String(), rev))
 	}
 	return nil
@@ -113,11 +108,7 @@ func (p *provider) ForModule(mid cell.FullModuleID) cell.Health {
 			q := PrimaryIndex.Query(types.HealthID(i.String()))
 			iter := p.statusTable.Prefix(tx, q)
 			var deleted int
-			for {
-				o, _, ok := iter.Next()
-				if !ok {
-					break
-				}
+			for o := range iter {
 				if _, _, err := p.statusTable.Delete(tx, types.Status{
 					ID: o.ID,
 				}); err != nil {

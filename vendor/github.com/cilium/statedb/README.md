@@ -115,26 +115,31 @@ func example() {
     ...
   }
 
-  // Iterate all objects
-  iter := myObjects.All()
-  for obj, revision, ok := iter.Next(); ok; obj, revision, ok = iter.Next() {
+  // Iterate over all objects
+  for obj := range myObjects.All() {
+    ...
+  }
+
+  // Iterate with revision
+  for obj, revision := range myObjects.All() {
     ...
   }
   
   // Iterate all objects and then wait until something changes.
-  iter, watch := myObjects.AllWatch(txn)
-  for ... {}
+  objs, watch := myObjects.AllWatch(txn)
+  for obj := range objs { ... }
   <-watch
+
   // Grab a new snapshot to read the new changes.
   txn = db.ReadTxn()
   
   // Iterate objects with ID >= 2
-  iter, watch = myObjects.LowerBoundWatch(txn, IDIndex.Query(2))
-  for ... {}
+  objs, watch = myObjects.LowerBoundWatch(txn, IDIndex.Query(2))
+  for obj := range objs { ... }
   
   // Iterate objects where ID is between 0x1000_0000 and 0x1fff_ffff
-  iter, watch = myObjects.PrefixWatch(txn, IDIndex.Query(0x1000_0000))
-  for ... {}
+  objs, watch = myObjects.PrefixWatch(txn, IDIndex.Query(0x1000_0000))
+  for obj := range objs { ... }
 }
 ```
 
@@ -234,12 +239,15 @@ func NewMyObjectTable() (statedb.RWTable[*MyObject], error) {
 ```
 
 The `NewTable` function takes the name of the table, a primary index and zero or
-more secondary indexes. It returns a `RWTable`, which is an interface for both
-reading and writing to a table. An `RWTable` is a superset of `Table`, an interface
-that contains methods just for reading. This provides a simple form of type-level
-access control to the table. `NewTable` may return an error if the indexers are
-malformed, for example if `IDIndex` is not unique (primary index has to be), or if
-the indexers have overlapping names.
+more secondary indexes. The table name must match the regular expression
+"^[a-z][a-z0-9_\\-]{0,30}$".
+
+`NewTable` returns a `RWTable`, which is an interface for both reading and
+writing to a table.  An `RWTable` is a superset of `Table`, an interface
+that contains methods just for reading. This provides a simple form of
+type-level access control to the table. `NewTable` may return an error if
+the name or indexers are malformed, for example if `IDIndex` is not unique
+(primary index has to be), or if the indexers have overlapping names.
 
 ### Inserting
 
@@ -338,19 +346,17 @@ obj, revision, watch, found = myObjects.GetWatch(txn, IDIndex.Query(42))
 `List` can be used to iterate over all objects that match the query.
 
 ```go
-var iter statedb.Iterator[*MyObject]
-// List returns all matching objects as an iterator. The iterator is lazy
-// and one can stop reading at any time without worrying about the rest.
-iter := myObjects.List(txn, TagsIndex.Query("hello"))
-for obj, revision, ok := iter.Next(); ok; obj, revision, ok = iter.Next() {
-  // ...
+// List returns all matching objects as an iter.Seq2[Obj, Revision].
+objs := myObjects.List(txn, TagsIndex.Query("hello"))
+for obj, revision := range objs {
+  ...
 }
 
 // ListWatch is like List, but also returns a watch channel.
-iter, watch := myObjects.ListWatch(txn, TagsIndex.Query("hello"))
-for obj, revision, ok := iter.Next(); ok; obj, revision, ok = iter.Next() { ... }
+objs, watch := myObjects.ListWatch(txn, TagsIndex.Query("hello"))
+for obj, revision := range objs { ... }
 
-// closes when an object with tag "hello" is inserted or deleted
+// closes when an object with tag "hello" is inserted or deleted.
 <-watch
 ```
 
@@ -359,10 +365,11 @@ for obj, revision, ok := iter.Next(); ok; obj, revision, ok = iter.Next() { ... 
 ```go
 // Prefix does a prefix search on an index. Here it returns an iterator
 // for all objects that have a tag that starts with "h".
-iter, watch = myObjects.Prefix(txn, TagsIndex.Query("h"))
-for obj, revision, ok := iter.Next(); ok; obj, revision, ok = iter.Next() {
-  // ...
-}
+objs, watch = myObjects.Prefix(txn, TagsIndex.Query("h"))
+for obj := range objs {
+  ...
+} 
+
 // closes when an object with a tag starting with "h" is inserted or deleted
 <-watch
 ```
@@ -376,8 +383,8 @@ have a key equal to or higher than given key.
 // For example index.Uint32 returns the big-endian or most significant byte
 // first form of the integer, in other words the number 3 is the key
 // []byte{0, 0, 0, 3}, which allows doing a meaningful LowerBound search on it.
-iter, watch = myObjects.LowerBoundWatch(txn, IDIndex.Query(3))
-for obj, revision, ok := iter.Next(); ok; obj, revision, ok = iter.Next() {
+objs, watch = myObjects.LowerBoundWatch(txn, IDIndex.Query(3))
+for obj, revision := range objs {
   // obj.ID >= 3
 }
 
@@ -402,8 +409,9 @@ with `ByRevision`.
 // we can use this to wait for new changes!
 lastRevision := statedb.Revision(0)
 for {
-  iter, watch = myObjects.LowerBoundWatch(txn, statedb.ByRevision(lastRevision+1))
-  for obj, revision, ok := iter.Next(); ok; obj, revision, ok = iter.Next() {
+  objs, watch = myObjects.LowerBoundWatch(txn, statedb.ByRevision(lastRevision+1))
+  for obj, revision := range objs {
+    // do something with obj
     lastRevision = revision
   }
 
@@ -428,10 +436,10 @@ been observed. Using `Changes` one can iterate over insertions and deletions.
 ```go
 // Let's iterate over both inserts and deletes. We need to use
 // a write transaction to create the change iterator as this needs to
-// register with the table to track the deleted objects.
+// register with the table to track the deleted objects. 
 
 wtxn := statedb.WriteTxn(myObjects)
-changes, err := myObjects.Changes(wtxn)
+changeIter, err := myObjects.Changes(wtxn)
 wtxn.Commit()
 if err != nil {
   // This can fail due to same reasons as e.g. Insert()
@@ -440,24 +448,23 @@ if err != nil {
   return err
 }
 
-// We need to remember to Close() it so that StateDB does not hold onto
-// deleted objects for us. No worries though, a finalizer will close it
-// for us if we do not do this.
-defer changes.Close()
-
 // Now very similar to the LowerBound revision iteration above, we will
 // iterate over the changes.
 for {
-  for change, revision, ok := iter.Next(); ok; change, revision, ok = iter.Next() {
+  changes, watch := changeIter.Next(db.ReadTxn())
+  for change := range changes {
     if change.Deleted {
       fmt.Printf("Object %#v was deleted!\n", change.Object)
     } else {
       fmt.Printf("Object %#v was inserted!\n", change.Object)
     }
   }
-  // To observe more changes, we create a new ReadTxn and pass it to Watch() that
-  // refreshes the iterator. Once the returned channel closes we can iterate again.
-  <-changes.Watch(db.ReadTxn())
+  // Wait for more changes.
+  select {
+  case <-ctx.Done():
+    return
+  case <-watch:
+  }
 }
 ```
 
@@ -527,6 +534,33 @@ if errors.Is(err, statedb.ErrRevisionNotEqual) {
 wtxn.Commit()
 ```
 
+### Utilities
+
+StateDB includes few utility functions for operating on the iterators returned
+by the query methods.
+
+```go
+  // objs is an iterator for (object, revision) pairs. It can be consumed
+  // multiple times.
+  var objs iter.Seq2[*MyObject, statedb.Revision]
+  objs = myObjects.All(db.ReadTxn())
+
+  // The values can be collected into a slice.
+  var objsSlice []*MyObject
+  objsSlice = statedb.Collect(objs)
+
+  // The sequence can be mapped to another value.
+  var ids iter.Seq2[ID, Revision]
+  ids = statedb.Map(objs, func(o *MyObject) ID { return o.ID })
+
+  // The sequence can be filtered.
+  ids = statedb.Filter(ids, func(id ID) bool { return id > 0 })
+
+  // The revisions can be dropped by converting iter.Seq2 into iter.Seq
+  var onlyIds iter.Seq[ID]
+  onlyIds = statedb.ToSeq(ids)
+```
+
 ### Performance considerations
 
 Needless to say, one should keep the duration of the write transactions
@@ -541,6 +575,10 @@ on a watch channel to close. The `ReadTxn` holds a pointer to the database
 root and thus holding it will prevent old objects from being garbage collected
 by the Go runtime. Considering grabbing the `ReadTxn` in a function and returning
 the watch channel to the function doing the for-select loop.
+
+It is fine to hold onto the `iter.Seq2[Obj, Revision]` returned by the queries
+and since it may be iterated over multiple times, it may be preferable to pass
+and hold the `iter.Seq2` instead of collecting the objects into a slice.
 
 ## Persistent Map and Set
 
@@ -573,12 +611,12 @@ m = mNew
 m = m.Set("two")
 
 // All key-value pairs can be iterated over.
-iter := m.All()
+kvs := m.All()
 // Maps can be prefix and lowerbound searched, just like StateDB tables
-iter = m.Prefix("a")  // Iterator for anything starting with 'a'
-iter = m.LowerBound("b") // Iterator for anything equal to 'b' or larger, e.g. 'bb' or 'c'...
+kvs = m.Prefix("a")  // Iterator for anything starting with 'a'
+kvs = m.LowerBound("b") // Iterator for anything equal to 'b' or larger, e.g. 'bb' or 'c'...
 
-for k, v, ok := iter.Next(); ok; k, v, ok = iter.Next() {
+for k, v := range kvs {
   // ...
 }
 
@@ -619,8 +657,7 @@ s3 = s3.Union(s)
 s3.Len() == 3
 
 // Print "hello", "foo", "world"
-iter := s3.All()
-for word, ok := iter.Next(); ok; word, ok = iter.Next() {
+for word := range s3.All() {
   fmt.Println(word)
 }
 

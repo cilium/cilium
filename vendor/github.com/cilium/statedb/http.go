@@ -179,7 +179,6 @@ func (h dbHandler) changes(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	defer changeIter.Close()
 
 	w.WriteHeader(http.StatusOK)
 
@@ -187,7 +186,8 @@ func (h dbHandler) changes(w http.ResponseWriter, r *http.Request) {
 	defer ticker.Stop()
 
 	for {
-		for change, _, ok := changeIter.nextAny(); ok; change, _, ok = changeIter.nextAny() {
+		changes, watch := changeIter.nextAny(h.db.ReadTxn())
+		for change := range changes {
 			err := enc.Encode(change)
 			if err != nil {
 				panic(err)
@@ -202,7 +202,7 @@ func (h dbHandler) changes(w http.ResponseWriter, r *http.Request) {
 			// Send an empty keep-alive
 			enc.Encode(Change[any]{})
 
-		case <-changeIter.Watch(h.db.ReadTxn()):
+		case <-watch:
 		}
 	}
 }

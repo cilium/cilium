@@ -10,9 +10,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	"github.com/cilium/statedb"
+	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
@@ -110,24 +109,11 @@ func statusDaemon() {
 		}
 		if healthEnabled {
 			table := newRemoteTable[types.Status]("health")
-			ss := []types.Status{}
 			iter, errChan := table.LowerBound(context.Background(), health.PrimaryIndex.Query("agent"))
-
-			if iter != nil {
-				err := statedb.ProcessEach[types.Status](
-					iter,
-					func(obj types.Status, rev statedb.Revision) error {
-						ss = append(ss, obj)
-						return nil
-					})
-				if err != nil {
-					return
-				}
-			}
+			ss := statedb.Collect(iter)
 			if err := <-errChan; err != nil {
 				Fatalf("Failed while streaming remote health data table: %s", err)
 			}
-
 			healthPkg.GetAndFormatHealthStatus(w, true, allHealth, healthLines)
 			healthPkg.GetAndFormatModulesHealth(w, ss, allHealth)
 		} else {

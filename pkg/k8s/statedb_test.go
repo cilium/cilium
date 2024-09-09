@@ -6,6 +6,7 @@ package k8s_test
 import (
 	"context"
 	"fmt"
+	"iter"
 	"sync/atomic"
 	"testing"
 
@@ -192,7 +193,7 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 
 	var queryAllFunc k8s.QueryAllFunc[*testObject]
 	if p.doQueryAll {
-		queryAllFunc = func(txn statedb.ReadTxn, tbl statedb.Table[*testObject]) statedb.Iterator[*testObject] {
+		queryAllFunc = func(txn statedb.ReadTxn, tbl statedb.Table[*testObject]) iter.Seq2[*testObject, statedb.Revision] {
 			// This method is called on the initial synchronization (e.g. Replace()) and whenever
 			// connection is lost to api-server and resynchronization is needed.
 			queryAllCalled.Store(true)
