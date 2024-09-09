@@ -9,6 +9,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -160,7 +161,8 @@ func toHTTPRoutes(listener gatewayv1.Listener,
 	input []gatewayv1.HTTPRoute,
 	services []corev1.Service,
 	serviceImports []mcsapiv1alpha1.ServiceImport,
-	grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
+	grants []gatewayv1beta1.ReferenceGrant,
+) []model.HTTPRoute {
 	var httpRoutes []model.HTTPRoute
 	for _, r := range input {
 		listenerIsParent := false
@@ -361,12 +363,12 @@ func toTimeout(timeouts *gatewayv1.HTTPRouteTimeouts) model.Timeout {
 	}
 	if timeouts.BackendRequest != nil {
 		if duration, err := time.ParseDuration(string(*timeouts.BackendRequest)); err == nil {
-			res.Backend = model.AddressOf(duration)
+			res.Backend = ptr.To(duration)
 		}
 	}
 	if timeouts.Request != nil {
 		if duration, err := time.ParseDuration(string(*timeouts.Request)); err == nil {
-			res.Request = model.AddressOf(duration)
+			res.Request = ptr.To(duration)
 		}
 	}
 	return res
@@ -389,7 +391,7 @@ func toHTTPRetry(retry *gatewayv1.HTTPRouteRetry) *model.HTTPRetry {
 
 	if retry.Backoff != nil {
 		if duration, err := time.ParseDuration(string(*retry.Backoff)); err == nil {
-			res.Backoff = model.AddressOf(duration)
+			res.Backoff = ptr.To(duration)
 		}
 	}
 
@@ -401,7 +403,8 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener,
 	input []gatewayv1.GRPCRoute,
 	services []corev1.Service,
 	serviceImports []mcsapiv1alpha1.ServiceImport,
-	grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
+	grants []gatewayv1beta1.ReferenceGrant,
+) []model.HTTPRoute {
 	var grpcRoutes []model.HTTPRoute
 	for _, r := range input {
 		isListener := false
@@ -594,7 +597,7 @@ func toHTTPRequestRedirectFilter(listenerPort int32, redirect *gatewayv1.HTTPReq
 			// If redirect scheme is empty, the redirect port MUST be the Gateway
 			// Listener port.
 			// Refer to: https://github.com/kubernetes-sigs/gateway-api/blob/35fe25d1384a41c9b89dd5af7ae3214c431f008c/apis/v1/httproute_types.go#L1040-L1041
-			redirectPort = model.AddressOf(listenerPort)
+			redirectPort = ptr.To(listenerPort)
 		}
 	} else {
 		redirectPort = (*int32)(redirect.Port)
@@ -650,7 +653,7 @@ func toHTTPRequestMirror(svc corev1.Service, mirror *gatewayv1.HTTPRequestMirror
 	}
 
 	return &model.HTTPRequestMirror{
-		Backend:     model.AddressOf(backendRefToModelBackend(svc, mirror.BackendRef, ns)),
+		Backend:     ptr.To(backendRefToModelBackend(svc, mirror.BackendRef, ns)),
 		Numerator:   n,
 		Denominator: d,
 	}

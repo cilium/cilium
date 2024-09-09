@@ -15,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -565,7 +566,7 @@ func Test_getService(t *testing.T) {
 							Kind:       "Gateway",
 							Name:       "test-long-long-long-long-long-long-long-long-long-long-long-long-name",
 							UID:        types.UID("57889650-380b-4c05-9a2e-3baee7fd5271"),
-							Controller: model.AddressOf(true),
+							Controller: ptr.To(true),
 						},
 					},
 				},
@@ -609,7 +610,7 @@ func Test_getService(t *testing.T) {
 							Kind:       "Gateway",
 							Name:       "test-externaltrafficpolicy-local",
 							UID:        types.UID("41b82697-2d8d-4776-81b6-44d0bbac7faa"),
-							Controller: model.AddressOf(true),
+							Controller: ptr.To(true),
 						},
 					},
 				},

@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -59,7 +60,7 @@ var meshSplitListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 80,
 						},
-						AppProtocol: model.AddressOf("http"),
+						AppProtocol: ptr.To("http"),
 					},
 				},
 			},
@@ -77,7 +78,7 @@ var meshSplitListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 80,
 						},
-						AppProtocol: model.AddressOf("http"),
+						AppProtocol: ptr.To("http"),
 					},
 				},
 			},
@@ -120,7 +121,7 @@ var meshSplitListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 80,
 						},
-						AppProtocol: model.AddressOf("http"),
+						AppProtocol: ptr.To("http"),
 					},
 				},
 			},
@@ -138,7 +139,7 @@ var meshSplitListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 80,
 						},
-						AppProtocol: model.AddressOf("http"),
+						AppProtocol: ptr.To("http"),
 					},
 				},
 			},
@@ -192,7 +193,7 @@ var meshPortsListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 80,
 						},
-						AppProtocol: model.AddressOf("http"),
+						AppProtocol: ptr.To("http"),
 					},
 				},
 				ResponseHeaderModifier: &model.HTTPHeaderFilter{
@@ -254,7 +255,7 @@ var meshFrontendListeners = []model.HTTPListener{
 						Port: &model.BackendPort{
 							Port: 80,
 						},
-						AppProtocol: model.AddressOf("http"),
+						AppProtocol: ptr.To("http"),
 					},
 				},
 				ResponseHeaderModifier: &model.HTTPHeaderFilter{

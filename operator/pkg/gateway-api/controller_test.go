@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -28,7 +29,6 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
-	"github.com/cilium/cilium/operator/pkg/model"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -79,7 +79,7 @@ var controllerTestFixture = []client.Object{
 			Listeners: []gatewayv1.Listener{
 				{
 					Name:     "https",
-					Hostname: model.AddressOf[gatewayv1.Hostname]("example.com"),
+					Hostname: ptr.To[gatewayv1.Hostname]("example.com"),
 					Port:     443,
 					TLS: &gatewayv1.GatewayTLSConfig{
 						CertificateRefs: []gatewayv1.SecretObjectReference{
@@ -103,7 +103,7 @@ var controllerTestFixture = []client.Object{
 			Listeners: []gatewayv1.Listener{
 				{
 					Name:     "https",
-					Hostname: model.AddressOf[gatewayv1.Hostname]("example2.com"),
+					Hostname: ptr.To[gatewayv1.Hostname]("example2.com"),
 					Port:     443,
 					TLS: &gatewayv1.GatewayTLSConfig{
 						CertificateRefs: []gatewayv1.SecretObjectReference{},
@@ -162,7 +162,7 @@ var controllerTestFixture = []client.Object{
 					Port: 80,
 					AllowedRoutes: &gatewayv1.AllowedRoutes{
 						Namespaces: &gatewayv1.RouteNamespaces{
-							From: model.AddressOf(gatewayv1.NamespacesFromSame),
+							From: ptr.To(gatewayv1.NamespacesFromSame),
 						},
 					},
 				},
@@ -184,7 +184,7 @@ var controllerTestFixture = []client.Object{
 					Port: 80,
 					AllowedRoutes: &gatewayv1.AllowedRoutes{
 						Namespaces: &gatewayv1.RouteNamespaces{
-							From: model.AddressOf(gatewayv1.NamespacesFromAll),
+							From: ptr.To(gatewayv1.NamespacesFromAll),
 						},
 					},
 				},
@@ -206,7 +206,7 @@ var controllerTestFixture = []client.Object{
 					Port: 80,
 					AllowedRoutes: &gatewayv1.AllowedRoutes{
 						Namespaces: &gatewayv1.RouteNamespaces{
-							From: model.AddressOf(gatewayv1.NamespacesFromSelector),
+							From: ptr.To(gatewayv1.NamespacesFromSelector),
 							Selector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"gateway": "allowed",

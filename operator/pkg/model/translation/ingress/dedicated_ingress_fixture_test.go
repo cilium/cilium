@@ -25,6 +25,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -1240,7 +1241,7 @@ func hostNetworkListenersCiliumEnvoyConfig(address string, port uint32, nodeLabe
 				},
 			},
 			Resources: []ciliumv2.XDSResource{
-				{Any: toHTTPListenerXDSResource(false, model.AddressOf(address), model.AddressOf(port))},
+				{Any: toHTTPListenerXDSResource(false, ptr.To(address), ptr.To(port))},
 				{
 					Any: toAny(&envoy_config_route_v3.RouteConfiguration{
 						Name: "listener-insecure",
