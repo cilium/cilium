@@ -1000,6 +1000,9 @@
                     }
                   },
                   "type": "object"
+                },
+                "useExternalKVStore": {
+                  "type": "boolean"
                 }
               },
               "type": "object"
@@ -1387,9 +1390,6 @@
           "type": "boolean"
         },
         "enableMCSAPISupport": {
-          "type": "boolean"
-        },
-        "kvstoremeshExternalKVStore": {
           "type": "boolean"
         },
         "maxConnectedClusters": {

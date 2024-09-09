@@ -46,7 +46,7 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if not .Values.clustermesh.kvstoremeshExternalKVStore}}
+      {{- if not .Values.clustermesh.apiserver.kvstoremesh.useExternalKVStore}}
       initContainers:
       - name: etcd-init
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
@@ -101,7 +101,7 @@ spec:
         {{- end }}
       {{- end }}
       containers:
-      {{- if not .Values.clustermesh.kvstoremeshExternalKVStore}}
+      {{- if not .Values.clustermesh.apiserver.kvstoremesh.useExternalKVStore}}
       - name: etcd
         # The clustermesh-apiserver container image includes an etcd binary.
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
@@ -328,9 +328,11 @@ spec:
           {{- toYaml . | nindent 10 }}
         {{- end }}
         volumeMounts:
+        {{- if (not .Values.clustermesh.apiserver.kvstoremesh.useExternalKVStore) }}
         - name: etcd-admin-client
           mountPath: /var/lib/cilium/etcd-secrets
           readOnly: true
+        {{- end }}
         - name: kvstoremesh-secrets
           mountPath: /var/lib/cilium/clustermesh
           readOnly: true
@@ -348,6 +350,7 @@ spec:
         {{- end }}
       {{- end }}
       volumes:
+      {{- if (not .Values.clustermesh.apiserver.kvstoremesh.useExternalKVStore) }}
       - name: etcd-server-secrets
         projected:
           # note: the leading zero means this number is in octal representation: do not remove it
@@ -402,6 +405,7 @@ spec:
       - name: etcd-data-dir
         emptyDir:
           medium: {{ ternary "Memory" "" (eq .Values.clustermesh.apiserver.etcd.storageMedium "Memory") | quote }}
+      {{- end }}
       {{- if .Values.clustermesh.apiserver.kvstoremesh.enabled }}
       - name: kvstoremesh-secrets
         projected:
