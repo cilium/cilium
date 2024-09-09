@@ -36,7 +36,7 @@ jobs:
         uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.23.0
+          go-version: 1.23.1
 
       - name: Get token
         id: get_token
