@@ -229,7 +229,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 
 	if expType.canExpose(slim_corev1.ServiceTypeLoadBalancer) {
 		for _, ip := range svc.Status.LoadBalancer.Ingress {
-			if ip.IP != "" {
+			if ip.IP != "" && ip.IPMode == nil || *ip.IPMode == slim_corev1.LoadBalancerIPModeVIP {
 				loadBalancerIPs = append(loadBalancerIPs, ip.IP)
 			}
 		}
