@@ -221,18 +221,36 @@ include:
 exclude:
   # The bandwidth test is disabled and hubble tests are not meant
   # to run on net-next.
-  - k8s-version: "1.30"
+  - k8s-version: "1.31"
     focus: "f10-agent-hubble-bandwidth"
 
   # These tests are meant to run with kube-proxy which is not available
   # with net-next
-  - k8s-version: "1.30"
+  - k8s-version: "1.31"
     focus: "f16-datapath-service-ew-2"
 
   # These tests are meant to run with kube-proxy which is not available
   # with net-next
-  - k8s-version: "1.30"
+  - k8s-version: "1.31"
     focus: "f17-datapath-service-ew-kube-proxy"
+
+  # These tests require an external node which is only available on 1.30
+  # / net-next so there's no point on running them
+  - k8s-version: "1.30"
+    focus: "f05-agent-policy-multi-node-2"
+
+  # These tests require kernel net-next so there's no point on running them
+  - k8s-version: "1.30"
+    focus: "f11-datapath-service-ns-tc"
+
+  - k8s-version: "1.30"
+    focus: "f12-datapath-service-ns-misc"
+
+  - k8s-version: "1.30"
+    focus: "f13-datapath-service-ns-xdp-1"
+
+  - k8s-version: "1.30"
+    focus: "f14-datapath-service-ns-xdp-2"
 
   # These tests require an external node which is only available on 1.29
   # / net-next so there's no point on running them
@@ -252,60 +270,42 @@ exclude:
   - k8s-version: "1.29"
     focus: "f14-datapath-service-ns-xdp-2"
 
-  # These tests require an external node which is only available on 1.28
-  # / net-next so there's no point on running them
-  - k8s-version: "1.28"
-    focus: "f05-agent-policy-multi-node-2"
-
-  # These tests require kernel net-next so there's no point on running them
-  - k8s-version: "1.28"
-    focus: "f11-datapath-service-ns-tc"
-
-  - k8s-version: "1.28"
-    focus: "f12-datapath-service-ns-misc"
-
-  - k8s-version: "1.28"
-    focus: "f13-datapath-service-ns-xdp-1"
-
-  - k8s-version: "1.28"
-    focus: "f14-datapath-service-ns-xdp-2"
-
   # These tests require are not intended to run on kernel 5.4, thus we can ignore them
-  - k8s-version: "1.27"
+  - k8s-version: "1.28"
     focus: "f01-agent-chaos"
 
-  - k8s-version: "1.27"
+  - k8s-version: "1.28"
     focus: "f03-agent-policy"
 
-  - k8s-version: "1.27"
+  - k8s-version: "1.28"
     focus: "f04-agent-policy-multi-node-1"
 
-  - k8s-version: "1.27"
+  - k8s-version: "1.28"
     focus: "f05-agent-policy-multi-node-2"
 
-  - k8s-version: "1.27"
+  - k8s-version: "1.28"
     focus: "f11-datapath-service-ns-tc"
 
-  - k8s-version: "1.27"
+  - k8s-version: "1.28"
     focus: "f12-datapath-service-ns-misc"
 
-  - k8s-version: "1.27"
+  - k8s-version: "1.28"
     focus: "f13-datapath-service-ns-xdp-1"
 
-  - k8s-version: "1.27"
+  - k8s-version: "1.28"
     focus: "f14-datapath-service-ns-xdp-2"
 
-  - k8s-version: "1.27"
+  - k8s-version: "1.28"
     focus: "f15-datapath-service-ew-1"
 
-  - k8s-version: "1.27"
+  - k8s-version: "1.28"
     focus: "f16-datapath-service-ew-2"
 
-  - k8s-version: "1.27"
+  - k8s-version: "1.28"
     focus: "f17-datapath-service-ew-kube-proxy"
 
-  - k8s-version: "1.27"
+  - k8s-version: "1.28"
     focus: "f18-datapath-bgp-lrp"
 
-  - k8s-version: "1.27"
+  - k8s-version: "1.28"
     focus: "f20-kafka"
