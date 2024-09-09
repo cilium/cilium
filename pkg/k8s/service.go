@@ -91,6 +91,46 @@ func isValidServiceFrontendIP(netIP net.IP) bool {
 	return false
 }
 
+// exposeSvcType is used to determine whether a given service can be provisioned
+// for a given service type (passed to the "canExpose" method).
+//
+// This is controlled by the ServiceTypeExposure K8s Service annotation. If it
+// set, then only the service type in the value is provisioned. For example, a
+// LoadBalancer service includes ClusterIP and NodePort (unless
+// allocateLoadBalancerNodePorts is set to false). To avoid provisioning the
+// latter two, one can set the annotation with the value "LoadBalancer".
+type exposeSvcType slim_corev1.ServiceType
+
+func newSvcExposureType(svc *slim_corev1.Service) (*exposeSvcType, error) {
+	typ, isSet := svc.Annotations[annotation.ServiceTypeExposure]
+	if !isSet {
+		return nil, nil
+	}
+
+	svcType := slim_corev1.ServiceType(typ)
+
+	switch svcType {
+	case slim_corev1.ServiceTypeClusterIP,
+		slim_corev1.ServiceTypeNodePort,
+		slim_corev1.ServiceTypeLoadBalancer:
+	default:
+		return nil,
+			fmt.Errorf("not supported type for %q: %s", annotation.ServiceTypeExposure, typ)
+	}
+
+	expType := exposeSvcType(svcType)
+	return &expType, nil
+}
+
+// canExpose checks whether a given service type can be provisioned.
+func (e *exposeSvcType) canExpose(t slim_corev1.ServiceType) bool {
+	if e == nil {
+		return true
+	}
+
+	return slim_corev1.ServiceType(*e) == t
+}
+
 // ParseServiceID parses a Kubernetes service and returns the ServiceID
 func ParseServiceID(svc *slim_corev1.Service) ServiceID {
 	return ServiceID{
@@ -110,6 +150,10 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 	var loadBalancerIPs []string
 
 	svcID := ParseServiceID(svc)
+	expType, err := newSvcExposureType(svc)
+	if err != nil {
+		scopedLog.WithError(err).Warnf("Ignoring %q annotation", annotation.ServiceTypeExposure)
+	}
 
 	var svcType loadbalancer.SVCType
 	switch svc.Spec.Type {
@@ -136,16 +180,18 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 	}
 
 	var clusterIPs []net.IP
-	if len(svc.Spec.ClusterIPs) == 0 {
-		if clsIP := net.ParseIP(svc.Spec.ClusterIP); clsIP != nil {
-			clusterIPs = []net.IP{clsIP}
-		}
-	} else {
-		// Here we assume that the value of .spec.ClusterIPs[0] is same as that of the .spec.clusterIP
-		// or else Kubernetes will reject the service with validation error.
-		for _, ip := range svc.Spec.ClusterIPs {
-			if parsedIP := net.ParseIP(ip); parsedIP != nil {
-				clusterIPs = append(clusterIPs, parsedIP)
+	if expType.canExpose(slim_corev1.ServiceTypeClusterIP) {
+		if len(svc.Spec.ClusterIPs) == 0 {
+			if clsIP := net.ParseIP(svc.Spec.ClusterIP); clsIP != nil {
+				clusterIPs = []net.IP{clsIP}
+			}
+		} else {
+			// Here we assume that the value of .spec.ClusterIPs[0] is same as that of the .spec.clusterIP
+			// or else Kubernetes will reject the service with validation error.
+			for _, ip := range svc.Spec.ClusterIPs {
+				if parsedIP := net.ParseIP(ip); parsedIP != nil {
+					clusterIPs = append(clusterIPs, parsedIP)
+				}
 			}
 		}
 	}
@@ -170,9 +216,11 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 		intTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
 	}
 
-	for _, ip := range svc.Status.LoadBalancer.Ingress {
-		if ip.IP != "" {
-			loadBalancerIPs = append(loadBalancerIPs, ip.IP)
+	if expType.canExpose(slim_corev1.ServiceTypeLoadBalancer) {
+		for _, ip := range svc.Status.LoadBalancer.Ingress {
+			if ip.IP != "" {
+				loadBalancerIPs = append(loadBalancerIPs, ip.IP)
+			}
 		}
 	}
 	lbSrcRanges := make([]string, 0, len(svc.Spec.LoadBalancerSourceRanges))
@@ -206,7 +254,6 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 	// This is a hack;-( In the case of NodePort service, we need to create
 	// surrogate frontends per IP protocol - one with a zero IP addr and
 	// one per each public iface IP addr.
-
 	ipv4 := option.Config.EnableIPv4 && utils.GetClusterIPByFamily(slim_corev1.IPv4Protocol, svc) != ""
 	if ipv4 {
 		nodePortAddrs = append(nodePortAddrs, netip.IPv4Unspecified())
@@ -222,7 +269,10 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 		if _, ok := svcInfo.Ports[portName]; !ok {
 			svcInfo.Ports[portName] = p
 		}
-		if svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
+
+		if expType.canExpose(slim_corev1.ServiceTypeNodePort) &&
+			(svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer) {
+
 			if option.Config.EnableNodePort {
 				proto := loadbalancer.L4Type(port.Protocol)
 				port := uint16(port.NodePort)
