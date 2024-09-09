@@ -21,29 +21,29 @@ const (
 
 // FragmentKey must match 'struct ipv4_frag_id' in "bpf/lib/ipv4.h".
 type FragmentKey struct {
-	destAddr   types.IPv4 `align:"daddr"`
-	sourceAddr types.IPv4 `align:"saddr"`
-	id         uint16     `align:"id"`
-	proto      uint8      `align:"proto"`
+	DestAddr   types.IPv4 `align:"daddr"`
+	SourceAddr types.IPv4 `align:"saddr"`
+	ID         uint16     `align:"id"`
+	Proto      uint8      `align:"proto"`
 	_          uint8
 }
 
 // FragmentValue must match 'struct ipv4_frag_l4ports' in "bpf/lib/ipv4.h".
 type FragmentValue struct {
-	sourcePort uint16 `align:"sport"`
-	destPort   uint16 `align:"dport"`
+	SourcePort uint16 `align:"sport"`
+	DestPort   uint16 `align:"dport"`
 }
 
-// String converts the key into a human readable string format.
+// String converts the key into a human-readable string format.
 func (k *FragmentKey) String() string {
-	return fmt.Sprintf("%s --> %s, %d, %d", k.sourceAddr, k.destAddr, k.proto, k.id)
+	return fmt.Sprintf("%s --> %s, %d, %d", k.SourceAddr, k.DestAddr, k.Proto, k.ID)
 }
 
 func (k *FragmentKey) New() bpf.MapKey { return &FragmentKey{} }
 
-// String converts the value into a human readable string format.
+// String converts the value into a human-readable string format.
 func (v *FragmentValue) String() string {
-	return fmt.Sprintf("%d, %d", v.destPort, v.sourcePort)
+	return fmt.Sprintf("%d, %d", v.DestPort, v.SourcePort)
 }
 
 func (v *FragmentValue) New() bpf.MapValue { return &FragmentValue{} }
@@ -58,4 +58,9 @@ func InitMap(mapEntries int) error {
 		0,
 	).WithEvents(option.Config.GetEventBufferConfig(MapName))
 	return fragMap.Create()
+}
+
+// OpenMap opens the pre-initialized fragments map for access.
+func OpenMap() (*bpf.Map, error) {
+	return bpf.OpenMap(bpf.MapPath(MapName), &FragmentKey{}, &FragmentValue{})
 }
