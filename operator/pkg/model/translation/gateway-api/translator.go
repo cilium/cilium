@@ -9,6 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -141,7 +142,7 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32, label
 					Kind:       resource.Kind,
 					Name:       resource.Name,
 					UID:        types.UID(resource.UID),
-					Controller: model.AddressOf(true),
+					Controller: ptr.To(true),
 				},
 			},
 		},
@@ -171,7 +172,7 @@ func getEndpoints(resource model.FullyQualifiedResource, labels, annotations map
 					Kind:       resource.Kind,
 					Name:       resource.Name,
 					UID:        types.UID(resource.UID),
-					Controller: model.AddressOf(true),
+					Controller: ptr.To(true),
 				},
 			},
 		},
@@ -199,7 +200,7 @@ func decorateCEC(cec *ciliumv2.CiliumEnvoyConfig, resource *model.FullyQualified
 			Kind:       resource.Kind,
 			Name:       resource.Name,
 			UID:        types.UID(resource.UID),
-			Controller: model.AddressOf(true),
+			Controller: ptr.To(true),
 		},
 	}
 

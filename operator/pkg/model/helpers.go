@@ -111,10 +111,6 @@ func hostnameMatchesWildcardHostname(hostname, wildcardHostname string) bool {
 	return len(wildcardMatch) > 0
 }
 
-func AddressOf[T any](v T) *T {
-	return &v
-}
-
 // Shorten shortens the string to 63 characters.
 // this is the implicit required for all the resource naming in k8s.
 func Shorten(s string) string {

@@ -14,6 +14,7 @@ import (
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 )
@@ -445,11 +446,9 @@ func TestSortableRoute(t *testing.T) {
 		"prefix match with one header and one query",
 		"prefix match with one header",
 	}, namesAfterSort)
-
 }
 
 func buildNameSlice(arr []*envoy_config_route_v3.Route) []string {
-
 	var names []string
 
 	for _, entry := range arr {
@@ -473,7 +472,7 @@ func Test_hostRewriteMutation(t *testing.T) {
 			Route: &envoy_config_route_v3.RouteAction{},
 		}
 		rewrite := &model.HTTPURLRewriteFilter{
-			HostName: model.AddressOf("example.com"),
+			HostName: ptr.To("example.com"),
 		}
 
 		res := hostRewriteMutation(rewrite)(route)
@@ -613,7 +612,7 @@ func Test_retryMutation(t *testing.T) {
 		}
 		retry := &model.HTTPRetry{
 			Codes:    []uint32{500, 503},
-			Attempts: model.AddressOf(3),
+			Attempts: ptr.To(3),
 		}
 
 		res := retryMutation(retry)(route)
@@ -628,8 +627,8 @@ func Test_retryMutation(t *testing.T) {
 		}
 		retry := &model.HTTPRetry{
 			Codes:    []uint32{500, 503},
-			Attempts: model.AddressOf(3),
-			Backoff:  model.AddressOf(10 * time.Second),
+			Attempts: ptr.To(3),
+			Backoff:  ptr.To(10 * time.Second),
 		}
 
 		res := retryMutation(retry)(route)

@@ -7,9 +7,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-
-	"github.com/cilium/cilium/operator/pkg/model"
 )
 
 // Gateway API Mesh Conformance test resources
@@ -169,8 +168,8 @@ var meshSplitHTTPRoute = gatewayv1.HTTPRoute{
 				Matches: []gatewayv1.HTTPRouteMatch{
 					{
 						Path: &gatewayv1.HTTPPathMatch{
-							Type:  model.AddressOf(gatewayv1.PathMatchExact),
-							Value: model.AddressOf("/v1"),
+							Type:  ptr.To(gatewayv1.PathMatchExact),
+							Value: ptr.To("/v1"),
 						},
 					},
 				},
@@ -179,7 +178,7 @@ var meshSplitHTTPRoute = gatewayv1.HTTPRoute{
 						BackendRef: gatewayv1.BackendRef{
 							BackendObjectReference: gatewayv1.BackendObjectReference{
 								Name: "echo-v1",
-								Port: model.AddressOf[gatewayv1.PortNumber](80),
+								Port: ptr.To[gatewayv1.PortNumber](80),
 							},
 						},
 					},
@@ -189,8 +188,8 @@ var meshSplitHTTPRoute = gatewayv1.HTTPRoute{
 				Matches: []gatewayv1.HTTPRouteMatch{
 					{
 						Path: &gatewayv1.HTTPPathMatch{
-							Type:  model.AddressOf(gatewayv1.PathMatchExact),
-							Value: model.AddressOf("/v2"),
+							Type:  ptr.To(gatewayv1.PathMatchExact),
+							Value: ptr.To("/v2"),
 						},
 					},
 				},
@@ -199,7 +198,7 @@ var meshSplitHTTPRoute = gatewayv1.HTTPRoute{
 						BackendRef: gatewayv1.BackendRef{
 							BackendObjectReference: gatewayv1.BackendObjectReference{
 								Name: "echo-v2",
-								Port: model.AddressOf[gatewayv1.PortNumber](80),
+								Port: ptr.To[gatewayv1.PortNumber](80),
 							},
 						},
 					},
@@ -222,7 +221,7 @@ var meshPortsHTTPRoute = gatewayv1.HTTPRoute{
 					Name:  "echo-v1",
 					Group: GroupPtr(corev1.SchemeGroupVersion.Group),
 					Kind:  KindPtr("Service"),
-					Port:  model.AddressOf[gatewayv1.PortNumber](80),
+					Port:  ptr.To[gatewayv1.PortNumber](80),
 				},
 			},
 		},
@@ -246,7 +245,7 @@ var meshPortsHTTPRoute = gatewayv1.HTTPRoute{
 						BackendRef: gatewayv1.BackendRef{
 							BackendObjectReference: gatewayv1.BackendObjectReference{
 								Name: "echo-v1",
-								Port: model.AddressOf[gatewayv1.PortNumber](80),
+								Port: ptr.To[gatewayv1.PortNumber](80),
 							},
 						},
 					},
@@ -269,7 +268,7 @@ var meshFrontendHTTPRoute = gatewayv1.HTTPRoute{
 					Name:  "echo-v2",
 					Group: GroupPtr(corev1.SchemeGroupVersion.Group),
 					Kind:  KindPtr("Service"),
-					Port:  model.AddressOf[gatewayv1.PortNumber](80),
+					Port:  ptr.To[gatewayv1.PortNumber](80),
 				},
 			},
 		},
@@ -293,7 +292,7 @@ var meshFrontendHTTPRoute = gatewayv1.HTTPRoute{
 						BackendRef: gatewayv1.BackendRef{
 							BackendObjectReference: gatewayv1.BackendObjectReference{
 								Name: "echo-v2",
-								Port: model.AddressOf[gatewayv1.PortNumber](80),
+								Port: ptr.To[gatewayv1.PortNumber](80),
 							},
 						},
 					},

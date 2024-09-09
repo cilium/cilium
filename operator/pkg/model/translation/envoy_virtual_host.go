@@ -17,6 +17,7 @@ import (
 	envoy_type_v3 "github.com/cilium/proxy/go/envoy/type/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/math"
@@ -108,7 +109,7 @@ func (s SortableRoute) Less(i, j int) bool {
 func getMethod(headers []*envoy_config_route_v3.HeaderMatcher) *string {
 	for _, h := range headers {
 		if h.Name == ":method" {
-			return model.AddressOf(h.GetStringMatch().GetExact())
+			return ptr.To(h.GetStringMatch().GetExact())
 		}
 	}
 	return nil

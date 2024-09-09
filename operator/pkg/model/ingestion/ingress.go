@@ -9,6 +9,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/operator/pkg/ingress/annotations"
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -41,14 +42,14 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 	// Setup timeout for use in all routes
 	timeout := model.Timeout{}
 	if defaultRequestTimeout != 0 {
-		timeout.Request = model.AddressOf(defaultRequestTimeout)
+		timeout.Request = ptr.To(defaultRequestTimeout)
 	}
 	if v, err := annotations.GetAnnotationRequestTimeout(&ing); err != nil {
 		// If the annotation is invalid, we log a warning and use the default value
 		log.WithField(logfields.Ingress, ing.Namespace+"/"+ing.Name).
 			Warn("Invalid request timeout annotation, using default value")
 	} else if v != nil {
-		timeout.Request = model.AddressOf(*v)
+		timeout.Request = ptr.To(*v)
 	}
 
 	if ing.Spec.DefaultBackend != nil {
