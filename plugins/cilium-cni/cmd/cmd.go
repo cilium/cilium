@@ -211,15 +211,41 @@ func allocateIPsWithDelegatedPlugin(
 	// Safe to assume at most one IP per family. The K8s API docs say:
 	// "Pods may be allocated at most 1 value for each of IPv4 and IPv6"
 	// https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/
+	// Interface returned by IPAM should be treated as the uplink for the Pod as CNI spec introduced by:
+	// https://github.com/containernetworking/cni/pull/1137
+	masterMac := ""
+	for _, iface := range ipamResult.Interfaces {
+		if iface.Sandbox == "" && iface.Name != "" {
+			if uplink, err := safenetlink.LinkByName(iface.Name); err != nil {
+				return nil, releaseFunc, fmt.Errorf("failed to get uplink %q: %w", iface.Name, err)
+			} else {
+				masterMac = uplink.Attrs().HardwareAddr.String()
+			}
+			break
+		}
+	}
+	// Interface number could not be determined from IPAM result for now.
+	// Set a static value zero before we have a proper solution.
+	// option.Config.EgressMultiHomeIPRuleCompat also needs to be set to true.
 	for _, ipConfig := range ipamResult.IPs {
 		ipNet := ipConfig.Address
 		if ipv4 := ipNet.IP.To4(); ipv4 != nil {
 			ipam.Address.IPV4 = ipNet.String()
-			ipam.IPV4 = &models.IPAMAddressResponse{IP: ipv4.String()}
+			ipam.IPV4 = &models.IPAMAddressResponse{
+				IP:              ipv4.String(),
+				Gateway:         ipConfig.Gateway.String(),
+				MasterMac:       masterMac,
+				InterfaceNumber: "0",
+			}
 		} else if conf.Addressing.IPV6 != nil {
 			// assign ipam ipv6 address only if agent ipv6 config is enabled
 			ipam.Address.IPV6 = ipNet.String()
-			ipam.IPV6 = &models.IPAMAddressResponse{IP: ipNet.IP.String()}
+			ipam.IPV6 = &models.IPAMAddressResponse{
+				IP:              ipNet.IP.String(),
+				Gateway:         ipConfig.Gateway.String(),
+				MasterMac:       masterMac,
+				InterfaceNumber: "0",
+			}
 		}
 	}
 
@@ -660,8 +686,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			res.Routes = append(res.Routes, routes...)
 		}
 
-		switch conf.IpamMode {
-		case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
+		if needsEndpointRoutingOnHost(conf) {
 			err = interfaceAdd(ipConfig, ipam.IPV4, conf)
 			if err != nil {
 				return fmt.Errorf("unable to setup interface datapath: %w", err)
@@ -1037,4 +1062,18 @@ func loggerWithCNIArgs(logger *logrus.Entry, cniArgs *types.ArgsSpec) *logrus.En
 		logfields.K8sNamespace: cniArgs.K8S_POD_NAMESPACE,
 		logfields.K8sPodName:   cniArgs.K8S_POD_NAME,
 	})
+}
+
+// needsEndpointRoutingOnHost returns true if extra routes/rules need to be installed
+// on host for the Pod. This is needed for following IPAM modes:
+// - Cloud ENI IPAM modes.
+// - DelegatedPlugin mode with InstallUplinkRoutesForDelegatedIPAM set to true.
+func needsEndpointRoutingOnHost(conf *models.DaemonConfigurationStatus) bool {
+	switch conf.IpamMode {
+	case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
+		return true
+	case ipamOption.IPAMDelegatedPlugin:
+		return conf.InstallUplinkRoutesForDelegatedIPAM
+	}
+	return false
 }

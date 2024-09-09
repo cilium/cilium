@@ -1031,6 +1031,10 @@ const (
 	// Otherwise, it will use the old scheme.
 	EgressMultiHomeIPRuleCompat = "egress-multi-home-ip-rule-compat"
 
+	// Install ingress/egress routes through uplink on host for Pods when working with
+	// delegated IPAM plugin.
+	InstallUplinkRoutesForDelegatedIPAM = "install-uplink-routes-for-delegated-ipam"
+
 	// EnableCustomCallsName is the name of the option to enable tail calls
 	// for user-defined custom eBPF programs.
 	EnableCustomCallsName = "enable-custom-calls"
@@ -2095,6 +2099,10 @@ type DaemonConfig struct {
 	// Otherwise, it will use the old scheme.
 	EgressMultiHomeIPRuleCompat bool
 
+	// Install ingress/egress routes through uplink on host for Pods when working with
+	// delegated IPAM plugin.
+	InstallUplinkRoutesForDelegatedIPAM bool
+
 	// InstallNoConntrackIptRules instructs Cilium to install Iptables rules to skip netfilter connection tracking on all pod traffic.
 	InstallNoConntrackIptRules bool
 
@@ -2969,6 +2977,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.populateLoadBalancerSettings(vp)
 	c.EnableRuntimeDeviceDetection = vp.GetBool(EnableRuntimeDeviceDetection)
 	c.EgressMultiHomeIPRuleCompat = vp.GetBool(EgressMultiHomeIPRuleCompat)
+	c.InstallUplinkRoutesForDelegatedIPAM = vp.GetBool(InstallUplinkRoutesForDelegatedIPAM)
 
 	vlanBPFBypassIDs := vp.GetStringSlice(VLANBPFBypass)
 	c.VLANBPFBypass = make([]int, 0, len(vlanBPFBypassIDs))
