@@ -62,7 +62,7 @@ jobs:
           mkdir -p ../cilium-base-branch/images/runtime/
           cp ./images/runtime/update-cilium-runtime-image.sh ../cilium-base-branch/images/runtime/
           mkdir -p ../cilium-base-branch/images/builder/
-          cp ./images/builder/update-cilium-runtime-image.sh ../cilium-base-branch/images/builder/
+          cp ./images/builder/update-cilium-builder-image.sh ../cilium-base-branch/images/builder/
           mkdir -p ../cilium-base-branch/api/v1
           cp ./api/v1/Makefile ../cilium-base-branch/api/v1/
           cp ./Makefile.defs ../cilium-base-branch/Makefile.defs
