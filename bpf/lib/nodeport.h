@@ -695,6 +695,17 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 	ret = dsr_set_ext6(ctx, ip6, &addr, port, &ohead);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	if (ETH_HLEN == 0) {
+		ret = add_l2_hdr(ctx);
+		if (ret != 0)
+			goto drop_err;
+
+		if (!revalidate_data_l3_off(ctx, &data, &data_end, &ip6, __ETH_HLEN)) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+	}
+
 	ret = encap_geneve_dsr_opt6(ctx, ip6, &addr, port, &oif, &ohead);
 	if (!IS_ERR(ret)) {
 		if (ret == CTX_ACT_REDIRECT && oif) {
@@ -2249,6 +2260,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 	__be32 addr;
 	__be16 port;
+	int inner_l3_off __maybe_unused;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
@@ -2266,8 +2278,22 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 			   addr,
 			   port, &ohead);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-	ret = encap_geneve_dsr_opt4(ctx, ctx_load_meta(ctx, CB_DSR_L3_OFF),
-				    ip4, addr, port, &oif, &ohead);
+	inner_l3_off = ctx_load_meta(ctx, CB_DSR_L3_OFF);
+
+	if (ETH_HLEN == 0) {
+		ret = add_l2_hdr(ctx);
+		if (ret != 0)
+			goto drop_err;
+
+		if (!revalidate_data_l3_off(ctx, &data, &data_end, &ip4, __ETH_HLEN)) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+
+		inner_l3_off += __ETH_HLEN;
+	}
+
+	ret = encap_geneve_dsr_opt4(ctx, inner_l3_off, ip4, addr, port, &oif, &ohead);
 	if (!IS_ERR(ret)) {
 		if (ret == CTX_ACT_REDIRECT && oif) {
 			cilium_capture_out(ctx);
