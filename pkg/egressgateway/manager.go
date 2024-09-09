@@ -753,9 +753,18 @@ func (manager *Manager) reconcileLocked() {
 
 	manager.regenerateGatewayConfigs()
 
+	// Sysctl updates are handled by a reconciler, with the initial update attempting to wait some time
+	// for a synchronous reconciliation. Thus these updates are already resilient so in case of failure
+	// our best course of action is to log the error and continue with the reconciliation.
+	//
+	// The rp_filter setting is only important for traffic originating from endpoints on the same host (i.e.
+	// egw traffic being forwarded from a local Pod endpoint to the gateway on the same node).
+	// Therefore, for the sake of resiliency, it is acceptable for EGW to continue reconciling gatewayConfigs
+	// even if the rp_filter setting are failing.
 	if err := manager.relaxRPFilter(); err != nil {
-		manager.reconciliationTrigger.TriggerWithReason("retry after error")
-		return
+		log.WithError(err).Error("Error relaxing rp_filter for gateway interfaces. "+
+			"Selected egress gateway interfaces require rp_filter settings to use loose mode (rp_filter=2) for gateway forwarding to work correctly. ",
+			"This may cause connectivity issues for egress gateway traffic being forwarded through this node for Pods running on the same host. ")
 	}
 
 	// The order of the next 2 function calls matters, as by first adding missing policies and
