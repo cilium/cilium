@@ -4,6 +4,8 @@
 package dynamicconfig
 
 import (
+	"iter"
+
 	"github.com/cilium/statedb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +56,7 @@ func configMapReflector(name string, cs k8sClient.Clientset, t statedb.RWTable[D
 				opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + name).String()
 			},
 		),
-		QueryAll: func(txn statedb.ReadTxn, t statedb.Table[DynamicConfig]) statedb.Iterator[DynamicConfig] {
+		QueryAll: func(txn statedb.ReadTxn, t statedb.Table[DynamicConfig]) iter.Seq2[DynamicConfig, statedb.Revision] {
 			return statedb.Filter(
 				t.All(txn),
 				func(dc DynamicConfig) bool {

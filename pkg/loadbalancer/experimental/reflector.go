@@ -610,8 +610,7 @@ func upsertHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 		Name:      pod.ObjectMeta.Name + "/host-port/",
 		Namespace: pod.ObjectMeta.Namespace,
 	}
-	iter := params.Writer.Services().Prefix(wtxn, ServiceByName(serviceNamePrefix))
-	for svc, _, ok := iter.Next(); ok; svc, _, ok = iter.Next() {
+	for svc := range params.Writer.Services().Prefix(wtxn, ServiceByName(serviceNamePrefix)) {
 		if updatedServices.Has(svc.Name) {
 			continue
 		}
@@ -632,8 +631,7 @@ func deleteHostPort(params reflectorParams, wtxn WriteTxn, pod *slim_corev1.Pod)
 		Name:      pod.ObjectMeta.Name + "/host-port/",
 		Namespace: pod.ObjectMeta.Namespace,
 	}
-	iter := params.Writer.Services().Prefix(wtxn, ServiceByName(serviceNamePrefix))
-	for svc, _, ok := iter.Next(); ok; svc, _, ok = iter.Next() {
+	for svc := range params.Writer.Services().Prefix(wtxn, ServiceByName(serviceNamePrefix)) {
 		// Delete this orphaned servicea and associated frontends. The backends will be removed
 		// when they become unreferenced.
 		err := params.Writer.DeleteServiceAndFrontends(wtxn, svc.Name)

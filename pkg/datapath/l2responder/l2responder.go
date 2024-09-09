@@ -94,8 +94,6 @@ func (p *l2ResponderReconciler) run(ctx context.Context, health cell.Health) err
 	}
 	txn.Commit()
 
-	defer changes.Close()
-
 	// At startup, do an initial full reconciliation
 	err = p.fullReconciliation(p.params.StateDB.ReadTxn())
 	if err != nil {
@@ -111,7 +109,7 @@ func (p *l2ResponderReconciler) run(ctx context.Context, health cell.Health) err
 
 func (p *l2ResponderReconciler) cycle(
 	ctx context.Context,
-	changes statedb.ChangeIterator[*tables.L2AnnounceEntry],
+	changeIter statedb.ChangeIterator[*tables.L2AnnounceEntry],
 	fullReconciliation <-chan time.Time,
 ) {
 	arMap := p.params.L2ResponderMap
@@ -153,7 +151,9 @@ func (p *l2ResponderReconciler) cycle(
 	}
 
 	// Partial reconciliation
-	for change, _, ok := changes.Next(); ok; change, _, ok = changes.Next() {
+	txn := p.params.StateDB.ReadTxn()
+	changes, watch := changeIter.Next(txn)
+	for change := range changes {
 		err := process(change.Object, change.Deleted)
 		if err != nil {
 			log.WithError(err).Error("error during partial reconciliation")
@@ -161,14 +161,12 @@ func (p *l2ResponderReconciler) cycle(
 		}
 	}
 
-	txn := p.params.StateDB.ReadTxn()
-
 	select {
 	case <-ctx.Done():
 		// Shutdown
 		return
 
-	case <-changes.Watch(txn):
+	case <-watch:
 		// There are pending changes in the table, return from the cycle
 
 	case <-fullReconciliation:
@@ -200,16 +198,16 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 	}
 	desiredMap := make(map[l2respondermap.L2ResponderKey]desiredEntry)
 
-	statedb.ProcessEach(tbl.All(txn), func(e *tables.L2AnnounceEntry, _ uint64) error {
+	for e := range tbl.All(txn) {
 		// Ignore IPv6 addresses, L2 is IPv4 only
 		if e.IP.Is6() {
-			return nil
+			continue
 		}
 
 		idx, err := lr.LinkIndex(e.NetworkInterface)
 		if err != nil {
 			errs = errors.Join(errs, err)
-			return nil
+			continue
 		}
 
 		desiredMap[l2respondermap.L2ResponderKey{
@@ -218,9 +216,7 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 		}] = desiredEntry{
 			entry: e,
 		}
-
-		return nil
-	})
+	}
 
 	// Loop over all map values, use the desired entries index to see which we want to delete.
 	var toDelete []*l2respondermap.L2ResponderKey

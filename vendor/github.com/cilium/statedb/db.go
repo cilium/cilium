@@ -82,6 +82,12 @@ import (
 //  6. Periodically garbage collect the graveyard by finding
 //     the lowest revision of all delete trackers.
 type DB struct {
+	handleName string
+	*dbState
+}
+
+// dbState is the underlying state of the database shared by all [DB] handles.
+type dbState struct {
 	mu                  sync.Mutex // protects 'tables' and sequences modifications to the root tree
 	ctx                 context.Context
 	cancel              context.CancelFunc
@@ -90,7 +96,6 @@ type DB struct {
 	gcExited            chan struct{}
 	gcRateLimitInterval time.Duration
 	metrics             Metrics
-	defaultHandle       Handle
 }
 
 type dbRoot []tableEntry
@@ -121,10 +126,12 @@ func New(options ...Option) *DB {
 	}
 
 	db := &DB{
-		metrics:             opts.metrics,
-		gcRateLimitInterval: defaultGCRateLimitInterval,
+		dbState: &dbState{
+			metrics:             opts.metrics,
+			gcRateLimitInterval: defaultGCRateLimitInterval,
+		},
 	}
-	db.defaultHandle = Handle{db, "DB"}
+	db.handleName = "DB"
 	root := dbRoot{}
 	db.root.Store(&root)
 	return db
@@ -177,7 +184,10 @@ func (db *DB) registerTable(table TableMeta, root *dbRoot) error {
 //
 // The returned ReadTxn is not thread-safe.
 func (db *DB) ReadTxn() ReadTxn {
-	return db.defaultHandle.ReadTxn()
+	return &txn{
+		db:   db,
+		root: *db.root.Load(),
+	}
 }
 
 // WriteTxn constructs a new write transaction against the given set of tables.
@@ -187,7 +197,54 @@ func (db *DB) ReadTxn() ReadTxn {
 //
 // The returned WriteTxn is not thread-safe.
 func (db *DB) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
-	return db.defaultHandle.WriteTxn(table, tables...)
+	allTables := append(tables, table)
+	smus := internal.SortableMutexes{}
+	for _, table := range allTables {
+		smus = append(smus, table.sortableMutex())
+		if table.tablePos() < 0 {
+			panic(tableError(table.Name(), ErrTableNotRegistered))
+		}
+	}
+	lockAt := time.Now()
+	smus.Lock()
+	acquiredAt := time.Now()
+
+	root := *db.root.Load()
+	tableEntries := make([]*tableEntry, len(root))
+	var tableNames []string
+	for _, table := range allTables {
+		tableEntry := root[table.tablePos()]
+		tableEntry.indexes = slices.Clone(tableEntry.indexes)
+		tableEntries[table.tablePos()] = &tableEntry
+		tableNames = append(tableNames, table.Name())
+
+		db.metrics.WriteTxnTableAcquisition(
+			db.handleName,
+			table.Name(),
+			table.sortableMutex().AcquireDuration(),
+		)
+	}
+
+	// Sort the table names so they always appear ordered in metrics.
+	sort.Strings(tableNames)
+
+	db.metrics.WriteTxnTotalAcquisition(
+		db.handleName,
+		tableNames,
+		acquiredAt.Sub(lockAt),
+	)
+
+	txn := &txn{
+		db:             db,
+		root:           root,
+		modifiedTables: tableEntries,
+		smus:           smus,
+		acquiredAt:     acquiredAt,
+		tableNames:     tableNames,
+		handle:         db.handleName,
+	}
+	runtime.SetFinalizer(txn, txnFinalizer)
+	return txn
 }
 
 // Start the background workers for the database.
@@ -229,79 +286,11 @@ func (db *DB) setGCRateLimitInterval(interval time.Duration) {
 	db.gcRateLimitInterval = interval
 }
 
-// NewHandle returns a named handle to the DB. The handle has the same ReadTxn and
-// WriteTxn methods as DB, but annotated with the given name for more accurate
-// cost accounting in e.g. metrics.
-func (db *DB) NewHandle(name string) Handle {
-	return Handle{db, name}
-}
-
-// Handle is a named handle to the database for constructing read or write
-// transactions.
-type Handle struct {
-	db   *DB
-	name string
-}
-
-func (h Handle) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
-	db := h.db
-	allTables := append(tables, table)
-	smus := internal.SortableMutexes{}
-	for _, table := range allTables {
-		smus = append(smus, table.sortableMutex())
-		if table.tablePos() < 0 {
-			panic(tableError(table.Name(), ErrTableNotRegistered))
-		}
-	}
-	lockAt := time.Now()
-	smus.Lock()
-	acquiredAt := time.Now()
-
-	root := *db.root.Load()
-	tableEntries := make([]*tableEntry, len(root))
-	var tableNames []string
-	for _, table := range allTables {
-		tableEntry := root[table.tablePos()]
-		tableEntry.indexes = slices.Clone(tableEntry.indexes)
-		tableEntries[table.tablePos()] = &tableEntry
-		tableNames = append(tableNames, table.Name())
-
-		db.metrics.WriteTxnTableAcquisition(
-			h.name,
-			table.Name(),
-			table.sortableMutex().AcquireDuration(),
-		)
-	}
-
-	// Sort the table names so they always appear ordered in metrics.
-	sort.Strings(tableNames)
-
-	db.metrics.WriteTxnTotalAcquisition(
-		h.name,
-		tableNames,
-		acquiredAt.Sub(lockAt),
-	)
-
-	txn := &txn{
-		db:             db,
-		root:           root,
-		modifiedTables: tableEntries,
-		smus:           smus,
-		acquiredAt:     acquiredAt,
-		tableNames:     tableNames,
-		handle:         h.name,
-	}
-	runtime.SetFinalizer(txn, txnFinalizer)
-	return txn
-}
-
-// ReadTxn constructs a new read transaction for performing reads against
-// a snapshot of the database.
-//
-// The returned ReadTxn is not thread-safe.
-func (h Handle) ReadTxn() ReadTxn {
-	return &txn{
-		db:   h.db,
-		root: *h.db.root.Load(),
+// NewHandle returns a new named handle to the DB. The given name is used to annotate
+// metrics.
+func (db *DB) NewHandle(name string) *DB {
+	return &DB{
+		handleName: name,
+		dbState:    db.dbState,
 	}
 }

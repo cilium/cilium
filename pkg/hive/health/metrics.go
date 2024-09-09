@@ -71,7 +71,7 @@ func publishJob(ctx context.Context, p metricPublisherParams, publish publishFun
 	it, watch := p.Table.AllWatch(p.DB.ReadTxn())
 	for {
 		stats := make(map[types.Level]uint64)
-		for obj, _, ok := it.Next(); ok; obj, _, ok = it.Next() {
+		for obj := range it {
 			stats[obj.Level]++
 		}
 		publish(stats)

@@ -6,6 +6,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"iter"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -117,7 +118,7 @@ type TransformManyFunc[Obj any] func(any) (objs []Obj)
 // to query all objects in the table that are managed by the reflector.
 // It is used to delete all objects when the underlying cache.Reflector needs
 // to Replace() all items for a resync.
-type QueryAllFunc[Obj any] func(statedb.ReadTxn, statedb.Table[Obj]) statedb.Iterator[Obj]
+type QueryAllFunc[Obj any] func(statedb.ReadTxn, statedb.Table[Obj]) iter.Seq2[Obj, statedb.Revision]
 
 // MergeFunc is an optional function to merge the new object with an existing
 // object in th target table. Only invoked if an old object exists.
@@ -213,7 +214,7 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 	queryAll := r.QueryAll
 	if queryAll == nil {
 		// No query function provided, use All()
-		queryAll = QueryAllFunc[Obj](func(txn statedb.ReadTxn, tbl statedb.Table[Obj]) statedb.Iterator[Obj] {
+		queryAll = QueryAllFunc[Obj](func(txn statedb.ReadTxn, tbl statedb.Table[Obj]) iter.Seq2[Obj, statedb.Revision] {
 			return tbl.All(txn)
 		})
 	}
@@ -287,8 +288,7 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 			}
 
 			// Delete the remaining objects that we did not insert.
-			iter := queryAll(txn, table)
-			for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
+			for obj := range queryAll(txn, table) {
 				if !inserted.Has(string(indexer.ObjectToKey(obj))) {
 					numDeleted++
 					table.Delete(txn, obj)

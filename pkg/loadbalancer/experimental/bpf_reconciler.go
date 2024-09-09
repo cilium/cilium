@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
 	"net/netip"
 	"sort"
@@ -416,7 +417,7 @@ func (ops *bpfOps) pruneSourceRanges() error {
 }
 
 // Prune implements reconciler.Operations.
-func (ops *bpfOps) Prune(_ context.Context, _ statedb.ReadTxn, _ statedb.Iterator[*Frontend]) error {
+func (ops *bpfOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*Frontend, statedb.Revision]) error {
 	ops.log.Info("Pruning")
 	return errors.Join(
 		ops.pruneRestoredIDs(),

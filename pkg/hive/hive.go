@@ -60,12 +60,12 @@ func New(cells ...cell.Cell) *Hive {
 		func(hp types.Provider, fmid cell.FullModuleID) cell.Health {
 			return hp.ForModule(fmid)
 		},
+		func(db *statedb.DB, mid cell.ModuleID) *statedb.DB {
+			return db.NewHandle(string(mid))
+		},
 	}
 	modulePrivateProviders := []cell.ModulePrivateProvider{
 		jobGroupProvider,
-		func(db *statedb.DB, mid cell.ModuleID) statedb.Handle {
-			return db.NewHandle(string(mid))
-		},
 	}
 	return upstream.NewWithOptions(
 		upstream.Options{

@@ -171,8 +171,7 @@ func upsertStat[KT tupleKey](m *Stats, topk *topk[KT], family nat.IPFamily) erro
 	defer tx.Abort()
 
 	var errs error
-	iter := m.table.All(tx)
-	for entry, _, ok := iter.Next(); ok; entry, _, ok = iter.Next() {
+	for entry := range m.table.All(tx) {
 		if entry.Type == family.String() {
 			_, _, err := m.table.Delete(tx, entry)
 			errors.Join(errs, err)

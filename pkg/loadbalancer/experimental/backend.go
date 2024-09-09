@@ -117,9 +117,8 @@ func (be *Backend) TableRow() []string {
 
 func showInstances(instances part.Map[loadbalancer.ServiceName, BackendInstance]) string {
 	var b strings.Builder
-	iter := instances.All()
 	count := instances.Len()
-	for name, inst, ok := iter.Next(); ok; name, inst, ok = iter.Next() {
+	for name, inst := range instances.All() {
 		b.WriteString(name.String())
 		if inst.PortName != "" {
 			b.WriteString(" (")
@@ -134,22 +133,15 @@ func showInstances(instances part.Map[loadbalancer.ServiceName, BackendInstance]
 	return b.String()
 }
 
-func (be *Backend) forEachInstance(cb func(loadbalancer.ServiceName, BackendInstance)) {
-	iter := be.Instances.All()
-	for name, inst, ok := iter.Next(); ok; name, inst, ok = iter.Next() {
-		cb(name, inst)
-	}
-}
-
 func (be *Backend) serviceNameKeys() index.KeySet {
 	if be.Instances.Len() == 1 {
 		// Avoid allocating the slice.
-		name, _, _ := be.Instances.All().Next()
-		return index.NewKeySet(index.String(name.String()))
+		for name := range be.Instances.All() {
+			return index.NewKeySet(index.String(name.String()))
+		}
 	}
 	keys := make([]index.Key, 0, be.Instances.Len())
-	iter := be.Instances.All()
-	for name, _, ok := iter.Next(); ok; name, _, ok = iter.Next() {
+	for name := range be.Instances.All() {
 		keys = append(keys, index.String(name.String()))
 	}
 	return index.NewKeySet(keys...)

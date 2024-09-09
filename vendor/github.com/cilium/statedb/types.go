@@ -5,6 +5,7 @@ package statedb
 
 import (
 	"io"
+	"iter"
 
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/internal"
@@ -43,20 +44,20 @@ type Table[Obj any] interface {
 	// increments in a write transaction on each Insert and Delete.
 	Revision(ReadTxn) Revision
 
-	// All returns an iterator for all objects in the table.
-	All(ReadTxn) Iterator[Obj]
+	// All returns a sequence of all objects in the table.
+	All(ReadTxn) iter.Seq2[Obj, Revision]
 
-	// AllWatch returns an iterator for all objects in the table and a watch
+	// AllWatch returns a sequence of all objects in the table and a watch
 	// channel that is closed when the table changes.
-	AllWatch(ReadTxn) (Iterator[Obj], <-chan struct{})
+	AllWatch(ReadTxn) (iter.Seq2[Obj, Revision], <-chan struct{})
 
-	// List returns an iterator for all objects matching the given query.
-	List(ReadTxn, Query[Obj]) Iterator[Obj]
+	// List returns sequence of objects matching the given query.
+	List(ReadTxn, Query[Obj]) iter.Seq2[Obj, Revision]
 
 	// ListWatch returns an iterator for all objects matching the given query
 	// and a watch channel that is closed if the query results are
 	// invalidated by a write to the table.
-	ListWatch(ReadTxn, Query[Obj]) (Iterator[Obj], <-chan struct{})
+	ListWatch(ReadTxn, Query[Obj]) (iter.Seq2[Obj, Revision], <-chan struct{})
 
 	// Get returns the first matching object for the query.
 	Get(ReadTxn, Query[Obj]) (obj Obj, rev Revision, found bool)
@@ -67,20 +68,20 @@ type Table[Obj any] interface {
 
 	// LowerBound returns an iterator for objects that have a key
 	// greater or equal to the query.
-	LowerBound(ReadTxn, Query[Obj]) Iterator[Obj]
+	LowerBound(ReadTxn, Query[Obj]) iter.Seq2[Obj, Revision]
 
 	// LowerBoundWatch returns an iterator for objects that have a key
 	// greater or equal to the query. The returned watch channel is closed
 	// when anything in the table changes as more fine-grained notifications
 	// are not possible with a lower bound search.
-	LowerBoundWatch(ReadTxn, Query[Obj]) (iter Iterator[Obj], watch <-chan struct{})
+	LowerBoundWatch(ReadTxn, Query[Obj]) (seq iter.Seq2[Obj, Revision], watch <-chan struct{})
 
 	// Prefix searches the table by key prefix.
-	Prefix(ReadTxn, Query[Obj]) Iterator[Obj]
+	Prefix(ReadTxn, Query[Obj]) iter.Seq2[Obj, Revision]
 
 	// PrefixWatch searches the table by key prefix. Returns an iterator and a watch
 	// channel that closes when the query results have become stale.
-	PrefixWatch(ReadTxn, Query[Obj]) (iter Iterator[Obj], watch <-chan struct{})
+	PrefixWatch(ReadTxn, Query[Obj]) (seq iter.Seq2[Obj, Revision], watch <-chan struct{})
 
 	// Changes returns an iterator for changes happening to the table.
 	// This uses the revision index to iterate over the objects in the order
@@ -95,6 +96,8 @@ type Table[Obj any] interface {
 
 // Change is either an update or a delete of an object. Used by Changes() and
 // the Observable().
+// The 'Revision' is carried also in the Change object so that it is also accessible
+// via Observable.
 type Change[Obj any] struct {
 	Object   Obj      `json:"obj"`
 	Revision Revision `json:"rev"`
@@ -102,17 +105,20 @@ type Change[Obj any] struct {
 }
 
 type ChangeIterator[Obj any] interface {
-	Iterator[Change[Obj]]
-
-	// Watch refreshes the iteration with a new query and returns a watch channel to wait
-	// for new changes after Next() has returned false.
-	Watch(ReadTxn) <-chan struct{}
-
-	// Close closes the iterator. This must be called when one is done using
-	// the iterator as a tracker is created for deleted objects and the
-	// deleted objects are held onto until all event iterators have observed
-	// the deletion.
-	Close()
+	// Next returns the sequence of unobserved changes up to the given ReadTxn (snapshot) and
+	// a watch channel.
+	//
+	// If changes are available Next returns a closed watch channel. Only once there are no further
+	// changes available will a proper watch channel be returned.
+	//
+	// Next can be called again without fully consuming the sequence to pull in new changes.
+	//
+	// The returned sequence is a single-use sequence and subsequent calls will return
+	// an empty sequence.
+	//
+	// If the transaction given to Next is a WriteTxn the modifications made in the
+	// transaction are not observed, that is, only committed changes can be observed.
+	Next(ReadTxn) (iter.Seq2[Change[Obj], Revision], <-chan struct{})
 }
 
 // RWTable provides methods for modifying the table under a write transaction
