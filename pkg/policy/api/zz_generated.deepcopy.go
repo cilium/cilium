@@ -568,6 +568,13 @@ func (in *IngressCommonRule) DeepCopyInto(out *IngressCommonRule) {
 		*out = make(EntitySlice, len(*in))
 		copy(*out, *in)
 	}
+	if in.FromServices != nil {
+		in, out := &in.FromServices, &out.FromServices
+		*out = make([]Service, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.FromGroups != nil {
 		in, out := &in.FromGroups, &out.FromGroups
 		*out = make([]Groups, len(*in))

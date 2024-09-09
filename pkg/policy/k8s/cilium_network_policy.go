@@ -65,10 +65,10 @@ func (p *policyWatcher) onUpsert(
 	metrics.CIDRGroupsReferenced.Set(float64(len(p.cidrGroupPolicies)))
 
 	// check if this cnp was referencing or is now referencing at least one ToServices rule
-	if hasToServices(cnp) {
-		p.toServicesPolicies[key] = struct{}{}
+	if hasMatchServices(cnp) {
+		p.matchServicesPolicies[key] = struct{}{}
 	} else {
-		delete(p.toServicesPolicies, key)
+		delete(p.matchServicesPolicies, key)
 	}
 
 	return p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID)
@@ -87,11 +87,11 @@ func (p *policyWatcher) onDelete(
 	delete(p.cidrGroupPolicies, key)
 	metrics.CIDRGroupsReferenced.Set(float64(len(p.cidrGroupPolicies)))
 
-	// Clear ToServices index
+	// Clear ToServices/FromServices index
 	for svcID := range p.cnpByServiceID {
 		p.clearCNPForService(key, svcID)
 	}
-	delete(p.toServicesPolicies, key)
+	delete(p.matchServicesPolicies, key)
 
 	p.k8sResourceSynced.SetEventTimestamp(apiGroup)
 
@@ -119,8 +119,8 @@ func (p *policyWatcher) resolveCiliumNetworkPolicyRefs(
 	p.resolveCIDRGroupRef(translatedCNP)
 	metrics.CIDRGroupTranslationTimeStats.Observe(time.Since(translationStart).Seconds())
 
-	// Resolve ToService references
-	p.resolveToServices(key, translatedCNP)
+	// Resolve ToService and FromService references
+	p.resolveServices(key, translatedCNP)
 
 	err := p.upsertCiliumNetworkPolicyV2(translatedCNP, initialRecvTime, resourceID)
 	if err == nil {
