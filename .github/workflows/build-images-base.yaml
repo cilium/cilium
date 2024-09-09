@@ -62,7 +62,7 @@ jobs:
           mkdir -p ../cilium-base-branch/images/runtime/
           cp ./images/runtime/update-cilium-runtime-image.sh ../cilium-base-branch/images/runtime/
           mkdir -p ../cilium-base-branch/images/builder/
-          cp ./images/builder/update-cilium-runtime-image.sh ../cilium-base-branch/images/builder/
+          cp ./images/builder/update-cilium-builder-image.sh ../cilium-base-branch/images/builder/
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
