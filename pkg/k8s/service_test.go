@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
@@ -260,6 +261,92 @@ func TestParseServiceID(t *testing.T) {
 	}
 
 	require.EqualValues(t, ServiceID{Namespace: "bar", Name: "foo"}, ParseServiceID(svc))
+}
+
+func TestParseServiceWithServiceTypeExposure(t *testing.T) {
+	objMeta := slim_metav1.ObjectMeta{
+		Name:      "foo",
+		Namespace: "bar",
+		Labels: map[string]string{
+			"foo": "bar",
+		},
+		Annotations: map[string]string{},
+	}
+
+	k8sSvc := &slim_corev1.Service{
+		ObjectMeta: objMeta,
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "10.96.0.1",
+			Type:      slim_corev1.ServiceTypeLoadBalancer,
+			Ports: []slim_corev1.ServicePort{
+				{
+					Name:     "http",
+					Port:     80,
+					NodePort: 31111,
+					Protocol: slim_corev1.ProtocolTCP,
+				},
+			},
+		},
+		Status: slim_corev1.ServiceStatus{
+			LoadBalancer: slim_corev1.LoadBalancerStatus{
+				Ingress: []slim_corev1.LoadBalancerIngress{
+					{IP: "3.3.3.3"},
+				},
+			},
+		},
+	}
+
+	ipv4InternalAddrCluster := cmtypes.MustAddrClusterFromIP(fakeTypes.IPv4InternalAddress)
+	addrs := []netip.Addr{
+		ipv4InternalAddrCluster.Addr(),
+	}
+
+	oldNodePort := option.Config.EnableNodePort
+	option.Config.EnableNodePort = true
+	defer func() {
+		option.Config.EnableNodePort = oldNodePort
+	}()
+
+	_, svc := ParseService(k8sSvc, addrs)
+	require.Len(t, svc.FrontendIPs, 1)
+	require.Len(t, svc.NodePorts, 1)
+	require.Len(t, svc.LoadBalancerIPs, 1)
+
+	// Expose only ClusterIP
+
+	k8sSvc.Annotations[annotation.ServiceTypeExposure] = "ClusterIP"
+	_, svc = ParseService(k8sSvc, addrs)
+	require.Len(t, svc.FrontendIPs, 1)
+	require.Len(t, svc.NodePorts, 0)
+	require.Len(t, svc.LoadBalancerIPs, 0)
+	require.Len(t, svc.Ports, 1)
+
+	// Expose only NodePort
+
+	k8sSvc.Annotations[annotation.ServiceTypeExposure] = "NodePort"
+	_, svc = ParseService(k8sSvc, addrs)
+	require.Len(t, svc.FrontendIPs, 0)
+	require.Len(t, svc.NodePorts, 1)
+	require.Len(t, svc.LoadBalancerIPs, 0)
+	require.Len(t, svc.Ports, 1)
+
+	// Expose only LoadBalancer
+
+	k8sSvc.Annotations[annotation.ServiceTypeExposure] = "LoadBalancer"
+	_, svc = ParseService(k8sSvc, addrs)
+	require.Len(t, svc.FrontendIPs, 0)
+	require.Len(t, svc.NodePorts, 0)
+	require.Len(t, svc.LoadBalancerIPs, 1)
+	require.Len(t, svc.Ports, 1)
+
+	// Expose all
+
+	delete(k8sSvc.Annotations, annotation.ServiceTypeExposure)
+	_, svc = ParseService(k8sSvc, addrs)
+	require.Len(t, svc.FrontendIPs, 1)
+	require.Len(t, svc.NodePorts, 1)
+	require.Len(t, svc.LoadBalancerIPs, 1)
+	require.Len(t, svc.Ports, 1)
 }
 
 func TestParseService(t *testing.T) {
