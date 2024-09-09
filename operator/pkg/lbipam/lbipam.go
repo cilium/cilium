@@ -654,6 +654,11 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 				IP:     ip,
 				Origin: lbRange,
 			})
+
+			// If the `ServiceView` has a sharing key, add the IP to the `rangeStore` index
+			if sv.SharingKey != "" {
+				ipam.rangesStore.AddServiceViewIPForSharingKey(sv.SharingKey, &sv.AllocatedIPs[len(sv.AllocatedIPs)-1])
+			}
 		}
 
 		newIngresses = append(newIngresses, ingress)
