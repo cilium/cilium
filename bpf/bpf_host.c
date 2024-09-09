@@ -365,7 +365,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 #ifdef ENABLE_IPSEC
 	/* See IPv4 comment. */
 	if (from_proxy && info)
-		encrypt_key = get_min_encrypt_key(info->key);
+		encrypt_key = info->key;
 #endif
 
 #ifdef TUNNEL_MODE
@@ -815,7 +815,7 @@ skip_vtep:
 #ifdef ENABLE_IPSEC
 	/* We encrypt host to remote pod packets only if they are from proxy. */
 	if (from_proxy && info)
-		encrypt_key = get_min_encrypt_key(info->key);
+		encrypt_key = info->key;
 #endif
 
 #ifdef TUNNEL_MODE
