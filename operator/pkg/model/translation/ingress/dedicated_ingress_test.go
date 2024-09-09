@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
@@ -42,7 +43,7 @@ func Test_getService(t *testing.T) {
 						Kind:       "Ingress",
 						Name:       "dummy-ingress",
 						UID:        "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
-						Controller: model.AddressOf(true),
+						Controller: ptr.To(true),
 					},
 				},
 			},
@@ -78,7 +79,7 @@ func Test_getService(t *testing.T) {
 						Kind:       "Ingress",
 						Name:       "dummy-ingress",
 						UID:        "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
-						Controller: model.AddressOf(true),
+						Controller: ptr.To(true),
 					},
 				},
 			},
@@ -111,7 +112,7 @@ func Test_getService(t *testing.T) {
 						Kind:       "Ingress",
 						Name:       "dummy-ingress",
 						UID:        "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
-						Controller: model.AddressOf(true),
+						Controller: ptr.To(true),
 					},
 				},
 			},
@@ -153,7 +154,7 @@ func Test_getService(t *testing.T) {
 						Kind:       "Ingress",
 						Name:       "dummy-ingress",
 						UID:        "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
-						Controller: model.AddressOf(true),
+						Controller: ptr.To(true),
 					},
 				},
 			},
@@ -198,7 +199,7 @@ func Test_getEndpointForIngress(t *testing.T) {
 					Kind:       "Ingress",
 					Name:       "dummy-ingress",
 					UID:        "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
-					Controller: model.AddressOf(true),
+					Controller: ptr.To(true),
 				},
 			},
 		},

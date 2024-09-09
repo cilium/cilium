@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 )
@@ -148,7 +149,7 @@ var defaultBackendListenersWithRequestTimeout = []model.HTTPListener{
 					},
 				},
 				Timeout: model.Timeout{
-					Request: model.AddressOf(time.Second * 10),
+					Request: ptr.To(time.Second * 10),
 				},
 			},
 		},
@@ -1709,7 +1710,7 @@ var requestTimeoutAnnotationListeners = []model.HTTPListener{
 					},
 				},
 				Timeout: model.Timeout{
-					Request: model.AddressOf(time.Second * 10),
+					Request: ptr.To(time.Second * 10),
 				},
 			},
 		},
