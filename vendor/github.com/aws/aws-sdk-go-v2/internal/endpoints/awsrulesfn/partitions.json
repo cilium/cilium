@@ -44,6 +44,9 @@
       "ap-southeast-4" : {
         "description" : "Asia Pacific (Melbourne)"
       },
+      "ap-southeast-5" : {
+        "description" : "Asia Pacific (Malaysia)"
+      },
       "aws-global" : {
         "description" : "AWS Standard global region"
       },
