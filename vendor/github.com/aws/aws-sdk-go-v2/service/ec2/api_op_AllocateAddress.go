@@ -69,6 +69,9 @@ type AllocateAddressInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The ID of an IPAM pool.
+	IpamPoolId *string
+
 	//  A unique set of Availability Zones, Local Zones, or Wavelength Zones from
 	// which Amazon Web Services advertises IP addresses. Use this parameter to limit
 	// the IP address to this location. IP addresses cannot move between network border

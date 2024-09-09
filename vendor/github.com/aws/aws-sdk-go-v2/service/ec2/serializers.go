@@ -50221,6 +50221,11 @@ func awsEc2query_serializeOpDocumentAllocateAddressInput(v *AllocateAddressInput
 		objectKey.Boolean(*v.DryRun)
 	}
 
+	if v.IpamPoolId != nil {
+		objectKey := object.Key("IpamPoolId")
+		objectKey.String(*v.IpamPoolId)
+	}
+
 	if v.NetworkBorderGroup != nil {
 		objectKey := object.Key("NetworkBorderGroup")
 		objectKey.String(*v.NetworkBorderGroup)

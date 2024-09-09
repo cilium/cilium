@@ -5061,6 +5061,7 @@ const (
 	IpamPoolAllocationResourceTypeEc2PublicIpv4Pool IpamPoolAllocationResourceType = "ec2-public-ipv4-pool"
 	IpamPoolAllocationResourceTypeCustom            IpamPoolAllocationResourceType = "custom"
 	IpamPoolAllocationResourceTypeSubnet            IpamPoolAllocationResourceType = "subnet"
+	IpamPoolAllocationResourceTypeEip               IpamPoolAllocationResourceType = "eip"
 )
 
 // Values returns all known values for IpamPoolAllocationResourceType. Note that
@@ -5075,6 +5076,7 @@ func (IpamPoolAllocationResourceType) Values() []IpamPoolAllocationResourceType 
 		"ec2-public-ipv4-pool",
 		"custom",
 		"subnet",
+		"eip",
 	}
 }
 
@@ -5280,6 +5282,7 @@ const (
 	IpamPublicAddressTypeServiceManagedIp    IpamPublicAddressType = "service-managed-ip"
 	IpamPublicAddressTypeServiceManagedByoip IpamPublicAddressType = "service-managed-byoip"
 	IpamPublicAddressTypeAmazonOwnedEip      IpamPublicAddressType = "amazon-owned-eip"
+	IpamPublicAddressTypeAmazonOwnedContig   IpamPublicAddressType = "amazon-owned-contig"
 	IpamPublicAddressTypeByoip               IpamPublicAddressType = "byoip"
 	IpamPublicAddressTypeEc2PublicIp         IpamPublicAddressType = "ec2-public-ip"
 )
@@ -5293,6 +5296,7 @@ func (IpamPublicAddressType) Values() []IpamPublicAddressType {
 		"service-managed-ip",
 		"service-managed-byoip",
 		"amazon-owned-eip",
+		"amazon-owned-contig",
 		"byoip",
 		"ec2-public-ip",
 	}
