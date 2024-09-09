@@ -2402,6 +2402,11 @@ func (c *DaemonConfig) IPv6Enabled() bool {
 	return c.EnableIPv6
 }
 
+// LBProtoDiffEnabled returns true if LoadBalancerProtocolDifferentiation is enabled
+func (c *DaemonConfig) LBProtoDiffEnabled() bool {
+	return c.LoadBalancerProtocolDifferentiation
+}
+
 // IPv6NDPEnabled returns true if IPv6 NDP support is enabled
 func (c *DaemonConfig) IPv6NDPEnabled() bool {
 	return c.EnableIPv6NDP
