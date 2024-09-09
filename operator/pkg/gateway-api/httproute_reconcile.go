@@ -16,6 +16,7 @@ import (
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
+	helpers "github.com/cilium/cilium/operator/pkg/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -60,6 +61,26 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		Grants:    grants,
 		HTTPRoute: hr,
 	}
+
+	// Ignore routes without a Cilium-manged gateway
+        managedByCilium := false
+        for _, parent := range hr.Spec.ParentRefs {
+		if helpers.isGateway(parent) {
+			// get the gateway
+			gw, err := i.GetGateway(parent)
+			if err != nil {
+				return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("failed to get Gateway: %w", err), original, hr)
+			}
+			if hasMatchingController(i.Ctx, i.Client, controllerName)(gw) {
+				managedByCilium = true
+				break
+			}
+		}
+        }
+        if !managedByCilium {
+                scopedLog.Info("No Cilium-managed Gateway found for HTTPRoute, skipping")
+                return controllerruntime.Success()
+        }
 
 	// gateway validators
 	for _, parent := range hr.Spec.ParentRefs {
