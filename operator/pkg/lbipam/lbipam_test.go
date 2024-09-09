@@ -908,6 +908,81 @@ func TestAllocOnInit(t *testing.T) {
 	}
 }
 
+// TestAllocSharedOnInit tests that on init, ingress IPs on services which match configured pools are imported
+// and marked as allocated, and that services sharing IPs are allocated the same IP.
+func TestAllocSharedOnInit(t *testing.T) {
+	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
+	fixture := mkTestFixture(true, true)
+	fixture.UpsertPool(t, poolA)
+
+	policy := slim_core_v1.IPFamilyPolicySingleStack
+	svcA := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-a",
+			Namespace: "default",
+			UID:       serviceAUID,
+			Annotations: map[string]string{
+				annotation.LBIPAMSharingKey: "key-1",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type:           slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilyPolicy: &policy,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+		},
+		Status: slim_core_v1.ServiceStatus{
+			LoadBalancer: slim_core_v1.LoadBalancerStatus{
+				Ingress: []slim_core_v1.LoadBalancerIngress{
+					{
+						IP: "10.0.10.123",
+					},
+				},
+			},
+		},
+	}
+	fixture.UpsertSvc(t, svcA)
+	svcA = fixture.GetSvc("default", "service-a")
+
+	svcB := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-b",
+			Namespace: "default",
+			UID:       serviceBUID,
+			Annotations: map[string]string{
+				annotation.LBIPAMSharingKey: "key-1",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type:           slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilyPolicy: &policy,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+		},
+		Status: slim_core_v1.ServiceStatus{
+			LoadBalancer: slim_core_v1.LoadBalancerStatus{
+				Ingress: []slim_core_v1.LoadBalancerIngress{
+					{
+						IP: "10.0.10.123",
+					},
+				},
+			},
+		},
+	}
+	fixture.UpsertSvc(t, svcB)
+	svcB = fixture.GetSvc("default", "service-b")
+
+	if svcA.Status.LoadBalancer.Ingress[0].IP != "10.0.10.123" {
+		t.Error("Expected service A to receive ingress IP 10.0.10.123 got ", svcA.Status.LoadBalancer.Ingress[0].IP)
+	}
+
+	if svcB.Status.LoadBalancer.Ingress[0].IP != "10.0.10.123" {
+		t.Error("Expected service B to receive ingress IP 10.0.10.123, got ", svcB.Status.LoadBalancer.Ingress[0].IP)
+	}
+}
+
 // TestPoolSelector tests that an IP Pool will only allocate IPs to services which match its service selector.
 // The selector in this case is a very simple label.
 func TestPoolSelectorBasic(t *testing.T) {
