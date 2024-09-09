@@ -255,6 +255,7 @@ cilium-agent [flags]
       --ignore-flags-drift-checker strings                        Ignores specified flags during drift checking
       --ingress-secrets-namespace string                          IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller
       --install-no-conntrack-iptables-rules                       Install Iptables rules to skip netfilter connection tracking on all pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode. Moreover, this option cannot be enabled when Cilium is running in a managed Kubernetes environment or in a chained CNI setup.
+      --install-uplink-routes-for-delegated-ipam                  Install ingress/egress routes through uplink on host for Pods when working with delegated IPAM plugin.
       --ip-masq-agent-config-path string                          ip-masq-agent configuration file path (default "/etc/config/ip-masq-agent")
       --ipam string                                               Backend to use for IPAM (default "cluster-pool")
       --ipam-cilium-node-update-rate duration                     Maximum rate at which the CiliumNode custom resource is updated (default 15s)

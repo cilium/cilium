@@ -3769,6 +3769,9 @@
         "ciliumNodeUpdateRate": {
           "type": "string"
         },
+        "installUplinkRoutesForDelegatedIPAM": {
+          "type": "boolean"
+        },
         "mode": {
           "type": "string"
         },

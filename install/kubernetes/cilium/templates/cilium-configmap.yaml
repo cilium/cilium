@@ -852,6 +852,9 @@ data:
 {{- if and .Values.endpointRoutes .Values.endpointRoutes.enabled }}
   enable-endpoint-routes: {{ .Values.endpointRoutes.enabled | quote }}
 {{- end }}
+{{- if and .Values.ipam .Values.ipam.installUplinkRoutesForDelegatedIPAM }}
+  install-uplink-routes-for-delegated-ipam: {{ .Values.ipam.installUplinkRoutesForDelegatedIPAM | quote }}
+{{- end }}
 {{- if hasKey .Values.k8sNetworkPolicy "enabled" }}
   enable-k8s-networkpolicy: {{ .Values.k8sNetworkPolicy.enabled | quote }}
 {{- end }}
