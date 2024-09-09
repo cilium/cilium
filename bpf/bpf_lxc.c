@@ -471,7 +471,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		if (info && info->sec_identity) {
 			*dst_sec_identity = info->sec_identity;
 			tunnel_endpoint = info->tunnel_endpoint;
-			encrypt_key = get_min_encrypt_key(info->key);
+			encrypt_key = info->key;
 			skip_tunnel = info->flag_skip_tunnel;
 		} else {
 			*dst_sec_identity = WORLD_IPV6_ID;
@@ -917,7 +917,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		if (info && info->sec_identity) {
 			*dst_sec_identity = info->sec_identity;
 			tunnel_endpoint = info->tunnel_endpoint;
-			encrypt_key = get_min_encrypt_key(info->key);
+			encrypt_key = info->key;
 			skip_tunnel = info->flag_skip_tunnel;
 		} else {
 			*dst_sec_identity = WORLD_IPV4_ID;
