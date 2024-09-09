@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding"
 	"errors"
+	"iter"
 	"testing"
 
 	"github.com/cilium/ebpf"
@@ -39,13 +40,7 @@ func (o *TestObject) BinaryValue() encoding.BinaryMarshaler {
 	return StructBinaryMarshaler{&o.Value}
 }
 
-type emptyIterator struct{}
-
-func (*emptyIterator) Next() (*TestObject, uint64, bool) {
-	return nil, 0, false
-}
-
-var _ statedb.Iterator[*TestObject] = &emptyIterator{}
+var emptySeq iter.Seq2[*TestObject, statedb.Revision] = func(yield func(*TestObject, uint64) bool) {}
 
 func Test_MapOps(t *testing.T) {
 	testutils.PrivilegedTest(t)
@@ -94,7 +89,7 @@ func Test_MapOps(t *testing.T) {
 
 	// Give Prune() an empty set of objects, which should cause it to
 	// remove everything.
-	err = ops.Prune(ctx, nil, &emptyIterator{})
+	err = ops.Prune(ctx, nil, emptySeq)
 	assert.NoError(t, err, "Prune")
 
 	data := map[string][]string{}
@@ -134,7 +129,7 @@ func Test_MapOpsPrune(t *testing.T) {
 	assert.NoError(t, err, "Update 3")
 
 	// Prune should now remove everything
-	err = ops.Prune(ctx, nil, &emptyIterator{})
+	err = ops.Prune(ctx, nil, emptySeq)
 	assert.NoError(t, err, "Prune")
 
 	data := map[string][]string{}

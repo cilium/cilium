@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"iter"
 	"reflect"
 )
 
@@ -80,54 +81,47 @@ func (m Map[K, V]) Delete(key K) Map[K, V] {
 	return m
 }
 
-// MapIterator iterates over key and value pairs.
-type MapIterator[K, V any] struct {
-	iter *Iterator[mapKVPair[K, V]]
-}
-
-// Next returns the next key (as bytes) and value. If the iterator
-// is exhausted it returns false.
-func (it MapIterator[K, V]) Next() (k K, v V, ok bool) {
-	if it.iter == nil {
-		return
+func toSeq2[K, V any](iter *Iterator[mapKVPair[K, V]]) iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		if iter == nil {
+			return
+		}
+		iter = iter.Clone()
+		for _, kv, ok := iter.Next(); ok; _, kv, ok = iter.Next() {
+			if !yield(kv.Key, kv.Value) {
+				break
+			}
+		}
 	}
-	_, kv, ok := it.iter.Next()
-	return kv.Key, kv.Value, ok
 }
 
 // LowerBound iterates over all keys in order with value equal
 // to or greater than [from].
-func (m Map[K, V]) LowerBound(from K) MapIterator[K, V] {
+func (m Map[K, V]) LowerBound(from K) iter.Seq2[K, V] {
 	if m.tree == nil {
-		return MapIterator[K, V]{}
+		return toSeq2[K, V](nil)
 	}
-	return MapIterator[K, V]{
-		iter: m.tree.LowerBound(m.bytesFromKey(from)),
-	}
+	return toSeq2(m.tree.LowerBound(m.bytesFromKey(from)))
 }
 
 // Prefix iterates in order over all keys that start with
 // the given prefix.
-func (m Map[K, V]) Prefix(prefix K) MapIterator[K, V] {
+func (m Map[K, V]) Prefix(prefix K) iter.Seq2[K, V] {
 	if m.tree == nil {
-		return MapIterator[K, V]{}
+		return toSeq2[K, V](nil)
 	}
 	iter, _ := m.tree.Prefix(m.bytesFromKey(prefix))
-	return MapIterator[K, V]{
-		iter: iter,
-	}
+	return toSeq2(iter)
 }
 
 // All iterates every key-value in the map in order.
 // The order is in bytewise order of the byte slice
 // returned by bytesFromKey.
-func (m Map[K, V]) All() MapIterator[K, V] {
+func (m Map[K, V]) All() iter.Seq2[K, V] {
 	if m.tree == nil {
-		return MapIterator[K, V]{}
+		return toSeq2[K, V](nil)
 	}
-	return MapIterator[K, V]{
-		iter: m.tree.Iterator(),
-	}
+	return toSeq2(m.tree.Iterator())
 }
 
 // EqualKeys returns true if both maps contain the same keys.

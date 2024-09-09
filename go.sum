@@ -168,8 +168,8 @@ github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7 h1:ocC6/1Gz6LJd0X
 github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7/go.mod h1:8nydvUTW+/9nVywCQ9bE/YGzb4EISALP4lKNpK3fFqo=
 github.com/cilium/proxy v0.0.0-20240909042906-ae435a5bef38 h1:hbRPkcebWy1ZqqcnwiJJCFyzLa+xnXk6G/sM/eAsnrU=
 github.com/cilium/proxy v0.0.0-20240909042906-ae435a5bef38/go.mod h1:5L6S+WQ9v24ibJq38EMHEDljPrdx6PHqTDSHxRCJL2g=
-github.com/cilium/statedb v0.2.6 h1:O9kCwqf3JrPLkypLUYwbB1NzhXDz3CKr+2WqAUN0s6M=
-github.com/cilium/statedb v0.2.6/go.mod h1:KPwsudjhZ90zoBguYMtssKpstR74jVKd/D+73PZy+sg=
+github.com/cilium/statedb v0.3.0 h1:RpM6r1+gv8TY6V18DcrcMbGaoCBs0Vf9z7OxGCbPVaQ=
+github.com/cilium/statedb v0.3.0/go.mod h1:AvMKi/i8VISTCvymtkTKSkz1uLlzuiYeaF8jvJO8ymU=
 github.com/cilium/stream v0.0.0-20240816054136-71321e385273 h1:lyP0p5AW9fnNWmUcQ/BKaOmBEyZ+VWY1mGT1CFWv2b0=
 github.com/cilium/stream v0.0.0-20240816054136-71321e385273/go.mod h1:/e83AwqvNKpyg4n3C41qmnmj1x2G9DwzI+jb7GkF4lI=
 github.com/cilium/workerpool v1.2.0 h1:Wc2iOPTvCgWKQXeq4L5tnx4QFEI+z5q1+bSpSS0cnAY=

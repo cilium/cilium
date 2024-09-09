@@ -390,11 +390,10 @@ func sanitizeTables(dump []byte) []byte {
 }
 
 func checkTablesAndMaps(db *statedb.DB, writer *Writer, maps lbmaps, testDataPath string) bool {
-	iter := writer.Frontends().All(db.ReadTxn())
 	allDone := true
 	count := 0
-	for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
-		if obj.Status.Kind != reconciler.StatusKindDone {
+	for fe := range writer.Frontends().All(db.ReadTxn()) {
+		if fe.Status.Kind != reconciler.StatusKindDone {
 			allDone = false
 		}
 		count++

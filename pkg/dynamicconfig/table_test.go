@@ -130,8 +130,7 @@ func TestDynamicConfigMap(t *testing.T) {
 
 			gotMap := map[string]string{}
 			if err := testutils.WaitUntil(func() bool {
-				iter := dct.All(db.ReadTxn())
-				for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
+				for obj := range dct.All(db.ReadTxn()) {
 					gotMap[obj.Key.String()] = obj.Value
 				}
 

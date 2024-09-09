@@ -76,11 +76,11 @@ func (d derive[In, Out]) loop(ctx context.Context, _ cell.Health) error {
 	if err != nil {
 		return err
 	}
-	defer iter.Close()
 	for {
 		wtxn := d.DB.WriteTxn(out)
-		for ev, _, ok := iter.Next(); ok; ev, _, ok = iter.Next() {
-			outObj, result := d.transform(ev.Object, ev.Deleted)
+		changes, watch := iter.Next(wtxn)
+		for change := range changes {
+			outObj, result := d.transform(change.Object, change.Deleted)
 			switch result {
 			case DeriveInsert:
 				_, _, err = out.Insert(wtxn, outObj)
@@ -101,7 +101,7 @@ func (d derive[In, Out]) loop(ctx context.Context, _ cell.Health) error {
 		wtxn.Commit()
 
 		select {
-		case <-iter.Watch(d.DB.ReadTxn()):
+		case <-watch:
 		case <-ctx.Done():
 			return nil
 		}

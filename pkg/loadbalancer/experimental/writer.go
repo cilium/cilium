@@ -166,8 +166,7 @@ func (w *Writer) UpsertServiceAndFrontends(txn WriteTxn, svc *Service, fes ...Fr
 	}
 
 	// Delete orphan frontends
-	iter := w.fes.List(txn, FrontendByServiceName(svc.Name))
-	for fe, _, ok := iter.Next(); ok; fe, _, ok = iter.Next() {
+	for fe := range w.fes.List(txn, FrontendByServiceName(svc.Name)) {
 		if newAddrs.Has(fe.Address) {
 			continue
 		}
@@ -193,8 +192,7 @@ func (w *Writer) nodePortAddrs(txn statedb.ReadTxn) []netip.Addr {
 }
 
 func (w *Writer) updateServiceReferences(txn WriteTxn, svc *Service) error {
-	iter := w.fes.List(txn, FrontendByServiceName(svc.Name))
-	for fe, _, ok := iter.Next(); ok; fe, _, ok = iter.Next() {
+	for fe := range w.fes.List(txn, FrontendByServiceName(svc.Name)) {
 		fe = fe.Clone()
 		fe.service = svc
 		w.refreshFrontend(txn, fe)
@@ -227,8 +225,7 @@ func (w *Writer) refreshFrontend(txn statedb.ReadTxn, fe *Frontend) {
 }
 
 func (w *Writer) refreshFrontendsOfService(txn WriteTxn, name loadbalancer.ServiceName) error {
-	iter := w.fes.List(txn, FrontendByServiceName(name))
-	for fe, _, ok := iter.Next(); ok; fe, _, ok = iter.Next() {
+	for fe := range w.fes.List(txn, FrontendByServiceName(name)) {
 		fe = fe.Clone()
 		w.refreshFrontend(txn, fe)
 		if _, _, err := w.fes.Insert(txn, fe); err != nil {
@@ -240,8 +237,7 @@ func (w *Writer) refreshFrontendsOfService(txn WriteTxn, name loadbalancer.Servi
 
 func getBackendsForFrontend(txn statedb.ReadTxn, tbl statedb.Table[*Backend], fe *Frontend) []BackendWithRevision {
 	out := []BackendWithRevision{}
-	iter := tbl.List(txn, BackendByServiceName(fe.ServiceName))
-	for be, rev, ok := iter.Next(); ok; be, rev, ok = iter.Next() {
+	for be, rev := range tbl.List(txn, BackendByServiceName(fe.ServiceName)) {
 		if be.L3n4Addr.IsIPv6() != fe.Address.IsIPv6() {
 			continue
 		}
@@ -271,28 +267,22 @@ func (w *Writer) DeleteServiceAndFrontends(txn WriteTxn, name loadbalancer.Servi
 
 func (w *Writer) deleteService(txn WriteTxn, svc *Service) error {
 	// Delete the frontends
-	{
-		iter := w.fes.List(txn, FrontendByServiceName(svc.Name))
-		for fe, _, ok := iter.Next(); ok; fe, _, ok = iter.Next() {
-			if _, _, err := w.fes.Delete(txn, fe); err != nil {
-				return err
-			}
+	for fe := range w.fes.List(txn, FrontendByServiceName(svc.Name)) {
+		if _, _, err := w.fes.Delete(txn, fe); err != nil {
+			return err
 		}
 	}
 
 	// Release references to the backends
-	{
-		iter := w.bes.List(txn, BackendByServiceName(svc.Name))
-		for be, _, ok := iter.Next(); ok; be, _, ok = iter.Next() {
-			be, orphan := be.release(svc.Name)
-			if orphan {
-				if _, _, err := w.bes.Delete(txn, be); err != nil {
-					return err
-				}
-			} else {
-				if _, _, err := w.bes.Insert(txn, be); err != nil {
-					return err
-				}
+	for be := range w.bes.List(txn, BackendByServiceName(svc.Name)) {
+		be, orphan := be.release(svc.Name)
+		if orphan {
+			if _, _, err := w.bes.Delete(txn, be); err != nil {
+				return err
+			}
+		} else {
+			if _, _, err := w.bes.Insert(txn, be); err != nil {
+				return err
 			}
 		}
 	}
@@ -308,8 +298,7 @@ func (w *Writer) deleteService(txn WriteTxn, svc *Service) error {
 func (w *Writer) DeleteServicesBySource(txn WriteTxn, source source.Source) error {
 	// Iterating over all as this is a rare operation and it would be costly
 	// to always index by source.
-	iter := w.svcs.All(txn)
-	for svc, _, ok := iter.Next(); ok; svc, _, ok = iter.Next() {
+	for svc := range w.svcs.All(txn) {
 		if svc.Source == source {
 			if err := w.deleteService(txn, svc); err != nil {
 				return err
@@ -352,9 +341,8 @@ func (w *Writer) SetBackends(txn WriteTxn, name loadbalancer.ServiceName, source
 
 	// Release orphaned backends, e.g. all backends from this source referencing this
 	// service.
-	for orphan, _, ok := orphans.Next(); ok; orphan, _, ok = orphans.Next() {
-		iter := orphan.Instances.All()
-		for _, inst, ok := iter.Next(); ok; _, inst, ok = iter.Next() {
+	for orphan := range orphans {
+		for _, inst := range orphan.Instances.All() {
 			if inst.Source == source {
 				if err := w.removeBackendRef(txn, name, orphan); err != nil {
 					return err
@@ -407,7 +395,7 @@ func (w *Writer) SetBackendHealth(txn WriteTxn, addr loadbalancer.L3n4Addr, heal
 // computed state and the state of all instances.
 func computeBackendState(be *Backend) loadbalancer.BackendState {
 	instanceState := loadbalancer.BackendStateActive
-	be.forEachInstance(func(name loadbalancer.ServiceName, instance BackendInstance) {
+	for _, instance := range be.Instances.All() {
 		// The only states accepted from the instances are Active, Terminating or Maintenance.
 		// Quarantined can only be set via SetBackendHealth.
 		switch instance.State {
@@ -416,7 +404,7 @@ func computeBackendState(be *Backend) loadbalancer.BackendState {
 		case loadbalancer.BackendStateMaintenance:
 			instanceState = instance.State
 		}
-	})
+	}
 
 	if be.State == loadbalancer.BackendStateQuarantined &&
 		instanceState == loadbalancer.BackendStateActive {
@@ -464,9 +452,9 @@ func (w *Writer) updateBackends(txn WriteTxn, serviceName loadbalancer.ServiceNa
 			return nil, err
 		}
 
-		be.forEachInstance(func(name loadbalancer.ServiceName, _ BackendInstance) {
+		for name := range be.Instances.All() {
 			referencedServices.Insert(name)
-		})
+		}
 	}
 	return referencedServices, nil
 }
@@ -475,14 +463,13 @@ func (w *Writer) DeleteBackendsBySource(txn WriteTxn, source source.Source) erro
 	// Iterating over all as this is a rare operation and it would be costly
 	// to always index by source.
 	names := sets.New[loadbalancer.ServiceName]()
-	iter := w.bes.All(txn)
-	for be, _, ok := iter.Next(); ok; be, _, ok = iter.Next() {
-		be.forEachInstance(func(name loadbalancer.ServiceName, inst BackendInstance) {
+	for be := range w.bes.All(txn) {
+		for name, inst := range be.Instances.All() {
 			if inst.Source == source {
 				names.Insert(name)
 				w.removeBackendRef(txn, name, be)
 			}
-		})
+		}
 	}
 
 	// Mark the frontends of all referenced services as pending to reconcile the
@@ -519,11 +506,9 @@ func (w *Writer) ReleaseBackend(txn WriteTxn, name loadbalancer.ServiceName, add
 }
 
 func (w *Writer) ReleaseBackendsFromSource(txn WriteTxn, name loadbalancer.ServiceName, source source.Source) error {
-	bes := w.bes.List(txn, BackendByServiceName(name))
-	for be, _, ok := bes.Next(); ok; be, _, ok = bes.Next() {
-		iter := be.Instances.All()
-		for _, inst, ok := iter.Next(); ok; _, inst, ok = iter.Next() {
-			if inst.Source != source {
+	for be := range w.bes.List(txn, BackendByServiceName(name)) {
+		for instName, inst := range be.Instances.All() {
+			if inst.Source != source || instName != name {
 				continue
 			}
 			if err := w.removeBackendRef(txn, name, be); err != nil {
@@ -540,22 +525,19 @@ func (w *Writer) DebugDump(txn statedb.ReadTxn, to io.Writer) {
 
 	fmt.Fprintln(tw, "--- Services ---")
 	fmt.Fprintln(tw, strings.Join((*Service)(nil).TableHeader(), "\t"))
-	iter := w.svcs.All(txn)
-	for svc, _, ok := iter.Next(); ok; svc, _, ok = iter.Next() {
+	for svc := range w.svcs.All(txn) {
 		fmt.Fprintln(tw, strings.Join(svc.TableRow(), "\t"))
 	}
 
 	fmt.Fprintln(tw, "\n--- Frontends ---")
 	fmt.Fprintln(tw, strings.Join((*Frontend)(nil).TableHeader(), "\t"))
-	iterFe := w.fes.All(txn)
-	for fe, _, ok := iterFe.Next(); ok; fe, _, ok = iterFe.Next() {
+	for fe := range w.fes.All(txn) {
 		fmt.Fprintln(tw, strings.Join(fe.TableRow(), "\t"))
 	}
 
 	fmt.Fprintln(tw, "\n--- Backends ---")
 	fmt.Fprintln(tw, strings.Join((*Backend)(nil).TableHeader(), "\t"))
-	iterBe := w.bes.All(txn)
-	for be, _, ok := iterBe.Next(); ok; be, _, ok = iterBe.Next() {
+	for be := range w.bes.All(txn) {
 		fmt.Fprintln(tw, strings.Join(be.TableRow(), "\t"))
 	}
 

@@ -3,7 +3,10 @@
 
 package index
 
-import "fmt"
+import (
+	"fmt"
+	"iter"
+)
 
 func String(s string) Key {
 	return []byte(s)
@@ -27,4 +30,12 @@ func StringerSlice[T fmt.Stringer](ss []T) KeySet {
 		keys = append(keys, Stringer(s))
 	}
 	return NewKeySet(keys...)
+}
+
+func StringerSeq[T fmt.Stringer](seq iter.Seq[T]) KeySet {
+	return Seq[T](Stringer, seq)
+}
+
+func StringerSeq2[A fmt.Stringer, B any](seq iter.Seq2[A, B]) KeySet {
+	return Seq2[A, B](Stringer, seq)
 }

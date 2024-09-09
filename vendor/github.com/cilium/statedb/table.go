@@ -5,6 +5,9 @@ package statedb
 
 import (
 	"fmt"
+	"iter"
+	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -16,7 +19,8 @@ import (
 )
 
 // NewTable creates a new table with given name and indexes.
-// Can fail if the indexes are malformed.
+// Can fail if the indexes or the name are malformed.
+// The name must match regex "^[a-z][a-z0-9_\\-]{0,30}$".
 //
 // To provide access to the table via Hive:
 //
@@ -31,6 +35,10 @@ func NewTable[Obj any](
 	primaryIndexer Indexer[Obj],
 	secondaryIndexers ...Indexer[Obj],
 ) (RWTable[Obj], error) {
+	if err := validateTableName(tableName); err != nil {
+		return nil, err
+	}
+
 	toAnyIndexer := func(idx Indexer[Obj]) anyIndexer {
 		return anyIndexer{
 			name: idx.indexName(),
@@ -101,6 +109,15 @@ func MustNewTable[Obj any](
 		panic(err)
 	}
 	return t
+}
+
+var nameRegex = regexp.MustCompile(`^[a-z][a-z0-9_\-]{0,30}$`)
+
+func validateTableName(name string) error {
+	if !nameRegex.MatchString(name) {
+		return fmt.Errorf("invalid table name %q, expected to match %q", name, nameRegex)
+	}
+	return nil
 }
 
 type genTable[Obj any] struct {
@@ -199,10 +216,6 @@ func (t *genTable[Obj]) RegisterInitializer(txn WriteTxn, name string) func(Writ
 						slices.Clone(table.pendingInitializers),
 						func(n string) bool { return n == name },
 					)
-					if !table.initialized && len(table.pendingInitializers) == 0 {
-						close(table.initWatchChan)
-						table.initialized = true
-					}
 				}
 			})
 		}
@@ -283,55 +296,67 @@ func (t *genTable[Obj]) GetWatch(txn ReadTxn, q Query[Obj]) (obj Obj, revision u
 	return
 }
 
-func (t *genTable[Obj]) LowerBound(txn ReadTxn, q Query[Obj]) Iterator[Obj] {
+func (t *genTable[Obj]) LowerBound(txn ReadTxn, q Query[Obj]) iter.Seq2[Obj, Revision] {
 	iter, _ := t.LowerBoundWatch(txn, q)
 	return iter
 }
 
-func (t *genTable[Obj]) LowerBoundWatch(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-chan struct{}) {
+func (t *genTable[Obj]) LowerBoundWatch(txn ReadTxn, q Query[Obj]) (iter.Seq2[Obj, Revision], <-chan struct{}) {
 	indexTxn := txn.getTxn().mustIndexReadTxn(t, t.indexPos(q.index))
 	// Since LowerBound query may be invalidated by changes in another branch
 	// of the tree, we cannot just simply watch the node we seeked to. Instead
 	// we watch the whole table for changes.
 	watch := indexTxn.RootWatch()
 	iter := indexTxn.LowerBound(q.key)
-	return &iterator[Obj]{iter}, watch
+	return partSeq[Obj](iter), watch
 }
 
-func (t *genTable[Obj]) Prefix(txn ReadTxn, q Query[Obj]) Iterator[Obj] {
+func (t *genTable[Obj]) Prefix(txn ReadTxn, q Query[Obj]) iter.Seq2[Obj, Revision] {
 	iter, _ := t.PrefixWatch(txn, q)
 	return iter
 }
 
-func (t *genTable[Obj]) PrefixWatch(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-chan struct{}) {
+func (t *genTable[Obj]) PrefixWatch(txn ReadTxn, q Query[Obj]) (iter.Seq2[Obj, Revision], <-chan struct{}) {
 	indexTxn := txn.getTxn().mustIndexReadTxn(t, t.indexPos(q.index))
 	iter, watch := indexTxn.Prefix(q.key)
-	return &iterator[Obj]{iter}, watch
+	return partSeq[Obj](iter), watch
 }
 
-func (t *genTable[Obj]) All(txn ReadTxn) Iterator[Obj] {
+func (t *genTable[Obj]) All(txn ReadTxn) iter.Seq2[Obj, Revision] {
 	iter, _ := t.AllWatch(txn)
 	return iter
 }
 
-func (t *genTable[Obj]) AllWatch(txn ReadTxn) (Iterator[Obj], <-chan struct{}) {
+func (t *genTable[Obj]) AllWatch(txn ReadTxn) (iter.Seq2[Obj, Revision], <-chan struct{}) {
 	indexTxn := txn.getTxn().mustIndexReadTxn(t, PrimaryIndexPos)
-	watch := indexTxn.RootWatch()
-	return &iterator[Obj]{indexTxn.Iterator()}, watch
+	return partSeq[Obj](indexTxn.Iterator()), indexTxn.RootWatch()
 }
 
-func (t *genTable[Obj]) List(txn ReadTxn, q Query[Obj]) Iterator[Obj] {
+func (t *genTable[Obj]) List(txn ReadTxn, q Query[Obj]) iter.Seq2[Obj, Revision] {
 	iter, _ := t.ListWatch(txn, q)
 	return iter
 }
 
-func (t *genTable[Obj]) ListWatch(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-chan struct{}) {
+func (t *genTable[Obj]) ListWatch(txn ReadTxn, q Query[Obj]) (iter.Seq2[Obj, Revision], <-chan struct{}) {
 	indexTxn := txn.getTxn().mustIndexReadTxn(t, t.indexPos(q.index))
-	iter, watch := indexTxn.Prefix(q.key)
 	if indexTxn.unique {
-		return &uniqueIterator[Obj]{iter, q.key}, watch
+		// Unique index means that there can be only a single matching object.
+		// Doing a Get() is more efficient than constructing an iterator.
+		value, watch, ok := indexTxn.Get(q.key)
+		seq := func(yield func(Obj, Revision) bool) {
+			if ok {
+				yield(value.data.(Obj), value.revision)
+			}
+		}
+		return seq, watch
 	}
-	return &nonUniqueIterator[Obj]{iter, q.key}, watch
+
+	// For a non-unique index we do a prefix search. The keys are of
+	// form <secondary key><primary key><secondary key length>, and thus the
+	// iteration will continue until key length mismatches, e.g. we hit a
+	// longer key sharing the same prefix.
+	iter, watch := indexTxn.Prefix(q.key)
+	return nonUniqueSeq[Obj](iter, q.key), watch
 }
 
 func (t *genTable[Obj]) Insert(txn WriteTxn, obj Obj) (oldObj Obj, hadOld bool, err error) {
@@ -383,9 +408,8 @@ func (t *genTable[Obj]) CompareAndDelete(txn WriteTxn, rev Revision, obj Obj) (o
 }
 
 func (t *genTable[Obj]) DeleteAll(txn WriteTxn) error {
-	iter := t.All(txn)
 	itxn := txn.getTxn()
-	for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
+	for obj := range t.All(txn) {
 		_, _, err := itxn.delete(t, Revision(0), obj)
 		if err != nil {
 			return err
@@ -397,27 +421,34 @@ func (t *genTable[Obj]) DeleteAll(txn WriteTxn) error {
 func (t *genTable[Obj]) Changes(txn WriteTxn) (ChangeIterator[Obj], error) {
 	iter := &changeIterator[Obj]{
 		revision: 0,
-		table:    t,
+
+		// Don't observe any past deletions.
+		deleteRevision: t.Revision(txn),
+		table:          t,
+		watch:          closedWatchChannel,
 	}
+	// Set a finalizer to unregister the delete tracker when the iterator
+	// is dropped.
+	runtime.SetFinalizer(iter, func(iter *changeIterator[Obj]) {
+		iter.close()
+	})
 
 	itxn := txn.getTxn()
-	name := fmt.Sprintf("iterator-%p", iter)
+	name := fmt.Sprintf("changes-%p", iter)
 	iter.dt = &deleteTracker[Obj]{
 		db:          itxn.db,
 		trackerName: name,
 		table:       t,
 	}
-	iter.dt.setRevision(t.Revision(txn) + 1)
+
+	iter.dt.setRevision(iter.deleteRevision)
 	err := itxn.addDeleteTracker(t, name, iter.dt)
 	if err != nil {
 		return nil, err
 	}
 
-	// Prepare the iterator
-	updateIter, watch := t.LowerBoundWatch(txn, ByRevision[Obj](0)) // observe all current objects
-	deleteIter := iter.dt.deleted(txn, iter.dt.getRevision())       // only observe new deletions
-	iter.iter = NewDualIterator(deleteIter, updateIter)
-	iter.watch = watch
+	// Prime it.
+	iter.refresh(txn)
 
 	return iter, nil
 }

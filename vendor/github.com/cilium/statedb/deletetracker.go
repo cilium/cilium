@@ -4,7 +4,6 @@
 package statedb
 
 import (
-	"runtime"
 	"sync/atomic"
 
 	"github.com/cilium/statedb/index"
@@ -36,8 +35,9 @@ func (dt *deleteTracker[Obj]) getRevision() uint64 {
 // Deleted returns an iterator for deleted objects in this table starting from
 // 'minRevision'. The deleted objects are not garbage-collected unless 'Mark' is
 // called!
-func (dt *deleteTracker[Obj]) deleted(txn ReadTxn, minRevision Revision) Iterator[Obj] {
-	indexTxn := txn.getTxn().mustIndexReadTxn(dt.table, GraveyardRevisionIndexPos)
+func (dt *deleteTracker[Obj]) deleted(txn *txn, minRevision Revision) Iterator[Obj] {
+	indexEntry := txn.root[dt.table.tablePos()].indexes[GraveyardRevisionIndexPos]
+	indexTxn := indexReadTxn{indexEntry.tree, indexEntry.unique}
 	iter := indexTxn.LowerBound(index.Uint64(minRevision))
 	return &iterator[Obj]{iter}
 }
@@ -57,7 +57,6 @@ func (dt *deleteTracker[Obj]) close() {
 	if dt.db == nil {
 		return
 	}
-	runtime.SetFinalizer(dt, nil)
 
 	// Remove the delete tracker from the table.
 	txn := dt.db.WriteTxn(dt.table).getTxn()

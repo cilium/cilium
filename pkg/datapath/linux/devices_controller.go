@@ -106,7 +106,7 @@ type devicesControllerParams struct {
 
 	Config      DevicesConfig
 	Log         *slog.Logger
-	DB          statedb.Handle
+	DB          *statedb.DB
 	DeviceTable statedb.RWTable[*tables.Device]
 	RouteTable  statedb.RWTable[*tables.Route]
 
@@ -504,8 +504,8 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 
 			// Remove all routes for the device. For a deleted device netlink does not
 			// send complete set of route delete messages.
-			iter := dc.params.RouteTable.List(txn, tables.RouteLinkIndex.Query(d.Index))
-			for r, _, ok := iter.Next(); ok; r, _, ok = iter.Next() {
+			routes := dc.params.RouteTable.List(txn, tables.RouteLinkIndex.Query(d.Index))
+			for r := range routes {
 				dc.params.RouteTable.Delete(txn, r)
 			}
 		} else if deviceUpdated {
@@ -608,9 +608,9 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 }
 
 func hasGlobalRoute(devIndex int, tbl statedb.Table[*tables.Route], rxn statedb.ReadTxn) bool {
-	iter := tbl.List(rxn, tables.RouteLinkIndex.Query(devIndex))
+	routes := tbl.List(rxn, tables.RouteLinkIndex.Query(devIndex))
 	hasGlobal := false
-	for r, _, ok := iter.Next(); ok; r, _, ok = iter.Next() {
+	for r := range routes {
 		if r.Dst.Addr().IsGlobalUnicast() {
 			hasGlobal = true
 			break
