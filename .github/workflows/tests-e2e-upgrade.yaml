@@ -567,7 +567,7 @@ jobs:
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
 
-      - name: Downgrade Cilium ${{ env.cilium_stable_version }}
+      - name: Downgrade Cilium ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
@@ -578,7 +578,7 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-      - name: Test Cilium after downgrade to ${{ env.cilium_stable_version }}
+      - name: Test Cilium after downgrade to ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
