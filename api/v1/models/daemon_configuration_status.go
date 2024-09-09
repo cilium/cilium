@@ -56,6 +56,11 @@ type DaemonConfigurationStatus struct {
 	// Immutable configuration (read-only)
 	Immutable ConfigurationMap `json:"immutable,omitempty"`
 
+	// Install ingress/egress routes through uplink on host for Pods when working with
+	// delegated IPAM plugin.
+	//
+	InstallUplinkRoutesForDelegatedIPAM bool `json:"installUplinkRoutesForDelegatedIPAM,omitempty"`
+
 	// Comma-separated list of IP ports should be reserved in the workload network namespace
 	IPLocalReservedPorts string `json:"ipLocalReservedPorts,omitempty"`
 

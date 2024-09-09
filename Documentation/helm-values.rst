@@ -2396,6 +2396,10 @@
      - Maximum rate at which the CiliumNode custom resource is updated.
      - string
      - ``"15s"``
+   * - :spelling:ignore:`ipam.installUplinkRoutesForDelegatedIPAM`
+     - Install ingress/egress routes through uplink on host for Pods when working with delegated IPAM plugin.
+     - bool
+     - ``false``
    * - :spelling:ignore:`ipam.mode`
      - Configure IP Address Management mode. ref: https://docs.cilium.io/en/stable/network/concepts/ipam/
      - string

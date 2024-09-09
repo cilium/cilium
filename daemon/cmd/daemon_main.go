@@ -946,6 +946,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 		"Offset routing table IDs under ENI IPAM mode to avoid collisions with reserved table IDs. If false, the offset is performed (new scheme), otherwise, the old scheme stays in-place.")
 	option.BindEnv(vp, option.EgressMultiHomeIPRuleCompat)
 
+	flags.Bool(option.InstallUplinkRoutesForDelegatedIPAM, false,
+		"Install ingress/egress routes through uplink on host for Pods when working with delegated IPAM plugin.")
+	option.BindEnv(vp, option.InstallUplinkRoutesForDelegatedIPAM)
+
 	flags.Bool(option.InstallNoConntrackIptRules, defaults.InstallNoConntrackIptRules, "Install Iptables rules to skip netfilter connection tracking on all pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode. Moreover, this option cannot be enabled when Cilium is running in a managed Kubernetes environment or in a chained CNI setup.")
 	option.BindEnv(vp, option.InstallNoConntrackIptRules)
 
