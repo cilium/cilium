@@ -305,6 +305,67 @@ func TestSharedServiceUpdatedPorts(t *testing.T) {
 	}
 }
 
+// This test ensures that two services using the same sharing key and the same port
+// but with different protocols (TCP and UDP) get assigned the same IP.
+func TestSharedServiceSamePortWithDifferentProtocols(t *testing.T) {
+	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
+	fixture := mkTestFixture(true, false)
+	fixture.lbipam.lbProtoDiff = true
+
+	fixture.UpsertPool(t, poolA)
+
+	svcA := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-a",
+			Namespace: "default",
+			UID:       serviceAUID,
+			Annotations: map[string]string{
+				annotation.LBIPAMSharingKeyAlias: "key-1",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+			Ports: []slim_core_v1.ServicePort{{
+				Port:     80,
+				Protocol: slim_core_v1.ProtocolTCP,
+			}},
+		},
+	}
+	fixture.UpsertSvc(t, svcA)
+
+	svcB := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Name:      "service-b",
+			Namespace: "default",
+			UID:       serviceAUID,
+			Annotations: map[string]string{
+				annotation.LBIPAMSharingKeyAlias: "key-1",
+			},
+		},
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
+			IPFamilies: []slim_core_v1.IPFamily{
+				slim_core_v1.IPv4Protocol,
+			},
+			Ports: []slim_core_v1.ServicePort{{
+				Port:     80,
+				Protocol: slim_core_v1.ProtocolUDP,
+			}},
+		},
+	}
+	fixture.UpsertSvc(t, svcB)
+
+	svcA = fixture.GetSvc("default", "service-a")
+	svcB = fixture.GetSvc("default", "service-b")
+
+	if svcA.Status.LoadBalancer.Ingress[0].IP != svcB.Status.LoadBalancer.Ingress[0].IP {
+		t.Fatal("IPs should be the same")
+	}
+}
+
 // TestSharingKey tests that the sharing key causes the LB IPAM to reuse the same IP for services with the same
 // sharing key. This test also verifies that the ip is not reused if there is a conflict with another service.
 func TestSharingKey(t *testing.T) {
