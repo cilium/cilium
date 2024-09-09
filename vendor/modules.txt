@@ -282,7 +282,7 @@ github.com/cilium/linters/timeafter
 # github.com/cilium/lumberjack/v2 v2.3.0
 ## explicit; go 1.13
 github.com/cilium/lumberjack/v2
-# github.com/cilium/proxy v0.0.0-20240723112637-48fa07fc1729
+# github.com/cilium/proxy v0.0.0-20240909042906-ae435a5bef38
 ## explicit; go 1.22
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/contrib/envoy/extensions/filters/network/mysql_proxy/v3
@@ -338,12 +338,14 @@ github.com/cilium/proxy/go/envoy/extensions/early_data/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/common/dependency/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/common/fault/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/common/matcher/action/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/common/set_filter_state/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/adaptive_concurrency/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/admission_control/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/alternate_protocols_cache/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/aws_lambda/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/aws_request_signing/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/bandwidth_limit/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/http/basic_auth/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/buffer/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/cache/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/cdn_loop/v3
@@ -383,6 +385,7 @@ github.com/cilium/proxy/go/envoy/extensions/filters/http/rate_limit_quota/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/ratelimit/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/rbac/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/http/set_filter_state/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/set_metadata/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/stateful_session/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/tap/v3
@@ -406,6 +409,7 @@ github.com/cilium/proxy/go/envoy/extensions/filters/network/mongo_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/ratelimit/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/rbac/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/redis_proxy/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/network/set_filter_state/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_cluster/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_dynamic_forward_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3
@@ -564,7 +568,7 @@ github.com/cloudflare/cfssl/signer
 github.com/cloudflare/cfssl/signer/local
 github.com/cloudflare/cfssl/signer/remote
 github.com/cloudflare/cfssl/signer/universal
-# github.com/cncf/xds/go v0.0.0-20240423153145-555b57ec207b
+# github.com/cncf/xds/go v0.0.0-20240905190251-b4127c9b8d78
 ## explicit; go 1.19
 github.com/cncf/xds/go/udpa/annotations
 github.com/cncf/xds/go/xds/annotations/v3
@@ -715,7 +719,7 @@ github.com/eapache/queue
 ## explicit; go 1.13
 github.com/emicklei/go-restful/v3
 github.com/emicklei/go-restful/v3/log
-# github.com/envoyproxy/protoc-gen-validate v1.0.4
+# github.com/envoyproxy/protoc-gen-validate v1.1.0
 ## explicit; go 1.19
 github.com/envoyproxy/protoc-gen-validate/validate
 # github.com/evanphx/json-patch v5.9.0+incompatible
@@ -1661,7 +1665,7 @@ golang.org/x/oauth2/internal
 ## explicit; go 1.18
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.24.0
+# golang.org/x/sys v0.25.0
 ## explicit; go 1.18
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
@@ -1768,12 +1772,12 @@ golang.zx2c4.com/wireguard/wgctrl/wgtypes
 # gomodules.xyz/jsonpatch/v2 v2.4.0
 ## explicit; go 1.20
 gomodules.xyz/jsonpatch/v2
-# google.golang.org/genproto/googleapis/api v0.0.0-20240722135656-d784300faade
-## explicit; go 1.20
+# google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1
+## explicit; go 1.21
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20240822170219-fc7c04adadcd
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1
 ## explicit; go 1.21
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.66.0

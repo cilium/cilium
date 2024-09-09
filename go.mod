@@ -27,7 +27,7 @@ require (
 	github.com/cilium/hive v0.0.0-20240816121742-535330fad6ce
 	github.com/cilium/linters v0.0.0-20240813102449-1dc28a34d923
 	github.com/cilium/lumberjack/v2 v2.3.0
-	github.com/cilium/proxy v0.0.0-20240723112637-48fa07fc1729
+	github.com/cilium/proxy v0.0.0-20240909042906-ae435a5bef38
 	github.com/cilium/statedb v0.2.6
 	github.com/cilium/stream v0.0.0-20240816054136-71321e385273
 	github.com/cilium/workerpool v1.2.0
@@ -110,13 +110,13 @@ require (
 	golang.org/x/mod v0.20.0
 	golang.org/x/net v0.28.0
 	golang.org/x/sync v0.8.0
-	golang.org/x/sys v0.24.0
+	golang.org/x/sys v0.25.0
 	golang.org/x/term v0.23.0
 	golang.org/x/time v0.6.0
 	golang.org/x/tools v0.24.0
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240822170219-fc7c04adadcd
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1
 	google.golang.org/grpc v1.66.0
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/ini.v1 v1.67.0
@@ -173,7 +173,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/cilium/endpointslice v0.29.4-0.20240409195643-982ad68ab7ba // indirect
-	github.com/cncf/xds/go v0.0.0-20240423153145-555b57ec207b // indirect
+	github.com/cncf/xds/go v0.0.0-20240905190251-b4127c9b8d78 // indirect
 	github.com/containerd/containerd v1.7.14 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
@@ -191,7 +191,7 @@ require (
 	github.com/eapache/channels v1.1.0 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.0 // indirect
-	github.com/envoyproxy/protoc-gen-validate v1.0.4 // indirect
+	github.com/envoyproxy/protoc-gen-validate v1.1.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
@@ -311,7 +311,7 @@ require (
 	golang.org/x/text v0.17.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240722135656-d784300faade // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
