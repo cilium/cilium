@@ -13,8 +13,7 @@ import (
 
 // Registers an AMI. When you're creating an instance-store backed AMI,
 // registering the AMI is the final step in the creation process. For more
-// information about creating AMIs, see [Create your own AMI]in the Amazon Elastic Compute Cloud User
-// Guide.
+// information about creating AMIs, see [Create an AMI from a snapshot]and [Create an instance-store backed AMI] in the Amazon EC2 User Guide.
 //
 // For Amazon EBS-backed instances, CreateImage creates and registers the AMI in a single
 // request, so you don't have to register the AMI yourself. We recommend that you
@@ -33,25 +32,24 @@ import (
 // mapping. If the snapshot is encrypted, or encryption by default is enabled, the
 // root volume of an instance launched from the AMI is encrypted.
 //
-// For more information, see [Create a Linux AMI from a snapshot] and [Use encryption with Amazon EBS-backed AMIs] in the Amazon Elastic Compute Cloud User Guide.
+// For more information, see [Create an AMI from a snapshot] and [Use encryption with Amazon EBS-backed AMIs] in the Amazon EC2 User Guide.
 //
 // # Amazon Web Services Marketplace product codes
 //
 // If any snapshots have Amazon Web Services Marketplace product codes, they are
 // copied to the new AMI.
 //
-// Windows and some Linux distributions, such as Red Hat Enterprise Linux (RHEL)
-// and SUSE Linux Enterprise Server (SLES), use the Amazon EC2 billing product code
-// associated with an AMI to verify the subscription status for package updates. To
-// create a new AMI for operating systems that require a billing product code,
-// instead of registering the AMI, do the following to preserve the billing product
-// code association:
-//
-//   - Launch an instance from an existing AMI with that billing product code.
-//
-//   - Customize the instance.
-//
-//   - Create an AMI from the instance using CreateImage.
+// In most cases, AMIs for Windows, RedHat, SUSE, and SQL Server require correct
+// licensing information to be present on the AMI. For more information, see [Understand AMI billing information]in
+// the Amazon EC2 User Guide. When creating an AMI from a snapshot, the
+// RegisterImage operation derives the correct billing information from the
+// snapshot's metadata, but this requires the appropriate metadata to be present.
+// To verify if the correct billing information was applied, check the
+// PlatformDetails field on the new AMI. If the field is empty or doesn't match the
+// expected operating system code (for example, Windows, RedHat, SUSE, or SQL), the
+// AMI creation was unsuccessful, and you should discard the AMI and instead create
+// the AMI from an instance using CreateImage. For more information, see [Create an AMI from an instance] in the Amazon EC2
+// User Guide.
 //
 // If you purchase a Reserved Instance to apply to an On-Demand Instance that was
 // launched from an AMI with a billing product code, make sure that the Reserved
@@ -62,9 +60,10 @@ import (
 // User Guide.
 //
 // [Understand AMI billing information]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-billing-info.html
-// [Create a Linux AMI from a snapshot]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html#creating-launching-ami-from-snapshot
+// [Create an instance-store backed AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-instance-store.html
+// [Create an AMI from an instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html#how-to-create-ebs-ami
+// [Create an AMI from a snapshot]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html#creating-launching-ami-from-snapshot
 // [Use encryption with Amazon EBS-backed AMIs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIEncryption.html
-// [Create your own AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami.html
 func (c *Client) RegisterImage(ctx context.Context, params *RegisterImageInput, optFns ...func(*Options)) (*RegisterImageOutput, error) {
 	if params == nil {
 		params = &RegisterImageInput{}
