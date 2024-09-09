@@ -100,6 +100,7 @@ var errors = map[uint8]string{
 	202: "Host datapath not ready",
 	203: "Endpoint policy program not available",
 	204: "No Egress IP configured",
+	205: "No valid SPI for encryption",
 }
 
 func extendedReason(extError int8) string {

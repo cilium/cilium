@@ -448,6 +448,8 @@ enum DropReason {
     // An Egress Gateway node matched a packet against an Egress Gateway policy
     // that didn't select a valid Egress IP.
     DROP_NO_EGRESS_IP = 204;
+    // IPsec encryption was not able to select a valid SPI for the packet.
+    DROP_NO_ENCRYPT_SPI = 205;
 }
 
 enum TrafficDirection {
