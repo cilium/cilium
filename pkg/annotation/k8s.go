@@ -122,6 +122,15 @@ const (
 	// service is ignored and not installed into their datapath.
 	ServiceNodeExposure = ServicePrefix + "/node"
 
+	// ServiceTypeExposure is the annotation name used to mark what service type
+	// to provision (only single type is allowed; allowed types: "ClusterIP",
+	// "NodePort" and "LoadBalancer").
+	//
+	// For example, a LoadBalancer service includes ClusterIP and NodePort (unless
+	// allocateLoadBalancerNodePorts is set to false). To avoid provisioning
+	// the latter two, one can set the annotation with the value "LoadBalancer".
+	ServiceTypeExposure = ServicePrefix + "/type"
+
 	// ProxyVisibility / ProxyVisibilityAlias is the annotation name used to
 	// indicate whether proxy visibility should be enabled for a given pod (i.e.,
 	// all traffic for the pod is redirected to the proxy for the given port /
