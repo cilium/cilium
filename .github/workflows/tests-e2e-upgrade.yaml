@@ -354,6 +354,14 @@ jobs:
             devices: '{eth0,eth1}'
             secondary-network: 'true'
 
+          # Example of a feature that is being introduced, and we want to test
+          # it without performing an upgrade, we use skip-upgrade: 'true'
+          # - name: '23'
+          #   # renovate: datasource=docker depName=quay.io/lvh-images/kind
+          #   kernel: 'bpf-20240711.013133'
+          #   misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
+          #   skip-upgrade: 'true'
+
     timeout-minutes: 90
     steps:
       - name: Collect Workflow Telemetry
@@ -387,6 +395,7 @@ jobs:
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
 
       - name: Derive stable Cilium installation config
+        if: ${{ matrix.skip-upgrade != 'true' }}
         id: cilium-stable-config
         uses: ./.github/actions/cilium-config
         with:
@@ -472,6 +481,7 @@ jobs:
             examples
 
       - name: Checkout ${{ steps.vars.outputs.downgrade_version }} branch to get the Helm chart
+        if: ${{ matrix.skip-upgrade != 'true' }}
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ steps.vars.outputs.downgrade_version }}
@@ -480,13 +490,16 @@ jobs:
           sparse-checkout: |
             install/kubernetes/cilium
 
-      - name: Install Cilium ${{ env.cilium_stable_version }}
+      - name: Install Cilium ${{ matrix.skip-upgrade == 'true' && 'from main' || steps.vars.outputs.downgrade_version }}
         shell: bash
         run: |
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
-          cilium install \
-            ${{ steps.cilium-stable-config.outputs.config }}
+          if ${{ matrix.skip-upgrade != 'true' }}; then
+            cilium install ${{ steps.cilium-stable-config.outputs.config }}
+          else
+            cilium install ${{ steps.cilium-newest-config.outputs.config }}
+          fi
 
           cilium status --wait
           kubectl get pods --all-namespaces -o wide
@@ -514,6 +527,7 @@ jobs:
             --conn-disrupt-dispatch-interval 0ms
 
       - name: Upgrade Cilium
+        if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
           cilium upgrade \
@@ -523,7 +537,7 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-      - name: Test Cilium after upgrade
+      - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
         shell: bash
         run: |
           EXTRA=()
@@ -554,6 +568,7 @@ jobs:
             --conn-disrupt-dispatch-interval 0ms
 
       - name: Downgrade Cilium ${{ env.cilium_stable_version }}
+        if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
           cilium upgrade \
@@ -564,6 +579,7 @@ jobs:
           kubectl -n kube-system exec daemonset/cilium -- cilium status
 
       - name: Test Cilium after downgrade to ${{ env.cilium_stable_version }}
+        if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
           EXTRA=()
