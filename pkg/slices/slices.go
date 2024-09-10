@@ -44,6 +44,7 @@ func Unique[S ~[]T, T comparable](s S) S {
 		}
 	}
 
+	clear(s[last:]) // zero out obsolete elements for GC
 	return s[:last]
 }
 
@@ -67,6 +68,7 @@ func UniqueFunc[S ~[]T, T any, K comparable](s S, key func(i int) K) S {
 		last++
 	}
 
+	clear(s[last:]) // zero out obsolete elements for GC
 	return s[:last]
 }
 
