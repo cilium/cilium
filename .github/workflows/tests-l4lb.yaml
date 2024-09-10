@@ -120,11 +120,11 @@ jobs:
       - name: Run LoadBalancing test
         id: lb-test
         run: |
-          cd ${{ github.workspace }}/test/l4lb && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }}
+          cd ${{ github.workspace }}/test/l4lb && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }} ${{ env.CILIUM_RUNTIME_EXTRA_ARGS }}
 
       - name: Run NAT46x64 test
         run: |
-          cd ${{ github.workspace }}/test/nat46x64 && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }}
+          cd ${{ github.workspace }}/test/nat46x64 && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }} ${{ env.CILIUM_RUNTIME_EXTRA_ARGS }}
 
       - name: Fetch DinD information
         if: ${{ !success() && steps.lb-test.outcome != 'skipped' }}
