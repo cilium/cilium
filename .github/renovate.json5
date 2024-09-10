@@ -756,6 +756,20 @@
         "\/\/ renovate: datasource=(?<datasource>.*?)\\s+.+Image = \"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"",
         "\/\/ renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+Version = \"(?<currentValue>.*)\""
       ]
+    },
+    {
+      "fileMatch": [
+        ".github/actions/lvh-kind/action.yaml",
+        ".github/workflows/conformance-ginkgo.yaml",
+        ".github/workflows/conformance-runtime.yaml",
+        ".github/workflows/tests-datapath-verifier.yaml",
+      ],
+      // These regexes manage version and digest strings in shell scripts,
+      // similar to the examples shown here:
+      //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+lvh-version: \"(?<currentValue>.*)\""
+      ]
     }
   ]
 }
