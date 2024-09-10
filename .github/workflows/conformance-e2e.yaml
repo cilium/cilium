@@ -101,7 +101,7 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 22
+      max-parallel: 23
       matrix:
         include:
           # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -361,6 +361,14 @@ jobs:
             devices: '{eth0,eth1}'
             secondary-network: 'true'
             ingress-controller: 'true'
+
+          - name: '23'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-20240711.013133'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            lb-experimental: 'true'
 
     timeout-minutes: 60
     steps:

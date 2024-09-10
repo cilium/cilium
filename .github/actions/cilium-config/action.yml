@@ -25,6 +25,9 @@ inputs:
   lb-acceleration:
     description: 'KPR acceleration'
     default: ''
+  lb-experimental:
+    description: 'Enable experimental LB control-plane'
+    default: 'false'
   encryption:
     description: '"ipsec", "wireguard" or empty'
     default: ''
@@ -83,6 +86,7 @@ runs:
             --helm-set=authentication.mutual.spire.enabled=${{ inputs.mutual-auth }} \
             --nodes-without-cilium \
             --helm-set-string=kubeProxyReplacement=${{ inputs.kpr }} \
+            --helm-set=loadBalancer.experimental=${{ inputs.lb-experimental }} \
             --set='${{ inputs.misc }}'"
 
           IMAGE=""
