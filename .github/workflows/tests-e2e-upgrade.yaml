@@ -96,7 +96,7 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 16
+      max-parallel: 19
       matrix:
         include:
           - name: '1'
@@ -155,6 +155,7 @@ jobs:
             kernel: '6.1-20240710.064909'
             kube-proxy: 'none'
             kpr: 'true'
+            devices: '{eth0,eth1}'
             tunnel: 'vxlan'
             lb-mode: 'snat'
             egress-gateway: 'true'
@@ -239,6 +240,14 @@ jobs:
             egress-gateway: 'true'
             ingress-controller: 'true'
 
+          - name: '13'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '4.19-20240710.064909'
+            kube-proxy: 'iptables'
+            kpr: 'false'
+            tunnel: 'vxlan'
+            misc: 'policyCIDRMatchMode=nodes'
+
           - name: '14'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.4-20240710.064909'
@@ -250,6 +259,17 @@ jobs:
             lb-mode: 'snat'
             egress-gateway: 'true'
             lb-acceleration: 'testing-only'
+
+          - name: '15'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.6-20240710.064909'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'disabled'
+            ingress-controller: 'true'
+            misc: 'bpf.tproxy=true'
 
           - name: '16'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -263,6 +283,38 @@ jobs:
             encryption: 'wireguard'
             encryption-node: 'false'
             host-fw: 'true'
+
+          - name: '17'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '4.19-20240710.064909'
+            kube-proxy: 'iptables'
+            kpr: 'false'
+            tunnel: 'vxlan'
+            host-fw: 'true'
+            skip-upgrade: 'true'
+
+          - name: '18'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '5.4-20240710.064909'
+            kube-proxy: 'iptables'
+            kpr: 'false'
+            tunnel: 'disabled'
+            host-fw: 'true'
+            skip-upgrade: 'true'
+
+          - name: '19'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '5.15-20240710.064909'
+            kube-proxy: 'iptables'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            tunnel: 'disabled'
+            lb-mode: 'dsr'
+            endpoint-routes: 'true'
+            egress-gateway: 'true'
+            host-fw: 'true'
+            skip-upgrade: 'true'
 
           # Example of a feature that is being introduced, and we want to test
           # it without performing an upgrade, we use skip-upgrade: 'true'
