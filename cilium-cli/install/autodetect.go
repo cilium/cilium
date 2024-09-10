@@ -6,6 +6,7 @@ package install
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -31,15 +32,6 @@ var (
 		},
 	}
 )
-
-func (p Parameters) checkDisabled(name string) bool {
-	for _, n := range p.DisableChecks {
-		if n == name {
-			return true
-		}
-	}
-	return false
-}
 
 func (k *K8sInstaller) detectDatapathMode(helmValues map[string]interface{}) error {
 	if k.params.DatapathMode != "" {
@@ -105,7 +97,7 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map
 		k.Log("✨ Running %q validation checks", k.flavor.Kind)
 		for _, check := range validationChecks[k.flavor.Kind] {
 			name := check.Name()
-			if k.params.checkDisabled(name) {
+			if slices.Contains(k.params.DisableChecks, name) {
 				k.Log("⏭️  Skipping disabled validation test %q", name)
 				continue
 			}

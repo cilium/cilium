@@ -5,6 +5,7 @@ package filters
 
 import (
 	"context"
+	"slices"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -26,12 +27,7 @@ func filterByReplyField(replyParams []bool) FilterFunc {
 				return false
 			}
 
-			reply := f.GetIsReply().GetValue()
-			for _, replyParam := range replyParams {
-				if reply == replyParam {
-					return true
-				}
-			}
+			return slices.Contains(replyParams, f.GetIsReply().GetValue())
 		}
 		return false
 	}
