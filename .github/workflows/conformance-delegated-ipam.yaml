@@ -1,0 +1,342 @@
+name: Conformance Delegated IPAM (ci-delegated-ipam)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+
+  push:
+    branches:
+      - main
+      - ft/main/**
+      - 'renovate/main-**'
+    paths-ignore:
+      - 'Documentation/**'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with catchpoint/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - push: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  cilium_cli_ci_version:
+  timeout: 5m
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  delegated-ipam-conformance-test:
+    name: Install and Connectivity Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ inputs.SHA }}
+          chart-dir: ./untrusted/install/kubernetes/cilium
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            CONTEXT_REF="${{ inputs.context-ref }}"
+            OWNER="${{ inputs.PR-number }}"
+          else
+            CONTEXT_REF="${{ github.sha }}"
+            OWNER="${{ github.ref_name }}"
+            OWNER="${OWNER//[.\/]/-}"
+          fi
+
+          echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+          echo context-ref=${CONTEXT_REF} >> $GITHUB_OUTPUT
+          echo owner=${OWNER} >> $GITHUB_OUTPUT
+
+          # Cilium configured with delegated IPAM mode.
+          # * Set cni.customConf=true since conflist is configured using host mount into kind nodes.
+          # * Delegated IPAM requires direct routing mode.
+          # * Delegated IPAM is incompatible with all options that require cilium-agent to assign itself an IP address,
+          #    so set local-router-ipv4 and endpointHealthChecking.enabled=false.
+          # * Use BPF masquerade with ipMasqAgent.enabled=true because iptables masquerade (enable-ipv4-masquerade=true)
+          #    matches on source IP in the node pod CIDR, which isn't available to Cilium in delegated IPAM mode.
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+            --helm-set=ipam.mode=delegated-plugin \
+            --helm-set=cni.customConf=true \
+            --helm-set=routingMode=native \
+            --helm-set=ipv4NativeRoutingCIDR=10.244.0.0/16 \
+            --helm-set=endpointRoutes.enabled=true \
+            --helm-set=endpointHealthChecking.enabled=false \
+            --helm-set=extraArgs[0]="--local-router-ipv4=169.254.23.0" \
+            --helm-set=enableIPv4Masquerade=true \
+            --helm-set=bpf.masquerade=true \
+            --helm-set=ipMasqAgent.enabled=true \
+            --helm-set=nodePort.enabled=true"
+
+          CONNECTIVITY_TEST_DEFAULTS="--test-concurrency=5 \
+            --flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
+            --external-target bing.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.4.4 --external-other-ip 8.8.8.8"
+
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+
+      - name: Generate conflist for each node
+        run: |
+          createConflist() {
+            file=$1
+            subnet=$2
+
+            cat <<EOF > $file
+            {
+              "cniVersion": "0.3.1",
+              "name": "cilium",
+              "plugins": [
+                {
+                  "type": "cilium-cni",
+                  "enable-debug": true,
+                  "log-file": "/var/log/cilium-cni.log",
+                  "ipam": {
+                    "type": "host-local",
+                    "ranges": [
+                      [{"subnet": "$subnet"}]
+                    ]
+                  }
+                }
+              ]
+            }
+          EOF
+          }
+
+          createConflist "kind-control-plane-delegated-ipam.conflist" 10.244.1.0/24
+          createConflist "kind-worker-delegated-ipam.conflist" 10.244.2.0/24
+          createConflist "kind-worker2-delegated-ipam.conflist" 10.244.3.0/24
+
+      - name: Generate kind config
+        run: |
+          cat <<EOF > kind-config-delegated-ipam.yaml
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          nodes:
+            - role: control-plane
+              # Disable kube-controller-manager allocate-node-cidrs to avoid mismatch between
+              # the node podCIDR assigned by KCM and the CIDR configured for the host-local IPAM plugin.
+              kubeadmConfigPatches:
+                - |
+                  apiVersion: kubeadm.k8s.io/v1beta3
+                  kind: ClusterConfiguration
+                  controllerManager:
+                    extraArgs:
+                      allocate-node-cidrs: "false"
+              extraMounts:
+                - hostPath: kind-control-plane-delegated-ipam.conflist
+                  containerPath: /etc/cni/net.d/05-cilium.conflist
+
+            - role: worker
+              extraMounts:
+                - hostPath: kind-worker-delegated-ipam.conflist
+                  containerPath: /etc/cni/net.d/05-cilium.conflist
+
+            - role: worker
+              extraMounts:
+                - hostPath: kind-worker2-delegated-ipam.conflist
+                  containerPath: /etc/cni/net.d/05-cilium.conflist
+
+          networking:
+            disableDefaultCNI: true
+            podSubnet: "10.244.0.0/16"
+            serviceSubnet: "10.245.0.0/16"
+          EOF
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+          path: untrusted
+          sparse-checkout: |
+            install/kubernetes/cilium
+
+      - name: Create kind cluster
+        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
+          cluster_name: "kind"
+          config: kind-config-delegated-ipam.yaml # created by earlier step
+          wait: 0
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@62bd4511031211b50a4623870955a5ad27b43e3b # v0.16.16
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.vars.outputs.sha }}
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Wait for nodes to become ready
+        run: |
+          kubectl wait --for=condition=Ready nodes --all --timeout=300s
+          kubectl get nodes -oyaml
+
+      # Delegated IPAM requires direct routing, and we can't use autoDirectNodeRoutes or BGP because
+      # Cilium isn't aware of the pod CIDR for each node.
+      # So use `ip route add` to ensure pod traffic is routed to the correct node.
+      - name: Configure routes
+        run: |
+          addPodCIDRRouteToNode() {
+            cidr=$1
+            node=$2
+            nodeIP=$(kubectl get node $node -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
+            echo "adding route from $cidr via $nodeIP"
+            sudo ip route add $cidr via $nodeIP
+          }
+
+          echo "Current routes:"
+          ip route
+
+          echo "Configuring routes from podCIDR to node:"
+          addPodCIDRRouteToNode 10.244.1.0/24 kind-control-plane
+          addPodCIDRRouteToNode 10.244.2.0/24 kind-worker
+          addPodCIDRRouteToNode 10.244.3.0/24 kind-worker2
+
+          echo "Updated routes:"
+          ip route
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+          kubectl -n kube-system get pods -owide
+
+      - name: Make JUnit report directory
+        run: |
+          mkdir -p cilium-junits
+
+      - name: Cilium connectivity test
+        run: |
+          cilium connectivity test
+
+      - name: Post-test information gathering
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
+        run: |
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-out
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-*.zip
+          retention-days: 5
+
+      - name: Upload JUnits [junit]
+        if: ${{ always() }}
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        with:
+          name: cilium-junits
+          path: cilium-junits/*.xml
+          retention-days: 5
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
+
+  commit-status-final:
+    if: ${{ always() }}
+    name: Commit Status Final
+    needs: delegated-ipam-conformance-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.delegated-ipam-conformance-test.result }}
