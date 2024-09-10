@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -219,22 +220,13 @@ func newFlowFilter() *flowFilter {
 	}
 }
 
-func (of *flowFilter) hasChanged(list []string, name string) bool {
-	for _, c := range list {
-		if c == name {
-			return true
-		}
-	}
-	return false
-}
-
 func (of *flowFilter) checkConflict(t *filterTracker) error {
 	// check for conflicts
 	for _, group := range of.conflicts {
 		for _, flag := range group {
-			if of.hasChanged(t.changed, flag) {
+			if slices.Contains(t.changed, flag) {
 				for _, conflict := range group {
-					if flag != conflict && of.hasChanged(t.changed, conflict) {
+					if flag != conflict && slices.Contains(t.changed, conflict) {
 						return fmt.Errorf(
 							"filters --%s and --%s cannot be combined",
 							flag, conflict,

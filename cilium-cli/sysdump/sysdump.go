@@ -2956,13 +2956,10 @@ func getPodMetricsPort(pod corev1.Pod, containerName, portName string) (int32, e
 // and includes the specified container.
 func podIsRunningAndHasContainer(pod *corev1.Pod, container string) bool {
 	if pod.Status.Phase == corev1.PodRunning {
-		for i := range pod.Spec.Containers {
-			if pod.Spec.Containers[i].Name == container {
-				return true
-			}
-		}
+		return slices.ContainsFunc(pod.Spec.Containers, func(c corev1.Container) bool {
+			return c.Name == container
+		})
 	}
-
 	return false
 }
 

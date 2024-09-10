@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"slices"
 )
 
 // NewCIDR returns a new CIDR using a net.IPNet
@@ -143,22 +144,14 @@ func ZeroNet(family int) *net.IPNet {
 
 // ContainsAll returns true if 'ipNets1' contains all net.IPNet of 'ipNets2'
 func ContainsAll(ipNets1, ipNets2 []*net.IPNet) bool {
-	for _, n := range ipNets2 {
-		if !contains(ipNets1, n) {
+	for _, n2 := range ipNets2 {
+		if !slices.ContainsFunc(ipNets1, func(n1 *net.IPNet) bool {
+			return Equal(n2, n1)
+		}) {
 			return false
 		}
 	}
 	return true
-}
-
-// contains returns true if 'ipNets' contains ipNet.
-func contains(ipNets []*net.IPNet, ipNet *net.IPNet) bool {
-	for _, n := range ipNets {
-		if Equal(n, ipNet) {
-			return true
-		}
-	}
-	return false
 }
 
 // ParseCIDR parses the CIDR string using net.ParseCIDR

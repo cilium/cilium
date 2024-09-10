@@ -5,6 +5,7 @@ package filters
 
 import (
 	"context"
+	"slices"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -16,13 +17,7 @@ func filterByUUID(uuids []string) FilterFunc {
 		if flow == nil {
 			return false
 		}
-		eid := flow.GetUuid()
-		for _, id := range uuids {
-			if id == eid {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(uuids, flow.GetUuid())
 	}
 }
 

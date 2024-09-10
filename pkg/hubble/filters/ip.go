@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"slices"
 	"strings"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -52,10 +53,8 @@ func filterByIPs(ips []string, getIP func(*v1.Event) string) (FilterFunc, error)
 			return false
 		}
 
-		for _, ip := range addresses {
-			if ip == eventIP {
-				return true
-			}
+		if slices.Contains(addresses, eventIP) {
+			return true
 		}
 
 		if len(prefixes) > 0 {
@@ -63,11 +62,9 @@ func filterByIPs(ips []string, getIP func(*v1.Event) string) (FilterFunc, error)
 			if err != nil {
 				return false
 			}
-			for _, prefix := range prefixes {
-				if prefix.Contains(addr) {
-					return true
-				}
-			}
+			return slices.ContainsFunc(prefixes, func(prefix netip.Prefix) bool {
+				return prefix.Contains(addr)
+			})
 		}
 
 		return false
@@ -109,20 +106,14 @@ func (f *IPFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]
 	return fs, nil
 }
 
-func filterByIPVersion(ipver []flowpb.IPVersion) (FilterFunc, error) {
+func filterByIPVersion(ipver []flowpb.IPVersion) FilterFunc {
 	return func(ev *v1.Event) bool {
 		flow := ev.GetFlow()
 		if flow == nil {
 			return false
 		}
-		ver := flow.GetIP().GetIpVersion()
-		for _, v := range ipver {
-			if v == ver {
-				return true
-			}
-		}
-		return false
-	}, nil
+		return slices.Contains(ipver, flow.GetIP().GetIpVersion())
+	}
 }
 
 // IPVersionFilter implements IP version based filtering
@@ -132,12 +123,8 @@ type IPVersionFilter struct{}
 func (f *IPVersionFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]FilterFunc, error) {
 	var fs []FilterFunc
 
-	if ff.GetIpVersion() != nil {
-		pf, err := filterByIPVersion(ff.GetIpVersion())
-		if err != nil {
-			return nil, err
-		}
-		fs = append(fs, pf)
+	if ipv := ff.GetIpVersion(); ipv != nil {
+		fs = append(fs, filterByIPVersion(ipv))
 	}
 
 	return fs, nil

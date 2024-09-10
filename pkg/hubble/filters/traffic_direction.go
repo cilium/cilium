@@ -5,6 +5,7 @@ package filters
 
 import (
 	"context"
+	"slices"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -16,12 +17,7 @@ func filterByTrafficDirection(directions []flowpb.TrafficDirection) FilterFunc {
 		if flow == nil {
 			return false
 		}
-		for _, d := range directions {
-			if d == flow.GetTrafficDirection() {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(directions, flow.GetTrafficDirection())
 	}
 }
 
