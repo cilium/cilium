@@ -5,13 +5,13 @@ package policy
 
 import (
 	"fmt"
+	"maps"
 	"net/netip"
 	"slices"
 	"strconv"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/identity"

@@ -8,14 +8,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/pmezard/go-difflib/difflib"
-	"golang.org/x/exp/constraints"
-	"golang.org/x/exp/maps"
 
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
@@ -163,13 +160,4 @@ func showBackendIDs(idMap map[lb.BackendID]int, bes []*lb.Backend) string {
 		strs = append(strs, strconv.FormatInt(int64(id), 10))
 	}
 	return strings.Join(strs, ", ")
-}
-
-// MapInOrder does an in-order traversal of a map.
-func MapInOrder[M ~map[K]V, K constraints.Ordered, V any](m M, fn func(K, V)) {
-	keys := maps.Keys(m)
-	slices.Sort(keys)
-	for _, k := range keys {
-		fn(k, m[k])
-	}
 }

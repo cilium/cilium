@@ -7,8 +7,6 @@ import (
 	"cmp"
 	"encoding/json"
 	"slices"
-
-	"golang.org/x/exp/constraints"
 )
 
 // ImmSet is an immutable set optimized for a smallish (1-1000) set of items.
@@ -19,7 +17,7 @@ type ImmSet[T any] struct {
 	eq  func(T, T) bool
 }
 
-func NewImmSet[T constraints.Ordered](items ...T) ImmSet[T] {
+func NewImmSet[T cmp.Ordered](items ...T) ImmSet[T] {
 	return NewImmSetFunc[T](cmp.Compare, items...)
 }
 

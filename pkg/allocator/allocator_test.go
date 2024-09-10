@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -17,7 +19,6 @@ import (
 	"github.com/cilium/stream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -172,7 +173,7 @@ func (d *dummyBackend) ListIDs(ctx context.Context) (identityIDs []idpool.ID, er
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	return maps.Keys(d.identities), nil
+	return slices.Collect(maps.Keys(d.identities)), nil
 }
 
 func (d *dummyBackend) ListAndWatch(ctx context.Context, handler CacheMutations, stopChan chan struct{}) {
@@ -180,9 +181,7 @@ func (d *dummyBackend) ListAndWatch(ctx context.Context, handler CacheMutations,
 	d.handler = handler
 
 	// Sort by ID to ensure consistent ordering
-	ids := maps.Keys(d.identities)
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-	for _, id := range ids {
+	for _, id := range slices.Sorted(maps.Keys(d.identities)) {
 		d.handler.OnUpsert(id, d.identities[id])
 	}
 	d.mutex.Unlock()

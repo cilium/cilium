@@ -8,10 +8,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net"
 	"net/netip"
 	"os"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,7 +22,6 @@ import (
 
 	"github.com/cilium/dns"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
 	"sigs.k8s.io/yaml"
 
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -1154,7 +1155,7 @@ func TestRestoredEndpoint(t *testing.T) {
 	// extract the port the DNS-server is listening on by looking at the restored rules. The port is non-deterministic
 	// since it's listening on :0
 	require.Equal(t, 1, len(restored), "GetRules is expected to return rules for one port but returned for %d", len(restored))
-	portProto := maps.Keys(restored)[0]
+	portProto := slices.Collect(maps.Keys(restored))[0]
 
 	// Insert one valid and one invalid pattern and ensure that the valid one works
 	// and that the invalid one doesn't interfere with the other rules.

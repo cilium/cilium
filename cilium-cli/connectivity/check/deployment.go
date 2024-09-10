@@ -6,12 +6,13 @@ package check
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"golang.org/x/exp/maps"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -1589,7 +1590,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	if ct.params.SkipIPCacheCheck {
 		ct.Infof("Skipping IPCache check")
 	} else {
-		pods := append(maps.Values(ct.clientPods), maps.Values(ct.echoPods)...)
+		pods := append(slices.Collect(maps.Values(ct.clientPods)), slices.Collect(maps.Values(ct.echoPods))...)
 		// Set the timeout for all IP cache lookup retries
 		for _, cp := range ct.ciliumPods {
 			if err := WaitForIPCache(ctx, ct, cp, pods); err != nil {
