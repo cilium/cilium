@@ -56,6 +56,9 @@ concurrency:
     }}
   cancel-in-progress: true
 
+env:
+  test_concurrency: 5
+
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -391,7 +394,7 @@ jobs:
           #   misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
           #   skip-upgrade: 'true'
 
-    timeout-minutes: 90
+    timeout-minutes: 45
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -585,6 +588,7 @@ jobs:
             --include-conn-disrupt-test \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --flush-ct \
+            --test-concurrency=${{ env.test_concurrency }} \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
@@ -627,6 +631,7 @@ jobs:
             --include-conn-disrupt-test \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --flush-ct \
+            --test-concurrency=${{ env.test_concurrency }} \
             --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
