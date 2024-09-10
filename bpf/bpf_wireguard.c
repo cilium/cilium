@@ -13,6 +13,7 @@
 #include "lib/trace.h"
 #include "lib/drop.h"
 #include "lib/nodeport.h"
+#include "bpf/helpers.h"
 
 /* to-wireguard is attached as a tc egress filter to the cilium_wg0 device.
  */
@@ -46,6 +47,18 @@ int cil_to_wireguard(struct __ctx_buff *ctx)
 
 out:
 #endif /* ENABLE_NODEPORT */
+
+	return TC_ACT_OK;
+}
+
+/* from-wireguard is attached as a tc ingress filter to the cilium_wg0 device.
+ */
+__section_entry
+int cil_from_wireguard(struct __ctx_buff *ctx)
+{
+	bpf_clear_meta(ctx);
+
+	ctx->mark = MARK_MAGIC_DECRYPT;
 
 	return TC_ACT_OK;
 }

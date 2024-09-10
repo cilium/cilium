@@ -49,7 +49,8 @@ const (
 	symbolFromHostEp       = "cil_from_host"
 	symbolToHostEp         = "cil_to_host"
 
-	symbolToWireguard = "cil_to_wireguard"
+	symbolToWireguard   = "cil_to_wireguard"
+	symbolFromWireguard = "cil_from_wireguard"
 
 	symbolFromHostNetdevXDP = "cil_xdp_entry"
 
@@ -650,6 +651,12 @@ func (l *loader) replaceWireguardDatapath(ctx context.Context, cArgs []string, i
 		linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s egress: %w", device, err)
 	}
+
+	if err := attachSKBProgram(device, obj.FromWireguard, symbolFromWireguard,
+		linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
+		return fmt.Errorf("interface %s ingress: %w", device, err)
+	}
+
 	if err := commit(); err != nil {
 		return fmt.Errorf("committing bpf pins: %w", err)
 	}
