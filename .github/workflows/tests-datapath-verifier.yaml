@@ -119,7 +119,10 @@ jobs:
           image: 'complexity-test'
           image-version: ${{ matrix.kernel }}
           host-mount: ./
+          images-folder-parent: "/tmp"
           cpu: 4
+          # renovate: datasource=github-tags depName=cilium/little-vm-helper
+          lvh-version: "v0.0.19"
           install-dependencies: 'true'
           cmd: |
             for i in {1..5}; do curl "https://golang.org" > /dev/null 2>&1 && break || sleep 5; echo "Waiting for systemd-resolved to be ready..."; done
