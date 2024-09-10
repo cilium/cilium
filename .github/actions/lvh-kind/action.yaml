@@ -26,9 +26,12 @@ runs:
       with:
         test-name: ${{ inputs.test-name }}
         image-version: ${{ inputs.kernel }}
+        images-folder-parent: "/tmp"
         host-mount: ./
         cpu: 4
         mem: 12G
+        # renovate: datasource=github-tags depName=cilium/little-vm-helper
+        lvh-version: "v0.0.19"
         install-dependencies: 'true'
         port-forward: '6443:6443'
         ssh-connect-wait-retries: 600
