@@ -36,6 +36,7 @@ type ConformanceTest struct {
 	Slow        bool
 	Parallel    bool
 	Test        func(*testing.T, *ConformanceTestSuite)
+	Provisional bool
 }
 
 // Run runs an individual tests, applying and cleaning up the required manifests
