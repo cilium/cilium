@@ -273,7 +273,10 @@ jobs:
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
           image-version: 6.6-20240710.064909
           host-mount: ./
+          images-folder-parent: "/tmp"
           cpu: 4
+          # renovate: datasource=github-tags depName=cilium/little-vm-helper
+          lvh-version: "v0.0.19"
           mem: 12G
 
       # Load Ginkgo build from GitHub
