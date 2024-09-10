@@ -8,7 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"sort"
+	"slices"
 	"strings"
 	"text/tabwriter"
 
@@ -74,7 +74,7 @@ func writeTable(wr io.Writer, spec *loads.Document) {
 	for f := range pathSet {
 		keys = append(keys, f)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	for _, k := range keys {
 		desc := strings.TrimSuffix(pathSet[k].Description, "\n")
 		wrapped := wrap(desc, colWidth-flagWidth)

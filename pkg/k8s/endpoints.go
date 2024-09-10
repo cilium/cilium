@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -121,7 +121,7 @@ func (e *Endpoints) String() string {
 		}
 	}
 
-	sort.Strings(backends)
+	slices.Sort(backends)
 
 	return strings.Join(backends, ",")
 }

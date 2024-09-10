@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/netip"
 	"slices"
-	"sort"
 	"strings"
 	"testing"
 
@@ -853,7 +852,7 @@ func ipStrings(ips []net.IP) (ss []string) {
 	for i := range ips {
 		ss = append(ss, ips[i].String())
 	}
-	sort.Strings(ss)
+	slices.Sort(ss)
 	return
 }
 

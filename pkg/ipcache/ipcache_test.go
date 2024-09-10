@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"sort"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -167,7 +167,7 @@ func TestIPCache(t *testing.T) {
 	expectedIPList := []string{"127.0.0.1", "27.2.2.2"}
 
 	cachedEndpointIPs := IPIdentityCache.LookupByIdentity(29)
-	sort.Strings(cachedEndpointIPs)
+	slices.Sort(cachedEndpointIPs)
 	require.EqualValues(t, expectedIPList, cachedEndpointIPs)
 
 	IPIdentityCache.Delete("27.2.2.2", source.KVStore)
@@ -453,7 +453,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	expectedIPList := []string{"127.0.0.1", "27.2.2.2"}
 
 	cachedEndpointIPs := IPIdentityCache.LookupByIdentity(29)
-	sort.Strings(cachedEndpointIPs)
+	slices.Sort(cachedEndpointIPs)
 	require.EqualValues(t, expectedIPList, cachedEndpointIPs)
 
 	namedPortsChanged = IPIdentityCache.Delete("27.2.2.2", source.KVStore)

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -244,7 +243,7 @@ func (l Labels) GetPrintableModel() (res []string) {
 		}
 	}
 
-	sort.Strings(res)
+	slices.Sort(res)
 	return res
 }
 

@@ -4,7 +4,7 @@
 package validator
 
 import (
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -177,8 +177,8 @@ func Test_getFields(t *testing.T) {
 		got, err := getFields(tt.structure)
 		require.EqualValues(t, err, tt.err)
 
-		sort.Strings(tt.expected) // Must sort to check slice equality
-		sort.Strings(got)
+		slices.Sort(tt.expected) // Must sort to check slice equality
+		slices.Sort(got)
 		require.EqualValues(t, got, tt.expected)
 	}
 }

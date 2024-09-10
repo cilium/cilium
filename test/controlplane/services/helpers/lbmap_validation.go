@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -154,7 +155,7 @@ func showBackendIDs(idMap map[lb.BackendID]int, bes []*lb.Backend) string {
 	for _, be := range bes {
 		ids = append(ids, idMap[be.ID])
 	}
-	sort.Ints(ids)
+	slices.Sort(ids)
 	var strs []string
 	for _, id := range ids {
 		strs = append(strs, strconv.FormatInt(int64(id), 10))

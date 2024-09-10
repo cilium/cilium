@@ -480,7 +480,7 @@ func (c *DNSCache) lookupIPByTime(now time.Time, ip netip.Addr) (names []string)
 		}
 	}
 
-	sort.Strings(names)
+	slices.Sort(names)
 	return names
 }
 

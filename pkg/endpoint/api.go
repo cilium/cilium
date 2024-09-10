@@ -9,6 +9,7 @@ package endpoint
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 
@@ -339,7 +340,7 @@ func (e *Endpoint) getNamedPortsModel() (np models.NamedPorts) {
 	for name := range k8sPorts {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 
 	np = make(models.NamedPorts, 0, len(k8sPorts))
 	for _, name := range names {

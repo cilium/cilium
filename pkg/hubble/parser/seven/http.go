@@ -6,7 +6,7 @@ package seven
 import (
 	"fmt"
 	"net/url"
-	"sort"
+	"slices"
 	"strings"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -22,7 +22,7 @@ func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts
 	for key := range http.Headers {
 		keys = append(keys, key)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	for _, key := range keys {
 		for _, value := range http.Headers[key] {
 			filteredValue := filterHeader(key, value, opts.HubbleRedactSettings)

@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -367,7 +367,7 @@ func dumpConfig(Opts map[string]string, indented bool) {
 	for k := range Opts {
 		opts = append(opts, k)
 	}
-	sort.Strings(opts)
+	slices.Sort(opts)
 
 	for _, k := range opts {
 		// XXX: Reuse the format function from *option.Library

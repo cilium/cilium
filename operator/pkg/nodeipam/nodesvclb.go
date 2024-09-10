@@ -6,7 +6,6 @@ package nodeipam
 import (
 	"context"
 	"slices"
-	"sort"
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -279,7 +278,7 @@ func getNodeLoadBalancerIngresses(nodes []corev1.Node, ipFamilies []corev1.IPFam
 	} else {
 		ips = intIPs.UnsortedList()
 	}
-	sort.Strings(ips)
+	slices.Sort(ips)
 
 	ingresses := make([]corev1.LoadBalancerIngress, len(ips))
 	for i, ip := range ips {

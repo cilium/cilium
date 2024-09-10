@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 	"text/tabwriter"
 
@@ -59,7 +59,7 @@ var MetricsListCmd = &cobra.Command{
 				for k := range metric.Labels {
 					keys = append(keys, k)
 				}
-				sort.Strings(keys)
+				slices.Sort(keys)
 				for _, k := range keys {
 					labelArray = append(labelArray, fmt.Sprintf(`%s="%s"`, k, metric.Labels[k]))
 				}

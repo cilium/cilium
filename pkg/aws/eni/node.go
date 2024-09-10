@@ -10,7 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 
@@ -140,7 +140,7 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.Re
 	for k := range n.enis {
 		eniIds = append(eniIds, k)
 	}
-	sort.Strings(eniIds)
+	slices.Sort(eniIds)
 	// Iterate over ENIs on this node, select the ENI with the most
 	// addresses available for release
 	for _, eniId := range eniIds {

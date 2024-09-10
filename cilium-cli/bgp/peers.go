@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -134,7 +135,7 @@ func printSummary(out io.Writer, peersPerNode map[string][]*models.BgpPeer) {
 	for node := range peersPerNode {
 		nodes = append(nodes, node)
 	}
-	sort.Strings(nodes)
+	slices.Sort(nodes)
 
 	// sort peers per node
 	for _, peers := range peersPerNode {

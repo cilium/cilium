@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/netip"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -1060,7 +1059,7 @@ func dump(lbmaps lbmaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool) (out []
 		panic(err)
 	}
 
-	sort.Strings(out)
+	slices.Sort(out)
 	return
 }
 

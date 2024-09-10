@@ -379,7 +379,7 @@ func (i *cecTranslator) getClusters(m *model.Model) []ciliumv2.XDSResource {
 		}
 	}
 
-	sort.Strings(sortedClusterNames)
+	goslices.Sort(sortedClusterNames)
 	res := make([]ciliumv2.XDSResource, len(sortedClusterNames))
 	for i, name := range sortedClusterNames {
 		res[i] = envoyClusters[name]

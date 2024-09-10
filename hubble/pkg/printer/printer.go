@@ -11,7 +11,7 @@ import (
 	"net"
 	"os"
 	"path"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -894,7 +894,7 @@ func (p *Printer) WriteServerStatusResponse(res *observerpb.ServerStatusResponse
 		}
 		if numUnavailable != nil && numUnavailable.GetValue() > 0 {
 			if unavailable := res.GetUnavailableNodes(); unavailable != nil {
-				sort.Strings(unavailable) // it's nicer when displaying unavailable nodes list
+				slices.Sort(unavailable) // it's nicer when displaying unavailable nodes list
 				if numUnavailable.GetValue() > uint32(len(unavailable)) {
 					unavailable = append(unavailable, fmt.Sprintf("and %d more...", numUnavailable.GetValue()-uint32(len(unavailable))))
 				}

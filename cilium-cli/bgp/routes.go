@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/netip"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -243,7 +244,7 @@ func printRouteSummary(out io.Writer, routesPerNode map[string][]*models.BgpRout
 	for node := range routesPerNode {
 		nodes = append(nodes, node)
 	}
-	sort.Strings(nodes)
+	slices.Sort(nodes)
 
 	// sort routes per node
 	for _, routes := range routesPerNode {
