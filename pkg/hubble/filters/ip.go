@@ -6,7 +6,7 @@ package filters
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 	"strings"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -29,17 +29,18 @@ func filterByIPs(ips []string, getIP func(*v1.Event) string) (FilterFunc, error)
 	// IP filter can either be an exact match (e.g. "1.1.1.1") or a CIDR range
 	// (e.g. "1.1.1.0/24"). Put them into 2 separate lists here.
 	var addresses []string
-	var cidrs []*net.IPNet
+	var prefixes []netip.Prefix
 	for _, ip := range ips {
 		if strings.Contains(ip, "/") {
-			_, ipnet, err := net.ParseCIDR(ip)
+			prefix, err := netip.ParsePrefix(ip)
 			if err != nil {
-				return nil, fmt.Errorf("invalid CIDR in filter: %q", ip)
+				return nil, fmt.Errorf("invalid IP prefix %q in filter: %w", ip, err)
 			}
-			cidrs = append(cidrs, ipnet)
+			prefixes = append(prefixes, prefix)
 		} else {
-			if net.ParseIP(ip) == nil {
-				return nil, fmt.Errorf("invalid IP address in filter: %q", ip)
+			_, err := netip.ParseAddr(ip)
+			if err != nil {
+				return nil, fmt.Errorf("invalid IP address %q in filter: %w", ip, err)
 			}
 			addresses = append(addresses, ip)
 		}
@@ -57,10 +58,13 @@ func filterByIPs(ips []string, getIP func(*v1.Event) string) (FilterFunc, error)
 			}
 		}
 
-		if len(cidrs) > 0 {
-			parsedIP := net.ParseIP(eventIP)
-			for _, cidr := range cidrs {
-				if cidr.Contains(parsedIP) {
+		if len(prefixes) > 0 {
+			addr, err := netip.ParseAddr(eventIP)
+			if err != nil {
+				return false
+			}
+			for _, prefix := range prefixes {
+				if prefix.Contains(addr) {
 					return true
 				}
 			}
