@@ -108,6 +108,11 @@ linters-settings:
             recommendations:
               - cmp
             reason: "Go 1.21+ has support for Ordered constraint, see https://go.dev/doc/go1.21#cmp"
+        - golang.org/x/exp/slices:
+            recommendations:
+              - slices
+            reason: "Go 1.21+ provides many common operations for slices using generic functions, see https://go.dev/doc/go1.21#slices"
+
   stylecheck:
     checks: ["ST1019"]
 
