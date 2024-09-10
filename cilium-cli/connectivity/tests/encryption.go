@@ -4,8 +4,11 @@
 package tests
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
@@ -34,8 +37,8 @@ const (
 // for the encryption.
 func getInterNodeIface(ctx context.Context, t *check.Test,
 	client, clientHost, server, serverHost *check.Pod, ipFam features.IPFamily,
-	wgEncap bool) string {
-
+	wgEncap bool,
+) string {
 	tunnelEnabled := false
 	tunnelMode := ""
 	if tunnelFeat, ok := t.Context().Feature(features.Tunnel); ok && tunnelFeat.Enabled {
@@ -103,8 +106,8 @@ func getInterNodeIface(ctx context.Context, t *check.Test,
 // any unencrypted VXLAN pkt is leaked on a native device.
 func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod,
 	server, serverHost *check.Pod,
-	ipFam features.IPFamily, reqType requestType, wgEncap bool) string {
-
+	ipFam features.IPFamily, reqType requestType, wgEncap bool,
+) string {
 	tunnelEnabled := false
 	if tunnelStatus, ok := t.Context().Feature(features.Tunnel); ok && tunnelStatus.Enabled {
 		tunnelEnabled = true
@@ -300,6 +303,167 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	}
 }
 
+type vxlanHeader struct {
+	flags         uint16
+	groupPolicyID uint16
+	vni           [3]uint8
+	reserved      uint8
+}
+
+type ethernetHeader struct {
+	dstMAC  [6]uint8
+	srcMAC  [6]uint8
+	ethType uint16
+}
+
+type ipv4Header struct {
+	versionIHL          uint8
+	typeOfService       uint8
+	totalLength         uint16
+	identification      uint16
+	flagsFragmentOffset uint16
+	timeToLive          uint8
+	protocol            uint8
+	headerChecksum      uint16
+	sourceAddress       [4]uint8
+	destinationAddress  [4]uint8
+}
+
+type udpHeader struct {
+	sourcePort      uint16
+	destinationPort uint16
+	length          uint16
+	checksum        uint16
+}
+
+func testNoInjection(ctx context.Context, t *check.Test, s check.Scenario,
+	externalHostClient, server, serverHost *check.Pod, ipFam features.IPFamily, assertNoLeaks, wgEncap bool,
+) {
+	if ipFam == features.IPFamilyV6 {
+		return
+	}
+	snifferMode := sniff.ModeAssert
+	hostClient := externalHostClient
+	if !assertNoLeaks {
+		hostClient = serverHost
+		snifferMode = sniff.ModeSanity
+	}
+
+	var dstSniffer *sniff.Sniffer
+
+	srcAddress := net.ParseIP(hostClient.Address(ipFam))
+	dstAddress := net.ParseIP(server.Address(ipFam))
+
+	// dstFilter := getFilter(ctx, t, server, serverHost, client, clientHost, ipFam, reqType, wgEncap)
+	// dstIface := getInterNodeIface(ctx, t, server, serverHost, client, clientHost, ipFam, wgEncap)
+	dstFilter := fmt.Sprintf("dst host %s and src host %s and udp and dst port 22136", server.Address(ipFam), srcAddress)
+	dstIface := "eth0"
+
+	dstSniffer, err := sniff.Sniff(ctx, s.Name(), server, dstIface, dstFilter, snifferMode, t)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	udpPayload := []byte("Successfully injected packet")
+
+	vxlan := vxlanHeader{
+		flags:         0x0800,
+		groupPolicyID: 0x0000,
+		vni:           [3]uint8{0, 0, 0}, // 0 seems to work, 1 does not
+		reserved:      0x00,
+	}
+	eth := ethernetHeader{
+		dstMAC:  [6]uint8{0x2e, 0x33, 0xb4, 0x3a, 0x3c, 0x68},
+		srcMAC:  [6]uint8{0x32, 0xe1, 0xd3, 0xd4, 0x27, 0x07},
+		ethType: 0x0800, // IPv4
+	}
+	ipv4 := ipv4Header{
+		versionIHL:          0x45,
+		typeOfService:       0x00,
+		totalLength:         uint16(len(udpPayload) + 20 + 8),
+		identification:      0x0000,
+		flagsFragmentOffset: 0x4000, // Don't fragment
+		timeToLive:          0x40,
+		protocol:            0x11, // UDP
+		headerChecksum:      0x0000,
+		sourceAddress:       [4]uint8(srcAddress.To4()),
+		destinationAddress:  [4]uint8(dstAddress.To4()),
+	}
+
+	udp := udpHeader{
+		sourcePort:      0x1234,
+		destinationPort: 0x5678,
+		length:          uint16(len(udpPayload) + 8),
+		checksum:        0x0000,
+	}
+
+	payload := &bytes.Buffer{}
+	if err := binary.Write(payload, binary.BigEndian, vxlan); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(payload, binary.BigEndian, eth); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(payload, binary.BigEndian, ipv4); err != nil {
+		t.Fatal(err)
+	}
+	if err := binary.Write(payload, binary.BigEndian, udp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := payload.Write(udpPayload); err != nil {
+		t.Fatal(err)
+	}
+
+	// Send fake vxlan packet to vxlan port ofthe node where the server pod is running
+	t.NewAction(s, fmt.Sprintf("udp-%s", ipFam), hostClient, server, ipFam).Run(func(a *check.Action) {
+		a.ExecInPod(ctx, t.Context().SendUDPCommand(serverHost, ipFam, payload.Bytes()))
+		dstSniffer.Validate(ctx, a)
+	})
+}
+
+func PodToPodEncryptionInjection(reqs ...features.Requirement) check.Scenario {
+	return &podToPodEncryptionInjection{reqs}
+}
+
+type podToPodEncryptionInjection struct{ reqs []features.Requirement }
+
+func (s *podToPodEncryptionInjection) Name() string {
+	return "pod-to-pod-encryption-injection"
+}
+
+func (s *podToPodEncryptionInjection) Run(ctx context.Context, t *check.Test) {
+	ct := t.Context()
+	client := ct.RandomClientPod()
+
+	assertNoLeaks, _ := ct.Features.MatchRequirements(s.reqs...)
+
+	if !assertNoLeaks {
+		t.Debugf("%s test running in sanity mode, expecting unencrypted packets", s.Name())
+	}
+
+	wgEncap := isWgEncap(t)
+	if wgEncap {
+		t.Debug("Encapsulation before WG encryption")
+	}
+
+	externalHostPod := t.Context().HostNetNSPodsByNode()[t.NodesWithoutCilium()[0]]
+
+	var secondClient check.Pod
+	for _, pod := range ct.ClientPods() {
+		// Make sure that the second client pod is on another node than client
+		if pod.Pod.Status.HostIP != client.Pod.Status.HostIP {
+			secondClient = pod
+			break
+		}
+	}
+	secondClientHost := ct.HostNetNSPodsByNode()[secondClient.Pod.Spec.NodeName]
+
+	// Check that the injection from a out-of-cluster pod
+	t.ForEachIPFamily(func(ipFam features.IPFamily) {
+		testNoInjection(ctx, t, s, &externalHostPod, &secondClient, &secondClientHost, ipFam, assertNoLeaks, wgEncap)
+	})
+}
+
 func NodeToNodeEncryption(reqs ...features.Requirement) check.Scenario {
 	return &nodeToNodeEncryption{reqs}
 }
@@ -345,7 +509,6 @@ func (s *nodeToNodeEncryption) Run(ctx context.Context, t *check.Test) {
 	}
 
 	t.ForEachIPFamily(func(ipFam features.IPFamily) {
-
 		// Test pod-to-remote-host (ICMP Echo instead of HTTP because a remote host
 		// does not have a HTTP server running)
 		if !onlyPodToPodWGWithTunnel {

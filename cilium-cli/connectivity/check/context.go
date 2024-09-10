@@ -4,6 +4,7 @@
 package check
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -1000,6 +1001,22 @@ func (ct *ConnectivityTest) PingCommand(peer TestPeer, ipFam features.IPFamily, 
 	cmd = append(cmd, extraArgs...)
 
 	cmd = append(cmd, peer.Address(ipFam))
+
+	return cmd
+}
+
+func (ct *ConnectivityTest) SendUDPCommand(peer TestPeer, ipFam features.IPFamily, payload []byte) []string {
+	// Encode bytes to \x00 format
+	var result []byte
+	buff := bytes.NewBuffer(result)
+
+	for _, b := range payload {
+		fmt.Fprintf(buff, "\\x%02x", b)
+	}
+
+	innerCmd := fmt.Sprintf("echo -en \"%s\" | nc -u -w 1 [%s] %d && echo \"finished sending\"", buff.String(), peer.Address(ipFam), 8472)
+
+	cmd := []string{"sh", "-c", innerCmd}
 
 	return cmd
 }
