@@ -16,6 +16,10 @@ inputs:
     required: false
     default: 'false'
     description: 'Run full connectivity test suite'
+  tests:
+    required: false
+    default: ''
+    description: 'Select which connectivity tests to run'
 
 runs:
   using: composite
@@ -23,12 +27,17 @@ runs:
     - name: Perform Conn Disrupt Test
       shell: bash
       run: |
-        TEST_ARG="no-interrupted-connections"
+        if [[ -n "${{ inputs.tests }}" ]]; then
+          TEST_ARG="${{ inputs.tests }}"
+        else
+          TEST_ARG="no-interrupted-connections"
+          EXTRA_ARG="--include-conn-disrupt-test"
+        fi
         if [[ "${{ inputs.full-test }}" == "true" ]]; then
           TEST_ARG=""
+          EXTRA_ARG="--include-conn-disrupt-test"
         fi
         ${{ inputs.cilium-cli }} connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-          --include-conn-disrupt-test \
           --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
           --conn-disrupt-test-xfrm-errors-path "./cilium-conn-disrupt-xfrm-errors" \
           --flush-ct \
@@ -38,4 +47,5 @@ runs:
           ${{ inputs.extra-connectivity-test-flags }} \
           --junit-property github_job_step="Run conn disrupt tests (${{ inputs.job-name }})" \
           --test "$TEST_ARG" \
-          --expected-xfrm-errors "+inbound_no_state"
+          --expected-xfrm-errors "+inbound_no_state" \
+          ${EXTRA_ARG}
