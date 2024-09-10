@@ -65,6 +65,10 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- with .Values.authentication.mutual.spire.install.agent.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - name: spire-config
               mountPath: /run/spire/config
