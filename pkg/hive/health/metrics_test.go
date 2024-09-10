@@ -20,9 +20,13 @@ import (
 )
 
 func Test_Metrics(t *testing.T) {
+	const degradedModuleID = "test"
+	const okModuleID = "test2"
+
 	var db *statedb.DB
 	var table statedb.Table[types.Status]
 	resChan := make(chan map[types.Level]uint64)
+	degradedModuleCount := make(chan map[string]uint64)
 	// Using upstream hive here to avoid import cycles and be able to inject the right metric
 	// publishing func for the test.
 	h := hive.New(
@@ -45,8 +49,9 @@ func Test_Metrics(t *testing.T) {
 			cell.Provide(newMetrics),
 			cell.Invoke(func(p metricPublisherParams) {
 				// Writes the updates to a chan to synchronise with the test.
-				publish := func(stats map[types.Level]uint64) {
+				publish := func(stats map[types.Level]uint64, idToStatus map[string]uint64) {
 					resChan <- stats
+					degradedModuleCount <- idToStatus
 				}
 
 				p.JobGroup.Add(job.OneShot("module-status-metrics",
@@ -62,14 +67,14 @@ func Test_Metrics(t *testing.T) {
 				txn := db_.WriteTxn(table_)
 				_, _, err := table_.Insert(txn, types.Status{
 					ID: types.Identifier{
-						Module: cell.FullModuleID{"test"},
+						Module: cell.FullModuleID{degradedModuleID},
 					},
 					Level: types.LevelDegraded,
 				})
 				assert.NoError(t, err)
 				_, _, err = table_.Insert(txn, types.Status{
 					ID: types.Identifier{
-						Module: cell.FullModuleID{"test2"},
+						Module: cell.FullModuleID{okModuleID},
 					},
 					Level: types.LevelOK,
 				})
@@ -91,6 +96,7 @@ func Test_Metrics(t *testing.T) {
 
 	// Metrics as they would be published
 	resMetrics := <-resChan
+	idToStatusMetrics := <-degradedModuleCount
 	it := table.All(db.ReadTxn())
 	ok, degraded, stopped := count(it)
 
@@ -99,6 +105,9 @@ func Test_Metrics(t *testing.T) {
 	assert.Equal(t, resMetrics[types.LevelDegraded], degraded)
 	assert.Equal(t, resMetrics[types.LevelDegraded], uint64(1))
 	assert.Equal(t, resMetrics[types.LevelStopped], stopped)
+
+	assert.Equal(t, idToStatusMetrics[degradedModuleID], degraded)
+	assert.Equal(t, idToStatusMetrics[okModuleID], uint64(0))
 }
 
 func count(it iter.Seq2[types.Status, statedb.Revision]) (ok uint64, degraded uint64, stopped uint64) {
