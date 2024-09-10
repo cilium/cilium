@@ -614,6 +614,13 @@ int cil_from_overlay(struct __ctx_buff *ctx)
  * non-IPSec mode.
  */
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
+#ifdef ENABLE_WIREGUARD
+	if (!decrypted)
+		return send_drop_notify_error_ext(ctx, src_sec_identity, 
+						  DROP_UNENCRYPTED_TRAFFIC,
+						  ext_err, CTX_ACT_DROP,
+						  METRIC_INGRESS);
+#endif
 
 	switch (proto) {
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
