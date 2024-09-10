@@ -125,9 +125,6 @@
                         "annotations": {
                           "type": "object"
                         },
-                        "resources": {
-                          "type": "object"
-                        },
                         "image": {
                           "properties": {
                             "digest": {
@@ -161,6 +158,9 @@
                           "type": "object"
                         },
                         "podSecurityContext": {
+                          "type": "object"
+                        },
+                        "resources": {
                           "type": "object"
                         },
                         "securityContext": {
@@ -286,9 +286,6 @@
                         "annotations": {
                           "type": "object"
                         },
-                        "resources": {
-                          "type": "object"
-                        },
                         "ca": {
                           "properties": {
                             "keyType": {
@@ -368,6 +365,9 @@
                           "type": "object"
                         },
                         "podSecurityContext": {
+                          "type": "object"
+                        },
+                        "resources": {
                           "type": "object"
                         },
                         "securityContext": {
