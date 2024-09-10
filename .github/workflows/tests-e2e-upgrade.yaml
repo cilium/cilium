@@ -343,6 +343,9 @@ jobs:
       - name: Provision LVH VMs
         uses: cilium/little-vm-helper@97c89f004bd0ab4caeacfe92ebc956e13e362e6b # v0.0.19
         with:
+          images-folder-parent: "/tmp"
+          # renovate: datasource=github-tags depName=cilium/little-vm-helper
+          lvh-version: "v0.0.19"
           test-name: ipsec-upgrade
           image-version: ${{ matrix.kernel }}
           host-mount: ./
