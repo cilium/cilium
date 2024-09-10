@@ -158,14 +158,13 @@ jobs:
             kernel: '6.1-20240710.064909'
             kube-proxy: 'none'
             kpr: 'true'
+            devices: '{eth0,eth1}'
             tunnel: 'vxlan'
             lb-mode: 'snat'
             egress-gateway: 'true'
             host-fw: 'true'
             lb-acceleration: 'testing-only'
-            # Disable until https://github.com/cilium/cilium/issues/30717
-            # has been resolved.
-            # ingress-controller: 'true'
+            ingress-controller: 'true'
             bgp-control-plane: 'true'
 
           - name: '7'
@@ -190,6 +189,7 @@ jobs:
             kpr: 'false'
             tunnel: 'geneve'
             endpoint-routes: 'true'
+            misc: 'socketLB.enabled=false,nodePort.enabled=true,bpf.masquerade=true'
 
           - name: '9'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -242,6 +242,14 @@ jobs:
             egress-gateway: 'true'
             ingress-controller: 'true'
 
+          - name: '13'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'rhel8-20240404.144247'
+            kube-proxy: 'iptables'
+            kpr: 'false'
+            tunnel: 'vxlan'
+            misc: 'policyCIDRMatchMode=nodes'
+
           - name: '14'
             # Switch to 5.15 until https://github.com/cilium/cilium/issues/27642
             # has been resolved. https://github.com/cilium/cilium/pull/30837#issuecomment-1960897445
@@ -257,6 +265,7 @@ jobs:
             lb-mode: 'snat'
             egress-gateway: 'true'
             lb-acceleration: 'testing-only'
+            ingress-controller: 'true'
 
           - name: '15'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -285,6 +294,7 @@ jobs:
             encryption-node: 'false'
             host-fw: 'true'
             ciliumendpointslice: 'true'
+            ingress-controller: 'true'
 
           - name: '17'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -296,6 +306,7 @@ jobs:
             tunnel: 'disabled'
             devices: '{eth0,eth1}'
             secondary-network: 'true'
+            ingress-controller: 'true'
 
           - name: '18'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -307,6 +318,7 @@ jobs:
             tunnel: 'disabled'
             devices: '{eth0,eth1}'
             secondary-network: 'true'
+            ingress-controller: 'true'
 
           - name: '19'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -317,6 +329,7 @@ jobs:
             tunnel: 'vxlan'
             devices: '{eth0,eth1}'
             secondary-network: 'true'
+            ingress-controller: 'true'
 
           - name: '20'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -327,6 +340,7 @@ jobs:
             tunnel: 'vxlan'
             devices: '{eth0,eth1}'
             secondary-network: 'true'
+            ingress-controller: 'true'
 
           - name: '21'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -337,6 +351,7 @@ jobs:
             tunnel: 'geneve'
             devices: '{eth0,eth1}'
             secondary-network: 'true'
+            ingress-controller: 'true'
 
           - name: '22'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -347,6 +362,7 @@ jobs:
             tunnel: 'geneve'
             devices: '{eth0,eth1}'
             secondary-network: 'true'
+            ingress-controller: 'true'
 
           # Example of a feature that is being introduced, and we want to test
           # it without performing an upgrade, we use skip-upgrade: 'true'
