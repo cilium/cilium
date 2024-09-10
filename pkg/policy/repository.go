@@ -112,8 +112,9 @@ type Repository struct {
 	// Mutex protects the whole policy tree
 	Mutex lock.RWMutex
 
-	rules           map[ruleKey]*rule
-	rulesByResource map[ipcachetypes.ResourceID]map[ruleKey]*rule
+	rules            map[ruleKey]*rule
+	rulesByNamespace map[string]map[ruleKey]struct{}
+	rulesByResource  map[ipcachetypes.ResourceID]map[ruleKey]*rule
 
 	// We will need a way to synthesize a rule key for rules without a resource;
 	// these are - in practice - very rare, as they only come from the local API,
@@ -200,11 +201,12 @@ func NewStoppedPolicyRepository(
 ) *Repository {
 	selectorCache := NewSelectorCache(initialIDs)
 	repo := &Repository{
-		rules:           make(map[ruleKey]*rule),
-		rulesByResource: make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
-		selectorCache:   selectorCache,
-		certManager:     certManager,
-		secretManager:   secretManager,
+		rules:            make(map[ruleKey]*rule),
+		rulesByNamespace: make(map[string]map[ruleKey]struct{}),
+		rulesByResource:  make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
+		selectorCache:    selectorCache,
+		certManager:      certManager,
+		secretManager:    secretManager,
 	}
 	repo.revision.Store(1)
 	repo.policyCache = NewPolicyCache(repo, idmgr)
@@ -451,6 +453,10 @@ func (p *Repository) ReplaceByResourceLocked(rules api.Rules, resource ipcachety
 
 func (p *Repository) insert(r *rule) {
 	p.rules[r.key] = r
+	if _, ok := p.rulesByNamespace[r.key.resource.Namespace()]; !ok {
+		p.rulesByNamespace[r.key.resource.Namespace()] = make(map[ruleKey]struct{})
+	}
+	p.rulesByNamespace[r.key.resource.Namespace()][r.key] = struct{}{}
 	rid := r.key.resource
 	if len(rid) > 0 {
 		if p.rulesByResource[rid] == nil {
@@ -467,6 +473,10 @@ func (p *Repository) del(key ruleKey) {
 		return
 	}
 	delete(p.rules, key)
+	delete(p.rulesByNamespace[key.resource.Namespace()], key)
+	if len(p.rulesByNamespace[key.resource.Namespace()]) == 0 {
+		delete(p.rulesByNamespace, key.resource.Namespace())
+	}
 
 	rid := key.resource
 	if len(rid) > 0 && p.rulesByResource[rid] != nil {
@@ -710,6 +720,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	lbls := securityIdentity.LabelArray
+
 	ingressCtx := SearchContext{
 		To:          lbls,
 		rulesSelect: true,
@@ -729,7 +740,6 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		repo: p,
 		ns:   lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
 	}
-
 	if ingressEnabled {
 		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&policyCtx, &ingressCtx)
 		if err != nil {
@@ -777,9 +787,21 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	}
 
 	matchingRules = []*rule{}
-	for _, r := range p.rules {
+	// Match cluster-wide rules
+	for rKey := range p.rulesByNamespace[""] {
+		r := p.rules[rKey]
 		if r.matchesSubject(securityIdentity) {
 			matchingRules = append(matchingRules, r)
+		}
+	}
+	// Match namespace-wide rules
+	namespace := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel)
+	if namespace != "" {
+		for rKey := range p.rulesByNamespace[namespace] {
+			r := p.rules[rKey]
+			if r.matchesSubject(securityIdentity) {
+				matchingRules = append(matchingRules, r)
+			}
 		}
 	}
 
