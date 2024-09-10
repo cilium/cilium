@@ -2639,7 +2639,7 @@ sigs.k8s.io/controller-runtime/pkg/webhook/admission
 sigs.k8s.io/controller-runtime/pkg/webhook/admission/metrics
 sigs.k8s.io/controller-runtime/pkg/webhook/conversion
 sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics
-# sigs.k8s.io/controller-tools v0.16.1 => github.com/cilium/controller-tools v0.16.1-1
+# sigs.k8s.io/controller-tools v0.16.3 => github.com/cilium/controller-tools v0.16.1-1
 ## explicit; go 1.22.0
 sigs.k8s.io/controller-tools/cmd/controller-gen
 sigs.k8s.io/controller-tools/pkg/crd
@@ -2655,7 +2655,7 @@ sigs.k8s.io/controller-tools/pkg/schemapatcher
 sigs.k8s.io/controller-tools/pkg/schemapatcher/internal/yaml
 sigs.k8s.io/controller-tools/pkg/version
 sigs.k8s.io/controller-tools/pkg/webhook
-# sigs.k8s.io/gateway-api v1.1.1-0.20240906002847-ff517b37b82e
+# sigs.k8s.io/gateway-api v1.2.0-rc1
 ## explicit; go 1.22.0
 sigs.k8s.io/gateway-api/apis/v1
 sigs.k8s.io/gateway-api/apis/v1alpha2

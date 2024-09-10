@@ -42,6 +42,7 @@ var UDPRouteTest = suite.ConformanceTest{
 		features.SupportUDPRoute,
 		features.SupportGateway,
 	},
+	Provisional: true,
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		t.Run("Simple UDP request matching UDPRoute should reach coredns backend", func(t *testing.T) {
 			namespace := "gateway-conformance-infra"
