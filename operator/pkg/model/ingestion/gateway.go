@@ -539,7 +539,7 @@ func toPathMatch(match gatewayv1.HTTPRouteMatch) model.StringMatch {
 }
 
 func toGRPCPathMatch(match gatewayv1alpha2.GRPCRouteMatch) model.StringMatch {
-	if match.Method == nil || match.Method.Service == nil {
+	if match.Method == nil {
 		return model.StringMatch{}
 	}
 
@@ -547,24 +547,40 @@ func toGRPCPathMatch(match gatewayv1alpha2.GRPCRouteMatch) model.StringMatch {
 	if match.Method.Type != nil {
 		t = *match.Method.Type
 	}
-
-	path := ""
-	if match.Method.Service != nil {
-		path = path + "/" + *match.Method.Service
-	}
-
-	if match.Method.Method != nil {
-		path = path + "/" + *match.Method.Method
-	}
-
 	switch t {
 	case gatewayv1alpha2.GRPCMethodMatchExact:
-		return model.StringMatch{
-			Exact: path,
+		if match.Method.Service != nil && match.Method.Method != nil {
+			return model.StringMatch{
+				Exact: "/" + *match.Method.Service + "/" + *match.Method.Method,
+			}
+		} else if match.Method.Service != nil {
+			return model.StringMatch{
+				Prefix: "/" + *match.Method.Service + "/",
+			}
+		} else if match.Method.Method != nil {
+			return model.StringMatch{
+				Regex: "/.+/" + *match.Method.Method,
+			}
+		} else {
+			// This case is not allowed by the spec
 		}
 	case gatewayv1alpha2.GRPCMethodMatchRegularExpression:
-		return model.StringMatch{
-			Regex: path,
+		if match.Method.Service != nil && match.Method.Method != nil {
+			return model.StringMatch{
+				Regex: "/" + *match.Method.Service + "/" + *match.Method.Method,
+			}
+		} else if match.Method.Service != nil {
+			return model.StringMatch{
+				Regex: "/" + *match.Method.Service + "/.+",
+			}
+		} else if match.Method.Method != nil {
+			return model.StringMatch{
+				Regex: "/.+/" + *match.Method.Method,
+			}
+		} else {
+			return model.StringMatch{
+				Prefix: "/",
+			}
 		}
 	}
 	return model.StringMatch{}

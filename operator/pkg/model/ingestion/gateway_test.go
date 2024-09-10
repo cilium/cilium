@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
@@ -2292,6 +2293,98 @@ func TestGRPCGatewayAPI(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			listeners, _ := GatewayAPI(tc.input)
 			assert.Equal(t, tc.want, listeners, "Listeners did not match")
+		})
+	}
+}
+
+func TestGPRCPathMatch(t *testing.T) {
+	tests := map[string]struct {
+		input gatewayv1alpha2.GRPCRouteMatch
+		want  model.StringMatch
+	}{
+		"exact with service and method specified": {
+			input: gatewayv1alpha2.GRPCRouteMatch{
+				Method: &gatewayv1alpha2.GRPCMethodMatch{
+					Type:    ptr.To(gatewayv1alpha2.GRPCMethodMatchExact),
+					Service: ptr.To("service"),
+					Method:  ptr.To("method"),
+				},
+			},
+			want: model.StringMatch{
+				Exact: "/service/method",
+			},
+		},
+		"exact with only service specified": {
+			input: gatewayv1alpha2.GRPCRouteMatch{
+				Method: &gatewayv1alpha2.GRPCMethodMatch{
+					Type:    ptr.To(gatewayv1alpha2.GRPCMethodMatchExact),
+					Service: ptr.To("service"),
+				},
+			},
+			want: model.StringMatch{
+				Prefix: "/service/",
+			},
+		},
+		"exact with only method specified": {
+			input: gatewayv1alpha2.GRPCRouteMatch{
+				Method: &gatewayv1alpha2.GRPCMethodMatch{
+					Type:   ptr.To(gatewayv1alpha2.GRPCMethodMatchExact),
+					Method: ptr.To("service"),
+				},
+			},
+			want: model.StringMatch{
+				Regex: "/.+/method",
+			},
+		},
+		"regex with service and method specified": {
+			input: gatewayv1alpha2.GRPCRouteMatch{
+				Method: &gatewayv1alpha2.GRPCMethodMatch{
+					Type:    ptr.To(gatewayv1alpha2.GRPCMethodMatchRegularExpression),
+					Service: ptr.To("service"),
+					Method:  ptr.To("method"),
+				},
+			},
+			want: model.StringMatch{
+				Regex: "/service/method",
+			},
+		},
+		"regex with only service specified": {
+			input: gatewayv1alpha2.GRPCRouteMatch{
+				Method: &gatewayv1alpha2.GRPCMethodMatch{
+					Type:    ptr.To(gatewayv1alpha2.GRPCMethodMatchRegularExpression),
+					Service: ptr.To("service"),
+				},
+			},
+			want: model.StringMatch{
+				Regex: "/service/.+",
+			},
+		},
+		"regex with only method specified": {
+			input: gatewayv1alpha2.GRPCRouteMatch{
+				Method: &gatewayv1alpha2.GRPCMethodMatch{
+					Type:   ptr.To(gatewayv1alpha2.GRPCMethodMatchRegularExpression),
+					Method: ptr.To("service"),
+				},
+			},
+			want: model.StringMatch{
+				Regex: "/.+/method",
+			},
+		},
+		"regex with neither service nor method specified": {
+			input: gatewayv1alpha2.GRPCRouteMatch{
+				Method: &gatewayv1alpha2.GRPCMethodMatch{
+					Type: ptr.To(gatewayv1alpha2.GRPCMethodMatchRegularExpression),
+				},
+			},
+			want: model.StringMatch{
+				Prefix: "/",
+			},
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			match := toGRPCPathMatch(tc.input)
+			assert.Equal(t, tc.want, match, "GPRC path match was not equal")
 		})
 	}
 }
