@@ -581,7 +581,7 @@ func showAddresses(addrs []NodeAddress) string {
 			ss = append(ss, addr.Addr.String())
 		}
 	}
-	sort.Strings(ss)
+	slices.Sort(ss)
 	return strings.Join(ss, ", ")
 }
 

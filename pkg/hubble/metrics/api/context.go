@@ -6,7 +6,6 @@ package api
 import (
 	"fmt"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -549,7 +548,7 @@ func (o *ContextOptions) Status() string {
 		status = append(status, "destination="+o.Destination.String())
 	}
 
-	sort.Strings(status)
+	slices.Sort(status)
 
 	return strings.Join(status, ",")
 }

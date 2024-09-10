@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"net"
 	"path"
-	"sort"
+	"slices"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
@@ -473,7 +473,7 @@ func getEndpointIdentity(mdlIdentity *models.Identity) (identity *ciliumv2.Endpo
 
 	identity.Labels = make([]string, len(mdlIdentity.Labels))
 	copy(identity.Labels, mdlIdentity.Labels)
-	sort.Strings(identity.Labels)
+	slices.Sort(identity.Labels)
 	log.Infof("Got Endpoint Identity: %v", *identity)
 	return
 }

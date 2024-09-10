@@ -4,7 +4,7 @@
 package maps
 
 import (
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -193,10 +193,10 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 				err := sweeper.walk(path, nil, nil)
 				require.Nil(t, err)
 			}
-			sort.Strings(tt.removedPaths)
-			sort.Strings(testEPManager.removedPaths)
-			sort.Ints(tt.removedMappings)
-			sort.Ints(testEPManager.removedMappings)
+			slices.Sort(tt.removedPaths)
+			slices.Sort(testEPManager.removedPaths)
+			slices.Sort(tt.removedMappings)
+			slices.Sort(testEPManager.removedMappings)
 			require.EqualValues(t, tt.removedPaths, testEPManager.removedPaths)
 		})
 	}

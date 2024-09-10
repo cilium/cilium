@@ -143,7 +143,7 @@ func TestNewListener(t *testing.T) {
 		})
 		secretNames = append(secretNames, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].GetName())
 
-		sort.Strings(secretNames)
+		slices.Sort(secretNames)
 		require.Equal(t, "dummy-secret-namespace/dummy-namespace-dummy-secret-1", secretNames[0])
 		require.Equal(t, "dummy-secret-namespace/dummy-namespace-dummy-secret-2", secretNames[1])
 	})

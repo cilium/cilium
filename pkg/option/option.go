@@ -6,7 +6,7 @@ package option
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -374,7 +374,7 @@ func (o *IntOptions) GetFmtList() string {
 	for k := range o.opts {
 		opts = append(opts, k)
 	}
-	sort.Strings(opts)
+	slices.Sort(opts)
 
 	for _, k := range opts {
 		def := o.getFmtOpt(k)
@@ -397,7 +397,7 @@ func (o *IntOptions) Dump() {
 	for k := range o.opts {
 		opts = append(opts, k)
 	}
-	sort.Strings(opts)
+	slices.Sort(opts)
 
 	for _, k := range opts {
 		var text string

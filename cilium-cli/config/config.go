@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sort"
+	"slices"
 	"text/tabwriter"
 
 	corev1 "k8s.io/api/core/v1"
@@ -86,7 +86,7 @@ func (k *K8sConfig) View(ctx context.Context) (string, error) {
 	for k := range cm.Data {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 
 	for _, key := range keys {
 		fmt.Fprintf(w, "%s\t%s\n", key, cm.Data[key])

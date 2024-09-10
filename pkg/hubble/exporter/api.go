@@ -5,7 +5,7 @@ package exporter
 
 import (
 	"reflect"
-	"sort"
+	"slices"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
@@ -81,8 +81,8 @@ func (f FlowFilters) equals(other FlowFilters) bool {
 }
 
 func (f FieldMask) equals(other FieldMask) bool {
-	sort.Strings(f)
-	sort.Strings(other)
+	slices.Sort(f)
+	slices.Sort(other)
 	return reflect.DeepEqual(f, other)
 }
 

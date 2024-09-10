@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"net/netip"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -291,8 +292,8 @@ func (r *RoutePolicyReconciler) pathAttributesToPolicy(attrs v2alpha1api.CiliumB
 			return nil, err
 		}
 		largeCommunities = dedupLargeCommunities(attrs.Communities.Large)
-		sort.Strings(communities)
-		sort.Strings(largeCommunities)
+		slices.Sort(communities)
+		slices.Sort(largeCommunities)
 	}
 
 	// Due to a GoBGP limitation, we need to generate a separate statement for v4 and v6 prefixes, as families
