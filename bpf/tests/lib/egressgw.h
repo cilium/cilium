@@ -12,6 +12,7 @@
 
 #define EGRESS_IP		IPV4(1, 2, 3, 4)
 #define EGRESS_IP2		IPV4(2, 3, 4, 5)
+#define EGRESS_IP3		IPV4(3, 3, 4, 5)
 
 static volatile const __u8 *client_mac  = mac_one;
 static volatile const __u8 *gateway_mac = mac_two;
@@ -20,19 +21,21 @@ static volatile const __u8 *ext_svc_mac = mac_three;
 enum egressgw_test {
 	TEST_SNAT1                    = 0,
 	TEST_SNAT2                    = 1,
-	TEST_SNAT_EXCL_CIDR           = 2,
-	TEST_REDIRECT                 = 3,
-	TEST_REDIRECT_EXCL_CIDR       = 4,
-	TEST_REDIRECT_SKIP_NO_GATEWAY = 5,
-	TEST_XDP_REPLY                = 6,
-	TEST_FIB                      = 7,
-	TEST_DROP_NO_EGRESS_IP        = 8,
+	TEST_SNAT_TUPLE_COLLISION     = 2,
+	TEST_SNAT_EXCL_CIDR           = 3,
+	TEST_REDIRECT                 = 4,
+	TEST_REDIRECT_EXCL_CIDR       = 5,
+	TEST_REDIRECT_SKIP_NO_GATEWAY = 6,
+	TEST_XDP_REPLY                = 7,
+	TEST_FIB                      = 8,
+	TEST_DROP_NO_EGRESS_IP        = 9,
 };
 
 struct egressgw_test_ctx {
 	__u16 test;
 	enum ct_dir dir;
 	bool redirect;
+	bool tuple_collision;
 	__u64 packets;
 	__u32 status_code;
 };
@@ -101,7 +104,11 @@ static __always_inline int egressgw_pktgen(struct __ctx_buff *ctx,
 
 	if (test_ctx.dir == CT_INGRESS) {
 		l3->saddr = EXTERNAL_SVC_IP;
-		l3->daddr = EGRESS_IP;
+		if (test_ctx.tuple_collision) {
+			l3->daddr = EGRESS_IP3;
+		} else {
+			l3->daddr = EGRESS_IP;
+		}
 	} else { /* CT_EGRESS */
 		l3->saddr = CLIENT_IP;
 		l3->daddr = EXTERNAL_SVC_IP;
@@ -149,6 +156,7 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx,
 	struct tcphdr *l4;
 	struct ethhdr *l2;
 	struct iphdr *l3;
+	__be32 expected_saddr;
 
 	test_init();
 
@@ -201,7 +209,11 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx,
 			if (memcmp(l2->h_dest, (__u8 *)ext_svc_mac, ETH_ALEN) != 0)
 				test_fatal("dst MAC is not the external svc MAC")
 
-			if (l3->saddr != EGRESS_IP)
+			expected_saddr = EGRESS_IP;
+			if (test_ctx.tuple_collision)
+				expected_saddr = EGRESS_IP3;
+
+			if (l3->saddr != expected_saddr)
 				test_fatal("src IP hasn't been NATed to egress gateway IP");
 		}
 
