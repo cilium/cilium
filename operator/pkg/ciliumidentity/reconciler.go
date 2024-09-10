@@ -225,12 +225,13 @@ func (r *reconciler) updateCID(cid *cilium_api_v2.CiliumIdentity, cidKey *key.Gl
 	selectedLabels, skippedLabels := identitybackend.SanitizeK8sLabels(cidLabels)
 	r.logger.Debug("Skipped non-kubernetes labels when labelling CID. All labels will still be used in identity determination", logfields.Labels, skippedLabels)
 
-	cid.Labels = selectedLabels
-	cid.SecurityLabels = cidLabels
+	updatedId := cid.DeepCopy()
+	updatedId.Labels = selectedLabels
+	updatedId.SecurityLabels = cidLabels
 
-	r.logger.Info("Updating CID", logfields.CIDName, cid.Name)
+	r.logger.Info("Updating CID", logfields.CIDName, updatedId.Name)
 
-	_, err := r.clientset.CiliumV2().CiliumIdentities().Update(r.ctx, cid, metav1.UpdateOptions{})
+	_, err := r.clientset.CiliumV2().CiliumIdentities().Update(r.ctx, updatedId, metav1.UpdateOptions{})
 	return err
 }
 
