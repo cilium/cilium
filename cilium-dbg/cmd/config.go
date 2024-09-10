@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -144,7 +144,7 @@ func dumpReadOnlyConfigs(cfgStatus *models.DaemonConfigurationStatus) {
 	for k := range cfgStatus.DaemonConfigurationMap {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	for _, k := range keys {
 		v := cfgStatus.DaemonConfigurationMap[k]
 		if reflect.ValueOf(v).Kind() == reflect.Map {

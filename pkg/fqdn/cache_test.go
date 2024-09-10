@@ -9,7 +9,7 @@ import (
 	"math/rand/v2"
 	"net/netip"
 	"regexp"
-	"sort"
+	"slices"
 	"testing"
 	"time"
 
@@ -614,8 +614,8 @@ func assertZombiesContain(t *testing.T, zombies []*DNSZombieMapping, expected ma
 		names, exists := expected[zombie.IP.String()]
 		require.Truef(t, exists, "Unexpected zombie %s in zombies", zombie.IP.String())
 
-		sort.Strings(zombie.Names)
-		sort.Strings(names)
+		slices.Sort(zombie.Names)
+		slices.Sort(names)
 
 		require.Len(t, zombie.Names, len(names))
 		for i := range zombie.Names {

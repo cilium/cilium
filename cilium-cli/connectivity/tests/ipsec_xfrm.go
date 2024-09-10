@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
@@ -89,7 +88,7 @@ func (n *noIPsecXfrmErrors) collectXfrmErrors(ctx context.Context, t *check.Test
 			if xfrmMetric.Value > 0 {
 				xErrors = append(xErrors, fmt.Sprintf("%s:%d", name, xfrmMetric.Value))
 			}
-			sort.Strings(xErrors)
+			slices.Sort(xErrors)
 			xfrmErrors[pod.Pod.Status.HostIP] = strings.Join(xErrors, ",")
 		}
 

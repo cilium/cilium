@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"sort"
+	"slices"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -330,7 +330,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 	if sr.Kubernetes != nil {
 		fmt.Fprintf(w, "Kubernetes:\t%s\t%s\n", sr.Kubernetes.State, sr.Kubernetes.Msg)
 		if sr.Kubernetes.State != models.K8sStatusStateDisabled {
-			sort.Strings(sr.Kubernetes.K8sAPIVersions)
+			slices.Sort(sr.Kubernetes.K8sAPIVersions)
 			fmt.Fprintf(w, "Kubernetes APIs:\t[\"%s\"]\n", strings.Join(sr.Kubernetes.K8sAPIVersions, "\", \""))
 		}
 
@@ -393,7 +393,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		for probe := range sr.Stale {
 			sortedProbes = append(sortedProbes, probe)
 		}
-		sort.Strings(sortedProbes)
+		slices.Sort(sortedProbes)
 
 		stalesStr := make([]string, 0, len(sr.Stale))
 		for _, probe := range sortedProbes {
@@ -428,7 +428,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			for ip, owner := range sr.Ipam.Allocations {
 				out = append(out, fmt.Sprintf("  %s (%s)", ip, owner))
 			}
-			sort.Strings(out)
+			slices.Sort(out)
 			for _, line := range out {
 				fmt.Fprintln(w, line)
 			}
@@ -598,7 +598,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "Controller Status:\t%d/%d healthy\n", nOK, len(sr.Controllers))
 		if len(out) > 1 {
 			tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
-			sort.Strings(out)
+			slices.Sort(out)
 			for _, s := range out {
 				fmt.Fprint(tab, s)
 			}
@@ -617,7 +617,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			}
 			tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 			fmt.Fprint(tab, "  Protocol\tRedirect\tProxy Port\n")
-			sort.Strings(out)
+			slices.Sort(out)
 			for _, s := range out {
 				fmt.Fprint(tab, s)
 			}

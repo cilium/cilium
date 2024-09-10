@@ -14,7 +14,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 
@@ -253,7 +253,7 @@ func TestVerifier(t *testing.T) {
 					for n := range coll.Programs {
 						names = append(names, n)
 					}
-					sort.Strings(names)
+					slices.Sort(names)
 					for _, n := range names {
 						p := coll.Programs[n]
 						p.VerifierLog = strings.TrimRight(p.VerifierLog, "\n")

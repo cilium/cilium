@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -1464,7 +1463,7 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser
 		for sni := range l7Rules.ServerNames {
 			r.ServerNames = append(r.ServerNames, sni)
 		}
-		sort.Strings(r.ServerNames)
+		slices.Sort(r.ServerNames)
 	}
 
 	// Assume none of the rules have side-effects so that rule evaluation can

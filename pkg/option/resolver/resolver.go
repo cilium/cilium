@@ -11,7 +11,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -332,7 +332,7 @@ func readNodeConfigs(ctx context.Context, client client.Clientset, nodeName, nam
 	}
 
 	// Within overrides, lexicograpical ordering determines priority.
-	sort.Strings(matchingNames)
+	slices.Sort(matchingNames)
 
 	out := make(map[string]string)
 	for _, name := range matchingNames {
@@ -427,7 +427,7 @@ func readNodeConfigsv2alpha1(ctx context.Context, client client.Clientset, nodeN
 	}
 
 	// Within overrides, lexicograpical ordering determines priority.
-	sort.Strings(matchingNames)
+	slices.Sort(matchingNames)
 
 	out := make(map[string]string)
 	for _, name := range matchingNames {

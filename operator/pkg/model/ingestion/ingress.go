@@ -4,7 +4,7 @@
 package ingestion
 
 import (
-	"sort"
+	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -380,7 +380,7 @@ func appendValuesInKeyOrder[T model.HTTPListener | model.TLSPassthroughListener]
 		keys = append(keys, key)
 	}
 
-	sort.Strings(keys)
+	slices.Sort(keys)
 	for _, key := range keys {
 		appendSlice = append(appendSlice, listenerMap[key])
 	}

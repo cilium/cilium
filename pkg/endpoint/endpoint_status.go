@@ -4,7 +4,7 @@
 package endpoint
 
 import (
-	"sort"
+	"slices"
 
 	"github.com/cilium/cilium/api/v1/models"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
@@ -22,7 +22,7 @@ func getEndpointIdentity(mdlIdentity *models.Identity) (identity *cilium_v2.Endp
 
 	identity.Labels = make([]string, len(mdlIdentity.Labels))
 	copy(identity.Labels, mdlIdentity.Labels)
-	sort.Strings(identity.Labels)
+	slices.Sort(identity.Labels)
 	return
 }
 

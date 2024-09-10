@@ -6,7 +6,7 @@ package model
 import (
 	"crypto/sha256"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -77,7 +77,7 @@ func ComputeHosts(routeHostnames []string, listenerHostname *string, otherListen
 		}
 	}
 
-	sort.Strings(hostnames)
+	slices.Sort(hostnames)
 	return hostnames
 }
 

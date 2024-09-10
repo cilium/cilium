@@ -17,7 +17,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -1408,7 +1408,7 @@ func BindEnvWithLegacyEnvFallback(vp *viper.Viper, optName, legacyEnvName string
 // LogRegisteredOptions logs all options that where bound to viper.
 func LogRegisteredOptions(vp *viper.Viper, entry *logrus.Entry) {
 	keys := vp.AllKeys()
-	sort.Strings(keys)
+	slices.Sort(keys)
 	for _, k := range keys {
 		ss := vp.GetStringSlice(k)
 		if len(ss) == 0 {

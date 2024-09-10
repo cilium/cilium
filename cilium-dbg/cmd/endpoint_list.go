@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"text/tabwriter"
 
@@ -93,7 +94,7 @@ func endpointLabels(ep *models.Endpoint) []string {
 	}
 
 	lbls := ep.Status.Labels.SecurityRelevant
-	sort.Strings(lbls)
+	slices.Sort(lbls)
 	return lbls
 }
 

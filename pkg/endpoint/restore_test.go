@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"testing"
 
@@ -256,10 +257,10 @@ func TestPartitionEPDirNamesByRestoreStatus(t *testing.T) {
 
 	complete, incomplete := partitionEPDirNamesByRestoreStatus(eptsDirNames)
 
-	sort.Strings(complete)
-	sort.Strings(completeWanted)
-	sort.Strings(incomplete)
-	sort.Strings(incompleteWanted)
+	slices.Sort(complete)
+	slices.Sort(completeWanted)
+	slices.Sort(incomplete)
+	slices.Sort(incompleteWanted)
 	require.EqualValues(t, completeWanted, complete)
 	require.EqualValues(t, incompleteWanted, incomplete)
 }

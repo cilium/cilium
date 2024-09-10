@@ -8,7 +8,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"runtime"
-	"sort"
+	"slices"
 
 	"github.com/cilium/workerpool"
 	"github.com/mackerelio/go-osstat/memory"
@@ -146,7 +146,7 @@ func GetLookupTable(backendsMap map[string]*loadbalancer.Backend, m uint64) []in
 		weightCntr[name] = float64(b.Weight) / float64(l)
 	}
 
-	sort.Strings(backends)
+	slices.Sort(backends)
 
 	perm := getPermutation(backends, m, runtime.NumCPU())
 	next := make([]int, len(backends))

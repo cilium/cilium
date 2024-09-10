@@ -5,7 +5,7 @@ package api
 
 import (
 	"encoding/json"
-	"sort"
+	"slices"
 	"testing"
 	"time"
 
@@ -35,8 +35,8 @@ func testEqualityEndpoint(got, expected string, t *testing.T) {
 	err = json.Unmarshal([]byte(expected), expectedStruct)
 	require.Nil(t, err)
 
-	sort.Strings(gotStruct.Labels)
-	sort.Strings(expectedStruct.Labels)
+	slices.Sort(gotStruct.Labels)
+	slices.Sort(expectedStruct.Labels)
 	require.EqualValues(t, expectedStruct, gotStruct)
 }
 

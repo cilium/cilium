@@ -6,7 +6,7 @@ package seven
 import (
 	"fmt"
 	"net/netip"
-	"sort"
+	"slices"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/sirupsen/logrus"
@@ -324,7 +324,7 @@ func decodeLayer4(protocol accesslog.TransportProtocol, source, destination acce
 
 func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName string) *flowpb.Endpoint {
 	labels := endpoint.Labels.GetModel()
-	sort.Strings(labels)
+	slices.Sort(labels)
 	return &flowpb.Endpoint{
 		ID:        uint32(endpoint.ID),
 		Identity:  uint32(endpoint.Identity),
