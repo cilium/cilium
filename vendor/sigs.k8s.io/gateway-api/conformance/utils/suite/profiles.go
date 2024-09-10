@@ -126,7 +126,7 @@ var (
 	// MeshGRPCConformanceProfile is a ConformanceProfile that covers testing GRPC
 	// service mesh related functionality.
 	MeshGRPCConformanceProfile = ConformanceProfile{
-		Name: MeshHTTPConformanceProfileName,
+		Name: MeshGRPCConformanceProfileName,
 		CoreFeatures: sets.New(
 			features.SupportMesh,
 			features.SupportGRPCRoute,
