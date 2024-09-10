@@ -15,6 +15,7 @@ import (
 	ciliumdns "github.com/cilium/dns"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -91,6 +92,9 @@ func (*dummyInfoRegistry) FillEndpointInfo(ctx context.Context, info *accesslog.
 type dummySelectorCacheUser struct{}
 
 func (d *dummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, added, deleted []identity.NumericIdentity) {
+}
+
+func (d *dummySelectorCacheUser) IdentitySelectionCommit(*versioned.Tx) {
 }
 
 // BenchmarkNotifyOnDNSMsg stresses the main callback function for the DNS

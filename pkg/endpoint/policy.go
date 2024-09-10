@@ -53,7 +53,6 @@ func (e *Endpoint) HasBPFPolicyMap() bool {
 }
 
 // GetNamedPort returns the port for the given name.
-// Must be called with e.mutex NOT held
 func (e *Endpoint) GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16 {
 	if ingress {
 		// Ingress only needs the ports of the POD itself
@@ -139,6 +138,12 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 	// If desired policy is nil then no policy change is needed.
 	if e.desiredPolicy == nil {
 		return nil, nil
+	}
+
+	// Need a valid handle to be able to update the network policy, get one if needed
+	if !e.desiredPolicy.VersionHandle.IsValid() {
+		e.desiredPolicy.VersionHandle = e.desiredPolicy.SelectorCache.GetVersionHandle()
+		defer e.desiredPolicy.Ready()
 	}
 
 	if e.IsProxyDisabled() {

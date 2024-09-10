@@ -1161,7 +1161,12 @@ func (d *Daemon) GetDNSRules(epID uint16) restore.DNSRules {
 		return nil
 	}
 
-	rules, err := proxy.DefaultDNSProxy.GetRules(epID)
+	// We get the latest consistent view on the DNS rules by getting handle to the latest
+	// coherent state of the selector cache
+	version := d.policy.GetSelectorCache().GetVersionHandle()
+	rules, err := proxy.DefaultDNSProxy.GetRules(version, epID)
+	version.Close()
+
 	if err != nil {
 		log.WithField(logfields.EndpointID, epID).WithError(err).Error("Could not get DNS rules")
 		return nil
