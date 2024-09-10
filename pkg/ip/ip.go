@@ -755,8 +755,8 @@ func PartitionCIDR(targetCIDR net.IPNet, excludeCIDR net.IPNet) ([]*net.IPNet, [
 func KeepUniqueAddrs(addrs []netip.Addr) []netip.Addr {
 	return slices.SortedUniqueFunc(
 		addrs,
-		func(i, j int) bool {
-			return addrs[i].Compare(addrs[j]) < 0
+		func(a, b netip.Addr) int {
+			return a.Compare(b)
 		},
 		func(a, b netip.Addr) bool {
 			return a == b

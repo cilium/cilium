@@ -4,6 +4,7 @@
 package slices
 
 import (
+	"cmp"
 	"fmt"
 	"math"
 	"math/rand/v2"
@@ -92,9 +93,7 @@ func TestSortedUniqueFunc(t *testing.T) {
 			input := slices.Clone(tc.input)
 			got := SortedUniqueFunc(
 				input,
-				func(i, j int) bool {
-					return input[i] < input[j]
-				},
+				cmp.Compare,
 				func(a, b int) bool {
 					return a == b
 				},
