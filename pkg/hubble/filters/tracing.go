@@ -5,6 +5,7 @@ package filters
 
 import (
 	"context"
+	"slices"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
@@ -12,13 +13,7 @@ import (
 
 func filterByTraceID(tids []string) FilterFunc {
 	return func(ev *v1.Event) bool {
-		traceID := ev.GetFlow().GetTraceContext().GetParent().GetTraceId()
-		for _, tid := range tids {
-			if tid == traceID {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(tids, ev.GetFlow().GetTraceContext().GetParent().GetTraceId())
 	}
 }
 

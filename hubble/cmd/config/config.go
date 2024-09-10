@@ -4,6 +4,8 @@
 package config
 
 import (
+	"slices"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -52,10 +54,5 @@ HUBBLE_TLS_ALLOW_INSECURE and so on.`,
 }
 
 func isKey(vp *viper.Viper, key string) bool {
-	for _, k := range vp.AllKeys() {
-		if key == k {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(vp.AllKeys(), key)
 }

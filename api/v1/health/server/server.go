@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -294,12 +295,7 @@ func (s *Server) hasScheme(scheme string) bool {
 		schemes = defaultSchemes
 	}
 
-	for _, v := range schemes {
-		if v == scheme {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(schemes, scheme)
 }
 
 func (s *Server) Serve() error {

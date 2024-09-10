@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -21,13 +22,9 @@ func httpMatchCompatibleEventFilter(types []*flowpb.EventTypeFilter) bool {
 		return true
 	}
 
-	for _, t := range types {
-		if t.GetType() == api.MessageTypeAccessLog {
-			return true
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(types, func(t *flowpb.EventTypeFilter) bool {
+		return t.GetType() == api.MessageTypeAccessLog
+	})
 }
 
 var (
@@ -57,18 +54,12 @@ func filterByHTTPStatusCode(statusCodePrefixes []string) (FilterFunc, error) {
 
 		// Check for both full matches or prefix matches
 		httpStatusCode := fmt.Sprintf("%03d", http.Code)
-		for _, f := range full {
-			if httpStatusCode == f {
-				return true
-			}
+		if slices.Contains(full, httpStatusCode) {
+			return true
 		}
-		for _, p := range prefix {
-			if strings.HasPrefix(httpStatusCode, p) {
-				return true
-			}
-		}
-
-		return false
+		return slices.ContainsFunc(prefix, func(p string) bool {
+			return strings.HasPrefix(httpStatusCode, p)
+		})
 	}, nil
 }
 
@@ -81,13 +72,9 @@ func filterByHTTPMethods(methods []string) (FilterFunc, error) {
 			return false
 		}
 
-		for _, method := range methods {
-			if strings.EqualFold(http.Method, method) {
-				return true
-			}
-		}
-
-		return false
+		return slices.ContainsFunc(methods, func(method string) bool {
+			return strings.EqualFold(http.Method, method)
+		})
 	}, nil
 }
 
@@ -108,13 +95,9 @@ func filterByHTTPUrls(urlRegexpStrs []string) (FilterFunc, error) {
 			return false
 		}
 
-		for _, urlRegexp := range urlRegexps {
-			if urlRegexp.MatchString(http.Url) {
-				return true
-			}
-		}
-
-		return false
+		return slices.ContainsFunc(urlRegexps, func(urlRegexp *regexp.Regexp) bool {
+			return urlRegexp.MatchString(http.Url)
+		})
 	}, nil
 }
 
@@ -128,10 +111,10 @@ func filterByHTTPHeaders(headers []*flowpb.HTTPHeader) (FilterFunc, error) {
 		}
 
 		for _, httpHeader := range http.GetHeaders() {
-			for _, header := range headers {
-				if header.Key == httpHeader.Key && header.Value == httpHeader.Value {
-					return true
-				}
+			if slices.ContainsFunc(headers, func(header *flowpb.HTTPHeader) bool {
+				return header.Key == httpHeader.Key && header.Value == httpHeader.Value
+			}) {
+				return true
 			}
 		}
 
@@ -162,13 +145,9 @@ func filterByHTTPPaths(pathRegexpStrs []string) (FilterFunc, error) {
 			// do.
 			return false
 		}
-		for _, pathRegexp := range pathRegexps {
-			if pathRegexp.MatchString(uri.Path) {
-				return true
-			}
-		}
-
-		return false
+		return slices.ContainsFunc(pathRegexps, func(pathRegexp *regexp.Regexp) bool {
+			return pathRegexp.MatchString(uri.Path)
+		})
 	}, nil
 }
 

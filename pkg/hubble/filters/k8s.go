@@ -6,6 +6,7 @@ package filters
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -50,13 +51,9 @@ func filterByNamespacedName(names []string, getName func(*v1.Event) (ns, name st
 			return false
 		}
 
-		for _, f := range nameFilters {
-			if (f.prefix == "" || strings.HasPrefix(eventName, f.prefix)) && (f.ns == "" || f.ns == eventNs) {
-				return true
-			}
-		}
-
-		return false
+		return slices.ContainsFunc(nameFilters, func(f nameFilter) bool {
+			return (f.prefix == "" || strings.HasPrefix(eventName, f.prefix)) && (f.ns == "" || f.ns == eventNs)
+		})
 	}, nil
 }
 

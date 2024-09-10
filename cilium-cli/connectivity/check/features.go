@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/blang/semver/v4"
@@ -93,13 +94,10 @@ func (ct *ConnectivityTest) extractFeaturesFromClusterRole(ctx context.Context, 
 
 func canAccessK8sResourceSecret(cr *rbacv1.ClusterRole) bool {
 	for _, rule := range cr.Rules {
-		for _, resource := range rule.Resources {
-			if resource == "secrets" {
-				return true
-			}
+		if slices.Contains(rule.Resources, "secrets") {
+			return true
 		}
 	}
-
 	return false
 }
 
