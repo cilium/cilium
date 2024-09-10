@@ -418,7 +418,13 @@ Minor version
    - ``Documentation/network/kubernetes/compatibility.rst``
    - ``Documentation/network/kubernetes/requirements.rst``
 
-#. Update the Kubernetes version with the newer version in``test/test_suite_test.go``.
+#. Update the Kubernetes version with the newer version in
+   - ``test/test_suite_test.go``.
+   - ``.github/actions/ginkgo/main-prs.yaml``
+   - ``.github/actions/ginkgo/main-scheduled.yaml``
+   - ``.github/actions/set-env-variables/action.yml``
+   - ``contrib/scripts/devcontainer-setup.sh``
+   - ``.github/actions/ginkgo/main-focus.yaml``
 
 #. Add the new coredns files specific for the Kubernetes version,
    for ``1.19`` is ``test/provision/manifest/1.19``. The coredns deployment
