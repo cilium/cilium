@@ -122,12 +122,12 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 	if !params.DaemonConfig.EnableL2Announcements {
 		// If the L2 announcement feature is disabled, garbage collect any leases from previous runs when the feature
 		// might have been active. Just once, not on a timer.
-		announcer.params.JobGroup.Add(job.OneShot("l2-announcer lease-gc", announcer.leaseGC))
+		announcer.params.JobGroup.Add(job.OneShot("l2-announcer-lease-gc", announcer.leaseGC))
 		return announcer
 	}
 
-	announcer.params.JobGroup.Add(job.OneShot("l2-announcer run", announcer.run))
-	announcer.params.JobGroup.Add(job.Timer("l2-announcer lease-gc", func(ctx context.Context) error {
+	announcer.params.JobGroup.Add(job.OneShot("l2-announcer-run", announcer.run))
+	announcer.params.JobGroup.Add(job.Timer("l2-announcer-lease-gc", func(ctx context.Context) error {
 		return announcer.leaseGC(ctx, nil)
 	}, time.Minute))
 
@@ -740,7 +740,7 @@ func (l2a *L2Announcer) addSelectedService(svc *slim_corev1.Service, byPolicies 
 
 	// kick off leader election job
 	l2a.scopedGroup.Add(job.OneShot(
-		fmt.Sprintf("leader-election/%s/%s", svc.Namespace, svc.Name),
+		fmt.Sprintf("leader-election-%s-%s", svc.Namespace, svc.Name),
 		ss.serviceLeaderElection),
 	)
 }

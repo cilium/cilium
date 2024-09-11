@@ -24,7 +24,7 @@ import (
 func registerServiceReconciler(p serviceReconcilerParams) {
 	sr := serviceReconciler(p)
 	g := p.Jobs.NewGroup(p.Health)
-	g.Add(job.OneShot("ServiceReconciler", sr.reconcileLoop))
+	g.Add(job.OneShot("service-reconciler", sr.reconcileLoop))
 	p.Lifecycle.Append(g)
 }
 
