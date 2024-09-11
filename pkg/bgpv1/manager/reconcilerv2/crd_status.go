@@ -27,6 +27,7 @@ import (
 	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -49,10 +50,11 @@ type StatusReconciler struct {
 type StatusReconcilerIn struct {
 	cell.In
 
-	Job       job.Group
-	ClientSet k8s_client.Clientset
-	Logger    logrus.FieldLogger
-	LocalNode daemon_k8s.LocalCiliumNodeResource
+	DaemonConfig *option.DaemonConfig
+	Job          job.Group
+	ClientSet    k8s_client.Clientset
+	Logger       logrus.FieldLogger
+	LocalNode    daemon_k8s.LocalCiliumNodeResource
 }
 
 type StatusReconcilerOut struct {
@@ -62,6 +64,9 @@ type StatusReconcilerOut struct {
 }
 
 func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
+	if !in.DaemonConfig.BGPControlPlaneEnabled() {
+		return StatusReconcilerOut{}
+	}
 	// CRD Status reconciler is disabled if there is no kubernetes support
 	if !in.ClientSet.IsEnabled() {
 		return StatusReconcilerOut{}
