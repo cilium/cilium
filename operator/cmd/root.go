@@ -495,9 +495,17 @@ func kvstoreEnabled() bool {
 		operatorOption.Config.SyncK8sNodes
 }
 
-var legacyCell = cell.Invoke(registerLegacyOnLeader)
+var legacyCell = cell.Module(
+	"legacy-cell",
+	"Cilium operator legacy cell",
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig) {
+	cell.Invoke(registerLegacyOnLeader),
+
+	// Provides the unamanged pods metric
+	metrics.Metric(NewUnmanagedPodsMetric),
+)
+
+func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig, metrics *UnmanagedPodsMetric) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:          ctx,
@@ -507,6 +515,7 @@ func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, re
 		storeFactory: factory,
 		svcResolver:  svcResolver,
 		cfgMCSAPI:    cfgMCSAPI,
+		metrics:      metrics,
 	}
 	lc.Append(cell.Hook{
 		OnStart: legacy.onStart,
@@ -523,6 +532,7 @@ type legacyOnLeader struct {
 	storeFactory store.Factory
 	svcResolver  *dial.ServiceResolver
 	cfgMCSAPI    cmoperator.MCSAPIConfig
+	metrics      *UnmanagedPodsMetric
 }
 
 func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
@@ -552,7 +562,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		legacy.wg.Add(1)
 		go func() {
 			defer legacy.wg.Done()
-			enableUnmanagedController(legacy.ctx, &legacy.wg, legacy.clientset)
+			enableUnmanagedController(legacy.ctx, &legacy.wg, legacy.clientset, legacy.metrics)
 		}()
 	}
 
