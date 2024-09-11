@@ -98,8 +98,7 @@ type ReflectorConfig[Obj any] struct {
 
 // JobName returns the name of the background reflector job.
 func (cfg ReflectorConfig[Obj]) JobName() string {
-	var obj Obj
-	return fmt.Sprintf("k8s-reflector[%T]/%s", obj, cfg.Name)
+	return fmt.Sprintf("k8s-reflector-%s-%s", cfg.Table.Name(), cfg.Name)
 }
 
 // TransformFunc is an optional function to give to the Kubernetes reflector
