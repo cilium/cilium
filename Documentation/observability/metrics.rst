@@ -703,6 +703,15 @@ Name                                           Labels                           
 ``ces_queueing_delay_seconds``                                                  CiliumEndpointSlice queueing delay in seconds
 ============================================== ================================ ========================================================
 
+Unmanaged Pods
+~~~~~~~~~~~~~~
+
+============================================ ======= ========== ====================================================================
+Name                                         Labels  Default    Description
+============================================ ======= ========== ====================================================================
+``unmanaged_pods``                                   Enabled    The total number of pods observed to be unmanaged by Cilium operator
+============================================ ======= ========== ====================================================================
+
 "Double Write" Identity Allocation Mode
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 When the ":ref:`Double Write <double_write_migration>`" identity allocation mode is

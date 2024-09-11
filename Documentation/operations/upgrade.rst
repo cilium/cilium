@@ -332,6 +332,7 @@ Added Metrics
 ~~~~~~~~~~~~~
 * ``cilium_node_health_connectivity_status``
 * ``cilium_node_health_connectivity_latency_seconds``
+* ``cilium_operator_unmanaged_pods``
 
 Removed Metrics
 ~~~~~~~~~~~~~~~
