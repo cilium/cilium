@@ -26,4 +26,4 @@ jobs:
           go-version: 1.23.1
       - name: Build Cilium CLI binaries
         run: |
-          make -C cilium-cli local-release
+          parallel -j6 --verbose "GOOS={1} GOARCH={2} CGO_ENABLED=0 go build -o /tmp/cilium-{1}-{2} ./cilium-cli/cmd/cilium" ::: darwin linux windows ::: arm64 amd64
