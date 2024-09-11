@@ -278,7 +278,7 @@ jobs:
         env:
           CONTAINER_IMAGE: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}
         run: |
-          VOLUME=$PWD/api/v1
+          export VOLUME=$PWD/api/v1
           make -C ../cilium-base-branch/api/v1
 
       - name: Commit changes by amending previous commit
