@@ -129,7 +129,7 @@ func registerAuthManager(params authManagerParams) (*AuthManager, error) {
 func registerReAuthenticationJob(jobGroup job.Group, mgr *AuthManager, authHandlers []authHandler) {
 	for _, ah := range authHandlers {
 		if ah != nil && ah.subscribeToRotatedIdentities() != nil {
-			jobGroup.Add(job.Observer("auth re-authentication", mgr.handleCertificateRotationEvent, stream.FromChannel(ah.subscribeToRotatedIdentities())))
+			jobGroup.Add(job.Observer("auth-re-authentication", mgr.handleCertificateRotationEvent, stream.FromChannel(ah.subscribeToRotatedIdentities())))
 		}
 	}
 }
@@ -143,7 +143,7 @@ func registerSignalAuthenticationJob(jobGroup job.Group, mgr *AuthManager, sm si
 		return fmt.Errorf("failed to set up signal channel for datapath authentication required events: %w", err)
 	}
 
-	jobGroup.Add(job.Observer("auth request-authentication", mgr.handleAuthRequest, stream.FromChannel(signalChannel)))
+	jobGroup.Add(job.Observer("auth-request-authentication", mgr.handleAuthRequest, stream.FromChannel(signalChannel)))
 
 	return nil
 }
@@ -162,8 +162,8 @@ func registerGCJobs(jobGroup job.Group, lifecycle cell.Lifecycle, mapGC *authMap
 		},
 	})
 
-	jobGroup.Add(job.Observer("auth gc-identity-events", mapGC.handleIdentityChange, identityChanges))
-	jobGroup.Add(job.Timer("auth gc-cleanup", mapGC.cleanup, cfg.MeshAuthGCInterval))
+	jobGroup.Add(job.Observer("auth-gc-identity-events", mapGC.handleIdentityChange, identityChanges))
+	jobGroup.Add(job.Timer("auth-gc-cleanup", mapGC.cleanup, cfg.MeshAuthGCInterval))
 }
 
 type authHandlerResult struct {
