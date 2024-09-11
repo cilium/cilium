@@ -91,7 +91,7 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 	})
 
 	lbIPAM.jobGroup.Add(
-		job.OneShot("lbipam main", func(ctx context.Context, health cell.Health) error {
+		job.OneShot("lbipam-main", func(ctx context.Context, health cell.Health) error {
 			lbIPAM.Run(ctx, health)
 			return nil
 		}),
