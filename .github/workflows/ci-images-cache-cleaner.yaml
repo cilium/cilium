@@ -16,7 +16,12 @@ concurrency:
 jobs:
   cache-cleaner:
     name: Clean Image Cache
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    permissions:
+      # `actions:write` permission is required to delete caches
+      #   See also: https://docs.github.com/en/rest/actions/cache?apiVersion=2022-11-28#delete-a-github-actions-cache-for-a-repository-using-a-cache-id
+      actions: write
+      contents: read
     strategy:
       matrix:
         include:
@@ -63,9 +68,15 @@ jobs:
         run: |
           mkdir -p /tmp/.cache/${{ matrix.name }}
 
-      # Clean docker's golang's cache
       - name: Clean ${{ matrix.name }} Golang cache from GitHub
-        shell: bash
         run: |
-          rm -f /tmp/.cache/${{ matrix.name }}/go-build-cache.tar.gz
-          rm -f /tmp/.cache/${{ matrix.name }}/go-pkg-cache.tar.gz
+          gh extension install actions/gh-actions-cache
+
+          REPO=${{ github.repository }}
+          set +e
+          gh actions-cache delete ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}-${{ github.sha }} -R $REPO -B main --confirm
+          gh actions-cache delete ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}- -R $REPO -B main --confirm
+          gh actions-cache delete ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}- -R $REPO -B main --confirm
+          gh actions-cache delete ${{ runner.os }}-go- -R $REPO -B main --confirm
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
