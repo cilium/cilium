@@ -3498,6 +3498,8 @@ authentication:
           annotations: {}
           # -- SPIRE agent labels
           labels: {}
+          # -- container resource limits & requests
+          resources: {}
           # -- SPIRE Workload Attestor kubelet verification.
           skipKubeletVerification: true
           # -- SPIRE agent tolerations configuration
@@ -3552,6 +3554,8 @@ authentication:
           # -- SPIRE server labels
           labels: {}
           # SPIRE server service configuration
+          # -- container resource limits & requests
+          resources: {}
           service:
             # -- Service type for the SPIRE server service
             type: ClusterIP
