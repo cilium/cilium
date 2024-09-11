@@ -81,6 +81,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
+          {{- with .Values.authentication.mutual.spire.install.agent.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}                  
           livenessProbe:
             httpGet:
               path: /live

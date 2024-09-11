@@ -160,6 +160,9 @@
                         "podSecurityContext": {
                           "type": "object"
                         },
+                        "resources": {
+                          "type": "object"
+                        },
                         "securityContext": {
                           "type": "object"
                         },
@@ -362,6 +365,9 @@
                           "type": "object"
                         },
                         "podSecurityContext": {
+                          "type": "object"
+                        },
+                        "resources": {
                           "type": "object"
                         },
                         "securityContext": {
