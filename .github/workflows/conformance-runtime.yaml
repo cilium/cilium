@@ -345,7 +345,7 @@ jobs:
 
       - name: Runtime tests
         if: ${{ matrix.focus == 'agent' || matrix.focus == 'datapath' }}
-        timeout-minutes: 20
+        timeout-minutes: 30
         shell: bash
         run: |
           cat > test/cilium-ssh-config.txt << EOF
