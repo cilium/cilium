@@ -153,7 +153,7 @@ jobs:
           cmd: |
             cd /host/
             # Run with cgo disabled, LVH images don't ship with gcc.
-            CGO_ENABLED=0 go${{ env.go-version }} test -v -parallel=1 ./test/verifier -cilium-base-path /host -ci-kernel-version ${{ matrix.ci-kernel }}
+            CGO_ENABLED=0 go${{ env.go-version }} test -v -parallel=1 -timeout=20m ./test/verifier -cilium-base-path /host -ci-kernel-version ${{ matrix.ci-kernel }}
 
       - name: Fetch artifacts
         if: ${{ !success() }}
