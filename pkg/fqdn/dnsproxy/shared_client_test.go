@@ -127,6 +127,146 @@ func TestSharedClientConcurrentSync(t *testing.T) {
 	}
 }
 
+// This tests that the shared client correctly handles multiple queries of
+// differing size, such as queries which use EDNS0 to specify a larger size.
+// This is tricky for the client to handle, since normally dns.Conn.UDPSize
+// stores what size of buffer needs to be allocated, but in the shared client,
+// this is shared between multiple goroutines/requests, which can have different
+// sizes.
+func TestSharedClientMixedSize(t *testing.T) {
+	edns0ReplySent := make(chan struct{})
+	handlerErrors := make(chan error, 4)
+
+	dns.HandleFunc("miek.nl.", func(w dns.ResponseWriter, q *dns.Msg) {
+		addEDNS0Reply := func(m *dns.Msg) {
+			m.Answer = []dns.RR{&dns.TXT{Hdr: dns.RR_Header{Name: "miek.nl.", Rrtype: dns.TypeTXT, Class: dns.ClassINET}, Txt: []string{strings.Repeat("A", 200)}}}
+			m.Extra = []dns.RR{&dns.OPT{
+				Hdr: dns.RR_Header{Name: ".", Rrtype: dns.TypeOPT, Class: dns.MaxMsgSize},
+				Option: []dns.EDNS0{
+					&dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: strings.Repeat("A", 2000)},
+				}}}
+		}
+
+		// Respond to the EDNS0 message first, but do so only after receiving
+		// the smaller one.
+		m := &dns.Msg{}
+		m.SetReply(q)
+
+		switch q.Id {
+		case 1, 2:
+			addEDNS0Reply(m)
+			err := w.WriteMsg(m)
+			if err != nil {
+				handlerErrors <- fmt.Errorf("failed to send reply to first edns0 query: %w", err)
+			}
+			edns0ReplySent <- struct{}{}
+		case 11, 12:
+			<-edns0ReplySent
+			err := w.WriteMsg(m)
+			if err != nil {
+				handlerErrors <- fmt.Errorf("failed to send reply to first normal query: %w", err)
+			}
+		default:
+			handlerErrors <- fmt.Errorf("unexpected DNS message received: %v", q.String())
+		}
+	})
+	defer dns.HandleRemove("miek.nl.")
+
+	s, addrstr, err := runUDPServer(":0")
+	if err != nil {
+		t.Fatalf("unable to run test server: %v", err)
+	}
+	defer s.Shutdown()
+
+	edns0Query := new(dns.Msg)
+	edns0Query.SetQuestion("miek.nl.", dns.TypeTXT)
+	// Tell the server we're prepared to accept a large message (UDP size passed in "Class" field in
+	// EDNS0, see RFC 6891 6.1.2)
+	o := &dns.OPT{Hdr: dns.RR_Header{Name: ".", Rrtype: dns.TypeOPT, Class: 4096}}
+	edns0Query.Extra = []dns.RR{o}
+	edns0Query.Id = 1
+	eq2 := edns0Query.Copy()
+	eq2.Id = 2
+
+	normalQuery := new(dns.Msg)
+	normalQuery.SetQuestion("miek.nl.", dns.TypeSOA)
+	normalQuery.Id = 11
+	nq2 := normalQuery.Copy()
+	nq2.Id = 12
+
+	c, closer := clients.GetSharedClient("", &dns.Client{}, addrstr)
+	defer closer()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	// We manually set up a connection here so that we can wrap the underlying net.Conn without
+	// racing the handler.
+	conn, err := c.DialContext(ctx, c.serverAddr)
+	if err != nil {
+		t.Fatalf("failed to set up shared client conn: %v", err)
+	}
+	readingChan := make(chan struct{})
+	conn.Conn = &connWrapper{
+		conn.Conn.(net.PacketConn), // to ensure dns lib recognises this as a packetconn
+		readingChan,
+	}
+	c.conn = conn
+	c.wg.Add(1)
+	go handler(&c.wg, c.Client, c.conn, c.requests, &c.udpSize)
+
+	// Asynchronous so that the second message can be sent, on which the server synchronises.
+	errSmallQuery := make(chan error)
+	go func() {
+		_, _, err := c.ExchangeSharedContext(ctx, normalQuery)
+		errSmallQuery <- err
+	}()
+	<-readingChan
+
+	// We expect both exchanges to fail initially, since reading the EDNS0 response fails parsing
+	// since the buffer is not long enough. That triggers an error in the shared client, which then
+	// errors out for all concurrent exchanges. We don't assert that they do fail, however, since
+	// that is merely the behaviour of the current implementation - if they pass, that's great too.
+	_, _, err = c.ExchangeSharedContext(ctx, edns0Query)
+	if err != nil && !strings.Contains(err.Error(), "overflowing") {
+		t.Errorf("failed to exchange first edns0 query with unexpected error: %v", err)
+	}
+	<-readingChan // drain another read
+
+	if err := <-errSmallQuery; err != nil && !strings.Contains(err.Error(), "overflowing") {
+		t.Errorf("failed to exchange first normal query with unexpected error: %v", err)
+	}
+
+	// Now, retry the exchanges now that the receive buffer size has been adapted - this simulates a
+	// client retrying. This time, both exchanges should succeed.
+
+	go func() {
+		_, _, err := c.ExchangeSharedContext(ctx, nq2)
+		errSmallQuery <- err
+	}()
+
+	<-readingChan
+	_, _, err = c.ExchangeSharedContext(ctx, eq2)
+	if err != nil {
+		t.Errorf("failed to exchange second edns0 query: %v", err)
+	}
+	<-readingChan // drain another read
+
+	if err := <-errSmallQuery; err != nil {
+		t.Errorf("failed to exchange second normal query: %v", err)
+	}
+
+	if err := s.Shutdown(); err != nil {
+		t.Errorf("failed to shutdown server: %v", err)
+	}
+	<-readingChan // drain final read
+
+	close(handlerErrors)
+	for err := range handlerErrors {
+		t.Errorf("handler encountered error: %v", err)
+	}
+}
+
 func TestSharedClientLocalAddress(t *testing.T) {
 	dns.HandleFunc("miek.nl.", HelloServerEchoAddrPort)
 	defer dns.HandleRemove("miek.nl.")
@@ -497,3 +637,22 @@ func runTCPServer(addr string) (*dns.Server, string, error) {
 	return s, laddr, nil
 }
 
+type connWrapper struct {
+	net.PacketConn // happens to also be a net.Conn
+
+	reading chan struct{}
+}
+
+// Make connWrapper also implement net.Conn
+func (c *connWrapper) Read(p []byte) (int, error) {
+	c.reading <- struct{}{}
+	return c.PacketConn.(net.Conn).Read(p)
+}
+
+func (c *connWrapper) Write(p []byte) (int, error) {
+	return c.PacketConn.(net.Conn).Write(p)
+}
+
+func (c *connWrapper) RemoteAddr() net.Addr {
+	return c.PacketConn.(net.Conn).RemoteAddr()
+}
