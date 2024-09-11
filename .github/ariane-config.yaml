@@ -87,6 +87,9 @@ triggers:
   /ci-hubble-cli:
     workflows:
     - hubble-cli-integration-test.yaml
+  /ci-ces-migrate:
+    workflows:
+    - tests-ces-migrate.yaml
 
 workflows:
   conformance-aks.yaml:

@@ -2,11 +2,24 @@ name: CiliumEndpointSlice migration (ci-ces-migrate)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request: {}
-  push:
-    branches:
-    - main
-    - ft/main/**
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+  # Run every 6 hours
+  schedule:
+    - cron:  '0 5/6 * * *'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -21,7 +34,22 @@ permissions:
   statuses: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - push: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
   cancel-in-progress: true
 
 env:
@@ -29,35 +57,45 @@ env:
   KIND_CONFIG: .github/kind-config.yaml
 
 jobs:
-  check_changes:
-    name: Deduce required tests from code changes
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
     runs-on: ubuntu-22.04
-    outputs:
-      tested: ${{ steps.tested-tree.outputs.src }}
     steps:
-      - name: Checkout code
-        if: ${{ !github.event.pull_request }}
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  wait-for-images:
+    name: Wait for images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
+          ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
-          fetch-depth: 0
-      - name: Check code changes
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: tested-tree
+      - name: Wait for images
+        uses: ./.github/actions/wait-for-images
         with:
-          # For `push` events, compare against the `ref` base branch
-          # For `pull_request` events, this is ignored and will compare against the pull request base branch
-          base: ${{ github.ref }}
-          filters: |
-            src:
-              - '!(test|Documentation)/**'
+          SHA: ${{ inputs.SHA }}
+          images: cilium-ci operator-generic-ci hubble-relay-ci cilium-cli-ci
 
   setup-and-test:
-    needs: check_changes
-    if: ${{ needs.check_changes.outputs.tested == 'true' }}
-    runs-on: ubuntu-22.04
+    needs: [wait-for-images]
+    runs-on: ubuntu-latest
     name: Installation and Migration Test
-    timeout-minutes: 70
+    timeout-minutes: 30
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -73,19 +111,15 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
-      - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-        with:
-          persist-credentials: false
-
-      - name: Set image tag
-        id: sha
+      - name: Set up job variables
+        id: vars
         run: |
-          if [ "${{ github.event.pull_request.head.sha }}" != "" ]; then
-            echo sha=${{ github.event.pull_request.head.sha }} >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.SHA }}"
           else
-            echo sha=${{ github.sha }} >> $GITHUB_OUTPUT
+            SHA="${{ github.sha }}"
           fi
+          echo sha=${SHA} >> $GITHUB_OUTPUT
 
       - name: Create kind cluster
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
@@ -96,19 +130,11 @@ jobs:
           config: ${{ env.KIND_CONFIG }}
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
-      - name: Wait for images to be available
-        timeout-minutes: 30
-        shell: bash
-        run: |
-          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.sha.outputs.sha }} &> /dev/null; do sleep 45s; done
-          done
-
       - name: Set up install variables
         id: cilium-config
         uses: ./.github/actions/cilium-config
         with:
-          image-tag: ${{ steps.sha.outputs.sha }}
+          image-tag: ${{ steps.vars.outputs.sha }}
           chart-dir: 'install/kubernetes/cilium'
           ipv6: false
           egress-gateway: false # Currently incompatible with CES
@@ -120,7 +146,7 @@ jobs:
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
-          image-tag: ${{ steps.sha.outputs.sha }}
+          image-tag: ${{ steps.vars.outputs.sha }}
 
       - name: Install Cilium
         id: install-cilium
@@ -197,3 +223,15 @@ jobs:
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
         with:
           junit-directory: "cilium-junits"
+
+  commit-status-final:
+    if: ${{ always() }}
+    name: Commit Status Final
+    needs: setup-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.setup-and-test.result }}
