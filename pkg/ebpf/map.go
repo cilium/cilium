@@ -207,3 +207,10 @@ func (m *Map) GetModel() *models.BPFMap {
 
 	return mapModel
 }
+
+func (m *Map) IsEmpty() bool {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+	var key, value interface{}
+	return !m.Iterate().Next(key, value)
+}

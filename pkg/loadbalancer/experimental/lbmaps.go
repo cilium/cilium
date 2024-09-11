@@ -102,6 +102,7 @@ type lbmaps interface {
 
 	// TODO rest of the maps:
 	// Maglev, SockRevNat, SkipLB
+	IsEmpty() bool
 }
 
 type realLBMaps struct {
@@ -442,6 +443,19 @@ func (r *realLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value *lbmap.So
 	}
 }
 
+// IsEmpty implements lbmaps.
+func (r *realLBMaps) IsEmpty() bool {
+	return r.service4Map.IsEmpty() &&
+		r.service6Map.IsEmpty() &&
+		r.backend4Map.IsEmpty() &&
+		r.backend6Map.IsEmpty() &&
+		r.revNat4Map.IsEmpty() &&
+		r.revNat6Map.IsEmpty() &&
+		r.affinityMatchMap.IsEmpty() &&
+		r.sourceRange4Map.IsEmpty() &&
+		r.sourceRange6Map.IsEmpty()
+}
+
 var _ lbmaps = &realLBMaps{}
 
 type faultyLBMaps struct {
@@ -546,6 +560,11 @@ func (f *faultyLBMaps) DumpService(cb func(lbmap.ServiceKey, lbmap.ServiceValue)
 	return f.impl.DumpService(cb)
 }
 
+// IsEmpty implements lbmaps.
+func (f *faultyLBMaps) IsEmpty() bool {
+	return f.impl.IsEmpty()
+}
+
 // UpdateBackend implements lbmaps.
 func (f *faultyLBMaps) UpdateBackend(key lbmap.BackendKey, value lbmap.BackendValue) error {
 	if f.isFaulty() {
@@ -587,6 +606,10 @@ func (fm *fakeBPFMap) delete(key bpf.MapKey) error {
 func (fm *fakeBPFMap) update(key bpf.MapKey, value any) error {
 	fm.Map.Store(bpfKey(key), kvpair{key, value})
 	return nil
+}
+
+func (fm *fakeBPFMap) IsEmpty() bool {
+	return fm.Map.IsEmpty()
 }
 
 func bpfKey(key any) string {
@@ -693,6 +716,15 @@ func (f *fakeLBMaps) UpdateService(key lbmap.ServiceKey, value lbmap.ServiceValu
 // UpdateSourceRange implements lbmaps.
 func (f *fakeLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value *lbmap.SourceRangeValue) error {
 	return f.srcRange.update(key, value)
+}
+
+// IsEmpty implements lbmaps.
+func (f *fakeLBMaps) IsEmpty() bool {
+	return f.aff.IsEmpty() &&
+		f.be.IsEmpty() &&
+		f.svc.IsEmpty() &&
+		f.revNat.IsEmpty() &&
+		f.srcRange.IsEmpty()
 }
 
 var _ lbmaps = &fakeLBMaps{}
