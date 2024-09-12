@@ -201,6 +201,7 @@ func setupLinuxPrivilegedIPv4AndIPv6TestSuite(tb testing.TB) *linuxPrivilegedIPv
 }
 
 func tearDownTest(tb testing.TB) {
+	ipsec.UnsetTestIPSecKey()
 	ipsec.DeleteXFRM(hivetest.Logger(tb), ipsec.AllReqID)
 	node.UnsetTestLocalNodeStore()
 	removeDevice(dummyHostDeviceName)
@@ -827,6 +828,9 @@ func TestNodeChurnXFRMLeaks(t *testing.T) {
 	defer removeDevice(externalNodeDevice)
 	option.Config.EncryptInterface = []string{externalNodeDevice}
 	option.Config.RoutingMode = option.RoutingModeNative
+
+	// Same test suite, remove previous IPSec key.
+	ipsec.UnsetTestIPSecKey()
 
 	// Cover the XFRM configuration for subnet encryption: IPAM modes AKS and EKS.
 	ipv4PodSubnets, err := cidr.ParseCIDR("4.4.0.0/16")

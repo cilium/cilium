@@ -1416,3 +1416,11 @@ func (skr staleKeyReclaimer) onTimer(ctx context.Context) error {
 
 	return nil
 }
+
+// UnsetTestIPSecKey reinitialize the IPSec key-related variables.
+// This function is for testing purpose only and **must not** be used elsewhere.
+func UnsetTestIPSecKey() {
+	ipSecCurrentKeySPI = 0
+	ipSecKeysGlobal = make(map[string]*ipSecKey)
+	ipSecKeysRemovalTime = make(map[uint8]time.Time)
+}
