@@ -193,7 +193,7 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 		epPolicy.Ready()
 	}
 	ip.Detach()
-	fmt.Printf("Number of MapState entries: %d\n", n/b.N)
+	b.Logf("Number of MapState entries: %d\n", n/b.N)
 }
 
 func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
