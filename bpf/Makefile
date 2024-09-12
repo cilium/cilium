@@ -215,7 +215,7 @@ ifneq ($(BUILD_PERMUTATIONS),)
 define PERMUTATION_template =
 $(1)::
 	@$$(ECHO_CC) " [$(subst :,=1$(space),$(2))]"
-	$$(QUIET) $${CLANG} $(subst :,=1$(space),$(2)) $${CLANG_FLAGS} -c $(patsubst %.o,%.c,$(1)) -o /dev/null
+	$$(QUIET) $${CLANG} $(subst :,=1$(space),$(2)) $${CLANG_FLAGS} -c $(patsubst %.o,%.c,$(1)) -o $(1)
 endef
 endif
 
