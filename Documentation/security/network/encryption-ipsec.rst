@@ -49,9 +49,11 @@ following command:
 
 .. attention::
 
-    The ``+`` sign in the secret is mandatory since v1.16. It will force the
-    use of per-tunnel IPsec keys. The former global IPsec keys are considered
-    insecure (cf. `GHSA-pwqm-x5x6-5586`_).
+    The ``+`` sign in the secret is strongly recommended. It will force the use
+    of per-tunnel IPsec keys. The former global IPsec keys are considered
+    insecure (cf. `GHSA-pwqm-x5x6-5586`_) and were deprecated in v1.16. When
+    using ``+``, the per-tunnel keys will be derived from the secret you
+    generated.
 
 .. _GHSA-pwqm-x5x6-5586: https://github.com/cilium/cilium/security/advisories/GHSA-pwqm-x5x6-5586
 
