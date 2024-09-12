@@ -123,7 +123,7 @@ func TestParserTypeMerge(t *testing.T) {
 			require.Error(t, err)
 		}
 		if res != tt.c {
-			fmt.Printf("Merge %s with %s, expecting %s\n", tt.a, tt.b, tt.c)
+			t.Logf("Merge %s with %s, expecting %s\n", tt.a, tt.b, tt.c)
 		}
 		require.Equal(t, tt.c, res)
 	}
