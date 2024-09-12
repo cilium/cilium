@@ -69,14 +69,15 @@ jobs:
           mkdir -p /tmp/.cache/${{ matrix.name }}
 
       - name: Clean ${{ matrix.name }} Golang cache from GitHub
+        shell: bash
         run: |
           gh extension install actions/gh-actions-cache
 
           REPO=${{ github.repository }}
           set +e
-          gh actions-cache delete ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}-${{ github.sha }} -R $REPO -B main --confirm
-          gh actions-cache delete ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}- -R $REPO -B main --confirm
-          gh actions-cache delete ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}- -R $REPO -B main --confirm
-          gh actions-cache delete ${{ runner.os }}-go- -R $REPO -B main --confirm
+          gh actions-cache delete ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}-${{ github.sha }} -R $REPO -B main --confirm || true
+          gh actions-cache delete ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}- -R $REPO -B main --confirm || true
+          gh actions-cache delete ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}- -R $REPO -B main --confirm || true
+          gh actions-cache delete ${{ runner.os }}-go- -R $REPO -B main --confirm || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
