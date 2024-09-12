@@ -18,11 +18,54 @@ jobs:
     steps:
       - name: Checkout the repository
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
       - name: Setup go
         uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
         with:
+          cache: false
           # renovate: datasource=golang-version depName=go
           go-version: 1.23.1
+
+      # Load Golang cache build from GitHub
+      - name: Load hubble-cli Golang cache build from GitHub
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        id: cache
+        with:
+          path: /tmp/.cache/hubble-cli
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-hubble-cli-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-hubble-cli-
+            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-go-
+
+      - name: Import cache directory
+        shell: bash
+        run: |
+          mkdir -p /home/runner/.cache/
+          mkdir -p /home/runner/go/
+
+          if [ -d "/tmp/.cache/hubble-cli/go-build/" ]; then
+            cp -r /tmp/.cache/hubble-cli/go-build/ /home/runner/.cache/
+          fi
+
+          if [ -d "/tmp/.cache/hubble-cli/pkg/" ]; then
+            cp -r /tmp/.cache/hubble-cli/pkg/ /home/runner/go/
+          fi
+
       - name: Build hubble CLI release binaries
         run: |
           make -C hubble local-release
+
+      - name: Export cache directory
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/hubble-cli
+
+          if [ -d "/home/runner/.cache/go-build/" ]; then
+            cp -r /home/runner/.cache/go-build/ /tmp/.cache/hubble-cli/
+          fi
+
+          if [ -d "/home/runner/go/pkg/" ]; then
+            cp -r /home/runner/go/pkg/ /tmp/.cache/hubble-cli/
+          fi
