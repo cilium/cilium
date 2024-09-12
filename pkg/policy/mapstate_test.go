@@ -4,7 +4,6 @@
 package policy
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -2200,6 +2199,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 	policyMapState := newMapState()
 
 	for _, tt := range tests {
+		t.Log(tt.name)
 		policyMaps := MapChanges{}
 		if !tt.continued {
 			policyMapState = newMapState()
@@ -2617,17 +2617,6 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			outcomeKeys.denyPreferredInsert(bKey, bEntry, allFeatures)
 		}
 		outcomeKeys.validatePortProto(t)
-		if !expectedKeys.Equals(outcomeKeys) {
-			fmt.Println("OUTCOME KEYS:")
-			fmt.Println("DENIES:")
-			for k, v := range outcomeKeys.denies.entries {
-				fmt.Printf("%v: %v\n", k, v)
-			}
-			fmt.Println("ALLOWS:")
-			for k, v := range outcomeKeys.allows.entries {
-				fmt.Printf("%v: %v\n", k, v)
-			}
-		}
 
 		require.True(t, expectedKeys.Equals(outcomeKeys), "%s (MapState):\n%s", tt.name, outcomeKeys.Diff(expectedKeys))
 
