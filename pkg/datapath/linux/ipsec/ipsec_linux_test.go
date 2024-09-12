@@ -28,7 +28,7 @@ func setupIPSecSuitePrivileged(tb testing.TB) *slog.Logger {
 	log := hivetest.Logger(tb)
 
 	tb.Cleanup(func() {
-		ipSecKeysGlobal = make(map[string]*ipSecKey)
+		UnsetTestIPSecKey()
 		node.UnsetTestLocalNodeStore()
 		err := DeleteXFRM(log, AllReqID)
 		if err != nil {
