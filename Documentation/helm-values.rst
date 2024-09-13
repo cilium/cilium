@@ -1040,6 +1040,10 @@
      - Enables masquerading of IPv6 traffic leaving the node from endpoints.
      - bool
      - ``true``
+   * - :spelling:ignore:`enableInternalTrafficPolicy`
+     - Enable Internal Traffic Policy
+     - bool
+     - ``true``
    * - :spelling:ignore:`enableK8sTerminatingEndpoint`
      - Configure whether to enable auto detect of terminating state for endpoints in order to support graceful termination.
      - bool

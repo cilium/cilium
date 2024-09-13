@@ -1265,6 +1265,9 @@ const (
 
 	// BPFConntrackAccountingEnabled controls whether CT accounting for packets and bytes is enabled
 	BPFConntrackAccountingEnabled = "bpf-conntrack-accounting-enabled"
+
+	// EnableInternalTrafficPolicy enables handling routing for services with internalTrafficPolicy configured
+	EnableInternalTrafficPolicy = "enable-internal-traffic-policy"
 )
 
 // Default string arguments
@@ -2490,6 +2493,9 @@ type DaemonConfig struct {
 	// EnableSocketLBPodConnectionTermination enables the termination of connections from pods
 	// to deleted service backends when socket-LB is enabled
 	EnableSocketLBPodConnectionTermination bool
+
+	// EnableInternalTrafficPolicy enables handling routing for services with internalTrafficPolicy configured
+	EnableInternalTrafficPolicy bool
 }
 
 var (
@@ -2545,6 +2551,7 @@ var (
 		BPFEventsTraceEnabled:         defaults.BPFEventsTraceEnabled,
 		BPFConntrackAccountingEnabled: defaults.BPFConntrackAccountingEnabled,
 		EnableEnvoyConfig:             defaults.EnableEnvoyConfig,
+		EnableInternalTrafficPolicy:   defaults.EnableInternalTrafficPolicy,
 	}
 )
 
@@ -3600,6 +3607,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	}
 
 	c.LoadBalancerProtocolDifferentiation = vp.GetBool(LoadBalancerProtocolDifferentiation)
+
+	c.EnableInternalTrafficPolicy = vp.GetBool(EnableInternalTrafficPolicy)
 }
 
 func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {

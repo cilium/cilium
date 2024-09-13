@@ -138,6 +138,9 @@ func (svc *svcInfo) isExtLocal() bool {
 }
 
 func (svc *svcInfo) isIntLocal() bool {
+	if !option.Config.EnableInternalTrafficPolicy {
+		return false
+	}
 	switch svc.svcType {
 	case lb.SVCTypeClusterIP, lb.SVCTypeNodePort, lb.SVCTypeLoadBalancer, lb.SVCTypeExternalIPs:
 		return svc.svcIntTrafficPolicy == lb.SVCTrafficPolicyLocal
@@ -2116,6 +2119,9 @@ func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []
 		be = append(be, b)
 	}
 
+	if !option.Config.EnableInternalTrafficPolicy {
+		svcIntTrafficPolicy = lb.SVCTrafficPolicyCluster
+	}
 	msg := monitorAPI.ServiceUpsertMessage(id, fe, be, string(svcType), string(svcExtTrafficPolicy), string(svcIntTrafficPolicy), svcName, svcNamespace)
 	s.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, msg)
 }

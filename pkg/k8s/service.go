@@ -210,7 +210,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 	}
 
 	var intTrafficPolicy loadbalancer.SVCTrafficPolicy
-	if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal {
+	if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == slim_corev1.ServiceInternalTrafficPolicyLocal && option.Config.EnableInternalTrafficPolicy {
 		intTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
 	} else {
 		intTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster

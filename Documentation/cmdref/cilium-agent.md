@@ -131,6 +131,7 @@ cilium-agent [flags]
       --enable-hubble-recorder-api                                Enable the Hubble recorder API (default true)
       --enable-identity-mark                                      Enable setting identity mark for local traffic (default true)
       --enable-ingress-controller                                 Enables Envoy secret sync for Ingress controller related TLS secrets
+      --enable-internal-traffic-policy                            Enable internal traffic policy (default true)
       --enable-ip-masq-agent                                      Enable BPF ip-masq-agent
       --enable-ipip-termination                                   Enable plain IPIP/IP6IP6 termination
       --enable-ipsec                                              Enable IPsec support
