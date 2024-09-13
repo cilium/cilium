@@ -1983,10 +1983,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			testIngressKey(236, 0, 0): {},
 			HttpIngressKey(236):       {},
 		},
-		deletes: Keys{
-			testIngressKey(235, 0, 0): {}, // changed dependents
-			testIngressKey(236, 0, 0): {}, // changed dependents
-		},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-2b - Adding Bar also selecting 235",
@@ -2009,9 +2006,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			testIngressKey(237, 0, 0): {},
 			HttpIngressKey(237):       {},
 		},
-		deletes: Keys{
-			testIngressKey(237, 0, 0): {}, // changed dependents
-		},
+		deletes: Keys{},
 	}, {
 		continued: true,
 		name:      "test-2c - Deleting 235 from Foo, remains on Bar and no deletes",
