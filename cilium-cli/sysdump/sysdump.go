@@ -1007,7 +1007,7 @@ func (c *Collector) Run() error {
 				if err != nil {
 					return fmt.Errorf("failed to get the Cilium operator pods: %w", err)
 				}
-				err = c.submitMetricsSubtask(pods, defaults.OperatorContainerName, defaults.OperatorMetricsPortName)
+				err = c.SubmitMetricsSubtask(pods, defaults.OperatorContainerName, defaults.OperatorMetricsPortName)
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium operator metrics: %w", err)
 				}
@@ -1030,15 +1030,15 @@ func (c *Collector) Run() error {
 					return fmt.Errorf("failed to collect the Cilium clustermesh debug information: %w", err)
 				}
 
-				err = c.submitMetricsSubtask(pods, defaults.ClusterMeshContainerName, defaults.ClusterMeshMetricsPortName)
+				err = c.SubmitMetricsSubtask(pods, defaults.ClusterMeshContainerName, defaults.ClusterMeshMetricsPortName)
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
 				}
-				err = c.submitMetricsSubtask(pods, defaults.ClusterMeshKVStoreMeshContainerName, defaults.ClusterMeshKVStoreMeshMetricsPortName)
+				err = c.SubmitMetricsSubtask(pods, defaults.ClusterMeshKVStoreMeshContainerName, defaults.ClusterMeshKVStoreMeshMetricsPortName)
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
 				}
-				err = c.submitMetricsSubtask(pods, defaults.ClusterMeshEtcdContainerName, defaults.ClusterMeshEtcdMetricsPortName)
+				err = c.SubmitMetricsSubtask(pods, defaults.ClusterMeshEtcdContainerName, defaults.ClusterMeshEtcdMetricsPortName)
 				if err != nil {
 					return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
 				}
@@ -2827,8 +2827,8 @@ func (c *Collector) submitKVStoreTasks(ctx context.Context, pod *corev1.Pod) err
 	return nil
 }
 
-// submitMetricsSubtask submits tasks to collect metrics from pods.
-func (c *Collector) submitMetricsSubtask(pods *corev1.PodList, containerName, portName string) error {
+// SubmitMetricsSubtask submits tasks to collect metrics from pods.
+func (c *Collector) SubmitMetricsSubtask(pods *corev1.PodList, containerName, portName string) error {
 	for _, p := range pods.Items {
 		p := p
 		if !podIsRunningAndHasContainer(&p, containerName) {
