@@ -84,6 +84,10 @@ jobs:
     name: Install and Connectivity Test
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        ipFamily: ["ipv4", "dual"]
     steps:
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
@@ -142,6 +146,14 @@ jobs:
             --helm-set=ipMasqAgent.enabled=true \
             --helm-set=nodePort.enabled=true"
 
+          if [ "${{ matrix.ipFamily }}" = "dual" ]; then
+            CILIUM_INSTALL_DEFAULTS="${CILIUM_INSTALL_DEFAULTS} \
+              --helm-set=ipv6.enabled=true \
+              --helm-set=ipv6NativeRoutingCIDR=fd00:10:244::/56 \
+              --helm-set=extraArgs[1]="--local-router-ipv6=fe80::" \
+              --helm-set=enableIPv6Masquerade=true"
+          fi
+
           CONNECTIVITY_TEST_DEFAULTS="--test-concurrency=5 \
             --flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
             --external-target bing.com. --external-cidr 8.0.0.0/8 --external-ip 8.8.4.4 --external-other-ip 8.8.8.8"
@@ -153,7 +165,13 @@ jobs:
         run: |
           createConflist() {
             file=$1
-            subnet=$2
+            ipv4Subnet=$2
+            ipv6Subnet=$3
+
+            ranges="[{\"subnet\": \"$ipv4Subnet\"}]"
+            if [ "${{ matrix.ipFamily }}" = "dual" ]; then
+              ranges="${ranges}, [{\"subnet\": \"$ipv6Subnet\"}]"
+            fi
 
             cat <<EOF > $file
             {
@@ -166,9 +184,7 @@ jobs:
                   "log-file": "/var/log/cilium-cni.log",
                   "ipam": {
                     "type": "host-local",
-                    "ranges": [
-                      [{"subnet": "$subnet"}]
-                    ]
+                    "ranges": [$ranges]
                   }
                 }
               ]
@@ -176,12 +192,21 @@ jobs:
           EOF
           }
 
-          createConflist "kind-control-plane-delegated-ipam.conflist" 10.244.1.0/24
-          createConflist "kind-worker-delegated-ipam.conflist" 10.244.2.0/24
-          createConflist "kind-worker2-delegated-ipam.conflist" 10.244.3.0/24
+          createConflist "kind-control-plane-delegated-ipam.conflist" "10.244.1.0/24" "fd00:10:244:1::/64"
+          createConflist "kind-worker-delegated-ipam.conflist" "10.244.2.0/24" "fd00:10:244:2::/64"
+          createConflist "kind-worker2-delegated-ipam.conflist" "10.244.3.0/24" "fd00:10:244:3::/64"
 
       - name: Generate kind config
         run: |
+          ipFamily="ipv4"
+          podSubnet="10.244.0.0/16"
+          serviceSubnet="10.245.0.0/16"
+          if [ "${{ matrix.ipFamily }}" = "dual" ]; then
+            ipFamily="dual"
+            podSubnet="${podSubnet},fd00:10:244::/56"
+            serviceSubnet="${serviceSubnet},fd00:10:96::/112"
+          fi
+
           cat <<EOF > kind-config-delegated-ipam.yaml
           kind: Cluster
           apiVersion: kind.x-k8s.io/v1alpha4
@@ -212,8 +237,9 @@ jobs:
 
           networking:
             disableDefaultCNI: true
-            podSubnet: "10.244.0.0/16"
-            serviceSubnet: "10.245.0.0/16"
+            ipFamily: "$ipFamily"
+            podSubnet: "$podSubnet"
+            serviceSubnet: "$serviceSubnet"
           EOF
 
       # Warning: since this is a privileged workflow, subsequent workflow job
@@ -262,24 +288,35 @@ jobs:
       # So use `ip route add` to ensure pod traffic is routed to the correct node.
       - name: Configure routes
         run: |
-          addPodCIDRRouteToNode() {
-            cidr=$1
-            node=$2
-            nodeIP=$(kubectl get node $node -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
-            echo "adding route from $cidr via $nodeIP"
-            sudo ip route add $cidr via $nodeIP
+          addPodCIDRRoutesToNode() {
+            node=$1
+            ipv4Subnet=$2
+            ipv6Subnet=$3
+
+            nodeIPv4=$(kubectl get node $node -o json | jq -r '.status.addresses[] | select(.type=="InternalIP") | .address' | head -n 1)
+            echo "adding route from $ipv4Subnet via $nodeIPv4"
+            sudo ip route add $ipv4Subnet via $nodeIPv4
+
+            if [ "${{ matrix.ipFamily }}" = "dual" ]; then
+              nodeIPv6=$(kubectl get node $node -o json | jq -r '.status.addresses[] | select(.type=="InternalIP") | .address' | tail -n 1)
+              echo "adding route from $ipv6Subnet via $nodeIPv6"
+              sudo ip -6 route add $ipv6Subnet via $nodeIPv6
+            fi
           }
 
           echo "Current routes:"
           ip route
+          ip -6 route
 
           echo "Configuring routes from podCIDR to node:"
-          addPodCIDRRouteToNode 10.244.1.0/24 kind-control-plane
-          addPodCIDRRouteToNode 10.244.2.0/24 kind-worker
-          addPodCIDRRouteToNode 10.244.3.0/24 kind-worker2
+
+          addPodCIDRRoutesToNode kind-control-plane "10.244.1.0/24" "fd00:10:244:1::/64"
+          addPodCIDRRoutesToNode kind-worker "10.244.2.0/24" "fd00:10:244:2::/64"
+          addPodCIDRRoutesToNode kind-worker2 "10.244.3.0/24" "fd00:10:244:3::/64"
 
           echo "Updated routes:"
           ip route
+          ip -6 route
 
       - name: Install Cilium
         id: install-cilium
