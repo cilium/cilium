@@ -186,6 +186,8 @@ func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
 	m.prevOptionDPMode = option.Config.DatapathMode
 	m.prevOptionExternalClusterIP = option.Config.ExternalClusterIP
 
+	option.Config.EnableInternalTrafficPolicy = true
+
 	m.ipv6 = option.Config.EnableIPv6
 	backends1 = []*lb.Backend{
 		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080),

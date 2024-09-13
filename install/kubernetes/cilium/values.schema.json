@@ -1620,6 +1620,9 @@
     "enableIPv6Masquerade": {
       "type": "boolean"
     },
+    "enableInternalTrafficPolicy": {
+      "type": "boolean"
+    },
     "enableK8sTerminatingEndpoint": {
       "type": "boolean"
     },
