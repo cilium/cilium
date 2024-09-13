@@ -454,9 +454,7 @@ func (ms *mapState) AddDependent(owner Key, dependent Key, changes ChangeState) 
 // addDependentOnEntry adds 'dependent' to the set of dependent keys of 'e'.
 func (ms *mapState) addDependentOnEntry(owner Key, e MapStateEntry, dependent Key, changes ChangeState) {
 	if _, exists := e.dependents[dependent]; !exists {
-		if changes.Old != nil {
-			changes.Old[owner] = e
-		}
+		changes.insertOldIfNotExists(owner, e)
 		e.AddDependent(dependent)
 		ms.Insert(owner, e)
 	}
@@ -644,9 +642,7 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Chan
 		}
 
 		// Save old value before any changes, if desired
-		if changes.Old != nil {
-			changes.insertOldIfNotExists(key, oldEntry)
-		}
+		changes.insertOldIfNotExists(key, oldEntry)
 
 		// Compare for datapath equalness before merging, as the old entry is updated in
 		// place!
@@ -1300,8 +1296,11 @@ var visibilityDerivedFromLabels = labels.LabelArray{
 
 var visibilityDerivedFrom = labels.LabelArrayList{visibilityDerivedFromLabels}
 
-// insertIfNotExists only inserts `key=value` if `key` does not exist in keys already
-// returns 'true' if 'key=entry' was added to 'keys'
+// insertIfNotExists only inserts an entry in 'changes.Old' if 'key' does not exist in there already
+// and 'key' does not already exist in 'changes.Adds'. This prevents recording "old" values for
+// newly added keys. When an entry is updated, we are called before the key is added to
+// 'changes.Adds' so we'll record the old value as expected.
+// Returns 'true' if an old entry was added.
 func (changes *ChangeState) insertOldIfNotExists(key Key, entry MapStateEntry) bool {
 	if changes == nil || changes.Old == nil {
 		return false
