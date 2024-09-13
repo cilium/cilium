@@ -43,7 +43,8 @@ RUN \
       gcc \
       git \
       libc6-dev \
-      make && \
+      make \
+      ccache && \
     apt-get purge --auto-remove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
