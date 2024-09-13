@@ -53,6 +53,7 @@ const (
 
 	nodeDiscoverySubsys = "nodediscovery"
 	maxRetryCount       = 10
+	backoffDuration     = 500 * time.Millisecond
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, nodeDiscoverySubsys)
@@ -391,6 +392,8 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 			if _, err := n.clientset.CiliumV2().CiliumNodes().Update(context.TODO(), nodeResource, metav1.UpdateOptions{}); err != nil {
 				if k8serrors.IsConflict(err) {
 					log.WithError(err).Warn("Unable to update CiliumNode resource, will retry")
+					// Backoff before retrying
+					time.Sleep(backoffDuration)
 					continue
 				}
 				log.WithError(err).Fatal("Unable to update CiliumNode resource")
@@ -402,7 +405,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 				if k8serrors.IsConflict(err) || k8serrors.IsAlreadyExists(err) {
 					log.WithError(err).Warn("Unable to create CiliumNode resource, will retry")
 					// Backoff before retrying
-					time.Sleep(500 * time.Millisecond)
+					time.Sleep(backoffDuration)
 					continue
 				}
 				log.WithError(err).Fatal("Unable to create CiliumNode resource")
