@@ -843,6 +843,9 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Chan
 		entry.owners = maps.Clone(entry.owners)
 		entry.dependents = maps.Clone(entry.dependents)
 		ms.insert(key, entry)
+	} else {
+		// Do not record and incremental add if nothing was done
+		return
 	}
 
 	// Record an incremental Add if desired and entry is new or changed
