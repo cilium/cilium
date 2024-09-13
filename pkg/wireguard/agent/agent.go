@@ -17,6 +17,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/cilium/hive/cell"
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -66,11 +67,12 @@ type wireguardClient interface {
 type Agent struct {
 	lock.RWMutex
 
-	wgClient   wireguardClient
-	ipCache    *ipcache.IPCache
-	listenPort int
-	privKey    wgtypes.Key
-	sysctl     sysctl.Sysctl
+	wgClient    wireguardClient
+	ipCache     *ipcache.IPCache
+	listenPort  int
+	privKey     wgtypes.Key
+	privKeyPath string
+	sysctl      sysctl.Sysctl
 
 	peerByNodeName   map[string]*peerConfig
 	nodeNameByNodeIP map[string]string
@@ -95,21 +97,15 @@ type Agent struct {
 
 // NewAgent creates a new WireGuard Agent
 func NewAgent(privKeyPath string, sysctl sysctl.Sysctl) (*Agent, error) {
-	key, err := loadOrGeneratePrivKey(privKeyPath)
-	if err != nil {
-		return nil, err
-	}
-
 	wgClient, err := wgctrl.New()
 	if err != nil {
 		return nil, err
 	}
-
 	return &Agent{
-		wgClient:   wgClient,
-		privKey:    key,
-		listenPort: types.ListenPort,
-		sysctl:     sysctl,
+		wgClient:    wgClient,
+		privKeyPath: privKeyPath,
+		listenPort:  types.ListenPort,
+		sysctl:      sysctl,
 
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
@@ -122,12 +118,14 @@ func NewAgent(privKeyPath string, sysctl sysctl.Sysctl) (*Agent, error) {
 	}, nil
 }
 
-func (a *Agent) Name() string {
-	return "wireguard-agent"
+// Start implements cell.HookInterface.
+func (a *Agent) Start(cell.HookContext) (err error) {
+	a.privKey, err = loadOrGeneratePrivKey(a.privKeyPath)
+	return
 }
 
-// Close is called when the agent stops
-func (a *Agent) Close() error {
+// Stop implements cell.HookInterface.
+func (a *Agent) Stop(cell.HookContext) error {
 	a.RLock()
 	defer a.RUnlock()
 
@@ -136,6 +134,12 @@ func (a *Agent) Close() error {
 	}
 
 	return a.wgClient.Close()
+}
+
+var _ cell.HookInterface = &Agent{}
+
+func (a *Agent) Name() string {
+	return "wireguard-agent"
 }
 
 // InitLocalNodeFromWireGuard configures the fields on the local node. Called from
