@@ -608,6 +608,20 @@ func (msA *mapState) Equals(msB MapState) bool {
 	})
 }
 
+// DeepEquals determines if this MapState is equal to the
+// argument MapState
+// Only used for testing, but also from the endpoint package!
+// internal indices are ignored, only the mapstate entries are checked for!
+func (msA *mapState) DeepEquals(msB *mapState) bool {
+	if msA.Len() != msB.Len() {
+		return false
+	}
+	return msA.ForEach(func(kA Key, vA MapStateEntry) bool {
+		vB, ok := msB.Get(kA)
+		return ok && (&vB).DeepEqual(&vA)
+	})
+}
+
 // Diff returns the string of differences between 'obtained' and 'expected' prefixed with
 // '+ ' or '- ' for obtaining something unexpected, or not obtaining the expected, respectively.
 // For use in debugging.
@@ -616,6 +630,31 @@ func (obtained *mapState) Diff(expected MapState) (res string) {
 	expected.ForEach(func(kE Key, vE MapStateEntry) bool {
 		if vO, ok := obtained.Get(kE); ok {
 			if !(&vO).DatapathAndDerivedFromEqual(&vE) {
+				res += "- " + kE.String() + ": " + vE.String() + "\n"
+				res += "+ " + kE.String() + ": " + vO.String() + "\n"
+			}
+		} else {
+			res += "- " + kE.String() + ": " + vE.String() + "\n"
+		}
+		return true
+	})
+	obtained.ForEach(func(kE Key, vE MapStateEntry) bool {
+		if _, ok := expected.Get(kE); !ok {
+			res += "+ " + kE.String() + ": " + vE.String() + "\n"
+		}
+		return true
+	})
+	return res
+}
+
+// diff returns the string of differences between 'obtained' and 'expected' prefixed with
+// '+ ' or '- ' for obtaining something unexpected, or not obtaining the expected, respectively.
+// For use in debugging.
+func (obtained *mapState) diff(expected *mapState) (res string) {
+	res += "Missing (-), Unexpected (+):\n"
+	expected.ForEach(func(kE Key, vE MapStateEntry) bool {
+		if vO, ok := obtained.Get(kE); ok {
+			if !(&vO).DeepEqual(&vE) {
 				res += "- " + kE.String() + ": " + vE.String() + "\n"
 				res += "+ " + kE.String() + ": " + vO.String() + "\n"
 			}
