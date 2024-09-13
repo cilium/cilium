@@ -112,22 +112,14 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		{
 			name: "test-1 - no KV added, map should remain the same",
 			ms: testMapState(MapStateMap{
-				IngressKey(): {
-					ProxyPort:        0,
-					DerivedFromRules: nil,
-					IsDeny:           false,
-				},
+				IngressKey(): {},
 			}),
 			args: args{
 				key:   IngressKey(),
 				entry: MapStateEntry{},
 			},
 			want: testMapState(MapStateMap{
-				IngressKey(): {
-					ProxyPort:        0,
-					DerivedFromRules: nil,
-					IsDeny:           false,
-				},
+				IngressKey(): {},
 			}),
 			wantAdds:    Keys{},
 			wantDeletes: Keys{},
@@ -1368,14 +1360,14 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 
 		ms.denyPreferredInsertWithChanges(tt.args.key, tt.args.entry, denyRules, changes)
 		ms.validatePortProto(t)
-		require.Truef(t, ms.Equals(tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.Diff(tt.want))
+		require.Truef(t, ms.DeepEquals(tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.diff(tt.want))
 		require.EqualValuesf(t, tt.wantAdds, changes.Adds, "%s: Adds mismatch", tt.name)
 		require.EqualValuesf(t, tt.wantDeletes, changes.Deletes, "%s: Deletes mismatch", tt.name)
 		require.EqualValuesf(t, tt.wantOld, changes.Old, "%s: OldValues mismatch allows", tt.name)
 
 		// Revert changes and check that we get the original mapstate
 		ms.revertChanges(changes)
-		require.Truef(t, ms.Equals(tt.ms), "%s: MapState mismatch:\n%s", tt.name, ms.Diff(tt.ms))
+		require.Truef(t, ms.DeepEquals(tt.ms), "%s: MapState mismatch:\n%s", tt.name, ms.diff(tt.ms))
 	}
 }
 
@@ -1453,14 +1445,14 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		name      string
 		setup     *mapState
 		args      []args // changes applied, in order
-		state     MapState
+		state     *mapState
 		adds      Keys
 		deletes   Keys
 	}{{
 		name: "test-0 - Adding L4-only redirect allow key to an existing allow-all with L3-only deny",
 		setup: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():      allowEntry(0),
-			ingressL3OnlyKey(41): denyEntry(0),
+			ingressL3OnlyKey(41): denyEntry(0, csFoo),
 		}),
 		args: []args{
 			{cs: csFoo, adds: []int{0}, deletes: []int{}, port: 80, proto: 6, ingress: true, redirect: true, deny: false},
@@ -1468,7 +1460,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		state: testMapState(map[Key]MapStateEntry{
 			AnyIngressKey():      allowEntry(0),
 			ingressL3OnlyKey(41): denyEntry(0, csFoo).WithDependents(HttpIngressKey(41)),
-			HttpIngressKey(0):    allowEntry(1, nil),
+			HttpIngressKey(0):    allowEntry(1, csFoo),
 			HttpIngressKey(41):   denyEntry(0).WithOwners(ingressL3OnlyKey(41)),
 		}),
 		adds: Keys{
@@ -1801,7 +1793,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			handle.Close()
 		}
 		policyMapState.validatePortProto(t)
-		require.True(t, policyMapState.Equals(tt.state), "%s (MapState):\n%s", tt.name, policyMapState.Diff(tt.state))
+		require.True(t, policyMapState.DeepEquals(tt.state), "%s (MapState):\n%s", tt.name, policyMapState.diff(tt.state))
 		require.EqualValues(t, tt.adds, changes.Adds, tt.name+" (adds)")
 		require.EqualValues(t, tt.deletes, changes.Deletes, tt.name+" (deletes)")
 	}
@@ -1922,7 +1914,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		continued bool // Start from the end state of the previous test
 		name      string
 		args      []args // changes applied, in order
-		state     MapState
+		state     *mapState
 		adds      Keys
 		deletes   Keys
 	}{{
@@ -2119,8 +2111,8 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: true},
 		},
 		state: testMapState(MapStateMap{
-			egressKey(43, 0, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
-			egressKey(43, 6, 80, 0): allowEntry(1, csFoo).WithDefaultAuthType(AuthTypeSpire),
+			egressKey(43, 0, 0, 0):  allowEntry(0, csFoo).WithDependents(egressKey(43, 6, 80, 0)).WithAuthType(AuthTypeSpire),
+			egressKey(43, 6, 80, 0): allowEntry(1, csFoo).WithOwners(egressKey(43, 0, 0, 0)).WithDefaultAuthType(AuthTypeSpire),
 			egressKey(0, 6, 80, 0):  allowEntry(1, csWildcard),
 		}),
 		adds: Keys{
@@ -2137,8 +2129,8 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{cs: csFoo, adds: []int{43}, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
 		},
 		state: testMapState(MapStateMap{
-			egressKey(43, 0, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
-			egressKey(43, 6, 80, 0): allowEntry(1, csFoo).WithDefaultAuthType(AuthTypeSpire),
+			egressKey(43, 0, 0, 0):  allowEntry(0, csFoo).WithDependents(egressKey(43, 6, 80, 0)).WithAuthType(AuthTypeSpire),
+			egressKey(43, 6, 80, 0): allowEntry(1, csFoo).WithOwners(egressKey(43, 0, 0, 0)).WithDefaultAuthType(AuthTypeSpire),
 			egressKey(0, 6, 80, 0):  allowEntry(1, csWildcard),
 		}),
 		adds: Keys{
@@ -2155,8 +2147,8 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: true},
 		},
 		state: testMapState(MapStateMap{
-			egressKey(43, 6, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
-			egressKey(43, 6, 80, 0): allowEntry(1, csFoo).WithDefaultAuthType(AuthTypeSpire),
+			egressKey(43, 6, 0, 0):  allowEntry(0, csFoo).WithDependents(egressKey(43, 6, 80, 0)).WithAuthType(AuthTypeSpire),
+			egressKey(43, 6, 80, 0): allowEntry(1, csFoo).WithOwners(egressKey(43, 6, 0, 0)).WithDefaultAuthType(AuthTypeSpire),
 			egressKey(0, 6, 80, 0):  allowEntry(1, csWildcard),
 		}),
 		adds: Keys{
@@ -2173,8 +2165,8 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{cs: csFoo, adds: []int{43}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
 		},
 		state: testMapState(MapStateMap{
-			egressKey(43, 6, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
-			egressKey(43, 6, 80, 0): allowEntry(1, csFoo).WithDefaultAuthType(AuthTypeSpire),
+			egressKey(43, 6, 0, 0):  allowEntry(0, csFoo).WithDependents(egressKey(43, 6, 80, 0)).WithAuthType(AuthTypeSpire),
+			egressKey(43, 6, 80, 0): allowEntry(1, csFoo).WithOwners(egressKey(43, 6, 0, 0)).WithDefaultAuthType(AuthTypeSpire),
 			egressKey(0, 6, 80, 0):  allowEntry(1, csWildcard),
 		}),
 		adds: Keys{
@@ -2239,7 +2231,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			handle.Close()
 		}
 		policyMapState.validatePortProto(t)
-		require.True(t, policyMapState.Equals(tt.state), "%s (MapState):\n%s", tt.name, policyMapState.Diff(tt.state))
+		require.True(t, policyMapState.DeepEquals(tt.state), "%s (MapState):\n%s", tt.name, policyMapState.diff(tt.state))
 		require.EqualValues(t, tt.adds, changes.Adds, tt.name+" (adds)")
 		require.EqualValues(t, tt.deletes, changes.Deletes, tt.name+" (deletes)")
 	}
