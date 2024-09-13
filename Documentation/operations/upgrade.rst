@@ -311,6 +311,12 @@ communicating via the proxy must reconnect to re-establish connections.
   In case of downgrades to a version that doesn't support services protocol differentiation,
   existing services with the protocol set will be deleted and recreated, without the protocol, by
   the agent, causing connection disruptions for such services.
+* MTU auto-detection is now continuous during agent lifetime, changing device MTU no longer requires
+  restarting the agent to pick up the new MTU.
+* MTU auto-detection will now use the lowest MTU of all external interfaces. Before, only the primary
+  interface was considered. One exception to this is in ENI mode where the secondary interfaces are not
+  considered for MTU auto-detection. MTU can still be configured manually via the ``MTU`` helm option,
+  ``--mtu`` agent flag or ``mtu`` option in CNI configuration.
 
 Removed Options
 ~~~~~~~~~~~~~~~
