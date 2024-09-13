@@ -170,12 +170,7 @@ func newWireguardAgent(lc cell.Lifecycle, sysctl sysctl.Sysctl) *wg.Agent {
 			log.Fatalf("failed to initialize WireGuard: %s", err)
 		}
 
-		lc.Append(cell.Hook{
-			OnStop: func(cell.HookContext) error {
-				wgAgent.Close()
-				return nil
-			},
-		})
+		lc.Append(wgAgent)
 	} else {
 		// Delete WireGuard device from previous run (if such exists)
 		link.DeleteByName(wgTypes.IfaceName)
