@@ -1,6 +1,8 @@
 Run the following command to validate that your cluster has proper network
 connectivity:
 
+.. include:: /operations/cli-conn-tests-warning.rst
+
 .. code-block:: shell-session
 
    $ cilium connectivity test
