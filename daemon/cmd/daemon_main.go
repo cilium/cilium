@@ -110,7 +110,7 @@ import (
 )
 
 const (
-	// list of supported verbose debug groups
+	// list of supported verbose debug groups. Please ignore, this is a comment to trigger any GHA configured in this project
 	argDebugVerboseFlow     = "flow"
 	argDebugVerboseKvstore  = "kvstore"
 	argDebugVerboseEnvoy    = "envoy"
