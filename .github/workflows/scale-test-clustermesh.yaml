@@ -58,9 +58,9 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.23.1
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 491.0.0
+  gcloud_version: 492.0.0
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  cmapisrv_mock_ref: fc570a029fed4f1e145a3409e7094bcc17842e2a
+  cmapisrv_mock_ref: 1a8270b60cc9024036c1eb26a720ff9ddb254b81
 
   test_name: scale-clustermesh
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -129,7 +129,7 @@ jobs:
           go-version: ${{ env.go_version }}
 
       - name: Install Kops
-        uses: cilium/scale-tests-action/install-kops@378ada318fd6dbf7ede1288da713e0cc9ba26f46 # main
+        uses: cilium/scale-tests-action/install-kops@746605acaf51e628ba5b8941d547c7cf32655358 # main
 
       - name: Setup gcloud credentials
         uses: google-github-actions/auth@62cf5bd3e4211a0a0b51f2c6d6a37129d828611d # v2.1.5
@@ -170,7 +170,7 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: cilium/scale-tests-action/create-cluster@378ada318fd6dbf7ede1288da713e0cc9ba26f46 # main
+        uses: cilium/scale-tests-action/create-cluster@746605acaf51e628ba5b8941d547c7cf32655358 # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.CLUSTER_NAME }}
@@ -202,7 +202,7 @@ jobs:
           gcloud version
 
       - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@378ada318fd6dbf7ede1288da713e0cc9ba26f46 # main
+        uses: cilium/scale-tests-action/setup-firewall@746605acaf51e628ba5b8941d547c7cf32655358 # main
         with:
           cluster_name: ${{ steps.vars.outputs.CLUSTER_NAME }}
 
@@ -244,7 +244,7 @@ jobs:
       # This step must be run after installing Cilium, as it requires
       # system pods (e.g., coredns) to be running.
       - name: Wait for cluster to be ready
-        uses: cilium/scale-tests-action/validate-cluster@378ada318fd6dbf7ede1288da713e0cc9ba26f46 # main
+        uses: cilium/scale-tests-action/validate-cluster@746605acaf51e628ba5b8941d547c7cf32655358 # main
         timeout-minutes: 20
         with:
           cluster_name: ${{ steps.vars.outputs.CLUSTER_NAME }}
@@ -383,14 +383,14 @@ jobs:
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        uses: cilium/scale-tests-action/cleanup-cluster@378ada318fd6dbf7ede1288da713e0cc9ba26f46 # main
+        uses: cilium/scale-tests-action/cleanup-cluster@746605acaf51e628ba5b8941d547c7cf32655358 # main
         with:
           cluster_name: ${{ steps.vars.outputs.CLUSTER_NAME }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@378ada318fd6dbf7ede1288da713e0cc9ba26f46 # main
+        uses: cilium/scale-tests-action/export-results@746605acaf51e628ba5b8941d547c7cf32655358 # main
         with:
           test_name: ${{ env.test_name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
