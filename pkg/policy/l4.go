@@ -60,8 +60,9 @@ func (l4rule *PerSelectorPolicy) covers(l3l4rule *PerSelectorPolicy) bool {
 	if l3l4IsRedirect && !l4OnlyIsRedirect {
 		// Can not skip if l3l4-rule is redirect while l4-only is not
 		return false
-	} else if l3l4IsRedirect && l4OnlyIsRedirect && l3l4rule.Listener != l4rule.Listener {
-		// L3l4 rule has a different listener, it can not be skipped
+	} else if l3l4IsRedirect && l4OnlyIsRedirect &&
+		(l3l4rule.Listener != l4rule.Listener || l3l4rule.Priority != l4rule.Priority) {
+		// L3l4 rule has a different listener or priority, it can not be skipped
 		return false
 	}
 
@@ -588,9 +589,10 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 		wildcardRule = l4.PerSelectorPolicies[l4.wildcard]
 	}
 
+	isL4Wildcard := (l4.Port != 0 || l4.PortName != "") && l4.wildcard != nil
 	for cs, currentRule := range l4.PerSelectorPolicies {
 		// have wildcard and this is an L3L4 key?
-		isL3L4withWildcardPresent := (l4.Port != 0 || l4.PortName != "") && l4.wildcard != nil && cs != l4.wildcard
+		isL3L4withWildcardPresent := isL4Wildcard && cs != l4.wildcard
 
 		if isL3L4withWildcardPresent && wildcardRule.covers(currentRule) {
 			logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: Skipping L3/L4 key due to existing L4-only key")
@@ -600,6 +602,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 		isDenyRule := currentRule != nil && currentRule.IsDeny
 		isRedirect := currentRule.IsRedirect()
 		listener := currentRule.GetListener()
+		priority := currentRule.GetPriority()
 		if !isDenyRule && isL3L4withWildcardPresent && !isRedirect {
 			// Inherit the redirect status from the wildcard rule.
 			// This is now needed as 'covers()' can pass non-redirect L3L4 rules
@@ -608,6 +611,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 			// L4-only rule.
 			isRedirect = wildcardRule.IsRedirect()
 			listener = wildcardRule.GetListener()
+			priority = wildcardRule.GetPriority()
 		}
 		hasAuth, authType := currentRule.GetAuthType()
 		var proxyPort uint16
@@ -623,7 +627,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 				continue
 			}
 		}
-		entry := NewMapStateEntry(cs, l4.RuleOrigin[cs], proxyPort, currentRule.GetListener(), currentRule.GetPriority(), isDenyRule, hasAuth, authType)
+		entry := NewMapStateEntry(cs, l4.RuleOrigin[cs], proxyPort, listener, priority, isDenyRule, hasAuth, authType)
 
 		if cs.IsWildcard() {
 			for _, keyToAdd := range keysToAdd {
