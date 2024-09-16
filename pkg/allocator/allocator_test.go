@@ -28,30 +28,34 @@ import (
 
 type dummyBackend struct {
 	mutex      lock.RWMutex
-	identities map[idpool.ID]AllocatorKey
+	masterKeys map[idpool.ID]AllocatorKey
+	slaveKeys  map[idpool.ID]AllocatorKey
 	handler    CacheMutations
 
-	updateKey func(ctx context.Context, id idpool.ID, key AllocatorKey) error
+	updateMasterKey func(ctx context.Context, id idpool.ID, key AllocatorKey) error
+	updateSlaveKey  func(ctx context.Context, id idpool.ID, key AllocatorKey) error
 
 	disableListDone bool
 }
 
 func newDummyBackend() *dummyBackend {
 	return &dummyBackend{
-		identities: map[idpool.ID]AllocatorKey{},
+		slaveKeys:  map[idpool.ID]AllocatorKey{},
+		masterKeys: map[idpool.ID]AllocatorKey{},
 	}
 }
 
 func (d *dummyBackend) DeleteAllKeys(ctx context.Context) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	d.identities = map[idpool.ID]AllocatorKey{}
+	d.slaveKeys = map[idpool.ID]AllocatorKey{}
+	d.masterKeys = map[idpool.ID]AllocatorKey{}
 }
 
 func (d *dummyBackend) DeleteID(ctx context.Context, id idpool.ID) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	delete(d.identities, id)
+	delete(d.slaveKeys, id)
 	return nil
 }
 
@@ -59,11 +63,11 @@ func (d *dummyBackend) AllocateID(ctx context.Context, id idpool.ID, key Allocat
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	if _, ok := d.identities[id]; ok {
+	if _, ok := d.masterKeys[id]; ok {
 		return nil, fmt.Errorf("identity already exists")
 	}
 
-	d.identities[id] = key
+	d.masterKeys[id] = key
 
 	if d.handler != nil {
 		d.handler.OnUpsert(id, key)
@@ -80,9 +84,11 @@ func (d *dummyBackend) AcquireReference(ctx context.Context, id idpool.ID, key A
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	if _, ok := d.identities[id]; !ok {
+	if _, ok := d.masterKeys[id]; !ok {
 		return fmt.Errorf("identity does not exist")
 	}
+
+	d.slaveKeys[id] = key
 
 	if d.handler != nil {
 		d.handler.OnUpsert(id, key)
@@ -105,18 +111,53 @@ func (d *dummyBackend) Lock(ctx context.Context, key AllocatorKey) (kvstore.KVLo
 	return &dummyLock{}, nil
 }
 
-func (d *dummyBackend) setUpdateKeyMutator(mutator func(ctx context.Context, id idpool.ID, key AllocatorKey) error) {
+func (d *dummyBackend) setUpdateMasterKeyMutator(mutator func(ctx context.Context, id idpool.ID, key AllocatorKey) error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	d.updateKey = mutator
+	d.updateMasterKey = mutator
+}
+
+func (d *dummyBackend) setUpdateSlaveKeyMutator(mutator func(ctx context.Context, id idpool.ID, key AllocatorKey) error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	d.updateSlaveKey = mutator
 }
 
 func (d *dummyBackend) UpdateKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error {
+	if err := d.UpdateMasterKey(ctx, id, key, reliablyMissing); err != nil {
+		return err
+	}
+	if err := d.UpdateSlaveKey(ctx, id, key, reliablyMissing); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *dummyBackend) UpdateMasterKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	d.identities[id] = key
-	if d.updateKey != nil {
-		return d.updateKey(ctx, id, key)
+	d.masterKeys[id] = key
+	if d.updateMasterKey != nil {
+		return d.updateMasterKey(ctx, id, key)
+	}
+	return nil
+}
+
+func (d *dummyBackend) ValidateSlaveKey(ctx context.Context, id idpool.ID, key AllocatorKey) (bool, error) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	if val, ok := d.slaveKeys[id]; ok && val.String() == key.String() {
+		return true, nil
+	}
+	return false, nil
+}
+
+func (d *dummyBackend) UpdateSlaveKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	d.slaveKeys[id] = key
+	if d.updateSlaveKey != nil {
+		return d.updateSlaveKey(ctx, id, key)
 	}
 	return nil
 }
@@ -128,7 +169,8 @@ func (d *dummyBackend) UpdateKeyIfLocked(ctx context.Context, id idpool.ID, key 
 func (d *dummyBackend) Get(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
-	for id, k := range d.identities {
+	// This loops through slaveKeys to mimic the kvstore implementation
+	for id, k := range d.slaveKeys {
 		if key.GetKey() == k.GetKey() {
 			return id, nil
 		}
@@ -143,7 +185,7 @@ func (d *dummyBackend) GetIfLocked(ctx context.Context, key AllocatorKey, lock k
 func (d *dummyBackend) GetByID(ctx context.Context, id idpool.ID) (AllocatorKey, error) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
-	if key, ok := d.identities[id]; ok {
+	if key, ok := d.masterKeys[id]; ok {
 		return key, nil
 	}
 	return nil, nil
@@ -152,10 +194,10 @@ func (d *dummyBackend) GetByID(ctx context.Context, id idpool.ID) (AllocatorKey,
 func (d *dummyBackend) Release(ctx context.Context, id idpool.ID, key AllocatorKey) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	for idtyID, k := range d.identities {
+	for idtyID, k := range d.slaveKeys {
 		if k.GetKey() == key.GetKey() &&
 			idtyID == id {
-			delete(d.identities, id)
+			delete(d.slaveKeys, id)
 			if d.handler != nil {
 				d.handler.OnDelete(id, k)
 			}
@@ -169,7 +211,7 @@ func (d *dummyBackend) ListIDs(ctx context.Context) (identityIDs []idpool.ID, er
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	return slices.Collect(maps.Keys(d.identities)), nil
+	return slices.Collect(maps.Keys(d.masterKeys)), nil
 }
 
 func (d *dummyBackend) ListAndWatch(ctx context.Context, handler CacheMutations, stopChan chan struct{}) {
@@ -177,8 +219,8 @@ func (d *dummyBackend) ListAndWatch(ctx context.Context, handler CacheMutations,
 	d.handler = handler
 
 	// Sort by ID to ensure consistent ordering
-	for _, id := range slices.Sorted(maps.Keys(d.identities)) {
-		d.handler.OnUpsert(id, d.identities[id])
+	for _, id := range slices.Sorted(maps.Keys(d.masterKeys)) {
+		d.handler.OnUpsert(id, d.masterKeys[id])
 	}
 	d.mutex.Unlock()
 
@@ -454,7 +496,7 @@ func TestHandleK8sDelete(t *testing.T) {
 	require.True(t, newlyAllocated)
 
 	var counter atomic.Uint32
-	backend.setUpdateKeyMutator(func(ctx context.Context, id idpool.ID, key AllocatorKey) error {
+	backend.setUpdateMasterKeyMutator(func(ctx context.Context, id idpool.ID, key AllocatorKey) error {
 		counter.Add(1)
 		if counter.Load() <= 2 {
 			return fmt.Errorf("updateKey failed: %d", counter.Load())

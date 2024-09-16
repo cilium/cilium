@@ -244,6 +244,18 @@ type Backend interface {
 	// releases.Release(ctx context.Context, key AllocatorKey) (err error)
 	Release(ctx context.Context, id idpool.ID, key AllocatorKey) (err error)
 
+	// UpdateMasterKey refreshes the master key part of an identity.
+	// When reliablyMissing is set it will also recreate missing master key.
+	UpdateMasterKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error
+
+	// ValidateSlaveKey validates that the slave part of the record that this node is using this key -> id
+	// mapping is up-to-date. If it returns true, it means that no action is needed.
+	ValidateSlaveKey(ctx context.Context, id idpool.ID, key AllocatorKey) (bool, error)
+
+	// UpdateSlaveKey refreshes the slave part of the record that this node is using this key -> id
+	// mapping. When reliablyMissing is set it will also recreate missing slave key.
+	UpdateSlaveKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error
+
 	// UpdateKey refreshes the record that this node is using this key -> id
 	// mapping. When reliablyMissing is set it will also recreate missing master or
 	// slave keys.
