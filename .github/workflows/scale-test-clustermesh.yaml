@@ -275,7 +275,7 @@ jobs:
           # Don't run any tasks at this point, just setup the monitoring stack
           go run ./cmd/clusterloader.go \
             -v=2 \
-            --testconfig=./testing/custom/clustermesh/setup.yaml \
+            --testconfig=./testing/custom/common/setup.yaml \
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             --provider=gce \
             --enable-prometheus-server \
