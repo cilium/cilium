@@ -370,9 +370,9 @@ func (l *loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string,
 // and reinsertion of the object into the kernel as well as an atomic program replacement
 // at the XDP hook. extraCArgs can be passed-in in order to alter BPF code defines.
 func (l *loader) ReinitializeXDP(ctx context.Context, extraCArgs []string) error {
+	devices := l.getNodeConfig().DeviceNames()
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
-	devices := l.nodeConfig.Load().DeviceNames()
 	return l.reinitializeXDPLocked(ctx, extraCArgs, devices)
 }
 
