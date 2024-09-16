@@ -161,16 +161,20 @@ kind-build-image-agent: ## Build cilium-dev docker image
 	$(QUIET)$(MAKE) dev-docker-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 
 $(eval $(call KIND_ENV,kind-image-agent))
+kind-image-agent: .SHELLFLAGS=-c
 kind-image-agent: kind-ready kind-build-image-agent ## Build cilium-dev docker image and import it into kind.
-	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) -n $(KIND_CLUSTER_NAME)
+	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) -n $(KIND_CLUSTER_NAME); \
+	[ $$? -eq 0 ] || $(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) -n $(KIND_CLUSTER_NAME)
 
 $(eval $(call KIND_ENV,kind-build-image-operator))
 kind-build-image-operator: ## Build cilium-operator-dev docker image
 	$(QUIET)$(MAKE) dev-docker-operator-generic-image$(DEBUGGER_SUFFIX) DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 
 $(eval $(call KIND_ENV,kind-image-operator))
+kind-image-operator: .SHELLFLAGS=-c
 kind-image-operator: kind-ready kind-build-image-operator ## Build cilium-operator-dev docker image and import it into kind.
-	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) -n $(KIND_CLUSTER_NAME)
+	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) -n $(KIND_CLUSTER_NAME); \
+	[ $$? -eq 0 ] || $(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) -n $(KIND_CLUSTER_NAME)
 
 $(eval $(call KIND_ENV,kind-build-clustermesh-apiserver))
 kind-build-clustermesh-apiserver: ## Build cilium-clustermesh-apiserver docker image
@@ -195,11 +199,13 @@ ifdef ADDITIONAL_KIND_VALUES_FILE
 endif
 
 .PHONY: kind-install-cilium-fast
+kind-install-cilium-fast: .SHELLFLAGS=-c
 kind-install-cilium-fast: check_deps kind-ready ## "Fast" Install a local Cilium version using volume-mounted binaries into all clusters.
 	@echo "  INSTALL cilium"
 	docker pull quay.io/cilium/cilium-ci:latest
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
 		kind load docker-image --name $$cluster_name quay.io/cilium/cilium-ci:latest; \
+		[ $$? -eq 0 ] || kind load docker-image --name $$cluster_name quay.io/cilium/cilium-ci:latest; \
 		$(CILIUM_CLI) --context=kind-$$cluster_name uninstall >/dev/null 2>&1 || true; \
 		$(CILIUM_CLI) install --context=kind-$$cluster_name \
 			--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
