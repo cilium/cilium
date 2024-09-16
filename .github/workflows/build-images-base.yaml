@@ -288,7 +288,7 @@ jobs:
       - name: Push changes into PR
         env:
           ref: ${{ github.event.pull_request.head.ref || github.ref }}
-          repository:  ${{ startsWith(github.head_ref, 'renovate/') && github.repository || github.event.pull_request.head.repo.full_name }}
+          repository:  ${{ github.event.pull_request.head.repo.full_name || github.repository }}
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' || steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
         run: |
           git diff HEAD^
