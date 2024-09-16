@@ -952,21 +952,64 @@ func (a *Allocator) DeleteAllKeys() {
 func (a *Allocator) syncLocalKeys() error {
 	// Create a local copy of all local allocations to not require to hold
 	// any locks while performing kvstore operations. Local use can
-	// disappear while we perform the sync but that is fine as worst case,
-	// a master key is created for a slave key that no longer exists. The
-	// garbage collector will remove it again.
+	// disappear while we perform the sync. For master keys this is fine as
+	// the garbage collector will remove it again. However, for slave keys, they
+	// will continue to exist until the kvstore lease expires after the agent is restarted.
+	// To ensure slave keys are not leaked, we do an extra check after the upsert,
+	// to ensure the key is still in use. If it's not in use, we grab the slave key mutex
+	// and hold it until we have released the key knowing that no new usage has started during the operation.
 	ids := a.localKeys.getVerifiedIDs()
+	ctx := context.TODO()
 
-	for id, value := range ids {
-		if err := a.backend.UpdateKey(context.TODO(), id, value, false); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				fieldKey: value,
-				fieldID:  id,
-			}).Warning("Unable to sync key")
-		}
+	for id, key := range ids {
+		a.syncLocalKey(ctx, id, key)
 	}
 
 	return nil
+}
+
+func (a *Allocator) syncLocalKey(ctx context.Context, id idpool.ID, key AllocatorKey) {
+	encodedKey := key.GetKey()
+	if newId := a.localKeys.lookupKey(encodedKey); newId != id {
+		return
+	}
+	err := a.backend.UpdateKey(ctx, id, key, false)
+	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			fieldKey: key,
+			fieldID:  id,
+		}).Warning("Error updating key")
+	}
+
+	// Check if the key is still in use locally. Given its expected it's still
+	// in use in most cases, we avoid grabbing the slaveKeysMutex here to reduce lock contention.
+	// If it is in use here, we know the slave key is not leaked, and we don't need to do any cleanup.
+	if newId := a.localKeys.lookupKey(encodedKey); newId != idpool.NoID {
+		return
+	}
+
+	a.slaveKeysMutex.Lock()
+	defer a.slaveKeysMutex.Unlock()
+
+	// Check once again that the slave key is unused locally before releasing it,
+	// all while holding the slaveKeysMutex to ensure there are no concurrent allocations or releases.
+	// If the key is still unused, it could mean that the slave key was upserted into the kvstore during "UpdateKey"
+	// after it was previously released. If that is the case, we release it while holding the slaveKeysMutex.
+	if newId := a.localKeys.lookupKey(encodedKey); newId == idpool.NoID {
+		ctx, cancel := context.WithTimeout(ctx, backendOpTimeout)
+		defer cancel()
+		log.WithFields(logrus.Fields{
+			fieldKey: key,
+			fieldID:  id,
+		}).Warning("Releasing now unused key that was re-recreated")
+		err = a.backend.Release(ctx, id, key)
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				fieldKey: key,
+				fieldID:  id,
+			}).Warning("Error releasing unused key")
+		}
+	}
 }
 
 func (a *Allocator) startLocalKeySync() {
