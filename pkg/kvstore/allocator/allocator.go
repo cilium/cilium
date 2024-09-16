@@ -401,8 +401,7 @@ func (k *kvstoreBackend) RunLocksGC(ctx context.Context, staleKeysPrevRound map[
 			// comparing ModRevision ensures the same client is still holding
 			// this lock since the last GC was called.
 			modRev.ModRevision == v.ModRevision &&
-			modRev.LeaseID == v.LeaseID &&
-			modRev.SessionID == v.SessionID {
+			modRev.LeaseID == v.LeaseID {
 			if err := k.backend.Delete(ctx, key); err == nil {
 				scopedLog.Warning("Forcefully removed distributed lock due to client staleness." +
 					" Please check the connectivity between the KVStore and the client with that lease ID.")
@@ -416,7 +415,6 @@ func (k *kvstoreBackend) RunLocksGC(ctx context.Context, staleKeysPrevRound map[
 		staleKeys[key] = kvstore.Value{
 			ModRevision: v.ModRevision,
 			LeaseID:     v.LeaseID,
-			SessionID:   v.SessionID,
 		}
 	}
 
