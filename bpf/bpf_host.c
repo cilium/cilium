@@ -403,11 +403,6 @@ skip_tunnel:
 	}
 
 #if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
-	/* See IPv4 comment. */
-	if (from_proxy && info->tunnel_endpoint && encrypt_key)
-		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
-					 info->sec_identity, true, false);
-
 	if (from_proxy &&
 	    (!info || !identity_is_cluster(info->sec_identity)))
 		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
@@ -882,11 +877,6 @@ skip_tunnel:
 	}
 
 #if defined(ENABLE_IPSEC) && !defined(TUNNEL_MODE)
-	/* We encrypt host to remote pod packets only if they are from proxy. */
-	if (from_proxy && info->tunnel_endpoint && encrypt_key)
-		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
-					 info->sec_identity, true, false);
-
 	if (from_proxy &&
 	    (!info || !identity_is_cluster(info->sec_identity)))
 		ctx->mark = MARK_MAGIC_PROXY_TO_WORLD;
@@ -1494,26 +1484,15 @@ skip_host_firewall:
 	}
 #endif
 
-#if defined(ENABLE_ENCRYPTED_OVERLAY)
-	if (ctx_is_overlay(ctx) && get_identity(ctx) == ENCRYPTED_OVERLAY_ID) {
-		/* This is overlay traffic that should be recirculated
-		 * to the stack for XFRM encryption.
-		 */
-		ret = encrypt_overlay_and_redirect(ctx);
-		if (ret == CTX_ACT_REDIRECT) {
-			/* we are redirecting back into the stack, so TRACE_TO_STACK
-			 * for tracepoint
-			 */
-			send_trace_notify(ctx, TRACE_TO_STACK, src_sec_identity,
-					  dst_sec_identity,
-					  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
-					  TRACE_REASON_ENCRYPT_OVERLAY, 0);
+#if defined(ENABLE_IPSEC)
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_ENCRYPT) {
+		ret =  ipsec_maybe_redirect_to_encrypt(ctx, proto);
+		if (ret == CTX_ACT_REDIRECT)
 			return ret;
-		}
-		if (IS_ERR(ret))
+		else if (IS_ERR(ret))
 			goto drop_err;
 	}
-#endif /* ENABLE_ENCRYPTED_OVERLAY */
+#endif /* ENABLE_IPSEC */
 
 #ifdef ENABLE_WIREGUARD
 	/* Redirect the packet to the WireGuard tunnel device for encryption
