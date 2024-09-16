@@ -10,6 +10,7 @@ BINDIR ?= /usr/local/bin
 CLI_VERSION=$(shell git describe --tags --always)
 THIS_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 CILIUM_VERSION=$(shell cat $(THIS_DIR)/../stable.txt)
+CLI_MAIN_DIR?=./cmd/cilium
 STRIP_DEBUG=-w -s
 ifdef DEBUG
 	STRIP_DEBUG=
@@ -24,7 +25,7 @@ $(TARGET):
 	$(GO_BUILD) $(if $(GO_TAGS),-tags $(GO_TAGS)) \
 		-ldflags "$(GO_BUILD_LDFLAGS)" \
 		-o $(TARGET) \
-		./cmd/cilium
+		$(CLI_MAIN_DIR)
 
 local-release: clean
 	set -o errexit; \
@@ -48,7 +49,7 @@ local-release: clean
 			test -d release/$$OS/$$ARCH|| mkdir -p release/$$OS/$$ARCH; \
 			env GOOS=$$OS GOARCH=$$ARCH $(GO_BUILD) $(if $(GO_TAGS),-tags $(GO_TAGS)) \
 				-ldflags "$(GO_BUILD_LDFLAGS)" \
-				-o release/$$OS/$$ARCH/$(TARGET)$$EXT ./cmd/cilium; \
+				-o release/$$OS/$$ARCH/$(TARGET)$$EXT $(CLI_MAIN_DIR); \
 			if [ $$OS = "windows" ]; \
 			then \
 				zip -j release/$(TARGET)-$$OS-$$ARCH.zip release/$$OS/$$ARCH/$(TARGET)$$EXT; \
