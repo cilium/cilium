@@ -960,7 +960,8 @@ struct ct_entry {
 	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
 	      reserved2:1,	/* unused since v1.14 */
 	      from_tunnel:1,	/* Connection is over tunnel */
-	      reserved3:5;
+	      from_ingress_proxy:1, /* Connection originated from an ingress proxy */
+	      reserved3:4;
 	__u16 rev_nat_index;
 	/* In the kernel ifindex is u32, so we need to check in cilium-agent
 	 * that ifindex of a NodePort device is <= MAX(u16).
@@ -1163,7 +1164,8 @@ struct ct_state {
 	      reserved1:1,	/* Was auth_required, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is from tunnel */
 		  closing:1,
-	      reserved:7;
+	      from_ingress_proxy:1, /* Connection originated from an ingress proxy */
+	      reserved:6;
 	__u32 src_sec_id;
 #ifndef HAVE_FIB_IFINDEX
 	__u16 ifindex;
