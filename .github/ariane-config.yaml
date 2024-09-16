@@ -99,7 +99,7 @@ workflows:
   conformance-gateway-api.yaml:
     paths-ignore-regex: (test|Documentation|hubble|CODEOWNERS|USERS.md)/
   conformance-ginkgo.yaml:
-    paths-ignore-regex: (cilium-cli|Documentation|CODEOWNERS)/
+    paths-ignore-regex: (cilium-cli|Documentation|CODEOWNERS|USERS.md)/
   conformance-gke.yaml:
     paths-ignore-regex: (test|Documentation|hubble|CODEOWNERS|USERS.md)/
   conformance-ingress.yaml:
