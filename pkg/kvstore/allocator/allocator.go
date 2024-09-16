@@ -4,6 +4,7 @@
 package allocator
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"path"
@@ -267,15 +268,14 @@ func (k *kvstoreBackend) GetByID(ctx context.Context, id idpool.ID) (allocator.A
 	return k.keyType.PutKey(string(v)), nil
 }
 
-// UpdateKey refreshes the record that this node is using this key -> id
-// mapping. When reliablyMissing is set it will also recreate missing master or
-// slave keys.
-func (k *kvstoreBackend) UpdateKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) error {
+// UpdateMasterKey refreshes the master record for the key -> id mapping. When reliablyMissing is set to false,
+// it will initially check if the value is correct. It will do CreateOnly to ensure it does not overwrite
+// a revision with a different value.
+func (k *kvstoreBackend) UpdateMasterKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) error {
 	var (
-		err       error
-		recreated bool
-		keyPath   = path.Join(k.idPrefix, id.String())
-		valueKey  = path.Join(k.valuePrefix, key.GetKey(), k.suffix)
+		err      error
+		keyPath  = path.Join(k.idPrefix, id.String())
+		valueKey = path.Join(k.valuePrefix, key.GetKey(), k.suffix)
 	)
 
 	// Use of CreateOnly() ensures that any existing potentially
@@ -287,10 +287,31 @@ func (k *kvstoreBackend) UpdateKey(ctx context.Context, id idpool.ID, key alloca
 	case success:
 		log.WithField(logfields.Key, keyPath).Warning("Re-created missing master key")
 	}
+	return nil
+}
 
-	// Also re-create the slave key in case it has been deleted. This will
-	// ensure that the next garbage collection cycle of any participating
-	// node does not remove the master key again.
+// UpdateKey refreshes the record that this node is using this key -> id
+// mapping. When reliablyMissing is set it will also recreate missing master or
+// slave keys.
+func (k *kvstoreBackend) UpdateKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) error {
+	if err := k.UpdateMasterKey(ctx, id, key, reliablyMissing); err != nil {
+		return err
+	}
+	if err := k.UpdateSlaveKey(ctx, id, key, reliablyMissing); err != nil {
+		return err
+	}
+	return nil
+}
+
+// UpdateSlaveKey updates the actual slave key for the given key. If reliablyMissing is set, it will only try to create
+// it if it does not exist already.
+func (k *kvstoreBackend) UpdateSlaveKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) error {
+	var (
+		err       error
+		recreated bool
+		valueKey  = path.Join(k.valuePrefix, key.GetKey(), k.suffix)
+	)
+
 	if reliablyMissing {
 		recreated, err = k.backend.CreateOnly(ctx, valueKey, []byte(id.String()), true)
 	} else {
@@ -304,6 +325,26 @@ func (k *kvstoreBackend) UpdateKey(ctx context.Context, id idpool.ID, key alloca
 	}
 
 	return nil
+}
+
+// ValidateSlaveKey will check if the slave key for the given key exists and is up-to-date. It also checks that the
+// lease associated with the key is owned by this client
+func (k *kvstoreBackend) ValidateSlaveKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) (bool, error) {
+	var (
+		err      error
+		valueKey = path.Join(k.valuePrefix, key.GetKey(), k.suffix)
+	)
+
+	val, hasLease, err := k.backend.GetWithLeaseInfo(ctx, valueKey)
+	if err != nil {
+		return false, fmt.Errorf("unable to validate slave key \"%s\" -> \"%s\": %w", logfields.Key, valueKey, err)
+	}
+
+	if val != nil && hasLease && bytes.Equal(val, []byte(id.String())) {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // UpdateKeyIfLocked refreshes the record that this node is using this key -> id
