@@ -1152,6 +1152,34 @@ func (e *etcdClient) GetIfLocked(ctx context.Context, key string, lock KVLocker)
 	return getR.Kvs[0].Value, nil
 }
 
+// GetWithLeaseInfo returns value of key, together with a boolean indicating if the lease associated
+// with the key is held by this client.
+func (e *etcdClient) GetWithLeaseInfo(ctx context.Context, key string) (bv []byte, hasLease bool, err error) {
+	defer func() {
+		Trace("GetWithLeaseInfo", err, logrus.Fields{fieldKey: key, fieldValue: string(bv)})
+	}()
+	lr, err := e.limiter.Wait(ctx)
+	if err != nil {
+		return nil, false, Hint(err)
+	}
+	defer func(duration *spanstat.SpanStat) {
+		increaseMetric(key, metricRead, "Get", duration.EndError(err).Total(), err)
+	}(spanstat.Start())
+
+	getR, err := e.client.Get(ctx, key)
+	if err != nil {
+		lr.Error(err, -1)
+		return nil, false, Hint(err)
+	}
+	lr.Done()
+
+	if getR.Count == 0 {
+		return nil, false, nil
+	}
+	return getR.Kvs[0].Value, e.leaseManager.KeyHasLease(key, client.LeaseID(getR.Kvs[0].Lease)), nil
+
+}
+
 // Get returns value of key
 func (e *etcdClient) Get(ctx context.Context, key string) (bv []byte, err error) {
 	defer func() {
