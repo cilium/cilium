@@ -158,65 +158,16 @@ func (d *doubleWriteBackend) RunGC(
 	return d.kvstoreBackend.RunGC(ctx, rateLimit, staleKeysPrevRound, minID, maxID)
 }
 
-func (d *doubleWriteBackend) UpdateKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) error {
+func (d *doubleWriteBackend) UpdateKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, ifLocalKeyStillExistsLocked func(func() error) error, reliablyMissing bool) error {
 	// Note: reliablyMissing is forced to "true" in order to ensure that when using the doublewrite backend for the first time,
 	// identities are properly created in the "secondary" identity store
-	crdErr := d.crdBackend.UpdateKey(ctx, id, key, true)
+	crdErr := d.crdBackend.UpdateKey(ctx, id, key, ifLocalKeyStillExistsLocked, true)
 	if crdErr != nil {
 		log.WithFields(logrus.Fields{logfields.Identity: id.String(), logfields.Key: key.String(), "reliablyMissing": reliablyMissing}).WithError(crdErr).Error("CRD backend failed to update key")
 	}
-	kvStoreErr := d.kvstoreBackend.UpdateKey(ctx, id, key, reliablyMissing)
+	kvStoreErr := d.kvstoreBackend.UpdateKey(ctx, id, key, ifLocalKeyStillExistsLocked, reliablyMissing)
 	if kvStoreErr != nil {
 		log.WithFields(logrus.Fields{logfields.Identity: id.String(), logfields.Key: key.String(), "reliablyMissing": reliablyMissing}).WithError(kvStoreErr).Error("KVStore backend failed to update key")
-	}
-	if d.readFromKVStore {
-		return kvStoreErr
-	}
-	return crdErr
-}
-
-func (d *doubleWriteBackend) UpdateMasterKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) error {
-	// Note: reliablyMissing is forced to "true" in order to ensure that when using the doublewrite backend for the first time,
-	// identities are properly created in the "secondary" identity store
-	crdErr := d.crdBackend.UpdateMasterKey(ctx, id, key, true)
-	if crdErr != nil {
-		log.WithFields(logrus.Fields{logfields.Identity: id.String(), logfields.Key: key.String(), "reliablyMissing": reliablyMissing}).WithError(crdErr).Error("CRD backend failed to update master key")
-	}
-	kvStoreErr := d.kvstoreBackend.UpdateMasterKey(ctx, id, key, reliablyMissing)
-	if kvStoreErr != nil {
-		log.WithFields(logrus.Fields{logfields.Identity: id.String(), logfields.Key: key.String(), "reliablyMissing": reliablyMissing}).WithError(kvStoreErr).Error("KVStore backend failed to update master key")
-	}
-	if d.readFromKVStore {
-		return kvStoreErr
-	}
-	return crdErr
-}
-
-func (d *doubleWriteBackend) ValidateSlaveKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) (bool, error) {
-	crdOk, crdErr := d.crdBackend.ValidateSlaveKey(ctx, id, key)
-	if crdErr != nil {
-		log.WithFields(logrus.Fields{logfields.Identity: id.String(), logfields.Key: key.String()}).WithError(crdErr).Error("CRD backend failed to validate master key")
-	}
-	kvStoreOk, kvStoreErr := d.kvstoreBackend.ValidateSlaveKey(ctx, id, key)
-	if kvStoreErr != nil {
-		log.WithFields(logrus.Fields{logfields.Identity: id.String(), logfields.Key: key.String()}).WithError(kvStoreErr).Error("KVStore backend failed to update master key")
-	}
-	if d.readFromKVStore {
-		return kvStoreOk, kvStoreErr
-	}
-	return crdOk, crdErr
-}
-
-func (d *doubleWriteBackend) UpdateSlaveKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) error {
-	// Note: reliablyMissing is forced to "true" in order to ensure that when using the doublewrite backend for the first time,
-	// identities are properly created in the "secondary" identity store
-	crdErr := d.crdBackend.UpdateSlaveKey(ctx, id, key, true)
-	if crdErr != nil {
-		log.WithFields(logrus.Fields{logfields.Identity: id.String(), logfields.Key: key.String(), "reliablyMissing": reliablyMissing}).WithError(crdErr).Error("CRD backend failed to update slave key")
-	}
-	kvStoreErr := d.kvstoreBackend.UpdateSlaveKey(ctx, id, key, reliablyMissing)
-	if kvStoreErr != nil {
-		log.WithFields(logrus.Fields{logfields.Identity: id.String(), logfields.Key: key.String(), "reliablyMissing": reliablyMissing}).WithError(kvStoreErr).Error("KVStore backend failed to update slave key")
 	}
 	if d.readFromKVStore {
 		return kvStoreErr

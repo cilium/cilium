@@ -176,15 +176,15 @@ func (c *crdBackend) RunGC(context.Context, *rate.Limiter, map[string]uint64, id
 
 // UpdateKey refreshes the reference that this node is using this key->ID
 // mapping.
-func (c *crdBackend) UpdateKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) error {
-	return c.UpdateMasterKey(ctx, id, key, reliablyMissing)
+func (c *crdBackend) UpdateKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, ifLocalKeyStillExistsLocked func(func() error) error, reliablyMissing bool) error {
+	return c.updateMasterKey(ctx, id, key, reliablyMissing)
 }
 
-// UpdateMasterKey refreshes the reference that this node is using this key->ID
+// updateMasterKey refreshes the reference that this node is using this key->ID
 // mapping. It assumes that the identity already exists but will recreate it if
 // reliablyMissing is true.
 // Note: the lock field is not supported with the k8s CRD allocator.
-func (c *crdBackend) UpdateMasterKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) error {
+func (c *crdBackend) updateMasterKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) error {
 	err := c.AcquireReference(ctx, id, key, nil)
 	if err == nil {
 		log.WithFields(logrus.Fields{
@@ -213,18 +213,8 @@ func (c *crdBackend) UpdateMasterKey(ctx context.Context, id idpool.ID, key allo
 	return err
 }
 
-// ValidateSlaveKey is not doing anything in the CRD allocator as the use of a key is tracked by the CiliumEndpoint object.
-func (c *crdBackend) ValidateSlaveKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) (bool, error) {
-	return true, nil
-}
-
-// UpdateSlaveKey is not doing anything in the CRD allocator as the use of a key is tracked by the CiliumEndpoint object.
-func (c *crdBackend) UpdateSlaveKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) error {
-	return nil
-}
-
 func (c *crdBackend) UpdateKeyIfLocked(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool, lock kvstore.KVLocker) error {
-	return c.UpdateKey(ctx, id, key, reliablyMissing)
+	return c.updateMasterKey(ctx, id, key, reliablyMissing)
 }
 
 // Lock does not return a lock object. Locking is not supported with the k8s

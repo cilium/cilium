@@ -32,8 +32,8 @@ type dummyBackend struct {
 	slaveKeys  map[idpool.ID]AllocatorKey
 	handler    CacheMutations
 
-	updateMasterKey func(ctx context.Context, id idpool.ID, key AllocatorKey) error
-	updateSlaveKey  func(ctx context.Context, id idpool.ID, key AllocatorKey) error
+	updateMasterKeyHandler func(ctx context.Context, id idpool.ID, key AllocatorKey) error
+	updateSlaveKeyHandler  func(ctx context.Context, id idpool.ID, key AllocatorKey) error
 
 	disableListDone bool
 }
@@ -114,36 +114,40 @@ func (d *dummyBackend) Lock(ctx context.Context, key AllocatorKey) (kvstore.KVLo
 func (d *dummyBackend) setUpdateMasterKeyMutator(mutator func(ctx context.Context, id idpool.ID, key AllocatorKey) error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	d.updateMasterKey = mutator
+	d.updateMasterKeyHandler = mutator
 }
 
 func (d *dummyBackend) setUpdateSlaveKeyMutator(mutator func(ctx context.Context, id idpool.ID, key AllocatorKey) error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	d.updateSlaveKey = mutator
+	d.updateSlaveKeyHandler = mutator
 }
 
-func (d *dummyBackend) UpdateKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error {
-	if err := d.UpdateMasterKey(ctx, id, key, reliablyMissing); err != nil {
+func (d *dummyBackend) UpdateKey(ctx context.Context, id idpool.ID, key AllocatorKey, ifLocalKeyStillExistsLocked func(func() error) error, reliablyMissing bool) error {
+	if err := d.updateMasterKey(ctx, id, key, reliablyMissing); err != nil {
 		return err
 	}
-	if err := d.UpdateSlaveKey(ctx, id, key, reliablyMissing); err != nil {
+	if ok, err := d.validateSlaveKey(ctx, id, key); err != nil {
 		return err
+	} else if ok {
+		return nil
 	}
-	return nil
+	return ifLocalKeyStillExistsLocked(func() error {
+		return d.updateSlaveKey(ctx, id, key, reliablyMissing)
+	})
 }
 
-func (d *dummyBackend) UpdateMasterKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error {
+func (d *dummyBackend) updateMasterKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	d.masterKeys[id] = key
-	if d.updateMasterKey != nil {
-		return d.updateMasterKey(ctx, id, key)
+	if d.updateMasterKeyHandler != nil {
+		return d.updateMasterKeyHandler(ctx, id, key)
 	}
 	return nil
 }
 
-func (d *dummyBackend) ValidateSlaveKey(ctx context.Context, id idpool.ID, key AllocatorKey) (bool, error) {
+func (d *dummyBackend) validateSlaveKey(ctx context.Context, id idpool.ID, key AllocatorKey) (bool, error) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	if val, ok := d.slaveKeys[id]; ok && val.String() == key.String() {
@@ -152,18 +156,20 @@ func (d *dummyBackend) ValidateSlaveKey(ctx context.Context, id idpool.ID, key A
 	return false, nil
 }
 
-func (d *dummyBackend) UpdateSlaveKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error {
+func (d *dummyBackend) updateSlaveKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	d.slaveKeys[id] = key
-	if d.updateSlaveKey != nil {
-		return d.updateSlaveKey(ctx, id, key)
+	if d.updateSlaveKeyHandler != nil {
+		return d.updateSlaveKeyHandler(ctx, id, key)
 	}
 	return nil
 }
 
 func (d *dummyBackend) UpdateKeyIfLocked(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool, lock kvstore.KVLocker) error {
-	return d.UpdateKey(ctx, id, key, reliablyMissing)
+	return d.UpdateKey(ctx, id, key, func(f func() error) error {
+		return f()
+	}, reliablyMissing)
 }
 
 func (d *dummyBackend) Get(ctx context.Context, key AllocatorKey) (idpool.ID, error) {

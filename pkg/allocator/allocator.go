@@ -244,22 +244,10 @@ type Backend interface {
 	// releases.Release(ctx context.Context, key AllocatorKey) (err error)
 	Release(ctx context.Context, id idpool.ID, key AllocatorKey) (err error)
 
-	// UpdateMasterKey refreshes the master key part of an identity.
-	// When reliablyMissing is set it will also recreate missing master key.
-	UpdateMasterKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error
-
-	// ValidateSlaveKey validates that the slave part of the record that this node is using this key -> id
-	// mapping is up-to-date. If it returns true, it means that no action is needed.
-	ValidateSlaveKey(ctx context.Context, id idpool.ID, key AllocatorKey) (bool, error)
-
-	// UpdateSlaveKey refreshes the slave part of the record that this node is using this key -> id
-	// mapping. When reliablyMissing is set it will also recreate missing slave key.
-	UpdateSlaveKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error
-
 	// UpdateKey refreshes the record that this node is using this key -> id
 	// mapping. When reliablyMissing is set it will also recreate missing master or
 	// slave keys.
-	UpdateKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error
+	UpdateKey(ctx context.Context, id idpool.ID, key AllocatorKey, ifLocalKeyStillExistsLocked func(func() error) error, reliablyMissing bool) error
 
 	// UpdateKeyIfLocked behaves like UpdateKey but when lock is non-nil the operation proceeds only if it is still valid.
 	UpdateKeyIfLocked(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool, lock kvstore.KVLocker) error
@@ -964,18 +952,41 @@ func (a *Allocator) DeleteAllKeys() {
 func (a *Allocator) syncLocalKeys() error {
 	// Create a local copy of all local allocations to not require to hold
 	// any locks while performing kvstore operations. Local use can
-	// disappear while we perform the sync but that is fine as worst case,
-	// a master key is created for a slave key that no longer exists. The
-	// garbage collector will remove it again.
+	// disappear while we perform the sync. For master keys this is fine as
+	// the garbage collector will remove it again. However, for slave keys, they
+	// will continue to exist until the kvstore lease expires after the agent is restarted.
+	// To ensure slave keys are not leaked we do an extra check before recreating a slave key.
 	ids := a.localKeys.getVerifiedIDs()
+	ctx := context.TODO()
 
 	for id, value := range ids {
-		if err := a.backend.UpdateKey(context.TODO(), id, value, false); err != nil {
+		ifLocalKeyStillExistsLocked := func(fn func() error) error {
+			// We ensure we hold the slaveKeysMutex while checking if the localKey is still in use, and while we are
+			// doing the create/update operation. We do this to avoid re-creating a newly deleted slave key, that can
+			// potentially result in leaking it - as the identity gc in the operator won't delete slave keys.
+			a.slaveKeysMutex.Lock()
+			defer a.slaveKeysMutex.Unlock()
+			if key := a.localKeys.lookupID(id); key == nil || key.GetKey() != value.GetKey() {
+				return nil
+			}
+
+			err := fn()
+			if err != nil {
+				log.WithError(err).WithFields(logrus.Fields{
+					fieldKey: value,
+					fieldID:  id,
+				}).Warning("Error updating slave key")
+			}
+			return err
+		}
+		err := a.backend.UpdateKey(ctx, id, value, ifLocalKeyStillExistsLocked, true)
+		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				fieldKey: value,
 				fieldID:  id,
-			}).Warning("Unable to sync key")
+			}).Warning("Error updating key")
 		}
+
 	}
 
 	return nil

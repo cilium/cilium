@@ -200,12 +200,31 @@ func (c *cache) onDeleteLocked(id idpool.ID, key AllocatorKey, recreateMissingLo
 
 					ctx, cancel := context.WithTimeout(ctx, backendOpTimeout)
 					defer cancel()
+					ifLocalKeyStillExistsLocked := func(fn func() error) error {
+						// We ensure we hold the slaveKeysMutex while checking if the localKey is still in use, and while we are
+						// doing the create/update operation. We do this to avoid re-creating a newly deleted slave key, that can
+						// potentially result in leaking it - as the identity gc in the operator won't delete slave keys.
+						a.slaveKeysMutex.Lock()
+						defer a.slaveKeysMutex.Unlock()
+						if key := a.localKeys.lookupID(id); key == nil || key.GetKey() != value.GetKey() {
+							return nil
+						}
+
+						err := fn()
+						if err != nil {
+							log.WithError(err).WithFields(logrus.Fields{
+								fieldKey: value,
+								fieldID:  id,
+							}).Warning("Error updating slave key")
+						}
+						return err
+					}
 
 					// Each iteration will attempt to grab the key reference, if that succeeds
 					// then this completes (i.e. the key exists).
 					// Otherwise we will attempt to create the key, this process repeats until
 					// the key is created.
-					if err := a.backend.UpdateKey(ctx, id, value, true); err != nil {
+					if err := a.backend.UpdateKey(ctx, id, value, ifLocalKeyStillExistsLocked, true); err != nil {
 						log.WithField("id", id).WithError(err).Error("OnDelete MasterKeyProtection update for key")
 						return err
 					}
