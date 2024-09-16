@@ -757,26 +757,14 @@ pass_to_stack:
 		return ret;
 #endif
 
-#ifndef TUNNEL_MODE
-# ifdef ENABLE_IPSEC
-	if (encrypt_key && tunnel_endpoint) {
-		ret = set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint,
-					SECLABEL_IPV6, false, false);
-		if (unlikely(ret != CTX_ACT_OK))
-			return ret;
-	} else
-# endif /* ENABLE_IPSEC */
-#endif /* TUNNEL_MODE */
-	{
 #ifdef ENABLE_IDENTITY_MARK
-		/* Always encode the source identity when passing to the stack.
-		 * If the stack hairpins the packet back to a local endpoint the
-		 * source identity can still be derived even if SNAT is
-		 * performed by a component such as portmap.
-		 */
-		set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
+	/* Always encode the source identity when passing to the stack.
+	 * If the stack hairpins the packet back to a local endpoint the
+	 * source identity can still be derived even if SNAT is
+	 * performed by a component such as portmap.
+	 */
+	set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
 #endif
-	}
 
 #ifdef TUNNEL_MODE
 encrypt_to_stack:
@@ -1308,26 +1296,14 @@ pass_to_stack:
 		return ret;
 #endif
 
-#ifndef TUNNEL_MODE
-# ifdef ENABLE_IPSEC
-	if (encrypt_key && tunnel_endpoint) {
-		ret = set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint,
-					SECLABEL_IPV4, false, false);
-		if (unlikely(ret != CTX_ACT_OK))
-			return ret;
-	} else
-# endif /* ENABLE_IPSEC */
-#endif /* TUNNEL_MODE */
-	{
 #ifdef ENABLE_IDENTITY_MARK
-		/* Always encode the source identity when passing to the stack.
-		 * If the stack hairpins the packet back to a local endpoint the
-		 * source identity can still be derived even if SNAT is
-		 * performed by a component such as portmap.
-		 */
-		set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
+	/* Always encode the source identity when passing to the stack.
+	 * If the stack hairpins the packet back to a local endpoint the
+	 * source identity can still be derived even if SNAT is
+	 * performed by a component such as portmap.
+	 */
+	set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
 #endif
-	}
 
 #if defined(TUNNEL_MODE)
 encrypt_to_stack:
