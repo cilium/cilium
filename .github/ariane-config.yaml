@@ -87,36 +87,36 @@ schedule:
 
 workflows:
   conformance-aks.yaml:
-    paths-ignore-regex: (test|Documentation|hubble|USERS.md)/
+    paths-ignore-regex: (test|Documentation|hubble|CODEOWNERS|USERS.md)/
   conformance-aws-cni.yaml:
-    paths-ignore-regex: (test|Documentation|hubble|USERS.md)/
+    paths-ignore-regex: (test|Documentation|hubble|CODEOWNERS|USERS.md)/
   conformance-clustermesh.yaml:
-    paths-ignore-regex: (test|Documentation|hubble|USERS.md)/
+    paths-ignore-regex: (test|Documentation|hubble|CODEOWNERS|USERS.md)/
   conformance-ipsec-e2e.yaml:
-    paths-ignore-regex: (test|Documentation|hubble|USERS.md)/
+    paths-ignore-regex: (test|Documentation|hubble|CODEOWNERS|USERS.md)/
   conformance-eks.yaml:
-    paths-ignore-regex: (test|Documentation|hubble|USERS.md)/
+    paths-ignore-regex: (test|Documentation|hubble|CODEOWNERS|USERS.md)/
   conformance-gateway-api.yaml:
-    paths-ignore-regex: (test|Documentation|hubble|USERS.md)/
+    paths-ignore-regex: (test|Documentation|hubble|CODEOWNERS|USERS.md)/
   conformance-ginkgo.yaml:
-    paths-ignore-regex: (cilium-cli|Documentation)/
+    paths-ignore-regex: (cilium-cli|Documentation|CODEOWNERS)/
   conformance-gke.yaml:
-    paths-ignore-regex: (test|Documentation|hubble|USERS.md)/
+    paths-ignore-regex: (test|Documentation|hubble|CODEOWNERS|USERS.md)/
   conformance-ingress.yaml:
-    paths-ignore-regex: (test|Documentation|hubble|USERS.md)/
+    paths-ignore-regex: (test|Documentation|hubble|CODEOWNERS|USERS.md)/
   conformance-multi-pool.yaml:
-    paths-ignore-regex: (test|Documentation|hubble|USERS.md)/
+    paths-ignore-regex: (test|Documentation|hubble|CODEOWNERS|USERS.md)/
   conformance-runtime.yaml:
-    paths-ignore-regex: (cilium-cli|Documentation|USERS.md)/
+    paths-ignore-regex: (cilium-cli|Documentation|CODEOWNERS|USERS.md)/
   integration-test.yaml:
-    paths-ignore-regex: (Documentation|USERS.md)/
+    paths-ignore-regex: (Documentation|CODEOWNERS|USERS.md)/
   tests-clustermesh-upgrade.yaml:
-    paths-ignore-regex: (test|Documentation|hubble|USERS.md)/
+    paths-ignore-regex: (test|Documentation|hubble|CODEOWNERS|USERS.md)/
   tests-datapath-verifier.yaml:
     paths-regex: (bpf|test/verifier|vendor|images)/
   tests-l4lb.yaml:
     paths-regex: (bpf|daemon|images|pkg|test/l4lb|test/nat46x64|vendor|USERS.md)/
   tests-e2e-upgrade.yaml:
-    paths-ignore-regex: (test|Documentation|hubble|USERS.md)/
+    paths-ignore-regex: (test|Documentation|hubble|CODEOWNERS|USERS.md)/
   tests-ipsec-upgrade.yaml:
-    paths-ignore-regex: (test|Documentation|hubble|USERS.md)/
+    paths-ignore-regex: (test|Documentation|hubble|CODEOWNERS|USERS.md)/
