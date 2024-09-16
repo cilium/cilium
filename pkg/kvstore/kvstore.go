@@ -15,7 +15,6 @@ type Value struct {
 	Data        []byte
 	ModRevision uint64
 	LeaseID     int64
-	SessionID   string
 }
 
 // KeyValuePairs is a map of key=value pairs

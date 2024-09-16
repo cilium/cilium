@@ -156,7 +156,6 @@ func benchmarkRunLocksGC(b *testing.B, backendName string) {
 		oldestRev     = uint64(math.MaxUint64)
 		oldestLeaseID int64
 		oldestKey     string
-		sessionID     string
 	)
 	// Stale locks contains 2 locks, which is expected but we only want to GC
 	// the oldest one so we can unlock all the remaining clients waiting to hold
@@ -166,7 +165,6 @@ func benchmarkRunLocksGC(b *testing.B, backendName string) {
 			oldestKey = k
 			oldestRev = v.ModRevision
 			oldestLeaseID = v.LeaseID
-			sessionID = v.SessionID
 		}
 	}
 
@@ -175,7 +173,6 @@ func benchmarkRunLocksGC(b *testing.B, backendName string) {
 	staleLocks[oldestKey] = kvstore.Value{
 		ModRevision: oldestRev,
 		LeaseID:     oldestLeaseID,
-		SessionID:   sessionID,
 	}
 
 	// GC lock1 because it's the oldest lock being held.
