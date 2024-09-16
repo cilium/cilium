@@ -42,5 +42,15 @@ func (f *AWSCNIChainer) Add(ctx context.Context, pluginCtx chainingapi.PluginCon
 		err = fmt.Errorf("failed to install SGP Pod proxy rules: %w", err)
 		return
 	}
+	sgpPodHostIface := getHostIface(prevRes)
+	if err = disableIfaceRPFilter(sgpPodHostIface); err != nil {
+		err = fmt.Errorf("failed to configure SGP Pod host interface: %w", err)
+		return
+	}
+	sgpPodVLANIface := buildSGPPodVLANIfaceName(sgpPodVLANID)
+	if err = disableIfaceRPFilter(sgpPodVLANIface); err != nil {
+		err = fmt.Errorf("failed to configure SGP Pod VLAN interface: %w", err)
+		return
+	}
 	return f.GenericVethChainer.Add(ctx, pluginCtx, cli)
 }

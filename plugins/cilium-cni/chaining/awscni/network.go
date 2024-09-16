@@ -4,12 +4,33 @@
 package awscni
 
 import (
+	"fmt"
 	"net"
+	"os"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 )
+
+// awsCNIVLANIfacePrefix is the prefix used by the AWS CNI for building
+// interface names for SGP Pod VLAN interfaces
+const awsCNIVLANIfacePrefix = "vlan.eth."
+
+// buildSGPPodVLANIfaceName returns the name for the Pod associated with
+// the VLAN ID vlanID
+func buildSGPPodVLANIfaceName(vlanID string) string {
+	return awsCNIVLANIfacePrefix + vlanID
+}
+
+// disableIfaceRPFilter disables the `rp_filter` network setting for the
+// network interface iface
+func disableIfaceRPFilter(iface string) error {
+	return os.WriteFile(
+		fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/rp_filter", iface),
+		[]byte("0"),
+		0644)
+}
 
 const (
 	// awsCNISGPPodRouteTableOffset is the route table offset from which

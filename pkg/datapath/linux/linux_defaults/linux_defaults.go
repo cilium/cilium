@@ -72,6 +72,10 @@ const (
 	// RouterMarkNodePort
 	MaskMultinodeNodeport = 0x80
 
+	// CTMarkIsProxy is used in chaining mode with the AWS CNI to mark
+	// connections from a remote peer which terminate at an ingress proxy
+	CTMarkIsProxy = MagicMarkIsProxy
+
 	// RTProto is the protocol we install our fib rules and routes with. Use the
 	// kernel proto to make sure systemd-networkd doesn't interfere with these
 	// rules (see networkd config directive ManageForeignRoutingPolicyRules, set

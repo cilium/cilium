@@ -1568,6 +1568,12 @@ func (m *Manager) installRules(state desiredState) error {
 		}
 	}
 
+	if m.cniConfigManager.GetChainingMode() == "aws-cni" {
+		if err := m.addAWSCNIRPFilterRules(); err != nil {
+			return fmt.Errorf("cannot install AWS CNI reverse path filter rules: %w", err)
+		}
+	}
+
 	if m.sharedCfg.EnableIPSec {
 		if err := m.addCiliumNoTrackXfrmRules(); err != nil {
 			return fmt.Errorf("cannot install xfrm rules: %w", err)
@@ -1793,4 +1799,66 @@ func (m *Manager) addCiliumENIRules() error {
 		"-i", "lxc+",
 		"-m", "comment", "--comment", "cilium: primary ENI",
 		"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask})
+}
+
+func (m *Manager) addAWSCNIRPFilterRules() error {
+	if !m.sharedCfg.EnableIPv4 {
+		return nil
+	}
+	ctMarkIsProxy := fmt.Sprintf("%#08x", linux_defaults.CTMarkIsProxy)
+
+	// Track connections which originate from a remote peer and terminate at an
+	// ingress proxy. This traffic will ingress into the node on vlan.eth.+,
+	// replies from the proxy will egress out of the node on vlan.eth.+, this
+	// would still fail rpfilter however as the reverse FIB lookup can't
+	// consider firewall marks.
+	if err := ip4tables.runProg([]string{
+		"-t", "mangle",
+		"-A", ciliumPostMangleChain,
+		"-o", "vlan.eth.+",
+		"-m", "comment", "--comment", "cilium: track remote connections to proxy",
+		"-m", "mark", "--mark", fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsProxy),
+		"-j", "CONNMARK", "--set-mark", ctMarkIsProxy}); err != nil {
+		return err
+	}
+
+	// Apply reverse path filtering on SGP Pod host (vlan+) and VLAN
+	// (vlan.eth.+) interfaces.
+	if err := ip4tables.runProg([]string{
+		"-t", "mangle",
+		"-A", ciliumPreMangleChain,
+		"-i", "vlan+",
+		"-m", "rpfilter", "--loose", "--accept-local",
+		"-j", "ACCEPT"}); err != nil {
+		return err
+	}
+
+	// Allow incomming anyway traffic from remote peer on vlan.eth.+ if it's
+	// destined to the ingress proxy
+	if err := ip4tables.runProg([]string{
+		"-t", "mangle",
+		"-A", ciliumPreMangleChain,
+		"-i", "vlan.eth.+",
+		"-m", "connmark", "--mark", ctMarkIsProxy,
+		"-j", "ACCEPT"}); err != nil {
+		return err
+	}
+	if err := ip4tables.runProg([]string{
+		"-t", "mangle",
+		"-A", ciliumPreMangleChain,
+		"-i", "vlan.eth.+",
+		"-j", "DROP"}); err != nil {
+		return err
+	}
+
+	// Allow reply traffic from Pods on connections that originated from an
+	// ingress proxy. This traffic would usually fail rpfilter as the reverse
+	// FIB lookup can't consider firewall marks.
+	return ip4tables.runProg([]string{
+		"-t", "mangle",
+		"-A", ciliumPreMangleChain,
+		"-i", "vlan+",
+		"-m", "mark", "!", "--mark", fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy),
+		"-m", "rpfilter", "--loose", "--invert",
+		"-j", "DROP"})
 }
