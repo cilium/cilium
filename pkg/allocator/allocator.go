@@ -964,18 +964,47 @@ func (a *Allocator) DeleteAllKeys() {
 func (a *Allocator) syncLocalKeys() error {
 	// Create a local copy of all local allocations to not require to hold
 	// any locks while performing kvstore operations. Local use can
-	// disappear while we perform the sync but that is fine as worst case,
-	// a master key is created for a slave key that no longer exists. The
-	// garbage collector will remove it again.
+	// disappear while we perform the sync. For master keys this is fine as
+	// the garbage collector will remove it again. However, for slave keys, they
+	// will continue to exist until the kvstore lease expires after the agent is restarted.
+	// To ensure slave keys are not leaked we do an extra check before recreating a slave key.
 	ids := a.localKeys.getVerifiedIDs()
+	ctx := context.TODO()
 
 	for id, value := range ids {
-		if err := a.backend.UpdateKey(context.TODO(), id, value, false); err != nil {
+		if err := a.backend.UpdateMasterKey(ctx, id, value, false); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				fieldKey: value,
 				fieldID:  id,
-			}).Warning("Unable to sync key")
+			}).Warning("Error updating master key")
+			continue
 		}
+
+		slaveKeyOk, err := a.backend.ValidateSlaveKey(ctx, id, value)
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				fieldKey: value,
+				fieldID:  id,
+			}).Warning("Error validating slave key")
+		} else if slaveKeyOk {
+			continue
+		}
+
+		func() {
+			// We ensure we hold the slaveKeysMutex while checking if the localKey is still in use, and while we are
+			// doing the create/update operation. We do this to avoid re-creating a newly deleted slave key, that can
+			// potentially result in leaking it - as the identity gc in the operator won't delete slave keys.
+			a.slaveKeysMutex.Lock()
+			defer a.slaveKeysMutex.Unlock()
+			if key := a.localKeys.lookupID(id); key != nil && key.GetKey() == value.GetKey() {
+				if err := a.backend.UpdateSlaveKey(ctx, id, value, true); err != nil {
+					log.WithError(err).WithFields(logrus.Fields{
+						fieldKey: value,
+						fieldID:  id,
+					}).Warning("Error updating slave key")
+				}
+			}
+		}()
 	}
 
 	return nil
