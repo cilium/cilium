@@ -725,3 +725,127 @@ func TestCacheValidators(t *testing.T) {
 	require.Nil(t, allocator.mainCache.getByID(invalidID))
 	require.Equal(t, AllocatorChangeDelete, kind)
 }
+
+func TestSyncLocalKeys(t *testing.T) {
+	numIDs := idpool.ID(3)
+	backend := newDummyBackend()
+	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(numIDs))
+	require.NoError(t, err)
+	require.NotNil(t, allocator)
+
+	var ids []idpool.ID
+
+	// allocate IDs
+	for i := idpool.ID(1); i <= numIDs; i++ {
+		key := TestAllocatorKey(fmt.Sprintf("key-%04d", i))
+		id, _, _, err := allocator.Allocate(context.Background(), key)
+		require.NoError(t, err)
+		require.NotEqual(t, idpool.NoID, id)
+		ids = append(ids, id)
+
+		// Ensure id stored in backend is the same
+		backendID, err := backend.Get(context.TODO(), key)
+		require.NoError(t, err)
+		require.Equal(t, backendID, id)
+	}
+
+	err = allocator.syncLocalKeys()
+	require.NoError(t, err)
+
+	/// Release the use one id/delete the slave key
+	key, err := backend.GetByID(context.TODO(), ids[0])
+	require.NoError(t, err)
+	err = backend.Release(context.TODO(), ids[0], key)
+	require.NoError(t, err)
+
+	// Delete the master key of one ID
+	err = backend.DeleteID(context.TODO(), ids[1])
+	require.NoError(t, err)
+
+	// Delete both master and slave key for another ID
+	key, err = backend.GetByID(context.TODO(), ids[2])
+	require.NoError(t, err)
+	err = backend.Release(context.TODO(), ids[2], key)
+	require.NoError(t, err)
+	err = backend.DeleteID(context.TODO(), ids[2])
+	require.NoError(t, err)
+
+	err = allocator.syncLocalKeys()
+	require.NoError(t, err)
+
+	// Ensure all IDs are present
+	for i := idpool.ID(1); i <= numIDs; i++ {
+		key := TestAllocatorKey(fmt.Sprintf("key-%04d", i))
+
+		// Ensure all slave keys are present via Get
+		backendID, err := backend.Get(context.TODO(), key)
+		require.NoError(t, err)
+		require.NotEqual(t, idpool.NoID, backendID)
+
+		// Ensure all master keys are present via GetById
+		backendKey, err := backend.GetByID(context.TODO(), backendID)
+		require.NoError(t, err)
+		require.Equal(t, key, backendKey)
+	}
+
+}
+
+func TestSyncLocalKeysWithIdentityAllocations(t *testing.T) {
+	numIDs := idpool.ID(500)
+	backend := newDummyBackend()
+	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMax(100*numIDs))
+	require.NoError(t, err)
+	require.NotNil(t, allocator)
+
+	allocateKeys := func(prefix string) func() {
+		// allocate IDs
+		for i := idpool.ID(1); i <= numIDs; i++ {
+			key := TestAllocatorKey(fmt.Sprintf("%s-key-%04d", prefix, i))
+			id, _, _, err := allocator.Allocate(context.Background(), key)
+			require.NoError(t, err)
+			require.NotEqual(t, idpool.NoID, id)
+		}
+		return func() {
+			for i := idpool.ID(1); i <= numIDs; i++ {
+				key := TestAllocatorKey(fmt.Sprintf("%s-key-%04d", prefix, i))
+				_, err := allocator.Release(context.TODO(), key)
+				require.NoError(t, err)
+			}
+		}
+	}
+	releaseKeys := allocateKeys("initial")
+
+	backend.setUpdateSlaveKeyMutator(func(ctx context.Context, id idpool.ID, key AllocatorKey) error {
+		time.Sleep(time.Microsecond)
+		return nil
+	})
+	done := make(chan struct{})
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		for {
+			select {
+			case <-done:
+				wg.Done()
+				return
+			default:
+				err := allocator.syncLocalKeys()
+				require.NoError(t, err)
+			}
+		}
+	}()
+
+	// Release keys concurrently with syncLocalKeys
+	go func() {
+		releaseKeys()
+		releaseExtraKeys := allocateKeys("extra")
+		releaseExtraKeys()
+		close(done)
+	}()
+
+	wg.Wait()
+
+	// Ensure all slave keys are deleted, and non are leaked
+	assert.Empty(t, backend.slaveKeys)
+}
