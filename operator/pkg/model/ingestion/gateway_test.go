@@ -2412,7 +2412,7 @@ func TestGPRCPathMatch(t *testing.T) {
 			input: gatewayv1.GRPCRouteMatch{
 				Method: &gatewayv1.GRPCMethodMatch{
 					Type:   ptr.To(gatewayv1.GRPCMethodMatchExact),
-					Method: ptr.To("service"),
+					Method: ptr.To("method"),
 				},
 			},
 			want: model.StringMatch{
@@ -2446,7 +2446,7 @@ func TestGPRCPathMatch(t *testing.T) {
 			input: gatewayv1.GRPCRouteMatch{
 				Method: &gatewayv1.GRPCMethodMatch{
 					Type:   ptr.To(gatewayv1.GRPCMethodMatchRegularExpression),
-					Method: ptr.To("service"),
+					Method: ptr.To("method"),
 				},
 			},
 			want: model.StringMatch{
