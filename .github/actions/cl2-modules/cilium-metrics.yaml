@@ -1,5 +1,11 @@
 {{$action := .action}}
 
+{{$NETPOL_LATENCY_THRESHOLD := DefaultParam .CL2_NETPOL_LATENCY_THRESHOLD 0.1}}
+{{$METRICS_CARDINALITY_THRESHOLD := DefaultParam .CL2_METRICS_CARDINALITY_THRESHOLD 270000}}
+{{$MEDIAN_CPU_USAGE_THRESHOLD := DefaultParam .CL2_MEDIAN_CPU_USAGE_THRESHOLD 0.1}}
+{{$MEDIAN_MEM_USAGE_THRESHOLD := DefaultParam .CL2_MEDIAN_MEM_USAGE_THRESHOLD 250}}
+{{$MEDIAN_BOOTSTRAP_THRESHOLD := DefaultParam .CL2_MEDIAN_BOOTSTRAP_THRESHOLD 5}}
+
 steps:
   - name: {{$action}} Cilium Agent Policy implementation delay
     measurements:
@@ -10,9 +16,11 @@ steps:
         metricName: Policy Implementation Delay
         metricVersion: v1
         unit: s
+        enableViolations: true
         queries:
         - name: Perc99
           query: histogram_quantile(0.99, sum(rate(cilium_policy_implementation_delay_bucket[%v])) by (le))
+          threshold: {{$NETPOL_LATENCY_THRESHOLD}}
         - name: Perc90
           query: histogram_quantile(0.90, sum(rate(cilium_policy_implementation_delay_bucket[%v])) by (le))
         - name: Perc50
@@ -27,6 +35,59 @@ steps:
         metricName: Metrics Cardinality
         metricVersion: v1
         unit: count
+        enableViolations: true
         queries:
         - name: Max
           query: max_over_time(count({__name__=~"cilium_.+"})[%v:])
+          threshold: {{$METRICS_CARDINALITY_THRESHOLD}}
+
+    - Identifier: CiliumCPUUsage
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Average CPU Usage
+        metricVersion: v1
+        unit: cpu
+        enableViolations: true
+        queries:
+        - name: Perc99
+          query: quantile(0.99, avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
+        - name: Perc90
+          query: quantile(0.90, avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
+        - name: Perc50
+          query: quantile(0.50, avg_over_time(rate(cilium_process_cpu_seconds_total[1m])[%v:10s]))
+          threshold: {{$MEDIAN_CPU_USAGE_THRESHOLD}}
+
+    - Identifier: CiliumMemUsage
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Max Memory Usage
+        metricVersion: v1
+        unit: MB
+        enableViolations: true
+        queries:
+        - name: Perc99
+          query: quantile(0.99, max_over_time(cilium_process_resident_memory_bytes[%v]) / 1024 / 1024)
+        - name: Perc90
+          query: quantile(0.90, max_over_time(cilium_process_resident_memory_bytes[%v]) / 1024 / 1024)
+        - name: Perc50
+          query: quantile(0.5, max_over_time(cilium_process_resident_memory_bytes[%v]) / 1024 / 1024)
+          threshold: {{$MEDIAN_MEM_USAGE_THRESHOLD}}
+
+    - Identifier: CiliumBootstrapTime
+      Method: GenericPrometheusQuery
+      Params:
+        action: {{$action}}
+        metricName: Bootstrap Time
+        metricVersion: v1
+        unit: s
+        enableViolations: true
+        queries:
+        - name: Perc99
+          query: quantile(0.99, cilium_agent_bootstrap_seconds_sum{scope="overall"})
+        - name: Perc90
+          query: quantile(0.90, cilium_agent_bootstrap_seconds_sum{scope="overall"})
+        - name: Perc50
+          query: quantile(0.5, cilium_agent_bootstrap_seconds_sum{scope="overall"})
+          threshold: {{$MEDIAN_BOOTSTRAP_THRESHOLD}}
