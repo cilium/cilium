@@ -6,9 +6,6 @@
 #include <bpf/ctx/xdp.h>
 #include "pktgen.h"
 
-/* Set ETH_HLEN to 14 to indicate that the packet has a 14 byte ethernet header */
-#define ETH_HLEN 14
-
 /* Enable code paths under test */
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
