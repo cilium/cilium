@@ -110,13 +110,6 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
 			       __u32 seclabel, __u32 dstid,
 			       const struct trace_ctx *trace)
 {
-#ifdef ENABLE_IPSEC
-	if (encrypt_key)
-		return set_ipsec_encrypt(ctx, encrypt_key,
-					 info->tunnel_endpoint.ip4, seclabel,
-					 true, false);
-#endif
-
 	return __encap_and_redirect_with_nodeid(ctx, info, seclabel, dstid,
 						NOT_VTEP_DST, trace);
 }
