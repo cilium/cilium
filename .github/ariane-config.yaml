@@ -115,7 +115,7 @@ workflows:
   tests-datapath-verifier.yaml:
     paths-regex: (bpf|test/verifier|vendor|images)/
   tests-l4lb.yaml:
-    paths-regex: (bpf|daemon|images|pkg|test/l4lb|test/nat46x64|vendor|USERS.md)/
+    paths-regex: (bpf|daemon|images|pkg|test/l4lb|test/nat46x64|vendor)/
   tests-e2e-upgrade.yaml:
     paths-ignore-regex: (test|Documentation|hubble|CODEOWNERS|USERS.md)/
   tests-ipsec-upgrade.yaml:
