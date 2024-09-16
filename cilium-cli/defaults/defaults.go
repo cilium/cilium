@@ -75,7 +75,7 @@ const (
 	// renovate: datasource=docker
 	ConnectivityTestConnDisruptImage = "quay.io/cilium/test-connection-disruption:v0.0.14@sha256:c3fd56e326ae16f6cb63dbb2e26b4e47ec07a123040623e11399a7fe1196baa0"
 	// renovate: datasource=docker
-	ConnectivityTestFRRImage = "quay.io/frrouting/frr:10.1.0@sha256:cb2b672ee9856553c7552593dccd3de916f8acfe04655216abcd44137f6ccaf7"
+	ConnectivityTestFRRImage = "quay.io/frrouting/frr:10.1.1@sha256:7c7901eb5611f12634395c949e59663e154b37cf006f32c7f4c8650884cdc0b1"
 
 	ConfigMapName = "cilium-config"
 
