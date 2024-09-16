@@ -1299,6 +1299,10 @@ const (
 	// CNIExternalRouting delegates endpoint routing to the chained CNI plugin.
 	CNIExternalRouting = "cni-external-routing"
 
+	// CNIProxyRouting installs routing configuration for L7 proxying where
+	// necessary, even when CNIExternalRouting is set.
+	CNIProxyRouting = "cni-proxy-routing"
+
 	// CNILogFile is the path to a log file (on the host) for the CNI plugin
 	// binary to use for logging.
 	CNILogFile = "cni-log-file"
@@ -2074,6 +2078,10 @@ type DaemonConfig struct {
 	// local traffic. This may be disabled if chaining modes and Cilium use
 	// conflicting marks.
 	EnableIdentityMark bool
+
+	// EnableReplyToProxyMark enables setting the "to proxy" mark for reply
+	// traffic from pods on connections which originated from an ingress proxy.
+	EnableReplyToProxyMark bool
 
 	// EnableHighScaleIPcache enables the special ipcache mode for high scale
 	// clusters. The ipcache content will be reduced to the strict minimum and
@@ -3274,6 +3282,10 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	if err := c.calculateBPFMapSizes(vp); err != nil {
 		log.Fatal(err)
+	}
+
+	if vp.GetString(CNIChainingMode) == "aws-cni" {
+		c.EnableReplyToProxyMark = true
 	}
 
 	c.ClockSource = ClockSourceKtime

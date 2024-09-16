@@ -73,6 +73,13 @@ func (c *cniConfigManager) ExternalRoutingEnabled() bool {
 	return c.config.CNIExternalRouting
 }
 
+// ProxyRoutingEnabled returns true if we still need to install routes for
+// layer 7 proxies even when the chained plugin implements routing for
+// endpoints.
+func (c *cniConfigManager) ProxyRoutingEnabled() bool {
+	return c.config.CNIProxyRouting
+}
+
 // GetCustomNetConf returns the parsed custom CNI configuration, if provided
 // (In other words, the value to --read-cni-conf).
 // Otherwise, returns nil.

@@ -28,7 +28,7 @@ func (f *AWSCNIChainer) Add(ctx context.Context, pluginCtx chainingapi.PluginCon
 		err = fmt.Errorf("unable to understand network config: %w", err)
 		return
 	}
-	if !isSGPPodAttachment(prevRes) {
+	if !isSGPPodAttachment(prevRes) || !pluginCtx.CiliumConf.CNIProxyRouting {
 		return f.GenericVethChainer.Add(ctx, pluginCtx, cli)
 	}
 	pluginCtx.Logger.Debug("found security group attached Pod")

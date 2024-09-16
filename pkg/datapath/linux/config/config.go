@@ -698,6 +698,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_JIFFIES"] = "1"
 	}
 
+	if option.Config.EnableReplyToProxyMark {
+		cDefinesMap["ENABLE_REPLY_TO_PROXY_MARK"] = "1"
+	}
+
 	if option.Config.EnableIdentityMark {
 		cDefinesMap["ENABLE_IDENTITY_MARK"] = "1"
 	}

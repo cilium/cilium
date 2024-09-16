@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	daemonapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
@@ -58,13 +59,14 @@ type configModifyApiHandlerParams struct {
 
 	Logger logrus.FieldLogger
 
-	DB           *statedb.DB
-	Devices      statedb.Table[*datapathTables.Device]
-	Clientset    k8sClient.Clientset
-	MonitorAgent monitorAgent.Agent
-	MTUConfig    mtu.MTU
-	BigTCPConfig *bigtcp.Configuration
-	TunnelConfig tunnel.Config
+	DB               *statedb.DB
+	Devices          statedb.Table[*datapathTables.Device]
+	Clientset        k8sClient.Clientset
+	MonitorAgent     monitorAgent.Agent
+	MTUConfig        mtu.MTU
+	BigTCPConfig     *bigtcp.Configuration
+	TunnelConfig     tunnel.Config
+	CNIConfigManager cni.CNIConfigManager
 
 	EventHandler *ConfigModifyEventHandler
 }
@@ -79,14 +81,15 @@ type configModifyApiHandlerOut struct {
 func newConfigModifyApiHandler(params configModifyApiHandlerParams) configModifyApiHandlerOut {
 	return configModifyApiHandlerOut{
 		GetConfigHandler: &getConfigHandler{
-			logger:       params.Logger,
-			db:           params.DB,
-			devices:      params.Devices,
-			clientset:    params.Clientset,
-			monitorAgent: params.MonitorAgent,
-			mtuConfig:    params.MTUConfig,
-			bigTCPConfig: params.BigTCPConfig,
-			tunnelConfig: params.TunnelConfig,
+			logger:           params.Logger,
+			db:               params.DB,
+			devices:          params.Devices,
+			clientset:        params.Clientset,
+			monitorAgent:     params.MonitorAgent,
+			mtuConfig:        params.MTUConfig,
+			bigTCPConfig:     params.BigTCPConfig,
+			tunnelConfig:     params.TunnelConfig,
+			cniConfigManager: params.CNIConfigManager,
 		},
 		PatchConfigHandler: &patchConfigHandler{
 			logger:       params.Logger,
@@ -320,13 +323,14 @@ func (h *patchConfigHandler) Handle(params daemonapi.PatchConfigParams) middlewa
 type getConfigHandler struct {
 	logger logrus.FieldLogger
 
-	db           *statedb.DB
-	devices      statedb.Table[*datapathTables.Device]
-	clientset    k8sClient.Clientset
-	monitorAgent monitorAgent.Agent
-	mtuConfig    mtu.MTU
-	bigTCPConfig *bigtcp.Configuration
-	tunnelConfig tunnel.Config
+	db               *statedb.DB
+	devices          statedb.Table[*datapathTables.Device]
+	clientset        k8sClient.Clientset
+	monitorAgent     monitorAgent.Agent
+	mtuConfig        mtu.MTU
+	bigTCPConfig     *bigtcp.Configuration
+	tunnelConfig     tunnel.Config
+	cniConfigManager cni.CNIConfigManager
 }
 
 func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.Responder {
@@ -382,6 +386,7 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		GROIPV4MaxSize:              int64(h.bigTCPConfig.GetGROIPv4MaxSize()),
 		GSOIPV4MaxSize:              int64(h.bigTCPConfig.GetGSOIPv4MaxSize()),
 		IPLocalReservedPorts:        h.getIPLocalReservedPorts(),
+		CNIProxyRouting:             h.cniConfigManager.ProxyRoutingEnabled(),
 	}
 
 	cfg := &models.DaemonConfiguration{

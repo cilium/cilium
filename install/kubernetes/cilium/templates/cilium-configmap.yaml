@@ -870,6 +870,9 @@ data:
 {{- if (not (kindIs "invalid" .Values.cni.externalRouting)) }}
   cni-external-routing: {{ .Values.cni.externalRouting | quote }}
 {{- end}}
+{{- if (not (kindIs "invalid" .Values.cni.proxyRouting)) }}
+  cni-proxy-routing: {{ .Values.cni.proxyRouting | quote }}
+{{- end}}
 {{- if .Values.cni.enableRouteMTUForCNIChaining }}
   enable-route-mtu-for-cni-chaining: {{ .Values.cni.enableRouteMTUForCNIChaining | quote }}
 {{- end }}

@@ -1568,7 +1568,7 @@ func (m *Manager) installRules(state desiredState) error {
 		}
 	}
 
-	if m.cniConfigManager.GetChainingMode() == "aws-cni" {
+	if m.cniConfigManager.GetChainingMode() == "aws-cni" && m.cniConfigManager.ProxyRoutingEnabled() {
 		if err := m.addAWSCNIRPFilterRules(); err != nil {
 			return fmt.Errorf("cannot install AWS CNI reverse path filter rules: %w", err)
 		}

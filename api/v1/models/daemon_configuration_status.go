@@ -23,6 +23,9 @@ import (
 // swagger:model DaemonConfigurationStatus
 type DaemonConfigurationStatus struct {
 
+	// Wether to install routing configuration for L7 proxyes where necessary, even when CNIExternalRouting is set.
+	CNIProxyRouting bool `json:"CNIProxyRouting,omitempty"`
+
 	// Maximum IPv4 GRO size on workload facing devices
 	GROIPV4MaxSize int64 `json:"GROIPv4MaxSize,omitempty"`
 
