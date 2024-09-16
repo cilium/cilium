@@ -32,6 +32,7 @@ type NetConf struct {
 	LogFormat      string                 `json:"log-format"`
 	LogFile        string                 `json:"log-file"`
 	ChainingMode   string                 `json:"chaining-mode"`
+	ProxyRouting   bool                   `json:"proxy-routing"`
 }
 
 // IPAM is the Cilium specific CNI IPAM configuration

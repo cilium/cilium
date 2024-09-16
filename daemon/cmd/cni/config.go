@@ -164,7 +164,8 @@ const chainedCNIEntry = `
 	"type": "cilium-cni",
 	"chaining-mode": "{{.ChainingMode | js }}",
 	"enable-debug": {{.Debug | js }},
-	"log-file": "{{.LogFile | js }}"
+	"log-file": "{{.LogFile | js }}",
+	"proxy-routing": {{.ProxyRouting | js }}
 }
 `
 
@@ -402,10 +403,12 @@ func (c *cniConfigManager) renderCNITemplate(in string) []byte {
 		Debug        bool
 		LogFile      string
 		ChainingMode string
+		ProxyRouting bool
 	}{
 		Debug:        c.debug,
 		LogFile:      c.config.CNILogFile,
 		ChainingMode: c.config.CNIChainingMode,
+		ProxyRouting: c.config.CNIProxyRouting,
 	}
 
 	t := template.Must(template.New("cni").Parse(in))

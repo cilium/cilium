@@ -69,6 +69,7 @@ var defaultConfig = Config{
 	CNIExclusive:          false,
 	CNIChainingTarget:     "",
 	CNIExternalRouting:    false,
+	CNIProxyRouting:       false,
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {

@@ -2731,9 +2731,6 @@ definitions:
       ipLocalReservedPorts:
         description: Comma-separated list of IP ports should be reserved in the workload network namespace
         type: string
-      CNIProxyRouting:
-        description: Wether to install routing configuration for L7 proxyes where necessary, even when CNIExternalRouting is set.
-        type: boolean
   DatapathMode:
     description: Datapath mode
     type: string
