@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -141,7 +142,7 @@ func (l *loader) bpfMasqAddrs(ifName string) (masq4, masq6 netip.Addr) {
 		ifName = l.cfg.DeriveMasqIPAddrFromDevice
 	}
 
-	addrs := l.nodeConfig.Load().NodeAddresses
+	addrs := l.getNodeConfig().NodeAddresses
 
 	find := func(devName string) bool {
 		for _, addr := range addrs {
@@ -446,6 +447,7 @@ func (l *loader) reloadHostDatapath(ep datapath.Endpoint, spec *ebpf.CollectionS
 // it if necessary.
 func (l *loader) reloadDatapath(ep datapath.Endpoint, spec *ebpf.CollectionSpec) error {
 	device := ep.InterfaceName()
+	nodeConfig := l.getNodeConfig()
 
 	// Replace all occurrences of the template endpoint ID with the real ID.
 	for _, name := range []string{
@@ -465,7 +467,7 @@ func (l *loader) reloadDatapath(ep datapath.Endpoint, spec *ebpf.CollectionSpec)
 	}
 
 	if ep.IsHost() {
-		devices := l.nodeConfig.Load().DeviceNames()
+		devices := nodeConfig.DeviceNames()
 
 		if option.Config.NeedBPFHostOnWireGuardDevice() {
 			devices = append(devices, wgTypes.IfaceName)
@@ -617,7 +619,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats
 		Output:  ep.StateDir(),
 	}
 
-	cfg := l.nodeConfig.Load()
+	cfg := l.getNodeConfig()
 
 	spec, hash, err := l.templateCache.fetchOrCompile(ctx, cfg, ep, &dirs, stats)
 	if err != nil {
@@ -674,7 +676,7 @@ func (l *loader) Unload(ep datapath.Endpoint) {
 // EndpointHash hashes the specified endpoint configuration with the current
 // datapath hash cache and returns the hash as string.
 func (l *loader) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
-	return l.templateCache.baseHash.hashEndpoint(l.templateCache, l.nodeConfig.Load(), cfg)
+	return l.templateCache.baseHash.hashEndpoint(l.templateCache, l.getNodeConfig(), cfg)
 }
 
 // CallsMapPath gets the BPF Calls Map for the endpoint with the specified ID.
@@ -695,5 +697,27 @@ func (l *loader) HostDatapathInitialized() <-chan struct{} {
 }
 
 func (l *loader) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
-	return l.configWriter.WriteEndpointConfig(w, l.nodeConfig.Load(), e)
+	return l.configWriter.WriteEndpointConfig(w, l.getNodeConfig(), e)
+}
+
+func (l *loader) getNodeConfig() *datapath.LocalNodeConfiguration {
+	const retryInterval = 100 * time.Millisecond
+	const numRetries = 5 * (time.Minute / retryInterval)
+	for range numRetries {
+		cfg := l.nodeConfig.Load()
+		if cfg != nil {
+			return cfg
+		}
+		// LocalNodeConfiguration is set when Reinitialize() is called the first time
+		// with the initial configuration. This may take some time as it's derived
+		// from e.g. Kubernetes Node object. Since there are multiple call sites
+		// towards the loader, we wait here for the initialization to finish to
+		// deal with calls into the loader that occur prior to Reinitialize().
+		time.Sleep(retryInterval)
+	}
+	// As a fallback proceed with an empty configuration. As this is not really useful
+	// nor expected log this as an error. If we reach this we may end regenerating endpoints
+	// with incomplete information.
+	log.Error("Failed to load node configuration in time. Proceeding with empty config.")
+	return &datapath.LocalNodeConfiguration{}
 }
