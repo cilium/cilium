@@ -54,6 +54,7 @@ spec:
                   - signing
                   - key encipherment
                   - server auth
+                  - client auth
                   validity: {{ $certValidityStr }}
                 {{- if .Values.hubble.relay.enabled }}
                 - name: hubble-relay-client-certs
