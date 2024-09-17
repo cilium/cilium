@@ -1258,3 +1258,15 @@ func Test_metadata_mergeParentLabels(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkManyResources(b *testing.B) {
+	m := newMetadata()
+
+	prefix := netip.MustParsePrefix("1.1.1.1/32")
+	lbls := labels.GetCIDRLabels(prefix)
+
+	for i := range b.N {
+		resource := types.NewResourceID(types.ResourceKindCNP, fmt.Sprintf("namespace_%d", i), "my-policy")
+		m.upsertLocked(prefix, source.Generated, resource, lbls)
+	}
+}
