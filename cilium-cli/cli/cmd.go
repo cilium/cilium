@@ -38,6 +38,10 @@ func NewCiliumCommand(hooks api.Hooks) *cobra.Command {
 			switch cmd.Name() {
 			case "completion", "help":
 				return nil
+			case "version":
+				if clientFlag, err := cmd.Flags().GetBool("client"); err == nil && clientFlag {
+					return nil
+				}
 			}
 
 			c, err := k8s.NewClient(contextName, "", namespace)
