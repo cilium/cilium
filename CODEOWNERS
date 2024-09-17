@@ -517,6 +517,7 @@ Makefile* @cilium/build
 /pkg/endpointstate/ @cilium/endpoint
 /pkg/envoy/ @cilium/envoy
 /pkg/eventqueue/ @cilium/sig-agent
+/pkg/dynamiclifecycle/ @cilium/sig-foundations
 /pkg/flowdebug/ @cilium/proxy
 /pkg/fqdn/ @cilium/fqdn
 /pkg/fswatcher/ @cilium/sig-datapath @cilium/sig-hubble
