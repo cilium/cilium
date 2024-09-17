@@ -249,6 +249,10 @@ func (s prefixInfo) identityOverride() (lbls labels.Labels, hasOverride bool) {
 	return identities[0], true
 }
 
+func (ri resourceInfo) shouldLogConflicts() bool {
+	return bool(ri.identityOverride) || ri.tunnelPeer.IsValid() || ri.encryptKey.IsValid() || ri.requestedIdentity.IsValid()
+}
+
 func (s prefixInfo) logConflicts(scopedLog *logrus.Entry) {
 	var (
 		override           labels.Labels

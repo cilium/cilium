@@ -5,6 +5,7 @@ package ipcache
 
 import (
 	"context"
+	"fmt"
 	"net/netip"
 	"strconv"
 	"sync"
