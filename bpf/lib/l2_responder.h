@@ -12,15 +12,30 @@ struct l2_responder_v4_key {
 	__u32 ifindex;
 };
 
-struct l2_responder_v4_stats {
+struct l2_responder_stats {
 	__u64 responses_sent;
 };
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct l2_responder_v4_key);
-	__type(value, struct l2_responder_v4_stats);
+	__type(value, struct l2_responder_stats);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, L2_RESPONDER_MAP4_SIZE);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_l2_responder_v4 __section_maps_btf;
+
+struct l2_responder_v6_key {
+	union v6addr ip6;
+	__u32 ifindex;
+	__u32 pad;
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct l2_responder_v6_key);
+	__type(value, struct l2_responder_stats);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, L2_RESPONDER_MAP6_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_l2_responder_v6 __section_maps_btf;
