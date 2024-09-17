@@ -9,9 +9,18 @@ linters-settings:
     disable:
       - fieldalignment
   depguard:
-    list-type: blacklist
-    include-go-root: true
-    include-go-std-lib: true
+    rules:
+      main:
+        allow:
+          - $gostd
+          - github.com/denisenkom/go-mssqldb
+          - github.com/go-sql-driver/mysql
+          - github.com/go-gorp/gorp/v3
+          - github.com/lib/pq
+          - github.com/mattn/go-sqlite3
+          - github.com/mitchellh/cli
+          - github.com/olekukonko/tablewriter
+          - github.com/rubenv/sql-migrate
   exhaustive:
     default-signifies-exhaustive: true
   nolintlint:

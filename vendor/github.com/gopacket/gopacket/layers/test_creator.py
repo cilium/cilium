@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # Copyright 2012 Google, Inc. All rights reserved.
 
 """TestCreator creates test templates from pcap files."""
@@ -9,7 +9,6 @@ import glob
 import re
 import string
 import subprocess
-import sys
 
 
 class Packet(object):
@@ -30,7 +29,7 @@ class Packet(object):
       if m is None: continue
       for hexpart in m.group(1).split():
         packet_bytes.append(base64.b16decode(hexpart.upper()))
-    return ''.join(packet_bytes)
+    return b''.join(packet_bytes)
 
   def Test(self, name, link_type):
     """Yields a test using this packet, as a set of lines."""
@@ -41,7 +40,8 @@ class Packet(object):
     data = list(self.data)
     while data:
       linebytes, data = data[:16], data[16:]
-      yield ''.join(['\t'] + ['0x%02x, ' % ord(c) for c in linebytes])
+      b = ''.join(["0x{:02x}, ".format(c) for c in linebytes])
+      yield f'\t{b}'
     yield '}'
     yield 'func TestPacket%s(t *testing.T) {' % name
     yield '\tp := gopacket.NewPacket(testPacket%s, LinkType%s, gopacket.Default)' % (name, link_type)
@@ -61,14 +61,14 @@ class Packet(object):
 def GetTcpdumpOutput(filename):
   """Runs tcpdump on the given file, returning output as string."""
   return subprocess.check_output(
-      ['tcpdump', '-XX', '-s', '0', '-n', '-r', filename])
+    ['tcpdump', '-XX', '-s', '0', '-n', '-r', filename])
 
 
 def TcpdumpOutputToPackets(output):
   """Reads a pcap file with TCPDump, yielding Packet objects."""
   pdata = []
-  for line in output.splitlines():
-    if line[0] not in string.whitespace and pdata:
+  for line in output.decode('utf-8').split('\n'):
+    if line and line[0] not in string.whitespace and pdata:
       yield Packet(pdata)
       pdata = []
     pdata.append(line)
@@ -96,8 +96,9 @@ def main():
   for arg in args.files:
     for path in glob.glob(arg):
       for i, packet in enumerate(TcpdumpOutputToPackets(GetTcpdumpOutput(path))):
-        print '\n'.join(packet.Test(
-          args.name % i, args.link_type))
+        print('\n'.join(packet.Test(
+          f'{args.name}{i}', args.link_type))
+        )
 
 if __name__ == '__main__':
-    main()
+  main()

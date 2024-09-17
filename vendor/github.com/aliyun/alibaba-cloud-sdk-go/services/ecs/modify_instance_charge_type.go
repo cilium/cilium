@@ -71,19 +71,25 @@ func (client *Client) ModifyInstanceChargeTypeWithCallback(request *ModifyInstan
 // ModifyInstanceChargeTypeRequest is the request struct for api ModifyInstanceChargeType
 type ModifyInstanceChargeTypeRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	IsDetailFee          requests.Boolean `position:"Query" name:"IsDetailFee"`
-	InstanceChargeType   string           `position:"Query" name:"InstanceChargeType"`
-	Period               requests.Integer `position:"Query" name:"Period"`
-	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
-	AutoPay              requests.Boolean `position:"Query" name:"AutoPay"`
-	IncludeDataDisks     requests.Boolean `position:"Query" name:"IncludeDataDisks"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	PeriodUnit           string           `position:"Query" name:"PeriodUnit"`
-	InstanceIds          string           `position:"Query" name:"InstanceIds"`
+	ResourceOwnerId      requests.Integer                         `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string                                   `position:"Query" name:"ClientToken"`
+	IsDetailFee          requests.Boolean                         `position:"Query" name:"IsDetailFee"`
+	InstanceChargeType   string                                   `position:"Query" name:"InstanceChargeType"`
+	Period               requests.Integer                         `position:"Query" name:"Period"`
+	DryRun               requests.Boolean                         `position:"Query" name:"DryRun"`
+	AutoPay              requests.Boolean                         `position:"Query" name:"AutoPay"`
+	IncludeDataDisks     requests.Boolean                         `position:"Query" name:"IncludeDataDisks"`
+	ResourceOwnerAccount string                                   `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                                   `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer                         `position:"Query" name:"OwnerId"`
+	PromotionOptions     ModifyInstanceChargeTypePromotionOptions `position:"Query" name:"PromotionOptions"  type:"Struct"`
+	PeriodUnit           string                                   `position:"Query" name:"PeriodUnit"`
+	InstanceIds          string                                   `position:"Query" name:"InstanceIds"`
+}
+
+// ModifyInstanceChargeTypePromotionOptions is a repeated param struct in ModifyInstanceChargeTypeRequest
+type ModifyInstanceChargeTypePromotionOptions struct {
+	CouponNo string `name:"CouponNo"`
 }
 
 // ModifyInstanceChargeTypeResponse is the response struct for api ModifyInstanceChargeType

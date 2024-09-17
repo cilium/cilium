@@ -84,6 +84,7 @@ type CreateLaunchTemplateVersionRequest struct {
 	SystemDiskIops                 requests.Integer                               `position:"Query" name:"SystemDisk.Iops"`
 	Tag                            *[]CreateLaunchTemplateVersionTag              `position:"Query" name:"Tag"  type:"Repeated"`
 	SystemDiskAutoSnapshotPolicyId string                                         `position:"Query" name:"SystemDisk.AutoSnapshotPolicyId"`
+	AutoRenewPeriod                requests.Integer                               `position:"Query" name:"AutoRenewPeriod"`
 	Period                         requests.Integer                               `position:"Query" name:"Period"`
 	LaunchTemplateId               string                                         `position:"Query" name:"LaunchTemplateId"`
 	Ipv6AddressCount               requests.Integer                               `position:"Query" name:"Ipv6AddressCount"`
@@ -92,7 +93,9 @@ type CreateLaunchTemplateVersionRequest struct {
 	SpotStrategy                   string                                         `position:"Query" name:"SpotStrategy"`
 	PrivateIpAddress               string                                         `position:"Query" name:"PrivateIpAddress"`
 	SystemDiskBurstingEnabled      requests.Boolean                               `position:"Query" name:"SystemDisk.BurstingEnabled"`
+	PeriodUnit                     string                                         `position:"Query" name:"PeriodUnit"`
 	InstanceName                   string                                         `position:"Query" name:"InstanceName"`
+	AutoRenew                      requests.Boolean                               `position:"Query" name:"AutoRenew"`
 	InternetChargeType             string                                         `position:"Query" name:"InternetChargeType"`
 	ZoneId                         string                                         `position:"Query" name:"ZoneId"`
 	InternetMaxBandwidthIn         requests.Integer                               `position:"Query" name:"InternetMaxBandwidthIn"`

@@ -603,6 +603,23 @@ type IPv6Fragment struct {
 	Identification uint32
 }
 
+func (i *IPv6Fragment) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOptions) error {
+	data, err := b.PrependBytes(8)
+	if err != nil {
+		return err
+	}
+
+	data[0] = uint8(i.NextHeader)
+	data[1] = i.Reserved1
+	binary.BigEndian.PutUint16(data[2:4], i.FragmentOffset<<3)
+	data[3] = data[3] | ((i.Reserved2 << 1) & 0x6)
+	if i.MoreFragments {
+		data[3] = data[3] | 0x1
+	}
+	binary.BigEndian.PutUint32(data[4:8], i.Identification)
+	return nil
+}
+
 // LayerType returns LayerTypeIPv6Fragment.
 func (i *IPv6Fragment) LayerType() gopacket.LayerType { return LayerTypeIPv6Fragment }
 

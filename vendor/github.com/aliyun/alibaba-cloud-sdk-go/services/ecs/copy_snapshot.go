@@ -73,6 +73,7 @@ type CopySnapshotRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId                requests.Integer   `position:"Query" name:"ResourceOwnerId"`
 	SnapshotId                     string             `position:"Query" name:"SnapshotId"`
+	ClientToken                    string             `position:"Query" name:"ClientToken"`
 	DestinationRegionId            string             `position:"Query" name:"DestinationRegionId"`
 	ResourceGroupId                string             `position:"Query" name:"ResourceGroupId"`
 	Tag                            *[]CopySnapshotTag `position:"Query" name:"Tag"  type:"Repeated"`

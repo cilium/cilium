@@ -60,5 +60,6 @@ type InstanceType struct {
 	LocalStorageCategory        string             `json:"LocalStorageCategory" xml:"LocalStorageCategory"`
 	PhysicalProcessorModel      string             `json:"PhysicalProcessorModel" xml:"PhysicalProcessorModel"`
 	SupportedBootModes          SupportedBootModes `json:"SupportedBootModes" xml:"SupportedBootModes"`
+	EnhancedNetwork             EnhancedNetwork    `json:"EnhancedNetwork" xml:"EnhancedNetwork"`
 	NetworkCards                NetworkCards       `json:"NetworkCards" xml:"NetworkCards"`
 }
