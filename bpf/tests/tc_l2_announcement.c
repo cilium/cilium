@@ -151,7 +151,7 @@ SETUP("tc", "1_happy_path")
 int l2_announcement_arp_happy_path_setup(struct __ctx_buff *ctx)
 {
 	struct l2_responder_v4_key key;
-	struct l2_responder_v4_stats value = {0};
+	struct l2_responder_stats value = {0};
 
 	key.ifindex = 0;
 	key.ip4 = v4_svc_one;
