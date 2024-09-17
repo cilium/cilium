@@ -15,6 +15,8 @@ import (
 var (
 	//go:embed manifests/local-redirect-policy.yaml
 	localRedirectPolicyYAML string
+	//go:embed manifests/client-egress-to-cidr-lrp-frontend-deny.yaml
+	localRedirectPolicyFrontendDenyYAML string
 )
 
 type localRedirectPolicy struct{}
@@ -26,16 +28,13 @@ func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]stri
 		WithCondition(func() bool {
 			return versioncheck.MustCompile(">=1.16.0")(ct.CiliumVersion)
 		}).
-		WithCondition(func() bool {
-			// Disable until https://github.com/cilium/cilium-cli/issues/2733 is fixed.
-			return false
-		}).
 		WithCiliumLocalRedirectPolicy(check.CiliumLocalRedirectPolicyParams{
 			Policy:                  localRedirectPolicyYAML,
 			Name:                    "lrp-address-matcher",
 			FrontendIP:              lrpFrontendIP,
 			SkipRedirectFromBackend: false,
 		}).
+		WithCiliumPolicy(localRedirectPolicyFrontendDenyYAML).
 		WithCiliumLocalRedirectPolicy(check.CiliumLocalRedirectPolicyParams{
 			Policy:                  localRedirectPolicyYAML,
 			Name:                    "lrp-address-matcher-skip-redirect-from-backend",
@@ -52,7 +51,7 @@ func (t localRedirectPolicy) build(ct *check.ConnectivityTest, _ map[string]stri
 			if a.Scenario().Name() == "lrp-skip-redirect-from-backend" {
 				if a.Source().HasLabel("lrp", "backend") &&
 					a.Destination().Address(features.IPFamilyV4) == lrpFrontendIPSkipRedirect {
-					return check.ResultCurlTimeout, check.ResultNone
+					return check.ResultPolicyDenyEgressDrop, check.ResultNone
 				}
 				return check.ResultOK, check.ResultNone
 			}
