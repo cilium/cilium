@@ -461,6 +461,8 @@ bpf:
   # -- (int) Configure the maximum number of entries in auth map.
   # @default -- `524288`
   authMapMax: ~
+  # -- Enable CT accounting for packets and bytes
+  ctAccounting: false
   # @schema
   # type: [null, integer]
   # @schema

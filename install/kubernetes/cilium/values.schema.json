@@ -505,6 +505,9 @@
           },
           "type": "object"
         },
+        "ctAccounting": {
+          "type": "boolean"
+        },
         "ctAnyMax": {
           "type": [
             "null",

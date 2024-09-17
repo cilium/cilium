@@ -300,6 +300,10 @@
      - Enable automatic mount of BPF filesystem When ``autoMount`` is enabled, the BPF filesystem is mounted at ``bpf.root`` path on the underlying host and inside the cilium agent pod. If users disable ``autoMount``\ , it's expected that users have mounted bpffs filesystem at the specified ``bpf.root`` volume, and then the volume will be mounted inside the cilium agent pod at the same path.
      - bool
      - ``true``
+   * - :spelling:ignore:`bpf.ctAccounting`
+     - Enable CT accounting for packets and bytes
+     - bool
+     - ``false``
    * - :spelling:ignore:`bpf.ctAnyMax`
      - Configure the maximum number of entries for the non-TCP connection tracking table.
      - int

@@ -1258,6 +1258,9 @@ const (
 
 	// BPFEventsTraceEnabled defines the TraceNotification setting for any endpoint
 	BPFEventsTraceEnabled = "bpf-events-trace-enabled"
+
+	// BPFConntrackAccountingEnabled controls whether CT accounting for packets and bytes is enabled
+	BPFConntrackAccountingEnabled = "bpf-conntrack-accounting-enabled"
 )
 
 // Default string arguments
@@ -2444,6 +2447,9 @@ type DaemonConfig struct {
 	// BPFEventsTraceEnabled  controls whether the Cilium datapath exposes "trace" events to Cilium monitor and Hubble.
 	BPFEventsTraceEnabled bool
 
+	// BPFConntrackAccountingEnabled controls whether CT accounting for packets and bytes is enabled.
+	BPFConntrackAccountingEnabled bool
+
 	// IPAMCiliumNodeUpdateRate is the maximum rate at which the CiliumNode custom
 	// resource is updated.
 	IPAMCiliumNodeUpdateRate time.Duration
@@ -2533,6 +2539,7 @@ var (
 		BPFEventsDropEnabled:          defaults.BPFEventsDropEnabled,
 		BPFEventsPolicyVerdictEnabled: defaults.BPFEventsPolicyVerdictEnabled,
 		BPFEventsTraceEnabled:         defaults.BPFEventsTraceEnabled,
+		BPFConntrackAccountingEnabled: defaults.BPFConntrackAccountingEnabled,
 		EnableEnvoyConfig:             defaults.EnableEnvoyConfig,
 	}
 )
@@ -3161,6 +3168,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BPFEventsDropEnabled = vp.GetBool(BPFEventsDropEnabled)
 	c.BPFEventsPolicyVerdictEnabled = vp.GetBool(BPFEventsPolicyVerdictEnabled)
 	c.BPFEventsTraceEnabled = vp.GetBool(BPFEventsTraceEnabled)
+	c.BPFConntrackAccountingEnabled = vp.GetBool(BPFConntrackAccountingEnabled)
 	c.EnableIPSecEncryptedOverlay = vp.GetBool(EnableIPSecEncryptedOverlay)
 
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
