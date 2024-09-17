@@ -111,8 +111,7 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 
 				if policy.Spec.SkipRedirectFromBackend {
 					a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
-						AltDstIP:   lf.Address(features.IPFamilyV4),
-						AltDstPort: lf.Port(),
+						RSTAllowed: true,
 					}))
 				}
 				i++
