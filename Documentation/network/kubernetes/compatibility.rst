@@ -38,7 +38,7 @@ Kubernetes offerings using multiple Kubernetes versions. See the following links
 for the current test matrix for each cloud provider:
 
 - :git-tree:`AKS <.github/actions/azure/k8s-versions.yaml>`
-- :git-tree:`EKS <.github/actions/aws/k8s-versions.yaml>`
+- :git-tree:`EKS <.github/actions/eks/k8s-versions.yaml>`
 - :git-tree:`GKE <.github/actions/gke/k8s-versions.yaml>`
 
 Cilium CRD schema validation
