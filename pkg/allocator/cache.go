@@ -136,12 +136,12 @@ func (c *cache) OnUpsert(id idpool.ID, key AllocatorKey) {
 	defer c.mutex.Unlock()
 
 	if k, ok := c.nextCache[id]; ok {
-		delete(c.nextKeyCache, c.allocator.encodeKey(k))
+		delete(c.nextKeyCache, k.GetKey())
 	}
 
 	c.nextCache[id] = key
 	if key != nil {
-		c.nextKeyCache[c.allocator.encodeKey(key)] = id
+		c.nextKeyCache[key.GetKey()] = id
 	}
 
 	c.allocator.idPool.Remove(id)
@@ -219,7 +219,7 @@ func (c *cache) onDeleteLocked(id idpool.ID, key AllocatorKey, recreateMissingLo
 	}
 
 	if k, ok := c.nextCache[id]; ok && k != nil {
-		delete(c.nextKeyCache, c.allocator.encodeKey(k))
+		delete(c.nextKeyCache, k.GetKey())
 	}
 
 	delete(c.nextCache, id)
@@ -327,7 +327,7 @@ func (c *cache) foreach(cb RangeFunc) {
 func (c *cache) insert(key AllocatorKey, val idpool.ID) {
 	c.mutex.Lock()
 	c.nextCache[val] = key
-	c.nextKeyCache[c.allocator.encodeKey(key)] = val
+	c.nextKeyCache[key.GetKey()] = val
 	c.mutex.Unlock()
 }
 
