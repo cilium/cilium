@@ -11,3 +11,8 @@ include:
     location: eastus
     index: 3
     default: true
+  - version: "1.30"
+    location: westus3
+    index: 4
+    preview: true
+    default: true
