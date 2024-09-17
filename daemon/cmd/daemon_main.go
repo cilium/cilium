@@ -387,6 +387,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableTracing, false, "Enable tracing while determining policy (debugging)")
 	option.BindEnv(vp, option.EnableTracing)
 
+	flags.Bool(option.BPFConntrackAccountingEnabled, defaults.BPFConntrackAccountingEnabled, "Enable CT accounting for packets and bytes")
+	option.BindEnv(vp, option.BPFConntrackAccountingEnabled)
+
 	flags.Bool(option.EnableUnreachableRoutes, false, "Add unreachable routes on pod deletion")
 	option.BindEnv(vp, option.EnableUnreachableRoutes)
 
@@ -1343,7 +1346,7 @@ func initEnv(vp *viper.Viper) {
 	option.Config.Opts.SetBool(option.PolicyVerdictNotify, option.Config.BPFEventsPolicyVerdictEnabled)
 	option.Config.Opts.SetBool(option.TraceNotify, option.Config.BPFEventsTraceEnabled)
 	option.Config.Opts.SetBool(option.PolicyTracing, option.Config.EnableTracing)
-	option.Config.Opts.SetBool(option.ConntrackAccounting, false)
+	option.Config.Opts.SetBool(option.ConntrackAccounting, option.Config.BPFConntrackAccountingEnabled)
 	option.Config.Opts.SetBool(option.ConntrackLocal, false)
 	option.Config.Opts.SetBool(option.PolicyAuditMode, option.Config.PolicyAuditMode)
 	option.Config.Opts.SetBool(option.PolicyAccounting, option.Config.PolicyAccounting)
