@@ -158,7 +158,7 @@ type LocalNodeConfiguration struct {
 	// EnableIPSecEncryptedOverlay enables IPSec routes for overlay traffic
 	EnableIPSecEncryptedOverlay bool
 
-	// EncryptNode enables encrypting NodeIP traffic requires EnableIPSec
+	// EncryptNode enables encrypting NodeIP traffic
 	EncryptNode bool
 
 	// IPv4PodSubnets is a list of IPv4 subnets that pod IPs are assigned from
