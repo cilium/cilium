@@ -268,6 +268,9 @@ var (
 			// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
 			// and clustermesh.
 			dial.ServiceResolverCell,
+
+			// Custom resolver containing the mappings of hostnames to IP addresses for clustermesh.
+			dial.ClustermeshResolverCell,
 		),
 	)
 
@@ -505,7 +508,16 @@ var legacyCell = cell.Module(
 	metrics.Metric(NewUnmanagedPodsMetric),
 )
 
-func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory, svcResolver *dial.ServiceResolver, cfgMCSAPI cmoperator.MCSAPIConfig, metrics *UnmanagedPodsMetric) {
+func registerLegacyOnLeader(
+	lc cell.Lifecycle,
+	clientset k8sClient.Clientset,
+	resources operatorK8s.Resources,
+	factory store.Factory,
+	svcResolver *dial.ServiceResolver,
+	cmResolver *dial.ClustermeshResolver,
+	cfgMCSAPI cmoperator.MCSAPIConfig,
+	metrics *UnmanagedPodsMetric,
+) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:          ctx,
@@ -514,6 +526,7 @@ func registerLegacyOnLeader(lc cell.Lifecycle, clientset k8sClient.Clientset, re
 		resources:    resources,
 		storeFactory: factory,
 		svcResolver:  svcResolver,
+		cmResolver:   cmResolver,
 		cfgMCSAPI:    cfgMCSAPI,
 		metrics:      metrics,
 	}
@@ -531,6 +544,7 @@ type legacyOnLeader struct {
 	resources    operatorK8s.Resources
 	storeFactory store.Factory
 	svcResolver  *dial.ServiceResolver
+	cmResolver   *dial.ClustermeshResolver
 	cfgMCSAPI    cmoperator.MCSAPIConfig
 	metrics      *UnmanagedPodsMetric
 }
@@ -609,7 +623,11 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 	}
 
 	if kvstoreEnabled() {
-		var goopts *kvstore.ExtraOptions
+		var goopts = &kvstore.ExtraOptions{
+			DialOption: []grpc.DialOption{
+				grpc.WithContextDialer(dial.NewContextDialer(log, legacy.cmResolver)),
+			},
+		}
 		scopedLog := log.WithFields(logrus.Fields{
 			"kvstore": option.Config.KVStore,
 			"address": option.Config.KVStoreOpt[fmt.Sprintf("%s.address", option.Config.KVStore)],
@@ -651,7 +669,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 			log := log.WithField(logfields.LogSubsys, "etcd")
 			goopts = &kvstore.ExtraOptions{
 				DialOption: []grpc.DialOption{
-					grpc.WithContextDialer(dial.NewContextDialer(log, legacy.svcResolver)),
+					grpc.WithContextDialer(dial.NewContextDialer(log, legacy.svcResolver, legacy.cmResolver)),
 				},
 			}
 		}

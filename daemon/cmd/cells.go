@@ -280,6 +280,9 @@ var (
 		// and clustermesh.
 		dial.ServiceResolverCell,
 
+		// Custom resolver containing the mappings of hostnames to IP addresses for clustermesh.
+		dial.ClustermeshResolverCell,
+
 		// K8s Watcher provides the core k8s watchers
 		watchers.Cell,
 

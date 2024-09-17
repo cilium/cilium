@@ -21,6 +21,7 @@ import (
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
+	"github.com/cilium/cilium/pkg/dial"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -79,6 +80,8 @@ type params struct {
 
 	BackendPromise promise.Promise[kvstore.BackendOperations]
 
+	ClustermeshResolver *dial.ClustermeshResolver
+
 	Metrics      common.Metrics
 	StoreFactory store.Factory
 
@@ -94,10 +97,11 @@ func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 		clock:          clock.RealClock{},
 	}
 	km.common = common.NewClusterMesh(common.Configuration{
-		Config:           params.CommonConfig,
-		ClusterInfo:      params.ClusterInfo,
-		NewRemoteCluster: km.newRemoteCluster,
-		Metrics:          params.Metrics,
+		Config:              params.CommonConfig,
+		ClusterInfo:         params.ClusterInfo,
+		NewRemoteCluster:    km.newRemoteCluster,
+		Metrics:             params.Metrics,
+		ClustermeshResolver: params.ClustermeshResolver,
 	})
 
 	lc.Append(&km)
@@ -112,11 +116,12 @@ func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 type SyncWaiterParams struct {
 	cell.In
 
-	KVStoreMesh *KVStoreMesh
-	SyncState   syncstate.SyncState
-	Lifecycle   cell.Lifecycle
-	JobGroup    job.Group
-	Health      cell.Health
+	ClusterMeshResolver *dial.ClustermeshResolver
+	KVStoreMesh         *KVStoreMesh
+	SyncState           syncstate.SyncState
+	Lifecycle           cell.Lifecycle
+	JobGroup            job.Group
+	Health              cell.Health
 }
 
 func RegisterSyncWaiter(p SyncWaiterParams) {

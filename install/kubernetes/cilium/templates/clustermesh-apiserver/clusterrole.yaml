@@ -10,6 +10,14 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
 {{- if .Values.externalWorkloads.enabled }}
 - apiGroups:
   - cilium.io

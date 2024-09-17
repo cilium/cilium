@@ -1355,3 +1355,14 @@ data:
   config: |-
 {{ toJson .Values.ipMasqAgent.config | indent 4 }}
 {{- end }}
+---
+{{- if and .Values.clustermesh.config.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-clustermesh-clusters
+  namespace: {{ .Release.Namespace }}
+data:
+  clusters.json: |-
+{{ toJson .Values.clustermesh.config | indent 4 }}
+{{- end }}

@@ -42,6 +42,9 @@ type Configuration struct {
 	// ServiceResolver, if not nil, is used to create a custom dialer for service resolution.
 	ServiceResolver *dial.ServiceResolver
 
+	// ClustermeshResolver, if not nil, is used to create a custom dialer for clustermesh address resolution.
+	ClustermeshResolver *dial.ClustermeshResolver
+
 	// Metrics holds the different clustermesh metrics.
 	Metrics Metrics
 }
@@ -138,10 +141,14 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		clusterSizeDependantInterval: cm.conf.ClusterSizeDependantInterval,
 
 		resolvers: func() []dial.Resolver {
+			res := []dial.Resolver{}
 			if cm.conf.ServiceResolver != nil {
-				return []dial.Resolver{cm.conf.ServiceResolver}
+				res = append(res, cm.conf.ServiceResolver)
 			}
-			return nil
+			if cm.conf.ClustermeshResolver != nil {
+				res = append(res, cm.conf.ClustermeshResolver)
+			}
+			return res
 		}(),
 
 		controllers:                    controller.NewManager(),

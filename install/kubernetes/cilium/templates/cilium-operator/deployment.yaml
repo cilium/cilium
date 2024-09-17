@@ -285,15 +285,6 @@ spec:
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}
-      {{- if and (or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.enableMCSAPISupport) .Values.clustermesh.config.enabled (not (and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.kvstoremesh.enabled )) }}
-      hostAliases:
-      {{- range $cluster := .Values.clustermesh.config.clusters }}
-      {{- range $ip := $cluster.ips }}
-      - ip: {{ $ip }}
-        hostnames: [ "{{ $cluster.name }}.{{ $.Values.clustermesh.config.domain }}" ]
-      {{- end }}
-      {{- end }}
-      {{- end }}
       {{- with .Values.operator.tolerations }}
       tolerations:
         {{- toYaml . | trim | nindent 8 }}
