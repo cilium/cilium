@@ -278,6 +278,7 @@ jobs:
             --testconfig=./testing/custom/common/setup.yaml \
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             --provider=gce \
+            --enable-exec-service=false \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
             --kubeconfig=$HOME/.kube/config \
