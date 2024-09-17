@@ -1018,14 +1018,18 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 #endif /* ENABLE_IPSEC && TUNNEL_MODE */
 
 #ifdef ENABLE_L2_ANNOUNCEMENTS
-static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
+static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx,
+						struct ipv6hdr* ip6)
 {
 	union macaddr mac = THIS_INTERFACE_MAC;
 	union macaddr smac;
-	__be32 sip;
-	__be32 tip;
-	struct l2_responder_v4_key key;
-	struct l2_responder_v4_stats *stats;
+	__be32 __maybe_unused sip;
+	__be32 __maybe_unused tip;
+	union v6addr __maybe_unused sip6;
+	union v6addr __maybe_unused tip6;
+	struct l2_responder_v4_key __maybe_unused  key;
+	struct l2_responder_v6_key __maybe_unused  key6;
+	struct l2_responder_stats *stats;
 	int ret;
 	__u32 index = RUNTIME_CONFIG_AGENT_LIVENESS;
 	__u64 *time;
@@ -1041,22 +1045,37 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 	if (ktime_get_ns() - (*time) > L2_ANNOUNCEMENTS_MAX_LIVENESS)
 		return CTX_ACT_OK;
 
-	if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
-		return CTX_ACT_OK;
+	if (!ip6) {
+		if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
+			return CTX_ACT_OK;
 
-	key.ip4 = tip;
-	key.ifindex = ctx->ingress_ifindex;
-	stats = map_lookup_elem(&L2_RESPONDER_MAP4, &key);
-	if (!stats)
-		return CTX_ACT_OK;
+		key.ip4 = tip;
+		key.ifindex = ctx->ingress_ifindex;
+		stats = map_lookup_elem(&L2_RESPONDER_MAP4, &key);
+		if (!stats)
+			return CTX_ACT_OK;
 
-	ret = arp_respond(ctx, &mac, tip, &smac, sip, 0);
+		ret = arp_respond(ctx, &mac, tip, &smac, sip, 0);
+	} else {
+
+		if (!icmp6_ndisc_validate(ctx, ip6, &mac, &smac, &sip6, &tip6))
+			return CTX_ACT_OK;
+
+		key6.ip6 = tip6;
+		key6.ifindex = ctx->ingress_ifindex;
+		stats = map_lookup_elem(&L2_RESPONDER_MAP6, &key6);
+		if (!stats)
+			return CTX_ACT_OK;
+		int l3_off = (__u8*)ip6 - (__u8*)ctx_data(ctx);
+		ret = send_icmp6_ndisc_adv(ctx, l3_off, &mac, false);
+	}
 
 	if (ret == CTX_ACT_REDIRECT)
 		__sync_fetch_and_add(&stats->responses_sent, 1);
 
 	return ret;
-};
+}
+
 #endif
 
 static __always_inline int
@@ -1076,6 +1095,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	int __maybe_unused hdrlen = 0;
 	__u8 __maybe_unused next_proto = 0;
 	__s8 __maybe_unused ext_err = 0;
+	__u8 __maybe_unused next_hdr;
 	int ret;
 
 #ifdef ENABLE_IPSEC
@@ -1148,7 +1168,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor);
 		#ifdef ENABLE_L2_ANNOUNCEMENTS
-			ret = handle_l2_announcement(ctx);
+			ret = handle_l2_announcement(ctx, NULL);
 		#else
 			ret = CTX_ACT_OK;
 		#endif
@@ -1159,6 +1179,13 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
 						      CTX_ACT_DROP, METRIC_INGRESS);
+#ifdef ENABLE_L2_ANNOUNCEMENTS
+		if (ip6->nexthdr == NEXTHDR_ICMP) {
+			ret = handle_l2_announcement(ctx, ip6);
+			if (ret != CTX_ACT_OK)
+				break;
+		}
+#endif /*ENABLE_L2_ANNOUNCEMENTS */
 
 		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid, from_host);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);

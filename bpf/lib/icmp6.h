@@ -477,4 +477,32 @@ icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err, bool handle
 #endif /* ENABLE_HOST_FIREWALL */
 }
 
+static __always_inline bool
+icmp6_ndisc_validate(struct __ctx_buff *ctx, struct ipv6hdr* ip6,
+					union macaddr *mac,
+					union macaddr *smac,
+					union v6addr* sip,
+					union v6addr *tip)
+{
+	__u8 nexthdr;
+	struct icmp6hdr* icmp;
+
+	int l3_off = (__u8*)ip6 - (__u8*)ctx_data(ctx);
+	int l4_off = ipv6_hdrlen_offset(ctx, &nexthdr, l3_off);
+	if (l4_off < 0 || nexthdr != NEXTHDR_ICMP)
+		return false;
+
+	icmp = (struct icmp6hdr*) ((__u8*)ctx_data(ctx) + l4_off);
+	if (icmp->icmp6_type != ICMP6_NS_MSG_TYPE)
+		return false;
+
+	/* Extract fields */
+	eth_load_saddr(ctx, &smac->addr[0], 0);
+	eth_load_daddr(ctx, &mac->addr[0], 0);
+	ipv6_load_saddr(ctx, l3_off, sip);
+	ipv6_load_daddr(ctx, l3_off, tip);
+
+	return true;
+}
+
 #endif
