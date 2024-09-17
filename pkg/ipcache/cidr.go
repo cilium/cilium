@@ -140,19 +140,50 @@ func (ipc *IPCache) UpsertGeneratedIdentities(newlyAllocatedIdentities map[netip
 	}
 
 	toUpsert := make(map[netip.Prefix]*identity.Identity)
-	ipc.mutex.RLock()
+	ipc.mutex.Lock()
 	for _, id := range usedIdentities {
 		prefix, ok := cidrLabelToPrefix(id)
 		if !ok {
 			continue
 		}
-		if _, ok := ipc.LookupByIPRLocked(prefix.String()); ok {
-			// Already there; continue
+
+		prefixStr := prefix.String()
+		entry, ok := ipc.ipToIdentityCache[prefixStr]
+		if !ok {
+			// Missing entry, need to create a new one
+			toUpsert[prefix] = id
 			continue
 		}
-		toUpsert[prefix] = id
+
+		if _, ok := newlyAllocatedIdentities[prefix]; ok {
+			continue // already inserted above
+		}
+
+		// In case this entry is (co-)owned by the metadata API, we need to
+		// store our legacy source here. Because our upsert source is "Generated",
+		// we can assume that the existing entry source is equal or higher
+		// precedence. Thus, we do not need to perform a full Upsert (which would
+		// be rejected anyway), just update overwrittenLegacySource if needed.
+		// This ensures that the entry is not removed once the higher-precedence
+		// metadata resource owner is disassociated.
+		switch {
+		case entry.exclusivelyOwnedByLegacyAPI():
+			// nothing to do
+			continue
+		case entry.exclusivelyOwnedByMetadataAPI():
+			// mark entry as co-owned by both APIs
+			entry.overwrittenLegacySource = source.Generated
+			entry.modifiedByLegacyAPI = true
+		case entry.ownedByLegacyAndMetadataAPI():
+			// already co-owned, only update the legacy source if necessary
+			if source.AllowOverwrite(entry.overwrittenLegacySource, source.Generated) {
+				entry.overwrittenLegacySource = source.Generated
+			}
+		}
+
+		ipc.ipToIdentityCache[prefixStr] = entry
 	}
-	ipc.mutex.RUnlock()
+	ipc.mutex.Unlock()
 	for prefix, id := range toUpsert {
 		metrics.IPCacheErrorsTotal.WithLabelValues(
 			metricTypeRecover, metricErrorUnexpected,
