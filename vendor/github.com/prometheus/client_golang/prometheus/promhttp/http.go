@@ -203,8 +203,10 @@ func HandlerForTransactional(reg prometheus.TransactionalGatherer, opts HandlerO
 
 		defer closeWriter()
 
-		rsp.Header().Set(contentEncodingHeader, encodingHeader)
-
+		// Set Content-Encoding only when data is compressed
+		if encodingHeader != string(Identity) {
+			rsp.Header().Set(contentEncodingHeader, encodingHeader)
+		}
 		enc := expfmt.NewEncoder(w, contentType)
 
 		// handleError handles the error according to opts.ErrorHandling

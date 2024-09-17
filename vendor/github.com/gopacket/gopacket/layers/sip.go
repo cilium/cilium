@@ -197,8 +197,8 @@ type SIP struct {
 	ResponseStatus string
 
 	// Private fields
-	cseq             int64
-	contentLength    int64
+	cseq             uint32
+	contentLength    int
 	lastHeaderParsed string
 }
 
@@ -219,6 +219,7 @@ func decodeSIP(data []byte, p gopacket.PacketBuilder) error {
 func NewSIP() *SIP {
 	s := new(SIP)
 	s.Headers = make(map[string][]string)
+	s.contentLength = -1
 	return s
 }
 
@@ -296,9 +297,39 @@ func (s *SIP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 
 		countLines++
 	}
-	s.BaseLayer = BaseLayer{Contents: data[:offset], Payload: data[offset:]}
+	s.setBaseLayer(data, offset, df)
 
 	return nil
+}
+
+// setBaseLayer is used to set the base layer of the SIP packet.
+//
+// According to "RFC3261 - 20.14 - Content-Length" the Content-Length header is mandatory
+// for SIP packages transported over TCP. When transporting over UDP, the message
+// body length CAN be determined by the length of the UDP datagram.
+//
+// So by using the Content-Length header, if present we can mark the packet as truncated if we do not
+// have enough data. We are also able to limit the payload to the number bytes actually specified.
+// If the header is not present, we can assume that the data was transported over UDP we can then
+// use the length of the data as payload length.
+func (s *SIP) setBaseLayer(data []byte, offset int, df gopacket.DecodeFeedback) {
+	// The content-length header was not present in the packet, we use the rest of the packet as payload
+	if s.contentLength == -1 {
+		s.BaseLayer = BaseLayer{Contents: data[:offset], Payload: data[offset:]}
+	} else if s.contentLength == 0 {
+		// We have a zero Content-Length, no payload
+		s.BaseLayer = BaseLayer{Contents: data[:offset], Payload: []byte{}} // no payload
+	} else if len(data) < offset+s.contentLength {
+		// Not enough data to fulfill the Content-Length. We set the packet as truncated
+		// and return what we have. The receiver of the packet will be able to determine this
+		// by comparing the SIP.ContentLength with the length of the SIP.Payload.
+		df.SetTruncated()
+		s.BaseLayer = BaseLayer{Contents: data[:offset], Payload: data[offset:]}
+	} else {
+		// we have at least enough data, to fulfill the Content-Length. But we only add the number
+		// of bytes specified in the Content-Length header to the payload.
+		s.BaseLayer = BaseLayer{Contents: data[:offset], Payload: data[offset : offset+s.contentLength]}
+	}
 }
 
 // ParseFirstLine will compute the first line of a SIP packet.
@@ -420,19 +451,16 @@ func (s *SIP) ParseSpecificHeaders(headerName string, headerValue string) (err e
 
 	switch headerName {
 	case "cseq":
-
 		// CSeq header value is formatted like that :
 		// CSeq: 123 INVITE
 		// We split the value to parse Cseq integer value, and method
 		splits := strings.Split(headerValue, " ")
 		if len(splits) > 1 {
-
-			// Parse Cseq
-			s.cseq, err = strconv.ParseInt(splits[0], 10, 64)
+			// parse CSEQ
+			s.cseq, err = parseUint32(splits[0])
 			if err != nil {
-				return err
+				return fmt.Errorf("invalid CSEQ value: %w", err)
 			}
-
 			// Validate method
 			if s.IsResponse {
 				s.Method, err = GetSIPMethod(splits[1])
@@ -443,15 +471,36 @@ func (s *SIP) ParseSpecificHeaders(headerName string, headerValue string) (err e
 		}
 
 	case "content-length":
-
 		// Parse Content-Length
-		s.contentLength, err = strconv.ParseInt(headerValue, 10, 64)
+		s.contentLength, err = parsePositiveInt32(headerValue)
 		if err != nil {
-			return err
+			return fmt.Errorf("invalid Content-Length: %w", err)
 		}
 	}
 
 	return nil
+}
+
+// parsePositiveInt32 will parse the string as an int, but will return error if
+// value is < 0 or above the max positive value of an int32
+func parsePositiveInt32(s string) (int, error) {
+	i, err := strconv.ParseInt(s, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	if i < 0 {
+		return 0, fmt.Errorf("%d out of range", i)
+	}
+	return int(i), nil
+}
+
+// parseUint32 parse string value to uint32, return error if not successful
+func parseUint32(s string) (uint32, error) {
+	i, err := strconv.ParseUint(s, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(i), nil
 }
 
 // GetAllHeaders will return the full headers of the
@@ -529,11 +578,15 @@ func (s *SIP) GetUserAgent() string {
 // GetContentLength will return the parsed integer
 // Content-Length header of the current SIP packet
 func (s *SIP) GetContentLength() int64 {
-	return s.contentLength
+	// to keep compatibility with previous versions, we return 0 if contentLength is not set by header
+	if s.contentLength == -1 {
+		return 0
+	}
+	return int64(s.contentLength)
 }
 
 // GetCSeq will return the parsed integer CSeq header
 // header of the current SIP packet
 func (s *SIP) GetCSeq() int64 {
-	return s.cseq
+	return int64(s.cseq)
 }

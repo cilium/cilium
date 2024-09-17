@@ -71,50 +71,56 @@ func (client *Client) DescribePriceWithCallback(request *DescribePriceRequest, c
 // DescribePriceRequest is the request struct for api DescribePrice
 type DescribePriceRequest struct {
 	*requests.RpcRequest
-	DataDisk3Size                   requests.Integer         `position:"Query" name:"DataDisk.3.Size"`
-	ResourceOwnerId                 requests.Integer         `position:"Query" name:"ResourceOwnerId"`
-	DataDisk3Category               string                   `position:"Query" name:"DataDisk.3.Category"`
-	Isp                             string                   `position:"Query" name:"Isp"`
-	DataDisk4Size                   requests.Integer         `position:"Query" name:"DataDisk.4.Size"`
-	PriceUnit                       string                   `position:"Query" name:"PriceUnit"`
-	Period                          requests.Integer         `position:"Query" name:"Period"`
-	DataDisk1PerformanceLevel       string                   `position:"Query" name:"DataDisk.1.PerformanceLevel"`
-	AssuranceTimes                  string                   `position:"Query" name:"AssuranceTimes"`
-	OwnerId                         requests.Integer         `position:"Query" name:"OwnerId"`
-	InstanceCpuCoreCount            requests.Integer         `position:"Query" name:"InstanceCpuCoreCount"`
-	SpotStrategy                    string                   `position:"Query" name:"SpotStrategy"`
-	InternetChargeType              string                   `position:"Query" name:"InternetChargeType"`
-	ZoneId                          string                   `position:"Query" name:"ZoneId"`
-	InstanceNetworkType             string                   `position:"Query" name:"InstanceNetworkType"`
-	InstanceAmount                  requests.Integer         `position:"Query" name:"InstanceAmount"`
-	InstanceTypeList                *[]string                `position:"Query" name:"InstanceTypeList"  type:"Repeated"`
-	DataDisk3PerformanceLevel       string                   `position:"Query" name:"DataDisk.3.PerformanceLevel"`
-	ImageId                         string                   `position:"Query" name:"ImageId"`
-	IoOptimized                     string                   `position:"Query" name:"IoOptimized"`
-	InternetMaxBandwidthOut         requests.Integer         `position:"Query" name:"InternetMaxBandwidthOut"`
-	SystemDiskCategory              string                   `position:"Query" name:"SystemDisk.Category"`
-	Platform                        string                   `position:"Query" name:"Platform"`
-	Capacity                        requests.Integer         `position:"Query" name:"Capacity"`
-	SystemDiskPerformanceLevel      string                   `position:"Query" name:"SystemDisk.PerformanceLevel"`
-	DataDisk4Category               string                   `position:"Query" name:"DataDisk.4.Category"`
-	DataDisk4PerformanceLevel       string                   `position:"Query" name:"DataDisk.4.PerformanceLevel"`
-	Scope                           string                   `position:"Query" name:"Scope"`
-	SchedulerOptionsDedicatedHostId string                   `position:"Query" name:"SchedulerOptions.DedicatedHostId"`
-	InstanceType                    string                   `position:"Query" name:"InstanceType"`
-	DedicatedHostType               string                   `position:"Query" name:"DedicatedHostType"`
-	DataDisk2Category               string                   `position:"Query" name:"DataDisk.2.Category"`
-	DataDisk1Size                   requests.Integer         `position:"Query" name:"DataDisk.1.Size"`
-	Amount                          requests.Integer         `position:"Query" name:"Amount"`
-	ResourceOwnerAccount            string                   `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount                    string                   `position:"Query" name:"OwnerAccount"`
-	DataDisk2Size                   requests.Integer         `position:"Query" name:"DataDisk.2.Size"`
-	SpotDuration                    requests.Integer         `position:"Query" name:"SpotDuration"`
-	ResourceType                    string                   `position:"Query" name:"ResourceType"`
-	DataDisk                        *[]DescribePriceDataDisk `position:"Query" name:"DataDisk"  type:"Repeated"`
-	DataDisk1Category               string                   `position:"Query" name:"DataDisk.1.Category"`
-	DataDisk2PerformanceLevel       string                   `position:"Query" name:"DataDisk.2.PerformanceLevel"`
-	SystemDiskSize                  requests.Integer         `position:"Query" name:"SystemDisk.Size"`
-	OfferingType                    string                   `position:"Query" name:"OfferingType"`
+	DataDisk3Size                   requests.Integer              `position:"Query" name:"DataDisk.3.Size"`
+	ResourceOwnerId                 requests.Integer              `position:"Query" name:"ResourceOwnerId"`
+	DataDisk3Category               string                        `position:"Query" name:"DataDisk.3.Category"`
+	Isp                             string                        `position:"Query" name:"Isp"`
+	DataDisk4Size                   requests.Integer              `position:"Query" name:"DataDisk.4.Size"`
+	PriceUnit                       string                        `position:"Query" name:"PriceUnit"`
+	Period                          requests.Integer              `position:"Query" name:"Period"`
+	DataDisk1PerformanceLevel       string                        `position:"Query" name:"DataDisk.1.PerformanceLevel"`
+	AssuranceTimes                  string                        `position:"Query" name:"AssuranceTimes"`
+	OwnerId                         requests.Integer              `position:"Query" name:"OwnerId"`
+	PromotionOptions                DescribePricePromotionOptions `position:"Query" name:"PromotionOptions"  type:"Struct"`
+	InstanceCpuCoreCount            requests.Integer              `position:"Query" name:"InstanceCpuCoreCount"`
+	SpotStrategy                    string                        `position:"Query" name:"SpotStrategy"`
+	InternetChargeType              string                        `position:"Query" name:"InternetChargeType"`
+	ZoneId                          string                        `position:"Query" name:"ZoneId"`
+	InstanceNetworkType             string                        `position:"Query" name:"InstanceNetworkType"`
+	InstanceAmount                  requests.Integer              `position:"Query" name:"InstanceAmount"`
+	InstanceTypeList                *[]string                     `position:"Query" name:"InstanceTypeList"  type:"Repeated"`
+	DataDisk3PerformanceLevel       string                        `position:"Query" name:"DataDisk.3.PerformanceLevel"`
+	ImageId                         string                        `position:"Query" name:"ImageId"`
+	IoOptimized                     string                        `position:"Query" name:"IoOptimized"`
+	InternetMaxBandwidthOut         requests.Integer              `position:"Query" name:"InternetMaxBandwidthOut"`
+	SystemDiskCategory              string                        `position:"Query" name:"SystemDisk.Category"`
+	Platform                        string                        `position:"Query" name:"Platform"`
+	Capacity                        requests.Integer              `position:"Query" name:"Capacity"`
+	SystemDiskPerformanceLevel      string                        `position:"Query" name:"SystemDisk.PerformanceLevel"`
+	DataDisk4Category               string                        `position:"Query" name:"DataDisk.4.Category"`
+	DataDisk4PerformanceLevel       string                        `position:"Query" name:"DataDisk.4.PerformanceLevel"`
+	Scope                           string                        `position:"Query" name:"Scope"`
+	SchedulerOptionsDedicatedHostId string                        `position:"Query" name:"SchedulerOptions.DedicatedHostId"`
+	InstanceType                    string                        `position:"Query" name:"InstanceType"`
+	DedicatedHostType               string                        `position:"Query" name:"DedicatedHostType"`
+	DataDisk2Category               string                        `position:"Query" name:"DataDisk.2.Category"`
+	DataDisk1Size                   requests.Integer              `position:"Query" name:"DataDisk.1.Size"`
+	Amount                          requests.Integer              `position:"Query" name:"Amount"`
+	ResourceOwnerAccount            string                        `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount                    string                        `position:"Query" name:"OwnerAccount"`
+	DataDisk2Size                   requests.Integer              `position:"Query" name:"DataDisk.2.Size"`
+	SpotDuration                    requests.Integer              `position:"Query" name:"SpotDuration"`
+	ResourceType                    string                        `position:"Query" name:"ResourceType"`
+	DataDisk                        *[]DescribePriceDataDisk      `position:"Query" name:"DataDisk"  type:"Repeated"`
+	DataDisk1Category               string                        `position:"Query" name:"DataDisk.1.Category"`
+	DataDisk2PerformanceLevel       string                        `position:"Query" name:"DataDisk.2.PerformanceLevel"`
+	SystemDiskSize                  requests.Integer              `position:"Query" name:"SystemDisk.Size"`
+	OfferingType                    string                        `position:"Query" name:"OfferingType"`
+}
+
+// DescribePricePromotionOptions is a repeated param struct in DescribePriceRequest
+type DescribePricePromotionOptions struct {
+	CouponNo string `name:"CouponNo"`
 }
 
 // DescribePriceDataDisk is a repeated param struct in DescribePriceRequest
