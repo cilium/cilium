@@ -74,6 +74,7 @@ type PurchaseReservedInstancesOfferingRequest struct {
 	ResourceOwnerId      requests.Integer                        `position:"Query" name:"ResourceOwnerId"`
 	ClientToken          string                                  `position:"Query" name:"ClientToken"`
 	Description          string                                  `position:"Query" name:"Description"`
+	StartTime            string                                  `position:"Query" name:"StartTime"`
 	Platform             string                                  `position:"Query" name:"Platform"`
 	ResourceGroupId      string                                  `position:"Query" name:"ResourceGroupId"`
 	Scope                string                                  `position:"Query" name:"Scope"`

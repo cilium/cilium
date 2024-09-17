@@ -64,6 +64,6 @@ type Disk struct {
 	Placement                     Placement                     `json:"Placement" xml:"Placement"`
 	Tags                          TagsInDescribeDisks           `json:"Tags" xml:"Tags"`
 	OperationLocks                OperationLocksInDescribeDisks `json:"OperationLocks" xml:"OperationLocks"`
-	Attachments                   Attachments                   `json:"Attachments" xml:"Attachments"`
 	MountInstances                MountInstances                `json:"MountInstances" xml:"MountInstances"`
+	Attachments                   Attachments                   `json:"Attachments" xml:"Attachments"`
 }

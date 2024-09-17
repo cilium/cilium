@@ -18,6 +18,7 @@ package ecs
 // PrivateIpSet is a nested struct in ecs response
 type PrivateIpSet struct {
 	PrivateIpAddress   string             `json:"PrivateIpAddress" xml:"PrivateIpAddress"`
+	PrivateDnsName     string             `json:"PrivateDnsName" xml:"PrivateDnsName"`
 	Primary            bool               `json:"Primary" xml:"Primary"`
 	AssociatedPublicIp AssociatedPublicIp `json:"AssociatedPublicIp" xml:"AssociatedPublicIp"`
 }

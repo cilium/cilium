@@ -71,18 +71,24 @@ func (client *Client) ModifyDedicatedHostsChargeTypeWithCallback(request *Modify
 // ModifyDedicatedHostsChargeTypeRequest is the request struct for api ModifyDedicatedHostsChargeType
 type ModifyDedicatedHostsChargeTypeRequest struct {
 	*requests.RpcRequest
-	DedicatedHostIds        string           `position:"Query" name:"DedicatedHostIds"`
-	ResourceOwnerId         requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken             string           `position:"Query" name:"ClientToken"`
-	DedicatedHostChargeType string           `position:"Query" name:"DedicatedHostChargeType"`
-	Period                  requests.Integer `position:"Query" name:"Period"`
-	DryRun                  requests.Boolean `position:"Query" name:"DryRun"`
-	AutoPay                 requests.Boolean `position:"Query" name:"AutoPay"`
-	ResourceOwnerAccount    string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount            string           `position:"Query" name:"OwnerAccount"`
-	OwnerId                 requests.Integer `position:"Query" name:"OwnerId"`
-	DetailFee               requests.Boolean `position:"Query" name:"DetailFee"`
-	PeriodUnit              string           `position:"Query" name:"PeriodUnit"`
+	DedicatedHostIds        string                                         `position:"Query" name:"DedicatedHostIds"`
+	ResourceOwnerId         requests.Integer                               `position:"Query" name:"ResourceOwnerId"`
+	ClientToken             string                                         `position:"Query" name:"ClientToken"`
+	DedicatedHostChargeType string                                         `position:"Query" name:"DedicatedHostChargeType"`
+	Period                  requests.Integer                               `position:"Query" name:"Period"`
+	DryRun                  requests.Boolean                               `position:"Query" name:"DryRun"`
+	AutoPay                 requests.Boolean                               `position:"Query" name:"AutoPay"`
+	ResourceOwnerAccount    string                                         `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount            string                                         `position:"Query" name:"OwnerAccount"`
+	OwnerId                 requests.Integer                               `position:"Query" name:"OwnerId"`
+	PromotionOptions        ModifyDedicatedHostsChargeTypePromotionOptions `position:"Query" name:"PromotionOptions"  type:"Struct"`
+	DetailFee               requests.Boolean                               `position:"Query" name:"DetailFee"`
+	PeriodUnit              string                                         `position:"Query" name:"PeriodUnit"`
+}
+
+// ModifyDedicatedHostsChargeTypePromotionOptions is a repeated param struct in ModifyDedicatedHostsChargeTypeRequest
+type ModifyDedicatedHostsChargeTypePromotionOptions struct {
+	CouponNo string `name:"CouponNo"`
 }
 
 // ModifyDedicatedHostsChargeTypeResponse is the response struct for api ModifyDedicatedHostsChargeType

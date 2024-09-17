@@ -23,6 +23,7 @@ type Invocation struct {
 	Timed              bool                                     `json:"Timed" xml:"Timed"`
 	Frequency          string                                   `json:"Frequency" xml:"Frequency"`
 	ContainerId        string                                   `json:"ContainerId" xml:"ContainerId"`
+	Launcher           string                                   `json:"Launcher" xml:"Launcher"`
 	Content            string                                   `json:"Content" xml:"Content"`
 	CommandContent     string                                   `json:"CommandContent" xml:"CommandContent"`
 	InvocationStatus   string                                   `json:"InvocationStatus" xml:"InvocationStatus"`

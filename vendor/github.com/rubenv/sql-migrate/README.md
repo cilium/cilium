@@ -219,6 +219,7 @@ migrations := &migrate.FileMigrationSource{
 }
 
 // OR: Use migrations from a packr box
+// Note: Packr is no longer supported, your best option these days is [embed](https://pkg.go.dev/embed)
 migrations := &migrate.PackrMigrationSource{
     Box: packr.New("migrations", "./migrations"),
 }
@@ -316,62 +317,31 @@ CREATE UNIQUE INDEX CONCURRENTLY people_unique_id_idx ON people (id);
 DROP INDEX people_unique_id_idx;
 ```
 
-## Embedding migrations with [packr](https://github.com/gobuffalo/packr)
+## Embedding migrations with [embed](https://pkg.go.dev/embed)
 
-If you like your Go applications self-contained (that is: a single binary): use [packr](https://github.com/gobuffalo/packr) to embed the migration files.
-
-Just write your migration files as usual, as a set of SQL files in a folder.
-
-Import the packr package into your application:
-
-```go
-import "github.com/gobuffalo/packr/v2"
-```
-
-Use the `PackrMigrationSource` in your application to find the migrations:
-
-```go
-migrations := &migrate.PackrMigrationSource{
-    Box: packr.New("migrations", "./migrations"),
-}
-```
-
-If you already have a box and would like to use a subdirectory:
-
-```go
-migrations := &migrate.PackrMigrationSource{
-    Box: myBox,
-    Dir: "./migrations",
-}
-```
-
-## Embedding migrations with [bindata](https://github.com/shuLhan/go-bindata)
-
-As an alternative, but slightly less maintained, you can use [bindata](https://github.com/shuLhan/go-bindata) to embed the migration files.
+If you like your Go applications self-contained (that is: a single binary): use [embed](https://pkg.go.dev/embed) to embed the migration files.
 
 Just write your migration files as usual, as a set of SQL files in a folder.
 
-Then use bindata to generate a `.go` file with the migrations embedded:
-
-```bash
-go-bindata -pkg myapp -o bindata.go db/migrations/
-```
-
-The resulting `bindata.go` file will contain your migrations. Remember to regenerate your `bindata.go` file whenever you add/modify a migration (`go generate` will help here, once it arrives).
-
-Use the `AssetMigrationSource` in your application to find the migrations:
+Import the embed package into your application and point it to your migrations:
 
 ```go
-migrations := &migrate.AssetMigrationSource{
-    Asset:    Asset,
-    AssetDir: AssetDir,
-    Dir:      "db/migrations",
+import "embed"
+
+//go:embed migrations/*
+var dbMigrations embed.FS
+```
+
+Use the `EmbedFileSystemMigrationSource` in your application to find the migrations:
+
+```go
+migrations := migrate.EmbedFileSystemMigrationSource{
+	FileSystem: dbMigrations,
+	Root:       "migrations",
 }
 ```
 
-Both `Asset` and `AssetDir` are functions provided by bindata.
-
-Then proceed as usual.
+Other options such as [packr](https://github.com/gobuffalo/packr) or [go-bindata](https://github.com/shuLhan/go-bindata) are no longer recommended.
 
 ## Embedding migrations with libraries that implement `http.FileSystem`
 

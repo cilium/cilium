@@ -76,6 +76,8 @@ type ModifyNetworkInterfaceAttributeRequest struct {
 	SecurityGroupId                 *[]string                                                      `position:"Query" name:"SecurityGroupId"  type:"Repeated"`
 	Description                     string                                                         `position:"Query" name:"Description"`
 	NetworkInterfaceTrafficConfig   ModifyNetworkInterfaceAttributeNetworkInterfaceTrafficConfig   `position:"Query" name:"NetworkInterfaceTrafficConfig"  type:"Struct"`
+	EnhancedNetwork                 ModifyNetworkInterfaceAttributeEnhancedNetwork                 `position:"Query" name:"EnhancedNetwork"  type:"Struct"`
+	SourceDestCheck                 requests.Boolean                                               `position:"Query" name:"SourceDestCheck"`
 	NetworkInterfaceName            string                                                         `position:"Query" name:"NetworkInterfaceName"`
 	TxQueueSize                     requests.Integer                                               `position:"Query" name:"TxQueueSize"`
 	DeleteOnRelease                 requests.Boolean                                               `position:"Query" name:"DeleteOnRelease"`
@@ -94,6 +96,11 @@ type ModifyNetworkInterfaceAttributeNetworkInterfaceTrafficConfig struct {
 	QueuePairNumber             string `name:"QueuePairNumber"`
 	RxQueueSize                 string `name:"RxQueueSize"`
 	TxQueueSize                 string `name:"TxQueueSize"`
+}
+
+// ModifyNetworkInterfaceAttributeEnhancedNetwork is a repeated param struct in ModifyNetworkInterfaceAttributeRequest
+type ModifyNetworkInterfaceAttributeEnhancedNetwork struct {
+	EnableSriov string `name:"EnableSriov"`
 }
 
 // ModifyNetworkInterfaceAttributeConnectionTrackingConfiguration is a repeated param struct in ModifyNetworkInterfaceAttributeRequest

@@ -24,7 +24,6 @@ linters:
     - errname
     - errorlint
     - exhaustive
-    - exportloopref
     - forcetypeassert
     - gocheckcompilerdirectives
     - gocognit

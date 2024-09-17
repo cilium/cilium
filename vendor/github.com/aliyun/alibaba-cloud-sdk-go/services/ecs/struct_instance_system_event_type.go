@@ -25,6 +25,7 @@ type InstanceSystemEventType struct {
 	NotBefore         string            `json:"NotBefore" xml:"NotBefore"`
 	InstanceId        string            `json:"InstanceId" xml:"InstanceId"`
 	Reason            string            `json:"Reason" xml:"Reason"`
+	ReasonCode        string            `json:"ReasonCode" xml:"ReasonCode"`
 	EventType         EventType         `json:"EventType" xml:"EventType"`
 	EventCycleStatus  EventCycleStatus  `json:"EventCycleStatus" xml:"EventCycleStatus"`
 	ExtendedAttribute ExtendedAttribute `json:"ExtendedAttribute" xml:"ExtendedAttribute"`

@@ -1,4 +1,4 @@
-// Copyright 2014, 2018 GoPacket Authors. All rights reserved.
+// Copyright 2014, 2018, 2024 GoPacket Authors. All rights reserved.
 //
 // Use of this source code is governed by a BSD-style license
 // that can be found in the LICENSE file in the root of the source
@@ -71,6 +71,8 @@ const (
 	DNSTypeAAAA  DNSType = 28  // a IPv6 host address [RFC3596]
 	DNSTypeSRV   DNSType = 33  // server discovery [RFC2782] [RFC6195]
 	DNSTypeOPT   DNSType = 41  // OPT Pseudo-RR [RFC6891]
+	DNSTypeSVCB  DNSType = 64  // SVCB DNS RR [RFC9460]
+	DNSTypeHTTPS DNSType = 65  // HTTPS RR [RFC9460]
 	DNSTypeURI   DNSType = 256 // URI RR [RFC7553]
 )
 
@@ -116,6 +118,10 @@ func (dt DNSType) String() string {
 		return "SRV"
 	case DNSTypeOPT:
 		return "OPT"
+	case DNSTypeSVCB:
+		return "SVCB"
+	case DNSTypeHTTPS:
+		return "HTTPS"
 	case DNSTypeURI:
 		return "URI"
 	}
@@ -157,7 +163,7 @@ func (drc DNSResponseCode) String() string {
 	case DNSResponseCodeFormErr:
 		return "Format Error"
 	case DNSResponseCodeServFail:
-		return "Server Failure "
+		return "Server Failure"
 	case DNSResponseCodeNXDomain:
 		return "Non-Existent Domain"
 	case DNSResponseCodeNotImp:
@@ -445,6 +451,8 @@ func recSize(rr *DNSResourceRecord) int {
 			l += len(opt.Data)
 		}
 		return l
+	case DNSTypeSVCB, DNSTypeHTTPS:
+		return rr.SVCB.size()
 	}
 
 	return 0
@@ -700,6 +708,7 @@ type DNSResourceRecord struct {
 	SRV            DNSSRV
 	MX             DNSMX
 	OPT            []DNSOPT // See RFC 6891, section 6.1.2
+	SVCB           DNSSVCB  // See RFC 9460, this contains both SVCB and HTTPS
 	URI            DNSURI
 
 	// Undecoded TXT for backward compatibility
@@ -816,6 +825,8 @@ func (rr *DNSResourceRecord) encode(data []byte, offset int, opts gopacket.Seria
 			copy(data[noff2+4:], opt.Data)
 			noff2 += 4 + len(opt.Data)
 		}
+	case DNSTypeSVCB, DNSTypeHTTPS:
+		rr.SVCB.encode(data, noff+10)
 	default:
 		return 0, fmt.Errorf("serializing resource record of type %v not supported", rr.Type)
 	}
@@ -903,6 +914,47 @@ func decodeOPTs(data []byte, offset int) ([]DNSOPT, error) {
 	return allOPT, nil
 }
 
+func decodeSVCB(data []byte, offset int, buffer *[]byte) (DNSSVCB, error) {
+	var svcb DNSSVCB
+	end := len(data)
+
+	if offset == end {
+		return svcb, fmt.Errorf("DNSSVCB record is empty")
+	}
+
+	if offset+3 > end {
+		return svcb, fmt.Errorf("DNSSVCB record is of length %d, it should be at least length 3", end-offset)
+	}
+	priority := binary.BigEndian.Uint16(data[offset:])
+	target, ofs, err := decodeName(data, offset+2, buffer, 1)
+	if err != nil {
+		return svcb, err
+	}
+
+	var params []DNSSvcParam
+	for ofs < end {
+		if offset+4 > end {
+			return svcb, fmt.Errorf("DNSSVCB record truncated in SvcParams")
+		}
+		key := DNSSvcParamKey(binary.BigEndian.Uint16(data[ofs:]))
+		l := int(binary.BigEndian.Uint16(data[ofs+2:]))
+		if ofs+4+l > end {
+			return svcb, fmt.Errorf("DNSSVCB record truncated in SvcParams")
+		}
+		params = append(params, DNSSvcParam{
+			Key:   key,
+			Value: data[ofs+4 : ofs+4+l],
+		})
+		ofs += 4 + l
+	}
+
+	return DNSSVCB{
+		Priority: priority,
+		Target:   target,
+		Params:   params,
+	}, nil
+}
+
 func (rr *DNSResourceRecord) decodeRData(data []byte, offset int, buffer *[]byte) error {
 	switch rr.Type {
 	case DNSTypeA:
@@ -988,6 +1040,12 @@ func (rr *DNSResourceRecord) decodeRData(data []byte, offset int, buffer *[]byte
 			return err
 		}
 		rr.OPT = allOPT
+	case DNSTypeSVCB, DNSTypeHTTPS:
+		svcb, err := decodeSVCB(data, offset, buffer)
+		if err != nil {
+			return err
+		}
+		rr.SVCB = svcb
 	}
 	return nil
 }
@@ -1011,6 +1069,119 @@ type DNSSRV struct {
 type DNSMX struct {
 	Preference uint16
 	Name       []byte
+}
+
+// DNSSVCB resource record is used to facilitate the lookup of
+// information needed to make connections to network services, such as
+// for HTTP origins.
+type DNSSVCB struct {
+	Priority uint16
+	Target   []byte
+	Params   []DNSSvcParam
+}
+
+func (svcb DNSSVCB) size() int {
+	// Target.
+	sz := len(svcb.Target)
+	if sz == 0 {
+		sz++
+	} else {
+		sz += 2
+	}
+	// Priority.
+	sz += 2
+
+	// Params.
+	for _, param := range svcb.Params {
+		sz += param.size()
+	}
+	return sz
+}
+
+func (svcb DNSSVCB) String() string {
+	return fmt.Sprintf("%v [%s] %v",
+		svcb.Priority, string(svcb.Target), svcb.Params)
+}
+
+func (svcb DNSSVCB) encode(data []byte, offset int) {
+	binary.BigEndian.PutUint16(data[offset:], svcb.Priority)
+	offset = encodeName(svcb.Target, data, offset+2)
+
+	for _, param := range svcb.Params {
+		offset = param.encode(data, offset)
+	}
+}
+
+// DNSSvcParamKey defines SVCB service parameter keys.
+type DNSSvcParamKey uint16
+
+func (key DNSSvcParamKey) String() string {
+	switch key {
+	default:
+		return "Unknown"
+	case DNSSvcParamKeyMandatory:
+		return "mandatory"
+	case DNSSvcParamKeyAlpn:
+		return "alpn"
+	case DNSSvcParamKeyNoDefaultAlpn:
+		return "no-default-alpn"
+	case DNSSvcParamKeyPort:
+		return "port"
+	case DNSSvcParamKeyIPv4Hint:
+		return "ipv4hint"
+	case DNSSvcParamKeyECH:
+		return "ech"
+	case DNSSvcParamKeyIPv6Hint:
+		return "ipv6hint"
+	case DNSSvcParamKeyDoHPath:
+		return "dohpath"
+	case DNSSvcParamKeyOHTTP:
+		return "ohttp"
+	case DNSSvcParamKeyDoHURI:
+		return "dohuri"
+	case DNSSvcParamKeyInvalidKey:
+		return "Invalid key"
+	}
+}
+
+// DNSSvcParamKey known values.
+const (
+	DNSSvcParamKeyMandatory     DNSSvcParamKey = 0     // RFC9460, Section 8
+	DNSSvcParamKeyAlpn          DNSSvcParamKey = 1     // RFC9460, Section 7.1
+	DNSSvcParamKeyNoDefaultAlpn DNSSvcParamKey = 2     // RFC9460, Section 7.1
+	DNSSvcParamKeyPort          DNSSvcParamKey = 3     // RFC9460, Section 7.2
+	DNSSvcParamKeyIPv4Hint      DNSSvcParamKey = 4     // RFC9460, Section 7.3
+	DNSSvcParamKeyECH           DNSSvcParamKey = 5     // RFC9460
+	DNSSvcParamKeyIPv6Hint      DNSSvcParamKey = 6     // RFC9460, Section 7.3
+	DNSSvcParamKeyDoHPath       DNSSvcParamKey = 7     // RFC9461
+	DNSSvcParamKeyOHTTP         DNSSvcParamKey = 8     // RFC9540, Section 4
+	DNSSvcParamKeyDoHURI        DNSSvcParamKey = 32768 // draft-pauly-add-resolver-discovery-00.html
+	DNSSvcParamKeyInvalidKey    DNSSvcParamKey = 65535 // RFC9460
+)
+
+// DNSSvcParam is a service param, see RFC9460, section 2.2.
+type DNSSvcParam struct {
+	Key   DNSSvcParamKey
+	Value []byte
+}
+
+func (param DNSSvcParam) size() int {
+	return 2 + 2 + len(param.Value)
+}
+
+func (param DNSSvcParam) encode(data []byte, offset int) int {
+	binary.BigEndian.PutUint16(data[offset:], uint16(param.Key))
+	offset += 2
+	binary.BigEndian.PutUint16(data[offset:], uint16(len(param.Value)))
+	offset += 2
+	copy(data[offset:], param.Value)
+	offset += len(param.Value)
+
+	return offset
+}
+
+func (param DNSSvcParam) String() string {
+	return fmt.Sprintf("%s=%x", param.Key, param.Value)
 }
 
 // DNSURI is a URI record, defining a target (URI) of a server/service

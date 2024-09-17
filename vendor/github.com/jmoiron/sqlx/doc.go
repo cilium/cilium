@@ -8,5 +8,4 @@
 // Additions include scanning into structs, named query support, rebinding
 // queries for different drivers, convenient shorthands for common error handling
 // and more.
-//
 package sqlx

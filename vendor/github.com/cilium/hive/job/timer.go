@@ -14,8 +14,9 @@ import (
 	"github.com/cilium/hive/internal"
 )
 
-// Timer creates a timer job which can be added to a Group. Timer jobs invoke the given function at the specified
-// interval. Timer jobs are particularly useful to implement periodic syncs and cleanup actions.
+// Timer creates a timer job which can be added to a Group.
+// The Timer job name must match regex "^[a-z][a-z0-9_\\-]{0,100}$". The function passed is invoked at the specified interval.
+// Timer jobs are particularly useful to implement periodic syncs and cleanup actions.
 // Timer jobs can optionally be triggered by an external Trigger with the WithTrigger option.
 // This trigger can for example be passed between cells or between jobs in the same cell to allow for an additional
 // invocation of the function.
@@ -25,6 +26,9 @@ import (
 // expires. This is especially important for long running functions. The signal created by a Trigger is coalesced so
 // multiple calls to trigger before the invocation takes place can result in just a single invocation.
 func Timer(name string, fn TimerFunc, interval time.Duration, opts ...timerOpt) Job {
+	if err := validateName(name); err != nil {
+		panic(err)
+	}
 	if fn == nil {
 		panic("`fn` must not be nil")
 	}
@@ -51,24 +55,74 @@ type Trigger interface {
 }
 
 // NewTrigger creates a new trigger, which can be used to trigger a timer job.
-func NewTrigger() *trigger {
-	return &trigger{
+func NewTrigger(opts ...triggerOpt) *trigger {
+	t := &trigger{
 		c: make(chan struct{}, 1),
+	}
+	for _, opt := range opts {
+		opt(t)
+	}
+	return t
+}
+
+// WithDebounce allows to specify an interval over with multiple trigger requests will be folded into one.
+func WithDebounce(interval time.Duration) triggerOpt {
+	return func(t *trigger) {
+		t.debounce = interval
 	}
 }
 
 type trigger struct {
-	c chan struct{}
+	debounce time.Duration
+
+	mu            sync.Mutex
+	c             chan struct{}
+	lastTriggered time.Time
+	folds         int
+	waitStart     time.Time
 }
 
 func (t *trigger) _trigger() {}
 
 func (t *trigger) Trigger() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.folds == 0 {
+		t.waitStart = time.Now()
+	}
+	t.folds++
+
+	if t.debounce > 0 && time.Since(t.lastTriggered) < t.debounce {
+		return
+	}
+
 	select {
 	case t.c <- struct{}{}:
 	default:
 	}
 }
+
+func (t *trigger) markTriggered(name string, metrics Metrics) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.lastTriggered = time.Now()
+	if metrics != nil {
+		metrics.TimerTriggerStats(name, t.lastTriggered.Sub(t.waitStart), t.folds)
+	}
+	t.folds = 0
+
+	// discard a possibly enqueued trigger notification.
+	// This is needed when a notification is already enqueued in the channel (and thus has already passed the debounce check)
+	// but the fair scheduling receives from the ticker channel.
+	select {
+	case <-t.c:
+	default:
+	}
+}
+
+type triggerOpt func(t *trigger)
 
 // WithTrigger option allows a user to specify a trigger, which if triggered will invoke the function of a timer
 // before the configured interval has expired.
@@ -105,8 +159,12 @@ func (jt *jobTimer) start(ctx context.Context, wg *sync.WaitGroup, health cell.H
 		"name", jt.name,
 		"func", internal.FuncNameAndLocation(jt.fn))
 
-	timer := time.NewTicker(jt.interval)
-	defer timer.Stop()
+	var tickerChan <-chan time.Time
+	if jt.interval > 0 {
+		ticker := time.NewTicker(jt.interval)
+		defer ticker.Stop()
+		tickerChan = ticker.C
+	}
 
 	var triggerChan chan struct{}
 	if jt.trigger != nil {
@@ -121,11 +179,15 @@ func (jt *jobTimer) start(ctx context.Context, wg *sync.WaitGroup, health cell.H
 		case <-ctx.Done():
 			jt.health.Stopped("timer job context done")
 			return
-		case <-timer.C:
+		case <-tickerChan:
 		case <-triggerChan:
 		}
 
 		l.Debug("Timer job triggered")
+
+		if jt.trigger != nil {
+			jt.trigger.markTriggered(jt.name, options.metrics)
+		}
 
 		start := time.Now()
 		err := jt.fn(ctx)

@@ -71,18 +71,27 @@ func (client *Client) AttachDiskWithCallback(request *AttachDiskRequest, callbac
 // AttachDiskRequest is the request struct for api AttachDisk
 type AttachDiskRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	KeyPairName          string           `position:"Query" name:"KeyPairName"`
-	Bootable             requests.Boolean `position:"Query" name:"Bootable"`
-	Password             string           `position:"Query" name:"Password"`
-	DiskId               string           `position:"Query" name:"DiskId"`
-	DeleteWithInstance   requests.Boolean `position:"Query" name:"DeleteWithInstance"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	InstanceId           string           `position:"Query" name:"InstanceId"`
-	Force                requests.Boolean `position:"Query" name:"Force"`
-	Device               string           `position:"Query" name:"Device"`
+	ResourceOwnerId      requests.Integer         `position:"Query" name:"ResourceOwnerId"`
+	KeyPairName          string                   `position:"Query" name:"KeyPairName"`
+	Bootable             requests.Boolean         `position:"Query" name:"Bootable"`
+	Password             string                   `position:"Query" name:"Password"`
+	DiskId               string                   `position:"Query" name:"DiskId"`
+	DeleteWithInstance   requests.Boolean         `position:"Query" name:"DeleteWithInstance"`
+	ResourceOwnerAccount string                   `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                   `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer         `position:"Query" name:"OwnerId"`
+	AdditionalInfo       AttachDiskAdditionalInfo `position:"Query" name:"AdditionalInfo"  type:"Struct"`
+	InstanceId           string                   `position:"Query" name:"InstanceId"`
+	Force                requests.Boolean         `position:"Query" name:"Force"`
+	Device               string                   `position:"Query" name:"Device"`
+}
+
+// AttachDiskAdditionalInfo is a repeated param struct in AttachDiskRequest
+type AttachDiskAdditionalInfo struct {
+	EnableSRIOV  string `name:"EnableSRIOV"`
+	Identifier   string `name:"Identifier"`
+	SafeMode     string `name:"SafeMode"`
+	TargetDevice string `name:"TargetDevice"`
 }
 
 // AttachDiskResponse is the response struct for api AttachDisk
