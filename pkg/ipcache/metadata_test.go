@@ -506,6 +506,209 @@ func TestInjectLegacySecond(t *testing.T) {
 	assert.Equal(t, wantID, id.ID)
 }
 
+// TestInjectWithLegacyAPIToUnmanaged tests that entries inserted by the
+// legacy API are correctly handled when metadata is added and removed via
+// the new API. It emulates the following sequence:
+//  1. AllocateCIDRs(p)  -- owned by legacy API
+//  2. UpsertPrefixes(p) -- shared ownership
+//  3. RemovePrefixes(p) -- owned by legacy API
+//  4. UpsertPrefixes(p) -- shared ownership again
+//  5. RemovePrefixes(p) -- owned by legacy API
+//  6. releaseCIDRs(p)   -- legacy entry needs to be removed
+func TestInjectWithLegacyAPIToUnmanaged(t *testing.T) {
+	cancel := setupTest(t)
+	defer cancel()
+	ctx, cancelCtx := context.WithCancel(context.Background())
+	defer cancelCtx()
+
+	// mimic the "restore cidr" logic from daemon.go
+	// for every ip -> identity mapping in the bpf ipcache
+	// - allocate that identity
+	// - insert the cidr=>identity mapping back in to the go ipcache
+	identities := make(map[netip.Prefix]*identity.Identity)
+	prefix := netip.MustParsePrefix("172.19.0.5/32")
+	_, err := IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, identities)
+	assert.NoError(t, err)
+
+	IPIdentityCache.upsertGeneratedIdentities(identities, nil)
+
+	// sanity check: ensure the cidr is correctly in the ipcache
+	id, ok := IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, source.Generated, id.Source)
+
+	// Check refcount
+	realID := IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
+	assert.Equal(t, 1, realID.ReferenceCount)
+
+	// Simulate UpsertPrefixes
+	resource := types.NewResourceID(
+		types.ResourceKindCNP, "default", "policy")
+	labels := labels.GetCIDRLabels(prefix)
+	IPIdentityCache.metadata.upsertLocked(prefix, source.CustomResource, resource, labels)
+	_, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{prefix})
+	assert.NoError(t, err)
+
+	// Ensure the source is now correctly understood in the ipcache
+	id, ok = IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, source.CustomResource, id.Source)
+
+	realID = IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
+	assert.Equal(t, 2, realID.ReferenceCount)
+
+	// Simulate RemovePrefixes
+	IPIdentityCache.metadata.remove(prefix, resource, labels)
+	_, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{prefix})
+	assert.NoError(t, err)
+
+	// Ensure the entry has been downgraded to the legacy source
+	id, ok = IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, source.Generated, id.Source)
+
+	realID = IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
+	assert.Equal(t, 1, realID.ReferenceCount)
+
+	// UpsertPrefixes again. This asserts that even thought the entry was touched by
+	// metadata at some point, we still properly upgrade it again
+	IPIdentityCache.metadata.upsertLocked(prefix, source.CustomResource, resource, labels)
+	_, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{prefix})
+	assert.NoError(t, err)
+
+	id, ok = IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, source.CustomResource, id.Source)
+	realID = IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
+	assert.Equal(t, 2, realID.ReferenceCount)
+
+	// RemovePrefixes
+	IPIdentityCache.metadata.remove(prefix, resource, labels)
+	_, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{prefix})
+	assert.NoError(t, err)
+
+	id, ok = IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, source.Generated, id.Source)
+	realID = IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
+	assert.Equal(t, 1, realID.ReferenceCount)
+
+	// Assert that releaseCIDRs works
+	IPIdentityCache.releaseCIDRIdentities(context.Background(), []netip.Prefix{prefix})
+
+	// Assert that ipcache has released its final reference to the identity
+	realID = IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
+	assert.True(t, realID == nil)
+	_, ok = IPIdentityCache.LookupByIP(prefix.String())
+	assert.False(t, ok)
+}
+
+// TestInjectWithMetadataAPIBeforeLegacyUpsert tests that entries inserted by the
+// metadata API are correctly handled when a legacy caller also attempts to
+// upsert them via AllocateCIDRs/UpsertGeneratedIdentities
+//  1. UpsertPrefixes(p) -- owned by metadata API
+//  2. AllocateCIDRs(p)  -- co-owned by both APIs
+//  3. RemovePrefixes(p) -- owned by legacy API
+//  4. UpsertPrefixes(p) -- shared ownership again
+//  5. releaseCIDRs(p)   -- shared ownership (but only managed by metadata)
+//  6. RemovePrefixes(p) -- entry is removed
+func TestInjectWithLegacyAPIForExistingIdentities(t *testing.T) {
+	cancel := setupTest(t)
+	defer cancel()
+	ctx, cancelCtx := context.WithCancel(context.Background())
+	defer cancelCtx()
+
+	// Simulate UpsertPrefixes
+	prefix := netip.MustParsePrefix("172.19.0.5/32")
+	resource := types.NewResourceID(
+		types.ResourceKindCNP, "default", "policy")
+	labels := labels.GetCIDRLabels(prefix)
+	IPIdentityCache.metadata.upsertLocked(prefix, source.CustomResource, resource, labels)
+	_, err := IPIdentityCache.InjectLabels(ctx, []netip.Prefix{prefix})
+	assert.NoError(t, err)
+
+	// Ensure the entry is in IPCache with refcount=1
+	id, ok := IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, source.CustomResource, id.Source)
+	realID := IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
+	assert.Equal(t, 1, realID.ReferenceCount)
+
+	// Simulate AllocateCIDRs/UpsertGeneratedIdentities (e.g. due to FQDN lookups)
+	prefix2 := netip.MustParsePrefix("172.19.0.6/32")
+	identities := make(map[netip.Prefix]*identity.Identity)
+	usedIdentities, err := IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix, prefix2}, identities)
+	assert.NoError(t, err)
+	assert.Len(t, usedIdentities, 2)
+	assert.Len(t, identities, 1)
+	IPIdentityCache.upsertGeneratedIdentities(identities, usedIdentities)
+
+	// Ensure the entry is in IPCache with still the correct source and refcount=2
+	id, ok = IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, source.CustomResource, id.Source)
+	realID = IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
+	assert.Equal(t, 2, realID.ReferenceCount)
+
+	// Ensure the other entry is also IPCache with the legacy source
+	id2, ok := IPIdentityCache.LookupByIP(prefix2.String())
+	assert.True(t, ok)
+	assert.Equal(t, source.Generated, id2.Source)
+	realID2 := IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id2.ID)
+	assert.Equal(t, 1, realID2.ReferenceCount)
+
+	// Simulate RemovePrefixes
+	IPIdentityCache.metadata.remove(prefix, resource, labels)
+	_, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{prefix})
+	assert.NoError(t, err)
+
+	// Ensure the entry has been downgraded to the legacy source
+	id, ok = IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, source.Generated, id.Source)
+	realID = IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
+	assert.Equal(t, 1, realID.ReferenceCount)
+
+	// Shared ownership again
+	IPIdentityCache.metadata.upsertLocked(prefix, source.CustomResource, resource, labels)
+	_, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{prefix})
+	assert.NoError(t, err)
+
+	// Ensure the entry source and refcount are bumped again
+	id, ok = IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, source.CustomResource, id.Source)
+	realID = IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
+	assert.Equal(t, 2, realID.ReferenceCount)
+
+	// Assert that releaseCIDRs decreases refcount
+	IPIdentityCache.releaseCIDRIdentities(context.Background(), []netip.Prefix{prefix, prefix2})
+
+	// prefix should have only the metadata owner left
+	id, ok = IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, source.CustomResource, id.Source)
+	realID = IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
+	assert.Equal(t, 1, realID.ReferenceCount)
+
+	// prefix2 should be removed
+	realID2 = IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id2.ID)
+	assert.Nil(t, realID2)
+	_, ok = IPIdentityCache.LookupByIP(prefix2.String())
+	assert.False(t, ok)
+
+	// Simulate RemovePrefixes
+	IPIdentityCache.metadata.remove(prefix, resource, labels)
+	_, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{prefix})
+	assert.NoError(t, err)
+
+	// Assert that IPCache released its final reference to the identity
+	realID = IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
+	assert.Nil(t, realID)
+	_, ok = IPIdentityCache.LookupByIP(prefix.String())
+	assert.False(t, ok)
+}
+
 func TestFilterMetadataByLabels(t *testing.T) {
 	cancel := setupTest(t)
 	defer cancel()
