@@ -1586,8 +1586,9 @@ type ClusterState struct {
 	localOldClusters       []map[string]interface{}               // current clustermesh section of helm values
 	localNewClusters       []map[string]interface{}               // new clustermesh section of helm values
 	localHelmValues        map[string]interface{}                 // localOldClusters + localNewClusters => local helm values generated
-	remoteHelmValuesMesh   []map[string]interface{}               // helm values for all remote cluster in mesh mode
-	remoteHelmValuesBD     []map[string]interface{}               // helm values for all remote cluster bidirectional mode
+	remoteHelmValuesMesh   map[string]map[string]interface{}      // helm values for all remote cluster in mesh mode
+	remoteHelmValuesBD     map[string]map[string]interface{}      // helm values for all remote cluster bidirectional mode
+	remoteClients          map[string]*k8s.Client                 // Map of remoteClients to apply remoteHelmValuesMesh or remoteHelmValuesBD
 	remoteOldClustersAll   map[string][]map[string]interface{}    // current clustermesh sections of helm values for remote clusters
 	remoteHelmValuesDelete map[*k8s.Client]map[string]interface{} // helm values for all remote clusters to disconnect
 	remoteNewCluster       map[string]interface{}                 // local cluster to add to remote clusters
@@ -1652,7 +1653,15 @@ func (k *K8sClusterMesh) processSingleRemoteClient(ctx context.Context, remoteCl
 	if err != nil {
 		return err
 	}
-	state.remoteHelmValuesBD = append(state.remoteHelmValuesBD, remoteHelmValues)
+	if state.remoteHelmValuesBD == nil {
+		state.remoteHelmValuesBD = make(map[string]map[string]interface{})
+	}
+	state.remoteHelmValuesBD[aiRemote.ClusterName] = remoteHelmValues
+
+	if state.remoteClients == nil {
+		state.remoteClients = make(map[string]*k8s.Client)
+	}
+	state.remoteClients[aiRemote.ClusterName] = remoteClient
 	return nil
 }
 
@@ -1673,13 +1682,16 @@ func (k *K8sClusterMesh) processRemoteClients(ctx context.Context, remoteClients
 }
 
 func processRemoteHelmValuesMesh(state *ClusterState) error {
+	if state.remoteHelmValuesMesh == nil {
+		state.remoteHelmValuesMesh = make(map[string]map[string]interface{})
+	}
 	remoteNewClusters := append(state.localNewClusters, state.remoteNewCluster)
-	for clusterName, remoteOldClusters := range state.remoteOldClustersAll {
-		remoteHelmValues, err := mergeClusters(remoteOldClusters, remoteNewClusters, clusterName)
+	for aiClusterName, remoteOldClusters := range state.remoteOldClustersAll {
+		remoteHelmValues, err := mergeClusters(remoteOldClusters, remoteNewClusters, aiClusterName)
 		if err != nil {
 			return err
 		}
-		state.remoteHelmValuesMesh = append(state.remoteHelmValuesMesh, remoteHelmValues)
+		state.remoteHelmValuesMesh[aiClusterName] = remoteHelmValues
 	}
 	return nil
 }
@@ -1772,7 +1784,7 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 		return err
 	}
 
-	err = k.connectRemoteWithHelm(ctx, localClient.ClusterName(), remoteClients, clusterState)
+	err = k.connectRemoteWithHelm(ctx, localClient.ClusterName(), clusterState)
 	if err != nil {
 		return err
 	}
@@ -1795,24 +1807,24 @@ func (k *K8sClusterMesh) displayCompleteMessage(localClient *k8s.Client, remoteC
 	}
 }
 
-func (k *K8sClusterMesh) connectRemoteWithHelm(ctx context.Context, clusterName string, remoteClients []*k8s.Client, state *ClusterState) error {
-	var rc []*k8s.Client
+func (k *K8sClusterMesh) connectRemoteWithHelm(ctx context.Context, localClusterName string, state *ClusterState) error {
+	var rc map[string]*k8s.Client
 	var cn []string
-	var helmValues []map[string]interface{}
+	var helmValues map[string]map[string]interface{}
 
 	switch k.params.ConnectionMode {
 	case defaults.ClusterMeshConnectionModeBidirectional:
-		rc = remoteClients
+		rc = state.remoteClients
 		helmValues = state.remoteHelmValuesBD
-		cn = []string{clusterName}
+		cn = []string{localClusterName}
 	case defaults.ClusterMeshConnectionModeMesh:
-		rc = remoteClients
+		rc = state.remoteClients
 		helmValues = state.remoteHelmValuesMesh
-		cn = append(state.remoteClusterNames, clusterName)
+		cn = append(state.remoteClusterNames, localClusterName)
 	}
 
-	for i, remoteClient := range rc {
-		err := k.connectSingleRemoteWithHelm(ctx, remoteClient, cn, helmValues[i])
+	for aiClusterName, remoteClient := range rc {
+		err := k.connectSingleRemoteWithHelm(ctx, remoteClient, cn, helmValues[aiClusterName])
 		if err != nil {
 			return err
 		}
