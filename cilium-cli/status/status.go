@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -386,37 +388,34 @@ func (s *Status) Format() string {
 	fmt.Fprint(w, Blue+Blue+Blue+"    \\__/"+Reset+"\tClusterMesh:\t"+s.statusSummary(defaults.ClusterMeshDeploymentName)+"\n")
 	fmt.Fprint(w, "\n")
 
-	if len(s.PodState) > 0 {
-		for name, podState := range s.PodState {
-			fmt.Fprintf(w, "%s\t%s\t%s\n", podState.Type, name, podState.Format())
-		}
+	for _, name := range slices.Sorted(maps.Keys(s.PodState)) {
+		podState := s.PodState[name]
+		fmt.Fprintf(w, "%s\t%s\t%s\n", podState.Type, name, podState.Format())
 	}
 
-	if len(s.PhaseCount) > 0 {
-		header := "Containers:"
-		for name, phaseCount := range s.PhaseCount {
-			fmt.Fprintf(w, "%s\t%s\t%s\n", header, name, formatPhaseCount(phaseCount))
-			header = ""
-		}
+	header := "Containers:"
+	for _, name := range slices.Sorted(maps.Keys(s.PhaseCount)) {
+		fmt.Fprintf(w, "%s\t%s\t%s\n", header, name, formatPhaseCount(s.PhaseCount[name]))
+		header = ""
 	}
 
 	fmt.Fprintf(w, "Cluster Pods:\t%s\n", formatPodsCount(s.PodsCount))
 
 	fmt.Fprintf(w, "Helm chart version:\t%s\n", s.HelmChartVersion)
-	if len(s.ImageCount) > 0 {
-		header := "Image versions"
-		for name, imageCount := range s.ImageCount {
-			for image, count := range imageCount {
-				fmt.Fprintf(w, "%s\t%s\t%s: %d\n", header, name, image, count)
-				header = ""
-			}
+
+	header = "Image versions"
+	for _, name := range slices.Sorted(maps.Keys(s.ImageCount)) {
+		for _, image := range slices.Sorted(maps.Keys(s.ImageCount[name])) {
+			fmt.Fprintf(w, "%s\t%s\t%s: %d\n", header, name, image, s.ImageCount[name][image])
+			header = ""
 		}
 	}
 
-	header := "Errors:"
-	for deployment, pods := range s.Errors {
-		for pod, a := range pods {
-			for _, err := range a.Errors {
+	header = "Errors:"
+	for _, deployment := range slices.Sorted(maps.Keys(s.Errors)) {
+		pods := s.Errors[deployment]
+		for _, pod := range slices.Sorted(maps.Keys(pods)) {
+			for _, err := range pods[pod].Errors {
 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", header, deployment, pod, err)
 				header = ""
 			}
@@ -424,9 +423,10 @@ func (s *Status) Format() string {
 	}
 
 	header = "Warnings:"
-	for deployment, pods := range s.Errors {
-		for pod, a := range pods {
-			for _, err := range a.Warnings {
+	for _, deployment := range slices.Sorted(maps.Keys(s.Errors)) {
+		pods := s.Errors[deployment]
+		for _, pod := range slices.Sorted(maps.Keys(pods)) {
+			for _, err := range pods[pod].Warnings {
 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", header, deployment, pod, err)
 				header = ""
 			}
