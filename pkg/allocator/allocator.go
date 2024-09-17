@@ -204,10 +204,6 @@ type Backend interface {
 	// DeleteID deletes the identity with the given ID
 	DeleteID(ctx context.Context, id idpool.ID) error
 
-	// Encode encodes a key string as required to conform to the key
-	// restrictions of the backend
-	Encode(string) string
-
 	// AllocateID creates a new key->ID association. This is expected to be a
 	// create-only operation, and the ID may be allocated by another node. An
 	// error in that case is not expected to be fatal. The actual ID is obtained
@@ -501,10 +497,6 @@ type AllocatorKey interface {
 	Value(key any) any
 }
 
-func (a *Allocator) encodeKey(key AllocatorKey) string {
-	return a.backend.Encode(key.GetKey())
-}
-
 // Return values:
 //  1. allocated ID
 //  2. whether the ID is newly allocated from kvstore
@@ -516,7 +508,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 	kvstore.Trace("Allocating key in kvstore", nil, logrus.Fields{fieldKey: key})
 
-	k := a.encodeKey(key)
+	k := key.GetKey()
 	lock, err := a.backend.Lock(ctx, key)
 	if err != nil {
 		return 0, false, false, err
@@ -663,7 +655,6 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		value    idpool.ID
 		isNew    bool
 		firstUse bool
-		k        = a.encodeKey(key)
 	)
 
 	log.WithField(fieldKey, key).Debug("Allocating key")
@@ -688,7 +679,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		// allocated the key while we are attempting to allocate in this
 		// execution thread. It does not hurt to check if localKeys contains a
 		// reference for the key that we are attempting to allocate.
-		if val := a.localKeys.use(k); val != idpool.NoID {
+		if val := a.localKeys.use(key.GetKey()); val != idpool.NoID {
 			kvstore.Trace("Reusing local id", nil, logrus.Fields{fieldID: val, fieldKey: key})
 			a.mainCache.insert(key, val)
 			return val, false, false, nil
@@ -729,7 +720,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 // has been allocated to this key yet if the client is still holding the given
 // lock.
 func (a *Allocator) GetIfLocked(ctx context.Context, key AllocatorKey, lock kvstore.KVLocker) (idpool.ID, error) {
-	if id := a.mainCache.get(a.encodeKey(key)); id != idpool.NoID {
+	if id := a.mainCache.get(key.GetKey()); id != idpool.NoID {
 		return id, nil
 	}
 
@@ -739,7 +730,7 @@ func (a *Allocator) GetIfLocked(ctx context.Context, key AllocatorKey, lock kvst
 // Get returns the ID which is allocated to a key. Returns an ID of NoID if no ID
 // has been allocated to this key yet.
 func (a *Allocator) Get(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
-	if id := a.mainCache.get(a.encodeKey(key)); id != idpool.NoID {
+	if id := a.mainCache.get(key.GetKey()); id != idpool.NoID {
 		return id, nil
 	}
 
@@ -766,17 +757,15 @@ func (a *Allocator) GetByID(ctx context.Context, id idpool.ID) (AllocatorKey, er
 // caches of watched remote kvstores in the query. Returns an ID of NoID if no
 // ID has been allocated in any remote kvstore to this key yet.
 func (a *Allocator) GetIncludeRemoteCaches(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
-	encoded := a.encodeKey(key)
-
 	// check main cache first
-	if id := a.mainCache.get(encoded); id != idpool.NoID {
+	if id := a.mainCache.get(key.GetKey()); id != idpool.NoID {
 		return id, nil
 	}
 
 	// check remote caches
 	a.remoteCachesMutex.RLock()
 	for _, rc := range a.remoteCaches {
-		if id := rc.cache.get(encoded); id != idpool.NoID {
+		if id := rc.cache.get(key.GetKey()); id != idpool.NoID {
 			a.remoteCachesMutex.RUnlock()
 			return id, nil
 		}
@@ -836,7 +825,7 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 		return false, fmt.Errorf("release was cancelled while waiting for initial key list to be received: %w", ctx.Err())
 	}
 
-	k := a.encodeKey(key)
+	k := key.GetKey()
 
 	a.slaveKeysMutex.Lock()
 	defer a.slaveKeysMutex.Unlock()

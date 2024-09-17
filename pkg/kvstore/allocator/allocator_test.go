@@ -130,7 +130,7 @@ func benchmarkRunLocksGC(b *testing.B, backendName string) {
 			},
 			nil,
 		)
-		lock2, err = client.LockPath(context.Background(), allocatorName+"/locks/"+kvstore.Client().Encode([]byte(shortKey.GetKey())))
+		lock2, err = client.LockPath(context.Background(), allocatorName+"/locks/"+shortKey.GetKey())
 		require.NoError(b, err)
 		close(gotLock2)
 	}()
