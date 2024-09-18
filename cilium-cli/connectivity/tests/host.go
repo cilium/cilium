@@ -33,11 +33,7 @@ func (s *podToHost) Run(ctx context.Context, t *check.Test) {
 	var addrType string
 
 	for _, pod := range ct.ClientPods() {
-		pod := pod // copy to avoid memory aliasing when using reference
-
 		for _, node := range ct.Nodes() {
-			node := node // copy to avoid memory aliasing when using reference
-
 			t.ForEachIPFamily(func(ipFam features.IPFamily) {
 				for _, addr := range node.Status.Addresses {
 					if features.GetIPFamily(addr.Address) != ipFam {
@@ -87,7 +83,6 @@ func (s *podToControlPlaneHost) Name() string {
 func (s *podToControlPlaneHost) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 	for _, pod := range ct.ControlPlaneClientPods() {
-		pod := pod
 		for _, node := range ct.ControlPlaneNodes() {
 			t.ForEachIPFamily(func(ipFam features.IPFamily) {
 				for _, addr := range node.Status.Addresses {
@@ -136,11 +131,7 @@ func (s *podToHostPort) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	for _, client := range ct.ClientPods() {
-		client := client // copy to avoid memory aliasing when using reference
-
 		for _, echo := range ct.EchoPods() {
-			echo := echo // copy to avoid memory aliasing when using reference
-
 			baseURL := fmt.Sprintf("%s://%s:%d%s", echo.Scheme(), echo.Pod.Status.HostIP, ct.Params().EchoServerHostPort, echo.Path())
 			ep := check.HTTPEndpoint(echo.Name(), baseURL)
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, ep, features.IPFamilyAny).Run(func(a *check.Action) {
@@ -181,7 +172,6 @@ func (s *hostToPod) Run(ctx context.Context, t *check.Test) {
 			continue
 		}
 
-		src := src // copy to avoid memory aliasing when using reference
 		for _, dst := range ct.EchoPods() {
 			t.ForEachIPFamily(func(ipFam features.IPFamily) {
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &src, dst, ipFam).Run(func(a *check.Action) {

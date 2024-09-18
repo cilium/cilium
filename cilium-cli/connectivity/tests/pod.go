@@ -50,7 +50,6 @@ func (s *podToPod) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	for _, client := range ct.ClientPods() {
-		client := client // copy to avoid memory aliasing when using reference
 		if !hasAllLabels(client, s.sourceLabels) {
 			continue
 		}
@@ -109,7 +108,6 @@ func (s *podToPodWithEndpoints) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	for _, client := range ct.ClientPods() {
-		client := client // copy to avoid memory aliasing when using reference
 		if !hasAllLabels(client, s.sourceLabels) {
 			continue
 		}

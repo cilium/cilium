@@ -45,8 +45,6 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	for _, client := range ct.ClientPods() {
-		client := client // copy to avoid memory aliasing when using reference
-
 		// With http, over port 80.
 		httpOpts := s.rc.CurlOptions(http, features.IPFamilyAny, client, ct.Params())
 		t.NewAction(s, fmt.Sprintf("http-to-%s-%d", extTarget, i), &client, http, features.IPFamilyAny).Run(func(a *check.Action) {
@@ -97,8 +95,6 @@ func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	for _, client := range ct.ClientPods() {
-		client := client // copy to avoid memory aliasing when using reference
-
 		// With https, over port 443.
 		t.NewAction(s, fmt.Sprintf("https-cilium-io-%d", i), &client, https, features.IPFamilyAny).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, ct.CurlCommand(https, features.IPFamilyAny))
@@ -151,8 +147,6 @@ func (s *podToWorldWithTLSIntercept) Run(ctx context.Context, t *check.Test) {
 	}
 
 	for _, client := range ct.ClientPods() {
-		client := client // copy to avoid memory aliasing when using reference
-
 		// With https, over port 443.
 		t.NewAction(s, fmt.Sprintf("https-to-%s-%d", extTarget, i), &client, https, features.IPFamilyAny).Run(func(a *check.Action) {
 			a.WriteDataToPod(ctx, "/tmp/test-ca.crt", caBundle)
