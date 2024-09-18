@@ -1003,6 +1003,9 @@
                     }
                   },
                   "type": "object"
+                },
+                "useExternalKVStore": {
+                  "type": "boolean"
                 }
               },
               "type": "object"

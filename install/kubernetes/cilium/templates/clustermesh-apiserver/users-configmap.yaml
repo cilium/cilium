@@ -1,6 +1,7 @@
 {{- if and
   (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer)
   (ne .Values.clustermesh.apiserver.tls.authMode "legacy")
+  (not .Values.clustermesh.apiserver.kvstoremesh.useExternalKVStore)
 }}
 ---
 apiVersion: v1

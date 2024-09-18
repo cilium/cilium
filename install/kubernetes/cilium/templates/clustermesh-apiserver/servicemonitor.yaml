@@ -32,7 +32,7 @@ spec:
     matchNames:
     - {{ .Release.Namespace }}
   endpoints:
-  {{- if .Values.clustermesh.apiserver.metrics.enabled }}
+  {{- if and .Values.clustermesh.apiserver.metrics.enabled (not .Values.clustermesh.apiserver.kvstoremesh.useExternalKVStore) }}
   - port: apiserv-metrics
     interval: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.interval | quote }}
     honorLabels: true
@@ -60,7 +60,7 @@ spec:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- end }}
-  {{- if .Values.clustermesh.apiserver.metrics.etcd.enabled }}
+  {{- if and .Values.clustermesh.apiserver.metrics.etcd.enabled (not .Values.clustermesh.apiserver.kvstoremesh.useExternalKVStore) }}
   - port: etcd-metrics
     interval: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.etcd.interval | quote }}
     honorLabels: true

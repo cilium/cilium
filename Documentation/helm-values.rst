@@ -592,6 +592,10 @@
      - KVStoreMesh Security context
      - object
      - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}``
+   * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.useExternalKVStore`
+     - Use external KVStore for KVStoreMesh. The KVStore address is set through `etcd.endpoints`.
+     - bool
+     - ``false``
    * - :spelling:ignore:`clustermesh.apiserver.lifecycle`
      - lifecycle setting for the apiserver container
      - object

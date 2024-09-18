@@ -3086,6 +3086,8 @@ clustermesh:
             - ALL
       # -- lifecycle setting for the KVStoreMesh container
       lifecycle: {}
+      # -- Use external KVStore for KVStoreMesh. The KVStore address is set through `etcd.endpoints`.
+      useExternalKVStore: false
     service:
       # -- The type of service used for apiserver access.
       type: NodePort
