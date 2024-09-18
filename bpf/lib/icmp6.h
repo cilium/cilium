@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#if !defined(__LIB_ICMP6__) && defined(ENABLE_IPV6)
+#ifndef __LIB_ICMP6__
 #define __LIB_ICMP6__
 
 #include <linux/icmpv6.h>
