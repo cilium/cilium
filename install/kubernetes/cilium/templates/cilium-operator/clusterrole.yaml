@@ -87,7 +87,7 @@ rules:
   resources:
   # to check apiserver connectivity
   - namespaces
-{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled  }}
+{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled ( eq "k8s" .Values.tls.secretsBackend ) }}
   - secrets
 {{- end }}
   verbs:
