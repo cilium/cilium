@@ -601,6 +601,9 @@ const (
 
 	// EnableIternalTrafficPolicy is the default value for option.EnableInternalTrafficPolicy
 	EnableInternalTrafficPolicy = true
+
+	// EnableNonDefaultDenyPolicies allows policies to define whether they are operating in default-deny mode
+	EnableNonDefaultDenyPolicies = true
 )
 
 var (

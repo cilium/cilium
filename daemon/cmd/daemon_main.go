@@ -1151,6 +1151,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableInternalTrafficPolicy, defaults.EnableInternalTrafficPolicy, "Enable internal traffic policy")
 	option.BindEnv(vp, option.EnableInternalTrafficPolicy)
 
+	flags.Bool(option.EnableNonDefaultDenyPolicies, defaults.EnableNonDefaultDenyPolicies, "Enable use of non-default-deny policies")
+	flags.MarkHidden(option.EnableNonDefaultDenyPolicies)
+	option.BindEnv(vp, option.EnableNonDefaultDenyPolicies)
+
 	if err := vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
 	}
