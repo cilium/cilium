@@ -5317,6 +5317,28 @@
           },
           "type": "object"
         },
+        "secretSync": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "secretsNamespace": {
+              "properties": {
+                "create": {
+                  "type": "boolean"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
         "secretsBackend": {
           "type": "string"
         }

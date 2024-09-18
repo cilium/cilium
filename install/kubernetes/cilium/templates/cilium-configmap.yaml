@@ -283,6 +283,11 @@ data:
   gateway-api-hostnetwork-nodelabelselector: {{ include "mapToString" .Values.gatewayAPI.hostNetwork.nodes.matchLabels | quote }}
 {{- end }}
 
+{{- if and (eq "k8s" .Values.tls.secretsBackend) .Values.tls.secretSync.enabled }}
+  enable-policy-secrets-sync: "true"
+  policy-secrets-namespace: {{ .Values.tls.secretSync.secretsNamespace.name | quote}}
+{{- end }}
+
 {{- if hasKey .Values "loadBalancer" }}
 {{- if eq .Values.loadBalancer.l7.backend "envoy" }}
   loadbalancer-l7: "envoy"

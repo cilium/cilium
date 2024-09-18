@@ -167,6 +167,7 @@ cilium-agent [flags]
       --enable-node-selector-labels                               Enable use of node label based identity
       --enable-pmtu-discovery                                     Enable path MTU discovery to send ICMP fragmentation-needed replies to the client
       --enable-policy string                                      Enable policy enforcement (default "default")
+      --enable-policy-secrets-sync                                Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
       --enable-recorder                                           Enable BPF datapath pcap recorder
       --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
       --enable-sctp                                               Enable SCTP support (beta)
@@ -332,6 +333,7 @@ cilium-agent [flags]
       --policy-audit-mode                                         Enable policy audit (non-drop) mode
       --policy-cidr-match-mode strings                            The entities that can be selected by CIDR policy. Supported values: 'nodes'
       --policy-queue-size int                                     Size of queues for policy-related events (default 100)
+      --policy-secrets-namespace string                           PolicySecretsNamesapce is the namespace having secrets used in CNP and CCNP
       --pprof                                                     Enable serving pprof debugging API
       --pprof-address string                                      Address that pprof listens on (default "localhost")
       --pprof-port uint16                                         Port that pprof listens on (default 6060)
