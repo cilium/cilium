@@ -104,6 +104,9 @@ type secretSyncConfig struct {
 
 	EnableGatewayAPI           bool
 	GatewayAPISecretsNamespace string
+
+	EnablePolicySecretsSync bool
+	PolicySecretsNamespace  string
 }
 
 func (r secretSyncConfig) Flags(flags *pflag.FlagSet) {
@@ -112,6 +115,8 @@ func (r secretSyncConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("ingress-secrets-namespace", r.IngressSecretsNamespace, "IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller")
 	flags.Bool("enable-gateway-api", false, "Enables Envoy secret sync for Gateway API related TLS secrets")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API")
+	flags.Bool("enable-policy-secrets-sync", r.EnablePolicySecretsSync, "Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy")
+	flags.String("policy-secrets-namespace", r.PolicySecretsNamespace, "PolicySecretsNamesapce is the namespace having secrets used in CNP and CCNP")
 }
 
 type xdsServerParams struct {
@@ -333,6 +338,7 @@ func registerSecretSyncer(params syncerParams) error {
 		params.Config.EnvoySecretsNamespace:      func() bool { return option.Config.EnableEnvoyConfig },
 		params.Config.IngressSecretsNamespace:    func() bool { return params.Config.EnableIngressController },
 		params.Config.GatewayAPISecretsNamespace: func() bool { return params.Config.EnableGatewayAPI },
+		params.Config.PolicySecretsNamespace:     func() bool { return params.Config.EnablePolicySecretsSync },
 	} {
 		if len(namespace) > 0 && cond() {
 			namespaces[namespace] = struct{}{}

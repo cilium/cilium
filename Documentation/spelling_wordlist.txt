@@ -689,6 +689,7 @@ scalable
 sctl
 seccomp
 secretName
+secretsBackend
 secretsNamespace
 selftest
 selftests
