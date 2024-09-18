@@ -31,16 +31,19 @@ var Cell = cell.Module(
 	// Register configuration flags
 	cell.Config(lbipamConfig{
 		LBIPAMRequireLBClass: false,
+		EnableLBIPAM:         true,
 	}),
 )
 
 type lbipamConfig struct {
 	LBIPAMRequireLBClass bool
+	EnableLBIPAM         bool
 }
 
 func (lc lbipamConfig) Flags(flags *pflag.FlagSet) {
 	flags.BoolVar(&lc.LBIPAMRequireLBClass, "lbipam-require-lb-class", lc.LBIPAMRequireLBClass, "Require the LoadBalancerClass field to "+
 		"be set on services for LB-IPAM to start assigning IPs")
+	flags.BoolVar(&lc.EnableLBIPAM, "enable-lb-ipam", lc.EnableLBIPAM, "Enable LB IPAM")
 }
 
 type lbipamCellParams struct {
@@ -64,7 +67,7 @@ type lbipamCellParams struct {
 }
 
 func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
-	if !params.Clientset.IsEnabled() {
+	if !params.Clientset.IsEnabled() || !params.Config.EnableLBIPAM {
 		return nil
 	}
 

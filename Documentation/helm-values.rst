@@ -1056,6 +1056,10 @@
      - Configure whether to enable auto detect of terminating state for endpoints in order to support graceful termination.
      - bool
      - ``true``
+   * - :spelling:ignore:`enableLBIPAM`
+     - Enable LoadBalancer IP Address Management
+     - bool
+     - ``true``
    * - :spelling:ignore:`enableMasqueradeRouteSource`
      - Enables masquerading to the source of the route for traffic leaving the node from endpoints.
      - bool
