@@ -1064,6 +1064,10 @@
      - Enables masquerading to the source of the route for traffic leaving the node from endpoints.
      - bool
      - ``false``
+   * - :spelling:ignore:`enableNonDefaultDenyPolicies`
+     - Enable Non-Default-Deny policies
+     - bool
+     - ``true``
    * - :spelling:ignore:`enableRuntimeDeviceDetection`
      - Enables experimental support for the detection of new and removed datapath devices. When devices change the eBPF datapath is reloaded and services updated. If "devices" is set then only those devices, or devices matching a wildcard will be considered.  This option has been deprecated and is a no-op.
      - bool

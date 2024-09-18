@@ -1638,6 +1638,9 @@
     "enableMasqueradeRouteSource": {
       "type": "boolean"
     },
+    "enableNonDefaultDenyPolicies": {
+      "type": "boolean"
+    },
     "enableRuntimeDeviceDetection": {
       "type": "boolean"
     },
