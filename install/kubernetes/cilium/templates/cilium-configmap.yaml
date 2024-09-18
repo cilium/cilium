@@ -1337,6 +1337,7 @@ data:
   nat-map-stats-interval: {{ .Values.nat.mapStatsInterval | quote }}
   enable-internal-traffic-policy: {{ .Values.enableInternalTrafficPolicy | quote }}
   enable-lb-ipam: {{ .Values.enableLBIPAM | quote }}
+  enable-non-default-deny-policies: {{ .Values.enableNonDefaultDenyPolicies | quote }}
 
 # Extra config allows adding arbitrary properties to the cilium config.
 # By putting it at the end of the ConfigMap, it's also possible to override existing properties.
