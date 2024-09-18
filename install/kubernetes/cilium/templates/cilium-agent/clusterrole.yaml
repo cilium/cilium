@@ -82,7 +82,7 @@ rules:
   # until we figure out how to avoid "get" inside the preflight, and then
   # should be removed ideally.
   - get
-{{- if eq "k8s" .Values.tls.secretsBackend }}
+{{- if and (eq "k8s" .Values.tls.secretsBackend) (not .Values.tls.secretSync.enabled) }}
 - apiGroups:
   - ""
   resources:

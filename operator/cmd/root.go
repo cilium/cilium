@@ -264,6 +264,10 @@ var (
 			// Informational policy validation.
 			networkpolicy.Cell,
 
+			// Synchronizes Secrets referenced in CiliumNetworkPolicy to the configured secret
+			// namespace.
+			networkpolicy.SecretSyncCell,
+
 			// Provide the logic to map DNS names matching Kubernetes services to the
 			// corresponding ClusterIP, without depending on CoreDNS. Leveraged by etcd
 			// and clustermesh.
