@@ -6,7 +6,6 @@ package install
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -15,22 +14,6 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/pkg/versioncheck"
-)
-
-type validationCheck interface {
-	Name() string
-	Check(ctx context.Context, k *K8sInstaller) error
-}
-
-var (
-	validationChecks = map[k8s.Kind][]validationCheck{
-		k8s.KindMinikube: {
-			&minikubeVersionValidation{},
-		},
-		k8s.KindKind: {
-			&kindVersionValidation{},
-		},
-	}
 )
 
 func (k *K8sInstaller) detectDatapathMode(helmValues map[string]interface{}) error {
@@ -93,22 +76,6 @@ func getClusterName(helmValues map[string]interface{}) string {
 
 func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map[string]interface{}) error {
 	k.autodetect(ctx)
-	if len(validationChecks[k.flavor.Kind]) > 0 {
-		k.Log("✨ Running %q validation checks", k.flavor.Kind)
-		for _, check := range validationChecks[k.flavor.Kind] {
-			name := check.Name()
-			if slices.Contains(k.params.DisableChecks, name) {
-				k.Log("⏭️  Skipping disabled validation test %q", name)
-				continue
-			}
-
-			if err := check.Check(ctx, k); err != nil {
-				k.Log("❌ Validation test %s failed: %s", name, err)
-				k.Log("ℹ️  You can disable the test with --disable-check=%s", name)
-				return fmt.Errorf("validation check for kind %q failed: %w", k.flavor.Kind, err)
-			}
-		}
-	}
 
 	k.Log("ℹ️  Using Cilium version %s", k.chartVersion)
 
