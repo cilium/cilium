@@ -1626,6 +1626,9 @@
     "enableK8sTerminatingEndpoint": {
       "type": "boolean"
     },
+    "enableLBIPAM": {
+      "type": "boolean"
+    },
     "enableMasqueradeRouteSource": {
       "type": "boolean"
     },
