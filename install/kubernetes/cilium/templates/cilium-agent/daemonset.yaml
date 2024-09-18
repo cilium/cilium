@@ -434,9 +434,22 @@ spec:
         command:
         - cilium-dbg
         - build-config
+        {{- if not .Values.enableCiliumNodeConfig }} # cnc not enabled
+        {{- if or (kindIs "invalid" .Values.daemon.configSources) }} # sources not specified
+        - "--source=config-map:cilium-config" # default configmap
+        {{ else }}
+        {{- $sourceStripped := .Values.daemon.configSources | replace ",cilium-node-config" "" | replace "cilium-node-config," "" | replace "cilium-node-config" ""  }}
+        {{- if eq (len $sourceStripped) 0 }} # sources had only cilium-node-config, default to configmap
+        - "--source=config-map:cilium-config"
+        {{- else }} # sources stripped from cilium-node-config
+        - "--source={{ $sourceStripped }}"
+        {{- end }}
+        {{- end }}
+        {{- else }}
         {{- if (not (kindIs "invalid" .Values.daemon.configSources)) }}
         - "--source={{.Values.daemon.configSources}}"
         {{- end }}
+        {{- end}}
         {{- if (not (kindIs "invalid" .Values.daemon.allowedConfigOverrides)) }}
         - "--allow-config-keys={{.Values.daemon.allowedConfigOverrides}}"
         {{- end }}

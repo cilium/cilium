@@ -1151,6 +1151,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableInternalTrafficPolicy, defaults.EnableInternalTrafficPolicy, "Enable internal traffic policy")
 	option.BindEnv(vp, option.EnableInternalTrafficPolicy)
 
+	flags.Bool(option.EnableCiliumNodeConfig, defaults.EnableCiliumNodeConfig, "Enable configuring daemon by CiliumNodeConfig CRD")
+	flags.MarkHidden(option.EnableCiliumNodeConfig)
+	option.BindEnv(vp, option.EnableCiliumNodeConfig)
+
 	if err := vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
 	}

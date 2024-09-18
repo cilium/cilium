@@ -3631,3 +3631,5 @@ authentication:
       connectionTimeout: 30s
 # -- Enable Internal Traffic Policy
 enableInternalTrafficPolicy: true
+# -- Enable config by CiliumNodeConfig objects
+enableCiliumNodeConfig: true

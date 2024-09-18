@@ -1605,6 +1605,9 @@
     "enableCiliumEndpointSlice": {
       "type": "boolean"
     },
+    "enableCiliumNodeConfig": {
+      "type": "boolean"
+    },
     "enableCriticalPriorityClass": {
       "type": "boolean"
     },

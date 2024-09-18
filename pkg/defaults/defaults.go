@@ -601,6 +601,9 @@ const (
 
 	// EnableIternalTrafficPolicy is the default value for option.EnableInternalTrafficPolicy
 	EnableInternalTrafficPolicy = true
+
+	// EnableCiliumNodeConfig enables configuring daemon by CiliumNodeConfig CRD
+	EnableCiliumNodeConfig = true
 )
 
 var (

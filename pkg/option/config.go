@@ -1314,6 +1314,9 @@ const (
 
 	// EnableExternalWorkloads enables the support for external workloads.
 	EnableExternalWorkloads = "enable-external-workloads"
+
+	// EnableCiliumNodeConfig enables configuring daemon by CiliumNodeConfig CRD
+	EnableCiliumNodeConfig = "enable-ciliumnodeconfig"
 )
 
 const (
@@ -2492,6 +2495,9 @@ type DaemonConfig struct {
 
 	// EnableInternalTrafficPolicy enables handling routing for services with internalTrafficPolicy configured
 	EnableInternalTrafficPolicy bool
+
+	// EnableCiliumNodeConfig enables configuring daemon by CiliumNodeConfig CRD
+	EnableCiliumNodeConfig bool
 }
 
 var (
@@ -2548,6 +2554,8 @@ var (
 		BPFConntrackAccountingEnabled: defaults.BPFConntrackAccountingEnabled,
 		EnableEnvoyConfig:             defaults.EnableEnvoyConfig,
 		EnableInternalTrafficPolicy:   defaults.EnableInternalTrafficPolicy,
+
+		EnableCiliumNodeConfig: defaults.EnableCiliumNodeConfig,
 	}
 )
 

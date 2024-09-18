@@ -1020,6 +1020,10 @@
      - Enable CiliumEndpointSlice feature (deprecated, please use ``ciliumEndpointSlice.enabled`` instead).
      - bool
      - ``false``
+   * - :spelling:ignore:`enableCiliumNodeConfig`
+     - Enable config by CiliumNodeConfig objects
+     - bool
+     - ``true``
    * - :spelling:ignore:`enableCriticalPriorityClass`
      - Explicitly enable or disable priority class. .Capabilities.KubeVersion is unsettable in ``helm template`` calls, it depends on k8s libraries version that Helm was compiled against. This option allows to explicitly disable setting the priority class, which is useful for rendering charts for gke clusters in advance.
      - bool
