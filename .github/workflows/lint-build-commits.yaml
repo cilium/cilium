@@ -50,6 +50,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+
+      - name: Install LLVM and Clang prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ccache
+
       # Load CCache build from GitHub
       - name: Load ccache cache build from GitHub
         uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
