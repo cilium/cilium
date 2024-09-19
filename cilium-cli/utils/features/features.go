@@ -30,6 +30,7 @@ const (
 	KPRGracefulTermination Feature = "kpr-graceful-termination"
 	KPRHostPort            Feature = "kpr-hostport"
 	KPRSocketLB            Feature = "kpr-socket-lb"
+	KPRSocketLBHostnsOnly  Feature = "kpr-socket-lb-hostns-only"
 	KPRNodePort            Feature = "kpr-nodeport"
 	KPRSessionAffinity     Feature = "kpr-session-affinity"
 
