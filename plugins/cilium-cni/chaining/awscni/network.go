@@ -4,9 +4,7 @@
 package awscni
 
 import (
-	"fmt"
 	"net"
-	"os"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -21,15 +19,6 @@ const awsCNIVLANIfacePrefix = "vlan.eth."
 // the VLAN ID vlanID
 func buildSGPPodVLANIfaceName(vlanID string) string {
 	return awsCNIVLANIfacePrefix + vlanID
-}
-
-// disableIfaceRPFilter disables the `rp_filter` network setting for the
-// network interface iface
-func disableIfaceRPFilter(iface string) error {
-	return os.WriteFile(
-		fmt.Sprintf("/proc/sys/net/ipv4/conf/%s/rp_filter", iface),
-		[]byte("0"),
-		0644)
 }
 
 const (
