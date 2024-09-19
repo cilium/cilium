@@ -1,9 +1,6 @@
-name: 100 Nodes Scale Test (scale-100)
+name: 5000 Nodes Scale Test (scale-5000)
 
 on:
-  schedule:
-    - cron: '39 0 * * 1-5'
-
   workflow_dispatch:
     inputs:
       PR-number:
@@ -20,11 +17,6 @@ on:
         required: false
         default: '{}'
 
-# For testing uncomment following lines:
-#  push:
-#    branches:
-#      - your_branch_name
-
 permissions:
   # To be able to access the repository with actions/checkout
   contents: read
@@ -38,28 +30,16 @@ permissions:
 concurrency:
   # Structure:
   # - Workflow name
-  # - Event type
-  # - A unique identifier depending on event type:
-  #   - schedule: SHA
-  #   - workflow_dispatch: PR number
-  #
-  # This structure ensures a unique concurrency group name is generated for each
-  # type of testing, such that re-runs will cancel the previous run.
   group: |
     ${{ github.workflow }}
-    ${{ github.event_name }}
-    ${{
-      (github.event_name == 'schedule' && github.sha) ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
-    }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.23.1
   # Adding k8s.local to the end makes kops happy-
   # has stricter DNS naming requirements.
-  test_name: scale-100
+  test_name: scale-5000
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=docker depName=google/cloud-sdk
   gcloud_version: 492.0.0
@@ -113,6 +93,10 @@ jobs:
             --set pprof.enabled=true \
             --helm-set=prometheus.enabled=true \
             --helm-set=cluster.name=${{ env.cluster_name }} \
+            --helm-set=endpointHealthChecking.enabled=false \
+            --helm-set=healthChecking=false \
+            --helm-set=ciliumEndpointSlice.enabled=true \
+            --helm-set=ciliumEndpointSlice.sliceMode="fcfs" \
             --helm-set=k8sServiceHost=api.internal.${CLUSTER_NAME} \
             --helm-set=k8sServicePort=443 \
             --helm-set=kubeProxyReplacement=true \
@@ -211,13 +195,14 @@ jobs:
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          control_plane_size: n1-standard-8
+          control_plane_size: n2-standard-8
           control_plane_count: 1
           node_size: e2-standard-8
           node_count: 1
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           kube_proxy_enabled: false
+          allocate_node_cidrs: false
 
       - name: Setup firewall rules
         uses: cilium/scale-tests-action/setup-firewall@4689ca99d3e860339e439006ff7a26d8f6a86e09  # main
@@ -262,7 +247,7 @@ jobs:
           CL2_PROMETHEUS_PVC_ENABLED: "false"
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
-          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 2.0
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 8.0
         timeout-minutes: 10
         run: |
           # Don't run any tasks at this point, just setup the monitoring stack
@@ -305,43 +290,28 @@ jobs:
         run: |
           cilium status --wait
 
-      - name: Run CL2
-        id: run-cl2
-        working-directory: ./perf-tests/clusterloader2
+      - name: Run CL2 to export prometheus
         shell: bash
-        timeout-minutes: 40
+        working-directory: ./perf-tests/clusterloader2
         env:
-          CL2_ENABLE_PVS: "false"
-          CL2_ENABLE_NETWORKPOLICIES: "true"
-          CL2_ALLOWED_SLOW_API_CALLS: 1
-          CL2_SCHEDULER_THROUGHPUT_THRESHOLD: 0
           CL2_PROMETHEUS_PVC_ENABLED: "false"
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
-          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 2.0
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 8.0
+        timeout-minutes: 20
         run: |
+          # Don't run any tasks at this point, just export the prometheus data
           ./clusterloader \
             -v=2 \
-            --testconfig=./testing/load/config.yaml \
+            --testconfig=./testing/custom/common/setup.yaml \
+            --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             --provider=gce \
+            --experimental-prometheus-snapshot-to-report-dir=true
+            --enable-exec-service=false \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
-            --nodes=100 \
-            --report-dir=./report \
-            --experimental-prometheus-snapshot-to-report-dir=true \
             --kubeconfig=$HOME/.kube/config \
-            --testoverrides=./testing/overrides/load_throughput.yaml \
-            --testoverrides=./testing/experiments/use_simple_latency_query.yaml \
-            --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
-            --testoverrides=./modules.yaml \
-            2>&1 | tee cl2-output.txt
-
-      - name: Get sysdump
-        if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        run: |
-          cilium status
-          cilium sysdump --output-filename cilium-sysdump-final
-          sudo chmod +r cilium-sysdump-final.zip
+            2>&1 | tee cl2-setup.txt
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
