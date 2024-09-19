@@ -136,55 +136,51 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) er
 }
 
 func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcileParams, ls sets.Set[resource.Key], fullReconcile bool) error {
-	var desiredSvcRoutePolicies ResourceRoutePolicyMap
-	var desiredSvcPaths ResourceAFPathsMap
-	var err error
+	var (
+		toReconcile []*slim_corev1.Service
+		toWithdraw  []resource.Key
+
+		desiredSvcRoutePolicies ResourceRoutePolicyMap
+		desiredSvcPaths         ResourceAFPathsMap
+
+		err error
+	)
 
 	if fullReconcile {
 		r.logger.Debug("performing all services reconciliation")
 
-		// Init diff in diffstores, so that it contains only changes since the last full reconciliation.
-		// Despite doing it in Init(), we still need this InitDiff to clean up the old diff when the instance is re-created
-		// by the preflight reconciler. Once Init() is called upon re-create by preflight, we can remove this.
-		r.svcDiffStore.InitDiff(r.diffID(p.BGPInstance.Global.ASN))
-		r.epDiffStore.InitDiff(r.diffID(p.BGPInstance.Global.ASN))
-
-		desiredSvcRoutePolicies, err = r.getAllRoutePolicies(p, ls)
-		if err != nil {
-			return err
-		}
-
-		// BGP configuration for service advertisement changed, we should reconcile all services.
-		desiredSvcPaths, err = r.getAllPaths(p, ls)
+		// get all services to reconcile and to withdraw.
+		toReconcile, toWithdraw, err = r.fullReconciliationServiceList(p)
 		if err != nil {
 			return err
 		}
 	} else {
 		r.logger.Debug("performing modified services reconciliation")
 
-		// get services to reconcile and to withdraw.
-		// Note : we should only call svc diff only once in a reconcile loop.
-		toReconcile, toWithdraw, err := r.diffReconciliationServiceList(p)
+		// get modified services to reconcile and to withdraw.
+		// Note: we should call svc diff only once in a reconcile loop.
+		toReconcile, toWithdraw, err = r.diffReconciliationServiceList(p)
 		if err != nil {
 			return err
 		}
+	}
 
-		desiredSvcRoutePolicies, err = r.getDiffRoutePolicies(p, toReconcile, toWithdraw, ls)
-		if err != nil {
-			return err
-		}
-
-		// BGP configuration is unchanged, only reconcile modified services.
-		desiredSvcPaths, err = r.getDiffPaths(p, toReconcile, toWithdraw, ls)
-		if err != nil {
-			return err
-		}
+	// get desired service route policies
+	desiredSvcRoutePolicies, err = r.getDesiredRoutePolicies(p, toReconcile, toWithdraw, ls)
+	if err != nil {
+		return err
 	}
 
 	// reconcile service route policies
 	err = r.reconcileSvcRoutePolicies(ctx, p, desiredSvcRoutePolicies)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile service route policies: %w", err)
+	}
+
+	// get desired service paths
+	desiredSvcPaths, err = r.getDesiredPaths(p, toReconcile, toWithdraw, ls)
+	if err != nil {
+		return err
 	}
 
 	// reconcile service paths
@@ -225,48 +221,7 @@ func (r *ServiceReconciler) reconcileSvcRoutePolicies(ctx context.Context, p Rec
 	return err
 }
 
-func (r *ServiceReconciler) getAllRoutePolicies(p ReconcileParams, ls sets.Set[resource.Key]) (ResourceRoutePolicyMap, error) {
-	desiredSvcRoutePolicies := make(ResourceRoutePolicyMap)
-
-	// check for services which are no longer present
-	svcRoutePolicies := r.getMetadata(p.BGPInstance).ServiceRoutePolicies
-	for svcKey := range svcRoutePolicies {
-		_, exists, err := r.svcDiffStore.GetByKey(svcKey)
-		if err != nil {
-			return nil, fmt.Errorf("svcDiffStore.GetByKey(): %w", err)
-		}
-
-		// if the service no longer exists, withdraw it
-		if !exists {
-			desiredSvcRoutePolicies[svcKey] = nil
-		}
-	}
-
-	// check all services for route policies
-	svcList, err := r.svcDiffStore.List()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list services from svcDiffstore: %w", err)
-	}
-
-	for _, svc := range svcList {
-		svcKey := resource.Key{
-			Name:      svc.GetName(),
-			Namespace: svc.GetNamespace(),
-		}
-
-		// get desired route policies for the service
-		svcRoutePolicies, err := r.getDesiredSvcRoutePolicies(p, svc, ls)
-		if err != nil {
-			return nil, err
-		}
-
-		desiredSvcRoutePolicies[svcKey] = svcRoutePolicies
-	}
-
-	return desiredSvcRoutePolicies, nil
-}
-
-func (r *ServiceReconciler) getDiffRoutePolicies(p ReconcileParams, toUpdate []*slim_corev1.Service, toRemove []resource.Key, ls sets.Set[resource.Key]) (ResourceRoutePolicyMap, error) {
+func (r *ServiceReconciler) getDesiredRoutePolicies(p ReconcileParams, toUpdate []*slim_corev1.Service, toRemove []resource.Key, ls sets.Set[resource.Key]) (ResourceRoutePolicyMap, error) {
 	desiredSvcRoutePolicies := make(ResourceRoutePolicyMap)
 
 	for _, svc := range toUpdate {
@@ -445,68 +400,31 @@ func (r *ServiceReconciler) resolveSvcFromEndpoints(eps *k8s.Endpoints) (*slim_c
 	return r.svcDiffStore.GetByKey(k)
 }
 
-func (r *ServiceReconciler) getAllPaths(p ReconcileParams, ls sets.Set[resource.Key]) (ResourceAFPathsMap, error) {
-	desiredServiceAFPaths := make(ResourceAFPathsMap)
+func (r *ServiceReconciler) fullReconciliationServiceList(p ReconcileParams) (toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, err error) {
+	// re-init diff in diffstores, so that it contains only changes since the last full reconciliation.
+	r.svcDiffStore.InitDiff(r.diffID(p.BGPInstance.Global.ASN))
+	r.epDiffStore.InitDiff(r.diffID(p.BGPInstance.Global.ASN))
 
 	// check for services which are no longer present
 	serviceAFPaths := r.getMetadata(p.BGPInstance).ServicePaths
 	for svcKey := range serviceAFPaths {
 		_, exists, err := r.svcDiffStore.GetByKey(svcKey)
 		if err != nil {
-			return nil, fmt.Errorf("svcDiffStore.GetByKey(): %w", err)
+			return nil, nil, fmt.Errorf("svcDiffStore.GetByKey(): %w", err)
 		}
 
 		// if the service no longer exists, withdraw it
 		if !exists {
-			desiredServiceAFPaths[svcKey] = nil
+			toWithdraw = append(toWithdraw, svcKey)
 		}
 	}
 
 	// check all services for advertisement
-	svcList, err := r.svcDiffStore.List()
+	toReconcile, err = r.svcDiffStore.List()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list services from svcDiffstore: %w", err)
+		return nil, nil, fmt.Errorf("failed to list services from svcDiffstore: %w", err)
 	}
-
-	for _, svc := range svcList {
-		svcKey := resource.Key{
-			Name:      svc.GetName(),
-			Namespace: svc.GetNamespace(),
-		}
-
-		afPaths, err := r.getServiceAFPaths(p, svc, ls)
-		if err != nil {
-			return nil, err
-		}
-
-		desiredServiceAFPaths[svcKey] = afPaths
-	}
-
-	return desiredServiceAFPaths, nil
-}
-
-func (r *ServiceReconciler) getDiffPaths(p ReconcileParams, toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, ls sets.Set[resource.Key]) (ResourceAFPathsMap, error) {
-	desiredServiceAFPaths := make(ResourceAFPathsMap)
-	for _, svc := range toReconcile {
-		svcKey := resource.Key{
-			Name:      svc.GetName(),
-			Namespace: svc.GetNamespace(),
-		}
-
-		afPaths, err := r.getServiceAFPaths(p, svc, ls)
-		if err != nil {
-			return nil, err
-		}
-
-		desiredServiceAFPaths[svcKey] = afPaths
-	}
-
-	for _, svcKey := range toWithdraw {
-		// for withdrawn services, we need to set paths to nil.
-		desiredServiceAFPaths[svcKey] = nil
-	}
-
-	return desiredServiceAFPaths, nil
+	return
 }
 
 // diffReconciliationServiceList returns a list of services to reconcile and to withdraw when
@@ -560,6 +478,30 @@ func (r *ServiceReconciler) diffReconciliationServiceList(p ReconcileParams) (to
 	)
 
 	return deduped, deleted, nil
+}
+
+func (r *ServiceReconciler) getDesiredPaths(p ReconcileParams, toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, ls sets.Set[resource.Key]) (ResourceAFPathsMap, error) {
+	desiredServiceAFPaths := make(ResourceAFPathsMap)
+	for _, svc := range toReconcile {
+		svcKey := resource.Key{
+			Name:      svc.GetName(),
+			Namespace: svc.GetNamespace(),
+		}
+
+		afPaths, err := r.getServiceAFPaths(p, svc, ls)
+		if err != nil {
+			return nil, err
+		}
+
+		desiredServiceAFPaths[svcKey] = afPaths
+	}
+
+	for _, svcKey := range toWithdraw {
+		// for withdrawn services, we need to set paths to nil.
+		desiredServiceAFPaths[svcKey] = nil
+	}
+
+	return desiredServiceAFPaths, nil
 }
 
 func (r *ServiceReconciler) getServiceAFPaths(p ReconcileParams, svc *slim_corev1.Service, ls sets.Set[resource.Key]) (AFPathsMap, error) {
