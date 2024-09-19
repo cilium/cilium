@@ -119,6 +119,7 @@ func (m *l2V6ResponderMap) IterateWithCallback(cb IterateCallback) error {
 type L2V6ResponderKey struct {
 	IP      types.IPv6 `align:"ip6"`
 	IfIndex uint32     `align:"ifindex"`
+	Pad     uint32     `align:"pad"`
 }
 
 func (k *L2V6ResponderKey) String() string {
@@ -129,5 +130,6 @@ func newL2V6ResponderKey(ip netip.Addr, ifIndex uint32) L2V6ResponderKey {
 	return L2V6ResponderKey{
 		IP:      types.IPv6(ip.As16()),
 		IfIndex: ifIndex,
+		Pad:     uint32(0),
 	}
 }
