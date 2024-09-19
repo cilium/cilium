@@ -253,7 +253,7 @@ jobs:
           # Don't run any tasks at this point, just setup the monitoring stack
           ./clusterloader \
             -v=2 \
-            --testconfig=./testing/custom/common/setup.yaml \
+            --testconfig=./testing/custom/clustermesh/setup.yaml \
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             --provider=gce \
             --enable-exec-service=false \
@@ -303,7 +303,7 @@ jobs:
           # Don't run any tasks at this point, just export the prometheus data
           ./clusterloader \
             -v=2 \
-            --testconfig=./testing/custom/common/setup.yaml \
+            --testconfig=./testing/custom/clustermesh/setup.yaml \
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             --provider=gce \
             --experimental-prometheus-snapshot-to-report-dir=true
