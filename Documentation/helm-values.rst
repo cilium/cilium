@@ -1901,7 +1901,7 @@
      - int
      - ``31234``
    * - :spelling:ignore:`hubble.relay.service.type`
-     - - The type of service used for Hubble Relay access, either ClusterIP or NodePort.
+     - - The type of service used for Hubble Relay access, either ClusterIP, NodePort or LoadBalancer.
      - string
      - ``"ClusterIP"``
    * - :spelling:ignore:`hubble.relay.sortBufferDrainTimeout`
