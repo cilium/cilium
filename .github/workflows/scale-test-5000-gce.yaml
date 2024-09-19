@@ -268,7 +268,7 @@ jobs:
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           node_size: e2-medium
-          node_count: 100
+          node_count: 200
           ig_name: workloads
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
@@ -292,7 +292,7 @@ jobs:
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           node_size: e2-medium
-          node_count: 100
+          node_count: 200
           ig_name: workloads2
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
@@ -327,6 +327,7 @@ jobs:
           # Don't run any tasks at this point, just export the prometheus data
           ./clusterloader \
             -v=2 \
+            --report-dir=./report \
             --testconfig=./testing/custom/clustermesh/setup.yaml \
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             --provider=gce \
