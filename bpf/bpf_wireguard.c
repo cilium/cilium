@@ -15,6 +15,7 @@
 #include "lib/nodeport.h"
 
 /* to-wireguard is attached as a tc egress filter to the cilium_wg0 device.
+ * In this program, ctx is the WireGuard-encrypted packet that leaves the node.
  */
 __section_entry
 int cil_to_wireguard(struct __ctx_buff *ctx)
@@ -34,6 +35,9 @@ int cil_to_wireguard(struct __ctx_buff *ctx)
 		src_sec_identity = get_identity(ctx);
 
 	bpf_clear_meta(ctx);
+
+	/* Manually mark the packet as encrypted. */
+	ctx->mark |= MARK_MAGIC_WG_ENCRYPTED;
 
 #ifdef ENABLE_NODEPORT
 	if (magic == MARK_MAGIC_OVERLAY)
