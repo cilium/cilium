@@ -306,7 +306,7 @@ jobs:
             --testconfig=./testing/custom/clustermesh/setup.yaml \
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             --provider=gce \
-            --experimental-prometheus-snapshot-to-report-dir=true
+            --experimental-prometheus-snapshot-to-report-dir=true \
             --enable-exec-service=false \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
