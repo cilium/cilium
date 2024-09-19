@@ -39,6 +39,12 @@ func Test_performCiliumNodeGC(t *testing.T) {
 				OwnerReferences: []metav1.OwnerReference{{}},
 			},
 		},
+		&v2.CiliumNode{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "invalid-node-with-annotation",
+				Annotations: map[string]string{skipGCAnnotationKey: "true"},
+			},
+		},
 	}
 
 	fcn := fake.NewSimpleClientset(cns...).CiliumV2().CiliumNodes()
