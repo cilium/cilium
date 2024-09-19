@@ -21,12 +21,13 @@ import (
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
+	"github.com/cilium/cilium/pkg/maps/l2v6respondermap"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/types"
 )
 
 // Cell provides the L2 Responder Reconciler. This component takes the desired state, calculated by
-// the L2 announcer component from the StateDB table and reconciles it with the L2 responder map.
+// the L2 announcer component from the StateDB table and reconciles it with the L2 responder maps.
 // The L2 Responder Reconciler watches for incremental changes in the table and applies these
 // incremental changes immediately and it periodically perform full reconciliation as redundancy.
 var Cell = cell.Module(
@@ -53,10 +54,11 @@ type params struct {
 	L2AnnouncementTable statedb.RWTable[*tables.L2AnnounceEntry]
 	StateDB             *statedb.DB
 	L2ResponderMap      l2respondermap.Map
+	L2V6ResponderMap    l2v6respondermap.Map
 	NetLink             linkByNamer
 	JobGroup            job.Group
 	Health              cell.Health
-	GARPSender          gneigh.Sender
+	GNeighSender        gneigh.Sender
 }
 
 type linkByNamer interface {
@@ -116,15 +118,12 @@ func (p *l2ResponderReconciler) cycle(
 	fullReconciliation <-chan time.Time,
 ) {
 	arMap := p.params.L2ResponderMap
+	ndMap := p.params.L2V6ResponderMap
 	log := p.params.Logger
 
 	lr := cachingLinkResolver{nl: p.params.NetLink}
 
 	process := func(e *tables.L2AnnounceEntry, deleted bool) error {
-		// Ignore IPv6 addresses, L2 is IPv4 only
-		if e.IP.Is6() {
-			return nil
-		}
 
 		idx, err := lr.LinkIndex(e.NetworkInterface)
 		if err != nil {
@@ -132,7 +131,12 @@ func (p *l2ResponderReconciler) cycle(
 		}
 
 		if deleted {
-			err = arMap.Delete(e.IP, uint32(idx))
+			if e.IP.Is6() {
+				err = ndMap.Delete(e.IP, uint32(idx))
+			} else {
+				err = arMap.Delete(e.IP, uint32(idx))
+			}
+
 			if err != nil {
 				return fmt.Errorf("delete %s@%d: %w", e.IP, idx, err)
 			}
@@ -140,12 +144,20 @@ func (p *l2ResponderReconciler) cycle(
 			return nil
 		}
 
-		err = garpOnNewEntry(arMap, p.params.GARPSender, e.IP, idx)
+		if e.IP.Is6() {
+			err = gneighOnNewEntry(ndMap, p.params.GNeighSender, e.IP, idx)
+		} else {
+			err = garpOnNewEntry(arMap, p.params.GNeighSender, e.IP, idx)
+		}
 		if err != nil {
 			return err
 		}
 
-		err = arMap.Create(e.IP, uint32(idx))
+		if e.IP.Is6() {
+			err = ndMap.Create(e.IP, uint32(idx))
+		} else {
+			err = arMap.Create(e.IP, uint32(idx))
+		}
 		if err != nil {
 			return fmt.Errorf("create %s@%d: %w", e.IP, idx, err)
 		}
@@ -190,6 +202,7 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 	log := p.params.Logger
 	tbl := p.params.L2AnnouncementTable
 	arMap := p.params.L2ResponderMap
+	ndMap := p.params.L2V6ResponderMap
 	lr := cachingLinkResolver{nl: p.params.NetLink}
 
 	log.Debug("l2 announcer table full reconciliation")
@@ -200,24 +213,30 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 		entry     *tables.L2AnnounceEntry
 	}
 	desiredMap := make(map[l2respondermap.L2ResponderKey]desiredEntry)
+	desiredMap6 := make(map[l2v6respondermap.L2V6ResponderKey]desiredEntry)
 
 	for e := range tbl.All(txn) {
-		// Ignore IPv6 addresses, L2 is IPv4 only
-		if e.IP.Is6() {
-			continue
-		}
-
 		idx, err := lr.LinkIndex(e.NetworkInterface)
 		if err != nil {
 			errs = errors.Join(errs, err)
 			continue
 		}
 
-		desiredMap[l2respondermap.L2ResponderKey{
-			IP:      types.IPv4(e.IP.As4()),
-			IfIndex: uint32(idx),
-		}] = desiredEntry{
-			entry: e,
+		if e.IP.Is6() {
+			desiredMap6[l2v6respondermap.L2V6ResponderKey{
+				IP:      types.IPv6(e.IP.As16()),
+				IfIndex: uint32(idx),
+				Pad:     uint32(0),
+			}] = desiredEntry{
+				entry: e,
+			}
+		} else {
+			desiredMap[l2respondermap.L2ResponderKey{
+				IP:      types.IPv4(e.IP.As4()),
+				IfIndex: uint32(idx),
+			}] = desiredEntry{
+				entry: e,
+			}
 		}
 	}
 
@@ -231,10 +250,24 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 		}
 		e.satisfied = true
 	})
+	var toDelete6 []*l2v6respondermap.L2V6ResponderKey
+	ndMap.IterateWithCallback(func(key *l2v6respondermap.L2V6ResponderKey, _ *l2respondermap.L2ResponderStats) {
+		e, found := desiredMap6[*key]
+		if !found {
+			toDelete6 = append(toDelete6, key)
+			return
+		}
+		e.satisfied = true
+	})
 
 	// Delete all unwanted map values
 	for _, del := range toDelete {
 		if err := arMap.Delete(netip.AddrFrom4(del.IP), del.IfIndex); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("delete %s@%d: %w", del.IP, del.IfIndex, err))
+		}
+	}
+	for _, del := range toDelete6 {
+		if err := ndMap.Delete(netip.AddrFrom16(del.IP), del.IfIndex); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("delete %s@%d: %w", del.IP, del.IfIndex, err))
 		}
 	}
@@ -245,7 +278,7 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 			continue
 		}
 
-		err = garpOnNewEntry(arMap, p.params.GARPSender, netip.AddrFrom4(key.IP), int(key.IfIndex))
+		err = garpOnNewEntry(arMap, p.params.GNeighSender, netip.AddrFrom4(key.IP), int(key.IfIndex))
 		if err != nil {
 			errs = errors.Join(errs, err)
 		}
@@ -254,7 +287,20 @@ func (p *l2ResponderReconciler) fullReconciliation(txn statedb.ReadTxn) (err err
 			errs = errors.Join(errs, fmt.Errorf("create %s@%d: %w", key.IP, key.IfIndex, err))
 		}
 	}
+	for key, entry := range desiredMap6 {
+		if entry.satisfied {
+			continue
+		}
 
+		err = gneighOnNewEntry(ndMap, p.params.GNeighSender, netip.AddrFrom16(key.IP), int(key.IfIndex))
+		if err != nil {
+			errs = errors.Join(errs, err)
+		}
+
+		if err := ndMap.Create(netip.AddrFrom16(key.IP), key.IfIndex); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("create %s@%d: %w", key.IP, key.IfIndex, err))
+		}
+	}
 	return errs
 }
 
@@ -275,6 +321,25 @@ func garpOnNewEntry(arMap l2respondermap.Map, sender gneigh.Sender, ip netip.Add
 	err = sender.SendArp(iface, ip)
 	if err != nil {
 		return fmt.Errorf("garp %s@%d: %w", ip, ifIndex, err)
+	}
+
+	return nil
+}
+
+func gneighOnNewEntry(ndMap l2v6respondermap.Map, sender gneigh.Sender, ip netip.Addr, ifIndex int) error {
+	_, err := ndMap.Lookup(ip, uint32(ifIndex))
+	if !errors.Is(err, ebpf.ErrKeyNotExist) {
+		return nil
+	}
+
+	iface, err := sender.InterfaceByIndex(ifIndex)
+	if err != nil {
+		return fmt.Errorf("gneigh adv %s@%d: %w", ip, ifIndex, err)
+	}
+
+	err = sender.SendNd(iface, ip)
+	if err != nil {
+		return fmt.Errorf("gneigh adv %s@%d: %w", ip, ifIndex, err)
 	}
 
 	return nil
