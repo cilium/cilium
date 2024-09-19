@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,6 +28,10 @@ var (
 
 	ctrlMgr = controller.NewManager()
 )
+
+// skipGCAnnotationKey is the key of the annotation to prevent garbage collecting
+// the corresponding CiliumNode.
+const skipGCAnnotationKey = "cilium.io/do-not-gc"
 
 // ciliumNodeGCCandidate keeps track of cilium nodes, which are candidate for GC.
 // Underlying there is a map with node name as key, and last marked timestamp as value.
@@ -124,6 +129,11 @@ func performCiliumNodeGC(ctx context.Context, client ciliumv2.CiliumNodeInterfac
 
 		// if there is owner references, let k8s handle garbage collection
 		if len(cn.GetOwnerReferences()) > 0 {
+			continue
+		}
+
+		// The user explicitly requested to not GC this CiliumNode object.
+		if value, ok := cn.GetAnnotations()[skipGCAnnotationKey]; ok && strings.ToLower(value) == "true" {
 			continue
 		}
 
