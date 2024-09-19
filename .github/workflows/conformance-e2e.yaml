@@ -191,6 +191,8 @@ jobs:
             tunnel: 'geneve'
             endpoint-routes: 'true'
             misc: 'socketLB.enabled=false,nodePort.enabled=true,bpf.masquerade=true'
+            local-redirect-policy: 'true'
+            node-local-dns: 'true'
 
           - name: '9'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -214,6 +216,9 @@ jobs:
             tunnel: 'disabled'
             encryption: 'wireguard'
             encryption-node: 'false'
+            misc: 'socketLB.enabled=true'
+            local-redirect-policy: 'true'
+            node-local-dns: 'true'
 
           - name: '11'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -228,6 +233,9 @@ jobs:
             lb-mode: 'snat'
             egress-gateway: 'true'
             ingress-controller: 'true'
+            misc: 'socketLB.hostNamespaceOnly=true'
+            local-redirect-policy: 'true'
+            node-local-dns: 'true'
 
           - name: '12'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind

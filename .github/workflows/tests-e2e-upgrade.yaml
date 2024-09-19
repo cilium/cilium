@@ -193,6 +193,8 @@ jobs:
             kpr: 'false'
             tunnel: 'geneve'
             endpoint-routes: 'true'
+            local-redirect-policy: 'true'
+            node-local-dns: 'true'
 
           - name: '9'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -216,6 +218,9 @@ jobs:
             tunnel: 'disabled'
             encryption: 'wireguard'
             encryption-node: 'false'
+            misc: 'socketLB.enabled=true'
+            local-redirect-policy: 'true'
+            node-local-dns: 'true'
 
           - name: '11'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -232,6 +237,9 @@ jobs:
             # Disable until https://github.com/cilium/cilium/issues/30717
             # has been resolved.
             # ingress-controller: 'true'
+            misc: 'socketLB.hostNamespaceOnly=true'
+            local-redirect-policy: 'true'
+            node-local-dns: 'true'
 
           # Disable until https://github.com/cilium/cilium/pull/31622
           # has been released. Otherwise, the health-ep is failing quite
