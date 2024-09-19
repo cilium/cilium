@@ -302,6 +302,15 @@ communicating via the proxy must reconnect to re-establish connections.
   ``--operator-k8s-client-qps`` and ``--operator-k8s-client-burst`` flags or the corresponding
   Helm values.
 * Support for Consul, deprecated since v1.12, has been removed.
+* Cilium now supports services protocol differentiation, which allows the agent to distinguish two
+  services on the same port with different protocols (e.g. TCP and UDP).
+  This feature, enabled by default, can be controlled with the ``--bpf-lb-proto-diff`` flag.
+  After the upgrade, existing services without a protocol set will be preserved as such, to avoid any
+  connection disruptions, and will need to be deleted and recreated in order for their protocol to
+  be taken into account by the agent.
+  In case of downgrades to a version that doesn't support services protocol differentiation,
+  existing services with the protocol set will be deleted and recreated, without the protocol, by
+  the agent, causing connection disruptions for such services.
 
 Removed Options
 ~~~~~~~~~~~~~~~
