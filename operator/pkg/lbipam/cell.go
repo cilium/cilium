@@ -91,6 +91,7 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 		poolClient:   params.Clientset.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
 		svcClient:    params.Clientset.Slim().CoreV1(),
 		jobGroup:     params.JobGroup,
+		config:       params.Config,
 	})
 
 	lbIPAM.jobGroup.Add(
