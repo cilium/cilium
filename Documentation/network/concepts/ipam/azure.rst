@@ -185,6 +185,37 @@ interface:
 This means that the number of IPs allocated in a single allocation cycle can be
 less than what is required to fulfill ``spec.ipam.pre-allocate``.
 
+Static Public IP Allocation
+----------------------------
+
+Nodes can be assigned static public IPs from tagged Azure Public IP Prefixes.
+
+1. Create and tag a `Public IP Prefix <https://learn.microsoft.com/en-us/azure/virtual-network/ip-services/public-ip-address-prefix>`__
+   in the same Resource Group as your nodes:
+
+   .. code-block:: shell-session
+
+      $ az network public-ip prefix create \
+        --resource-group $RESOURCE_GROUP \
+        --name $PREFIX_NAME \
+        --length 28 \
+        --tags prefix-tag-key=prefix-tag-value
+
+2. Set ``ipam.static-ip-tags`` in the CNI configuration:
+
+   .. code-block:: json
+
+      {
+        "ipam": {
+          "static-ip-tags": {
+            "prefix-tag-key": "prefix-tag-value"
+          }
+        }
+      }
+
+The Operator will assign a public IP from the first matching Prefix with available capacity.
+The Prefix ID will be stored in CiliumNode's ``status.ipam.assigned-static-ip``.
+
 IP Release
 ==========
 
@@ -217,6 +248,14 @@ scope of the AKS cluster node resource group:
  * `NetworkInterface In VMSS - List Virtual Machine Scale Set Network Interfaces <https://docs.microsoft.com/en-us/rest/api/virtualnetwork/networkinterface%20in%20vmss/listvirtualmachinescalesetnetworkinterfaces>`__
  * `Virtual Networks - List <https://docs.microsoft.com/en-us/rest/api/virtualnetwork/virtualnetworks/list>`__
  * `Virtual Machine Scale Sets - List All <https://docs.microsoft.com/en-us/rest/api/compute/virtualmachinescalesets/listall>`__
+
+When using static public IP allocation with Public IP Prefixes, the following additional privileges are required:
+
+ * `Network Interfaces - Get <https://learn.microsoft.com/en-us/rest/api/virtualnetwork/network-interfaces/get>`__ (for standalone VMs only)
+ * `Public IP Prefixes - List All <https://learn.microsoft.com/en-us/rest/api/virtualnetwork/public-ip-prefixes/list-all>`__
+ * `Virtual Machine Scale Set VMs - Get <https://learn.microsoft.com/en-us/rest/api/compute/virtual-machine-scale-set-vms/get>`__
+ * `Virtual Machine Scale Set VMs - Update <https://learn.microsoft.com/en-us/rest/api/compute/virtual-machine-scale-set-vms/update>`__
+ * `Virtual Machines - Get <https://learn.microsoft.com/en-us/rest/api/compute/virtual-machines/get>`__ (for standalone VMs only)
 
 .. note::
 
