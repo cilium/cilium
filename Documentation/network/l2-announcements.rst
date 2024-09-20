@@ -12,20 +12,20 @@ L2 Announcements / L2 Aware LB (Beta)
 
 .. include:: ../beta.rst
 
-L2 Announcements is a feature which makes services visible and reachable on 
+L2 Announcements is a feature which makes services visible and reachable on
 the local area network. This feature is primarily intended for on-premises
-deployments within networks without BGP based routing such as office or 
+deployments within networks without BGP based routing such as office or
 campus networks.
 
-When used, this feature will respond to ARP queries for ExternalIPs and/or 
-LoadBalancer IPs. These IPs are Virtual IPs (not installed on network 
-devices) on multiple nodes, so for each service one node at a time will respond
-to the ARP queries and respond with its MAC address. This node will perform 
-load balancing with the service load balancing feature, thus acting as a 
-north/south load balancer.
+When used, this feature will respond to ARP or IPv6 Neighbour Discovery (ND)
+queries for ExternalIPs and/or  LoadBalancer IPs. These IPs are Virtual IPs
+(not installed on network devices) on multiple nodes, so for each service one
+node at a time will respond to the ARP/ND queries and respond with its MAC
+address. This node will perform load balancing with the service load balancing
+feature, thus acting as a north/south load balancer.
 
 The advantage of this feature over NodePort services is that each service can
-use a unique IP so multiple services can use the same port numbers. When using 
+use a unique IP so multiple services can use the same port numbers. When using
 NodePorts, it is up to the client to decide to which host to send traffic, and if a node
 goes down, the IP+Port combo becomes unusable. With L2 announcements the service
 VIP simply migrates to another node and will continue to work.
@@ -51,7 +51,7 @@ The L2 Announcements feature and all the requirements can be enabled as follows:
                --set kubeProxyReplacement=true \\
                --set k8sServiceHost=${API_SERVER_IP} \\
                --set k8sServicePort=${API_SERVER_PORT}
-               
+
 
     .. group-tab:: ConfigMap
 
@@ -63,7 +63,7 @@ The L2 Announcements feature and all the requirements can be enabled as follows:
             k8s-client-burst: {BURST}
 
 .. warning::
-  Sizing the client rate limit (``k8sClientRateLimit.qps`` and ``k8sClientRateLimit.burst``) 
+  Sizing the client rate limit (``k8sClientRateLimit.qps`` and ``k8sClientRateLimit.burst``)
   is important when using this feature due to increased API usage. See :ref:`sizing_client_rate_limit` for sizing guidelines.
 
 Prerequisites
@@ -72,7 +72,7 @@ Prerequisites
 * Kube Proxy replacement mode must be enabled. For more information, see
   :ref:`kubeproxy-free`.
 
-* All devices on which L2 Aware LB will be announced should be enabled and included in the 
+* All devices on which L2 Aware LB will be announced should be enabled and included in the
   ``--devices`` flag or ``devices`` Helm option if explicitly set, see :ref:`NodePort Devices`.
 
 * The ``externalIPs.enabled=true`` Helm option must be set, if usage of externalIPs
@@ -81,15 +81,13 @@ Prerequisites
 Limitations
 ###########
 
-* The feature currently does not support IPv6/NDP.
-
-* Due to the way L3->L2 translation protocols work, one node receives all 
+* Due to the way L3->L2 translation protocols work, one node receives all
   ARP requests for a specific IP, so no load balancing can happen before traffic hits the cluster.
 
 * The feature currently has no traffic balancing mechanism so nodes within the
   same policy might be asymmetrically loaded. For details see :ref:`l2_announcements_leader_election`.
 
-* The feature is incompatible with the ``externalTrafficPolicy: Local`` on services as it may cause 
+* The feature is incompatible with the ``externalTrafficPolicy: Local`` on services as it may cause
   service IPs to be announced on nodes without pods causing traffic drops.
 
 Policies
@@ -115,13 +113,13 @@ where, and how. This is an example policy using all optional fields:
       interfaces:
       - ^eth[0-9]+
       externalIPs: true
-      loadBalancerIPs: true  
+      loadBalancerIPs: true
 
 Service Selector
 ----------------
 
-The service selector is a `label selector <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`__ 
-that determines which services are selected by this policy. If no service 
+The service selector is a `label selector <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`__
+that determines which services are selected by this policy. If no service
 selector is provided, all services are selected by the policy. A service must have
 `loadBalancerClass <https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class>`__
 unspecified or set to ``io.cilium/l2-announcer`` to be selected by a policy for announcement.
@@ -150,23 +148,24 @@ Interfaces
 ----------
 
 The interfaces field is a list of regular expressions (`golang syntax <https://pkg.go.dev/regexp/syntax>`__)
-that determine over which network interfaces the selected services will be 
+that determine over which network interfaces the selected services will be
 announced. This field is optional, if not specified all interfaces will be used.
 
-The expressions are OR-ed together, so any network device matching any of the 
+The expressions are OR-ed together, so any network device matching any of the
 expressions will be matched.
 
-L2 announcements only work if the selected devices are also part of the set of 
+L2 announcements only work if the selected devices are also part of the set of
 devices specified in the ``devices`` Helm option, see :ref:`NodePort Devices`.
 
 .. note::
-    This selector is NOT a security feature, services will still be available 
-    via interfaces when not advertised (for example by hard-coding ARP entries).
+    This selector is NOT a security feature, services will still be available
+    via interfaces when not advertised (for example by setting permanent ARP/ND
+    entries).
 
 IP Types
 --------
 
-The ``externalIPs`` and ``loadBalancerIPs`` fields determine what sort of IPs 
+The ``externalIPs`` and ``loadBalancerIPs`` fields determine what sort of IPs
 are announced. They are both set to ``false`` by default, so a functional policy should always
 have one or both set to ``true``.
 
@@ -178,7 +177,7 @@ are announced. These can be assigned by :ref:`lb_ipam` which can be configured
 by cluster admins for better control over which IPs can be allocated.
 
 .. note::
-    If a user intends to use ``externalIPs``, the ``externalIPs.enable=true`` 
+    If a user intends to use ``externalIPs``, the ``externalIPs.enable=true``
     Helm option should be set to enable service load balancing for external IPs.
 
 Status
@@ -189,9 +188,9 @@ For example if an invalid match expression is provided:
 
 .. code-block:: shell-session
 
-  $ kubectl describe l2announcement 
+  $ kubectl describe l2announcement
   Name:         policy1
-  Namespace:    
+  Namespace:
   Labels:       <none>
   Annotations:  <none>
   API Version:  cilium.io/v2alpha1
@@ -214,7 +213,7 @@ For example if an invalid match expression is provided:
       Status:                True
       Type:                  io.cilium/bad-service-selector
 
-The status of these error conditions will go to ``False`` as soon as the user 
+The status of these error conditions will go to ``False`` as soon as the user
 updates the policy to resolve the error.
 
 .. _l2_announcements_leader_election:
@@ -226,19 +225,19 @@ Due to the way ARP/NDP works, hosts only store one MAC address per IP, that bein
 the latest reply they see. This means that only one node in the cluster is allowed
 to reply to requests for a given IP.
 
-To implement this behavior, every Cilium agent resolves which services are 
-selected for its node and will start participating in leader election for every 
+To implement this behavior, every Cilium agent resolves which services are
+selected for its node and will start participating in leader election for every
 service. We use Kubernetes `lease mechanism <https://kubernetes.io/docs/concepts/architecture/leases/>`__
 to achieve this. Each service translates to a lease, the lease holder will start
 replying to requests on the selected interfaces.
 
-The lease mechanism is a first come, first serve picking order. So the first 
+The lease mechanism is a first come, first serve picking order. So the first
 node to claim a lease gets it. This might cause asymmetric traffic distribution.
 
 Leases
 ------
 
-The leases are created in the same namespace where Cilium is deployed, 
+The leases are created in the same namespace where Cilium is deployed,
 typically ``kube-system``. You can inspect the leases with the following command:
 
 .. code-block:: shell-session
@@ -252,7 +251,7 @@ typically ``kube-system``. You can inspect the leases with the following command
 
 The leases starting with ``cilium-l2announce-`` are leases used by this feature.
 The last part of the name is the namespace and service name. The holder indicates
-the name of the node that currently holds the lease and thus announced the IPs 
+the name of the node that currently holds the lease and thus announced the IPs
 of that given service.
 
 To inspect a lease:
@@ -276,7 +275,7 @@ To inspect a lease:
       renewTime: "2023-05-12T12:15:26.773020Z"
 
 The ``acquireTime`` is the time at which the current leader acquired the lease.
-The ``holderIdentity`` is the name of the current holder/leader node. 
+The ``holderIdentity`` is the name of the current holder/leader node.
 If the leader does not renew the lease for ``leaseDurationSeconds`` seconds a
 new leader is chosen. ``leaseTransitions`` indicates how often the lease changed
 hands and ``renewTime`` the last time the leader renewed the lease.
@@ -284,20 +283,20 @@ hands and ``renewTime`` the last time the leader renewed the lease.
 There are three Helm options that can be tuned with regards to leases:
 
 * ``l2announcements.leaseDuration`` determines the ``leaseDurationSeconds`` value
-  of created leases and by extent how long a leader must be "down" before 
+  of created leases and by extent how long a leader must be "down" before
   failover occurs. Its default value is 15s, it must always be greater than 1s
   and be larger than ``leaseRenewDeadline``.
 
-* ``l2announcements.leaseRenewDeadline`` is the interval at which the leader 
+* ``l2announcements.leaseRenewDeadline`` is the interval at which the leader
   should renew the lease. Its default value is 5s, it must be greater than
   ``leaseRetryPeriod`` by at least 20% and is not allowed to be below ``1ns``.
 
-* ``l2announcements.leaseRetryPeriod`` if renewing the lease fails, how long 
+* ``l2announcements.leaseRetryPeriod`` if renewing the lease fails, how long
   should the agent wait before it tries again. Its default value is 2s, it
   must be smaller than ``leaseRenewDeadline`` by at least 20% and above ``1ns``.
 
 .. note::
-  The theoretical shortest time between failure and failover is 
+  The theoretical shortest time between failure and failover is
   ``leaseDuration - leaseRenewDeadline`` and the longest ``leaseDuration + leaseRenewDeadline``.
   So with the default values, failover occurs between 10s and 20s.
   For the example below, these times are between 2s and 4s.
@@ -332,7 +331,7 @@ There are three Helm options that can be tuned with regards to leases:
             k8s-client-qps: {QPS}
             k8s-client-burst: {BURST}
 
-There is a trade-off between fast failure detection and CPU + network usage. 
+There is a trade-off between fast failure detection and CPU + network usage.
 Each service incurs a CPU and network overhead, so clusters with smaller amounts
 of services can more easily afford faster failover times. Larger clusters might
 need to increase parameters if the overhead is too high.
@@ -351,7 +350,7 @@ default limit is quickly reached when utilizing L2 announcements and thus users
 should size the client rate limit accordingly.
 
 In a worst case scenario, services are distributed unevenly, so we will assume
-a peek load based on the renew deadline. In complex scenarios with multiple 
+a peek load based on the renew deadline. In complex scenarios with multiple
 policies over disjunct sets of node, max QPS per node will be lower.
 
 .. code-block:: text
@@ -375,19 +374,19 @@ Failover
 
 When nodes participating in leader election detect that the lease holder did not
 renew the lease for ``leaseDurationSeconds`` amount of seconds, they will ask
-the API server to make them the new holder. The first request to be processed 
+the API server to make them the new holder. The first request to be processed
 gets through and the rest are denied.
 
-When a node becomes the leader/holder, it will send out a gratuitous ARP reply 
-over all of the configured interfaces. Clients who accept these will update 
+When a node becomes the leader/holder, it will send out a gratuitous ARP reply
+over all of the configured interfaces. Clients who accept these will update
 their ARP tables at once causing them to send traffic to the new leader/holder.
-Not all clients accept gratuitous ARP replies since they can be used for ARP spoofing. 
-Such clients might experience longer downtime then configured in the leases 
-since they will only re-query via ARP when TTL in their internal tables 
+Not all clients accept gratuitous ARP replies since they can be used for ARP spoofing.
+Such clients might experience longer downtime then configured in the leases
+since they will only re-query via ARP when TTL in their internal tables
 has been reached.
 
 .. note::
-   Since this feature has no IPv6 support yet, only ARP messages are sent, no 
+   Since this feature has no IPv6 support yet, only ARP messages are sent, no
    Unsolicited Neighbor Advertisements are sent.
 
 Troubleshooting
@@ -428,14 +427,14 @@ L2 announcements should not create a lease for very service matched by the polic
     $ kubectl -n kube-system get lease | grep "cilium-l2announce"
     cilium-l2announce-default-service-red   kind-worker                       34s
 
-If the output is empty, then the policy is not correctly configured or the agent is not running correctly. 
+If the output is empty, then the policy is not correctly configured or the agent is not running correctly.
 Check the logs of the agent for error messages:
 
 .. code-block:: shell-session
 
     $ kubectl -n kube-system logs ds/cilium | grep "l2"
 
-A common error is that the agent is not able to create leases. 
+A common error is that the agent is not able to create leases.
 
 .. code-block:: shell-session
 
@@ -459,7 +458,7 @@ without using the helm chart. Redeploy the helm chart or manually update the clu
       - list
       - delete
 
-Another common error is that the configured client rate limit is too low. 
+Another common error is that the configured client rate limit is too low.
 This can be seen in the logs as well:
 
 .. code-block:: shell-session
@@ -471,7 +470,7 @@ This can be seen in the logs as well:
 These logs are associated with intermittent failures to renew the lease, connection issues and/or frequent leader changes.
 See :ref:`sizing_client_rate_limit` for more information on how to size the client rate limit.
 
-If you find a different L2 related error, please open a GitHub issue with the error message and the 
+If you find a different L2 related error, please open a GitHub issue with the error message and the
 steps you took to get there.
 
 Assuming the leases are created, the next step is to check the agent internal state. Pick a service which isn't working
@@ -516,7 +515,7 @@ out devices. If your desired device is in the list but not selected, check the d
 
 Please open a Github issue if your desired device doesn't appear in the list or it isn't selected while you believe it should be.
 
-If the L2 state contains the IP and device combination but there are still connection issues, it's time to test ARP 
+If the L2 state contains the IP and device combination but there are still connection issues, it's time to test ARP
 within the cluster. Pick a cilium agent pod other than the lease holder on the same L2 network.
 Then use the following command to send an ARP request to the service IP:
 
@@ -553,13 +552,13 @@ The ``responses_sent`` field is incremented every time the datapath responds to 
 is 0, then the ARP request doesn't make it to the node. If the field is greater than 0, the issue is on the
 return path. In both cases, inspect the network and the client.
 
-It is still possible that the service is unreachable even though ARP requests are answered. This can happen 
+It is still possible that the service is unreachable even though ARP requests are answered. This can happen
 for a number of reasons, usually unrelated to L2 announcements, but rather other Cilium features.
 
 One common issue however is caused by the usage of ``.Spec.ExternalTrafficPolicy: Local`` on services. This setting
 normally tells a load balancer to only forward traffic to nodes with at least 1 ready pod to avoid a second hop.
 Unfortunately, L2 announcements isn't currently aware of this setting and will announce the service IP on all nodes
-matching policies. If a node without a pod receives traffic, it will drop it. To fix this, set the policy to 
+matching policies. If a node without a pod receives traffic, it will drop it. To fix this, set the policy to
 ``.Spec.ExternalTrafficPolicy: Cluster``.
 
 Please open a Github issue if none of the above steps helped you solve your issue.
