@@ -204,6 +204,7 @@
             "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
             "commonHttpProtocolOptions": {
               "idleTimeout": "{{ .Values.envoy.idleTimeoutDurationSeconds }}s",
+              "streamIdleTimeout": "{{ .Values.envoy.streamIdleTimeoutDurationSeconds }}s",
               "maxConnectionDuration": "{{ .Values.envoy.maxConnectionDurationSeconds }}s",
               "maxRequestsPerConnection": {{ .Values.envoy.maxRequestsPerConnection }}
             },
@@ -222,6 +223,7 @@
             "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
             "commonHttpProtocolOptions": {
               "idleTimeout": "{{ .Values.envoy.idleTimeoutDurationSeconds }}s",
+              "streamIdleTimeout": "{{ .Values.envoy.streamIdleTimeoutDurationSeconds }}s",
               "maxConnectionDuration": "{{ .Values.envoy.maxConnectionDurationSeconds }}s",
               "maxRequestsPerConnection": {{ .Values.envoy.maxRequestsPerConnection }}
             },
@@ -247,6 +249,7 @@
             "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
             "commonHttpProtocolOptions": {
               "idleTimeout": "{{ .Values.envoy.idleTimeoutDurationSeconds }}s",
+              "streamIdleTimeout": "{{ .Values.envoy.streamIdleTimeoutDurationSeconds }}s",
               "maxConnectionDuration": "{{ .Values.envoy.maxConnectionDurationSeconds }}s",
               "maxRequestsPerConnection": {{ .Values.envoy.maxRequestsPerConnection }}
             },
@@ -265,6 +268,7 @@
             "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
             "commonHttpProtocolOptions": {
               "idleTimeout": "{{ .Values.envoy.idleTimeoutDurationSeconds }}s",
+              "streamIdleTimeout": "{{ .Values.envoy.streamIdleTimeoutDurationSeconds }}s",
               "maxConnectionDuration": "{{ .Values.envoy.maxConnectionDurationSeconds }}s",
               "maxRequestsPerConnection": {{ .Values.envoy.maxRequestsPerConnection }}
             },

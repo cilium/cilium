@@ -141,6 +141,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		params.GatewayApiConfig.EnableGatewayAPIAppProtocol,
 		true, // hostNameSuffixMatch
 		params.OperatorConfig.ProxyIdleTimeoutSeconds,
+		params.OperatorConfig.ProxyStreamIdleTimeoutSeconds,
 		params.GatewayApiConfig.GatewayAPIHostnetworkEnabled,
 		translation.ParseNodeLabelSelector(params.GatewayApiConfig.GatewayAPIHostnetworkNodelabelselector),
 		params.AgentConfig.EnableIPv4,
