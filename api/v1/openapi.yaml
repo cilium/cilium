@@ -2141,6 +2141,11 @@ definitions:
       auth-certificate-provider:
         description: Status of Mutual Authentication certificate provider
         "$ref": "#/definitions/Status"
+      notices:
+        description: List of notices.
+        type: array
+        items:
+          "$ref": "#/definitions/Notice"
   Status:
     description: Status of an individual component
     type: object
@@ -2156,6 +2161,24 @@ definitions:
       msg:
         type: string
         description: Human readable status/error/warning message
+  Notice:
+    description: |
+      Notice is an informational message to the cluster operator.
+      They are shown as part of the "cilium status" output.
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      title:
+        type: string
+        description: Notice title
+      message:
+        type: string
+        description: Human readable notice message
+      posted-at:
+        type: string
+        description: Timestamp for when the notice was posted
+        format: date-time
   HostFirewall:
     description: |-
       Status of the host firewall

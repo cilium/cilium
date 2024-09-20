@@ -9,8 +9,10 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
+	"github.com/go-openapi/strfmt"
 	"k8s.io/apimachinery/pkg/util/duration"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -71,6 +73,16 @@ func (n Notice) TableRow() []string {
 		n.Title,
 		n.Message,
 		duration.HumanDuration(time.Since(n.PostedAt)),
+	}
+}
+
+// ToModel converts the notice into the API model for inclusion into
+// the status response.
+func (n Notice) ToModel() *models.Notice {
+	return &models.Notice{
+		Title:    n.Title,
+		Message:  n.Message,
+		PostedAt: strfmt.DateTime(n.PostedAt),
 	}
 }
 

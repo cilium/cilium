@@ -94,6 +94,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/nodediscovery"
+	"github.com/cilium/cilium/pkg/notices"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
@@ -1728,6 +1729,7 @@ type daemonParams struct {
 	IdentityManager     *identitymanager.IdentityManager
 	Orchestrator        datapath.Orchestrator
 	IPTablesManager     datapath.IptablesManager
+	Notices             statedb.Table[notices.Notice]
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[policyK8s.PolicyManager]) {

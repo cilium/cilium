@@ -68,6 +68,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/nodediscovery"
+	"github.com/cilium/cilium/pkg/notices"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
@@ -190,6 +191,9 @@ type Daemon struct {
 	wireguardAgent  *wireguard.Agent
 	orchestrator    datapath.Orchestrator
 	iptablesManager datapath.IptablesManager
+
+	// agent notices, for the status endpoint.
+	notices statedb.Table[notices.Notice]
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -403,6 +407,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		wireguardAgent:    params.WGAgent,
 		orchestrator:      params.Orchestrator,
 		iptablesManager:   params.IPTablesManager,
+		notices:           params.Notices,
 	}
 
 	// Collect CIDR identities from the "old" bpf ipcache and restore them

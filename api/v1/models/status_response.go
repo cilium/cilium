@@ -10,6 +10,7 @@ package models
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -104,6 +105,9 @@ type StatusResponse struct {
 
 	// Status of the node monitor
 	NodeMonitor *MonitorStatus `json:"nodeMonitor,omitempty"`
+
+	// List of notices.
+	Notices []*Notice `json:"notices"`
 
 	// Status of proxy
 	Proxy *ProxyStatus `json:"proxy,omitempty"`
@@ -219,6 +223,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateNodeMonitor(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateNotices(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -713,6 +721,32 @@ func (m *StatusResponse) validateNodeMonitor(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *StatusResponse) validateNotices(formats strfmt.Registry) error {
+	if swag.IsZero(m.Notices) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.Notices); i++ {
+		if swag.IsZero(m.Notices[i]) { // not required
+			continue
+		}
+
+		if m.Notices[i] != nil {
+			if err := m.Notices[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("notices" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("notices" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
 func (m *StatusResponse) validateProxy(formats strfmt.Registry) error {
 	if swag.IsZero(m.Proxy) { // not required
 		return nil
@@ -887,6 +921,10 @@ func (m *StatusResponse) ContextValidate(ctx context.Context, formats strfmt.Reg
 	}
 
 	if err := m.contextValidateNodeMonitor(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateNotices(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -1415,6 +1453,31 @@ func (m *StatusResponse) contextValidateNodeMonitor(ctx context.Context, formats
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateNotices(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Notices); i++ {
+
+		if m.Notices[i] != nil {
+
+			if swag.IsZero(m.Notices[i]) { // not required
+				return nil
+			}
+
+			if err := m.Notices[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("notices" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("notices" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
 	}
 
 	return nil

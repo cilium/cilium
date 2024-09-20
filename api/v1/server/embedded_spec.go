@@ -4308,6 +4308,25 @@ func init() {
         }
       }
     },
+    "Notice": {
+      "description": "Notice is an informational message to the cluster operator.\nThey are shown as part of the \"cilium status\" output.\n\n+k8s:deepcopy-gen=true\n",
+      "type": "object",
+      "properties": {
+        "message": {
+          "description": "Human readable notice message",
+          "type": "string"
+        },
+        "posted-at": {
+          "description": "Timestamp for when the notice was posted",
+          "type": "string",
+          "format": "date-time"
+        },
+        "title": {
+          "description": "Notice title",
+          "type": "string"
+        }
+      }
+    },
     "Policy": {
       "description": "Policy definition",
       "type": "object",
@@ -5124,6 +5143,13 @@ func init() {
         "nodeMonitor": {
           "description": "Status of the node monitor",
           "$ref": "#/definitions/MonitorStatus"
+        },
+        "notices": {
+          "description": "List of notices.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Notice"
+          }
         },
         "proxy": {
           "description": "Status of proxy",
@@ -10477,6 +10503,25 @@ func init() {
         }
       }
     },
+    "Notice": {
+      "description": "Notice is an informational message to the cluster operator.\nThey are shown as part of the \"cilium status\" output.\n\n+k8s:deepcopy-gen=true\n",
+      "type": "object",
+      "properties": {
+        "message": {
+          "description": "Human readable notice message",
+          "type": "string"
+        },
+        "posted-at": {
+          "description": "Timestamp for when the notice was posted",
+          "type": "string",
+          "format": "date-time"
+        },
+        "title": {
+          "description": "Notice title",
+          "type": "string"
+        }
+      }
+    },
     "Policy": {
       "description": "Policy definition",
       "type": "object",
@@ -11361,6 +11406,13 @@ func init() {
         "nodeMonitor": {
           "description": "Status of the node monitor",
           "$ref": "#/definitions/MonitorStatus"
+        },
+        "notices": {
+          "description": "List of notices.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Notice"
+          }
         },
         "proxy": {
           "description": "Status of proxy",

@@ -504,6 +504,11 @@ func (d *Daemon) getStatus(brief bool) models.StatusResponse {
 		sr = *d.statusResponse.DeepCopy()
 	}
 
+	// Collect notices
+	for notice := range d.notices.All(d.db.ReadTxn()) {
+		sr.Notices = append(sr.Notices, notice.ToModel())
+	}
+
 	sr.Stale = stale
 
 	// CiliumVersion definition
