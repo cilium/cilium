@@ -146,8 +146,8 @@ image:
   tag: "v1.14.14"
   pullPolicy: "IfNotPresent"
   # cilium-digest
-  digest: "sha256:43d664501afbf35496e494dae0c5a7f8680a51ed9084997bea9c64bf4451a637"
-  useDigest: true
+  digest: ""
+  useDigest: false
 
 # -- Affinity for cilium-agent.
 affinity:
@@ -1115,8 +1115,8 @@ hubble:
       repository: "quay.io/cilium/hubble-relay"
       tag: "v1.14.14"
        # hubble-relay-digest
-      digest: "sha256:6fdad9d7ce64efbb966745005a2060223d9677cc4407177171b865691ab00aac"
-      useDigest: true
+      digest: ""
+      useDigest: false
       pullPolicy: "IfNotPresent"
 
     # -- Specifies the resources for the hubble-relay pods
@@ -2279,14 +2279,14 @@ operator:
     repository: "quay.io/cilium/operator"
     tag: "v1.14.14"
     # operator-generic-digest
-    genericDigest: "sha256:0f2c8178bd20189fc9aeaa71224e6becdf71b42642209610b57390f7b798aae2"
+    genericDigest: ""
     # operator-azure-digest
-    azureDigest: "sha256:4a88010d124b70ca1b1df90e0ca40bd79a99e344f72bfc821b9ef490421d0f51"
+    azureDigest: ""
     # operator-aws-digest
-    awsDigest: "sha256:adb1ea6a98b2715c5bed74ba4ab9fab89f6862aff462a5a05acd0d8c39d3af80"
+    awsDigest: ""
     # operator-alibabacloud-digest
-    alibabacloudDigest: "sha256:2a88642e1c76548a0c4d8e8fe2facaed5f6955040bdd4729a6d1090eafde5e49"
-    useDigest: true
+    alibabacloudDigest: ""
+    useDigest: false
     pullPolicy: "IfNotPresent"
     suffix: ""
 
@@ -2568,8 +2568,8 @@ preflight:
     repository: "quay.io/cilium/cilium"
     tag: "v1.14.14"
     # cilium-digest
-    digest: "sha256:43d664501afbf35496e494dae0c5a7f8680a51ed9084997bea9c64bf4451a637"
-    useDigest: true
+    digest: ""
+    useDigest: false
     pullPolicy: "IfNotPresent"
 
   # -- The priority class to use for the preflight pod.
@@ -2718,8 +2718,8 @@ clustermesh:
       repository: "quay.io/cilium/clustermesh-apiserver"
       tag: "v1.14.14"
       # clustermesh-apiserver-digest
-      digest: "sha256:43171d3f988ffa7b5ef58b7f329bab77a5382c620b56ed9a64909e4358174135"
-      useDigest: true
+      digest: ""
+      useDigest: false
       pullPolicy: "IfNotPresent"
 
     etcd:
@@ -2765,8 +2765,8 @@ clustermesh:
         repository: "quay.io/cilium/kvstoremesh"
         tag: "v1.14.14"
         # kvstoremesh-digest
-        digest: "sha256:ac7b4ddc38abfa0a27a503c7453dc8a8d4b3b1b1e785b02fda3ccbe613987c41"
-        useDigest: true
+        digest: ""
+        useDigest: false
         pullPolicy: "IfNotPresent"
 
       # -- Additional KVStoreMesh arguments.
