@@ -252,3 +252,13 @@ func (a *API) AssignPrivateIpAddressesVMSS(ctx context.Context, vmName, vmssName
 
 	return nil
 }
+
+func (a *API) AssignPublicIPAddressesVMSS(ctx context.Context, instanceID, vmssName string, publicIpTags ipamTypes.Tags) (string, error) {
+	a.rateLimit()
+	return "mock-public-ip-prefix-id", nil
+}
+
+func (a *API) AssignPublicIPAddressesVM(ctx context.Context, instanceID string, publicIpTags ipamTypes.Tags) (string, error) {
+	a.rateLimit()
+	return "mock-public-ip-prefix-id", nil
+}
