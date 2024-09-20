@@ -129,13 +129,18 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) er
 		return fmt.Errorf("failed to populate local services: %w", err)
 	}
 
-	// must be done before reconciling paths and policies since it sets metadata with latest desiredPeerAdverts
 	reqFullReconcile := r.modifiedServiceAdvertisements(p, desiredPeerAdverts)
 
-	return r.reconcileServices(ctx, p, ls, reqFullReconcile)
+	err = r.reconcileServices(ctx, p, desiredPeerAdverts, ls, reqFullReconcile)
+
+	if err == nil && reqFullReconcile {
+		// update svc advertisements in metadata only if the reconciliation was successful
+		r.updateServiceAdvertisementsMetadata(p, desiredPeerAdverts)
+	}
+	return err
 }
 
-func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcileParams, ls sets.Set[resource.Key], fullReconcile bool) error {
+func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcileParams, desiredPeerAdverts PeerAdvertisements, ls sets.Set[resource.Key], fullReconcile bool) error {
 	var (
 		toReconcile []*slim_corev1.Service
 		toWithdraw  []resource.Key
@@ -166,7 +171,7 @@ func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcilePa
 	}
 
 	// get desired service route policies
-	desiredSvcRoutePolicies, err = r.getDesiredRoutePolicies(p, toReconcile, toWithdraw, ls)
+	desiredSvcRoutePolicies, err = r.getDesiredRoutePolicies(p, desiredPeerAdverts, toReconcile, toWithdraw, ls)
 	if err != nil {
 		return err
 	}
@@ -178,7 +183,7 @@ func (r *ServiceReconciler) reconcileServices(ctx context.Context, p ReconcilePa
 	}
 
 	// get desired service paths
-	desiredSvcPaths, err = r.getDesiredPaths(p, toReconcile, toWithdraw, ls)
+	desiredSvcPaths, err = r.getDesiredPaths(p, desiredPeerAdverts, toReconcile, toWithdraw, ls)
 	if err != nil {
 		return err
 	}
@@ -221,7 +226,7 @@ func (r *ServiceReconciler) reconcileSvcRoutePolicies(ctx context.Context, p Rec
 	return err
 }
 
-func (r *ServiceReconciler) getDesiredRoutePolicies(p ReconcileParams, toUpdate []*slim_corev1.Service, toRemove []resource.Key, ls sets.Set[resource.Key]) (ResourceRoutePolicyMap, error) {
+func (r *ServiceReconciler) getDesiredRoutePolicies(p ReconcileParams, desiredPeerAdverts PeerAdvertisements, toUpdate []*slim_corev1.Service, toRemove []resource.Key, ls sets.Set[resource.Key]) (ResourceRoutePolicyMap, error) {
 	desiredSvcRoutePolicies := make(ResourceRoutePolicyMap)
 
 	for _, svc := range toUpdate {
@@ -231,7 +236,7 @@ func (r *ServiceReconciler) getDesiredRoutePolicies(p ReconcileParams, toUpdate 
 		}
 
 		// get desired route policies for the service
-		svcRoutePolicies, err := r.getDesiredSvcRoutePolicies(p, svc, ls)
+		svcRoutePolicies, err := r.getDesiredSvcRoutePolicies(p, desiredPeerAdverts, svc, ls)
 		if err != nil {
 			return nil, err
 		}
@@ -247,10 +252,10 @@ func (r *ServiceReconciler) getDesiredRoutePolicies(p ReconcileParams, toUpdate 
 	return desiredSvcRoutePolicies, nil
 }
 
-func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p ReconcileParams, svc *slim_corev1.Service, ls sets.Set[resource.Key]) (RoutePolicyMap, error) {
+func (r *ServiceReconciler) getDesiredSvcRoutePolicies(p ReconcileParams, desiredPeerAdverts PeerAdvertisements, svc *slim_corev1.Service, ls sets.Set[resource.Key]) (RoutePolicyMap, error) {
 	desiredSvcRoutePolicies := make(RoutePolicyMap)
 
-	for peer, afAdverts := range r.getMetadata(p.BGPInstance).ServiceAdvertisements {
+	for peer, afAdverts := range desiredPeerAdverts {
 		for fam, adverts := range afAdverts {
 			agentFamily := types.ToAgentFamily(fam)
 
@@ -327,8 +332,8 @@ func (r *ServiceReconciler) reconcilePaths(ctx context.Context, p ReconcileParam
 	return err
 }
 
-// modifiedServiceAdvertisements compares local advertisement state with desiredPeerAdverts, if they differ, it updates the local state and returns true
-// for full reconciliation.
+// modifiedServiceAdvertisements compares local advertisement state with desiredPeerAdverts, if they differ,
+// returns true signaling that full reconciliation is required.
 func (r *ServiceReconciler) modifiedServiceAdvertisements(p ReconcileParams, desiredPeerAdverts PeerAdvertisements) bool {
 	// current metadata
 	serviceMetadata := r.getMetadata(p.BGPInstance)
@@ -336,16 +341,20 @@ func (r *ServiceReconciler) modifiedServiceAdvertisements(p ReconcileParams, des
 	// check if BGP advertisement configuration modified
 	modified := !PeerAdvertisementsEqual(serviceMetadata.ServiceAdvertisements, desiredPeerAdverts)
 
-	// update local state, if modified
-	if modified {
-		r.setMetadata(p.BGPInstance, ServiceReconcilerMetadata{
-			ServicePaths:          serviceMetadata.ServicePaths,
-			ServiceRoutePolicies:  serviceMetadata.ServiceRoutePolicies,
-			ServiceAdvertisements: desiredPeerAdverts,
-		})
-	}
-
 	return modified
+}
+
+// updateServiceAdvertisementsMetadata updates the provided ServiceAdvertisements in the reconciler metadata.
+func (r *ServiceReconciler) updateServiceAdvertisementsMetadata(p ReconcileParams, peerAdverts PeerAdvertisements) {
+	// current metadata
+	serviceMetadata := r.getMetadata(p.BGPInstance)
+
+	// update ServiceAdvertisements in the metadata
+	r.setMetadata(p.BGPInstance, ServiceReconcilerMetadata{
+		ServicePaths:          serviceMetadata.ServicePaths,
+		ServiceRoutePolicies:  serviceMetadata.ServiceRoutePolicies,
+		ServiceAdvertisements: peerAdverts,
+	})
 }
 
 // Populate locally available services used for externalTrafficPolicy=local handling
@@ -480,7 +489,7 @@ func (r *ServiceReconciler) diffReconciliationServiceList(p ReconcileParams) (to
 	return deduped, deleted, nil
 }
 
-func (r *ServiceReconciler) getDesiredPaths(p ReconcileParams, toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, ls sets.Set[resource.Key]) (ResourceAFPathsMap, error) {
+func (r *ServiceReconciler) getDesiredPaths(p ReconcileParams, desiredPeerAdverts PeerAdvertisements, toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, ls sets.Set[resource.Key]) (ResourceAFPathsMap, error) {
 	desiredServiceAFPaths := make(ResourceAFPathsMap)
 	for _, svc := range toReconcile {
 		svcKey := resource.Key{
@@ -488,7 +497,7 @@ func (r *ServiceReconciler) getDesiredPaths(p ReconcileParams, toReconcile []*sl
 			Namespace: svc.GetNamespace(),
 		}
 
-		afPaths, err := r.getServiceAFPaths(p, svc, ls)
+		afPaths, err := r.getServiceAFPaths(p, desiredPeerAdverts, svc, ls)
 		if err != nil {
 			return nil, err
 		}
@@ -504,11 +513,10 @@ func (r *ServiceReconciler) getDesiredPaths(p ReconcileParams, toReconcile []*sl
 	return desiredServiceAFPaths, nil
 }
 
-func (r *ServiceReconciler) getServiceAFPaths(p ReconcileParams, svc *slim_corev1.Service, ls sets.Set[resource.Key]) (AFPathsMap, error) {
+func (r *ServiceReconciler) getServiceAFPaths(p ReconcileParams, desiredPeerAdverts PeerAdvertisements, svc *slim_corev1.Service, ls sets.Set[resource.Key]) (AFPathsMap, error) {
 	desiredFamilyAdverts := make(AFPathsMap)
-	metadata := r.getMetadata(p.BGPInstance)
 
-	for _, peerFamilyAdverts := range metadata.ServiceAdvertisements {
+	for _, peerFamilyAdverts := range desiredPeerAdverts {
 		for family, familyAdverts := range peerFamilyAdverts {
 			agentFamily := types.ToAgentFamily(family)
 
