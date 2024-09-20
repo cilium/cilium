@@ -35,8 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/gops"
-	identity "github.com/cilium/cilium/pkg/identity/cache/cell"
-	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
 	ipcache "github.com/cilium/cilium/pkg/ipcache/cell"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -56,8 +54,6 @@ import (
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	policy "github.com/cilium/cilium/pkg/policy/cell"
-	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
-	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/recorder"
@@ -163,10 +159,6 @@ var (
 		// be synced
 		k8sSynced.Cell,
 
-		// IdentityManager maintains the set of identities and a count of its
-		// users.
-		identitymanager.Cell,
-
 		// EndpointManager maintains a collection of the locally running endpoints.
 		endpointmanager.Cell,
 
@@ -224,9 +216,6 @@ var (
 		// Auth is responsible for authenticating a request if required by a policy.
 		auth.Cell,
 
-		// Provides IdentityAllocators (Responsible for allocating security identities)
-		identity.Cell,
-
 		// IPCache cell provides IPCache (IP to identity mappings)
 		ipcache.Cell,
 
@@ -241,13 +230,6 @@ var (
 
 		// Provides PolicyRepository (List of policy rules)
 		policy.Cell,
-
-		// K8s policy resource watcher cell. It depends on the half-initialized daemon which is
-		// resolved by newDaemonPromise()
-		policyK8s.Cell,
-
-		// Directory policy watcher cell.
-		policyDirectory.Cell,
 
 		// ClusterMesh is the Cilium's multicluster implementation.
 		cell.Config(cmtypes.DefaultClusterInfo),
