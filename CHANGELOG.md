@@ -1,5 +1,63 @@
 # Changelog
 
+## v1.14.15
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* cilium-envoy now uses upstream filter chains for L7 LB policy enforcement. (Backport PR #34458, Upstream PR #32119, @jrajahalme)
+* docs: Update examples for CNP L7 Host (Backport PR #34646, Upstream PR #34578, @sayboras)
+
+**Bugfixes:**
+* config: fix disabling config 'Debug' (Backport PR #34471, Upstream PR #34401, @mhofstetter)
+* envoy: fix log level mapping when changing log level via API (Backport PR #34459, Upstream PR #34400, @mhofstetter)
+* ipcache: Yet another refcounting fix with mix of APIs (Backport PR #34713, Upstream PR #34715, @gandro)
+
+**CI Changes:**
+* .github: change nick-invision/retry -> nick-fields/retry. (cilium/cilium#34737, @michi-covalent)
+* ci: clean disk only on ubuntu-latest runners (Backport PR #34829, Upstream PR #34711, @marseel)
+* ci: Confromance E2E wait for images before matrix generation (Backport PR #34829, Upstream PR #34707, @marseel)
+* ci: multi pool run tests concurrently (Backport PR #34364, Upstream PR #33945, @viktor-kurchenko)
+* ci: Wait for images before generating test matrix (Backport PR #34829, Upstream PR #34727, @marseel)
+* Fix: push PR changes when renovate build images under the workflow_call context (Backport PR #34829, Upstream PR #34650, @Artyop)
+* gha: Add disk cleanup step for build and test workflow (Backport PR #34364, Upstream PR #34339, @sayboras)
+* gha: Free up Github runner disk space (Backport PR #34364, Upstream PR #34247, @sayboras)
+* gha: Remove ci-aks workflow (cilium/cilium#34606, @sayboras)
+
+**Misc Changes:**
+* [v1.14] hive: prevent goleak error due to race condition (cilium/cilium#34658, @marseel)
+* Add source IP visibility info to Ingress and Gateway API docs (Backport PR #34369, Upstream PR #34137, @youngnick)
+* Add source IP visibility info to Ingress and Gateway API docs (Backport PR #34459, Upstream PR #34137, @youngnick)
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#34572, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (cilium/cilium#34763, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.15 (v1.14) (cilium/cilium#34120, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.16 (v1.14) (cilium/cilium#34508, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.17 (v1.14) (cilium/cilium#34885, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/hubble to v1.16.1 (v1.14) (cilium/cilium#34854, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.18.9 (v1.14) (cilium/cilium#34762, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.22.7 docker digest to 4594271 (v1.14) (cilium/cilium#34901, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to adbb901 (v1.14) (cilium/cilium#34697, @cilium-renovate[bot])
+* chore(deps): update gcr.io/etcd-development/etcd docker tag to v3.5.16 (v1.14) (cilium/cilium#34905, @cilium-renovate[bot])
+* chore(deps): update go to v1.22.7 (v1.14) (cilium/cilium#34734, @cilium-renovate[bot])
+* chore(deps): update kindest/node docker tag to v1.27.16 (v1.14) (cilium/cilium#34509, @cilium-renovate[bot])
+* chore: Avoid docker warning due to casing (Backport PR #34859, Upstream PR #34125, @sayboras)
+* cilium-dbg: add Envoy admin commands (Backport PR #34495, Upstream PR #34398, @mhofstetter)
+* docs: Avoid using wildcard TLS certificate (Backport PR #34829, Upstream PR #34609, @sayboras)
+* docs: Improve Ingress documentation (Backport PR #34369, Upstream PR #33698, @youngnick)
+* docs: Improve Ingress documentation (Backport PR #34459, Upstream PR #33698, @youngnick)
+* Documentation: Update readthedocs configuration (Backport PR #34364, Upstream PR #34190, @joestringer)
+* fix: base image update workflow will now be triggered on renovate branches with a workflow_call event type (Backport PR #34459, Upstream PR #34372, @Artyop)
+* images: fix path script (Backport PR #34766, Upstream PR #34764, @aanm)
+* ipsec: Document a new cause of XfrmInStateProtoError (Backport PR #34495, Upstream PR #34221, @jschwinger233)
+
+**Other Changes:**
+* [v1.14] CODEOWNERS: switch cilium/tophat to cilium/committers (cilium/cilium#34888, @julianwiedmann)
+* [v1.14] envoy: Bump envoy version from v1.29.7 to v1.29.9 (cilium/cilium#34963, @sayboras)
+* [v1.14] envoy: Switch to image with timestamp tag (cilium/cilium#34393, @sayboras)
+* envoy: Bump golang version (cilium/cilium#34329, @sayboras)
+* install: Update image digests for v1.14.14 (cilium/cilium#34377, @cilium-release-bot[bot])
+
 ## v1.14.14
 
 Summary of Changes
