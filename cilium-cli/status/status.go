@@ -13,6 +13,8 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/duration"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/pkg/lock"
@@ -140,6 +142,8 @@ type Status struct {
 	// For Helm mode only.
 	HelmChartVersion string `json:"helm_chart_version,omitempty"`
 
+	Notices map[string][]*models.Notice
+
 	mutex *lock.Mutex
 }
 
@@ -152,6 +156,7 @@ func newStatus() *Status {
 		CiliumStatus:    CiliumStatusMap{},
 		CiliumEndpoints: CiliumEndpointsMap{},
 		Errors:          ErrorCountMapMap{},
+		Notices:         map[string][]*models.Notice{},
 		mutex:           &lock.Mutex{},
 	}
 }
@@ -250,6 +255,10 @@ func (s *Status) parseStatusResponse(deployment, podName string, r *models.Statu
 
 	if r.AuthCertificateProvider != nil {
 		s.parseCiliumSubsystemStatus(deployment, podName, "AuthCertificateProvider", r.AuthCertificateProvider)
+	}
+
+	if len(r.Notices) > 0 {
+		s.Notices[podName] = r.Notices
 	}
 
 	if len(r.Controllers) > 0 {
@@ -431,6 +440,27 @@ func (s *Status) Format() string {
 				header = ""
 			}
 		}
+	}
+
+	header = "Notices:"
+	maxNoticesToShow := 20
+	for pod, notices := range s.Notices {
+		if maxNoticesToShow >= 0 {
+			fmt.Fprintf(w, "%s\t%s\t%s\t\n", header, defaults.AgentDaemonSetName, pod)
+			header = ""
+		}
+		for _, notice := range notices {
+			maxNoticesToShow--
+			if maxNoticesToShow >= 0 {
+				fmt.Fprintf(w, "\t%s:\t%s\t(%s ago)\n",
+					notice.Title,
+					notice.Message,
+					duration.HumanDuration(time.Since(time.Time(notice.PostedAt))))
+			}
+		}
+	}
+	if maxNoticesToShow <= 0 {
+		fmt.Fprintf(w, "(%d notices omitted)\n", -maxNoticesToShow)
 	}
 
 	w.Flush()
