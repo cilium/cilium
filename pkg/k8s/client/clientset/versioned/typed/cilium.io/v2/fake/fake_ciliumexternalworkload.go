@@ -6,120 +6,34 @@
 package fake
 
 import (
-	"context"
-
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeCiliumExternalWorkloads implements CiliumExternalWorkloadInterface
-type FakeCiliumExternalWorkloads struct {
+// fakeCiliumExternalWorkloads implements CiliumExternalWorkloadInterface
+type fakeCiliumExternalWorkloads struct {
+	*gentype.FakeClientWithList[*v2.CiliumExternalWorkload, *v2.CiliumExternalWorkloadList]
 	Fake *FakeCiliumV2
 }
 
-var ciliumexternalworkloadsResource = v2.SchemeGroupVersion.WithResource("ciliumexternalworkloads")
-
-var ciliumexternalworkloadsKind = v2.SchemeGroupVersion.WithKind("CiliumExternalWorkload")
-
-// Get takes name of the ciliumExternalWorkload, and returns the corresponding ciliumExternalWorkload object, and an error if there is any.
-func (c *FakeCiliumExternalWorkloads) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumExternalWorkload, err error) {
-	emptyResult := &v2.CiliumExternalWorkload{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(ciliumexternalworkloadsResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeCiliumExternalWorkloads(fake *FakeCiliumV2) ciliumiov2.CiliumExternalWorkloadInterface {
+	return &fakeCiliumExternalWorkloads{
+		gentype.NewFakeClientWithList[*v2.CiliumExternalWorkload, *v2.CiliumExternalWorkloadList](
+			fake.Fake,
+			"",
+			v2.SchemeGroupVersion.WithResource("ciliumexternalworkloads"),
+			v2.SchemeGroupVersion.WithKind("CiliumExternalWorkload"),
+			func() *v2.CiliumExternalWorkload { return &v2.CiliumExternalWorkload{} },
+			func() *v2.CiliumExternalWorkloadList { return &v2.CiliumExternalWorkloadList{} },
+			func(dst, src *v2.CiliumExternalWorkloadList) { dst.ListMeta = src.ListMeta },
+			func(list *v2.CiliumExternalWorkloadList) []*v2.CiliumExternalWorkload {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v2.CiliumExternalWorkloadList, items []*v2.CiliumExternalWorkload) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v2.CiliumExternalWorkload), err
-}
-
-// List takes label and field selectors, and returns the list of CiliumExternalWorkloads that match those selectors.
-func (c *FakeCiliumExternalWorkloads) List(ctx context.Context, opts v1.ListOptions) (result *v2.CiliumExternalWorkloadList, err error) {
-	emptyResult := &v2.CiliumExternalWorkloadList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(ciliumexternalworkloadsResource, ciliumexternalworkloadsKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v2.CiliumExternalWorkloadList{ListMeta: obj.(*v2.CiliumExternalWorkloadList).ListMeta}
-	for _, item := range obj.(*v2.CiliumExternalWorkloadList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested ciliumExternalWorkloads.
-func (c *FakeCiliumExternalWorkloads) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumexternalworkloadsResource, opts))
-}
-
-// Create takes the representation of a ciliumExternalWorkload and creates it.  Returns the server's representation of the ciliumExternalWorkload, and an error, if there is any.
-func (c *FakeCiliumExternalWorkloads) Create(ctx context.Context, ciliumExternalWorkload *v2.CiliumExternalWorkload, opts v1.CreateOptions) (result *v2.CiliumExternalWorkload, err error) {
-	emptyResult := &v2.CiliumExternalWorkload{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(ciliumexternalworkloadsResource, ciliumExternalWorkload, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v2.CiliumExternalWorkload), err
-}
-
-// Update takes the representation of a ciliumExternalWorkload and updates it. Returns the server's representation of the ciliumExternalWorkload, and an error, if there is any.
-func (c *FakeCiliumExternalWorkloads) Update(ctx context.Context, ciliumExternalWorkload *v2.CiliumExternalWorkload, opts v1.UpdateOptions) (result *v2.CiliumExternalWorkload, err error) {
-	emptyResult := &v2.CiliumExternalWorkload{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(ciliumexternalworkloadsResource, ciliumExternalWorkload, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v2.CiliumExternalWorkload), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeCiliumExternalWorkloads) UpdateStatus(ctx context.Context, ciliumExternalWorkload *v2.CiliumExternalWorkload, opts v1.UpdateOptions) (result *v2.CiliumExternalWorkload, err error) {
-	emptyResult := &v2.CiliumExternalWorkload{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(ciliumexternalworkloadsResource, "status", ciliumExternalWorkload, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v2.CiliumExternalWorkload), err
-}
-
-// Delete takes name of the ciliumExternalWorkload and deletes it. Returns an error if one occurs.
-func (c *FakeCiliumExternalWorkloads) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(ciliumexternalworkloadsResource, name, opts), &v2.CiliumExternalWorkload{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeCiliumExternalWorkloads) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumexternalworkloadsResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v2.CiliumExternalWorkloadList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched ciliumExternalWorkload.
-func (c *FakeCiliumExternalWorkloads) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumExternalWorkload, err error) {
-	emptyResult := &v2.CiliumExternalWorkload{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumexternalworkloadsResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v2.CiliumExternalWorkload), err
 }

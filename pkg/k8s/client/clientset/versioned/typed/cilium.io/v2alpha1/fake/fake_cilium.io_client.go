@@ -16,51 +16,51 @@ type FakeCiliumV2alpha1 struct {
 }
 
 func (c *FakeCiliumV2alpha1) CiliumBGPAdvertisements() v2alpha1.CiliumBGPAdvertisementInterface {
-	return &FakeCiliumBGPAdvertisements{c}
+	return newFakeCiliumBGPAdvertisements(c)
 }
 
 func (c *FakeCiliumV2alpha1) CiliumBGPClusterConfigs() v2alpha1.CiliumBGPClusterConfigInterface {
-	return &FakeCiliumBGPClusterConfigs{c}
+	return newFakeCiliumBGPClusterConfigs(c)
 }
 
 func (c *FakeCiliumV2alpha1) CiliumBGPNodeConfigs() v2alpha1.CiliumBGPNodeConfigInterface {
-	return &FakeCiliumBGPNodeConfigs{c}
+	return newFakeCiliumBGPNodeConfigs(c)
 }
 
 func (c *FakeCiliumV2alpha1) CiliumBGPNodeConfigOverrides() v2alpha1.CiliumBGPNodeConfigOverrideInterface {
-	return &FakeCiliumBGPNodeConfigOverrides{c}
+	return newFakeCiliumBGPNodeConfigOverrides(c)
 }
 
 func (c *FakeCiliumV2alpha1) CiliumBGPPeerConfigs() v2alpha1.CiliumBGPPeerConfigInterface {
-	return &FakeCiliumBGPPeerConfigs{c}
+	return newFakeCiliumBGPPeerConfigs(c)
 }
 
 func (c *FakeCiliumV2alpha1) CiliumBGPPeeringPolicies() v2alpha1.CiliumBGPPeeringPolicyInterface {
-	return &FakeCiliumBGPPeeringPolicies{c}
+	return newFakeCiliumBGPPeeringPolicies(c)
 }
 
 func (c *FakeCiliumV2alpha1) CiliumCIDRGroups() v2alpha1.CiliumCIDRGroupInterface {
-	return &FakeCiliumCIDRGroups{c}
+	return newFakeCiliumCIDRGroups(c)
 }
 
 func (c *FakeCiliumV2alpha1) CiliumEndpointSlices() v2alpha1.CiliumEndpointSliceInterface {
-	return &FakeCiliumEndpointSlices{c}
+	return newFakeCiliumEndpointSlices(c)
 }
 
 func (c *FakeCiliumV2alpha1) CiliumL2AnnouncementPolicies() v2alpha1.CiliumL2AnnouncementPolicyInterface {
-	return &FakeCiliumL2AnnouncementPolicies{c}
+	return newFakeCiliumL2AnnouncementPolicies(c)
 }
 
 func (c *FakeCiliumV2alpha1) CiliumLoadBalancerIPPools() v2alpha1.CiliumLoadBalancerIPPoolInterface {
-	return &FakeCiliumLoadBalancerIPPools{c}
+	return newFakeCiliumLoadBalancerIPPools(c)
 }
 
 func (c *FakeCiliumV2alpha1) CiliumNodeConfigs(namespace string) v2alpha1.CiliumNodeConfigInterface {
-	return &FakeCiliumNodeConfigs{c, namespace}
+	return newFakeCiliumNodeConfigs(c, namespace)
 }
 
 func (c *FakeCiliumV2alpha1) CiliumPodIPPools() v2alpha1.CiliumPodIPPoolInterface {
-	return &FakeCiliumPodIPPools{c}
+	return newFakeCiliumPodIPPools(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

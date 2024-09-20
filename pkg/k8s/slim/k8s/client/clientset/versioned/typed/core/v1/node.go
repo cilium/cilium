@@ -6,9 +6,9 @@
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	scheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,33 +24,34 @@ type NodesGetter interface {
 
 // NodeInterface has methods to work with Node resources.
 type NodeInterface interface {
-	Create(ctx context.Context, node *v1.Node, opts metav1.CreateOptions) (*v1.Node, error)
-	Update(ctx context.Context, node *v1.Node, opts metav1.UpdateOptions) (*v1.Node, error)
+	Create(ctx context.Context, node *corev1.Node, opts metav1.CreateOptions) (*corev1.Node, error)
+	Update(ctx context.Context, node *corev1.Node, opts metav1.UpdateOptions) (*corev1.Node, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, node *v1.Node, opts metav1.UpdateOptions) (*v1.Node, error)
+	UpdateStatus(ctx context.Context, node *corev1.Node, opts metav1.UpdateOptions) (*corev1.Node, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Node, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.NodeList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Node, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*corev1.NodeList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Node, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *corev1.Node, err error)
 	NodeExpansion
 }
 
 // nodes implements NodeInterface
 type nodes struct {
-	*gentype.ClientWithList[*v1.Node, *v1.NodeList]
+	*gentype.ClientWithList[*corev1.Node, *corev1.NodeList]
 }
 
 // newNodes returns a Nodes
 func newNodes(c *CoreV1Client) *nodes {
 	return &nodes{
-		gentype.NewClientWithList[*v1.Node, *v1.NodeList](
+		gentype.NewClientWithList[*corev1.Node, *corev1.NodeList](
 			"nodes",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1.Node { return &v1.Node{} },
-			func() *v1.NodeList { return &v1.NodeList{} }),
+			func() *corev1.Node { return &corev1.Node{} },
+			func() *corev1.NodeList { return &corev1.NodeList{} },
+		),
 	}
 }

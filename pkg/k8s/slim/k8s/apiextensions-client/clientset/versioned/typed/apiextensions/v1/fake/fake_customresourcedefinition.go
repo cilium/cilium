@@ -6,108 +6,34 @@
 package fake
 
 import (
-	"context"
-
+	apiextensionsv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/clientset/versioned/typed/apiextensions/v1"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeCustomResourceDefinitions implements CustomResourceDefinitionInterface
-type FakeCustomResourceDefinitions struct {
+// fakeCustomResourceDefinitions implements CustomResourceDefinitionInterface
+type fakeCustomResourceDefinitions struct {
+	*gentype.FakeClientWithList[*v1.CustomResourceDefinition, *v1.CustomResourceDefinitionList]
 	Fake *FakeApiextensionsV1
 }
 
-var customresourcedefinitionsResource = v1.SchemeGroupVersion.WithResource("customresourcedefinitions")
-
-var customresourcedefinitionsKind = v1.SchemeGroupVersion.WithKind("CustomResourceDefinition")
-
-// Get takes name of the customResourceDefinition, and returns the corresponding customResourceDefinition object, and an error if there is any.
-func (c *FakeCustomResourceDefinitions) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.CustomResourceDefinition, err error) {
-	emptyResult := &v1.CustomResourceDefinition{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(customresourcedefinitionsResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeCustomResourceDefinitions(fake *FakeApiextensionsV1) apiextensionsv1.CustomResourceDefinitionInterface {
+	return &fakeCustomResourceDefinitions{
+		gentype.NewFakeClientWithList[*v1.CustomResourceDefinition, *v1.CustomResourceDefinitionList](
+			fake.Fake,
+			"",
+			v1.SchemeGroupVersion.WithResource("customresourcedefinitions"),
+			v1.SchemeGroupVersion.WithKind("CustomResourceDefinition"),
+			func() *v1.CustomResourceDefinition { return &v1.CustomResourceDefinition{} },
+			func() *v1.CustomResourceDefinitionList { return &v1.CustomResourceDefinitionList{} },
+			func(dst, src *v1.CustomResourceDefinitionList) { dst.ListMeta = src.ListMeta },
+			func(list *v1.CustomResourceDefinitionList) []*v1.CustomResourceDefinition {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1.CustomResourceDefinitionList, items []*v1.CustomResourceDefinition) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1.CustomResourceDefinition), err
-}
-
-// List takes label and field selectors, and returns the list of CustomResourceDefinitions that match those selectors.
-func (c *FakeCustomResourceDefinitions) List(ctx context.Context, opts metav1.ListOptions) (result *v1.CustomResourceDefinitionList, err error) {
-	emptyResult := &v1.CustomResourceDefinitionList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(customresourcedefinitionsResource, customresourcedefinitionsKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1.CustomResourceDefinitionList{ListMeta: obj.(*v1.CustomResourceDefinitionList).ListMeta}
-	for _, item := range obj.(*v1.CustomResourceDefinitionList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested customResourceDefinitions.
-func (c *FakeCustomResourceDefinitions) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(customresourcedefinitionsResource, opts))
-}
-
-// Create takes the representation of a customResourceDefinition and creates it.  Returns the server's representation of the customResourceDefinition, and an error, if there is any.
-func (c *FakeCustomResourceDefinitions) Create(ctx context.Context, customResourceDefinition *v1.CustomResourceDefinition, opts metav1.CreateOptions) (result *v1.CustomResourceDefinition, err error) {
-	emptyResult := &v1.CustomResourceDefinition{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(customresourcedefinitionsResource, customResourceDefinition, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.CustomResourceDefinition), err
-}
-
-// Update takes the representation of a customResourceDefinition and updates it. Returns the server's representation of the customResourceDefinition, and an error, if there is any.
-func (c *FakeCustomResourceDefinitions) Update(ctx context.Context, customResourceDefinition *v1.CustomResourceDefinition, opts metav1.UpdateOptions) (result *v1.CustomResourceDefinition, err error) {
-	emptyResult := &v1.CustomResourceDefinition{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(customresourcedefinitionsResource, customResourceDefinition, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.CustomResourceDefinition), err
-}
-
-// Delete takes name of the customResourceDefinition and deletes it. Returns an error if one occurs.
-func (c *FakeCustomResourceDefinitions) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(customresourcedefinitionsResource, name, opts), &v1.CustomResourceDefinition{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeCustomResourceDefinitions) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(customresourcedefinitionsResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1.CustomResourceDefinitionList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched customResourceDefinition.
-func (c *FakeCustomResourceDefinitions) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.CustomResourceDefinition, err error) {
-	emptyResult := &v1.CustomResourceDefinition{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(customresourcedefinitionsResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.CustomResourceDefinition), err
 }

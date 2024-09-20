@@ -6,13 +6,13 @@
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	apicorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	versioned "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/listers/core/v1"
+	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/listers/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // Endpoints.
 type EndpointsInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.EndpointsLister
+	Lister() corev1.EndpointsLister
 }
 
 type endpointsInformer struct {
@@ -58,7 +58,7 @@ func NewFilteredEndpointsInformer(client versioned.Interface, namespace string, 
 				return client.CoreV1().Endpoints(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&corev1.Endpoints{},
+		&apicorev1.Endpoints{},
 		resyncPeriod,
 		indexers,
 	)
@@ -69,9 +69,9 @@ func (f *endpointsInformer) defaultInformer(client versioned.Interface, resyncPe
 }
 
 func (f *endpointsInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&corev1.Endpoints{}, f.defaultInformer)
+	return f.factory.InformerFor(&apicorev1.Endpoints{}, f.defaultInformer)
 }
 
-func (f *endpointsInformer) Lister() v1.EndpointsLister {
-	return v1.NewEndpointsLister(f.Informer().GetIndexer())
+func (f *endpointsInformer) Lister() corev1.EndpointsLister {
+	return corev1.NewEndpointsLister(f.Informer().GetIndexer())
 }

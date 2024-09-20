@@ -6,10 +6,10 @@
 package v2
 
 import (
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CiliumClusterwideNetworkPolicyLister helps list CiliumClusterwideNetworkPolicies.
@@ -17,19 +17,19 @@ import (
 type CiliumClusterwideNetworkPolicyLister interface {
 	// List lists all CiliumClusterwideNetworkPolicies in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2.CiliumClusterwideNetworkPolicy, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2.CiliumClusterwideNetworkPolicy, err error)
 	// Get retrieves the CiliumClusterwideNetworkPolicy from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2.CiliumClusterwideNetworkPolicy, error)
+	Get(name string) (*ciliumiov2.CiliumClusterwideNetworkPolicy, error)
 	CiliumClusterwideNetworkPolicyListerExpansion
 }
 
 // ciliumClusterwideNetworkPolicyLister implements the CiliumClusterwideNetworkPolicyLister interface.
 type ciliumClusterwideNetworkPolicyLister struct {
-	listers.ResourceIndexer[*v2.CiliumClusterwideNetworkPolicy]
+	listers.ResourceIndexer[*ciliumiov2.CiliumClusterwideNetworkPolicy]
 }
 
 // NewCiliumClusterwideNetworkPolicyLister returns a new CiliumClusterwideNetworkPolicyLister.
 func NewCiliumClusterwideNetworkPolicyLister(indexer cache.Indexer) CiliumClusterwideNetworkPolicyLister {
-	return &ciliumClusterwideNetworkPolicyLister{listers.New[*v2.CiliumClusterwideNetworkPolicy](indexer, v2.Resource("ciliumclusterwidenetworkpolicy"))}
+	return &ciliumClusterwideNetworkPolicyLister{listers.New[*ciliumiov2.CiliumClusterwideNetworkPolicy](indexer, ciliumiov2.Resource("ciliumclusterwidenetworkpolicy"))}
 }

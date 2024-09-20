@@ -16,47 +16,47 @@ type FakeCiliumV2 struct {
 }
 
 func (c *FakeCiliumV2) CiliumClusterwideEnvoyConfigs() v2.CiliumClusterwideEnvoyConfigInterface {
-	return &FakeCiliumClusterwideEnvoyConfigs{c}
+	return newFakeCiliumClusterwideEnvoyConfigs(c)
 }
 
 func (c *FakeCiliumV2) CiliumClusterwideNetworkPolicies() v2.CiliumClusterwideNetworkPolicyInterface {
-	return &FakeCiliumClusterwideNetworkPolicies{c}
+	return newFakeCiliumClusterwideNetworkPolicies(c)
 }
 
 func (c *FakeCiliumV2) CiliumEgressGatewayPolicies() v2.CiliumEgressGatewayPolicyInterface {
-	return &FakeCiliumEgressGatewayPolicies{c}
+	return newFakeCiliumEgressGatewayPolicies(c)
 }
 
 func (c *FakeCiliumV2) CiliumEndpoints(namespace string) v2.CiliumEndpointInterface {
-	return &FakeCiliumEndpoints{c, namespace}
+	return newFakeCiliumEndpoints(c, namespace)
 }
 
 func (c *FakeCiliumV2) CiliumEnvoyConfigs(namespace string) v2.CiliumEnvoyConfigInterface {
-	return &FakeCiliumEnvoyConfigs{c, namespace}
+	return newFakeCiliumEnvoyConfigs(c, namespace)
 }
 
 func (c *FakeCiliumV2) CiliumExternalWorkloads() v2.CiliumExternalWorkloadInterface {
-	return &FakeCiliumExternalWorkloads{c}
+	return newFakeCiliumExternalWorkloads(c)
 }
 
 func (c *FakeCiliumV2) CiliumIdentities() v2.CiliumIdentityInterface {
-	return &FakeCiliumIdentities{c}
+	return newFakeCiliumIdentities(c)
 }
 
 func (c *FakeCiliumV2) CiliumLocalRedirectPolicies(namespace string) v2.CiliumLocalRedirectPolicyInterface {
-	return &FakeCiliumLocalRedirectPolicies{c, namespace}
+	return newFakeCiliumLocalRedirectPolicies(c, namespace)
 }
 
 func (c *FakeCiliumV2) CiliumNetworkPolicies(namespace string) v2.CiliumNetworkPolicyInterface {
-	return &FakeCiliumNetworkPolicies{c, namespace}
+	return newFakeCiliumNetworkPolicies(c, namespace)
 }
 
 func (c *FakeCiliumV2) CiliumNodes() v2.CiliumNodeInterface {
-	return &FakeCiliumNodes{c}
+	return newFakeCiliumNodes(c)
 }
 
 func (c *FakeCiliumV2) CiliumNodeConfigs(namespace string) v2.CiliumNodeConfigInterface {
-	return &FakeCiliumNodeConfigs{c, namespace}
+	return newFakeCiliumNodeConfigs(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
