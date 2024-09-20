@@ -6,10 +6,10 @@
 package v2alpha1
 
 import (
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CiliumPodIPPoolLister helps list CiliumPodIPPools.
@@ -17,19 +17,19 @@ import (
 type CiliumPodIPPoolLister interface {
 	// List lists all CiliumPodIPPools in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2alpha1.CiliumPodIPPool, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2alpha1.CiliumPodIPPool, err error)
 	// Get retrieves the CiliumPodIPPool from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2alpha1.CiliumPodIPPool, error)
+	Get(name string) (*ciliumiov2alpha1.CiliumPodIPPool, error)
 	CiliumPodIPPoolListerExpansion
 }
 
 // ciliumPodIPPoolLister implements the CiliumPodIPPoolLister interface.
 type ciliumPodIPPoolLister struct {
-	listers.ResourceIndexer[*v2alpha1.CiliumPodIPPool]
+	listers.ResourceIndexer[*ciliumiov2alpha1.CiliumPodIPPool]
 }
 
 // NewCiliumPodIPPoolLister returns a new CiliumPodIPPoolLister.
 func NewCiliumPodIPPoolLister(indexer cache.Indexer) CiliumPodIPPoolLister {
-	return &ciliumPodIPPoolLister{listers.New[*v2alpha1.CiliumPodIPPool](indexer, v2alpha1.Resource("ciliumpodippool"))}
+	return &ciliumPodIPPoolLister{listers.New[*ciliumiov2alpha1.CiliumPodIPPool](indexer, ciliumiov2alpha1.Resource("ciliumpodippool"))}
 }

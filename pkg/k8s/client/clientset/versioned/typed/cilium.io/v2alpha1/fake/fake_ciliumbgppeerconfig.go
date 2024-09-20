@@ -6,120 +6,34 @@
 package fake
 
 import (
-	"context"
-
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeCiliumBGPPeerConfigs implements CiliumBGPPeerConfigInterface
-type FakeCiliumBGPPeerConfigs struct {
+// fakeCiliumBGPPeerConfigs implements CiliumBGPPeerConfigInterface
+type fakeCiliumBGPPeerConfigs struct {
+	*gentype.FakeClientWithList[*v2alpha1.CiliumBGPPeerConfig, *v2alpha1.CiliumBGPPeerConfigList]
 	Fake *FakeCiliumV2alpha1
 }
 
-var ciliumbgppeerconfigsResource = v2alpha1.SchemeGroupVersion.WithResource("ciliumbgppeerconfigs")
-
-var ciliumbgppeerconfigsKind = v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPPeerConfig")
-
-// Get takes name of the ciliumBGPPeerConfig, and returns the corresponding ciliumBGPPeerConfig object, and an error if there is any.
-func (c *FakeCiliumBGPPeerConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumBGPPeerConfig, err error) {
-	emptyResult := &v2alpha1.CiliumBGPPeerConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(ciliumbgppeerconfigsResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeCiliumBGPPeerConfigs(fake *FakeCiliumV2alpha1) ciliumiov2alpha1.CiliumBGPPeerConfigInterface {
+	return &fakeCiliumBGPPeerConfigs{
+		gentype.NewFakeClientWithList[*v2alpha1.CiliumBGPPeerConfig, *v2alpha1.CiliumBGPPeerConfigList](
+			fake.Fake,
+			"",
+			v2alpha1.SchemeGroupVersion.WithResource("ciliumbgppeerconfigs"),
+			v2alpha1.SchemeGroupVersion.WithKind("CiliumBGPPeerConfig"),
+			func() *v2alpha1.CiliumBGPPeerConfig { return &v2alpha1.CiliumBGPPeerConfig{} },
+			func() *v2alpha1.CiliumBGPPeerConfigList { return &v2alpha1.CiliumBGPPeerConfigList{} },
+			func(dst, src *v2alpha1.CiliumBGPPeerConfigList) { dst.ListMeta = src.ListMeta },
+			func(list *v2alpha1.CiliumBGPPeerConfigList) []*v2alpha1.CiliumBGPPeerConfig {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v2alpha1.CiliumBGPPeerConfigList, items []*v2alpha1.CiliumBGPPeerConfig) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v2alpha1.CiliumBGPPeerConfig), err
-}
-
-// List takes label and field selectors, and returns the list of CiliumBGPPeerConfigs that match those selectors.
-func (c *FakeCiliumBGPPeerConfigs) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.CiliumBGPPeerConfigList, err error) {
-	emptyResult := &v2alpha1.CiliumBGPPeerConfigList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(ciliumbgppeerconfigsResource, ciliumbgppeerconfigsKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v2alpha1.CiliumBGPPeerConfigList{ListMeta: obj.(*v2alpha1.CiliumBGPPeerConfigList).ListMeta}
-	for _, item := range obj.(*v2alpha1.CiliumBGPPeerConfigList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested ciliumBGPPeerConfigs.
-func (c *FakeCiliumBGPPeerConfigs) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumbgppeerconfigsResource, opts))
-}
-
-// Create takes the representation of a ciliumBGPPeerConfig and creates it.  Returns the server's representation of the ciliumBGPPeerConfig, and an error, if there is any.
-func (c *FakeCiliumBGPPeerConfigs) Create(ctx context.Context, ciliumBGPPeerConfig *v2alpha1.CiliumBGPPeerConfig, opts v1.CreateOptions) (result *v2alpha1.CiliumBGPPeerConfig, err error) {
-	emptyResult := &v2alpha1.CiliumBGPPeerConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(ciliumbgppeerconfigsResource, ciliumBGPPeerConfig, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v2alpha1.CiliumBGPPeerConfig), err
-}
-
-// Update takes the representation of a ciliumBGPPeerConfig and updates it. Returns the server's representation of the ciliumBGPPeerConfig, and an error, if there is any.
-func (c *FakeCiliumBGPPeerConfigs) Update(ctx context.Context, ciliumBGPPeerConfig *v2alpha1.CiliumBGPPeerConfig, opts v1.UpdateOptions) (result *v2alpha1.CiliumBGPPeerConfig, err error) {
-	emptyResult := &v2alpha1.CiliumBGPPeerConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(ciliumbgppeerconfigsResource, ciliumBGPPeerConfig, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v2alpha1.CiliumBGPPeerConfig), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeCiliumBGPPeerConfigs) UpdateStatus(ctx context.Context, ciliumBGPPeerConfig *v2alpha1.CiliumBGPPeerConfig, opts v1.UpdateOptions) (result *v2alpha1.CiliumBGPPeerConfig, err error) {
-	emptyResult := &v2alpha1.CiliumBGPPeerConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(ciliumbgppeerconfigsResource, "status", ciliumBGPPeerConfig, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v2alpha1.CiliumBGPPeerConfig), err
-}
-
-// Delete takes name of the ciliumBGPPeerConfig and deletes it. Returns an error if one occurs.
-func (c *FakeCiliumBGPPeerConfigs) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(ciliumbgppeerconfigsResource, name, opts), &v2alpha1.CiliumBGPPeerConfig{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeCiliumBGPPeerConfigs) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumbgppeerconfigsResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v2alpha1.CiliumBGPPeerConfigList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched ciliumBGPPeerConfig.
-func (c *FakeCiliumBGPPeerConfigs) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumBGPPeerConfig, err error) {
-	emptyResult := &v2alpha1.CiliumBGPPeerConfig{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumbgppeerconfigsResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v2alpha1.CiliumBGPPeerConfig), err
 }

@@ -6,108 +6,34 @@
 package fake
 
 import (
-	"context"
-
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeCiliumEndpointSlices implements CiliumEndpointSliceInterface
-type FakeCiliumEndpointSlices struct {
+// fakeCiliumEndpointSlices implements CiliumEndpointSliceInterface
+type fakeCiliumEndpointSlices struct {
+	*gentype.FakeClientWithList[*v2alpha1.CiliumEndpointSlice, *v2alpha1.CiliumEndpointSliceList]
 	Fake *FakeCiliumV2alpha1
 }
 
-var ciliumendpointslicesResource = v2alpha1.SchemeGroupVersion.WithResource("ciliumendpointslices")
-
-var ciliumendpointslicesKind = v2alpha1.SchemeGroupVersion.WithKind("CiliumEndpointSlice")
-
-// Get takes name of the ciliumEndpointSlice, and returns the corresponding ciliumEndpointSlice object, and an error if there is any.
-func (c *FakeCiliumEndpointSlices) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumEndpointSlice, err error) {
-	emptyResult := &v2alpha1.CiliumEndpointSlice{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(ciliumendpointslicesResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeCiliumEndpointSlices(fake *FakeCiliumV2alpha1) ciliumiov2alpha1.CiliumEndpointSliceInterface {
+	return &fakeCiliumEndpointSlices{
+		gentype.NewFakeClientWithList[*v2alpha1.CiliumEndpointSlice, *v2alpha1.CiliumEndpointSliceList](
+			fake.Fake,
+			"",
+			v2alpha1.SchemeGroupVersion.WithResource("ciliumendpointslices"),
+			v2alpha1.SchemeGroupVersion.WithKind("CiliumEndpointSlice"),
+			func() *v2alpha1.CiliumEndpointSlice { return &v2alpha1.CiliumEndpointSlice{} },
+			func() *v2alpha1.CiliumEndpointSliceList { return &v2alpha1.CiliumEndpointSliceList{} },
+			func(dst, src *v2alpha1.CiliumEndpointSliceList) { dst.ListMeta = src.ListMeta },
+			func(list *v2alpha1.CiliumEndpointSliceList) []*v2alpha1.CiliumEndpointSlice {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v2alpha1.CiliumEndpointSliceList, items []*v2alpha1.CiliumEndpointSlice) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v2alpha1.CiliumEndpointSlice), err
-}
-
-// List takes label and field selectors, and returns the list of CiliumEndpointSlices that match those selectors.
-func (c *FakeCiliumEndpointSlices) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.CiliumEndpointSliceList, err error) {
-	emptyResult := &v2alpha1.CiliumEndpointSliceList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(ciliumendpointslicesResource, ciliumendpointslicesKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v2alpha1.CiliumEndpointSliceList{ListMeta: obj.(*v2alpha1.CiliumEndpointSliceList).ListMeta}
-	for _, item := range obj.(*v2alpha1.CiliumEndpointSliceList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested ciliumEndpointSlices.
-func (c *FakeCiliumEndpointSlices) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumendpointslicesResource, opts))
-}
-
-// Create takes the representation of a ciliumEndpointSlice and creates it.  Returns the server's representation of the ciliumEndpointSlice, and an error, if there is any.
-func (c *FakeCiliumEndpointSlices) Create(ctx context.Context, ciliumEndpointSlice *v2alpha1.CiliumEndpointSlice, opts v1.CreateOptions) (result *v2alpha1.CiliumEndpointSlice, err error) {
-	emptyResult := &v2alpha1.CiliumEndpointSlice{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(ciliumendpointslicesResource, ciliumEndpointSlice, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v2alpha1.CiliumEndpointSlice), err
-}
-
-// Update takes the representation of a ciliumEndpointSlice and updates it. Returns the server's representation of the ciliumEndpointSlice, and an error, if there is any.
-func (c *FakeCiliumEndpointSlices) Update(ctx context.Context, ciliumEndpointSlice *v2alpha1.CiliumEndpointSlice, opts v1.UpdateOptions) (result *v2alpha1.CiliumEndpointSlice, err error) {
-	emptyResult := &v2alpha1.CiliumEndpointSlice{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(ciliumendpointslicesResource, ciliumEndpointSlice, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v2alpha1.CiliumEndpointSlice), err
-}
-
-// Delete takes name of the ciliumEndpointSlice and deletes it. Returns an error if one occurs.
-func (c *FakeCiliumEndpointSlices) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(ciliumendpointslicesResource, name, opts), &v2alpha1.CiliumEndpointSlice{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeCiliumEndpointSlices) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumendpointslicesResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v2alpha1.CiliumEndpointSliceList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched ciliumEndpointSlice.
-func (c *FakeCiliumEndpointSlices) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumEndpointSlice, err error) {
-	emptyResult := &v2alpha1.CiliumEndpointSlice{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumendpointslicesResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v2alpha1.CiliumEndpointSlice), err
 }

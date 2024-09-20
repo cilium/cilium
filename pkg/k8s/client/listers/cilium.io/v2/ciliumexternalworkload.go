@@ -6,10 +6,10 @@
 package v2
 
 import (
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CiliumExternalWorkloadLister helps list CiliumExternalWorkloads.
@@ -17,19 +17,19 @@ import (
 type CiliumExternalWorkloadLister interface {
 	// List lists all CiliumExternalWorkloads in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2.CiliumExternalWorkload, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2.CiliumExternalWorkload, err error)
 	// Get retrieves the CiliumExternalWorkload from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2.CiliumExternalWorkload, error)
+	Get(name string) (*ciliumiov2.CiliumExternalWorkload, error)
 	CiliumExternalWorkloadListerExpansion
 }
 
 // ciliumExternalWorkloadLister implements the CiliumExternalWorkloadLister interface.
 type ciliumExternalWorkloadLister struct {
-	listers.ResourceIndexer[*v2.CiliumExternalWorkload]
+	listers.ResourceIndexer[*ciliumiov2.CiliumExternalWorkload]
 }
 
 // NewCiliumExternalWorkloadLister returns a new CiliumExternalWorkloadLister.
 func NewCiliumExternalWorkloadLister(indexer cache.Indexer) CiliumExternalWorkloadLister {
-	return &ciliumExternalWorkloadLister{listers.New[*v2.CiliumExternalWorkload](indexer, v2.Resource("ciliumexternalworkload"))}
+	return &ciliumExternalWorkloadLister{listers.New[*ciliumiov2.CiliumExternalWorkload](indexer, ciliumiov2.Resource("ciliumexternalworkload"))}
 }

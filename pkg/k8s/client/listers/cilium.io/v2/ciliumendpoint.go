@@ -6,10 +6,10 @@
 package v2
 
 import (
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CiliumEndpointLister helps list CiliumEndpoints.
@@ -17,7 +17,7 @@ import (
 type CiliumEndpointLister interface {
 	// List lists all CiliumEndpoints in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2.CiliumEndpoint, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2.CiliumEndpoint, err error)
 	// CiliumEndpoints returns an object that can list and get CiliumEndpoints.
 	CiliumEndpoints(namespace string) CiliumEndpointNamespaceLister
 	CiliumEndpointListerExpansion
@@ -25,17 +25,17 @@ type CiliumEndpointLister interface {
 
 // ciliumEndpointLister implements the CiliumEndpointLister interface.
 type ciliumEndpointLister struct {
-	listers.ResourceIndexer[*v2.CiliumEndpoint]
+	listers.ResourceIndexer[*ciliumiov2.CiliumEndpoint]
 }
 
 // NewCiliumEndpointLister returns a new CiliumEndpointLister.
 func NewCiliumEndpointLister(indexer cache.Indexer) CiliumEndpointLister {
-	return &ciliumEndpointLister{listers.New[*v2.CiliumEndpoint](indexer, v2.Resource("ciliumendpoint"))}
+	return &ciliumEndpointLister{listers.New[*ciliumiov2.CiliumEndpoint](indexer, ciliumiov2.Resource("ciliumendpoint"))}
 }
 
 // CiliumEndpoints returns an object that can list and get CiliumEndpoints.
 func (s *ciliumEndpointLister) CiliumEndpoints(namespace string) CiliumEndpointNamespaceLister {
-	return ciliumEndpointNamespaceLister{listers.NewNamespaced[*v2.CiliumEndpoint](s.ResourceIndexer, namespace)}
+	return ciliumEndpointNamespaceLister{listers.NewNamespaced[*ciliumiov2.CiliumEndpoint](s.ResourceIndexer, namespace)}
 }
 
 // CiliumEndpointNamespaceLister helps list and get CiliumEndpoints.
@@ -43,15 +43,15 @@ func (s *ciliumEndpointLister) CiliumEndpoints(namespace string) CiliumEndpointN
 type CiliumEndpointNamespaceLister interface {
 	// List lists all CiliumEndpoints in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2.CiliumEndpoint, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2.CiliumEndpoint, err error)
 	// Get retrieves the CiliumEndpoint from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2.CiliumEndpoint, error)
+	Get(name string) (*ciliumiov2.CiliumEndpoint, error)
 	CiliumEndpointNamespaceListerExpansion
 }
 
 // ciliumEndpointNamespaceLister implements the CiliumEndpointNamespaceLister
 // interface.
 type ciliumEndpointNamespaceLister struct {
-	listers.ResourceIndexer[*v2.CiliumEndpoint]
+	listers.ResourceIndexer[*ciliumiov2.CiliumEndpoint]
 }

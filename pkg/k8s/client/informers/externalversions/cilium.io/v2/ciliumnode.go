@@ -6,13 +6,13 @@
 package v2
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	apisciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v2 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // CiliumNodes.
 type CiliumNodeInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v2.CiliumNodeLister
+	Lister() ciliumiov2.CiliumNodeLister
 }
 
 type ciliumNodeInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredCiliumNodeInformer(client versioned.Interface, resyncPeriod time
 				return client.CiliumV2().CiliumNodes().Watch(context.TODO(), options)
 			},
 		},
-		&ciliumiov2.CiliumNode{},
+		&apisciliumiov2.CiliumNode{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *ciliumNodeInformer) defaultInformer(client versioned.Interface, resyncP
 }
 
 func (f *ciliumNodeInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&ciliumiov2.CiliumNode{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisciliumiov2.CiliumNode{}, f.defaultInformer)
 }
 
-func (f *ciliumNodeInformer) Lister() v2.CiliumNodeLister {
-	return v2.NewCiliumNodeLister(f.Informer().GetIndexer())
+func (f *ciliumNodeInformer) Lister() ciliumiov2.CiliumNodeLister {
+	return ciliumiov2.NewCiliumNodeLister(f.Informer().GetIndexer())
 }

@@ -6,10 +6,10 @@
 package v2alpha1
 
 import (
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CiliumL2AnnouncementPolicyLister helps list CiliumL2AnnouncementPolicies.
@@ -17,19 +17,19 @@ import (
 type CiliumL2AnnouncementPolicyLister interface {
 	// List lists all CiliumL2AnnouncementPolicies in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2alpha1.CiliumL2AnnouncementPolicy, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2alpha1.CiliumL2AnnouncementPolicy, err error)
 	// Get retrieves the CiliumL2AnnouncementPolicy from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2alpha1.CiliumL2AnnouncementPolicy, error)
+	Get(name string) (*ciliumiov2alpha1.CiliumL2AnnouncementPolicy, error)
 	CiliumL2AnnouncementPolicyListerExpansion
 }
 
 // ciliumL2AnnouncementPolicyLister implements the CiliumL2AnnouncementPolicyLister interface.
 type ciliumL2AnnouncementPolicyLister struct {
-	listers.ResourceIndexer[*v2alpha1.CiliumL2AnnouncementPolicy]
+	listers.ResourceIndexer[*ciliumiov2alpha1.CiliumL2AnnouncementPolicy]
 }
 
 // NewCiliumL2AnnouncementPolicyLister returns a new CiliumL2AnnouncementPolicyLister.
 func NewCiliumL2AnnouncementPolicyLister(indexer cache.Indexer) CiliumL2AnnouncementPolicyLister {
-	return &ciliumL2AnnouncementPolicyLister{listers.New[*v2alpha1.CiliumL2AnnouncementPolicy](indexer, v2alpha1.Resource("ciliuml2announcementpolicy"))}
+	return &ciliumL2AnnouncementPolicyLister{listers.New[*ciliumiov2alpha1.CiliumL2AnnouncementPolicy](indexer, ciliumiov2alpha1.Resource("ciliuml2announcementpolicy"))}
 }

@@ -10,31 +10,40 @@ Copyright 2019 Wind River Systems, Inc.
 package main
 
 import (
+	"flag"
 	"github.com/spf13/pflag"
-	"k8s.io/gengo/args"
+	"k8s.io/gengo/v2"
+	"k8s.io/gengo/v2/generator"
 	"k8s.io/klog/v2"
 
+	"github.com/cilium/deepequal-gen/args"
 	"github.com/cilium/deepequal-gen/generators"
 )
 
 func main() {
 	klog.InitFlags(nil)
-	arguments := args.Default()
+	args := args.New()
 
-	// Override defaults.
-	arguments.OutputFileBaseName = "deepequal_generated"
+	args.AddFlags(pflag.CommandLine)
+	flag.Set("logtostderr", "true")
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
 
-	// Custom args.
-	customArgs := &generators.CustomArgs{}
-	pflag.CommandLine.StringSliceVar(&customArgs.BoundingDirs, "bounding-dirs", customArgs.BoundingDirs,
-		"Comma-separated list of import paths which bound the types for which deep-copies will be generated.")
-	arguments.CustomArgs = customArgs
+	if err := args.Validate(); err != nil {
+		klog.Fatalf("Error: %v", err)
+	}
+
+	myTargets := func(context *generator.Context) []generator.Target {
+		return generators.GetTargets(context, args)
+	}
 
 	// Run it.
-	if err := arguments.Execute(
+	if err := gengo.Execute(
 		generators.NameSystems(),
 		generators.DefaultNameSystem(),
-		generators.Packages,
+		myTargets,
+		gengo.StdBuildTag,
+		pflag.Args(),
 	); err != nil {
 		klog.Fatalf("Error: %v", err)
 	}

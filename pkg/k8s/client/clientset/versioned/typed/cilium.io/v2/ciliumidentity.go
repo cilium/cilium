@@ -6,9 +6,9 @@
 package v2
 
 import (
-	"context"
+	context "context"
 
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,31 +24,32 @@ type CiliumIdentitiesGetter interface {
 
 // CiliumIdentityInterface has methods to work with CiliumIdentity resources.
 type CiliumIdentityInterface interface {
-	Create(ctx context.Context, ciliumIdentity *v2.CiliumIdentity, opts v1.CreateOptions) (*v2.CiliumIdentity, error)
-	Update(ctx context.Context, ciliumIdentity *v2.CiliumIdentity, opts v1.UpdateOptions) (*v2.CiliumIdentity, error)
+	Create(ctx context.Context, ciliumIdentity *ciliumiov2.CiliumIdentity, opts v1.CreateOptions) (*ciliumiov2.CiliumIdentity, error)
+	Update(ctx context.Context, ciliumIdentity *ciliumiov2.CiliumIdentity, opts v1.UpdateOptions) (*ciliumiov2.CiliumIdentity, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2.CiliumIdentity, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v2.CiliumIdentityList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*ciliumiov2.CiliumIdentity, error)
+	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumIdentityList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumIdentity, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumIdentity, err error)
 	CiliumIdentityExpansion
 }
 
 // ciliumIdentities implements CiliumIdentityInterface
 type ciliumIdentities struct {
-	*gentype.ClientWithList[*v2.CiliumIdentity, *v2.CiliumIdentityList]
+	*gentype.ClientWithList[*ciliumiov2.CiliumIdentity, *ciliumiov2.CiliumIdentityList]
 }
 
 // newCiliumIdentities returns a CiliumIdentities
 func newCiliumIdentities(c *CiliumV2Client) *ciliumIdentities {
 	return &ciliumIdentities{
-		gentype.NewClientWithList[*v2.CiliumIdentity, *v2.CiliumIdentityList](
+		gentype.NewClientWithList[*ciliumiov2.CiliumIdentity, *ciliumiov2.CiliumIdentityList](
 			"ciliumidentities",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v2.CiliumIdentity { return &v2.CiliumIdentity{} },
-			func() *v2.CiliumIdentityList { return &v2.CiliumIdentityList{} }),
+			func() *ciliumiov2.CiliumIdentity { return &ciliumiov2.CiliumIdentity{} },
+			func() *ciliumiov2.CiliumIdentityList { return &ciliumiov2.CiliumIdentityList{} },
+		),
 	}
 }

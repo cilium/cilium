@@ -10,15 +10,16 @@ package generators
 import (
 	"fmt"
 	"io"
-	"path/filepath"
+	"path"
 	"strings"
 
-	"k8s.io/gengo/args"
-	"k8s.io/gengo/examples/set-gen/sets"
-	"k8s.io/gengo/generator"
-	"k8s.io/gengo/namer"
-	"k8s.io/gengo/types"
+	"k8s.io/gengo/v2"
+	"k8s.io/gengo/v2/generator"
+	"k8s.io/gengo/v2/namer"
+	"k8s.io/gengo/v2/types"
 	"k8s.io/klog/v2"
+
+	"github.com/cilium/deepequal-gen/args"
 )
 
 // CustomArgs is used tby the go2idl framework to pass args specific to this
@@ -52,7 +53,7 @@ func extractEnabledTypeTag(t *types.Type) *enabledTagValue {
 }
 
 func extractEnabledTag(comments []string) *enabledTagValue {
-	tagVals := types.ExtractCommentTags("+", comments)[tagEnabledName]
+	tagVals := gengo.ExtractCommentTags("+", comments)[tagEnabledName]
 	if tagVals == nil {
 		// No match for the tag.
 		return nil
@@ -93,7 +94,7 @@ func extractEnabledTag(comments []string) *enabledTagValue {
 }
 
 func extractTag(tagName string, comments []string) *enabledTagValue {
-	tagVals := types.ExtractCommentTags("+", comments)[tagName]
+	tagVals := gengo.ExtractCommentTags("+", comments)[tagName]
 	if tagVals == nil {
 		// No match for the tag.
 		return nil
@@ -146,30 +147,27 @@ func DefaultNameSystem() string {
 	return "public"
 }
 
-func Packages(context *generator.Context, arguments *args.GeneratorArgs) generator.Packages {
-	boilerplate, err := arguments.LoadGoBoilerplate()
+func GetTargets(context *generator.Context, args *args.Args) []generator.Target {
+	boilerplate, err := gengo.GoBoilerplate(args.GoHeaderFile, gengo.StdBuildTag, gengo.StdGeneratedBy)
 	if err != nil {
 		klog.Fatalf("Failed loading boilerplate: %v", err)
 	}
 
-	inputs := sets.NewString(context.Inputs...)
-	packages := generator.Packages{}
-	header := append([]byte(fmt.Sprintf("// +build !%s\n\n", arguments.GeneratedBuildTag)), boilerplate...)
-
-	boundingDirs := make([]string, 0)
-	if customArgs, ok := arguments.CustomArgs.(*CustomArgs); ok {
-		if customArgs.BoundingDirs == nil {
-			customArgs.BoundingDirs = context.Inputs
-		}
-		for i := range customArgs.BoundingDirs {
-			// Strip any trailing slashes - they are not exactly "correct" but
-			// this is friendlier.
-			boundingDirs = append(boundingDirs, strings.TrimRight(customArgs.BoundingDirs[i], "/"))
-		}
+	boundingDirs := []string{}
+	if args.BoundingDirs == nil {
+		args.BoundingDirs = context.Inputs
+	}
+	for i := range args.BoundingDirs {
+		// Strip any trailing slashes - they are not exactly "correct" but
+		// this is friendlier.
+		boundingDirs = append(boundingDirs, strings.TrimRight(args.BoundingDirs[i], "/"))
 	}
 
-	for i := range inputs {
+	targets := []generator.Target{}
+
+	for _, i := range context.Inputs {
 		klog.V(5).Infof("Considering pkg %q", i)
+
 		pkg := context.Universe[i]
 		if pkg == nil {
 			// If the input had no Go files, for example.
@@ -215,7 +213,8 @@ func Packages(context *generator.Context, arguments *args.GeneratorArgs) generat
 
 		if pkgNeedsGeneration {
 			klog.V(3).Infof("Package %q needs generation", i)
-			path := pkg.Path
+
+			p := pkg.Path
 			// if the source path is within a /vendor/ directory (for example,
 			// k8s.io/kubernetes/vendor/k8s.io/apimachinery/pkg/apis/meta/v1), allow
 			// generation to output to the proper relative path (under vendor).
@@ -223,20 +222,22 @@ func Packages(context *generator.Context, arguments *args.GeneratorArgs) generat
 			// in the output directory.
 			// TODO: build a more fundamental concept in gengo for dealing with modifications
 			// to vendored packages.
-			if strings.HasPrefix(pkg.SourcePath, arguments.OutputBase) {
-				expandedPath := strings.TrimPrefix(pkg.SourcePath, arguments.OutputBase)
+			if strings.HasPrefix(pkg.Dir, args.OutputBase) {
+				expandedPath := strings.TrimPrefix(pkg.Dir, args.OutputBase)
 				if strings.Contains(expandedPath, "/vendor/") {
-					path = expandedPath
+					p = expandedPath
 				}
 			}
-			packages = append(packages,
-				&generator.DefaultPackage{
-					PackageName: strings.Split(filepath.Base(pkg.Path), ".")[0],
-					PackagePath: path,
-					HeaderText:  header,
-					GeneratorFunc: func(c *generator.Context) (generators []generator.Generator) {
+
+			targets = append(targets,
+				&generator.SimpleTarget{
+					PkgName:       strings.Split(path.Base(pkg.Path), ".")[0],
+					PkgPath:       p,
+					PkgDir:        path.Join(args.OutputBase, p), // output pkg is the same as the input
+					HeaderComment: boilerplate,
+					GeneratorsFunc: func(c *generator.Context) (generators []generator.Generator) {
 						return []generator.Generator{
-							NewGenDeepEqual(arguments.OutputFileBaseName, pkg.Path, boundingDirs, ptagValue == tagValuePackage, ptagRegister),
+							NewGenDeepEqual(args.OutputFile, pkg.Path, boundingDirs, ptagValue == tagValuePackage, ptagRegister),
 						}
 					},
 					FilterFunc: func(c *generator.Context, t *types.Type) bool {
@@ -245,12 +246,12 @@ func Packages(context *generator.Context, arguments *args.GeneratorArgs) generat
 				})
 		}
 	}
-	return packages
+	return targets
 }
 
 // genDeepEqual produces a file with autogenerated deep-copy functions.
 type genDeepEqual struct {
-	generator.DefaultGen
+	generator.GoGenerator
 	targetPackage string
 	boundingDirs  []string
 	allTypes      bool
@@ -258,10 +259,10 @@ type genDeepEqual struct {
 	imports       namer.ImportTracker
 }
 
-func NewGenDeepEqual(sanitizedName, targetPackage string, boundingDirs []string, allTypes, registerTypes bool) generator.Generator {
+func NewGenDeepEqual(outputFilename, targetPackage string, boundingDirs []string, allTypes, registerTypes bool) generator.Generator {
 	return &genDeepEqual{
-		DefaultGen: generator.DefaultGen{
-			OptionalName: sanitizedName,
+		GoGenerator: generator.GoGenerator{
+			OutputFilename: outputFilename,
 		},
 		targetPackage: targetPackage,
 		boundingDirs:  boundingDirs,
@@ -347,11 +348,11 @@ func deepEqualMethod(t *types.Type) (*types.Signature, error) {
 	if len(f.Signature.Parameters) != 1 {
 		return nil, fmt.Errorf("type %v: invalid %s signature, expected exactly one parameter", t, methodName)
 	}
-	if len(f.Signature.Results) != 1 || f.Signature.Results[0].Name.Name != "bool" {
+	if len(f.Signature.Results) != 1 || f.Signature.Results[0].Type.Name.Name != "bool" {
 		return nil, fmt.Errorf("type %v: invalid %s signature, expected bool result type", t, methodName)
 	}
 
-	ptrParam := f.Signature.Parameters[0].Kind == types.Pointer && f.Signature.Parameters[0].Elem.Name == t.Name
+	ptrParam := f.Signature.Parameters[0].Type.Kind == types.Pointer && f.Signature.Parameters[0].Type.Elem.Name == t.Name
 
 	if !ptrParam {
 		return nil, fmt.Errorf("type %v: invalid %s signature, expected parameter of type *%s", t, methodName, t.Name.Name)
@@ -808,11 +809,19 @@ func createFakeMethodEntries(pkg *types.Package, allTypes bool) {
 						Kind: types.Pointer,
 						Elem: &types.Type{Name: t.Name},
 					},
-					Parameters: []*types.Type{{
-						Kind: types.Pointer,
-						Elem: &types.Type{Name: t.Name},
-					}},
-					Results:      []*types.Type{types.Bool},
+					Parameters: []*types.ParamResult{
+						{
+							Type: &types.Type{
+								Kind: types.Pointer,
+								Elem: &types.Type{Name: t.Name},
+							},
+						},
+					},
+					Results: []*types.ParamResult{
+						{
+							Type: types.Bool,
+						},
+					},
 					CommentLines: []string{fakeCommentLine},
 				},
 			}

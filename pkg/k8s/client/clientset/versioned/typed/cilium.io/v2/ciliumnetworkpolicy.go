@@ -6,9 +6,9 @@
 package v2
 
 import (
-	"context"
+	context "context"
 
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,33 +24,34 @@ type CiliumNetworkPoliciesGetter interface {
 
 // CiliumNetworkPolicyInterface has methods to work with CiliumNetworkPolicy resources.
 type CiliumNetworkPolicyInterface interface {
-	Create(ctx context.Context, ciliumNetworkPolicy *v2.CiliumNetworkPolicy, opts v1.CreateOptions) (*v2.CiliumNetworkPolicy, error)
-	Update(ctx context.Context, ciliumNetworkPolicy *v2.CiliumNetworkPolicy, opts v1.UpdateOptions) (*v2.CiliumNetworkPolicy, error)
+	Create(ctx context.Context, ciliumNetworkPolicy *ciliumiov2.CiliumNetworkPolicy, opts v1.CreateOptions) (*ciliumiov2.CiliumNetworkPolicy, error)
+	Update(ctx context.Context, ciliumNetworkPolicy *ciliumiov2.CiliumNetworkPolicy, opts v1.UpdateOptions) (*ciliumiov2.CiliumNetworkPolicy, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, ciliumNetworkPolicy *v2.CiliumNetworkPolicy, opts v1.UpdateOptions) (*v2.CiliumNetworkPolicy, error)
+	UpdateStatus(ctx context.Context, ciliumNetworkPolicy *ciliumiov2.CiliumNetworkPolicy, opts v1.UpdateOptions) (*ciliumiov2.CiliumNetworkPolicy, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2.CiliumNetworkPolicy, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v2.CiliumNetworkPolicyList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*ciliumiov2.CiliumNetworkPolicy, error)
+	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumNetworkPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumNetworkPolicy, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumNetworkPolicy, err error)
 	CiliumNetworkPolicyExpansion
 }
 
 // ciliumNetworkPolicies implements CiliumNetworkPolicyInterface
 type ciliumNetworkPolicies struct {
-	*gentype.ClientWithList[*v2.CiliumNetworkPolicy, *v2.CiliumNetworkPolicyList]
+	*gentype.ClientWithList[*ciliumiov2.CiliumNetworkPolicy, *ciliumiov2.CiliumNetworkPolicyList]
 }
 
 // newCiliumNetworkPolicies returns a CiliumNetworkPolicies
 func newCiliumNetworkPolicies(c *CiliumV2Client, namespace string) *ciliumNetworkPolicies {
 	return &ciliumNetworkPolicies{
-		gentype.NewClientWithList[*v2.CiliumNetworkPolicy, *v2.CiliumNetworkPolicyList](
+		gentype.NewClientWithList[*ciliumiov2.CiliumNetworkPolicy, *ciliumiov2.CiliumNetworkPolicyList](
 			"ciliumnetworkpolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v2.CiliumNetworkPolicy { return &v2.CiliumNetworkPolicy{} },
-			func() *v2.CiliumNetworkPolicyList { return &v2.CiliumNetworkPolicyList{} }),
+			func() *ciliumiov2.CiliumNetworkPolicy { return &ciliumiov2.CiliumNetworkPolicy{} },
+			func() *ciliumiov2.CiliumNetworkPolicyList { return &ciliumiov2.CiliumNetworkPolicyList{} },
+		),
 	}
 }

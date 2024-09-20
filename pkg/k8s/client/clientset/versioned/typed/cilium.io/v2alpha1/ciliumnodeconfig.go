@@ -6,9 +6,9 @@
 package v2alpha1
 
 import (
-	"context"
+	context "context"
 
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,31 +24,32 @@ type CiliumNodeConfigsGetter interface {
 
 // CiliumNodeConfigInterface has methods to work with CiliumNodeConfig resources.
 type CiliumNodeConfigInterface interface {
-	Create(ctx context.Context, ciliumNodeConfig *v2alpha1.CiliumNodeConfig, opts v1.CreateOptions) (*v2alpha1.CiliumNodeConfig, error)
-	Update(ctx context.Context, ciliumNodeConfig *v2alpha1.CiliumNodeConfig, opts v1.UpdateOptions) (*v2alpha1.CiliumNodeConfig, error)
+	Create(ctx context.Context, ciliumNodeConfig *ciliumiov2alpha1.CiliumNodeConfig, opts v1.CreateOptions) (*ciliumiov2alpha1.CiliumNodeConfig, error)
+	Update(ctx context.Context, ciliumNodeConfig *ciliumiov2alpha1.CiliumNodeConfig, opts v1.UpdateOptions) (*ciliumiov2alpha1.CiliumNodeConfig, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2alpha1.CiliumNodeConfig, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v2alpha1.CiliumNodeConfigList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*ciliumiov2alpha1.CiliumNodeConfig, error)
+	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2alpha1.CiliumNodeConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumNodeConfig, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2alpha1.CiliumNodeConfig, err error)
 	CiliumNodeConfigExpansion
 }
 
 // ciliumNodeConfigs implements CiliumNodeConfigInterface
 type ciliumNodeConfigs struct {
-	*gentype.ClientWithList[*v2alpha1.CiliumNodeConfig, *v2alpha1.CiliumNodeConfigList]
+	*gentype.ClientWithList[*ciliumiov2alpha1.CiliumNodeConfig, *ciliumiov2alpha1.CiliumNodeConfigList]
 }
 
 // newCiliumNodeConfigs returns a CiliumNodeConfigs
 func newCiliumNodeConfigs(c *CiliumV2alpha1Client, namespace string) *ciliumNodeConfigs {
 	return &ciliumNodeConfigs{
-		gentype.NewClientWithList[*v2alpha1.CiliumNodeConfig, *v2alpha1.CiliumNodeConfigList](
+		gentype.NewClientWithList[*ciliumiov2alpha1.CiliumNodeConfig, *ciliumiov2alpha1.CiliumNodeConfigList](
 			"ciliumnodeconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v2alpha1.CiliumNodeConfig { return &v2alpha1.CiliumNodeConfig{} },
-			func() *v2alpha1.CiliumNodeConfigList { return &v2alpha1.CiliumNodeConfigList{} }),
+			func() *ciliumiov2alpha1.CiliumNodeConfig { return &ciliumiov2alpha1.CiliumNodeConfig{} },
+			func() *ciliumiov2alpha1.CiliumNodeConfigList { return &ciliumiov2alpha1.CiliumNodeConfigList{} },
+		),
 	}
 }

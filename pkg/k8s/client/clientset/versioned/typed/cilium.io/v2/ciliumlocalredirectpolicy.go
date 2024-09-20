@@ -6,9 +6,9 @@
 package v2
 
 import (
-	"context"
+	context "context"
 
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,33 +24,34 @@ type CiliumLocalRedirectPoliciesGetter interface {
 
 // CiliumLocalRedirectPolicyInterface has methods to work with CiliumLocalRedirectPolicy resources.
 type CiliumLocalRedirectPolicyInterface interface {
-	Create(ctx context.Context, ciliumLocalRedirectPolicy *v2.CiliumLocalRedirectPolicy, opts v1.CreateOptions) (*v2.CiliumLocalRedirectPolicy, error)
-	Update(ctx context.Context, ciliumLocalRedirectPolicy *v2.CiliumLocalRedirectPolicy, opts v1.UpdateOptions) (*v2.CiliumLocalRedirectPolicy, error)
+	Create(ctx context.Context, ciliumLocalRedirectPolicy *ciliumiov2.CiliumLocalRedirectPolicy, opts v1.CreateOptions) (*ciliumiov2.CiliumLocalRedirectPolicy, error)
+	Update(ctx context.Context, ciliumLocalRedirectPolicy *ciliumiov2.CiliumLocalRedirectPolicy, opts v1.UpdateOptions) (*ciliumiov2.CiliumLocalRedirectPolicy, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, ciliumLocalRedirectPolicy *v2.CiliumLocalRedirectPolicy, opts v1.UpdateOptions) (*v2.CiliumLocalRedirectPolicy, error)
+	UpdateStatus(ctx context.Context, ciliumLocalRedirectPolicy *ciliumiov2.CiliumLocalRedirectPolicy, opts v1.UpdateOptions) (*ciliumiov2.CiliumLocalRedirectPolicy, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2.CiliumLocalRedirectPolicy, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v2.CiliumLocalRedirectPolicyList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*ciliumiov2.CiliumLocalRedirectPolicy, error)
+	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumLocalRedirectPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumLocalRedirectPolicy, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumLocalRedirectPolicy, err error)
 	CiliumLocalRedirectPolicyExpansion
 }
 
 // ciliumLocalRedirectPolicies implements CiliumLocalRedirectPolicyInterface
 type ciliumLocalRedirectPolicies struct {
-	*gentype.ClientWithList[*v2.CiliumLocalRedirectPolicy, *v2.CiliumLocalRedirectPolicyList]
+	*gentype.ClientWithList[*ciliumiov2.CiliumLocalRedirectPolicy, *ciliumiov2.CiliumLocalRedirectPolicyList]
 }
 
 // newCiliumLocalRedirectPolicies returns a CiliumLocalRedirectPolicies
 func newCiliumLocalRedirectPolicies(c *CiliumV2Client, namespace string) *ciliumLocalRedirectPolicies {
 	return &ciliumLocalRedirectPolicies{
-		gentype.NewClientWithList[*v2.CiliumLocalRedirectPolicy, *v2.CiliumLocalRedirectPolicyList](
+		gentype.NewClientWithList[*ciliumiov2.CiliumLocalRedirectPolicy, *ciliumiov2.CiliumLocalRedirectPolicyList](
 			"ciliumlocalredirectpolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v2.CiliumLocalRedirectPolicy { return &v2.CiliumLocalRedirectPolicy{} },
-			func() *v2.CiliumLocalRedirectPolicyList { return &v2.CiliumLocalRedirectPolicyList{} }),
+			func() *ciliumiov2.CiliumLocalRedirectPolicy { return &ciliumiov2.CiliumLocalRedirectPolicy{} },
+			func() *ciliumiov2.CiliumLocalRedirectPolicyList { return &ciliumiov2.CiliumLocalRedirectPolicyList{} },
+		),
 	}
 }

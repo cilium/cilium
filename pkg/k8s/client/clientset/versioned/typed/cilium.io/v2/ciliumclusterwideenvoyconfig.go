@@ -6,9 +6,9 @@
 package v2
 
 import (
-	"context"
+	context "context"
 
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,31 +24,34 @@ type CiliumClusterwideEnvoyConfigsGetter interface {
 
 // CiliumClusterwideEnvoyConfigInterface has methods to work with CiliumClusterwideEnvoyConfig resources.
 type CiliumClusterwideEnvoyConfigInterface interface {
-	Create(ctx context.Context, ciliumClusterwideEnvoyConfig *v2.CiliumClusterwideEnvoyConfig, opts v1.CreateOptions) (*v2.CiliumClusterwideEnvoyConfig, error)
-	Update(ctx context.Context, ciliumClusterwideEnvoyConfig *v2.CiliumClusterwideEnvoyConfig, opts v1.UpdateOptions) (*v2.CiliumClusterwideEnvoyConfig, error)
+	Create(ctx context.Context, ciliumClusterwideEnvoyConfig *ciliumiov2.CiliumClusterwideEnvoyConfig, opts v1.CreateOptions) (*ciliumiov2.CiliumClusterwideEnvoyConfig, error)
+	Update(ctx context.Context, ciliumClusterwideEnvoyConfig *ciliumiov2.CiliumClusterwideEnvoyConfig, opts v1.UpdateOptions) (*ciliumiov2.CiliumClusterwideEnvoyConfig, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2.CiliumClusterwideEnvoyConfig, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v2.CiliumClusterwideEnvoyConfigList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*ciliumiov2.CiliumClusterwideEnvoyConfig, error)
+	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumClusterwideEnvoyConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumClusterwideEnvoyConfig, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumClusterwideEnvoyConfig, err error)
 	CiliumClusterwideEnvoyConfigExpansion
 }
 
 // ciliumClusterwideEnvoyConfigs implements CiliumClusterwideEnvoyConfigInterface
 type ciliumClusterwideEnvoyConfigs struct {
-	*gentype.ClientWithList[*v2.CiliumClusterwideEnvoyConfig, *v2.CiliumClusterwideEnvoyConfigList]
+	*gentype.ClientWithList[*ciliumiov2.CiliumClusterwideEnvoyConfig, *ciliumiov2.CiliumClusterwideEnvoyConfigList]
 }
 
 // newCiliumClusterwideEnvoyConfigs returns a CiliumClusterwideEnvoyConfigs
 func newCiliumClusterwideEnvoyConfigs(c *CiliumV2Client) *ciliumClusterwideEnvoyConfigs {
 	return &ciliumClusterwideEnvoyConfigs{
-		gentype.NewClientWithList[*v2.CiliumClusterwideEnvoyConfig, *v2.CiliumClusterwideEnvoyConfigList](
+		gentype.NewClientWithList[*ciliumiov2.CiliumClusterwideEnvoyConfig, *ciliumiov2.CiliumClusterwideEnvoyConfigList](
 			"ciliumclusterwideenvoyconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v2.CiliumClusterwideEnvoyConfig { return &v2.CiliumClusterwideEnvoyConfig{} },
-			func() *v2.CiliumClusterwideEnvoyConfigList { return &v2.CiliumClusterwideEnvoyConfigList{} }),
+			func() *ciliumiov2.CiliumClusterwideEnvoyConfig { return &ciliumiov2.CiliumClusterwideEnvoyConfig{} },
+			func() *ciliumiov2.CiliumClusterwideEnvoyConfigList {
+				return &ciliumiov2.CiliumClusterwideEnvoyConfigList{}
+			},
+		),
 	}
 }
