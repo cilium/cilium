@@ -1,5 +1,96 @@
 # Changelog
 
+## v1.16.2
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add validation to prevent users from using deprecated values that have been removed in v1.15 and v1.16 (Backport PR #34452, Upstream PR #34229, @chancez)
+* bgpv2: update status field of CiliumBGPNodeConfig CRD (Backport PR #34580, Upstream PR #33411, @harsimran-pabla)
+* docs: Update examples for CNP L7 Host (Backport PR #34644, Upstream PR #34578, @sayboras)
+* egressgw: drop traffic when gateway node is not configured for policy (Backport PR #34452, Upstream PR #33625, @julianwiedmann)
+
+**Bugfixes:**
+* add support for validation of stringToString values in ConfigMap (Backport PR #34586, Upstream PR #34279, @alex-berger)
+* bgpv2: correct service reconciler initialization (Backport PR #34452, Upstream PR #34415, @harsimran-pabla)
+* bgpv2: fix cilium-dbg bgp filtering by ASN & route-policy dump format (Backport PR #34452, Upstream PR #34335, @rastislavs)
+* bpf: Fix `Prune` map operation leaking BPF map entries (Backport PR #34586, Upstream PR #34476, @gandro)
+* config: fix disabling config 'Debug' (Backport PR #34469, Upstream PR #34401, @mhofstetter)
+* daemon: Create IPsec and LRP maps early on startup (Backport PR #34452, Upstream PR #34388, @pchaigno)
+* daemon: Fix error logic flow for pod store being out of date (Backport PR #34586, Upstream PR #34389, @christarazi)
+* envoy: fix log level mapping when changing log level via API (Backport PR #34452, Upstream PR #34400, @mhofstetter)
+* Fix "invalid sysctl parameter" error when Cilium needs to modify a sysctl with capital letters in its name. (Backport PR #34586, Upstream PR #34298, @julianwiedmann)
+* Fix a bug in Cilium's kube-proxy replacement, where replies by a local backend are dropped with DROP_NO_FIB. (Backport PR #34452, Upstream PR #34303, @julianwiedmann)
+* Fix a race condition that would cause errors related to maps `LB{4,6}_SKIP_MAP` when loading programs. (Backport PR #34586, Upstream PR #34453, @pchaigno)
+* Fix agent panic when IPsec is enabled but XFRM stats are not exposed by the kernel. (Backport PR #34831, Upstream PR #34647, @chaunceyjiang)
+* Fix issue where a hostport service would be created on an incorrect node when cilium-agent is configured with disable-endpoint-crd (Backport PR #34644, Upstream PR #34385, @haozhangami)
+* Fix operator deployment connecting to clustermesh kvstoremesh when endpointslice sync or MCS-API Service exports is enabled (Backport PR #34586, Upstream PR #34295, @MrFreezeex)
+* Fix parsing of complex api-rate-limit options. The parsing failed when rate limits were configured for multiple API endpoints with multiple options, for example: "endpoint-create=rate-limit:1/s,rate-burst=1,endpoint-delete=rate-limit:2/s,rate-burst=2". The ability to also specify the rate limits as JSON strings was also returned. (Backport PR #34586, Upstream PR #34249, @joamaki)
+* Fix possible connection disruption on agent restart with WireGuard + native routing (Backport PR #34831, Upstream PR #34095, @giorio94)
+* Fix possible panic occurring in case errors are returned while updating/deleting IPv6 routes (Backport PR #34831, Upstream PR #34721, @giorio94)
+* Fix the Egress Gateway reconciliation logic to make progress after setting the rp_filter sysctl failed. (Backport PR #34831, Upstream PR #34775, @julianwiedmann)
+* Fixes broken pod-to-remote-hostport connectivity when IPsec is used with L7 ingress policy and KPR. (Backport PR #34586, Upstream PR #33805, @jschwinger233)
+* Fixes deadlock in identity watcher. This fixes an issue where a kvstore disconnect can cause the event receiver to exit and the event sender to get stuck forever. (Backport PR #34831, Upstream PR #34611, @dboslee)
+* helm: fix envoy prometheus metrics scraping with servicemonitor (Backport PR #34472, Upstream PR #34448, @mhofstetter)
+* ingress: Avoid opening of port 80 for TLSPassthrough only (Backport PR #34586, Upstream PR #34474, @sayboras)
+* ingress: Remove generated CEC if empty (Backport PR #34644, Upstream PR #34576, @sayboras)
+* lbipam: fix panic when changing the shared key & req. ip annotation (Backport PR #34452, Upstream PR #34236, @mhofstetter)
+* policy:  Fixed  CIDRGroupRef breaking the sanitization (Backport PR #34452, Upstream PR #34076, @chaunceyjiang)
+* Replace dotted sysctl names with string slices (Backport PR #34831, Upstream PR #34527, @dylandreimerink)
+
+**CI Changes:**
+* .github: change nick-invision/retry -> nick-fields/retry. (cilium/cilium#34735, @michi-covalent)
+* bgpv1/test: fix route matching in PodIPPoolAdvert test (Backport PR #34452, Upstream PR #34270, @rastislavs)
+* ci: clean disk only on ubuntu-latest runners (Backport PR #34831, Upstream PR #34711, @marseel)
+* ci: Confromance E2E wait for images before matrix generation (Backport PR #34831, Upstream PR #34707, @marseel)
+* ci: datapath-verifier: also run on 6.6 kernel (Backport PR #34452, Upstream PR #34420, @julianwiedmann)
+* ci: don't run AKS tests on LTS versions (Backport PR #34644, Upstream PR #34640, @marseel)
+* ci: Wait for images before generating test matrix (Backport PR #34831, Upstream PR #34727, @marseel)
+* Fix: push PR changes when renovate build images under the workflow_call context (Backport PR #34831, Upstream PR #34650, @Artyop)
+* gha: Add disk cleanup step for build and test workflow (Backport PR #34452, Upstream PR #34339, @sayboras)
+
+**Misc Changes:**
+* .github: remove installation steps for arm64 (Backport PR #34452, Upstream PR #34336, @aanm)
+* [v1.16] deps: update Docker dependency (cilium/cilium#34354, @ferozsalam)
+* bgpv2: correct error message log (Backport PR #34586, Upstream PR #34276, @harsimran-pabla)
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#34569, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#34749, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (patch) (cilium/cilium#34568, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#34687, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#34883, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.15 (v1.16) (cilium/cilium#34118, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.16 (v1.16) (cilium/cilium#34497, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.17 (v1.16) (cilium/cilium#34878, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/busybox:1.36.1 docker digest to 34b191d (v1.16) (cilium/cilium#34760, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.22.7 docker digest to 4594271 (v1.16) (cilium/cilium#34887, @cilium-renovate[bot])
+* chore(deps): update go to v1.22.7 (v1.16) (cilium/cilium#34797, @cilium-renovate[bot])
+* chore: Avoid docker warning due to casing (Backport PR #34856, Upstream PR #34125, @sayboras)
+* cilium-dbg: add Envoy admin commands (Backport PR #34586, Upstream PR #34398, @mhofstetter)
+* clustermesh/endpointslicesync: fix panic on failure in Test_meshEndpointSlice_Reconcile (Backport PR #34831, Upstream PR #34699, @tklauser)
+* contrib: allow l7proxy in egressgw config (Backport PR #34831, Upstream PR #34636, @julianwiedmann)
+* docs: Avoid using wildcard TLS certificate (Backport PR #34831, Upstream PR #34609, @sayboras)
+* docs: Improve disk based policy documentation (Backport PR #34452, Upstream PR #34234, @tamilmani1989)
+* docs: Update LB-IPAM `allowFirstLastIPs` documentation (Backport PR #34452, Upstream PR #34227, @dylandreimerink)
+* Documentation: Add instructions on accessing the Hubble API with TLS (Backport PR #34452, Upstream PR #34361, @chancez)
+* Documentation: Add section to validate Hubble TLS is enabled (Backport PR #34644, Upstream PR #34416, @chancez)
+* endpoint: Do not pass a function to WithFields (Backport PR #34452, Upstream PR #34346, @jrajahalme)
+* fix: base image update workflow will now be triggered on renovate branches with a workflow_call event type (Backport PR #34452, Upstream PR #34372, @Artyop)
+* images: fix path script (Backport PR #34768, Upstream PR #34764, @aanm)
+* ipsec: Document a new cause of XfrmInStateProtoError (Backport PR #34586, Upstream PR #34221, @jschwinger233)
+* pkg/endpointmanager: don't hold lock while iterating over subscribers (Backport PR #34586, Upstream PR #33896, @aanm)
+* Reorganize Hubble docs (Backport PR #34452, Upstream PR #34282, @chancez)
+* Use exponential backoff for etcd connection retries during quorum loss (Backport PR #34452, Upstream PR #34231, @hemanthmalla)
+* wireguard: minor improvements (Backport PR #34452, Upstream PR #34285, @julianwiedmann)
+
+**Other Changes:**
+* [v1.16] CODEOWNERS: switch cilium/tophat to cilium/committers (cilium/cilium#34338, @julianwiedmann)
+* [v1.16] envoy: Bump envoy version from v1.29.7 to v1.29.9 (cilium/cilium#34966, @sayboras)
+* [v1.16] envoy: Switch to image with timestamp tag (cilium/cilium#34395, @sayboras)
+* envoy: Bump golang version (cilium/cilium#34328, @sayboras)
+* Fix panic in endpoint regeneration when DNS requests are processed during early initialization. (cilium/cilium#34892, @joamaki)
+* install: Update image digests for v1.16.1 (cilium/cilium#34378, @cilium-release-bot[bot])
+
 ## v1.16.1
 
 Summary of Changes
