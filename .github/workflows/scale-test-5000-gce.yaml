@@ -311,8 +311,9 @@ jobs:
           create_native_routing_firewall: 'false'
 
       - name: Wait for Cilium status to be ready
+        timeout-minutes: 10
         run: |
-          cilium status --wait
+          kubectl rollout status daemonset cilium -n kube-system
 
       - name: Run CL2 to export prometheus
         shell: bash
