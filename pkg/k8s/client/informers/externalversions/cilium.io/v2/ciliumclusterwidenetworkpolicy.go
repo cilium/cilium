@@ -6,13 +6,13 @@
 package v2
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	apisciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v2 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // CiliumClusterwideNetworkPolicies.
 type CiliumClusterwideNetworkPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v2.CiliumClusterwideNetworkPolicyLister
+	Lister() ciliumiov2.CiliumClusterwideNetworkPolicyLister
 }
 
 type ciliumClusterwideNetworkPolicyInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredCiliumClusterwideNetworkPolicyInformer(client versioned.Interfac
 				return client.CiliumV2().CiliumClusterwideNetworkPolicies().Watch(context.TODO(), options)
 			},
 		},
-		&ciliumiov2.CiliumClusterwideNetworkPolicy{},
+		&apisciliumiov2.CiliumClusterwideNetworkPolicy{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *ciliumClusterwideNetworkPolicyInformer) defaultInformer(client versione
 }
 
 func (f *ciliumClusterwideNetworkPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&ciliumiov2.CiliumClusterwideNetworkPolicy{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisciliumiov2.CiliumClusterwideNetworkPolicy{}, f.defaultInformer)
 }
 
-func (f *ciliumClusterwideNetworkPolicyInformer) Lister() v2.CiliumClusterwideNetworkPolicyLister {
-	return v2.NewCiliumClusterwideNetworkPolicyLister(f.Informer().GetIndexer())
+func (f *ciliumClusterwideNetworkPolicyInformer) Lister() ciliumiov2.CiliumClusterwideNetworkPolicyLister {
+	return ciliumiov2.NewCiliumClusterwideNetworkPolicyLister(f.Informer().GetIndexer())
 }

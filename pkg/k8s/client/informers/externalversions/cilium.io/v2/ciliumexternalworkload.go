@@ -6,13 +6,13 @@
 package v2
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	apisciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v2 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // CiliumExternalWorkloads.
 type CiliumExternalWorkloadInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v2.CiliumExternalWorkloadLister
+	Lister() ciliumiov2.CiliumExternalWorkloadLister
 }
 
 type ciliumExternalWorkloadInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredCiliumExternalWorkloadInformer(client versioned.Interface, resyn
 				return client.CiliumV2().CiliumExternalWorkloads().Watch(context.TODO(), options)
 			},
 		},
-		&ciliumiov2.CiliumExternalWorkload{},
+		&apisciliumiov2.CiliumExternalWorkload{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *ciliumExternalWorkloadInformer) defaultInformer(client versioned.Interf
 }
 
 func (f *ciliumExternalWorkloadInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&ciliumiov2.CiliumExternalWorkload{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisciliumiov2.CiliumExternalWorkload{}, f.defaultInformer)
 }
 
-func (f *ciliumExternalWorkloadInformer) Lister() v2.CiliumExternalWorkloadLister {
-	return v2.NewCiliumExternalWorkloadLister(f.Informer().GetIndexer())
+func (f *ciliumExternalWorkloadInformer) Lister() ciliumiov2.CiliumExternalWorkloadLister {
+	return ciliumiov2.NewCiliumExternalWorkloadLister(f.Informer().GetIndexer())
 }

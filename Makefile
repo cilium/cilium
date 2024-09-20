@@ -292,10 +292,10 @@ generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observ
 
 define generate_deepequal
 	$(GO) run github.com/cilium/deepequal-gen \
-	--input-dirs $(subst $(space),$(comma),$(1)) \
 	--go-header-file "$$PWD/hack/custom-boilerplate.go.txt" \
-	--output-file-base zz_generated.deepequal \
-	--output-base $(2)
+	--output-file zz_generated.deepequal.go \
+	--output-base $(2) \
+	$(1)
 endef
 
 define generate_k8s_protobuf

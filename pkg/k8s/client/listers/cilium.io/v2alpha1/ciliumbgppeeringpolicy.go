@@ -6,10 +6,10 @@
 package v2alpha1
 
 import (
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CiliumBGPPeeringPolicyLister helps list CiliumBGPPeeringPolicies.
@@ -17,19 +17,19 @@ import (
 type CiliumBGPPeeringPolicyLister interface {
 	// List lists all CiliumBGPPeeringPolicies in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2alpha1.CiliumBGPPeeringPolicy, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2alpha1.CiliumBGPPeeringPolicy, err error)
 	// Get retrieves the CiliumBGPPeeringPolicy from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2alpha1.CiliumBGPPeeringPolicy, error)
+	Get(name string) (*ciliumiov2alpha1.CiliumBGPPeeringPolicy, error)
 	CiliumBGPPeeringPolicyListerExpansion
 }
 
 // ciliumBGPPeeringPolicyLister implements the CiliumBGPPeeringPolicyLister interface.
 type ciliumBGPPeeringPolicyLister struct {
-	listers.ResourceIndexer[*v2alpha1.CiliumBGPPeeringPolicy]
+	listers.ResourceIndexer[*ciliumiov2alpha1.CiliumBGPPeeringPolicy]
 }
 
 // NewCiliumBGPPeeringPolicyLister returns a new CiliumBGPPeeringPolicyLister.
 func NewCiliumBGPPeeringPolicyLister(indexer cache.Indexer) CiliumBGPPeeringPolicyLister {
-	return &ciliumBGPPeeringPolicyLister{listers.New[*v2alpha1.CiliumBGPPeeringPolicy](indexer, v2alpha1.Resource("ciliumbgppeeringpolicy"))}
+	return &ciliumBGPPeeringPolicyLister{listers.New[*ciliumiov2alpha1.CiliumBGPPeeringPolicy](indexer, ciliumiov2alpha1.Resource("ciliumbgppeeringpolicy"))}
 }

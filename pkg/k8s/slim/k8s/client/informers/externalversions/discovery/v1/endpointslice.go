@@ -6,13 +6,13 @@
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
+	apidiscoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	versioned "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/listers/discovery/v1"
+	discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/listers/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // EndpointSlices.
 type EndpointSliceInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.EndpointSliceLister
+	Lister() discoveryv1.EndpointSliceLister
 }
 
 type endpointSliceInformer struct {
@@ -58,7 +58,7 @@ func NewFilteredEndpointSliceInformer(client versioned.Interface, namespace stri
 				return client.DiscoveryV1().EndpointSlices(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&discoveryv1.EndpointSlice{},
+		&apidiscoveryv1.EndpointSlice{},
 		resyncPeriod,
 		indexers,
 	)
@@ -69,9 +69,9 @@ func (f *endpointSliceInformer) defaultInformer(client versioned.Interface, resy
 }
 
 func (f *endpointSliceInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&discoveryv1.EndpointSlice{}, f.defaultInformer)
+	return f.factory.InformerFor(&apidiscoveryv1.EndpointSlice{}, f.defaultInformer)
 }
 
-func (f *endpointSliceInformer) Lister() v1.EndpointSliceLister {
-	return v1.NewEndpointSliceLister(f.Informer().GetIndexer())
+func (f *endpointSliceInformer) Lister() discoveryv1.EndpointSliceLister {
+	return discoveryv1.NewEndpointSliceLister(f.Informer().GetIndexer())
 }

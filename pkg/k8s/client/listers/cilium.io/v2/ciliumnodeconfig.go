@@ -6,10 +6,10 @@
 package v2
 
 import (
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CiliumNodeConfigLister helps list CiliumNodeConfigs.
@@ -17,7 +17,7 @@ import (
 type CiliumNodeConfigLister interface {
 	// List lists all CiliumNodeConfigs in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2.CiliumNodeConfig, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2.CiliumNodeConfig, err error)
 	// CiliumNodeConfigs returns an object that can list and get CiliumNodeConfigs.
 	CiliumNodeConfigs(namespace string) CiliumNodeConfigNamespaceLister
 	CiliumNodeConfigListerExpansion
@@ -25,17 +25,17 @@ type CiliumNodeConfigLister interface {
 
 // ciliumNodeConfigLister implements the CiliumNodeConfigLister interface.
 type ciliumNodeConfigLister struct {
-	listers.ResourceIndexer[*v2.CiliumNodeConfig]
+	listers.ResourceIndexer[*ciliumiov2.CiliumNodeConfig]
 }
 
 // NewCiliumNodeConfigLister returns a new CiliumNodeConfigLister.
 func NewCiliumNodeConfigLister(indexer cache.Indexer) CiliumNodeConfigLister {
-	return &ciliumNodeConfigLister{listers.New[*v2.CiliumNodeConfig](indexer, v2.Resource("ciliumnodeconfig"))}
+	return &ciliumNodeConfigLister{listers.New[*ciliumiov2.CiliumNodeConfig](indexer, ciliumiov2.Resource("ciliumnodeconfig"))}
 }
 
 // CiliumNodeConfigs returns an object that can list and get CiliumNodeConfigs.
 func (s *ciliumNodeConfigLister) CiliumNodeConfigs(namespace string) CiliumNodeConfigNamespaceLister {
-	return ciliumNodeConfigNamespaceLister{listers.NewNamespaced[*v2.CiliumNodeConfig](s.ResourceIndexer, namespace)}
+	return ciliumNodeConfigNamespaceLister{listers.NewNamespaced[*ciliumiov2.CiliumNodeConfig](s.ResourceIndexer, namespace)}
 }
 
 // CiliumNodeConfigNamespaceLister helps list and get CiliumNodeConfigs.
@@ -43,15 +43,15 @@ func (s *ciliumNodeConfigLister) CiliumNodeConfigs(namespace string) CiliumNodeC
 type CiliumNodeConfigNamespaceLister interface {
 	// List lists all CiliumNodeConfigs in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2.CiliumNodeConfig, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2.CiliumNodeConfig, err error)
 	// Get retrieves the CiliumNodeConfig from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2.CiliumNodeConfig, error)
+	Get(name string) (*ciliumiov2.CiliumNodeConfig, error)
 	CiliumNodeConfigNamespaceListerExpansion
 }
 
 // ciliumNodeConfigNamespaceLister implements the CiliumNodeConfigNamespaceLister
 // interface.
 type ciliumNodeConfigNamespaceLister struct {
-	listers.ResourceIndexer[*v2.CiliumNodeConfig]
+	listers.ResourceIndexer[*ciliumiov2.CiliumNodeConfig]
 }

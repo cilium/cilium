@@ -6,13 +6,13 @@
 package v2alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	apisciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2alpha1"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // CiliumBGPAdvertisements.
 type CiliumBGPAdvertisementInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v2alpha1.CiliumBGPAdvertisementLister
+	Lister() ciliumiov2alpha1.CiliumBGPAdvertisementLister
 }
 
 type ciliumBGPAdvertisementInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredCiliumBGPAdvertisementInformer(client versioned.Interface, resyn
 				return client.CiliumV2alpha1().CiliumBGPAdvertisements().Watch(context.TODO(), options)
 			},
 		},
-		&ciliumiov2alpha1.CiliumBGPAdvertisement{},
+		&apisciliumiov2alpha1.CiliumBGPAdvertisement{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *ciliumBGPAdvertisementInformer) defaultInformer(client versioned.Interf
 }
 
 func (f *ciliumBGPAdvertisementInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&ciliumiov2alpha1.CiliumBGPAdvertisement{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisciliumiov2alpha1.CiliumBGPAdvertisement{}, f.defaultInformer)
 }
 
-func (f *ciliumBGPAdvertisementInformer) Lister() v2alpha1.CiliumBGPAdvertisementLister {
-	return v2alpha1.NewCiliumBGPAdvertisementLister(f.Informer().GetIndexer())
+func (f *ciliumBGPAdvertisementInformer) Lister() ciliumiov2alpha1.CiliumBGPAdvertisementLister {
+	return ciliumiov2alpha1.NewCiliumBGPAdvertisementLister(f.Informer().GetIndexer())
 }

@@ -6,9 +6,9 @@
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	scheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,30 +24,30 @@ type NamespacesGetter interface {
 
 // NamespaceInterface has methods to work with Namespace resources.
 type NamespaceInterface interface {
-	Create(ctx context.Context, namespace *v1.Namespace, opts metav1.CreateOptions) (*v1.Namespace, error)
-	Update(ctx context.Context, namespace *v1.Namespace, opts metav1.UpdateOptions) (*v1.Namespace, error)
+	Create(ctx context.Context, namespace *corev1.Namespace, opts metav1.CreateOptions) (*corev1.Namespace, error)
+	Update(ctx context.Context, namespace *corev1.Namespace, opts metav1.UpdateOptions) (*corev1.Namespace, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Namespace, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.NamespaceList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Namespace, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*corev1.NamespaceList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Namespace, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *corev1.Namespace, err error)
 	NamespaceExpansion
 }
 
 // namespaces implements NamespaceInterface
 type namespaces struct {
-	*gentype.ClientWithList[*v1.Namespace, *v1.NamespaceList]
+	*gentype.ClientWithList[*corev1.Namespace, *corev1.NamespaceList]
 }
 
 // newNamespaces returns a Namespaces
 func newNamespaces(c *CoreV1Client) *namespaces {
 	return &namespaces{
-		gentype.NewClientWithList[*v1.Namespace, *v1.NamespaceList](
+		gentype.NewClientWithList[*corev1.Namespace, *corev1.NamespaceList](
 			"namespaces",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1.Namespace { return &v1.Namespace{} },
-			func() *v1.NamespaceList { return &v1.NamespaceList{} }),
+			func() *corev1.Namespace { return &corev1.Namespace{} },
+			func() *corev1.NamespaceList { return &corev1.NamespaceList{} }),
 	}
 }
