@@ -95,6 +95,11 @@ volatile const __u8 v6_node_one[] = v6_node_one_addr;
 volatile const __u8 v6_node_two[] = v6_node_two_addr;
 volatile const __u8 v6_node_three[] = v6_node_three_addr;
 
+/* IPv6 addresses for services in the cluster */
+#define v6_svc_one_addr {0xfd, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+
+volatile const __u8 v6_svc_one[] = v6_svc_one_addr;
+
 /* Source port to be used by a client */
 #define tcp_src_one	__bpf_htons(22330)
 #define tcp_src_two	__bpf_htons(33440)
