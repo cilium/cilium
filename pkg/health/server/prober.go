@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/servak/go-fastping"
+	probing "github.com/prometheus-community/pro-bing"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/health/models"
@@ -27,7 +27,6 @@ type healthReport struct {
 }
 
 type prober struct {
-	*fastping.Pinger
 	server *Server
 
 	// 'stop' is closed upon a call to prober.Stop(). When the stopping is
@@ -176,8 +175,7 @@ func resolveIP(n *healthNode, addr *ciliumModels.NodeAddressingElement, primary 
 func (p *prober) RemoveIP(ip string) {
 	nodeIP := ipString(ip)
 	delete(p.results, nodeIP)
-	p.Pinger.RemoveIP(ip)   // ICMP pinger
-	delete(p.nodes, nodeIP) // TCP prober
+	delete(p.nodes, nodeIP)
 }
 
 // setNodes sets the list of nodes for the prober, and updates the pinger to
@@ -222,7 +220,6 @@ func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 			}
 
 			ip := ipString(elem.IP)
-			p.AddIPAddr(addr)
 			p.nodes[ip] = n
 
 			if p.results[ip] == nil {
@@ -231,27 +228,6 @@ func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 				}
 			}
 		}
-	}
-}
-
-func (p *prober) updateIcmpStatus() {
-	p.Lock()
-	defer p.Unlock()
-
-	for _, status := range p.results {
-		if status.Icmp == nil {
-			status.Icmp = &models.ConnectivityStatus{}
-			status.Icmp.Status = "Connection timed out"
-		}
-	}
-}
-
-func (p *prober) clearIcmpStatus() {
-	p.Lock()
-	defer p.Unlock()
-
-	for _, status := range p.results {
-		status.Icmp = nil
 	}
 }
 
@@ -321,6 +297,54 @@ func (p *prober) getIPsByNode() map[string][]*net.IPAddr {
 	return nodes
 }
 
+func (p *prober) icmpPing(node string, ip string) *models.ConnectivityStatus {
+	result := &models.ConnectivityStatus{}
+
+	// Only add fields to the scoped logger if debug is enabled, to save on resources.
+	// This can be done since all logs in this function are debug-level only.
+	scopedLog := log
+	debugLogsEnabled := logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel)
+	if debugLogsEnabled {
+		scopedLog = log.WithFields(logrus.Fields{
+			logfields.NodeName: node,
+			logfields.IPAddr:   ip,
+		})
+	}
+
+	scopedLog.Debug("Pinging host")
+	pinger, err := probing.NewPinger(ip)
+	if err != nil {
+		if debugLogsEnabled {
+			scopedLog.WithError(err).Debug("Failed to create pinger")
+		}
+		result.Status = err.Error()
+		return result
+	}
+	pinger.Timeout = p.server.ProbeDeadline
+	pinger.Count = 1
+	pinger.OnFinish = func(stats *probing.Statistics) {
+		p.Lock()
+		defer p.Unlock()
+
+		if stats.PacketsRecv > 0 && len(stats.Rtts) > 0 {
+			if debugLogsEnabled {
+				scopedLog.WithField("rtt", stats.Rtts[0].Nanoseconds()).Debug("Ping successful")
+			}
+			result.Latency = stats.Rtts[0].Nanoseconds()
+			result.Status = ""
+		} else {
+			scopedLog.Debug("Ping failed")
+			result.Status = "Connection timed out"
+		}
+	}
+	err = pinger.Run()
+	if err != nil {
+		scopedLog.Debugf("Failed to run pinger for IP %s: %v", ip, err)
+		result.Status = err.Error()
+	}
+	return result
+}
+
 func (p *prober) runHTTPProbe() {
 	startTime := time.Now()
 	p.Lock()
@@ -356,9 +380,42 @@ func (p *prober) runHTTPProbe() {
 			if _, ok := p.results[peer]; ok {
 				p.results[peer].HTTP = resp
 			} else {
-				// While we weren't holding the lock, the
-				// pinger's OnIdle() callback fired and updated
-				// the set of nodes to remove this node.
+				scopedLog.Debug("Node disappeared before result written")
+			}
+			p.Unlock()
+		}
+	}
+}
+
+func (p *prober) runICMPPinger() {
+	// Only add fields to the scoped logger if debug is enabled, to save on resources.
+	// This can be done since all logs in this function are debug-level only.
+	debugLogsEnabled := logging.CanLogAt(log.Logger, logrus.DebugLevel)
+
+	for name, ips := range p.getIPsByNode() {
+		scopedLog := log
+
+		if debugLogsEnabled {
+			scopedLog = log.WithField(logfields.NodeName, name)
+		}
+
+		for _, ip := range ips {
+			if debugLogsEnabled {
+				scopedLog = scopedLog.WithFields(logrus.Fields{
+					logfields.IPAddr: ip.String(),
+				})
+			}
+
+			resp := p.icmpPing(name, ip.String())
+			if resp.Status != "" {
+				scopedLog.Debugf("Failed to probe: %s", resp.Status)
+			}
+
+			peer := ipString(ip.String())
+			p.Lock()
+			if _, ok := p.results[peer]; ok {
+				p.results[peer].Icmp = resp
+			} else {
 				scopedLog.Debug("Node disappeared before result written")
 			}
 			p.Unlock()
@@ -368,17 +425,14 @@ func (p *prober) runHTTPProbe() {
 
 // Run sends a single probes out to all of the other cilium nodes to gather
 // connectivity status for the cluster.
-func (p *prober) Run() error {
-	err := p.Pinger.Run()
+func (p *prober) Run() {
 	p.runHTTPProbe()
-	p.updateIcmpStatus()
-	return err
+	p.runICMPPinger()
 }
 
 // Stop disrupts the currently running RunLoop(). This may only be called after
 // a call to RunLoop().
 func (p *prober) Stop() {
-	p.Pinger.Stop()
 	close(p.stop)
 	<-p.proberExited
 }
@@ -390,18 +444,33 @@ func (p *prober) Stop() {
 // stop sending packets, call Stop().
 func (p *prober) RunLoop() {
 	// FIXME: Spread the probes out across the probing interval
-	p.Pinger.RunLoop()
-
 	go func() {
 		tick := time.NewTicker(p.server.ProbeInterval)
 		p.runHTTPProbe()
+		p.runICMPPinger()
 	loop:
 		for {
 			select {
 			case <-p.stop:
 				break loop
 			case <-tick.C:
+				// (1) We can receive the same nodes multiple times,
+				// updated node is present in both nodesAdded and nodesRemoved
+				// (2) We don't want to report stale nodes in metrics
+				if nodesAdded, nodesRemoved, err := p.server.getNodes(); err != nil {
+					// reset the cache by setting clientID to 0 and removing all current nodes
+					p.server.clientID = 0
+					p.setNodes(nil, p.nodes)
+					log.WithError(err).Error("unable to get cluster nodes")
+				} else {
+					// (1) setNodes implementation doesn't override results for existing nodes.
+					// (2) Remove stale nodes so we don't report them in metrics before updating results
+					p.setNodes(nodesAdded, nodesRemoved)
+					// (2) Update results without stale nodes
+					p.server.updateCluster(p.getResults())
+				}
 				p.runHTTPProbe()
+				p.runICMPPinger()
 				continue
 			}
 		}
@@ -410,48 +479,16 @@ func (p *prober) RunLoop() {
 	}()
 }
 
-// newPinger prepares a prober. The caller may invoke one the Run* methods of
+// newProber prepares a prober. The caller may invoke one the Run* methods of
 // the prober to populate its 'results' map.
 func newProber(s *Server, nodes nodeMap) *prober {
 	prober := &prober{
-		Pinger:       fastping.NewPinger(),
 		server:       s,
 		proberExited: make(chan bool),
 		stop:         make(chan bool),
 		results:      make(map[ipString]*models.PathStatus),
 		nodes:        make(nodeMap),
 	}
-	prober.MaxRTT = s.ProbeDeadline
-	// FIXME: Doubling the default payload size to 16 is a workaround for GH-18177
-	prober.Size = 2 * fastping.TimeSliceLength
 	prober.setNodes(nodes, nil)
-	prober.OnRecv = func(addr *net.IPAddr, rtt time.Duration) {
-		prober.Lock()
-		defer prober.Unlock()
-		node, exists := prober.nodes[ipString(addr.String())]
-
-		// Only add fields to the scoped logger if debug is enabled, to save on resources.
-		// This can be done since all logs in this function are debug-level only.
-		scopedLog := log
-		if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
-			scopedLog = log.WithFields(logrus.Fields{
-				logfields.IPAddr:   addr,
-				logfields.NodeName: node.Name,
-				"rtt":              rtt,
-			})
-		}
-
-		if !exists {
-			scopedLog.Debug("Node disappeared, skip result")
-			return
-		}
-
-		prober.results[ipString(addr.String())].Icmp = &models.ConnectivityStatus{
-			Latency: rtt.Nanoseconds(),
-			Status:  "",
-		}
-		scopedLog.Debug("probe successful")
-	}
-
 	return prober
 }

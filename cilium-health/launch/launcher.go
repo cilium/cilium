@@ -35,7 +35,7 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-health-la
 
 const (
 	serverProbeInterval  = 60 * time.Second
-	serverProbeDeadline  = 1 * time.Second
+	serverProbeDeadline  = 10 * time.Second
 	connectRetryInterval = 1 * time.Second
 	statusProbeInterval  = 5 * time.Second
 )
