@@ -6,9 +6,9 @@
 package v2alpha1
 
 import (
-	"context"
+	context "context"
 
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,33 +24,36 @@ type CiliumBGPClusterConfigsGetter interface {
 
 // CiliumBGPClusterConfigInterface has methods to work with CiliumBGPClusterConfig resources.
 type CiliumBGPClusterConfigInterface interface {
-	Create(ctx context.Context, ciliumBGPClusterConfig *v2alpha1.CiliumBGPClusterConfig, opts v1.CreateOptions) (*v2alpha1.CiliumBGPClusterConfig, error)
-	Update(ctx context.Context, ciliumBGPClusterConfig *v2alpha1.CiliumBGPClusterConfig, opts v1.UpdateOptions) (*v2alpha1.CiliumBGPClusterConfig, error)
+	Create(ctx context.Context, ciliumBGPClusterConfig *ciliumiov2alpha1.CiliumBGPClusterConfig, opts v1.CreateOptions) (*ciliumiov2alpha1.CiliumBGPClusterConfig, error)
+	Update(ctx context.Context, ciliumBGPClusterConfig *ciliumiov2alpha1.CiliumBGPClusterConfig, opts v1.UpdateOptions) (*ciliumiov2alpha1.CiliumBGPClusterConfig, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, ciliumBGPClusterConfig *v2alpha1.CiliumBGPClusterConfig, opts v1.UpdateOptions) (*v2alpha1.CiliumBGPClusterConfig, error)
+	UpdateStatus(ctx context.Context, ciliumBGPClusterConfig *ciliumiov2alpha1.CiliumBGPClusterConfig, opts v1.UpdateOptions) (*ciliumiov2alpha1.CiliumBGPClusterConfig, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2alpha1.CiliumBGPClusterConfig, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v2alpha1.CiliumBGPClusterConfigList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*ciliumiov2alpha1.CiliumBGPClusterConfig, error)
+	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2alpha1.CiliumBGPClusterConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumBGPClusterConfig, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2alpha1.CiliumBGPClusterConfig, err error)
 	CiliumBGPClusterConfigExpansion
 }
 
 // ciliumBGPClusterConfigs implements CiliumBGPClusterConfigInterface
 type ciliumBGPClusterConfigs struct {
-	*gentype.ClientWithList[*v2alpha1.CiliumBGPClusterConfig, *v2alpha1.CiliumBGPClusterConfigList]
+	*gentype.ClientWithList[*ciliumiov2alpha1.CiliumBGPClusterConfig, *ciliumiov2alpha1.CiliumBGPClusterConfigList]
 }
 
 // newCiliumBGPClusterConfigs returns a CiliumBGPClusterConfigs
 func newCiliumBGPClusterConfigs(c *CiliumV2alpha1Client) *ciliumBGPClusterConfigs {
 	return &ciliumBGPClusterConfigs{
-		gentype.NewClientWithList[*v2alpha1.CiliumBGPClusterConfig, *v2alpha1.CiliumBGPClusterConfigList](
+		gentype.NewClientWithList[*ciliumiov2alpha1.CiliumBGPClusterConfig, *ciliumiov2alpha1.CiliumBGPClusterConfigList](
 			"ciliumbgpclusterconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v2alpha1.CiliumBGPClusterConfig { return &v2alpha1.CiliumBGPClusterConfig{} },
-			func() *v2alpha1.CiliumBGPClusterConfigList { return &v2alpha1.CiliumBGPClusterConfigList{} }),
+			func() *ciliumiov2alpha1.CiliumBGPClusterConfig { return &ciliumiov2alpha1.CiliumBGPClusterConfig{} },
+			func() *ciliumiov2alpha1.CiliumBGPClusterConfigList {
+				return &ciliumiov2alpha1.CiliumBGPClusterConfigList{}
+			},
+		),
 	}
 }

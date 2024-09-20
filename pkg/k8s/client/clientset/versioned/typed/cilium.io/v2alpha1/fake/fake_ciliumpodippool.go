@@ -6,108 +6,34 @@
 package fake
 
 import (
-	"context"
-
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeCiliumPodIPPools implements CiliumPodIPPoolInterface
-type FakeCiliumPodIPPools struct {
+// fakeCiliumPodIPPools implements CiliumPodIPPoolInterface
+type fakeCiliumPodIPPools struct {
+	*gentype.FakeClientWithList[*v2alpha1.CiliumPodIPPool, *v2alpha1.CiliumPodIPPoolList]
 	Fake *FakeCiliumV2alpha1
 }
 
-var ciliumpodippoolsResource = v2alpha1.SchemeGroupVersion.WithResource("ciliumpodippools")
-
-var ciliumpodippoolsKind = v2alpha1.SchemeGroupVersion.WithKind("CiliumPodIPPool")
-
-// Get takes name of the ciliumPodIPPool, and returns the corresponding ciliumPodIPPool object, and an error if there is any.
-func (c *FakeCiliumPodIPPools) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2alpha1.CiliumPodIPPool, err error) {
-	emptyResult := &v2alpha1.CiliumPodIPPool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(ciliumpodippoolsResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeCiliumPodIPPools(fake *FakeCiliumV2alpha1) ciliumiov2alpha1.CiliumPodIPPoolInterface {
+	return &fakeCiliumPodIPPools{
+		gentype.NewFakeClientWithList[*v2alpha1.CiliumPodIPPool, *v2alpha1.CiliumPodIPPoolList](
+			fake.Fake,
+			"",
+			v2alpha1.SchemeGroupVersion.WithResource("ciliumpodippools"),
+			v2alpha1.SchemeGroupVersion.WithKind("CiliumPodIPPool"),
+			func() *v2alpha1.CiliumPodIPPool { return &v2alpha1.CiliumPodIPPool{} },
+			func() *v2alpha1.CiliumPodIPPoolList { return &v2alpha1.CiliumPodIPPoolList{} },
+			func(dst, src *v2alpha1.CiliumPodIPPoolList) { dst.ListMeta = src.ListMeta },
+			func(list *v2alpha1.CiliumPodIPPoolList) []*v2alpha1.CiliumPodIPPool {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v2alpha1.CiliumPodIPPoolList, items []*v2alpha1.CiliumPodIPPool) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v2alpha1.CiliumPodIPPool), err
-}
-
-// List takes label and field selectors, and returns the list of CiliumPodIPPools that match those selectors.
-func (c *FakeCiliumPodIPPools) List(ctx context.Context, opts v1.ListOptions) (result *v2alpha1.CiliumPodIPPoolList, err error) {
-	emptyResult := &v2alpha1.CiliumPodIPPoolList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(ciliumpodippoolsResource, ciliumpodippoolsKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v2alpha1.CiliumPodIPPoolList{ListMeta: obj.(*v2alpha1.CiliumPodIPPoolList).ListMeta}
-	for _, item := range obj.(*v2alpha1.CiliumPodIPPoolList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested ciliumPodIPPools.
-func (c *FakeCiliumPodIPPools) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(ciliumpodippoolsResource, opts))
-}
-
-// Create takes the representation of a ciliumPodIPPool and creates it.  Returns the server's representation of the ciliumPodIPPool, and an error, if there is any.
-func (c *FakeCiliumPodIPPools) Create(ctx context.Context, ciliumPodIPPool *v2alpha1.CiliumPodIPPool, opts v1.CreateOptions) (result *v2alpha1.CiliumPodIPPool, err error) {
-	emptyResult := &v2alpha1.CiliumPodIPPool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(ciliumpodippoolsResource, ciliumPodIPPool, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v2alpha1.CiliumPodIPPool), err
-}
-
-// Update takes the representation of a ciliumPodIPPool and updates it. Returns the server's representation of the ciliumPodIPPool, and an error, if there is any.
-func (c *FakeCiliumPodIPPools) Update(ctx context.Context, ciliumPodIPPool *v2alpha1.CiliumPodIPPool, opts v1.UpdateOptions) (result *v2alpha1.CiliumPodIPPool, err error) {
-	emptyResult := &v2alpha1.CiliumPodIPPool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(ciliumpodippoolsResource, ciliumPodIPPool, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v2alpha1.CiliumPodIPPool), err
-}
-
-// Delete takes name of the ciliumPodIPPool and deletes it. Returns an error if one occurs.
-func (c *FakeCiliumPodIPPools) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(ciliumpodippoolsResource, name, opts), &v2alpha1.CiliumPodIPPool{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeCiliumPodIPPools) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(ciliumpodippoolsResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v2alpha1.CiliumPodIPPoolList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched ciliumPodIPPool.
-func (c *FakeCiliumPodIPPools) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2alpha1.CiliumPodIPPool, err error) {
-	emptyResult := &v2alpha1.CiliumPodIPPool{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(ciliumpodippoolsResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v2alpha1.CiliumPodIPPool), err
 }

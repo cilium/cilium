@@ -6,10 +6,10 @@
 package v2alpha1
 
 import (
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CiliumBGPNodeConfigOverrideLister helps list CiliumBGPNodeConfigOverrides.
@@ -17,19 +17,19 @@ import (
 type CiliumBGPNodeConfigOverrideLister interface {
 	// List lists all CiliumBGPNodeConfigOverrides in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2alpha1.CiliumBGPNodeConfigOverride, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2alpha1.CiliumBGPNodeConfigOverride, err error)
 	// Get retrieves the CiliumBGPNodeConfigOverride from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2alpha1.CiliumBGPNodeConfigOverride, error)
+	Get(name string) (*ciliumiov2alpha1.CiliumBGPNodeConfigOverride, error)
 	CiliumBGPNodeConfigOverrideListerExpansion
 }
 
 // ciliumBGPNodeConfigOverrideLister implements the CiliumBGPNodeConfigOverrideLister interface.
 type ciliumBGPNodeConfigOverrideLister struct {
-	listers.ResourceIndexer[*v2alpha1.CiliumBGPNodeConfigOverride]
+	listers.ResourceIndexer[*ciliumiov2alpha1.CiliumBGPNodeConfigOverride]
 }
 
 // NewCiliumBGPNodeConfigOverrideLister returns a new CiliumBGPNodeConfigOverrideLister.
 func NewCiliumBGPNodeConfigOverrideLister(indexer cache.Indexer) CiliumBGPNodeConfigOverrideLister {
-	return &ciliumBGPNodeConfigOverrideLister{listers.New[*v2alpha1.CiliumBGPNodeConfigOverride](indexer, v2alpha1.Resource("ciliumbgpnodeconfigoverride"))}
+	return &ciliumBGPNodeConfigOverrideLister{listers.New[*ciliumiov2alpha1.CiliumBGPNodeConfigOverride](indexer, ciliumiov2alpha1.Resource("ciliumbgpnodeconfigoverride"))}
 }

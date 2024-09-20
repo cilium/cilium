@@ -16,7 +16,7 @@ type FakeDiscoveryV1 struct {
 }
 
 func (c *FakeDiscoveryV1) EndpointSlices(namespace string) v1.EndpointSliceInterface {
-	return &FakeEndpointSlices{c, namespace}
+	return newFakeEndpointSlices(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

@@ -6,7 +6,7 @@
 package externalversions
 
 import (
-	"fmt"
+	fmt "fmt"
 
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

@@ -6,10 +6,10 @@
 package v2alpha1
 
 import (
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CiliumBGPNodeConfigLister helps list CiliumBGPNodeConfigs.
@@ -17,19 +17,19 @@ import (
 type CiliumBGPNodeConfigLister interface {
 	// List lists all CiliumBGPNodeConfigs in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2alpha1.CiliumBGPNodeConfig, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2alpha1.CiliumBGPNodeConfig, err error)
 	// Get retrieves the CiliumBGPNodeConfig from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2alpha1.CiliumBGPNodeConfig, error)
+	Get(name string) (*ciliumiov2alpha1.CiliumBGPNodeConfig, error)
 	CiliumBGPNodeConfigListerExpansion
 }
 
 // ciliumBGPNodeConfigLister implements the CiliumBGPNodeConfigLister interface.
 type ciliumBGPNodeConfigLister struct {
-	listers.ResourceIndexer[*v2alpha1.CiliumBGPNodeConfig]
+	listers.ResourceIndexer[*ciliumiov2alpha1.CiliumBGPNodeConfig]
 }
 
 // NewCiliumBGPNodeConfigLister returns a new CiliumBGPNodeConfigLister.
 func NewCiliumBGPNodeConfigLister(indexer cache.Indexer) CiliumBGPNodeConfigLister {
-	return &ciliumBGPNodeConfigLister{listers.New[*v2alpha1.CiliumBGPNodeConfig](indexer, v2alpha1.Resource("ciliumbgpnodeconfig"))}
+	return &ciliumBGPNodeConfigLister{listers.New[*ciliumiov2alpha1.CiliumBGPNodeConfig](indexer, ciliumiov2alpha1.Resource("ciliumbgpnodeconfig"))}
 }

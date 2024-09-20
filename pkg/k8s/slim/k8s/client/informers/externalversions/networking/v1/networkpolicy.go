@@ -6,13 +6,13 @@
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	apinetworkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	versioned "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/listers/networking/v1"
+	networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/listers/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // NetworkPolicies.
 type NetworkPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.NetworkPolicyLister
+	Lister() networkingv1.NetworkPolicyLister
 }
 
 type networkPolicyInformer struct {
@@ -58,7 +58,7 @@ func NewFilteredNetworkPolicyInformer(client versioned.Interface, namespace stri
 				return client.NetworkingV1().NetworkPolicies(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&networkingv1.NetworkPolicy{},
+		&apinetworkingv1.NetworkPolicy{},
 		resyncPeriod,
 		indexers,
 	)
@@ -69,9 +69,9 @@ func (f *networkPolicyInformer) defaultInformer(client versioned.Interface, resy
 }
 
 func (f *networkPolicyInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&networkingv1.NetworkPolicy{}, f.defaultInformer)
+	return f.factory.InformerFor(&apinetworkingv1.NetworkPolicy{}, f.defaultInformer)
 }
 
-func (f *networkPolicyInformer) Lister() v1.NetworkPolicyLister {
-	return v1.NewNetworkPolicyLister(f.Informer().GetIndexer())
+func (f *networkPolicyInformer) Lister() networkingv1.NetworkPolicyLister {
+	return networkingv1.NewNetworkPolicyLister(f.Informer().GetIndexer())
 }
