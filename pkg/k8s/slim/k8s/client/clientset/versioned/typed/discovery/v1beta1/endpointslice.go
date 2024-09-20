@@ -6,9 +6,9 @@
 package v1beta1
 
 import (
-	"context"
+	context "context"
 
-	v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
+	discoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	scheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,31 +24,31 @@ type EndpointSlicesGetter interface {
 
 // EndpointSliceInterface has methods to work with EndpointSlice resources.
 type EndpointSliceInterface interface {
-	Create(ctx context.Context, endpointSlice *v1beta1.EndpointSlice, opts v1.CreateOptions) (*v1beta1.EndpointSlice, error)
-	Update(ctx context.Context, endpointSlice *v1beta1.EndpointSlice, opts v1.UpdateOptions) (*v1beta1.EndpointSlice, error)
+	Create(ctx context.Context, endpointSlice *discoveryv1beta1.EndpointSlice, opts v1.CreateOptions) (*discoveryv1beta1.EndpointSlice, error)
+	Update(ctx context.Context, endpointSlice *discoveryv1beta1.EndpointSlice, opts v1.UpdateOptions) (*discoveryv1beta1.EndpointSlice, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1beta1.EndpointSlice, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.EndpointSliceList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*discoveryv1beta1.EndpointSlice, error)
+	List(ctx context.Context, opts v1.ListOptions) (*discoveryv1beta1.EndpointSliceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.EndpointSlice, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *discoveryv1beta1.EndpointSlice, err error)
 	EndpointSliceExpansion
 }
 
 // endpointSlices implements EndpointSliceInterface
 type endpointSlices struct {
-	*gentype.ClientWithList[*v1beta1.EndpointSlice, *v1beta1.EndpointSliceList]
+	*gentype.ClientWithList[*discoveryv1beta1.EndpointSlice, *discoveryv1beta1.EndpointSliceList]
 }
 
 // newEndpointSlices returns a EndpointSlices
 func newEndpointSlices(c *DiscoveryV1beta1Client, namespace string) *endpointSlices {
 	return &endpointSlices{
-		gentype.NewClientWithList[*v1beta1.EndpointSlice, *v1beta1.EndpointSliceList](
+		gentype.NewClientWithList[*discoveryv1beta1.EndpointSlice, *discoveryv1beta1.EndpointSliceList](
 			"endpointslices",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1beta1.EndpointSlice { return &v1beta1.EndpointSlice{} },
-			func() *v1beta1.EndpointSliceList { return &v1beta1.EndpointSliceList{} }),
+			func() *discoveryv1beta1.EndpointSlice { return &discoveryv1beta1.EndpointSlice{} },
+			func() *discoveryv1beta1.EndpointSliceList { return &discoveryv1beta1.EndpointSliceList{} }),
 	}
 }
