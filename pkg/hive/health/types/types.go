@@ -48,7 +48,10 @@ func (i Identifier) WithSubComponent(name string) Identifier {
 }
 
 func (i Identifier) String() string {
-	return strings.Join([]string{i.Module.String(), i.Component.String()}, ".")
+	if len(i.Component) > 0 {
+		return strings.Join([]string{i.Module.String(), i.Component.String()}, ".")
+	}
+	return i.Module.String()
 }
 
 func (i Identifier) HealthID() HealthID {
