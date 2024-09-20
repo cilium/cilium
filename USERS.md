@@ -644,6 +644,12 @@ Users (Alphabetically)
       L: https://www.dbschenker.com/global
       Q: @amirkkn
 
+    * N: Scigility AG
+      D: We use Cilium as the default CNI across client implementations and also for our internal platform.
+      U: CNI, Monitoring, kube-proxy replacement, Hubble
+      L: https://scigility.com/
+      Q: @ciil
+
     * N: Sealos
       D: Sealos is using Cilium as a consistent CNI for our Sealos Cloud.
       U: Networking, Service, kube-proxy replacement, Network Policy, Hubble
