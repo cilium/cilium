@@ -31,6 +31,7 @@ Inspect StateDB
 * [cilium-dbg statedb l2-announce](cilium-dbg_statedb_l2-announce.md)	 - Show contents of table "l2-announce"
 * [cilium-dbg statedb nat-stats](cilium-dbg_statedb_nat-stats.md)	 - Show contents of table "nat-stats"
 * [cilium-dbg statedb node-addresses](cilium-dbg_statedb_node-addresses.md)	 - Show contents of table "node-addresses"
+* [cilium-dbg statedb notices](cilium-dbg_statedb_notices.md)	 - Show contents of table "notices"
 * [cilium-dbg statedb routes](cilium-dbg_statedb_routes.md)	 - Show contents of table "routes"
 * [cilium-dbg statedb sysctl](cilium-dbg_statedb_sysctl.md)	 - Show contents of table "sysctl"
 

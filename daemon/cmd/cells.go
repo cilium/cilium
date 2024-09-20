@@ -55,6 +55,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/nodediscovery"
+	"github.com/cilium/cilium/pkg/notices"
 	"github.com/cilium/cilium/pkg/option"
 	policy "github.com/cilium/cilium/pkg/policy/cell"
 	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
@@ -144,6 +145,9 @@ var (
 		// LocalNodeStore holds onto the information about the local node and allows
 		// observing changes to it.
 		node.LocalNodeStoreCell,
+
+		// Provides Notices (for posting agent notices) and Table[Notice]
+		notices.Cell,
 
 		// Provide a newLocalNodeSynchronizer that is invoked when LocalNodeStore is started.
 		// This fills in the initial state before it is accessed by other sub-systems.

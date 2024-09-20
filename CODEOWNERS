@@ -572,6 +572,7 @@ Makefile* @cilium/build
 /pkg/netns/ @cilium/sig-datapath @cilium/sig-k8s
 /pkg/node @cilium/sig-agent
 /pkg/nodediscovery/ @cilium/sig-agent
+/pkg/notices @cilium/sig-foundations
 /pkg/option @cilium/sig-agent @cilium/cli
 /pkg/pidfile @cilium/sig-agent
 /pkg/policy @cilium/sig-policy
