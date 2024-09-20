@@ -1273,6 +1273,9 @@ github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 ## explicit
 github.com/pmezard/go-difflib/difflib
+# github.com/prometheus-community/pro-bing v0.4.1
+## explicit; go 1.19
+github.com/prometheus-community/pro-bing
 # github.com/prometheus/client_golang v1.20.5
 ## explicit; go 1.20
 github.com/prometheus/client_golang/internal/github.com/golang/gddo/httputil
@@ -1318,9 +1321,6 @@ github.com/sasha-s/go-deadlock
 # github.com/sergi/go-diff v1.3.1
 ## explicit; go 1.12
 github.com/sergi/go-diff/diffmatchpatch
-# github.com/servak/go-fastping v0.0.0-20160802140958-5718d12e20a0
-## explicit
-github.com/servak/go-fastping
 # github.com/shopspring/decimal v1.4.0
 ## explicit; go 1.10
 github.com/shopspring/decimal

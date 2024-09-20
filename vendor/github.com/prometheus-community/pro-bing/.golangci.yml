@@ -1,0 +1,19 @@
+---
+linters:
+  enable:
+  - misspell
+  - revive
+
+issues:
+  exclude-rules:
+  - path: _test.go
+    linters:
+    - errcheck
+
+linters-settings:
+  revive:
+    rules:
+      # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#unused-parameter
+      - name: unused-parameter
+        severity: warning
+        disabled: true
