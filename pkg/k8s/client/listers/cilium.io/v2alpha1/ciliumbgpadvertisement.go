@@ -6,10 +6,10 @@
 package v2alpha1
 
 import (
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CiliumBGPAdvertisementLister helps list CiliumBGPAdvertisements.
@@ -17,19 +17,19 @@ import (
 type CiliumBGPAdvertisementLister interface {
 	// List lists all CiliumBGPAdvertisements in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2alpha1.CiliumBGPAdvertisement, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2alpha1.CiliumBGPAdvertisement, err error)
 	// Get retrieves the CiliumBGPAdvertisement from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2alpha1.CiliumBGPAdvertisement, error)
+	Get(name string) (*ciliumiov2alpha1.CiliumBGPAdvertisement, error)
 	CiliumBGPAdvertisementListerExpansion
 }
 
 // ciliumBGPAdvertisementLister implements the CiliumBGPAdvertisementLister interface.
 type ciliumBGPAdvertisementLister struct {
-	listers.ResourceIndexer[*v2alpha1.CiliumBGPAdvertisement]
+	listers.ResourceIndexer[*ciliumiov2alpha1.CiliumBGPAdvertisement]
 }
 
 // NewCiliumBGPAdvertisementLister returns a new CiliumBGPAdvertisementLister.
 func NewCiliumBGPAdvertisementLister(indexer cache.Indexer) CiliumBGPAdvertisementLister {
-	return &ciliumBGPAdvertisementLister{listers.New[*v2alpha1.CiliumBGPAdvertisement](indexer, v2alpha1.Resource("ciliumbgpadvertisement"))}
+	return &ciliumBGPAdvertisementLister{listers.New[*ciliumiov2alpha1.CiliumBGPAdvertisement](indexer, ciliumiov2alpha1.Resource("ciliumbgpadvertisement"))}
 }

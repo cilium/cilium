@@ -18,7 +18,7 @@ test: vet
 	@go build -o /tmp/$(TOOL)
 	$(eval TMPDIR := $(shell mktemp -d))
 	PKGS=$$(go list ./output_tests/...  | paste -sd' ' -); \
-	/tmp/$(TOOL) --logtostderr --v=${LOGLEVEL} -i $$(echo $$PKGS | sed 's/ /,/g') -O zz_generated -h hack/boilerplate.txt --output-base $(TMPDIR)
+	/tmp/$(TOOL) --logtostderr --v=${LOGLEVEL} -O zz_generated.go -h hack/boilerplate.txt --output-base $(TMPDIR) $$PKGS
 	cp -r "$(TMPDIR)/github.com/cilium/deepequal-gen/." ./
 	rm -rf "$(TMPDIR)"
 	@if ! git diff --quiet HEAD; then \

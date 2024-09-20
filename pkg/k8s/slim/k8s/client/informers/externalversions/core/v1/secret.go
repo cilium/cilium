@@ -6,13 +6,13 @@
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	apicorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	versioned "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/listers/core/v1"
+	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/listers/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // Secrets.
 type SecretInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.SecretLister
+	Lister() corev1.SecretLister
 }
 
 type secretInformer struct {
@@ -58,7 +58,7 @@ func NewFilteredSecretInformer(client versioned.Interface, namespace string, res
 				return client.CoreV1().Secrets(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&corev1.Secret{},
+		&apicorev1.Secret{},
 		resyncPeriod,
 		indexers,
 	)
@@ -69,9 +69,9 @@ func (f *secretInformer) defaultInformer(client versioned.Interface, resyncPerio
 }
 
 func (f *secretInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&corev1.Secret{}, f.defaultInformer)
+	return f.factory.InformerFor(&apicorev1.Secret{}, f.defaultInformer)
 }
 
-func (f *secretInformer) Lister() v1.SecretLister {
-	return v1.NewSecretLister(f.Informer().GetIndexer())
+func (f *secretInformer) Lister() corev1.SecretLister {
+	return corev1.NewSecretLister(f.Informer().GetIndexer())
 }

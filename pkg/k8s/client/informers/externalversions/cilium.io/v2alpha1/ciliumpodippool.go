@@ -6,13 +6,13 @@
 package v2alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	apisciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2alpha1"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // CiliumPodIPPools.
 type CiliumPodIPPoolInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v2alpha1.CiliumPodIPPoolLister
+	Lister() ciliumiov2alpha1.CiliumPodIPPoolLister
 }
 
 type ciliumPodIPPoolInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredCiliumPodIPPoolInformer(client versioned.Interface, resyncPeriod
 				return client.CiliumV2alpha1().CiliumPodIPPools().Watch(context.TODO(), options)
 			},
 		},
-		&ciliumiov2alpha1.CiliumPodIPPool{},
+		&apisciliumiov2alpha1.CiliumPodIPPool{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *ciliumPodIPPoolInformer) defaultInformer(client versioned.Interface, re
 }
 
 func (f *ciliumPodIPPoolInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&ciliumiov2alpha1.CiliumPodIPPool{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisciliumiov2alpha1.CiliumPodIPPool{}, f.defaultInformer)
 }
 
-func (f *ciliumPodIPPoolInformer) Lister() v2alpha1.CiliumPodIPPoolLister {
-	return v2alpha1.NewCiliumPodIPPoolLister(f.Informer().GetIndexer())
+func (f *ciliumPodIPPoolInformer) Lister() ciliumiov2alpha1.CiliumPodIPPoolLister {
+	return ciliumiov2alpha1.NewCiliumPodIPPoolLister(f.Informer().GetIndexer())
 }

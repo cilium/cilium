@@ -6,13 +6,13 @@
 package v2alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	apisciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2alpha1"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // CiliumBGPPeerConfigs.
 type CiliumBGPPeerConfigInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v2alpha1.CiliumBGPPeerConfigLister
+	Lister() ciliumiov2alpha1.CiliumBGPPeerConfigLister
 }
 
 type ciliumBGPPeerConfigInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredCiliumBGPPeerConfigInformer(client versioned.Interface, resyncPe
 				return client.CiliumV2alpha1().CiliumBGPPeerConfigs().Watch(context.TODO(), options)
 			},
 		},
-		&ciliumiov2alpha1.CiliumBGPPeerConfig{},
+		&apisciliumiov2alpha1.CiliumBGPPeerConfig{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *ciliumBGPPeerConfigInformer) defaultInformer(client versioned.Interface
 }
 
 func (f *ciliumBGPPeerConfigInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&ciliumiov2alpha1.CiliumBGPPeerConfig{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisciliumiov2alpha1.CiliumBGPPeerConfig{}, f.defaultInformer)
 }
 
-func (f *ciliumBGPPeerConfigInformer) Lister() v2alpha1.CiliumBGPPeerConfigLister {
-	return v2alpha1.NewCiliumBGPPeerConfigLister(f.Informer().GetIndexer())
+func (f *ciliumBGPPeerConfigInformer) Lister() ciliumiov2alpha1.CiliumBGPPeerConfigLister {
+	return ciliumiov2alpha1.NewCiliumBGPPeerConfigLister(f.Informer().GetIndexer())
 }

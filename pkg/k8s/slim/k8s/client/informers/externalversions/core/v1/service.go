@@ -6,13 +6,13 @@
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	apicorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	versioned "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/listers/core/v1"
+	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/listers/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // Services.
 type ServiceInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.ServiceLister
+	Lister() corev1.ServiceLister
 }
 
 type serviceInformer struct {
@@ -58,7 +58,7 @@ func NewFilteredServiceInformer(client versioned.Interface, namespace string, re
 				return client.CoreV1().Services(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&corev1.Service{},
+		&apicorev1.Service{},
 		resyncPeriod,
 		indexers,
 	)
@@ -69,9 +69,9 @@ func (f *serviceInformer) defaultInformer(client versioned.Interface, resyncPeri
 }
 
 func (f *serviceInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&corev1.Service{}, f.defaultInformer)
+	return f.factory.InformerFor(&apicorev1.Service{}, f.defaultInformer)
 }
 
-func (f *serviceInformer) Lister() v1.ServiceLister {
-	return v1.NewServiceLister(f.Informer().GetIndexer())
+func (f *serviceInformer) Lister() corev1.ServiceLister {
+	return corev1.NewServiceLister(f.Informer().GetIndexer())
 }

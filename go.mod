@@ -18,7 +18,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/charts v0.0.0-20241006222739-d4ea3601d819
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
-	github.com/cilium/deepequal-gen v0.0.0-20231116094812-0d6c075c335f
+	github.com/cilium/deepequal-gen v0.0.0-20241002105916-4c4165f47b6c
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
 	github.com/cilium/ebpf v0.16.0
 	github.com/cilium/endpointslice-controller v0.0.0-20240409203012-75cb5d61db1b
@@ -120,18 +120,18 @@ require (
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.16.1
-	k8s.io/api v0.31.1
-	k8s.io/apiextensions-apiserver v0.31.1
-	k8s.io/apimachinery v0.31.1
-	k8s.io/cli-runtime v0.31.1
-	k8s.io/client-go v0.31.1
-	k8s.io/code-generator v0.31.1
-	k8s.io/component-base v0.31.1
-	k8s.io/endpointslice v0.31.1
+	k8s.io/api v0.32.0-alpha.1
+	k8s.io/apiextensions-apiserver v0.32.0-alpha.1
+	k8s.io/apimachinery v0.32.0-alpha.1
+	k8s.io/cli-runtime v0.32.0-alpha.1
+	k8s.io/client-go v0.32.0-alpha.1
+	k8s.io/code-generator v0.32.0-alpha.1
+	k8s.io/component-base v0.32.0-alpha.1
+	k8s.io/endpointslice v0.32.0-alpha.1
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/utils v0.0.0-20240921022957-49e7df575cb6
 	sigs.k8s.io/controller-runtime v0.19.0
-	sigs.k8s.io/controller-tools v0.16.3
+	sigs.k8s.io/controller-tools v0.16.4-0.20240923084800-3b70a40398f4
 	sigs.k8s.io/gateway-api v1.2.0
 	sigs.k8s.io/mcs-api v0.1.1-0.20241002142749-eff1ba8c3ab2
 	sigs.k8s.io/yaml v1.4.0
@@ -223,7 +223,6 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/hcl v1.0.1-vault-5 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
-	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ishidawataru/sctp v0.0.0-20230406120618-7ff4192f6ff2 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
@@ -316,10 +315,9 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gotest.tools/v3 v3.5.0 // indirect
-	k8s.io/apiserver v0.31.1 // indirect
-	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
-	k8s.io/gengo/v2 v2.0.0-20240228010128-51d4e06bde70 // indirect
-	k8s.io/kube-openapi v0.0.0-20240423202451-8948a665c108 // indirect
+	k8s.io/apiserver v0.32.0-alpha.1 // indirect
+	k8s.io/gengo/v2 v2.0.0-20240911193312-2b36238f13e9 // indirect
+	k8s.io/kube-openapi v0.0.0-20240827152857-f7e401e7b4c2 // indirect
 	k8s.io/kubectl v0.31.0 // indirect
 	oras.land/oras-go v1.2.5 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
@@ -333,5 +331,6 @@ replace (
 
 	// Using private fork of controller-tools. See commit msg for more context
 	// as to why we are using a private fork.
-	sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16.1-1
+	// For testing purpose, use another fork to include https://github.com/kubernetes-sigs/controller-tools#1061
+	sigs.k8s.io/controller-tools => github.com/sayboras/controller-tools v0.0.0-20240925150353-20695830368c
 )

@@ -6,7 +6,7 @@
 package fake
 
 import (
-	"context"
+	context "context"
 
 	v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

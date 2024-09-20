@@ -6,9 +6,9 @@
 package v2
 
 import (
-	"context"
+	context "context"
 
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,33 +24,35 @@ type CiliumClusterwideNetworkPoliciesGetter interface {
 
 // CiliumClusterwideNetworkPolicyInterface has methods to work with CiliumClusterwideNetworkPolicy resources.
 type CiliumClusterwideNetworkPolicyInterface interface {
-	Create(ctx context.Context, ciliumClusterwideNetworkPolicy *v2.CiliumClusterwideNetworkPolicy, opts v1.CreateOptions) (*v2.CiliumClusterwideNetworkPolicy, error)
-	Update(ctx context.Context, ciliumClusterwideNetworkPolicy *v2.CiliumClusterwideNetworkPolicy, opts v1.UpdateOptions) (*v2.CiliumClusterwideNetworkPolicy, error)
+	Create(ctx context.Context, ciliumClusterwideNetworkPolicy *ciliumiov2.CiliumClusterwideNetworkPolicy, opts v1.CreateOptions) (*ciliumiov2.CiliumClusterwideNetworkPolicy, error)
+	Update(ctx context.Context, ciliumClusterwideNetworkPolicy *ciliumiov2.CiliumClusterwideNetworkPolicy, opts v1.UpdateOptions) (*ciliumiov2.CiliumClusterwideNetworkPolicy, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, ciliumClusterwideNetworkPolicy *v2.CiliumClusterwideNetworkPolicy, opts v1.UpdateOptions) (*v2.CiliumClusterwideNetworkPolicy, error)
+	UpdateStatus(ctx context.Context, ciliumClusterwideNetworkPolicy *ciliumiov2.CiliumClusterwideNetworkPolicy, opts v1.UpdateOptions) (*ciliumiov2.CiliumClusterwideNetworkPolicy, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2.CiliumClusterwideNetworkPolicy, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v2.CiliumClusterwideNetworkPolicyList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*ciliumiov2.CiliumClusterwideNetworkPolicy, error)
+	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumClusterwideNetworkPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumClusterwideNetworkPolicy, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumClusterwideNetworkPolicy, err error)
 	CiliumClusterwideNetworkPolicyExpansion
 }
 
 // ciliumClusterwideNetworkPolicies implements CiliumClusterwideNetworkPolicyInterface
 type ciliumClusterwideNetworkPolicies struct {
-	*gentype.ClientWithList[*v2.CiliumClusterwideNetworkPolicy, *v2.CiliumClusterwideNetworkPolicyList]
+	*gentype.ClientWithList[*ciliumiov2.CiliumClusterwideNetworkPolicy, *ciliumiov2.CiliumClusterwideNetworkPolicyList]
 }
 
 // newCiliumClusterwideNetworkPolicies returns a CiliumClusterwideNetworkPolicies
 func newCiliumClusterwideNetworkPolicies(c *CiliumV2Client) *ciliumClusterwideNetworkPolicies {
 	return &ciliumClusterwideNetworkPolicies{
-		gentype.NewClientWithList[*v2.CiliumClusterwideNetworkPolicy, *v2.CiliumClusterwideNetworkPolicyList](
+		gentype.NewClientWithList[*ciliumiov2.CiliumClusterwideNetworkPolicy, *ciliumiov2.CiliumClusterwideNetworkPolicyList](
 			"ciliumclusterwidenetworkpolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v2.CiliumClusterwideNetworkPolicy { return &v2.CiliumClusterwideNetworkPolicy{} },
-			func() *v2.CiliumClusterwideNetworkPolicyList { return &v2.CiliumClusterwideNetworkPolicyList{} }),
+			func() *ciliumiov2.CiliumClusterwideNetworkPolicy { return &ciliumiov2.CiliumClusterwideNetworkPolicy{} },
+			func() *ciliumiov2.CiliumClusterwideNetworkPolicyList {
+				return &ciliumiov2.CiliumClusterwideNetworkPolicyList{}
+			}),
 	}
 }

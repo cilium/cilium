@@ -6,9 +6,9 @@
 package v2
 
 import (
-	"context"
+	context "context"
 
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,31 +24,31 @@ type CiliumEgressGatewayPoliciesGetter interface {
 
 // CiliumEgressGatewayPolicyInterface has methods to work with CiliumEgressGatewayPolicy resources.
 type CiliumEgressGatewayPolicyInterface interface {
-	Create(ctx context.Context, ciliumEgressGatewayPolicy *v2.CiliumEgressGatewayPolicy, opts v1.CreateOptions) (*v2.CiliumEgressGatewayPolicy, error)
-	Update(ctx context.Context, ciliumEgressGatewayPolicy *v2.CiliumEgressGatewayPolicy, opts v1.UpdateOptions) (*v2.CiliumEgressGatewayPolicy, error)
+	Create(ctx context.Context, ciliumEgressGatewayPolicy *ciliumiov2.CiliumEgressGatewayPolicy, opts v1.CreateOptions) (*ciliumiov2.CiliumEgressGatewayPolicy, error)
+	Update(ctx context.Context, ciliumEgressGatewayPolicy *ciliumiov2.CiliumEgressGatewayPolicy, opts v1.UpdateOptions) (*ciliumiov2.CiliumEgressGatewayPolicy, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2.CiliumEgressGatewayPolicy, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v2.CiliumEgressGatewayPolicyList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*ciliumiov2.CiliumEgressGatewayPolicy, error)
+	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumEgressGatewayPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumEgressGatewayPolicy, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumEgressGatewayPolicy, err error)
 	CiliumEgressGatewayPolicyExpansion
 }
 
 // ciliumEgressGatewayPolicies implements CiliumEgressGatewayPolicyInterface
 type ciliumEgressGatewayPolicies struct {
-	*gentype.ClientWithList[*v2.CiliumEgressGatewayPolicy, *v2.CiliumEgressGatewayPolicyList]
+	*gentype.ClientWithList[*ciliumiov2.CiliumEgressGatewayPolicy, *ciliumiov2.CiliumEgressGatewayPolicyList]
 }
 
 // newCiliumEgressGatewayPolicies returns a CiliumEgressGatewayPolicies
 func newCiliumEgressGatewayPolicies(c *CiliumV2Client) *ciliumEgressGatewayPolicies {
 	return &ciliumEgressGatewayPolicies{
-		gentype.NewClientWithList[*v2.CiliumEgressGatewayPolicy, *v2.CiliumEgressGatewayPolicyList](
+		gentype.NewClientWithList[*ciliumiov2.CiliumEgressGatewayPolicy, *ciliumiov2.CiliumEgressGatewayPolicyList](
 			"ciliumegressgatewaypolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v2.CiliumEgressGatewayPolicy { return &v2.CiliumEgressGatewayPolicy{} },
-			func() *v2.CiliumEgressGatewayPolicyList { return &v2.CiliumEgressGatewayPolicyList{} }),
+			func() *ciliumiov2.CiliumEgressGatewayPolicy { return &ciliumiov2.CiliumEgressGatewayPolicy{} },
+			func() *ciliumiov2.CiliumEgressGatewayPolicyList { return &ciliumiov2.CiliumEgressGatewayPolicyList{} }),
 	}
 }
