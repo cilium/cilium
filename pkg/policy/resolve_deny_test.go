@@ -85,93 +85,93 @@ func generateCIDRIdentities(rules api.Rules) identity.IdentityMap {
 	return c
 }
 
+func generateCIDREgressRule(i int) api.EgressRule {
+	port := fmt.Sprintf("%d", 80+i%97)
+	prefix := []string{"8", "16", "24", "28", "32"}[i%5]
+	var net string
+	switch prefix {
+	case "8":
+		net = []string{"10.0.0.0", "192.0.0.0", "244.0.0.0"}[i%3]
+	case "16":
+		pat := []string{"10.%d.0.0", "192.%d.0.0", "244.%d.0.0"}[i%3]
+		net = fmt.Sprintf(pat, i%17)
+	case "24":
+		pat := []string{"10.%d.%d.0", "192.%d.%d.0", "244.%d.%d.0"}[i%3]
+		net = fmt.Sprintf(pat, i%17, i%121)
+	case "28":
+		pat := []string{"10.%d.%d.%d", "192.%d.%d.%d", "244.%d.%d.%d"}[i%3]
+		net = fmt.Sprintf(pat, i%17, i%121, i%16<<4)
+	case "32":
+		pat := []string{"10.%d.%d.%d", "192.%d.%d.%d", "244.%d.%d.%d"}[i%3]
+		net = fmt.Sprintf(pat, i%17, i%121, i%255)
+	}
+	cidr := net + "/" + prefix
+	return api.EgressRule{
+		EgressCommonRule: api.EgressCommonRule{
+			ToCIDR: []api.CIDR{api.CIDR(cidr)},
+		},
+		ToPorts: []api.PortRule{
+			{
+				Ports: []api.PortProtocol{
+					{
+						Port:     port,
+						Protocol: api.ProtoTCP,
+					},
+				},
+			},
+		},
+	}
+}
+
+func generateCIDREgressDenyRule(i int) api.EgressDenyRule {
+	port := fmt.Sprintf("%d", 80+i%131)
+	prefix := []string{"8", "16", "24", "28", "32"}[(i+21)%5]
+	var net string
+	switch prefix {
+	case "8":
+		net = []string{"10.0.0.0", "192.0.0.0", "244.0.0.0"}[i%3]
+	case "16":
+		pat := []string{"10.%d.0.0", "192.%d.0.0", "244.%d.0.0"}[i%3]
+		net = fmt.Sprintf(pat, i%23)
+	case "24":
+		pat := []string{"10.%d.%d.0", "192.%d.%d.0", "244.%d.%d.0"}[i%3]
+		net = fmt.Sprintf(pat, i%23, i%119)
+	case "28":
+		pat := []string{"10.%d.%d.%d", "192.%d.%d.%d", "244.%d.%d.%d"}[i%3]
+		net = fmt.Sprintf(pat, i%23, i%119, i%15<<4)
+	case "32":
+		pat := []string{"10.%d.%d.%d", "192.%d.%d.%d", "244.%d.%d.%d"}[i%3]
+		net = fmt.Sprintf(pat, i%23, i%119, i%253)
+	}
+	cidr := net + "/" + prefix
+	return api.EgressDenyRule{
+		EgressCommonRule: api.EgressCommonRule{
+			ToCIDR: []api.CIDR{api.CIDR(cidr)},
+		},
+		ToPorts: []api.PortDenyRule{
+			{
+				Ports: []api.PortProtocol{
+					{
+						Port:     port,
+						Protocol: api.ProtoTCP,
+					},
+				},
+			},
+		},
+	}
+}
+
 func GenerateCIDRDenyRules(numRules int) (api.Rules, identity.IdentityMap) {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
-
-	egRule := func(i int) api.EgressRule {
-		port := fmt.Sprintf("%d", 80+i%97)
-		prefix := []string{"8", "16", "24", "28", "32"}[i%5]
-		var net string
-		switch prefix {
-		case "8":
-			net = []string{"10.0.0.0", "192.0.0.0", "244.0.0.0"}[i%3]
-		case "16":
-			pat := []string{"10.%d.0.0", "192.%d.0.0", "244.%d.0.0"}[i%3]
-			net = fmt.Sprintf(pat, i%17)
-		case "24":
-			pat := []string{"10.%d.%d.0", "192.%d.%d.0", "244.%d.%d.0"}[i%3]
-			net = fmt.Sprintf(pat, i%17, i%121)
-		case "28":
-			pat := []string{"10.%d.%d.%d", "192.%d.%d.%d", "244.%d.%d.%d"}[i%3]
-			net = fmt.Sprintf(pat, i%17, i%121, i%16<<4)
-		case "32":
-			pat := []string{"10.%d.%d.%d", "192.%d.%d.%d", "244.%d.%d.%d"}[i%3]
-			net = fmt.Sprintf(pat, i%17, i%121, i%255)
-		}
-		cidr := net + "/" + prefix
-		return api.EgressRule{
-			EgressCommonRule: api.EgressCommonRule{
-				ToCIDR: []api.CIDR{api.CIDR(cidr)},
-			},
-			ToPorts: []api.PortRule{
-				{
-					Ports: []api.PortProtocol{
-						{
-							Port:     port,
-							Protocol: api.ProtoTCP,
-						},
-					},
-				},
-			},
-		}
-	}
-
-	egDenyRule := func(i int) api.EgressDenyRule {
-		port := fmt.Sprintf("%d", 80+i%131)
-		prefix := []string{"8", "16", "24", "28", "32"}[(i+21)%5]
-		var net string
-		switch prefix {
-		case "8":
-			net = []string{"10.0.0.0", "192.0.0.0", "244.0.0.0"}[i%3]
-		case "16":
-			pat := []string{"10.%d.0.0", "192.%d.0.0", "244.%d.0.0"}[i%3]
-			net = fmt.Sprintf(pat, i%23)
-		case "24":
-			pat := []string{"10.%d.%d.0", "192.%d.%d.0", "244.%d.%d.0"}[i%3]
-			net = fmt.Sprintf(pat, i%23, i%119)
-		case "28":
-			pat := []string{"10.%d.%d.%d", "192.%d.%d.%d", "244.%d.%d.%d"}[i%3]
-			net = fmt.Sprintf(pat, i%23, i%119, i%15<<4)
-		case "32":
-			pat := []string{"10.%d.%d.%d", "192.%d.%d.%d", "244.%d.%d.%d"}[i%3]
-			net = fmt.Sprintf(pat, i%23, i%119, i%253)
-		}
-		cidr := net + "/" + prefix
-		return api.EgressDenyRule{
-			EgressCommonRule: api.EgressCommonRule{
-				ToCIDR: []api.CIDR{api.CIDR(cidr)},
-			},
-			ToPorts: []api.PortDenyRule{
-				{
-					Ports: []api.PortProtocol{
-						{
-							Port:     port,
-							Protocol: api.ProtoTCP,
-						},
-					},
-				},
-			},
-		}
-	}
 
 	var rules api.Rules
 	for i := 1; i <= numRules; i++ {
 		uuid := k8stypes.UID(fmt.Sprintf("12bba160-ddca-13e8-%04x-0800273b04ff", i))
 		rule := api.Rule{
 			EndpointSelector: fooSelector,
-			Egress:           []api.EgressRule{egRule(i)},
-			EgressDeny:       []api.EgressDenyRule{egDenyRule(i + 773)},
+			Egress:           []api.EgressRule{generateCIDREgressRule(i)},
+			EgressDeny:       []api.EgressDenyRule{generateCIDREgressDenyRule(i + 773)},
 			Labels:           utils.GetPolicyLabels("default", fmt.Sprintf("cidr-%d", i), uuid, utils.ResourceTypeCiliumNetworkPolicy),
 		}
 		rule.Sanitize()

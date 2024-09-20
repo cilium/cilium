@@ -136,31 +136,12 @@ func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 	fooSelector := api.NewESFromLabels(parseFooLabel)
 	//barSelector := api.NewESFromLabels(labels.ParseSelectLabel("bar"))
 
-	// Change ingRule and rule in the for-loop below to change what type of rules
-	// are added into the policy repository.
-	egRule := api.EgressRule{
-		EgressCommonRule: api.EgressCommonRule{
-			ToCIDR: []api.CIDR{api.CIDR("10.2.3.0/24"), api.CIDR("ff02::/64")},
-		},
-		/*ToRequires:  []api.EndpointSelector{barSelector},
-		ToPorts: []api.PortRule{
-			{
-				Ports: []api.PortProtocol{
-					{
-						Port:     "8080",
-						Protocol: api.ProtoTCP,
-					},
-				},
-			},
-		},*/
-	}
-
 	var rules api.Rules
 	uuid := k8stypes.UID("12bba160-ddca-13e8-b697-0800273b04ff")
 	for i := 1; i <= numRules; i++ {
 		rule := api.Rule{
 			EndpointSelector: fooSelector,
-			Egress:           []api.EgressRule{egRule},
+			Egress:           []api.EgressRule{generateCIDREgressRule(i)},
 			Labels:           utils.GetPolicyLabels("default", "cidr", uuid, utils.ResourceTypeCiliumNetworkPolicy),
 		}
 		rule.Sanitize()
