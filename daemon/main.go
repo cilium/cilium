@@ -9,7 +9,8 @@ import (
 )
 
 func main() {
-	agentHive := hive.New(cmd.Agent)
-
-	cmd.Execute(cmd.NewAgentCmd(agentHive))
+	hiveFn := func() *hive.Hive {
+		return hive.New(cmd.Agent)
+	}
+	cmd.Execute(cmd.NewAgentCmd(hiveFn))
 }

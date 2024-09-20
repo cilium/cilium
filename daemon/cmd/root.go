@@ -17,13 +17,14 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 )
 
-func NewAgentCmd(h *hive.Hive) *cobra.Command {
+func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
+	bootstrapStats.overall.Start()
+	h := hfn()
+
 	rootCmd := &cobra.Command{
 		Use:   "cilium-agent",
 		Short: "Run the cilium agent",
 		Run: func(cobraCmd *cobra.Command, args []string) {
-			bootstrapStats.overall.Start()
-
 			if v, _ := cobraCmd.Flags().GetBool("version"); v {
 				fmt.Printf("%s %s\n", cobraCmd.Name(), version.Version)
 				os.Exit(0)
