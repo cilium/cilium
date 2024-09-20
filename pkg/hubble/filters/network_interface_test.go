@@ -24,7 +24,7 @@ func TestNetworkInterfaceFilter(t *testing.T) {
 		want bool
 	}{
 		{
-			name: "nil",
+			name: "nil event",
 			args: args{
 				f: []*flowpb.FlowFilter{{
 					Interface: []*flowpb.NetworkInterface{
@@ -34,6 +34,35 @@ func TestNetworkInterfaceFilter(t *testing.T) {
 					},
 				}},
 				ev: nil,
+			},
+			want: false,
+		},
+		{
+			name: "empty filter (any interface) match",
+			args: args{
+				f: []*flowpb.FlowFilter{{
+					Interface: []*flowpb.NetworkInterface{
+						{},
+					},
+				}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					Interface: &flowpb.NetworkInterface{
+						Index: 1,
+						Name:  "eth1",
+					},
+				}},
+			},
+			want: true,
+		},
+		{
+			name: "empty filter (any interface) miss",
+			args: args{
+				f: []*flowpb.FlowFilter{{
+					Interface: []*flowpb.NetworkInterface{
+						{},
+					},
+				}},
+				ev: &v1.Event{Event: &flowpb.Flow{}},
 			},
 			want: false,
 		},
