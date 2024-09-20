@@ -1881,6 +1881,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		}
 	}
 
+	log.Infof("XXX: Starting EnableEnvoyConfig")
 	if option.Config.EnableEnvoyConfig {
 		if !d.endpointManager.IngressEndpointExists() {
 			// Creating Ingress Endpoint depends on the Ingress IPs having been
@@ -1899,6 +1900,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		}
 	}
 
+	log.Infof("XXX: Starting NewIPMasqAgent")
 	if option.Config.EnableIPMasqAgent {
 		ipmasqAgent, err := ipmasq.NewIPMasqAgent(option.Config.IPMasqAgentConfigPath)
 		if err != nil {
@@ -1928,6 +1930,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		time.Sleep(option.Config.IdentityRestoreGracePeriod)
 		d.releaseRestoredIdentities()
 	}()
+	log.Infof("XXX: Starting endpointManager subs")
 	d.endpointManager.Subscribe(d)
 	// Add the endpoint manager unsubscribe as the last step in cleanup
 	defer cleaner.cleanupFuncs.Add(func() { d.endpointManager.Unsubscribe(d) })
@@ -1957,14 +1960,17 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		}
 	}
 
+	log.Infof("XXX: Starting health checking")
 	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking {
 		d.initHealth(params.HealthAPISpec, cleaner, params.Sysctl)
 	}
 	bootstrapStats.healthCheck.End(true)
 
+	log.Infof("XXX: Starting status collector")
 	d.startStatusCollector(cleaner)
 
+	log.Infof("XXX: Starting HTTP Service")
 	d.startAgentHealthHTTPService()
 	if option.Config.KubeProxyReplacementHealthzBindAddr != "" {
 		if option.Config.KubeProxyReplacement != option.KubeProxyReplacementFalse {

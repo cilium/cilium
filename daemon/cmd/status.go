@@ -918,19 +918,33 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 		},
 	}
 
+	log.Infof("XXX: Starting status collector1")
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()
+	log.Infof("XXX: Starting status collector2")
 	d.statusResponse.IPV6BigTCP = d.getIPV6BigTCPStatus()
+	log.Infof("XXX: Starting status collector3")
 	d.statusResponse.IPV4BigTCP = d.getIPV4BigTCPStatus()
+	log.Infof("XXX: Starting status collector4")
 	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
+	log.Infof("XXX: Starting status collector5")
 	d.statusResponse.HostFirewall = d.getHostFirewallStatus()
+	log.Infof("XXX: Starting status collector6")
 	d.statusResponse.Routing = d.getRoutingStatus()
+	log.Infof("XXX: Starting status collector7")
 	d.statusResponse.ClockSource = d.getClockSourceStatus()
+	log.Infof("XXX: Starting status collector8")
 	d.statusResponse.BpfMaps = d.getBPFMapStatus()
+	log.Infof("XXX: Starting status collector9")
 	d.statusResponse.CniChaining = d.getCNIChainingStatus()
+	log.Infof("XXX: Starting status collectors10")
 	d.statusResponse.IdentityRange = d.getIdentityRange()
+	log.Infof("XXX: Starting status collectors11")
 	d.statusResponse.Srv6 = d.getSRv6Status()
+	log.Infof("XXX: Starting status collectors12")
 	d.statusResponse.AttachMode = d.getAttachModeStatus()
+	log.Infof("XXX: Starting status collectors13")
 	d.statusResponse.DatapathMode = d.getDatapathModeStatus()
+	log.Infof("XXX: Starting status collectors end")
 
 	d.statusCollector = status.NewCollector(probes, status.DefaultConfig)
 
