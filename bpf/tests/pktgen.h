@@ -65,6 +65,10 @@ static volatile const __u8 mac_zero[] =  {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 
 #define v4_all	IPV4(0, 0, 0, 0)
 
+/* IPv6 addresses for hosts, external to the cluster */
+static volatile const __section(".rodata") __u8 v6_ext_one[] = {0xfd, 0x03, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 1};
+
 /* IPv6 addresses for pods in the cluster */
 static volatile const __section(".rodata") __u8 v6_pod_one[] = {0xfd, 0x04, 0, 0, 0, 0, 0, 0,
 					   0, 0, 0, 0, 0, 0, 0, 1};
@@ -80,6 +84,10 @@ static volatile const __section(".rodata") __u8 v6_node_two[] = {0xfd, 0x06, 0, 
 					   0, 0, 0, 0, 0, 0, 0, 2};
 static volatile const __section(".rodata") __u8 v6_node_three[] = {0xfd, 0x07, 0, 0, 0, 0, 0, 0,
 					   0, 0, 0, 0, 0, 0, 0, 3};
+
+/* IPv6 addresses for services in the cluster */
+static volatile const __section(".rodata") __u8 v6_svc_one[] = {0xfd, 0x10, 0, 0, 0, 0, 0, 0,
+					   0, 0, 0, 0, 0, 0, 0, 1};
 
 /* Source port to be used by a client */
 #define tcp_src_one	__bpf_htons(22330)
