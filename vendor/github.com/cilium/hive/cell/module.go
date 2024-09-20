@@ -4,6 +4,7 @@
 package cell
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"regexp"
@@ -163,6 +164,7 @@ func (m *module) modulePrivateProviders(scope *dig.Scope) error {
 }
 
 func (m *module) Apply(c container) error {
+	slog.Default().Log(context.TODO(), slog.LevelInfo, fmt.Sprintf("Applying module %s", m.id))
 	scope := c.Scope(m.id)
 
 	// Provide ModuleID and FullModuleID in the module's scope.
