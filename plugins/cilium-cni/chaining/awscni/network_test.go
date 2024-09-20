@@ -27,7 +27,7 @@ const (
 var (
 	mockPodIP = net.IPv4(10, 10, 10, 33)
 
-	mockAWSCNIResult = &cniTypesVer.Result{
+	mockAWSCNIResult = cniTypesVer.Result{
 		Interfaces: []*cniTypesVer.Interface{
 			{
 				Name: mockHostIfName,
@@ -41,6 +41,7 @@ var (
 		},
 		IPs: []*cniTypesVer.IPConfig{
 			{
+				Interface: cniTypesVer.Int(0),
 				Address: net.IPNet{
 					IP:   mockPodIP,
 					Mask: net.IPv4Mask(255, 255, 255, 0),
@@ -50,18 +51,26 @@ var (
 	}
 )
 
-func TestInstallSGPPodRules(t *testing.T) {
+func TestInstallSGPPRules(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
 	ns := netns.NewNetNS(t)
 	ns.Do(func() error {
-		podVLANID := getSGPPodVLANID(mockAWSCNIResult)
+		awsCNIRes := awsCNIResult(mockAWSCNIResult)
+
+		podHostIface, ok := awsCNIRes.getSGPPHostIface()
+		assert.True(t, ok)
+		assert.Equal(t, mockHostIfName, podHostIface)
+
+		podVLANID, ok := awsCNIRes.getSGPPVLANID()
+		assert.True(t, ok)
 		assert.Equal(t, podVLANID, fmt.Sprintf("%d", mockPodVLANID))
 
-		PodAddr := getSGPPodAddr(mockAWSCNIResult)
+		PodAddr, ok := awsCNIRes.getSGPPAddr()
+		assert.True(t, ok)
 		assert.Equal(t, net.IPv4(10, 10, 10, 33), PodAddr.IP)
 
-		err := installSGPPodProxyRules(podVLANID, PodAddr)
+		err := installSGPPProxyRules(podVLANID, PodAddr)
 		assert.NoError(t, err)
 
 		rules, err := route.ListRules(netlink.FAMILY_V4, &route.Rule{

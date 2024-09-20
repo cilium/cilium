@@ -10,42 +10,50 @@ import (
 	cniTypesVer "github.com/containernetworking/cni/pkg/types/100"
 )
 
-// awsCNIInterfacePrefixSGPP the prefix used by the AWS CNI to build the
-// name of the host side interface for security group attached Pods
-const awsCNIIfacePrefixSGPPod = "vlan"
+type awsCNIResult cniTypesVer.Result
 
-// isSGPPodAttachment returns true if this is an attachment for a
-// security group attached Pod following strict enforcement
-func isSGPPodAttachment(res *cniTypesVer.Result) bool {
-	return strings.HasPrefix(getHostIface(res), awsCNIIfacePrefixSGPPod)
+func (r awsCNIResult) getHostIfaceIndex(prefix string) (index int, ok bool) {
+	for i, iface := range r.Interfaces {
+		if iface.Sandbox != "" {
+			continue
+		}
+		if strings.HasPrefix(iface.Name, prefix) {
+			index, ok = i, true
+		}
+	}
+	return
 }
 
-// awsCNIIPIndexHost is the index into the result IPConfig array of the
-// of the new Pod's IP Address
-const awsCNIIPIndexHost = iota
-
-// getSGPPodAddr returns the IP of the security group attached Pod from
-// the AWS CNI Result
-func getSGPPodAddr(res *cniTypesVer.Result) net.IPNet {
-	return res.IPs[awsCNIIPIndexHost].Address
+// getSGPPAddr returns the IP of the security group attached pod
+func (r awsCNIResult) getSGPPAddr() (address net.IPNet, ok bool) {
+	i, ok := r.getHostIfaceIndex(awsCNIIfacePrefixSGPP)
+	if !ok {
+		return
+	}
+	for _, ip := range r.IPs {
+		if *(ip.Interface) == i {
+			address = ip.Address
+		}
+	}
+	return
 }
 
-const (
-	// awsCNIIfaceIndexHost is the index into the result interfaces
-	// array of the new Pod's host side veth interface
-	awsCNIIfaceIndexHost = iota
-	_
-	// awsCNIIfaceIndexDummy is the index into the result interfaces
-	// array of the AWS CNI dummy interface
-	awsCNIIfaceIndexDummy
-)
-
-func getHostIface(res *cniTypesVer.Result) string {
-	return res.Interfaces[awsCNIIfaceIndexHost].Name
+// getSGPPHostIface returns the name of the host side interface of the
+// security group attached pod
+func (r awsCNIResult) getSGPPHostIface() (name string, ok bool) {
+	i, ok := r.getHostIfaceIndex(awsCNIIfacePrefixSGPP)
+	if ok {
+		name = r.Interfaces[i].Name
+	}
+	return
 }
 
-// getSGPPodVLANID returns the VLAN ID associated with the security
-// group attached Pod from the AWS CNI Result
-func getSGPPodVLANID(res *cniTypesVer.Result) string {
-	return res.Interfaces[awsCNIIfaceIndexDummy].Mac
+// getSGPPVLANID returns the VLAN ID associated with the security group
+// attached pod
+func (r awsCNIResult) getSGPPVLANID() (vlanID string, ok bool) {
+	i, ok := r.getHostIfaceIndex(awsCNIIfacePrefixDummy)
+	if ok {
+		vlanID = r.Interfaces[i].Mac
+	}
+	return
 }

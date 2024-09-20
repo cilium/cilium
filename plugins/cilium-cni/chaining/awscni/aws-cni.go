@@ -28,29 +28,38 @@ func (f *AWSCNIChainer) Add(ctx context.Context, pluginCtx chainingapi.PluginCon
 		err = fmt.Errorf("unable to understand network config: %w", err)
 		return
 	}
-	if !isSGPPodAttachment(prevRes) || !pluginCtx.NetConf.ProxyRouting {
+	awsCNIRes := awsCNIResult(*prevRes)
+
+	sgppHostIface, ok := awsCNIRes.getSGPPHostIface()
+	if !ok || !pluginCtx.NetConf.ProxyRouting {
 		return f.GenericVethChainer.Add(ctx, pluginCtx, cli)
 	}
 	pluginCtx.Logger.Debug("found security group attached Pod")
 
-	// If this is an attachment for a security group attached Pod (SGP Pod),
-	// we need to do some additional setup to ensure traffic is routed
-	// correctly to and from an L7 ingress proxy when L7 policies are applied.
-	sgpPodVLANID := getSGPPodVLANID(prevRes)
-	sgpPodAddr := getSGPPodAddr(prevRes)
-	if err = installSGPPodProxyRules(sgpPodVLANID, sgpPodAddr); err != nil {
+	sgppVLANID, ok := awsCNIRes.getSGPPVLANID()
+	if !ok {
+		err = fmt.Errorf("failed to retrieve SGP Pod VLAN ID")
+		return
+	}
+	sgppAddr, ok := awsCNIRes.getSGPPAddr()
+	if !ok {
+		err = fmt.Errorf("failed to retrieve SGP Pod address")
+		return
+	}
+	err = installSGPPProxyRules(sgppVLANID, sgppAddr)
+	if err != nil {
 		err = fmt.Errorf("failed to install SGP Pod proxy rules: %w", err)
 		return
 	}
-	sgpPodHostIface := getHostIface(prevRes)
+
 	err = pluginCtx.Sysctl.Disable([]string{
-		"net", "ipv4", "conf", sgpPodHostIface, "rp_filter"})
+		"net", "ipv4", "conf", sgppHostIface, "rp_filter"})
 	if err != nil {
 		err = fmt.Errorf("failed to configure SGP Pod VLAN interface: %w", err)
 		return
 	}
 	err = pluginCtx.Sysctl.Disable([]string{
-		"net", "ipv4", "conf", buildSGPPodVLANIfaceName(sgpPodVLANID), "rp_filter"})
+		"net", "ipv4", "conf", buildSGPPVLANIfaceName(sgppVLANID), "rp_filter"})
 	if err != nil {
 		err = fmt.Errorf("failed to configure SGP Pod host interface: %w", err)
 		return
