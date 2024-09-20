@@ -147,7 +147,7 @@ func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 		rule.Sanitize()
 		rules = append(rules, &rule)
 	}
-	return rules, generateNumIdentities(3000)
+	return rules, generateCIDRIdentities(rules)
 }
 
 type DummyOwner struct{}
@@ -219,12 +219,16 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.Ide
 func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 	td := newTestData()
 	td.bootstrapRepo(GenerateCIDRRules, 1000, b)
+	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
+	b.ReportAllocs()
 	b.ResetTimer()
+	n := 0
 	for i := 0; i < b.N; i++ {
-		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		_ = ip.DistillPolicy(DummyOwner{}, false)
-		ip.Detach()
+		epPolicy := ip.DistillPolicy(DummyOwner{}, false)
+		n += epPolicy.policyMapState.Len()
 	}
+	ip.Detach()
+	fmt.Printf("Number of MapState entries: %d\n", n/b.N)
 }
 
 func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
