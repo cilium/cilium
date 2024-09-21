@@ -7,7 +7,6 @@ package ipsec
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -20,7 +19,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -86,7 +84,6 @@ const (
 
 type ipSecKey struct {
 	Spi   uint8
-	ESN   bool
 	ReqID int
 	Auth  *netlink.XfrmStateAlgo
 	Crypt *netlink.XfrmStateAlgo
@@ -145,11 +142,6 @@ var (
 		Action:   netlink.XFRM_POLICY_BLOCK,
 		Priority: defaultDropPriority,
 	}
-
-	// To attempt to remove any stale XFRM configs once at startup, after
-	// we've added the catch-all default-drop policy.
-	removeStaleIPv4XFRMOnce sync.Once
-	removeStaleIPv6XFRMOnce sync.Once
 
 	oldXFRMInMark *netlink.XfrmMark = &netlink.XfrmMark{
 		Value: linux_defaults.RouteMarkDecrypt,
@@ -214,7 +206,6 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBoo
 	nodeKey := &ipSecKey{
 		Spi:   globalKey.Spi,
 		ReqID: globalKey.ReqID,
-		ESN:   globalKey.ESN,
 	}
 
 	srcNodeIP = canonicalIP(srcNodeIP)
@@ -244,19 +235,16 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBoo
 // We want one IPsec key per node pair. For a pair of nodes A and B with IP
 // addresses a and b, and boot ids x and y respectively, we will therefore
 // install two different keys:
-// Node A               <> Node B
+// Node A                   <> Node B
 // XFRM IN:  key(b+a+y+x)      XFRM IN:  key(a+b+x+y)
 // XFRM OUT: key(a+b+x+y)      XFRM OUT: key(b+a+y+x)
 // This is done such that, for each pair of nodes A, B, the key used for
 // decryption on A (XFRM IN) is the same key used for encryption on B (XFRM
-// OUT), and vice versa. And its ESN automatically resets on each node reboot.
+// OUT), and vice versa. And its key automatically resets on each node reboot.
 func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, localBootID, remoteBootID string, dir netlink.Dir) *ipSecKey {
 	globalKey := getGlobalIPsecKey(localNodeIP)
 	if globalKey == nil {
 		return nil
-	}
-	if !globalKey.ESN {
-		return globalKey
 	}
 
 	if dir == netlink.XFRM_DIR_OUT {
@@ -267,14 +255,12 @@ func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, localBootID, remoteBootID
 
 func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
 	state := netlink.XfrmState{
-		Mode:  netlink.XFRM_MODE_TUNNEL,
-		Proto: netlink.XFRM_PROTO_ESP,
-		ESN:   keys.ESN,
-		Spi:   int(keys.Spi),
-		Reqid: keys.ReqID,
-	}
-	if keys.ESN {
-		state.ReplayWindow = 1024
+		Mode:         netlink.XFRM_MODE_TUNNEL,
+		Proto:        netlink.XFRM_PROTO_ESP,
+		ESN:          true,
+		Spi:          int(keys.Spi),
+		Reqid:        keys.ReqID,
+		ReplayWindow: 1024,
 	}
 	if keys.Aead != nil {
 		state.Aead = keys.Aead
@@ -327,23 +313,10 @@ func xfrmStateReplace(log *slog.Logger, new *netlink.XfrmState, remoteRebooted b
 	// Check if the XFRM state already exists
 	for _, s := range states {
 		if xfrmIPEqual(s.Src, new.Src) && xfrmIPEqual(s.Dst, new.Dst) &&
-			xfrmMarkEqual(s.Mark, new.Mark) && s.Spi == new.Spi {
-			if !xfrmKeyEqual(&s, new) {
-				// The states are the same, including the SPI, but the
-				// encryption key changed. This is expected on upgrade because
-				// we changed the way we compute the per-node-pair key.
-				scopedLog.Info("Removing XFRM state with old IPsec key")
-				xfrmStateCache.XfrmStateDel(&s)
-				break
-			}
-			if !xfrmMarkEqual(s.OutputMark, new.OutputMark) {
-				// If only the output-marks differ, then we should be able
-				// to simply update the XFRM state atomically.
-				return xfrmStateCache.XfrmStateUpdate(new)
-			}
-			if remoteRebooted && new.ESN {
-				// This should happen only when a node reboots when the boot ID
-				// is used to compute the key (i.e., if ESN is also enabled).
+			xfrmMarkEqual(s.Mark, new.Mark) && xfrmMarkEqual(s.OutputMark, new.OutputMark) &&
+			s.Spi == new.Spi {
+			if remoteRebooted {
+				// This should happen only when a node reboots.
 				// We can safely perform a non-atomic swap of the XFRM state
 				// for both the IN and OUT directions because:
 				// - For the IN direction, we can't leak anything. At most
@@ -475,20 +448,6 @@ func xfrmMarkEqual(mark1, mark2 *netlink.XfrmMark) bool {
 	return mark1 == nil || (mark1.Value == mark2.Value && mark1.Mask == mark2.Mask)
 }
 
-// Returns true if the two XFRM states have the same encryption key.
-func xfrmKeyEqual(s1, s2 *netlink.XfrmState) bool {
-	if (s1.Aead == nil) != (s2.Aead == nil) ||
-		(s1.Crypt == nil) != (s2.Crypt == nil) ||
-		(s1.Auth == nil) != (s2.Auth == nil) {
-		return false
-	}
-	if s1.Aead != nil {
-		return bytes.Equal(s1.Aead.Key, s2.Aead.Key)
-	}
-	return bytes.Equal(s1.Crypt.Key, s2.Crypt.Key) &&
-		bytes.Equal(s1.Auth.Key, s2.Auth.Key)
-}
-
 func ipSecReplaceStateIn(log *slog.Logger, localIP, remoteIP net.IP, nodeID uint16, zeroMark bool, localBootID, remoteBootID string, remoteRebooted bool, reqID int) (uint8, error) {
 	key := getNodeIPsecKey(localIP, remoteIP, localBootID, remoteBootID, netlink.XFRM_DIR_IN)
 	if key == nil {
@@ -616,52 +575,15 @@ func IpSecReplacePolicyFwd(dst *net.IPNet, tmplDst net.IP, reqID int) error {
 //
 // We do need to match on the mark because there is also traffic flowing
 // through XFRM that we don't want to encrypt (e.g., hostns traffic).
-func IPsecDefaultDropPolicy(log *slog.Logger, ipv6 bool) error {
-	log = log.With(logfields.LogSubsys, subsystem)
-
+func IPsecDefaultDropPolicy(ipv6 bool) error {
 	defaultDropPolicy := defaultDropPolicyIPv4
-	family := netlink.FAMILY_V4
 	if ipv6 {
 		defaultDropPolicy = defaultDropPolicyIPv6
-		family = netlink.FAMILY_V6
 	}
 
 	err := netlink.XfrmPolicyUpdate(defaultDropPolicy)
 
-	// We move the old XFRM OUT policy. This code can be removed in Cilium v1.17.
-	removeStaleXFRMOnce := &removeStaleIPv4XFRMOnce
-	if ipv6 {
-		removeStaleXFRMOnce = &removeStaleIPv6XFRMOnce
-	}
-	removeStaleXFRMOnce.Do(func() {
-		removeOldOutPolicy(log, family)
-	})
-
 	return err
-}
-
-// Removes the old XFRM OUT policy. We rely on the mark mask and its lower
-// priority to identify it. We can rely on the priority because it was lowered
-// to a specific number in a previous upgrade.
-func removeOldOutPolicy(log *slog.Logger, family int) {
-	policies, err := netlink.XfrmPolicyList(family)
-	if err != nil {
-		log.Error("Cannot get XFRM policies", logfields.Error, err)
-	}
-	for _, p := range policies {
-		if p.Dir == netlink.XFRM_DIR_OUT && p.Priority == oldXFRMOutPolicyPriority &&
-			p.Mark.Mask == linux_defaults.IPsecOldMarkMaskOut {
-			if err := netlink.XfrmPolicyDel(&p); err != nil {
-				log.Error("Failed to remove old XFRM policy",
-					logfields.Error, err,
-					logfields.SourceCIDR, p.Src,
-					logfields.DestinationCIDR, p.Dst,
-					logfields.TrafficDirection, getDirFromXfrmMark(p.Mark),
-					logfields.NodeID, getNodeIDAsHexFromXfrmMark(p.Mark),
-				)
-			}
-		}
-	}
 }
 
 // ipSecXfrmMarkSetSPI takes a XfrmMark base value, an SPI, returns the mark
@@ -1065,7 +987,6 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 		var (
 			aeadKey    []byte
 			authKey    []byte
-			esn        bool
 			err        error
 			offsetBase int
 		)
@@ -1084,7 +1005,7 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 			return 0, 0, fmt.Errorf("missing IPSec key or invalid format")
 		}
 
-		spi, offsetBase, esn, err = parseSPI(log, s[offsetSPI])
+		spi, offsetBase, err = parseSPI(log, s[offsetSPI])
 		if err != nil {
 			return 0, 0, fmt.Errorf("failed to parse SPI: %w", err)
 		}
@@ -1143,7 +1064,6 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 		}
 
 		ipSecKey.Spi = spi
-		ipSecKey.ESN = esn
 
 		if oldKey, ok := ipSecKeysGlobal[""]; ok {
 			ipSecKeysRemovalTime[oldKey.Spi] = time.Now()
@@ -1154,26 +1074,21 @@ func LoadIPSecKeys(log *slog.Logger, r io.Reader) (int, uint8, error) {
 	return keyLen, spi, nil
 }
 
-func parseSPI(log *slog.Logger, spiStr string) (uint8, int, bool, error) {
-	esn := false
+func parseSPI(log *slog.Logger, spiStr string) (uint8, int, error) {
 	if spiStr[len(spiStr)-1] == '+' {
-		esn = true
 		spiStr = spiStr[:len(spiStr)-1]
 	}
 	spi, err := strconv.Atoi(spiStr)
 	if err != nil {
-		return 0, 0, false, fmt.Errorf("the first argument of the IPsec secret is not a number. Attempted %q", spiStr)
+		return 0, 0, fmt.Errorf("the first argument of the IPsec secret is not a number. Attempted %q", spiStr)
 	}
 	if spi > linux_defaults.IPsecMaxKeyVersion {
-		return 0, 0, false, fmt.Errorf("encryption key space exhausted. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
+		return 0, 0, fmt.Errorf("encryption key space exhausted. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
 	}
 	if spi == 0 {
-		return 0, 0, false, fmt.Errorf("zero is not a valid key ID. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
+		return 0, 0, fmt.Errorf("zero is not a valid key ID. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
 	}
-	if !esn {
-		log.Warn(fmt.Sprintf("global IPsec keys are deprecated and will be removed in v1.17. Use per-tunnel keys instead by adding a '+' sign after the SPI (%d+ in your case).", spi))
-	}
-	return uint8(spi), 0, esn, nil
+	return uint8(spi), 0, nil
 }
 
 func SetIPSecSPI(log *slog.Logger, spi uint8) error {

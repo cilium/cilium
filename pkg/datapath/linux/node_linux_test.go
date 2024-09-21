@@ -881,7 +881,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) testEncryptedOverlayXFRMLeaks(t *test
 			{IP: net.ParseIP("4.4.4.4"), Type: nodeaddressing.NodeCiliumInternalIP},
 		},
 		IPv4AllocCIDR: cidr.MustParseCIDR("4.4.4.0/24"),
-		BootID:        "test-boot-id",
+		BootID:        "5f616d5f-aed6-4ac7-b237-123456789abc",
 	}
 	err = linuxNodeHandler.NodeAdd(node)
 	require.NoError(t, err)
@@ -928,7 +928,7 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testi
 		},
 		IPv4AllocCIDR: cidr.MustParseCIDR("4.4.4.0/24"),
 		IPv6AllocCIDR: cidr.MustParseCIDR("2001:aaaa::/96"),
-		BootID:        "test-boot-id",
+		BootID:        "5f616d5f-aed6-4ac7-b237-123456789abc",
 	}
 	err = linuxNodeHandler.NodeAdd(node)
 	require.NoError(t, err)

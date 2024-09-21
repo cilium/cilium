@@ -286,7 +286,7 @@ jobs:
       - name: Create the IPSec secret in both clusters
         if: matrix.encryption == 'ipsec'
         run: |
-          SECRET="3 rfc4106(gcm(aes)) $(openssl rand -hex 20) 128"
+          SECRET="3+ rfc4106(gcm(aes)) $(openssl rand -hex 20) 128"
           kubectl --context ${{ env.contextName1 }} create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
           kubectl --context ${{ env.contextName2 }} create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
 

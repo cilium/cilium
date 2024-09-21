@@ -302,6 +302,8 @@ communicating via the proxy must reconnect to re-establish connections.
   ``--operator-k8s-client-qps`` and ``--operator-k8s-client-burst`` flags or the corresponding
   Helm values.
 * Support for Consul, deprecated since v1.12, has been removed.
+* For IPsec, support for a single key has been removed. Per-tunnel keys will
+  now be used regardless of the presence of the ``+`` sign in the secret.  
 
 Removed Options
 ~~~~~~~~~~~~~~~
