@@ -31,7 +31,7 @@ var (
 )
 
 func TestWatchAllKeys(t *testing.T) {
-	cSource := `[{"kind":"config-map","namespace":"kube-system","name":"aLowPriority"},{"kind":"config-map","namespace":"kube-system","name":"cilium-config"}]`
+	cSource := `[{"kind":"config-map","namespace":"kube-system","name":"a-low-priority"},{"kind":"config-map","namespace":"kube-system","name":"cilium-config"}]`
 	expected := map[string]DynamicConfig{
 		"key": {
 			Key: Key{
@@ -45,7 +45,7 @@ func TestWatchAllKeys(t *testing.T) {
 	_, db, dct, _ := fixture(t, cSource)
 
 	key := "key"
-	lowPrioritySource := "aLowPriority" // leading 'a' to test that sources that are not in priority map have lower priority
+	lowPrioritySource := "a-low-priority" // leading 'a' to test that sources that are not in priority map have lower priority
 	value := "value"
 	newValue := "newValue"
 
