@@ -193,13 +193,6 @@ type BackendOperations interface {
 	// Close closes the kvstore client
 	Close()
 
-	// Encodes a binary slice into a character set that the backend
-	// supports
-	Encode(in []byte) string
-
-	// Decodes a key previously encoded back into the original binary slice
-	Decode(in string) ([]byte, error)
-
 	// ListAndWatch creates a new watcher which will watch the specified
 	// prefix for changes. Before doing this, it will list the current keys
 	// matching the prefix and report them as new keys. The Events channel is

@@ -65,6 +65,10 @@ spec:
         args:
         - -config
         - /run/spire/config/server.conf
+        {{- with .Values.authentication.mutual.spire.install.server.resources }}
+        resources:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}        
         ports:
         - name: grpc
           containerPort: 8081

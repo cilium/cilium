@@ -85,7 +85,7 @@ func NewConfigTable(db *statedb.DB) (statedb.RWTable[DynamicConfig], error) {
 	return tbl, db.RegisterTable(tbl)
 }
 
-func RegisterConfigMapReflector(jobGroup job.Group, db *statedb.DB, rcs []k8s.ReflectorConfig[DynamicConfig], c config) error {
+func RegisterConfigMapReflector(jobGroup job.Group, db *statedb.DB, rcs []k8s.ReflectorConfig[DynamicConfig], c Config) error {
 	if !c.EnableDynamicConfig {
 		return nil
 	}
@@ -123,6 +123,24 @@ func WatchKey(txn statedb.ReadTxn, table statedb.Table[DynamicConfig], key strin
 	}
 	sortByPriority(entries)
 	return entries[0], true, w
+}
+
+// WatchAllKeys retrieves all DynamicConfig values accounting for priority when the
+// key is present in multiple config sources.
+func WatchAllKeys(txn statedb.ReadTxn, table statedb.Table[DynamicConfig]) (map[string]DynamicConfig, <-chan struct{}) {
+	keyValue := map[string]DynamicConfig{}
+	keyPriority := map[string]int{}
+
+	iter, w := table.AllWatch(txn)
+	for obj := range iter {
+		priority, found := keyPriority[obj.Key.Name]
+		if !found || priority > obj.Priority {
+			keyValue[obj.Key.Name] = obj
+			keyPriority[obj.Key.Name] = obj.Priority
+		}
+	}
+
+	return keyValue, w
 }
 
 func sortByPriority(entries []DynamicConfig) {

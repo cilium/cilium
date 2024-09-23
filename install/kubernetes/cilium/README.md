@@ -78,6 +78,7 @@ contributors across the globe, there is almost always someone available to help.
 | authentication.mutual.spire.install.agent.labels | object | `{}` | SPIRE agent labels |
 | authentication.mutual.spire.install.agent.nodeSelector | object | `{}` | SPIRE agent nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector |
 | authentication.mutual.spire.install.agent.podSecurityContext | object | `{}` | Security context to be added to spire agent pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod |
+| authentication.mutual.spire.install.agent.resources | object | `{}` | container resource limits & requests |
 | authentication.mutual.spire.install.agent.securityContext | object | `{}` | Security context to be added to spire agent containers. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container |
 | authentication.mutual.spire.install.agent.serviceAccount | object | `{"create":true,"name":"spire-agent"}` | SPIRE agent service account |
 | authentication.mutual.spire.install.agent.skipKubeletVerification | bool | `true` | SPIRE Workload Attestor kubelet verification. |
@@ -99,6 +100,7 @@ contributors across the globe, there is almost always someone available to help.
 | authentication.mutual.spire.install.server.labels | object | `{}` | SPIRE server labels |
 | authentication.mutual.spire.install.server.nodeSelector | object | `{}` | SPIRE server nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector |
 | authentication.mutual.spire.install.server.podSecurityContext | object | `{}` | Security context to be added to spire server pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod |
+| authentication.mutual.spire.install.server.resources | object | `{}` | container resource limits & requests |
 | authentication.mutual.spire.install.server.securityContext | object | `{}` | Security context to be added to spire server containers. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container |
 | authentication.mutual.spire.install.server.service.annotations | object | `{}` | Annotations to be added to the SPIRE server service |
 | authentication.mutual.spire.install.server.service.labels | object | `{}` | Labels to be added to the SPIRE server service |
@@ -312,6 +314,7 @@ contributors across the globe, there is almost always someone available to help.
 | enableIPv6Masquerade | bool | `true` | Enables masquerading of IPv6 traffic leaving the node from endpoints. |
 | enableInternalTrafficPolicy | bool | `true` | Enable Internal Traffic Policy |
 | enableK8sTerminatingEndpoint | bool | `true` | Configure whether to enable auto detect of terminating state for endpoints in order to support graceful termination. |
+| enableLBIPAM | bool | `true` | Enable LoadBalancer IP Address Management |
 | enableMasqueradeRouteSource | bool | `false` | Enables masquerading to the source of the route for traffic leaving the node from endpoints. |
 | enableRuntimeDeviceDetection | bool | `true` | Enables experimental support for the detection of new and removed datapath devices. When devices change the eBPF datapath is reloaded and services updated. If "devices" is set then only those devices, or devices matching a wildcard will be considered.  This option has been deprecated and is a no-op. |
 | enableXTSocketFallback | bool | `true` | Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: https://docs.cilium.io/en/stable/operations/system_requirements/#linux-kernel. |

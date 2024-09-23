@@ -19,4 +19,9 @@ spec:
   duration: {{ printf "%dh0m0s" (mul .Values.hubble.tls.auto.certValidityDuration 24) }}
   privateKey:
     rotationPolicy: Always
+  isCA: false
+  usages:
+    - signing
+    - key encipherment
+    - client auth
 {{- end }}

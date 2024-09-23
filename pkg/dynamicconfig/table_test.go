@@ -30,6 +30,40 @@ var (
 	dummyConfigMap = map[string]string{"key1": "value1", "key2": "value2"}
 )
 
+func TestWatchAllKeys(t *testing.T) {
+	cSource := `[{"kind":"config-map","namespace":"kube-system","name":"a-low-priority"},{"kind":"config-map","namespace":"kube-system","name":"cilium-config"}]`
+	expected := map[string]DynamicConfig{
+		"key": {
+			Key: Key{
+				Name:   "key",
+				Source: "cilium-config",
+			},
+			Value:    "newValue",
+			Priority: 0,
+		},
+	}
+	_, db, dct, _ := fixture(t, cSource)
+
+	key := "key"
+	lowPrioritySource := "a-low-priority" // leading 'a' to test that sources that are not in priority map have lower priority
+	value := "value"
+	newValue := "newValue"
+
+	upsertDummyEntry(db, dct, key, lowPrioritySource, value, 1)
+	_, w := WatchAllKeys(db.ReadTxn(), dct)
+	upsertDummyEntry(db, dct, key, cmName, newValue, 0)
+	select {
+	case <-w:
+	case <-time.After(2 * time.Second):
+		t.Fatal("WatchKey() failed to detect changes")
+	}
+
+	keys, _ := WatchAllKeys(db.ReadTxn(), dct)
+	if !reflect.DeepEqual(keys, expected) {
+		t.Errorf("WatchAllKeys returned unexpected result. Got: %v, Expected: %v", keys, expected)
+	}
+}
+
 func TestWatchKey(t *testing.T) {
 	cSource := `[{"kind":"config-map","namespace":"kube-system","name":"a-low-priority"},{"kind":"config-map","namespace":"kube-system","name":"cilium-config"}]`
 	_, db, dct, _ := fixture(t, cSource)
@@ -192,8 +226,8 @@ func fixture(t *testing.T, sources string) (*hive.Hive, *statedb.DB, statedb.RWT
 				lc.Append(jg)
 				return jg
 			},
-			func() config {
-				return config{
+			func() Config {
+				return Config{
 					EnableDynamicConfig:    true,
 					ConfigSources:          sources,
 					ConfigSourcesOverrides: "{\"allowConfigKeys\":null,\"denyConfigKeys\":null}",
