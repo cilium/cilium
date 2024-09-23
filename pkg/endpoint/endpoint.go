@@ -302,6 +302,10 @@ type Endpoint struct {
 	// Immutable after Endpoint creation.
 	K8sUID string
 
+	// lockdown indicates whether the endpoint is locked down or not do to
+	// a policy map overflow.
+	lockdown bool
+
 	// pod
 	pod atomic.Pointer[slim_corev1.Pod]
 
