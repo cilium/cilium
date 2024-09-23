@@ -189,6 +189,19 @@ image:
   # cilium-digest
   digest: ""
   useDigest: false
+# -- Scheduling configurations for cilium pods
+scheduling:
+  # @schema
+  # enum: ["anti-affinity", "kube-scheduler"]
+  # @schema
+  # -- Mode specifies how Cilium daemonset pods should be scheduled to Nodes.
+  # `anti-affinity` mode applies a pod anti-affinity rule to the cilium daemonset.
+  # Pod anti-affinity may significantly impact scheduling throughput for large clusters.
+  # See: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
+  # `kube-scheduler` mode forgoes the anti-affinity rule for full scheduling throughput.
+  # Kube-scheduler avoids host port conflict when scheduling pods.
+  # @default -- Defaults to apply a pod anti-affinity rule to the agent pod - `anti-affinity`
+  mode: anti-affinity
 # -- Affinity for cilium-agent.
 affinity:
   podAntiAffinity:
