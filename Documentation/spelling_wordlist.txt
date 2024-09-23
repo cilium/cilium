@@ -73,6 +73,7 @@ Klusters
 KubeVersion
 Lando
 Leblond
+Lockdown
 Lund
 Lx
 Majkowski
@@ -498,6 +499,7 @@ loadbalancers
 loadbalancing
 loadinfo
 localhost
+lockdown
 lockless
 logfile
 lookups
