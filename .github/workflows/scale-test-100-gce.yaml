@@ -116,6 +116,7 @@ jobs:
             --helm-set=k8sServiceHost=api.internal.${CLUSTER_NAME} \
             --helm-set=k8sServicePort=443 \
             --helm-set=kubeProxyReplacement=true \
+            --helm-set=operator.replicas=1 \
             --wait=false"
 
           # only add SHA to the image tags if it was set
@@ -154,7 +155,7 @@ jobs:
           go-version: ${{ env.go_version }}
 
       - name: Install Kops
-        uses: cilium/scale-tests-action/install-kops@746605acaf51e628ba5b8941d547c7cf32655358 # main
+        uses: cilium/scale-tests-action/install-kops@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
 
       - name: Setup gcloud credentials
         uses: google-github-actions/auth@62cf5bd3e4211a0a0b51f2c6d6a37129d828611d # v2.1.5
@@ -184,19 +185,44 @@ jobs:
           sparse-checkout: clusterloader2
           path: perf-tests
 
+      - name: Setup CL2
+        run: |
+          # CL2 needs ssh access to control plane nodes
+          gcloud compute config-ssh
+
+          # Copy the custom configs to the folder where CL2 expects them.
+          cp -r .github/actions/cl2-modules ./perf-tests/clusterloader2/testing/custom
+
+          cd ./perf-tests/clusterloader2
+
+          # CL2 hardcodes module paths to live in ./testing/load, even
+          # if the path given is relative.
+          cp ../../.github/actions/cl2-modules/cilium-agent-pprofs.yaml ./testing/load/
+          cp ../../.github/actions/cl2-modules/cilium-metrics.yaml ./testing/load/
+          echo \
+            '{"CL2_ADDITIONAL_MEASUREMENT_MODULES": ["./cilium-agent-pprofs.yaml", "./cilium-metrics.yaml"]}' \
+            > modules.yaml
+
+          go build ./cmd/clusterloader.go
+
       - name: Deploy cluster
         id: deploy-cluster
-        uses: cilium/scale-tests-action/create-cluster@746605acaf51e628ba5b8941d547c7cf32655358 # main
+        uses: cilium/scale-tests-action/create-cluster@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           control_plane_size: n1-standard-8
           control_plane_count: 1
-          node_size: e2-medium
-          node_count: 100
+          node_size: e2-standard-8
+          node_count: 1
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           kube_proxy_enabled: false
+
+      - name: Setup firewall rules
+        uses: cilium/scale-tests-action/setup-firewall@4689ca99d3e860339e439006ff7a26d8f6a86e09  # main
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@fff38e882846c03f1720dad476e459323275ab9c # v0.16.17
@@ -216,32 +242,64 @@ jobs:
           echo "--- gcloud ---"
           gcloud version
 
-      - name: Create Instance Group for resource heavy deployments
-        uses: cilium/scale-tests-action/create-instance-group@746605acaf51e628ba5b8941d547c7cf32655358 # main
-        timeout-minutes: 30
-        with:
-          cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          node_size: e2-standard-8
-          node_count: 1
-          ig_name: heapster
-          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
-
-      - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@746605acaf51e628ba5b8941d547c7cf32655358 # main
-        with:
-          cluster_name: ${{ steps.vars.outputs.cluster_name }}
-
       - name: Install Cilium
         run: |
           cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }}
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for cluster to be ready
-        uses: cilium/scale-tests-action/validate-cluster@746605acaf51e628ba5b8941d547c7cf32655358 # main
+        uses: cilium/scale-tests-action/validate-cluster@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
         timeout-minutes: 20
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          interval: 10s
+
+      - name: Run CL2 to setup prometheus
+        shell: bash
+        working-directory: ./perf-tests/clusterloader2
+        env:
+          CL2_PROMETHEUS_PVC_ENABLED: "false"
+          CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
+          CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 2.0
+        timeout-minutes: 10
+        run: |
+          # Don't run any tasks at this point, just setup the monitoring stack
+          ./clusterloader \
+            -v=2 \
+            --testconfig=./testing/custom/common/setup.yaml \
+            --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
+            --provider=gce \
+            --enable-exec-service=false \
+            --enable-prometheus-server \
+            --tear-down-prometheus-server=false \
+            --kubeconfig=$HOME/.kube/config \
+            2>&1 | tee cl2-setup.txt
+
+      - name: Create Instance Group for workload deployments
+        uses: cilium/scale-tests-action/create-instance-group@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
+        timeout-minutes: 30
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: 100
+          ig_name: workloads
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Wait for cluster to be ready
+        uses: cilium/scale-tests-action/validate-cluster@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
+        timeout-minutes: 20
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+          interval: 10s
+
+      - name: Setup firewall rules
+        uses: cilium/scale-tests-action/setup-firewall@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          create_native_routing_firewall: 'false'
 
       - name: Wait for Cilium status to be ready
         run: |
@@ -252,29 +310,17 @@ jobs:
         working-directory: ./perf-tests/clusterloader2
         shell: bash
         timeout-minutes: 40
+        env:
+          CL2_ENABLE_PVS: "false"
+          CL2_ENABLE_NETWORKPOLICIES: "true"
+          CL2_ALLOWED_SLOW_API_CALLS: 1
+          CL2_SCHEDULER_THROUGHPUT_THRESHOLD: 0
+          CL2_PROMETHEUS_PVC_ENABLED: "false"
+          CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
+          CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 2.0
         run: |
-          mkdir ./report
-          export CL2_PROMETHEUS_PVC_ENABLED=false
-          export CL2_ENABLE_PVS=false
-          export CL2_ENABLE_NETWORKPOLICIES=true
-          export CL2_ALLOWED_SLOW_API_CALLS=1
-          export CL2_SCHEDULER_THROUGHPUT_THRESHOLD=0
-          export CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR=true
-          export CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT=true
-          export CL2_PROMETHEUS_MEMORY_SCALE_FACTOR=2.0
-
-          # CL2 hardcodes module paths to live in ./testing/load, even
-          # if the path given is relative.
-          cp ../../.github/actions/cl2-modules/cilium-agent-pprofs.yaml ./testing/load/
-          cp ../../.github/actions/cl2-modules/cilium-metrics.yaml ./testing/load/
-          echo \
-            '{"CL2_ADDITIONAL_MEASUREMENT_MODULES": ["./cilium-agent-pprofs.yaml", "./cilium-metrics.yaml"]}' \
-            > modules.yaml
-
-          # CL2 needs ssh access to control plane nodes
-          gcloud compute config-ssh
-
-          go run ./cmd/clusterloader.go \
+          ./clusterloader \
             -v=2 \
             --testconfig=./testing/load/config.yaml \
             --provider=gce \
@@ -299,14 +345,14 @@ jobs:
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        uses: cilium/scale-tests-action/cleanup-cluster@746605acaf51e628ba5b8941d547c7cf32655358 # main
+        uses: cilium/scale-tests-action/cleanup-cluster@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@746605acaf51e628ba5b8941d547c7cf32655358 # main
+        uses: cilium/scale-tests-action/export-results@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
         with:
           test_name: ${{ env.test_name }}
           results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}

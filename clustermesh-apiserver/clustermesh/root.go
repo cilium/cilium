@@ -108,7 +108,6 @@ func registerHooks(lc cell.Lifecycle, params parameters) error {
 
 type identitySynchronizer struct {
 	store        store.SyncStore
-	encoder      func([]byte) string
 	syncCallback func(context.Context)
 }
 
@@ -118,7 +117,7 @@ func newIdentitySynchronizer(ctx context.Context, cinfo cmtypes.ClusterInfo, bac
 		store.WSSWithSyncedKeyOverride(identityCache.IdentitiesPath))
 	go identitiesStore.Run(ctx)
 
-	return &identitySynchronizer{store: identitiesStore, encoder: backend.Encode, syncCallback: syncCallback}
+	return &identitySynchronizer{store: identitiesStore, syncCallback: syncCallback}
 }
 
 func parseLabelArrayFromMap(base map[string]string) labels.LabelArray {
@@ -147,7 +146,7 @@ func (is *identitySynchronizer) upsert(ctx context.Context, _ resource.Key, obj 
 	}
 
 	scopedLog.Info("Upserting identity in etcd")
-	kv := store.NewKVPair(identity.Name, is.encoder(labels))
+	kv := store.NewKVPair(identity.Name, string(labels))
 	if err := is.store.UpsertKey(ctx, kv); err != nil {
 		// The only errors surfaced by WorkqueueSyncStore are the unrecoverable ones.
 		log.WithError(err).Warning("Unable to upsert identity in etcd")
