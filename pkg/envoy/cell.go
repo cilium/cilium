@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -313,8 +314,9 @@ type syncerParams struct {
 
 	K8sClientset client.Clientset
 
-	Config    secretSyncConfig
-	XdsServer XDSServer
+	Config        secretSyncConfig
+	XdsServer     XDSServer
+	SecretManager certificatemanager.SecretManager
 }
 
 func registerSecretSyncer(params syncerParams) error {
@@ -339,6 +341,13 @@ func registerSecretSyncer(params syncerParams) error {
 		}
 	}
 
+	// Policy secret syncing requires notifying the included xDSServer of the configured value,
+	// so it can be correctly used by the code.
+	if params.Config.EnablePolicySecretsSync {
+		params.XdsServer.SetPolicySecretSyncNamespace(params.Config.PolicySecretsNamespace)
+		params.SecretManager.SetSecretSyncNamespace(params.Config.PolicySecretsNamespace)
+	}
+
 	if len(namespaces) == 0 {
 		return nil
 	}
@@ -351,7 +360,11 @@ func registerSecretSyncer(params syncerParams) error {
 
 	params.Lifecycle.Append(jobGroup)
 
-	secretSyncer := newSecretSyncer(params.Logger, params.XdsServer)
+	secretSyncerLogger := params.Logger.WithField("controller", "secretSyncer")
+
+	secretSyncer := newSecretSyncer(secretSyncerLogger, params.XdsServer)
+
+	secretSyncerLogger.Debug("Watching namespaces for secrets", "namespaces", namespaces)
 
 	for ns := range namespaces {
 		jobGroup.Add(job.Observer(

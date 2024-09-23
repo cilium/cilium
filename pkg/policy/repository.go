@@ -42,7 +42,7 @@ type PolicyContext interface {
 	// GetTLSContext resolves the given 'api.TLSContext' into CA
 	// certs and the public and private keys, using secrets from
 	// k8s or from the local file system.
-	GetTLSContext(tls *api.TLSContext) (ca, public, private string, err error)
+	GetTLSContext(tls *api.TLSContext) (ca, public, private string, fromFile bool, err error)
 
 	// GetEnvoyHTTPRules translates the given 'api.L7Rules' into
 	// the protobuf representation the Envoy can consume. The bool
@@ -81,9 +81,9 @@ func (p *policyContext) GetSelectorCache() *SelectorCache {
 }
 
 // GetTLSContext() returns data for TLS Context via a CertificateManager
-func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private string, err error) {
+func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private string, fromFile bool, err error) {
 	if p.repo.certManager == nil {
-		return "", "", "", fmt.Errorf("No Certificate Manager set on Policy Repository")
+		return "", "", "", false, fmt.Errorf("No Certificate Manager set on Policy Repository")
 	}
 	return p.repo.certManager.GetTLSContext(context.TODO(), tls, p.ns)
 }
@@ -377,7 +377,6 @@ func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (L4PolicyMap, err
 		return cmp.Compare(a.key.idx, b.key.idx)
 	})
 	result, err := rules.resolveL4EgressPolicy(&policyCtx, ctx)
-
 	if err != nil {
 		return nil, err
 	}
@@ -738,8 +737,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	// perform the matching decision again when computing policy for each
 	// protocol layer, which is quite costly in terms of performance.
 	ingressEnabled, egressEnabled,
-		matchingRules :=
-		p.computePolicyEnforcementAndRules(securityIdentity)
+		matchingRules := p.computePolicyEnforcementAndRules(securityIdentity)
 
 	calculatedPolicy := &selectorPolicy{
 		Revision:             p.GetRevision(),
