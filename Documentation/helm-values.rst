@@ -3100,6 +3100,14 @@
      - Enable native-routing mode or tunneling mode. Possible values:   - ""   - native   - tunnel
      - string
      - ``"tunnel"``
+   * - :spelling:ignore:`scheduling`
+     - Scheduling configurations for cilium pods
+     - object
+     - ``{"mode":"anti-affinity"}``
+   * - :spelling:ignore:`scheduling.mode`
+     - Mode specifies how Cilium daemonset pods should be scheduled to Nodes. ``anti-affinity`` mode applies a pod anti-affinity rule to the cilium daemonset. Pod anti-affinity may significantly impact scheduling throughput for large clusters. See: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity ``kube-scheduler`` mode forgoes the anti-affinity rule for full scheduling throughput. Kube-scheduler avoids host port conflict when scheduling pods.
+     - string
+     - Defaults to apply a pod anti-affinity rule to the agent pod - ``anti-affinity``
    * - :spelling:ignore:`sctp`
      - SCTP Configuration Values
      - object
