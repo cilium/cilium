@@ -90,10 +90,10 @@ type sourceRangeMaps interface {
 	DumpSourceRange(cb func(lbmap.SourceRangeKey, *lbmap.SourceRangeValue)) error
 }
 
-// lbmaps defines the map operations performed by the reconciliation.
+// LBMaps defines the map operations performed by the reconciliation.
 // Depending on this interface instead of on the underlying maps allows
 // testing the implementation with a fake map or injected errors.
-type lbmaps interface {
+type LBMaps interface {
 	serviceMaps
 	backendMaps
 	revNatMaps
@@ -102,13 +102,14 @@ type lbmaps interface {
 
 	// TODO rest of the maps:
 	// Maglev, SockRevNat, SkipLB
+	IsEmpty() bool
 }
 
-type realLBMaps struct {
-	// pinned if true will pin the maps to a file. Tests may turn this off.
-	pinned bool
+type BPFLBMaps struct {
+	// Pinned if true will pin the maps to a file. Tests may turn this off.
+	Pinned bool
 
-	cfg LBMapsConfig
+	Cfg LBMapsConfig
 
 	service4Map, service6Map         *ebpf.Map
 	backend4Map, backend6Map         *ebpf.Map
@@ -194,24 +195,24 @@ type mapDesc struct {
 	maxEntries int
 }
 
-func (r *realLBMaps) allMaps() []mapDesc {
+func (r *BPFLBMaps) allMaps() []mapDesc {
 	return []mapDesc{
-		{&r.service4Map, service4MapSpec, r.cfg.ServiceMapMaxEntries},
-		{&r.service6Map, service6MapSpec, r.cfg.ServiceMapMaxEntries},
-		{&r.backend4Map, backend4MapSpec, r.cfg.BackendMapMaxEntries},
-		{&r.backend6Map, backend6MapSpec, r.cfg.BackendMapMaxEntries},
-		{&r.revNat4Map, revNat4MapSpec, r.cfg.RevNatMapMaxEntries},
-		{&r.revNat6Map, revNat6MapSpec, r.cfg.RevNatMapMaxEntries},
-		{&r.affinityMatchMap, affinityMatchMapSpec, r.cfg.AffinityMapMaxEntries},
-		{&r.sourceRange4Map, sourceRange4MapSpec, r.cfg.SourceRangeMapMaxEntries},
-		{&r.sourceRange6Map, sourceRange6MapSpec, r.cfg.SourceRangeMapMaxEntries},
+		{&r.service4Map, service4MapSpec, r.Cfg.ServiceMapMaxEntries},
+		{&r.service6Map, service6MapSpec, r.Cfg.ServiceMapMaxEntries},
+		{&r.backend4Map, backend4MapSpec, r.Cfg.BackendMapMaxEntries},
+		{&r.backend6Map, backend6MapSpec, r.Cfg.BackendMapMaxEntries},
+		{&r.revNat4Map, revNat4MapSpec, r.Cfg.RevNatMapMaxEntries},
+		{&r.revNat6Map, revNat6MapSpec, r.Cfg.RevNatMapMaxEntries},
+		{&r.affinityMatchMap, affinityMatchMapSpec, r.Cfg.AffinityMapMaxEntries},
+		{&r.sourceRange4Map, sourceRange4MapSpec, r.Cfg.SourceRangeMapMaxEntries},
+		{&r.sourceRange6Map, sourceRange6MapSpec, r.Cfg.SourceRangeMapMaxEntries},
 	}
 }
 
 // Start implements cell.HookInterface.
-func (r *realLBMaps) Start(cell.HookContext) error {
+func (r *BPFLBMaps) Start(cell.HookContext) error {
 	for _, desc := range r.allMaps() {
-		if r.pinned {
+		if r.Pinned {
 			desc.spec.Pinning = ebpf.PinByName
 		} else {
 			desc.spec.Pinning = ebpf.PinNone
@@ -228,7 +229,7 @@ func (r *realLBMaps) Start(cell.HookContext) error {
 }
 
 // Stop implements cell.HookInterface.
-func (r *realLBMaps) Stop(cell.HookContext) error {
+func (r *BPFLBMaps) Stop(cell.HookContext) error {
 	var errs []error
 	for _, desc := range r.allMaps() {
 		m := *desc.target
@@ -242,7 +243,7 @@ func (r *realLBMaps) Stop(cell.HookContext) error {
 }
 
 // DeleteRevNat implements lbmaps.
-func (r *realLBMaps) DeleteRevNat(key lbmap.RevNatKey) error {
+func (r *BPFLBMaps) DeleteRevNat(key lbmap.RevNatKey) error {
 	var err error
 	switch key.(type) {
 	case *lbmap.RevNat4Key:
@@ -259,7 +260,7 @@ func (r *realLBMaps) DeleteRevNat(key lbmap.RevNatKey) error {
 }
 
 // DumpRevNat implements lbmaps.
-func (r *realLBMaps) DumpRevNat(cb func(lbmap.RevNatKey, lbmap.RevNatValue)) error {
+func (r *BPFLBMaps) DumpRevNat(cb func(lbmap.RevNatKey, lbmap.RevNatValue)) error {
 	cbWrap := func(key, value any) {
 		cb(
 			key.(lbmap.RevNatKey),
@@ -273,7 +274,7 @@ func (r *realLBMaps) DumpRevNat(cb func(lbmap.RevNatKey, lbmap.RevNatValue)) err
 }
 
 // UpdateRevNat4 implements lbmaps.
-func (r *realLBMaps) UpdateRevNat(key lbmap.RevNatKey, value lbmap.RevNatValue) error {
+func (r *BPFLBMaps) UpdateRevNat(key lbmap.RevNatKey, value lbmap.RevNatValue) error {
 	switch key.(type) {
 	case *lbmap.RevNat4Key:
 		return r.revNat4Map.Update(key, value, 0)
@@ -285,7 +286,7 @@ func (r *realLBMaps) UpdateRevNat(key lbmap.RevNatKey, value lbmap.RevNatValue) 
 }
 
 // DumpBackend implements lbmaps.
-func (r *realLBMaps) DumpBackend(cb func(lbmap.BackendKey, lbmap.BackendValue)) error {
+func (r *BPFLBMaps) DumpBackend(cb func(lbmap.BackendKey, lbmap.BackendValue)) error {
 	cbWrap := func(key, value any) {
 		cb(
 			key.(lbmap.BackendKey),
@@ -299,7 +300,7 @@ func (r *realLBMaps) DumpBackend(cb func(lbmap.BackendKey, lbmap.BackendValue)) 
 }
 
 // DeleteBackend implements lbmaps.
-func (r *realLBMaps) DeleteBackend(key lbmap.BackendKey) error {
+func (r *BPFLBMaps) DeleteBackend(key lbmap.BackendKey) error {
 	var err error
 	switch key.(type) {
 	case *lbmap.Backend4KeyV3:
@@ -316,7 +317,7 @@ func (r *realLBMaps) DeleteBackend(key lbmap.BackendKey) error {
 }
 
 // DeleteService implements lbmaps.
-func (r *realLBMaps) DeleteService(key lbmap.ServiceKey) error {
+func (r *BPFLBMaps) DeleteService(key lbmap.ServiceKey) error {
 	var err error
 	switch key.(type) {
 	case *lbmap.Service4Key:
@@ -333,7 +334,7 @@ func (r *realLBMaps) DeleteService(key lbmap.ServiceKey) error {
 }
 
 // DumpService implements lbmaps.
-func (r *realLBMaps) DumpService(cb func(lbmap.ServiceKey, lbmap.ServiceValue)) error {
+func (r *BPFLBMaps) DumpService(cb func(lbmap.ServiceKey, lbmap.ServiceValue)) error {
 	cbWrap := func(key, value any) {
 		svcKey := key.(lbmap.ServiceKey)
 		svcValue := value.(lbmap.ServiceValue)
@@ -347,7 +348,7 @@ func (r *realLBMaps) DumpService(cb func(lbmap.ServiceKey, lbmap.ServiceValue)) 
 }
 
 // UpdateBackend implements lbmaps.
-func (r *realLBMaps) UpdateBackend(key lbmap.BackendKey, value lbmap.BackendValue) error {
+func (r *BPFLBMaps) UpdateBackend(key lbmap.BackendKey, value lbmap.BackendValue) error {
 	switch key.(type) {
 	case *lbmap.Backend4KeyV3:
 		return r.backend4Map.Update(key, value, 0)
@@ -359,7 +360,7 @@ func (r *realLBMaps) UpdateBackend(key lbmap.BackendKey, value lbmap.BackendValu
 }
 
 // UpdateService implements lbmaps.
-func (r *realLBMaps) UpdateService(key lbmap.ServiceKey, value lbmap.ServiceValue) error {
+func (r *BPFLBMaps) UpdateService(key lbmap.ServiceKey, value lbmap.ServiceValue) error {
 	switch key.(type) {
 	case *lbmap.Service4Key:
 		return r.service4Map.Update(key, value, 0)
@@ -371,7 +372,7 @@ func (r *realLBMaps) UpdateService(key lbmap.ServiceKey, value lbmap.ServiceValu
 }
 
 // DeleteAffinityMatch implements lbmaps.
-func (r *realLBMaps) DeleteAffinityMatch(key *lbmap.AffinityMatchKey) error {
+func (r *BPFLBMaps) DeleteAffinityMatch(key *lbmap.AffinityMatchKey) error {
 	err := r.affinityMatchMap.Delete(key)
 	if errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
@@ -380,7 +381,7 @@ func (r *realLBMaps) DeleteAffinityMatch(key *lbmap.AffinityMatchKey) error {
 }
 
 // DumpAffinityMatch implements lbmaps.
-func (r *realLBMaps) DumpAffinityMatch(cb func(*lbmap.AffinityMatchKey, *lbmap.AffinityMatchValue)) error {
+func (r *BPFLBMaps) DumpAffinityMatch(cb func(*lbmap.AffinityMatchKey, *lbmap.AffinityMatchValue)) error {
 	cbWrap := func(key, value any) {
 		affKey := key.(*lbmap.AffinityMatchKey)
 		affValue := value.(*lbmap.AffinityMatchValue)
@@ -394,12 +395,12 @@ func (r *realLBMaps) DumpAffinityMatch(cb func(*lbmap.AffinityMatchKey, *lbmap.A
 }
 
 // UpdateAffinityMatch implements lbmaps.
-func (r *realLBMaps) UpdateAffinityMatch(key *lbmap.AffinityMatchKey, value *lbmap.AffinityMatchValue) error {
+func (r *BPFLBMaps) UpdateAffinityMatch(key *lbmap.AffinityMatchKey, value *lbmap.AffinityMatchValue) error {
 	return r.affinityMatchMap.Update(key, value, 0)
 }
 
 // DeleteSourceRange implements lbmaps.
-func (r *realLBMaps) DeleteSourceRange(key lbmap.SourceRangeKey) error {
+func (r *BPFLBMaps) DeleteSourceRange(key lbmap.SourceRangeKey) error {
 	var err error
 	switch key.(type) {
 	case *lbmap.SourceRangeKey4:
@@ -416,7 +417,7 @@ func (r *realLBMaps) DeleteSourceRange(key lbmap.SourceRangeKey) error {
 }
 
 // DumpSourceRange implements lbmaps.
-func (r *realLBMaps) DumpSourceRange(cb func(lbmap.SourceRangeKey, *lbmap.SourceRangeValue)) error {
+func (r *BPFLBMaps) DumpSourceRange(cb func(lbmap.SourceRangeKey, *lbmap.SourceRangeValue)) error {
 	cbWrap := func(key, value any) {
 		svcKey := key.(lbmap.SourceRangeKey)
 		svcValue := value.(*lbmap.SourceRangeValue)
@@ -431,7 +432,7 @@ func (r *realLBMaps) DumpSourceRange(cb func(lbmap.SourceRangeKey, *lbmap.Source
 }
 
 // UpdateSourceRange implements lbmaps.
-func (r *realLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value *lbmap.SourceRangeValue) error {
+func (r *BPFLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value *lbmap.SourceRangeValue) error {
 	switch key.(type) {
 	case *lbmap.SourceRangeKey4:
 		return r.sourceRange4Map.Update(key, value, 0)
@@ -442,17 +443,30 @@ func (r *realLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value *lbmap.So
 	}
 }
 
-var _ lbmaps = &realLBMaps{}
+// IsEmpty implements lbmaps.
+func (r *BPFLBMaps) IsEmpty() bool {
+	return r.service4Map.IsEmpty() &&
+		r.service6Map.IsEmpty() &&
+		r.backend4Map.IsEmpty() &&
+		r.backend6Map.IsEmpty() &&
+		r.revNat4Map.IsEmpty() &&
+		r.revNat6Map.IsEmpty() &&
+		r.affinityMatchMap.IsEmpty() &&
+		r.sourceRange4Map.IsEmpty() &&
+		r.sourceRange6Map.IsEmpty()
+}
 
-type faultyLBMaps struct {
-	impl lbmaps
+var _ LBMaps = &BPFLBMaps{}
+
+type FaultyLBMaps struct {
+	impl LBMaps
 
 	// 0.0 (never fail) ... 1.0 (always fail)
 	failureProbability float32
 }
 
 // DeleteSourceRange implements lbmaps.
-func (f *faultyLBMaps) DeleteSourceRange(key lbmap.SourceRangeKey) error {
+func (f *FaultyLBMaps) DeleteSourceRange(key lbmap.SourceRangeKey) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
@@ -460,7 +474,7 @@ func (f *faultyLBMaps) DeleteSourceRange(key lbmap.SourceRangeKey) error {
 }
 
 // DumpSourceRange implements lbmaps.
-func (f *faultyLBMaps) DumpSourceRange(cb func(lbmap.SourceRangeKey, *lbmap.SourceRangeValue)) error {
+func (f *FaultyLBMaps) DumpSourceRange(cb func(lbmap.SourceRangeKey, *lbmap.SourceRangeValue)) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
@@ -468,7 +482,7 @@ func (f *faultyLBMaps) DumpSourceRange(cb func(lbmap.SourceRangeKey, *lbmap.Sour
 }
 
 // UpdateSourceRange implements lbmaps.
-func (f *faultyLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value *lbmap.SourceRangeValue) error {
+func (f *FaultyLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value *lbmap.SourceRangeValue) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
@@ -476,7 +490,7 @@ func (f *faultyLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value *lbmap.
 }
 
 // DeleteAffinityMatch implements lbmaps.
-func (f *faultyLBMaps) DeleteAffinityMatch(key *lbmap.AffinityMatchKey) error {
+func (f *FaultyLBMaps) DeleteAffinityMatch(key *lbmap.AffinityMatchKey) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
@@ -484,12 +498,12 @@ func (f *faultyLBMaps) DeleteAffinityMatch(key *lbmap.AffinityMatchKey) error {
 }
 
 // DumpAffinityMatch implements lbmaps.
-func (f *faultyLBMaps) DumpAffinityMatch(cb func(*lbmap.AffinityMatchKey, *lbmap.AffinityMatchValue)) error {
+func (f *FaultyLBMaps) DumpAffinityMatch(cb func(*lbmap.AffinityMatchKey, *lbmap.AffinityMatchValue)) error {
 	return f.impl.DumpAffinityMatch(cb)
 }
 
 // UpdateAffinityMatch implements lbmaps.
-func (f *faultyLBMaps) UpdateAffinityMatch(key *lbmap.AffinityMatchKey, value *lbmap.AffinityMatchValue) error {
+func (f *FaultyLBMaps) UpdateAffinityMatch(key *lbmap.AffinityMatchKey, value *lbmap.AffinityMatchValue) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
@@ -497,7 +511,7 @@ func (f *faultyLBMaps) UpdateAffinityMatch(key *lbmap.AffinityMatchKey, value *l
 }
 
 // DeleteRevNat implements lbmaps.
-func (f *faultyLBMaps) DeleteRevNat(key lbmap.RevNatKey) error {
+func (f *FaultyLBMaps) DeleteRevNat(key lbmap.RevNatKey) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
@@ -505,7 +519,7 @@ func (f *faultyLBMaps) DeleteRevNat(key lbmap.RevNatKey) error {
 }
 
 // DumpRevNat implements lbmaps.
-func (f *faultyLBMaps) DumpRevNat(cb func(lbmap.RevNatKey, lbmap.RevNatValue)) error {
+func (f *FaultyLBMaps) DumpRevNat(cb func(lbmap.RevNatKey, lbmap.RevNatValue)) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
@@ -513,7 +527,7 @@ func (f *faultyLBMaps) DumpRevNat(cb func(lbmap.RevNatKey, lbmap.RevNatValue)) e
 }
 
 // UpdateRevNat implements lbmaps.
-func (f *faultyLBMaps) UpdateRevNat(key lbmap.RevNatKey, value lbmap.RevNatValue) error {
+func (f *FaultyLBMaps) UpdateRevNat(key lbmap.RevNatKey, value lbmap.RevNatValue) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
@@ -521,7 +535,7 @@ func (f *faultyLBMaps) UpdateRevNat(key lbmap.RevNatKey, value lbmap.RevNatValue
 }
 
 // DeleteBackend implements lbmaps.
-func (f *faultyLBMaps) DeleteBackend(key lbmap.BackendKey) error {
+func (f *FaultyLBMaps) DeleteBackend(key lbmap.BackendKey) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
@@ -529,7 +543,7 @@ func (f *faultyLBMaps) DeleteBackend(key lbmap.BackendKey) error {
 }
 
 // DeleteService implements lbmaps.
-func (f *faultyLBMaps) DeleteService(key lbmap.ServiceKey) error {
+func (f *FaultyLBMaps) DeleteService(key lbmap.ServiceKey) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
@@ -537,17 +551,22 @@ func (f *faultyLBMaps) DeleteService(key lbmap.ServiceKey) error {
 }
 
 // DumpBackend implements lbmaps.
-func (f *faultyLBMaps) DumpBackend(cb func(lbmap.BackendKey, lbmap.BackendValue)) error {
+func (f *FaultyLBMaps) DumpBackend(cb func(lbmap.BackendKey, lbmap.BackendValue)) error {
 	return f.impl.DumpBackend(cb)
 }
 
 // DumpService implements lbmaps.
-func (f *faultyLBMaps) DumpService(cb func(lbmap.ServiceKey, lbmap.ServiceValue)) error {
+func (f *FaultyLBMaps) DumpService(cb func(lbmap.ServiceKey, lbmap.ServiceValue)) error {
 	return f.impl.DumpService(cb)
 }
 
+// IsEmpty implements lbmaps.
+func (f *FaultyLBMaps) IsEmpty() bool {
+	return f.impl.IsEmpty()
+}
+
 // UpdateBackend implements lbmaps.
-func (f *faultyLBMaps) UpdateBackend(key lbmap.BackendKey, value lbmap.BackendValue) error {
+func (f *FaultyLBMaps) UpdateBackend(key lbmap.BackendKey, value lbmap.BackendValue) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
@@ -555,14 +574,14 @@ func (f *faultyLBMaps) UpdateBackend(key lbmap.BackendKey, value lbmap.BackendVa
 }
 
 // UpdateService implements lbmaps.
-func (f *faultyLBMaps) UpdateService(key lbmap.ServiceKey, value lbmap.ServiceValue) error {
+func (f *FaultyLBMaps) UpdateService(key lbmap.ServiceKey, value lbmap.ServiceValue) error {
 	if f.isFaulty() {
 		return errFaulty
 	}
 	return f.impl.UpdateService(key, value)
 }
 
-func (f *faultyLBMaps) isFaulty() bool {
+func (f *FaultyLBMaps) isFaulty() bool {
 	// Float32() returns value between [0.0, 1.0).
 	// We fail if the value is less than our probability [0.0, 1.0].
 	return f.failureProbability > rand.Float32()
@@ -570,7 +589,7 @@ func (f *faultyLBMaps) isFaulty() bool {
 
 var errFaulty = errors.New("faulty")
 
-var _ lbmaps = &faultyLBMaps{}
+var _ LBMaps = &FaultyLBMaps{}
 
 type kvpair struct {
 	a, b any
@@ -589,6 +608,10 @@ func (fm *fakeBPFMap) update(key bpf.MapKey, value any) error {
 	return nil
 }
 
+func (fm *fakeBPFMap) IsEmpty() bool {
+	return fm.Map.IsEmpty()
+}
+
 func bpfKey(key any) string {
 	v := reflect.ValueOf(key)
 	size := int(v.Type().Elem().Size())
@@ -603,7 +626,7 @@ func dumpFakeBPFMap[K any, V any](m *fakeBPFMap, cb func(K, V)) {
 	})
 }
 
-type fakeLBMaps struct {
+type FakeLBMaps struct {
 	aff      fakeBPFMap
 	be       fakeBPFMap
 	svc      fakeBPFMap
@@ -611,88 +634,97 @@ type fakeLBMaps struct {
 	srcRange fakeBPFMap
 }
 
-func newFakeLBMaps() lbmaps {
-	return &fakeLBMaps{}
+func NewFakeLBMaps() LBMaps {
+	return &FakeLBMaps{}
 }
 
 // DeleteAffinityMatch implements lbmaps.
-func (f *fakeLBMaps) DeleteAffinityMatch(key *lbmap.AffinityMatchKey) error {
+func (f *FakeLBMaps) DeleteAffinityMatch(key *lbmap.AffinityMatchKey) error {
 	return f.aff.delete(key)
 }
 
 // DeleteBackend implements lbmaps.
-func (f *fakeLBMaps) DeleteBackend(key lbmap.BackendKey) error {
+func (f *FakeLBMaps) DeleteBackend(key lbmap.BackendKey) error {
 	return f.be.delete(key)
 }
 
 // DeleteRevNat implements lbmaps.
-func (f *fakeLBMaps) DeleteRevNat(key lbmap.RevNatKey) error {
+func (f *FakeLBMaps) DeleteRevNat(key lbmap.RevNatKey) error {
 	return f.revNat.delete(key)
 }
 
 // DeleteService implements lbmaps.
-func (f *fakeLBMaps) DeleteService(key lbmap.ServiceKey) error {
+func (f *FakeLBMaps) DeleteService(key lbmap.ServiceKey) error {
 	return f.svc.delete(key)
 }
 
 // DeleteSourceRange implements lbmaps.
-func (f *fakeLBMaps) DeleteSourceRange(key lbmap.SourceRangeKey) error {
+func (f *FakeLBMaps) DeleteSourceRange(key lbmap.SourceRangeKey) error {
 	return f.srcRange.delete(key)
 }
 
 // DumpAffinityMatch implements lbmaps.
-func (f *fakeLBMaps) DumpAffinityMatch(cb func(*lbmap.AffinityMatchKey, *lbmap.AffinityMatchValue)) error {
+func (f *FakeLBMaps) DumpAffinityMatch(cb func(*lbmap.AffinityMatchKey, *lbmap.AffinityMatchValue)) error {
 	dumpFakeBPFMap(&f.aff, cb)
 	return nil
 }
 
 // DumpBackend implements lbmaps.
-func (f *fakeLBMaps) DumpBackend(cb func(lbmap.BackendKey, lbmap.BackendValue)) error {
+func (f *FakeLBMaps) DumpBackend(cb func(lbmap.BackendKey, lbmap.BackendValue)) error {
 	dumpFakeBPFMap(&f.be, cb)
 	return nil
 }
 
 // DumpRevNat implements lbmaps.
-func (f *fakeLBMaps) DumpRevNat(cb func(lbmap.RevNatKey, lbmap.RevNatValue)) error {
+func (f *FakeLBMaps) DumpRevNat(cb func(lbmap.RevNatKey, lbmap.RevNatValue)) error {
 	dumpFakeBPFMap(&f.revNat, cb)
 	return nil
 }
 
 // DumpService implements lbmaps.
-func (f *fakeLBMaps) DumpService(cb func(lbmap.ServiceKey, lbmap.ServiceValue)) error {
+func (f *FakeLBMaps) DumpService(cb func(lbmap.ServiceKey, lbmap.ServiceValue)) error {
 	dumpFakeBPFMap(&f.svc, cb)
 	return nil
 }
 
 // DumpSourceRange implements lbmaps.
-func (f *fakeLBMaps) DumpSourceRange(cb func(lbmap.SourceRangeKey, *lbmap.SourceRangeValue)) error {
+func (f *FakeLBMaps) DumpSourceRange(cb func(lbmap.SourceRangeKey, *lbmap.SourceRangeValue)) error {
 	dumpFakeBPFMap(&f.srcRange, cb)
 	return nil
 }
 
 // UpdateAffinityMatch implements lbmaps.
-func (f *fakeLBMaps) UpdateAffinityMatch(key *lbmap.AffinityMatchKey, value *lbmap.AffinityMatchValue) error {
+func (f *FakeLBMaps) UpdateAffinityMatch(key *lbmap.AffinityMatchKey, value *lbmap.AffinityMatchValue) error {
 	return f.aff.update(key, value)
 }
 
 // UpdateBackend implements lbmaps.
-func (f *fakeLBMaps) UpdateBackend(key lbmap.BackendKey, value lbmap.BackendValue) error {
+func (f *FakeLBMaps) UpdateBackend(key lbmap.BackendKey, value lbmap.BackendValue) error {
 	return f.be.update(key, value)
 }
 
 // UpdateRevNat implements lbmaps.
-func (f *fakeLBMaps) UpdateRevNat(key lbmap.RevNatKey, value lbmap.RevNatValue) error {
+func (f *FakeLBMaps) UpdateRevNat(key lbmap.RevNatKey, value lbmap.RevNatValue) error {
 	return f.revNat.update(key, value)
 }
 
 // UpdateService implements lbmaps.
-func (f *fakeLBMaps) UpdateService(key lbmap.ServiceKey, value lbmap.ServiceValue) error {
+func (f *FakeLBMaps) UpdateService(key lbmap.ServiceKey, value lbmap.ServiceValue) error {
 	return f.svc.update(key, value)
 }
 
 // UpdateSourceRange implements lbmaps.
-func (f *fakeLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value *lbmap.SourceRangeValue) error {
+func (f *FakeLBMaps) UpdateSourceRange(key lbmap.SourceRangeKey, value *lbmap.SourceRangeValue) error {
 	return f.srcRange.update(key, value)
 }
 
-var _ lbmaps = &fakeLBMaps{}
+// IsEmpty implements lbmaps.
+func (f *FakeLBMaps) IsEmpty() bool {
+	return f.aff.IsEmpty() &&
+		f.be.IsEmpty() &&
+		f.svc.IsEmpty() &&
+		f.revNat.IsEmpty() &&
+		f.srcRange.IsEmpty()
+}
+
+var _ LBMaps = &FakeLBMaps{}

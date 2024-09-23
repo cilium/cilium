@@ -106,3 +106,13 @@ func (m *Map[K, V]) convert(value any, ok bool) (V, bool) {
 
 	return value.(V), true
 }
+
+func (m *Map[K, V]) IsEmpty() bool {
+	empty := true
+	check := func(_ K, _ V) bool {
+		empty = false
+		return false // returning false breaks the iteration
+	}
+	m.Range(check)
+	return empty
+}
