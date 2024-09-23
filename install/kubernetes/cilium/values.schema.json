@@ -4902,6 +4902,17 @@
     "routingMode": {
       "type": "string"
     },
+    "scheduling": {
+      "properties": {
+        "mode": {
+          "enum": [
+            "anti-affinity",
+            "kube-scheduler"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "sctp": {
       "properties": {
         "enabled": {
