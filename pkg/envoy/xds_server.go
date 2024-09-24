@@ -122,7 +122,7 @@ type XDSServer interface {
 	// UpdateNetworkPolicy adds or updates a network policy in the set published to L7 proxies.
 	// When the proxy acknowledges the network policy update, it will result in
 	// a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
-	UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error)
+	UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error)
 	// RemoveNetworkPolicy removes network policies relevant to the specified
 	// endpoint from the set published to L7 proxies, and stops listening for
 	// acks for policies on this endpoint.
@@ -1584,29 +1584,13 @@ func getWildcardNetworkPolicyRule(version *versioned.VersionHandle, selectors po
 	}
 }
 
-func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, useFullTLSContext bool, vis policy.DirectionalVisibilityPolicy, dir string) []*cilium.PortNetworkPolicy {
+func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, useFullTLSContext bool, dir string) []*cilium.PortNetworkPolicy {
 	version := ep.GetPolicyVersionHandle()
 
 	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {
-		PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis)+1)
 		// Always allow all ports
-		PerPortPolicies = append(PerPortPolicies, allowAllTCPPortNetworkPolicy)
-		for _, visMeta := range vis {
-			// Set up rule with 'L7Proto' as needed for proxylib parsers
-			if visMeta.Proto == u8proto.TCP && visMeta.Parser != policy.ParserTypeHTTP && visMeta.Parser != policy.ParserTypeDNS {
-				PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
-					Port:     uint32(visMeta.Port),
-					Protocol: envoy_config_core.SocketAddress_TCP,
-					Rules: []*cilium.PortNetworkPolicyRule{
-						{
-							L7Proto: visMeta.Parser.String(),
-						},
-					},
-				})
-			}
-		}
-		return SortPortNetworkPolicies(PerPortPolicies)
+		return []*cilium.PortNetworkPolicy{allowAllTCPPortNetworkPolicy}
 	}
 
 	if l4Policy == nil || l4Policy.Len() == 0 {
@@ -1734,7 +1718,7 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
-func getNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, ips []string, l4Policy *policy.L4Policy,
+func getNetworkPolicy(ep endpoint.EndpointUpdater, ips []string, l4Policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced, useFullTLSContext bool,
 ) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
@@ -1743,20 +1727,14 @@ func getNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy,
 		ConntrackMapName: ep.ConntrackNameLocked(),
 	}
 
-	var visIngress policy.DirectionalVisibilityPolicy
-	var visEgress policy.DirectionalVisibilityPolicy
-	if vis != nil {
-		visIngress = vis.Ingress
-		visEgress = vis.Egress
-	}
 	var ingressMap policy.L4PolicyMap
 	var egressMap policy.L4PolicyMap
 	if l4Policy != nil {
 		ingressMap = l4Policy.Ingress.PortRules
 		egressMap = l4Policy.Egress.PortRules
 	}
-	p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, ingressMap, ingressPolicyEnforced, useFullTLSContext, visIngress, "ingress")
-	p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, egressMap, egressPolicyEnforced, useFullTLSContext, visEgress, "egress")
+	p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, ingressMap, ingressPolicyEnforced, useFullTLSContext, "ingress")
+	p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, egressMap, egressPolicyEnforced, useFullTLSContext, "egress")
 
 	return p
 }
@@ -1777,7 +1755,7 @@ func getNodeIDs(ep endpoint.EndpointUpdater, policy *policy.L4Policy) []string {
 	return nodeIDs
 }
 
-func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy,
+func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup,
 ) (error, func() error) {
 	s.mutex.Lock()
@@ -1801,7 +1779,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy
 		return nil, func() error { return nil }
 	}
 
-	networkPolicy := getNetworkPolicy(ep, vis, ips, policy, ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext)
+	networkPolicy := getNetworkPolicy(ep, ips, policy, ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext)
 
 	// First, validate the policy
 	err := networkPolicy.Validate()

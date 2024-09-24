@@ -325,80 +325,6 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 	return nil, finalizeList.Finalize, revertStack.Revert
 }
 
-func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[string]uint16, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
-	var (
-		visPolicy    policy.DirectionalVisibilityPolicy
-		finalizeList revert.FinalizeList
-		revertStack  revert.RevertStack
-		changes      = policy.ChangeState{
-			Adds: make(policy.Keys),
-			Old:  make(policy.MapStateMap),
-		}
-	)
-
-	if e.visibilityPolicy == nil || e.IsProxyDisabled() {
-		return nil, finalizeList.Finalize, revertStack.Revert
-	}
-
-	if ingress {
-		visPolicy = e.visibilityPolicy.Ingress
-	} else {
-		visPolicy = e.visibilityPolicy.Egress
-	}
-
-	updatedStats := make([]*models.ProxyStatistics, 0, len(visPolicy))
-	for _, visMeta := range visPolicy {
-		var (
-			redirectPort uint16
-			err          error
-			finalizeFunc revert.FinalizeFunc
-			revertFunc   revert.RevertFunc
-		)
-
-		proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port, "")
-
-		// Skip adding a visibility redirect if a redirect for the given proto and port already
-		// exists. The existing redirect will do policy enforcement and also provides visibility
-		if desiredRedirects[proxyID] != 0 {
-			continue
-		}
-
-		redirectPort, err, finalizeFunc, revertFunc = e.proxy.CreateOrUpdateRedirect(e.aliveCtx, visMeta, proxyID, e, proxyWaitGroup)
-		if err != nil {
-			revertStack.Revert() // Ignore errors while reverting. This is best-effort.
-			return err, nil, nil
-		}
-		finalizeList.Append(finalizeFunc)
-		revertStack.Push(revertFunc)
-
-		desiredRedirects[proxyID] = redirectPort
-
-		// Update the endpoint API model to report that Cilium manages a
-		// redirect for that port.
-		statsKey := policy.ProxyStatsKey(visMeta.Ingress, visMeta.Proto.String(), visMeta.Port, redirectPort)
-		proxyStats := e.getProxyStatistics(statsKey, string(visMeta.Parser), visMeta.Port, visMeta.Ingress, redirectPort)
-
-		updatedStats = append(updatedStats, proxyStats)
-
-		e.desiredPolicy.AddVisibilityKeys(e, redirectPort, visMeta, changes)
-	}
-
-	revertStack.Push(func() error {
-		// Restore the proxy stats.
-		e.proxyStatisticsMutex.Lock()
-		for _, stats := range updatedStats {
-			stats.AllocatedProxyPort = 0
-		}
-		e.proxyStatisticsMutex.Unlock()
-
-		// Restore the desired policy map state.
-		e.desiredPolicy.RevertChanges(changes)
-		return nil
-	})
-
-	return nil, finalizeList.Finalize, revertStack.Revert
-}
-
 // addNewRedirects must be called while holding the endpoint lock for writing.
 // On success, returns nil; otherwise, returns an error indicating the problem
 // that occurred while adding an l7 redirect for the specified policy.
@@ -427,13 +353,6 @@ func (e *Endpoint) addNewRedirects(proxyWaitGroup *completion.WaitGroup) (desire
 		err, ff, rf = e.addNewRedirectsFromDesiredPolicy(ingress, desiredRedirects, proxyWaitGroup)
 		if err != nil {
 			return desiredRedirects, fmt.Errorf("unable to allocate %s redirects: %w", dirLogStr, err), nil, nil
-		}
-		finalizeList.Append(ff)
-		revertStack.Push(rf)
-
-		err, ff, rf = e.addVisibilityRedirects(ingress, desiredRedirects, proxyWaitGroup)
-		if err != nil {
-			return desiredRedirects, fmt.Errorf("unable to allocate %s visibility redirects: %w", dirLogStr, err), nil, nil
 		}
 		finalizeList.Append(ff)
 		revertStack.Push(rf)
@@ -1262,24 +1181,6 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	if changes.Empty() {
 		// no changes, nothing to do
 		return nil
-	}
-
-	// Add possible visibility redirects due to incrementally added keys
-	if e.visibilityPolicy != nil {
-		realizedRedirects := e.GetRealizedRedirects()
-
-		for _, visMeta := range e.visibilityPolicy.Ingress {
-			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port, "")
-			if redirectPort, exists := realizedRedirects[proxyID]; exists && redirectPort != 0 {
-				e.desiredPolicy.AddVisibilityKeys(e, redirectPort, visMeta, changes)
-			}
-		}
-		for _, visMeta := range e.visibilityPolicy.Egress {
-			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port, "")
-			if redirectPort, exists := realizedRedirects[proxyID]; exists && redirectPort != 0 {
-				e.desiredPolicy.AddVisibilityKeys(e, redirectPort, visMeta, changes)
-			}
-		}
 	}
 
 	// Ingress endpoint does not need to wait.

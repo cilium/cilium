@@ -64,8 +64,8 @@ func (p *envoyProxyIntegration) handleEnvoyRedirect(r *Redirect, wg *completion.
 	return redirect, nil
 }
 
-func (p *envoyProxyIntegration) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
-	return p.xdsServer.UpdateNetworkPolicy(ep, vis, policy, ingressPolicyEnforced, egressPolicyEnforced, wg)
+func (p *envoyProxyIntegration) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
+	return p.xdsServer.UpdateNetworkPolicy(ep, policy, ingressPolicyEnforced, egressPolicyEnforced, wg)
 }
 
 func (p *envoyProxyIntegration) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {

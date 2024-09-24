@@ -383,8 +383,6 @@ type Endpoint struct {
 	// ep.mutex must be held.
 	realizedPolicy *policy.EndpointPolicy
 
-	visibilityPolicy *policy.VisibilityPolicy
-
 	eventQueue *eventqueue.EventQueue
 
 	// skippedRegenerationLevel is the DatapathRegenerationLevel of the regeneration event that
@@ -1779,14 +1777,6 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 			return "", err
 		}
 		value, _ := annotation.Get(po, annotation.NoTrack, annotation.NoTrackAlias)
-		return value, nil
-	})
-	e.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-		po, _, err := resolveMetadata(ns, podName)
-		if err != nil {
-			return "", err
-		}
-		value, _ := annotation.Get(po, annotation.ProxyVisibility, annotation.ProxyVisibilityAlias)
 		return value, nil
 	})
 	e.UpdateBandwidthPolicy(bwm, func(ns, podName string) (bandwidthEgress string, err error) {
