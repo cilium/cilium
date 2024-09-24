@@ -233,9 +233,9 @@ func (p *proxyPolicy) GetListener() string {
 // problem that occurred while adding an l7 redirect for the specified policy.
 // Only called after a new desired policy has been computed.
 // Must be called with endpoint.mutex Lock()ed.
-func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirects map[string]uint16, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirects map[string]uint16, proxyWaitGroup *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
 	if e.isProperty(PropertyFakeEndpoint) || e.IsProxyDisabled() {
-		return nil, nil, nil
+		return nil, nil
 	}
 
 	var (
@@ -322,7 +322,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 		return nil
 	})
 
-	return nil, finalizeList.Finalize, revertStack.Revert
+	return finalizeList.Finalize, revertStack.Revert
 }
 
 // addNewRedirects must be called while holding the endpoint lock for writing.
@@ -349,11 +349,8 @@ func (e *Endpoint) addNewRedirects(proxyWaitGroup *completion.WaitGroup) (desire
 
 	desiredRedirects = make(map[string]uint16)
 
-	for dirLogStr, ingress := range map[string]bool{"ingress": true, "egress": false} {
-		err, ff, rf = e.addNewRedirectsFromDesiredPolicy(ingress, desiredRedirects, proxyWaitGroup)
-		if err != nil {
-			return desiredRedirects, fmt.Errorf("unable to allocate %s redirects: %w", dirLogStr, err), nil, nil
-		}
+	for _, ingress := range map[string]bool{"ingress": true, "egress": false} {
+		ff, rf = e.addNewRedirectsFromDesiredPolicy(ingress, desiredRedirects, proxyWaitGroup)
 		finalizeList.Append(ff)
 		revertStack.Push(rf)
 	}
