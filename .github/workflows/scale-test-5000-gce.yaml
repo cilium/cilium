@@ -195,16 +195,16 @@ jobs:
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          control_plane_size: n2-standard-16
+          control_plane_size: n2-standard-32
           control_plane_count: 3
-          node_size: e2-standard-16
+          node_size: e2-standard-32
           node_count: 1
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           kube_proxy_enabled: false
           allocate_node_cidrs: false
           etcd_volume_size: 500
-          max_in_flight: 160
+          max_in_flight: 320
 
       - name: Setup firewall rules
         uses: cilium/scale-tests-action/setup-firewall@4689ca99d3e860339e439006ff7a26d8f6a86e09  # main
@@ -249,7 +249,8 @@ jobs:
           CL2_PROMETHEUS_PVC_ENABLED: "false"
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
-          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 16.0
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 18.0
+          CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL: "120s"
         timeout-minutes: 10
         run: |
           # Don't run any tasks at this point, just setup the monitoring stack
@@ -312,6 +313,27 @@ jobs:
             sleep 10
           done
 
+      - name: Create Instance Group for workload deployments
+        uses: cilium/scale-tests-action/create-instance-group@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
+        timeout-minutes: 30
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: 1000
+          ig_name: workloads3
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Wait for cluster to be ready
+        shell: bash
+        timeout-minutes: 20
+        run: |
+          OUTPUT="";
+          while [ `echo $OUTPUT | grep -c 3004` = 0 ]; do
+            OUTPUT=`kubectl get pods -n kube-system --selector=k8s-app=cilium --no-headers -o jsonpath='{range .items[*]}{.status.containerStatuses[*].ready.true}{.metadata.name}{ "\n"}{end}' | wc -l`;
+            echo "Ready agents:" $OUTPUT
+            sleep 10
+          done
+
       - name: Setup firewall rules
         uses: cilium/scale-tests-action/setup-firewall@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
         with:
@@ -330,9 +352,11 @@ jobs:
           CL2_PROMETHEUS_PVC_ENABLED: "false"
           CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
-          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 16.0
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 18.0
+          CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL: "120s"
         timeout-minutes: 20
         run: |
+          sleep 120 # Wait for the metrics to stabilize
           # Don't run any tasks at this point, just export the prometheus data
           ./clusterloader \
             -v=2 \
