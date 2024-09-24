@@ -43,6 +43,7 @@ type epInfoCache struct {
 	options                *option.IntOptions
 	lxcMAC                 mac.MAC
 	ifIndex                int
+	parentIfIndex          int
 	netNsCookie            uint64
 
 	// endpoint is used to get the endpoint's logger.
@@ -89,6 +90,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		options:                e.Options.DeepCopy(),
 		lxcMAC:                 e.mac,
 		ifIndex:                e.ifIndex,
+		parentIfIndex:          e.parentIfIndex,
 		netNsCookie:            e.NetNsCookie,
 
 		endpoint: e,
@@ -97,6 +99,10 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 
 func (ep *epInfoCache) GetIfIndex() int {
 	return ep.ifIndex
+}
+
+func (ep *epInfoCache) GetParentIfIndex() int {
+	return ep.parentIfIndex
 }
 
 func (ep *epInfoCache) LXCMac() mac.MAC {
