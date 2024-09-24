@@ -140,6 +140,8 @@ type Status struct {
 	// For Helm mode only.
 	HelmChartVersion string `json:"helm_chart_version,omitempty"`
 
+	ConfigErrors []string `json:"config_errors,omitempty"`
+
 	mutex *lock.Mutex
 }
 
@@ -430,6 +432,14 @@ func (s *Status) Format() string {
 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", header, deployment, pod, err)
 				header = ""
 			}
+		}
+	}
+
+	header = "Configuration:"
+	for _, msg := range s.ConfigErrors {
+		for _, line := range strings.Split(msg, "\n") {
+			fmt.Fprintf(w, "%s\t \t%s\n", header, line)
+			header = ""
 		}
 	}
 

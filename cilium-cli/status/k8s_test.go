@@ -128,6 +128,10 @@ func (c *k8sStatusMockClient) GetDeployment(_ context.Context, namespace, name s
 	return c.deployment[namespace+"/"+name], nil
 }
 
+func (c *k8sStatusMockClient) GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error) {
+	return &corev1.ConfigMap{}, nil
+}
+
 func (c *k8sStatusMockClient) ListPods(_ context.Context, _ string, options metav1.ListOptions) (*corev1.PodList, error) {
 	return c.podList[options.LabelSelector], nil
 }
