@@ -191,16 +191,38 @@ func (d *Daemon) launchHubble() {
 
 	var srv *http.Server
 	if option.Config.HubbleMetricsServer != "" {
-		logger.WithFields(logrus.Fields{
-			"address": option.Config.HubbleMetricsServer,
-			"metrics": option.Config.HubbleMetrics,
-			"tls":     option.Config.HubbleMetricsServerTLSEnabled,
-		}).Info("Starting Hubble Metrics server")
+		if option.Config.HubbleMetrics != nil {
+			logger.WithFields(logrus.Fields{
+				"address": option.Config.HubbleMetricsServer,
+				"metrics": option.Config.HubbleMetrics,
+				"tls":     option.Config.HubbleMetricsServerTLSEnabled,
+			}).Info("Starting Hubble Metrics server")
 
-		err := metrics.InitMetrics(metrics.Registry, api.ParseStaticMetricsConfig(option.Config.HubbleMetrics), grpcMetrics)
-		if err != nil {
-			log.WithError(err).Error("Unable to setup metrics: %w", err)
-			return
+			err := metrics.InitMetrics(metrics.Registry, api.ParseStaticMetricsConfig(option.Config.HubbleMetrics), grpcMetrics)
+			if err != nil {
+				log.WithError(err).Error("Unable to setup metrics: %w", err)
+				return
+			}
+
+			observerOpts = append(observerOpts,
+				observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
+					err := metrics.ProcessFlow(ctx, flow)
+					if err != nil {
+						logger.WithError(err).Error("Failed to ProcessFlow in metrics handler")
+					}
+					return false, nil
+				}),
+			)
+		} else if option.Config.HubbleDynamicMetricConfigFilePath != "" {
+			logger.WithFields(logrus.Fields{
+				"address":      option.Config.HubbleMetricsServer,
+				"metricConfig": option.Config.HubbleDynamicMetricConfigFilePath,
+				"tls":          option.Config.HubbleMetricsServerTLSEnabled,
+			}).Info("Starting Hubble server with dynamically configurable metrics")
+
+			metrics.InitHubbleInternalMetrics(metrics.Registry, grpcMetrics)
+			dynamicFp := metrics.NewDynamicFlowProcessor(metrics.Registry, logger, option.Config.HubbleDynamicMetricConfigFilePath)
+			observerOpts = append(observerOpts, observeroption.WithOnDecodedFlow(dynamicFp))
 		}
 
 		srv = &http.Server{
@@ -215,16 +237,6 @@ func (d *Daemon) launchHubble() {
 				return
 			}
 		}()
-
-		observerOpts = append(observerOpts,
-			observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
-				err := metrics.ProcessFlow(ctx, flow)
-				if err != nil {
-					logger.WithError(err).Error("Failed to ProcessFlow in metrics handler")
-				}
-				return false, nil
-			}),
-		)
 
 		localSrvOpts = append(localSrvOpts,
 			serveroption.WithGRPCMetrics(grpcMetrics),

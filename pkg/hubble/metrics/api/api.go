@@ -26,7 +26,7 @@ const (
 
 // Handlers contains all the metrics handlers.
 type Handlers struct {
-	handlers       []Handler
+	Handlers       []NamedHandler
 	flowProcessors []FlowProcessor
 }
 
@@ -54,7 +54,7 @@ type Handler interface {
 	// Init must initialize the metric handler by validating and parsing
 	// the options and then registering all required metrics with the
 	// specifies Prometheus registry
-	Init(registry *prometheus.Registry, options []*ContextOptionConfig) error
+	Init(registry *prometheus.Registry, options *MetricConfig) error
 
 	// ListMetricVec returns an array of MetricVec used by a handler
 	ListMetricVec() []*prometheus.MetricVec
@@ -64,6 +64,8 @@ type Handler interface {
 
 	// Status returns the configuration status of the metric handler
 	Status() string
+
+	Deinit(registry *prometheus.Registry)
 }
 
 // FlowProcessor is a metric handler which requires flows to perform metrics
@@ -76,24 +78,30 @@ type FlowProcessor interface {
 	ProcessFlow(ctx context.Context, flow *pb.Flow) error
 }
 
-func NewHandlers(log logrus.FieldLogger, registry *prometheus.Registry, in []NamedHandler) (*Handlers, error) {
+func InitHandlersAndFlowProcessors(log logrus.FieldLogger, registry *prometheus.Registry, in []NamedHandler) (*Handlers, error) {
 	var handlers Handlers
 	for _, item := range in {
-		handlers.handlers = append(handlers.handlers, item.Handler)
-		if fp, ok := item.Handler.(FlowProcessor); ok {
-			handlers.flowProcessors = append(handlers.flowProcessors, fp)
-		}
-
-		if err := item.Handler.Init(registry, item.MetricConfig.ContextOptionConfigs); err != nil {
-			return nil, fmt.Errorf("unable to initialize metric '%s': %w", item.Name, err)
-		}
-
-		log.WithFields(logrus.Fields{
-			"name":   item.Name,
-			"status": item.Handler.Status(),
-		}).Info("Configured metrics plugin")
+		InitHandlersAndFlowProcessor(log, registry, &item, &handlers)
 	}
 	return &handlers, nil
+}
+
+func InitHandlersAndFlowProcessor(log logrus.FieldLogger, registry *prometheus.Registry, item *NamedHandler, handlers *Handlers) error {
+	handlers.Handlers = append(handlers.Handlers, *item)
+	if fp, ok := item.Handler.(FlowProcessor); ok {
+		handlers.flowProcessors = append(handlers.flowProcessors, fp)
+	}
+
+	if err := item.Handler.Init(registry, item.MetricConfig); err != nil {
+		return fmt.Errorf("unable to initialize metric '%s': %w", item.Name, err)
+	}
+
+	// log.WithFields(logrus.Fields{
+	// 	"name":   item.Name,
+	// 	"status": item.Handler.Status(),
+	// }).Info("Configured metrics plugin")
+
+	return nil
 }
 
 // ProcessFlow processes a flow by calling ProcessFlow it on to all enabled
@@ -111,9 +119,9 @@ func (h Handlers) ProcessFlow(ctx context.Context, flow *pb.Flow) error {
 // ProcessCiliumEndpointDeletion queries all handlers for a list of MetricVec and removes
 // metrics directly associated to pod of the deleted cilium endpoint.
 func (h Handlers) ProcessCiliumEndpointDeletion(endpoint *types.CiliumEndpoint) {
-	for _, h := range h.handlers {
-		for _, mv := range h.ListMetricVec() {
-			if ctx := h.Context(); ctx != nil {
+	for _, h := range h.Handlers {
+		for _, mv := range h.Handler.ListMetricVec() {
+			if ctx := h.Handler.Context(); ctx != nil {
 				ctx.DeleteMetricsAssociatedWithPod(endpoint.GetName(), endpoint.GetNamespace(), mv)
 			}
 		}

@@ -1,0 +1,5 @@
+metrics:
+- name: "flow"
+  contextOptions:
+  - name: "destinationContext"
+    values: ["dns", "ip"]

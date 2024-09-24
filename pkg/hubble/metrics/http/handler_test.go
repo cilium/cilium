@@ -21,16 +21,19 @@ func Test_httpHandler_Status(t *testing.T) {
 	plugin := httpPlugin{}
 	handler := plugin.NewHandler()
 	assert.Equal(t, handler.Status(), "")
-	options := []*api.ContextOptionConfig{
-		{
-			Name:   "sourceContext",
-			Values: []string{"namespace"},
-		},
-		{
-			Name:   "destinationContext",
-			Values: []string{"identity"},
+	options := &api.MetricConfig{
+		ContextOptionConfigs: []*api.ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"namespace"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"identity"},
+			},
 		},
 	}
+
 	require.NoError(t, handler.Init(prometheus.NewRegistry(), options))
 	assert.Equal(t, handler.Status(), "destination=identity,source=namespace,exemplars=false")
 }
@@ -39,14 +42,16 @@ func Test_httpHandler_ProcessFlow(t *testing.T) {
 	ctx := context.TODO()
 	plugin := httpPlugin{}
 	handler := plugin.NewHandler()
-	options := []*api.ContextOptionConfig{
-		{
-			Name:   "destinationContext",
-			Values: []string{"invalid"},
+	options := &api.MetricConfig{
+		ContextOptionConfigs: []*api.ContextOptionConfig{
+			{
+				Name:   "destinationContext",
+				Values: []string{"invalid"},
+			},
 		},
 	}
 	require.Error(t, handler.Init(prometheus.NewRegistry(), options))
-	require.NoError(t, handler.Init(prometheus.NewRegistry(), nil))
+	require.NoError(t, handler.Init(prometheus.NewRegistry(), &api.MetricConfig{}))
 	fp, ok := handler.(api.FlowProcessor)
 	require.True(t, ok)
 	// shouldn't count
@@ -116,25 +121,29 @@ func Test_httpHandlerV2_ProcessFlow(t *testing.T) {
 	ctx := context.TODO()
 	plugin := httpV2Plugin{}
 	handler := plugin.NewHandler()
-	options := []*api.ContextOptionConfig{
-		{
-			Name:   "destinationContext",
-			Values: []string{"invalid"},
+	options := &api.MetricConfig{
+		ContextOptionConfigs: []*api.ContextOptionConfig{
+			{
+				Name:   "destinationContext",
+				Values: []string{"invalid"},
+			},
 		},
 	}
 	require.Error(t, handler.Init(prometheus.NewRegistry(), options))
-	options = []*api.ContextOptionConfig{
-		{
-			Name:   "sourceContext",
-			Values: []string{"pod"},
-		},
-		{
-			Name:   "destinationContext",
-			Values: []string{"pod"},
-		},
-		{
-			Name:   "labelsContext",
-			Values: []string{"source_pod", "destination_pod"},
+	options = &api.MetricConfig{
+		ContextOptionConfigs: []*api.ContextOptionConfig{
+			{
+				Name:   "sourceContext",
+				Values: []string{"pod"},
+			},
+			{
+				Name:   "destinationContext",
+				Values: []string{"pod"},
+			},
+			{
+				Name:   "labelsContext",
+				Values: []string{"source_pod", "destination_pod"},
+			},
 		},
 	}
 	require.NoError(t, handler.Init(prometheus.NewRegistry(), options))
@@ -233,7 +242,7 @@ func Test_httpHandlerV2_ProcessFlow(t *testing.T) {
 func Test_httpHandler_ListMetricVec(t *testing.T) {
 	plugin := httpPlugin{}
 	handler := plugin.NewHandler()
-	require.NoError(t, handler.Init(prometheus.NewRegistry(), nil))
+	require.NoError(t, handler.Init(prometheus.NewRegistry(), &api.MetricConfig{}))
 	assert.Len(t, handler.ListMetricVec(), 3, "expecting 3 metrics, requests, responses and duration")
 	for _, vec := range handler.ListMetricVec() {
 		require.NotNil(t, vec, "ListMetricVec should not nil metrics vectors")
@@ -243,7 +252,7 @@ func Test_httpHandler_ListMetricVec(t *testing.T) {
 func Test_httpV2Handler_ListMetricVec(t *testing.T) {
 	plugin := httpV2Plugin{}
 	handler := plugin.NewHandler()
-	require.NoError(t, handler.Init(prometheus.NewRegistry(), nil))
+	require.NoError(t, handler.Init(prometheus.NewRegistry(), &api.MetricConfig{}))
 	assert.Len(t, handler.ListMetricVec(), 2, "expecting 2 metrics, requests and duration")
 	for _, vec := range handler.ListMetricVec() {
 		require.NotNil(t, vec, "ListMetricVec should not nil metrics vectors")

@@ -1,0 +1,23 @@
+flowLogs:
+- name: "test001"
+  filePath: "/var/log/network/flow-log/pa/test001.log"
+  fieldMask: []
+  includeFilters: []
+  excludeFilters: []
+  end: "2023-10-09T23:59:59-07:00"
+- name: "test002"
+  filePath: "/var/log/network/flow-log/pa/test002.log"
+  fieldMask: ["source.namespace", "source.pod_name", "destination.namespace", "destination.pod_name", "verdict"]
+  includeFilters:
+  - source_pod: ["default/"]
+    event_type:
+    - type: 1
+  - destination_pod: ["frontend/nginx-975996d4c-7hhgt"]
+  excludeFilters: []
+  end: "2023-10-09T23:59:59-07:00"
+- name: "test003"
+  filePath: "/var/log/network/flow-log/pa/test003.log"
+  fieldMask: ["source", "destination","verdict"]
+  includeFilters: []
+  excludeFilters:
+  - destination_pod: ["ingress/"]

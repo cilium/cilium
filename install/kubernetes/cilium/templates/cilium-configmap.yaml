@@ -984,6 +984,9 @@ data:
   hubble-flowlogs-config-path: /flowlog-config/flowlogs.yaml
 {{- end }}
 {{- end }}
+{{- if .Values.hubble.metrics.dynamic.enabled }}
+  hubble-dynamic-metrics-config-path: /dyn-metrics-config/dyn-metrics.yaml
+{{- end }}
 {{- if hasKey .Values.hubble "listenAddress" }}
   # An additional address for Hubble server to listen to (e.g. ":4244").
   hubble-listen-address: {{ .Values.hubble.listenAddress | quote }}

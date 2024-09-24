@@ -1031,6 +1031,8 @@ const (
 	// HubbleMetrics specifies enabled metrics and their configuration options.
 	HubbleMetrics = "hubble-metrics"
 
+	HubbleDynamicMetricConfigFilePath = "hubble-dynamic-metrics"
+
 	// HubbleFlowlogsConfigFilePath specifies the filepath with configuration of hubble flowlogs.
 	// e.g. "/etc/cilium/flowlog.yaml"
 	HubbleFlowlogsConfigFilePath = "hubble-flowlogs-config-path"
@@ -2215,6 +2217,8 @@ type DaemonConfig struct {
 
 	// HubbleMetrics specifies enabled metrics and their configuration options.
 	HubbleMetrics []string
+
+	HubbleDynamicMetricConfigFilePath string
 
 	// HubbleFlowlogsConfigFilePath specifies the filepath with configuration of hubble flowlogs.
 	// e.g. "/etc/cilium/flowlog.yaml"
@@ -3514,6 +3518,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.HubbleMetricsServerTLSKeyFile = vp.GetString(HubbleMetricsTLSKeyFile)
 	c.HubbleMetricsServerTLSClientCAFiles = vp.GetStringSlice(HubbleMetricsTLSClientCAFiles)
 	c.HubbleMetrics = vp.GetStringSlice(HubbleMetrics)
+	c.HubbleDynamicMetricConfigFilePath = vp.GetString(HubbleDynamicMetricConfigFilePath)
 
 	c.HubbleExportFilePath = vp.GetString(HubbleExportFilePath)
 	c.HubbleExportFileMaxSizeMB = vp.GetInt(HubbleExportFileMaxSizeMB)
