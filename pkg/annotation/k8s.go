@@ -140,13 +140,6 @@ const (
 	//		use SNAT so that reply traffic comes back
 	ServiceForwardingMode = ServicePrefix + "/forwarding-mode"
 
-	// ProxyVisibility / ProxyVisibilityAlias is the annotation name used to
-	// indicate whether proxy visibility should be enabled for a given pod (i.e.,
-	// all traffic for the pod is redirected to the proxy for the given port /
-	// protocol in the annotation
-	ProxyVisibility      = PolicyPrefix + "/proxy-visibility"
-	ProxyVisibilityAlias = Prefix + ".proxy-visibility"
-
 	// NoTrack / NoTrackAlias is the annotation name used to store the port and
 	// protocol that we should bypass kernel conntrack for a given pod. This
 	// applies for both TCP and UDP connection. Current use case is NodeLocalDNS.

@@ -227,11 +227,6 @@ func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
 	p.policyMapState.revertChanges(changes)
 }
 
-func (p *EndpointPolicy) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMeta *VisibilityMetadata, changes ChangeState) {
-	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
-	p.policyMapState.addVisibilityKeys(e, redirectPort, visMeta, changes)
-}
-
 // toMapState transforms the EndpointPolicy.L4Policy into
 // the datapath-friendly format inside EndpointPolicy.PolicyMapState.
 // Called with selectorcache locked for reading.

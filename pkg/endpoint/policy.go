@@ -151,7 +151,7 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 	}
 
 	// Publish the updated policy to L7 proxies.
-	return e.proxy.UpdateNetworkPolicy(e, e.visibilityPolicy, &e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, proxyWaitGroup)
+	return e.proxy.UpdateNetworkPolicy(e, &e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, proxyWaitGroup)
 }
 
 // setNextPolicyRevision updates the desired policy revision field
@@ -894,7 +894,7 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 
 // AnnotationsResolverCB provides an implementation for resolving the pod
 // annotations.
-type AnnotationsResolverCB func(ns, podName string) (proxyVisibility string, err error)
+type AnnotationsResolverCB func(ns, podName string) (value string, err error)
 
 // UpdateNoTrackRules updates the NOTRACK iptable rules for this endpoint. If anno
 // is empty, then any existing NOTRACK rules will be removed. If anno cannot be parsed,
@@ -913,28 +913,6 @@ func (e *Endpoint) UpdateNoTrackRules(annoCB AnnotationsResolverCB) {
 	regenResult, ok := updateRes.(*EndpointRegenerationResult)
 	if ok && regenResult.err != nil {
 		e.getLogger().WithError(regenResult.err).Error("EndpointNoTrackEvent event failed")
-	}
-}
-
-// UpdateVisibilityPolicy updates the visibility policy of this endpoint to
-// reflect the state stored in the provided proxy visibility annotation. If anno
-// is empty, then the VisibilityPolicy for the Endpoint will be empty, and will
-// have no effect. If the proxy visibility annotation cannot be parsed, an empty
-// visibility policy is assigned to the Endpoint.
-func (e *Endpoint) UpdateVisibilityPolicy(annoCB AnnotationsResolverCB) {
-	ch, err := e.eventQueue.Enqueue(eventqueue.NewEvent(&EndpointPolicyVisibilityEvent{
-		ep:     e,
-		annoCB: annoCB,
-	}))
-	if err != nil {
-		e.getLogger().WithError(err).Error("Unable to enqueue endpoint policy visibility event")
-		return
-	}
-
-	updateRes := <-ch
-	regenResult, ok := updateRes.(*EndpointRegenerationResult)
-	if ok && regenResult.err != nil {
-		e.getLogger().WithError(regenResult.err).Error("EndpointPolicyVisibilityEvent event failed")
 	}
 }
 

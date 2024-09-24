@@ -34,11 +34,6 @@ spec:
       name: Egress Enforcement
       priority: 1
       type: string
-    - description: Status of visibility policy in the endpoint
-      jsonPath: .status.visibility-policy-status
-      name: Visibility Policy
-      priority: 1
-      type: string
     - description: Endpoint current state
       jsonPath: .status.state
       name: Endpoint State
@@ -484,8 +479,6 @@ spec:
                 - disconnecting
                 - disconnected
                 - invalid
-                type: string
-              visibility-policy-status:
                 type: string
             type: object
         required:
