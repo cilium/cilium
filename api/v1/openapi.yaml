@@ -1403,6 +1403,11 @@ definitions:
       interface-index:
         description: Index of network device in host netns
         type: integer
+      parent-interface-index:
+        description: >-
+          Index of network device from which an IP was used as endpoint IP.
+          Only relevant for ENI environments.
+        type: integer
       container-interface-name:
         description: Name of network device in container netns
         type: string
