@@ -452,6 +452,8 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	errors := []error{}
 	flagsCache := map[string]loadbalancer.ServiceFlags{}
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
+	revNatValueMap := map[uint16]RevNatValue{}
+	inconsistentServiceKeys := []ServiceKey{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		backendKey := key.(BackendKey)
@@ -459,9 +461,29 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		backendValueMap[backendKey.GetID()] = backendValue
 	}
 
+	parseRevNatEntries := func(key bpf.MapKey, value bpf.MapValue) {
+		revNatKey := key.(RevNatKey).ToHost()
+		revNatValue := value.(RevNatValue).ToHost()
+		revNatValueMap[revNatKey.GetKey()] = revNatValue
+	}
+
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		svcKey := key.(ServiceKey).ToHost()
 		svcValue := value.(ServiceValue).ToHost()
+
+		serviceID := svcValue.RevNatKey().GetKey()
+		revNatValue := svcKey.RevNatValue().String()
+		val, found := revNatValueMap[serviceID]
+		if !found {
+			errors = append(errors, fmt.Errorf("revNat %d not found", serviceID))
+			inconsistentServiceKeys = append(inconsistentServiceKeys, svcKey)
+			return
+		} else if valueStr := val.String(); valueStr != revNatValue {
+			errors = append(errors, fmt.Errorf("inconsistent service %s and revNat %s found",
+				svcKey, valueStr))
+			inconsistentServiceKeys = append(inconsistentServiceKeys, svcKey)
+			return
+		}
 
 		fe := svcFrontend(svcKey, svcValue)
 
@@ -493,6 +515,10 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		if err != nil {
 			errors = append(errors, err)
 		}
+		err = RevNat4Map.DumpWithCallback(parseRevNatEntries)
+		if err != nil {
+			errors = append(errors, err)
+		}
 		err = Service4MapV2.DumpWithCallback(parseSVCEntries)
 		if err != nil {
 			errors = append(errors, err)
@@ -505,9 +531,22 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		if err != nil {
 			errors = append(errors, err)
 		}
+		err = RevNat6Map.DumpWithCallback(parseRevNatEntries)
+		if err != nil {
+			errors = append(errors, err)
+		}
 		err = Service6MapV2.DumpWithCallback(parseSVCEntries)
 		if err != nil {
 			errors = append(errors, err)
+		}
+	}
+
+	for _, svcKey := range inconsistentServiceKeys {
+		log.WithField(logfields.ServiceKey, svcKey).
+			Warn("Deleting service with inconsistent revNat")
+		if err := deleteServiceLocked(svcKey); err != nil {
+			log.WithField(logfields.ServiceKey, svcKey).
+				WithError(err).Warn("Unable to delete service entry from BPF map")
 		}
 	}
 
