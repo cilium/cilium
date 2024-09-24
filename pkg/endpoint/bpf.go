@@ -112,6 +112,10 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 		fmt.Fprintf(fw, " * Container Interface: %s\n", e.containerIfName)
 	}
 
+	if e.parentIfIndex != 0 {
+		fmt.Fprintf(fw, " * Parent Interface IfIndex: %d\n", e.parentIfIndex)
+	}
+
 	if option.Config.EnableIPv6 {
 		fmt.Fprintf(fw, " * IPv6 address: %s\n", e.IPv6.String())
 	}

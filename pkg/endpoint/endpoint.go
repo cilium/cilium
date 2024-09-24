@@ -191,6 +191,10 @@ type Endpoint struct {
 	// Immutable after Endpoint creation.
 	containerIfName string
 
+	// parentIfIndex is the interface index of the network device over which traffic
+	// with the source endpoints IP should egress when that traffic is not masqueraded.
+	parentIfIndex int
+
 	// disableLegacyIdentifiers disables lookup using legacy endpoint identifiers
 	// (container name, container id, pod name) for this endpoint.
 	// Immutable after Endpoint creation.
@@ -493,6 +497,11 @@ func (e *Endpoint) UpdateController(name string, params controller.ControllerPar
 // GetIfIndex returns the ifIndex for this endpoint.
 func (e *Endpoint) GetIfIndex() int {
 	return e.ifIndex
+}
+
+// GetParentIfIndex returns the parentIfIndex for this endpoint.
+func (e *Endpoint) GetParentIfIndex() int {
+	return e.parentIfIndex
 }
 
 // LXCMac returns the LXCMac for this endpoint.
