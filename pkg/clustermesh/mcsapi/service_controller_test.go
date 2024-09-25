@@ -49,7 +49,6 @@ var (
 				Name:      "full",
 				Namespace: "default",
 				Annotations: map[string]string{
-					annotation.SharedService: "not-used",
 					annotation.GlobalService: "not-used",
 					"test-annotation":        "copied",
 				},
@@ -129,7 +128,6 @@ var (
 				Name:      "import-only",
 				Namespace: "default",
 				Annotations: map[string]string{
-					annotation.SharedService: "not-used",
 					annotation.GlobalService: "not-used",
 				},
 				Labels: map[string]string{
@@ -253,14 +251,14 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 			err = c.Get(context.Background(), keyDerived, svc)
 			require.NoError(t, err)
 
-			require.Len(t, svc.OwnerReferences, 2)
+			require.Len(t, svc.OwnerReferences, 1)
+			require.Equal(t, "ServiceImport", svc.OwnerReferences[0].Kind)
 
 			require.Equal(t, "cluster1", svc.Labels[mcsapiv1alpha1.LabelSourceCluster])
 			require.Equal(t, key.Name, svc.Labels[mcsapiv1alpha1.LabelServiceName])
 			require.Equal(t, "copied", svc.Labels["test-label"])
 
 			require.Equal(t, "true", svc.Annotations[annotation.GlobalService])
-			require.Equal(t, "true", svc.Annotations[annotation.SharedService])
 			require.Equal(t, "copied", svc.Annotations["test-annotation"])
 
 			require.Len(t, svc.Spec.Ports, 1)
@@ -303,7 +301,6 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 		require.Equal(t, "cluster1", svc.Labels[mcsapiv1alpha1.LabelSourceCluster])
 
 		require.Equal(t, "true", svc.Annotations[annotation.GlobalService])
-		require.Equal(t, "false", svc.Annotations[annotation.SharedService])
 
 		require.Len(t, svc.Spec.Ports, 1)
 		require.Equal(t, "my-port-2", svc.Spec.Ports[0].Name)
@@ -329,7 +326,7 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 		err = c.Get(context.Background(), keyDerived, svc)
 		require.NoError(t, err)
 
-		require.Equal(t, "value", svc.Spec.Selector["selector"])
+		require.Nil(t, svc.Spec.Selector)
 	})
 
 	t.Run("Test service creation with only export", func(t *testing.T) {
@@ -350,18 +347,7 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 		}
 		svc := &corev1.Service{}
 		err = c.Get(context.Background(), keyDerived, svc)
-		require.NoError(t, err)
-
-		require.Len(t, svc.OwnerReferences, 1)
-		require.Equal(t, "ServiceExport", svc.OwnerReferences[0].Kind)
-
-		require.Equal(t, "true", svc.Annotations[annotation.GlobalService])
-		require.Equal(t, "true", svc.Annotations[annotation.SharedService])
-
-		require.Len(t, svc.Spec.Ports, 1)
-		require.Equal(t, "my-port-3", svc.Spec.Ports[0].Name)
-
-		require.Equal(t, corev1.ClusterIPNone, svc.Spec.ClusterIP)
+		require.True(t, k8sApiErrors.IsNotFound(err), "Should return not found error")
 	})
 
 	t.Run("Test service creation with export but no exported service", func(t *testing.T) {
@@ -373,8 +359,16 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 			NamespacedName: key,
 		})
 
-		require.True(t, k8sApiErrors.IsNotFound(err), "Should return not found error")
+		require.NoError(t, err)
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		keyDerived := types.NamespacedName{
+			Name:      derivedName(key),
+			Namespace: key.Namespace,
+		}
+		svc := &corev1.Service{}
+		err = c.Get(context.Background(), keyDerived, svc)
+		require.True(t, k8sApiErrors.IsNotFound(err), "Should return not found error")
 	})
 
 	t.Run("Test service recreation to headless service", func(t *testing.T) {
