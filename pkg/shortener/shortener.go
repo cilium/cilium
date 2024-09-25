@@ -11,10 +11,17 @@ import (
 const (
 	// Maximum characters in a K8s resource name
 	k8sMaxResourceNameLength = 63
+
+	// Maximum characters in a Hive job name
+	hiveMaxJobNameLength = 100
 )
 
 func ShortenK8sResourceName(s string) string {
 	return shorten(s, k8sMaxResourceNameLength)
+}
+
+func ShortenHiveJobName(s string) string {
+	return shorten(s, hiveMaxJobNameLength)
 }
 
 // Shorten shortens the string to the arbitrary number of characters.
