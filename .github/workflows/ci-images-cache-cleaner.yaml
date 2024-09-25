@@ -22,62 +22,19 @@ jobs:
       #   See also: https://docs.github.com/en/rest/actions/cache?apiVersion=2022-11-28#delete-a-github-actions-cache-for-a-repository-using-a-cache-id
       actions: write
       contents: read
-    strategy:
-      matrix:
-        include:
-          - name: cilium
-
-          - name: operator-aws
-
-          - name: operator-azure
-
-          - name: operator-alibabacloud
-
-          - name: operator-generic
-
-          - name: hubble-relay
-
-          - name: clustermesh-apiserver
-
-          - name: kvstoremesh
-
-          - name: docker-plugin
-
     steps:
-      # Fetch the source code so that we can get the right cache key
-      - name: Checkout Source Code
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
-        with:
-          persist-credentials: false
-
-      # Load Golang cache build from GitHub
-      - name: Load ${{ matrix.name }} Golang cache build from GitHub
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
-        id: cache
-        with:
-          path: /tmp/.cache/${{ matrix.name }}
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}-
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-
-            ${{ runner.os }}-go-
-
-      - name: Create ${{ matrix.name }} cache directory
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          mkdir -p /tmp/.cache/${{ matrix.name }}
-
-      - name: Clean ${{ matrix.name }} Golang cache from GitHub
+      - name: Clean cache from GitHub
         shell: bash
         run: |
           gh extension install actions/gh-actions-cache
 
           REPO=${{ github.repository }}
           set +e
-          gh actions-cache delete ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}-${{ github.sha }} -R $REPO -B main --confirm || true
-          gh actions-cache delete ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}- -R $REPO -B main --confirm || true
-          gh actions-cache delete ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}- -R $REPO -B main --confirm || true
-          gh actions-cache delete ${{ runner.os }}-go- -R $REPO -B main --confirm || true
+          for cache in $(gh actions-cache list -R $REPO --key ${{ runner.os }}-go- -B ${{ github.event.repository.default_branch }} -L 100 | awk '{ print $1 }'); then
+            gh actions-cache delete ${cache} -R $REPO -B ${{ github.event.repository.default_branch }} --confirm || true
+          done
+          for cache in $(gh actions-cache list -R $REPO --key ${{ runner.os }}-ccache- -B ${{ github.event.repository.default_branch }} -L 100 | awk '{ print $1 }'); then
+            gh actions-cache delete ${cache} -R $REPO -B ${{ github.event.repository.default_branch }} --confirm || true
+          done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -26,45 +26,25 @@ jobs:
           go-version: 1.23.1
 
       # Load Golang cache build from GitHub
-      - name: Load cilium-cli Golang cache build from GitHub
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
-        id: cache
+      - name: Load Golang cache build from GitHub
+        uses: actions/cache/restore@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        id: go-cache
         with:
-          path: /tmp/.cache/cilium-cli
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-cilium-cli-${{ github.sha }}
+          path: /tmp/.cache/go
+          key: ${{ runner.os }}-go-cilium-cli-cache-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-cilium-cli-
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-
-            ${{ runner.os }}-go-
+            ${{ runner.os }}-go-cilium-cli-cache-
 
-      - name: Import cache directory
+      - name: Create cache directories if they don't exist
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
         shell: bash
         run: |
-          mkdir -p /home/runner/.cache/
-          mkdir -p /home/runner/go/
+          mkdir -p /tmp/.cache/go/.cache/go-build
+          mkdir -p /tmp/.cache/go/pkg
 
-          if [ -d "/tmp/.cache/cilium-cli/go-build/" ]; then
-            cp -r /tmp/.cache/cilium-cli/go-build/ /home/runner/.cache/
-          fi
-
-          if [ -d "/tmp/.cache/cilium-cli/pkg/" ]; then
-            cp -r /tmp/.cache/cilium-cli/pkg/ /home/runner/go/
-          fi
-
-      - name: Build Cilium CLI binaries
+      - name: Build Cilium CLI release binaries
+        env:
+          GOCACHE: "/tmp/.cache/go/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/go/pkg"
         run: |
           make -C cilium-cli local-release
-
-      - name: Export cache directory
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          mkdir -p /tmp/.cache/cilium-cli
-
-          if [ -d "/home/runner/.cache/go-build/" ]; then
-            cp -r /home/runner/.cache/go-build/ /tmp/.cache/cilium-cli/
-          fi
-
-          if [ -d "/home/runner/go/pkg/" ]; then
-            cp -r /home/runner/go/pkg/ /tmp/.cache/cilium-cli/
-          fi
