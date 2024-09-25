@@ -95,6 +95,7 @@ jobs:
             --helm-set=cluster.name=${{ env.cluster_name }} \
             --helm-set=endpointHealthChecking.enabled=false \
             --helm-set=healthChecking=false \
+            --helm-set=ipam.mode=kubernetes \
             --helm-set=ciliumEndpointSlice.enabled=true \
             --helm-set=ciliumEndpointSlice.sliceMode="fcfs" \
             --helm-set=k8sServiceHost=api.internal.${CLUSTER_NAME} \
@@ -280,12 +281,12 @@ jobs:
         timeout-minutes: 20
         run: |
           OUTPUT="";
-          while [ `echo $OUTPUT | grep -c 1004` = 0 ]; do
+          while [ `echo $OUTPUT | grep -c 104` = 0 ]; do
             OUTPUT=`kubectl get pods -n kube-system --selector=k8s-app=cilium --no-headers -o jsonpath='{range .items[*]}{.status.containerStatuses[*].ready.true}{.metadata.name}{ "\n"}{end}' | wc -l`;
             echo "Ready agents:" $OUTPUT
             sleep 10
           done
-          while [ `echo $OUTPUT | grep -c 1004` = 0 ]; do
+          while [ `echo $OUTPUT | grep -c 104` = 0 ]; do
             OUTPUT=`k get nodes | grep Ready | wc -l`;
             echo "Ready nodes:" $OUTPUT
             sleep 10
