@@ -8,6 +8,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
@@ -260,7 +261,8 @@ func TestSharedIngressTranslator_getListenerProxy(t *testing.T) {
 		secretsNamespace: "cilium-secrets",
 		useProxyProtocol: true,
 	}
-	res := i.getListener(&model.Model{
+	logger := hivetest.Logger(t)
+	res := i.getListener(logger, &model.Model{
 		HTTP: []model.HTTPListener{
 			{
 				TLS: []model.TLSSecret{
@@ -290,7 +292,8 @@ func TestSharedIngressTranslator_getListener(t *testing.T) {
 		secretsNamespace: "cilium-secrets",
 	}
 
-	res := i.getListener(&model.Model{
+	logger := hivetest.Logger(t)
+	res := i.getListener(logger, &model.Model{
 		HTTP: []model.HTTPListener{
 			{
 				TLS: []model.TLSSecret{

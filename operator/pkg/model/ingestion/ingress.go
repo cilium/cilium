@@ -81,8 +81,9 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 					Timeout: timeout,
 				},
 			},
-			Port:    insecureListenerPort,
-			Service: getService(ing),
+			CreatedOn: ing.CreationTimestamp.Time,
+			Port:      insecureListenerPort,
+			Service:   getService(ing),
 		}
 
 		l.Sources = model.AddSource(l.Sources, sourceResource)
@@ -101,6 +102,7 @@ func Ingress(ing networkingv1.Ingress, defaultSecretNamespace, defaultSecretName
 
 		l, ok := insecureListenerMap[host]
 		l.Port = insecureListenerPort
+		l.CreatedOn = ing.CreationTimestamp.Time
 		l.Sources = model.AddSource(l.Sources, sourceResource)
 		if !ok {
 			l.Name = "ing-" + ing.Name + "-" + ing.Namespace + "-" + host
@@ -284,6 +286,7 @@ func IngressPassthrough(ing networkingv1.Ingress, listenerPort uint32) []model.T
 
 		l, ok := tlsListenerMap[host]
 		l.Port = listenerPort
+		l.CreatedOn = ing.CreationTimestamp.Time
 		l.Sources = model.AddSource(l.Sources, sourceResource)
 		if !ok {
 			l.Name = "ing-" + ing.Name + "-" + ing.Namespace + "-" + host

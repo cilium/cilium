@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
@@ -233,10 +234,12 @@ func Test_translator_Translate(t *testing.T) {
 			want: requestRedirectWithMultiHTTPListenersCiliumEnvoyConfig,
 		},
 	}
+
+	logger := hivetest.Logger(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &gatewayAPITranslator{
-				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, false, true, 60, false, nil, false, false, 0),
+				cecTranslator: translation.NewCECTranslator(logger, "cilium-secrets", false, false, true, 60, false, nil, false, false, 0),
 			}
 			cec, _, _, err := trans.Translate(tt.args.m)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
@@ -334,10 +337,11 @@ func Test_translator_TranslateResource(t *testing.T) {
 		},
 	}
 
+	logger := hivetest.Logger(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &gatewayAPITranslator{
-				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, false, true, 60, false, nil, false, false, 0),
+				cecTranslator: translation.NewCECTranslator(logger, "cilium-secrets", false, false, true, 60, false, nil, false, false, 0),
 			}
 			cec, _, _, err := trans.Translate(tt.args.m)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
@@ -368,10 +372,11 @@ func Test_translator_Translate_AppProtocol(t *testing.T) {
 			want: backendProtocolEnabledH2CHTTPListenersCiliumEnvoyConfig,
 		},
 	}
+	logger := hivetest.Logger(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &gatewayAPITranslator{
-				cecTranslator: translation.NewCECTranslator("cilium-secrets", false, true, true, 60, false, nil, false, false, 0),
+				cecTranslator: translation.NewCECTranslator(logger, "cilium-secrets", false, true, true, 60, false, nil, false, false, 0),
 			}
 			cec, _, _, err := trans.Translate(tt.args.m)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
@@ -440,6 +445,8 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 			want: basicHostPortHTTPListenersCiliumEnvoyConfig("0.0.0.0", 55555, &slim_metav1.LabelSelector{MatchLabels: map[string]slim_metav1.MatchLabelsValue{"a": "b"}}),
 		},
 	}
+
+	logger := hivetest.Logger(t)
 	for _, tt := range tests {
 		translatorCases := []struct {
 			name                 string
@@ -448,14 +455,14 @@ func Test_translator_Translate_HostNetwork(t *testing.T) {
 			{
 				name: "Without externalTrafficPolicy",
 				gatewayAPITranslator: &gatewayAPITranslator{
-					cecTranslator:      translation.NewCECTranslator("cilium-secrets", false, false, true, 60, true, tt.nodeLabelSelector, tt.ipv4Enabled, tt.ipv6Enabled, 0),
+					cecTranslator:      translation.NewCECTranslator(logger, "cilium-secrets", false, false, true, 60, true, tt.nodeLabelSelector, tt.ipv4Enabled, tt.ipv6Enabled, 0),
 					hostNetworkEnabled: true,
 				},
 			},
 			{
 				name: "With externalTrafficPolicy",
 				gatewayAPITranslator: &gatewayAPITranslator{
-					cecTranslator:         translation.NewCECTranslator("cilium-secrets", false, false, true, 60, true, tt.nodeLabelSelector, tt.ipv4Enabled, tt.ipv6Enabled, 0),
+					cecTranslator:         translation.NewCECTranslator(logger, "cilium-secrets", false, false, true, 60, true, tt.nodeLabelSelector, tt.ipv4Enabled, tt.ipv6Enabled, 0),
 					hostNetworkEnabled:    true,
 					externalTrafficPolicy: "Cluster",
 				},
@@ -504,10 +511,12 @@ func Test_translator_Translate_WithXffNumTrustedHops(t *testing.T) {
 			want: basicHTTPListenersCiliumEnvoyConfigWithXff,
 		},
 	}
+
+	logger := hivetest.Logger(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &gatewayAPITranslator{
-				cecTranslator:      translation.NewCECTranslator("cilium-secrets", false, false, true, 60, false, nil, false, false, 2),
+				cecTranslator:      translation.NewCECTranslator(logger, "cilium-secrets", false, false, true, 60, false, nil, false, false, 2),
 				hostNetworkEnabled: true,
 			}
 			cec, svc, ep, err := trans.Translate(tt.args.m)

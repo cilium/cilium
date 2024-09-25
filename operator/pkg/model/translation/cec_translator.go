@@ -6,9 +6,12 @@ package translation
 import (
 	"cmp"
 	"fmt"
+	"log/slog"
 	"maps"
 	goslices "slices"
 	"sort"
+	"strings"
+	"time"
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
@@ -40,6 +43,7 @@ var _ CECTranslator = (*cecTranslator)(nil)
 //     in-secure).
 //   - no LB service and endpoint
 type cecTranslator struct {
+	logger           *slog.Logger
 	secretsNamespace string
 	useProxyProtocol bool
 	useAppProtocol   bool
@@ -62,11 +66,12 @@ type cecTranslator struct {
 }
 
 // NewCECTranslator returns a new translator
-func NewCECTranslator(secretsNamespace string, useProxyProtocol bool, useAppProtocol bool, hostNameSuffixMatch bool, idleTimeoutSeconds int,
+func NewCECTranslator(logger *slog.Logger, secretsNamespace string, useProxyProtocol bool, useAppProtocol bool, hostNameSuffixMatch bool, idleTimeoutSeconds int,
 	hostNetworkEnabled bool, hostNetworkNodeLabelSelector *slim_metav1.LabelSelector, ipv4Enabled bool, ipv6Enabled bool,
 	xffNumTrustedHops uint32,
 ) CECTranslator {
 	return &cecTranslator{
+		logger:                       logger,
 		secretsNamespace:             secretsNamespace,
 		useProxyProtocol:             useProxyProtocol,
 		useAppProtocol:               useAppProtocol,
@@ -164,7 +169,7 @@ func (i *cecTranslator) getServicesWithPorts(namespace string, name string, m *m
 func (i *cecTranslator) getResources(m *model.Model) []ciliumv2.XDSResource {
 	var res []ciliumv2.XDSResource
 
-	res = append(res, i.getListener(m)...)
+	res = append(res, i.getListener(i.logger, m)...)
 	res = append(res, i.getEnvoyHTTPRouteConfiguration(m)...)
 	res = append(res, i.getClusters(m)...)
 
@@ -175,6 +180,7 @@ func tlsSecretsToHostnames(httpListeners []model.HTTPListener) map[model.TLSSecr
 	tlsSecretsToHostnames := make(map[model.TLSSecret][]string)
 	for _, h := range httpListeners {
 		for _, s := range h.TLS {
+			s.CreatedOn = h.CreatedOn
 			tlsSecretsToHostnames[s] = append(tlsSecretsToHostnames[s], h.Hostname)
 		}
 	}
@@ -182,12 +188,33 @@ func tlsSecretsToHostnames(httpListeners []model.HTTPListener) map[model.TLSSecr
 	return tlsSecretsToHostnames
 }
 
-func tlsPassthroughBackendsToHostnames(tlsPassthroughListeners []model.TLSPassthroughListener) map[string][]string {
-	tlsPassthroughBackendsToHostnames := make(map[string][]string)
+type backendKey struct {
+	key       string
+	createdOn time.Time
+}
+
+func newBackendKey(b model.Backend, t time.Time) backendKey {
+	return backendKey{
+		key:       fmt.Sprintf("%s:%s:%s", b.Namespace, b.Name, b.Port.GetPort()),
+		createdOn: t,
+	}
+}
+
+func (k backendKey) namespace() string {
+	ss := strings.Split(k.key, ":")
+	if len(ss) == 3 {
+		return ss[0]
+	}
+
+	return ""
+}
+
+func tlsPassthroughBackendsToHostnames(tlsPassthroughListeners []model.TLSPassthroughListener) map[backendKey][]string {
+	tlsPassthroughBackendsToHostnames := make(map[backendKey][]string)
 	for _, h := range tlsPassthroughListeners {
 		for _, route := range h.Routes {
 			for _, backend := range route.Backends {
-				key := fmt.Sprintf("%s:%s:%s", backend.Namespace, backend.Name, backend.Port.GetPort())
+				key := newBackendKey(backend, h.CreatedOn)
 				tlsPassthroughBackendsToHostnames[key] = append(tlsPassthroughBackendsToHostnames[key], route.Hostnames...)
 			}
 		}
@@ -200,7 +227,7 @@ func tlsPassthroughBackendsToHostnames(tlsPassthroughListeners []model.TLSPassth
 // - HTTP non-TLS filters
 // - HTTP TLS filters
 // - TLS passthrough filters
-func (i *cecTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
+func (i *cecTranslator) getListener(logger *slog.Logger, m *model.Model) []ciliumv2.XDSResource {
 	if len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0 {
 		return nil
 	}
@@ -222,7 +249,11 @@ func (i *cecTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
 		mutatorFuncs = append(mutatorFuncs, WithXffNumTrustedHops(i.xffNumTrustedHops))
 	}
 
-	l, _ := newListenerWithDefaults("listener", i.secretsNamespace, len(m.HTTP) > 0, tlsSecretsToHostnames(m.HTTP), tlsPassthroughBackendsToHostnames(m.TLSPassthrough), mutatorFuncs...)
+	l, err := newListenerWithDefaults(i.logger, "listener", i.secretsNamespace, len(m.HTTP) > 0, tlsSecretsToHostnames(m.HTTP), tlsPassthroughBackendsToHostnames(m.TLSPassthrough), mutatorFuncs...)
+	if err != nil {
+		// TODO Untrapped?? what should we do here? continue or bomb out?
+		logger.Error("Failed to create listener", "error", err)
+	}
 	return []ciliumv2.XDSResource{l}
 }
 

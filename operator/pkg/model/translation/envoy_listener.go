@@ -4,10 +4,11 @@
 package translation
 
 import (
-	"cmp"
 	"fmt"
+	"log/slog"
 	"maps"
 	goslices "slices"
+	"strings"
 	"syscall"
 
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -176,7 +177,7 @@ func WithSocketOption(tcpKeepAlive, tcpKeepIdleInSeconds, tcpKeepAliveProbeInter
 }
 
 // newListenerWithDefaults same as newListener but with default mutators applied.
-func newListenerWithDefaults(name string, ciliumSecretNamespace string, includeHTTPFilterchain bool, tlsSecretsToHostnames map[model.TLSSecret][]string, ptBackendsToHostnames map[string][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+func newListenerWithDefaults(logger *slog.Logger, name string, ciliumSecretNamespace string, includeHTTPFilterchain bool, tlsSecretsToHostnames map[model.TLSSecret][]string, ptBackendsToHostnames map[backendKey][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	fns := append(mutatorFunc,
 		WithSocketOption(
 			defaultTCPKeepAlive,
@@ -185,7 +186,7 @@ func newListenerWithDefaults(name string, ciliumSecretNamespace string, includeH
 			defaultTCPKeepAliveMaxFailures),
 	)
 
-	return newListener(name, ciliumSecretNamespace, includeHTTPFilterchain, tlsSecretsToHostnames, ptBackendsToHostnames, fns...)
+	return newListener(logger, name, ciliumSecretNamespace, includeHTTPFilterchain, tlsSecretsToHostnames, ptBackendsToHostnames, fns...)
 }
 
 func httpFilterChain(name string) (*envoy_config_listener.FilterChain, error) {
@@ -211,20 +212,39 @@ func httpFilterChain(name string) (*envoy_config_listener.FilterChain, error) {
 	}, nil
 }
 
-func httpsFilterChains(name string, ciliumSecretNamespace string, tlsSecretsToHostnames map[model.TLSSecret][]string) ([]*envoy_config_listener.FilterChain, error) {
+func httpsFilterChains(logger *slog.Logger, name string, ciliumSecretNamespace string, tlsSecretsToHostnames map[model.TLSSecret][]string) ([]*envoy_config_listener.FilterChain, error) {
 	if len(tlsSecretsToHostnames) == 0 {
 		return nil, nil
 	}
 
+	// Check if we have a situation where tls secrets in different namespaces references the same hostname.
+	// If so issue a log error and remove the conflicting secret from the map aka earliest ingress creation time wins.
+	// TODO Should we just return here and croak on the filter chain creation?
+	hh := make(map[string]model.TLSSecret)
+	for sec, hostnames := range tlsSecretsToHostnames {
+		for _, hostname := range hostnames {
+			if hsec, ok := hh[hostname]; ok && hsec.Namespace != sec.Namespace {
+				fqn1, fqn2 := sec.Namespace+"/"+sec.Name, hsec.Namespace+"/"+hsec.Name
+				logger.Error("Not supported! The same hostname is used by multiple TLS secrets in different namespaces. Filter chain will be generated based on the first created ingress", "hostname", hostname, "secret", fqn1, "other_secret", fqn2)
+				if hsec.CreatedOn.After(sec.CreatedOn) {
+					tlsSecretsToHostnames[hsec] = deleteHostFromList(tlsSecretsToHostnames[hsec], hostname)
+				} else {
+					tlsSecretsToHostnames[sec] = deleteHostFromList(tlsSecretsToHostnames[sec], hostname)
+				}
+			} else {
+				hh[hostname] = sec
+			}
+		}
+	}
+	orderedSecrets := goslices.SortedStableFunc(maps.Keys(tlsSecretsToHostnames),
+		func(a, b model.TLSSecret) int {
+			return strings.Compare(a.Namespace+"/"+a.Name, b.Namespace+"/"+b.Name)
+		},
+	)
+
 	var filterChains []*envoy_config_listener.FilterChain
-
-	orderedSecrets := goslices.SortedStableFunc(maps.Keys(tlsSecretsToHostnames), func(a, b model.TLSSecret) int {
-		return cmp.Compare(a.Namespace+"/"+a.Name, b.Namespace+"/"+b.Name)
-	})
-
 	for _, secret := range orderedSecrets {
 		hostNames := tlsSecretsToHostnames[secret]
-
 		secureHttpConnectionManagerName := fmt.Sprintf("%s-secure", name)
 		secureHttpConnectionManager, err := NewHTTPConnectionManager(secureHttpConnectionManagerName, secureHttpConnectionManagerName)
 		if err != nil {
@@ -257,7 +277,7 @@ func httpsFilterChains(name string, ciliumSecretNamespace string, tlsSecretsToHo
 // The listener will have both secure and insecure filters.
 //
 // Secret Discovery Service (SDS) is used to fetch the TLS certificates.
-func newListener(name string, ciliumSecretNamespace string, includeHTTPFilterchain bool, tlsSecretsToHostnames map[model.TLSSecret][]string, tlsPassthroughBackendsMap map[string][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+func newListener(logger *slog.Logger, name string, ciliumSecretNamespace string, includeHTTPFilterchain bool, tlsSecretsToHostnames map[model.TLSSecret][]string, tlsPassthroughBackendsMap map[backendKey][]string, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	filterChains := []*envoy_config_listener.FilterChain{}
 
 	if includeHTTPFilterchain {
@@ -268,13 +288,13 @@ func newListener(name string, ciliumSecretNamespace string, includeHTTPFiltercha
 		filterChains = append(filterChains, httpFilterChain)
 	}
 
-	httpsFilterChains, err := httpsFilterChains(name, ciliumSecretNamespace, tlsSecretsToHostnames)
+	httpsFilterChains, err := httpsFilterChains(logger, name, ciliumSecretNamespace, tlsSecretsToHostnames)
 	if err != nil {
 		return ciliumv2.XDSResource{}, fmt.Errorf("failed to create https filterchains: %w", err)
 	}
 	filterChains = append(filterChains, httpsFilterChains...)
 
-	tlsPassthroughFilterChains, err := tlsPassthroughFilterChains(tlsPassthroughBackendsMap)
+	tlsPassthroughFilterChains, err := tlsPassthroughFilterChains(logger, tlsPassthroughBackendsMap)
 	if err != nil {
 		return ciliumv2.XDSResource{}, fmt.Errorf("failed to create tls passthrough filterchains: %w", err)
 	}
@@ -353,14 +373,36 @@ func getHostNetworkListenerAddresses(ports []uint32, ipv4Enabled, ipv6Enabled bo
 	}, additionalAddress
 }
 
-func tlsPassthroughFilterChains(ptBackendsToHostnames map[string][]string) ([]*envoy_config_listener.FilterChain, error) {
+func tlsPassthroughFilterChains(logger *slog.Logger, ptBackendsToHostnames map[backendKey][]string) ([]*envoy_config_listener.FilterChain, error) {
 	if len(ptBackendsToHostnames) == 0 {
 		return nil, nil
 	}
 
 	var filterChains []*envoy_config_listener.FilterChain
 
-	orderedBackends := goslices.Sorted(maps.Keys(ptBackendsToHostnames))
+	// Check if we have a situation where backends in different namespaces references the same hostname.
+	// If so issue a log error and remove the conflicting backend from the map aka earliest ingress creation time wins.
+	// TODO Should we just return here and croak on the filter chain creation?
+	hh := make(map[string]backendKey)
+	for key, hostnames := range ptBackendsToHostnames {
+		for _, hostname := range hostnames {
+			if hkey, ok := hh[hostname]; ok && hkey.namespace() != key.namespace() {
+				logger.Error("Not supported! The same hostname is used by multiple backends in different namespaces. Filter chain will be generated based on the first created ingress", "hostname", hostname, "backend", key, "other_backend", hkey)
+				if hkey.createdOn.After(key.createdOn) {
+					ptBackendsToHostnames[hkey] = deleteHostFromList(ptBackendsToHostnames[hkey], hostname)
+				} else {
+					ptBackendsToHostnames[key] = deleteHostFromList(ptBackendsToHostnames[key], hostname)
+				}
+			} else {
+				hh[hostname] = key
+			}
+		}
+	}
+	orderedBackends := goslices.SortedStableFunc(maps.Keys(ptBackendsToHostnames),
+		func(a, b backendKey) int {
+			return strings.Compare(a.key, b.key)
+		},
+	)
 
 	for _, backend := range orderedBackends {
 		hostNames := ptBackendsToHostnames[backend]
@@ -371,9 +413,9 @@ func tlsPassthroughFilterChains(ptBackendsToHostnames map[string][]string) ([]*e
 					Name: tcpProxyType,
 					ConfigType: &envoy_config_listener.Filter_TypedConfig{
 						TypedConfig: toAny(&envoy_extensions_filters_network_tcp_v3.TcpProxy{
-							StatPrefix: backend,
+							StatPrefix: backend.key,
 							ClusterSpecifier: &envoy_extensions_filters_network_tcp_v3.TcpProxy_Cluster{
-								Cluster: backend,
+								Cluster: backend.key,
 							},
 						}),
 					},
@@ -431,4 +473,14 @@ func toFilterChainMatch(hostNames []string) *envoy_config_listener.FilterChainMa
 	}
 	res.ServerNames = serverNames
 	return res
+}
+
+func deleteHostFromList(hosts []string, host string) []string {
+	hh := make([]string, 0, len(hosts))
+	for _, h := range hosts {
+		if h != host {
+			hh = append(hh, h)
+		}
+	}
+	return hh
 }
