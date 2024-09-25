@@ -533,6 +533,13 @@ func decodeTrafficDirection(srcEP uint32, dn *monitor.DropNotify, tn *monitor.Tr
 				return pb.TrafficDirection_EGRESS
 			}
 			return pb.TrafficDirection_INGRESS
+		} else {
+			switch tn.ObsPoint {
+			case monitorAPI.TraceToCrypto:
+				return pb.TrafficDirection_EGRESS
+			case monitorAPI.TraceFromCrypto:
+				return pb.TrafficDirection_INGRESS
+			}
 		}
 	}
 	if pvn != nil {
