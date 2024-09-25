@@ -203,7 +203,6 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	l4_off = ETH_HLEN + hdrlen;
 
 	if (lb_is_svc_proto(tuple.nexthdr) &&
-	    !nodeport_uses_dsr6(&tuple) &&
 	    nodeport_has_nat_conflict_ipv6(ip6, &target))
 		goto apply_snat;
 
@@ -1443,13 +1442,12 @@ skip_service_lookup:
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
 	(!defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
-		if (is_svc_proto && nodeport_uses_dsr6(&tuple)) {
+		if (is_svc_proto) {
 			ret = nodeport_extract_dsr_v6(ctx, ip6, &tuple, l4_off,
 						      &key.address,
 						      &key.dport, dsr);
 			if (IS_ERR(ret))
 				return ret;
-
 			if (*dsr)
 				return nodeport_dsr_ingress_ipv6(ctx, &tuple, l4_off,
 								 &key.address, key.dport,
@@ -1457,11 +1455,6 @@ skip_service_lookup:
 		}
 #endif
 #endif /* ENABLE_DSR */
-
-#ifndef ENABLE_MASQUERADE_IPV6
-		if (!is_svc_proto || nodeport_uses_dsr6(&tuple))
-			return CTX_ACT_OK;
-#endif /* ENABLE_MASQUERADE_IPV6 */
 
 		ctx_store_meta(ctx, CB_NAT_46X64, 0);
 		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
@@ -1698,7 +1691,6 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 	if (lb_is_svc_proto(tuple.nexthdr) &&
-	    !nodeport_uses_dsr4(&tuple) &&
 	    nodeport_has_nat_conflict_ipv4(ip4, &target))
 		goto apply_snat;
 
@@ -1720,7 +1712,6 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 #endif
 
 apply_snat:
-
 	*saddr = tuple.saddr;
 	ret = snat_v4_nat(ctx, &tuple, ip4, l4_off, ipv4_has_l4_header(ip4),
 			  &target, trace, ext_err);
@@ -3031,7 +3022,7 @@ skip_service_lookup:
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
 	(!defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
-		if (is_svc_proto && nodeport_uses_dsr4(&tuple)) {
+		if (is_svc_proto) {
 			/* Check if packet has embedded DSR info, or belongs to
 			 * an established DSR connection:
 			 */
@@ -3040,7 +3031,6 @@ skip_service_lookup:
 						      &key.dport, dsr);
 			if (IS_ERR(ret))
 				return ret;
-
 			if (*dsr)
 				/* Packet continues on its way to local backend: */
 				return nodeport_dsr_ingress_ipv4(ctx, &tuple, ip4,
@@ -3050,17 +3040,6 @@ skip_service_lookup:
 		}
 #endif
 #endif /* ENABLE_DSR */
-
-#ifndef ENABLE_MASQUERADE_IPV4
-		/* When BPF-Masquerading is off, we can skip the revSNAT path via
-		 * CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS if:
-		 * - the packet is ICMP, or
-		 * - the packet is DSR-eligible (and thus not reply traffic by
-		 *   a remote backend that would require revSNAT / revDNAT)
-		 */
-		if (!is_svc_proto || nodeport_uses_dsr4(&tuple))
-			return CTX_ACT_OK;
-#endif /* ENABLE_MASQUERADE_IPV4 */
 
 		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 		/* For NAT64 we might see an IPv4 reply from the backend to
