@@ -285,6 +285,11 @@ jobs:
             echo "Ready agents:" $OUTPUT
             sleep 10
           done
+          while [ `echo $OUTPUT | grep -c 1004` = 0 ]; do
+            OUTPUT=`k get nodes | grep Ready | wc -l`;
+            echo "Ready nodes:" $OUTPUT
+            sleep 10
+          done
 
       - name: Setup firewall rules
         uses: cilium/scale-tests-action/setup-firewall@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
@@ -312,6 +317,11 @@ jobs:
             echo "Ready agents:" $OUTPUT
             sleep 10
           done
+          while [ `echo $OUTPUT | grep -c 2004` = 0 ]; do
+            OUTPUT=`k get nodes | grep Ready | wc -l`;
+            echo "Ready nodes:" $OUTPUT
+            sleep 10
+          done
 
       - name: Create Instance Group for workload deployments
         uses: cilium/scale-tests-action/create-instance-group@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
@@ -331,6 +341,12 @@ jobs:
           while [ `echo $OUTPUT | grep -c 3004` = 0 ]; do
             OUTPUT=`kubectl get pods -n kube-system --selector=k8s-app=cilium --no-headers -o jsonpath='{range .items[*]}{.status.containerStatuses[*].ready.true}{.metadata.name}{ "\n"}{end}' | wc -l`;
             echo "Ready agents:" $OUTPUT
+            sleep 10
+          done
+          OUTPUT="";
+          while [ `echo $OUTPUT | grep -c 3004` = 0 ]; do
+            OUTPUT=`k get nodes | grep Ready | wc -l`;
+            echo "Ready nodes:" $OUTPUT
             sleep 10
           done
 
@@ -356,7 +372,6 @@ jobs:
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL: "120s"
         timeout-minutes: 20
         run: |
-          sleep 120 # Wait for the metrics to stabilize
           # Don't run any tasks at this point, just export the prometheus data
           ./clusterloader \
             -v=2 \
