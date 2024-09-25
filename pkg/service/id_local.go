@@ -87,9 +87,7 @@ func (alloc *IDAllocator) acquireLocalID(svc loadbalancer.L3n4Addr, desiredID ui
 	startingID := alloc.nextID
 	rollover := false
 	for {
-		if alloc.nextID == startingID && rollover {
-			break
-		} else if alloc.nextID == alloc.maxID {
+		if alloc.nextID == alloc.maxID {
 			alloc.nextID = alloc.initNextID
 			rollover = true
 		}
@@ -98,6 +96,10 @@ func (alloc *IDAllocator) acquireLocalID(svc loadbalancer.L3n4Addr, desiredID ui
 			svcID := alloc.addID(svc, alloc.nextID)
 			alloc.nextID++
 			return svcID, nil
+		}
+
+		if alloc.nextID == startingID && rollover {
+			break
 		}
 
 		alloc.nextID++
