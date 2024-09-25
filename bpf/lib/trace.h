@@ -42,6 +42,8 @@ enum trace_point {
 	TRACE_FROM_OVERLAY,
 	TRACE_FROM_NETWORK,
 	TRACE_TO_NETWORK,
+	TRACE_FROM_CRYPTO,
+	TRACE_TO_CRYPTO,
 } __packed;
 
 /* Reasons for forwarding a packet, keep in sync with pkg/monitor/datapath_trace.go */
@@ -128,6 +130,21 @@ _update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
 	case TRACE_FROM_PROXY:
 	case TRACE_TO_PROXY:
 		break;
+#ifdef IS_BPF_WIREGUARD
+	case TRACE_TO_CRYPTO:
+		_update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
+				REASON_ENCRYPTING, line, file);
+		break;
+	case TRACE_FROM_CRYPTO:
+		_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+				REASON_DECRYPTING, line, file);
+		break;
+#else
+	case TRACE_TO_CRYPTO:
+	case TRACE_FROM_CRYPTO:
+		build_bug_on(obs_point);
+		break;
+#endif
 	}
 }
 
@@ -169,6 +186,7 @@ emit_trace_notify(enum trace_point obs_point, __u32 monitor)
 		case TRACE_FROM_HOST:
 		case TRACE_FROM_STACK:
 		case TRACE_FROM_OVERLAY:
+		case TRACE_FROM_CRYPTO:
 		case TRACE_FROM_NETWORK:
 			return false;
 		default:
