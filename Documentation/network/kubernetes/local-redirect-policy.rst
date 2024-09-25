@@ -85,6 +85,59 @@ Validate that the Cilium Local Redirect Policy CRD has been registered.
 	   [...]
 	   ciliumlocalredirectpolicies.cilium.io              2020-08-24T05:31:47Z
 
+.. note::
+
+    Local Redirect Policy supports either the socket-level loadbalancer or the tc loadbalancer.
+    The configuration depends on your specific use case and the type of service handling required.
+    Below are the Helm setups to work with ``localRedirectPolicy=true``:
+
+    1. Enable full kube-proxy replacement:
+
+      This setup is for users who want to replace kube-proxy with Cilium's eBPF implementation
+      and leverage Local Redirect Policy.
+
+      .. code-block:: yaml
+
+        kubeProxyReplacement: true
+        localRedirectPolicy: true
+
+    2. Bypass the socket-level loadbalancer in pod namespaces:
+
+      This setup is for users who want to disable the socket-level loadbalancer in pod namespaces.
+      For example, this might be needed if there are custom redirection rules in the pod namespace
+      that would conflict with the socket-level load balancer.
+
+      .. code-block:: yaml
+
+        kubeProxyReplacement: true
+        socketLB:
+          hostNamespaceOnly: true
+        localRedirectPolicy: true
+
+    3. Enable the socket-level loadbalancer only:
+
+      This setup is for users who prefer to retain kube-proxy for overall service handling
+      but still want to leverage Cilium's Local Redirect Policy.
+
+      .. code-block:: yaml
+
+        kubeProxyReplacement: false
+        socketLB:
+          enabled: true
+        localRedirectPolicy: true
+
+    4. Disable any service handling except for ClusterIP services accessed from pods:
+
+      If you want to fully rely on kube-proxy for the service handling, you can disable all
+      kube-proxy replacement functionality expect ClusterIP services accessed from pod namespace.
+      Note that the pod traffic from host namespace isn't handled by Local Redirect Policy
+      with this setup.
+
+      .. code-block:: yaml
+
+        kubeProxyReplacement: false
+        localRedirectPolicy: true
+
 Create backend and client pods
 ==============================
 
