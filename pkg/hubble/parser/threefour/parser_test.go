@@ -1610,6 +1610,56 @@ func TestDecode_TraceNotify(t *testing.T) {
 			},
 		},
 		{
+			name: "v1_to_crypto",
+			event: monitor.TraceNotifyV1{
+				TraceNotifyV0: monitor.TraceNotifyV0{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					Source:   hostEP,
+					ObsPoint: monitorAPI.TraceToCrypto,
+					Version:  monitor.TraceNotifyVersion1,
+					Reason:   monitor.TraceReasonUnknown,
+				},
+				OrigIP: types.IPv6{1, 2, 3, 4},
+			},
+			ipTuple: xlatedEgressTuple,
+			want: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					SubType: 13,
+				},
+				IP: &flowpb.IP{
+					SourceXlated: xlatedIP.String(),
+				},
+				Source:                &flowpb.Endpoint{ID: 1234},
+				TraceReason:           flowpb.TraceReason_TRACE_REASON_UNKNOWN,
+				TraceObservationPoint: flowpb.TraceObservationPoint_TO_CRYPTO,
+			},
+		},
+		{
+			name: "v1_from_crypto",
+			event: monitor.TraceNotifyV1{
+				TraceNotifyV0: monitor.TraceNotifyV0{
+					Type:     byte(monitorAPI.MessageTypeTrace),
+					Source:   hostEP,
+					ObsPoint: monitorAPI.TraceFromCrypto,
+					Version:  monitor.TraceNotifyVersion1,
+					Reason:   monitor.TraceReasonUnknown,
+				},
+				OrigIP: types.IPv6{1, 2, 3, 4},
+			},
+			ipTuple: xlatedEgressTuple,
+			want: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					SubType: 12,
+				},
+				IP: &flowpb.IP{
+					SourceXlated: xlatedIP.String(),
+				},
+				Source:                &flowpb.Endpoint{ID: 1234},
+				TraceReason:           flowpb.TraceReason_TRACE_REASON_UNKNOWN,
+				TraceObservationPoint: flowpb.TraceObservationPoint_FROM_CRYPTO,
+			},
+		},
+		{
 			name: "v0_to_lxc_reply",
 			event: monitor.TraceNotifyV0{
 				Type:     byte(monitorAPI.MessageTypeTrace),
