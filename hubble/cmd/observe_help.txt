@@ -101,12 +101,14 @@ Filters Flags:
                                                              from-overlay
                                                              from-proxy
                                                              from-stack
+                                                             from-crypto
                                                              to-endpoint
                                                              to-host
                                                              to-network
                                                              to-overlay
                                                              to-proxy
                                                              to-stack
+                                                             to-crypto
                                             trace-sock       n/a
       --uuid filter                         Show the only flow matching this unique flow identifier, if any
       --verdict filter                      Show only flows with this verdict [FORWARDED, DROPPED, AUDIT, REDIRECTED, ERROR, TRACED, TRANSLATED]
