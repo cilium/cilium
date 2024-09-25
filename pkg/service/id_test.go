@@ -5,8 +5,10 @@ package service
 
 import (
 	"testing"
+	"time"
 
 	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -165,6 +167,34 @@ func (s *IDAllocTestSuite) TestGetMaxServiceID(c *C) {
 	id, err := getMaxServiceID()
 	c.Assert(err, Equals, nil)
 	c.Assert(id, Equals, (MaxSetOfServiceID - 1))
+}
+
+func TestAcquireOverflow(t *testing.T) {
+	a := NewIDAllocator(FirstFreeServiceID, MaxSetOfServiceID)
+	for i := FirstFreeServiceID; i < MaxSetOfServiceID; i++ {
+		l3n4Addr := loadbalancer.L3n4Addr{
+			AddrCluster: cmtypes.MustParseAddrCluster("::1"),
+			L4Addr:      loadbalancer.L4Addr{Port: uint16(i), Protocol: "TCP"},
+		}
+		_, err := a.acquireLocalID(l3n4Addr, i)
+		require.Equal(t, nil, err)
+	}
+	stop := make(chan struct{})
+	go func() {
+		_, err := a.acquireLocalID(loadbalancer.L3n4Addr{
+			AddrCluster: cmtypes.MustParseAddrCluster("127.0.0.1"),
+			L4Addr:      loadbalancer.L4Addr{Port: 10, Protocol: "TCP"},
+		}, 0)
+		require.NotNil(t, err)
+		require.Contains(t, err.Error(), "no service ID available")
+		close(stop)
+	}()
+
+	select {
+	case <-time.After(10 * time.Second):
+		t.Fatalf("timeout waiting for acquireLocalID finished")
+	case <-stop:
+	}
 }
 
 func (s *IDAllocTestSuite) TestBackendID(c *C) {
