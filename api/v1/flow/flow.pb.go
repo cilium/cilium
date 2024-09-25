@@ -170,6 +170,12 @@ const (
 	// TO_NETWORK indicates network packets are transmitted towards native
 	// devices.
 	TraceObservationPoint_TO_NETWORK TraceObservationPoint = 11
+	// FROM_CRYPTO indicates network packets were received from the crypto
+	// process for decryption.
+	TraceObservationPoint_FROM_CRYPTO TraceObservationPoint = 12
+	// TO_CRYPTO indicates network packets are transmitted towards the crypto
+	// process for encryption.
+	TraceObservationPoint_TO_CRYPTO TraceObservationPoint = 13
 )
 
 // Enum value maps for TraceObservationPoint.
@@ -188,6 +194,8 @@ var (
 		9:   "FROM_OVERLAY",
 		10:  "FROM_NETWORK",
 		11:  "TO_NETWORK",
+		12:  "FROM_CRYPTO",
+		13:  "TO_CRYPTO",
 	}
 	TraceObservationPoint_value = map[string]int32{
 		"UNKNOWN_POINT": 0,
@@ -203,6 +211,8 @@ var (
 		"FROM_OVERLAY":  9,
 		"FROM_NETWORK":  10,
 		"TO_NETWORK":    11,
+		"FROM_CRYPTO":   12,
+		"TO_CRYPTO":     13,
 	}
 )
 
@@ -5185,7 +5195,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\bAuthType\x12\f\n" +
 	"\bDISABLED\x10\x00\x12\t\n" +
 	"\x05SPIRE\x10\x01\x12\x14\n" +
-	"\x10TEST_ALWAYS_FAIL\x10\x02*\xea\x01\n" +
+	"\x10TEST_ALWAYS_FAIL\x10\x02*\x8a\x02\n" +
 	"\x15TraceObservationPoint\x12\x11\n" +
 	"\rUNKNOWN_POINT\x10\x00\x12\f\n" +
 	"\bTO_PROXY\x10\x01\x12\v\n" +
@@ -5204,7 +5214,9 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\fFROM_NETWORK\x10\n" +
 	"\x12\x0e\n" +
 	"\n" +
-	"TO_NETWORK\x10\v*\xa0\x01\n" +
+	"TO_NETWORK\x10\v\x12\x0f\n" +
+	"\vFROM_CRYPTO\x10\f\x12\r\n" +
+	"\tTO_CRYPTO\x10\r*\xa0\x01\n" +
 	"\vTraceReason\x12\x18\n" +
 	"\x14TRACE_REASON_UNKNOWN\x10\x00\x12\a\n" +
 	"\x03NEW\x10\x01\x12\x0f\n" +
