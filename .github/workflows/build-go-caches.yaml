@@ -1,0 +1,109 @@
+name: Build Golang caches
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  push:
+    branches:
+      - v1.15
+
+  # If the cache was cleaned we should re-build the cache with the latest commit
+  workflow_run:
+    workflows:
+     - "Image CI Cache Cleaner"
+    branches:
+     - v1.15
+     - ft/v1.15/**
+    types:
+     - completed
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.after }}
+  cancel-in-progress: true
+
+jobs:
+  build_go_caches:
+    name: Build Go Caches
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        include:
+          - name: cilium
+            make-target: build-container
+
+          - name: operator-aws
+            make-target: build-container-operator-aws
+
+          - name: operator-azure
+            make-target: build-container-operator-azure
+
+          - name: operator-alibabacloud
+            make-target: build-container-operator-alibabacloud
+
+          - name: operator-generic
+            make-target: build-container-operator-generic
+
+          - name: hubble-relay
+            make-target: build-container-hubble-relay
+
+          - name: clustermesh-apiserver
+            make-target: -C clustermesh-apiserver
+
+          - name: docker-plugin
+            make-target: -C plugins/cilium-docker
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+
+      - name: Check for disk usage
+        shell: bash
+        run: |
+          df -h
+
+      # Load Golang cache build from GitHub
+      - name: Load Golang cache build from GitHub
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        id: go-cache
+        with:
+          path: /tmp/.cache/go
+          key: ${{ runner.os }}-go-${{ matrix.name }}-cache-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ matrix.name }}-cache-
+
+      - name: Create cache directories if they don't exist
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/go/.cache/go-build
+          mkdir -p /tmp/.cache/go/pkg
+
+      - name: Build all programs
+        env:
+          BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
+          BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
+        run: |
+          set -eu -o pipefail
+          # Don't build cilium-cli for arm64
+          if [[ ${{ matrix.name }} != cilium-cli ]]; then
+            contrib/scripts/builder.sh make GOARCH=arm64 ${{ matrix.make-target }} -j $(nproc) || exit 1
+          fi
+          contrib/scripts/builder.sh make GOARCH=amd64 NOSTRIP=1 ${{ matrix.make-target }} -j $(nproc) || exit 1
+          contrib/scripts/builder.sh make GOARCH=amd64 LOCKDEBUG=1 RACE=1 ${{ matrix.make-target }} -j $(nproc) || exit 1
+          contrib/scripts/builder.sh make GOARCH=amd64 ${{ matrix.make-target }} -j $(nproc) || exit 1
+
+      - name: Reset cache ownership to GitHub runners user
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          sudo du -sh /tmp/.cache/go
+          sudo chown $USER:$USER -R /tmp/.cache/go
