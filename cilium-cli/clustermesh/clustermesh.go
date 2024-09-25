@@ -20,6 +20,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"text/tabwriter"
 	"time"
 
@@ -37,6 +38,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/status"
 	"github.com/cilium/cilium/cilium-cli/utils/wait"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 const (
@@ -100,6 +102,7 @@ type Parameters struct {
 	WaitDuration         time.Duration
 	DestinationEndpoints []string
 	SourceEndpoints      []string
+	Parallel             int
 	Writer               io.Writer
 	Labels               map[string]string
 	IPv4AllocCIDR        string
@@ -1823,13 +1826,35 @@ func (k *K8sClusterMesh) connectRemoteWithHelm(ctx context.Context, localCluster
 		cn = append(state.remoteClusterNames, localClusterName)
 	}
 
+	maxGoroutines := k.params.Parallel
+
+	sem := make(chan struct{}, maxGoroutines)
+	var wg sync.WaitGroup
+	var mu lock.Mutex
+	var firstErr error
+
 	for aiClusterName, remoteClient := range rc {
-		err := k.connectSingleRemoteWithHelm(ctx, remoteClient, cn, helmValues[aiClusterName])
-		if err != nil {
-			return err
-		}
+		wg.Add(1)
+
+		sem <- struct{}{}
+
+		go func(cn []string, rc *k8s.Client, helmVals map[string]interface{}) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			if err := k.connectSingleRemoteWithHelm(ctx, rc, cn, helmVals); err != nil {
+				mu.Lock()
+				if firstErr == nil {
+					firstErr = err
+				}
+				mu.Unlock()
+			}
+		}(cn, remoteClient, helmValues[aiClusterName])
 	}
-	return nil
+
+	wg.Wait()
+
+	return firstErr
 }
 
 func (k *K8sClusterMesh) connectSingleRemoteWithHelm(ctx context.Context, remoteClient *k8s.Client, clusterNames []string, helmValues map[string]interface{}) error {
