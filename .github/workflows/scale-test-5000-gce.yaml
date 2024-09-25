@@ -158,13 +158,13 @@ jobs:
       - name: Clone ClusterLoader2
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
-          repository: kubernetes/perf-tests
+          repository: marseel/perf-tests
           # Avoid using renovate to update this dependency because: (1)
           # perf-tests does not tag or release, so renovate will pull
           # all updates to the default branch and (2) continually
           # updating CL2 may impact the stability of the scale test
           # results.
-          ref: 6eb52ac89d5de15a0ad13cfeb2b2026e57ce4f64
+          ref: 4b7a0beb793738dd331c283518086f15e034c8e5
           persist-credentials: false
           sparse-checkout: clusterloader2
           path: perf-tests
