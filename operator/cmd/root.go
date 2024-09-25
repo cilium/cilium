@@ -730,7 +730,7 @@ func (legacy *legacyOnLeader) onStart(_ cell.HookContext) error {
 		}
 	}
 
-	if legacy.clientset.IsEnabled() {
+	if legacy.clientset.IsEnabled() && option.Config.EnableCiliumNetworkPolicy {
 		err = enableCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
 		if err != nil {
 			log.WithError(err).WithField(logfields.LogSubsys, "CNPWatcher").Fatal(
