@@ -62,6 +62,8 @@ Below example will expose remote endpoint without sharing local endpoints.
      selector:
        name: rebel-base
 
+.. _endpointslicesync:
+
 Synchronizing Kubernetes EndpointSlice (Beta)
 #############################################
 
@@ -119,13 +121,15 @@ Deploying a Simple Example Service
 
    .. parsed-literal::
 
-       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/clustermesh/global-service-example/cluster1.yaml
+       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/clustermesh/cluster1.yaml
+       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/clustermesh/global-service-example.yaml
 
 2. In cluster 2, deploy:
 
    .. parsed-literal::
 
-       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/clustermesh/global-service-example/cluster2.yaml
+       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/clustermesh/cluster2.yaml
+       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/clustermesh/global-service-example.yaml
 
 3. From either cluster, access the global service:
 

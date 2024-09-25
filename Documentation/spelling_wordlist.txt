@@ -211,6 +211,7 @@ cassandraparser
 cep
 certgen
 certmanager
+cfg
 cgroup
 cgroups
 chainingTarget
@@ -531,6 +532,7 @@ mov
 mtk
 mul
 multicast
+multicluster
 multicore
 multihoming
 musl
