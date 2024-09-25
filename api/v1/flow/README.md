@@ -1164,6 +1164,8 @@ This mirrors enum xlate_point in bpf/lib/trace_sock.h
 | FROM_OVERLAY | 9 | FROM_OVERLAY indicates network packets were received from the tunnel device. |
 | FROM_NETWORK | 10 | FROM_NETWORK indicates network packets were received from native devices. |
 | TO_NETWORK | 11 | TO_NETWORK indicates network packets are transmitted towards native devices. |
+| FROM_CRYPTO | 12 | FROM_CRYPTO indicates network packets were received from the crypto process for decryption. |
+| TO_CRYPTO | 13 | TO_CRYPTO indicates network packets are transmitted towards the crypto process for encryption. |
 
 
 
