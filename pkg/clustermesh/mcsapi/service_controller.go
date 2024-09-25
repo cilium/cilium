@@ -236,6 +236,7 @@ func (r *mcsAPIServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// However we operate on the ServiceImport (and ServiceExport) name rather than
 		// the derived service name so we say that we own ServiceImport here
 		// and always derive the name in the Reconcile function anyway.
+		Named("ServiceMCSAPI").
 		For(&mcsapiv1alpha1.ServiceImport{}).
 		// Watch for changes to ServiceExport
 		Watches(&mcsapiv1alpha1.ServiceExport{}, &handler.EnqueueRequestForObject{}).
