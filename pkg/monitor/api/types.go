@@ -161,22 +161,26 @@ const (
 	TraceFromOverlay
 	TraceFromNetwork
 	TraceToNetwork
+	TraceFromCryptoDev
+	TraceToCryptoDev
 )
 
 // TraceObservationPoints is a map of all supported trace observation points
 var TraceObservationPoints = map[uint8]string{
-	TraceToLxc:       "to-endpoint",
-	TraceToProxy:     "to-proxy",
-	TraceToHost:      "to-host",
-	TraceToStack:     "to-stack",
-	TraceToOverlay:   "to-overlay",
-	TraceToNetwork:   "to-network",
-	TraceFromLxc:     "from-endpoint",
-	TraceFromProxy:   "from-proxy",
-	TraceFromHost:    "from-host",
-	TraceFromStack:   "from-stack",
-	TraceFromOverlay: "from-overlay",
-	TraceFromNetwork: "from-network",
+	TraceToLxc:         "to-endpoint",
+	TraceToProxy:       "to-proxy",
+	TraceToHost:        "to-host",
+	TraceToStack:       "to-stack",
+	TraceToOverlay:     "to-overlay",
+	TraceToNetwork:     "to-network",
+	TraceToCryptoDev:   "to-crypto-dev",
+	TraceFromLxc:       "from-endpoint",
+	TraceFromProxy:     "from-proxy",
+	TraceFromHost:      "from-host",
+	TraceFromStack:     "from-stack",
+	TraceFromOverlay:   "from-overlay",
+	TraceFromNetwork:   "from-network",
+	TraceFromCryptoDev: "from-crypto-dev",
 }
 
 // TraceObservationPoint returns the name of a trace observation point

@@ -42,6 +42,8 @@ enum trace_point {
 	TRACE_FROM_OVERLAY,
 	TRACE_FROM_NETWORK,
 	TRACE_TO_NETWORK,
+	TRACE_FROM_CRYPTO_DEV,
+	TRACE_TO_CRYPTO_DEV,
 } __packed;
 
 /* Reasons for forwarding a packet, keep in sync with pkg/monitor/datapath_trace.go */
@@ -127,6 +129,14 @@ _update_trace_metrics(struct __ctx_buff *ctx, enum trace_point obs_point,
 	case TRACE_FROM_LXC:
 	case TRACE_FROM_PROXY:
 	case TRACE_TO_PROXY:
+		break;
+	case TRACE_TO_CRYPTO_DEV:
+		_update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
+				REASON_ENCRYPT, line, file);
+		break;
+	case TRACE_FROM_CRYPTO_DEV:
+		_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+				REASON_DECRYPT, line, file);
 		break;
 	}
 }
