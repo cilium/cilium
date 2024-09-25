@@ -6,9 +6,18 @@ on:
       - 'cilium-cli/**'
       - 'Documentation/**'
       - 'test/**'
+  # The push event is only used to recreate the golang cache for hubble-cli
+  push:
+    branches:
+      - main
+      - ft/main/**
+    paths-ignore:
+      - 'cilium-cli/**'
+      - 'Documentation/**'
+      - 'test/**'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
   cancel-in-progress: true
 
 jobs:
@@ -32,40 +41,22 @@ jobs:
         id: cache
         with:
           path: /tmp/.cache/hubble-cli
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-hubble-cli-${{ github.sha }}
+          key: ${{ runner.os }}-go-hubble-cli-cache-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-hubble-cli-
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-go-hubble-cli-cache-
             ${{ runner.os }}-go-
 
-      - name: Import cache directory
+      - name: Create cache directories if they don't exist
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
         shell: bash
         run: |
-          mkdir -p /home/runner/.cache/
-          mkdir -p /home/runner/go/
-
-          if [ -d "/tmp/.cache/hubble-cli/go-build/" ]; then
-            cp -r /tmp/.cache/hubble-cli/go-build/ /home/runner/.cache/
-          fi
-
-          if [ -d "/tmp/.cache/hubble-cli/pkg/" ]; then
-            cp -r /tmp/.cache/hubble-cli/pkg/ /home/runner/go/
-          fi
+          mkdir -p /tmp/.cache/hubble-cli/.cache/go-build
+          mkdir -p /tmp/.cache/hubble-cli/pkg
 
       - name: Build hubble CLI release binaries
+        if: ${{ github.event_name != 'push' || ( github.event_name == 'push' && steps.go-cache.outputs.cache-hit != 'true' ) }}
+        env:
+          GOCACHE: "/tmp/.cache/hubble-cli/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/hubble-cli/pkg"
         run: |
           make -C hubble local-release
-
-      - name: Export cache directory
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          mkdir -p /tmp/.cache/hubble-cli
-
-          if [ -d "/home/runner/.cache/go-build/" ]; then
-            cp -r /home/runner/.cache/go-build/ /tmp/.cache/hubble-cli/
-          fi
-
-          if [ -d "/home/runner/go/pkg/" ]; then
-            cp -r /home/runner/go/pkg/ /tmp/.cache/hubble-cli/
-          fi
