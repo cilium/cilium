@@ -337,4 +337,5 @@ func addCommonConnectFlags(cmd *cobra.Command, params *clustermesh.Parameters) {
 	cmd.Flags().StringSliceVar(&params.DestinationContext, "destination-context", []string{}, "Comma separated list of Kubernetes configuration contexts of destination cluster")
 	cmd.Flags().StringSliceVar(&params.DestinationEndpoints, "destination-endpoint", []string{}, "IP of ClusterMesh service of destination cluster")
 	cmd.Flags().StringSliceVar(&params.SourceEndpoints, "source-endpoint", []string{}, "IP of ClusterMesh service of source cluster")
+	cmd.Flags().IntVar(&params.Parallel, "parallel", 1, "Number of parallel connection of destination cluster")
 }
