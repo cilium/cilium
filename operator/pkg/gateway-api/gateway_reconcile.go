@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/shortener"
 )
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -337,7 +338,7 @@ func isAttachable(_ context.Context, gw *gatewayv1.Gateway, route metav1.Object,
 func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1.Gateway) error {
 	svcList := &corev1.ServiceList{}
 	if err := r.Client.List(ctx, svcList, client.MatchingLabels{
-		owningGatewayLabel: model.Shorten(gw.GetName()),
+		owningGatewayLabel: shortener.ShortenK8sResourceName(gw.GetName()),
 	}, client.InNamespace(gw.GetNamespace())); err != nil {
 		return err
 	}
@@ -379,7 +380,7 @@ func (r *gatewayReconciler) setStaticAddressStatus(ctx context.Context, gw *gate
 	}
 	svcList := &corev1.ServiceList{}
 	if err := r.Client.List(ctx, svcList, client.MatchingLabels{
-		owningGatewayLabel: model.Shorten(gw.GetName()),
+		owningGatewayLabel: shortener.ShortenK8sResourceName(gw.GetName()),
 	}, client.InNamespace(gw.GetNamespace())); err != nil {
 		return err
 	}

@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
+	"github.com/cilium/cilium/pkg/shortener"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -348,7 +349,7 @@ func registerSecretSyncer(params syncerParams) error {
 
 	for ns := range namespaces {
 		jobGroup.Add(job.Observer(
-			fmt.Sprintf("k8s-secrets-resource-events-%s", ns),
+			shortener.ShortenK8sResourceName(fmt.Sprintf("k8s-secrets-resource-events-%s", ns)),
 			secretSyncer.handleSecretEvent,
 			newK8sSecretResource(params.Lifecycle, params.K8sClientset, ns),
 		))
