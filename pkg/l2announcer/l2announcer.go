@@ -37,6 +37,7 @@ import (
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/shortener"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -740,7 +741,7 @@ func (l2a *L2Announcer) addSelectedService(svc *slim_corev1.Service, byPolicies 
 
 	// kick off leader election job
 	l2a.scopedGroup.Add(job.OneShot(
-		fmt.Sprintf("leader-election-%s-%s", svc.Namespace, svc.Name),
+		shortener.ShortenHiveJobName(fmt.Sprintf("leader-election-%s-%s", svc.Namespace, svc.Name)),
 		ss.serviceLeaderElection),
 	)
 }
