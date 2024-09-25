@@ -286,8 +286,9 @@ jobs:
             echo "Ready agents:" $OUTPUT
             sleep 10
           done
+          OUTPUT="";
           while [ `echo $OUTPUT | grep -c 1004` = 0 ]; do
-            OUTPUT=`k get nodes | grep Ready | wc -l`;
+            OUTPUT=`kubectl get nodes | grep Ready | wc -l`;
             echo "Ready nodes:" $OUTPUT
             sleep 10
           done
@@ -318,8 +319,9 @@ jobs:
             echo "Ready agents:" $OUTPUT
             sleep 10
           done
+          OUTPUT="";
           while [ `echo $OUTPUT | grep -c 2004` = 0 ]; do
-            OUTPUT=`k get nodes | grep Ready | wc -l`;
+            OUTPUT=`kubectl get nodes | grep Ready | wc -l`;
             echo "Ready nodes:" $OUTPUT
             sleep 10
           done
@@ -346,7 +348,7 @@ jobs:
           done
           OUTPUT="";
           while [ `echo $OUTPUT | grep -c 3004` = 0 ]; do
-            OUTPUT=`k get nodes | grep Ready | wc -l`;
+            OUTPUT=`kubectl get nodes | grep Ready | wc -l`;
             echo "Ready nodes:" $OUTPUT
             sleep 10
           done
