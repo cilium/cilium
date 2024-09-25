@@ -11,7 +11,6 @@ on:
     branches:
       - v1.16
       - ft/v1.16/**
-
 permissions:
   # To be able to access the repository with `actions/checkout`
   contents: read
@@ -68,8 +67,22 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Setup docker volumes into /mnt
+        # This allows us to make use of all available disk.
+        shell: bash
+        run: |
+          sudo systemctl stop docker
+          sudo mv /var/lib/docker/volumes /mnt/docker-volumes
+          sudo ln -s /mnt/docker-volumes /var/lib/docker/volumes
+          sudo systemctl start docker
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@988b5a0280414f521da01fcc63a27aeeb4b104db # v3.6.1
+        # Disable GC entirely to avoid buildkit from GC caches.
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+             gc=false
 
       - name: Login to quay.io for CI
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
@@ -100,34 +113,43 @@ jobs:
           persist-credentials: false
           ref: ${{ steps.tag.outputs.tag }}
 
-      # Load Golang cache build from GitHub
-      - name: Load ${{ matrix.name }} Golang cache build from GitHub
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
-        id: cache
-        with:
-          path: /tmp/.cache/${{ matrix.name }}
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ matrix.name }}-
-            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-
-            ${{ runner.os }}-go-
-
-      - name: Create ${{ matrix.name }} cache directory
-        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+      - name: Check for disk usage
         shell: bash
         run: |
-          mkdir -p /tmp/.cache/${{ matrix.name }}
+          df -h
+
+      # Load Golang cache build from GitHub
+      - name: Restore Golang cache build from GitHub
+        uses: actions/cache/restore@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        id: go-cache
+        with:
+          path: /tmp/.cache/go
+          key: ${{ runner.os }}-go-${{ matrix.name }}-cache-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ matrix.name }}-cache-
+
+      - name: Check for disk usage
+        shell: bash
+        run: |
+          df -h
+          docker buildx du
 
       # Import GitHub's cache build to docker cache
       - name: Copy ${{ matrix.name }} Golang cache to docker cache
         uses: docker/build-push-action@32945a339266b759abcbdc89316275140b0fc960 # v6.8.0
         with:
           provenance: false
-          context: /tmp/.cache/${{ matrix.name }}
+          context: /tmp/.cache/go
           file: ./images/cache/Dockerfile
           push: false
           platforms: linux/amd64
           target: import-cache
+
+      - name: Check for disk usage
+        shell: bash
+        run: |
+          df -h
+          docker buildx du
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
@@ -301,6 +323,12 @@ jobs:
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
 
+      - name: Check for disk usage
+        shell: bash
+        run: |
+          df -h
+          docker buildx du
+
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
         uses: docker/build-push-action@32945a339266b759abcbdc89316275140b0fc960 # v6.8.0
@@ -344,7 +372,7 @@ jobs:
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_pr_unstripped.outputs.digest }}
 
       - name: Generate SBOM
-        if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ (github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/'))) }}
         uses: anchore/sbom-action@61119d458adab75f756bc0b9e4bde25725f86a7a # v0.17.2
         with:
           artifact-name: sbom_ci_pr_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -352,7 +380,7 @@ jobs:
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
 
       - name: Generate SBOM (race)
-        if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ (github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/'))) }}
         uses: anchore/sbom-action@61119d458adab75f756bc0b9e4bde25725f86a7a # v0.17.2
         with:
           artifact-name: sbom_ci_pr_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -360,7 +388,7 @@ jobs:
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
 
       - name: Generate SBOM (unstripped)
-        if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ (github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/'))) }}
         uses: anchore/sbom-action@61119d458adab75f756bc0b9e4bde25725f86a7a # v0.17.2
         with:
           artifact-name: sbom_ci_pr_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -368,7 +396,7 @@ jobs:
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
 
       - name: Attach SBOM to Container Images
-        if: ${{ github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/')) }}
+        if: ${{ (github.event_name == 'pull_request_target' || (github.event_name == 'push' && startsWith(github.ref_name, 'ft/'))) }}
         run: |
           cosign attach sbom --sbom sbom_ci_pr_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_pr.outputs.digest }}
           cosign attach sbom --sbom sbom_ci_pr_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_pr_detect_race_condition.outputs.digest }}
@@ -409,31 +437,11 @@ jobs:
           path: image-digest
           retention-days: 1
 
-      # Store docker's golang's cache build locally only on the main branch
-      - name: Store ${{ matrix.name }} Golang cache build locally
-        if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch }}
-        uses: docker/build-push-action@32945a339266b759abcbdc89316275140b0fc960 # v6.8.0
-        with:
-          provenance: false
-          context: .
-          file: ./images/cache/Dockerfile
-          push: false
-          outputs: type=local,dest=/tmp/docker-cache-${{ matrix.name }}
-          platforms: linux/amd64
-          target: export-cache
-
-      # Store docker's golang's cache build locally only on the main branch
-      - name: Store ${{ matrix.name }} Golang cache in GitHub cache path
-        if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' && github.ref_name == github.event.repository.default_branch }}
+      - name: Check for disk usage
+        if: ${{ always() }}
         shell: bash
         run: |
-          mkdir -p /tmp/.cache/${{ matrix.name }}/
-          if [ -f /tmp/docker-cache-${{ matrix.name }}/tmp/go-build-cache.tar.gz ]; then
-            cp /tmp/docker-cache-${{ matrix.name }}/tmp/go-build-cache.tar.gz /tmp/.cache/${{ matrix.name }}/
-          fi
-          if [ -f /tmp/docker-cache-${{ matrix.name }}/tmp/go-pkg-cache.tar.gz ]; then
-            cp /tmp/docker-cache-${{ matrix.name }}/tmp/go-pkg-cache.tar.gz /tmp/.cache/${{ matrix.name }}/
-          fi
+          df -h
 
   image-digests:
     if: ${{ always() }}
