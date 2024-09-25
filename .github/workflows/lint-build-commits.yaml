@@ -3,6 +3,10 @@ name: Build Commits
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
   pull_request: {}
+  push:
+    branches:
+      - v1.14
+      - ft/v1.14/**
   # If the cache was cleaned we should re-build the cache with the latest commit
   workflow_run:
     workflows:
@@ -16,7 +20,7 @@ on:
 permissions: read-all
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
   cancel-in-progress: true
 
 jobs:
@@ -78,8 +82,9 @@ jobs:
         id: go-cache
         with:
           path: /tmp/.cache/go
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-all-cache-${{ hashFiles('**/go.sum') }}
           restore-keys: |
+            ${{ runner.os }}-go-all-cache-
             ${{ runner.os }}-go-
 
       # Load CCache build from GitHub
@@ -101,6 +106,7 @@ jobs:
           mkdir -p /tmp/.cache/ccache/.ccache
 
       - name: Check if build works for every commit
+        if: ${{ github.event_name != 'push' || ( (github.event_name == 'push' || github.event_name == 'workflow_run' ) && (steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true')) }}
         env:
           CLANG: "ccache clang"
           BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
@@ -108,7 +114,11 @@ jobs:
           BUILDER_CCACHE_DIR: "/tmp/.cache/ccache/.ccache"
         run: |
           set -eu -o pipefail
-          COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          if [[ "${{ github.event_name == 'push' || github.event_name == 'workflow_run' }}" == "true" ]]; then
+            COMMITS=${{ github.sha }}
+          else
+            COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          fi
           for commit in $COMMITS ; do
             git checkout $commit || exit 1
             make build -j $(nproc) || exit 1
