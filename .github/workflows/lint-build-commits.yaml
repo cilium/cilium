@@ -1,7 +1,17 @@
 name: Build Commits
 
 # Any change in triggers needs to be reflected in the concurrency group.
-on: [pull_request]
+on:
+  pull_request: {}
+  # If the cache was cleaned we should re-build the cache with the latest commit
+  workflow_run:
+    workflows:
+     - "Image CI Cache Cleaner"
+    branches:
+     - v1.14
+     - ft/v1.14/**
+    types:
+     - completed
 
 permissions: read-all
 
