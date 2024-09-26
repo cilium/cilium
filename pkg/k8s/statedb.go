@@ -7,16 +7,20 @@ import (
 	"context"
 	"fmt"
 	"iter"
-
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/tools/cache"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -47,6 +51,33 @@ func RegisterReflector[Obj any](jobGroup job.Group, db *statedb.DB, cfg Reflecto
 		r.run))
 
 	return nil
+}
+
+// OnDemandTable provides an "on-demand" table of Kubernetes-derived objects.
+// The table is not populated until it is first acquired.
+// If the table should be cleared (to avoid holding onto the objects) when last reference
+// is released, set [ReflectorConfig.ClearTableOnStop].
+//
+// Intended to be used with [cell.Provide].
+// See [ExampleOnDemand] for example usage.
+func OnDemandTable[Obj any](jobs job.Registry, health cell.Health, log *slog.Logger, db *statedb.DB, cfg ReflectorConfig[Obj]) (hive.OnDemand[statedb.Table[Obj]], error) {
+	// Job group for the reflector that will be started when the table
+	// is acquired.
+	jg := jobs.NewGroup(
+		health,
+		job.WithLogger(log),
+	)
+
+	err := RegisterReflector(jg, db, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return hive.NewOnDemand(
+		log,
+		cfg.Table.ToTable(),
+		jg,
+	), nil
 }
 
 type ReflectorConfig[Obj any] struct {
@@ -94,6 +125,14 @@ type ReflectorConfig[Obj any] struct {
 	// Optional function to merge the new object with an existing object in the target
 	// table.
 	Merge MergeFunc[Obj]
+
+	// Optional promise for waiting for the CRD referenced by the [ListerWatcher] to
+	// be registered.
+	CRDSync promise.Promise[synced.CRDSync]
+
+	// ClearTableOnStop if true will cause all inserted objects to be deleted (using QueryAll)
+	// when the reflector is stopped.
+	ClearTableOnStop bool
 }
 
 // JobName returns the name of the background reflector job.
@@ -125,6 +164,8 @@ type MergeFunc[Obj any] func(old Obj, new Obj) Obj
 
 const (
 	// DefaultBufferSize is the maximum number of objects to commit to the table in one write transaction.
+	// This limit does not apply to the initial listing (Replace()) which commits all listed objects in one
+	// transaction.
 	DefaultBufferSize = 10000
 
 	// DefaultBufferWaitTime is the amount of time to wait to fill the buffer before committing objects.
@@ -168,12 +209,21 @@ func (cfg ReflectorConfig[Obj]) validate() error {
 type k8sReflector[Obj any] struct {
 	ReflectorConfig[Obj]
 
+	log      *slog.Logger
 	initDone func(statedb.WriteTxn)
 	db       *statedb.DB
 	table    statedb.RWTable[Obj]
 }
 
 func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
+	if r.CRDSync != nil {
+		// Wait for the CRD to be registered.
+		health.OK("Waiting for CRD registration")
+		if _, err := r.CRDSync.Await(ctx); err != nil {
+			return err
+		}
+	}
+
 	type entry struct {
 		deleted   bool
 		name      string
@@ -280,7 +330,11 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 
 			for _, item := range buf.replaceItems {
 				for _, obj := range transformMany(item) {
-					table.Insert(txn, obj)
+					if _, _, err := table.Insert(txn, obj); err != nil {
+						r.log.Error("BUG: Insert failed", logfields.Error, err)
+						continue
+					}
+
 					numUpserted++
 					inserted.Insert(string(indexer.ObjectToKey(obj)))
 				}
@@ -289,8 +343,11 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 			// Delete the remaining objects that we did not insert.
 			for obj := range queryAll(txn, table) {
 				if !inserted.Has(string(indexer.ObjectToKey(obj))) {
+					if _, _, err := table.Delete(txn, obj); err != nil {
+						r.log.Error("BUG: Delete failed", logfields.Error, err)
+						continue
+					}
 					numDeleted++
-					table.Delete(txn, obj)
 				}
 			}
 
@@ -302,11 +359,17 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 		for _, entry := range buf.entries {
 			for _, obj := range transformMany(entry.obj) {
 				if !entry.deleted {
-					numUpserted++
-					table.Modify(txn, obj, merge)
+					if _, _, err := table.Modify(txn, obj, merge); err != nil {
+						r.log.Error("BUG: Modify failed", logfields.Error, err)
+					} else {
+						numUpserted++
+					}
 				} else {
-					numDeleted++
-					table.Delete(txn, obj)
+					if _, _, err := table.Delete(txn, obj); err != nil {
+						r.log.Error("BUG: Delete failed", logfields.Error, err)
+					} else {
+						numDeleted++
+					}
 				}
 			}
 		}
@@ -326,7 +389,17 @@ func (r *k8sReflector[Obj]) run(ctx context.Context, health cell.Health) error {
 			close(errs)
 		},
 	)
-	return <-errs
+	err := <-errs
+
+	if r.ClearTableOnStop {
+		txn := r.db.WriteTxn(table)
+		for obj := range queryAll(txn, table) {
+			table.Delete(txn, obj)
+		}
+		txn.Commit()
+	}
+
+	return err
 }
 
 // ListerWatcherToObservable turns a ListerWatcher into an observable using the

@@ -316,6 +316,7 @@ contributors across the globe, there is almost always someone available to help.
 | enableK8sTerminatingEndpoint | bool | `true` | Configure whether to enable auto detect of terminating state for endpoints in order to support graceful termination. |
 | enableLBIPAM | bool | `true` | Enable LoadBalancer IP Address Management |
 | enableMasqueradeRouteSource | bool | `false` | Enables masquerading to the source of the route for traffic leaving the node from endpoints. |
+| enableNonDefaultDenyPolicies | bool | `true` | Enable Non-Default-Deny policies |
 | enableRuntimeDeviceDetection | bool | `true` | Enables experimental support for the detection of new and removed datapath devices. When devices change the eBPF datapath is reloaded and services updated. If "devices" is set then only those devices, or devices matching a wildcard will be considered.  This option has been deprecated and is a no-op. |
 | enableXTSocketFallback | bool | `true` | Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: https://docs.cilium.io/en/stable/operations/system_requirements/#linux-kernel. |
 | encryption.enabled | bool | `false` | Enable transparent network encryption. |
@@ -364,7 +365,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.extraVolumes | list | `[]` | Additional envoy volumes. |
 | envoy.healthPort | int | `9878` | TCP port for the health API. |
 | envoy.idleTimeoutDurationSeconds | int | `60` | Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s |
-| envoy.image | object | `{"digest":"sha256:f9c2a725a702d9fe4a4e038588a79e72955cf46c789914f940d906d65e92527e","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.30.4-1725856146-ae435a5bef3856f4de98fa360ecfa6a0f5b0f7a1","useDigest":true}` | Envoy container image. |
+| envoy.image | object | `{"digest":"sha256:ca4a8d3c411837fb31915c14ed042f3e4313c5ce7f7f36d88480cd2f441e1b63","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.30.6-1726787755-2fbff8d20cec587edce5373642c6ffac216770d3","useDigest":true}` | Envoy container image. |
 | envoy.livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
 | envoy.livenessProbe.periodSeconds | int | `30` | interval between checks of the liveness probe |
 | envoy.log.defaultLevel | string | Defaults to the default log level of the Cilium Agent - `info` | Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled. This option allows to have a different log level than the Cilium Agent - e.g. lower it to `critical`. Possible values: trace, debug, info, warning, error, critical, off |

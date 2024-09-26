@@ -119,20 +119,20 @@ The following is a list of special interest groups (SIGs) that are meeting on a
 regular interval. See the respective slack channel for exact meeting cadence
 and meeting links.
 
-====================== ============================================== ======================= ============================================================================
-SIG                    Meeting                                        Slack                   Description
-====================== ============================================== ======================= ============================================================================
-BGP                    None                                           ``#sig-bgp``            Border Gateway Protocol (BGP) discussions.
-Cluster Mesh           None                                           ``#sig-clustermesh``    Cluster Mesh discussions.
-Datapath               On demand                                      ``#sig-datapath``       Development discussions for Linux and eBPF code used in Cilium.
-Documentation          None                                           ``#sig-docs``           Documentation, Helm references, and translations.
-Envoy                  On demand                                      ``#sig-envoy``          Envoy, Istio and maintenance of all L7 protocol parsers.
-Hubble                 During community meeting                       ``#sig-hubble``         All Hubble-related code: Server, UI, CLI and Relay.
-Modularization         None                                           ``#sig-modularization`` Discussions around further modularizing the cilium/cilium codebase.
-Policy                 `First Tuesday <https://isogo.to/sig-policy>`_ ``#sig-policy``         Network policy and enforcement.
-Release Management     None                                           ``#launchpad``          Release management and backport coordination.
-Scalability            Fourth Thursday of the month                   ``#sig-scalability``    Cilium scalability discussions.                                     
-====================== ============================================== ======================= ============================================================================
+====================== =============================================== ======================= ============================================================================
+SIG                    Meeting                                         Slack                   Description
+====================== =============================================== ======================= ============================================================================
+BGP                    None                                            ``#sig-bgp``            Border Gateway Protocol (BGP) discussions.
+Cluster Mesh           None                                            ``#sig-clustermesh``    Cluster Mesh discussions.
+Datapath               On demand                                       ``#sig-datapath``       Development discussions for Linux and eBPF code used in Cilium.
+Documentation          None                                            ``#sig-docs``           Documentation, Helm references, and translations.
+Envoy                  On demand                                       ``#sig-envoy``          Envoy, Istio and maintenance of all L7 protocol parsers.
+Hubble                 During community meeting                        ``#sig-hubble``         All Hubble-related code: Server, UI, CLI and Relay.
+Modularization         None                                            ``#sig-modularization`` Discussions around further modularizing the cilium/cilium codebase.
+Policy                 `Second Tuesday <https://isogo.to/sig-policy>`_ ``#sig-policy``         Network policy and enforcement.
+Release Management     None                                            ``#launchpad``          Release management and backport coordination.
+Scalability            Fourth Thursday of the month                    ``#sig-scalability``    Cilium scalability discussions.
+====================== =============================================== ======================= ============================================================================
 
 How to create a SIG
 -------------------

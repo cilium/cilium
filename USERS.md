@@ -678,6 +678,12 @@ Users (Alphabetically)
       L: https://schubergphilis.com/en
       Q: @stimmerman @shoekstra @mbaumann
 
+    * N: SDV Services
+      D: SDV Services uses Cilium to host Wordpress multi-tenant the cloud-native way and also as the CNI for customer Kubernetes clusters.
+      U: CNI, Networking, NetworkPolicy, Hubble, IPAM, Kubernetes services
+      L: https://sdvservices.nl
+      Q: @Sjouke de Vries
+      
     * N: SI Analytics
       D: SI Analytics uses Cilium as CNI in self-managed Kubernetes clusters in on-prem DCs. And also use Cilium as CNI in its GKE dataplane v2 based clusters.
       U: CNI, Network Policies, Hubble

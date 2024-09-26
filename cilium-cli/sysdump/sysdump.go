@@ -2900,7 +2900,6 @@ func (c *Collector) submitClusterMeshAPIServerDbgTasks(pods *corev1.PodList) err
 	}
 
 	for _, pod := range pods.Items {
-		pod := pod
 		for _, task := range tasks {
 			if !podIsRunningAndHasContainer(&pod, task.container) {
 				continue

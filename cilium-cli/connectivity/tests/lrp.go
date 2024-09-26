@@ -74,11 +74,7 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 	// Tests client pods to LRP frontend connectivity: traffic gets redirected
 	// to the LRP backends.
 	for _, pod := range t.Context().LrpClientPods() {
-		pod := pod
-
 		for _, policy := range policies {
-			policy := policy
-
 			if policy.Spec.SkipRedirectFromBackend != s.skipRedirectFromBackend {
 				continue
 			}
@@ -95,11 +91,7 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 	// Tests LRP backend pods to LRP frontend connectivity: traffic gets redirected
 	// based on the configured skipRedirectFromBackend flag.
 	for _, pod := range t.Context().LrpBackendPods() {
-		pod := pod
-
 		for _, policy := range policies {
-			policy := policy
-
 			if policy.Spec.SkipRedirectFromBackend != s.skipRedirectFromBackend {
 				continue
 			}
@@ -213,8 +205,6 @@ func (s lrpWithNodeDNS) Run(ctx context.Context, t *check.Test) {
 
 	i := 0
 	for _, client := range ct.ClientPods() {
-		client := client
-
 		for _, externalEchoSvc := range ct.EchoExternalServices() {
 			externalEcho := externalEchoSvc.ToEchoIPService()
 

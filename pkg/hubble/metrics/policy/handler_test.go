@@ -21,7 +21,7 @@ import (
 func TestPolicyHandler(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	h := &policyHandler{}
-	assert.NoError(t, h.Init(registry, api.Options{}))
+	assert.NoError(t, h.Init(registry, []*api.ContextOptionConfig{}))
 	assert.NoError(t, testutil.CollectAndCompare(h.verdicts, strings.NewReader("")))
 	flow := flowpb.Flow{
 		EventType:        &flowpb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},

@@ -140,7 +140,6 @@ func (n *noUnexpectedPacketDrops) Run(ctx context.Context, t *check.Test) {
 	}
 
 	for _, pod := range ct.CiliumPods() {
-		pod := pod
 		t.NewGenericAction(n, fmt.Sprintf("%s/%s", pod.K8sClient.ClusterName(), pod.NodeName())).Run(func(a *check.Action) {
 			stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
 			if err != nil {
@@ -180,7 +179,6 @@ func (n *noErrorsInLogs) allCiliumPods(ctx context.Context, ct *check.Connectivi
 
 		cluster := client.ClusterName()
 		for _, pod := range pods.Items {
-			pod := pod
 			output[podID{Cluster: cluster, Namespace: pod.Namespace, Name: pod.Name}] = podInfo{
 				client: client, containers: n.podContainers(&pod),
 			}

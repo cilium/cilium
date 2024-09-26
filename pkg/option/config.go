@@ -1264,6 +1264,9 @@ const (
 
 	// EnableInternalTrafficPolicy enables handling routing for services with internalTrafficPolicy configured
 	EnableInternalTrafficPolicy = "enable-internal-traffic-policy"
+
+	// EnableNonDefaultDenyPolicies allows policies to define whether they are operating in default-deny mode
+	EnableNonDefaultDenyPolicies = "enable-non-default-deny-policies"
 )
 
 // Default string arguments
@@ -2492,6 +2495,9 @@ type DaemonConfig struct {
 
 	// EnableInternalTrafficPolicy enables handling routing for services with internalTrafficPolicy configured
 	EnableInternalTrafficPolicy bool
+
+	// EnableNonDefaultDenyPolicies allows policies to define whether they are operating in default-deny mode
+	EnableNonDefaultDenyPolicies bool
 }
 
 var (
@@ -2548,6 +2554,8 @@ var (
 		BPFConntrackAccountingEnabled: defaults.BPFConntrackAccountingEnabled,
 		EnableEnvoyConfig:             defaults.EnableEnvoyConfig,
 		EnableInternalTrafficPolicy:   defaults.EnableInternalTrafficPolicy,
+
+		EnableNonDefaultDenyPolicies: defaults.EnableNonDefaultDenyPolicies,
 	}
 )
 
