@@ -404,13 +404,13 @@ out:
 static __always_inline int
 __sock4_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 {
-	int ret = lb_skip_l4_dnat() ? SYS_PROCEED : SYS_REJECT;
+	int ret = SYS_PROCEED;
 #ifdef ENABLE_HEALTH_CHECK
 	__sock_cookie key = get_socket_cookie(ctx);
 	struct lb4_health *val = NULL;
 
-	if (!lb_skip_l4_dnat())
-		val = map_lookup_elem(&LB4_HEALTH_MAP, &key);
+	//if (!lb_skip_l4_dnat())
+	//	val = map_lookup_elem(&LB4_HEALTH_MAP, &key);
 	if (val) {
 		ctx_set_port(ctx, val->peer.port);
 		ret = SYS_PROCEED;
@@ -1099,7 +1099,7 @@ out:
 static __always_inline int
 __sock6_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 {
-	int ret = lb_skip_l4_dnat() ? SYS_PROCEED : SYS_REJECT;
+	int ret = SYS_PROCEED;
 #ifdef ENABLE_HEALTH_CHECK
 	union v6addr addr6;
 
@@ -1114,8 +1114,8 @@ __sock6_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 		__sock_cookie key = get_socket_cookie(ctx);
 		struct lb6_health *val = NULL;
 
-		if (!lb_skip_l4_dnat())
-			val = map_lookup_elem(&LB6_HEALTH_MAP, &key);
+		//if (!lb_skip_l4_dnat())
+		//	val = map_lookup_elem(&LB6_HEALTH_MAP, &key);
 		if (val) {
 			ctx_set_port(ctx, val->peer.port);
 			ret = SYS_PROCEED;

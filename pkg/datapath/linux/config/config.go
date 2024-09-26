@@ -452,16 +452,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			dsrEncapIPIP
 			dsrEncapGeneve
 		)
-		const (
-			dsrL4XlateInv = iota
-			dsrL4XlateFrontend
-			dsrL4XlateBackend
-		)
 		cDefinesMap["DSR_ENCAP_IPIP"] = fmt.Sprintf("%d", dsrEncapIPIP)
 		cDefinesMap["DSR_ENCAP_GENEVE"] = fmt.Sprintf("%d", dsrEncapGeneve)
 		cDefinesMap["DSR_ENCAP_NONE"] = fmt.Sprintf("%d", dsrEncapNone)
-		cDefinesMap["DSR_XLATE_FRONTEND"] = fmt.Sprintf("%d", dsrL4XlateFrontend)
-		cDefinesMap["DSR_XLATE_BACKEND"] = fmt.Sprintf("%d", dsrL4XlateBackend)
 		if option.Config.LoadBalancerUsesDSR() {
 			cDefinesMap["ENABLE_DSR"] = "1"
 			if option.Config.EnablePMTUDiscovery {
@@ -480,18 +473,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			} else if option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve {
 				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapGeneve)
 			}
-			if option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP {
-				if option.Config.LoadBalancerDSRL4Xlate == option.DSRL4XlateFrontend {
-					cDefinesMap["DSR_XLATE_MODE"] = fmt.Sprintf("%d", dsrL4XlateFrontend)
-				} else if option.Config.LoadBalancerDSRL4Xlate == option.DSRL4XlateBackend {
-					cDefinesMap["DSR_XLATE_MODE"] = fmt.Sprintf("%d", dsrL4XlateBackend)
-				}
-			} else {
-				cDefinesMap["DSR_XLATE_MODE"] = fmt.Sprintf("%d", dsrL4XlateInv)
-			}
 		} else {
 			cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapInv)
-			cDefinesMap["DSR_XLATE_MODE"] = fmt.Sprintf("%d", dsrL4XlateInv)
 		}
 		if option.Config.EnableIPv4 {
 			if option.Config.LoadBalancerRSSv4CIDR != "" {

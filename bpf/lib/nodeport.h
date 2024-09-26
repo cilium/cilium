@@ -1281,7 +1281,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 					    __u32 src_sec_identity __maybe_unused,
 					    __s8 *ext_err)
 {
-	const bool skip_l3_xlate = DSR_ENCAP_MODE == DSR_ENCAP_IPIP;
+	bool skip_xlate = DSR_ENCAP_MODE == DSR_ENCAP_IPIP;
 	struct ct_state ct_state_svc = {};
 	bool backend_local;
 	__u32 monitor = 0;
@@ -1305,10 +1305,11 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 							  (__be16)svc->l7_lb_proxy_port);
 	}
 #endif
+	if (skip_xlate)
+		skip_xlate = nodeport_uses_dsr6(svc, tuple);
 	ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, l4_off,
 			key, tuple, svc, &ct_state_svc,
-			skip_l3_xlate, ext_err, 0);
-
+			skip_xlate, ext_err, 0);
 #ifdef SERVICE_NO_BACKEND_RESPONSE
 	if (ret == DROP_NO_SERVICE) {
 		edt_set_aggregate(ctx, 0);
@@ -2833,7 +2834,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 					    __u32 src_sec_identity,
 					    __s8 *ext_err)
 {
-	const bool skip_l3_xlate = DSR_ENCAP_MODE == DSR_ENCAP_IPIP;
+	bool skip_xlate = DSR_ENCAP_MODE == DSR_ENCAP_IPIP;
 	bool is_fragment = ipv4_is_fragment(ip4);
 	struct ct_state ct_state_svc = {};
 	__u32 cluster_id = 0;
@@ -2868,9 +2869,11 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		if (!ret)
 			return NAT_46X64_RECIRC;
 	} else {
+		if (skip_xlate)
+			skip_xlate = nodeport_uses_dsr4(svc, tuple);
 		ret = lb4_local(get_ct_map4(tuple), ctx, is_fragment, l3_off, l4_off,
 				key, tuple, svc, &ct_state_svc,
-				has_l4_header, skip_l3_xlate, &cluster_id,
+				has_l4_header, skip_xlate, &cluster_id,
 				ext_err, 0);
 #ifdef SERVICE_NO_BACKEND_RESPONSE
 		if (ret == DROP_NO_SERVICE) {
