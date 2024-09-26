@@ -4,6 +4,7 @@
 package nat
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -108,20 +109,31 @@ func startingChunkSize(maxEntries int) int {
 	return int(math.Pow(2, math.Ceil(nearest2)))
 }
 
-// ApplyBatch4 uses batch iteration to walk the map and applies fn for each batch of entries.
-func (m *Map) ApplyBatch4(fn func([]tuple.TupleKey4, []NatEntry4, int)) (count int, err error) {
+// DumpBatch4 uses batch iteration to walk the map and applies fn for each batch of entries.
+func (m *Map) DumpBatch4(fn func(tuple.TupleKey4, NatEntry4)) (count int, err error) {
 	if m.family != IPv4 {
 		return 0, fmt.Errorf("not implemented: wrong ip family: %s", m.family)
 	}
-	return applyBatchReliably(m, fn)
+
+	iter := bpf.NewBatchIterator[tuple.TupleKey4, NatEntry4](&m.Map)
+	for key, entry := range iter.IterateAll(context.Background()) {
+		count++
+		fn(key, entry)
+	}
+	return count, nil
 }
 
-// ApplyBatch4 uses batch iteration to walk the map and applies fn for each batch of entries.
-func (m *Map) ApplyBatch6(fn func([]tuple.TupleKey6, []NatEntry6, int)) (count int, err error) {
+// DumpBatch6 uses batch iteration to walk the map and applies fn for each batch of entries.
+func (m *Map) DumpBatch6(fn func(tuple.TupleKey6, NatEntry6)) (count int, err error) {
 	if m.family != IPv6 {
 		return 0, fmt.Errorf("not implemented: wrong ip family: %s", m.family)
 	}
-	return applyBatchReliably(m, fn)
+	iter := bpf.NewBatchIterator[tuple.TupleKey6, NatEntry6](&m.Map)
+	for key, entry := range iter.IterateAll(context.Background()) {
+		count++
+		fn(key, entry)
+	}
+	return count, nil
 }
 
 func applyBatchReliably[KeyType, EntryType any](m *Map, fn func([]KeyType, []EntryType, int)) (count int, err error) {
