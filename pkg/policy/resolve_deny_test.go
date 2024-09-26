@@ -190,6 +190,7 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		epPolicy := ip.DistillPolicy(DummyOwner{}, false)
 		n += epPolicy.policyMapState.Len()
+		epPolicy.Ready()
 	}
 	ip.Detach()
 	fmt.Printf("Number of MapState entries: %d\n", n/b.N)
@@ -201,6 +202,7 @@ func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
 	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 	epPolicy := ip.DistillPolicy(DummyOwner{}, false)
 	n := epPolicy.policyMapState.Len()
+	epPolicy.Ready()
 	ip.Detach()
 	assert.True(t, n > 0)
 }
@@ -241,6 +243,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+	policy.Ready()
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -327,10 +330,10 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
-
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+	policy.Ready()
 
 	cachedSelectorHost := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameHost])
 	require.NotNil(t, cachedSelectorHost)
@@ -422,7 +425,9 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	defer repo.Mutex.RUnlock()
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
+
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+	policy.Ready()
 
 	rule1MapStateEntry := NewMapStateEntry(td.wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
 	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
@@ -545,7 +550,9 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	defer repo.Mutex.RUnlock()
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
+
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+	policy.Ready()
 
 	// Add new identity to test accumulation of MapChanges
 	added1 := identity.IdentityMap{
