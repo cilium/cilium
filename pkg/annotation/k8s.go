@@ -182,6 +182,10 @@ const (
 	// which workloads should allocate their IP from
 	IPAMIPv6PoolKey = IPAMPrefix + "/ipv6-pool"
 
+	// IPAMIgnore is the annotation used to make the Cilium operator IPAM logic
+	// ignore the given CiliumNode object
+	IPAMIgnore = IPAMPrefix + "/ignore"
+
 	LBIPAMIPsKey     = LBIPAMPrefix + "/ips"
 	LBIPAMIPKeyAlias = Prefix + "/lb-ipam-ips"
 
