@@ -192,7 +192,7 @@ jobs:
 
       - name: Deploy cluster
         id: deploy-cluster
-        uses: cilium/scale-tests-action/create-cluster@46878f9e45830e55315fdfc39bed734fd7242813 # main
+        uses: cilium/scale-tests-action/create-cluster@9a224a21d5db96c82618d9ba4472ba56efe27ace # main
         timeout-minutes: 30
         with:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
@@ -203,7 +203,7 @@ jobs:
           kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
           project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
           kube_proxy_enabled: false
-          allocate_node_cidrs: false
+          sync_cloud_routes: false
           etcd_volume_size: 500
           max_in_flight: 320
 
