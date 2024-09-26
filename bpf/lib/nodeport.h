@@ -56,7 +56,7 @@ static __always_inline bool nodeport_uses_dsr(bool flip __maybe_unused,
 #ifdef ENABLE_DSR
 # ifdef ENABLE_DSR_HYBRID
 #  ifdef ENABLE_DSR_BYUSER
-	return flip;
+	return !flip;
 #  else
 	if (nexthdr == IPPROTO_TCP)
 		return true;

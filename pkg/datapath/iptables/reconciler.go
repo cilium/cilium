@@ -128,7 +128,7 @@ func reconciliationLoop(
 	// log limiter for partial (proxy and no track rules) reconciliation errors
 	partialLogLimiter := logging.NewLimiter(10*time.Second, 3)
 	// log limiter for full reconciliation errors
-	fullLogLimiter := logging.NewLimiter(10*time.Second, 3)
+	//fullLogLimiter := logging.NewLimiter(10*time.Second, 3)
 
 	state := desiredState{
 		installRules: installIptRules,
@@ -288,17 +288,17 @@ stop:
 				continue
 			}
 
-			if err := updateRules(state, firstInit); err != nil {
-				if fullLogLimiter.Allow() {
-					log.WithError(err).Error("iptables rules full reconciliation failed, will retry another one later")
-				}
-				health.Degraded("iptables rules full reconciliation failed", err)
-				// Keep stateChanged=true to try again on the next tick.
-			} else {
-				health.OK("iptables rules full reconciliation completed")
-				firstInit = false
-				stateChanged = false
-			}
+			//if err := updateRules(state, firstInit); err != nil {
+			//	if fullLogLimiter.Allow() {
+			//		log.WithError(err).Error("iptables rules full reconciliation failed, will retry another one later")
+			//	}
+			//	health.Degraded("iptables rules full reconciliation failed", err)
+			//	// Keep stateChanged=true to try again on the next tick.
+			//} else {
+			health.OK("iptables rules full reconciliation completed")
+			firstInit = false
+			stateChanged = false
+			//}
 
 			// close all channels waiting for reconciliation
 			// do this even in case of a failed reconciliation, to avoid
