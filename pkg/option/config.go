@@ -263,9 +263,6 @@ const (
 	// Alias to DSR dispatch method
 	LoadBalancerDSRDispatch = "bpf-lb-dsr-dispatch"
 
-	// Alias to DSR L4 translation method
-	LoadBalancerDSRL4Xlate = "bpf-lb-dsr-l4-xlate"
-
 	// Alias to DSR/IPIP IPv4 source CIDR
 	LoadBalancerRSSv4CIDR = "bpf-lb-rss-ipv4-src-cidr"
 
@@ -1350,12 +1347,6 @@ const (
 	// DSR dispatch mode to encapsulate to Geneve
 	DSRDispatchGeneve = "geneve"
 
-	// DSR L4 translation to frontend port
-	DSRL4XlateFrontend = "frontend"
-
-	// DSR L4 translation to backend port
-	DSRL4XlateBackend = "backend"
-
 	// NodePortAccelerationDisabled means we do not accelerate NodePort via XDP
 	NodePortAccelerationDisabled = XDPModeDisabled
 
@@ -1995,11 +1986,6 @@ type DaemonConfig struct {
 	// LoadBalancerDSRDispatch indicates the method for pushing packets to
 	// backends under DSR ("opt" or "ipip")
 	LoadBalancerDSRDispatch string
-
-	// LoadBalancerDSRL4Xlate indicates the method for L4 DNAT translation
-	// under IPIP dispatch, that is, whether the inner packet will be
-	// translated to the frontend or backend port.
-	LoadBalancerDSRL4Xlate string
 
 	// LoadBalancerRSSv4CIDR defines the outer source IPv4 prefix for DSR/IPIP
 	LoadBalancerRSSv4CIDR string
@@ -3160,7 +3146,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.FragmentsMapEntries = vp.GetInt(FragmentsMapEntriesName)
 	c.CRDWaitTimeout = vp.GetDuration(CRDWaitTimeout)
 	c.LoadBalancerDSRDispatch = vp.GetString(LoadBalancerDSRDispatch)
-	c.LoadBalancerDSRL4Xlate = vp.GetString(LoadBalancerDSRL4Xlate)
 	c.LoadBalancerRSSv4CIDR = vp.GetString(LoadBalancerRSSv4CIDR)
 	c.LoadBalancerRSSv6CIDR = vp.GetString(LoadBalancerRSSv6CIDR)
 	c.InstallNoConntrackIptRules = vp.GetBool(InstallNoConntrackIptRules)
