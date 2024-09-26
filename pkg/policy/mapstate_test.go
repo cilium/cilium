@@ -3238,8 +3238,10 @@ func TestDenyPreferredInsertLogic(t *testing.T) {
 	mapState.validator = &validator{} // insert validator
 
 	// This is DistillPolicy, but with MapState validator injected
+	version := p.SelectorCache.GetVersionHandle()
 	epPolicy := &EndpointPolicy{
 		selectorPolicy: p,
+		VersionHandle:  version,
 		policyMapState: mapState,
 		PolicyOwner:    DummyOwner{},
 	}
@@ -3250,10 +3252,9 @@ func TestDenyPreferredInsertLogic(t *testing.T) {
 	}
 	p.insertUser(epPolicy)
 
-	p.SelectorCache.mutex.RLock()
 	epPolicy.toMapState()
 	epPolicy.policyMapState.determineAllowLocalhostIngress()
-	p.SelectorCache.mutex.RUnlock()
+	epPolicy.Ready()
 
 	n := epPolicy.policyMapState.Len()
 	p.Detach()

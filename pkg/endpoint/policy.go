@@ -141,6 +141,12 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 		return nil, nil
 	}
 
+	// Need a valid handle to be able to update the network policy, get one if needed
+	if !e.desiredPolicy.VersionHandle.IsValid() {
+		e.desiredPolicy.VersionHandle = e.desiredPolicy.SelectorCache.GetVersionHandle()
+		defer e.desiredPolicy.Ready()
+	}
+
 	if e.IsProxyDisabled() {
 		return nil, nil
 	}
