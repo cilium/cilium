@@ -196,8 +196,8 @@ clusters.
      cilium clustermesh enable --context $CLUSTER1 --enable-kvstoremesh=false
      cilium clustermesh enable --context $CLUSTER2 --enable-kvstoremesh=false
 
-   If you are planning on using KVStoreMesh with external etcd in your cluster, you have to set the value of the Helm option ``clustermesh.apiserver.kvstoremesh.useExternalKVStore`` 
-   to ``true`` so that a new etcd instance is not created upon creation.
+   If you are planning on using KVStoreMesh with external or sidecar etcd in your cluster, you have to specify the value of the Helm option ``clustermesh.apiserver.kvstoremesh.kvstoreMode`` 
+   to either ``external`` or ``sidecar``.
 
 .. important::
 

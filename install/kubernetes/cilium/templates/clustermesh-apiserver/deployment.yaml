@@ -2,6 +2,9 @@
 {{- if not (list "legacy" "migration" "cluster" | has .Values.clustermesh.apiserver.tls.authMode) -}}
 {{- fail ".Values.clustermesh.apiserver.tls.authMode must be one of legacy, migration, cluster" -}}
 {{- end -}}
+{{- if not (list "" "external" "sidecar" | has .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode) -}}
+{{- fail ".Values.clustermesh.apiserver.kvstoremesh.kvstoreMode must either be empty or have the value of external or sidecar" -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -46,7 +49,7 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if not .Values.clustermesh.apiserver.kvstoremesh.useExternalKVStore}}
+      {{- if ne .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "external"}}
       initContainers:
       - name: etcd-init
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
@@ -101,7 +104,7 @@ spec:
         {{- end }}
       {{- end }}
       containers:
-      {{- if not .Values.clustermesh.apiserver.kvstoremesh.useExternalKVStore}}
+      {{- if ne .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "external"}}
       - name: etcd
         # The clustermesh-apiserver container image includes an etcd binary.
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
@@ -167,6 +170,8 @@ spec:
         lifecycle:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+      {{- end }}
+      {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "" }}
       - name: apiserver
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
@@ -328,7 +333,7 @@ spec:
           {{- toYaml . | nindent 10 }}
         {{- end }}
         volumeMounts:
-        {{- if (not .Values.clustermesh.apiserver.kvstoremesh.useExternalKVStore) }}
+        {{- if (ne .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "external") }}
         - name: etcd-admin-client
           mountPath: /var/lib/cilium/etcd-secrets
           readOnly: true
@@ -350,7 +355,7 @@ spec:
         {{- end }}
       {{- end }}
       volumes:
-      {{- if (not .Values.clustermesh.apiserver.kvstoremesh.useExternalKVStore) }}
+      {{- if (ne .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "external") }}
       - name: etcd-server-secrets
         projected:
           # note: the leading zero means this number is in octal representation: do not remove it

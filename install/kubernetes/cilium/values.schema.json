@@ -1001,8 +1001,8 @@
                   },
                   "type": "object"
                 },
-                "useExternalKVStore": {
-                  "type": "boolean"
+                "kvstoreMode": {
+                  "type": "string"
                 }
               },
               "type": "object"

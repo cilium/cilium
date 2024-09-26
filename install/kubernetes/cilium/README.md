@@ -197,7 +197,7 @@ contributors across the globe, there is almost always someone available to help.
 | clustermesh.apiserver.kvstoremesh.readinessProbe | object | `{}` | Configuration for the KVStoreMesh readiness probe. |
 | clustermesh.apiserver.kvstoremesh.resources | object | `{}` | Resource requests and limits for the KVStoreMesh container |
 | clustermesh.apiserver.kvstoremesh.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}` | KVStoreMesh Security context |
-| clustermesh.apiserver.kvstoremesh.useExternalKVStore | bool | `false` | Use external KVStore for KVStoreMesh. The KVStore address is set through `etcd.endpoints`. |
+| clustermesh.apiserver.kvstoremesh.kvstoreMode | string | `""` | Specify the KVStore mode when running KVStoreMesh     Supported values:- "":         ``clustermesh-apiserver`` will use the containers ``apiserver``, ``etcd`` and ``kvstoremesh``            - "external": ``clustermesh-apiserver`` will only use the container ``kvstoremesh`` and the user has to configure the etcd outside of the cluster, the KVStore address is set through `etcd.endpoints`.            - "sidecar": ``clustermesh-apiserver`` will use the containers ``etcd`` and ``kvstoremesh`` |
 | clustermesh.apiserver.lifecycle | object | `{}` | lifecycle setting for the apiserver container |
 | clustermesh.apiserver.metrics.enabled | bool | `true` | Enables exporting apiserver metrics in OpenMetrics format. |
 | clustermesh.apiserver.metrics.etcd.enabled | bool | `true` | Enables exporting etcd metrics in OpenMetrics format. |

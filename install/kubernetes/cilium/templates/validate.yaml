@@ -152,7 +152,7 @@
 {{- end }}
 
 {{/* validate clustermesh-apiserver */}}
-{{- if and .Values.clustermesh.useAPIServer (not .Values.clustermesh.apiserver.kvstoremesh.useExternalKVStore) }}
+{{- if and .Values.clustermesh.useAPIServer (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "") }}
   {{- if and (ne .Values.identityAllocationMode "crd") (ne .Values.identityAllocationMode "doublewrite-readkvstore") (ne .Values.identityAllocationMode "doublewrite-readcrd") }}
     {{ fail (printf "The clustermesh-apiserver cannot be enabled in combination with .Values.identityAllocationMode=%s. To establish a Cluster Mesh, directly configure the parameters to access the remote kvstore through .Values.clustermesh.config" .Values.identityAllocationMode ) }}
   {{- end }}
@@ -168,18 +168,17 @@
     {{ fail "External workloads support cannot be enabled in combination with .Values.disableEndpointCRD=true" }}
   {{- end }}
 {{- end }}
-{{- if .Values.clustermesh.apiserver.kvstoremesh.useExternalKVStore }}
-  {{- if or (not .Values.etcd.enabled) (has "https://CHANGE-ME:2379" .Values.etcd.endpoints) }}
-    {{- fail "etcd is not configured correctly"}}
-  {{- end }}
-  {{- if not .Values.clustermesh.apiserver.kvstoremesh.enabled }}
-    {{- fail "KVStoreMesh with an external KVStore cannot be enabled in combination with .Values.clustermesh.apiserver.kvstoremesh.enabled=false" }}
-  {{- end }}
-  {{- if not .Values.clustermesh.useAPIServer }}
-    {{- fail "KVStoreMesh with an external KVStore cannot be enabled in combination with .Values.clustermesh.useAPIServer=false" }}
-  {{- end }}
+{{- if ne .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode ""}}
   {{- if .Values.externalWorkloads.enabled }}
-    {{- fail "KVStoreMesh with an external KVStore cannot be enabled in combination with .Values.externalWorkloads.enabled=true" }}
+    {{- fail (printf "KVStoreMesh with %s etcd cannot be enabled in combination with .Values.externalWorkloads.enabled=true" .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode) }}
+  {{- end }}
+  {{- if ne .Values.identityAllocationMode "kvstore" }}
+    {{- fail (printf "KVStoreMesh with %s etcd cannot be enabled in combination with .Values.identityAllocationMode=%s" .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode .Values.identityAllocationMode)}}
+  {{- end }}
+  {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "external" }}
+    {{- if or (not .Values.etcd.enabled) (has "https://CHANGE-ME:2379" .Values.etcd.endpoints) }}
+      {{- fail "etcd is not configured correctly"}}
+    {{- end }}
   {{- end }}
 {{- end }}
 
