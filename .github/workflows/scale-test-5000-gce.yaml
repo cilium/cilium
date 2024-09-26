@@ -293,120 +293,6 @@ jobs:
             sleep 10
           done
 
-      - name: Setup firewall rules
-        uses: cilium/scale-tests-action/setup-firewall@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
-        with:
-          cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          create_native_routing_firewall: 'false'
-
-      - name: Create Instance Group for workload deployments
-        uses: cilium/scale-tests-action/create-instance-group@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
-        timeout-minutes: 30
-        with:
-          cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          node_size: e2-medium
-          node_count: 1000
-          ig_name: workloads2
-          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
-
-      - name: Wait for cluster to be ready
-        shell: bash
-        timeout-minutes: 20
-        run: |
-          OUTPUT="";
-          while [ `echo $OUTPUT | grep -c 2004` = 0 ]; do
-            OUTPUT=`kubectl get pods -n kube-system --selector=k8s-app=cilium --no-headers -o jsonpath='{range .items[*]}{.status.containerStatuses[*].ready.true}{.metadata.name}{ "\n"}{end}' | wc -l`;
-            echo "Ready agents:" $OUTPUT
-            sleep 10
-          done
-          OUTPUT="";
-          while [ `echo $OUTPUT | grep -c 2004` = 0 ]; do
-            OUTPUT=`kubectl get nodes | grep Ready | wc -l`;
-            echo "Ready nodes:" $OUTPUT
-            sleep 10
-          done
-
-      - name: Create Instance Group for workload deployments
-        uses: cilium/scale-tests-action/create-instance-group@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
-        timeout-minutes: 30
-        with:
-          cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          node_size: e2-medium
-          node_count: 1000
-          ig_name: workloads3
-          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
-
-      - name: Wait for cluster to be ready
-        shell: bash
-        timeout-minutes: 20
-        run: |
-          OUTPUT="";
-          while [ `echo $OUTPUT | grep -c 3004` = 0 ]; do
-            OUTPUT=`kubectl get pods -n kube-system --selector=k8s-app=cilium --no-headers -o jsonpath='{range .items[*]}{.status.containerStatuses[*].ready.true}{.metadata.name}{ "\n"}{end}' | wc -l`;
-            echo "Ready agents:" $OUTPUT
-            sleep 10
-          done
-          OUTPUT="";
-          while [ `echo $OUTPUT | grep -c 3004` = 0 ]; do
-            OUTPUT=`kubectl get nodes | grep Ready | wc -l`;
-            echo "Ready nodes:" $OUTPUT
-            sleep 10
-          done
-
-      - name: Create Instance Group for workload deployments
-        uses: cilium/scale-tests-action/create-instance-group@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
-        timeout-minutes: 30
-        with:
-          cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          node_size: e2-medium
-          node_count: 1000
-          ig_name: workloads4
-          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
-
-      - name: Wait for cluster to be ready
-        shell: bash
-        timeout-minutes: 20
-        run: |
-          OUTPUT="";
-          while [ `echo $OUTPUT | grep -c 4004` = 0 ]; do
-            OUTPUT=`kubectl get pods -n kube-system --selector=k8s-app=cilium --no-headers -o jsonpath='{range .items[*]}{.status.containerStatuses[*].ready.true}{.metadata.name}{ "\n"}{end}' | wc -l`;
-            echo "Ready agents:" $OUTPUT
-            sleep 10
-          done
-          OUTPUT="";
-          while [ `echo $OUTPUT | grep -c 4004` = 0 ]; do
-            OUTPUT=`kubectl get nodes | grep Ready | wc -l`;
-            echo "Ready nodes:" $OUTPUT
-            sleep 10
-          done
-
-      - name: Create Instance Group for workload deployments
-        uses: cilium/scale-tests-action/create-instance-group@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
-        timeout-minutes: 30
-        with:
-          cluster_name: ${{ steps.vars.outputs.cluster_name }}
-          node_size: e2-medium
-          node_count: 1000
-          ig_name: workloads5
-          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
-
-      - name: Wait for cluster to be ready
-        shell: bash
-        timeout-minutes: 20
-        run: |
-          OUTPUT="";
-          while [ `echo $OUTPUT | grep -c 5004` = 0 ]; do
-            OUTPUT=`kubectl get pods -n kube-system --selector=k8s-app=cilium --no-headers -o jsonpath='{range .items[*]}{.status.containerStatuses[*].ready.true}{.metadata.name}{ "\n"}{end}' | wc -l`;
-            echo "Ready agents:" $OUTPUT
-            sleep 10
-          done
-          OUTPUT="";
-          while [ `echo $OUTPUT | grep -c 5004` = 0 ]; do
-            OUTPUT=`kubectl get nodes | grep Ready | wc -l`;
-            echo "Ready nodes:" $OUTPUT
-            sleep 10
-          done
-
       - name: Last wait for cluster to be ready
         shell: bash
         timeout-minutes: 20
@@ -438,21 +324,23 @@ jobs:
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
           CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: 18.0
           CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT_INTERVAL: "120s"
-        timeout-minutes: 20
+          CL2_LOAD_TEST_THROUGHPUT: "50.0"
+          CL2_DELETE_TEST_THROUGHPUT: "50.0"
+        timeout-minutes: 60
         run: |
-          # Don't run any tasks at this point, just export the prometheus data
           ./clusterloader \
             -v=2 \
-            --report-dir=./report \
-            --testconfig=./testing/custom/clustermesh/setup.yaml \
-            --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
+            --testconfig=./testing/load/config.yaml \
             --provider=gce \
-            --experimental-prometheus-snapshot-to-report-dir=true \
-            --enable-exec-service=false \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
+            --nodes=1000 \
+            --report-dir=./report \
+            --experimental-prometheus-snapshot-to-report-dir=true \
             --kubeconfig=$HOME/.kube/config \
-            2>&1 | tee cl2-setup.txt
+            --testoverrides=./testing/experiments/use_simple_latency_query.yaml \
+            --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
+            2>&1 | tee cl2-output.txt
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
