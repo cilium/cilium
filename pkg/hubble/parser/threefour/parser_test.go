@@ -18,6 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -46,6 +47,52 @@ var log *logrus.Logger
 func init() {
 	log = logrus.New()
 	log.SetOutput(io.Discard)
+}
+
+// ipTuple is the addressing used for the source/destination of a flow.
+type ipTuple struct {
+	src, dst netip.Addr
+}
+
+var (
+	localIP  = netip.MustParseAddr("1.2.3.4")
+	localEP  = uint16(1234)
+	hostEP   = uint16(0x1092)
+	remoteIP = netip.MustParseAddr("5.6.7.8")
+	remoteID = identity.NumericIdentity(5678)
+	srcMAC   = net.HardwareAddr{1, 2, 3, 4, 5, 6}
+	dstMAC   = net.HardwareAddr{7, 8, 9, 0, 1, 2}
+
+	egressTuple  = ipTuple{src: localIP, dst: remoteIP}
+	ingressTuple = ipTuple{src: remoteIP, dst: localIP}
+
+	fooBarLabel           = labels.LabelArrayList{labels.ParseLabelArray("foo=bar")}
+	remotePolicyKey       = policy.EgressKey().WithIdentity(remoteID)
+	defaultEndpointGetter = &testutils.FakeEndpointGetter{
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+			if ip == localIP {
+				return &testutils.FakeEndpointInfo{
+					ID: uint64(localEP),
+					PolicyMap: map[policyTypes.Key]labels.LabelArrayList{
+						remotePolicyKey: fooBarLabel,
+					},
+					PolicyRevision: 1,
+				}, true
+			}
+			return nil, false
+		},
+	}
+)
+
+func directionFromProto(direction flowpb.TrafficDirection) trafficdirection.TrafficDirection {
+	switch direction {
+	case flowpb.TrafficDirection_INGRESS:
+		return trafficdirection.Ingress
+	case flowpb.TrafficDirection_EGRESS:
+		return trafficdirection.Egress
+	default:
+		return trafficdirection.Invalid
+	}
 }
 
 func TestL34DecodeEmpty(t *testing.T) {
@@ -645,16 +692,6 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	hostEP := uint16(0x1092)
 	remoteIP := netip.MustParseAddr("5.6.7.8")
 	remoteID := identity.NumericIdentity(5678)
-
-	directionFromProto := func(direction flowpb.TrafficDirection) trafficdirection.TrafficDirection {
-		switch direction {
-		case flowpb.TrafficDirection_INGRESS:
-			return trafficdirection.Ingress
-		case flowpb.TrafficDirection_EGRESS:
-			return trafficdirection.Egress
-		}
-		return trafficdirection.Invalid
-	}
 
 	policyLabel := labels.LabelArrayList{labels.ParseLabelArray("foo=bar")}
 	policyKey := policy.EgressKey().WithIdentity(remoteID)
@@ -1351,4 +1388,106 @@ func TestTraceNotifyProxyPort(t *testing.T) {
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
 	assert.Equal(t, f.ProxyPort, uint32(4321))
+}
+
+func TestDecode_DropNotify(t *testing.T) {
+	parser, err := New(log, defaultEndpointGetter, nil, nil, nil, nil, nil)
+	require.NoError(t, err)
+
+	template := &flowpb.Flow{
+		EventType:   &flowpb.CiliumEventType{Type: 1},
+		Summary:     flowpb.IPVersion_IPv4.String(),
+		Type:        flowpb.FlowType_L3_L4,
+		Verdict:     flowpb.Verdict_DROPPED,
+		Source:      &flowpb.Endpoint{},
+		Destination: &flowpb.Endpoint{},
+		Ethernet: &flowpb.Ethernet{
+			Source:      srcMAC.String(),
+			Destination: dstMAC.String(),
+		},
+		IP: &flowpb.IP{
+			IpVersion:   flowpb.IPVersion_IPv4,
+			Source:      localIP.String(),
+			Destination: remoteIP.String(),
+		},
+	}
+
+	testCases := []struct {
+		name    string
+		event   monitor.DropNotify
+		ipTuple ipTuple
+		want    *flowpb.Flow
+	}{
+		{
+			name: "drop_unknown",
+			event: monitor.DropNotify{
+				Type: byte(monitorAPI.MessageTypeDrop),
+			},
+			ipTuple: egressTuple,
+			want: &flowpb.Flow{
+				Source: &flowpb.Endpoint{ID: 1234},
+			},
+		},
+		{
+			name: "drop_egress",
+			event: monitor.DropNotify{
+				Type:   byte(monitorAPI.MessageTypeDrop),
+				Source: localEP,
+			},
+			ipTuple: egressTuple,
+			want: &flowpb.Flow{
+				Source:           &flowpb.Endpoint{ID: 1234},
+				TrafficDirection: flowpb.TrafficDirection_EGRESS,
+			},
+		},
+		{
+			name: "drop_ingress",
+			event: monitor.DropNotify{
+				Type:   byte(monitorAPI.MessageTypeDrop),
+				Source: localEP,
+			},
+			ipTuple: ingressTuple,
+			want: &flowpb.Flow{
+				IP: &flowpb.IP{
+					Source:      remoteIP.String(),
+					Destination: localIP.String(),
+				},
+				Destination: &flowpb.Endpoint{
+					ID: uint32(localEP),
+				},
+				TrafficDirection: flowpb.TrafficDirection_INGRESS,
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			want := proto.Clone(template)
+			proto.Merge(want, tc.want)
+
+			data, err := testutils.CreateL3L4Payload(tc.event,
+				&layers.Ethernet{
+					SrcMAC:       srcMAC,
+					DstMAC:       dstMAC,
+					EthernetType: layers.EthernetTypeIPv4,
+				},
+				&layers.IPv4{SrcIP: tc.ipTuple.src.AsSlice(), DstIP: tc.ipTuple.dst.AsSlice()},
+			)
+			if err != nil {
+				t.Fatalf("Unexpected error from CreateL3L4Payload(%T, ...): %v", tc.event, err)
+			}
+
+			got := &flowpb.Flow{}
+			if err := parser.Decode(data, got); err != nil {
+				t.Fatalf("Unexpected error from Decode(data, %T): %v", got, err)
+			}
+
+			opts := []cmp.Option{
+				protocmp.Transform(),
+				protocmp.IgnoreFields(&flowpb.Flow{}, "reply"),
+			}
+			if diff := cmp.Diff(want, got, opts...); diff != "" {
+				t.Errorf("Unexpected diff (-want +got):\n%s", diff)
+			}
+		})
+	}
 }
