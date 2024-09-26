@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestApplyPatch(t *testing.T) {
+func TestDumpBatch4(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	m := NewMap("test_snat_map", IPv4, 1<<18) // approximate default map size.
 	m.family = IPv4
@@ -35,9 +35,7 @@ func TestApplyPatch(t *testing.T) {
 		err := m.Update(mapKey, mapValue)
 		assert.NoError(t, err)
 	}
-	count := 0
-	m.ApplyBatch4(func(tk []tuple.TupleKey4, ne []NatEntry4, c int) {
-		count += int(c)
-	})
+	count, err := m.DumpBatch4(func(tk tuple.TupleKey4, ne NatEntry4) {})
+	assert.NoError(t, err)
 	assert.Equal(t, 1024+1, count)
 }
