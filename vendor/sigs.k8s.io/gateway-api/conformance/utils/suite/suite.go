@@ -56,6 +56,7 @@ import (
 // conformance tests.
 type ConformanceTestSuite struct {
 	Client                   client.Client
+	ClientOptions            client.Options
 	Clientset                clientset.Interface
 	RESTClient               *rest.RESTClient
 	RestConfig               *rest.Config
@@ -123,6 +124,7 @@ type ConformanceTestSuite struct {
 // Options can be used to initialize a ConformanceTestSuite.
 type ConformanceOptions struct {
 	Client               client.Client
+	ClientOptions        client.Options
 	Clientset            clientset.Interface
 	RestConfig           *rest.Config
 	GatewayClassName     string
@@ -234,6 +236,7 @@ func NewConformanceTestSuite(options ConformanceOptions) (*ConformanceTestSuite,
 
 	suite := &ConformanceTestSuite{
 		Client:           options.Client,
+		ClientOptions:    options.ClientOptions,
 		Clientset:        options.Clientset,
 		RestConfig:       options.RestConfig,
 		RoundTripper:     roundTripper,
@@ -398,7 +401,7 @@ func (suite *ConformanceTestSuite) setClientsetForTest(test ConformanceTest) err
 			strings.Join(featureNames, ","),
 		},
 		"::")
-	client, err := client.New(suite.RestConfig, client.Options{})
+	client, err := client.New(suite.RestConfig, suite.ClientOptions)
 	if err != nil {
 		return err
 	}

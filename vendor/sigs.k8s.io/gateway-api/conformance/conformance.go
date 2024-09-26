@@ -45,7 +45,8 @@ import (
 func DefaultOptions(t *testing.T) suite.ConformanceOptions {
 	cfg, err := config.GetConfig()
 	require.NoError(t, err, "error loading Kubernetes config")
-	client, err := client.New(cfg, client.Options{})
+	clientOptions := client.Options{}
+	client, err := client.New(cfg, clientOptions)
 	require.NoError(t, err, "error initializing Kubernetes client")
 
 	// This clientset is needed in addition to the client only because
@@ -79,6 +80,7 @@ func DefaultOptions(t *testing.T) suite.ConformanceOptions {
 		AllowCRDsMismatch:          *flags.AllowCRDsMismatch,
 		CleanupBaseResources:       *flags.CleanupBaseResources,
 		Client:                     client,
+		ClientOptions:              clientOptions,
 		Clientset:                  clientset,
 		ConformanceProfiles:        conformanceProfiles,
 		Debug:                      *flags.ShowDebug,
