@@ -380,6 +380,33 @@ jobs:
             sleep 10
           done
 
+      - name: Create Instance Group for workload deployments
+        uses: cilium/scale-tests-action/create-instance-group@4689ca99d3e860339e439006ff7a26d8f6a86e09 # main
+        timeout-minutes: 30
+        with:
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
+          node_size: e2-medium
+          node_count: 1000
+          ig_name: workloads5
+          kops_state: ${{ secrets.GCP_PERF_KOPS_STATE_STORE }}
+
+      - name: Wait for cluster to be ready
+        shell: bash
+        timeout-minutes: 20
+        run: |
+          OUTPUT="";
+          while [ `echo $OUTPUT | grep -c 5004` = 0 ]; do
+            OUTPUT=`kubectl get pods -n kube-system --selector=k8s-app=cilium --no-headers -o jsonpath='{range .items[*]}{.status.containerStatuses[*].ready.true}{.metadata.name}{ "\n"}{end}' | wc -l`;
+            echo "Ready agents:" $OUTPUT
+            sleep 10
+          done
+          OUTPUT="";
+          while [ `echo $OUTPUT | grep -c 5004` = 0 ]; do
+            OUTPUT=`kubectl get nodes | grep Ready | wc -l`;
+            echo "Ready nodes:" $OUTPUT
+            sleep 10
+          done
+
       - name: Last wait for cluster to be ready
         shell: bash
         timeout-minutes: 20
