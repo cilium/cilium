@@ -201,10 +201,6 @@ struct {
 } LB_AFFINITY_MATCH_MAP __section_maps_btf;
 #endif
 
-#ifndef DSR_XLATE_MODE
-# define DSR_XLATE_MODE		0
-# define DSR_XLATE_FRONTEND	1
-#endif
 #ifdef LB_DEBUG
 #define cilium_dbg_lb cilium_dbg
 #else
@@ -315,11 +311,6 @@ bool lb6_svc_has_src_range_check(const struct lb6_service *svc __maybe_unused)
 #else
 	return false;
 #endif /* ENABLE_SRC_RANGE_CHECK */
-}
-
-static __always_inline bool lb_skip_l4_dnat(void)
-{
-	return DSR_XLATE_MODE == DSR_XLATE_FRONTEND;
 }
 
 static __always_inline
@@ -752,16 +743,12 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 static __always_inline int lb6_xlate(struct __ctx_buff *ctx, __u8 nexthdr,
 				     int l3_off, int l4_off,
 				     const struct lb6_key *key,
-				     const struct lb6_backend *backend,
-				     const bool skip_l3_xlate)
+				     const struct lb6_backend *backend)
 {
 	const union v6addr *new_dst = &backend->address;
 	struct csum_offset csum_off = {};
 
 	csum_l4_offset_and_flags(nexthdr, &csum_off);
-
-	if (skip_l3_xlate)
-		goto l4_xlate;
 
 	if (ipv6_store_daddr(ctx, new_dst->addr, l3_off) < 0)
 		return DROP_WRITE_ERROR;
@@ -774,7 +761,6 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx, __u8 nexthdr,
 			return DROP_CSUM_L4;
 	}
 
-l4_xlate:
 	return lb_l4_xlate(ctx, nexthdr, l4_off, &csum_off, key->dport,
 			   backend->port);
 }
@@ -920,7 +906,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     struct ipv6_ct_tuple *tuple,
 				     const struct lb6_service *svc,
 				     struct ct_state *state,
-				     const bool skip_l3_xlate,
+				     const bool skip_xlate,
 				     __s8 *ext_err,
 				     __net_cookie netns_cookie __maybe_unused)
 {
@@ -1037,14 +1023,13 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 	ipv6_addr_copy(&tuple->daddr, &backend->address);
 
-	if (lb_skip_l4_dnat())
+	if (skip_xlate)
 		return CTX_ACT_OK;
 
 	if (likely(backend->port))
 		tuple->sport = backend->port;
 
-	return lb6_xlate(ctx, tuple->nexthdr, l3_off, l4_off,
-			 key, backend, skip_l3_xlate);
+	return lb6_xlate(ctx, tuple->nexthdr, l3_off, l4_off, key, backend);
 no_service:
 	ret = DROP_NO_SERVICE;
 drop_err:
@@ -1440,8 +1425,7 @@ static __always_inline int
 lb4_xlate(struct __ctx_buff *ctx, __be32 *new_saddr __maybe_unused,
 	  __be32 *old_saddr __maybe_unused, __u8 nexthdr __maybe_unused, int l3_off,
 	  int l4_off, struct lb4_key *key,
-	  const struct lb4_backend *backend __maybe_unused, bool has_l4_header,
-	  const bool skip_l3_xlate)
+	  const struct lb4_backend *backend __maybe_unused, bool has_l4_header)
 {
 	const __be32 *new_daddr = &backend->address;
 	struct csum_offset csum_off = {};
@@ -1450,9 +1434,6 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_saddr __maybe_unused,
 
 	if (has_l4_header)
 		csum_l4_offset_and_flags(nexthdr, &csum_off);
-
-	if (skip_l3_xlate)
-		goto l4_xlate;
 
 	ret = ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, daddr),
 			      new_daddr, 4, 0);
@@ -1480,7 +1461,6 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_saddr __maybe_unused,
 			return DROP_CSUM_L4;
 	}
 
-l4_xlate:
 	return has_l4_header ? lb_l4_xlate(ctx, nexthdr, l4_off, &csum_off,
 					   key->dport, backend->port) :
 			       CTX_ACT_OK;
@@ -1644,7 +1624,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     const struct lb4_service *svc,
 				     struct ct_state *state,
 				     bool has_l4_header,
-				     const bool skip_l3_xlate,
+				     const bool skip_xlate,
 				     __u32 *cluster_id __maybe_unused,
 				     __s8 *ext_err,
 				     __net_cookie netns_cookie __maybe_unused)
@@ -1788,7 +1768,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 #endif
 		tuple->daddr = backend->address;
 
-	if (lb_skip_l4_dnat())
+	if (skip_xlate)
 		return CTX_ACT_OK;
 
 	/* CT tuple contains ports in reverse order: */
@@ -1797,7 +1777,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 
 	return lb4_xlate(ctx, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, key,
-			 backend, has_l4_header, skip_l3_xlate);
+			 backend, has_l4_header);
 no_service:
 	ret = DROP_NO_SERVICE;
 drop_err:

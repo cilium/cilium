@@ -401,36 +401,15 @@ out:
 	return 0;
 }
 
-static __always_inline int
-__sock4_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
-{
-	int ret = lb_skip_l4_dnat() ? SYS_PROCEED : SYS_REJECT;
-#ifdef ENABLE_HEALTH_CHECK
-	__sock_cookie key = get_socket_cookie(ctx);
-	struct lb4_health *val = NULL;
-
-	if (!lb_skip_l4_dnat())
-		val = map_lookup_elem(&LB4_HEALTH_MAP, &key);
-	if (val) {
-		ctx_set_port(ctx, val->peer.port);
-		ret = SYS_PROCEED;
-	}
-#endif /* ENABLE_HEALTH_CHECK */
-	return ret;
-}
-
 __section("cgroup/connect4")
 int cil_sock4_connect(struct bpf_sock_addr *ctx)
 {
 	int err;
 
-	if (sock_is_health_check(ctx)) {
-		int ret = __sock4_health_fwd(ctx);
-
-		if (ret == SYS_REJECT)
-			try_set_retval(-ECONNREFUSED);
-		return ret;
-	}
+#ifdef ENABLE_HEALTH_CHECK
+	if (sock_is_health_check(ctx))
+		return SYS_PROCEED;
+#endif /* ENABLE_HEALTH_CHECK */
 
 	err = __sock4_xlate_fwd(ctx, ctx, false);
 	if (err == -EHOSTUNREACH || err == -ENOMEM) {
@@ -1096,48 +1075,15 @@ out:
 #endif /* ENABLE_IPV6 */
 }
 
-static __always_inline int
-__sock6_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
-{
-	int ret = lb_skip_l4_dnat() ? SYS_PROCEED : SYS_REJECT;
-#ifdef ENABLE_HEALTH_CHECK
-	union v6addr addr6;
-
-	ctx_get_v6_address(ctx, &addr6);
-#ifdef ENABLE_IPV4
-	if (is_v4_in_v6(&addr6)) {
-		return __sock4_health_fwd(ctx);
-	} else
-#endif /* ENABLE_IPV4 */
-    {
-#ifdef ENABLE_IPV6
-		__sock_cookie key = get_socket_cookie(ctx);
-		struct lb6_health *val = NULL;
-
-		if (!lb_skip_l4_dnat())
-			val = map_lookup_elem(&LB6_HEALTH_MAP, &key);
-		if (val) {
-			ctx_set_port(ctx, val->peer.port);
-			ret = SYS_PROCEED;
-		}
-#endif /* ENABLE_IPV6 */
-	}
-#endif /* ENABLE_HEALTH_CHECK */
-	return ret;
-}
-
 __section("cgroup/connect6")
 int cil_sock6_connect(struct bpf_sock_addr *ctx)
 {
 	int err;
 
-	if (sock_is_health_check(ctx)) {
-		int ret = __sock6_health_fwd(ctx);
-
-		if (ret == SYS_REJECT)
-			try_set_retval(-ECONNREFUSED);
-		return ret;
-	}
+#ifdef ENABLE_HEALTH_CHECK
+	if (sock_is_health_check(ctx))
+		return SYS_PROCEED;
+#endif /* ENABLE_HEALTH_CHECK */
 
 	err = __sock6_xlate_fwd(ctx, false);
 	if (err == -EHOSTUNREACH || err == -ENOMEM) {
