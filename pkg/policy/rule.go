@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -621,7 +622,7 @@ func (r *rule) matchesSubject(securityIdentity *identity.Identity) bool {
 		return r.getSelector().Matches(securityIdentity.LabelArray)
 	}
 
-	return r.subjectSelector.Selects(securityIdentity.ID)
+	return r.subjectSelector.Selects(versioned.Latest(), securityIdentity.ID)
 }
 
 // ****************** EGRESS POLICY ******************

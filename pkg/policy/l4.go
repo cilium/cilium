@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -555,6 +556,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 	logger := log
 	if option.Config.Debug {
 		logger = log.WithFields(logrus.Fields{
+			logfields.EndpointID:       p.PolicyOwner.GetID(),
 			logfields.Port:             port,
 			logfields.PortName:         l4.PortName,
 			logfields.Protocol:         proto,
@@ -635,15 +637,17 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 			continue
 		}
 
-		idents := cs.GetSelections()
+		idents := cs.GetSelections(p.VersionHandle)
 		if option.Config.Debug {
 			if isDenyRule {
 				logger.WithFields(logrus.Fields{
+					logfields.Version:          p.VersionHandle,
 					logfields.EndpointSelector: cs,
 					logfields.PolicyID:         idents,
 				}).Debug("ToMapState: Denied remote IDs")
 			} else {
 				logger.WithFields(logrus.Fields{
+					logfields.Version:          p.VersionHandle,
 					logfields.EndpointSelector: cs,
 					logfields.PolicyID:         idents,
 				}).Debug("ToMapState: Allowed remote IDs")
@@ -993,7 +997,7 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSe
 	// everything from host, then wildcard Host at L7.
 	if len(hostWildcardL7) > 0 {
 		for cs, l7 := range filter.PerSelectorPolicies {
-			if l7.IsRedirect() && cs.Selects(identity.ReservedIdentityHost) {
+			if l7.IsRedirect() && cs.Selects(versioned.Latest(), identity.ReservedIdentityHost) {
 				for _, name := range hostWildcardL7 {
 					selector := api.ReservedEndpointSelectors[name]
 					filter.cacheIdentitySelector(selector, ruleLabels, policyCtx.GetSelectorCache())

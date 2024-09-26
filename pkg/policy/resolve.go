@@ -6,6 +6,7 @@ package policy
 import (
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -42,6 +43,12 @@ type EndpointPolicy struct {
 	// Note that all Endpoints sharing the same identity will be
 	// referring to a shared selectorPolicy!
 	*selectorPolicy
+
+	// VersionHandle represents the version of the SelectorCache 'policyMapState' was generated
+	// from.
+	// Changes after this version appear in 'policyMapChanges'.
+	// This is updated when incremental changes are applied.
+	VersionHandle *versioned.VersionHandle
 
 	// policyMapState contains the state of this policy as it relates to the
 	// datapath. In the future, this will be factored out of this object to
@@ -106,8 +113,10 @@ func (p *selectorPolicy) Detach() {
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
 func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *EndpointPolicy {
+	version := p.SelectorCache.GetVersionHandle()
 	calculatedPolicy := &EndpointPolicy{
 		selectorPolicy: p,
+		VersionHandle:  version,
 		policyMapState: NewMapState(),
 		PolicyOwner:    policyOwner,
 	}
@@ -140,6 +149,15 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 	return calculatedPolicy
 }
 
+// Ready releases the hold on a selector cache version so that stale state can be released.
+// This should be called when the policy has been realized.
+func (p *EndpointPolicy) Ready() (err error) {
+	// release resources held for this version
+	err = p.VersionHandle.Close()
+	p.VersionHandle = nil
+	return err
+}
+
 // GetPolicyMap gets the policy map state as the interface
 // MapState
 func (p *EndpointPolicy) GetPolicyMap() MapState {
@@ -161,6 +179,11 @@ func (p *EndpointPolicy) SetPolicyMap(ms MapState) {
 // to allow the EndpointPolicy to be GC'd.
 // PolicyOwner (aka Endpoint) is also locked during this call.
 func (p *EndpointPolicy) Detach() {
+	// in case the call was missed previouly
+	if p.Ready() == nil {
+		// succeeded, so it was missed previously
+		log.Warningf("Detach: EndpointPolicy was not marked as Ready")
+	}
 	p.selectorPolicy.removeUser(p)
 }
 

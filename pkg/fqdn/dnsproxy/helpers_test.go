@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/re"
@@ -208,7 +209,7 @@ type MockCachedSelector struct {
 	key string
 }
 
-func (m MockCachedSelector) GetSelections() identity.NumericIdentitySlice {
+func (m MockCachedSelector) GetSelections(*versioned.VersionHandle) identity.NumericIdentitySlice {
 	return nil
 }
 
@@ -216,7 +217,7 @@ func (m MockCachedSelector) GetMetadataLabels() labels.LabelArray {
 	panic("implement me")
 }
 
-func (m MockCachedSelector) Selects(_ identity.NumericIdentity) bool {
+func (m MockCachedSelector) Selects(*versioned.VersionHandle, identity.NumericIdentity) bool {
 	return false
 }
 

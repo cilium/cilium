@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
@@ -33,9 +34,10 @@ var (
 	IPv4Addr = "10.1.1.1"
 
 	ep endpoint.EndpointUpdater = &test.ProxyUpdaterMock{
-		Id:   1000,
-		Ipv4: "10.0.0.1",
-		Ipv6: "f00d::1",
+		Id:            1000,
+		Ipv4:          "10.0.0.1",
+		Ipv6:          "f00d::1",
+		VersionHandle: versioned.Latest(),
 	}
 )
 
@@ -454,13 +456,14 @@ func TestGetHTTPRule(t *testing.T) {
 }
 
 func Test_getWildcardNetworkPolicyRule(t *testing.T) {
+	version := versioned.Latest()
 	perSelectorPoliciesWithWildcard := policy.L7DataMap{
 		cachedSelector1:           nil,
 		cachedRequiresV2Selector1: nil,
 		wildcardCachedSelector:    nil,
 	}
 
-	obtained := getWildcardNetworkPolicyRule(perSelectorPoliciesWithWildcard)
+	obtained := getWildcardNetworkPolicyRule(version, perSelectorPoliciesWithWildcard)
 	require.Equal(t, &cilium.PortNetworkPolicyRule{}, obtained)
 
 	// both cachedSelector2 and cachedSelector2 select identity 1001, but duplicates must have been removed
@@ -470,22 +473,23 @@ func Test_getWildcardNetworkPolicyRule(t *testing.T) {
 		cachedRequiresV2Selector1: nil,
 	}
 
-	obtained = getWildcardNetworkPolicyRule(perSelectorPolicies)
+	obtained = getWildcardNetworkPolicyRule(version, perSelectorPolicies)
 	require.Equal(t, &cilium.PortNetworkPolicyRule{
 		RemotePolicies: []uint32{1001, 1002, 1003},
 	}, obtained)
 }
 
 func TestGetPortNetworkPolicyRule(t *testing.T) {
-	obtained, canShortCircuit := getPortNetworkPolicyRule(cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12, false)
+	version := versioned.Latest()
+	obtained, canShortCircuit := getPortNetworkPolicyRule(version, cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12, false)
 	require.Equal(t, ExpectedPortNetworkPolicyRule12, obtained)
 	require.Equal(t, true, canShortCircuit)
 
-	obtained, canShortCircuit = getPortNetworkPolicyRule(cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12HeaderMatch, false)
+	obtained, canShortCircuit = getPortNetworkPolicyRule(version, cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12HeaderMatch, false)
 	require.Equal(t, ExpectedPortNetworkPolicyRule122HeaderMatch, obtained)
 	require.Equal(t, false, canShortCircuit)
 
-	obtained, canShortCircuit = getPortNetworkPolicyRule(cachedSelector2, cachedSelector2.IsWildcard(), policy.ParserTypeHTTP, L7Rules1, false)
+	obtained, canShortCircuit = getPortNetworkPolicyRule(version, cachedSelector2, cachedSelector2.IsWildcard(), policy.ParserTypeHTTP, L7Rules1, false)
 	require.Equal(t, ExpectedPortNetworkPolicyRule1, obtained)
 	require.Equal(t, true, canShortCircuit)
 }
