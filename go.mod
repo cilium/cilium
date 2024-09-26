@@ -133,7 +133,7 @@ require (
 	k8s.io/utils v0.0.0-20240902221715-702e33fdd3c3
 	sigs.k8s.io/controller-runtime v0.19.0
 	sigs.k8s.io/controller-tools v0.16.3
-	sigs.k8s.io/gateway-api v1.2.0-rc1
+	sigs.k8s.io/gateway-api v1.2.0-rc1.0.20240923191000-5c5fc388829d
 	sigs.k8s.io/mcs-api v0.1.1-0.20240903161117-2c773b78635e
 	sigs.k8s.io/yaml v1.4.0
 )
