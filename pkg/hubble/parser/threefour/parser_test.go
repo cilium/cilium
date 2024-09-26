@@ -1810,3 +1810,94 @@ func TestDecode_TraceNotify(t *testing.T) {
 		})
 	}
 }
+
+func TestDecode_PolicyVerdictNotify(t *testing.T) {
+	parser, err := New(log, defaultEndpointGetter, nil, nil, nil, nil, nil)
+	require.NoError(t, err)
+
+	template := &flowpb.Flow{
+		EventType:   &flowpb.CiliumEventType{Type: 5},
+		Summary:     flowpb.IPVersion_IPv4.String(),
+		Type:        flowpb.FlowType_L3_L4,
+		Verdict:     flowpb.Verdict_FORWARDED,
+		Source:      &flowpb.Endpoint{},
+		Destination: &flowpb.Endpoint{},
+		Ethernet: &flowpb.Ethernet{
+			Source:      srcMAC.String(),
+			Destination: dstMAC.String(),
+		},
+		IP: &flowpb.IP{
+			IpVersion:   flowpb.IPVersion_IPv4,
+			Source:      localIP.String(),
+			Destination: remoteIP.String(),
+		},
+		IsReply: wrapperspb.Bool(false),
+	}
+
+	testCases := []struct {
+		name    string
+		event   any
+		ipTuple ipTuple
+		want    *flowpb.Flow
+	}{
+		{
+			name: "egress",
+			event: monitor.PolicyVerdictNotify{
+				Type:        byte(monitorAPI.MessageTypePolicyVerdict),
+				Source:      localEP,
+				Flags:       monitorAPI.PolicyEgress,
+				RemoteLabel: identity.NumericIdentity(remoteID),
+			},
+			ipTuple: egressTuple,
+			want: &flowpb.Flow{
+				Source:           &flowpb.Endpoint{ID: 1234},
+				Destination:      &flowpb.Endpoint{Identity: 5678},
+				TrafficDirection: flowpb.TrafficDirection_EGRESS,
+			},
+		},
+		{
+			name: "ingresss",
+			event: monitor.PolicyVerdictNotify{
+				Type:   byte(monitorAPI.MessageTypePolicyVerdict),
+				Source: localEP,
+				Flags:  monitorAPI.PolicyIngress,
+			},
+			ipTuple: egressTuple,
+			want: &flowpb.Flow{
+				Source:           &flowpb.Endpoint{ID: 1234},
+				TrafficDirection: flowpb.TrafficDirection_INGRESS,
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			want := proto.Clone(template)
+			proto.Merge(want, tc.want)
+
+			data, err := testutils.CreateL3L4Payload(tc.event,
+				&layers.Ethernet{
+					SrcMAC:       srcMAC,
+					DstMAC:       dstMAC,
+					EthernetType: layers.EthernetTypeIPv4,
+				},
+				&layers.IPv4{SrcIP: tc.ipTuple.src.AsSlice(), DstIP: tc.ipTuple.dst.AsSlice()},
+			)
+			if err != nil {
+				t.Fatalf("Unexpected error from CreateL3L4Payload(%T, ...): %v", tc.event, err)
+			}
+
+			got := &flowpb.Flow{}
+			if err := parser.Decode(data, got); err != nil {
+				t.Fatalf("Unexpected error from Decode(data, %T): %v", got, err)
+			}
+
+			opts := []cmp.Option{
+				protocmp.Transform(),
+				protocmp.IgnoreFields(&flowpb.Flow{}, "reply"),
+			}
+			if diff := cmp.Diff(want, got, opts...); diff != "" {
+				t.Errorf("Unexpected diff (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
