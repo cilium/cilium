@@ -59,6 +59,14 @@ func (m mapType) String() string {
 	return fmt.Sprintf("Unknown (%d)", int(m))
 }
 
+func (m mapType) isGlobal() bool {
+	switch m {
+	case mapTypeIPv6AnyGlobal, mapTypeIPv4AnyGlobal, mapTypeIPv6TCPGlobal, mapTypeIPv4TCPGlobal:
+		return true
+	}
+	return false
+}
+
 func (m mapType) name() string {
 	switch m {
 	case mapTypeIPv4TCPLocal, mapTypeIPv4TCPGlobal:
@@ -93,14 +101,6 @@ func (m mapType) isIPv6() bool {
 func (m mapType) isLocal() bool {
 	switch m {
 	case mapTypeIPv4TCPLocal, mapTypeIPv6TCPLocal, mapTypeIPv4AnyLocal, mapTypeIPv6AnyLocal:
-		return true
-	}
-	return false
-}
-
-func (m mapType) isGlobal() bool {
-	switch m {
-	case mapTypeIPv4TCPGlobal, mapTypeIPv6TCPGlobal, mapTypeIPv4AnyGlobal, mapTypeIPv6AnyGlobal:
 		return true
 	}
 	return false
