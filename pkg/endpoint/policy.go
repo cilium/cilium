@@ -233,7 +233,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics) (*policyGener
 
 	stats.waitingForPolicyRepository.Start()
 	repo := e.policyGetter.GetPolicyRepository()
-	repo.Mutex.RLock() // Be sure to release this lock!
+	repo.RLock() // Be sure to release this lock!
 	stats.waitingForPolicyRepository.End(true)
 
 	result.policyRevision = repo.GetRevision()
@@ -251,7 +251,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics) (*policyGener
 					"policyChanged":       e.nextPolicyRevision > e.policyRevision,
 				}).Debug("Skipping unnecessary endpoint policy recalculation")
 			}
-			repo.Mutex.RUnlock()
+			repo.RUnlock()
 			return result, nil
 		} else {
 			e.getLogger().Debug("Forced policy recalculation")
@@ -270,7 +270,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics) (*policyGener
 		if result.selectorPolicy == nil {
 			err := fmt.Errorf("no cached selectorPolicy found")
 			e.getLogger().WithError(err).Warning("Failed to regenerate from cached policy")
-			repo.Mutex.RUnlock()
+			repo.RUnlock()
 			return result, err
 		}
 	}
@@ -283,10 +283,10 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics) (*policyGener
 	err = repo.GetPolicyCache().UpdatePolicy(securityIdentity)
 	if err != nil {
 		e.getLogger().WithError(err).Warning("Failed to update policy")
-		repo.Mutex.RUnlock()
+		repo.RUnlock()
 		return nil, err
 	}
-	repo.Mutex.RUnlock() // Done with policy repository; release this now as Consume() can be slow
+	repo.RUnlock() // Done with policy repository; release this now as Consume() can be slow
 
 	// Consume converts a SelectorPolicy in to an EndpointPolicy
 	result.endpointPolicy = result.selectorPolicy.Consume(e)

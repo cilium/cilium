@@ -238,8 +238,8 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 	_, _, err := repo.mustAdd(rule1)
 	require.NoError(t, err)
 
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
@@ -330,8 +330,9 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 	_, _, err := repo.mustAdd(rule1)
 	require.NoError(t, err)
 
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
+
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
@@ -425,8 +426,8 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	_, _, err := repo.mustAdd(rule1)
 	require.NoError(t, err)
 
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
@@ -552,8 +553,8 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	_, _, err := repo.mustAdd(rule1)
 	require.NoError(t, err)
 
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 

@@ -753,9 +753,9 @@ func (ds *DaemonSuite) testReplacePolicy(t *testing.T) {
 
 	_, err := ds.d.PolicyAdd(rules, policyAddOptions)
 	require.NoError(t, err)
-	ds.d.policy.Mutex.RLock()
+	ds.d.policy.RLock()
 	require.Len(t, ds.d.policy.SearchRLocked(lbls), 2)
-	ds.d.policy.Mutex.RUnlock()
+	ds.d.policy.RUnlock()
 	rules[0].Egress = []api.EgressRule{
 		{
 			EgressCommonRule: api.EgressCommonRule{
@@ -769,9 +769,9 @@ func (ds *DaemonSuite) testReplacePolicy(t *testing.T) {
 	_, err = ds.d.PolicyAdd(rules, &policy.AddOptions{Replace: true})
 
 	require.NoError(t, err)
-	ds.d.policy.Mutex.RLock()
+	ds.d.policy.RLock()
 	require.Len(t, ds.d.policy.SearchRLocked(lbls), 2)
-	ds.d.policy.Mutex.RUnlock()
+	ds.d.policy.RUnlock()
 }
 
 func TestRemovePolicyEtcd(t *testing.T) {
@@ -1033,11 +1033,11 @@ func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
 	type args struct {
 		ciliumV2Store cache.Store
 		cnp           *types.SlimCNP
-		repo          *policy.Repository
+		repo          policy.PolicyRepository
 	}
 	type wanted struct {
 		err  error
-		repo *policy.Repository
+		repo policy.PolicyRepository
 	}
 	tests := []struct {
 		name        string
@@ -1358,16 +1358,19 @@ func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
 func drainAndWaitForPolicyQueues(d *Daemon) {
 	var wg sync.WaitGroup
 
+	repoChangeQueue := d.policy.GetRepositoryChangeQueue()
+	ruleReactionQueue := d.policy.GetRuleReactionQueue()
+
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		d.policy.RepositoryChangeQueue.Stop()
-		d.policy.RepositoryChangeQueue.WaitToBeDrained()
+		repoChangeQueue.Stop()
+		repoChangeQueue.WaitToBeDrained()
 	}()
 	go func() {
 		defer wg.Done()
-		d.policy.RuleReactionQueue.Stop()
-		d.policy.RuleReactionQueue.WaitToBeDrained()
+		ruleReactionQueue.Stop()
+		ruleReactionQueue.WaitToBeDrained()
 	}()
 
 	wg.Wait()

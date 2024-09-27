@@ -1576,7 +1576,7 @@ type daemonParams struct {
 	CertManager            certificatemanager.CertificateManager
 	SecretManager          certificatemanager.SecretManager
 	IdentityAllocator      identitycell.CachingIdentityAllocator
-	Policy                 *policy.Repository
+	Policy                 policy.PolicyRepository
 	IPCache                *ipcache.IPCache
 	DirectoryPolicyWatcher policyDirectory.ResourcesWatcher
 	DirReadStatus          policyDirectory.DirectoryWatcherReadStatus

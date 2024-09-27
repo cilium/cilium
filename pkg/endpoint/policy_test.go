@@ -45,10 +45,12 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	repo := policy.NewPolicyRepository(fakeAllocator.GetIdentityCache(), nil, nil, nil)
 
 	defer func() {
-		repo.RepositoryChangeQueue.Stop()
-		repo.RuleReactionQueue.Stop()
-		repo.RepositoryChangeQueue.WaitToBeDrained()
-		repo.RuleReactionQueue.WaitToBeDrained()
+		repoChangeQueue := repo.GetRepositoryChangeQueue()
+		ruleReactionQueue := repo.GetRuleReactionQueue()
+		repoChangeQueue.Stop()
+		ruleReactionQueue.Stop()
+		repoChangeQueue.WaitToBeDrained()
+		ruleReactionQueue.WaitToBeDrained()
 	}()
 
 	addIdentity := func(labelKeys ...string) *identity.Identity {
@@ -179,9 +181,9 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 }
 
 type mockPolicyGetter struct {
-	repo *policy.Repository
+	repo policy.PolicyRepository
 }
 
-func (m *mockPolicyGetter) GetPolicyRepository() *policy.Repository {
+func (m *mockPolicyGetter) GetPolicyRepository() policy.PolicyRepository {
 	return m.repo
 }

@@ -57,7 +57,7 @@ type identityAllocatorParams struct {
 	cell.In
 
 	Lifecycle        cell.Lifecycle
-	PolicyRepository *policy.Repository
+	PolicyRepository policy.PolicyRepository
 	PolicyUpdater    *policy.Updater
 
 	Config config
@@ -119,7 +119,7 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 // identityAllocatorOwner is used to break the circular dependency between
 // CachingIdentityAllocator and policy.Repository.
 type identityAllocatorOwner struct {
-	policy        *policy.Repository
+	policy        policy.PolicyRepository
 	policyUpdater *policy.Updater
 }
 

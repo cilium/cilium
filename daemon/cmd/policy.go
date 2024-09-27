@@ -62,7 +62,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *policy.AddOptions) (newR
 		d:     d,
 	}
 	polAddEvent := eventqueue.NewEvent(p)
-	resChan, err := d.policy.RepositoryChangeQueue.Enqueue(polAddEvent)
+	resChan, err := d.policy.GetRepositoryChangeQueue().Enqueue(polAddEvent)
 	if err != nil {
 		return 0, fmt.Errorf("enqueue of PolicyAddEvent failed: %w", err)
 	}
@@ -98,7 +98,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 
 	// No errors past this point!
 
-	d.policy.Mutex.Lock()
+	d.policy.Lock()
 
 	// removedPrefixes tracks prefixes that we replace in the rules. It is used
 	// after we release the policy repository lock.
@@ -189,7 +189,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		addedRules.FindSelectedEndpoints(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 	}
 
-	d.policy.Mutex.Unlock()
+	d.policy.Unlock()
 
 	// Begin tracking the time taken to deploy newRev to the datapath. The start
 	// time is from before the locking above, and thus includes all waits and
@@ -240,7 +240,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	// This event may block if the RuleReactionQueue is full. We don't care
 	// about when it finishes, just that the work it does is done in a serial
 	// order.
-	_, err = d.policy.RuleReactionQueue.Enqueue(ev)
+	_, err = d.policy.GetRuleReactionQueue().Enqueue(ev)
 	if err != nil {
 		log.WithError(err).WithField(logfields.PolicyRevision, newRev).Error("enqueue of RuleReactionEvent failed")
 	}
@@ -371,7 +371,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 		d:      d,
 	}
 	policyDeleteEvent := eventqueue.NewEvent(p)
-	resChan, err := d.policy.RepositoryChangeQueue.Enqueue(policyDeleteEvent)
+	resChan, err := d.policy.GetRepositoryChangeQueue().Enqueue(policyDeleteEvent)
 	if err != nil {
 		return 0, fmt.Errorf("enqueue of PolicyDeleteEvent failed: %w", err)
 	}
@@ -387,7 +387,7 @@ func (d *Daemon) PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptions, res chan interface{}) {
 	log.WithField(logfields.IdentityLabels, logfields.Repr(labels)).Debug("Policy Delete Request")
 
-	d.policy.Mutex.Lock()
+	d.policy.Lock()
 
 	// policySelectionWG is used to signal when the updating of all of the
 	// caches of allEndpoints in the rules which were added / updated have been
@@ -426,7 +426,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 		// not fail if no policies are loaded.
 		if len(deletedRules) == 0 && len(labels) != 0 {
 			rev := d.policy.GetRevision()
-			d.policy.Mutex.Unlock()
+			d.policy.Unlock()
 
 			err := api.New(DeletePolicyNotFoundCode, "policy not found")
 
@@ -447,7 +447,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 		err:    nil,
 	}
 
-	d.policy.Mutex.Unlock()
+	d.policy.Unlock()
 
 	// Now that the policies are deleted, we can also attempt to remove
 	// all CIDR identities referenced by the deleted rules.
@@ -475,7 +475,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 	// This event may block if the RuleReactionQueue is full. We don't care
 	// about when it finishes, just that the work it does is done in a serial
 	// order.
-	if _, err := d.policy.RuleReactionQueue.Enqueue(ev); err != nil {
+	if _, err := d.policy.GetRuleReactionQueue().Enqueue(ev); err != nil {
 		log.WithError(err).WithField(logfields.PolicyRevision, rev).Error("enqueue of RuleReactionEvent failed")
 	}
 	if err := d.SendNotification(monitorAPI.PolicyDeleteMessage(deleted, labels.GetModel(), rev)); err != nil {
@@ -538,8 +538,8 @@ func putPolicyHandler(d *Daemon, params PutPolicyParams) middleware.Responder {
 
 func getPolicyHandler(d *Daemon, params GetPolicyParams) middleware.Responder {
 	repository := d.policy
-	repository.Mutex.RLock()
-	defer repository.Mutex.RUnlock()
+	repository.RLock()
+	defer repository.RUnlock()
 
 	lbls := labels.ParseSelectLabelArrayFromArray(params.Labels)
 	ruleList := repository.SearchRLocked(lbls)
