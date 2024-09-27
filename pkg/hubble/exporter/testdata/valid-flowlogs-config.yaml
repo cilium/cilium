@@ -10,6 +10,7 @@ flowLogs:
   fieldMask: ["source.namespace", "source.pod_name", "destination.namespace", "destination.pod_name", "verdict"]
   includeFilters:
   - source_pod: ["default/"]
+    source_label: ["networking.example.com/flow-logs=enabled"]
     event_type:
     - type: 1
   - destination_pod: ["frontend/nginx-975996d4c-7hhgt"]
