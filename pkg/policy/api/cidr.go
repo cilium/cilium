@@ -44,6 +44,12 @@ type CIDRRule struct {
 	// +kubebuilder:validation:OneOf
 	CIDRGroupRef CIDRGroupRef `json:"cidrGroupRef,omitempty"`
 
+	// CIDRGroupSelector selects CiliumCIDRGroups by their labels,
+	// rather than by name.
+	//
+	// +kubebuilder:validation:OneOf
+	CIDRGroupSelector *slim_metav1.LabelSelector `json:"cidrGroupSelector,omitempty"`
+
 	// ExceptCIDRs is a list of IP blocks which the endpoint subject to the rule
 	// is not allowed to initiate connections to. These CIDR prefixes should be
 	// contained within Cidr, using ExceptCIDRs together with CIDRGroupRef is not
