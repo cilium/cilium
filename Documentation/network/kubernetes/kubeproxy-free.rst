@@ -616,16 +616,17 @@ Hybrid DSR and SNAT Mode
 
 Cilium also supports a hybrid DSR and SNAT mode, that is, DSR is performed for TCP
 and SNAT for UDP connections.
-This removes the need for manual MTU changes in the network while still benefiting from the latency improvements
-through the removed extra hop for replies, in particular, when TCP is the main transport
-for workloads.
+
+This removes the need for manual MTU changes in the network while still benefiting
+from the latency improvements through the removed extra hop for replies, in particular,
+when TCP is the main transport for workloads.
 
 The mode setting ``loadBalancer.mode`` allows to control the behavior through the
-options ``dsr``, ``snat`` and ``hybrid``. By default the ``snat`` mode is used in the
-agent.
+options ``dsr``, ``snat``, ``annotation``, and ``hybrid``. By default the ``snat``
+mode is used in the agent.
 
-A Helm example configuration in a kube-proxy-free environment with DSR enabled in hybrid
-mode would look as follows:
+A Helm example configuration in a kube-proxy-free environment with DSR enabled in
+hybrid mode would look as follows:
 
 .. parsed-literal::
 
@@ -634,6 +635,40 @@ mode would look as follows:
         --set routingMode=native \\
         --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=hybrid \\
+        --set k8sServiceHost=${API_SERVER_IP} \\
+        --set k8sServicePort=${API_SERVER_PORT}
+
+Annotation-based DSR and SNAT Mode
+**********************************
+
+Cilium also supports an annotation-based DSR and SNAT mode, that is, services
+are exposed by default via SNAT, and on-demand as DSR:
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/type: LoadBalancer
+      service.cilium.io/mode: dsr
+  spec:
+    ports:
+      - port: 80
+        targetPort: 80
+    type: LoadBalancer
+
+A Helm example configuration in a kube-proxy-free environment with DSR enabled in
+annotation mode would look as follows:
+
+.. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set routingMode=native \\
+        --set kubeProxyReplacement=true \\
+        --set loadBalancer.mode=annotation \\
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
