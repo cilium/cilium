@@ -5,9 +5,9 @@ package job
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"log/slog"
-	"regexp"
 	"runtime/pprof"
 	"sync"
 
@@ -232,11 +232,34 @@ func (sg *scopedGroup) Add(jobs ...Job) {
 	sg.group.add(sg.health, jobs...)
 }
 
-var nameRegex = regexp.MustCompile(`^[a-z][a-z0-9_\-]{0,100}$`)
+const maxNameLength = 100
 
-func validateName(name string) error {
-	if !nameRegex.MatchString(name) {
-		return fmt.Errorf("invalid job name: %q, expected to match %q", name, nameRegex)
+func sanitizeName(name string) string {
+	mangled := false
+	newLength := min(maxNameLength, len(name))
+	runes := make([]rune, 0, newLength)
+	for _, r := range name[:newLength] {
+		switch {
+		case r >= 'a' && r <= 'z':
+			fallthrough
+		case r >= 'A' && r <= 'Z':
+			fallthrough
+		case r >= '0' && r <= '9':
+			fallthrough
+		case r == '-' || r == '_':
+			runes = append(runes, r)
+		default:
+			// Skip invalid characters.
+			mangled = true
+		}
 	}
-	return nil
+	if mangled || len(name) > maxNameLength {
+		// Name was mangled or is too long, truncate and append hash.
+		const hashLen = 10
+		hash := fmt.Sprintf("%x", sha256.Sum256([]byte(name)))
+		newLen := min(maxNameLength-hashLen, len(runes))
+		runes = runes[:newLen]
+		return string(runes) + "-" + hash[:hashLen]
+	}
+	return string(runes)
 }
