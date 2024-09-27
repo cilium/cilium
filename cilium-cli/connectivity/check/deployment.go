@@ -1157,13 +1157,7 @@ func (ct *ConnectivityTest) deployPerf(ctx context.Context) error {
 
 // deploymentList returns 2 lists of Deployments to be used for running tests with.
 func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string) {
-	if !ct.params.Perf {
-		srcList = []string{clientDeploymentName, client2DeploymentName, echoSameNodeDeploymentName}
-		if ct.params.MultiCluster == "" && !ct.params.SingleNode {
-			srcList = append(srcList, client3DeploymentName)
-		}
-	} else if ct.params.TestNamespaceIndex == 0 {
-		srcList = []string{}
+	if ct.params.Perf && ct.params.TestNamespaceIndex == 0 {
 		if ct.params.PerfParameters.PodNet {
 			srcList = append(srcList, perfClientDeploymentName)
 			srcList = append(srcList, perfClientAcrossDeploymentName)
@@ -1174,6 +1168,14 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 			srcList = append(srcList, perfClientHostNetAcrossDeploymentName)
 			srcList = append(srcList, perfServerHostNetDeploymentName)
 		}
+		// Return early, we can't run regular connectivity tests
+		// along perf test
+		return
+	}
+
+	srcList = []string{clientDeploymentName, client2DeploymentName, echoSameNodeDeploymentName}
+	if ct.params.MultiCluster == "" && !ct.params.SingleNode {
+		srcList = append(srcList, client3DeploymentName)
 	}
 
 	if ct.params.IncludeConnDisruptTest && ct.params.TestNamespaceIndex == 0 {
@@ -1187,7 +1189,7 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 		dstList = append(dstList, testConnDisruptClientDeploymentName)
 	}
 
-	if (ct.params.MultiCluster != "" || !ct.params.SingleNode) && !ct.params.Perf {
+	if ct.params.MultiCluster != "" || !ct.params.SingleNode {
 		dstList = append(dstList, echoOtherNodeDeploymentName)
 	}
 
