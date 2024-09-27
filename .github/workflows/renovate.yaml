@@ -31,16 +31,16 @@ jobs:
       # renovate clones the repository again in its container fs but it needs
       # the renovate configuration to start.
       - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
 
       - name: Self-hosted Renovate
-        uses: renovatebot/github-action@dd4d265eb8646cd04fc5f86ff8bc8d496d75a251 # v40.2.8
+        uses: renovatebot/github-action@e1db501385ddcccbaae6fb9c06befae04f379f23 # v40.2.10
         env:
           # default to DEBUG log level, this is always useful
           LOG_LEVEL: ${{ github.event.inputs.renovate_log_level_debug == 'false' && 'INFO' || 'DEBUG' }}
         with:
           # renovate: datasource=github-releases depName=renovatebot/renovate
-          renovate-version: 38.80.0
+          renovate-version: 38.98.0
           docker-user: root
           docker-cmd-file: .github/actions/renovate/entrypoint.sh
           configurationFile: .github/renovate.json5
