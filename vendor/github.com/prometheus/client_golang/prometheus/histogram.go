@@ -844,9 +844,7 @@ func (h *histogram) Write(out *dto.Metric) error {
 			}}
 		}
 
-		// If exemplars are not configured, the cap will be 0.
-		// So append is not needed in this case.
-		if cap(h.nativeExemplars.exemplars) > 0 {
+		if h.nativeExemplars.isEnabled() {
 			h.nativeExemplars.Lock()
 			his.Exemplars = append(his.Exemplars, h.nativeExemplars.exemplars...)
 			h.nativeExemplars.Unlock()
@@ -1665,6 +1663,10 @@ type nativeExemplars struct {
 	exemplars []*dto.Exemplar
 }
 
+func (n *nativeExemplars) isEnabled() bool {
+	return n.ttl != -1
+}
+
 func makeNativeExemplars(ttl time.Duration, maxCount int) nativeExemplars {
 	if ttl == 0 {
 		ttl = 5 * time.Minute
@@ -1686,7 +1688,7 @@ func makeNativeExemplars(ttl time.Duration, maxCount int) nativeExemplars {
 }
 
 func (n *nativeExemplars) addExemplar(e *dto.Exemplar) {
-	if n.ttl == -1 {
+	if !n.isEnabled() {
 		return
 	}
 
