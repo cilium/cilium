@@ -45,7 +45,7 @@ import (
 )
 
 type DNSProxyTestSuite struct {
-	repo         *policy.Repository
+	repo         policy.PolicyRepository
 	dnsTCPClient *dns.Client
 	dnsServer    *dns.Server
 	proxy        *DNSProxy
@@ -159,7 +159,7 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 	return s
 }
 
-func (s *DNSProxyTestSuite) GetPolicyRepository() *policy.Repository {
+func (s *DNSProxyTestSuite) GetPolicyRepository() policy.PolicyRepository {
 	return s.repo
 }
 

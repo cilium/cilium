@@ -59,7 +59,7 @@ type DaemonSuite struct {
 	oldPolicyEnabled string
 
 	// Owners interface mock
-	OnGetPolicyRepository  func() *policy.Repository
+	OnGetPolicyRepository  func() policy.PolicyRepository
 	OnGetNamedPorts        func() (npm types.NamedPortMultiMap)
 	OnQueueEndpointBuild   func(ctx context.Context, epID uint64) (func(), error)
 	OnGetCompilationLock   func() datapath.CompilationLock
@@ -242,7 +242,7 @@ func TestMinimumWorkerThreadsIsSet(t *testing.T) {
 	require.GreaterOrEqual(t, numWorkerThreads(), runtime.NumCPU())
 }
 
-func (ds *DaemonSuite) GetPolicyRepository() *policy.Repository {
+func (ds *DaemonSuite) GetPolicyRepository() policy.PolicyRepository {
 	if ds.OnGetPolicyRepository != nil {
 		return ds.OnGetPolicyRepository()
 	}
