@@ -659,6 +659,12 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 		break;
 	}
 
+#ifdef ENABLE_WIREGUARD
+	if ((ctx->mark & MARK_MAGIC_WG_DECRYPTED) == MARK_MAGIC_WG_DECRYPTED)
+		send_trace_notify(ctx, TRACE_FROM_CRYPTO_DEV, src_sec_identity, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN, WG_IFINDEX, TRACE_REASON_ENCRYPTED, 0);
+#endif
+
 #ifdef ENABLE_IPSEC
 	if (is_esp(ctx, proto))
 		send_trace_notify(ctx, TRACE_FROM_OVERLAY, src_sec_identity, UNKNOWN_ID,
