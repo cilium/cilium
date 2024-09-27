@@ -28,7 +28,7 @@ func (u *Updater) TriggerPolicyUpdates(force bool, reason string) {
 
 // NewUpdater returns a new Updater instance to handle triggering policy
 // updates ready for use.
-func NewUpdater(r *Repository, regen regenerator) *Updater {
+func NewUpdater(r PolicyRepository, regen regenerator) *Updater {
 	t, err := trigger.NewTrigger(trigger.Parameters{
 		Name:            "policy_update",
 		MetricsObserver: &TriggerMetrics{},
@@ -62,7 +62,7 @@ func NewUpdater(r *Repository, regen regenerator) *Updater {
 type Updater struct {
 	*trigger.Trigger
 
-	repo *Repository
+	repo PolicyRepository
 }
 
 type regenerator interface {

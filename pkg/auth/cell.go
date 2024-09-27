@@ -84,7 +84,7 @@ type authManagerParams struct {
 	IdentityChanges stream.Observable[cache.IdentityChange]
 	NodeManager     nodeManager.NodeManager
 	EndpointManager endpointmanager.EndpointManager
-	PolicyRepo      *policy.Repository
+	PolicyRepo      policy.PolicyRepository
 }
 
 func registerAuthManager(params authManagerParams) (*AuthManager, error) {

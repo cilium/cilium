@@ -102,7 +102,7 @@ type configModifyEventHandlerParams struct {
 	Logger    logrus.FieldLogger
 
 	Orchestrator    datapath.Orchestrator
-	Policy          *policy.Repository
+	Policy          policy.PolicyRepository
 	EndpointManager endpointmanager.EndpointManager
 	L7Proxy         *proxy.Proxy
 }
@@ -161,7 +161,7 @@ type ConfigModifyEventHandler struct {
 	configModifyQueue *eventqueue.EventQueue
 
 	orchestrator    datapath.Orchestrator
-	policy          *policy.Repository
+	policy          policy.PolicyRepository
 	endpointManager endpointmanager.EndpointManager
 	l7Proxy         *proxy.Proxy
 }

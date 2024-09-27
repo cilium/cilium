@@ -1639,8 +1639,8 @@ func expectResult(t *testing.T, expected, obtained api.Decision, buffer *bytes.B
 }
 
 func checkIngress(t *testing.T, repo *Repository, ctx *SearchContext, verdict api.Decision) {
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 
 	buffer := new(bytes.Buffer)
 	ctx.Logging = stdlog.New(buffer, "", 0)
@@ -1648,8 +1648,8 @@ func checkIngress(t *testing.T, repo *Repository, ctx *SearchContext, verdict ap
 }
 
 func checkEgress(t *testing.T, repo *Repository, ctx *SearchContext, verdict api.Decision) {
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 
 	buffer := new(bytes.Buffer)
 	ctx.Logging = stdlog.New(buffer, "", 0)

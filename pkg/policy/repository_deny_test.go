@@ -263,10 +263,10 @@ func TestGetRulesMatching(t *testing.T) {
 		To:   labels.ParseSelectLabelArray("bar"),
 	}
 
-	repo.Mutex.RLock()
+	repo.mutex.RLock()
 	// no rules loaded: Allows() => denied
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(fooToBar))
-	repo.Mutex.RUnlock()
+	repo.mutex.RUnlock()
 
 	bar := labels.ParseSelectLabel("bar")
 	foo := labels.ParseSelectLabel("foo")
@@ -331,10 +331,10 @@ func TestDeniesIngress(t *testing.T) {
 		To:   labels.ParseSelectLabelArray("bar"),
 	}
 
-	repo.Mutex.RLock()
+	repo.mutex.RLock()
 	// no rules loaded: Allows() => denied
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(fooToBar))
-	repo.Mutex.RUnlock()
+	repo.mutex.RUnlock()
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
 	rule1 := api.Rule{
@@ -430,10 +430,10 @@ func TestDeniesEgress(t *testing.T) {
 		To:   labels.ParseSelectLabelArray("bar"),
 	}
 
-	repo.Mutex.RLock()
+	repo.mutex.RLock()
 	// no rules loaded: Allows() => denied
 	require.Equal(t, api.Denied, repo.AllowsEgressRLocked(fooToBar))
-	repo.Mutex.RUnlock()
+	repo.mutex.RUnlock()
 
 	tag1 := labels.LabelArray{labels.ParseLabel("tag1")}
 	rule1 := api.Rule{
@@ -554,8 +554,8 @@ func TestWildcardL3RulesIngressDeny(t *testing.T) {
 		To: labels.ParseSelectLabelArray("id=foo"),
 	}
 
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 
 	policyDeny, err := repo.ResolveL4IngressPolicy(ctx)
 	require.NoError(t, err)
@@ -630,8 +630,8 @@ func TestWildcardL4RulesIngressDeny(t *testing.T) {
 		To: labels.ParseSelectLabelArray("id=foo"),
 	}
 
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 
 	policyDeny, err := repo.ResolveL4IngressPolicy(ctx)
 	require.NoError(t, err)
@@ -702,8 +702,8 @@ func TestL3DependentL4IngressDenyFromRequires(t *testing.T) {
 		To: labels.ParseSelectLabelArray("id=foo"),
 	}
 
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 
 	policyDeny, err := repo.ResolveL4IngressPolicy(ctx)
 	require.NoError(t, err)
@@ -774,8 +774,8 @@ func TestL3DependentL4EgressDenyFromRequires(t *testing.T) {
 		From: labels.ParseSelectLabelArray("id=foo"),
 	}
 
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 
 	logBuffer := new(bytes.Buffer)
 	policyDeny, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
@@ -901,8 +901,8 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 		From: labels.ParseSelectLabelArray("id=foo"),
 	}
 
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 
 	logBuffer := new(bytes.Buffer)
 	policyDeny, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
@@ -1005,8 +1005,8 @@ func TestWildcardL4RulesEgressDeny(t *testing.T) {
 		From: labels.ParseSelectLabelArray("id=foo"),
 	}
 
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 
 	logBuffer := new(bytes.Buffer)
 	policyDeny, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
@@ -1104,8 +1104,8 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 		From: labels.ParseSelectLabelArray("id=foo"),
 	}
 
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 
 	logBuffer := new(bytes.Buffer)
 	policyDeny, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
@@ -1170,8 +1170,8 @@ func TestWildcardL3RulesIngressDenyFromEntities(t *testing.T) {
 		To: labels.ParseSelectLabelArray("id=foo"),
 	}
 
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 
 	policyDeny, err := repo.ResolveL4IngressPolicy(ctx)
 	require.NoError(t, err)
@@ -1237,8 +1237,8 @@ func TestWildcardL3RulesEgressDenyToEntities(t *testing.T) {
 		From: labels.ParseSelectLabelArray("id=foo"),
 	}
 
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 
 	policyDeny, err := repo.ResolveL4EgressPolicy(ctx)
 	require.NoError(t, err)
@@ -1296,11 +1296,11 @@ func TestMinikubeGettingStartedDeny(t *testing.T) {
 		To:   labels.ParseSelectLabelArray("id=app1"),
 	}
 
-	repo.Mutex.RLock()
+	repo.mutex.RLock()
 	// no rules loaded: Allows() => denied
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(fromApp2))
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(fromApp3))
-	repo.Mutex.RUnlock()
+	repo.mutex.RUnlock()
 
 	selFromApp2 := api.NewESFromLabels(
 		labels.ParseSelectLabel("id=app2"),
@@ -1344,8 +1344,8 @@ func TestMinikubeGettingStartedDeny(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	repo.Mutex.RLock()
-	defer repo.Mutex.RUnlock()
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
 
 	// L4 from app2 is restricted
 	logBuffer := new(bytes.Buffer)
@@ -1559,8 +1559,8 @@ Ingress verdict: denied
 
 	// Should still be allowed with the new FromRequires constraint
 	ctx = buildSearchCtx("baz", "bar", 80)
-	repo.Mutex.RLock()
+	repo.mutex.RLock()
 	verdict := repo.AllowsIngressRLocked(ctx)
-	repo.Mutex.RUnlock()
+	repo.mutex.RUnlock()
 	require.Equal(t, api.Denied, verdict)
 }

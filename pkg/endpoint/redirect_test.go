@@ -125,12 +125,12 @@ func (d *DummyIdentityAllocatorOwner) GetNodeSuffix() string {
 
 // DummyOwner implements pkg/endpoint/regeneration/Owner. Used for unit testing.
 type DummyOwner struct {
-	repo  *policy.Repository
+	repo  policy.PolicyRepository
 	idmgr identitymanager.IDManager
 }
 
 // GetPolicyRepository returns the policy repository of the owner.
-func (d *DummyOwner) GetPolicyRepository() *policy.Repository {
+func (d *DummyOwner) GetPolicyRepository() policy.PolicyRepository {
 	return d.repo
 }
 
@@ -216,7 +216,8 @@ func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 }
 
 func (s *RedirectSuite) AddRules(rules api.Rules) {
-	s.do.repo.MustAddList(rules)
+	repo := s.do.repo.(*policy.Repository)
+	repo.MustAddList(rules)
 }
 
 func (s *RedirectSuite) TearDownTest(t *testing.T) {
