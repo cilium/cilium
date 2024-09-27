@@ -372,6 +372,20 @@ jobs:
             secondary-network: 'true'
             ingress-controller: 'true'
 
+          - name: '23'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-20240711.013133'
+            misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
+            kube-proxy: 'none'
+            kpr: 'true'
+            ipv6: 'true'
+            tunnel: 'disabled'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
+            ingress-controller: 'true'
+            host-fw: 'true'
+            skip-upgrade: 'true'
+
           # Example of a feature that is being introduced, and we want to test
           # it without performing an upgrade, we use skip-upgrade: 'true'
           # - name: '23'
