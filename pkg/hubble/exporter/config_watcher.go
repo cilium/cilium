@@ -67,7 +67,7 @@ func (c *configWatcher) reload() {
 	config, hash, err := c.readConfig()
 	if err != nil {
 		DynamicExporterReconfigurations.WithLabelValues("failure").Inc()
-		c.logger.Warnf("failed reading dynamic exporter config")
+		c.logger.WithError(err).Warn("failed reading dynamic exporter config")
 	} else {
 		c.callback(context.TODO(), hash, *config)
 	}
