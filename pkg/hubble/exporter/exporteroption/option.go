@@ -21,8 +21,10 @@ type Options struct {
 	MaxBackups int
 	Compress   bool
 
-	AllowList, DenyList filters.FilterFuncs
+	AllowList, DenyList []*flowpb.FlowFilter
 	FieldMask           fieldmask.FieldMask
+
+	allowFilters, denyFilters filters.FilterFuncs
 }
 
 // Option customizes the configuration of the hubble server.
@@ -68,7 +70,7 @@ func WithAllowList(log logrus.FieldLogger, f []*flowpb.FlowFilter) Option {
 		if err != nil {
 			return err
 		}
-		o.AllowList = filterList
+		o.allowFilters = filterList
 		return nil
 	}
 }
@@ -80,7 +82,7 @@ func WithDenyList(log logrus.FieldLogger, f []*flowpb.FlowFilter) Option {
 		if err != nil {
 			return err
 		}
-		o.DenyList = filterList
+		o.denyFilters = filterList
 		return nil
 	}
 }
@@ -99,4 +101,12 @@ func WithFieldMask(paths []string) Option {
 		o.FieldMask = fieldMask
 		return nil
 	}
+}
+
+func (o *Options) AllowFilters() filters.FilterFuncs {
+	return o.allowFilters
+}
+
+func (o *Options) DenyFilters() filters.FilterFuncs {
+	return o.denyFilters
 }

@@ -140,7 +140,7 @@ func (e *exporter) OnDecodedEvent(_ context.Context, ev *v1.Event) (bool, error)
 		return false, e.Stop()
 	default:
 	}
-	if !filters.Apply(e.opts.AllowList, e.opts.DenyList, ev) {
+	if !filters.Apply(e.opts.AllowFilters(), e.opts.DenyFilters(), ev) {
 		return false, nil
 	}
 	res := e.eventToExportEvent(ev)
