@@ -27,7 +27,7 @@ func TestYamlConfigFileUnmarshalling(t *testing.T) {
 	// then
 	assert.Equal(t, 3, len(config.FlowLogs))
 
-	assert.Equal(t, uint64(0x31b7b661343ab32f), hash)
+	assert.Equal(t, uint64(0x912a996c7b013eb3), hash, "hash should match")
 
 	expectedDate := time.Date(2023, 10, 9, 23, 59, 59, 0, time.FixedZone("", -7*60*60))
 
@@ -46,7 +46,8 @@ func TestYamlConfigFileUnmarshalling(t *testing.T) {
 			FieldMask: FieldMask{"source.namespace", "source.pod_name", "destination.namespace", "destination.pod_name", "verdict"},
 			IncludeFilters: FlowFilters{
 				{
-					SourcePod: []string{"default/"},
+					SourcePod:   []string{"default/"},
+					SourceLabel: []string{"networking.example.com/flow-logs=enabled"},
 					EventType: []*flow.EventTypeFilter{
 						{Type: 1},
 					},
