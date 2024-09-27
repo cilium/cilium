@@ -2210,6 +2210,8 @@ type FleetCapacityReservationUsageStrategy string
 // Enum values for FleetCapacityReservationUsageStrategy
 const (
 	FleetCapacityReservationUsageStrategyUseCapacityReservationsFirst FleetCapacityReservationUsageStrategy = "use-capacity-reservations-first"
+	FleetCapacityReservationUsageStrategyUseCapacityReservationsOnly  FleetCapacityReservationUsageStrategy = "use-capacity-reservations-only"
+	FleetCapacityReservationUsageStrategyNone                         FleetCapacityReservationUsageStrategy = "none"
 )
 
 // Values returns all known values for FleetCapacityReservationUsageStrategy. Note
@@ -2220,6 +2222,8 @@ const (
 func (FleetCapacityReservationUsageStrategy) Values() []FleetCapacityReservationUsageStrategy {
 	return []FleetCapacityReservationUsageStrategy{
 		"use-capacity-reservations-first",
+		"use-capacity-reservations-only",
+		"none",
 	}
 }
 
@@ -3963,6 +3967,14 @@ const (
 	InstanceTypeR8gMetal24xl      InstanceType = "r8g.metal-24xl"
 	InstanceTypeR8gMetal48xl      InstanceType = "r8g.metal-48xl"
 	InstanceTypeMac2M1ultraMetal  InstanceType = "mac2-m1ultra.metal"
+	InstanceTypeG6eXlarge         InstanceType = "g6e.xlarge"
+	InstanceTypeG6e2xlarge        InstanceType = "g6e.2xlarge"
+	InstanceTypeG6e4xlarge        InstanceType = "g6e.4xlarge"
+	InstanceTypeG6e8xlarge        InstanceType = "g6e.8xlarge"
+	InstanceTypeG6e12xlarge       InstanceType = "g6e.12xlarge"
+	InstanceTypeG6e16xlarge       InstanceType = "g6e.16xlarge"
+	InstanceTypeG6e24xlarge       InstanceType = "g6e.24xlarge"
+	InstanceTypeG6e48xlarge       InstanceType = "g6e.48xlarge"
 )
 
 // Values returns all known values for InstanceType. Note that this can be
@@ -4791,6 +4803,14 @@ func (InstanceType) Values() []InstanceType {
 		"r8g.metal-24xl",
 		"r8g.metal-48xl",
 		"mac2-m1ultra.metal",
+		"g6e.xlarge",
+		"g6e.2xlarge",
+		"g6e.4xlarge",
+		"g6e.8xlarge",
+		"g6e.12xlarge",
+		"g6e.16xlarge",
+		"g6e.24xlarge",
+		"g6e.48xlarge",
 	}
 }
 

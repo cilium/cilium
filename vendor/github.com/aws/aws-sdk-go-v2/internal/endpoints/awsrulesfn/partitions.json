@@ -9,7 +9,7 @@
       "supportsDualStack" : true,
       "supportsFIPS" : true
     },
-    "regionRegex" : "^(us|eu|ap|sa|ca|me|af|il)\\-\\w+\\-\\d+$",
+    "regionRegex" : "^(us|eu|ap|sa|ca|me|af|il|mx)\\-\\w+\\-\\d+$",
     "regions" : {
       "af-south-1" : {
         "description" : "Africa (Cape Town)"

@@ -14834,12 +14834,6 @@ func validateOpDescribeCapacityBlockOfferingsInput(v *DescribeCapacityBlockOffer
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "DescribeCapacityBlockOfferingsInput"}
-	if v.InstanceType == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("InstanceType"))
-	}
-	if v.InstanceCount == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("InstanceCount"))
-	}
 	if v.CapacityDurationHours == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("CapacityDurationHours"))
 	}

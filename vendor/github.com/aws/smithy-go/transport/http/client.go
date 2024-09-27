@@ -7,6 +7,7 @@ import (
 
 	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
+	"github.com/aws/smithy-go/tracing"
 )
 
 // ClientDo provides the interface for custom HTTP client implementations.
@@ -42,6 +43,9 @@ func NewClientHandler(client ClientDo) ClientHandler {
 func (c ClientHandler) Handle(ctx context.Context, input interface{}) (
 	out interface{}, metadata middleware.Metadata, err error,
 ) {
+	ctx, span := tracing.StartSpan(ctx, "DoHTTPRequest")
+	defer span.End()
+
 	req, ok := input.(*Request)
 	if !ok {
 		return nil, metadata, fmt.Errorf("expect Smithy http.Request value as input, got unsupported type %T", input)
@@ -50,6 +54,16 @@ func (c ClientHandler) Handle(ctx context.Context, input interface{}) (
 	builtRequest := req.Build(ctx)
 	if err := ValidateEndpointHost(builtRequest.Host); err != nil {
 		return nil, metadata, err
+	}
+
+	span.SetProperty("http.method", req.Method)
+	span.SetProperty("http.request_content_length", -1) // at least indicate unknown
+	length, ok, err := req.StreamLength()
+	if err != nil {
+		return nil, metadata, err
+	}
+	if ok {
+		span.SetProperty("http.request_content_length", length)
 	}
 
 	resp, err := c.client.Do(builtRequest)
@@ -78,6 +92,10 @@ func (c ClientHandler) Handle(ctx context.Context, input interface{}) (
 	if builtRequest.Body != nil {
 		_ = builtRequest.Body.Close()
 	}
+
+	span.SetProperty("net.protocol.version", fmt.Sprintf("%d.%d", resp.ProtoMajor, resp.ProtoMinor))
+	span.SetProperty("http.status_code", resp.StatusCode)
+	span.SetProperty("http.response_content_length", resp.ContentLength)
 
 	return &Response{Response: resp}, metadata, err
 }
