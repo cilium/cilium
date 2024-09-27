@@ -54,7 +54,7 @@ func (mgr *endpointManager) WaitEndpointRemoved(ep *endpoint.Endpoint) {
 }
 
 type EndpointManagerSuite struct {
-	repo *policy.Repository
+	repo policy.PolicyRepository
 }
 
 func setupEndpointManagerSuite(tb testing.TB) *EndpointManagerSuite {
@@ -64,7 +64,7 @@ func setupEndpointManagerSuite(tb testing.TB) *EndpointManagerSuite {
 	return s
 }
 
-func (s *EndpointManagerSuite) GetPolicyRepository() *policy.Repository {
+func (s *EndpointManagerSuite) GetPolicyRepository() policy.PolicyRepository {
 	return s.repo
 }
 

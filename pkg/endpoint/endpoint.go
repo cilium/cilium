@@ -466,7 +466,7 @@ type namedPortsGetter interface {
 }
 
 type policyRepoGetter interface {
-	GetPolicyRepository() *policy.Repository
+	GetPolicyRepository() policy.PolicyRepository
 }
 
 // EndpointSyncControllerName returns the controller name to synchronize

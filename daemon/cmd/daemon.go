@@ -98,7 +98,7 @@ type Daemon struct {
 	envoyXdsServer   envoy.XDSServer
 	svc              service.ServiceManager
 	rec              *recorder.Recorder
-	policy           *policy.Repository
+	policy           policy.PolicyRepository
 	idmgr            *identitymanager.IdentityManager
 
 	statusCollectMutex lock.RWMutex
@@ -193,7 +193,7 @@ type Daemon struct {
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
-func (d *Daemon) GetPolicyRepository() *policy.Repository {
+func (d *Daemon) GetPolicyRepository() policy.PolicyRepository {
 	return d.policy
 }
 
