@@ -504,7 +504,7 @@ func Test_filterPodLabels(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := filterPodLabels(tt.labels); !reflect.DeepEqual(got, tt.want) {
+			if got := RemoveCiliumLabels(tt.labels); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("filterPodLabels() = %v, want %v", got, tt.want)
 			}
 		})
