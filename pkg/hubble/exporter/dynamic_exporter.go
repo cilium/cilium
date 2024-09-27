@@ -88,27 +88,29 @@ func (d *DynamicExporter) onConfigReload(ctx context.Context, hash uint64, confi
 	configuredFlowLogNames := make(map[string]interface{})
 	for _, flowlog := range config.FlowLogs {
 		configuredFlowLogNames[flowlog.Name] = struct{}{}
+		var label string
 		if _, ok := d.managedExporters[flowlog.Name]; ok {
-			if d.applyUpdatedConfig(ctx, flowlog) {
-				DynamicExporterReconfigurations.WithLabelValues("update").Inc()
-			}
+			label = "update"
 		} else {
-			d.applyNewConfig(ctx, flowlog)
-			DynamicExporterReconfigurations.WithLabelValues("add").Inc()
+			label = "add"
+		}
+		if d.applyUpdatedConfig(ctx, flowlog) {
+			DynamicExporterReconfigurations.WithLabelValues(label).Inc()
 		}
 	}
 
 	for flowLogName := range d.managedExporters {
 		if _, ok := configuredFlowLogNames[flowLogName]; !ok {
-			d.applyRemovedConfig(flowLogName)
-			DynamicExporterReconfigurations.WithLabelValues("remove").Inc()
+			if d.removeExporter(flowLogName) {
+				DynamicExporterReconfigurations.WithLabelValues("remove").Inc()
+			}
 		}
 	}
 
 	d.updateLastAppliedConfigGauges(hash)
 }
 
-func (d *DynamicExporter) applyNewConfig(ctx context.Context, flowlog *FlowLogConfig) {
+func (d *DynamicExporter) newExporter(ctx context.Context, flowlog *FlowLogConfig) (*exporter, error) {
 	exporterOpts := []exporteroption.Option{
 		exporteroption.WithPath(flowlog.FilePath),
 		exporteroption.WithMaxSizeMB(d.maxFileSizeMB),
@@ -118,16 +120,7 @@ func (d *DynamicExporter) applyNewConfig(ctx context.Context, flowlog *FlowLogCo
 		exporteroption.WithFieldMask(flowlog.FieldMask),
 	}
 
-	exporter, err := NewExporter(ctx, d.logger.WithField("flowLogName", flowlog.Name), exporterOpts...)
-	if err != nil {
-		d.logger.Errorf("Failed to apply flowlog for name %s: %v", flowlog.Name, err)
-	}
-
-	d.managedExporters[flowlog.Name] = &managedExporter{
-		config:   flowlog,
-		exporter: exporter,
-	}
-
+	return NewExporter(ctx, d.logger.WithField("flowLogName", flowlog.Name), exporterOpts...)
 }
 
 func (d *DynamicExporter) applyUpdatedConfig(ctx context.Context, flowlog *FlowLogConfig) bool {
@@ -135,20 +128,31 @@ func (d *DynamicExporter) applyUpdatedConfig(ctx context.Context, flowlog *FlowL
 	if ok && m.config.equals(flowlog) {
 		return false
 	}
-	d.applyRemovedConfig(flowlog.Name)
-	d.applyNewConfig(ctx, flowlog)
+
+	exporter, err := d.newExporter(ctx, flowlog)
+	if err != nil {
+		d.logger.Errorf("Failed to apply flowlog for name %s: %v", flowlog.Name, err)
+		return false
+	}
+
+	d.removeExporter(flowlog.Name)
+	d.managedExporters[flowlog.Name] = &managedExporter{
+		config:   flowlog,
+		exporter: exporter,
+	}
 	return true
 }
 
-func (d *DynamicExporter) applyRemovedConfig(name string) {
+func (d *DynamicExporter) removeExporter(name string) bool {
 	m, ok := d.managedExporters[name]
 	if !ok {
-		return
+		return false
 	}
 	if err := m.exporter.Stop(); err != nil {
 		d.logger.Errorf("failed to stop exporter: %w", err)
 	}
 	delete(d.managedExporters, name)
+	return true
 }
 
 func (d *DynamicExporter) updateLastAppliedConfigGauges(hash uint64) {
