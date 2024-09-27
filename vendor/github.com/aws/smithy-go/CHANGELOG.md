@@ -1,3 +1,16 @@
+# Release (2024-09-19)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.21.0
+  * **Feature**: Add tracing and metrics APIs, and builtin instrumentation for both, in generated clients.
+* `github.com/aws/smithy-go/metrics/smithyotelmetrics`: [v1.0.0](metrics/smithyotelmetrics/CHANGELOG.md#v100-2024-09-19)
+  * **Release**: Initial release of `smithyotelmetrics` module, which is used to adapt an OpenTelemetry SDK meter provider to be used with Smithy clients.
+* `github.com/aws/smithy-go/tracing/smithyoteltracing`: [v1.0.0](tracing/smithyoteltracing/CHANGELOG.md#v100-2024-09-19)
+  * **Release**: Initial release of `smithyoteltracing` module, which is used to adapt an OpenTelemetry SDK tracer provider to be used with Smithy clients.
+
 # Release (2024-08-14)
 
 ## Module Highlights
