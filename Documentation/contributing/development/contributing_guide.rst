@@ -19,7 +19,7 @@ Cilium Feature Proposals
 
 Before you start working on a significant code change, it's a good idea to make sure
 that your approach is likely to be accepted. The best way to do this is to
-create a `Cilium issue of type "Feature Request" in 
+create a `Cilium issue of type "Feature Request" on 
 GitHub <https://github.com/cilium/cilium/issues/new?assignees=&labels=kind%2Ffeature&template=feature_template.md&title=CFP%3A+>`_
 where you describe your plans.
 
@@ -163,7 +163,7 @@ requirements have been met:
    +-----------------------------------+--------------------------------------------------------------------------------------------------------+
    | ``release-note/minor``            | This is a minor feature addition, e.g. Add support for a Kubernetes version                            |
    +-----------------------------------+--------------------------------------------------------------------------------------------------------+
-   | ``release-note/misc``             | This is a not user-facing change , e.g. Refactor endpoint package, a bug fix of a non-released feature |
+   | ``release-note/misc``             | This is a not user-facing change, e.g. Refactor endpoint package, a bug fix of a non-released feature  |
    +-----------------------------------+--------------------------------------------------------------------------------------------------------+
    | ``release-note/ci``               | This is a CI feature or bug fix.                                                                       |
    +-----------------------------------+--------------------------------------------------------------------------------------------------------+
@@ -171,7 +171,7 @@ requirements have been met:
 #. Verify the release note text. If not explicitly changed, the title of the PR
    will be used for the release notes. If you want to change this, you can add
    a special section to the description of the PR.
-   These release notes are primarily going to be read by users so it is
+   These release notes are primarily going to be read by users, so it is
    important that release notes for bugs, major and minor features do not
    contain internal details of Cilium functionality which sometimes are
    irrelevant for users.
@@ -251,7 +251,7 @@ Getting a pull request merged
    ``/test`` as described in :ref:`trigger_phrases`. If you are an
    `organization member`_, you can trigger the CI run yourself. CI consists of:
 
-   #. Static code analysis by Github Actions and Travis CI. Golang linter
+   #. Static code analysis by GitHub Actions and Travis CI. Golang linter
       suggestions are added in-line on PRs. For other failed jobs, please refer
       to build log for required action (e.g. Please run ``go mod tidy && go mod
       vendor`` and submit your changes, etc).
@@ -309,7 +309,7 @@ review process smoother as GitHub has limitations that prevents reviewers from
 only seeing the new changes added since the last time they have reviewed a PR.
 Once all reviews are addressed those commits should be squashed against the
 commit that introduced those changes. This can be accomplished by the usage of
-``git rebase -i upstream/main`` and in that windows, move these new commits
+``git rebase -i upstream/main`` and in that window, move these new commits
 below the commit that introduced the changes and replace the work ``pick`` with
 ``fixup``. In the following example, commit ``d2cb02265`` will be combined into
 ``9c62e62d8`` and commit ``146829b59`` will be combined into ``9400fed20``.
