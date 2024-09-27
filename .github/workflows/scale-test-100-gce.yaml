@@ -151,7 +151,7 @@ jobs:
           go-version: ${{ env.go_version }}
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@fff38e882846c03f1720dad476e459323275ab9c # v0.16.17
+        uses: cilium/cilium-cli@c39ea5e50210fde2ccfe54d07122c48fd680ac8d # v0.16.18
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
