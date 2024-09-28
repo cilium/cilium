@@ -14,6 +14,7 @@ import (
 	discoveryv1 "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -108,8 +109,8 @@ var (
 				Labels:    map[string]string{discoveryv1.LabelServiceName: "ipv4-internal"},
 			},
 			Endpoints: []discoveryv1.Endpoint{
-				{NodeName: stringPtr("node-1")},
-				{NodeName: stringPtr("node-2"), Conditions: discoveryv1.EndpointConditions{Ready: boolPtr(false)}},
+				{NodeName: ptr.To("node-1")},
+				{NodeName: ptr.To("node-2"), Conditions: discoveryv1.EndpointConditions{Ready: ptr.To(false)}},
 			},
 		},
 		&corev1.Service{
@@ -132,8 +133,8 @@ var (
 				Labels:    map[string]string{discoveryv1.LabelServiceName: "ipv4-external"},
 			},
 			Endpoints: []discoveryv1.Endpoint{
-				{NodeName: stringPtr("node-1")},
-				{NodeName: stringPtr("node-2")},
+				{NodeName: ptr.To("node-1")},
+				{NodeName: ptr.To("node-2")},
 			},
 		},
 		&corev1.Service{
@@ -156,7 +157,7 @@ var (
 				Labels:    map[string]string{discoveryv1.LabelServiceName: "ipv6-internal"},
 			},
 			Endpoints: []discoveryv1.Endpoint{
-				{NodeName: stringPtr("node-2")},
+				{NodeName: ptr.To("node-2")},
 			},
 		},
 		&corev1.Service{
@@ -179,8 +180,8 @@ var (
 				Labels:    map[string]string{discoveryv1.LabelServiceName: "ipv6-external"},
 			},
 			Endpoints: []discoveryv1.Endpoint{
-				{NodeName: stringPtr("node-1")},
-				{NodeName: stringPtr("node-2")},
+				{NodeName: ptr.To("node-1")},
+				{NodeName: ptr.To("node-2")},
 			},
 		},
 		&corev1.Service{
@@ -203,9 +204,9 @@ var (
 				Labels:    map[string]string{discoveryv1.LabelServiceName: "dualstack-external"},
 			},
 			Endpoints: []discoveryv1.Endpoint{
-				{NodeName: stringPtr("node-1")},
-				{NodeName: stringPtr("node-2")},
-				{NodeName: stringPtr("does-not-exist")},
+				{NodeName: ptr.To("node-1")},
+				{NodeName: ptr.To("node-2")},
+				{NodeName: ptr.To("does-not-exist")},
 			},
 		},
 		&corev1.Service{
@@ -241,8 +242,8 @@ var (
 				Labels:    map[string]string{discoveryv1.LabelServiceName: "not-supported-1"},
 			},
 			Endpoints: []discoveryv1.Endpoint{
-				{NodeName: stringPtr("node-1")},
-				{NodeName: stringPtr("node-2")},
+				{NodeName: ptr.To("node-1")},
+				{NodeName: ptr.To("node-2")},
 			},
 		},
 		&corev1.Service{
@@ -266,8 +267,8 @@ var (
 				Labels:    map[string]string{discoveryv1.LabelServiceName: "not-supported-2"},
 			},
 			Endpoints: []discoveryv1.Endpoint{
-				{NodeName: stringPtr("node-1")},
-				{NodeName: stringPtr("node-2")},
+				{NodeName: ptr.To("node-1")},
+				{NodeName: ptr.To("node-2")},
 			},
 		},
 		&corev1.Service{
@@ -334,14 +335,7 @@ var (
 	}
 )
 
-func stringPtr(str string) *string {
-	return &str
-}
-func boolPtr(boolean bool) *bool {
-	return &boolean
-}
-
-func Test_httpRouteReconciler_Reconcile(t *testing.T) {
+func Test_nodeIPAM_Reconcile(t *testing.T) {
 	c := fake.NewClientBuilder().
 		WithObjects(nodeSvcLbFixtures...).
 		WithStatusSubresource(&corev1.Service{}).
@@ -422,7 +416,6 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.Equal(t, svc.Status.LoadBalancer.Ingress[1].IP, "42.0.0.2")
 	})
 
-	//
 	t.Run("external traffic policy cluster", func(t *testing.T) {
 		key := types.NamespacedName{
 			Name:      "etp-cluster",
@@ -445,7 +438,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 	})
 }
 
-func Test_CiliumResources_Reconcile(t *testing.T) {
+func Test_nodeIPAM_CiliumResources_Reconcile(t *testing.T) {
 	c := fake.NewClientBuilder().
 		WithObjects(nodeSvcLabelFixtures...).
 		WithStatusSubresource(&corev1.Service{}).
@@ -528,7 +521,6 @@ func Test_CiliumResources_Reconcile(t *testing.T) {
 
 		require.Error(t, err)
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
-
 	})
 
 	t.Run("Ensure Warning raised if no Nodes found using configured label selector", func(t *testing.T) {
