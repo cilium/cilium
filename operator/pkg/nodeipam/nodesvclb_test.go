@@ -285,6 +285,17 @@ var (
 				Ingress: []corev1.LoadBalancerIngress{{IP: "100.100.100.100"}},
 			}},
 		},
+
+		&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "default-ipam",
+				Namespace: "default",
+			},
+			Spec: corev1.ServiceSpec{
+				Type:       corev1.ServiceTypeLoadBalancer,
+				IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+			},
+		},
 	}
 
 	nodeSvcLabelFixtures = []client.Object{
@@ -436,6 +447,33 @@ func Test_nodeIPAM_Reconcile(t *testing.T) {
 		require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "42.0.0.2")
 		require.Equal(t, svc.Status.LoadBalancer.Ingress[1].IP, "42.0.0.3")
 	})
+}
+
+func Test_nodeIPAM_defaultIPAM_Reconcile(t *testing.T) {
+	c := fake.NewClientBuilder().
+		WithObjects(nodeSvcLbFixtures...).
+		WithStatusSubresource(&corev1.Service{}).
+		Build()
+	r := &nodeSvcLBReconciler{Client: c, DefaultIPAM: true, Logger: logging.DefaultLogger}
+
+	key := types.NamespacedName{
+		Name:      "default-ipam",
+		Namespace: "default",
+	}
+	result, err := r.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: key,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+	svc := &corev1.Service{}
+	err = c.Get(context.Background(), key, svc)
+
+	require.NoError(t, err)
+	require.Len(t, svc.Status.LoadBalancer.Ingress, 2)
+	require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "42.0.0.2")
+	require.Equal(t, svc.Status.LoadBalancer.Ingress[1].IP, "42.0.0.3")
 }
 
 func Test_nodeIPAM_CiliumResources_Reconcile(t *testing.T) {

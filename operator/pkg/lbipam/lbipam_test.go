@@ -2164,7 +2164,7 @@ func TestRequiredLBClass(t *testing.T) {
 	fixture := mkTestFixture(true, true)
 
 	// Enable the requirement for a specific LBClass and set a class to look for
-	fixture.lbipam.config.LBIPAMRequireLBClass = true
+	fixture.lbipam.defaultIPAM = false
 	fixture.lbipam.lbClasses = []string{cilium_api_v2alpha1.BGPLoadBalancerClass}
 
 	fixture.UpsertPool(t, poolA)

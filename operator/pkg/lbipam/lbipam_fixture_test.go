@@ -264,8 +264,9 @@ func mkTestFixture(ipv4Enabled, ipv6Enabled bool) newFixture {
 
 			metrics: newMetrics(),
 
-			poolClient: poolClient,
-			svcClient:  svcClient,
+			poolClient:  poolClient,
+			svcClient:   svcClient,
+			defaultIPAM: true,
 		}),
 	}
 }

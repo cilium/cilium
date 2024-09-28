@@ -409,13 +409,13 @@ load balancer class by setting the following configuration in the Helm chart or 
             $ helm upgrade cilium |CHART_RELEASE| \\
                --namespace kube-system \\
                --reuse-values \\
-               --set LBIPAM.requireLBClass=true
+               --set defaultLBServiceIPAM=none
 
     .. group-tab:: ConfigMap
 
         .. code-block:: yaml
 
-            lbipam-require-lb-class: true
+            default-lb-service-ipam: none
 
 Requesting IPs
 --------------

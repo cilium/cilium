@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/pflag"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
+	"github.com/cilium/cilium/operator/pkg/lbipam"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 )
 
@@ -29,6 +30,7 @@ type nodeipamCellParams struct {
 	Clientset          k8sClient.Clientset
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Config             nodeIpamConfig
+	SharedConfig       lbipam.SharedConfig
 }
 
 type nodeIpamConfig struct {
@@ -44,7 +46,11 @@ func registerNodeSvcLBReconciler(params nodeipamCellParams) error {
 		return nil
 	}
 
-	if err := newNodeSvcLBReconciler(params.CtrlRuntimeManager, params.Logger).SetupWithManager(params.CtrlRuntimeManager); err != nil {
+	if err := newNodeSvcLBReconciler(
+		params.CtrlRuntimeManager,
+		params.Logger,
+		params.SharedConfig.DefaultLBServiceIPAM == lbipam.DefaulLBClasstNodeIPAM,
+	).SetupWithManager(params.CtrlRuntimeManager); err != nil {
 		return fmt.Errorf("Failed to register NodeSvcLBReconciler: %w", err)
 	}
 
