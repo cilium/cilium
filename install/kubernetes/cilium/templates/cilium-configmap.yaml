@@ -1068,9 +1068,7 @@ data:
   enable-node-ipam: "true"
 {{- end }}
 
-{{- if .Values.LBIPAM.requireLBClass }}
-  lbipam-require-lb-class: "true"
-{{- end }}
+  default-lb-service-ipam: "{{ .Values.defaultLBServiceIPAM }}"
 
 {{- if .Values.apiRateLimit }}
   api-rate-limit: {{ .Values.apiRateLimit | quote }}

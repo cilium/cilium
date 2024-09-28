@@ -1,13 +1,5 @@
 {
   "properties": {
-    "LBIPAM": {
-      "properties": {
-        "requireLBClass": {
-          "type": "boolean"
-        }
-      },
-      "type": "object"
-    },
     "MTU": {
       "type": "integer"
     },
@@ -1552,6 +1544,9 @@
         }
       },
       "type": "object"
+    },
+    "defaultLBServiceIPAM": {
+      "type": "string"
     },
     "directRoutingSkipUnreachable": {
       "type": "boolean"
