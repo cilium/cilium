@@ -1884,14 +1884,16 @@ ipam:
     # refill the bucket up to the burst size capacity.
     # @default -- `4.0`
     externalAPILimitQPS: ~
+# -- defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when
+# no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none
+# @schema
+# type: [string]
+# @schema
+defaultLBServiceIPAM: lbipam
 nodeIPAM:
   # -- Configure Node IPAM
   # ref: https://docs.cilium.io/en/stable/network/node-ipam/
   enabled: false
-LBIPAM:
-  # -- requireLBClass tells LB-IPAM to only allocate IPs to services with a specific LoadBalancer class.
-  # ref: https://docs.cilium.io/en/stable/network/lb-ipam/#loadbalancerclass
-  requireLBClass: false
 # @schema
 # type: [null, string]
 # @schema
