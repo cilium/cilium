@@ -194,9 +194,9 @@ func New(options Options, optFns ...func(*Options)) *Client {
 
 	resolveEndpointResolverV2(&options)
 
-	resolveTracerProvider(&options)
-
 	resolveMeterProvider(&options)
+
+	resolveTracerProvider(&options)
 
 	resolveAuthSchemeResolver(&options)
 

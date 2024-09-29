@@ -1,3 +1,7 @@
+# v1.179.2 (2024-09-27)
+
+* No change notes available for this release.
+
 # v1.179.1 (2024-09-25)
 
 * **Documentation**: Updates to documentation for the transit gateway security group referencing feature.
