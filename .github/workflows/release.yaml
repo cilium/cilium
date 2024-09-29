@@ -29,7 +29,7 @@ jobs:
     name: Release
     environment: release-tool
     timeout-minutes: 40
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Install Go
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}

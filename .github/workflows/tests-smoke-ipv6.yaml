@@ -25,7 +25,7 @@ env:
 jobs:
   check_changes:
     name: Deduce required tests from code changes
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       tested: ${{ steps.tested-tree.outputs.src }}
     steps:
@@ -49,7 +49,7 @@ jobs:
   conformance-test-ipv6:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.tested == 'true' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     name: Installation and Conformance Test (ipv6)
     steps:
       - name: Collect Workflow Telemetry
