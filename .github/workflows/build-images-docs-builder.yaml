@@ -22,7 +22,7 @@ concurrency:
 jobs:
   build-and-push:
     name: Build and Push Image
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: docs-builder
     outputs:
@@ -78,7 +78,7 @@ jobs:
 
       - name: Build docs-builder image
         if: ${{ steps.docs-builder-tag-in-repositories.outputs.exists == 'false' }}
-        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85 # v6.7.0
+        uses: docker/build-push-action@32945a339266b759abcbdc89316275140b0fc960 # v6.8.0
         id: docker-build-docs-builder
         with:
           provenance: false
@@ -94,7 +94,7 @@ jobs:
     name: Update Pull Request with new image reference
     needs: build-and-push
     if: needs.build-and-push.outputs.digest
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: docs-builder
     steps:
@@ -147,7 +147,7 @@ jobs:
     name: Retrieve and display image digest
     needs: build-and-push
     if: needs.build-and-push.outputs.digest
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Checkout default branch (trusted)
