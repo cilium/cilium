@@ -31,7 +31,7 @@ env:
 jobs:
   check_changes:
     name: Deduce required tests from code changes
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       tested: ${{ steps.tested-tree.outputs.src }}
     steps:
@@ -55,7 +55,7 @@ jobs:
   setup-and-test:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.tested == 'true' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     name: Installation and Migration Test
     timeout-minutes: 70
     steps:
