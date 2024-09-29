@@ -165,6 +165,12 @@ jobs:
           df -h
           docker buildx du
 
+      - name: Create cache directories if they don't exist
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/go
+
       # Import GitHub's cache build to docker cache
       - name: Copy ${{ matrix.name }} Golang cache to docker cache
         uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85 # v6.7.0
