@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 45
     name: Build and Push Images
     environment: release
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         include:
@@ -95,7 +95,7 @@ jobs:
           persist-credentials: false
 
       - name: Release Build ${{ matrix.name }}
-        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85 # v6.7.0
+        uses: docker/build-push-action@32945a339266b759abcbdc89316275140b0fc960 # v6.8.0
         id: docker_build_release
         with:
           provenance: false
@@ -160,7 +160,7 @@ jobs:
 
   image-digests:
     name: Display Digests
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build-and-push
     steps:
       - name: Getting image tag
