@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/speaker"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
-	cgroup "github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/common"
@@ -1718,7 +1717,6 @@ type daemonParams struct {
 	NodeDiscovery       *nodediscovery.NodeDiscovery
 	CompilationLock     datapath.CompilationLock
 	MetalLBBgpSpeaker   speaker.MetalLBBgpSpeaker
-	CGroupManager       cgroup.CGroupManager
 	ServiceResolver     *dial.ServiceResolver
 	Recorder            *recorder.Recorder
 	IPAM                *ipam.IPAM
