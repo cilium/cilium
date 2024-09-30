@@ -810,7 +810,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 		{
 			Name: "hubble",
 			Probe: func(ctx context.Context) (interface{}, error) {
-				return d.getHubbleStatus(ctx), nil
+				return d.hubble.Status(ctx), nil
 			},
 			OnStatusUpdate: func(status status.Status) {
 				d.statusCollectMutex.Lock()
