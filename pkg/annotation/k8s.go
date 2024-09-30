@@ -138,7 +138,7 @@ const (
 	//		use the configured DSR method
 	//  - snat
 	//		use SNAT so that reply traffic comes back
-	ServiceMode = ServicePrefix + "/mode"
+	ServiceMode = ServicePrefix + "/forwarding-mode"
 
 	// ProxyVisibility / ProxyVisibilityAlias is the annotation name used to
 	// indicate whether proxy visibility should be enabled for a given pod (i.e.,

@@ -652,7 +652,7 @@ are exposed by default via SNAT, and on-demand as DSR:
     name: example-service
     annotations:
       service.cilium.io/type: LoadBalancer
-      service.cilium.io/mode: dsr
+      service.cilium.io/forwarding-mode: dsr
   spec:
     ports:
       - port: 80
