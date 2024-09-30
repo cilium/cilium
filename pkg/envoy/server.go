@@ -1395,7 +1395,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, vis policy.DirectionalVisibilityPolicy, dir string) []*cilium.PortNetworkPolicy {
 	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {
-		PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis)+1)
+		PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis))
 		// Always allow all ports
 		PerPortPolicies = append(PerPortPolicies, allowAllTCPPortNetworkPolicy)
 		for _, visMeta := range vis {
@@ -1432,7 +1432,7 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 
 		port := uint16(l4.Port)
 		if port == 0 && l4.PortName != "" {
-			port = ep.GetNamedPort(l4.Ingress, l4.PortName, uint8(l4.U8Proto))
+			port = ep.GetNamedPortLocked(l4.Ingress, l4.PortName, uint8(l4.U8Proto))
 			if port == 0 {
 				continue
 			}
@@ -1533,22 +1533,17 @@ func getNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy,
 		EndpointId:       ep.GetID(),
 		ConntrackMapName: ep.ConntrackNameLocked(),
 	}
-
-	var visIngress policy.DirectionalVisibilityPolicy
-	var visEgress policy.DirectionalVisibilityPolicy
-	if vis != nil {
-		visIngress = vis.Ingress
-		visEgress = vis.Egress
-	}
-	var ingressMap policy.L4PolicyMap
-	var egressMap policy.L4PolicyMap
+	// If no policy, deny all traffic. Otherwise, convert the policies for ingress and egress.
 	if l4Policy != nil {
-		ingressMap = l4Policy.Ingress.PortRules
-		egressMap = l4Policy.Egress.PortRules
+		var visIngress policy.DirectionalVisibilityPolicy
+		var visEgress policy.DirectionalVisibilityPolicy
+		if vis != nil {
+			visIngress = vis.Ingress
+			visEgress = vis.Egress
+		}
+		p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Ingress, ingressPolicyEnforced, visIngress, "ingress")
+		p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Egress, egressPolicyEnforced, visEgress, "egress")
 	}
-	p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, ingressMap, ingressPolicyEnforced, visIngress, "ingress")
-	p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, egressMap, egressPolicyEnforced, visEgress, "egress")
-
 	return p
 }
 

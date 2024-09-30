@@ -143,9 +143,9 @@ func (ds *PolicyTestSuite) TestL3WithIngressDenyWildcard(c *C) {
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
-			L4Policy: L4Policy{
+			L4Policy: &L4Policy{
 				Revision: repo.GetRevision(),
-				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
+				Ingress: L4PolicyMap{
 					"80/TCP": {
 						Port:     80,
 						Protocol: api.ProtoTCP,
@@ -159,9 +159,7 @@ func (ds *PolicyTestSuite) TestL3WithIngressDenyWildcard(c *C) {
 						RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 					},
 				},
-					features: denyRules,
-				},
-				Egress: newL4DirectionPolicy(),
+				Egress: L4PolicyMap{},
 			},
 			IngressPolicyEnabled: true,
 		},
@@ -228,9 +226,9 @@ func (ds *PolicyTestSuite) TestL3WithLocalHostWildcardd(c *C) {
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
-			L4Policy: L4Policy{
+			L4Policy: &L4Policy{
 				Revision: repo.GetRevision(),
-				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
+				Ingress: L4PolicyMap{
 					"80/TCP": {
 						Port:     80,
 						Protocol: api.ProtoTCP,
@@ -244,9 +242,7 @@ func (ds *PolicyTestSuite) TestL3WithLocalHostWildcardd(c *C) {
 						RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 					},
 				},
-					features: denyRules,
-				},
-				Egress: newL4DirectionPolicy(),
+				Egress: L4PolicyMap{},
 			},
 			IngressPolicyEnabled: true,
 		},
@@ -305,16 +301,16 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDenyWildcard(c *C) {
 	c.Assert(err, IsNil)
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
 
-	rule1MapStateEntry := NewMapStateEntry(wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, false, true, DefaultAuthType, AuthTypeDisabled)
-	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, false, ExplicitAuthType, AuthTypeDisabled)
+	rule1MapStateEntry := NewMapStateEntry(wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, false, true, AuthTypeDisabled)
+	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, false, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
-			L4Policy: L4Policy{
+			L4Policy: &L4Policy{
 				Revision: repo.GetRevision(),
-				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
+				Ingress: L4PolicyMap{
 					"80/TCP": {
 						Port:     80,
 						Protocol: api.ProtoTCP,
@@ -328,9 +324,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDenyWildcard(c *C) {
 						RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {ruleLabel}},
 					},
 				},
-					features: denyRules,
-				},
-				Egress: newL4DirectionPolicy(),
+				Egress: L4PolicyMap{},
 			},
 			IngressPolicyEnabled: true,
 		},
@@ -445,16 +439,16 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 	cachedSelectorTest := testSelectorCache.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	c.Assert(cachedSelectorTest, Not(IsNil))
 
-	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, false, true, DefaultAuthType, AuthTypeDisabled)
-	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, false, ExplicitAuthType, AuthTypeDisabled)
+	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, false, true, AuthTypeDisabled)
+	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, false, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
-			L4Policy: L4Policy{
+			L4Policy: &L4Policy{
 				Revision: repo.GetRevision(),
-				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
+				Ingress: L4PolicyMap{
 					"80/TCP": {
 						Port:     80,
 						Protocol: api.ProtoTCP,
@@ -471,9 +465,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 						},
 					},
 				},
-					features: denyRules,
-				},
-				Egress: newL4DirectionPolicy(),
+				Egress: L4PolicyMap{},
 			},
 			IngressPolicyEnabled: true,
 		},
