@@ -99,7 +99,7 @@ type Daemon struct {
 	svc              service.ServiceManager
 	rec              *recorder.Recorder
 	policy           *policy.Repository
-	idmgr            *identitymanager.IdentityManager
+	idmgr            identitymanager.IDManager
 
 	statusCollectMutex lock.RWMutex
 	statusResponse     models.StatusResponse

@@ -1726,7 +1726,7 @@ type daemonParams struct {
 	Recorder            *recorder.Recorder
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
-	IdentityManager     *identitymanager.IdentityManager
+	IdentityManager     identitymanager.IDManager
 	Orchestrator        datapath.Orchestrator
 	IPTablesManager     datapath.IptablesManager
 }

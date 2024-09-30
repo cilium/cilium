@@ -57,7 +57,7 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 		identityBar: labelsBar,
 	}
 
-	s.do.idmgr = identitymanager.NewIdentityManager()
+	s.do.idmgr = identitymanager.NewIDManager()
 	s.do.repo = policy.NewPolicyRepository(identityCache, nil, nil, s.do.idmgr)
 	s.do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
@@ -126,7 +126,7 @@ func (d *DummyIdentityAllocatorOwner) GetNodeSuffix() string {
 // DummyOwner implements pkg/endpoint/regeneration/Owner. Used for unit testing.
 type DummyOwner struct {
 	repo  *policy.Repository
-	idmgr *identitymanager.IdentityManager
+	idmgr identitymanager.IDManager
 }
 
 // GetPolicyRepository returns the policy repository of the owner.
