@@ -6,6 +6,7 @@ package hubblecell
 import (
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -31,6 +32,7 @@ type hubbleParams struct {
 	EndpointManager   endpointmanager.EndpointManager
 	IPCache           *ipcache.IPCache
 	ServiceManager    service.ServiceManager
+	CGroupManager     manager.CGroupManager
 }
 
 func newHubble(params hubbleParams) *Hubble {
@@ -40,5 +42,6 @@ func newHubble(params hubbleParams) *Hubble {
 		params.EndpointManager,
 		params.IPCache,
 		params.ServiceManager,
+		params.CGroupManager,
 	)
 }

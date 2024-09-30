@@ -16,6 +16,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
+	"github.com/cilium/cilium/pkg/cgroups/manager"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hubble/observer"
@@ -41,6 +42,7 @@ type Hubble struct {
 	endpointManager   endpointmanager.EndpointManager
 	IPCache           *ipcache.IPCache // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 	serviceManager    service.ServiceManager
+	CGroupManager     manager.CGroupManager // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 }
 
 // new creates and return a new Hubble.
@@ -50,6 +52,7 @@ func new(
 	endpointManager endpointmanager.EndpointManager,
 	ipcache *ipcache.IPCache,
 	serviceManager service.ServiceManager,
+	cgroupManager manager.CGroupManager,
 ) *Hubble {
 	return &Hubble{
 		agentConfig:       agentConfig,
@@ -58,6 +61,7 @@ func new(
 		endpointManager:   endpointManager,
 		IPCache:           ipcache,
 		serviceManager:    serviceManager,
+		CGroupManager:     cgroupManager,
 	}
 }
 
