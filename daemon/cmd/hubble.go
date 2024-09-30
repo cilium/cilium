@@ -285,7 +285,7 @@ func (d *Daemon) launchHubble() {
 			return
 		}
 		d.hubble.MonitorAgent.RegisterNewConsumer(dispatch)
-		svc, err := recorder.NewService(d.rec, dispatch,
+		svc, err := recorder.NewService(d.hubble.Recorder, dispatch,
 			recorderoption.WithStoragePath(option.Config.HubbleRecorderStoragePath))
 		if err != nil {
 			logger.WithError(err).Error("Failed to initialize Hubble recorder service")

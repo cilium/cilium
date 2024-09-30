@@ -70,7 +70,6 @@ import (
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
@@ -94,7 +93,6 @@ type Daemon struct {
 	l7Proxy          *proxy.Proxy
 	envoyXdsServer   envoy.XDSServer
 	svc              service.ServiceManager
-	rec              *recorder.Recorder
 	policy           *policy.Repository
 	idmgr            *identitymanager.IdentityManager
 
@@ -390,7 +388,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		endpointManager:   params.EndpointManager,
 		k8sWatcher:        params.K8sWatcher,
 		k8sSvcCache:       params.K8sSvcCache,
-		rec:               params.Recorder,
 		ipam:              params.IPAM,
 		wireguardAgent:    params.WGAgent,
 		orchestrator:      params.Orchestrator,
