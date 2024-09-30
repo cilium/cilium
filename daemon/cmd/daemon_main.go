@@ -1610,7 +1610,7 @@ type daemonParams struct {
 	ServiceResolver     *dial.ServiceResolver
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
-	IdentityManager     *identitymanager.IdentityManager
+	IdentityManager     identitymanager.IDManager
 	Orchestrator        datapath.Orchestrator
 	IPTablesManager     datapath.IptablesManager
 	Hubble              hubblecell.HubbleIntegration

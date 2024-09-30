@@ -32,7 +32,7 @@ type policyRepoParams struct {
 	Lifecycle       cell.Lifecycle
 	CertManager     certificatemanager.CertificateManager
 	SecretManager   certificatemanager.SecretManager
-	IdentityManager *identitymanager.IdentityManager
+	IdentityManager identitymanager.IDManager
 	ClusterInfo     cmtypes.ClusterInfo
 }
 
