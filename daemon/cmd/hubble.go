@@ -250,7 +250,7 @@ func (d *Daemon) launchHubble() {
 		return
 	}
 	go hubbleObserver.Start()
-	d.monitorAgent.RegisterNewConsumer(monitor.NewConsumer(hubbleObserver))
+	d.hubble.MonitorAgent.RegisterNewConsumer(monitor.NewConsumer(hubbleObserver))
 
 	// configure a local hubble instance that serves more gRPC services
 	sockPath := "unix://" + option.Config.HubbleSocketPath
@@ -284,7 +284,7 @@ func (d *Daemon) launchHubble() {
 			logger.WithError(err).Error("Failed to initialize Hubble recorder sink dispatch")
 			return
 		}
-		d.monitorAgent.RegisterNewConsumer(dispatch)
+		d.hubble.MonitorAgent.RegisterNewConsumer(dispatch)
 		svc, err := recorder.NewService(d.rec, dispatch,
 			recorderoption.WithStoragePath(option.Config.HubbleRecorderStoragePath))
 		if err != nil {
