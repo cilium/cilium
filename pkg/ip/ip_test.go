@@ -5,6 +5,7 @@ package ip
 
 import (
 	"math/big"
+	"math/rand/v2"
 	"net"
 	"net/netip"
 	"sort"
@@ -1046,4 +1047,29 @@ func TestPrefixToIpsWithMaxIPv4sExceedingRange(t *testing.T) {
 	ips, err := PrefixToIps(prefix, maxIPs)
 	require.Nil(t, err)
 	require.EqualValues(t, expectedIPs, ips)
+}
+
+func BenchmarkSortAddrList(b *testing.B) {
+	ip := [4]byte{}
+	r := rand.New(rand.NewPCG(42, 1337))
+	size := 1000
+
+	var lists [][]netip.Addr
+	for range b.N {
+		list := make([]netip.Addr, size)
+		for i := range size {
+			bits := r.Uint32()
+			ip[0] = byte(bits)
+			ip[1] = byte(bits >> 8)
+			ip[2] = byte(bits >> 16)
+			ip[3] = byte(bits >> 24)
+			list[i] = netip.AddrFrom4(ip)
+		}
+		lists = append(lists, list)
+	}
+
+	b.ResetTimer()
+	for i := range b.N {
+		SortAddrList(lists[i])
+	}
 }
