@@ -102,7 +102,6 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
@@ -1722,7 +1721,6 @@ type daemonParams struct {
 	CompilationLock     datapath.CompilationLock
 	MetalLBBgpSpeaker   speaker.MetalLBBgpSpeaker
 	ServiceResolver     *dial.ServiceResolver
-	Recorder            *recorder.Recorder
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
 	IdentityManager     *identitymanager.IdentityManager
