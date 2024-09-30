@@ -35,7 +35,7 @@ type PolicyCache struct {
 }
 
 // NewPolicyCache creates a new cache of SelectorPolicy.
-func NewPolicyCache(repo *Repository, idmgr *identitymanager.IdentityManager) *PolicyCache {
+func NewPolicyCache(repo *Repository, idmgr identitymanager.IDManager) *PolicyCache {
 	cache := &PolicyCache{
 		repo:     repo,
 		policies: make(map[identityPkg.NumericIdentity]*cachedSelectorPolicy),

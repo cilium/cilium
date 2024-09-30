@@ -94,7 +94,7 @@ type Daemon struct {
 	envoyXdsServer   envoy.XDSServer
 	svc              service.ServiceManager
 	policy           *policy.Repository
-	idmgr            *identitymanager.IdentityManager
+	idmgr            identitymanager.IDManager
 
 	statusCollectMutex lock.RWMutex
 	statusResponse     models.StatusResponse

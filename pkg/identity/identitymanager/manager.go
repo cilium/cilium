@@ -13,6 +13,15 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+type IDManager interface {
+	Add(identity *identity.Identity)
+	GetIdentityModels() []*models.IdentityEndpoints
+	Remove(identity *identity.Identity)
+	RemoveAll()
+	RemoveOldAddNew(old *identity.Identity, new *identity.Identity)
+	Subscribe(o Observer)
+}
+
 // IdentityManager caches information about a set of identities, currently a
 // reference count of how many users there are for each identity.
 type IdentityManager struct {
@@ -21,13 +30,17 @@ type IdentityManager struct {
 	observers  map[Observer]struct{}
 }
 
+// NewIDManager returns an initialized IdentityManager.
+func NewIDManager() IDManager {
+	return newIdentityManager()
+}
+
 type identityMetadata struct {
 	identity *identity.Identity
 	refCount uint
 }
 
-// NewIdentityManager returns an initialized IdentityManager.
-func NewIdentityManager() *IdentityManager {
+func newIdentityManager() *IdentityManager {
 	return &IdentityManager{
 		identities: make(map[identity.NumericIdentity]*identityMetadata),
 		observers:  make(map[Observer]struct{}),

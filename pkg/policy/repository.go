@@ -180,7 +180,7 @@ func NewPolicyRepository(
 	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
-	idmgr *identitymanager.IdentityManager,
+	idmgr identitymanager.IDManager,
 ) *Repository {
 	repo := NewStoppedPolicyRepository(initialIDs, certManager, secretManager, idmgr)
 	repo.Start()
@@ -196,7 +196,7 @@ func NewStoppedPolicyRepository(
 	initialIDs identity.IdentityMap,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
-	idmgr *identitymanager.IdentityManager,
+	idmgr identitymanager.IDManager,
 ) *Repository {
 	selectorCache := NewSelectorCache(initialIDs)
 	repo := &Repository{
