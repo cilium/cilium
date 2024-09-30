@@ -134,7 +134,17 @@ func toListenerFilter(name string) *envoy_config_listener.Filter {
 					{UpgradeType: "websocket"},
 				},
 				UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
-				SkipXffAppend:    false,
+				InternalAddressConfig: &http_connection_manager_v3.HttpConnectionManager_InternalAddressConfig{
+					UnixSockets: false,
+					CidrRanges: []*envoy_config_core_v3.CidrRange{
+						{AddressPrefix: "10.0.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 8}},
+						{AddressPrefix: "172.16.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 12}},
+						{AddressPrefix: "192.168.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 16}},
+						{AddressPrefix: "127.0.0.1", PrefixLen: &wrapperspb.UInt32Value{Value: 32}},
+						{AddressPrefix: "::1", PrefixLen: &wrapperspb.UInt32Value{Value: 128}},
+					},
+				},
+				SkipXffAppend: false,
 				HttpFilters: []*http_connection_manager_v3.HttpFilter{
 					{
 						Name: "envoy.filters.http.grpc_web",
