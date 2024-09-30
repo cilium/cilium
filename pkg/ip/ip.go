@@ -9,11 +9,10 @@ import (
 	"math/big"
 	"net"
 	"net/netip"
+	"slices"
 	"sort"
 
 	"go4.org/netipx"
-
-	"github.com/cilium/cilium/pkg/slices"
 )
 
 const (
@@ -753,15 +752,8 @@ func PartitionCIDR(targetCIDR net.IPNet, excludeCIDR net.IPNet) ([]*net.IPNet, [
 // netip.Addr.Compare (i.e. IPv4 addresses show up before IPv6).
 // The slice is manipulated in-place destructively; it does not create a new slice.
 func KeepUniqueAddrs(addrs []netip.Addr) []netip.Addr {
-	return slices.SortedUniqueFunc(
-		addrs,
-		func(a, b netip.Addr) int {
-			return a.Compare(b)
-		},
-		func(a, b netip.Addr) bool {
-			return a == b
-		},
-	)
+	SortAddrList(addrs)
+	return slices.Compact(addrs)
 }
 
 var privateIPBlocks []*net.IPNet
@@ -847,15 +839,11 @@ func ListContainsIP(ipList []net.IP, ip net.IP) bool {
 
 // SortIPList sorts the provided net.IP slice in place.
 func SortIPList(ipList []net.IP) {
-	sort.Slice(ipList, func(i, j int) bool {
-		return bytes.Compare(ipList[i], ipList[j]) < 0
-	})
+	slices.SortFunc(ipList, func(a, b net.IP) int { return bytes.Compare(a, b) })
 }
 
 func SortAddrList(ipList []netip.Addr) {
-	sort.Slice(ipList, func(i, j int) bool {
-		return ipList[i].Compare(ipList[j]) < 0
-	})
+	slices.SortFunc(ipList, netip.Addr.Compare)
 }
 
 // getSortedIPList returns a new net.IP slice in which the IPs are sorted.
