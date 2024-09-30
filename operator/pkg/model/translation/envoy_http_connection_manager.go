@@ -4,6 +4,7 @@
 package translation
 
 import (
+	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	httpRouterv3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
 	httpConnectionManagerv3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
@@ -32,6 +33,18 @@ func NewHTTPConnectionManager(name, routeName string, mutationFunc ...HttpConnec
 				ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
 					TypedConfig: toAny(&httpRouterv3.Router{}),
 				},
+			},
+		},
+		InternalAddressConfig: &httpConnectionManagerv3.HttpConnectionManager_InternalAddressConfig{
+			UnixSockets: false,
+			// only RFC1918 IP addresses will be considered internal
+			// https://datatracker.ietf.org/doc/html/rfc1918
+			CidrRanges: []*envoy_config_core.CidrRange{
+				{AddressPrefix: "10.0.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 8}},
+				{AddressPrefix: "172.16.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 12}},
+				{AddressPrefix: "192.168.0.0", PrefixLen: &wrapperspb.UInt32Value{Value: 16}},
+				{AddressPrefix: "127.0.0.1", PrefixLen: &wrapperspb.UInt32Value{Value: 32}},
+				{AddressPrefix: "::1", PrefixLen: &wrapperspb.UInt32Value{Value: 128}},
 			},
 		},
 		UpgradeConfigs: []*httpConnectionManagerv3.HttpConnectionManager_UpgradeConfig{
