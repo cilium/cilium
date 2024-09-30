@@ -22,6 +22,7 @@
         runs-on: ubuntu-latest
         permissions:
           pull-requests: write # Adding and removing labels
+          repository-projects: read # Additionally required by `gh pr edit`
         env:
           body: ${{ inputs.pr-body }}
         steps:
