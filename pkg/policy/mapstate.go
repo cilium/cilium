@@ -201,6 +201,40 @@ func (msm *mapStateMap) forKey(k Key, f func(Key, MapStateEntry) bool) bool {
 	return true
 }
 
+// forSpecificIDs calls 'f' for each non-ANY ID in 'idSet' with port/proto from 'k'.
+func (msm *mapStateMap) forSpecificIDs(k Key, idSet IDSet, f func(Key, MapStateEntry) bool) bool {
+	for id := range idSet {
+		if id != 0 {
+			k.Identity = id
+			if !msm.forKey(k, f) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// forIDs calls 'f' for each ID in 'idSet' with port/proto from 'k'.
+func (msm *mapStateMap) forIDs(k Key, idSet IDSet, f func(Key, MapStateEntry) bool) bool {
+	for id := range idSet {
+		k.Identity = id
+		if !msm.forKey(k, f) {
+			return false
+		}
+	}
+	return true
+}
+
+// forID calls 'f' for 'k' if 'k.Identity' exists in 'idSet'.
+func (msm *mapStateMap) forID(k Key, idSet IDSet, f func(Key, MapStateEntry) bool) bool {
+	if _, exists := idSet[k.Identity]; exists {
+		if !msm.forKey(k, f) {
+			return false
+		}
+	}
+	return true
+}
+
 // ForEachNarrowerKeyWithWildcardID iterates over ANY keys with narrower port/proto's in the trie.
 // Equal port/protos are not included.
 func (msm *mapStateMap) ForEachNarrowerKeyWithWildcardID(key Key, f func(Key, MapStateEntry) bool) {
@@ -217,17 +251,12 @@ func (msm *mapStateMap) ForEachNarrowerKeyWithWildcardID(key Key, f func(Key, Ma
 		}
 
 		// Visit ANY keys
-		if _, exists := idSet[0]; exists {
-			k.Identity = 0
-			if !msm.forKey(k, f) {
-				return false
-			}
-		}
-		return true
+		return msm.forID(k.WithIdentity(0), idSet, f)
 	})
 }
 
-// ForEachBroaderOrEqualKey iterates over broader or equal keys in the trie.
+// ForEachBroaderOrEqualKey iterates over broader or equal (broader or equal port/proto and the same
+// or wildcard ID) in the trie.
 func (msm *mapStateMap) ForEachBroaderOrEqualKey(key Key, f func(Key, MapStateEntry) bool) {
 	msm.trie.Ancestors(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.LPMKey], idSet IDSet) bool {
 		// k is the key from trie with 0'ed ID
@@ -235,42 +264,20 @@ func (msm *mapStateMap) ForEachBroaderOrEqualKey(key Key, f func(Key, MapStateEn
 			LPMKey: lpmKey.Value(),
 		}
 
-		// ANY identity is an ancestor of all identities, visit them first
-		if _, exists := idSet[0]; exists {
-			k.Identity = 0
-			if !msm.forKey(k, f) {
-				return false
-			}
+		// Visit all keys with the same or broader ID
+
+		// ANY identity broader or equal to all identities, visit it first if it exists
+		if !msm.forID(k.WithIdentity(0), idSet, f) {
+			return false
 		}
 
-		// Need to visit all keys with the same identity
-		// ANY identity was already visited above
+		// Visit key with the same identity, if it exists.
+		// ANY identity was already visited above.
 		if key.Identity != 0 {
-			_, exists := idSet[key.Identity]
-			if exists {
-				k.Identity = key.Identity
-				if !msm.forKey(k, f) {
-					return false
-				}
-			}
+			return msm.forID(k.WithIdentity(key.Identity), idSet, f)
 		}
 		return true
 	})
-}
-
-func (msm *mapStateMap) forDescendantIDs(keyIdentity identity.NumericIdentity, k Key, idSet IDSet, f func(Key, MapStateEntry) bool) bool {
-	if keyIdentity == 0 {
-		// All identities are descendants of ANY
-		for id := range idSet {
-			if id != 0 {
-				k.Identity = id
-				if !msm.forKey(k, f) {
-					return false
-				}
-			}
-		}
-	}
-	return true
 }
 
 // ForEachNarrowerOrEqualKey iterates over narrower or equal keys in the trie.
@@ -281,16 +288,14 @@ func (msm *mapStateMap) ForEachNarrowerOrEqualKey(key Key, f func(Key, MapStateE
 			LPMKey: lpmKey.Value(),
 		}
 
-		// Need to visit all keys with the same identity
-		_, exists := idSet[key.Identity]
-		if exists {
-			k.Identity = key.Identity
-			if !msm.forKey(k, f) {
-				return false
-			}
-		}
+		// Visit all keys with the same or narrower IDs
 
-		return msm.forDescendantIDs(key.Identity, k, idSet, f)
+		// All identities are narrower or equal to ANY identity.
+		if key.Identity == 0 {
+			return msm.forIDs(k, idSet, f)
+		}
+		// Need to visit the key with the same identity, if it exists.
+		return msm.forID(k.WithIdentity(key.Identity), idSet, f)
 	})
 }
 
@@ -309,7 +314,11 @@ func (msm *mapStateMap) ForEachBroaderKeyWithSpecificID(key Key, f func(Key, Map
 			return true
 		}
 
-		return msm.forDescendantIDs(key.Identity, k, idSet, f)
+		// Specific IDs are "narrower" than an ANY ID
+		if key.Identity == 0 {
+			return msm.forSpecificIDs(k, idSet, f)
+		}
+		return true
 	})
 }
 
@@ -319,13 +328,7 @@ func (msm *mapStateMap) ForEachKeyWithBroaderOrEqualPortProto(key Key, f func(Ke
 		k := Key{
 			LPMKey: lpmKey.Value(),
 		}
-		for id := range idSet {
-			k.Identity = id
-			if !msm.forKey(k, f) {
-				return false
-			}
-		}
-		return true
+		return msm.forIDs(k, idSet, f)
 	})
 }
 
@@ -335,13 +338,7 @@ func (msm *mapStateMap) ForEachKeyWithNarrowerOrEqualPortProto(key Key, f func(K
 		k := Key{
 			LPMKey: lpmKey.Value(),
 		}
-		for id := range idSet {
-			k.Identity = id
-			if !msm.forKey(k, f) {
-				return false
-			}
-		}
-		return true
+		return msm.forIDs(k, idSet, f)
 	})
 }
 
@@ -1252,13 +1249,7 @@ func (msm *mapStateMap) ForEachKeyWithPortProto(key Key, f func(Key, MapStateEnt
 	// 'Identity' field in 'key' is ignored on by ExactLookup
 	idSet, ok := msm.trie.ExactLookup(key.PrefixLength(), key)
 	if ok {
-		for id := range idSet {
-			k := key
-			k.Identity = id
-			if !msm.forKey(k, f) {
-				return
-			}
-		}
+		msm.forIDs(key, idSet, f)
 	}
 }
 
