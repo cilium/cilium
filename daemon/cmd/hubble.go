@@ -17,6 +17,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/datapath/link"
+	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/dropeventemitter"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
@@ -53,7 +54,7 @@ func getPort(addr string) (int, error) {
 	return portNum, nil
 }
 
-func (d *Daemon) launchHubble() {
+func launchHubble(ctx context.Context, h *hubblecell.Hubble) {
 	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble")
 	if !option.Config.EnableHubble {
 		logger.Info("Hubble server is disabled")
@@ -84,8 +85,8 @@ func (d *Daemon) launchHubble() {
 		dropEventEmitter := dropeventemitter.NewDropEventEmitter(
 			option.Config.HubbleDropEventsInterval,
 			option.Config.HubbleDropEventsReasons,
-			d.hubble.Clientset,
-			d.hubble.K8sWatcher,
+			h.Clientset,
+			h.K8sWatcher,
 		)
 
 		observerOpts = append(observerOpts,
@@ -101,7 +102,7 @@ func (d *Daemon) launchHubble() {
 
 	// fill in the local node information after the dropEventEmitter logique,
 	// but before anything else (e.g. metrics).
-	localNodeWatcher, err := observer.NewLocalNodeWatcher(d.ctx, d.hubble.NodeLocalStore)
+	localNodeWatcher, err := observer.NewLocalNodeWatcher(ctx, h.NodeLocalStore)
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve local node information")
 		return
@@ -127,13 +128,13 @@ func (d *Daemon) launchHubble() {
 			case metricsTLSConfig = <-metricsTLSConfigChan:
 			case <-waitingMsgTimeout:
 				logger.Info("Waiting for Hubble metrics server TLS certificate and key files to be created")
-			case <-d.ctx.Done():
-				logger.WithError(d.ctx.Err()).Error("Timeout while waiting for Hubble metrics server TLS certificate and key files to be created")
+			case <-ctx.Done():
+				logger.WithError(ctx.Err()).Error("Timeout while waiting for Hubble metrics server TLS certificate and key files to be created")
 				return
 			}
 		}
 		go func() {
-			<-d.ctx.Done()
+			<-ctx.Done()
 			metricsTLSConfig.Stop()
 		}()
 	}
@@ -196,7 +197,7 @@ func (d *Daemon) launchHubble() {
 		)
 	}
 
-	payloadParser, err := parser.New(logger, d.hubble, d.hubble, d.hubble, d.hubble.IPCache, d.hubble, link.NewLinkCache(), d.hubble.CGroupManager, parserOpts...)
+	payloadParser, err := parser.New(logger, h, h, h, h.IPCache, h, link.NewLinkCache(), h.CGroupManager, parserOpts...)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
@@ -223,7 +224,7 @@ func (d *Daemon) launchHubble() {
 		if option.Config.HubbleExportFileCompress {
 			exporterOpts = append(exporterOpts, exporteroption.WithCompress())
 		}
-		hubbleExporter, err := exporter.NewExporter(d.ctx, logger, exporterOpts...)
+		hubbleExporter, err := exporter.NewExporter(ctx, logger, exporterOpts...)
 		if err != nil {
 			logger.WithError(err).Error("Failed to configure Hubble export")
 		} else {
@@ -237,7 +238,7 @@ func (d *Daemon) launchHubble() {
 		observerOpts = append(observerOpts, opt)
 	}
 	namespaceManager := observer.NewNamespaceManager()
-	go namespaceManager.Run(d.ctx)
+	go namespaceManager.Run(ctx)
 
 	hubbleObserver, err := observer.NewLocalServer(
 		payloadParser,
@@ -250,7 +251,7 @@ func (d *Daemon) launchHubble() {
 		return
 	}
 	go hubbleObserver.Start()
-	d.hubble.MonitorAgent.RegisterNewConsumer(monitor.NewConsumer(hubbleObserver))
+	h.MonitorAgent.RegisterNewConsumer(monitor.NewConsumer(hubbleObserver))
 
 	// configure a local hubble instance that serves more gRPC services
 	sockPath := "unix://" + option.Config.HubbleSocketPath
@@ -269,7 +270,7 @@ func (d *Daemon) launchHubble() {
 			peerServiceOptions = append(peerServiceOptions, serviceoption.WithHubblePort(port))
 		}
 	}
-	peerSvc := peer.NewService(d.hubble.NodeManager, peerServiceOptions...)
+	peerSvc := peer.NewService(h.NodeManager, peerServiceOptions...)
 	localSrvOpts = append(localSrvOpts,
 		serveroption.WithUnixSocketListener(sockPath),
 		serveroption.WithHealthService(),
@@ -284,8 +285,8 @@ func (d *Daemon) launchHubble() {
 			logger.WithError(err).Error("Failed to initialize Hubble recorder sink dispatch")
 			return
 		}
-		d.hubble.MonitorAgent.RegisterNewConsumer(dispatch)
-		svc, err := recorder.NewService(d.hubble.Recorder, dispatch,
+		h.MonitorAgent.RegisterNewConsumer(dispatch)
+		svc, err := recorder.NewService(h.Recorder, dispatch,
 			recorderoption.WithStoragePath(option.Config.HubbleRecorderStoragePath))
 		if err != nil {
 			logger.WithError(err).Error("Failed to initialize Hubble recorder service")
@@ -306,7 +307,7 @@ func (d *Daemon) launchHubble() {
 		}
 	}()
 	go func() {
-		<-d.ctx.Done()
+		<-ctx.Done()
 		localSrv.Stop()
 		peerSvc.Close()
 		if srv != nil {
@@ -348,8 +349,8 @@ func (d *Daemon) launchHubble() {
 				case tlsServerConfig = <-tlsServerConfigChan:
 				case <-waitingMsgTimeout:
 					logger.Info("Waiting for Hubble server TLS certificate and key files to be created")
-				case <-d.ctx.Done():
-					logger.WithError(d.ctx.Err()).Error("Timeout while waiting for Hubble server TLS certificate and key files to be created")
+				case <-ctx.Done():
+					logger.WithError(ctx.Err()).Error("Timeout while waiting for Hubble server TLS certificate and key files to be created")
 					return
 				}
 			}
@@ -379,7 +380,7 @@ func (d *Daemon) launchHubble() {
 		}()
 
 		go func() {
-			<-d.ctx.Done()
+			<-ctx.Done()
 			srv.Stop()
 			if tlsServerConfig != nil {
 				tlsServerConfig.Stop()
@@ -387,7 +388,7 @@ func (d *Daemon) launchHubble() {
 		}()
 	}
 
-	d.hubble.Observer.Store(hubbleObserver)
+	h.Observer.Store(hubbleObserver)
 }
 
 // getHubbleEventBufferCapacity returns the user configured capacity for
