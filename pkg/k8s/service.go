@@ -66,15 +66,15 @@ func getAnnotationServiceAffinity(svc *slim_corev1.Service) string {
 	return serviceAffinityNone
 }
 
-func getAnnotationServiceMode(svc *slim_corev1.Service) loadbalancer.SVCMode {
-	if value, ok := annotation.Get(svc, annotation.ServiceMode); ok {
-		tmp := loadbalancer.SVCMode(strings.ToLower(value))
-		if tmp == loadbalancer.SVCModeDSR || tmp == loadbalancer.SVCModeSNAT {
+func getAnnotationServiceForwardingMode(svc *slim_corev1.Service) loadbalancer.SVCForwardingMode {
+	if value, ok := annotation.Get(svc, annotation.ServiceForwardingMode); ok {
+		tmp := loadbalancer.SVCForwardingMode(strings.ToLower(value))
+		if tmp == loadbalancer.SVCForwardingModeDSR || tmp == loadbalancer.SVCForwardingModeSNAT {
 			return tmp
 		}
 	}
 
-	return loadbalancer.SVCModeSNAT
+	return loadbalancer.SVCForwardingModeSNAT
 }
 
 func getTopologyAware(svc *slim_corev1.Service) bool {
@@ -246,7 +246,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 		svc.GetNamespace(), svcType)
 
 	svcInfo.Shared = getAnnotationShared(svc)
-	svcInfo.Mode = getAnnotationServiceMode(svc)
+	svcInfo.ForwardingMode = getAnnotationServiceForwardingMode(svc)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.ServiceAffinity = getAnnotationServiceAffinity(svc)
 
@@ -403,9 +403,9 @@ type Service struct {
 	// If set to "Local", only node-local backends are chosen.
 	IntTrafficPolicy loadbalancer.SVCTrafficPolicy
 
-	// Mode controls whether DSR or SNAT should be used for the dispatch to the
-	// backend.
-	Mode loadbalancer.SVCMode
+	// ForwardingMode controls whether DSR or SNAT should be used for the dispatch
+	// to the backend.
+	ForwardingMode loadbalancer.SVCForwardingMode
 
 	// HealthCheckNodePort defines on which port the node runs a HTTP health
 	// check server which may be used by external loadbalancers to determine

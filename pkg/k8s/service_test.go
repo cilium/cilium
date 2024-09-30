@@ -381,7 +381,7 @@ func TestParseService(t *testing.T) {
 		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 		Type:                     loadbalancer.SVCTypeClusterIP,
-		Mode:                     loadbalancer.SVCModeSNAT,
+		ForwardingMode:           loadbalancer.SVCForwardingModeSNAT,
 	}, svc)
 
 	k8sSvc = &slim_corev1.Service{
@@ -403,7 +403,7 @@ func TestParseService(t *testing.T) {
 		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 		Type:                     loadbalancer.SVCTypeClusterIP,
-		Mode:                     loadbalancer.SVCModeSNAT,
+		ForwardingMode:           loadbalancer.SVCForwardingModeSNAT,
 	}, svc)
 
 	serviceInternalTrafficPolicyLocal := slim_corev1.ServiceInternalTrafficPolicyLocal
@@ -428,7 +428,7 @@ func TestParseService(t *testing.T) {
 		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
 		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 		Type:                     loadbalancer.SVCTypeNodePort,
-		Mode:                     loadbalancer.SVCModeSNAT,
+		ForwardingMode:           loadbalancer.SVCForwardingModeSNAT,
 	}, svc)
 
 	oldNodePort := option.Config.EnableNodePort
@@ -502,7 +502,7 @@ func TestParseService(t *testing.T) {
 		K8sExternalIPs:           map[string]net.IP{},
 		LoadBalancerIPs:          map[string]net.IP{},
 		Type:                     loadbalancer.SVCTypeLoadBalancer,
-		Mode:                     loadbalancer.SVCModeSNAT,
+		ForwardingMode:           loadbalancer.SVCForwardingModeSNAT,
 		TopologyAware:            true,
 		Annotations:              map[string]string{"service.kubernetes.io/topology-aware-hints": "auto"},
 	}, svc)

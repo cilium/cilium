@@ -80,7 +80,7 @@ type svcInfo struct {
 	backendByHash map[string]*lb.Backend
 
 	svcType                   lb.SVCType
-	svcMode                   lb.SVCMode
+	svcForwardingMode         lb.SVCForwardingMode
 	svcExtTrafficPolicy       lb.SVCTrafficPolicy
 	svcIntTrafficPolicy       lb.SVCTrafficPolicy
 	svcNatPolicy              lb.SVCNatPolicy
@@ -114,7 +114,7 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 		Frontend:            *svc.frontend.DeepCopy(),
 		Backends:            backends,
 		Type:                svc.svcType,
-		Mode:                svc.svcMode,
+		ForwardingMode:      svc.svcForwardingMode,
 		ExtTrafficPolicy:    svc.svcExtTrafficPolicy,
 		IntTrafficPolicy:    svc.svcIntTrafficPolicy,
 		NatPolicy:           svc.svcNatPolicy,
@@ -733,7 +733,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 				logfields.Backends:  params.Backends,
 
 				logfields.ServiceType:                params.Type,
-				logfields.ServiceMode:                params.Mode,
+				logfields.ServiceForwardingMode:      params.ForwardingMode,
 				logfields.ServiceExtTrafficPolicy:    params.ExtTrafficPolicy,
 				logfields.ServiceIntTrafficPolicy:    params.IntTrafficPolicy,
 				logfields.ServiceHealthCheckNodePort: params.HealthCheckNodePort,
@@ -993,7 +993,7 @@ func (s *Service) upsertNodePortHealthService(svc *svcInfo, nodeMeta NodeMetaCol
 	healthCheckSvc := &lb.SVC{
 		Name:             healthCheckSvcName,
 		Type:             svc.svcType,
-		Mode:             svc.svcMode,
+		ForwardingMode:   svc.svcForwardingMode,
 		Frontend:         healthCheckFrontend,
 		ExtTrafficPolicy: lb.SVCTrafficPolicyLocal,
 		IntTrafficPolicy: lb.SVCTrafficPolicyLocal,
@@ -1094,7 +1094,7 @@ func (s *Service) UpdateBackendsStateMultiple(svcMapping map[lb.ID]*svcInfo, bac
 						PrevBackendsCount:         len(info.backends),
 						IPv6:                      info.frontend.IsIPv6(),
 						Type:                      info.svcType,
-						Mode:                      info.svcMode,
+						ForwardingMode:            info.svcForwardingMode,
 						ExtLocal:                  info.isExtLocal(),
 						IntLocal:                  info.isIntLocal(),
 						Scope:                     info.frontend.L3n4Addr.Scope,
@@ -1466,9 +1466,9 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 			frontend:      p.Frontend,
 			backendByHash: map[string]*lb.Backend{},
 
-			svcType: p.Type,
-			svcMode: p.Mode,
-			svcName: p.Name,
+			svcType:           p.Type,
+			svcForwardingMode: p.ForwardingMode,
+			svcName:           p.Name,
 
 			sessionAffinity:           p.SessionAffinity,
 			sessionAffinityTimeoutSec: p.SessionAffinityTimeoutSec,
@@ -1504,7 +1504,7 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		prevSessionAffinity = svc.sessionAffinity
 		prevLoadBalancerSourceRanges = svc.loadBalancerSourceRanges
 		svc.svcType = p.Type
-		svc.svcMode = p.Mode
+		svc.svcForwardingMode = p.ForwardingMode
 		svc.svcExtTrafficPolicy = p.ExtTrafficPolicy
 		svc.svcIntTrafficPolicy = p.IntTrafficPolicy
 		svc.svcNatPolicy = p.NatPolicy
@@ -1685,7 +1685,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 		IPv6:                      v6FE,
 		NatPolicy:                 natPolicy,
 		Type:                      svc.svcType,
-		Mode:                      svc.svcMode,
+		ForwardingMode:            svc.svcForwardingMode,
 		ExtLocal:                  isExtLocal,
 		IntLocal:                  isIntLocal,
 		Scope:                     svc.frontend.L3n4Addr.Scope,
@@ -1865,7 +1865,7 @@ func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{
 			backends:            svc.Backends,
 			backendByHash:       map[string]*lb.Backend{},
 			svcType:             svc.Type,
-			svcMode:             svc.Mode,
+			svcForwardingMode:   svc.ForwardingMode,
 			svcExtTrafficPolicy: svc.ExtTrafficPolicy,
 			svcIntTrafficPolicy: svc.IntTrafficPolicy,
 			svcNatPolicy:        svc.NatPolicy,
