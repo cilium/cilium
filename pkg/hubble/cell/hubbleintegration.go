@@ -27,6 +27,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
@@ -49,6 +50,7 @@ type Hubble struct {
 	Clientset         k8sClient.Clientset   // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 	K8sWatcher        *watchers.K8sWatcher  // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 	NodeLocalStore    *node.LocalNodeStore  // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
+	MonitorAgent      monitorAgent.Agent    // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 }
 
 // new creates and return a new Hubble.
@@ -62,6 +64,7 @@ func new(
 	clientset k8sClient.Clientset,
 	k8sWatcher *watchers.K8sWatcher,
 	nodeLocalStore *node.LocalNodeStore,
+	monitorAgent monitorAgent.Agent,
 ) *Hubble {
 	return &Hubble{
 		agentConfig:       agentConfig,
@@ -74,6 +77,7 @@ func new(
 		Clientset:         clientset,
 		K8sWatcher:        k8sWatcher,
 		NodeLocalStore:    nodeLocalStore,
+		MonitorAgent:      monitorAgent,
 	}
 }
 
