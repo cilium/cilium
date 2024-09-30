@@ -903,7 +903,7 @@ enum {
 	SVC_FLAG_INT_LOCAL_SCOPE = (1 << 4), /* internalTrafficPolicy=Local */
 	SVC_FLAG_TWO_SCOPES     = (1 << 5),  /* Two sets of backends are used for external/internal connections */
 	SVC_FLAG_QUARANTINED    = (1 << 6),  /* Backend slot (key: backend_slot > 0) is quarantined */
-	SVC_FLAG_MODE_FLIP      = (1 << 7),  /* If bit is set, use DSR/SNAT if SNAT/DSR is default */
+	SVC_FLAG_FWD_MODE_FLIP  = (1 << 7),  /* If bit is set, use DSR/SNAT if SNAT/DSR is default */
 };
 
 /* Backend flags (lb{4,6}_backends->flags) */
