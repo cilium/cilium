@@ -54,6 +54,9 @@ func NewHTTPConnectionManager(name, routeName string, mutationFunc ...HttpConnec
 				},
 			},
 		},
+		InternalAddressConfig: &httpConnectionManagerv3.HttpConnectionManager_InternalAddressConfig{
+			UnixSockets: true,
+		},
 		UpgradeConfigs: []*httpConnectionManagerv3.HttpConnectionManager_UpgradeConfig{
 			{UpgradeType: "websocket"},
 		},
