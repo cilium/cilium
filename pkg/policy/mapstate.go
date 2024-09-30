@@ -201,6 +201,17 @@ func (msm *mapStateMap) forKey(k Key, f func(Key, MapStateEntry) bool) bool {
 	return true
 }
 
+// forDifferentKeys calls 'f' for each Key 'k' with identities in 'idSet', if different from 'key'.
+func (msm *mapStateMap) forDifferentKeys(key, k Key, idSet IDSet, f func(Key, MapStateEntry) bool) bool {
+	for id := range idSet {
+		k.Identity = id
+		if key != k && !msm.forKey(k, f) {
+			return false
+		}
+	}
+	return true
+}
+
 // forSpecificIDs calls 'f' for each non-ANY ID in 'idSet' with port/proto from 'k'.
 func (msm *mapStateMap) forSpecificIDs(k Key, idSet IDSet, f func(Key, MapStateEntry) bool) bool {
 	for id := range idSet {
@@ -322,23 +333,53 @@ func (msm *mapStateMap) ForEachBroaderKeyWithSpecificID(key Key, f func(Key, Map
 	})
 }
 
-// ForEachKeyWithBroaderOrEqualPortProto iterates over broader or equal port/proto entries in the trie.
-func (msm *mapStateMap) ForEachKeyWithBroaderOrEqualPortProto(key Key, f func(Key, MapStateEntry) bool) {
-	msm.trie.Ancestors(key.PrefixLength(), key, func(prefix uint, lpmKey bitlpm.Key[policyTypes.LPMKey], idSet IDSet) bool {
+// ForEachCoveringKey iterates over broader port/proto entries in the trie in LPM order,
+// with most specific match being returned first.
+func (msm *mapStateMap) ForEachCoveringKey(key Key, f func(Key, MapStateEntry) bool) {
+	msm.trie.AncestorsLongestPrefixFirst(key.PrefixLength(), key, func(prefix uint, lpmKey bitlpm.Key[policyTypes.LPMKey], idSet IDSet) bool {
 		k := Key{
 			LPMKey: lpmKey.Value(),
 		}
-		return msm.forIDs(k, idSet, f)
+		// Visit key with the same identity, if port/proto is different.
+		// ANY identity is visited below.
+		if key.Identity != 0 && !k.PortProtoIsEqual(key) {
+			if !msm.forID(k.WithIdentity(key.Identity), idSet, f) {
+				return false
+			}
+		}
+
+		// ANY identity covers all non-ANY identities, visit them second.
+		// Keys with ANY identity visit ANY keys only if port/proto is different.
+		if key.Identity != 0 || !k.PortProtoIsEqual(key) {
+			return msm.forID(k.WithIdentity(0), idSet, f)
+		}
+
+		return true
 	})
 }
 
-// ForEachKeyWithNarrowerOrEqualPortProto iterates over narrower or equal port/proto entries in the trie.
-func (msm *mapStateMap) ForEachKeyWithNarrowerOrEqualPortProto(key Key, f func(Key, MapStateEntry) bool) {
-	msm.trie.Descendants(key.PrefixLength(), key, func(prefix uint, lpmKey bitlpm.Key[policyTypes.LPMKey], idSet IDSet) bool {
+// ForEachSubsetKey iterates over narrower or equal port/proto entries in the trie in an LPM order
+// (least specific match first).
+func (msm *mapStateMap) ForEachSubsetKey(key Key, f func(Key, MapStateEntry) bool) {
+	msm.trie.DescendantsShortestPrefixFirst(key.PrefixLength(), key, func(prefix uint, lpmKey bitlpm.Key[policyTypes.LPMKey], idSet IDSet) bool {
 		k := Key{
 			LPMKey: lpmKey.Value(),
 		}
-		return msm.forIDs(k, idSet, f)
+
+		// For an ANY key, visit all different keys
+		if key.Identity == 0 {
+			return msm.forDifferentKeys(key, k, idSet, f)
+		}
+
+		// key has a specific ID, visit only keys with the ANY or the same ID, if they exist
+		if !msm.forID(k.WithIdentity(0), idSet, f) {
+			return false
+		}
+		if !k.PortProtoIsEqual(key) {
+			// Else visit the different key with the same identity
+			return msm.forID(k.WithIdentity(key.Identity), idSet, f)
+		}
+		return true
 	})
 }
 
@@ -1050,64 +1091,6 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 	ms.authPreferredInsert(newKey, newEntry, features, changes)
 }
 
-// IsSuperSetOf checks if the receiver Key is a superset of the argument Key, and returns a
-// specificity score of the receiver key (higher score is more specific), if so. Being a superset
-// means that the receiver key would match all the traffic of the argument key without being the
-// same key. Hence, a L3-only key is not a superset of a L4-only key, as the L3-only key would match
-// the traffic for the given L3 only, while the L4-only key matches traffic on the given port for
-// all the L3's.
-// Returns 0 if the receiver key is not a superset of the argument key.
-//
-// Specificity score for all possible superset wildcard patterns. Datapath requires proto to be specified if port is specified.
-//
-//	x. L3/proto/port
-//	1. */*/*
-//	2. ID/*/*
-//	3. */proto/*
-//	4. ID/proto/*
-//	5. */proto/port
-//	   ( ID/proto/port can not be superset of anything )
-func IsSuperSetOf(k, other Key) int {
-	if k.TrafficDirection() != other.TrafficDirection() {
-		return 0 // TrafficDirection must match for 'k' to be a superset of 'other'
-	}
-	if k.Identity == 0 {
-		if other.Identity == 0 {
-			if k.Nexthdr == 0 { // k.DestPort == 0 is implied
-				if other.Nexthdr != 0 {
-					return 1 // */*/* is a superset of */proto/x
-				} // else both are */*/*
-			} else if k.Nexthdr == other.Nexthdr {
-				if k.PortIsBroader(other) {
-					return 3 // */proto/* is a superset of */proto/port
-				} // else more specific or different ports
-			} // else more specific or different protocol
-		} else {
-			// Wildcard L3 is a superset of a specific L3 only if wildcard L3 is also wildcard L4, or the L4's match between the keys
-			if k.Nexthdr == 0 { // k.DestPort == 0 is implied
-				return 1 // */*/* is a superset of ID/x/x
-			} else if k.Nexthdr == other.Nexthdr {
-				if k.PortIsBroader(other) {
-					return 3 // */proto/* is a superset of ID/proto/x
-				} else if k.PortIsEqual(other) {
-					return 5 // */proto/port is a superset of ID/proto/port
-				} // else more specific or different ports
-			} // else more specific or different protocol
-		}
-	} else if k.Identity == other.Identity {
-		if k.Nexthdr == 0 {
-			if other.Nexthdr != 0 {
-				return 2 // ID/*/* is a superset of ID/proto/x
-			} // else both are ID/*/*
-		} else if k.Nexthdr == other.Nexthdr {
-			if k.PortIsBroader(other) {
-				return 4 // ID/proto/* is a superset of ID/proto/port
-			} // else more specific or different ports
-		} // else more specific or different protocol
-	} // else more specific or different identity
-	return 0
-}
-
 // authPreferredInsert applies AuthType of a more generic entry to more specific entries, if not
 // explicitly specified.
 //
@@ -1123,80 +1106,129 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 		)
 		if newEntry.hasAuthType == DefaultAuthType {
 			// New entry has a default auth type.
-			// Fill in the AuthType from more generic entries with an explicit auth type
-			maxSpecificity := 0
 
-			ms.allows.ForEachKeyWithBroaderOrEqualPortProto(newKey, func(k Key, v MapStateEntry) bool {
-				// Nothing to be done if entry has default AuthType
+			// Fill in the AuthType from the most specific covering key with an explicit
+			// auth type
+			ms.allows.ForEachCoveringKey(newKey, func(k Key, v MapStateEntry) bool {
+				// Skip covering entries with default AuthType
 				if v.hasAuthType == DefaultAuthType {
 					return true
 				}
 
-				// Find out if 'k' is an identity-port-proto superset of 'newKey'
-				if specificity := IsSuperSetOf(k, newKey); specificity > 0 {
-					if specificity > maxSpecificity {
-						// AuthType from the most specific superset is
-						// applied to 'newEntry'
-						newEntry.AuthType = v.AuthType
-						maxSpecificity = specificity
+				// AuthType from the most specific covering key is applied to
+				// 'newEntry'
+				newEntry.AuthType = v.AuthType
+				return false
+			})
+
+			// Override the AuthType for specific L3/4 keys, if the newKey is L4-only,
+			// and there is a key with broader port/proto for a specific identity that
+			// has an explicit auth type.
+			if newKey.Identity == 0 && newKey.Nexthdr != 0 { // L4-only newKey
+				ms.allows.ForEachBroaderKeyWithSpecificID(newKey, func(k Key, v MapStateEntry) bool {
+					// Nothing to be done if entry has default AuthType
+					if v.hasAuthType == DefaultAuthType {
+						return true
 					}
-				} else {
+
 					// Check if a new L3L4 entry must be created due to L3-only
 					// 'k' specifying an explicit AuthType and an L4-only 'newKey' not
 					// having an explicit AuthType. In this case AuthType should
 					// only override the AuthType for the L3 & L4 combination,
 					// not L4 in general.
-					//
-					// These need to be collected and only added if there is a
-					// superset key of newKey with an explicit auth type. In
-					// this case AuthType of the new L4-only entry was
-					// overridden by a more generic entry and 'max_specificity >
-					// 0' after the loop.
-					if newKey.Identity == 0 && newKey.Nexthdr != 0 && newKey.DestPort != 0 &&
-						k.Identity != 0 && (k.Nexthdr == 0 || k.Nexthdr == newKey.Nexthdr && k.DestPort == 0) {
-						update := keyValue{
-							key:   newKey.WithIdentity(k.Identity),
-							value: NewMapStateEntry(k, v.DerivedFromRules, newEntry.ProxyPort, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType),
-						}
-						update.value.DerivedFromRules.MergeSorted(newEntry.DerivedFromRules)
-						updates = append(updates, update)
+					update := keyValue{
+						key:   newKey.WithIdentity(k.Identity),
+						value: NewMapStateEntry(k, v.DerivedFromRules, newEntry.ProxyPort, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType),
 					}
-				}
-				return true
-			})
-			// Clear the updates if the auth type of the new entry was overridden by a
-			// more generic entry. If it was overridden, the new L3L4 entries are not
-			// needed as the L4-only entry with an overridden AuthType will be matched
-			// before the L3-only entries in the datapath.
-			if maxSpecificity != 0 {
-				updates = nil
+					update.value.DerivedFromRules.MergeSorted(newEntry.DerivedFromRules)
+					updates = append(updates, update)
+
+					return true
+				})
 			}
 		} else {
 			// New entry has an explicit auth type.
-			// Check if the new entry is the most specific superset of any other entry
+
+			// Check if the new key is the most specific covering key of any other key
 			// with the default auth type, and propagate the auth type from the new
 			// entry to such entries.
-			explicitSubsetKeys := make(Keys)
-			defaultSubsetKeys := make(map[Key]int)
-
-			ms.allows.ForEachKeyWithNarrowerOrEqualPortProto(newKey, func(k Key, v MapStateEntry) bool {
-				// Find out if 'newKey' is a superset of 'k'
-				if specificity := IsSuperSetOf(newKey, k); specificity > 0 ||
-					k.Identity == 0 && v.hasAuthType == ExplicitAuthType {
+			if newKey.Identity == 0 {
+				// A key with a wildcard ID can be the most specific covering key
+				// for keys with any ID. Hence we need to iterate narrower keys with
+				// all IDs and:
+				// - change all iterated keys with a default auth type
+				//   to the auth type of the newKey.
+				// - stop iteration for any given ID at first key with that ID that
+				//   has an explicit auth type, as that is the most specific covering
+				//   key for the remaining subset keys with that specific ID.
+				seenIDs := make(IDSet)
+				ms.allows.ForEachSubsetKey(newKey, func(k Key, v MapStateEntry) bool {
+					// Skip if a subset entry has an explicit auth type
 					if v.hasAuthType == ExplicitAuthType {
-						// store for later comparison
-						explicitSubsetKeys[k] = struct{}{}
-					} else {
-						defaultSubsetKeys[k] = specificity
+						// Keep track of IDs for which an explicit auth type
+						// has been encountered.
+						seenIDs[k.Identity] = struct{}{}
+						return true
 					}
-				} else if v.hasAuthType == DefaultAuthType {
-					// Check if a new L3L4 entry must be created due to L3-only
-					// 'newKey' with an explicit AuthType and an L4-only 'k' not
-					// having an explicit AuthType. In this case AuthType should
-					// only override the AuthType for the L3 & L4 combination,
-					// not L4 in general.
-					if newKey.Identity != 0 && (newKey.Nexthdr == 0 || newKey.Nexthdr == k.Nexthdr && newKey.DestPort == 0) &&
-						k.Identity == 0 && k.Nexthdr != 0 && k.DestPort != 0 {
+
+					// Skip IDs for which an explicit auth type has been seen.
+					if _, exists := seenIDs[k.Identity]; exists {
+						return true
+					}
+
+					// 'v' has a default auth type, and 'newKey' is the most
+					// specific covering key of 'k', propagate auth type from
+					// 'newEntry' to 'v'.
+
+					// Save the old value first
+					changes.insertOldIfNotExists(k, v)
+
+					// Auth type can be changed in-place, trie is not affected
+					v.AuthType = newEntry.AuthType
+					ms.allows.entries[k] = v
+					return true
+				})
+			} else {
+				// A key with a specific ID can be the most specific covering key
+				// only for keys with the same ID. However, a wildcard ID key can also be
+				// the most specific covering key for those keys, if it has a more
+				// specific proto/port than the newKey. Hence we need to iterate
+				// narrower keys with the same or ANY ID and:
+				// - change all iterated keys with the same ID and a default auth
+				//   type to the auth type of the newKey
+				// - stop iteration at first key with an explicit auth, as that is
+				//   the most specific covering key for the remaining subset keys with
+				//   the same ID.
+				ms.allows.ForEachSubsetKey(newKey, func(k Key, v MapStateEntry) bool {
+					// Stop if a subset entry has an explicit auth type, as that is more
+					// specific for all remaining subset keys
+					if v.hasAuthType == ExplicitAuthType {
+						return false
+					}
+					// auth only propagates from a key with specific ID
+					// to keys with the same ID.
+					if k.Identity != 0 {
+						// 'v' has a default auth type, and 'newKey' is the
+						// most specific covering key of 'k', propagate auth
+						// type from 'newEntry' to 'v'.
+
+						// Save the old value first
+						changes.insertOldIfNotExists(k, v)
+
+						// Auth type can be changed in-place, trie is not affected
+						v.AuthType = newEntry.AuthType
+						ms.allows.entries[k] = v
+					}
+					return true
+				})
+
+				// Check if a new L3L4 entry must be created due to 'newKey' with a
+				// specific ID and an explicit AuthType and an L4-only 'k' with a
+				// default AuthType. In this case AuthType of 'newEntry' should only
+				// override the AuthType for the L3 & L4 combination, not L4 in
+				// general.
+				ms.allows.ForEachNarrowerKeyWithWildcardID(newKey, func(k Key, v MapStateEntry) bool {
+					if v.hasAuthType == DefaultAuthType {
 						update := keyValue{
 							key:   k.WithIdentity(newKey.Identity),
 							value: NewMapStateEntry(newKey, newEntry.DerivedFromRules, v.ProxyPort, v.Listener, v.priority, false, DefaultAuthType, newEntry.AuthType),
@@ -1204,25 +1236,8 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 						update.value.DerivedFromRules.MergeSorted(v.DerivedFromRules)
 						updates = append(updates, update)
 					}
-				}
-
-				return true
-			})
-			// Find out if this newKey is the most specific superset for all the subset
-			// keys with default auth type
-		Next:
-			for k, specificity := range defaultSubsetKeys {
-				for l := range explicitSubsetKeys {
-					if s := IsSuperSetOf(l, k); s > specificity {
-						// k has a more specific superset key than the newKey, skip
-						continue Next
-					}
-				}
-				// newKey is the most specific superset with an explicit auth type,
-				// propagate auth type from newEntry to the entry of k
-				v, _ := ms.Get(k)
-				v.AuthType = newEntry.AuthType
-				ms.addKeyWithChanges(k, v, changes) // Update the map value
+					return true
+				})
 			}
 		}
 
