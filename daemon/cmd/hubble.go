@@ -269,7 +269,7 @@ func (d *Daemon) launchHubble() {
 			peerServiceOptions = append(peerServiceOptions, serviceoption.WithHubblePort(port))
 		}
 	}
-	peerSvc := peer.NewService(d.nodeDiscovery.Manager, peerServiceOptions...)
+	peerSvc := peer.NewService(d.hubble.NodeManager, peerServiceOptions...)
 	localSrvOpts = append(localSrvOpts,
 		serveroption.WithUnixSocketListener(sockPath),
 		serveroption.WithHealthService(),
