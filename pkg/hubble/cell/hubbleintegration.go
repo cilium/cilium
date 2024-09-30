@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/service"
 )
 
@@ -53,6 +54,7 @@ type Hubble struct {
 	NodeManager       nodeManager.NodeManager // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 	NodeLocalStore    *node.LocalNodeStore    // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 	MonitorAgent      monitorAgent.Agent      // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
+	Recorder          *recorder.Recorder      // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 }
 
 // new creates and return a new Hubble.
@@ -68,6 +70,7 @@ func new(
 	nodeManager nodeManager.NodeManager,
 	nodeLocalStore *node.LocalNodeStore,
 	monitorAgent monitorAgent.Agent,
+	recorder *recorder.Recorder,
 ) *Hubble {
 	return &Hubble{
 		agentConfig:       agentConfig,
@@ -82,6 +85,7 @@ func new(
 		NodeManager:       nodeManager,
 		NodeLocalStore:    nodeLocalStore,
 		MonitorAgent:      monitorAgent,
+		Recorder:          recorder,
 	}
 }
 

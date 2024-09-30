@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/service"
 )
 
@@ -43,6 +44,7 @@ type hubbleParams struct {
 	NodeManager       nodeManager.NodeManager
 	NodeLocalStore    *node.LocalNodeStore
 	MonitorAgent      monitorAgent.Agent
+	Recorder          *recorder.Recorder
 }
 
 func newHubble(params hubbleParams) *Hubble {
@@ -58,5 +60,6 @@ func newHubble(params hubbleParams) *Hubble {
 		params.NodeManager,
 		params.NodeLocalStore,
 		params.MonitorAgent,
+		params.Recorder,
 	)
 }
