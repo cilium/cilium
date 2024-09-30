@@ -167,7 +167,7 @@ func (s CIDRRuleSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 		}
 
 		// add the "main" label:
-		// either a CIDR or CIDRGroupRef
+		// either a CIDR, CIDRGroupRef, or CIDRGroupSelector
 		if r.Cidr != "" {
 			var lbl labels.Label
 			switch r.Cidr {
@@ -196,6 +196,8 @@ func (s CIDRRuleSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 				Key:      lbl.GetExtendedKey(),
 				Operator: slim_metav1.LabelSelectorOpExists,
 			})
+		} else if r.CIDRGroupSelector != nil {
+			ls = *NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, r.CIDRGroupSelector).LabelSelector
 		} else {
 			// should never be hit, but paranoia
 			continue
