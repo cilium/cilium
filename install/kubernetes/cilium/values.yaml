@@ -2041,7 +2041,7 @@ loadBalancer:
   # algorithm: random
 
   # -- mode is the operation mode of load balancing for remote backends
-  # e.g. snat, dsr, hybrid
+  # e.g. snat, dsr, hybrid, annotation
   # mode: snat
 
   # -- acceleration is the option to accelerate service handling via XDP
