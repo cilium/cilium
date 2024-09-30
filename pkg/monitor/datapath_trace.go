@@ -265,6 +265,10 @@ func (n *TraceNotify) traceSummary() string {
 		return "<- overlay"
 	case api.TraceFromNetwork:
 		return "<- network"
+	case api.TraceFromCryptoDev:
+		return "<- crypto_dev"
+	case api.TraceToCryptoDev:
+		return "-> crypto_dev"
 	default:
 		return "unknown trace"
 	}

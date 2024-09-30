@@ -190,6 +190,13 @@ enum TraceObservationPoint {
     // TO_NETWORK indicates network packets are transmitted towards native
     // devices.
     TO_NETWORK = 11;
+    // FROM_CRYPTO_DEV indicates network packets are received from a crypto
+    // device after decryption.
+    FROM_CRYPTO_DEV = 12;
+    // TO_CRYPTO_DEV indicates network packets are forwarded to a crypto
+    // device for encryption.
+    TO_CRYPTO_DEV = 13;
+    
 }
 
 enum TraceReason {

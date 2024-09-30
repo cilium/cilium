@@ -676,6 +676,7 @@ enum {
 #define REASON_FRAG_PACKET		9
 #define REASON_FRAG_PACKET_UPDATE	10
 #define REASON_MISSED_CUSTOM_CALL	11
+#define REASON_ENCRYPT			12
 
 /* Lookup scope for externalTrafficPolicy=Local */
 #define LB_LOOKUP_SCOPE_EXT	0
@@ -733,6 +734,13 @@ enum metric_dir {
  * for more details.
  */
 #define MARK_MAGIC_WG_ENCRYPTED		0x1E00
+
+/* The mark is used to indicate that the WireGuard tunnel device is done
+ * decrypting a packet. The MSB invades the Kubernetes mark "space" which is
+ * fine, as it's not used by K8s. See pkg/datapath/linux/linux_defaults/mark.go
+ * for more details.
+ */
+#define MARK_MAGIC_WG_DECRYPTED		0x2D00
 
 /* MARK_MAGIC_HEALTH_IPIP_DONE can overlap with MARK_MAGIC_SNAT_DONE with both
  * being mutual exclusive given former is only under DSR. Used to push health
