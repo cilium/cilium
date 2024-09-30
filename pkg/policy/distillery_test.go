@@ -1821,35 +1821,6 @@ var (
 			},
 		},
 	}}).WithEndpointSelector(api.WildcardEndpointSelector)
-	// these are the cidrs that will be computed from
-	// the above cidrset
-	computedCIDRS = []string{
-		"1.128.0.0/9",
-		"1.64.0.0/10",
-		"1.32.0.0/11",
-		"1.16.0.0/12",
-		"1.8.0.0/13",
-		"1.4.0.0/14",
-		"1.2.0.0/15",
-		"1.0.0.0/16",
-		"1.1.128.0/17",
-		"1.1.64.0/18",
-		"1.1.32.0/19",
-		"1.1.16.0/20",
-		"1.1.8.0/21",
-		"1.1.4.0/22",
-		"1.1.2.0/23",
-		"1.1.0.0/24",
-		"1.1.1.128/25",
-		"1.1.1.64/26",
-		"1.1.1.32/27",
-		"1.1.1.16/28",
-		"1.1.1.8/29",
-		"1.1.1.4/30",
-		"1.1.1.2/31",
-		"1.1.1.0/32",
-	}
-	startingIdentity = 16340
 )
 
 // Allow-ception tests that an allow within a deny within an allow
@@ -1868,21 +1839,15 @@ func Test_Allowception(t *testing.T) {
 		one0Z32Identity:                       lblOne0Z32, // 16332 (0x3fcc): ["1.1.1.1/32"]
 	}
 	computedMapStateForAllowCeption := NewMapState()
-	// populate the identityCache with the computed CIDRs for the allow-ception test
-	for i, cidr := range computedCIDRS {
-		id := localIdentity(uint32(startingIdentity + i))
-		identityCache[id] = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, cidr))
-	}
 	selectorCache := testNewSelectorCache(identityCache)
 
 	computedMapStateForAllowCeption.insert(ingressKey(0, 0, 0, 0), mapEntryL7None_(lblsAllowAllIngress))
+	// egress: allow world
 	computedMapStateForAllowCeption.insert(egressKey(identity.ReservedIdentityWorld, 0, 0, 0), mapEntryAllow)
-	computedMapStateForAllowCeption.insert(egressKey(one3Z8Identity, 0, 0, 0), mapEntryAllow)
+	// egress: deny 1.0.0.0/8
+	computedMapStateForAllowCeption.insert(egressKey(one3Z8Identity, 0, 0, 0), mapEntryDeny)
+	// egress: allow 1.1.1.1/32 (because of the ExceptCIDRs line)
 	computedMapStateForAllowCeption.insert(egressKey(one0Z32Identity, 0, 0, 0), mapEntryAllow)
-	for i := range computedCIDRS {
-		id := localIdentity(uint32(startingIdentity + i))
-		computedMapStateForAllowCeption.insert(egressKey(id, 0, 0, 0), mapEntryDeny)
-	}
 
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
