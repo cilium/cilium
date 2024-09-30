@@ -156,9 +156,9 @@ func TestRemoteClusterStatus(t *testing.T) {
 
 				assert.True(c, status.Synced.Services, "Services should be synced")
 				if tt.expectedMCSAPISync {
-					require.True(t, status.Synced.ServiceExports != nil && *status.Synced.ServiceExports, "Service Exports should be synced")
+					assert.True(c, status.Synced.ServiceExports != nil && *status.Synced.ServiceExports, "Service Exports should be synced")
 				} else {
-					require.Nil(t, status.Synced.ServiceExports, "Service Exports should not be considered for syncing")
+					assert.Nil(c, status.Synced.ServiceExports, "Service Exports should not be considered for syncing")
 				}
 
 				if tt.expectedServiceSync {
