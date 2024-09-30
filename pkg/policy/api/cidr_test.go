@@ -219,3 +219,59 @@ continueTest:
 		}
 	}
 }
+
+func TestGetAsEndpointSelectorsWithExceptions(t *testing.T) {
+
+	tt := []struct {
+		name             string
+		rule             CIDRRule
+		matchesLabels    []string
+		notMatchesLabels []string
+	}{
+		{
+			name: "no exclude",
+			rule: CIDRRule{
+				Cidr: "1.0.0.0/24",
+			},
+			matchesLabels:    []string{"cidr:1.0.0.0/24", "cidr:1.0.0.0/25"},
+			notMatchesLabels: []string{"cidr:2.0.0.0/24"},
+		},
+		{
+			name: "exclude-cidr",
+			rule: CIDRRule{
+				Cidr:        "1.0.0.0/24",
+				ExceptCIDRs: []CIDR{"1.0.0.4/30"},
+			},
+			matchesLabels:    []string{"cidr:1.0.0.0/24", "cidr:1.0.0.0/25", "cidr:1.0.0.1/32"},
+			notMatchesLabels: []string{"cidr:2.0.0.0/24", "cidr:1.0.0.4/30", "cidr:1.0.0.4/32", "cidr:1.0.0.5/32"},
+		},
+		{
+			name: "cidrgroup-exclude-cidr",
+			rule: CIDRRule{
+				CIDRGroupRef: "testing",
+				ExceptCIDRs:  []CIDR{"1.0.0.4/30"},
+			},
+			matchesLabels:    []string{"cidrgroup:io.cilium.policy.cidrgroupname/testing"},
+			notMatchesLabels: []string{"cidr:2.0.0.0/24", "cidr:1.0.0.4/30", "cidr:1.0.0.4/32", "cidr:1.0.0.5/32"},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			es := (CIDRRuleSlice{tc.rule}).GetAsEndpointSelectors()[0]
+			for _, l := range tc.matchesLabels {
+				lblArr := labels.ParseLabelArray(l)
+				if !es.Matches(lblArr) {
+					t.Fatalf("Expected to match %+v, but did not", lblArr[0])
+				}
+			}
+			for _, l := range tc.notMatchesLabels {
+				lblArr := labels.ParseLabelArray(l)
+				if es.Matches(lblArr) {
+					t.Fatalf("Expected not to match %s, but did", l)
+				}
+			}
+
+		})
+	}
+}
