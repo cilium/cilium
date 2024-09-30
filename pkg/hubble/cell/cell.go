@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 )
@@ -33,6 +34,7 @@ type hubbleParams struct {
 	IPCache           *ipcache.IPCache
 	ServiceManager    service.ServiceManager
 	CGroupManager     manager.CGroupManager
+	Clientset         k8sClient.Clientset
 }
 
 func newHubble(params hubbleParams) *Hubble {
@@ -43,5 +45,6 @@ func newHubble(params hubbleParams) *Hubble {
 		params.IPCache,
 		params.ServiceManager,
 		params.CGroupManager,
+		params.Clientset,
 	)
 }
