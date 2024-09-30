@@ -659,6 +659,15 @@ are exposed by default via SNAT, and on-demand as DSR:
         targetPort: 80
     type: LoadBalancer
 
+Note that the ``forwarding-mode`` annotation must be set at service creation time
+and should not be changed during the lifetime of that service. Changing the value
+of the annotation or removing the annotation while the service is installed breaks
+connections.
+
+The above example installs the Kubernetes service only as type ``LoadBalancer``,
+that is, without the corresponding ``NodePort`` and ``ClusterIP`` services, and
+uses the configured DSR method to forward the packets instead of default SNAT.
+
 A Helm example configuration in a kube-proxy-free environment with DSR enabled in
 annotation mode would look as follows:
 
