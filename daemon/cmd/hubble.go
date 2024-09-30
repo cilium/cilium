@@ -9,14 +9,12 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/netip"
 	"strconv"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/hubble/container"
@@ -37,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/recorder/sink"
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -199,7 +196,7 @@ func (d *Daemon) launchHubble() {
 		)
 	}
 
-	payloadParser, err := parser.New(logger, d.hubble, d.hubble, d.hubble, d.hubble.IPCache, d, link.NewLinkCache(), d.cgroupManager, parserOpts...)
+	payloadParser, err := parser.New(logger, d.hubble, d.hubble, d.hubble, d.hubble.IPCache, d.hubble, link.NewLinkCache(), d.cgroupManager, parserOpts...)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
@@ -391,29 +388,6 @@ func (d *Daemon) launchHubble() {
 	}
 
 	d.hubble.Observer.Store(hubbleObserver)
-}
-
-// GetServiceByAddr looks up service by IP/port. Hubble uses this function to annotate flows
-// with service information.
-func (d *Daemon) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service {
-	if !ip.IsValid() {
-		return nil
-	}
-	addrCluster := cmtypes.AddrClusterFrom(ip, 0)
-	addr := loadbalancer.L3n4Addr{
-		AddrCluster: addrCluster,
-		L4Addr: loadbalancer.L4Addr{
-			Port: port,
-		},
-	}
-	namespace, name, ok := d.svc.GetServiceNameByAddr(addr)
-	if !ok {
-		return nil
-	}
-	return &flowpb.Service{
-		Namespace: namespace,
-		Name:      name,
-	}
 }
 
 // getHubbleEventBufferCapacity returns the user configured capacity for

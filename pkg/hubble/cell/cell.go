@@ -10,6 +10,7 @@ import (
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/service"
 )
 
 // The top-level Hubble cell, implements several Hubble subsystems: reports pod
@@ -29,6 +30,7 @@ type hubbleParams struct {
 	IdentityAllocator identitycell.CachingIdentityAllocator
 	EndpointManager   endpointmanager.EndpointManager
 	IPCache           *ipcache.IPCache
+	ServiceManager    service.ServiceManager
 }
 
 func newHubble(params hubbleParams) *Hubble {
@@ -37,5 +39,6 @@ func newHubble(params hubbleParams) *Hubble {
 		params.IdentityAllocator,
 		params.EndpointManager,
 		params.IPCache,
+		params.ServiceManager,
 	)
 }
