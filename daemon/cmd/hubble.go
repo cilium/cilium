@@ -13,13 +13,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-openapi/strfmt"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/api/v1/models"
-	observerpb "github.com/cilium/cilium/api/v1/observer"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -50,47 +47,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-func (d *Daemon) getHubbleStatus(ctx context.Context) *models.HubbleStatus {
-	if !option.Config.EnableHubble {
-		return &models.HubbleStatus{State: models.HubbleStatusStateDisabled}
-	}
-
-	obs := d.hubbleObserver.Load()
-	if obs == nil {
-		return &models.HubbleStatus{
-			State: models.HubbleStatusStateWarning,
-			Msg:   "Server not initialized",
-		}
-	}
-
-	req := &observerpb.ServerStatusRequest{}
-	status, err := obs.ServerStatus(ctx, req)
-	if err != nil {
-		return &models.HubbleStatus{State: models.HubbleStatusStateFailure, Msg: err.Error()}
-	}
-
-	metricsState := models.HubbleStatusMetricsStateDisabled
-	if option.Config.HubbleMetricsServer != "" {
-		// TODO: The metrics package should be refactored to be able report its actual state
-		metricsState = models.HubbleStatusMetricsStateOk
-	}
-
-	hubbleStatus := &models.HubbleStatus{
-		State: models.StatusStateOk,
-		Observer: &models.HubbleStatusObserver{
-			CurrentFlows: int64(status.NumFlows),
-			MaxFlows:     int64(status.MaxFlows),
-			SeenFlows:    int64(status.SeenFlows),
-			Uptime:       strfmt.Duration(time.Duration(status.UptimeNs)),
-		},
-		Metrics: &models.HubbleStatusMetrics{
-			State: metricsState,
-		},
-	}
-
-	return hubbleStatus
-}
 
 func getPort(addr string) (int, error) {
 	_, port, err := net.SplitHostPort(addr)
@@ -438,7 +394,7 @@ func (d *Daemon) launchHubble() {
 		}()
 	}
 
-	d.hubbleObserver.Store(hubbleObserver)
+	d.hubble.Observer.Store(hubbleObserver)
 }
 
 // GetIdentity looks up identity by ID from Cilium's identity cache. Hubble uses the identity info
