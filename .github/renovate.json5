@@ -641,6 +641,22 @@
         "major",
         "minor"
       ],
+    },
+    {
+      "enabled": false,
+      "matchFileNames": [
+        ".github/workflows/lint-build-commits.yaml",
+        ".github/workflows/lint-bpf-checks.yaml"
+      ],
+      "matchDepTypes": [
+        "github-runner",
+      ],
+      "matchPackageNames": [
+        "ubuntu",
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
     }
   ],
   "kubernetes": {
