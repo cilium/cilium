@@ -566,10 +566,15 @@ func TestHTTPRuleRegexes(t *testing.T) {
 // Test the validation of CIDR rule prefix definitions
 func TestCIDRsanitize(t *testing.T) {
 	setUpSuite(t)
+	sel := &slim_metav1.LabelSelector{MatchLabels: map[string]string{"foo": "bar"}}
+
+	cidr := CIDRRule{}
+	err := cidr.sanitize()
+	require.Error(t, err)
 
 	// IPv4
-	cidr := CIDRRule{Cidr: "0.0.0.0/0"}
-	err := cidr.sanitize()
+	cidr = CIDRRule{Cidr: "0.0.0.0/0"}
+	err = cidr.sanitize()
 	require.NoError(t, err)
 
 	cidr = CIDRRule{Cidr: "10.0.0.0/24"}
@@ -592,6 +597,14 @@ func TestCIDRsanitize(t *testing.T) {
 	cidr = CIDRRule{Cidr: "", CIDRGroupRef: "cidrgroup"}
 	err = cidr.sanitize()
 	require.NoError(t, err)
+
+	cidr = CIDRRule{Cidr: "", CIDRGroupSelector: sel}
+	err = cidr.sanitize()
+	require.NoError(t, err)
+
+	cidr = CIDRRule{Cidr: "", CIDRGroupRef: "foo", CIDRGroupSelector: sel}
+	err = cidr.sanitize()
+	require.Error(t, err)
 
 	cidr = CIDRRule{Cidr: "2001:0db8:85a3:0000:0000:8a2e:0370:7334/128"}
 	err = cidr.sanitize()

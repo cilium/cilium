@@ -144,6 +144,9 @@ const (
 	// LabelSourceCIDRGroup is the label source used for labels from CIDRGroups
 	LabelSourceCIDRGroup = "cidrgroup"
 
+	// LabelSourceCIDRGroupKeyPrefix is the source as a k8s selector key prefix
+	LabelSourceCIDRGroupKeyPrefix = LabelSourceCIDRGroup + "."
+
 	// LabelSourceNode is the label source for remote-nodes.
 	LabelSourceNode = "node"
 
