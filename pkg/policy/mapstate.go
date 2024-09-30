@@ -661,17 +661,17 @@ func (ms *mapState) RemoveDependent(owner Key, dependent Key, changes ChangeStat
 	}
 }
 
-// Merge adds owners, dependents, and DerivedFromRules from a new 'entry' to an existing
+// merge adds owners, dependents, and DerivedFromRules from a new 'entry' to an existing
 // entry 'e'. 'entry' is not modified.
 // Merge is only called if both entries are allow or deny entries, so deny precedence is not
 // considered here.
 // ProxyPort, and AuthType are merged by giving precedence to proxy redirection over no proxy
 // redirection, and explicit auth type over default auth type.
-func (e *MapStateEntry) Merge(entry *MapStateEntry) {
+func (e *MapStateEntry) merge(entry *MapStateEntry) {
 	// Bail out loudly if both entries are not denies or allows
 	if e.IsDeny != entry.IsDeny {
 		log.WithField(logfields.Stacktrace, hclog.Stacktrace()).
-			Errorf("MapStateEntry.Merge: both entries must be allows or denies")
+			Errorf("MapStateEntry.merge: both entries must be allows or denies")
 		return
 	}
 	// Only allow entries have proxy redirection or auth requirement
@@ -832,7 +832,7 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Chan
 		// place!
 		datapathEqual = oldEntry.DatapathEqual(&entry)
 
-		oldEntry.Merge(&entry)
+		oldEntry.merge(&entry)
 		ms.insert(key, oldEntry)
 	} else if !exists || entry.IsDeny {
 		// Insert a new entry if one did not exist or a deny entry is overwriting an allow
@@ -1109,7 +1109,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				denyEntry = NewMapStateEntry(k, v.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
 			} else {
 				// Collect the owners and labels of all the contributing deny rules
-				denyEntry.Merge(&v)
+				denyEntry.merge(&v)
 			}
 			return true
 		})
