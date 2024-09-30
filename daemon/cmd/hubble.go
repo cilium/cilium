@@ -84,7 +84,7 @@ func (d *Daemon) launchHubble() {
 		dropEventEmitter := dropeventemitter.NewDropEventEmitter(
 			option.Config.HubbleDropEventsInterval,
 			option.Config.HubbleDropEventsReasons,
-			d.clientset,
+			d.hubble.Clientset,
 			d.k8sWatcher,
 		)
 
