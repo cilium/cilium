@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/netip"
 	"strconv"
-	"strings"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
@@ -200,7 +199,7 @@ func (d *Daemon) launchHubble() {
 		)
 	}
 
-	payloadParser, err := parser.New(logger, d.hubble, d.hubble, d, d.ipcache, d, link.NewLinkCache(), d.cgroupManager, parserOpts...)
+	payloadParser, err := parser.New(logger, d.hubble, d.hubble, d.hubble, d.ipcache, d, link.NewLinkCache(), d.cgroupManager, parserOpts...)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
@@ -392,26 +391,6 @@ func (d *Daemon) launchHubble() {
 	}
 
 	d.hubble.Observer.Store(hubbleObserver)
-}
-
-// GetNamesOf implements DNSGetter.GetNamesOf. It looks up DNS names of a given IP from the
-// FQDN cache of an endpoint specified by sourceEpID.
-func (d *Daemon) GetNamesOf(sourceEpID uint32, ip netip.Addr) []string {
-	ep := d.endpointManager.LookupCiliumID(uint16(sourceEpID))
-	if ep == nil {
-		return nil
-	}
-
-	if !ip.IsValid() {
-		return nil
-	}
-	names := ep.DNSHistory.LookupIP(ip)
-
-	for i := range names {
-		names[i] = strings.TrimSuffix(names[i], ".")
-	}
-
-	return names
 }
 
 // GetServiceByAddr looks up service by IP/port. Hubble uses this function to annotate flows
