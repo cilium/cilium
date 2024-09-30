@@ -6,6 +6,7 @@ package hubblecell
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"sync/atomic"
 	"time"
 
@@ -13,7 +14,9 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hubble/observer"
+	hubbleGetters "github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/option"
@@ -29,17 +32,20 @@ type Hubble struct {
 	Observer atomic.Pointer[observer.LocalObserverServer]
 
 	identityAllocator identitycell.CachingIdentityAllocator
+	endpointManager   endpointmanager.EndpointManager
 }
 
 // new creates and return a new Hubble.
 func new(
 	agentConfig *option.DaemonConfig,
 	identityAllocator identitycell.CachingIdentityAllocator,
+	endpointManager endpointmanager.EndpointManager,
 ) *Hubble {
 	return &Hubble{
 		agentConfig:       agentConfig,
 		Observer:          atomic.Pointer[observer.LocalObserverServer]{},
 		identityAllocator: identityAllocator,
+		endpointManager:   endpointManager,
 	}
 }
 
@@ -95,4 +101,28 @@ func (h *Hubble) GetIdentity(securityIdentity uint32) (*identity.Identity, error
 		return nil, fmt.Errorf("identity %d not found", securityIdentity)
 	}
 	return ident, nil
+}
+
+// GetEndpointInfo implements EndpointGetter. It returns endpoint info for a
+// given IP address. Hubble uses this function to populate fields like
+// namespace and pod name for local endpoints.
+func (h *Hubble) GetEndpointInfo(ip netip.Addr) (endpoint hubbleGetters.EndpointInfo, ok bool) {
+	if !ip.IsValid() {
+		return nil, false
+	}
+	ep := h.endpointManager.LookupIP(ip)
+	if ep == nil {
+		return nil, false
+	}
+	return ep, true
+}
+
+// GetEndpointInfoByID implements EndpointGetter. It returns endpoint info for
+// a given Cilium endpoint id. Used by Hubble.
+func (h *Hubble) GetEndpointInfoByID(id uint16) (endpoint hubbleGetters.EndpointInfo, ok bool) {
+	ep := h.endpointManager.LookupCiliumID(id)
+	if ep == nil {
+		return nil, false
+	}
+	return ep, true
 }
