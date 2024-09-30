@@ -30,10 +30,10 @@ jobs:
 
           REPO=${{ github.repository }}
           set +e
-          for cache in $(gh actions-cache list -R $REPO --key ${{ runner.os }}-go- -B ${{ github.event.repository.default_branch }} -L 100 | awk '{ print $1 }'); then
+          for cache in $(gh actions-cache list -R $REPO --key ${{ runner.os }}-go- -B ${{ github.event.repository.default_branch }} -L 100 | awk '{ print $1 }'); do
             gh actions-cache delete ${cache} -R $REPO -B ${{ github.event.repository.default_branch }} --confirm || true
           done
-          for cache in $(gh actions-cache list -R $REPO --key ${{ runner.os }}-ccache- -B ${{ github.event.repository.default_branch }} -L 100 | awk '{ print $1 }'); then
+          for cache in $(gh actions-cache list -R $REPO --key ${{ runner.os }}-ccache- -B ${{ github.event.repository.default_branch }} -L 100 | awk '{ print $1 }'); do
             gh actions-cache delete ${cache} -R $REPO -B ${{ github.event.repository.default_branch }} --confirm || true
           done
         env:
