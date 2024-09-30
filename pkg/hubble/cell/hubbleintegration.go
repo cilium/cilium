@@ -25,6 +25,7 @@ import (
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
@@ -45,6 +46,7 @@ type Hubble struct {
 	serviceManager    service.ServiceManager
 	CGroupManager     manager.CGroupManager // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 	Clientset         k8sClient.Clientset   // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
+	K8sWatcher        *watchers.K8sWatcher  // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 }
 
 // new creates and return a new Hubble.
@@ -56,6 +58,7 @@ func new(
 	serviceManager service.ServiceManager,
 	cgroupManager manager.CGroupManager,
 	clientset k8sClient.Clientset,
+	k8sWatcher *watchers.K8sWatcher,
 ) *Hubble {
 	return &Hubble{
 		agentConfig:       agentConfig,
@@ -66,6 +69,7 @@ func new(
 		serviceManager:    serviceManager,
 		CGroupManager:     cgroupManager,
 		Clientset:         clientset,
+		K8sWatcher:        k8sWatcher,
 	}
 }
 
