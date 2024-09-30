@@ -199,7 +199,7 @@ func (d *Daemon) launchHubble() {
 		)
 	}
 
-	payloadParser, err := parser.New(logger, d.hubble, d.hubble, d.hubble, d.ipcache, d, link.NewLinkCache(), d.cgroupManager, parserOpts...)
+	payloadParser, err := parser.New(logger, d.hubble, d.hubble, d.hubble, d.hubble.IPCache, d, link.NewLinkCache(), d.cgroupManager, parserOpts...)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return

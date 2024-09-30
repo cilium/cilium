@@ -20,6 +20,7 @@ import (
 	hubbleGetters "github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -34,6 +35,7 @@ type Hubble struct {
 
 	identityAllocator identitycell.CachingIdentityAllocator
 	endpointManager   endpointmanager.EndpointManager
+	IPCache           *ipcache.IPCache // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 }
 
 // new creates and return a new Hubble.
@@ -41,12 +43,14 @@ func new(
 	agentConfig *option.DaemonConfig,
 	identityAllocator identitycell.CachingIdentityAllocator,
 	endpointManager endpointmanager.EndpointManager,
+	ipcache *ipcache.IPCache,
 ) *Hubble {
 	return &Hubble{
 		agentConfig:       agentConfig,
 		Observer:          atomic.Pointer[observer.LocalObserverServer]{},
 		identityAllocator: identityAllocator,
 		endpointManager:   endpointManager,
+		IPCache:           ipcache,
 	}
 }
 
