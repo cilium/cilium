@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -125,4 +126,24 @@ func (h *Hubble) GetEndpointInfoByID(id uint16) (endpoint hubbleGetters.Endpoint
 		return nil, false
 	}
 	return ep, true
+}
+
+// GetNamesOf implements DNSGetter.GetNamesOf. It looks up DNS names of a given
+// IP from the FQDN cache of an endpoint specified by sourceEpID.
+func (h *Hubble) GetNamesOf(sourceEpID uint32, ip netip.Addr) []string {
+	ep := h.endpointManager.LookupCiliumID(uint16(sourceEpID))
+	if ep == nil {
+		return nil
+	}
+
+	if !ip.IsValid() {
+		return nil
+	}
+	names := ep.DNSHistory.LookupIP(ip)
+
+	for i := range names {
+		names[i] = strings.TrimSuffix(names[i], ".")
+	}
+
+	return names
 }
