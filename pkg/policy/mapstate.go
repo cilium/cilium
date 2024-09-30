@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/container/bitlpm"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -31,6 +32,7 @@ import (
 // lest ye find yourself with hundreds of unnecessary imports.
 type Key = policyTypes.Key
 type Keys = policyTypes.Keys
+type MapStateOwner = any // Key or CachedSelector
 
 type MapStateMap map[Key]MapStateEntry
 
@@ -413,8 +415,6 @@ func (msm *mapStateMap) Len() int {
 	return len(msm.entries)
 }
 
-type MapStateOwner interface{}
-
 // MapStateEntry is the configuration associated with a Key in a
 // MapState. This is a minimized version of policymap.PolicyEntry.
 type MapStateEntry struct {
@@ -445,9 +445,9 @@ type MapStateEntry struct {
 	// In sorted order.
 	DerivedFromRules labels.LabelArrayList
 
-	// Owners collects the keys in the map and selectors in the policy that require this key to be present.
+	// owners collects the keys in the map and selectors in the policy that require this key to be present.
 	// TODO: keep track which selector needed the entry to be deny, redirect, or just allow.
-	owners map[MapStateOwner]struct{}
+	owners set.Set[MapStateOwner]
 
 	// dependents contains the keys for entries create based on this entry. These entries
 	// will be deleted once all of the owners are deleted.
@@ -475,7 +475,7 @@ func NewMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, proxy
 		IsDeny:           deny,
 		hasAuthType:      hasAuth,
 		AuthType:         authType,
-		owners:           map[MapStateOwner]struct{}{cs: {}},
+		owners:           set.NewSet(cs),
 	}
 }
 
@@ -565,6 +565,17 @@ func (ms *mapState) insert(k Key, v MapStateEntry) {
 	} else {
 		ms.denies.delete(k)
 		ms.allows.upsert(k, v)
+	}
+}
+
+// updateExisting re-inserts an existing entry to its map, to be used to persist changes in the
+// entry.
+// NOTE: Only to be used when Key and v.IsDeny has not been changed!
+func (ms *mapState) updateExisting(k Key, v MapStateEntry) {
+	if v.IsDeny {
+		ms.denies.entries[k] = v
+	} else {
+		ms.allows.entries[k] = v
 	}
 }
 
@@ -712,12 +723,7 @@ func (e *MapStateEntry) merge(entry *MapStateEntry) {
 		}
 	}
 
-	if e.owners == nil && len(entry.owners) > 0 {
-		e.owners = make(map[MapStateOwner]struct{}, len(entry.owners))
-	}
-	for k, v := range entry.owners {
-		e.owners[k] = v
-	}
+	e.owners.Merge(entry.owners)
 
 	// merge dependents
 	for k := range entry.dependents {
@@ -776,13 +782,8 @@ func (e *MapStateEntry) DeepEqual(o *MapStateEntry) bool {
 		return false
 	}
 
-	if len(e.owners) != len(o.owners) {
+	if !e.owners.Equal(o.owners) {
 		return false
-	}
-	for k := range o.owners {
-		if _, exists := e.owners[k]; !exists {
-			return false
-		}
 	}
 
 	if len(e.dependents) != len(o.dependents) {
@@ -805,7 +806,10 @@ func (e MapStateEntry) String() string {
 		",Listener=" + e.Listener +
 		",IsDeny=" + strconv.FormatBool(e.IsDeny) +
 		",AuthType=" + e.AuthType.String() +
-		",DerivedFromRules=" + fmt.Sprintf("%v", e.DerivedFromRules)
+		",DerivedFromRules=" + fmt.Sprintf("%v", e.DerivedFromRules) +
+		",priority=" + strconv.FormatUint(uint64(e.priority), 10) +
+		",owners=" + e.owners.String() +
+		",dependents=" + fmt.Sprintf("%v", e.dependents)
 }
 
 // denyPreferredInsert inserts a key and entry into the map by given preference
@@ -848,7 +852,7 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Chan
 		// Newly inserted entries must have their own containers, so that they
 		// remain separate when new owners/dependents are added to existing entries
 		entry.DerivedFromRules = slices.Clone(entry.DerivedFromRules)
-		entry.owners = maps.Clone(entry.owners)
+		entry.owners = entry.owners.Clone()
 		entry.dependents = maps.Clone(entry.dependents)
 		ms.insert(key, entry)
 	} else {
@@ -873,15 +877,19 @@ func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, changes C
 		// Save old value before any changes, if desired
 		oldAdded := changes.insertOldIfNotExists(key, entry)
 		if owner != nil {
-			// remove the contribution of the given selector only
-			if _, exists = entry.owners[owner]; exists {
-				// Remove the contribution of this selector from the entry
-				delete(entry.owners, owner)
+			if entry.owners.Has(owner) {
+				// remove the contribution of the given selector only
+				changed := entry.owners.Remove(owner)
+				if changed {
+					// re-insert entry due to owner change
+					ms.updateExisting(key, entry)
+				}
+				// Remove the contribution of this key from the entry
 				if ownerKey, ok := owner.(Key); ok {
 					ms.RemoveDependent(ownerKey, key, changes)
 				}
 				// key is not deleted if other owners still need it
-				if len(entry.owners) > 0 {
+				if entry.owners.Len() > 0 {
 					return
 				}
 			} else {
@@ -897,12 +905,8 @@ func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, changes C
 		// Owner is nil when deleting more specific entries (e.g., L3/L4) when
 		// adding deny entries that cover them (e.g., L3-deny).
 		if owner == nil {
-			for owner := range entry.owners {
-				if owner != nil {
-					if ownerKey, ok := owner.(Key); ok {
-						ms.RemoveDependent(ownerKey, key, changes)
-					}
-				}
+			for ownerKey := range set.MembersOfType[Key](entry.owners) {
+				ms.RemoveDependent(ownerKey, key, changes)
 			}
 		}
 
@@ -1390,7 +1394,7 @@ func (changes *ChangeState) insertOldIfNotExists(key Key, entry MapStateEntry) b
 		if _, added := changes.Adds[key]; !added {
 			// new containers to keep this entry separate from the one that may remain in 'keys'
 			entry.DerivedFromRules = slices.Clone(entry.DerivedFromRules)
-			entry.owners = maps.Clone(entry.owners)
+			entry.owners = entry.owners.Clone()
 			entry.dependents = maps.Clone(entry.dependents)
 
 			changes.Old[key] = entry
@@ -1641,9 +1645,8 @@ func (mc *MapChanges) consumeMapChanges(p *EndpointPolicy, features policyFeatur
 			p.policyMapState.denyPreferredInsertWithChanges(key, entry, features, changes)
 		} else {
 			// Delete the contribution of this cs to the key and collect incremental changes
-			for cs := range mc.synced[i].Value.owners { // get the sole selector
-				p.policyMapState.deleteKeyWithChanges(mc.synced[i].Key, cs, changes)
-			}
+			cs, _ := mc.synced[i].Value.owners.Get() // get the sole selector
+			p.policyMapState.deleteKeyWithChanges(mc.synced[i].Key, cs, changes)
 		}
 	}
 
