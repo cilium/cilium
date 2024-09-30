@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
-	hubbleGetters "github.com/cilium/cilium/pkg/hubble/parser/getters"
 	parserOptions "github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/hubble/peer"
 	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
@@ -43,7 +42,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -202,7 +200,7 @@ func (d *Daemon) launchHubble() {
 		)
 	}
 
-	payloadParser, err := parser.New(logger, d, d.hubble, d, d.ipcache, d, link.NewLinkCache(), d.cgroupManager, parserOpts...)
+	payloadParser, err := parser.New(logger, d.hubble, d.hubble, d, d.ipcache, d, link.NewLinkCache(), d.cgroupManager, parserOpts...)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
@@ -394,32 +392,6 @@ func (d *Daemon) launchHubble() {
 	}
 
 	d.hubble.Observer.Store(hubbleObserver)
-}
-
-// GetEndpointInfo returns endpoint info for a given IP address. Hubble uses this function to populate
-// fields like namespace and pod name for local endpoints.
-func (d *Daemon) GetEndpointInfo(ip netip.Addr) (endpoint hubbleGetters.EndpointInfo, ok bool) {
-	if !ip.IsValid() {
-		return nil, false
-	}
-	ep := d.endpointManager.LookupIP(ip)
-	if ep == nil {
-		return nil, false
-	}
-	return ep, true
-}
-
-// GetEndpointInfoByID returns endpoint info for a given Cilium endpoint id. Used by Hubble.
-func (d *Daemon) GetEndpointInfoByID(id uint16) (endpoint hubbleGetters.EndpointInfo, ok bool) {
-	ep := d.endpointManager.LookupCiliumID(id)
-	if ep == nil {
-		return nil, false
-	}
-	return ep, true
-}
-
-func (d *Daemon) GetEndpoints() map[policy.Endpoint]struct{} {
-	return d.endpointManager.GetPolicyEndpoints()
 }
 
 // GetNamesOf implements DNSGetter.GetNamesOf. It looks up DNS names of a given IP from the

@@ -6,6 +6,7 @@ package hubblecell
 import (
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -25,11 +26,13 @@ type hubbleParams struct {
 
 	AgentConfig       *option.DaemonConfig
 	IdentityAllocator identitycell.CachingIdentityAllocator
+	EndpointManager   endpointmanager.EndpointManager
 }
 
 func newHubble(params hubbleParams) *Hubble {
 	return new(
 		params.AgentConfig,
 		params.IdentityAllocator,
+		params.EndpointManager,
 	)
 }
