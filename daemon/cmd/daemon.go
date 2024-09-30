@@ -12,7 +12,6 @@ import (
 	"net/netip"
 	"runtime"
 	"sync"
-	"sync/atomic"
 
 	"github.com/cilium/statedb"
 	"github.com/sirupsen/logrus"
@@ -43,7 +42,6 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/fqdn"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
-	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -153,8 +151,6 @@ type Daemon struct {
 	// healthEndpointRouting is the information required to set up the health
 	// endpoint's routing in ENI or Azure IPAM mode
 	healthEndpointRouting *linuxrouting.RoutingInfo
-
-	hubbleObserver atomic.Pointer[observer.LocalObserverServer]
 
 	// endpointCreations is a map of all currently ongoing endpoint
 	// creation events
