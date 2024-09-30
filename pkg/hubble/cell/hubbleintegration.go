@@ -13,15 +13,19 @@ import (
 
 	"github.com/go-openapi/strfmt"
 
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	hubbleGetters "github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/service"
 )
 
 // Hubble is responsible for configuration, initialization, and shutdown of
@@ -36,6 +40,7 @@ type Hubble struct {
 	identityAllocator identitycell.CachingIdentityAllocator
 	endpointManager   endpointmanager.EndpointManager
 	IPCache           *ipcache.IPCache // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
+	serviceManager    service.ServiceManager
 }
 
 // new creates and return a new Hubble.
@@ -44,6 +49,7 @@ func new(
 	identityAllocator identitycell.CachingIdentityAllocator,
 	endpointManager endpointmanager.EndpointManager,
 	ipcache *ipcache.IPCache,
+	serviceManager service.ServiceManager,
 ) *Hubble {
 	return &Hubble{
 		agentConfig:       agentConfig,
@@ -51,6 +57,7 @@ func new(
 		identityAllocator: identityAllocator,
 		endpointManager:   endpointManager,
 		IPCache:           ipcache,
+		serviceManager:    serviceManager,
 	}
 }
 
@@ -150,4 +157,27 @@ func (h *Hubble) GetNamesOf(sourceEpID uint32, ip netip.Addr) []string {
 	}
 
 	return names
+}
+
+// GetServiceByAddr implements ServiceGetter. It looks up service by IP/port.
+// Hubble uses this function to annotate flows with service information.
+func (h *Hubble) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service {
+	if !ip.IsValid() {
+		return nil
+	}
+	addrCluster := cmtypes.AddrClusterFrom(ip, 0)
+	addr := loadbalancer.L3n4Addr{
+		AddrCluster: addrCluster,
+		L4Addr: loadbalancer.L4Addr{
+			Port: port,
+		},
+	}
+	namespace, name, ok := h.serviceManager.GetServiceNameByAddr(addr)
+	if !ok {
+		return nil
+	}
+	return &flowpb.Service{
+		Namespace: namespace,
+		Name:      name,
+	}
 }
