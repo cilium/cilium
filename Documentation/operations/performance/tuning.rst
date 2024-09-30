@@ -101,6 +101,11 @@ in any of the Cilium Pods and look for the line reporting the status for
 "Device Mode" which should state "netkit". Also, ensure to have eBPF host
 routing enabled - the reporting status under "Host Routing" must state "BPF".
 
+.. warning::
+    This is a beta feature. Please provide feedback and file a GitHub issue if
+    you experience any problems. Known issues with this feature are tracked
+    `here <https://github.com/cilium/cilium/issues?q=is%3Aissue%20label%3Afeature%2Fnetkit%20>`_.
+
 .. note::
     In-place upgrade by just enabling netkit on an existing cluster is not
     possible since the CNI plugin cannot simply replace veth with netkit after
