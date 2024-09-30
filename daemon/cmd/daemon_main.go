@@ -1685,7 +1685,7 @@ type daemonParams struct {
 	IdentityAllocator      identitycell.CachingIdentityAllocator
 	Policy                 *policy.Repository
 	IPCache                *ipcache.IPCache
-	DirectoryPolicyWatcher *policyDirectory.PolicyResourcesWatcher
+	DirectoryPolicyWatcher policyDirectory.ResourcesWatcher
 	DirReadStatus          policyDirectory.DirectoryWatcherReadStatus
 	CNIConfigManager       cni.CNIConfigManager
 	SwaggerSpec            *server.Spec
