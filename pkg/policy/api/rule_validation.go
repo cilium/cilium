@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/iana"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -557,18 +558,30 @@ func (c CIDR) sanitize() error {
 // valid, and ensuring that all of the exception CIDR prefixes are contained
 // within the allowed CIDR prefix.
 func (c *CIDRRule) sanitize() error {
-
-	// Either CIDRGroupRef or Cidr is allowed
-	if len(c.CIDRGroupRef) == 0 && len(c.Cidr) == 0 {
-		return fmt.Errorf("either cidrGroupRef or cidr are required")
-	}
-
-	if len(c.CIDRGroupRef) > 0 && len(c.Cidr) > 0 {
-		return fmt.Errorf("both cidrGroupRef and cidr may not be set")
-	}
-
+	// Exactly one of CIDR, CIDRGroupRef, or CIDRGroupSelector must be set
+	cnt := 0
 	if len(c.CIDRGroupRef) > 0 {
-		return nil // this is just a name
+		cnt++
+	}
+	if len(c.Cidr) > 0 {
+		cnt++
+	}
+	if c.CIDRGroupSelector != nil {
+		cnt++
+		es := NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, c.CIDRGroupSelector)
+		if err := es.sanitize(); err != nil {
+			return fmt.Errorf("failed to parse cidrGroupSelector %v: %w", c.CIDRGroupSelector.String(), err)
+		}
+	}
+	if cnt == 0 {
+		return fmt.Errorf("one of cidr, cidrGroupRef, or cidrGroupSelector is required")
+	}
+	if cnt > 1 {
+		return fmt.Errorf("more than one of cidr, cidrGroupRef, or cidrGroupSelector may not be set")
+	}
+
+	if len(c.CIDRGroupRef) > 0 || c.CIDRGroupSelector != nil {
+		return nil // these are selectors;
 	}
 
 	// Only allow notation <IP address>/<prefix>. Note that this differs from
