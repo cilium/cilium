@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"syscall"
 
@@ -41,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	ciliumslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -582,6 +584,8 @@ func (n *linuxNodeHandler) NodeUpdate(oldNode, newNode nodeTypes.Node) error {
 	return nil
 }
 
+var errNodeIPNotRoutable = errors.New("remote node IP is non-routable")
+
 func getNextHopIP(nodeIP net.IP, link netlink.Link) (nextHopIP net.IP, err error) {
 	// Figure out whether nodeIP is directly reachable (i.e. in the same L2)
 	routes, err := netlink.RouteGetWithOptions(nodeIP, &netlink.RouteGetOptions{Oif: link.Attrs().Name, FIBMatch: true})
@@ -589,7 +593,7 @@ func getNextHopIP(nodeIP net.IP, link netlink.Link) (nextHopIP net.IP, err error
 		return nil, fmt.Errorf("failed to retrieve route for remote node IP: %w", err)
 	}
 	if len(routes) == 0 {
-		return nil, fmt.Errorf("remote node IP is non-routable")
+		return nil, errNodeIPNotRoutable
 	}
 
 	nextHopIP = nodeIP
@@ -880,19 +884,42 @@ func (n *linuxNodeHandler) insertNeighbor(ctx context.Context, newNode *nodeType
 	links = n.neighDiscoveryLinks
 	n.neighLock.Unlock()
 
-	var errs error
+	var (
+		errV4, errV6 error
+		errs         []error
+	)
+
+	// "node IP not routable" on a subset of the discovery links should not be considered a failure.
+	// Propagate an error only if no next hop can be inserted for any links, otherwise filter away
+	// those intermediate errors.
+
+	isNotRoutableErr := func(err error) bool {
+		return errors.Is(err, errNodeIPNotRoutable)
+	}
+
 	if newNode.GetNodeIP(false).To4() != nil {
 		for _, l := range links {
-			errs = errors.Join(errs, n.insertNeighbor4(ctx, newNode, l, refresh))
+			errs = append(errs, n.insertNeighbor4(ctx, newNode, l, refresh))
 		}
-	}
-	if newNode.GetNodeIP(true).To16() != nil {
-		for _, l := range links {
-			errs = errors.Join(errs, n.insertNeighbor6(ctx, newNode, l, refresh))
+		if ciliumslices.AllMatch(errs, isNotRoutableErr) {
+			errV4 = fmt.Errorf("unable to determine next hop address for any neighbor discovery link: %w", errors.Join(errs...))
+		} else {
+			errV4 = errors.Join(slices.DeleteFunc(errs, isNotRoutableErr)...)
 		}
 	}
 
-	return errs
+	if newNode.GetNodeIP(true).To16() != nil {
+		for _, l := range links {
+			errs = append(errs, n.insertNeighbor6(ctx, newNode, l, refresh))
+		}
+		if ciliumslices.AllMatch(errs, isNotRoutableErr) {
+			errV6 = fmt.Errorf("unable to determine next hop address for any neighbor discovery link: %w", errors.Join(errs...))
+		} else {
+			errV6 = errors.Join(slices.DeleteFunc(errs, isNotRoutableErr)...)
+		}
+	}
+
+	return errors.Join(errV4, errV6)
 }
 
 func (n *linuxNodeHandler) InsertMiscNeighbor(newNode *nodeTypes.Node) {
