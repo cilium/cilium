@@ -39,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/recorder/sink"
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -203,7 +202,7 @@ func (d *Daemon) launchHubble() {
 		)
 	}
 
-	payloadParser, err := parser.New(logger, d, d, d, d.ipcache, d, link.NewLinkCache(), d.cgroupManager, parserOpts...)
+	payloadParser, err := parser.New(logger, d, d.hubble, d, d.ipcache, d, link.NewLinkCache(), d.cgroupManager, parserOpts...)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
@@ -395,16 +394,6 @@ func (d *Daemon) launchHubble() {
 	}
 
 	d.hubble.Observer.Store(hubbleObserver)
-}
-
-// GetIdentity looks up identity by ID from Cilium's identity cache. Hubble uses the identity info
-// to populate source and destination labels of flows.
-func (d *Daemon) GetIdentity(securityIdentity uint32) (*identity.Identity, error) {
-	ident := d.identityAllocator.LookupIdentityByID(context.Background(), identity.NumericIdentity(securityIdentity))
-	if ident == nil {
-		return nil, fmt.Errorf("identity %d not found", securityIdentity)
-	}
-	return ident, nil
 }
 
 // GetEndpointInfo returns endpoint info for a given IP address. Hubble uses this function to populate

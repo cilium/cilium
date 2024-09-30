@@ -5,6 +5,7 @@ package hubblecell
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/hubble/observer"
+	"github.com/cilium/cilium/pkg/identity"
+	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -24,15 +27,19 @@ type Hubble struct {
 	// Observer will be set by the Cilium daemon once the Hubble Observer has
 	// been started.
 	Observer atomic.Pointer[observer.LocalObserverServer]
+
+	identityAllocator identitycell.CachingIdentityAllocator
 }
 
 // new creates and return a new Hubble.
 func new(
 	agentConfig *option.DaemonConfig,
+	identityAllocator identitycell.CachingIdentityAllocator,
 ) *Hubble {
 	return &Hubble{
-		agentConfig: agentConfig,
-		Observer:    atomic.Pointer[observer.LocalObserverServer]{},
+		agentConfig:       agentConfig,
+		Observer:          atomic.Pointer[observer.LocalObserverServer]{},
+		identityAllocator: identityAllocator,
 	}
 }
 
@@ -77,4 +84,15 @@ func (h *Hubble) Status(ctx context.Context) *models.HubbleStatus {
 	}
 
 	return hubbleStatus
+}
+
+// GetIdentity implements IdentityGetter. It looks up identity by ID from
+// Cilium's identity cache. Hubble uses the identity info to populate flow
+// source and destination labels.
+func (h *Hubble) GetIdentity(securityIdentity uint32) (*identity.Identity, error) {
+	ident := h.identityAllocator.LookupIdentityByID(context.Background(), identity.NumericIdentity(securityIdentity))
+	if ident == nil {
+		return nil, fmt.Errorf("identity %d not found", securityIdentity)
+	}
+	return ident, nil
 }
