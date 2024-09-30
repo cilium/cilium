@@ -551,14 +551,13 @@ func (ms *mapState) Get(k Key) (MapStateEntry, bool) {
 	return ms.allows.Lookup(k)
 }
 
-// insert the Key and matcthing MapStateEntry into the
-// MapState
+// insert the Key and MapStateEntry into the MapState
 func (ms *mapState) insert(k Key, v MapStateEntry) {
 	if k.DestPort == 0 && k.PortPrefixLen() > 0 {
 		log.WithFields(logrus.Fields{
 			logfields.Stacktrace: hclog.Stacktrace(),
 			logfields.PolicyKey:  k,
-		}).Errorf("mapState.Get: invalid port prefix length for wildcard port")
+		}).Errorf("mapState.insert: invalid port prefix length for wildcard port")
 	}
 	if v.IsDeny {
 		ms.allows.delete(k)
@@ -569,7 +568,16 @@ func (ms *mapState) insert(k Key, v MapStateEntry) {
 	}
 }
 
-// Delete removes the Key an related MapStateEntry.
+// deleteExisting removes the Key an related MapStateEntry.
+func (ms *mapState) deleteExisting(k Key, v MapStateEntry) {
+	if v.IsDeny {
+		ms.denies.delete(k)
+	} else {
+		ms.allows.delete(k)
+	}
+}
+
+// delete removes the Key and related MapStateEntry.
 func (ms *mapState) delete(k Key) {
 	ms.allows.delete(k)
 	ms.denies.delete(k)
@@ -910,8 +918,8 @@ func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, changes C
 			}
 		}
 
-		ms.allows.delete(key)
-		ms.denies.delete(key)
+		// delete entry from the map it exists in
+		ms.deleteExisting(key, entry)
 	}
 }
 
