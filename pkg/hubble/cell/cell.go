@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
+	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 )
@@ -39,6 +40,7 @@ type hubbleParams struct {
 	CGroupManager     manager.CGroupManager
 	Clientset         k8sClient.Clientset
 	K8sWatcher        *watchers.K8sWatcher
+	NodeManager       nodeManager.NodeManager
 	NodeLocalStore    *node.LocalNodeStore
 	MonitorAgent      monitorAgent.Agent
 }
@@ -53,6 +55,7 @@ func newHubble(params hubbleParams) *Hubble {
 		params.CGroupManager,
 		params.Clientset,
 		params.K8sWatcher,
+		params.NodeManager,
 		params.NodeLocalStore,
 		params.MonitorAgent,
 	)

@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
+	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service"
 )
@@ -46,11 +47,12 @@ type Hubble struct {
 	endpointManager   endpointmanager.EndpointManager
 	IPCache           *ipcache.IPCache // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 	serviceManager    service.ServiceManager
-	CGroupManager     manager.CGroupManager // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
-	Clientset         k8sClient.Clientset   // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
-	K8sWatcher        *watchers.K8sWatcher  // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
-	NodeLocalStore    *node.LocalNodeStore  // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
-	MonitorAgent      monitorAgent.Agent    // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
+	CGroupManager     manager.CGroupManager   // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
+	Clientset         k8sClient.Clientset     // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
+	K8sWatcher        *watchers.K8sWatcher    // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
+	NodeManager       nodeManager.NodeManager // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
+	NodeLocalStore    *node.LocalNodeStore    // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
+	MonitorAgent      monitorAgent.Agent      // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 }
 
 // new creates and return a new Hubble.
@@ -63,6 +65,7 @@ func new(
 	cgroupManager manager.CGroupManager,
 	clientset k8sClient.Clientset,
 	k8sWatcher *watchers.K8sWatcher,
+	nodeManager nodeManager.NodeManager,
 	nodeLocalStore *node.LocalNodeStore,
 	monitorAgent monitorAgent.Agent,
 ) *Hubble {
@@ -76,6 +79,7 @@ func new(
 		CGroupManager:     cgroupManager,
 		Clientset:         clientset,
 		K8sWatcher:        k8sWatcher,
+		NodeManager:       nodeManager,
 		NodeLocalStore:    nodeLocalStore,
 		MonitorAgent:      monitorAgent,
 	}
