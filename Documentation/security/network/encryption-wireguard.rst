@@ -52,18 +52,6 @@ WireGuard module on older kernels).
 See `WireGuard Installation <https://www.wireguard.com/install/>`_ for details
 on how to install the kernel module on your Linux distribution.
 
-If your kernel or distribution does not support WireGuard, Cilium agent can be
-configured to fall back on the user-space implementation via the
-``--enable-wireguard-userspace-fallback`` flag. When this flag is enabled and
-Cilium detects that the kernel has no native support for WireGuard, it
-will fallback on the ``wireguard-go`` user-space implementation of WireGuard.
-When running the user-space implementation, encryption and decryption of packets
-is performed by the ``cilium-agent`` process. As a consequence, connectivity
-between Cilium-managed endpoints will be unavailable whenever the
-``cilium-agent`` process is restarted, such as during upgrades or configuration
-changes. Running WireGuard in user-space mode is therefore not recommended for
-production workloads that require high availability.
-
 .. tabs::
 
     .. group-tab:: Cilium CLI

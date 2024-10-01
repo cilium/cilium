@@ -799,9 +799,6 @@ const (
 	// or direct routing is used and the node CIDR and pod CIDR overlap.
 	EncryptionStrictModeAllowRemoteNodeIdentities = "encryption-strict-mode-allow-remote-node-identities"
 
-	// EnableWireguardUserspaceFallback is the name of the option that enables the fallback to WireGuard userspace mode
-	EnableWireguardUserspaceFallback = "enable-wireguard-userspace-fallback"
-
 	// WireguardPersistentKeepalivee controls Wireguard PersistentKeepalive option. Set 0 to disable.
 	WireguardPersistentKeepalive = "wireguard-persistent-keepalive"
 
@@ -1698,9 +1695,6 @@ type DaemonConfig struct {
 	// This is required when tunneling is used
 	// or direct routing is used and the node CIDR and pod CIDR overlap.
 	EncryptionStrictModeAllowRemoteNodeIdentities bool
-
-	// EnableWireguardUserspaceFallback enables the fallback to the userspace implementation
-	EnableWireguardUserspaceFallback bool
 
 	// WireguardPersistentKeepalive controls Wireguard PersistentKeepalive option.
 	WireguardPersistentKeepalive time.Duration
@@ -3040,7 +3034,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.L2AnnouncerLeaseDuration = vp.GetDuration(L2AnnouncerLeaseDuration)
 	c.L2AnnouncerRenewDeadline = vp.GetDuration(L2AnnouncerRenewDeadline)
 	c.L2AnnouncerRetryPeriod = vp.GetDuration(L2AnnouncerRetryPeriod)
-	c.EnableWireguardUserspaceFallback = vp.GetBool(EnableWireguardUserspaceFallback)
 	c.WireguardPersistentKeepalive = vp.GetDuration(WireguardPersistentKeepalive)
 	c.EnableWellKnownIdentities = vp.GetBool(EnableWellKnownIdentities)
 	c.EnableXDPPrefilter = vp.GetBool(EnableXDPPrefilter)
