@@ -163,10 +163,6 @@ func (d DummyOwner) GetRealizedRedirects() map[string]uint16 {
 	}
 }
 
-func (d DummyOwner) HasBPFPolicyMap() bool {
-	return true
-}
-
 func (d DummyOwner) GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16 {
 	return 80
 }

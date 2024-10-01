@@ -46,12 +46,6 @@ var (
 	syncAddressIdentityMappingControllerGroup   = controller.NewGroup("sync-address-identity-mapping")
 )
 
-// HasBPFPolicyMap returns true if policy map changes should be collected
-// Deprecated: use (e *Endpoint).IsProperty(PropertySkipBPFPolicy)
-func (e *Endpoint) HasBPFPolicyMap() bool {
-	return !e.IsProperty(PropertySkipBPFPolicy)
-}
-
 // GetNamedPort returns the port for the given name.
 func (e *Endpoint) GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16 {
 	if ingress {
