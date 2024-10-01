@@ -895,6 +895,7 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 // AnnotationsResolverCB provides an implementation for resolving the pod
 // annotations.
 type AnnotationsResolverCB func(ns, podName string) (proxyVisibility string, err error)
+type AnnotationsResolverCBBW func(ns, podName string) (bw string, prio string, err error)
 
 // UpdateNoTrackRules updates the NOTRACK iptable rules for this endpoint. If anno
 // is empty, then any existing NOTRACK rules will be removed. If anno cannot be parsed,
@@ -940,7 +941,7 @@ func (e *Endpoint) UpdateVisibilityPolicy(annoCB AnnotationsResolverCB) {
 
 // UpdateBandwidthPolicy updates the egress bandwidth of this endpoint to
 // progagate the throttle rate to the BPF data path.
-func (e *Endpoint) UpdateBandwidthPolicy(bwm dptypes.BandwidthManager, annoCB AnnotationsResolverCB) {
+func (e *Endpoint) UpdateBandwidthPolicy(bwm dptypes.BandwidthManager, annoCB AnnotationsResolverCBBW) {
 	ch, err := e.eventQueue.Enqueue(eventqueue.NewEvent(&EndpointPolicyBandwidthEvent{
 		bwm:    bwm,
 		ep:     e,

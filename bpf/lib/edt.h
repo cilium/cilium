@@ -60,6 +60,8 @@ edt_sched_departure(struct __ctx_buff *ctx, __be16 proto)
 	info = map_lookup_elem(&THROTTLE_MAP, &aggregate);
 	if (!info)
 		return CTX_ACT_OK;
+	if (!info->bps)
+		goto out;
 
 	now = ktime_get_ns();
 	t = ctx->tstamp;
@@ -80,6 +82,12 @@ edt_sched_departure(struct __ctx_buff *ctx, __be16 proto)
 		return CTX_ACT_DROP;
 	WRITE_ONCE(info->t_last, t_next);
 	ctx->tstamp = t_next;
+out:
+	// TODO: Hack to avoid defaulting prio 0 when user doesn't specify anything.
+	// Priority set by user will always be 1 greater than what scheduler expects.
+	if (!info->prio) {
+		ctx->priority = info->prio - 1;
+	}
 	return CTX_ACT_OK;
 }
 #else
