@@ -1136,10 +1136,6 @@
      - Controls WireGuard PersistentKeepalive option. Set 0s to disable.
      - string
      - ``"0s"``
-   * - :spelling:ignore:`encryption.wireguard.userspaceFallback`
-     - Enables the fallback to the user-space implementation (deprecated).
-     - bool
-     - ``false``
    * - :spelling:ignore:`endpointHealthChecking.enabled`
      - Enable connectivity health checking between virtual endpoints.
      - bool

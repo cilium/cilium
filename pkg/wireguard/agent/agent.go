@@ -24,10 +24,6 @@ import (
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
-	"golang.zx2c4.com/wireguard/conn"
-	"golang.zx2c4.com/wireguard/device"
-	"golang.zx2c4.com/wireguard/ipc"
-	"golang.zx2c4.com/wireguard/tun"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
@@ -83,8 +79,6 @@ type Agent struct {
 	nodeNameByNodeIP map[string]string
 	nodeNameByPubKey map[wgtypes.Key]string
 
-	cleanup []func()
-
 	// initialized in InitLocalNodeFromWireGuard
 	optOut bool
 }
@@ -107,8 +101,6 @@ func NewAgent(privKeyPath string, sysctl sysctl.Sysctl, jobGroup job.Group, db *
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
 		nodeNameByPubKey: map[wgtypes.Key]string{},
-
-		cleanup: []func(){},
 	}, nil
 }
 
@@ -122,10 +114,6 @@ func (a *Agent) Start(cell.HookContext) (err error) {
 func (a *Agent) Stop(cell.HookContext) error {
 	a.RLock()
 	defer a.RUnlock()
-
-	for _, cleanup := range a.cleanup {
-		cleanup()
-	}
 
 	return a.wgClient.Close()
 }
@@ -166,60 +154,6 @@ func (a *Agent) InitLocalNodeFromWireGuard(localNode *node.LocalNode) {
 	}
 
 	a.optOut = localNode.OptOutNodeEncryption
-}
-
-func (a *Agent) initUserspaceDevice(linkMTU int) (netlink.Link, error) {
-	log.WithField(logfields.Hint,
-		"It is highly recommended to use the kernel implementation. "+
-			"See https://www.wireguard.com/install/ for details.").
-		Info("falling back to the WireGuard userspace implementation.")
-
-	tundev, err := tun.CreateTUN(types.IfaceName, linkMTU)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create tun device: %w", err)
-	}
-
-	uapiSocket, err := ipc.UAPIOpen(types.IfaceName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create uapi socket: %w", err)
-	}
-
-	uapiServer, err := ipc.UAPIListen(types.IfaceName, uapiSocket)
-	if err != nil {
-		return nil, fmt.Errorf("failed to start WireGuard UAPI server: %w", err)
-	}
-
-	scopedLog := log.WithField(logfields.LogSubsys, "wireguard-userspace")
-	logger := &device.Logger{
-		Verbosef: scopedLog.Debugf,
-		Errorf:   scopedLog.Errorf,
-	}
-	dev := device.NewDevice(tundev, conn.NewDefaultBind(), logger)
-
-	// cleanup removes the tun device and uapi socket
-	a.cleanup = append(a.cleanup, func() {
-		uapiServer.Close()
-		dev.Close()
-	})
-
-	go func() {
-		for {
-			conn, err := uapiServer.Accept()
-			if err != nil {
-				scopedLog.WithError(err).
-					Error("failed to handle WireGuard userspace connection")
-				return
-			}
-			go dev.IpcHandle(conn)
-		}
-	}()
-
-	link, err := netlink.LinkByName(types.IfaceName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to obtain link: %w", err)
-	}
-
-	return link, err
 }
 
 // Init creates and configures the local WireGuard tunnel device.
@@ -270,17 +204,9 @@ func (a *Agent) Init(ipcache *ipcache.IPCache) error {
 			return fmt.Errorf("failed to add WireGuard device: %w", err)
 		}
 
-		// TODO: Remove this userspace fallback in Cilum v1.17
-		if !option.Config.EnableWireguardUserspaceFallback {
-			return fmt.Errorf("WireGuard not supported by the Linux kernel (netlink: %w). "+
-				"Please upgrade your kernel, manually install the kernel module "+
-				"(https://www.wireguard.com/install/), or set enable-wireguard-userspace-fallback=true", err)
-		}
-
-		link, err = a.initUserspaceDevice(linkMTU)
-		if err != nil {
-			return fmt.Errorf("WireGuard userspace: %w", err)
-		}
+		return fmt.Errorf("WireGuard not supported by the Linux kernel (netlink: %w). "+
+			"Please upgrade your kernel, or manually install the kernel module "+
+			"(https://www.wireguard.com/install/)", err)
 	}
 
 	if option.Config.EnableIPv4 {

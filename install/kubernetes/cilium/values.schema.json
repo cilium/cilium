@@ -1697,9 +1697,6 @@
           "properties": {
             "persistentKeepalive": {
               "type": "string"
-            },
-            "userspaceFallback": {
-              "type": "boolean"
             }
           },
           "type": "object"

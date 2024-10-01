@@ -1595,11 +1595,9 @@ go4.org/netipx
 # golang.org/x/crypto v0.28.0
 ## explicit; go 1.20
 golang.org/x/crypto/bcrypt
-golang.org/x/crypto/blake2s
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
 golang.org/x/crypto/chacha20
-golang.org/x/crypto/chacha20poly1305
 golang.org/x/crypto/cryptobyte
 golang.org/x/crypto/cryptobyte/asn1
 golang.org/x/crypto/curve25519
@@ -1617,7 +1615,6 @@ golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/pkcs12
 golang.org/x/crypto/pkcs12/internal/rc2
-golang.org/x/crypto/poly1305
 golang.org/x/crypto/scrypt
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
@@ -1742,21 +1739,9 @@ golang.org/x/tools/internal/stdlib
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 golang.org/x/tools/internal/versions
-# golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2
-## explicit; go 1.17
-golang.zx2c4.com/wintun
 # golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
 ## explicit; go 1.20
-golang.zx2c4.com/wireguard/conn
-golang.zx2c4.com/wireguard/conn/winrio
-golang.zx2c4.com/wireguard/device
-golang.zx2c4.com/wireguard/ipc
 golang.zx2c4.com/wireguard/ipc/namedpipe
-golang.zx2c4.com/wireguard/ratelimiter
-golang.zx2c4.com/wireguard/replay
-golang.zx2c4.com/wireguard/rwcancel
-golang.zx2c4.com/wireguard/tai64n
-golang.zx2c4.com/wireguard/tun
 # golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
 ## explicit; go 1.20
 golang.zx2c4.com/wireguard/wgctrl
