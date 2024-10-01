@@ -1,0 +1,4 @@
+This directory contains Go code examples for Cilium developers.
+
+Some of the files here are included in the published Cilium documentation
+(Documentation/contributing/development).
