@@ -549,6 +549,9 @@ const (
 	// AuthMapEntriesDefault defines the default auth map limit.
 	AuthMapEntriesDefault = 1 << 19
 
+	// BPFConntrackAccounting controls whether CT accounting for packets and bytes is enabled
+	BPFConntrackAccountingDefault = false
+
 	// AuthMapEntriesName configures max entries for BPF auth map.
 	AuthMapEntriesName = "bpf-auth-map-max"
 
@@ -1256,8 +1259,8 @@ const (
 	// BPFEventsTraceEnabled defines the TraceNotification setting for any endpoint
 	BPFEventsTraceEnabled = "bpf-events-trace-enabled"
 
-	// BPFConntrackAccountingEnabled controls whether CT accounting for packets and bytes is enabled
-	BPFConntrackAccountingEnabled = "bpf-conntrack-accounting-enabled"
+	// BPFConntrackAccounting controls whether CT accounting for packets and bytes is enabled
+	BPFConntrackAccounting = "bpf-conntrack-accounting"
 
 	// EnableInternalTrafficPolicy enables handling routing for services with internalTrafficPolicy configured
 	EnableInternalTrafficPolicy = "enable-internal-traffic-policy"
@@ -2443,8 +2446,8 @@ type DaemonConfig struct {
 	// BPFEventsTraceEnabled  controls whether the Cilium datapath exposes "trace" events to Cilium monitor and Hubble.
 	BPFEventsTraceEnabled bool
 
-	// BPFConntrackAccountingEnabled controls whether CT accounting for packets and bytes is enabled.
-	BPFConntrackAccountingEnabled bool
+	// BPFConntrackAccounting controls whether CT accounting for packets and bytes is enabled.
+	BPFConntrackAccounting bool
 
 	// IPAMCiliumNodeUpdateRate is the maximum rate at which the CiliumNode custom
 	// resource is updated.
@@ -2541,7 +2544,7 @@ var (
 		BPFEventsDropEnabled:          defaults.BPFEventsDropEnabled,
 		BPFEventsPolicyVerdictEnabled: defaults.BPFEventsPolicyVerdictEnabled,
 		BPFEventsTraceEnabled:         defaults.BPFEventsTraceEnabled,
-		BPFConntrackAccountingEnabled: defaults.BPFConntrackAccountingEnabled,
+		BPFConntrackAccounting:        defaults.BPFConntrackAccounting,
 		EnableEnvoyConfig:             defaults.EnableEnvoyConfig,
 		EnableInternalTrafficPolicy:   defaults.EnableInternalTrafficPolicy,
 
@@ -3173,7 +3176,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BPFEventsDropEnabled = vp.GetBool(BPFEventsDropEnabled)
 	c.BPFEventsPolicyVerdictEnabled = vp.GetBool(BPFEventsPolicyVerdictEnabled)
 	c.BPFEventsTraceEnabled = vp.GetBool(BPFEventsTraceEnabled)
-	c.BPFConntrackAccountingEnabled = vp.GetBool(BPFConntrackAccountingEnabled)
+	c.BPFConntrackAccounting = vp.GetBool(BPFConntrackAccounting)
 	c.EnableIPSecEncryptedOverlay = vp.GetBool(EnableIPSecEncryptedOverlay)
 
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
