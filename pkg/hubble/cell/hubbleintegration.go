@@ -246,7 +246,7 @@ func (h *hubbleIntegration) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb
 	}
 }
 
-func (h *hubbleIntegration) Launch(ctx context.Context) {
+func (h *hubbleIntegration) launch(ctx context.Context) {
 	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble")
 	if !h.config.EnableHubble {
 		logger.Info("Hubble server is disabled")
