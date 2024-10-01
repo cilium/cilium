@@ -70,6 +70,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
       - name: Install Go
         uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
         with:
