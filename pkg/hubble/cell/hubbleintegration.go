@@ -385,7 +385,7 @@ func (h *Hubble) Launch(ctx context.Context) {
 		return
 	}
 
-	maxFlows, err := getHubbleEventBufferCapacity(logger)
+	maxFlows, err := container.NewCapacity(option.Config.HubbleEventBufferCapacity)
 	if err != nil {
 		logger.WithError(err).Error("Specified capacity for Hubble events buffer is invalid")
 		return
@@ -583,10 +583,4 @@ func getPort(addr string) (int, error) {
 		return 0, fmt.Errorf("parse port number: %w", err)
 	}
 	return portNum, nil
-}
-
-// getHubbleEventBufferCapacity returns the user configured capacity for
-// Hubble's events buffer.
-func getHubbleEventBufferCapacity(logger logrus.FieldLogger) (container.Capacity, error) {
-	return container.NewCapacity(option.Config.HubbleEventBufferCapacity)
 }
