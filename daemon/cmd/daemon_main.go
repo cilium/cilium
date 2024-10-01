@@ -1893,7 +1893,6 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	bootstrapStats.overall.End(true)
 	bootstrapStats.updateMetrics()
-	go d.hubble.Launch(d.ctx)
 
 	// Start controller to validate daemon config is unchanged
 	cfgGroup := controller.NewGroup("daemon-validate-config")

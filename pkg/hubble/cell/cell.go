@@ -5,9 +5,11 @@ package hubblecell
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
@@ -38,6 +40,8 @@ var Cell = cell.Module(
 type hubbleParams struct {
 	cell.In
 
+	JobGroup job.Group
+
 	IdentityAllocator identitycell.CachingIdentityAllocator
 	EndpointManager   endpointmanager.EndpointManager
 	IPCache           *ipcache.IPCache
@@ -56,12 +60,11 @@ type hubbleParams struct {
 }
 
 type HubbleIntegration interface {
-	Launch(ctx context.Context)
 	Status(ctx context.Context) *models.HubbleStatus
 }
 
 func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
-	hubble, err := new(
+	h, err := new(
 		params.IdentityAllocator,
 		params.EndpointManager,
 		params.IPCache,
@@ -80,5 +83,18 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		return nil, fmt.Errorf("failed to create hubble integration: %w", err)
 	}
 
-	return hubble, nil
+	params.JobGroup.Add(job.OneShot("hubble", func(ctx context.Context, _ cell.Health) error {
+		h.launch(ctx)
+
+		// NOTE: launch() sets the observer pointer at the very end of starting
+		// up all components successfully. While not ideal, this is the only
+		// signal we have to report whether Hubble was initialized successfully
+		// for now.
+		if h.observer.Load() == nil {
+			return errors.New("Hubble launch failed")
+		}
+		return nil
+	}))
+
+	return h, nil
 }
