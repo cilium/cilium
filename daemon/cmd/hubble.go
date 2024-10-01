@@ -149,7 +149,7 @@ func launchHubble(ctx context.Context, h *hubblecell.Hubble) {
 
 		err := metrics.InitMetrics(metrics.Registry, api.ParseStaticMetricsConfig(option.Config.HubbleMetrics), grpcMetrics)
 		if err != nil {
-			log.WithError(err).Error("Unable to setup metrics: %w", err)
+			logger.WithError(err).Error("Unable to setup metrics: %w", err)
 			return
 		}
 
@@ -160,7 +160,7 @@ func launchHubble(ctx context.Context, h *hubblecell.Hubble) {
 		metrics.InitMetricsServerHandler(srv, metrics.Registry, option.Config.EnableHubbleOpenMetrics)
 
 		go func() {
-			if err := metrics.StartMetricsServer(srv, log, metricsTLSConfig, grpcMetrics); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			if err := metrics.StartMetricsServer(srv, logger, metricsTLSConfig, grpcMetrics); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				logger.WithError(err).Error("Hubble metrics server encountered an error")
 				return
 			}
@@ -217,8 +217,8 @@ func launchHubble(ctx context.Context, h *hubblecell.Hubble) {
 			exporteroption.WithPath(option.Config.HubbleExportFilePath),
 			exporteroption.WithMaxSizeMB(option.Config.HubbleExportFileMaxSizeMB),
 			exporteroption.WithMaxBackups(option.Config.HubbleExportFileMaxBackups),
-			exporteroption.WithAllowList(log, option.Config.HubbleExportAllowlist),
-			exporteroption.WithDenyList(log, option.Config.HubbleExportDenylist),
+			exporteroption.WithAllowList(logger, option.Config.HubbleExportAllowlist),
+			exporteroption.WithDenyList(logger, option.Config.HubbleExportDenylist),
 			exporteroption.WithFieldMask(option.Config.HubbleExportFieldmask),
 		}
 		if option.Config.HubbleExportFileCompress {
