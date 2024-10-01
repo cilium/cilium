@@ -93,7 +93,7 @@ jobs:
   setup-and-test:
     needs: [wait-for-images]
     name: 'Setup & Test'
-    runs-on: ubuntu-latest-4cores-16gb
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER }}
     env:
       job_name: 'Setup & Test'
     strategy:

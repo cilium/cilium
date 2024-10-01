@@ -167,8 +167,7 @@ jobs:
 
   setup-and-test:
     needs: build-ginkgo-binary
-    runs-on:
-      group: ginkgo-runners
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER }}
     name: "Runtime Test (${{matrix.focus}})"
     env:
       # GitHub doesn't provide a way to retrieve the name of a job, so we have
@@ -275,7 +274,10 @@ jobs:
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
           image-version: "6.6-20240710.064909@sha256:c92b452bb641f97742df38e2a5e1884c7486a35d65885d9f030409346a0c83b8"
           host-mount: ./
+          images-folder-parent: "/tmp"
           cpu: 4
+          # renovate: datasource=github-tags depName=cilium/little-vm-helper
+          lvh-version: "v0.0.19"
           mem: 12G
 
       # Load Ginkgo build from GitHub

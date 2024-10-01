@@ -101,10 +101,6 @@ jobs:
       max-parallel: 22
       matrix:
         include:
-          # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          # ! NOTE: keep conformance-e2e.yaml config in sync !
-          # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: 'rhel8-20240404.144247'
@@ -180,9 +176,7 @@ jobs:
             lb-mode: 'snat'
             egress-gateway: 'true'
             lb-acceleration: 'testing-only'
-            # Disable until https://github.com/cilium/cilium/issues/30717
-            # has been resolved.
-            # ingress-controller: 'true'
+            ingress-controller: 'true'
             local-redirect-policy: 'true'
             node-local-dns: 'true'
 
@@ -234,9 +228,7 @@ jobs:
             encryption-node: 'true'
             lb-mode: 'snat'
             egress-gateway: 'true'
-            # Disable until https://github.com/cilium/cilium/issues/30717
-            # has been resolved.
-            # ingress-controller: 'true'
+            ingress-controller: 'true'
             misc: 'socketLB.hostNamespaceOnly=true'
             local-redirect-policy: 'true'
             node-local-dns: 'true'
@@ -258,6 +250,14 @@ jobs:
           #  egress-gateway: 'true'
           #  ingress-controller: 'true'
 
+          - name: '13'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'rhel8-20240404.144247'
+            kube-proxy: 'iptables'
+            kpr: 'false'
+            tunnel: 'vxlan'
+            misc: 'policyCIDRMatchMode=nodes'
+
           - name: '14'
             # Switch to 5.15 until https://github.com/cilium/cilium/issues/27642
             # has been resolved. https://github.com/cilium/cilium/pull/30837#issuecomment-1960897445
@@ -273,6 +273,7 @@ jobs:
             lb-mode: 'snat'
             egress-gateway: 'true'
             lb-acceleration: 'testing-only'
+            ingress-controller: 'true'
 
           - name: '15'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -282,9 +283,7 @@ jobs:
             devices: '{eth0,eth1}'
             secondary-network: 'true'
             tunnel: 'disabled'
-            # Disable until https://github.com/cilium/cilium/issues/30717
-            # has been resolved.
-            # ingress-controller: 'true'
+            ingress-controller: 'true'
             # Disable bpf.tproxy=true until https://github.com/cilium/cilium/issues/31918
             # has been resolved.
             misc: 'bpfClockProbe=false,cni.uninstall=false'
@@ -303,70 +302,7 @@ jobs:
             encryption-node: 'false'
             host-fw: 'true'
             ciliumendpointslice: 'true'
-
-          # Disable until 1.17 has been released, so that 1.16 to 1.17 upgrade
-          # can be tested with netkit.
-          # - name: '17'
-          #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #  kernel: 'bpf-20240711.013133'
-          #  misc: 'bpf.datapathMode=netkit,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
-          #  kube-proxy: 'none'
-          #  kpr: 'true'
-          #  ipv6: 'true'
-          #  tunnel: 'disabled'
-          #  devices: '{eth0,eth1}'
-          #  secondary-network: 'true'
-          #
-          # - name: '18'
-          #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #  kernel: 'bpf-20240711.013133'
-          #  misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
-          #  kube-proxy: 'none'
-          #  kpr: 'true'
-          #  ipv6: 'true'
-          #  tunnel: 'disabled'
-          #  devices: '{eth0,eth1}'
-          #  secondary-network: 'true'
-          #
-          # - name: '19'
-          #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #  kernel: 'bpf-20240711.013133'
-          #  misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
-          #  kube-proxy: 'none'
-          #  kpr: 'true'
-          #  tunnel: 'vxlan'
-          #  devices: '{eth0,eth1}'
-          #  secondary-network: 'true'
-          #
-          # - name: '20'
-          #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #  kernel: 'bpf-20240711.013133'
-          #  misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
-          #  kube-proxy: 'none'
-          #  kpr: 'true'
-          #  tunnel: 'vxlan'
-          #  devices: '{eth0,eth1}'
-          #  secondary-network: 'true'
-          #
-          # - name: '21'
-          #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #  kernel: 'bpf-20240711.013133'
-          #  misc: 'bpf.datapathMode=netkit,bpf.masquerade=true'
-          #  kube-proxy: 'none'
-          #  kpr: 'true'
-          #  tunnel: 'geneve'
-          #  devices: '{eth0,eth1}'
-          #  secondary-network: 'true'
-          #
-          # - name: '22'
-          #  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          #  kernel: 'bpf-20240711.013133'
-          #  misc: 'bpf.datapathMode=netkit-l2,bpf.masquerade=true'
-          #  kube-proxy: 'none'
-          #  kpr: 'true'
-          #  tunnel: 'geneve'
-          #  devices: '{eth0,eth1}'
-          #  secondary-network: 'true'
+            ingress-controller: 'true'
 
     timeout-minutes: 60
     steps:
