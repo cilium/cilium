@@ -1613,7 +1613,7 @@ type daemonParams struct {
 	IdentityManager     *identitymanager.IdentityManager
 	Orchestrator        datapath.Orchestrator
 	IPTablesManager     datapath.IptablesManager
-	Hubble              *hubblecell.Hubble
+	Hubble              hubblecell.HubbleIntegration
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Promise[policyK8s.PolicyManager]) {
