@@ -311,8 +311,8 @@ static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 
 	ep = __lookup_ip6_endpoint(&target);
 	if (ep) {
-		if (ep->flags & ENDPOINT_F_HOST) {
-			/* Target must be a node_ip, because of ENDPOINT_F_HOST flag
+		if (ep->flags & ENDPOINT_F_HOSTNS) {
+			/* Target must be a node_ip, because of ENDPOINT_F_HOSTNS flag
 			 * and target != router_ip.
 			 *
 			 * We pass these packets to stack to make sure:

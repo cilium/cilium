@@ -252,7 +252,7 @@ int egress_gw_handle_packet(struct __ctx_buff *ctx,
 	 * handle_nat_fwd().
 	 */
 	gateway_node_ep = __lookup_ip4_endpoint(gateway_ip);
-	if (gateway_node_ep && (gateway_node_ep->flags & ENDPOINT_F_HOST))
+	if (gateway_node_ep && (gateway_node_ep->flags & ENDPOINT_F_HOSTNS))
 		return CTX_ACT_OK;
 
 	/* Send the packet to egress gateway node through a tunnel. */

@@ -639,7 +639,7 @@ skip_egress_gateway:
 #endif
 
 	/* if this is a localhost endpoint, no SNAT is needed */
-	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST)) {
+	if (local_ep && (local_ep->flags & ENDPOINT_F_HOSTNS)) {
 		/* Special exclusion list for PodCIDR IP in HostNS: */
 		if (tuple->saddr != IPV4_GATEWAY)
 			return NAT_PUNT_TO_STACK;
@@ -1428,7 +1428,7 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 # endif /* IPV6_SNAT_EXCLUSION_DST_CIDR */
 
 	/* if this is a localhost endpoint, no SNAT is needed */
-	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST)) {
+	if (local_ep && (local_ep->flags & ENDPOINT_F_HOSTNS)) {
 		union v6addr router_ip;
 
 		BPF_V6(router_ip, ROUTER_IP);
