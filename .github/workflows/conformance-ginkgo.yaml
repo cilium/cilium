@@ -230,9 +230,8 @@ jobs:
 
   setup-and-test:
     needs: [setup-vars, build-ginkgo-binary, generate-matrix, wait-for-images]
-    runs-on:
-      group: ginkgo-runners
-    timeout-minutes: 35
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER || 'ubuntu-latest' }}
+    timeout-minutes: 45
     name: "E2E Test (${{ matrix.k8s-version }}, ${{matrix.focus}})"
     env:
       job_name: "E2E Test (${{ matrix.k8s-version }}, ${{matrix.focus}})"
