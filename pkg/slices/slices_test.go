@@ -341,6 +341,63 @@ func TestXorNil(t *testing.T) {
 	}
 }
 
+func TestAllMatch(t *testing.T) {
+	testCases := []struct {
+		name     string
+		s        []bool
+		pred     func(v bool) bool
+		expected bool
+	}{
+		{
+			name:     "nil slice",
+			s:        nil,
+			pred:     func(v bool) bool { return v },
+			expected: true,
+		},
+		{
+			name:     "empty slice",
+			s:        []bool{},
+			pred:     func(v bool) bool { return v },
+			expected: true,
+		},
+		{
+			name:     "one true element",
+			s:        []bool{true},
+			pred:     func(v bool) bool { return v },
+			expected: true,
+		},
+		{
+			name:     "one false element",
+			s:        []bool{false},
+			pred:     func(v bool) bool { return v },
+			expected: false,
+		},
+		{
+			name:     "all true elements",
+			s:        []bool{true, true, true},
+			pred:     func(v bool) bool { return v },
+			expected: true,
+		},
+		{
+			name:     "all false elements",
+			s:        []bool{false, false, false},
+			pred:     func(v bool) bool { return v },
+			expected: false,
+		},
+		{
+			name:     "true and false elements",
+			s:        []bool{false, true, true},
+			pred:     func(v bool) bool { return v },
+			expected: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, AllMatch(tc.s, tc.pred))
+		})
+	}
+}
+
 // BenchmarkUnique runs the Unique function on a slice of size elements, where each element
 // has a probability of 20% of being a duplicate.
 // At each iteration the slice is restored to its original status and reshuffled, in order
