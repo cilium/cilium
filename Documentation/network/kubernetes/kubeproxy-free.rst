@@ -1713,9 +1713,10 @@ Limitations
       setting will be ignored and a warning emitted to the Cilium agent log. Similarly,
       explicitly binding the ``hostIP`` to the loopback address in the host namespace is
       currently not supported and will log a warning to the Cilium agent log.
-    * When deployed on kernels older than 5.7, Cilium is unable to distinguish between host and
-      pod namespaces due to the lack of kernel support for network namespace cookies. As a result,
-      Kubernetes services are reachable from all pods via the loopback address.
+    * When using the Socket-LB feature and deployed on kernels older than 5.7, Cilium is unable
+      to distinguish between host and pod namespaces due to the lack of kernel support for
+      network namespace cookies. As a result, Kubernetes services are reachable from all pods via
+      the loopback address.
     * The neighbor discovery in a multi-device environment doesn't work with the runtime device
       detection which means that the target devices for the neighbor discovery doesn't follow the
       device changes.
