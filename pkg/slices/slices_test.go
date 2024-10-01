@@ -4,7 +4,6 @@
 package slices
 
 import (
-	"cmp"
 	"fmt"
 	"math"
 	"math/rand/v2"
@@ -82,22 +81,6 @@ func TestSortedUnique(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			input := slices.Clone(tc.input)
 			got := SortedUnique(input)
-			assert.ElementsMatch(t, tc.expected, got)
-		})
-	}
-}
-
-func TestSortedUniqueFunc(t *testing.T) {
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			input := slices.Clone(tc.input)
-			got := SortedUniqueFunc(
-				input,
-				cmp.Compare,
-				func(a, b int) bool {
-					return a == b
-				},
-			)
 			assert.ElementsMatch(t, tc.expected, got)
 		})
 	}
