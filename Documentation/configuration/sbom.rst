@@ -72,7 +72,7 @@ For example:
     GitHub Workflow Repository: cilium/cilium
     GitHub Workflow Ref: refs/pull/34011/merge
     
-It can be validated that the image was signed using Github Actions in the Cilium repository from the ``Certificate subject`` and ``Certificate issuer URL`` fields of the output.
+It can be validated that the image was signed using GitHub Actions in the Cilium repository from the ``Certificate subject`` and ``Certificate issuer URL`` fields of the output.
 
 .. note::
     The `in-toto`_ Attestation Framework provides a specification for generating

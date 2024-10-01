@@ -50,7 +50,7 @@ Let's verify a Cilium image's signature using the ``cosign verify`` command:
     run was based upon.
 
     ``--certificate-identity`` is used to verify the identity of the certificate
-    from the Github build images release workflow.
+    from the GitHub build images release workflow.
     
 
 .. _`Keyless Signatures`: https://docs.sigstore.dev/cosign/overview/#keyless-signing-of-a-container

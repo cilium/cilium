@@ -70,7 +70,7 @@ Release Cadence
 ~~~~~~~~~~~~~~~
 
 We aim to make 2 to 3 `point releases`_ per year of Cilium and its core components
-(Hubble, Cilium CLI, Tetragon, etc). We also make patch releases available as
+(Hubble, Cilium CLI, Tetragon, etc.). We also make patch releases available as
 necessary for security or urgent fixes. 
 
 Focus Areas
@@ -182,7 +182,7 @@ Influencing the Roadmap
 -----------------------
 
 You are welcome to raise feature requests by creating them as `GitHub issues`_.
-Please search the existing issues to avoid raising duplicates; if you find that
+Please search the existing issues to avoid raising duplicates, if you find that
 someone else is making the same or similar request we encourage the use of
 GitHub emojis to express your support for an idea! 
 
