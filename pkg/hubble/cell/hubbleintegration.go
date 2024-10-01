@@ -379,7 +379,7 @@ func (h *Hubble) Launch(ctx context.Context) {
 		)
 	}
 
-	payloadParser, err := parser.New(logger, h, h, h, h.IPCache, h, link.NewLinkCache(), h.CGroupManager, parserOpts...)
+	payloadParser, err := parser.New(logger, h, h, h, h.IPCache, h, link.NewLinkCache(), h.CGroupManager, option.Config.HubbleSkipUnknownCGroupIDs, parserOpts...)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return

@@ -50,6 +50,7 @@ func New(
 	serviceGetter getters.ServiceGetter,
 	linkGetter getters.LinkGetter,
 	cgroupGetter getters.PodMetadataGetter,
+	skipUnknownCGroupIDs bool,
 	opts ...options.Option,
 ) (*Parser, error) {
 
@@ -68,7 +69,7 @@ func New(
 		return nil, err
 	}
 
-	sock, err := sock.New(log, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter)
+	sock, err := sock.New(log, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, skipUnknownCGroupIDs)
 	if err != nil {
 		return nil, err
 	}
