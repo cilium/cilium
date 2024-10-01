@@ -4,6 +4,8 @@
 package hubblecell
 
 import (
+	"fmt"
+
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/cgroups/manager"
@@ -28,12 +30,12 @@ var Cell = cell.Module(
 	"Exposes the Observer gRPC API and Hubble metrics",
 
 	cell.Provide(newHubble),
+	cell.Config(defaultConfig),
 )
 
 type hubbleParams struct {
 	cell.In
 
-	AgentConfig       *option.DaemonConfig
 	IdentityAllocator identitycell.CachingIdentityAllocator
 	EndpointManager   endpointmanager.EndpointManager
 	IPCache           *ipcache.IPCache
@@ -45,11 +47,13 @@ type hubbleParams struct {
 	NodeLocalStore    *node.LocalNodeStore
 	MonitorAgent      monitorAgent.Agent
 	Recorder          *recorder.Recorder
+
+	AgentConfig *option.DaemonConfig
+	Config      config
 }
 
-func newHubble(params hubbleParams) *Hubble {
-	return new(
-		params.AgentConfig,
+func newHubble(params hubbleParams) (*Hubble, error) {
+	hubble, err := new(
 		params.IdentityAllocator,
 		params.EndpointManager,
 		params.IPCache,
@@ -61,5 +65,12 @@ func newHubble(params hubbleParams) *Hubble {
 		params.NodeLocalStore,
 		params.MonitorAgent,
 		params.Recorder,
+		params.AgentConfig,
+		params.Config,
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create hubble integration: %w", err)
+	}
+
+	return hubble, nil
 }
