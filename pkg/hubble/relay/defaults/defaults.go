@@ -28,7 +28,7 @@ const (
 	// RetryTimeout is the duration to wait between reconnection attempts.
 	RetryTimeout = 30 * time.Second
 	// PeerTarget is the address of the peer service.
-	PeerTarget = "unix://" + ciliumDefaults.HubbleSockPath
+	PeerTarget = "unix://" + ciliumDefaults.HubbleSocketPath
 	// PeerServiceName is the name of the peer service, should it exist.
 	PeerServiceName = "hubble-peer"
 
