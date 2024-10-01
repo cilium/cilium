@@ -180,7 +180,7 @@ type Daemon struct {
 	wireguardAgent  *wireguard.Agent
 	orchestrator    datapath.Orchestrator
 	iptablesManager datapath.IptablesManager
-	hubble          *hubblecell.Hubble
+	hubble          hubblecell.HubbleIntegration
 }
 
 // GetPolicyRepository returns the policy repository of the daemon

@@ -4,10 +4,12 @@
 package hubblecell
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -29,7 +31,7 @@ var Cell = cell.Module(
 	"hubble",
 	"Exposes the Observer gRPC API and Hubble metrics",
 
-	cell.Provide(newHubble),
+	cell.Provide(newHubbleIntegration),
 	cell.Config(defaultConfig),
 )
 
@@ -53,7 +55,12 @@ type hubbleParams struct {
 	Config      config
 }
 
-func newHubble(params hubbleParams) (*Hubble, error) {
+type HubbleIntegration interface {
+	Launch(ctx context.Context)
+	Status(ctx context.Context) *models.HubbleStatus
+}
+
+func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 	hubble, err := new(
 		params.IdentityAllocator,
 		params.EndpointManager,
