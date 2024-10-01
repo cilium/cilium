@@ -11,15 +11,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/policy"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 )
@@ -39,7 +36,6 @@ var _ = SkipDescribeIf(func() bool {
 		// these are set in BeforeAll()
 		ciliumFilename       string
 		demoPath             string
-		l3Policy             string
 		connectivityCheckYml string
 
 		app1Service = "app1-service"
@@ -51,7 +47,6 @@ var _ = SkipDescribeIf(func() bool {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo-named-port.yaml")
-		l3Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
 		connectivityCheckYml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-proxy.yaml")
 
 		daemonCfg = map[string]string{
@@ -131,17 +126,13 @@ var _ = SkipDescribeIf(func() bool {
 			var (
 				// track which app1 pod we care about, and its corresponding
 				// cilium pod.
-				app1Pod     string
-				app2Pod     string
-				ciliumPod   string
-				nodeName    string
-				appPods     map[string]string
-				app1PodIP   string
-				worldTarget = "http://vagrant-cache.ci.cilium.io"
+				app1Pod   string
+				ciliumPod string
+				nodeName  string
+				app1PodIP string
 			)
 
 			BeforeAll(func() {
-				appPods = helpers.GetAppPods(apps, namespaceForTest, kubectl, "id")
 				podsNodes, err := kubectl.GetPodsNodes(namespaceForTest, "id=app1")
 				Expect(err).To(BeNil(), "error getting pod->node mapping")
 				Expect(len(podsNodes)).To(Equal(2))
@@ -149,14 +140,6 @@ var _ = SkipDescribeIf(func() bool {
 				for k, v := range podsNodes {
 					app1Pod = k
 					nodeName = v
-					break
-				}
-
-				podsNodes, err = kubectl.GetPodsNodes(namespaceForTest, "id=app2")
-				Expect(err).To(BeNil(), "error getting pod->node mapping")
-				Expect(len(podsNodes)).To(Equal(1))
-				for k := range podsNodes {
-					app2Pod = k
 					break
 				}
 
@@ -183,157 +166,8 @@ var _ = SkipDescribeIf(func() bool {
 			})
 
 			AfterEach(func() {
-				// Remove the proxy visibility annotation - this is done by specifying the annotation followed by a '-'.
-				kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s-", helpers.KubectlCmd, appPods[helpers.App1], namespaceForTest, annotation.ProxyVisibility))
-				kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s-", helpers.KubectlCmd, appPods[helpers.App2], namespaceForTest, annotation.ProxyVisibility))
 				cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
 				_ = kubectl.Exec(cmd)
-			})
-
-			checkProxyRedirection := func(resource string, redirected bool, parser policy.L7ParserType, retryCurl bool) {
-				var (
-					not           = " "
-					filter        string // jsonpath filter
-					expect        string // expected result
-					curlCmd       string
-					hubbleTimeout = 10 * time.Second
-				)
-
-				if !redirected {
-					not = " not "
-				}
-
-				switch parser {
-				case policy.ParserTypeDNS:
-					// response DNS L7 flow
-					filter = "{.flow.destination.namespace} {.flow.l7.type} {.flow.l7.dns.query}"
-					expect = fmt.Sprintf(
-						"%s RESPONSE %s",
-						namespaceForTest,
-						"vagrant-cache.ci.cilium.io.",
-					)
-					if retryCurl {
-						curlCmd = helpers.CurlWithRetries(resource, 5, true)
-					} else {
-						curlCmd = helpers.CurlFail(resource)
-					}
-				case policy.ParserTypeHTTP:
-					filter = "{.flow.destination.namespace} {.flow.l7.type} {.flow.l7.http.url} {.flow.l7.http.code} {.flow.l7.http.method}"
-					expect = fmt.Sprintf(
-						"%s RESPONSE %s 200 GET",
-						namespaceForTest,
-						fmt.Sprintf("http://%s/public", resource),
-					)
-
-					if retryCurl {
-						curlCmd = helpers.CurlWithRetries(fmt.Sprintf("http://%s/public", resource), 5, true)
-					} else {
-						curlCmd = helpers.CurlFail(fmt.Sprintf("http://%s/public", resource))
-					}
-				default:
-					Fail(fmt.Sprintf("invalid parser type for proxy visibility: %s", parser))
-				}
-
-				observeFile := fmt.Sprintf("hubble-observe-%s", uuid.New().String())
-
-				// curl commands are issued from the first k8s worker where all
-				// the app instances are running
-				By("Starting hubble observe and generating traffic which should%s redirect to proxy", not)
-				ctx, cancel := context.WithCancel(context.Background())
-				hubbleRes, err := kubectl.HubbleObserveFollow(
-					ctx, ciliumPod,
-					// since 0s is important here so no historic events from the
-					// buffer are shown, only follow from the current time
-					"--type l7 --since 0s",
-				)
-				Expect(err).To(BeNil(), "Failed to start hubble observe")
-
-				// clean up at the end of the test
-				defer func() {
-					cancel()
-					hubbleRes.WaitUntilFinish()
-					helpers.WriteToReportFile(hubbleRes.CombineOutput().Bytes(), observeFile)
-				}()
-
-				// Let the monitor get started since it is started in the background.
-				res := kubectl.ExecPodCmd(
-					namespaceForTest, appPods[helpers.App2],
-					curlCmd)
-				// Give time for the monitor to be notified of the proxy flow.
-				time.Sleep(2 * time.Second)
-				res.ExpectSuccess("%q cannot curl %q", appPods[helpers.App2], resource)
-
-				By("Checking that aforementioned traffic was%sredirected to the proxy", not)
-				err = hubbleRes.WaitUntilMatchFilterLineTimeout(filter, expect, hubbleTimeout)
-				if redirected {
-					ExpectWithOffset(1, err).To(BeNil(), "traffic was not redirected to the proxy when it should have been")
-				} else {
-					ExpectWithOffset(1, err).ToNot(BeNil(), "traffic was redirected to the proxy when it should have not been redirected")
-				}
-
-				if parser == policy.ParserTypeDNS && redirected {
-					By("Checking that Hubble is correctly annotating the DNS names")
-					res := kubectl.HubbleObserve(ciliumPod,
-						fmt.Sprintf("--last 1 --from-pod %s/%s --to-fqdn %q",
-							namespaceForTest, appPods[helpers.App2], "*.cilium.io"))
-					res.ExpectContainsFilterLine("{.flow.destination_names[0]}", "vagrant-cache.ci.cilium.io")
-				}
-			}
-
-			proxyVisibilityTest := func(resource, podToAnnotate, anno string, parserType policy.L7ParserType, retryCurl bool) {
-				checkProxyRedirection(resource, false, parserType, retryCurl)
-
-				By("Annotating %s with %s", podToAnnotate, anno)
-				res := kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s=\"%s\"", helpers.KubectlCmd, podToAnnotate, namespaceForTest, annotation.ProxyVisibility, anno))
-				res.ExpectSuccess("annotating pod with proxy visibility annotation failed")
-				Expect(kubectl.CiliumEndpointWaitReady()).To(BeNil())
-
-				checkProxyRedirection(resource, true, parserType, retryCurl)
-
-				By("Removing proxy visibility annotation on %s", podToAnnotate)
-				kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s-", helpers.KubectlCmd, podToAnnotate, namespaceForTest, annotation.ProxyVisibility)).ExpectSuccess()
-				Expect(kubectl.CiliumEndpointWaitReady()).To(BeNil())
-
-				checkProxyRedirection(resource, false, parserType, retryCurl)
-			}
-
-			It("Tests HTTP proxy visibility without policy", func() {
-				proxyVisibilityTest(app1PodIP, app1Pod, "<Ingress/80/TCP/HTTP>", policy.ParserTypeHTTP, false)
-			})
-
-			It("Tests DNS proxy visibility without policy", func() {
-				proxyVisibilityTest(worldTarget, app2Pod, "<Egress/53/UDP/DNS>", policy.ParserTypeDNS, true)
-			})
-
-			It("Tests proxy visibility interactions with policy lifecycle operations", func() {
-				checkProxyRedirection(app1PodIP, false, policy.ParserTypeHTTP, false)
-
-				By("Annotating %s with <Ingress/80/TCP/HTTP>", app1Pod)
-				res := kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s=\"<Ingress/80/TCP/HTTP>\"", helpers.KubectlCmd, app1Pod, namespaceForTest, annotation.ProxyVisibility))
-				res.ExpectSuccess("annotating pod with proxy visibility annotation failed")
-				Expect(kubectl.CiliumEndpointWaitReady()).To(BeNil())
-
-				checkProxyRedirection(app1PodIP, true, policy.ParserTypeHTTP, false)
-
-				By("Importing policy which selects app1")
-
-				_, err := kubectl.CiliumPolicyAction(
-					namespaceForTest, l3Policy, helpers.KubectlApply, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(),
-					"policy %s cannot be applied in %q namespace", l3Policy, namespaceForTest)
-
-				By("Checking that proxy visibility annotation is still applied even while a policy was imported")
-				checkProxyRedirection(app1PodIP, true, policy.ParserTypeHTTP, false)
-
-				_, err = kubectl.CiliumPolicyAction(
-					namespaceForTest, l3Policy, helpers.KubectlDelete, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(),
-					"policy %s cannot be deleted in %q namespace", l3Policy, namespaceForTest)
-
-				By("Checking that proxy visibility annotation is still applied after policy is removed")
-				checkProxyRedirection(app1PodIP, true, policy.ParserTypeHTTP, false)
-
-				By("Importing policy using named ports which selects app1; proxy-visibility annotation should remain")
 			})
 		})
 	})
