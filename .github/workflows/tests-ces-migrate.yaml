@@ -53,7 +53,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_ci_version:
   KIND_CONFIG: .github/kind-config.yaml
 
 jobs:

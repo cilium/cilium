@@ -58,7 +58,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_ci_version:
   clusterName1: cluster1-${{ github.run_id }}
   clusterName2: cluster2-${{ github.run_id }}
   ciliumClusterName1: c1

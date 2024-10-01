@@ -58,7 +58,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_ci_version:
   kind_config: .github/kind-config.yaml
   timeout: 5m
 

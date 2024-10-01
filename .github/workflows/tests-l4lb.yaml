@@ -57,9 +57,6 @@ concurrency:
     }}
   cancel-in-progress: true
 
-env:
-  cilium_cli_ci_version:
-
 jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
