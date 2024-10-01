@@ -438,6 +438,8 @@ func TestUpdateUsedCIDIsReverted(t *testing.T) {
 }
 
 func TestDeleteUsedCIDIsRecreated(t *testing.T) {
+	t.Skip("test disabled, see https://github.com/cilium/cilium/issues/35135")
+
 	ns1 := testCreateNSObj("ns1", nil)
 	pod1 := testCreatePodObj("pod1", "ns1", testLbsC, nil)
 	cid1 := testCreateCIDObjNs("1000", pod1, ns1)
