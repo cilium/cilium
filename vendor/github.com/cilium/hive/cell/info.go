@@ -24,13 +24,13 @@ type InfoPrinter struct {
 	width int
 }
 
-func NewInfoPrinter() *InfoPrinter {
+func NewInfoPrinter(w io.Writer) *InfoPrinter {
 	width, _, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
 		width = 120
 	}
 	return &InfoPrinter{
-		Writer: os.Stdout,
+		Writer: w,
 		width:  width,
 	}
 }

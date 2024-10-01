@@ -4,7 +4,9 @@
 package orchestrator
 
 import (
+	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/script"
 
 	"github.com/cilium/cilium/pkg/datapath/types"
 )
@@ -17,6 +19,14 @@ var Cell = cell.Module(
 	cell.Provide(NewOrchestrator),
 )
 
-func NewOrchestrator(params orchestratorParams) types.Orchestrator {
-	return newOrchestrator(params)
+func NewOrchestrator(params orchestratorParams) (types.Orchestrator, hive.ScriptCmdOut) {
+	o := newOrchestrator(params)
+	cmd := hive.NewScriptCmd(
+		"orchestrator",
+		script.Command(
+			script.CmdUsage{Summary: "Show orchestrator state"},
+			o.showLatestConfigurationCmd,
+		),
+	)
+	return o, cmd
 }

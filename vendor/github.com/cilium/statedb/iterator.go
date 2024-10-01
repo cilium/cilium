@@ -53,7 +53,7 @@ func ToSeq[A, B any](seq iter.Seq2[A, B]) iter.Seq[A] {
 	}
 }
 
-// partSeq returns a sequence of objects from a part Iterator.
+// partSeq returns a casted sequence of objects from a part Iterator.
 func partSeq[Obj any](iter *part.Iterator[object]) iter.Seq2[Obj, Revision] {
 	return func(yield func(Obj, Revision) bool) {
 		// Iterate over a clone of the original iterator to allow the sequence to be iterated
@@ -65,6 +65,24 @@ func partSeq[Obj any](iter *part.Iterator[object]) iter.Seq2[Obj, Revision] {
 				break
 			}
 			if !yield(iobj.data.(Obj), iobj.revision) {
+				break
+			}
+		}
+	}
+}
+
+// anySeq returns a sequence of objects from a part Iterator.
+func anySeq(iter *part.Iterator[object]) iter.Seq2[any, Revision] {
+	return func(yield func(any, Revision) bool) {
+		// Iterate over a clone of the original iterator to allow the sequence to be iterated
+		// from scratch multiple times.
+		it := iter.Clone()
+		for {
+			_, iobj, ok := it.Next()
+			if !ok {
+				break
+			}
+			if !yield(iobj.data, iobj.revision) {
 				break
 			}
 		}
@@ -126,6 +144,13 @@ func (it *iterator[Obj]) Next() (obj Obj, revision uint64, ok bool) {
 		revision = iobj.revision
 	}
 	return
+}
+
+// Iterator for iterating a sequence objects.
+type Iterator[Obj any] interface {
+	// Next returns the next object and its revision if ok is true, otherwise
+	// zero values to mean that the iteration has finished.
+	Next() (obj Obj, rev Revision, ok bool)
 }
 
 func NewDualIterator[Obj any](left, right Iterator[Obj]) *DualIterator[Obj] {

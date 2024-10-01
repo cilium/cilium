@@ -7,7 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"maps"
 	"os"
 	"os/signal"
 	"reflect"
@@ -20,6 +22,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/script"
 )
 
 type Options struct {
@@ -392,17 +395,24 @@ func (h *Hive) Shutdown(opts ...ShutdownOption) {
 }
 
 func (h *Hive) PrintObjects() {
+	if err := h.printObjects(os.Stdout); err != nil {
+		panic(err)
+	}
+}
+
+func (h *Hive) printObjects(w io.Writer) error {
 	if err := h.Populate(slog.Default()); err != nil {
-		panic(fmt.Sprintf("Failed to populate object graph: %s", err))
+		return fmt.Errorf("failed to populate object graph: %s", err)
 	}
 
-	fmt.Printf("Cells:\n\n")
-	ip := cell.NewInfoPrinter()
+	fmt.Fprintf(w, "Cells:\n\n")
+	ip := cell.NewInfoPrinter(w)
 	for _, c := range h.cells {
 		c.Info(h.container).Print(2, ip)
-		fmt.Println()
+		fmt.Fprintln(w)
 	}
-	h.lifecycle.PrintHooks()
+	h.lifecycle.PrintHooks(w)
+	return nil
 }
 
 func (h *Hive) PrintDotGraph() {
@@ -420,4 +430,19 @@ func (h *Hive) getEnvName(option string) string {
 	under := strings.Replace(option, "-", "_", -1)
 	upper := strings.ToUpper(under)
 	return h.opts.EnvPrefix + upper
+}
+
+func (h *Hive) ScriptCommands() map[string]script.Cmd {
+	if err := h.Populate(slog.Default()); err != nil {
+		panic(fmt.Sprintf("Failed to populate object graph: %s", err))
+	}
+
+	m := map[string]script.Cmd{}
+	m["hive"] = hiveScriptCmd(h)
+
+	// Gather the commands from the hive.
+	h.container.Invoke(func(sc ScriptCmds) {
+		maps.Insert(m, maps.All(sc.Map()))
+	})
+	return m
 }

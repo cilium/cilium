@@ -5,6 +5,7 @@ package orchestrator
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/hive/script"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 	"github.com/spf13/pflag"
@@ -74,6 +76,16 @@ type orchestrator struct {
 	dpInitialized         chan struct{}
 	trigger               chan reinitializeRequest
 	latestLocalNodeConfig atomic.Pointer[datapath.LocalNodeConfiguration]
+}
+
+func (o *orchestrator) showLatestConfigurationCmd(s *script.State, _ ...string) (script.WaitFunc, error) {
+	cfg := o.latestLocalNodeConfig.Load()
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	s.Logf("Latest configuration:\n%s\n", b)
+	return nil, nil
 }
 
 type reinitializeRequest struct {

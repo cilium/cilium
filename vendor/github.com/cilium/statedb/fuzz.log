@@ -1,0 +1,733 @@
+=== RUN   TestDB_Fuzz
+=== PAUSE TestDB_Fuzz
+=== CONT  TestDB_Fuzz
+worker[000] | fuzz1: Insert 7 => 1978
+worker[000] | fuzz1: Insert 4 => 1356
+worker[000] | fuzz1: Insert 7 => 410
+Insert([55]): old exists with revision 1
+deleted 1 from revision index
+worker[000] | Commit
+worker[900] | 2: {{4 1356} 2 false}
+worker[900] | 3: {{7 410} 3 false}
+worker[900] | validate 2: {4 1356}
+worker[900] | validate 3: {7 410}
+worker[000] | fuzz1: Insert 10 => 888
+worker[000] | fuzz1: Insert 13 => 125
+worker[000] | Commit
+worker[900] | 4: {{10 888} 4 false}
+worker[900] | 5: {{13 125} 5 false}
+worker[900] | validate 2: {4 1356}
+worker[900] | validate 3: {7 410}
+worker[900] | validate 4: {10 888}
+worker[900] | validate 5: {13 125}
+worker[000] | fuzz1: Insert c => 569
+worker[000] | fuzz1: Insert a => 369
+worker[000] | fuzz1: Insert 1 => 1856
+worker[000] | fuzz1: First(3) => rev=0, ok=false
+worker[000] | fuzz1: Insert 14 => 1948
+worker[000] | Commit
+worker[900] | 6: {{c 569} 6 false}
+worker[900] | 7: {{a 369} 7 false}
+worker[900] | 8: {{1 1856} 8 false}
+worker[900] | 9: {{14 1948} 9 false}
+worker[900] | validate 2: {4 1356}
+worker[900] | validate 3: {7 410}
+worker[900] | validate 4: {10 888}
+worker[900] | validate 5: {13 125}
+worker[900] | validate 6: {c 569}
+worker[900] | validate 7: {a 369}
+worker[900] | validate 8: {1 1856}
+worker[900] | validate 9: {14 1948}
+worker[000] | fuzz1: All => 8 found
+worker[000] | fuzz1: Insert 11 => 835
+worker[000] | fuzz1: Insert 5 => 1507
+worker[000] | fuzz1: Insert c => 999
+Insert([99]): old exists with revision 6
+deleted 6 from revision index
+worker[000] | fuzz1: Insert 12 => 944
+worker[000] | fuzz1: Insert a => 1927
+Insert([97]): old exists with revision 7
+deleted 7 from revision index
+worker[000] | fuzz1: First(4) => rev=2, ok=true
+worker[000] | fuzz1: DeleteAll
+worker[000] | fuzz1: Insert f => 763
+worker[000] | fuzz1: Insert 13 => 639
+worker[000] | fuzz1: Insert 8 => 959
+worker[000] | fuzz1: Insert 12 => 945
+worker[000] | Commit
+worker[900] | 15: {{1 1856} 15 true}
+worker[900] | 16: {{10 888} 16 true}
+worker[900] | 17: {{11 835} 17 true}
+worker[900] | 20: {{14 1948} 20 true}
+worker[900] | 21: {{4 1356} 21 true}
+worker[900] | 22: {{5 1507} 22 true}
+worker[900] | 23: {{7 410} 23 true}
+worker[900] | 24: {{a 1927} 24 true}
+worker[900] | 25: {{c 999} 25 true}
+worker[900] | 26: {{f 763} 26 false}
+worker[900] | 27: {{13 639} 27 false}
+worker[900] | 28: {{8 959} 28 false}
+worker[900] | 29: {{12 945} 29 false}
+worker[900] | validate 26: {f 763}
+worker[900] | validate 27: {13 639}
+worker[900] | validate 28: {8 959}
+worker[900] | validate 29: {12 945}
+worker[000] | fuzz1: Get(425)
+worker[000] | fuzz1: Insert 2 => 1963
+worker[000] | fuzz1: Insert 9 => 1375
+worker[000] | fuzz1: Insert 11 => 1962
+worker[000] | fuzz1: Insert a => 65
+worker[000] | fuzz1: Insert 12 => 1072
+Insert([49 50]): old exists with revision 29
+deleted 29 from revision index
+worker[000] | fuzz1: LowerBound(5) => 4 found
+worker[000] | fuzz1: Insert d => 366
+worker[000] | fuzz1: Insert 14 => 621
+worker[000] | fuzz1: Insert 9 => 1127
+Insert([57]): old exists with revision 31
+deleted 31 from revision index
+worker[000] | fuzz1: Insert 13 => 1680
+Insert([49 51]): old exists with revision 27
+deleted 27 from revision index
+worker[000] | fuzz1: Insert 10 => 509
+worker[000] | fuzz1: First(a) => rev=33, ok=true
+worker[000] | fuzz1: Insert 3 => 766
+worker[000] | fuzz1: LowerBound(b) => 2 found
+worker[000] | fuzz1: Insert 12 => 1592
+Insert([49 50]): old exists with revision 34
+deleted 34 from revision index
+worker[000] | fuzz1: Insert c => 524
+worker[000] | Commit
+worker[900] | 30: {{2 1963} 30 false}
+worker[900] | 32: {{11 1962} 32 false}
+worker[900] | 33: {{a 65} 33 false}
+worker[900] | 35: {{d 366} 35 false}
+worker[900] | 36: {{14 621} 36 false}
+worker[900] | 37: {{9 1127} 37 false}
+worker[900] | 38: {{13 1680} 38 false}
+worker[900] | 39: {{10 509} 39 false}
+worker[900] | 40: {{3 766} 40 false}
+worker[900] | 41: {{12 1592} 41 false}
+worker[900] | 42: {{c 524} 42 false}
+worker[900] | validate 26: {f 763}
+worker[900] | validate 28: {8 959}
+worker[900] | validate 30: {2 1963}
+worker[900] | validate 32: {11 1962}
+worker[900] | validate 33: {a 65}
+worker[900] | validate 35: {d 366}
+worker[900] | validate 36: {14 621}
+worker[900] | validate 37: {9 1127}
+worker[900] | validate 38: {13 1680}
+worker[900] | validate 39: {10 509}
+worker[900] | validate 40: {3 766}
+worker[900] | validate 41: {12 1592}
+worker[000] | fuzz1: Insert 3 => 1192
+Insert([51]): old exists with revision 40
+deleted 40 from revision index
+worker[900] | validate 42: {c 524}
+worker[000] | fuzz1: Insert 14 => 319
+Insert([49 52]): old exists with revision 36
+deleted 36 from revision index
+worker[000] | fuzz1: Insert 11 => 1438
+Insert([49 49]): old exists with revision 32
+deleted 32 from revision index
+worker[000] | Commit
+worker[900] | 43: {{3 1192} 43 false}
+worker[900] | 44: {{14 319} 44 false}
+worker[900] | 45: {{11 1438} 45 false}
+worker[900] | validate 26: {f 763}
+worker[900] | validate 28: {8 959}
+worker[900] | validate 30: {2 1963}
+worker[900] | validate 33: {a 65}
+worker[900] | validate 35: {d 366}
+worker[900] | validate 37: {9 1127}
+worker[900] | validate 38: {13 1680}
+worker[900] | validate 39: {10 509}
+worker[900] | validate 41: {12 1592}
+worker[900] | validate 42: {c 524}
+worker[900] | validate 43: {3 1192}
+worker[900] | validate 44: {14 319}
+worker[900] | validate 45: {11 1438}
+worker[000] | fuzz1: Insert 10 => 1921
+Insert([49 48]): old exists with revision 39
+deleted 39 from revision index
+worker[000] | fuzz1: Insert e => 1607
+worker[000] | fuzz1: Insert 10 => 1997
+Insert([49 48]): old exists with revision 46
+deleted 46 from revision index
+worker[000] | fuzz1: Insert 8 => 1174
+Insert([56]): old exists with revision 28
+deleted 28 from revision index
+worker[000] | fuzz1: First(9) => rev=37, ok=true
+worker[000] | fuzz1: Insert 4 => 379
+worker[000] | fuzz1: Insert e => 1500
+Insert([101]): old exists with revision 47
+deleted 47 from revision index
+worker[000] | fuzz1: Insert 13 => 1539
+Insert([49 51]): old exists with revision 38
+deleted 38 from revision index
+worker[000] | Commit
+worker[000] | fuzz1: Insert 9 => 1424
+Insert([57]): old exists with revision 37
+worker[900] | 48: {{10 1997} 48 false}
+worker[900] | 49: {{8 1174} 49 false}
+worker[900] | 50: {{4 379} 50 false}
+worker[900] | 51: {{e 1500} 51 false}
+worker[900] | 52: {{13 1539} 52 false}
+worker[900] | validate 26: {f 763}
+worker[900] | validate 30: {2 1963}
+worker[900] | validate 33: {a 65}
+worker[900] | validate 35: {d 366}
+worker[900] | validate 37: {9 1127}
+worker[900] | validate 41: {12 1592}
+worker[900] | validate 42: {c 524}
+worker[900] | validate 43: {3 1192}
+worker[900] | validate 44: {14 319}
+worker[900] | validate 45: {11 1438}
+worker[900] | validate 48: {10 1997}
+worker[900] | validate 49: {8 1174}
+worker[900] | validate 50: {4 379}
+worker[900] | validate 51: {e 1500}
+worker[900] | validate 52: {13 1539}
+deleted 37 from revision index
+worker[000] | fuzz1: Insert 8 => 1615
+Insert([56]): old exists with revision 49
+deleted 49 from revision index
+worker[000] | fuzz1: Insert c => 1155
+Insert([99]): old exists with revision 42
+deleted 42 from revision index
+worker[000] | fuzz1: Insert 4 => 1862
+Insert([52]): old exists with revision 50
+deleted 50 from revision index
+worker[000] | fuzz1: Insert b => 1151
+worker[000] | fuzz1: Insert 3 => 17
+Insert([51]): old exists with revision 43
+deleted 43 from revision index
+worker[000] | fuzz1: Insert e => 1638
+Insert([101]): old exists with revision 51
+deleted 51 from revision index
+worker[000] | Commit
+worker[900] | 53: {{9 1424} 53 false}
+worker[900] | 54: {{8 1615} 54 false}
+worker[900] | 55: {{c 1155} 55 false}
+worker[900] | 56: {{4 1862} 56 false}
+worker[900] | 57: {{b 1151} 57 false}
+worker[900] | 58: {{3 17} 58 false}
+worker[900] | 59: {{e 1638} 59 false}
+worker[900] | validate 26: {f 763}
+worker[900] | validate 30: {2 1963}
+worker[900] | validate 33: {a 65}
+worker[900] | validate 35: {d 366}
+worker[900] | validate 41: {12 1592}
+worker[900] | validate 44: {14 319}
+worker[900] | validate 45: {11 1438}
+worker[900] | validate 48: {10 1997}
+worker[900] | validate 52: {13 1539}
+worker[900] | validate 53: {9 1424}
+worker[900] | validate 54: {8 1615}
+worker[900] | validate 55: {c 1155}
+worker[900] | validate 56: {4 1862}
+worker[900] | validate 57: {b 1151}
+worker[900] | validate 58: {3 17}
+worker[900] | validate 59: {e 1638}
+worker[000] | fuzz1: Get(477)
+worker[000] | fuzz1: LowerBound(3) => 10 found
+worker[000] | fuzz1: First(c) => rev=55, ok=true
+worker[000] | fuzz1: Insert 10 => 1340
+Insert([49 48]): old exists with revision 48
+deleted 48 from revision index
+worker[000] | fuzz1: Insert b => 1839
+Insert([98]): old exists with revision 57
+deleted 57 from revision index
+worker[000] | fuzz1: Insert d => 738
+Insert([100]): old exists with revision 35
+deleted 35 from revision index
+worker[000] | fuzz1: Insert a => 334
+Insert([97]): old exists with revision 33
+deleted 33 from revision index
+worker[000] | fuzz1: Insert 12 => 1471
+Insert([49 50]): old exists with revision 41
+deleted 41 from revision index
+worker[000] | fuzz1: Insert d => 860
+Insert([100]): old exists with revision 62
+deleted 62 from revision index
+worker[000] | fuzz1: Insert f => 194
+Insert([102]): old exists with revision 26
+deleted 26 from revision index
+worker[000] | fuzz1: Delete 13
+worker[000] | fuzz1: First(f) => rev=66, ok=true
+worker[000] | fuzz1: Insert 4 => 1175
+Insert([52]): old exists with revision 56
+deleted 56 from revision index
+worker[000] | fuzz1: Insert 2 => 1100
+Insert([50]): old exists with revision 30
+deleted 30 from revision index
+worker[000] | fuzz1: Delete f
+worker[000] | fuzz1: First(11) => rev=45, ok=true
+worker[000] | fuzz1: Insert 11 => 224
+Insert([49 49]): old exists with revision 45
+deleted 45 from revision index
+worker[000] | fuzz1: Insert 1 => 598
+worker[000] | Commit
+worker[900] | 60: {{10 1340} 60 false}
+worker[900] | 61: {{b 1839} 61 false}
+worker[900] | 63: {{a 334} 63 false}
+worker[900] | 64: {{12 1471} 64 false}
+worker[900] | 65: {{d 860} 65 false}
+worker[900] | 67: {{13 1539} 67 true}
+worker[900] | 68: {{4 1175} 68 false}
+worker[900] | 69: {{2 1100} 69 false}
+worker[900] | 70: {{f 194} 70 true}
+worker[900] | 71: {{11 224} 71 false}
+worker[900] | 72: {{1 598} 72 false}
+worker[900] | validate 44: {14 319}
+worker[900] | validate 53: {9 1424}
+worker[900] | validate 54: {8 1615}
+worker[900] | validate 55: {c 1155}
+worker[900] | validate 58: {3 17}
+worker[900] | validate 59: {e 1638}
+worker[900] | validate 60: {10 1340}
+worker[900] | validate 61: {b 1839}
+worker[900] | validate 63: {a 334}
+worker[900] | validate 64: {12 1471}
+worker[900] | validate 65: {d 860}
+worker[900] | validate 68: {4 1175}
+worker[900] | validate 69: {2 1100}
+worker[900] | validate 71: {11 224}
+worker[900] | validate 72: {1 598}
+worker[000] | fuzz1: Insert 8 => 853
+Insert([56]): old exists with revision 54
+deleted 54 from revision index
+worker[000] | fuzz1: Get(195)
+worker[000] | fuzz1: Insert b => 1434
+Insert([98]): old exists with revision 61
+deleted 61 from revision index
+worker[000] | fuzz1: Insert c => 1751
+Insert([99]): old exists with revision 55
+deleted 55 from revision index
+worker[000] | fuzz1: Insert 5 => 1907
+worker[000] | fuzz1: Insert 7 => 1541
+worker[000] | fuzz1: First(12) => rev=64, ok=true
+worker[000] | fuzz1: Insert 11 => 908
+Insert([49 49]): old exists with revision 71
+deleted 71 from revision index
+worker[000] | fuzz1: Insert c => 664
+Insert([99]): old exists with revision 75
+deleted 75 from revision index
+worker[000] | fuzz1: Insert 8 => 1172
+Insert([56]): old exists with revision 73
+deleted 73 from revision index
+worker[000] | fuzz1: Insert 9 => 140
+Insert([57]): old exists with revision 53
+deleted 53 from revision index
+worker[000] | fuzz1: Insert 11 => 817
+Insert([49 49]): old exists with revision 78
+deleted 78 from revision index
+worker[000] | fuzz1: Insert 8 => 648
+Insert([56]): old exists with revision 80
+deleted 80 from revision index
+worker[000] | fuzz1: Insert 11 => 1707
+Insert([49 49]): old exists with revision 82
+deleted 82 from revision index
+worker[000] | Commit
+worker[900] | 74: {{b 1434} 74 false}
+worker[900] | 76: {{5 1907} 76 false}
+worker[900] | 77: {{7 1541} 77 false}
+worker[900] | 79: {{c 664} 79 false}
+worker[900] | 81: {{9 140} 81 false}
+worker[900] | 83: {{8 648} 83 false}
+worker[900] | 84: {{11 1707} 84 false}
+worker[900] | validate 44: {14 319}
+worker[900] | validate 58: {3 17}
+worker[900] | validate 59: {e 1638}
+worker[900] | validate 60: {10 1340}
+worker[900] | validate 63: {a 334}
+worker[900] | validate 64: {12 1471}
+worker[900] | validate 65: {d 860}
+worker[900] | validate 68: {4 1175}
+worker[900] | validate 69: {2 1100}
+worker[900] | validate 72: {1 598}
+worker[900] | validate 74: {b 1434}
+worker[900] | validate 76: {5 1907}
+worker[900] | validate 77: {7 1541}
+worker[900] | validate 79: {c 664}
+worker[900] | validate 81: {9 140}
+worker[900] | validate 83: {8 648}
+worker[900] | validate 84: {11 1707}
+worker[000] | fuzz1: DeleteMany 1 (1/5)
+worker[000] | fuzz1: DeleteMany 10 (2/5)
+worker[000] | fuzz1: DeleteMany 11 (3/5)
+worker[000] | fuzz1: DeleteMany 12 (4/5)
+worker[000] | fuzz1: DeleteMany 14 (5/5)
+worker[000] | fuzz1: Insert 12 => 481
+worker[000] | fuzz1: DeleteMany 12 (1/5)
+worker[000] | fuzz1: DeleteMany 2 (2/5)
+worker[000] | fuzz1: DeleteMany 3 (3/5)
+worker[000] | fuzz1: DeleteMany 4 (4/5)
+worker[000] | fuzz1: DeleteMany 5 (5/5)
+worker[000] | fuzz1: First(2) => rev=0, ok=false
+worker[000] | fuzz1: Insert 3 => 31
+worker[000] | fuzz1: Insert 11 => 801
+worker[000] | fuzz1: Insert d => 700
+Insert([100]): old exists with revision 65
+deleted 65 from revision index
+worker[000] | fuzz1: Insert 5 => 268
+worker[000] | Commit
+worker[900] | 85: {{1 598} 85 true}
+worker[900] | 86: {{10 1340} 86 true}
+worker[900] | 89: {{14 319} 89 true}
+worker[900] | 91: {{12 481} 91 true}
+worker[900] | 92: {{2 1100} 92 true}
+worker[900] | 94: {{4 1175} 94 true}
+worker[900] | 96: {{3 31} 96 false}
+worker[900] | 97: {{11 801} 97 false}
+worker[900] | 98: {{d 700} 98 false}
+worker[900] | 99: {{5 268} 99 false}
+worker[900] | validate 59: {e 1638}
+worker[900] | validate 63: {a 334}
+worker[900] | validate 74: {b 1434}
+worker[900] | validate 77: {7 1541}
+worker[900] | validate 79: {c 664}
+worker[900] | validate 81: {9 140}
+worker[000] | fuzz1: Insert 11 => 1542
+Insert([49 49]): old exists with revision 97
+deleted 97 from revision index
+worker[900] | validate 83: {8 648}
+worker[900] | validate 96: {3 31}
+worker[900] | validate 97: {11 801}
+worker[900] | validate 98: {d 700}
+worker[900] | validate 99: {5 268}
+worker[000] | fuzz1: Insert 6 => 68
+worker[000] | fuzz1: Insert a => 549
+Insert([97]): old exists with revision 63
+deleted 63 from revision index
+worker[000] | fuzz1: Prefix(e) => 1 found
+worker[000] | fuzz1: Insert 6 => 290
+Insert([54]): old exists with revision 101
+deleted 101 from revision index
+worker[000] | fuzz1: Prefix(1) => 1 found
+worker[000] | fuzz1: First(3) => rev=96, ok=true
+worker[000] | fuzz1: Insert e => 241
+Insert([101]): old exists with revision 59
+deleted 59 from revision index
+worker[000] | fuzz1: First(8) => rev=83, ok=true
+worker[000] | fuzz1: First(a) => rev=102, ok=true
+worker[000] | fuzz1: Insert c => 1519
+Insert([99]): old exists with revision 79
+deleted 79 from revision index
+worker[000] | fuzz1: First(c) => rev=105, ok=true
+worker[000] | Commit
+worker[900] | 100: {{11 1542} 100 false}
+worker[900] | 102: {{a 549} 102 false}
+worker[900] | 103: {{6 290} 103 false}
+worker[900] | 104: {{e 241} 104 false}
+worker[900] | 105: {{c 1519} 105 false}
+worker[900] | validate 74: {b 1434}
+worker[900] | validate 77: {7 1541}
+worker[900] | validate 81: {9 140}
+worker[900] | validate 83: {8 648}
+worker[900] | validate 96: {3 31}
+worker[900] | validate 98: {d 700}
+worker[900] | validate 99: {5 268}
+worker[900] | validate 100: {11 1542}
+worker[900] | validate 102: {a 549}
+worker[900] | validate 103: {6 290}
+worker[900] | validate 104: {e 241}
+worker[900] | validate 105: {c 1519}
+worker[000] | fuzz1: Insert 1 => 1625
+worker[000] | fuzz1: Insert f => 1488
+worker[000] | fuzz1: LowerBound(a) => 6 found
+worker[000] | fuzz1: Insert 13 => 1725
+worker[000] | fuzz1: All => 15 found
+worker[000] | fuzz1: Insert 8 => 779
+Insert([56]): old exists with revision 83
+deleted 83 from revision index
+worker[000] | fuzz1: Insert 1 => 299
+worker[000] | fuzz1: Insert 8 => 1290
+Insert([56]): old exists with revision 109
+deleted 109 from revision index
+worker[000] | fuzz1: Insert 3 => 1500
+Insert([51]): old exists with revision 96
+deleted 96 from revision index
+worker[000] | fuzz1: Insert 9 => 960
+Insert([57]): old exists with revision 81
+deleted 81 from revision index
+worker[000] | fuzz1: Insert 4 => 1492
+worker[000] | fuzz1: Insert 8 => 1075
+Insert([56]): old exists with revision 111
+deleted 111 from revision index
+worker[000] | fuzz1: Insert b => 986
+Insert([98]): old exists with revision 74
+deleted 74 from revision index
+worker[000] | Commit
+worker[900] | 106: {{1 1625} 106 false}
+worker[900] | 107: {{f 1488} 107 false}
+worker[000] | fuzz1: Insert 7 => 1330
+Insert([55]): old exists with revision 77
+deleted 77 from revision index
+worker[900] | 108: {{13 1725} 108 false}
+worker[900] | 110: {{1 299} 110 false}
+worker[900] | 112: {{3 1500} 112 false}
+worker[900] | 113: {{9 960} 113 false}
+worker[900] | 114: {{4 1492} 114 false}
+worker[900] | 115: {{8 1075} 115 false}
+worker[900] | 116: {{b 986} 116 false}
+worker[900] | validate 77: {7 1541}
+worker[900] | validate 98: {d 700}
+worker[900] | validate 99: {5 268}
+worker[900] | validate 100: {11 1542}
+worker[900] | validate 102: {a 549}
+worker[900] | validate 103: {6 290}
+worker[900] | validate 104: {e 241}
+worker[900] | validate 105: {c 1519}
+worker[900] | validate 106: {1 1625}
+PRIMARY:
+node16[]:(0xc000346540)
+ node4[31]: 31 -> {110 {1 299}}(0xc00033f500)
+  leaf[31]: 3131 -> {100 {11 1542}}(0xc00033ec60)
+  leaf[33]: 3133 -> {108 {13 1725}}(0xc00033f140)
+ leaf[33]: 33 -> {112 {3 1500}}(0xc00033f7a0)
+ leaf[34]: 34 -> {114 {4 1492}}(0xc00033fa40)
+ leaf[35]: 35 -> {99 {5 268}}(0xc00033eb40)
+ leaf[36]: 36 -> {103 {6 290}}(0xc00022c5a0)
+ leaf[37]: 37 -> {77 {7 1541}}(0xc000332fc0)
+ leaf[38]: 38 -> {115 {8 1075}}(0xc00033f380)
+ leaf[39]: 39 -> {113 {9 960}}(0xc00033f920)
+ leaf[61]: 61 -> {102 {a 549}}(0xc00022c3c0)
+ leaf[62]: 62 -> {116 {b 986}}(0xc00033fc20)
+ leaf[63]: 63 -> {105 {c 1519}}(0xc00022c7e0)
+ leaf[64]: 64 -> {98 {d 700}}(0xc00033ea20)
+ leaf[65]: 65 -> {104 {e 241}}(0xc00022c6c0)
+ leaf[66]: 66 -> {107 {f 1488}}(0xc00033eea0)
+REVISION:
+node48[00000000000000]:(0xc00031bb88)
+ leaf[4d]: 000000000000004d -> {77 {7 1541}}(0xc000333020)
+ leaf[62]: 0000000000000062 -> {98 {d 700}}(0xc00033ea80)
+ leaf[63]: 0000000000000063 -> {99 {5 268}}worker[000] | Commit
+(0xc00033eba0)
+ leaf[64]:worker[000] | fuzz1: Insert e => 621
+ 0000000000000064 -> {100 {11 1542}}(0xc00022c0c0)
+ leaf[66]: 0000000000000066 -> {102 {a 549}}(0xc00022c420)
+ leaf[67]: 0000000000000067 -> {103 {6 290}}(0xc00022c600)
+ leaf[68]: 0000000000000068 -> {104 {e 241}}(0xc00022c720)
+ leaf[69]: 0000000000000069 -> {105 {c 1519}}(0xc00022c840)
+ leaf[6a]: 000000000000006a -> {106 {1 1625}}(0xc00033ed80)
+ leaf[6b]: 000000000000006b -> {107 {f 1488}}(0xc00033ef00)
+ leaf[6c]: 000000000000006c -> {108 {13 1725}}(0xc00033f1a0)
+ leaf[6e]: 000000000000006e -> {110 {1 299}}(0xc00033f5c0)
+ leaf[70]: 0000000000000070 -> {112 {3 1500}}(0xc00033f800)
+ leaf[71]: 0000000000000071 -> {113 {9 960}}(0xc00033f980)
+ leaf[72]: 0000000000000072 -> {114 {4 1492}}(0xc00033faa0)
+ leaf[73]: 0000000000000073 -> {115 {8 1075}}(0xc00033fb60)
+ leaf[74]: 0000000000000074 -> {116 {b 986}}(0xc00033fc80)
+Insert([101]): old exists with revision 104
+deleted 104 from revision index
+worker[000] | fuzz1: First(5) => rev=99, ok=true
+worker[000] | fuzz1: Insert 1 => 465
+worker[000] | fuzz1: Insert d => 317
+Insert([100]): old exists with revision 98
+deleted 98 from revision index
+worker[000] | fuzz1: Insert c => 1021
+Insert([99]): old exists with revision 105
+deleted 105 from revision index
+worker[000] | fuzz1: Insert 10 => 1439
+worker[000] | fuzz1: Insert 6 => 1609
+Insert([54]): old exists with revision 103
+deleted 103 from revision index
+worker[000] | fuzz1: Insert c => 1149
+Insert([99]): old exists with revision 121
+deleted 121 from revision index
+worker[000] | fuzz1: Insert e => 872
+Insert([101]): old exists with revision 118
+deleted 118 from revision index
+worker[000] | fuzz1: Insert c => 2
+Insert([99]): old exists with revision 124
+deleted 124 from revision index
+worker[000] | fuzz1: Insert 5 => 147
+Insert([53]): old exists with revision 99
+deleted 99 from revision index
+worker[000] | fuzz1: Insert 13 => 1763
+Insert([49 51]): old exists with revision 108
+deleted 108 from revision index
+worker[000] | fuzz1: DeleteMany 1 (1/5)
+worker[000] | fuzz1: DeleteMany 10 (2/5)
+worker[000] | fuzz1: DeleteMany 11 (3/5)
+worker[000] | fuzz1: DeleteMany 13 (4/5)
+worker[000] | fuzz1: DeleteMany 3 (5/5)
+worker[000] | fuzz1: Insert 2 => 1211
+worker[000] | fuzz1: Insert d => 1157
+Insert([100]): old exists with revision 120
+deleted 120 from revision index
+worker[000] | fuzz1: Insert 9 => 835
+Insert([57]): old exists with revision 113
+deleted 113 from revision index
+worker[000] | Abort
+worker[000] | fuzz1: Insert 8 => 517
+Insert([56]): old exists with revision 115
+deleted 115 from revision index
+worker[000] | fuzz1: Insert 5 => 323
+Insert([53]): old exists with revision 99
+deleted 99 from revision index
+worker[000] | fuzz1: Insert 2 => 1918
+worker[000] | fuzz1: First(4) => rev=114, ok=true
+worker[000] | fuzz1: Insert a => 1832
+Insert([97]): old exists with revision 102
+deleted 102 from revision index
+worker[000] | fuzz1: Insert 10 => 1993
+worker[000] | fuzz1: Insert 7 => 451
+Insert([55]): old exists with revision 117
+deleted 117 from revision index
+worker[000] | fuzz1: Insert b => 1986
+Insert([98]): old exists with revision 116
+deleted 116 from revision index
+worker[000] | fuzz1: Insert 11 => 1386
+Insert([49 49]): old exists with revision 100
+deleted 100 from revision index
+worker[000] | fuzz1: Insert 7 => 1726
+Insert([55]): old exists with revision 123
+deleted 123 from revision index
+worker[000] | fuzz1: Insert a => 1138
+Insert([97]): old exists with revision 121
+deleted 121 from revision index
+worker[000] | fuzz1: Insert 14 => 1886
+worker[000] | fuzz1: Insert 11 => 1126
+Insert([49 49]): old exists with revision 125
+deleted 125 from revision index
+worker[000] | fuzz1: Insert f => 1196
+Insert([102]): old exists with revision 107
+deleted 107 from revision index
+worker[000] | fuzz1: Insert 2 => 605
+Insert([50]): old exists with revision 120
+deleted 120 from revision index
+worker[000] | fuzz1: Insert d => 1604
+Insert([100]): old exists with revision 98
+deleted 98 from revision index
+worker[000] | fuzz1: Get(175)
+worker[000] | fuzz1: All => 19 found
+worker[000] | fuzz1: Insert e => 1972
+Insert([101]): old exists with revision 104
+deleted 104 from revision index
+worker[000] | Commit
+worker[000] | fuzz1: First(8) => rev=118, ok=true
+worker[000] | fuzz1: Insert 1 => 1267
+worker[000] | fuzz1: Insert 7 => 466
+Insert([55]): old exists with revision 126
+deleted 126 from revision index
+worker[000] | fuzz1: Insert d => 1712
+Insert([100]): old exists with revision 132
+deleted 132 from revision index
+worker[000] | fuzz1: Insert e => 1683
+Insert([101]): old exists with revision 133
+deleted 133 from revision index
+worker[000] | fuzz1: Insert d => 701
+Insert([100]): old exists with revision 136
+deleted 136 from revision index
+worker[000] | fuzz1: First(10) => rev=122, ok=true
+worker[000] | fuzz1: Insert f => 192
+Insert([102]): old exists with revision 130
+deleted 130 from revision index
+worker[000] | fuzz1: Delete 11
+worker[000] | fuzz1: Insert e => 452
+Insert([101]): old exists with revision 137
+deleted 137 from revision index
+worker[000] | fuzz1: Insert 3 => 1579
+Insert([51]): old exists with revision 112
+deleted 112 from revision index
+worker[000] | fuzz1: Insert 7 => 399
+Insert([55]): old exists with revision 135
+deleted 135 from revision index
+worker[000] | fuzz1: Insert f => 313
+Insert([102]): old exists with revision 139
+deleted 139 from revision index
+worker[000] | fuzz1: Prefix(13) => 1 found
+worker[000] | fuzz1: Insert c => 1038
+Insert([99]): old exists with revision 105
+deleted 105 from revision index
+worker[000] | Commit
+worker[000] | fuzz1: Insert 9 => 1693
+Insert([57]): old exists with revision 113
+deleted 113 from revision index
+worker[000] | fuzz1: Insert 1 => 260
+worker[000] | fuzz1: Insert 13 => 1958
+Insert([49 51]): old exists with revision 108
+deleted 108 from revision index
+worker[000] | fuzz1: First(f) => rev=144, ok=true
+worker[000] | fuzz1: Insert 7 => 1805
+Insert([55]): old exists with revision 143
+deleted 143 from revision index
+worker[000] | fuzz1: Insert e => 2
+Insert([101]): old exists with revision 141
+deleted 141 from revision index
+worker[000] | fuzz1: Insert 6 => 154
+Insert([54]): old exists with revision 103
+deleted 103 from revision index
+worker[000] | fuzz1: Insert 6 => 1435
+Insert([54]): old exists with revision 151
+deleted 151 from revision index
+worker[000] | fuzz1: Insert b => 1603
+Insert([98]): old exists with revision 124
+deleted 124 from revision index
+worker[000] | fuzz1: Insert b => 821
+Insert([98]): old exists with revision 153
+deleted 153 from revision index
+worker[000] | fuzz1: Insert 7 => 525
+Insert([55]): old exists with revision 149
+deleted 149 from revision index
+worker[000] | fuzz1: Insert 10 => 1126
+Insert([49 48]): old exists with revision 122
+deleted 122 from revision index
+worker[000] | fuzz1: Insert 3 => 980
+Insert([51]): old exists with revision 142
+deleted 142 from revision index
+worker[000] | fuzz1: First(2) => rev=131, ok=true
+worker[000] | fuzz1: Insert 10 => 1787
+Insert([49 48]): old exists with revision 156
+deleted 156 from revision index
+worker[000] | fuzz1: Insert 1 => 1339
+worker[000] | fuzz1: Insert 10 => 1243
+Insert([49 48]): old exists with revision 158
+deleted 158 from revision index
+worker[000] | Commit
+worker[000] | fuzz1: Insert e => 1101
+Insert([101]): old exists with revision 150
+deleted 150 from revision index
+worker[000] | fuzz1: First(7) => rev=155, ok=true
+worker[000] | fuzz1: Insert f => 1036
+Insert([102]): old exists with revision 144
+deleted 144 from revision index
+worker[000] | fuzz1: Insert 2 => 1106
+Insert([50]): old exists with revision 131
+deleted 131 from revision index
+worker[000] | fuzz1: Insert 3 => 1025
+Insert([51]): old exists with revision 157
+deleted 157 from revision index
+worker[000] | fuzz1: Insert d => 470
+Insert([100]): old exists with revision 138
+deleted 138 from revision index
+worker[000] | fuzz1: Insert 6 => 1270
+Insert([54]): old exists with revision 152
+deleted 152 from revision index
+worker[000] | fuzz1: Insert 13 => 820
+Insert([49 51]): old exists with revision 148
+deleted 148 from revision index
+worker[000] | fuzz1: Insert f => 1469
+Insert([102]): old exists with revision 162
+deleted 162 from revision index
+worker[000] | fuzz1: All => 18 found
+worker[000] | fuzz1: Insert 9 => 1074
+Insert([57]): old exists with revision 146
+deleted 146 from revision index
+worker[000] | fuzz1: First(11) => rev=0, ok=false
+worker[000] | Commit
+worker[000] | Commit
+panic: trackerWorker: last observed revision 110 does not match real revision 106
+
+goroutine 9 [running]:
+github.com/cilium/statedb_test.trackerWorker(0x0?, 0xc000045080)
+	/home/jussi/go/src/github.com/cilium/statedb/fuzz_test.go:430 +0xc34
+github.com/cilium/statedb_test.TestDB_Fuzz.func2()
+	/home/jussi/go/src/github.com/cilium/statedb/fuzz_test.go:534 +0x25
+created by github.com/cilium/statedb_test.TestDB_Fuzz in goroutine 6
+	/home/jussi/go/src/github.com/cilium/statedb/fuzz_test.go:533 +0x2b9
+FAIL	github.com/cilium/statedb	0.006s
+FAIL
