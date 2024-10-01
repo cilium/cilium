@@ -84,24 +84,6 @@ func SortedUnique[S ~[]T, T cmp.Ordered](s S) S {
 	return slices.Compact(s)
 }
 
-// SortedUniqueFunc is like SortedUnique but allows the user to specify custom functions
-// for ordering (less function) and comparing (eq function) the elements in the slice.
-// This is useful in all the cases where SortedUnique cannot be used:
-// - for types that do not satisfy constraints.Ordered (e.g: composite types)
-// - when the user wants to customize how elements are compared (e.g: user wants to enforce reverse ordering)
-func SortedUniqueFunc[S ~[]T, T any](
-	s S,
-	less func(a, b T) int,
-	eq func(a, b T) bool,
-) S {
-	if len(s) < 2 {
-		return s
-	}
-
-	slices.SortFunc(s, less)
-	return slices.CompactFunc(s, eq)
-}
-
 // Diff returns a slice of elements which is the difference of a and b.
 // The returned slice keeps the elements in the same order found in the "a" slice.
 // Both input slices are considered as sets, that is, all elements are considered as
