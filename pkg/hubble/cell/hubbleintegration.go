@@ -62,31 +62,31 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// Hubble is responsible for configuration, initialization, and shutdown of
-// every Hubble components including the Hubble observer servers (TCP, UNIX
-// domain socket), the Hubble metrics server, etc.
-type Hubble struct {
+// hubbleIntegration is responsible for configuration, initialization, and
+// shutdown of every Hubble components including the Hubble observer servers
+// (TCP, UNIX domain socket), the Hubble metrics server, etc.
+type hubbleIntegration struct {
 	// Observer will be set once the Hubble Observer has been started.
-	Observer atomic.Pointer[observer.LocalObserverServer]
+	observer atomic.Pointer[observer.LocalObserverServer]
 
 	identityAllocator identitycell.CachingIdentityAllocator
 	endpointManager   endpointmanager.EndpointManager
-	IPCache           *ipcache.IPCache // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
+	ipcache           *ipcache.IPCache
 	serviceManager    service.ServiceManager
-	CGroupManager     manager.CGroupManager   // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
-	Clientset         k8sClient.Clientset     // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
-	K8sWatcher        *watchers.K8sWatcher    // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
-	NodeManager       nodeManager.NodeManager // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
-	NodeLocalStore    *node.LocalNodeStore    // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
-	MonitorAgent      monitorAgent.Agent      // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
-	Recorder          *recorder.Recorder      // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
+	cgroupManager     manager.CGroupManager
+	clientset         k8sClient.Clientset
+	k8sWatcher        *watchers.K8sWatcher
+	nodeManager       nodeManager.NodeManager
+	nodeLocalStore    *node.LocalNodeStore
+	monitorAgent      monitorAgent.Agent
+	recorder          *recorder.Recorder
 
 	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
 	agentConfig *option.DaemonConfig
 	config      config
 }
 
-// new creates and return a new Hubble.
+// new creates and return a new hubbleIntegration.
 func new(
 	identityAllocator identitycell.CachingIdentityAllocator,
 	endpointManager endpointmanager.EndpointManager,
@@ -101,25 +101,25 @@ func new(
 	recorder *recorder.Recorder,
 	agentConfig *option.DaemonConfig,
 	config config,
-) (*Hubble, error) {
+) (*hubbleIntegration, error) {
 	config.normalize()
 	if err := config.validate(); err != nil {
 		return nil, fmt.Errorf("Hubble configuration error: %w", err)
 	}
 
-	return &Hubble{
-		Observer:          atomic.Pointer[observer.LocalObserverServer]{},
+	return &hubbleIntegration{
+		observer:          atomic.Pointer[observer.LocalObserverServer]{},
 		identityAllocator: identityAllocator,
 		endpointManager:   endpointManager,
-		IPCache:           ipcache,
+		ipcache:           ipcache,
 		serviceManager:    serviceManager,
-		CGroupManager:     cgroupManager,
-		Clientset:         clientset,
-		K8sWatcher:        k8sWatcher,
-		NodeManager:       nodeManager,
-		NodeLocalStore:    nodeLocalStore,
-		MonitorAgent:      monitorAgent,
-		Recorder:          recorder,
+		cgroupManager:     cgroupManager,
+		clientset:         clientset,
+		k8sWatcher:        k8sWatcher,
+		nodeManager:       nodeManager,
+		nodeLocalStore:    nodeLocalStore,
+		monitorAgent:      monitorAgent,
+		recorder:          recorder,
 		agentConfig:       agentConfig,
 		config:            config,
 	}, nil
@@ -127,12 +127,12 @@ func new(
 
 // Status report the Hubble status for the Cilium Daemon status collector
 // probe.
-func (h *Hubble) Status(ctx context.Context) *models.HubbleStatus {
+func (h *hubbleIntegration) Status(ctx context.Context) *models.HubbleStatus {
 	if !h.config.EnableHubble {
 		return &models.HubbleStatus{State: models.HubbleStatusStateDisabled}
 	}
 
-	obs := h.Observer.Load()
+	obs := h.observer.Load()
 	if obs == nil {
 		return &models.HubbleStatus{
 			State: models.HubbleStatusStateWarning,
@@ -171,7 +171,7 @@ func (h *Hubble) Status(ctx context.Context) *models.HubbleStatus {
 // GetIdentity implements IdentityGetter. It looks up identity by ID from
 // Cilium's identity cache. Hubble uses the identity info to populate flow
 // source and destination labels.
-func (h *Hubble) GetIdentity(securityIdentity uint32) (*identity.Identity, error) {
+func (h *hubbleIntegration) GetIdentity(securityIdentity uint32) (*identity.Identity, error) {
 	ident := h.identityAllocator.LookupIdentityByID(context.Background(), identity.NumericIdentity(securityIdentity))
 	if ident == nil {
 		return nil, fmt.Errorf("identity %d not found", securityIdentity)
@@ -182,7 +182,7 @@ func (h *Hubble) GetIdentity(securityIdentity uint32) (*identity.Identity, error
 // GetEndpointInfo implements EndpointGetter. It returns endpoint info for a
 // given IP address. Hubble uses this function to populate fields like
 // namespace and pod name for local endpoints.
-func (h *Hubble) GetEndpointInfo(ip netip.Addr) (endpoint hubbleGetters.EndpointInfo, ok bool) {
+func (h *hubbleIntegration) GetEndpointInfo(ip netip.Addr) (endpoint hubbleGetters.EndpointInfo, ok bool) {
 	if !ip.IsValid() {
 		return nil, false
 	}
@@ -195,7 +195,7 @@ func (h *Hubble) GetEndpointInfo(ip netip.Addr) (endpoint hubbleGetters.Endpoint
 
 // GetEndpointInfoByID implements EndpointGetter. It returns endpoint info for
 // a given Cilium endpoint id. Used by Hubble.
-func (h *Hubble) GetEndpointInfoByID(id uint16) (endpoint hubbleGetters.EndpointInfo, ok bool) {
+func (h *hubbleIntegration) GetEndpointInfoByID(id uint16) (endpoint hubbleGetters.EndpointInfo, ok bool) {
 	ep := h.endpointManager.LookupCiliumID(id)
 	if ep == nil {
 		return nil, false
@@ -205,7 +205,7 @@ func (h *Hubble) GetEndpointInfoByID(id uint16) (endpoint hubbleGetters.Endpoint
 
 // GetNamesOf implements DNSGetter.GetNamesOf. It looks up DNS names of a given
 // IP from the FQDN cache of an endpoint specified by sourceEpID.
-func (h *Hubble) GetNamesOf(sourceEpID uint32, ip netip.Addr) []string {
+func (h *hubbleIntegration) GetNamesOf(sourceEpID uint32, ip netip.Addr) []string {
 	ep := h.endpointManager.LookupCiliumID(uint16(sourceEpID))
 	if ep == nil {
 		return nil
@@ -225,7 +225,7 @@ func (h *Hubble) GetNamesOf(sourceEpID uint32, ip netip.Addr) []string {
 
 // GetServiceByAddr implements ServiceGetter. It looks up service by IP/port.
 // Hubble uses this function to annotate flows with service information.
-func (h *Hubble) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service {
+func (h *hubbleIntegration) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service {
 	if !ip.IsValid() {
 		return nil
 	}
@@ -246,7 +246,7 @@ func (h *Hubble) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service {
 	}
 }
 
-func (h *Hubble) Launch(ctx context.Context) {
+func (h *hubbleIntegration) Launch(ctx context.Context) {
 	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble")
 	if !h.config.EnableHubble {
 		logger.Info("Hubble server is disabled")
@@ -277,8 +277,8 @@ func (h *Hubble) Launch(ctx context.Context) {
 		dropEventEmitter := dropeventemitter.NewDropEventEmitter(
 			h.config.K8sDropEventsInterval,
 			h.config.K8sDropEventsReasons,
-			h.Clientset,
-			h.K8sWatcher,
+			h.clientset,
+			h.k8sWatcher,
 		)
 
 		observerOpts = append(observerOpts,
@@ -294,7 +294,7 @@ func (h *Hubble) Launch(ctx context.Context) {
 
 	// fill in the local node information after the dropEventEmitter logique,
 	// but before anything else (e.g. metrics).
-	localNodeWatcher, err := observer.NewLocalNodeWatcher(ctx, h.NodeLocalStore)
+	localNodeWatcher, err := observer.NewLocalNodeWatcher(ctx, h.nodeLocalStore)
 	if err != nil {
 		logger.WithError(err).Error("Failed to retrieve local node information")
 		return
@@ -389,7 +389,7 @@ func (h *Hubble) Launch(ctx context.Context) {
 		)
 	}
 
-	payloadParser, err := parser.New(logger, h, h, h, h.IPCache, h, link.NewLinkCache(), h.CGroupManager, h.config.SkipUnknownCGroupIDs, parserOpts...)
+	payloadParser, err := parser.New(logger, h, h, h, h.ipcache, h, link.NewLinkCache(), h.cgroupManager, h.config.SkipUnknownCGroupIDs, parserOpts...)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
@@ -443,7 +443,7 @@ func (h *Hubble) Launch(ctx context.Context) {
 		return
 	}
 	go hubbleObserver.Start()
-	h.MonitorAgent.RegisterNewConsumer(monitor.NewConsumer(hubbleObserver))
+	h.monitorAgent.RegisterNewConsumer(monitor.NewConsumer(hubbleObserver))
 
 	// configure a local hubble server listening on a local UNIX domain socket.
 	// This server can be used by the Hubble CLI when invoked from within the
@@ -464,7 +464,7 @@ func (h *Hubble) Launch(ctx context.Context) {
 			peerServiceOptions = append(peerServiceOptions, serviceoption.WithHubblePort(port))
 		}
 	}
-	peerSvc := peer.NewService(h.NodeManager, peerServiceOptions...)
+	peerSvc := peer.NewService(h.nodeManager, peerServiceOptions...)
 	localSrvOpts = append(localSrvOpts,
 		serveroption.WithUnixSocketListener(sockPath),
 		serveroption.WithHealthService(),
@@ -479,8 +479,8 @@ func (h *Hubble) Launch(ctx context.Context) {
 			logger.WithError(err).Error("Failed to initialize Hubble recorder sink dispatch")
 			return
 		}
-		h.MonitorAgent.RegisterNewConsumer(dispatch)
-		svc, err := hubbleRecorder.NewService(h.Recorder, dispatch,
+		h.monitorAgent.RegisterNewConsumer(dispatch)
+		svc, err := hubbleRecorder.NewService(h.recorder, dispatch,
 			recorderoption.WithStoragePath(h.config.RecorderStoragePath))
 		if err != nil {
 			logger.WithError(err).Error("Failed to initialize Hubble recorder service")
@@ -583,7 +583,7 @@ func (h *Hubble) Launch(ctx context.Context) {
 		}()
 	}
 
-	h.Observer.Store(hubbleObserver)
+	h.observer.Store(hubbleObserver)
 }
 
 func getPort(addr string) (int, error) {
