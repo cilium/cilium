@@ -1800,6 +1800,123 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 	}
 }
 
+var (
+	allIPv4         = api.CIDR("0.0.0.0/0")
+	lblAllIPv4      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, allIPv4))
+	one3Z8          = api.CIDR("1.0.0.0/8")
+	one3Z8Identity  = localIdentity(16331)
+	lblOne3Z8       = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, one3Z8))
+	one0Z32         = api.CIDR("1.1.1.1/32")
+	one0Z32Identity = localIdentity(16332)
+	lblOne0Z32      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, one0Z32))
+
+	ruleAllowEgressDenyCIDRSet = api.NewRule().WithEgressRules([]api.EgressRule{{
+		EgressCommonRule: api.EgressCommonRule{
+			ToCIDR: api.CIDRSlice{allIPv4},
+		},
+	}}).WithEgressDenyRules([]api.EgressDenyRule{{
+		EgressCommonRule: api.EgressCommonRule{
+			ToCIDRSet: api.CIDRRuleSlice{
+				api.CIDRRule{
+					Cidr:        one3Z8,
+					ExceptCIDRs: []api.CIDR{one0Z32},
+				},
+			},
+		},
+	}}).WithEndpointSelector(api.WildcardEndpointSelector)
+	// these are the cidrs that will be computed from
+	// the above cidrset
+	computedCIDRS = []string{
+		"1.128.0.0/9",
+		"1.64.0.0/10",
+		"1.32.0.0/11",
+		"1.16.0.0/12",
+		"1.8.0.0/13",
+		"1.4.0.0/14",
+		"1.2.0.0/15",
+		"1.0.0.0/16",
+		"1.1.128.0/17",
+		"1.1.64.0/18",
+		"1.1.32.0/19",
+		"1.1.16.0/20",
+		"1.1.8.0/21",
+		"1.1.4.0/22",
+		"1.1.2.0/23",
+		"1.1.0.0/24",
+		"1.1.1.128/25",
+		"1.1.1.64/26",
+		"1.1.1.32/27",
+		"1.1.1.16/28",
+		"1.1.1.8/29",
+		"1.1.1.4/30",
+		"1.1.1.2/31",
+		"1.1.1.0/32",
+	}
+	startingIdentity = 16340
+)
+
+// Allow-ception tests that an allow within a deny within an allow
+// is properly calculated.
+func Test_Allowception(t *testing.T) {
+	// Cache policy enforcement value from when test was ran to avoid pollution
+	// across tests.
+	oldPolicyEnable := GetPolicyEnabled()
+	defer SetPolicyEnabled(oldPolicyEnable)
+
+	SetPolicyEnabled(option.DefaultEnforcement)
+	identityCache := identity.IdentityMap{
+		identity.NumericIdentity(identityFoo): labelsFoo,
+		identity.ReservedIdentityWorld:        append(labels.LabelWorld.LabelArray(), lblAllIPv4...),
+		one3Z8Identity:                        lblOne3Z8,  // 16331 (0x3fcb): ["1.0.0.0/8"]
+		one0Z32Identity:                       lblOne0Z32, // 16332 (0x3fcc): ["1.1.1.1/32"]
+	}
+	computedMapStateForAllowCeption := NewMapState()
+	// populate the identityCache with the computed CIDRs for the allow-ception test
+	for i, cidr := range computedCIDRS {
+		id := localIdentity(uint32(startingIdentity + i))
+		identityCache[id] = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, cidr))
+	}
+	selectorCache := testNewSelectorCache(identityCache)
+
+	computedMapStateForAllowCeption.insert(ingressKey(0, 0, 0, 0), mapEntryL7None_(lblsAllowAllIngress))
+	computedMapStateForAllowCeption.insert(egressKey(identity.ReservedIdentityWorld, 0, 0, 0), mapEntryAllow)
+	computedMapStateForAllowCeption.insert(egressKey(one3Z8Identity, 0, 0, 0), mapEntryAllow)
+	computedMapStateForAllowCeption.insert(egressKey(one0Z32Identity, 0, 0, 0), mapEntryAllow)
+	for i := range computedCIDRS {
+		id := localIdentity(uint32(startingIdentity + i))
+		computedMapStateForAllowCeption.insert(egressKey(id, 0, 0, 0), mapEntryDeny)
+	}
+
+	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+
+	// Do not test in dualstack mode
+	defer func(ipv4, ipv6 bool) {
+		option.Config.EnableIPv4 = ipv4
+		option.Config.EnableIPv6 = ipv6
+	}(option.Config.EnableIPv4, option.Config.EnableIPv6)
+	option.Config.EnableIPv4 = true
+	option.Config.EnableIPv6 = false
+
+	repo := newPolicyDistillery(selectorCache)
+	rules := api.Rules{ruleAllowEgressDenyCIDRSet}
+	for _, rule := range rules {
+		if rule != nil {
+			_, _ = repo.MustAddList(api.Rules{rule})
+		}
+	}
+	logBuffer := new(bytes.Buffer)
+	repo = repo.WithLogBuffer(logBuffer)
+	mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo, identity)
+	if err != nil {
+		t.Errorf("Policy resolution failure: %s", err)
+	}
+	if equal := assert.True(t, mapstate.Equals(computedMapStateForAllowCeption), mapstate.Diff(computedMapStateForAllowCeption)); !equal {
+		t.Logf("Policy Trace: \n%s\n", logBuffer.String())
+		t.Errorf("Policy obtained didn't match expected for endpoint %s", labelsFoo)
+	}
+
+}
+
 func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 	// Cache policy enforcement value from when test was ran to avoid pollution
 	// across tests.
