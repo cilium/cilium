@@ -325,6 +325,9 @@ Removed Options
 
 * The previously deprecated ``clustermesh-ip-identities-sync-timeout`` flag has
   been removed in favor of ``clustermesh-sync-timeout``.
+* The previously deprecated built-in WireGuard userspace-mode fallback (Helm ``wireguard.userspaceFallback``)
+  has been removed. Users of WireGuard transparent encryption are required to use a Linux kernel with
+  WireGuard support.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~

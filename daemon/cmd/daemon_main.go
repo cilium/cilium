@@ -430,10 +430,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Duration(option.L2AnnouncerRetryPeriod, 2*time.Second, "Timeout after a renew failure, before the next retry")
 	option.BindEnv(vp, option.L2AnnouncerRetryPeriod)
 
-	flags.Bool(option.EnableWireguardUserspaceFallback, false, "Enable fallback to the WireGuard userspace implementation")
-	flags.MarkDeprecated(option.EnableWireguardUserspaceFallback, "WireGuard userspace fallback is deprecated")
-	option.BindEnv(vp, option.EnableWireguardUserspaceFallback)
-
 	flags.Duration(option.WireguardPersistentKeepalive, 0, "The Wireguard keepalive interval as a Go duration string")
 	option.BindEnv(vp, option.WireguardPersistentKeepalive)
 
