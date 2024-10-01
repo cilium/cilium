@@ -66,7 +66,6 @@ import (
 // every Hubble components including the Hubble observer servers (TCP, UNIX
 // domain socket), the Hubble metrics server, etc.
 type Hubble struct {
-	agentConfig *option.DaemonConfig
 	// Observer will be set once the Hubble Observer has been started.
 	Observer atomic.Pointer[observer.LocalObserverServer]
 
@@ -81,11 +80,13 @@ type Hubble struct {
 	NodeLocalStore    *node.LocalNodeStore    // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 	MonitorAgent      monitorAgent.Agent      // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 	Recorder          *recorder.Recorder      // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
+
+	agentConfig *option.DaemonConfig
+	config      config
 }
 
 // new creates and return a new Hubble.
 func new(
-	agentConfig *option.DaemonConfig,
 	identityAllocator identitycell.CachingIdentityAllocator,
 	endpointManager endpointmanager.EndpointManager,
 	ipcache *ipcache.IPCache,
@@ -97,9 +98,15 @@ func new(
 	nodeLocalStore *node.LocalNodeStore,
 	monitorAgent monitorAgent.Agent,
 	recorder *recorder.Recorder,
-) *Hubble {
+	agentConfig *option.DaemonConfig,
+	config config,
+) (*Hubble, error) {
+	config.normalize()
+	if err := config.validate(); err != nil {
+		return nil, fmt.Errorf("Hubble configuration error: %w", err)
+	}
+
 	return &Hubble{
-		agentConfig:       agentConfig,
 		Observer:          atomic.Pointer[observer.LocalObserverServer]{},
 		identityAllocator: identityAllocator,
 		endpointManager:   endpointManager,
@@ -112,13 +119,15 @@ func new(
 		NodeLocalStore:    nodeLocalStore,
 		MonitorAgent:      monitorAgent,
 		Recorder:          recorder,
-	}
+		agentConfig:       agentConfig,
+		config:            config,
+	}, nil
 }
 
 // Status report the Hubble status for the Cilium Daemon status collector
 // probe.
 func (h *Hubble) Status(ctx context.Context) *models.HubbleStatus {
-	if !h.agentConfig.EnableHubble {
+	if !h.config.EnableHubble {
 		return &models.HubbleStatus{State: models.HubbleStatusStateDisabled}
 	}
 
@@ -238,7 +247,7 @@ func (h *Hubble) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service {
 
 func (h *Hubble) Launch(ctx context.Context) {
 	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble")
-	if !option.Config.EnableHubble {
+	if !h.config.EnableHubble {
 		logger.Info("Hubble server is disabled")
 		return
 	}

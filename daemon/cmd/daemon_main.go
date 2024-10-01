@@ -882,9 +882,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.PolicyAccountingArg, true, "Enable policy accounting")
 	option.BindEnv(vp, option.PolicyAccountingArg)
 
-	flags.Bool(option.EnableHubble, false, "Enable hubble server")
-	option.BindEnv(vp, option.EnableHubble)
-
 	flags.String(option.HubbleSocketPath, defaults.HubbleSocketPath, "Set hubble's socket path to listen for connections")
 	option.BindEnv(vp, option.HubbleSocketPath)
 
