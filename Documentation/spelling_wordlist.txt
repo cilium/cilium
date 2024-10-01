@@ -278,6 +278,7 @@ decapsulated
 decapsulation
 decrypt
 decrypted
+deduplicate
 deepcopy
 deletetopic
 demux
@@ -297,6 +298,7 @@ dockerhub
 dpaa
 dropdown
 dryRun
+durations
 dwarfris
 eBGP
 eBPF
@@ -402,6 +404,7 @@ inlined
 inlines
 inlining
 inodes
+inspectability
 instantiation
 integrations
 internalTrafficPolicy
@@ -510,6 +513,8 @@ maglev
 mainboard
 makefile
 mana
+marshallable
+marshalled
 masq
 matchExpressions
 matchLabels
@@ -646,6 +651,9 @@ rebase
 rebased
 rebasing
 recompiles
+reconcilation
+reconciler
+reconcilers
 reconfigurations
 reconnections
 recv
@@ -736,7 +744,9 @@ tcx
 templating
 terminatingTLS
 terminationGracePeriodSeconds
+testability
 testsuite
+testutils
 tetragon
 th
 thunderx
@@ -772,6 +782,7 @@ uninline
 unix
 unlabel
 unmanaged
+unmarshalled
 unmigrated
 unselect
 unsettable
