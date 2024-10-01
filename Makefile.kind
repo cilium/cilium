@@ -312,6 +312,41 @@ kind-install-cilium: check_deps kind-ready ## Install a local Cilium version int
 		--version= \
 		>/dev/null 2>&1 &
 
+GW_VERSION ?= $(shell grep "sigs.k8s.io/gateway-api" go.mod | awk '{print $$2}' | awk -F'-' '{print (NF>2)?$$NF:$$0}')
+KIND_NET_CIDR ?= $(shell docker network inspect kind-cilium -f '{{json .IPAM.Config}}' | jq -r '.[] | select(.Subnet | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")) | .Subnet')
+LB_CIDR ?= $(shell echo $(KIND_NET_CIDR) | sed "s@0.0/16@255.200\/28@" | sed -e 's/[\/&]/\\&/g')
+
+.PHONY: kind-servicemesh-install-cilium
+kind-servicemesh-install-cilium: check_deps kind-ready ## Install a local Cilium version into the cluster.
+	@echo "  INSTALL cilium"
+	# cilium-cli doesn't support idempotent installs, so we uninstall and
+	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
+	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
+
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/standard/gateway.networking.k8s.io_referencegrants.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/standard/gateway.networking.k8s.io_grpcroutes.yaml
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+
+	$(CILIUM_CLI) install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		$(KIND_VALUES_FILES) \
+		--helm-values=$(ROOT_DIR)/contrib/testing/kind-servicemesh.yaml \
+		--version= \
+		>/dev/null 2>&1 &
+
+	$(CILIUM_CLI) status --wait --wait-duration 30s
+
+	@echo "KIND_NET_CIDR: $(KIND_NET_CIDR)"
+	@echo "LB_CIDR: $(LB_CIDR)"
+
+	@echo "Deploying LB-IPAM Pool..."
+	sed -e "s/LB_CIDR/$(LB_CIDR)/g" $(ROOT_DIR)/contrib/testing/servicemesh/ippool.yaml | kubectl apply -f -
+
+	@echo "Deploying L2-Announcement Policy..."
+	kubectl apply -f $(ROOT_DIR)/contrib/testing/servicemesh/l2policy.yaml
 
 .PHONY: kind-egressgw-install-cilium
 kind-egressgw-install-cilium: check_deps kind-ready ## Install a local Cilium version into the cluster.
