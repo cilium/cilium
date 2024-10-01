@@ -73,7 +73,6 @@ type PolicyOwner interface {
 	GetID() uint64
 	LookupRedirectPort(ingress bool, protocol string, port uint16, listener string) (uint16, error)
 	GetRealizedRedirects() map[string]uint16
-	HasBPFPolicyMap() bool
 	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
 	PolicyDebug(fields logrus.Fields, msg string)
 }
