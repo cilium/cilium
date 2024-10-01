@@ -6,9 +6,13 @@ package metrics
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
+	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/script"
 	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 
 	pkgmetric "github.com/cilium/cilium/pkg/metrics/metric"
 )
@@ -24,6 +28,8 @@ var Cell = cell.Module("metrics", "Metrics",
 		FlushLoggingMetrics()
 	}),
 	cell.Provide(newMetricsRestApiHandler),
+
+	cell.Provide(scriptCommand),
 )
 
 // Metric constructs a new metric cell.
@@ -123,4 +129,51 @@ func provideMetrics[S any](metricSet S) hiveMetricOut {
 	return hiveMetricOut{
 		Metrics: metrics,
 	}
+}
+
+func scriptCommand(reg *Registry) hive.ScriptCmdOut {
+	return hive.NewScriptCmd(
+		"metrics",
+		script.Command(
+			script.CmdUsage{Summary: "Show metrics"},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+
+				currentMetrics, err := reg.inner.Gather()
+				if err != nil {
+					return nil, fmt.Errorf("Gather: %w", err)
+				}
+				for _, val := range currentMetrics {
+					metricName := val.GetName()
+					metricType := val.GetType()
+
+					for _, metricLabel := range val.Metric {
+						labelPairs := metricLabel.GetLabel()
+						labels := make([]string, 0, len(labelPairs))
+
+						for _, label := range metricLabel.GetLabel() {
+							labels = append(labels, label.GetName()+"="+label.GetValue())
+						}
+
+						var value float64
+						switch metricType {
+						case dto.MetricType_COUNTER:
+							value = metricLabel.Counter.GetValue()
+						case dto.MetricType_GAUGE:
+							value = metricLabel.GetGauge().GetValue()
+						case dto.MetricType_UNTYPED:
+							value = metricLabel.GetUntyped().GetValue()
+						case dto.MetricType_SUMMARY:
+							value = metricLabel.GetSummary().GetSampleSum()
+						case dto.MetricType_HISTOGRAM:
+							value = metricLabel.GetHistogram().GetSampleSum()
+						default:
+							continue
+						}
+
+						fmt.Fprintf(s.LogWriter(), "%s{%s}: %v\n", metricName, strings.Join(labels, " "), value)
+					}
+				}
+				return nil, nil
+			}))
+
 }
