@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -16,9 +17,13 @@ import (
 )
 
 func getLatestStableVersion() string {
-	resp, err := http.Get("https://raw.githubusercontent.com/cilium/cilium/main/stable.txt")
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+	const stableVersionURL = "https://raw.githubusercontent.com/cilium/cilium/main/stable.txt"
+	resp, err := client.Get(stableVersionURL)
 	if err != nil {
-		return "unknown"
+		return fmt.Sprintf("unknown (You can manually retrieve it by accessing %s)", stableVersionURL)
 	}
 	defer resp.Body.Close()
 
