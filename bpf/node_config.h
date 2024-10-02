@@ -284,6 +284,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 
 #ifdef ENABLE_WIREGUARD
 # define WG_IFINDEX	42
+# define WG_PORT    51871
 # ifdef ENCRYPTION_STRICT_MODE
 #  define STRICT_IPV4_NET	0
 #  define STRICT_IPV4_NET_SIZE	8
