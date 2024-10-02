@@ -291,7 +291,7 @@ jobs:
           curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail -- http://"$lb"/details/1
 
       - name: Run Sanity check (internal to NodePort)
-        if: ${{ matrix.kube-proxy-replacement == 'true' }}
+        if: ${{ matrix.kube-proxy-replacement == true }}
         timeout-minutes: 5
         run: |
           if [ ${{ matrix.loadbalancer-mode }} = "dedicated" ]; then
