@@ -912,11 +912,6 @@ func Test_populateNodePortRange(t *testing.T) {
 	}
 }
 
-func TestGetDefaultMonitorQueueSize(t *testing.T) {
-	require.Equal(t, 4*defaults.MonitorQueueSizePerCPU, getDefaultMonitorQueueSize(4))
-	require.Equal(t, defaults.MonitorQueueSizePerCPUMaximum, getDefaultMonitorQueueSize(1000))
-}
-
 const (
 	_   = iota
 	KiB = 1 << (10 * iota)

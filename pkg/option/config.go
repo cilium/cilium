@@ -996,12 +996,6 @@ const (
 	// must contain PEM encoded data.
 	HubbleTLSClientCAFiles = "hubble-tls-client-ca-files"
 
-	// HubbleEventBufferCapacity specifies the capacity of Hubble events buffer.
-	HubbleEventBufferCapacity = "hubble-event-buffer-capacity"
-
-	// HubbleEventQueueSize specifies the buffer size of the channel to receive monitor events.
-	HubbleEventQueueSize = "hubble-event-queue-size"
-
 	// HubbleMetricsServer specifies the addresses to serve Hubble metrics on.
 	HubbleMetricsServer = "hubble-metrics-server"
 
@@ -1064,13 +1058,6 @@ const (
 
 	// HubbleRecorderSinkQueueSize is the queue size for each recorder sink
 	HubbleRecorderSinkQueueSize = "hubble-recorder-sink-queue-size"
-
-	// HubbleSkipUnknownCGroupIDs specifies if events with unknown cgroup ids should be skipped
-	HubbleSkipUnknownCGroupIDs = "hubble-skip-unknown-cgroup-ids"
-
-	// HubbleMonitorEvents specifies Cilium monitor events for Hubble to observe.
-	// By default, Hubble observes all monitor events.
-	HubbleMonitorEvents = "hubble-monitor-events"
 
 	// HubbleRedactEnabled controls if sensitive information will be redacted from L7 flows
 	HubbleRedactEnabled = "hubble-redact-enabled"
@@ -2168,12 +2155,6 @@ type DaemonConfig struct {
 	// must contain PEM encoded data.
 	HubbleTLSClientCAFiles []string
 
-	// HubbleEventBufferCapacity specifies the capacity of Hubble events buffer.
-	HubbleEventBufferCapacity int
-
-	// HubbleEventQueueSize specifies the buffer size of the channel to receive monitor events.
-	HubbleEventQueueSize int
-
 	// HubbleMetricsServer specifies the addresses to serve Hubble metrics on.
 	HubbleMetricsServer string
 
@@ -2236,13 +2217,6 @@ type DaemonConfig struct {
 
 	// HubbleRecorderSinkQueueSize is the queue size for each recorder sink
 	HubbleRecorderSinkQueueSize int
-
-	// HubbleSkipUnknownCGroupIDs specifies if events with unknown cgroup ids should be skipped
-	HubbleSkipUnknownCGroupIDs bool
-
-	// HubbleMonitorEvents specifies Cilium monitor events for Hubble to observe.
-	// By default, Hubble observes all monitor events.
-	HubbleMonitorEvents []string
 
 	// HubbleRedactEnabled controls if Hubble will be redacting sensitive information from L7 flows
 	HubbleRedactEnabled bool
@@ -3482,11 +3456,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.HubbleTLSCertFile = vp.GetString(HubbleTLSCertFile)
 	c.HubbleTLSKeyFile = vp.GetString(HubbleTLSKeyFile)
 	c.HubbleTLSClientCAFiles = vp.GetStringSlice(HubbleTLSClientCAFiles)
-	c.HubbleEventBufferCapacity = vp.GetInt(HubbleEventBufferCapacity)
-	c.HubbleEventQueueSize = vp.GetInt(HubbleEventQueueSize)
-	if c.HubbleEventQueueSize == 0 {
-		c.HubbleEventQueueSize = getDefaultMonitorQueueSize(runtime.NumCPU())
-	}
 	c.HubbleMetricsServer = vp.GetString(HubbleMetricsServer)
 	c.HubbleMetricsServerTLSEnabled = vp.GetBool(HubbleMetricsTLSEnabled)
 	c.HubbleMetricsServerTLSCertFile = vp.GetString(HubbleMetricsTLSCertFile)
@@ -3536,8 +3505,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableHubbleRecorderAPI = vp.GetBool(EnableHubbleRecorderAPI)
 	c.HubbleRecorderStoragePath = vp.GetString(HubbleRecorderStoragePath)
 	c.HubbleRecorderSinkQueueSize = vp.GetInt(HubbleRecorderSinkQueueSize)
-	c.HubbleSkipUnknownCGroupIDs = vp.GetBool(HubbleSkipUnknownCGroupIDs)
-	c.HubbleMonitorEvents = vp.GetStringSlice(HubbleMonitorEvents)
 	c.HubbleRedactEnabled = vp.GetBool(HubbleRedactEnabled)
 	c.HubbleRedactHttpURLQuery = vp.GetBool(HubbleRedactHttpURLQuery)
 	c.HubbleRedactHttpUserInfo = vp.GetBool(HubbleRedactHttpUserInfo)
@@ -4314,14 +4281,6 @@ func InitConfig(cmd *cobra.Command, programName, configName string, vp *viper.Vi
 			logging.SetLogLevelToDebug()
 		}
 	}
-}
-
-func getDefaultMonitorQueueSize(numCPU int) int {
-	monitorQueueSize := numCPU * defaults.MonitorQueueSizePerCPU
-	if monitorQueueSize > defaults.MonitorQueueSizePerCPUMaximum {
-		monitorQueueSize = defaults.MonitorQueueSizePerCPUMaximum
-	}
-	return monitorQueueSize
 }
 
 // BPFEventBufferConfig contains parsed configuration for a bpf map event buffer.
