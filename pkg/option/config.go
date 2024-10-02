@@ -972,9 +972,6 @@ const (
 	// PolicyAccountingArg argument enable policy accounting.
 	PolicyAccountingArg = "policy-accounting"
 
-	// HubbleSocketPath specifies the UNIX domain socket for Hubble server to listen to.
-	HubbleSocketPath = "hubble-socket-path"
-
 	// HubbleListenAddress specifies address for Hubble server to listen to.
 	HubbleListenAddress = "hubble-listen-address"
 
@@ -2133,9 +2130,6 @@ type DaemonConfig struct {
 
 	// PolicyAccounting enable policy accounting
 	PolicyAccounting bool
-
-	// HubbleSocketPath specifies the UNIX domain socket for Hubble server to listen to.
-	HubbleSocketPath string
 
 	// HubbleListenAddress specifies address for Hubble to listen to.
 	HubbleListenAddress string
@@ -3456,7 +3450,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	// Hubble options.
 	c.EnableHubbleOpenMetrics = vp.GetBool(EnableHubbleOpenMetrics)
-	c.HubbleSocketPath = vp.GetString(HubbleSocketPath)
 	c.HubbleListenAddress = vp.GetString(HubbleListenAddress)
 	c.HubblePreferIpv6 = vp.GetBool(HubblePreferIpv6)
 	c.HubbleTLSDisabled = vp.GetBool(HubbleTLSDisabled)
