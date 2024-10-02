@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
@@ -59,6 +60,8 @@ func (p *provider) Stop(ctx cell.HookContext) error {
 	return nil
 }
 
+const maxHealthProviderMsgLen = 4096
+
 func (p *provider) ForModule(mid cell.FullModuleID) cell.Health {
 	return &moduleReporter{
 		logger: p.logger,
@@ -67,6 +70,20 @@ func (p *provider) ForModule(mid cell.FullModuleID) cell.Health {
 			if p.stopped.Load() {
 				return fmt.Errorf("provider is stopped, no more updates will take place")
 			}
+
+			if len(s.Message) >= maxHealthProviderMsgLen {
+				p.logger.Error("health status update for exceeded max message length and has been truncated",
+					"id", s.ID.String(), "maxLength", maxHealthProviderMsgLen, "len", strconv.Itoa(len(s.Message)))
+				s.Message = s.Message[:maxHealthProviderMsgLen]
+
+			}
+
+			if len(s.Error) >= maxHealthProviderMsgLen {
+				p.logger.Error("health status update for exceeded max error length and has been truncated",
+					"id", s.ID.String(), "maxLength", maxHealthProviderMsgLen, "len", strconv.Itoa(len(s.Error)))
+				s.Error = s.Error[:maxHealthProviderMsgLen]
+			}
+
 			tx := p.db.WriteTxn(p.statusTable)
 			defer tx.Abort()
 			old, _, found := p.statusTable.Get(tx, PrimaryIndex.QueryFromObject(s))
