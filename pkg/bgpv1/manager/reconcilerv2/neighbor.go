@@ -128,7 +128,7 @@ func (r *NeighborReconciler) deleteMetadata(i *instance.BGPInstance, instanceNam
 }
 
 func (r *NeighborReconciler) Name() string {
-	return "Neighbor"
+	return NeighborReconcilerName
 }
 
 // Priority of neighbor reconciler is higher than pod/service announcements.
@@ -136,7 +136,7 @@ func (r *NeighborReconciler) Name() string {
 // into gobgp RIB before neighbors are added. So, gobgp can send out all prefixes
 // within initial update message exchange with neighbors before sending EOR marker.
 func (r *NeighborReconciler) Priority() int {
-	return 60
+	return NeighborReconcilerPriority
 }
 
 func (r *NeighborReconciler) Init(_ *instance.BGPInstance) error {
