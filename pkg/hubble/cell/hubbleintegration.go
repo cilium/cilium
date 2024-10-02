@@ -258,8 +258,8 @@ func (h *Hubble) Launch(ctx context.Context) {
 		parserOpts   []parserOptions.Option
 	)
 
-	if len(option.Config.HubbleMonitorEvents) > 0 {
-		monitorFilter, err := monitor.NewMonitorFilter(logger, option.Config.HubbleMonitorEvents)
+	if len(h.config.MonitorEvents) > 0 {
+		monitorFilter, err := monitor.NewMonitorFilter(logger, h.config.MonitorEvents)
 		if err != nil {
 			logger.WithError(err).Warn("Failed to initialize Hubble monitor event filter")
 		} else {
@@ -388,20 +388,20 @@ func (h *Hubble) Launch(ctx context.Context) {
 		)
 	}
 
-	payloadParser, err := parser.New(logger, h, h, h, h.IPCache, h, link.NewLinkCache(), h.CGroupManager, option.Config.HubbleSkipUnknownCGroupIDs, parserOpts...)
+	payloadParser, err := parser.New(logger, h, h, h, h.IPCache, h, link.NewLinkCache(), h.CGroupManager, h.config.SkipUnknownCGroupIDs, parserOpts...)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
 	}
 
-	maxFlows, err := container.NewCapacity(option.Config.HubbleEventBufferCapacity)
+	maxFlows, err := container.NewCapacity(h.config.EventBufferCapacity)
 	if err != nil {
 		logger.WithError(err).Error("Specified capacity for Hubble events buffer is invalid")
 		return
 	}
 	observerOpts = append(observerOpts,
 		observeroption.WithMaxFlows(maxFlows),
-		observeroption.WithMonitorBuffer(option.Config.HubbleEventQueueSize),
+		observeroption.WithMonitorBuffer(h.config.EventQueueSize),
 	)
 	if option.Config.HubbleExportFilePath != "" {
 		exporterOpts := []exporteroption.Option{
