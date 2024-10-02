@@ -40,9 +40,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  has-credentials:
+    name: Check for Quay secrets
+    runs-on: ubuntu-22.04
+    timeout-minutes: 2
+    outputs:
+      present: ${{ steps.secrets.outputs.present }}
+    steps:
+      - name: Check for secrets
+        id: secrets
+        env:
+          has_credentials: ${{ secrets.QUAY_BASE_RELEASE_USERNAME && secrets.QUAY_BASE_RELEASE_PASSWORD && 1 }}
+        if: ${{ env.has_credentials }}
+        run:
+          echo 'present=1' >> "$GITHUB_OUTPUT"
+
   build-and-push:
-    # Skip this workflow for branches that are created by renovate and event type is pull_request_target
-    if: ${{ ! (github.event_name == 'pull_request_target' && startsWith(github.head_ref, 'renovate/')) }}
+    needs: has-credentials
+    # Skip this workflow for repositories without credentials and branches that are created by renovate where the event type is pull_request_target
+    if: ${{ needs.has-credentials.outputs.present && ! (github.event_name == 'pull_request_target' && startsWith(github.head_ref, 'renovate/')) }}
     name: Build and Push Images
     timeout-minutes: 45
     environment: ${{ inputs.environment || 'release-base-images' }}
