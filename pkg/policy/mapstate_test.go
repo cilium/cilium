@@ -2275,6 +2275,251 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "test-15a - L3 port-range allow KV should not overwrite a wildcard deny entry",
+			ms: newMapState(map[Key]MapStateEntry{
+				{
+					Identity:         0,
+					DestPort:         80,
+					InvertedPortMask: ^uint16(0xffff),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: {
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+			}),
+			args: args{
+				key: Key{
+					Identity:         1,
+					DestPort:         64, // port range 64-127 (64/10)
+					InvertedPortMask: ^uint16(0xffc0),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				},
+				entry: MapStateEntry{
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			},
+			want: newMapState(map[Key]MapStateEntry{
+				{
+					Identity:         1,
+					DestPort:         64, // port range 64-127 (64/10)
+					InvertedPortMask: ^uint16(0xffc0),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: {
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+				{
+					Identity:         0,
+					DestPort:         80,
+					InvertedPortMask: ^uint16(0xffff),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: {
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+				{
+					Identity:         1,
+					DestPort:         80,
+					InvertedPortMask: ^uint16(0xffff),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: {
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+			}),
+			wantAdds: Keys{
+				{
+					Identity:         1,
+					DestPort:         64, // port range 64-127 (64/10)
+					InvertedPortMask: ^uint16(0xffc0),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+				{
+					Identity:         1,
+					DestPort:         80,
+					InvertedPortMask: ^uint16(0xffff),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+			},
+			wantDeletes: Keys{},
+			wantOld: map[Key]MapStateEntry{
+				{
+					Identity:         0,
+					DestPort:         80,
+					InvertedPortMask: ^uint16(0xffff),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: { // Dependents changed
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+			},
+		},
+		{
+			name: "test-15b-reverse - L3 port-range allow KV should not overwrite a wildcard deny entry",
+			ms: newMapState(map[Key]MapStateEntry{
+				{
+					Identity:         1,
+					DestPort:         64, // port range 64-127 (64/10)
+					InvertedPortMask: ^uint16(0xffc0),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: { // port range 64-127 (64/10)
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			}),
+			args: args{
+				key: Key{
+					Identity:         0,
+					DestPort:         80,
+					InvertedPortMask: ^uint16(0xffff),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				},
+				entry: MapStateEntry{
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+			},
+			want: newMapState(map[Key]MapStateEntry{
+				{
+					Identity:         1,
+					DestPort:         64, // port range 64-127 (64/10)
+					InvertedPortMask: ^uint16(0xffc0),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: { // port range 64-127 (64/10)
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+				{
+					Identity:         0,
+					DestPort:         80,
+					InvertedPortMask: ^uint16(0xffff),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: {
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+				{
+					Identity:         1,
+					DestPort:         80,
+					InvertedPortMask: ^uint16(0xffff),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: {
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+			}),
+			wantAdds: Keys{
+				{
+					Identity:         0,
+					DestPort:         80,
+					InvertedPortMask: ^uint16(0xffff),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+				{
+					Identity:         1,
+					DestPort:         80,
+					InvertedPortMask: ^uint16(0xffff),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+			},
+			wantDeletes: Keys{},
+			wantOld:     map[Key]MapStateEntry{},
+		},
+		{
+			name: "test-16a - No added entry for L3 port-range allow + wildcard allow entry",
+			ms: newMapState(map[Key]MapStateEntry{
+				{
+					Identity:         0,
+					DestPort:         80,
+					InvertedPortMask: ^uint16(0xffff),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: {
+					ProxyPort:        8080,
+					priority:         8080,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			}),
+			args: args{
+				key: Key{
+					Identity:         1,
+					DestPort:         64, // port range 64-127 (64/10)
+					InvertedPortMask: ^uint16(0xffc0),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}, // port range 64-127 (64/10)
+				entry: MapStateEntry{
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			},
+			want: newMapState(map[Key]MapStateEntry{
+				{
+					Identity:         0,
+					DestPort:         80,
+					InvertedPortMask: ^uint16(0xffff),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: {
+					ProxyPort:        8080,
+					priority:         8080,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+				{
+					Identity:         1,
+					DestPort:         64, // port range 64-127 (64/10)
+					InvertedPortMask: ^uint16(0xffc0),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: { // port range 64-127 (64/10)
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			}),
+			wantAdds: Keys{
+				{
+					Identity:         1,
+					DestPort:         64, // port range 64-127 (64/10)
+					InvertedPortMask: ^uint16(0xffc0),
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+			},
+			wantDeletes: Keys{},
+			wantOld:     map[Key]MapStateEntry{},
+		},
 	}
 	for _, tt := range tests {
 		changes := ChangeState{
