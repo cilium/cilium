@@ -2327,17 +2327,6 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					DerivedFromRules: nil,
 					IsDeny:           true,
 				},
-				{
-					Identity:         1,
-					DestPort:         80,
-					InvertedPortMask: ^uint16(0xffff),
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: {
-					ProxyPort:        0,
-					DerivedFromRules: nil,
-					IsDeny:           true,
-				},
 			}),
 			wantAdds: Keys{
 				{
@@ -2347,28 +2336,9 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					Nexthdr:          3,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: struct{}{},
-				{
-					Identity:         1,
-					DestPort:         80,
-					InvertedPortMask: ^uint16(0xffff),
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
 			},
 			wantDeletes: Keys{},
-			wantOld: map[Key]MapStateEntry{
-				{
-					Identity:         0,
-					DestPort:         80,
-					InvertedPortMask: ^uint16(0xffff),
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: { // Dependents changed
-					ProxyPort:        0,
-					DerivedFromRules: nil,
-					IsDeny:           true,
-				},
-			},
+			wantOld:     map[Key]MapStateEntry{},
 		},
 		{
 			name: "test-15b-reverse - L3 port-range allow KV should not overwrite a wildcard deny entry",
@@ -2422,28 +2392,10 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					DerivedFromRules: nil,
 					IsDeny:           true,
 				},
-				{
-					Identity:         1,
-					DestPort:         80,
-					InvertedPortMask: ^uint16(0xffff),
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: {
-					ProxyPort:        0,
-					DerivedFromRules: nil,
-					IsDeny:           true,
-				},
 			}),
 			wantAdds: Keys{
 				{
 					Identity:         0,
-					DestPort:         80,
-					InvertedPortMask: ^uint16(0xffff),
-					Nexthdr:          3,
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}: struct{}{},
-				{
-					Identity:         1,
 					DestPort:         80,
 					InvertedPortMask: ^uint16(0xffff),
 					Nexthdr:          3,

@@ -394,15 +394,21 @@ struct policy_key {
 struct policy_entry {
 	__be16		proxy_port;
 	__u8		deny:1,
-			wildcard_protocol:1, /* protocol is fully wildcarded */
-			wildcard_dport:1, /* dport is fully wildcarded */
-			pad:5;
+			pad:7;
 	__u8		auth_type;
-	__u16		pad1;
+	__u8		lpm_prefix_length; /* map key protocol and dport prefix length */
+	__u8		pad1;
 	__u16		pad2;
 	__u64		packets;
 	__u64		bytes;
 };
+
+/*
+ * LPM_FULL_PREFIX_BITS is the maximum length in 'lpm_prefix_bits' when none of the protocol or
+ * dport bits in the key are wildcarded.
+ */
+#define LPM_PROTO_PREFIX_BITS 8                             /* protocol specified */
+#define LPM_FULL_PREFIX_BITS (LPM_PROTO_PREFIX_BITS + 16)   /* protocol and dport specified */
 
 struct auth_key {
 	__u32       local_sec_label;
