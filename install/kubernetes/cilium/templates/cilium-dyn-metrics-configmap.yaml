@@ -1,4 +1,4 @@
-{{- if and .Values.hubble.export.dynamic.enabled .Values.hubble.export.dynamic.config.createConfigMap }}
+{{- if and .Values.hubble.metrics.dynamic.enabled .Values.hubble.metrics.dynamic.config.createConfigMap }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -6,7 +6,7 @@ metadata:
   name: {{ .Values.hubble.metrics.dynamic.config.configMapName }}
   namespace: {{ include "cilium.namespace" . }}
 data:
-  flowlogs.yaml: |
-    flowLogs:
+  dyn-metrics.yaml: |
+    metrics:
 {{ .Values.hubble.metrics.dynamic.config.content | toYaml | indent 4 }}
 {{- end }}

@@ -1208,7 +1208,7 @@ hubble:
     dynamic:
       enabled: false
       config:
-        # ---- Name of configmap with configuration that may be altered to reconfigure exporters within a running agents.
+        # ---- Name of configmap with configuration that may be altered to reconfigure metric handlers within a running agent.
         configMapName: cilium-dyn-metrics-config
         # ---- True if helm installer should create config map.
         # Switch to false if you want to self maintain the file content.

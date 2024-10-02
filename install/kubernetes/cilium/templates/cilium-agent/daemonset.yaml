@@ -387,6 +387,11 @@ spec:
           mountPropagation: {{ .mountPropagation }}
           {{- end }}
         {{- end }}
+        {{- if .Values.hubble.metrics.dynamic.enabled }}
+        - name: hubble-dyn-metrics-config
+          mountPath: /dyn-metrics-config
+          readOnly: true
+        {{- end }}
         {{- if .Values.hubble.export.dynamic.enabled }}
         - name: hubble-flowlog-config
           mountPath: /flowlog-config
@@ -1041,6 +1046,12 @@ spec:
           {{- end }}
           {{- end }}
 
+      {{- end }}
+      {{- if .Values.hubble.metrics.dynamic.enabled }}
+      - name: hubble-dyn-metrics-config
+        configMap:
+          name: {{ .Values.hubble.metrics.dynamic.config.configMapName }}
+          optional: true
       {{- end }}
       {{- if .Values.hubble.export.dynamic.enabled }}
       - name: hubble-flowlog-config
