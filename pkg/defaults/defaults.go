@@ -72,10 +72,6 @@ const (
 	// SockPathEnv is the environment variable to overwrite SockPath
 	SockPathEnv = "CILIUM_SOCK"
 
-	// HubbleSocketPath is the path to the UNIX domain socket exposing the
-	// Hubble API to clients locally.
-	HubbleSocketPath = RuntimePath + "/hubble.sock"
-
 	// HubbleRecorderStoragePath specifies the directory in which pcap files
 	// created via the Hubble Recorder API are stored
 	HubbleRecorderStoragePath = RuntimePath + "/pcaps"

@@ -445,7 +445,7 @@ func (h *Hubble) Launch(ctx context.Context) {
 	h.MonitorAgent.RegisterNewConsumer(monitor.NewConsumer(hubbleObserver))
 
 	// configure a local hubble instance that serves more gRPC services
-	sockPath := "unix://" + option.Config.HubbleSocketPath
+	sockPath := "unix://" + h.config.SocketPath
 	var peerServiceOptions []serviceoption.Option
 	if option.Config.HubbleTLSDisabled {
 		peerServiceOptions = append(peerServiceOptions, serviceoption.WithoutTLSInfo())
