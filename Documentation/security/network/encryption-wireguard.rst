@@ -77,7 +77,7 @@ on how to install the kernel module on your Linux distribution.
              --set encryption.enabled=true \\
              --set encryption.type=wireguard
 
-WireGuard may also be enabled manually by setting setting the
+WireGuard may also be enabled manually by setting the
 ``enable-wireguard: true`` option in the Cilium ``ConfigMap`` and restarting
 each Cilium agent instance.
 
