@@ -60,7 +60,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
-	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -903,12 +902,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.HubbleTLSClientCAFiles, []string{}, "Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.")
 	option.BindEnv(vp, option.HubbleTLSClientCAFiles)
 
-	flags.Int(option.HubbleEventBufferCapacity, observeroption.Default.MaxFlows.AsInt(), "Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535)")
-	option.BindEnv(vp, option.HubbleEventBufferCapacity)
-
-	flags.Int(option.HubbleEventQueueSize, 0, "Buffer size of the channel to receive monitor events.")
-	option.BindEnv(vp, option.HubbleEventQueueSize)
-
 	flags.String(option.HubbleMetricsServer, "", "Address to serve Hubble metrics on.")
 	option.BindEnv(vp, option.HubbleMetricsServer)
 
@@ -947,17 +940,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Int(option.HubbleRecorderSinkQueueSize, defaults.HubbleRecorderSinkQueueSize, "Queue size of each Hubble recorder sink")
 	option.BindEnv(vp, option.HubbleRecorderSinkQueueSize)
-
-	flags.Bool(option.HubbleSkipUnknownCGroupIDs, true, "Skip Hubble events with unknown cgroup ids")
-	option.BindEnv(vp, option.HubbleSkipUnknownCGroupIDs)
-
-	flags.StringSlice(option.HubbleMonitorEvents, []string{},
-		fmt.Sprintf(
-			"Cilium monitor events for Hubble to observe: [%s]. By default, Hubble observes all monitor events.",
-			strings.Join(monitorAPI.AllMessageTypeNames(), " "),
-		),
-	)
-	option.BindEnv(vp, option.HubbleMonitorEvents)
 
 	flags.Bool(option.HubbleRedactEnabled, defaults.HubbleRedactEnabled, "Hubble redact sensitive information from flows")
 	option.BindEnv(vp, option.HubbleRedactEnabled)
