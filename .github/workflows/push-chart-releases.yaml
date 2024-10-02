@@ -1,0 +1,106 @@
+name: Chart Release Push
+
+on:
+  # run after the image build completes
+  workflow_run:
+    workflows:
+      - Image Release Build
+    types:
+      - completed
+  # allow manually triggering it as well, for existing tags
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Git tag to release (e.g. v1.16.2)"
+        required: true
+
+permissions:
+  # check out source code
+  contents: read
+  # fetch artifact digests
+  actions: read
+  # sign helm chart
+  id-token: write
+
+jobs:
+  push-chart:
+    name: Push Chart
+    runs-on: ubuntu-24.04
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    environment: release
+    steps:
+      - name: Get tag
+        id: tag
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # make sure tag is valid (pre-release included)
+            if [[ ! "${{ inputs.tag }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]*)?$ ]]; then
+              echo "tag ${{ inputs.tag }} is invalid.."
+              exit 1
+            fi
+            echo tag="${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            echo tag="${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
+          else
+            echo "Invalid event type"
+            exit 1
+          fi
+
+      - name: Checkout Source Code
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Install crane
+        uses: imjasonh/setup-crane@v0.1
+
+      - name: Collect image digests
+        shell: bash
+        run: |
+          jobs=("cilium" "clustermesh-apiserver" "docker-plugin" "hubble-relay" "operator-alibabacloud" "operator-aws" "operator-azure" "operator-generic" "operator")
+          for job_name in "${jobs[@]}"; do
+            job_name_capital=${job_name^^}
+            job_name_underscored=${job_name_capital//-/_}
+            digest=$(crane digest quay.io/cilium/${job_name}:${{ steps.tag.outputs.tag }})
+            echo "export ${job_name_underscored}_DIGEST := ${digest}" >> Makefile.digests
+          done
+
+      - name: Generate Helm chart from templates (digest substitution)
+        shell: bash
+        run: |
+          mv Makefile.digests install/kubernetes/
+          cd install/kubernetes/
+          make RELEASE=yes CILIUM_VERSION=${{ steps.tag.outputs.tag }}
+
+      - name: Helm registry login
+        shell: bash
+        run: |
+          helm registry login quay.io -u ${{ secrets.QUAY_CHARTS_USERNAME }} -p ${{ secrets.QUAY_CHARTS_PASSWORD }}
+
+      # not using the reusable workflow atm, as it doesn't output the digest
+      - name: Push Helm chart
+        id: push
+        shell: bash
+        run: |
+          helm package install/kubernetes/cilium --dependency-update
+          helm push cilium-*.tgz "oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION }}" &> metadata.txt
+          digest=$(awk '/Digest: /{print $2}' metadata.txt)
+          echo "digest=${digest}" >> $GITHUB_OUTPUT
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
+
+      - name: Cosign registry login
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_CHARTS_USERNAME }}
+          password: ${{ secrets.QUAY_CHARTS_PASSWORD }}
+
+      - name: Sign Helm chart
+        run: |
+          cosign sign -y quay.io/${{ env.QUAY_CHARTS_ORGANIZATION }}/cilium@${{ steps.push.outputs.digest }}
