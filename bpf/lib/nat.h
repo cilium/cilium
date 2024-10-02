@@ -40,6 +40,14 @@ struct nat_entry {
 
 #define snat_v4_needs_masquerade_hook(ctx, target) 0
 
+static __always_inline __u8 __reverse_bits_u8(__u8 val)
+{
+	/* Implementation by Sean Anderson is public domain:
+	 * https://graphics.stanford.edu/~seander/bithacks.html#ReverseByteWith64Bits
+	 */
+	return ((val * 0x80200802ULL) & 0x0884422110ULL) * 0x0101010101ULL >> 32;
+}
+
 /* Clamp a port to the range [start, end].
  *
  * Introduces a slight bias.
@@ -49,9 +57,15 @@ struct nat_entry {
 static __always_inline __u16 __snat_clamp_port_range(__u16 start, __u16 end,
 						     __u16 val)
 {
+	__u32 n, m;
+	__u8 val1 = val & 0xff, val2 = val >> 16;
+
+	/* Reverse bits in val. */
+	val = (__u16)((__reverse_bits_u8(val1) << 8) | __reverse_bits_u8(val2));
+
 	/* Account for closed interval. */
-	__u32 n = (__u32)(end - start) + 1;
-	__u32 m = (__u32)(val) * n;
+	n = (__u32)(end - start) + 1;
+	m = (__u32)(val) * n;
 
 	return start + (m >> 16);
 }
