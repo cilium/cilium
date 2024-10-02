@@ -129,9 +129,9 @@ To override the namespace and configMap when using `auto`:
 `.Values.k8sServiceLookupNamespace` and `.Values.k8sServiceLookupConfigMapName`
 */}}
 {{- define "k8sServiceHost" }}
-  {{- if eq .Values.k8sServiceHost "auto" }}
-    {{- $configmapName := default "cluster-info" .Values.k8sServiceLookupConfigMapName }}
-    {{- $configmapNamespace := default "kube-public" .Values.k8sServiceLookupNamespace }}
+  {{- $configmapName := default "cluster-info" .Values.k8sServiceLookupConfigMapName }}
+  {{- $configmapNamespace := default "kube-public" .Values.k8sServiceLookupNamespace }}
+  {{- if and (eq .Values.k8sServiceHost "auto") (lookup "v1" "ConfigMap" $configmapNamespace $configmapName) }}
     {{- $configmap := (lookup "v1" "ConfigMap" $configmapNamespace $configmapName) }}
     {{- $kubeconfig := get $configmap.data "kubeconfig" }}
     {{- $k8sServer := get ($kubeconfig | fromYaml) "clusters" | mustFirst | dig "cluster" "server" "" }}
@@ -149,9 +149,9 @@ To override the namespace and configMap when using `auto`:
 `.Values.k8sServiceLookupNamespace` and `.Values.k8sServiceLookupConfigMapName`
 */}}
 {{- define "k8sServicePort" }}
-  {{- if eq .Values.k8sServiceHost "auto" }}
-    {{- $configmapName := default "cluster-info" .Values.k8sServiceLookupConfigMapName }}
-    {{- $configmapNamespace := default "kube-public" .Values.k8sServiceLookupNamespace }}
+  {{- $configmapName := default "cluster-info" .Values.k8sServiceLookupConfigMapName }}
+  {{- $configmapNamespace := default "kube-public" .Values.k8sServiceLookupNamespace }}
+  {{- if and (eq .Values.k8sServiceHost "auto") (lookup "v1" "ConfigMap" $configmapNamespace $configmapName) }}
     {{- $configmap := (lookup "v1" "ConfigMap" $configmapNamespace $configmapName) }}
     {{- $kubeconfig := get $configmap.data "kubeconfig" }}
     {{- $k8sServer := get ($kubeconfig | fromYaml) "clusters" | mustFirst | dig "cluster" "server" "" }}
