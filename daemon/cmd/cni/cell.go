@@ -34,6 +34,7 @@ type Config struct {
 	CNIExclusive          bool
 	CNIChainingTarget     string
 	CNIExternalRouting    bool
+	CNIProxyRouting       bool
 }
 
 type CNIConfigManager interface {
@@ -53,6 +54,11 @@ type CNIConfigManager interface {
 	// ExternalRoutingEnabled returns true if the chained plugin implements
 	// routing for Endpoints (Pods).
 	ExternalRoutingEnabled() bool
+
+	// ProxyRoutingEnabled returns true if we still need to install routes for
+	// layer 7 proxies even when the chained plugin implements routing for
+	// endpoints.
+	ProxyRoutingEnabled() bool
 }
 
 var defaultConfig = Config{
@@ -63,6 +69,7 @@ var defaultConfig = Config{
 	CNIExclusive:          false,
 	CNIChainingTarget:     "",
 	CNIExternalRouting:    false,
+	CNIProxyRouting:       false,
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
@@ -73,6 +80,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.String(option.CNIChainingTarget, defaultConfig.CNIChainingTarget, "CNI network name into which to insert the Cilium chained configuration. Use '*' to select any network.")
 	flags.Bool(option.CNIExclusive, defaultConfig.CNIExclusive, "Whether to remove other CNI configurations")
 	flags.Bool(option.CNIExternalRouting, defaultConfig.CNIExternalRouting, "Whether the chained CNI plugin handles routing on the node")
+	flags.Bool(option.CNIProxyRouting, defaultConfig.CNIProxyRouting, "Install L7 Proxy routes where necessary even when cni-external-routing is set")
 }
 
 func enableConfigManager(lc cell.Lifecycle, log logrus.FieldLogger, cfg Config, dcfg *option.DaemonConfig /*only for .Debug*/) CNIConfigManager {

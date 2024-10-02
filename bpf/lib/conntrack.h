@@ -204,6 +204,7 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 		state->proxy_redirect = entry->proxy_redirect;
 		state->from_l7lb = entry->from_l7lb;
 		state->from_tunnel = entry->from_tunnel;
+		state->from_ingress_proxy = entry->from_ingress_proxy;
 #ifndef HAVE_FIB_IFINDEX
 		state->ifindex = entry->ifindex;
 #endif
@@ -953,6 +954,7 @@ ct_create_fill_entry(struct ct_entry *entry, const struct ct_state *state,
 		 */
 		entry->proxy_redirect = state->proxy_redirect;
 		entry->from_l7lb = state->from_l7lb;
+		entry->from_ingress_proxy = state->from_ingress_proxy;
 	}
 }
 

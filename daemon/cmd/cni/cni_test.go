@@ -125,7 +125,8 @@ func TestRenderCNIConfChained(t *testing.T) {
 		"type": "cilium-cni",
 		"chaining-mode": "testing",
 		"enable-debug": false,
-		"log-file": "/opt\"/cni.log"
+		"log-file": "/opt\"/cni.log",
+		"proxy-routing": false
 
 	}
   ]
@@ -160,7 +161,8 @@ func TestRenderCNIConfChained(t *testing.T) {
 		"type": "cilium-cni",
 		"chaining-mode": "testing",
 		"enable-debug": false,
-		"log-file": "/opt\"/cni.log"
+		"log-file": "/opt\"/cni.log",
+		"proxy-routing": false
 
 	}
   ]
@@ -202,7 +204,8 @@ func TestRenderCNIConfChained(t *testing.T) {
 		"type": "cilium-cni",
 		"chaining-mode": "testing",
 		"enable-debug": false,
-		"log-file": "/opt\"/cni.log"
+		"log-file": "/opt\"/cni.log",
+		"proxy-routing": false
 
 	},
 	{

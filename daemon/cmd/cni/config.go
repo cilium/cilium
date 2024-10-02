@@ -73,6 +73,13 @@ func (c *cniConfigManager) ExternalRoutingEnabled() bool {
 	return c.config.CNIExternalRouting
 }
 
+// ProxyRoutingEnabled returns true if we still need to install routes for
+// layer 7 proxies even when the chained plugin implements routing for
+// endpoints.
+func (c *cniConfigManager) ProxyRoutingEnabled() bool {
+	return c.config.CNIProxyRouting
+}
+
 // GetCustomNetConf returns the parsed custom CNI configuration, if provided
 // (In other words, the value to --read-cni-conf).
 // Otherwise, returns nil.
@@ -157,7 +164,8 @@ const chainedCNIEntry = `
 	"type": "cilium-cni",
 	"chaining-mode": "{{.ChainingMode | js }}",
 	"enable-debug": {{.Debug | js }},
-	"log-file": "{{.LogFile | js }}"
+	"log-file": "{{.LogFile | js }}",
+	"proxy-routing": {{.ProxyRouting | js }}
 }
 `
 
@@ -395,10 +403,12 @@ func (c *cniConfigManager) renderCNITemplate(in string) []byte {
 		Debug        bool
 		LogFile      string
 		ChainingMode string
+		ProxyRouting bool
 	}{
 		Debug:        c.debug,
 		LogFile:      c.config.CNILogFile,
 		ChainingMode: c.config.CNIChainingMode,
+		ProxyRouting: c.config.CNIProxyRouting,
 	}
 
 	t := template.Must(template.New("cni").Parse(in))

@@ -473,6 +473,8 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		return err
 	}
 
+	sysctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
+
 	// If CNI ADD gives us a PrevResult, we're a chained plugin and *must* detect a
 	// valid chained mode. If no chained mode we understand is specified, error out.
 	// Otherwise, continue with normal plugin execution.
@@ -486,6 +488,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 					CniArgs:    cniArgs,
 					NetConf:    n,
 					CiliumConf: conf,
+					Sysctl:     sysctl,
 				}
 			)
 
@@ -517,8 +520,6 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		return fmt.Errorf("opening netns pinned at %s: %w", args.Netns, err)
 	}
 	defer ns.Close()
-
-	sysctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
 	for _, epConf := range configs {
 		if err = ns.Do(func() error {

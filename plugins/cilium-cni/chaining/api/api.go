@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/plugins/cilium-cni/lib"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
@@ -36,6 +37,7 @@ type PluginContext struct {
 	CniArgs    *types.ArgsSpec
 	NetConf    *types.NetConf
 	CiliumConf *models.DaemonConfigurationStatus
+	Sysctl     sysctl.Sysctl
 }
 
 // ChainingPlugin is the interface each chaining plugin must implement

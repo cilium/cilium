@@ -23,6 +23,10 @@ func (c *FakeCNIConfigManager) ExternalRoutingEnabled() bool {
 	return false
 }
 
+func (c *FakeCNIConfigManager) ProxyRoutingEnabled() bool {
+	return false
+}
+
 func (f *FakeCNIConfigManager) GetCustomNetConf() *cnitypes.NetConf {
 	return nil
 }
