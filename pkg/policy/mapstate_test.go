@@ -1387,24 +1387,12 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					DerivedFromRules: nil,
 					IsDeny:           true,
 				},
-				ingressKey(1, 3, 80, 0): {
-					ProxyPort:        0,
-					DerivedFromRules: nil,
-					IsDeny:           true,
-				},
 			}),
 			wantAdds: Keys{
 				ingressKey(1, 3, 64, 10): struct{}{},
-				ingressKey(1, 3, 80, 16): struct{}{},
 			},
 			wantDeletes: Keys{},
-			wantOld: MapStateMap{
-				ingressKey(0, 3, 80, 0): { // Dependents changed
-					ProxyPort:        0,
-					DerivedFromRules: nil,
-					IsDeny:           true,
-				},
-			},
+			wantOld:     MapStateMap{},
 		},
 		{
 			name: "test-15b-reverse - L3 port-range allow KV should not overwrite a wildcard deny entry",
@@ -1434,15 +1422,9 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 					DerivedFromRules: nil,
 					IsDeny:           true,
 				},
-				ingressKey(1, 3, 80, 0): {
-					ProxyPort:        0,
-					DerivedFromRules: nil,
-					IsDeny:           true,
-				},
 			}),
 			wantAdds: Keys{
 				ingressKey(0, 3, 80, 16): struct{}{},
-				ingressKey(1, 3, 80, 16): struct{}{},
 			},
 			wantDeletes: Keys{},
 			wantOld:     MapStateMap{},

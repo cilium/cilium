@@ -1009,24 +1009,6 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			return
 		}
 
-		// Deny takes precedence for the port/proto of the newKey
-		// for each allow with broader port/proto and narrower ID.
-		ms.allows.ForEachBroaderKeyWithNarrowerID(newKey, func(k Key, v MapStateEntry) bool {
-			// If newKey is a superset of the iterated allow key and newKey has
-			// a less specific port-protocol than the iterated allow key then an
-			// additional deny entry with port/proto of newKey and with the
-			// identity of the iterated allow key must be added.
-			denyKeyCpy := newKey
-			denyKeyCpy.Identity = k.Identity
-			l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
-			updates = append(updates, MapChange{
-				Add:   true,
-				Key:   denyKeyCpy,
-				Value: l3l4DenyEntry,
-			})
-			return true
-		})
-
 		// Only a non-wildcard key can have a wildcard superset key
 		if newKey.Identity != 0 {
 			ms.allows.ForEachNarrowerKeyWithBroaderID(newKey, func(k Key, v MapStateEntry) bool {
@@ -1132,31 +1114,6 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			ms.authPreferredInsert(newKey, denyEntry, features, changes)
 			return
 		}
-
-		// Deny takes precedence for the identity of the newKey and the port/proto of the
-		// iterated narrower port/proto due to broader ID (CIDR or ANY)
-		ms.denies.ForEachNarrowerKeyWithBroaderID(newKey, func(k Key, v MapStateEntry) bool {
-			// If the new-entry is a subset of the iterated-deny-entry
-			// and the new-entry has a less specific port-protocol than the
-			// iterated-deny-entry then an additional copy of the iterated-deny-entry
-			// with the identity of the new-entry must be added.
-			denyKeyCpy := k
-			denyKeyCpy.Identity = newKey.Identity
-			l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
-			updates = append(updates, MapChange{
-				Add:   true,
-				Key:   denyKeyCpy,
-				Value: l3l4DenyEntry,
-			})
-			// L3-only entries can be deleted incrementally so we need to track their
-			// effects on other entries so that those effects can be reverted when the
-			// identity is removed.
-			dependents = append(dependents, MapChange{
-				Key:   k,
-				Value: v,
-			})
-			return true
-		})
 
 		if newKey.Identity == 0 {
 			ms.denies.ForEachBroaderKeyWithNarrowerID(newKey, func(k Key, v MapStateEntry) bool {
