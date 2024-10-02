@@ -529,8 +529,13 @@ func (p *Proxy) SetProxyPort(name string, proxyType types.ProxyType, port uint16
 
 // ReinstallRoutingRules ensures the presence of routing rules and tables needed
 // to route packets to and from the L7 proxy.
-func (p *Proxy) ReinstallRoutingRules() error {
+func (p *Proxy) ReinstallRoutingRules(mtu int) error {
 	fromIngressProxy, fromEgressProxy := requireFromProxyRoutes()
+
+	// Use the provided mtu (RouteMTU) only with both ingress and egress proxy.
+	if !fromIngressProxy || !fromEgressProxy {
+		mtu = 0
+	}
 
 	if option.Config.EnableIPv4 {
 		if err := installToProxyRoutesIPv4(); err != nil {
@@ -538,7 +543,7 @@ func (p *Proxy) ReinstallRoutingRules() error {
 		}
 
 		if fromIngressProxy || fromEgressProxy {
-			if err := installFromProxyRoutesIPv4(node.GetInternalIPv4Router(), defaults.HostDevice, fromIngressProxy, fromEgressProxy); err != nil {
+			if err := installFromProxyRoutesIPv4(node.GetInternalIPv4Router(), defaults.HostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
 				return err
 			}
 		} else {
@@ -565,7 +570,7 @@ func (p *Proxy) ReinstallRoutingRules() error {
 			if err != nil {
 				return err
 			}
-			if err := installFromProxyRoutesIPv6(ipv6, defaults.HostDevice, fromIngressProxy, fromEgressProxy); err != nil {
+			if err := installFromProxyRoutesIPv6(ipv6, defaults.HostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
 				return err
 			}
 		} else {
