@@ -87,11 +87,11 @@ func (r *ServiceReconciler) setMetadata(i *instance.BGPInstance, metadata Servic
 }
 
 func (r *ServiceReconciler) Name() string {
-	return "Service"
+	return ServiceReconcilerName
 }
 
 func (r *ServiceReconciler) Priority() int {
-	return 40
+	return ServiceReconcilerPriority
 }
 
 func (r *ServiceReconciler) Init(i *instance.BGPInstance) error {

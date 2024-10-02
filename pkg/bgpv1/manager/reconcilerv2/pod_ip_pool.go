@@ -69,11 +69,11 @@ func NewPodIPPoolReconciler(in PodIPPoolReconcilerIn) PodIPPoolReconcilerOut {
 }
 
 func (r *PodIPPoolReconciler) Name() string {
-	return "PodIPPool"
+	return PodIPPoolReconcilerName
 }
 
 func (r *PodIPPoolReconciler) Priority() int {
-	return 50
+	return PodIPPoolReconcilerPriority
 }
 
 func (r *PodIPPoolReconciler) Init(_ *instance.BGPInstance) error {
