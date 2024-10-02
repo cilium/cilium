@@ -19,7 +19,7 @@ require (
 	github.com/bombsimon/logrusr/v4 v4.1.0
 	github.com/cilium/charts v0.0.0-20240926142256-e20f2b5f5344
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
-	github.com/cilium/deepequal-gen v0.0.0-20231116094812-0d6c075c335f
+	github.com/cilium/deepequal-gen v0.0.0-20241002105916-4c4165f47b6c
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
 	github.com/cilium/ebpf v0.16.0
 	github.com/cilium/endpointslice-controller v0.0.0-20240409203012-75cb5d61db1b
@@ -319,8 +319,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gotest.tools/v3 v3.5.0 // indirect
 	k8s.io/apiserver v0.31.1 // indirect
-	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
-	k8s.io/gengo/v2 v2.0.0-20240228010128-51d4e06bde70 // indirect
+	k8s.io/gengo/v2 v2.0.0-20240911193312-2b36238f13e9 // indirect
 	k8s.io/kube-openapi v0.0.0-20240423202451-8948a665c108 // indirect
 	k8s.io/kubectl v0.31.0 // indirect
 	oras.land/oras-go v1.2.5 // indirect

@@ -234,9 +234,10 @@ github.com/cilium/charts
 github.com/cilium/coverbee
 github.com/cilium/coverbee/pkg/cparser
 github.com/cilium/coverbee/pkg/verifierlog
-# github.com/cilium/deepequal-gen v0.0.0-20231116094812-0d6c075c335f
+# github.com/cilium/deepequal-gen v0.0.0-20241002105916-4c4165f47b6c
 ## explicit; go 1.20
 github.com/cilium/deepequal-gen
+github.com/cilium/deepequal-gen/args
 github.com/cilium/deepequal-gen/generators
 # github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
 ## explicit; go 1.18
@@ -2514,15 +2515,7 @@ k8s.io/component-base/version
 ## explicit; go 1.22.0
 k8s.io/endpointslice/metrics
 k8s.io/endpointslice/util
-# k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01
-## explicit; go 1.13
-k8s.io/gengo/args
-k8s.io/gengo/examples/set-gen/sets
-k8s.io/gengo/generator
-k8s.io/gengo/namer
-k8s.io/gengo/parser
-k8s.io/gengo/types
-# k8s.io/gengo/v2 v2.0.0-20240228010128-51d4e06bde70
+# k8s.io/gengo/v2 v2.0.0-20240911193312-2b36238f13e9
 ## explicit; go 1.20
 k8s.io/gengo/v2
 k8s.io/gengo/v2/generator
