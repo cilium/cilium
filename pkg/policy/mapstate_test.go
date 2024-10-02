@@ -1359,6 +1359,131 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "test-15a - L3 port-range allow KV should not overwrite a wildcard deny entry",
+			ms: testMapState(MapStateMap{
+				ingressKey(0, 3, 80, 0): {
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+			}),
+			args: args{
+				key: ingressKey(1, 3, 64, 10), // port range 64-127 (64/10)
+				entry: MapStateEntry{
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			},
+			want: testMapState(MapStateMap{
+				ingressKey(1, 3, 64, 10): { // port range 64-127 (64/10)
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+				ingressKey(0, 3, 80, 0): {
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+				ingressKey(1, 3, 80, 0): {
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+			}),
+			wantAdds: Keys{
+				ingressKey(1, 3, 64, 10): struct{}{},
+				ingressKey(1, 3, 80, 16): struct{}{},
+			},
+			wantDeletes: Keys{},
+			wantOld: MapStateMap{
+				ingressKey(0, 3, 80, 0): { // Dependents changed
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+			},
+		},
+		{
+			name: "test-15b-reverse - L3 port-range allow KV should not overwrite a wildcard deny entry",
+			ms: testMapState(MapStateMap{
+				ingressKey(1, 3, 64, 10): { // port range 64-127 (64/10)
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			}),
+			args: args{
+				key: ingressKey(0, 3, 80, 0),
+				entry: MapStateEntry{
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+			},
+			want: testMapState(MapStateMap{
+				ingressKey(1, 3, 64, 10): { // port range 64-127 (64/10)
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+				ingressKey(0, 3, 80, 0): {
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+				ingressKey(1, 3, 80, 0): {
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+			}),
+			wantAdds: Keys{
+				ingressKey(0, 3, 80, 16): struct{}{},
+				ingressKey(1, 3, 80, 16): struct{}{},
+			},
+			wantDeletes: Keys{},
+			wantOld:     MapStateMap{},
+		},
+		{
+			name: "test-16a - No added entry for L3 port-range allow + wildcard allow entry",
+			ms: testMapState(MapStateMap{
+				ingressKey(0, 3, 80, 0): {
+					ProxyPort:        8080,
+					priority:         8080,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			}),
+			args: args{
+				key: ingressKey(1, 3, 64, 10), // port range 64-127 (64/10)
+				entry: MapStateEntry{
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			},
+			want: testMapState(MapStateMap{
+				ingressKey(0, 3, 80, 0): {
+					ProxyPort:        8080,
+					priority:         8080,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+				ingressKey(1, 3, 64, 10): { // port range 64-127 (64/10)
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			}),
+			wantAdds: Keys{
+				ingressKey(1, 3, 64, 10): struct{}{},
+			},
+			wantDeletes: Keys{},
+			wantOld:     MapStateMap{},
+		},
 	}
 	for _, tt := range tests {
 		changes := ChangeState{
