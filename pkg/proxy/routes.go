@@ -123,7 +123,7 @@ var (
 
 // installFromProxyRoutesIPv4 configures routes and rules needed to redirect ingress
 // packets from the proxy.
-func installFromProxyRoutesIPv4(ipv4 net.IP, device string, fromIngressProxy, fromEgressProxy bool) error {
+func installFromProxyRoutesIPv4(ipv4 net.IP, device string, fromIngressProxy, fromEgressProxy bool, mtu int) error {
 	fromProxyToCiliumHostRoute4 := route.Route{
 		Table: linux_defaults.RouteTableFromProxy,
 		Prefix: net.IPNet{
@@ -139,6 +139,7 @@ func installFromProxyRoutesIPv4(ipv4 net.IP, device string, fromIngressProxy, fr
 		Nexthop: &ipv4,
 		Device:  device,
 		Proto:   linux_defaults.RTProto,
+		MTU:     mtu,
 	}
 
 	if fromIngressProxy {
@@ -183,7 +184,7 @@ func removeStaleProxyRulesIPv4() error {
 
 // installFromProxyRoutesIPv6 configures routes and rules needed to redirect ingress
 // packets from the proxy.
-func installFromProxyRoutesIPv6(ipv6 net.IP, device string, fromIngressProxy, fromEgressProxy bool) error {
+func installFromProxyRoutesIPv6(ipv6 net.IP, device string, fromIngressProxy, fromEgressProxy bool, mtu int) error {
 	fromProxyToCiliumHostRoute6 := route.Route{
 		Table: linux_defaults.RouteTableFromProxy,
 		Prefix: net.IPNet{
@@ -199,6 +200,7 @@ func installFromProxyRoutesIPv6(ipv6 net.IP, device string, fromIngressProxy, fr
 		Nexthop: &ipv6,
 		Device:  device,
 		Proto:   linux_defaults.RTProto,
+		MTU:     mtu,
 	}
 
 	if fromIngressProxy {

@@ -507,7 +507,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	// Reinstall proxy rules for any running proxies if needed
 	if option.Config.EnableL7Proxy {
-		if err := p.ReinstallRoutingRules(); err != nil {
+		if err := p.ReinstallRoutingRules(o.LocalConfig().MtuConfig.GetRouteMTU()); err != nil {
 			return err
 		}
 
