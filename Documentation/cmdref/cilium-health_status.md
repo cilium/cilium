@@ -13,7 +13,6 @@ cilium-health status [flags]
 ```
   -h, --help            help for status
   -o, --output string   json| yaml| jsonpath='{}'
-      --probe           Synchronously probe connectivity status
       --succinct        Print the result succinctly (one node per line)
       --verbose         Print more information in results
 ```

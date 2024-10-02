@@ -4,13 +4,16 @@
 package server
 
 import (
+	"context"
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	probing "github.com/prometheus-community/pro-bing"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/time/rate"
 
 	"github.com/cilium/cilium/api/v1/health/models"
 	ciliumModels "github.com/cilium/cilium/api/v1/models"
@@ -24,6 +27,11 @@ import (
 type healthReport struct {
 	startTime time.Time
 	nodes     []*models.NodeStatus
+}
+
+type connectivityResult struct {
+	ip     string
+	status *models.ConnectivityStatus
 }
 
 type prober struct {
@@ -44,6 +52,8 @@ type prober struct {
 	start   time.Time
 	results map[ipString]*models.PathStatus
 	nodes   nodeMap
+
+	probeRateLimiter *rate.Limiter
 }
 
 // copyResultRLocked makes a copy of the path status for the specified IP.
@@ -233,46 +243,6 @@ func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 
 const httpPathDescription = "Via L3"
 
-func (p *prober) httpProbe(node string, ip string) *models.ConnectivityStatus {
-	result := &models.ConnectivityStatus{}
-
-	host := "http://" + net.JoinHostPort(ip, strconv.Itoa(p.server.Config.HTTPPathPort))
-
-	// Only add fields to the scoped logger if debug is enabled, to save on resources.
-	// This can be done since all logs in this function are debug-level only.
-	scopedLog := log
-	debugLogsEnabled := logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel)
-	if debugLogsEnabled {
-		scopedLog = log.WithFields(logrus.Fields{
-			logfields.NodeName: node,
-			logfields.IPAddr:   ip,
-			"host":             host,
-			"path":             httpPathDescription,
-		})
-	}
-
-	scopedLog.Debug("Greeting host")
-	start := time.Now()
-	err := probe.GetHello(host)
-	rtt := time.Since(start)
-	if err == nil {
-		if debugLogsEnabled {
-			scopedLog.WithField("rtt", rtt).Debug("Greeting successful")
-		}
-
-		result.Status = ""
-		result.Latency = rtt.Nanoseconds()
-	} else {
-		if debugLogsEnabled {
-			scopedLog.WithError(err).Debug("Greeting failed")
-		}
-
-		result.Status = err.Error()
-	}
-
-	return result
-}
-
 func (p *prober) getIPsByNode() map[string][]*net.IPAddr {
 	p.RLock()
 	defer p.RUnlock()
@@ -297,7 +267,9 @@ func (p *prober) getIPsByNode() map[string][]*net.IPAddr {
 	return nodes
 }
 
-func (p *prober) icmpPing(node string, ip string) *models.ConnectivityStatus {
+func icmpPing(node string, ip string, ctx context.Context, resChan chan<- connectivityResult, wg *sync.WaitGroup, probeDeadline time.Duration) {
+	defer wg.Done()
+
 	result := &models.ConnectivityStatus{}
 
 	// Only add fields to the scoped logger if debug is enabled, to save on resources.
@@ -309,43 +281,88 @@ func (p *prober) icmpPing(node string, ip string) *models.ConnectivityStatus {
 			logfields.NodeName: node,
 			logfields.IPAddr:   ip,
 		})
+		scopedLog.Debug("Pinging host")
 	}
 
-	scopedLog.Debug("Pinging host")
 	pinger, err := probing.NewPinger(ip)
 	if err != nil {
 		if debugLogsEnabled {
 			scopedLog.WithError(err).Debug("Failed to create pinger")
 		}
 		result.Status = err.Error()
-		return result
+		resChan <- connectivityResult{ip: ip, status: result}
+		return
 	}
-	pinger.Timeout = p.server.ProbeDeadline
+
+	pinger.Timeout = probeDeadline
 	pinger.Count = 1
 	pinger.OnFinish = func(stats *probing.Statistics) {
-		p.Lock()
-		defer p.Unlock()
-
 		if stats.PacketsRecv > 0 && len(stats.Rtts) > 0 {
 			if debugLogsEnabled {
 				scopedLog.WithField("rtt", stats.Rtts[0].Nanoseconds()).Debug("Ping successful")
 			}
 			result.Latency = stats.Rtts[0].Nanoseconds()
-			result.Status = ""
 		} else {
 			scopedLog.Debug("Ping failed")
 			result.Status = "Connection timed out"
 		}
 	}
+	pinger.SetPrivileged(true)
 	err = pinger.Run()
 	if err != nil {
 		scopedLog.Debugf("Failed to run pinger for IP %s: %v", ip, err)
 		result.Status = err.Error()
 	}
-	return result
+	resChan <- connectivityResult{ip: ip, status: result}
 }
 
-func (p *prober) runHTTPProbe() {
+func Per(nodes int, duration time.Duration) rate.Limit {
+	return rate.Every(duration / time.Duration(nodes))
+}
+
+func httpProbe(node string, ip string, ctx context.Context, resChan chan<- connectivityResult, wg *sync.WaitGroup, httpPort int) {
+	defer wg.Done()
+
+	result := &models.ConnectivityStatus{}
+	host := "http://" + net.JoinHostPort(ip, strconv.Itoa(httpPort))
+	// Only add fields to the scoped logger if debug is enabled, to save on resources.
+	// This can be done since all logs in this function are debug-level only.
+	scopedLog := log
+	debugLogsEnabled := logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel)
+	if debugLogsEnabled {
+		scopedLog = log.WithFields(logrus.Fields{
+			logfields.NodeName: node,
+			logfields.IPAddr:   ip,
+			"host":             host,
+			"path":             httpPathDescription,
+		})
+		scopedLog.Debug("Greeting host")
+	}
+
+	start := time.Now()
+	err := probe.GetHello(host)
+	rtt := time.Since(start)
+	if err == nil {
+		if debugLogsEnabled {
+			scopedLog.WithField("rtt", rtt).Debug("Greeting successful")
+		}
+		result.Latency = rtt.Nanoseconds()
+	} else {
+		if debugLogsEnabled {
+			scopedLog.WithError(err).Debug("Greeting failed")
+		}
+		result.Status = err.Error()
+	}
+
+	resChan <- connectivityResult{ip: ip, status: result}
+}
+
+func (p *prober) runProbe() {
+	httpResChan := make(chan connectivityResult)
+	icmpResChan := make(chan connectivityResult)
+	wg := sync.WaitGroup{}
+	resultsWg := sync.WaitGroup{}
+
 	startTime := time.Now()
 	p.Lock()
 	p.start = startTime
@@ -354,10 +371,47 @@ func (p *prober) runHTTPProbe() {
 	// Only add fields to the scoped logger if debug is enabled, to save on resources.
 	// This can be done since all logs in this function are debug-level only.
 	debugLogsEnabled := logging.CanLogAt(log.Logger, logrus.DebugLevel)
+	scopedLog := log
 
-	for name, ips := range p.getIPsByNode() {
-		scopedLog := log
+	nodeIps := p.getIPsByNode()
+	// Spread probes evenly across probing interval.
+	ipCount := 0
+	for _, ips := range nodeIps {
+		ipCount += len(ips)
+	}
+	p.probeRateLimiter = rate.NewLimiter(Per(ipCount, p.server.Config.ProbeInterval), 1)
 
+	// update results as probes complete
+	resultsWg.Add(2)
+	go func() {
+		defer resultsWg.Done()
+		for resp := range httpResChan {
+			peer := ipString(resp.ip)
+			p.Lock()
+			if _, ok := p.results[peer]; ok {
+				p.results[peer].HTTP = resp.status
+			} else {
+				scopedLog.Debug("Node disappeared before result written")
+			}
+			p.Unlock()
+		}
+	}()
+
+	go func() {
+		defer resultsWg.Done()
+		for resp := range icmpResChan {
+			peer := ipString(resp.ip)
+			p.Lock()
+			if _, ok := p.results[peer]; ok {
+				p.results[peer].Icmp = resp.status
+			} else {
+				scopedLog.Debug("Node disappeared before result written")
+			}
+			p.Unlock()
+		}
+	}()
+
+	for name, ips := range nodeIps {
 		if debugLogsEnabled {
 			scopedLog = log.WithField(logfields.NodeName, name)
 		}
@@ -370,64 +424,29 @@ func (p *prober) runHTTPProbe() {
 				})
 			}
 
-			resp := p.httpProbe(name, ip.String())
-			if resp.Status != "" {
-				scopedLog.Debugf("Failed to probe: %s", resp.Status)
-			}
-
-			peer := ipString(ip.String())
-			p.Lock()
-			if _, ok := p.results[peer]; ok {
-				p.results[peer].HTTP = resp
+			ctx := context.Background()
+			if err := p.probeRateLimiter.Wait(ctx); err != nil {
+				result := &models.ConnectivityStatus{}
+				result.Status = err.Error()
+				httpResChan <- connectivityResult{ip: ip.String(), status: result}
+				icmpResChan <- connectivityResult{ip: ip.String(), status: result}
 			} else {
-				scopedLog.Debug("Node disappeared before result written")
+				wg.Add(2)
+				go httpProbe(name, ip.String(), ctx, httpResChan, &wg, p.server.Config.HTTPPathPort)
+				go icmpPing(name, ip.String(), ctx, icmpResChan, &wg, p.server.Config.ProbeDeadline)
 			}
-			p.Unlock()
 		}
 	}
-}
 
-func (p *prober) runICMPPinger() {
-	// Only add fields to the scoped logger if debug is enabled, to save on resources.
-	// This can be done since all logs in this function are debug-level only.
-	debugLogsEnabled := logging.CanLogAt(log.Logger, logrus.DebugLevel)
+	// owner closes result channels only once all probe results have been written
+	go func() {
+		wg.Wait()
+		close(httpResChan)
+		close(icmpResChan)
+	}()
 
-	for name, ips := range p.getIPsByNode() {
-		scopedLog := log
-
-		if debugLogsEnabled {
-			scopedLog = log.WithField(logfields.NodeName, name)
-		}
-
-		for _, ip := range ips {
-			if debugLogsEnabled {
-				scopedLog = scopedLog.WithFields(logrus.Fields{
-					logfields.IPAddr: ip.String(),
-				})
-			}
-
-			resp := p.icmpPing(name, ip.String())
-			if resp.Status != "" {
-				scopedLog.Debugf("Failed to probe: %s", resp.Status)
-			}
-
-			peer := ipString(ip.String())
-			p.Lock()
-			if _, ok := p.results[peer]; ok {
-				p.results[peer].Icmp = resp
-			} else {
-				scopedLog.Debug("Node disappeared before result written")
-			}
-			p.Unlock()
-		}
-	}
-}
-
-// Run sends a single probes out to all of the other cilium nodes to gather
-// connectivity status for the cluster.
-func (p *prober) Run() {
-	p.runHTTPProbe()
-	p.runICMPPinger()
+	// block until all results are written
+	resultsWg.Wait()
 }
 
 // Stop disrupts the currently running RunLoop(). This may only be called after
@@ -443,11 +462,9 @@ func (p *prober) Stop() {
 // This is a non-blocking method so it immediately returns. If you want to
 // stop sending packets, call Stop().
 func (p *prober) RunLoop() {
-	// FIXME: Spread the probes out across the probing interval
 	go func() {
 		tick := time.NewTicker(p.server.ProbeInterval)
-		p.runHTTPProbe()
-		p.runICMPPinger()
+		p.runProbe()
 	loop:
 		for {
 			select {
@@ -469,8 +486,7 @@ func (p *prober) RunLoop() {
 					// (2) Update results without stale nodes
 					p.server.updateCluster(p.getResults())
 				}
-				p.runHTTPProbe()
-				p.runICMPPinger()
+				p.runProbe()
 				continue
 			}
 		}
@@ -482,6 +498,9 @@ func (p *prober) RunLoop() {
 // newProber prepares a prober. The caller may invoke one the Run* methods of
 // the prober to populate its 'results' map.
 func newProber(s *Server, nodes nodeMap) *prober {
+	scopedLog := log
+	scopedLog.Debug("Creating new prober")
+
 	prober := &prober{
 		server:       s,
 		proberExited: make(chan bool),
