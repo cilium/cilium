@@ -308,6 +308,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			return fmt.Errorf("getting %s ifindex: %w", wgtypes.IfaceName, err)
 		}
 		cDefinesMap["WG_IFINDEX"] = fmt.Sprintf("%d", ifindex)
+		cDefinesMap["WG_PORT"] = fmt.Sprintf("%d", wgtypes.ListenPort)
 
 		if option.Config.EncryptNode {
 			cDefinesMap["ENABLE_NODE_ENCRYPTION"] = "1"
