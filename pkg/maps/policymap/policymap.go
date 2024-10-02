@@ -57,8 +57,6 @@ type policyEntryFlags uint8
 
 const (
 	policyFlagDeny policyEntryFlags = 1 << iota
-	policyFlagWildcardNexthdr
-	policyFlagWildcardDestPort
 )
 
 func (pef policyEntryFlags) is(pf policyEntryFlags) bool {
@@ -73,12 +71,6 @@ func (pef policyEntryFlags) String() string {
 		str = append(str, "Deny")
 	} else {
 		str = append(str, "Allow")
-	}
-	if pef.is(policyFlagWildcardNexthdr) {
-		str = append(str, "WildcardProtocol")
-	}
-	if pef.is(policyFlagWildcardDestPort) {
-		str = append(str, "WildcardPort")
 	}
 
 	return strings.Join(str, ", ")
@@ -102,7 +94,7 @@ func (pe PolicyEntry) IsDeny() bool {
 }
 
 func (pe *PolicyEntry) String() string {
-	return fmt.Sprintf("%d %d %d", pe.GetProxyPort(), pe.Packets, pe.Bytes)
+	return fmt.Sprintf("%d %d %d %d", pe.GetProxyPort(), pe.LPMPrefixLength, pe.Packets, pe.Bytes)
 }
 
 func (pe *PolicyEntry) New() bpf.MapValue { return &PolicyEntry{} }
@@ -158,7 +150,8 @@ type PolicyEntry struct {
 	ProxyPortNetwork uint16           `align:"proxy_port"` // In network byte-order
 	Flags            policyEntryFlags `align:"deny"`
 	AuthType         uint8            `align:"auth_type"`
-	Pad1             uint16           `align:"pad1"`
+	LPMPrefixLength  uint8            `align:"lpm_prefix_length"`
+	Pad1             uint8            `align:"pad1"`
 	Pad2             uint16           `align:"pad2"`
 	Packets          uint64           `align:"packets"`
 	Bytes            uint64           `align:"bytes"`
@@ -170,9 +163,7 @@ func (pe *PolicyEntry) GetProxyPort() uint16 {
 }
 
 type policyEntryFlagParams struct {
-	IsDeny             bool
-	IsWildcardNexthdr  bool
-	IsWildcardDestPort bool
+	IsDeny bool
 }
 
 // getPolicyEntryFlags returns a policyEntryFlags from the policyEntryFlagParams.
@@ -181,12 +172,6 @@ func getPolicyEntryFlags(p policyEntryFlagParams) policyEntryFlags {
 
 	if p.IsDeny {
 		flags |= policyFlagDeny
-	}
-	if p.IsWildcardNexthdr {
-		flags |= policyFlagWildcardNexthdr
-	}
-	if p.IsWildcardDestPort {
-		flags |= policyFlagWildcardDestPort
 	}
 
 	return flags
@@ -334,11 +319,12 @@ func newKey(id uint32, dport, portMask uint16, proto u8proto.U8proto, trafficDir
 
 // newEntry returns a PolicyEntry representing the specified parameters in
 // network byte-order.
-func newEntry(authType uint8, proxyPort uint16, flags policyEntryFlags) PolicyEntry {
+func newEntry(authType uint8, proxyPort uint16, prefixLen uint8, flags policyEntryFlags) PolicyEntry {
 	return PolicyEntry{
 		ProxyPortNetwork: byteorder.HostToNetwork16(proxyPort),
 		Flags:            flags,
 		AuthType:         authType,
+		LPMPrefixLength:  prefixLen,
 	}
 }
 
@@ -346,11 +332,8 @@ func newEntry(authType uint8, proxyPort uint16, flags policyEntryFlags) PolicyEn
 // network byte-order.
 // This is separated out to be used in unit testing.
 func newAllowEntry(key PolicyKey, authType uint8, proxyPort uint16) PolicyEntry {
-	pef := getPolicyEntryFlags(policyEntryFlagParams{
-		IsWildcardNexthdr:  key.Nexthdr == 0,
-		IsWildcardDestPort: key.DestPortNetwork == 0,
-	})
-	return newEntry(authType, proxyPort, pef)
+	prefixLen := uint8(key.Prefixlen - StaticPrefixBits)
+	return newEntry(authType, proxyPort, prefixLen, 0)
 }
 
 // newDenyEntry returns a deny PolicyEntry for the specified parameters in
@@ -358,11 +341,10 @@ func newAllowEntry(key PolicyKey, authType uint8, proxyPort uint16) PolicyEntry 
 // This is separated out to be used in unit testing.
 func newDenyEntry(key PolicyKey) PolicyEntry {
 	pef := getPolicyEntryFlags(policyEntryFlagParams{
-		IsDeny:             true,
-		IsWildcardNexthdr:  key.Nexthdr == 0,
-		IsWildcardDestPort: key.DestPortNetwork == 0,
+		IsDeny: true,
 	})
-	return newEntry(0, 0, pef)
+	prefixLen := uint8(key.Prefixlen - StaticPrefixBits)
+	return newEntry(0, 0, prefixLen, pef)
 }
 
 // AllowKey pushes an entry into the PolicyMap for the given PolicyKey k.

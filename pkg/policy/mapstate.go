@@ -902,8 +902,13 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 						Value: l3l4DenyEntry,
 					})
 				}
-			} else if identityIsSupersetOf(newKey.Identity, k.Identity, identities) {
+			} else if !(newKey.Identity == 0 && k.Identity != 0) &&
+				identityIsSupersetOf(newKey.Identity, k.Identity, identities) {
 				// k.PortProtoIsBroader(newKey) // due to if statements above
+
+				// The case where the new deny is L4-only and the broader allow is
+				// not is excluded as datapath will choose the more specific L4-only
+				// deny policy if they both match
 
 				// Deny takes precedence for the port/proto of the newKey
 				// for each allow with broader port/proto and narrower ID.
@@ -1050,7 +1055,11 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 					changeToDeny = true
 				}
 			} else { // newKey.PortProtoIsBroader(k)
-				if identityIsSupersetOf(k.Identity, newKey.Identity, identities) {
+				// The case where the iterated deny is L4-only and the broader allow
+				// is not is excluded as datapath will choose the more specific
+				// L4-only deny policy if they both match
+				if !(k.Identity == 0 && newKey.Identity != 0) &&
+					identityIsSupersetOf(k.Identity, newKey.Identity, identities) {
 					// If the new-entry is a subset of the iterated-deny-entry
 					// and the new-entry has a less specific port-protocol than
 					// the iterated-deny-entry then an additional copy of the
