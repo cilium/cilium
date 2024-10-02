@@ -57,11 +57,11 @@ func NewPodCIDRReconciler(params PodCIDRReconcilerIn) PodCIDRReconcilerOut {
 }
 
 func (r *PodCIDRReconciler) Name() string {
-	return "PodCIDR"
+	return PodCIDRReconcilerName
 }
 
 func (r *PodCIDRReconciler) Priority() int {
-	return 30
+	return PodCIDRReconcilerPriority
 }
 
 func (r *PodCIDRReconciler) Init(_ *instance.BGPInstance) error {
