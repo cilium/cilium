@@ -62,6 +62,7 @@ func init() {
 	rootCmd.AddCommand(statusGetCmd)
 	statusGetCmd.Flags().BoolVarP(&probe, "probe", "", false,
 		"Synchronously probe connectivity status")
+	statusGetCmd.Flags().MarkHidden("probe")
 	statusGetCmd.Flags().BoolVarP(&succinct, "succinct", "", false,
 		"Print the result succinctly (one node per line)")
 	statusGetCmd.Flags().BoolVarP(&verbose, "verbose", "", false,

@@ -18,6 +18,7 @@ import (
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
 	healthClientPkg "github.com/cilium/cilium/pkg/health/client"
 	"github.com/cilium/cilium/pkg/health/defaults"
+	"github.com/cilium/cilium/pkg/health/probe"
 	"github.com/cilium/cilium/pkg/health/probe/responder"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -70,10 +71,6 @@ type Server struct {
 	localStatus  *healthModels.SelfStatus
 }
 
-const (
-	probeTimeout = 10
-)
-
 // DumpUptime returns the time that this server has been running.
 func (s *Server) DumpUptime() string {
 	return time.Since(s.startTime).String()
@@ -117,29 +114,6 @@ func (s *Server) getNodes() (nodeMap, nodeMap, error) {
 	nodesRemoved := nodeElementSliceToNodeMap(resp.Payload.NodesRemoved)
 
 	return nodesAdded, nodesRemoved, nil
-}
-
-// getAllNodes fetches all nodes the daemon is aware of.
-func (s *Server) getAllNodes() (nodeMap, error) {
-	scopedLog := log
-	if s.CiliumURI != "" {
-		scopedLog = log.WithField("URI", s.CiliumURI)
-	}
-	scopedLog.Debug("Sending request for /cluster/nodes ...")
-
-	resp, err := s.Daemon.GetClusterNodes(nil)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get nodes' cluster: %w", err)
-	}
-	log.Debug("Got cilium /cluster/nodes")
-
-	if resp == nil || resp.Payload == nil {
-		return nil, fmt.Errorf("received nil health response")
-	}
-
-	nodesAdded := nodeElementSliceToNodeMap(resp.Payload.NodesAdded)
-
-	return nodesAdded, nil
 }
 
 // nodeElementSliceToNodeMap returns a slice of models.NodeElement into a
@@ -334,7 +308,7 @@ func collectConnectivityMetric(status *healthModels.ConnectivityStatus, labels .
 			metricValue = float64(status.Latency) / float64(time.Second)
 			metrics.NodeHealthConnectivityLatency.WithLabelValues(healthLabels...).Observe(metricValue)
 		} else {
-			metrics.NodeHealthConnectivityLatency.WithLabelValues(healthLabels...).Observe(probeTimeout)
+			metrics.NodeHealthConnectivityLatency.WithLabelValues(healthLabels...).Observe(probe.HttpTimeout.Seconds())
 		}
 	}
 }
@@ -369,20 +343,8 @@ func (s *Server) GetStatusResponse() *healthModels.HealthStatusResponse {
 	}
 }
 
-// FetchStatusResponse updates the cluster with the latest set of nodes,
-// runs a synchronous probe across the cluster, updates the connectivity cache
-// and returns the results.
+// FetchStatusResponse returns the results of the most recent probe.
 func (s *Server) FetchStatusResponse() (*healthModels.HealthStatusResponse, error) {
-	nodes, err := s.getAllNodes()
-	if err != nil {
-		return nil, err
-	}
-
-	prober := newProber(s, nodes)
-	prober.Run()
-	log.Debug("Run complete")
-	s.updateCluster(prober.getResults())
-
 	return s.GetStatusResponse(), nil
 }
 
@@ -391,8 +353,8 @@ func (s *Server) FetchStatusResponse() (*healthModels.HealthStatusResponse, erro
 // Blocks indefinitely, or returns any errors that occur hosting the Unix
 // socket API server.
 func (s *Server) runActiveServices() error {
-	// Run it once at the start so we get some initial status
-	s.FetchStatusResponse()
+	// Set time in initial empty health report.
+	s.updateCluster(&healthReport{startTime: time.Now()})
 
 	// We can safely ignore nodesRemoved since it's the first time we are
 	// fetching the nodes from the server.
