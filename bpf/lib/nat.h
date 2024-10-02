@@ -201,7 +201,6 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map
 	struct ipv4_nat_entry rstate;
 	int ret, retries;
 	__u16 port;
-	__u32 rnd;
 
 	memset(&rstate, 0, sizeof(rstate));
 	memset(ostate, 0, sizeof(*ostate));
@@ -232,11 +231,10 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx, void *map
 		if (__snat_create(map, &rtuple, &rstate) == 0)
 			goto create_nat_entry;
 
-		rnd = retries & 1 ? rnd >> 16 : __get_prandom_u32();
 		port = __snat_clamp_port_range(target->min_port,
 					       target->max_port,
 					       retries ? port + 1 :
-					       (__u16)rnd);
+					       (__u16)get_prandom_u32());
 	}
 
 	/* Loop completed without finding a free port: */
