@@ -23,6 +23,7 @@ import (
 	clientPkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/dynamicconfig"
+	"github.com/cilium/cilium/pkg/dynamiclifecycle"
 	"github.com/cilium/cilium/pkg/hive/health"
 	"github.com/cilium/cilium/pkg/hive/health/types"
 	"github.com/cilium/cilium/pkg/loadbalancer/experimental"
@@ -65,6 +66,7 @@ func init() {
 		statedbTableCommand[*experimental.Frontend](experimental.FrontendTableName),
 		statedbTableCommand[*experimental.Backend](experimental.BackendTableName),
 		statedbTableCommand[dynamicconfig.DynamicConfig](dynamicconfig.TableName),
+		statedbTableCommand[*dynamiclifecycle.DynamicFeature](dynamiclifecycle.TableName),
 	)
 	StatedbCmd.AddCommand(
 		statedbDumpCmd,
