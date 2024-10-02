@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/tests"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 //go:embed manifests/client-egress-l7-http-from-any.yaml
@@ -27,15 +28,22 @@ func (t podToPodEncryption) build(ct *check.ConnectivityTest, _ map[string]strin
 
 	newTest("pod-to-pod-with-l7-policy-encryption", ct).
 		WithCondition(func() bool { return !ct.Params().SingleNode }).
+		WithCondition(func() bool {
+			if ok, _ := ct.Features.MatchRequirements(features.RequireMode(features.EncryptionPod, "ipsec")); ok {
+				// Disabled for previous versions before backporting.
+				if !versioncheck.MustCompile(">=1.17.0")(ct.CiliumVersion) {
+					return false
+				}
+			}
+			return true
+		}).
 		WithFeatureRequirements(
 			features.RequireEnabled(features.L7Proxy),
-			// Once https://github.com/cilium/cilium/issues/33168 is fixed, we
-			// can enable for IPsec too.
-			features.RequireMode(features.EncryptionPod, "wireguard"),
+			features.RequireEnabled(features.EncryptionPod),
 		).
 		WithCiliumPolicy(clientsEgressL7HTTPFromAnyPolicyYAML).
 		WithCiliumPolicy(echoIngressL7HTTPFromAnywherePolicyYAML).
 		WithScenarios(
-			tests.PodToPodEncryption(features.RequireEnabled(features.EncryptionPod)),
+			tests.PodToPodEncryption(),
 		)
 }
