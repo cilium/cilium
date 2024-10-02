@@ -1320,6 +1320,9 @@ const (
 
 	// EnableSourceIPVerification enables the source ip verification, defaults to true
 	EnableSourceIPVerification = "enable-source-ip-verification"
+
+	// EnableConntrackLocal enables the local conntrack functionality
+	EnableConntrackLocal = "enable-conntrack-local"
 )
 
 const (
@@ -2495,8 +2498,11 @@ type DaemonConfig struct {
 	// EnableNonDefaultDenyPolicies allows policies to define whether they are operating in default-deny mode
 	EnableNonDefaultDenyPolicies bool
 
-	// SourceIPVerification enables the source ip validation of connection from endpoints to endpoints
+	// EnableSourceIPVerification enables the source ip validation of connection from endpoints to endpoints
 	EnableSourceIPVerification bool
+
+	// EnableConntrackLocal enables the local conntrack functionality
+	EnableConntrackLocal bool
 }
 
 var (
@@ -2557,6 +2563,7 @@ var (
 		EnableNonDefaultDenyPolicies: defaults.EnableNonDefaultDenyPolicies,
 
 		EnableSourceIPVerification: defaults.EnableSourceIPVerification,
+		EnableConntrackLocal:       defaults.EnableConntrackLocal,
 	}
 )
 
@@ -3616,6 +3623,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableInternalTrafficPolicy = vp.GetBool(EnableInternalTrafficPolicy)
 
 	c.EnableSourceIPVerification = vp.GetBool(EnableSourceIPVerification)
+	c.EnableConntrackLocal = vp.GetBool(EnableConntrackLocal)
 }
 
 func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {

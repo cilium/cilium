@@ -607,6 +607,8 @@ const (
 
 	// EnableSourceIPVerification is the default value for source ip validation
 	EnableSourceIPVerification = true
+	// EnableConntrackLocal is the default value for conntrack
+	EnableConntrackLocal = true
 )
 
 var (
