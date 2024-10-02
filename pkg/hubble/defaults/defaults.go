@@ -3,6 +3,8 @@
 
 package defaults
 
+import ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
+
 const (
 	// ServerPort is the default port for hubble server when a provided
 	// listen address does not include one.
@@ -21,4 +23,8 @@ const (
 	// SensitiveValueRedacted is the string constant that is used to redact
 	// sensitive information.
 	SensitiveValueRedacted = "HUBBLE_REDACTED"
+
+	// SocketPath is the path to the UNIX domain socket exposing the Hubble API
+	// to clients locally.
+	SocketPath = ciliumDefaults.RuntimePath + "/hubble.sock"
 )

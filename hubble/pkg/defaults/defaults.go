@@ -30,14 +30,6 @@ const (
 	// TargetTLSPrefix is a scheme that indicates that the target connection
 	// requires TLS.
 	TargetTLSPrefix = "tls://"
-
-	// socketPathKey is the environment variable name to override the default
-	// socket path for observe and status commands.
-	socketPathKey = "HUBBLE_DEFAULT_SOCKET_PATH"
-
-	// socketPath is the path of the socket on which to connect to the local
-	// hubble observer. Use GetDefaultSocketPath to access it.
-	socketPath = "unix:///var/run/cilium/hubble.sock"
 )
 
 var (
@@ -72,12 +64,4 @@ func init() {
 	case ConfigDirFallback != "":
 		ConfigFile = filepath.Join(ConfigDirFallback, "config.yaml")
 	}
-}
-
-// GetSocketPath returns the default server for status and observe command.
-func GetSocketPath() string {
-	if path, ok := os.LookupEnv(socketPathKey); ok {
-		return path
-	}
-	return socketPath
 }

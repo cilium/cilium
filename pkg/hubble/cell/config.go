@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/pflag"
 
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
+	hubbleDefaults "github.com/cilium/cilium/pkg/hubble/defaults"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -30,6 +31,10 @@ type config struct {
 	// MonitorEvents specifies Cilium monitor events for Hubble to observe. By
 	// default, Hubble observes all monitor events.
 	MonitorEvents []string `mapstructure:"hubble-monitor-events"`
+
+	// SocketPath specifies the UNIX domain socket for Hubble server to listen
+	// to.
+	SocketPath string `mapstructure:"hubble-socket-path"`
 }
 
 var defaultConfig = config{
@@ -39,6 +44,8 @@ var defaultConfig = config{
 	EventQueueSize:       0, // see getDefaultMonitorQueueSize()
 	SkipUnknownCGroupIDs: true,
 	MonitorEvents:        []string{},
+	// Hubble local server configuration
+	SocketPath: hubbleDefaults.SocketPath,
 }
 
 func (def config) Flags(flags *pflag.FlagSet) {
@@ -53,6 +60,8 @@ func (def config) Flags(flags *pflag.FlagSet) {
 			strings.Join(monitorAPI.AllMessageTypeNames(), " "),
 		),
 	)
+	// Hubble local server configuration
+	flags.String("hubble-socket-path", def.SocketPath, "Set hubble's socket path to listen for connections")
 }
 
 func (cfg *config) normalize() {
