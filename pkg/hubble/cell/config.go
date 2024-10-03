@@ -35,6 +35,25 @@ type config struct {
 	// SocketPath specifies the UNIX domain socket for Hubble server to listen
 	// to.
 	SocketPath string `mapstructure:"hubble-socket-path"`
+
+	// ListenAddress specifies address for Hubble to listen to.
+	ListenAddress string `mapstructure:"hubble-listen-address"`
+	// PreferIpv6 controls whether IPv6 or IPv4 addresses should be preferred
+	// for communication to agents, if both are available.
+	PreferIpv6 bool `mapstructure:"hubble-prefer-ipv6"`
+	// DisableServerTLS allows the Hubble server to run on the given listen
+	// address without TLS.
+	DisableServerTLS bool `mapstructure:"hubble-disable-tls"`
+	// ServerTLSCertFile specifies the path to the public key file for the
+	// Hubble server. The file must contain PEM encoded data.
+	ServerTLSCertFile string `mapstructure:"hubble-tls-cert-file"`
+	// ServerTLSKeyFile specifies the path to the private key file for the
+	// Hubble server. The file must contain PEM encoded data.
+	ServerTLSKeyFile string `mapstructure:"hubble-tls-key-file"`
+	// ServerTLSClientCAFiles specifies the path to one or more client CA
+	// certificates to use for TLS with mutual authentication (mTLS). The files
+	// must contain PEM encoded data.
+	ServerTLSClientCAFiles []string `mapstructure:"hubble-tls-client-ca-files"`
 }
 
 var defaultConfig = config{
@@ -46,6 +65,13 @@ var defaultConfig = config{
 	MonitorEvents:        []string{},
 	// Hubble local server configuration
 	SocketPath: hubbleDefaults.SocketPath,
+	// Hubble TCP server configuration
+	ListenAddress:          "",
+	PreferIpv6:             false,
+	DisableServerTLS:       false,
+	ServerTLSCertFile:      "",
+	ServerTLSKeyFile:       "",
+	ServerTLSClientCAFiles: []string{},
 }
 
 func (def config) Flags(flags *pflag.FlagSet) {
@@ -62,6 +88,13 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	)
 	// Hubble local server configuration
 	flags.String("hubble-socket-path", def.SocketPath, "Set hubble's socket path to listen for connections")
+	// Hubble TCP server configuration
+	flags.String("hubble-listen-address", def.ListenAddress, `An additional address for Hubble server to listen to, e.g. ":4244"`)
+	flags.Bool("hubble-prefer-ipv6", def.PreferIpv6, "Prefer IPv6 addresses for announcing nodes when both address types are available.")
+	flags.Bool("hubble-disable-tls", def.DisableServerTLS, "Allow Hubble server to run on the given listen address without TLS.")
+	flags.String("hubble-tls-cert-file", def.ServerTLSCertFile, "Path to the public key file for the Hubble server. The file must contain PEM encoded data.")
+	flags.String("hubble-tls-key-file", def.ServerTLSKeyFile, "Path to the private key file for the Hubble server. The file must contain PEM encoded data.")
+	flags.StringSlice("hubble-tls-client-ca-files", def.ServerTLSClientCAFiles, "Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.")
 }
 
 func (cfg *config) normalize() {
