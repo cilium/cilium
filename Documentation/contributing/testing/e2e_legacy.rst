@@ -70,8 +70,8 @@ usage information.
 
    .. code-block:: shell-session
 
-      $ HELM_VERSION=3.7.0
-      $ wget "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+      $ HELM_VERSION=v3.13.1
+      $ wget "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
       $ tar -xf "helm-v${HELM_VERSION}-linux-amd64.tar.gz"
       $ mv linux-amd64/helm ./helm
 
@@ -133,7 +133,7 @@ usage information.
           -m 12G \
           -enable-kvm \
           -cpu host \
-          -hda /tmp/_images/datapath-conformance.qcow2 \
+          -drive file=/tmp/_images/datapath-conformance.qcow2,if=virtio,index=0,media=disk \
           -netdev user,id=user.0,hostfwd=tcp::2222-:22 \
           -device virtio-net-pci,netdev=user.0 \
           -fsdev local,id=host_id,path=./,security_model=none \
