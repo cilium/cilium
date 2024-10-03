@@ -58,6 +58,7 @@ concurrency:
 
 env:
   cilium_cli_ci_version:
+  test_concurrency: 5
 
 jobs:
   echo-inputs:
@@ -350,7 +351,7 @@ jobs:
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --flush-ct
+            --flush-ct --test-concurrency=${{ env.test_concurrency }}
 
       - name: Assert that no unencrypted packets are leaked
         uses: ./.github/actions/bpftrace/check
@@ -402,7 +403,7 @@ jobs:
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-            --flush-ct $TEST
+            --flush-ct --test-concurrency=${{ env.test_concurrency }} $TEST
 
       - name: Assert that no unencrypted packets are leaked during tests
         uses: ./.github/actions/bpftrace/check
