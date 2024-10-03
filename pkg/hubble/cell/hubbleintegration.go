@@ -403,16 +403,16 @@ func (h *Hubble) Launch(ctx context.Context) {
 		observeroption.WithMaxFlows(maxFlows),
 		observeroption.WithMonitorBuffer(h.config.EventQueueSize),
 	)
-	if option.Config.HubbleExportFilePath != "" {
+	if h.config.ExportFilePath != "" {
 		exporterOpts := []exporteroption.Option{
-			exporteroption.WithPath(option.Config.HubbleExportFilePath),
-			exporteroption.WithMaxSizeMB(option.Config.HubbleExportFileMaxSizeMB),
-			exporteroption.WithMaxBackups(option.Config.HubbleExportFileMaxBackups),
-			exporteroption.WithAllowList(logger, option.Config.HubbleExportAllowlist),
-			exporteroption.WithDenyList(logger, option.Config.HubbleExportDenylist),
-			exporteroption.WithFieldMask(option.Config.HubbleExportFieldmask),
+			exporteroption.WithPath(h.config.ExportFilePath),
+			exporteroption.WithMaxSizeMB(h.config.ExportFileMaxSizeMB),
+			exporteroption.WithMaxBackups(h.config.ExportFileMaxBackups),
+			exporteroption.WithAllowList(logger, h.config.ExportAllowlist),
+			exporteroption.WithDenyList(logger, h.config.ExportDenylist),
+			exporteroption.WithFieldMask(h.config.ExportFieldmask),
 		}
-		if option.Config.HubbleExportFileCompress {
+		if h.config.ExportFileCompress {
 			exporterOpts = append(exporterOpts, exporteroption.WithCompress())
 		}
 		hubbleExporter, err := exporter.NewExporter(ctx, logger, exporterOpts...)
@@ -423,8 +423,8 @@ func (h *Hubble) Launch(ctx context.Context) {
 			observerOpts = append(observerOpts, opt)
 		}
 	}
-	if option.Config.HubbleFlowlogsConfigFilePath != "" {
-		dynamicHubbleExporter := exporter.NewDynamicExporter(logger, option.Config.HubbleFlowlogsConfigFilePath, option.Config.HubbleExportFileMaxSizeMB, option.Config.HubbleExportFileMaxBackups)
+	if h.config.FlowlogsConfigFilePath != "" {
+		dynamicHubbleExporter := exporter.NewDynamicExporter(logger, h.config.FlowlogsConfigFilePath, h.config.ExportFileMaxSizeMB, h.config.ExportFileMaxBackups)
 		opt := observeroption.WithOnDecodedEvent(dynamicHubbleExporter)
 		observerOpts = append(observerOpts, opt)
 	}
