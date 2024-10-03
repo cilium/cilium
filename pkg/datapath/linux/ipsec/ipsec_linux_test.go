@@ -16,18 +16,28 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
+var (
+	// User a mutex to force the ipsec tests to not run in parallel.
+	// If the ipsec tests run in parallel there were packages modifying xfrm
+	// states/policies concurrently which was causing flakes.
+	mutex lock.Mutex
+)
+
 func setupIPSecSuitePrivileged(tb testing.TB) *slog.Logger {
 	testutils.PrivilegedTest(tb)
+	mutex.Lock()
 	node.SetTestLocalNodeStore()
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 	log := hivetest.Logger(tb)
 
 	tb.Cleanup(func() {
+		defer mutex.Unlock()
 		UnsetTestIPSecKey()
 		node.UnsetTestLocalNodeStore()
 		err := DeleteXFRM(log, AllReqID)
