@@ -10,6 +10,7 @@ import (
 // NewFakeBGPInstance is fake BGP instance, to be used in unit tests.
 func NewFakeBGPInstance() *BGPInstance {
 	return &BGPInstance{
+		Name:     "fake-instance",
 		Config:   nil,
 		Router:   types.NewFakeRouter(),
 		Metadata: make(map[string]any),
