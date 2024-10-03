@@ -1072,6 +1072,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	void __maybe_unused *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
+	int __maybe_unused l4_off = 0;
+	__u8 __maybe_unused next_proto = 0;
 	__s8 __maybe_unused ext_err = 0;
 	int ret;
 
@@ -1170,6 +1172,15 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		}
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6) */
 
+#ifdef ENABLE_WIREGUARD
+		if (!from_host) {
+			next_proto = ip6->nexthdr;
+			l4_off = ETH_HLEN + ipv6_hdrlen(ctx, &next_proto);
+			if (ctx_is_wireguard(ctx, l4_off, next_proto, ipcache_srcid))
+				trace.reason = TRACE_REASON_ENCRYPTED;
+		}
+#endif /* ENABLE_WIREGUARD */
+
 		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor);
 
@@ -1203,6 +1214,15 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
 		}
 # endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4) */
+
+#ifdef ENABLE_WIREGUARD
+		if (!from_host) {
+			next_proto = ip4->protocol;
+			l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+			if (ctx_is_wireguard(ctx, l4_off, next_proto, ipcache_srcid))
+				trace.reason = TRACE_REASON_ENCRYPTED;
+		}
+#endif /* ENABLE_WIREGUARD */
 
 		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor);
