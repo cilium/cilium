@@ -40,6 +40,15 @@ type LBServiceReconcilerMetadata map[resource.Key][]*types.Path
 
 type localServices map[k8s.ServiceID]struct{}
 
+// pathReference holds reference information about an advertised path
+type pathReference struct {
+	count uint32
+	path  *types.Path
+}
+
+// pathReferencesMap holds path references of resources producing path advertisement, indexed by path's NLRI string
+type pathReferencesMap map[string]*pathReference
+
 func NewLBServiceReconciler(diffStore store.DiffStore[*slim_corev1.Service], epDiffStore store.DiffStore[*k8s.Endpoints]) LBServiceReconcilerOut {
 	if diffStore == nil {
 		return LBServiceReconcilerOut{}
@@ -87,10 +96,13 @@ func (r *LBServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 		return err
 	}
 
+	// compute existing path to resource references
+	pathRefs := r.computePathReferences(r.getMetadata(p.CurrentServer))
+
 	if r.requiresFullReconciliation(p) {
-		return r.fullReconciliation(ctx, p.CurrentServer, p.DesiredConfig, ls)
+		return r.fullReconciliation(ctx, p.CurrentServer, p.DesiredConfig, ls, pathRefs)
 	}
-	return r.svcDiffReconciliation(ctx, p.CurrentServer, p.DesiredConfig, ls)
+	return r.svcDiffReconciliation(ctx, p.CurrentServer, p.DesiredConfig, ls, pathRefs)
 }
 
 func (r *LBServiceReconciler) getMetadata(sc *instance.ServerWithConfig) LBServiceReconcilerMetadata {
@@ -174,18 +186,18 @@ func hasLocalEndpoints(svc *slim_corev1.Service, ls localServices) bool {
 
 // fullReconciliation reconciles all services, this is a heavy operation due to the potential amount of services and
 // thus should be avoided if partial reconciliation is an option.
-func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, sc *instance.ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, ls localServices) error {
+func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, sc *instance.ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, ls localServices, pathRefs pathReferencesMap) error {
 	toReconcile, toWithdraw, err := r.fullReconciliationServiceList(sc)
 	if err != nil {
 		return err
 	}
 	for _, svc := range toReconcile {
-		if err := r.reconcileService(ctx, sc, newc, svc, ls); err != nil {
+		if err := r.reconcileService(ctx, sc, newc, svc, ls, pathRefs); err != nil {
 			return fmt.Errorf("failed to reconcile service %s/%s: %w", svc.Namespace, svc.Name, err)
 		}
 	}
 	for _, svc := range toWithdraw {
-		if err := r.withdrawService(ctx, sc, svc); err != nil {
+		if err := r.withdrawService(ctx, sc, svc, pathRefs); err != nil {
 			return fmt.Errorf("failed to withdraw service %s/%s: %w", svc.Namespace, svc.Name, err)
 		}
 	}
@@ -194,19 +206,19 @@ func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, sc *instan
 
 // svcDiffReconciliation performs reconciliation, only on services which have been created, updated or deleted since
 // the last diff reconciliation.
-func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *instance.ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, ls localServices) error {
+func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *instance.ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, ls localServices, pathRefs pathReferencesMap) error {
 	toReconcile, toWithdraw, err := r.diffReconciliationServiceList(sc)
 	if err != nil {
 		return err
 	}
 	for _, svc := range toReconcile {
-		if err := r.reconcileService(ctx, sc, newc, svc, ls); err != nil {
+		if err := r.reconcileService(ctx, sc, newc, svc, ls, pathRefs); err != nil {
 			return fmt.Errorf("failed to reconcile service %s/%s: %w", svc.Namespace, svc.Name, err)
 		}
 	}
 	// Loop over the deleted services
 	for _, svcKey := range toWithdraw {
-		if err := r.withdrawService(ctx, sc, svcKey); err != nil {
+		if err := r.withdrawService(ctx, sc, svcKey, pathRefs); err != nil {
 			return fmt.Errorf("failed to withdraw service %s: %w", svcKey, err)
 		}
 	}
@@ -353,18 +365,18 @@ func (r *LBServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtua
 }
 
 // reconcileService gets the desired routes of a given service and makes sure that is what is being announced.
-func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *instance.ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service, ls localServices) error {
+func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *instance.ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service, ls localServices, pathRefs pathReferencesMap) error {
 
 	desiredRoutes, err := r.svcDesiredRoutes(newc, svc, ls)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve svc desired routes: %w", err)
 	}
-	return r.reconcileServiceRoutes(ctx, sc, svc, desiredRoutes)
+	return r.reconcileServiceRoutes(ctx, sc, svc, desiredRoutes, pathRefs)
 }
 
 // reconcileServiceRoutes ensures that desired routes of a given service are announced,
 // adding missing announcements or withdrawing unwanted ones.
-func (r *LBServiceReconciler) reconcileServiceRoutes(ctx context.Context, sc *instance.ServerWithConfig, svc *slim_corev1.Service, desiredRoutes []netip.Prefix) error {
+func (r *LBServiceReconciler) reconcileServiceRoutes(ctx context.Context, sc *instance.ServerWithConfig, svc *slim_corev1.Service, desiredRoutes []netip.Prefix, pathRefs pathReferencesMap) error {
 	serviceAnnouncements := r.getMetadata(sc)
 	svcKey := resource.NewKey(svc)
 
@@ -375,15 +387,12 @@ func (r *LBServiceReconciler) reconcileServiceRoutes(ctx context.Context, sc *in
 		}) != -1 {
 			continue
 		}
-
 		// Advertise the new cidr
-		advertPathResp, err := sc.Server.AdvertisePath(ctx, types.PathRequest{
-			Path: types.NewPathForPrefix(desiredCidr),
-		})
+		path, err := r.advertisePath(ctx, sc, pathRefs, desiredCidr)
 		if err != nil {
-			return fmt.Errorf("failed to advertise service route %v: %w", desiredCidr, err)
+			return err
 		}
-		serviceAnnouncements[svcKey] = append(serviceAnnouncements[svcKey], advertPathResp.Path)
+		serviceAnnouncements[svcKey] = append(serviceAnnouncements[svcKey], path)
 	}
 
 	// Loop over announcements in reverse order so we can delete entries without effecting iteration.
@@ -395,11 +404,9 @@ func (r *LBServiceReconciler) reconcileServiceRoutes(ctx context.Context, sc *in
 		}) != -1 {
 			continue
 		}
-
-		if err := sc.Server.WithdrawPath(ctx, types.PathRequest{Path: announcement}); err != nil {
-			return fmt.Errorf("failed to withdraw service route %s: %w", announcement.NLRI, err)
+		if err := r.withdrawPath(ctx, sc, pathRefs, announcement); err != nil {
+			return err
 		}
-
 		// Delete announcement from slice
 		serviceAnnouncements[svcKey] = slices.Delete(serviceAnnouncements[svcKey], i, i+1)
 	}
@@ -407,16 +414,17 @@ func (r *LBServiceReconciler) reconcileServiceRoutes(ctx context.Context, sc *in
 }
 
 // withdrawService removes all announcements for the given service
-func (r *LBServiceReconciler) withdrawService(ctx context.Context, sc *instance.ServerWithConfig, key resource.Key) error {
+func (r *LBServiceReconciler) withdrawService(ctx context.Context, sc *instance.ServerWithConfig, key resource.Key, pathRefs pathReferencesMap) error {
 	serviceAnnouncements := r.getMetadata(sc)
 	advertisements := serviceAnnouncements[key]
 	// Loop in reverse order so we can delete without effect to the iteration.
 	for i := len(advertisements) - 1; i >= 0; i-- {
 		advertisement := advertisements[i]
-		if err := sc.Server.WithdrawPath(ctx, types.PathRequest{Path: advertisement}); err != nil {
+
+		if err := r.withdrawPath(ctx, sc, pathRefs, advertisement); err != nil {
 			// Persist remaining advertisements
 			serviceAnnouncements[key] = advertisements
-			return fmt.Errorf("failed to withdraw deleted service route: %v: %w", advertisement.NLRI, err)
+			return err
 		}
 
 		// Delete the advertisement after each withdraw in case we error half way through
@@ -431,6 +439,62 @@ func (r *LBServiceReconciler) withdrawService(ctx context.Context, sc *instance.
 
 func (r *LBServiceReconciler) diffID(asn uint32) string {
 	return fmt.Sprintf("%s-%d", r.Name(), asn)
+}
+
+func (r *LBServiceReconciler) advertisePath(ctx context.Context, sc *instance.ServerWithConfig, pathRefs pathReferencesMap, prefix netip.Prefix) (*types.Path, error) {
+	if ref, exists := pathRefs[prefix.String()]; exists && ref.count > 0 {
+		// path already advertised for another resource
+		ref.count += 1
+		return ref.path, nil
+	}
+
+	advertPathResp, err := sc.Server.AdvertisePath(ctx, types.PathRequest{
+		Path: types.NewPathForPrefix(prefix),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to advertise service route %v: %w", prefix, err)
+	}
+
+	// set only in case of no error
+	pathRefs[prefix.String()] = &pathReference{
+		count: 1,
+		path:  advertPathResp.Path,
+	}
+	return advertPathResp.Path, nil
+}
+
+func (r *LBServiceReconciler) withdrawPath(ctx context.Context, sc *instance.ServerWithConfig, pathRefs pathReferencesMap, path *types.Path) error {
+	if ref, exists := pathRefs[path.NLRI.String()]; exists && ref.count > 1 {
+		// path still needs to be advertised for another resource
+		ref.count -= 1
+		return nil
+	}
+
+	if err := sc.Server.WithdrawPath(ctx, types.PathRequest{Path: path}); err != nil {
+		return fmt.Errorf("failed to withdraw service route %s: %w", path.NLRI, err)
+	}
+
+	// delete only in case of no error
+	delete(pathRefs, path.NLRI.String())
+	return nil
+}
+
+func (r *LBServiceReconciler) computePathReferences(metadata LBServiceReconcilerMetadata) pathReferencesMap {
+	pathRefs := make(pathReferencesMap)
+	for _, resPaths := range metadata {
+		for _, path := range resPaths {
+			ref, exists := pathRefs[path.NLRI.String()]
+			if !exists {
+				pathRefs[path.NLRI.String()] = &pathReference{
+					count: 1,
+					path:  path,
+				}
+			} else {
+				ref.count += 1
+			}
+		}
+	}
+	return pathRefs
 }
 
 func serviceLabelSet(svc *slim_corev1.Service) labels.Labels {
