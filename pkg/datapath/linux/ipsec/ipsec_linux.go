@@ -47,6 +47,7 @@ type IPSecDir string
 const (
 	IPSecDirIn      IPSecDir = "IPSEC_IN"
 	IPSecDirOut     IPSecDir = "IPSEC_OUT"
+	IPSecDirFwd     IPSecDir = "IPSEC_FWD"
 	IPSecDirBoth    IPSecDir = "IPSEC_BOTH"
 	IPSecDirOutNode IPSecDir = "IPSEC_OUT_NODE"
 
@@ -550,10 +551,8 @@ func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, prox
 	key.ReqID = reqID
 
 	wildcardIP := wildcardIPv4
-	wildcardCIDR := wildcardCIDRv4
 	if tmplDst.To4() == nil {
 		wildcardIP = wildcardIPv6
-		wildcardCIDR = wildcardCIDRv6
 	}
 
 	policy := ipSecNewPolicy()
@@ -580,17 +579,6 @@ func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, prox
 			policy.Mark.Value = linux_defaults.RouteMarkDecrypt
 		}
 	}
-	// We always make forward rules optional. The only reason we have these
-	// at all is to appease the XFRM route hooks, we don't really care about
-	// policy because Cilium BPF programs do that.
-	if dir == netlink.XFRM_DIR_FWD {
-		optional = 1
-		policy.Priority = linux_defaults.IPsecFwdPriority
-		// In case of fwd policies, we should tell the kernel the tmpl src
-		// doesn't matter; we want all fwd packets to go through.
-		policy.Src = wildcardCIDR
-		policy.Dst = wildcardCIDR
-	}
 	ipSecAttachPolicyTempl(policy, key, tmplSrc, tmplDst, false, optional)
 	return netlink.XfrmPolicyUpdate(policy)
 }
@@ -603,8 +591,30 @@ func ipSecReplacePolicyIn(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, reqID in
 }
 
 func IpSecReplacePolicyFwd(dst *net.IPNet, tmplDst net.IP, reqID int) error {
-	// The source CIDR and IP aren't used in the case of FWD policies.
-	return _ipSecReplacePolicyInFwd(nil, dst, net.IP{}, tmplDst, false, netlink.XFRM_DIR_FWD, reqID)
+	// We can use the global IPsec key here because we are not going to
+	// actually use the secret itself.
+	key := getGlobalIPsecKey(dst.IP)
+	if key == nil {
+		return fmt.Errorf("IPSec key missing")
+	}
+	key.ReqID = reqID
+
+	wildcardCIDR := wildcardCIDRv4
+	if tmplDst.To4() == nil {
+		wildcardCIDR = wildcardCIDRv6
+	}
+
+	policy := ipSecNewPolicy()
+	optional := 1
+	policy.Dir = netlink.XFRM_DIR_FWD
+	policy.Priority = linux_defaults.IPsecFwdPriority
+	// In case of fwd policies, we should tell the kernel the tmpl src
+	// doesn't matter; we want all fwd packets to go through.
+	policy.Src = wildcardCIDR
+	policy.Dst = wildcardCIDR
+
+	ipSecAttachPolicyTempl(policy, key, net.IP{}, tmplDst, false, optional)
+	return netlink.XfrmPolicyUpdate(policy)
 }
 
 // Installs a catch-all policy for outgoing traffic that has the encryption
@@ -906,6 +916,9 @@ func UpsertIPsecEndpoint(log *slog.Logger, local, remote *net.IPNet, outerLocal,
 					return 0, fmt.Errorf("unable to replace policy in: %w", err)
 				}
 			}
+		}
+
+		if dir == IPSecDirFwd {
 			if err = IpSecReplacePolicyFwd(local, outerLocal, reqID); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy fwd: %w", err)
