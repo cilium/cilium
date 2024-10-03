@@ -1026,28 +1026,12 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			})
 		}
 
+		// Delete covered allow entries.
 		ms.allows.ForEachNarrowerOrEqualKey(newKey, func(k Key, v MapStateEntry) bool {
-			// If newKey has a broader (or equal) port-protocol and the newKey's
-			// identity is a superset (or same) of the iterated identity, then we should
-			// either delete the iterated-allow-entry (if the identity is the same or
-			// the newKey is L3 wildcard), or change it to a deny entry otherwise
-			if newKey.Identity == 0 || newKey.Identity == k.Identity {
-				deletes = append(deletes, k)
-			} else {
-				// When newKey.Identity is not ANY and is different from the subset
-				// key, we must keep the subset key and make it a deny instead.
-				// Note that these security identities have no numerical relation to
-				// each other (e.g, they could be any numbers X and Y) and the
-				// datapath does an exact match on them.
-				l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
-				updates = append(updates, MapChange{
-					Add:   true,
-					Key:   k,
-					Value: l3l4DenyEntry,
-				})
-			}
+			deletes = append(deletes, k)
 			return true
 		})
+
 		// Not adding the new L3/L4 deny entries yet so that we do not need to worry about
 		// them below.
 
@@ -1082,31 +1066,13 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		// Test for bailed case first so that we avoid unnecessary computation if entry is
 		// not going to be added, or is going to be changed to a deny entry.
 		bailed := false
-		insertAsDeny := false
-		var denyEntry MapStateEntry
+
+		// Bail out if there is a covering deny entry.
 		ms.denies.ForEachBroaderOrEqualKey(newKey, func(k Key, v MapStateEntry) bool {
-			// If the iterated-deny-entry is a wildcard or has the same identity then it
-			// can be bailed out.
-			if k.Identity == 0 || k.Identity == newKey.Identity {
-				bailed = true
-				return false
-			}
-			// if any deny key covers this new allow key, then it needs to be inserted
-			// as deny, if not bailed out.
-			if !insertAsDeny {
-				insertAsDeny = true
-				denyEntry = NewMapStateEntry(k, v.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
-			} else {
-				// Collect the owners and labels of all the contributing deny rules
-				denyEntry.merge(&v)
-			}
-			return true
+			bailed = true
+			return false
 		})
 		if bailed {
-			return
-		}
-		if insertAsDeny {
-			ms.authPreferredInsert(newKey, denyEntry, features, changes)
 			return
 		}
 
