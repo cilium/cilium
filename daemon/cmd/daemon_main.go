@@ -885,24 +885,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.PolicyAccountingArg, true, "Enable policy accounting")
 	option.BindEnv(vp, option.PolicyAccountingArg)
 
-	flags.String(option.HubbleListenAddress, "", `An additional address for Hubble server to listen to, e.g. ":4244"`)
-	option.BindEnv(vp, option.HubbleListenAddress)
-
-	flags.Bool(option.HubblePreferIpv6, false, "Prefer IPv6 addresses for announcing nodes when both address types are available.")
-	option.BindEnv(vp, option.HubblePreferIpv6)
-
-	flags.Bool(option.HubbleTLSDisabled, false, "Allow Hubble server to run on the given listen address without TLS.")
-	option.BindEnv(vp, option.HubbleTLSDisabled)
-
-	flags.String(option.HubbleTLSCertFile, "", "Path to the public key file for the Hubble server. The file must contain PEM encoded data.")
-	option.BindEnv(vp, option.HubbleTLSCertFile)
-
-	flags.String(option.HubbleTLSKeyFile, "", "Path to the private key file for the Hubble server. The file must contain PEM encoded data.")
-	option.BindEnv(vp, option.HubbleTLSKeyFile)
-
-	flags.StringSlice(option.HubbleTLSClientCAFiles, []string{}, "Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.")
-	option.BindEnv(vp, option.HubbleTLSClientCAFiles)
-
 	flags.String(option.HubbleMetricsServer, "", "Address to serve Hubble metrics on.")
 	option.BindEnv(vp, option.HubbleMetricsServer)
 

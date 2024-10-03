@@ -972,30 +972,6 @@ const (
 	// PolicyAccountingArg argument enable policy accounting.
 	PolicyAccountingArg = "policy-accounting"
 
-	// HubbleListenAddress specifies address for Hubble server to listen to.
-	HubbleListenAddress = "hubble-listen-address"
-
-	// HubblePreferIpv6 controls whether IPv6 or IPv4 addresses should be preferred for
-	// communication to agents, if both are available.
-	HubblePreferIpv6 = "hubble-prefer-ipv6"
-
-	// HubbleTLSDisabled allows the Hubble server to run on the given listen
-	// address without TLS.
-	HubbleTLSDisabled = "hubble-disable-tls"
-
-	// HubbleTLSCertFile specifies the path to the public key file for the
-	// Hubble server. The file must contain PEM encoded data.
-	HubbleTLSCertFile = "hubble-tls-cert-file"
-
-	// HubbleTLSKeyFile specifies the path to the private key file for the
-	// Hubble server. The file must contain PEM encoded data.
-	HubbleTLSKeyFile = "hubble-tls-key-file"
-
-	// HubbleTLSClientCAFiles specifies the path to one or more client CA
-	// certificates to use for TLS with mutual authentication (mTLS). The files
-	// must contain PEM encoded data.
-	HubbleTLSClientCAFiles = "hubble-tls-client-ca-files"
-
 	// HubbleMetricsServer specifies the addresses to serve Hubble metrics on.
 	HubbleMetricsServer = "hubble-metrics-server"
 
@@ -2130,30 +2106,6 @@ type DaemonConfig struct {
 
 	// PolicyAccounting enable policy accounting
 	PolicyAccounting bool
-
-	// HubbleListenAddress specifies address for Hubble to listen to.
-	HubbleListenAddress string
-
-	// HubblePreferIpv6 controls whether IPv6 or IPv4 addresses should be preferred for
-	// communication to agents, if both are available.
-	HubblePreferIpv6 bool
-
-	// HubbleTLSDisabled allows the Hubble server to run on the given listen
-	// address without TLS.
-	HubbleTLSDisabled bool
-
-	// HubbleTLSCertFile specifies the path to the public key file for the
-	// Hubble server. The file must contain PEM encoded data.
-	HubbleTLSCertFile string
-
-	// HubbleTLSKeyFile specifies the path to the private key file for the
-	// Hubble server. The file must contain PEM encoded data.
-	HubbleTLSKeyFile string
-
-	// HubbleTLSClientCAFiles specifies the path to one or more client CA
-	// certificates to use for TLS with mutual authentication (mTLS). The files
-	// must contain PEM encoded data.
-	HubbleTLSClientCAFiles []string
 
 	// HubbleMetricsServer specifies the addresses to serve Hubble metrics on.
 	HubbleMetricsServer string
@@ -3450,12 +3402,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	// Hubble options.
 	c.EnableHubbleOpenMetrics = vp.GetBool(EnableHubbleOpenMetrics)
-	c.HubbleListenAddress = vp.GetString(HubbleListenAddress)
-	c.HubblePreferIpv6 = vp.GetBool(HubblePreferIpv6)
-	c.HubbleTLSDisabled = vp.GetBool(HubbleTLSDisabled)
-	c.HubbleTLSCertFile = vp.GetString(HubbleTLSCertFile)
-	c.HubbleTLSKeyFile = vp.GetString(HubbleTLSKeyFile)
-	c.HubbleTLSClientCAFiles = vp.GetStringSlice(HubbleTLSClientCAFiles)
 	c.HubbleMetricsServer = vp.GetString(HubbleMetricsServer)
 	c.HubbleMetricsServerTLSEnabled = vp.GetBool(HubbleMetricsTLSEnabled)
 	c.HubbleMetricsServerTLSCertFile = vp.GetString(HubbleMetricsTLSCertFile)

@@ -444,17 +444,19 @@ func (h *Hubble) Launch(ctx context.Context) {
 	go hubbleObserver.Start()
 	h.MonitorAgent.RegisterNewConsumer(monitor.NewConsumer(hubbleObserver))
 
-	// configure a local hubble instance that serves more gRPC services
+	// configure a local hubble server listening on a local UNIX domain socket.
+	// This server can be used by the Hubble CLI when invoked from within the
+	// cilium Pod, typically in troubleshooting scenario.
 	sockPath := "unix://" + h.config.SocketPath
 	var peerServiceOptions []serviceoption.Option
-	if option.Config.HubbleTLSDisabled {
+	if h.config.DisableServerTLS {
 		peerServiceOptions = append(peerServiceOptions, serviceoption.WithoutTLSInfo())
 	}
-	if option.Config.HubblePreferIpv6 {
+	if h.config.PreferIpv6 {
 		peerServiceOptions = append(peerServiceOptions, serviceoption.WithAddressFamilyPreference(serviceoption.AddressPreferIPv6))
 	}
-	if addr := option.Config.HubbleListenAddress; addr != "" {
-		port, err := getPort(option.Config.HubbleListenAddress)
+	if addr := h.config.ListenAddress; addr != "" {
+		port, err := getPort(h.config.ListenAddress)
 		if err != nil {
 			logger.WithError(err).WithField("address", addr).Warn("Hubble server will not pass port information in change notificantions on exposed Hubble peer service")
 		} else {
@@ -506,10 +508,11 @@ func (h *Hubble) Launch(ctx context.Context) {
 		}
 	}()
 
-	// configure another hubble instance that serve fewer gRPC services
-	address := option.Config.HubbleListenAddress
+	// configure another hubble server listening on TCP. This server is
+	// typically queried by Hubble Relay.
+	address := h.config.ListenAddress
 	if address != "" {
-		if option.Config.HubbleTLSDisabled {
+		if h.config.DisableServerTLS {
 			logger.WithField("address", address).Warn("Hubble server will be exposing its API insecurely on this address")
 		}
 		options := []serveroption.Option{
@@ -521,14 +524,14 @@ func (h *Hubble) Launch(ctx context.Context) {
 
 		// Hubble TLS/mTLS setup.
 		var tlsServerConfig *certloader.WatchedServerConfig
-		if option.Config.HubbleTLSDisabled {
+		if h.config.DisableServerTLS {
 			options = append(options, serveroption.WithInsecure())
 		} else {
 			tlsServerConfigChan, err := certloader.FutureWatchedServerConfig(
 				logger.WithField("config", "tls-server"),
-				option.Config.HubbleTLSClientCAFiles,
-				option.Config.HubbleTLSCertFile,
-				option.Config.HubbleTLSKeyFile,
+				h.config.ServerTLSClientCAFiles,
+				h.config.ServerTLSCertFile,
+				h.config.ServerTLSKeyFile,
 			)
 			if err != nil {
 				logger.WithError(err).Error("Failed to initialize Hubble server TLS configuration")
@@ -559,7 +562,7 @@ func (h *Hubble) Launch(ctx context.Context) {
 
 		logger.WithFields(logrus.Fields{
 			"address": address,
-			"tls":     !option.Config.HubbleTLSDisabled,
+			"tls":     !h.config.DisableServerTLS,
 		}).Info("Starting Hubble server")
 		go func() {
 			if err := srv.Serve(); err != nil {
