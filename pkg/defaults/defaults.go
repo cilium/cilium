@@ -72,13 +72,6 @@ const (
 	// SockPathEnv is the environment variable to overwrite SockPath
 	SockPathEnv = "CILIUM_SOCK"
 
-	// HubbleRecorderStoragePath specifies the directory in which pcap files
-	// created via the Hubble Recorder API are stored
-	HubbleRecorderStoragePath = RuntimePath + "/pcaps"
-
-	// HubbleRecorderSinkQueueSize is the queue size for each recorder sink
-	HubbleRecorderSinkQueueSize = 1024
-
 	// HubbleRedactEnabled controls if sensitive information will be redacted from L7 flows
 	HubbleRedactEnabled = false
 
