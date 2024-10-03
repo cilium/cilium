@@ -586,7 +586,7 @@ func ipSecReplaceStateOut(log *slog.Logger, params *IPSecParameters) (uint8, err
 	return key.Spi, xfrmStateReplace(log, state, params.RemoteRebooted)
 }
 
-func _ipSecReplacePolicyInFwd(params *IPSecParameters, proxyMark bool, dir netlink.Dir) error {
+func _ipSecReplacePolicyIn(params *IPSecParameters, proxyMark bool, dir netlink.Dir) error {
 	optional := int(0)
 	// We can use the global IPsec key here because we are not going to
 	// actually use the secret itself.
@@ -632,10 +632,10 @@ func _ipSecReplacePolicyInFwd(params *IPSecParameters, proxyMark bool, dir netli
 }
 
 func ipSecReplacePolicyIn(params *IPSecParameters) error {
-	if err := _ipSecReplacePolicyInFwd(params, true, netlink.XFRM_DIR_IN); err != nil {
+	if err := _ipSecReplacePolicyIn(params, true, netlink.XFRM_DIR_IN); err != nil {
 		return err
 	}
-	return _ipSecReplacePolicyInFwd(params, false, netlink.XFRM_DIR_IN)
+	return _ipSecReplacePolicyIn(params, false, netlink.XFRM_DIR_IN)
 }
 
 func IpSecReplacePolicyFwd(params *IPSecParameters) error {
