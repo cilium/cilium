@@ -46,6 +46,7 @@ cilium-agent hive dot-graph [flags]
       --enable-dynamic-config                                     Enables support for dynamic agent config
       --enable-gateway-api                                        Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-hubble                                             Enable hubble server (default true)
+      --enable-hubble-open-metrics                                Enable exporting hubble metrics in OpenMetrics format
       --enable-ingress-controller                                 Enables Envoy secret sync for Ingress controller related TLS secrets
       --enable-ipv4-big-tcp                                       Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4
       --enable-ipv6-big-tcp                                       Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6
@@ -77,6 +78,7 @@ cilium-agent hive dot-graph [flags]
       --hubble-event-buffer-capacity int                          Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535) (default 4095)
       --hubble-event-queue-size int                               Buffer size of the channel to receive monitor events.
       --hubble-listen-address string                              An additional address for Hubble server to listen to, e.g. ":4244"
+      --hubble-metrics strings                                    List of Hubble metrics to enable.
       --hubble-monitor-events strings                             Cilium monitor events for Hubble to observe: [drop debug capture trace policy-verdict recorder trace-sock l7 agent]. By default, Hubble observes all monitor events.
       --hubble-prefer-ipv6                                        Prefer IPv6 addresses for announcing nodes when both address types are available.
       --hubble-skip-unknown-cgroup-ids                            Skip Hubble events with unknown cgroup ids (default true)
