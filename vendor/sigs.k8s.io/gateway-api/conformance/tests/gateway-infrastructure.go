@@ -43,6 +43,7 @@ var GatewayInfrastructure = suite.ConformanceTest{
 		features.SupportGateway,
 		features.SupportGatewayInfrastructurePropagation,
 	},
+	Provisional: true,
 	Manifests: []string{
 		"tests/gateway-infrastructure.yaml",
 	},
