@@ -1430,10 +1430,16 @@ func TestDecode_DropNotify(t *testing.T) {
 			name: "drop_unknown",
 			event: monitor.DropNotify{
 				Type: byte(monitorAPI.MessageTypeDrop),
+				File: 2,
+				Line: 42,
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{
 				Source: &flowpb.Endpoint{ID: 1234},
+				File: &flowpb.FileInfo{
+					Name: "bpf_lxc.c",
+					Line: 42,
+				},
 			},
 		},
 		{
@@ -1441,11 +1447,17 @@ func TestDecode_DropNotify(t *testing.T) {
 			event: monitor.DropNotify{
 				Type:   byte(monitorAPI.MessageTypeDrop),
 				Source: localEP,
+				File:   6,
+				Line:   12,
 			},
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{
 				Source:           &flowpb.Endpoint{ID: 1234},
 				TrafficDirection: flowpb.TrafficDirection_EGRESS,
+				File: &flowpb.FileInfo{
+					Name: "bpf_network.c",
+					Line: 12,
+				},
 			},
 		},
 		{
@@ -1453,6 +1465,8 @@ func TestDecode_DropNotify(t *testing.T) {
 			event: monitor.DropNotify{
 				Type:   byte(monitorAPI.MessageTypeDrop),
 				Source: localEP,
+				File:   4,
+				Line:   44,
 			},
 			ipTuple: ingressTuple,
 			want: &flowpb.Flow{
@@ -1464,6 +1478,10 @@ func TestDecode_DropNotify(t *testing.T) {
 					ID: uint32(localEP),
 				},
 				TrafficDirection: flowpb.TrafficDirection_INGRESS,
+				File: &flowpb.FileInfo{
+					Name: "bpf_xdp.c",
+					Line: 44,
+				},
 			},
 		},
 	}
