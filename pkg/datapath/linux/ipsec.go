@@ -286,6 +286,10 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 			statesUpdated = false
 		}
 
+		if err = ipsec.IpSecReplacePolicyFwd(wildcardCIDR, localUnderlayIP, ipsec.DefaultReqID); err != nil {
+			n.log.Warn("egress unable to replace policy fwd", logfields.Error, err)
+		}
+
 		spi, err = ipsec.UpsertIPsecEndpoint(n.log, localOverlayIPExactMatch, remoteOverlayIPExactMatch, localUnderlayIP, remoteUnderlayIP, nodeID, newNode.BootID, ipsec.IPSecDirIn, false, updateExisting, ipsec.EncryptedOverlayReqID)
 		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "overlay in IPv4", localOverlayIPExactMatch, remoteOverlayIPExactMatch, spi, nodeID))
 		if err != nil {
@@ -366,6 +370,10 @@ func (n *linuxNodeHandler) enableIPSecIPv6DoSubnetEncryption(newNode *nodeTypes.
 			statesUpdated = false
 		}
 
+		if err = ipsec.IpSecReplacePolicyFwd(wildcardCIDR6, localIP, ipsec.DefaultReqID); err != nil {
+			n.log.Warn("egress unable to replace policy fwd", logfields.Error, err)
+		}
+
 		spi, err = ipsec.UpsertIPsecEndpoint(n.log, wildcardCIDR6, cidr, localCiliumInternalIP, remoteCiliumInternalIP, nodeID, newNode.BootID, ipsec.IPSecDirIn, zeroMark, updateExisting, ipsec.DefaultReqID)
 		errs = errors.Join(errs, upsertIPsecLog(n.log, err, "in CiliumInternalIPv6", wildcardCIDR, cidr, spi, nodeID))
 		if err != nil {
@@ -405,6 +413,10 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(newNode *nodeTypes.Node, nodeID uin
 	errs = errors.Join(errs, upsertIPsecLog(n.log, err, "out IPv6", wildcardCIDR, remoteCIDR, spi, nodeID))
 	if err != nil {
 		statesUpdated = false
+	}
+
+	if err = ipsec.IpSecReplacePolicyFwd(wildcardCIDR6, localIP, ipsec.DefaultReqID); err != nil {
+		n.log.Warn("egress unable to replace policy fwd", logfields.Error, err)
 	}
 
 	spi, err = ipsec.UpsertIPsecEndpoint(n.log, localCIDR, wildcardCIDR6, localIP, remoteIP, nodeID, newNode.BootID, ipsec.IPSecDirIn, false, updateExisting, ipsec.DefaultReqID)
