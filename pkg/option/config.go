@@ -969,17 +969,6 @@ const (
 	// PolicyAccountingArg argument enable policy accounting.
 	PolicyAccountingArg = "policy-accounting"
 
-	// HubbleDropEvents controls whether Hubble should create v1.Events
-	// for packet drops related to pods
-	HubbleDropEvents = "hubble-drop-events"
-
-	// HubbleDropEventsInterval controls the minimum time between emitting events
-	// with the same source and destination IP
-	HubbleDropEventsInterval = "hubble-drop-events-interval"
-
-	// HubbleDropEventsReasons controls which drop reasons to emit events for
-	HubbleDropEventsReasons = "hubble-drop-events-reasons"
-
 	// K8sClientConnectionTimeout configures the timeout for K8s client connections.
 	K8sClientConnectionTimeout = "k8s-client-connection-timeout"
 
@@ -2022,17 +2011,6 @@ type DaemonConfig struct {
 
 	// PolicyAccounting enable policy accounting
 	PolicyAccounting bool
-
-	// HubbleDropEvents controls whether Hubble should create v1.Events
-	// for packet drops related to pods
-	HubbleDropEvents bool
-
-	// HubbleDropEventsInterval controls the minimum time between emitting events
-	// with the same source and destination IP
-	HubbleDropEventsInterval time.Duration
-
-	// HubbleDropEventsReasons controls which drop reasons to emit events for
-	HubbleDropEventsReasons []string
 
 	// EnableIPv4FragmentsTracking enables IPv4 fragments tracking for
 	// L4-based lookups. Needs LRU map support.
@@ -3223,11 +3201,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		c.IPAMMultiPoolPreAllocation = map[string]string{c.IPAMDefaultIPPool: "8"}
 	}
 	c.KubeProxyReplacementHealthzBindAddr = vp.GetString(KubeProxyReplacementHealthzBindAddr)
-
-	// Hubble options.
-	c.HubbleDropEvents = vp.GetBool(HubbleDropEvents)
-	c.HubbleDropEventsInterval = vp.GetDuration(HubbleDropEventsInterval)
-	c.HubbleDropEventsReasons = vp.GetStringSlice(HubbleDropEventsReasons)
 
 	// Hidden options
 	c.CompilerFlags = vp.GetStringSlice(CompilerFlags)

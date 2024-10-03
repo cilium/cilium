@@ -268,15 +268,15 @@ func (h *Hubble) Launch(ctx context.Context) {
 		}
 	}
 
-	if option.Config.HubbleDropEvents {
+	if h.config.EnableK8sDropEvents {
 		logger.
-			WithField("interval", option.Config.HubbleDropEventsInterval).
-			WithField("reasons", option.Config.HubbleDropEventsReasons).
+			WithField("interval", h.config.K8sDropEventsInterval).
+			WithField("reasons", h.config.K8sDropEventsReasons).
 			Info("Starting packet drop events emitter")
 
 		dropEventEmitter := dropeventemitter.NewDropEventEmitter(
-			option.Config.HubbleDropEventsInterval,
-			option.Config.HubbleDropEventsReasons,
+			h.config.K8sDropEventsInterval,
+			h.config.K8sDropEventsReasons,
 			h.Clientset,
 			h.K8sWatcher,
 		)

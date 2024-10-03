@@ -884,15 +884,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.PolicyAccountingArg, true, "Enable policy accounting")
 	option.BindEnv(vp, option.PolicyAccountingArg)
 
-	flags.Bool(option.HubbleDropEvents, defaults.HubbleDropEventsEnabled, "Emit packet drop Events related to pods (alpha)")
-	option.BindEnv(vp, option.HubbleDropEvents)
-
-	flags.Duration(option.HubbleDropEventsInterval, defaults.HubbleDropEventsInterval, "Minimum time between emitting same events")
-	option.BindEnv(vp, option.HubbleDropEventsInterval)
-
-	flags.String(option.HubbleDropEventsReasons, defaults.HubbleDropEventsReasons, "Drop reasons to emit events for")
-	option.BindEnv(vp, option.HubbleDropEventsReasons)
-
 	flags.Bool(option.EnableIPv4FragmentsTrackingName, defaults.EnableIPv4FragmentsTracking, "Enable IPv4 fragments tracking for L4-based lookups")
 	option.BindEnv(vp, option.EnableIPv4FragmentsTrackingName)
 
