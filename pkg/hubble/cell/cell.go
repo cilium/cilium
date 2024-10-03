@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
@@ -57,6 +58,9 @@ type hubbleParams struct {
 	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
 	AgentConfig *option.DaemonConfig
 	Config      config
+
+	// TODO: replace by slog
+	Logger logrus.FieldLogger
 }
 
 type HubbleIntegration interface {
@@ -78,6 +82,7 @@ func newHubbleIntegration(params hubbleParams) (HubbleIntegration, error) {
 		params.Recorder,
 		params.AgentConfig,
 		params.Config,
+		params.Logger,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create hubble integration: %w", err)
