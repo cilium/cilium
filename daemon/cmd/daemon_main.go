@@ -59,7 +59,6 @@ import (
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/hive"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
-	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -880,30 +879,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.PolicyAccountingArg, true, "Enable policy accounting")
 	option.BindEnv(vp, option.PolicyAccountingArg)
-
-	flags.String(option.HubbleFlowlogsConfigFilePath, "", "Filepath with configuration of hubble flowlogs")
-	option.BindEnv(vp, option.HubbleFlowlogsConfigFilePath)
-
-	flags.String(option.HubbleExportFilePath, exporteroption.Default.Path, "Filepath to write Hubble events to. By specifying `stdout` the flows are logged instead of written to a rotated file.")
-	option.BindEnv(vp, option.HubbleExportFilePath)
-
-	flags.Int(option.HubbleExportFileMaxSizeMB, exporteroption.Default.MaxSizeMB, "Size in MB at which to rotate Hubble export file.")
-	option.BindEnv(vp, option.HubbleExportFileMaxSizeMB)
-
-	flags.Int(option.HubbleExportFileMaxBackups, exporteroption.Default.MaxBackups, "Number of rotated Hubble export files to keep.")
-	option.BindEnv(vp, option.HubbleExportFileMaxBackups)
-
-	flags.Bool(option.HubbleExportFileCompress, exporteroption.Default.Compress, "Compress rotated Hubble export files.")
-	option.BindEnv(vp, option.HubbleExportFileCompress)
-
-	flags.StringSlice(option.HubbleExportAllowlist, []string{}, "Specify allowlist as JSON encoded FlowFilters to Hubble exporter.")
-	option.BindEnv(vp, option.HubbleExportAllowlist)
-
-	flags.StringSlice(option.HubbleExportDenylist, []string{}, "Specify denylist as JSON encoded FlowFilters to Hubble exporter.")
-	option.BindEnv(vp, option.HubbleExportDenylist)
-
-	flags.StringSlice(option.HubbleExportFieldmask, []string{}, "Specify list of fields to use for field mask in Hubble exporter.")
-	option.BindEnv(vp, option.HubbleExportFieldmask)
 
 	flags.Bool(option.EnableHubbleRecorderAPI, true, "Enable the Hubble recorder API")
 	option.BindEnv(vp, option.EnableHubbleRecorderAPI)
