@@ -1420,6 +1420,10 @@ func TestDecode_DropNotify(t *testing.T) {
 		},
 	}
 
+	unknownFile := &flowpb.FileInfo{
+		Name: "unknown(0)",
+	}
+
 	testCases := []struct {
 		name    string
 		event   monitor.DropNotify
@@ -1434,6 +1438,7 @@ func TestDecode_DropNotify(t *testing.T) {
 			ipTuple: egressTuple,
 			want: &flowpb.Flow{
 				Source: &flowpb.Endpoint{ID: 1234},
+				File:   unknownFile,
 			},
 		},
 		{
@@ -1446,6 +1451,7 @@ func TestDecode_DropNotify(t *testing.T) {
 			want: &flowpb.Flow{
 				Source:           &flowpb.Endpoint{ID: 1234},
 				TrafficDirection: flowpb.TrafficDirection_EGRESS,
+				File:             unknownFile,
 			},
 		},
 		{
@@ -1464,6 +1470,7 @@ func TestDecode_DropNotify(t *testing.T) {
 					ID: uint32(localEP),
 				},
 				TrafficDirection: flowpb.TrafficDirection_INGRESS,
+				File:             unknownFile,
 			},
 		},
 	}
