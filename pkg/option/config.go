@@ -966,16 +966,6 @@ const (
 	// PolicyAccountingArg argument enable policy accounting.
 	PolicyAccountingArg = "policy-accounting"
 
-	// EnableHubbleRecorderAPI specifies if the Hubble Recorder API should be served
-	EnableHubbleRecorderAPI = "enable-hubble-recorder-api"
-
-	// HubbleRecorderStoragePath specifies the directory in which pcap files
-	// created via the Hubble Recorder API are stored
-	HubbleRecorderStoragePath = "hubble-recorder-storage-path"
-
-	// HubbleRecorderSinkQueueSize is the queue size for each recorder sink
-	HubbleRecorderSinkQueueSize = "hubble-recorder-sink-queue-size"
-
 	// HubbleRedactEnabled controls if sensitive information will be redacted from L7 flows
 	HubbleRedactEnabled = "hubble-redact-enabled"
 
@@ -2044,16 +2034,6 @@ type DaemonConfig struct {
 
 	// PolicyAccounting enable policy accounting
 	PolicyAccounting bool
-
-	// EnableHubbleRecorderAPI specifies if the Hubble Recorder API should be served
-	EnableHubbleRecorderAPI bool
-
-	// HubbleRecorderStoragePath specifies the directory in which pcap files
-	// created via the Hubble Recorder API are stored
-	HubbleRecorderStoragePath string
-
-	// HubbleRecorderSinkQueueSize is the queue size for each recorder sink
-	HubbleRecorderSinkQueueSize int
 
 	// HubbleRedactEnabled controls if Hubble will be redacting sensitive information from L7 flows
 	HubbleRedactEnabled bool
@@ -3285,9 +3265,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.KubeProxyReplacementHealthzBindAddr = vp.GetString(KubeProxyReplacementHealthzBindAddr)
 
 	// Hubble options.
-	c.EnableHubbleRecorderAPI = vp.GetBool(EnableHubbleRecorderAPI)
-	c.HubbleRecorderStoragePath = vp.GetString(HubbleRecorderStoragePath)
-	c.HubbleRecorderSinkQueueSize = vp.GetInt(HubbleRecorderSinkQueueSize)
 	c.HubbleRedactEnabled = vp.GetBool(HubbleRedactEnabled)
 	c.HubbleRedactHttpURLQuery = vp.GetBool(HubbleRedactHttpURLQuery)
 	c.HubbleRedactHttpUserInfo = vp.GetBool(HubbleRedactHttpUserInfo)
