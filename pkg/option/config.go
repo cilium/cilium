@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"net"
 	"net/netip"
@@ -31,10 +30,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	clustermeshTypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -971,33 +968,6 @@ const (
 
 	// PolicyAccountingArg argument enable policy accounting.
 	PolicyAccountingArg = "policy-accounting"
-
-	// HubbleFlowlogsConfigFilePath specifies the filepath with configuration of hubble flowlogs.
-	// e.g. "/etc/cilium/flowlog.yaml"
-	HubbleFlowlogsConfigFilePath = "hubble-flowlogs-config-path"
-
-	// HubbleExportFilePath specifies the filepath to write Hubble events to.
-	// e.g. "/var/run/cilium/hubble/events.log"
-	HubbleExportFilePath = "hubble-export-file-path"
-
-	// HubbleExportFileMaxSizeMB specifies the file size in MB at which to rotate
-	// the Hubble export file.
-	HubbleExportFileMaxSizeMB = "hubble-export-file-max-size-mb"
-
-	// HubbleExportFileMaxBacks specifies the number of rotated files to keep.
-	HubbleExportFileMaxBackups = "hubble-export-file-max-backups"
-
-	// HubbleExportFileCompress specifies whether rotated files are compressed.
-	HubbleExportFileCompress = "hubble-export-file-compress"
-
-	// HubbleExportAllowlist specifies allow list filter use by exporter.
-	HubbleExportAllowlist = "hubble-export-allowlist"
-
-	// HubbleExportDenylist specifies deny list filter use by exporter.
-	HubbleExportDenylist = "hubble-export-denylist"
-
-	// HubbleExportFieldmask specifies list of fields to log in exporter.
-	HubbleExportFieldmask = "hubble-export-fieldmask"
 
 	// EnableHubbleRecorderAPI specifies if the Hubble Recorder API should be served
 	EnableHubbleRecorderAPI = "enable-hubble-recorder-api"
@@ -2080,33 +2050,6 @@ type DaemonConfig struct {
 
 	// PolicyAccounting enable policy accounting
 	PolicyAccounting bool
-
-	// HubbleFlowlogsConfigFilePath specifies the filepath with configuration of hubble flowlogs.
-	// e.g. "/etc/cilium/flowlog.yaml"
-	HubbleFlowlogsConfigFilePath string
-
-	// HubbleExportFilePath specifies the filepath to write Hubble events to.
-	// e.g. "/var/run/cilium/hubble/events.log"
-	HubbleExportFilePath string
-
-	// HubbleExportFileMaxSizeMB specifies the file size in MB at which to rotate
-	// the Hubble export file.
-	HubbleExportFileMaxSizeMB int
-
-	// HubbleExportFileMaxBacks specifies the number of rotated files to keep.
-	HubbleExportFileMaxBackups int
-
-	// HubbleExportFileCompress specifies whether rotated files are compressed.
-	HubbleExportFileCompress bool
-
-	// HubbleExportAllowlist specifies allow list filter use by exporter.
-	HubbleExportAllowlist []*flowpb.FlowFilter
-
-	// HubbleExportDenylist specifies deny list filter use by exporter.
-	HubbleExportDenylist []*flowpb.FlowFilter
-
-	// HubbleExportFieldmask specifies list of fields to log in exporter.
-	HubbleExportFieldmask []string
 
 	// EnableHubbleRecorderAPI specifies if the Hubble Recorder API should be served
 	EnableHubbleRecorderAPI bool
@@ -3349,45 +3292,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.KubeProxyReplacementHealthzBindAddr = vp.GetString(KubeProxyReplacementHealthzBindAddr)
 
 	// Hubble options.
-	c.HubbleExportFilePath = vp.GetString(HubbleExportFilePath)
-	c.HubbleExportFileMaxSizeMB = vp.GetInt(HubbleExportFileMaxSizeMB)
-	c.HubbleExportFileMaxBackups = vp.GetInt(HubbleExportFileMaxBackups)
-	c.HubbleExportFileCompress = vp.GetBool(HubbleExportFileCompress)
-
-	for _, enc := range vp.GetStringSlice(HubbleExportAllowlist) {
-		dec := json.NewDecoder(strings.NewReader(enc))
-		var result flowpb.FlowFilter
-		if err := dec.Decode(&result); err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			log.Fatalf("failed to decode hubble-export-allowlist '%v': %s", enc, err)
-		}
-		c.HubbleExportAllowlist = append(c.HubbleExportAllowlist, &result)
-	}
-
-	for _, enc := range vp.GetStringSlice(HubbleExportDenylist) {
-		dec := json.NewDecoder(strings.NewReader(enc))
-		var result flowpb.FlowFilter
-		if err := dec.Decode(&result); err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			log.Fatalf("failed to decode hubble-export-denylist '%v': %s", enc, err)
-		}
-		c.HubbleExportDenylist = append(c.HubbleExportDenylist, &result)
-	}
-
-	if fm := vp.GetStringSlice(HubbleExportFieldmask); len(fm) > 0 {
-		_, err := fieldmaskpb.New(&flowpb.Flow{}, fm...)
-		if err != nil {
-			log.Fatalf("hubble-export-fieldmask contains invalid fieldmask '%v': %s", fm, err)
-		}
-		c.HubbleExportFieldmask = vp.GetStringSlice(HubbleExportFieldmask)
-	}
-
-	c.HubbleFlowlogsConfigFilePath = vp.GetString(HubbleFlowlogsConfigFilePath)
-
 	c.EnableHubbleRecorderAPI = vp.GetBool(EnableHubbleRecorderAPI)
 	c.HubbleRecorderStoragePath = vp.GetString(HubbleRecorderStoragePath)
 	c.HubbleRecorderSinkQueueSize = vp.GetInt(HubbleRecorderSinkQueueSize)
