@@ -1079,7 +1079,7 @@ func (kub *Kubectl) GetAllPods(ctx context.Context, options ...ExecOptions) ([]v
 		return nil, err
 	}
 
-	pods := make([]v1.Pod, len(podsList.Items))
+	pods := make([]v1.Pod, 0, len(podsList.Items))
 	for _, item := range podsList.Items {
 		var pod v1.Pod
 		err = json.Unmarshal(item.Raw, &pod)
