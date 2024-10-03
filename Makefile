@@ -109,10 +109,14 @@ endif
 
 generate-cov: ## Generate HTML coverage report at coverage-all.html.
 	-@# Remove generated code from coverage
+ifneq ($(SKIP_COVERAGE),)
+	@echo "Skipping generate-cov because SKIP_COVERAGE is set."
+else
 	$(QUIET) grep -Ev '(^github.com/cilium/cilium/api/v1)|(generated.deepcopy.go)|(^github.com/cilium/cilium/pkg/k8s/client/)' \
 		coverage.out > coverage.out.tmp
 	$(QUIET)$(GO) tool cover -html=coverage.out.tmp -o=coverage-all.html
 	$(QUIET) rm coverage.out.tmp
+endif
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 
 integration-tests: start-kvstores ## Run Go tests including ones that are marked as integration tests.
