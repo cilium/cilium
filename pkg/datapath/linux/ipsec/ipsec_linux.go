@@ -302,7 +302,7 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBoo
 // This is done such that, for each pair of nodes A, B, the key used for
 // decryption on A (XFRM IN) is the same key used for encryption on B (XFRM
 // OUT), and vice versa. And its ESN automatically resets on each node reboot.
-func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, localBootID, remoteBootID string, dir netlink.Dir) *ipSecKey {
+func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, localBootID, remoteBootID string) *ipSecKey {
 	globalKey := getGlobalIPsecKey(localNodeIP)
 	if globalKey == nil {
 		return nil
@@ -311,10 +311,7 @@ func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, localBootID, remoteBootID
 		return globalKey
 	}
 
-	if dir == netlink.XFRM_DIR_OUT {
-		return deriveNodeIPsecKey(globalKey, localNodeIP, remoteNodeIP, localBootID, remoteBootID)
-	}
-	return deriveNodeIPsecKey(globalKey, remoteNodeIP, localNodeIP, remoteBootID, localBootID)
+	return deriveNodeIPsecKey(globalKey, localNodeIP, remoteNodeIP, localBootID, remoteBootID)
 }
 
 func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
@@ -541,22 +538,22 @@ func xfrmKeyEqual(s1, s2 *netlink.XfrmState) bool {
 		bytes.Equal(s1.Auth.Key, s2.Auth.Key)
 }
 
-func ipSecReplaceStateIn(log *slog.Logger, localIP, remoteIP net.IP, nodeID uint16, zeroMark bool, localBootID, remoteBootID string, remoteRebooted bool, reqID int) (uint8, error) {
-	key := getNodeIPsecKey(localIP, remoteIP, localBootID, remoteBootID, netlink.XFRM_DIR_IN)
+func ipSecReplaceStateIn(log *slog.Logger, params *IPSecParameters) (uint8, error) {
+	key := getNodeIPsecKey(*params.SourceTunnelIP, *params.DestTunnelIP, params.LocalBootID, params.RemoteBootID)
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
 	}
-	key.ReqID = reqID
+	key.ReqID = params.ReqID
 	state := ipSecNewState(key)
-	state.Src = remoteIP
-	state.Dst = localIP
-	state.Mark = generateDecryptMark(linux_defaults.RouteMarkDecrypt, nodeID)
-	if zeroMark {
+	state.Src = *params.SourceTunnelIP
+	state.Dst = *params.DestTunnelIP
+	state.Mark = generateDecryptMark(linux_defaults.RouteMarkDecrypt, params.RemoteNodeID)
+	if params.ZeroOutputMark {
 		state.OutputMark = &netlink.XfrmMark{
 			Value: 0,
 			Mask:  linux_defaults.OutputMarkMask,
 		}
-	} else if reqID == EncryptedOverlayReqID {
+	} else if params.ReqID == EncryptedOverlayReqID {
 		state.OutputMark = &netlink.XfrmMark{
 			Value: linux_defaults.RouteMarkDecryptedOverlay,
 			Mask:  linux_defaults.OutputMarkMask,
@@ -571,46 +568,48 @@ func ipSecReplaceStateIn(log *slog.Logger, localIP, remoteIP net.IP, nodeID uint
 	// value is never needed after decryption.
 	state.OutputMark.Mask |= linux_defaults.IPsecMarkMaskNodeID
 
-	return key.Spi, xfrmStateReplace(log, state, remoteRebooted)
+	return key.Spi, xfrmStateReplace(log, state, params.RemoteRebooted)
 }
 
-func ipSecReplaceStateOut(log *slog.Logger, localIP, remoteIP net.IP, nodeID uint16, localBootID, remoteBootID string, remoteRebooted bool, reqID int) (uint8, error) {
-	key := getNodeIPsecKey(localIP, remoteIP, localBootID, remoteBootID, netlink.XFRM_DIR_OUT)
+func ipSecReplaceStateOut(log *slog.Logger, params *IPSecParameters) (uint8, error) {
+	key := getNodeIPsecKey(*params.SourceTunnelIP, *params.DestTunnelIP, params.LocalBootID, params.RemoteBootID)
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
 	}
-	key.ReqID = reqID
+	key.ReqID = params.ReqID
 	state := ipSecNewState(key)
-	state.Src = localIP
-	state.Dst = remoteIP
-	state.Mark = generateEncryptMark(key.Spi, nodeID)
+	state.Src = *params.SourceTunnelIP
+	state.Dst = *params.DestTunnelIP
+	state.Mark = generateEncryptMark(key.Spi, params.RemoteNodeID)
 	state.OutputMark = &netlink.XfrmMark{
 		Value: linux_defaults.RouteMarkEncrypt,
 		Mask:  linux_defaults.OutputMarkMask,
 	}
-	return key.Spi, xfrmStateReplace(log, state, remoteRebooted)
+	return key.Spi, xfrmStateReplace(log, state, params.RemoteRebooted)
 }
 
-func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, proxyMark bool, dir netlink.Dir, reqID int) error {
+func _ipSecReplacePolicyIn(params *IPSecParameters, proxyMark bool, dir netlink.Dir) error {
 	optional := int(0)
 	// We can use the global IPsec key here because we are not going to
 	// actually use the secret itself.
-	key := getGlobalIPsecKey(dst.IP)
+	key := getGlobalIPsecKey(params.DestSubnet.IP)
 	if key == nil {
 		return fmt.Errorf("IPSec key missing")
 	}
-	key.ReqID = reqID
+	key.ReqID = params.ReqID
 
 	wildcardIP := wildcardIPv4
-	if tmplDst.To4() == nil {
+	if params.SourceTunnelIP.To4() == nil {
 		wildcardIP = wildcardIPv6
 	}
 
+	tmplSrc := params.SourceTunnelIP
+	tmplDst := params.DestTunnelIP
 	policy := ipSecNewPolicy()
 	policy.Dir = dir
 	if dir == netlink.XFRM_DIR_IN {
-		policy.Src = src
-		policy.Dst = dst
+		policy.Src = params.SourceSubnet
+		policy.Dst = params.DestSubnet
 		policy.Mark = &netlink.XfrmMark{
 			Mask: linux_defaults.IPsecMarkBitMask,
 		}
@@ -625,46 +624,41 @@ func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, prox
 			optional = 1
 			// We set the source tmpl address to 0/0 to explicit that it
 			// doesn't matter.
-			tmplSrc = wildcardIP
+			tmplSrc = &wildcardIP
 		} else {
 			policy.Mark.Value = linux_defaults.RouteMarkDecrypt
 		}
 	}
-	ipSecAttachPolicyTempl(policy, key, tmplSrc, tmplDst, false, optional)
+	ipSecAttachPolicyTempl(policy, key, *tmplSrc, *tmplDst, false, optional)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
-func ipSecReplacePolicyIn(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, reqID int) error {
-	if err := _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, true, netlink.XFRM_DIR_IN, reqID); err != nil {
+func ipSecReplacePolicyIn(params *IPSecParameters) error {
+	if err := _ipSecReplacePolicyIn(params, true, netlink.XFRM_DIR_IN); err != nil {
 		return err
 	}
-	return _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, false, netlink.XFRM_DIR_IN, reqID)
+	return _ipSecReplacePolicyIn(params, false, netlink.XFRM_DIR_IN)
 }
 
-func IpSecReplacePolicyFwd(dst *net.IPNet, tmplDst net.IP, reqID int) error {
+func IpSecReplacePolicyFwd(params *IPSecParameters) error {
 	// We can use the global IPsec key here because we are not going to
 	// actually use the secret itself.
-	key := getGlobalIPsecKey(dst.IP)
+	key := getGlobalIPsecKey(net.IP{})
 	if key == nil {
 		return fmt.Errorf("IPSec key missing")
 	}
-	key.ReqID = reqID
-
-	wildcardCIDR := wildcardCIDRv4
-	if tmplDst.To4() == nil {
-		wildcardCIDR = wildcardCIDRv6
-	}
 
 	policy := ipSecNewPolicy()
-	optional := 1
 	policy.Dir = netlink.XFRM_DIR_FWD
+	key.ReqID = params.ReqID
 	policy.Priority = linux_defaults.IPsecFwdPriority
+
 	// In case of fwd policies, we should tell the kernel the tmpl src
 	// doesn't matter; we want all fwd packets to go through.
-	policy.Src = wildcardCIDR
-	policy.Dst = wildcardCIDR
+	policy.Src = params.SourceSubnet
+	policy.Dst = params.DestSubnet
 
-	ipSecAttachPolicyTempl(policy, key, net.IP{}, tmplDst, false, optional)
+	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, false, 1)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -764,27 +758,27 @@ func generateDecryptMark(decryptBit uint32, nodeID uint16) *netlink.XfrmMark {
 	}
 }
 
-func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, nodeID uint16, dir IPSecDir, reqID int) error {
+func ipSecReplacePolicyOut(params *IPSecParameters) error {
 	// TODO: Remove old policy pointing to target net
 
 	// We can use the global IPsec key here because we are not going to
 	// actually use the secret itself.
-	key := getGlobalIPsecKey(dst.IP)
+	key := getGlobalIPsecKey(params.DestSubnet.IP)
 	if key == nil {
 		return fmt.Errorf("IPSec key missing")
 	}
-	key.ReqID = reqID
+	key.ReqID = params.ReqID
 
 	policy := ipSecNewPolicy()
-	if dir == IPSecDirOutNode {
+	if params.Dir == IPSecDirOutNode {
 		policy.Src = wildcardCIDRv4
 	} else {
-		policy.Src = src
+		policy.Src = params.SourceSubnet
 	}
-	policy.Dst = dst
+	policy.Dst = params.DestSubnet
 	policy.Dir = netlink.XFRM_DIR_OUT
-	policy.Mark = generateEncryptMark(key.Spi, nodeID)
-	ipSecAttachPolicyTempl(policy, key, tmplSrc, tmplDst, true, 0)
+	policy.Mark = generateEncryptMark(key.Spi, params.RemoteNodeID)
+	ipSecAttachPolicyTempl(policy, key, *params.SourceTunnelIP, *params.DestTunnelIP, true, 0)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -942,7 +936,7 @@ func ipsecDeleteXfrmPolicy(log *slog.Logger, nodeID uint16) error {
  * state space. Basic idea would be to reference a state using any key generated
  * from BPF program allowing for a single state per security ctx.
  */
-func UpsertIPsecEndpoint(log *slog.Logger, local, remote *net.IPNet, outerLocal, outerRemote net.IP, remoteNodeID uint16, remoteBootID string, dir IPSecDir, outputMark, remoteRebooted bool, reqID int) (uint8, error) {
+func UpsertIPsecEndpoint(log *slog.Logger, params *IPSecParameters) (uint8, error) {
 	log = log.With(logfields.LogSubsys, subsystem)
 
 	var spi uint8
@@ -956,33 +950,32 @@ func UpsertIPsecEndpoint(log *slog.Logger, local, remote *net.IPNet, outerLocal,
 	 * netlink API at all when we "know" an entry is a duplicate. To do this the xfer
 	 * state would need to be cached in the ipcache.
 	 */
-	if !outerLocal.Equal(outerRemote) {
-		localBootID := node.GetBootID()
-		if dir == IPSecDirIn || dir == IPSecDirBoth {
-			if spi, err = ipSecReplaceStateIn(log, outerLocal, outerRemote, remoteNodeID, outputMark, localBootID, remoteBootID, remoteRebooted, reqID); err != nil {
+	if !params.SourceTunnelIP.Equal(*params.DestTunnelIP) {
+		if params.Dir == IPSecDirIn || params.Dir == IPSecDirBoth {
+			if spi, err = ipSecReplaceStateIn(log, params); err != nil {
 				return 0, fmt.Errorf("unable to replace local state: %w", err)
 			}
-			if err = ipSecReplacePolicyIn(remote, local, outerRemote, outerLocal, reqID); err != nil {
+			if err = ipSecReplacePolicyIn(params); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy in: %w", err)
 				}
 			}
 		}
 
-		if dir == IPSecDirFwd {
-			if err = IpSecReplacePolicyFwd(local, outerLocal, reqID); err != nil {
+		if params.Dir == IPSecDirFwd {
+			if err = IpSecReplacePolicyFwd(params); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy fwd: %w", err)
 				}
 			}
 		}
 
-		if dir == IPSecDirOut || dir == IPSecDirOutNode || dir == IPSecDirBoth {
-			if spi, err = ipSecReplaceStateOut(log, outerLocal, outerRemote, remoteNodeID, localBootID, remoteBootID, remoteRebooted, reqID); err != nil {
+		if params.Dir == IPSecDirOut || params.Dir == IPSecDirOutNode || params.Dir == IPSecDirBoth {
+			if spi, err = ipSecReplaceStateOut(log, params); err != nil {
 				return 0, fmt.Errorf("unable to replace remote state: %w", err)
 			}
 
-			if err = ipSecReplacePolicyOut(local, remote, outerLocal, outerRemote, remoteNodeID, dir, reqID); err != nil {
+			if err = ipSecReplacePolicyOut(params); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy out: %w", err)
 				}
