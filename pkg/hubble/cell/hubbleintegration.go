@@ -375,16 +375,16 @@ func (h *Hubble) Launch(ctx context.Context) {
 		)
 	}
 
-	if option.Config.HubbleRedactEnabled {
+	if h.config.EnableRedact {
 		parserOpts = append(
 			parserOpts,
 			parserOptions.Redact(
 				logger,
-				option.Config.HubbleRedactHttpURLQuery,
-				option.Config.HubbleRedactHttpUserInfo,
-				option.Config.HubbleRedactKafkaApiKey,
-				option.Config.HubbleRedactHttpHeadersAllow,
-				option.Config.HubbleRedactHttpHeadersDeny,
+				h.config.RedactHttpURLQuery,
+				h.config.RedactHttpUserInfo,
+				h.config.RedactKafkaAPIKey,
+				h.config.RedactHttpHeadersAllow,
+				h.config.RedactHttpHeadersDeny,
 			),
 		)
 	}

@@ -884,24 +884,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.PolicyAccountingArg, true, "Enable policy accounting")
 	option.BindEnv(vp, option.PolicyAccountingArg)
 
-	flags.Bool(option.HubbleRedactEnabled, defaults.HubbleRedactEnabled, "Hubble redact sensitive information from flows")
-	option.BindEnv(vp, option.HubbleRedactEnabled)
-
-	flags.Bool(option.HubbleRedactHttpURLQuery, defaults.HubbleRedactHttpURLQuery, "Hubble redact http URL query from flows")
-	option.BindEnv(vp, option.HubbleRedactHttpURLQuery)
-
-	flags.Bool(option.HubbleRedactHttpUserInfo, defaults.HubbleRedactHttpUserInfo, "Hubble redact http user info from flows")
-	option.BindEnv(vp, option.HubbleRedactHttpUserInfo)
-
-	flags.Bool(option.HubbleRedactKafkaApiKey, defaults.HubbleRedactKafkaApiKey, "Hubble redact Kafka API key from flows")
-	option.BindEnv(vp, option.HubbleRedactKafkaApiKey)
-
-	flags.StringSlice(option.HubbleRedactHttpHeadersAllow, []string{}, "HTTP headers to keep visible in flows")
-	option.BindEnv(vp, option.HubbleRedactHttpHeadersAllow)
-
-	flags.StringSlice(option.HubbleRedactHttpHeadersDeny, []string{}, "HTTP headers to redact from flows")
-	option.BindEnv(vp, option.HubbleRedactHttpHeadersDeny)
-
 	flags.Bool(option.HubbleDropEvents, defaults.HubbleDropEventsEnabled, "Emit packet drop Events related to pods (alpha)")
 	option.BindEnv(vp, option.HubbleDropEvents)
 

@@ -969,24 +969,6 @@ const (
 	// PolicyAccountingArg argument enable policy accounting.
 	PolicyAccountingArg = "policy-accounting"
 
-	// HubbleRedactEnabled controls if sensitive information will be redacted from L7 flows
-	HubbleRedactEnabled = "hubble-redact-enabled"
-
-	// HubbleRedactHttpURLQuery controls if the URL query will be redacted from flows
-	HubbleRedactHttpURLQuery = "hubble-redact-http-urlquery"
-
-	// HubbleRedactHttpUserInfo controls if the user info will be redacted from flows
-	HubbleRedactHttpUserInfo = "hubble-redact-http-userinfo"
-
-	// HubbleRedactKafkaApiKey controls if the Kafka API key will be redacted from flows
-	HubbleRedactKafkaApiKey = "hubble-redact-kafka-apikey"
-
-	// HubbleRedactHttpHeadersAllow controls which http headers will not be redacted from flows
-	HubbleRedactHttpHeadersAllow = "hubble-redact-http-headers-allow"
-
-	// HubbleRedactHttpHeadersDeny controls which http headers will be redacted from flows
-	HubbleRedactHttpHeadersDeny = "hubble-redact-http-headers-deny"
-
 	// HubbleDropEvents controls whether Hubble should create v1.Events
 	// for packet drops related to pods
 	HubbleDropEvents = "hubble-drop-events"
@@ -2041,24 +2023,6 @@ type DaemonConfig struct {
 	// PolicyAccounting enable policy accounting
 	PolicyAccounting bool
 
-	// HubbleRedactEnabled controls if Hubble will be redacting sensitive information from L7 flows
-	HubbleRedactEnabled bool
-
-	// HubbleRedactURLQuery controls if the URL query will be redacted from flows
-	HubbleRedactHttpURLQuery bool
-
-	// HubbleRedactUserInfo controls if the user info will be redacted from flows
-	HubbleRedactHttpUserInfo bool
-
-	// HubbleRedactKafkaApiKey controls if Kafka API key will be redacted from flows
-	HubbleRedactKafkaApiKey bool
-
-	// HubbleRedactHttpHeadersAllow controls which http headers will not be redacted from flows
-	HubbleRedactHttpHeadersAllow []string
-
-	// HubbleRedactHttpHeadersDeny controls which http headers will be redacted from flows
-	HubbleRedactHttpHeadersDeny []string
-
 	// HubbleDropEvents controls whether Hubble should create v1.Events
 	// for packet drops related to pods
 	HubbleDropEvents bool
@@ -2586,13 +2550,6 @@ func (c *DaemonConfig) validateIPv6NAT46x64CIDR() error {
 	return nil
 }
 
-func (c *DaemonConfig) validateHubbleRedact() error {
-	if len(c.HubbleRedactHttpHeadersAllow) > 0 && len(c.HubbleRedactHttpHeadersDeny) > 0 {
-		return fmt.Errorf("Only one of --hubble-redact-http-headers-allow and --hubble-redact-http-headers-deny can be specified, not both")
-	}
-	return nil
-}
-
 func (c *DaemonConfig) validateContainerIPLocalReservedPorts() error {
 	if c.ContainerIPLocalReservedPorts == "" || c.ContainerIPLocalReservedPorts == defaults.ContainerIPLocalReservedPortsAuto {
 		return nil
@@ -2615,10 +2572,6 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 	if err := c.validateIPv6NAT46x64CIDR(); err != nil {
 		return fmt.Errorf("unable to parse internal CIDR value '%s': %w",
 			c.IPv6NAT46x64CIDR, err)
-	}
-
-	if err := c.validateHubbleRedact(); err != nil {
-		return err
 	}
 
 	if c.MTU < 0 {
@@ -3272,12 +3225,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.KubeProxyReplacementHealthzBindAddr = vp.GetString(KubeProxyReplacementHealthzBindAddr)
 
 	// Hubble options.
-	c.HubbleRedactEnabled = vp.GetBool(HubbleRedactEnabled)
-	c.HubbleRedactHttpURLQuery = vp.GetBool(HubbleRedactHttpURLQuery)
-	c.HubbleRedactHttpUserInfo = vp.GetBool(HubbleRedactHttpUserInfo)
-	c.HubbleRedactKafkaApiKey = vp.GetBool(HubbleRedactKafkaApiKey)
-	c.HubbleRedactHttpHeadersAllow = vp.GetStringSlice(HubbleRedactHttpHeadersAllow)
-	c.HubbleRedactHttpHeadersDeny = vp.GetStringSlice(HubbleRedactHttpHeadersDeny)
 	c.HubbleDropEvents = vp.GetBool(HubbleDropEvents)
 	c.HubbleDropEventsInterval = vp.GetDuration(HubbleDropEventsInterval)
 	c.HubbleDropEventsReasons = vp.GetStringSlice(HubbleDropEventsReasons)
