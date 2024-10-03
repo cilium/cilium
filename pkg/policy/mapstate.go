@@ -255,8 +255,7 @@ func (msm *mapStateMap) ForEachBroaderOrEqualKey(key Key, f func(Key, MapStateEn
 }
 
 func (msm *mapStateMap) forDescendantIDs(keyIdentity identity.NumericIdentity, k Key, idSet IDSet, f func(Key, MapStateEntry) bool) bool {
-	switch identity.NumericIdentity(keyIdentity) {
-	case identity.IdentityUnknown: // 0
+	if keyIdentity == 0 {
 		// All identities are descendants of ANY
 		for id := range idSet {
 			if id != 0 {
@@ -361,13 +360,9 @@ func (msm *mapStateMap) ForEachNarrowerOrEqualDatapathKey(key Key, f func(Key, M
 					return false
 				}
 			}
-		}
-
-		// Need to visit all keys with the same identity.
-		// ANY identity was already visited above.
-		if key.Identity != 0 {
-			_, exists := idSet[key.Identity]
-			if exists {
+		} else {
+			// Need to visit all keys with the same identity.
+			if _, exists := idSet[key.Identity]; exists {
 				k.Identity = key.Identity
 				if !msm.forKey(k, f) {
 					return false
@@ -988,17 +983,12 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		// Test for bailed case first so that we avoid unnecessary computation if entry is
 		// not going to be added.
 		bailed := false
-		// If there is an ANY or equal deny key, then do not add a more specific one.
-		// A narrower of two deny keys is redundant in the datapath only if the broader ID
-		// is 0, or the IDs are the same. This is because the ID will be assigned from the
-		// ipcache and datapath has no notion of one ID being related to another.
+
+		// Bail if covered by another deny key.
 		ms.denies.ForEachBroaderOrEqualDatapathKey(newKey, func(k Key, v MapStateEntry) bool {
-			// Identical key needs to be added if the entries are different (to merge
-			// them).
+			// Identical key needs to be added if the entries are different to merge
+			// them.
 			if k != newKey || v.DeepEqual(&newEntry) {
-				// If the ID of this iterated-deny-entry is ANY or equal of
-				// the new-entry and the iterated-deny-entry has a broader (or
-				// equal) port-protocol then we need not insert the new entry.
 				bailed = true
 				return false
 			}
@@ -1032,17 +1022,10 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			return true
 		})
 
-		// Not adding the new L3/L4 deny entries yet so that we do not need to worry about
-		// them below.
-
+		// Delete covered deny entries, except for identical keys that need to be merged.
 		ms.denies.ForEachNarrowerOrEqualDatapathKey(newKey, func(k Key, v MapStateEntry) bool {
 			// Identical key needs to remain if owners are different to merge them
 			if k != newKey || v.DeepEqual(&newEntry) {
-				// If this iterated-deny-entry is a subset (or equal) of the
-				// new-entry and the new-entry has a broader (or equal)
-				// port-protocol the newKey will match all the packets the iterated
-				// key would, given that there are no more specific or L4-only allow
-				// entries, and then we can delete the iterated-deny-entry.
 				deletes = append(deletes, k)
 			}
 			return true
