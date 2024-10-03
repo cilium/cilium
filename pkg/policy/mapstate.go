@@ -313,70 +313,6 @@ func (msm *mapStateMap) ForEachBroaderKeyWithSpecificID(key Key, f func(Key, Map
 	})
 }
 
-// ForEachBroaderOrEqualDatapathKey iterates over broader or equal keys in the trie.
-// Visits all keys that datapath would match IF the 'key' was not added to the policy map.
-// NOTE that CIDRs are not considered here as datapath does not support LPM matching in security IDs.
-func (msm *mapStateMap) ForEachBroaderOrEqualDatapathKey(key Key, f func(Key, MapStateEntry) bool) {
-	msm.trie.Ancestors(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.LPMKey], idSet IDSet) bool {
-		// k is the key from trie with 0'ed ID
-		k := Key{
-			LPMKey: lpmKey.Value(),
-		}
-
-		// ANY identities are ancestors of all identities, visit them first
-		if _, exists := idSet[0]; exists {
-			k.Identity = 0
-			if !msm.forKey(k, f) {
-				return false
-			}
-		}
-
-		// Need to visit all keys with the same identity
-		// ANY identity was already visited above
-		if key.Identity != 0 {
-			_, exists := idSet[key.Identity]
-			if exists {
-				k.Identity = key.Identity
-				if !msm.forKey(k, f) {
-					return false
-				}
-			}
-		}
-		return true
-	})
-}
-
-// ForEachNarrowerOrEqualDatapathKey iterates over narrower or equal keys in the trie.
-// Visits all keys that datapath matches that would match 'key' if those keys were not in the policy map.
-// NOTE that CIDRs are not considered here as datapath does not support LPM matching in security IDs.
-func (msm *mapStateMap) ForEachNarrowerOrEqualDatapathKey(key Key, f func(Key, MapStateEntry) bool) {
-	msm.trie.Descendants(key.PrefixLength(), key, func(_ uint, lpmKey bitlpm.Key[policyTypes.LPMKey], idSet IDSet) bool {
-		// k is the key from trie with 0'ed ID
-		k := Key{
-			LPMKey: lpmKey.Value(),
-		}
-
-		// All identities are descendants of ANY identity.
-		if key.Identity == 0 {
-			for id := range idSet {
-				k.Identity = id
-				if !msm.forKey(k, f) {
-					return false
-				}
-			}
-		} else {
-			// Need to visit all keys with the same identity.
-			if _, exists := idSet[key.Identity]; exists {
-				k.Identity = key.Identity
-				if !msm.forKey(k, f) {
-					return false
-				}
-			}
-		}
-		return true
-	})
-}
-
 // ForEachKeyWithBroaderOrEqualPortProto iterates over broader or equal port/proto entries in the trie.
 func (msm *mapStateMap) ForEachKeyWithBroaderOrEqualPortProto(key Key, f func(Key, MapStateEntry) bool) {
 	msm.trie.Ancestors(key.PrefixLength(), key, func(prefix uint, lpmKey bitlpm.Key[policyTypes.LPMKey], idSet IDSet) bool {
@@ -989,7 +925,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		bailed := false
 
 		// Bail if covered by another deny key.
-		ms.denies.ForEachBroaderOrEqualDatapathKey(newKey, func(k Key, v MapStateEntry) bool {
+		ms.denies.ForEachBroaderOrEqualKey(newKey, func(k Key, v MapStateEntry) bool {
 			// Identical key needs to be added if the entries are different to merge
 			// them.
 			if k != newKey || v.DeepEqual(&newEntry) {
@@ -1027,7 +963,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		})
 
 		// Delete covered deny entries, except for identical keys that need to be merged.
-		ms.denies.ForEachNarrowerOrEqualDatapathKey(newKey, func(k Key, v MapStateEntry) bool {
+		ms.denies.ForEachNarrowerOrEqualKey(newKey, func(k Key, v MapStateEntry) bool {
 			// Identical key needs to remain if owners are different to merge them
 			if k != newKey || v.DeepEqual(&newEntry) {
 				deletes = append(deletes, k)
