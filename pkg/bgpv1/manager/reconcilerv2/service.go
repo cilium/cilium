@@ -98,15 +98,15 @@ func (r *ServiceReconciler) Init(i *instance.BGPInstance) error {
 	if i == nil {
 		return fmt.Errorf("BUG: service reconciler initialization with nil BGPInstance")
 	}
-	r.svcDiffStore.InitDiff(r.diffID(i.Global.ASN))
-	r.epDiffStore.InitDiff(r.diffID(i.Global.ASN))
+	r.svcDiffStore.InitDiff(r.diffID(i))
+	r.epDiffStore.InitDiff(r.diffID(i))
 	return nil
 }
 
 func (r *ServiceReconciler) Cleanup(i *instance.BGPInstance) {
 	if i != nil {
-		r.svcDiffStore.CleanupDiff(r.diffID(i.Global.ASN))
-		r.epDiffStore.CleanupDiff(r.diffID(i.Global.ASN))
+		r.svcDiffStore.CleanupDiff(r.diffID(i))
+		r.epDiffStore.CleanupDiff(r.diffID(i))
 	}
 }
 
@@ -393,8 +393,8 @@ func (r *ServiceReconciler) resolveSvcFromEndpoints(eps *k8s.Endpoints) (*slim_c
 
 func (r *ServiceReconciler) fullReconciliationServiceList(p ReconcileParams) (toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, err error) {
 	// re-init diff in diffstores, so that it contains only changes since the last full reconciliation.
-	r.svcDiffStore.InitDiff(r.diffID(p.BGPInstance.Global.ASN))
-	r.epDiffStore.InitDiff(r.diffID(p.BGPInstance.Global.ASN))
+	r.svcDiffStore.InitDiff(r.diffID(p.BGPInstance))
+	r.epDiffStore.InitDiff(r.diffID(p.BGPInstance))
 
 	// check for services which are no longer present
 	serviceAFPaths := r.getMetadata(p.BGPInstance).ServicePaths
@@ -421,7 +421,7 @@ func (r *ServiceReconciler) fullReconciliationServiceList(p ReconcileParams) (to
 // diffReconciliationServiceList returns a list of services to reconcile and to withdraw when
 // performing partial (diff) service reconciliation.
 func (r *ServiceReconciler) diffReconciliationServiceList(p ReconcileParams) (toReconcile []*slim_corev1.Service, toWithdraw []resource.Key, err error) {
-	upserted, deleted, err := r.svcDiffStore.Diff(r.diffID(p.BGPInstance.Global.ASN))
+	upserted, deleted, err := r.svcDiffStore.Diff(r.diffID(p.BGPInstance))
 	if err != nil {
 		return nil, nil, fmt.Errorf("svc store diff: %w", err)
 	}
@@ -432,7 +432,7 @@ func (r *ServiceReconciler) diffReconciliationServiceList(p ReconcileParams) (to
 	// We don't handle service deletion here since we only see
 	// the key, we cannot resolve associated service, so we have
 	// nothing to do.
-	epsUpserted, _, err := r.epDiffStore.Diff(r.diffID(p.BGPInstance.Global.ASN))
+	epsUpserted, _, err := r.epDiffStore.Diff(r.diffID(p.BGPInstance))
 	if err != nil {
 		return nil, nil, fmt.Errorf("EPs store diff: %w", err)
 	}
@@ -816,8 +816,8 @@ func (r *ServiceReconciler) getClusterIPRoutePolicy(p ReconcileParams, peer stri
 	return policy, nil
 }
 
-func (r *ServiceReconciler) diffID(asn uint32) string {
-	return fmt.Sprintf("%s-%d", r.Name(), asn)
+func (r *ServiceReconciler) diffID(instance *instance.BGPInstance) string {
+	return fmt.Sprintf("%s-%s", r.Name(), instance.Name)
 }
 
 // checkServiceAdvertisement checks if the service advertisement is enabled in the advertisement.

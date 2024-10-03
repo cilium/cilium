@@ -237,7 +237,7 @@ func TestNeighborReconciler(t *testing.T) {
 				},
 			}
 
-			testInstance, err := instance.NewBGPInstance(context.Background(), logrus.WithField("unit_test", tt.name), srvParams)
+			testInstance, err := instance.NewBGPInstance(context.Background(), logrus.WithField("unit_test", tt.name), "test-instance", srvParams)
 			req.NoError(err)
 
 			t.Cleanup(func() {
