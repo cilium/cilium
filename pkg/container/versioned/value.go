@@ -280,7 +280,10 @@ func (v *Coordinator) clean() {
 	// 'keepVersion' is the current version if there are no outstanding VersionHandles
 	keepVersion := v.version
 	if len(v.versions) > 0 {
-		keepVersion = v.versions[0].version
+		// otherwise it is the oldest version for which there is an outstanding handle, if
+		// older than the current version, as if there was an implicit outstanding handle
+		// for the current version.
+		keepVersion = min(v.version, v.versions[0].version)
 	}
 
 	// Call the cleaner for 'keepVersion' only if not already called for this 'keepVersion'.
