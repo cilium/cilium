@@ -146,7 +146,7 @@ func (h *Hubble) Status(ctx context.Context) *models.HubbleStatus {
 	}
 
 	metricsState := models.HubbleStatusMetricsStateDisabled
-	if option.Config.HubbleMetricsServer != "" {
+	if h.config.MetricsServer != "" {
 		// TODO: The metrics package should be refactored to be able report its actual state
 		metricsState = models.HubbleStatusMetricsStateOk
 	}
@@ -302,12 +302,12 @@ func (h *Hubble) Launch(ctx context.Context) {
 
 	grpcMetrics := grpc_prometheus.NewServerMetrics()
 	var metricsTLSConfig *certloader.WatchedServerConfig
-	if option.Config.HubbleMetricsServerTLSEnabled {
+	if h.config.EnableMetricsServerTLS {
 		metricsTLSConfigChan, err := certloader.FutureWatchedServerConfig(
 			logger.WithField("config", "hubble-metrics-server-tls"),
-			option.Config.HubbleMetricsServerTLSClientCAFiles,
-			option.Config.HubbleMetricsServerTLSCertFile,
-			option.Config.HubbleMetricsServerTLSKeyFile,
+			h.config.MetricsServerTLSClientCAFiles,
+			h.config.MetricsServerTLSCertFile,
+			h.config.MetricsServerTLSKeyFile,
 		)
 		if err != nil {
 			logger.WithError(err).Error("Failed to initialize Hubble metrics server TLS configuration")
@@ -331,11 +331,11 @@ func (h *Hubble) Launch(ctx context.Context) {
 	}
 
 	var srv *http.Server
-	if option.Config.HubbleMetricsServer != "" {
+	if h.config.MetricsServer != "" {
 		logger.WithFields(logrus.Fields{
-			"address": option.Config.HubbleMetricsServer,
+			"address": h.config.MetricsServer,
 			"metrics": h.config.Metrics,
-			"tls":     option.Config.HubbleMetricsServerTLSEnabled,
+			"tls":     h.config.EnableMetricsServerTLS,
 		}).Info("Starting Hubble Metrics server")
 
 		err := metrics.InitMetrics(metrics.Registry, api.ParseStaticMetricsConfig(h.config.Metrics), grpcMetrics)
@@ -345,7 +345,7 @@ func (h *Hubble) Launch(ctx context.Context) {
 		}
 
 		srv = &http.Server{
-			Addr:    option.Config.HubbleMetricsServer,
+			Addr:    h.config.MetricsServer,
 			Handler: nil,
 		}
 		metrics.InitMetricsServerHandler(srv, metrics.Registry, h.config.EnableOpenMetrics)

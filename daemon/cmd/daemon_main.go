@@ -885,9 +885,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.PolicyAccountingArg, true, "Enable policy accounting")
 	option.BindEnv(vp, option.PolicyAccountingArg)
 
-	flags.String(option.HubbleMetricsServer, "", "Address to serve Hubble metrics on.")
-	option.BindEnv(vp, option.HubbleMetricsServer)
-
 	flags.String(option.HubbleFlowlogsConfigFilePath, "", "Filepath with configuration of hubble flowlogs")
 	option.BindEnv(vp, option.HubbleFlowlogsConfigFilePath)
 

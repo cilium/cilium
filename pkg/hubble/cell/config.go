@@ -60,6 +60,22 @@ type config struct {
 	// EnableOpenMetrics enables exporting hubble metrics in OpenMetrics
 	// format.
 	EnableOpenMetrics bool `mapstructure:"enable-hubble-open-metrics"`
+
+	// MetricsServer specifies the addresses to serve Hubble metrics on.
+	MetricsServer string `mapstructure:"hubble-metrics-server"`
+	// EnableMetricsServerTLS run the Hubble metrics server on the given listen
+	// address with TLS.
+	EnableMetricsServerTLS bool `mapstructure:"hubble-metrics-server-enable-tls"`
+	// MetricsServerTLSCertFile specifies the path to the public key file for
+	// the Hubble metrics server. The file must contain PEM encoded data.
+	MetricsServerTLSCertFile string `mapstructure:"hubble-metrics-server-tls-cert-file"`
+	// MetricsServerTLSKeyFile specifies the path to the private key file for
+	// the Hubble metrics server. The file must contain PEM encoded data.
+	MetricsServerTLSKeyFile string `mapstructure:"hubble-metrics-server-tls-key-file"`
+	// MetricsServerTLSClientCAFiles specifies the path to one or more client
+	// CA certificates to use for TLS with mutual authentication (mTLS) on the
+	// Hubble metrics server. The files must contain PEM encoded data.
+	MetricsServerTLSClientCAFiles []string `mapstructure:"hubble-metrics-server-tls-client-ca-files"`
 }
 
 var defaultConfig = config{
@@ -81,6 +97,12 @@ var defaultConfig = config{
 	// Hubble metrics configuration
 	Metrics:           []string{},
 	EnableOpenMetrics: false,
+	// Hubble metrics server configuration
+	MetricsServer:                 "",
+	EnableMetricsServerTLS:        false,
+	MetricsServerTLSCertFile:      "",
+	MetricsServerTLSKeyFile:       "",
+	MetricsServerTLSClientCAFiles: []string{},
 }
 
 func (def config) Flags(flags *pflag.FlagSet) {
@@ -106,6 +128,12 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.StringSlice("hubble-tls-client-ca-files", def.ServerTLSClientCAFiles, "Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.")
 	flags.StringSlice("hubble-metrics", def.Metrics, "List of Hubble metrics to enable.")
 	flags.Bool("enable-hubble-open-metrics", def.EnableOpenMetrics, "Enable exporting hubble metrics in OpenMetrics format")
+	// Hubble metrics server configuration
+	flags.String("hubble-metrics-server", def.MetricsServer, "Address to serve Hubble metrics on.")
+	flags.Bool("hubble-metrics-server-enable-tls", def.EnableMetricsServerTLS, "Run the Hubble metrics server on the given listen address with TLS.")
+	flags.String("hubble-metrics-server-tls-cert-file", def.MetricsServerTLSCertFile, "Path to the public key file for the Hubble metrics server. The file must contain PEM encoded data.")
+	flags.String("hubble-metrics-server-tls-key-file", def.MetricsServerTLSKeyFile, "Path to the private key file for the Hubble metrics server. The file must contain PEM encoded data.")
+	flags.StringSlice("hubble-metrics-server-tls-client-ca-files", def.MetricsServerTLSClientCAFiles, "Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.")
 }
 
 func (cfg *config) normalize() {
