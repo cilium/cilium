@@ -128,6 +128,7 @@ cilium-agent [flags]
       --enable-host-legacy-routing                                Enable the legacy host forwarding model which does not bypass upper stack in host namespace
       --enable-host-port                                          Enable k8s hostPort mapping feature (requires enabling enable-node-port)
       --enable-hubble                                             Enable hubble server (default true)
+      --enable-hubble-open-metrics                                Enable exporting hubble metrics in OpenMetrics format
       --enable-hubble-recorder-api                                Enable the Hubble recorder API (default true)
       --enable-identity-mark                                      Enable setting identity mark for local traffic (default true)
       --enable-ingress-controller                                 Enables Envoy secret sync for Ingress controller related TLS secrets

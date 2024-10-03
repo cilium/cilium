@@ -989,9 +989,6 @@ const (
 	// The files must contain PEM encoded data.
 	HubbleMetricsTLSClientCAFiles = "hubble-metrics-server-tls-client-ca-files"
 
-	// HubbleMetrics specifies enabled metrics and their configuration options.
-	HubbleMetrics = "hubble-metrics"
-
 	// HubbleFlowlogsConfigFilePath specifies the filepath with configuration of hubble flowlogs.
 	// e.g. "/etc/cilium/flowlog.yaml"
 	HubbleFlowlogsConfigFilePath = "hubble-flowlogs-config-path"
@@ -1021,9 +1018,6 @@ const (
 
 	// EnableHubbleRecorderAPI specifies if the Hubble Recorder API should be served
 	EnableHubbleRecorderAPI = "enable-hubble-recorder-api"
-
-	// EnableHubbleOpenMetrics enables exporting hubble metrics in OpenMetrics format.
-	EnableHubbleOpenMetrics = "enable-hubble-open-metrics"
 
 	// HubbleRecorderStoragePath specifies the directory in which pcap files
 	// created via the Hubble Recorder API are stored
@@ -2121,9 +2115,6 @@ type DaemonConfig struct {
 	// must contain PEM encoded data.
 	HubbleMetricsServerTLSClientCAFiles []string
 
-	// HubbleMetrics specifies enabled metrics and their configuration options.
-	HubbleMetrics []string
-
 	// HubbleFlowlogsConfigFilePath specifies the filepath with configuration of hubble flowlogs.
 	// e.g. "/etc/cilium/flowlog.yaml"
 	HubbleFlowlogsConfigFilePath string
@@ -2153,9 +2144,6 @@ type DaemonConfig struct {
 
 	// EnableHubbleRecorderAPI specifies if the Hubble Recorder API should be served
 	EnableHubbleRecorderAPI bool
-
-	// EnableHubbleOpenMetrics enables exporting hubble metrics in OpenMetrics format.
-	EnableHubbleOpenMetrics bool
 
 	// HubbleRecorderStoragePath specifies the directory in which pcap files
 	// created via the Hubble Recorder API are stored
@@ -3394,13 +3382,11 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.KubeProxyReplacementHealthzBindAddr = vp.GetString(KubeProxyReplacementHealthzBindAddr)
 
 	// Hubble options.
-	c.EnableHubbleOpenMetrics = vp.GetBool(EnableHubbleOpenMetrics)
 	c.HubbleMetricsServer = vp.GetString(HubbleMetricsServer)
 	c.HubbleMetricsServerTLSEnabled = vp.GetBool(HubbleMetricsTLSEnabled)
 	c.HubbleMetricsServerTLSCertFile = vp.GetString(HubbleMetricsTLSCertFile)
 	c.HubbleMetricsServerTLSKeyFile = vp.GetString(HubbleMetricsTLSKeyFile)
 	c.HubbleMetricsServerTLSClientCAFiles = vp.GetStringSlice(HubbleMetricsTLSClientCAFiles)
-	c.HubbleMetrics = vp.GetStringSlice(HubbleMetrics)
 
 	c.HubbleExportFilePath = vp.GetString(HubbleExportFilePath)
 	c.HubbleExportFileMaxSizeMB = vp.GetInt(HubbleExportFileMaxSizeMB)

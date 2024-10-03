@@ -334,11 +334,11 @@ func (h *Hubble) Launch(ctx context.Context) {
 	if option.Config.HubbleMetricsServer != "" {
 		logger.WithFields(logrus.Fields{
 			"address": option.Config.HubbleMetricsServer,
-			"metrics": option.Config.HubbleMetrics,
+			"metrics": h.config.Metrics,
 			"tls":     option.Config.HubbleMetricsServerTLSEnabled,
 		}).Info("Starting Hubble Metrics server")
 
-		err := metrics.InitMetrics(metrics.Registry, api.ParseStaticMetricsConfig(option.Config.HubbleMetrics), grpcMetrics)
+		err := metrics.InitMetrics(metrics.Registry, api.ParseStaticMetricsConfig(h.config.Metrics), grpcMetrics)
 		if err != nil {
 			logger.WithError(err).Error("Unable to setup metrics: %w", err)
 			return
@@ -348,7 +348,7 @@ func (h *Hubble) Launch(ctx context.Context) {
 			Addr:    option.Config.HubbleMetricsServer,
 			Handler: nil,
 		}
-		metrics.InitMetricsServerHandler(srv, metrics.Registry, option.Config.EnableHubbleOpenMetrics)
+		metrics.InitMetricsServerHandler(srv, metrics.Registry, h.config.EnableOpenMetrics)
 
 		go func() {
 			if err := metrics.StartMetricsServer(srv, logger, metricsTLSConfig, grpcMetrics); err != nil && !errors.Is(err, http.ErrServerClosed) {
