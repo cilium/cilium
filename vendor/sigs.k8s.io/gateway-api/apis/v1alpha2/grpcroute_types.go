@@ -24,6 +24,7 @@ import (
 
 // +genclient
 // +kubebuilder:object:root=true
+// +kubebuilder:skipversion
 // +kubebuilder:deprecatedversion:warning="The v1alpha2 version of GRPCRoute has been deprecated and will be removed in a future release of the API. Please upgrade to v1."
 type GRPCRoute v1.GRPCRoute
 
