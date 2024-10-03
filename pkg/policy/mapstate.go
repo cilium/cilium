@@ -134,6 +134,10 @@ type mapStateMap struct {
 
 type IDSet map[identity.NumericIdentity]struct{}
 
+func (msm *mapStateMap) Empty() bool {
+	return len(msm.entries) == 0
+}
+
 func (msm *mapStateMap) Lookup(k Key) (MapStateEntry, bool) {
 	v, ok := msm.entries[k]
 	return v, ok
@@ -1042,7 +1046,9 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			newEntry.AddDependent(update.Key)
 		}
 		ms.addKeyWithChanges(newKey, newEntry, changes)
-	} else {
+		return
+	}
+	if !ms.denies.Empty() {
 		// NOTE: We do not delete redundant allow entries.
 		var dependents []MapChange
 
@@ -1092,8 +1098,8 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				ms.addDependentOnEntry(dep.Key, dep.Value, update.Key, changes)
 			}
 		}
-		ms.authPreferredInsert(newKey, newEntry, features, changes)
 	}
+	ms.authPreferredInsert(newKey, newEntry, features, changes)
 }
 
 // IsSuperSetOf checks if the receiver Key is a superset of the argument Key, and returns a
