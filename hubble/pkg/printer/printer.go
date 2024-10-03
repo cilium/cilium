@@ -800,6 +800,8 @@ func (p *Printer) WriteGetFlowsResponse(res *observerpb.GetFlowsResponse) error 
 		return p.WriteProtoFlow(res)
 	case *observerpb.GetFlowsResponse_NodeStatus:
 		return p.WriteProtoNodeStatusEvent(res)
+	case *observerpb.GetFlowsResponse_LostEvents:
+		return p.WriteLostEvent(res)
 	case nil:
 		return nil
 	default:
@@ -912,5 +914,91 @@ func (p *Printer) WriteServerStatusResponse(res *observerpb.ServerStatusResponse
 	case JSONPBOutput:
 		return p.jsonEncoder.Encode(res)
 	}
+	return nil
+}
+
+// WriteLostEvent writes v1.Flow into the output writer.
+func (p *Printer) WriteLostEvent(res *observerpb.GetFlowsResponse) error {
+	f := res.GetLostEvents()
+
+	switch p.opts.output {
+	case TabOutput:
+		ew := &errWriter{w: p.tw}
+		src := f.GetSource()
+		numEventsLost := f.GetNumEventsLost()
+		cpu := f.GetCpu()
+
+		if p.line == 0 {
+			ew.write("TIMESTAMP", tab)
+			if p.opts.nodeName {
+				ew.write("NODE", tab)
+			}
+			ew.write(
+				"SOURCE", tab,
+				"DESTINATION", tab,
+				"TYPE", tab,
+				"VERDICT", tab,
+				"SUMMARY", newline,
+			)
+		}
+		ew.write("", tab)
+		if p.opts.nodeName {
+			ew.write("", tab)
+		}
+		ew.write(
+			src, tab,
+			"", tab,
+			"EVENTS LOST", tab,
+			"", tab,
+			fmt.Sprintf("CPU(%d) - %d", cpu.GetValue(), numEventsLost), newline,
+		)
+		if ew.err != nil {
+			return fmt.Errorf("failed to write out packet: %w", ew.err)
+		}
+	case DictOutput:
+		ew := &errWriter{w: p.opts.w}
+		src := f.GetSource()
+		numEventsLost := f.GetNumEventsLost()
+		cpu := f.GetCpu()
+		if p.line != 0 {
+			// TODO: line length?
+			ew.write(dictSeparator, newline)
+		}
+
+		// this is a little crude, but will do for now. should probably find the
+		// longest header and auto-format the keys
+		ew.write("  TIMESTAMP: ", "", newline)
+		if p.opts.nodeName {
+			ew.write("       NODE: ", "", newline)
+		}
+		ew.write(
+			"     SOURCE: ", src, newline,
+			"       TYPE: ", "EVENTS LOST", newline,
+			"    VERDICT: ", "", newline,
+			"    SUMMARY: ", fmt.Sprintf("CPU(%d) - %d", cpu.GetValue(), numEventsLost), newline,
+		)
+		if ew.err != nil {
+			return fmt.Errorf("failed to write out packet: %w", ew.err)
+		}
+	case CompactOutput:
+		src := f.GetSource()
+		numEventsLost := f.GetNumEventsLost()
+		cpu := f.GetCpu()
+
+		_, err := fmt.Fprintf(p.opts.w,
+			"EVENTS LOST: %s CPU(%d) %d\n",
+			src,
+			cpu.GetValue(),
+			numEventsLost,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to write out packet: %w", err)
+		}
+	case JSONLegacyOutput:
+		return p.jsonEncoder.Encode(f)
+	case JSONPBOutput:
+		return p.jsonEncoder.Encode(res)
+	}
+	p.line++
 	return nil
 }
