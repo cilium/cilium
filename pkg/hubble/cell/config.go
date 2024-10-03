@@ -99,6 +99,14 @@ type config struct {
 	ExportDenylist []*flowpb.FlowFilter `mapstructure:"hubble-export-denylist"`
 	// ExportFieldmask specifies list of fields to log in exporter.
 	ExportFieldmask []string `mapstructure:"hubble-export-fieldmask"`
+
+	// EnableRecorderAPI specifies if the Hubble Recorder API should be served.
+	EnableRecorderAPI bool `mapstructure:"enable-hubble-recorder-api"`
+	// RecorderStoragePath specifies the directory in which pcap files created
+	// via the Hubble Recorder API are stored.
+	RecorderStoragePath string `mapstructure:"hubble-recorder-storage-path"`
+	// RecorderSinkQueueSize is the queue size for each recorder sink.
+	RecorderSinkQueueSize int `mapstructure:"hubble-recorder-sink-queue-size"`
 }
 
 var defaultConfig = config{
@@ -135,6 +143,10 @@ var defaultConfig = config{
 	ExportAllowlist:        []*flowpb.FlowFilter{},
 	ExportDenylist:         []*flowpb.FlowFilter{},
 	ExportFieldmask:        []string{},
+	// Hubble recorder configuration
+	EnableRecorderAPI:     true,
+	RecorderStoragePath:   hubbleDefaults.RecorderStoragePath,
+	RecorderSinkQueueSize: 1024,
 }
 
 func (def config) Flags(flags *pflag.FlagSet) {
@@ -175,6 +187,10 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.StringSlice("hubble-export-allowlist", []string{}, "Specify allowlist as JSON encoded FlowFilters to Hubble exporter.")
 	flags.StringSlice("hubble-export-denylist", []string{}, "Specify denylist as JSON encoded FlowFilters to Hubble exporter.")
 	flags.StringSlice("hubble-export-fieldmask", def.ExportFieldmask, "Specify list of fields to use for field mask in Hubble exporter.")
+	// Hubble recorder configuration
+	flags.Bool("enable-hubble-recorder-api", def.EnableRecorderAPI, "Enable the Hubble recorder API")
+	flags.String("hubble-recorder-storage-path", def.RecorderStoragePath, "Directory in which pcap files created via the Hubble Recorder API are stored")
+	flags.Int("hubble-recorder-sink-queue-size", def.RecorderSinkQueueSize, "Queue size of each Hubble recorder sink")
 }
 
 func (cfg *config) normalize() {

@@ -41,6 +41,7 @@ cilium-agent hive [flags]
       --enable-gateway-api                                        Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-hubble                                             Enable hubble server (default true)
       --enable-hubble-open-metrics                                Enable exporting hubble metrics in OpenMetrics format
+      --enable-hubble-recorder-api                                Enable the Hubble recorder API (default true)
       --enable-ingress-controller                                 Enables Envoy secret sync for Ingress controller related TLS secrets
       --enable-ipv4-big-tcp                                       Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4
       --enable-ipv6-big-tcp                                       Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6
@@ -89,6 +90,8 @@ cilium-agent hive [flags]
       --hubble-metrics-server-tls-key-file string                 Path to the private key file for the Hubble metrics server. The file must contain PEM encoded data.
       --hubble-monitor-events strings                             Cilium monitor events for Hubble to observe: [drop debug capture trace policy-verdict recorder trace-sock l7 agent]. By default, Hubble observes all monitor events.
       --hubble-prefer-ipv6                                        Prefer IPv6 addresses for announcing nodes when both address types are available.
+      --hubble-recorder-sink-queue-size int                       Queue size of each Hubble recorder sink (default 1024)
+      --hubble-recorder-storage-path string                       Directory in which pcap files created via the Hubble Recorder API are stored (default "/var/run/cilium/pcaps")
       --hubble-skip-unknown-cgroup-ids                            Skip Hubble events with unknown cgroup ids (default true)
       --hubble-socket-path string                                 Set hubble's socket path to listen for connections (default "/var/run/cilium/hubble.sock")
       --hubble-tls-cert-file string                               Path to the public key file for the Hubble server. The file must contain PEM encoded data.

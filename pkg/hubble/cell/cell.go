@@ -48,6 +48,7 @@ type hubbleParams struct {
 	MonitorAgent      monitorAgent.Agent
 	Recorder          *recorder.Recorder
 
+	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
 	AgentConfig *option.DaemonConfig
 	Config      config
 }

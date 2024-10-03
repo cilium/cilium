@@ -3,9 +3,7 @@
 
 package recorderoption
 
-import (
-	"github.com/cilium/cilium/pkg/defaults"
-)
+import hubbleDefaults "github.com/cilium/cilium/pkg/hubble/defaults"
 
 // Options stores all the configuration values for the Hubble recorder.
 type Options struct {
@@ -16,7 +14,7 @@ type Options struct {
 
 // Default contains the default values
 var Default = Options{
-	StoragePath: defaults.HubbleRecorderStoragePath,
+	StoragePath: hubbleDefaults.RecorderStoragePath,
 }
 
 // Option customizes the Hubble recorder's configuration.

@@ -81,6 +81,7 @@ type Hubble struct {
 	MonitorAgent      monitorAgent.Agent      // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 	Recorder          *recorder.Recorder      // FIXME: unexport once launchHubble() has moved away from the Cilium daemon.
 
+	// NOTE: we still need DaemonConfig for the shared EnableRecorder flag.
 	agentConfig *option.DaemonConfig
 	config      config
 }
@@ -472,15 +473,15 @@ func (h *Hubble) Launch(ctx context.Context) {
 		serveroption.WithInsecure(),
 	)
 
-	if option.Config.EnableRecorder && option.Config.EnableHubbleRecorderAPI {
-		dispatch, err := sink.NewDispatch(option.Config.HubbleRecorderSinkQueueSize)
+	if h.agentConfig.EnableRecorder && h.config.EnableRecorderAPI {
+		dispatch, err := sink.NewDispatch(h.config.RecorderSinkQueueSize)
 		if err != nil {
 			logger.WithError(err).Error("Failed to initialize Hubble recorder sink dispatch")
 			return
 		}
 		h.MonitorAgent.RegisterNewConsumer(dispatch)
 		svc, err := hubbleRecorder.NewService(h.Recorder, dispatch,
-			recorderoption.WithStoragePath(option.Config.HubbleRecorderStoragePath))
+			recorderoption.WithStoragePath(h.config.RecorderStoragePath))
 		if err != nil {
 			logger.WithError(err).Error("Failed to initialize Hubble recorder service")
 			return

@@ -880,15 +880,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.PolicyAccountingArg, true, "Enable policy accounting")
 	option.BindEnv(vp, option.PolicyAccountingArg)
 
-	flags.Bool(option.EnableHubbleRecorderAPI, true, "Enable the Hubble recorder API")
-	option.BindEnv(vp, option.EnableHubbleRecorderAPI)
-
-	flags.String(option.HubbleRecorderStoragePath, defaults.HubbleRecorderStoragePath, "Directory in which pcap files created via the Hubble Recorder API are stored")
-	option.BindEnv(vp, option.HubbleRecorderStoragePath)
-
-	flags.Int(option.HubbleRecorderSinkQueueSize, defaults.HubbleRecorderSinkQueueSize, "Queue size of each Hubble recorder sink")
-	option.BindEnv(vp, option.HubbleRecorderSinkQueueSize)
-
 	flags.Bool(option.HubbleRedactEnabled, defaults.HubbleRedactEnabled, "Hubble redact sensitive information from flows")
 	option.BindEnv(vp, option.HubbleRedactEnabled)
 
