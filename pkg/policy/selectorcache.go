@@ -536,6 +536,8 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 
 	if updated {
 		// Launch a waiter that holds the new version as long as needed for users to have grabbed it
+		sc.queueNotifiedUsersCommit(txn, wg)
+
 		go func(version *versioned.VersionHandle) {
 			wg.Wait()
 			log.WithFields(logrus.Fields{
@@ -544,7 +546,6 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 			version.Close()
 		}(txn.GetVersionHandle())
 
-		sc.queueNotifiedUsersCommit(txn, wg)
 		txn.Commit()
 	}
 }
