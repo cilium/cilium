@@ -1407,3 +1407,96 @@ NUM CONNECTED NODES: N/A
 		})
 	}
 }
+
+func TestPrinter_WriteLostEventsResponse(t *testing.T) {
+	buf := bytes.Buffer{}
+	gfr := &observerpb.GetFlowsResponse{
+		ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
+			LostEvents: &observerpb.LostEvent{
+				Source:        observerpb.LostEventSource_HUBBLE_RING_BUFFER,
+				NumEventsLost: 1,
+				Cpu:           wrapperspb.Int32(5),
+			},
+		},
+	}
+	type args struct {
+		le *observerpb.GetFlowsResponse
+	}
+	tests := []struct {
+		name     string
+		options  []Option
+		args     args
+		wantErr  bool
+		expected string
+	}{
+		{
+			name: "tabular",
+			options: []Option{
+				WithColor("never"),
+				Writer(&buf),
+			},
+			args:    args{gfr},
+			wantErr: false,
+			expected: `
+TIMESTAMP   SOURCE               DESTINATION   TYPE          VERDICT   SUMMARY
+            HUBBLE_RING_BUFFER                 EVENTS LOST             CPU(5) - 1`,
+		}, {
+			name: "compact",
+			options: []Option{
+				Compact(),
+				WithColor("never"),
+				Writer(&buf),
+			},
+			args:    args{gfr},
+			wantErr: false,
+			expected: `
+EVENTS LOST: HUBBLE_RING_BUFFER CPU(5) 1`,
+		}, {
+			name: "json",
+			options: []Option{
+				JSONPB(),
+				WithColor("never"),
+				Writer(&buf),
+			},
+			args:     args{gfr},
+			wantErr:  false,
+			expected: `{"lost_events":{"source":"HUBBLE_RING_BUFFER","num_events_lost":"1","cpu":5}}`,
+		}, {
+			name: "jsonpb",
+			options: []Option{
+				JSONPB(),
+				WithColor("never"),
+				Writer(&buf),
+			},
+			args:     args{gfr},
+			wantErr:  false,
+			expected: `{"lost_events":{"source":"HUBBLE_RING_BUFFER","num_events_lost":"1","cpu":5}}`,
+		}, {
+			name: "dict",
+			options: []Option{
+				Dict(),
+				WithColor("never"),
+				Writer(&buf),
+			},
+			args:    args{gfr},
+			wantErr: false,
+			expected: `
+  TIMESTAMP: 
+     SOURCE: HUBBLE_RING_BUFFER
+       TYPE: EVENTS LOST
+    VERDICT: 
+    SUMMARY: CPU(5) - 1`,
+		},
+	}
+	for _, tt := range tests {
+		buf.Reset()
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(tt.options...)
+			if err := p.WriteLostEvent(tt.args.le); (err != nil) != tt.wantErr {
+				t.Errorf("WriteServerStatusResponse() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			require.NoError(t, p.Close())
+			require.Equal(t, strings.TrimSpace(tt.expected), strings.TrimSpace(buf.String()))
+		})
+	}
+}
