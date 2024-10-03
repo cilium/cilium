@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type config struct {
@@ -123,6 +124,15 @@ type config struct {
 	RedactHttpHeadersDeny []string `mapstructure:"hubble-redact-http-headers-deny"`
 	// RedactKafkaAPIKey controls if Kafka API key will be redacted from flows.
 	RedactKafkaAPIKey bool `mapstructure:"hubble-redact-kafka-apikey"`
+
+	// EnableK8sDropEvents controls whether Hubble should create v1.Events for
+	// packet drops related to pods.
+	EnableK8sDropEvents bool `mapstructure:"hubble-drop-events"`
+	// K8sDropEventsInterval controls the minimum time between emitting events
+	// with the same source and destination IP.
+	K8sDropEventsInterval time.Duration `mapstructure:"hubble-drop-events-interval"`
+	// K8sDropEventsReasons controls which drop reasons to emit events for.
+	K8sDropEventsReasons []string `mapstructure:"hubble-drop-events-reasons"`
 }
 
 var defaultConfig = config{
@@ -170,6 +180,10 @@ var defaultConfig = config{
 	RedactHttpHeadersAllow: []string{},
 	RedactHttpHeadersDeny:  []string{},
 	RedactKafkaAPIKey:      false,
+	// Hubble k8s v1.Events integration configuration.
+	EnableK8sDropEvents:   false,
+	K8sDropEventsInterval: 2 * time.Minute,
+	K8sDropEventsReasons:  []string{"auth_required", "policy_denied"},
 }
 
 func (def config) Flags(flags *pflag.FlagSet) {
@@ -221,12 +235,33 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.StringSlice("hubble-redact-http-headers-allow", def.RedactHttpHeadersAllow, "HTTP headers to keep visible in flows")
 	flags.StringSlice("hubble-redact-http-headers-deny", def.RedactHttpHeadersDeny, "HTTP headers to redact from flows")
 	flags.Bool("hubble-redact-kafka-apikey", def.RedactKafkaAPIKey, "Hubble redact Kafka API key from flows")
+	// Hubble k8s v1.Events integration configuration.
+	flags.Bool("hubble-drop-events", def.EnableK8sDropEvents, "Emit packet drop Events related to pods (alpha)")
+	flags.Duration("hubble-drop-events-interval", def.K8sDropEventsInterval, "Minimum time between emitting same events")
+	flags.StringSlice("hubble-drop-events-reasons", def.K8sDropEventsReasons, "Drop reasons to emit events for")
 }
 
 func (cfg *config) normalize() {
 	// Dynamically set the event queue size.
 	if cfg.EventQueueSize == 0 {
 		cfg.EventQueueSize = getDefaultMonitorQueueSize(runtime.NumCPU())
+	}
+	// Before moving the --hubble-drop-events-reasons flag to Config, it was
+	// registered as flags.String() and parsed through viper.GetStringSlice()
+	// in Cilium's DaemonConfig. In that case, viper is handling the split of
+	// the single string value into slice and it uses white spaces as
+	// separators. See also https://github.com/cilium/cilium/pull/33699 for
+	// more context.
+	//
+	// Since it moved to Config, the --hubble-drop-events-reasons flag is
+	// registered as flags.StringSlice() allowing multiple flag invocations,
+	// and splitting values using comma as separator (see
+	// https://pkg.go.dev/github.com/spf13/pflag#StringSlice). Since the
+	// reasons themselves have no commas nor white spaces, starting to split on
+	// commas should not introduce issues but we still need to handle white
+	// spaces splitting to maintain backward compatibility.
+	if len(cfg.K8sDropEventsReasons) == 1 {
+		cfg.K8sDropEventsReasons = strings.Fields(cfg.K8sDropEventsReasons[0])
 	}
 }
 
