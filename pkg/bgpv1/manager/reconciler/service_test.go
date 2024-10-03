@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
@@ -605,6 +606,28 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 				},
 			},
 		},
+		// service VIP sharing, delete one of the services
+		{
+			name:               "svc-vip-sharing",
+			oldServiceSelector: &blueSelector,
+			newServiceSelector: &blueSelector,
+			advertised: map[resource.Key][]string{
+				svc1Name: {
+					ingressV4Prefix,
+				},
+				svc2NonDefaultName: {
+					ingressV4Prefix,
+				},
+			},
+			deletedServices: []resource.Key{
+				svc1Name,
+			},
+			updated: map[resource.Key][]string{
+				svc2NonDefaultName: {
+					ingressV4Prefix,
+				},
+			},
+		},
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
@@ -729,6 +752,8 @@ func TestServiceReconcilerWithLoadBalancer(t *testing.T) {
 				}
 			}
 
+			// validate that advertised paths match expected metadata
+			validateAdvertisedPrefixesMatch(t, testSC, tt.updated)
 		})
 	}
 }
@@ -1388,6 +1413,8 @@ func TestServiceReconcilerWithClusterIP(t *testing.T) {
 				}
 			}
 
+			// validate that advertised paths match expected metadata
+			validateAdvertisedPrefixesMatch(t, testSC, tt.updated)
 		})
 	}
 }
@@ -2045,6 +2072,8 @@ func TestServiceReconcilerWithExternalIP(t *testing.T) {
 				}
 			}
 
+			// validate that advertised paths match expected metadata
+			validateAdvertisedPrefixesMatch(t, testSC, tt.updated)
 		})
 	}
 }
@@ -2393,6 +2422,8 @@ func TestServiceReconcilerWithExternalIPAndClusterIP(t *testing.T) {
 				}
 			}
 
+			// validate that advertised paths match expected metadata
+			validateAdvertisedPrefixesMatch(t, testSC, tt.updated)
 		})
 	}
 }
@@ -2403,4 +2434,39 @@ func containsLbClass(svcs []*slim_corev1.Service) bool {
 		}
 	}
 	return false
+}
+
+func validateAdvertisedPrefixesMatch(t *testing.T, testSC *instance.ServerWithConfig, expectedAdverts map[resource.Key][]string) {
+	expected := sets.New[string]()
+	for _, resourcePaths := range expectedAdverts {
+		for _, path := range resourcePaths {
+			expected.Insert(path)
+		}
+	}
+
+	advertised := sets.New[string]()
+	routes, err := testSC.Server.GetRoutes(context.Background(), &types.GetRoutesRequest{TableType: types.TableTypeLocRIB, Family: types.Family{
+		Afi:  types.AfiIPv4,
+		Safi: types.SafiUnicast,
+	}})
+	require.NoError(t, err)
+	for _, route := range routes.Routes {
+		for _, path := range route.Paths {
+			advertised.Insert(path.NLRI.String())
+		}
+	}
+	routes, _ = testSC.Server.GetRoutes(context.Background(), &types.GetRoutesRequest{TableType: types.TableTypeLocRIB, Family: types.Family{
+		Afi:  types.AfiIPv6,
+		Safi: types.SafiUnicast,
+	}})
+	require.NoError(t, err)
+	for _, route := range routes.Routes {
+		for _, path := range route.Paths {
+			advertised.Insert(path.NLRI.String())
+		}
+	}
+
+	if !advertised.Equal(expected) {
+		t.Fatalf("advertised prefixes do not match expected metadata, expected: %v, got: %v", expected, advertised)
+	}
 }
