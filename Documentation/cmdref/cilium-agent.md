@@ -222,6 +222,10 @@ cilium-agent [flags]
       --hubble-listen-address string                              An additional address for Hubble server to listen to, e.g. ":4244"
       --hubble-metrics strings                                    List of Hubble metrics to enable.
       --hubble-metrics-server string                              Address to serve Hubble metrics on.
+      --hubble-metrics-server-enable-tls                          Run the Hubble metrics server on the given listen address with TLS.
+      --hubble-metrics-server-tls-cert-file string                Path to the public key file for the Hubble metrics server. The file must contain PEM encoded data.
+      --hubble-metrics-server-tls-client-ca-files strings         Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
+      --hubble-metrics-server-tls-key-file string                 Path to the private key file for the Hubble metrics server. The file must contain PEM encoded data.
       --hubble-monitor-events strings                             Cilium monitor events for Hubble to observe: [drop debug capture trace policy-verdict recorder trace-sock l7 agent]. By default, Hubble observes all monitor events.
       --hubble-prefer-ipv6                                        Prefer IPv6 addresses for announcing nodes when both address types are available.
       --hubble-recorder-sink-queue-size int                       Queue size of each Hubble recorder sink (default 1024)

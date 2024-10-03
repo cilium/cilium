@@ -969,26 +969,6 @@ const (
 	// PolicyAccountingArg argument enable policy accounting.
 	PolicyAccountingArg = "policy-accounting"
 
-	// HubbleMetricsServer specifies the addresses to serve Hubble metrics on.
-	HubbleMetricsServer = "hubble-metrics-server"
-
-	// HubbleMetricsTLSEnabled allows the Hubble metrics server to run on the given listen
-	// address with TLS.
-	HubbleMetricsTLSEnabled = "hubble-metrics-server-enable-tls"
-
-	// HubbleMetricsServerTLSCertFile specifies the path to the public key file for the
-	// Hubble metrics server. The file must contain PEM encoded data.
-	HubbleMetricsTLSCertFile = "hubble-metrics-server-tls-cert-file"
-
-	// HubbleMetricsServerTLSKeyFile specifies the path to the private key file for the
-	// Hubble metrics server. The file must contain PEM encoded data.
-	HubbleMetricsTLSKeyFile = "hubble-metrics-server-tls-key-file"
-
-	// HubbleMetricsServerTLSClientCAFiles specifies the path to one or more client CA
-	// certificates to use for TLS with mutual authentication (mTLS) on the Hubble metrics server.
-	// The files must contain PEM encoded data.
-	HubbleMetricsTLSClientCAFiles = "hubble-metrics-server-tls-client-ca-files"
-
 	// HubbleFlowlogsConfigFilePath specifies the filepath with configuration of hubble flowlogs.
 	// e.g. "/etc/cilium/flowlog.yaml"
 	HubbleFlowlogsConfigFilePath = "hubble-flowlogs-config-path"
@@ -2094,26 +2074,6 @@ type DaemonConfig struct {
 
 	// PolicyAccounting enable policy accounting
 	PolicyAccounting bool
-
-	// HubbleMetricsServer specifies the addresses to serve Hubble metrics on.
-	HubbleMetricsServer string
-
-	// HubbleMetricsServerTLSEnabled allows the Hubble metrics server to run on the given listen
-	// address with TLS.
-	HubbleMetricsServerTLSEnabled bool
-
-	// HubbleMetricsServerTLSCertFile specifies the path to the public key file for the
-	// Hubble server. The file must contain PEM encoded data.
-	HubbleMetricsServerTLSCertFile string
-
-	// HubbleMetricsServerTLSKeyFile specifies the path to the private key file for the
-	// Hubble server. The file must contain PEM encoded data.
-	HubbleMetricsServerTLSKeyFile string
-
-	// HubbleMetricsServerTLSClientCAFiles specifies the path to one or more client CA
-	// certificates to use for TLS with mutual authentication (mTLS). The files
-	// must contain PEM encoded data.
-	HubbleMetricsServerTLSClientCAFiles []string
 
 	// HubbleFlowlogsConfigFilePath specifies the filepath with configuration of hubble flowlogs.
 	// e.g. "/etc/cilium/flowlog.yaml"
@@ -3382,12 +3342,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.KubeProxyReplacementHealthzBindAddr = vp.GetString(KubeProxyReplacementHealthzBindAddr)
 
 	// Hubble options.
-	c.HubbleMetricsServer = vp.GetString(HubbleMetricsServer)
-	c.HubbleMetricsServerTLSEnabled = vp.GetBool(HubbleMetricsTLSEnabled)
-	c.HubbleMetricsServerTLSCertFile = vp.GetString(HubbleMetricsTLSCertFile)
-	c.HubbleMetricsServerTLSKeyFile = vp.GetString(HubbleMetricsTLSKeyFile)
-	c.HubbleMetricsServerTLSClientCAFiles = vp.GetStringSlice(HubbleMetricsTLSClientCAFiles)
-
 	c.HubbleExportFilePath = vp.GetString(HubbleExportFilePath)
 	c.HubbleExportFileMaxSizeMB = vp.GetInt(HubbleExportFileMaxSizeMB)
 	c.HubbleExportFileMaxBackups = vp.GetInt(HubbleExportFileMaxBackups)
