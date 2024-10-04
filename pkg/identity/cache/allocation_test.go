@@ -436,8 +436,8 @@ func TestAllocateLocally(t *testing.T) {
 	id, allocated, err := mgr.AllocateLocalIdentity(cidrLbls, false, identity.IdentityScopeLocal+50)
 	assert.NoError(t, err)
 	assert.True(t, allocated)
-	assert.Equal(t, id.ID.Scope(), identity.IdentityScopeLocal)
-	assert.Equal(t, id.ID, identity.IdentityScopeLocal+50)
+	assert.Equal(t, identity.IdentityScopeLocal, id.ID.Scope())
+	assert.Equal(t, identity.IdentityScopeLocal+50, id.ID)
 
 	id, _, err = mgr.AllocateLocalIdentity(podLbls, false, 0)
 	assert.ErrorIs(t, err, ErrNonLocalIdentity)

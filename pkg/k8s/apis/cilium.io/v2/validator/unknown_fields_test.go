@@ -179,6 +179,6 @@ func Test_getFields(t *testing.T) {
 
 		slices.Sort(tt.expected) // Must sort to check slice equality
 		slices.Sort(got)
-		require.EqualValues(t, got, tt.expected)
+		require.EqualValues(t, tt.expected, got)
 	}
 }

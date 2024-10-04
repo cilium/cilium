@@ -245,12 +245,12 @@ func TestBPFMasqAddrs(t *testing.T) {
 	}
 
 	masq4, masq6 = bpfMasqAddrs("test", &newConfig)
-	require.Equal(t, masq4.String(), "1.0.0.1")
-	require.Equal(t, masq6.String(), "1000::1")
+	require.Equal(t, "1.0.0.1", masq4.String())
+	require.Equal(t, "1000::1", masq6.String())
 
 	masq4, masq6 = bpfMasqAddrs("unknown", &newConfig)
-	require.Equal(t, masq4.String(), "2.0.0.2")
-	require.Equal(t, masq6.String(), "2000::2")
+	require.Equal(t, "2.0.0.2", masq4.String())
+	require.Equal(t, "2000::2", masq6.String())
 }
 
 // BenchmarkCompileOnly benchmarks the just the entire compilation process.

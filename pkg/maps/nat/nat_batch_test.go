@@ -39,5 +39,5 @@ func TestApplyPatch(t *testing.T) {
 	m.ApplyBatch4(func(tk []tuple.TupleKey4, ne []NatEntry4, c int) {
 		count += int(c)
 	})
-	assert.Equal(t, count, 1024+1)
+	assert.Equal(t, 1024+1, count)
 }

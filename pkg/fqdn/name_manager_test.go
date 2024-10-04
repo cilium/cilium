@@ -150,7 +150,7 @@ func Test_deriveLabelsForNames(t *testing.T) {
 		"awesomecilium.io.": {ciliumIP1, ciliumIP2},
 	}
 
-	require.Equal(t, deriveLabelsForNames(names, selectors), map[string]nameMetadata{
+	require.Equal(t, map[string]nameMetadata{
 		"nomatch.local.": {
 			addrs:  []netip.Addr{nomatchIP},
 			labels: labels.Labels{},
@@ -167,5 +167,5 @@ func Test_deriveLabelsForNames(t *testing.T) {
 			addrs:  []netip.Addr{ciliumIP1, ciliumIP2},
 			labels: labels.NewLabelsFromSortedList("fqdn:*cilium.io."),
 		},
-	})
+	}, deriveLabelsForNames(names, selectors))
 }

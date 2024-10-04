@@ -177,7 +177,7 @@ func TestEventToExportEvent(t *testing.T) {
 		NodeName:      newNodeName,
 		Time:          ev.GetFlow().Time,
 	}
-	assert.Equal(t, res, expected)
+	assert.Equal(t, expected, res)
 
 	// lost event
 	ev = v1.Event{
@@ -190,7 +190,7 @@ func TestEventToExportEvent(t *testing.T) {
 		NodeName:      newNodeName,
 		Time:          ev.Timestamp,
 	}
-	assert.Equal(t, res, expected)
+	assert.Equal(t, expected, res)
 
 	// agent event
 	ev = v1.Event{
@@ -203,7 +203,7 @@ func TestEventToExportEvent(t *testing.T) {
 		NodeName:      newNodeName,
 		Time:          ev.Timestamp,
 	}
-	assert.Equal(t, res, expected)
+	assert.Equal(t, expected, res)
 
 	// debug event
 	ev = v1.Event{
@@ -216,7 +216,7 @@ func TestEventToExportEvent(t *testing.T) {
 		NodeName:      newNodeName,
 		Time:          ev.Timestamp,
 	}
-	assert.Equal(t, res, expected)
+	assert.Equal(t, expected, res)
 }
 
 func TestExporterWithFieldMask(t *testing.T) {

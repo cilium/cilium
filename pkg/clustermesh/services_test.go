@@ -138,7 +138,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 
 	// wait for both clusters to appear in the list of cm clusters
 	require.EventuallyWithT(tb, func(c *assert.CollectT) {
-		assert.EqualValues(c, s.mesh.NumReadyClusters(), 2)
+		assert.EqualValues(c, 2, s.mesh.NumReadyClusters())
 	}, timeout, tick)
 
 	return s

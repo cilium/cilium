@@ -34,7 +34,7 @@ func TestIteratorProductElements(t *testing.T) {
 		[]string{"foo"},
 	)
 	assert.Equal(4, len(p), "Should be 2 * 2 * 1 = 4 permutations")
-	assert.Equal(len(p[0]), 3)
+	assert.Equal(3, len(p[0]))
 	vs := map[string]any{}
 	for _, v := range p {
 		vs[fmt.Sprintf("%v", v)] = v

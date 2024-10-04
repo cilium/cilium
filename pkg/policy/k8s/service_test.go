@@ -282,10 +282,10 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Empty(t, rules[0].Egress[0].ToCIDRSet)
 
 	// Check that policies are recognized as ToServices policies
-	assert.Equal(t, p.toServicesPolicies, map[resource.Key]struct{}{
+	assert.Equal(t, map[resource.Key]struct{}{
 		svcByNameKey:  {},
 		svcByLabelKey: {},
-	})
+	}, p.toServicesPolicies)
 
 	// Add foo-svc, which is selected by svcByNameCNP twice
 	svcCache[fooSvcID] = fakeService{
@@ -301,26 +301,26 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Len(t, rules[0].Egress, 1)
 	assert.Contains(t, rules[0].Labels, svcByNameLbl)
 	assert.Equal(t, svcByNameCNP.Spec.Egress[0].ToServices, rules[0].Egress[0].ToServices)
-	assert.Equal(t, sortCIDRSet(rules[0].Egress[0].ToCIDRSet), api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
-	})
+	}, sortCIDRSet(rules[0].Egress[0].ToCIDRSet))
 
 	// Check that Specs was translated
 	assert.Len(t, rules[1].Egress, 1)
 	assert.Contains(t, rules[1].Labels, svcByNameLbl)
 	assert.Equal(t, svcByNameCNP.Specs[0].Egress[0].ToServices, rules[1].Egress[0].ToServices)
-	assert.Equal(t, sortCIDRSet(rules[1].Egress[0].ToCIDRSet), api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
-	})
+	}, sortCIDRSet(rules[1].Egress[0].ToCIDRSet))
 
 	// Check that policy has been marked
-	assert.Equal(t, p.cnpByServiceID, map[k8s.ServiceID]map[resource.Key]struct{}{
+	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
 		fooSvcID: {
 			svcByNameKey: {},
 		},
-	})
+	}, p.cnpByServiceID)
 
 	// Add bar-svc, which is selected by both policies
 	svcCache[barSvcID] = fakeService{
@@ -344,32 +344,32 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Len(t, byNameRules[0].Egress, 1)
 	assert.Contains(t, byNameRules[0].Labels, svcByNameLbl)
 	assert.Equal(t, svcByNameCNP.Spec.Egress[0].ToServices, byNameRules[0].Egress[0].ToServices)
-	assert.Equal(t, sortCIDRSet(byNameRules[0].Egress[0].ToCIDRSet), api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
 		addrToCIDRRule(barEpAddr.Addr()),
-	})
+	}, sortCIDRSet(byNameRules[0].Egress[0].ToCIDRSet))
 
 	// Check that svcByNameCNP Specs (matching only foo) was translated
 	assert.Len(t, byNameRules[1].Egress, 1)
 	assert.Contains(t, byNameRules[1].Labels, svcByNameLbl)
 	assert.Equal(t, svcByNameCNP.Specs[0].Egress[0].ToServices, byNameRules[1].Egress[0].ToServices)
-	assert.Equal(t, sortCIDRSet(byNameRules[1].Egress[0].ToCIDRSet), api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
-	})
+	}, sortCIDRSet(byNameRules[1].Egress[0].ToCIDRSet))
 
 	// Check that svcByLabelCNP Spec (matching only bar) was translated
 	assert.Len(t, byLabelRules, 1)
 	assert.Len(t, byLabelRules[0].Egress, 1)
 	assert.Contains(t, byLabelRules[0].Labels, svcByLabelLbl)
 	assert.Equal(t, svcByLabelCNP.Spec.Egress[0].ToServices, byLabelRules[0].Egress[0].ToServices)
-	assert.Equal(t, byLabelRules[0].Egress[0].ToCIDRSet, api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(barEpAddr.Addr()),
-	})
+	}, byLabelRules[0].Egress[0].ToCIDRSet)
 
 	// Check that policies have been marked
-	assert.Equal(t, p.cnpByServiceID, map[k8s.ServiceID]map[resource.Key]struct{}{
+	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
 		fooSvcID: {
 			svcByNameKey: {},
 		},
@@ -377,7 +377,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 			svcByNameKey:  {},
 			svcByLabelKey: {},
 		},
-	})
+	}, p.cnpByServiceID)
 
 	// Change foo-svc endpoints, which is selected by svcByNameCNP twice
 	delete(fooEps.Backends, fooEpAddr2)
@@ -390,18 +390,18 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Len(t, byNameRules[0].Egress, 1)
 	assert.Contains(t, byNameRules[0].Labels, svcByNameLbl)
 	assert.Equal(t, svcByNameCNP.Spec.Egress[0].ToServices, byNameRules[0].Egress[0].ToServices)
-	assert.Equal(t, sortCIDRSet(byNameRules[0].Egress[0].ToCIDRSet), api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(barEpAddr.Addr()),
-	})
+	}, sortCIDRSet(byNameRules[0].Egress[0].ToCIDRSet))
 
 	// Check that Specs was translated (matching only foo) was translated
 	assert.Len(t, byNameRules[1].Egress, 1)
 	assert.Contains(t, byNameRules[1].Labels, svcByNameLbl)
 	assert.Equal(t, svcByNameCNP.Specs[0].Egress[0].ToServices, byNameRules[1].Egress[0].ToServices)
-	assert.Equal(t, sortCIDRSet(byNameRules[1].Egress[0].ToCIDRSet), api.CIDRRuleSlice{
+	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
-	})
+	}, sortCIDRSet(byNameRules[1].Egress[0].ToCIDRSet))
 
 	// Delete bar-svc labels. This should remove all CIDRs from svcByLabelCNP
 	oldBarSvc := barSvc.DeepCopy()
@@ -434,14 +434,14 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Empty(t, byLabelRules[0].Egress[0].ToCIDRSet)
 
 	// Check that policies have been cleared
-	assert.Equal(t, p.cnpByServiceID, map[k8s.ServiceID]map[resource.Key]struct{}{
+	assert.Equal(t, map[k8s.ServiceID]map[resource.Key]struct{}{
 		fooSvcID: {
 			svcByNameKey: {},
 		},
 		barSvcID: {
 			svcByNameKey: {},
 		},
-	})
+	}, p.cnpByServiceID)
 
 	// Add baz-svc, which is not selectable and thus must not trigger a policyAdd
 	svcCache[bazSvcID] = fakeService{

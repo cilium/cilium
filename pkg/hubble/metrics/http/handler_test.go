@@ -20,7 +20,7 @@ import (
 func Test_httpHandler_Status(t *testing.T) {
 	plugin := httpPlugin{}
 	handler := plugin.NewHandler()
-	assert.Equal(t, handler.Status(), "")
+	assert.Equal(t, "", handler.Status())
 	options := []*api.ContextOptionConfig{
 		{
 			Name:   "sourceContext",
@@ -32,7 +32,7 @@ func Test_httpHandler_Status(t *testing.T) {
 		},
 	}
 	require.NoError(t, handler.Init(prometheus.NewRegistry(), options))
-	assert.Equal(t, handler.Status(), "destination=identity,source=namespace,exemplars=false")
+	assert.Equal(t, "destination=identity,source=namespace,exemplars=false", handler.Status())
 }
 
 func Test_httpHandler_ProcessFlow(t *testing.T) {

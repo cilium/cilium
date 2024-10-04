@@ -124,7 +124,7 @@ func TestStoreLoadNeighLinks(t *testing.T) {
 
 	devsActual, err := loadNeighLink(tmpDir)
 	require.NoError(t, err)
-	require.EqualValues(t, devsActual, devExpected)
+	require.EqualValues(t, devExpected, devsActual)
 }
 
 func TestLocalRule(t *testing.T) {
@@ -140,14 +140,14 @@ func TestLocalRule(t *testing.T) {
 		rules, err := route.ListRules(netlink.FAMILY_V4, nil)
 		assert.NoError(t, err)
 		assert.GreaterOrEqual(t, len(rules), 1)
-		assert.Equal(t, rules[0].Priority, linux_defaults.RulePriorityLocalLookup)
-		assert.Equal(t, rules[0].Table, unix.RT_TABLE_LOCAL)
+		assert.Equal(t, linux_defaults.RulePriorityLocalLookup, rules[0].Priority)
+		assert.Equal(t, unix.RT_TABLE_LOCAL, rules[0].Table)
 
 		rules, err = route.ListRules(netlink.FAMILY_V6, nil)
 		assert.NoError(t, err)
 		assert.GreaterOrEqual(t, len(rules), 1)
-		assert.Equal(t, rules[0].Priority, linux_defaults.RulePriorityLocalLookup)
-		assert.Equal(t, rules[0].Table, unix.RT_TABLE_LOCAL)
+		assert.Equal(t, linux_defaults.RulePriorityLocalLookup, rules[0].Priority)
+		assert.Equal(t, unix.RT_TABLE_LOCAL, rules[0].Table)
 	}
 
 	ns.Do(func() error {

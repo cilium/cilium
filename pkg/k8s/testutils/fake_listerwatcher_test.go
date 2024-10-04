@@ -50,7 +50,7 @@ func TestFakeListerWatcher(t *testing.T) {
 	// We should be now able to receive the object
 	select {
 	case ev := <-results:
-		require.Equal(t, ev.Type, watch.Added)
+		require.Equal(t, watch.Added, ev.Type)
 		obj := ev.Object
 		require.NotNil(t, obj, "object nil")
 		require.IsType(t, &cilium_v2.CiliumNode{}, obj)
@@ -63,7 +63,7 @@ func TestFakeListerWatcher(t *testing.T) {
 	require.NoError(t, err, "UpsertFromFile ciliumnode.yaml")
 	select {
 	case ev := <-results:
-		require.Equal(t, ev.Type, watch.Modified)
+		require.Equal(t, watch.Modified, ev.Type)
 		obj := ev.Object
 		require.NotNil(t, obj, "object nil")
 		require.IsType(t, &cilium_v2.CiliumNode{}, obj)
@@ -76,7 +76,7 @@ func TestFakeListerWatcher(t *testing.T) {
 
 	select {
 	case ev := <-results:
-		require.Equal(t, ev.Type, watch.Deleted)
+		require.Equal(t, watch.Deleted, ev.Type)
 		obj := ev.Object
 		require.NotNil(t, obj, "object nil")
 		require.IsType(t, &cilium_v2.CiliumNode{}, obj)

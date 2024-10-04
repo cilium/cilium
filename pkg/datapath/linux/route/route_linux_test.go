@@ -490,7 +490,7 @@ func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
 				if diff := cmp.Diff(wantRules, rules); diff != "" {
 					t.Errorf("expected len: %d, got: %d\n%s\n", len(wantRules), len(rules), diff)
 				}
-				require.Equal(t, err != nil, wantErr)
+				require.Equal(t, wantErr, err != nil)
 
 				return nil
 			}))

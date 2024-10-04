@@ -205,7 +205,7 @@ func TestNodeManagerPrefixDelegation(t *testing.T) {
 	for _, eni := range cn.Status.ENI.ENIs {
 		totalPrefixes += len(eni.Prefixes)
 	}
-	require.Equal(t, totalPrefixes, 2)
+	require.Equal(t, 2, totalPrefixes)
 
 	// Test fallback to /32 IPs when /28 blocks aren't available
 	//
@@ -555,7 +555,7 @@ func TestNodeManagerENIExcludeInterfaceTags(t *testing.T) {
 	eniNode.mutex.RLock()
 	require.Len(t, eniNode.enis, 2)
 	require.Empty(t, eniNode.enis[eniID1].Addresses)
-	require.Equal(t, eniNode.enis[eniID1].Tags["cilium.io/no_manage"], "true")
+	require.Equal(t, "true", eniNode.enis[eniID1].Tags["cilium.io/no_manage"])
 	eniNode.mutex.RUnlock()
 
 	// Use 7 out of 8 IPs
@@ -572,7 +572,7 @@ func TestNodeManagerENIExcludeInterfaceTags(t *testing.T) {
 	eniNode.mutex.RLock()
 	require.Len(t, eniNode.enis, 3)
 	require.Empty(t, eniNode.enis[eniID1].Addresses)
-	require.Equal(t, eniNode.enis[eniID1].Tags["cilium.io/no_manage"], "true")
+	require.Equal(t, "true", eniNode.enis[eniID1].Tags["cilium.io/no_manage"])
 	eniNode.mutex.RUnlock()
 }
 

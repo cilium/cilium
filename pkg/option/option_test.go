@@ -259,10 +259,10 @@ func TestGetFmtOpt(t *testing.T) {
 		},
 	}
 	o.optsMU.Lock()
-	require.Equal(t, o.getFmtOpt("test"), "#define TEST_DEFINE 1")
-	require.Equal(t, o.getFmtOpt("BAR"), "#undef BAR")
-	require.Equal(t, o.getFmtOpt("BAZ"), "#undef BAZ")
-	require.Equal(t, o.getFmtOpt("alice"), "#define TEST_DEFINE 2")
+	require.Equal(t, "#define TEST_DEFINE 1", o.getFmtOpt("test"))
+	require.Equal(t, "#undef BAR", o.getFmtOpt("BAR"))
+	require.Equal(t, "#undef BAZ", o.getFmtOpt("BAZ"))
+	require.Equal(t, "#define TEST_DEFINE 2", o.getFmtOpt("alice"))
 	o.optsMU.Unlock()
 }
 
