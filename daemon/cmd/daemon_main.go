@@ -1597,11 +1597,8 @@ func initEnv(vp *viper.Viper) {
 	}
 }
 
-func (d *Daemon) initKVStore(svcResolver *dial.ServiceResolver, cmResolver *dial.ClustermeshResolver) {
+func (d *Daemon) initKVStore(resolver *dial.ServiceResolver) {
 	goopts := &kvstore.ExtraOptions{
-		DialOption: []grpc.DialOption{
-			grpc.WithContextDialer(dial.NewContextDialer(log, cmResolver)),
-		},
 		ClusterSizeDependantInterval: d.nodeDiscovery.Manager.ClusterSizeDependantInterval,
 	}
 
@@ -1624,7 +1621,7 @@ func (d *Daemon) initKVStore(svcResolver *dial.ServiceResolver, cmResolver *dial
 	if d.clientset.IsEnabled() {
 		log := log.WithField(logfields.LogSubsys, "etcd")
 		goopts.DialOption = []grpc.DialOption{
-			grpc.WithContextDialer(dial.NewContextDialer(log, svcResolver, cmResolver)),
+			grpc.WithContextDialer(dial.NewContextDialer(log, resolver)),
 		}
 	}
 
@@ -1726,7 +1723,6 @@ type daemonParams struct {
 	MetalLBBgpSpeaker   speaker.MetalLBBgpSpeaker
 	CGroupManager       cgroup.CGroupManager
 	ServiceResolver     *dial.ServiceResolver
-	ClustermeshResolver *dial.ClustermeshResolver
 	Recorder            *recorder.Recorder
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
