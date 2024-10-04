@@ -5,7 +5,6 @@ package runner
 
 import (
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -51,6 +50,6 @@ func TestMultiError_with_errors(t *testing.T) {
 	require.Error(t, actualErr)
 	for i := range expectedErrs {
 		require.True(t, errors.Is(actualErr, expectedErrs[i]))
-		require.True(t, strings.Contains(actualErrStr, expectedErrs[i].Error()))
+		require.Contains(t, actualErrStr, expectedErrs[i].Error())
 	}
 }
