@@ -4,7 +4,6 @@
 package egressmap
 
 import (
-	"errors"
 	"net/netip"
 	"testing"
 
@@ -62,5 +61,5 @@ func TestPolicyMap(t *testing.T) {
 	assert.Equal(t, val.GatewayIP.Addr(), egressIP1)
 
 	_, err = egressPolicyMap.Lookup(sourceIP2, destCIDR2)
-	assert.True(t, errors.Is(err, ebpf.ErrKeyNotExist))
+	assert.ErrorIs(t, err, ebpf.ErrKeyNotExist)
 }
