@@ -101,7 +101,7 @@ func TestMergeDenyAllL3(t *testing.T) {
 	require.True(t, filter.SelectsAllEndpoints())
 
 	require.Equal(t, ParserTypeNone, filter.L7Parser)
-	require.Equal(t, 1, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 1)
 	l4IngressDenyPolicy.Detach(td.repo.GetSelectorCache())
 
 	td = newTestData()

@@ -193,18 +193,18 @@ func TestGetNodeNames(t *testing.T) {
 	mngr.Upsert(node1)
 
 	names := mngr.GetNames()
-	require.Equal(t, 1, len(names))
+	require.Len(t, names, 1)
 	require.Equal(t, "node1", names[0])
 
 	mngr.Upsert(newCiliumNode("node2", 0, 0, 0))
 
 	names = mngr.GetNames()
-	require.Equal(t, 2, len(names))
+	require.Len(t, names, 2)
 
 	mngr.Delete(node1)
 
 	names = mngr.GetNames()
-	require.Equal(t, 1, len(names))
+	require.Len(t, names, 1)
 	require.Equal(t, "node2", names[0])
 }
 
@@ -562,7 +562,7 @@ func TestNodeManagerAbortRelease(t *testing.T) {
 		time.Sleep(1 * time.Second)
 		node.PopulateIPReleaseStatus(node.resource)
 
-		require.Equal(t, 1, len(node.resource.Status.IPAM.ReleaseIPs))
+		require.Len(t, node.resource.Status.IPAM.ReleaseIPs, 1)
 
 		// Fake acknowledge IPs for release like agent would.
 		testipam.FakeAcknowledgeReleaseIps(node.resource)

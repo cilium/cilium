@@ -79,7 +79,7 @@ func TestNewConnectivityTests(t *testing.T) {
 		actual, err := newConnectivityTests(tt.params, &api.NopHooks{}, check.NewConcurrentLogger(&bytes.Buffer{}, 1))
 
 		require.NoError(t, err)
-		require.Equal(t, tt.expectedCount, len(actual))
+		require.Len(t, actual, tt.expectedCount)
 		for i, n := range tt.expectedTestNamespaces {
 			require.Equal(t, n, actual[i].Params().TestNamespace)
 		}

@@ -50,7 +50,7 @@ func TestNodeMap(t *testing.T) {
 	bpfNodeIDMap = map[uint16]string{}
 	err = nodeMap.IterateWithCallback(toMap)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(bpfNodeIDMap))
+	require.Len(t, bpfNodeIDMap, 2)
 
 	err = nodeMap.Delete(net.ParseIP("10.1.0.0"))
 	require.NoError(t, err)
@@ -58,5 +58,5 @@ func TestNodeMap(t *testing.T) {
 	bpfNodeIDMap = map[uint16]string{}
 	err = nodeMap.IterateWithCallback(toMap)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(bpfNodeIDMap))
+	require.Len(t, bpfNodeIDMap, 1)
 }

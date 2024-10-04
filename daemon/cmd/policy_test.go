@@ -754,7 +754,7 @@ func (ds *DaemonSuite) testReplacePolicy(t *testing.T) {
 	_, err := ds.d.PolicyAdd(rules, policyAddOptions)
 	require.NoError(t, err)
 	ds.d.policy.Mutex.RLock()
-	require.Equal(t, 2, len(ds.d.policy.SearchRLocked(lbls)))
+	require.Len(t, ds.d.policy.SearchRLocked(lbls), 2)
 	ds.d.policy.Mutex.RUnlock()
 	rules[0].Egress = []api.EgressRule{
 		{
@@ -770,7 +770,7 @@ func (ds *DaemonSuite) testReplacePolicy(t *testing.T) {
 
 	require.NoError(t, err)
 	ds.d.policy.Mutex.RLock()
-	require.Equal(t, 2, len(ds.d.policy.SearchRLocked(lbls)))
+	require.Len(t, ds.d.policy.SearchRLocked(lbls), 2)
 	ds.d.policy.Mutex.RUnlock()
 }
 

@@ -77,7 +77,7 @@ func TestReconcileCreate(t *testing.T) {
 	r.reconcileCES(CESName("ces1"))
 
 	assert.Equal(t, "ces1", createdSlice.Name)
-	assert.Equal(t, 2, len(createdSlice.Endpoints))
+	assert.Len(t, createdSlice.Endpoints, 2)
 	assert.Equal(t, "ns", createdSlice.Namespace)
 	eps := []string{createdSlice.Endpoints[0].Name, createdSlice.Endpoints[1].Name}
 	assert.Contains(t, eps, "cep1")
@@ -142,7 +142,7 @@ func TestReconcileUpdate(t *testing.T) {
 	r.reconcileCES(CESName("ces1"))
 
 	assert.Equal(t, "ces1", updatedSlice.Name)
-	assert.Equal(t, 2, len(updatedSlice.Endpoints))
+	assert.Len(t, updatedSlice.Endpoints, 2)
 	assert.Equal(t, "ns", updatedSlice.Namespace)
 	eps := []string{updatedSlice.Endpoints[0].Name, updatedSlice.Endpoints[1].Name}
 	assert.Contains(t, eps, "cep1")

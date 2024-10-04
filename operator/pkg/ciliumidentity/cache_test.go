@@ -307,7 +307,7 @@ func TestCIDUsageInCES(t *testing.T) {
 	assertTxt = "Endpoint with CID 3000 is removed from CES 1"
 	ces1 = cestest.CreateStoreEndpointSlice("ces1", "ns", []capi_v2a1.CoreCiliumEndpoint{cep1, cep2, cep3})
 	unusedCIDs = state.ProcessCESUpsert(ces1.Name, ces1.Endpoints)
-	assert.Equal(t, 1, len(unusedCIDs), assertTxt)
+	assert.Len(t, unusedCIDs, 1, assertTxt)
 	if len(unusedCIDs) > 0 {
 		assert.Equal(t, int64(3000), unusedCIDs[0], assertTxt)
 	}
@@ -323,7 +323,7 @@ func TestCIDUsageInCES(t *testing.T) {
 
 	assertTxt = "CES 2 is removed"
 	unusedCIDs = state.ProcessCESDelete(ces1.Name, ces1.Endpoints)
-	assert.Equal(t, 2, len(unusedCIDs), assertTxt)
+	assert.Len(t, unusedCIDs, 2, assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount("1000"), assertTxt)
 	assert.Equal(t, 0, state.CIDUsageCount("2000"), assertTxt)
 }

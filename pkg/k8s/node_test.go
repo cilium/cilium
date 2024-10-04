@@ -56,7 +56,7 @@ func TestParseNode(t *testing.T) {
 	require.NotNil(t, n.IPv6AllocCIDR)
 	require.Equal(t, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112", n.IPv6AllocCIDR.String())
 	require.Equal(t, "m5.xlarge", n.Labels["type"])
-	require.Equal(t, 2, len(n.IPAddresses))
+	require.Len(t, n.IPAddresses, 2)
 	require.Equal(t, "10.254.9.9", n.IPAddresses[0].IP.String())
 	require.Equal(t, nodeAddressing.NodeCiliumInternalIP, n.IPAddresses[0].Type)
 	require.Equal(t, "fd00:10:244:1::8ace", n.IPAddresses[1].IP.String())
