@@ -127,7 +127,7 @@ func TestDelete(t *testing.T) {
 					Priority: linux_defaults.RulePriorityIngress,
 				})
 				require.NoError(t, err)
-				require.NotEqual(t, 0, len(rules))
+				require.NotEmpty(t, rules)
 
 				// Insert almost duplicate rule; the reason for this is to
 				// trigger an error while trying to delete the ingress rule. We
@@ -173,8 +173,8 @@ func runConfigureThenDelete(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int
 	runConfigure(t, ri, ip, mtu)
 	afterCreationRules, afterCreationRoutes := listRulesAndRoutes(t, netlink.FAMILY_V4)
 
-	require.NotEqual(t, 0, len(afterCreationRules))
-	require.NotEqual(t, 0, len(afterCreationRoutes))
+	require.NotEmpty(t, afterCreationRules)
+	require.NotEmpty(t, afterCreationRoutes)
 	require.NotEqual(t, len(afterCreationRules), len(beforeCreationRules))
 	require.NotEqual(t, len(afterCreationRoutes), len(beforeCreationRoutes))
 

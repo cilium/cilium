@@ -110,5 +110,5 @@ func Test_GH33432(t *testing.T) {
 	assert.Len(t, rules[0].Egress[0].ToPorts[0].Ports, 1)
 	assert.Equal(t, []api.PortProtocol{{Port: "80", Protocol: api.ProtoTCP}}, rules[0].Egress[0].ToPorts[0].Ports)
 	assert.NotNil(t, rules[0].Egress[0].EgressCommonRule.ToEndpoints)
-	assert.Len(t, rules[0].Egress[0].EgressCommonRule.ToEndpoints, 0)
+	assert.Empty(t, rules[0].Egress[0].EgressCommonRule.ToEndpoints)
 }

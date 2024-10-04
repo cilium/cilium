@@ -25,7 +25,7 @@ func TestCounter(t *testing.T) {
 	require.True(t, sc.Delete("bar"))
 	require.Equal(t, 1, len(sc))
 	require.True(t, sc.Delete("foo"))
-	require.Equal(t, 0, len(sc))
+	require.Empty(t, sc)
 	require.True(t, sc.Add("foo"))
 	require.Equal(t, 1, len(sc))
 
@@ -43,7 +43,7 @@ func TestCounter(t *testing.T) {
 	require.True(t, ic.Delete(100))
 	require.Equal(t, 1, len(ic))
 	require.True(t, ic.Delete(42))
-	require.Equal(t, 0, len(ic))
+	require.Empty(t, ic)
 	require.True(t, ic.Add(100))
 	require.Equal(t, 1, len(ic))
 

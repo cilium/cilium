@@ -317,25 +317,25 @@ func TestParseServiceWithServiceTypeExposure(t *testing.T) {
 	k8sSvc.Annotations[annotation.ServiceTypeExposure] = "ClusterIP"
 	_, svc = ParseService(k8sSvc, addrs)
 	require.Len(t, svc.FrontendIPs, 1)
-	require.Len(t, svc.NodePorts, 0)
-	require.Len(t, svc.LoadBalancerIPs, 0)
+	require.Empty(t, svc.NodePorts)
+	require.Empty(t, svc.LoadBalancerIPs)
 	require.Len(t, svc.Ports, 1)
 
 	// Expose only NodePort
 
 	k8sSvc.Annotations[annotation.ServiceTypeExposure] = "NodePort"
 	_, svc = ParseService(k8sSvc, addrs)
-	require.Len(t, svc.FrontendIPs, 0)
+	require.Empty(t, svc.FrontendIPs)
 	require.Len(t, svc.NodePorts, 1)
-	require.Len(t, svc.LoadBalancerIPs, 0)
+	require.Empty(t, svc.LoadBalancerIPs)
 	require.Len(t, svc.Ports, 1)
 
 	// Expose only LoadBalancer
 
 	k8sSvc.Annotations[annotation.ServiceTypeExposure] = "LoadBalancer"
 	_, svc = ParseService(k8sSvc, addrs)
-	require.Len(t, svc.FrontendIPs, 0)
-	require.Len(t, svc.NodePorts, 0)
+	require.Empty(t, svc.FrontendIPs)
+	require.Empty(t, svc.NodePorts)
 	require.Len(t, svc.LoadBalancerIPs, 1)
 	require.Len(t, svc.Ports, 1)
 

@@ -1144,7 +1144,7 @@ func TestNodesPodCIDRManager_releaseIPNets(t *testing.T) {
 				}
 			},
 			testPostRun: func(fields *fields) {
-				require.Len(t, fields.nodes, 0)
+				require.Empty(t, fields.nodes)
 				require.Equal(t, 1, onReleaseCalls)
 			},
 			args: args{
@@ -1179,7 +1179,7 @@ func TestNodesPodCIDRManager_releaseIPNets(t *testing.T) {
 				}
 			},
 			testPostRun: func(fields *fields) {
-				require.Len(t, fields.nodes, 0)
+				require.Empty(t, fields.nodes)
 				require.Equal(t, 1, onReleaseCalls)
 			},
 			args: args{

@@ -99,7 +99,7 @@ func TestRegister(t *testing.T) {
 		//exhaustruct:ignore
 		handlers, err := r.ConfigureHandlers(nil, &Config{})
 		assert.NoError(t, err)
-		assert.EqualValues(t, len(handlers.handlers), 0)
+		assert.Empty(t, handlers.handlers)
 	})
 
 	t.Run("Should register handler", func(t *testing.T) {
@@ -325,5 +325,5 @@ func verifyMetricSeriesExists(t *testing.T, promRegistry *prometheus.Registry, e
 func verifyMetricSeriesNotExists(t *testing.T, promRegistry *prometheus.Registry) {
 	metricFamilies, err := promRegistry.Gather()
 	require.NoError(t, err)
-	require.Len(t, metricFamilies, 0)
+	require.Empty(t, metricFamilies)
 }

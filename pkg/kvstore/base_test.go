@@ -61,7 +61,7 @@ func testGetSet(t *testing.T) {
 
 	pairs, err := Client().ListPrefix(context.Background(), prefix)
 	require.NoError(t, err)
-	require.Len(t, pairs, 0)
+	require.Empty(t, pairs)
 
 	for i := 0; i < maxID; i++ {
 		val, err := Client().Get(context.TODO(), testKey(prefix, i))
@@ -89,7 +89,7 @@ func testGetSet(t *testing.T) {
 
 	pairs, err = Client().ListPrefix(context.Background(), prefix)
 	require.NoError(t, err)
-	require.Len(t, pairs, 0)
+	require.Empty(t, pairs)
 }
 
 func BenchmarkGet(b *testing.B) {

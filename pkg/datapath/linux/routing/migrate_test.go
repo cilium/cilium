@@ -99,7 +99,7 @@ func TestMigrateENIDatapathUpgradeSuccess(t *testing.T) {
 			Table: index,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(routes)) // We don't expect any routes with the old table ID.
+		require.Empty(t, routes) // We don't expect any routes with the old table ID.
 
 		routes, err = netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: tableID,
@@ -110,7 +110,7 @@ func TestMigrateENIDatapathUpgradeSuccess(t *testing.T) {
 
 		rules, err := findRulesByPriority(linux_defaults.RulePriorityEgress)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(rules)) // We don't expect any rules from old priority.
+		require.Empty(t, rules) // We don't expect any rules from old priority.
 
 		rules, err = findRulesByPriority(linux_defaults.RulePriorityEgressv2)
 		require.NoError(t, err)
@@ -176,7 +176,7 @@ func TestMigrateENIDatapathUpgradeFailure(t *testing.T) {
 			Table: tableID,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(routes)) // We don't expect any routes under new table ID b/c of revert.
+		require.Empty(t, routes) // We don't expect any routes under new table ID b/c of revert.
 
 		rules, err := findRulesByPriority(linux_defaults.RulePriorityEgress)
 		require.NoError(t, err)
@@ -238,7 +238,7 @@ func TestMigrateENIDatapathDowngradeSuccess(t *testing.T) {
 			Table: tableID,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(routes)) // We don't expect any routes with the new table ID.
+		require.Empty(t, routes) // We don't expect any routes with the new table ID.
 
 		routes, err = netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: index,
@@ -249,7 +249,7 @@ func TestMigrateENIDatapathDowngradeSuccess(t *testing.T) {
 
 		rules, err := findRulesByPriority(linux_defaults.RulePriorityEgressv2)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(rules)) // We don't expect any rules with this priority.
+		require.Empty(t, rules) // We don't expect any rules with this priority.
 
 		rules, err = findRulesByPriority(linux_defaults.RulePriorityEgress)
 		require.NoError(t, err)
@@ -312,7 +312,7 @@ func TestMigrateENIDatapathDowngradeFailure(t *testing.T) {
 			Table: index,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(routes)) // We don't expect routes under original table ID b/c of revert.
+		require.Empty(t, routes) // We don't expect routes under original table ID b/c of revert.
 
 		rules, err := findRulesByPriority(linux_defaults.RulePriorityEgressv2)
 		require.NoError(t, err)
@@ -377,7 +377,7 @@ func TestMigrateENIDatapathPartial(t *testing.T) {
 			Table: index,
 		}, netlink.RT_FILTER_TABLE)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(routes)) // We don't expect any routes under old table ID.
+		require.Empty(t, routes) // We don't expect any routes under old table ID.
 
 		rules, err := findRulesByPriority(linux_defaults.RulePriorityEgressv2)
 		require.NoError(t, err)
@@ -387,7 +387,7 @@ func TestMigrateENIDatapathPartial(t *testing.T) {
 
 		rules, err = findRulesByPriority(linux_defaults.RulePriorityEgress)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(rules)) // We don't expect any rules with the old priority.
+		require.Empty(t, rules) // We don't expect any rules with the old priority.
 
 		return nil
 	})

@@ -30,7 +30,7 @@ func TestFieldMask_normalized_parent(t *testing.T) {
 	fm, err := New(&fieldmaskpb.FieldMask{Paths: []string{"source", "source.identity", "source", "source.pod_name"}})
 	assert.NoError(t, err)
 	assert.Len(t, fm, 1)
-	assert.Len(t, fm["source"], 0)
+	assert.Empty(t, fm["source"])
 	assert.True(t, fm.Active())
 }
 

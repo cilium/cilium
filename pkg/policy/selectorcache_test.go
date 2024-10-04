@@ -285,7 +285,7 @@ func TestAddRemoveSelector(t *testing.T) {
 	user2.RemoveSelector(cached3)
 
 	// All identities removed
-	require.Equal(t, 0, len(sc.selectors))
+	require.Empty(t, sc.selectors)
 }
 
 func TestMultipleIdentitySelectors(t *testing.T) {
@@ -346,7 +346,7 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 	user1.RemoveSelector(cached2)
 
 	// All identities removed
-	require.Equal(t, 0, len(sc.selectors))
+	require.Empty(t, sc.selectors)
 }
 
 func TestIdentityUpdates(t *testing.T) {
@@ -419,7 +419,7 @@ func TestIdentityUpdates(t *testing.T) {
 	user1.RemoveSelector(cached2)
 
 	// All identities removed
-	require.Equal(t, 0, len(sc.selectors))
+	require.Empty(t, sc.selectors)
 }
 
 func TestIdentityUpdatesMultipleUsers(t *testing.T) {
@@ -499,7 +499,7 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 	user2.RemoveSelector(cached2)
 
 	// All identities removed
-	require.Equal(t, 0, len(sc.selectors))
+	require.Empty(t, sc.selectors)
 }
 
 func TestTransactionalUpdate(t *testing.T) {
@@ -593,7 +593,7 @@ func TestTransactionalUpdate(t *testing.T) {
 	user1.RemoveSelector(cs7)
 
 	// All identities removed
-	require.Equal(t, 0, len(sc.selectors))
+	require.Empty(t, sc.selectors)
 }
 
 func TestSelectorManagerCanGetBeforeSet(t *testing.T) {

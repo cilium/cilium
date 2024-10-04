@@ -290,8 +290,8 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService46(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, created)
 	require.Equal(t, id1, id2)
-	require.Equal(t, 0, len(m.lbmap.ServiceByID[uint16(id2)].Backends))
-	require.Equal(t, 0, len(m.lbmap.BackendByID))
+	require.Empty(t, m.lbmap.ServiceByID[uint16(id2)].Backends)
+	require.Empty(t, m.lbmap.BackendByID)
 	require.Equal(t, "svc1", m.svc.svcByID[id2].svcName.Name)
 	require.Equal(t, "ns1", m.svc.svcByID[id2].svcName.Namespace)
 	require.Equal(t, lb.SVCNatPolicyNone, m.svc.svcByID[id2].svcNatPolicy)
@@ -300,8 +300,8 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService46(t *testing.T) {
 	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
 	require.NoError(t, err)
 	require.True(t, found)
-	require.Equal(t, 0, len(m.lbmap.ServiceByID))
-	require.Equal(t, 0, len(m.lbmap.BackendByID))
+	require.Empty(t, m.lbmap.ServiceByID)
+	require.Empty(t, m.lbmap.BackendByID)
 }
 
 func (m *ManagerTestSuite) testUpsertAndDeleteService64(t *testing.T) {
@@ -330,8 +330,8 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService64(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, created)
 	require.Equal(t, id1, id2)
-	require.Equal(t, 0, len(m.lbmap.ServiceByID[uint16(id2)].Backends))
-	require.Equal(t, 0, len(m.lbmap.BackendByID))
+	require.Empty(t, m.lbmap.ServiceByID[uint16(id2)].Backends)
+	require.Empty(t, m.lbmap.BackendByID)
 	require.Equal(t, "svc1", m.svc.svcByID[id2].svcName.Name)
 	require.Equal(t, "ns1", m.svc.svcByID[id2].svcName.Namespace)
 	require.Equal(t, lb.SVCNatPolicyNone, m.svc.svcByID[id2].svcNatPolicy)
@@ -340,8 +340,8 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService64(t *testing.T) {
 	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
 	require.NoError(t, err)
 	require.True(t, found)
-	require.Equal(t, 0, len(m.lbmap.ServiceByID))
-	require.Equal(t, 0, len(m.lbmap.BackendByID))
+	require.Empty(t, m.lbmap.ServiceByID)
+	require.Empty(t, m.lbmap.BackendByID)
 }
 
 func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
@@ -383,7 +383,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 	require.Equal(t, 2, len(m.lbmap.BackendByID))
 	require.Equal(t, "svc1", m.svc.svcByID[id1].svcName.Name)
 	require.Equal(t, "ns1", m.svc.svcByID[id1].svcName.Namespace)
-	require.Equal(t, 0, len(m.lbmap.AffinityMatch[uint16(id1)]))
+	require.Empty(t, m.lbmap.AffinityMatch[uint16(id1)])
 	require.False(t, m.svc.svcByID[id1].sessionAffinity)
 	require.False(t, m.lbmap.ServiceByID[uint16(id1)].SessionAffinity)
 	// TODO(brb) test that backends are the same
@@ -482,7 +482,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, 1, len(m.lbmap.ServiceByID))
 	require.Equal(t, 2, len(m.lbmap.BackendByID))
-	require.Equal(t, 0, len(m.lbmap.AffinityMatch[uint16(id1)]))
+	require.Empty(t, m.lbmap.AffinityMatch[uint16(id1)])
 
 	// Should delete both backends of service
 	p2.Backends = nil
@@ -491,19 +491,19 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, created)
 	require.Equal(t, lb.ID(2), id2)
-	require.Equal(t, 0, len(m.lbmap.ServiceByID[uint16(id2)].Backends))
-	require.Equal(t, 0, len(m.lbmap.BackendByID))
+	require.Empty(t, m.lbmap.ServiceByID[uint16(id2)].Backends)
+	require.Empty(t, m.lbmap.BackendByID)
 	require.Equal(t, "svc2", m.svc.svcByID[id2].svcName.Name)
 	require.Equal(t, "ns2", m.svc.svcByID[id2].svcName.Namespace)
-	require.Equal(t, 0, len(m.lbmap.AffinityMatch[uint16(id2)]))
+	require.Empty(t, m.lbmap.AffinityMatch[uint16(id2)])
 	require.Equal(t, 1, len(m.lbmap.SourceRanges[uint16(id2)]))
 
 	// Should delete the remaining service
 	found, err = m.svc.DeleteServiceByID(lb.ServiceID(id2))
 	require.NoError(t, err)
 	require.True(t, found)
-	require.Equal(t, 0, len(m.lbmap.ServiceByID))
-	require.Equal(t, 0, len(m.lbmap.BackendByID))
+	require.Empty(t, m.lbmap.ServiceByID)
+	require.Empty(t, m.lbmap.BackendByID)
 
 	// Should ignore the source range if it does not match FE's ip family
 	cidr1, err = cidr.ParseCIDR("fd00::/8")
@@ -1286,11 +1286,11 @@ func TestUpsertServiceWithTerminatingBackends(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, created)
 	require.Equal(t, lb.ID(1), id1)
-	require.Equal(t, 0, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
-	require.Equal(t, 0, len(m.lbmap.BackendByID))
+	require.Empty(t, m.lbmap.ServiceByID[uint16(id1)].Backends)
+	require.Empty(t, m.lbmap.BackendByID)
 	require.Equal(t, "svc1", m.svc.svcByID[id1].svcName.Name)
 	require.Equal(t, "ns1", m.svc.svcByID[id1].svcName.Namespace)
-	require.Equal(t, 0, len(m.lbmap.AffinityMatch[uint16(id1)]))
+	require.Empty(t, m.lbmap.AffinityMatch[uint16(id1)])
 }
 
 // TestUpsertServiceWithOnlyTerminatingBackends tests that a terminating backend is still
@@ -1365,11 +1365,11 @@ func TestUpsertServiceWithOnlyTerminatingBackends(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, created)
 	require.Equal(t, lb.ID(1), id1)
-	require.Equal(t, 0, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
-	require.Equal(t, 0, len(m.lbmap.BackendByID))
+	require.Empty(t, m.lbmap.ServiceByID[uint16(id1)].Backends)
+	require.Empty(t, m.lbmap.BackendByID)
 	require.Equal(t, "svc1", m.svc.svcByID[id1].svcName.Name)
 	require.Equal(t, "ns1", m.svc.svcByID[id1].svcName.Namespace)
-	require.Equal(t, 0, len(m.lbmap.AffinityMatch[uint16(id1)]))
+	require.Empty(t, m.lbmap.AffinityMatch[uint16(id1)])
 }
 
 // Tests whether upsert service provisions the Maglev LUT for ClusterIP,
@@ -1787,7 +1787,7 @@ func TestL7LoadBalancerServiceBackendSyncRegistration(t *testing.T) {
 	err = m.svc.DeregisterL7LBServiceBackendSync(service, backendSyncer)
 	require.NoError(t, err)
 
-	require.Equal(t, 0, len(m.svc.l7lbSvcs))
+	require.Empty(t, m.svc.l7lbSvcs)
 	require.Equal(t, len(allBackends), backendSyncer.nrOfBackends)
 	require.Equal(t, 3, backendSyncer.nrOfSyncs)
 }
@@ -2246,8 +2246,8 @@ func TestDeleteServiceWithTerminatingBackends(t *testing.T) {
 
 	require.NoError(t, err)
 	require.True(t, found)
-	require.Equal(t, 0, len(m.lbmap.ServiceByID))
-	require.Equal(t, 0, len(m.lbmap.BackendByID))
+	require.Empty(t, m.lbmap.ServiceByID)
+	require.Empty(t, m.lbmap.BackendByID)
 }
 
 func TestRestoreServicesWithLeakedBackends(t *testing.T) {

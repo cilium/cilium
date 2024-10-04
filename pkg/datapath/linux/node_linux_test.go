@@ -940,7 +940,7 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testi
 
 	states, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
-	require.NotEqual(t, 0, len(states))
+	require.NotEmpty(t, states)
 	policies, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.NotEqual(t, 0, countXFRMPolicies(policies))
@@ -951,7 +951,7 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(t *testi
 
 	states, err = netlink.XfrmStateList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(states))
+	require.Empty(t, states)
 	policies, err = netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	require.NoError(t, err)
 	require.Equal(t, 0, countXFRMPolicies(policies))
@@ -1070,7 +1070,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	// node routes for alloc1 ranges should be gone
 	foundRoutes, err = lookupDirectRoute(log, ip4Alloc1, externalNode1IP4v2)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(foundRoutes)) // route should not exist regardless whether ipv4 is enabled or not
+	require.Empty(t, foundRoutes) // route should not exist regardless whether ipv4 is enabled or not
 
 	// node routes for alloc2 ranges should have been installed
 	foundRoutes, err = lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
@@ -1090,7 +1090,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	// node routes for alloc2 ranges should have been removed
 	foundRoutes, err = lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(foundRoutes))
+	require.Empty(t, foundRoutes)
 
 	// nodev5: Re-announce CIDR
 	nodev5 := nodeTypes.Node{
@@ -1115,7 +1115,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	// node routes for alloc2 ranges should be gone
 	foundRoutes, err = lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(foundRoutes)) // route should not exist regardless whether ipv4 is enabled or not
+	require.Empty(t, foundRoutes) // route should not exist regardless whether ipv4 is enabled or not
 
 	// nodev6: Re-introduce node with secondary CIDRs
 	nodev6 := nodeTypes.Node{
@@ -1157,7 +1157,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	// Checks route for removed CIDR has been deleted
 	foundRoutes, err = lookupDirectRoute(log, ipv4SecondaryAlloc2, externalNode1IP4v1)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(foundRoutes))
+	require.Empty(t, foundRoutes)
 
 	// nodev8: Change node IP to externalNode1IP4v2
 	nodev8 := nodeTypes.Node{
@@ -1181,7 +1181,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc3} {
 		foundRoutes, err = lookupDirectRoute(log, ip4Alloc, externalNode1IP4v1)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(foundRoutes))
+		require.Empty(t, foundRoutes)
 	}
 
 	// nodev9: replacement of primary route, removal of secondary CIDRs
@@ -1205,7 +1205,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	for _, ip4Alloc := range []*cidr.CIDR{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc3} {
 		foundRoutes, err = lookupDirectRoute(log, ip4Alloc, externalNode1IP4v2)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(foundRoutes))
+		require.Empty(t, foundRoutes)
 	}
 
 	// delete nodev9
@@ -1215,7 +1215,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateDirectRouting(t *testing.T)
 	// remaining primary node route must have been deleted
 	foundRoutes, err = lookupDirectRoute(log, ip4Alloc2, externalNode1IP4v2)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(foundRoutes))
+	require.Empty(t, foundRoutes)
 }
 
 func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(t *testing.T) {

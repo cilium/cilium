@@ -125,7 +125,7 @@ func TestDerivativePoliciesAreInheritCorrectly(t *testing.T) {
 	require.Nil(t, cnpDerivedPolicy.Spec)
 	require.Len(t, cnpDerivedPolicy.Specs, 1)
 	require.EqualValues(t, cnp.Spec.Egress[0].ToPorts, cnpDerivedPolicy.Specs[0].Egress[0].ToPorts)
-	require.Len(t, cnpDerivedPolicy.Specs[0].Egress[0].ToGroups, 0)
+	require.Empty(t, cnpDerivedPolicy.Specs[0].Egress[0].ToGroups)
 
 	// Clusterwide policies
 	ccnpName := "ccnp-test"
@@ -137,5 +137,5 @@ func TestDerivativePoliciesAreInheritCorrectly(t *testing.T) {
 	require.Nil(t, ccnpDerivedPolicy.Spec)
 	require.Len(t, ccnpDerivedPolicy.Specs, 1)
 	require.EqualValues(t, ccnp.Spec.Egress[0].ToPorts, ccnpDerivedPolicy.Specs[0].Egress[0].ToPorts)
-	require.Len(t, ccnpDerivedPolicy.Specs[0].Egress[0].ToGroups, 0)
+	require.Empty(t, ccnpDerivedPolicy.Specs[0].Egress[0].ToGroups)
 }

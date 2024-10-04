@@ -480,7 +480,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	// Cleanup the identities from the testSelectorCache
 	defer td.sc.UpdateIdentities(nil, added1, wg)
 	wg.Wait()
-	require.Equal(t, 0, len(policy.policyMapChanges.synced))
+	require.Empty(t, policy.policyMapChanges.synced)
 
 	// Have to remove circular reference before testing to avoid an infinite loop
 	policy.selectorPolicy.Detach()

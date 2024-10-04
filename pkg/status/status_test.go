@@ -153,7 +153,7 @@ func TestCollectorSuccess(t *testing.T) {
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		return ok.Load() >= 3 && errs.Load() >= 3
 	}, 1*time.Second))
-	require.Len(t, collector.GetStaleProbes(), 0)
+	require.Empty(t, collector.GetStaleProbes())
 }
 
 func TestCollectorSuccessAfterTimeout(t *testing.T) {
@@ -187,5 +187,5 @@ func TestCollectorSuccessAfterTimeout(t *testing.T) {
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		return timeout.Load() == 1 && ok.Load() > 0
 	}, 1*time.Second))
-	require.Len(t, collector.GetStaleProbes(), 0)
+	require.Empty(t, collector.GetStaleProbes())
 }

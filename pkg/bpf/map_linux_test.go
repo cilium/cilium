@@ -472,12 +472,12 @@ func TestDump(t *testing.T) {
 		ebpf.Hash, &TestKey{}, &TestValue{}, maxEntries, 0)
 	err = noSuchMap.DumpIfExists(dump3)
 	require.NoError(t, err)
-	require.Len(t, dump3, 0)
+	require.Empty(t, dump3)
 
 	dump2 = map[string][]string{}
 	err = noSuchMap.DumpWithCallbackIfExists(customCb)
 	require.NoError(t, err)
-	require.Len(t, dump2, 0)
+	require.Empty(t, dump2)
 
 	// Validate that if the key is zero, it shows up in dump output.
 	keyZero := &TestKey{Key: 0}

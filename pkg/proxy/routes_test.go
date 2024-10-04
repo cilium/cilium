@@ -51,7 +51,7 @@ func TestRoutes(t *testing.T) {
 				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V4,
 					&netlink.Route{Table: linux_defaults.RouteTableToProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
-				assert.Len(t, rt, 0)
+				assert.Empty(t, rt)
 
 				return nil
 			})
@@ -98,7 +98,7 @@ func TestRoutes(t *testing.T) {
 				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V4,
 					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
-				assert.Len(t, rt, 0)
+				assert.Empty(t, rt)
 
 				return nil
 			})
@@ -137,7 +137,7 @@ func TestRoutes(t *testing.T) {
 				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V6,
 					&netlink.Route{Table: linux_defaults.RouteTableToProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
-				assert.Len(t, rt, 0)
+				assert.Empty(t, rt)
 
 				return nil
 			})
@@ -185,7 +185,7 @@ func TestRoutes(t *testing.T) {
 				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V6,
 					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
 				assert.NoError(t, err)
-				assert.Len(t, rt, 0)
+				assert.Empty(t, rt)
 
 				return nil
 			})

@@ -126,7 +126,7 @@ func TestDeleteFromPolicyEngine(t *testing.T) {
 	require.Equal(t, 1, len(p.fileNameToCnpCache))
 	err = p.deleteFromPolicyEngine("test.yaml")
 	require.NoError(t, err, "")
-	require.Equal(t, 0, len(p.fileNameToCnpCache))
+	require.Empty(t, p.fileNameToCnpCache)
 
 	// Delete non existent entry and validate if appropriate error returned
 	p.addToPolicyEngine(cnp, "test2.yaml")
@@ -136,5 +136,5 @@ func TestDeleteFromPolicyEngine(t *testing.T) {
 	require.Equal(t, 1, len(p.fileNameToCnpCache))
 	err = p.deleteFromPolicyEngine("test2.yaml")
 	require.NoError(t, err, "Expect no error while delete policy but got error:%v", err)
-	require.Equal(t, 0, len(p.fileNameToCnpCache))
+	require.Empty(t, p.fileNameToCnpCache)
 }

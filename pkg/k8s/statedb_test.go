@@ -367,7 +367,7 @@ func testStateDBReflector(t *testing.T, p reflectorTestParams) {
 	<-watch
 	iter, _ = table.AllWatch(db.ReadTxn())
 	objs = statedb.Collect(iter)
-	require.Len(t, objs, 0)
+	require.Empty(t, objs)
 
 	// Finally check that the hive stops correctly. Note that we're not doing this in a
 	// defer to avoid potentially deadlocking on the Fatal calls.

@@ -552,7 +552,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(added1, nil, wg)
 	wg.Wait()
-	require.Equal(t, 0, len(policy.policyMapChanges.synced)) // XXX why 0?
+	require.Empty(t, policy.policyMapChanges.synced) // XXX why 0?
 
 	// Have to remove circular reference before testing to avoid an infinite loop
 	policy.selectorPolicy.Detach()

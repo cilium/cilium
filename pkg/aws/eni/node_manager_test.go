@@ -554,7 +554,7 @@ func TestNodeManagerENIExcludeInterfaceTags(t *testing.T) {
 	require.True(t, castOK)
 	eniNode.mutex.RLock()
 	require.Len(t, eniNode.enis, 2)
-	require.Len(t, eniNode.enis[eniID1].Addresses, 0)
+	require.Empty(t, eniNode.enis[eniID1].Addresses)
 	require.Equal(t, eniNode.enis[eniID1].Tags["cilium.io/no_manage"], "true")
 	eniNode.mutex.RUnlock()
 
@@ -571,7 +571,7 @@ func TestNodeManagerENIExcludeInterfaceTags(t *testing.T) {
 	// Unmanaged ENI remains unmanaged
 	eniNode.mutex.RLock()
 	require.Len(t, eniNode.enis, 3)
-	require.Len(t, eniNode.enis[eniID1].Addresses, 0)
+	require.Empty(t, eniNode.enis[eniID1].Addresses)
 	require.Equal(t, eniNode.enis[eniID1].Tags["cilium.io/no_manage"], "true")
 	eniNode.mutex.RUnlock()
 }

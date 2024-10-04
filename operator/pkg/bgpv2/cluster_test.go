@@ -276,7 +276,7 @@ func Test_NodeLabels(t *testing.T) {
 				}
 
 				if tt.expectedNodeConfig == nil {
-					assert.Len(c, nodeConfigs.Items, 0)
+					assert.Empty(c, nodeConfigs.Items)
 					return
 				}
 

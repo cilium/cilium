@@ -313,9 +313,9 @@ func TestAgent_PeerConfig(t *testing.T) {
 	// Node Deletion
 	wgAgent.DeletePeer(k8s1NodeName)
 	wgAgent.DeletePeer(k8s2NodeName)
-	require.Len(t, wgAgent.peerByNodeName, 0)
-	require.Len(t, wgAgent.nodeNameByNodeIP, 0)
-	require.Len(t, wgAgent.nodeNameByPubKey, 0)
+	require.Empty(t, wgAgent.peerByNodeName)
+	require.Empty(t, wgAgent.nodeNameByNodeIP)
+	require.Empty(t, wgAgent.nodeNameByPubKey)
 }
 
 func TestAgent_PeerConfig_WithEncryptNode(t *testing.T) {

@@ -62,7 +62,7 @@ func TestXfrmStateListCache(t *testing.T) {
 	require.True(t, xfrmStateCache.isExpired(), "Cache should be expired after timeout")
 	stateList, err = xfrmStateCache.XfrmStateList()
 	require.NoError(t, err)
-	require.Len(t, stateList, 0)
+	require.Empty(t, stateList)
 
 	// Create new xfrm state and check that cache is atomatically updated
 	require.True(t, xfrmStateCache.isExpired(), "Cache should be expired when list is empty")
@@ -93,7 +93,7 @@ func TestXfrmStateListCache(t *testing.T) {
 	require.True(t, xfrmStateCache.isExpired(), "Cache should be expired after deleting state")
 	stateList, err = xfrmStateCache.XfrmStateList()
 	require.NoError(t, err)
-	require.Len(t, stateList, 0)
+	require.Empty(t, stateList)
 }
 
 func TestXfrmStateListCacheDisabled(t *testing.T) {

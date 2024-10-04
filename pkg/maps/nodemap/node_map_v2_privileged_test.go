@@ -46,8 +46,8 @@ func TestNodeMapV2(t *testing.T) {
 
 	err = nodeMap.IterateWithCallback(toMap)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(bpfNodeIDMap))
-	require.Equal(t, 0, len(bpfNodeSPI))
+	require.Empty(t, bpfNodeIDMap)
+	require.Empty(t, bpfNodeSPI)
 
 	err = nodeMap.Update(net.ParseIP("10.1.0.0"), 10, 3)
 	require.NoError(t, err)

@@ -864,7 +864,7 @@ func (ds *DaemonSuite) testRemovePolicy(t *testing.T) {
 
 	// Check that the policy has been removed from the xDS cache.
 	networkPolicies = ds.getXDSNetworkPolicies(t, nil)
-	require.Len(t, networkPolicies, 0)
+	require.Empty(t, networkPolicies)
 }
 
 func TestIncrementalPolicyEtcd(t *testing.T) {
@@ -1020,7 +1020,7 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 
 	// Check that the policy has been removed from the xDS cache.
 	networkPolicies = ds.getXDSNetworkPolicies(t, nil)
-	require.Len(t, networkPolicies, 0)
+	require.Empty(t, networkPolicies)
 }
 
 func TestAddCiliumNetworkPolicyV2Etcd(t *testing.T) {

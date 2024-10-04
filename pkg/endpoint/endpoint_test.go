@@ -507,7 +507,7 @@ func TestWaitForPolicyRevision(t *testing.T) {
 	}
 
 	// Number of policy revision signals should be 0
-	require.Equal(t, 0, len(e.policyRevisionSignals))
+	require.Empty(t, e.policyRevisionSignals)
 
 	e.state = StateDisconnected
 
@@ -524,7 +524,7 @@ func TestWaitForPolicyRevision(t *testing.T) {
 	require.True(t, cbRan)
 
 	// Number of policy revision signals should be 0
-	require.Equal(t, 0, len(e.policyRevisionSignals))
+	require.Empty(t, e.policyRevisionSignals)
 
 	e.state = StateWaitingForIdentity
 	ctx, cancel = context.WithCancel(context.Background())
@@ -542,7 +542,7 @@ func TestWaitForPolicyRevision(t *testing.T) {
 	cancel()
 
 	// Number of policy revision signals should be 0
-	require.Equal(t, 0, len(e.policyRevisionSignals))
+	require.Empty(t, e.policyRevisionSignals)
 }
 
 func TestProxyID(t *testing.T) {

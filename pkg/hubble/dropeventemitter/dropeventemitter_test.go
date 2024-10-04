@@ -187,7 +187,7 @@ func TestProcessFlow(t *testing.T) {
 				t.Errorf("DropEventEmitter.ProcessFlow() error = %v", err)
 			}
 			if tt.expect == "" {
-				assert.Len(t, fakeRecorder.Events, 0)
+				assert.Empty(t, fakeRecorder.Events)
 			} else {
 				assert.Len(t, fakeRecorder.Events, 1)
 				event := <-fakeRecorder.Events

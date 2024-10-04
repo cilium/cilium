@@ -302,7 +302,7 @@ func Test_getGatewaysForSecret(t *testing.T) {
 			},
 		}, logger)
 
-		require.Len(t, gwList, 0)
+		require.Empty(t, gwList)
 	})
 }
 

@@ -64,7 +64,7 @@ func TestSetPortRulesForID(t *testing.T) {
 
 	err = pea.setPortRulesForID(cache, epID, udpProtoPort8053, nil)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(cache))
+	require.Empty(t, cache)
 
 	rules[selector2] = &policy.PerSelectorPolicy{
 		L7Rules: api.L7Rules{
@@ -79,7 +79,7 @@ func TestSetPortRulesForID(t *testing.T) {
 	err = pea.setPortRulesForID(cache, epID, udpProtoPort8053, rules)
 
 	require.Error(t, err)
-	require.Equal(t, 0, len(cache))
+	require.Empty(t, cache)
 }
 
 func TestSetPortRulesForIDFromUnifiedFormat(t *testing.T) {
@@ -109,7 +109,7 @@ func TestSetPortRulesForIDFromUnifiedFormat(t *testing.T) {
 
 	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, nil)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(cache))
+	require.Empty(t, cache)
 
 	delete(rules, selector2)
 	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, rules)
@@ -118,7 +118,7 @@ func TestSetPortRulesForIDFromUnifiedFormat(t *testing.T) {
 
 	err = pea.setPortRulesForIDFromUnifiedFormat(cache, epID, udpProtoPort8053, nil)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(cache))
+	require.Empty(t, cache)
 }
 
 func TestGeneratePattern(t *testing.T) {

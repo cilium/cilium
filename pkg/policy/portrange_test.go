@@ -20,7 +20,7 @@ func validateMaskedPorts(t *testing.T, maskedPorts []MaskedPort, start, end uint
 		return
 	}
 	require.NotNil(t, maskedPorts)
-	require.NotEqual(t, len(maskedPorts), 0)
+	require.NotEmpty(t, maskedPorts)
 	// validate that range elements are continuous and non-overlapping
 	first := maskedPorts[0].port
 	last := first + ^maskedPorts[0].mask

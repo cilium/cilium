@@ -80,7 +80,7 @@ func TestCreateDerivativeRuleWithToGroupsAndToPorts(t *testing.T) {
 
 	newRule, err := eg.CreateDerivative(context.TODO())
 	require.NoError(t, err)
-	require.Equal(t, 0, len(newRule.ToGroups))
+	require.Empty(t, newRule.ToGroups)
 	require.Equal(t, 1, len(newRule.ToCIDRSet))
 }
 

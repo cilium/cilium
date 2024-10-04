@@ -86,13 +86,13 @@ func TestUpsertSingleNode(t *testing.T) {
 	// Empty cache is the version 1
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache)
-	require.Len(t, acker.ackedVersions, 0)
+	require.Empty(t, acker.ackedVersions)
 
 	// Create version 2 with resource 0.
 	callback, comp := newCompCallback()
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
 	require.Condition(t, isNotCompletedComparison(comp))
-	require.Len(t, acker.ackedVersions, 0)
+	require.Empty(t, acker.ackedVersions)
 
 	// Ack the right version, for the right resource, from another node.
 	acker.HandleResourceVersionAck(2, 2, node1, []string{resources[0].Name}, typeURL, "")
@@ -140,13 +140,13 @@ func TestUseCurrent(t *testing.T) {
 	// Empty cache is the version 1
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache)
-	require.Len(t, acker.ackedVersions, 0)
+	require.Empty(t, acker.ackedVersions)
 
 	// Create version 2 with resource 0.
 	callback, comp := newCompCallback()
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
 	require.Condition(t, isNotCompletedComparison(comp))
-	require.Len(t, acker.ackedVersions, 0)
+	require.Empty(t, acker.ackedVersions)
 	require.Len(t, acker.pendingCompletions, 1)
 
 	// Ack the right version, for the right resource, from another node.
@@ -180,7 +180,7 @@ func TestUseCurrent(t *testing.T) {
 	require.Condition(t, completedComparison(comp))
 	require.Len(t, acker.ackedVersions, 2)
 	require.Equal(t, uint64(2), acker.ackedVersions[node0])
-	require.Len(t, acker.pendingCompletions, 0)
+	require.Empty(t, acker.pendingCompletions)
 }
 
 func TestUpsertMultipleNodes(t *testing.T) {
@@ -192,7 +192,7 @@ func TestUpsertMultipleNodes(t *testing.T) {
 	// Empty cache is the version 1
 	cache := NewCache()
 	acker := NewAckingResourceMutatorWrapper(cache)
-	require.Len(t, acker.ackedVersions, 0)
+	require.Empty(t, acker.ackedVersions)
 
 	// Create version 2 with resource 0.
 	callback, comp := newCompCallback()

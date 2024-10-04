@@ -577,7 +577,7 @@ func TestNodeManagerAbortRelease(t *testing.T) {
 		node.PopulateIPReleaseStatus(node.resource)
 
 		// Verify that the entry for previously marked IP is removed, instead of being set to released state.
-		require.Equal(t, 0, len(node.resource.Status.IPAM.ReleaseIPs))
+		require.Empty(t, node.resource.Status.IPAM.ReleaseIPs)
 	})
 
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))

@@ -58,7 +58,7 @@ func TestProvider(t *testing.T) {
 			ok := byLevel(db, statusTable, types.LevelOK)
 			assert.Len(ok, 2)
 
-			assert.Len(byLevel(db, statusTable, types.LevelStopped), 0)
+			assert.Empty(byLevel(db, statusTable, types.LevelStopped))
 
 			h2.Stopped("done")
 			all = allStatus(db, statusTable)

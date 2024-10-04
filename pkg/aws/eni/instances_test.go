@@ -309,7 +309,7 @@ func TestGetSecurityGroupByTags(t *testing.T) {
 	sgGroups := mngr.FindSecurityGroupByTags("vpc-1", map[string]string{
 		"k1": "v1",
 	})
-	require.Len(t, sgGroups, 0)
+	require.Empty(t, sgGroups)
 
 	iteration1(api, mngr)
 	reqTags := ipamTypes.Tags{

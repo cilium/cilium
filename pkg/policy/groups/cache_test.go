@@ -12,7 +12,7 @@ import (
 func TestCacheWorkingCorrectly(t *testing.T) {
 
 	cnps := groupsCNPCache.GetAllCNP()
-	require.Len(t, cnps, 0)
+	require.Empty(t, cnps)
 
 	cnp := getSamplePolicy("test", "test")
 	groupsCNPCache.UpdateCNP(cnp)
@@ -23,6 +23,6 @@ func TestCacheWorkingCorrectly(t *testing.T) {
 	groupsCNPCache.DeleteCNP(cnp)
 
 	cnps = groupsCNPCache.GetAllCNP()
-	require.Len(t, cnps, 0)
+	require.Empty(t, cnps)
 
 }

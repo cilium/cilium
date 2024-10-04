@@ -217,7 +217,7 @@ func TestCtGcIcmp(t *testing.T) {
 	buf = make(map[string][]string)
 	err = natMap.Map.Dump(buf)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(buf))
+	require.Empty(t, buf)
 }
 
 // TestCtGcTcp tests whether TCP SNAT entries are removed upon a removal of
@@ -328,7 +328,7 @@ func TestCtGcTcp(t *testing.T) {
 	buf = make(map[string][]string)
 	err = natMap.Map.Dump(buf)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(buf))
+	require.Empty(t, buf)
 }
 
 // TestCtGcDsr tests whether DSR NAT entries are removed upon a removal of
@@ -419,7 +419,7 @@ func TestCtGcDsr(t *testing.T) {
 	buf = make(map[string][]string)
 	err = natMap.Map.Dump(buf)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(buf))
+	require.Empty(t, buf)
 }
 
 // TestOrphanNat checks whether dangling NAT entries are GC'd (GH#12686)
@@ -555,7 +555,7 @@ func TestOrphanNatGC(t *testing.T) {
 	buf = make(map[string][]string)
 	err = natMap.Map.Dump(buf)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(buf))
+	require.Empty(t, buf)
 
 	// Create only CT_INGRESS NAT entry which should be removed
 	err = natMap.Map.Update(natKey, natVal)
@@ -567,7 +567,7 @@ func TestOrphanNatGC(t *testing.T) {
 	buf = make(map[string][]string)
 	err = natMap.Map.Dump(buf)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(buf))
+	require.Empty(t, buf)
 
 	// Test DSR (new, tracked by nodeport.h)
 	//
@@ -641,7 +641,7 @@ func TestOrphanNatGC(t *testing.T) {
 	buf = make(map[string][]string)
 	err = natMap.Map.Dump(buf)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(buf))
+	require.Empty(t, buf)
 
 	// When a connection is re-opened and switches from DSR to local-backend,
 	// its CT entry gets re-created but uses the same CT tuple as key.
@@ -664,7 +664,7 @@ func TestOrphanNatGC(t *testing.T) {
 	buf = make(map[string][]string)
 	err = natMap.Map.Dump(buf)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(buf))
+	require.Empty(t, buf)
 
 	// Let's check IPv6
 
@@ -718,7 +718,7 @@ func TestOrphanNatGC(t *testing.T) {
 	buf = make(map[string][]string)
 	err = natMap.Map.Dump(buf)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(buf))
+	require.Empty(t, buf)
 }
 
 // TestCount checks whether the CT map batch lookup dumps the count of the
