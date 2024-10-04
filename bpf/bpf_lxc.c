@@ -559,7 +559,6 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		}
 		/* proxy_port remains 0 in this case */
 
-		policy_mark_skip(ctx);
 		break;
 	default:
 		return DROP_UNKNOWN_CT;
@@ -1010,7 +1009,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		}
 		/* proxy_port remains 0 in this case */
 
-		policy_mark_skip(ctx);
 		break;
 	default:
 		return DROP_UNKNOWN_CT;
