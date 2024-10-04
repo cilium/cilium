@@ -48,11 +48,11 @@ func TestGetBoottime(t *testing.T) {
 
 	// Local testing showed a difference of less than a second,
 	// fail test if more than 5 seconds
-	require.True(t, diff < (time.Second*5))
+	require.Less(t, diff, (time.Second * 5))
 
 	// There should be non-zero nanosecond component in boottime that accounts for the time the
 	// boottime and monotonic clocks in all cases, as the boottime clock is sampled after the
 	// monotonic clock. This will flake if that delta is an exact number of seconds, but this
 	// should be unlikely.
-	require.True(t, boottime.Nanosecond() > 0)
+	require.Greater(t, boottime.Nanosecond(), 0)
 }

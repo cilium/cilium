@@ -204,7 +204,7 @@ func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
 	n := epPolicy.policyMapState.Len()
 	epPolicy.Ready()
 	ip.Detach()
-	assert.True(t, n > 0)
+	assert.Greater(t, n, 0)
 }
 
 func TestL3WithIngressDenyWildcard(t *testing.T) {

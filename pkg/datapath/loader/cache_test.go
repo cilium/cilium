@@ -41,21 +41,21 @@ func TestObjectCache(t *testing.T) {
 	second, hash2, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
 	require.NoError(t, err)
 	require.Equal(t, hash, hash2)
-	require.False(t, second == first)
+	require.NotSame(t, second, first)
 
 	// Changing the ID should not generate a new object.
 	realEP.Id++
 	third, hash3, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
 	require.NoError(t, err)
 	require.Equal(t, hash, hash3)
-	require.False(t, third == first)
+	require.NotSame(t, third, first)
 
 	// Changing a setting on the EP should generate a new object.
 	realEP.Opts.SetBool("foo", true)
 	fourth, hash4, err := cache.fetchOrCompile(ctx, &localNodeConfig, &realEP, dir, nil)
 	require.NoError(t, err)
 	require.NotEqual(t, hash, hash4)
-	require.False(t, fourth == first)
+	require.NotSame(t, fourth, first)
 }
 
 func TestObjectCacheParallel(t *testing.T) {

@@ -270,7 +270,7 @@ func TestSet(t *testing.T) {
 			require.NotNil(t, item)
 			len := set2.Len()
 			set2.Remove(item)
-			require.True(t, set2.Len() < len)
+			require.Less(t, set2.Len(), len)
 		}
 	}
 	require.True(t, set2.Empty())
