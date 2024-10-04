@@ -225,7 +225,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			epList, err := getEndpointSlice(&fakeClient, svcName)
 			assert.NoError(c, err)
-			assert.Len(c, epList.Items, 0)
+			assert.Empty(c, epList.Items)
 		}, timeout, tick, "endpointslice is not reconciled correctly")
 	})
 
@@ -251,7 +251,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			epList, err := getEndpointSlice(&fakeClient, svcName)
 			assert.NoError(c, err)
-			assert.Len(c, epList.Items, 0)
+			assert.Empty(c, epList.Items)
 		}, timeout, tick, "endpointslice is not reconciled correctly")
 	})
 }

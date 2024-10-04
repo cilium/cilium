@@ -43,7 +43,7 @@ func TestAddRemoveEndpoint(t *testing.T) {
 	// Remove the second endpoint
 	mgr.RemoveAddress(netip.MustParseAddr("f00d:aabb::1234"))
 
-	require.Len(t, mgr.state, 0)
+	require.Empty(t, mgr.state)
 	_, ok = mgr.state[netip.MustParseAddr("ff02::1:ff00:1234")]
 	require.False(t, ok)
 }
@@ -62,7 +62,7 @@ func TestAddRemoveNil(t *testing.T) {
 	)
 
 	mgr.AddAddress(netip.Addr{})
-	require.Len(t, mgr.state, 0)
+	require.Empty(t, mgr.state)
 	mgr.RemoveAddress(netip.Addr{})
-	require.Len(t, mgr.state, 0)
+	require.Empty(t, mgr.state)
 }

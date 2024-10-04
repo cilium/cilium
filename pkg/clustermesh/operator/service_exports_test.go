@@ -52,7 +52,7 @@ func TestGlobalServiceExportCache(t *testing.T) {
 		Namespace: "default",
 	}))
 	require.EqualValues(t, 0, globalServiceExports.Size(), "should have no global service exports")
-	require.Len(t, globalServiceExports.cache, 0, "Cache should be fully reset")
+	require.Empty(t, globalServiceExports.cache, "Cache should be fully reset")
 
 	// Initial state
 	globalServiceExports.OnUpdate(&mcsapitypes.MCSAPIServiceSpec{

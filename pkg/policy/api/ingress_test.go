@@ -63,7 +63,7 @@ func TestCreateDerivativeRuleWithFromGroups(t *testing.T) {
 
 	newRule, err := ig.CreateDerivative(context.TODO())
 	require.NoError(t, err)
-	require.Equal(t, 0, len(newRule.FromGroups))
+	require.Empty(t, newRule.FromGroups)
 	require.Equal(t, 1, len(newRule.FromCIDRSet))
 }
 

@@ -57,7 +57,7 @@ func Test_filterServiceBackends(t *testing.T) {
 		})
 		t.Run("no match", func(t *testing.T) {
 			backends := filterServiceBackends(svc, []string{"8000"})
-			assert.Len(t, backends, 0)
+			assert.Empty(t, backends)
 		})
 	})
 

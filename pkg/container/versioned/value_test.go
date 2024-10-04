@@ -330,7 +330,7 @@ func TestPairSlice(t *testing.T) {
 	}
 	assert.Equal(t, []int{3000}, values)
 	s = s[n:]
-	assert.Len(t, s, 0)
+	assert.Empty(t, s)
 }
 
 func TestVersionedChaos(t *testing.T) {

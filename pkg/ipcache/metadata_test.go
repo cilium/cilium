@@ -52,7 +52,7 @@ func TestInjectLabels(t *testing.T) {
 
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
 	remaining, err := IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.NoError(t, err)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
 
@@ -62,7 +62,7 @@ func TestInjectLabels(t *testing.T) {
 	assert.Len(t, IPIdentityCache.metadata.m, 2)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{inClusterPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.True(t, IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID.HasLocalScope())
 
@@ -74,21 +74,21 @@ func TestInjectLabels(t *testing.T) {
 	assert.Len(t, IPIdentityCache.metadata.m, 2)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{inClusterPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID.HasLocalScope())
 	assert.Equal(t, identity.ReservedIdentityKubeAPIServer, IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID)
 
 	// Insert the same data, see that it does not need to be updated
 	prefixes = IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.CustomResource, "node-uid", labels.LabelRemoteNode)
-	assert.Len(t, prefixes, 0)
+	assert.Empty(t, prefixes)
 
 	// Insert another node, see that it gets the RemoteNode ID but not kube-apiserver
 	IPIdentityCache.metadata.upsertLocked(inClusterPrefix2, source.CustomResource, "node-uid", labels.LabelRemoteNode)
 	assert.Len(t, IPIdentityCache.metadata.m, 3)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{inClusterPrefix2})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 3)
 	assert.Equal(t, identity.ReservedIdentityRemoteNode, IPIdentityCache.ipToIdentityCache["10.0.0.5/32"].ID)
 
@@ -101,7 +101,7 @@ func TestInjectLabels(t *testing.T) {
 
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{inClusterPrefix, inClusterPrefix2})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 3)
 	nid1 := IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID
 	nid2 := IPIdentityCache.ipToIdentityCache["10.0.0.5/32"].ID
@@ -130,7 +130,7 @@ func TestInjectLabels(t *testing.T) {
 	IPIdentityCache.metadata.remove(inClusterPrefix2, "node-uid", overrideIdentity(false), labels.LabelRemoteNode)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{inClusterPrefix, inClusterPrefix2})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 
 	nid1 = IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID
 	nid2 = IPIdentityCache.ipToIdentityCache["10.0.0.5/32"].ID
@@ -157,7 +157,7 @@ func TestInjectLabels(t *testing.T) {
 	IPIdentityCache.metadata.remove(inClusterPrefix, "kube-uid", overrideIdentity(false), labels.LabelKubeAPIServer)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{inClusterPrefix, inClusterPrefix2})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
 
 	// Assert that an upsert for reserved:health label results in only the
@@ -166,7 +166,7 @@ func TestInjectLabels(t *testing.T) {
 	assert.Len(t, IPIdentityCache.metadata.m, 2)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{inClusterPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID.HasLocalScope())
 	assert.Equal(t, identity.ReservedIdentityHealth, IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID)
@@ -177,7 +177,7 @@ func TestInjectLabels(t *testing.T) {
 	assert.Len(t, IPIdentityCache.metadata.m, 3)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{inClusterPrefix2})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 3)
 	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.5/32"].ID.HasLocalScope())
 	assert.Equal(t, identity.ReservedIdentityIngress, IPIdentityCache.ipToIdentityCache["10.0.0.5/32"].ID)
@@ -185,7 +185,7 @@ func TestInjectLabels(t *testing.T) {
 	IPIdentityCache.metadata.remove(inClusterPrefix2, "node-uid", overrideIdentity(false), labels.LabelIngress)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{inClusterPrefix2})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.Len(t, IPIdentityCache.metadata.m, 2)
 
 	// Assert that a CIDR identity can be overridden automatically (without
@@ -195,13 +195,13 @@ func TestInjectLabels(t *testing.T) {
 	assert.Len(t, IPIdentityCache.metadata.m, 3)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{aPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 3)
 	assert.True(t, IPIdentityCache.ipToIdentityCache["100.4.16.32/32"].ID.HasLocalScope())
 	IPIdentityCache.metadata.upsertLocked(aPrefix, source.CustomResource, "node-uid", labels.LabelRemoteNode)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{aPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 3)
 	assert.False(t, IPIdentityCache.ipToIdentityCache["100.4.16.32/32"].ID.HasLocalScope())
 
@@ -211,7 +211,7 @@ func TestInjectLabels(t *testing.T) {
 	assert.Len(t, IPIdentityCache.metadata.m, 4)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{allIPv4CIDRsPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 4)
 	assert.False(t, IPIdentityCache.ipToIdentityCache[ipv4All].ID.HasLocalScope())
 	assert.Equal(t, identity.ReservedIdentityWorldIPv4, IPIdentityCache.ipToIdentityCache[ipv4All].ID)
@@ -222,7 +222,7 @@ func TestInjectLabels(t *testing.T) {
 	assert.Len(t, IPIdentityCache.metadata.m, 5)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{allIPv6CIDRsPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 5)
 	assert.False(t, IPIdentityCache.ipToIdentityCache[ipv6All].ID.HasLocalScope())
 	assert.Equal(t, identity.ReservedIdentityWorldIPv6, IPIdentityCache.ipToIdentityCache[ipv6All].ID)
@@ -234,7 +234,7 @@ func TestInjectLabels(t *testing.T) {
 	assert.Len(t, IPIdentityCache.metadata.m, 5)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{allIPv4CIDRsPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 5)
 	assert.False(t, IPIdentityCache.ipToIdentityCache[ipv4All].ID.HasLocalScope())
 	assert.Equal(t, identity.ReservedIdentityWorld, IPIdentityCache.ipToIdentityCache[ipv4All].ID)
@@ -265,7 +265,7 @@ func TestUpdateLocalNode(t *testing.T) {
 		t.Helper()
 		remaining, err := IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{ip})
 		assert.NoError(t, err)
-		assert.Len(t, remaining, 0)
+		assert.Empty(t, remaining)
 	}
 
 	idIs := func(ip netip.Prefix, id identity.NumericIdentity) {
@@ -341,7 +341,7 @@ func TestInjectExisting(t *testing.T) {
 	IPIdentityCache.metadata.upsertLocked(prefix, source.Generated, fqdnResourceID)
 	remaining, err := IPIdentityCache.doInjectLabels(context.Background(), []netip.Prefix{prefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 
 	// sanity check: ensure the cidr is correctly in the ipcache
 	wantID := identity.IdentityScopeLocal
@@ -361,7 +361,7 @@ func TestInjectExisting(t *testing.T) {
 	// Now, the second half of UpsertLabels -- identity injection
 	remaining, err = IPIdentityCache.doInjectLabels(context.Background(), []netip.Prefix{prefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 
 	// Ensure the source is now correctly understood in the ipcache
 	id, ok = IPIdentityCache.LookupByIP(prefix.String())
@@ -393,7 +393,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
 	remaining, err := IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 1)
 
 	// Attempting to remove a label for a ResourceID which does not exist
@@ -421,7 +421,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.CustomResource, "kube-uid", labels.LabelKubeAPIServer)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	id := IPIdentityCache.IdentityAllocator.LookupIdentityByID(
 		context.TODO(),
 		identity.IdentityScopeLocal, // we assume first local ID
@@ -449,7 +449,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 		"kube-uid")
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.NotContains(t, IPIdentityCache.metadata.m[worldPrefix].ToLabels(), labels.IDNameKubeAPIServer)
 	nid, exists = IPIdentityCache.LookupByPrefix(worldPrefix.String())
 	assert.True(t, exists)
@@ -463,7 +463,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	IPIdentityCache.RemoveLabels(worldPrefix, labels.Labels{}, "policy-uid")
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 	assert.Empty(t, IPIdentityCache.metadata.m[worldPrefix].ToLabels())
 	nid, exists = IPIdentityCache.LookupByPrefix(worldPrefix.String())
 	assert.False(t, exists)
@@ -501,7 +501,7 @@ func TestOverrideIdentity(t *testing.T) {
 	ipc.metadata.upsertLocked(worldPrefix, source.KubeAPIServer, "kube-uid", labels.LabelKubeAPIServer)
 	remaining, err := ipc.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 
 	id, ok := ipc.LookupByPrefix(worldPrefix.String())
 	assert.True(t, ok)
@@ -512,7 +512,7 @@ func TestOverrideIdentity(t *testing.T) {
 	ipc.metadata.upsertLocked(worldPrefix, source.CustomResource, "cep-uid", overrideIdentity(true), fooLabels)
 	remaining, err = ipc.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 
 	id, ok = ipc.LookupByPrefix(worldPrefix.String())
 	assert.True(t, ok)
@@ -523,7 +523,7 @@ func TestOverrideIdentity(t *testing.T) {
 	ipc.metadata.remove(worldPrefix, "cep-uid", overrideIdentity(true), fooLabels)
 	remaining, err = ipc.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 
 	id, ok = ipc.LookupByPrefix(worldPrefix.String())
 	assert.True(t, ok)
@@ -535,7 +535,7 @@ func TestOverrideIdentity(t *testing.T) {
 	ipc.metadata.remove(worldPrefix, "kube-uid", labels.LabelKubeAPIServer)
 	remaining, err = ipc.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 
 	_, ok = ipc.LookupByPrefix(worldPrefix.String())
 	assert.False(t, ok)
@@ -544,13 +544,13 @@ func TestOverrideIdentity(t *testing.T) {
 	ipc.metadata.upsertLocked(worldPrefix, source.CustomResource, "cep-uid", overrideIdentity(true), barLabels)
 	remaining, err = ipc.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 
 	// Add labels, those will be ignored due to override
 	ipc.metadata.upsertLocked(worldPrefix, source.KubeAPIServer, "kube-uid", labels.LabelKubeAPIServer)
 	remaining, err = ipc.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 
 	id, ok = ipc.LookupByPrefix(worldPrefix.String())
 	assert.True(t, ok)
@@ -562,7 +562,7 @@ func TestOverrideIdentity(t *testing.T) {
 	ipc.metadata.remove(worldPrefix, "cep-uid", overrideIdentity(true), barLabels)
 	remaining, err = ipc.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 
 	_, ok = ipc.LookupByPrefix(worldPrefix.String())
 	assert.Equal(t, barID.ReferenceCount, 1)
@@ -580,7 +580,7 @@ func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
 		types.EncryptKey(7))
 	remaining, err := IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{inClusterPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 
 	ip, key := IPIdentityCache.getHostIPCache(inClusterPrefix.String())
 	assert.Equal(t, "192.168.1.100", ip.String())
@@ -603,7 +603,7 @@ func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
 	IPIdentityCache.metadata.remove(inClusterPrefix, "generated-uid", types.EncryptKey(6))
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{inClusterPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 
 	// Assert that there should only be the entry with the tunnelPeer set.
 	ip, key = IPIdentityCache.getHostIPCache(inClusterPrefix.String())
@@ -620,7 +620,7 @@ func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
 	)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{inClusterPrefix})
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 
 	// Add TunnelPeer and EncryptKey from the CustomResource source.
 	IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.CustomResource, "node-uid",
@@ -646,7 +646,7 @@ func TestRequestIdentity(t *testing.T) {
 		t.Helper()
 		remaining, err := IPIdentityCache.doInjectLabels(context.Background(), prefixes)
 		assert.NoError(t, err)
-		assert.Len(t, remaining, 0)
+		assert.Empty(t, remaining)
 	}
 
 	hasIdentity := func(prefix netip.Prefix, nid identity.NumericIdentity) {
@@ -742,7 +742,7 @@ func TestHandleLabelInjection(t *testing.T) {
 
 	// No more issues, we should succeed
 	err = ipc.handleLabelInjection(ctx)
-	require.Zero(t, len(ipc.metadata.queuedPrefixes))
+	require.Empty(t, ipc.metadata.queuedPrefixes)
 	require.Equal(t, uint64(3), ipc.metadata.injectedRevision)
 	// ensure all IPs are in the ipcache
 	require.Contains(t, ipc.ipToIdentityCache, inClusterPrefix.String())
@@ -811,7 +811,7 @@ func TestUpsertMetadataInheritedCIDRPrefix(t *testing.T) {
 	prefixes := IPIdentityCache.metadata.upsertLocked(parent, source.Kubernetes, "cidr-policy", labels.GetCIDRLabels(parent))
 	remaining, err := IPIdentityCache.doInjectLabels(ctx, prefixes)
 	require.NoError(t, err)
-	require.Len(t, remaining, 0)
+	require.Empty(t, remaining)
 
 	// Simulate first FQDN lookup
 	fqdnLabels := labels.NewLabelsFromSortedList("fqdn:*.internal")
@@ -819,7 +819,7 @@ func TestUpsertMetadataInheritedCIDRPrefix(t *testing.T) {
 	prefixes = IPIdentityCache.metadata.upsertLocked(child, source.Generated, "fqdn-lookup", fqdnLabels)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, prefixes)
 	require.NoError(t, err)
-	require.Len(t, remaining, 0)
+	require.Empty(t, remaining)
 
 	id, ok := IPIdentityCache.LookupByPrefix(child.String())
 	ident := IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.TODO(), id.ID)
@@ -832,7 +832,7 @@ func TestUpsertMetadataInheritedCIDRPrefix(t *testing.T) {
 	prefixes = IPIdentityCache.metadata.upsertLocked(sibling, source.Generated, "fqdn-lookup", fqdnLabels)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, prefixes)
 	require.NoError(t, err)
-	require.Len(t, remaining, 0)
+	require.Empty(t, remaining)
 
 	newID, ok := IPIdentityCache.LookupByPrefix(child.String())
 	require.True(t, ok)
@@ -842,7 +842,7 @@ func TestUpsertMetadataInheritedCIDRPrefix(t *testing.T) {
 	prefixes = IPIdentityCache.metadata.remove(parent, "cidr-policy", labels.Labels{})
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, prefixes)
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 
 	// Check that identities for both children have changed
 	id, ok = IPIdentityCache.LookupByPrefix(child.String())
@@ -859,7 +859,7 @@ func TestUpsertMetadataInheritedCIDRPrefix(t *testing.T) {
 	prefixes = IPIdentityCache.metadata.upsertLocked(parent, source.Kubernetes, "cidr-policy", labels.GetCIDRLabels(parent))
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, prefixes)
 	require.NoError(t, err)
-	require.Len(t, remaining, 0)
+	require.Empty(t, remaining)
 
 	// Check that identities for both children have changed yet again
 	id, ok = IPIdentityCache.LookupByPrefix(child.String())
@@ -876,7 +876,7 @@ func TestUpsertMetadataInheritedCIDRPrefix(t *testing.T) {
 	prefixes = append(prefixes, IPIdentityCache.metadata.remove(sibling, "fqdn-lookup", labels.Labels{})...)
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, prefixes)
 	assert.NoError(t, err)
-	assert.Len(t, remaining, 0)
+	assert.Empty(t, remaining)
 
 	_, ok = IPIdentityCache.LookupByPrefix(child.String())
 	require.False(t, ok)

@@ -376,10 +376,10 @@ func TestWriter_Backend_UpsertDelete(t *testing.T) {
 		err := p.Writer.DeleteBackendsBySource(wtxn, source.Kubernetes)
 		require.NoError(t, err, "DeleteBackendsBySource failed")
 		iter := p.BackendTable.All(wtxn)
-		require.Len(t, statedb.Collect(iter), 0)
+		require.Empty(t, statedb.Collect(iter))
 
 		// No backends remain for the service.
-		require.Len(t, fe.Backends, 0)
+		require.Empty(t, fe.Backends)
 
 		wtxn.Abort()
 	}

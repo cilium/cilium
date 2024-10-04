@@ -483,9 +483,9 @@ func TestManager_AddrMatcherConfigSinglePort(t *testing.T) {
 	err = m.rpm.DeleteRedirectPolicy(configAddrType)
 
 	require.NoError(t, err)
-	require.Equal(t, 0, len(m.rpm.policyFrontendsByHash))
-	require.Equal(t, 0, len(m.rpm.policyPods))
-	require.Equal(t, 0, len(m.rpm.policyConfigs))
+	require.Empty(t, m.rpm.policyFrontendsByHash)
+	require.Empty(t, m.rpm.policyPods)
+	require.Empty(t, m.rpm.policyConfigs)
 }
 
 // Tests add redirect policy, add pod, delete pod and delete redirect policy events
@@ -563,9 +563,9 @@ func TestManager_AddrMatcherConfigMultiplePorts(t *testing.T) {
 	err = m.rpm.DeleteRedirectPolicy(configAddrType)
 
 	require.NoError(t, err)
-	require.Equal(t, 0, len(m.rpm.policyFrontendsByHash))
-	require.Equal(t, 0, len(m.rpm.policyPods))
-	require.Equal(t, 0, len(m.rpm.policyConfigs))
+	require.Empty(t, m.rpm.policyFrontendsByHash)
+	require.Empty(t, m.rpm.policyPods)
+	require.Empty(t, m.rpm.policyConfigs)
 }
 
 // Tests if frontend ipv4 and ipv6 addresses are mapped to the ipv4 and ipv6
@@ -645,14 +645,14 @@ func TestManager_OnAddandUpdatePod(t *testing.T) {
 	m.rpm.OnAddPod(pod)
 
 	// Namespace mismatched pod not selected.
-	require.Equal(t, 0, len(m.rpm.policyPods))
+	require.Empty(t, m.rpm.policyPods)
 	_, found := m.rpm.policyPods[podID]
 	require.False(t, found)
 
 	m.rpm.OnUpdatePod(pod, true, true)
 
 	// Namespace mismatched pod not selected.
-	require.Equal(t, 0, len(m.rpm.policyPods))
+	require.Empty(t, m.rpm.policyPods)
 	_, found = m.rpm.policyPods[podID]
 	require.False(t, found)
 }
