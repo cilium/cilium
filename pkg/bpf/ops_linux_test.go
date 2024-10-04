@@ -84,7 +84,7 @@ func Test_MapOps(t *testing.T) {
 
 	v, err = testMap.Lookup(&TestKey{2})
 	if assert.NoError(t, err, "Lookup") {
-		assert.Equal(t, v.(*TestValue).Value, uint32(3))
+		assert.Equal(t, uint32(3), v.(*TestValue).Value)
 	}
 
 	// Give Prune() an empty set of objects, which should cause it to

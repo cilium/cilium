@@ -346,8 +346,8 @@ func TestLocalObserverServer_GetAgentEvents(t *testing.T) {
 			case flowpb.AgentEventType_AGENT_STARTED:
 				startEvent := response.GetAgentEvent().GetAgentStart()
 				assert.NotNil(t, startEvent)
-				assert.Equal(t, startEvent.GetTime().GetSeconds(), int64(42))
-				assert.Equal(t, startEvent.GetTime().GetNanos(), int32(1))
+				assert.Equal(t, int64(42), startEvent.GetTime().GetSeconds())
+				assert.Equal(t, int32(1), startEvent.GetTime().GetNanos())
 				agentStartedReceived++
 			case flowpb.AgentEventType_IPCACHE_UPSERTED:
 				ipcacheUpdate := response.GetAgentEvent().GetIpcacheUpdate()

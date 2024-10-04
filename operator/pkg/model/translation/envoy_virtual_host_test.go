@@ -476,9 +476,9 @@ func Test_hostRewriteMutation(t *testing.T) {
 		}
 
 		res := hostRewriteMutation(rewrite)(route)
-		require.Equal(t, res.Route.HostRewriteSpecifier, &envoy_config_route_v3.RouteAction_HostRewriteLiteral{
+		require.Equal(t, &envoy_config_route_v3.RouteAction_HostRewriteLiteral{
 			HostRewriteLiteral: "example.com",
-		})
+		}, res.Route.HostRewriteSpecifier)
 	})
 }
 
@@ -504,7 +504,7 @@ func Test_pathPrefixMutation(t *testing.T) {
 		}
 
 		res := pathPrefixMutation(rewrite, &httpRoute)(route)
-		require.Equal(t, res.Route.PrefixRewrite, "/prefix")
+		require.Equal(t, "/prefix", res.Route.PrefixRewrite)
 	})
 	t.Run("with empty prefix rewrite", func(t *testing.T) {
 		httpRoute := model.HTTPRoute{}
@@ -590,10 +590,10 @@ func Test_requestMirrorMutation(t *testing.T) {
 
 		res := requestMirrorMutation(mirror)(route)
 		require.Len(t, res.Route.RequestMirrorPolicies, 2)
-		require.Equal(t, res.Route.RequestMirrorPolicies[0].Cluster, "default:dummy-service:8080")
-		require.Equal(t, res.Route.RequestMirrorPolicies[0].RuntimeFraction.DefaultValue.Numerator, uint32(100))
-		require.Equal(t, res.Route.RequestMirrorPolicies[1].Cluster, "default:another-dummy-service:8080")
-		require.Equal(t, res.Route.RequestMirrorPolicies[1].RuntimeFraction.DefaultValue.Numerator, uint32(100))
+		require.Equal(t, "default:dummy-service:8080", res.Route.RequestMirrorPolicies[0].Cluster)
+		require.Equal(t, uint32(100), res.Route.RequestMirrorPolicies[0].RuntimeFraction.DefaultValue.Numerator)
+		require.Equal(t, "default:another-dummy-service:8080", res.Route.RequestMirrorPolicies[1].Cluster)
+		require.Equal(t, uint32(100), res.Route.RequestMirrorPolicies[1].RuntimeFraction.DefaultValue.Numerator)
 	})
 }
 

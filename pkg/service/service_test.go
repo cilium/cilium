@@ -2431,7 +2431,7 @@ func TestHealthCheckCB(t *testing.T) {
 	require.Equal(t, id1, lb.ID(1))
 	require.Equal(t, len(m.lbmap.ServiceByID[uint16(id1)].Backends), len(backends))
 	require.Equal(t, len(m.lbmap.BackendByID), len(backends))
-	require.Equal(t, m.svc.svcByID[id1].backends[0].State, lb.BackendStateActive)
+	require.Equal(t, lb.BackendStateActive, m.svc.svcByID[id1].backends[0].State)
 
 	be := backends[0]
 	m.svc.healthCheckCallback(HealthCheckCBBackendEvent,
@@ -2443,8 +2443,8 @@ func TestHealthCheckCB(t *testing.T) {
 
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
 		assert.Equal(ct, len(m.lbmap.BackendByID), len(backends))
-		assert.Equal(ct, m.svc.svcByID[id1].backends[0].State, lb.BackendStateQuarantined)
-		assert.Equal(ct, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 1)
+		assert.Equal(ct, lb.BackendStateQuarantined, m.svc.svcByID[id1].backends[0].State)
+		assert.Equal(ct, 1, m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 	}, 3*time.Second, 100*time.Millisecond)
 }
 
@@ -2506,17 +2506,17 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 	wg.Add(2)
 	// Ensure that callbacks are received for all the services.
 	cb := func(svcInfo HealthUpdateSvcInfo) {
-		require.Equal(t, len(svcInfo.ActiveBackends), 1)
+		require.Equal(t, 1, len(svcInfo.ActiveBackends))
 		require.Equal(t, svcInfo.ActiveBackends[0].L3n4Addr, backends[1].L3n4Addr)
-		require.Equal(t, svcInfo.ActiveBackends[0].State, lb.BackendStateActive)
+		require.Equal(t, lb.BackendStateActive, svcInfo.ActiveBackends[0].State)
 		if svcInfo.Name == p1.Name {
 			require.Equal(t, svcInfo.Addr, frontend1.L3n4Addr)
-			require.Equal(t, svcInfo.SvcType, lb.SVCTypeClusterIP)
+			require.Equal(t, lb.SVCTypeClusterIP, svcInfo.SvcType)
 			// No duplicate updates
 			close(cbCh1)
 		} else if svcInfo.Name == p2.Name {
 			require.Equal(t, svcInfo.Addr, frontend2.L3n4Addr)
-			require.Equal(t, svcInfo.SvcType, lb.SVCTypeClusterIP)
+			require.Equal(t, lb.SVCTypeClusterIP, svcInfo.SvcType)
 			// No duplicate updates
 			close(cbCh2)
 		} else {
@@ -2532,7 +2532,7 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 	require.Equal(t, id1, lb.ID(1))
 	require.Equal(t, len(m.lbmap.ServiceByID[uint16(id1)].Backends), len(backends))
 	require.Equal(t, len(m.lbmap.BackendByID), len(backends))
-	require.Equal(t, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 2)
+	require.Equal(t, 2, m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 
 	_, id2, err2 := m.svc.UpsertService(p2)
 
@@ -2540,7 +2540,7 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 	require.Equal(t, id2, lb.ID(2))
 	require.Equal(t, len(m.lbmap.ServiceByID[uint16(id2)].Backends), len(backends))
 	require.Equal(t, len(m.lbmap.BackendByID), len(backends))
-	require.Equal(t, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 2)
+	require.Equal(t, 2, m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 
 	go func() {
 		_, ok := <-cbCh1
@@ -2571,7 +2571,7 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 		})
 
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
-		assert.Equal(ct, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 1)
+		assert.Equal(ct, 1, m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 	}, time.Second*3, time.Millisecond*100)
 
 	wg.Wait()
@@ -2588,7 +2588,7 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 			BeState: lb.BackendStateActive,
 		})
 	require.EventuallyWithT(t, func(ct *assert.CollectT) {
-		assert.Equal(ct, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 2)
+		assert.Equal(ct, 2, m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 	}, time.Second*3, time.Millisecond*100)
 
 	// Subscriber callback is not executed.
@@ -2611,10 +2611,10 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 	cb = func(svcInfo HealthUpdateSvcInfo) {
 		if svcInfo.Name == p1.Name {
 			require.Equal(t, svcInfo.Addr, frontendFoo.L3n4Addr)
-			require.Equal(t, svcInfo.SvcType, lb.SVCTypeClusterIP)
-			require.Equal(t, len(svcInfo.ActiveBackends), 1)
+			require.Equal(t, lb.SVCTypeClusterIP, svcInfo.SvcType)
+			require.Equal(t, 1, len(svcInfo.ActiveBackends))
 			require.Equal(t, svcInfo.ActiveBackends[0].L3n4Addr, backends[1].L3n4Addr)
-			require.Equal(t, svcInfo.ActiveBackends[0].State, lb.BackendStateActive)
+			require.Equal(t, lb.BackendStateActive, svcInfo.ActiveBackends[0].State)
 			// No duplicate updates
 			close(cbCh1)
 		}
@@ -2628,7 +2628,7 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 	require.NoError(t, err1)
 	require.Equal(t, id1, lb.ID(3))
 	require.Equal(t, len(m.lbmap.ServiceByID[uint16(id1)].Backends), len(backends))
-	require.Equal(t, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 1)
+	require.Equal(t, 1, m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 
 	// Send a CB service event
 	m.svc.healthCheckCallback(HealthCheckCBSvcEvent,

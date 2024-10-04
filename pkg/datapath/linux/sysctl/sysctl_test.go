@@ -68,7 +68,7 @@ func TestFullPath(t *testing.T) {
 			assert.Error(t, err)
 		} else {
 			assert.NoError(t, err)
-			assert.Equal(t, path, tc.expected)
+			assert.Equal(t, tc.expected, path)
 		}
 	}
 }
@@ -121,7 +121,7 @@ func TestWaitForReconciliation(t *testing.T) {
 	txn.Commit()
 
 	assert.True(t, found)
-	assert.Equal(t, old.Status.Kind, reconciler.StatusKindPending)
+	assert.Equal(t, reconciler.StatusKindPending, old.Status.Kind)
 	assert.True(t, exist)
 	assert.NoError(t, err)
 

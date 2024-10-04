@@ -18,14 +18,14 @@ func TestNewEventQueue(t *testing.T) {
 	require.NotNil(t, q.close)
 	require.NotNil(t, q.events)
 	require.NotNil(t, q.drain)
-	require.Equal(t, q.name, "")
-	require.Equal(t, cap(q.events), 1)
+	require.Equal(t, "", q.name)
+	require.Equal(t, 1, cap(q.events))
 }
 
 func TestNewEventQueueBuffered(t *testing.T) {
 	q := NewEventQueueBuffered("foo", 25)
-	require.Equal(t, q.name, "foo")
-	require.Equal(t, cap(q.events), 25)
+	require.Equal(t, "foo", q.name)
+	require.Equal(t, 25, cap(q.events))
 }
 
 func TestNilEventQueueOperations(t *testing.T) {

@@ -453,7 +453,7 @@ func Test_Perm(t *testing.T) {
 		"cab",
 	}
 	Perm([]rune("abc"), func(x []rune) { res = append(res, string(x)) })
-	assert.Equal(t, res, expected, "invalid permutations")
+	assert.Equal(t, expected, res, "invalid permutations")
 }
 
 func Test_MergeL3(t *testing.T) {

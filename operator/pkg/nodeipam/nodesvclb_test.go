@@ -372,7 +372,7 @@ func Test_nodeIPAM_Reconcile(t *testing.T) {
 			require.NoError(t, err)
 			// It did not change the IPs already advertised
 			require.Len(t, svc.Status.LoadBalancer.Ingress, 1)
-			require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "100.100.100.100")
+			require.Equal(t, "100.100.100.100", svc.Status.LoadBalancer.Ingress[0].IP)
 		}
 	})
 
@@ -423,8 +423,8 @@ func Test_nodeIPAM_Reconcile(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Len(t, svc.Status.LoadBalancer.Ingress, 2)
-		require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "2001:0000::1")
-		require.Equal(t, svc.Status.LoadBalancer.Ingress[1].IP, "42.0.0.2")
+		require.Equal(t, "2001:0000::1", svc.Status.LoadBalancer.Ingress[0].IP)
+		require.Equal(t, "42.0.0.2", svc.Status.LoadBalancer.Ingress[1].IP)
 	})
 
 	t.Run("external traffic policy cluster", func(t *testing.T) {
@@ -444,8 +444,8 @@ func Test_nodeIPAM_Reconcile(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Len(t, svc.Status.LoadBalancer.Ingress, 2)
-		require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "42.0.0.2")
-		require.Equal(t, svc.Status.LoadBalancer.Ingress[1].IP, "42.0.0.3")
+		require.Equal(t, "42.0.0.2", svc.Status.LoadBalancer.Ingress[0].IP)
+		require.Equal(t, "42.0.0.3", svc.Status.LoadBalancer.Ingress[1].IP)
 	})
 }
 
@@ -472,8 +472,8 @@ func Test_nodeIPAM_defaultIPAM_Reconcile(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, svc.Status.LoadBalancer.Ingress, 2)
-	require.Equal(t, svc.Status.LoadBalancer.Ingress[0].IP, "42.0.0.2")
-	require.Equal(t, svc.Status.LoadBalancer.Ingress[1].IP, "42.0.0.3")
+	require.Equal(t, "42.0.0.2", svc.Status.LoadBalancer.Ingress[0].IP)
+	require.Equal(t, "42.0.0.3", svc.Status.LoadBalancer.Ingress[1].IP)
 }
 
 func Test_nodeIPAM_CiliumResources_Reconcile(t *testing.T) {
@@ -506,7 +506,7 @@ func Test_nodeIPAM_CiliumResources_Reconcile(t *testing.T) {
 		for _, v := range svc.Status.LoadBalancer.Ingress {
 			ips = append(ips, v.IP)
 		}
-		require.Equal(t, ips, []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"})
+		require.Equal(t, []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"}, ips)
 	})
 
 	t.Run("Node Label Filter", func(t *testing.T) {

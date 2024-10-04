@@ -290,7 +290,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
-	require.Equal(t, policy, &expectedEndpointPolicy)
+	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
 func TestL3WithLocalHostWildcardd(t *testing.T) {
@@ -385,7 +385,7 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
-	require.Equal(t, policy, &expectedEndpointPolicy)
+	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
 func TestMapStateWithIngressDenyWildcard(t *testing.T) {
@@ -495,7 +495,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
-	require.Equal(t, policy, &expectedEndpointPolicy)
+	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
 func TestMapStateWithIngressDeny(t *testing.T) {
@@ -669,5 +669,5 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
-	require.Equal(t, policy, &expectedEndpointPolicy)
+	require.Equal(t, &expectedEndpointPolicy, policy)
 }

@@ -189,11 +189,11 @@ func TestReverseUpdateLookup(t *testing.T) {
 
 	lookupNames = cache.lookupIPByTime(currentTime, names["test1.com"])
 	require.Len(t, lookupNames, 1, "Incorrect number of names returned")
-	require.Equal(t, lookupNames[0], "test1.com", "Returned a DNS name that doesn't match IP")
+	require.Equal(t, "test1.com", lookupNames[0], "Returned a DNS name that doesn't match IP")
 
 	lookupNames = cache.lookupIPByTime(currentTime, names["test2.com"])
 	require.Len(t, lookupNames, 1, "Incorrect number of names returned")
-	require.Equal(t, lookupNames[0], "test2.com", "Returned a DNS name that doesn't match IP")
+	require.Equal(t, "test2.com", lookupNames[0], "Returned a DNS name that doesn't match IP")
 
 	lookupNames = cache.lookupIPByTime(currentTime, names["test3.com"])
 	require.Empty(t, lookupNames, "Returned names for IP not in cache")
@@ -210,7 +210,7 @@ func TestReverseUpdateLookup(t *testing.T) {
 
 	lookupNames = cache.lookupIPByTime(currentTime, names["test2.com"])
 	require.Len(t, lookupNames, 1, "Incorrect number of names returned")
-	require.Equal(t, lookupNames[0], "test2.com", "Returned a DNS name that doesn't match IP")
+	require.Equal(t, "test2.com", lookupNames[0], "Returned a DNS name that doesn't match IP")
 
 	lookupNames = cache.lookupIPByTime(currentTime, names["test3.com"])
 	require.Empty(t, lookupNames, "Returned names for IP not in cache")

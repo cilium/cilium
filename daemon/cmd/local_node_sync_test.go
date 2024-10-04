@@ -205,7 +205,7 @@ func TestInitLocalNode_initFromK8s(t *testing.T) {
 	assert.Equal(t, "fd00:10:244:1::aaa6", n.GetCiliumInternalIP(true).String())
 	assert.Equal(t, "10.0.0.2", n.IPv4HealthIP.String())
 	assert.Equal(t, "fd00:10:244:1::aaa7", n.IPv6HealthIP.String())
-	assert.Equal(t, n.Name, "test-node")
+	assert.Equal(t, "test-node", n.Name)
 }
 
 type mockResource[T k8sRuntime.Object] struct {

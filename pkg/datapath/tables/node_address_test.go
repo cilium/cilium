@@ -332,8 +332,7 @@ func TestNodeAddress(t *testing.T) {
 	<-watch
 	iter := nodeAddrs.All(db.ReadTxn())
 	addrs := statedb.Collect(statedb.Map(iter, func(n NodeAddress) string { return n.String() }))
-	assert.Equal(t, addrs,
-		[]string{"::1 (*)", "9.9.9.8 (cilium_host)", "9.9.9.9 (cilium_host)", "127.0.0.1 (*)"},
+	assert.Equal(t, []string{"::1 (*)", "9.9.9.8 (cilium_host)", "9.9.9.9 (cilium_host)", "127.0.0.1 (*)"}, addrs,
 		"unexpected initial node addresses")
 
 	for _, tt := range nodeAddressTests {
@@ -462,23 +461,23 @@ func TestNodeAddressLoopback(t *testing.T) {
 	addrs := statedb.Collect(nodeAddrs.All(db.ReadTxn()))
 
 	if assert.Len(t, addrs, 4) {
-		assert.Equal(t, addrs[0].Addr.String(), "10.0.0.1")
-		assert.Equal(t, addrs[0].DeviceName, "*")
+		assert.Equal(t, "10.0.0.1", addrs[0].Addr.String())
+		assert.Equal(t, "*", addrs[0].DeviceName)
 		assert.True(t, addrs[0].Primary)
 		assert.False(t, addrs[0].NodePort)
 
-		assert.Equal(t, addrs[1].Addr.String(), "10.0.0.1")
-		assert.Equal(t, addrs[1].DeviceName, "lo")
+		assert.Equal(t, "10.0.0.1", addrs[1].Addr.String())
+		assert.Equal(t, "lo", addrs[1].DeviceName)
 		assert.True(t, addrs[1].Primary)
 		assert.True(t, addrs[1].NodePort)
 
-		assert.Equal(t, addrs[2].Addr.String(), "2001::1")
-		assert.Equal(t, addrs[2].DeviceName, "*")
+		assert.Equal(t, "2001::1", addrs[2].Addr.String())
+		assert.Equal(t, "*", addrs[2].DeviceName)
 		assert.True(t, addrs[2].Primary)
 		assert.False(t, addrs[2].NodePort)
 
-		assert.Equal(t, addrs[3].Addr.String(), "2001::1")
-		assert.Equal(t, addrs[3].DeviceName, "lo")
+		assert.Equal(t, "2001::1", addrs[3].Addr.String())
+		assert.Equal(t, "lo", addrs[3].DeviceName)
 		assert.True(t, addrs[3].Primary)
 		assert.True(t, addrs[3].NodePort)
 
@@ -665,10 +664,10 @@ func TestNodeAddressUpdate(t *testing.T) {
 
 	addrs := statedb.Collect(nodeAddrs.All(db.ReadTxn()))
 	if assert.Len(t, addrs, 2) {
-		assert.Equal(t, addrs[0].Addr.String(), "10.0.0.1")
-		assert.Equal(t, addrs[0].DeviceName, "*")
-		assert.Equal(t, addrs[1].Addr.String(), "10.0.0.1")
-		assert.Equal(t, addrs[1].DeviceName, "test")
+		assert.Equal(t, "10.0.0.1", addrs[0].Addr.String())
+		assert.Equal(t, "*", addrs[0].DeviceName)
+		assert.Equal(t, "10.0.0.1", addrs[1].Addr.String())
+		assert.Equal(t, "test", addrs[1].DeviceName)
 	}
 
 	// Insert 10.0.0.2 and validate that both present.
@@ -690,14 +689,14 @@ func TestNodeAddressUpdate(t *testing.T) {
 
 	addrs = statedb.Collect(nodeAddrs.All(db.ReadTxn()))
 	if assert.Len(t, addrs, 3) {
-		assert.Equal(t, addrs[0].Addr.String(), "10.0.0.1")
-		assert.Equal(t, addrs[0].DeviceName, "*")
-		assert.Equal(t, addrs[1].Addr.String(), "10.0.0.1")
-		assert.Equal(t, addrs[1].DeviceName, "test")
+		assert.Equal(t, "10.0.0.1", addrs[0].Addr.String())
+		assert.Equal(t, "*", addrs[0].DeviceName)
+		assert.Equal(t, "10.0.0.1", addrs[1].Addr.String())
+		assert.Equal(t, "test", addrs[1].DeviceName)
 		assert.True(t, addrs[1].Primary)
 		assert.True(t, addrs[1].NodePort)
-		assert.Equal(t, addrs[2].Addr.String(), "10.0.0.2")
-		assert.Equal(t, addrs[2].DeviceName, "test")
+		assert.Equal(t, "10.0.0.2", addrs[2].Addr.String())
+		assert.Equal(t, "test", addrs[2].DeviceName)
 		assert.False(t, addrs[2].Primary)
 		assert.False(t, addrs[2].NodePort)
 	}
@@ -720,10 +719,10 @@ func TestNodeAddressUpdate(t *testing.T) {
 
 	addrs = statedb.Collect(nodeAddrs.All(db.ReadTxn()))
 	if assert.Len(t, addrs, 2) {
-		assert.Equal(t, addrs[0].Addr.String(), "10.0.0.2")
-		assert.Equal(t, addrs[0].DeviceName, "*")
-		assert.Equal(t, addrs[1].Addr.String(), "10.0.0.2")
-		assert.Equal(t, addrs[1].DeviceName, "test")
+		assert.Equal(t, "10.0.0.2", addrs[0].Addr.String())
+		assert.Equal(t, "*", addrs[0].DeviceName)
+		assert.Equal(t, "10.0.0.2", addrs[1].Addr.String())
+		assert.Equal(t, "test", addrs[1].DeviceName)
 		assert.True(t, addrs[1].Primary)
 		assert.True(t, addrs[1].NodePort)
 	}
@@ -960,7 +959,7 @@ func TestFallbackAddresses(t *testing.T) {
 			{Addr: netip.MustParseAddr("10.0.0.1"), Scope: RT_SCOPE_SITE},
 		},
 	})
-	assert.Equal(t, f.ipv4.addr.Addr.String(), "10.0.0.1")
+	assert.Equal(t, "10.0.0.1", f.ipv4.addr.Addr.String())
 	assert.True(t, updated, "updated")
 
 	updated = f.update(&Device{
@@ -969,7 +968,7 @@ func TestFallbackAddresses(t *testing.T) {
 			{Addr: netip.MustParseAddr("1001::1"), Scope: RT_SCOPE_SITE},
 		},
 	})
-	assert.Equal(t, f.ipv6.addr.Addr.String(), "1001::1")
+	assert.Equal(t, "1001::1", f.ipv6.addr.Addr.String())
 	assert.True(t, updated, "updated")
 
 	// Lower scope wins
@@ -979,7 +978,7 @@ func TestFallbackAddresses(t *testing.T) {
 			{Addr: netip.MustParseAddr("10.0.0.2"), Scope: RT_SCOPE_UNIVERSE},
 		},
 	})
-	assert.Equal(t, f.ipv4.addr.Addr.String(), "10.0.0.2")
+	assert.Equal(t, "10.0.0.2", f.ipv4.addr.Addr.String())
 	assert.True(t, updated, "updated")
 
 	// Lower ifindex wins
@@ -989,7 +988,7 @@ func TestFallbackAddresses(t *testing.T) {
 			{Addr: netip.MustParseAddr("10.0.0.3"), Scope: RT_SCOPE_UNIVERSE},
 		},
 	})
-	assert.Equal(t, f.ipv4.addr.Addr.String(), "10.0.0.3")
+	assert.Equal(t, "10.0.0.3", f.ipv4.addr.Addr.String())
 	assert.True(t, updated, "updated")
 
 	// Public wins over private
@@ -999,7 +998,7 @@ func TestFallbackAddresses(t *testing.T) {
 			{Addr: netip.MustParseAddr("20.0.0.1"), Scope: RT_SCOPE_SITE},
 		},
 	})
-	assert.Equal(t, f.ipv4.addr.Addr.String(), "20.0.0.1")
+	assert.Equal(t, "20.0.0.1", f.ipv4.addr.Addr.String())
 	assert.True(t, updated, "updated")
 
 	// Update with the same set of addresses does nothing.
@@ -1009,6 +1008,6 @@ func TestFallbackAddresses(t *testing.T) {
 			{Addr: netip.MustParseAddr("20.0.0.1"), Scope: RT_SCOPE_SITE},
 		},
 	})
-	assert.Equal(t, f.ipv4.addr.Addr.String(), "20.0.0.1")
+	assert.Equal(t, "20.0.0.1", f.ipv4.addr.Addr.String())
 	assert.False(t, updated, "updated")
 }

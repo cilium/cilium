@@ -543,11 +543,11 @@ func TestParseCIDR(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := parseCIDR(tc.in)
-			assert.Equal(t, err != nil, tc.wantErr)
+			assert.Equal(t, tc.wantErr, err != nil)
 			if err != nil {
 				return
 			}
-			assert.Equal(t, got, tc.want)
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }

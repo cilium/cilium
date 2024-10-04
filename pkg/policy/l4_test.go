@@ -23,9 +23,9 @@ import (
 )
 
 func TestRedirectType(t *testing.T) {
-	require.Equal(t, redirectTypes(0), redirectTypeNone)
-	require.Equal(t, redirectTypes(0x1), redirectTypeDNS)
-	require.Equal(t, redirectTypes(0x2), redirectTypeEnvoy)
+	require.Equal(t, redirectTypeNone, redirectTypes(0))
+	require.Equal(t, redirectTypeDNS, redirectTypes(0x1))
+	require.Equal(t, redirectTypeEnvoy, redirectTypes(0x2))
 	require.Equal(t, redirectTypes(0x4)|redirectTypeEnvoy, redirectTypeProxylib)
 	require.Equal(t, redirectTypeEnvoy, redirectTypeProxylib&redirectTypeEnvoy)
 }

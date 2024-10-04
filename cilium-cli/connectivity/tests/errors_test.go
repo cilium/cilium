@@ -22,9 +22,9 @@ level=error msg="bar"
 level=error error="Failed to update lock:..."
 level=error msg="bar"
 		`)
-	assert.Equal(t, len(fails), 1)
+	assert.Equal(t, 1, len(fails))
 	assert.Contains(t, fails, "level=error msg=\"bar\"")
-	assert.Equal(t, fails["level=error msg=\"bar\""], 2)
+	assert.Equal(t, 2, fails["level=error msg=\"bar\""])
 }
 
 func TestComputeExpectedDropReasons(t *testing.T) {

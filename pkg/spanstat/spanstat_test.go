@@ -163,7 +163,7 @@ func TestSpanStatRaceCondition(t *testing.T) {
 				wg.Add(1)
 				go func(span *SpanStat) {
 					defer wg.Done()
-					require.NotEqual(t, tt.fields.runFunc(span), float64(0))
+					require.NotEqual(t, float64(0), tt.fields.runFunc(span))
 				}(span)
 			}
 			wg.Wait()

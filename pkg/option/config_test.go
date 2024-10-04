@@ -197,7 +197,7 @@ func TestReadDirConfig(t *testing.T) {
 		require.Equal(t, want.err, err, fmt.Sprintf("Test Name: %s", tt.name))
 		err = MergeConfig(vp, m)
 		require.NoError(t, err)
-		assert.Equal(t, vp.AllSettings(), want.allSettings, fmt.Sprintf("Test Name: %s", tt.name))
+		assert.Equal(t, want.allSettings, vp.AllSettings(), fmt.Sprintf("Test Name: %s", tt.name))
 		tt.postTestRun()
 	}
 }
@@ -1337,7 +1337,7 @@ func stringToStringFlag(t *testing.T, name string) *flag.Flag {
 	fs.StringToString(name, value, "")
 	flag := fs.Lookup(name)
 	assert.NotNil(t, flag)
-	assert.Equal(t, flag.Value.Type(), "stringToString")
+	assert.Equal(t, "stringToString", flag.Value.Type())
 	return flag
 }
 

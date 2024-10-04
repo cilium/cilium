@@ -2567,7 +2567,7 @@ func TestReplaceByResource(t *testing.T) {
 	new, old, rev := repo.ReplaceByResourceLocked(rules[0:1], rID1)
 	assert.Len(t, new, 1)
 	assert.Empty(t, old)
-	assert.EqualValues(t, rev, 2)
+	assert.EqualValues(t, 2, rev)
 
 	// check basic bookkeeping
 	assert.Len(t, repo.rules, 1)
@@ -2584,7 +2584,7 @@ func TestReplaceByResource(t *testing.T) {
 
 	assert.Len(t, new, 2)
 	assert.Empty(t, old)
-	assert.EqualValues(t, rev, 3)
+	assert.EqualValues(t, 3, rev)
 
 	// check basic bookkeeping
 	assert.Len(t, repo.rules, 3)
