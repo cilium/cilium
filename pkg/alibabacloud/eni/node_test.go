@@ -158,7 +158,7 @@ func TestPrepareIPAllocation(t *testing.T) {
 	mngr.Upsert(newCiliumNode("node1", "i-1", "ecs.g7ne.large", "cn-hangzhou-i", "vpc-1"))
 	a, err := mngr.Get("node1").Ops().PrepareIPAllocation(log)
 	require.NoError(t, err)
-	require.Equal(t, 2, a.EmptyInterfaceSlots+a.IPv4.InterfaceCandidates, fmt.Sprintf("empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates))
+	require.Equal(t, 2, a.EmptyInterfaceSlots+a.IPv4.InterfaceCandidates, "empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates)
 
 	// create one eni
 	toAlloc, _, err := mngr.Get("node1").Ops().CreateInterface(context.Background(), &ipam.AllocationAction{
@@ -173,7 +173,7 @@ func TestPrepareIPAllocation(t *testing.T) {
 	// one eni left
 	a, err = mngr.Get("node1").Ops().PrepareIPAllocation(log)
 	require.NoError(t, err)
-	require.Equal(t, 1, a.EmptyInterfaceSlots, fmt.Sprintf("empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates))
+	require.Equal(t, 1, a.EmptyInterfaceSlots, "empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates)
 }
 
 func TestNode_allocENIIndex(t *testing.T) {

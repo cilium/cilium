@@ -352,9 +352,9 @@ func TestIsLabelBasedEgress(t *testing.T) {
 	for _, tt := range tests {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		require.NoError(t, args.eg.sanitize(false), fmt.Sprintf("Test name: %q", tt.name))
+		require.NoError(t, args.eg.sanitize(false), "Test name: %q", tt.name)
 		isLabelBased := args.eg.AllowsWildcarding()
-		require.EqualValues(t, want.isLabelBased, isLabelBased, fmt.Sprintf("Test name: %q", tt.name))
+		require.EqualValues(t, want.isLabelBased, isLabelBased, "Test name: %q", tt.name)
 	}
 }
 

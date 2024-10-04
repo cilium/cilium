@@ -5,7 +5,6 @@ package policy
 
 import (
 	"bytes"
-	"fmt"
 	stdlog "log"
 	"strings"
 	"testing"
@@ -1471,7 +1470,7 @@ func TestL3RuleLabels(t *testing.T) {
 							break
 						}
 					}
-					require.True(t, matches, fmt.Sprintf("%s: expected filter %+v to be derived from rule %s", test.description, filter, rule))
+					require.True(t, matches, "%s: expected filter %+v to be derived from rule %s", test.description, filter, rule)
 
 					matches = false
 					for sel := range filter.PerSelectorPolicies {
@@ -1481,7 +1480,7 @@ func TestL3RuleLabels(t *testing.T) {
 							break
 						}
 					}
-					require.True(t, matches, fmt.Sprintf("%s: expected cidr %s to match filter %+v", test.description, cidr, filter))
+					require.True(t, matches, "%s: expected cidr %s to match filter %+v", test.description, cidr, filter)
 				}
 			}
 		}
