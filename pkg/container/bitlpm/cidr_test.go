@@ -513,7 +513,7 @@ func BenchmarkTraversal(b *testing.B) {
 			lastLen = prefixLen
 			t.AncestorsLongestPrefixFirst(prefix, func(k netip.Prefix, _ struct{}) bool {
 				pLen := prefix.Bits()
-				assert.True(b, pLen <= lastLen)
+				assert.LessOrEqual(b, pLen, lastLen)
 				lastLen = pLen
 				n++
 				return true
@@ -546,7 +546,7 @@ func BenchmarkTraversal(b *testing.B) {
 			lastLen = 0
 			t.DescendantsShortestPrefixFirst(prefix, func(k netip.Prefix, _ struct{}) bool {
 				pLen := prefix.Bits()
-				assert.True(b, pLen >= lastLen)
+				assert.GreaterOrEqual(b, pLen, lastLen)
 				lastLen = pLen
 				n++
 				return true

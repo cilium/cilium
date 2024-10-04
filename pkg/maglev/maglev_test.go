@@ -81,7 +81,7 @@ func TestBackendRemoval(t *testing.T) {
 
 	// Check that count of changes of existing backends is less than
 	// 1% (should be guaranteed by |backends| * 100 < M)
-	require.True(t, float64(changesInExistingBackends)/float64(m)*float64(100) < 1.0)
+	require.Less(t, float64(changesInExistingBackends)/float64(m)*float64(100), 1.0)
 }
 
 func TestWeightedBackendWithRemoval(t *testing.T) {
@@ -122,7 +122,7 @@ func TestWeightedBackendWithRemoval(t *testing.T) {
 
 	// Check that count of changes of existing backends is less than
 	// 1% (should be guaranteed by |backends| * 100 < M)
-	require.True(t, float64(changesInExistingBackends)/float64(m)*float64(100) < 1.0)
+	require.Less(t, float64(changesInExistingBackends)/float64(m)*float64(100), 1.0)
 
 	// Check that each backend is present x times using following formula:
 	// m / len(weightSum) * backend.Weight; e.g. 1021 / (2+13+111+10) * 13 = 97.6 => 98
