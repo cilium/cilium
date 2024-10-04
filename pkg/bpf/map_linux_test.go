@@ -5,7 +5,6 @@ package bpf
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -92,7 +91,7 @@ func TestOpen(t *testing.T) {
 	noSuchMap := NewMap("cilium_test_no_exist",
 		ebpf.Hash, &TestKey{}, &TestValue{}, maxEntries, 0)
 	err := noSuchMap.Open()
-	require.True(t, errors.Is(err, os.ErrNotExist))
+	require.ErrorIs(t, err, os.ErrNotExist)
 
 	// existingMap is the same as testMap. Opening should succeed.
 	existingMap := NewMap("cilium_test",
