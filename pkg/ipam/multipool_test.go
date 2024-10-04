@@ -282,7 +282,7 @@ func Test_MultiPoolManager(t *testing.T) {
 		allocatedMarsIPs = append(allocatedMarsIPs, ar.IP)
 	}
 	_, err = c.allocateNext("mars-pod-overflow", "mars", IPv4, false)
-	assert.Error(t, errors.New("all pod CIDR ranges are exhausted"), err)
+	assert.ErrorContains(t, err, "all pod CIDR ranges are exhausted")
 
 	ipv4Dump, _ := c.dump(IPv4)
 	assert.Len(t, ipv4Dump, 2) // 2 pools: default + mars
