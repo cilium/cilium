@@ -43,11 +43,11 @@ func TestClusterAwareAddressing(t *testing.T) {
 	// Test if tunnel map can distinguish prefix0 and prefix1
 	ip0, err := m.GetTunnelEndpoint(prefix0)
 	require.NoError(t, err)
-	require.Equal(t, true, ip0.Equal(endpoint0))
+	require.True(t, ip0.Equal(endpoint0))
 
 	ip1, err := m.GetTunnelEndpoint(prefix1)
 	require.NoError(t, err)
-	require.Equal(t, true, ip1.Equal(endpoint1))
+	require.True(t, ip1.Equal(endpoint1))
 
 	// Delete prefix0 and check it deletes prefix0 correctly
 	err = m.DeleteTunnelEndpoint(prefix0)

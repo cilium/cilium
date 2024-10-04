@@ -27,58 +27,58 @@ func TestGetAnnotationIncludeExternal(t *testing.T) {
 	svc := &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Name: "foo",
 	}}
-	require.Equal(t, false, getAnnotationIncludeExternal(svc))
+	require.False(t, getAnnotationIncludeExternal(svc))
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{"service.cilium.io/global": "True"},
 	}}
-	require.Equal(t, true, getAnnotationIncludeExternal(svc))
+	require.True(t, getAnnotationIncludeExternal(svc))
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{"service.cilium.io/global": "false"},
 	}}
-	require.Equal(t, false, getAnnotationIncludeExternal(svc))
+	require.False(t, getAnnotationIncludeExternal(svc))
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{"service.cilium.io/global": ""},
 	}}
-	require.Equal(t, false, getAnnotationIncludeExternal(svc))
+	require.False(t, getAnnotationIncludeExternal(svc))
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{"io.cilium/global-service": "True"},
 	}}
-	require.Equal(t, true, getAnnotationIncludeExternal(svc))
+	require.True(t, getAnnotationIncludeExternal(svc))
 }
 
 func TestGetAnnotationShared(t *testing.T) {
 	svc := &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Name: "foo",
 	}}
-	require.Equal(t, false, getAnnotationShared(svc))
+	require.False(t, getAnnotationShared(svc))
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{"service.cilium.io/global": "true"},
 	}}
-	require.Equal(t, true, getAnnotationShared(svc))
+	require.True(t, getAnnotationShared(svc))
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{"service.cilium.io/shared": "true"},
 	}}
-	require.Equal(t, false, getAnnotationShared(svc))
+	require.False(t, getAnnotationShared(svc))
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{"service.cilium.io/global": "true", "service.cilium.io/shared": "True"},
 	}}
-	require.Equal(t, true, getAnnotationShared(svc))
+	require.True(t, getAnnotationShared(svc))
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{"service.cilium.io/global": "true", "service.cilium.io/shared": "false"},
 	}}
-	require.Equal(t, false, getAnnotationShared(svc))
+	require.False(t, getAnnotationShared(svc))
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{"service.cilium.io/global": "true", "io.cilium/shared-service": "false"},
 	}}
-	require.Equal(t, false, getAnnotationShared(svc))
+	require.False(t, getAnnotationShared(svc))
 }
 
 func TestGetAnnotationServiceAffinity(t *testing.T) {
@@ -204,35 +204,35 @@ func TestGetAnnotationTopologyAwareHints(t *testing.T) {
 	svc := &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{},
 	}}
-	require.Equal(t, false, getAnnotationTopologyAwareHints(svc))
+	require.False(t, getAnnotationTopologyAwareHints(svc))
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{
 			corev1.DeprecatedAnnotationTopologyAwareHints: "auto",
 		},
 	}}
-	require.Equal(t, true, getAnnotationTopologyAwareHints(svc))
+	require.True(t, getAnnotationTopologyAwareHints(svc))
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{
 			corev1.DeprecatedAnnotationTopologyAwareHints: "Auto",
 		},
 	}}
-	require.Equal(t, true, getAnnotationTopologyAwareHints(svc))
+	require.True(t, getAnnotationTopologyAwareHints(svc))
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{
 			corev1.AnnotationTopologyMode: "auto",
 		},
 	}}
-	require.Equal(t, true, getAnnotationTopologyAwareHints(svc))
+	require.True(t, getAnnotationTopologyAwareHints(svc))
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{
 			corev1.AnnotationTopologyMode: "PreferZone",
 		},
 	}}
-	require.Equal(t, true, getAnnotationTopologyAwareHints(svc))
+	require.True(t, getAnnotationTopologyAwareHints(svc))
 
 	// v1.DeprecatedAnnotationTopologyAwareHints has precedence over v1.AnnotationTopologyMode.
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
@@ -241,7 +241,7 @@ func TestGetAnnotationTopologyAwareHints(t *testing.T) {
 			corev1.AnnotationTopologyMode:                 "auto",
 		},
 	}}
-	require.Equal(t, false, getAnnotationTopologyAwareHints(svc))
+	require.False(t, getAnnotationTopologyAwareHints(svc))
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{
@@ -581,10 +581,10 @@ func TestParseService(t *testing.T) {
 func TestIsK8ServiceExternal(t *testing.T) {
 	si := Service{}
 
-	require.Equal(t, true, si.IsExternal())
+	require.True(t, si.IsExternal())
 
 	si.Selector = map[string]string{"l": "v"}
-	require.Equal(t, false, si.IsExternal())
+	require.False(t, si.IsExternal())
 }
 
 func TestServiceUniquePorts(t *testing.T) {

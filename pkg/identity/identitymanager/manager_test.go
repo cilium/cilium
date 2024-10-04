@@ -25,7 +25,7 @@ func TestIdentityManagerLifecycle(t *testing.T) {
 	require.NotNil(t, idm.identities)
 
 	_, exists := idm.identities[fooIdentity.ID]
-	require.Equal(t, false, exists)
+	require.False(t, exists)
 
 	idm.Add(fooIdentity)
 	require.Equal(t, uint(1), idm.identities[fooIdentity.ID].refCount)
@@ -41,21 +41,21 @@ func TestIdentityManagerLifecycle(t *testing.T) {
 
 	idm.Remove(fooIdentity)
 	_, exists = idm.identities[fooIdentity.ID]
-	require.Equal(t, false, exists)
+	require.False(t, exists)
 
 	_, exists = idm.identities[barIdentity.ID]
 	require.True(t, exists)
 
 	idm.Remove(barIdentity)
 	_, exists = idm.identities[barIdentity.ID]
-	require.Equal(t, false, exists)
+	require.False(t, exists)
 
 	idm.Add(fooIdentity)
 	_, exists = idm.identities[fooIdentity.ID]
 	require.True(t, exists)
 	idm.RemoveOldAddNew(fooIdentity, barIdentity)
 	_, exists = idm.identities[fooIdentity.ID]
-	require.Equal(t, false, exists)
+	require.False(t, exists)
 	_, exists = idm.identities[barIdentity.ID]
 	require.True(t, exists)
 	require.Equal(t, uint(1), idm.identities[barIdentity.ID].refCount)
@@ -70,7 +70,7 @@ func TestHostIdentityLifecycle(t *testing.T) {
 
 	hostIdentity := identity.NewIdentity(identity.ReservedIdentityHost, labels.LabelHost)
 	_, exists := idm.identities[hostIdentity.ID]
-	require.Equal(t, false, exists)
+	require.False(t, exists)
 
 	idm.Add(hostIdentity)
 	require.Equal(t, uint(1), idm.identities[hostIdentity.ID].refCount)

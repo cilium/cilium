@@ -213,8 +213,8 @@ func TestBPFMasqAddrs(t *testing.T) {
 	})
 
 	masq4, masq6 := bpfMasqAddrs("test", &localNodeConfig)
-	require.Equal(t, masq4.IsValid(), false)
-	require.Equal(t, masq6.IsValid(), false)
+	require.False(t, masq4.IsValid())
+	require.False(t, masq6.IsValid())
 
 	newConfig := localNodeConfig
 	newConfig.NodeAddresses = []tables.NodeAddress{

@@ -383,7 +383,7 @@ func TestNewAPILimiterFromConfig(t *testing.T) {
 	l, err = NewAPILimiterFromConfig("foo", "auto-adjust:true,parallel-requests:2,max-parallel-requests:3,min-parallel-requests:2,skip-initial:5", nil)
 	require.NoError(t, err)
 	require.NotNil(t, l)
-	require.Equal(t, true, l.params.AutoAdjust)
+	require.True(t, l.params.AutoAdjust)
 	require.Equal(t, 2, l.params.ParallelRequests)
 	require.Equal(t, 3, l.params.MaxParallelRequests)
 	require.Equal(t, 2, l.params.MinParallelRequests)
@@ -393,7 +393,7 @@ func TestNewAPILimiterFromConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, l)
 	require.Equal(t, 0.5, l.params.DelayedAdjustmentFactor)
-	require.Equal(t, true, l.params.Log)
+	require.True(t, l.params.Log)
 	require.Equal(t, 2*time.Second, l.params.MaxWaitDuration)
 	require.Equal(t, 100*time.Millisecond, l.params.MinWaitDuration)
 	require.Equal(t, 50.0, l.params.MaxAdjustmentFactor)
@@ -446,7 +446,7 @@ func TestNewAPILimiterSet(t *testing.T) {
 	require.NotNil(t, l)
 	require.Equal(t, rate.Limit(1.0/30.0), l.Limiter("foo").params.RateLimit)
 	require.Equal(t, 2, l.Limiter("foo").params.RateBurst)
-	require.Equal(t, true, l.Limiter("foo").params.AutoAdjust)
+	require.True(t, l.Limiter("foo").params.AutoAdjust)
 
 	// Overwrite default with an invalid value
 	l, err = NewAPILimiterSet(map[string]string{
@@ -543,7 +543,7 @@ func TestAPILimiterMergeUserConfig(t *testing.T) {
 	require.Equal(t, o.Log, n.Log, expectSame)
 
 	// these values should be updated
-	require.Equal(t, true, n.AutoAdjust, expectedChange)
+	require.True(t, n.AutoAdjust, expectedChange)
 	require.Equal(t, 3, n.MaxParallelRequests, expectedChange)
 	require.Equal(t, 2, n.MinParallelRequests, expectedChange)
 
@@ -603,9 +603,9 @@ func TestParseUserConfig(t *testing.T) {
 	p := &APILimiterParameters{}
 
 	require.NoError(t, p.mergeUserConfig("auto-adjust:true,"))
-	require.Equal(t, true, p.AutoAdjust)
+	require.True(t, p.AutoAdjust)
 	require.NoError(t, p.mergeUserConfig("auto-adjust:false,rate-limit:10/s,"))
-	require.Equal(t, false, p.AutoAdjust)
+	require.False(t, p.AutoAdjust)
 	require.Equal(t, rate.Limit(10.0), p.RateLimit)
 	require.Error(t, p.mergeUserConfig("auto-adjust"))
 	require.Error(t, p.mergeUserConfig("1:2:3"))

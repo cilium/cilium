@@ -146,5 +146,5 @@ func TestStartMessage(t *testing.T) {
 	parsedTS, err := time.Parse(time.RFC3339Nano, timeNotification.Time)
 	require.NoError(t, err)
 	// Truncate with duration <=0 will strip any monotonic clock reading
-	require.Equal(t, true, parsedTS.Equal(now.Truncate(0)))
+	require.True(t, parsedTS.Equal(now.Truncate(0)))
 }

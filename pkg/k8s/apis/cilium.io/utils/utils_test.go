@@ -17,10 +17,10 @@ import (
 )
 
 func Test_namespacesAreValid(t *testing.T) {
-	require.Equal(t, true, namespacesAreValid("default", []string{}))
-	require.Equal(t, true, namespacesAreValid("default", []string{"default"}))
-	require.Equal(t, false, namespacesAreValid("default", []string{"foo"}))
-	require.Equal(t, false, namespacesAreValid("default", []string{"default", "foo"}))
+	require.True(t, namespacesAreValid("default", []string{}))
+	require.True(t, namespacesAreValid("default", []string{"default"}))
+	require.False(t, namespacesAreValid("default", []string{"foo"}))
+	require.False(t, namespacesAreValid("default", []string{"default", "foo"}))
 }
 
 func Test_ParseToCiliumRule(t *testing.T) {

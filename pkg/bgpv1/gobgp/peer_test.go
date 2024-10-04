@@ -344,7 +344,7 @@ func TestGetPeerConfigV1(t *testing.T) {
 				require.Equal(t, tt.expected.Transport, peer.Transport)
 				require.Equal(t, tt.expected.Timers, peer.Timers)
 				require.Equal(t, tt.expected.EbgpMultihop, peer.EbgpMultihop)
-				require.Equal(t, reset, false)
+				require.False(t, reset)
 				if len(tt.expected.AfiSafis) > 0 {
 					for i, safi := range tt.expected.AfiSafis {
 						require.Equal(t, safi.Config, peer.AfiSafis[i].Config)
@@ -443,7 +443,7 @@ func TestGetPeerConfigV2(t *testing.T) {
 				require.Equal(t, tt.expected.Transport, peer.Transport)
 				require.Equal(t, tt.expected.Timers, peer.Timers)
 				require.Equal(t, tt.expected.EbgpMultihop, peer.EbgpMultihop)
-				require.Equal(t, reset, false)
+				require.False(t, reset)
 				if len(tt.expected.AfiSafis) > 0 {
 					for i, safi := range tt.expected.AfiSafis {
 						require.Equal(t, safi.Config, peer.AfiSafis[i].Config)

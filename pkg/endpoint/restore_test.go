@@ -201,8 +201,8 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 		}
 		return false
 	}
-	require.Equal(t, false, fileExists(nextDir))
-	require.Equal(t, true, fileExists(fullDirName))
+	require.False(t, fileExists(nextDir))
+	require.True(t, fileExists(fullDirName))
 }
 
 func BenchmarkReadEPsFromDirNames(b *testing.B) {

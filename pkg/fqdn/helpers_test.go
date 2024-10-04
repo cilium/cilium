@@ -52,22 +52,22 @@ func TestMapIPsToSelectors(t *testing.T) {
 	// Just one IP.
 	ciliumIOName := prepareMatchName(ciliumIOSel.MatchName)
 	changed := cache.Update(now, ciliumIOName, []netip.Addr{ciliumIP1}, 100)
-	require.Equal(t, true, changed)
+	require.True(t, changed)
 	nameIPMapping = nameManager.mapSelectorsToNamesLocked(ciliumIOSel)
 	require.Equal(t, 1, len(nameIPMapping))
 	println(ciliumIOSel.MatchName)
 	ciliumIPs, ok := nameIPMapping[ciliumIOName]
-	require.Equal(t, true, ok)
+	require.True(t, ok)
 	require.Equal(t, 1, len(ciliumIPs))
 	require.Equal(t, ciliumIP1, ciliumIPs[0])
 
 	// Two IPs now.
 	changed = cache.Update(now, ciliumIOName, []netip.Addr{ciliumIP1, ciliumIP2}, 100)
-	require.Equal(t, true, changed)
+	require.True(t, changed)
 	nameIPMapping = nameManager.mapSelectorsToNamesLocked(ciliumIOSel)
 	require.Equal(t, 1, len(nameIPMapping))
 	ciliumIPs, ok = nameIPMapping[ciliumIOName]
-	require.Equal(t, true, ok)
+	require.True(t, ok)
 	require.Equal(t, 2, len(ciliumIPs))
 	ip.SortAddrList(ciliumIPs)
 	require.Equal(t, ciliumIP1, ciliumIPs[0])
@@ -77,7 +77,7 @@ func TestMapIPsToSelectors(t *testing.T) {
 	nameIPMapping = nameManager.mapSelectorsToNamesLocked(ciliumIOSelMatchPattern)
 	require.Equal(t, 1, len(nameIPMapping))
 	ciliumIPs, ok = nameIPMapping[ciliumIOName]
-	require.Equal(t, true, ok)
+	require.True(t, ok)
 	require.Equal(t, 2, len(ciliumIPs))
 	ip.SortAddrList(ciliumIPs)
 	require.Equal(t, ciliumIP1, ciliumIPs[0])

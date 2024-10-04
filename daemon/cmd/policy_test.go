@@ -229,18 +229,18 @@ func (ds *DaemonSuite) prepareEndpoint(t *testing.T, identity *identity.Identity
 	e.SetIdentity(identity, true)
 
 	ready := e.SetState(endpoint.StateWaitingToRegenerate, "test")
-	require.Equal(t, true, ready)
+	require.True(t, ready)
 	buildSuccess := <-e.Regenerate(regenerationMetadata)
-	require.Equal(t, true, buildSuccess)
+	require.True(t, buildSuccess)
 
 	return e
 }
 
 func (ds *DaemonSuite) regenerateEndpoint(t *testing.T, e *endpoint.Endpoint) {
 	ready := e.SetState(endpoint.StateWaitingToRegenerate, "test")
-	require.Equal(t, true, ready)
+	require.True(t, ready)
 	buildSuccess := <-e.Regenerate(regenerationMetadata)
-	require.Equal(t, true, buildSuccess)
+	require.True(t, buildSuccess)
 }
 
 func TestUpdateConsumerMapEtcd(t *testing.T) {
@@ -337,18 +337,18 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 	defer cleanup()
 
 	eQABar := ds.prepareEndpoint(t, qaBarSecLblsCtx, true)
-	require.Equal(t, false, eQABar.Allows(qaBarSecLblsCtx.ID))
-	require.Equal(t, false, eQABar.Allows(prodBarSecLblsCtx.ID))
-	require.Equal(t, true, eQABar.Allows(qaFooSecLblsCtx.ID))
-	require.Equal(t, false, eQABar.Allows(prodFooSecLblsCtx.ID))
+	require.False(t, eQABar.Allows(qaBarSecLblsCtx.ID))
+	require.False(t, eQABar.Allows(prodBarSecLblsCtx.ID))
+	require.True(t, eQABar.Allows(qaFooSecLblsCtx.ID))
+	require.False(t, eQABar.Allows(prodFooSecLblsCtx.ID))
 
 	eProdBar := ds.prepareEndpoint(t, prodBarSecLblsCtx, false)
-	require.Equal(t, false, eProdBar.Allows(0))
-	require.Equal(t, false, eProdBar.Allows(qaBarSecLblsCtx.ID))
-	require.Equal(t, false, eProdBar.Allows(prodBarSecLblsCtx.ID))
-	require.Equal(t, false, eProdBar.Allows(qaFooSecLblsCtx.ID))
-	require.Equal(t, true, eProdBar.Allows(prodFooSecLblsCtx.ID))
-	require.Equal(t, true, eProdBar.Allows(prodFooJoeSecLblsCtx.ID))
+	require.False(t, eProdBar.Allows(0))
+	require.False(t, eProdBar.Allows(qaBarSecLblsCtx.ID))
+	require.False(t, eProdBar.Allows(prodBarSecLblsCtx.ID))
+	require.False(t, eProdBar.Allows(qaFooSecLblsCtx.ID))
+	require.True(t, eProdBar.Allows(prodFooSecLblsCtx.ID))
+	require.True(t, eProdBar.Allows(prodFooJoeSecLblsCtx.ID))
 
 	// Check that both policies have been updated in the xDS cache for the L7
 	// proxies.
@@ -496,8 +496,8 @@ func (ds *DaemonSuite) testL4L7Shadowing(t *testing.T) {
 	defer cleanup()
 
 	eQABar := ds.prepareEndpoint(t, qaBarSecLblsCtx, true)
-	require.Equal(t, false, eQABar.Allows(qaBarSecLblsCtx.ID))
-	require.Equal(t, false, eQABar.Allows(qaFooSecLblsCtx.ID))
+	require.False(t, eQABar.Allows(qaBarSecLblsCtx.ID))
+	require.False(t, eQABar.Allows(qaFooSecLblsCtx.ID))
 
 	// Check that both policies have been updated in the xDS cache for the L7
 	// proxies.
@@ -587,8 +587,8 @@ func (ds *DaemonSuite) testL4L7ShadowingShortCircuit(t *testing.T) {
 	defer cleanup()
 
 	eQABar := ds.prepareEndpoint(t, qaBarSecLblsCtx, true)
-	require.Equal(t, false, eQABar.Allows(qaBarSecLblsCtx.ID))
-	require.Equal(t, false, eQABar.Allows(qaFooSecLblsCtx.ID))
+	require.False(t, eQABar.Allows(qaBarSecLblsCtx.ID))
+	require.False(t, eQABar.Allows(qaFooSecLblsCtx.ID))
 
 	// Check that both policies have been updated in the xDS cache for the L7
 	// proxies.
@@ -679,9 +679,9 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 	defer cleanup()
 
 	eQABar := ds.prepareEndpoint(t, qaBarSecLblsCtx, true)
-	require.Equal(t, false, eQABar.Allows(qaBarSecLblsCtx.ID))
-	require.Equal(t, false, eQABar.Allows(qaFooSecLblsCtx.ID))
-	require.Equal(t, true, eQABar.Allows(qaJoeSecLblsCtx.ID))
+	require.False(t, eQABar.Allows(qaBarSecLblsCtx.ID))
+	require.False(t, eQABar.Allows(qaFooSecLblsCtx.ID))
+	require.True(t, eQABar.Allows(qaJoeSecLblsCtx.ID))
 
 	// Check that both policies have been updated in the xDS cache for the L7
 	// proxies.

@@ -871,7 +871,7 @@ func TestIPListEquals(t *testing.T) {
 	ips := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("fd00::1"), net.ParseIP("8.8.8.8")}
 	sorted := []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("8.8.8.8"), net.ParseIP("fd00::1")}
 
-	require.Equal(t, true, UnsortedIPListsAreEqual(ips, sorted))
+	require.True(t, UnsortedIPListsAreEqual(ips, sorted))
 }
 
 func TestGetIPFromListByFamily(t *testing.T) {
