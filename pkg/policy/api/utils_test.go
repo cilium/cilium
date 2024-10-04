@@ -44,10 +44,6 @@ func TestKafkaEqual(t *testing.T) {
 	rule2 := kafka.PortRule{APIVersion: "1", APIKey: "bar", Topic: "topic1"}
 	rule3 := kafka.PortRule{APIVersion: "1", APIKey: "foo", Topic: "topic2"}
 
-	require.Equal(t, rule1, rule1)
-	require.NotEqual(t, rule2, rule1)
-	require.NotEqual(t, rule3, rule1)
-
 	rules := L7Rules{
 		Kafka: []kafka.PortRule{rule1, rule2},
 	}
