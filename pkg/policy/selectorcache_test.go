@@ -256,7 +256,7 @@ func TestAddRemoveSelector(t *testing.T) {
 
 	// Current selections contain the numeric identities of existing identities that match
 	selections := cached.GetSelections(versioned.Latest())
-	require.Equal(t, 1, len(selections))
+	require.Len(t, selections, 1)
 	require.Equal(t, identity.NumericIdentity(1234), selections[0])
 
 	// Try add the same selector from the same user the second time
@@ -318,7 +318,7 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 
 	// Current selections contain the numeric identities of existing identities that match
 	selections := cached.GetSelections(versioned.Latest())
-	require.Equal(t, 1, len(selections))
+	require.Len(t, selections, 1)
 	require.Equal(t, identity.NumericIdentity(1234), selections[0])
 
 	// Add another selector from the same user
@@ -327,7 +327,7 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 
 	// Current selections contain the numeric identities of existing identities that match
 	selections2 := cached2.GetSelections(versioned.Latest())
-	require.Equal(t, 1, len(selections2))
+	require.Len(t, selections2, 1)
 	require.Equal(t, identity.NumericIdentity(2345), selections2[0])
 
 	shouldSelect := func(sel api.EndpointSelector, wantIDs ...identity.NumericIdentity) {
@@ -368,7 +368,7 @@ func TestIdentityUpdates(t *testing.T) {
 
 	// Current selections contain the numeric identities of existing identities that match
 	selections := cached.GetSelections(versioned.Latest())
-	require.Equal(t, 1, len(selections))
+	require.Len(t, selections, 1)
 	require.Equal(t, identity.NumericIdentity(1234), selections[0])
 
 	// Add another selector from the same user
@@ -377,7 +377,7 @@ func TestIdentityUpdates(t *testing.T) {
 
 	// Current selections contain the numeric identities of existing identities that match
 	selections2 := cached2.GetSelections(versioned.Latest())
-	require.Equal(t, 1, len(selections2))
+	require.Len(t, selections2, 1)
 	require.Equal(t, identity.NumericIdentity(2345), selections2[0])
 
 	user1.Reset()
@@ -394,7 +394,7 @@ func TestIdentityUpdates(t *testing.T) {
 
 	// Current selections contain the numeric identities of existing identities that match
 	selections = cached.GetSelections(versioned.Latest())
-	require.Equal(t, 2, len(selections))
+	require.Len(t, selections, 2)
 	require.Equal(t, identity.NumericIdentity(1234), selections[0])
 	require.Equal(t, identity.NumericIdentity(12345), selections[1])
 
@@ -412,7 +412,7 @@ func TestIdentityUpdates(t *testing.T) {
 
 	// Current selections contain the numeric identities of existing identities that match
 	selections = cached.GetSelections(versioned.Latest())
-	require.Equal(t, 1, len(selections))
+	require.Len(t, selections, 1)
 	require.Equal(t, identity.NumericIdentity(1234), selections[0])
 
 	user1.RemoveSelector(cached)
@@ -463,7 +463,7 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 
 	// Current selections contain the numeric identities of existing identities that match
 	selections := cached.GetSelections(versioned.Latest())
-	require.Equal(t, 3, len(selections))
+	require.Len(t, selections, 3)
 	require.Equal(t, identity.NumericIdentity(123), selections[0])
 	require.Equal(t, identity.NumericIdentity(345), selections[1])
 	require.Equal(t, identity.NumericIdentity(1234), selections[2])
@@ -489,7 +489,7 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 
 	// Current selections contain the numeric identities of existing identities that match
 	selections = cached.GetSelections(versioned.Latest())
-	require.Equal(t, 2, len(selections))
+	require.Len(t, selections, 2)
 	require.Equal(t, identity.NumericIdentity(345), selections[0])
 	require.Equal(t, identity.NumericIdentity(1234), selections[1])
 

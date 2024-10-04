@@ -337,7 +337,7 @@ func TestRedirectWithDeny(t *testing.T) {
 	// deny entry.  A new FQDN redirect may have no MapState entries as the associated CIDR
 	// identities may match no numeric IDs yet, so we can not count the number of added MapState
 	// entries and make any conclusions from it.
-	require.Equal(t, 1, len(desiredRedirects))
+	require.Len(t, desiredRedirects, 1)
 
 	expected2 := s.testMapState(policy.MapStateMap{
 		mapKeyAllowAllE: {
@@ -369,7 +369,7 @@ func TestRedirectWithDeny(t *testing.T) {
 	ep.removeOldRedirects(desiredRedirects, realizedRedirects, cmp)
 
 	// Check that the redirect is still realized
-	require.Equal(t, 1, len(desiredRedirects))
+	require.Len(t, desiredRedirects, 1)
 	require.Equal(t, 4, ep.desiredPolicy.GetPolicyMap().Len())
 
 	// Pretend that something failed and revert the changes
@@ -498,7 +498,7 @@ func TestRedirectWithPriority(t *testing.T) {
 	// Check that all redirects have been created.
 	require.Equal(t, crd2Port, desiredRedirects["12345:ingress:TCP:80:/cec2/listener2"])
 	require.Equal(t, crd1Port, desiredRedirects["12345:ingress:TCP:80:/cec1/listener1"])
-	require.Equal(t, 2, len(desiredRedirects))
+	require.Len(t, desiredRedirects, 2)
 
 	expected2 := s.testMapState(policy.MapStateMap{
 		mapKeyAllowAllE: {
@@ -522,7 +522,7 @@ func TestRedirectWithPriority(t *testing.T) {
 	ep.removeOldRedirects(desiredRedirects, realizedRedirects, cmp)
 
 	// Check that the redirect is still realized
-	require.Equal(t, 2, len(desiredRedirects))
+	require.Len(t, desiredRedirects, 2)
 	require.Equal(t, 3, ep.desiredPolicy.GetPolicyMap().Len())
 
 	// Pretend that something failed and revert the changes
@@ -579,7 +579,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	// Check that all redirects have been created.
 	require.Equal(t, crd2Port, desiredRedirects["12345:ingress:TCP:80:/cec2/listener2"])
 	require.Equal(t, crd1Port, desiredRedirects["12345:ingress:TCP:80:/cec1/listener1"])
-	require.Equal(t, 2, len(desiredRedirects))
+	require.Len(t, desiredRedirects, 2)
 
 	expected2 := s.testMapState(policy.MapStateMap{
 		mapKeyAllowAllE: {
@@ -603,7 +603,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	ep.removeOldRedirects(desiredRedirects, realizedRedirects, cmp)
 
 	// Check that the redirect is still realized
-	require.Equal(t, 2, len(desiredRedirects))
+	require.Len(t, desiredRedirects, 2)
 	require.Equal(t, 3, ep.desiredPolicy.GetPolicyMap().Len())
 
 	// Pretend that something failed and revert the changes

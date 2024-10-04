@@ -158,7 +158,7 @@ func TestPriorityQueue_PopOlderThan(t *testing.T) {
 			for _, resp := range tt.has {
 				pq.Push(resp)
 			}
-			assert.Equal(t, pq.Len(), len(tt.has))
+			assert.Len(t, tt.has, pq.Len())
 			got := pq.PopOlderThan(tt.filter)
 			if diff := cmp.Diff(
 				tt.want,

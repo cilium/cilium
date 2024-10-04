@@ -52,7 +52,7 @@ func TestRemoteServiceObserver(t *testing.T) {
 	require.Equal(t, 1, cache.Size())
 
 	gs := cache.GetGlobalService(svc1.NamespaceServiceName())
-	require.Equal(t, 1, len(gs.ClusterServices))
+	require.Len(t, gs.ClusterServices, 1)
 	found, ok := gs.ClusterServices[svc1.Cluster]
 	require.True(t, ok)
 	require.Equal(t, &svc1, found)

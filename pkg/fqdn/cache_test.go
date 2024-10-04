@@ -263,7 +263,7 @@ func TestJSONMarshal(t *testing.T) {
 	rawList := make([]*cacheEntry, 0)
 	err = json.Unmarshal(data, &rawList)
 	require.NoError(t, err)
-	require.Equal(t, 6, len(rawList))
+	require.Len(t, rawList, 6)
 
 	// Check that the unmarshalled instance contains all the data at now
 	currentTime := now
@@ -527,7 +527,7 @@ func TestTTLInsertWithZeroValue(t *testing.T) {
 func TestTTLCleanupEntries(t *testing.T) {
 	cache := NewDNSCache(0)
 	cache.Update(now, "test.com", []netip.Addr{netip.MustParseAddr("1.2.3.4")}, 3)
-	require.Equal(t, 1, len(cache.cleanup))
+	require.Len(t, cache.cleanup, 1)
 	entries, _ := cache.cleanupExpiredEntries(time.Now().Add(5 * time.Second))
 	require.Len(t, entries, 1)
 	require.Empty(t, cache.cleanup)

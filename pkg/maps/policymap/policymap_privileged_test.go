@@ -50,7 +50,7 @@ func TestPolicyMapDumpToSlice(t *testing.T) {
 
 	dump, err := testMap.DumpToSlice()
 	require.NoError(t, err)
-	require.Equal(t, 1, len(dump))
+	require.Len(t, dump, 1)
 
 	require.EqualValues(t, fooEntry, dump[0].Key)
 
@@ -61,7 +61,7 @@ func TestPolicyMapDumpToSlice(t *testing.T) {
 
 	dump, err = testMap.DumpToSlice()
 	require.NoError(t, err)
-	require.Equal(t, 2, len(dump))
+	require.Len(t, dump, 2)
 }
 
 func TestDeleteNonexistentKey(t *testing.T) {
@@ -84,7 +84,7 @@ func TestDenyPolicyMapDumpToSlice(t *testing.T) {
 
 	dump, err := testMap.DumpToSlice()
 	require.NoError(t, err)
-	require.Equal(t, 1, len(dump))
+	require.Len(t, dump, 1)
 
 	require.EqualValues(t, fooKey, dump[0].Key)
 	require.EqualValues(t, fooEntry, dump[0].PolicyEntry)
@@ -96,5 +96,5 @@ func TestDenyPolicyMapDumpToSlice(t *testing.T) {
 
 	dump, err = testMap.DumpToSlice()
 	require.NoError(t, err)
-	require.Equal(t, 2, len(dump))
+	require.Len(t, dump, 2)
 }

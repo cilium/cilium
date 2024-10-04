@@ -152,7 +152,7 @@ func TestCreateL4Filter(t *testing.T) {
 		// or if it is based on specific labels.
 		filter, err := createL4IngressFilter(td.testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol, nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(filter.PerSelectorPolicies))
+		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, r := range filter.PerSelectorPolicies {
 			hasAuth, authType := r.GetAuthType()
 			require.Equal(t, DefaultAuthType, hasAuth)
@@ -162,7 +162,7 @@ func TestCreateL4Filter(t *testing.T) {
 
 		filter, err = createL4EgressFilter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil, nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(filter.PerSelectorPolicies))
+		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, r := range filter.PerSelectorPolicies {
 			hasAuth, authType := r.GetAuthType()
 			require.Equal(t, DefaultAuthType, hasAuth)
@@ -196,7 +196,7 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 		// or if it is based on specific labels.
 		filter, err := createL4IngressFilter(td.testPolicyContext, eps, auth, nil, portrule, tuple, tuple.Protocol, nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(filter.PerSelectorPolicies))
+		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, r := range filter.PerSelectorPolicies {
 			hasAuth, authType := r.GetAuthType()
 			require.Equal(t, ExplicitAuthType, hasAuth)
@@ -206,7 +206,7 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 
 		filter, err = createL4EgressFilter(td.testPolicyContext, eps, auth, portrule, tuple, tuple.Protocol, nil, nil)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(filter.PerSelectorPolicies))
+		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, r := range filter.PerSelectorPolicies {
 			hasAuth, authType := r.GetAuthType()
 			require.Equal(t, ExplicitAuthType, hasAuth)

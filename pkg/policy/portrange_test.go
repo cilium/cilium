@@ -14,7 +14,7 @@ import (
 func validateMaskedPorts(t *testing.T, maskedPorts []MaskedPort, start, end uint16) {
 	// Wildcard case.
 	if start == 0 && end == 0 {
-		require.Equal(t, 1, len(maskedPorts))
+		require.Len(t, maskedPorts, 1)
 		require.Equal(t, uint16(0), maskedPorts[0].port)
 		require.Equal(t, uint16(0), maskedPorts[0].mask)
 		return

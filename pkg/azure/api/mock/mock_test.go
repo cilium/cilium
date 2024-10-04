@@ -26,9 +26,9 @@ func TestMock(t *testing.T) {
 
 	vnets, subnets, err := api.GetVpcsAndSubnets(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 1, len(vnets))
+	require.Len(t, vnets, 1)
 	require.Equal(t, &ipamTypes.VirtualNetwork{ID: "v-1"}, vnets["v-1"])
-	require.Equal(t, 1, len(subnets))
+	require.Len(t, subnets, 1)
 	require.Equal(t, subnet, subnets["s-1"])
 
 	ifaceID := "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11"
@@ -59,7 +59,7 @@ func TestMock(t *testing.T) {
 
 		iface, ok := revision.Resource.(*types.AzureInterface)
 		require.True(t, ok)
-		require.Equal(t, 2, len(iface.Addresses))
+		require.Len(t, iface.Addresses, 2)
 		return nil
 	})
 

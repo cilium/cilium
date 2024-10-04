@@ -436,7 +436,7 @@ func TestRespondViaCorrectProtocol(t *testing.T) {
 	request.SetQuestion(query, dns.TypeA)
 	response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 	require.NoErrorf(t, err, "DNS request from test client failed when it should succeed (RTT: %v)", rtt)
-	require.Equal(t, 1, len(response.Answer), "Proxy returned incorrect number of answer RRs %s", response)
+	require.Len(t, response.Answer, 1, "Proxy returned incorrect number of answer RRs %s", response)
 	require.Equal(t, "cilium.io.\t60\tIN\tA\t1.1.1.1", response.Answer[0].String(), "Proxy returned incorrect RRs")
 }
 
@@ -466,13 +466,13 @@ func TestRespondMixedCaseInRequestResponse(t *testing.T) {
 	request.SetQuestion(query, dns.TypeA)
 	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 	require.NoError(t, err, "DNS request from test client failed when it should succeed")
-	require.Equal(t, 1, len(response.Answer), "Proxy returned incorrect number of answer RRs %s", response)
+	require.Len(t, response.Answer, 1, "Proxy returned incorrect number of answer RRs %s", response)
 	require.Equal(t, "CILIUM.io.\t60\tIN\tA\t1.1.1.1", response.Answer[0].String(), "Proxy returned incorrect RRs")
 
 	request.SetQuestion("ciliuM.io.", dns.TypeA)
 	response, _, err = s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 	require.NoError(t, err, "DNS request from test client failed when it should succeed")
-	require.Equal(t, 1, len(response.Answer), "Proxy returned incorrect number of answer RRs %+v", response.Answer)
+	require.Len(t, response.Answer, 1, "Proxy returned incorrect number of answer RRs %+v", response.Answer)
 	require.Equal(t, "ciliuM.io.\t60\tIN\tA\t1.1.1.1", response.Answer[0].String(), "Proxy returned incorrect RRs")
 }
 
@@ -1098,7 +1098,7 @@ func TestRestoredEndpoint(t *testing.T) {
 		request.SetQuestion(query, dns.TypeA)
 		response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 		require.NoErrorf(t, err, "DNS request from test client failed when it should succeed (RTT: %v) (query: %q)", rtt, query)
-		require.Equal(t, 1, len(response.Answer), "Proxy returned incorrect number of answer RRs %s (query: %q)", response, query)
+		require.Len(t, response.Answer, 1, "Proxy returned incorrect number of answer RRs %s (query: %q)", response, query)
 		require.Equal(t, query+"\t60\tIN\tA\t1.1.1.1", response.Answer[0].String(), "Proxy returned incorrect RRs")
 	}
 
@@ -1107,7 +1107,7 @@ func TestRestoredEndpoint(t *testing.T) {
 		request.SetQuestion(query, dns.TypeA)
 		response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 		require.NoErrorf(t, err, "DNS request from test client failed when it should succeed (RTT: %v) (query: %q)", rtt, query)
-		require.Equal(t, 1, len(response.Answer), "Proxy returned incorrect number of answer RRs %s (query: %q)", response, query)
+		require.Len(t, response.Answer, 1, "Proxy returned incorrect number of answer RRs %s (query: %q)", response, query)
 		require.Equal(t, query+"\t60\tIN\tA\t1.1.1.1", response.Answer[0].String(), "Proxy returned incorrect RRs")
 	}
 
@@ -1145,7 +1145,7 @@ func TestRestoredEndpoint(t *testing.T) {
 		request.SetQuestion(query, dns.TypeA)
 		response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 		require.NoErrorf(t, err, "DNS request from test client failed when it should succeed (RTT: %v) (query: %q)", rtt, query)
-		require.Equal(t, 1, len(response.Answer), "Proxy returned incorrect number of answer RRs %s (query: %q)", response, query)
+		require.Len(t, response.Answer, 1, "Proxy returned incorrect number of answer RRs %s (query: %q)", response, query)
 		require.Equal(t, query+"\t60\tIN\tA\t1.1.1.1", response.Answer[0].String(), "Proxy returned incorrect RRs")
 	}
 	// cleanup
@@ -1158,7 +1158,7 @@ func TestRestoredEndpoint(t *testing.T) {
 
 	// extract the port the DNS-server is listening on by looking at the restored rules. The port is non-deterministic
 	// since it's listening on :0
-	require.Equal(t, 1, len(restored), "GetRules is expected to return rules for one port but returned for %d", len(restored))
+	require.Len(t, restored, 1, "GetRules is expected to return rules for one port but returned for %d", len(restored))
 	portProto := slices.Collect(maps.Keys(restored))[0]
 
 	// Insert one valid and one invalid pattern and ensure that the valid one works
@@ -1178,7 +1178,7 @@ func TestRestoredEndpoint(t *testing.T) {
 		request.SetQuestion(query, dns.TypeA)
 		response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 		require.NoErrorf(t, err, "DNS request from test client failed when it should succeed (RTT: %v) (query: %q)", rtt, query)
-		require.Equal(t, 1, len(response.Answer), "Proxy returned incorrect number of answer RRs %s (query: %q)", response, query)
+		require.Len(t, response.Answer, 1, "Proxy returned incorrect number of answer RRs %s (query: %q)", response, query)
 		require.Equal(t, query+"\t60\tIN\tA\t1.1.1.1", response.Answer[0].String(), "Proxy returned incorrect RRs")
 	}
 

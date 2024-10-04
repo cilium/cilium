@@ -619,7 +619,7 @@ func TestExternalServiceMerging(t *testing.T) {
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 
-		require.Equal(t, 1, len(event.Endpoints.Backends))
+		require.Len(t, event.Endpoints.Backends, 1)
 		require.EqualValues(t, &Backend{
 			Ports: serviceStore.PortConfiguration{
 				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
@@ -655,7 +655,7 @@ func TestExternalServiceMerging(t *testing.T) {
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID, event.ID)
 
-		require.Equal(t, 1, len(event.Endpoints.Backends))
+		require.Len(t, event.Endpoints.Backends, 1)
 		require.EqualValues(t, &Backend{
 			Ports: serviceStore.PortConfiguration{
 				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
@@ -1569,12 +1569,12 @@ func TestServiceEndpointFiltering(t *testing.T) {
 	svcID0 := svcCache.UpdateService(k8sSvc, swg)
 	svcID1, eps := svcCache.UpdateEndpoints(k8sEndpointSlice, swg)
 	require.Equal(t, svcID1, svcID0)
-	require.Equal(t, 1, len(eps.Backends))
+	require.Len(t, eps.Backends, 1)
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID0, event.ID)
-		require.Equal(t, 1, len(event.Endpoints.Backends))
+		require.Len(t, event.Endpoints.Backends, 1)
 		_, found := event.Endpoints.Backends[cmtypes.MustParseAddrCluster("10.0.0.2")]
 		require.True(t, found)
 		return true
@@ -1587,7 +1587,7 @@ func TestServiceEndpointFiltering(t *testing.T) {
 		event := <-svcCache.Events
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID0, event.ID)
-		require.Equal(t, 2, len(event.Endpoints.Backends))
+		require.Len(t, event.Endpoints.Backends, 2)
 		return true
 	}, 2*time.Second))
 
@@ -1597,7 +1597,7 @@ func TestServiceEndpointFiltering(t *testing.T) {
 		event := <-svcCache.Events
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID0, event.ID)
-		require.Equal(t, 1, len(event.Endpoints.Backends))
+		require.Len(t, event.Endpoints.Backends, 1)
 		_, found := event.Endpoints.Backends[cmtypes.MustParseAddrCluster("10.0.0.1")]
 		require.True(t, found)
 		return true
@@ -1610,7 +1610,7 @@ func TestServiceEndpointFiltering(t *testing.T) {
 		event := <-svcCache.Events
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID0, event.ID)
-		require.Equal(t, 1, len(event.Endpoints.Backends))
+		require.Len(t, event.Endpoints.Backends, 1)
 		return true
 	}, 2*time.Second))
 
@@ -1624,7 +1624,7 @@ func TestServiceEndpointFiltering(t *testing.T) {
 		event := <-svcCache.Events
 		require.Equal(t, UpdateService, event.Action)
 		require.Equal(t, svcID1, event.ID)
-		require.Equal(t, 2, len(event.Endpoints.Backends))
+		require.Len(t, event.Endpoints.Backends, 2)
 		return true
 	}, 2*time.Second))
 }

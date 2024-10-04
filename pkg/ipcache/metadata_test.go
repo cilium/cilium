@@ -723,7 +723,7 @@ func TestHandleLabelInjection(t *testing.T) {
 	err := ipc.handleLabelInjection(ctx)
 
 	// Ensure that no prefixes have been lost
-	require.Equal(t, 2, len(ipc.metadata.queuedPrefixes))
+	require.Len(t, ipc.metadata.queuedPrefixes, 2)
 	require.Equal(t, uint64(0), ipc.metadata.injectedRevision)
 	require.Error(t, err)
 

@@ -1720,7 +1720,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, policy.Len())
 	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
-	require.Equal(t, 1, len(policy.ExactLookup("80", 0, "TCP").PerSelectorPolicies))
+	require.Len(t, policy.ExactLookup("80", 0, "TCP").PerSelectorPolicies, 1)
 	cachedSelectorWorld := td.sc.FindCachedIdentitySelector(selWorld)
 	require.NotNil(t, cachedSelectorWorld)
 
@@ -1872,7 +1872,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, policy.Len())
 	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
-	require.Equal(t, 1, len(policy.ExactLookup("80", 0, "TCP").PerSelectorPolicies))
+	require.Len(t, policy.ExactLookup("80", 0, "TCP").PerSelectorPolicies, 1)
 	cachedSelectorWorld := td.sc.FindCachedIdentitySelector(selWorld)
 	require.NotNil(t, cachedSelectorWorld)
 
@@ -2462,7 +2462,7 @@ func TestDefaultAllow(t *testing.T) {
 		ing, egr, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
 		require.Equal(t, tc.ingress, ing, "case %d: ingress should match", i)
 		require.Equal(t, tc.egress, egr, "case %d: egress should match", i)
-		require.Equal(t, tc.ruleC, len(matchingRules), "case %d: rule count should match", i)
+		require.Len(t, matchingRules, tc.ruleC, "case %d: rule count should match", i)
 	}
 
 	for i, tc := range egressCases {
@@ -2478,7 +2478,7 @@ func TestDefaultAllow(t *testing.T) {
 		ing, egr, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
 		require.Equal(t, tc.ingress, ing, "case %d: ingress should match", i)
 		require.Equal(t, tc.egress, egr, "case %d: egress should match", i)
-		require.Equal(t, tc.ruleC, len(matchingRules), "case %d: rule count should match", i)
+		require.Len(t, matchingRules, tc.ruleC, "case %d: rule count should match", i)
 	}
 
 	// test all combinations of ingress + egress cases
@@ -2501,7 +2501,7 @@ func TestDefaultAllow(t *testing.T) {
 			ing, egr, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
 			require.Equal(t, itc.ingress, ing, "case ingress %d + egress %d: ingress should match", i, e)
 			require.Equal(t, etc.egress, egr, "case ingress %d + egress %d: egress should match", i, e)
-			require.Equal(t, itc.ruleC+etc.ruleC, len(matchingRules), "case ingress %d + egress %d: rule count should match", i, e)
+			require.Len(t, matchingRules, itc.ruleC+etc.ruleC, "case ingress %d + egress %d: rule count should match", i, e)
 		}
 	}
 }

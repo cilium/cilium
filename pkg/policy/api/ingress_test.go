@@ -62,7 +62,7 @@ func TestCreateDerivativeRuleWithFromGroups(t *testing.T) {
 	newRule, err := ig.CreateDerivative(context.TODO())
 	require.NoError(t, err)
 	require.Empty(t, newRule.FromGroups)
-	require.Equal(t, 1, len(newRule.FromCIDRSet))
+	require.Len(t, newRule.FromCIDRSet, 1)
 }
 
 func TestIsLabelBasedIngress(t *testing.T) {

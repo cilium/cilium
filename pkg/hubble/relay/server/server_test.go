@@ -257,7 +257,7 @@ func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 	// Make sure that all peers are connected
 	nodesResp, err := client.GetNodes(ctx, &observerpb.GetNodesRequest{})
 	require.NoError(b, err)
-	require.Equal(b, numPeers, len(nodesResp.Nodes))
+	require.Len(b, nodesResp.Nodes, numPeers)
 
 	getFlowsReq := new(observerpb.GetFlowsRequest)
 	if withFieldMask {
@@ -291,7 +291,7 @@ func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 		case *observerpb.GetFlowsResponse_NodeStatus:
 		}
 	}
-	assert.Equal(b, numFlows, len(found))
+	assert.Len(b, found, numFlows)
 	b.StopTimer()
 
 	for _, f := range found {

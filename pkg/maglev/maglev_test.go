@@ -148,7 +148,7 @@ func BenchmarkGetMaglevTable(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		table := GetLookupTable(backends, m)
-		require.Equal(b, int(m), len(table))
+		require.Len(b, table, int(m))
 	}
 	b.StopTimer()
 }

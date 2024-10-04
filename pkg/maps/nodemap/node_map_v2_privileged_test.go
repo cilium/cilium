@@ -58,8 +58,8 @@ func TestNodeMapV2(t *testing.T) {
 	bpfNodeSPI = []uint8{}
 	err = nodeMap.IterateWithCallback(toMap)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(bpfNodeIDMap))
-	require.Equal(t, 2, len(bpfNodeSPI))
+	require.Len(t, bpfNodeIDMap, 2)
+	require.Len(t, bpfNodeSPI, 2)
 
 	err = nodeMap.Delete(net.ParseIP("10.1.0.0"))
 	require.NoError(t, err)
@@ -68,8 +68,8 @@ func TestNodeMapV2(t *testing.T) {
 	bpfNodeSPI = []uint8{}
 	err = nodeMap.IterateWithCallback(toMap)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(bpfNodeIDMap))
-	require.Equal(t, 1, len(bpfNodeSPI))
+	require.Len(t, bpfNodeIDMap, 1)
+	require.Len(t, bpfNodeSPI, 1)
 
 	// ensure we see mirrored writes in MapV1
 	_, err = ciliumebpf.LoadPinnedMap(bpf.MapPath("test_cilium_node_map"), nil)

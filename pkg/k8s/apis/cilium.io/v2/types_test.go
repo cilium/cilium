@@ -312,7 +312,7 @@ func TestParseSpec(t *testing.T) {
 
 	rules, err := expectedPolicyRule.Parse()
 	require.NoError(t, err)
-	require.Equal(t, 1, len(rules))
+	require.Len(t, rules, 1)
 	require.EqualValues(t, *expectedSpecRule, *rules[0])
 
 	b, err := json.Marshal(expectedPolicyRule)
@@ -402,7 +402,7 @@ func TestParseRules(t *testing.T) {
 
 	rules, err := expectedPolicyRuleList.Parse()
 	require.NoError(t, err)
-	require.Equal(t, 2, len(rules))
+	require.Len(t, rules, 2)
 	for i, rule := range rules {
 		require.EqualValues(t, expectedSpecRules[i], rule)
 	}
