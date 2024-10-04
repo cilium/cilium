@@ -194,10 +194,10 @@ func TestReadDirConfig(t *testing.T) {
 		args := tt.setupArgs()
 		want := tt.setupWant()
 		m, err := ReadDirConfig(args.dirName)
-		require.Equal(t, want.err, err, fmt.Sprintf("Test Name: %s", tt.name))
+		require.Equal(t, want.err, err, "Test Name: %s", tt.name)
 		err = MergeConfig(vp, m)
 		require.NoError(t, err)
-		assert.Equal(t, want.allSettings, vp.AllSettings(), fmt.Sprintf("Test Name: %s", tt.name))
+		assert.Equal(t, want.allSettings, vp.AllSettings(), "Test Name: %s", tt.name)
 		tt.postTestRun()
 	}
 }

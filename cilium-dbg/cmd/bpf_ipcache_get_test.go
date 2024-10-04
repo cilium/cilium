@@ -32,7 +32,7 @@ func TestGetPrefix(t *testing.T) {
 	for _, tt := range tests {
 		prefix := toBits(tt.prefix)
 		for maskSize := 0; maskSize <= tt.length; maskSize++ {
-			require.Equal(t, getPrefix(tt.ip, maskSize), prefix[:maskSize], fmt.Sprintf("invalid prefix for %v/%v", tt.ip, maskSize))
+			require.Equal(t, getPrefix(tt.ip, maskSize), prefix[:maskSize], "invalid prefix for %v/%v", tt.ip, maskSize)
 		}
 	}
 }
@@ -66,11 +66,11 @@ func TestGetLPMValue(t *testing.T) {
 
 	for _, tt := range tests {
 		v, exists := getLPMValue(mustParseIP(tt.ip), entries)
-		require.Equal(t, exists, tt.hasIdentity, fmt.Sprintf("No identity was found for ip '%s': wanted '%s'", tt.ip, tt.identity))
+		require.Equal(t, exists, tt.hasIdentity, "No identity was found for ip '%s': wanted '%s'", tt.ip, tt.identity)
 
 		if exists {
 			identity := v.([]string)
-			require.EqualValues(t, identity, tt.identity, fmt.Sprintf("Wrong number of identities was retrieved for ip %s", tt.ip))
+			require.EqualValues(t, identity, tt.identity, "Wrong number of identities was retrieved for ip %s", tt.ip)
 		}
 	}
 }
