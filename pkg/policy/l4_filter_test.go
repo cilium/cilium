@@ -217,7 +217,7 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 	require.True(t, filter.SelectsAllEndpoints())
 
 	require.Equal(t, ParserTypeNone, filter.L7Parser)
-	require.Equal(t, 1, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 1)
 	l4IngressPolicy.Detach(td.repo.GetSelectorCache())
 
 	// Case1B: an empty non-nil FromEndpoints does not select any identity.
@@ -387,7 +387,7 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 	require.True(t, filter.SelectsAllEndpoints())
 
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
-	require.Equal(t, 1, len(filter.PerSelectorPolicies))
+	require.Len(t, filter.PerSelectorPolicies, 1)
 	l4IngressPolicy.Detach(td.repo.GetSelectorCache())
 }
 

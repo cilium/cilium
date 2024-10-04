@@ -198,12 +198,12 @@ func TestCtGcIcmp(t *testing.T) {
 	buf := make(map[string][]string)
 	err = ctMap.Map.Dump(buf)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(buf))
+	require.Len(t, buf, 1)
 
 	buf = make(map[string][]string)
 	err = natMap.Map.Dump(buf)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(buf))
+	require.Len(t, buf, 2)
 
 	// GC and check whether NAT entries have been collected
 	filter := GCFilter{
@@ -309,12 +309,12 @@ func TestCtGcTcp(t *testing.T) {
 	buf := make(map[string][]string)
 	err = ctMap.Map.Dump(buf)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(buf))
+	require.Len(t, buf, 1)
 
 	buf = make(map[string][]string)
 	err = natMap.Map.Dump(buf)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(buf))
+	require.Len(t, buf, 2)
 
 	// GC and check whether NAT entries have been collected
 	filter := GCFilter{
@@ -400,12 +400,12 @@ func TestCtGcDsr(t *testing.T) {
 	buf := make(map[string][]string)
 	err = ctMap.Map.Dump(buf)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(buf))
+	require.Len(t, buf, 1)
 
 	buf = make(map[string][]string)
 	err = natMap.Map.Dump(buf)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(buf))
+	require.Len(t, buf, 1)
 
 	// GC and check whether NAT entry has been collected
 	filter := GCFilter{
@@ -541,7 +541,7 @@ func TestOrphanNatGC(t *testing.T) {
 	buf := make(map[string][]string)
 	err = natMap.Map.Dump(buf)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(buf))
+	require.Len(t, buf, 2)
 
 	// Now remove the CT entry which should remove both NAT entries
 	err = ctMapAny.Map.Delete(ctKey)
@@ -627,7 +627,7 @@ func TestOrphanNatGC(t *testing.T) {
 	buf = make(map[string][]string)
 	err = natMap.Map.Dump(buf)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(buf))
+	require.Len(t, buf, 1)
 
 	// Now remove the CT entry which should remove the NAT entry
 	err = ctMapTCP.Map.Delete(ctKey)

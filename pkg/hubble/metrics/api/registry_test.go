@@ -309,7 +309,7 @@ func initHandlers(t *testing.T, opts *ContextOptions, promRegistry *prometheus.R
 	}
 	handlers, err := r.ConfigureHandlers(nil, cfg)
 	assert.NoError(t, err)
-	assert.EqualValues(t, 1, len(handlers.handlers))
+	assert.Len(t, handlers.handlers, 1)
 	assert.EqualValues(t, 1, handlers.handlers[0].(*testHandler).InitCalled)
 	return handlers
 }

@@ -69,7 +69,7 @@ func TestNewMonitorFilter(t *testing.T) {
 			assert.Equal(t, tc.expectedMF, mf)
 
 			if tc.expectedMF != nil {
-				assert.Equal(t, 1, len(hook.Entries))
+				assert.Len(t, hook.Entries, 1)
 				assert.Equal(t, logrus.InfoLevel, hook.LastEntry().Level)
 				assert.Equal(t, "Configured Hubble with monitor event filters", hook.LastEntry().Message)
 				assert.Equal(t, tc.filters, hook.LastEntry().Data["filters"])

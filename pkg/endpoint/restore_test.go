@@ -185,7 +185,7 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 	}
 
 	epResult := ReadEPsFromDirNames(context.TODO(), s, s, s, tmpDir, epNames)
-	require.Equal(t, 1, len(epResult))
+	require.Len(t, epResult, 1)
 
 	restoredEP := epResult[ep.ID]
 	require.EqualValues(t, ep.String(), restoredEP.String())
