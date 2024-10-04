@@ -405,7 +405,7 @@ func TestLocalObserverServer_GetAgentEvents(t *testing.T) {
 	// FIXME:
 	// This should be assert.Equals(t, numEvents, agentEventsReceived)
 	// A bug in the ring buffer prevents this from succeeding
-	assert.Greater(t, agentEventsReceived, 0)
+	assert.Positive(t, agentEventsReceived)
 }
 
 func TestLocalObserverServer_GetFlows_Follow_Since(t *testing.T) {
@@ -668,7 +668,7 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 	// FIXME:
 	// This should be assert.Equal(t, numFlows, flowsReceived)
 	// A bug in the ring buffer prevents this from succeeding
-	assert.Greater(t, flowsReceived, 0)
+	assert.Positive(t, flowsReceived)
 }
 
 // TestLocalObserverServer_NodeLabels test the LocalNodeWatcher integration

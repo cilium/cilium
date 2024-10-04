@@ -54,5 +54,5 @@ func TestGetBoottime(t *testing.T) {
 	// boottime and monotonic clocks in all cases, as the boottime clock is sampled after the
 	// monotonic clock. This will flake if that delta is an exact number of seconds, but this
 	// should be unlikely.
-	require.Greater(t, boottime.Nanosecond(), 0)
+	require.Positive(t, boottime.Nanosecond())
 }
