@@ -1531,7 +1531,7 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 			}
 			return false
 		}, 5*time.Second)
-		require.NoError(t, err, fmt.Sprintf("expected neighbor %s", ip))
+		require.NoError(t, err, "expected neighbor %s", ip)
 	}
 
 	assertNoNeigh := func(msg string, ips ...net.IP) {
