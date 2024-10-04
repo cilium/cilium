@@ -1899,7 +1899,7 @@ func TestIPBlockToCIDRRule(t *testing.T) {
 			exceptCIDRs[i] = api.CIDR(v)
 		}
 
-		require.Equal(t, false, cidrRule.Generated)
+		require.False(t, cidrRule.Generated)
 		require.Equal(t, api.CIDR(block.CIDR), cidrRule.Cidr)
 
 		if len(block.Except) == 0 {

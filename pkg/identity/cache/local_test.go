@@ -46,7 +46,7 @@ func TestLocalIdentityCache(t *testing.T) {
 	for i := minID; i <= maxID; i++ {
 		id, isNew, err := cache.lookupOrCreate(labels.NewLabelsFromModel([]string{fmt.Sprintf("%d", i)}), identity.InvalidIdentity, false)
 		require.NoError(t, err)
-		require.Equal(t, true, isNew)
+		require.True(t, isNew)
 		require.Equal(t, scope+i, id.ID)
 		identities[id.ID] = id
 	}
@@ -55,7 +55,7 @@ func TestLocalIdentityCache(t *testing.T) {
 	// identities must be returned.
 	for i := minID; i <= maxID; i++ {
 		id, isNew, err := cache.lookupOrCreate(labels.NewLabelsFromModel([]string{fmt.Sprintf("%d", i)}), identity.InvalidIdentity, false)
-		require.Equal(t, false, isNew)
+		require.False(t, isNew)
 		require.NoError(t, err)
 
 		// The returned identity must be identical
@@ -68,7 +68,7 @@ func TestLocalIdentityCache(t *testing.T) {
 
 	// release all identities, this must decrement the reference count but not release the identities yet
 	for _, id := range identities {
-		require.Equal(t, false, cache.release(id, false))
+		require.False(t, cache.release(id, false))
 	}
 
 	// lookup must still be successful
@@ -80,24 +80,24 @@ func TestLocalIdentityCache(t *testing.T) {
 	// release the identities a second time, this must cause the identity
 	// to be forgotten
 	for _, id := range identities {
-		require.Equal(t, true, cache.release(id, false))
+		require.True(t, cache.release(id, false))
 	}
 
 	// allocate all identities again
 	for i := minID; i <= maxID; i++ {
 		id, isNew, err := cache.lookupOrCreate(labels.NewLabelsFromModel([]string{fmt.Sprintf("%d", i)}), identity.InvalidIdentity, false)
 		require.NoError(t, err)
-		require.Equal(t, true, isNew)
+		require.True(t, isNew)
 		identities[id.ID] = id
 	}
 
 	// release a random identity in the middle
 	randomID := identity.NumericIdentity(3) | scope
-	require.Equal(t, true, cache.release(identities[randomID], false))
+	require.True(t, cache.release(identities[randomID], false))
 
 	id, isNew, err := cache.lookupOrCreate(labels.NewLabelsFromModel([]string{"foo"}), identity.InvalidIdentity, false)
 	require.NoError(t, err)
-	require.Equal(t, true, isNew)
+	require.True(t, isNew)
 	// the selected numeric identity must be the one released before
 	require.Equal(t, randomID, id.ID)
 }

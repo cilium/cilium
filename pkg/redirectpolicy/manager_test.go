@@ -364,7 +364,7 @@ func TestManager_AddRedirectPolicy_AddrMatcherDuplicateConfig(t *testing.T) {
 
 	added, err := m.rpm.AddRedirectPolicy(dupConfigFe)
 
-	require.Equal(t, false, added)
+	require.False(t, added)
 	require.Error(t, err)
 }
 
@@ -384,7 +384,7 @@ func TestManager_AddRedirectPolicy_SvcMatcherDuplicateConfig(t *testing.T) {
 
 	added, err := m.rpm.AddRedirectPolicy(invalidConfigSvc)
 
-	require.Equal(t, false, added)
+	require.False(t, added)
 	require.Error(t, err)
 }
 
@@ -406,7 +406,7 @@ func TestManager_AddrMatcherConfigSinglePort(t *testing.T) {
 
 	added, err := m.rpm.AddRedirectPolicy(configAddrType)
 
-	require.Equal(t, true, added)
+	require.True(t, added)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(m.rpm.policyConfigs))
 	require.Equal(t, configAddrType.id.Name, m.rpm.policyConfigs[configAddrType.id].id.Name)
@@ -473,7 +473,7 @@ func TestManager_AddrMatcherConfigSinglePort(t *testing.T) {
 
 	require.Equal(t, 1, len(m.rpm.policyPods))
 	_, found := m.rpm.policyPods[pod3ID]
-	require.Equal(t, false, found)
+	require.False(t, found)
 	require.Equal(t, 2, len(configAddrType.frontendMappings[0].podBackends))
 	for i := range configAddrType.frontendMappings[0].podBackends {
 		require.Equal(t, expectedbes[i], configAddrType.frontendMappings[0].podBackends[i])
@@ -517,7 +517,7 @@ func TestManager_AddrMatcherConfigMultiplePorts(t *testing.T) {
 
 	added, err := m.rpm.AddRedirectPolicy(configAddrType)
 
-	require.Equal(t, true, added)
+	require.True(t, added)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(m.rpm.policyConfigs))
 	require.Equal(t, configAddrType.id.Name, m.rpm.policyConfigs[configAddrType.id].id.Name)
@@ -601,7 +601,7 @@ func TestManager_AddrMatcherConfigDualStack(t *testing.T) {
 
 	added, err := m.rpm.AddRedirectPolicy(configAddrType)
 
-	require.Equal(t, true, added)
+	require.True(t, added)
 	require.NoError(t, err)
 	require.Equal(t, len(expectedbes4), len(configAddrType.frontendMappings[0].podBackends))
 	for i := range configAddrType.frontendMappings[0].podBackends {
@@ -618,7 +618,7 @@ func TestManager_AddrMatcherConfigDualStack(t *testing.T) {
 
 	added, err = m.rpm.AddRedirectPolicy(configAddrType)
 
-	require.Equal(t, true, added)
+	require.True(t, added)
 	require.NoError(t, err)
 	require.Equal(t, len(expectedbes6), len(configAddrType.frontendMappings[0].podBackends))
 
@@ -647,14 +647,14 @@ func TestManager_OnAddandUpdatePod(t *testing.T) {
 	// Namespace mismatched pod not selected.
 	require.Equal(t, 0, len(m.rpm.policyPods))
 	_, found := m.rpm.policyPods[podID]
-	require.Equal(t, false, found)
+	require.False(t, found)
 
 	m.rpm.OnUpdatePod(pod, true, true)
 
 	// Namespace mismatched pod not selected.
 	require.Equal(t, 0, len(m.rpm.policyPods))
 	_, found = m.rpm.policyPods[podID]
-	require.Equal(t, false, found)
+	require.False(t, found)
 }
 
 // Tests policies with skipRedirectFromBackend flag set.
@@ -692,7 +692,7 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 
 	added, err := m.rpm.AddRedirectPolicy(pc)
 
-	require.Equal(t, true, added)
+	require.True(t, added)
 	require.NoError(t, err)
 
 	wg := sync.WaitGroup{}
@@ -787,7 +787,7 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 	// Policy is added.
 	added, err = m.rpm.AddRedirectPolicy(pc)
 
-	require.Equal(t, true, added)
+	require.True(t, added)
 	require.NoError(t, err)
 
 	wg.Wait()
@@ -850,7 +850,7 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 
 	// Policy is added.
 	added, err = m.rpm.AddRedirectPolicy(pc)
-	require.Equal(t, true, added)
+	require.True(t, added)
 	require.NoError(t, err)
 
 	// Pod selected by the policy added.

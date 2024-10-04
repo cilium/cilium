@@ -11,9 +11,9 @@ import (
 )
 
 func TestTagsMatch(t *testing.T) {
-	require.Equal(t, true, Tags{"1": "1", "2": "2"}.Match(Tags{"1": "1"}))
-	require.Equal(t, true, Tags{"1": "1", "2": "2"}.Match(Tags{"2": "2"}))
-	require.Equal(t, false, Tags{"1": "1", "2": "2"}.Match(Tags{"3": "3"}))
+	require.True(t, Tags{"1": "1", "2": "2"}.Match(Tags{"1": "1"}))
+	require.True(t, Tags{"1": "1", "2": "2"}.Match(Tags{"2": "2"}))
+	require.False(t, Tags{"1": "1", "2": "2"}.Match(Tags{"3": "3"}))
 }
 
 type mockInterface struct {
@@ -77,7 +77,7 @@ func TestForeachAddresses(t *testing.T) {
 	addresses := 0
 	m.ForeachAddress("", func(instanceID, interfaceID, ip, poolID string, address Address) error {
 		_, ok := address.(net.IP)
-		require.Equal(t, true, ok)
+		require.True(t, ok)
 		addresses++
 		return nil
 	})
@@ -113,13 +113,13 @@ func TestGetInterface(t *testing.T) {
 	m.Update("i-1", rev)
 
 	_, ok := m.GetInterface("inexistent", "inexistent")
-	require.Equal(t, false, ok)
+	require.False(t, ok)
 	_, ok = m.GetInterface("i-1", "inexistent")
-	require.Equal(t, false, ok)
+	require.False(t, ok)
 	_, ok = m.GetInterface("inexistent", "intf0")
-	require.Equal(t, false, ok)
+	require.False(t, ok)
 	intf, ok := m.GetInterface("i-1", "intf0")
-	require.Equal(t, true, ok)
+	require.True(t, ok)
 
 	require.EqualValues(t, rev, intf)
 }

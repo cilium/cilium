@@ -91,5 +91,5 @@ func (s *KubeProxyHealthzTestSuite) healthTestHelper(t *testing.T, ciliumStatus 
 
 	_, err = time.Parse(layout, payload.CurrentTime)
 	require.NoError(t, err)
-	require.Equal(t, true, lastUpdateTs.Equal(expectedTs))
+	require.True(t, lastUpdateTs.Equal(expectedTs))
 }

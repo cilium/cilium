@@ -33,12 +33,12 @@ func testReplaceNexthopRoute(t *testing.T, link netlink.Link, routerNet *net.IPN
 
 	replaced, err := replaceNexthopRoute(route, link, routerNet)
 	require.NoError(t, err)
-	require.Equal(t, true, replaced)
+	require.True(t, replaced)
 
 	// We expect routes to always be replaced
 	replaced, err = replaceNexthopRoute(route, link, routerNet)
 	require.NoError(t, err)
-	require.Equal(t, true, replaced)
+	require.True(t, replaced)
 
 	err = deleteNexthopRoute(route, link, routerNet)
 	require.NoError(t, err)
@@ -121,12 +121,12 @@ func testReplaceRule(t *testing.T, mark uint32, from, to *net.IPNet, table int) 
 
 	exists, err := lookupRule(rule, netlink.FAMILY_V4)
 	require.NoError(t, err)
-	require.Equal(t, true, exists)
+	require.True(t, exists)
 
 	rule.Mask++
 	exists, err = lookupRule(rule, netlink.FAMILY_V4)
 	require.NoError(t, err)
-	require.Equal(t, false, exists)
+	require.False(t, exists)
 	rule.Mask--
 
 	err = DeleteRule(netlink.FAMILY_V4, rule)
@@ -134,7 +134,7 @@ func testReplaceRule(t *testing.T, mark uint32, from, to *net.IPNet, table int) 
 
 	exists, err = lookupRule(rule, netlink.FAMILY_V4)
 	require.NoError(t, err)
-	require.Equal(t, false, exists)
+	require.False(t, exists)
 }
 
 func testReplaceRuleIPv6(t *testing.T, mark uint32, from, to *net.IPNet, table int) {
@@ -149,14 +149,14 @@ func testReplaceRuleIPv6(t *testing.T, mark uint32, from, to *net.IPNet, table i
 
 	exists, err := lookupRule(rule, netlink.FAMILY_V6)
 	require.NoError(t, err)
-	require.Equal(t, true, exists)
+	require.True(t, exists)
 
 	err = DeleteRule(netlink.FAMILY_V6, rule)
 	require.NoError(t, err)
 
 	exists, err = lookupRule(rule, netlink.FAMILY_V6)
 	require.NoError(t, err)
-	require.Equal(t, false, exists)
+	require.False(t, exists)
 }
 
 func TestReplaceRule(t *testing.T) {

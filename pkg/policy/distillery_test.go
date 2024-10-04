@@ -45,7 +45,7 @@ func TestCacheManagement(t *testing.T) {
 
 	// Nonsense delete of entry that isn't yet inserted
 	deleted := cache.delete(identity)
-	require.Equal(t, false, deleted)
+	require.False(t, deleted)
 
 	// Insert identity twice. Should be the same policy.
 	policy1 := cache.insert(identity)
@@ -57,7 +57,7 @@ func TestCacheManagement(t *testing.T) {
 	cacheCleared := cache.delete(identity)
 	require.True(t, cacheCleared)
 	cacheCleared = cache.delete(identity)
-	require.Equal(t, false, cacheCleared)
+	require.False(t, cacheCleared)
 
 	// Insert two distinct identities, then delete one. Other should still
 	// be there.
@@ -88,7 +88,7 @@ func TestCachePopulation(t *testing.T) {
 	require.True(t, updated)
 	updated, err = cache.updateSelectorPolicy(identity1)
 	require.NoError(t, err)
-	require.Equal(t, false, updated)
+	require.False(t, updated)
 	policy2 := cache.insert(identity1)
 	idp1 := policy1.(*cachedSelectorPolicy).getPolicy()
 	idp2 := policy2.(*cachedSelectorPolicy).getPolicy()
@@ -105,7 +105,7 @@ func TestCachePopulation(t *testing.T) {
 	ep3.SetIdentity(1234, true)
 	_, err = cache.updateSelectorPolicy(ep3.GetSecurityIdentity())
 	require.Error(t, err)
-	require.Equal(t, false, updated)
+	require.False(t, updated)
 
 	// Insert endpoint with different identity and observe that the cache
 	// is different from ep1, ep2

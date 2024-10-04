@@ -26,7 +26,7 @@ func TestAddRemoveEndpoint(t *testing.T) {
 
 	require.Len(t, mgr.state, 1)
 	_, ok := mgr.state[netip.MustParseAddr("ff02::1:ff00:1234")]
-	require.Equal(t, true, ok)
+	require.True(t, ok)
 
 	// Add another endpoint that shares the same maddr
 	mgr.AddAddress(netip.MustParseAddr("f00d:aabb::1234"))
@@ -38,14 +38,14 @@ func TestAddRemoveEndpoint(t *testing.T) {
 
 	require.Len(t, mgr.state, 1)
 	_, ok = mgr.state[netip.MustParseAddr("ff02::1:ff00:1234")]
-	require.Equal(t, true, ok)
+	require.True(t, ok)
 
 	// Remove the second endpoint
 	mgr.RemoveAddress(netip.MustParseAddr("f00d:aabb::1234"))
 
 	require.Len(t, mgr.state, 0)
 	_, ok = mgr.state[netip.MustParseAddr("ff02::1:ff00:1234")]
-	require.Equal(t, false, ok)
+	require.False(t, ok)
 }
 
 func TestAddRemoveNil(t *testing.T) {

@@ -349,7 +349,7 @@ func Test_getNodesHandle(t *testing.T) {
 		require.EqualValues(t, len(want.clients), len(h.clients))
 		for k, v := range h.clients {
 			wantClient, ok := want.clients[k]
-			require.Equal(t, true, ok)
+			require.True(t, ok)
 			require.EqualValues(t, wantClient.ClusterNodeStatus, v.ClusterNodeStatus)
 		}
 		require.EqualValues(t, middleware.Responder(want.responder), responder)

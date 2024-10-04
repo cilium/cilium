@@ -469,7 +469,7 @@ func TestWaitForPolicyRevision(t *testing.T) {
 	// shouldn't get a timeout when waiting for policy revision already reached
 	require.NoError(t, ctx.Err())
 	// Should see a callback when waiting for a policy revision already reached
-	require.Equal(t, true, cbRan)
+	require.True(t, cbRan)
 
 	cancel()
 
@@ -482,7 +482,7 @@ func TestWaitForPolicyRevision(t *testing.T) {
 	// shouldn't get a timeout when waiting for policy revision already reached
 	require.NoError(t, ctx.Err())
 	// Should see a callback because the channel returned
-	require.Equal(t, true, cbRan)
+	require.True(t, cbRan)
 
 	cancel()
 
@@ -496,7 +496,7 @@ func TestWaitForPolicyRevision(t *testing.T) {
 	// context was prematurely closed on purpose the error should be nil
 	require.Equal(t, context.Canceled, ctx.Err())
 	// Should not see a callback when we don't close the channel
-	require.Equal(t, false, cbRan)
+	require.False(t, cbRan)
 
 	e.setPolicyRevision(3)
 
@@ -521,7 +521,7 @@ func TestWaitForPolicyRevision(t *testing.T) {
 		t.Fatalf("channel should have been closed since the endpoint is in disconnected state")
 	}
 	// Should see a callback because the channel was closed
-	require.Equal(t, true, cbRan)
+	require.True(t, cbRan)
 
 	// Number of policy revision signals should be 0
 	require.Equal(t, 0, len(e.policyRevisionSignals))
@@ -538,7 +538,7 @@ func TestWaitForPolicyRevision(t *testing.T) {
 		t.Fatalf("channel should have been closed since all policy signals were closed")
 	}
 	// Should see a callback because the channel was closed
-	require.Equal(t, true, cbRan)
+	require.True(t, cbRan)
 	cancel()
 
 	// Number of policy revision signals should be 0
@@ -558,7 +558,7 @@ func TestProxyID(t *testing.T) {
 
 	endpointID, ingress, protocol, port, listener, err := policy.ParseProxyID(id)
 	require.Equal(t, uint16(123), endpointID)
-	require.Equal(t, true, ingress)
+	require.True(t, ingress)
 	require.Equal(t, "TCP", protocol)
 	require.Equal(t, uint16(8080), port)
 	require.Equal(t, "", listener)
@@ -570,7 +570,7 @@ func TestProxyID(t *testing.T) {
 	require.Equal(t, u8proto.TCP, proto)
 	endpointID, ingress, protocol, port, listener, err = policy.ParseProxyID(id)
 	require.Equal(t, uint16(123), endpointID)
-	require.Equal(t, true, ingress)
+	require.True(t, ingress)
 	require.Equal(t, "TCP", protocol)
 	require.Equal(t, uint16(8080), port)
 	require.Equal(t, "test-listener", listener)
@@ -647,10 +647,10 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 
 func TestK8sPodNameIsSet(t *testing.T) {
 	e := Endpoint{}
-	require.Equal(t, false, e.K8sNamespaceAndPodNameIsSet())
+	require.False(t, e.K8sNamespaceAndPodNameIsSet())
 	e.K8sPodName = "foo"
 	e.K8sNamespace = "default"
-	require.Equal(t, true, e.K8sNamespaceAndPodNameIsSet())
+	require.True(t, e.K8sNamespaceAndPodNameIsSet())
 }
 
 type EndpointDeadlockEvent struct {

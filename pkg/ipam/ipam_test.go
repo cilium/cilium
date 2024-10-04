@@ -214,7 +214,7 @@ func TestIPAMMetadata(t *testing.T) {
 	resIPv4, err := ipam.AllocateIPWithoutSyncUpstream(specialIP, "special/wants-special-ip", "special")
 	require.NoError(t, err)
 	require.Equal(t, Pool("special"), resIPv4.IPPoolName)
-	require.Equal(t, true, resIPv4.IP.Equal(specialIP))
+	require.True(t, resIPv4.IP.Equal(specialIP))
 
 	// Checks ReleaseIP
 	err = ipam.ReleaseIP(specialIP, "")

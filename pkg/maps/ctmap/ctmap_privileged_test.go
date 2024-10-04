@@ -82,7 +82,7 @@ func Benchmark_MapUpdate(b *testing.B) {
 		LastRxReport:     15856,
 	}
 
-	require.Equal(b, true, b.N < 0xFFFF*0xFFFF)
+	require.True(b, b.N < 0xFFFF*0xFFFF)
 	for i := 0; i < b.N; i++ {
 		key.DestPort = uint16(i % 0xFFFF)
 		key.SourcePort = uint16(i / 0xFFFF)

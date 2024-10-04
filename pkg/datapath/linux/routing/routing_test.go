@@ -241,7 +241,7 @@ func createDummyDevice(t *testing.T, macAddr mac.MAC) func() {
 	require.NoError(t, err)
 
 	found := linkExistsWithMAC(t, macAddr)
-	require.Equal(t, true, found)
+	require.True(t, found)
 
 	return func() {
 		require.NoError(t, netlink.LinkDel(dummy))

@@ -238,8 +238,8 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonEtcdSuite {
 }
 
 func TestMinimumWorkerThreadsIsSet(t *testing.T) {
-	require.Equal(t, true, numWorkerThreads() >= 2)
-	require.Equal(t, true, numWorkerThreads() >= runtime.NumCPU())
+	require.True(t, numWorkerThreads() >= 2)
+	require.True(t, numWorkerThreads() >= runtime.NumCPU())
 }
 
 func (ds *DaemonSuite) GetPolicyRepository() *policy.Repository {

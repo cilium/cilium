@@ -456,7 +456,7 @@ func TestLocalObserverServer_GetFlows_Follow_Since(t *testing.T) {
 
 			assert.NoError(t, response.GetTime().CheckValid())
 			ts := response.GetTime().AsTime()
-			assert.True(t, !ts.Before(since), "flow had invalid timestamp. ts=%s, since=%s", ts, since)
+			assert.False(t, ts.Before(since), "flow had invalid timestamp. ts=%s, since=%s", ts, since)
 
 			// start producing flows once we have seen the most recent one.
 			// Most recently produced flow has timestamp (numFlows/2)-1, but is

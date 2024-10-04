@@ -59,7 +59,7 @@ func TestRevertStackError(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to execute revert function; skipping 1 revert functions: 2nd function failed")
 
-	require.Equal(t, firstFuncCalled, false)
-	require.Equal(t, secondFuncCalled, true)
-	require.Equal(t, thirdFuncCalled, true)
+	require.False(t, firstFuncCalled)
+	require.True(t, secondFuncCalled)
+	require.True(t, thirdFuncCalled)
 }

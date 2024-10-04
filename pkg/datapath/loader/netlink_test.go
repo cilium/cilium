@@ -332,8 +332,8 @@ func TestAddHostDeviceAddr(t *testing.T) {
 				foundIPv6 = true
 			}
 		}
-		require.Equal(t, foundIPv4, true)
-		require.Equal(t, foundIPv6, true)
+		require.True(t, foundIPv4)
+		require.True(t, foundIPv6)
 
 		err = netlink.LinkDel(dummy)
 		require.NoError(t, err)

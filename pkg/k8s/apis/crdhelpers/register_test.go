@@ -180,31 +180,31 @@ func TestCreateUpdateCRD(t *testing.T) {
 func TestNeedsUpdateNoValidation(t *testing.T) {
 	v1CRD := getV1TestCRD()
 	v1CRD.Spec.Versions[0].Schema = nil
-	require.Equal(t, true, needsUpdateV1(v1CRD, labelKey, minVersion))
+	require.True(t, needsUpdateV1(v1CRD, labelKey, minVersion))
 }
 
 func TestNeedsUpdateNoLabels(t *testing.T) {
 	v1CRD := getV1TestCRD()
 	v1CRD.Labels = nil
-	require.Equal(t, true, needsUpdateV1(v1CRD, labelKey, minVersion))
+	require.True(t, needsUpdateV1(v1CRD, labelKey, minVersion))
 }
 
 func TestNeedsUpdateNoVersionLabel(t *testing.T) {
 	v1CRD := getV1TestCRD()
 	v1CRD.Labels = map[string]string{"test": "test"}
-	require.Equal(t, true, needsUpdateV1(v1CRD, labelKey, minVersion))
+	require.True(t, needsUpdateV1(v1CRD, labelKey, minVersion))
 }
 
 func TestNeedsUpdateOlderVersion(t *testing.T) {
 	v1CRD := getV1TestCRD()
 	v1CRD.Labels[k8sconst.CustomResourceDefinitionSchemaVersionKey] = "0.9"
-	require.Equal(t, true, needsUpdateV1(v1CRD, labelKey, minVersion))
+	require.True(t, needsUpdateV1(v1CRD, labelKey, minVersion))
 }
 
 func TestNeedsUpdateCorruptedVersion(t *testing.T) {
 	v1CRD := getV1TestCRD()
 	v1CRD.Labels[k8sconst.CustomResourceDefinitionSchemaVersionKey] = "totally-not-semver"
-	require.Equal(t, true, needsUpdateV1(v1CRD, labelKey, minVersion))
+	require.True(t, needsUpdateV1(v1CRD, labelKey, minVersion))
 }
 
 func TestFQDNNameRegex(t *testing.T) {
@@ -242,23 +242,23 @@ func TestFQDNNameRegex(t *testing.T) {
 	}
 
 	for _, f := range badFqdns {
-		require.Equal(t, false, nameRegex.MatchString(f), f)
-		require.Equal(t, false, patternRegex.MatchString(f), f)
+		require.False(t, nameRegex.MatchString(f), f)
+		require.False(t, patternRegex.MatchString(f), f)
 	}
 
 	for _, f := range goodFqdns {
-		require.Equal(t, true, nameRegex.MatchString(f), f)
-		require.Equal(t, true, patternRegex.MatchString(f), f)
+		require.True(t, nameRegex.MatchString(f), f)
+		require.True(t, patternRegex.MatchString(f), f)
 	}
 
 	for _, f := range badFqdnPatterns {
-		require.Equal(t, false, nameRegex.MatchString(f), f)
-		require.Equal(t, false, patternRegex.MatchString(f), f)
+		require.False(t, nameRegex.MatchString(f), f)
+		require.False(t, patternRegex.MatchString(f), f)
 	}
 
 	for _, f := range goodFqdnPatterns {
-		require.Equal(t, false, nameRegex.MatchString(f), f)
-		require.Equal(t, true, patternRegex.MatchString(f), f)
+		require.False(t, nameRegex.MatchString(f), f)
+		require.True(t, patternRegex.MatchString(f), f)
 	}
 }
 

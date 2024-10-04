@@ -16,20 +16,20 @@ func TestNeedsDelay(t *testing.T) {
 	tr := &Trigger{params: Parameters{}}
 
 	needsDelay, _ := tr.needsDelay()
-	require.Equal(t, false, needsDelay)
+	require.False(t, needsDelay)
 
 	tr.params.MinInterval = time.Second
 
 	tr.lastTrigger = time.Now().Add(time.Second * -2)
 	needsDelay, _ = tr.needsDelay()
-	require.Equal(t, false, needsDelay)
+	require.False(t, needsDelay)
 
 	tr.lastTrigger = time.Now().Add(time.Millisecond * -900)
 	needsDelay, _ = tr.needsDelay()
-	require.Equal(t, true, needsDelay)
+	require.True(t, needsDelay)
 	time.Sleep(time.Millisecond * 200)
 	needsDelay, _ = tr.needsDelay()
-	require.Equal(t, false, needsDelay)
+	require.False(t, needsDelay)
 }
 
 func TestMinInterval(t *testing.T) {

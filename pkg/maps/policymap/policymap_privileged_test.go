@@ -71,7 +71,7 @@ func TestDeleteNonexistentKey(t *testing.T) {
 	err := testMap.Map.Delete(&key)
 	require.Error(t, err)
 	var errno unix.Errno
-	require.Equal(t, true, errors.As(err, &errno))
+	require.True(t, errors.As(err, &errno))
 	require.Equal(t, unix.ENOENT, errno)
 }
 

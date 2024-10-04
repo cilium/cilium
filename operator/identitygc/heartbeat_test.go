@@ -16,22 +16,22 @@ func TestIdentityHeartbeatStore(t *testing.T) {
 	// mark lifesign to now, identity must be alive, run GC, identity
 	// should still exist
 	store.markAlive("foo", time.Now())
-	require.Equal(t, true, store.isAlive("foo"))
+	require.True(t, store.isAlive("foo"))
 	store.gc()
-	require.Equal(t, true, store.isAlive("foo"))
+	require.True(t, store.isAlive("foo"))
 
 	// mark lifesign in the past, identity should not be alive anymore
 	store.markAlive("foo", time.Now().Add(-time.Minute))
-	require.Equal(t, false, store.isAlive("foo"))
+	require.False(t, store.isAlive("foo"))
 
 	// mark lifesign way in the past, run GC, validate that identity is no
 	// longer tracked
 	store.markAlive("foo", time.Now().Add(-24*time.Hour))
-	require.Equal(t, false, store.isAlive("foo"))
+	require.False(t, store.isAlive("foo"))
 	store.gc()
 	store.mutex.RLock()
 	_, ok := store.lastLifesign["foo"]
-	require.Equal(t, false, ok)
+	require.False(t, ok)
 	store.mutex.RUnlock()
 
 	// mark lifesign to now and validate deletion
@@ -39,15 +39,15 @@ func TestIdentityHeartbeatStore(t *testing.T) {
 	store.mutex.RLock()
 	_, ok = store.lastLifesign["foo"]
 	store.mutex.RUnlock()
-	require.Equal(t, true, ok)
+	require.True(t, ok)
 	store.delete("foo")
 	store.mutex.RLock()
 	_, ok = store.lastLifesign["foo"]
 	store.mutex.RUnlock()
-	require.Equal(t, false, ok)
+	require.False(t, ok)
 
 	// identity foo now doesn't exist, simulate start time of operator way
 	// in the past to check if an old, stale identity will be deleted
 	store.firstRun = time.Now().Add(-24 * time.Hour)
-	require.Equal(t, false, store.isAlive("foo"))
+	require.False(t, store.isAlive("foo"))
 }

@@ -95,9 +95,9 @@ func TestPolicyPortProtoSet(t *testing.T) {
 		PortProto{Port: 443, Proto: 6}: 1,
 		PortProto{Port: 53, Proto: 6}:  1,
 	}
-	require.Equal(t, true, a.Equal(a))
-	require.Equal(t, false, a.Equal(b))
-	require.Equal(t, true, b.Equal(b))
+	require.True(t, a.Equal(a))
+	require.False(t, a.Equal(b))
+	require.True(t, b.Equal(b))
 }
 
 func TestPolicyNamedPortMultiMap(t *testing.T) {
@@ -195,11 +195,11 @@ func TestPolicyNamedPortMultiMapUpdate(t *testing.T) {
 
 	// Insert http=80/TCP from pod1
 	changed := npm.Update(pod1PortsOld, pod1PortsNew)
-	require.Equal(t, true, changed)
+	require.True(t, changed)
 
 	// No changes
 	changed = npm.Update(pod1PortsNew, pod1PortsNew)
-	require.Equal(t, false, changed)
+	require.False(t, changed)
 
 	// Assert http=80/TCP
 	port, err := npm.GetNamedPort("http", u8proto.TCP)
@@ -213,7 +213,7 @@ func TestPolicyNamedPortMultiMapUpdate(t *testing.T) {
 
 	// Insert http=8080/UDP from pod2, retain http=80/TCP from pod1
 	changed = npm.Update(pod2PortsOld, pod2PortsNew)
-	require.Equal(t, true, changed)
+	require.True(t, changed)
 
 	port, err = npm.GetNamedPort("http", u8proto.TCP)
 	require.NoError(t, err)
@@ -228,7 +228,7 @@ func TestPolicyNamedPortMultiMapUpdate(t *testing.T) {
 
 	// Delete http=80/TCP from pod1
 	changed = npm.Update(pod1PortsOld, pod1PortsNew)
-	require.Equal(t, true, changed)
+	require.True(t, changed)
 
 	port, err = npm.GetNamedPort("http", u8proto.UDP)
 	require.NoError(t, err)

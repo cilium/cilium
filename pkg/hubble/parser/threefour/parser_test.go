@@ -893,11 +893,11 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, uint32(localEP), f.GetSource().GetID())
 
 	ep, ok := endpointGetter.GetEndpointInfo(localIP)
-	assert.Equal(t, true, ok)
+	assert.True(t, ok)
 	lbls, rev, ok := ep.GetRealizedPolicyRuleLabelsForKey(
 		policy.KeyForDirection(directionFromProto(f.GetTrafficDirection())).
 			WithIdentity(identity.NumericIdentity(f.GetDestination().GetIdentity())))
-	assert.Equal(t, true, ok)
+	assert.True(t, ok)
 	assert.Equal(t, lbls, policyLabel)
 	assert.Equal(t, uint64(1), rev)
 
@@ -943,8 +943,8 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f := parseFlow(tn, localIP, remoteIP)
 	assert.NotNil(t, f.GetIsReply())
-	assert.Equal(t, true, f.GetIsReply().GetValue())
-	assert.Equal(t, true, f.GetReply())
+	assert.True(t, f.GetIsReply().GetValue())
+	assert.True(t, f.GetReply())
 
 	// TRACE_FROM_LXC
 	tn = monitor.TraceNotifyV0{
@@ -954,7 +954,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 
 	// TRACE_FROM_LXC encrypted
 	tn = monitor.TraceNotifyV0{
@@ -964,7 +964,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 
 	// TRACE_TO_STACK srv6-decap
 	tn = monitor.TraceNotifyV0{
@@ -975,7 +975,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(tn, remoteIP, localIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 
 	// TRACE_TO_STACK srv6-decap (encrypted)
 	tn = monitor.TraceNotifyV0{
@@ -986,7 +986,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(tn, remoteIP, localIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 
 	// TRACE_TO_STACK srv6-encap
 	tn = monitor.TraceNotifyV0{
@@ -997,7 +997,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 
 	// TRACE_TO_STACK srv6-encap (encrypted)
 	tn = monitor.TraceNotifyV0{
@@ -1008,7 +1008,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 
 	// TRACE_TO_STACK Encrypted Overlay
 	tn = monitor.TraceNotifyV0{
@@ -1019,7 +1019,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 
 	// PolicyVerdictNotify forward statically assumes is_reply=false
 	pvn := monitor.PolicyVerdictNotify{
@@ -1028,8 +1028,8 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(pvn, localIP, remoteIP)
 	assert.NotNil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetIsReply().GetValue())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetIsReply().GetValue())
+	assert.False(t, f.GetReply())
 
 	// PolicyVerdictNotify drop statically assumes is_reply=unknown
 	pvn = monitor.PolicyVerdictNotify{
@@ -1038,7 +1038,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(pvn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 
 	// DropNotify statically assumes is_reply=unknown
 	dn := monitor.DropNotify{
@@ -1046,7 +1046,7 @@ func TestDecodeIsReply(t *testing.T) {
 	}
 	f = parseFlow(dn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
-	assert.Equal(t, false, f.GetReply())
+	assert.False(t, f.GetReply())
 }
 
 func Test_filterCIDRLabels(t *testing.T) {

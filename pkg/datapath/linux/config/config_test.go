@@ -241,11 +241,11 @@ func TestWriteStaticData(t *testing.T) {
 				break
 			}
 		}
-		require.Equal(t, true, bytes.Contains(b, []byte(k)))
+		require.True(t, bytes.Contains(b, []byte(k)))
 	}
 	for _, v := range mapSub {
 		t.Logf("Ensuring config has %s", v)
-		require.Equal(t, true, bytes.Contains(b, []byte(v)))
+		require.True(t, bytes.Contains(b, []byte(v)))
 	}
 }
 

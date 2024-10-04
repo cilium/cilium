@@ -264,7 +264,7 @@ func BenchmarkRemoveIDs(b *testing.B) {
 
 	b.ResetTimer()
 	for i := minID; i <= maxID; i++ {
-		require.Equal(b, true, p.Remove(ID(i)))
+		require.True(b, p.Remove(ID(i)))
 	}
 }
 
@@ -275,7 +275,7 @@ func BenchmarkLeaseIDs(b *testing.B) {
 	b.ResetTimer()
 	for i := 1; i <= b.N; i++ {
 		id := p.LeaseAvailableID()
-		require.Equal(b, true, p.Release(ID(id)))
+		require.True(b, p.Release(ID(id)))
 	}
 }
 
@@ -286,11 +286,11 @@ func BenchmarkUseAndRelease(b *testing.B) {
 	b.ResetTimer()
 	for i := 1; i <= b.N; i++ {
 		id := p.LeaseAvailableID()
-		require.Equal(b, true, p.Use(ID(id)))
+		require.True(b, p.Use(ID(id)))
 	}
 
 	for i := 1; i <= b.N; i++ {
-		require.Equal(b, true, p.Insert(ID(i)))
+		require.True(b, p.Insert(ID(i)))
 	}
 }
 

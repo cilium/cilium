@@ -454,7 +454,7 @@ var L4Policy2 = &policy.L4Policy{
 func TestGetHTTPRule(t *testing.T) {
 	obtained, canShortCircuit := getHTTPRule(nil, PortRuleHTTP1, "")
 	require.Equal(t, ExpectedHeaders1, obtained.Headers)
-	require.Equal(t, true, canShortCircuit)
+	require.True(t, canShortCircuit)
 }
 
 func Test_getWildcardNetworkPolicyRule(t *testing.T) {
@@ -485,15 +485,15 @@ func TestGetPortNetworkPolicyRule(t *testing.T) {
 	version := versioned.Latest()
 	obtained, canShortCircuit := getPortNetworkPolicyRule(version, cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12, false)
 	require.Equal(t, ExpectedPortNetworkPolicyRule12, obtained)
-	require.Equal(t, true, canShortCircuit)
+	require.True(t, canShortCircuit)
 
 	obtained, canShortCircuit = getPortNetworkPolicyRule(version, cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12HeaderMatch, false)
 	require.Equal(t, ExpectedPortNetworkPolicyRule122HeaderMatch, obtained)
-	require.Equal(t, false, canShortCircuit)
+	require.False(t, canShortCircuit)
 
 	obtained, canShortCircuit = getPortNetworkPolicyRule(version, cachedSelector2, cachedSelector2.IsWildcard(), policy.ParserTypeHTTP, L7Rules1, false)
 	require.Equal(t, ExpectedPortNetworkPolicyRule1, obtained)
-	require.Equal(t, true, canShortCircuit)
+	require.True(t, canShortCircuit)
 }
 
 func TestGetDirectionNetworkPolicy(t *testing.T) {

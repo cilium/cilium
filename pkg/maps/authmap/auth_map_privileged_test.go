@@ -39,7 +39,7 @@ func TestAuthMap(t *testing.T) {
 	}
 
 	_, err = authMap.Lookup(testKey)
-	require.Equal(t, true, errors.Is(err, ebpf.ErrKeyNotExist))
+	require.True(t, errors.Is(err, ebpf.ErrKeyNotExist))
 
 	err = authMap.Update(testKey, 10)
 	require.NoError(t, err)
@@ -59,5 +59,5 @@ func TestAuthMap(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = authMap.Lookup(testKey)
-	require.Equal(t, true, errors.Is(err, ebpf.ErrKeyNotExist))
+	require.True(t, errors.Is(err, ebpf.ErrKeyNotExist))
 }

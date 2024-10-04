@@ -97,10 +97,10 @@ func TestAnchoredMatchPatternMatching(t *testing.T) {
 		re, err := regexp.Compile(reStr)
 		require.NoError(t, err, "Regexp generated from pattern is not valid")
 		for _, accept := range testCase.accept {
-			require.Equal(t, true, re.MatchString(accept), "Regexp generated from pattern %s/%s rejected a correct DNS name %s", testCase.pattern, re, accept)
+			require.True(t, re.MatchString(accept), "Regexp generated from pattern %s/%s rejected a correct DNS name %s", testCase.pattern, re, accept)
 		}
 		for _, reject := range testCase.reject {
-			require.Equal(t, false, re.MatchString(reject), "Regexp generated from pattern %s/%s accepted a bad DNS name %s", testCase.pattern, re, reject)
+			require.False(t, re.MatchString(reject), "Regexp generated from pattern %s/%s accepted a bad DNS name %s", testCase.pattern, re, reject)
 		}
 	}
 }

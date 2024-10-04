@@ -585,8 +585,8 @@ func TestGetMountInfo(t *testing.T) {
 func TestIsMountFS(t *testing.T) {
 	mounted, matched, err := IsMountFS(unix.PROC_SUPER_MAGIC, "/proc")
 	require.NoError(t, err)
-	require.Equal(t, true, mounted)
-	require.Equal(t, true, matched)
+	require.True(t, mounted)
+	require.True(t, matched)
 
 	mounted, matched, err = IsMountFS(FilesystemTypeBPFFS, "/sys/fs/bpf")
 	require.NoError(t, err)
@@ -594,6 +594,6 @@ func TestIsMountFS(t *testing.T) {
 	// if it is mounted. IOW, if /sys/fs/bpf is a mount point,
 	// we expect it to be bpffs.
 	if mounted {
-		require.Equal(t, true, matched)
+		require.True(t, matched)
 	}
 }

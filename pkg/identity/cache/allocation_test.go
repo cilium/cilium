@@ -51,7 +51,7 @@ func testAllocateIdentityReserved(t *testing.T) {
 	mgr := NewCachingIdentityAllocator(newDummyOwner())
 	<-mgr.InitIdentityAllocator(nil)
 
-	require.Equal(t, true, identity.IdentityAllocationIsLocal(lbls))
+	require.True(t, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityHost, i.ID)
@@ -60,13 +60,13 @@ func testAllocateIdentityReserved(t *testing.T) {
 	lbls = labels.Labels{
 		labels.IDNameWorld: labels.NewLabel(labels.IDNameWorld, "", labels.LabelSourceReserved),
 	}
-	require.Equal(t, true, identity.IdentityAllocationIsLocal(lbls))
+	require.True(t, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityWorld, i.ID)
 	require.False(t, isNew)
 
-	require.Equal(t, true, identity.IdentityAllocationIsLocal(labels.LabelHealth))
+	require.True(t, identity.IdentityAllocationIsLocal(labels.LabelHealth))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), labels.LabelHealth, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityHealth, i.ID)
@@ -75,7 +75,7 @@ func testAllocateIdentityReserved(t *testing.T) {
 	lbls = labels.Labels{
 		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
 	}
-	require.Equal(t, true, identity.IdentityAllocationIsLocal(lbls))
+	require.True(t, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityInit, i.ID)
@@ -84,7 +84,7 @@ func testAllocateIdentityReserved(t *testing.T) {
 	lbls = labels.Labels{
 		labels.IDNameUnmanaged: labels.NewLabel(labels.IDNameUnmanaged, "", labels.LabelSourceReserved),
 	}
-	require.Equal(t, true, identity.IdentityAllocationIsLocal(lbls))
+	require.True(t, identity.IdentityAllocationIsLocal(lbls))
 	i, isNew, err = mgr.AllocateIdentity(context.Background(), lbls, false, identity.InvalidIdentity)
 	require.NoError(t, err)
 	require.Equal(t, identity.ReservedIdentityUnmanaged, i.ID)
@@ -229,7 +229,7 @@ func testGetIdentityCache(t *testing.T) {
 
 	cache := mgr.GetIdentityCache()
 	_, ok := cache[identity.ReservedCiliumKVStore]
-	require.Equal(t, true, ok)
+	require.True(t, ok)
 }
 
 func TestAllocator(t *testing.T) {
@@ -254,7 +254,7 @@ func testAllocator(t *testing.T) {
 	id1a, isNew, err := mgr.AllocateIdentity(context.Background(), lbls1, false, identity.InvalidIdentity)
 	require.NotNil(t, id1a)
 	require.NoError(t, err)
-	require.Equal(t, true, isNew)
+	require.True(t, isNew)
 	// Wait for the update event from the KV-store
 	require.NotEqual(t, 0, owner.WaitUntilID(id1a.ID))
 	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id1a.ID))
@@ -271,7 +271,7 @@ func testAllocator(t *testing.T) {
 	require.False(t, released)
 	released, err = mgr.Release(context.Background(), id1b, false)
 	require.NoError(t, err)
-	require.Equal(t, true, released)
+	require.True(t, released)
 	// KV-store still keeps the ID even when a single node has released it.
 	// This also means that we should have not received an event from the
 	// KV-store for the deletion of the identity, so it should still be in
@@ -294,7 +294,7 @@ func testAllocator(t *testing.T) {
 
 	id2, isNew, err := mgr.AllocateIdentity(context.Background(), lbls2, false, identity.InvalidIdentity)
 	require.NotNil(t, id2)
-	require.Equal(t, true, isNew)
+	require.True(t, isNew)
 	require.NoError(t, err)
 	require.NotEqual(t, id2.ID, id1a.ID)
 	// Wait for the update event from the KV-store
@@ -303,7 +303,7 @@ func testAllocator(t *testing.T) {
 
 	id3, isNew, err := mgr.AllocateIdentity(context.Background(), lbls3, false, identity.InvalidIdentity)
 	require.NotNil(t, id3)
-	require.Equal(t, true, isNew)
+	require.True(t, isNew)
 	require.NoError(t, err)
 	require.NotEqual(t, id3.ID, id1a.ID)
 	require.NotEqual(t, id3.ID, id2.ID)
@@ -313,13 +313,13 @@ func testAllocator(t *testing.T) {
 
 	released, err = mgr.Release(context.Background(), id1b, false)
 	require.NoError(t, err)
-	require.Equal(t, true, released)
+	require.True(t, released)
 	released, err = mgr.Release(context.Background(), id2, false)
 	require.NoError(t, err)
-	require.Equal(t, true, released)
+	require.True(t, released)
 	released, err = mgr.Release(context.Background(), id3, false)
 	require.NoError(t, err)
-	require.Equal(t, true, released)
+	require.True(t, released)
 
 	mgr.IdentityAllocator.DeleteAllKeys()
 	require.NotEqual(t, 0, owner.WaitUntilID(id3.ID))
@@ -345,8 +345,8 @@ func testLocalAllocation(t *testing.T) {
 	id, isNew, err := mgr.AllocateIdentity(context.Background(), lbls1, true, identity.InvalidIdentity)
 	require.NotNil(t, id)
 	require.NoError(t, err)
-	require.Equal(t, true, isNew)
-	require.Equal(t, true, id.ID.HasLocalScope())
+	require.True(t, isNew)
+	require.True(t, id.ID.HasLocalScope())
 	// Wait for the update event from the KV-store
 	require.NotEqual(t, 0, owner.WaitUntilID(id.ID))
 	require.EqualValues(t, lbls1.LabelArray(), owner.GetIdentity(id.ID))
@@ -371,7 +371,7 @@ func testLocalAllocation(t *testing.T) {
 	// 2nd Release, released
 	released, err = mgr.Release(context.Background(), id, true)
 	require.NoError(t, err)
-	require.Equal(t, true, released)
+	require.True(t, released)
 
 	// Wait until the identity is released
 	require.NotEqual(t, 0, owner.WaitUntilID(id.ID))
@@ -384,12 +384,12 @@ func testLocalAllocation(t *testing.T) {
 	id, isNew, err = mgr.AllocateIdentity(context.Background(), lbls1, true, identity.InvalidIdentity)
 	require.NotNil(t, id)
 	require.NoError(t, err)
-	require.Equal(t, true, isNew)
-	require.Equal(t, true, id.ID.HasLocalScope())
+	require.True(t, isNew)
+	require.True(t, id.ID.HasLocalScope())
 
 	released, err = mgr.Release(context.Background(), id, true)
 	require.NoError(t, err)
-	require.Equal(t, true, released)
+	require.True(t, released)
 
 	mgr.IdentityAllocator.DeleteAllKeys()
 	require.NotEqual(t, 0, owner.WaitUntilID(id.ID))
@@ -412,7 +412,7 @@ func testAllocatorReset(t *testing.T) {
 		require.NoError(t, err)
 
 		queued, ok := <-owner.updated
-		require.Equal(t, true, ok)
+		require.True(t, ok)
 		require.Equal(t, id1a.ID, queued)
 	}
 

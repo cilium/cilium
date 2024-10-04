@@ -127,7 +127,7 @@ func TestGetUniqueServiceFrontends(t *testing.T) {
 
 		// Validate protocol mismatch on exact match
 		frontend = loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster2, 20, scope)
-		require.Equal(t, false, frontends.LooseMatch(*frontend))
+		require.False(t, frontends.LooseMatch(*frontend))
 
 		// Validate protocol wildcard matching
 		// These should match only for external scope
@@ -255,7 +255,7 @@ func testServiceCache(t *testing.T,
 	}, 2*time.Second))
 
 	endpoints, ready := svcCache.correlateEndpoints(svcID)
-	require.Equal(t, true, ready)
+	require.True(t, ready)
 	require.Equal(t, "2.2.2.2:8080/TCP", endpoints.String())
 
 	// Updating the service without chaning it should not result in an event
@@ -324,7 +324,7 @@ func testServiceCache(t *testing.T,
 	}, 2*time.Second))
 
 	endpoints, serviceReady := svcCache.correlateEndpoints(svcID)
-	require.Equal(t, false, serviceReady)
+	require.False(t, serviceReady)
 	require.Equal(t, "", endpoints.String())
 
 	// Reinserting the endpoints should re-match with the still existing service
@@ -338,7 +338,7 @@ func testServiceCache(t *testing.T,
 	}, 2*time.Second))
 
 	endpoints, serviceReady = svcCache.correlateEndpoints(svcID)
-	require.Equal(t, true, serviceReady)
+	require.True(t, serviceReady)
 	require.Equal(t, "2.2.2.2:8080/TCP", endpoints.String())
 
 	// Deleting the service will result in a service delete event
@@ -879,9 +879,9 @@ func TestExternalServiceDeletion(t *testing.T) {
 
 	svcCache.MergeExternalServiceDelete(&clsvc, swg)
 	_, ok := svcCache.services[id1]
-	require.Equal(t, false, ok)
+	require.False(t, ok)
 	_, ok = svcCache.externalEndpoints[id1]
-	require.Equal(t, false, ok)
+	require.False(t, ok)
 
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
@@ -897,11 +897,11 @@ func TestExternalServiceDeletion(t *testing.T) {
 
 	svcCache.MergeExternalServiceDelete(&clsvc, swg)
 	_, ok = svcCache.services[id1]
-	require.Equal(t, true, ok)
+	require.True(t, ok)
 	_, ok = svcCache.externalEndpoints[id1]
-	require.Equal(t, true, ok)
+	require.True(t, ok)
 	_, ok = svcCache.externalEndpoints[id1].endpoints[cluster]
-	require.Equal(t, false, ok)
+	require.False(t, ok)
 
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
@@ -917,9 +917,9 @@ func TestExternalServiceDeletion(t *testing.T) {
 
 	svcCache.MergeExternalServiceDelete(&clsvc, swg)
 	_, ok = svcCache.services[id2]
-	require.Equal(t, false, ok)
+	require.False(t, ok)
 	_, ok = svcCache.externalEndpoints[id2]
-	require.Equal(t, false, ok)
+	require.False(t, ok)
 
 	require.NoError(t, testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
@@ -1186,7 +1186,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	default:
 	}
 	endpoints, ready := svcCache.correlateEndpoints(svcID)
-	require.Equal(t, true, ready)
+	require.True(t, ready)
 	require.Equal(t, "2.2.2.2:8080/TCP,2.2.2.3:8080/TCP", endpoints.String())
 
 	// Updating the service without changing it should not result in an event
@@ -1229,7 +1229,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	}, 2*time.Second))
 
 	endpoints, ready = svcCache.correlateEndpoints(svcID)
-	require.Equal(t, true, ready)
+	require.True(t, ready)
 	require.Equal(t, "2.2.2.2:8080/TCP", endpoints.String())
 
 	svcCache.DeleteEndpoints(k8sEndpointSlice1.EndpointSliceID, swgEps)
@@ -1242,7 +1242,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	}, 2*time.Second))
 
 	endpoints, serviceReady := svcCache.correlateEndpoints(svcID)
-	require.Equal(t, false, serviceReady)
+	require.False(t, serviceReady)
 	require.Equal(t, "", endpoints.String())
 
 	// Reinserting the endpoints should re-match with the still existing service
@@ -1256,7 +1256,7 @@ func TestServiceCacheWith2EndpointSlice(t *testing.T) {
 	}, 2*time.Second))
 
 	endpoints, serviceReady = svcCache.correlateEndpoints(svcID)
-	require.Equal(t, true, serviceReady)
+	require.True(t, serviceReady)
 	require.Equal(t, "2.2.2.2:8080/TCP", endpoints.String())
 
 	// Deleting the service will result in a service delete event
@@ -1404,7 +1404,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	default:
 	}
 	endpoints, ready := svcCache.correlateEndpoints(svcID)
-	require.Equal(t, true, ready)
+	require.True(t, ready)
 	require.Equal(t, "2.2.2.2:8080/TCP,2.2.2.2:8081/TCP", endpoints.String())
 
 	// Updating the service without changing it should not result in an event
@@ -1447,7 +1447,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	}, 2*time.Second))
 
 	endpoints, ready = svcCache.correlateEndpoints(svcID)
-	require.Equal(t, true, ready)
+	require.True(t, ready)
 	require.Equal(t, "2.2.2.2:8080/TCP", endpoints.String())
 
 	svcCache.DeleteEndpoints(k8sEndpointSlice1.EndpointSliceID, swgEps)
@@ -1460,7 +1460,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	}, 2*time.Second))
 
 	endpoints, serviceReady := svcCache.correlateEndpoints(svcID)
-	require.Equal(t, false, serviceReady)
+	require.False(t, serviceReady)
 	require.Equal(t, "", endpoints.String())
 
 	// Reinserting the endpoints should re-match with the still existing service
@@ -1474,7 +1474,7 @@ func TestServiceCacheWith2EndpointSliceSameAddress(t *testing.T) {
 	}, 2*time.Second))
 
 	endpoints, serviceReady = svcCache.correlateEndpoints(svcID)
-	require.Equal(t, true, serviceReady)
+	require.True(t, serviceReady)
 	require.Equal(t, "2.2.2.2:8080/TCP", endpoints.String())
 
 	// Deleting the service will result in a service delete event
@@ -1576,7 +1576,7 @@ func TestServiceEndpointFiltering(t *testing.T) {
 		require.Equal(t, svcID0, event.ID)
 		require.Equal(t, 1, len(event.Endpoints.Backends))
 		_, found := event.Endpoints.Backends[cmtypes.MustParseAddrCluster("10.0.0.2")]
-		require.Equal(t, true, found)
+		require.True(t, found)
 		return true
 	}, 2*time.Second))
 
@@ -1599,7 +1599,7 @@ func TestServiceEndpointFiltering(t *testing.T) {
 		require.Equal(t, svcID0, event.ID)
 		require.Equal(t, 1, len(event.Endpoints.Backends))
 		_, found := event.Endpoints.Backends[cmtypes.MustParseAddrCluster("10.0.0.1")]
-		require.Equal(t, true, found)
+		require.True(t, found)
 		return true
 	}, 2*time.Second))
 
