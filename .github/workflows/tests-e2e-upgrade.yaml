@@ -98,7 +98,7 @@ jobs:
       job_name: 'Setup & Test'
     strategy:
       fail-fast: false
-      max-parallel: 22
+      max-parallel: 23
       matrix:
         include:
           - name: '1'
