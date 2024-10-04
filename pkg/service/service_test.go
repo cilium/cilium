@@ -56,7 +56,7 @@ func TestLocalRedirectServiceExistsError(t *testing.T) {
 		lb.ServiceName{Namespace: "default", Name: name1},
 	)
 	assert.Equal(t, err1, err2)
-	assert.True(t, errors.Is(err1, err2))
+	assert.ErrorIs(t, err1, err2)
 
 	// same frontend, different name
 	err1 = NewErrLocalRedirectServiceExists(
@@ -68,7 +68,7 @@ func TestLocalRedirectServiceExistsError(t *testing.T) {
 		lb.ServiceName{Namespace: "default", Name: name2},
 	)
 	assert.NotEqual(t, err1, err2)
-	assert.False(t, errors.Is(err1, err2))
+	assert.NotErrorIs(t, err1, err2)
 
 	// different frontend, same name
 	err1 = NewErrLocalRedirectServiceExists(
@@ -80,7 +80,7 @@ func TestLocalRedirectServiceExistsError(t *testing.T) {
 		lb.ServiceName{Namespace: "default", Name: name1},
 	)
 	assert.NotEqual(t, err1, err2)
-	assert.False(t, errors.Is(err1, err2))
+	assert.NotErrorIs(t, err1, err2)
 
 	// different frontend, different name
 	err1 = NewErrLocalRedirectServiceExists(
@@ -92,7 +92,7 @@ func TestLocalRedirectServiceExistsError(t *testing.T) {
 		lb.ServiceName{Namespace: "default", Name: name2},
 	)
 	assert.NotEqual(t, err1, err2)
-	assert.False(t, errors.Is(err1, err2))
+	assert.NotErrorIs(t, err1, err2)
 
 	// different error types
 	err1 = NewErrLocalRedirectServiceExists(
@@ -101,7 +101,7 @@ func TestLocalRedirectServiceExistsError(t *testing.T) {
 	)
 	err2 = errors.New("another error")
 	assert.NotEqual(t, err1, err2)
-	assert.False(t, errors.Is(err1, err2))
+	assert.NotErrorIs(t, err1, err2)
 
 	// different error types
 	err1 = errors.New("another error")
@@ -110,7 +110,7 @@ func TestLocalRedirectServiceExistsError(t *testing.T) {
 		lb.ServiceName{Namespace: "default", Name: name1},
 	)
 	assert.NotEqual(t, err1, err2)
-	assert.False(t, errors.Is(err1, err2))
+	assert.NotErrorIs(t, err1, err2)
 
 	// an error is nil
 	err1 = NewErrLocalRedirectServiceExists(
@@ -119,7 +119,7 @@ func TestLocalRedirectServiceExistsError(t *testing.T) {
 	)
 	err2 = nil
 	assert.NotEqual(t, err1, err2)
-	assert.False(t, errors.Is(err1, err2))
+	assert.NotErrorIs(t, err1, err2)
 
 	// an error is nil
 	err1 = nil
@@ -128,7 +128,7 @@ func TestLocalRedirectServiceExistsError(t *testing.T) {
 		lb.ServiceName{Namespace: "default", Name: name1},
 	)
 	assert.NotEqual(t, err1, err2)
-	assert.False(t, errors.Is(err1, err2))
+	assert.NotErrorIs(t, err1, err2)
 
 	// We don't match against strings. It must be the sentinel value.
 	err1 = NewErrLocalRedirectServiceExists(
@@ -137,7 +137,7 @@ func TestLocalRedirectServiceExistsError(t *testing.T) {
 	)
 	err2 = errors.New(err1.Error())
 	assert.NotEqual(t, err1, err2)
-	assert.False(t, errors.Is(err1, err2))
+	assert.NotErrorIs(t, err1, err2)
 }
 
 type ManagerTestSuite struct {

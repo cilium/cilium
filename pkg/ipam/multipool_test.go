@@ -127,7 +127,7 @@ func Test_MultiPoolManager(t *testing.T) {
 
 	// cannot allocate the same IP twice
 	faultyAllocation, err := c.allocateIP(net.ParseIP("10.0.22.1"), "default-pod-1", "default", IPv4, false)
-	assert.Error(t, err, ipallocator.ErrAllocated)
+	assert.ErrorIs(t, err, ipallocator.ErrAllocated)
 	assert.Nil(t, faultyAllocation)
 
 	// Allocation from an unknown pool should create a new pending allocation

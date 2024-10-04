@@ -6,7 +6,6 @@ package ipcache
 import (
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -88,7 +87,7 @@ func TestIPCache(t *testing.T) {
 		ID:     identity,
 		Source: source.Kubernetes,
 	})
-	require.True(t, errors.Is(err, &ErrOverwrite{NewSrc: source.Kubernetes}))
+	require.ErrorIs(t, err, &ErrOverwrite{NewSrc: source.Kubernetes})
 
 	IPIdentityCache.Upsert(endpointIP, nil, 0, nil, Identity{
 		ID:     identity,

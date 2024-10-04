@@ -4,7 +4,6 @@
 package policymap
 
 import (
-	"errors"
 	"os"
 	"testing"
 
@@ -71,7 +70,7 @@ func TestDeleteNonexistentKey(t *testing.T) {
 	err := testMap.Map.Delete(&key)
 	require.Error(t, err)
 	var errno unix.Errno
-	require.True(t, errors.As(err, &errno))
+	require.ErrorAs(t, err, &errno)
 	require.Equal(t, unix.ENOENT, errno)
 }
 
