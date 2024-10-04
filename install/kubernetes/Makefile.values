@@ -51,8 +51,8 @@ export CILIUM_NODEINIT_DIGEST:=sha256:8d7b41c4ca45860254b3c19e20210462ef89479bb6
 
 # renovate: datasource=docker
 export CILIUM_ENVOY_REPO:=quay.io/cilium/cilium-envoy
-export CILIUM_ENVOY_VERSION:=v1.29.9-1727272937-c0c0c5f38d338b330d891b304ab5ed6c6d7bcec4
-export CILIUM_ENVOY_DIGEST:=sha256:05dbef5b5f425ff11373bb84a36995fe567cc4b0a94ecfbb4e25b0eae49d3cd0
+export CILIUM_ENVOY_VERSION:=v1.29.9-1727997080-b094128ed01b784b63ada19b54f8c7fdc3042e6e
+export CILIUM_ENVOY_DIGEST:=sha256:c5bc10dd1312d4b646566a9ecfd1611027868cf95294804fa05b51c0c75739f3
 
 # renovate: datasource=docker
 export ETCD_REPO:=quay.io/coreos/etcd
