@@ -17,7 +17,7 @@ import (
 
 func TestIngressRequiresDerivativeRuleWithoutToGroups(t *testing.T) {
 	ig := IngressRule{}
-	require.Equal(t, false, ig.RequiresDerivative())
+	require.False(t, ig.RequiresDerivative())
 }
 
 func TestRequiresDerivativeRuleWithFromGroups(t *testing.T) {
@@ -25,7 +25,7 @@ func TestRequiresDerivativeRuleWithFromGroups(t *testing.T) {
 	ig.FromGroups = []Groups{
 		GetGroupsRule(),
 	}
-	require.Equal(t, true, ig.RequiresDerivative())
+	require.True(t, ig.RequiresDerivative())
 }
 
 func TestCreateDerivativeRuleWithoutFromGroups(t *testing.T) {
@@ -59,7 +59,7 @@ func TestCreateDerivativeRuleWithFromGroups(t *testing.T) {
 	}
 
 	// Checking that the derivative rule is working correctly
-	require.Equal(t, true, ig.RequiresDerivative())
+	require.True(t, ig.RequiresDerivative())
 
 	newRule, err := ig.CreateDerivative(context.TODO())
 	require.NoError(t, err)

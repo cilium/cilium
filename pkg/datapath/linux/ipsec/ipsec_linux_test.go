@@ -51,7 +51,7 @@ func TestLoadKeysNoFile(t *testing.T) {
 	log := setupIPSecSuitePrivileged(t)
 
 	_, _, err := LoadIPSecKeysFile(log, path)
-	require.Equal(t, true, os.IsNotExist(err))
+	require.True(t, os.IsNotExist(err))
 }
 
 func TestInvalidLoadKeys(t *testing.T) {

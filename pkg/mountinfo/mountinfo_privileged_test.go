@@ -26,8 +26,8 @@ func TestIsMountFSbyMount(t *testing.T) {
 
 	mounted, matched, err := IsMountFS(unix.TMPFS_MAGIC, tmpDir)
 	require.NoError(t, err)
-	require.Equal(t, false, mounted)
-	require.Equal(t, false, matched)
+	require.False(t, mounted)
+	require.False(t, matched)
 
 	err = unix.Mount("tmpfs", tmpDir, "tmpfs", 0, "")
 	require.NoError(t, err)
@@ -36,12 +36,12 @@ func TestIsMountFSbyMount(t *testing.T) {
 	// deliberately check with wrong fstype
 	mounted, matched, err = IsMountFS(unix.PROC_SUPER_MAGIC, tmpDir)
 	require.NoError(t, err)
-	require.Equal(t, true, mounted)
-	require.Equal(t, false, matched)
+	require.True(t, mounted)
+	require.False(t, matched)
 
 	// now check with proper fstype
 	mounted, matched, err = IsMountFS(unix.TMPFS_MAGIC, tmpDir)
 	require.NoError(t, err)
-	require.Equal(t, true, mounted)
-	require.Equal(t, true, matched)
+	require.True(t, mounted)
+	require.True(t, matched)
 }

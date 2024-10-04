@@ -995,7 +995,7 @@ func TestMissingNodeLabelsUpdate(t *testing.T) {
 	mgr.startNodeLabelsObserver(nil)
 	mgr.localNodeStore.Update(func(ln *node.LocalNode) { ln.Labels = map[string]string{"k1": "v1"} })
 	_, ok := mgr.endpoints[hostEPID]
-	require.EqualValues(t, ok, false)
+	require.False(t, ok)
 
 	// Create host endpoint and expose it in the endpoint manager.
 	ep := endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
@@ -1007,7 +1007,7 @@ func TestMissingNodeLabelsUpdate(t *testing.T) {
 	// labels {k1=v1} are not present in the endpoint manager's state.
 	mgr.localNodeStore.Update(func(ln *node.LocalNode) { ln.Labels = map[string]string{"k2": "v2"} })
 	hostEP, ok := mgr.endpoints[hostEPID]
-	require.EqualValues(t, ok, true)
+	require.True(t, ok)
 	got := hostEP.OpLabels.IdentityLabels().K8sStringMap()
 	require.EqualValues(t, map[string]string{"k2": "v2"}, got)
 }
@@ -1123,7 +1123,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 		mgr.localNodeStore.Update(func(ln *node.LocalNode) { ln.Labels = args.newLabels })
 
 		hostEP, ok := mgr.endpoints[hostEPID]
-		require.EqualValues(t, ok, true)
+		require.True(t, ok)
 		got := hostEP.OpLabels.IdentityLabels().K8sStringMap()
 		want.labelsCheck(t, want.labels, got, "Test Name: %s", tt.name)
 		tt.postTestRun()

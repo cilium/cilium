@@ -17,7 +17,7 @@ import (
 
 func TestRequiresDerivativeRuleWithoutToGroups(t *testing.T) {
 	eg := EgressRule{}
-	require.Equal(t, false, eg.RequiresDerivative())
+	require.False(t, eg.RequiresDerivative())
 }
 
 func TestRequiresDerivativeRuleWithToGroups(t *testing.T) {
@@ -25,7 +25,7 @@ func TestRequiresDerivativeRuleWithToGroups(t *testing.T) {
 	eg.ToGroups = []Groups{
 		GetGroupsRule(),
 	}
-	require.Equal(t, true, eg.RequiresDerivative())
+	require.True(t, eg.RequiresDerivative())
 }
 
 func TestCreateDerivativeRuleWithoutToGroups(t *testing.T) {
@@ -76,7 +76,7 @@ func TestCreateDerivativeRuleWithToGroupsAndToPorts(t *testing.T) {
 	}
 
 	// Checking that the derivative rule is working correctly
-	require.Equal(t, true, eg.RequiresDerivative())
+	require.True(t, eg.RequiresDerivative())
 
 	newRule, err := eg.CreateDerivative(context.TODO())
 	require.NoError(t, err)
@@ -99,7 +99,7 @@ func TestCreateDerivativeWithoutErrorAndNoIPs(t *testing.T) {
 	}
 
 	// Checking that the derivative rule is working correctly
-	require.Equal(t, true, eg.RequiresDerivative())
+	require.True(t, eg.RequiresDerivative())
 
 	newRule, err := eg.CreateDerivative(context.TODO())
 	require.NoError(t, err)

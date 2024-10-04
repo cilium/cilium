@@ -30,7 +30,7 @@ func TestGroupOps(t *testing.T) {
 	// maddr in group
 	inGroup, err := IsInGroup(ifc.Attrs().Name, maddr)
 	require.NoError(t, err)
-	require.Equal(t, true, inGroup)
+	require.True(t, inGroup)
 
 	// LeaveGroup
 	err = LeaveGroup(ifc.Attrs().Name, maddr)
@@ -39,7 +39,7 @@ func TestGroupOps(t *testing.T) {
 	// maddr not in group
 	inGroup, err = IsInGroup(ifc.Attrs().Name, maddr)
 	require.NoError(t, err)
-	require.Equal(t, false, inGroup)
+	require.False(t, inGroup)
 }
 
 func TestSolicitedNodeMaddr(t *testing.T) {

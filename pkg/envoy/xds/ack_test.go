@@ -198,34 +198,34 @@ func TestUpsertMultipleNodes(t *testing.T) {
 	callback, comp := newCompCallback()
 	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0, node1}, wg, callback)
 	require.Condition(t, isNotCompletedComparison(comp))
-	require.Equal(t, false, acker.currentVersionAcked([]string{node0}))
-	require.Equal(t, false, acker.currentVersionAcked([]string{node1}))
-	require.Equal(t, false, acker.currentVersionAcked([]string{node2}))
+	require.False(t, acker.currentVersionAcked([]string{node0}))
+	require.False(t, acker.currentVersionAcked([]string{node1}))
+	require.False(t, acker.currentVersionAcked([]string{node2}))
 
 	// Ack the right version, for the right resource, from another node.
 	acker.HandleResourceVersionAck(2, 2, node2, []string{resources[0].Name}, typeURL, "")
 	require.Condition(t, isNotCompletedComparison(comp))
-	require.Equal(t, false, acker.currentVersionAcked([]string{node0}))
-	require.Equal(t, false, acker.currentVersionAcked([]string{node1}))
-	require.Equal(t, true, acker.currentVersionAcked([]string{node2}))
+	require.False(t, acker.currentVersionAcked([]string{node0}))
+	require.False(t, acker.currentVersionAcked([]string{node1}))
+	require.True(t, acker.currentVersionAcked([]string{node2}))
 
 	// Ack the right version, for the right resource, from one of the nodes (node0).
 	// One of the nodes (node1) still needs to ACK.
 	acker.HandleResourceVersionAck(2, 2, node0, []string{resources[0].Name}, typeURL, "")
 	require.Condition(t, isNotCompletedComparison(comp))
-	require.Equal(t, true, acker.currentVersionAcked([]string{node0}))
-	require.Equal(t, false, acker.currentVersionAcked([]string{node1}))
-	require.Equal(t, true, acker.currentVersionAcked([]string{node2}))
-	require.Equal(t, false, acker.currentVersionAcked([]string{node0, node1}))
-	require.Equal(t, true, acker.currentVersionAcked([]string{node0, node2}))
+	require.True(t, acker.currentVersionAcked([]string{node0}))
+	require.False(t, acker.currentVersionAcked([]string{node1}))
+	require.True(t, acker.currentVersionAcked([]string{node2}))
+	require.False(t, acker.currentVersionAcked([]string{node0, node1}))
+	require.True(t, acker.currentVersionAcked([]string{node0, node2}))
 
 	// Ack the right version, for the right resource, from the last remaining node (node1).
 	acker.HandleResourceVersionAck(2, 2, node1, []string{resources[0].Name}, typeURL, "")
 	require.Condition(t, completedComparison(comp))
-	require.Equal(t, true, acker.currentVersionAcked([]string{node0}))
-	require.Equal(t, true, acker.currentVersionAcked([]string{node1}))
-	require.Equal(t, true, acker.currentVersionAcked([]string{node2}))
-	require.Equal(t, true, acker.currentVersionAcked([]string{node0, node1, node2}))
+	require.True(t, acker.currentVersionAcked([]string{node0}))
+	require.True(t, acker.currentVersionAcked([]string{node1}))
+	require.True(t, acker.currentVersionAcked([]string{node2}))
+	require.True(t, acker.currentVersionAcked([]string{node0, node1, node2}))
 }
 
 func TestUpsertMoreRecentVersion(t *testing.T) {

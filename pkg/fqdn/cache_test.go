@@ -1106,7 +1106,7 @@ func TestOverlimitPreferNewerEntries(t *testing.T) {
 	affected := cache.GC(time.Now(), zombies)
 
 	require.Equal(t, 1, affected.Len())
-	require.Equal(t, true, affected.Has(name))
+	require.True(t, affected.Has(name))
 
 	// No entries have expired, but no more than toFQDNsMaxIPsPerHost can be
 	// kept in the cache.

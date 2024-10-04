@@ -259,7 +259,7 @@ func TestReconcileNoop(t *testing.T) {
 	// ces1 contains cep1 and cep3, but it's mapped to nothing so it should be deleted
 	r.reconcileCES(CESName("ces1"))
 
-	assert.Equal(t, true, noRequest)
+	assert.True(t, noRequest)
 
 	hive.Stop(tlog, context.Background())
 }

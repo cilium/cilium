@@ -339,7 +339,7 @@ func TestCESManagement(t *testing.T) {
 		return exists == true
 	}, time.Second); err != nil {
 		_, exists, _ := r.cesStore.GetByKey(NewCESKey(key.Name, "").key())
-		assert.Equal(t, true, exists)
+		assert.True(t, exists)
 	}
 
 	cesController.fastQueue.ShutDown()

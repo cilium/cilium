@@ -470,7 +470,7 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	if s.enableIPv4 {
 		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
 		require.NoError(t, err)
-		require.Equal(t, true, underlayIP.Equal(externalNodeIP1))
+		require.True(t, underlayIP.Equal(externalNodeIP1))
 
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
 		require.NoError(t, err)
@@ -480,7 +480,7 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	if s.enableIPv6 {
 		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
 		require.NoError(t, err)
-		require.Equal(t, true, underlayIP.Equal(externalNodeIP1))
+		require.True(t, underlayIP.Equal(externalNodeIP1))
 
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
 		require.NoError(t, err)
@@ -510,7 +510,7 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	if s.enableIPv4 {
 		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
 		require.NoError(t, err)
-		require.Equal(t, true, underlayIP.Equal(externalNodeIP2))
+		require.True(t, underlayIP.Equal(externalNodeIP2))
 
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
 		require.NoError(t, err)
@@ -520,7 +520,7 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 	if s.enableIPv6 {
 		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
 		require.NoError(t, err)
-		require.Equal(t, true, underlayIP.Equal(externalNodeIP2))
+		require.True(t, underlayIP.Equal(externalNodeIP2))
 
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
 		require.NoError(t, err)
@@ -557,7 +557,7 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 		// alloc range v2 should map to underlay1
 		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
 		require.NoError(t, err)
-		require.Equal(t, true, underlayIP.Equal(externalNodeIP1))
+		require.True(t, underlayIP.Equal(externalNodeIP1))
 
 		// node routes for alloc1 ranges should be gone
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc1, false)
@@ -574,7 +574,7 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 		// alloc range v2 should map to underlay1
 		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
 		require.NoError(t, err)
-		require.Equal(t, true, underlayIP.Equal(externalNodeIP1))
+		require.True(t, underlayIP.Equal(externalNodeIP1))
 
 		// node routes for alloc1 ranges should be gone
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc1, false)
@@ -642,7 +642,7 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 		// alloc range v2 should map to underlay1
 		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
 		require.NoError(t, err)
-		require.Equal(t, true, underlayIP.Equal(externalNodeIP1))
+		require.True(t, underlayIP.Equal(externalNodeIP1))
 
 		// node routes for alloc2 ranges should have been installed
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip4Alloc2, false)
@@ -654,7 +654,7 @@ func (s *linuxPrivilegedBaseTestSuite) commonNodeUpdateEncapsulation(t *testing.
 		// alloc range v2 should map to underlay1
 		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
 		require.NoError(t, err)
-		require.Equal(t, true, underlayIP.Equal(externalNodeIP1))
+		require.True(t, underlayIP.Equal(externalNodeIP1))
 
 		// node routes for alloc2 ranges should have been installed
 		foundRoute, err := linuxNodeHandler.lookupNodeRoute(ip6Alloc2, false)
@@ -1371,11 +1371,11 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeValidationDirectRouting(t *testin
 	require.NoError(t, err)
 
 	if s.enableIPv4 {
-		require.Equal(t, true, lookupFakeRoute(t, linuxNodeHandler, ip4Alloc1))
+		require.True(t, lookupFakeRoute(t, linuxNodeHandler, ip4Alloc1))
 	}
 
 	if s.enableIPv6 {
-		require.Equal(t, true, lookupFakeRoute(t, linuxNodeHandler, ip6Alloc1))
+		require.True(t, lookupFakeRoute(t, linuxNodeHandler, ip6Alloc1))
 	}
 }
 
@@ -1677,7 +1677,7 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 			return false
 		}, 60*time.Second, 200*time.Millisecond)
 		require.NoError(t, err)
-		require.Equal(t, true, found)
+		require.True(t, found)
 	}
 
 	// Cleanup
@@ -2345,7 +2345,7 @@ func TestArpPingHandlingForMultiDeviceIPv6(t *testing.T) {
 				found = true
 			}
 		}
-		require.Equal(t, false, found)
+		require.False(t, found)
 
 		time.Sleep(1 * time.Second)
 	}
@@ -2705,7 +2705,7 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 			return false
 		}, 60*time.Second, 200*time.Millisecond)
 		require.NoError(t, err)
-		require.Equal(t, true, found)
+		require.True(t, found)
 	}
 
 	// Cleanup
@@ -3369,7 +3369,7 @@ func TestArpPingHandlingForMultiDeviceIPv4(t *testing.T) {
 				found = true
 			}
 		}
-		require.Equal(t, false, found)
+		require.False(t, found)
 
 		time.Sleep(1 * time.Second)
 	}

@@ -99,19 +99,19 @@ func TestRequiresDerivative(t *testing.T) {
 	setUpSuite(t)
 
 	egressWithoutToGroups := Rule{}
-	require.Equal(t, false, egressWithoutToGroups.RequiresDerivative())
+	require.False(t, egressWithoutToGroups.RequiresDerivative())
 
 	egressRuleWithToGroups := getEgressRuleWithToGroups()
-	require.Equal(t, true, egressRuleWithToGroups.RequiresDerivative())
+	require.True(t, egressRuleWithToGroups.RequiresDerivative())
 
 	egressDenyRuleWithToGroups := getEgressDenyRuleWithToGroups()
-	require.Equal(t, true, egressDenyRuleWithToGroups.RequiresDerivative())
+	require.True(t, egressDenyRuleWithToGroups.RequiresDerivative())
 
 	ingressRuleWithToGroups := getIngressRuleWithFromGroups()
-	require.Equal(t, true, ingressRuleWithToGroups.RequiresDerivative())
+	require.True(t, ingressRuleWithToGroups.RequiresDerivative())
 
 	ingressDenyRuleWithToGroups := getIngressDenyRuleWithFromGroups()
-	require.Equal(t, true, ingressDenyRuleWithToGroups.RequiresDerivative())
+	require.True(t, ingressDenyRuleWithToGroups.RequiresDerivative())
 }
 
 func TestCreateDerivative(t *testing.T) {

@@ -24,17 +24,17 @@ func TestHTTPEqual(t *testing.T) {
 	rule2 := PortRuleHTTP{Path: "/bar$", Method: "GET", Headers: []string{"X-Test: Foo"}}
 	rule3 := PortRuleHTTP{Path: "/foo$", Method: "GET", Headers: []string{"X-Test: Bar"}}
 
-	require.Equal(t, true, rule1.Equal(rule1))
-	require.Equal(t, false, rule1.Equal(rule2))
-	require.Equal(t, false, rule1.Equal(rule3))
+	require.True(t, rule1.Equal(rule1))
+	require.False(t, rule1.Equal(rule2))
+	require.False(t, rule1.Equal(rule3))
 
 	rules := L7Rules{
 		HTTP: []PortRuleHTTP{rule1, rule2},
 	}
 
-	require.Equal(t, true, rule1.Exists(rules))
-	require.Equal(t, true, rule2.Exists(rules))
-	require.Equal(t, false, rule3.Exists(rules))
+	require.True(t, rule1.Exists(rules))
+	require.True(t, rule2.Exists(rules))
+	require.False(t, rule3.Exists(rules))
 }
 
 func TestKafkaEqual(t *testing.T) {
@@ -48,9 +48,9 @@ func TestKafkaEqual(t *testing.T) {
 		Kafka: []kafka.PortRule{rule1, rule2},
 	}
 
-	require.Equal(t, true, rule1.Exists(rules.Kafka))
-	require.Equal(t, true, rule2.Exists(rules.Kafka))
-	require.Equal(t, false, rule3.Exists(rules.Kafka))
+	require.True(t, rule1.Exists(rules.Kafka))
+	require.True(t, rule2.Exists(rules.Kafka))
+	require.False(t, rule3.Exists(rules.Kafka))
 }
 
 func TestL7Equal(t *testing.T) {
@@ -60,24 +60,24 @@ func TestL7Equal(t *testing.T) {
 	rule2 := PortRuleL7{"Path": "/bar$", "Method": "GET"}
 	rule3 := PortRuleL7{"Path": "/foo$", "Method": "GET", "extra": ""}
 
-	require.Equal(t, true, rule1.Equal(rule1))
-	require.Equal(t, true, rule2.Equal(rule2))
-	require.Equal(t, true, rule3.Equal(rule3))
-	require.Equal(t, false, rule1.Equal(rule2))
-	require.Equal(t, false, rule2.Equal(rule1))
-	require.Equal(t, false, rule1.Equal(rule3))
-	require.Equal(t, false, rule3.Equal(rule1))
-	require.Equal(t, false, rule2.Equal(rule3))
-	require.Equal(t, false, rule3.Equal(rule2))
+	require.True(t, rule1.Equal(rule1))
+	require.True(t, rule2.Equal(rule2))
+	require.True(t, rule3.Equal(rule3))
+	require.False(t, rule1.Equal(rule2))
+	require.False(t, rule2.Equal(rule1))
+	require.False(t, rule1.Equal(rule3))
+	require.False(t, rule3.Equal(rule1))
+	require.False(t, rule2.Equal(rule3))
+	require.False(t, rule3.Equal(rule2))
 
 	rules := L7Rules{
 		L7Proto: "testing",
 		L7:      []PortRuleL7{rule1, rule2},
 	}
 
-	require.Equal(t, true, rule1.Exists(rules))
-	require.Equal(t, true, rule2.Exists(rules))
-	require.Equal(t, false, rule3.Exists(rules))
+	require.True(t, rule1.Exists(rules))
+	require.True(t, rule2.Exists(rules))
+	require.False(t, rule3.Exists(rules))
 }
 
 func TestValidateL4Proto(t *testing.T) {
@@ -115,101 +115,101 @@ func TestResourceQualifiedName(t *testing.T) {
 	// Empty resource name is passed through
 	name, updated := ResourceQualifiedName("", "", "")
 	require.Equal(t, "", name)
-	require.Equal(t, false, updated)
+	require.False(t, updated)
 
 	name, updated = ResourceQualifiedName("a", "", "")
 	require.Equal(t, "", name)
-	require.Equal(t, false, updated)
+	require.False(t, updated)
 
 	name, updated = ResourceQualifiedName("", "b", "")
 	require.Equal(t, "", name)
-	require.Equal(t, false, updated)
+	require.False(t, updated)
 
 	name, updated = ResourceQualifiedName("", "", "", ForceNamespace)
 	require.Equal(t, "", name)
-	require.Equal(t, false, updated)
+	require.False(t, updated)
 
 	name, updated = ResourceQualifiedName("a", "", "", ForceNamespace)
 	require.Equal(t, "", name)
-	require.Equal(t, false, updated)
+	require.False(t, updated)
 
 	name, updated = ResourceQualifiedName("", "b", "", ForceNamespace)
 	require.Equal(t, "", name)
-	require.Equal(t, false, updated)
+	require.False(t, updated)
 
 	// Cluster-scope resources have no namespace
 	name, updated = ResourceQualifiedName("", "", "test-resource")
 	require.Equal(t, "//test-resource", name)
-	require.Equal(t, true, updated)
+	require.True(t, updated)
 
 	// Every resource has a name of a CEC they originate from
 	name, updated = ResourceQualifiedName("", "test-name", "test-resource")
 	require.Equal(t, "/test-name/test-resource", name)
-	require.Equal(t, true, updated)
+	require.True(t, updated)
 
 	// namespaced resources have a namespace
 	name, updated = ResourceQualifiedName("test-namespace", "", "test-resource")
 	require.Equal(t, "test-namespace//test-resource", name)
-	require.Equal(t, true, updated)
+	require.True(t, updated)
 
 	name, updated = ResourceQualifiedName("test-namespace", "test-name", "test-resource")
 	require.Equal(t, "test-namespace/test-name/test-resource", name)
-	require.Equal(t, true, updated)
+	require.True(t, updated)
 
 	// resource names with slashes is considered to already be qualified, and will not be prepended with namespace/cec-name
 	name, updated = ResourceQualifiedName("test-namespace", "test-name", "test/resource")
 	require.Equal(t, "test/resource", name)
-	require.Equal(t, false, updated)
+	require.False(t, updated)
 
 	name, updated = ResourceQualifiedName("test-namespace", "test-name", "/resource")
 	require.Equal(t, "/resource", name)
-	require.Equal(t, false, updated)
+	require.False(t, updated)
 
 	name, updated = ResourceQualifiedName("", "test-name", "test/resource")
 	require.Equal(t, "test/resource", name)
-	require.Equal(t, false, updated)
+	require.False(t, updated)
 
 	name, updated = ResourceQualifiedName("", "test-name", "/resource")
 	require.Equal(t, "/resource", name)
-	require.Equal(t, false, updated)
+	require.False(t, updated)
 
 	// forceNamespacing has no effect when the resource name is non-qualified
 	name, updated = ResourceQualifiedName("", "", "test-resource", ForceNamespace)
 	require.Equal(t, "//test-resource", name)
-	require.Equal(t, true, updated)
+	require.True(t, updated)
 
 	name, updated = ResourceQualifiedName("", "test-name", "test-resource", ForceNamespace)
 	require.Equal(t, "/test-name/test-resource", name)
-	require.Equal(t, true, updated)
+	require.True(t, updated)
 
 	name, updated = ResourceQualifiedName("test-namespace", "", "test-resource", ForceNamespace)
 	require.Equal(t, "test-namespace//test-resource", name)
-	require.Equal(t, true, updated)
+	require.True(t, updated)
 
 	name, updated = ResourceQualifiedName("test-namespace", "test-name", "test-resource", ForceNamespace)
 	require.Equal(t, "test-namespace/test-name/test-resource", name)
-	require.Equal(t, true, updated)
+	require.True(t, updated)
 
 	// forceNamespacing qualifies names in foreign namespaces
 	name, updated = ResourceQualifiedName("test-namespace", "test-name", "test/resource", ForceNamespace)
 	require.Equal(t, "test-namespace/test-name/test/resource", name)
-	require.Equal(t, true, updated)
+	require.True(t, updated)
 
 	name, updated = ResourceQualifiedName("test-namespace", "test-name", "/resource", ForceNamespace)
 	require.Equal(t, "test-namespace/test-name//resource", name)
-	require.Equal(t, true, updated)
+	require.True(t, updated)
 
 	name, updated = ResourceQualifiedName("", "test-name", "test/resource", ForceNamespace)
 	require.Equal(t, "/test-name/test/resource", name)
-	require.Equal(t, true, updated)
+	require.True(t, updated)
 
 	// forceNamespacing skips prepending if namespace matches
 	name, updated = ResourceQualifiedName("test-namespace", "test-name", "test-namespace/resource", ForceNamespace)
 	require.Equal(t, "test-namespace/resource", name)
-	require.Equal(t, false, updated)
+	require.False(t, updated)
 	name, updated = ResourceQualifiedName("", "test-name", "/resource", ForceNamespace)
 	require.Equal(t, "/resource", name)
-	require.Equal(t, false, updated)
+	require.False(t, updated)
 }
 
 func TestParseQualifiedName(t *testing.T) {

@@ -75,10 +75,10 @@ func (e MapStateEntry) WithDependents(keys ...Key) MapStateEntry {
 func TestPolicyKeyTrafficDirection(t *testing.T) {
 	k := IngressKey()
 	require.True(t, k.IsIngress())
-	require.Equal(t, false, k.IsEgress())
+	require.False(t, k.IsEgress())
 
 	k = EgressKey()
-	require.Equal(t, false, k.IsIngress())
+	require.False(t, k.IsIngress())
 	require.True(t, k.IsEgress())
 }
 

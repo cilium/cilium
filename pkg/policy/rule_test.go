@@ -1922,7 +1922,7 @@ func TestEgressL4AllowAll(t *testing.T) {
 	filter := l4EgressPolicy.ExactLookup("80", 0, "TCP")
 	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
-	require.Equal(t, false, filter.Ingress)
+	require.False(t, filter.Ingress)
 
 	require.Equal(t, 1, len(filter.PerSelectorPolicies))
 	require.Nil(t, filter.PerSelectorPolicies[td.wildcardCachedSelector])
@@ -1980,7 +1980,7 @@ func TestEgressL4AllowWorld(t *testing.T) {
 	filter := l4EgressPolicy.ExactLookup("80", 0, "TCP")
 	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
-	require.Equal(t, false, filter.Ingress)
+	require.False(t, filter.Ingress)
 
 	require.Equal(t, 3, len(filter.PerSelectorPolicies))
 	l4EgressPolicy.Detach(repo.GetSelectorCache())
@@ -2037,7 +2037,7 @@ func TestEgressL4AllowAllEntity(t *testing.T) {
 	filter := l4EgressPolicy.ExactLookup("80", 0, "TCP")
 	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
-	require.Equal(t, false, filter.Ingress)
+	require.False(t, filter.Ingress)
 
 	require.Equal(t, 1, len(filter.PerSelectorPolicies))
 	l4EgressPolicy.Detach(repo.GetSelectorCache())
@@ -2645,7 +2645,7 @@ func TestMatches(t *testing.T) {
 
 	// notSelectedEndpoint is not selected by rule, so we it shouldn't be added
 	// to EndpointsSelected.
-	require.Equal(t, false, epRule.matchesSubject(notSelectedIdentity))
+	require.False(t, epRule.matchesSubject(notSelectedIdentity))
 
 	// selectedEndpoint is selected by rule, so we it should be added to
 	// EndpointsSelected.
@@ -2657,13 +2657,13 @@ func TestMatches(t *testing.T) {
 	// Possible scenario where an endpoint is deleted, and soon after another
 	// endpoint is added with the same ID, but with a different identity. Matching
 	// needs to handle this case correctly.
-	require.Equal(t, false, epRule.matchesSubject(notSelectedIdentity))
+	require.False(t, epRule.matchesSubject(notSelectedIdentity))
 
 	// host endpoint is not selected by rule, so we it shouldn't be added to EndpointsSelected.
-	require.Equal(t, false, epRule.matchesSubject(hostIdentity))
+	require.False(t, epRule.matchesSubject(hostIdentity))
 
 	// selectedEndpoint is not selected by rule, so we it shouldn't be added to EndpointsSelected.
-	require.Equal(t, false, hostRule.matchesSubject(selectedIdentity))
+	require.False(t, hostRule.matchesSubject(selectedIdentity))
 
 	// host endpoint is selected by rule, but host labels are mutable, so don't cache them
 	require.True(t, hostRule.matchesSubject(hostIdentity))

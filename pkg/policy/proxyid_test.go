@@ -26,7 +26,7 @@ func TestProxyID(t *testing.T) {
 	require.Equal(t, id, "321:egress:TCP:80:myListener")
 	endpointID, ingress, protocol, port, listener, err = ParseProxyID(id)
 	require.Equal(t, uint16(321), endpointID)
-	require.Equal(t, false, ingress)
+	require.False(t, ingress)
 	require.Equal(t, "TCP", protocol)
 	require.Equal(t, uint16(80), port)
 	require.Equal(t, "myListener", listener)

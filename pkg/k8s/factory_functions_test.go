@@ -1433,7 +1433,7 @@ func Test_AnnotationsEqual(t *testing.T) {
 	relevantAnnoVal2 := "53"
 
 	// Empty returns true.
-	require.Equal(t, true, AnnotationsEqual(nil, map[string]string{}, map[string]string{}))
+	require.True(t, AnnotationsEqual(nil, map[string]string{}, map[string]string{}))
 
 	require.True(t, AnnotationsEqual(nil,
 		map[string]string{

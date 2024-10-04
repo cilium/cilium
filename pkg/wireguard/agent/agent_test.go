@@ -222,12 +222,12 @@ func TestAgent_PeerConfig(t *testing.T) {
 	require.EqualValues(t, k8s1NodeIPv6, k8s1.nodeIPv6)
 	require.Equal(t, k8s1PubKey, k8s1.pubKey.String())
 	require.Len(t, k8s1.allowedIPs, 6)
-	require.Equal(t, true, containsIP(maps.Values(k8s1.allowedIPs), iputil.IPToPrefix(k8s1NodeIPv4)))
-	require.Equal(t, true, containsIP(maps.Values(k8s1.allowedIPs), iputil.IPToPrefix(k8s1NodeIPv6)))
-	require.Equal(t, true, containsIP(maps.Values(k8s1.allowedIPs), pod1IPv4))
-	require.Equal(t, true, containsIP(maps.Values(k8s1.allowedIPs), pod1IPv6))
-	require.Equal(t, true, containsIP(maps.Values(k8s1.allowedIPs), pod2IPv4))
-	require.Equal(t, true, containsIP(maps.Values(k8s1.allowedIPs), pod2IPv6))
+	require.True(t, containsIP(maps.Values(k8s1.allowedIPs), iputil.IPToPrefix(k8s1NodeIPv4)))
+	require.True(t, containsIP(maps.Values(k8s1.allowedIPs), iputil.IPToPrefix(k8s1NodeIPv6)))
+	require.True(t, containsIP(maps.Values(k8s1.allowedIPs), pod1IPv4))
+	require.True(t, containsIP(maps.Values(k8s1.allowedIPs), pod1IPv6))
+	require.True(t, containsIP(maps.Values(k8s1.allowedIPs), pod2IPv4))
+	require.True(t, containsIP(maps.Values(k8s1.allowedIPs), pod2IPv6))
 
 	// Tests that IPCache updates are blocked by a concurrent UpdatePeer.
 	// We test this by issuing an UpdatePeer request while holding
@@ -291,20 +291,20 @@ func TestAgent_PeerConfig(t *testing.T) {
 	require.EqualValues(t, k8s1NodeIPv6, k8s1.nodeIPv6)
 	require.Equal(t, k8s1PubKey, k8s1.pubKey.String())
 	require.Len(t, k8s1.allowedIPs, 4)
-	require.Equal(t, true, containsIP(maps.Values(k8s1.allowedIPs), iputil.IPToPrefix(k8s1NodeIPv4)))
-	require.Equal(t, true, containsIP(maps.Values(k8s1.allowedIPs), iputil.IPToPrefix(k8s1NodeIPv6)))
-	require.Equal(t, true, containsIP(maps.Values(k8s1.allowedIPs), pod2IPv4))
-	require.Equal(t, true, containsIP(maps.Values(k8s1.allowedIPs), pod2IPv6))
+	require.True(t, containsIP(maps.Values(k8s1.allowedIPs), iputil.IPToPrefix(k8s1NodeIPv4)))
+	require.True(t, containsIP(maps.Values(k8s1.allowedIPs), iputil.IPToPrefix(k8s1NodeIPv6)))
+	require.True(t, containsIP(maps.Values(k8s1.allowedIPs), pod2IPv4))
+	require.True(t, containsIP(maps.Values(k8s1.allowedIPs), pod2IPv6))
 
 	k8s2 := wgAgent.peerByNodeName[k8s2NodeName]
 	require.EqualValues(t, k8s2NodeIPv4, k8s2.nodeIPv4)
 	require.EqualValues(t, k8s2NodeIPv6, k8s2.nodeIPv6)
 	require.Equal(t, k8s2PubKey, k8s2.pubKey.String())
 	require.Len(t, k8s2.allowedIPs, 4)
-	require.Equal(t, true, containsIP(maps.Values(k8s2.allowedIPs), iputil.IPToPrefix(k8s2NodeIPv4)))
-	require.Equal(t, true, containsIP(maps.Values(k8s2.allowedIPs), iputil.IPToPrefix(k8s2NodeIPv6)))
-	require.Equal(t, true, containsIP(maps.Values(k8s2.allowedIPs), pod3IPv4))
-	require.Equal(t, true, containsIP(maps.Values(k8s2.allowedIPs), pod3IPv6))
+	require.True(t, containsIP(maps.Values(k8s2.allowedIPs), iputil.IPToPrefix(k8s2NodeIPv4)))
+	require.True(t, containsIP(maps.Values(k8s2.allowedIPs), iputil.IPToPrefix(k8s2NodeIPv6)))
+	require.True(t, containsIP(maps.Values(k8s2.allowedIPs), pod3IPv4))
+	require.True(t, containsIP(maps.Values(k8s2.allowedIPs), pod3IPv6))
 
 	// Tests that duplicate public keys are rejected (k8s2 imitates k8s1)
 	err = wgAgent.UpdatePeer(k8s2NodeName, k8s1PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
@@ -336,10 +336,10 @@ func TestAgent_PeerConfig_WithEncryptNode(t *testing.T) {
 	require.EqualValues(t, k8s1NodeIPv6, k8s1.nodeIPv6)
 	require.Equal(t, k8s1PubKey, k8s1.pubKey.String())
 	require.Len(t, k8s1.allowedIPs, 4)
-	require.Equal(t, true, containsIP(maps.Values(k8s1.allowedIPs), pod1IPv4))
-	require.Equal(t, true, containsIP(maps.Values(k8s1.allowedIPs), pod2IPv4))
-	require.Equal(t, true, containsIP(maps.Values(k8s1.allowedIPs), iputil.IPToPrefix(k8s1NodeIPv4)))
-	require.Equal(t, true, containsIP(maps.Values(k8s1.allowedIPs), iputil.IPToPrefix(k8s1NodeIPv6)))
+	require.True(t, containsIP(maps.Values(k8s1.allowedIPs), pod1IPv4))
+	require.True(t, containsIP(maps.Values(k8s1.allowedIPs), pod2IPv4))
+	require.True(t, containsIP(maps.Values(k8s1.allowedIPs), iputil.IPToPrefix(k8s1NodeIPv4)))
+	require.True(t, containsIP(maps.Values(k8s1.allowedIPs), iputil.IPToPrefix(k8s1NodeIPv6)))
 }
 
 func TestAgent_AllowedIPsRestoration(t *testing.T) {
