@@ -5,7 +5,6 @@ package exec
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -61,7 +60,7 @@ func TestCombinedOutputFailedTimeout(t *testing.T) {
 	time.Sleep(timeout)
 	_, err := cmd.CombinedOutput(fooLog, true)
 	require.Error(t, err)
-	require.True(t, strings.Contains(err.Error(), "context deadline exceeded"))
+	require.Contains(t, err.Error(), "context deadline exceeded")
 }
 
 // LoggingHook is a simple hook which saves Warn messages to a slice of strings.
