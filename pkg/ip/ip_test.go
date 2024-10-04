@@ -27,7 +27,7 @@ func TestCountIPs(t *testing.T) {
 	}
 	for cidr, nIPs := range tests {
 		_, ipnet, err := net.ParseCIDR(cidr)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		count := CountIPsInCIDR(ipnet)
 		require.EqualValues(t, nIPs, count)
 	}
@@ -997,7 +997,7 @@ func TestPrefixToIpsValidIPv4(t *testing.T) {
 	prefix := "192.168.1.0/30"
 	expectedIPs := []string{"192.168.1.0", "192.168.1.1", "192.168.1.2", "192.168.1.3"}
 	ips, err := PrefixToIps(prefix, 0)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 
@@ -1005,7 +1005,7 @@ func TestPrefixToIpsValidLimitedIPv4(t *testing.T) {
 	prefix := "192.168.1.0/28"
 	expectedIPs := []string{"192.168.1.0", "192.168.1.1", "192.168.1.2", "192.168.1.3"}
 	ips, err := PrefixToIps(prefix, 4)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 
@@ -1013,7 +1013,7 @@ func TestPrefixToIpsValidIPv6(t *testing.T) {
 	prefix := "2001:DB8::/126"
 	expectedIPs := []string{"2001:db8::", "2001:db8::1", "2001:db8::2", "2001:db8::3"}
 	ips, err := PrefixToIps(prefix, 0)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 
@@ -1021,7 +1021,7 @@ func TestPrefixToIpsValidLimitedIPv6(t *testing.T) {
 	prefix := "2001:DB8::/80"
 	expectedIPs := []string{"2001:db8::", "2001:db8::1", "2001:db8::2", "2001:db8::3"}
 	ips, err := PrefixToIps(prefix, 4)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 
@@ -1036,7 +1036,7 @@ func TestPrefixToIPv4sEdgeCase(t *testing.T) {
 	prefix := "192.168.1.255/32"
 	expectedIPs := []string{"192.168.1.255"}
 	ips, err := PrefixToIps(prefix, 0)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 
@@ -1045,7 +1045,7 @@ func TestPrefixToIpsWithMaxIPv4sExceedingRange(t *testing.T) {
 	maxIPs := 10 // Intentionally exceeding the available IPs in the prefix
 	expectedIPs := []string{"192.168.1.0", "192.168.1.1", "192.168.1.2", "192.168.1.3"}
 	ips, err := PrefixToIps(prefix, maxIPs)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, expectedIPs, ips)
 }
 

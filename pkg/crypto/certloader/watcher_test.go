@@ -19,7 +19,7 @@ func TestNewWatcherError(t *testing.T) {
 	logger, _ := test.NewNullLogger()
 
 	_, err := NewWatcher(logger, relay.caFiles, hubble.certFile, hubble.privkeyFile)
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }
 
 func TestNewWatcher(t *testing.T) {
@@ -38,7 +38,7 @@ func TestNewWatcher(t *testing.T) {
 	}
 
 	w, err := NewWatcher(logger, relay.caFiles, hubble.certFile, hubble.privkeyFile)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer w.Stop()
 
 	keypair, caCertPool := w.KeypairAndCACertPool()
@@ -62,7 +62,7 @@ func TestRotation(t *testing.T) {
 	}
 
 	w, err := NewWatcher(logger, relay.caFiles, hubble.certFile, hubble.privkeyFile)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	defer w.Stop()
 
 	prevKeypairGeneration, prevCaCertPoolGeneration := w.generations()
@@ -101,7 +101,7 @@ func TestFutureWatcherImmediately(t *testing.T) {
 	}
 
 	ch, err := FutureWatcher(logger, relay.caFiles, hubble.certFile, hubble.privkeyFile)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	// the files already exists, expect the watcher to be readily available.
 	w := <-ch
@@ -129,7 +129,7 @@ func TestFutureWatcher(t *testing.T) {
 	}
 
 	ch, err := FutureWatcher(logger, relay.caFiles, hubble.certFile, hubble.privkeyFile)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	// the files don't exists, expect the watcher to not be ready yet.
 	var w *Watcher
@@ -156,7 +156,7 @@ func TestKubernetesMount(t *testing.T) {
 	logger, _ := test.NewNullLogger()
 
 	ch, err := FutureWatcher(logger, hubble.caFiles, hubble.certFile, hubble.privkeyFile)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	// the files don't exists, expect the watcher to not be ready yet.
 	select {

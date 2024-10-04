@@ -28,7 +28,7 @@ func TestNoCompletion(t *testing.T) {
 
 	// Wait should return immediately, since there are no completions.
 	err = wg.Wait()
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestCompletionBeforeWait(t *testing.T) {
@@ -45,7 +45,7 @@ func TestCompletionBeforeWait(t *testing.T) {
 
 	// Wait should return immediately, since the only completion is already completed.
 	err = wg.Wait()
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestCompletionAfterWait(t *testing.T) {
@@ -65,7 +65,7 @@ func TestCompletionAfterWait(t *testing.T) {
 
 	// Wait should block until comp.Complete is called, then return nil.
 	err = wg.Wait()
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestCompletionBeforeAndAfterWait(t *testing.T) {
@@ -89,7 +89,7 @@ func TestCompletionBeforeAndAfterWait(t *testing.T) {
 
 	// Wait should block until comp2.Complete is called, then return nil.
 	err = wg.Wait()
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestCompletionTimeout(t *testing.T) {
@@ -112,7 +112,7 @@ func TestCompletionTimeout(t *testing.T) {
 
 	// Wait should block until wgCtx expires.
 	err = wg.Wait()
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, wgCtx.Err(), err)
 
 	// Complete is idempotent and harmless, and can be called after the
@@ -138,7 +138,7 @@ func TestCompletionMultipleCompleteCalls(t *testing.T) {
 
 	// Wait should return immediately, since the only completion is already completed.
 	err = wg.Wait()
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestCompletionWithCallback(t *testing.T) {
@@ -167,7 +167,7 @@ func TestCompletionWithCallback(t *testing.T) {
 
 	// Wait should return immediately, since the only completion is already completed.
 	err = wg.Wait()
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestCompletionWithCallbackError(t *testing.T) {
@@ -270,7 +270,7 @@ func TestCompletionWithCallbackTimeout(t *testing.T) {
 
 	// Wait should block until wgCtx expires.
 	err = wg.Wait()
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, wgCtx.Err(), err)
 
 	// Complete is idempotent and harmless, and can be called after the

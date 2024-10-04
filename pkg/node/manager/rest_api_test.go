@@ -34,7 +34,7 @@ func setupGetNodesSuite(tb testing.TB) *GetNodesSuite {
 
 	h, _ := cell.NewSimpleHealth()
 	nm, err := New(fakeConfig, nil, &fakeTypes.IPSet{}, nil, NewNodeMetrics(), h)
-	require.Nil(tb, err)
+	require.NoError(tb, err)
 
 	g := &GetNodesSuite{
 		nm: nm,

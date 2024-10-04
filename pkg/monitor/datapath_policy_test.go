@@ -37,11 +37,11 @@ func TestDecodePolicyVerdicyNotify(t *testing.T) {
 	}
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, input)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	output := &PolicyVerdictNotify{}
 	err = DecodePolicyVerdictNotify(buf.Bytes(), output)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	require.Equal(t, input.Type, output.Type)
 	require.Equal(t, input.SubType, output.SubType)

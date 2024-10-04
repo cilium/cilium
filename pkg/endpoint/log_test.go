@@ -60,7 +60,7 @@ func TestPolicyLog(t *testing.T) {
 	defer func() {
 		// remote created log file when we are done.
 		err := os.Remove(filepath.Join(option.Config.StateDir, "endpoint-policy.log"))
-		require.Nil(t, err)
+		require.NoError(t, err)
 	}()
 
 	// Test logging, policyLogger must not be nil
@@ -79,7 +79,7 @@ func TestPolicyLog(t *testing.T) {
 
 	// Verify file exists and contains the logged message
 	buf, err := os.ReadFile(filepath.Join(option.Config.StateDir, "endpoint-policy.log"))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, bytes.Contains(buf, []byte("testing policy logging")))
 	require.Equal(t, true, bytes.Contains(buf, []byte("testing PolicyDebug")))
 	require.Equal(t, true, bytes.Contains(buf, []byte("Test Value")))

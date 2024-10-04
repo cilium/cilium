@@ -52,7 +52,7 @@ func testRateLimiterConfig(t *testing.T, setConfig func(h *hive.Hive)) {
 
 	setConfig(h)
 	tlog := hivetest.Logger(t)
-	assert.Nil(t, h.Start(tlog, context.TODO()))
+	assert.NoError(t, h.Start(tlog, context.TODO()))
 
 	l := limiterSet.Limiter(APIRequestEndpointCreate)
 	assert.NotNil(t, l)
@@ -68,7 +68,7 @@ func testRateLimiterConfig(t *testing.T, setConfig func(h *hive.Hive)) {
 	assert.Equal(t, timeRate.Limit(72.0), p.RateLimit)
 	assert.Equal(t, 2, p.RateBurst)
 
-	assert.Nil(t, h.Stop(tlog, context.TODO()))
+	assert.NoError(t, h.Stop(tlog, context.TODO()))
 }
 
 // TestRateLimiterConfigFlag checks that rateLimiterConfig is properly parsed from
@@ -79,7 +79,7 @@ func TestRateLimiterConfigFlag(t *testing.T) {
 			flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
 			h.RegisterFlags(flags)
 			err := flags.Parse([]string{"--api-rate-limit", testLimitsKVString()})
-			assert.Nil(t, err, "failed to parse flags")
+			assert.NoError(t, err, "failed to parse flags")
 		})
 }
 
@@ -93,7 +93,7 @@ func TestRateLimiterConfigFile(t *testing.T) {
 			v := h.Viper()
 			v.SetConfigType("yaml")
 			err := v.ReadConfig(buf)
-			assert.Nil(t, err, "failed to ReadConfig with Viper")
+			assert.NoError(t, err, "failed to ReadConfig with Viper")
 		})
 }
 
@@ -111,7 +111,7 @@ func TestRateLimiterConfigDir(t *testing.T) {
 			}
 			v := h.Viper()
 			err := v.MergeConfigMap(configMap)
-			assert.Nil(t, err, "failed to MergeConfigMap with Viper")
+			assert.NoError(t, err, "failed to MergeConfigMap with Viper")
 		})
 
 	// Test with JSON string
@@ -122,6 +122,6 @@ func TestRateLimiterConfigDir(t *testing.T) {
 			}
 			v := h.Viper()
 			err := v.MergeConfigMap(configMap)
-			assert.Nil(t, err, "failed to MergeConfigMap with Viper")
+			assert.NoError(t, err, "failed to MergeConfigMap with Viper")
 		})
 }

@@ -124,7 +124,7 @@ func setupDNSProxyTestSuite(tb testing.TB) *DNSProxyTestSuite {
 			return nil
 		},
 	)
-	require.Nil(tb, err, "error starting DNS Proxy")
+	require.NoError(tb, err, "error starting DNS Proxy")
 	s.proxy = proxy
 
 	// This is here because Listener or Listeer.Addr() was nil. The
@@ -336,9 +336,9 @@ func TestAcceptNonRegex(t *testing.T) {
 
 	// accept a query that matches from endpoint1
 	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
-	require.Equal(t, nil, err, "Could not update with rules")
+	require.NoError(t, err, "Could not update with rules")
 	allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 }
 
@@ -357,9 +357,9 @@ func TestRejectNonRegex(t *testing.T) {
 
 	// reject a query for a non-regex where a . is different (i.e. ensure simple FQDNs treat . as .)
 	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
-	require.Equal(t, nil, err, "Could not update with rules")
+	require.NoError(t, err, "Could not update with rules")
 	allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was not rejected when it should be blocked")
 }
 
@@ -375,9 +375,9 @@ func (s *DNSProxyTestSuite) requestRejectNonMatchingRefusedResponse(t *testing.T
 	query := "notcilium.io."
 
 	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
-	require.Equal(t, nil, err, "Could not update with rules")
+	require.NoError(t, err, "Could not update with rules")
 	allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was not rejected when it should be blocked")
 
 	request := new(dns.Msg)
@@ -427,9 +427,9 @@ func TestRespondViaCorrectProtocol(t *testing.T) {
 	query := name
 
 	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
-	require.Equal(t, nil, err, "Could not update with rules")
+	require.NoError(t, err, "Could not update with rules")
 	allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	request := new(dns.Msg)
@@ -457,9 +457,9 @@ func TestRespondMixedCaseInRequestResponse(t *testing.T) {
 	query := "CILIUM.io."
 
 	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
-	require.Equal(t, nil, err, "Could not update with rules")
+	require.NoError(t, err, "Could not update with rules")
 	allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	request := new(dns.Msg)
@@ -488,10 +488,10 @@ func TestCheckNoRules(t *testing.T) {
 	query := name
 
 	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
-	require.Equal(t, nil, err, "Error when inserting rules")
+	require.NoError(t, err, "Error when inserting rules")
 
 	allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
@@ -503,10 +503,10 @@ func TestCheckNoRules(t *testing.T) {
 		},
 	}
 	err = s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
-	require.Equal(t, nil, err, "Error when inserting rules")
+	require.NoError(t, err, "Error when inserting rules")
 
 	allowed, err = s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 }
 
@@ -525,25 +525,25 @@ func TestCheckAllowedTwiceRemovedOnce(t *testing.T) {
 
 	// Add the rule twice
 	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
-	require.Equal(t, nil, err, "Could not update with rules")
+	require.NoError(t, err, "Could not update with rules")
 	err = s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
-	require.Equal(t, nil, err, "Could not update with rules")
+	require.NoError(t, err, "Could not update with rules")
 	allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// Delete once, it should reject
 	err = s.proxy.UpdateAllowed(epID1, dstPortProto, nil)
-	require.Equal(t, nil, err, "Could not update with rules")
+	require.NoError(t, err, "Could not update with rules")
 	allowed, err = s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Delete once, it should reject and not crash
 	err = s.proxy.UpdateAllowed(epID1, dstPortProto, nil)
-	require.Equal(t, nil, err, "Could not update with rules")
+	require.NoError(t, err, "Could not update with rules")
 	allowed, err = s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 }
 
@@ -623,7 +623,7 @@ func TestFullPathDependence(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, nil, err, "Could not update with port 53 rules")
+	require.NoError(t, err, "Could not update with port 53 rules")
 
 	//      | EP1  | DstID1 |      53 |  TCP  | sub.ubuntu.com |
 	err = s.proxy.UpdateAllowed(epID1, tcpProtoPort53, policy.L7DataMap{
@@ -635,7 +635,7 @@ func TestFullPathDependence(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, nil, err, "Could not update with rules")
+	require.NoError(t, err, "Could not update with rules")
 
 	//	| EP1  | DstID1 |      54 |  UDP  | example.com    |
 	err = s.proxy.UpdateAllowed(epID1, udpProtoPort54, policy.L7DataMap{
@@ -647,7 +647,7 @@ func TestFullPathDependence(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, nil, err, "Could not update with rules")
+	require.NoError(t, err, "Could not update with rules")
 
 	// | EP3  | DstID1 |      53 |  UDP  | example.com    |
 	// | EP3  | DstID3 |      53 |  UDP  | *              |
@@ -669,7 +669,7 @@ func TestFullPathDependence(t *testing.T) {
 		},
 		cachedDstID4Selector: nil,
 	})
-	require.Equal(t, nil, err, "Could not update with rules")
+	require.NoError(t, err, "Could not update with rules")
 
 	// | EP3  | DstID3 |      53 |  TCP  | example.com    |
 	err = s.proxy.UpdateAllowed(epID3, tcpProtoPort53, policy.L7DataMap{
@@ -681,97 +681,97 @@ func TestFullPathDependence(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, nil, err, "Could not update with rules")
+	require.NoError(t, err, "Could not update with rules")
 
 	// Test cases
 	// Case 1 | EPID1 | DstID1 |   53 |  UDP  | www.ubuntu.com | Allowed
 	allowed, err := s.proxy.CheckAllowed(epID1, udpProtoPort53, dstID1, netip.Addr{}, "www.ubuntu.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// Case 2 | EPID1 | DstID1 |   53 |    TCP   | www.ubuntu.com | Rejected | Protocol TCP only allows "sub.ubuntu.com"
 	allowed, err = s.proxy.CheckAllowed(epID1, tcpProtoPort53, dstID1, netip.Addr{}, "www.ubuntu.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 3 | EPID1 | DstID1 |   53 |    TCP   | sub.ubuntu.com | Allowed
 	allowed, err = s.proxy.CheckAllowed(epID1, tcpProtoPort53, dstID1, netip.Addr{}, "sub.ubuntu.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// Case 4 | EPID1 | DstID1 |   53 |    UDP   | sub.ubuntu.com | Allowed
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, dstID1, netip.Addr{}, "sub.ubuntu.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// Case 5 | EPID1 | DstID1 |   54 |  UDP  | cilium.io      | Rejected | Port 54 only allows example.com
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort54, dstID1, netip.Addr{}, "cilium.io")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 6 | EPID1 | DstID2 |   53 |  UDP  | cilium.io      | Allowed
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, dstID2, netip.Addr{}, "cilium.io")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// Case 7 | EPID1 | DstID2 |   53 |  UDP  | aws.amazon.com | Rejected | Only cilium.io is allowed with DstID2
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, dstID2, netip.Addr{}, "aws.amazon.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 8 | EPID1 | DstID1 |   54 |  UDP  | example.com    | Allowed
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort54, dstID1, netip.Addr{}, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// Case 9 | EPID2 | DstID1 |   53 |  UDP  | cilium.io      | Rejected | EPID2 is not allowed as a source by any policy
 	allowed, err = s.proxy.CheckAllowed(epID2, udpProtoPort53, dstID1, netip.Addr{}, "cilium.io")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 10 | EPID3 | DstID1 |   53 |  UDP  | example.com    | Allowed
 	allowed, err = s.proxy.CheckAllowed(epID3, udpProtoPort53, dstID1, netip.Addr{}, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// Case 11 | EPID3 | DstID1 |   53 |  UDP  | aws.amazon.com | Rejected | EPID3 is only allowed to ask DstID1 on Port 53 for example.com
 	allowed, err = s.proxy.CheckAllowed(epID3, udpProtoPort53, dstID1, netip.Addr{}, "aws.amazon.io")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 12 | EPID3 | DstID1 |   54 |  UDP  | example.com    | Rejected | EPID3 is only allowed to ask DstID1 on Port 53 for example.com
 	allowed, err = s.proxy.CheckAllowed(epID3, udpProtoPort54, dstID1, netip.Addr{}, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 13 | EPID3 | DstID2 |   53 |  UDP  | example.com    | Rejected | EPID3 is only allowed to ask DstID1 on Port 53 for example.com
 	allowed, err = s.proxy.CheckAllowed(epID3, udpProtoPort53, dstID2, netip.Addr{}, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 14 | EPID3 | DstID3 |   53 |  UDP  | example.com    | Allowed due to wildcard match pattern
 	allowed, err = s.proxy.CheckAllowed(epID3, udpProtoPort53, dstID3, netip.Addr{}, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// Case 15 | EPID3 | DstID3 |   53 |    TCP   | example.com    | Allowed
 	allowed, err = s.proxy.CheckAllowed(epID3, tcpProtoPort53, dstID3, netip.Addr{}, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// Case 16 | EPID3 | DstID3 |   53 |    TCP   | amazon.com     | Rejected | TCP protocol only allows "example.com"
 	allowed, err = s.proxy.CheckAllowed(epID3, tcpProtoPort53, dstID3, netip.Addr{}, "amazon.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 17 | EPID3 | DstID4 |   53 |    TCP   | example.com    | Rejected | "example.com" only allowed for DstID3
 	allowed, err = s.proxy.CheckAllowed(epID3, tcpProtoPort53, dstID4, netip.Addr{}, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 18 | EPID3 | DstID4 |   53 |  UDP  | example.com    | Allowed due to a nil rule
 	allowed, err = s.proxy.CheckAllowed(epID3, udpProtoPort53, dstID4, netip.Addr{}, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// Get rules for restoration
@@ -855,27 +855,27 @@ func TestFullPathDependence(t *testing.T) {
 	// Before restore: all rules removed above, everything is dropped
 	// Case 1 | EPID1 | DstID1 |   53 |  UDP  | www.ubuntu.com | Rejected | No rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, dstID1, dstIP1, "www.ubuntu.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 2 | EPID1 | DstID1 |   54 |  UDP  | cilium.io      | Rejected | No rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort54, dstID1, dstIP1, "cilium.io")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 3 | EPID1 | DstID2 |   53 |  UDP  | cilium.io      | Rejected | No rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, dstID2, dstIP2a, "cilium.io")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 4 | EPID1 | DstID2 |   53 |  UDP  | aws.amazon.com | Rejected | No rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, dstID2, dstIP2b, "aws.amazon.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 5 | EPID1 | DstID1 |   54 |  UDP  | example.com    | Rejected | No rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort54, dstID1, dstIP1, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Restore rules
@@ -889,39 +889,39 @@ func TestFullPathDependence(t *testing.T) {
 
 	// Case 1 | EPID1 | dstIP1 |   53 |  UDP  | www.ubuntu.com | Allowed due to restored rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, 2, dstIP1, "www.ubuntu.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// Case 2 | EPID1 | dstIP1 |   54 |  UDP  | cilium.io      | Rejected due to restored rules | Port 54 only allows example.com
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort54, 2, dstIP1, "cilium.io")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 3 | EPID1 | dstIP2a |   53 |  UDP  | cilium.io      | Allowed due to restored rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, 2, dstIP2a, "cilium.io")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// Case 4 | EPID1 | dstIP2b |   53 |  UDP  | aws.amazon.com | Rejected due to restored rules | Only cilium.io is allowed with DstID2
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, 2, dstIP2b, "aws.amazon.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 5 | EPID1 | dstIP1 |   54 |  UDP  | example.com    | Allowed due to restored rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort54, 2, dstIP1, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// make sure random IP is not allowed
 	// Case 5 | EPID1 | random IP |   53 |  UDP  | example.com    | Rejected due to restored rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, 2, dstIPrandom, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// make sure random destination IP is allowed in a wildcard selector
 	// Case 5 | EPID1 | random IP |   54 |  UDP  | example.com    | Allowed due to restored rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort54, 2, dstIPrandom, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// Restore rules for epID3
@@ -933,7 +933,7 @@ func TestFullPathDependence(t *testing.T) {
 
 	// Set empty ruleset, check that restored rules were deleted in epID3
 	err = s.proxy.UpdateAllowed(epID3, udpProtoPort53, nil)
-	require.Equal(t, nil, err, "Could not update with rules")
+	require.NoError(t, err, "Could not update with rules")
 
 	_, exists = s.proxy.restored[epID3]
 	require.Equal(t, false, exists)
@@ -944,7 +944,7 @@ func TestFullPathDependence(t *testing.T) {
 
 	// Marshal restored rules to JSON
 	jsn, err := json.Marshal(s.proxy.restored[epID1])
-	require.Equal(t, nil, err, "Could not marshal restored rules to json")
+	require.NoError(t, err, "Could not marshal restored rules to json")
 
 	expected := `
 	{
@@ -966,7 +966,7 @@ func TestFullPathDependence(t *testing.T) {
 	}`
 	pretty := new(bytes.Buffer)
 	err = json.Compact(pretty, []byte(expected))
-	require.Equal(t, nil, err, "Could not compact expected json")
+	require.NoError(t, err, "Could not compact expected json")
 	require.Equal(t, pretty.String(), string(jsn))
 
 	s.proxy.RemoveRestoredRules(uint16(epID1))
@@ -976,45 +976,45 @@ func TestFullPathDependence(t *testing.T) {
 	// Before restore after marshal: previous restored rules are removed, everything is dropped
 	// Case 1 | EPID1 | DstID1 |   53 |  UDP  | www.ubuntu.com | Rejected | No rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, dstID1, dstIP1, "www.ubuntu.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 2 | EPID1 | DstID1 |   54 |  UDP  | cilium.io      | Rejected | No rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort54, dstID1, dstIP1, "cilium.io")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 3 | EPID1 | DstID2 |   53 |  UDP  | cilium.io      | Rejected | No rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, dstID2, dstIP2a, "cilium.io")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 4 | EPID1 | DstID2 |   53 |  UDP  | aws.amazon.com | Rejected | No rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, dstID2, dstIP2b, "aws.amazon.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 5 | EPID1 | DstID1 |   54 |  UDP  | example.com    | Rejected | No rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort54, dstID1, dstIP1, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 5 | EPID1 | random IP |   54 |  UDP  | example.com    | Rejected
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort54, 2, dstIPrandom, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Restore Unmarshaled rules
 	var rules restore.DNSRules
 	err = json.Unmarshal(jsn, &rules)
 	rules = rules.Sort(nil)
-	require.Equal(t, nil, err, "Could not unmarshal restored rules from json")
+	require.NoError(t, err, "Could not unmarshal restored rules from json")
 	require.EqualValues(t, expected1, rules)
 
 	// Marshal again & compare
 	// Marshal restored rules to JSON
 	jsn2, err := json.Marshal(rules)
-	require.Equal(t, nil, err, "Could not marshal restored rules to json")
+	require.NoError(t, err, "Could not marshal restored rules to json")
 	require.Equal(t, pretty.String(), string(jsn2))
 
 	ep1.DNSRulesV2 = rules
@@ -1026,39 +1026,39 @@ func TestFullPathDependence(t *testing.T) {
 
 	// Case 1 | EPID1 | dstIP1 |   53 |  UDP  | www.ubuntu.com | Allowed due to restored rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, 2, dstIP1, "www.ubuntu.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// Case 2 | EPID1 | dstIP1 |   54 |  UDP  | cilium.io      | Rejected due to restored rules | Port 54 only allows example.com
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort54, 2, dstIP1, "cilium.io")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 3 | EPID1 | dstIP2a |   53 |  UDP  | cilium.io      | Allowed due to restored rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, 2, dstIP2a, "cilium.io")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// Case 4 | EPID1 | dstIP2b |   53 |  UDP  | aws.amazon.com | Rejected due to restored rules | Only cilium.io is allowed with DstID2
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, 2, dstIP2b, "aws.amazon.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// Case 5 | EPID1 | dstIP1 |   54 |  UDP  | example.com    | Allowed due to restored rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort54, 2, dstIP1, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	// make sure random IP is not allowed
 	// Case 5 | EPID1 | random IP |   53 |  UDP  | example.com    | Rejected due to restored rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort53, 2, dstIPrandom, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, false, allowed, "request was allowed when it should be rejected")
 
 	// make sure random IP is allowed on a wildcard
 	// Case 5 | EPID1 | random IP |   54 |  UDP  | example.com    | Allowed due to restored rules
 	allowed, err = s.proxy.CheckAllowed(epID1, udpProtoPort54, 2, dstIPrandom, "example.com")
-	require.Equal(t, nil, err, "Error when checking allowed")
+	require.NoError(t, err, "Error when checking allowed")
 	require.Equal(t, true, allowed, "request was rejected when it should be allowed")
 
 	s.proxy.RemoveRestoredRules(uint16(epID1))
@@ -1085,10 +1085,10 @@ func TestRestoredEndpoint(t *testing.T) {
 	queries := []string{name, strings.ReplaceAll(pattern, "*", "sub")}
 
 	err := s.proxy.UpdateAllowed(epID1, dstPortProto, l7map)
-	require.Equal(t, nil, err, "Could not update with rules")
+	require.NoError(t, err, "Could not update with rules")
 	for _, query := range queries {
 		allowed, err := s.proxy.CheckAllowed(epID1, dstPortProto, dstID1, netip.Addr{}, query)
-		require.Equal(t, nil, err, "Error when checking allowed query: %q", query)
+		require.NoError(t, err, "Error when checking allowed query: %q", query)
 		require.Equal(t, true, allowed, "request was rejected when it should be allowed for query: %q", query)
 	}
 
@@ -1117,7 +1117,7 @@ func TestRestoredEndpoint(t *testing.T) {
 
 	// remove rules
 	err = s.proxy.UpdateAllowed(epID1, dstPortProto, nil)
-	require.Equal(t, nil, err, "Could not remove rules")
+	require.NoError(t, err, "Could not remove rules")
 
 	// 2nd request, refused due to no rules
 	for _, query := range queries {

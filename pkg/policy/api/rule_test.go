@@ -13,11 +13,11 @@ import (
 
 func checkMarshalUnmarshal(t *testing.T, r *Rule) {
 	jsonData, err := json.Marshal(r)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	newRule := Rule{}
 	err = json.Unmarshal(jsonData, &newRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	require.Equal(t, newRule.EndpointSelector.LabelSelector == nil, r.EndpointSelector.LabelSelector == nil)
 	require.Equal(t, newRule.NodeSelector.LabelSelector == nil, r.NodeSelector.LabelSelector == nil)
@@ -119,7 +119,7 @@ func TestCreateDerivative(t *testing.T) {
 
 	egressWithoutToGroups := Rule{}
 	newRule, err := egressWithoutToGroups.CreateDerivative(context.TODO())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 0, len(newRule.Egress))
 	require.Equal(t, 0, len(newRule.EgressDeny))
 
@@ -127,28 +127,28 @@ func TestCreateDerivative(t *testing.T) {
 
 	egressRuleWithToGroups := getEgressRuleWithToGroups()
 	newRule, err = egressRuleWithToGroups.CreateDerivative(context.TODO())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 0, len(newRule.EgressDeny))
 	require.Equal(t, 1, len(newRule.Egress))
 	require.Equal(t, 1, len(newRule.Egress[0].ToCIDRSet))
 
 	egressDenyRuleWithToGroups := getEgressDenyRuleWithToGroups()
 	newRule, err = egressDenyRuleWithToGroups.CreateDerivative(context.TODO())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 0, len(newRule.Egress))
 	require.Equal(t, 1, len(newRule.EgressDeny))
 	require.Equal(t, 1, len(newRule.EgressDeny[0].ToCIDRSet))
 
 	ingressRuleWithToGroups := getIngressRuleWithFromGroups()
 	newRule, err = ingressRuleWithToGroups.CreateDerivative(context.TODO())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 0, len(newRule.IngressDeny))
 	require.Equal(t, 1, len(newRule.Ingress))
 	require.Equal(t, 1, len(newRule.Ingress[0].FromCIDRSet))
 
 	ingressDenyRuleWithToGroups := getIngressDenyRuleWithFromGroups()
 	newRule, err = ingressDenyRuleWithToGroups.CreateDerivative(context.TODO())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 0, len(newRule.Ingress))
 	require.Equal(t, 1, len(newRule.IngressDeny))
 	require.Equal(t, 1, len(newRule.IngressDeny[0].FromCIDRSet))

@@ -214,7 +214,7 @@ func TestAgent_PeerConfig(t *testing.T) {
 	ipCache.Upsert(pod2IPv6Str, k8s1NodeIPv6, 0, nil, ipcache.Identity{ID: 2, Source: source.Kubernetes})
 
 	err := wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	k8s1 := wgAgent.peerByNodeName[k8s1NodeName]
 	require.NotNil(t, k8s1)
@@ -243,7 +243,7 @@ func TestAgent_PeerConfig(t *testing.T) {
 	go func() {
 		close(agentUpdatePending)
 		err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		close(agentUpdated)
 	}()
 
@@ -328,7 +328,7 @@ func TestAgent_PeerConfig_WithEncryptNode(t *testing.T) {
 	ipCache.Upsert(pod2IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 2, Source: source.Kubernetes})
 
 	err := wgAgent.UpdatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	k8s1 := wgAgent.peerByNodeName[k8s1NodeName]
 	require.NotNil(t, k8s1)
@@ -413,13 +413,13 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 
 	// Ensure that a public key change results in deletion of the old peer entry.
 	err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey2, k8s2NodeIPv4, k8s2NodeIPv6)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assertAllowedIPs(key1, pod2IPv4, pod1IPv6, pod2IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx)
 	assertAllowedIPs(key2_2, pod4IPv4, pod4IPv6, k8s2NodeIPv4Pfx, k8s2NodeIPv6Pfx)
 
 	// Ensure that a node IP change gets reflected
 	err = wgAgent.UpdatePeer(k8s2NodeName, k8s2PubKey2, k8s2NodeIPv4_2, k8s2NodeIPv6_2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assertAllowedIPs(key1, pod2IPv4, pod1IPv6, pod2IPv6, k8s1NodeIPv4Pfx, k8s1NodeIPv6Pfx)
 	assertAllowedIPs(key2_2, pod4IPv4, pod4IPv6, k8s2NodeIPv4_2_Pfx, k8s2NodeIPv6_2_Pfx)
 

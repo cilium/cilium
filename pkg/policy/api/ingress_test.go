@@ -43,7 +43,7 @@ func TestCreateDerivativeRuleWithoutFromGroups(t *testing.T) {
 	}
 	newRule, err := ig.CreateDerivative(context.TODO())
 	require.EqualValues(t, newRule, ig)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestCreateDerivativeRuleWithFromGroups(t *testing.T) {
@@ -62,7 +62,7 @@ func TestCreateDerivativeRuleWithFromGroups(t *testing.T) {
 	require.Equal(t, true, ig.RequiresDerivative())
 
 	newRule, err := ig.CreateDerivative(context.TODO())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 0, len(newRule.FromGroups))
 	require.Equal(t, 1, len(newRule.FromCIDRSet))
 }
@@ -289,7 +289,7 @@ func TestIsLabelBasedIngress(t *testing.T) {
 	for _, tt := range tests {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		require.Equal(t, nil, args.eg.sanitize(false), fmt.Sprintf("Test name: %q", tt.name))
+		require.NoError(t, args.eg.sanitize(false), fmt.Sprintf("Test name: %q", tt.name))
 		isLabelBased := args.eg.AllowsWildcarding()
 		require.EqualValues(t, want.isLabelBased, isLabelBased, fmt.Sprintf("Test name: %q", tt.name))
 	}

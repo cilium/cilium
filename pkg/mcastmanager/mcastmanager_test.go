@@ -13,7 +13,7 @@ import (
 
 func TestAddRemoveEndpoint(t *testing.T) {
 	ifaces, err := netlink.LinkList()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	if len(ifaces) == 0 {
 		t.Skip("no interfaces to test")
@@ -50,7 +50,7 @@ func TestAddRemoveEndpoint(t *testing.T) {
 
 func TestAddRemoveNil(t *testing.T) {
 	ifaces, err := netlink.LinkList()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	if len(ifaces) == 0 {
 		t.Skip("no interfaces to test")

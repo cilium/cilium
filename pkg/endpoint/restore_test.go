@@ -87,20 +87,20 @@ func TestReadEPsFromDirNames(t *testing.T) {
 	const unsupportedTestOption = "unsupported-test-only-option-xyz"
 
 	os.Chdir(tmpDir)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	epsNames := []string{}
 	for _, ep := range epsWanted {
 		require.NotNil(t, ep)
 
 		fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
 		err := os.MkdirAll(fullDirName, 0777)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		// Add an unsupported option and see that it is removed on "restart"
 		ep.Options.SetValidated(unsupportedTestOption, option.OptionEnabled)
 
 		err = ep.writeHeaderfile(fullDirName)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		// Remove unsupported option so that equality check works after restore
 		ep.Options.Delete(unsupportedTestOption)
@@ -109,7 +109,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 		case 256, 257:
 			failedDir := filepath.Join(tmpDir, ep.FailedDirectoryPath())
 			err := os.Rename(fullDirName, failedDir)
-			require.Nil(t, err)
+			require.NoError(t, err)
 			epsNames = append(epsNames, ep.FailedDirectoryPath())
 
 			// create one failed and the other non failed directory for ep 256.
@@ -118,7 +118,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 				// "256_next_fail" and with one is in the "256" directory.
 				ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}
 				err = ep.writeHeaderfile(failedDir)
-				require.Nil(t, err)
+				require.NoError(t, err)
 			}
 		default:
 			epsNames = append(epsNames, ep.DirectoryPath())
@@ -159,25 +159,25 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 	}()
 
 	os.Chdir(tmpDir)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
 	err = os.MkdirAll(fullDirName, 0777)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	err = ep.writeHeaderfile(fullDirName)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	nextDir := filepath.Join(tmpDir, ep.NextDirectoryPath())
 	err = os.MkdirAll(nextDir, 0777)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Change endpoint a little bit so we know which endpoint is in
 	// "${EPID}_next" and with one is in the "${EPID}" directory.
 	tmpNodeMAC := ep.nodeMAC
 	ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0xc1, 0xc1}
 	err = ep.writeHeaderfile(nextDir)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	ep.nodeMAC = tmpNodeMAC
 
 	epNames := []string{
@@ -220,17 +220,17 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 	}()
 
 	os.Chdir(tmpDir)
-	require.Nil(b, err)
+	require.NoError(b, err)
 	epsNames := []string{}
 	for _, ep := range epsWanted {
 		require.NotNil(b, ep)
 
 		fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
 		err := os.MkdirAll(fullDirName, 0777)
-		require.Nil(b, err)
+		require.NoError(b, err)
 
 		err = ep.writeHeaderfile(fullDirName)
-		require.Nil(b, err)
+		require.NoError(b, err)
 
 		epsNames = append(epsNames, ep.DirectoryPath())
 	}

@@ -35,7 +35,7 @@ func TestGetCiliumEndpointStatus(t *testing.T) {
 		},
 		State: models.EndpointStateWaitingDashForDashIdentity.Pointer(),
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	status := e.GetCiliumEndpointStatus()
 

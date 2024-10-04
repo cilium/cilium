@@ -49,7 +49,7 @@ func setup(tb testing.TB) (string, *k8sClient.FakeClientset, allocator.Backend) 
 			},
 			ReadFromKVStore: true,
 		})
-	require.Nil(tb, err)
+	require.NoError(tb, err)
 	require.NotNil(tb, backend)
 
 	return kvstorePrefix, kubeClient, backend

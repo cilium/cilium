@@ -17,10 +17,10 @@ func TestParse(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	_, fakeCIDR, err := net.ParseCIDR("192.168.0.0/16")
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	fakeMAC, err := mac.ParseMAC("11:22:33:44:55:66")
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	validCIDRs := []net.IPNet{*fakeCIDR}
 

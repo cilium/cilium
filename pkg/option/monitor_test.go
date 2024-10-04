@@ -11,16 +11,16 @@ import (
 )
 
 func TestVerifyMonitorAggregationLevel(t *testing.T) {
-	require.Nil(t, VerifyMonitorAggregationLevel("", ""))
-	require.Nil(t, VerifyMonitorAggregationLevel("", "none"))
-	require.Nil(t, VerifyMonitorAggregationLevel("", "disabled"))
-	require.Nil(t, VerifyMonitorAggregationLevel("", "lowest"))
-	require.Nil(t, VerifyMonitorAggregationLevel("", "low"))
-	require.Nil(t, VerifyMonitorAggregationLevel("", "medium"))
-	require.Nil(t, VerifyMonitorAggregationLevel("", "max"))
-	require.Nil(t, VerifyMonitorAggregationLevel("", "maximum"))
-	require.Nil(t, VerifyMonitorAggregationLevel("", "LoW"))
-	require.NotNil(t, VerifyMonitorAggregationLevel("", "disable"))
+	require.NoError(t, VerifyMonitorAggregationLevel("", ""))
+	require.NoError(t, VerifyMonitorAggregationLevel("", "none"))
+	require.NoError(t, VerifyMonitorAggregationLevel("", "disabled"))
+	require.NoError(t, VerifyMonitorAggregationLevel("", "lowest"))
+	require.NoError(t, VerifyMonitorAggregationLevel("", "low"))
+	require.NoError(t, VerifyMonitorAggregationLevel("", "medium"))
+	require.NoError(t, VerifyMonitorAggregationLevel("", "max"))
+	require.NoError(t, VerifyMonitorAggregationLevel("", "maximum"))
+	require.NoError(t, VerifyMonitorAggregationLevel("", "LoW"))
+	require.Error(t, VerifyMonitorAggregationLevel("", "disable"))
 }
 
 func TestParseMonitorAggregationLevel(t *testing.T) {

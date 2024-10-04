@@ -124,9 +124,9 @@ func TestParse(t *testing.T) {
 		require.Equal(t, tt.wantPrefix, prefix)
 		require.Equal(t, tt.wantID, id)
 		if tt.expectFail {
-			require.NotNil(t, err)
+			require.Error(t, err)
 		} else {
-			require.Nil(t, err)
+			require.NoError(t, err)
 		}
 	}
 }

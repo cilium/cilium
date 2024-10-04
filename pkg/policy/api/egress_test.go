@@ -43,7 +43,7 @@ func TestCreateDerivativeRuleWithoutToGroups(t *testing.T) {
 	}
 	newRule, err := eg.CreateDerivative(context.TODO())
 	require.EqualValues(t, newRule, eg)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestCreateDerivativeRuleWithToGroupsWitInvalidRegisterCallback(t *testing.T) {
@@ -79,7 +79,7 @@ func TestCreateDerivativeRuleWithToGroupsAndToPorts(t *testing.T) {
 	require.Equal(t, true, eg.RequiresDerivative())
 
 	newRule, err := eg.CreateDerivative(context.TODO())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 0, len(newRule.ToGroups))
 	require.Equal(t, 1, len(newRule.ToCIDRSet))
 }
@@ -102,7 +102,7 @@ func TestCreateDerivativeWithoutErrorAndNoIPs(t *testing.T) {
 	require.Equal(t, true, eg.RequiresDerivative())
 
 	newRule, err := eg.CreateDerivative(context.TODO())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, &EgressRule{}, newRule)
 }
 
@@ -352,7 +352,7 @@ func TestIsLabelBasedEgress(t *testing.T) {
 	for _, tt := range tests {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		require.Equal(t, nil, args.eg.sanitize(false), fmt.Sprintf("Test name: %q", tt.name))
+		require.NoError(t, args.eg.sanitize(false), fmt.Sprintf("Test name: %q", tt.name))
 		isLabelBased := args.eg.AllowsWildcarding()
 		require.EqualValues(t, want.isLabelBased, isLabelBased, fmt.Sprintf("Test name: %q", tt.name))
 	}

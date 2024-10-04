@@ -213,23 +213,23 @@ func TestLabel(t *testing.T) {
 	shortLabel := `"web"`
 
 	err := json.Unmarshal([]byte(longLabel), &label)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	require.Equal(t, "kubernetes", label.Source)
 	require.Equal(t, "foo", label.Value)
 
 	label = Label{}
 	err = json.Unmarshal([]byte(invLabel), &label)
-	require.NotEqual(t, nil, err)
+	require.Error(t, err)
 
 	label = Label{}
 	err = json.Unmarshal([]byte(shortLabel), &label)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	require.Equal(t, LabelSourceUnspec, label.Source)
 	require.Equal(t, "", label.Value)
 
 	label = Label{}
 	err = json.Unmarshal([]byte(""), &label)
-	require.NotEqual(t, nil, err)
+	require.Error(t, err)
 }
 
 func TestLabelCompare(t *testing.T) {

@@ -69,12 +69,12 @@ func TestWithConnectionTimeout(t *testing.T) {
 
 func TestNewHTTPCluster(t *testing.T) {
 	res, err := NewHTTPCluster("dummy-name", "dummy-name")
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	cluster := &envoy_config_cluster_v3.Cluster{}
 	err = proto.Unmarshal(res.Value, cluster)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "dummy-name", cluster.Name)
 	require.Equal(t, &envoy_config_cluster_v3.Cluster_Type{
 		Type: envoy_config_cluster_v3.Cluster_EDS,
@@ -83,12 +83,12 @@ func TestNewHTTPCluster(t *testing.T) {
 
 func TestNewTCPCluster(t *testing.T) {
 	res, err := NewHTTPCluster("dummy-name", "dummy-name")
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	cluster := &envoy_config_cluster_v3.Cluster{}
 	err = proto.Unmarshal(res.Value, cluster)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "dummy-name", cluster.Name)
 	require.Equal(t, &envoy_config_cluster_v3.Cluster_Type{
 		Type: envoy_config_cluster_v3.Cluster_EDS,

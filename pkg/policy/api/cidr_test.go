@@ -26,15 +26,15 @@ func TestGetAsEndpointSelectors(t *testing.T) {
 	esWorldIPv6 := NewESFromLabels(labelWorldIPv6)
 
 	labelAllV4, err := labels.IPStringToLabel("0.0.0.0/0")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	v4World := NewESFromLabels(labelAllV4)
 
 	labelAllV6, err := labels.IPStringToLabel("::/0")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	v6World := NewESFromLabels(labelAllV6)
 
 	labelOtherCIDR, err := labels.IPStringToLabel("192.168.128.0/24")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	esOtherCIDR := NewESFromLabels(labelOtherCIDR)
 
 	tt := []struct {

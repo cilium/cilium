@@ -478,7 +478,7 @@ func TestLookupCiliumID(t *testing.T) {
 			name: "existing cilium ID",
 			preTestRun: func() {
 				ep.ID = 1
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{
@@ -533,8 +533,8 @@ func TestLookupCNIAttachmentID(t *testing.T) {
 		ContainerID:            "foo",
 		ContainerInterfaceName: "bar",
 	})
-	require.Nil(t, err)
-	require.Nil(t, mgr.expose(ep))
+	require.NoError(t, err)
+	require.NoError(t, mgr.expose(ep))
 
 	good := mgr.LookupCNIAttachmentID("foo:bar")
 	require.EqualValues(t, ep, good)
@@ -568,7 +568,7 @@ func TestLookupIPv4(t *testing.T) {
 			name: "existing LookupIPv4",
 			preTestRun: func() {
 				ep.IPv4 = netip.MustParseAddr("127.0.0.1")
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{
@@ -637,7 +637,7 @@ func TestLookupCEPName(t *testing.T) {
 				K8sPodName:   "foo",
 			},
 			preTestRun: func(ep *endpoint.Endpoint) {
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{
@@ -662,7 +662,7 @@ func TestLookupCEPName(t *testing.T) {
 				DisableLegacyIdentifiers: true,
 			},
 			preTestRun: func(ep *endpoint.Endpoint) {
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{
@@ -787,7 +787,7 @@ func TestRemove(t *testing.T) {
 			name: "Updating all references",
 			preTestRun: func() {
 				ep.ID = 1
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{}
@@ -828,7 +828,7 @@ func TestHasGlobalCT(t *testing.T) {
 			preTestRun: func() {
 				ep.ID = 1
 				ep.Options = option.NewIntOptions(&endpoint.EndpointMutableOptionLibrary)
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupWant: func() want {
 				return want{
@@ -848,7 +848,7 @@ func TestHasGlobalCT(t *testing.T) {
 				ep.ID = 1
 				ep.Options = option.NewIntOptions(&endpoint.EndpointMutableOptionLibrary)
 				ep.Options.SetIfUnset(option.ConntrackLocal, option.OptionEnabled)
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupWant: func() want {
 				return want{
@@ -897,7 +897,7 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 			preTestRun: func() {
 				ep.ID = 1
 				ep.SetPolicyRevision(5)
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{
@@ -921,7 +921,7 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 			preTestRun: func() {
 				ep.ID = 1
 				ep.SetPolicyRevision(5)
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				ctx, cancel := context.WithTimeout(context.Background(), 0)
@@ -947,7 +947,7 @@ func TestWaitForEndpointsAtPolicyRev(t *testing.T) {
 			preTestRun: func() {
 				ep.ID = 1
 				ep.SetPolicyRevision(4)
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -1001,7 +1001,7 @@ func TestMissingNodeLabelsUpdate(t *testing.T) {
 	ep := endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
 	ep.SetIsHost(true)
 	ep.ID = hostEPID
-	require.Nil(t, mgr.expose(ep))
+	require.NoError(t, mgr.expose(ep))
 
 	// Update node labels and verify that the node labels are updated correctly even if the old
 	// labels {k1=v1} are not present in the endpoint manager's state.
@@ -1038,7 +1038,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 				ep := endpoint.NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
 				ep.SetIsHost(true)
 				ep.ID = hostEPID
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{
@@ -1064,7 +1064,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 				ep.SetIsHost(true)
 				ep.ID = hostEPID
 				ep.OpLabels.Custom = labels.Labels{"k1": labels.NewLabel("k1", "v1", labels.LabelSourceK8s)}
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{
@@ -1091,7 +1091,7 @@ func TestUpdateHostEndpointLabels(t *testing.T) {
 				ep.SetIsHost(true)
 				ep.ID = hostEPID
 				ep.OpLabels.Custom = labels.Labels{"k1": labels.NewLabel("k1", "v1", labels.LabelSourceK8s)}
-				require.Nil(t, mgr.expose(ep))
+				require.NoError(t, mgr.expose(ep))
 			},
 			setupArgs: func() args {
 				return args{

@@ -578,7 +578,7 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 	state = traceState{}
 	_, err = rule2.resolveIngressPolicy(td.testPolicyContext, toBar, &state, res, nil, nil)
 
-	require.NotNil(t, err)
+	require.Error(t, err)
 	res.Detach(td.sc)
 
 	// Similar to 'rule2', but with different topics for the l3-dependent
@@ -954,7 +954,7 @@ func TestRuleWithNoEndpointSelector(t *testing.T) {
 	}
 
 	err := apiRule1.Sanitize()
-	require.NotNil(t, err)
+	require.Error(t, err)
 }
 
 func TestL3Policy(t *testing.T) {
@@ -1006,7 +1006,7 @@ func TestL3Policy(t *testing.T) {
 			},
 		}},
 	}).Sanitize()
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	// Test CIDRRule with no provided CIDR or ExceptionCIDR.
 	// Should fail as CIDR is required.
@@ -1018,7 +1018,7 @@ func TestL3Policy(t *testing.T) {
 			},
 		}},
 	}).Sanitize()
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	// Test CIDRRule with only CIDR provided; should not fail, as ExceptionCIDR
 	// is optional.
@@ -1042,7 +1042,7 @@ func TestL3Policy(t *testing.T) {
 			},
 		}},
 	}).Sanitize()
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	// Cannot exclude a range that is not part of the CIDR.
 	err = (&api.Rule{
@@ -1053,7 +1053,7 @@ func TestL3Policy(t *testing.T) {
 			},
 		}},
 	}).Sanitize()
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	// Must have a contiguous mask, make sure Validate fails when not.
 	err = (&api.Rule{
@@ -1064,7 +1064,7 @@ func TestL3Policy(t *testing.T) {
 			},
 		}},
 	}).Sanitize()
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	// Prefix length must be in range for the address, make sure
 	// Validate fails if given prefix length is out of range.
@@ -1076,7 +1076,7 @@ func TestL3Policy(t *testing.T) {
 			},
 		}},
 	}).Sanitize()
-	require.NotNil(t, err)
+	require.Error(t, err)
 }
 
 func TestICMPPolicy(t *testing.T) {
@@ -1284,7 +1284,7 @@ func TestEgressRuleRestrictions(t *testing.T) {
 	}
 
 	err := apiRule1.Sanitize()
-	require.NotNil(t, err)
+	require.Error(t, err)
 }
 
 func TestPolicyEntityValidationEgress(t *testing.T) {
@@ -1298,15 +1298,15 @@ func TestPolicyEntityValidationEgress(t *testing.T) {
 			},
 		},
 	}
-	require.Nil(t, r.Sanitize())
+	require.NoError(t, r.Sanitize())
 	require.Equal(t, 1, len(r.Egress[0].ToEntities))
 
 	r.Egress[0].ToEntities = []api.Entity{api.EntityHost}
-	require.Nil(t, r.Sanitize())
+	require.NoError(t, r.Sanitize())
 	require.Equal(t, 1, len(r.Egress[0].ToEntities))
 
 	r.Egress[0].ToEntities = []api.Entity{"trololo"}
-	require.NotNil(t, r.Sanitize())
+	require.Error(t, r.Sanitize())
 }
 
 func TestPolicyEntityValidationIngress(t *testing.T) {
@@ -1320,15 +1320,15 @@ func TestPolicyEntityValidationIngress(t *testing.T) {
 			},
 		},
 	}
-	require.Nil(t, r.Sanitize())
+	require.NoError(t, r.Sanitize())
 	require.Equal(t, 1, len(r.Ingress[0].FromEntities))
 
 	r.Ingress[0].FromEntities = []api.Entity{api.EntityHost}
-	require.Nil(t, r.Sanitize())
+	require.NoError(t, r.Sanitize())
 	require.Equal(t, 1, len(r.Ingress[0].FromEntities))
 
 	r.Ingress[0].FromEntities = []api.Entity{"trololo"}
-	require.NotNil(t, r.Sanitize())
+	require.Error(t, r.Sanitize())
 }
 
 func TestPolicyEntityValidationEntitySelectorsFill(t *testing.T) {
@@ -1349,7 +1349,7 @@ func TestPolicyEntityValidationEntitySelectorsFill(t *testing.T) {
 			},
 		},
 	}
-	require.Nil(t, r.Sanitize())
+	require.NoError(t, r.Sanitize())
 	require.Equal(t, 2, len(r.Ingress[0].FromEntities))
 	require.Equal(t, 2, len(r.Egress[0].ToEntities))
 }
@@ -2840,10 +2840,10 @@ func TestMergeListenerReference(t *testing.T) {
 	// Cannot merge two different listeners with the default (zero) priority
 	ps0a := &PerSelectorPolicy{Listener: "listener0a"}
 	err = ps0.mergeListenerReference(ps0a)
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	err = ps0a.mergeListenerReference(ps0)
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	// Listener with a defined (non-zero) priority takes precedence over
 	// a listener with an undefined (zero) priority
@@ -2874,9 +2874,9 @@ func TestMergeListenerReference(t *testing.T) {
 	ps12 := &PerSelectorPolicy{Listener: "listener1", Priority: 2}
 	ps2 = &PerSelectorPolicy{Listener: "listener2", Priority: 2}
 	err = ps12.mergeListenerReference(ps2)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	err = ps2.mergeListenerReference(ps12)
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	// Lower priority is propagated also when the listeners are the same
 	ps23 := &PerSelectorPolicy{Listener: "listener2", Priority: 3}

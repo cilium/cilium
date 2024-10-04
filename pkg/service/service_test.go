@@ -275,7 +275,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService46(t *testing.T) {
 		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 	created, id1, err := m.svc.UpsertService(p)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, 2, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -287,7 +287,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService46(t *testing.T) {
 	// Should delete both backends of service
 	p.Backends = nil
 	created, id2, err := m.svc.UpsertService(p)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, created)
 	require.Equal(t, id1, id2)
 	require.Equal(t, 0, len(m.lbmap.ServiceByID[uint16(id2)].Backends))
@@ -298,7 +298,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService46(t *testing.T) {
 
 	// Should delete the remaining service
 	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, found)
 	require.Equal(t, 0, len(m.lbmap.ServiceByID))
 	require.Equal(t, 0, len(m.lbmap.BackendByID))
@@ -315,7 +315,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService64(t *testing.T) {
 		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 	created, id1, err := m.svc.UpsertService(p)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, 2, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -327,7 +327,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService64(t *testing.T) {
 	// Should delete both backends of service
 	p.Backends = nil
 	created, id2, err := m.svc.UpsertService(p)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, created)
 	require.Equal(t, id1, id2)
 	require.Equal(t, 0, len(m.lbmap.ServiceByID[uint16(id2)].Backends))
@@ -338,7 +338,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService64(t *testing.T) {
 
 	// Should delete the remaining service
 	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, found)
 	require.Equal(t, 0, len(m.lbmap.ServiceByID))
 	require.Equal(t, 0, len(m.lbmap.BackendByID))
@@ -357,7 +357,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 		Name:                      lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 	created, id1, err := m.svc.UpsertService(p)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, 2, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -376,7 +376,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 	// Should remove session affinity
 	p.SessionAffinity = false
 	created, id1, err = m.svc.UpsertService(p)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, 2, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -394,7 +394,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 	p.SessionAffinity = true
 	p.SessionAffinityTimeoutSec = 200
 	created, id1, err = m.svc.UpsertService(p)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, 1, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -409,11 +409,11 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 	}
 
 	// Should add another service
-	require.Nil(t, err)
+	require.NoError(t, err)
 	cidr1, err := cidr.ParseCIDR("10.0.0.0/8")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	cidr2, err := cidr.ParseCIDR("192.168.1.0/24")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	p2 := &lb.SVC{
 		Frontend:                  frontend2,
 		Backends:                  backends1,
@@ -426,7 +426,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 		LoadBalancerSourceRanges:  []*cidr.CIDR{cidr1, cidr2},
 	}
 	created, id2, err := m.svc.UpsertService(p2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.Equal(t, lb.ID(2), id2)
 	require.Equal(t, 2, len(m.lbmap.ServiceByID[uint16(id2)].Backends))
@@ -437,9 +437,9 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 	require.Equal(t, 2, len(m.lbmap.SourceRanges[uint16(id2)]))
 
 	// Should add IPv6 service only if IPv6 is enabled
-	require.Nil(t, err)
+	require.NoError(t, err)
 	cidr1, err = cidr.ParseCIDR("fd00::/8")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	p3 := &lb.SVC{
 		Frontend:                  frontend3,
 		Backends:                  backends3,
@@ -453,7 +453,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 	}
 	created, id3, err := m.svc.UpsertService(p3)
 	if option.Config.EnableIPv6 {
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, true, created)
 		require.Equal(t, lb.ID(3), id3)
 		require.Equal(t, 2, len(m.lbmap.ServiceByID[uint16(id3)].Backends))
@@ -465,7 +465,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 
 		// Should remove the IPv6 service
 		found, err := m.svc.DeleteServiceByID(lb.ServiceID(id3))
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, true, found)
 	} else {
 		require.ErrorContains(t, err, "Unable to upsert service")
@@ -478,7 +478,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 	// Should remove the service and the backend, but keep another service and
 	// its backends. Also, should remove the affinity match.
 	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, found)
 	require.Equal(t, 1, len(m.lbmap.ServiceByID))
 	require.Equal(t, 2, len(m.lbmap.BackendByID))
@@ -488,7 +488,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 	p2.Backends = nil
 	p2.LoadBalancerSourceRanges = []*cidr.CIDR{cidr2}
 	created, id2, err = m.svc.UpsertService(p2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, created)
 	require.Equal(t, lb.ID(2), id2)
 	require.Equal(t, 0, len(m.lbmap.ServiceByID[uint16(id2)].Backends))
@@ -500,16 +500,16 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 
 	// Should delete the remaining service
 	found, err = m.svc.DeleteServiceByID(lb.ServiceID(id2))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, found)
 	require.Equal(t, 0, len(m.lbmap.ServiceByID))
 	require.Equal(t, 0, len(m.lbmap.BackendByID))
 
 	// Should ignore the source range if it does not match FE's ip family
 	cidr1, err = cidr.ParseCIDR("fd00::/8")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	cidr2, err = cidr.ParseCIDR("192.168.1.0/24")
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	p4 := &lb.SVC{
 		Frontend:                  frontend1,
@@ -524,7 +524,7 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(t *testing.T) {
 	}
 	created, id4, err := m.svc.UpsertService(p4)
 	require.Equal(t, true, created)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 1, len(m.lbmap.SourceRanges[uint16(id4)]))
 }
 
@@ -539,11 +539,11 @@ func TestRestoreServices(t *testing.T) {
 		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
 	}
 	_, id1, err := m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	cidr1, err := cidr.ParseCIDR("10.0.0.0/8")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	cidr2, err := cidr.ParseCIDR("192.168.1.0/24")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	p2 := &lb.SVC{
 		Frontend:                  frontend2,
 		Backends:                  backends2,
@@ -555,7 +555,7 @@ func TestRestoreServices(t *testing.T) {
 		LoadBalancerSourceRanges:  []*cidr.CIDR{cidr1, cidr2},
 	}
 	_, id2, err := m.svc.UpsertService(p2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Restart service, but keep the lbmap to restore services from
 	option.Config.NodePortAlg = option.NodePortAlgMaglev
@@ -569,7 +569,7 @@ func TestRestoreServices(t *testing.T) {
 
 	// Restore services from lbmap
 	err = m.svc.RestoreServices()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Backends have been restored
 	require.Equal(t, 3, len(m.svc.backendByHash))
@@ -622,7 +622,7 @@ func TestSyncWithK8sFinished(t *testing.T) {
 		SessionAffinityTimeoutSec: 300,
 	}
 	_, id1, err := m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	p2 := &lb.SVC{
 		Frontend:         frontend2,
 		Backends:         backends2,
@@ -632,7 +632,7 @@ func TestSyncWithK8sFinished(t *testing.T) {
 		Name:             lb.ServiceName{Name: "svc2", Namespace: "ns2"},
 	}
 	_, _, err = m.svc.UpsertService(p2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 2, len(m.svc.svcByID))
 	require.Equal(t, 2, len(m.lbmap.AffinityMatch[uint16(id1)]))
 
@@ -645,7 +645,7 @@ func TestSyncWithK8sFinished(t *testing.T) {
 	m.newServiceMock(ctx, lbmap)
 
 	err = m.svc.RestoreServices()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 2, len(m.svc.svcByID))
 
 	// Imitate a situation where svc1 was deleted while we were down.
@@ -655,7 +655,7 @@ func TestSyncWithK8sFinished(t *testing.T) {
 	p2.SessionAffinity = true
 	p2.SessionAffinityTimeoutSec = 100
 	_, id2, err := m.svc.UpsertService(p2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Add non-existing affinity matches
 	lbmap.AddAffinityMatch(20, 300)
@@ -667,7 +667,7 @@ func TestSyncWithK8sFinished(t *testing.T) {
 	// is called
 	stale, err := m.svc.SyncWithK8sFinished(false, nil)
 	require.Nil(t, stale)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// svc1 should be removed from cilium while svc2 is synced
 	require.Equal(t, 1, len(m.svc.svcByID))
@@ -854,7 +854,7 @@ func TestHealthCheckNodePort(t *testing.T) {
 		Name:                lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 	_, id1, err := m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "svc1", m.svcHealth.ServiceByPort(32001).Service.Name)
 	require.Equal(t, "ns1", m.svcHealth.ServiceByPort(32001).Service.Namespace)
 
@@ -873,7 +873,7 @@ func TestHealthCheckNodePort(t *testing.T) {
 		Name:                lb.ServiceName{Name: "svc1", Namespace: "ns1"},
 	}
 	_, id2, err := m.svc.UpsertService(p2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "svc1", m.svcHealth.ServiceByPort(32001).Service.Name)
 	require.Equal(t, "ns1", m.svcHealth.ServiceByPort(32001).Service.Namespace)
 	require.Equal(t, len(localActiveBackends), m.svcHealth.ServiceByPort(32001).LocalEndpoints)
@@ -881,7 +881,7 @@ func TestHealthCheckNodePort(t *testing.T) {
 	// Update the HealthCheckNodePort for svc1
 	p1.HealthCheckNodePort = 32000
 	new, _, err := m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, new)
 	require.Equal(t, "svc1", m.svcHealth.ServiceByPort(32000).Service.Name)
 	require.Equal(t, "ns1", m.svcHealth.ServiceByPort(32000).Service.Namespace)
@@ -892,7 +892,7 @@ func TestHealthCheckNodePort(t *testing.T) {
 	p1.ExtTrafficPolicy = lb.SVCTrafficPolicyCluster
 	p1.HealthCheckNodePort = 0
 	new, _, err = m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, new)
 	require.Nil(t, m.svcHealth.ServiceByPort(32000))
 	require.Nil(t, m.svcHealth.ServiceByPort(32001))
@@ -901,7 +901,7 @@ func TestHealthCheckNodePort(t *testing.T) {
 	p1.ExtTrafficPolicy = lb.SVCTrafficPolicyLocal
 	p1.HealthCheckNodePort = 32001
 	new, _, err = m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, new)
 	require.Equal(t, "svc1", m.svcHealth.ServiceByPort(32001).Service.Name)
 	require.Equal(t, "ns1", m.svcHealth.ServiceByPort(32001).Service.Namespace)
@@ -910,7 +910,7 @@ func TestHealthCheckNodePort(t *testing.T) {
 	// Upsert svc1 of type LoadBalancer with only remote backends
 	p1.Backends = remoteBackends
 	new, _, err = m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, new)
 	require.Equal(t, "svc1", m.svcHealth.ServiceByPort(32001).Service.Name)
 	require.Equal(t, "ns1", m.svcHealth.ServiceByPort(32001).Service.Namespace)
@@ -919,7 +919,7 @@ func TestHealthCheckNodePort(t *testing.T) {
 	// Upsert svc1 of type ClusterIP with only remote backends
 	p2.Backends = remoteBackends
 	new, _, err = m.svc.UpsertService(p2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, new)
 	require.Equal(t, "svc1", m.svcHealth.ServiceByPort(32001).Service.Name)
 	require.Equal(t, "ns1", m.svcHealth.ServiceByPort(32001).Service.Namespace)
@@ -927,13 +927,13 @@ func TestHealthCheckNodePort(t *testing.T) {
 
 	// Delete svc1 of type LoadBalancer
 	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, found)
 	require.Nil(t, m.svcHealth.ServiceByPort(32001))
 
 	// Delete svc1 of type ClusterIP
 	found, err = m.svc.DeleteServiceByID(lb.ServiceID(id2))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, found)
 	require.Nil(t, m.svcHealth.ServiceByPort(32001))
 }
@@ -983,7 +983,7 @@ func TestHealthCheckLoadBalancerIP(t *testing.T) {
 	svc, _, _, _, _ := m.svc.createSVCInfoIfNotExist(p1)
 	err := m.svc.upsertNodePortHealthService(svc, mockCollector)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotEqual(t, "", svc.healthcheckFrontendHash)
 	require.Equal(t, "svc1-healthCheck", m.svc.svcByHash[svc.healthcheckFrontendHash].svcName.Name)
 	require.Equal(t, "ns1", m.svc.svcByHash[svc.healthcheckFrontendHash].svcName.Namespace)
@@ -996,7 +996,7 @@ func TestHealthCheckLoadBalancerIP(t *testing.T) {
 	svc.svcHealthCheckNodePort = 0
 	oldHealthHash := svc.healthcheckFrontendHash
 	err = m.svc.upsertNodePortHealthService(svc, mockCollector)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "", svc.healthcheckFrontendHash)
 	require.Nil(t, m.svc.svcByHash[oldHealthHash])
 
@@ -1004,7 +1004,7 @@ func TestHealthCheckLoadBalancerIP(t *testing.T) {
 	svc.frontend.Scope = lb.ScopeInternal
 	svc.svcHealthCheckNodePort = 32001
 	err = m.svc.upsertNodePortHealthService(svc, mockCollector)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotEqual(t, "", svc.healthcheckFrontendHash)
 	require.Equal(t, "svc1-healthCheck", m.svc.svcByHash[svc.healthcheckFrontendHash].svcName.Name)
 	require.Equal(t, "ns1", m.svc.svcByHash[svc.healthcheckFrontendHash].svcName.Namespace)
@@ -1016,7 +1016,7 @@ func TestHealthCheckLoadBalancerIP(t *testing.T) {
 	oldHealthHash = svc.healthcheckFrontendHash
 	svc.frontend = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("2001:db8:1::1"), 80, lb.ScopeExternal, 0)
 	err = m.svc.upsertNodePortHealthService(svc, mockCollector)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, cmtypes.AddrClusterFrom(netip.MustParseAddr("2001:db8::1"), option.Config.ClusterID), m.svc.svcByHash[svc.healthcheckFrontendHash].backends[0].AddrCluster)
 	require.Nil(t, m.svc.svcByHash[oldHealthHash])
 
@@ -1024,7 +1024,7 @@ func TestHealthCheckLoadBalancerIP(t *testing.T) {
 	// Delete
 	ok, err = m.svc.DeleteService(m.svc.svcByHash[svc.healthcheckFrontendHash].frontend.L3n4Addr)
 	require.Equal(t, true, ok)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	option.Config.EnableHealthCheckLoadBalancerIP = false
 }
@@ -1052,23 +1052,23 @@ func TestHealthCheckNodePortDisabled(t *testing.T) {
 		HealthCheckNodePort: 32000,
 	}
 	_, id1, err := m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Unset HealthCheckNodePort for that service
 	p1.HealthCheckNodePort = 0
 	p1.ExtTrafficPolicy = lb.SVCTrafficPolicyCluster
 	_, _, err = m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Set HealthCheckNodePort for that service
 	p1.HealthCheckNodePort = 32000
 	p1.ExtTrafficPolicy = lb.SVCTrafficPolicyLocal
 	_, _, err = m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Delete service with active HealthCheckNodePort
 	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, found)
 }
 
@@ -1089,7 +1089,7 @@ func TestGetServiceNameByAddr(t *testing.T) {
 		Name:                lb.ServiceName{Name: name, Namespace: namespace},
 	}
 	created, id1, err := m.svc.UpsertService(p)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.Equal(t, lb.ID(1), id1)
 	fe.ID = id1
@@ -1129,7 +1129,7 @@ func TestLocalRedirectLocalBackendSelection(t *testing.T) {
 	}
 	// Insert the service entry of type Local Redirect.
 	created, id, err := m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.NotEqual(t, lb.ID(0), id)
 
@@ -1176,7 +1176,7 @@ func TestLocalRedirectServiceOverride(t *testing.T) {
 
 	// Insert the service entry of type ClusterIP.
 	created, id, err := m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.NotEqual(t, lb.ID(0), id)
 
@@ -1189,7 +1189,7 @@ func TestLocalRedirectServiceOverride(t *testing.T) {
 	created, id, err = m.svc.UpsertService(p1)
 
 	// Local redirect service should override the ClusterIP service with node-local backends.
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, created)
 	require.NotEqual(t, lb.ID(0), id)
 	svc = m.svc.svcByID[id]
@@ -1214,7 +1214,7 @@ func TestLocalRedirectServiceOverride(t *testing.T) {
 
 	// Insert the service entry of type NodePort.
 	created, id, err = m.svc.UpsertService(p2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.NotEqual(t, lb.ID(0), id)
 
@@ -1252,7 +1252,7 @@ func TestUpsertServiceWithTerminatingBackends(t *testing.T) {
 
 	created, id1, err := m.svc.UpsertService(p)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -1262,7 +1262,7 @@ func TestUpsertServiceWithTerminatingBackends(t *testing.T) {
 
 	_, _, err = m.svc.UpsertService(p)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id1)].Backends))
 	require.Equal(t, len(backends1), m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 	// Sorted active backends by ID first followed by non-active
@@ -1283,7 +1283,7 @@ func TestUpsertServiceWithTerminatingBackends(t *testing.T) {
 
 	created, id1, err = m.svc.UpsertService(p)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, 0, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -1313,7 +1313,7 @@ func TestUpsertServiceWithOnlyTerminatingBackends(t *testing.T) {
 
 	created, id1, err := m.svc.UpsertService(p)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, 2, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -1326,7 +1326,7 @@ func TestUpsertServiceWithOnlyTerminatingBackends(t *testing.T) {
 
 	created, id1, err = m.svc.UpsertService(p)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, 2, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -1338,7 +1338,7 @@ func TestUpsertServiceWithOnlyTerminatingBackends(t *testing.T) {
 
 	created, id1, err = m.svc.UpsertService(p)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, 1, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -1350,7 +1350,7 @@ func TestUpsertServiceWithOnlyTerminatingBackends(t *testing.T) {
 
 	created, id1, err = m.svc.UpsertService(p)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, 1, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -1362,7 +1362,7 @@ func TestUpsertServiceWithOnlyTerminatingBackends(t *testing.T) {
 
 	created, id1, err = m.svc.UpsertService(p)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, 0, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -1396,7 +1396,7 @@ func TestUpsertServiceWithExternalClusterIP(t *testing.T) {
 
 	created, id1, err := m.svc.UpsertService(p)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, 2, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -1423,7 +1423,7 @@ func TestUpsertServiceWithOutExternalClusterIP(t *testing.T) {
 
 	created, id1, err := m.svc.UpsertService(p)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, 2, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -1453,7 +1453,7 @@ func TestRestoreServiceWithTerminatingBackends(t *testing.T) {
 	created, id1, err := m.svc.UpsertService(p)
 
 	t.Log(m.lbmap.ServiceByID[0])
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -1463,7 +1463,7 @@ func TestRestoreServiceWithTerminatingBackends(t *testing.T) {
 
 	_, _, err = m.svc.UpsertService(p)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Simulate agent restart.
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
@@ -1475,7 +1475,7 @@ func TestRestoreServiceWithTerminatingBackends(t *testing.T) {
 
 	// Restore services from lbmap
 	err = m.svc.RestoreServices()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Backends including terminating ones have been restored
 	require.Equal(t, 3, len(m.svc.backendByHash))
@@ -1523,7 +1523,7 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 
 	// Insert the service entry of type ClusterIP.
 	created, id, err := m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.NotEqual(t, lb.ID(0), id)
 
@@ -1546,7 +1546,7 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 	// Registering with redirection stores the proxy port.
 	resource2 := L7LBResourceName{Name: "testOwner2", Namespace: "cilium-test"}
 	err = m.svc.RegisterL7LBServiceRedirect(echoOtherNode, resource2, 9090, nil)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id]
 	require.Equal(t, len(allBackends), len(svc.backends))
@@ -1562,7 +1562,7 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 	// Remove with an unregistered owner name does not remove
 	resource4 := L7LBResourceName{Name: "testOwner4", Namespace: "cilium-test"}
 	err = m.svc.DeregisterL7LBServiceRedirect(echoOtherNode, resource4)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id]
 	require.Equal(t, len(allBackends), len(svc.backends))
@@ -1571,7 +1571,7 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 
 	// Removing registration without redirection does not remove the proxy port
 	err = m.svc.DeregisterL7LBServiceRedirect(echoOtherNode, resource1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id]
 	require.Equal(t, len(allBackends), len(svc.backends))
@@ -1580,7 +1580,7 @@ func TestL7LoadBalancerServiceOverride(t *testing.T) {
 
 	// removing the registration with redirection removes the proxy port
 	err = m.svc.DeregisterL7LBServiceRedirect(echoOtherNode, resource2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id]
 	require.Equal(t, len(allBackends), len(svc.backends))
@@ -1616,7 +1616,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 
 	// Insert the service entry of type ClusterIP.
 	created, id, err := m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.NotEqual(t, lb.ID(0), id)
 
@@ -1631,7 +1631,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 	// Registering with redirection stores the proxy port.
 	resource2 := L7LBResourceName{Name: "testOwner2", Namespace: "cilium-test"}
 	err = m.svc.RegisterL7LBServiceRedirect(echoOtherNode, resource2, 9090, []uint16{80})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id]
 	require.Equal(t, len(allBackends), len(svc.backends))
@@ -1640,7 +1640,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 
 	// removing the registration with redirection removes the proxy port
 	err = m.svc.DeregisterL7LBServiceRedirect(echoOtherNode, resource2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id]
 	require.Equal(t, len(allBackends), len(svc.backends))
@@ -1649,7 +1649,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 
 	// Registering with non-matching port does not store the proxy port.
 	err = m.svc.RegisterL7LBServiceRedirect(echoOtherNode, resource2, 9090, []uint16{8080})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id]
 	require.Equal(t, len(allBackends), len(svc.backends))
@@ -1675,7 +1675,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 
 	// Insert the service entry of type ClusterIP.
 	created, id2, err := m.svc.UpsertService(p2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.NotEqual(t, lb.ID(0), id2)
 
@@ -1687,7 +1687,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 	// Remove with an unregistered owner name does not remove
 	resource4 := L7LBResourceName{Name: "testOwner4", Namespace: "cilium-test"}
 	err = m.svc.DeregisterL7LBServiceRedirect(echoOtherNode, resource4)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id2]
 	require.Equal(t, len(allBackends), len(svc.backends))
@@ -1696,7 +1696,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 
 	// Removing registration without redirection does not remove the proxy port
 	err = m.svc.DeregisterL7LBServiceRedirect(echoOtherNode, resource1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id2]
 	require.Equal(t, len(allBackends), len(svc.backends))
@@ -1705,7 +1705,7 @@ func TestL7LoadBalancerServiceOverrideWithPorts(t *testing.T) {
 
 	// removing the registration with redirection removes the proxy port
 	err = m.svc.DeregisterL7LBServiceRedirect(echoOtherNode, resource2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	svc, ok = m.svc.svcByID[id]
 	require.Equal(t, len(allBackends), len(svc.backends))
@@ -1746,7 +1746,7 @@ func TestL7LoadBalancerServiceBackendSyncRegistration(t *testing.T) {
 
 	// Insert the service entry of type ClusterIP.
 	created, id, err := m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.NotEqual(t, lb.ID(0), id)
 
@@ -1754,7 +1754,7 @@ func TestL7LoadBalancerServiceBackendSyncRegistration(t *testing.T) {
 	service := lb.ServiceName{Name: "echo-other-node", Namespace: "cilium-test"}
 	backendSyncer := &FakeBackendSyncer{}
 	err = m.svc.RegisterL7LBServiceBackendSync(service, backendSyncer)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	require.Equal(t, 1, len(m.svc.l7lbSvcs))
 	require.Equal(t, 1, len(m.svc.l7lbSvcs[service].backendSyncRegistrations))
@@ -1763,7 +1763,7 @@ func TestL7LoadBalancerServiceBackendSyncRegistration(t *testing.T) {
 
 	// Re-Registering L7LB backend sync should keep the existing registration and trigger an implicit re-synchronization
 	err = m.svc.RegisterL7LBServiceBackendSync(service, backendSyncer)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	require.Equal(t, 1, len(m.svc.l7lbSvcs))
 	require.Equal(t, 1, len(m.svc.l7lbSvcs[service].backendSyncRegistrations))
@@ -1774,7 +1774,7 @@ func TestL7LoadBalancerServiceBackendSyncRegistration(t *testing.T) {
 	allBackends = append(allBackends, backends4...)
 	p1.Backends = allBackends
 	created, id, err = m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, created)
 	require.NotEqual(t, lb.ID(0), id)
 
@@ -1785,7 +1785,7 @@ func TestL7LoadBalancerServiceBackendSyncRegistration(t *testing.T) {
 
 	// De-registering a backend sync should delete the backend sync registration
 	err = m.svc.DeregisterL7LBServiceBackendSync(service, backendSyncer)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	require.Equal(t, 0, len(m.svc.l7lbSvcs))
 	require.Equal(t, len(allBackends), backendSyncer.nrOfBackends)
@@ -1819,8 +1819,8 @@ func TestUpdateBackendsState(t *testing.T) {
 	_, id1, err1 := m.svc.UpsertService(p1)
 	_, id2, err2 := m.svc.UpsertService(p2)
 
-	require.Nil(t, err1)
-	require.Nil(t, err2)
+	require.NoError(t, err1)
+	require.NoError(t, err2)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, lb.ID(2), id2)
 	require.Equal(t, lb.BackendStateActive, m.svc.svcByID[id1].backends[0].State)
@@ -1842,7 +1842,7 @@ func TestUpdateBackendsState(t *testing.T) {
 
 	svcs, err := m.svc.UpdateBackendsState(updated)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	// Both the services are updated with the update backend state.
 	require.Equal(t, lb.BackendStateQuarantined, m.svc.svcByID[id1].backends[0].State)
 	require.Equal(t, lb.BackendStateActive, m.svc.svcByID[id1].backends[1].State)
@@ -1864,7 +1864,7 @@ func TestUpdateBackendsState(t *testing.T) {
 
 	svcs, err = m.svc.UpdateBackendsState(updated)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	// Both the services are updated with the update backend state.
 	require.Equal(t, lb.BackendStateActive, m.svc.svcByID[id1].backends[0].State)
 	require.Equal(t, lb.BackendStateActive, m.svc.svcByID[id1].backends[1].State)
@@ -1906,7 +1906,7 @@ func TestRestoreServiceWithBackendStates(t *testing.T) {
 	}
 	created, id1, err := m.svc.UpsertService(p1)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -1919,7 +1919,7 @@ func TestRestoreServiceWithBackendStates(t *testing.T) {
 	updates = append(updates, backends[0], backends[1])
 	_, err = m.svc.UpdateBackendsState(updates)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Simulate agent restart.
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
@@ -1931,7 +1931,7 @@ func TestRestoreServiceWithBackendStates(t *testing.T) {
 
 	// Restore services from lbmap
 	err = m.svc.RestoreServices()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Check that backends along with their states have been restored
 	require.Equal(t, len(backends), len(m.svc.backendByHash))
@@ -1973,7 +1973,7 @@ func TestUpsertServiceWithZeroWeightBackends(t *testing.T) {
 
 	created, id1, err := m.svc.UpsertService(p)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.Equal(t, 3, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
 	require.Equal(t, 3, len(m.lbmap.BackendByID))
@@ -1991,7 +1991,7 @@ func TestUpsertServiceWithZeroWeightBackends(t *testing.T) {
 
 	created, id1, err = m.svc.UpsertService(p)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, created)
 	require.Equal(t, 3, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
 	require.Equal(t, 3, len(m.lbmap.BackendByID))
@@ -2003,7 +2003,7 @@ func TestUpsertServiceWithZeroWeightBackends(t *testing.T) {
 
 	created, id1, err = m.svc.UpsertService(p)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, created)
 	require.Equal(t, 1, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
 	require.Equal(t, 1, len(m.lbmap.BackendByID))
@@ -2055,13 +2055,13 @@ func TestUpdateBackendsStateWithBackendSharedAcrossServices(t *testing.T) {
 	svcHash2 := r.Frontend.Hash()
 
 	_, _, err := m.svc.UpsertService(p)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	_, _, err = m.svc.UpsertService(r)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	_, id1, err := m.svc.UpsertService(r)
 
 	// Assert expected backend states after consecutive upsert service calls that share the backends.
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 3, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
 	require.Equal(t, 3, len(m.lbmap.BackendByID))
 	require.Equal(t, lb.BackendStateActive, m.svc.backendByHash[hash0].State)
@@ -2071,7 +2071,7 @@ func TestUpdateBackendsStateWithBackendSharedAcrossServices(t *testing.T) {
 	backends[1].State = lb.BackendStateMaintenance
 	_, err = m.svc.UpdateBackendsState(backends)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, lb.BackendStateMaintenance, m.svc.backendByHash[hash1].State)
 	require.Equal(t, lb.BackendStateMaintenance, m.svc.svcByHash[svcHash2].backends[1].State)
 	require.Equal(t, lb.BackendStateMaintenance, m.svc.svcByHash[svcHash2].backendByHash[hash1].State)
@@ -2087,19 +2087,19 @@ func TestSyncNodePortFrontends(t *testing.T) {
 		Type:     lb.SVCTypeNodePort,
 	}
 	_, surrID, err := m.svc.UpsertService(surrogate)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	p1 := &lb.SVC{
 		Frontend: frontend1,
 		Backends: backends1,
 		Type:     lb.SVCTypeNodePort,
 	}
 	_, _, err = m.svc.UpsertService(p1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 2, len(m.svc.svcByID))
 
 	// With no addresses all frontends (except surrogates) should be removed.
 	err = m.svc.SyncNodePortFrontends(sets.New[netip.Addr]())
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	require.Equal(t, 1, len(m.svc.svcByID))
 	_, ok := m.svc.svcByID[surrID]
@@ -2127,10 +2127,10 @@ func TestSyncNodePortFrontends(t *testing.T) {
 		Type:     lb.SVCTypeNodePort,
 	}
 	_, _, err = m.svc.UpsertService(surrogate)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	err = m.svc.SyncNodePortFrontends(nodeAddrs)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 3+2 /* surrogates */, len(m.svc.svcByID))
 }
 
@@ -2168,7 +2168,7 @@ func TestTrafficPolicy(t *testing.T) {
 	}
 	created, id1, err := m.svc.UpsertService(p1)
 	require.Equal(t, true, created)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	p2 := &lb.SVC{
 		Frontend:         externalIP,
@@ -2180,7 +2180,7 @@ func TestTrafficPolicy(t *testing.T) {
 	}
 	created, id2, err := m.svc.UpsertService(p2)
 	require.Equal(t, true, created)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	svcFromLbMap1, ok := m.lbmap.ServiceByID[uint16(id1)]
 	require.Equal(t, true, ok)
@@ -2194,7 +2194,7 @@ func TestTrafficPolicy(t *testing.T) {
 	p1.IntTrafficPolicy = lb.SVCTrafficPolicyCluster
 	created, id3, err := m.svc.UpsertService(p1)
 	require.Equal(t, false, created)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, id1, id3)
 
 	svcFromLbMap3, ok := m.lbmap.ServiceByID[uint16(id1)]
@@ -2205,7 +2205,7 @@ func TestTrafficPolicy(t *testing.T) {
 	p2.IntTrafficPolicy = lb.SVCTrafficPolicyCluster
 	created, id4, err := m.svc.UpsertService(p2)
 	require.Equal(t, false, created)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, id2, id4)
 
 	svcFromLbMap4, ok := m.lbmap.ServiceByID[uint16(id2)]
@@ -2213,10 +2213,10 @@ func TestTrafficPolicy(t *testing.T) {
 	require.Equal(t, len(localBackends), len(svcFromLbMap4.Backends))
 
 	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, found)
 	found, err = m.svc.DeleteServiceByID(lb.ServiceID(id2))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, found)
 }
 
@@ -2234,7 +2234,7 @@ func TestDeleteServiceWithTerminatingBackends(t *testing.T) {
 
 	created, id1, err := m.svc.UpsertService(p)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, 2, len(m.lbmap.ServiceByID[uint16(id1)].Backends))
@@ -2244,7 +2244,7 @@ func TestDeleteServiceWithTerminatingBackends(t *testing.T) {
 	// Delete service.
 	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, found)
 	require.Equal(t, 0, len(m.lbmap.ServiceByID))
 	require.Equal(t, 0, len(m.lbmap.BackendByID))
@@ -2265,7 +2265,7 @@ func TestRestoreServicesWithLeakedBackends(t *testing.T) {
 
 	_, id1, err1 := m.svc.UpsertService(p1)
 
-	require.Nil(t, err1)
+	require.NoError(t, err1)
 	require.Equal(t, lb.ID(1), id1)
 	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id1)].Backends))
 	require.Equal(t, len(backends), len(m.lbmap.BackendByID))
@@ -2292,7 +2292,7 @@ func TestRestoreServicesWithLeakedBackends(t *testing.T) {
 
 	// Restore services from lbmap
 	err := m.svc.RestoreServices()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, len(backends), len(m.lbmap.ServiceByID[uint16(id1)].Backends))
 	// Leaked backends should be deleted.
 	require.Equal(t, len(backends), len(m.lbmap.BackendByID))
@@ -2341,7 +2341,7 @@ func TestUpsertServiceWithDeletedBackends(t *testing.T) {
 
 	created, _, err := m.svc.UpsertService(svc)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, created)
 
 	// Delete one of the backends.
@@ -2353,7 +2353,7 @@ func TestUpsertServiceWithDeletedBackends(t *testing.T) {
 
 	created, _, err = m.svc.UpsertService(svc)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, created)
 
 	// Only the sockets connected to the deleted backend are destroyed.
@@ -2625,7 +2625,7 @@ func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
 
 	_, id1, err1 = m.svc.UpsertService(p1)
 
-	require.Nil(t, err1)
+	require.NoError(t, err1)
 	require.Equal(t, id1, lb.ID(3))
 	require.Equal(t, len(m.lbmap.ServiceByID[uint16(id1)].Backends), len(backends))
 	require.Equal(t, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 1)
