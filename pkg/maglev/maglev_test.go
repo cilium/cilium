@@ -126,10 +126,10 @@ func TestWeightedBackendWithRemoval(t *testing.T) {
 
 	// Check that each backend is present x times using following formula:
 	// m / len(weightSum) * backend.Weight; e.g. 1021 / (2+13+111+10) * 13 = 97.6 => 98
-	require.Equal(t, true, backendsCounter[0] == 16)
-	require.Equal(t, true, backendsCounter[1] == 98)
-	require.Equal(t, true, backendsCounter[2] == 832)
-	require.Equal(t, true, backendsCounter[3] == 75)
+	require.EqualValues(t, 16, backendsCounter[0])
+	require.EqualValues(t, 98, backendsCounter[1])
+	require.EqualValues(t, 832, backendsCounter[2])
+	require.EqualValues(t, 75, backendsCounter[3])
 }
 
 func BenchmarkGetMaglevTable(b *testing.B) {
