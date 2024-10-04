@@ -1147,7 +1147,7 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
-	assert.Equal(t, f.IP.Source, "10.0.0.2")
+	assert.Equal(t, "10.0.0.2", f.IP.Source)
 	assert.Empty(t, f.IP.SourceXlated)
 
 	v1 := monitor.TraceNotifyV1{
@@ -1161,8 +1161,8 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 	require.NoError(t, err)
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
-	assert.Equal(t, f.IP.Source, "1.1.1.1")
-	assert.Equal(t, f.IP.SourceXlated, "10.0.0.2")
+	assert.Equal(t, "1.1.1.1", f.IP.Source)
+	assert.Equal(t, "10.0.0.2", f.IP.SourceXlated)
 
 	v1 = monitor.TraceNotifyV1{
 		TraceNotifyV0: monitor.TraceNotifyV0{
@@ -1175,7 +1175,7 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 	require.NoError(t, err)
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
-	assert.Equal(t, f.IP.Source, "10.0.0.2")
+	assert.Equal(t, "10.0.0.2", f.IP.Source)
 	assert.Empty(t, f.IP.SourceXlated)
 }
 
@@ -1380,7 +1380,7 @@ func TestTraceNotifyProxyPort(t *testing.T) {
 
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
-	assert.Equal(t, f.ProxyPort, uint32(1234))
+	assert.Equal(t, uint32(1234), f.ProxyPort)
 
 	v1 := monitor.TraceNotifyV1{
 		TraceNotifyV0: monitor.TraceNotifyV0{
@@ -1395,7 +1395,7 @@ func TestTraceNotifyProxyPort(t *testing.T) {
 	require.NoError(t, err)
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
-	assert.Equal(t, f.ProxyPort, uint32(4321))
+	assert.Equal(t, uint32(4321), f.ProxyPort)
 }
 
 func TestDecode_DropNotify(t *testing.T) {

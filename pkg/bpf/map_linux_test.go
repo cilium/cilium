@@ -244,7 +244,7 @@ func TestBasicManipulation(t *testing.T) {
 	}
 
 	// event buffer should be empty
-	require.Equal(t, existingMap.events.buffer.Size(), 0)
+	require.Equal(t, 0, existingMap.events.buffer.Size())
 
 	err = existingMap.Update(key1, value1)
 	require.NoError(t, err)
@@ -426,7 +426,7 @@ func TestSubscribe(t *testing.T) {
 
 	subHandle.Close()
 	<-done
-	require.Equal(t, collect, 3)
+	require.Equal(t, 3, collect)
 
 	// cleanup
 	err = existingMap.DeleteAll()

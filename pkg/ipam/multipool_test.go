@@ -65,10 +65,10 @@ func Test_MultiPoolManager(t *testing.T) {
 	}
 	// provide initial CiliumNode CRD - we expect the agent to request the preAlloc pools
 	fakeK8sCiliumNodeAPI.updateNode(currentNode)
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 
 	// Wait for agent pre-allocation request, then validate it
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 	currentNode = fakeK8sCiliumNodeAPI.currentNode()
 	assert.Equal(t, &ciliumv2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: nodeTypes.GetName()},
@@ -117,7 +117,7 @@ func Test_MultiPoolManager(t *testing.T) {
 	currentNode.Spec.IPAM.Pools.Allocated = allocatedPools
 
 	fakeK8sCiliumNodeAPI.updateNode(currentNode)
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 	c.waitForAllPools()
 
 	// test allocation in default pool
@@ -148,7 +148,7 @@ func Test_MultiPoolManager(t *testing.T) {
 	assert.ErrorContains(t, err, "pool not (yet) available")
 	assert.Nil(t, faultyAllocation)
 
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 	currentNode = fakeK8sCiliumNodeAPI.currentNode()
 	// Check that the agent has not (yet) removed the unused pool.
 	assert.Equal(t, allocatedPools, currentNode.Spec.IPAM.Pools.Allocated)
@@ -212,7 +212,7 @@ func Test_MultiPoolManager(t *testing.T) {
 		},
 	}
 	fakeK8sCiliumNodeAPI.updateNode(currentNode)
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 
 	c.waitForPool(context.TODO(), IPv4, "jupiter")
 	c.waitForPool(context.TODO(), IPv6, "jupiter")
@@ -234,7 +234,7 @@ func Test_MultiPoolManager(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Wait for agent to release jupiter and unused CIDRs
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 	currentNode = fakeK8sCiliumNodeAPI.currentNode()
 	assert.Equal(t, types.IPAMPoolSpec{
 		Requested: []types.IPAMPoolRequest{
@@ -290,7 +290,7 @@ func Test_MultiPoolManager(t *testing.T) {
 	assert.Len(t, ipv4Dump[Pool("mars")], numMarsIPs)
 
 	// Ensure Requested numbers are bumped
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 	currentNode = fakeK8sCiliumNodeAPI.currentNode()
 	assert.Equal(t, []types.IPAMPoolRequest{
 		{
@@ -330,7 +330,7 @@ func Test_MultiPoolManager(t *testing.T) {
 		},
 	}
 	fakeK8sCiliumNodeAPI.updateNode(currentNode)
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 
 	// Should now be able to allocate from mars pool again
 	marsAllocation, err := c.allocateNext("mars-pod-overflow", "mars", IPv4, false)
@@ -342,7 +342,7 @@ func Test_MultiPoolManager(t *testing.T) {
 		err = c.releaseIP(ip, "mars", IPv4, i == numMarsIPs-1)
 		assert.NoError(t, err)
 	}
-	assert.Equal(t, <-events, "upsert")
+	assert.Equal(t, "upsert", <-events)
 	currentNode = fakeK8sCiliumNodeAPI.currentNode()
 	assert.Equal(t, []types.IPAMPoolRequest{
 		{

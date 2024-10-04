@@ -103,11 +103,11 @@ func Test_Metrics(t *testing.T) {
 	assert.Equal(t, resMetrics[types.LevelOK], ok)
 	assert.Greater(t, resMetrics[types.LevelOK], uint64(1))
 	assert.Equal(t, resMetrics[types.LevelDegraded], degraded)
-	assert.Equal(t, resMetrics[types.LevelDegraded], uint64(1))
+	assert.Equal(t, uint64(1), resMetrics[types.LevelDegraded])
 	assert.Equal(t, resMetrics[types.LevelStopped], stopped)
 
 	assert.Equal(t, idToStatusMetrics[degradedModuleID], degraded)
-	assert.Equal(t, idToStatusMetrics[okModuleID], uint64(0))
+	assert.Equal(t, uint64(0), idToStatusMetrics[okModuleID])
 }
 
 func count(it iter.Seq2[types.Status, statedb.Revision]) (ok uint64, degraded uint64, stopped uint64) {

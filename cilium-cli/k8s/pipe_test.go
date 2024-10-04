@@ -86,6 +86,6 @@ func TestCopyWithExhaustedRetry(t *testing.T) {
 	res := &bytes.Buffer{}
 	_, err := io.Copy(res, pipe)
 	assert.Error(t, err)
-	assert.Equal(t, err.Error(), "dropping out copy after 2 retries: unexpected EOF")
+	assert.Equal(t, "dropping out copy after 2 retries: unexpected EOF", err.Error())
 	assert.Empty(t, res.Bytes())
 }

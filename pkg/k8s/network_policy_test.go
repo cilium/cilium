@@ -607,19 +607,19 @@ func TestParseNetworkPolicyEgressL4PortRangeAllowAll(t *testing.T) {
 
 	ctxAToC8080 := ctxAToC
 	ctxAToC8080.DPorts = []*models.Port{{Port: 8080, Protocol: models.PortProtocolTCP}}
-	require.Equal(t, repo.AllowsEgressRLocked(&ctxAToC8080), api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&ctxAToC8080))
 
 	ctxAToC8085 := ctxAToC
 	ctxAToC8085.DPorts = []*models.Port{{Port: 8085, Protocol: models.PortProtocolTCP}}
-	require.Equal(t, repo.AllowsEgressRLocked(&ctxAToC8085), api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&ctxAToC8085))
 
 	ctxAToC8090 := ctxAToC
 	ctxAToC8090.DPorts = []*models.Port{{Port: 8090, Protocol: models.PortProtocolTCP}}
-	require.Equal(t, repo.AllowsEgressRLocked(&ctxAToC8090), api.Allowed)
+	require.Equal(t, api.Allowed, repo.AllowsEgressRLocked(&ctxAToC8090))
 
 	ctxAToC8091 := ctxAToC
 	ctxAToC8091.DPorts = []*models.Port{{Port: 8091, Protocol: models.PortProtocolTCP}}
-	require.Equal(t, repo.AllowsEgressRLocked(&ctxAToC8091), api.Denied)
+	require.Equal(t, api.Denied, repo.AllowsEgressRLocked(&ctxAToC8091))
 }
 
 func TestParseNetworkPolicyIngressAllowAll(t *testing.T) {

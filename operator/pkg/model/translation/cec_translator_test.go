@@ -338,7 +338,7 @@ func TestSharedIngressTranslator_getListener(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs, 1)
-	require.Equal(t, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].GetName(), "cilium-secrets/dummy-namespace-dummy-secret")
+	require.Equal(t, "cilium-secrets/dummy-namespace-dummy-secret", downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].GetName())
 	require.Nil(t, downStreamTLS.CommonTlsContext.TlsCertificateSdsSecretConfigs[0].GetSdsConfig())
 }
 

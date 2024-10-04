@@ -184,7 +184,7 @@ func TestConfigDatapathProvider(t *testing.T) {
 				shouldAdaptMTU: false,
 			}.datapathConfigProvider()
 
-			assert.Equal(t, out.NodeDefines, tt.expected)
+			assert.Equal(t, tt.expected, out.NodeDefines)
 		})
 	}
 }

@@ -350,7 +350,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
-	require.Equal(t, policy, &expectedEndpointPolicy)
+	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
 func TestL7WithLocalHostWildcard(t *testing.T) {
@@ -460,7 +460,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
-	require.Equal(t, policy, &expectedEndpointPolicy)
+	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
 func TestMapStateWithIngressWildcard(t *testing.T) {
@@ -567,7 +567,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
-	require.Equal(t, policy, &expectedEndpointPolicy)
+	require.Equal(t, &expectedEndpointPolicy, policy)
 }
 
 func TestMapStateWithIngress(t *testing.T) {

@@ -480,13 +480,13 @@ func TestOverrideIdentity(t *testing.T) {
 	// pre-allocate override identities
 	fooLabels := labels.NewLabelsFromSortedList("k8s:name=foo")
 	fooID, isNew, err := allocator.AllocateIdentity(context.TODO(), fooLabels, false, identity.InvalidIdentity)
-	assert.Equal(t, fooID.ReferenceCount, 1)
+	assert.Equal(t, 1, fooID.ReferenceCount)
 	assert.NoError(t, err)
 	assert.True(t, isNew)
 
 	barLabels := labels.NewLabelsFromSortedList("k8s:name=bar")
 	barID, isNew, err := allocator.AllocateIdentity(context.TODO(), barLabels, false, identity.InvalidIdentity)
-	assert.Equal(t, fooID.ReferenceCount, 1)
+	assert.Equal(t, 1, fooID.ReferenceCount)
 	assert.NoError(t, err)
 	assert.True(t, isNew)
 
@@ -516,7 +516,7 @@ func TestOverrideIdentity(t *testing.T) {
 
 	id, ok = ipc.LookupByPrefix(worldPrefix.String())
 	assert.True(t, ok)
-	assert.Equal(t, fooID.ReferenceCount, 2)
+	assert.Equal(t, 2, fooID.ReferenceCount)
 	assert.Equal(t, id.ID, fooID.ID)
 
 	// Remove identity override from prefix, should assign a CIDR identity again
@@ -529,7 +529,7 @@ func TestOverrideIdentity(t *testing.T) {
 	assert.True(t, ok)
 	assert.True(t, id.ID.HasLocalScope())
 	assert.False(t, id.ID.IsReservedIdentity())
-	assert.Equal(t, fooID.ReferenceCount, 1)
+	assert.Equal(t, 1, fooID.ReferenceCount)
 
 	// Remove remaining labels from prefix, this should remove the entry
 	ipc.metadata.remove(worldPrefix, "kube-uid", labels.LabelKubeAPIServer)
@@ -555,7 +555,7 @@ func TestOverrideIdentity(t *testing.T) {
 	id, ok = ipc.LookupByPrefix(worldPrefix.String())
 	assert.True(t, ok)
 	assert.Equal(t, id.ID, barID.ID)
-	assert.Equal(t, barID.ReferenceCount, 2)
+	assert.Equal(t, 2, barID.ReferenceCount)
 
 	// Remove all metadata at once, this should remove the whole entry
 	ipc.metadata.remove(worldPrefix, "kube-uid", labels.LabelKubeAPIServer)
@@ -565,7 +565,7 @@ func TestOverrideIdentity(t *testing.T) {
 	assert.Empty(t, remaining)
 
 	_, ok = ipc.LookupByPrefix(worldPrefix.String())
-	assert.Equal(t, barID.ReferenceCount, 1)
+	assert.Equal(t, 1, barID.ReferenceCount)
 	assert.False(t, ok)
 }
 

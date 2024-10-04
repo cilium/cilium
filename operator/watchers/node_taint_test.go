@@ -227,7 +227,7 @@ func TestNodeCondition(t *testing.T) {
 	fakeClient.AddReactor("patch", "nodes", func(action k8sTesting.Action) (handled bool, ret runtime.Object, err error) {
 		// If we are updating the spec, the subresource should be empty.
 		// If we update the status the subresource is 'status'
-		require.Equal(t, action.GetSubresource(), "status")
+		require.Equal(t, "status", action.GetSubresource())
 
 		pa := action.(k8sTesting.PatchAction)
 		expectedPatch := map[string]map[string][]corev1.NodeCondition{
@@ -586,8 +586,8 @@ func TestTaintNodeCiliumDown(t *testing.T) {
 		require.Len(t, patches, 2)
 
 		patch := patches[1]
-		require.Equal(t, patch.OP, "replace")
-		require.Equal(t, patch.Path, "/spec/taints")
+		require.Equal(t, "replace", patch.OP)
+		require.Equal(t, "/spec/taints", patch.Path)
 
 		// Check to see if our taint is included
 		for _, taint := range patch.Value {

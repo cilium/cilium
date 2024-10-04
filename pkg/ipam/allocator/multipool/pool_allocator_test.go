@@ -24,8 +24,8 @@ func TestPoolAllocator(t *testing.T) {
 	assert.NoError(t, err)
 	defaultPool, exists := p.pools["default"]
 	assert.True(t, exists)
-	assert.Equal(t, defaultPool.v4MaskSize, 24)
-	assert.Equal(t, defaultPool.v6MaskSize, 96)
+	assert.Equal(t, 24, defaultPool.v4MaskSize)
+	assert.Equal(t, 96, defaultPool.v6MaskSize)
 
 	// node1 is a node which has some previously allocated CIDRs
 	node1 := &v2.CiliumNode{
@@ -364,8 +364,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 
 	jupiter, exists := p.pools["jupiter"]
 	assert.True(t, exists)
-	assert.Equal(t, jupiter.v4MaskSize, 24)
-	assert.Equal(t, jupiter.v6MaskSize, 96)
+	assert.Equal(t, 24, jupiter.v4MaskSize)
+	assert.Equal(t, 96, jupiter.v6MaskSize)
 	assert.True(t, jupiter.hasCIDR(netip.MustParsePrefix("10.100.0.0/16")))
 	assert.True(t, jupiter.hasCIDR(netip.MustParsePrefix("10.200.0.0/16")))
 	assert.True(t, jupiter.hasCIDR(netip.MustParsePrefix("fd00:100::/80")))
@@ -381,8 +381,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 	assert.NoError(t, err)
 	mars, exists := p.pools["mars"]
 	assert.True(t, exists)
-	assert.Equal(t, mars.v4MaskSize, 24)
-	assert.Equal(t, mars.v6MaskSize, 96)
+	assert.Equal(t, 24, mars.v4MaskSize)
+	assert.Equal(t, 96, mars.v6MaskSize)
 	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.10.0.0/16")))
 	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.20.0.0/16")))
 	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("fb00:200::/80")))
@@ -396,8 +396,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 	assert.ErrorContains(t, err, `cannot change IPv4 mask size in existing pool "mars"`)
 	mars, exists = p.pools["mars"]
 	assert.True(t, exists)
-	assert.Equal(t, mars.v4MaskSize, 24)
-	assert.Equal(t, mars.v6MaskSize, 96)
+	assert.Equal(t, 24, mars.v4MaskSize)
+	assert.Equal(t, 96, mars.v6MaskSize)
 	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.10.0.0/16")))
 	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.20.0.0/16")))
 	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("fe00:100::/80")))
@@ -411,8 +411,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 	assert.ErrorContains(t, err, `cannot change IPv6 mask size in existing pool "mars"`)
 	mars, exists = p.pools["mars"]
 	assert.True(t, exists)
-	assert.Equal(t, mars.v4MaskSize, 24)
-	assert.Equal(t, mars.v6MaskSize, 96)
+	assert.Equal(t, 24, mars.v4MaskSize)
+	assert.Equal(t, 96, mars.v6MaskSize)
 	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.10.0.0/16")))
 	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.20.0.0/16")))
 	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("fe00:100::/80")))
@@ -426,8 +426,8 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 	assert.NoError(t, err)
 	mars, exists = p.pools["mars"]
 	assert.True(t, exists)
-	assert.Equal(t, mars.v4MaskSize, 24)
-	assert.Equal(t, mars.v6MaskSize, 96)
+	assert.Equal(t, 24, mars.v4MaskSize)
+	assert.Equal(t, 96, mars.v6MaskSize)
 	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.1.0.0/16")))
 	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.3.0.0/16")))
 	assert.True(t, mars.hasCIDR(netip.MustParsePrefix("10.10.0.0/16")))

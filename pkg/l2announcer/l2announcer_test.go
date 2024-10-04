@@ -258,13 +258,13 @@ func TestHappyPath(t *testing.T) {
 	iter = fix.proxyNeighborTable.All(rtx)
 	entries = statedb.Collect(iter)
 	assert.Len(t, entries, 1)
-	assert.Equal(t, entries[0], &tables.L2AnnounceEntry{
+	assert.Equal(t, &tables.L2AnnounceEntry{
 		L2AnnounceKey: tables.L2AnnounceKey{
 			IP:               netip.MustParseAddr(svc.Spec.ExternalIPs[0]),
 			NetworkInterface: policy.Spec.Interfaces[0],
 		},
 		Origins: []resource.Key{svcKey},
-	})
+	}, entries[0])
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	fix.announcer.params.JobGroup.Stop(ctx)
@@ -348,13 +348,13 @@ func TestHappyPathPermutations(t *testing.T) {
 			iter = fix.proxyNeighborTable.All(rtx)
 			entries = statedb.Collect(iter)
 			if assert.Len(tt, entries, 1) {
-				assert.Equal(tt, entries[0], &tables.L2AnnounceEntry{
+				assert.Equal(tt, &tables.L2AnnounceEntry{
 					L2AnnounceKey: tables.L2AnnounceKey{
 						IP:               netip.MustParseAddr(blueService().Spec.ExternalIPs[0]),
 						NetworkInterface: bluePolicy().Spec.Interfaces[0],
 					},
 					Origins: []resource.Key{serviceKey(blueService())},
-				})
+				}, entries[0])
 			}
 		})
 	}
@@ -451,13 +451,13 @@ func TestPolicyRedundancy(t *testing.T) {
 	iter := fix.proxyNeighborTable.All(rtx)
 	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 1)
-	assert.Equal(t, entries[0], &tables.L2AnnounceEntry{
+	assert.Equal(t, &tables.L2AnnounceEntry{
 		L2AnnounceKey: tables.L2AnnounceKey{
 			IP:               netip.MustParseAddr(svc.Spec.ExternalIPs[0]),
 			NetworkInterface: policy.Spec.Interfaces[0],
 		},
 		Origins: []resource.Key{svcKey},
-	})
+	}, entries[0])
 
 	// Delete second policy
 	idx := slices.Index(fix.fakePolicyStore.slice, policy2)
@@ -480,13 +480,13 @@ func TestPolicyRedundancy(t *testing.T) {
 	iter = fix.proxyNeighborTable.All(rtx)
 	entries = statedb.Collect(iter)
 	assert.Len(t, entries, 1)
-	assert.Equal(t, entries[0], &tables.L2AnnounceEntry{
+	assert.Equal(t, &tables.L2AnnounceEntry{
 		L2AnnounceKey: tables.L2AnnounceKey{
 			IP:               netip.MustParseAddr(svc.Spec.ExternalIPs[0]),
 			NetworkInterface: policy.Spec.Interfaces[0],
 		},
 		Origins: []resource.Key{svcKey},
-	})
+	}, entries[0])
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	fix.announcer.params.JobGroup.Stop(ctx)

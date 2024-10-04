@@ -329,14 +329,14 @@ func TestHashAlloc_UpdateGet(t *testing.T) {
 	require.NoError(t, err)
 
 	val, exists := alloc.Get(netip.MustParseAddr("10.0.0.50"))
-	require.Equal(t, val, 2)
+	require.Equal(t, 2, val)
 	require.True(t, exists)
 
 	err = alloc.Update(netip.MustParseAddr("10.0.0.51"), 2)
 	require.ErrorIs(t, err, ErrNotFound)
 
 	val, exists = alloc.Get(netip.MustParseAddr("10.0.0.51"))
-	require.Equal(t, val, 0)
+	require.Equal(t, 0, val)
 	require.False(t, exists)
 }
 
