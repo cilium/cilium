@@ -607,8 +607,7 @@ func TestSelectorManagerCanGetBeforeSet(t *testing.T) {
 		users: make(map[CachedSelectionUser]struct{}),
 	}
 	selections := idSel.GetSelections(versioned.Latest())
-	require.NotEqual(t, nil, selections)
-	require.Equal(t, 0, len(selections))
+	require.Empty(t, selections)
 }
 
 func testNewSelectorCache(ids identity.IdentityMap) *SelectorCache {
