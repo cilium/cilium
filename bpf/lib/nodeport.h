@@ -149,7 +149,7 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 static __always_inline bool nodeport_uses_dsr6(const struct lb6_service *svc,
 					       const struct ipv6_ct_tuple *tuple)
 {
-	return nodeport_uses_dsr(svc->flags2 & SVC_FLAG_FWD_MODE_FLIP,
+	return nodeport_uses_dsr(svc->flags2 & SVC_FLAG_FWD_MODE_DSR,
 				 tuple->nexthdr);
 }
 
@@ -1654,7 +1654,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 static __always_inline bool nodeport_uses_dsr4(const struct lb4_service *svc,
 					       const struct ipv4_ct_tuple *tuple)
 {
-	return nodeport_uses_dsr(svc->flags2 & SVC_FLAG_FWD_MODE_FLIP,
+	return nodeport_uses_dsr(svc->flags2 & SVC_FLAG_FWD_MODE_DSR,
 				 tuple->nexthdr);
 }
 
