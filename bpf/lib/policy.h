@@ -157,12 +157,6 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		goto check_l4_policy;
 	}
 
-	/* TODO: Consider skipping policy lookup in this case? */
-	if (ctx_load_meta(ctx, CB_POLICY)) {
-		*proxy_port = 0;
-		return CTX_ACT_OK;
-	}
-
 	if (is_untracked_fragment)
 		return DROP_FRAG_NOSUPPORT;
 
@@ -300,9 +294,4 @@ static __always_inline int policy_can_egress4(struct __ctx_buff *ctx, const void
 	return policy_can_egress(ctx, map, src_id, dst_id, ETH_P_IP, tuple->dport,
 				 tuple->nexthdr, l4_off, match_type, audited,
 				 ext_err, proxy_port);
-}
-
-static __always_inline void policy_clear_mark(struct __ctx_buff *ctx)
-{
-	ctx_store_meta(ctx, CB_POLICY, 0);
 }

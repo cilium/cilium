@@ -1552,8 +1552,6 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int ifindex, __u32 src_
 	__u8 audited = 0;
 	__u8 auth_type = 0;
 
-	policy_clear_mark(ctx);
-
 	ipv6_addr_copy(&orig_sip, (union v6addr *)&ip6->saddr);
 
 	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
@@ -1865,8 +1863,6 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, int ifindex, __u32 src_la
 	__u8 audited = 0;
 	__u8 auth_type = 0;
 	__u32 zero = 0;
-
-	policy_clear_mark(ctx);
 
 	orig_sip = ip4->saddr;
 
