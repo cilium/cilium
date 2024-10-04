@@ -243,10 +243,10 @@ func TestDefaultManager_DefaultPool(t *testing.T) {
 	defaultPoolManager := defaultIPPoolManager{}
 
 	ipv4Pool, err := defaultPoolManager.GetIPPoolForPod("", ipam.IPv4)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, ipam.PoolDefault(), ipam.Pool(ipv4Pool))
 
 	ipv6Pool, err := defaultPoolManager.GetIPPoolForPod("", ipam.IPv6)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, ipam.PoolDefault(), ipam.Pool(ipv6Pool))
 }

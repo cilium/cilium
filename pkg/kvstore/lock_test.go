@@ -55,5 +55,5 @@ func TestLocalLockCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	_, err = locks.lock(ctx, path)
-	require.NotNil(t, err)
+	require.Error(t, err)
 }

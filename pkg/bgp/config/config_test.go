@@ -13,11 +13,11 @@ import (
 
 func TestParse(t *testing.T) {
 	config, err := Parse(strings.NewReader(yaml))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, config)
 
 	config, err = Parse(strings.NewReader(json))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, config)
 
 	config, err = Parse(strings.NewReader(`{"json":"random"}`))

@@ -106,7 +106,7 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		epipv4 := netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i))
 		_, err := ipam.IPv4Allocator.Allocate(epipv4.AsSlice(), fmt.Sprintf("test%d", i), PoolDefault())
-		require.Nil(t, err)
+		require.NoError(t, err)
 	}
 
 	// Update 1.1.1.4 as marked for release like operator would.

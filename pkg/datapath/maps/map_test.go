@@ -191,7 +191,7 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 			}
 			for _, path := range tt.paths {
 				err := sweeper.walk(path, nil, nil)
-				require.Nil(t, err)
+				require.NoError(t, err)
 			}
 			slices.Sort(tt.removedPaths)
 			slices.Sort(testEPManager.removedPaths)

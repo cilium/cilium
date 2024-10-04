@@ -17,7 +17,7 @@ import (
 
 func TestHint(t *testing.T) {
 	var err error
-	require.Nil(t, Hint(err))
+	require.NoError(t, Hint(err))
 
 	err = errors.New("foo bar")
 	require.ErrorContains(t, Hint(err), "foo bar")

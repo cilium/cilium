@@ -30,36 +30,36 @@ func TestGaugeWithThreshold(t *testing.T) {
 	})
 
 	metrics, err := reg.inner.Gather()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	initMetricLen := len(metrics)
 
 	gauge.Set(underThreshold)
 	metrics, err = reg.inner.Gather()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, metrics, initMetricLen)
 	require.Equal(t, underThreshold, GetGaugeValue(gauge.gauge))
 
 	gauge.Set(overThreshold)
 	metrics, err = reg.inner.Gather()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, metrics, initMetricLen+1)
 	require.Equal(t, overThreshold, GetGaugeValue(gauge.gauge))
 
 	gauge.Set(threshold)
 	metrics, err = reg.inner.Gather()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, metrics, initMetricLen)
 	require.Equal(t, threshold, GetGaugeValue(gauge.gauge))
 
 	gauge.Set(overThreshold)
 	metrics, err = reg.inner.Gather()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, metrics, initMetricLen+1)
 	require.Equal(t, overThreshold, GetGaugeValue(gauge.gauge))
 
 	gauge.Set(underThreshold)
 	metrics, err = reg.inner.Gather()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, metrics, initMetricLen)
 	require.Equal(t, underThreshold, GetGaugeValue(gauge.gauge))
 }

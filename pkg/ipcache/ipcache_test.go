@@ -203,7 +203,7 @@ func TestIPCache(t *testing.T) {
 		ID:     42,
 		Source: source.KVStore,
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	_, exists = IPIdentityCache.LookupByPrefix("10.1.1.250/32")
 	require.Equal(t, true, exists)
 	// Insert different pod now.
@@ -214,7 +214,7 @@ func TestIPCache(t *testing.T) {
 		ID:     43,
 		Source: source.KVStore,
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	cachedIdentity, _ = IPIdentityCache.LookupByPrefix("10.1.1.250/32")
 	require.Equal(t, identityPkg.NumericIdentity(43), cachedIdentity.ID) // Assert entry overwritten.
 	// Assuming different pod with same IP 10.1.1.250 as a previous pod was
@@ -262,7 +262,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 		ID:     identity,
 		Source: source.Kubernetes,
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Assure both caches are updated..
 	require.Equal(t, 1, len(IPIdentityCache.ipToIdentityCache))
@@ -282,10 +282,10 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	require.NotNil(t, npm)
 	require.Equal(t, 2, npm.Len())
 	port, err := npm.GetNamedPort("http", u8proto.TCP)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(80), port)
 	port, err = npm.GetNamedPort("dns", u8proto.ANY)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(53), port)
 
 	// No duplicates.
@@ -316,7 +316,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 		ID:     identity2,
 		Source: source.Kubernetes,
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Assure both caches are updated..
 	require.Equal(t, 2, len(IPIdentityCache.ipToIdentityCache))
@@ -335,13 +335,13 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	require.NotNil(t, npm)
 	require.Equal(t, 3, npm.Len())
 	port, err = npm.GetNamedPort("http", u8proto.TCP)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(80), port)
 	port, err = npm.GetNamedPort("dns", u8proto.ANY)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(53), port)
 	port, err = npm.GetNamedPort("https", u8proto.TCP)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(443), port)
 
 	namedPortsChanged = IPIdentityCache.Delete(endpointIP, source.Kubernetes)
@@ -351,10 +351,10 @@ func TestIPCacheNamedPorts(t *testing.T) {
 	require.Equal(t, 2, npm.Len())
 
 	port, err = npm.GetNamedPort("dns", u8proto.ANY)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(53), port)
 	port, err = npm.GetNamedPort("https", u8proto.TCP)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, uint16(443), port)
 
 	// Assure deletion occurs across all mappings.
@@ -377,7 +377,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 		ID:     identity,
 		Source: source.KVStore,
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, namedPortsChanged)
 
 	// Assure upsert occurs across all mappings.
@@ -395,7 +395,7 @@ func TestIPCacheNamedPorts(t *testing.T) {
 		ID:     newIdentity,
 		Source: source.KVStore,
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, namedPortsChanged)
 
 	// Assure upsert occurs across all mappings.
@@ -438,11 +438,11 @@ func TestIPCacheNamedPorts(t *testing.T) {
 			ID:     identities[index],
 			Source: source.KVStore,
 		})
-		require.Nil(t, err)
+		require.NoError(t, err)
 		npm = IPIdentityCache.GetNamedPorts()
 		require.NotNil(t, npm)
 		port, err := npm.GetNamedPort("http2", u8proto.TCP)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, uint16(8080), port)
 		// only the first changes named ports, as they are all the same
 		require.Equal(t, index == 0, namedPortsChanged)

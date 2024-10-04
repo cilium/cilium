@@ -24,7 +24,7 @@ func TestLocalKeys(t *testing.T) {
 	require.Equal(t, val, v)
 	require.True(t, firstUse)
 
-	require.Nil(t, k.verify(key.GetKey()))
+	require.NoError(t, k.verify(key.GetKey()))
 
 	v = k.use(key.GetKey()) // refcnt=2
 	require.Equal(t, val, v)

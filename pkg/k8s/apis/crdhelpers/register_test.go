@@ -86,7 +86,7 @@ func TestCreateUpdateCRD(t *testing.T) {
 			test: func() error {
 				crd := getV1TestCRD()
 				client := fake.NewSimpleClientset()
-				require.Nil(t, k8sversion.Force(v1Support.Major+"."+v1Support.Minor))
+				require.NoError(t, k8sversion.Force(v1Support.Major+"."+v1Support.Minor))
 				return CreateUpdateCRD(client, crd, newFakePoller(), labelKey, minVersion)
 			},
 			wantErr: false,
@@ -97,7 +97,7 @@ func TestCreateUpdateCRD(t *testing.T) {
 				// createUpdateCRD works with v1 CRDs and converts to v1beta1 CRDs if needed.
 				crd := getV1TestCRD()
 				client := fake.NewSimpleClientset()
-				require.Nil(t, k8sversion.Force(v1beta1Support.Major+"."+v1beta1Support.Minor))
+				require.NoError(t, k8sversion.Force(v1beta1Support.Major+"."+v1beta1Support.Minor))
 				return CreateUpdateCRD(client, crd, newFakePoller(), labelKey, minVersion)
 			},
 			wantErr: false,
@@ -108,7 +108,7 @@ func TestCreateUpdateCRD(t *testing.T) {
 				// This test will install a v1beta1 CRD to simulate the
 				// scenario where a user already has v1beta1 CRDs installed.
 
-				require.Nil(t, k8sversion.Force(v1Support.Major+"."+v1Support.Minor))
+				require.NoError(t, k8sversion.Force(v1Support.Major+"."+v1Support.Minor))
 
 				// Ensure same name as to-be installed CRD.
 				crd := getV1TestCRD()
@@ -137,7 +137,7 @@ func TestCreateUpdateCRD(t *testing.T) {
 				// that the apiserver will interoperate between the two
 				// versions (v1 & v1beta1).
 
-				require.Nil(t, k8sversion.Force(v1Support.Major+"."+v1Support.Minor))
+				require.NoError(t, k8sversion.Force(v1Support.Major+"."+v1Support.Minor))
 
 				// Ensure same name as to-be installed CRD.
 				crdToInstall := getV1beta1TestCRD()
@@ -156,7 +156,7 @@ func TestCreateUpdateCRD(t *testing.T) {
 
 				// Revert back to v1beta1 apiserver.
 				client.Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = v1beta1Support
-				require.Nil(t, k8sversion.Force(v1beta1Support.Major+"."+v1beta1Support.Minor))
+				require.NoError(t, k8sversion.Force(v1beta1Support.Major+"."+v1beta1Support.Minor))
 
 				// Retrieve v1 CRD here as that's what CreateUpdateCRD will be
 				// expecting, and change the name to match to-be installed CRD.

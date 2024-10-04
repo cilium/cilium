@@ -28,32 +28,32 @@ func TestValidateIPv6ClusterAllocCIDR(t *testing.T) {
 		IPv6ClusterAllocCIDR: "fdfd::/64",
 	}
 
-	require.Nil(t, valid1.validateIPv6ClusterAllocCIDR())
+	require.NoError(t, valid1.validateIPv6ClusterAllocCIDR())
 	require.Equal(t, "fdfd::", valid1.IPv6ClusterAllocCIDRBase)
 
 	valid2 := &DaemonConfig{
 		IPv6ClusterAllocCIDR: "fdfd:fdfd:fdfd:fdfd:aaaa::/64",
 	}
-	require.Nil(t, valid2.validateIPv6ClusterAllocCIDR())
+	require.NoError(t, valid2.validateIPv6ClusterAllocCIDR())
 	require.Equal(t, "fdfd:fdfd:fdfd:fdfd::", valid2.IPv6ClusterAllocCIDRBase)
 
 	invalid1 := &DaemonConfig{
 		IPv6ClusterAllocCIDR: "foo",
 	}
-	require.NotNil(t, invalid1.validateIPv6ClusterAllocCIDR())
+	require.Error(t, invalid1.validateIPv6ClusterAllocCIDR())
 
 	invalid2 := &DaemonConfig{
 		IPv6ClusterAllocCIDR: "fdfd",
 	}
-	require.NotNil(t, invalid2.validateIPv6ClusterAllocCIDR())
+	require.Error(t, invalid2.validateIPv6ClusterAllocCIDR())
 
 	invalid3 := &DaemonConfig{
 		IPv6ClusterAllocCIDR: "fdfd::/32",
 	}
-	require.NotNil(t, invalid3.validateIPv6ClusterAllocCIDR())
+	require.Error(t, invalid3.validateIPv6ClusterAllocCIDR())
 
 	invalid4 := &DaemonConfig{}
-	require.NotNil(t, invalid4.validateIPv6ClusterAllocCIDR())
+	require.Error(t, invalid4.validateIPv6ClusterAllocCIDR())
 }
 
 func TestGetEnvName(t *testing.T) {

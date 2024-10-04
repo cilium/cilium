@@ -87,7 +87,7 @@ func TestNewWatchedClientConfig(t *testing.T) {
 	}
 
 	c, err := NewWatchedClientConfig(logger, hubble.caFiles, relay.certFile, relay.privkeyFile)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, c)
 	defer c.Stop()
 
@@ -96,7 +96,7 @@ func TestNewWatchedClientConfig(t *testing.T) {
 	})
 	assert.NotNil(t, tlsConfig)
 	keypair, err := tlsConfig.GetClientCertificate(nil)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, keypair)
 	assert.Equal(t, &expectedKeypair, keypair)
 	assert.Equal(t, expectedCaCertPool.Subjects(), tlsConfig.RootCAs.Subjects())
@@ -116,7 +116,7 @@ func TestNewWatchedClientConfigWithoutClientCert(t *testing.T) {
 	}
 
 	c, err := NewWatchedClientConfig(logger, hubble.caFiles, "", "")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, c)
 	defer c.Stop()
 
@@ -144,7 +144,7 @@ func TestWatchedClientConfigRotation(t *testing.T) {
 	}
 
 	c, err := NewWatchedClientConfig(logger, hubble.caFiles, relay.certFile, relay.privkeyFile)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, c)
 	defer c.Stop()
 
@@ -168,7 +168,7 @@ func TestWatchedClientConfigRotation(t *testing.T) {
 	})
 	assert.NotNil(t, tlsConfig)
 	keypair, err := tlsConfig.GetClientCertificate(nil)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, keypair)
 	assert.Equal(t, &expectedKeypair, keypair)
 	assert.Equal(t, expectedCaCertPool.Subjects(), tlsConfig.RootCAs.Subjects())

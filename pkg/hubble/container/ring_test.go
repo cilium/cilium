@@ -126,7 +126,7 @@ func TestNewCapacity(t *testing.T) {
 		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
 			c, err := NewCapacity(n)
 			assert.Nil(t, c)
-			assert.NotNil(t, err)
+			assert.Error(t, err)
 		})
 	}
 }

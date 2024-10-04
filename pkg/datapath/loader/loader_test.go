@@ -36,7 +36,7 @@ var (
 func initEndpoint(tb testing.TB, ep *testutils.TestEndpoint) {
 	testutils.PrivilegedTest(tb)
 
-	require.Nil(tb, rlimit.RemoveMemlock())
+	require.NoError(tb, rlimit.RemoveMemlock())
 
 	ep.State = tb.TempDir()
 	for _, iface := range []string{ep.InterfaceName(), defaults.SecondHostDevice} {

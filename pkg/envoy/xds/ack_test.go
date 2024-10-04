@@ -275,7 +275,7 @@ func TestUpsertMoreRecentVersionNack(t *testing.T) {
 	acker.HandleResourceVersionAck(1, 2, node0, []string{resources[0].Name}, typeURL, "Detail")
 	// IsCompleted is true only for completions without error
 	require.Condition(t, isNotCompletedComparison(comp))
-	require.NotEqual(t, nil, comp.Err())
+	require.Error(t, comp.Err())
 	require.EqualValues(t, &ProxyError{Err: ErrNackReceived, Detail: "Detail"}, comp.Err())
 }
 

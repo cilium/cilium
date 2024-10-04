@@ -871,8 +871,8 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) testEncryptedOverlayXFRMLeaks(t *test
 		}),
 	)
 
-	require.Nil(t, h.Start(tlog, context.TODO()))
-	defer func() { require.Nil(t, h.Stop(tlog, context.TODO())) }()
+	require.NoError(t, h.Start(tlog, context.TODO()))
+	defer func() { require.NoError(t, h.Stop(tlog, context.TODO())) }()
 	require.NotNil(t, linuxNodeHandler)
 
 	err = linuxNodeHandler.NodeConfigurationChanged(config)
@@ -1531,7 +1531,7 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 			}
 			return false
 		}, 5*time.Second)
-		require.Nil(t, err, fmt.Sprintf("expected neighbor %s", ip))
+		require.NoError(t, err, fmt.Sprintf("expected neighbor %s", ip))
 	}
 
 	assertNoNeigh := func(msg string, ips ...net.IP) {
@@ -1548,7 +1548,7 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 			}
 			return true
 		}, 5*time.Second)
-		require.Nil(t, err, msg)
+		require.NoError(t, err, msg)
 	}
 
 	nodev1 := nodeTypes.Node{
@@ -1830,7 +1830,7 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 			IP:   node2IP}},
 	}
 	now = time.Now()
-	require.Nil(t, linuxNodeHandler.NodeAdd(nodev2))
+	require.NoError(t, linuxNodeHandler.NodeAdd(nodev2))
 	wait(nodev2.Identity(), "veth0", &now, false)
 
 	node3IP := net.ParseIP("f00b::250")
@@ -1841,7 +1841,7 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 			IP:   node3IP,
 		}},
 	}
-	require.Nil(t, linuxNodeHandler.NodeAdd(nodev3))
+	require.NoError(t, linuxNodeHandler.NodeAdd(nodev3))
 	wait(nodev3.Identity(), "veth0", &now, false)
 
 	nextHop := net.ParseIP("f00d::250")
@@ -1850,19 +1850,19 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 	assertNoNeigh("node{2,3} should not be in the same L2", node2IP, node3IP)
 
 	// Check that removing node2 will not remove nextHop, as it is still used by node3
-	require.Nil(t, linuxNodeHandler.NodeDelete(nodev2))
+	require.NoError(t, linuxNodeHandler.NodeDelete(nodev2))
 	wait(nodev2.Identity(), "veth0", nil, true)
 
 	assertNeigh(nextHop, func(n netlink.Neigh) bool { return true })
 
 	// However, removing node3 should remove the neigh entry for nextHop
-	require.Nil(t, linuxNodeHandler.NodeDelete(nodev3))
+	require.NoError(t, linuxNodeHandler.NodeDelete(nodev3))
 	wait(nodev3.Identity(), "veth0", nil, true)
 
 	assertNoNeigh("expected removed neigh "+nextHop.String(), nextHop)
 
 	now = time.Now()
-	require.Nil(t, linuxNodeHandler.NodeAdd(nodev3))
+	require.NoError(t, linuxNodeHandler.NodeAdd(nodev3))
 	wait(nodev3.Identity(), "veth0", &now, false)
 
 	nextHop = net.ParseIP("f00d::250")
@@ -1896,11 +1896,11 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 	// address to check the refcount behavior, and that the old one was
 	// deleted from the neighbor table as well as the new one added.
 	now = time.Now()
-	require.Nil(t, linuxNodeHandler.NodeAdd(nodev2))
+	require.NoError(t, linuxNodeHandler.NodeAdd(nodev2))
 	wait(nodev2.Identity(), "veth0", &now, false)
 
 	now = time.Now()
-	require.Nil(t, linuxNodeHandler.NodeAdd(nodev3))
+	require.NoError(t, linuxNodeHandler.NodeAdd(nodev3))
 	wait(nodev3.Identity(), "veth0", &now, false)
 
 	nextHop = net.ParseIP("f00d::250")
@@ -1972,7 +1972,7 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 	nextHop = net.ParseIP("f00d::251")
 	assertNeigh(nextHop, neighStateOk)
 
-	require.Nil(t, linuxNodeHandler.NodeDelete(nodev3))
+	require.NoError(t, linuxNodeHandler.NodeDelete(nodev3))
 	wait(nodev3.Identity(), "veth0", nil, true)
 
 	// In the next test, we have node2 left in the neighbor table, and
@@ -2005,7 +2005,7 @@ func TestArpPingHandlingIPv6(t *testing.T) {
 	assertNeigh(nextHop, neighStateOk)
 	assertNoNeigh("node2 should not be in the same L2", node2IP)
 
-	require.Nil(t, linuxNodeHandler.NodeDelete(nodev2))
+	require.NoError(t, linuxNodeHandler.NodeDelete(nodev2))
 	wait(nodev2.Identity(), "veth0", nil, true)
 
 	linuxNodeHandler.NodeCleanNeighborsLink(veth0, false)
@@ -2859,7 +2859,7 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 		}},
 	}
 	now = time.Now()
-	require.Nil(t, linuxNodeHandler.NodeAdd(nodev2))
+	require.NoError(t, linuxNodeHandler.NodeAdd(nodev2))
 	wait(nodev2.Identity(), "veth0", &now, false)
 
 	node3IP := net.ParseIP("7.7.7.250")
@@ -2870,7 +2870,7 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 			IP:   node3IP,
 		}},
 	}
-	require.Nil(t, linuxNodeHandler.NodeAdd(nodev3))
+	require.NoError(t, linuxNodeHandler.NodeAdd(nodev3))
 	wait(nodev3.Identity(), "veth0", &now, false)
 
 	nextHop := net.ParseIP("9.9.9.250")
@@ -2878,19 +2878,19 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 	assertNoNeigh("node{2,3} should not be in the same L2", node2IP, node3IP)
 
 	// Check that removing node2 will not remove nextHop, as it is still used by node3
-	require.Nil(t, linuxNodeHandler.NodeDelete(nodev2))
+	require.NoError(t, linuxNodeHandler.NodeDelete(nodev2))
 	wait(nodev2.Identity(), "veth0", nil, true)
 
 	assertNeigh(nextHop, func(n netlink.Neigh) bool { return true })
 
 	// However, removing node3 should remove the neigh entry for nextHop
-	require.Nil(t, linuxNodeHandler.NodeDelete(nodev3))
+	require.NoError(t, linuxNodeHandler.NodeDelete(nodev3))
 	wait(nodev3.Identity(), "veth0", nil, true)
 
 	assertNoNeigh("expected removed neigh "+nextHop.String(), nextHop)
 
 	now = time.Now()
-	require.Nil(t, linuxNodeHandler.NodeAdd(nodev3))
+	require.NoError(t, linuxNodeHandler.NodeAdd(nodev3))
 	wait(nodev3.Identity(), "veth0", &now, false)
 
 	nextHop = net.ParseIP("9.9.9.250")
@@ -2924,11 +2924,11 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 	// address to check the refcount behavior, and that the old one was
 	// deleted from the neighbor table as well as the new one added.
 	now = time.Now()
-	require.Nil(t, linuxNodeHandler.NodeAdd(nodev2))
+	require.NoError(t, linuxNodeHandler.NodeAdd(nodev2))
 	wait(nodev2.Identity(), "veth0", &now, false)
 
 	now = time.Now()
-	require.Nil(t, linuxNodeHandler.NodeAdd(nodev3))
+	require.NoError(t, linuxNodeHandler.NodeAdd(nodev3))
 	wait(nodev3.Identity(), "veth0", &now, false)
 
 	nextHop = net.ParseIP("9.9.9.250")
@@ -2999,7 +2999,7 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 	nextHop = net.ParseIP("9.9.9.251")
 	assertNeigh(nextHop, neighStateOk)
 
-	require.Nil(t, linuxNodeHandler.NodeDelete(nodev3))
+	require.NoError(t, linuxNodeHandler.NodeDelete(nodev3))
 	wait(nodev3.Identity(), "veth0", nil, true)
 
 	// In the next test, we have node2 left in the neighbor table, and
@@ -3032,7 +3032,7 @@ func TestArpPingHandlingIPv4(t *testing.T) {
 	assertNeigh(nextHop, neighStateOk)
 	assertNoNeigh("node2 should not be in the same L2", node2IP)
 
-	require.Nil(t, linuxNodeHandler.NodeDelete(nodev2))
+	require.NoError(t, linuxNodeHandler.NodeDelete(nodev2))
 	wait(nodev2.Identity(), "veth0", nil, true)
 
 	linuxNodeHandler.NodeCleanNeighborsLink(veth0, false)

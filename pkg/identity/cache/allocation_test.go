@@ -434,7 +434,7 @@ func TestAllocateLocally(t *testing.T) {
 	assert.True(t, needsGlobalIdentity(podLbls))
 
 	id, allocated, err := mgr.AllocateLocalIdentity(cidrLbls, false, identity.IdentityScopeLocal+50)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, allocated)
 	assert.Equal(t, id.ID.Scope(), identity.IdentityScopeLocal)
 	assert.Equal(t, id.ID, identity.IdentityScopeLocal+50)
@@ -462,7 +462,7 @@ func TestCheckpointRestore(t *testing.T) {
 		assert.NotEqual(t, identity.IdentityScopeGlobal, identity.ScopeForLabels(lbls), "test bug: only restore locally-scoped labels")
 
 		_, _, err := mgr.AllocateIdentity(context.Background(), lbls, false, 0)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 
 	// ensure that the checkpoint file has been written
@@ -483,7 +483,7 @@ func TestCheckpointRestore(t *testing.T) {
 	newMgr.checkpointPath = mgr.checkpointPath
 
 	restored, err := newMgr.RestoreLocalIdentities()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Len(t, restored, 4)
 
 	modelAfter := newMgr.GetIdentities()

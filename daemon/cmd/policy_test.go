@@ -183,7 +183,7 @@ var (
 // as a map of IP addresses to NetworkPolicy objects
 func (ds *DaemonSuite) getXDSNetworkPolicies(t *testing.T, resourceNames []string) map[string]*cilium.NetworkPolicy {
 	networkPolicies, err := ds.d.envoyXdsServer.GetNetworkPolicies(resourceNames)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	return networkPolicies
 }
 
@@ -307,33 +307,33 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	_, err3 := ds.d.PolicyAdd(rules, policyAddOptions)
-	require.Equal(t, nil, err3)
+	require.NoError(t, err3)
 
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 	prodBarLbls := labels.Labels{lblBar.Key: lblBar, lblProd.Key: lblProd}
 	prodBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodBarLbls, true, identity.InvalidIdentity)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), prodBarSecLblsCtx, false)
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
 	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx, false)
 	prodFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd}
 	prodFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodFooLbls, true, identity.InvalidIdentity)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), prodFooSecLblsCtx, false)
 	prodFooJoeLbls := labels.Labels{lblFoo.Key: lblFoo, lblProd.Key: lblProd, lblJoe.Key: lblJoe}
 	prodFooJoeSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), prodFooJoeLbls, true, identity.InvalidIdentity)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), prodFooJoeSecLblsCtx, false)
 
 	// Prepare endpoints
 	cleanup, err2 := prepareEndpointDirs()
-	require.Equal(t, nil, err2)
+	require.NoError(t, err2)
 	defer cleanup()
 
 	eQABar := ds.prepareEndpoint(t, qaBarSecLblsCtx, true)
@@ -450,11 +450,11 @@ func (ds *DaemonSuite) testL4L7Shadowing(t *testing.T) {
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
 	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx, false)
 
 	rules := api.Rules{
@@ -488,11 +488,11 @@ func (ds *DaemonSuite) testL4L7Shadowing(t *testing.T) {
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	_, err = ds.d.PolicyAdd(rules, policyAddOptions)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 
 	// Prepare endpoints
 	cleanup, err := prepareEndpointDirs()
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer cleanup()
 
 	eQABar := ds.prepareEndpoint(t, qaBarSecLblsCtx, true)
@@ -541,11 +541,11 @@ func (ds *DaemonSuite) testL4L7ShadowingShortCircuit(t *testing.T) {
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
 	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx, false)
 
 	rules := api.Rules{
@@ -579,11 +579,11 @@ func (ds *DaemonSuite) testL4L7ShadowingShortCircuit(t *testing.T) {
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	_, err = ds.d.PolicyAdd(rules, policyAddOptions)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 
 	// Prepare endpoints
 	cleanup, err := prepareEndpointDirs()
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer cleanup()
 
 	eQABar := ds.prepareEndpoint(t, qaBarSecLblsCtx, true)
@@ -623,15 +623,15 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 	// Prepare the identities necessary for testing
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
 	qaFooSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooSecLblsCtx, false)
 	qaJoeLbls := labels.Labels{lblJoe.Key: lblJoe, lblQA.Key: lblQA}
 	qaJoeSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaJoeLbls, true, identity.InvalidIdentity)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaJoeSecLblsCtx, false)
 
 	rules := api.Rules{
@@ -671,11 +671,11 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	_, err = ds.d.PolicyAdd(rules, policyAddOptions)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 
 	// Prepare endpoints
 	cleanup, err := prepareEndpointDirs()
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer cleanup()
 
 	eQABar := ds.prepareEndpoint(t, qaBarSecLblsCtx, true)
@@ -752,7 +752,7 @@ func (ds *DaemonSuite) testReplacePolicy(t *testing.T) {
 	}
 
 	_, err := ds.d.PolicyAdd(rules, policyAddOptions)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	ds.d.policy.Mutex.RLock()
 	require.Equal(t, 2, len(ds.d.policy.SearchRLocked(lbls)))
 	ds.d.policy.Mutex.RUnlock()
@@ -768,7 +768,7 @@ func (ds *DaemonSuite) testReplacePolicy(t *testing.T) {
 	}
 	_, err = ds.d.PolicyAdd(rules, &policy.AddOptions{Replace: true})
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	ds.d.policy.Mutex.RLock()
 	require.Equal(t, 2, len(ds.d.policy.SearchRLocked(lbls)))
 	ds.d.policy.Mutex.RUnlock()
@@ -782,7 +782,7 @@ func TestRemovePolicyEtcd(t *testing.T) {
 func (ds *DaemonSuite) testRemovePolicy(t *testing.T) {
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 
 	rules := api.Rules{
@@ -843,10 +843,10 @@ func (ds *DaemonSuite) testRemovePolicy(t *testing.T) {
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	_, err3 := ds.d.PolicyAdd(rules, policyAddOptions)
-	require.Equal(t, nil, err3)
+	require.NoError(t, err3)
 
 	cleanup, err2 := prepareEndpointDirs()
-	require.Equal(t, nil, err2)
+	require.NoError(t, err2)
 	defer cleanup()
 
 	// Create the endpoint and generate its policy.
@@ -875,7 +875,7 @@ func TestIncrementalPolicyEtcd(t *testing.T) {
 func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaBarSecLblsCtx, false)
 
 	rules := api.Rules{
@@ -936,10 +936,10 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 	ds.d.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	_, err3 := ds.d.PolicyAdd(rules, policyAddOptions)
-	require.Equal(t, nil, err3)
+	require.NoError(t, err3)
 
 	cleanup, err2 := prepareEndpointDirs()
-	require.Equal(t, nil, err2)
+	require.NoError(t, err2)
 	defer cleanup()
 
 	// Create the endpoint and generate its policy.
@@ -967,7 +967,7 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 	// Allocate identities needed for this test
 	qaFooLbls := labels.Labels{lblFoo.Key: lblFoo, lblQA.Key: lblQA}
 	qaFooID, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaFooLbls, true, identity.InvalidIdentity)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 	defer ds.d.identityAllocator.Release(context.Background(), qaFooID, false)
 
 	// Regenerate endpoint
@@ -985,7 +985,7 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 		qaBarNetworkPolicy = networkPolicies[QAIPv4Addr.String()]
 		return qaBarNetworkPolicy != nil && len(qaBarNetworkPolicy.IngressPerPortPolicies) == 2
 	}, time.Second*1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualExportedValues(t, &cilium.NetworkPolicy{
 		EndpointIps:      []string{QAIPv6Addr.String(), QAIPv4Addr.String()},
 		EndpointId:       uint64(eQABar.ID),
@@ -1349,7 +1349,7 @@ func (ds *DaemonSuite) testAddCiliumNetworkPolicyV2(t *testing.T) {
 				ReplaceWithLabels: args.cnp.GetIdentityLabels(),
 				Source:            metrics.LabelEventSourceK8s,
 			})
-			require.Nil(t, policyImportErr)
+			require.NoError(t, policyImportErr)
 		}
 		require.EqualValuesf(t, want.repo.GetRulesList().Policy, args.repo.GetRulesList().Policy, "Test name: %q", tt.name)
 	}

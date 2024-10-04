@@ -33,7 +33,7 @@ func TestUTime(t *testing.T) {
 func TestGetBoottime(t *testing.T) {
 	boottime, err := getBoottime()
 	log.Infof("Adjusted boot time: %s", boottime)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -42,7 +42,7 @@ func TestGetBoottime(t *testing.T) {
 	err = unix.ClockGettime(unix.CLOCK_MONOTONIC, &timespec)
 	timeNow := time.Now()
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	now := boottime.Add(time.Duration(timespec.Nano()))
 	diff := timeNow.Sub(now)
 
