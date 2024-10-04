@@ -630,7 +630,7 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quaranti
 	v.SetRevNat(revNATID)
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
-		SvcFwdModeFlip:   svcForwardingMode == loadbalancer.SVCForwardingModeDSR,
+		SvcFwdModeDSR:    svcForwardingMode == loadbalancer.SVCForwardingModeDSR,
 		SvcExtLocal:      svcExtLocal,
 		SvcIntLocal:      svcIntLocal,
 		SvcNatPolicy:     svcNatPolicy,

@@ -79,13 +79,13 @@ const (
 	serviceFlagIntLocalScope   = 1 << 12
 	serviceFlagTwoScopes       = 1 << 13
 	serviceFlagQuarantined     = 1 << 14
-	serviceFlagFwdModeFlip     = 1 << 15
+	serviceFlagFwdModeDSR      = 1 << 15
 )
 
 type SvcFlagParam struct {
 	SvcType          SVCType
-	SvcFwdModeFlip   bool
 	SvcNatPolicy     SVCNatPolicy
+	SvcFwdModeDSR    bool
 	SvcExtLocal      bool
 	SvcIntLocal      bool
 	SessionAffinity  bool
@@ -147,8 +147,8 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 	if p.Quarantined {
 		flags |= serviceFlagQuarantined
 	}
-	if p.SvcFwdModeFlip {
-		flags |= serviceFlagFwdModeFlip
+	if p.SvcFwdModeDSR {
+		flags |= serviceFlagFwdModeDSR
 	}
 
 	return flags
@@ -253,8 +253,8 @@ func (s ServiceFlags) String() string {
 	if s&serviceFlagQuarantined != 0 {
 		str = append(str, "quarantined")
 	}
-	if s&serviceFlagFwdModeFlip != 0 {
-		str = append(str, "flip")
+	if s&serviceFlagFwdModeDSR != 0 {
+		str = append(str, "dsr")
 	}
 	return strings.Join(str, ", ")
 }
