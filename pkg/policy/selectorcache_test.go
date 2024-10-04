@@ -71,7 +71,7 @@ func (csu *cachedSelectionUser) AddIdentitySelector(sel api.EndpointSelector) Ca
 	defer csu.updateMutex.Unlock()
 
 	cached, added := csu.sc.AddIdentitySelector(csu, nil, sel)
-	require.NotEqual(csu.t, nil, cached)
+	require.NotNil(csu.t, cached)
 
 	_, exists := csu.selections[cached]
 	// Not added if already exists for this user
@@ -89,7 +89,7 @@ func (csu *cachedSelectionUser) AddFQDNSelector(sel api.FQDNSelector) CachedSele
 	defer csu.updateMutex.Unlock()
 
 	cached, added := csu.sc.AddFQDNSelector(csu, nil, sel)
-	require.NotEqual(csu.t, nil, cached)
+	require.NotNil(csu.t, cached)
 
 	_, exists := csu.selections[cached]
 	// Not added if already exists for this user
@@ -599,7 +599,7 @@ func TestTransactionalUpdate(t *testing.T) {
 func TestSelectorManagerCanGetBeforeSet(t *testing.T) {
 	defer func() {
 		r := recover()
-		require.Equal(t, nil, r)
+		require.Nil(t, r)
 	}()
 
 	idSel := identitySelector{
