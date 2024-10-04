@@ -1125,7 +1125,7 @@ func TestRestoredEndpoint(t *testing.T) {
 		request.SetQuestion(query, dns.TypeA)
 		response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.DNSServers[0].Listener.Addr().String())
 		require.NoErrorf(t, err, "DNS request from test client failed when it should succeed (RTT: %v) (query: %q)", rtt, query)
-		require.Equal(t, 0, len(response.Answer), "Proxy returned incorrect number of answer RRs %s (query: %q)", response, query)
+		require.Empty(t, response.Answer, "Proxy returned incorrect number of answer RRs %s (query: %q)", response, query)
 		require.Equal(t, dns.RcodeRefused, response.Rcode, "DNS request from test client was not rejected when it should be blocked (query: %q)", query)
 	}
 

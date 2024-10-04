@@ -89,7 +89,7 @@ func TestEmptyYamlConfigFileUnmarshalling(t *testing.T) {
 	assert.NoError(t, err)
 
 	// then
-	assert.Equal(t, 0, len(config.FlowLogs))
+	assert.Empty(t, config.FlowLogs)
 	assert.Equal(t, uint64(0x4b2008fd98c1dd4), hash)
 }
 

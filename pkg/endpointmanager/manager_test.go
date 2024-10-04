@@ -803,8 +803,8 @@ func TestRemove(t *testing.T) {
 		tt.preTestRun()
 
 		mgr.RemoveAll(t)
-		require.Equal(t, 0, len(mgr.endpoints), "Test Name: %s", tt.name)
-		require.Equal(t, 0, len(mgr.endpointsAux), "Test Name: %s", tt.name)
+		require.Empty(t, mgr.endpoints, "Test Name: %s", tt.name)
+		require.Empty(t, mgr.endpointsAux, "Test Name: %s", tt.name)
 		tt.postTestRun()
 	}
 }

@@ -238,7 +238,7 @@ func benchmarkGC(b *testing.B) {
 	require.Len(b, keysToDelete, 1)
 	keysToDelete, _, err = allocator.RunGC(rateLimiter, keysToDelete)
 	require.NoError(b, err)
-	require.Len(b, keysToDelete, 0)
+	require.Empty(b, keysToDelete)
 
 	// wait for cache to be updated via delete notification
 	require.EventuallyWithT(b, func(c *assert.CollectT) {
@@ -311,7 +311,7 @@ func benchmarkGCShouldSkipOutOfRangeIdentities(b *testing.B) {
 	require.Len(b, keysToDelete, 1)
 	keysToDelete, _, err = allocator1.RunGC(rateLimiter, keysToDelete)
 	require.NoError(b, err)
-	require.Len(b, keysToDelete, 0)
+	require.Empty(b, keysToDelete)
 
 	// Wait for cache to be updated via delete notification
 	require.EventuallyWithT(b, func(c *assert.CollectT) {
@@ -418,7 +418,7 @@ func testAllocatorCached(t *testing.T, maxID idpool.ID, allocatorName string) {
 
 	v, err = kvstore.Client().ListPrefix(context.TODO(), path.Join(allocatorName, "id"))
 	require.NoError(t, err)
-	require.Len(t, v, 0)
+	require.Empty(t, v)
 
 	a.DeleteAllKeys()
 	a.Delete()

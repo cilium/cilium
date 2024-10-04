@@ -292,14 +292,14 @@ func TestCIDUsageInCES(t *testing.T) {
 	assertTxt := "CES 1 is added"
 	state := NewCIDUsageInCES()
 	unusedCIDs := state.ProcessCESUpsert(ces1.Name, ces1.Endpoints)
-	assert.Equal(t, 0, len(unusedCIDs), assertTxt)
+	assert.Empty(t, unusedCIDs, assertTxt)
 	assert.Equal(t, 2, state.CIDUsageCount("1000"), assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount("2000"), assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount("3000"), assertTxt)
 
 	assertTxt = "CES 2 is added"
 	unusedCIDs = state.ProcessCESUpsert(ces2.Name, ces2.Endpoints)
-	assert.Equal(t, 0, len(unusedCIDs), assertTxt)
+	assert.Empty(t, unusedCIDs, assertTxt)
 	assert.Equal(t, 4, state.CIDUsageCount("1000"), assertTxt)
 	assert.Equal(t, 2, state.CIDUsageCount("2000"), assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount("3000"), assertTxt)
@@ -317,7 +317,7 @@ func TestCIDUsageInCES(t *testing.T) {
 
 	assertTxt = "CES 1 is removed"
 	unusedCIDs = state.ProcessCESDelete(ces1.Name, ces1.Endpoints)
-	assert.Equal(t, 0, len(unusedCIDs), assertTxt)
+	assert.Empty(t, unusedCIDs, assertTxt)
 	assert.Equal(t, 2, state.CIDUsageCount("1000"), assertTxt)
 	assert.Equal(t, 1, state.CIDUsageCount("2000"), assertTxt)
 

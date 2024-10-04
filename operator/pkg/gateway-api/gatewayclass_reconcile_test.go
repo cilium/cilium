@@ -114,6 +114,6 @@ func Test_gatewayClassReconciler_Reconcile(t *testing.T) {
 		err = c.Get(context.Background(), types.NamespacedName{Name: "non-matching-gw-class"}, gwc)
 
 		require.NoError(t, err, "Error getting gateway class")
-		require.Len(t, gwc.Status.Conditions, 0, "Gateway class should not have any conditions")
+		require.Empty(t, gwc.Status.Conditions, "Gateway class should not have any conditions")
 	})
 }

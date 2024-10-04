@@ -37,7 +37,7 @@ func TestEventsSubscribe(t *testing.T) {
 	}
 	time.Sleep(time.Millisecond * 20)
 	assert.True(handle.isClosed(), "after filling buffer, should be closed")
-	assert.Len(eb.subscriptions, 0)
+	assert.Empty(eb.subscriptions)
 
 	handle, err = eb.dumpAndSubscribe(nil, true)
 	assert.NoError(err)

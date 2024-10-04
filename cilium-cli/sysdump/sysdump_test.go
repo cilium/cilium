@@ -114,7 +114,7 @@ func TestAddTasks(t *testing.T) {
 	}
 	collector, err := NewCollector(&client, options, &nopHooks{}, time.Now())
 	assert.NoError(t, err)
-	assert.Len(t, collector.additionalTasks, 0)
+	assert.Empty(t, collector.additionalTasks)
 	collector.AddTasks([]Task{{}, {}, {}})
 	assert.Len(t, collector.additionalTasks, 3)
 	collector.AddTasks([]Task{{}, {}, {}})

@@ -310,7 +310,7 @@ func TestClusterMeshServicesUpdate(t *testing.T) {
 
 	require.NoError(t, kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"2"))
 	s.expectEvent(t, k8s.DeleteService, svcID, func(c *assert.CollectT, event k8s.ServiceEvent) {
-		assert.Len(c, event.Endpoints.Backends, 0)
+		assert.Empty(c, event.Endpoints.Backends)
 	})
 
 	swgSvcs.Stop()

@@ -99,7 +99,7 @@ func TestDelete(t *testing.T) {
 	nameMatch, err := regexp.Compile("^notatest.com$")
 	require.NoError(t, err)
 	namesAffected := cache.ForceExpire(now, nameMatch)
-	require.Lenf(t, namesAffected, 0, "Incorrect count of names removed %v", namesAffected)
+	require.Emptyf(t, namesAffected, "Incorrect count of names removed %v", namesAffected)
 	for _, name := range []string{"test1.com", "test2.com", "test3.com"} {
 		ips := cache.lookupByTime(now, name)
 		require.Lenf(t, ips, 2, "Wrong count of IPs returned (%v) for non-deleted name '%s'", ips, name)
@@ -118,7 +118,7 @@ func TestDelete(t *testing.T) {
 	require.Lenf(t, namesAffected, 1, "Incorrect count of names removed %v", namesAffected)
 	require.Containsf(t, namesAffected, "test1.com", "Incorrect affected name returned on forced expire: %s", namesAffected)
 	ips := cache.lookupByTime(now, "test1.com")
-	require.Lenf(t, ips, 0, "IPs returned (%v) for deleted name 'test1.com'", ips)
+	require.Emptyf(t, ips, "IPs returned (%v) for deleted name 'test1.com'", ips)
 	require.NotContains(t, cache.forward, "test1.com", "Expired name 'test1.com' not deleted from forward")
 	for _, ip := range ips {
 		require.Containsf(t, cache.reverse, ip, "Expired IP '%s' not deleted from reverse", ip)
@@ -140,12 +140,12 @@ func TestDelete(t *testing.T) {
 	}
 	for name := range names {
 		ips = cache.lookupByTime(now, name)
-		require.Lenf(t, ips, 0, "Returned IP data for %s after the cache was fully cleared: %v", name, ips)
+		require.Emptyf(t, ips, "Returned IP data for %s after the cache was fully cleared: %v", name, ips)
 	}
-	require.Len(t, cache.forward, 0)
-	require.Len(t, cache.reverse, 0)
+	require.Empty(t, cache.forward)
+	require.Empty(t, cache.reverse)
 	dump := cache.Dump()
-	require.Lenf(t, dump, 0, "Returned cache entries from cache dump after the cache was fully cleared: %v", dump)
+	require.Emptyf(t, dump, "Returned cache entries from cache dump after the cache was fully cleared: %v", dump)
 }
 
 func Test_forceExpiredByNames(t *testing.T) {
@@ -196,7 +196,7 @@ func TestReverseUpdateLookup(t *testing.T) {
 	require.Equal(t, lookupNames[0], "test2.com", "Returned a DNS name that doesn't match IP")
 
 	lookupNames = cache.lookupIPByTime(currentTime, names["test3.com"])
-	require.Len(t, lookupNames, 0, "Returned names for IP not in cache")
+	require.Empty(t, lookupNames, "Returned names for IP not in cache")
 
 	// lookup between 2-4 seconds later (test1.com has expired) for both names
 	// should return 2 names for sharedIPs, and one name for the 2.2.2.* IPs
@@ -206,29 +206,29 @@ func TestReverseUpdateLookup(t *testing.T) {
 	require.Equal(t, "test2.com", lookupNames[0], "Returned a DNS name that doesn't match IP")
 
 	lookupNames = cache.lookupIPByTime(currentTime, names["test1.com"])
-	require.Len(t, lookupNames, 0, "Incorrect number of names returned")
+	require.Empty(t, lookupNames, "Incorrect number of names returned")
 
 	lookupNames = cache.lookupIPByTime(currentTime, names["test2.com"])
 	require.Len(t, lookupNames, 1, "Incorrect number of names returned")
 	require.Equal(t, lookupNames[0], "test2.com", "Returned a DNS name that doesn't match IP")
 
 	lookupNames = cache.lookupIPByTime(currentTime, names["test3.com"])
-	require.Len(t, lookupNames, 0, "Returned names for IP not in cache")
+	require.Empty(t, lookupNames, "Returned names for IP not in cache")
 
 	// lookup between after 4 seconds later (all have expired) for both names
 	// should return no names in all cases.
 	currentTime = now.Add(5 * time.Second)
 	lookupNames = cache.lookupIPByTime(currentTime, sharedIP)
-	require.Len(t, lookupNames, 0, "Incorrect number of names returned")
+	require.Empty(t, lookupNames, "Incorrect number of names returned")
 
 	lookupNames = cache.lookupIPByTime(currentTime, names["test1.com"])
-	require.Len(t, lookupNames, 0, "Incorrect number of names returned")
+	require.Empty(t, lookupNames, "Incorrect number of names returned")
 
 	lookupNames = cache.lookupIPByTime(currentTime, names["test2.com"])
-	require.Len(t, lookupNames, 0, "Incorrect number of names returned")
+	require.Empty(t, lookupNames, "Incorrect number of names returned")
 
 	lookupNames = cache.lookupIPByTime(currentTime, names["test3.com"])
-	require.Len(t, lookupNames, 0, "Returned names for IP not in cache")
+	require.Empty(t, lookupNames, "Returned names for IP not in cache")
 }
 
 func TestJSONMarshal(t *testing.T) {
@@ -279,7 +279,7 @@ func TestJSONMarshal(t *testing.T) {
 	currentTime = now.Add(10 * time.Second)
 	for name := range names {
 		IPs := cache.lookupByTime(currentTime, name)
-		require.Len(t, IPs, 0, "Returned IPs that should be expired for %s", name)
+		require.Empty(t, IPs, "Returned IPs that should be expired for %s", name)
 	}
 }
 
@@ -500,7 +500,7 @@ func TestTTLInsertWithMinValue(t *testing.T) {
 	// Validate that in future time the value is correct
 	future := time.Now().Add(time.Second * 70)
 	res = cache.lookupByTime(future, "test.com")
-	require.Len(t, res, 0)
+	require.Empty(t, res)
 }
 
 func TestTTLInsertWithZeroValue(t *testing.T) {
@@ -521,7 +521,7 @@ func TestTTLInsertWithZeroValue(t *testing.T) {
 	// Checking that expires correctly
 	future := now.Add(time.Second * 11)
 	res = cache.lookupByTime(future, "test.com")
-	require.Len(t, res, 0)
+	require.Empty(t, res)
 }
 
 func TestTTLCleanupEntries(t *testing.T) {
@@ -530,8 +530,8 @@ func TestTTLCleanupEntries(t *testing.T) {
 	require.Equal(t, 1, len(cache.cleanup))
 	entries, _ := cache.cleanupExpiredEntries(time.Now().Add(5 * time.Second))
 	require.Len(t, entries, 1)
-	require.Len(t, cache.cleanup, 0)
-	require.Len(t, cache.Lookup("test.com"), 0)
+	require.Empty(t, cache.cleanup)
+	require.Empty(t, cache.Lookup("test.com"))
 }
 
 func TestTTLCleanupWithoutForward(t *testing.T) {
@@ -541,8 +541,8 @@ func TestTTLCleanupWithoutForward(t *testing.T) {
 	// To make sure that all entries are validated correctly
 	cache.lastCleanup = time.Now().Add(-1 * time.Minute)
 	entries, _ := cache.cleanupExpiredEntries(time.Now().Add(5 * time.Second))
-	require.Len(t, entries, 0)
-	require.Len(t, cache.cleanup, 0)
+	require.Empty(t, entries)
+	require.Empty(t, cache.cleanup)
 }
 
 func TestOverlimitEntriesWithValidLimit(t *testing.T) {
@@ -562,7 +562,7 @@ func TestOverlimitEntriesWithValidLimit(t *testing.T) {
 	require.Nil(t, cache.forward["test.com"][netip.MustParseAddr("1.1.1.1")])
 	require.Len(t, cache.Lookup("foo.bar"), 1)
 	require.Len(t, cache.Lookup("bar.foo"), 1)
-	require.Len(t, cache.overLimit, 0)
+	require.Empty(t, cache.overLimit)
 }
 
 func TestOverlimitEntriesWithoutLimit(t *testing.T) {
@@ -572,7 +572,7 @@ func TestOverlimitEntriesWithoutLimit(t *testing.T) {
 		cache.Update(now, "test.com", []netip.Addr{netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i))}, i)
 	}
 	affectedNames, _ := cache.cleanupOverLimitEntries()
-	require.Len(t, affectedNames, 0)
+	require.Empty(t, affectedNames)
 	require.Len(t, cache.Lookup("test.com"), 5)
 }
 
@@ -594,7 +594,7 @@ func TestGCOverlimitAfterTTLCleanup(t *testing.T) {
 
 	// Due all entries are deleted on TTL, the overlimit should return 0 entries.
 	affectedNames, _ := cache.cleanupOverLimitEntries()
-	require.Len(t, affectedNames, 0)
+	require.Empty(t, affectedNames)
 }
 
 func TestOverlimitAfterDeleteForwardEntry(t *testing.T) {
@@ -603,7 +603,7 @@ func TestOverlimitAfterDeleteForwardEntry(t *testing.T) {
 	dnsCache := NewDNSCache(0)
 	dnsCache.overLimit["test.com"] = true
 	affectedNames, _ := dnsCache.cleanupOverLimitEntries()
-	require.Len(t, affectedNames, 0)
+	require.Empty(t, affectedNames)
 }
 
 func assertZombiesContain(t *testing.T, zombies []*DNSZombieMapping, expected map[string][]string) {
@@ -661,7 +661,7 @@ func TestZombiesGC(t *testing.T) {
 
 	// Without any MarkAlive or SetCTGCTime, all entries remain alive
 	alive, dead := zombies.GC()
-	require.Len(t, dead, 0)
+	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
 		"1.1.1.1": {"test.com"},
 		"2.2.2.2": {"somethingelse.com"},
@@ -671,7 +671,7 @@ func TestZombiesGC(t *testing.T) {
 	// zombie
 	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "anotherthing.com")
 	alive, dead = zombies.GC()
-	require.Len(t, dead, 0)
+	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
 		"1.1.1.1": {"test.com", "anotherthing.com"},
 		"2.2.2.2": {"somethingelse.com"},
@@ -683,7 +683,7 @@ func TestZombiesGC(t *testing.T) {
 	next := now.Add(5 * time.Minute)
 	zombies.SetCTGCTime(now, next)
 	alive, dead = zombies.GC()
-	require.Len(t, dead, 0)
+	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
 		"1.1.1.1": {"test.com", "anotherthing.com"},
 		"2.2.2.2": {"somethingelse.com"},
@@ -709,7 +709,7 @@ func TestZombiesGC(t *testing.T) {
 
 	// A second GC call only returns alive entries
 	alive, dead = zombies.GC()
-	require.Len(t, dead, 0)
+	require.Empty(t, dead)
 	require.Len(t, alive, 1)
 
 	// Update 2.2.2.2 with a new DNS name. It remains alive.
@@ -718,7 +718,7 @@ func TestZombiesGC(t *testing.T) {
 	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "onemorething.com")
 
 	alive, dead = zombies.GC()
-	require.Len(t, dead, 0)
+	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
 		"1.1.1.1": {"onemorething.com"},
 		"2.2.2.2": {"somethingelse.com", "thelastthing.com"},
@@ -745,7 +745,7 @@ func TestZombiesGC(t *testing.T) {
 	now = now.Add(2 * time.Second)
 	zombies.SetCTGCTime(now, next)
 	alive, dead = zombies.GC()
-	require.Len(t, alive, 0)
+	require.Empty(t, alive)
 	assertZombiesContain(t, dead, map[string][]string{
 		"2.2.2.2": {"somethingelse.com", "thelastthing.com"},
 	})
@@ -820,7 +820,7 @@ func TestZombiesGCDeferredDeletes(t *testing.T) {
 
 	// No zombies should be evicted because the limit is high
 	alive, dead := zombies.GC()
-	require.Len(t, dead, 0)
+	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
 		"1.1.1.1": {"test.com"},
 		"2.2.2.2": {"somethingelse.com"},
@@ -832,7 +832,7 @@ func TestZombiesGCDeferredDeletes(t *testing.T) {
 
 	// No zombies should be evicted because we are below the limit
 	alive, dead = zombies.GC()
-	require.Len(t, dead, 0)
+	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
 		"1.1.1.1": {"test.com"},
 	})
@@ -878,7 +878,7 @@ func TestZombiesForceExpire(t *testing.T) {
 
 	// Without any MarkAlive or SetCTGCTime, all entries remain alive
 	alive, dead := zombies.GC()
-	require.Len(t, dead, 0)
+	require.Empty(t, dead)
 	require.Len(t, alive, 2)
 
 	// Expire only 1 name on 1 zombie
@@ -887,7 +887,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	zombies.ForceExpire(time.Time{}, nameMatch)
 
 	alive, dead = zombies.GC()
-	require.Len(t, dead, 0)
+	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
 		"1.1.1.1": {"anothertest.com"},
 		"2.2.2.2": {"somethingelse.com"},
@@ -899,7 +899,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	require.NoError(t, err)
 	zombies.ForceExpire(time.Time{}, nameMatch)
 	alive, dead = zombies.GC()
-	require.Len(t, dead, 0)
+	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
 		"2.2.2.2": {"somethingelse.com"},
 	})
@@ -911,7 +911,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", netip.MustParseAddr("1.1.1.1"))
 	require.NoError(t, err)
 	alive, dead = zombies.GC()
-	require.Len(t, dead, 0)
+	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
 		"2.2.2.2": {"somethingelse.com", "test.com"},
 	})
@@ -920,7 +920,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", netip.MustParseAddr("2.2.2.2"))
 	require.NoError(t, err)
 	alive, dead = zombies.GC()
-	require.Len(t, dead, 0)
+	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
 		"2.2.2.2": {"test.com"},
 	})
@@ -929,7 +929,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	err = zombies.ForceExpireByNameIP(time.Time{}, "blarg.com", netip.MustParseAddr("2.2.2.2"))
 	require.NoError(t, err)
 	alive, dead = zombies.GC()
-	require.Len(t, dead, 0)
+	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
 		"2.2.2.2": {"test.com"},
 	})
@@ -938,8 +938,8 @@ func TestZombiesForceExpire(t *testing.T) {
 	err = zombies.ForceExpireByNameIP(time.Time{}, "test.com", netip.MustParseAddr("2.2.2.2"))
 	require.NoError(t, err)
 	alive, dead = zombies.GC()
-	require.Len(t, dead, 0)
-	require.Len(t, alive, 0)
+	require.Empty(t, dead)
+	require.Empty(t, alive)
 	assertZombiesContain(t, alive, map[string][]string{})
 }
 
@@ -963,7 +963,7 @@ func TestCacheToZombiesGCCascade(t *testing.T) {
 	require.NotContains(t, cache.reverse, netip.MustParseAddr("1.1.1.1"))
 	require.NotContains(t, cache.reverse, netip.MustParseAddr("2.2.2.2"))
 	alive, dead := zombies.GC()
-	require.Len(t, dead, 0)
+	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
 		"1.1.1.1": {"test.com"},
 		"2.2.2.2": {"test.com"},
@@ -976,11 +976,11 @@ func TestCacheToZombiesGCCascade(t *testing.T) {
 	require.Equal(t, 1, expired.Len()) // test.com
 	// Now all IPs expired so we expect test.com to be removed from the cache.
 	require.NotContains(t, cache.forward, "test.com")
-	require.Len(t, cache.forward, 0)
+	require.Empty(t, cache.forward)
 	require.NotContains(t, cache.reverse, "3.3.3.")
-	require.Len(t, cache.reverse, 0)
+	require.Empty(t, cache.reverse)
 	alive, dead = zombies.GC()
-	require.Len(t, dead, 0)
+	require.Empty(t, dead)
 	assertZombiesContain(t, alive, map[string][]string{
 		"1.1.1.1": {"test.com"},
 		"2.2.2.2": {"test.com"},
@@ -993,7 +993,7 @@ func TestZombiesDumpAlive(t *testing.T) {
 	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	alive := zombies.DumpAlive(nil)
-	require.Len(t, alive, 0)
+	require.Empty(t, alive)
 
 	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "test.com")
 	zombies.Upsert(now, netip.MustParseAddr("2.2.2.2"), "example.com")
@@ -1033,7 +1033,7 @@ func TestZombiesDumpAlive(t *testing.T) {
 
 	cidrMatcher := func(addr netip.Addr) bool { return false }
 	alive = zombies.DumpAlive(cidrMatcher)
-	require.Len(t, alive, 0)
+	require.Empty(t, alive)
 
 	cidrMatcher = func(_ netip.Addr) bool { return true }
 	alive = zombies.DumpAlive(cidrMatcher)
@@ -1060,7 +1060,7 @@ func TestZombiesDumpAlive(t *testing.T) {
 	prefix = netip.MustParsePrefix("4.4.0.0/16")
 	cidrMatcher = func(a netip.Addr) bool { return prefix.Contains(a) }
 	alive = zombies.DumpAlive(cidrMatcher)
-	require.Len(t, alive, 0)
+	require.Empty(t, alive)
 }
 
 func TestOverlimitPreferNewerEntries(t *testing.T) {

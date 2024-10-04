@@ -2512,7 +2512,7 @@ func TestReplaceByResource(t *testing.T) {
 	repo := NewStoppedPolicyRepository(nil, nil, nil, nil)
 	sc := testNewSelectorCache(nil)
 	repo.selectorCache = sc
-	assert.Len(t, sc.selectors, 0)
+	assert.Empty(t, sc.selectors)
 
 	numRules := 10
 	rules := make(api.Rules, 0, numRules)
@@ -2566,7 +2566,7 @@ func TestReplaceByResource(t *testing.T) {
 
 	new, old, rev := repo.ReplaceByResourceLocked(rules[0:1], rID1)
 	assert.Len(t, new, 1)
-	assert.Len(t, old, 0)
+	assert.Empty(t, old)
 	assert.EqualValues(t, rev, 2)
 
 	// check basic bookkeeping
@@ -2583,7 +2583,7 @@ func TestReplaceByResource(t *testing.T) {
 	new, old, rev = repo.ReplaceByResourceLocked(rules[1:3], rID2)
 
 	assert.Len(t, new, 2)
-	assert.Len(t, old, 0)
+	assert.Empty(t, old)
 	assert.EqualValues(t, rev, 3)
 
 	// check basic bookkeeping
@@ -2626,7 +2626,7 @@ func TestReplaceByResource(t *testing.T) {
 
 	// delete rid1 again (noop)
 	old, _ = repo.DeleteByResourceLocked(rID1)
-	assert.Len(t, old, 0)
+	assert.Empty(t, old)
 
 	assert.Len(t, repo.rules, 2)
 	assert.Len(t, repo.rulesByResource, 1)
@@ -2638,7 +2638,7 @@ func TestReplaceByResource(t *testing.T) {
 	assert.Len(t, old, 2)
 	repo.Release(old)
 
-	assert.Len(t, repo.rules, 0)
-	assert.Len(t, repo.rulesByResource, 0)
-	assert.Len(t, sc.selectors, 0)
+	assert.Empty(t, repo.rules)
+	assert.Empty(t, repo.rulesByResource)
+	assert.Empty(t, sc.selectors)
 }

@@ -77,7 +77,7 @@ func Test_performCiliumNodeGC(t *testing.T) {
 	time.Sleep(interval)
 	err = performCiliumNodeGC(context.TODO(), fcn, fCNStore, fng, interval, candidateStore)
 	assert.NoError(t, err)
-	assert.Len(t, candidateStore.nodesToRemove, 0)
+	assert.Empty(t, candidateStore.nodesToRemove)
 	_, exists = candidateStore.nodesToRemove["invalid-node"]
 	assert.False(t, exists)
 }

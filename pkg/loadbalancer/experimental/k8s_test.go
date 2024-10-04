@@ -293,11 +293,11 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 	require.Zero(t, writer.Services().NumObjects(db.ReadTxn()))
 
 	// Reconciler state should be clean
-	assert.Len(t, bo.backendReferences, 0)
-	assert.Len(t, bo.backendStates, 0)
-	assert.Len(t, bo.nodePortAddrs, 0)
-	assert.Len(t, bo.serviceIDAlloc.entities, 0)
-	assert.Len(t, bo.backendIDAlloc.entities, 0)
+	assert.Empty(t, bo.backendReferences)
+	assert.Empty(t, bo.backendStates)
+	assert.Empty(t, bo.nodePortAddrs)
+	assert.Empty(t, bo.serviceIDAlloc.entities)
+	assert.Empty(t, bo.backendIDAlloc.entities)
 
 	// Test passed, remove the actual files in order not to leave them around.
 	os.Remove(path.Join(testDataPath, "actual.tables"))

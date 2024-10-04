@@ -223,13 +223,13 @@ func TestClusterMesh(t *testing.T) {
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		nodesObserver.nodesMutex.RLock()
 		defer nodesObserver.nodesMutex.RUnlock()
-		assert.Len(c, nodesObserver.nodes, 0)
+		assert.Empty(c, nodesObserver.nodes)
 	}, timeout, tick, "Nodes were not drained correctly")
 
 	// Make sure that IDs are freed
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		usedIDs.UsedClusterIDsMutex.Lock()
 		defer usedIDs.UsedClusterIDsMutex.Unlock()
-		assert.Len(c, usedIDs.UsedClusterIDs, 0)
+		assert.Empty(c, usedIDs.UsedClusterIDs)
 	}, timeout, tick, "Cluster IDs were not freed correctly")
 }

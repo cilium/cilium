@@ -607,7 +607,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(7), Key: TestAllocatorKey("foo"), Typ: AllocatorChangeDelete}, <-events)
 	require.Equal(t, rc, global.remoteCaches["remote"])
 
-	require.Len(t, events, 0)
+	require.Empty(t, events)
 
 	// Remove the remote caches and assert that a deletion event is triggered
 	// for all entries.

@@ -76,7 +76,7 @@ func TestOps(t *testing.T) {
 	// qdisc should now have changed from "noqueue" to mq (or fq if mq not supported)
 	qdiscs, err = nlh.QdiscList(link)
 	require.NoError(t, err, "QdiscList")
-	require.Greater(t, len(qdiscs), 0)
+	require.NotEmpty(t, qdiscs)
 	t.Logf("qdiscs after: %+v", qdiscs)
 
 	if qdiscs[0].Type() != "mq" {

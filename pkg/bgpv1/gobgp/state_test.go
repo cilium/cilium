@@ -427,7 +427,7 @@ func TestGetRoutes(t *testing.T) {
 		Neighbor: netip.MustParsePrefix(neighbor64125.PeerAddress).Addr(),
 	})
 	require.NoError(t, err)
-	require.Equal(t, 0, len(res.Routes)) // adj-rib is empty as there is no actual peering up
+	require.Empty(t, res.Routes) // adj-rib is empty as there is no actual peering up
 
 	// test adj-rib-in
 	res, err = testSC.GetRoutes(context.TODO(), &types.GetRoutesRequest{
@@ -439,5 +439,5 @@ func TestGetRoutes(t *testing.T) {
 		Neighbor: netip.MustParsePrefix(neighbor64125.PeerAddress).Addr(),
 	})
 	require.NoError(t, err)
-	require.Equal(t, 0, len(res.Routes)) // adj-rib is empty as there is no actual peering up
+	require.Empty(t, res.Routes) // adj-rib is empty as there is no actual peering up
 }

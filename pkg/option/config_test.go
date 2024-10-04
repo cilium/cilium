@@ -1164,7 +1164,7 @@ func Test_backupFiles(t *testing.T) {
 	files, err := os.ReadDir(tempDir)
 	require.NoError(t, err)
 	// No files should have been created
-	require.Len(t, files, 0)
+	require.Empty(t, files)
 
 	_, err = os.Create(filepath.Join(tempDir, "test.json"))
 	require.NoError(t, err)

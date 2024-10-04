@@ -1497,7 +1497,7 @@ func TestPaginatedList(t *testing.T) {
 			delete(keys, key)
 		}
 
-		require.Len(t, keys, 0)
+		require.Empty(t, keys)
 
 		// There is no guarantee that found == expected, because new operations might have occurred in parallel.
 		if found < expected {

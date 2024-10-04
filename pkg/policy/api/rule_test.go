@@ -120,36 +120,36 @@ func TestCreateDerivative(t *testing.T) {
 	egressWithoutToGroups := Rule{}
 	newRule, err := egressWithoutToGroups.CreateDerivative(context.TODO())
 	require.NoError(t, err)
-	require.Equal(t, 0, len(newRule.Egress))
-	require.Equal(t, 0, len(newRule.EgressDeny))
+	require.Empty(t, newRule.Egress)
+	require.Empty(t, newRule.EgressDeny)
 
 	RegisterToGroupsProvider(AWSProvider, GetCallBackWithRule("192.168.1.1"))
 
 	egressRuleWithToGroups := getEgressRuleWithToGroups()
 	newRule, err = egressRuleWithToGroups.CreateDerivative(context.TODO())
 	require.NoError(t, err)
-	require.Equal(t, 0, len(newRule.EgressDeny))
+	require.Empty(t, newRule.EgressDeny)
 	require.Equal(t, 1, len(newRule.Egress))
 	require.Equal(t, 1, len(newRule.Egress[0].ToCIDRSet))
 
 	egressDenyRuleWithToGroups := getEgressDenyRuleWithToGroups()
 	newRule, err = egressDenyRuleWithToGroups.CreateDerivative(context.TODO())
 	require.NoError(t, err)
-	require.Equal(t, 0, len(newRule.Egress))
+	require.Empty(t, newRule.Egress)
 	require.Equal(t, 1, len(newRule.EgressDeny))
 	require.Equal(t, 1, len(newRule.EgressDeny[0].ToCIDRSet))
 
 	ingressRuleWithToGroups := getIngressRuleWithFromGroups()
 	newRule, err = ingressRuleWithToGroups.CreateDerivative(context.TODO())
 	require.NoError(t, err)
-	require.Equal(t, 0, len(newRule.IngressDeny))
+	require.Empty(t, newRule.IngressDeny)
 	require.Equal(t, 1, len(newRule.Ingress))
 	require.Equal(t, 1, len(newRule.Ingress[0].FromCIDRSet))
 
 	ingressDenyRuleWithToGroups := getIngressDenyRuleWithFromGroups()
 	newRule, err = ingressDenyRuleWithToGroups.CreateDerivative(context.TODO())
 	require.NoError(t, err)
-	require.Equal(t, 0, len(newRule.Ingress))
+	require.Empty(t, newRule.Ingress)
 	require.Equal(t, 1, len(newRule.IngressDeny))
 	require.Equal(t, 1, len(newRule.IngressDeny[0].FromCIDRSet))
 }
