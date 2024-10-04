@@ -24,11 +24,11 @@ import (
 func TestNewListener(t *testing.T) {
 	t.Run("Empty", func(t *testing.T) {
 		res, err := newListener("dummy-name", "dummy-secret-namespace", false, nil, nil)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		listener := &envoy_config_listener.Listener{}
 		err = proto.Unmarshal(res.Value, listener)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		require.Equal(t, "dummy-name", listener.Name)
 		require.Len(t, listener.GetListenerFilters(), 1)
@@ -37,11 +37,11 @@ func TestNewListener(t *testing.T) {
 
 	t.Run("without TLS", func(t *testing.T) {
 		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		listener := &envoy_config_listener.Listener{}
 		err = proto.Unmarshal(res.Value, listener)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		require.Equal(t, "dummy-name", listener.Name)
 		require.Len(t, listener.GetListenerFilters(), 1)
@@ -50,27 +50,27 @@ func TestNewListener(t *testing.T) {
 
 	t.Run("with default XffNumTrustedHops", func(t *testing.T) {
 		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		listener := &envoy_config_listener.Listener{}
 		err = proto.Unmarshal(res.Value, listener)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Len(t, listener.GetFilterChains(), 1)
 		require.Len(t, listener.GetFilterChains()[0].Filters, 1)
 		httpConnectionManager := &httpConnectionManagerv3.HttpConnectionManager{}
 		err = proto.Unmarshal(listener.GetFilterChains()[0].Filters[0].ConfigType.(*envoy_config_listener.Filter_TypedConfig).TypedConfig.Value, httpConnectionManager)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		// Default value is 0
 		require.Equal(t, uint32(0), httpConnectionManager.XffNumTrustedHops)
 	})
 
 	t.Run("without TLS with Proxy Protocol", func(t *testing.T) {
 		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil, WithProxyProtocol())
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		listener := &envoy_config_listener.Listener{}
 		err = proto.Unmarshal(res.Value, listener)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		require.Equal(t, "dummy-name", listener.Name)
 
@@ -107,11 +107,11 @@ func TestNewListener(t *testing.T) {
 			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
 			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
 		}, nil)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		listener := &envoy_config_listener.Listener{}
 		err = proto.Unmarshal(res.Value, listener)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		require.Equal(t, "dummy-name", listener.Name)
 		require.Len(t, listener.GetListenerFilters(), 1)
@@ -163,11 +163,11 @@ func TestNewListener(t *testing.T) {
 				},
 			},
 		)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		listener := &envoy_config_listener.Listener{}
 		err = proto.Unmarshal(res.Value, listener)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		require.Equal(t, "dummy-name", listener.Name)
 		require.Len(t, listener.GetListenerFilters(), 1)
@@ -205,8 +205,8 @@ func TestNewListener(t *testing.T) {
 				},
 			},
 		)
-		require.Nil(t, err1)
-		require.Nil(t, err2)
+		require.NoError(t, err1)
+		require.NoError(t, err2)
 
 		diffOutput := cmp.Diff(res1, res2, protocmp.Transform())
 		if len(diffOutput) != 0 {
@@ -216,11 +216,11 @@ func TestNewListener(t *testing.T) {
 
 	t.Run("TLS passthrough with Proxy Protocol", func(t *testing.T) {
 		res, err := newListener("dummy-name", "", false, nil, map[string][]string{"dummy-namespace/dummy-service:443": {"example.org", "example.com"}}, WithProxyProtocol())
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		listener := &envoy_config_listener.Listener{}
 		err = proto.Unmarshal(res.Value, listener)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		require.Equal(t, "dummy-name", listener.Name)
 		listenerNames := []string{}
@@ -252,11 +252,11 @@ func TestNewListener(t *testing.T) {
 				},
 			},
 		)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		listener := &envoy_config_listener.Listener{}
 		err = proto.Unmarshal(res.Value, listener)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		require.Equal(t, "dummy-name", listener.Name)
 		require.Len(t, listener.GetListenerFilters(), 1)
@@ -277,11 +277,11 @@ func TestNewListener(t *testing.T) {
 
 	t.Run("without TLS with ALPN", func(t *testing.T) {
 		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil, WithAlpn())
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		listener := &envoy_config_listener.Listener{}
 		err = proto.Unmarshal(res.Value, listener)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Len(t, listener.GetListenerFilters(), 1)
 		require.Len(t, listener.GetFilterChains(), 1)
 		// without TLS, ALPN setup is skipped
@@ -299,18 +299,18 @@ func TestNewListener(t *testing.T) {
 			nil,
 			WithAlpn(),
 		)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		listener := &envoy_config_listener.Listener{}
 		err = proto.Unmarshal(res.Value, listener)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Len(t, listener.GetListenerFilters(), 1)
 		require.Len(t, listener.GetFilterChains(), 2)
 		require.Nil(t, listener.GetFilterChains()[0].GetTransportSocket())
 
 		downstreamContext := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
 		err = proto.Unmarshal(listener.GetFilterChains()[1].GetTransportSocket().ConfigType.(*envoy_config_core_v3.TransportSocket_TypedConfig).TypedConfig.Value, downstreamContext)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		require.Equal(t, []string{"h2,http/1.1"}, downstreamContext.CommonTlsContext.AlpnProtocols)
 	})

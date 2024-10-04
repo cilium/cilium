@@ -140,7 +140,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	for {
 		t.Log("Calculating policy...")
 		res, err := ep.regeneratePolicy(stats)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		// Sleep a random amount, so we accumulate some changes
 		// This does not slow down the test, since we always generate testFactor identities.

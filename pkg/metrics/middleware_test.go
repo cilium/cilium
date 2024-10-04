@@ -26,7 +26,7 @@ func TestAPIEventsTSHelperMiddleware(t *testing.T) {
 		{url: "", statusCode: http.StatusNotFound, expectEvent: false}, // invalid urls should not be emitted.
 	} {
 		req, err := http.NewRequest(http.MethodGet, test.url, nil)
-		require.Equal(t, nil, err)
+		require.NoError(t, err)
 		gauge := metric.NewGaugeVec(metric.GaugeOpts{}, []string{LabelEventSource, LabelScope, LabelAction})
 		hist := metric.NewHistogramVec(metric.HistogramOpts{Name: "test_api_hist"}, []string{LabelEventSource, LabelScope, LabelAction})
 		middleware := &APIEventTSHelper{

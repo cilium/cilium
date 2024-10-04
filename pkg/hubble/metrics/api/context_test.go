@@ -28,7 +28,7 @@ func TestParseContextOptions(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, opts)
 
 	opts, err = ParseContextOptions(
@@ -39,7 +39,7 @@ func TestParseContextOptions(t *testing.T) {
 			},
 		},
 	)
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	assert.Nil(t, opts)
 
 	opts, err = ParseContextOptions(
@@ -50,7 +50,7 @@ func TestParseContextOptions(t *testing.T) {
 			},
 		},
 	)
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	assert.Nil(t, opts)
 
 	opts, err = ParseContextOptions(
@@ -61,7 +61,7 @@ func TestParseContextOptions(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, opts.Status(), "source=namespace")
 	assert.EqualValues(t, opts.GetLabelNames(), []string{"source"})
 
@@ -77,7 +77,7 @@ func TestParseContextOptions(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, opts.Status(), "destination=identity,source=namespace")
 	assert.EqualValues(t, opts.GetLabelNames(), []string{"source", "destination"})
 
@@ -93,7 +93,7 @@ func TestParseContextOptions(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, opts.Status(), "destination=identity,source=identity")
 	assert.EqualValues(t, opts.GetLabelNames(), []string{"source", "destination"})
 
@@ -105,7 +105,7 @@ func TestParseContextOptions(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, opts.Status(), "source=pod")
 	assert.EqualValues(t, opts.GetLabelNames(), []string{"source"})
 
@@ -117,7 +117,7 @@ func TestParseContextOptions(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, opts.Status(), "destination=dns")
 	assert.EqualValues(t, opts.GetLabelNames(), []string{"destination"})
 
@@ -129,7 +129,7 @@ func TestParseContextOptions(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, opts.Status(), "source=ip")
 	assert.EqualValues(t, opts.GetLabelNames(), []string{"source"})
 
@@ -141,7 +141,7 @@ func TestParseContextOptions(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, opts.Status(), "source=pod|dns")
 	assert.EqualValues(t, opts.GetLabelNames(), []string{"source"})
 
@@ -153,7 +153,7 @@ func TestParseContextOptions(t *testing.T) {
 			},
 		},
 	)
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	assert.Nil(t, opts)
 
 	// All of the labelsContext options should work
@@ -190,7 +190,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo"}}), []string{"foo"})
 
 	opts, err = ParseContextOptions(
@@ -201,7 +201,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo"}}), []string{"foo"})
 
 	opts, err = ParseContextOptions(
@@ -216,7 +216,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
 		Source:      &pb.Endpoint{Namespace: "foo"},
 		Destination: &pb.Endpoint{Labels: []string{"a", "b"}},
@@ -230,7 +230,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo"}}), []string{"foo/foo"})
 
 	opts, err = ParseContextOptions(
@@ -241,7 +241,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar"}}), []string{"foo/bar"})
 
 	opts, err = ParseContextOptions(
@@ -252,7 +252,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123"}}), []string{"foo-123"})
 
 	opts, err = ParseContextOptions(
@@ -263,7 +263,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar-123"}}), []string{"bar-123"})
 
 	opts, err = ParseContextOptions(
@@ -274,7 +274,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{SourceNames: []string{"foo", "bar"}}), []string{"foo,bar"})
 
 	opts, err = ParseContextOptions(
@@ -285,7 +285,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{DestinationNames: []string{"bar"}}), []string{"bar"})
 
 	opts, err = ParseContextOptions(
@@ -296,7 +296,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{IP: &pb.IP{Source: "1.1.1.1"}}), []string{"1.1.1.1"})
 
 	opts, err = ParseContextOptions(
@@ -307,7 +307,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{IP: &pb.IP{Destination: "10.0.0.2"}}), []string{"10.0.0.2"})
 
 	opts, err = ParseContextOptions(
@@ -322,7 +322,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t,
 		[]string{"foo/foo-123"},
 		mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123", Workloads: []*pb.Workload{{Name: "worker"}}}, TrafficDirection: pb.TrafficDirection_EGRESS}))
@@ -347,7 +347,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t,
 		[]string{"worker"},
 		mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123", Workloads: []*pb.Workload{{Name: "worker"}}}, TrafficDirection: pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN}))
@@ -365,7 +365,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t,
 		[]string{"api"},
 		mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "foo-123", Workloads: []*pb.Workload{{Name: "api"}}}, TrafficDirection: pb.TrafficDirection_EGRESS}))
@@ -389,7 +389,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t,
 		[]string{"api"},
 		mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "foo-123", Workloads: []*pb.Workload{{Name: "api"}}}, TrafficDirection: pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN}))
@@ -406,7 +406,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t,
 		[]string{""},
 		mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "foo-123"}, TrafficDirection: pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN}))
@@ -419,7 +419,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t,
 		[]string{""},
 		mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123", Workloads: []*pb.Workload{{Name: "worker"}}}, TrafficDirection: pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN}))
@@ -442,7 +442,7 @@ func TestParseGetLabelValues(t *testing.T) {
 			},
 		},
 	)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
 		IP: &pb.IP{
 			Destination: "10.0.0.2",

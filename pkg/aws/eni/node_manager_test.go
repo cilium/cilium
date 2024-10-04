@@ -798,7 +798,7 @@ func TestNodeManagerInstanceNotRunning(t *testing.T) {
 	mngr.Upsert(cn)
 
 	// Wait for node to be declared notRunning
-	require.Nil(t, testutils.WaitUntil(func() bool {
+	require.NoError(t, testutils.WaitUntil(func() bool {
 		if n := mngr.Get("node1"); n != nil {
 			return !n.IsRunning()
 		}

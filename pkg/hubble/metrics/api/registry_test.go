@@ -98,7 +98,7 @@ func TestRegister(t *testing.T) {
 
 		//exhaustruct:ignore
 		handlers, err := r.ConfigureHandlers(nil, &Config{})
-		assert.EqualValues(t, err, nil)
+		assert.NoError(t, err)
 		assert.EqualValues(t, len(handlers.handlers), 0)
 	})
 
@@ -308,7 +308,7 @@ func initHandlers(t *testing.T, opts *ContextOptions, promRegistry *prometheus.R
 		},
 	}
 	handlers, err := r.ConfigureHandlers(nil, cfg)
-	assert.EqualValues(t, err, nil)
+	assert.NoError(t, err)
 	assert.EqualValues(t, len(handlers.handlers), 1)
 	assert.EqualValues(t, handlers.handlers[0].(*testHandler).InitCalled, 1)
 	return handlers

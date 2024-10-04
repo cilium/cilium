@@ -73,7 +73,7 @@ func TestSignalSet(t *testing.T) {
 
 	// 2 active signals
 	err = sm.UnmuteSignals(SignalNatFillUp, SignalCTFillUp)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, sm.isMuted())
 	require.Equal(t, false, sm.isSignalMuted(SignalNatFillUp))
 	require.Equal(t, false, sm.isSignalMuted(SignalCTFillUp))
@@ -84,7 +84,7 @@ func TestSignalSet(t *testing.T) {
 
 	// Mute one, one still active
 	err = sm.MuteSignals(SignalNatFillUp)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, sm.isMuted())
 	require.Equal(t, true, sm.isSignalMuted(SignalNatFillUp))
 	require.Equal(t, false, sm.isSignalMuted(SignalCTFillUp))
@@ -95,7 +95,7 @@ func TestSignalSet(t *testing.T) {
 
 	// Nothing happens if the signal is already muted
 	err = sm.MuteSignals(SignalNatFillUp)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, sm.isMuted())
 	require.Equal(t, true, sm.isSignalMuted(SignalNatFillUp))
 	require.Equal(t, false, sm.isSignalMuted(SignalCTFillUp))
@@ -106,7 +106,7 @@ func TestSignalSet(t *testing.T) {
 
 	// Unmute one more
 	err = sm.UnmuteSignals(SignalAuthRequired)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, sm.isMuted())
 	require.Equal(t, true, sm.isSignalMuted(SignalNatFillUp))
 	require.Equal(t, false, sm.isSignalMuted(SignalCTFillUp))
@@ -117,7 +117,7 @@ func TestSignalSet(t *testing.T) {
 
 	// Last signala are muted
 	err = sm.MuteSignals(SignalCTFillUp, SignalAuthRequired)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, true, sm.isMuted())
 	require.Equal(t, true, sm.isSignalMuted(SignalNatFillUp))
 	require.Equal(t, true, sm.isSignalMuted(SignalCTFillUp))
@@ -128,7 +128,7 @@ func TestSignalSet(t *testing.T) {
 
 	// A signal is unmuted again
 	err = sm.UnmuteSignals(SignalCTFillUp)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, sm.isMuted())
 	require.Equal(t, true, sm.isSignalMuted(SignalNatFillUp))
 	require.Equal(t, false, sm.isSignalMuted(SignalCTFillUp))
@@ -176,11 +176,11 @@ func TestLifeCycle(t *testing.T) {
 
 	wakeup := make(chan SignalData, 1024)
 	err := sm.RegisterHandler(ChannelHandler(wakeup), SignalNatFillUp, SignalCTFillUp)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, false, sm.isMuted())
 
 	err = sm.start()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	select {
 	case x := <-wakeup:
@@ -216,5 +216,5 @@ func TestLifeCycle(t *testing.T) {
 	}
 
 	err = sm.stop()
-	require.Nil(t, err)
+	require.NoError(t, err)
 }

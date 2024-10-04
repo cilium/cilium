@@ -57,7 +57,7 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 	testutils.IntegrationTest(t)
 
 	ni, err := identity.ParseNumericIdentity("129")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	identity.AddUserDefinedNumericIdentity(ni, "kvstore")
 	identity.AddReservedIdentity(ni, "kvstore")
 

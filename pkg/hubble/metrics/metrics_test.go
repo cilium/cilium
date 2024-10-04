@@ -91,7 +91,7 @@ func ConfigureAndFetchMetrics(t *testing.T, testName string, metricCfg []string,
 		enabledMetrics.ProcessFlow(context.TODO(), flow)
 
 		resp, err := http.Get("http://" + srv.Listener.Addr().String() + "/metrics")
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var parser expfmt.TextParser

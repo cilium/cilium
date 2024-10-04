@@ -249,7 +249,7 @@ func TestEndpointDatapathOptions(t *testing.T) {
 			DisableSipVerification: true,
 		},
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, option.OptionDisabled, e.Options.GetValue(option.SourceIPVerification))
 }
 
@@ -467,7 +467,7 @@ func TestWaitForPolicyRevision(t *testing.T) {
 	cbRan := false
 	<-e.WaitForPolicyRevision(ctx, 0, func(time.Time) { cbRan = true })
 	// shouldn't get a timeout when waiting for policy revision already reached
-	require.Nil(t, ctx.Err())
+	require.NoError(t, ctx.Err())
 	// Should see a callback when waiting for a policy revision already reached
 	require.Equal(t, true, cbRan)
 
@@ -480,7 +480,7 @@ func TestWaitForPolicyRevision(t *testing.T) {
 
 	<-e.WaitForPolicyRevision(ctx, 0, func(time.Time) { cbRan = true })
 	// shouldn't get a timeout when waiting for policy revision already reached
-	require.Nil(t, ctx.Err())
+	require.NoError(t, ctx.Err())
 	// Should see a callback because the channel returned
 	require.Equal(t, true, cbRan)
 
@@ -562,7 +562,7 @@ func TestProxyID(t *testing.T) {
 	require.Equal(t, "TCP", protocol)
 	require.Equal(t, uint16(8080), port)
 	require.Equal(t, "", listener)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	id, port, proto = e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true, L7Parser: policy.ParserTypeCRD}, "test-listener")
 	require.NotEqual(t, "", id)
@@ -574,7 +574,7 @@ func TestProxyID(t *testing.T) {
 	require.Equal(t, "TCP", protocol)
 	require.Equal(t, uint16(8080), port)
 	require.Equal(t, "test-listener", listener)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Undefined named port
 	id, port, proto = e.proxyID(&policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, Ingress: true}, "")
@@ -731,12 +731,12 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 
 	go func() {
 		_, err := ep.eventQueue.Enqueue(ev)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		_, err = ep.eventQueue.Enqueue(ev2)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		close(ev2EnqueueCh)
 		_, err = ep.eventQueue.Enqueue(ev3)
-		require.Nil(t, err)
+		require.NoError(t, err)
 	}()
 
 	// Ensure that the second event is enqueued before proceeding further, as

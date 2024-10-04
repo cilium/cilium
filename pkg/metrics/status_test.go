@@ -149,7 +149,7 @@ func Test_statusCollector_Collect(t *testing.T) {
 
 		// perform static checks such as prometheus naming convention, number of labels matching, etc
 		lintProblems, err := testutil.CollectAndLint(collector)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Len(t, lintProblems, 0)
 
 		// check the number of metrics
@@ -158,7 +158,7 @@ func Test_statusCollector_Collect(t *testing.T) {
 
 		// compare the metric output
 		err = testutil.CollectAndCompare(collector, strings.NewReader(tt.expectedMetric))
-		require.Nil(t, err)
+		require.NoError(t, err)
 	}
 
 }

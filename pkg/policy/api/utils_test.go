@@ -83,11 +83,11 @@ func TestL7Equal(t *testing.T) {
 func TestValidateL4Proto(t *testing.T) {
 	setUpSuite(t)
 
-	require.Nil(t, L4Proto("TCP").Validate())
-	require.Nil(t, L4Proto("UDP").Validate())
-	require.Nil(t, L4Proto("ANY").Validate())
-	require.NotNil(t, L4Proto("TCP2").Validate())
-	require.NotNil(t, L4Proto("t").Validate())
+	require.NoError(t, L4Proto("TCP").Validate())
+	require.NoError(t, L4Proto("UDP").Validate())
+	require.NoError(t, L4Proto("ANY").Validate())
+	require.Error(t, L4Proto("TCP2").Validate())
+	require.Error(t, L4Proto("t").Validate())
 }
 
 func TestParseL4Proto(t *testing.T) {
@@ -95,18 +95,18 @@ func TestParseL4Proto(t *testing.T) {
 
 	p, err := ParseL4Proto("tcp")
 	require.Equal(t, ProtoTCP, p)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	p, err = ParseL4Proto("Any")
 	require.Equal(t, ProtoAny, p)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	p, err = ParseL4Proto("")
 	require.Equal(t, ProtoAny, p)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	_, err = ParseL4Proto("foo2")
-	require.NotNil(t, err)
+	require.Error(t, err)
 }
 
 func TestResourceQualifiedName(t *testing.T) {

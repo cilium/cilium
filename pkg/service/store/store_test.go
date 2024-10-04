@@ -23,11 +23,11 @@ func TestClusterService(t *testing.T) {
 	require.Equal(t, "default/bar/foo", svc.String())
 
 	b, err := svc.Marshal()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	unmarshal := ClusterService{}
 	err = unmarshal.Unmarshal("", b)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.EqualValues(t, unmarshal, svc)
 
 	require.Equal(t, "default/bar/foo", svc.GetKeyName())

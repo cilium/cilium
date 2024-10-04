@@ -98,22 +98,22 @@ func TestMigrateENIDatapathUpgradeSuccess(t *testing.T) {
 		routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: index,
 		}, netlink.RT_FILTER_TABLE)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 0, len(routes)) // We don't expect any routes with the old table ID.
 
 		routes, err = netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: tableID,
 		}, netlink.RT_FILTER_TABLE)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 1, len(routes)) // We only expect one route that we created above in the setupMigrateSuite.
 		require.NotEqual(t, index, routes[0].Table)
 
 		rules, err := findRulesByPriority(linux_defaults.RulePriorityEgress)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 0, len(rules)) // We don't expect any rules from old priority.
 
 		rules, err = findRulesByPriority(linux_defaults.RulePriorityEgressv2)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 5, len(rules)) // We expect all rules to be migrated to new priority.
 		require.NotEqual(t, index, rules[0].Table)
 		return nil
@@ -168,23 +168,23 @@ func TestMigrateENIDatapathUpgradeFailure(t *testing.T) {
 		routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: index,
 		}, netlink.RT_FILTER_TABLE)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 1, len(routes)) // We expect old route to be untouched b/c we failed.
 		require.Equal(t, index, routes[0].Table)
 
 		routes, err = netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: tableID,
 		}, netlink.RT_FILTER_TABLE)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 0, len(routes)) // We don't expect any routes under new table ID b/c of revert.
 
 		rules, err := findRulesByPriority(linux_defaults.RulePriorityEgress)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 1, len(rules)) // We expect the old rule to be reinstated.
 		require.Equal(t, index, rules[0].Table)
 
 		rules, err = findRulesByPriority(linux_defaults.RulePriorityEgressv2)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 4, len(rules)) // We expect the rest of the rules to be upgraded.
 		return nil
 	})
@@ -237,22 +237,22 @@ func TestMigrateENIDatapathDowngradeSuccess(t *testing.T) {
 		routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: tableID,
 		}, netlink.RT_FILTER_TABLE)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 0, len(routes)) // We don't expect any routes with the new table ID.
 
 		routes, err = netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: index,
 		}, netlink.RT_FILTER_TABLE)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 1, len(routes)) // We only expect one route with the old table ID.
 		require.NotEqual(t, tableID, routes[0].Table)
 
 		rules, err := findRulesByPriority(linux_defaults.RulePriorityEgressv2)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 0, len(rules)) // We don't expect any rules with this priority.
 
 		rules, err = findRulesByPriority(linux_defaults.RulePriorityEgress)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 5, len(rules)) // We expect all rules to have the original priority.
 		require.NotEqual(t, tableID, rules[0].Table)
 		return nil
@@ -304,23 +304,23 @@ func TestMigrateENIDatapathDowngradeFailure(t *testing.T) {
 		routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: tableID,
 		}, netlink.RT_FILTER_TABLE)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 1, len(routes)) // We expect "new" route to be untouched b/c we failed to delete.
 		require.Equal(t, tableID, routes[0].Table)
 
 		routes, err = netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: index,
 		}, netlink.RT_FILTER_TABLE)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 0, len(routes)) // We don't expect routes under original table ID b/c of revert.
 
 		rules, err := findRulesByPriority(linux_defaults.RulePriorityEgressv2)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 1, len(rules)) // We expect the "new" rule to be reinstated.
 		require.Equal(t, tableID, rules[0].Table)
 
 		rules, err = findRulesByPriority(linux_defaults.RulePriorityEgress)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, n-1, len(rules)) // Successfully migrated rules.
 		return nil
 	})
@@ -353,7 +353,7 @@ func TestMigrateENIDatapathPartial(t *testing.T) {
 			"to", "all",
 			"table", fmt.Sprintf("%d", newTableID),
 			"priority", fmt.Sprintf("%d", linux_defaults.RulePriorityEgressv2)).Run()
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		m.defaultNetlinkMock()
 
@@ -369,24 +369,24 @@ func TestMigrateENIDatapathPartial(t *testing.T) {
 		routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: newTableID,
 		}, netlink.RT_FILTER_TABLE)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 1, len(routes)) // We expect one migrated route.
 		require.Equal(t, newTableID, routes[0].Table)
 
 		routes, err = netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 			Table: index,
 		}, netlink.RT_FILTER_TABLE)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 0, len(routes)) // We don't expect any routes under old table ID.
 
 		rules, err := findRulesByPriority(linux_defaults.RulePriorityEgressv2)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, n+1, len(rules)) // We expect all migrated rules and the partially migrated rule.
 		require.Equal(t, newTableID, rules[0].Table)
 		require.Equal(t, newTableID, rules[1].Table)
 
 		rules, err = findRulesByPriority(linux_defaults.RulePriorityEgress)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, 0, len(rules)) // We don't expect any rules with the old priority.
 
 		return nil
@@ -422,7 +422,7 @@ func setUpRoutingTable(t *testing.T, ifindex, tableID, priority int) (map[string
 
 		gw := net.ParseIP(fmt.Sprintf("172.16.%d.1", i))
 		_, linkCIDR, err := net.ParseCIDR(fmt.Sprintf("172.16.%d.2/24", i))
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		linkIndex := ifindex + (i - 1)
 		newTableID := tableID + (i - 1)
@@ -433,12 +433,12 @@ func setUpRoutingTable(t *testing.T, ifindex, tableID, priority int) (map[string
 				Index: linkIndex,
 			},
 		}
-		require.Nil(t, netlink.LinkAdd(dummyTmpl))
-		require.Nil(t, netlink.LinkSetUp(dummyTmpl))
-		require.Nil(t, netlink.AddrAdd(dummyTmpl, &netlink.Addr{
+		require.NoError(t, netlink.LinkAdd(dummyTmpl))
+		require.NoError(t, netlink.LinkSetUp(dummyTmpl))
+		require.NoError(t, netlink.AddrAdd(dummyTmpl, &netlink.Addr{
 			IPNet: linkCIDR,
 		}))
-		require.Nil(t, netlink.RouteAdd(&netlink.Route{
+		require.NoError(t, netlink.RouteAdd(&netlink.Route{
 			Dst:       &net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)},
 			Gw:        gw,
 			LinkIndex: dummyTmpl.Index,
@@ -449,11 +449,11 @@ func setUpRoutingTable(t *testing.T, ifindex, tableID, priority int) (map[string
 		rule.Src = linkCIDR
 		rule.Priority = priority
 		rule.Table = newTableID
-		require.Nil(t, netlink.RuleAdd(rule))
+		require.NoError(t, netlink.RuleAdd(rule))
 
 		// Return the MAC address of the dummy device, which acts as the ENI.
 		link, err := netlink.LinkByName(devName)
-		require.Nil(t, err)
+		require.NoError(t, err)
 
 		mac := link.Attrs().HardwareAddr.String()
 

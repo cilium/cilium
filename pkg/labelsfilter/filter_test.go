@@ -25,7 +25,7 @@ func TestFilterLabels(t *testing.T) {
 	}
 
 	err := ParseLabelPrefixCfg([]string{":!ignor[eE]", "id.*", "foo"}, []string{}, "")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	dlpcfg := validLabelPrefixes
 	allNormalLabels := map[string]string{
 		"io.kubernetes.container.hash":                              "cf58006d",
@@ -83,7 +83,7 @@ func TestDefaultFilterLabels(t *testing.T) {
 	}
 
 	err := ParseLabelPrefixCfg([]string{}, []string{}, "")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	dlpcfg := validLabelPrefixes
 	allNormalLabels := map[string]string{
 		"io.kubernetes.container.hash":                              "cf58006d",
@@ -132,7 +132,7 @@ func TestFilterLabelsDocExample(t *testing.T) {
 	}
 
 	err := ParseLabelPrefixCfg([]string{"k8s:io.kubernetes.pod.namespace", "k8s:k8s-app", "k8s:app", "k8s:name", "k8s:io.cilium.k8s.policy.cluster"}, []string{}, "")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	dlpcfg := validLabelPrefixes
 	allNormalLabels := map[string]string{
 		"io.cilium.k8s.namespace.labels": "foo",

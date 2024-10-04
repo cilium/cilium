@@ -62,9 +62,9 @@ func TestContainsSubnet(t *testing.T) {
 	}
 	for _, tt := range tests {
 		_, outer, err := net.ParseCIDR(tt.args.outer)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		_, inner, err := net.ParseCIDR(tt.args.inner)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		got := containsSubnet(*outer, *inner)
 		require.Equalf(t, tt.want, got, "expected containsSubnet(%q, %q) = %t, got %t", tt.args.outer, tt.args.inner, tt.want, got)
 	}

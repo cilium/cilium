@@ -85,7 +85,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 	db := statedb.New()
 
 	nodeAddrs, err := datapathTables.NewNodeAddressTable()
-	require.Nil(tb, err)
+	require.NoError(tb, err)
 
 	err = db.RegisterTable(nodeAddrs)
 	require.NoError(tb, err)

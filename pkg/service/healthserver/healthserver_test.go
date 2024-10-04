@@ -81,7 +81,7 @@ func Test_httpHealthServer_ServeHTTP(t *testing.T) {
 	// Set local endpoints, server must respond with HTTP 200
 	h.updateService(NewService("default", "svc", 2))
 	resp, err := http.Get(ts.URL)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	assertRespHeader(t, resp, "Content-Type", "application/json")
 	assertRespHeader(t, resp, "X-Content-Type-Options", "nosniff")
@@ -91,7 +91,7 @@ func Test_httpHealthServer_ServeHTTP(t *testing.T) {
 	// Remove local endpoints, server must respond with HTTP 503
 	h.updateService(NewService("default", "svc", 0))
 	resp, err = http.Get(ts.URL)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 	resp.Body.Close()
 }

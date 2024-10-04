@@ -176,7 +176,7 @@ func TestDecodeDebugEvent(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ev, err := p.Decode(tc.data, tc.cpu)
 			if tc.wantErr {
-				assert.NotNil(t, err)
+				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.ev, ev)

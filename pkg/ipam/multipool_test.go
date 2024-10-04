@@ -57,7 +57,7 @@ func Test_MultiPoolManager(t *testing.T) {
 		},
 		Name: multiPoolTriggerName,
 	})
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	c.k8sUpdater = k8sUpdater
 
 	currentNode := &ciliumv2.CiliumNode{
@@ -122,7 +122,7 @@ func Test_MultiPoolManager(t *testing.T) {
 
 	// test allocation in default pool
 	defaultAllocation, err := c.allocateIP(net.ParseIP("10.0.22.1"), "default-pod-1", "default", IPv4, false)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, defaultAllocation.IP, net.ParseIP("10.0.22.1"))
 
 	// cannot allocate the same IP twice
@@ -220,18 +220,18 @@ func Test_MultiPoolManager(t *testing.T) {
 	// Allocations should now succeed
 	jupiterIP0 := net.ParseIP("192.168.1.1")
 	allocatedJupiterIP0, err := c.allocateIP(jupiterIP0, "jupiter-pod-0", "jupiter", IPv4, false)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, jupiterIP0.Equal(allocatedJupiterIP0.IP))
 	allocatedJupiterIP1, err := c.allocateNext("jupiter-pod-1", "jupiter", IPv6, false)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, juptierIPv6CIDR.Contains(allocatedJupiterIP1.IP))
 
 	// Release IPs from jupiter pool. This should fully remove it from both
 	// "requested" and "allocated"
 	err = c.releaseIP(allocatedJupiterIP0.IP, "jupiter", IPv4, false)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	err = c.releaseIP(allocatedJupiterIP1.IP, "jupiter", IPv6, true) // triggers sync
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	// Wait for agent to release jupiter and unused CIDRs
 	assert.Equal(t, <-events, "upsert")
@@ -277,7 +277,7 @@ func Test_MultiPoolManager(t *testing.T) {
 	for i := 0; i < numMarsIPs; i++ {
 		// set upstreamSync to true for last allocation, to ensure we only get one upsert event
 		ar, err := c.allocateNext(fmt.Sprintf("mars-pod-%d", i), "mars", IPv4, i == numMarsIPs-1)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.True(t, marsIPv4CIDR1.Contains(ar.IP))
 		allocatedMarsIPs = append(allocatedMarsIPs, ar.IP)
 	}
@@ -334,13 +334,13 @@ func Test_MultiPoolManager(t *testing.T) {
 
 	// Should now be able to allocate from mars pool again
 	marsAllocation, err := c.allocateNext("mars-pod-overflow", "mars", IPv4, false)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, marsIPv4CIDR2.Contains(marsAllocation.IP))
 
 	// Deallocate all other IPs from mars pool. This should release the old CIDR
 	for i, ip := range allocatedMarsIPs {
 		err = c.releaseIP(ip, "mars", IPv4, i == numMarsIPs-1)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 	assert.Equal(t, <-events, "upsert")
 	currentNode = fakeK8sCiliumNodeAPI.currentNode()

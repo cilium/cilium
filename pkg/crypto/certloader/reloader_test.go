@@ -451,7 +451,7 @@ func TestReload(t *testing.T) {
 			}
 			prevKeypairGeneration, prevCaCertPoolGeneration := r.generations()
 			keypair, caCertPool, err := r.Reload()
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			// keypair check
 			assert.Equal(t, tt.expectedKeypair, keypair)
 			// caCertPool check
@@ -538,7 +538,7 @@ func TestReloadKeypair(t *testing.T) {
 			}
 			prevKeypairGeneration, _ := r.generations()
 			keypair, err := r.ReloadKeypair()
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			// keypair check
 			assert.Equal(t, tt.expectedKeypair, keypair)
 			// generations check
@@ -610,7 +610,7 @@ func TestReloadCA(t *testing.T) {
 			}
 			_, prevCaCertPoolGeneration := r.generations()
 			caCertPool, err := r.ReloadCA()
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			// caCertPool check
 			if tt.expectedCaCertPool != nil {
 				assert.Equal(t, tt.expectedCaCertPool.Subjects(), caCertPool.Subjects())
@@ -651,7 +651,7 @@ func TestReloadError(t *testing.T) {
 	}
 
 	r, err := NewFileReloaderReady(relay.caFiles, hubble.certFile, hubble.privkeyFile)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, r)
 	assert.True(t, r.Ready())
 
@@ -667,7 +667,7 @@ func TestReloadError(t *testing.T) {
 
 	prevKeypairGeneration, prevCaCertPoolGeneration := r.generations()
 	_, _, err = r.Reload()
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 
 	// we expect keypair and caCertPool to not have changed on failed reload.
 	keypair, caCertPool = r.KeypairAndCACertPool()

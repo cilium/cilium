@@ -12,11 +12,11 @@ import (
 func TestMeta_UnMarshalBinary(t *testing.T) {
 	meta1 := Meta{Size: 1234}
 	buf, err := meta1.MarshalBinary()
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 
 	var meta2 Meta
 	err = meta2.UnmarshalBinary(buf)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 
 	require.EqualValues(t, meta2, meta1)
 }
@@ -29,11 +29,11 @@ func TestPayload_UnMarshalBinary(t *testing.T) {
 		Type: 9,
 	}
 	buf, err := payload1.Encode()
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 
 	var payload2 Payload
 	err = payload2.Decode(buf)
-	require.Equal(t, nil, err)
+	require.NoError(t, err)
 
 	require.EqualValues(t, payload2, payload1)
 }

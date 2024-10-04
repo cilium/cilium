@@ -17,12 +17,12 @@ func TestNewRouteConfiguration(t *testing.T) {
 			Name: "dummy-virtual-host",
 		},
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	routeConfiguration := &envoy_config_route_v3.RouteConfiguration{}
 	err = proto.Unmarshal(res.Value, routeConfiguration)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "dummy-name", routeConfiguration.GetName())
 	require.Len(t, routeConfiguration.GetVirtualHosts(), 1)
 	require.Equal(t, "dummy-virtual-host", routeConfiguration.GetVirtualHosts()[0].GetName())

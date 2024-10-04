@@ -97,7 +97,7 @@ func TestDelete(t *testing.T) {
 	// Test that a non-matching ForceExpire doesn't do anything. All data should
 	// still be present.
 	nameMatch, err := regexp.Compile("^notatest.com$")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	namesAffected := cache.ForceExpire(now, nameMatch)
 	require.Lenf(t, namesAffected, 0, "Incorrect count of names removed %v", namesAffected)
 	for _, name := range []string{"test1.com", "test2.com", "test3.com"} {
@@ -113,7 +113,7 @@ func TestDelete(t *testing.T) {
 	// - It is returned in namesAffected
 	// - Lookups for it show no data, but data remains for other names
 	nameMatch, err = regexp.Compile("^test1.com$")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	namesAffected = cache.ForceExpire(now, nameMatch)
 	require.Lenf(t, namesAffected, 1, "Incorrect count of names removed %v", namesAffected)
 	require.Containsf(t, namesAffected, "test1.com", "Incorrect affected name returned on forced expire: %s", namesAffected)
@@ -250,11 +250,11 @@ func TestJSONMarshal(t *testing.T) {
 
 	// Marshal and unmarshal
 	data, err := cache.MarshalJSON()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	newCache := NewDNSCache(0)
 	err = newCache.UnmarshalJSON(data)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Marshalled data should have no duplicate entries Note: this is tightly
 	// coupled with the implementation of DNSCache.MarshalJSON because the
@@ -262,7 +262,7 @@ func TestJSONMarshal(t *testing.T) {
 	// since we control the inserted data, and we test its correctness below.
 	rawList := make([]*cacheEntry, 0)
 	err = json.Unmarshal(data, &rawList)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 6, len(rawList))
 
 	// Check that the unmarshalled instance contains all the data at now
@@ -449,7 +449,7 @@ func benchmarkMarshalJSON(b *testing.B, numDNSEntries int) {
 
 	for i := 0; i < b.N; i++ {
 		_, err := cache.MarshalJSON()
-		require.Nil(b, err)
+		require.NoError(b, err)
 	}
 }
 
@@ -468,7 +468,7 @@ func benchmarkUnmarshalJSON(b *testing.B, numDNSEntries int) {
 	}
 
 	data, err := cache.MarshalJSON()
-	require.Nil(b, err)
+	require.NoError(b, err)
 
 	emptyCaches := make([]*DNSCache, b.N)
 	for i := 0; i < b.N; i++ {
@@ -478,7 +478,7 @@ func benchmarkUnmarshalJSON(b *testing.B, numDNSEntries int) {
 
 	for i := 0; i < b.N; i++ {
 		err := emptyCaches[i].UnmarshalJSON(data)
-		require.Nil(b, err)
+		require.NoError(b, err)
 	}
 }
 
@@ -883,7 +883,7 @@ func TestZombiesForceExpire(t *testing.T) {
 
 	// Expire only 1 name on 1 zombie
 	nameMatch, err := regexp.Compile("^test.com$")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	zombies.ForceExpire(time.Time{}, nameMatch)
 
 	alive, dead = zombies.GC()
@@ -896,7 +896,7 @@ func TestZombiesForceExpire(t *testing.T) {
 	// Expire the last name on a zombie. It will be deleted and not returned in a
 	// GC
 	nameMatch, err = regexp.Compile("^anothertest.com$")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	zombies.ForceExpire(time.Time{}, nameMatch)
 	alive, dead = zombies.GC()
 	require.Len(t, dead, 0)
@@ -909,7 +909,7 @@ func TestZombiesForceExpire(t *testing.T) {
 
 	// Don't expire if the IP doesn't match
 	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", netip.MustParseAddr("1.1.1.1"))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	alive, dead = zombies.GC()
 	require.Len(t, dead, 0)
 	assertZombiesContain(t, alive, map[string][]string{
@@ -918,7 +918,7 @@ func TestZombiesForceExpire(t *testing.T) {
 
 	// Expire 1 name for this IP but leave other names
 	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", netip.MustParseAddr("2.2.2.2"))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	alive, dead = zombies.GC()
 	require.Len(t, dead, 0)
 	assertZombiesContain(t, alive, map[string][]string{
@@ -927,7 +927,7 @@ func TestZombiesForceExpire(t *testing.T) {
 
 	// Don't remove if the name doesn't match
 	err = zombies.ForceExpireByNameIP(time.Time{}, "blarg.com", netip.MustParseAddr("2.2.2.2"))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	alive, dead = zombies.GC()
 	require.Len(t, dead, 0)
 	assertZombiesContain(t, alive, map[string][]string{
@@ -936,7 +936,7 @@ func TestZombiesForceExpire(t *testing.T) {
 
 	// Clear everything
 	err = zombies.ForceExpireByNameIP(time.Time{}, "test.com", netip.MustParseAddr("2.2.2.2"))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	alive, dead = zombies.GC()
 	require.Len(t, dead, 0)
 	require.Len(t, alive, 0)

@@ -118,9 +118,9 @@ func TestParserTypeMerge(t *testing.T) {
 	} {
 		res, err := tt.a.Merge(tt.b)
 		if tt.success {
-			require.Equal(t, nil, err)
+			require.NoError(t, err)
 		} else {
-			require.NotEqual(t, nil, err)
+			require.Error(t, err)
 		}
 		if res != tt.c {
 			fmt.Printf("Merge %s with %s, expecting %s\n", tt.a, tt.b, tt.c)
@@ -248,10 +248,10 @@ func TestCreateL4FilterMissingSecret(t *testing.T) {
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
 		_, err := createL4IngressFilter(td.testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol, nil)
-		require.NotNil(t, err)
+		require.Error(t, err)
 
 		_, err = createL4EgressFilter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil, nil)
-		require.NotNil(t, err)
+		require.Error(t, err)
 	}
 }
 

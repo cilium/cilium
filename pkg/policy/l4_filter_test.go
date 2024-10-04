@@ -605,7 +605,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 
 	state := traceState{}
 	res, err := conflictingParsersRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 
 	// Case 5B: HTTP first, Kafka second.
@@ -653,7 +653,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 
 	state = traceState{}
 	res, err = conflictingParsersRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 
 	// Case 5B+: HTTP first, generic L7 second.
@@ -705,7 +705,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 
 	state = traceState{}
 	res, err = conflictingParsersIngressRule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 
 	// Case 5B++: generic L7 without rules first, HTTP second.
@@ -755,7 +755,7 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 	state = traceState{}
 	res, err = conflictingParsersEgressRule.resolveEgressPolicy(td.testPolicyContext, &ctxAToC, &state, NewL4PolicyMap(), nil, nil)
 	t.Log(buffer)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 }
 
@@ -1899,7 +1899,7 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 
 	state := traceState{}
 	res, err := conflictingL7Rule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 
 	state = traceState{}
@@ -1954,7 +1954,7 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 
 	state = traceState{}
 	res, err = conflictingL7Rule.resolveIngressPolicy(td.testPolicyContext, &ctxToA, &state, NewL4PolicyMap(), nil, nil)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Nil(t, res)
 
 	state = traceState{}

@@ -306,7 +306,7 @@ func TestGetRulesMatching(t *testing.T) {
 
 	// When ingress deny policy is applied.
 	_, _, err := repo.mustAdd(ingressDenyRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	ingressMatch, egressMatch = repo.GetRulesMatching(labels.LabelArray{bar, foo})
 	require.Equal(t, true, ingressMatch)
 	require.Equal(t, false, egressMatch)
@@ -316,7 +316,7 @@ func TestGetRulesMatching(t *testing.T) {
 
 	// When egress deny policy is applied.
 	_, _, err = repo.mustAdd(egressDenyRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	ingressMatch, egressMatch = repo.GetRulesMatching(labels.LabelArray{bar, foo})
 	require.Equal(t, false, ingressMatch)
 	require.Equal(t, true, egressMatch)
@@ -381,11 +381,11 @@ func TestDeniesIngress(t *testing.T) {
 	}
 
 	_, _, err := repo.mustAdd(rule1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	_, _, err = repo.mustAdd(rule2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	_, _, err = repo.mustAdd(rule3)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// foo=>bar is not OK
 	require.Equal(t, api.Denied, repo.AllowsIngressRLocked(fooToBar))
@@ -479,11 +479,11 @@ func TestDeniesEgress(t *testing.T) {
 		Labels: tag1,
 	}
 	_, _, err := repo.mustAdd(rule1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	_, _, err = repo.mustAdd(rule2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	_, _, err = repo.mustAdd(rule3)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// foo=>bar is not OK
 	logBuffer := new(bytes.Buffer)
@@ -548,7 +548,7 @@ func TestWildcardL3RulesIngressDeny(t *testing.T) {
 	}
 	l3Rule.Sanitize()
 	_, _, err := repo.mustAdd(l3Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		To: labels.ParseSelectLabelArray("id=foo"),
@@ -558,7 +558,7 @@ func TestWildcardL3RulesIngressDeny(t *testing.T) {
 	defer repo.Mutex.RUnlock()
 
 	policyDeny, err := repo.ResolveL4IngressPolicy(ctx)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"0/ANY": {
@@ -604,7 +604,7 @@ func TestWildcardL4RulesIngressDeny(t *testing.T) {
 	}
 	l49092Rule.Sanitize()
 	_, _, err := repo.mustAdd(l49092Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	l480Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -624,7 +624,7 @@ func TestWildcardL4RulesIngressDeny(t *testing.T) {
 	}
 	l480Rule.Sanitize()
 	_, _, err = repo.mustAdd(l480Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		To: labels.ParseSelectLabelArray("id=foo"),
@@ -634,7 +634,7 @@ func TestWildcardL4RulesIngressDeny(t *testing.T) {
 	defer repo.Mutex.RUnlock()
 
 	policyDeny, err := repo.ResolveL4IngressPolicy(ctx)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	expectedDenyPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"80/TCP": {
@@ -696,7 +696,7 @@ func TestL3DependentL4IngressDenyFromRequires(t *testing.T) {
 	}
 	l480Rule.Sanitize()
 	_, _, err := repo.mustAdd(l480Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		To: labels.ParseSelectLabelArray("id=foo"),
@@ -706,7 +706,7 @@ func TestL3DependentL4IngressDenyFromRequires(t *testing.T) {
 	defer repo.Mutex.RUnlock()
 
 	policyDeny, err := repo.ResolveL4IngressPolicy(ctx)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []slim_metav1.LabelSelectorRequirement{
 		{
@@ -768,7 +768,7 @@ func TestL3DependentL4EgressDenyFromRequires(t *testing.T) {
 	}
 	l480Rule.Sanitize()
 	_, _, err := repo.mustAdd(l480Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		From: labels.ParseSelectLabelArray("id=foo"),
@@ -779,7 +779,7 @@ func TestL3DependentL4EgressDenyFromRequires(t *testing.T) {
 
 	logBuffer := new(bytes.Buffer)
 	policyDeny, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []slim_metav1.LabelSelectorRequirement{
 		{
@@ -848,7 +848,7 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 	}
 	l3Rule.Sanitize()
 	_, _, err := repo.mustAdd(l3Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	icmpV4Type := intstr.FromInt(8)
 	icmpRule := api.Rule{
@@ -868,10 +868,10 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 		Labels: labelsICMP,
 	}
 	err = icmpRule.Sanitize()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	_, _, err = repo.mustAdd(icmpRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	icmpV6Type := intstr.FromInt(128)
 	icmpV6Rule := api.Rule{
@@ -892,10 +892,10 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 		Labels: labelsICMPv6,
 	}
 	err = icmpV6Rule.Sanitize()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	_, _, err = repo.mustAdd(icmpV6Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		From: labels.ParseSelectLabelArray("id=foo"),
@@ -906,7 +906,7 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 
 	logBuffer := new(bytes.Buffer)
 	policyDeny, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Traffic to bar1 should not be forwarded to the DNS or HTTP
 	// proxy at all, but if it is (e.g., for visibility, the
@@ -979,7 +979,7 @@ func TestWildcardL4RulesEgressDeny(t *testing.T) {
 	}
 	l453Rule.Sanitize()
 	_, _, err := repo.mustAdd(l453Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	l480Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -999,7 +999,7 @@ func TestWildcardL4RulesEgressDeny(t *testing.T) {
 	}
 	l480Rule.Sanitize()
 	_, _, err = repo.mustAdd(l480Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		From: labels.ParseSelectLabelArray("id=foo"),
@@ -1010,7 +1010,7 @@ func TestWildcardL4RulesEgressDeny(t *testing.T) {
 
 	logBuffer := new(bytes.Buffer)
 	policyDeny, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Bar1 should not be forwarded to the proxy, but if it is (e.g., for visibility),
 	// the L3/L4 deny should pass it without an explicit L7 wildcard.
@@ -1083,7 +1083,7 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 	}
 	l480Get.Sanitize()
 	_, _, err := repo.mustAdd(l480Get)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	l3Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1098,7 +1098,7 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 	}
 	l3Rule.Sanitize()
 	_, _, err = repo.mustAdd(l3Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		From: labels.ParseSelectLabelArray("id=foo"),
@@ -1109,7 +1109,7 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 
 	logBuffer := new(bytes.Buffer)
 	policyDeny, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Port 80 policy does not need the wildcard, as the "0" port policy will deny the traffic.
 	expectedDenyPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
@@ -1164,7 +1164,7 @@ func TestWildcardL3RulesIngressDenyFromEntities(t *testing.T) {
 	}
 	l3Rule.Sanitize()
 	_, _, err := repo.mustAdd(l3Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		To: labels.ParseSelectLabelArray("id=foo"),
@@ -1174,7 +1174,7 @@ func TestWildcardL3RulesIngressDenyFromEntities(t *testing.T) {
 	defer repo.Mutex.RUnlock()
 
 	policyDeny, err := repo.ResolveL4IngressPolicy(ctx)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 1, policyDeny.Len())
 	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
 	cachedSelectorWorld := td.sc.FindCachedIdentitySelector(selWorld)
@@ -1231,7 +1231,7 @@ func TestWildcardL3RulesEgressDenyToEntities(t *testing.T) {
 	}
 	l3Rule.Sanitize()
 	_, _, err := repo.mustAdd(l3Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		From: labels.ParseSelectLabelArray("id=foo"),
@@ -1241,7 +1241,7 @@ func TestWildcardL3RulesEgressDenyToEntities(t *testing.T) {
 	defer repo.Mutex.RUnlock()
 
 	policyDeny, err := repo.ResolveL4EgressPolicy(ctx)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 1, policyDeny.Len())
 	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
 	cachedSelectorWorld := td.sc.FindCachedIdentitySelector(selWorld)
@@ -1325,7 +1325,7 @@ func TestMinikubeGettingStartedDeny(t *testing.T) {
 			},
 		},
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	_, _, err = repo.mustAdd(api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
@@ -1342,7 +1342,7 @@ func TestMinikubeGettingStartedDeny(t *testing.T) {
 			},
 		},
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
@@ -1350,7 +1350,7 @@ func TestMinikubeGettingStartedDeny(t *testing.T) {
 	// L4 from app2 is restricted
 	logBuffer := new(bytes.Buffer)
 	l4IngressDenyPolicy, err := repo.ResolveL4IngressPolicy(fromApp2.WithLogger(logBuffer))
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	cachedSelectorApp2 := td.sc.FindCachedIdentitySelector(selFromApp2)
 	require.NotNil(t, cachedSelectorApp2)
@@ -1376,7 +1376,7 @@ func TestMinikubeGettingStartedDeny(t *testing.T) {
 	// L4 from app3 has no rules
 	expectedDeny = NewL4Policy(repo.GetRevision())
 	l4IngressDenyPolicy, err = repo.ResolveL4IngressPolicy(fromApp3)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 0, l4IngressDenyPolicy.Len())
 	require.Equal(t, expectedDeny.Ingress.PortRules, l4IngressDenyPolicy)
 	l4IngressDenyPolicy.Detach(td.sc)
@@ -1456,7 +1456,7 @@ Ingress verdict: denied
 	// Now, add extra rules to allow specifically baz=>bar on port 80
 	l4rule := buildDenyRule("baz", "bar", "80")
 	_, _, err := repo.mustAdd(l4rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// baz=>bar:80 is OK
 	ctx = buildSearchCtx("baz", "bar", 80)
@@ -1509,7 +1509,7 @@ Ingress verdict: denied
 		}},
 	}
 	_, _, err = repo.mustAdd(l3rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// foo=>bar is now denied due to the FromRequires
 	ctx = buildSearchCtx("foo", "bar", 0)

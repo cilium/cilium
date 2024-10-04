@@ -87,7 +87,7 @@ func TestRingReader_Previous(t *testing.T) {
 				got = append(got, event)
 			}
 			assert.Equal(t, tt.want, got)
-			assert.Nil(t, reader.Close())
+			assert.NoError(t, reader.Close())
 		})
 	}
 }
@@ -108,7 +108,7 @@ func TestRingReader_PreviousLost(t *testing.T) {
 	actual, err := reader.Previous()
 	assert.NoError(t, err)
 	assert.Equal(t, expected.GetLostEvent(), actual.GetLostEvent())
-	assert.Nil(t, reader.Close())
+	assert.NoError(t, reader.Close())
 }
 
 func TestRingReader_Next(t *testing.T) {
@@ -174,7 +174,7 @@ func TestRingReader_Next(t *testing.T) {
 				got = append(got, event)
 			}
 			assert.Equal(t, tt.want, got)
-			assert.Nil(t, reader.Close())
+			assert.NoError(t, reader.Close())
 		})
 	}
 }
@@ -195,7 +195,7 @@ func TestRingReader_NextLost(t *testing.T) {
 	actual, err := reader.Next()
 	assert.NoError(t, err)
 	assert.Equal(t, expected.GetLostEvent(), actual.GetLostEvent())
-	assert.Nil(t, reader.Close())
+	assert.NoError(t, reader.Close())
 }
 
 func TestRingReader_NextFollow(t *testing.T) {
@@ -268,7 +268,7 @@ func TestRingReader_NextFollow(t *testing.T) {
 					assert.NotNil(t, got[i])
 				}
 				cancel()
-				assert.Nil(t, reader.Close())
+				assert.NoError(t, reader.Close())
 			}
 			assert.Equal(t, tt.want, got)
 			assert.Equal(t, tt.wantTimeout, timedOut)
@@ -303,5 +303,5 @@ func TestRingReader_NextFollow_WithEmptyRing(t *testing.T) {
 	}
 	cancel()
 	<-done
-	assert.Nil(t, reader.Close())
+	assert.NoError(t, reader.Close())
 }

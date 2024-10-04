@@ -37,11 +37,11 @@ func TestDecodeTraceNotifyV0(t *testing.T) {
 	}
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, input)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	output := TraceNotify{}
 	err = DecodeTraceNotify(buf.Bytes(), &output)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, input.Type, output.Type)
 	require.Equal(t, input.ObsPoint, output.ObsPoint)
 	require.Equal(t, input.Source, output.Source)
@@ -88,11 +88,11 @@ func TestDecodeTraceNotifyV1(t *testing.T) {
 	}
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, in)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	out := TraceNotify{}
 	err = DecodeTraceNotify(buf.Bytes(), &out)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, in.Type, out.Type)
 	require.Equal(t, in.ObsPoint, out.ObsPoint)
 	require.Equal(t, in.Source, out.Source)

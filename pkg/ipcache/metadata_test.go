@@ -432,7 +432,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	// Simulate adding CIDR policy by simulating UpsertPrefixes
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.CustomResource, "policy-uid", labels.GetCIDRLabels(worldPrefix))
 	remaining, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{worldPrefix})
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Zero(t, remaining)
 	assert.Contains(t, IPIdentityCache.metadata.m[worldPrefix].ToLabels(), labels.IDNameKubeAPIServer)
 	nid, exists := IPIdentityCache.LookupByPrefix(worldPrefix.String())
@@ -687,14 +687,14 @@ func TestInjectFailedAllocate(t *testing.T) {
 
 	Allocator.Reject(labels.GetCIDRLabels(inClusterPrefix))
 	remaining, err := ipc.doInjectLabels(ctx, []netip.Prefix{inClusterPrefix, inClusterPrefix2})
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Len(t, remaining, 2)
 
 	Allocator.Unreject(labels.GetCIDRLabels(inClusterPrefix))
 	Allocator.Reject(labels.GetCIDRLabels(inClusterPrefix2))
 
 	remaining, err = ipc.doInjectLabels(ctx, []netip.Prefix{inClusterPrefix, inClusterPrefix2})
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Len(t, remaining, 1)
 }
 
@@ -725,7 +725,7 @@ func TestHandleLabelInjection(t *testing.T) {
 	// Ensure that no prefixes have been lost
 	require.Equal(t, 2, len(ipc.metadata.queuedPrefixes))
 	require.Equal(t, uint64(0), ipc.metadata.injectedRevision)
-	require.NotNil(t, err)
+	require.Error(t, err)
 
 	// enable allocation, but reject one of the prefixes
 	ipc.IdentityAllocator = Allocator
@@ -735,7 +735,7 @@ func TestHandleLabelInjection(t *testing.T) {
 	// May be 1 or 2 pending prefixes, depending on which came first
 	require.GreaterOrEqual(t, len(ipc.metadata.queuedPrefixes), 1)
 	require.Equal(t, uint64(0), ipc.metadata.injectedRevision)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.NotContains(t, ipc.ipToIdentityCache, inClusterPrefix.String())
 
 	Allocator.Unreject(labels.GetCIDRLabels(inClusterPrefix))
@@ -747,7 +747,7 @@ func TestHandleLabelInjection(t *testing.T) {
 	// ensure all IPs are in the ipcache
 	require.Contains(t, ipc.ipToIdentityCache, inClusterPrefix.String())
 	require.Contains(t, ipc.ipToIdentityCache, inClusterPrefix2.String())
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestMetadataRevision(t *testing.T) {
@@ -1009,7 +1009,7 @@ func TestResolveIdentity(t *testing.T) {
 				info := IPIdentityCache.metadata.getLocked(prefix)
 				require.NotNil(t, info)
 				id, _, err := IPIdentityCache.resolveIdentity(context.Background(), prefix, info, 0)
-				require.Nil(t, err)
+				require.NoError(t, err)
 
 				if expectedNID, ok := tc.expectedIDs[pfx]; ok {
 					require.Equal(t, expectedNID, id.ID)
@@ -1041,7 +1041,7 @@ func TestUpsertMetadataCIDRGroup(t *testing.T) {
 	IPIdentityCache.metadata.upsertLocked(p3, source.Generated, "r1", labels.NewLabelsFromSortedList("cidrgroup:c="))
 
 	_, err := IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{p1, p2, p3})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	hasLabels := func(prefix netip.Prefix, wantl string) {
 		t.Helper()
@@ -1064,7 +1064,7 @@ func TestUpsertMetadataCIDRGroup(t *testing.T) {
 	IPIdentityCache.metadata.upsertLocked(p6, source.Generated, "r1", labels.NewLabelsFromSortedList("fqdn:*.cilium.io="))
 
 	_, err = IPIdentityCache.doInjectLabels(ctx, []netip.Prefix{p4, p5, p6})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	hasLabels(p4, "cidr:10.0.0.0/25=;cidrgroup:a=;cidrgroup:b=;cidrgroup:c=;reserved:world-ipv4=")
 	hasLabels(p5, "cidr:10.0.0.0/26=;cidrgroup:a=;cidrgroup:b=;cidrgroup:c=;reserved:world-ipv4=")

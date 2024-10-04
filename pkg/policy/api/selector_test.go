@@ -56,13 +56,13 @@ func TestLabelSelectorToRequirements(t *testing.T) {
 
 	expRequirements := k8sLbls.Requirements{}
 	req, err := k8sLbls.NewRequirement("any.foo", selection.Equals, []string{"bar"})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	expRequirements = append(expRequirements, *req)
 	req, err = k8sLbls.NewRequirement("any.foo", selection.NotIn, []string{"default"})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	expRequirements = append(expRequirements, *req)
 	req, err = k8sLbls.NewRequirement("k8s.baz", selection.Equals, []string{"alice"})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	expRequirements = append(expRequirements, *req)
 
 	require.EqualValues(t, &expRequirements, labelSelectorToRequirements(labelSelector))

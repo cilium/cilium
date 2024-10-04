@@ -1449,7 +1449,7 @@ func TestPaginatedList(t *testing.T) {
 
 		defer func(previous int) {
 			cl.listBatchSize = previous
-			require.Nil(t, cl.DeletePrefix(ctx, prefix))
+			require.NoError(t, cl.DeletePrefix(ctx, prefix))
 		}(cl.listBatchSize)
 		cl.listBatchSize = batch
 

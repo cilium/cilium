@@ -748,7 +748,7 @@ func TestParseNetworkPolicyUnknownProto(t *testing.T) {
 	}
 
 	rules, err := ParseNetworkPolicy(netPolicy)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, 0, len(rules))
 }
 

@@ -25,7 +25,7 @@ func TestWriteInformationalComments(t *testing.T) {
 
 	var f bytes.Buffer
 	err := e.writeInformationalComments(&f)
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 type writeFunc func(io.Writer) error

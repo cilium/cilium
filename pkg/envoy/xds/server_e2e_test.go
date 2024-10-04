@@ -924,7 +924,7 @@ func TestNAckFromTheStart(t *testing.T) {
 	require.Condition(t, isNotCompletedComparison(comp1))
 
 	// Version 2 did not have a callback, so the completion was completedInTime with an error
-	require.NotNil(t, comp1.Err())
+	require.Error(t, comp1.Err())
 	require.EqualValues(t, &ProxyError{Err: ErrNackReceived}, comp1.Err())
 
 	// NACK canceled the WaitGroup, create new one

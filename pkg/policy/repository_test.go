@@ -292,11 +292,11 @@ func TestAddSearchDelete(t *testing.T) {
 
 	// add rule1,rule2
 	rev, _, err := repo.mustAdd(rule1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, nextRevision, rev)
 	nextRevision++
 	rev, _, err = repo.mustAdd(rule2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, nextRevision, rev)
 	nextRevision++
 
@@ -307,7 +307,7 @@ func TestAddSearchDelete(t *testing.T) {
 
 	// add rule3
 	rev, _, err = repo.mustAdd(rule3)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, nextRevision, rev)
 	nextRevision++
 
@@ -442,11 +442,11 @@ func TestAllowsIngress(t *testing.T) {
 	}
 
 	_, _, err := repo.mustAdd(rule1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	_, _, err = repo.mustAdd(rule2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	_, _, err = repo.mustAdd(rule3)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// foo=>bar is OK
 	require.Equal(t, api.Allowed, repo.AllowsIngressRLocked(fooToBar))
@@ -540,11 +540,11 @@ func TestAllowsEgress(t *testing.T) {
 		Labels: tag1,
 	}
 	_, _, err := repo.mustAdd(rule1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	_, _, err = repo.mustAdd(rule2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	_, _, err = repo.mustAdd(rule3)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// foo=>bar is OK
 	logBuffer := new(bytes.Buffer)
@@ -614,7 +614,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 	}
 	l3Rule.Sanitize()
 	_, _, err := repo.mustAdd(l3Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	kafkaRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -639,7 +639,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 	}
 	kafkaRule.Sanitize()
 	_, _, err = repo.mustAdd(kafkaRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	httpRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -663,7 +663,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 		Labels: labelsHTTP,
 	}
 	_, _, err = repo.mustAdd(httpRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	l7Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -686,7 +686,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 		Labels: labelsL7,
 	}
 	_, _, err = repo.mustAdd(l7Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	icmpV4Type := intstr.FromInt(8)
 	icmpRule := api.Rule{
@@ -706,7 +706,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 		Labels: labelsICMP,
 	}
 	_, _, err = repo.mustAdd(icmpRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	icmpV6Type := intstr.FromInt(128)
 	icmpV6Rule := api.Rule{
@@ -727,7 +727,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 		Labels: labelsICMPv6,
 	}
 	_, _, err = repo.mustAdd(icmpV6Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		To: labels.ParseSelectLabelArray("id=foo"),
@@ -737,7 +737,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 	defer repo.Mutex.RUnlock()
 
 	policy, err := repo.ResolveL4IngressPolicy(ctx)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"0/ANY": {
@@ -855,7 +855,7 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 	}
 	l49092Rule.Sanitize()
 	_, _, err := repo.mustAdd(l49092Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	kafkaRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -880,7 +880,7 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 	}
 	kafkaRule.Sanitize()
 	_, _, err = repo.mustAdd(kafkaRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	l480Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -900,7 +900,7 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 	}
 	l480Rule.Sanitize()
 	_, _, err = repo.mustAdd(l480Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	httpRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -924,7 +924,7 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 		Labels: labelsL7HTTP,
 	}
 	_, _, err = repo.mustAdd(httpRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		To: labels.ParseSelectLabelArray("id=foo"),
@@ -934,7 +934,7 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 	defer repo.Mutex.RUnlock()
 
 	policy, err := repo.ResolveL4IngressPolicy(ctx)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	expectedPolicy := NewL4PolicyMapWithValues(map[string]*L4Filter{
 		"80/TCP": {
@@ -1014,7 +1014,7 @@ func TestL3DependentL4IngressFromRequires(t *testing.T) {
 	}
 	l480Rule.Sanitize()
 	_, _, err := repo.mustAdd(l480Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		To: labels.ParseSelectLabelArray("id=foo"),
@@ -1024,7 +1024,7 @@ func TestL3DependentL4IngressFromRequires(t *testing.T) {
 	defer repo.Mutex.RUnlock()
 
 	policy, err := repo.ResolveL4IngressPolicy(ctx)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []slim_metav1.LabelSelectorRequirement{
 		{
@@ -1088,7 +1088,7 @@ func TestL3DependentL4EgressFromRequires(t *testing.T) {
 	}
 	l480Rule.Sanitize()
 	_, _, err := repo.mustAdd(l480Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		From: labels.ParseSelectLabelArray("id=foo"),
@@ -1099,7 +1099,7 @@ func TestL3DependentL4EgressFromRequires(t *testing.T) {
 
 	logBuffer := new(bytes.Buffer)
 	policy, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []slim_metav1.LabelSelectorRequirement{
 		{
@@ -1175,7 +1175,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 	}
 	l3Rule.Sanitize()
 	_, _, err := repo.mustAdd(l3Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	dnsRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1200,7 +1200,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 	}
 	dnsRule.Sanitize()
 	_, _, err = repo.mustAdd(dnsRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	httpRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1224,7 +1224,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 		Labels: labelsHTTP,
 	}
 	_, _, err = repo.mustAdd(httpRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	icmpV4Type := intstr.FromInt(8)
 	icmpRule := api.Rule{
@@ -1244,7 +1244,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 		Labels: labelsICMP,
 	}
 	_, _, err = repo.mustAdd(icmpRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	icmpV6Type := intstr.FromInt(128)
 	icmpV6Rule := api.Rule{
@@ -1265,7 +1265,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 		Labels: labelsICMPv6,
 	}
 	_, _, err = repo.mustAdd(icmpV6Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		From: labels.ParseSelectLabelArray("id=foo"),
@@ -1276,7 +1276,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 
 	logBuffer := new(bytes.Buffer)
 	policy, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Traffic to bar1 should not be forwarded to the DNS or HTTP
 	// proxy at all, but if it is (e.g., for visibility, the
@@ -1384,7 +1384,7 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 	}
 	l453Rule.Sanitize()
 	_, _, err := repo.mustAdd(l453Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	dnsRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1409,7 +1409,7 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 	}
 	dnsRule.Sanitize()
 	_, _, err = repo.mustAdd(dnsRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	l480Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1429,7 +1429,7 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 	}
 	l480Rule.Sanitize()
 	_, _, err = repo.mustAdd(l480Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	httpRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1453,7 +1453,7 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 		Labels: labelsL7HTTP,
 	}
 	_, _, err = repo.mustAdd(httpRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		From: labels.ParseSelectLabelArray("id=foo"),
@@ -1464,7 +1464,7 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 
 	logBuffer := new(bytes.Buffer)
 	policy, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Bar1 should not be forwarded to the proxy, but if it is (e.g., for visibility),
 	// the L3/L4 allow should pass it without an explicit L7 wildcard.
@@ -1564,7 +1564,7 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 	}
 	l480Get.Sanitize()
 	_, _, err := repo.mustAdd(l480Get)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	l3Rule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1579,7 +1579,7 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 	}
 	l3Rule.Sanitize()
 	_, _, err = repo.mustAdd(l3Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		From: labels.ParseSelectLabelArray("id=foo"),
@@ -1590,7 +1590,7 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 
 	logBuffer := new(bytes.Buffer)
 	policy, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// Port 80 policy does not need the wildcard, as the "0" port policy will allow the traffic.
 	// HTTP rules can have side-effects, so they need to be retained even if shadowed by a wildcard.
@@ -1658,7 +1658,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 	}
 	l3Rule.Sanitize()
 	_, _, err := repo.mustAdd(l3Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	kafkaRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1683,7 +1683,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 	}
 	kafkaRule.Sanitize()
 	_, _, err = repo.mustAdd(kafkaRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	httpRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1707,7 +1707,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 		Labels: labelsHTTP,
 	}
 	_, _, err = repo.mustAdd(httpRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		To: labels.ParseSelectLabelArray("id=foo"),
@@ -1717,7 +1717,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 	defer repo.Mutex.RUnlock()
 
 	policy, err := repo.ResolveL4IngressPolicy(ctx)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 3, policy.Len())
 	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
 	require.Equal(t, 1, len(policy.ExactLookup("80", 0, "TCP").PerSelectorPolicies))
@@ -1810,7 +1810,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 	}
 	l3Rule.Sanitize()
 	_, _, err := repo.mustAdd(l3Rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	dnsRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1835,7 +1835,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 	}
 	dnsRule.Sanitize()
 	_, _, err = repo.mustAdd(dnsRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	httpRule := api.Rule{
 		EndpointSelector: selFoo,
@@ -1859,7 +1859,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 		Labels: labelsHTTP,
 	}
 	_, _, err = repo.mustAdd(httpRule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	ctx := &SearchContext{
 		From: labels.ParseSelectLabelArray("id=foo"),
@@ -1869,7 +1869,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 	defer repo.Mutex.RUnlock()
 
 	policy, err := repo.ResolveL4EgressPolicy(ctx)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 3, policy.Len())
 	selWorld := api.EntitySelectorMapping[api.EntityWorld][0]
 	require.Equal(t, 1, len(policy.ExactLookup("80", 0, "TCP").PerSelectorPolicies))
@@ -1984,7 +1984,7 @@ func TestMinikubeGettingStarted(t *testing.T) {
 			},
 		},
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	_, _, err = repo.mustAdd(api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
@@ -2006,7 +2006,7 @@ func TestMinikubeGettingStarted(t *testing.T) {
 			},
 		},
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	_, _, err = repo.mustAdd(api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("id=app1")),
@@ -2028,7 +2028,7 @@ func TestMinikubeGettingStarted(t *testing.T) {
 			},
 		},
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	repo.Mutex.RLock()
 	defer repo.Mutex.RUnlock()
@@ -2036,7 +2036,7 @@ func TestMinikubeGettingStarted(t *testing.T) {
 	// L4 from app2 is restricted
 	logBuffer := new(bytes.Buffer)
 	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(fromApp2.WithLogger(logBuffer))
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	cachedSelectorApp2 := td.sc.FindCachedIdentitySelector(selFromApp2)
 	require.NotNil(t, cachedSelectorApp2)
@@ -2067,7 +2067,7 @@ func TestMinikubeGettingStarted(t *testing.T) {
 	// L4 from app3 has no rules
 	expected = NewL4Policy(repo.GetRevision())
 	l4IngressPolicy, err = repo.ResolveL4IngressPolicy(fromApp3)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, 0, l4IngressPolicy.Len())
 	require.Equal(t, expected.Ingress.PortRules, l4IngressPolicy)
 	l4IngressPolicy.Detach(td.sc)
@@ -2172,7 +2172,7 @@ Ingress verdict: denied
 	// Now, add extra rules to allow specifically baz=>bar on port 80
 	l4rule := buildRule("baz", "bar", "80")
 	_, _, err := repo.mustAdd(l4rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// baz=>bar:80 is OK
 	ctx = buildSearchCtx("baz", "bar", 80)
@@ -2225,7 +2225,7 @@ Ingress verdict: denied
 		}},
 	}
 	_, _, err = repo.mustAdd(l3rule)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// foo=>bar is now denied due to the FromRequires
 	ctx = buildSearchCtx("foo", "bar", 0)
@@ -2320,7 +2320,7 @@ func TestIterate(t *testing.T) {
 				},
 			},
 		})
-		require.Nil(t, err)
+		require.NoError(t, err)
 	}
 
 	numWithEgress = 0
@@ -2390,7 +2390,7 @@ func TestDefaultAllow(t *testing.T) {
 		} else {
 			r.EnableDefaultDeny.Egress = &defaultDeny
 		}
-		require.Nil(t, r.Sanitize())
+		require.NoError(t, r.Sanitize())
 		return r
 	}
 
@@ -2541,7 +2541,7 @@ func TestReplaceByResource(t *testing.T) {
 				},
 			},
 		}
-		require.Nil(t, rule.Sanitize())
+		require.NoError(t, rule.Sanitize())
 		rules = append(rules, rule)
 	}
 

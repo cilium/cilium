@@ -139,10 +139,10 @@ func TestReferenceTracker(t *testing.T) {
 
 func TestCheckLimits(t *testing.T) {
 	result := NewPrefixLengthCounter(4, 4)
-	require.Nil(t, checkLimits(0, 4, result.maxUniquePrefixes4))
-	require.NotNil(t, checkLimits(0, 5, result.maxUniquePrefixes4))
-	require.Nil(t, checkLimits(0, 4, result.maxUniquePrefixes6))
-	require.NotNil(t, checkLimits(0, 5, result.maxUniquePrefixes6))
+	require.NoError(t, checkLimits(0, 4, result.maxUniquePrefixes4))
+	require.Error(t, checkLimits(0, 5, result.maxUniquePrefixes4))
+	require.NoError(t, checkLimits(0, 4, result.maxUniquePrefixes6))
+	require.Error(t, checkLimits(0, 5, result.maxUniquePrefixes6))
 
 	prefixes := []netip.Prefix{
 		netip.MustParsePrefix("0.0.0.0/0"),

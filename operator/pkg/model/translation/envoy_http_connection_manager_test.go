@@ -13,12 +13,12 @@ import (
 
 func TestNewHTTPConnectionManager(t *testing.T) {
 	res, err := NewHTTPConnectionManager("dummy-name", "dummy-route-name")
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	httpConnectionManager := &httpConnectionManagerv3.HttpConnectionManager{}
 	err = proto.Unmarshal(res.Value, httpConnectionManager)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	require.Equal(t, "dummy-name", httpConnectionManager.StatPrefix)
 	require.Equal(t, &httpConnectionManagerv3.HttpConnectionManager_Rds{

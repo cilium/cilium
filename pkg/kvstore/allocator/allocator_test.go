@@ -441,13 +441,13 @@ func testKeyToID(t *testing.T) {
 
 	// An error is returned because the path is outside the prefix (allocatorName/id)
 	id, err := backend.(*kvstoreBackend).keyToID(path.Join(allocatorName, "invalid"))
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, idpool.NoID, id)
 
 	// An error is returned because the path contains the prefix
 	// (allocatorName/id) but cannot be parsed ("invalid")
 	id, err = backend.(*kvstoreBackend).keyToID(path.Join(allocatorName, "id", "invalid"))
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, idpool.NoID, id)
 
 	// A valid lookup that finds an ID

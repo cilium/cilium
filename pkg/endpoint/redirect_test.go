@@ -209,7 +209,7 @@ func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
 	ep.SetPropertyValue(PropertyFakeEndpoint, false)
 
 	epIdentity, _, err := s.mgr.AllocateIdentity(context.Background(), labelsBar.Labels(), true, identityBar)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	ep.SetIdentity(epIdentity, true)
 
 	return ep
@@ -306,9 +306,9 @@ func TestRedirectWithDeny(t *testing.T) {
 	})
 
 	res, err := ep.regeneratePolicy(s.stats)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = ep.setDesiredPolicy(res)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	expected := s.testMapState(policy.MapStateMap{
 		mapKeyAllowAllE: {
@@ -330,7 +330,7 @@ func TestRedirectWithDeny(t *testing.T) {
 
 	realizedRedirects := ep.GetRealizedRedirects()
 	desiredRedirects, err, finalizeFunc, revertFunc := ep.addNewRedirects(cmp)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	finalizeFunc()
 
 	// Redirect is still created, even if all MapState entries may have been overridden by a
@@ -469,9 +469,9 @@ func TestRedirectWithPriority(t *testing.T) {
 	})
 
 	res, err := ep.regeneratePolicy(s.stats)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = ep.setDesiredPolicy(res)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	expected := s.testMapState(policy.MapStateMap{
 		mapKeyAllowAllE: {
@@ -492,7 +492,7 @@ func TestRedirectWithPriority(t *testing.T) {
 
 	realizedRedirects := ep.GetRealizedRedirects()
 	desiredRedirects, err, finalizeFunc, revertFunc := ep.addNewRedirects(cmp)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	finalizeFunc()
 
 	// Check that all redirects have been created.
@@ -550,9 +550,9 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	})
 
 	res, err := ep.regeneratePolicy(s.stats)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = ep.setDesiredPolicy(res)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	expected := s.testMapState(policy.MapStateMap{
 		mapKeyAllowAllE: {
@@ -573,7 +573,7 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 
 	realizedRedirects := ep.GetRealizedRedirects()
 	desiredRedirects, err, finalizeFunc, revertFunc := ep.addNewRedirects(cmp)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	finalizeFunc()
 
 	// Check that all redirects have been created.
