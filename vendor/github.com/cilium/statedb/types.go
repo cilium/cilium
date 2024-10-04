@@ -28,22 +28,6 @@ type Table[Obj any] interface {
 	// Useful for generic utilities that need access to the primary key.
 	PrimaryIndexer() Indexer[Obj]
 
-	// NumObjects returns the number of objects stored in the table.
-	NumObjects(ReadTxn) int
-
-	// Initialized returns true if in this ReadTxn (snapshot of the database)
-	// the registered initializers have all been completed. The returned
-	// watch channel will be closed when the table becomes initialized.
-	Initialized(ReadTxn) (bool, <-chan struct{})
-
-	// PendingInitializers returns the set of pending initializers that
-	// have not yet completed.
-	PendingInitializers(ReadTxn) []string
-
-	// Revision of the table. Constant for a read transaction, but
-	// increments in a write transaction on each Insert and Delete.
-	Revision(ReadTxn) Revision
-
 	// All returns a sequence of all objects in the table.
 	All(ReadTxn) iter.Seq2[Obj, Revision]
 
@@ -215,8 +199,33 @@ type RWTable[Obj any] interface {
 // TableMeta provides information about the table that is independent of
 // the object type (the 'Obj' constraint).
 type TableMeta interface {
-	Name() TableName // The name of the table
+	// Name returns the name of the table
+	Name() TableName
 
+	// Indexes returns the names of the indexes
+	Indexes() []string
+
+	// NumObjects returns the number of objects stored in the table.
+	NumObjects(ReadTxn) int
+
+	// Initialized returns true if in this ReadTxn (snapshot of the database)
+	// the registered initializers have all been completed. The returned
+	// watch channel will be closed when the table becomes initialized.
+	Initialized(ReadTxn) (bool, <-chan struct{})
+
+	// PendingInitializers returns the set of pending initializers that
+	// have not yet completed.
+	PendingInitializers(ReadTxn) []string
+
+	// Revision of the table. Constant for a read transaction, but
+	// increments in a write transaction on each Insert and Delete.
+	Revision(ReadTxn) Revision
+
+	// Internal unexported methods used only internally.
+	tableInternal
+}
+
+type tableInternal interface {
 	tableEntry() tableEntry
 	tablePos() int
 	setTablePos(int)
@@ -226,13 +235,9 @@ type TableMeta interface {
 	secondary() map[string]anyIndexer      // Secondary indexers (if any)
 	sortableMutex() internal.SortableMutex // The sortable mutex for locking the table for writing
 	anyChanges(txn WriteTxn) (anyChangeIterator, error)
-}
-
-// Iterator for iterating objects returned from queries.
-type Iterator[Obj any] interface {
-	// Next returns the next object and its revision if ok is true, otherwise
-	// zero values to mean that the iteration has finished.
-	Next() (obj Obj, rev Revision, ok bool)
+	proto() any                             // Returns the zero value of 'Obj', e.g. the prototype
+	unmarshalYAML(data []byte) (any, error) // Unmarshal the data into 'Obj'
+	numDeletedObjects(txn ReadTxn) int      // Number of objects in graveyard
 }
 
 type ReadTxn interface {

@@ -6,6 +6,7 @@
 package bpf
 
 import (
+	"maps"
 	"path"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -43,6 +44,12 @@ func GetMap(name string) *Map {
 	}
 
 	return mapRegister[name]
+}
+
+func GetMaps() map[string]*Map {
+	mutex.RLock()
+	defer mutex.RUnlock()
+	return maps.Clone(mapRegister)
 }
 
 // GetOpenMaps returns a slice of all open BPF maps. This is identical to

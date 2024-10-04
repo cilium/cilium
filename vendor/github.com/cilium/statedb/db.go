@@ -247,6 +247,25 @@ func (db *DB) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
 	return txn
 }
 
+func (db *DB) GetTables(txn ReadTxn) (tbls []TableMeta) {
+	root := txn.getTxn().root
+	tbls = make([]TableMeta, 0, len(root))
+	for _, table := range root {
+		tbls = append(tbls, table.meta)
+	}
+	return
+}
+
+func (db *DB) GetTable(txn ReadTxn, name string) TableMeta {
+	root := txn.getTxn().root
+	for _, table := range root {
+		if table.meta.Name() == name {
+			return table.meta
+		}
+	}
+	return nil
+}
+
 // Start the background workers for the database.
 //
 // This starts the graveyard worker that deals with garbage collecting

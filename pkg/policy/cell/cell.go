@@ -22,8 +22,11 @@ var Cell = cell.Module(
 	"policy",
 	"Contains policy rules",
 
-	cell.Provide(newPolicyRepo),
-	cell.Provide(newPolicyUpdater),
+	cell.Provide(
+		newPolicyRepo,
+		newPolicyUpdater,
+		newCommands,
+	),
 )
 
 type policyRepoParams struct {

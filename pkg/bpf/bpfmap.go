@@ -19,6 +19,6 @@ type MapOut[T any] struct {
 	BpfMap BpfMap `group:"bpf-maps"`
 }
 
-func NewMapOut[T any](m T) MapOut[T] {
+func NewMapOut[T BpfMap](m T) MapOut[T] {
 	return MapOut[T]{Map: m, BpfMap: m}
 }
