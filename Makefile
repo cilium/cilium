@@ -36,6 +36,7 @@ SUBDIRS := $(filter-out $(foreach dir,$(SUBDIRS),$(dir)/%),$(SUBDIRS))
 # Because is treated as a Go package pattern, the special '...' sequence is supported,
 # meaning 'all subpackages of the given package'.
 TESTPKGS ?= ./...
+UNPARALLELTESTPKGS ?= ./pkg/datapath/linux/ipsec/...
 
 GOTEST_BASE := -timeout 600s
 GOTEST_COVER_OPTS += -coverprofile=coverage.out
@@ -81,8 +82,16 @@ $(SUBDIRS): force ## Execute default make target(make all) for the provided subd
 
 tests-privileged: ## Run Go tests including ones that require elevated privileges.
 	@$(ECHO_CHECK) running privileged tests...
-	PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) -p 1 $(TEST_LDFLAGS) \
-		$(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
+	## We split tests into two parts: one that can be run in parallel
+	## and tests that cannot be run in parallel with other packages
+	## One drawback of this approach is that
+	## if first set of tests fails, second one is not run
+	{ PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
+		$(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) \
+	&& PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
+		$(UNPARALLELTESTPKGS) $(GOTEST_BASE) -json -covermode=count -coverprofile=coverage2.out -p 1 --tags=unparallel; } | $(GOTEST_FORMATTER)
+	tail -n+2 coverage2.out >> coverage.out
+	rm coverage2.out
 	$(MAKE) generate-cov
 
 start-kvstores: ## Start running kvstores (etcd container) for integration tests.
