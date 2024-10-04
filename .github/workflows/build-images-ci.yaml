@@ -100,10 +100,12 @@ jobs:
           else
             tag=${{ github.sha }}
           fi
-          if [ "${{ github.ref_name }}" == "${{ github.event.repository.default_branch }}" ]; then
+          if [[ "${{ github.event_name == 'push' }}" == "true" && "${{ github.ref_name }}" == "${{ github.event.repository.default_branch }}" ]]; then
             floating_tag=latest
-            echo floating_tag=${floating_tag} >> $GITHUB_OUTPUT
+          else
+            floating_tag="${{ github.ref_name }}"
           fi
+          echo floating_tag=${floating_tag} >> $GITHUB_OUTPUT
           echo tag=${tag} >> $GITHUB_OUTPUT
 
           normal_tag="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${tag}"
