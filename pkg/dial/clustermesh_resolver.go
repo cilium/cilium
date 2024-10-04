@@ -5,23 +5,16 @@ package dial
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/netip"
+	"net/url"
+	"os"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
+	"gopkg.in/yaml.v3"
 
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/lock"
-)
-
-const (
-	clustermeshResolverConfigMapName string = "cilium-clustermesh-clusters"
-	clustermeshResolverConfigMapKey  string = "clusters.json"
 )
 
 // ClustermeshResolverCell provides a ClustermeshResolver instance to map DNS names
@@ -36,93 +29,78 @@ var ClustermeshResolverCell = cell.Module(
 var _ Resolver = (*ClustermeshResolver)(nil)
 
 type clustermeshConfig struct {
-	Domain   string `json:"domain"`
-	Clusters []struct {
-		Name    string       `json:"name"`
-		Address string       `json:"address"`
-		IPs     []netip.Addr `json:"ips"`
-	} `json:"clusters"`
+	Endpoints []string     `json:"endpoints"`
+	IPs       []netip.Addr `json:"ips"`
+}
+
+type record struct {
+	name string
+	ips  []netip.Addr
 }
 
 // ClustermeshResolver maps aliases for clustermeshes to their IP addresses.
 type ClustermeshResolver struct {
 	mu      lock.RWMutex
-	records map[string]netip.Addr
+	records map[string]record
 }
 
-func newClustermeshResolver(jg job.Group, client k8sClient.Clientset) *ClustermeshResolver {
+func newClustermeshResolver(jg job.Group) *ClustermeshResolver {
 	cr := &ClustermeshResolver{
 		mu:      lock.RWMutex{},
-		records: make(map[string]netip.Addr),
+		records: make(map[string]record),
 	}
-
-	jg.Add(job.OneShot("clustermesh-clusters-configmap-watcher",
-		func(ctx context.Context, health cell.Health) error {
-			// TODO: What's a better way to get the namespace? This code is shared between many components.
-			watcher, err := client.CoreV1().ConfigMaps("kube-system").Watch(ctx, metav1.ListOptions{
-				FieldSelector:   fmt.Sprintf("metadata.name=%s", clustermeshResolverConfigMapName),
-				ResourceVersion: "",
-			})
-			if err != nil {
-				return err
-			}
-			health.OK("configmap watcher initialised")
-
-			events := watcher.ResultChan()
-
-		loop:
-			for {
-				select {
-				case <-ctx.Done():
-					break loop
-				case event := <-events:
-					switch event.Type {
-					case watch.Added, watch.Modified:
-						configMap := event.Object.(*corev1.ConfigMap)
-						parsedConf := clustermeshConfig{}
-						if err := json.Unmarshal([]byte(configMap.Data[clustermeshResolverConfigMapKey]), &parsedConf); err != nil {
-							continue
-						}
-						records := make(map[string]netip.Addr)
-						for _, c := range parsedConf.Clusters {
-							if len(c.IPs) < 1 {
-								continue
-							}
-
-							address := c.Address
-							if c.Address == "" {
-								address = fmt.Sprintf("%s.%s", c.Name, parsedConf.Domain)
-							}
-							records[address] = c.IPs[0]
-						}
-						cr.set(records)
-					case watch.Deleted:
-						cr.set(make(map[string]netip.Addr))
-					default:
-					}
-				}
-			}
-			return nil
-		},
-	))
 
 	return cr
 }
 
-func (cr *ClustermeshResolver) set(records map[string]netip.Addr) {
+func (cr *ClustermeshResolver) Set(name, path string) {
 	cr.mu.Lock()
 	defer cr.mu.Unlock()
-	cr.records = records
+
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+
+	cmc := &clustermeshConfig{}
+	err = yaml.Unmarshal(b, cmc)
+	if err != nil {
+		return
+	}
+
+	for _, endpoint := range cmc.Endpoints {
+		fqdnURL, err := url.Parse(endpoint)
+		if err != nil {
+			continue
+		}
+
+		cr.records[fqdnURL.Hostname()] = record{name: name, ips: cmc.IPs}
+	}
+}
+
+func (cr *ClustermeshResolver) Remove(name string) {
+	cr.mu.Lock()
+	defer cr.mu.Unlock()
+
+	for fqdn, record := range cr.records {
+		if record.name == name {
+			delete(cr.records, fqdn)
+		}
+	}
 }
 
 func (cr *ClustermeshResolver) Resolve(_ context.Context, host string) (string, error) {
 	cr.mu.RLock()
 	defer cr.mu.RUnlock()
 
-	addr, ok := cr.records[host]
+	record, ok := cr.records[host]
 	if !ok {
 		return "", fmt.Errorf("clustermesh IP for %s not found", host)
 	}
 
-	return addr.Unmap().String(), nil
+	if len(record.ips) < 1 {
+		return "", fmt.Errorf("clustermesh IP for %s not found", host)
+	}
+
+	return record.ips[0].Unmap().String(), nil
 }

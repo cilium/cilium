@@ -199,6 +199,11 @@ func (cm *clusterMesh) addLocked(name, path string) {
 		cm.clusters[name] = cluster
 	}
 
+	// Insert new cluster IP info into the clustermesh resolver
+	if cm.conf.ClustermeshResolver != nil {
+		cm.conf.ClustermeshResolver.Set(name, path)
+	}
+
 	cm.conf.Metrics.TotalRemoteClusters.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName).Set(float64(len(cm.clusters)))
 
 	cluster.connect()
@@ -218,6 +223,11 @@ func (cm *clusterMesh) remove(name string) {
 		}
 
 		return
+	}
+
+	// Remove old cluster IP info from the clustermesh resolver
+	if cm.conf.ClustermeshResolver != nil {
+		cm.conf.ClustermeshResolver.Remove(name)
 	}
 
 	cm.tombstones[name] = removed

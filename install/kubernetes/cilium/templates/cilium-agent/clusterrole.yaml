@@ -14,14 +14,6 @@ metadata:
     app.kubernetes.io/part-of: cilium
 rules:
 - apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
   - networking.k8s.io
   resources:
   - networkpolicies
