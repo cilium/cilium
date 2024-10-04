@@ -255,6 +255,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		noFragmentation{},
 		bgpControlPlane{},
 		multicast{},
+		strictModeEncryption{},
 	}
 	return injectTests(tests, connTests...)
 }
