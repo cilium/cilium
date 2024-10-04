@@ -70,9 +70,8 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 		// Populate the config and initialize the logger early as these
 		// are shared by all commands.
 		func() {
-			initDaemonConfig(h.Viper())
+			initDaemonConfigAndLogging(h.Viper())
 		},
-		initLogging,
 	)
 
 	return rootCmd
