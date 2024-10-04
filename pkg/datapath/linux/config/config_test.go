@@ -107,7 +107,7 @@ func writeConfig(t *testing.T, header string, write writeFn) {
 		require.NoError(t, h.Start(tlog, context.TODO()))
 		t.Cleanup(func() { require.NoError(t, h.Stop(tlog, context.TODO())) })
 		err := write(test.output, writer)
-		require.True(t, test.wantErr == (err != nil), "wantErr=%v, err=%s", test.wantErr, err)
+		require.Equal(t, test.wantErr, (err != nil), "wantErr=%v, err=%s", test.wantErr, err)
 	}
 }
 
