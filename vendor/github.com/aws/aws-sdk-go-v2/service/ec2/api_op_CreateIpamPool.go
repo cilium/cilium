@@ -117,7 +117,7 @@ type CreateIpamPoolInput struct {
 	// region cannot use CIDRs from this pool.
 	//
 	// Possible values: Any Amazon Web Services Region or supported Amazon Web
-	// Services Local Zone.
+	// Services Local Zone. Default is none and means any locale.
 	//
 	// [supported Local Zones]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-byoip.html#byoip-zone-avail
 	Locale *string
