@@ -5,9 +5,9 @@ package ciliumenvoyconfig
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
@@ -39,7 +39,7 @@ func (r l7LoadBalancerConfig) Flags(flags *pflag.FlagSet) {
 type l7LoadbalancerParams struct {
 	cell.In
 
-	Logger             logrus.FieldLogger
+	Logger             *slog.Logger
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Config             l7LoadBalancerConfig
 }

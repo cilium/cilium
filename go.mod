@@ -16,7 +16,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.179.2
 	github.com/aws/smithy-go v1.21.0
 	github.com/blang/semver/v4 v4.0.0
-	github.com/bombsimon/logrusr/v4 v4.1.0
 	github.com/cilium/charts v0.0.0-20240926142256-e20f2b5f5344
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/deepequal-gen v0.0.0-20231116094812-0d6c075c335f
@@ -40,6 +39,7 @@ require (
 	github.com/evanphx/json-patch v5.9.0+incompatible
 	github.com/fatih/color v1.17.0
 	github.com/fsnotify/fsnotify v1.7.0
+	github.com/go-logr/logr v1.4.2
 	github.com/go-openapi/errors v0.22.0
 	github.com/go-openapi/loads v0.22.0
 	github.com/go-openapi/runtime v0.28.0
@@ -202,7 +202,6 @@ require (
 	github.com/go-kit/kit v0.12.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
-	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v0.23.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
