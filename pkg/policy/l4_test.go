@@ -472,11 +472,11 @@ func TestL4PolicyMapPortRangeOverlaps(t *testing.T) {
 				l4Map.Upsert(altStartPort, altPR.endPort, "TCP", altFilter)
 				altL4 = l4Map.ExactLookup(altStartPort, altPR.endPort, "TCP")
 				require.NotNilf(t, altL4, "%d-%d range not found and it should have been", altPR.startPort, altPR.endPort)
-				require.True(t, altL4.Equals(nil, altFilter), "%d-%d range lookup returned a range of %d-%d",
+				require.True(t, altL4.Equals(altFilter), "%d-%d range lookup returned a range of %d-%d",
 					altPR.startPort, altPR.endPort, altL4.Port, altL4.EndPort)
 
 				gotMainFilter := l4Map.ExactLookup(startPort, portRange.endPort, "TCP")
-				require.Truef(t, gotMainFilter.Equals(nil, startFilter), "main range look up failed after %d-%d range upsert", altPR.startPort, altPR.endPort)
+				require.Truef(t, gotMainFilter.Equals(startFilter), "main range look up failed after %d-%d range upsert", altPR.startPort, altPR.endPort)
 
 				// Delete overlapping port range, and make sure it's not there.
 				l4Map.Delete(altStartPort, altPR.endPort, "TCP")
@@ -487,7 +487,7 @@ func TestL4PolicyMapPortRangeOverlaps(t *testing.T) {
 				require.Nil(t, altL4)
 
 				gotMainFilter = l4Map.ExactLookup(startPort, portRange.endPort, "TCP")
-				require.Truef(t, gotMainFilter.Equals(nil, startFilter), "main range look up failed after %d-%d range delete", altPR.startPort, altPR.endPort)
+				require.Truef(t, gotMainFilter.Equals(startFilter), "main range look up failed after %d-%d range delete", altPR.startPort, altPR.endPort)
 
 				// Put it back for the next iteration.
 				l4Map.Upsert(altStartPort, altPR.endPort, "TCP", altFilter)
