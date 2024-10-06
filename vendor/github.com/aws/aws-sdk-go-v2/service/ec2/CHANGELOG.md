@@ -1,3 +1,13 @@
+# v1.181.0 (2024-10-04)
+
+* **Feature**: Add support for HTTP client metrics.
+* **Feature**: Documentation updates for Amazon EC2.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.180.0 (2024-10-03)
+
+* **Feature**: This release includes a new API for modifying instance cpu-options after launch.
+
 # v1.179.2 (2024-09-27)
 
 * No change notes available for this release.

@@ -6,55 +6,53 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Modifies the default credit option for CPU usage of burstable performance
-// instances. The default credit option is set at the account level per Amazon Web
-// Services Region, and is specified per instance family. All new burstable
-// performance instances in the account launch using the default credit option.
+// By default, all vCPUs for the instance type are active when you launch an
+// instance. When you configure the number of active vCPUs for the instance, it can
+// help you save on licensing costs and optimize performance. The base cost of the
+// instance remains unchanged.
 //
-// ModifyDefaultCreditSpecification is an asynchronous operation, which works at
-// an Amazon Web Services Region level and modifies the credit option for each
-// Availability Zone. All zones in a Region are updated within five minutes. But if
-// instances are launched during this operation, they might not get the new credit
-// option until the zone is updated. To verify whether the update has occurred, you
-// can call GetDefaultCreditSpecification and check DefaultCreditSpecification for
-// updates.
+// The number of active vCPUs equals the number of threads per CPU core multiplied
+// by the number of cores.
 //
-// For more information, see [Burstable performance instances] in the Amazon EC2 User Guide.
+// Some instance type options do not support this capability. For more
+// information, see [Supported CPU options]in the Amazon EC2 User Guide.
 //
-// [Burstable performance instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html
-func (c *Client) ModifyDefaultCreditSpecification(ctx context.Context, params *ModifyDefaultCreditSpecificationInput, optFns ...func(*Options)) (*ModifyDefaultCreditSpecificationOutput, error) {
+// [Supported CPU options]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/cpu-options-supported-instances-values.html
+func (c *Client) ModifyInstanceCpuOptions(ctx context.Context, params *ModifyInstanceCpuOptionsInput, optFns ...func(*Options)) (*ModifyInstanceCpuOptionsOutput, error) {
 	if params == nil {
-		params = &ModifyDefaultCreditSpecificationInput{}
+		params = &ModifyInstanceCpuOptionsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "ModifyDefaultCreditSpecification", params, optFns, c.addOperationModifyDefaultCreditSpecificationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyInstanceCpuOptions", params, optFns, c.addOperationModifyInstanceCpuOptionsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*ModifyDefaultCreditSpecificationOutput)
+	out := result.(*ModifyInstanceCpuOptionsOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type ModifyDefaultCreditSpecificationInput struct {
+type ModifyInstanceCpuOptionsInput struct {
 
-	// The credit option for CPU usage of the instance family.
-	//
-	// Valid Values: standard | unlimited
+	// The number of CPU cores to activate for the specified instance.
 	//
 	// This member is required.
-	CpuCredits *string
+	CoreCount *int32
 
-	// The instance family.
+	// The ID of the instance to update.
 	//
 	// This member is required.
-	InstanceFamily types.UnlimitedSupportedInstanceFamily
+	InstanceId *string
+
+	// The number of threads to run for each CPU core.
+	//
+	// This member is required.
+	ThreadsPerCore *int32
 
 	// Checks whether you have the required permissions for the operation, without
 	// actually making the request, and provides an error response. If you have the
@@ -65,10 +63,18 @@ type ModifyDefaultCreditSpecificationInput struct {
 	noSmithyDocumentSerde
 }
 
-type ModifyDefaultCreditSpecificationOutput struct {
+type ModifyInstanceCpuOptionsOutput struct {
 
-	// The default credit option for CPU usage of the instance family.
-	InstanceFamilyCreditSpecification *types.InstanceFamilyCreditSpecification
+	// The number of CPU cores that are running for the specified instance after the
+	// update.
+	CoreCount *int32
+
+	// The ID of the instance that was updated.
+	InstanceId *string
+
+	// The number of threads that are running per CPU core for the specified instance
+	// after the update.
+	ThreadsPerCore *int32
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -76,19 +82,19 @@ type ModifyDefaultCreditSpecificationOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationModifyDefaultCreditSpecificationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyInstanceCpuOptionsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyDefaultCreditSpecification{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyInstanceCpuOptions{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpModifyDefaultCreditSpecification{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpModifyInstanceCpuOptions{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "ModifyDefaultCreditSpecification"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "ModifyInstanceCpuOptions"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -140,10 +146,10 @@ func (c *Client) addOperationModifyDefaultCreditSpecificationMiddlewares(stack *
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
-	if err = addOpModifyDefaultCreditSpecificationValidationMiddleware(stack); err != nil {
+	if err = addOpModifyInstanceCpuOptionsValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyDefaultCreditSpecification(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyInstanceCpuOptions(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -176,10 +182,10 @@ func (c *Client) addOperationModifyDefaultCreditSpecificationMiddlewares(stack *
 	return nil
 }
 
-func newServiceMetadataMiddleware_opModifyDefaultCreditSpecification(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opModifyInstanceCpuOptions(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "ModifyDefaultCreditSpecification",
+		OperationName: "ModifyInstanceCpuOptions",
 	}
 }

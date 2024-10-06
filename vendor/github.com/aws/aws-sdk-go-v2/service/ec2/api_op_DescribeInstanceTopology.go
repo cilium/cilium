@@ -30,7 +30,7 @@ import (
 //     hpc7a.48xlarge | hpc7a.96xlarge | hpc7g.4xlarge | hpc7g.8xlarge |
 //     hpc7g.16xlarge
 //
-//   - p3dn.24xlarge | p4d.24xlarge | p4de.24xlarge | p5.48xlarge
+//   - p3dn.24xlarge | p4d.24xlarge | p4de.24xlarge | p5.48xlarge | p5e.48xlarge
 //
 //   - trn1.2xlarge | trn1.32xlarge | trn1n.32xlarge
 //
@@ -54,7 +54,7 @@ func (c *Client) DescribeInstanceTopology(ctx context.Context, params *DescribeI
 
 type DescribeInstanceTopologyInput struct {
 
-	// Checks whether you have the required permissions for the action, without
+	// Checks whether you have the required permissions for the operation, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .

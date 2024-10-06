@@ -2419,7 +2419,8 @@ type CreateFleetInstance struct {
 	// Instance.
 	Lifecycle InstanceLifecycle
 
-	// The value is Windows for Windows instances. Otherwise, the value is blank.
+	// The value is windows for Windows instances in an EC2 Fleet. Otherwise, the
+	// value is blank.
 	Platform PlatformValues
 
 	noSmithyDocumentSerde
@@ -2481,11 +2482,8 @@ type CreateTransitGatewayVpcAttachmentRequestOptions struct {
 	// Enables you to reference a security group across VPCs attached to a transit
 	// gateway to simplify security group management.
 	//
-	// This option is disabled by default.
-	//
-	// If you don't enable or disable SecurityGroupReferencingSupport in the request,
-	// the attachment will inherit the security group referencing support setting on
-	// the transit gateway.
+	// This option is enabled by default. However, security group referencing is
+	// disabled by default at the transit gateway level.
 	//
 	// For more information about security group referencing, see [Security group referencing] in the Amazon Web
 	// Services Transit Gateways Guide.
@@ -2958,7 +2956,8 @@ type DescribeFleetsInstances struct {
 	// Instance.
 	Lifecycle InstanceLifecycle
 
-	// The value is Windows for Windows instances. Otherwise, the value is blank.
+	// The value is windows for Windows instances in an EC2 Fleet. Otherwise, the
+	// value is blank.
 	Platform PlatformValues
 
 	noSmithyDocumentSerde
@@ -8602,6 +8601,9 @@ type IpamDiscoveredResourceCidr struct {
 
 	// The last successful resource discovery time.
 	SampleTime *time.Time
+
+	// The subnet ID.
+	SubnetId *string
 
 	// The VPC ID.
 	VpcId *string
@@ -18084,12 +18086,7 @@ type TransitGatewayOptions struct {
 	// Enables you to reference a security group across VPCs attached to a transit
 	// gateway to simplify security group management.
 	//
-	// This option is enabled by default.
-	//
-	// For more information about security group referencing, see [Security group referencing] in the Amazon Web
-	// Services Transit Gateways Guide.
-	//
-	// [Security group referencing]: https://docs.aws.amazon.com/vpc/latest/tgw/tgw-vpc-attachments.html#vpc-attachment-security
+	// This option is disabled by default.
 	SecurityGroupReferencingSupport SecurityGroupReferencingSupportValue
 
 	// The transit gateway CIDR blocks.
@@ -18577,7 +18574,7 @@ type TransitGatewayVpcAttachmentOptions struct {
 	// Enables you to reference a security group across VPCs attached to a transit
 	// gateway to simplify security group management.
 	//
-	// This option is disabled by default.
+	// This option is enabled by default.
 	//
 	// For more information about security group referencing, see [Security group referencing] in the Amazon Web
 	// Services Transit Gateways Guide.
