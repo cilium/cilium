@@ -256,7 +256,7 @@ func TestEndpointDatapathOptions(t *testing.T) {
 func TestEndpointUpdateLabels(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	e := NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
 
 	// Test that inserting identity labels works
 	rev := e.replaceIdentityLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
@@ -297,7 +297,7 @@ func TestEndpointUpdateLabels(t *testing.T) {
 func TestEndpointState(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	e := NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
 	e.unconditionalLock()
 	defer e.unlock()
 
@@ -688,7 +688,7 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 		option.Config.EndpointQueueSize = oldQueueSize
 	}()
 
-	ep := NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+	ep := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 
 	ep.properties[PropertyFakeEndpoint] = true
 	ep.properties[PropertySkipBPFPolicy] = true
@@ -764,7 +764,7 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 func BenchmarkEndpointGetModel(b *testing.B) {
 	s := setupEndpointSuite(b)
 
-	e := NewTestEndpointWithState(b, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 123, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 123, StateWaitingForIdentity)
 
 	for i := 0; i < 256; i++ {
 		e.LogStatusOK(BPF, "Hello World!")
