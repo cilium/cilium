@@ -185,7 +185,7 @@ func TestParseNetworkPolicyIngress(t *testing.T) {
 			},
 		},
 	})
-	require.True(t, ingressL4Policy.Equals(t, expected), ingressL4Policy.Diff(t, expected))
+	require.True(t, ingressL4Policy.Equals(expected), ingressL4Policy.Diff(expected))
 	ingressL4Policy.Detach(repo.GetSelectorCache())
 
 	ctx.To = labels.LabelArray{
@@ -510,7 +510,7 @@ func TestParseNetworkPolicyEgress(t *testing.T) {
 			},
 		},
 	})
-	require.True(t, egressL4Policy.Equals(t, expected), egressL4Policy.Diff(t, expected))
+	require.True(t, egressL4Policy.Equals(expected), egressL4Policy.Diff(expected))
 	egressL4Policy.Detach(repo.GetSelectorCache())
 
 	ctx.From = labels.LabelArray{
