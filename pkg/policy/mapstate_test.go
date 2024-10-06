@@ -43,26 +43,26 @@ func Test_IsSuperSetOf(t *testing.T) {
 		{ingressKey(0, 0, 0, 0), ingressKey(42, 6, 0, 0), 1},
 		{ingressKey(0, 0, 0, 0), ingressKey(42, 6, 80, 0), 1},
 		{ingressKey(0, 0, 0, 0), ingressKey(42, 0, 0, 0), 1},
-		{ingressKey(0, 6, 0, 0), ingressKey(42, 6, 0, 0), 3}, // port is the same
-		{ingressKey(0, 6, 0, 0), ingressKey(42, 6, 80, 0), 2},
-		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 80, 0), 2}, // port range 64-127,80
-		{ingressKey(0, 6, 80, 0), ingressKey(42, 6, 80, 0), 3},
-		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 64, 10), 3},  // port ranges are the same
+		{ingressKey(0, 6, 0, 0), ingressKey(42, 6, 0, 0), 5}, // port is the same
+		{ingressKey(0, 6, 0, 0), ingressKey(42, 6, 80, 0), 3},
+		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 80, 0), 3}, // port range 64-127,80
+		{ingressKey(0, 6, 80, 0), ingressKey(42, 6, 80, 0), 5},
+		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 64, 10), 5},  // port ranges are the same
 		{ingressKey(0, 6, 80, 0), ingressKey(42, 17, 80, 0), 0},   // proto is different
 		{ingressKey(2, 6, 80, 0), ingressKey(42, 6, 80, 0), 0},    // id is different
 		{ingressKey(0, 6, 8080, 0), ingressKey(42, 6, 80, 0), 0},  // port is different
 		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 8080, 0), 0}, // port range is different from port
 		{ingressKey(42, 0, 0, 0), ingressKey(42, 0, 0, 0), 0},     // same key
-		{ingressKey(42, 0, 0, 0), ingressKey(42, 6, 0, 0), 4},
-		{ingressKey(42, 0, 0, 0), ingressKey(42, 6, 80, 0), 4},
-		{ingressKey(42, 0, 64, 10), ingressKey(42, 6, 80, 0), 4}, // port range 64-127,80
-		{ingressKey(42, 0, 0, 0), ingressKey(42, 17, 0, 0), 4},
-		{ingressKey(42, 0, 0, 0), ingressKey(42, 17, 80, 0), 4},
-		{ingressKey(42, 0, 64, 10), ingressKey(42, 17, 80, 0), 4},
+		{ingressKey(42, 0, 0, 0), ingressKey(42, 6, 0, 0), 2},
+		{ingressKey(42, 0, 0, 0), ingressKey(42, 6, 80, 0), 2},
+		{ingressKey(42, 0, 64, 10), ingressKey(42, 6, 80, 0), 2}, // port range 64-127,80
+		{ingressKey(42, 0, 0, 0), ingressKey(42, 17, 0, 0), 2},
+		{ingressKey(42, 0, 0, 0), ingressKey(42, 17, 80, 0), 2},
+		{ingressKey(42, 0, 64, 10), ingressKey(42, 17, 80, 0), 2},
 		{ingressKey(42, 6, 0, 0), ingressKey(42, 6, 0, 0), 0}, // same key
-		{ingressKey(42, 6, 0, 0), ingressKey(42, 6, 80, 0), 5},
-		{ingressKey(42, 6, 64, 10), ingressKey(42, 6, 80, 0), 5},
-		{ingressKey(42, 6, 0, 0), ingressKey(42, 6, 8080, 0), 5},
+		{ingressKey(42, 6, 0, 0), ingressKey(42, 6, 80, 0), 4},
+		{ingressKey(42, 6, 64, 10), ingressKey(42, 6, 80, 0), 4},
+		{ingressKey(42, 6, 0, 0), ingressKey(42, 6, 8080, 0), 4},
 		{ingressKey(42, 6, 80, 0), ingressKey(42, 6, 80, 0), 0},    // same key
 		{ingressKey(42, 6, 64, 10), ingressKey(42, 6, 64, 10), 0},  // same key
 		{ingressKey(42, 6, 80, 0), ingressKey(42, 6, 8080, 0), 0},  // different port
@@ -73,14 +73,14 @@ func Test_IsSuperSetOf(t *testing.T) {
 		// increasing specificity for a L3/L4 key
 		{ingressKey(0, 0, 0, 0), ingressKey(42, 6, 80, 0), 1},
 		{ingressKey(0, 0, 64, 10), ingressKey(42, 6, 80, 0), 1},
-		{ingressKey(0, 6, 0, 0), ingressKey(42, 6, 80, 0), 2},
-		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 80, 0), 2},
-		{ingressKey(0, 6, 80, 0), ingressKey(42, 6, 80, 0), 3},
-		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 64, 10), 3},
-		{ingressKey(42, 0, 0, 0), ingressKey(42, 6, 80, 0), 4},
-		{ingressKey(42, 0, 64, 10), ingressKey(42, 6, 80, 0), 4},
-		{ingressKey(42, 6, 0, 0), ingressKey(42, 6, 80, 0), 5},
-		{ingressKey(42, 6, 64, 10), ingressKey(42, 6, 80, 0), 5},
+		{ingressKey(42, 0, 0, 0), ingressKey(42, 6, 80, 0), 2},
+		{ingressKey(42, 0, 64, 10), ingressKey(42, 6, 80, 0), 2},
+		{ingressKey(0, 6, 0, 0), ingressKey(42, 6, 80, 0), 3},
+		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 80, 0), 3},
+		{ingressKey(42, 6, 0, 0), ingressKey(42, 6, 80, 0), 4},
+		{ingressKey(42, 6, 64, 10), ingressKey(42, 6, 80, 0), 4},
+		{ingressKey(0, 6, 80, 0), ingressKey(42, 6, 80, 0), 5},
+		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 64, 10), 5},
 		{ingressKey(42, 6, 80, 0), ingressKey(42, 6, 80, 0), 0},   // same key
 		{ingressKey(42, 6, 64, 10), ingressKey(42, 6, 64, 10), 0}, // same key
 
@@ -99,12 +99,12 @@ func Test_IsSuperSetOf(t *testing.T) {
 		// increasing specificity for a L3/proto key
 		{ingressKey(0, 0, 0, 0), ingressKey(42, 6, 0, 0), 1}, // wildcard
 		{ingressKey(0, 0, 64, 10), ingressKey(42, 6, 64, 10), 1},
-		{ingressKey(0, 6, 0, 0), ingressKey(42, 6, 0, 0), 3},     // ports are the same
-		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 64, 10), 3}, // port ranges are the same
-		{ingressKey(0, 6, 80, 0), ingressKey(42, 6, 0, 0), 0},    // not a superset
-		{ingressKey(0, 6, 80, 0), ingressKey(42, 6, 64, 10), 0},  // not a superset
-		{ingressKey(42, 0, 0, 0), ingressKey(42, 6, 0, 0), 4},
-		{ingressKey(42, 0, 64, 10), ingressKey(42, 6, 64, 10), 4},
+		{ingressKey(42, 0, 0, 0), ingressKey(42, 6, 0, 0), 2},
+		{ingressKey(42, 0, 64, 10), ingressKey(42, 6, 64, 10), 2},
+		{ingressKey(0, 6, 80, 0), ingressKey(42, 6, 0, 0), 0},     // not a superset
+		{ingressKey(0, 6, 80, 0), ingressKey(42, 6, 64, 10), 0},   // not a superset
+		{ingressKey(0, 6, 0, 0), ingressKey(42, 6, 0, 0), 5},      // ports are the same
+		{ingressKey(0, 6, 64, 10), ingressKey(42, 6, 64, 10), 5},  // port ranges are the same
 		{ingressKey(42, 6, 0, 0), ingressKey(42, 6, 0, 0), 0},     // same key
 		{ingressKey(42, 6, 64, 10), ingressKey(42, 6, 64, 10), 0}, // same key
 		{ingressKey(42, 6, 80, 0), ingressKey(42, 6, 0, 0), 0},    // not a superset
@@ -127,10 +127,10 @@ func Test_IsSuperSetOf(t *testing.T) {
 		// increasing specificity for a L4-only key
 		{ingressKey(0, 0, 0, 0), ingressKey(0, 6, 80, 0), 1},
 		{ingressKey(0, 0, 64, 10), ingressKey(0, 6, 64, 10), 1},
-		{ingressKey(0, 6, 0, 0), ingressKey(0, 6, 80, 0), 2},
-		{ingressKey(0, 6, 64, 10), ingressKey(0, 6, 80, 0), 2},
-		{ingressKey(0, 6, 80, 0), ingressKey(0, 6, 80, 0), 0},    // same key
-		{ingressKey(0, 6, 64, 10), ingressKey(0, 6, 64, 10), 0},  // same key
+		{ingressKey(0, 6, 80, 0), ingressKey(0, 6, 80, 0), 0},   // same key
+		{ingressKey(0, 6, 64, 10), ingressKey(0, 6, 64, 10), 0}, // same key
+		{ingressKey(0, 6, 0, 0), ingressKey(0, 6, 80, 0), 3},
+		{ingressKey(0, 6, 64, 10), ingressKey(0, 6, 80, 0), 3},
 		{ingressKey(42, 0, 0, 0), ingressKey(0, 6, 80, 0), 0},    // not a superset
 		{ingressKey(42, 0, 64, 10), ingressKey(0, 6, 80, 0), 0},  // not a superset
 		{ingressKey(42, 6, 0, 0), ingressKey(0, 6, 80, 0), 0},    // not a superset
@@ -2192,17 +2192,17 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		name:      "test-5a - auth type propagation from the most specific superset",
 		args: []args{
 			{cs: csFoo, adds: []int{43}, hasAuth: ExplicitAuthType, authType: AuthTypeAlwaysFail},
-			{cs: csFoo, adds: []int{43}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
+			{cs: csFoo, adds: []int{0}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
 			{cs: csBar, adds: []int{43}, port: 80, proto: 6, redirect: true},
 		},
 		state: testMapState(MapStateMap{
 			egressKey(43, 0, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeAlwaysFail),
-			egressKey(43, 6, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
+			egressKey(0, 6, 0, 0):   allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
 			egressKey(43, 6, 80, 0): allowEntry(1, csBar).WithDefaultAuthType(AuthTypeSpire),
 		}),
 		adds: Keys{
 			egressKey(43, 0, 0, 0):  {},
-			egressKey(43, 6, 0, 0):  {},
+			egressKey(0, 6, 0, 0):   {},
 			egressKey(43, 6, 80, 0): {},
 		},
 		deletes: Keys{},
@@ -2211,17 +2211,17 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		name:      "test-5b - auth type propagation from the most specific superset - reverse",
 		args: []args{
 			{cs: csBar, adds: []int{43}, port: 80, proto: 6, redirect: true},
-			{cs: csFoo, adds: []int{43}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
+			{cs: csFoo, adds: []int{0}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
 			{cs: csFoo, adds: []int{43}, hasAuth: ExplicitAuthType, authType: AuthTypeAlwaysFail},
 		},
 		state: testMapState(MapStateMap{
 			egressKey(43, 0, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeAlwaysFail),
-			egressKey(43, 6, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
+			egressKey(0, 6, 0, 0):   allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
 			egressKey(43, 6, 80, 0): allowEntry(1, csBar).WithDefaultAuthType(AuthTypeSpire),
 		}),
 		adds: Keys{
 			egressKey(43, 0, 0, 0):  {},
-			egressKey(43, 6, 0, 0):  {},
+			egressKey(0, 6, 0, 0):   {},
 			egressKey(43, 6, 80, 0): {},
 		},
 		deletes: Keys{},
