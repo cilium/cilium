@@ -1059,13 +1059,14 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 // Returns 0 if the receiver key is not a superset of the argument key.
 //
 // Specificity score for all possible superset wildcard patterns. Datapath requires proto to be specified if port is specified.
-// x. L3/proto/port
-//  1. */*/*
-//  2. */proto/*
-//  3. */proto/port
-//  4. ID/*/*
-//  5. ID/proto/*
-//     ( ID/proto/port can not be superset of anything )
+//
+//	x. L3/proto/port
+//	1. */*/*
+//	2. ID/*/*
+//	3. */proto/*
+//	4. ID/proto/*
+//	5. */proto/port
+//	   ( ID/proto/port can not be superset of anything )
 func IsSuperSetOf(k, other Key) int {
 	if k.TrafficDirection() != other.TrafficDirection() {
 		return 0 // TrafficDirection must match for 'k' to be a superset of 'other'
@@ -1078,7 +1079,7 @@ func IsSuperSetOf(k, other Key) int {
 				} // else both are */*/*
 			} else if k.Nexthdr == other.Nexthdr {
 				if k.PortIsBroader(other) {
-					return 2 // */proto/* is a superset of */proto/port
+					return 3 // */proto/* is a superset of */proto/port
 				} // else more specific or different ports
 			} // else more specific or different protocol
 		} else {
@@ -1087,20 +1088,20 @@ func IsSuperSetOf(k, other Key) int {
 				return 1 // */*/* is a superset of ID/x/x
 			} else if k.Nexthdr == other.Nexthdr {
 				if k.PortIsBroader(other) {
-					return 2 // */proto/* is a superset of ID/proto/x
+					return 3 // */proto/* is a superset of ID/proto/x
 				} else if k.PortIsEqual(other) {
-					return 3 // */proto/port is a superset of ID/proto/port
+					return 5 // */proto/port is a superset of ID/proto/port
 				} // else more specific or different ports
 			} // else more specific or different protocol
 		}
 	} else if k.Identity == other.Identity {
 		if k.Nexthdr == 0 {
 			if other.Nexthdr != 0 {
-				return 4 // ID/*/* is a superset of ID/proto/x
+				return 2 // ID/*/* is a superset of ID/proto/x
 			} // else both are ID/*/*
 		} else if k.Nexthdr == other.Nexthdr {
 			if k.PortIsBroader(other) {
-				return 5 // ID/proto/* is a superset of ID/proto/port
+				return 4 // ID/proto/* is a superset of ID/proto/port
 			} // else more specific or different ports
 		} // else more specific or different protocol
 	} // else more specific or different identity
@@ -1180,7 +1181,8 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 
 			ms.allows.ForEachKeyWithNarrowerOrEqualPortProto(newKey, func(k Key, v MapStateEntry) bool {
 				// Find out if 'newKey' is a superset of 'k'
-				if specificity := IsSuperSetOf(newKey, k); specificity > 0 {
+				if specificity := IsSuperSetOf(newKey, k); specificity > 0 ||
+					k.Identity == 0 && v.hasAuthType == ExplicitAuthType {
 					if v.hasAuthType == ExplicitAuthType {
 						// store for later comparison
 						explicitSubsetKeys[k] = struct{}{}
