@@ -107,7 +107,7 @@ jobs:
   installation-and-connectivity:
     needs: [wait-for-images]
     name: Installation and Connectivity Test
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST }}
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-latest' }}
     timeout-minutes: 60
     env:
       job_name: "Installation and Connectivity Test"
