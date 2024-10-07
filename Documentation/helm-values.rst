@@ -139,7 +139,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:c230832bd3b0be59a6c47ed64294f9ce71e91b327957920b6929a0caa8353140","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.36.1","useDigest":true}``
+     - ``{"digest":"sha256:768e5c6f5cb6db0794eec98dc7a967f40631746c32232b78a3105fb946f3ab83","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -1263,7 +1263,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:8fb91b68a377aac38bf1ec115fd1ceb476e7e55dc55aa77d768128d749aca8ac","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.30.6-1727741038-3056acb56ecfedf13398e5072c8f73320fe5e06f","useDigest":true}``
+     - ``{"digest":"sha256:0daf2073092b333d7522c2c8044deaa9882b8afcd422b68d4f010ce56a99f9a7","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.30.6-1728126854-d4a8ad394cddacd70edee2af6ea1b9dcce3c7e52","useDigest":true}``
    * - :spelling:ignore:`envoy.livenessProbe.failureThreshold`
      - failure threshold of liveness probe
      - int
