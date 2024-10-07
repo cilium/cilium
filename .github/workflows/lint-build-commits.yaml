@@ -148,7 +148,11 @@ jobs:
           BUILDER_CCACHE_DIR: "/tmp/.cache/ccache/.ccache"
         run: |
           set -eu -o pipefail
-          COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          if [[ "${{ github.event_name == 'push' || github.event_name == 'workflow_run' }}" == "true" ]]; then
+            COMMITS=${{ github.sha }}
+          else
+            COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          fi
           for commit in $COMMITS ; do
             git checkout $commit || exit 1
             # directories from the previous commit to the current commit.
@@ -182,7 +186,11 @@ jobs:
         if: steps.test-tree.outputs.src == 'true'
         run: |
           set -eu -o pipefail
-          COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          if [[ "${{ github.event_name == 'push' || github.event_name == 'workflow_run' }}" == "true" ]]; then
+            COMMITS=${{ github.sha }}
+          else
+            COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          fi
           for commit in $COMMITS ; do
             git checkout $commit || exit 1
             # Do not run make if there aren't any files modified in these
