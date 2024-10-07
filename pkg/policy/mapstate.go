@@ -743,6 +743,11 @@ func (e MapStateEntry) String() string {
 		",dependents=" + fmt.Sprintf("%v", e.dependents)
 }
 
+type keyValue struct {
+	key   Key
+	value MapStateEntry
+}
+
 // denyPreferredInsert inserts a key and entry into the map by given preference
 // to deny entries, and L3-only deny entries over L3-L4 allows.
 // This form may be used when a full policy is computed and we are not yet interested
@@ -756,8 +761,10 @@ func (ms *mapState) denyPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 	ms.denyPreferredInsertWithChanges(newKey, newEntry, features, ChangeState{})
 }
 
-// addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes', and any changed or removed old values in 'old', if not nil.
-func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes ChangeState) {
+// addKeyWithChanges adds a 'key' with value 'entry' to 'ms' keeping track of incremental changes
+// in 'changes'.
+// Returns 'true' if an entry was added.
+func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes ChangeState) bool {
 	// Keep all owners that need this entry so that it is deleted only if all the owners delete their contribution
 	var datapathEqual bool
 	oldEntry, exists := ms.Get(key)
@@ -765,7 +772,7 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Chan
 	if exists && (oldEntry.IsDeny == entry.IsDeny) {
 		// Do nothing if entries are equal
 		if entry.DeepEqual(&oldEntry) {
-			return // nothing to do
+			return false // nothing to do
 		}
 
 		// Save old value before any changes, if desired
@@ -788,7 +795,7 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Chan
 		ms.insert(key, entry)
 	} else {
 		// Do not record and incremental add if nothing was done
-		return
+		return false
 	}
 
 	// Record an incremental Add if desired and entry is new or changed
@@ -799,6 +806,8 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Chan
 			delete(changes.Deletes, key)
 		}
 	}
+
+	return true
 }
 
 // deleteKeyWithChanges deletes a 'key' from 'keys' keeping track of incremental changes in 'adds' and 'deletes'.
@@ -871,6 +880,35 @@ func (ms *mapState) revertChanges(changes ChangeState) {
 	}
 }
 
+func (ms *mapState) insertUpdates(newKey Key, newEntry *MapStateEntry, updates []keyValue, changes ChangeState) {
+	for _, update := range updates {
+		if ms.addKeyWithChanges(update.key, update.value, changes) {
+			// Identities can be deleted incrementally so we need to track the
+			// added keys by adding a dependency to the owning entry with the
+			// same identity so that this update can be reverted when the
+			// identity is removed.
+
+			// updates always have a single owner of type 'Key'
+			owner, found := update.value.owners.Get()
+			if !found {
+				log.Errorf("mapstate update has no owner")
+				continue
+			}
+			ownerKey, ok := owner.(Key)
+			if !ok {
+				log.Errorf("mapstate update owner is not of type Key")
+				continue
+			}
+			if ownerKey == newKey {
+				newEntry.AddDependent(update.key)
+			} else if update.key != ownerKey {
+				// dependency is only added if the update's key is not the owner itself
+				ms.AddDependent(ownerKey, update.key, changes)
+			}
+		}
+	}
+}
+
 // denyPreferredInsertWithChanges contains the most important business logic for policy insertions. It inserts
 // a key and entry into the map by giving preference to deny entries, and L3-only deny entries over L3-L4 allows.
 // Incremental changes performed are recorded in 'adds' and 'deletes', if not nil.
@@ -905,17 +943,6 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 	// entries are "covered" by deny entries and change them to deny entries if so. We can not
 	// rely on the default deny as a broad allow could be added later.
 
-	// We cannot update the map while we are
-	// iterating through it, so we record the
-	// changes to be made and then apply them.
-	// Additionally, we need to perform deletes
-	// first so that deny entries do not get
-	// merged with allows that are set to be
-	// deleted.
-	var (
-		updates []MapChange
-		deletes []Key
-	)
 	if newEntry.IsDeny {
 		// Test for bailed case first so that we avoid unnecessary computation if entry is
 		// not going to be added.
@@ -935,19 +962,24 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			return
 		}
 
+		// We cannot update the map while we are iterating through it, so we record the
+		// changes to be made and then apply them.  Additionally, we need to perform deletes
+		// first so that deny entries do not get merged with allows that are set to be
+		// deleted.
+		var (
+			deletes []Key
+			updates []keyValue
+		)
+
 		// Only a non-wildcard key can have a wildcard superset key
 		if newKey.Identity != 0 {
 			// Add L3/4 deny entries for more specific allow keys with the wildcard
 			// identity as the more specific allow would otherwise take precedence in
 			// the datapath.
 			ms.allows.ForEachNarrowerKeyWithWildcardID(newKey, func(k Key, v MapStateEntry) bool {
-				newKeyCpy := k
-				newKeyCpy.Identity = newKey.Identity
-				l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
-				updates = append(updates, MapChange{
-					Add:   true,
-					Key:   newKeyCpy,
-					Value: l3l4DenyEntry,
+				updates = append(updates, keyValue{
+					key:   k.WithIdentity(newKey.Identity),
+					value: NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled),
 				})
 				return true
 			})
@@ -971,19 +1003,13 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		for _, key := range deletes {
 			ms.deleteKeyWithChanges(key, nil, changes)
 		}
-		for _, update := range updates {
-			ms.addKeyWithChanges(update.Key, update.Value, changes)
-			// L3-only entries can be deleted incrementally so we need to track their
-			// effects on other entries so that those effects can be reverted when the
-			// identity is removed.
-			newEntry.AddDependent(update.Key)
-		}
+		ms.insertUpdates(newKey, &newEntry, updates, changes)
+
 		ms.addKeyWithChanges(newKey, newEntry, changes)
 		return
 	}
 	if !ms.denies.Empty() {
 		// NOTE: We do not delete redundant allow entries.
-		var dependents []MapChange
 
 		// Test for bailed case first so that we avoid unnecessary computation if entry is
 		// not going to be added, or is going to be changed to a deny entry.
@@ -998,6 +1024,12 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			return
 		}
 
+		// We cannot update the map while we are iterating through it, so we record the
+		// changes to be made and then apply them.
+		var (
+			updates []keyValue
+		)
+
 		if newKey.Identity == 0 {
 			ms.denies.ForEachBroaderKeyWithSpecificID(newKey, func(k Key, v MapStateEntry) bool {
 				// If the new-entry is a wildcard superset of the iterated-deny-entry
@@ -1005,32 +1037,15 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				// iterated-deny-entry then an additional copy of the iterated-deny-entry
 				// with the more specific port-porotocol of the new-entry must
 				// be added.
-				denyKeyCpy := newKey
-				denyKeyCpy.Identity = k.Identity
-				l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
-				updates = append(updates, MapChange{
-					Add:   true,
-					Key:   denyKeyCpy,
-					Value: l3l4DenyEntry,
-				})
-				// L3-only entries can be deleted incrementally so we need to track their
-				// effects on other entries so that those effects can be reverted when the
-				// identity is removed.
-				dependents = append(dependents, MapChange{
-					Key:   k,
-					Value: v,
+				updates = append(updates, keyValue{
+					key:   newKey.WithIdentity(k.Identity),
+					value: NewMapStateEntry(k, v.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled),
 				})
 				return true
 			})
 		}
 
-		for i, update := range updates {
-			if update.Add {
-				ms.addKeyWithChanges(update.Key, update.Value, changes)
-				dep := dependents[i]
-				ms.addDependentOnEntry(dep.Key, dep.Value, update.Key, changes)
-			}
-		}
+		ms.insertUpdates(newKey, &newEntry, updates, changes)
 	}
 	ms.authPreferredInsert(newKey, newEntry, features, changes)
 }
@@ -1100,11 +1115,15 @@ func IsSuperSetOf(k, other Key) int {
 // which denies traffic matching 'newKey', then this function should not be called.
 func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, features policyFeatures, changes ChangeState) {
 	if features.contains(authRules) {
+		// We cannot update the map while we are iterating through it, so we record
+		// the changes to be made and then apply them.
+		var (
+			updates []keyValue
+		)
 		if newEntry.hasAuthType == DefaultAuthType {
 			// New entry has a default auth type.
 			// Fill in the AuthType from more generic entries with an explicit auth type
 			maxSpecificity := 0
-			var l3l4State MapStateMap
 
 			ms.allows.ForEachKeyWithBroaderOrEqualPortProto(newKey, func(k Key, v MapStateEntry) bool {
 				// Nothing to be done if entry has default AuthType
@@ -1134,31 +1153,22 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 					// 0' after the loop.
 					if newKey.Identity == 0 && newKey.Nexthdr != 0 && newKey.DestPort != 0 &&
 						k.Identity != 0 && (k.Nexthdr == 0 || k.Nexthdr == newKey.Nexthdr && k.DestPort == 0) {
-						newKeyCpy := newKey
-						newKeyCpy.Identity = k.Identity
-						l3l4AuthEntry := NewMapStateEntry(k, v.DerivedFromRules, newEntry.ProxyPort, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType)
-						l3l4AuthEntry.DerivedFromRules.MergeSorted(newEntry.DerivedFromRules)
-
-						if l3l4State == nil {
-							l3l4State = make(MapStateMap)
+						update := keyValue{
+							key:   newKey.WithIdentity(k.Identity),
+							value: NewMapStateEntry(k, v.DerivedFromRules, newEntry.ProxyPort, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType),
 						}
-						l3l4State[newKeyCpy] = l3l4AuthEntry
+						update.value.DerivedFromRules.MergeSorted(newEntry.DerivedFromRules)
+						updates = append(updates, update)
 					}
 				}
 				return true
 			})
-			// Add collected L3/L4 entries if the auth type of the new entry was not
-			// overridden by a more generic entry. If it was overridden, the new L3L4
-			// entries are not needed as the L4-only entry with an overridden AuthType
-			// will be matched before the L3-only entries in the datapath.
-			if maxSpecificity == 0 {
-				for k, v := range l3l4State {
-					ms.addKeyWithChanges(k, v, changes)
-					// L3-only entries can be deleted incrementally so we need to track their
-					// effects on other entries so that those effects can be reverted when the
-					// identity is removed.
-					newEntry.AddDependent(k)
-				}
+			// Clear the updates if the auth type of the new entry was overridden by a
+			// more generic entry. If it was overridden, the new L3L4 entries are not
+			// needed as the L4-only entry with an overridden AuthType will be matched
+			// before the L3-only entries in the datapath.
+			if maxSpecificity != 0 {
+				updates = nil
 			}
 		} else {
 			// New entry has an explicit auth type.
@@ -1185,21 +1195,19 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 					// not L4 in general.
 					if newKey.Identity != 0 && (newKey.Nexthdr == 0 || newKey.Nexthdr == k.Nexthdr && newKey.DestPort == 0) &&
 						k.Identity == 0 && k.Nexthdr != 0 && k.DestPort != 0 {
-						newKeyCpy := k
-						newKeyCpy.Identity = newKey.Identity
-						l3l4AuthEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, v.ProxyPort, v.Listener, v.priority, false, DefaultAuthType, newEntry.AuthType)
-						l3l4AuthEntry.DerivedFromRules.MergeSorted(v.DerivedFromRules)
-						ms.addKeyWithChanges(newKeyCpy, l3l4AuthEntry, changes)
-						// L3-only entries can be deleted incrementally so we need to track their
-						// effects on other entries so that those effects can be reverted when the
-						// identity is removed.
-						newEntry.AddDependent(newKeyCpy)
+						update := keyValue{
+							key:   k.WithIdentity(newKey.Identity),
+							value: NewMapStateEntry(newKey, newEntry.DerivedFromRules, v.ProxyPort, v.Listener, v.priority, false, DefaultAuthType, newEntry.AuthType),
+						}
+						update.value.DerivedFromRules.MergeSorted(v.DerivedFromRules)
+						updates = append(updates, update)
 					}
 				}
 
 				return true
 			})
-			// Find out if this newKey is the most specific superset for all the subset keys with default auth type
+			// Find out if this newKey is the most specific superset for all the subset
+			// keys with default auth type
 		Next:
 			for k, specificity := range defaultSubsetKeys {
 				for l := range explicitSubsetKeys {
@@ -1215,6 +1223,8 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 				ms.addKeyWithChanges(k, v, changes) // Update the map value
 			}
 		}
+
+		ms.insertUpdates(newKey, &newEntry, updates, changes)
 	}
 	ms.addKeyWithChanges(newKey, newEntry, changes)
 }
