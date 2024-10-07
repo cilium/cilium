@@ -955,54 +955,28 @@ func (ms *mapState) insertUpdates(newKey Key, newEntry *MapStateEntry, updates [
 // Incremental changes performed are recorded in 'adds' and 'deletes', if not nil.
 // See https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw#gid=2109052536 for details
 func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStateEntry, features policyFeatures, changes ChangeState) {
-	// Sanity check on the newKey
-	if newKey.TrafficDirection() >= trafficdirection.Invalid {
-		log.WithFields(logrus.Fields{
-			logfields.Stacktrace:       hclog.Stacktrace(),
-			logfields.TrafficDirection: newKey.TrafficDirection,
-		}).Errorf("mapState.denyPreferredInsertWithChanges: invalid traffic direction in key")
-		return
-	}
-	// Skip deny rules processing if the policy in this direction has no deny rules
-	if !features.contains(denyRules) {
-		ms.authPreferredInsert(newKey, newEntry, features, changes)
-		return
-	}
-
-	// If we have a deny "all" we don't accept any kind of map entry.
-	if _, ok := ms.denies.Lookup(allKey[newKey.TrafficDirection()]); ok {
-		return
-	}
-
-	// Since bpf datapath denies by default, we only need to add deny entries to carve out more
-	// specific holes to less specific allow rules. But since we don't if allow entries will be
-	// added later (e.g., incrementally due to FQDN rules), we must generally add deny entries
-	// even if there are no allow entries yet.
-
-	// Datapath matches security IDs exactly, or completely wildcards them (ID == 0). Datapath
-	// has no LPM/CIDR logic for security IDs. We use LPM/CIDR logic here to find out if allow
-	// entries are "covered" by deny entries and change them to deny entries if so. We can not
-	// rely on the default deny as a broad allow could be added later.
-
-	if newEntry.IsDeny {
-		// Test for bailed case first so that we avoid unnecessary computation if entry is
-		// not going to be added.
+	// Bail if covered by a deny key
+	if !ms.denies.Empty() {
 		bailed := false
-
-		// Bail if covered by another deny key.
 		ms.denies.ForEachBroaderOrEqualKey(newKey, func(k Key, v MapStateEntry) bool {
-			// Identical key needs to be added if the entries are different to merge
-			// them.
-			if k != newKey || v.DeepEqual(&newEntry) {
-				bailed = true
-				return false
+			// Identical deny key needs to be added to merge their entries.
+			if k == newKey && newEntry.IsDeny {
+				return true
 			}
-			return true
+			bailed = true
+			return false
 		})
 		if bailed {
 			return
 		}
+	}
 
+	// Since bpf datapath denies by default, we only need to add deny entries to carve out more
+	// specific holes to less specific allow rules. But since we don't know if allow entries
+	// will be added later (e.g., incrementally due to FQDN rules), we must generally add deny
+	// entries even if there are no allow entries yet.
+
+	if newEntry.IsDeny {
 		// We cannot update the map while we are iterating through it, so we record the
 		// changes to be made and then apply them.  Additionally, we need to perform deletes
 		// first so that deny entries do not get merged with allows that are set to be
@@ -1034,8 +1008,8 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 
 		// Delete covered deny entries, except for identical keys that need to be merged.
 		ms.denies.ForEachNarrowerOrEqualKey(newKey, func(k Key, v MapStateEntry) bool {
-			// Identical key needs to remain if owners are different to merge them
-			if k != newKey || v.DeepEqual(&newEntry) {
+			// Identical key needs to remain to merge them
+			if k != newKey {
 				deletes = append(deletes, k)
 			}
 			return true
@@ -1048,23 +1022,12 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 
 		ms.addKeyWithChanges(newKey, newEntry, changes)
 		return
-	}
+	} // else newEntry is an allow entry
+
+	// NOTE: We do not delete redundant allow entries.
+
+	// Avoid allocs in this block if there are no deny enties
 	if !ms.denies.Empty() {
-		// NOTE: We do not delete redundant allow entries.
-
-		// Test for bailed case first so that we avoid unnecessary computation if entry is
-		// not going to be added, or is going to be changed to a deny entry.
-		bailed := false
-
-		// Bail out if there is a covering deny entry.
-		ms.denies.ForEachBroaderOrEqualKey(newKey, func(k Key, v MapStateEntry) bool {
-			bailed = true
-			return false
-		})
-		if bailed {
-			return
-		}
-
 		// We cannot update the map while we are iterating through it, so we record the
 		// changes to be made and then apply them.
 		var (
