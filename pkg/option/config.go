@@ -2610,7 +2610,7 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 func (c *DaemonConfig) AreDevicesRequired() bool {
 	return c.EnableNodePort || c.EnableHostFirewall || c.EnableWireguard ||
 		c.EnableHighScaleIPcache || c.EnableL2Announcements || c.ForceDeviceRequired ||
-		c.EnableIPSecEncryptedOverlay
+		c.EnableIPSecEncryptedOverlay || c.EnableIPSec
 }
 
 // When WG & encrypt-node are on, a NodePort BPF to-be forwarded request
