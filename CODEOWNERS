@@ -272,6 +272,7 @@ Makefile* @cilium/build
 /bpf/custom/Makefile* @cilium/build @cilium/loader
 /bpf/lib/auth.h @cilium/sig-datapath @cilium/sig-servicemesh
 /bpf/lib/encrypt.h @cilium/ipsec
+/bpf/lib/policy.h @cilium/sig-datapath @cilium/sig-policy
 /bpf/lib/wireguard.h @cilium/wireguard @cilium/sig-datapath
 /bpf/bpf_wireguard.c @cilium/wireguard @cilium/sig-datapath
 /bpf/lib/ids.h @cilium/loader
