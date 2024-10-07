@@ -1140,6 +1140,10 @@ func (in *NodeSpec) DeepEqual(other *NodeSpec) bool {
 		return false
 	}
 
+	if !in.Volcengine.DeepEqual(&other.Volcengine) {
+		return false
+	}
+
 	if !in.IPAM.DeepEqual(&other.IPAM) {
 		return false
 	}
@@ -1171,6 +1175,10 @@ func (in *NodeStatus) DeepEqual(other *NodeStatus) bool {
 	}
 
 	if !in.AlibabaCloud.DeepEqual(&other.AlibabaCloud) {
+		return false
+	}
+
+	if !in.Volcengine.DeepEqual(&other.Volcengine) {
 		return false
 	}
 
