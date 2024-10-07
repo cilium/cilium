@@ -356,8 +356,9 @@ func (c *Client) ExecInPod(ctx context.Context, namespace, pod, container string
 		Container: container,
 		Command:   command,
 	})
+
 	if err != nil {
-		return result.Stdout, err
+		return result.Stdout, fmt.Errorf("%w: %q", err, result.Stderr.String())
 	}
 
 	if errString := result.Stderr.String(); errString != "" {
