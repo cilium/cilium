@@ -167,7 +167,7 @@ jobs:
 
   setup-and-test:
     needs: build-ginkgo-binary
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER || 'ubuntu-latest' }}
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-latest' }}
     name: "Runtime Test (${{matrix.focus}})"
     env:
       # GitHub doesn't provide a way to retrieve the name of a job, so we have
