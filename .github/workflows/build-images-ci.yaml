@@ -25,7 +25,7 @@ concurrency:
 jobs:
   build-and-push-prs:
     name: Build and Push Images
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER }}
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST }}
     strategy:
       matrix:
         include:
