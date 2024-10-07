@@ -1261,7 +1261,7 @@ skip_vtep:
 					     ip4->daddr, encrypt_key, &key,
 					     SECLABEL_IPV4, *dst_sec_identity, &trace);
 		if (ret == DROP_NO_TUNNEL_ENDPOINT)
-			goto pass_to_stack;
+			goto maybe_pass_to_stack;
 		/* If not redirected noteably due to IPSEC then pass up to stack
 		 * for further processing.
 		 */
@@ -1281,6 +1281,8 @@ skip_vtep:
 			return ret;
 	}
 #endif /* TUNNEL_MODE || ENABLE_HIGH_SCALE_IPCACHE */
+
+maybe_pass_to_stack: __maybe_unused;
 	if (is_defined(ENABLE_HOST_ROUTING)) {
 		int oif = 0;
 
