@@ -20,6 +20,7 @@ import (
 	"text/template"
 
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -839,6 +840,17 @@ func getEphemeralPortRangeMin(sysctl sysctl.Sysctl) (int, error) {
 	return ephemeralPortMin, nil
 }
 
+// ignoringEINTR makes a function call and repeats it if it returns an
+// EINTR error.
+func ignoringEINTR(fn func() error) error {
+	for {
+		err := fn()
+		if !errors.Is(err, unix.EINTR) {
+			return err
+		}
+	}
+}
+
 // vlanFilterMacros generates VLAN_FILTER macros which
 // are written to node_config.h
 func vlanFilterMacros(nativeDevices []*tables.Device) (string, error) {
@@ -859,7 +871,13 @@ func vlanFilterMacros(nativeDevices []*tables.Device) (string, error) {
 
 	vlansByIfIndex := make(map[int][]int)
 
-	links, err := netlink.LinkList()
+	// Retry netlink.LinkList() on EINTR. This is needed as long as netlink.LinkList()
+	// does not handle EINTR internally.
+	var links []netlink.Link
+	err := ignoringEINTR(func() (err error) {
+		links, err = netlink.LinkList()
+		return err
+	})
 	if err != nil {
 		return "", fmt.Errorf("listing network interfaces: %w", err)
 	}
