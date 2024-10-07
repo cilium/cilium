@@ -1,0 +1,60 @@
+{{$PODS_PER_NODE := 30}}
+{{$PODS_PER_DEPLOYMENT := 5}}
+{{$CNPS_PER_DEPLOYMENT := 5}}
+{{$namespaces := MaxInt (DivideInt .Nodes 100) 1}}
+{{$TimeToLoad := MultiplyInt $namespaces 6}}
+# number of deployments is 30 * #nodes / 5
+# for 1 node -> 6 deployments x 1 namespace
+# for 100 nodes -> 600 deployments x 1 namespace
+# for 500 nodes -> 600 deployments x 5 namespaces
+# for 1000 nodes -> 600 deployments x 10 namespaces
+
+{{$totalPods := MultiplyInt .Nodes $PODS_PER_NODE}}
+{{$deployments := DivideInt $totalPods $PODS_PER_DEPLOYMENT}}
+{{$deploymentsPerNamespace := DivideInt $deployments $namespaces}}
+
+name: netpol
+namespace:
+  number: {{$namespaces}}
+  # Let's skip deleting namespaces at the end of test for now
+  deleteAutomanagedNamespaces: false
+tuningSets:
+- name: default
+  globalQPSLoad:
+    qps: 1
+    burst: 1
+- name: RandomizedSaturationTimeLimited
+  RandomizedTimeLimitedLoad:
+    timeLimit: {{$TimeToLoad}}m
+
+steps:
+- module:
+    path: ./modules/metrics.yaml
+    params:
+      action: start
+
+- module:
+    path: ../cilium-agent-pprofs.yaml
+    params:
+      action: start
+
+- module:
+    path: /modules/reconcile-objects.yaml
+    params:
+      actionName: "create"
+      namespaces: {{$namespaces}}
+      tuningSet: RandomizedSaturationTimeLimited
+      operationTimeout: 15m
+      replicasPerDeployment: {{$PODS_PER_DEPLOYMENT}}
+      deploymentsPerNamespace: {{$deploymentsPerNamespace}}
+      cnpsPerDeployment: {{$CNPS_PER_DEPLOYMENT}}
+
+- module:
+    path: ../cilium-agent-pprofs.yaml
+    params:
+      action: gather
+
+- module:
+    path: ./modules/metrics.yaml
+    params:
+      action: gather
