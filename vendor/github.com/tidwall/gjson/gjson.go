@@ -1040,6 +1040,10 @@ func parseObjectPath(path string) (r objectPathResult) {
 	return
 }
 
+var vchars = [256]byte{
+	'"': 2, '{': 3, '(': 3, '[': 3, '}': 1, ')': 1, ']': 1,
+}
+
 func parseSquash(json string, i int) (int, string) {
 	// expects that the lead character is a '[' or '{' or '('
 	// squash the value, ignoring all nested arrays and objects.
@@ -1047,43 +1051,137 @@ func parseSquash(json string, i int) (int, string) {
 	s := i
 	i++
 	depth := 1
-	for ; i < len(json); i++ {
-		if json[i] >= '"' && json[i] <= '}' {
-			switch json[i] {
-			case '"':
+	var c byte
+	for i < len(json) {
+		for i < len(json)-8 {
+			jslice := json[i : i+8]
+			c = vchars[jslice[0]]
+			if c != 0 {
+				i += 0
+				goto token
+			}
+			c = vchars[jslice[1]]
+			if c != 0 {
+				i += 1
+				goto token
+			}
+			c = vchars[jslice[2]]
+			if c != 0 {
+				i += 2
+				goto token
+			}
+			c = vchars[jslice[3]]
+			if c != 0 {
+				i += 3
+				goto token
+			}
+			c = vchars[jslice[4]]
+			if c != 0 {
+				i += 4
+				goto token
+			}
+			c = vchars[jslice[5]]
+			if c != 0 {
+				i += 5
+				goto token
+			}
+			c = vchars[jslice[6]]
+			if c != 0 {
+				i += 6
+				goto token
+			}
+			c = vchars[jslice[7]]
+			if c != 0 {
+				i += 7
+				goto token
+			}
+			i += 8
+		}
+		c = vchars[json[i]]
+		if c == 0 {
+			i++
+			continue
+		}
+	token:
+		if c == 2 {
+			// '"' string
+			i++
+			s2 := i
+		nextquote:
+			for i < len(json)-8 {
+				jslice := json[i : i+8]
+				if jslice[0] == '"' {
+					i += 0
+					goto strchkesc
+				}
+				if jslice[1] == '"' {
+					i += 1
+					goto strchkesc
+				}
+				if jslice[2] == '"' {
+					i += 2
+					goto strchkesc
+				}
+				if jslice[3] == '"' {
+					i += 3
+					goto strchkesc
+				}
+				if jslice[4] == '"' {
+					i += 4
+					goto strchkesc
+				}
+				if jslice[5] == '"' {
+					i += 5
+					goto strchkesc
+				}
+				if jslice[6] == '"' {
+					i += 6
+					goto strchkesc
+				}
+				if jslice[7] == '"' {
+					i += 7
+					goto strchkesc
+				}
+				i += 8
+			}
+			goto strchkstd
+		strchkesc:
+			if json[i-1] != '\\' {
 				i++
-				s2 := i
-				for ; i < len(json); i++ {
-					if json[i] > '\\' {
-						continue
-					}
-					if json[i] == '"' {
-						// look for an escaped slash
-						if json[i-1] == '\\' {
-							n := 0
-							for j := i - 2; j > s2-1; j-- {
-								if json[j] != '\\' {
-									break
-								}
-								n++
-							}
-							if n%2 == 0 {
-								continue
-							}
-						}
-						break
-					}
-				}
-			case '{', '[', '(':
-				depth++
-			case '}', ']', ')':
-				depth--
-				if depth == 0 {
+				continue
+			}
+		strchkstd:
+			for i < len(json) {
+				if json[i] > '\\' || json[i] != '"' {
 					i++
-					return i, json[s:i]
+					continue
 				}
+				// look for an escaped slash
+				if json[i-1] == '\\' {
+					n := 0
+					for j := i - 2; j > s2-1; j-- {
+						if json[j] != '\\' {
+							break
+						}
+						n++
+					}
+					if n%2 == 0 {
+						i++
+						goto nextquote
+					}
+				}
+				break
+			}
+		} else {
+			// '{', '[', '(', '}', ']', ')'
+			// open close tokens
+			depth += int(c) - 2
+			if depth == 0 {
+				i++
+				return i, json[s:i]
 			}
 		}
+		i++
 	}
 	return i, json[s:]
 }
