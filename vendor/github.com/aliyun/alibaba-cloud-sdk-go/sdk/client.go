@@ -41,14 +41,8 @@ import (
 	"github.com/opentracing/opentracing-go/ext"
 )
 
-var debug utils.Debug
+var debug = utils.Init("sdk")
 
-func init() {
-	debug = utils.Init("sdk")
-}
-
-// Version this value will be replaced while build: -ldflags="-X sdk.version=x.x.x"
-var Version = "0.0.1"
 var defaultConnectTimeout = 5 * time.Second
 var defaultReadTimeout = 10 * time.Second
 

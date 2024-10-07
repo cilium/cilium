@@ -7,7 +7,7 @@ DOCKER=${DOCKER:-docker}
 ORG=${ORG:-cilium}
 
 cosign() {
-  "${DOCKER}" run --rm gcr.io/projectsigstore/cosign:v2.2.4 "$@"
+  "${DOCKER}" run --rm ghcr.io/sigstore/cosign/cosign:v2.2.4 "$@"
 }
 
 helm() {

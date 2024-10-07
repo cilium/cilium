@@ -79,7 +79,7 @@ github.com/Microsoft/hcsshim/osversion
 # github.com/alecthomas/participle/v2 v2.1.0
 ## explicit; go 1.18
 github.com/alecthomas/participle/v2/lexer
-# github.com/aliyun/alibaba-cloud-sdk-go v1.63.20
+# github.com/aliyun/alibaba-cloud-sdk-go v1.63.23
 ## explicit; go 1.13
 github.com/aliyun/alibaba-cloud-sdk-go/sdk
 github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth
@@ -223,7 +223,7 @@ github.com/chai2010/gettext-go
 github.com/chai2010/gettext-go/mo
 github.com/chai2010/gettext-go/plural
 github.com/chai2010/gettext-go/po
-# github.com/cilium/charts v0.0.0-20240926142256-e20f2b5f5344
+# github.com/cilium/charts v0.0.0-20241006222739-d4ea3601d819
 ## explicit; go 1.17
 github.com/cilium/charts
 # github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
@@ -275,7 +275,7 @@ github.com/cilium/hive/cell
 github.com/cilium/hive/hivetest
 github.com/cilium/hive/internal
 github.com/cilium/hive/job
-# github.com/cilium/linters v0.0.0-20240916090129-563410ef6de1
+# github.com/cilium/linters v0.0.0-20241001072509-4201f4cc97b7
 ## explicit; go 1.22.0
 github.com/cilium/linters
 github.com/cilium/linters/ioreadall
@@ -752,7 +752,7 @@ github.com/go-errors/errors
 # github.com/go-gorp/gorp/v3 v3.1.0
 ## explicit; go 1.18
 github.com/go-gorp/gorp/v3
-# github.com/go-jose/go-jose/v4 v4.0.2
+# github.com/go-jose/go-jose/v4 v4.0.4
 ## explicit; go 1.21
 github.com/go-jose/go-jose/v4
 github.com/go-jose/go-jose/v4/cipher
@@ -1285,8 +1285,8 @@ github.com/prometheus/client_golang/prometheus/testutil/promlint/validations
 # github.com/prometheus/client_model v0.6.1
 ## explicit; go 1.19
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.59.1
-## explicit; go 1.20
+# github.com/prometheus/common v0.60.0
+## explicit; go 1.21
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
 # github.com/prometheus/procfs v0.15.1
@@ -1360,7 +1360,7 @@ github.com/spf13/viper/internal/encoding/json
 github.com/spf13/viper/internal/encoding/toml
 github.com/spf13/viper/internal/encoding/yaml
 github.com/spf13/viper/internal/features
-# github.com/spiffe/go-spiffe/v2 v2.3.0
+# github.com/spiffe/go-spiffe/v2 v2.4.0
 ## explicit; go 1.21
 github.com/spiffe/go-spiffe/v2/bundle/jwtbundle
 github.com/spiffe/go-spiffe/v2/bundle/spiffebundle
@@ -1391,7 +1391,7 @@ github.com/stretchr/testify/require
 # github.com/subosito/gotenv v1.6.0
 ## explicit; go 1.18
 github.com/subosito/gotenv
-# github.com/tidwall/gjson v1.17.3
+# github.com/tidwall/gjson v1.18.0
 ## explicit; go 1.12
 github.com/tidwall/gjson
 # github.com/tidwall/match v1.1.1
@@ -1592,7 +1592,7 @@ go.universe.tf/metallb/pkg/speaker
 # go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 ## explicit; go 1.18
 go4.org/netipx
-# golang.org/x/crypto v0.27.0
+# golang.org/x/crypto v0.28.0
 ## explicit; go 1.20
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blake2s
@@ -1636,7 +1636,7 @@ golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/modfile
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.29.0
+# golang.org/x/net v0.30.0
 ## explicit; go 1.18
 golang.org/x/net/bpf
 golang.org/x/net/context
@@ -1660,7 +1660,7 @@ golang.org/x/net/netutil
 golang.org/x/net/proxy
 golang.org/x/net/trace
 golang.org/x/net/websocket
-# golang.org/x/oauth2 v0.22.0
+# golang.org/x/oauth2 v0.23.0
 ## explicit; go 1.18
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
@@ -1668,17 +1668,17 @@ golang.org/x/oauth2/internal
 ## explicit; go 1.18
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.25.0
+# golang.org/x/sys v0.26.0
 ## explicit; go 1.18
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.24.0
+# golang.org/x/term v0.25.0
 ## explicit; go 1.18
 golang.org/x/term
-# golang.org/x/text v0.18.0
+# golang.org/x/text v0.19.0
 ## explicit; go 1.18
 golang.org/x/text/cases
 golang.org/x/text/encoding
@@ -1702,10 +1702,10 @@ golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
-# golang.org/x/time v0.6.0
+# golang.org/x/time v0.7.0
 ## explicit; go 1.18
 golang.org/x/time/rate
-# golang.org/x/tools v0.25.0
+# golang.org/x/tools v0.26.0
 ## explicit; go 1.22.0
 golang.org/x/tools/cmd/goimports
 golang.org/x/tools/cover
@@ -1739,7 +1739,6 @@ golang.org/x/tools/internal/packagesinternal
 golang.org/x/tools/internal/pkgbits
 golang.org/x/tools/internal/robustio
 golang.org/x/tools/internal/stdlib
-golang.org/x/tools/internal/tokeninternal
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 golang.org/x/tools/internal/versions
@@ -1780,10 +1779,10 @@ gomodules.xyz/jsonpatch/v2
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20240924160255-9d4c2d233b61
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20240930140551-af27646dc61f
 ## explicit; go 1.21
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.67.0
+# google.golang.org/grpc v1.67.1
 ## explicit; go 1.21
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -2762,7 +2761,7 @@ sigs.k8s.io/kustomize/kyaml/yaml/merge2
 sigs.k8s.io/kustomize/kyaml/yaml/merge3
 sigs.k8s.io/kustomize/kyaml/yaml/schema
 sigs.k8s.io/kustomize/kyaml/yaml/walk
-# sigs.k8s.io/mcs-api v0.1.1-0.20240919125245-7bbb5990134a
+# sigs.k8s.io/mcs-api v0.1.1-0.20241002142749-eff1ba8c3ab2
 ## explicit; go 1.22.0
 sigs.k8s.io/mcs-api/pkg/apis/v1alpha1
 sigs.k8s.io/mcs-api/pkg/client/clientset/versioned
