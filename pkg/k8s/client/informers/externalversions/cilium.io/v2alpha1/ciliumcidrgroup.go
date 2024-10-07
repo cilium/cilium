@@ -6,13 +6,13 @@
 package v2alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	apisciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	versioned "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/internalinterfaces"
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2alpha1"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // CiliumCIDRGroups.
 type CiliumCIDRGroupInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v2alpha1.CiliumCIDRGroupLister
+	Lister() ciliumiov2alpha1.CiliumCIDRGroupLister
 }
 
 type ciliumCIDRGroupInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredCiliumCIDRGroupInformer(client versioned.Interface, resyncPeriod
 				return client.CiliumV2alpha1().CiliumCIDRGroups().Watch(context.TODO(), options)
 			},
 		},
-		&ciliumiov2alpha1.CiliumCIDRGroup{},
+		&apisciliumiov2alpha1.CiliumCIDRGroup{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *ciliumCIDRGroupInformer) defaultInformer(client versioned.Interface, re
 }
 
 func (f *ciliumCIDRGroupInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&ciliumiov2alpha1.CiliumCIDRGroup{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisciliumiov2alpha1.CiliumCIDRGroup{}, f.defaultInformer)
 }
 
-func (f *ciliumCIDRGroupInformer) Lister() v2alpha1.CiliumCIDRGroupLister {
-	return v2alpha1.NewCiliumCIDRGroupLister(f.Informer().GetIndexer())
+func (f *ciliumCIDRGroupInformer) Lister() ciliumiov2alpha1.CiliumCIDRGroupLister {
+	return ciliumiov2alpha1.NewCiliumCIDRGroupLister(f.Informer().GetIndexer())
 }
