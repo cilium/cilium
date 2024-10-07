@@ -93,7 +93,7 @@ jobs:
   setup-and-test:
     needs: [wait-for-images]
     name: 'Setup & Test'
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST }}
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-latest' }}
     env:
       job_name: 'Setup & Test'
     strategy:
