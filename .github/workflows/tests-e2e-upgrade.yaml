@@ -215,6 +215,7 @@ jobs:
             tunnel: 'disabled'
             encryption: 'wireguard'
             encryption-node: 'false'
+            encryption-strict-mode: 'true'
             misc: 'socketLB.enabled=true'
             local-redirect-policy: 'true'
             node-local-dns: 'true'
@@ -246,6 +247,7 @@ jobs:
             tunnel: 'disabled'
             encryption: 'wireguard'
             encryption-node: 'true'
+            encryption-strict-mode: 'true'
             lb-mode: 'snat'
             egress-gateway: 'true'
             ingress-controller: 'true'
@@ -442,6 +444,7 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: ${{ matrix.encryption }}
           encryption-node: ${{ matrix.encryption-node }}
+          encryption-strict-mode: ${{ matrix.encryption-strict-mode }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
@@ -466,6 +469,7 @@ jobs:
           lb-acceleration: ${{ matrix.lb-acceleration }}
           encryption: ${{ matrix.encryption }}
           encryption-node: ${{ matrix.encryption-node }}
+          encryption-strict-mode: ${{ matrix.encryption-strict-mode }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
@@ -583,6 +587,11 @@ jobs:
           # The actual connectivity test will ensure that the map is in sync with the policy and that egressgw traffic
           # always go through the correct gateway
           EXTRA+=("\"--expected-drop-reasons=+No egress gateway found\"")
+
+          if [ "${{ matrix.encryption-strict-mode }}" = "true" ]; then
+            # "Test Cilium after upgrade" ran strict-mode-encryption test which caused temporary drops.
+            EXTRA+=("\"--expected-drop-reasons=+Traffic is unencrypted\"")
+          fi
 
           echo flags="--include-unsafe-tests \
             --collect-sysdump-on-failure \
