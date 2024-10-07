@@ -326,6 +326,7 @@ jobs:
           ./clusterloader \
             -v=2 \
             --testconfig=./testing/load/config.yaml \
+            --testconfig=./testing/custom/netpol/config.yaml \
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
