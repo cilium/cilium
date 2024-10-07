@@ -17,7 +17,6 @@ import (
 	"strconv"
 
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/internal/aliases"
 )
 
 func TypeErrorEndPos(fset *token.FileSet, src []byte, start token.Pos) token.Pos {
@@ -34,7 +33,7 @@ func TypeErrorEndPos(fset *token.FileSet, src []byte, start token.Pos) token.Pos
 
 func ZeroValue(f *ast.File, pkg *types.Package, typ types.Type) ast.Expr {
 	// TODO(adonovan): think about generics, and also generic aliases.
-	under := aliases.Unalias(typ)
+	under := types.Unalias(typ)
 	// Don't call Underlying unconditionally: although it removes
 	// Named and Alias, it also removes TypeParam.
 	if n, ok := under.(*types.Named); ok {
@@ -416,8 +415,7 @@ func CheckReadable(pass *analysis.Pass, filename string) error {
 		return nil
 	}
 	for _, f := range pass.Files {
-		// TODO(adonovan): use go1.20 f.FileStart
-		if pass.Fset.File(f.Pos()).Name() == filename {
+		if pass.Fset.File(f.FileStart).Name() == filename {
 			return nil
 		}
 	}
