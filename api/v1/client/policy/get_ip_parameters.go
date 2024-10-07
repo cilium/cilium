@@ -17,6 +17,8 @@ import (
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
+
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewGetIPParams creates a new GetIPParams object,
@@ -69,6 +71,13 @@ type GetIPParams struct {
 	   A CIDR range of IPs
 	*/
 	Cidr *string
+
+	/* Labels.
+
+	   List of labels
+
+	*/
+	Labels models.Labels
 
 	timeout    time.Duration
 	Context    context.Context
@@ -134,6 +143,17 @@ func (o *GetIPParams) SetCidr(cidr *string) {
 	o.Cidr = cidr
 }
 
+// WithLabels adds the labels to the get IP params
+func (o *GetIPParams) WithLabels(labels models.Labels) *GetIPParams {
+	o.SetLabels(labels)
+	return o
+}
+
+// SetLabels adds the labels to the get IP params
+func (o *GetIPParams) SetLabels(labels models.Labels) {
+	o.Labels = labels
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *GetIPParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -156,6 +176,11 @@ func (o *GetIPParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registr
 			if err := r.SetQueryParam("cidr", qCidr); err != nil {
 				return err
 			}
+		}
+	}
+	if o.Labels != nil {
+		if err := r.SetBodyParam(o.Labels); err != nil {
+			return err
 		}
 	}
 

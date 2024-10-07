@@ -15,6 +15,9 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
+	"github.com/go-openapi/validate"
+
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewGetIPParams creates a new GetIPParams object
@@ -38,6 +41,11 @@ type GetIPParams struct {
 	  In: query
 	*/
 	Cidr *string
+	/*List of labels
+
+	  In: body
+	*/
+	Labels models.Labels
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
@@ -54,6 +62,28 @@ func (o *GetIPParams) BindRequest(r *http.Request, route *middleware.MatchedRout
 	qCidr, qhkCidr, _ := qs.GetOK("cidr")
 	if err := o.bindCidr(qCidr, qhkCidr, route.Formats); err != nil {
 		res = append(res, err)
+	}
+
+	if runtime.HasBody(r) {
+		defer r.Body.Close()
+		var body models.Labels
+		if err := route.Consumer.Consume(r.Body, &body); err != nil {
+			res = append(res, errors.NewParseError("labels", "body", "", err))
+		} else {
+			// validate body object
+			if err := body.Validate(route.Formats); err != nil {
+				res = append(res, err)
+			}
+
+			ctx := validate.WithOperationRequest(r.Context())
+			if err := body.ContextValidate(ctx, route.Formats); err != nil {
+				res = append(res, err)
+			}
+
+			if len(res) == 0 {
+				o.Labels = body
+			}
+		}
 	}
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
