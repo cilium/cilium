@@ -152,6 +152,9 @@
                         "podSecurityContext": {
                           "type": "object"
                         },
+                        "priorityClassName": {
+                          "type": "string"
+                        },
                         "resources": {
                           "type": "object"
                         },
@@ -358,6 +361,9 @@
                         },
                         "podSecurityContext": {
                           "type": "object"
+                        },
+                        "priorityClassName": {
+                          "type": "string"
                         },
                         "resources": {
                           "type": "object"

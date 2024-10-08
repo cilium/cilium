@@ -32,6 +32,7 @@ spec:
           {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
+      priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.authentication.mutual.spire.install.server.priorityClassName "system-node-critical") }}
       serviceAccountName: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}
       shareProcessNamespace: true
       {{- with .Values.authentication.mutual.spire.install.server.podSecurityContext }}
