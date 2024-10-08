@@ -110,7 +110,7 @@ int ipv4_l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx)
 	__u64 flags = BPF_F_ADJ_ROOM_FIXED_GSO;
 
 	endpoint_v4_add_entry(TEST_IP_LOCAL, 0, TEST_LXC_ID_LOCAL, 0, 0,
-			      (__u8 *)ep_mac, (__u8 *)node_mac);
+			      0, (__u8 *)ep_mac, (__u8 *)node_mac);
 
 	/* As commented in PKTGEN, now we strip the L2 header. Bpf helper
 	 * skb_adjust_room will use L2 header to overwrite L3 header, so we play

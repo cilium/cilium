@@ -376,7 +376,7 @@ int ipv4_decrypted_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv4_decrypted_ipsec_from_overlay")
 int ipv4_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 {
-	endpoint_v4_add_entry(v4_pod_two, DEST_IFINDEX, DEST_LXC_ID, 0, 0,
+	endpoint_v4_add_entry(v4_pod_two, DEST_IFINDEX, DEST_LXC_ID, 0, 0, 0,
 			      (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
 
 	ctx->mark = MARK_MAGIC_DECRYPT;
