@@ -110,7 +110,7 @@ func (jos *jobOneShot) start(ctx context.Context, wg *sync.WaitGroup, health cel
 	}
 
 	jos.health = health.NewScope("job-" + jos.name)
-	defer jos.health.Stopped("one-shot job done")
+	defer jos.health.Close()
 
 	l := options.logger.With(
 		"name", jos.name,

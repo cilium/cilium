@@ -36,7 +36,8 @@ var (
 		FromKey: func(k types.HealthID) index.Key {
 			return index.Key([]byte(k))
 		},
-		Unique: true,
+		FromString: index.FromString,
+		Unique:     true,
 	}
 	LevelIndex = statedb.Index[types.Status, types.Level]{
 		Name: "level",
@@ -46,7 +47,8 @@ var (
 		FromKey: func(key types.Level) index.Key {
 			return index.Key([]byte(key))
 		},
-		Unique: false,
+		FromString: index.FromString,
+		Unique:     false,
 	}
 )
 

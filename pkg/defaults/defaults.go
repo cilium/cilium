@@ -72,6 +72,10 @@ const (
 	// SockPathEnv is the environment variable to overwrite SockPath
 	SockPathEnv = "CILIUM_SOCK"
 
+	// ShellSockPath is the path to the UNIX domain socket exposing the debug shell
+	// to which "cilium-dbg shell" connects to.
+	ShellSockPath = RuntimePath + "/shell.sock"
+
 	// HubbleSockPath is the path to the UNIX domain socket exposing the Hubble
 	// API to clients locally.
 	HubbleSockPath = RuntimePath + "/hubble.sock"

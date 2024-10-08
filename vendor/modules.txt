@@ -271,13 +271,15 @@ github.com/cilium/endpointslice-controller/util/endpointslice
 # github.com/cilium/fake v0.6.1
 ## explicit; go 1.20
 github.com/cilium/fake
-# github.com/cilium/hive v0.0.0-20240926131619-aa37668760f2
+# github.com/cilium/hive v0.0.0-20241009102328-2ab688845f23 => ../hive
 ## explicit; go 1.21.3
 github.com/cilium/hive
 github.com/cilium/hive/cell
 github.com/cilium/hive/hivetest
 github.com/cilium/hive/internal
 github.com/cilium/hive/job
+github.com/cilium/hive/script
+github.com/cilium/hive/script/internal/diff
 # github.com/cilium/linters v0.0.0-20240916090129-563410ef6de1
 ## explicit; go 1.22.0
 github.com/cilium/linters
@@ -538,7 +540,7 @@ github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
 github.com/cilium/proxy/go/envoy/watchdog/v3
 github.com/cilium/proxy/pkg/policy/api/kafka
-# github.com/cilium/statedb v0.3.0
+# github.com/cilium/statedb v0.3.0 => ../statedb
 ## explicit; go 1.23
 github.com/cilium/statedb
 github.com/cilium/statedb/index
@@ -1746,6 +1748,7 @@ golang.org/x/tools/internal/tokeninternal
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 golang.org/x/tools/internal/versions
+golang.org/x/tools/txtar
 # golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2
 ## explicit; go 1.17
 golang.zx2c4.com/wintun
@@ -2786,5 +2789,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
 sigs.k8s.io/yaml/goyaml.v3
+# github.com/cilium/hive => ../hive
+# github.com/cilium/statedb => ../statedb
 # go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
 # sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16.1-1

@@ -1,0 +1,180 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package cmd
+
+import (
+	"bufio"
+	"fmt"
+	"io"
+	"net"
+	"os"
+	"os/signal"
+	"strings"
+	"time"
+
+	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/version"
+	"github.com/cilium/hive/script"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+)
+
+var shellCmd = &cobra.Command{
+	Use:   "shell [command] [args]...",
+	Short: "Connect to the Cilium shell",
+	Run:   shell,
+}
+
+var stdReadWriter = struct {
+	io.Reader
+	io.Writer
+}{
+	Reader: os.Stdin,
+	Writer: os.Stdout,
+}
+
+var newline = []byte{'\n'}
+
+func init() {
+	RootCmd.AddCommand(shellCmd)
+}
+
+func dialShell() (net.Conn, error) {
+	var conn net.Conn
+	until := time.Now().Add(time.Minute)
+	for {
+		var err error
+		conn, err = net.Dial("unix", defaults.ShellSockPath)
+		if err == nil {
+			break
+		}
+		if time.Now().After(until) {
+			return nil, fmt.Errorf("Timed out dialing %q\n", defaults.ShellSockPath)
+		}
+		fmt.Fprintf(os.Stderr, "Dial(%q): %s. Retrying...\n", defaults.ShellSockPath, err)
+		time.Sleep(time.Second)
+	}
+	return conn, nil
+}
+
+func shellExchange(w io.Writer, format string, args ...any) error {
+	conn, err := dialShell()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	_, err = fmt.Fprintf(conn, format+"\nexit\n", args...)
+	if err != nil {
+		return err
+	}
+	bio := bufio.NewReader(conn)
+	for {
+		line, _, err := bio.ReadLine()
+		if err != nil {
+			return nil
+		}
+		switch string(line) {
+		case "<<end>>":
+			return nil
+		case "[stdout]":
+		default:
+			w.Write(line)
+			w.Write(newline)
+		}
+	}
+
+}
+
+func shell(cmd *cobra.Command, args []string) {
+	if len(args) > 0 {
+		shellExchange(os.Stdout, "%s", strings.Join(args, " "))
+	} else {
+		interactiveShell()
+	}
+}
+
+func interactiveShell() {
+	// Try to set the terminal to raw mode (so that cursor keys work etc.)
+	restore, err := script.MakeRaw(0)
+	if err != nil {
+		panic(err)
+	}
+	defer restore()
+
+	// Listen for SIGINT to break.
+	sigs := make(chan os.Signal, 1)
+	defer signal.Stop(sigs)
+	signal.Notify(sigs, os.Interrupt)
+
+	term := term.NewTerminal(stdReadWriter, "cilium> ")
+	printShellGreeting(term)
+
+	for {
+		// Try to dial the shell.sock. Since it takes a moment for the agent to come up and this
+		// is meant for interactive use we'll try to be helpful and retry the dialing until
+		// agent comes up.
+		conn, err := dialShell()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+			os.Exit(1)
+		}
+
+		stop := make(chan struct{})
+		go func() {
+			select {
+			case <-stop:
+			case <-sigs:
+				// On interrupt close the connection.
+				conn.Close()
+			}
+		}()
+
+		bio := bufio.NewReader(conn)
+
+	outer:
+		for {
+			line, err := term.ReadLine()
+			if err != nil {
+				return
+			}
+			if _, err = fmt.Fprintln(conn, line); err != nil {
+				break
+			}
+
+			// Read until the command finishes with <<end>>.
+			for {
+				line, _, err := bio.ReadLine()
+				if err != nil {
+					break outer
+				}
+				if string(line) == "<<end>>" {
+					break
+				}
+				term.Write(line)
+				term.Write(newline)
+			}
+		}
+		// Clean up the previous signal watcher.
+		close(stop)
+	}
+}
+
+func printShellGreeting(term *term.Terminal) {
+	var (
+		Red     = string(term.Escape.Red)
+		Yellow  = string(term.Escape.Yellow)
+		Blue    = string(term.Escape.Blue)
+		Green   = string(term.Escape.Green)
+		Magenta = string(term.Escape.Magenta)
+		Cyan    = string(term.Escape.Cyan)
+		Reset   = string(term.Escape.Reset)
+	)
+	fmt.Fprint(term, Yellow+"    /¯¯\\\n")
+	fmt.Fprint(term, Cyan+" /¯¯"+Yellow+"\\__/"+Green+"¯¯\\"+Reset+"\n")
+	fmt.Fprintf(term, Cyan+" \\__"+Red+"/¯¯\\"+Green+"__/"+Reset+"  Cilium %s\n", version.Version)
+	fmt.Fprint(term, Green+" /¯¯"+Red+"\\__/"+Magenta+"¯¯\\"+Reset+"  Welcome to the Cilium Shell! Type 'help' for list of commands.\n")
+	fmt.Fprint(term, Green+" \\__"+Blue+"/¯¯\\"+Magenta+"__/"+Reset+"\n")
+	fmt.Fprint(term, Blue+Blue+Blue+"    \\__/"+Reset+"\n")
+	fmt.Fprint(term, "\n")
+}

@@ -57,6 +57,7 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 			genMarkdown(rootCmd, args[0])
 		},
 	}
+
 	rootCmd.AddCommand(
 		cmdrefCmd,
 		h.Command(),

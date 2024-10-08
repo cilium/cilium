@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/netip"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/statedb"
@@ -17,12 +18,16 @@ import (
 
 var (
 	DeviceIDIndex = statedb.Index[*Device, int]{
-		Name: "id",
+		Name: "index",
 		FromObject: func(d *Device) index.KeySet {
 			return index.NewKeySet(index.Int(d.Index))
 		},
 		FromKey: index.Int,
-		Unique:  true,
+		FromString: func(key string) (index.Key, error) {
+			idx, err := strconv.ParseInt(key, 10, 32)
+			return index.Int(int(idx)), err
+		},
+		Unique: true,
 	}
 
 	DeviceNameIndex = statedb.Index[*Device, string]{
@@ -30,7 +35,8 @@ var (
 		FromObject: func(d *Device) index.KeySet {
 			return index.NewKeySet(index.String(d.Name))
 		},
-		FromKey: index.String,
+		FromKey:    index.String,
+		FromString: index.FromString,
 	}
 
 	DeviceSelectedIndex = statedb.Index[*Device, bool]{
@@ -39,6 +45,18 @@ var (
 			return index.NewKeySet(index.Bool(d.Selected))
 		},
 		FromKey: index.Bool,
+		FromString: func(key string) (index.Key, error) {
+			var b bool
+			switch key {
+			case "t", "true":
+				b = true
+			case "f", "false":
+				b = false
+			default:
+				return index.Key{}, fmt.Errorf("expected 'true' or 'false'")
+			}
+			return index.Bool(b), nil
+		},
 	}
 )
 

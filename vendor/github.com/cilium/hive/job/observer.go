@@ -62,6 +62,8 @@ func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, health 
 	}
 
 	jo.health = health.NewScope("observer-job-" + jo.name)
+	defer jo.health.Close()
+
 	reportTicker := time.NewTicker(10 * time.Second)
 	defer reportTicker.Stop()
 
@@ -121,7 +123,6 @@ func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, health 
 
 	<-done
 
-	jo.health.Stopped("observer job done")
 	if err != nil {
 		l.Error("Observer job stopped with an error", "error", err)
 	} else {

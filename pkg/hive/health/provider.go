@@ -123,7 +123,7 @@ func (p *provider) ForModule(mid cell.FullModuleID) cell.Health {
 			tx.Commit()
 			return nil
 		},
-		stop: func(i types.Identifier) error {
+		stop: func(i types.Identifier, msg string) error {
 			if p.stopped.Load() {
 				return fmt.Errorf("provider is stopped, no more updates will take place")
 			}
@@ -137,7 +137,9 @@ func (p *provider) ForModule(mid cell.FullModuleID) cell.Health {
 			if !old.Stopped.IsZero() {
 				return fmt.Errorf("reporting for %q has been stopped", i)
 			}
+			old.Message = msg
 			old.Stopped = time.Now()
+			old.Level = types.Level(types.LevelStopped)
 			if _, _, err := p.statusTable.Insert(tx, old); err != nil {
 				return fmt.Errorf("stopping reporter - upsert status %s: %w", old, err)
 			}
@@ -155,7 +157,7 @@ type moduleReporter struct {
 	stopped         atomic.Bool
 	providerStopped func() bool
 	upsert          func(types.Status) error
-	stop            func(types.Identifier) error
+	stop            func(types.Identifier, string) error
 	deletePrefix    func(types.Identifier) error
 }
 
@@ -218,7 +220,7 @@ func (r *moduleReporter) Degraded(msg string, err error) {
 // maintaining the last known status of the reporter.
 func (r *moduleReporter) Stopped(msg string) {
 	r.stopped.Store(true)
-	if err := r.stop(r.id); err != nil {
+	if err := r.stop(r.id, msg); err != nil {
 		r.logger.Error("failed to delete reporter status tree", slog.String(logfields.Error, err.Error()))
 	}
 }

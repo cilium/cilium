@@ -152,6 +152,7 @@ func (jt *jobTimer) start(ctx context.Context, wg *sync.WaitGroup, health cell.H
 	}
 
 	jt.health = health.NewScope("timer-job-" + jt.name)
+	defer jt.health.Close()
 
 	l := options.logger.With(
 		"name", jt.name,
@@ -175,7 +176,6 @@ func (jt *jobTimer) start(ctx context.Context, wg *sync.WaitGroup, health cell.H
 	for {
 		select {
 		case <-ctx.Done():
-			jt.health.Stopped("timer job context done")
 			return
 		case <-tickerChan:
 		case <-triggerChan:

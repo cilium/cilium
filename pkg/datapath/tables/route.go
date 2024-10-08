@@ -7,6 +7,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/netip"
+	"strconv"
+	"strings"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
@@ -25,15 +27,42 @@ var (
 			)
 		},
 		FromKey: RouteID.Key,
-		Unique:  true,
+		FromString: func(key string) (index.Key, error) {
+			if !strings.Contains(key, ",") {
+				// To make this slightly more user-friendly, check if there's
+				// commas, and if not show usage.
+				return index.Key{}, fmt.Errorf("expected <table>,<link-index>,<destination>, e.g. '254,2,0.0.0.0/0'. Partials allowed, e.g. '254,', or '254,2,'")
+			}
+
+			var dst string
+			var routeID RouteID
+			// Ignore error to allow partial matching.
+			fmt.Sscanf(key, "%d,%d,%s", (*uint32)(&routeID.Table), &routeID.LinkIndex, &dst)
+			if dst != "" {
+				var err error
+				routeID.Dst, err = netip.ParsePrefix(dst)
+				if err != nil {
+					return index.Key{}, err
+				}
+			}
+			return routeID.PartialKey(), nil
+		},
+		Unique: true,
 	}
 
 	RouteLinkIndex = statedb.Index[*Route, int]{
-		Name: "LinkIndex",
+		Name: "link-index",
 		FromObject: func(r *Route) index.KeySet {
 			return index.NewKeySet(index.Int(r.LinkIndex))
 		},
 		FromKey: index.Int,
+		FromString: func(key string) (index.Key, error) {
+			idx, err := strconv.ParseInt(key, 10, 32)
+			if err != nil {
+				return index.Key{}, err
+			}
+			return index.Int(int(idx)), nil
+		},
 	}
 )
 
@@ -55,6 +84,21 @@ func (id RouteID) Key() index.Key {
 	key := make([]byte, 0, 4 /* table */ +4 /* link */ +17 /* prefix & bits */)
 	key = binary.BigEndian.AppendUint32(key, uint32(id.Table))
 	key = binary.BigEndian.AppendUint32(key, uint32(id.LinkIndex))
+	addrBytes := id.Dst.Addr().As16()
+	key = append(key, addrBytes[:]...)
+	return append(key, uint8(id.Dst.Bits()))
+}
+
+func (id RouteID) PartialKey() index.Key {
+	key := make([]byte, 0, 4 /* table */ +4 /* link */ +17 /* prefix & bits */)
+	key = binary.BigEndian.AppendUint32(key, uint32(id.Table))
+	if id.LinkIndex == 0 {
+		return key
+	}
+	key = binary.BigEndian.AppendUint32(key, uint32(id.LinkIndex))
+	if !id.Dst.IsValid() {
+		return key
+	}
 	addrBytes := id.Dst.Addr().As16()
 	key = append(key, addrBytes[:]...)
 	return append(key, uint8(id.Dst.Bits()))
