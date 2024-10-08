@@ -60,6 +60,12 @@ func SetupNetkitWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gso
 		Mode:       mode,
 		Policy:     netlink.NETKIT_POLICY_FORWARD,
 		PeerPolicy: netlink.NETKIT_POLICY_BLACKHOLE,
+		// Disable scrubbing on the primary device to ensure that the mark is
+		// preserved for cil_to_container when using endpoint routes.
+		Scrub: netlink.NETKIT_SCRUB_NONE,
+		// Ensure that packets leaving the pod's networking namespace are
+		// scrubbed.
+		PeerScrub: netlink.NETKIT_SCRUB_DEFAULT,
 	}
 	peerAttr := &netlink.LinkAttrs{
 		Name: peerIfName,
@@ -91,6 +97,12 @@ func SetupNetkitWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gso
 	peer, err := netlink.LinkByName(peerIfName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to lookup netkit peer just created: %w", err)
+	}
+
+	if nk, ok := peer.(*netlink.Netkit); !ok {
+		log.WithField(logfields.NetkitPair, []string{peerIfName, lxcIfName}).Debug("peer does not appear to be a Netkit device")
+	} else if !nk.SupportsScrub() {
+		log.WithField(logfields.Netkit, netkit.Name).Warn("kernel does not support IFLA_NETKIT_SCRUB, some features may not work with netkit")
 	}
 
 	if err = netlink.LinkSetMTU(peer, mtu); err != nil {
