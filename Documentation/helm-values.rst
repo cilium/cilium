@@ -108,6 +108,10 @@
      - Security context to be added to spire agent pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
      - object
      - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.install.agent.priorityClassName`
+     - The priority class to use for the spire agent
+     - string
+     - ``""``
    * - :spelling:ignore:`authentication.mutual.spire.install.agent.resources`
      - container resource limits & requests
      - object
@@ -196,6 +200,10 @@
      - Security context to be added to spire server pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
      - object
      - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.install.server.priorityClassName`
+     - The priority class to use for the spire server
+     - string
+     - ``""``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.resources`
      - container resource limits & requests
      - object
