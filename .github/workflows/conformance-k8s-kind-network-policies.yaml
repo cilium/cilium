@@ -136,7 +136,6 @@ jobs:
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=cni.chainingMode=portmap \
             --helm-set=kubeProxyReplacement=true \
-            --helm-set=sessionAffinity=true \
             --helm-set=identityChangeGracePeriod="0s""
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
