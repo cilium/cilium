@@ -313,8 +313,29 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 		int ret;
 		struct ipv4_ct_tuple rtuple = {};
 
+		set_v4_rtuple(tuple, *state, &rtuple);
 		if (target->addr == (*state)->to_saddr &&
 		    needs_ct == (*state)->common.needs_ct) {
+			/* Check for the reverse SNAT entry. If it is missing (e.g. due to LRU
+			 * eviction), it must be restored before returning.
+			 */
+			struct ipv4_nat_entry rstate;
+			struct ipv4_nat_entry *lookup_result;
+
+			lookup_result = __snat_lookup(map, &rtuple);
+			if (!lookup_result) {
+				memset(&rstate, 0, sizeof(rstate));
+				rstate.to_daddr = tuple->saddr;
+				rstate.to_dport = tuple->sport;
+				rstate.common.needs_ct = needs_ct;
+				rstate.common.created = bpf_mono_now();
+				ret = __snat_create(map, &rtuple, &rstate);
+				if (ret < 0) {
+					if (ext_err)
+						*ext_err = (__s8)ret;
+					return DROP_NAT_NO_MAPPING;
+				}
+			}
 			barrier_data(*state);
 			return 0;
 		}
@@ -327,7 +348,6 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			return ret;
 
-		set_v4_rtuple(tuple, *state, &rtuple);
 		*state = __snat_lookup(map, &rtuple);
 		if (*state)
 			/* snat_v4_new_mapping will create new RevSNAT entry even if deleting
@@ -1227,8 +1247,29 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 		int ret;
 		struct ipv6_ct_tuple rtuple = {};
 
+		set_v6_rtuple(tuple, *state, &rtuple);
 		if (ipv6_addr_equals(&target->addr, &(*state)->to_saddr) &&
 		    needs_ct == (*state)->common.needs_ct) {
+			/* Check for the reverse SNAT entry. If it is missing (e.g. due to LRU
+			 * eviction), it must be restored before returning.
+			 */
+			struct ipv6_nat_entry rstate;
+			struct ipv6_nat_entry *lookup_result;
+
+			lookup_result = snat_v6_lookup(&rtuple);
+			if (!lookup_result) {
+				memset(&rstate, 0, sizeof(rstate));
+				rstate.to_daddr = tuple->saddr;
+				rstate.to_dport = tuple->sport;
+				rstate.common.needs_ct = needs_ct;
+				rstate.common.created = bpf_mono_now();
+				ret = __snat_create(&SNAT_MAPPING_IPV6, &rtuple, &rstate);
+				if (ret < 0) {
+					if (ext_err)
+						*ext_err = (__s8)ret;
+					return DROP_NAT_NO_MAPPING;
+				}
+			}
 			barrier_data(*state);
 			return 0;
 		}
@@ -1238,7 +1279,6 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			return ret;
 
-		set_v6_rtuple(tuple, *state, &rtuple);
 		*state = snat_v6_lookup(&rtuple);
 		if (*state)
 			__snat_delete(&SNAT_MAPPING_IPV6, &rtuple);
