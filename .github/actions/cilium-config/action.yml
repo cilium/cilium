@@ -83,7 +83,9 @@ runs:
             --helm-set=authentication.mutual.spire.enabled=${{ inputs.mutual-auth }} \
             --nodes-without-cilium \
             --helm-set-string=kubeProxyReplacement=${{ inputs.kpr }} \
-            --set='${{ inputs.misc }}'"
+            --set='${{ inputs.misc }}' \
+            --helm-set=healthChecking=false \
+            --helm-set=endpointHealthChecking.enabled=false"
 
           IMAGE=""
           if [ "${{ inputs.image-tag }}" != "" ]; then
