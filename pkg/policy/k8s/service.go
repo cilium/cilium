@@ -117,7 +117,7 @@ func (p *policyWatcher) updateToServicesPolicies(svcID k8s.ServiceID, newSVC, ol
 func (p *policyWatcher) resolveToServices(key resource.Key, cnp *types.SlimCNP) {
 	// We consult the service cache to obtain the service endpoints
 	// which are selected by the ToServices selectors found in the CNP.
-	p.svcCache.ForEachService(func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.Endpoints) bool {
+	p.svcCache.ForEachService(func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.EndpointSlices) bool {
 		if !p.isSelectableService(svc) {
 			return true // continue
 		}
@@ -259,14 +259,14 @@ func serviceRefMatches(ref *api.K8sServiceNamespace, svcID k8s.ServiceID) bool {
 type serviceEndpoints struct {
 	svcID k8s.ServiceID
 	svc   *k8s.Service
-	eps   *k8s.Endpoints
+	eps   *k8s.EndpointSlices
 
 	valid  bool
 	cached []api.CIDR
 }
 
 // newServiceEndpoints returns an initialized serviceEndpoints struct
-func newServiceEndpoints(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.Endpoints) *serviceEndpoints {
+func newServiceEndpoints(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.EndpointSlices) *serviceEndpoints {
 	return &serviceEndpoints{
 		svcID: svcID,
 		svc:   svc,
@@ -281,7 +281,7 @@ func (s *serviceEndpoints) endpoints() []api.CIDR {
 		return s.cached
 	}
 
-	prefixes := s.eps.Prefixes()
+	prefixes := s.eps.GetEndpoints().Prefixes()
 	s.cached = make([]api.CIDR, 0, len(prefixes))
 	for _, prefix := range prefixes {
 		s.cached = append(s.cached, api.CIDR(prefix.String()))

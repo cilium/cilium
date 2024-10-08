@@ -468,8 +468,8 @@ func TestForEachService(t *testing.T) {
 	}, 2*time.Second))
 
 	services := map[ServiceID]*Endpoints{}
-	svcCache.ForEachService(func(svcID ServiceID, svc *Service, eps *Endpoints) bool {
-		services[svcID] = eps
+	svcCache.ForEachService(func(svcID ServiceID, svc *Service, eps *EndpointSlices) bool {
+		services[svcID] = eps.GetEndpoints()
 		return true
 	})
 	require.Equal(t, map[ServiceID]*Endpoints{

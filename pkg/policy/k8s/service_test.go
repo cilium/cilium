@@ -56,9 +56,11 @@ type fakeService struct {
 
 type fakeServiceCache map[k8s.ServiceID]fakeService
 
-func (f fakeServiceCache) ForEachService(yield func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.Endpoints) bool) {
+func (f fakeServiceCache) ForEachService(yield func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.EndpointSlices) bool) {
 	for svcID, s := range f {
-		if !yield(svcID, s.svc, s.eps) {
+		eps := k8s.NewEndpointsSlices()
+		eps.Upsert("foo", s.eps)
+		if !yield(svcID, s.svc, eps) {
 			break
 		}
 	}
