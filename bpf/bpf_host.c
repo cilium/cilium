@@ -1159,15 +1159,16 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 
 		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid, from_host);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
-		if (from_host) {
+
 # if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6)
+		if (from_host) {
 			/* If we don't rely on BPF-based masquerading, we need
 			 * to pass the srcid from ipcache to host firewall. See
 			 * comment in ipv6_host_policy_egress() for details.
 			 */
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
-# endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6) */
 		}
+# endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6) */
 
 		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor);
@@ -1192,15 +1193,16 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid,
 					      from_host);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
-		if (from_host) {
+
 # if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4)
+		if (from_host) {
 			/* If we don't rely on BPF-based masquerading, we need
 			 * to pass the srcid from ipcache to host firewall. See
 			 * comment in ipv4_host_policy_egress() for details.
 			 */
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
-# endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4) */
 		}
+# endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV4) */
 
 		send_trace_notify(ctx, obs_point, ipcache_srcid, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor);
