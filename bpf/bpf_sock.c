@@ -297,7 +297,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	 * is from the host.
 	 */
 	if (sock4_skip_xlate(svc, orig_key.address))
-		return -EPERM;
+		return -ECONNREFUSED;
 
 #ifdef ENABLE_LOCAL_REDIRECT_POLICY
 	if (lb4_svc_is_localredirect(svc) &&
@@ -994,7 +994,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 				bpf_ntohs(dst_port));
 
 	if (sock6_skip_xlate(svc, &orig_key.address))
-		return -EPERM;
+		return -ECONNREFUSED;
 
 #if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(HAVE_NETNS_COOKIE)
 	if (lb6_svc_is_localredirect(svc) &&
