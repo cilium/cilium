@@ -68,7 +68,14 @@ func (p *policyWatcher) onUpsert(
 	if hasToServices(cnp) {
 		p.toServicesPolicies[key] = struct{}{}
 	} else {
-		delete(p.toServicesPolicies, key)
+		if _, hadToServices := p.toServicesPolicies[key]; hadToServices {
+			// transitioning from with toServices to without toServices
+			delete(p.toServicesPolicies, key)
+			// Clear ToServices index
+			for svcID := range p.cnpByServiceID {
+				p.clearCNPForService(key, svcID)
+			}
+		}
 	}
 
 	return p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID)
@@ -120,7 +127,9 @@ func (p *policyWatcher) resolveCiliumNetworkPolicyRefs(
 	metrics.CIDRGroupTranslationTimeStats.Observe(time.Since(translationStart).Seconds())
 
 	// Resolve ToService references
-	p.resolveToServices(key, translatedCNP)
+	if _, exists := p.toServicesPolicies[key]; exists {
+		p.resolveToServices(key, translatedCNP)
+	}
 
 	err := p.upsertCiliumNetworkPolicyV2(translatedCNP, initialRecvTime, resourceID)
 	if err == nil {
