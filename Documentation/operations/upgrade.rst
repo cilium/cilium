@@ -512,7 +512,7 @@ Generate the latest ConfigMap
 
     helm template cilium \
       --namespace=kube-system \
-      --set agent.enabled=false \
+      --set agent=false \
       --set config.enabled=true \
       --set operator.enabled=false \
       > cilium-configmap.yaml
@@ -618,7 +618,7 @@ The cilium preflight manifest requires etcd support and can be built with:
     helm template cilium \
       --namespace=kube-system \
       --set preflight.enabled=true \
-      --set agent.enabled=false \
+      --set agent=false \
       --set config.enabled=false \
       --set operator.enabled=false \
       --set etcd.enabled=true \
