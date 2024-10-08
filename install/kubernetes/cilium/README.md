@@ -364,7 +364,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.extraVolumes | list | `[]` | Additional envoy volumes. |
 | envoy.healthPort | int | `9878` | TCP port for the health API. |
 | envoy.idleTimeoutDurationSeconds | int | `60` | Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s |
-| envoy.image | object | `{"digest":"sha256:0daf2073092b333d7522c2c8044deaa9882b8afcd422b68d4f010ce56a99f9a7","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.30.6-1728126854-d4a8ad394cddacd70edee2af6ea1b9dcce3c7e52","useDigest":true}` | Envoy container image. |
+| envoy.image | object | `{"digest":"sha256:8ce0d0514a70a4d9141d946491c9bfe5fd479c1992ab6ef06f9af99ab938d1d9","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.30.6-1728346971-e2dfcc576d5152c967479115e0e0a3905be766bb","useDigest":true}` | Envoy container image. |
 | envoy.livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
 | envoy.livenessProbe.periodSeconds | int | `30` | interval between checks of the liveness probe |
 | envoy.log.defaultLevel | string | Defaults to the default log level of the Cilium Agent - `info` | Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled. This option allows to have a different log level than the Cilium Agent - e.g. lower it to `critical`. Possible values: trace, debug, info, warning, error, critical, off |
