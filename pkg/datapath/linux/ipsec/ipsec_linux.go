@@ -48,7 +48,6 @@ const (
 	IPSecDirIn      IPSecDir = "IPSEC_IN"
 	IPSecDirOut     IPSecDir = "IPSEC_OUT"
 	IPSecDirFwd     IPSecDir = "IPSEC_FWD"
-	IPSecDirBoth    IPSecDir = "IPSEC_BOTH"
 	IPSecDirOutNode IPSecDir = "IPSEC_OUT_NODE"
 
 	// Constants used to decode the IPsec secret in both formats:
@@ -949,7 +948,7 @@ func UpsertIPsecEndpoint(log *slog.Logger, params *IPSecParameters) (uint8, erro
 	 * state would need to be cached in the ipcache.
 	 */
 	if !params.SourceTunnelIP.Equal(*params.DestTunnelIP) {
-		if params.Dir == IPSecDirIn || params.Dir == IPSecDirBoth {
+		if params.Dir == IPSecDirIn {
 			if spi, err = ipSecReplaceStateIn(log, params); err != nil {
 				return 0, fmt.Errorf("unable to replace local state: %w", err)
 			}
@@ -968,7 +967,7 @@ func UpsertIPsecEndpoint(log *slog.Logger, params *IPSecParameters) (uint8, erro
 			}
 		}
 
-		if params.Dir == IPSecDirOut || params.Dir == IPSecDirOutNode || params.Dir == IPSecDirBoth {
+		if params.Dir == IPSecDirOut || params.Dir == IPSecDirOutNode {
 			if spi, err = ipSecReplaceStateOut(log, params); err != nil {
 				return 0, fmt.Errorf("unable to replace remote state: %w", err)
 			}
