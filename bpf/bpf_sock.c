@@ -285,7 +285,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (!svc)
 		return -ENXIO;
 	if (svc->count == 0 && !lb4_svc_is_l7loadbalancer(svc))
-		return -EHOSTUNREACH;
+		return -ECONNREFUSED;
 
 	send_trace_sock_notify4(ctx_full, XLATE_PRE_DIRECTION_FWD, dst_ip,
 				bpf_ntohs(dst_port));
@@ -412,7 +412,7 @@ int cil_sock4_connect(struct bpf_sock_addr *ctx)
 #endif /* ENABLE_HEALTH_CHECK */
 
 	err = __sock4_xlate_fwd(ctx, ctx, false);
-	if (err == -EHOSTUNREACH || err == -ENOMEM) {
+	if (err == -EHOSTUNREACH || err == -ENOMEM || err == -ECONNREFUSED) {
 		try_set_retval(err);
 		return SYS_REJECT;
 	}
@@ -582,7 +582,7 @@ int cil_sock4_sendmsg(struct bpf_sock_addr *ctx)
 	int err;
 
 	err = __sock4_xlate_fwd(ctx, ctx, true);
-	if (err == -EHOSTUNREACH || err == -ENOMEM) {
+	if (err == -EHOSTUNREACH || err == -ENOMEM || err == -ECONNREFUSED) {
 		try_set_retval(err);
 		return SYS_REJECT;
 	}
@@ -988,7 +988,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (!svc)
 		return sock6_xlate_v4_in_v6(ctx, udp_only);
 	if (svc->count == 0 && !lb6_svc_is_l7loadbalancer(svc))
-		return -EHOSTUNREACH;
+		return -ECONNREFUSED;
 
 	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_FWD, &key.address,
 				bpf_ntohs(dst_port));
@@ -1086,7 +1086,7 @@ int cil_sock6_connect(struct bpf_sock_addr *ctx)
 #endif /* ENABLE_HEALTH_CHECK */
 
 	err = __sock6_xlate_fwd(ctx, false);
-	if (err == -EHOSTUNREACH || err == -ENOMEM) {
+	if (err == -EHOSTUNREACH || err == -ENOMEM || err == -ECONNREFUSED) {
 		try_set_retval(err);
 		return SYS_REJECT;
 	}
@@ -1183,7 +1183,7 @@ int cil_sock6_sendmsg(struct bpf_sock_addr *ctx)
 	int err;
 
 	err = __sock6_xlate_fwd(ctx, true);
-	if (err == -EHOSTUNREACH || err == -ENOMEM) {
+	if (err == -EHOSTUNREACH || err == -ENOMEM || err == -ECONNREFUSED) {
 		try_set_retval(err);
 		return SYS_REJECT;
 	}
