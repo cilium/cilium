@@ -277,6 +277,7 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 {
 	bool needs_ct = target->needs_ct;
 	void *map;
+	struct ipv4_nat_entry *rstate;
 
 	map = get_cluster_snat_map_v4(target->cluster_id);
 	if (!map)
@@ -312,24 +313,25 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 	if (*state) {
 		int ret;
 		struct ipv4_ct_tuple rtuple = {};
-
-		if (target->addr == (*state)->to_saddr &&
+		/* reverse SNAT entries could be missing due to LRU eviction */
+		set_v4_rtuple(tuple, *state, &rtuple);
+		rstate = __snat_lookup(map, &rtuple);
+		if (rstate &&
+		    target->addr == (*state)->to_saddr &&
 		    needs_ct == (*state)->common.needs_ct) {
 			barrier_data(*state);
 			return 0;
 		}
 
-		/* Recreate the SNAT and RevSNAT entries if the source IP is stale.
-		 * Otherwise, the packet will be erroneously SNATed with the stale
-		 * source IP.
+		/* Recreate the SNAT and RevSNAT entries if the source IP is stale,
+		 * or the RevSNAT entries are missing. Otherwise, the packet will be
+		 * erroneously SNATed with the stale source IP or dropped.
 		 */
 		ret = __snat_delete(map, tuple);
 		if (IS_ERR(ret))
 			return ret;
 
-		set_v4_rtuple(tuple, *state, &rtuple);
-		*state = __snat_lookup(map, &rtuple);
-		if (*state)
+		if (rstate)
 			/* snat_v4_new_mapping will create new RevSNAT entry even if deleting
 			 * the old RevSNAT entry fails. We would leave it behind though.
 			 */
