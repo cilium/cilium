@@ -1,7 +1,8 @@
 {{$deployments := .Deployments}}
 {{$cnps := .CNPs}}
 {{$dp :=  DivideInt .Index $cnps}}
-{{$cnpno :=  Mod .Index $cnps}}
+{{$cnpno :=  Mod .Index 2}}
+{{$idx := .Index}}
 
 {{$CIDRs := 5}}
 {{$PORTs := 5}}
@@ -20,17 +21,6 @@ spec:
       indexing: id-{{$dp}}
   egress:
 {{if eq $cnpno 0}}
-# regular L3 policy
-  - toEndpoints:
-    - matchLabels:
-        indexing: id-{{RandIntRange 0 $deployments}}
-{{else if eq $cnpno 1}}
-# CIDR policy
-  - toCIDR:
-  {{ range $index := Loop $CIDRs }}
-    - 177.{{RandIntRange 1 255}}.{{RandIntRange 1 255}}.{{RandIntRange 1 255}}/32
-  {{ end }}
-{{else if eq $cnpno 2}}
 # L4 policy
   - toEndpoints:
     - matchLabels:
@@ -38,36 +28,27 @@ spec:
     toPorts:
     - ports:
   {{ range $index := Loop $PORTs }}
-      - port: "{{RandIntRange 1 65000}}"
+  {{ $pS := MultiplyInt $idx $index }}
+  {{ $startPort := Mod $pS 65515}}
+  {{ $endPort := AddInt 19 $startPort }}
+      - port: "{{$startPort}}"
+        endPort: {{$endPort}}
         protocol: TCP
   {{ end }}
-{{else if eq $cnpno 3}}
+{{else}}
 # L4 CIDR policy
   - toCIDR:
   {{ range $index := Loop $CIDRs }}
-    - 177.{{RandIntRange 0 256}}.{{RandIntRange 1 255}}.{{RandIntRange 1 255}}/32
+    - 177.{{RandIntRange 0 255}}.{{RandIntRange 1 255}}.{{RandIntRange 1 255}}/32
   {{ end }}
     toPorts:
     - ports:
   {{ range $index := Loop $PORTs }}
-      - port: "{{RandIntRange 1 65000}}"
+  {{ $pS := MultiplyInt $idx $index }}
+  {{ $startPort := Mod $pS 65515}}
+  {{ $endPort := AddInt 19 $startPort }}
+      - port: "{{$startPort}}"
+        endPort: {{$endPort}}
         protocol: TCP
-  {{ end }}
-{{else}}
-# FQDN policy
-  - toEndpoints:
-    - matchLabels:
-        "k8s:io.kubernetes.pod.namespace": kube-system
-        "k8s:k8s-app": kube-dns
-    toPorts:
-      - ports:
-         - port: "53"
-           protocol: ANY
-        rules:
-          dns:
-            - matchPattern: "*"
-  - toFQDNs:
-  {{ range $index := Loop $DNSs }}
-      - matchName: "{{RandIntRange 0 1000000}}.my-remote-service.com"
   {{ end }}
 {{end}}
