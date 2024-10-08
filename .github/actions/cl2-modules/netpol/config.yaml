@@ -1,7 +1,7 @@
 # Total number of DNS requests per node is qps * namespaces
 {{$PODS_PER_NODE := 30}}
 {{$PODS_PER_DEPLOYMENT := 5}}
-{{$CNPS_PER_DEPLOYMENT := 5}}
+{{$CNPS_PER_DEPLOYMENT := 15 }}
 {{$namespaces := MaxInt (DivideInt .Nodes 100) 1}}
 {{$QPS := DefaultParam .CL2_QPS 10}}
 {{$TimeToLoad := MultiplyInt $namespaces 6}}
