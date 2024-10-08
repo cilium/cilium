@@ -2269,8 +2269,6 @@ func (e MapStateEntry) asDeny() MapStateEntry {
 	if !e.IsDeny {
 		e.IsDeny = true
 		e.ProxyPort = 0
-		e.Listener = ""
-		e.priority = 0
 		e.hasAuthType = DefaultAuthType
 		e.AuthType = AuthTypeDisabled
 	}

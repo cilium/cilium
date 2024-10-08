@@ -809,7 +809,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 					// When newKey.Identity is not ANY and is different from the
 					// subset key, but still a superset (e.g., in CIDR sense) we
 					// must keep the subset key and make it a deny instead.
-					l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
+					l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
 					ms.addKeyWithChanges(k, l3l4DenyEntry, changes)
 					newEntry.AddDependent(k)
 				}
@@ -825,7 +825,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				// identity of the iterated allow key must be added.
 				denyKeyCpy := newKey
 				denyKeyCpy.Identity = k.Identity
-				l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
+				l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
 				ms.addKeyWithChanges(denyKeyCpy, l3l4DenyEntry, changes)
 				newEntry.AddDependent(denyKeyCpy)
 			}
@@ -933,7 +933,7 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 					// must be added.
 					denyKeyCpy := k
 					denyKeyCpy.Identity = newKey.Identity
-					l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled)
+					l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
 					ms.addKeyWithChanges(denyKeyCpy, l3l4DenyEntry, changes)
 					// L3-only entries can be deleted incrementally so we need
 					// to track their effects on other entries so that those
@@ -948,8 +948,6 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		if changeToDeny {
 			newEntry.IsDeny = true
 			newEntry.ProxyPort = 0
-			newEntry.Listener = ""
-			newEntry.priority = 0
 			newEntry.hasAuthType = DefaultAuthType
 			newEntry.AuthType = AuthTypeDisabled
 		}
