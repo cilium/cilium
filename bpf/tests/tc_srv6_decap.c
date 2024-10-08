@@ -124,7 +124,7 @@ int srv6_decap_to_pod_ipv4_setup(struct __ctx_buff *ctx __maybe_unused)
 
 	map_update_elem(&SRV6_SID_MAP, &sid, &vrf_id, 0);
 
-	endpoint_v4_add_entry(POD_IPV4, 12345, 100, 0, 0,
+	endpoint_v4_add_entry(POD_IPV4, 12345, 100, 0, 0, 0,
 			      (__u8 *)POD_MAC, (__u8 *)ROUTER_MAC);
 
 	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
@@ -405,7 +405,7 @@ int srv6_decap_to_service_ipv4_setup(struct __ctx_buff *ctx __maybe_unused)
 	lb_v4_add_backend(SERVICE_IPV4, SERVICE_PORT, 1, 124,
 			  POD_IPV4, SERVICE_PORT, IPPROTO_TCP, 0);
 
-	endpoint_v4_add_entry(POD_IPV4, 12345, 100, 0, 0,
+	endpoint_v4_add_entry(POD_IPV4, 12345, 100, 0, 0, 0,
 			      (__u8 *)POD_MAC, (__u8 *)ROUTER_MAC);
 
 	tail_call_static(ctx, entry_call_map, FROM_NETDEV);

@@ -80,7 +80,7 @@ SETUP("tc", "hostfw_iptables_host_ipv4_01_pod")
 int hostfw_iptables_host_ipv4_01_pod_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(NODE_IP, 0, 0, ENDPOINT_F_HOST, HOST_ID,
-			      (__u8 *)node_mac, (__u8 *)node_mac);
+			      0, (__u8 *)node_mac, (__u8 *)node_mac);
 	ipcache_v4_add_entry(NODE_IP, 0, HOST_ID, 0, 0);
 	ipcache_v4_add_world_entry();
 
