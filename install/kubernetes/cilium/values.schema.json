@@ -1502,12 +1502,6 @@
             "string"
           ]
         },
-        "enableConntrackLocal": {
-          "type": [
-            "null",
-            "boolean"
-          ]
-        },
         "enableSourceIPVerification": {
           "type": [
             "null",

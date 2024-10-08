@@ -944,10 +944,6 @@
      - Configure a custom list of possible configuration override sources The default is "config-map:cilium-config,cilium-node-config". For supported values, see the help text for the build-config subcommand. Note that this value should be a comma-separated string.
      - string
      - ``nil``
-   * - :spelling:ignore:`daemon.enableConntrackLocal`
-     - enableConntrackLocal is a boolean flag to enable or disable local conntrack  By default, this functionality is enabled
-     - bool
-     - ``true``
    * - :spelling:ignore:`daemon.enableSourceIPVerification`
      - enableSourceIPVerification is a boolean flag to enable or disable the Source IP verification of endpoints. This flag is useful when Cilium is chained with other CNIs.  By default, this functionality is enabled
      - bool
