@@ -388,6 +388,23 @@ jobs:
             host-fw: 'true'
             skip-upgrade: 'true'
 
+          - name: '24'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '6.1-20240710.064909'
+            kube-proxy: 'none'
+            kpr: 'true'
+            devices: '{eth0,eth1}'
+            tunnel: 'vxlan'
+            lb-mode: 'snat'
+            egress-gateway: 'true'
+            host-fw: 'true'
+            lb-acceleration: 'testing-only'
+            ingress-controller: 'true'
+            bgp-control-plane: 'true'
+            fips: 'true'
+            skip-upgrade: 'true'
+
+
           # Example of a feature that is being introduced, and we want to test
           # it without performing an upgrade, we use skip-upgrade: 'true'
           # - name: '23'
@@ -425,6 +442,7 @@ jobs:
             SHA="${{ github.sha }}"
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
+          echo fips_sha="${SHA}-fips"
           CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
 
@@ -458,7 +476,7 @@ jobs:
         id: cilium-newest-config
         uses: ./.github/actions/cilium-config
         with:
-          image-tag: ${{ steps.vars.outputs.sha }}
+          image-tag: ${{ matrix.fips && steps.vars.outputs.fips_sha || steps.vars.outputs.sha }}
           chart-dir: './untrusted/cilium-newest/install/kubernetes/cilium'
           tunnel: ${{ matrix.tunnel }}
           devices: ${{ matrix.devices }}
