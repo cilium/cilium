@@ -6,6 +6,7 @@ package ingress
 import (
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -307,10 +308,11 @@ func Test_translator_Translate(t *testing.T) {
 		},
 	}
 
+	logger := hivetest.Logger(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			trans := &dedicatedIngressTranslator{
-				cecTranslator:      translation.NewCECTranslator("cilium-secrets", tt.args.useProxyProtocol, false, false, 60, tt.args.hostNetworkEnabled, tt.args.hostNetworkNodeLabelSelector, tt.args.ipv4Enabled, tt.args.ipv6Enabled, 0),
+				cecTranslator:      translation.NewCECTranslator(logger, "cilium-secrets", tt.args.useProxyProtocol, false, false, 60, tt.args.hostNetworkEnabled, tt.args.hostNetworkNodeLabelSelector, tt.args.ipv4Enabled, tt.args.ipv6Enabled, 0),
 				hostNetworkEnabled: tt.args.hostNetworkEnabled,
 			}
 

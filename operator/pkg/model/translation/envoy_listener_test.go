@@ -7,7 +7,9 @@ import (
 	"slices"
 	"sort"
 	"testing"
+	"time"
 
+	"github.com/cilium/hive/hivetest"
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	httpConnectionManagerv3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -22,8 +24,10 @@ import (
 )
 
 func TestNewListener(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	t.Run("Empty", func(t *testing.T) {
-		res, err := newListener("dummy-name", "dummy-secret-namespace", false, nil, nil)
+		res, err := newListener(logger, "dummy-name", "dummy-secret-namespace", false, nil, nil)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -36,7 +40,7 @@ func TestNewListener(t *testing.T) {
 	})
 
 	t.Run("without TLS", func(t *testing.T) {
-		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil)
+		res, err := newListener(logger, "dummy-name", "dummy-secret-namespace", true, nil, nil)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -49,7 +53,7 @@ func TestNewListener(t *testing.T) {
 	})
 
 	t.Run("with default XffNumTrustedHops", func(t *testing.T) {
-		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil)
+		res, err := newListener(logger, "dummy-name", "dummy-secret-namespace", true, nil, nil)
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -65,7 +69,7 @@ func TestNewListener(t *testing.T) {
 	})
 
 	t.Run("without TLS with Proxy Protocol", func(t *testing.T) {
-		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil, WithProxyProtocol())
+		res, err := newListener(logger, "dummy-name", "dummy-secret-namespace", true, nil, nil, WithProxyProtocol())
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -84,13 +88,13 @@ func TestNewListener(t *testing.T) {
 	})
 
 	t.Run("stable filterchain sort-order with TLS", func(t *testing.T) {
-		res1, err1 := newListener("dummy-name", "dummy-secret-namespace", true, map[model.TLSSecret][]string{
-			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
-			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
+		res1, err1 := newListener(logger, "dummy-name", "dummy-secret-namespace", true, map[model.TLSSecret][]string{
+			{CreatedOn: time.Now().Add(-10 * time.Second), Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
+			{CreatedOn: time.Now(), Name: "dummy-secret-2", Namespace: "dummy-namespace"}:                        {"dummy.anotherserver.com"},
 		}, nil)
-		res2, err2 := newListener("dummy-name", "dummy-secret-namespace", true, map[model.TLSSecret][]string{
-			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
-			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
+		res2, err2 := newListener(logger, "dummy-name", "dummy-secret-namespace", true, map[model.TLSSecret][]string{
+			{CreatedOn: time.Now(), Name: "dummy-secret-2", Namespace: "dummy-namespace"}:                        {"dummy.anotherserver.com"},
+			{CreatedOn: time.Now().Add(-10 * time.Second), Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
 		}, nil)
 
 		require.NoError(t, err1)
@@ -102,8 +106,27 @@ func TestNewListener(t *testing.T) {
 		}
 	})
 
+	t.Run("stable filterchain with dup hosts with TLS", func(t *testing.T) {
+		res1, err1 := newListener(logger, "dummy-name", "dummy-secret-namespace", true, map[model.TLSSecret][]string{
+			{CreatedOn: time.Now().Add(-10 * time.Second), Name: "dummy-secret-1", Namespace: "a"}: {"dummy.server.com", "dup.com"},
+			{CreatedOn: time.Now(), Name: "dummy-secret-2", Namespace: "b"}:                        {"dummy.anotherserver.com", "dup.com"},
+		}, nil)
+		require.NoError(t, err1)
+
+		res2, err2 := newListener(logger, "dummy-name", "dummy-secret-namespace", true, map[model.TLSSecret][]string{
+			{Name: "dummy-secret-1", Namespace: "a"}: {"dummy.server.com", "dup.com"},
+			{Name: "dummy-secret-2", Namespace: "b"}: {"dummy.anotherserver.com"},
+		}, nil)
+		require.NoError(t, err2)
+
+		diffOutput := cmp.Diff(res1, res2, protocmp.Transform())
+		if len(diffOutput) != 0 {
+			t.Errorf("Listeners filterchain order did not match:\n%s\n", diffOutput)
+		}
+	})
+
 	t.Run("with TLS (termination)", func(t *testing.T) {
-		res, err := newListener("dummy-name", "dummy-secret-namespace", true, map[model.TLSSecret][]string{
+		res, err := newListener(logger, "dummy-name", "dummy-secret-namespace", true, map[model.TLSSecret][]string{
 			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
 			{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
 		}, nil)
@@ -149,18 +172,13 @@ func TestNewListener(t *testing.T) {
 	})
 
 	t.Run("with TLS (passthrough)", func(t *testing.T) {
-		res, err := newListener("dummy-name",
+		res, err := newListener(logger, "dummy-name",
 			"",
 			false,
 			nil,
-			map[string][]string{
-				"foo-namespace/dummy-service:443": {
-					"foo.bar",
-				},
-				"dummy-namespace/dummy-service:443": {
-					"example.org",
-					"example.com",
-				},
+			map[backendKey][]string{
+				{key: "foo-namespace:dummy-service:443"}:   {"foo.bar"},
+				{key: "dummy-namespace:dummy-service:443"}: {"example.org", "example.com"},
 			},
 		)
 		require.Nil(t, err)
@@ -176,33 +194,59 @@ func TestNewListener(t *testing.T) {
 		require.Equal(t, []string{"foo.bar"}, listener.GetFilterChains()[1].FilterChainMatch.ServerNames)
 	})
 
-	t.Run("stable filterchain sort-order for TLS passthrough", func(t *testing.T) {
-		res1, err1 := newListener("dummy-name",
+	t.Run("stable filterchain sort-order with dup hosts for TLS passthrough", func(t *testing.T) {
+		res1, err1 := newListener(logger, "dummy-name",
 			"",
 			false,
 			nil,
-			map[string][]string{
-				"dummy-namespace/dummy-service:443": {
+			map[backendKey][]string{
+				{key: "dummy-namespace:dummy-service:443", createdOn: time.Now()}: {
 					"example.org",
 					"example.com",
+					"dup.com",
 				},
-				"foo-namespace/dummy-service:443": {
+				{key: "foo-namespace:dummy-service:443", createdOn: time.Now().Add(-10 * time.Second)}: {
 					"foo.bar",
+					"dup.com",
 				},
 			},
 		)
-		res2, err2 := newListener("dummy-name",
+		require.Nil(t, err1)
+
+		res2, err2 := newListener(logger, "dummy-name",
 			"",
 			false,
 			nil,
-			map[string][]string{
-				"foo-namespace/dummy-service:443": {
-					"foo.bar",
-				},
-				"dummy-namespace/dummy-service:443": {
-					"example.org",
-					"example.com",
-				},
+			map[backendKey][]string{
+				{key: "foo-namespace:dummy-service:443"}:   {"foo.bar", "dup.com"},
+				{key: "dummy-namespace:dummy-service:443"}: {"example.org", "example.com"},
+			},
+		)
+		require.Nil(t, err2)
+
+		diffOutput := cmp.Diff(res1, res2, protocmp.Transform())
+		if len(diffOutput) != 0 {
+			t.Errorf("Listeners did not match:\n%s\n", diffOutput)
+		}
+	})
+
+	t.Run("stable filterchain sort-order for TLS passthrough", func(t *testing.T) {
+		res1, err1 := newListener(logger, "dummy-name",
+			"",
+			false,
+			nil,
+			map[backendKey][]string{
+				{key: "dummy-namespace:dummy-service:443"}: {"example.org", "example.com"},
+				{key: "foo-namespace:dummy-service:443"}:   {"foo.bar"},
+			},
+		)
+		res2, err2 := newListener(logger, "dummy-name",
+			"",
+			false,
+			nil,
+			map[backendKey][]string{
+				{key: "foo-namespace:dummy-service:443"}:   {"foo.bar"},
+				{key: "dummy-namespace:dummy-service:443"}: {"example.org", "example.com"},
 			},
 		)
 		require.Nil(t, err1)
@@ -215,7 +259,13 @@ func TestNewListener(t *testing.T) {
 	})
 
 	t.Run("TLS passthrough with Proxy Protocol", func(t *testing.T) {
-		res, err := newListener("dummy-name", "", false, nil, map[string][]string{"dummy-namespace/dummy-service:443": {"example.org", "example.com"}}, WithProxyProtocol())
+		res, err := newListener(logger,
+			"dummy-name",
+			"",
+			false,
+			nil,
+			map[backendKey][]string{{key: "dummy-namespace:dummy-service:443"}: {"example.org", "example.com"}},
+			WithProxyProtocol())
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -234,7 +284,7 @@ func TestNewListener(t *testing.T) {
 	})
 
 	t.Run("Combined (non-TLS, TLS & TLS passthrough)", func(t *testing.T) {
-		res, err := newListener("dummy-name",
+		res, err := newListener(logger, "dummy-name",
 			"dummy-namespace",
 			true,
 			map[model.TLSSecret][]string{
@@ -242,11 +292,11 @@ func TestNewListener(t *testing.T) {
 				{Name: "dummy-secret-2", Namespace: "dummy-namespace"}: {"dummy.anotherserver.com"},
 				{Name: "dummy-secret-3", Namespace: "dummy-namespace"}: {"foo.acme.com", "bar.acme.com"},
 			},
-			map[string][]string{
-				"foo-namespace/dummy-service:443": {
+			map[backendKey][]string{
+				{key: "foo-namespace:dummy-service:443", createdOn: time.Now()}: {
 					"foo.bar",
 				},
-				"dummy-namespace/dummy-service:443": {
+				{key: "dummy-namespace:dummy-service:443", createdOn: time.Now().Add(-10 * time.Second)}: {
 					"example.org",
 					"example.com",
 				},
@@ -276,7 +326,7 @@ func TestNewListener(t *testing.T) {
 	})
 
 	t.Run("without TLS with ALPN", func(t *testing.T) {
-		res, err := newListener("dummy-name", "dummy-secret-namespace", true, nil, nil, WithAlpn())
+		res, err := newListener(logger, "dummy-name", "dummy-secret-namespace", true, nil, nil, WithAlpn())
 		require.Nil(t, err)
 
 		listener := &envoy_config_listener.Listener{}
@@ -289,7 +339,7 @@ func TestNewListener(t *testing.T) {
 	})
 
 	t.Run("with TLS with ALPN", func(t *testing.T) {
-		res, err := newListener(
+		res, err := newListener(logger,
 			"dummy-name",
 			"dummy-secret-namespace",
 			true,

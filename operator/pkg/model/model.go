@@ -76,6 +76,8 @@ type HTTPListener struct {
 	// This plaintext listener will override any other plaintext HTTP config in
 	// the final rendered Envoy Config.
 	ForceHTTPtoHTTPSRedirect bool
+	// CreatedOn tracks ingress creation time
+	CreatedOn time.Time
 }
 
 func (l HTTPListener) GetSources() []FullyQualifiedResource {
@@ -128,6 +130,8 @@ type TLSPassthroughListener struct {
 	Service *Service
 	// Infrastructure configuration
 	Infrastructure *Infrastructure
+	// CreatedOn tracks ingress creation time
+	CreatedOn time.Time
 }
 
 func (l TLSPassthroughListener) GetAnnotations() map[string]string {
@@ -181,6 +185,7 @@ type FullyQualifiedResource struct {
 type TLSSecret struct {
 	Name      string
 	Namespace string
+	CreatedOn time.Time
 }
 
 // DirectResponse holds configuration for a direct response.

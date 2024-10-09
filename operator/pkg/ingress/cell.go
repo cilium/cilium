@@ -113,6 +113,7 @@ func registerReconciler(params ingressParams) error {
 	}
 
 	cecTranslator := translation.NewCECTranslator(
+		params.Logger,
 		params.IngressConfig.IngressSecretsNamespace,
 		params.IngressConfig.EnableIngressProxyProtocol,
 		false,

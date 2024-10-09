@@ -136,6 +136,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 	}
 
 	cecTranslator := translation.NewCECTranslator(
+		params.Logger,
 		params.GatewayApiConfig.GatewayAPISecretsNamespace,
 		params.GatewayApiConfig.EnableGatewayAPIProxyProtocol,
 		params.GatewayApiConfig.EnableGatewayAPIAppProtocol,
