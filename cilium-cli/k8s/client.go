@@ -38,8 +38,7 @@ import (
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
-	_ "k8s.io/client-go/plugin/pkg/client/auth" // Register all auth providers (azure, gcp, oidc, openstack, ..).
+	_ "k8s.io/client-go/plugin/pkg/client/auth" // Register all auth providers (azure, gcp, oidc, openstack, ..）
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/transport/spdy"
@@ -67,8 +66,9 @@ type Client struct {
 
 func NewClient(contextName, kubeconfig, ciliumNamespace string) (*Client, error) {
 	// Register the Cilium types in the default scheme.
-	_ = ciliumv2.AddToScheme(scheme.Scheme)
-	_ = ciliumv2alpha1.AddToScheme(scheme.Scheme)
+	scheme := runtime.NewScheme()
+	_ = ciliumv2.AddToScheme(scheme)
+	_ = ciliumv2alpha1.AddToScheme(scheme)
 
 	restClientGetter := genericclioptions.ConfigFlags{
 		Context:    &contextName,
