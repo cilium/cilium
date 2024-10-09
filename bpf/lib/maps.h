@@ -180,12 +180,6 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } NODE_MAP __section_maps_btf;
 
-struct node_value {
-	__u16 id;
-	__u8  spi;
-	__u8  pad;
-};
-
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct node_key);
