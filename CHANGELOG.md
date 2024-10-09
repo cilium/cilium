@@ -1,5 +1,69 @@
 # Changelog
 
+## v1.15.10
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* bpf: do not invoke llc from Makefiles (Backport PR #35168, Upstream PR #29459, @lmb)
+
+**Bugfixes:**
+* bugtool: fix cilium-health command (Backport PR #35276, Upstream PR #35068, @ayuspin)
+* Fix a bug in Cilium's kube-proxy replacement, where replies by a local backend are dropped with DROP_NO_FIB. (Backport PR #34917, Upstream PR #34303, @julianwiedmann)
+* Fix issue where bpf packet buffer mark would in some cases set incorrect mark value resulting in incorrectly SNATed traffic. (Backport PR #35037, Upstream PR #34789, @tommyp1ckles)
+* Fixed bug in LB-IPAM where restarting the operator would unshare previously shared IPs between services (Backport PR #35037, Upstream PR #34783, @dylandreimerink)
+* Fixed bug in tracking policy changes that could have resulted in revert not woking in failure cases as expected. (Backport PR #35276, Upstream PR #35109, @jrajahalme)
+* Fixed bug where service id allocator would loop infinity when out of service ids (Backport PR #35276, Upstream PR #35033, @WeeNews)
+* Fixes deadlock in identity watcher. This fixes an issue where a kvstore disconnect can cause the event receiver to exit and the event sender to get stuck forever. (Backport PR #35276, Upstream PR #34611, @dboslee)
+* Fixes startup fatal error when updating CiliumNode resource. (Backport PR #34917, Upstream PR #34862, @harsimran-pabla)
+* gateway-api: Align GRPCRoute matchers with GEP specification (Backport PR #35276, Upstream PR #34808, @cfsnyder)
+
+**CI Changes:**
+* .github/lint-build-commits: fix workflow for push events (Backport PR #35276, Upstream PR #35264, @aanm)
+* .github: create cache directories on cache miss (Backport PR #35168, Upstream PR #35088, @aanm)
+* .github: do not push floating tag from PRs (Backport PR #35168, Upstream PR #35227, @aanm)
+* .github: install golang action after checkout (Backport PR #35168, Upstream PR #34843, @aanm)
+* .github: re-enable configurations in e2e-upgrade (Backport PR #35168, Upstream PR #34800, @aanm)
+* .github: specify cache-dependency-path in lint-workflows (Backport PR #35168, Upstream PR #34845, @aanm)
+* [v1.15] ci: fix check generated documentation (cilium/cilium#35261, @mhofstetter)
+* ci: conformance-[gateway-api|ginkgo|ingress] wait for images before matrix generation (Backport PR #34917, Upstream PR #34820, @aanm)
+* ci: increase wait duration after upgrade/downgrade in E2E upgrade test (Backport PR #35168, Upstream PR #32528, @mhofstetter)
+* fix: repository nil value handled on workflow_dispatch context for renovate updates (Backport PR #34917, Upstream PR #34902, @Artyop)
+* servicemesh, ci: run internal to NodePort test (Backport PR #35276, Upstream PR #35177, @marseel)
+
+**Misc Changes:**
+* .github: add cache to cilium-cli and hubble-cli build workflows (Backport PR #35168, Upstream PR #34847, @aanm)
+* .github: clean up disk for lint-build workflow (Backport PR #35168, Upstream PR #35141, @aanm)
+* .github: fix build image process to commit changes (Backport PR #35276, Upstream PR #35262, @aanm)
+* .github: fix lvh-kind warnings (Backport PR #35168, Upstream PR #34811, @aanm)
+* .github: fix runtime image digests (Backport PR #35118, Upstream PR #35107, @aanm)
+* [v1.15] helm: bump certgen to v0.1.15 (cilium/cilium#35034, @kaworu)
+* Change GH runners to GH's default (Backport PR #35168, Upstream PR #33451, @aanm)
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#35027, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#35092, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.15) (cilium/cilium#35251, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.15) (cilium/cilium#35026, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.18 (v1.15) (cilium/cilium#35000, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.19 (v1.15) (cilium/cilium#35202, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/hubble to v1.16.2 (v1.15) (cilium/cilium#35241, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.22.7 docker digest to ddad330 (v1.15) (cilium/cilium#35091, @cilium-renovate[bot])
+* chore(deps): update go to v1.22.8 (v1.15) (cilium/cilium#35203, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.29.9-1727272937-c0c0c5f38d338b330d891b304ab5ed6c6d7bcec4 (v1.15) (cilium/cilium#35083, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.29.9-1727741018-e3a7412f65722ebbe34254b3582b89d315765d0d (v1.15) (cilium/cilium#35138, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.29.9-1727997080-b094128ed01b784b63ada19b54f8c7fdc3042e6e (v1.15) (cilium/cilium#35219, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.29.9-1728346947-0d05e48bfbb8c4737ec40d5781d970a550ed2bbd (v1.15) (cilium/cilium#35284, @cilium-renovate[bot])
+* helm: set key usages for hubble certificates with cert-manager (Backport PR #35037, Upstream PR #34946, @kaworu)
+* images/builder: get rid of annoying git ownership warnings (Backport PR #35276, Upstream PR #31538, @ti-mo)
+* Improve speed on lint commits GH workflow (Backport PR #35168, Upstream PR #34848, @aanm)
+* Re-write GitHub cache usages across workflows (Backport PR #35168, Upstream PR #34866, @aanm)
+* Remove conformance-e2e tests (Backport PR #35168, Upstream PR #34742, @aanm)
+
+**Other Changes:**
+* [v1.15] test/k8s: replace L7 visibility Pod annotations by L7 visibility policy (cilium/cilium#35152, @tklauser)
+* install: Update image digests for v1.15.9 (cilium/cilium#35051, @cilium-release-bot[bot])
+* policy: Fix breakages on v1.15 branch (cilium/cilium#35300, @christarazi)
+
 ## v1.15.9
 
 Summary of Changes
