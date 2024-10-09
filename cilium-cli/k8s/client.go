@@ -65,7 +65,7 @@ type Client struct {
 	HelmActionConfig   *action.Configuration
 }
 
-func NewClient(contextName, kubeconfig, ciliumNamespace string) (*Client, error) {
+func NewClient(contextName, kubeconfig, ciliumNamespace string, impersonateAs string, impersonateGroup []string) (*Client, error) {
 	// Register the Cilium types in the default scheme.
 	_ = ciliumv2.AddToScheme(scheme.Scheme)
 	_ = ciliumv2alpha1.AddToScheme(scheme.Scheme)
@@ -79,6 +79,13 @@ func NewClient(contextName, kubeconfig, ciliumNamespace string) (*Client, error)
 	config, err := rawKubeConfigLoader.ClientConfig()
 	if err != nil {
 		return nil, err
+	}
+
+	if impersonateAs != "" || len(impersonateGroup) > 0 {
+		config.Impersonate = rest.ImpersonationConfig{
+			UserName: impersonateAs,
+			Groups:   impersonateGroup,
+		}
 	}
 
 	rawConfig, err := rawKubeConfigLoader.RawConfig()

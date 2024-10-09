@@ -136,6 +136,8 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().StringSliceVar(&params.NodeCIDRs, "node-cidr", nil, "one or more CIDRs that cover all nodes in the cluster")
 	cmd.Flags().StringVar(&params.JunitFile, "junit-file", "", "Generate junit report and write to file")
 	cmd.Flags().Var(option.NewNamedMapOptions("junit-property", &params.JunitProperties, nil), "junit-property", "Add key=value properties to the generated junit file")
+	cmd.Flags().StringVar(&params.ImpersonateAs, "as", "", "Username to impersonate for the operation. User could be a regular user or a service account in a namespace.")
+	cmd.Flags().StringArrayVar(&params.ImpersonateGroups, "as-group", []string{}, "Group to impersonate for the operation, this flag can be repeated to specify multiple groups.")
 	cmd.Flags().BoolVar(&params.SkipIPCacheCheck, "skip-ip-cache-check", true, "Skip IPCache check")
 	cmd.Flags().MarkHidden("skip-ip-cache-check")
 	cmd.Flags().BoolVar(&params.IncludeUnsafeTests, "include-unsafe-tests", false, "Include tests which can modify cluster nodes state")
