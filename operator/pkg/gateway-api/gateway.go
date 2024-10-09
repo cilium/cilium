@@ -258,7 +258,7 @@ func getReconcileRequestsForRoute(ctx context.Context, c client.Client, object m
 	return reqs
 }
 
-// enqueueRequestForOwningTLSCertificate returns an event handler for any changes with TLS secrets
+// enqueueRequestForTLSSecret returns an event handler for any changes with TLS secrets
 func (r *gatewayReconciler) enqueueRequestForTLSSecret() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
 		gateways := getGatewaysForSecret(ctx, r.Client, a, r.logger)
