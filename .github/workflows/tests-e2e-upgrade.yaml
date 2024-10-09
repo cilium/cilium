@@ -178,6 +178,8 @@ jobs:
             ingress-controller: 'true'
             local-redirect-policy: 'true'
             node-local-dns: 'true'
+            # LRP with SocketLB doesn't upgrade smoothly from v1.15
+            skip-upgrade: 'true'
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -214,6 +216,8 @@ jobs:
             misc: 'socketLB.enabled=true'
             local-redirect-policy: 'true'
             node-local-dns: 'true'
+            # LRP with SocketLB doesn't upgrade smoothly from v1.15
+            skip-upgrade: 'true'
 
           - name: '11'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
