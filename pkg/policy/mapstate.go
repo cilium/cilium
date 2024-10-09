@@ -952,9 +952,13 @@ func (ms *mapState) insertUpdates(newKey Key, newEntry *MapStateEntry, updates [
 
 // denyPreferredInsertWithChanges contains the most important business logic for policy insertions. It inserts
 // a key and entry into the map by giving preference to deny entries, and L3-only deny entries over L3-L4 allows.
-// Incremental changes performed are recorded in 'adds' and 'deletes', if not nil.
-// See https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw#gid=2109052536 for details
+// Incremental changes performed are recorded in 'changes'.
 func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStateEntry, features policyFeatures, changes ChangeState) {
+	// Since bpf datapath denies by default, we only need to add deny entries to carve out more
+	// specific holes to less specific allow rules. But since we don't if allow entries will be
+	// added later (e.g., incrementally due to FQDN rules), we must generally add deny entries
+	// even if there are no allow entries yet.
+
 	// Bail if covered by a deny key
 	if !ms.denies.Empty() {
 		bailed := false
@@ -971,34 +975,13 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		}
 	}
 
-	// Since bpf datapath denies by default, we only need to add deny entries to carve out more
-	// specific holes to less specific allow rules. But since we don't know if allow entries
-	// will be added later (e.g., incrementally due to FQDN rules), we must generally add deny
-	// entries even if there are no allow entries yet.
-
 	if newEntry.IsDeny {
-		// We cannot update the map while we are iterating through it, so we record the
-		// changes to be made and then apply them.  Additionally, we need to perform deletes
-		// first so that deny entries do not get merged with allows that are set to be
-		// deleted.
 		var (
 			deletes []Key
 			updates []keyValue
 		)
 
-		// Only a non-wildcard key can have a wildcard superset key
-		if newKey.Identity != 0 {
-			// Add L3/4 deny entries for more specific allow keys with the wildcard
-			// identity as the more specific allow would otherwise take precedence in
-			// the datapath.
-			ms.allows.ForEachNarrowerKeyWithWildcardID(newKey, func(k Key, v MapStateEntry) bool {
-				updates = append(updates, keyValue{
-					key:   k.WithIdentity(newKey.Identity),
-					value: NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled),
-				})
-				return true
-			})
-		}
+		// Delete entries covered by the new deny entry
 
 		// Delete covered allow entries.
 		ms.allows.ForEachNarrowerOrEqualKey(newKey, func(k Key, v MapStateEntry) bool {
@@ -1018,6 +1001,22 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		for _, key := range deletes {
 			ms.deleteKeyWithChanges(key, nil, changes)
 		}
+
+		// Only a non-wildcard key can have a wildcard superset key
+		if newKey.Identity != 0 {
+			// Add L3/4 deny entries for more specific allow keys with the wildcard
+			// identity as the more specific allow would otherwise take precedence in
+			// the datapath.
+
+			ms.allows.ForEachNarrowerKeyWithWildcardID(newKey, func(k Key, v MapStateEntry) bool {
+				updates = append(updates, keyValue{
+					key:   k.WithIdentity(newKey.Identity),
+					value: NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled),
+				})
+				return true
+			})
+		}
+
 		ms.insertUpdates(newKey, &newEntry, updates, changes)
 
 		ms.addKeyWithChanges(newKey, newEntry, changes)
