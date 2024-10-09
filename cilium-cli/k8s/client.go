@@ -72,7 +72,7 @@ type Client struct {
 	HelmActionConfig   *action.Configuration
 }
 
-func NewClient(contextName, kubeconfig, ciliumNamespace string) (*Client, error) {
+func NewClient(contextName, kubeconfig, ciliumNamespace string, impersonateAs string, impersonateGroup []string) (*Client, error) {
 	restClientGetter := genericclioptions.ConfigFlags{
 		Context:    &contextName,
 		KubeConfig: &kubeconfig,
@@ -82,6 +82,13 @@ func NewClient(contextName, kubeconfig, ciliumNamespace string) (*Client, error)
 	config, err := rawKubeConfigLoader.ClientConfig()
 	if err != nil {
 		return nil, err
+	}
+
+	if impersonateAs != "" || len(impersonateGroup) > 0 {
+		config.Impersonate = rest.ImpersonationConfig{
+			UserName: impersonateAs,
+			Groups:   impersonateGroup,
+		}
 	}
 
 	rawConfig, err := rawKubeConfigLoader.RawConfig()
