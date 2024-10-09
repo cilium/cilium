@@ -49,6 +49,8 @@ func newCmdClusterMeshStatus() *cobra.Command {
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Namespace = namespace
+			params.ImpersonateAs = impersonateAs
+			params.ImpersonateGroups = impersonateGroups
 
 			if params.Output == status.OutputJSON {
 				// Write status log messages to stderr to make sure they don't
@@ -116,6 +118,8 @@ func newCmdExternalWorkloadCreate() *cobra.Command {
 		Long:  ``,
 		RunE: func(_ *cobra.Command, args []string) error {
 			params.Namespace = namespace
+			params.ImpersonateAs = impersonateAs
+			params.ImpersonateGroups = impersonateGroups
 
 			if labels != "" {
 				params.Labels = parseLabels(labels)
@@ -151,6 +155,9 @@ func newCmdExternalWorkloadDelete() *cobra.Command {
 		Short: "Delete named external workloads",
 		Long:  ``,
 		RunE: func(_ *cobra.Command, args []string) error {
+			params.ImpersonateAs = impersonateAs
+			params.ImpersonateGroups = impersonateGroups
+
 			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
 			if err := cm.DeleteExternalWorkload(context.Background(), args); err != nil {
 				fatalf("Unable to remove external workloads: %s", err)
@@ -175,6 +182,8 @@ func newCmdExternalWorkloadInstall() *cobra.Command {
 		Long:  ``,
 		RunE: func(_ *cobra.Command, args []string) error {
 			params.Namespace = namespace
+			params.ImpersonateAs = impersonateAs
+			params.ImpersonateGroups = impersonateGroups
 
 			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
 			var writer io.Writer
@@ -217,6 +226,8 @@ func newCmdExternalWorkloadStatus() *cobra.Command {
 		Long:  ``,
 		RunE: func(_ *cobra.Command, args []string) error {
 			params.Namespace = namespace
+			params.ImpersonateAs = impersonateAs
+			params.ImpersonateGroups = impersonateGroups
 
 			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
 			if err := cm.ExternalWorkloadStatus(context.Background(), args); err != nil {
@@ -242,6 +253,8 @@ func newCmdClusterMeshEnableWithHelm() *cobra.Command {
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			params.Namespace = namespace
+			params.ImpersonateAs = impersonateAs
+			params.ImpersonateGroups = impersonateGroups
 			params.HelmReleaseName = helmReleaseName
 			ctx := context.Background()
 			params.EnableKVStoreMeshChanged = cmd.Flags().Changed("enable-kvstoremesh")
@@ -270,6 +283,8 @@ func newCmdClusterMeshDisableWithHelm() *cobra.Command {
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Namespace = namespace
+			params.ImpersonateAs = impersonateAs
+			params.ImpersonateGroups = impersonateGroups
 			params.HelmReleaseName = helmReleaseName
 			ctx := context.Background()
 			if err := clustermesh.DisableWithHelm(ctx, k8sClient, params); err != nil {
@@ -293,6 +308,8 @@ func newCmdClusterMeshConnectWithHelm() *cobra.Command {
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			params.Namespace = namespace
+			params.ImpersonateAs = impersonateAs
+			params.ImpersonateGroups = impersonateGroups
 			params.HelmReleaseName = helmReleaseName
 			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
 			if err := cm.ConnectWithHelm(context.Background()); err != nil {
@@ -317,6 +334,8 @@ func newCmdClusterMeshDisconnectWithHelm() *cobra.Command {
 		Short: "Disconnect from a remote cluster",
 		Run: func(_ *cobra.Command, _ []string) {
 			params.Namespace = namespace
+			params.ImpersonateAs = impersonateAs
+			params.ImpersonateGroups = impersonateGroups
 			params.HelmReleaseName = helmReleaseName
 			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
 			if err := cm.DisconnectWithHelm(context.Background()); err != nil {

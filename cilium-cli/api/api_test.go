@@ -23,7 +23,7 @@ func TestNamespaceContextValues(t *testing.T) {
 
 func TestK8sClientContextValues(t *testing.T) {
 	ctx := context.Background()
-	k8sClient, err := k8s.NewClient("", "", "")
+	k8sClient, err := k8s.NewClient("", "", "", "", []string{})
 	assert.NoError(t, err)
 	ctx = SetK8sClientContextValue(ctx, k8sClient)
 	result, ok := GetK8sClientContextValue(ctx)
