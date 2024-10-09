@@ -2,7 +2,8 @@ name: Image CI Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request_target:
+  # TODO(hemanthmalla): Remove this change after testing
+  pull_request:
     types:
       - opened
       - synchronize
@@ -195,6 +196,22 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
 
+      - name: CI FIPS Compliant Build ${{ matrix.name }}
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
+        id: docker_build_ci_fips
+        with:
+          provenance: false
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.tag.outputs.fips_tag }}
+          target: release
+          no-cache: true
+          build-args: |
+            MODIFIERS="FIPS=1"
+            OPERATOR_VARIANT=${{ matrix.name }}
+
       - name: CI Build ${{ matrix.name }}
         uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
         id: docker_build_ci
@@ -238,21 +255,6 @@ jobs:
           target: release
           build-args: |
             MODIFIERS="NOSTRIP=1"
-            OPERATOR_VARIANT=${{ matrix.name }}
-
-      - name: CI FIPS Compliant Build ${{ matrix.name }}
-        uses: docker/build-push-action@32945a339266b759abcbdc89316275140b0fc960 # v6.8.0
-        id: docker_build_ci_fips
-        with:
-          provenance: false
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          platforms: linux/amd64
-          tags: ${{ steps.tag.outputs.fips_tag }}
-          target: release
-          build-args: |
-            MODIFIERS="FIPS=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: Sign Container Images

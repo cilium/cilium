@@ -187,6 +187,7 @@ ifneq ($(LOCKDEBUG),)
 endif
 
 ifeq ($(FIPS),1)
+    export FIPS=1
     GO_BUILD = GOEXPERIMENT=boringcrypto  $(GO_BUILD_WITH_CGO)
     GO_BUILD_LDFLAGS += -linkmode external -extldflags "-static --enable-static-nss"
 endif
