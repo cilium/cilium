@@ -1152,8 +1152,9 @@ type L4PolicyMap interface {
 // NewL4PolicyMap creates an new L4PolicMap.
 func NewL4PolicyMap() L4PolicyMap {
 	return &l4PolicyMap{
-		namedPortMap: make(map[string]*L4Filter),
-		rangePortMap: bitlpm.NewUintTrie[uint32, map[portProtoKey]*L4Filter](),
+		namedPortMap:   make(map[string]*L4Filter),
+		rangePortMap:   make(map[portProtoKey]*L4Filter),
+		rangePortIndex: bitlpm.NewUintTrie[uint32, map[portProtoKey]struct{}](),
 	}
 }
 
@@ -1161,8 +1162,9 @@ func NewL4PolicyMap() L4PolicyMap {
 // set of values. The initMap argument does not support port ranges.
 func NewL4PolicyMapWithValues(initMap map[string]*L4Filter) L4PolicyMap {
 	l4M := &l4PolicyMap{
-		namedPortMap: make(map[string]*L4Filter),
-		rangePortMap: bitlpm.NewUintTrie[uint32, map[portProtoKey]*L4Filter](),
+		namedPortMap:   make(map[string]*L4Filter),
+		rangePortMap:   make(map[portProtoKey]*L4Filter),
+		rangePortIndex: bitlpm.NewUintTrie[uint32, map[portProtoKey]struct{}](),
 	}
 	for k, v := range initMap {
 		portProtoSlice := strings.Split(k, "/")
@@ -1186,16 +1188,13 @@ type l4PolicyMap struct {
 	// level, because they can only be resolved at the endpoint/identity
 	// level. Named ports cannot have ranges.
 	namedPortMap map[string]*L4Filter
-	// rangePortMap has to keep a map of L4Filters rather than
-	// a single L4Filter reference so that the l4PolicyMap does
-	// not merge L4Filter that are not the same port range, but
-	// share an overlapping range in the trie.
-	rangePortMap *bitlpm.UintTrie[uint32, map[portProtoKey]*L4Filter]
-	// rangeMapLen counts the number of unique L4Filters in
-	// the rangePortMap. It must be tracked separately from
-	// rangePortMap as L4Filters are split up when
-	// the port range length is not a power of two.
-	rangeMapLen int
+	// rangePortMap is a map of all L4Filters indexed by their port-
+	// protocol.
+	rangePortMap map[portProtoKey]*L4Filter
+	// rangePortIndex is an index of all L4Filters so that
+	// L4Filters that have overlapping port ranges can be looked up
+	// by with a single port.
+	rangePortIndex *bitlpm.UintTrie[uint32, map[portProtoKey]struct{}]
 }
 
 func parsePortProtocol(port, protocol string) (uint16, uint8) {
@@ -1226,22 +1225,21 @@ func (l4M *l4PolicyMap) Upsert(port string, endPort uint16, protocol string, l4 
 		endPort: endPort,
 		proto:   protoU,
 	}
-	var upsertHappened bool
-	for _, mp := range PortRangeToMaskedPorts(portU, endPort) {
-		k := makePolicyMapKey(mp.port, mp.mask, protoU)
-		prefix := 32 - uint(bits.TrailingZeros16(mp.mask))
-		portProtoMap, ok := l4M.rangePortMap.ExactLookup(prefix, k)
-		if !ok {
-			portProtoMap = make(map[portProtoKey]*L4Filter)
-			l4M.rangePortMap.Upsert(prefix, k, portProtoMap)
-		}
-		if !upsertHappened {
-			if _, ok := portProtoMap[ppK]; !ok {
-				l4M.rangeMapLen += 1
-				upsertHappened = true
+	_, indexExists := l4M.rangePortMap[ppK]
+	l4M.rangePortMap[ppK] = l4
+	// We do not need to reindex a key that already exists,
+	// even if the filter changed.
+	if !indexExists {
+		for _, mp := range PortRangeToMaskedPorts(portU, endPort) {
+			k := makePolicyMapKey(mp.port, mp.mask, protoU)
+			prefix := 32 - uint(bits.TrailingZeros16(mp.mask))
+			portProtoSet, ok := l4M.rangePortIndex.ExactLookup(prefix, k)
+			if !ok {
+				portProtoSet = make(map[portProtoKey]struct{})
+				l4M.rangePortIndex.Upsert(prefix, k, portProtoSet)
 			}
+			portProtoSet[ppK] = struct{}{}
 		}
-		portProtoMap[ppK] = l4
 	}
 }
 
@@ -1258,23 +1256,21 @@ func (l4M *l4PolicyMap) Delete(port string, endPort uint16, protocol string) {
 		endPort: endPort,
 		proto:   protoU,
 	}
-	var deleteHappened bool
-	for _, mp := range PortRangeToMaskedPorts(portU, endPort) {
-		k := makePolicyMapKey(mp.port, mp.mask, protoU)
-		prefix := 32 - uint(bits.TrailingZeros16(mp.mask))
-		portProtoMap, ok := l4M.rangePortMap.ExactLookup(prefix, k)
-		if !ok {
-			return
-		}
-		if _, ok := portProtoMap[ppK]; ok {
-			delete(portProtoMap, ppK)
-			if !deleteHappened {
-				l4M.rangeMapLen -= 1
-				deleteHappened = true
+	_, indexExists := l4M.rangePortMap[ppK]
+	delete(l4M.rangePortMap, ppK)
+	// Only delete the index if the key exists.
+	if indexExists {
+		for _, mp := range PortRangeToMaskedPorts(portU, endPort) {
+			k := makePolicyMapKey(mp.port, mp.mask, protoU)
+			prefix := 32 - uint(bits.TrailingZeros16(mp.mask))
+			portProtoSet, ok := l4M.rangePortIndex.ExactLookup(prefix, k)
+			if !ok {
+				return
 			}
-		}
-		if len(portProtoMap) == 0 {
-			l4M.rangePortMap.Delete(prefix, k)
+			delete(portProtoSet, ppK)
+			if len(portProtoSet) == 0 {
+				l4M.rangePortIndex.Delete(prefix, k)
+			}
 		}
 	}
 }
@@ -1291,18 +1287,7 @@ func (l4M *l4PolicyMap) ExactLookup(port string, endPort uint16, protocol string
 		endPort: endPort,
 		proto:   protoU,
 	}
-	for _, mp := range PortRangeToMaskedPorts(portU, endPort) {
-		k := makePolicyMapKey(mp.port, mp.mask, protoU)
-		prefix := 32 - uint(bits.TrailingZeros16(mp.mask))
-		portProtoMap, ok := l4M.rangePortMap.ExactLookup(prefix, k)
-		if !ok {
-			return nil
-		}
-		if l4, ok := portProtoMap[ppK]; ok {
-			return l4
-		}
-	}
-	return nil
+	return l4M.rangePortMap[ppK]
 }
 
 // MatchesLabels checks if a given port, protocol, and labels matches
@@ -1318,13 +1303,16 @@ func (l4M *l4PolicyMap) MatchesLabels(port, protocol string, labels labels.Label
 
 	portU, protoU := parsePortProtocol(port, protocol)
 	l4PortProtoKeys := make(map[portProtoKey]struct{})
-	l4M.rangePortMap.Ancestors(32, makePolicyMapKey(portU, 0xffff, protoU),
-		func(_ uint, _ uint32, portProtoMap map[portProtoKey]*L4Filter) bool {
-			for k, v := range portProtoMap {
-				if _, ok := l4PortProtoKeys[k]; !ok {
-					match, isDeny = v.matchesLabels(labels)
-					if isDeny {
-						return false
+	l4M.rangePortIndex.Ancestors(32, makePolicyMapKey(portU, 0xffff, protoU),
+		func(_ uint, _ uint32, portProtoSet map[portProtoKey]struct{}) bool {
+			for k := range portProtoSet {
+				v, ok := l4M.rangePortMap[k]
+				if ok {
+					if _, ok := l4PortProtoKeys[k]; !ok {
+						match, isDeny = v.matchesLabels(labels)
+						if isDeny {
+							return false
+						}
 					}
 				}
 			}
@@ -1336,19 +1324,15 @@ func (l4M *l4PolicyMap) MatchesLabels(port, protocol string, labels labels.Label
 // ForEach iterates over all L4Filters in the l4PolicyMap.
 func (l4M *l4PolicyMap) ForEach(fn func(l4 *L4Filter) bool) {
 	for _, f := range l4M.namedPortMap {
-		fn(f)
-	}
-	l4PortProtoKeys := make(map[portProtoKey]struct{})
-	l4M.rangePortMap.ForEach(func(prefix uint, key uint32, portPortoMap map[portProtoKey]*L4Filter) bool {
-		for k, v := range portPortoMap {
-			// We check for redundant L4Filters, because we split them apart in the index.
-			if _, ok := l4PortProtoKeys[k]; !ok {
-				fn(v)
-				l4PortProtoKeys[k] = struct{}{}
-			}
+		if !fn(f) {
+			return
 		}
-		return true
-	})
+	}
+	for _, v := range l4M.rangePortMap {
+		if !fn(v) {
+			return
+		}
+	}
 }
 
 // Equals returns true if both L4PolicyMaps are equal.
@@ -1407,7 +1391,7 @@ func (l4M *l4PolicyMap) Len() int {
 	if l4M == nil {
 		return 0
 	}
-	return len(l4M.namedPortMap) + l4M.rangeMapLen
+	return len(l4M.namedPortMap) + len(l4M.rangePortMap)
 }
 
 type policyFeatures uint8
