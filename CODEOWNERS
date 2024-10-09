@@ -487,6 +487,7 @@ Makefile* @cilium/build
 /pkg/components/ @cilium/sig-agent
 /pkg/container/ @cilium/sig-foundations
 /pkg/container/bitlpm/ @cilium/ipcache @cilium/sig-policy
+/pkg/container/set/ @cilium/sig-policy
 /pkg/controller @cilium/sig-agent
 /pkg/counter @cilium/sig-datapath
 /pkg/crypto/ @cilium/sig-hubble @cilium/sig-policy
