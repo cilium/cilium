@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -21,16 +22,17 @@ import (
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/cloudflare/cfssl/signer/local"
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
@@ -62,10 +64,7 @@ func NewTest(name string, verbose bool, debug bool) *Test {
 	test := &Test{
 		name:        name,
 		scenarios:   make(map[Scenario][]*Action),
-		cnps:        make(map[string]*ciliumv2.CiliumNetworkPolicy),
-		ccnps:       make(map[string]*ciliumv2.CiliumClusterwideNetworkPolicy),
-		knps:        make(map[string]*networkingv1.NetworkPolicy),
-		cegps:       make(map[string]*ciliumv2.CiliumEgressGatewayPolicy),
+		resources:   []k8s.Object{},
 		clrps:       make(map[string]*ciliumv2.CiliumLocalRedirectPolicy),
 		logBuf:      &bytes.Buffer{}, // maintain internal buffer by default
 		conditionFn: nil,
@@ -110,20 +109,13 @@ type Test struct {
 	// Needs to be stored as a list, these are implemented in another package.
 	scenariosSkipped []Scenario
 
-	// Policies active during this test.
-	cnps map[string]*ciliumv2.CiliumNetworkPolicy
-
-	// Cilium Clusterwide Network Policies active during this test.
-	ccnps map[string]*ciliumv2.CiliumClusterwideNetworkPolicy
-
-	// Kubernetes Network Policies active during this test.
-	knps map[string]*networkingv1.NetworkPolicy
-
-	// Cilium Egress Gateway Policies active during this test.
-	cegps map[string]*ciliumv2.CiliumEgressGatewayPolicy
-
 	// Cilium Local Redirect Policies active during this test.
 	clrps map[string]*ciliumv2.CiliumLocalRedirectPolicy
+
+	// k8s resources that should be created before the test run, and removed afterwards.
+	// If any of these correspond to a network policy, this will wait for the policy revision
+	// to be incremented.
+	resources []k8s.Object
 
 	// Secrets that have to be present during the test.
 	secrets map[string]*corev1.Secret
@@ -160,8 +152,8 @@ type Test struct {
 }
 
 func (t *Test) String() string {
-	return fmt.Sprintf("<Test %s, %d scenarios, %d CNPs, %d CCNPs, expectFunc %v>",
-		t.name, len(t.scenarios), len(t.cnps), len(t.ccnps), t.expectFunc)
+	return fmt.Sprintf("<Test %s, %d scenarios, %d resources, expectFunc %v>",
+		t.name, len(t.scenarios), len(t.resources), t.expectFunc)
 }
 
 // Name returns the name of the test.
@@ -211,7 +203,7 @@ func (t *Test) setup(ctx context.Context) error {
 	}
 
 	// Apply CNPs & KNPs to the cluster.
-	if err := t.applyPolicies(ctx); err != nil {
+	if err := t.applyResources(ctx); err != nil {
 		t.CiliumLogs(ctx)
 		return fmt.Errorf("applying network policies: %w", err)
 	}
@@ -393,49 +385,6 @@ func (t *Test) Run(ctx context.Context, index int) error {
 	return nil
 }
 
-func configureNamespaceInPolicySpec(spec *api.Rule, namespace string) {
-	if spec == nil {
-		return
-	}
-
-	for _, k := range []string{
-		k8sConst.PodNamespaceLabel,
-		KubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
-		AnySourceLabelPrefix + k8sConst.PodNamespaceLabel,
-	} {
-		for _, e := range spec.Egress {
-			for _, es := range e.ToEndpoints {
-				if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
-					es.MatchLabels[k] = namespace
-				}
-			}
-		}
-		for _, e := range spec.Ingress {
-			for _, es := range e.FromEndpoints {
-				if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
-					es.MatchLabels[k] = namespace
-				}
-			}
-		}
-
-		for _, e := range spec.EgressDeny {
-			for _, es := range e.ToEndpoints {
-				if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
-					es.MatchLabels[k] = namespace
-				}
-			}
-		}
-
-		for _, e := range spec.IngressDeny {
-			for _, es := range e.FromEndpoints {
-				if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
-					es.MatchLabels[k] = namespace
-				}
-			}
-		}
-	}
-}
-
 // WithCondition takes a function containing condition check logic that
 // returns true if the test needs to be run, and false otherwise. If
 // WithCondition gets called multiple times, all the conditions need to be
@@ -445,29 +394,41 @@ func (t *Test) WithCondition(fn func() bool) *Test {
 	return t
 }
 
+// WithResources registers the list of one or more YAML-defined
+// Kubernetes resources (e.g. NetworkPolicy, etc.)
+//
+// # For certain well-known types, known references to the namespace are mutated
+//
+// If the resource has a namepace of "cilium-test", that is mutated
+// to the (serialized) namespace of the individual scenario.
+func (t *Test) WithResources(spec string) *Test {
+	buf := bytes.Buffer{}
+	buf.WriteString(spec)
+	decoder := yaml.NewYAMLOrJSONDecoder(&buf, 4096)
+
+	for {
+		u := unstructured.Unstructured{}
+		if err := decoder.Decode(&u); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			t.Fatalf("Parsing resource YAML: %s", err)
+		}
+
+		if u.GetNamespace() == defaults.ConnectivityCheckNamespace {
+			u.SetNamespace(t.ctx.params.TestNamespace)
+		}
+		t.resources = append(t.resources, t.tweakPolicy(&u))
+	}
+	return t
+}
+
 // WithCiliumPolicy takes a string containing a YAML policy document and adds
 // the polic(y)(ies) to the scope of the Test, to be applied when the test
 // starts running. When calling this method, note that the CNP enabled feature
 // // requirement is applied directly here.
 func (t *Test) WithCiliumPolicy(policy string) *Test {
-	pl, err := parseCiliumPolicyYAML(policy)
-	if err != nil {
-		t.Fatalf("Parsing policy YAML: %s", err)
-	}
-
-	// Change the default test namespace as required.
-	for i := range pl {
-		pl[i].Namespace = t.ctx.params.TestNamespace
-		configureNamespaceInPolicySpec(pl[i].Spec, t.ctx.params.TestNamespace)
-	}
-
-	if err := t.addCNPs(pl...); err != nil {
-		t.Fatalf("Adding CNPs to policy context: %s", err)
-	}
-
-	t.WithFeatureRequirements(features.RequireEnabled(features.CNP))
-
-	return t
+	return t.WithResources(policy)
 }
 
 // WithCiliumClusterwidePolicy takes a string containing a YAML policy document
@@ -475,23 +436,7 @@ func (t *Test) WithCiliumPolicy(policy string) *Test {
 // when the test starts running. When calling this method, note that the CCNP
 // enabled feature requirement is applied directly here.
 func (t *Test) WithCiliumClusterwidePolicy(policy string) *Test {
-	pl, err := parseCiliumClusterwidePolicyYAML(policy)
-	if err != nil {
-		t.Fatalf("Parsing policy YAML: %s", err)
-	}
-
-	// Change the default test namespace as required.
-	for i := range pl {
-		configureNamespaceInPolicySpec(pl[i].Spec, t.ctx.params.TestNamespace)
-	}
-
-	if err := t.addCCNPs(pl...); err != nil {
-		t.Fatalf("Adding CCNPs to policy context: %s", err)
-	}
-
-	t.WithFeatureRequirements(features.RequireEnabled(features.CCNP))
-
-	return t
+	return t.WithResources(policy)
 }
 
 // WithK8SPolicy takes a string containing a YAML policy document and adds
@@ -499,61 +444,7 @@ func (t *Test) WithCiliumClusterwidePolicy(policy string) *Test {
 // starts running. When calling this method, note that the KNP enabled feature
 // requirement is applied directly here.
 func (t *Test) WithK8SPolicy(policy string) *Test {
-	pl, err := parseK8SPolicyYAML(policy)
-	if err != nil {
-		t.Fatalf("Parsing K8S policy YAML: %s", err)
-	}
-
-	// Change the default test namespace as required.
-	for i := range pl {
-		pl[i].Namespace = t.ctx.params.TestNamespace
-
-		if pl[i].Spec.Size() != 0 {
-			for _, k := range []string{
-				k8sConst.PodNamespaceLabel,
-				KubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
-				AnySourceLabelPrefix + k8sConst.PodNamespaceLabel,
-			} {
-				for _, e := range pl[i].Spec.Egress {
-					for _, es := range e.To {
-						if es.PodSelector != nil {
-							if n, ok := es.PodSelector.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
-								es.PodSelector.MatchLabels[k] = t.ctx.params.TestNamespace
-							}
-						}
-						if es.NamespaceSelector != nil {
-							if n, ok := es.NamespaceSelector.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
-								es.NamespaceSelector.MatchLabels[k] = t.ctx.params.TestNamespace
-							}
-						}
-					}
-				}
-				for _, e := range pl[i].Spec.Ingress {
-					for _, es := range e.From {
-						if es.PodSelector != nil {
-							if n, ok := es.PodSelector.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
-								es.PodSelector.MatchLabels[k] = t.ctx.params.TestNamespace
-							}
-						}
-						if es.NamespaceSelector != nil {
-							if n, ok := es.NamespaceSelector.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
-								es.NamespaceSelector.MatchLabels[k] = t.ctx.params.TestNamespace
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if err := t.addKNPs(pl...); err != nil {
-		t.Fatalf("Adding K8S Network Policies to policy context: %s", err)
-	}
-
-	// It is implicit that KNP should be enabled.
-	t.WithFeatureRequirements(features.RequireEnabled(features.KNP))
-
-	return t
+	return t.WithResources(policy)
 }
 
 // CiliumLocalRedirectPolicyParams is used to configure a CiliumLocalRedirectPolicy template.
@@ -572,21 +463,18 @@ type CiliumLocalRedirectPolicyParams struct {
 }
 
 func (t *Test) WithCiliumLocalRedirectPolicy(params CiliumLocalRedirectPolicyParams) *Test {
-	pl, err := parseCiliumLocalRedirectPolicyYAML(params.Policy)
-	if err != nil {
+	pl := ciliumv2.CiliumLocalRedirectPolicy{}
+	if err := parseInto([]byte(params.Policy), &pl); err != nil {
 		t.Fatalf("Parsing local redirect policy YAML: %s", err)
 	}
 
-	for i := range pl {
-		pl[i].Namespace = t.ctx.params.TestNamespace
-		pl[i].Name = params.Name
-		pl[i].Spec.RedirectFrontend.AddressMatcher.IP = params.FrontendIP
-		pl[i].Spec.SkipRedirectFromBackend = params.SkipRedirectFromBackend
-	}
+	pl.Namespace = t.ctx.params.TestNamespace
+	pl.Name = params.Name
+	pl.Spec.RedirectFrontend.AddressMatcher.IP = params.FrontendIP
+	pl.Spec.SkipRedirectFromBackend = params.SkipRedirectFromBackend
 
-	if err := t.addCLRPs(pl...); err != nil {
-		t.Fatalf("Adding CLRPs to cilium local redirect policy context: %s", err)
-	}
+	t.resources = append(t.resources, &pl)
+	t.clrps[params.Name] = &pl
 
 	t.WithFeatureRequirements(features.RequireEnabled(features.LocalRedirectPolicy))
 
@@ -622,59 +510,55 @@ type CiliumEgressGatewayPolicyParams struct {
 // note that the egress gateway enabled feature requirement is applied directly
 // here.
 func (t *Test) WithCiliumEgressGatewayPolicy(params CiliumEgressGatewayPolicyParams) *Test {
-	pl, err := parseCiliumEgressGatewayPolicyYAML(egressGatewayPolicyYAML)
-	if err != nil {
-		t.Fatalf("Parsing policy YAML: %s", err)
+	pl := ciliumv2.CiliumEgressGatewayPolicy{}
+	if err := parseInto([]byte(egressGatewayPolicyYAML), &pl); err != nil {
+		t.Fatalf("Parsing EgressGatewayPolicy: %s", err)
 	}
 
-	for i := range pl {
-		// Change the default test namespace as required.
-		for _, k := range []string{
-			k8sConst.PodNamespaceLabel,
-			KubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
-			AnySourceLabelPrefix + k8sConst.PodNamespaceLabel,
-		} {
-			for _, e := range pl[i].Spec.Selectors {
-				ps := e.PodSelector
-				if n, ok := ps.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
-					ps.MatchLabels[k] = t.ctx.params.TestNamespace
-				}
-			}
-		}
-
-		// Set the policy name
-		pl[i].Name = params.Name
-
-		// Set the pod selector
-		pl[i].Spec.Selectors[0].PodSelector.MatchLabels["kind"] = params.PodSelectorKind
-
-		// Set the egress gateway node
-		egressGatewayNode := t.EgressGatewayNode()
-		if egressGatewayNode == "" {
-			t.Fatalf("Cannot find egress gateway node")
-		}
-
-		pl[i].Spec.EgressGateway.NodeSelector.MatchLabels["kubernetes.io/hostname"] = egressGatewayNode
-
-		// Set the excluded CIDRs
-		pl[i].Spec.ExcludedCIDRs = []ciliumv2.IPv4CIDR{}
-
-		switch params.ExcludedCIDRsConf {
-		case ExternalNodeExcludedCIDRs:
-			for _, nodeWithoutCiliumIP := range t.Context().params.NodesWithoutCiliumIPs {
-				if parsedIP := net.ParseIP(nodeWithoutCiliumIP.IP); parsedIP.To4() == nil {
-					continue
-				}
-
-				cidr := ciliumv2.IPv4CIDR(fmt.Sprintf("%s/32", nodeWithoutCiliumIP.IP))
-				pl[i].Spec.ExcludedCIDRs = append(pl[i].Spec.ExcludedCIDRs, cidr)
+	// Change the default test namespace as required.
+	for _, k := range []string{
+		k8sConst.PodNamespaceLabel,
+		KubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
+		AnySourceLabelPrefix + k8sConst.PodNamespaceLabel,
+	} {
+		for _, e := range pl.Spec.Selectors {
+			ps := e.PodSelector
+			if n, ok := ps.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+				ps.MatchLabels[k] = t.ctx.params.TestNamespace
 			}
 		}
 	}
 
-	if err := t.addCEGPs(pl...); err != nil {
-		t.Fatalf("Adding CEGPs to cilium egress gateway policy context: %s", err)
+	// Set the policy name
+	pl.Name = params.Name
+
+	// Set the pod selector
+	pl.Spec.Selectors[0].PodSelector.MatchLabels["kind"] = params.PodSelectorKind
+
+	// Set the egress gateway node
+	egressGatewayNode := t.EgressGatewayNode()
+	if egressGatewayNode == "" {
+		t.Fatalf("Cannot find egress gateway node")
 	}
+
+	pl.Spec.EgressGateway.NodeSelector.MatchLabels["kubernetes.io/hostname"] = egressGatewayNode
+
+	// Set the excluded CIDRs
+	pl.Spec.ExcludedCIDRs = []ciliumv2.IPv4CIDR{}
+
+	switch params.ExcludedCIDRsConf {
+	case ExternalNodeExcludedCIDRs:
+		for _, nodeWithoutCiliumIP := range t.Context().params.NodesWithoutCiliumIPs {
+			if parsedIP := net.ParseIP(nodeWithoutCiliumIP.IP); parsedIP.To4() == nil {
+				continue
+			}
+
+			cidr := ciliumv2.IPv4CIDR(fmt.Sprintf("%s/32", nodeWithoutCiliumIP.IP))
+			pl.Spec.ExcludedCIDRs = append(pl.Spec.ExcludedCIDRs, cidr)
+		}
+	}
+
+	t.resources = append(t.resources, &pl)
 
 	t.WithFeatureRequirements(features.RequireEnabled(features.EgressGateway))
 
@@ -949,16 +833,6 @@ func (t *Test) collectSysdump() {
 func (t *Test) ForEachIPFamily(do func(features.IPFamily)) {
 	ipFams := []features.IPFamily{features.IPFamilyV4, features.IPFamilyV6}
 
-	// The per-endpoint routes feature is broken with IPv6 on < v1.14 when there
-	// are any netpols installed (https://github.com/cilium/cilium/issues/23852
-	// and https://github.com/cilium/cilium/issues/23910).
-	if f, ok := t.Context().Feature(features.EndpointRoutes); ok &&
-		f.Enabled && (len(t.cnps) > 0 || len(t.knps) > 0) &&
-		versioncheck.MustCompile("<1.14.0")(t.Context().CiliumVersion) {
-
-		ipFams = []features.IPFamily{features.IPFamilyV4}
-	}
-
 	for _, ipFam := range ipFams {
 		switch ipFam {
 		case features.IPFamilyV4:
@@ -977,18 +851,6 @@ func (t *Test) ForEachIPFamily(do func(features.IPFamily)) {
 // CertificateCAs returns the CAs used to sign the certificates within the test.
 func (t *Test) CertificateCAs() map[string][]byte {
 	return t.certificateCAs
-}
-
-func (t *Test) CiliumNetworkPolicies() map[string]*ciliumv2.CiliumNetworkPolicy {
-	return t.cnps
-}
-
-func (t *Test) CiliumClusterwideNetworkPolicies() map[string]*ciliumv2.CiliumClusterwideNetworkPolicy {
-	return t.ccnps
-}
-
-func (t *Test) KubernetesNetworkPolicies() map[string]*networkingv1.NetworkPolicy {
-	return t.knps
 }
 
 func (t *Test) CiliumLocalRedirectPolicies() map[string]*ciliumv2.CiliumLocalRedirectPolicy {

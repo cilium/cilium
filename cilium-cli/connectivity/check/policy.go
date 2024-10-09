@@ -5,9 +5,8 @@ package check
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"maps"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -15,16 +14,20 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium/cilium-cli/utils/features"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 /* How many times we should retry getting the policy revisions before
@@ -106,6 +109,25 @@ type client[T policy] interface {
 	Update(ctx context.Context, networkPolicy T, opts metav1.UpdateOptions) (T, error)
 }
 
+// createOrUpdate applies a generic object to the cluster, returning true if it was updated
+func createOrUpdate(ctx context.Context, client *k8s.Client, obj k8s.Object) (bool, error) {
+	existing, err := client.GetGeneric(ctx, obj.GetNamespace(), obj.GetName(), obj)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return false, fmt.Errorf("failed to retrieve %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
+	}
+
+	created, err := client.ApplyGeneric(ctx, obj)
+	if err != nil {
+		return false, fmt.Errorf("failed to create / update %s %s/%s: %w", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetNamespace(), obj.GetName(), err)
+	}
+
+	if existing == nil {
+		return true, nil
+	}
+
+	return existing.GetGeneration() != created.GetGeneration(), nil
+}
+
 // CreateOrUpdatePolicy implements the generic logic to create or update a policy.
 func CreateOrUpdatePolicy[T policy](ctx context.Context, client client[T], obj T, mutator func(obj T) bool) (bool, error) {
 	// Let's attempt to create the policy. We optimize the creation path
@@ -139,137 +161,6 @@ func CreateOrUpdatePolicy[T policy](ctx context.Context, client client[T], obj T
 	}
 
 	return true, nil
-}
-
-// createOrUpdateCNP creates the CNP and updates it if it already exists.
-func createOrUpdateCNP(ctx context.Context, client *k8s.Client, cnp *ciliumv2.CiliumNetworkPolicy) (bool, error) {
-	return CreateOrUpdatePolicy(ctx, client.CiliumClientset.CiliumV2().CiliumNetworkPolicies(cnp.GetNamespace()),
-		cnp, func(current *ciliumv2.CiliumNetworkPolicy) bool {
-			if maps.Equal(current.GetLabels(), cnp.GetLabels()) &&
-				current.Spec.DeepEqual(cnp.Spec) &&
-				current.Specs.DeepEqual(&cnp.Specs) {
-				return false
-			}
-
-			current.ObjectMeta.Labels = cnp.ObjectMeta.Labels
-			current.Spec = cnp.Spec
-			current.Specs = cnp.Specs
-			return true
-		},
-	)
-}
-
-// createOrUpdateCCNP creates the CCNP and updates it if it already exists.
-func createOrUpdateCCNP(ctx context.Context, client *k8s.Client, ccnp *ciliumv2.CiliumClusterwideNetworkPolicy) (bool, error) {
-	return CreateOrUpdatePolicy(ctx, client.CiliumClientset.CiliumV2().CiliumClusterwideNetworkPolicies(),
-		ccnp, func(current *ciliumv2.CiliumClusterwideNetworkPolicy) bool {
-			if maps.Equal(current.GetLabels(), ccnp.GetLabels()) &&
-				current.Spec.DeepEqual(ccnp.Spec) &&
-				current.Specs.DeepEqual(&ccnp.Specs) {
-				return false
-			}
-
-			current.ObjectMeta.Labels = ccnp.ObjectMeta.Labels
-			current.Spec = ccnp.Spec
-			current.Specs = ccnp.Specs
-			return true
-		},
-	)
-}
-
-// createOrUpdateKNP creates the KNP and updates it if it already exists.
-func createOrUpdateKNP(ctx context.Context, client *k8s.Client, knp *networkingv1.NetworkPolicy) (bool, error) {
-	return CreateOrUpdatePolicy(ctx, client.Clientset.NetworkingV1().NetworkPolicies(knp.GetNamespace()),
-		knp, func(current *networkingv1.NetworkPolicy) bool {
-			if maps.Equal(current.GetLabels(), knp.GetLabels()) &&
-				reflect.DeepEqual(current.Spec, knp.Spec) {
-				return false
-			}
-
-			current.ObjectMeta.Labels = knp.ObjectMeta.Labels
-			current.Spec = knp.Spec
-			return true
-		},
-	)
-}
-
-// createOrUpdateCEGP creates the CEGP and updates it if it already exists.
-func createOrUpdateCEGP(ctx context.Context, client *k8s.Client, cegp *ciliumv2.CiliumEgressGatewayPolicy) error {
-	_, err := CreateOrUpdatePolicy(ctx, client.CiliumClientset.CiliumV2().CiliumEgressGatewayPolicies(),
-		cegp, func(current *ciliumv2.CiliumEgressGatewayPolicy) bool {
-			if maps.Equal(current.GetLabels(), cegp.GetLabels()) &&
-				current.Spec.DeepEqual(&cegp.Spec) {
-				return false
-			}
-
-			current.ObjectMeta.Labels = cegp.ObjectMeta.Labels
-			current.Spec = cegp.Spec
-			return true
-		},
-	)
-	return err
-}
-
-// createOrUpdateCLRP creates the CLRP and updates it if it already exists.
-func createOrUpdateCLRP(ctx context.Context, client *k8s.Client, clrp *ciliumv2.CiliumLocalRedirectPolicy) error {
-	_, err := CreateOrUpdatePolicy(ctx, client.CiliumClientset.CiliumV2().CiliumLocalRedirectPolicies(clrp.Namespace),
-		clrp, func(current *ciliumv2.CiliumLocalRedirectPolicy) bool {
-			if maps.Equal(current.GetLabels(), clrp.GetLabels()) &&
-				current.Spec.DeepEqual(&clrp.Spec) {
-				return false
-			}
-
-			current.ObjectMeta.Labels = clrp.ObjectMeta.Labels
-			current.Spec = clrp.Spec
-			return true
-		},
-	)
-	return err
-}
-
-// deleteCNP deletes a CiliumNetworkPolicy from the cluster.
-func deleteCNP(ctx context.Context, client *k8s.Client, cnp *ciliumv2.CiliumNetworkPolicy) error {
-	if err := client.DeleteCiliumNetworkPolicy(ctx, cnp.Namespace, cnp.Name, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("%s/%s/%s policy delete failed: %w", client.ClusterName(), cnp.Namespace, cnp.Name, err)
-	}
-
-	return nil
-}
-
-// deleteCNP deletes a CiliumNetworkPolicy from the cluster.
-func deleteCCNP(ctx context.Context, client *k8s.Client, ccnp *ciliumv2.CiliumClusterwideNetworkPolicy) error {
-	if err := client.DeleteCiliumClusterwideNetworkPolicy(ctx, ccnp.Name, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("%s/%s policy delete failed: %w", client.ClusterName(), ccnp.Name, err)
-	}
-
-	return nil
-}
-
-// deleteKNP deletes a Kubernetes NetworkPolicy from the cluster.
-func deleteKNP(ctx context.Context, client *k8s.Client, knp *networkingv1.NetworkPolicy) error {
-	if err := client.DeleteKubernetesNetworkPolicy(ctx, knp.Namespace, knp.Name, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("%s/%s/%s policy delete failed: %w", client.ClusterName(), knp.Namespace, knp.Name, err)
-	}
-
-	return nil
-}
-
-// deleteCEGP deletes a CiliumEgressGatewayPolicy from the cluster.
-func deleteCEGP(ctx context.Context, client *k8s.Client, cegp *ciliumv2.CiliumEgressGatewayPolicy) error {
-	if err := client.DeleteCiliumEgressGatewayPolicy(ctx, cegp.Name, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("%s/%s policy delete failed: %w", client.ClusterName(), cegp.Name, err)
-	}
-
-	return nil
-}
-
-// deleteCLRP deletes a CiliumLocalRedirectPolicy from the cluster.
-func deleteCLRP(ctx context.Context, client *k8s.Client, clrp *ciliumv2.CiliumLocalRedirectPolicy) error {
-	if err := client.DeleteCiliumLocalRedirectPolicy(ctx, clrp.Namespace, clrp.Name, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("%s/%s/%s policy delete failed: %w", client.ClusterName(), clrp.Namespace, clrp.Name, err)
-	}
-
-	return nil
 }
 
 func defaultDropReason(flow *flowpb.Flow) bool {
@@ -335,35 +226,6 @@ func RegisterPolicy[T policy](current map[string]T, policies ...T) (map[string]T
 	return current, nil
 }
 
-// addCNPs adds one or more CiliumNetworkPolicy resources to the Test.
-func (t *Test) addCNPs(cnps ...*ciliumv2.CiliumNetworkPolicy) (err error) {
-	t.cnps, err = RegisterPolicy(t.cnps, cnps...)
-	return err
-}
-
-// addCNPs adds one or more CiliumClusterwideNetworkPolicy resources to the Test.
-func (t *Test) addCCNPs(ccnps ...*ciliumv2.CiliumClusterwideNetworkPolicy) (err error) {
-	t.ccnps, err = RegisterPolicy(t.ccnps, ccnps...)
-	return err
-}
-
-// addKNPs adds one or more K8S NetworkPolicy resources to the Test.
-func (t *Test) addKNPs(policies ...*networkingv1.NetworkPolicy) (err error) {
-	t.knps, err = RegisterPolicy(t.knps, policies...)
-	return err
-}
-
-// addCEGPs adds one or more CiliumEgressGatewayPolicy resources to the Test.
-func (t *Test) addCEGPs(cegps ...*ciliumv2.CiliumEgressGatewayPolicy) (err error) {
-	t.cegps, err = RegisterPolicy(t.cegps, cegps...)
-	return err
-}
-
-func (t *Test) addCLRPs(clrps ...*ciliumv2.CiliumLocalRedirectPolicy) (err error) {
-	t.clrps, err = RegisterPolicy(t.clrps, clrps...)
-	return err
-}
-
 func sumMap(m map[string]int) int {
 	sum := 0
 	for _, v := range m {
@@ -376,9 +238,18 @@ func sumMap(m map[string]int) int {
 // can apply or delete policies in case of connectivity test concurrency > 1
 var policyApplyDeleteLock = lock.Mutex{}
 
-// applyPolicies applies all the Test's registered network policies.
-func (t *Test) applyPolicies(ctx context.Context) error {
-	if len(t.cnps) == 0 && len(t.ccnps) == 0 && len(t.knps) == 0 && len(t.cegps) == 0 && len(t.clrps) == 0 {
+// isPolicy returns true if the object is a network policy, and thus
+// should bump the policy revision.
+func isPolicy(obj k8s.Object) bool {
+	gk := obj.GetObjectKind().GroupVersionKind().GroupKind()
+	return (gk == schema.GroupKind{Group: ciliumv2.CustomResourceDefinitionGroup, Kind: ciliumv2.CNPKindDefinition} ||
+		gk == schema.GroupKind{Group: ciliumv2.CustomResourceDefinitionGroup, Kind: ciliumv2.CCNPKindDefinition} ||
+		gk == schema.GroupKind{Group: networkingv1.GroupName, Kind: "NetworkPolicy"})
+}
+
+// applyResources applies all the Test's registered additional resources
+func (t *Test) applyResources(ctx context.Context) error {
+	if len(t.resources) == 0 {
 		return nil
 	}
 
@@ -397,64 +268,19 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 
 	// Incremented, by cluster, for every expected revision.
 	revDeltas := map[string]int{}
-	// Apply all given CiliumNetworkPolicies.
-	for _, cnp := range t.cnps {
+
+	// apply resources to all clusters
+	for _, obj := range t.resources {
+		kind := obj.GetObjectKind().GroupVersionKind().Kind
 		for _, client := range t.Context().clients.clients() {
-			t.Infof("📜 Applying CiliumNetworkPolicy '%s' to namespace '%s'..", cnp.Name, cnp.Namespace)
-			changed, err := createOrUpdateCNP(ctx, client, cnp)
+			t.Infof("📜 Applying %s '%s' to namespace '%s' on cluster %s..", kind, obj.GetName(), obj.GetNamespace(), client.ClusterName())
+			changed, err := createOrUpdate(ctx, client, obj)
 			if err != nil {
-				return fmt.Errorf("policy application failed: %w", err)
+				return fmt.Errorf("failed to apply %s '%s' to namespace '%s' on cluster %s: %w", kind, obj.GetName(), obj.GetNamespace(), client.ClusterName(), err)
 			}
-			if changed {
+
+			if changed && isPolicy(obj) {
 				revDeltas[client.ClusterName()]++
-			}
-		}
-	}
-
-	// Apply all given CiliumClusterwideNetworkPolicy.
-	for _, ccnp := range t.ccnps {
-		for _, client := range t.Context().clients.clients() {
-			t.Infof("📜 Applying CiliumClusterwideNetworkPolicy '%s'..", ccnp.Name)
-			changed, err := createOrUpdateCCNP(ctx, client, ccnp)
-			if err != nil {
-				return fmt.Errorf("policy application failed: %w", err)
-			}
-			if changed {
-				revDeltas[client.ClusterName()]++
-			}
-		}
-	}
-
-	// Apply all given Kubernetes Network Policies.
-	for _, knp := range t.knps {
-		for _, client := range t.Context().clients.clients() {
-			t.Infof("📜 Applying KubernetesNetworkPolicy '%s' to namespace '%s'..", knp.Name, knp.Namespace)
-			changed, err := createOrUpdateKNP(ctx, client, knp)
-			if err != nil {
-				return fmt.Errorf("policy application failed: %w", err)
-			}
-			if changed {
-				revDeltas[client.ClusterName()]++
-			}
-		}
-	}
-
-	// Apply all given Cilium Egress Gateway Policies.
-	for _, cegp := range t.cegps {
-		for _, client := range t.Context().clients.clients() {
-			t.Infof("📜 Applying CiliumEgressGatewayPolicy '%s' to namespace '%s'..", cegp.Name, cegp.Namespace)
-			if err := createOrUpdateCEGP(ctx, client, cegp); err != nil {
-				return fmt.Errorf("policy application failed: %w", err)
-			}
-		}
-	}
-
-	// Apply all given Cilium Local Redirect Policies.
-	for _, clrp := range t.clrps {
-		for _, client := range t.Context().clients.clients() {
-			t.Infof("📜 Applying CiliumLocalRedirectPolicy '%s' to namespace '%s'..", clrp.Name, clrp.Namespace)
-			if err := createOrUpdateCLRP(ctx, client, clrp); err != nil {
-				return fmt.Errorf("policy application failed: %w", err)
 			}
 		}
 	}
@@ -463,7 +289,7 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 	// If we return a cleanup closure from this function, cleanup cannot be
 	// performed if the user cancels during the policy revision wait time.
 	t.finalizers = append(t.finalizers, func(ctx context.Context) error {
-		if err := t.deletePolicies(ctx); err != nil {
+		if err := t.deleteResources(ctx); err != nil {
 			t.CiliumLogs(ctx)
 			return err
 		}
@@ -484,29 +310,17 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 		}
 	}
 
-	if len(t.cnps) > 0 {
-		t.Debugf("📜 Successfully applied %d CiliumNetworkPolicies", len(t.cnps))
-	}
-	if len(t.ccnps) > 0 {
-		t.Debugf("📜 Successfully applied %d CiliumClusterwideNetworkPolicies", len(t.ccnps))
-	}
-	if len(t.knps) > 0 {
-		t.Debugf("📜 Successfully applied %d K8S NetworkPolicies", len(t.knps))
-	}
-	if len(t.cegps) > 0 {
-		t.Debugf("📜 Successfully applied %d CiliumEgressGatewayPolicies", len(t.cegps))
-	}
-
-	if len(t.clrps) > 0 {
-		t.Debugf("📜 Successfully applied %d CiliumLocalRedirectPolicies", len(t.clrps))
+	if len(t.resources) > 0 {
+		t.Debugf("📜 Successfully applied %d additional resources", len(t.resources))
 	}
 
 	return nil
 }
 
-// deletePolicies deletes a given set of network policies from the cluster.
-func (t *Test) deletePolicies(ctx context.Context) error {
-	if len(t.cnps) == 0 && len(t.ccnps) == 0 && len(t.knps) == 0 && len(t.cegps) == 0 && len(t.clrps) == 0 {
+// deleteResources deletes the previously-created set of resources that
+// belong to this test.
+func (t *Test) deleteResources(ctx context.Context) error {
+	if len(t.resources) == 0 {
 		return nil
 	}
 
@@ -523,84 +337,30 @@ func (t *Test) deletePolicies(ctx context.Context) error {
 	}
 
 	revDeltas := map[string]int{}
-	// Delete all the Test's CNPs from all clients.
-	for _, cnp := range t.cnps {
-		t.Infof("📜 Deleting CiliumNetworkPolicy '%s' from namespace '%s'..", cnp.Name, cnp.Namespace)
+	for _, obj := range t.resources {
+		kind := obj.GetObjectKind().GroupVersionKind().Kind
 		for _, client := range t.Context().clients.clients() {
-			if err := deleteCNP(ctx, client, cnp); err != nil {
-				return fmt.Errorf("deleting CiliumNetworkPolicy: %w", err)
+			t.Infof("📜 Deleting %s '%s' in namespace '%s' on cluster %s..", kind, obj.GetName(), obj.GetNamespace(), client.ClusterName())
+			err := client.DeleteGeneric(ctx, obj)
+			if err != nil {
+				return fmt.Errorf("failed to delete %s '%s' in namespace '%s' on cluster %s: %w", kind, obj.GetName(), obj.GetNamespace(), client.ClusterName(), err)
 			}
-			revDeltas[client.ClusterName()]++
-		}
-	}
 
-	// Delete all the Test's CCNPs from all clients.
-	for _, ccnp := range t.ccnps {
-		t.Infof("📜 Deleting CiliumClusterwideNetworkPolicy '%s'..", ccnp.Name)
-		for _, client := range t.Context().clients.clients() {
-			if err := deleteCCNP(ctx, client, ccnp); err != nil {
-				return fmt.Errorf("deleting CiliumClusterwideNetworkPolicy: %w", err)
-			}
-			revDeltas[client.ClusterName()]++
-		}
-	}
-
-	// Delete all the Test's KNPs from all clients.
-	for _, knp := range t.knps {
-		t.Infof("📜 Deleting K8S NetworkPolicy '%s' from namespace '%s'..", knp.Name, knp.Namespace)
-		for _, client := range t.Context().clients.clients() {
-			if err := deleteKNP(ctx, client, knp); err != nil {
-				return fmt.Errorf("deleting K8S NetworkPolicy: %w", err)
-			}
-			revDeltas[client.ClusterName()]++
-		}
-	}
-
-	// Delete all the Test's CEGPs from all clients.
-	for _, cegp := range t.cegps {
-		t.Infof("📜 Deleting CiliumEgressGatewayPolicy '%s' from namespace '%s'..", cegp.Name, cegp.Namespace)
-		for _, client := range t.Context().clients.clients() {
-			if err := deleteCEGP(ctx, client, cegp); err != nil {
-				return fmt.Errorf("deleting CiliumEgressGatewayPolicy: %w", err)
+			if isPolicy(obj) {
+				revDeltas[client.ClusterName()]++
 			}
 		}
 	}
 
-	// Delete all the Test's CLRPs from all clients.
-	for _, clrp := range t.clrps {
-		t.Infof("📜 Deleting CiliumLocalRedirectPolicy '%s' from namespace '%s'..", clrp.Name, clrp.Namespace)
-		for _, client := range t.Context().clients.clients() {
-			if err := deleteCLRP(ctx, client, clrp); err != nil {
-				return fmt.Errorf("deleting CiliumLocalRedirectPolicy: %w", err)
-			}
-		}
-	}
-
-	if len(t.cnps) != 0 || len(t.ccnps) != 0 || len(t.knps) != 0 || len(t.clrps) != 0 {
+	if len(revDeltas) > 0 {
 		// Wait for policies to be deleted on all Cilium nodes.
 		if err := t.waitCiliumPolicyRevisions(ctx, revs, revDeltas); err != nil {
-			return fmt.Errorf("timed out removing policies on Cilium agents: %w", err)
+			return fmt.Errorf("timed out waiting for policy updates to be processed on Cilium agents: %w", err)
 		}
 	}
 
-	if len(t.cnps) > 0 {
-		t.Debugf("📜 Successfully deleted %d CiliumNetworkPolicies", len(t.cnps))
-	}
-
-	if len(t.ccnps) > 0 {
-		t.Debugf("📜 Successfully deleted %d CiliumClusterwideNetworkPolicies", len(t.ccnps))
-	}
-
-	if len(t.knps) > 0 {
-		t.Debugf("📜 Successfully deleted %d K8S NetworkPolicy", len(t.knps))
-	}
-
-	if len(t.cegps) > 0 {
-		t.Debugf("📜 Successfully deleted %d CiliumEgressGatewayPolicies", len(t.cegps))
-	}
-
-	if len(t.clrps) > 0 {
-		t.Debugf("📜 Successfully deleted %d CiliumLocalRedirectPolicies", len(t.clrps))
+	if len(t.resources) > 0 {
+		t.Debugf("📜 Successfully deleted %d resources", len(t.resources))
 	}
 
 	return nil
@@ -618,58 +378,155 @@ func (t *Test) CiliumLogs(ctx context.Context) {
 	}
 }
 
-// ParsePolicyYAML decodes a yaml file into a slice of policies.
-func ParsePolicyYAML[T runtime.Object](input string, scheme *runtime.Scheme) (output []T, err error) {
-	if input == "" {
-		return nil, nil
+// tweakPolicy adjusts a test-dependent resource to insert the namespace
+// in known objects.
+func (t *Test) tweakPolicy(in *unstructured.Unstructured) *unstructured.Unstructured {
+	group := in.GroupVersionKind().Group
+	kind := in.GroupVersionKind().Kind
+
+	var tweaked runtime.Object
+	if group == ciliumv2.CustomResourceDefinitionGroup && kind == ciliumv2.CNPKindDefinition {
+		t.WithFeatureRequirements(features.RequireEnabled(features.CNP))
+		cnp := ciliumv2.CiliumNetworkPolicy{}
+		if err := convertInto(in, &cnp); err != nil {
+			t.Fatalf("could not parse CiliumNetworkPolicy: %v", err)
+			return nil
+		}
+		if cnp.Namespace == "" {
+			cnp.Namespace = t.ctx.params.TestNamespace
+		}
+		configureNamespaceInPolicySpec(cnp.Spec, t.ctx.params.TestNamespace)
+		tweaked = &cnp
 	}
 
-	yamls := strings.Split(input, "\n---")
-
-	for _, yaml := range yamls {
-		if strings.TrimSpace(yaml) == "" {
-			continue
+	if group == ciliumv2.CustomResourceDefinitionGroup && kind == ciliumv2.CCNPKindDefinition {
+		t.WithFeatureRequirements(features.RequireEnabled(features.CCNP))
+		ccnp := ciliumv2.CiliumClusterwideNetworkPolicy{}
+		if err := convertInto(in, &ccnp); err != nil {
+			t.Fatalf("could not parse CiliumClusterwideNetworkPolicy: %v", err)
+			return nil
 		}
-
-		obj, kind, err := serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDeserializer().Decode([]byte(yaml), nil, nil)
-		if err != nil {
-			return nil, fmt.Errorf("decoding yaml file: %s\nerror: %w", yaml, err)
-		}
-
-		switch policy := obj.(type) {
-		case T:
-			output = append(output, policy)
-		default:
-			return nil, fmt.Errorf("unknown type '%s' in: %s", kind.Kind, yaml)
-		}
+		configureNamespaceInPolicySpec(ccnp.Spec, t.ctx.params.TestNamespace)
+		tweaked = &ccnp
 	}
 
-	return output, nil
+	if group == networkingv1.GroupName && kind == "NetworkPolicy" {
+		t.WithFeatureRequirements(features.RequireEnabled(features.KNP))
+		knp := networkingv1.NetworkPolicy{}
+		if err := convertInto(in, &knp); err != nil {
+			t.Fatalf("could not parse NetworkPolicy: %v", err)
+			return nil
+		}
+		configureNamespaceInKNP(&knp, t.ctx.params.TestNamespace)
+		tweaked = &knp
+	}
+
+	if tweaked == nil {
+		return in
+	}
+
+	out := unstructured.Unstructured{}
+	if err := convertInto(tweaked, &out); err != nil {
+		t.Fatalf("could not convert tweaked object") // unreachable
+		return nil
+	}
+	return &out
 }
 
-// parseCiliumPolicyYAML decodes policy yaml into a slice of CiliumNetworkPolicies.
-func parseCiliumPolicyYAML(policy string) (cnps []*ciliumv2.CiliumNetworkPolicy, err error) {
-	return ParsePolicyYAML[*ciliumv2.CiliumNetworkPolicy](policy, scheme.Scheme)
+func configureNamespaceInPolicySpec(spec *api.Rule, namespace string) {
+	if spec == nil {
+		return
+	}
+
+	for _, k := range []string{
+		k8sConst.PodNamespaceLabel,
+		KubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
+		AnySourceLabelPrefix + k8sConst.PodNamespaceLabel,
+	} {
+		for _, e := range spec.Egress {
+			for _, es := range e.ToEndpoints {
+				if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+					es.MatchLabels[k] = namespace
+				}
+			}
+		}
+		for _, e := range spec.Ingress {
+			for _, es := range e.FromEndpoints {
+				if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+					es.MatchLabels[k] = namespace
+				}
+			}
+		}
+
+		for _, e := range spec.EgressDeny {
+			for _, es := range e.ToEndpoints {
+				if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+					es.MatchLabels[k] = namespace
+				}
+			}
+		}
+
+		for _, e := range spec.IngressDeny {
+			for _, es := range e.FromEndpoints {
+				if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+					es.MatchLabels[k] = namespace
+				}
+			}
+		}
+	}
 }
 
-// parseCiliumClusterwidePolicyYAML decodes policy yaml into a slice of CiliumClusterwideNetworkPolicy.
-func parseCiliumClusterwidePolicyYAML(policy string) (cnps []*ciliumv2.CiliumClusterwideNetworkPolicy, err error) {
-	return ParsePolicyYAML[*ciliumv2.CiliumClusterwideNetworkPolicy](policy, scheme.Scheme)
+func configureNamespaceInKNP(pol *networkingv1.NetworkPolicy, namespace string) {
+	pol.Namespace = namespace
+
+	if pol.Spec.Size() != 0 {
+		for _, k := range []string{
+			k8sConst.PodNamespaceLabel,
+			KubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
+			AnySourceLabelPrefix + k8sConst.PodNamespaceLabel,
+		} {
+			for _, e := range pol.Spec.Egress {
+				for _, es := range e.To {
+					if es.PodSelector != nil {
+						if n, ok := es.PodSelector.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+							es.PodSelector.MatchLabels[k] = namespace
+						}
+					}
+					if es.NamespaceSelector != nil {
+						if n, ok := es.NamespaceSelector.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+							es.NamespaceSelector.MatchLabels[k] = namespace
+						}
+					}
+				}
+			}
+			for _, e := range pol.Spec.Ingress {
+				for _, es := range e.From {
+					if es.PodSelector != nil {
+						if n, ok := es.PodSelector.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+							es.PodSelector.MatchLabels[k] = namespace
+						}
+					}
+					if es.NamespaceSelector != nil {
+						if n, ok := es.NamespaceSelector.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
+							es.NamespaceSelector.MatchLabels[k] = namespace
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
-// parseK8SPolicyYAML decodes policy yaml into a slice of K8S NetworkPolicies.
-func parseK8SPolicyYAML(policy string) (policies []*networkingv1.NetworkPolicy, err error) {
-	return ParsePolicyYAML[*networkingv1.NetworkPolicy](policy, clientsetscheme.Scheme)
+// convertInto converts an object using JSON
+func convertInto(input, output runtime.Object) error {
+	b, err := json.Marshal(input)
+	if err != nil {
+		return err // unreachable
+	}
+	return parseInto(b, output)
 }
 
-// parseCiliumEgressGatewayPolicyYAML decodes policy yaml into a slice of
-// CiliumEgressGatewayPolicies.
-func parseCiliumEgressGatewayPolicyYAML(policy string) (cegps []*ciliumv2.CiliumEgressGatewayPolicy, err error) {
-	return ParsePolicyYAML[*ciliumv2.CiliumEgressGatewayPolicy](policy, scheme.Scheme)
-}
-
-// parseCiliumLocalRedirectPolicyYAML decodes policy yaml into a slice of
-// CiliumLocalRedirectPolicies.
-func parseCiliumLocalRedirectPolicyYAML(policy string) (clrp []*ciliumv2.CiliumLocalRedirectPolicy, err error) {
-	return ParsePolicyYAML[*ciliumv2.CiliumLocalRedirectPolicy](policy, scheme.Scheme)
+func parseInto(b []byte, output runtime.Object) error {
+	_, _, err := serializer.NewCodecFactory(scheme.Scheme, serializer.EnableStrict).UniversalDeserializer().Decode(b, nil, output)
+	return err
 }
