@@ -637,6 +637,34 @@ func Test_LBEgressAdvertisementWithLoadBalancerIP(t *testing.T) {
 				},
 			},
 		},
+		{
+			description:         "add service-c - VIP shared with service-b",
+			srvName:             "service-c",
+			ingressIP:           "dddd::1",
+			op:                  "add",
+			expectedRouteEvents: []routeEvent{}, // no event, shared VIP already advertised
+		},
+		{
+			description:         "withdraw service-b - shared VIP",
+			srvName:             "service-b",
+			ingressIP:           "",
+			op:                  "update",
+			expectedRouteEvents: []routeEvent{}, // no event, shared VIP still advertised for service-c
+		},
+		{
+			description: "withdraw service-c - shared VIP",
+			srvName:     "service-c",
+			ingressIP:   "",
+			op:          "update",
+			expectedRouteEvents: []routeEvent{
+				{
+					sourceASN:   ciliumASN,
+					prefix:      "dddd::1",
+					prefixLen:   128,
+					isWithdrawn: true, // withdrawal, shared VIP no longer used by any service
+				},
+			},
+		},
 	}
 
 	testCtx, testDone := context.WithTimeout(context.Background(), maxTestDuration)
