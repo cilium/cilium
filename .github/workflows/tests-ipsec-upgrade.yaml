@@ -110,7 +110,6 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
-            encryption: 'ipsec'
 
           - config: '5.10'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -118,7 +117,6 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
-            encryption: 'ipsec'
             endpoint-routes: 'true'
 
           - config: '5.15'
@@ -127,7 +125,6 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
-            encryption: 'ipsec'
             encryption-overlay: 'true'
             endpoint-routes: 'false'
 
@@ -137,7 +134,6 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
-            encryption: 'ipsec'
             endpoint-routes: 'false'
 
           - config: '6.6'
@@ -146,7 +142,6 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
-            encryption: 'ipsec'
             endpoint-routes: 'true'
 
           # Add names to matrix combinations of {config, mode}
@@ -285,7 +280,7 @@ jobs:
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
-          encryption: ${{ matrix.encryption }}
+          encryption: 'ipsec'
           encryption-node: ${{ matrix.encryption-node }}
           encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
@@ -306,7 +301,7 @@ jobs:
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
-          encryption: ${{ matrix.encryption }}
+          encryption: 'ipsec'
           encryption-node: ${{ matrix.encryption-node }}
           encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
