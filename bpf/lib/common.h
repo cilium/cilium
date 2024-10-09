@@ -508,6 +508,12 @@ struct node_key {
 	};
 };
 
+struct node_value {
+	__u16 id;
+	__u8  spi;
+	__u8  pad;
+};
+
 enum {
 	POLICY_INGRESS = 1,
 	POLICY_EGRESS = 2,
