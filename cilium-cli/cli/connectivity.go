@@ -55,6 +55,8 @@ var tests []string
 func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
 		params.CiliumNamespace = namespace
+		params.ImpersonateAs = impersonateAs
+		params.ImpersonateGroups = impersonateGroups
 
 		for _, test := range tests {
 			if strings.HasPrefix(test, "!") {
