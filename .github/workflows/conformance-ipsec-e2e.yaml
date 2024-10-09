@@ -109,8 +109,6 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             key-one: 'gcm(aes)'
             key-two: 'cbc(aes)'
             key-type-one: '+'
@@ -122,8 +120,6 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             key-one: 'cbc(aes)'
             key-two: 'cbc(aes)'
             key-type-one: '+'
@@ -135,8 +131,6 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             endpoint-routes: 'true'
             key-one: 'gcm(aes)'
             key-two: 'gcm(aes)'
@@ -149,8 +143,6 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'geneve'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             endpoint-routes: 'true'
             key-one: 'cbc(aes)'
             key-two: 'gcm(aes)'
@@ -163,8 +155,6 @@ jobs:
             kube-proxy: 'none'
             kpr: 'true'
             tunnel: 'disabled'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             key-one: 'cbc(aes)'
             key-two: 'cbc(aes)'
             key-type-one: '+'
@@ -176,8 +166,6 @@ jobs:
             kube-proxy: 'none'
             kpr: 'true'
             tunnel: 'disabled'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             endpoint-routes: 'true'
             key-one: 'gcm(aes)'
             key-two: 'gcm(aes)'
@@ -190,8 +178,6 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             encryption-overlay: 'true'
             key-one: 'gcm(aes)'
             key-two: 'gcm(aes)'
@@ -204,8 +190,6 @@ jobs:
             kube-proxy: 'none'
             kpr: 'true'
             tunnel: 'vxlan'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             key-one: 'gcm(aes)'
             key-two: 'gcm(aes)'
             key-type-one: '+'
@@ -254,7 +238,7 @@ jobs:
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
-          encryption: ${{ matrix.encryption }}
+          encryption: 'ipsec'
           encryption-node: ${{ matrix.encryption-node }}
           encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
