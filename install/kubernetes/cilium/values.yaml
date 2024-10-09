@@ -153,11 +153,11 @@ image:
   # @schema
   override: ~
   repository: "quay.io/cilium/cilium"
-  tag: "v1.16.2"
+  tag: "v1.16.3"
   pullPolicy: "IfNotPresent"
   # cilium-digest
-  digest: "sha256:4386a8580d8d86934908eea022b0523f812e6a542f30a86a47edd8bed90d51ea"
-  useDigest: true
+  digest: ""
+  useDigest: false
 # -- Affinity for cilium-agent.
 affinity:
   podAntiAffinity:
@@ -1313,10 +1313,10 @@ hubble:
       # @schema
       override: ~
       repository: "quay.io/cilium/hubble-relay"
-      tag: "v1.16.2"
+      tag: "v1.16.3"
       # hubble-relay-digest
-      digest: "sha256:4b559907b378ac18af82541dafab430a857d94f1057f2598645624e6e7ea286c"
-      useDigest: true
+      digest: ""
+      useDigest: false
       pullPolicy: "IfNotPresent"
     # -- Specifies the resources for the hubble-relay pods
     resources: {}
@@ -2478,16 +2478,16 @@ operator:
     # @schema
     override: ~
     repository: "quay.io/cilium/operator"
-    tag: "v1.16.2"
+    tag: "v1.16.3"
     # operator-generic-digest
-    genericDigest: "sha256:cccfd3b886d52cb132c06acca8ca559f0fce91a6bd99016219b1a81fdbc4813a"
+    genericDigest: ""
     # operator-azure-digest
-    azureDigest: "sha256:fde7cf8bb887e106cd388bb5c3327e92682b2ec3ab4f03bb57b87f495b99f727"
+    azureDigest: ""
     # operator-aws-digest
-    awsDigest: "sha256:b6a73ec94407a56cccc8a395225e2aecc3ca3611e7acfeec86201c19fc0727dd"
+    awsDigest: ""
     # operator-alibabacloud-digest
-    alibabacloudDigest: "sha256:16e33abb6b8381e2f66388b6d7141399f06c9b51b9ffa08fd159b8d321929716"
-    useDigest: true
+    alibabacloudDigest: ""
+    useDigest: false
     pullPolicy: "IfNotPresent"
     suffix: ""
   # -- Number of replicas to run for the cilium-operator deployment
@@ -2762,10 +2762,10 @@ preflight:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium"
-    tag: "v1.16.2"
+    tag: "v1.16.3"
     # cilium-digest
-    digest: "sha256:4386a8580d8d86934908eea022b0523f812e6a542f30a86a47edd8bed90d51ea"
-    useDigest: true
+    digest: ""
+    useDigest: false
     pullPolicy: "IfNotPresent"
   # -- The priority class to use for the preflight pod.
   priorityClassName: ""
@@ -2911,10 +2911,10 @@ clustermesh:
       # @schema
       override: ~
       repository: "quay.io/cilium/clustermesh-apiserver"
-      tag: "v1.16.2"
+      tag: "v1.16.3"
       # clustermesh-apiserver-digest
-      digest: "sha256:cc84190fed92e03a2b3a33bc670b2447b521ee258ad9b076baaad13be312ea73"
-      useDigest: true
+      digest: ""
+      useDigest: false
       pullPolicy: "IfNotPresent"
     # -- TCP port for the clustermesh-apiserver health API.
     healthPort: 9880

@@ -1,5 +1,85 @@
 # Changelog
 
+## v1.16.3
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* bgpv2: fix reconciliation of services with shared VIPs (Backport PR #35274, Upstream PR #35166, @rastislavs)
+* bgpv2: Fix service reconciliation logic to update service advertisement metadata only after successful reconciliation (Backport PR #35036, Upstream PR #34976, @rastislavs)
+* bpf: nat: recreate a NAT entry if the packet hits the stale entry (Backport PR #35036, Upstream PR #34913, @ysksuzuki)
+* bugtool: fix cilium-health command (Backport PR #35274, Upstream PR #35068, @ayuspin)
+* Fix a low-probability issue where the DNS proxy could occasionally drop DNS queries due to "duplicate request id" errors. (Backport PR #35036, Upstream PR #34941, @bimmlerd)
+* Fix issue where bpf packet buffer mark would in some cases set incorrect mark value resulting in incorrectly SNATed traffic. (Backport PR #35036, Upstream PR #34789, @tommyp1ckles)
+* Fix parameter check to forbid IPAM ENI with TUNNEL routing, and prevent agent segfault when also IPSec is enabled. (Backport PR #34918, Upstream PR #34651, @smagnani96)
+* Fixed bug in LB-IPAM where restarting the operator would unshare previously shared IPs between services (Backport PR #35036, Upstream PR #34783, @dylandreimerink)
+* Fixed bug in tracking policy changes that could have resulted in revert not woking in failure cases as expected. (Backport PR #35274, Upstream PR #35109, @jrajahalme)
+* Fixed bug where service id allocator would loop infinity when out of service ids (Backport PR #35274, Upstream PR #35033, @WeeNews)
+* Fixes startup fatal error when updating CiliumNode resource. (Backport PR #34918, Upstream PR #34862, @harsimran-pabla)
+* gateway-api: Align GRPCRoute matchers with GEP specification (Backport PR #35274, Upstream PR #34808, @cfsnyder)
+* helm template function no longer errors when using k8sServiceHost: auto (Backport PR #35274, Upstream PR #35186, @kreeuwijk)
+* hubble: add printer for lost events (Backport PR #35274, Upstream PR #35208, @aanm)
+* ipcache: Yet another refcounting fix with mix of APIs (Backport PR #35036, Upstream PR #34715, @gandro)
+* netkit: Allow ARP packets through when using host firewall. (Backport PR #35274, Upstream PR #35070, @jrife)
+* wireguard: Fix issue where updates to a WireGuard device's configuration caused connectivity blips. (Backport PR #35115, Upstream PR #34612, @jrife)
+
+**CI Changes:**
+* .github/lint-build-commits: fix workflow for push events (Backport PR #35274, Upstream PR #35264, @aanm)
+* .github: create cache directories on cache miss (Backport PR #35157, Upstream PR #35088, @aanm)
+* .github: do not push floating tag from PRs (Backport PR #35230, Upstream PR #35227, @aanm)
+* .github: install golang action after checkout (Backport PR #35157, Upstream PR #34843, @aanm)
+* .github: re-enable configurations in e2e-upgrade (Backport PR #35157, Upstream PR #34800, @aanm)
+* .github: specify cache-dependency-path in lint-workflows (Backport PR #35157, Upstream PR #34845, @aanm)
+* [1.16] test: Skip envoy internal_address_config warning log (cilium/cilium#35053, @pippolo84)
+* [v1.16] gha: fix incorrect go version in lint-build-commits workflow (cilium/cilium#35312, @giorio94)
+* ci: conformance-[gateway-api|ginkgo|ingress] wait for images before matrix generation (Backport PR #34918, Upstream PR #34820, @aanm)
+* fix: repository nil value handled on workflow_dispatch context for renovate updates (Backport PR #34918, Upstream PR #34902, @Artyop)
+* servicemesh, ci: run internal to NodePort test (Backport PR #35274, Upstream PR #35177, @marseel)
+
+**Misc Changes:**
+* .github: add cache to cilium-cli and hubble-cli build workflows (Backport PR #35157, Upstream PR #34847, @aanm)
+* .github: clean up disk for lint-build workflow (Backport PR #35157, Upstream PR #35141, @aanm)
+* .github: fix build image process to commit changes (Backport PR #35274, Upstream PR #35262, @aanm)
+* .github: fix lvh-kind warnings (Backport PR #35157, Upstream PR #34811, @aanm)
+* .github: fix runtime image digests (Backport PR #35274, Upstream PR #35107, @aanm)
+* .github: push floating tag for push events for stable branches (cilium/cilium#35235, @aanm)
+* [v1.16] .github: do not update github runners for bpf workflows (cilium/cilium#35106, @aanm)
+* [v1.16] manually update dependency cilium/cilium-cli to v0.16.19 (v1.16) (cilium/cilium#35310, @julianwiedmann)
+* bgpv2/docs: add ebgp multihop documentation (Backport PR #35036, Upstream PR #34951, @harsimran-pabla)
+* bgpv2: cleanup service reconciliation logic (Backport PR #35036, Upstream PR #34959, @rastislavs)
+* Change GH runners to GH's default (Backport PR #35157, Upstream PR #33451, @aanm)
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#35025, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#35082, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#35250, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#35005, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#35283, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.16.18 (v1.16) (cilium/cilium#34999, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.22.7 docker digest to ddad330 (v1.16) (cilium/cilium#35101, @cilium-renovate[bot])
+* chore(deps): update go to v1.22.8 (v1.16) (cilium/cilium#35201, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.29.9-1727741018-e3a7412f65722ebbe34254b3582b89d315765d0d (v1.16) (cilium/cilium#35137, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.29.9-1727997080-b094128ed01b784b63ada19b54f8c7fdc3042e6e (v1.16) (cilium/cilium#35218, @cilium-renovate[bot])
+* cilium-cli: Show config.cilium.io annotations on configmap (Backport PR #35155, Upstream PR #35020, @joamaki)
+* docs: Add known issue for netkit endpoint route issues (Backport PR #35274, Upstream PR #35126, @jrife)
+* docs: fix EKS Kubernetes compatibility link (Backport PR #35036, Upstream PR #34922, @fjvela)
+* docs: Improve warning on insecure global IPsec keys (Backport PR #34918, Upstream PR #34846, @pchaigno)
+* docs: move sig-policy to second Tuesday of the month (Backport PR #35115, Upstream PR #35040, @squeed)
+* fix: Assign PodStore from Pod resource until cell migration is completed (Backport PR #35274, Upstream PR #34090, @dlapcevic)
+* helm: add client auth to hubble server certificate (Backport PR #35036, Upstream PR #34934, @kaworu)
+* helm: set key usages for hubble certificates with cert-manager (Backport PR #35036, Upstream PR #34946, @kaworu)
+* Improve speed on lint commits GH workflow (Backport PR #35157, Upstream PR #34848, @aanm)
+* install/kubernetes: fix Operator's clusterrole for pods deletion (Backport PR #35274, Upstream PR #35193, @aanm)
+* Re-write GitHub cache usages across workflows (Backport PR #35157, Upstream PR #34866, @aanm)
+* Remove conformance-e2e tests (Backport PR #35157, Upstream PR #34742, @aanm)
+
+**Other Changes:**
+* [v1.16] Add missing test coverage in v1.16 branch (cilium/cilium#35223, @aanm)
+* [v1.16] author backport: fix ENABLE_LOCAL_REDIRECT_POLICY (cilium/cilium#35129, @ysksuzuki)
+* [v1.16] author backport: LRP fixes (cilium/cilium#35072, @ysksuzuki)
+* [v1.16] ginkgo: disable test for deprecated annotations-based L7 visibility (cilium/cilium#35160, @tklauser)
+* [v1.16] test/k8s: replace L7 visibility Pod annotations by L7 visibility policy (cilium/cilium#35151, @tklauser)
+* install: Update image digests for v1.16.2 (cilium/cilium#35052, @cilium-release-bot[bot])
+
 ## v1.16.2
 
 Summary of Changes
