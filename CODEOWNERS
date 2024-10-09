@@ -353,6 +353,7 @@ Makefile* @cilium/build
 /Documentation/api.rst @cilium/sig-agent @cilium/docs-structure
 /Documentation/beta.rst @cilium/docs-structure
 /Documentation/reference-guides/bpf/ @cilium/sig-datapath @cilium/docs-structure
+/Documentation/reference-guides/xfrm/ @cilium/ipsec @cilium/docs-structure
 /Documentation/check-build.sh @cilium/docs-structure
 /Documentation/check-cmdref.sh @cilium/docs-structure
 /Documentation/check-crd-compat-table.sh @cilium/docs-structure
