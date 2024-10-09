@@ -39,9 +39,24 @@ func TestSet(t *testing.T) {
 
 	item1 := test{1}
 	item2 := test{2}
+	var anySeen, item1Seen, item2Seen, nilSeen, emptySeen bool
 	set := NewSet[Member]()
 	require.True(t, set.Empty())
+	for range set.Members() {
+		anySeen = true
+	}
+	require.False(t, anySeen)
 	require.True(t, set.Insert(nil))
+	for m := range set.Members() {
+		anySeen = true
+		if m == nil {
+			nilSeen = true
+		}
+	}
+	require.True(t, anySeen)
+	require.True(t, nilSeen)
+	require.Equal(t, 1, set.Len())
+	require.False(t, set.Insert(nil))
 	require.Equal(t, 1, set.Len())
 	require.True(t, set.Insert(item1))
 	require.Equal(t, 2, set.Len())
@@ -62,8 +77,8 @@ func TestSet(t *testing.T) {
 	require.False(t, set.Remove(test{1})) // storage for set itself not changed
 	require.Equal(t, 3, set.Len())
 
-	var item1Seen, item2Seen, nilSeen, emptySeen bool
 	for m := range set.Members() {
+		anySeen = true
 		if m == item1 {
 			item1Seen = true
 		}
@@ -77,6 +92,7 @@ func TestSet(t *testing.T) {
 			emptySeen = true
 		}
 	}
+	require.True(t, anySeen)
 	require.False(t, item1Seen)
 	require.True(t, item2Seen)
 	require.True(t, nilSeen)
@@ -151,6 +167,7 @@ func TestSet(t *testing.T) {
 	require.True(t, set.Remove(nil))
 	require.True(t, set.Empty())
 	require.False(t, set.Has(nil))
+	require.False(t, set.Remove(nil))
 
 	// Equal
 	item3 := test{3}
@@ -216,6 +233,30 @@ func TestSet(t *testing.T) {
 	}
 	require.True(t, emptySeen)
 	require.False(t, otherSeen)
+	set3 := NewSet[Member](item3)
+	require.Equal(t, 1, set3.Len())
+	emptySeen = false
+	otherSeen = false
+	for m := range MembersOfType[empty](set3) {
+		if m == emptyItem {
+			emptySeen = true
+		} else {
+			otherSeen = true
+		}
+	}
+	require.False(t, emptySeen)
+	require.False(t, otherSeen)
+
+	// RemoveSets
+	set = NewSet[Member](nil)
+	set2 = NewSet[Member](emptyItem, item3)
+	set3 = NewSet[Member](item3)
+	require.True(t, set.Merge(set2)) // storage changed
+	require.Equal(t, 3, set.Len())
+	require.False(t, set.RemoveSets(set3))
+	require.Equal(t, 2, set.Len())
+	require.True(t, set.RemoveSets(set2)) // storagechanged
+	require.Equal(t, 1, set.Len())
 
 	// Clear
 	set.Clear()
