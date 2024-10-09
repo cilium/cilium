@@ -153,6 +153,8 @@ func TestSet(t *testing.T) {
 	require.False(t, set.Has(nil))
 
 	// Equal
+	item3 := test{3}
+	item4 := test{4}
 	require.True(t, Set[Member]{}.Equal(Set[Member]{}))
 	require.True(t, Set[Member]{}.Equal(NewSet[Member]()))
 	require.True(t, NewSet[Member]().Equal(NewSet[Member]()))
@@ -167,6 +169,7 @@ func TestSet(t *testing.T) {
 	require.False(t, NewSet(item1, item2).Equal(NewSet(item2)))
 	require.False(t, NewSet(item1).Equal(NewSet(item2, item1)))
 	require.True(t, NewSet(item1, item2).Equal(NewSet(item2, item1)))
+	require.False(t, NewSet(item1, item2, item3).Equal(NewSet(item1, item2, item4)))
 
 	// Clone
 	set = NewSet[Member](item1, emptyItem, nil)
