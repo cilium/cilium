@@ -42,7 +42,7 @@ func TestOps(t *testing.T) {
 	require.NoError(t, err, "LinkAdd")
 	link, err := nlh.LinkByName("dummy0")
 	require.NoError(t, err, "LinkByName")
-	require.NoError(t, err, nlh.LinkSetUp(link))
+	require.NoError(t, nlh.LinkSetUp(link))
 	index := link.Attrs().Index
 	name := link.Attrs().Name
 
