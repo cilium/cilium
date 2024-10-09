@@ -100,18 +100,24 @@ jobs:
       fail-fast: false
       max-parallel: 16
       matrix:
-        config: ['5.4', '5.10', '6.1', '5.15', 'bpf-next']
+        name: ['1', '2', '3', '4', '5', '6', '7', '8']
         mode: ['minor', 'patch']
         include:
-          # Define three config sets
-          - config: '5.4'
+          - name: '1'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'rhel8-20240404.144247'
+            kube-proxy: 'iptables'
+            kpr: 'false'
+            tunnel: 'vxlan'
+
+          - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.4-20240710.064909'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
 
-          - config: '5.10'
+          - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.10-20240710.064909'
             kube-proxy: 'iptables'
@@ -119,71 +125,43 @@ jobs:
             tunnel: 'disabled'
             endpoint-routes: 'true'
 
-          - config: '5.15'
+          - name: '4'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-next-20240711.013133'
+            kube-proxy: 'iptables'
+            kpr: 'false'
+            tunnel: 'geneve'
+            endpoint-routes: 'true'
+
+          - name: '5'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '5.4-20240710.064909'
+            kube-proxy: 'none'
+            kpr: 'true'
+            tunnel: 'disabled'
+
+          - name: '6'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '5.10-20240710.064909'
+            kube-proxy: 'none'
+            kpr: 'true'
+            tunnel: 'disabled'
+            endpoint-routes: 'true'
+
+          - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.15-20240710.064909'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
             encryption-overlay: 'true'
-            endpoint-routes: 'false'
 
-          - config: '6.1'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20240710.064909'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'vxlan'
-            endpoint-routes: 'false'
-
-          - config: 'bpf-next'
+          - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: 'bpf-next-20240711.013133'
-            kube-proxy: 'iptables'
-            kpr: 'false'
+            kube-proxy: 'none'
+            kpr: 'true'
             tunnel: 'vxlan'
-            endpoint-routes: 'true'
-
-          # Add names to matrix combinations of {config, mode}
-          - config: '5.4'
-            mode: 'minor'
-            name: '1'
-
-          - config: '5.10'
-            mode: 'minor'
-            name: '2'
-
-          - config: '6.1'
-            mode: 'minor'
-            name: '3'
-
-          - config: 'bpf-next'
-            mode: 'minor'
-            name: '4'
-
-          - config: '5.4'
-            mode: 'patch'
-            name: '5'
-
-          - config: '5.10'
-            mode: 'patch'
-            name: '6'
-
-          - config: '6.1'
-            mode: 'patch'
-            name: '7'
-
-          - config: 'bpf-next'
-            mode: 'patch'
-            name: '8'
-
-          - config: '5.15'
-            mode: 'minor'
-            name: '9'
-
-          - config: '5.15'
-            mode: 'patch'
-            name: '10'
 
     timeout-minutes: 70
     steps:
@@ -359,7 +337,7 @@ jobs:
           sparse-checkout: |
             install/kubernetes/cilium
 
-      - name: Install Cilium ${{ steps.vars.outputs.downgrade_version }} (${{ matrix.name }})
+      - name: Install Cilium ${{ steps.vars.outputs.downgrade_version }} (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
@@ -377,11 +355,11 @@ jobs:
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
 
-      - name: Setup conn-disrupt-test before upgrading (${{ matrix.name }})
+      - name: Setup conn-disrupt-test before upgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-setup
 
-      - name: Upgrade Cilium (${{ matrix.name }})
+      - name: Upgrade Cilium (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
@@ -392,7 +370,7 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
-      - name: Run tests after upgrading (${{ matrix.name }})
+      - name: Run tests after upgrading (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
@@ -403,7 +381,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/conn-disrupt-test-setup
 
-      - name: Downgrade Cilium to ${{ steps.vars.outputs.downgrade_version }} (${{ matrix.name }})
+      - name: Downgrade Cilium to ${{ steps.vars.outputs.downgrade_version }} (${{ join(matrix.*, ', ') }})
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         shell: bash
         run: |
@@ -434,14 +412,14 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' && !success() }}
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: cilium-sysdumps-${{ matrix.config }}-${{ matrix.mode }}
+          name: cilium-sysdumps-${{ matrix.name }}-${{ matrix.mode }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ steps.vars.outputs.downgrade_version != '' && always() }}
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
-          name: cilium-junits-${{ matrix.config }}-${{ matrix.mode }}
+          name: cilium-junits-${{ matrix.name }}-${{ matrix.mode }}
           path: cilium-junits/*.xml
 
       - name: Publish Test Results As GitHub Summary
