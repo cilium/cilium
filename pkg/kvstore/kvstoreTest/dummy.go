@@ -1,21 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package kvstore
+package kvstoreTest
 
 import (
 	"context"
 	"testing"
 
-	client "go.etcd.io/etcd/client/v3"
-
 	"github.com/cilium/cilium/pkg/inctimer"
+	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/time"
-)
-
-var (
-	// etcdDummyAddress can be overwritten from test invokers using ldflags
-	etcdDummyAddress = "http://127.0.0.1:4002"
 )
 
 // SetupDummy sets up kvstore for tests. A lock mechanism it used to prevent
@@ -33,36 +27,48 @@ func SetupDummy(tb testing.TB, dummyBackend string) {
 // automatically registered to delete all keys and close the client when the
 // test terminates.
 func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[string]string) {
-	module := getBackend(dummyBackend)
+	module := kvstore.ExportedGetBackend(dummyBackend)
 	if module == nil {
 		tb.Fatalf("Unknown dummy kvstore backend %s", dummyBackend)
 	}
 
-	module.setConfigDummy()
+	// Ensure the module is valid
+	if module == nil {
+		tb.Fatalf("Unknown dummy kvstore backend %s", dummyBackend)
+	}
+
+	// Perform a type assertion to get the concrete type (*EtcdModule)
+	etcdMod, ok := module.(*kvstore.EtcdModule)
+	if !ok {
+		tb.Fatalf("Invalid module type, expected *EtcdModule")
+	}
+
+	// Call setConfigDummy on the concrete type
+	etcdMod.ExportedSetConfigDummy()
 
 	if opts != nil {
-		err := module.setConfig(opts)
+		err := etcdMod.ExportedSetConfig(opts)
 		if err != nil {
 			tb.Fatalf("Unable to set config options for kvstore backend module: %v", err)
 		}
 	}
 
-	if err := initClient(context.Background(), module, nil); err != nil {
+	if err := kvstore.ExportedInitClient(context.Background(), module, nil); err != nil {
 		tb.Fatalf("Unable to initialize kvstore client: %v", err)
 	}
 
 	tb.Cleanup(func() {
-		if err := Client().DeletePrefix(context.Background(), ""); err != nil {
+		if err := kvstore.Client().DeletePrefix(context.Background(), ""); err != nil {
 			tb.Fatalf("Unable to delete all kvstore keys: %v", err)
 		}
 
-		Client().Close()
+		kvstore.Client().Close()
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	if err := <-Client().Connected(ctx); err != nil {
+	if err := <-kvstore.Client().Connected(ctx); err != nil {
 		tb.Fatalf("Failed waiting for kvstore connection to be established: %v", err)
 	}
 
@@ -76,7 +82,7 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 	// the locking abstraction), so that we can release it in the same atomic
 	// transaction that also removes all the other keys.
 	for {
-		succeeded, err := Client().CreateOnly(ctx, ".lock", []byte(""), true)
+		succeeded, err := kvstore.Client().CreateOnly(ctx, ".lock", []byte(""), true)
 		if err != nil {
 			tb.Fatalf("Unable to acquire the kvstore lock: %v", err)
 		}
@@ -91,13 +97,4 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 			tb.Fatal("Timed out waiting to acquire the kvstore lock")
 		}
 	}
-}
-
-func EtcdDummyAddress() string {
-	return etcdDummyAddress
-}
-
-func (e *etcdModule) setConfigDummy() {
-	e.config = &client.Config{}
-	e.config.Endpoints = []string{etcdDummyAddress}
 }

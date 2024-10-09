@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -89,7 +90,7 @@ func newTestType() Key {
 
 func TestStoreCreation(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 	testStoreCreation(t)
 }
 
@@ -121,7 +122,7 @@ func testStoreCreation(t *testing.T) {
 
 func TestStoreOperations(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 	testStoreOperations(t)
 }
 
@@ -174,7 +175,7 @@ func testStoreOperations(t *testing.T) {
 
 func TestStorePeriodicSync(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 	testStorePeriodicSync(t)
 }
 
@@ -211,7 +212,7 @@ func testStorePeriodicSync(t *testing.T) {
 
 func TestStoreLocalKeyProtection(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 	testStoreLocalKeyProtection(t)
 }
 
@@ -270,7 +271,7 @@ func setupStoreCollaboration(t *testing.T, storePrefix, keyPrefix string) *Share
 
 func TestStoreCollaboration(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 	testStoreCollaboration(t)
 }
 

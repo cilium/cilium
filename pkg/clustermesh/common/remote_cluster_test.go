@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -30,7 +31,7 @@ func (fb *fakeBackend) StatusCheckErrors() <-chan error {
 
 func TestRemoteClusterWatchdog(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 
 	const name = "remote"
 	path := filepath.Join(t.TempDir(), name)

@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/labels"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
@@ -47,7 +47,7 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
 	// Setup dependencies for endpoint.
-	kvstore.SetupDummy(tb, "etcd")
+	kvstoreTest.SetupDummy(tb, "etcd")
 
 	s.mgr = cache.NewCachingIdentityAllocator(s.do)
 	<-s.mgr.InitIdentityAllocator(nil)

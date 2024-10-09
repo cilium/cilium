@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -64,7 +65,7 @@ func (f *fakeIPCache) Upsert(string, net.IP, uint8, *ipcache.K8sMetadata, ipcach
 func TestRemoteClusterRun(t *testing.T) {
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummyWithConfigOpts(t, "etcd",
+	kvstoreTest.SetupDummyWithConfigOpts(t, "etcd",
 		// Explicitly set higher QPS than the default to speedup the test
 		map[string]string{kvstore.EtcdRateLimitOption: "100"},
 	)
@@ -247,7 +248,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 	const cid1, cid2, cid3 = 10, 20, 30
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummyWithConfigOpts(t, "etcd",
+	kvstoreTest.SetupDummyWithConfigOpts(t, "etcd",
 		// Explicitly set higher QPS than the default to speedup the test
 		map[string]string{kvstore.EtcdRateLimitOption: "100"},
 	)

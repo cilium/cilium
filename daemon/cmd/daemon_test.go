@@ -33,6 +33,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	ctmapgc "github.com/cilium/cilium/pkg/maps/ctmap/gc"
@@ -229,7 +230,7 @@ type DaemonEtcdSuite struct {
 
 func setupDaemonEtcdSuite(tb testing.TB) *DaemonEtcdSuite {
 	testutils.IntegrationTest(tb)
-	kvstore.SetupDummy(tb, "etcd")
+	kvstoreTest.SetupDummy(tb, "etcd")
 
 	ds := setupDaemonSuite(tb)
 	return &DaemonEtcdSuite{

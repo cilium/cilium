@@ -19,7 +19,7 @@ import (
 	cacheKey "github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/inctimer"
-	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
@@ -32,7 +32,7 @@ var fakeConfig = &option.DaemonConfig{
 
 func TestAllocateIdentityReserved(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 	testAllocateIdentityReserved(t)
 }
 
@@ -156,7 +156,7 @@ func (d *dummyOwner) WaitUntilID(target identity.NumericIdentity) int {
 
 func TestEventWatcherBatching(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 	testEventWatcherBatching(t)
 }
 
@@ -215,7 +215,7 @@ func testEventWatcherBatching(t *testing.T) {
 
 func TestGetIdentityCache(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 	testGetIdentityCache(t)
 }
 
@@ -234,7 +234,7 @@ func testGetIdentityCache(t *testing.T) {
 
 func TestAllocator(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 	testAllocator(t)
 }
 
@@ -327,7 +327,7 @@ func testAllocator(t *testing.T) {
 
 func TestLocalAllocation(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 	testLocalAllocation(t)
 }
 
@@ -397,7 +397,7 @@ func testLocalAllocation(t *testing.T) {
 
 func TestAllocatorReset(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 	testAllocatorReset(t)
 }
 

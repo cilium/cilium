@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -68,7 +69,7 @@ func randomTestName() string {
 
 func BenchmarkAllocate(b *testing.B) {
 	testutils.IntegrationTest(b)
-	kvstore.SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
+	kvstoreTest.SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
 	benchmarkAllocate(b)
 }
 
@@ -92,7 +93,7 @@ func benchmarkAllocate(b *testing.B) {
 
 func BenchmarkRunLocksGC(b *testing.B) {
 	testutils.IntegrationTest(b)
-	kvstore.SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
+	kvstoreTest.SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
 	benchmarkRunLocksGC(b, "etcd")
 }
 
@@ -199,7 +200,7 @@ func benchmarkRunLocksGC(b *testing.B, backendName string) {
 
 func BenchmarkGC(b *testing.B) {
 	testutils.IntegrationTest(b)
-	kvstore.SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
+	kvstoreTest.SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
 	benchmarkGC(b)
 }
 
@@ -254,7 +255,7 @@ func benchmarkGC(b *testing.B) {
 
 func BenchmarkGCShouldSkipOutOfRangeIdentities(b *testing.B) {
 	testutils.IntegrationTest(b)
-	kvstore.SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
+	kvstoreTest.SetupDummyWithConfigOpts(b, "etcd", etcdOpts)
 	benchmarkGCShouldSkipOutOfRangeIdentities(b)
 }
 
@@ -333,7 +334,7 @@ func benchmarkGCShouldSkipOutOfRangeIdentities(b *testing.B) {
 
 func TestAllocateCached(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
+	kvstoreTest.SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
 	testAllocatorCached(t, idpool.ID(32), randomTestName()) // enable use of local cache
 }
 
@@ -427,7 +428,7 @@ func testAllocatorCached(t *testing.T, maxID idpool.ID, allocatorName string) {
 
 func TestKeyToID(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
+	kvstoreTest.SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
 	testKeyToID(t)
 }
 
@@ -458,7 +459,7 @@ func testKeyToID(t *testing.T) {
 
 func TestGetNoCache(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
+	kvstoreTest.SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
 	testGetNoCache(t, idpool.ID(256))
 }
 
@@ -542,7 +543,7 @@ func TestPrefixMatchesKey(t *testing.T) {
 
 func TestRemoteCache(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
+	kvstoreTest.SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
 	testRemoteCache(t)
 }
 

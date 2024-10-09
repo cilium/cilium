@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
@@ -70,7 +70,7 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	metrics.NewLegacyMetrics().EndpointStateCount.SetEnabled(true)
 
 	/* Required to test endpoint CEP policy model */
-	kvstore.SetupDummy(tb, "etcd")
+	kvstoreTest.SetupDummy(tb, "etcd")
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	<-s.mgr.InitIdentityAllocator(nil)
 	node.SetTestLocalNodeStore()
