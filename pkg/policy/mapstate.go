@@ -1052,7 +1052,14 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 
 		ms.insertUpdates(newKey, &newEntry, updates, changes)
 	}
-	ms.authPreferredInsert(newKey, newEntry, features, changes)
+
+	// Checking for auth feature here is faster than calling 'authPreferredInsert' and checking
+	// for it there.
+	if !features.contains(authRules) {
+		ms.addKeyWithChanges(newKey, newEntry, changes)
+		return
+	}
+	ms.authPreferredInsert(newKey, newEntry, changes)
 }
 
 // authPreferredInsert applies AuthType of a more generic entry to more specific entries, if not
@@ -1061,88 +1068,119 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapState
 // This function is expected to be called for a map insertion after deny
 // entry evaluation. If there is a map entry that is a superset of 'newKey'
 // which denies traffic matching 'newKey', then this function should not be called.
-func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, features policyFeatures, changes ChangeState) {
-	if features.contains(authRules) {
-		// We cannot update the map while we are iterating through it, so we record
-		// the changes to be made and then apply them.
-		var (
-			updates []keyValue
-		)
-		if newEntry.hasAuthType == DefaultAuthType {
-			// New entry has a default auth type.
+func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, changes ChangeState) {
+	// We cannot update the map while we are iterating through it, so we record
+	// the changes to be made and then apply them.
+	var (
+		updates []keyValue
+	)
+	if newEntry.hasAuthType == DefaultAuthType {
+		// New entry has a default auth type.
 
-			// Fill in the AuthType from the most specific covering key with an explicit
-			// auth type
-			ms.allows.ForEachCoveringKey(newKey, func(k Key, v MapStateEntry) bool {
-				// Skip covering entries with default AuthType
+		// Fill in the AuthType from the most specific covering key with an explicit
+		// auth type
+		ms.allows.ForEachCoveringKey(newKey, func(k Key, v MapStateEntry) bool {
+			// Skip covering entries with default AuthType
+			if v.hasAuthType == DefaultAuthType {
+				return true
+			}
+
+			// AuthType from the most specific covering key is applied to
+			// 'newEntry'
+			newEntry.AuthType = v.AuthType
+			return false
+		})
+
+		// Override the AuthType for specific L3/4 keys, if the newKey is L4-only,
+		// and there is a key with broader port/proto for a specific identity that
+		// has an explicit auth type.
+		if newKey.Identity == 0 && newKey.Nexthdr != 0 { // L4-only newKey
+			ms.allows.ForEachBroaderKeyWithSpecificID(newKey, func(k Key, v MapStateEntry) bool {
+				// Nothing to be done if entry has default AuthType
 				if v.hasAuthType == DefaultAuthType {
 					return true
 				}
 
-				// AuthType from the most specific covering key is applied to
-				// 'newEntry'
-				newEntry.AuthType = v.AuthType
-				return false
+				// Check if a new L3L4 entry must be created due to L3-only
+				// 'k' specifying an explicit AuthType and an L4-only 'newKey' not
+				// having an explicit AuthType. In this case AuthType should
+				// only override the AuthType for the L3 & L4 combination,
+				// not L4 in general.
+				update := keyValue{
+					key:   newKey.WithIdentity(k.Identity),
+					value: NewMapStateEntry(k, v.DerivedFromRules, newEntry.ProxyPort, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType),
+				}
+				update.value.DerivedFromRules.MergeSorted(newEntry.DerivedFromRules)
+				updates = append(updates, update)
+
+				return true
 			})
+		}
+	} else {
+		// New entry has an explicit auth type.
 
-			// Override the AuthType for specific L3/4 keys, if the newKey is L4-only,
-			// and there is a key with broader port/proto for a specific identity that
-			// has an explicit auth type.
-			if newKey.Identity == 0 && newKey.Nexthdr != 0 { // L4-only newKey
-				ms.allows.ForEachBroaderKeyWithSpecificID(newKey, func(k Key, v MapStateEntry) bool {
-					// Nothing to be done if entry has default AuthType
-					if v.hasAuthType == DefaultAuthType {
-						return true
-					}
-
-					// Check if a new L3L4 entry must be created due to L3-only
-					// 'k' specifying an explicit AuthType and an L4-only 'newKey' not
-					// having an explicit AuthType. In this case AuthType should
-					// only override the AuthType for the L3 & L4 combination,
-					// not L4 in general.
-					update := keyValue{
-						key:   newKey.WithIdentity(k.Identity),
-						value: NewMapStateEntry(k, v.DerivedFromRules, newEntry.ProxyPort, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType),
-					}
-					update.value.DerivedFromRules.MergeSorted(newEntry.DerivedFromRules)
-					updates = append(updates, update)
-
+		// Check if the new key is the most specific covering key of any other key
+		// with the default auth type, and propagate the auth type from the new
+		// entry to such entries.
+		if newKey.Identity == 0 {
+			// A key with a wildcard ID can be the most specific covering key
+			// for keys with any ID. Hence we need to iterate narrower keys with
+			// all IDs and:
+			// - change all iterated keys with a default auth type
+			//   to the auth type of the newKey.
+			// - stop iteration for any given ID at first key with that ID that
+			//   has an explicit auth type, as that is the most specific covering
+			//   key for the remaining subset keys with that specific ID.
+			seenIDs := make(IDSet)
+			ms.allows.ForEachSubsetKey(newKey, func(k Key, v MapStateEntry) bool {
+				// Skip if a subset entry has an explicit auth type
+				if v.hasAuthType == ExplicitAuthType {
+					// Keep track of IDs for which an explicit auth type
+					// has been encountered.
+					seenIDs[k.Identity] = struct{}{}
 					return true
-				})
-			}
+				}
+
+				// Skip IDs for which an explicit auth type has been seen.
+				if _, exists := seenIDs[k.Identity]; exists {
+					return true
+				}
+
+				// 'v' has a default auth type, and 'newKey' is the most
+				// specific covering key of 'k', propagate auth type from
+				// 'newEntry' to 'v'.
+
+				// Save the old value first
+				changes.insertOldIfNotExists(k, v)
+
+				// Auth type can be changed in-place, trie is not affected
+				v.AuthType = newEntry.AuthType
+				ms.allows.entries[k] = v
+				return true
+			})
 		} else {
-			// New entry has an explicit auth type.
-
-			// Check if the new key is the most specific covering key of any other key
-			// with the default auth type, and propagate the auth type from the new
-			// entry to such entries.
-			if newKey.Identity == 0 {
-				// A key with a wildcard ID can be the most specific covering key
-				// for keys with any ID. Hence we need to iterate narrower keys with
-				// all IDs and:
-				// - change all iterated keys with a default auth type
-				//   to the auth type of the newKey.
-				// - stop iteration for any given ID at first key with that ID that
-				//   has an explicit auth type, as that is the most specific covering
-				//   key for the remaining subset keys with that specific ID.
-				seenIDs := make(IDSet)
-				ms.allows.ForEachSubsetKey(newKey, func(k Key, v MapStateEntry) bool {
-					// Skip if a subset entry has an explicit auth type
-					if v.hasAuthType == ExplicitAuthType {
-						// Keep track of IDs for which an explicit auth type
-						// has been encountered.
-						seenIDs[k.Identity] = struct{}{}
-						return true
-					}
-
-					// Skip IDs for which an explicit auth type has been seen.
-					if _, exists := seenIDs[k.Identity]; exists {
-						return true
-					}
-
-					// 'v' has a default auth type, and 'newKey' is the most
-					// specific covering key of 'k', propagate auth type from
-					// 'newEntry' to 'v'.
+			// A key with a specific ID can be the most specific covering key
+			// only for keys with the same ID. However, a wildcard ID key can also be
+			// the most specific covering key for those keys, if it has a more
+			// specific proto/port than the newKey. Hence we need to iterate
+			// narrower keys with the same or ANY ID and:
+			// - change all iterated keys with the same ID and a default auth
+			//   type to the auth type of the newKey
+			// - stop iteration at first key with an explicit auth, as that is
+			//   the most specific covering key for the remaining subset keys with
+			//   the same ID.
+			ms.allows.ForEachSubsetKey(newKey, func(k Key, v MapStateEntry) bool {
+				// Stop if a subset entry has an explicit auth type, as that is more
+				// specific for all remaining subset keys
+				if v.hasAuthType == ExplicitAuthType {
+					return false
+				}
+				// auth only propagates from a key with specific ID
+				// to keys with the same ID.
+				if k.Identity != 0 {
+					// 'v' has a default auth type, and 'newKey' is the
+					// most specific covering key of 'k', propagate auth
+					// type from 'newEntry' to 'v'.
 
 					// Save the old value first
 					changes.insertOldIfNotExists(k, v)
@@ -1150,63 +1188,31 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, feat
 					// Auth type can be changed in-place, trie is not affected
 					v.AuthType = newEntry.AuthType
 					ms.allows.entries[k] = v
-					return true
-				})
-			} else {
-				// A key with a specific ID can be the most specific covering key
-				// only for keys with the same ID. However, a wildcard ID key can also be
-				// the most specific covering key for those keys, if it has a more
-				// specific proto/port than the newKey. Hence we need to iterate
-				// narrower keys with the same or ANY ID and:
-				// - change all iterated keys with the same ID and a default auth
-				//   type to the auth type of the newKey
-				// - stop iteration at first key with an explicit auth, as that is
-				//   the most specific covering key for the remaining subset keys with
-				//   the same ID.
-				ms.allows.ForEachSubsetKey(newKey, func(k Key, v MapStateEntry) bool {
-					// Stop if a subset entry has an explicit auth type, as that is more
-					// specific for all remaining subset keys
-					if v.hasAuthType == ExplicitAuthType {
-						return false
-					}
-					// auth only propagates from a key with specific ID
-					// to keys with the same ID.
-					if k.Identity != 0 {
-						// 'v' has a default auth type, and 'newKey' is the
-						// most specific covering key of 'k', propagate auth
-						// type from 'newEntry' to 'v'.
+				}
+				return true
+			})
 
-						// Save the old value first
-						changes.insertOldIfNotExists(k, v)
-
-						// Auth type can be changed in-place, trie is not affected
-						v.AuthType = newEntry.AuthType
-						ms.allows.entries[k] = v
+			// Check if a new L3L4 entry must be created due to 'newKey' with a
+			// specific ID and an explicit AuthType and an L4-only 'k' with a
+			// default AuthType. In this case AuthType of 'newEntry' should only
+			// override the AuthType for the L3 & L4 combination, not L4 in
+			// general.
+			ms.allows.ForEachNarrowerKeyWithWildcardID(newKey, func(k Key, v MapStateEntry) bool {
+				if v.hasAuthType == DefaultAuthType {
+					update := keyValue{
+						key:   k.WithIdentity(newKey.Identity),
+						value: NewMapStateEntry(newKey, newEntry.DerivedFromRules, v.ProxyPort, v.Listener, v.priority, false, DefaultAuthType, newEntry.AuthType),
 					}
-					return true
-				})
-
-				// Check if a new L3L4 entry must be created due to 'newKey' with a
-				// specific ID and an explicit AuthType and an L4-only 'k' with a
-				// default AuthType. In this case AuthType of 'newEntry' should only
-				// override the AuthType for the L3 & L4 combination, not L4 in
-				// general.
-				ms.allows.ForEachNarrowerKeyWithWildcardID(newKey, func(k Key, v MapStateEntry) bool {
-					if v.hasAuthType == DefaultAuthType {
-						update := keyValue{
-							key:   k.WithIdentity(newKey.Identity),
-							value: NewMapStateEntry(newKey, newEntry.DerivedFromRules, v.ProxyPort, v.Listener, v.priority, false, DefaultAuthType, newEntry.AuthType),
-						}
-						update.value.DerivedFromRules.MergeSorted(v.DerivedFromRules)
-						updates = append(updates, update)
-					}
-					return true
-				})
-			}
+					update.value.DerivedFromRules.MergeSorted(v.DerivedFromRules)
+					updates = append(updates, update)
+				}
+				return true
+			})
 		}
-
-		ms.insertUpdates(newKey, &newEntry, updates, changes)
 	}
+
+	ms.insertUpdates(newKey, &newEntry, updates, changes)
+
 	ms.addKeyWithChanges(newKey, newEntry, changes)
 }
 
