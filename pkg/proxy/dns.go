@@ -64,12 +64,10 @@ func (dr *dnsRedirect) UpdateRules(wg *completion.WaitGroup) (revert.RevertFunc,
 }
 
 // Close the redirect.
-func (dr *dnsRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
-	return func() {
-		dr.proxyRuleUpdater.UpdateAllowed(dr.redirect.endpointID, dr.redirect.dstPortProto, nil)
-		dr.redirect.localEndpoint.OnDNSPolicyUpdateLocked(nil)
-		dr.currentRules = nil
-	}, nil
+func (dr *dnsRedirect) Close() {
+	dr.proxyRuleUpdater.UpdateAllowed(dr.redirect.endpointID, dr.redirect.dstPortProto, nil)
+	dr.redirect.localEndpoint.OnDNSPolicyUpdateLocked(nil)
+	dr.currentRules = nil
 }
 
 type dnsProxyIntegration struct {

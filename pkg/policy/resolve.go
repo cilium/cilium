@@ -4,6 +4,8 @@
 package policy
 
 import (
+	"fmt"
+
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
@@ -66,13 +68,29 @@ type EndpointPolicy struct {
 
 	// PolicyOwner describes any type which consumes this EndpointPolicy object.
 	PolicyOwner PolicyOwner
+
+	// Redirects contains the proxy ports needed for this EndpointPolicy.
+	// If any redirects are missing a new policy will be computed to rectify it, so this is
+	// constant for the lifetime of this EndpointPolicy.
+	Redirects map[string]uint16
+}
+
+// LookupRedirectPort returns the redirect L4 proxy port for the given input parameters.
+// Returns 0 if not found or the filter doesn't require a redirect.
+// Returns an error if the redirect port can not be found.
+// This is called when accumulating incremental map changes, endpoint lock must not be taken.
+func (p *EndpointPolicy) LookupRedirectPort(ingress bool, protocol string, port uint16, listener string) (uint16, error) {
+	proxyID := ProxyID(uint16(p.PolicyOwner.GetID()), ingress, protocol, port, listener)
+	if proxyPort, exists := p.Redirects[proxyID]; exists {
+		return proxyPort, nil
+	}
+	fmt.Printf("PROXY PORT NOT FOUND FOR PROXY ID: %q\n", proxyID)
+	return 0, fmt.Errorf("Proxy port for redirect %q not found", proxyID)
 }
 
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
 	GetID() uint64
-	LookupRedirectPort(ingress bool, protocol string, port uint16, listener string) (uint16, error)
-	GetRealizedRedirects() map[string]uint16
 	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
 	PolicyDebug(fields logrus.Fields, msg string)
 }
@@ -112,7 +130,7 @@ func (p *selectorPolicy) Detach() {
 // Called without holding the Selector cache or Repository locks.
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
-func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *EndpointPolicy {
+func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, redirects map[string]uint16, isHost bool) *EndpointPolicy {
 	var calculatedPolicy *EndpointPolicy
 
 	// EndpointPolicy is initialized while 'GetCurrentVersionHandleFunc' keeps the selector
@@ -136,9 +154,10 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 				firstVersion: version.Version(),
 			},
 			PolicyOwner: policyOwner,
+			Redirects:   redirects,
 		}
 		// Register the new EndpointPolicy as a receiver of incremental
-		// updates before selector cache lock is released by 'GetHandle'.
+		// updates before selector cache lock is released by 'GetCurrentVersionHandleFunc'.
 		p.insertUser(calculatedPolicy)
 	})
 
@@ -245,43 +264,36 @@ func (p *EndpointPolicy) toMapState() {
 // but the Endpoint's build mutex is held.
 func (l4policy L4DirectionPolicy) toMapState(p *EndpointPolicy) {
 	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
-		l4.toMapState(p, l4policy.features, p.PolicyOwner.GetRealizedRedirects(), ChangeState{})
+		l4.toMapState(p, l4policy.features, ChangeState{})
 		return true
 	})
 }
 
 // createRedirectsFunc returns 'nil' if map changes should not be applied immemdiately,
 // otherwise the returned map is to be used to find redirect ports for map updates.
-type createRedirectsFunc func(*L4Filter) map[string]uint16
+type createRedirectsFunc func(*L4Filter) error
 
-// UpdateRedirects updates redirects in the EndpointPolicy's PolicyMapState by using the provided
-// function to create redirects. Changes to 'p.PolicyMapState' are collected in
-// 'adds' and 'updated' so that they can be reverted when needed.
-func (p *EndpointPolicy) UpdateRedirects(ingress bool, createRedirects createRedirectsFunc, changes ChangeState) {
-	l4policy := &p.L4Policy.Ingress
-	if ingress {
-		l4policy = &p.L4Policy.Egress
+// CreateRedirects creates redirects needed by the selectorPolicy by using the provided function.
+func (p *selectorPolicy) CreateRedirects(createRedirects createRedirectsFunc) error {
+	err := p.L4Policy.Ingress.createRedirects(createRedirects)
+	if err != nil {
+		return err
 	}
-
-	l4policy.updateRedirects(p, createRedirects, changes)
+	return p.L4Policy.Egress.createRedirects(createRedirects)
 }
 
-func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, createRedirects createRedirectsFunc, changes ChangeState) {
+func (l4policy L4DirectionPolicy) createRedirects(createRedirects createRedirectsFunc) error {
+	var err error
 	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
 		if l4.IsRedirect() {
-			// Check if we are denying this specific L4 first regardless the L3, if there are any deny policies
-			if l4policy.features.contains(denyRules) && p.policyMapState.deniesL4(p.PolicyOwner, l4) {
-				return true
-			}
-
-			redirects := createRedirects(l4)
-			if redirects != nil {
-				// Set the proxy port in the policy map.
-				l4.toMapState(p, l4policy.features, redirects, changes)
+			err = createRedirects(l4)
+			if err != nil {
+				return false
 			}
 		}
 		return true
 	})
+	return err
 }
 
 // ConsumeMapChanges transfers the changes from MapChanges to the caller.
@@ -299,8 +311,8 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 	closer = func() {}
 	if version.IsValid() {
 		var msg string
-		// update the version handle in p.VersionHandle so that any follow-on processing acts on the
-		// basis of the new version
+		// update the version handle in p.VersionHandle so that any follow-on processing
+		// acts on the basis of the new version
 		if p.VersionHandle.IsValid() {
 			p.VersionHandle.Close()
 			msg = "ConsumeMapChanges: updated valid version"
