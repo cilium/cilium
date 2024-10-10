@@ -178,8 +178,6 @@ jobs:
             ingress-controller: 'true'
             local-redirect-policy: 'true'
             node-local-dns: 'true'
-            # LRP with SocketLB doesn't upgrade smoothly from v1.15
-            skip-upgrade: 'true'
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -216,8 +214,6 @@ jobs:
             misc: 'socketLB.enabled=true'
             local-redirect-policy: 'true'
             node-local-dns: 'true'
-            # LRP with SocketLB doesn't upgrade smoothly from v1.15
-            skip-upgrade: 'true'
 
           - name: '11'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -635,6 +631,16 @@ jobs:
           ./cilium-cli status --wait --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium status
+
+      - name: Restart LRP backend pod
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.local-redirect-policy == 'true' }}
+        shell: bash
+        run: |
+          # Restart lrp-backend pod to set the netns cookie to the endpoint
+          for ns in $(kubectl get deploy --all-namespaces -o jsonpath="{.items[?(@.metadata.name=='lrp-backend')].metadata.namespace}"); do
+            kubectl rollout restart -n $ns deploy/lrp-backend
+            kubectl rollout status -n $ns deploy/lrp-backend
+          done
 
       - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
         shell: bash
