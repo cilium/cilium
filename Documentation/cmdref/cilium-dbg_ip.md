@@ -21,5 +21,6 @@ Manage IP addresses and associated information
 ### SEE ALSO
 
 * [cilium-dbg](cilium-dbg.md)	 - CLI
+* [cilium-dbg ip get](cilium-dbg_ip_get.md)	 - Display IP Cache information
 * [cilium-dbg ip list](cilium-dbg_ip_list.md)	 - List IP addresses in the userspace IPcache
 
