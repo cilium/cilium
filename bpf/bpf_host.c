@@ -1072,7 +1072,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	void __maybe_unused *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
-	int __maybe_unused l4_off = 0;
+	int __maybe_unused hdrlen = 0;
 	__u8 __maybe_unused next_proto = 0;
 	__s8 __maybe_unused ext_err = 0;
 	int ret;
@@ -1175,8 +1175,11 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 #ifdef ENABLE_WIREGUARD
 		if (!from_host) {
 			next_proto = ip6->nexthdr;
-			l4_off = ETH_HLEN + ipv6_hdrlen(ctx, &next_proto);
-			if (ctx_is_wireguard(ctx, l4_off, next_proto, ipcache_srcid))
+			hdrlen = ipv6_hdrlen(ctx, &next_proto);
+			if (hdrlen < 0)
+				return send_drop_notify_error(ctx, identity, hdrlen,
+						      CTX_ACT_DROP, METRIC_INGRESS);
+			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
 				trace.reason = TRACE_REASON_ENCRYPTED;
 		}
 #endif /* ENABLE_WIREGUARD */
@@ -1218,8 +1221,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 #ifdef ENABLE_WIREGUARD
 		if (!from_host) {
 			next_proto = ip4->protocol;
-			l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-			if (ctx_is_wireguard(ctx, l4_off, next_proto, ipcache_srcid))
+			hdrlen = ipv4_hdrlen(ip4);
+			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
 				trace.reason = TRACE_REASON_ENCRYPTED;
 		}
 #endif /* ENABLE_WIREGUARD */
@@ -1384,6 +1387,7 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
+	enum trace_reason __maybe_unused old_reason;
 	__be16 __maybe_unused proto = 0;
 	__u32 __maybe_unused vlan_id;
 	int ret = CTX_ACT_OK;
@@ -1521,7 +1525,11 @@ skip_host_firewall:
 	 * bpf_host@eth0 => ...; this happens when eth0 is used to send
 	 * encrypted WireGuard UDP packets), we check whether the mark
 	 * is set before the redirect.
+	 *
+	 * Restore trace reason in case packet does not need to be redirected
+	 * for encryption (verifier complexity workaround).
 	 */
+	old_reason = trace.reason;
 	trace.reason = TRACE_REASON_ENCRYPTED;
 	if ((ctx->mark & MARK_MAGIC_WG_ENCRYPTED) != MARK_MAGIC_WG_ENCRYPTED) {
 		ret = wg_maybe_redirect_to_encrypt(ctx, proto);
@@ -1529,7 +1537,7 @@ skip_host_firewall:
 			return ret;
 		else if (IS_ERR(ret))
 			goto drop_err;
-		trace.reason = TRACE_REASON_UNKNOWN;
+		trace.reason = old_reason;
 	}
 
 #if defined(ENCRYPTION_STRICT_MODE)
