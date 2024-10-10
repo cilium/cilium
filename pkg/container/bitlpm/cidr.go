@@ -54,12 +54,20 @@ func (c *CIDRTrie[T]) Ancestors(cidr netip.Prefix, fn func(k netip.Prefix, v T) 
 	})
 }
 
+func (c *CIDRTrie[T]) AncestorIterator(cidr netip.Prefix) Iterator[Key[netip.Prefix], T] {
+	return c.treeForFamily(cidr).AncestorIterator(uint(cidr.Bits()), cidrKey(cidr))
+}
+
 // AncestorsLongestPrefixFirst iterates over every CIDR pair that contains the CIDR argument,
 // longest matching prefix first, then iterating towards the root of the trie.
 func (c *CIDRTrie[T]) AncestorsLongestPrefixFirst(cidr netip.Prefix, fn func(k netip.Prefix, v T) bool) {
 	c.treeForFamily(cidr).AncestorsLongestPrefixFirst(uint(cidr.Bits()), cidrKey(cidr), func(prefix uint, k Key[netip.Prefix], v T) bool {
 		return fn(k.Value(), v)
 	})
+}
+
+func (c *CIDRTrie[T]) AncestorLongestPrefixFirstIterator(cidr netip.Prefix) Iterator[Key[netip.Prefix], T] {
+	return c.treeForFamily(cidr).AncestorLongestPrefixFirstIterator(uint(cidr.Bits()), cidrKey(cidr))
 }
 
 // Descendants iterates over every CIDR that is contained by the CIDR argument.
@@ -69,11 +77,19 @@ func (c *CIDRTrie[T]) Descendants(cidr netip.Prefix, fn func(k netip.Prefix, v T
 	})
 }
 
+func (c *CIDRTrie[T]) DescendantIterator(cidr netip.Prefix) Iterator[Key[netip.Prefix], T] {
+	return c.treeForFamily(cidr).DescendantIterator(uint(cidr.Bits()), cidrKey(cidr))
+}
+
 // DescendantsShortestPrefixFirst iterates over every CIDR that is contained by the CIDR argument.
 func (c *CIDRTrie[T]) DescendantsShortestPrefixFirst(cidr netip.Prefix, fn func(k netip.Prefix, v T) bool) {
 	c.treeForFamily(cidr).DescendantsShortestPrefixFirst(uint(cidr.Bits()), cidrKey(cidr), func(prefix uint, k Key[netip.Prefix], v T) bool {
 		return fn(k.Value(), v)
 	})
+}
+
+func (c *CIDRTrie[T]) DescendantShortestPrefixFirstIterator(cidr netip.Prefix) Iterator[Key[netip.Prefix], T] {
+	return c.treeForFamily(cidr).DescendantShortestPrefixFirstIterator(uint(cidr.Bits()), cidrKey(cidr))
 }
 
 // Upsert adds or updates the value for a given prefix.
