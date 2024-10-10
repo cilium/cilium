@@ -57,6 +57,12 @@ jobs:
       - name: Cleanup Disk space in runner
         uses: ./.github/actions/disk-cleanup
 
+      - name: Checkout base branch (trusted)
+        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        with:
+          ref: ${{ github.base_ref }}
+          persist-credentials: false
+
       - name: Copy scripts to trusted directory
         run: |
           mkdir -p ../cilium-base-branch/images/runtime/

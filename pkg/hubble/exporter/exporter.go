@@ -48,7 +48,7 @@ func NewExporter(
 	var writer io.WriteCloser
 	// If hubble-export-file-path is set to "stdout", use os.Stdout as the writer.
 	if opts.Path == "stdout" {
-		writer = os.Stdout
+		writer = &noopWriteCloser{w: os.Stdout}
 	} else {
 		writer = &lumberjack.Logger{
 			Filename:   opts.Path,
@@ -140,7 +140,7 @@ func (e *exporter) OnDecodedEvent(_ context.Context, ev *v1.Event) (bool, error)
 		return false, e.Stop()
 	default:
 	}
-	if !filters.Apply(e.opts.AllowList, e.opts.DenyList, ev) {
+	if !filters.Apply(e.opts.AllowFilters(), e.opts.DenyFilters(), ev) {
 		return false, nil
 	}
 	res := e.eventToExportEvent(ev)
@@ -148,4 +148,20 @@ func (e *exporter) OnDecodedEvent(_ context.Context, ev *v1.Event) (bool, error)
 		return false, nil
 	}
 	return false, e.encoder.Encode(res)
+}
+
+var _ io.WriteCloser = (*noopWriteCloser)(nil)
+
+// nopWriteCloser returns a io.ReadWrite with a no-op Close method wrapping
+// the provided io.Writer w.
+type noopWriteCloser struct {
+	w io.Writer
+}
+
+func (nwc *noopWriteCloser) Write(p []byte) (int, error) {
+	return nwc.w.Write(p)
+}
+
+func (nwc *noopWriteCloser) Close() error {
+	return nil
 }
