@@ -92,7 +92,7 @@ endif
 	$(QUIET) $(CONTAINER_ENGINE) buildx build -f $(subst %,$$*,$(2)) \
 		$(DOCKER_BUILD_FLAGS) $(DOCKER_FLAGS) \
 		$(if $(BASE_IMAGE),--build-arg BASE_IMAGE=$(BASE_IMAGE),) \
-		--build-arg MODIFIERS="NOSTRIP=$${NOSTRIP} NOOPT=${NOOPT} LOCKDEBUG=${LOCKDEBUG} RACE=${RACE} V=${V} LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} ${ADDITIONAL_MODIFIERS}" \
+		--build-arg MODIFIERS="NOSTRIP=$${NOSTRIP} FIPS=${FIPS} NOOPT=${NOOPT} LOCKDEBUG=${LOCKDEBUG} RACE=${RACE} V=${V} LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} ${ADDITIONAL_MODIFIERS}" \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		--build-arg OPERATOR_VARIANT=$(IMAGE_NAME) \
 		--build-arg DEBUG_HOLD=$(DEBUG_HOLD) \
@@ -113,6 +113,11 @@ endif
 $(1)-unstripped: NOSTRIP=1
 $(1)-unstripped: UNSTRIPPED=-unstripped
 $(1)-unstripped: $(1)
+	@echo
+
+$(1)-fips: FIPS=1
+$(1)-fips: NOSTRIP=1
+$(1)-fips: $(1)
 	@echo
 endef
 
@@ -151,3 +156,7 @@ docker-images-all-unstripped: docker-cilium-image-unstripped docker-plugin-image
 docker-operator-images-all: docker-operator-image docker-operator-aws-image docker-operator-azure-image docker-operator-alibabacloud-image docker-operator-generic-image ## Build all variants of cilium-operator images.
 
 docker-operator-images-all-unstripped: docker-operator-image-unstripped docker-operator-aws-image-unstripped docker-operator-azure-image-unstripped docker-operator-alibabacloud-image-unstripped docker-operator-generic-image-unstripped ## Build all variants of unstripped cilium-operator images.
+
+docker-operator-images-all-fips: docker-operator-image-fips docker-operator-aws-image-fips docker-operator-azure-image-fips docker-operator-alibabacloud-image-fips docker-operator-generic-image-fips ## Build all variants of fips cilium-operator images.
+
+docker-images-all-fips: docker-cilium-image-fips docker-plugin-image-fips docker-hubble-relay-image-fips docker-clustermesh-apiserver-image-fips docker-operator-images-all-fips ## Build all Cilium related fips docker images.
