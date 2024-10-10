@@ -701,7 +701,7 @@ func generateDecryptMark(decryptBit uint32, nodeID uint16) *netlink.XfrmMark {
 	}
 }
 
-func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, nodeID uint16, dir IPSecDir, reqID int) error {
+func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, nodeID uint16, reqID int) error {
 	// TODO: Remove old policy pointing to target net
 
 	// We can use the global IPsec key here because we are not going to
@@ -912,7 +912,7 @@ func UpsertIPsecEndpoint(log *slog.Logger, local, remote *net.IPNet, outerLocal,
 				return 0, fmt.Errorf("unable to replace remote state: %w", err)
 			}
 
-			if err = ipSecReplacePolicyOut(local, remote, outerLocal, outerRemote, remoteNodeID, dir, reqID); err != nil {
+			if err = ipSecReplacePolicyOut(local, remote, outerLocal, outerRemote, remoteNodeID, reqID); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy out: %w", err)
 				}
