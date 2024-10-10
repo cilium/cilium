@@ -9,6 +9,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 )
 
 func TestClusterInfoValidate(t *testing.T) {
@@ -93,6 +95,41 @@ func TestClusterInfoValidate(t *testing.T) {
 			} else {
 				assert.NoError(t, tt.cinfo.ValidateStrict(log))
 			}
+		})
+	}
+}
+
+func TestClusterInfoValidateBuggyClusterID(t *testing.T) {
+	tests := []struct {
+		cinfo        ClusterInfo
+		ipamMode     string
+		chainingMode string
+		assert       assert.ErrorAssertionFunc
+	}{
+		{cinfo: ClusterInfo{ID: 127}, ipamMode: ipamOption.IPAMClusterPool, chainingMode: "foo", assert: assert.NoError},
+		{cinfo: ClusterInfo{ID: 128}, ipamMode: ipamOption.IPAMClusterPool, chainingMode: "foo", assert: assert.NoError},
+		{cinfo: ClusterInfo{ID: 255}, ipamMode: ipamOption.IPAMClusterPool, chainingMode: "foo", assert: assert.NoError},
+		{cinfo: ClusterInfo{ID: 256}, ipamMode: ipamOption.IPAMClusterPool, chainingMode: "foo", assert: assert.NoError},
+		{cinfo: ClusterInfo{ID: 127}, ipamMode: ipamOption.IPAMENI, assert: assert.NoError},
+		{cinfo: ClusterInfo{ID: 128}, ipamMode: ipamOption.IPAMENI, assert: assert.Error},
+		{cinfo: ClusterInfo{ID: 255}, ipamMode: ipamOption.IPAMAlibabaCloud, assert: assert.Error},
+		{cinfo: ClusterInfo{ID: 256}, ipamMode: ipamOption.IPAMAlibabaCloud, assert: assert.NoError},
+		{cinfo: ClusterInfo{ID: 127}, chainingMode: "aws-cni", assert: assert.NoError},
+		{cinfo: ClusterInfo{ID: 128}, chainingMode: "aws-cni", assert: assert.Error},
+		{cinfo: ClusterInfo{ID: 255}, chainingMode: "aws-cni", assert: assert.Error},
+		{cinfo: ClusterInfo{ID: 256}, chainingMode: "aws-cni", assert: assert.NoError},
+		{cinfo: ClusterInfo{ID: 383}, ipamMode: ipamOption.IPAMClusterPool, chainingMode: "foo", assert: assert.NoError},
+		{cinfo: ClusterInfo{ID: 384}, ipamMode: ipamOption.IPAMClusterPool, chainingMode: "foo", assert: assert.NoError},
+		{cinfo: ClusterInfo{ID: 511}, ipamMode: ipamOption.IPAMClusterPool, chainingMode: "foo", assert: assert.NoError},
+		{cinfo: ClusterInfo{ID: 383}, ipamMode: ipamOption.IPAMENI, chainingMode: "foo", assert: assert.NoError},
+		{cinfo: ClusterInfo{ID: 384}, ipamMode: ipamOption.IPAMENI, chainingMode: "foo", assert: assert.Error},
+		{cinfo: ClusterInfo{ID: 511}, ipamMode: ipamOption.IPAMAlibabaCloud, chainingMode: "foo", assert: assert.Error},
+	}
+
+	for _, tt := range tests {
+		name := fmt.Sprintf("ID: %d, IPAM: %s, Chaining: %s", tt.cinfo.ID, tt.ipamMode, tt.chainingMode)
+		t.Run(name, func(t *testing.T) {
+			tt.assert(t, tt.cinfo.ValidateBuggyClusterID(tt.ipamMode, tt.chainingMode))
 		})
 	}
 }
