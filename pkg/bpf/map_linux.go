@@ -360,6 +360,12 @@ func (m *Map) Path() (string, error) {
 	return m.path, nil
 }
 
+// Pin attempts to pin (add) the map to the filesystem.
+func (m *Map) Pin(fileName string) error {
+	m.path = fileName
+	return m.m.Pin(m.path)
+}
+
 // Unpin attempts to unpin (remove) the map from the filesystem.
 func (m *Map) Unpin() error {
 	path, err := m.Path()

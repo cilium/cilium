@@ -110,3 +110,22 @@ those rules will be dropped.  Otherwise, if the policy enforcement
 mode is ``never`` or ``default``, all ingress (resp. egress) traffic
 is allowed to (resp. from) initializing endpoints.  Otherwise, all
 ingress (resp. egress) traffic is dropped.
+
+
+.. _lockdown_mode:
+
+Lockdown Mode
+-------------
+
+If the Cilium agent option ``enable-lockdown-endpoint-on-policy-overflow``
+is set to "true" Cilium will put an endpoint into "lockdown" if the policy
+map cannot accommodate all of the required policy map entries required
+(that is, the policy map for the endpoint is overflowing). Cilium will put
+the endpoint out of "lockdown" when it detects that the policy map is no
+longer overflowing. When an endpoint is locked down all network traffic,
+both egress and ingress, will be dropped. Cilium will log a warning that
+the endpoint has been locked down.
+  
+If this option is enabled, cluster operators should closely monitor the                                                                                metric the bpf map pressure metric of the ``cilium_policy_*`` maps. See                                                                                `Policymap pressure and overflow`_ for more details.
+
+.. _Policymap pressure and overflow: /operations/troubleshooting.html#policymap-pressure-and-overflow
