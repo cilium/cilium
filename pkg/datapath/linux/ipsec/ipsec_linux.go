@@ -48,7 +48,6 @@ const (
 	IPSecDirIn      IPSecDir = "IPSEC_IN"
 	IPSecDirOut     IPSecDir = "IPSEC_OUT"
 	IPSecDirBoth    IPSecDir = "IPSEC_BOTH"
-	IPSecDirOutNode IPSecDir = "IPSEC_OUT_NODE"
 
 	// Constants used to decode the IPsec secret in both formats:
 	// 1. [spi] aead-algo aead-key icv-len
@@ -715,11 +714,7 @@ func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, nodeID 
 	key.ReqID = reqID
 
 	policy := ipSecNewPolicy()
-	if dir == IPSecDirOutNode {
-		policy.Src = wildcardCIDRv4
-	} else {
-		policy.Src = src
-	}
+	policy.Src = src
 	policy.Dst = dst
 	policy.Dir = netlink.XFRM_DIR_OUT
 	policy.Mark = generateEncryptMark(key.Spi, nodeID)
@@ -913,7 +908,7 @@ func UpsertIPsecEndpoint(log *slog.Logger, local, remote *net.IPNet, outerLocal,
 			}
 		}
 
-		if dir == IPSecDirOut || dir == IPSecDirOutNode || dir == IPSecDirBoth {
+		if dir == IPSecDirOut || dir == IPSecDirBoth {
 			if spi, err = ipSecReplaceStateOut(log, outerLocal, outerRemote, remoteNodeID, localBootID, remoteBootID, remoteRebooted, reqID); err != nil {
 				return 0, fmt.Errorf("unable to replace remote state: %w", err)
 			}
