@@ -72,6 +72,11 @@ func registerPolicyValidator(params PolicyParams) {
 		return
 	}
 
+	if !option.Config.EnableCiliumNetworkPolicy {
+		params.Logger.Infof("CNP / CCNP validator doesn't run when CNP / CCNP are disabled (%s=false)", option.EnableCiliumNetworkPolicy)
+		return
+	}
+
 	pv := &policyValidator{
 		params: &params,
 	}

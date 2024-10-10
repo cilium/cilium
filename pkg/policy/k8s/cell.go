@@ -139,13 +139,15 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 			return p.knpSynced.Load()
 		})
 	}
-	p.registerResourceWithSyncFn(ctx, k8sAPIGroupCiliumNetworkPolicyV2, func() bool {
-		return p.cnpSynced.Load() && p.cidrGroupSynced.Load()
-	})
-	p.registerResourceWithSyncFn(ctx, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, func() bool {
-		return p.ccnpSynced.Load() && p.cidrGroupSynced.Load()
-	})
-	p.registerResourceWithSyncFn(ctx, k8sAPIGroupCiliumCIDRGroupV2Alpha1, func() bool {
-		return p.cidrGroupSynced.Load()
-	})
+	if params.Config.EnableCiliumNetworkPolicy {
+		p.registerResourceWithSyncFn(ctx, k8sAPIGroupCiliumNetworkPolicyV2, func() bool {
+			return p.cnpSynced.Load() && p.cidrGroupSynced.Load()
+		})
+		p.registerResourceWithSyncFn(ctx, k8sAPIGroupCiliumClusterwideNetworkPolicyV2, func() bool {
+			return p.ccnpSynced.Load() && p.cidrGroupSynced.Load()
+		})
+		p.registerResourceWithSyncFn(ctx, k8sAPIGroupCiliumCIDRGroupV2Alpha1, func() bool {
+			return p.cidrGroupSynced.Load()
+		})
+	}
 }

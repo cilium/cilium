@@ -67,14 +67,25 @@ type policyWatcher struct {
 
 func (p *policyWatcher) watchResources(ctx context.Context) {
 	go func() {
-		var knpEvents <-chan resource.Event[*slim_networking_v1.NetworkPolicy]
+		var (
+			knpEvents       <-chan resource.Event[*slim_networking_v1.NetworkPolicy]
+			cnpEvents       <-chan resource.Event[*cilium_v2.CiliumNetworkPolicy]
+			ccnpEvents      <-chan resource.Event[*cilium_v2.CiliumClusterwideNetworkPolicy]
+			cidrGroupEvents <-chan resource.Event[*cilium_api_v2alpha1.CiliumCIDRGroup]
+			serviceEvents   <-chan k8s.ServiceNotification
+		)
 		if p.config.EnableK8sNetworkPolicy {
 			knpEvents = p.networkPolicies.Events(ctx)
 		}
-		cnpEvents := p.ciliumNetworkPolicies.Events(ctx)
-		ccnpEvents := p.ciliumClusterwideNetworkPolicies.Events(ctx)
-		cidrGroupEvents := p.ciliumCIDRGroups.Events(ctx)
-		serviceEvents := p.svcCacheNotifications
+		if p.config.EnableCiliumNetworkPolicy {
+			cnpEvents = p.ciliumNetworkPolicies.Events(ctx)
+			ccnpEvents = p.ciliumClusterwideNetworkPolicies.Events(ctx)
+			// Cilium CDR Group CRD is only used with Cilium Network Policies.
+			// https://docs.cilium.io/en/latest/network/kubernetes/ciliumcidrgroup/
+			cidrGroupEvents = p.ciliumCIDRGroups.Events(ctx)
+			// Service Cache Notifications are only used with Cilium Network Policies.
+			serviceEvents = p.svcCacheNotifications
+		}
 
 		for {
 			select {
