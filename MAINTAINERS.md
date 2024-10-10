@@ -45,7 +45,7 @@ to learn how to level up through the project.
  * [Nicolas Busseneau] (Isovalent)
  * [Nirmoy Das] (AMD)
  * [Paul Chaignon] (Isovalent)
- * [Quentin Monnet] (Isovalent)
+ * [Quentin Monnet] (Hedgehog)
  * [Robin Hahling] (Isovalent)
  * [Sebastian Wicki] (Isovalent)
  * [Tam Mach] (Isovalent)
