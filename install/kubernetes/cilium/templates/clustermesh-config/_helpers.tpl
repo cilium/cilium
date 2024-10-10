@@ -14,10 +14,14 @@
 endpoints:
 {{- if ne $override "" }}
 - {{ $override }}
-{{- else if $cluster.ips }}
-- https://{{ $cluster.name }}.{{ $domain }}:{{ $cluster.port }}
+{{- else if $cluster.address }}
+- https://{{ $cluster.address }}:{{ $cluster.port }}
 {{- else }}
-- https://{{ $cluster.address | required "missing clustermesh.apiserver.config.clusters.address" }}:{{ $cluster.port }}
+- https://{{ $cluster.name }}.{{ $domain }}:{{ $cluster.port }}
+{{- end }}
+{{- if $cluster.ips }}
+ips:
+{{ toYaml $cluster.ips }}
 {{- end }}
 {{- if or (ne $override "") (not (empty ($cluster.tls).caCert)) }}
 {{- /* The custom CA configuration takes effect only if a custom certificate and key are also set, */}}
