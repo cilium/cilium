@@ -277,37 +277,6 @@ jobs:
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
-      - name: Make sure images available from cluster
-        run: |
-          kubectl create -f - <<EOF
-          apiVersion: batch/v1
-          kind: Job
-          metadata:
-            name: wait-for-images
-          spec:
-            completions: 1
-            backoffLimit: 3
-            template:
-              spec:
-                containers:
-                - name: wait-for-images
-                  image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }}
-                  command: ["true"]
-                tolerations:
-                - key: "node.cilium.io/agent-not-ready"
-                  operator: "Equal"
-                  value: "true"
-                  effect: "NoExecute"
-                restartPolicy: Never
-          EOF
-
-          kubectl wait --for=condition=complete --timeout=10m job/wait-for-images
-
-      # This is a workaround for flake #16938.
-      - name: Remove AWS-CNI
-        run: |
-          kubectl -n kube-system delete daemonset aws-node
-
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
@@ -323,6 +292,15 @@ jobs:
         id: install-cilium
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Create EKS nodegroups
+        uses: ./.github/actions/setup-eks-nodegroup
+        with:
+          cluster_name: ${{ env.clusterName }}
+          region: ${{ matrix.region }}
+          owner: "${{ steps.vars.outputs.owner }}"
+          version: ${{ matrix.version }}
+          spot: false
 
       - name: Wait for Cilium to be ready
         run: |
