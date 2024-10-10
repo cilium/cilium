@@ -1,0 +1,485 @@
+name: Scale Test Egress Gateway
+
+on:
+  schedule:
+    - cron: "27 0 * * 1-5"
+
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: "{}"
+      num-clients:
+        description: "Number of clients to create to connect to the external target through EGW"
+        required: false
+        default: 100
+      client-qps:
+        description: "Number of client pods to create per second"
+        required: false
+        default: 20
+
+# For testing uncomment following lines:
+#  push:
+#    branches:
+#      - your_branch_name
+
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To be able to request the JWT from GitHub's OIDC provider
+  id-token: write
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  # renovate: datasource=golang-version depName=go
+  go_version: 1.22.4
+  # renovate: datasource=github-releases depName=eksctl-io/eksctl
+  eksctl_version: v0.183.0
+  # renovate: datasource=github-releases depName=kubernetes/kubernetes
+  kubectl_version: v1.30.2
+  # renovate: datasource=docker depName=google/cloud-sdk
+  gcloud_version: 485.0.0
+  # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
+  egw_utils_ref: d0e4d60cf847b37fbde8e9ed4a11c70d1ae349ef
+
+  test_name: egw
+  cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
+  eks_region: us-west-1
+  k8s_version: 1.29
+  AWS_SSH_KEY: ~/.ssh/id_aws.pub
+  AWS_SSH_KEY_PRIVATE: ~/.ssh/id_aws
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  install-and-scaletest:
+    runs-on: ubuntu-latest
+    name: Install and Scale Test
+    timeout-minutes: 150
+    strategy:
+      matrix:
+        test_type:
+          - md-bs # Abbreviated "masquerade delay - baseline"
+          - md
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] ; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+
+          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+            --set pprof.enabled=true \
+            --helm-set=prometheus.enabled=true \
+            --helm-set=cluster.name=${{ env.cluster_name }} \
+            --helm-set=egressGateway.enabled=true \
+            --helm-set=bpf.masquerade=true \
+            --helm-set=kubeProxyReplacement=true \
+            --helm-set=l7Proxy=false \
+            --helm-set=egressMasqueradeInterfaces="" \
+            --wait=false \
+            --nodes-without-cilium \
+            --helm-set=eni.enabled=true \
+            --helm-set=ipam.mode=eni \
+            --helm-set=eni.awsEnablePrefixDelegation=true"
+
+          # only add SHA to the image tags if it was set
+          if [ -n "${SHA}" ]; then
+            echo sha=${SHA} >> $GITHUB_OUTPUT
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${SHA} \
+            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
+            --helm-set=clustermesh.apiserver.image.tag=${SHA} \
+            --helm-set=clustermesh.apiserver.image.useDigest=false \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=hubble.relay.image.useDigest=false"
+          fi
+
+          OWNER="${{ github.ref_name }}"
+          OWNER="${OWNER/./-}"
+
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] ; then
+            NUM_CLIENT_PODS="${{ inputs.num-clients }}"
+            CLIENT_QPS="${{ inputs.client-qps }}"
+          else
+            NUM_CLIENT_PODS="100"
+            CLIENT_QPS="20"
+          fi
+
+          TEST_NAME="${{ env.test_name }}-${{ matrix.test_type }}-${NUM_CLIENT_PODS}-${CLIENT_QPS}"
+
+          CLUSTER_NAME="${TEST_NAME}-${{ env.cluster_name }}"
+
+          # Nodes holding the EGW clients use a maximum of 100 pods per node.
+          # Add an extra as a buffer.
+          NUM_CLIENT_NODES="$(((NUM_CLIENT_PODS / 100) + 1))"
+
+          echo sha=${SHA} >> $GITHUB_OUTPUT
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo owner=${OWNER} >> $GITHUB_OUTPUT
+          echo test_name=${TEST_NAME} >> $GITHUB_OUTPUT
+          echo cluster_name=${CLUSTER_NAME} >> $GITHUB_OUTPUT
+          echo num_client_pods=${NUM_CLIENT_PODS} >> $GITHUB_OUTPUT
+          echo num_client_nodes=${NUM_CLIENT_NODES} >> $GITHUB_OUTPUT
+          echo client_qps=${CLIENT_QPS} >> $GITHUB_OUTPUT
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-aws-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Wait for EGW scale utils image to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          # Run this seprate from the other "Wait for images to be available" step to help with debugging.
+          until docker manifest inspect quay.io/cilium/egw-scale-utils:${{ env.egw_utils_ref }} &> /dev/null; do sleep 45s; done
+
+      - name: Install Go
+        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+        with:
+          go-version: ${{ env.go_version }}
+
+      - name: Setup gcloud credentials
+        uses: google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d957010649d8fa # v2.1.3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_PERF_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_PERF_SA }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@f0990588f1e5b5af6827153b93673613abdc6ec7 # v2.1.1
+        with:
+          project_id: ${{ secrets.GCP_PERF_PROJECT_ID }}
+          version: ${{ env.gcloud_version }}
+
+      - name: Install kubectl
+        run: |
+          curl -sLO "https://dl.k8s.io/release/${{ env.kubectl_version }}/bin/linux/amd64/kubectl"
+          curl -sLO "https://dl.k8s.io/${{ env.kubectl_version }}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+          kubectl version --client
+
+      - name: Install eksctl CLI
+        run: |
+          curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
+          sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
+          rm eksctl_$(uname -s)_amd64.tar.gz
+
+      - name: Set up AWS CLI credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ env.eks_region }}
+
+      - name: Run aws configure
+        run: |
+          aws configure set aws_access_key_id ${{ env.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws configure set aws_session_token ${{ env.AWS_SESSION_TOKEN }}
+          aws configure set default.region ${{ env.AWS_REGION }}
+
+      - name: Display version info of installed tools
+        run: |
+          echo "--- go ---"
+          go version
+          echo "--- kubectl ---"
+          kubectl version --client
+          echo "--- eksctl ---"
+          eksctl version
+          echo "--- gcloud ---"
+          gcloud version
+
+      - name: Clone ClusterLoader2
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          repository: kubernetes/perf-tests
+          # Avoid using renovate to update this dependency because: (1)
+          # perf-tests does not tag or release, so renovate will pull
+          # all updates to the default branch and (2) continually
+          # updating CL2 may impact the stability of the scale test
+          # results.
+          ref: ce821d6232cee6719dd86e7e68eee361e337e92a
+          persist-credentials: false
+          sparse-checkout: clusterloader2
+          path: perf-tests
+
+      - name: Clone EGW Scale Utils
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          repository: cilium/scaffolding
+          ref: ${{ env.egw_utils_ref }}
+          persist-credentials: false
+          sparse-checkout: egw-scale-utils
+          path: scaffolding
+
+      - name: Generate SSH keypair
+        run: |
+          ssh-keygen -f ${{ env.AWS_SSH_KEY_PRIVATE }} -P ""
+
+      - name: Create EKS cluster
+        shell: bash
+        id: deploy-cluster
+        run: |
+          cat <<EOF > eks-config.yaml
+          apiVersion: eksctl.io/v1alpha5
+          kind: ClusterConfig
+
+          metadata:
+            name: ${{ steps.vars.outputs.cluster_name }}
+            region: ${{ env.eks_region }}
+            version: "${{ env.k8s_version }}"
+            tags:
+              usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
+              owner: "${{ steps.vars.outputs.owner }}"
+
+          managedNodeGroups:
+          - name: ng-amd64-client
+            instanceTypes:
+            - m5.large
+            desiredCapacity: ${{ steps.vars.outputs.num_client_nodes }}
+            maxPodsPerNode: 100
+            spot: false
+            privateNetworking: true
+            volumeType: "gp3"
+            volumeSize: 10
+            ssh:
+              allow: true
+              publicKeyPath: ${{ env.AWS_SSH_KEY }}
+            taints:
+            - key: "node.cilium.io/agent-not-ready"
+              value: "true"
+              effect: "NoExecute"
+            labels:
+              role.scaffolding/egw-client: "true"
+          - name: ng-amd64-egw-node
+            instanceTypes:
+            - m5.large
+            desiredCapacity: 1
+            spot: false
+            privateNetworking: true
+            volumeType: "gp3"
+            volumeSize: 10
+            ssh:
+              allow: true
+              publicKeyPath: ${{ env.AWS_SSH_KEY }}
+            taints:
+            - key: "node.cilium.io/agent-not-ready"
+              value: "true"
+              effect: "NoExecute"
+            labels:
+              role.scaffolding/egw-node: "true"
+          - name: ng-amd64-heapster
+            instanceTypes:
+            - m5.large
+            desiredCapacity: 1
+            spot: false
+            privateNetworking: true
+            volumeType: "gp3"
+            volumeSize: 10
+            ssh:
+              allow: true
+              publicKeyPath: ${{ env.AWS_SSH_KEY }}
+            taints:
+            - key: "node.cilium.io/agent-not-ready"
+              value: "true"
+              effect: "NoExecute"
+            labels:
+              role.scaffolding/monitoring: "true"
+          - name: ng-amd64-no-cilium
+            instanceTypes:
+            - m5.large
+            desiredCapacity: 1
+            spot: false
+            privateNetworking: true
+            volumeType: "gp3"
+            volumeSize: 10
+            ssh:
+              allow: true
+              publicKeyPath: ${{ env.AWS_SSH_KEY }}
+            taints:
+            - key: "cilium.io/no-schedule"
+              value: "true"
+              effect: "NoSchedule"
+            labels:
+              cilium.io/no-schedule: "true"
+          EOF
+
+          eksctl create cluster -f ./eks-config.yaml
+
+      - name: Patch AWS-CNI to enable prefix delegation
+        run: |
+          kubectl set env daemonset aws-node -n kube-system ENABLE_PREFIX_DELEGATION=true
+          kubectl rollout restart ds/aws-node -n kube-system
+          kubectl rollout status ds/aws-node -n kube-system -w
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@99ff3d9edd4050d7b5c9d1f51dcf6ebeeb613d15 # v0.16.15
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ env.CILIUM_CLI_VERSION }}
+
+      - name: Install Cilium
+        run: |
+          cilium install --dry-run-helm-values ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+
+      - name: Check that AWS leftover iptables chains have been removed
+        run: |
+          for pod in $(kubectl get po -n kube-system -l app.kubernetes.io/name=cilium-agent -o name); do
+            echo "Checking ${pod}"
+            if kubectl exec -n kube-system  ${pod} -c cilium-agent -- iptables-save | grep --silent ':AWS'; then
+              echo "Unexpected AWS leftover iptables chains"
+              kubectl exec -n kube-system ds/cilium -- iptables-save | grep ':AWS'
+              exit 1
+            fi
+          done
+
+      - name: Run preflight steps
+        shell: bash
+        working-directory: ./scaffolding/egw-scale-utils/test
+        env:
+          EGW_IMAGE_TAG: ${{ env.egw_utils_ref }}
+        run: |
+          if [[ "${{ matrix.test_type }}" == "md-bs" ]]; then
+            ./preflight.sh baseline
+          else
+            ./preflight.sh
+          fi
+
+          cat ./manifests/*
+
+      - name: Run CL2
+        id: run-cl2
+        working-directory: ./perf-tests/clusterloader2
+        shell: bash
+        timeout-minutes: 40
+        env:
+          CL2_PROMETHEUS_PVC_ENABLED: "false"
+          CL2_ENABLE_PVS: "false"
+          CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
+          CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "true"
+          CL2_PROMETHEUS_MEMORY_SCALE_FACTOR: "2.0"
+          CL2_PROMETHEUS_NODE_SELECTOR: 'role.scaffolding/monitoring: "true"'
+          CL2_NUM_EGW_CLIENTS: "${{ steps.vars.outputs.num_client_pods }}"
+          CL2_EGW_CLIENTS_QPS: "${{ steps.vars.outputs.client_qps }}"
+        run: |
+          mkdir ./report
+
+          # CL2 hardcodes module paths to live in next to the config, even
+          # if the path given is relative.
+          cp ../../.github/actions/cl2-modules/cilium-agent-pprofs.yaml ../../scaffolding/egw-scale-utils/test/
+          cp ../../.github/actions/cl2-modules/cilium-metrics.yaml ../../scaffolding/egw-scale-utils/test/
+          echo \
+            '{"CL2_ADDITIONAL_MEASUREMENT_MODULES": ["./cilium-agent-pprofs.yaml", "./cilium-metrics.yaml"]}' \
+            > modules.yaml
+
+          go run ./cmd/clusterloader.go \
+            -v=2 \
+            --testconfig=../../scaffolding/egw-scale-utils/test/config.yaml \
+            --provider=aws \
+            --enable-prometheus-server \
+            --tear-down-prometheus-server=false \
+            --report-dir=./report \
+            --experimental-prometheus-snapshot-to-report-dir=true \
+            --kubeconfig=$HOME/.kube/config \
+            --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
+            --testoverrides=./modules.yaml \
+            --prometheus-additional-monitors-path=../../scaffolding/egw-scale-utils/test/prom-extra-podmons \
+            2>&1 | tee cl2-output.txt
+
+      - name: Get sysdump
+        if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
+        run: |
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-final
+
+      - name: Cleanup cluster
+        if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
+        run: |
+          eksctl delete cluster --name ${{ steps.vars.outputs.cluster_name }} --region ${{ env.eks_region }}
+
+      - name: Export results and sysdump to GS bucket
+        if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
+        uses: cilium/scale-tests-action/export-results@511e3d9dbf06f6dbde8d1af6834eb1fcab38ca05 # main
+        with:
+          test_name: ${{ steps.vars.outputs.test_name }}
+          results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
+          artifacts: ./perf-tests/clusterloader2/report/*
+          other_files: cilium-sysdump-final.zip ./perf-tests/clusterloader2/cl2-output.txt
