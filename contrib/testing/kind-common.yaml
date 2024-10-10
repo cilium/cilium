@@ -18,3 +18,5 @@ readinessProbe:
   failureThreshold: 9999
 startupProbe:
   failureThreshold: 9999
+prometheus:
+  enabled: true

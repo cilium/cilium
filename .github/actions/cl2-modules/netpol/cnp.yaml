@@ -1,0 +1,53 @@
+{{$deployments := .Deployments}}
+{{$cnps := .CNPs}}
+{{$dp :=  DivideInt .Index $cnps}}
+{{$cnpno :=  Mod .Index 2}}
+
+{{$CIDRs := 5}}
+{{$PORTs := 5}}
+{{$DNSs := 5}}
+
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{.Name}}-{{.dp}}-{{.cnpno}}
+  labels:
+    group: load
+spec:
+  endpointSelector:
+    matchLabels:
+      group: load
+      indexing: id-{{$dp}}
+  egress:
+{{if eq $cnpno 0}}
+# L4 policy
+  - toEndpoints:
+    - matchLabels:
+        indexing: id-{{RandIntRange 0 $deployments}}
+    toPorts:
+    - ports:
+  {{ range $index := Loop $PORTs }}
+  {{ $portStart := MultipleInt .Index $index }}
+  {{ $startPort := MultiplyInt 10 $portStart }}
+  {{ $endPort := AddInt 9 $startPort }}
+      - port: "{{$startPort}}"
+        endPort: {{$endPort}}
+        protocol: TCP
+  {{ end }}
+{{else}}
+# L4 CIDR policy
+  - toCIDR:
+  {{ range $index := Loop $CIDRs }}
+    - 177.{{RandIntRange 0 256}}.{{RandIntRange 1 255}}.{{RandIntRange 1 255}}/32
+  {{ end }}
+    toPorts:
+    - ports:
+  {{ range $index := Loop $PORTs }}
+  {{ $portStart := MultipleInt .Index $index }}
+  {{ $startPort := MultiplyInt 10 $portStart }}
+  {{ $endPort := AddInt 9 $startPort }}
+      - port: "{{$startPort}}"
+        endPort: {{$endPort}}
+        protocol: TCP
+  {{ end }}
+{{end}}
