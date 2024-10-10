@@ -34,6 +34,9 @@ inputs:
   encryption-overlay:
     description: 'Encrypt the overlay itself (IPsec only)'
     default: 'false'
+  encryption-strict-mode:
+    description: 'Enable strict mode encryption (WireGuard only)'
+    default: ''
   egress-gateway:
     description: 'Enable egress gateway'
     default: 'false'
@@ -149,6 +152,10 @@ runs:
             fi
             if [ "${{ inputs.encryption-overlay }}" != "" ]; then
               ENCRYPT+=" --helm-set=encryption.ipsec.encryptedOverlay=${{ inputs.encryption-overlay }}"
+            fi
+            if [ "${{ inputs.encryption-strict-mode }}" != "" ]; then
+              ENCRYPT+=" --helm-set=encryption.strictMode.enabled=${{ inputs.encryption-strict-mode }}"
+              ENCRYPT+=" --helm-set=encryption.strictMode.cidr=10.244.0.0/16"
             fi
           fi
 

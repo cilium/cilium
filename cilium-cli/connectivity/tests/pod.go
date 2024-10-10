@@ -5,12 +5,18 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net"
+	"reflect"
 	"strconv"
 	"strings"
+	"unsafe"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 )
 
 const (
@@ -252,4 +258,177 @@ func (s *podToPodNoFrag) Run(ctx context.Context, t *check.Test) {
 		})
 
 	})
+}
+
+func PodToPodMissingIPCache(opts ...Option) check.Scenario {
+	options := &labelsOption{}
+	for _, opt := range opts {
+		opt(options)
+	}
+	return &podToPodMissingIPCache{
+		sourceLabels:      options.sourceLabels,
+		destinationLabels: options.destinationLabels,
+		method:            options.method,
+	}
+}
+
+type podToPodMissingIPCache struct {
+	sourceLabels      map[string]string
+	destinationLabels map[string]string
+	method            string
+}
+
+func (s *podToPodMissingIPCache) Name() string {
+	return "pod-to-pod-missing-ipcache"
+}
+
+type bpfMap struct {
+	ID int `json:"id"`
+}
+
+type bpfMapLookup struct {
+	Key   []string `json:"key"`
+	Value []string `json:"value"`
+}
+
+func dropCountByUnencrypted(ctx context.Context, ct *check.ConnectivityTest) (count int, err error) {
+	unencryptedCountCmd := []string{
+		"/bin/sh", "-c",
+		`cilium metrics list -o json | jq '.[] | select((.name == "cilium_drop_count_total") and (.labels.reason | IN("Traffic is unencrypted"))) | .value'`,
+	}
+
+	for _, ciliumPod := range ct.CiliumPods() {
+		output, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, unencryptedCountCmd)
+		if err != nil {
+			return 0, err
+		}
+		if output.String() != "" {
+			c, err := strconv.Atoi(strings.TrimSpace(output.String()))
+			if err != nil {
+				return 0, err
+			}
+			count += c
+		}
+	}
+	return
+}
+
+func structToStrSlice(key *ipcachemap.Key) []string {
+	ptr := unsafe.Pointer(reflect.ValueOf(key).Pointer())
+	size := unsafe.Sizeof(*key)
+	byteSlice := make([]string, size)
+	for i := 0; i < int(size); i++ {
+		byteSlice[i] = fmt.Sprintf("0x%02x", *(*byte)(unsafe.Pointer(uintptr(ptr) + uintptr(i))))
+	}
+	return byteSlice
+}
+
+func (s *podToPodMissingIPCache) Run(ctx context.Context, t *check.Test) {
+	var i int
+	ct := t.Context()
+
+	var ciliumPod check.Pod
+	for _, pod := range ct.CiliumPods() {
+		ciliumPod = pod
+		break
+	}
+
+	// Collect all cilium_ipcache maps
+	ipcaches := []bpfMap{}
+	listIPCacheCmd := []string{"bpftool", "--json", "map", "list", "name", "cilium_ipcache"}
+	output, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, listIPCacheCmd)
+	if err != nil {
+		ct.Fatalf(`failed to execute "%s" in %s: %v`, listIPCacheCmd, ciliumPod.Pod.Name, err)
+	}
+	if err = json.Unmarshal(output.Bytes(), &ipcaches); err != nil {
+		ct.Fatalf(`failed to unmarshal output "%s": %v`, output, err)
+	}
+
+	// Delete echo pods entries from ipcache
+	for _, echo := range ct.EchoPods() {
+		echoIP := net.ParseIP(echo.Address(features.IPFamilyV4))
+		for _, ipcache := range ipcaches {
+			ipcacheKey := ipcachemap.NewKey(echoIP, nil, 0)
+			ipcacheKeyInStrSlice := structToStrSlice(&ipcacheKey)
+			lookupCmd := append(strings.Split(fmt.Sprintf("bpftool --json map lookup id %d key hex", ipcache.ID), " "), ipcacheKeyInStrSlice...)
+			updateCmd := append(strings.Split(fmt.Sprintf("bpftool map update id %d key hex", ipcache.ID), " "), ipcacheKeyInStrSlice...)
+			deleteCmd := append(strings.Split(fmt.Sprintf("bpftool map delete id %d key hex", ipcache.ID), " "), ipcacheKeyInStrSlice...)
+
+			output, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, lookupCmd)
+			if err != nil {
+				ct.Warnf(`failed to lookup IP cache entry: "%s", %v, "%s"`, lookupCmd, err, output.String())
+				continue
+			}
+			lookup := bpfMapLookup{}
+			if err = json.Unmarshal(output.Bytes(), &lookup); err != nil {
+				ct.Warnf(`failed to unmarshal output "%s": %v`, output.String(), err)
+				continue
+			}
+			if strings.Join(lookup.Key, " ") != strings.Join(ipcacheKeyInStrSlice, " ") {
+				ct.Debugf("ipcache key not found: %s", strings.Join(ipcacheKeyInStrSlice, " "))
+				continue
+			}
+
+			if output, err = ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, deleteCmd); err != nil {
+				ct.Warnf(`failed to delete IP cache entry: "%s", %v, "%s"`, deleteCmd, err, output.String())
+				continue
+			}
+
+			defer func(updateCmd []string, lookup bpfMapLookup) {
+				updateCmd = append(updateCmd, "value", "hex")
+				updateCmd = append(updateCmd, lookup.Value...)
+				output, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, updateCmd)
+				if err != nil {
+					ct.Warnf(`failed to restore IP cache entry: "%s", %v, "%s"`, updateCmd, err, output.String())
+				}
+			}(updateCmd, lookup)
+		}
+	}
+
+	prevUnencryptedCount, err := dropCountByUnencrypted(ctx, ct)
+	if err != nil {
+		ct.Fatalf("Failed to get unencrypted drop count: %v", err)
+	}
+
+	for _, client := range ct.ClientPods() {
+		if !hasAllLabels(client, s.sourceLabels) {
+			continue
+		}
+		for _, echo := range ct.EchoPods() {
+			if !hasAllLabels(echo, s.destinationLabels) {
+				continue
+			}
+
+			// Skip if echo pod is on the same node as client
+			if echo.Pod.Spec.NodeName == client.Pod.Spec.NodeName {
+				continue
+			}
+
+			t.ForEachIPFamily(func(ipFam features.IPFamily) {
+				if ipFam == features.IPFamilyV6 {
+					// encryption-strict-mode-cidr only accepts an IPv4 CIDR
+					return
+				}
+				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, echo, ipFam).Run(func(a *check.Action) {
+					a.ExecInPod(ctx, ct.CurlCommand(echo, ipFam))
+
+					a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{}))
+					a.ValidateFlows(ctx, echo, a.GetIngressRequirements(check.FlowParameters{}))
+
+					a.ValidateMetrics(ctx, echo, a.GetIngressMetricsRequirements())
+					a.ValidateMetrics(ctx, echo, a.GetEgressMetricsRequirements())
+				})
+			})
+
+			i++
+		}
+	}
+
+	unencryptedCount, err := dropCountByUnencrypted(ctx, ct)
+	if err != nil {
+		ct.Fatalf("Failed to get unencrypted drop count: %v", err)
+	}
+	if unencryptedCount < prevUnencryptedCount+i {
+		ct.Failf("Unexpected number of unencrypted packets dropped: prev=%d now=%d expected>=%d", prevUnencryptedCount, unencryptedCount, prevUnencryptedCount+i)
+	}
 }
