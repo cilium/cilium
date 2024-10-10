@@ -280,9 +280,9 @@ decrypt
 decrypted
 deduplicate
 deepcopy
+defaultLBServiceIPAM
 deletetopic
 demux
-defaultLBServiceIPAM
 denylist
 dereference
 deserialization
@@ -564,6 +564,7 @@ netdevsim
 netfilter
 netfront
 netkit
+netlink
 netns
 netperf
 netsec
@@ -665,7 +666,9 @@ reparsing
 repo
 repos
 reproducibility
+reqid
 requireIPv
+resizable
 resync
 retpoline
 retransmission
