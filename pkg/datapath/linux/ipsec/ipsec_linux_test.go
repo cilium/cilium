@@ -38,6 +38,10 @@ func setupIPSecSuitePrivileged(tb testing.TB) *slog.Logger {
 	return log
 }
 
+const (
+	ipsecDirBoth IPSecDir = IPSecDirIn | IPSecDirOut
+)
+
 var (
 	path           = "ipsec_keys_test"
 	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n2 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n3 digest_null \"\" cipher_null \"\"\n")
@@ -66,7 +70,7 @@ func TestInvalidLoadKeys(t *testing.T) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	require.NoError(t, err)
 
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
+	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", ipsecDirBoth, false, false, DefaultReqID)
 	require.Error(t, err)
 }
 
@@ -148,7 +152,7 @@ func TestUpsertIPSecEquals(t *testing.T) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
+	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", ipsecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
 
 	// Let's check that state was not added as source and destination are the same
@@ -172,7 +176,7 @@ func TestUpsertIPSecEquals(t *testing.T) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
+	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", ipsecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
 
 	// Let's check that state was not added as source and destination are the same
@@ -204,7 +208,7 @@ func TestUpsertIPSecEndpoint(t *testing.T) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
+	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", ipsecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
 
 	getState := &netlink.XfrmState{
@@ -248,11 +252,11 @@ func TestUpsertIPSecEndpoint(t *testing.T) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
+	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", ipsecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
 
 	// Assert additional rule when tunneling is enabled is inserted
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
+	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", ipsecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
 	toProxyPolicy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
 		Src: remote,
@@ -275,7 +279,7 @@ func TestUpsertIPSecKeyMissing(t *testing.T) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	require.NoError(t, err)
 
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
+	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", ipsecDirBoth, false, false, DefaultReqID)
 	require.ErrorContains(t, err, "unable to replace local state: IPSec key missing")
 }
 
@@ -302,10 +306,10 @@ func TestUpdateExistingIPSecEndpoint(t *testing.T) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false, DefaultReqID)
+	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", ipsecDirBoth, false, false, DefaultReqID)
 	require.NoError(t, err)
 
 	// test updateExisting (xfrm delete + add)
-	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, true, DefaultReqID)
+	_, err = UpsertIPsecEndpoint(log, local, remote, local.IP, remote.IP, 0, "remote-boot-id", ipsecDirBoth, false, true, DefaultReqID)
 	require.NoError(t, err)
 }

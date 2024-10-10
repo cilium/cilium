@@ -42,13 +42,11 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-type IPSecDir string
+type IPSecDir uint32
 
 const (
-	IPSecDirIn      IPSecDir = "IPSEC_IN"
-	IPSecDirOut     IPSecDir = "IPSEC_OUT"
-	IPSecDirBoth    IPSecDir = "IPSEC_BOTH"
-	IPSecDirOutNode IPSecDir = "IPSEC_OUT_NODE"
+	IPSecDirIn IPSecDir = 1 << iota
+	IPSecDirOut
 
 	// Constants used to decode the IPsec secret in both formats:
 	// 1. [spi] aead-algo aead-key icv-len
@@ -703,7 +701,7 @@ func generateDecryptMark(decryptBit uint32, nodeID uint16) *netlink.XfrmMark {
 	}
 }
 
-func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, nodeID uint16, dir IPSecDir, reqID int) error {
+func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, nodeID uint16, reqID int) error {
 	// TODO: Remove old policy pointing to target net
 
 	// We can use the global IPsec key here because we are not going to
@@ -715,11 +713,7 @@ func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, nodeID 
 	key.ReqID = reqID
 
 	policy := ipSecNewPolicy()
-	if dir == IPSecDirOutNode {
-		policy.Src = wildcardCIDRv4
-	} else {
-		policy.Src = src
-	}
+	policy.Src = src
 	policy.Dst = dst
 	policy.Dir = netlink.XFRM_DIR_OUT
 	policy.Mark = generateEncryptMark(key.Spi, nodeID)
@@ -897,7 +891,7 @@ func UpsertIPsecEndpoint(log *slog.Logger, local, remote *net.IPNet, outerLocal,
 	 */
 	if !outerLocal.Equal(outerRemote) {
 		localBootID := node.GetBootID()
-		if dir == IPSecDirIn || dir == IPSecDirBoth {
+		if dir&IPSecDirIn != 0 {
 			if spi, err = ipSecReplaceStateIn(log, outerLocal, outerRemote, remoteNodeID, outputMark, localBootID, remoteBootID, remoteRebooted, reqID); err != nil {
 				return 0, fmt.Errorf("unable to replace local state: %w", err)
 			}
@@ -913,12 +907,12 @@ func UpsertIPsecEndpoint(log *slog.Logger, local, remote *net.IPNet, outerLocal,
 			}
 		}
 
-		if dir == IPSecDirOut || dir == IPSecDirOutNode || dir == IPSecDirBoth {
+		if dir&IPSecDirOut != 0 {
 			if spi, err = ipSecReplaceStateOut(log, outerLocal, outerRemote, remoteNodeID, localBootID, remoteBootID, remoteRebooted, reqID); err != nil {
 				return 0, fmt.Errorf("unable to replace remote state: %w", err)
 			}
 
-			if err = ipSecReplacePolicyOut(local, remote, outerLocal, outerRemote, remoteNodeID, dir, reqID); err != nil {
+			if err = ipSecReplacePolicyOut(local, remote, outerLocal, outerRemote, remoteNodeID, reqID); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy out: %w", err)
 				}
