@@ -309,6 +309,10 @@ var (
 
 // badLogMessages is a map which key is a part of a log message which indicates
 // a failure if the message does not contain any part from value list.
+//
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// ! This list must be in sync with cilium-cli/connectivity/tests/errors.go !
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 var badLogMessages = map[string][]string{
 	panicMessage:        nil,
 	deadLockHeader:      nil,
