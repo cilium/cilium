@@ -1582,7 +1582,7 @@ and selected service endpoint.
     Jan 13 13:47:20.932: default/mediabot:38750 (ID:5618) <> default/nginx (ID:35772) pre-xlate-rev TRACED (TCP)
 
 Socket LB tracing with Hubble requires cilium agent to detect pod cgroup paths.
-If you see a warning message in cilium agent ``No valid cgroup base path found: socket load-balancing tracing with Hubble will not work.``,
+If you see a warning message in cilium agent ``Failed to setup socket load-balancing tracing with Hubble.``,
 you can trace packets using ``cilium-dbg monitor`` instead.
 
 .. note::
