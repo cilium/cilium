@@ -42,12 +42,11 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-type IPSecDir string
+type IPSecDir uint32
 
 const (
-	IPSecDirIn      IPSecDir = "IPSEC_IN"
-	IPSecDirOut     IPSecDir = "IPSEC_OUT"
-	IPSecDirBoth    IPSecDir = "IPSEC_BOTH"
+	IPSecDirIn IPSecDir = 1 << iota
+	IPSecDirOut
 
 	// Constants used to decode the IPsec secret in both formats:
 	// 1. [spi] aead-algo aead-key icv-len
@@ -892,7 +891,7 @@ func UpsertIPsecEndpoint(log *slog.Logger, local, remote *net.IPNet, outerLocal,
 	 */
 	if !outerLocal.Equal(outerRemote) {
 		localBootID := node.GetBootID()
-		if dir == IPSecDirIn || dir == IPSecDirBoth {
+		if dir&IPSecDirIn != 0 {
 			if spi, err = ipSecReplaceStateIn(log, outerLocal, outerRemote, remoteNodeID, outputMark, localBootID, remoteBootID, remoteRebooted, reqID); err != nil {
 				return 0, fmt.Errorf("unable to replace local state: %w", err)
 			}
@@ -908,7 +907,7 @@ func UpsertIPsecEndpoint(log *slog.Logger, local, remote *net.IPNet, outerLocal,
 			}
 		}
 
-		if dir == IPSecDirOut || dir == IPSecDirBoth {
+		if dir&IPSecDirOut != 0 {
 			if spi, err = ipSecReplaceStateOut(log, outerLocal, outerRemote, remoteNodeID, localBootID, remoteBootID, remoteRebooted, reqID); err != nil {
 				return 0, fmt.Errorf("unable to replace remote state: %w", err)
 			}
