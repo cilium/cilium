@@ -250,7 +250,7 @@ int from_overlay_syn_check(struct __ctx_buff *ctx)
 		test_fatal("dst IP has changed");
 
 	if (l3->check != bpf_htons(0x4212))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_INTER_CLUSTER_SNAT_PORT)
 		test_fatal("src port has changed");
@@ -259,7 +259,7 @@ int from_overlay_syn_check(struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x777f))
-		test_fatal("L4 checksum is invalid: %d", bpf_htons(l4->check));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	meta = ctx_load_meta(ctx, CB_IFINDEX);
 	if (meta != BACKEND_IFINDEX)
@@ -344,7 +344,7 @@ int to_overlay_synack_check(struct __ctx_buff *ctx)
 		test_fatal("dst IP has changed");
 
 	if (l3->check != bpf_htons(0x4112))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != BACKEND_PORT)
 		test_fatal("src port has changed");
@@ -353,7 +353,7 @@ int to_overlay_synack_check(struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x776f))
-		test_fatal("L4 checksum is invalid: %d", bpf_htons(l4->check));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
@@ -419,7 +419,7 @@ int from_overlay_ack_check(struct __ctx_buff *ctx)
 		test_fatal("dst IP has changed");
 
 	if (l3->check != bpf_htons(0x4212))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l4->source != CLIENT_INTER_CLUSTER_SNAT_PORT)
 		test_fatal("src port has changed");
@@ -428,7 +428,7 @@ int from_overlay_ack_check(struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x7771))
-		test_fatal("L4 checksum is invalid: %d", bpf_htons(l4->check));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	meta = ctx_load_meta(ctx, CB_IFINDEX);
 	if (meta != BACKEND_IFINDEX)

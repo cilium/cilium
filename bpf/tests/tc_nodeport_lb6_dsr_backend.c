@@ -353,7 +353,7 @@ int check_reply(const struct __ctx_buff *ctx)
 		test_fatal("dst port has changed");
 
 	if (l4->check != bpf_htons(0x2dbc))
-		test_fatal("L4 checksum is invalid: %d", bpf_htons(l4->check));
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
