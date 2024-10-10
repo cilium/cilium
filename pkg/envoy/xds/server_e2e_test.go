@@ -519,7 +519,7 @@ func TestUpdateRequestResources(t *testing.T) {
 	}()
 
 	// Create version 2 with resources 0 and 1.
-	v, mod, _ = cache.tx(typeURL, map[string]proto.Message{
+	v, mod, _ = cache.TX(typeURL, map[string]proto.Message{
 		resources[0].Name: resources[0],
 		resources[1].Name: resources[1],
 	}, nil)
