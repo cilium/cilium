@@ -203,7 +203,7 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("outer IP doesn't have correct L4 protocol")
 
 	if (l3->check != bpf_htons(0x527e))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (l3->saddr != IPV4_DIRECT_ROUTING)
 		test_fatal("outerSrcIP is not correct")
@@ -227,13 +227,16 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("innerDstIP hasn't been revNATed to the client IP");
 
 	if (inner_l3->check != bpf_htons(0x4212))
-		test_fatal("inner L3 checksum is invalid: %d", bpf_htons(inner_l3->check));
+		test_fatal("inner L3 checksum is invalid: %x", bpf_htons(inner_l3->check));
 
 	if (inner_l4->source != EXTERNAL_SVC_PORT)
 		test_fatal("innerSrcPort is not the external SVC port");
 
 	if (inner_l4->dest != client_port(TEST_XDP_REPLY))
 		test_fatal("innerDstPort hasn't been revNATed to client port");
+
+	if (inner_l4->check != bpf_htons(0xf288))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(inner_l4->check));
 
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
 

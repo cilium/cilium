@@ -337,7 +337,7 @@ int egressgw_skip_excluded_cidr_snat_check(const struct __ctx_buff *ctx)
 		test_fatal("l3 out of bounds");
 
 	if (l3->check != bpf_htons(0x4112))
-		test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	l4 = (void *)l3 + sizeof(struct iphdr);
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
@@ -360,6 +360,9 @@ int egressgw_skip_excluded_cidr_snat_check(const struct __ctx_buff *ctx)
 
 	if (l4->dest != EXTERNAL_SVC_PORT)
 		test_fatal("dst port has changed");
+
+	if (l4->check != bpf_htons(0xf28c))
+		test_fatal("L4 checksum is invalid: %x", bpf_htons(l4->check));
 
 	test_finish();
 }
