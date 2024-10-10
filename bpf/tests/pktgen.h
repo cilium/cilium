@@ -885,7 +885,7 @@ static __always_inline void pktgen__finish_ipv6(const struct pktgen *builder, in
 		break;
 	}
 
-	v6len = (__u16)(builder->cur_off - sizeof(struct ipv6hdr) -
+	v6len = (__be16)(builder->cur_off - sizeof(struct ipv6hdr) -
 		builder->layer_offsets[i]);
 
 	/* Calculate payload length, which doesn't include the header size */
