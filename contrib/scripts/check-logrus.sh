@@ -10,6 +10,7 @@ MATCH="^\s*\"github.com/sirupsen/logrus\"$"
 # File paths that have switched to slog and for which reintroducing use of logrus
 # is forbidden.
 CONVERTED=(
+  "api/v1"
   "hubble"
   "pkg/hive/health"
   "pkg/datapath/linux"
