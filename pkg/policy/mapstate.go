@@ -851,26 +851,28 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Chan
 	return true
 }
 
-// deleteKeyWithChanges deletes a 'key' from 'keys' keeping track of incremental changes in 'adds' and 'deletes'.
-// The key is unconditionally deleted if 'cs' is nil, otherwise only the contribution of this 'cs' is removed.
+// deleteKeyWithChanges deletes a 'key' from 'keys' keeping track of incremental changes in 'adds'
+// and 'deletes'.
+// The key is unconditionally deleted if 'owner' is nil, otherwise only the contribution of this
+// 'owner' is removed.
 func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, changes ChangeState) {
 	if entry, exists := ms.Get(key); exists {
 		// Save old value before any changes, if desired
 		oldAdded := changes.insertOldIfNotExists(key, entry)
 		if owner != nil {
 			if entry.owners.Has(owner) {
-				// remove the contribution of the given selector only
+				// remove this owner from entry's owners
 				changed := entry.owners.Remove(owner)
-				if changed {
-					// re-insert entry due to owner change
-					ms.updateExisting(key, entry)
-				}
-				// Remove the contribution of this key from the entry
+				// Remove the dependency from the owner Key
 				if ownerKey, ok := owner.(Key); ok {
 					ms.RemoveDependent(ownerKey, key, changes)
 				}
 				// key is not deleted if other owners still need it
 				if entry.owners.Len() > 0 {
+					if changed {
+						// re-insert entry due to owner change
+						ms.updateExisting(key, entry)
+					}
 					return
 				}
 			} else {
