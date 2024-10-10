@@ -384,7 +384,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		key.ip6.p4 = 0;
 		key.family = ENDPOINT_KEY_IPV6;
 
-		ret = encap_and_redirect_netdev(ctx, &key, encrypt_key, secctx, &trace);
+		ret = encap_and_redirect_netdev(ctx, &key, from_proxy, secctx, &trace);
 		if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
@@ -834,7 +834,7 @@ skip_vtep:
 		key.family = ENDPOINT_KEY_IPV4;
 
 		cilium_dbg(ctx, DBG_NETDEV_ENCAP4, key.ip4, secctx);
-		ret = encap_and_redirect_netdev(ctx, &key, encrypt_key, secctx, &trace);
+		ret = encap_and_redirect_netdev(ctx, &key, from_proxy, secctx, &trace);
 		if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
