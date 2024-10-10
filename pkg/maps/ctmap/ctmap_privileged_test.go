@@ -110,7 +110,15 @@ func Benchmark_MapUpdate(b *testing.B) {
 
 // TestCtGcIcmp tests whether ICMP NAT entries are removed upon a removal of
 // their CT entry (GH#12625).
+func TestCtGcIcmpBatched(t *testing.T) {
+	testCtGcIcmp(t, true)
+}
+
 func TestCtGcIcmp(t *testing.T) {
+	testCtGcIcmp(t, false)
+}
+
+func testCtGcIcmp(t *testing.T, useBatchAPI bool) {
 	setupCTMap(t)
 
 	// Init maps
@@ -210,7 +218,7 @@ func TestCtGcIcmp(t *testing.T) {
 		RemoveExpired: true,
 		Time:          39000,
 	}
-	stats := doGC4(ctMap, filter)
+	stats := doGC4(ctMap, filter, useBatchAPI)
 	require.Equal(t, uint32(0), stats.aliveEntries)
 	require.Equal(t, uint32(1), stats.deleted)
 
@@ -222,7 +230,17 @@ func TestCtGcIcmp(t *testing.T) {
 
 // TestCtGcTcp tests whether TCP SNAT entries are removed upon a removal of
 // their CT entry.
+func TestCtGcTcpBatched(t *testing.T) {
+	testCtGcTcp(t, true)
+}
+
+// TestCtGcTcp tests whether TCP SNAT entries are removed upon a removal of
+// their CT entry.
 func TestCtGcTcp(t *testing.T) {
+	testCtGcTcp(t, false)
+}
+
+func testCtGcTcp(t *testing.T, useBatchedAPI bool) {
 	setupCTMap(t)
 	// Init maps
 	natMap := nat.NewMap("cilium_nat_any4_test", nat.IPv4, 1000)
@@ -321,7 +339,7 @@ func TestCtGcTcp(t *testing.T) {
 		RemoveExpired: true,
 		Time:          39000,
 	}
-	stats := doGC4(ctMap, filter)
+	stats := doGC4(ctMap, filter, useBatchedAPI)
 	require.Equal(t, uint32(0), stats.aliveEntries)
 	require.Equal(t, uint32(1), stats.deleted)
 
@@ -333,7 +351,15 @@ func TestCtGcTcp(t *testing.T) {
 
 // TestCtGcDsr tests whether DSR NAT entries are removed upon a removal of
 // their CT entry (== CT_EGRESS).
+func TestCtGcDsrBatched(t *testing.T) {
+	testCtGcDsr(t, true)
+}
+
 func TestCtGcDsr(t *testing.T) {
+	testCtGcDsr(t, false)
+}
+
+func testCtGcDsr(t *testing.T, useBatchAPI bool) {
 	setupCTMap(t)
 
 	// Init maps
@@ -412,7 +438,7 @@ func TestCtGcDsr(t *testing.T) {
 		RemoveExpired: true,
 		Time:          39000,
 	}
-	stats := doGC4(ctMap, filter)
+	stats := doGC4(ctMap, filter, useBatchAPI)
 	require.Equal(t, uint32(0), stats.aliveEntries)
 	require.Equal(t, uint32(1), stats.deleted)
 
@@ -890,6 +916,6 @@ func benchmarkCtGc(t *testing.B, size int) {
 		}
 
 		t.StartTimer()
-		doGC4(ctMap, filter)
+		doGC4(ctMap, filter, true)
 	}
 }

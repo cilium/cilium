@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
@@ -19,6 +20,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -295,7 +297,7 @@ func newMap(mapName string, m mapType) *Map {
 
 // doGC6 iterates through a CTv6 map and drops entries based on the given
 // filter.
-func doGC6(m *Map, filter GCFilter) gcStats {
+func doGC6(m *Map, filter GCFilter, useBatchAPI bool) gcStats {
 	var natMap *nat.Map
 
 	if m.clusterID == 0 {
@@ -353,21 +355,34 @@ func doGC6(m *Map, filter GCFilter) gcStats {
 
 	// See doGC4() comment.
 	globalDeleteLock[m.mapType].Lock()
-	if m.mapType.isGlobal() {
-		iter := bpf.NewBatchIterator[CtKey6Global, CtEntry](&m.Map)
-		for k, v := range iter.IterateAll(context.TODO()) {
-			filterCallback(&k, &v)
+	if useBatchAPI {
+		if m.mapType.isGlobal() {
+			iter := bpf.NewBatchIterator[CtKey6Global, CtEntry](&m.Map)
+			for k, v := range iter.IterateAll(context.TODO()) {
+				filterCallback(&k, &v)
+			}
+			stats.dumpError = iter.Err()
+		} else {
+			iter := bpf.NewBatchIterator[CtKey6, CtEntry](&m.Map)
+			for k, v := range iter.IterateAll(context.TODO()) {
+				filterCallback(&k, &v)
+			}
+			stats.dumpError = iter.Err()
 		}
-		stats.dumpError = iter.Err()
+		if stats.dumpError == nil {
+			stats.Completed = true
+		}
 	} else {
-		iter := bpf.NewBatchIterator[CtKey6, CtEntry](&m.Map)
-		for k, v := range iter.IterateAll(context.TODO()) {
-			filterCallback(&k, &v)
-		}
-		stats.dumpError = iter.Err()
-	}
-	if stats.dumpError == nil {
-		stats.Completed = true
+		stats.dumpError = m.DumpReliablyWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
+			switch kv := key.(type) {
+			case *CtKey6Global:
+				filterCallback(kv, value)
+			case *CtKey6:
+				filterCallback(kv, value)
+			default:
+				log.Errorf("BUG: unexpected key type received for ctmap gc: %T", key)
+			}
+		}, stats.DumpStats)
 	}
 	globalDeleteLock[m.mapType].Unlock()
 	return stats
@@ -413,7 +428,7 @@ func purgeCtEntry(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, ip6 bool) 
 
 // doGC4 iterates through a CTv4 map and drops entries based on the given
 // filter.
-func doGC4(m *Map, filter GCFilter) gcStats {
+func doGC4(m *Map, filter GCFilter, useBatchAPI bool) gcStats {
 	var natMap *nat.Map
 
 	if m.clusterID == 0 {
@@ -471,21 +486,34 @@ func doGC4(m *Map, filter GCFilter) gcStats {
 	// We serialize the deletions in order to avoid forced map walk restarts
 	// when keys are being evicted underneath us from concurrent goroutines.
 	globalDeleteLock[m.mapType].Lock()
-	if m.mapType.isGlobal() {
-		iter := bpf.NewBatchIterator[CtKey4Global, CtEntry](&m.Map)
-		for k, v := range iter.IterateAll(context.TODO()) {
-			filterCallback(&k, &v)
+	if useBatchAPI {
+		if m.mapType.isGlobal() {
+			iter := bpf.NewBatchIterator[CtKey4Global, CtEntry](&m.Map)
+			for k, v := range iter.IterateAll(context.TODO()) {
+				filterCallback(&k, &v)
+			}
+			stats.dumpError = iter.Err()
+		} else {
+			iter := bpf.NewBatchIterator[CtKey4, CtEntry](&m.Map)
+			for k, v := range iter.IterateAll(context.TODO()) {
+				filterCallback(&k, &v)
+			}
+			stats.dumpError = iter.Err()
 		}
-		stats.dumpError = iter.Err()
+		if stats.dumpError == nil {
+			stats.Completed = true
+		}
 	} else {
-		iter := bpf.NewBatchIterator[CtKey4, CtEntry](&m.Map)
-		for k, v := range iter.IterateAll(context.TODO()) {
-			filterCallback(&k, &v)
-		}
-		stats.dumpError = iter.Err()
-	}
-	if stats.dumpError == nil {
-		stats.Completed = true
+		stats.dumpError = m.DumpReliablyWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
+			switch kv := key.(type) {
+			case *CtKey4Global:
+				filterCallback(kv, value)
+			case *CtKey4:
+				filterCallback(kv, value)
+			default:
+				log.Errorf("BUG: unexpected key type received for ctmap gc: %T", key)
+			}
+		}, stats.DumpStats)
 	}
 	globalDeleteLock[m.mapType].Unlock()
 	return stats
@@ -511,16 +539,32 @@ func (f GCFilter) doFiltering(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, 
 	return noAction
 }
 
-func doGC(m *Map, filter GCFilter) (int, error) {
+func doGC(m *Map, filter GCFilter, batch bool) (int, error) {
 	if m.mapType.isIPv6() {
-		stats := doGC6(m, filter)
+		stats := doGC6(m, filter, batch)
 		return int(stats.deleted), stats.dumpError
 	} else if m.mapType.isIPv4() {
-		stats := doGC4(m, filter)
+		stats := doGC4(m, filter, batch)
 		return int(stats.deleted), stats.dumpError
 	}
 	log.Fatalf("Unsupported ct map type: %s", m.mapType.String())
 	return 0, fmt.Errorf("unsupported ct map type: %s", m.mapType.String())
+}
+
+var (
+	batchAPISupported     bool
+	batchAPISupportedOnce sync.Once
+)
+
+func isBatchAPISupported() bool {
+	batchAPISupportedOnce.Do(func() {
+		err := probes.HaveBatchAPI()
+		batchAPISupported = !errors.Is(err, probes.ErrNotSupported)
+		if !batchAPISupported {
+			log.WithError(err).Info("kernel does not support batch iteration for ctmap gc")
+		}
+	})
+	return batchAPISupported
 }
 
 // GC runs garbage collection for map m with name mapType with the given filter.
@@ -531,7 +575,7 @@ func GC(m *Map, filter GCFilter) (int, error) {
 		filter.Time = uint32(t)
 	}
 
-	return doGC(m, filter)
+	return doGC(m, filter, isBatchAPISupported())
 }
 
 // PurgeOrphanNATEntries removes orphan SNAT entries. We call an SNAT entry
@@ -634,7 +678,7 @@ func (m *Map) Flush() int {
 	d, _ := doGC(m, GCFilter{
 		RemoveExpired: true,
 		Time:          MaxTime,
-	})
+	}, isBatchAPISupported())
 	return d
 }
 
