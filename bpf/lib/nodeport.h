@@ -1717,12 +1717,28 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int l4_off, ret;
+	struct ct_state ct_state = {};
+	struct endpoint_info *ep;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &tuple);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+
+	ep = __lookup_ip4_endpoint(ip4->saddr);
+	if (ep && ep->parent_ifindex && ep->parent_ifindex != NATIVE_DEV_IFINDEX) {
+		/* This packet came from an endpoint with a parent interface and
+		 * it us currently not egressing on its parent interface.
+		 * Check if its a reply packet, if it is, redirect it to the
+		 * parent interface.
+		 */
+		ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, ip4,
+				 l4_off, CT_EGRESS, SCOPE_REVERSE,
+				 &ct_state, &trace->monitor);
+		if (ret == CT_REPLY)
+			return ctx_redirect(ctx, ep->parent_ifindex, 0);
+	}
 
 	if (lb_is_svc_proto(tuple.nexthdr) &&
 	    nodeport_has_nat_conflict_ipv4(ip4, &target))
