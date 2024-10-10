@@ -387,6 +387,15 @@
       }
     ]
   },
+  "application_log_config": {
+    "log_format": {
+{{- if .Values.envoy.log.format_json }}
+      "json_format": {{ .Values.envoy.log.format_json | toJson }}
+{{- else }}
+      "text_format": "{{ .Values.envoy.log.format }}"
+{{- end }}
+    }
+  },
   "admin": {
     "address": {
       "pipe": {
