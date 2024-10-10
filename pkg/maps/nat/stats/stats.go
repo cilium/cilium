@@ -211,19 +211,18 @@ func (m *Stats) countNat(ctx context.Context) error {
 	var errs error
 	if m.natMap4 != nil {
 		tupleToPortCount := make(map[tuple.TupleKey4]uint16, 128)
-		_, err := m.natMap4.ApplyBatch4(func(keys []tuple.TupleKey4, vals []nat.NatEntry4, size int) {
-			for i := 0; i < size; i++ {
-				key := *keys[i].ToHost().(*tuple.TupleKey4)
-				if flagsIsIn(key.Flags) &&
-					(key.NextHeader == u8proto.TCP || key.NextHeader == u8proto.ICMP ||
-						key.NextHeader == u8proto.UDP) {
-					key.DestPort = 0
-					ports := tupleToPortCount[key]
-					ports++
-					tupleToPortCount[key] = ports
-				}
+		_, err := m.natMap4.DumpBatch4(func(k tuple.TupleKey4, _ nat.NatEntry4) {
+			key := *k.ToHost().(*tuple.TupleKey4)
+			if flagsIsIn(key.Flags) &&
+				(key.NextHeader == u8proto.TCP || key.NextHeader == u8proto.ICMP ||
+					key.NextHeader == u8proto.UDP) {
+				key.DestPort = 0
+				ports := tupleToPortCount[key]
+				ports++
+				tupleToPortCount[key] = ports
 			}
 		})
+
 		if err != nil {
 			log.WithError(err).
 				Error("failed to count ipv4 nat map entries, " +
@@ -239,17 +238,15 @@ func (m *Stats) countNat(ctx context.Context) error {
 	}
 	if m.natMap6 != nil {
 		tupleToPortCount := make(map[tuple.TupleKey6]uint16, 128)
-		_, err := m.natMap6.ApplyBatch6(func(keys []tuple.TupleKey6, vals []nat.NatEntry6, size int) {
-			for i := 0; i < size; i++ {
-				key := *keys[i].ToHost().(*tuple.TupleKey6)
-				if flagsIsIn(key.Flags) &&
-					(key.NextHeader == u8proto.TCP || key.NextHeader == u8proto.ICMPv6 ||
-						key.NextHeader == u8proto.UDP) {
-					key.DestPort = 0
-					ports := tupleToPortCount[key]
-					ports++
-					tupleToPortCount[key] = ports
-				}
+		_, err := m.natMap6.DumpBatch6(func(k tuple.TupleKey6, _ nat.NatEntry6) {
+			key := *k.ToHost().(*tuple.TupleKey6)
+			if flagsIsIn(key.Flags) &&
+				(key.NextHeader == u8proto.TCP || key.NextHeader == u8proto.ICMPv6 ||
+					key.NextHeader == u8proto.UDP) {
+				key.DestPort = 0
+				ports := tupleToPortCount[key]
+				ports++
+				tupleToPortCount[key] = ports
 			}
 		})
 		if err != nil {
