@@ -1176,6 +1176,9 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		if (!from_host) {
 			next_proto = ip6->nexthdr;
 			hdrlen = ipv6_hdrlen(ctx, &next_proto);
+			if (hdrlen < 0)
+				return send_drop_notify_error(ctx, identity, hdrlen,
+						      CTX_ACT_DROP, METRIC_INGRESS);
 			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, ipcache_srcid))
 				trace.reason = TRACE_REASON_ENCRYPTED;
 		}
