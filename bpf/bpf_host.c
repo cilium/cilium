@@ -1521,15 +1521,18 @@ skip_host_firewall:
 	 * bpf_host@eth0 => ...; this happens when eth0 is used to send
 	 * encrypted WireGuard UDP packets), we check whether the mark
 	 * is set before the redirect.
+	 *
+	 * Set the TRACE_REASON_ENCRYPTED bit in case the packet needs
+	 * to be redirected, otherwise restore the previous reason.
 	 */
-	trace.reason = TRACE_REASON_ENCRYPTED;
+	trace.reason |= TRACE_REASON_ENCRYPTED;
 	if ((ctx->mark & MARK_MAGIC_WG_ENCRYPTED) != MARK_MAGIC_WG_ENCRYPTED) {
 		ret = wg_maybe_redirect_to_encrypt(ctx, proto);
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
 		else if (IS_ERR(ret))
 			goto drop_err;
-		trace.reason = TRACE_REASON_UNKNOWN;
+		trace.reason ^= TRACE_REASON_ENCRYPTED;
 	}
 
 #if defined(ENCRYPTION_STRICT_MODE)
