@@ -191,7 +191,17 @@ func (d *Daemon) launchHubble() {
 
 	var srv *http.Server
 	if option.Config.HubbleMetricsServer != "" {
-		if option.Config.HubbleMetrics != nil {
+		if option.Config.HubbleDynamicMetricConfigFilePath != "" {
+			logger.WithFields(logrus.Fields{
+				"address":      option.Config.HubbleMetricsServer,
+				"metricConfig": option.Config.HubbleDynamicMetricConfigFilePath,
+				"tls":          option.Config.HubbleMetricsServerTLSEnabled,
+			}).Info("Starting Hubble server with dynamically configurable metrics")
+
+			metrics.InitHubbleInternalMetrics(metrics.Registry, grpcMetrics)
+			dynamicFp := metrics.NewDynamicFlowProcessor(metrics.Registry, logger, option.Config.HubbleDynamicMetricConfigFilePath)
+			observerOpts = append(observerOpts, observeroption.WithOnDecodedFlow(dynamicFp))
+		} else if len(option.Config.HubbleMetrics) > 0 {
 			logger.WithFields(logrus.Fields{
 				"address": option.Config.HubbleMetricsServer,
 				"metrics": option.Config.HubbleMetrics,
@@ -213,16 +223,6 @@ func (d *Daemon) launchHubble() {
 					return false, nil
 				}),
 			)
-		} else if option.Config.HubbleDynamicMetricConfigFilePath != "" {
-			logger.WithFields(logrus.Fields{
-				"address":      option.Config.HubbleMetricsServer,
-				"metricConfig": option.Config.HubbleDynamicMetricConfigFilePath,
-				"tls":          option.Config.HubbleMetricsServerTLSEnabled,
-			}).Info("Starting Hubble server with dynamically configurable metrics")
-
-			metrics.InitHubbleInternalMetrics(metrics.Registry, grpcMetrics)
-			dynamicFp := metrics.NewDynamicFlowProcessor(metrics.Registry, logger, option.Config.HubbleDynamicMetricConfigFilePath)
-			observerOpts = append(observerOpts, observeroption.WithOnDecodedFlow(dynamicFp))
 		}
 
 		srv = &http.Server{

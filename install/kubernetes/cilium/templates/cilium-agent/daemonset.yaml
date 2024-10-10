@@ -250,7 +250,7 @@ spec:
           protocol: TCP
         {{- end }}
         {{- end }}
-        {{- if .Values.hubble.metrics.enabled }}
+        {{- if or .Values.hubble.metrics.enabled .Values.hubble.metrics.dynamic.enabled }}
         - name: hubble-metrics
           containerPort: {{ .Values.hubble.metrics.port }}
           hostPort: {{ .Values.hubble.metrics.port }}

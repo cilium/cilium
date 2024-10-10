@@ -146,7 +146,7 @@ type ContextOptionConfig struct {
 }
 
 // MetricConfig represents a Hubble metric, its options and which resources it applies to.
-// It can hold data parsed from the "hubble-metrics-config" K8S ConfigMap.
+// It can hold data parsed from the "hubble-dyn-metrics-config" K8S ConfigMap.
 type MetricConfig struct {
 	// Name of the metric
 	Name                 string                 `json:"name,omitempty" yaml:"name,omitempty"`

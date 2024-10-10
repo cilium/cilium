@@ -986,6 +986,7 @@ data:
 {{- end }}
 {{- if .Values.hubble.metrics.dynamic.enabled }}
   hubble-dynamic-metrics-config-path: /dyn-metrics-config/dyn-metrics.yaml
+  hubble-metrics-server: ":{{ .Values.hubble.metrics.port }}"
 {{- end }}
 {{- if hasKey .Values.hubble "listenAddress" }}
   # An additional address for Hubble server to listen to (e.g. ":4244").
