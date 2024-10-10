@@ -1,7 +1,9 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-include ../Makefile.defs
+ROOT_DIR := $(shell dirname "$(realpath $(lastword $(MAKEFILE_LIST)))")
+
+include ${ROOT_DIR}/../Makefile.defs
 
 TARGET := hubble-relay
 
