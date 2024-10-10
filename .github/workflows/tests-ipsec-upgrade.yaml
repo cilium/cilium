@@ -100,95 +100,68 @@ jobs:
       fail-fast: false
       max-parallel: 16
       matrix:
-        config: ['5.4', '5.10', '6.1', '5.15', 'bpf-next']
+        name: ['1', '2', '3', '4', '5', '6', '7', '8']
         mode: ['minor', 'patch']
         include:
-          # Define three config sets
-          - config: '5.4'
+          - name: '1'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'rhel8-20240404.144247'
+            kube-proxy: 'iptables'
+            kpr: 'false'
+            tunnel: 'vxlan'
+
+          - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.4-20240710.064909'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
-            encryption: 'ipsec'
 
-          - config: '5.10'
+          - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.10-20240710.064909'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
-            encryption: 'ipsec'
             endpoint-routes: 'true'
 
-          - config: '5.15'
+          - name: '4'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: 'bpf-next-20240711.013133'
+            kube-proxy: 'iptables'
+            kpr: 'false'
+            tunnel: 'geneve'
+            endpoint-routes: 'true'
+
+          - name: '5'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '5.4-20240710.064909'
+            kube-proxy: 'none'
+            kpr: 'true'
+            tunnel: 'disabled'
+
+          - name: '6'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
+            kernel: '5.10-20240710.064909'
+            kube-proxy: 'none'
+            kpr: 'true'
+            tunnel: 'disabled'
+            endpoint-routes: 'true'
+
+          - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.15-20240710.064909'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
-            encryption: 'ipsec'
             encryption-overlay: 'true'
-            endpoint-routes: 'false'
 
-          - config: '6.1'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.1-20240710.064909'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'vxlan'
-            encryption: 'ipsec'
-            endpoint-routes: 'false'
-
-          - config: 'bpf-next'
+          - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: 'bpf-next-20240711.013133'
-            kube-proxy: 'iptables'
-            kpr: 'false'
+            kube-proxy: 'none'
+            kpr: 'true'
             tunnel: 'vxlan'
-            encryption: 'ipsec'
-            endpoint-routes: 'true'
-
-          # Add names to matrix combinations of {config, mode}
-          - config: '5.4'
-            mode: 'minor'
-            name: '1'
-
-          - config: '5.10'
-            mode: 'minor'
-            name: '2'
-
-          - config: '6.1'
-            mode: 'minor'
-            name: '3'
-
-          - config: 'bpf-next'
-            mode: 'minor'
-            name: '4'
-
-          - config: '5.4'
-            mode: 'patch'
-            name: '5'
-
-          - config: '5.10'
-            mode: 'patch'
-            name: '6'
-
-          - config: '6.1'
-            mode: 'patch'
-            name: '7'
-
-          - config: 'bpf-next'
-            mode: 'patch'
-            name: '8'
-
-          - config: '5.15'
-            mode: 'minor'
-            name: '9'
-
-          - config: '5.15'
-            mode: 'patch'
-            name: '10'
 
     timeout-minutes: 70
     steps:
@@ -285,7 +258,7 @@ jobs:
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
-          encryption: ${{ matrix.encryption }}
+          encryption: 'ipsec'
           encryption-node: ${{ matrix.encryption-node }}
           encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
@@ -306,7 +279,7 @@ jobs:
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
-          encryption: ${{ matrix.encryption }}
+          encryption: 'ipsec'
           encryption-node: ${{ matrix.encryption-node }}
           encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
