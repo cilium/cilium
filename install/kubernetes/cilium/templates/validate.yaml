@@ -150,6 +150,11 @@
 {{- if and (eq .Values.cluster.name "default") (ne (int .Values.cluster.id) 0) }}
   {{ fail "The cluster name is invalid: cannot use default value with cluster.id != 0" }}
 {{- end }}
+{{ if and
+    (or (and (ge (int .Values.cluster.id) 128) (le (int .Values.cluster.id) 255)) (and (ge (int .Values.cluster.id) 384) (le (int .Values.cluster.id) 511)))
+    (or .Values.eni.enabled .Values.alibabacloud.enabled (eq .Values.cni.chainingMode "aws-cni")) -}}
+  {{ fail "Cilium is currently affected by a bug that causes traffic matched by network policies to be incorrectly dropped when running in either ENI mode (both AWS and AlibabaCloud) or AWS VPC CNI chaining mode, if the cluster ID is 128-255 (and 384-511 when maxConnectedClusters=511). Please refer to https://github.com/cilium/cilium/issues/21330 for additional details." }}
+{{- end }}
 
 {{/* validate clustermesh-apiserver */}}
 {{- if .Values.clustermesh.useAPIServer }}

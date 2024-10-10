@@ -4,12 +4,14 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -64,6 +66,20 @@ func (c ClusterInfo) ValidateStrict(log logrus.FieldLogger) error {
 	}
 
 	return c.validateName(log)
+}
+
+// ValidateBuggyClusterID returns an error if a buggy cluster ID (i.e., with the
+// 7th bit set) is used in combination with ENI IPAM mode or AWS CNI chaining.
+func (c ClusterInfo) ValidateBuggyClusterID(ipamMode, chainingMode string) error {
+	if (c.ID&0x80) != 0 && (ipamMode == ipamOption.IPAMENI || ipamMode == ipamOption.IPAMAlibabaCloud || chainingMode == "aws-cni") {
+		return errors.New("Cilium is currently affected by a bug that causes traffic matched " +
+			"by network policies to be incorrectly dropped when running in either ENI mode (both " +
+			"AWS and AlibabaCloud) or AWS VPC CNI chaining mode, if the cluster ID is 128-255 (and " +
+			"384-511 when max-connected-clusters=511). " +
+			"Please refer to https://github.com/cilium/cilium/issues/21330 for additional details.")
+	}
+
+	return nil
 }
 
 func (c ClusterInfo) validateName(log logrus.FieldLogger) error {
