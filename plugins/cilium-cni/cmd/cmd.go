@@ -210,15 +210,31 @@ func allocateIPsWithDelegatedPlugin(
 	// Safe to assume at most one IP per family. The K8s API docs say:
 	// "Pods may be allocated at most 1 value for each of IPv4 and IPv6"
 	// https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/
+	// Interface returned by IPAM should be treated as the uplink for the Pod.
+	masterMac := ""
+	for _, iface := range ipamResult.Interfaces {
+		if iface.Sandbox == "" && iface.Mac != "" {
+			masterMac = iface.Mac
+		}
+	}
 	for _, ipConfig := range ipamResult.IPs {
 		ipNet := ipConfig.Address
 		if ipv4 := ipNet.IP.To4(); ipv4 != nil {
 			ipam.Address.IPV4 = ipNet.String()
-			ipam.IPV4 = &models.IPAMAddressResponse{IP: ipv4.String()}
+			ipam.IPV4 = &models.IPAMAddressResponse{
+				IP:              ipv4.String(),
+				Gateway:         ipConfig.Gateway.String(),
+				MasterMac:       masterMac,
+				InterfaceNumber: "0",
+			}
 		} else if conf.Addressing.IPV6 != nil {
 			// assign ipam ipv6 address only if agent ipv6 config is enabled
 			ipam.Address.IPV6 = ipNet.String()
-			ipam.IPV6 = &models.IPAMAddressResponse{IP: ipNet.IP.String()}
+			ipam.IPV6 = &models.IPAMAddressResponse{
+				IP:              ipNet.IP.String(),
+				MasterMac:       masterMac,
+				InterfaceNumber: "0",
+			}
 		}
 	}
 
@@ -664,6 +680,13 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			err = interfaceAdd(ipConfig, ipam.IPV4, conf)
 			if err != nil {
 				return fmt.Errorf("unable to setup interface datapath: %w", err)
+			}
+		case ipamOption.IPAMDelegatedPlugin:
+			if ipam.IPV4.MasterMac != "" || ipam.IPV6.MasterMac != "" {
+				err = interfaceAdd(ipConfig, ipam.IPV4, conf)
+				if err != nil {
+					return fmt.Errorf("unable to setup interface datapath: %w", err)
+				}
 			}
 		}
 
