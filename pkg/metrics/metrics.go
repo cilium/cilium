@@ -1397,7 +1397,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 		WorkQueueRetries:                 WorkQueueRetries,
 
 		NatDeleteMappingv4Events: metric.NewCounter(metric.CounterOpts{
-			ConfigName: Namespace + "_" + SubsystemDatapath + "_nat_delete_mapping_ipv4_events",
+			ConfigName: Namespace + "_" + SubsystemDatapath + "_nat_delete_mapping_ipv4_events_total",
 			Namespace:  Namespace,
 			Subsystem:  SubsystemDatapath,
 			Name:       "nat_delete_mapping_ipv4_events",
@@ -1405,7 +1405,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 		}),
 
 		NatDeleteMappingv6Events: metric.NewCounter(metric.CounterOpts{
-			ConfigName: Namespace + "_" + SubsystemDatapath + "_nat_delete_mapping_ipv6_events",
+			ConfigName: Namespace + "_" + SubsystemDatapath + "_nat_delete_mapping_ipv6_events_total",
 			Namespace:  Namespace,
 			Subsystem:  SubsystemDatapath,
 			Name:       "nat_delete_mapping_ipv6_events",
