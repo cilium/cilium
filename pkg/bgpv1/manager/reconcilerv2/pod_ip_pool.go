@@ -46,6 +46,7 @@ type PodIPPoolReconciler struct {
 	logger     logrus.FieldLogger
 	peerAdvert *CiliumPeerAdvertisement
 	poolStore  store.BGPCPResourceStore[*v2alpha1.CiliumPodIPPool]
+	metadata   map[string]PodIPPoolReconcilerMetadata
 }
 
 // PodIPPoolReconcilerMetadata holds any announced pod ip pool CIDRs keyed by pool name of the backing CiliumPodIPPool.
@@ -64,6 +65,7 @@ func NewPodIPPoolReconciler(in PodIPPoolReconcilerIn) PodIPPoolReconcilerOut {
 			logger:     in.Logger.WithField(types.ReconcilerLogField, "PodIPPool"),
 			peerAdvert: in.PeerAdvert,
 			poolStore:  in.PoolStore,
+			metadata:   make(map[string]PodIPPoolReconcilerMetadata),
 		},
 	}
 }
@@ -76,11 +78,22 @@ func (r *PodIPPoolReconciler) Priority() int {
 	return PodIPPoolReconcilerPriority
 }
 
-func (r *PodIPPoolReconciler) Init(_ *instance.BGPInstance) error {
+func (r *PodIPPoolReconciler) Init(i *instance.BGPInstance) error {
+	if i == nil {
+		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
+	}
+	r.metadata[i.Name] = PodIPPoolReconcilerMetadata{
+		PoolAFPaths:       make(ResourceAFPathsMap),
+		PoolRoutePolicies: make(ResourceRoutePolicyMap),
+	}
 	return nil
 }
 
-func (r *PodIPPoolReconciler) Cleanup(_ *instance.BGPInstance) {}
+func (r *PodIPPoolReconciler) Cleanup(i *instance.BGPInstance) {
+	if i != nil {
+		delete(r.metadata, i.Name)
+	}
+}
 
 func (r *PodIPPoolReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
 	if p.DesiredConfig == nil {
@@ -402,15 +415,9 @@ func podIPPoolLabelSet(pool *v2alpha1.CiliumPodIPPool) labels.Labels {
 }
 
 func (r *PodIPPoolReconciler) getMetadata(i *instance.BGPInstance) PodIPPoolReconcilerMetadata {
-	if _, found := i.Metadata[r.Name()]; !found {
-		i.Metadata[r.Name()] = PodIPPoolReconcilerMetadata{
-			PoolAFPaths:       make(ResourceAFPathsMap),
-			PoolRoutePolicies: make(ResourceRoutePolicyMap),
-		}
-	}
-	return i.Metadata[r.Name()].(PodIPPoolReconcilerMetadata)
+	return r.metadata[i.Name]
 }
 
 func (r *PodIPPoolReconciler) setMetadata(i *instance.BGPInstance, metadata PodIPPoolReconcilerMetadata) {
-	i.Metadata[r.Name()] = metadata
+	r.metadata[i.Name] = metadata
 }
