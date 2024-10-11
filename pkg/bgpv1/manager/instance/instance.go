@@ -68,11 +68,9 @@ func NewServerWithConfig(ctx context.Context, log *logrus.Entry, params types.Se
 type BGPInstance struct {
 	Name      string
 	Global    types.BGPGlobal
-	ASN       uint32 // deprecated: use Global.ASN instead
 	CancelCtx context.CancelFunc
 	Config    *v2alpha1api.CiliumBGPNodeInstance
 	Router    types.Router
-	Metadata  map[string]any
 }
 
 // NewBGPInstance will start an underlying BGP instance utilizing types.ServerParameters
@@ -94,10 +92,8 @@ func NewBGPInstance(ctx context.Context, log *logrus.Entry, name string, params 
 	return &BGPInstance{
 		Name:      name,
 		Global:    params.Global,
-		ASN:       params.Global.ASN,
 		CancelCtx: cancel,
 		Config:    nil,
 		Router:    s,
-		Metadata:  make(map[string]any),
 	}, nil
 }
