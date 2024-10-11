@@ -27,6 +27,7 @@ type NeighborReconciler struct {
 	SecretStore  store.BGPCPResourceStore[*slim_corev1.Secret]
 	PeerConfig   store.BGPCPResourceStore[*v2alpha1.CiliumBGPPeerConfig]
 	DaemonConfig *option.DaemonConfig
+	metadata     map[string]NeighborReconcilerMetadata
 }
 
 type NeighborReconcilerOut struct {
@@ -52,6 +53,7 @@ func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
 			SecretStore:  params.SecretStore,
 			PeerConfig:   params.PeerConfig,
 			DaemonConfig: params.DaemonConfig,
+			metadata:     make(map[string]NeighborReconcilerMetadata),
 		},
 	}
 }
@@ -66,14 +68,11 @@ type PeerData struct {
 }
 
 // NeighborReconcilerMetadata keeps a map of running peers to peer configuration.
-// key is the peer name.
+// Key is the instance name.
 type NeighborReconcilerMetadata map[string][]*PeerData
 
 func (r *NeighborReconciler) getMetadata(i *instance.BGPInstance) NeighborReconcilerMetadata {
-	if _, found := i.Metadata[r.Name()]; !found {
-		i.Metadata[r.Name()] = make(NeighborReconcilerMetadata)
-	}
-	return i.Metadata[r.Name()].(NeighborReconcilerMetadata)
+	return r.metadata[i.Name]
 }
 
 func (r *NeighborReconciler) upsertMetadata(i *instance.BGPInstance, instanceName string, d *PeerData) {
@@ -139,11 +138,19 @@ func (r *NeighborReconciler) Priority() int {
 	return NeighborReconcilerPriority
 }
 
-func (r *NeighborReconciler) Init(_ *instance.BGPInstance) error {
+func (r *NeighborReconciler) Init(i *instance.BGPInstance) error {
+	if i == nil {
+		return fmt.Errorf("BUG: %s reconciler initialization with nil BGPInstance", r.Name())
+	}
+	r.metadata[i.Name] = make(NeighborReconcilerMetadata)
 	return nil
 }
 
-func (r *NeighborReconciler) Cleanup(_ *instance.BGPInstance) {}
+func (r *NeighborReconciler) Cleanup(i *instance.BGPInstance) {
+	if i != nil {
+		delete(r.metadata, i.Name)
+	}
+}
 
 func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) error {
 	if p.DesiredConfig == nil {
