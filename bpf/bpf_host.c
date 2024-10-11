@@ -1522,14 +1522,12 @@ skip_host_firewall:
 	 * encrypted WireGuard UDP packets), we check whether the mark
 	 * is set before the redirect.
 	 */
-	trace.reason = TRACE_REASON_ENCRYPTED;
 	if ((ctx->mark & MARK_MAGIC_WG_ENCRYPTED) != MARK_MAGIC_WG_ENCRYPTED) {
 		ret = wg_maybe_redirect_to_encrypt(ctx, proto);
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
 		else if (IS_ERR(ret))
 			goto drop_err;
-		trace.reason = TRACE_REASON_UNKNOWN;
 	}
 
 #if defined(ENCRYPTION_STRICT_MODE)
