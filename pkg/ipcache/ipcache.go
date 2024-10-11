@@ -386,9 +386,6 @@ func (ipc *IPCache) upsertLocked(
 		// and the host IP hasn't changed.
 		if cachedIdentity.equals(newIdentity) && oldHostIP.Equal(hostIP) &&
 			hostKey == oldHostKey && metaEqual {
-			metrics.IPCacheErrorsTotal.WithLabelValues(
-				metricTypeUpsert, metricErrorIdempotent,
-			).Inc()
 			return false, nil
 		}
 
