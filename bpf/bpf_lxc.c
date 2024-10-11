@@ -1935,9 +1935,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		 * matched.
 		 *
 		 * If ip4.saddr is IPV4_LOOPBACK, this is almost certainly a loopback
-		 * connection. Populate
-		 * - .loopback, so that policy enforcement is bypassed, and
-		 * - .rev_nat_index, so that replies can be RevNATed.
+		 * connection. Populate .loopback, so that policy enforcement is bypassed.
 		 */
 		if (ret == CT_NEW && ip4->saddr == IPV4_LOOPBACK &&
 		    ct_has_loopback_egress_entry4(get_ct_map4(tuple), tuple)) {
