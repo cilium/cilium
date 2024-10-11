@@ -72,6 +72,10 @@ const (
 	// SockPathEnv is the environment variable to overwrite SockPath
 	SockPathEnv = "CILIUM_SOCK"
 
+	// ShellSockPath is the path to the UNIX domain socket exposing the debug shell
+	// to which "cilium-dbg shell" connects to.
+	ShellSockPath = RuntimePath + "/shell.sock"
+
 	// MonitorSockPath1_2 is the path to the UNIX domain socket used to
 	// distribute BPF and agent events to listeners.
 	// This is the 1.2 protocol version.
