@@ -138,6 +138,7 @@ The ServiceImport has also a logic to merge different Service properties:
 - SessionAffinity
 - Ports (Union of the different ServiceExports)
 - Type (ClusterSetIP/Headless)
+- Annotations & Labels (via the ServiceExport ``exportedLabels`` and ``exportedAnnotations`` fields)
 
 If any conflict arises on any of these properties, the oldest ServiceExport will
 have precedence to resolve the conflict. This means that you should get a

@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
@@ -123,6 +124,8 @@ func fromServiceToMCSAPIServiceSpec(svc *corev1.Service, cluster string, svcExpo
 		Type:                    mcsAPISvcType,
 		SessionAffinity:         svc.Spec.SessionAffinity,
 		SessionAffinityConfig:   svc.Spec.SessionAffinityConfig.DeepCopy(),
+		Annotations:             maps.Clone(svcExport.Spec.ExportedAnnotations),
+		Labels:                  maps.Clone(svcExport.Spec.ExportedLabels),
 	}
 	return mcsAPISvcSpec
 }
@@ -241,62 +244,97 @@ func getServiceImportStatus(svcExportByCluster operator.ServiceExportsByCluster)
 	return mcsapiv1alpha1.ServiceImportStatus{Clusters: clusters}
 }
 
+func derefSessionAffinity(sessionAffinityConfig *corev1.SessionAffinityConfig) *int32 {
+	if sessionAffinityConfig == nil ||
+		sessionAffinityConfig.ClientIP == nil ||
+		sessionAffinityConfig.ClientIP.TimeoutSeconds == nil {
+		return nil
+	}
+	return sessionAffinityConfig.ClientIP.TimeoutSeconds
+}
+
 // checkConflictExport check if there are any conflict to be added on
 // the ServiceExport object. This function does not check for conflict on the
 // ports field this aspect should be done by mergePorts
 func checkConflictExport(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) string {
 	clusterCount := len(orderedSvcExports)
 
-	getTypeFunc := func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string {
-		return string(svcSpec.Type)
-	}
-	getSessionAffinityFunc := func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string {
-		return string(svcSpec.SessionAffinity)
-	}
-	getSessionAffinityConfigFunc := func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string {
-		if svcSpec.SessionAffinityConfig == nil ||
-			svcSpec.SessionAffinityConfig.ClientIP == nil ||
-			svcSpec.SessionAffinityConfig.ClientIP.TimeoutSeconds == nil {
-			return ""
-		}
-		return string(*svcSpec.SessionAffinityConfig.ClientIP.TimeoutSeconds)
-	}
-	getterFuncs := []struct {
+	fieldStructs := []struct {
 		name       string
 		getterFunc func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string
+		equalFunc  func(svc1, svc2 *mcsapitypes.MCSAPIServiceSpec) bool
 	}{
 		{
-			name: "type", getterFunc: getTypeFunc,
+			name: "type",
+			getterFunc: func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string {
+				return string(svcSpec.Type)
+			},
+			equalFunc: func(svc1, svc2 *mcsapitypes.MCSAPIServiceSpec) bool {
+				return svc1.Type == svc2.Type
+			},
 		},
 		{
-			name: "sessionAffinity", getterFunc: getSessionAffinityFunc,
+			name: "sessionAffinity",
+			getterFunc: func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string {
+				return string(svcSpec.SessionAffinity)
+			},
+			equalFunc: func(svc1, svc2 *mcsapitypes.MCSAPIServiceSpec) bool {
+				return svc1.SessionAffinity == svc2.SessionAffinity
+			},
 		},
 		{
-			name: "sessionAffinityConfig.clientIP", getterFunc: getSessionAffinityConfigFunc,
+			name: "sessionAffinityConfig.clientIP",
+			getterFunc: func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string {
+				timeoutSeconds := derefSessionAffinity(svcSpec.SessionAffinityConfig)
+				if timeoutSeconds == nil {
+					return ""
+				}
+				return string(*timeoutSeconds)
+			},
+			equalFunc: func(svc1, svc2 *mcsapitypes.MCSAPIServiceSpec) bool {
+				return ptr.Equal(derefSessionAffinity(svc1.SessionAffinityConfig), derefSessionAffinity(svc2.SessionAffinityConfig))
+			},
+		},
+		{
+			name: "annotations",
+			getterFunc: func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string {
+				return fmt.Sprintf("%v", svcSpec.Annotations)
+			},
+			equalFunc: func(svc1, svc2 *mcsapitypes.MCSAPIServiceSpec) bool {
+				return maps.Equal(svc1.Annotations, svc2.Annotations)
+			},
+		},
+		{
+			name: "labels",
+			getterFunc: func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string {
+				return fmt.Sprintf("%v", svcSpec.Labels)
+			},
+			equalFunc: func(svc1, svc2 *mcsapitypes.MCSAPIServiceSpec) bool {
+				return maps.Equal(svc1.Labels, svc2.Labels)
+			},
 		},
 	}
 	for i, svcExport := range orderedSvcExports[1:] {
-		for _, getterStruct := range getterFuncs {
-			oldestField := getterStruct.getterFunc(orderedSvcExports[0])
-			if oldestField == getterStruct.getterFunc(svcExport) {
+		for _, fieldStruct := range fieldStructs {
+			if fieldStruct.equalFunc(orderedSvcExports[0], svcExport) {
 				continue
 			}
 
 			conflictCount := 1
 			if i+1 < len(orderedSvcExports) {
 				for _, otherSvcExport := range orderedSvcExports[i+1:] {
-					if oldestField != getterStruct.getterFunc(otherSvcExport) {
+					if !fieldStruct.equalFunc(orderedSvcExports[0], otherSvcExport) {
 						conflictCount += 1
 					}
 				}
 			}
 
-			if conflictCount > 0 {
-				return fmt.Sprintf(
-					"Conflicting %s. %d/%d clusters disagree. Using \"%s\" from oldest service export in cluster \"%s\".",
-					getterStruct.name, conflictCount, clusterCount, oldestField, orderedSvcExports[0].Cluster,
-				)
-			}
+			return fmt.Sprintf(
+				"Conflicting %s. %d/%d clusters disagree. Using \"%s\" from oldest service export in cluster \"%s\".",
+				fieldStruct.name, conflictCount, clusterCount,
+				fieldStruct.getterFunc(orderedSvcExports[0]),
+				orderedSvcExports[0].Cluster,
+			)
 		}
 	}
 
@@ -416,6 +454,15 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 	svcImport.Spec.Type = oldestClusterSvc.Type
 	svcImport.Spec.SessionAffinity = oldestClusterSvc.SessionAffinity
 	svcImport.Spec.SessionAffinityConfig = oldestClusterSvc.SessionAffinityConfig.DeepCopy()
+	svcImport.Labels = maps.Clone(oldestClusterSvc.Labels)
+	annotations := maps.Clone(oldestClusterSvc.Annotations)
+	if _, ok := svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]; ok {
+		if annotations == nil {
+			annotations = map[string]string{}
+		}
+		annotations[mcsapicontrollers.DerivedServiceAnnotation] = svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]
+	}
+	svcImport.Annotations = annotations
 
 	svcImport, err = r.createOrUpdateServiceImport(ctx, svcImport)
 	if err != nil {
@@ -441,6 +488,8 @@ func (r *mcsAPIServiceImportReconciler) createOrUpdateServiceImport(ctx context.
 	}
 
 	result, err := controllerutil.CreateOrUpdate(ctx, r.Client, svcImport, func() error {
+		svcImport.Annotations = desiredSvcImport.Annotations
+		svcImport.Labels = desiredSvcImport.Labels
 		svcImport.Spec = desiredSvcImport.Spec
 		return nil
 	})

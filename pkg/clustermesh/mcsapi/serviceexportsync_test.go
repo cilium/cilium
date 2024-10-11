@@ -38,6 +38,14 @@ var (
 				Namespace:         "default",
 				CreationTimestamp: exportTime,
 			},
+			Spec: mcsapiv1alpha1.ServiceExportSpec{
+				ExportedAnnotations: map[string]string{
+					"my-annotation": "test",
+				},
+				ExportedLabels: map[string]string{
+					"my-label": "test",
+				},
+			},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
@@ -182,6 +190,8 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 			if len(mcsAPISvcSpec.Ports) == 1 {
 				assert.Equal(c, "my-port-1", mcsAPISvcSpec.Ports[0].Name)
 			}
+			assert.Equal(c, map[string]string{"my-annotation": "test"}, mcsAPISvcSpec.Annotations)
+			assert.Equal(c, map[string]string{"my-label": "test"}, mcsAPISvcSpec.Labels)
 			assert.True(c, exportTime.Equal(&mcsAPISvcSpec.ExportCreationTimestamp), "Export time should be equal")
 			assert.Equal(c, mcsapiv1alpha1.ClusterSetIP, mcsAPISvcSpec.Type)
 		}, timeout, tick, "MCSAPIServiceSpec is not correctly synced")

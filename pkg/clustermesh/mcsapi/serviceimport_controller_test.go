@@ -5,6 +5,8 @@ package mcsapi
 
 import (
 	"context"
+	"fmt"
+	"maps"
 	"testing"
 	"time"
 
@@ -19,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	mcsapicontrollers "sigs.k8s.io/mcs-api/pkg/controllers"
 
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
@@ -107,6 +110,14 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 					Namespace:         "default",
 					CreationTimestamp: nowTime,
 				},
+				Spec: mcsapiv1alpha1.ServiceExportSpec{
+					ExportedAnnotations: map[string]string{
+						"service.cilium.io/global-sync-endpoint-slices": "true",
+					},
+					ExportedLabels: map[string]string{
+						"my-label": "test",
+					},
+				},
 			},
 			&corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -122,6 +133,43 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 						}, {
 							Port: 4242,
 						},
+					},
+				},
+			},
+
+			&mcsapiv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "svcimport-exist",
+					Namespace:         "default",
+					CreationTimestamp: olderTime,
+				},
+				Spec: mcsapiv1alpha1.ServiceExportSpec{
+					ExportedLabels:      map[string]string{"exported-label": ""},
+					ExportedAnnotations: map[string]string{"exported-annotation": ""},
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svcimport-exist",
+					Namespace: "default",
+				},
+				Spec: corev1.ServiceSpec{
+					SessionAffinity: corev1.ServiceAffinityNone,
+					Ports: []corev1.ServicePort{{
+						Port: 8000,
+					}},
+				},
+			},
+			&mcsapiv1alpha1.ServiceImport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svcimport-exist",
+					Namespace: "default",
+					Annotations: map[string]string{
+						mcsapicontrollers.DerivedServiceAnnotation: "",
+						"unknown-annotation":                       "",
+					},
+					Labels: map[string]string{
+						"unknown-label": "",
 					},
 				},
 			},
@@ -257,6 +305,44 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 					},
 				},
 			},
+
+			&mcsapiv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "conflict-annotations",
+					Namespace:         "default",
+					CreationTimestamp: nowTime,
+				},
+				Spec: mcsapiv1alpha1.ServiceExportSpec{
+					ExportedAnnotations: map[string]string{
+						"service.cilium.io/global-sync-endpoint-slices": "true",
+					},
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "conflict-annotations",
+					Namespace: "default",
+				},
+			},
+
+			&mcsapiv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "conflict-labels",
+					Namespace:         "default",
+					CreationTimestamp: nowTime,
+				},
+				Spec: mcsapiv1alpha1.ServiceExportSpec{
+					ExportedLabels: map[string]string{
+						"my-label": "test",
+					},
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "conflict-labels",
+					Namespace: "default",
+				},
+			},
 		}
 		remoteSvcImportTestFixtures = []*mcsapitypes.MCSAPIServiceSpec{
 			{
@@ -284,9 +370,15 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				SessionAffinity:         corev1.ServiceAffinityNone,
 			},
 			{
-				Cluster:                 remoteClusterName,
-				Name:                    "basic",
-				Namespace:               "default",
+				Cluster:   remoteClusterName,
+				Name:      "basic",
+				Namespace: "default",
+				Annotations: map[string]string{
+					"service.cilium.io/global-sync-endpoint-slices": "true",
+				},
+				Labels: map[string]string{
+					"my-label": "test",
+				},
 				ExportCreationTimestamp: olderTime,
 				Ports: []mcsapiv1alpha1.ServicePort{
 					{
@@ -376,6 +468,31 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				SessionAffinityConfig: &corev1.SessionAffinityConfig{
 					ClientIP: &corev1.ClientIPConfig{TimeoutSeconds: ptr.To[int32](42)},
 				},
+			},
+			{
+				Cluster:   remoteClusterName,
+				Name:      "conflict-annotations",
+				Namespace: "default",
+				Annotations: map[string]string{
+					"service.cilium.io/global-sync-endpoint-slices": "true",
+					"service.cilium.io/lb-l7":                       "true",
+				},
+				ExportCreationTimestamp: olderTime,
+				Ports:                   []mcsapiv1alpha1.ServicePort{},
+				Type:                    mcsapiv1alpha1.ClusterSetIP,
+			},
+			{
+				Cluster:   remoteClusterName,
+				Name:      "conflict-labels",
+				Namespace: "default",
+				Labels: map[string]string{
+					"my-label":  "test",
+					"my-label2": "test",
+				},
+
+				ExportCreationTimestamp: olderTime,
+				Ports:                   []mcsapiv1alpha1.ServicePort{},
+				Type:                    mcsapiv1alpha1.ClusterSetIP,
 			},
 		}
 	)
@@ -637,6 +754,32 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		})
 	})
 
+	t.Run("Check annotation and labels sync on an existing service import", func(t *testing.T) {
+		key := types.NamespacedName{
+			Name:      "svcimport-exist",
+			Namespace: "default",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		svcImport, err := getServiceImport(c, key)
+		require.NoError(t, err)
+		require.NotNil(t, svcImport)
+
+		require.True(t, maps.Equal(svcImport.Labels, map[string]string{
+			"exported-label": "",
+		}))
+		fmt.Println(svcImport.Annotations)
+		require.True(t, maps.Equal(svcImport.Annotations, map[string]string{
+			mcsapicontrollers.DerivedServiceAnnotation: "",
+			"exported-annotation":                      "",
+		}))
+	})
+
 	t.Run("Check conflict removal", func(t *testing.T) {
 		key := types.NamespacedName{
 			Name:      "conflict-type-remove",
@@ -749,6 +892,34 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			},
 			localSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
 				return *svcImport.Spec.SessionAffinityConfig.ClientIP.TimeoutSeconds == 4242
+			},
+		},
+		{
+			name: "conflict-annotations",
+			remoteSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return maps.Equal(svcImport.Annotations, map[string]string{
+					"service.cilium.io/global-sync-endpoint-slices": "true",
+					"service.cilium.io/lb-l7":                       "true",
+				})
+			},
+			localSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return maps.Equal(svcImport.Annotations, map[string]string{
+					"service.cilium.io/global-sync-endpoint-slices": "true",
+				})
+			},
+		},
+		{
+			name: "conflict-labels",
+			remoteSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return maps.Equal(svcImport.Labels, map[string]string{
+					"my-label":  "test",
+					"my-label2": "test",
+				})
+			},
+			localSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return maps.Equal(svcImport.Labels, map[string]string{
+					"my-label": "test",
+				})
 			},
 		},
 	}
