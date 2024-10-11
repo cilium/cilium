@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"path"
 
 	corev1 "k8s.io/api/core/v1"
@@ -36,6 +37,12 @@ type MCSAPIServiceSpec struct {
 
 	// Namespace is the cluster namespace the service is configured in
 	Namespace string `json:"namespace"`
+
+	// Annotations contains the exported annotations
+	Annotations map[string]string
+
+	// Labels contains the exported labels
+	Labels map[string]string
 
 	// ExportCreationTimestamp is the timestamp representing when the
 	// ServiceExport object was created. It is used for conflict resolution.
@@ -188,6 +195,8 @@ func FromCiliumServiceToMCSAPIServiceSpec(clusterName string, svc *slim_corev1.S
 		Ports:           ports,
 		Type:            mcsAPISvcType,
 		SessionAffinity: corev1.ServiceAffinity(svc.Spec.SessionAffinity),
+		Annotations:     maps.Clone(svcExport.Spec.ExportedAnnotations),
+		Labels:          maps.Clone(svcExport.Spec.ExportedLabels),
 	}
 	if svc.Spec.SessionAffinityConfig != nil &&
 		svc.Spec.SessionAffinityConfig.ClientIP != nil &&
