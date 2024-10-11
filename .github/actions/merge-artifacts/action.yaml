@@ -1,0 +1,57 @@
+name: Merge and Upload Artifacts
+description: Cheks artifacts and if they exists merges and uploads them
+
+inputs:
+  name:
+    required: true
+    description: 'The name of the artifact that the artifacts will be merged into'
+  token:
+    required: true
+    description: 'GITHUB_TOKEN for accessing to github api'
+  pattern:
+    required: true
+    description: 'A glob pattern matching the artifacts that should be merged'
+  delete-merged:
+    required: true
+    description: 'If true, the artifacts that were merged will be deleted'
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: List All Artifacts
+      id: list_artifacts
+      shell: bash
+      env:
+        ARTIFACTS_FILE: "artifacts_list_${{ github.run_id }}_${{ github.run_number }}.json"
+      run: |
+        echo "artifacts_file=${{ env.ARTIFACTS_FILE }}" >> $GITHUB_OUTPUT
+        if [ ! -f ${{ env.ARTIFACTS_FILE }} ];then
+          echo "Fetching artifacts"
+          curl --fail --show-error --silent \
+                -H "Authorization: token ${{ inputs.token }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+                | jq -r '.artifacts[] | .name' > ${{ env.ARTIFACTS_FILE }}
+        fi
+    - name: Filter Artifacts
+      id: filter_artifacts
+      shell: bash
+      run: |
+        pattern="${{ inputs.pattern }}"
+        regex="^${pattern//\*/.*}$"
+        echo "Filtered Artifacts starts with ${{ inputs.pattern }}"
+        if grep -E "$regex" ${{ steps.list_artifacts.outputs.artifacts_file }}; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "::warning::No matching ${{ inputs.pattern }} artifacts found."
+        fi
+    - name: Merge ${{ inputs.name }}
+      if: ${{ steps.filter_artifacts.outputs.exists == 'true' }}
+      uses: actions/upload-artifact/merge@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+      with:
+        name: ${{ inputs.name }}
+        pattern: ${{ inputs.pattern }}
+        retention-days: 5
+        delete-merged: ${{ inputs.delete-merged }}
+
