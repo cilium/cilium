@@ -28,6 +28,11 @@ const (
 	KeyBasicAuthPassword = "basic-auth-password"  // string
 	KeyTimeout           = "timeout"              // time.Duration
 	KeyRequestTimeout    = "request-timeout"      // time.Duration
+	KeyAutoPortForward   = "auto-port-forward"    // bool
+	KeyPortForward       = "port-forward"         // uint16
+	KeyK8sContextName    = "k8s-context"          // string
+	KeyK8sNamespace      = "k8s-namespace"        // string
+	KeyK8sKubeconfig     = "k8s-kubeconfig"       // string
 )
 
 // GlobalFlags are flags that apply to any command.
@@ -47,8 +52,8 @@ func initGlobalFlags() {
 }
 
 func initServerFlags() {
-	ServerFlags.String(KeyServer, defaults.ServerAddress, "Address of a Hubble server. Ignored when --input-file is provided.")
-	ServerFlags.Duration(KeyTimeout, defaults.DialTimeout, "Hubble server dialing timeout")
+	ServerFlags.String(KeyServer, defaults.ServerAddress, "Address of a Hubble server. Ignored when --input-file or --auto-port-forward is provided.")
+	ServerFlags.Duration(KeyTimeout, defaults.DialTimeout, "Hubble server and port-forward dialing timeout")
 	ServerFlags.Duration(KeyRequestTimeout, defaults.RequestTimeout, "Unary Request timeout. Only applies to non-streaming RPCs (ServerStatus, ListNodes, ListNamespaces).")
 	ServerFlags.Bool(
 		KeyTLS,
@@ -95,5 +100,30 @@ func initServerFlags() {
 		KeyBasicAuthPassword,
 		"",
 		"Specify a password for basic auth",
+	)
+	ServerFlags.Bool(
+		KeyAutoPortForward,
+		false,
+		"Automatically forward the relay port to the local machine. Analoguous to running: 'cilium hubble port-forward'.",
+	)
+	ServerFlags.Uint16(
+		KeyPortForward,
+		4245,
+		"Local port to forward to. This option is only considered when --auto-port-forward is set.",
+	)
+	ServerFlags.String(
+		KeyK8sContextName,
+		"",
+		"Kubernetes configuration context. This option is only considered when --auto-port-forward is set.",
+	)
+	ServerFlags.String(
+		KeyK8sNamespace,
+		"kube-system",
+		"Namespace Cilium is running in. This option is only considered when --auto-port-forward is set.",
+	)
+	ServerFlags.String(
+		KeyK8sKubeconfig,
+		"",
+		"Path to the kubeconfig file. This option is only considered when --auto-port-forward is set.",
 	)
 }
