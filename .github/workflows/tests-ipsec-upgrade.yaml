@@ -147,6 +147,7 @@ jobs:
             kpr: 'true'
             tunnel: 'disabled'
             endpoint-routes: 'true'
+            egress-gateway: 'true'
 
           - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -162,6 +163,7 @@ jobs:
             kube-proxy: 'none'
             kpr: 'true'
             tunnel: 'vxlan'
+            egress-gateway: 'true'
 
     timeout-minutes: 70
     steps:
