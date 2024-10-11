@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bombsimon/logrusr/v4"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/sirupsen/logrus"
@@ -70,7 +69,7 @@ func newManager(params managerParams) (ctrlRuntime.Manager, error) {
 		return proto.Equal(xdsResource1.Any, xdsResource2.Any)
 	})
 
-	ctrlRuntime.SetLogger(logrusr.New(params.Logger))
+	ctrlRuntime.SetLogger(newLogrFromLogrus(params.Logger))
 
 	mgr, err := ctrlRuntime.NewManager(params.K8sClient.RestConfig(), ctrlRuntime.Options{
 		Scheme: params.Scheme,
@@ -78,7 +77,6 @@ func newManager(params managerParams) (ctrlRuntime.Manager, error) {
 		Metrics: metricsserver.Options{
 			BindAddress: "0",
 		},
-		Logger: logrusr.New(params.Logger),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new controller-runtime manager: %w", err)
