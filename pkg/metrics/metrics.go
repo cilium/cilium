@@ -1400,7 +1400,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 			ConfigName: Namespace + "_" + SubsystemDatapath + "_nat_delete_mapping_ipv4_events_total",
 			Namespace:  Namespace,
 			Subsystem:  SubsystemDatapath,
-			Name:       "nat_delete_mapping_ipv4_events",
+			Name:       "nat_delete_mapping_ipv4_events_total",
 			Help:       "Number of NAT delete mapping for ipv4 events received",
 		}),
 
@@ -1408,7 +1408,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 			ConfigName: Namespace + "_" + SubsystemDatapath + "_nat_delete_mapping_ipv6_events_total",
 			Namespace:  Namespace,
 			Subsystem:  SubsystemDatapath,
-			Name:       "nat_delete_mapping_ipv6_events",
+			Name:       "nat_delete_mapping_ipv6_events_total",
 			Help:       "Number of NAT delete mapping for ipv6 events received",
 		}),
 	}
