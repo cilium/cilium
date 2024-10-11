@@ -14,6 +14,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/ebpf"
+
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -24,8 +26,6 @@ import (
 )
 
 const (
-	notExistMsg          = "does not exist"
-	alreadyExistMsg      = "already exists"
 	testMulticastGroupIP = "239.255.9.9"
 	testSocatPort        = 6666
 )
@@ -263,7 +263,7 @@ func (s *socatMulticast) addAllNodes(ctx context.Context, t *check.Test) error {
 			cmd := []string{"cilium-dbg", "bpf", "multicast", "subscriber", "list", testMulticastGroupIP}
 			_, stdErr, err := client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, cmd)
 			if err != nil {
-				if !strings.Contains(stdErr.String(), notExistMsg) {
+				if !strings.Contains(stdErr.String(), ebpf.ErrKeyNotExist.Error()) {
 					errMsg := fmt.Sprintf("Error: %v, Stderr: %s", err, stdErr.String())
 					errCh <- errors.New(errMsg)
 					t.Fatalf("Fatal error occurred while checking multicast group %s in %s", testMulticastGroupIP, pod.Spec.NodeName)
@@ -286,7 +286,7 @@ func (s *socatMulticast) addAllNodes(ctx context.Context, t *check.Test) error {
 					_, stdErr, err := client.ExecInPodWithStderr(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, cmd)
 					if err == nil {
 						s.addNotSubscribePodAddress(pod.Spec.NodeName, ip)
-					} else if !strings.Contains(stdErr.String(), alreadyExistMsg) {
+					} else if !strings.Contains(stdErr.String(), ebpf.ErrKeyExist.Error()) {
 						errMsg := fmt.Sprintf("Error: %v, Stderr: %s", err, stdErr.String())
 						errCh <- errors.New(errMsg)
 						t.Fatalf("Fatal error occurred while adding node %s to multicast group %s in %s", ip.IP, testMulticastGroupIP, pod.Spec.NodeName)
@@ -324,7 +324,7 @@ func (s *socatMulticast) delGroup(ctx context.Context, t *check.Test, nodeName s
 			cmd := []string{"cilium-dbg", "bpf", "multicast", "group", "delete", testMulticastGroupIP}
 			_, stdErr, err := client.ExecInPodWithStderr(ctx, ciliumPod.Namespace, ciliumPod.Name, defaults.AgentContainerName, cmd)
 			if err != nil {
-				if !strings.Contains(stdErr.String(), notExistMsg) {
+				if !strings.Contains(stdErr.String(), ebpf.ErrKeyNotExist.Error()) {
 					errMsg := fmt.Sprintf("Error: %v while deleting Multicast Group for test %s, Stderr: %s", err, testMulticastGroupIP, stdErr.String())
 					return errors.New(errMsg)
 				}
@@ -351,7 +351,7 @@ func (s *socatMulticast) delSubscriber(ctx context.Context, t *check.Test, nodeN
 			cmd := []string{"cilium-dbg", "bpf", "multicast", "subscriber", "delete", testMulticastGroupIP, subscriberIP}
 			_, stdErr, err := client.ExecInPodWithStderr(ctx, ciliumPod.Namespace, ciliumPod.Name, defaults.AgentContainerName, cmd)
 			if err != nil {
-				if !strings.Contains(stdErr.String(), notExistMsg) {
+				if !strings.Contains(stdErr.String(), ebpf.ErrKeyNotExist.Error()) {
 					errMsg := fmt.Sprintf("Error: %v while removing %s from Multicast Group %s Stderr: %s", err, subscriberIP, testMulticastGroupIP, stdErr.String())
 					return errors.New(errMsg)
 				}
