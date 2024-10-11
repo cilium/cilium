@@ -132,6 +132,9 @@ var (
 		// Allows cells to wait for CRDs before trying to list Cilium resources.
 		// This is separate from k8sSynced.Cell as this one needs to be mocked for tests.
 		k8sSynced.CRDSyncCell,
+
+		// Shell for inspecting the agent. Listens on the 'shell.sock' UNIX socket.
+		shellCell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure
