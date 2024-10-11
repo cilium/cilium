@@ -45,11 +45,11 @@ func newAgentEventsCommand(vp *viper.Viper) *cobra.Command {
 			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 			defer cancel()
 
-			hubbleConn, err := conn.New(ctx, vp.GetString(config.KeyServer), vp.GetDuration(config.KeyTimeout))
+			hubbleConn, cleanup, err := conn.NewWithFlags(ctx, vp)
 			if err != nil {
 				return err
 			}
-			defer hubbleConn.Close()
+			defer cleanup()
 			client := observerpb.NewObserverClient(hubbleConn)
 			logger.Logger.Debug("Sending GetAgentEvents request", "request", req)
 			if err := getAgentEvents(ctx, client, req); err != nil {

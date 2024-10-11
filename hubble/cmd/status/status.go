@@ -36,11 +36,11 @@ func New(vp *viper.Viper) *cobra.Command {
 connectivity health check.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			hubbleConn, err := conn.New(ctx, vp.GetString(config.KeyServer), vp.GetDuration(config.KeyTimeout))
+			hubbleConn, cleanup, err := conn.NewWithFlags(ctx, vp)
 			if err != nil {
 				return err
 			}
-			defer hubbleConn.Close()
+			defer cleanup()
 
 			return runStatus(ctx, cmd.OutOrStdout(), hubbleConn)
 		},
