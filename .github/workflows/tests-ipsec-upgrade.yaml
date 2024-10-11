@@ -147,6 +147,8 @@ jobs:
             kpr: 'true'
             tunnel: 'disabled'
             endpoint-routes: 'true'
+            egress-gateway: 'true'
+            ingress-controller: 'true'
 
           - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -162,6 +164,8 @@ jobs:
             kube-proxy: 'none'
             kpr: 'true'
             tunnel: 'vxlan'
+            egress-gateway: 'true'
+            ingress-controller: 'true'
 
     timeout-minutes: 70
     steps:
@@ -262,6 +266,7 @@ jobs:
           encryption-node: ${{ matrix.encryption-node }}
           encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
+          ingress-controller: ${{ matrix.ingress-controller }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
           misc: 'bpfClockProbe=false,cni.uninstall=false'
@@ -283,6 +288,7 @@ jobs:
           encryption-node: ${{ matrix.encryption-node }}
           encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
+          ingress-controller: ${{ matrix.ingress-controller }}
           host-fw: ${{ matrix.host-fw }}
           mutual-auth: false
           misc: 'bpfClockProbe=false,cni.uninstall=false'
