@@ -68,62 +68,25 @@ type PeerData struct {
 }
 
 // NeighborReconcilerMetadata keeps a map of running peers to peer configuration.
-// Key is the instance name.
-type NeighborReconcilerMetadata map[string][]*PeerData
+// Key is the peer name.
+type NeighborReconcilerMetadata map[string]*PeerData
 
 func (r *NeighborReconciler) getMetadata(i *instance.BGPInstance) NeighborReconcilerMetadata {
 	return r.metadata[i.Name]
 }
 
-func (r *NeighborReconciler) upsertMetadata(i *instance.BGPInstance, instanceName string, d *PeerData) {
+func (r *NeighborReconciler) upsertMetadata(i *instance.BGPInstance, d *PeerData) {
 	if i == nil || d == nil {
 		return
 	}
-
-	neighMetadata := r.getMetadata(i)
-
-	peers, exists := neighMetadata[instanceName]
-	if !exists {
-		neighMetadata[instanceName] = []*PeerData{d}
-		return
-	}
-
-	found := false
-	for i, p := range peers {
-		if p.Peer.Name == d.Peer.Name {
-			peers[i] = d
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		peers = append(peers, d)
-	}
-
-	neighMetadata[instanceName] = peers
+	r.metadata[i.Name][d.Peer.Name] = d
 }
 
-func (r *NeighborReconciler) deleteMetadata(i *instance.BGPInstance, instanceName string, d *PeerData) {
+func (r *NeighborReconciler) deleteMetadata(i *instance.BGPInstance, d *PeerData) {
 	if i == nil || d == nil {
 		return
 	}
-
-	neighMetadata := r.getMetadata(i)
-	peers, exists := neighMetadata[instanceName]
-	if !exists {
-		return
-	}
-
-	for i, p := range peers {
-		if p.Peer.Name == d.Peer.Name {
-			peers[i] = peers[len(peers)-1]
-			peers = peers[:len(peers)-1]
-			break
-		}
-	}
-
-	neighMetadata[instanceName] = peers
+	delete(r.metadata[i.Name], d.Peer.Name)
 }
 
 func (r *NeighborReconciler) Name() string {
@@ -168,17 +131,11 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		toCreate []*PeerData
 		toRemove []*PeerData
 		toUpdate []*PeerData
-		curNeigh []*PeerData = nil
 	)
+	curNeigh := r.getMetadata(p.BGPInstance)
 	newNeigh := p.DesiredConfig.Peers
 
 	l.Debug("Begin reconciling peers")
-
-	// get current configured peers
-	curInstance := r.getMetadata(p.BGPInstance)
-	if curInstance != nil {
-		curNeigh = curInstance[p.DesiredConfig.Name]
-	}
 
 	type member struct {
 		new *PeerData
@@ -284,7 +241,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 			return fmt.Errorf("failed to remove neigbhor %s from instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
-		r.deleteMetadata(p.BGPInstance, p.DesiredConfig.Name, n)
+		r.deleteMetadata(p.BGPInstance, n)
 	}
 
 	// update neighbors
@@ -299,7 +256,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 			return fmt.Errorf("failed to update neigbhor %s in instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
-		r.upsertMetadata(p.BGPInstance, p.DesiredConfig.Name, n)
+		r.upsertMetadata(p.BGPInstance, n)
 	}
 
 	// create new neighbors
@@ -314,7 +271,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 			return fmt.Errorf("failed to add neigbhor %s in instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
-		r.upsertMetadata(p.BGPInstance, p.DesiredConfig.Name, n)
+		r.upsertMetadata(p.BGPInstance, n)
 	}
 
 	l.Debug("Done reconciling peers")
