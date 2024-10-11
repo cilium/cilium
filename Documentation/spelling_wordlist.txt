@@ -328,6 +328,8 @@ ethernet
 ethtool
 existingSecret
 expirations
+exportedAnnotations
+exportedLabels
 extTrafficPolicy
 extern
 externalIPs
