@@ -615,7 +615,7 @@ func getCiliumNetIPv6() (net.IP, error) {
 // Caller must call exactly one of the returned functions:
 // - finalizeFunc to make the changes stick, or
 // - revertFunc to cancel the changes.
-// Called with 'localEndpoint' locked!
+// Called with 'localEndpoint' locked for reading!
 func (p *Proxy) CreateOrUpdateRedirect(
 	ctx context.Context, l4 policy.ProxyPolicy, id string, localEndpoint endpoint.EndpointUpdater, wg *completion.WaitGroup,
 ) (
@@ -661,16 +661,8 @@ func (p *Proxy) CreateOrUpdateRedirect(
 		}
 
 		// Stale or incompatible redirects get removed before a new one is created below
-		err, removeFinalizeFunc, removeRevertFunc := p.removeRedirect(id, wg)
+		p.removeRedirect(id)
 		existingRedirect.mutex.Unlock()
-
-		if err != nil {
-			p.revertStackUnlocked(revertStack)
-			return 0, fmt.Errorf("unable to remove old redirect: %w", err), nil, nil
-		}
-
-		finalizeList.Append(removeFinalizeFunc)
-		revertStack.Push(removeRevertFunc)
 	}
 
 	// Create a new redirect
@@ -783,10 +775,7 @@ func (p *Proxy) createNewRedirect(
 
 		p.updateRedirectMetrics()
 		p.mutex.Unlock()
-		implFinalizeFunc, _ := redirect.implementation.Close(wg)
-		if implFinalizeFunc != nil {
-			implFinalizeFunc()
-		}
+		redirect.implementation.Close()
 		return nil
 	}
 
@@ -830,72 +819,54 @@ func (p *Proxy) revertStackUnlocked(revertStack revert.RevertStack) {
 }
 
 // RemoveRedirect removes an existing redirect that has been successfully created earlier.
-func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+// Called with 'localEndpoint' passed to 'CreateOrUpdateRedirect' locked for writing!
+func (p *Proxy) RemoveRedirect(id string) {
 	p.mutex.Lock()
 	defer func() {
 		p.updateRedirectMetrics()
 		p.mutex.Unlock()
 	}()
-	return p.removeRedirect(id, wg)
+	p.removeRedirect(id)
 }
 
 // removeRedirect removes an existing redirect. p.mutex must be held
 // p.mutex must NOT be held when the returned revert function is called!
 // proxyPortsMutex must NOT be held when the returned finalize function is called!
-func (p *Proxy) removeRedirect(id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
+func (p *Proxy) removeRedirect(id string) {
 	log.
 		WithField(fieldProxyRedirectID, id).
 		Debug("Removing proxy redirect")
 
-	var finalizeList revert.FinalizeList
-	var revertStack revert.RevertStack
-
 	r, ok := p.redirects[id]
 	if !ok {
-		return fmt.Errorf("unable to find redirect %s", id), nil, nil
+		return
 	}
 	delete(p.redirects, id)
 
-	implFinalizeFunc, implRevertFunc := r.implementation.Close(wg)
-
-	finalizeList.Append(implFinalizeFunc)
-	revertStack.Push(implRevertFunc)
+	r.implementation.Close()
 
 	// Delay the release and reuse of the port number so it is guaranteed to be
-	// safe to listen on the port again. This can't be reverted, so do it in a
-	// FinalizeFunc.
+	// safe to listen on the port again.
 	proxyPort := r.listener.ProxyPort
 	listenerName := r.name
 
-	finalizeList.Append(func() {
-		// break GC loop (implementation may point back to 'r')
-		r.implementation = nil
+	// break GC loop (implementation may point back to 'r')
+	r.implementation = nil
 
-		go func() {
-			time.Sleep(portReuseDelay)
+	go func() {
+		time.Sleep(portReuseDelay)
 
-			p.mutex.Lock()
-			err := p.releaseProxyPort(listenerName)
-			p.mutex.Unlock()
-			if err != nil {
-				log.
-					WithField(fieldProxyRedirectID, id).
-					WithField("proxyPort", proxyPort).
-					WithError(err).
-					Warning("Releasing proxy port failed")
-			}
-		}()
-	})
-
-	revertStack.Push(func() error {
 		p.mutex.Lock()
-		p.redirects[id] = r
+		err := p.releaseProxyPort(listenerName)
 		p.mutex.Unlock()
-
-		return nil
-	})
-
-	return nil, finalizeList.Finalize, revertStack.Revert
+		if err != nil {
+			log.
+				WithField(fieldProxyRedirectID, id).
+				WithField("proxyPort", proxyPort).
+				WithError(err).
+				Warning("Releasing proxy port failed")
+		}
+	}()
 }
 
 func (p *Proxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
