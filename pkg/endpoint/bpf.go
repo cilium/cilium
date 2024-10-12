@@ -681,7 +681,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 
 	// Apply pending policy map changes so that desired map is up-to-date before
 	// we update network policies and sync the maps below.
-	err = e.applyPolicyMapChanges()
+	err = e.applyPolicyMapChanges(e.desiredPolicy != e.realizedPolicy)
 	if err != nil {
 		return err
 	}
@@ -1129,7 +1129,7 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 
 	e.PolicyDebug(nil, "ApplyPolicyMapChanges")
 
-	err := e.applyPolicyMapChanges()
+	err := e.applyPolicyMapChanges(false)
 	if err != nil {
 		return err
 	}
@@ -1158,7 +1158,7 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 
 // applyPolicyMapChanges applies any incremental policy map changes
 // collected on the desired policy.
-func (e *Endpoint) applyPolicyMapChanges() error {
+func (e *Endpoint) applyPolicyMapChanges(hasNewPolicy bool) error {
 	errors := 0
 
 	e.PolicyDebug(nil, "applyPolicyMapChanges")
@@ -1183,6 +1183,12 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	// Ingress endpoint does not need to wait.
 	// This also lets daemon/cmd integration tests to proceed
 	if e.isProperty(PropertySkipBPFPolicy) {
+		return nil
+	}
+
+	if hasNewPolicy {
+		// A full bpf map sync will be done for a new policy after proxy has ACKed the
+		// redirects and network policy.
 		return nil
 	}
 
@@ -1345,7 +1351,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 
 	// Apply pending policy map changes first so that desired map is up-to-date before
 	// we diff the maps below.
-	err := e.applyPolicyMapChanges()
+	err := e.applyPolicyMapChanges(false)
 	if err != nil {
 		return err
 	}
