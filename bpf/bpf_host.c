@@ -1553,12 +1553,10 @@ skip_host_firewall:
 		void *data, *data_end;
 		struct iphdr *ip4;
 		struct ipv4_ct_tuple tuple = {};
-		struct ct_state ct_state = {};
-		enum ct_status ct_status;
-		bool has_l4_header = true;
 		int l4_off;
 		struct remote_endpoint_info *info;
 		struct endpoint_info *src_ep;
+		bool is_reply;
 
 		if (src_sec_identity == HOST_ID)
 			goto skip_egress_gateway;
@@ -1580,7 +1578,7 @@ skip_host_firewall:
 
 		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 		ret = ct_extract_ports4(ctx, ip4, l4_off, CT_EGRESS, &tuple,
-					&has_l4_header);
+					NULL);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_CT_UNKNOWN_PROTO)
 				goto skip_egress_gateway;
@@ -1588,16 +1586,10 @@ skip_host_firewall:
 			goto drop_err;
 		}
 
-		__ipv4_ct_tuple_reverse(&tuple);
-		ret = ct_lazy_lookup4(get_ct_map4(&tuple),
-				      &tuple, ctx, ipv4_is_fragment(ip4),
-				      l4_off, has_l4_header, CT_EGRESS,
-				      SCOPE_FORWARD, CT_ENTRY_ANY,
-				      &ct_state, &trace.monitor);
-		if (IS_ERR(ret))
-			goto drop_err;
-
-		ct_status = (enum ct_status)ret;
+		/* Only handle outbound connections: */
+		is_reply = ct_is_reply4(get_ct_map4(&tuple), &tuple);
+		if (is_reply)
+			goto skip_egress_gateway;
 
 		src_ep = __lookup_ip4_endpoint(ip4->saddr);
 		if (src_ep)
@@ -1607,7 +1599,9 @@ skip_host_firewall:
 		if (info && info->sec_identity)
 			dst_sec_identity = info->sec_identity;
 
-		ret = egress_gw_handle_packet(ctx, &tuple, ct_status,
+		/* lower-level code expects CT tuple to be flipped: */
+		__ipv4_ct_tuple_reverse(&tuple);
+		ret = egress_gw_handle_packet(ctx, &tuple,
 					      src_sec_identity, dst_sec_identity,
 					      &trace);
 		if (IS_ERR(ret))
