@@ -30,11 +30,12 @@ import (
 )
 
 type RedirectSuite struct {
-	oldPolicyEnable string
-	mgr             *cache.CachingIdentityAllocator
-	do              *DummyOwner
-	rsp             *RedirectSuiteProxy
-	stats           *regenerationStatistics
+	oldPolicyEnable   string
+	mgr               *cache.CachingIdentityAllocator
+	do                *DummyOwner
+	rsp               *RedirectSuiteProxy
+	stats             *regenerationStatistics
+	datapathRegenCtxt *datapathRegenerationContext
 }
 
 func setupRedirectSuite(tb testing.TB) *RedirectSuite {
@@ -69,10 +70,11 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 			"crd/cec1/listener1":            crd1Port,
 			"crd/cec2/listener2":            crd2Port,
 		},
-		redirectPortUserMap: make(map[uint16][]string),
+		redirects: make(map[string]uint16),
 	}
 
 	s.stats = new(regenerationStatistics)
+	s.datapathRegenCtxt = new(datapathRegenerationContext)
 
 	tb.Cleanup(func() {
 		s.do.idmgr.RemoveAll()
@@ -86,20 +88,20 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 // RedirectSuiteProxy implements EndpointProxy. It is used for testing the
 // functions related to generating proxy redirects for a given Endpoint.
 type RedirectSuiteProxy struct {
-	parserProxyPortMap  map[string]uint16
-	redirectPortUserMap map[uint16][]string
+	parserProxyPortMap map[string]uint16
+	redirects          map[string]uint16
 }
 
 // CreateOrUpdateRedirect returns the proxy port for the given L7Parser from the
 // ProxyPolicy parameter.
 func (r *RedirectSuiteProxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, localEndpoint endpoint.EndpointUpdater, wg *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 	pp := r.parserProxyPortMap[l4.GetL7Parser().String()+l4.GetListener()]
-	return pp, nil, func() { log.Infof("FINALIZER CALLED") }, nil
+	return pp, nil, func() { r.redirects[id] = pp }, nil
 }
 
-// RemoveRedirect does nothing.
-func (r *RedirectSuiteProxy) RemoveRedirect(id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
-	return nil, nil, nil
+// RemoveRedirect removes a redirect from the map
+func (r *RedirectSuiteProxy) RemoveRedirect(id string) {
+	delete(r.redirects, id)
 }
 
 // UseCurrentNetworkPolicy does nothing.
@@ -300,6 +302,21 @@ func (s *RedirectSuite) testMapState(initMap policy.MapStateMap) policy.MapState
 	return policy.NewMapState().WithState(initMap)
 }
 
+func (s *RedirectSuite) computePolicyForTest(t *testing.T, ep *Endpoint, cmp *completion.WaitGroup) {
+	res, err := ep.regeneratePolicy(s.stats, s.datapathRegenCtxt)
+	require.NoError(t, err)
+
+	oldDesiredPolicy := ep.desiredPolicy
+	s.datapathRegenCtxt.revertStack.Push(func() error {
+		ep.desiredPolicy = oldDesiredPolicy
+		return nil
+	})
+	ep.setDesiredPolicy(res, s.datapathRegenCtxt)
+
+	// This will also remove old redirects
+	s.datapathRegenCtxt.finalizeList.Finalize()
+}
+
 func TestRedirectWithDeny(t *testing.T) {
 	s := setupRedirectSuite(t)
 	ep := s.NewTestEndpoint(t)
@@ -310,41 +327,18 @@ func TestRedirectWithDeny(t *testing.T) {
 		ruleL4L7Allow.WithEndpointSelector(selectBar_),
 	})
 
-	res, err := ep.regeneratePolicy(s.stats)
-	require.NoError(t, err)
-	err = ep.setDesiredPolicy(res)
-	require.NoError(t, err)
-
-	expected := s.testMapState(policy.MapStateMap{
-		mapKeyAllowAllE: {
-			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
-		},
-		mapKeyFoo: {
-			IsDeny:           true,
-			DerivedFromRules: labels.LabelArrayList{lblsL3DenyFoo},
-		},
-	})
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
-		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	cmp := completion.NewWaitGroup(ctx)
-
-	realizedRedirects := ep.GetRealizedRedirects()
-	desiredRedirects, err, finalizeFunc, revertFunc := ep.addNewRedirects(cmp)
-	require.NoError(t, err)
-	finalizeFunc()
+	s.computePolicyForTest(t, ep, cmp)
 
 	// Redirect is still created, even if all MapState entries may have been overridden by a
 	// deny entry.  A new FQDN redirect may have no MapState entries as the associated CIDR
 	// identities may match no numeric IDs yet, so we can not count the number of added MapState
 	// entries and make any conclusions from it.
-	require.Len(t, desiredRedirects, 1)
+	require.Len(t, ep.desiredPolicy.Redirects, 1)
 
-	expected2 := s.testMapState(policy.MapStateMap{
+	expected := s.testMapState(policy.MapStateMap{
 		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
@@ -365,27 +359,26 @@ func TestRedirectWithDeny(t *testing.T) {
 
 	// Redirect for the HTTP port should have been added, but there should be a deny for Foo on
 	// that port, as it is shadowed by the deny rule
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected2) {
+	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected2))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
 
-	// Keep only desired redirects
-	ep.removeOldRedirects(desiredRedirects, realizedRedirects, cmp)
-
-	// Check that the redirect is still realized
-	require.Len(t, desiredRedirects, 1)
+	// Check that the redirect is realized
+	require.Len(t, ep.desiredPolicy.Redirects, 1)
 	require.Equal(t, 4, ep.desiredPolicy.GetPolicyMap().Len())
 
 	// Pretend that something failed and revert the changes
-	revertFunc()
+	s.datapathRegenCtxt.revertStack.Revert()
+	require.Empty(t, ep.desiredPolicy.Redirects)
+
+	expected = s.testMapState(map[policy.Key]policy.MapStateEntry{})
 
 	// Check that the state before addRedirects is restored
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
 			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
-	require.Equal(t, 2, ep.desiredPolicy.GetPolicyMap().Len())
 }
 
 var (
@@ -473,39 +466,17 @@ func TestRedirectWithPriority(t *testing.T) {
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
 	})
 
-	res, err := ep.regeneratePolicy(s.stats)
-	require.NoError(t, err)
-	err = ep.setDesiredPolicy(res)
-	require.NoError(t, err)
-
-	expected := s.testMapState(policy.MapStateMap{
-		mapKeyAllowAllE: {
-			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
-		},
-		mapKeyAllL7: {
-			DerivedFromRules: labels.LabelArrayList{lblsL4AllowPort80},
-		},
-	})
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
-		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	cmp := completion.NewWaitGroup(ctx)
-
-	realizedRedirects := ep.GetRealizedRedirects()
-	desiredRedirects, err, finalizeFunc, revertFunc := ep.addNewRedirects(cmp)
-	require.NoError(t, err)
-	finalizeFunc()
+	s.computePolicyForTest(t, ep, cmp)
 
 	// Check that all redirects have been created.
-	require.Equal(t, crd2Port, desiredRedirects["12345:ingress:TCP:80:/cec2/listener2"])
-	require.Equal(t, crd1Port, desiredRedirects["12345:ingress:TCP:80:/cec1/listener1"])
-	require.Len(t, desiredRedirects, 2)
+	require.Equal(t, crd2Port, ep.desiredPolicy.Redirects["12345:ingress:TCP:80:/cec2/listener2"])
+	require.Equal(t, crd1Port, ep.desiredPolicy.Redirects["12345:ingress:TCP:80:/cec1/listener1"])
+	require.Len(t, ep.desiredPolicy.Redirects, 2)
 
-	expected2 := s.testMapState(policy.MapStateMap{
+	expected := s.testMapState(policy.MapStateMap{
 		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
@@ -518,27 +489,26 @@ func TestRedirectWithPriority(t *testing.T) {
 			DerivedFromRules: labels.LabelArrayList{lblsL4AllowPort80},
 		},
 	})
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected2) {
+	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected2))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
 
-	// Keep only desired redirects
-	ep.removeOldRedirects(desiredRedirects, realizedRedirects, cmp)
-
-	// Check that the redirect is still realized
-	require.Len(t, desiredRedirects, 2)
+	// Check that the redirect is realized
+	require.Len(t, ep.desiredPolicy.Redirects, 2)
 	require.Equal(t, 3, ep.desiredPolicy.GetPolicyMap().Len())
 
 	// Pretend that something failed and revert the changes
-	revertFunc()
+	s.datapathRegenCtxt.revertStack.Revert()
+	require.Empty(t, ep.desiredPolicy.Redirects)
+
+	expected = s.testMapState(map[policy.Key]policy.MapStateEntry{})
 
 	// Check that the state before addRedirects is restored
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
 			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
-	require.Equal(t, 2, ep.desiredPolicy.GetPolicyMap().Len())
 }
 
 func TestRedirectWithEqualPriority(t *testing.T) {
@@ -554,39 +524,17 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 		ruleL4L7AllowListener2Priority1.WithEndpointSelector(selectBar_),
 	})
 
-	res, err := ep.regeneratePolicy(s.stats)
-	require.NoError(t, err)
-	err = ep.setDesiredPolicy(res)
-	require.NoError(t, err)
-
-	expected := s.testMapState(policy.MapStateMap{
-		mapKeyAllowAllE: {
-			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
-		},
-		mapKeyAllL7: {
-			DerivedFromRules: labels.LabelArrayList{lblsL4AllowPort80},
-		},
-	})
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
-		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	cmp := completion.NewWaitGroup(ctx)
-
-	realizedRedirects := ep.GetRealizedRedirects()
-	desiredRedirects, err, finalizeFunc, revertFunc := ep.addNewRedirects(cmp)
-	require.NoError(t, err)
-	finalizeFunc()
+	s.computePolicyForTest(t, ep, cmp)
 
 	// Check that all redirects have been created.
-	require.Equal(t, crd2Port, desiredRedirects["12345:ingress:TCP:80:/cec2/listener2"])
-	require.Equal(t, crd1Port, desiredRedirects["12345:ingress:TCP:80:/cec1/listener1"])
-	require.Len(t, desiredRedirects, 2)
+	require.Equal(t, crd2Port, ep.desiredPolicy.Redirects["12345:ingress:TCP:80:/cec2/listener2"])
+	require.Equal(t, crd1Port, ep.desiredPolicy.Redirects["12345:ingress:TCP:80:/cec1/listener1"])
+	require.Len(t, ep.desiredPolicy.Redirects, 2)
 
-	expected2 := s.testMapState(policy.MapStateMap{
+	expected := s.testMapState(policy.MapStateMap{
 		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
@@ -599,25 +547,24 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 			DerivedFromRules: labels.LabelArrayList{lblsL4AllowPort80},
 		},
 	})
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected2) {
+	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected2))
+			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
 
-	// Keep only desired redirects
-	ep.removeOldRedirects(desiredRedirects, realizedRedirects, cmp)
-
-	// Check that the redirect is still realized
-	require.Len(t, desiredRedirects, 2)
+	// Check that the redirect is realized
+	require.Len(t, ep.desiredPolicy.Redirects, 2)
 	require.Equal(t, 3, ep.desiredPolicy.GetPolicyMap().Len())
 
 	// Pretend that something failed and revert the changes
-	revertFunc()
+	s.datapathRegenCtxt.revertStack.Revert()
+	require.Empty(t, ep.desiredPolicy.Redirects)
+
+	expected = s.testMapState(map[policy.Key]policy.MapStateEntry{})
 
 	// Check that the state before addRedirects is restored
 	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
 			ep.desiredPolicy.GetPolicyMap().Diff(expected))
 	}
-	require.Equal(t, 2, ep.desiredPolicy.GetPolicyMap().Len())
 }
