@@ -65,7 +65,7 @@ func (e *Endpoint) realizePolicy() {
 
 		if e.realizedPolicy.mapStateMap == nil {
 			e.realizedPolicy.mapStateMap =
-				make(policy.MapStateMap, e.desiredPolicy.GetPolicyMap().Len())
+				make(policy.MapStateMap, e.desiredPolicy.Len())
 		}
 		// realized state remains as is.
 	}
@@ -971,7 +971,7 @@ func (e *Endpoint) GetRealizedPolicyRuleLabelsForKey(key policyTypes.Key) (
 
 	if e.realizedPolicy.basis != nil {
 		var err error
-		derivedFrom, err = e.realizedPolicy.basis.GetPolicyMap().GetRuleLabels(key)
+		derivedFrom, err = e.realizedPolicy.basis.GetRuleLabels(key)
 		return derivedFrom, e.policyRevision, err == nil
 	}
 	return labels.LabelArrayList{}, e.policyRevision, false

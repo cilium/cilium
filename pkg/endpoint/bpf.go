@@ -1189,7 +1189,7 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 		// Remove the key from 'deletes' to keep the new entry.
 		delete(changes.Deletes, keyToAdd)
 
-		entry, exists := e.desiredPolicy.GetPolicyMap().Get(keyToAdd)
+		entry, exists := e.desiredPolicy.Get(keyToAdd)
 		if !exists {
 			e.getLogger().WithFields(logrus.Fields{
 				logfields.AddedPolicyID: keyToAdd,
@@ -1245,8 +1245,8 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapStateMap, withDiffs boo
 	errors := 0
 
 	// Add policy map entries before deleting to avoid transient drops
-	e.desiredPolicy.GetPolicyMap().ForEach(func(keyToAdd policy.Key, entry policy.MapStateEntry) bool {
-		if oldEntry, ok := realized[keyToAdd]; !ok || !oldEntry.DatapathEqual(&entry) {
+	e.desiredPolicy.ForEach(func(keyToAdd policy.Key, entry policy.MapStateEntry) bool {
+		if oldEntry, ok := realized[keyToAdd]; !ok || !oldEntry.Equal(&entry) {
 			realized[keyToAdd] = entry
 			if !e.addPolicyKey(keyToAdd, entry, false) {
 				errors++
@@ -1266,7 +1266,7 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapStateMap, withDiffs boo
 	// Delete policy keys present in the realized state, but not present in the desired state
 	for keyToDelete := range realized {
 		// If key that is in realized state is not in desired state, just remove it.
-		if entry, ok := e.desiredPolicy.GetPolicyMap().Get(keyToDelete); !ok {
+		if entry, ok := e.desiredPolicy.Get(keyToDelete); !ok {
 			delete(realized, keyToDelete)
 			if !e.deletePolicyKey(keyToDelete, false) {
 				errors++

@@ -292,10 +292,6 @@ func combineL4L7(l4 []api.PortRule, l7 *api.L7Rules) []api.PortRule {
 	return result
 }
 
-func (s *RedirectSuite) testMapState(initMap policy.MapStateMap) policy.MapState {
-	return policy.NewMapState().WithState(initMap)
-}
-
 type LabelArrayListMap map[policy.Key]labels.LabelArrayList
 
 func (obtained LabelArrayListMap) Equals(expected LabelArrayListMap) bool {
@@ -312,8 +308,8 @@ func (obtained LabelArrayListMap) Equals(expected LabelArrayListMap) bool {
 
 func (e *Endpoint) GetDesiredPolicyRuleLabels() LabelArrayListMap {
 	desiredLabels := make(LabelArrayListMap)
-	e.desiredPolicy.GetPolicyMap().ForEach(func(key policy.Key, _ policy.MapStateEntry) bool {
-		desiredLabels[key], _ = e.desiredPolicy.GetPolicyMap().GetRuleLabels(key)
+	e.desiredPolicy.ForEach(func(key policy.Key, _ policy.MapStateEntry) bool {
+		desiredLabels[key], _ = e.desiredPolicy.GetRuleLabels(key)
 		return true
 	})
 	return desiredLabels
@@ -367,21 +363,21 @@ func TestRedirectWithDeny(t *testing.T) {
 	err = ep.setDesiredPolicy(res)
 	require.NoError(t, err)
 
-	expected := s.testMapState(policy.MapStateMap{
+	expected := policy.MapStateMap{
 		mapKeyAllowAllE: {},
 		mapKeyFoo: {
 			IsDeny: true,
 		},
-	})
+	}
 
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
 		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},
 		mapKeyFoo:       labels.LabelArrayList{lblsL3DenyFoo},
 	})
 
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
+	if !ep.desiredPolicy.Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
+			ep.desiredPolicy.Diff(expected))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -399,7 +395,7 @@ func TestRedirectWithDeny(t *testing.T) {
 	// entries and make any conclusions from it.
 	require.Len(t, desiredRedirects, 1)
 
-	expected2 := s.testMapState(policy.MapStateMap{
+	expected2 := policy.MapStateMap{
 		mapKeyAllowAllE: {},
 		mapKeyAllL7: {
 			IsDeny:    false,
@@ -411,7 +407,7 @@ func TestRedirectWithDeny(t *testing.T) {
 		mapKeyFooL7: {
 			IsDeny: true,
 		},
-	})
+	}
 
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
 		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},
@@ -422,9 +418,9 @@ func TestRedirectWithDeny(t *testing.T) {
 
 	// Redirect for the HTTP port should have been added, but there should be a deny for Foo on
 	// that port, as it is shadowed by the deny rule
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected2) {
+	if !ep.desiredPolicy.Equals(expected2) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected2))
+			ep.desiredPolicy.Diff(expected2))
 	}
 
 	// Keep only desired redirects
@@ -432,17 +428,17 @@ func TestRedirectWithDeny(t *testing.T) {
 
 	// Check that the redirect is still realized
 	require.Len(t, desiredRedirects, 1)
-	require.Equal(t, 4, ep.desiredPolicy.GetPolicyMap().Len())
+	require.Equal(t, 4, ep.desiredPolicy.Len())
 
 	// Pretend that something failed and revert the changes
 	revertFunc()
 
 	// Check that the state before addRedirects is restored
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
+	if !ep.desiredPolicy.Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
+			ep.desiredPolicy.Diff(expected))
 	}
-	require.Equal(t, 2, ep.desiredPolicy.GetPolicyMap().Len())
+	require.Equal(t, 2, ep.desiredPolicy.Len())
 }
 
 var (
@@ -535,19 +531,19 @@ func TestRedirectWithPriority(t *testing.T) {
 	err = ep.setDesiredPolicy(res)
 	require.NoError(t, err)
 
-	expected := s.testMapState(policy.MapStateMap{
+	expected := policy.MapStateMap{
 		mapKeyAllowAllE: {},
 		mapKeyAllL7:     {},
-	})
+	}
 
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
 		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},
 		mapKeyAllL7:     labels.LabelArrayList{lblsL4AllowPort80}, // lblsL4AllowListener1, lblsL4AllowPort80 ??
 	})
 
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
+	if !ep.desiredPolicy.Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
+			ep.desiredPolicy.Diff(expected))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -564,22 +560,22 @@ func TestRedirectWithPriority(t *testing.T) {
 	require.Equal(t, crd1Port, desiredRedirects["12345:ingress:TCP:80:/cec1/listener1"])
 	require.Len(t, desiredRedirects, 2)
 
-	expected2 := s.testMapState(policy.MapStateMap{
+	expected2 := policy.MapStateMap{
 		mapKeyAllowAllE: {},
 		mapKeyFooL7: {
 			ProxyPort: crd2Port,
 			Listener:  "/cec2/listener2",
 		},
 		mapKeyAllL7: {},
-	})
+	}
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
 		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},
 		mapKeyFooL7:     labels.LabelArrayList{lblsL4AllowListener1, lblsL4L7AllowListener2Priority1}, // lblsL4AllowPort80
 		mapKeyAllL7:     labels.LabelArrayList{lblsL4AllowPort80},                                     // lblsL4AllowListener1, lblsL4L7AllowListener2Priority1
 	})
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected2) {
+	if !ep.desiredPolicy.Equals(expected2) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected2))
+			ep.desiredPolicy.Diff(expected2))
 	}
 
 	// Keep only desired redirects
@@ -587,17 +583,17 @@ func TestRedirectWithPriority(t *testing.T) {
 
 	// Check that the redirect is still realized
 	require.Len(t, desiredRedirects, 2)
-	require.Equal(t, 3, ep.desiredPolicy.GetPolicyMap().Len())
+	require.Equal(t, 3, ep.desiredPolicy.Len())
 
 	// Pretend that something failed and revert the changes
 	revertFunc()
 
 	// Check that the state before addRedirects is restored
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
+	if !ep.desiredPolicy.Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
+			ep.desiredPolicy.Diff(expected))
 	}
-	require.Equal(t, 2, ep.desiredPolicy.GetPolicyMap().Len())
+	require.Equal(t, 2, ep.desiredPolicy.Len())
 }
 
 func TestRedirectWithEqualPriority(t *testing.T) {
@@ -618,17 +614,17 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	err = ep.setDesiredPolicy(res)
 	require.NoError(t, err)
 
-	expected := s.testMapState(policy.MapStateMap{
+	expected := policy.MapStateMap{
 		mapKeyAllowAllE: {},
 		mapKeyAllL7:     {},
-	})
+	}
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
 		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},
 		mapKeyAllL7:     labels.LabelArrayList{lblsL4AllowPort80}, // lblsL4L7AllowListener1Priority1, lblsL4L7AllowListener2Priority1
 	})
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
+	if !ep.desiredPolicy.Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
+			ep.desiredPolicy.Diff(expected))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -645,22 +641,22 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	require.Equal(t, crd1Port, desiredRedirects["12345:ingress:TCP:80:/cec1/listener1"])
 	require.Len(t, desiredRedirects, 2)
 
-	expected2 := s.testMapState(policy.MapStateMap{
+	expected2 := policy.MapStateMap{
 		mapKeyAllowAllE: {},
 		mapKeyFooL7: {
 			ProxyPort: crd1Port,
 			Listener:  "/cec1/listener1",
 		},
 		mapKeyAllL7: {},
-	})
+	}
 	ep.ValidateRuleLabels(t, LabelArrayListMap{
 		mapKeyAllowAllE: labels.LabelArrayList{AllowAnyEgressLabels},
 		mapKeyFooL7:     labels.LabelArrayList{lblsL4L7AllowListener1Priority1, lblsL4L7AllowListener2Priority1}, // lblsL4AllowPort80
 		mapKeyAllL7:     labels.LabelArrayList{lblsL4AllowPort80},                                                // lblsL4L7AllowListener1Priority1, lblsL4L7AllowListener2Priority1
 	})
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected2) {
+	if !ep.desiredPolicy.Equals(expected2) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected2))
+			ep.desiredPolicy.Diff(expected2))
 	}
 
 	// Keep only desired redirects
@@ -668,15 +664,15 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 
 	// Check that the redirect is still realized
 	require.Len(t, desiredRedirects, 2)
-	require.Equal(t, 3, ep.desiredPolicy.GetPolicyMap().Len())
+	require.Equal(t, 3, ep.desiredPolicy.Len())
 
 	// Pretend that something failed and revert the changes
 	revertFunc()
 
 	// Check that the state before addRedirects is restored
-	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
+	if !ep.desiredPolicy.Equals(expected) {
 		t.Fatal("desired policy map does not equal expected map:\n",
-			ep.desiredPolicy.GetPolicyMap().Diff(expected))
+			ep.desiredPolicy.Diff(expected))
 	}
-	require.Equal(t, 2, ep.desiredPolicy.GetPolicyMap().Len())
+	require.Equal(t, 2, ep.desiredPolicy.Len())
 }
