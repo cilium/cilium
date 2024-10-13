@@ -431,7 +431,7 @@ func (e *Endpoint) getDesiredPolicyIdentities() (ing, eg, ingDeny, egDeny []int6
 	ingressDenyMap := make(map[identity.NumericIdentity]struct{})
 	egressMap := make(map[identity.NumericIdentity]struct{})
 	egressDenyMap := make(map[identity.NumericIdentity]struct{})
-	e.desiredPolicy.GetPolicyMap().ForEach(func(policyMapKey policy.Key, policyMapValue policy.MapStateEntry) bool {
+	e.desiredPolicy.ForEach(func(policyMapKey policy.Key, policyMapValue policy.MapStateEntry) bool {
 		if policyMapKey.DestPort != 0 {
 			// If the port is non-zero, then the Key no longer only applies
 			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
