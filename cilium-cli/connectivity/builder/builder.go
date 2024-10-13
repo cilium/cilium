@@ -250,6 +250,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		localRedirectPolicyWithNodeDNS{},
 		noFragmentation{},
 		bgpControlPlane{},
+		multicast{},
 	}
 	return injectTests(tests, connTests...)
 }

@@ -63,6 +63,7 @@ type Parameters struct {
 	JSONMockImage          string
 	TestConnDisruptImage   string
 	FRRImage               string
+	SocatImage             string
 	AgentDaemonSetName     string
 	DNSTestServerImage     string
 	IncludeUnsafeTests     bool

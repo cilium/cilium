@@ -44,12 +44,19 @@ type Trie[K, T any] interface {
 	// Note: If the prefix argument exceeds the Trie's maximum
 	// prefix, it will be set to the Trie's maximum prefix.
 	Ancestors(prefix uint, key K, fn func(uint, K, T) bool)
+	// AncestorIterator returns an iterator for ancestors that
+	// can be used to produce the 'Next' key/value pair in sequence.
+	AncestorIterator(prefix uint, key K) Iterator[K, T]
 	// AncestorsLongestPrefixFirst iterates over every prefix-key pair that
 	// contains the prefix-key argument pair. If the function argument
 	// returns false the iteration will stop. AncestorsLongestPrefixFirst
 	// iterates keys from longest to shortest prefix match (that is, the
 	// longest matching prefix will be returned first).
 	AncestorsLongestPrefixFirst(prefix uint, key K, fn func(uint, K, T) bool)
+	// AncestorLongestPrefixFirstIterator returns an iterator for ancestors
+	// that can be used to produce the 'Next' key/value pair in sequence,
+	// starting from the key with the longest common prefix with 'key'.
+	AncestorLongestPrefixFirstIterator(prefix uint, key K) Iterator[K, T]
 	// Descendants iterates over every prefix-key pair that is contained
 	// by the prefix-key argument pair. If the function argument
 	// returns false the iteration will stop. Descendants does **not** iterate
@@ -58,12 +65,19 @@ type Trie[K, T any] interface {
 	// Note: If the prefix argument exceeds the Trie's maximum
 	// prefix, it will be set to the Trie's maximum prefix.
 	Descendants(prefix uint, key K, fn func(uint, K, T) bool)
+	// DescendantIterator returns an iterator for descendants
+	// that can be used to produce the 'Next' key/value pair in sequence.
+	DescendantIterator(prefix uint, key K) Iterator[K, T]
 	// DescendantsShortestPrefixFirst iterates over every prefix-key pair that is contained by
 	// the prefix-key argument pair. If the function argument returns false the iteration will
 	// stop. DescendantsShortestPrefixFirst iterates keys starting from shortest prefix, and
 	// progressing towards keys with longer prefixes. Keys with equal prefix lengths are not
 	// iterated in any particular order.
 	DescendantsShortestPrefixFirst(prefix uint, key K, fn func(uint, K, T) bool)
+	// DescendantShortestPrefixFirstIterator returns an iterator for descendants
+	// that can be used to produce the 'Next' key/value pair in sequence,
+	// starting from the key with the shortest common prefix with 'key'.
+	DescendantShortestPrefixFirstIterator(prefix uint, key K) Iterator[K, T]
 	// Upsert updates or inserts the trie with a a prefix, key,
 	// and value. The method returns true if the key is new, and
 	// false if the key already existed.
@@ -82,6 +96,16 @@ type Trie[K, T any] interface {
 	// ForEach iterates over every element of the Trie in no particular
 	// order. If the function argument returns false the iteration stops.
 	ForEach(fn func(uint, K, T) bool)
+}
+
+// Iterator is an interface that can be used to produce the next key/value pair in iteration
+// sequence. 'ok' is 'false' when the sequence ends; 'key' and 'value' are returned with empty
+// values in that case.
+// Iteration state is held in the implementation explicitly, rather than in Go stack/closures.
+// Policy mapstate generation benchmark BenchmarkRegenerateCIDRDenyPolicyRules reports 25% less allocations
+// with Iterator, even in combination with Go 1.23 Iterators on the caller side.
+type Iterator[K, T any] interface {
+	Next() (ok bool, key K, value T)
 }
 
 // Key is an interface that implements all the necessary
@@ -169,6 +193,204 @@ func (t *trie[K, T]) Ancestors(prefixLen uint, k Key[K], fn func(prefix uint, ke
 	t.traverse(prefixLen, k, func(currentNode *node[K, T]) bool {
 		return fn(currentNode.prefixLen, currentNode.key, currentNode.value)
 	})
+}
+
+// ancestorIterator implements Iteraror for ancestor iteration
+type ancestorIterator[K, T any] struct {
+	key         Key[K]
+	prefixLen   uint
+	maxPrefix   uint
+	currentNode *node[K, T]
+}
+
+// AncestorIterator returns an iterator for ancestors.
+func (t *trie[K, T]) AncestorIterator(prefixLen uint, k Key[K]) Iterator[Key[K], T] {
+	if k != nil {
+		return &ancestorIterator[K, T]{
+			prefixLen:   min(prefixLen, t.maxPrefix),
+			key:         k,
+			maxPrefix:   t.maxPrefix,
+			currentNode: t.root,
+		}
+	}
+	return &ancestorIterator[K, T]{}
+}
+
+// Next produces the 'Next' key/value pair in the iteration sequence maintained by 'iter'. 'ok' is
+// 'false' when the sequence ends; 'key' and 'value' are returned with empty values in that case.
+func (i *ancestorIterator[K, T]) Next() (ok bool, key Key[K], value T) {
+	for i.currentNode != nil {
+		k := i.key
+		prefixLen := i.prefixLen
+		currentNode := i.currentNode
+
+		matchLen := currentNode.prefixMatch(prefixLen, k)
+		// The current-node does not match.
+		if matchLen < currentNode.prefixLen {
+			break
+		}
+		// Skip over intermediate nodes
+		if currentNode.intermediate {
+			i.currentNode = currentNode.children[k.BitValueAt(currentNode.prefixLen)]
+			continue
+		}
+		if matchLen == i.maxPrefix {
+			i.currentNode = nil
+		} else {
+			i.currentNode = currentNode.children[k.BitValueAt(currentNode.prefixLen)]
+		}
+		return true, currentNode.key, currentNode.value
+	}
+	return false, key, value
+}
+
+// ancestorLPFIterator implements Iteraror for ancestor iteration for longest-prefix-first iteration
+// order.
+type ancestorLPFIterator[K, T any] struct {
+	stack nodes[K, T]
+}
+
+// AncestorLongestPrefixFirstIterator returns an iterator for ancestors
+// that can be used to produce the 'Next' key/value pair in sequence,
+// starting from the key with the longest common prefix with 'key'.
+func (t *trie[K, T]) AncestorLongestPrefixFirstIterator(prefixLen uint, k Key[K]) Iterator[Key[K], T] {
+	iter := &ancestorLPFIterator[K, T]{}
+	if k != nil {
+		for currentNode := t.root; currentNode != nil; currentNode = currentNode.children[k.BitValueAt(currentNode.prefixLen)] {
+			matchLen := currentNode.prefixMatch(prefixLen, k)
+			// The current-node does not match.
+			if matchLen < currentNode.prefixLen {
+				break
+			}
+			// Skip over intermediate nodes
+			if currentNode.intermediate {
+				continue
+			}
+			iter.stack.push(currentNode)
+			if matchLen == t.maxPrefix {
+				break
+			}
+		}
+	}
+	return iter
+}
+
+// Next produces the 'Next' key/value pair in the iteration sequence maintained by 'iter'. 'ok' is
+// 'false' when the sequence ends; 'key' and 'value' are returned with empty values in that case.
+func (i *ancestorLPFIterator[K, T]) Next() (ok bool, key Key[K], value T) {
+	if len(i.stack) > 0 {
+		n := i.stack.pop()
+		return true, n.key, n.value
+	}
+	return false, key, value
+}
+
+// descendantIterator implements Iteraror for descendants iteration
+type descendantIterator[K, T any] struct {
+	nodes nodes[K, T]
+}
+
+// DescendantIterator returns an iterator for descendants
+// that can be used to produce the 'Next' key/value pair in sequence.
+func (t *trie[K, T]) DescendantIterator(prefixLen uint, k Key[K]) Iterator[Key[K], T] {
+	iter := &descendantIterator[K, T]{}
+	if k != nil {
+		prefixLen = min(prefixLen, t.maxPrefix)
+		currentNode := t.root
+		for currentNode != nil {
+			matchLen := currentNode.prefixMatch(prefixLen, k)
+			// CurrentNode matches the prefix-key argument
+			if matchLen >= prefixLen {
+				iter.nodes.push(currentNode)
+				break
+			}
+			// currentNode is a leaf and has no children. Calling k.BitValueAt may
+			// overrun the key storage.
+			if currentNode.prefixLen >= t.maxPrefix {
+				break
+			}
+			currentNode = currentNode.children[k.BitValueAt(currentNode.prefixLen)]
+		}
+	}
+	return iter
+}
+
+// Next produces the 'Next' key/value pair in the iteration sequence maintained by 'iter'. 'ok' is
+// 'false' when the sequence ends; 'key' and 'value' are returned with empty values in that case.
+func (i *descendantIterator[K, T]) Next() (ok bool, key Key[K], value T) {
+	for len(i.nodes) > 0 {
+		// pop the latest node
+		n := i.nodes.pop()
+		// push the children, if any
+		if n.children[0] != nil {
+			i.nodes.push(n.children[0])
+		}
+		if n.children[1] != nil {
+			i.nodes.push(n.children[1])
+		}
+		// Skip over intermediate nodes
+		if n.intermediate {
+			continue
+		}
+		return true, n.key, n.value
+	}
+	return false, key, value
+}
+
+// descendantSPFIterator implements Iteraror for descendants iteration for shortest-prefix-first
+// iteration order.
+type descendantSPFIterator[K, T any] struct {
+	heap nodes[K, T]
+}
+
+// DescendantsShortestPrefixFirst iterates over every prefix-key pair that is contained by
+// the prefix-key argument pair. If the function argument returns false the iteration will
+// stop. DescendantsShortestPrefixFirst iterates keys starting from shortest prefix, and
+// progressing towards keys with longer prefixes. Keys with equal prefix lengths are not
+// iterated in any particular order.
+func (t *trie[K, T]) DescendantShortestPrefixFirstIterator(prefixLen uint, k Key[K]) Iterator[Key[K], T] {
+	iter := &descendantSPFIterator[K, T]{}
+	if k != nil {
+		prefixLen = min(prefixLen, t.maxPrefix)
+		currentNode := t.root
+		for currentNode != nil {
+			matchLen := currentNode.prefixMatch(prefixLen, k)
+			// CurrentNode matches the prefix-key argument
+			if matchLen >= prefixLen {
+				iter.heap.push(currentNode)
+				break
+			}
+			// currentNode is a leaf and has no children. Calling k.BitValueAt may
+			// overrun the key storage.
+			if currentNode.prefixLen >= t.maxPrefix {
+				break
+			}
+			currentNode = currentNode.children[k.BitValueAt(currentNode.prefixLen)]
+		}
+	}
+	return iter
+}
+
+// Next produces the 'Next' key/value pair in the iteration sequence maintained by 'iter'. 'ok' is
+// 'false' when the sequence ends; 'key' and 'value' are returned with empty values in that case.
+func (i *descendantSPFIterator[K, T]) Next() (ok bool, key Key[K], value T) {
+	for i.heap.Len() > 0 {
+		// pop the node with the lowest prefix length from the heap
+		n := i.heap.popHeap()
+		// push the children, if any, into the heap
+		if n.children[0] != nil {
+			i.heap.pushHeap(n.children[0])
+		}
+		if n.children[1] != nil {
+			i.heap.pushHeap(n.children[1])
+		}
+		// Skip over intermediate nodes
+		if n.intermediate {
+			continue
+		}
+		return true, n.key, n.value
+	}
+	return false, key, value
 }
 
 func (t *trie[K, T]) AncestorsLongestPrefixFirst(prefixLen uint, k Key[K], fn func(prefix uint, key Key[K], value T) bool) {
@@ -676,12 +898,23 @@ func (nodes *nodes[K, T]) Pop() any {
 	return node
 }
 
-// convenience wrappers
+func (nodes *nodes[K, T]) pop() *node[K, T] {
+	n := len(*nodes)
+	node := (*nodes)[n-1]
+	*nodes = (*nodes)[:n-1]
+	return node
+}
+
 func (nodes *nodes[K, T]) push(n *node[K, T]) {
+	*nodes = append(*nodes, n)
+}
+
+// convenience wrappers
+func (nodes *nodes[K, T]) pushHeap(n *node[K, T]) {
 	heap.Push(nodes, n)
 }
 
-func (nodes *nodes[K, T]) pop() *node[K, T] {
+func (nodes *nodes[K, T]) popHeap() *node[K, T] {
 	return heap.Pop(nodes).(*node[K, T])
 }
 
@@ -696,11 +929,11 @@ func (n *node[K, T]) forEachShortestPrefixFirst(fn func(prefix uint, key Key[K],
 	// has the shortest prefix length of any node in the subtree it represents.
 	// Preallocate space for some pointers to reduce allocations and copies.
 	nodes := make(nodes[K, T], 0, nPointersOnCacheline)
-	nodes.push(n)
+	nodes.pushHeap(n)
 
 	for nodes.Len() > 0 {
 		// pop the node with the lowest prefix length from the heap
-		n := nodes.pop()
+		n := nodes.popHeap()
 		if !n.intermediate {
 			if !fn(n.prefixLen, n.key, n.value) {
 				return
@@ -708,10 +941,10 @@ func (n *node[K, T]) forEachShortestPrefixFirst(fn func(prefix uint, key Key[K],
 		}
 		// push the children, if any, into the heap
 		if n.children[0] != nil {
-			nodes.push(n.children[0])
+			nodes.pushHeap(n.children[0])
 		}
 		if n.children[1] != nil {
-			nodes.push(n.children[1])
+			nodes.pushHeap(n.children[1])
 		}
 	}
 }

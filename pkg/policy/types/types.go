@@ -140,6 +140,10 @@ func (k LPMKey) PortPrefixLen() uint8 {
 	return k.bits & ^directionBitMask
 }
 
+func (k LPMKey) HasPortWildcard() bool {
+	return k.bits & ^directionBitMask < 16
+}
+
 // String returns a string representation of the Key
 func (k Key) String() string {
 	dPort := strconv.FormatUint(uint64(k.DestPort), 10)

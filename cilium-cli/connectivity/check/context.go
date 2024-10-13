@@ -31,6 +31,10 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
+const (
+	socatMulticastTestMsg = "Multicast test message"
+)
+
 // ConnectivityTest is the root context of the connectivity test suite
 // and holds all resources belonging to it. It implements interface
 // ConnectivityTest and is instantiated once at the start of the program,
@@ -71,6 +75,8 @@ type ConnectivityTest struct {
 	lrpClientPods        map[string]Pod
 	lrpBackendPods       map[string]Pod
 	frrPods              []Pod
+	socatServerPods      []Pod
+	socatClientPods      []Pod
 
 	hostNetNSPodsByNode      map[string]Pod
 	secondaryNetworkNodeIPv4 map[string]string // node name => secondary ip
@@ -211,6 +217,8 @@ func NewConnectivityTest(
 		clientCPPods:             make(map[string]Pod),
 		lrpClientPods:            make(map[string]Pod),
 		lrpBackendPods:           make(map[string]Pod),
+		socatServerPods:          []Pod{},
+		socatClientPods:          []Pod{},
 		perfClientPods:           []Pod{},
 		perfServerPod:            []Pod{},
 		PerfResults:              []common.PerfSummary{},
@@ -1076,6 +1084,14 @@ func (ct *ConnectivityTest) PerfClientPods() []Pod {
 	return ct.perfClientPods
 }
 
+func (ct *ConnectivityTest) SocatServerPods() []Pod {
+	return ct.socatServerPods
+}
+
+func (ct *ConnectivityTest) SocatClientPods() []Pod {
+	return ct.socatClientPods
+}
+
 func (ct *ConnectivityTest) EchoPods() map[string]Pod {
 	return ct.echoPods
 }
@@ -1209,4 +1225,27 @@ func (ct *ConnectivityTest) EchoServicePrefixes(ipFamily features.IPFamily) []ne
 		}
 	}
 	return res
+}
+
+// Multicast packet sender
+// This command exits with exit code 0
+// WITHOUT waiting for a second after receiving a packet.
+func (ct *ConnectivityTest) SocatServer1secCommand(peer TestPeer, port int, group string) []string {
+	addr := peer.Address(features.IPFamilyV4)
+	cmdStr := fmt.Sprintf("timeout 5 socat STDIO UDP4-RECVFROM:%d,ip-add-membership=%s:%s", port, group, addr)
+	cmd := strings.Fields(cmdStr)
+	return cmd
+}
+
+// Multicast packet receiver
+func (ct *ConnectivityTest) SocatClientCommand(port int, group string) []string {
+	portStr := fmt.Sprintf("%d", port)
+	cmdStr := fmt.Sprintf(`for i in $(seq 1 10000); do echo "%s" | socat - UDP-DATAGRAM:%s:%s; sleep 0.1; done`, socatMulticastTestMsg, group, portStr)
+	cmd := []string{"/bin/sh", "-c", cmdStr}
+	return cmd
+}
+
+func (ct *ConnectivityTest) KillMulticastTestSender() []string {
+	cmd := []string{"pkill", "-f", socatMulticastTestMsg}
+	return cmd
 }

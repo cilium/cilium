@@ -35,6 +35,7 @@ spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       serviceAccountName: {{ .Values.authentication.mutual.spire.install.agent.serviceAccount.name }}
+      priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.authentication.mutual.spire.install.agent.priorityClassName "system-node-critical") }}
       {{- with .Values.authentication.mutual.spire.install.agent.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
