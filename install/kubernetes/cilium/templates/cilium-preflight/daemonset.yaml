@@ -209,8 +209,8 @@ spec:
           defaultMode: 0400
           optional: true
       {{- end }}
+      {{- end }}
       {{- with .Values.preflight.extraVolumes }}
       {{- toYaml . | nindent 6 }}
-      {{- end }}
       {{- end }}
 {{- end }}
