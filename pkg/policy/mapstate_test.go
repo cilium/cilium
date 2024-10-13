@@ -2147,10 +2147,6 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		insertAllowAll = action(1 << iota)
 		insertA
 		insertB
-		insertAWithBProto
-		insertAasB // Proto and entry from B
-		insertBWithAProto
-		insertBWithAProtoAsDeny
 		worldIPl3only        // Do not expect L4 keys for IP covered by a subnet
 		worldIPProtoOnly     // Do not expect port keys for IP covered by a subnet
 		worldSubnetl3only    // Do not expect L4 keys for IP subnet
@@ -2199,8 +2195,8 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		{"deny-allow: b superset a L3-only, b L3L4; IP allow not inserted", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 0, 80, 6, insertAllowAll | insertBoth | worldIPl3only},
 		{"deny-allow: b superset a L3-only, b L3L4; without allow-all, IP allow not inserted", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 0, 80, 6, insertBoth | worldIPl3only},
 
-		{"deny-allow: a superset a L4, b L3-only", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth | insertBWithAProtoAsDeny},
-		{"deny-allow: a superset a L4, b L3-only; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 0, 0, insertBoth | insertBWithAProtoAsDeny},
+		{"deny-allow: a superset a L4, b L3-only", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth},
+		{"deny-allow: a superset a L4, b L3-only; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 0, 6, 0, 0, insertBoth},
 
 		{"deny-allow: b superset a L4, b L3-only", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 0, 0, insertAllowAll | insertBoth},
 		{"deny-allow: b superset a L4, b L3-only; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 0, 0, insertBoth},
@@ -2217,14 +2213,14 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		{"deny-allow: b superset a L4, b L3L4", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 80, 6, insertAllowAll | insertBoth | worldIPProtoOnly},
 		{"deny-allow: b superset a L4, b L3L4; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 0, 6, 80, 6, insertBoth | worldIPProtoOnly},
 
-		{"deny-allow: a superset a L3L4, b L3-only", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth | insertBWithAProtoAsDeny},
-		{"deny-allow: a superset a L3L4, b L3-only; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 0, 0, insertBoth | insertBWithAProtoAsDeny},
+		{"deny-allow: a superset a L3L4, b L3-only", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth},
+		{"deny-allow: a superset a L3L4, b L3-only; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 0, 0, insertBoth},
 
 		{"deny-allow: b superset a L3L4, b L3-only", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 0, 0, insertAllowAll | insertBoth},
 		{"deny-allow: b superset a L3L4, b L3-only; without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 0, 0, insertBoth},
 
-		{"deny-allow: a superset a L3L4, b L4", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 0, 6, insertAllowAll | insertBoth | insertBWithAProtoAsDeny},
-		{"deny-allow: a superset a L3L4, b L4; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 0, 6, insertBoth | insertBWithAProtoAsDeny},
+		{"deny-allow: a superset a L3L4, b L4", WithAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 0, 6, insertAllowAll | insertBoth},
+		{"deny-allow: a superset a L3L4, b L4; without allow-all", WithoutAllowAll, reservedWorldSelections, worldSubnetSelections, true, false, 80, 6, 0, 6, insertBoth},
 
 		{"deny-allow: b superset a L3L4, b L4", WithAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 0, 6, insertAllowAll | insertBoth},
 		{"deny-allow: b superset a L3L4, b L4 without allow-all", WithoutAllowAll, worldIPSelections, worldSubnetSelections, true, false, 80, 6, 0, 6, insertBoth},
@@ -2351,121 +2347,9 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 				expectedKeys.insert(bKey, bEntry)
 			}
 		}
-		if tt.outcome&insertAasB > 0 {
-			for _, bKey := range bKeys {
-				for _, idA := range tt.aIdentities {
-					if tt.outcome&worldIPl3only > 0 && idA == worldIPIdentity &&
-						(tt.bProto != 0 || tt.bPort != 0) {
-						continue
-					}
-					if tt.outcome&worldIPProtoOnly > 0 && idA == worldIPIdentity &&
-						(tt.bPort != 0) {
-						continue
-					}
-					if tt.outcome&worldSubnetl3only > 0 && idA == worldSubnetIdentity &&
-						(tt.bProto != 0 || tt.bPort != 0) {
-						continue
-					}
-					if tt.outcome&worldSubnetProtoOnly > 0 && idA == worldSubnetIdentity &&
-						(tt.bPort != 0) {
-						continue
-					}
-					aKeyWithBProto := IngressKey().WithIdentity(idA).WithPortProto(tt.bProto, tt.bPort)
-					bEntryWithOwner := bEntry.WithOwners(bKey)
-					bEntryWithDep := bEntry.WithDependents(aKeyWithBProto)
-
-					expectedKeys.insert(bKey, bEntryWithDep)
-					expectedKeys.insert(aKeyWithBProto, bEntryWithOwner)
-				}
-			}
-		}
-		if tt.outcome&insertBWithAProto > 0 {
-			for _, idB := range tt.bIdentities {
-				if tt.outcome&worldIPl3only > 0 && idB == worldIPIdentity &&
-					(tt.aProto != 0 || tt.aPort != 0) {
-					continue
-				}
-				if tt.outcome&worldIPProtoOnly > 0 && idB == worldIPIdentity &&
-					(tt.aPort != 0) {
-					continue
-				}
-				if tt.outcome&worldSubnetl3only > 0 && idB == worldSubnetIdentity &&
-					(tt.aProto != 0 || tt.aPort != 0) {
-					continue
-				}
-				if tt.outcome&worldSubnetProtoOnly > 0 && idB == worldSubnetIdentity &&
-					(tt.aPort != 0) {
-					continue
-				}
-				bKey := IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort)
-				bKeyWithAProto := bKey.WithPortProto(tt.aProto, tt.aPort)
-				bEntryWithProto := bEntry.WithOwners(bKey)
-				bEntryWithDep := bEntry.WithDependents(bKeyWithAProto)
-
-				expectedKeys.insert(bKey, bEntryWithDep)
-				expectedKeys.insert(bKeyWithAProto, bEntryWithProto)
-			}
-		}
 		if tt.outcome&insertA > 0 {
 			for _, aKey := range aKeys {
 				expectedKeys.insert(aKey, aEntry)
-			}
-		}
-		if tt.outcome&insertAWithBProto > 0 {
-			for _, idA := range tt.aIdentities {
-				if tt.outcome&worldIPl3only > 0 && idA == worldIPIdentity &&
-					(tt.bProto != 0 || tt.bPort != 0) {
-					continue
-				}
-				if tt.outcome&worldIPProtoOnly > 0 && idA == worldIPIdentity &&
-					(tt.bPort != 0) {
-					continue
-				}
-				if tt.outcome&worldSubnetl3only > 0 && idA == worldSubnetIdentity &&
-					(tt.bProto != 0 || tt.bPort != 0) {
-					continue
-				}
-				if tt.outcome&worldSubnetProtoOnly > 0 && idA == worldSubnetIdentity &&
-					(tt.bPort != 0) {
-					continue
-				}
-				aKey := IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort)
-				aKeyWithBProto := aKey.WithPortProto(tt.bProto, tt.bPort)
-				aEntryWithProto := aEntry.WithOwners(aKey)
-				aEntryWithDep := aEntry.WithDependents(aKeyWithBProto)
-
-				expectedKeys.insert(aKey, aEntryWithDep)
-				expectedKeys.insert(aKeyWithBProto, aEntryWithProto)
-			}
-		}
-		if tt.outcome&insertBWithAProtoAsDeny > 0 {
-			for _, aKey := range aKeys {
-				for _, idB := range tt.bIdentities {
-					if tt.outcome&worldIPl3only > 0 && idB == worldIPIdentity &&
-						(tt.aProto != 0 || tt.aPort != 0) {
-						continue
-					}
-					if tt.outcome&worldIPProtoOnly > 0 && idB == worldIPIdentity &&
-						(tt.aPort != 0) {
-						continue
-					}
-					if tt.outcome&worldSubnetl3only > 0 && idB == worldSubnetIdentity &&
-						(tt.aProto != 0 || tt.aPort != 0) {
-						continue
-					}
-					if tt.outcome&worldSubnetProtoOnly > 0 && idB == worldSubnetIdentity &&
-						(tt.aPort != 0) {
-						continue
-					}
-					bKey := IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort)
-					bKeyWithAProto := bKey.WithPortProto(tt.aProto, tt.aPort)
-					bEntryAsDeny := bEntry.WithOwners(aKey).asDeny()
-					aEntryWithDep := aEntry
-
-					aEntryWithDep.AddDependent(bKeyWithAProto)
-					expectedKeys.insert(aKey, aEntryWithDep)
-					expectedKeys.insert(bKeyWithAProto, bEntryAsDeny)
-				}
 			}
 		}
 		if tt.outcome&insertDenyWorld > 0 {
