@@ -58,9 +58,9 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.23.2
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 495.0.0
+  gcloud_version: 496.0.0
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  cmapisrv_mock_ref: cef23f6a713ac1bf6ed751c813f34ada4ea12864
+  cmapisrv_mock_ref: 4ef86194762599fe083e654d6ea3bbef3c7ad106
 
   test_name: scale-clustermesh
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -91,7 +91,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -146,7 +146,7 @@ jobs:
           version: ${{ env.gcloud_version }}
 
       - name: Clone ClusterLoader2
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
         with:
           repository: kubernetes/perf-tests
           # Avoid using renovate to update this dependency because: (1)
@@ -160,7 +160,7 @@ jobs:
           path: perf-tests
 
       - name: Clone the Cluster Mesh API Server Mock
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
         with:
           repository: cilium/scaffolding
           ref: ${{ env.cmapisrv_mock_ref }}
@@ -209,7 +209,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
         with:
           ref: ${{ steps.vars.outputs.SHA }}
           persist-credentials: false
@@ -376,7 +376,7 @@ jobs:
 
       - name: Upload sysdump
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: cilium-sysdump
           path: cilium-sysdump-final.zip
