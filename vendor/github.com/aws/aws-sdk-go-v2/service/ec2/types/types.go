@@ -1272,6 +1272,40 @@ type CapacityReservation struct {
 	// capacity.
 	TotalInstanceCount *int32
 
+	// The ID of the Amazon Web Services account to which billing of the unused
+	// capacity of the Capacity Reservation is assigned.
+	UnusedReservationBillingOwnerId *string
+
+	noSmithyDocumentSerde
+}
+
+// Information about a request to assign billing of the unused capacity of a
+// Capacity Reservation.
+type CapacityReservationBillingRequest struct {
+
+	// The ID of the Capacity Reservation.
+	CapacityReservationId *string
+
+	// Information about the Capacity Reservation.
+	CapacityReservationInfo *CapacityReservationInfo
+
+	// The date and time, in UTC time format, at which the request was initiated.
+	LastUpdateTime *time.Time
+
+	// The ID of the Amazon Web Services account that initiated the request.
+	RequestedBy *string
+
+	// The status of the request. For more information, see [View billing assignment requests for a shared Amazon EC2 Capacity Reservation].
+	//
+	// [View billing assignment requests for a shared Amazon EC2 Capacity Reservation]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/view-billing-transfers.html
+	Status CapacityReservationBillingRequestStatus
+
+	// Information about the status.
+	StatusMessage *string
+
+	// The ID of the Amazon Web Services account to which the request was sent.
+	UnusedReservationBillingOwnerId *string
+
 	noSmithyDocumentSerde
 }
 
@@ -1394,6 +1428,21 @@ type CapacityReservationGroup struct {
 
 	// The ID of the Amazon Web Services account that owns the resource group.
 	OwnerId *string
+
+	noSmithyDocumentSerde
+}
+
+// Information about a Capacity Reservation.
+type CapacityReservationInfo struct {
+
+	// The Availability Zone for the Capacity Reservation.
+	AvailabilityZone *string
+
+	// The instance type for the Capacity Reservation.
+	InstanceType *string
+
+	// The tenancy of the Capacity Reservation.
+	Tenancy CapacityReservationTenancy
 
 	noSmithyDocumentSerde
 }
@@ -2482,8 +2531,8 @@ type CreateTransitGatewayVpcAttachmentRequestOptions struct {
 	// Enables you to reference a security group across VPCs attached to a transit
 	// gateway to simplify security group management.
 	//
-	// This option is enabled by default. However, security group referencing is
-	// disabled by default at the transit gateway level.
+	// This option is set to enable by default. However, at the transit gateway level
+	// the default is set to disable .
 	//
 	// For more information about security group referencing, see [Security group referencing] in the Amazon Web
 	// Services Transit Gateways Guide.
@@ -3620,9 +3669,7 @@ type EgressOnlyInternetGateway struct {
 	noSmithyDocumentSerde
 }
 
-// Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-// that require graphics acceleration, we recommend that you use Amazon EC2 G4, G5,
-// or G6 instances.
+// Amazon Elastic Graphics reached end of life on January 8, 2024.
 //
 // Describes the association between an instance and an Elastic Graphics
 // accelerator.
@@ -3644,9 +3691,7 @@ type ElasticGpuAssociation struct {
 	noSmithyDocumentSerde
 }
 
-// Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-// that require graphics acceleration, we recommend that you use Amazon EC2 G4, G5,
-// or G6 instances.
+// Amazon Elastic Graphics reached end of life on January 8, 2024.
 //
 // Describes the status of an Elastic Graphics accelerator.
 type ElasticGpuHealth struct {
@@ -3657,9 +3702,7 @@ type ElasticGpuHealth struct {
 	noSmithyDocumentSerde
 }
 
-// Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-// that require graphics acceleration, we recommend that you use Amazon EC2 G4, G5,
-// or G6 instances.
+// Amazon Elastic Graphics reached end of life on January 8, 2024.
 //
 // Describes an Elastic Graphics accelerator.
 type ElasticGpus struct {
@@ -3688,9 +3731,7 @@ type ElasticGpus struct {
 	noSmithyDocumentSerde
 }
 
-// Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-// that require graphics acceleration, we recommend that you use Amazon EC2 G4, G5,
-// or G6 instances.
+// Amazon Elastic Graphics reached end of life on January 8, 2024.
 //
 // A specification for an Elastic Graphics accelerator.
 type ElasticGpuSpecification struct {
@@ -3703,23 +3744,19 @@ type ElasticGpuSpecification struct {
 	noSmithyDocumentSerde
 }
 
-// Deprecated.
+// Amazon Elastic Graphics reached end of life on January 8, 2024.
 //
-// Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-// that require graphics acceleration, we recommend that you use Amazon EC2 G4ad,
-// G4dn, or G5 instances.
+// Describes an elastic GPU.
 type ElasticGpuSpecificationResponse struct {
 
-	// Deprecated.
-	//
-	// Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-	// that require graphics acceleration, we recommend that you use Amazon EC2 G4ad,
-	// G4dn, or G5 instances.
+	// The elastic GPU type.
 	Type *string
 
 	noSmithyDocumentSerde
 }
 
+// Amazon Elastic Inference is no longer available.
+//
 // Describes an elastic inference accelerator.
 type ElasticInferenceAccelerator struct {
 
@@ -3737,8 +3774,9 @@ type ElasticInferenceAccelerator struct {
 	noSmithyDocumentSerde
 }
 
-//	Describes the association between an instance and an elastic inference
+// Amazon Elastic Inference is no longer available.
 //
+// Describes the association between an instance and an elastic inference
 // accelerator.
 type ElasticInferenceAcceleratorAssociation struct {
 
@@ -6107,6 +6145,8 @@ type ImportVolumeTaskDetails struct {
 	noSmithyDocumentSerde
 }
 
+// Amazon Elastic Inference is no longer available.
+//
 // Describes the Inference accelerators for the instance type.
 type InferenceAcceleratorInfo struct {
 
@@ -6120,6 +6160,8 @@ type InferenceAcceleratorInfo struct {
 	noSmithyDocumentSerde
 }
 
+// Amazon Elastic Inference is no longer available.
+//
 // Describes the Inference accelerators for the instance type.
 type InferenceDeviceInfo struct {
 
@@ -6138,6 +6180,8 @@ type InferenceDeviceInfo struct {
 	noSmithyDocumentSerde
 }
 
+// Amazon Elastic Inference is no longer available.
+//
 // Describes the memory available to the inference accelerator.
 type InferenceDeviceMemoryInfo struct {
 
@@ -6200,12 +6244,12 @@ type Instance struct {
 
 	// Deprecated.
 	//
-	// Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-	// that require graphics acceleration, we recommend that you use Amazon EC2 G4ad,
-	// G4dn, or G5 instances.
+	// Amazon Elastic Graphics reached end of life on January 8, 2024.
 	ElasticGpuAssociations []ElasticGpuAssociation
 
-	// The elastic inference accelerator associated with the instance.
+	// Deprecated
+	//
+	// Amazon Elastic Inference is no longer available.
 	ElasticInferenceAcceleratorAssociations []ElasticInferenceAcceleratorAssociation
 
 	// Specifies whether enhanced networking with ENA is enabled.
@@ -7268,8 +7312,6 @@ type InstanceRequirements struct {
 	//
 	//   - For instance types with FPGA accelerators, specify fpga .
 	//
-	//   - For instance types with inference accelerators, specify inference .
-	//
 	// Default: Any accelerator type
 	AcceleratorTypes []AcceleratorType
 
@@ -7626,8 +7668,6 @@ type InstanceRequirementsRequest struct {
 	//   - To include instance types with GPU hardware, specify gpu .
 	//
 	//   - To include instance types with FPGA hardware, specify fpga .
-	//
-	//   - To include instance types with inference hardware, specify inference .
 	//
 	// Default: Any accelerator type
 	AcceleratorTypes []AcceleratorType
@@ -9864,6 +9904,8 @@ type LaunchTemplateEbsBlockDeviceRequest struct {
 	noSmithyDocumentSerde
 }
 
+// Amazon Elastic Inference is no longer available.
+//
 // Describes an elastic inference accelerator.
 type LaunchTemplateElasticInferenceAccelerator struct {
 
@@ -9881,6 +9923,8 @@ type LaunchTemplateElasticInferenceAccelerator struct {
 	noSmithyDocumentSerde
 }
 
+// Amazon Elastic Inference is no longer available.
+//
 // Describes an elastic inference accelerator.
 type LaunchTemplateElasticInferenceAcceleratorResponse struct {
 
@@ -13748,24 +13792,12 @@ type RequestLaunchTemplateData struct {
 
 	// Deprecated.
 	//
-	// Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-	// that require graphics acceleration, we recommend that you use Amazon EC2 G4ad,
-	// G4dn, or G5 instances.
+	// Amazon Elastic Graphics reached end of life on January 8, 2024.
 	ElasticGpuSpecifications []ElasticGpuSpecification
 
-	// An elastic inference accelerator to associate with the instance. Elastic
-	// inference accelerators are a resource you can attach to your Amazon EC2
-	// instances to accelerate your Deep Learning (DL) inference workloads.
+	// Deprecated.
 	//
-	// You cannot specify accelerators from different generations in the same request.
-	//
-	// Starting April 15, 2023, Amazon Web Services will not onboard new customers to
-	// Amazon Elastic Inference (EI), and will help current customers migrate their
-	// workloads to options that offer better price and performance. After April 15,
-	// 2023, new customers will not be able to launch instances with Amazon EI
-	// accelerators in Amazon SageMaker, Amazon ECS, or Amazon EC2. However, customers
-	// who have used Amazon EI at least once during the past 30-day period are
-	// considered current customers and will be able to continue using the service.
+	// Amazon Elastic Inference is no longer available.
 	ElasticInferenceAccelerators []LaunchTemplateElasticInferenceAccelerator
 
 	// Indicates whether the instance is enabled for Amazon Web Services Nitro
@@ -14460,24 +14492,12 @@ type ResponseLaunchTemplateData struct {
 
 	// Deprecated.
 	//
-	// Amazon Elastic Graphics reached end of life on January 8, 2024. For workloads
-	// that require graphics acceleration, we recommend that you use Amazon EC2 G4ad,
-	// G4dn, or G5 instances.
+	// Amazon Elastic Graphics reached end of life on January 8, 2024.
 	ElasticGpuSpecifications []ElasticGpuSpecificationResponse
 
-	// An elastic inference accelerator to associate with the instance. Elastic
-	// inference accelerators are a resource you can attach to your Amazon EC2
-	// instances to accelerate your Deep Learning (DL) inference workloads.
+	// Deprecated.
 	//
-	// You cannot specify accelerators from different generations in the same request.
-	//
-	// Starting April 15, 2023, Amazon Web Services will not onboard new customers to
-	// Amazon Elastic Inference (EI), and will help current customers migrate their
-	// workloads to options that offer better price and performance. After April 15,
-	// 2023, new customers will not be able to launch instances with Amazon EI
-	// accelerators in Amazon SageMaker, Amazon ECS, or Amazon EC2. However, customers
-	// who have used Amazon EI at least once during the past 30-day period are
-	// considered current customers and will be able to continue using the service.
+	// Amazon Elastic Inference is no longer available.
 	ElasticInferenceAccelerators []LaunchTemplateElasticInferenceAcceleratorResponse
 
 	// Indicates whether the instance is enabled for Amazon Web Services Nitro

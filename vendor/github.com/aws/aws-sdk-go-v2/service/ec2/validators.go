@@ -30,6 +30,26 @@ func (m *validateOpAcceptAddressTransfer) HandleInitialize(ctx context.Context, 
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpAcceptCapacityReservationBillingOwnership struct {
+}
+
+func (*validateOpAcceptCapacityReservationBillingOwnership) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpAcceptCapacityReservationBillingOwnership) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*AcceptCapacityReservationBillingOwnershipInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpAcceptCapacityReservationBillingOwnershipInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpAcceptReservedInstancesExchangeQuote struct {
 }
 
@@ -265,6 +285,26 @@ func (m *validateOpAssignPrivateNatGatewayAddress) HandleInitialize(ctx context.
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpAssignPrivateNatGatewayAddressInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpAssociateCapacityReservationBillingOwner struct {
+}
+
+func (*validateOpAssociateCapacityReservationBillingOwner) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpAssociateCapacityReservationBillingOwner) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*AssociateCapacityReservationBillingOwnerInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpAssociateCapacityReservationBillingOwnerInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -4010,6 +4050,26 @@ func (m *validateOpDescribeCapacityBlockOfferings) HandleInitialize(ctx context.
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDescribeCapacityReservationBillingRequests struct {
+}
+
+func (*validateOpDescribeCapacityReservationBillingRequests) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDescribeCapacityReservationBillingRequests) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DescribeCapacityReservationBillingRequestsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDescribeCapacityReservationBillingRequestsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDescribeClientVpnAuthorizationRules struct {
 }
 
@@ -4725,6 +4785,26 @@ func (m *validateOpDisableVpcClassicLink) HandleInitialize(ctx context.Context, 
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpDisableVpcClassicLinkInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpDisassociateCapacityReservationBillingOwner struct {
+}
+
+func (*validateOpDisassociateCapacityReservationBillingOwner) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDisassociateCapacityReservationBillingOwner) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DisassociateCapacityReservationBillingOwnerInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDisassociateCapacityReservationBillingOwnerInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -7890,6 +7970,26 @@ func (m *validateOpRegisterTransitGatewayMulticastGroupSources) HandleInitialize
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpRejectCapacityReservationBillingOwnership struct {
+}
+
+func (*validateOpRejectCapacityReservationBillingOwnership) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpRejectCapacityReservationBillingOwnership) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*RejectCapacityReservationBillingOwnershipInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpRejectCapacityReservationBillingOwnershipInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpRejectTransitGatewayPeeringAttachment struct {
 }
 
@@ -8854,6 +8954,10 @@ func addOpAcceptAddressTransferValidationMiddleware(stack *middleware.Stack) err
 	return stack.Initialize.Add(&validateOpAcceptAddressTransfer{}, middleware.After)
 }
 
+func addOpAcceptCapacityReservationBillingOwnershipValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpAcceptCapacityReservationBillingOwnership{}, middleware.After)
+}
+
 func addOpAcceptReservedInstancesExchangeQuoteValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpAcceptReservedInstancesExchangeQuote{}, middleware.After)
 }
@@ -8900,6 +9004,10 @@ func addOpAssignPrivateIpAddressesValidationMiddleware(stack *middleware.Stack) 
 
 func addOpAssignPrivateNatGatewayAddressValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpAssignPrivateNatGatewayAddress{}, middleware.After)
+}
+
+func addOpAssociateCapacityReservationBillingOwnerValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpAssociateCapacityReservationBillingOwner{}, middleware.After)
 }
 
 func addOpAssociateClientVpnTargetNetworkValidationMiddleware(stack *middleware.Stack) error {
@@ -9650,6 +9758,10 @@ func addOpDescribeCapacityBlockOfferingsValidationMiddleware(stack *middleware.S
 	return stack.Initialize.Add(&validateOpDescribeCapacityBlockOfferings{}, middleware.After)
 }
 
+func addOpDescribeCapacityReservationBillingRequestsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDescribeCapacityReservationBillingRequests{}, middleware.After)
+}
+
 func addOpDescribeClientVpnAuthorizationRulesValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDescribeClientVpnAuthorizationRules{}, middleware.After)
 }
@@ -9792,6 +9904,10 @@ func addOpDisableVgwRoutePropagationValidationMiddleware(stack *middleware.Stack
 
 func addOpDisableVpcClassicLinkValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDisableVpcClassicLink{}, middleware.After)
+}
+
+func addOpDisassociateCapacityReservationBillingOwnerValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDisassociateCapacityReservationBillingOwner{}, middleware.After)
 }
 
 func addOpDisassociateClientVpnTargetNetworkValidationMiddleware(stack *middleware.Stack) error {
@@ -10424,6 +10540,10 @@ func addOpRegisterTransitGatewayMulticastGroupMembersValidationMiddleware(stack 
 
 func addOpRegisterTransitGatewayMulticastGroupSourcesValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpRegisterTransitGatewayMulticastGroupSources{}, middleware.After)
+}
+
+func addOpRejectCapacityReservationBillingOwnershipValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpRejectCapacityReservationBillingOwnership{}, middleware.After)
 }
 
 func addOpRejectTransitGatewayPeeringAttachmentValidationMiddleware(stack *middleware.Stack) error {
@@ -11522,6 +11642,21 @@ func validateOpAcceptAddressTransferInput(v *AcceptAddressTransferInput) error {
 	}
 }
 
+func validateOpAcceptCapacityReservationBillingOwnershipInput(v *AcceptCapacityReservationBillingOwnershipInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "AcceptCapacityReservationBillingOwnershipInput"}
+	if v.CapacityReservationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityReservationId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpAcceptReservedInstancesExchangeQuoteInput(v *AcceptReservedInstancesExchangeQuoteInput) error {
 	if v == nil {
 		return nil
@@ -11708,6 +11843,24 @@ func validateOpAssignPrivateNatGatewayAddressInput(v *AssignPrivateNatGatewayAdd
 	invalidParams := smithy.InvalidParamsError{Context: "AssignPrivateNatGatewayAddressInput"}
 	if v.NatGatewayId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("NatGatewayId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpAssociateCapacityReservationBillingOwnerInput(v *AssociateCapacityReservationBillingOwnerInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "AssociateCapacityReservationBillingOwnerInput"}
+	if v.CapacityReservationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityReservationId"))
+	}
+	if v.UnusedReservationBillingOwnerId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("UnusedReservationBillingOwnerId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -14868,6 +15021,21 @@ func validateOpDescribeCapacityBlockOfferingsInput(v *DescribeCapacityBlockOffer
 	}
 }
 
+func validateOpDescribeCapacityReservationBillingRequestsInput(v *DescribeCapacityReservationBillingRequestsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DescribeCapacityReservationBillingRequestsInput"}
+	if len(v.Role) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("Role"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpDescribeClientVpnAuthorizationRulesInput(v *DescribeClientVpnAuthorizationRulesInput) error {
 	if v == nil {
 		return nil
@@ -15449,6 +15617,24 @@ func validateOpDisableVpcClassicLinkInput(v *DisableVpcClassicLinkInput) error {
 	invalidParams := smithy.InvalidParamsError{Context: "DisableVpcClassicLinkInput"}
 	if v.VpcId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("VpcId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpDisassociateCapacityReservationBillingOwnerInput(v *DisassociateCapacityReservationBillingOwnerInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DisassociateCapacityReservationBillingOwnerInput"}
+	if v.CapacityReservationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityReservationId"))
+	}
+	if v.UnusedReservationBillingOwnerId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("UnusedReservationBillingOwnerId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -18114,6 +18300,21 @@ func validateOpRegisterTransitGatewayMulticastGroupSourcesInput(v *RegisterTrans
 	}
 	if v.NetworkInterfaceIds == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("NetworkInterfaceIds"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpRejectCapacityReservationBillingOwnershipInput(v *RejectCapacityReservationBillingOwnershipInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "RejectCapacityReservationBillingOwnershipInput"}
+	if v.CapacityReservationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityReservationId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

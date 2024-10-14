@@ -816,6 +816,25 @@ func (ByoipCidrState) Values() []ByoipCidrState {
 	}
 }
 
+type CallerRole string
+
+// Enum values for CallerRole
+const (
+	CallerRoleOdcrOwner                     CallerRole = "odcr-owner"
+	CallerRoleUnusedReservationBillingOwner CallerRole = "unused-reservation-billing-owner"
+)
+
+// Values returns all known values for CallerRole. Note that this can be expanded
+// in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (CallerRole) Values() []CallerRole {
+	return []CallerRole{
+		"odcr-owner",
+		"unused-reservation-billing-owner",
+	}
+}
+
 type CancelBatchErrorCode string
 
 // Enum values for CancelBatchErrorCode
@@ -862,6 +881,34 @@ func (CancelSpotInstanceRequestState) Values() []CancelSpotInstanceRequestState 
 		"closed",
 		"cancelled",
 		"completed",
+	}
+}
+
+type CapacityReservationBillingRequestStatus string
+
+// Enum values for CapacityReservationBillingRequestStatus
+const (
+	CapacityReservationBillingRequestStatusPending   CapacityReservationBillingRequestStatus = "pending"
+	CapacityReservationBillingRequestStatusAccepted  CapacityReservationBillingRequestStatus = "accepted"
+	CapacityReservationBillingRequestStatusRejected  CapacityReservationBillingRequestStatus = "rejected"
+	CapacityReservationBillingRequestStatusCancelled CapacityReservationBillingRequestStatus = "cancelled"
+	CapacityReservationBillingRequestStatusRevoked   CapacityReservationBillingRequestStatus = "revoked"
+	CapacityReservationBillingRequestStatusExpired   CapacityReservationBillingRequestStatus = "expired"
+)
+
+// Values returns all known values for CapacityReservationBillingRequestStatus.
+// Note that this can be expanded in the future, and so it is only as up to date as
+// the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (CapacityReservationBillingRequestStatus) Values() []CapacityReservationBillingRequestStatus {
+	return []CapacityReservationBillingRequestStatus{
+		"pending",
+		"accepted",
+		"rejected",
+		"cancelled",
+		"revoked",
+		"expired",
 	}
 }
 

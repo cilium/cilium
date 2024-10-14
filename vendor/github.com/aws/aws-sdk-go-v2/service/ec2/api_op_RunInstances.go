@@ -189,10 +189,7 @@ type RunInstancesInput struct {
 
 	// An elastic inference accelerator to associate with the instance.
 	//
-	// Amazon Elastic Inference (EI) is no longer available to new customers. For more
-	// information, see [Amazon Elastic Inference FAQs].
-	//
-	// [Amazon Elastic Inference FAQs]: http://aws.amazon.com/machine-learning/elastic-inference/faqs/
+	// Amazon Elastic Inference is no longer available.
 	ElasticInferenceAccelerators []types.ElasticInferenceAccelerator
 
 	// If you’re launching an instance into a dual-stack or IPv6-only subnet, you can

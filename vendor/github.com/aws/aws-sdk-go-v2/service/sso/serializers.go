@@ -71,7 +71,7 @@ func awsRestjson1_serializeOpHttpBindingsGetRoleCredentialsInput(v *GetRoleCrede
 		return fmt.Errorf("unsupported serialization of nil %T", v)
 	}
 
-	if v.AccessToken != nil && len(*v.AccessToken) > 0 {
+	if v.AccessToken != nil {
 		locationName := "X-Amz-Sso_bearer_token"
 		encoder.SetHeader(locationName).String(*v.AccessToken)
 	}
@@ -146,7 +146,7 @@ func awsRestjson1_serializeOpHttpBindingsListAccountRolesInput(v *ListAccountRol
 		return fmt.Errorf("unsupported serialization of nil %T", v)
 	}
 
-	if v.AccessToken != nil && len(*v.AccessToken) > 0 {
+	if v.AccessToken != nil {
 		locationName := "X-Amz-Sso_bearer_token"
 		encoder.SetHeader(locationName).String(*v.AccessToken)
 	}
@@ -225,7 +225,7 @@ func awsRestjson1_serializeOpHttpBindingsListAccountsInput(v *ListAccountsInput,
 		return fmt.Errorf("unsupported serialization of nil %T", v)
 	}
 
-	if v.AccessToken != nil && len(*v.AccessToken) > 0 {
+	if v.AccessToken != nil {
 		locationName := "X-Amz-Sso_bearer_token"
 		encoder.SetHeader(locationName).String(*v.AccessToken)
 	}
@@ -300,7 +300,7 @@ func awsRestjson1_serializeOpHttpBindingsLogoutInput(v *LogoutInput, encoder *ht
 		return fmt.Errorf("unsupported serialization of nil %T", v)
 	}
 
-	if v.AccessToken != nil && len(*v.AccessToken) > 0 {
+	if v.AccessToken != nil {
 		locationName := "X-Amz-Sso_bearer_token"
 		encoder.SetHeader(locationName).String(*v.AccessToken)
 	}
