@@ -4,15 +4,19 @@
 package k8s
 
 import (
+	"context"
 	"fmt"
+	"sort"
 
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/kubectl/pkg/util/podutils"
 )
 
 func NewServiceAccount(name string) *corev1.ServiceAccount {
@@ -100,4 +104,29 @@ func (c *Client) Describe(obj runtime.Object) (gvk schema.GroupVersionKind, reso
 	}
 	resource = rm.Resource
 	return
+}
+
+// GetFirstPodForService returns the first pod in the list of pods matching the service selector,
+// sorted from most to less active (see `podutils.ActivePods` for more details).
+func (c *Client) GetFirstPodForService(ctx context.Context, svc *corev1.Service) (*corev1.Pod, error) {
+	selector := labels.SelectorFromSet(svc.Spec.Selector)
+	podList, err := c.ListPods(ctx, svc.Namespace, metav1.ListOptions{LabelSelector: selector.String()})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get list of pods for service %q: %w", svc.Name, err)
+	}
+	if len(podList.Items) == 0 {
+		return nil, fmt.Errorf("no pods found for service: %s", svc.Name)
+	}
+	if len(podList.Items) == 1 {
+		return &podList.Items[0], nil
+	}
+
+	pods := make([]*corev1.Pod, 0, len(podList.Items))
+	for _, pod := range podList.Items {
+		pods = append(pods, &pod)
+	}
+	sortBy := func(pods []*corev1.Pod) sort.Interface { return sort.Reverse(podutils.ActivePods(pods)) }
+	sort.Sort(sortBy(pods))
+
+	return pods[0], nil
 }

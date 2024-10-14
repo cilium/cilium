@@ -5,12 +5,15 @@ package k8s
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
+	kutil "k8s.io/kubectl/pkg/util"
 )
 
 // ForwardedPort holds the remote and local mapped port.
@@ -43,6 +46,11 @@ type OutWriters struct {
 // PortForwardResult are the ports that have been forwarded.
 type PortForwardResult struct {
 	ForwardedPorts []ForwardedPort
+}
+
+// PortForwardServiceResult are the ports that have been forwarded.
+type PortForwardServiceResult struct {
+	ForwardedPort ForwardedPort
 }
 
 // PortForward executes in a goroutine a port forward command.
@@ -99,5 +107,48 @@ func (c *Client) PortForward(ctx context.Context, p PortForwardParameters) (*Por
 
 	return &PortForwardResult{
 		ForwardedPorts: forwardedPorts,
+	}, nil
+}
+
+// PortForwardService executes in a goroutine a port forward command towards one of the pod behind a
+// service. If `localPort` is 0, a random port is selected. If `svcPort` is 0, uses the first port
+// configured on the service.
+//
+// To stop the port-forwarding, use the context by cancelling it.
+func (c *Client) PortForwardService(ctx context.Context, namespace, name string, localPort, svcPort int32) (*PortForwardServiceResult, error) {
+	svc, err := c.GetService(ctx, namespace, name, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service %q: %w", name, err)
+	}
+
+	pod, err := c.GetFirstPodForService(ctx, svc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service %q: %w", name, err)
+	}
+
+	if svcPort == 0 {
+		svcPort = svc.Spec.Ports[0].Port
+	}
+
+	containerPort, err := kutil.LookupContainerPortNumberByServicePort(*svc, *pod, svcPort)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup container port with service port %d: %w", svcPort, err)
+	}
+
+	p := PortForwardParameters{
+		Namespace:  pod.Namespace,
+		Pod:        pod.Name,
+		Ports:      []string{fmt.Sprintf("%d:%d", localPort, containerPort)},
+		Addresses:  nil, // default is localhost
+		OutWriters: OutWriters{Out: nil, ErrOut: nil},
+	}
+
+	res, err := c.PortForward(ctx, p)
+	if err != nil {
+		return nil, fmt.Errorf("failed to port forward: %w", err)
+	}
+
+	return &PortForwardServiceResult{
+		ForwardedPort: res.ForwardedPorts[0],
 	}, nil
 }
