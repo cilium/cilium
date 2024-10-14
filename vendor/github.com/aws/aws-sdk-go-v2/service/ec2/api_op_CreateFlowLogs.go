@@ -26,7 +26,7 @@ import (
 //
 // For more information, see [VPC Flow Logs] in the Amazon VPC User Guide.
 //
-// [Flow log records]: https://docs.aws.amazon.com/vpc/latest/userguide/flow-log-records.html
+// [Flow log records]: https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html#flow-log-records
 // [VPC Flow Logs]: https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html
 func (c *Client) CreateFlowLogs(ctx context.Context, params *CreateFlowLogsInput, optFns ...func(*Options)) (*CreateFlowLogsOutput, error) {
 	if params == nil {
@@ -121,7 +121,7 @@ type CreateFlowLogsInput struct {
 	//
 	// Specify the fields using the ${field-id} format, separated by spaces.
 	//
-	// [Flow log records]: https://docs.aws.amazon.com/vpc/latest/userguide/flow-log-records.html
+	// [Flow log records]: https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html#flow-log-records
 	// [Transit Gateway Flow Log records]: https://docs.aws.amazon.com/vpc/latest/tgw/tgw-flow-logs.html#flow-log-records
 	LogFormat *string
 

@@ -6,56 +6,35 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a subnet CIDR reservation. For more information, see [Subnet CIDR reservations] in the Amazon VPC
-// User Guide and [Assign prefixes to network interfaces]in the Amazon EC2 User Guide.
+// Accepts a request to assign billing of the available capacity of a shared
+// Capacity Reservation to your account. For more information, see [Billing assignment for shared Amazon EC2 Capacity Reservations].
 //
-// [Subnet CIDR reservations]: https://docs.aws.amazon.com/vpc/latest/userguide/subnet-cidr-reservation.html
-// [Assign prefixes to network interfaces]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html
-func (c *Client) CreateSubnetCidrReservation(ctx context.Context, params *CreateSubnetCidrReservationInput, optFns ...func(*Options)) (*CreateSubnetCidrReservationOutput, error) {
+// [Billing assignment for shared Amazon EC2 Capacity Reservations]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/assign-billing.html
+func (c *Client) AcceptCapacityReservationBillingOwnership(ctx context.Context, params *AcceptCapacityReservationBillingOwnershipInput, optFns ...func(*Options)) (*AcceptCapacityReservationBillingOwnershipOutput, error) {
 	if params == nil {
-		params = &CreateSubnetCidrReservationInput{}
+		params = &AcceptCapacityReservationBillingOwnershipInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateSubnetCidrReservation", params, optFns, c.addOperationCreateSubnetCidrReservationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "AcceptCapacityReservationBillingOwnership", params, optFns, c.addOperationAcceptCapacityReservationBillingOwnershipMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*CreateSubnetCidrReservationOutput)
+	out := result.(*AcceptCapacityReservationBillingOwnershipOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type CreateSubnetCidrReservationInput struct {
+type AcceptCapacityReservationBillingOwnershipInput struct {
 
-	// The IPv4 or IPV6 CIDR range to reserve.
+	// The ID of the Capacity Reservation for which to accept the request.
 	//
 	// This member is required.
-	Cidr *string
-
-	// The type of reservation. The reservation type determines how the reserved IP
-	// addresses are assigned to resources.
-	//
-	//   - prefix - Amazon Web Services assigns the reserved IP addresses to network
-	//   interfaces.
-	//
-	//   - explicit - You assign the reserved IP addresses to network interfaces.
-	//
-	// This member is required.
-	ReservationType types.SubnetCidrReservationType
-
-	// The ID of the subnet.
-	//
-	// This member is required.
-	SubnetId *string
-
-	// The description to assign to the subnet CIDR reservation.
-	Description *string
+	CapacityReservationId *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -63,16 +42,13 @@ type CreateSubnetCidrReservationInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The tags to assign to the subnet CIDR reservation.
-	TagSpecifications []types.TagSpecification
-
 	noSmithyDocumentSerde
 }
 
-type CreateSubnetCidrReservationOutput struct {
+type AcceptCapacityReservationBillingOwnershipOutput struct {
 
-	// Information about the created subnet CIDR reservation.
-	SubnetCidrReservation *types.SubnetCidrReservation
+	// Returns true if the request succeeds; otherwise, it returns an error.
+	Return *bool
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -80,19 +56,19 @@ type CreateSubnetCidrReservationOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationCreateSubnetCidrReservationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationAcceptCapacityReservationBillingOwnershipMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateSubnetCidrReservation{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpAcceptCapacityReservationBillingOwnership{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpCreateSubnetCidrReservation{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpAcceptCapacityReservationBillingOwnership{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateSubnetCidrReservation"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "AcceptCapacityReservationBillingOwnership"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -144,10 +120,10 @@ func (c *Client) addOperationCreateSubnetCidrReservationMiddlewares(stack *middl
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
-	if err = addOpCreateSubnetCidrReservationValidationMiddleware(stack); err != nil {
+	if err = addOpAcceptCapacityReservationBillingOwnershipValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateSubnetCidrReservation(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAcceptCapacityReservationBillingOwnership(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -180,10 +156,10 @@ func (c *Client) addOperationCreateSubnetCidrReservationMiddlewares(stack *middl
 	return nil
 }
 
-func newServiceMetadataMiddleware_opCreateSubnetCidrReservation(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opAcceptCapacityReservationBillingOwnership(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "CreateSubnetCidrReservation",
+		OperationName: "AcceptCapacityReservationBillingOwnership",
 	}
 }
