@@ -28,8 +28,8 @@ import (
 // User Guide.
 //
 // [Elastic IP address quotas]: https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html#vpc-limits-eips
-// [Work with NAT gateways]: https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateway-working-with.html
-// [Allocate an Elastic IP address]: https://docs.aws.amazon.com/vpc/latest/userguide/WorkWithEIPs.html
+// [Work with NAT gateways]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html#nat-gateway-working-with
+// [Allocate an Elastic IP address]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-eips.html#allocate-eip
 func (c *Client) AssociateNatGatewayAddress(ctx context.Context, params *AssociateNatGatewayAddressInput, optFns ...func(*Options)) (*AssociateNatGatewayAddressOutput, error) {
 	if params == nil {
 		params = &AssociateNatGatewayAddressInput{}

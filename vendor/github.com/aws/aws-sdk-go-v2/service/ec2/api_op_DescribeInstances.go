@@ -140,9 +140,6 @@ type DescribeInstancesInput struct {
 	//   - iam-instance-profile.id - The instance profile associated with the instance.
 	//   Specified as an ID.
 	//
-	//   - iam-instance-profile.name - The instance profile associated with the
-	//   instance. Specified as an name.
-	//
 	//   - image-id - The ID of the image used to launch the instance.
 	//
 	//   - instance-id - The ID of the instance.

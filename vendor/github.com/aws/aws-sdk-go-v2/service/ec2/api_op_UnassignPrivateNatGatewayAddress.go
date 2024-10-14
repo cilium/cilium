@@ -25,7 +25,7 @@ import (
 // connections are distributed across the remaining assigned private IP address).
 // After the existing connections drain out, the private IP addresses are released.
 //
-// [Edit secondary IP address associations]: https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateway-working-with.html#nat-gateway-edit-secondary
+// [Edit secondary IP address associations]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html#nat-gateway-edit-secondary
 func (c *Client) UnassignPrivateNatGatewayAddress(ctx context.Context, params *UnassignPrivateNatGatewayAddressInput, optFns ...func(*Options)) (*UnassignPrivateNatGatewayAddressOutput, error) {
 	if params == nil {
 		params = &UnassignPrivateNatGatewayAddressInput{}

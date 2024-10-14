@@ -16,7 +16,8 @@ import (
 // instance remains unchanged.
 //
 // The number of active vCPUs equals the number of threads per CPU core multiplied
-// by the number of cores.
+// by the number of cores. The instance must be in a Stopped state before you make
+// changes.
 //
 // Some instance type options do not support this capability. For more
 // information, see [Supported CPU options]in the Amazon EC2 User Guide.
