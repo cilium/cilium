@@ -75,6 +75,19 @@ type augmentedHook struct {
 	moduleID FullModuleID
 }
 
+func NewDefaultLifecycle(hooks []HookInterface, numStarted int, logThreshold time.Duration) *DefaultLifecycle {
+	h := make([]augmentedHook, 0, len(hooks))
+	for _, hook := range hooks {
+		h = append(h, augmentedHook{hook, nil})
+	}
+	return &DefaultLifecycle{
+		mu:           sync.Mutex{},
+		hooks:        h,
+		numStarted:   numStarted,
+		LogThreshold: logThreshold,
+	}
+}
+
 func (lc *DefaultLifecycle) Append(hook HookInterface) {
 	lc.mu.Lock()
 	defer lc.mu.Unlock()
@@ -92,7 +105,7 @@ func (lc *DefaultLifecycle) Start(log *slog.Logger, ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	for _, hook := range lc.hooks {
+	for i, hook := range lc.hooks {
 		fnName, exists := getHookFuncName(hook, true)
 
 		if !exists {
@@ -102,6 +115,13 @@ func (lc *DefaultLifecycle) Start(log *slog.Logger, ctx context.Context) error {
 		}
 
 		l := log.With("function", fnName)
+
+		// Do not attempt to start already started hooks.
+		if i < lc.numStarted {
+			l.Error("Hook appears to be running. Skipping")
+			continue
+		}
+
 		l.Debug("Executing start hook")
 		t0 := time.Now()
 		if err := hook.Start(ctx); err != nil {
