@@ -11,6 +11,35 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 <!-- Released section -->
 <!-- Don't change this section unless doing release -->
 
+## [1.31.0/0.53.0/0.7.0/0.0.10] 2024-10-11
+
+### Added
+
+- Add `go.opentelemetry.io/otel/sdk/metric/exemplar` package which includes `Exemplar`, `Filter`, `TraceBasedFilter`, `AlwaysOnFilter`, `HistogramReservoir`, `FixedSizeReservoir`, `Reservoir`, `Value` and `ValueType` types. These will be used for configuring the exemplar reservoir for the metrics sdk. (#5747, #5862)
+- Add `WithExportBufferSize` option to log batch processor.(#5877)
+
+### Changed
+
+- Enable exemplars by default in `go.opentelemetry.io/otel/sdk/metric`. Exemplars can be disabled by setting `OTEL_METRICS_EXEMPLAR_FILTER=always_off` (#5778)
+- `Logger.Enabled` in `go.opentelemetry.io/otel/log` now accepts a newly introduced `EnabledParameters` type instead of `Record`. (#5791)
+- `FilterProcessor.Enabled` in `go.opentelemetry.io/otel/sdk/log/internal/x` now accepts `EnabledParameters` instead of `Record`. (#5791)
+- The `Record` type in `go.opentelemetry.io/otel/log` is no longer comparable. (#5847)
+- Performance improvements for the trace SDK `SetAttributes` method in `Span`. (#5864)
+- Reduce memory allocations for the `Event` and `Link` lists in `Span`. (#5858)
+- Performance improvements for the trace SDK `AddEvent`, `AddLink`, `RecordError` and `End` methods in `Span`. (#5874)
+
+### Deprecated
+
+- Deprecate all examples under `go.opentelemetry.io/otel/example` as they are moved to [Contrib repository](https://github.com/open-telemetry/opentelemetry-go-contrib/tree/main/examples). (#5854)
+
+### Fixed
+
+- The race condition for multiple `FixedSize` exemplar reservoirs identified in #5814 is resolved. (#5819)
+- Fix log records duplication in case of heterogeneous resource attributes by correctly mapping each log record to it's resource and scope. (#5803)
+- Fix timer channel drain to avoid hanging on Go 1.23. (#5868)
+- Fix delegation for global meter providers, and panic when calling otel.SetMeterProvider. (#5827)
+- Change the `reflect.TypeOf` to use a nil pointer to not allocate on the heap unless necessary. (#5827)
+
 ## [1.30.0/0.52.0/0.6.0/0.0.9] 2024-09-09
 
 ### Added
@@ -3081,7 +3110,8 @@ It contains api and sdk for trace and meter.
 - CircleCI build CI manifest files.
 - CODEOWNERS file to track owners of this project.
 
-[Unreleased]: https://github.com/open-telemetry/opentelemetry-go/compare/v1.30.0...HEAD
+[Unreleased]: https://github.com/open-telemetry/opentelemetry-go/compare/v1.31.0...HEAD
+[1.31.0/0.53.0/0.7.0/0.0.10]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.31.0
 [1.30.0/0.52.0/0.6.0/0.0.9]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.30.0
 [1.29.0/0.51.0/0.5.0]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.29.0
 [1.28.0/0.50.0/0.4.0]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.28.0

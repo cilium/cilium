@@ -631,11 +631,8 @@ should be canceled.
 
 ### Approvers
 
-- [Chester Cheung](https://github.com/hanyuancheung), Tencent
-
 ### Maintainers
 
-- [Aaron Clawson](https://github.com/MadVikingGod), LightStep
 - [Damien Mathieu](https://github.com/dmathieu), Elastic
 - [David Ashpole](https://github.com/dashpole), Google
 - [Robert Pająk](https://github.com/pellared), Splunk
@@ -644,11 +641,13 @@ should be canceled.
 
 ### Emeritus
 
-- [Liz Fong-Jones](https://github.com/lizthegrey), Honeycomb
+- [Aaron Clawson](https://github.com/MadVikingGod), LightStep
+- [Anthony Mirabella](https://github.com/Aneurysm9), AWS
+- [Chester Cheung](https://github.com/hanyuancheung), Tencent
+- [Evan Torrie](https://github.com/evantorrie), Yahoo
 - [Gustavo Silva Paiva](https://github.com/paivagustavo), LightStep
 - [Josh MacDonald](https://github.com/jmacd), LightStep
-- [Anthony Mirabella](https://github.com/Aneurysm9), AWS
-- [Evan Torrie](https://github.com/evantorrie), Yahoo
+- [Liz Fong-Jones](https://github.com/lizthegrey), Honeycomb
 
 ### Become an Approver or a Maintainer
 

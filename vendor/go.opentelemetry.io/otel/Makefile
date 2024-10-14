@@ -54,9 +54,6 @@ $(TOOLS)/stringer: PACKAGE=golang.org/x/tools/cmd/stringer
 PORTO = $(TOOLS)/porto
 $(TOOLS)/porto: PACKAGE=github.com/jcchavezs/porto/cmd/porto
 
-GOJQ = $(TOOLS)/gojq
-$(TOOLS)/gojq: PACKAGE=github.com/itchyny/gojq/cmd/gojq
-
 GOTMPL = $(TOOLS)/gotmpl
 $(GOTMPL): PACKAGE=go.opentelemetry.io/build-tools/gotmpl
 
@@ -67,7 +64,7 @@ GOVULNCHECK = $(TOOLS)/govulncheck
 $(TOOLS)/govulncheck: PACKAGE=golang.org/x/vuln/cmd/govulncheck
 
 .PHONY: tools
-tools: $(CROSSLINK) $(GOLANGCI_LINT) $(MISSPELL) $(GOCOVMERGE) $(STRINGER) $(PORTO) $(GOJQ) $(SEMCONVGEN) $(MULTIMOD) $(SEMCONVKIT) $(GOTMPL) $(GORELEASE)
+tools: $(CROSSLINK) $(GOLANGCI_LINT) $(MISSPELL) $(GOCOVMERGE) $(STRINGER) $(PORTO) $(SEMCONVGEN) $(MULTIMOD) $(SEMCONVKIT) $(GOTMPL) $(GORELEASE)
 
 # Virtualized python tools via docker
 
