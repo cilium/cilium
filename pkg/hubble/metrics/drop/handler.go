@@ -31,7 +31,6 @@ func (h *dropHandler) Init(registry *prometheus.Registry, options *api.MetricCon
 	}
 	h.context = c
 	h.cfg = options
-	// TODO use global logger
 	h.AllowList, err = filters.BuildFilterList(context.Background(), h.cfg.IncludeFilters, filters.DefaultFilters(logrus.New()))
 	if err != nil {
 		return err
@@ -86,6 +85,6 @@ func (h *dropHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 	return nil
 }
 
-func (h *dropHandler) Deinit(registry *prometheus.Registry) {
-	registry.Unregister(h.drops)
+func (h *dropHandler) Deinit(registry *prometheus.Registry) bool {
+	return registry.Unregister(h.drops)
 }

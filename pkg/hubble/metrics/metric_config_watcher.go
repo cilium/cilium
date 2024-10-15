@@ -46,8 +46,6 @@ func NewMetricConfigWatcher(
 	// initial configuration load
 	watcher.reload()
 
-	// TODO replace ticker reloads with inotify watchers
-	// https://pkg.go.dev/k8s.io/utils/inotify
 	watcher.ticker = time.NewTicker(metricReloadInterval)
 	watcher.stop = make(chan bool)
 
@@ -69,7 +67,7 @@ func (c *metricConfigWatcher) reload() {
 	c.logger.Debug("Attempting reload")
 	config, isSameHash, hash, err := c.readConfig()
 	if err != nil {
-		c.logger.Warnf("failed reading dynamic exporter config")
+		c.logger.WithError(err).Warn("failed reading dynamic exporter config")
 	} else {
 		c.callback(context.TODO(), isSameHash, hash, *config)
 	}
@@ -84,7 +82,7 @@ func (c *metricConfigWatcher) Stop() {
 }
 
 func (c *metricConfigWatcher) readConfig() (*api.Config, bool, uint64, error) {
-	config := &api.Config{}
+	config := &api.Config{Metrics: []*api.MetricConfig{}}
 	yamlFile, err := os.ReadFile(c.configFilePath)
 	if err != nil {
 		return nil, false, 0, fmt.Errorf("cannot read file '%s': %w", c.configFilePath, err)

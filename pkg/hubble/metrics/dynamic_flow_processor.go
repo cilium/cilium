@@ -12,7 +12,6 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 
-	// "github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -22,10 +21,9 @@ import (
 type DynamicFlowProcessor struct {
 	logger  logrus.FieldLogger
 	watcher *metricConfigWatcher
-	// mutex protects from concurrent modification of managedFlowProcessors by config
-	// reloader when hubble events are processed
+	// Protects against deregistering metric handlers while ProcessFlow is executing, or concurrent config reloads.
 	mutex    lock.RWMutex
-	Metrics  *api.Handlers // TODO add getnames for testing encapsulation?
+	Metrics  *api.Handlers
 	registry *prometheus.Registry
 }
 
@@ -42,7 +40,7 @@ func (d *DynamicFlowProcessor) OnDecodedFlow(ctx context.Context, flow *flowpb.F
 
 	var errs error
 	if d.Metrics != nil {
-		d.Metrics.ProcessFlow(ctx, flow)
+		errs = d.Metrics.ProcessFlow(ctx, flow)
 	}
 
 	if errs != nil {
@@ -87,7 +85,7 @@ func (d *DynamicFlowProcessor) onConfigReload(ctx context.Context, isSameHash bo
 		// This needs to happen first to properly check for conflicting plugins later during registration.
 		for _, m := range d.Metrics.Handlers {
 			if _, ok := configuredMetricNames[m.Name]; !ok {
-				h, _ := curHandlerMap[m.Name]
+				h := curHandlerMap[m.Name]
 				h.Handler.Deinit(d.registry)
 				delete(curHandlerMap, m.Name)
 			}
@@ -108,27 +106,32 @@ func (d *DynamicFlowProcessor) onConfigReload(ctx context.Context, isSameHash bo
 			} else {
 				if h, ok := curHandlerMap[cm.Name]; ok {
 					h.Handler.Deinit(d.registry)
+					delete(curHandlerMap, cm.Name)
 				}
-				d.applyNewConfig(d.registry, cm, metricNames, &newHandlers)
+				d.addNewMetric(d.registry, cm, metricNames, &newHandlers)
 			}
 		} else {
 			// New handler found in config.
-			d.applyNewConfig(d.registry, cm, metricNames, &newHandlers)
+			d.addNewMetric(d.registry, cm, metricNames, &newHandlers)
 		}
 	}
 	d.Metrics = &newHandlers
 }
 
-func (d *DynamicFlowProcessor) applyNewConfig(reg *prometheus.Registry, cm *api.MetricConfig, metricNames map[string]struct{}, newMetrics *api.Handlers) {
-	// TODO locks?
+func (d *DynamicFlowProcessor) addNewMetric(reg *prometheus.Registry, cm *api.MetricConfig, metricNames map[string]struct{}, newMetrics *api.Handlers) {
 	nh, err := api.DefaultRegistry().ValidateAndCreateHandler(reg, cm, &metricNames)
 	if err != nil {
-		panic(err)
+		d.logger.WithFields(logrus.Fields{
+			"metric name": cm.Name,
+		}).WithError(err).Error("Failed to configure metrics plugin")
+
+		return
 	}
 
 	err = api.InitHandlersAndFlowProcessor(d.logger, reg, nh, newMetrics)
 	if err != nil {
-		panic(err)
+		d.logger.WithFields(logrus.Fields{
+			"metric name": cm.Name,
+		}).WithError(err).Error("Failed to configure metrics plugin")
 	}
-	// TODO don't panic, add transaction recovery logic
 }

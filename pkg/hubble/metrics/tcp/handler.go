@@ -111,6 +111,6 @@ func (h *tcpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	return nil
 }
 
-func (h *tcpHandler) Deinit(registry *prometheus.Registry) {
-	registry.Unregister(h.tcpFlags)
+func (h *tcpHandler) Deinit(registry *prometheus.Registry) bool {
+	return registry.Unregister(h.tcpFlags)
 }

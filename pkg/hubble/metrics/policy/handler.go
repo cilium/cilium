@@ -133,6 +133,6 @@ func (h *policyHandler) ProcessFlowL7(ctx context.Context, flow *flowpb.Flow) er
 	return nil
 }
 
-func (h *policyHandler) Deinit(registry *prometheus.Registry) {
-	registry.Unregister(h.verdicts)
+func (h *policyHandler) Deinit(registry *prometheus.Registry) bool {
+	return registry.Unregister(h.verdicts)
 }

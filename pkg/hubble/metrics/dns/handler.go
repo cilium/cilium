@@ -173,8 +173,6 @@ func (h *dnsHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	return nil
 }
 
-func (h *dnsHandler) Deinit(registry *prometheus.Registry) {
-	registry.Unregister(h.queries)
-	registry.Unregister(h.responses)
-	registry.Unregister(h.responseTypes)
+func (h *dnsHandler) Deinit(registry *prometheus.Registry) bool {
+	return registry.Unregister(h.queries) || registry.Unregister(h.responses) || registry.Unregister(h.responseTypes)
 }

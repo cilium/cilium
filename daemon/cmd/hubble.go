@@ -191,7 +191,9 @@ func (d *Daemon) launchHubble() {
 
 	var srv *http.Server
 	if option.Config.HubbleMetricsServer != "" {
-		if option.Config.HubbleDynamicMetricConfigFilePath != "" {
+		if option.Config.HubbleDynamicMetricConfigFilePath != "" && len(option.Config.HubbleMetrics) > 0 {
+			logger.Error("Cannot configure both static and dynamic Hubble metrics")
+		} else if option.Config.HubbleDynamicMetricConfigFilePath != "" {
 			logger.WithFields(logrus.Fields{
 				"address":      option.Config.HubbleMetricsServer,
 				"metricConfig": option.Config.HubbleDynamicMetricConfigFilePath,

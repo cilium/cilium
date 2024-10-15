@@ -57,8 +57,9 @@ func (t *testHandler) ListMetricVec() []*prometheus.MetricVec {
 	return []*prometheus.MetricVec{t.counter.MetricVec}
 }
 
-func (t *testHandler) Deinit(registry *prometheus.Registry) {
+func (t *testHandler) Deinit(registry *prometheus.Registry) bool {
 	t.InitCalled--
+	return true
 }
 
 func (t *testHandler) ProcessFlow(ctx context.Context, p *pb.Flow) error {

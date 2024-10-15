@@ -65,7 +65,9 @@ type Handler interface {
 	// Status returns the configuration status of the metric handler
 	Status() string
 
-	Deinit(registry *prometheus.Registry)
+	// Deinit deregisters the metrics from the Prometheus registry
+	// and cleans up internal handler state
+	Deinit(registry *prometheus.Registry) bool
 }
 
 // FlowProcessor is a metric handler which requires flows to perform metrics

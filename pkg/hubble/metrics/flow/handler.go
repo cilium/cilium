@@ -112,6 +112,6 @@ func (h *flowHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 	return nil
 }
 
-func (h *flowHandler) Deinit(registry *prometheus.Registry) {
-	registry.Unregister(h.flows)
+func (h *flowHandler) Deinit(registry *prometheus.Registry) bool {
+	return registry.Unregister(h.flows)
 }

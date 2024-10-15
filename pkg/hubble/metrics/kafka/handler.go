@@ -109,7 +109,6 @@ func (h *kafkaHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error
 	return nil
 }
 
-func (h *kafkaHandler) Deinit(registry *prometheus.Registry) {
-	registry.Unregister(h.requests)
-	registry.Unregister(h.duration)
+func (h *kafkaHandler) Deinit(registry *prometheus.Registry) bool {
+	return registry.Unregister(h.requests) || registry.Unregister(h.duration)
 }

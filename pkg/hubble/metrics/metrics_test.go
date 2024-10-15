@@ -20,6 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/client-go/util/workqueue"
 
+	dto "github.com/prometheus/client_model/go"
+
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -165,7 +167,7 @@ func assertMetricConfig(t *testing.T, expected, actual api.MetricConfig) {
 	}
 }
 
-func TestMetricsUpdatedOnConfigChange(t *testing.T) {
+func TestHandlersUpdatedInDfpOnConfigChange(t *testing.T) {
 	// Handlers: +drop
 	watcher := metricConfigWatcher{configFilePath: "testdata/valid_metric_config.yaml"}
 	cfg, _, _, err := watcher.readConfig()
@@ -175,7 +177,7 @@ func TestMetricsUpdatedOnConfigChange(t *testing.T) {
 	dfp := DynamicFlowProcessor{registry: reg}
 	assert.Nil(t, dfp.Metrics)
 	dfp.onConfigReload(context.TODO(), false, 0, *cfg)
-	assertMetricsConfigured(t, &dfp, cfg)
+	assertHandlersInDfp(t, &dfp, cfg)
 
 	// Handlers: =drop, +flow
 	watcher = metricConfigWatcher{configFilePath: "testdata/valid_metric_config_2.yaml"}
@@ -183,7 +185,7 @@ func TestMetricsUpdatedOnConfigChange(t *testing.T) {
 	require.Nil(t, err)
 
 	dfp.onConfigReload(context.TODO(), false, 0, *cfg)
-	assertMetricsConfigured(t, &dfp, cfg)
+	assertHandlersInDfp(t, &dfp, cfg)
 
 	// Handlers: -drop, =flow
 	watcher = metricConfigWatcher{configFilePath: "testdata/valid_metric_config_3.yaml"}
@@ -191,10 +193,10 @@ func TestMetricsUpdatedOnConfigChange(t *testing.T) {
 	require.Nil(t, err)
 
 	dfp.onConfigReload(context.TODO(), false, 0, *cfg)
-	assertMetricsConfigured(t, &dfp, cfg)
+	assertHandlersInDfp(t, &dfp, cfg)
 }
 
-func assertMetricsConfigured(t *testing.T, dfp *DynamicFlowProcessor, cfg *api.Config) {
+func assertHandlersInDfp(t *testing.T, dfp *DynamicFlowProcessor, cfg *api.Config) {
 	names := cfg.GetMetricNames()
 	assert.Equal(t, len(names), len(dfp.Metrics.Handlers))
 	for _, m := range dfp.Metrics.Handlers {
@@ -203,8 +205,8 @@ func assertMetricsConfigured(t *testing.T, dfp *DynamicFlowProcessor, cfg *api.C
 	}
 }
 
-func TestDfpProcessFlow(t *testing.T) {
-	// Handlers: =drop, +flow
+func TestMetricReRegisterAndCollect(t *testing.T) {
+	// Handlers: +drop
 	watcher := metricConfigWatcher{configFilePath: "testdata/valid_metric_config.yaml"}
 	cfg, _, _, err := watcher.readConfig()
 	require.Nil(t, err)
@@ -232,7 +234,40 @@ func TestDfpProcessFlow(t *testing.T) {
 
 	metricFamilies, err := reg.Gather()
 	require.NoError(t, err)
+	assert.NotNil(t, metricFamilies)
+	assertGatheredDrops(t, metricFamilies)
 
+	// Read in empty config.
+	watcher = metricConfigWatcher{configFilePath: "testdata/valid_empty_metric_cfg.yaml"}
+	cfg, _, _, err = watcher.readConfig()
+	require.Nil(t, err)
+
+	dfp.onConfigReload(context.TODO(), false, 0, *cfg)
+	assert.Nil(t, errs)
+
+	// The existing drop metrics should be removed after the handler is deregistered.
+	metricFamilies, err = reg.Gather()
+	require.NoError(t, err)
+	assert.Nil(t, metricFamilies)
+
+	// Re-register drop handler with same config and collect metrics.
+	watcher = metricConfigWatcher{configFilePath: "testdata/valid_metric_config.yaml"}
+	cfg, _, _, err = watcher.readConfig()
+	require.Nil(t, err)
+
+	dfp.onConfigReload(context.TODO(), false, 0, *cfg)
+	assert.Nil(t, errs)
+
+	_, errs = dfp.OnDecodedFlow(context.TODO(), flow1)
+	assert.Nil(t, errs)
+
+	metricFamilies, err = reg.Gather()
+	require.NoError(t, err)
+	assert.NotNil(t, metricFamilies)
+	assertGatheredDrops(t, metricFamilies)
+}
+
+func assertGatheredDrops(t *testing.T, metricFamilies []*dto.MetricFamily) {
 	assert.Equal(t, "hubble_drop_total", *metricFamilies[0].Name)
 	require.Len(t, metricFamilies[0].Metric, 1)
 	metric := metricFamilies[0].Metric[0]
@@ -261,7 +296,7 @@ func ConfigureAndFetchDynamicMetrics(t *testing.T, testName string, exportedMetr
 		srv := SetUpTestMetricsServer(reg)
 		defer srv.Close()
 
-		// Handlers: =drop, +flow
+		// Handlers: +drop, +flow
 		watcher := metricConfigWatcher{configFilePath: "testdata/valid_metric_config_2.yaml"}
 		cfg, _, _, err := watcher.readConfig()
 		require.Nil(t, err)
@@ -312,7 +347,7 @@ func assertMetricsFromServer(t *testing.T, in io.Reader, exportedMetrics map[str
 
 	for metricName, metricFamily := range mfMap {
 		_, ok := exportedMetrics[metricName]
-		require.NotEmpty(t, ok)
+		assert.True(t, ok)
 
 		labels := []string{}
 		for _, labelPair := range metricFamily.Metric[0].Label {

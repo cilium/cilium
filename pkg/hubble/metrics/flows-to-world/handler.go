@@ -161,6 +161,6 @@ func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) 
 	return nil
 }
 
-func (h *flowsToWorldHandler) Deinit(registry *prometheus.Registry) {
-	registry.Unregister(h.flowsToWorld)
+func (h *flowsToWorldHandler) Deinit(registry *prometheus.Registry) bool {
+	return registry.Unregister(h.flowsToWorld)
 }
