@@ -43,6 +43,7 @@ jobs:
   has-credentials:
     name: Check for Quay secrets
     runs-on: ubuntu-24.04
+    environment: ${{ inputs.environment || 'release-base-images' }}
     timeout-minutes: 2
     outputs:
       present: ${{ steps.secrets.outputs.present }}
