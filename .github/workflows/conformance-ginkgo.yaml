@@ -224,10 +224,10 @@ jobs:
           dir="/tmp/generated/ginkgo"
           cd ${dir}
           jq --argjson prs "$(jq '.["k8s-version"]' ${k8s_versions_to_run})" \
-            --argfile focus main-focus.json \
-            '.include |= map(select(.["k8s-version"] as $k | $prs[] | select($k == .))) + $focus.include |
+            --slurpfile focus main-focus.json \
+            '.include |= map(select(.["k8s-version"] as $k | $prs[] | select($k == .))) + $focus[0].include |
             . + {"k8s-version": $prs} |
-            .focus = $focus.focus | .exclude = $focus.exclude' \
+            .focus = $focus[0].focus | .exclude = $focus[0].exclude' \
             main-k8s-versions.json> /tmp/merged.json
           echo "Generated matrix:"
           cat /tmp/merged.json
