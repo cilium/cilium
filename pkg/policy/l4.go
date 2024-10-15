@@ -1110,7 +1110,7 @@ func addL4Filter(policyCtx PolicyContext,
 	ctx *SearchContext, resMap L4PolicyMap,
 	p api.PortProtocol, proto api.L4Proto,
 	filterToMerge *L4Filter,
-	ruleLabels labels.LabelArray) error {
+) error {
 
 	existingFilter := resMap.ExactLookup(p.Port, uint16(p.EndPort), string(proto))
 	if existingFilter == nil {
