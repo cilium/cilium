@@ -12,6 +12,10 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+func logFinalMode(c Config, l *slog.Logger) {
+	l.Info("Determined final XDP mode", "acceleration-mode", c.AccelerationMode(), "mode", c.Mode())
+}
+
 // Cell is a cell that provides the configuration parameters
 // for XDP based on requests from external modules.
 var Cell = cell.Module(
@@ -50,7 +54,15 @@ var Cell = cell.Module(
 		},
 	),
 
-	cell.Invoke(func(c Config, l *slog.Logger) {
-		l.Info("Determined final XDP mode", "acceleration-mode", c.AccelerationMode(), "mode", c.Mode())
-	}),
+	cell.Invoke(logFinalMode),
+)
+
+// TestCell is provided for unit tests which may depend on XDP configuration
+// or validation.
+var TestCell = cell.Module(
+	"test-datapath-xdp-config",
+	"Test XDP configuration",
+
+	cell.Provide(newConfig),
+	cell.Invoke(logFinalMode),
 )
