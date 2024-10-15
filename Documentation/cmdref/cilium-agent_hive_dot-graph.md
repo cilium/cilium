@@ -51,6 +51,7 @@ cilium-agent hive dot-graph [flags]
       --enable-hubble-open-metrics                                Enable exporting hubble metrics in OpenMetrics format
       --enable-hubble-recorder-api                                Enable the Hubble recorder API (default true)
       --enable-ingress-controller                                 Enables Envoy secret sync for Ingress controller related TLS secrets
+      --enable-ipsec-acceleration                                 Enable acceleration for IPSec using RPS (experimental).
       --enable-ipv4-big-tcp                                       Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4
       --enable-ipv6-big-tcp                                       Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6
       --enable-k8s                                                Enable the k8s clientset (default true)
@@ -168,6 +169,7 @@ cilium-agent hive dot-graph [flags]
       --tunnel-protocol string                                    Encapsulation protocol to use for the overlay ("vxlan" or "geneve") (default "vxlan")
       --use-full-tls-context                                      If enabled, persist ca.crt keys into the Envoy config even in a terminatingTLS block on an L7 Cilium Policy. This is to enable compatibility with previously buggy behaviour. This flag is deprecated and will be removed in a future release.
       --write-cni-conf-when-ready string                          Write the CNI configuration to the specified path when agent is ready
+      --xdp-cpumap-qsize uint32                                   Redirection queue size for the XDP cpumap. (default 255)
 ```
 
 ### SEE ALSO

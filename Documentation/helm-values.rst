@@ -1116,6 +1116,10 @@
      - Enable transparent network encryption.
      - bool
      - ``false``
+   * - :spelling:ignore:`encryption.ipsec.accelerate`
+     - Enable Receive Packet Steering (RPS) for ESP packets (experimental).
+     - bool
+     - ``false``
    * - :spelling:ignore:`encryption.ipsec.encryptedOverlay`
      - Enable IPsec encrypted overlay
      - bool

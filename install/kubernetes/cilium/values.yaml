@@ -1009,6 +1009,8 @@ encryption:
     keyRotationDuration: "5m"
     # -- Enable IPsec encrypted overlay
     encryptedOverlay: false
+    # -- Enable Receive Packet Steering (RPS) for ESP packets (experimental).
+    accelerate: false
   wireguard:
     # -- Controls WireGuard PersistentKeepalive option. Set 0s to disable.
     persistentKeepalive: 0s

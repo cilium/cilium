@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	dpcfg "github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsecrps"
 	"github.com/cilium/cilium/pkg/datapath/linux/modules"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
@@ -126,6 +127,9 @@ var Cell = cell.Module(
 
 	// IPsec cell provides the IPsecKeyCustodian.
 	ipsec.Cell,
+
+	// IPSecRPS cell provides the IPSec RPS configuration.
+	ipsecrps.Cell,
 
 	// MTU provides the MTU configuration of the node.
 	mtu.Cell,

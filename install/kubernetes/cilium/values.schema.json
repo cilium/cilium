@@ -1681,6 +1681,9 @@
         },
         "ipsec": {
           "properties": {
+            "accelerate": {
+              "type": "boolean"
+            },
             "encryptedOverlay": {
               "type": "boolean"
             },

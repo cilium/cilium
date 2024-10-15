@@ -625,6 +625,9 @@ data:
     {{- if and .Values.encryption.ipsec.mountPath .Values.encryption.ipsec.keyFile }}
   ipsec-key-file: {{ .Values.encryption.ipsec.mountPath }}/{{ .Values.encryption.ipsec.keyFile }}
     {{- end }}
+    {{- if .Values.encryption.ipsec.accelerate }}
+  enable-ipsec-acceleration: "true"
+    {{- end }}
     {{- if .Values.encryption.ipsec.interface }}
   encrypt-interface: {{ .Values.encryption.ipsec.interface }}
     {{- end }}
