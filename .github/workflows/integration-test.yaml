@@ -85,7 +85,7 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
-          sudo apt update && sudo apt install -y --no-install-recommends build-essential make libncurses5
+          sudo apt update && sudo apt install -y --no-install-recommends build-essential make
 
       - name: Install Docker (arm64)
         if: ${{ matrix.arch == 'ubuntu-22.04-arm64' }}
