@@ -79,11 +79,15 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 		}
 		if p.config.EnableCiliumNetworkPolicy {
 			cnpEvents = p.ciliumNetworkPolicies.Events(ctx)
+		}
+		if p.config.EnableCiliumClusterwideNetworkPolicy {
 			ccnpEvents = p.ciliumClusterwideNetworkPolicies.Events(ctx)
-			// Cilium CDR Group CRD is only used with Cilium Network Policies.
+		}
+		if p.config.EnableCiliumNetworkPolicy || p.config.EnableCiliumClusterwideNetworkPolicy {
+			// Cilium CDR Group CRD is only used with CNP/CCNP.
 			// https://docs.cilium.io/en/latest/network/kubernetes/ciliumcidrgroup/
 			cidrGroupEvents = p.ciliumCIDRGroups.Events(ctx)
-			// Service Cache Notifications are only used with Cilium Network Policies.
+			// Service Cache Notifications are only used with CNP/CCNP.
 			serviceEvents = p.svcCacheNotifications
 		}
 

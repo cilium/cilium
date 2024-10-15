@@ -51,7 +51,13 @@ func agentCRDResourceNames() []string {
 
 	if option.Config.EnableCiliumNetworkPolicy {
 		result = append(result, CRDResourceName(v2.CNPName))
+	}
+
+	if option.Config.EnableCiliumClusterwideNetworkPolicy {
 		result = append(result, CRDResourceName(v2.CCNPName))
+	}
+
+	if option.Config.EnableCiliumNetworkPolicy || option.Config.EnableCiliumClusterwideNetworkPolicy {
 		result = append(result, CRDResourceName(v2alpha1.CCGName))
 	}
 
