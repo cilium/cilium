@@ -5,7 +5,9 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"strings"
 
@@ -159,6 +161,13 @@ func (d *Daemon) initMaps() error {
 	if option.Config.TunnelingEnabled() {
 		if err := tunnel.TunnelMap().Recreate(); err != nil {
 			return fmt.Errorf("initializing tunnel map: %w", err)
+		}
+	} else {
+		// Make sure that the tunnel map gets unpinned when running in native
+		// routing mode, to prevent stale leftover entries when changing mode.
+		err := tunnel.TunnelMap().Unpin()
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("removing tunnel map: %w", err)
 		}
 	}
 
