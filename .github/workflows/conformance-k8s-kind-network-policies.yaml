@@ -74,7 +74,7 @@ jobs:
           sudo cp ${TMP_DIR}/e2e.test /usr/local/bin/e2e.test
           sudo cp ${TMP_DIR}/kubectl /usr/local/bin/kubectl
           sudo cp ${TMP_DIR}/kind /usr/local/bin/kind
-          sudo chmod +x /usr/local/bin/*
+          sudo chmod +x /usr/local/bin/ginkgo /usr/local/bin/e2e.test /usr/local/bin/kubectl /usr/local/bin/kind
           sudo rm -rf ${TMP_DIR}
 
       - name: Create multi node cluster
