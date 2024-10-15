@@ -199,6 +199,23 @@ func WithEnforceXDPDisabled(reason string) enablerOpt {
 	}
 }
 
+// WithEnforceXDPNative registers a validation function that
+// returns an error if XDP is not enabled in native mode.
+func WithEnforceXDPNative(reason string) enablerOpt {
+	return func(te *enabler) {
+		te.validators = append(
+			te.validators,
+			func(m AccelerationMode, _ Mode) error {
+				if m != AccelerationModeNative {
+					return fmt.Errorf("XDP config failed validation: XDP must be native because %s", reason)
+				}
+
+				return nil
+			},
+		)
+	}
+}
+
 type enabler struct {
 	mode       AccelerationMode
 	validators []Validator

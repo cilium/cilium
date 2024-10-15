@@ -97,6 +97,30 @@ func TestConf(t *testing.T) {
 			accelerationMode: AccelerationModeDisabled,
 			mode:             ModeLinkNone,
 		},
+		{
+			name: "conflicting enablers, disabled and native validator",
+			enablers: []any{
+				enabler(AccelerationModeDisabled, WithEnforceXDPDisabled("test disabled")),
+				enabler(AccelerationModeNative, WithEnforceXDPNative("test disabled")),
+			},
+			givesError: true,
+		},
+		{
+			name:       "native overwrites best effort",
+			enablers:   []any{enabler(AccelerationModeBestEffort, WithEnforceXDPNative("test best effort"))},
+			givesError: true,
+		},
+		{
+			name:       "conflicting enablers, generic and native validator",
+			enablers:   []any{enabler(AccelerationModeGeneric, WithEnforceXDPNative("test generic"))},
+			givesError: true,
+		},
+		{
+			name:             "native validator passes when native",
+			enablers:         []any{enabler(AccelerationModeNative, WithEnforceXDPNative("test native"))},
+			accelerationMode: AccelerationModeNative,
+			mode:             ModeLinkDriver,
+		},
 	}
 
 	for _, test := range tests {
