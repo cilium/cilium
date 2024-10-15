@@ -75,9 +75,9 @@ func newConfig(in newConfigIn) (Config, error) {
 			return cfg, fmt.Errorf("unknown xdp mode: %s", e.mode)
 		}
 
-		if e.mode != cfg.mode {
-			allValidators = append(allValidators, e.validators...)
+		allValidators = append(allValidators, e.validators...)
 
+		if e.mode != cfg.mode {
 			// If an enabler requests a mode that we've already set,
 			// then there's nothing to do.
 			if cfg.mode == e.mode {
