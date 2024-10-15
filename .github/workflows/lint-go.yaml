@@ -116,7 +116,7 @@ jobs:
       - name: Check api generated files
         run: |
           cd src/github.com/cilium/cilium
-          contrib/scripts/check-api-code-gen.sh
+          make generate-k8s-api
 
   generate-k8s-api:
     runs-on: ubuntu-latest
