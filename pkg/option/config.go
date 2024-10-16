@@ -1145,6 +1145,9 @@ const (
 	// EnableEndpointLockdownOnPolicyOverflow enables endpoint lockdown when an endpoint's
 	// policy map overflows.
 	EnableEndpointLockdownOnPolicyOverflow = "enable-endpoint-lockdown-on-policy-overflow"
+
+	// ConnectivityProbeFrequencyRatio is the name of the option to specify the connectivity probe frequency
+	ConnectivityProbeFrequencyRatio = "connectivity-probe-frequency-ratio"
 )
 
 // Default string arguments
@@ -2254,6 +2257,9 @@ type DaemonConfig struct {
 	// EnableEndpointLockdownOnPolicyOverflow enables endpoint lockdown when an endpoint's
 	// policy map overflows.
 	EnableEndpointLockdownOnPolicyOverflow bool
+
+	// ConnectivityProbeFrequencyRatio is the ratio of the connectivity probe frequency vs resource consumption
+	ConnectivityProbeFrequencyRatio float64
 }
 
 var (
@@ -2317,6 +2323,8 @@ var (
 		EnableNonDefaultDenyPolicies: defaults.EnableNonDefaultDenyPolicies,
 
 		EnableSourceIPVerification: defaults.EnableSourceIPVerification,
+
+		ConnectivityProbeFrequencyRatio: defaults.ConnectivityProbeFrequencyRatio,
 	}
 )
 
@@ -3327,6 +3335,15 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.LoadBalancerOnly = vp.GetBool(LoadBalancerOnly)
 	c.EnableInternalTrafficPolicy = vp.GetBool(EnableInternalTrafficPolicy)
 	c.EnableSourceIPVerification = vp.GetBool(EnableSourceIPVerification)
+
+	// Allow the range [0.0, 1.0].
+	connectivityFreqRatio := vp.GetFloat64(ConnectivityProbeFrequencyRatio)
+	if 0.0 <= connectivityFreqRatio && connectivityFreqRatio <= 1.0 {
+		c.ConnectivityProbeFrequencyRatio = connectivityFreqRatio
+	} else {
+		log.Warningf("specified connectivity probe frequency ratio %f must be in the range [0.0, 1.0], using default", connectivityFreqRatio)
+		c.ConnectivityProbeFrequencyRatio = defaults.ConnectivityProbeFrequencyRatio
+	}
 }
 
 func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
