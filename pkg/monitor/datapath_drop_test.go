@@ -16,7 +16,7 @@ import (
 func TestDecodeDropNotify(t *testing.T) {
 	// This check on the struct length constant is there to ensure that this
 	// test is updated when the struct changes.
-	require.Equal(t, 36, DropNotifyLen)
+	require.Equal(t, 36, DropNotifyV1Len)
 
 	input := DropNotify{
 		Type:     0x00,
@@ -24,7 +24,8 @@ func TestDecodeDropNotify(t *testing.T) {
 		Source:   0x02_03,
 		Hash:     0x04_05_06_07,
 		OrigLen:  0x08_09_0a_0b,
-		CapLen:   0x0c_0d_0e_10,
+		CapLen:   0x0c_0d,
+		Version:  0x01,
 		SrcLabel: 0x11_12_13_14,
 		DstLabel: 0x15_16_17_18,
 		DstID:    0x19_1a_1b_1c,
