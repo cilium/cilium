@@ -109,8 +109,6 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             key-one: 'gcm(aes)'
             key-two: 'cbc(aes)'
             key-type-one: '+'
@@ -122,8 +120,6 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             key-one: 'cbc(aes)'
             key-two: 'cbc(aes)'
             key-type-one: '+'
@@ -135,8 +131,6 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             endpoint-routes: 'true'
             key-one: 'gcm(aes)'
             key-two: 'gcm(aes)'
@@ -149,8 +143,6 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'geneve'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             endpoint-routes: 'true'
             key-one: 'cbc(aes)'
             key-two: 'gcm(aes)'
@@ -163,8 +155,6 @@ jobs:
             kube-proxy: 'none'
             kpr: 'true'
             tunnel: 'disabled'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             key-one: 'cbc(aes)'
             key-two: 'cbc(aes)'
             key-type-one: '+'
@@ -176,9 +166,8 @@ jobs:
             kube-proxy: 'none'
             kpr: 'true'
             tunnel: 'disabled'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             endpoint-routes: 'true'
+            egress-gateway: 'true'
             key-one: 'gcm(aes)'
             key-two: 'gcm(aes)'
             key-type-one: '+'
@@ -190,8 +179,6 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             encryption-overlay: 'true'
             key-one: 'gcm(aes)'
             key-two: 'gcm(aes)'
@@ -204,8 +191,7 @@ jobs:
             kube-proxy: 'none'
             kpr: 'true'
             tunnel: 'vxlan'
-            encryption: 'ipsec'
-            encryption-node: 'false'
+            egress-gateway: 'true'
             key-one: 'gcm(aes)'
             key-two: 'gcm(aes)'
             key-type-one: '+'
@@ -254,7 +240,7 @@ jobs:
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
           lb-acceleration: ${{ matrix.lb-acceleration }}
-          encryption: ${{ matrix.encryption }}
+          encryption: 'ipsec'
           encryption-node: ${{ matrix.encryption-node }}
           encryption-overlay: ${{ matrix.encryption-overlay }}
           egress-gateway: ${{ matrix.egress-gateway }}
@@ -331,13 +317,11 @@ jobs:
 
           echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
 
-      - name: Start unencrypted packets check
-        uses: ./.github/actions/bpftrace/start
-        with:
-          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "true"
-
-      - name: Run tests (${{ join(matrix.*, ', ') }})
+      # We need to run the egress gateway tests before checking for unencrypted
+      # packets because redirected pod->world traffic will otherwise be
+      # detected as wrongly unencrypted (when that's expected).
+      - name: Run egress gateway tests (${{ join(matrix.*, ', ') }})
+        if: ${{ matrix.egress-gateway == 'true' }}
         shell: bash
         run: |
           mkdir -p cilium-junits
@@ -347,6 +331,26 @@ jobs:
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+            --test egress-gateway \
+            --flush-ct
+
+      - name: Start unencrypted packets check
+        uses: ./.github/actions/bpftrace/start
+        with:
+          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }} "true"
+
+      - name: Run all other tests (${{ join(matrix.*, ', ') }})
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+
+          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+            --test '!egress-gateway' \
             --flush-ct
 
       - name: Assert that no unencrypted packets are leaked
@@ -377,6 +381,23 @@ jobs:
       - name: Check conn-disrupt-test after rotating (${{ join(matrix.*, ', ') }})
         uses: ./.github/actions/conn-disrupt-test-check
 
+      # We need to run the egress gateway tests before checking for unencrypted
+      # packets because redirected pod->world traffic will otherwise be
+      # detected as wrongly unencrypted (when that's expected).
+      - name: Run egress gateway tests (${{ join(matrix.*, ', ') }})
+        if: ${{ matrix.egress-gateway == 'true' }}
+        shell: bash
+        run: |
+          mkdir -p cilium-junits
+
+          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+            --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+            --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+            --test egress-gateway \
+            --flush-ct
+
       - name: Start unencrypted packets check for tests
         uses: ./.github/actions/bpftrace/start
         with:
@@ -399,6 +420,7 @@ jobs:
             --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
             --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
             --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+            --test '!egress-gateway' \
             --flush-ct $TEST
 
       - name: Assert that no unencrypted packets are leaked during tests
