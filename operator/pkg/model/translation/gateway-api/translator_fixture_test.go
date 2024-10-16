@@ -134,6 +134,9 @@ func buildHTTPInsecureListenerXDSResourceWithXFF(routeName string, xffNumTrusted
 								UseRemoteAddress:  &wrapperspb.BoolValue{Value: true},
 								SkipXffAppend:     false,
 								XffNumTrustedHops: xffNumTrustedHops,
+								InternalAddressConfig: &http_connection_manager_v3.HttpConnectionManager_InternalAddressConfig{
+									UnixSockets: true,
+								},
 								HttpFilters: []*http_connection_manager_v3.HttpFilter{
 									{
 										Name: "envoy.filters.http.grpc_web",
@@ -5649,6 +5652,9 @@ func toListenerFilter(routeName string) *envoy_config_listener.Filter {
 				},
 				UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
 				SkipXffAppend:    false,
+				InternalAddressConfig: &http_connection_manager_v3.HttpConnectionManager_InternalAddressConfig{
+					UnixSockets: true,
+				},
 				HttpFilters: []*http_connection_manager_v3.HttpFilter{
 					{
 						Name: "envoy.filters.http.grpc_web",
