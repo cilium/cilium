@@ -4,9 +4,8 @@
 package xdp
 
 import (
-	"testing"
-
 	"log/slog"
+	"testing"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
@@ -21,10 +20,10 @@ func TestConf(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		enablers         []any
-		givesError       bool
 		accelerationMode AccelerationMode
 		mode             Mode
+		enablers         []any
+		givesError       bool
 	}{
 		{
 			name:             "enable generic",
@@ -112,11 +111,12 @@ func TestConf(t *testing.T) {
 
 			if test.givesError {
 				if err == nil {
-					t.Error("expected error from hive but got nil")
-					t.FailNow()
+					t.Fatal("expected error from hive but got nil")
 				}
 
 				return
+			} else if err != nil {
+				t.Fatalf("unexpected error from hive: %s", err.Error())
 			}
 
 			if result.AccelerationMode() != test.accelerationMode {

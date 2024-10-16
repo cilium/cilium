@@ -70,7 +70,6 @@ func newConfig(in newConfigIn) (Config, error) {
 		// Ensure the mode given in the enabler is valid.
 		switch e.mode {
 		case AccelerationModeBestEffort, AccelerationModeNative, AccelerationModeGeneric, AccelerationModeDisabled:
-			break
 		default:
 			return cfg, fmt.Errorf("unknown xdp mode: %s", e.mode)
 		}
