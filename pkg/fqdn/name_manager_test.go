@@ -74,6 +74,10 @@ func (m *mockIPCache) RemoveMetadataBatch(updates ...ipcache.MU) (revision uint6
 	return 0
 }
 
+func (m *mockIPCache) GetPendingRevision() (revision uint64) {
+	return 0
+}
+
 func (m *mockIPCache) WaitForRevision(ctx context.Context, rev uint64) error {
 	return nil
 }

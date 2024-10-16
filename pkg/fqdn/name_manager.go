@@ -274,6 +274,13 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
+		if ipcacheRevision == 0 {
+			log.WithFields(logrus.Fields{
+				"updatedDNSNames": updatedDNSNames,
+				"ipcacheRevision": ipcacheRevision,
+			}).Warn("FQDN: WaitForRevision ZERO")
+		}
+
 		return n.config.IPCache.WaitForRevision(ctx, ipcacheRevision)
 	})
 	return g
@@ -322,6 +329,12 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 		updated := n.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL)
 
 		// The IPs didn't change. No more to be done for this dnsName
+		//
+		// NOTE: This can happen due to RegisterFQDNSelector() already having updated the
+		// cached IPs. In this case 'updatedMetadata' can remain empty, leading to
+		// updateMetadata() returning a ZERO ipcacheRevision to wait for, even though the
+		// actual update may still be in progress. In this case we'll release the DNS
+		// response back to the source pod too soon!
 		if !updated && n.bootstrapCompleted {
 			log.WithFields(logrus.Fields{
 				"dnsName":   dnsName,
@@ -348,6 +361,10 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 			// If no selectors care about this name, then skip IPCache updates
 			// for this name.
 			// If any selectors/ are added later, ipcache insertion will happen then.
+			log.WithFields(logrus.Fields{
+				"dnsName":   dnsName,
+				"lookupIPs": lookupIPs,
+			}).Debug("FQDN: No selectors care about this name")
 			continue
 		}
 
@@ -399,6 +416,7 @@ func ipcacheResource(dnsName string) ipcacheTypes.ResourceID {
 
 // updateMetadata updates (i.e. upserts or removes) the metadata in IPCache for
 // each (name, IP) pair provided in nameToMetadata.
+// Returns ipcache revision number to wait for to have the updates applied.
 func (n *NameManager) updateMetadata(nameToMetadata map[string]nameMetadata) (ipcacheRevision uint64) {
 	var ipcacheUpserts, ipcacheRemovals []ipcache.MU
 
@@ -411,7 +429,7 @@ func (n *NameManager) updateMetadata(nameToMetadata map[string]nameMetadata) (ip
 				"name":     dnsName,
 				"prefixes": metadata.addrs,
 				"labels":   metadata.labels,
-			}).Debug("Updating prefix labels in IPCache")
+			}).Debug("FQDN: Updating prefix labels in IPCache")
 		}
 
 		for _, addr := range metadata.addrs {
@@ -439,6 +457,13 @@ func (n *NameManager) updateMetadata(nameToMetadata map[string]nameMetadata) (ip
 	}
 	if len(ipcacheRemovals) > 0 {
 		ipcacheRevision = n.config.IPCache.RemoveMetadataBatch(ipcacheRemovals...)
+	}
+	// Since the same updates may originate from multiple callers concurrently, only the first
+	// caller gets to actually make the updates, while both of them may depend on the changes to
+	// have applied before thay can continue. If there are no upserts or removals return the
+	// revision of the latest pending revision instead of zero.
+	if ipcacheRevision == 0 {
+		ipcacheRevision = n.config.IPCache.GetPendingRevision()
 	}
 
 	return ipcacheRevision
