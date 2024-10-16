@@ -28,7 +28,7 @@ type ciliumEnvoyConfigManager interface {
 	addCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error
 	updateCiliumEnvoyConfig(oldCECObjectMeta metav1.ObjectMeta, oldCECSpec *ciliumv2.CiliumEnvoyConfigSpec, newCECObjectMeta metav1.ObjectMeta, newCECSpec *ciliumv2.CiliumEnvoyConfigSpec) error
 	deleteCiliumEnvoyConfig(cecObjectMeta metav1.ObjectMeta, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error
-	syncCiliumEnvoyConfigService(name string, namespace string, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error
+	syncHeadlessService(name string, namespace string, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error
 }
 
 type cecManager struct {
@@ -153,10 +153,10 @@ func (r *cecManager) addK8sServiceRedirects(resourceName service.L7LBResourceNam
 			return err
 		}
 	}
-	return r.syncCiliumEnvoyConfigService(resourceName.Name, resourceName.Namespace, spec)
+	return r.syncHeadlessService(resourceName.Name, resourceName.Namespace, spec)
 }
 
-func (r *cecManager) syncCiliumEnvoyConfigService(name string, namespace string, spec *ciliumv2.CiliumEnvoyConfigSpec) error {
+func (r *cecManager) syncHeadlessService(name string, namespace string, spec *ciliumv2.CiliumEnvoyConfigSpec) error {
 	resourceName := service.L7LBResourceName{Name: name, Namespace: namespace}
 
 	// Register services for Envoy backend sync
@@ -172,8 +172,12 @@ func (r *cecManager) syncCiliumEnvoyConfigService(name string, namespace string,
 			return err
 		}
 
+		if kSvc == nil {
+			return fmt.Errorf("could not retrieve service details for service %s/%s", svc.Namespace, svc.Name)
+		}
+
 		// Skip non-headless services as they are already supported in Cilium datapath LB service.
-		if kSvc == nil || kSvc.Spec.ClusterIP != slim_corev1.ClusterIPNone {
+		if kSvc.Spec.ClusterIP != slim_corev1.ClusterIPNone {
 			continue
 		}
 
@@ -182,8 +186,14 @@ func (r *cecManager) syncCiliumEnvoyConfigService(name string, namespace string,
 			return err
 		}
 		if ep == nil {
-			continue
+			return fmt.Errorf("could not retrieve endpoint details for service %s/%s", svc.Namespace, svc.Name)
 		}
+
+		r.logger.WithField("TAM", "TAM CEC Manager 3").
+			WithField("resource_name", resourceName).
+			WithField("endpoint_name", ep.Name).
+			WithField("endpoint_namespace", ep.Namespace).
+			Debug("Synced headless services for CEC, ALL GOOD")
 
 		// Explicitly call backendSyncer.Sync for headless service
 		for _, s := range convertToLBService(kSvc, ep) {
