@@ -1243,8 +1243,15 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 		Identity:     4567,
 		IPv4:         net.ParseIP("1.1.1.1"),
 		PodName:      "xwing",
-		PodNamespace: "default",
-		Labels:       []string{"a", "b", "c"},
+		PodNamespace: "kube-system",
+		Labels: []string{
+			"k8s:io.cilium.k8s.policy.cluster=default",
+			"k8s:io.kubernetes.pod.namespace=kube-system",
+			"k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=kube-system",
+			"k8s:org=alliance",
+			"k8s:class=xwing",
+			"k8s:app.kubernetes.io/name=xwing",
+		},
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
@@ -1280,7 +1287,7 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 	assert.Equal(t, uint32(ep.ID), f.Source.ID)
 	assert.Equal(t, uint32(v0.SrcLabel), f.Source.Identity)
 	assert.Equal(t, ep.PodNamespace, f.Source.Namespace)
-	assert.Equal(t, ep.Labels, f.Source.Labels)
+	assert.Equal(t, common.SortAndFilterLabels(log, ep.Labels, ep.Identity), f.Source.Labels)
 	assert.Equal(t, ep.PodName, f.Source.PodName)
 }
 

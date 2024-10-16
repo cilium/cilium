@@ -44,8 +44,16 @@ func TestDecodeDebugEvent(t *testing.T) {
 				return &testutils.FakeEndpointInfo{
 					ID:           1234,
 					Identity:     5678,
-					PodName:      "somepod",
-					PodNamespace: "default",
+					PodName:      "hubble-ui",
+					PodNamespace: "kube-system",
+					Labels: []string{
+						"k8s:io.cilium.k8s.policy.cluster=default",
+						"k8s:io.kubernetes.pod.namespace=kube-system",
+						"k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=kube-system",
+						"k8s:k8s-app=hubble-ui",
+						"k8s:app.kubernetes.io/name=hubble-ui",
+						"k8s:app.kubernetes.io/part-of=cilium",
+					},
 				}, true
 			}
 			return nil, false
@@ -98,8 +106,16 @@ func TestDecodeDebugEvent(t *testing.T) {
 				Source: &flowpb.Endpoint{
 					ID:        1234,
 					Identity:  5678,
-					PodName:   "somepod",
-					Namespace: "default",
+					PodName:   "hubble-ui",
+					Namespace: "kube-system",
+					Labels: []string{
+						"k8s:app.kubernetes.io/name=hubble-ui",
+						"k8s:app.kubernetes.io/part-of=cilium",
+						"k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=kube-system",
+						"k8s:io.cilium.k8s.policy.cluster=default",
+						"k8s:io.kubernetes.pod.namespace=kube-system",
+						"k8s:k8s-app=hubble-ui",
+					},
 				},
 				Hash:    wrapperspb.UInt32(705182630),
 				Arg1:    wrapperspb.UInt32(3909094154),
@@ -124,8 +140,16 @@ func TestDecodeDebugEvent(t *testing.T) {
 				Source: &flowpb.Endpoint{
 					ID:        1234,
 					Identity:  5678,
-					PodName:   "somepod",
-					Namespace: "default",
+					PodName:   "hubble-ui",
+					Namespace: "kube-system",
+					Labels: []string{
+						"k8s:app.kubernetes.io/name=hubble-ui",
+						"k8s:app.kubernetes.io/part-of=cilium",
+						"k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=kube-system",
+						"k8s:io.cilium.k8s.policy.cluster=default",
+						"k8s:io.kubernetes.pod.namespace=kube-system",
+						"k8s:k8s-app=hubble-ui",
+					},
 				},
 				Hash:    wrapperspb.UInt32(0x9dd55684),
 				Arg1:    wrapperspb.UInt32(129),
