@@ -412,8 +412,8 @@ func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, al
 		}
 	}
 
-	fmt.Fprintf(w, "Cluster health:\t%d/%d reachable\t(%s)\n",
-		healthy, len(sr.Nodes), sr.Timestamp)
+	fmt.Fprintf(w, "Cluster health:\t%d/%d reachable\t(%s)\t(Probe interval: %s)\n",
+		healthy, len(sr.Nodes), sr.Timestamp, sr.ProbeInterval)
 
 	fmt.Fprintf(w, "Name\tIP\tNode\tEndpoints\n")
 
