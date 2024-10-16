@@ -104,10 +104,11 @@ func TestDecodeDebugEvent(t *testing.T) {
 			ev: &flowpb.DebugEvent{
 				Type: flowpb.DebugEventType_DBG_IP_ID_MAP_SUCCEED4,
 				Source: &flowpb.Endpoint{
-					ID:        1234,
-					Identity:  5678,
-					PodName:   "hubble-ui",
-					Namespace: "kube-system",
+					ID:          1234,
+					Identity:    5678,
+					PodName:     "hubble-ui",
+					ClusterName: "default",
+					Namespace:   "kube-system",
 					Labels: []string{
 						"k8s:app.kubernetes.io/name=hubble-ui",
 						"k8s:app.kubernetes.io/part-of=cilium",
@@ -138,10 +139,11 @@ func TestDecodeDebugEvent(t *testing.T) {
 			ev: &flowpb.DebugEvent{
 				Type: flowpb.DebugEventType_DBG_ICMP6_HANDLE,
 				Source: &flowpb.Endpoint{
-					ID:        1234,
-					Identity:  5678,
-					PodName:   "hubble-ui",
-					Namespace: "kube-system",
+					ID:          1234,
+					Identity:    5678,
+					PodName:     "hubble-ui",
+					ClusterName: "default",
+					Namespace:   "kube-system",
 					Labels: []string{
 						"k8s:app.kubernetes.io/name=hubble-ui",
 						"k8s:app.kubernetes.io/part-of=cilium",
