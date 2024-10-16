@@ -407,7 +407,7 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.LabelArray, identity *identity.Identity) (MapState, error) {
 	sp := d.Repository.GetPolicyCache().insert(identity)
 	d.Repository.GetPolicyCache().UpdatePolicy(identity)
-	epp := sp.Consume(DummyOwner{})
+	epp := sp.Consume(DummyOwner{}, testRedirects)
 	if epp == nil {
 		return nil, errors.New("policy distillation failure")
 	}

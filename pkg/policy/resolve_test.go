@@ -51,6 +51,10 @@ func (d *dummyEndpoint) GetSecurityIdentity() (*identity.Identity, error) {
 	return d.SecurityIdentity, nil
 }
 
+var testRedirects = map[string]uint16{
+	"1234:ingress:TCP:80:": 1,
+}
+
 func generateNumIdentities(numIdentities int) identity.IdentityMap {
 	c := make(identity.IdentityMap, numIdentities)
 	for i := 0; i < numIdentities; i++ {
@@ -152,15 +156,7 @@ func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 
 type DummyOwner struct{}
 
-func (d DummyOwner) LookupRedirectPort(bool, string, uint16, string) (uint16, error) {
-	return 1, nil
-}
-
-func (d DummyOwner) GetRealizedRedirects() map[string]uint16 {
-	return map[string]uint16{
-		// This is the only proxy ID currently used in this test suite
-		"1234:ingress:TCP:80:": 1,
-	}
+func (d DummyOwner) CreateRedirects(*L4Filter) {
 }
 
 func (d DummyOwner) GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16 {
@@ -220,7 +216,7 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 	b.ResetTimer()
 	n := 0
 	for i := 0; i < b.N; i++ {
-		epPolicy := ip.DistillPolicy(DummyOwner{}, false)
+		epPolicy := ip.DistillPolicy(DummyOwner{}, nil, false)
 		epPolicy.Ready()
 		n += epPolicy.policyMapState.Len()
 	}
@@ -234,7 +230,7 @@ func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		policy := ip.DistillPolicy(DummyOwner{}, false)
+		policy := ip.DistillPolicy(DummyOwner{}, nil, false)
 		policy.Ready()
 		ip.Detach()
 	}
@@ -246,7 +242,7 @@ func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		policy := ip.DistillPolicy(DummyOwner{}, false)
+		policy := ip.DistillPolicy(DummyOwner{}, nil, false)
 		policy.Ready()
 		ip.Detach()
 	}
@@ -296,10 +292,11 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, redirectTypeEnvoy, selPolicy.L4Policy.redirectTypes)
 
-	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects, false)
 	policy.Ready()
 
 	expectedEndpointPolicy := EndpointPolicy{
+		Redirects: testRedirects,
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
@@ -403,13 +400,14 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects, false)
 	policy.Ready()
 
 	cachedSelectorHost := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameHost])
 	require.NotNil(t, cachedSelectorHost)
 
 	expectedEndpointPolicy := EndpointPolicy{
+		Redirects: testRedirects,
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
@@ -508,13 +506,14 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects, false)
 	policy.Ready()
 
 	rule1MapStateEntry := NewMapStateEntry(td.wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, 0, "", 0, false, DefaultAuthType, AuthTypeDisabled)
 	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
+		Redirects: testRedirects,
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
@@ -636,7 +635,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, testRedirects, false)
 	policy.Ready()
 
 	// Add new identity to test accumulation of MapChanges
@@ -674,6 +673,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, 0, "", 0, false, ExplicitAuthType, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
+		Redirects: testRedirects,
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
