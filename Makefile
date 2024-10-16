@@ -303,14 +303,6 @@ generate-kvstoremesh-api: api/v1/kvstoremesh/openapi.yaml ## Generate kvstoremes
 generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto ## Generate hubble proto Go sources.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
 
-define generate_deepequal
-	$(GO) run github.com/cilium/deepequal-gen \
-	--go-header-file "$$PWD/hack/custom-boilerplate.go.txt" \
-	--output-file zz_generated.deepequal.go \
-	--output-base $(2) \
-	$(1)
-endef
-
 define generate_k8s_protobuf
 	$(GO) install k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo && \
 	$(GO) install golang.org/x/tools/cmd/goimports && \
@@ -348,10 +340,6 @@ generate-k8s-api-local:
 	$(eval TMPDIR := $(shell mktemp -d -t cilium.tmpXXXXXXXX))
 
 	$(QUIET) $(call generate_k8s_protobuf,${K8S_PROTO_PACKAGES},"$(TMPDIR)")
-
-	$(eval DEEPEQUAL_PACKAGES := $(shell grep "\+deepequal-gen" -l -r --include \*.go --exclude-dir 'vendor' . | xargs dirname {} | sort | uniq | grep -x -v '.' | sed 's|\.\/|github.com/cilium/cilium\/|g'))
-	$(QUIET) $(call generate_deepequal,${DEEPEQUAL_PACKAGES},"$(TMPDIR)")
-
 	$(QUIET) contrib/scripts/k8s-code-gen.sh "$(TMPDIR)"
 
 	$(QUIET) rm -rf "$(TMPDIR)"
