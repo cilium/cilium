@@ -1286,6 +1286,7 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 
 	assert.Equal(t, uint32(ep.ID), f.Source.ID)
 	assert.Equal(t, uint32(v0.SrcLabel), f.Source.Identity)
+	assert.Equal(t, "default", f.GetSource().GetClusterName())
 	assert.Equal(t, ep.PodNamespace, f.Source.Namespace)
 	assert.Equal(t, common.SortAndFilterLabels(log, ep.Labels, ep.Identity), f.Source.Labels)
 	assert.Equal(t, ep.PodName, f.Source.PodName)
