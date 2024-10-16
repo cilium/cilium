@@ -529,14 +529,24 @@ func (l4 *L4Filter) Equals(_ *testing.T, bL4 *L4Filter) bool {
 }
 
 // ChangeState allows caller to revert changes made by (multiple) toMapState call(s)
+// All fields are maps so we can pass this by value.
 type ChangeState struct {
-	Adds    Keys        // Added or modified keys, if not nil
-	Deletes Keys        // deleted keys, if not nil
-	Old     MapStateMap // Old values of all modified or deleted keys, if not nil
+	Adds    Keys                  // Added or modified keys, if not nil
+	Deletes Keys                  // deleted keys, if not nil
+	old     map[Key]mapStateEntry // Old values of all modified or deleted keys, if not nil
+}
+
+// NewRevertState returns an empty ChangeState suitable for reverting MapState changes.
+// The private 'old' field is initialized so that old state can be restored if need be.
+func NewRevertState() ChangeState {
+	return ChangeState{
+		Adds: make(Keys),
+		old:  make(map[Key]mapStateEntry),
+	}
 }
 
 func (c *ChangeState) Empty() bool {
-	return len(c.Adds)+len(c.Deletes)+len(c.Old) == 0
+	return len(c.Adds)+len(c.Deletes)+len(c.old) == 0
 }
 
 // toMapState converts a single filter into a MapState entries added to 'p.PolicyMapState'.
@@ -623,12 +633,12 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 				continue
 			}
 		}
-		entry := NewMapStateEntry(cs, l4.RuleOrigin[cs], proxyPort, currentRule.GetListener(), currentRule.GetPriority(), isDenyRule, hasAuth, authType)
+		entry := newMapStateEntry(cs, l4.RuleOrigin[cs], proxyPort, currentRule.GetListener(), currentRule.GetPriority(), isDenyRule, hasAuth, authType)
 
 		if cs.IsWildcard() {
 			for _, keyToAdd := range keysToAdd {
 				keyToAdd.Identity = 0
-				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, features, changes)
+				p.policyMapState.insertWithChanges(keyToAdd, entry, features, changes)
 
 				if port == 0 {
 					// Allow-all
@@ -660,15 +670,15 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 		for _, id := range idents {
 			for _, keyToAdd := range keysToAdd {
 				keyToAdd.Identity = id
-				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, features, changes)
+				p.policyMapState.insertWithChanges(keyToAdd, entry, features, changes)
 				// If Cilium is in dual-stack mode then the "World" identity
 				// needs to be split into two identities to represent World
 				// IPv6 and IPv4 traffic distinctly from one another.
 				if id == identity.ReservedIdentityWorld && option.Config.IsDualStack() {
 					keyToAdd.Identity = identity.ReservedIdentityWorldIPv4
-					p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, features, changes)
+					p.policyMapState.insertWithChanges(keyToAdd, entry, features, changes)
 					keyToAdd.Identity = identity.ReservedIdentityWorldIPv6
-					p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, features, changes)
+					p.policyMapState.insertWithChanges(keyToAdd, entry, features, changes)
 				}
 			}
 		}
@@ -677,7 +687,7 @@ func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redir
 		log.WithFields(logrus.Fields{
 			logfields.PolicyKeysAdded:   changes.Adds,
 			logfields.PolicyKeysDeleted: changes.Deletes,
-			logfields.PolicyEntriesOld:  changes.Old,
+			logfields.PolicyEntriesOld:  changes.old,
 		}).Debug("ToMapChange changes")
 	}
 }
@@ -1630,7 +1640,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 			keysToAdd = append(keysToAdd,
 				KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 		}
-		value := NewMapStateEntry(cs, derivedFrom, proxyPort, listener, priority, isDeny, hasAuth, authType)
+		value := newMapStateEntry(cs, derivedFrom, proxyPort, listener, priority, isDeny, hasAuth, authType)
 
 		if option.Config.Debug {
 			authString := "default"
@@ -1650,7 +1660,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 				logfields.ListenerPriority: priority,
 			}).Debug("AccumulateMapChanges")
 		}
-		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, keysToAdd, value)
+		epPolicy.policyMapChanges.AccumulateMapChanges(adds, deletes, keysToAdd, value)
 	}
 }
 

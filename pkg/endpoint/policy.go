@@ -46,6 +46,37 @@ var (
 	syncAddressIdentityMappingControllerGroup   = controller.NewGroup("sync-address-identity-mapping")
 )
 
+// realizedPolicy represents the policy an endpoint is running with. Empty realizedPolicy matches
+// with initial non-enforced policy state.
+type realizedPolicy struct {
+	// EndpointPolicy this realized policy is based on
+	basis *policy.EndpointPolicy
+	// current state of the realized policy
+	mapStateMap policy.MapStateMap
+}
+
+// realizePolicy updates the endpoints realizedPolicy to match the desired one.
+func (e *Endpoint) realizePolicy() {
+	if e.desiredPolicy != nil && e.realizedPolicy.basis != e.desiredPolicy {
+		if e.realizedPolicy.basis != nil {
+			e.realizedPolicy.basis.Detach()
+		}
+		e.realizedPolicy.basis = e.desiredPolicy
+
+		if e.realizedPolicy.mapStateMap == nil {
+			e.realizedPolicy.mapStateMap =
+				make(policy.MapStateMap, e.desiredPolicy.Len())
+		}
+		// realized state remains as is.
+	}
+}
+
+// HasBPFPolicyMap returns true if policy map changes should be collected
+// Deprecated: use (e *Endpoint).IsProperty(PropertySkipBPFPolicy)
+func (e *Endpoint) HasBPFPolicyMap() bool {
+	return !e.IsProperty(PropertySkipBPFPolicy)
+}
+
 // GetNamedPort returns the port for the given name.
 func (e *Endpoint) GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16 {
 	if ingress {
@@ -521,12 +552,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 		e.startSyncPolicyMapController()
 	}
 
-	if e.desiredPolicy != e.realizedPolicy {
-		// Remove references to the old policy
-		e.realizedPolicy.Detach()
-		// Set realized state to desired state.
-		e.realizedPolicy = e.desiredPolicy
-	}
+	e.realizePolicy()
 
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
@@ -943,10 +969,10 @@ func (e *Endpoint) GetRealizedPolicyRuleLabelsForKey(key policyTypes.Key) (
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
-	entry, ok := e.realizedPolicy.GetPolicyMap().Get(key)
-	if !ok {
-		return nil, 0, false
+	if e.realizedPolicy.basis != nil {
+		var err error
+		derivedFrom, err = e.realizedPolicy.basis.GetRuleLabels(key)
+		return derivedFrom, e.policyRevision, err == nil
 	}
-
-	return entry.DerivedFromRules, e.policyRevision, true
+	return labels.LabelArrayList{}, e.policyRevision, false
 }
