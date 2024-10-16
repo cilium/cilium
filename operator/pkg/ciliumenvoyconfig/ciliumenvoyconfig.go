@@ -18,21 +18,24 @@ type ciliumEnvoyConfigReconciler struct {
 	client client.Client
 	logger *slog.Logger
 
-	algorithm          string
-	ports              []string
-	maxRetries         int
-	idleTimeoutSeconds int
+	algorithm                string
+	ports                    []string
+	maxRetries               int
+	idleTimeoutSeconds       int
+	streamIdleTimeoutSeconds int
 }
 
-func newCiliumEnvoyConfigReconciler(c client.Client, logger *slog.Logger, defaultAlgorithm string, ports []string, maxRetries int, idleTimeoutSeconds int) *ciliumEnvoyConfigReconciler {
+func newCiliumEnvoyConfigReconciler(c client.Client, logger *slog.Logger,
+	defaultAlgorithm string, ports []string, maxRetries int, idleTimeoutSeconds int, streamIdleTimeoutSeconds int) *ciliumEnvoyConfigReconciler {
 	return &ciliumEnvoyConfigReconciler{
 		client: c,
 		logger: logger,
 
-		algorithm:          defaultAlgorithm,
-		ports:              ports,
-		maxRetries:         maxRetries,
-		idleTimeoutSeconds: idleTimeoutSeconds,
+		algorithm:                defaultAlgorithm,
+		ports:                    ports,
+		maxRetries:               maxRetries,
+		idleTimeoutSeconds:       idleTimeoutSeconds,
+		streamIdleTimeoutSeconds: streamIdleTimeoutSeconds,
 	}
 }
 
