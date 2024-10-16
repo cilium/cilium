@@ -117,9 +117,10 @@ func Test_decodeEndpoint(t *testing.T) {
 		),
 	}
 	expected := &flowpb.Endpoint{
-		ID:        1234,
-		Identity:  9876,
-		Namespace: "kube-system",
+		ID:          1234,
+		Identity:    9876,
+		ClusterName: "default",
+		Namespace:   "kube-system",
 		Labels: []string{
 			"k8s:app.kubernetes.io/name=hubble-ui",
 			"k8s:app.kubernetes.io/part-of=cilium",
