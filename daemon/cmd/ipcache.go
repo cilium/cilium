@@ -34,13 +34,18 @@ var (
 )
 
 func getIPHandler(d *Daemon, params GetIPParams) middleware.Responder {
-	listener := &ipCacheDumpListener{}
+	listener := &ipCacheDumpListener{
+		d: d,
+	}
 	if params.Cidr != nil {
 		_, cidrFilter, err := net.ParseCIDR(*params.Cidr)
 		if err != nil {
 			return api.Error(GetIPBadRequestCode, err)
 		}
 		listener.cidrFilter = cidrFilter
+	}
+	if params.Labels != nil {
+		listener.labelsFilter = labels.NewLabelsFromModel(params.Labels)
 	}
 	d.ipcache.DumpToListener(listener)
 	if len(listener.entries) == 0 {
@@ -51,8 +56,10 @@ func getIPHandler(d *Daemon, params GetIPParams) middleware.Responder {
 }
 
 type ipCacheDumpListener struct {
-	cidrFilter *net.IPNet
-	entries    []*models.IPListEntry
+	cidrFilter   *net.IPNet
+	labelsFilter labels.Labels
+	d            *Daemon
+	entries      []*models.IPListEntry
 }
 
 // OnIPIdentityCacheChange is called by DumpToListenerLocked
@@ -64,6 +71,18 @@ func (ipc *ipCacheDumpListener) OnIPIdentityCacheChange(modType ipcache.CacheMod
 	// only capture entries which are a subnet of cidrFilter
 	if ipc.cidrFilter != nil && !containsSubnet(*ipc.cidrFilter, cidr) {
 		return
+	}
+	// Only capture identities with requested labels
+	if ipc.labelsFilter != nil {
+		id, err := ipc.d.GetIdentity(newID.ID.Uint32())
+		if err != nil {
+			return
+		}
+		for _, label := range ipc.labelsFilter {
+			if !id.Labels.Has(label) {
+				return
+			}
+		}
 	}
 
 	cidrStr := cidr.String()

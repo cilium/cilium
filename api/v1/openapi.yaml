@@ -1037,6 +1037,7 @@ paths:
       - policy
       parameters:
       - "$ref": "#/parameters/cidr"
+      - "$ref": "#/parameters/labels"
       responses:
         '200':
           description: Success
