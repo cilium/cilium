@@ -6,7 +6,9 @@ package clustermesh
 import (
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -14,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var Cell = cell.Module(
@@ -36,6 +39,9 @@ var Cell = cell.Module(
 	metrics.Metric(NewMetrics),
 	metrics.Metric(common.MetricsProvider(subsystem)),
 
+	cell.Invoke(func(info types.ClusterInfo, dcfg *option.DaemonConfig, cnimgr cni.CNIConfigManager) error {
+		return info.ValidateBuggyClusterID(dcfg.IPAM, cnimgr.GetChainingMode())
+	}),
 	cell.Invoke(ipsetNotifier),
 	cell.Invoke(nodeManagerNotifier),
 )
