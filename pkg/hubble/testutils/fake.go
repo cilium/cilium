@@ -450,8 +450,8 @@ func (e *FakeEndpointInfo) GetK8sNamespace() string {
 }
 
 // GetLabels returns the labels of the endpoint.
-func (e *FakeEndpointInfo) GetLabels() []string {
-	return e.Labels
+func (e *FakeEndpointInfo) GetLabels() labels.Labels {
+	return labels.NewLabelsFromModel(e.Labels)
 }
 
 // GetPod return the pod object of the endpoint.
