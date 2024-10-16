@@ -27,6 +27,8 @@ func (m *ProxyUpdaterMock) GetNamedPort(bool, string, u8proto.U8proto) uint16 { 
 
 func (m *ProxyUpdaterMock) ConntrackNameLocked() string { return "global" }
 
+func (m *ProxyUpdaterMock) SyncEndpointHeaderFile() {}
+
 func (m *ProxyUpdaterMock) OnProxyPolicyUpdate(policyRevision uint64) {}
 
 func (m *ProxyUpdaterMock) UpdateProxyStatistics(proxyTypet, l4Protocol string, port, proxyPort uint16, ingress, request bool,
