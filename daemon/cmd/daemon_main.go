@@ -1042,6 +1042,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableNonDefaultDenyPolicies)
 	option.BindEnv(vp, option.EnableNonDefaultDenyPolicies)
 
+	flags.Bool(option.EnableEndpointLockdownOnPolicyOverflow, false, "When an endpoint's policy map overflows, shutdown all (ingress and egress) network traffic for that endpoint.")
+	option.BindEnv(vp, option.EnableEndpointLockdownOnPolicyOverflow)
+
 	if err := vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
 	}
