@@ -6,6 +6,7 @@
 #include "common.h"
 #include "ipv6.h"
 #include "ids.h"
+#include "linux/bpf.h"
 
 #include "bpf/compiler.h"
 
@@ -284,3 +285,13 @@ tail_call_internal(struct __ctx_buff *ctx, const __u32 index, __s8 *ext_err)
 	return DROP_MISSED_TAIL_CALL;
 }
 #endif /* SKIP_CALLS_MAP */
+
+#ifdef ENABLE_CPU_MAP
+struct {
+    __uint(type, BPF_MAP_TYPE_CPUMAP);
+    __type(key, __u32);
+    __type(value, struct bpf_cpumap_val);
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
+    __uint(max_entries, __NR_ONLINE_CPUS__);
+} CPU_MAP __section_maps_btf;
+#endif /* ENABLE_CPU_MAP */

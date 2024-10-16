@@ -28,6 +28,7 @@ const (
 	HashOfMaps = ciliumebpf.HashOfMaps
 	LPMTrie    = ciliumebpf.LPMTrie
 	LRUHash    = ciliumebpf.LRUHash
+	CPUMap     = ciliumebpf.CPUMap
 
 	PinNone   = ciliumebpf.PinNone
 	PinByName = ciliumebpf.PinByName

@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/configmap"
+	"github.com/cilium/cilium/pkg/maps/cpumap"
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
@@ -66,6 +67,9 @@ var Cell = cell.Module(
 
 	// Provides access to NAT maps.
 	nat.Cell,
+
+	// Provides access to a CPUMAP for XDP redirection.
+	cpumap.Cell,
 )
 
 type mapApiHandlerOut struct {

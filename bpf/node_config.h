@@ -336,3 +336,7 @@ return false;
 #endif
 
 #define CALLS_MAP test_cilium_calls_65535
+
+#ifdef ENABLE_CPU_MAP
+#define CPU_MAP test_cilium_cpu_map
+#endif /* ENABLE_CPU_MAP */
