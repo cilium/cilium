@@ -6,9 +6,9 @@
 package v2
 
 import (
-	"context"
+	context "context"
 
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,33 +24,33 @@ type CiliumExternalWorkloadsGetter interface {
 
 // CiliumExternalWorkloadInterface has methods to work with CiliumExternalWorkload resources.
 type CiliumExternalWorkloadInterface interface {
-	Create(ctx context.Context, ciliumExternalWorkload *v2.CiliumExternalWorkload, opts v1.CreateOptions) (*v2.CiliumExternalWorkload, error)
-	Update(ctx context.Context, ciliumExternalWorkload *v2.CiliumExternalWorkload, opts v1.UpdateOptions) (*v2.CiliumExternalWorkload, error)
+	Create(ctx context.Context, ciliumExternalWorkload *ciliumiov2.CiliumExternalWorkload, opts v1.CreateOptions) (*ciliumiov2.CiliumExternalWorkload, error)
+	Update(ctx context.Context, ciliumExternalWorkload *ciliumiov2.CiliumExternalWorkload, opts v1.UpdateOptions) (*ciliumiov2.CiliumExternalWorkload, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, ciliumExternalWorkload *v2.CiliumExternalWorkload, opts v1.UpdateOptions) (*v2.CiliumExternalWorkload, error)
+	UpdateStatus(ctx context.Context, ciliumExternalWorkload *ciliumiov2.CiliumExternalWorkload, opts v1.UpdateOptions) (*ciliumiov2.CiliumExternalWorkload, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2.CiliumExternalWorkload, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v2.CiliumExternalWorkloadList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*ciliumiov2.CiliumExternalWorkload, error)
+	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumExternalWorkloadList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumExternalWorkload, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumExternalWorkload, err error)
 	CiliumExternalWorkloadExpansion
 }
 
 // ciliumExternalWorkloads implements CiliumExternalWorkloadInterface
 type ciliumExternalWorkloads struct {
-	*gentype.ClientWithList[*v2.CiliumExternalWorkload, *v2.CiliumExternalWorkloadList]
+	*gentype.ClientWithList[*ciliumiov2.CiliumExternalWorkload, *ciliumiov2.CiliumExternalWorkloadList]
 }
 
 // newCiliumExternalWorkloads returns a CiliumExternalWorkloads
 func newCiliumExternalWorkloads(c *CiliumV2Client) *ciliumExternalWorkloads {
 	return &ciliumExternalWorkloads{
-		gentype.NewClientWithList[*v2.CiliumExternalWorkload, *v2.CiliumExternalWorkloadList](
+		gentype.NewClientWithList[*ciliumiov2.CiliumExternalWorkload, *ciliumiov2.CiliumExternalWorkloadList](
 			"ciliumexternalworkloads",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v2.CiliumExternalWorkload { return &v2.CiliumExternalWorkload{} },
-			func() *v2.CiliumExternalWorkloadList { return &v2.CiliumExternalWorkloadList{} }),
+			func() *ciliumiov2.CiliumExternalWorkload { return &ciliumiov2.CiliumExternalWorkload{} },
+			func() *ciliumiov2.CiliumExternalWorkloadList { return &ciliumiov2.CiliumExternalWorkloadList{} }),
 	}
 }

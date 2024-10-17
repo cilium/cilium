@@ -6,9 +6,9 @@
 package v2
 
 import (
-	"context"
+	context "context"
 
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,33 +24,33 @@ type CiliumEndpointsGetter interface {
 
 // CiliumEndpointInterface has methods to work with CiliumEndpoint resources.
 type CiliumEndpointInterface interface {
-	Create(ctx context.Context, ciliumEndpoint *v2.CiliumEndpoint, opts v1.CreateOptions) (*v2.CiliumEndpoint, error)
-	Update(ctx context.Context, ciliumEndpoint *v2.CiliumEndpoint, opts v1.UpdateOptions) (*v2.CiliumEndpoint, error)
+	Create(ctx context.Context, ciliumEndpoint *ciliumiov2.CiliumEndpoint, opts v1.CreateOptions) (*ciliumiov2.CiliumEndpoint, error)
+	Update(ctx context.Context, ciliumEndpoint *ciliumiov2.CiliumEndpoint, opts v1.UpdateOptions) (*ciliumiov2.CiliumEndpoint, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, ciliumEndpoint *v2.CiliumEndpoint, opts v1.UpdateOptions) (*v2.CiliumEndpoint, error)
+	UpdateStatus(ctx context.Context, ciliumEndpoint *ciliumiov2.CiliumEndpoint, opts v1.UpdateOptions) (*ciliumiov2.CiliumEndpoint, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2.CiliumEndpoint, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v2.CiliumEndpointList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*ciliumiov2.CiliumEndpoint, error)
+	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumEndpointList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumEndpoint, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumEndpoint, err error)
 	CiliumEndpointExpansion
 }
 
 // ciliumEndpoints implements CiliumEndpointInterface
 type ciliumEndpoints struct {
-	*gentype.ClientWithList[*v2.CiliumEndpoint, *v2.CiliumEndpointList]
+	*gentype.ClientWithList[*ciliumiov2.CiliumEndpoint, *ciliumiov2.CiliumEndpointList]
 }
 
 // newCiliumEndpoints returns a CiliumEndpoints
 func newCiliumEndpoints(c *CiliumV2Client, namespace string) *ciliumEndpoints {
 	return &ciliumEndpoints{
-		gentype.NewClientWithList[*v2.CiliumEndpoint, *v2.CiliumEndpointList](
+		gentype.NewClientWithList[*ciliumiov2.CiliumEndpoint, *ciliumiov2.CiliumEndpointList](
 			"ciliumendpoints",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v2.CiliumEndpoint { return &v2.CiliumEndpoint{} },
-			func() *v2.CiliumEndpointList { return &v2.CiliumEndpointList{} }),
+			func() *ciliumiov2.CiliumEndpoint { return &ciliumiov2.CiliumEndpoint{} },
+			func() *ciliumiov2.CiliumEndpointList { return &ciliumiov2.CiliumEndpointList{} }),
 	}
 }

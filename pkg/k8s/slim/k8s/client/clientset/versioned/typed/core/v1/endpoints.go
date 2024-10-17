@@ -6,9 +6,9 @@
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	scheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,31 +24,31 @@ type EndpointsGetter interface {
 
 // EndpointsInterface has methods to work with Endpoints resources.
 type EndpointsInterface interface {
-	Create(ctx context.Context, endpoints *v1.Endpoints, opts metav1.CreateOptions) (*v1.Endpoints, error)
-	Update(ctx context.Context, endpoints *v1.Endpoints, opts metav1.UpdateOptions) (*v1.Endpoints, error)
+	Create(ctx context.Context, endpoints *corev1.Endpoints, opts metav1.CreateOptions) (*corev1.Endpoints, error)
+	Update(ctx context.Context, endpoints *corev1.Endpoints, opts metav1.UpdateOptions) (*corev1.Endpoints, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Endpoints, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.EndpointsList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Endpoints, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*corev1.EndpointsList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Endpoints, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *corev1.Endpoints, err error)
 	EndpointsExpansion
 }
 
 // endpoints implements EndpointsInterface
 type endpoints struct {
-	*gentype.ClientWithList[*v1.Endpoints, *v1.EndpointsList]
+	*gentype.ClientWithList[*corev1.Endpoints, *corev1.EndpointsList]
 }
 
 // newEndpoints returns a Endpoints
 func newEndpoints(c *CoreV1Client, namespace string) *endpoints {
 	return &endpoints{
-		gentype.NewClientWithList[*v1.Endpoints, *v1.EndpointsList](
+		gentype.NewClientWithList[*corev1.Endpoints, *corev1.EndpointsList](
 			"endpoints",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.Endpoints { return &v1.Endpoints{} },
-			func() *v1.EndpointsList { return &v1.EndpointsList{} }),
+			func() *corev1.Endpoints { return &corev1.Endpoints{} },
+			func() *corev1.EndpointsList { return &corev1.EndpointsList{} }),
 	}
 }
