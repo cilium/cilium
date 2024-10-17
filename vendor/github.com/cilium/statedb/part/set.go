@@ -8,6 +8,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"iter"
+	"slices"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Set is a persistent (immutable) set of values. A Set can be
@@ -205,6 +208,32 @@ func (s *Set[T]) UnmarshalJSON(data []byte) error {
 	if d, ok := t.(json.Delim); !ok || d != ']' {
 		return fmt.Errorf("%T.UnmarshalJSON: expected ']' got %v", s, t)
 	}
+	return nil
+}
+
+func (s Set[T]) MarshalYAML() (any, error) {
+	// TODO: Once yaml.v3 supports iter.Seq, drop the Collect().
+	return slices.Collect(s.All()), nil
+}
+
+func (s *Set[T]) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind != yaml.SequenceNode {
+		return fmt.Errorf("%T.UnmarshalYAML: expected sequence", s)
+	}
+
+	if s.tree == nil {
+		*s = NewSet[T]()
+	}
+	txn := s.tree.Txn()
+
+	for _, e := range value.Content {
+		var v T
+		if err := e.Decode(&v); err != nil {
+			return err
+		}
+		txn.Insert(s.toBytes(v), v)
+	}
+	s.tree = txn.CommitOnly()
 	return nil
 }
 
