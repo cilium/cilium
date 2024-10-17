@@ -115,4 +115,8 @@ type EgressRule struct {
 	// This is a label selector which selects Pods. This field follows standard label
 	// selector semantics; if present but empty, it selects all pods.
 	PodSelector *slimv1.LabelSelector `json:"podSelector,omitempty"`
+
+	// This is a label selector which selects Pods by Node. This field follows standard label
+	// selector semantics; if present but empty, it selects all nodes.
+	NodeSelector *slimv1.LabelSelector `json:"nodeSelector,omitempty"`
 }

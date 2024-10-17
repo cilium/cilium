@@ -101,7 +101,9 @@ type Manager struct {
 	// nodes stores nodes sorted by their name. The entries are sorted
 	// to ensure consistent gateway selection across all agents.
 	nodes []nodeTypes.Node
-
+	// nodesAddresses2Labels store the labels of each node so that the endpoint can match the node labels
+	// key is the IP address of the node, and value is the labels of the node.
+	nodesAddresses2Labels map[string]map[string]string
 	// policies allows reading policy CRD from k8s.
 	policies resource.Resource[*Policy]
 
@@ -218,6 +220,7 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		ciliumNodes:                   p.Nodes,
 		endpoints:                     p.Endpoints,
 		sysctl:                        p.Sysctl,
+		nodesAddresses2Labels:         make(map[string]map[string]string),
 	}
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
@@ -394,7 +397,7 @@ func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
 		logger.Debug("Updated CiliumEgressGatewayPolicy")
 	}
 
-	config.updateMatchedEndpointIDs(manager.epDataStore)
+	config.updateMatchedEndpointIDs(manager.epDataStore, manager.nodesAddresses2Labels)
 
 	manager.policyConfigs[config.id] = config
 
@@ -515,6 +518,8 @@ func (manager *Manager) handleNodeEvent(event resource.Event[*cilium_api_v2.Cili
 	if event.Kind == resource.Delete {
 		// Delete the node if we're aware of it.
 		if found {
+			delete(manager.nodesAddresses2Labels, node.GetNodeIP(false).String()) // for ipv4
+			delete(manager.nodesAddresses2Labels, node.GetNodeIP(true).String())  // for ipv6
 			manager.nodes = slices.Delete(manager.nodes, nidx, nidx+1)
 		}
 
@@ -530,14 +535,16 @@ func (manager *Manager) handleNodeEvent(event resource.Event[*cilium_api_v2.Cili
 	} else {
 		manager.nodes = slices.Insert(manager.nodes, nidx, node)
 	}
-
+	// We need to store the labels of each node so that the endpoint can match the node labels
+	manager.nodesAddresses2Labels[node.GetNodeIP(false).String()] = node.Labels // for ipv4
+	manager.nodesAddresses2Labels[node.GetNodeIP(true).String()] = node.Labels  // for ipv6
 	manager.setEventBitmap(eventUpdateNode)
 	manager.reconciliationTrigger.TriggerWithReason("node updated")
 }
 
 func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
 	for _, policy := range manager.policyConfigs {
-		policy.updateMatchedEndpointIDs(manager.epDataStore)
+		policy.updateMatchedEndpointIDs(manager.epDataStore, manager.nodesAddresses2Labels)
 	}
 }
 
@@ -723,7 +730,7 @@ func (manager *Manager) reconcileLocked() {
 	// on eventK8sSyncDone we need to update all caches unconditionally as
 	// we don't know which k8s events/resources were received during the
 	// initial k8s sync
-	case manager.eventBitmapIsSet(eventUpdateEndpoint, eventDeleteEndpoint, eventK8sSyncDone):
+	case manager.eventBitmapIsSet(eventUpdateEndpoint, eventDeleteEndpoint, eventUpdateNode, eventDeleteNode, eventK8sSyncDone):
 		manager.updatePoliciesMatchedEndpointIDs()
 		fallthrough
 	case manager.eventBitmapIsSet(eventAddPolicy, eventDeletePolicy):
