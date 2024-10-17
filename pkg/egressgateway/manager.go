@@ -394,7 +394,7 @@ func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
 		logger.Debug("Updated CiliumEgressGatewayPolicy")
 	}
 
-	config.updateMatchedEndpointIDs(manager.epDataStore)
+	config.updateMatchedEndpointIDs(manager.epDataStore, manager.nodes)
 
 	manager.policyConfigs[config.id] = config
 
@@ -537,7 +537,7 @@ func (manager *Manager) handleNodeEvent(event resource.Event[*cilium_api_v2.Cili
 
 func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
 	for _, policy := range manager.policyConfigs {
-		policy.updateMatchedEndpointIDs(manager.epDataStore)
+		policy.updateMatchedEndpointIDs(manager.epDataStore, manager.nodes)
 	}
 }
 
@@ -723,7 +723,7 @@ func (manager *Manager) reconcileLocked() {
 	// on eventK8sSyncDone we need to update all caches unconditionally as
 	// we don't know which k8s events/resources were received during the
 	// initial k8s sync
-	case manager.eventBitmapIsSet(eventUpdateEndpoint, eventDeleteEndpoint, eventK8sSyncDone):
+	case manager.eventBitmapIsSet(eventUpdateEndpoint, eventDeleteEndpoint, eventUpdateNode, eventDeleteNode, eventK8sSyncDone):
 		manager.updatePoliciesMatchedEndpointIDs()
 		fallthrough
 	case manager.eventBitmapIsSet(eventAddPolicy, eventDeletePolicy):
