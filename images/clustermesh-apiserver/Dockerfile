@@ -33,7 +33,7 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     --mount=type=cache,target=/root/.cache \
     --mount=type=cache,target=/go/pkg \
-    make GOARCH=${TARGETARCH} ${MODIFIERS} \
+    make GOARCH=${TARGETARCH} $(echo $MODIFIERS | tr -d '"') \
     && mkdir -p /out/${TARGETOS}/${TARGETARCH}/usr/bin && mv clustermesh-apiserver /out/${TARGETOS}/${TARGETARCH}/usr/bin
 
 WORKDIR /go/src/github.com/cilium/cilium
