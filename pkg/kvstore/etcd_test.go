@@ -14,11 +14,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/stretchr/testify/require"
 	etcdAPI "go.etcd.io/etcd/client/v3"
 	"k8s.io/apimachinery/pkg/util/rand"
-
-	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestHint(t *testing.T) {

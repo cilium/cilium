@@ -20,6 +20,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/identitybackend"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/labels"
 
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -31,7 +32,7 @@ func setup(tb testing.TB) (string, *k8sClient.FakeClientset, allocator.Backend) 
 
 	testutils.IntegrationTest(tb)
 
-	kvstore.SetupDummy(tb, "etcd")
+	kvstoreTest.SetupDummy(tb, "etcd")
 	kvstorePrefix := fmt.Sprintf("test-prefix-%s", rand.String(12))
 	kubeClient, _ := k8sClient.NewFakeClientset()
 	backend, err := NewDoubleWriteBackend(

@@ -29,6 +29,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -73,7 +74,7 @@ func setup(tb testing.TB) *ClusterMeshServicesTestSuite {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	kvstore.SetupDummy(tb, "etcd")
+	kvstoreTest.SetupDummy(tb, "etcd")
 
 	s := &ClusterMeshServicesTestSuite{}
 	s.randomName = rand.String(12)

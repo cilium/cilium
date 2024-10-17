@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -32,7 +33,7 @@ var (
 func TestRemoteClusterStatus(t *testing.T) {
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 	kvsService := map[string]string{
 		"cilium/state/services/v1/foo/baz/bar": `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 1}`,
 	}
@@ -179,7 +180,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 func TestRemoteClusterHooks(t *testing.T) {
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup

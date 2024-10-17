@@ -20,7 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
@@ -70,7 +70,7 @@ func setupEndpointSuite(tb testing.TB) *EndpointSuite {
 	metrics.NewLegacyMetrics().EndpointStateCount.SetEnabled(true)
 
 	/* Required to test endpoint CEP policy model */
-	kvstore.SetupDummy(tb, "etcd")
+	kvstoreTest.SetupDummy(tb, "etcd")
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	<-s.mgr.InitIdentityAllocator(nil)
 	node.SetTestLocalNodeStore()
@@ -256,7 +256,7 @@ func TestEndpointDatapathOptions(t *testing.T) {
 func TestEndpointUpdateLabels(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	e := NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
 
 	// Test that inserting identity labels works
 	rev := e.replaceIdentityLabels(labels.LabelSourceAny, labels.Map2Labels(map[string]string{"foo": "bar", "zip": "zop"}, "cilium"))
@@ -297,7 +297,7 @@ func TestEndpointUpdateLabels(t *testing.T) {
 func TestEndpointState(t *testing.T) {
 	s := setupEndpointSuite(t)
 
-	e := NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 100, StateWaitingForIdentity)
 	e.unconditionalLock()
 	defer e.unlock()
 
@@ -688,7 +688,7 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 		option.Config.EndpointQueueSize = oldQueueSize
 	}()
 
-	ep := NewTestEndpointWithState(t, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
+	ep := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 12345, StateReady)
 
 	ep.properties[PropertyFakeEndpoint] = true
 	ep.properties[PropertySkipBPFPolicy] = true
@@ -764,7 +764,7 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 func BenchmarkEndpointGetModel(b *testing.B) {
 	s := setupEndpointSuite(b)
 
-	e := NewTestEndpointWithState(b, s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 123, StateWaitingForIdentity)
+	e := NewTestEndpointWithState(s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 123, StateWaitingForIdentity)
 
 	for i := 0; i < 256; i++ {
 		e.LogStatusOK(BPF, "Hello World!")

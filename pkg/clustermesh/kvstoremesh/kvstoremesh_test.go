@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -119,7 +120,7 @@ func clockAdvance(t assert.TestingT, fc *baseclocktest.FakeClock, d time.Duratio
 func TestRemoteClusterRun(t *testing.T) {
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummyWithConfigOpts(t, "etcd",
+	kvstoreTest.SetupDummyWithConfigOpts(t, "etcd",
 		// Explicitly set higher QPS than the default to speedup the test
 		map[string]string{kvstore.EtcdRateLimitOption: "100"},
 	)
@@ -348,7 +349,7 @@ func TestRemoteClusterRemove(t *testing.T) {
 	testutils.IntegrationTest(t)
 
 	ctx := context.Background()
-	kvstore.SetupDummyWithConfigOpts(t, "etcd",
+	kvstoreTest.SetupDummyWithConfigOpts(t, "etcd",
 		// Explicitly set higher QPS than the default to speedup the test
 		map[string]string{kvstore.EtcdRateLimitOption: "100"},
 	)
@@ -524,7 +525,7 @@ func TestRemoteClusterRemoveShutdown(t *testing.T) {
 	testutils.IntegrationTest(t)
 
 	ctx := context.Background()
-	kvstore.SetupDummyWithConfigOpts(t, "etcd",
+	kvstoreTest.SetupDummyWithConfigOpts(t, "etcd",
 		// Explicitly set higher QPS than the default to speedup the test
 		map[string]string{kvstore.EtcdRateLimitOption: "100"},
 	)
@@ -586,7 +587,7 @@ func TestRemoteClusterRemoveShutdown(t *testing.T) {
 func TestRemoteClusterStatus(t *testing.T) {
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())

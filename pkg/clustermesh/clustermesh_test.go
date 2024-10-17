@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
@@ -66,7 +67,7 @@ func TestClusterMesh(t *testing.T) {
 		wg.Wait()
 	}()
 
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{}, cache.AllocatorConfig{})

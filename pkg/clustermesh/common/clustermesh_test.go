@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -47,7 +48,7 @@ func (f *fakeRemoteCluster) Remove(ctx context.Context) {
 
 func TestClusterMesh(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 
 	baseDir := t.TempDir()
 	path := func(name string) string { return filepath.Join(baseDir, name) }
@@ -190,7 +191,7 @@ func TestClusterMesh(t *testing.T) {
 
 func TestClusterMeshMultipleAddRemove(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 
 	baseDir := t.TempDir()
 	path := func(name string) string { return filepath.Join(baseDir, name) }
