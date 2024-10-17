@@ -1,5 +1,5 @@
-name: Create an EKS cluster
-description: Create an EKS cluster
+name: Create EKS nodegroup
+description: Create EKS nodegroup
 inputs:
   cluster_name:
     description: ''
@@ -21,10 +21,10 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Create EKS cluster
+    - name: Create EKS nodegroup
       shell: bash
       run: |
-        cat <<EOF > eks-config.yaml
+        cat <<EOF > eks-nodegroups.yaml
         apiVersion: eksctl.io/v1alpha5
         kind: ClusterConfig
 
@@ -36,11 +36,23 @@ runs:
            usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
            owner: "${{ inputs.owner }}"
 
-        addonsConfig:
-          disableDefaultAddons: true
-        addons:
-          - name: coredns
-          - name: kube-proxy
+        managedNodeGroups:
+        - name: ng-amd64
+          instanceTypes:
+           - t3a.medium
+          desiredCapacity: 2
+          spot: ${{ inputs.spot }}
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 10
+        - name: ng-arm64
+          instanceTypes:
+           - t4g.medium
+          desiredCapacity: 1
+          spot: ${{ inputs.spot }}
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 10
         EOF
 
-        eksctl create cluster -f ./eks-config.yaml
+        eksctl create nodegroup -f ./eks-nodegroups.yaml
