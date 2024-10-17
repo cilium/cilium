@@ -141,6 +141,9 @@ func getFlowFiltersYAML(req *observerpb.GetFlowsRequest) (string, error) {
 // GetHubbleClientFunc is primarily used to mock out the hubble client in some unit tests.
 var GetHubbleClientFunc = func(ctx context.Context, vp *viper.Viper) (client observerpb.ObserverClient, cleanup func() error, err error) {
 	if otherOpts.inputFile != "" {
+		if vp.GetBool(config.KeyAutoPortForward) {
+			return nil, nil, fmt.Errorf("cannot use --input-file and --auto-port-forward together")
+		}
 		var f *os.File
 		if otherOpts.inputFile == "-" {
 			// read flows from stdin
@@ -159,12 +162,11 @@ var GetHubbleClientFunc = func(ctx context.Context, vp *viper.Viper) (client obs
 		return client, cleanup, nil
 	}
 	// read flows from a hubble server
-	hubbleConn, err := conn.New(ctx, vp.GetString(config.KeyServer), vp.GetDuration(config.KeyTimeout))
+	hubbleConn, cleanup, err := conn.NewWithFlags(ctx, vp)
 	if err != nil {
 		return nil, nil, err
 	}
 	logger.Logger.Debug("connected to Hubble API", "server", config.KeyServer)
-	cleanup = hubbleConn.Close
 	client = observerpb.NewObserverClient(hubbleConn)
 	return client, cleanup, nil
 }
