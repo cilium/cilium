@@ -4,6 +4,8 @@
 package cmd
 
 import (
+	"strconv"
+
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/sirupsen/logrus"
 
@@ -86,6 +88,14 @@ func (c *defaultEndpointConfiguration) PrepareEndpoint(ipam *models.IPAMResponse
 	if c.Conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
 		// Prevent cilium agent from trying to release the IP when the endpoint is deleted.
 		ep.DatapathConfiguration.ExternalIpam = true
+	}
+
+	if c.Conf.IpamMode == ipamOption.IPAMENI {
+		var err error
+		ep.ParentInterfaceIndex, err = strconv.ParseInt(ipam.IPV4.InterfaceNumber, 10, 64)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	state := &CmdState{
