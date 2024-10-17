@@ -660,6 +660,12 @@ var (
 		Name:       "retries_total",
 		Help:       "Total number of retries handled by workqueue.",
 	}, []string{"name"})
+
+	// NatDeleteMappingv4Events is the number of NAT delete mappings received for ipv4
+	NatDeleteMappingv4Events = NoOpCounter
+
+	// NatDeleteMappingv6Events is the number of NAT delete mappings received for ipv6
+	NatDeleteMappingv6Events = NoOpCounter
 )
 
 type LegacyMetrics struct {
@@ -745,6 +751,8 @@ type LegacyMetrics struct {
 	WorkQueueUnfinishedWork          metric.Vec[metric.Gauge]
 	WorkQueueLongestRunningProcessor metric.Vec[metric.Gauge]
 	WorkQueueRetries                 metric.Vec[metric.Counter]
+	NatDeleteMappingv4Events         metric.Counter
+	NatDeleteMappingv6Events         metric.Counter
 }
 
 func NewLegacyMetrics() *LegacyMetrics {
@@ -1387,6 +1395,22 @@ func NewLegacyMetrics() *LegacyMetrics {
 		WorkQueueUnfinishedWork:          WorkQueueUnfinishedWork,
 		WorkQueueLongestRunningProcessor: WorkQueueLongestRunningProcessor,
 		WorkQueueRetries:                 WorkQueueRetries,
+
+		NatDeleteMappingv4Events: metric.NewCounter(metric.CounterOpts{
+			ConfigName: Namespace + "_" + SubsystemDatapath + "_nat_delete_mapping_ipv4_events_total",
+			Namespace:  Namespace,
+			Subsystem:  SubsystemDatapath,
+			Name:       "nat_delete_mapping_ipv4_events_total",
+			Help:       "Number of NAT delete mapping for ipv4 events received",
+		}),
+
+		NatDeleteMappingv6Events: metric.NewCounter(metric.CounterOpts{
+			ConfigName: Namespace + "_" + SubsystemDatapath + "_nat_delete_mapping_ipv6_events_total",
+			Namespace:  Namespace,
+			Subsystem:  SubsystemDatapath,
+			Name:       "nat_delete_mapping_ipv6_events_total",
+			Help:       "Number of NAT delete mapping for ipv6 events received",
+		}),
 	}
 
 	ifindexOpts := metric.GaugeOpts{
@@ -1477,6 +1501,8 @@ func NewLegacyMetrics() *LegacyMetrics {
 	APILimiterRateLimit = lm.APILimiterRateLimit
 	APILimiterAdjustmentFactor = lm.APILimiterAdjustmentFactor
 	APILimiterProcessedRequests = lm.APILimiterProcessedRequests
+	NatDeleteMappingv4Events = lm.NatDeleteMappingv4Events
+	NatDeleteMappingv6Events = lm.NatDeleteMappingv6Events
 
 	return lm
 }
