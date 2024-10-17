@@ -704,6 +704,14 @@ func (in *EgressRule) DeepEqual(other *EgressRule) bool {
 		}
 	}
 
+	if (in.NodeSelector == nil) != (other.NodeSelector == nil) {
+		return false
+	} else if in.NodeSelector != nil {
+		if !in.NodeSelector.DeepEqual(other.NodeSelector) {
+			return false
+		}
+	}
+
 	return true
 }
 

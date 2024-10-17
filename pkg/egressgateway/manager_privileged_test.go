@@ -434,6 +434,81 @@ func TestEgressGatewayManager(t *testing.T) {
 	})
 }
 
+func TestNodeSelector(t *testing.T) {
+	k := setupEgressGatewayTestSuite(t)
+
+	createTestInterface(t, k.sysctl, testInterface1, egressCIDR1)
+
+	policyMap := k.manager.policyMap
+	egressGatewayManager := k.manager
+
+	k.policies.sync(t)
+	k.nodes.sync(t)
+	k.endpoints.sync(t)
+
+	reconciliationEventsCount := egressGatewayManager.reconciliationEventsCount.Load()
+
+	node1 := newCiliumNode(node1, node1IP, nodeGroup1Labels)
+	k.nodes.process(t, resource.Event[*cilium_api_v2.CiliumNode]{
+		Kind:   resource.Upsert,
+		Object: node1.ToCiliumNode(),
+	})
+	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	node2 := newCiliumNode(node2, node2IP, nodeGroup2Labels)
+	k.nodes.process(t, resource.Event[*cilium_api_v2.CiliumNode]{
+		Kind:   resource.Upsert,
+		Object: node2.ToCiliumNode(),
+	})
+	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+
+	// Create a new policy
+	policy1 := policyParams{
+		name:            "policy-1",
+		endpointLabels:  ep1Labels,
+		destinationCIDR: destCIDR,
+		nodeLabels:      nodeGroup1Labels,
+		iface:           testInterface1,
+		nodeSelectors:   nodeGroup2Labels,
+	}
+
+	addPolicy(t, k.policies, &policy1)
+	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+
+	assertEgressRules(t, policyMap, []egressRule{})
+
+	// Add a new endpoint & ID which matches policy-1
+	ep1, _ := newEndpointAndIdentityWithNodeIP("ep-1", ep1IP, node1IP, ep1Labels)
+	addEndpoint(t, k.endpoints, &ep1)
+	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+
+	assertEgressRules(t, policyMap, []egressRule{}) // This ep1 should not match the policy-1
+
+	// Produce a new endpoint ep2 similar to ep1 - with the same name & labels, but with a different IP address.
+	// The ep1 will be deleted.
+	ep2, _ := newEndpointAndIdentityWithNodeIP(ep1.Name, ep2IP, node2IP, ep1Labels)
+
+	// Test event order: add new -> delete old
+	addEndpoint(t, k.endpoints, &ep2)
+	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	deleteEndpoint(t, k.endpoints, &ep1)
+	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+
+	assertEgressRules(t, policyMap, []egressRule{ // This ep2 should match the policy-1
+		{ep2IP, destCIDR, egressIP1, node1IP},
+	})
+
+	// Produce a new endpoint ep3 similar to ep2 (and ep1) - with the same name & labels, but with a different IP address.
+	ep3, _ := newEndpointAndIdentityWithNodeIP(ep1.Name, ep3IP, node1IP, ep1Labels)
+
+	// Test event order: delete old -> update new
+	deleteEndpoint(t, k.endpoints, &ep2)
+	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addEndpoint(t, k.endpoints, &ep3)
+	waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+
+	assertEgressRules(t, policyMap, []egressRule{}) // This ep3 should not match the policy-1
+}
+
 func TestEndpointDataStore(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 
@@ -613,6 +688,29 @@ func newEndpointAndIdentity(name, ip string, epLabels map[string]string) (k8sTyp
 					IPV4: ip,
 				},
 			},
+		},
+	}, id
+}
+
+// Mock the creation of endpoint and its corresponding identity, returns endpoint and ID.
+func newEndpointAndIdentityWithNodeIP(name, ip, nodeIP string, epLabels map[string]string) (k8sTypes.CiliumEndpoint, *identity.Identity) {
+	id, _, _ := identityAllocator.AllocateIdentity(context.Background(), labels.Map2Labels(epLabels, labels.LabelSourceK8s), true, identity.InvalidIdentity)
+
+	return k8sTypes.CiliumEndpoint{
+		ObjectMeta: slimv1.ObjectMeta{
+			Name: name,
+			UID:  types.UID(uuid.New().String()),
+		},
+		Identity: &cilium_api_v2.EndpointIdentity{
+			ID: int64(id.ID),
+		},
+		Networking: &cilium_api_v2.EndpointNetworking{
+			Addressing: cilium_api_v2.AddressPairList{
+				&cilium_api_v2.AddressPair{
+					IPV4: ip,
+				},
+			},
+			NodeIP: nodeIP,
 		},
 	}, id
 }
