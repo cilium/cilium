@@ -370,7 +370,7 @@ func (t *Test) deleteResources(ctx context.Context) error {
 // filter is applied on each line of output.
 func (t *Test) CiliumLogs(ctx context.Context) {
 	for _, pod := range t.Context().ciliumPods {
-		log, err := pod.K8sClient.CiliumLogs(ctx, pod.Pod.Namespace, pod.Pod.Name, t.startTime)
+		log, err := pod.K8sClient.CiliumLogs(ctx, pod.Pod.Namespace, pod.Pod.Name, t.startTime, false)
 		if err != nil {
 			t.Fatalf("Error reading Cilium logs: %s", err)
 		}
