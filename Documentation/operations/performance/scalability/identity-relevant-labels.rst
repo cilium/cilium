@@ -57,6 +57,7 @@ Label                                      Description
 ``reserved:.*``                            Include all ``reserved:`` labels
 ``any:io\.kubernetes\.pod\.namespace``     Include all ``io.kubernetes.pod.namespace`` labels
 ``any:io\.cilium\.k8s\.namespace\.labels`` Include all ``io.cilium.k8s.namespace.labels`` labels
+``any:io\.cilium\.k8s\.policy\.cluster``   Include all ``io.cilium.k8s.policy.cluster`` labels
 ``any:app\.kubernetes\.io``                Include all ``app.kubernetes.io`` labels
 ========================================== =====================================================
 
