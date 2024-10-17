@@ -296,6 +296,9 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool, isIngr
 				},
 			},
 		},
+		InternalAddressConfig: &envoy_config_http.HttpConnectionManager_InternalAddressConfig{
+			UnixSockets: true,
+		},
 		StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
 		RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
 			RouteConfig: &envoy_config_route.RouteConfiguration{
