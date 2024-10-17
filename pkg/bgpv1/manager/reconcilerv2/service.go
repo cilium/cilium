@@ -47,6 +47,7 @@ type ServiceReconciler struct {
 	peerAdvert   *CiliumPeerAdvertisement
 	svcDiffStore store.DiffStore[*slim_corev1.Service]
 	epDiffStore  store.DiffStore[*k8s.Endpoints]
+	metadata     map[string]ServiceReconcilerMetadata
 }
 
 func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
@@ -60,6 +61,7 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 			peerAdvert:   in.PeerAdvert,
 			svcDiffStore: in.SvcDiffStore,
 			epDiffStore:  in.EPDiffStore,
+			metadata:     make(map[string]ServiceReconcilerMetadata),
 		},
 	}
 }
@@ -72,18 +74,11 @@ type ServiceReconcilerMetadata struct {
 }
 
 func (r *ServiceReconciler) getMetadata(i *instance.BGPInstance) ServiceReconcilerMetadata {
-	if _, found := i.Metadata[r.Name()]; !found {
-		i.Metadata[r.Name()] = ServiceReconcilerMetadata{
-			ServicePaths:          make(ResourceAFPathsMap),
-			ServiceAdvertisements: make(PeerAdvertisements),
-			ServiceRoutePolicies:  make(ResourceRoutePolicyMap),
-		}
-	}
-	return i.Metadata[r.Name()].(ServiceReconcilerMetadata)
+	return r.metadata[i.Name]
 }
 
 func (r *ServiceReconciler) setMetadata(i *instance.BGPInstance, metadata ServiceReconcilerMetadata) {
-	i.Metadata[r.Name()] = metadata
+	r.metadata[i.Name] = metadata
 }
 
 func (r *ServiceReconciler) Name() string {
@@ -100,6 +95,12 @@ func (r *ServiceReconciler) Init(i *instance.BGPInstance) error {
 	}
 	r.svcDiffStore.InitDiff(r.diffID(i))
 	r.epDiffStore.InitDiff(r.diffID(i))
+
+	r.metadata[i.Name] = ServiceReconcilerMetadata{
+		ServicePaths:          make(ResourceAFPathsMap),
+		ServiceAdvertisements: make(PeerAdvertisements),
+		ServiceRoutePolicies:  make(ResourceRoutePolicyMap),
+	}
 	return nil
 }
 
@@ -107,6 +108,8 @@ func (r *ServiceReconciler) Cleanup(i *instance.BGPInstance) {
 	if i != nil {
 		r.svcDiffStore.CleanupDiff(r.diffID(i))
 		r.epDiffStore.CleanupDiff(r.diffID(i))
+
+		delete(r.metadata, i.Name)
 	}
 }
 
