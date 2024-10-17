@@ -16,6 +16,7 @@ This upgrade guide is intended for Cilium running on Kubernetes. If you have
 questions, feel free to ping us on `Cilium Slack`_.
 
 .. include:: upgrade-warning.rst
+.. include:: cli-conn-tests-warning.rst
 
 .. _pre_flight:
 
