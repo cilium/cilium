@@ -17,10 +17,10 @@ import (
 	"github.com/cilium/cilium/operator/k8s"
 	tu "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	"github.com/cilium/cilium/pkg/hive"
-	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -30,7 +30,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 	var r *reconciler
 	var fakeClient k8sClient.FakeClientset
 	m := newCESManagerFcfs(2, log).(*cesManagerFcfs)
-	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
+	var pod resource.Resource[*slim_corev1.Pod]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
 	hive := hive.New(
@@ -39,27 +39,26 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 		metrics.Metric(NewMetrics),
 		cell.Invoke(func(
 			c *k8sClient.FakeClientset,
-			cep resource.Resource[*cilium_v2.CiliumEndpoint],
 			ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+			podResource resource.Resource[*slim_corev1.Pod],
 			metrics *Metrics,
 		) error {
 			fakeClient = *c
-			ciliumEndpoint = cep
 			ciliumEndpointSlice = ces
+			pod = podResource
 			cesMetrics = metrics
 			return nil
 		}),
 	)
 	tlog := hivetest.Logger(t)
 	hive.Start(tlog, context.Background())
-	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, pod, ciliumEndpointSlice, cesMetrics)
 	cesStore, _ := ciliumEndpointSlice.Store(context.Background())
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
 	cesController := &Controller{
 		logger:              log,
 		clientset:           fakeClient.Clientset,
-		ciliumEndpoint:      ciliumEndpoint,
 		ciliumEndpointSlice: ciliumEndpointSlice,
 		reconciler:          r,
 		manager:             m,
@@ -101,7 +100,7 @@ func TestIdentityModeSyncCESsInLocalCache(t *testing.T) {
 	var r *reconciler
 	var fakeClient k8sClient.FakeClientset
 	m := newCESManagerIdentity(2, log).(*cesManagerIdentity)
-	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
+	var pod resource.Resource[*slim_corev1.Pod]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
 	hive := hive.New(
@@ -110,27 +109,26 @@ func TestIdentityModeSyncCESsInLocalCache(t *testing.T) {
 		metrics.Metric(NewMetrics),
 		cell.Invoke(func(
 			c *k8sClient.FakeClientset,
-			cep resource.Resource[*cilium_v2.CiliumEndpoint],
 			ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+			podResource resource.Resource[*slim_corev1.Pod],
 			metrics *Metrics,
 		) error {
 			fakeClient = *c
-			ciliumEndpoint = cep
 			ciliumEndpointSlice = ces
+			pod = podResource
 			cesMetrics = metrics
 			return nil
 		}),
 	)
 	tlog := hivetest.Logger(t)
 	hive.Start(tlog, context.Background())
-	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, pod, ciliumEndpointSlice, cesMetrics)
 	cesStore, _ := ciliumEndpointSlice.Store(context.Background())
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
 	cesController := &Controller{
 		logger:              log,
 		clientset:           fakeClient.Clientset,
-		ciliumEndpoint:      ciliumEndpoint,
 		ciliumEndpointSlice: ciliumEndpointSlice,
 		reconciler:          r,
 		manager:             m,
@@ -172,8 +170,8 @@ func TestDifferentSpeedQueues(t *testing.T) {
 
 	var r *reconciler
 	var fakeClient k8sClient.FakeClientset
-	m := newCESManagerIdentity(2, log).(*cesManagerIdentity)
-	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
+	m := newCESManagerFcfs(2, log).(*cesManagerFcfs)
+	var pod resource.Resource[*slim_corev1.Pod]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
 	hive := hive.New(
@@ -182,29 +180,28 @@ func TestDifferentSpeedQueues(t *testing.T) {
 		metrics.Metric(NewMetrics),
 		cell.Invoke(func(
 			c *k8sClient.FakeClientset,
-			cep resource.Resource[*cilium_v2.CiliumEndpoint],
 			ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+			podResource resource.Resource[*slim_corev1.Pod],
 			metrics *Metrics,
 		) error {
 			fakeClient = *c
-			ciliumEndpoint = cep
 			ciliumEndpointSlice = ces
+			pod = podResource
 			cesMetrics = metrics
 			return nil
 		}),
 	)
 	tlog := hivetest.Logger(t)
 	hive.Start(tlog, context.Background())
-
-	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, pod, ciliumEndpointSlice, cesMetrics)
 
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
 	cesController := &Controller{
 		logger:              log,
 		clientset:           fakeClient.Clientset,
-		ciliumEndpoint:      ciliumEndpoint,
 		ciliumEndpointSlice: ciliumEndpointSlice,
+		pods:                pod,
 		reconciler:          r,
 		manager:             m,
 		rateLimit:           rateLimitConfig,
@@ -274,8 +271,8 @@ func TestCESManagement(t *testing.T) {
 
 	var r *reconciler
 	var fakeClient k8sClient.FakeClientset
-	m := newCESManagerIdentity(2, log).(*cesManagerIdentity)
-	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
+	m := newCESManagerFcfs(2, log).(*cesManagerFcfs)
+	var pod resource.Resource[*slim_corev1.Pod]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
 	hive := hive.New(
@@ -284,29 +281,28 @@ func TestCESManagement(t *testing.T) {
 		metrics.Metric(NewMetrics),
 		cell.Invoke(func(
 			c *k8sClient.FakeClientset,
-			cep resource.Resource[*cilium_v2.CiliumEndpoint],
 			ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+			podResource resource.Resource[*slim_corev1.Pod],
 			metrics *Metrics,
 		) error {
 			fakeClient = *c
-			ciliumEndpoint = cep
 			ciliumEndpointSlice = ces
+			pod = podResource
 			cesMetrics = metrics
 			return nil
 		}),
 	)
 	tlog := hivetest.Logger(t)
 	hive.Start(tlog, context.Background())
-
-	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, pod, ciliumEndpointSlice, cesMetrics)
 
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
 	cesController := &Controller{
 		logger:              log,
 		clientset:           fakeClient.Clientset,
-		ciliumEndpoint:      ciliumEndpoint,
 		ciliumEndpointSlice: ciliumEndpointSlice,
+		pods:                pod,
 		reconciler:          r,
 		manager:             m,
 		rateLimit:           rateLimitConfig,
@@ -320,8 +316,8 @@ func TestCESManagement(t *testing.T) {
 	cesController.initializeQueue()
 	var ns string = "ns"
 
-	cep1 := tu.CreateStoreEndpoint(fmt.Sprintf("cep-%d", 0), ns, 0)
-	cesController.onEndpointUpdate(cep1)
+	pod1 := tu.CreateStorePod(fmt.Sprintf("pod-%d", 0), ns, 0)
+	cesController.onPodUpdate(pod1)
 	if err := testutils.WaitUntil(func() bool {
 		return cesController.standardQueue.Len() == 1
 	}, time.Second); err != nil {
@@ -330,7 +326,7 @@ func TestCESManagement(t *testing.T) {
 	cesController.processNextWorkItem()
 	//A CEP is enqueued and processed. Then, the same CEP (and CES) is enqueued
 	//to test if the CESStore works properly and if the associated CES can be found in the store
-	cesController.onEndpointUpdate(cep1)
+	cesController.onPodUpdate(pod1)
 
 	queue := cesController.getQueue()
 	key, _ := queue.Get()
