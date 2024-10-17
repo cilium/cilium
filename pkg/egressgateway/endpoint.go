@@ -22,6 +22,8 @@ type endpointMetadata struct {
 	id endpointID
 	// ips are endpoint's unique IPs
 	ips []netip.Addr
+	// nodeIP is the IP of the node the endpoint is on
+	nodeIP string
 }
 
 // endpointID is based on endpoint's UID
@@ -57,6 +59,7 @@ func getEndpointMetadata(endpoint *k8sTypes.CiliumEndpoint, identityLabels label
 		ips:    addrs,
 		labels: identityLabels.K8sStringMap(),
 		id:     endpoint.UID,
+		nodeIP: endpoint.Networking.NodeIP,
 	}
 
 	return data, nil
