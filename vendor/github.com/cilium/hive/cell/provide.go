@@ -4,7 +4,9 @@
 package cell
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"sync"
@@ -40,6 +42,7 @@ func (p *provider) Apply(c container) error {
 		if fillInfo {
 			opts = append(opts, dig.FillProvideInfo(&p.infos[i]))
 		}
+		slog.Default().Log(context.TODO(), slog.LevelInfo, fmt.Sprintf("Applying provider %s", internal.FuncNameAndLocation(ctor)))
 		if err := c.Provide(ctor, opts...); err != nil {
 			return err
 		}
