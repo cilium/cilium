@@ -41,6 +41,7 @@ cilium-agent [flags]
       --bpf-events-policy-verdict-enabled                         Expose 'policy verdict' events for Cilium monitor and/or Hubble (default true)
       --bpf-events-trace-enabled                                  Expose 'trace' events for Cilium monitor and/or Hubble (default true)
       --bpf-fragments-map-max int                                 Maximum number of entries in fragments tracking map (default 8192)
+      --bpf-ipcache-map-max int                                   Maximum number of entries for the ipcache BPF map (default 512000)
       --bpf-lb-acceleration string                                BPF load balancing acceleration via XDP ("native", "disabled") (default "disabled")
       --bpf-lb-algorithm string                                   BPF load balancing algorithm ("random", "maglev") (default "random")
       --bpf-lb-dsr-dispatch string                                BPF load balancing DSR dispatch method ("opt", "ipip", "geneve") (default "opt")

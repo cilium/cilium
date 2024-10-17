@@ -18,10 +18,6 @@ import (
 )
 
 const (
-	// MaxEntries is the maximum number of keys that can be present in the
-	// RemoteEndpointMap.
-	MaxEntries = 512000
-
 	// Name is the canonical name for the IPCache map on the filesystem.
 	Name = "cilium_ipcache"
 )
@@ -172,7 +168,7 @@ func newIPCacheMap(name string) *bpf.Map {
 		ebpf.LPMTrie,
 		&Key{},
 		&RemoteEndpointInfo{},
-		MaxEntries,
+		option.Config.IPCacheMapEntries,
 		bpf.BPF_F_NO_PREALLOC)
 }
 
