@@ -123,7 +123,11 @@ set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi, __u32 tunnel_endpoint,
 		return DROP_NO_NODE_ID;
 
 	if (use_spi_from_map)
-		spi = get_min_encrypt_key(node_value->spi);
+		spi = node_value->spi;
+
+	spi = get_min_encrypt_key(spi);
+	if (!spi)
+		return DROP_NO_ENCRYPT_SPI;
 
 	set_identity_meta(ctx, seclabel);
 	if (use_meta)
