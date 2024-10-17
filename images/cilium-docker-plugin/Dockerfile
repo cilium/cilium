@@ -20,7 +20,7 @@ WORKDIR /go/src/github.com/cilium/cilium/plugins/cilium-docker
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     --mount=type=cache,target=/root/.cache \
     --mount=type=cache,target=/go/pkg \
-    make GOARCH=${TARGETARCH} ${MODIFIERS} \
+    make GOARCH=${TARGETARCH} $(echo $MODIFIERS | tr -d '"') \
     && mkdir -p /out/${TARGETOS}/${TARGETARCH}/usr/bin && mv cilium-docker /out/${TARGETOS}/${TARGETARCH}/usr/bin
 
 FROM ${BASE_IMAGE} AS release
