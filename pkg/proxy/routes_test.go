@@ -5,6 +5,7 @@ package proxy
 
 import (
 	"net"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,9 +13,25 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
+
+func getDefaultRoute(t *testing.T, rt []netlink.Route, family int) netlink.Route {
+	var defaultDst *net.IPNet
+	switch family {
+	case netlink.FAMILY_V4:
+		_, defaultDst, _ = net.ParseCIDR("0.0.0.0/0")
+	case netlink.FAMILY_V6:
+		_, defaultDst, _ = net.ParseCIDR("::/0")
+	default:
+		t.Errorf("unsupported default route for family type %d", family)
+	}
+	i := slices.IndexFunc(rt, func(r netlink.Route) bool { return r.Dst.String() == defaultDst.String() })
+	assert.Greater(t, i, -1)
+	return rt[i]
+}
 
 func TestRoutes(t *testing.T) {
 	testutils.PrivilegedTest(t)
@@ -72,7 +89,8 @@ func TestRoutes(t *testing.T) {
 				assert.NoError(t, err)
 
 				// Install routes and rules the first time.
-				assert.NoError(t, installFromProxyRoutesIPv4(testIPv4, ifName, true, true))
+				mtuDefault := 0
+				assert.NoError(t, installFromProxyRoutesIPv4(testIPv4, ifName, true, true, mtuDefault))
 
 				rules, err := route.ListRules(netlink.FAMILY_V4, &fromIngressProxyRule)
 				assert.NoError(t, err)
@@ -84,10 +102,31 @@ func TestRoutes(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Len(t, rt, 2)
 
+				// Expect default route MTU set.
+				defaultRoute := getDefaultRoute(t, rt, netlink.FAMILY_V4)
+				assert.Equal(t, mtuDefault, defaultRoute.MTU)
+
 				// Ensure idempotence.
-				assert.NoError(t, installFromProxyRoutesIPv4(testIPv4, ifName, true, true))
+				assert.NoError(t, installFromProxyRoutesIPv4(testIPv4, ifName, true, true, mtuDefault))
 
 				// Remove routes installed before.
+				assert.NoError(t, removeFromProxyRoutesIPv4())
+
+				// Install routes and rules with non-default MTU.
+				mtuWithOverhead := mtu.EthernetMTU - mtu.EncryptionIPsecOverhead
+				assert.NoError(t, installFromProxyRoutesIPv4(testIPv4, ifName, true, true, mtuWithOverhead))
+
+				// Re-list the from proxy (2005) routing table, expect a single entry.
+				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V4,
+					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
+				assert.NoError(t, err)
+				assert.Len(t, rt, 2)
+
+				// Expect default route to use the lower MTU.
+				defaultRoute = getDefaultRoute(t, rt, netlink.FAMILY_V4)
+				assert.Equal(t, mtuWithOverhead, defaultRoute.MTU)
+
+				// Remove installed routes.
 				assert.NoError(t, removeFromProxyRoutesIPv4())
 
 				rules, err = route.ListRules(netlink.FAMILY_V4, &fromIngressProxyRule)
@@ -159,7 +198,8 @@ func TestRoutes(t *testing.T) {
 				assert.NoError(t, err)
 
 				// Install routes and rules the first time.
-				assert.NoError(t, installFromProxyRoutesIPv6(testIPv6, ifName, true, true))
+				mtuDefault := 0
+				assert.NoError(t, installFromProxyRoutesIPv6(testIPv6, ifName, true, true, mtuDefault))
 
 				rules, err := route.ListRules(netlink.FAMILY_V6, &fromIngressProxyRule)
 				assert.NoError(t, err)
@@ -171,10 +211,31 @@ func TestRoutes(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Len(t, rt, 2)
 
+				// Expect default route MTU set.
+				defaultRoute := getDefaultRoute(t, rt, netlink.FAMILY_V6)
+				assert.Equal(t, mtuDefault, defaultRoute.MTU)
+
 				// Ensure idempotence.
-				assert.NoError(t, installFromProxyRoutesIPv6(testIPv6, ifName, true, true))
+				assert.NoError(t, installFromProxyRoutesIPv6(testIPv6, ifName, true, true, mtuDefault))
 
 				// Remove routes installed before.
+				assert.NoError(t, removeFromProxyRoutesIPv6())
+
+				// Install routes and rules with non-default MTU.
+				mtuWithOverhead := mtu.EthernetMTU - mtu.EncryptionIPsecOverhead
+				assert.NoError(t, installFromProxyRoutesIPv6(testIPv6, ifName, true, true, mtuWithOverhead))
+
+				// Re-list the from proxy (2005) routing table, expect a single entry.
+				rt, err = netlink.RouteListFiltered(netlink.FAMILY_V6,
+					&netlink.Route{Table: linux_defaults.RouteTableFromProxy}, netlink.RT_FILTER_TABLE)
+				assert.NoError(t, err)
+				assert.Len(t, rt, 2)
+
+				// Expect default route to use the lower MTU.
+				defaultRoute = getDefaultRoute(t, rt, netlink.FAMILY_V6)
+				assert.Equal(t, mtuWithOverhead, defaultRoute.MTU)
+
+				// Remove installed routes.
 				assert.NoError(t, removeFromProxyRoutesIPv6())
 
 				rules, err = route.ListRules(netlink.FAMILY_V6, &fromIngressProxyRule)
