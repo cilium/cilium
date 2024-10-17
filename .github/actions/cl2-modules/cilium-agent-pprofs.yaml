@@ -8,7 +8,7 @@ steps:
       params:
         action: {{$action}}
         labelSelector: k8s-app=cilium
-        interval: 60s
+        interval: 300s
         container: cilium-agent
         limit: 5
         failOnCommandError: true
