@@ -142,6 +142,11 @@ func NewCIDUsageInPods() *CIDUsageInPods {
 	}
 }
 
+func (c *CIDUsageInPods) podUsesCID(podNamespacedName string) string {
+	cidName := c.podToCID[podNamespacedName]
+	return cidName
+}
+
 // AssignCIDToPod updates the pod to CID map and increments the CID usage.
 // It also decrements the previous CID usage and returns the CID name of
 // previously set CID and its usage count after decrementing the CID usage.
