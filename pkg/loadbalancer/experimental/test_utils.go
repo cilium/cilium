@@ -29,6 +29,7 @@ import (
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
@@ -186,7 +187,7 @@ func parseAddrPort(s string) loadbalancer.L3n4Addr {
 type MapDump = string
 
 // DumpLBMaps the load-balancing maps into a concise format for assertions in tests.
-func DumpLBMaps(lbmaps LBMaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool, customIPString func(net.IP) string) (out []MapDump) {
+func DumpLBMaps(lbmaps LBMaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool, customIPString func(net.IP) string) (out []MapDump, maglev []MapDump) {
 	out = []string{}
 
 	replaceAddr := func(addr net.IP, port uint16) (s string) {
@@ -300,7 +301,31 @@ func DumpLBMaps(lbmaps LBMaps, feAddr loadbalancer.L3n4Addr, sanitizeIDs bool, c
 		panic(err)
 	}
 
+	maglevCB := func(key lbmap.MaglevOuterKey, _ lbmap.MaglevOuterVal, _ lbmap.MaglevInnerKey, innerValue *lbmap.MaglevInnerVal, _ bool) {
+		key = lbmap.MaglevOuterKey{
+			RevNatID: byteorder.NetworkToHost16(key.RevNatID),
+		}
+		trunc := innerValue.BackendIDs[:min(10, len(innerValue.BackendIDs))]
+		tail := ""
+		if len(innerValue.BackendIDs) > len(trunc) {
+			tail = "..."
+		}
+		var ids []string
+		for _, id := range trunc {
+			ids = append(ids, sanitizeID(id, sanitizeIDs))
+		}
+		maglev = append(maglev, fmt.Sprintf("MAGLEV: ID=%s INNER=[%s%s]",
+			sanitizeID(byteorder.HostToNetwork16(key.RevNatID), sanitizeIDs),
+			strings.Join(ids, ", "),
+			tail,
+		))
+	}
+	if err := lbmaps.DumpMaglev(maglevCB); err != nil {
+		panic(err)
+	}
+
 	sort.Strings(out)
+	sort.Strings(maglev)
 	return
 }
 
@@ -494,7 +519,8 @@ func checkTablesAndMaps(db *statedb.DB, writer *Writer, maps LBMaps, expectedTab
 	if expectedData, err := expectedMapsF(); err == nil {
 		expectedMaps = strings.Split(strings.TrimSpace(string(expectedData)), "\n")
 	}
-	actualMaps := DumpLBMaps(maps, frontendAddrs[0], true, customIPString)
+	nonMaglev, maglev := DumpLBMaps(maps, frontendAddrs[0], true, customIPString)
+	actualMaps := append(nonMaglev, maglev...)
 
 	writeData(
 		"actual.maps",

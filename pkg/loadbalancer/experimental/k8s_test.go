@@ -47,23 +47,40 @@ func TestIntegrationK8s(t *testing.T) {
 		if !hasYamlFiles(testDataPath) {
 			continue
 		}
-		t.Run(ent.Name(), func(t *testing.T) {
-			testIntegrationK8s(t, testDataPath)
-		})
+
+		type algorithmData struct {
+			algorithm string
+			name      string
+		}
+		for _, algo := range []algorithmData{
+			{option.NodePortAlgRandom, ""},
+			{option.NodePortAlgMaglev, "-maglev"},
+		} {
+			t.Run(ent.Name()+algo.name, func(t *testing.T) {
+				testIntegrationK8s(t, testDataPath, algo.algorithm)
+			})
+		}
 	}
 }
 
-func testIntegrationK8s(t *testing.T, testDataPath string) {
+func testIntegrationK8s(t *testing.T, testDataPath string, algo string) {
 	//  As we're using k8s.Endpoints we need to set this to ask ParseEndpoint*
 	// to handle the termination state. Eventually this should migrate to the
 	// package for the k8s data source.
 	option.Config.EnableK8sTerminatingEndpoint = true
+
+	prevMaglevTableSize := option.Config.MaglevTableSize
+	option.Config.MaglevTableSize = 1021
+	defer func() {
+		option.Config.MaglevTableSize = prevMaglevTableSize
+	}()
 
 	extConfig := externalConfig{
 		ExternalClusterIP:     false,
 		EnableSessionAffinity: true,
 		NodePortMin:           option.NodePortMinDefault,
 		NodePortMax:           option.NodePortMaxDefault,
+		NodePortAlg:           algo,
 	}
 
 	log := hivetest.Logger(t)
@@ -219,17 +236,22 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 		endpoints <- UpsertEvent(k8s.ParseEndpointSliceV1(obj))
 	}
 
+	expectedMaps := "expected.maps"
+	if algo == option.NodePortAlgMaglev {
+		expectedMaps = "expectedWithMaglev.maps"
+	}
+
 	if !assert.Eventually(
 		t,
 		func() bool {
-			return checkTablesAndMaps(db, writer, maps, readFileFromDir("expected.tables", testDataPath), readFileFromDir("expected.maps", testDataPath), writeToDir(testDataPath), nil)
+			return checkTablesAndMaps(db, writer, maps, readFileFromDir("expected.tables", testDataPath), readFileFromDir(expectedMaps, testDataPath), writeToDir(testDataPath), nil)
 		},
 		5*time.Second,
 		10*time.Millisecond,
 		"Mismatching tables and/or BPF maps",
 	) {
 		logDiff(t, path.Join(testDataPath, "actual.tables"), path.Join(testDataPath, "expected.tables"))
-		logDiff(t, path.Join(testDataPath, "actual.maps"), path.Join(testDataPath, "expected.maps"))
+		logDiff(t, path.Join(testDataPath, "actual.maps"), path.Join(testDataPath, expectedMaps))
 		t.FailNow()
 	}
 
@@ -239,7 +261,7 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 	if !assert.Eventually(
 		t,
 		func() bool {
-			ok := checkTablesAndMaps(db, writer, maps, readFileFromDir("expected.tables", testDataPath), readFileFromDir("expected.maps", testDataPath), writeToDir(testDataPath), nil)
+			ok := checkTablesAndMaps(db, writer, maps, readFileFromDir("expected.tables", testDataPath), readFileFromDir(expectedMaps, testDataPath), writeToDir(testDataPath), nil)
 			if !ok {
 				// Keep re-pruning since a fault may have been injected.
 				// FIXME: Reconciler likely should retry pruning automatically!
@@ -252,7 +274,7 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 		"Mismatching tables and/or BPF maps AFTER PRUNING",
 	) {
 		logDiff(t, path.Join(testDataPath, "actual.tables"), path.Join(testDataPath, "expected.tables"))
-		logDiff(t, path.Join(testDataPath, "actual.maps"), path.Join(testDataPath, "expected.maps"))
+		logDiff(t, path.Join(testDataPath, "actual.maps"), path.Join(testDataPath, expectedMaps))
 		t.FailNow()
 	}
 
@@ -275,16 +297,16 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 	}
 
 	// The reconciler should eventually clean up all the maps.
-	var lastDump []MapDump
+	var lastDump, lastMaglevDump []MapDump
 	if !assert.Eventually(
 		t,
 		func() bool {
-			lastDump = DumpLBMaps(maps, frontendAddrs[0], true, nil)
-			return len(lastDump) == 0
+			lastDump, lastMaglevDump = DumpLBMaps(maps, frontendAddrs[0], true, nil)
+			return len(lastDump) == 0 && len(lastMaglevDump) == 0
 		},
 		5*time.Second,
 		50*time.Millisecond) {
-		t.Fatalf("Expected BPF maps to be empty, instead they contain: %v", lastDump)
+		t.Fatalf("Expected BPF maps to be empty, instead they contain: %v", append(lastDump, lastMaglevDump...))
 	}
 
 	// The tables should now all be empty.
@@ -308,12 +330,12 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 	snapshot.restore(maps)
 	rec.Prune()
 
-	lastDump = nil
+	lastDump, lastMaglevDump = nil, nil
 	if !assert.Eventually(
 		t,
 		func() bool {
-			lastDump = DumpLBMaps(maps, frontendAddrs[0], true, nil)
-			ok := len(lastDump) == 0
+			lastDump, lastMaglevDump = DumpLBMaps(maps, frontendAddrs[0], true, nil)
+			ok := len(lastDump) == 0 && len(lastMaglevDump) == 0
 			if !ok {
 				// Keep re-pruning as a fault may have been injected.
 				rec.Prune()
@@ -322,7 +344,7 @@ func testIntegrationK8s(t *testing.T, testDataPath string) {
 		},
 		5*time.Second,
 		50*time.Millisecond) {
-		t.Fatalf("Expected BPF maps to be empty after pruning, instead they contain: %v", lastDump)
+		t.Fatalf("Expected BPF maps to be empty after pruning, instead they contain: %v", append(lastDump, lastMaglevDump...))
 	}
 }
 
