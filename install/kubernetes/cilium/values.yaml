@@ -1090,6 +1090,12 @@ certgen:
   annotations:
     job: {}
     cronJob: {}
+  # -- Node selector for certgen
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+  nodeSelector: {}
+  # -- Priority class for certgen
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass
+  priorityClassName: ""
   # -- Node tolerations for pod assignment on nodes with taints
   # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
   tolerations: []

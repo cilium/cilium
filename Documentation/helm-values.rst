@@ -435,7 +435,7 @@
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"image":{"digest":"sha256:ab6b1928e9c5f424f6b0f51c68065b9fd85e2f8d3e5f21fbd1a3cb27e6fb9321","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.1","useDigest":true},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
+     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"image":{"digest":"sha256:ab6b1928e9c5f424f6b0f51c68065b9fd85e2f8d3e5f21fbd1a3cb27e6fb9321","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.1","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","tolerations":[],"ttlSecondsAfterFinished":1800}``
    * - :spelling:ignore:`certgen.affinity`
      - Affinity for certgen
      - object
@@ -452,10 +452,18 @@
      - Additional certgen volumes.
      - list
      - ``[]``
+   * - :spelling:ignore:`certgen.nodeSelector`
+     - Node selector for certgen ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+     - object
+     - ``{}``
    * - :spelling:ignore:`certgen.podLabels`
      - Labels to be added to hubble-certgen pods
      - object
      - ``{}``
+   * - :spelling:ignore:`certgen.priorityClassName`
+     - Priority class for certgen ref: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass
+     - string
+     - ``""``
    * - :spelling:ignore:`certgen.tolerations`
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
