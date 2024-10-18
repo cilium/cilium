@@ -267,13 +267,15 @@ github.com/cilium/endpointslice-controller/util/endpointslice
 # github.com/cilium/fake v0.6.1
 ## explicit; go 1.20
 github.com/cilium/fake
-# github.com/cilium/hive v0.0.0-20240926131619-aa37668760f2
+# github.com/cilium/hive v0.0.0-20241011093954-8df06c41a157
 ## explicit; go 1.21.3
 github.com/cilium/hive
 github.com/cilium/hive/cell
 github.com/cilium/hive/hivetest
 github.com/cilium/hive/internal
 github.com/cilium/hive/job
+github.com/cilium/hive/script
+github.com/cilium/hive/script/internal/diff
 # github.com/cilium/linters v0.0.0-20241001072509-4201f4cc97b7
 ## explicit; go 1.22.0
 github.com/cilium/linters
@@ -534,7 +536,7 @@ github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
 github.com/cilium/proxy/go/envoy/watchdog/v3
 github.com/cilium/proxy/pkg/policy/api/kafka
-# github.com/cilium/statedb v0.3.0
+# github.com/cilium/statedb v0.3.1
 ## explicit; go 1.23
 github.com/cilium/statedb
 github.com/cilium/statedb/index
@@ -1738,6 +1740,7 @@ golang.org/x/tools/internal/stdlib
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 golang.org/x/tools/internal/versions
+golang.org/x/tools/txtar
 # golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
 ## explicit; go 1.20
 golang.zx2c4.com/wireguard/ipc/namedpipe
