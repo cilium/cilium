@@ -25,6 +25,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -138,7 +139,7 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 		require.NoError(t, serviceExportStore.CacheStore().Add(svcExport))
 	}
 
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 
 	clusterName := "cluster1"
 	storeFactory := store.NewFactory(store.MetricsProvider())

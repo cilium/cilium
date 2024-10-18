@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-	"testing"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/sirupsen/logrus"
@@ -505,7 +504,7 @@ func (l4 *L4Filter) GetPort() uint16 {
 }
 
 // Equals returns true if two L4Filters are equal
-func (l4 *L4Filter) Equals(_ *testing.T, bL4 *L4Filter) bool {
+func (l4 *L4Filter) Equals(bL4 *L4Filter) bool {
 	if l4.Port == bL4.Port &&
 		l4.EndPort == bL4.EndPort &&
 		l4.PortName == bL4.PortName &&
@@ -1148,8 +1147,8 @@ type L4PolicyMap interface {
 	IngressCoversContext(ctx *SearchContext) api.Decision
 	EgressCoversContext(ctx *SearchContext) api.Decision
 	ForEach(func(l4 *L4Filter) bool)
-	Equals(t *testing.T, bMap L4PolicyMap) bool
-	Diff(t *testing.T, expectedMap L4PolicyMap) string
+	Equals(bMap L4PolicyMap) bool
+	Diff(expectedMap L4PolicyMap) string
 	Len() int
 }
 
@@ -1340,7 +1339,7 @@ func (l4M *l4PolicyMap) ForEach(fn func(l4 *L4Filter) bool) {
 }
 
 // Equals returns true if both L4PolicyMaps are equal.
-func (l4M *l4PolicyMap) Equals(_ *testing.T, bMap L4PolicyMap) bool {
+func (l4M *l4PolicyMap) Equals(bMap L4PolicyMap) bool {
 	if l4M.Len() != bMap.Len() {
 		return false
 	}
@@ -1351,14 +1350,14 @@ func (l4M *l4PolicyMap) Equals(_ *testing.T, bMap L4PolicyMap) bool {
 			port = fmt.Sprintf("%d", l4.Port)
 		}
 		l4B := bMap.ExactLookup(port, l4.EndPort, string(l4.Protocol))
-		equal = l4.Equals(nil, l4B)
+		equal = l4.Equals(l4B)
 		return equal
 	})
 	return equal
 }
 
 // Diff returns the difference between to L4PolicyMaps.
-func (l4M *l4PolicyMap) Diff(_ *testing.T, expected L4PolicyMap) (res string) {
+func (l4M *l4PolicyMap) Diff(expected L4PolicyMap) (res string) {
 	res += "Missing (-), Unexpected (+):\n"
 	expected.ForEach(func(eV *L4Filter) bool {
 		port := eV.PortName
@@ -1367,7 +1366,7 @@ func (l4M *l4PolicyMap) Diff(_ *testing.T, expected L4PolicyMap) (res string) {
 		}
 		oV := l4M.ExactLookup(port, eV.Port, string(eV.Protocol))
 		if oV != nil {
-			if !eV.Equals(nil, oV) {
+			if !eV.Equals(oV) {
 				res += "- " + eV.String() + "\n"
 				res += "+ " + oV.String() + "\n"
 			}

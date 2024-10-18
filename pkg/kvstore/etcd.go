@@ -69,7 +69,7 @@ const (
 // exist or it was expired.
 var ErrLockLeaseExpired = errors.New("transaction did not succeed: lock lease expired")
 
-type etcdModule struct {
+type EtcdModule struct {
 	opts   backendOptions
 	config *client.Config
 }
@@ -92,7 +92,7 @@ var (
 )
 
 func newEtcdModule() backendModule {
-	return &etcdModule{
+	return &EtcdModule{
 		opts: backendOptions{
 			EtcdAddrOption: &backendOption{
 				description: "Addresses of etcd cluster",
@@ -146,19 +146,19 @@ func newEtcdModule() backendModule {
 	}
 }
 
-func (e *etcdModule) createInstance() backendModule {
+func (e *EtcdModule) createInstance() backendModule {
 	return newEtcdModule()
 }
 
-func (e *etcdModule) getName() string {
+func (e *EtcdModule) getName() string {
 	return EtcdBackendName
 }
 
-func (e *etcdModule) setConfig(opts map[string]string) error {
+func (e *EtcdModule) setConfig(opts map[string]string) error {
 	return setOpts(opts, e.opts)
 }
 
-func (e *etcdModule) setExtraConfig(opts *ExtraOptions) error {
+func (e *EtcdModule) setExtraConfig(opts *ExtraOptions) error {
 	if opts != nil && len(opts.DialOption) != 0 {
 		e.config = &client.Config{}
 		e.config.DialOptions = append(e.config.DialOptions, opts.DialOption...)
@@ -166,7 +166,7 @@ func (e *etcdModule) setExtraConfig(opts *ExtraOptions) error {
 	return nil
 }
 
-func (e *etcdModule) getConfig() map[string]string {
+func (e *EtcdModule) getConfig() map[string]string {
 	return getOpts(e.opts)
 }
 
@@ -185,7 +185,7 @@ type clientOptions struct {
 	ListBatchSize      int
 }
 
-func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (BackendOperations, chan error) {
+func (e *EtcdModule) newClient(ctx context.Context, opts *ExtraOptions) (BackendOperations, chan error) {
 	errChan := make(chan error, 10)
 
 	clientOptions := clientOptions{

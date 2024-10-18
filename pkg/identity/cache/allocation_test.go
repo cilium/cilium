@@ -22,6 +22,7 @@ import (
 	cacheKey "github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/inctimer"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/identitybackend"
@@ -60,12 +61,17 @@ type testConfig struct {
 
 func TestAllocateIdentityReserved(t *testing.T) {
 	testutils.IntegrationTest(t)
+<<<<<<< HEAD
+	kvstoreTest.SetupDummy(t, "etcd")
+	testAllocateIdentityReserved(t)
+=======
 	kvstore.SetupDummy(t, "etcd")
 	for _, testConfig := range testConfigs {
 		t.Run(testConfig.name, func(t *testing.T) {
 			testAllocateIdentityReserved(t, testConfig)
 		})
 	}
+>>>>>>> upstream/main
 }
 
 func testAllocateIdentityReserved(t *testing.T, testConfig testConfig) {
@@ -188,7 +194,7 @@ func (d *dummyOwner) WaitUntilID(target identity.NumericIdentity) int {
 
 func TestEventWatcherBatching(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 	testEventWatcherBatching(t)
 }
 
@@ -247,6 +253,10 @@ func testEventWatcherBatching(t *testing.T) {
 
 func TestGetIdentityCache(t *testing.T) {
 	testutils.IntegrationTest(t)
+<<<<<<< HEAD
+	kvstoreTest.SetupDummy(t, "etcd")
+	testGetIdentityCache(t)
+=======
 	kvstore.SetupDummy(t, "etcd")
 
 	for _, testConfig := range testConfigs {
@@ -254,6 +264,7 @@ func TestGetIdentityCache(t *testing.T) {
 			testGetIdentityCache(t, testConfig)
 		})
 	}
+>>>>>>> upstream/main
 }
 
 func testGetIdentityCache(t *testing.T, testConfig testConfig) {
@@ -271,7 +282,7 @@ func testGetIdentityCache(t *testing.T, testConfig testConfig) {
 
 func TestAllocator(t *testing.T) {
 	testutils.IntegrationTest(t)
-	kvstore.SetupDummy(t, "etcd")
+	kvstoreTest.SetupDummy(t, "etcd")
 	testAllocator(t)
 	testAllocatorOperatorIDManagement(t)
 }
@@ -515,12 +526,17 @@ func removeIDKVStore(ctx context.Context, id string) error {
 
 func TestLocalAllocation(t *testing.T) {
 	testutils.IntegrationTest(t)
+<<<<<<< HEAD
+	kvstoreTest.SetupDummy(t, "etcd")
+	testLocalAllocation(t)
+=======
 	kvstore.SetupDummy(t, "etcd")
 	for _, testConfig := range testConfigs {
 		t.Run(testConfig.name, func(t *testing.T) {
 			testLocalAllocation(t, testConfig)
 		})
 	}
+>>>>>>> upstream/main
 }
 
 func testLocalAllocation(t *testing.T, testConfig testConfig) {
@@ -589,12 +605,17 @@ func testLocalAllocation(t *testing.T, testConfig testConfig) {
 
 func TestAllocatorReset(t *testing.T) {
 	testutils.IntegrationTest(t)
+<<<<<<< HEAD
+	kvstoreTest.SetupDummy(t, "etcd")
+	testAllocatorReset(t)
+=======
 	kvstore.SetupDummy(t, "etcd")
 	for _, testConfig := range testConfigs {
 		t.Run(testConfig.name, func(t *testing.T) {
 			testAllocatorReset(t, testConfig)
 		})
 	}
+>>>>>>> upstream/main
 }
 
 // Test that we can close and reopen the allocator successfully.

@@ -1,30 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
-
 package kvstore
 
 import (
 	"context"
 	"testing"
 
-	client "go.etcd.io/etcd/client/v3"
-
-	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-var (
-	// etcdDummyAddress can be overwritten from test invokers using ldflags
-	etcdDummyAddress = "http://127.0.0.1:4002"
-)
-
-// SetupDummy sets up kvstore for tests. A lock mechanism it used to prevent
-// the creation of two clients at the same time, to avoid interferences in case
-// different tests are run in parallel. A cleanup function is automatically
-// registered to delete all keys and close the client when the test terminates.
-func SetupDummy(tb testing.TB, dummyBackend string) {
-	SetupDummyWithConfigOpts(tb, dummyBackend, nil)
-}
 
 // SetupDummyWithConfigOpts sets up the dummy kvstore for tests but also
 // configures the module with the provided opts. A lock mechanism it used to
@@ -38,10 +21,22 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 		tb.Fatalf("Unknown dummy kvstore backend %s", dummyBackend)
 	}
 
-	module.setConfigDummy()
+	// Ensure the module is valid
+	if module == nil {
+		tb.Fatalf("Unknown dummy kvstore backend %s", dummyBackend)
+	}
+
+	// Perform a type assertion to get the concrete type (*EtcdModule)
+	etcdMod, ok := module.(*EtcdModule)
+	if !ok {
+		tb.Fatalf("Invalid module type, expected *EtcdModule")
+	}
+
+	// Call setConfigDummy on the concrete type
+	etcdMod.setConfigDummy()
 
 	if opts != nil {
-		err := module.setConfig(opts)
+		err := etcdMod.setConfig(opts)
 		if err != nil {
 			tb.Fatalf("Unable to set config options for kvstore backend module: %v", err)
 		}
@@ -66,7 +61,7 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 		tb.Fatalf("Failed waiting for kvstore connection to be established: %v", err)
 	}
 
-	timer, done := inctimer.New()
+	timer, done := NewIncTimer()
 	defer done()
 
 	// Multiple tests might be running in parallel by go test if they are part of
@@ -91,13 +86,4 @@ func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[strin
 			tb.Fatal("Timed out waiting to acquire the kvstore lock")
 		}
 	}
-}
-
-func EtcdDummyAddress() string {
-	return etcdDummyAddress
-}
-
-func (e *etcdModule) setConfigDummy() {
-	e.config = &client.Config{}
-	e.config.Endpoints = []string{etcdDummyAddress}
 }

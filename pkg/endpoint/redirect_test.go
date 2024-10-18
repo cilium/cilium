@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/kvstoreTest"
 	"github.com/cilium/cilium/pkg/labels"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
@@ -47,7 +47,7 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
 	// Setup dependencies for endpoint.
-	kvstore.SetupDummy(tb, "etcd")
+	kvstoreTest.SetupDummy(tb, "etcd")
 
 	s.mgr = cache.NewCachingIdentityAllocator(s.do, cache.AllocatorConfig{})
 	<-s.mgr.InitIdentityAllocator(nil)
@@ -205,7 +205,7 @@ const (
 )
 
 func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
-	ep := NewTestEndpointWithState(t, s.do, s.do, testipcache.NewMockIPCache(), s.rsp, s.mgr, 12345, StateRegenerating)
+	ep := NewTestEndpointWithState(s.do, s.do, testipcache.NewMockIPCache(), s.rsp, s.mgr, 12345, StateRegenerating)
 	ep.SetPropertyValue(PropertyFakeEndpoint, false)
 
 	epIdentity, _, err := s.mgr.AllocateIdentity(context.Background(), labelsBar.Labels(), true, identityBar)
