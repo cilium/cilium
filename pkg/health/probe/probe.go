@@ -10,11 +10,13 @@ import (
 	"time"
 )
 
+var HttpTimeout = 10 * time.Second
+
 // http Client for probing
 // Use our custom client since DefaultClient specifies timeout of 0 (no timeout).
 // See https://medium.com/@nate510/don-t-use-go-s-default-http-client-4804cb19f779.
-// Use a timeout of 30s.
-var client = &http.Client{Timeout: 30 * time.Second}
+// Use a timeout of 10s.
+var client = &http.Client{Timeout: HttpTimeout}
 
 // GetHello performs a GET request on the /hello endpoint
 func GetHello(host string) error {
