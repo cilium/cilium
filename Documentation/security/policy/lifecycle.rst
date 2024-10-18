@@ -125,7 +125,10 @@ the endpoint out of "lockdown" when it detects that the policy map is no
 longer overflowing. When an endpoint is locked down all network traffic,
 both egress and ingress, will be dropped. Cilium will log a warning that
 the endpoint has been locked down.
-  
-If this option is enabled, cluster operators should closely monitor the                                                                                metric the bpf map pressure metric of the ``cilium_policy_*`` maps. See                                                                                `Policymap pressure and overflow`_ for more details.
+
+If this option is enabled, cluster operators should closely monitor the                                                                                metric the bpf map pressure metric of the ``cilium_policy_*`` maps. See                                                       `Policymap pressure and overflow`_ for more details. They can use this metric
+to create an alert for increased memory pressure on the policy map as well
+as alert for a lockdown if ``enable-lockdown-endpoint-on-policy-overflow``
+is set to "true" (any ``bpf_map_pressure`` above a value of ``1.0``).
 
 .. _Policymap pressure and overflow: /operations/troubleshooting.html#policymap-pressure-and-overflow
