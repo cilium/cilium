@@ -16,6 +16,10 @@ inputs:
     required: false
     default: 'false'
     description: 'Run full connectivity test suite'
+  tests:
+    required: false
+    default: ''
+    description: 'Select which connectivity tests to run'
 
 runs:
   using: composite
@@ -23,7 +27,11 @@ runs:
     - name: Perform Conn Disrupt Test
       shell: bash
       run: |
-        TEST_ARG="no-interrupted-connections"
+        if [[ -n "${{ inputs.tests }}" ]]; then
+          TEST_ARG="${{ inputs.tests }}"
+        else
+          TEST_ARG="no-interrupted-connections"
+        fi
         if [[ "${{ inputs.full-test }}" == "true" ]]; then
           TEST_ARG=""
         fi
