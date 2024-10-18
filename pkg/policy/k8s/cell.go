@@ -54,7 +54,7 @@ type PolicyManager interface {
 }
 
 type serviceCache interface {
-	ForEachService(func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.Endpoints) bool)
+	ForEachService(func(svcID k8s.ServiceID, svc *k8s.Service, eps *k8s.EndpointSlices) bool)
 }
 
 type ipc interface {
