@@ -110,7 +110,15 @@ func Benchmark_MapUpdate(b *testing.B) {
 
 // TestCtGcIcmp tests whether ICMP NAT entries are removed upon a removal of
 // their CT entry (GH#12625).
+func TestCtGcIcmpBatched(t *testing.T) {
+	testCtGcIcmp(t, true)
+}
+
 func TestCtGcIcmp(t *testing.T) {
+	testCtGcIcmp(t, false)
+}
+
+func testCtGcIcmp(t *testing.T, useBatchAPI bool) {
 	setupCTMap(t)
 
 	// Init maps
@@ -210,7 +218,7 @@ func TestCtGcIcmp(t *testing.T) {
 		RemoveExpired: true,
 		Time:          39000,
 	}
-	stats := doGC4(ctMap, filter)
+	stats := doGC4(ctMap, filter, useBatchAPI)
 	require.Equal(t, uint32(0), stats.aliveEntries)
 	require.Equal(t, uint32(1), stats.deleted)
 
@@ -222,7 +230,17 @@ func TestCtGcIcmp(t *testing.T) {
 
 // TestCtGcTcp tests whether TCP SNAT entries are removed upon a removal of
 // their CT entry.
+func TestCtGcTcpBatched(t *testing.T) {
+	testCtGcTcp(t, true)
+}
+
+// TestCtGcTcp tests whether TCP SNAT entries are removed upon a removal of
+// their CT entry.
 func TestCtGcTcp(t *testing.T) {
+	testCtGcTcp(t, false)
+}
+
+func testCtGcTcp(t *testing.T, useBatchedAPI bool) {
 	setupCTMap(t)
 	// Init maps
 	natMap := nat.NewMap("cilium_nat_any4_test", nat.IPv4, 1000)
@@ -321,7 +339,7 @@ func TestCtGcTcp(t *testing.T) {
 		RemoveExpired: true,
 		Time:          39000,
 	}
-	stats := doGC4(ctMap, filter)
+	stats := doGC4(ctMap, filter, useBatchedAPI)
 	require.Equal(t, uint32(0), stats.aliveEntries)
 	require.Equal(t, uint32(1), stats.deleted)
 
@@ -333,7 +351,15 @@ func TestCtGcTcp(t *testing.T) {
 
 // TestCtGcDsr tests whether DSR NAT entries are removed upon a removal of
 // their CT entry (== CT_EGRESS).
+func TestCtGcDsrBatched(t *testing.T) {
+	testCtGcDsr(t, true)
+}
+
 func TestCtGcDsr(t *testing.T) {
+	testCtGcDsr(t, false)
+}
+
+func testCtGcDsr(t *testing.T, useBatchAPI bool) {
 	setupCTMap(t)
 
 	// Init maps
@@ -412,7 +438,7 @@ func TestCtGcDsr(t *testing.T) {
 		RemoveExpired: true,
 		Time:          39000,
 	}
-	stats := doGC4(ctMap, filter)
+	stats := doGC4(ctMap, filter, useBatchAPI)
 	require.Equal(t, uint32(0), stats.aliveEntries)
 	require.Equal(t, uint32(1), stats.deleted)
 
@@ -818,4 +844,78 @@ func populateFakeDataCTMap4(tb testing.TB, m CtMap, size int) map[*CtKey4Global]
 	}
 
 	return cache
+}
+
+func BenchmarkCtGcTcpXL(t *testing.B) {
+	benchmarkCtGc(t, 1<<24) // max size
+}
+
+func BenchmarkCtGcTcpL(t *testing.B) {
+	benchmarkCtGc(t, 1<<22)
+}
+
+func BenchmarkCtGcTcpM(t *testing.B) {
+	benchmarkCtGc(t, 1<<17)
+}
+
+func benchmarkCtGc(t *testing.B, size int) {
+	for range t.N {
+		t.StopTimer()
+		setupCTMap(t)
+		// Init maps
+		natMap := nat.NewMap("cilium_nat_any4_test", nat.IPv4, size)
+		err := natMap.OpenOrCreate()
+		assert.NoError(t, err)
+		defer natMap.Map.Unpin()
+
+		ctMapName := MapNameTCP4Global + "_test"
+		mapInfo[mapTypeIPv4TCPGlobal] = mapAttributes{
+			natMap: natMap, natMapLock: mapInfo[mapTypeIPv4TCPGlobal].natMapLock,
+		}
+
+		prev := option.Config.CTMapEntriesGlobalTCP
+		option.Config.CTMapEntriesGlobalTCP = size
+		defer func() {
+			option.Config.CTMapEntriesGlobalTCP = prev
+		}()
+		ctMap := newMap(ctMapName, mapTypeIPv4TCPGlobal)
+		err = ctMap.OpenOrCreate()
+		assert.NoError(t, err)
+		defer ctMap.Map.Unpin()
+
+		for i := range size {
+			var dest types.IPv4
+			dest[0] = byte(i >> 24)
+			dest[1] = byte(i >> 16)
+			dest[2] = byte(i >> 8)
+			dest[3] = byte(i)
+			ctKey := &CtKey4Global{
+				tuple.TupleKey4Global{
+					TupleKey4: tuple.TupleKey4{
+						SourceAddr: types.IPv4{192, 168, 61, 12},
+						DestAddr:   dest,
+						SourcePort: 0x3195,
+						DestPort:   0x50,
+						NextHeader: u8proto.TCP,
+						Flags:      tuple.TUPLE_F_OUT,
+					},
+				},
+			}
+			ctVal := &CtEntry{
+				Packets:  1,
+				Bytes:    216,
+				Lifetime: 2,
+			}
+			err = ctMap.Map.Update(ctKey, ctVal)
+			assert.NoError(t, err)
+		}
+		// GC and check whether NAT entries have been collected
+		filter := GCFilter{
+			RemoveExpired: true,
+			Time:          1,
+		}
+
+		t.StartTimer()
+		doGC4(ctMap, filter, true)
+	}
 }

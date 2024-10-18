@@ -12,6 +12,8 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
+	"github.com/cilium/cilium/pkg/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // mapType is a type of connection tracking map.
@@ -57,6 +59,14 @@ func (m mapType) String() string {
 	return fmt.Sprintf("Unknown (%d)", int(m))
 }
 
+func (m mapType) isGlobal() bool {
+	switch m {
+	case mapTypeIPv6AnyGlobal, mapTypeIPv4AnyGlobal, mapTypeIPv6TCPGlobal, mapTypeIPv4TCPGlobal:
+		return true
+	}
+	return false
+}
+
 func (m mapType) name() string {
 	switch m {
 	case mapTypeIPv4TCPLocal, mapTypeIPv4TCPGlobal:
@@ -91,14 +101,6 @@ func (m mapType) isIPv6() bool {
 func (m mapType) isLocal() bool {
 	switch m {
 	case mapTypeIPv4TCPLocal, mapTypeIPv6TCPLocal, mapTypeIPv4AnyLocal, mapTypeIPv6AnyLocal:
-		return true
-	}
-	return false
-}
-
-func (m mapType) isGlobal() bool {
-	switch m {
-	case mapTypeIPv4TCPGlobal, mapTypeIPv6TCPGlobal, mapTypeIPv4AnyGlobal, mapTypeIPv6AnyGlobal:
 		return true
 	}
 	return false
@@ -649,3 +651,29 @@ func (c *CtEntry) String() string {
 }
 
 func (c *CtEntry) New() bpf.MapValue { return &CtEntry{} }
+
+type addrType interface {
+	types.IPv4 | types.IPv6
+}
+
+type ctKeyAccessor[T addrType] interface {
+	keyAccessor[T]
+	CtKey
+}
+
+type CtKey4Accessor ctKeyAccessor[types.IPv4]
+
+type CtKey6Accessor ctKeyAccessor[types.IPv6]
+
+// Accessor describes a tuple key that has accessible tuple fields
+// via various getters.
+// Note: This should only be be implemented on the base tuple.TupleKey4
+// type and not vary between global/non-global types.
+type keyAccessor[T addrType] interface {
+	GetFlags() uint8
+	GetDestAddr() T
+	GetSourceAddr() T
+	GetSourcePort() uint16
+	GetDestPort() uint16
+	GetNextHeader() u8proto.U8proto
+}
