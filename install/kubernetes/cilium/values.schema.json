@@ -707,8 +707,14 @@
           },
           "type": "object"
         },
+        "nodeSelector": {
+          "type": "object"
+        },
         "podLabels": {
           "type": "object"
+        },
+        "priorityClassName": {
+          "type": "string"
         },
         "tolerations": {
           "items": {},
