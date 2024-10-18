@@ -39,6 +39,7 @@ type externalConfig struct {
 	ExternalClusterIP        bool
 	EnableSessionAffinity    bool
 	NodePortMin, NodePortMax uint16
+	NodePortAlg              string
 }
 
 func newExternalConfig(cfg *option.DaemonConfig) externalConfig {
@@ -47,5 +48,6 @@ func newExternalConfig(cfg *option.DaemonConfig) externalConfig {
 		EnableSessionAffinity: cfg.EnableSessionAffinity,
 		NodePortMin:           uint16(cfg.NodePortMin),
 		NodePortMax:           uint16(cfg.NodePortMax),
+		NodePortAlg:           cfg.NodePortAlg,
 	}
 }
