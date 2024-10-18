@@ -17,6 +17,8 @@ packages=(
   ipset
   kmod
   ca-certificates
+  # For debugging
+  nftables
 )
 
 export DEBIAN_FRONTEND=noninteractive
