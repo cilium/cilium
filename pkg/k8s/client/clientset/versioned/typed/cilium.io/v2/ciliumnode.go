@@ -6,9 +6,9 @@
 package v2
 
 import (
-	"context"
+	context "context"
 
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,33 +24,33 @@ type CiliumNodesGetter interface {
 
 // CiliumNodeInterface has methods to work with CiliumNode resources.
 type CiliumNodeInterface interface {
-	Create(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.CreateOptions) (*v2.CiliumNode, error)
-	Update(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (*v2.CiliumNode, error)
+	Create(ctx context.Context, ciliumNode *ciliumiov2.CiliumNode, opts v1.CreateOptions) (*ciliumiov2.CiliumNode, error)
+	Update(ctx context.Context, ciliumNode *ciliumiov2.CiliumNode, opts v1.UpdateOptions) (*ciliumiov2.CiliumNode, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (*v2.CiliumNode, error)
+	UpdateStatus(ctx context.Context, ciliumNode *ciliumiov2.CiliumNode, opts v1.UpdateOptions) (*ciliumiov2.CiliumNode, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2.CiliumNode, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v2.CiliumNodeList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*ciliumiov2.CiliumNode, error)
+	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumNodeList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumNode, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumNode, err error)
 	CiliumNodeExpansion
 }
 
 // ciliumNodes implements CiliumNodeInterface
 type ciliumNodes struct {
-	*gentype.ClientWithList[*v2.CiliumNode, *v2.CiliumNodeList]
+	*gentype.ClientWithList[*ciliumiov2.CiliumNode, *ciliumiov2.CiliumNodeList]
 }
 
 // newCiliumNodes returns a CiliumNodes
 func newCiliumNodes(c *CiliumV2Client) *ciliumNodes {
 	return &ciliumNodes{
-		gentype.NewClientWithList[*v2.CiliumNode, *v2.CiliumNodeList](
+		gentype.NewClientWithList[*ciliumiov2.CiliumNode, *ciliumiov2.CiliumNodeList](
 			"ciliumnodes",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v2.CiliumNode { return &v2.CiliumNode{} },
-			func() *v2.CiliumNodeList { return &v2.CiliumNodeList{} }),
+			func() *ciliumiov2.CiliumNode { return &ciliumiov2.CiliumNode{} },
+			func() *ciliumiov2.CiliumNodeList { return &ciliumiov2.CiliumNodeList{} }),
 	}
 }

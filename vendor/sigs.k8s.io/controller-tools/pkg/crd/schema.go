@@ -266,7 +266,7 @@ func localNamedToSchema(ctx *schemaContext, ident *ast.Ident) *apiext.JSONSchema
 	}
 	// NB(directxman12): if there are dot imports, this might be an external reference,
 	// so use typechecking info to get the actual object
-	typeNameInfo := typeInfo.(*types.Named).Obj()
+	typeNameInfo := typeInfo.(interface{ Obj() *types.TypeName }).Obj()
 	pkg := typeNameInfo.Pkg()
 	pkgPath := loader.NonVendorPath(pkg.Path())
 	if pkg == ctx.pkg.Types {

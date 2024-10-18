@@ -6,10 +6,10 @@
 package v2alpha1
 
 import (
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CiliumLoadBalancerIPPoolLister helps list CiliumLoadBalancerIPPools.
@@ -17,19 +17,19 @@ import (
 type CiliumLoadBalancerIPPoolLister interface {
 	// List lists all CiliumLoadBalancerIPPools in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2alpha1.CiliumLoadBalancerIPPool, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2alpha1.CiliumLoadBalancerIPPool, err error)
 	// Get retrieves the CiliumLoadBalancerIPPool from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2alpha1.CiliumLoadBalancerIPPool, error)
+	Get(name string) (*ciliumiov2alpha1.CiliumLoadBalancerIPPool, error)
 	CiliumLoadBalancerIPPoolListerExpansion
 }
 
 // ciliumLoadBalancerIPPoolLister implements the CiliumLoadBalancerIPPoolLister interface.
 type ciliumLoadBalancerIPPoolLister struct {
-	listers.ResourceIndexer[*v2alpha1.CiliumLoadBalancerIPPool]
+	listers.ResourceIndexer[*ciliumiov2alpha1.CiliumLoadBalancerIPPool]
 }
 
 // NewCiliumLoadBalancerIPPoolLister returns a new CiliumLoadBalancerIPPoolLister.
 func NewCiliumLoadBalancerIPPoolLister(indexer cache.Indexer) CiliumLoadBalancerIPPoolLister {
-	return &ciliumLoadBalancerIPPoolLister{listers.New[*v2alpha1.CiliumLoadBalancerIPPool](indexer, v2alpha1.Resource("ciliumloadbalancerippool"))}
+	return &ciliumLoadBalancerIPPoolLister{listers.New[*ciliumiov2alpha1.CiliumLoadBalancerIPPool](indexer, ciliumiov2alpha1.Resource("ciliumloadbalancerippool"))}
 }

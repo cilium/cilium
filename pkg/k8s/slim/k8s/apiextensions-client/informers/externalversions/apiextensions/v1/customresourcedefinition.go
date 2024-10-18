@@ -6,13 +6,13 @@
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	versioned "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/informers/externalversions/internalinterfaces"
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/listers/apiextensions/v1"
-	apiextensionsv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1"
+	apiextensionsv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/listers/apiextensions/v1"
+	apisapiextensionsv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // CustomResourceDefinitions.
 type CustomResourceDefinitionInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.CustomResourceDefinitionLister
+	Lister() apiextensionsv1.CustomResourceDefinitionLister
 }
 
 type customResourceDefinitionInformer struct {
@@ -57,7 +57,7 @@ func NewFilteredCustomResourceDefinitionInformer(client versioned.Interface, res
 				return client.ApiextensionsV1().CustomResourceDefinitions().Watch(context.TODO(), options)
 			},
 		},
-		&apiextensionsv1.CustomResourceDefinition{},
+		&apisapiextensionsv1.CustomResourceDefinition{},
 		resyncPeriod,
 		indexers,
 	)
@@ -68,9 +68,9 @@ func (f *customResourceDefinitionInformer) defaultInformer(client versioned.Inte
 }
 
 func (f *customResourceDefinitionInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apiextensionsv1.CustomResourceDefinition{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisapiextensionsv1.CustomResourceDefinition{}, f.defaultInformer)
 }
 
-func (f *customResourceDefinitionInformer) Lister() v1.CustomResourceDefinitionLister {
-	return v1.NewCustomResourceDefinitionLister(f.Informer().GetIndexer())
+func (f *customResourceDefinitionInformer) Lister() apiextensionsv1.CustomResourceDefinitionLister {
+	return apiextensionsv1.NewCustomResourceDefinitionLister(f.Informer().GetIndexer())
 }

@@ -6,9 +6,9 @@
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	scheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -24,32 +24,32 @@ type ServicesGetter interface {
 
 // ServiceInterface has methods to work with Service resources.
 type ServiceInterface interface {
-	Create(ctx context.Context, service *v1.Service, opts metav1.CreateOptions) (*v1.Service, error)
-	Update(ctx context.Context, service *v1.Service, opts metav1.UpdateOptions) (*v1.Service, error)
+	Create(ctx context.Context, service *corev1.Service, opts metav1.CreateOptions) (*corev1.Service, error)
+	Update(ctx context.Context, service *corev1.Service, opts metav1.UpdateOptions) (*corev1.Service, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, service *v1.Service, opts metav1.UpdateOptions) (*v1.Service, error)
+	UpdateStatus(ctx context.Context, service *corev1.Service, opts metav1.UpdateOptions) (*corev1.Service, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Service, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.ServiceList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Service, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*corev1.ServiceList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Service, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *corev1.Service, err error)
 	ServiceExpansion
 }
 
 // services implements ServiceInterface
 type services struct {
-	*gentype.ClientWithList[*v1.Service, *v1.ServiceList]
+	*gentype.ClientWithList[*corev1.Service, *corev1.ServiceList]
 }
 
 // newServices returns a Services
 func newServices(c *CoreV1Client, namespace string) *services {
 	return &services{
-		gentype.NewClientWithList[*v1.Service, *v1.ServiceList](
+		gentype.NewClientWithList[*corev1.Service, *corev1.ServiceList](
 			"services",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.Service { return &v1.Service{} },
-			func() *v1.ServiceList { return &v1.ServiceList{} }),
+			func() *corev1.Service { return &corev1.Service{} },
+			func() *corev1.ServiceList { return &corev1.ServiceList{} }),
 	}
 }
