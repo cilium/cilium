@@ -710,6 +710,12 @@
         "podLabels": {
           "type": "object"
         },
+        "nodeSelector": {
+          "type": "object"
+        },
+        "priorityClassName": {
+          "type": "string"
+        },
         "tolerations": {
           "items": {},
           "type": "array"
