@@ -18,6 +18,7 @@ static int BPF_FUNC(xdp_adjust_tail, struct xdp_md *xdp, int delta);
 
 /* Packet redirection */
 static int BPF_FUNC(redirect, int ifindex, __u32 flags);
+static int BPF_FUNC(redirect_map, const void *map, __u32 key, __u32 flags);
 
 /* Packet manipulation */
 

@@ -92,6 +92,14 @@ ctx_redirect(const struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flag
 }
 
 static __always_inline __maybe_unused int
+ctx_redirect_map(const void *map __maybe_unused, __u32 key __maybe_unused,
+		 __u32 flags __maybe_unused)
+{
+	/* bpf_redirect_map() is available only in XDP BPF. */
+	return -ENOTSUP;
+}
+
+static __always_inline __maybe_unused int
 ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex, __u32 flags)
 {
 	return redirect_peer(ifindex, flags);

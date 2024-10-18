@@ -2,6 +2,7 @@
 /* Copyright Authors of Cilium */
 
 #include "common.h"
+#include "lib/ipsecrps.h"
 #include <bpf/ctx/skb.h>
 #include "pktgen.h"
 #define ROUTER_IP
@@ -48,6 +49,7 @@ int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused, int ifindex, _
 
 #define FROM_HOST 0
 #define ESP_SEQUENCE 69865
+#define VALIDATE_RPS 0
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -85,12 +87,14 @@ int ipv4_ipsec_from_host_pktgen(struct __ctx_buff *ctx)
 	l4 = pktgen__push_default_esphdr(&builder);
 	if (!l4)
 		return TEST_ERROR;
-	l4->spi = ENCRYPT_KEY;
+	l4->spi = bpf_htonl(ENCRYPT_KEY);
 	l4->seq_no = ESP_SEQUENCE;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
 		return TEST_ERROR;
+
+	get_hash_recalc(ctx);
 
 	pktgen__finish(&builder);
 	return 0;
@@ -173,8 +177,18 @@ int ipv4_ipsec_from_host_check(__maybe_unused const struct __ctx_buff *ctx)
 	if ((void *)l4 + sizeof(struct ip_esp_hdr) > data_end)
 		test_fatal("l4 out of bounds");
 
-	if (l4->spi != ENCRYPT_KEY)
+#ifdef ENABLE_IPSEC_RPS
+	if (bpf_ntohl(l4->spi & IPSEC_RPS_SPI_MASK) != ENCRYPT_KEY)
+		test_fatal("ESP spi was changed: l4->spi=%lx, %lx != %lx\n",
+			   l4->spi, l4->spi & IPSEC_RPS_SPI_MASK, ENCRYPT_KEY
+		);
+
+	if (bpf_ntohl(l4->spi & IPSEC_RPS_HASH_MASK) != (get_hash(ctx) & IPSEC_RPS_HASH_MASK))
+		test_fatal("ctx hash in SPI incorrect\n");
+#else
+	if (bpf_ntohl(l4->spi) != ENCRYPT_KEY)
 		test_fatal("ESP spi was changed");
+#endif
 
 	if (l4->seq_no != ESP_SEQUENCE)
 		test_fatal("ESP seq was changed");

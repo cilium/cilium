@@ -349,6 +349,12 @@ ctx_redirect(const struct xdp_md *ctx, int ifindex, const __u32 flags)
 }
 
 static __always_inline __maybe_unused int
+ctx_redirect_map(const void *map, __u32 key, __u32 flags)
+{
+	return redirect_map(map, key, flags);
+}
+
+static __always_inline __maybe_unused int
 ctx_redirect_peer(const struct xdp_md *ctx __maybe_unused,
 		  int ifindex __maybe_unused,
 		  const __u32 flags __maybe_unused)

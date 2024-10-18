@@ -3,6 +3,7 @@
 
 #include <bpf/ctx/xdp.h>
 #include <bpf/api.h>
+#include <bpf/helpers.h>
 
 #include <node_config.h>
 #include <netdev_config.h>
@@ -35,6 +36,10 @@
 #include "lib/eps.h"
 #include "lib/events.h"
 #include "lib/nodeport.h"
+
+#if defined(ENABLE_IPSEC) && defined(ENABLE_IPSEC_RPS)
+#include "lib/ipsecrps.h"
+#endif /* ENABLE_IPSEC && ENABLE_IPSEC_RPS */
 
 #ifdef ENABLE_PREFILTER
 #ifdef CIDR4_FILTER
@@ -215,6 +220,28 @@ static __always_inline int check_v4_lb(struct __ctx_buff *ctx __maybe_unused)
 }
 #endif /* ENABLE_NODEPORT_ACCELERATION */
 
+#if defined(ENABLE_IPSEC_RPS)
+static __always_inline int ipsec_rps(const struct iphdr *ip4, const void *data_end)
+{
+	struct ip_esp_hdr *esp;
+	__u32 cpu_dest = 0;
+	__u32 hash = 0;
+
+	esp = (void *)ip4 + sizeof(*ip4);
+	if (ctx_no_room((void *)esp + sizeof(struct ip_esp_hdr), data_end))
+		return CTX_ACT_DROP;
+
+	hash = esp->spi & IPSEC_RPS_HASH_MASK;
+	esp->spi = esp->spi & IPSEC_RPS_SPI_MASK;
+	cpu_dest = hash % __NR_CPUS__;
+
+	if (cpu_dest >= __NR_CPUS__)
+		return CTX_ACT_DROP;
+
+	return ctx_redirect_map(&CPU_MAP, cpu_dest, CTX_ACT_DROP);
+}
+#endif /* ENABLE_IPSEC_RPS */
+
 #ifdef ENABLE_PREFILTER
 static __always_inline int check_v4(struct __ctx_buff *ctx)
 {
@@ -234,15 +261,35 @@ static __always_inline int check_v4(struct __ctx_buff *ctx)
 	if (map_lookup_elem(&CIDR4_LMAP_NAME, &pfx))
 		return CTX_ACT_DROP;
 #endif /* CIDR4_LPM_PREFILTER */
-	return map_lookup_elem(&CIDR4_HMAP_NAME, &pfx) ?
-		CTX_ACT_DROP : check_v4_lb(ctx);
-#else
-	return check_v4_lb(ctx);
+	if (map_lookup_elem(&CIDR4_HMAP_NAME, &pfx))
+		return CTX_ACT_DROP;
 #endif /* CIDR4_FILTER */
+
+#if defined(ENABLE_IPSEC_RPS)
+	if (ctx_no_room(ipv4_hdr + sizeof(*ipv4_hdr), data_end))
+		return CTX_ACT_DROP;
+
+	if (ipv4_hdr->protocol == IPPROTO_ESP)
+		return ipsec_rps(ipv4_hdr, data_end);
+
+#endif /* ENABLE_IPSEC_RPS */
+	return check_v4_lb(ctx);
 }
 #else
 static __always_inline int check_v4(struct __ctx_buff *ctx)
 {
+#if defined(ENABLE_IPSEC_RPS)
+	void *data_end = ctx_data_end(ctx);
+	void *data = ctx_data(ctx);
+	struct iphdr *ipv4_hdr = data + sizeof(struct ethhdr);
+
+	if (ctx_no_room((void *)ipv4_hdr + sizeof(struct iphdr), data_end))
+		return CTX_ACT_DROP;
+
+	if (ipv4_hdr->protocol == IPPROTO_ESP)
+		return ipsec_rps(ipv4_hdr, data_end);
+
+#endif  /* ENABLE_IPSEC_RPS */
 	return check_v4_lb(ctx);
 }
 #endif /* ENABLE_PREFILTER */

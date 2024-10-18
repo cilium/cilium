@@ -54,6 +54,7 @@
 #include "lib/encrypt.h"
 #include "lib/wireguard.h"
 #include "lib/vxlan.h"
+#include "lib/ipsecrps.h"
 
  #define host_egress_policy_hook(ctx, src_sec_identity, ext_err) CTX_ACT_OK
 
@@ -1075,6 +1076,28 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 };
 #endif
 
+#if defined(ENABLE_IPSEC) && defined(ENABLE_IPSEC_RPS)
+static __always_inline int stuff_ctx_hash_if_esp(struct __ctx_buff *ctx)
+{
+	struct iphdr *ip4;
+	struct ip_esp_hdr *esp;
+	void *data, *data_end;
+
+	if (unlikely(!revalidate_data(ctx, &data, &data_end, &ip4)))
+		return DROP_INVALID;
+
+	if (unlikely(ip4->protocol != IPPROTO_ESP))
+		return CTX_ACT_OK;
+
+	esp = (void *)ip4 + sizeof(struct iphdr);
+	if ((void *)(esp) + sizeof(struct ip_esp_hdr) > data_end)
+		return DROP_INVALID;
+
+	esp->spi = (esp->spi & IPSEC_RPS_SPI_MASK) | (get_hash(ctx) & IPSEC_RPS_HASH_MASK);
+	return CTX_ACT_OK;
+}
+#endif
+
 static __always_inline int
 do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 {
@@ -1140,6 +1163,12 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 
 #ifdef ENABLE_IPSEC
 		if (magic == MARK_MAGIC_ENCRYPT) {
+#ifdef ENABLE_IPSEC_RPS
+			ret = stuff_ctx_hash_if_esp(ctx);
+			if (IS_ERR(ret))
+				return send_drop_notify_error(ctx, identity, ret,
+							      CTX_ACT_DROP, METRIC_EGRESS);
+#endif /* ENABLE_IPSEC_RPS */
 			send_trace_notify(ctx, TRACE_FROM_STACK, identity, UNKNOWN_ID,
 					  TRACE_EP_ID_UNKNOWN,
 					  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
