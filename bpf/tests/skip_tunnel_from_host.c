@@ -211,7 +211,7 @@ check_ctx(const struct __ctx_buff *ctx, __u32 expected_result, bool v4)
 			test_fatal("dest IP was changed");
 
 		if (l3->check != bpf_htons(0xa611))
-			test_fatal("L3 checksum is invalid: %d", bpf_htons(l3->check));
+			test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 		l4 = (void *)l3 + sizeof(struct iphdr);
 	} else {
