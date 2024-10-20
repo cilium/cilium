@@ -58,7 +58,7 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.23.2
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 496.0.0
+  gcloud_version: 497.0.0
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
   cmapisrv_mock_ref: 4ef86194762599fe083e654d6ea3bbef3c7ad106
 
