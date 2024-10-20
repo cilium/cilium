@@ -248,7 +248,6 @@ const (
 	delMissingService          = "Deleting no longer present service"                                    // cf. https://github.com/cilium/cilium/issues/29679
 	failedIpcacheRestore       = "Failed to restore existing identities from the previous ipcache"       // cf. https://github.com/cilium/cilium/issues/29328
 	podCIDRUnavailable         = " PodCIDR not available"                                                // cf. https://github.com/cilium/cilium/issues/29680
-	internalAddressConfigEnvoy = "internal_address_config is not configured."                            // cf. https://github.com/cilium/cilium/issues/34968
 	unableGetNode              = "Unable to get node resource"                                           // cf. https://github.com/cilium/cilium/issues/29710
 	disableSocketLBTracing     = "Disabling socket-LB tracing"                                           // cf. https://github.com/cilium/cilium/issues/29734
 	sessionAffinitySocketLB    = "Session affinity for host reachable services needs kernel"             // cf. https://github.com/cilium/cilium/issues/29736
@@ -338,7 +337,7 @@ var badLogMessages = map[string][]string{
 		podCIDRUnavailable, unableGetNode,
 		disableSocketLBTracing, sessionAffinitySocketLB, objectHasBeenModified, noBackendResponse,
 		unsupportedSocketLookup, legacyBGPFeature, etcdTimeout, endpointRestoreFailed,
-		failedPeerSync, internalAddressConfigEnvoy, unableRestoreRouterIP, routerIPReallocated,
+		failedPeerSync, unableRestoreRouterIP, routerIPReallocated,
 		cantFindIdentityInCache, kubeApiserverConnLost1, kubeApiserverConnLost2, heartbeatTimedOut,
 		keyAllocFailedFoundMaster, cantRecreateMasterKey, cantUpdateCRDIdentity,
 		cantDeleteFromPolicyMap, failedToListCRDs},
