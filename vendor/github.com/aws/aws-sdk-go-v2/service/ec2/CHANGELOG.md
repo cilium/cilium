@@ -1,3 +1,7 @@
+# v1.183.0 (2024-10-18)
+
+* **Feature**: RequestSpotInstances and RequestSpotFleet feature release.
+
 # v1.182.0 (2024-10-10)
 
 * **Feature**: This release adds support for assigning the billing of shared Amazon EC2 On-Demand Capacity Reservations.
