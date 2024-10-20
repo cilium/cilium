@@ -660,7 +660,7 @@ func TestWildcardL4RulesIngressDeny(t *testing.T) {
 			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL4Kafka}},
 		},
 	})
-	require.True(t, policyDeny.Equals(expectedDenyPolicy), policyDeny.Diff(expectedDenyPolicy))
+	require.True(t, policyDeny.TestingOnlyEquals(expectedDenyPolicy), policyDeny.TestingOnlyDiff(expectedDenyPolicy))
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
@@ -818,7 +818,7 @@ func TestL3DependentL4EgressDenyFromRequires(t *testing.T) {
 			RuleOrigin: map[CachedSelector]labels.LabelArrayList{expectedCachedSelector: {nil}},
 		},
 	})
-	if !assert.True(t, policyDeny.Equals(expectedDenyPolicy), policyDeny.Diff(expectedDenyPolicy)) {
+	if !assert.True(t, policyDeny.TestingOnlyEquals(expectedDenyPolicy), policyDeny.TestingOnlyDiff(expectedDenyPolicy)) {
 		t.Errorf("Policy doesn't match expected:\n%s", logBuffer.String())
 	}
 	policyDeny.Detach(repo.GetSelectorCache())
@@ -946,8 +946,8 @@ func TestWildcardL3RulesEgressDeny(t *testing.T) {
 			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsICMPv6}},
 		},
 	})
-	require.Truef(t, policyDeny.Equals(expectedDenyPolicy),
-		"%s\nResolved policy did not match expected:\n%s", policyDeny.Diff(expectedDenyPolicy), logBuffer.String())
+	require.Truef(t, policyDeny.TestingOnlyEquals(expectedDenyPolicy),
+		"%s\nResolved policy did not match expected:\n%s", policyDeny.TestingOnlyDiff(expectedDenyPolicy), logBuffer.String())
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
@@ -1038,7 +1038,7 @@ func TestWildcardL4RulesEgressDeny(t *testing.T) {
 			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL3DNS}},
 		},
 	})
-	if !assert.True(t, policyDeny.Equals(expectedDenyPolicy), policyDeny.Diff(expectedDenyPolicy)) {
+	if !assert.True(t, policyDeny.TestingOnlyEquals(expectedDenyPolicy), policyDeny.TestingOnlyDiff(expectedDenyPolicy)) {
 		t.Logf("%s", logBuffer.String())
 		t.Errorf("Resolved policy did not match expected")
 	}
@@ -1136,7 +1136,7 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectors[0]: {labelsL3}},
 		},
 	})
-	if !assert.True(t, policyDeny.Equals(expectedDenyPolicy), policyDeny.Diff(expectedDenyPolicy)) {
+	if !assert.True(t, policyDeny.TestingOnlyEquals(expectedDenyPolicy), policyDeny.TestingOnlyDiff(expectedDenyPolicy)) {
 		t.Logf("%s", logBuffer.String())
 		t.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
