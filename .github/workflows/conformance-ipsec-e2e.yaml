@@ -75,6 +75,34 @@ jobs:
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
+  generate-matrix:
+    name: Generate Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Convert YAML to JSON
+        run: |
+          work_dir=".github/actions/ipsec"
+          destination_directory="/tmp/generated/ipsec"
+          mkdir -p "${destination_directory}"
+
+          yq -o=json "${work_dir}/configs.yaml" | jq . > "${destination_directory}/matrix.json"
+
+      - name: Generate Matrix
+        id: generate-matrix
+        run: |
+          cd /tmp/generated/ipsec
+          echo "Generated matrix:"
+          cat /tmp/generated/ipsec/matrix.json
+          echo "matrix=$(jq -c . < /tmp/generated/ipsec/matrix.json)" >> $GITHUB_OUTPUT
+
   wait-for-images:
     name: Wait for images
     runs-on: ubuntu-latest
@@ -91,7 +119,7 @@ jobs:
           SHA: ${{ inputs.SHA }}
 
   setup-and-test:
-    needs: [wait-for-images]
+    needs: [wait-for-images, generate-matrix]
     name: 'Setup & Test'
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-latest' }}
     env:
@@ -100,102 +128,7 @@ jobs:
       fail-fast: false
       max-parallel: 16
       matrix:
-        include:
-          # See https://github.com/cilium/cilium/issues/20606 for configuration table
-
-          - name: '1'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'rhel8-20240404.144247'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'vxlan'
-            key-one: 'gcm(aes)'
-            key-two: 'cbc(aes)'
-            key-type-one: '+'
-            key-type-two: '+'
-
-          - name: '2'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20240710.064909'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            key-one: 'cbc(aes)'
-            key-two: 'cbc(aes)'
-            key-type-one: '+'
-            key-type-two: ''
-
-          - name: '3'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20240710.064909'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            endpoint-routes: 'true'
-            key-one: 'gcm(aes)'
-            key-two: 'gcm(aes)'
-            key-type-one: ''
-            key-type-two: '+'
-
-          - name: '4'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240711.013133'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'geneve'
-            endpoint-routes: 'true'
-            key-one: 'cbc(aes)'
-            key-two: 'gcm(aes)'
-            key-type-one: ''
-            key-type-two: ''
-
-          - name: '5'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20240710.064909'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'disabled'
-            key-one: 'cbc(aes)'
-            key-two: 'cbc(aes)'
-            key-type-one: '+'
-            key-type-two: '+'
-
-          - name: '6'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20240710.064909'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'disabled'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            key-one: 'gcm(aes)'
-            key-two: 'gcm(aes)'
-            key-type-one: '+'
-            key-type-two: '+'
-
-          - name: '7'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20240710.064909'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'vxlan'
-            encryption-overlay: 'true'
-            key-one: 'gcm(aes)'
-            key-two: 'gcm(aes)'
-            key-type-one: '+'
-            key-type-two: '+'
-
-          - name: '8'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20240711.013133'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            egress-gateway: 'true'
-            key-one: 'gcm(aes)'
-            key-two: 'gcm(aes)'
-            key-type-one: '+'
-            key-type-two: '+'
+        include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
 
     timeout-minutes: 75
     steps:
