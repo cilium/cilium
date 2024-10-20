@@ -234,21 +234,21 @@ jobs:
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@f5e124a5e5e1d497a692818ae907d3c45829d033 # v0.17.3
+        uses: anchore/sbom-action@8d0a6505bf28ced3e85154d13dc6af83299e13f1 # v0.17.4
         with:
           artifact-name: sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
 
       - name: Generate SBOM (race)
-        uses: anchore/sbom-action@f5e124a5e5e1d497a692818ae907d3c45829d033 # v0.17.3
+        uses: anchore/sbom-action@8d0a6505bf28ced3e85154d13dc6af83299e13f1 # v0.17.4
         with:
           artifact-name: sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
 
       - name: Generate SBOM (unstripped)
-        uses: anchore/sbom-action@f5e124a5e5e1d497a692818ae907d3c45829d033 # v0.17.3
+        uses: anchore/sbom-action@8d0a6505bf28ced3e85154d13dc6af83299e13f1 # v0.17.4
         with:
           artifact-name: sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
