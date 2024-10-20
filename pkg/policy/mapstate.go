@@ -235,6 +235,9 @@ func (msm *mapStateMap) forID(k Key, idSet IDSet, f func(Key, mapStateEntry) boo
 
 // NarrowerKeysWithWildcardID iterates over ANY keys with narrower port/proto's in the trie.
 // Equal port/protos are not included.
+// New keys with the protocol/port of the iterated keys can be safely added during iteration as this
+// operation does not change the trie, but only adds elements to the idSet that is not used after
+// yielding.
 func (msm *mapStateMap) NarrowerKeysWithWildcardID(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := msm.trie.DescendantIterator(key.PrefixLength(), key)
@@ -295,6 +298,8 @@ func (msm *mapStateMap) NarrowerKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 }
 
 // NarrowerOrEqualKeys iterates over narrower or equal keys in the trie.
+// Iterated keys can be safely deleted during iteration due to DescendantIterator holding enough
+// state that allows iteration to be continued even if the current trie node is removed.
 func (msm *mapStateMap) NarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := msm.trie.DescendantIterator(key.PrefixLength(), key)
@@ -460,6 +465,33 @@ func newMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, proxy
 		hasAuthType:      hasAuth,
 		derivedFromRules: derivedFrom,
 		owners:           set.NewSet(cs),
+	}
+}
+
+// dependentOf returns a new mapStateEntry that is a copy of 'e', but has 'ownerKey' as the sole
+// owner, and has no dependent keys.
+func (e *mapStateEntry) dependentOf(ownerKey Key) mapStateEntry {
+	return mapStateEntry{
+		MapStateEntry:    e.MapStateEntry,
+		priority:         e.priority,
+		hasAuthType:      e.hasAuthType,
+		derivedFromRules: slices.Clone(e.derivedFromRules),
+		owners:           set.NewSet[MapStateOwner](ownerKey),
+	}
+}
+
+// dependentFrom returns a new mapStateEntry that is a copy of 'e', but has 'ownerKey' as the sole
+// owner, and has no dependent keys.
+func (e mapStateEntry) authOverrideFrom(ownerKey Key, entry *mapStateEntry) mapStateEntry {
+	lbls := slices.Clone(e.derivedFromRules)
+	lbls.MergeSorted(entry.derivedFromRules)
+
+	return mapStateEntry{
+		MapStateEntry:    e.MapStateEntry.WithAuthType(entry.AuthType),
+		priority:         e.priority,
+		hasAuthType:      DefaultAuthType,
+		derivedFromRules: lbls,
+		owners:           set.NewSet[MapStateOwner](ownerKey),
 	}
 }
 
@@ -847,6 +879,11 @@ func (e *mapStateEntry) deepEqual(o *mapStateEntry) bool {
 	return true
 }
 
+func (e MapStateEntry) WithAuthType(authType AuthType) MapStateEntry {
+	e.AuthType = authType
+	return e
+}
+
 // String returns a string representation of the MapStateEntry
 func (e MapStateEntry) String() string {
 	return "ProxyPort=" + strconv.FormatUint(uint64(e.ProxyPort), 10) +
@@ -862,11 +899,6 @@ func (e mapStateEntry) String() string {
 		",priority=" + strconv.FormatUint(uint64(e.priority), 10) +
 		",owners=" + e.owners.String() +
 		",dependents=" + fmt.Sprintf("%v", e.dependents)
-}
-
-type keyValue struct {
-	key   Key
-	value mapStateEntry
 }
 
 // addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes', and any changed or removed old values in 'old', if not nil.
@@ -983,32 +1015,49 @@ func (ms *mapState) revertChanges(changes ChangeState) {
 	}
 }
 
-func (ms *mapState) insertUpdates(newKey Key, newEntry *mapStateEntry, updates []keyValue, changes ChangeState) {
-	for _, update := range updates {
-		if ms.addKeyWithChanges(update.key, update.value, changes) {
-			// Identities can be deleted incrementally so we need to track the
-			// added keys by adding a dependency to the owning entry with the
-			// same identity so that this update can be reverted when the
-			// identity is removed.
+// insertDependentOfKey adds a dependent entry to 'k' with the more specific port/proto of 'newKey'
+// to ensure 'v' takes precedence.
+// Called only for 'k' with specific identity and with broader protocol/port than l4-only 'newKey'.
+func (ms *mapState) insertDependentOfKey(k Key, v mapStateEntry, newKey Key, changes ChangeState) {
+	// Compute narrower 'key' with identity of 'k'
+	key := newKey.WithIdentity(k.Identity)
+	if ms.addKeyWithChanges(key, v.dependentOf(k), changes) {
+		ms.addDependentOnEntry(k, v, key, changes)
+	}
+}
 
-			// updates always have a single owner of type 'Key'
-			owner, found := update.value.owners.Get()
-			if !found {
-				log.Errorf("mapstate update has no owner")
-				continue
-			}
-			ownerKey, ok := owner.(Key)
-			if !ok {
-				log.Errorf("mapstate update owner is not of type Key")
-				continue
-			}
-			if ownerKey == newKey {
-				newEntry.AddDependent(update.key)
-			} else if update.key != ownerKey {
-				// dependency is only added if the update's key is not the owner itself
-				ms.AddDependent(ownerKey, update.key, changes)
-			}
-		}
+// insertDependentOfNewKey adds a dependent entry to 'newKey' with the more specific port/proto of
+// 'k' to ensure 'newEntry' takes precedence.
+// Called only for L4-only 'k' with narrower protocol/port than 'newKey' with a specific identity.
+func (ms *mapState) insertDependentOfNewKey(newKey Key, newEntry *mapStateEntry, k Key, changes ChangeState) {
+	// Compute narrower 'key' with identity of 'newKey'
+	key := k.WithIdentity(newKey.Identity)
+	if ms.addKeyWithChanges(key, newEntry.dependentOf(newKey), changes) {
+		newEntry.AddDependent(key)
+	}
+}
+
+// insertAuthOverrideFromKey adds a dependent entry to 'k' with the more specific port/proto of
+// 'newKey' and with override auth type from 'v' to ensure auth type of 'v' is used for identity of
+// 'k' also when the traffic matches the L4-only 'newKey'.
+// Called only for 'k' with specific identity and with broader protocol/port than L4-only 'newKey'.
+func (ms *mapState) insertAuthOverrideFromKey(k Key, v mapStateEntry, newKey Key, newEntry mapStateEntry, changes ChangeState) {
+	// Compute narrower 'key' with identity of 'k'
+	key := newKey.WithIdentity(k.Identity)
+	if ms.addKeyWithChanges(key, newEntry.authOverrideFrom(k, &v), changes) {
+		ms.addDependentOnEntry(k, v, key, changes)
+	}
+}
+
+// insertAuthOverrideKey adds a dependent entry to 'newKey' with the more specific port/proto of 'k'
+// and with override auth type from 'newEntry' to ensure auth type of 'newEntry' is used for
+// identity of 'newKey' also when the traffic matches the L4-only 'k'.
+// Called only for L4-only 'k' with narrower protocol/port than 'newKey' with a specific identity.
+func (ms *mapState) insertAuthOverrideFromNewKey(newKey Key, newEntry *mapStateEntry, k Key, v mapStateEntry, changes ChangeState) {
+	// Compute narrower 'key' with identity of 'newKey'
+	key := k.WithIdentity(newKey.Identity)
+	if ms.addKeyWithChanges(key, v.authOverrideFrom(newKey, newEntry), changes) {
+		newEntry.AddDependent(key)
 	}
 }
 
@@ -1016,15 +1065,40 @@ func (ms *mapState) insertWithChanges(key Key, entry mapStateEntry, features pol
 	ms.denyPreferredInsertWithChanges(key, entry, features, changes)
 }
 
-// denyPreferredInsertWithChanges contains the most important business logic for policy insertions. It inserts
-// a key and entry into the map by giving preference to deny entries, and L3-only deny entries over L3-L4 allows.
+// denyPreferredInsertWithChanges contains the most important business logic for policy
+// insertions. It inserts a key and entry into the map by giving preference to deny entries, and
+// L3-only deny entries over L3-L4 allows.
+//
+// Since bpf datapath denies by default, we only need to add deny entries to carve out more specific
+// holes to less specific allow rules. But since we don't if allow entries will be added later
+// (e.g., incrementally due to FQDN rules), we must generally add deny entries even if there are no
+// allow entries yet.
+//
+// Note on bailed or deleted entries: In general, if we bail out due to being covered by an existing
+// entry, or delete an entry due to being covered by the new one, we would want this action reversed
+// if the existing entry or this new one is incremantally removed, respectively.
+// Generally, whenever a deny entry covers an allow entry (i.e., covering key has broader or equal
+// protocol/port, and the keys have the same identity, or the covering key has wildcard identity (ID
+// == 0)).
+// Secondly, only keys with a specific identity (ID != 0) can be incrementally added or deleted.
+// Finally, due to the selector cache being transactional, when an identity is removed, all keys
+// with that identity are incrementally deleted.
+// Hence, if a covering key is incrementally deleted, it is a key with a specific identity, and all
+// keys covered by it will be deleted as well, so there is no situation where this bailed-out or
+// deleted key should be reinstated due to the covering key being incrementally deleted.
+//
+// Note on added dependent L3/4 entries: Since the datapath always gives precedence to the matching
+// entry with the most specific L4 (narrower protocol/port), we need to add L3/4 entries e.g., when
+// precedence would be given to a narrower allow entry with the wildcard identity (L4-only key),
+// while precedence should be given to the deny entry with a specific identity and broader L4 when
+// the given packet matches both of them. To force the datapath to give precedence to the deny entry
+// we add a new dependent deny entry with the identity of the (broader) deny entry and the L4
+// protocol and port of the (narrower) L4-only key. The added key is marked as a dependent entry of
+// the key with a specific identity (rather than the l4-only key), so that the dependent added entry
+// is also deleted when the identity of its owner key is (incrementally) removed.
+//
 // Incremental changes performed are recorded in 'changes'.
 func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry mapStateEntry, features policyFeatures, changes ChangeState) {
-	// Since bpf datapath denies by default, we only need to add deny entries to carve out more
-	// specific holes to less specific allow rules. But since we don't if allow entries will be
-	// added later (e.g., incrementally due to FQDN rules), we must generally add deny entries
-	// even if there are no allow entries yet.
-
 	// Bail if covered by a deny key
 	if !ms.denies.Empty() {
 		for k := range ms.denies.BroaderOrEqualKeys(newKey) {
@@ -1036,65 +1110,51 @@ func (ms *mapState) denyPreferredInsertWithChanges(newKey Key, newEntry mapState
 	}
 
 	if newEntry.IsDeny {
-		// Delete entries covered by the new deny entry
-		var deletes []Key
 		// Delete covered allow entries.
 		for k := range ms.allows.NarrowerOrEqualKeys(newKey) {
-			deletes = append(deletes, k)
+			ms.deleteKeyWithChanges(k, nil, changes)
 		}
 		// Delete covered deny entries, except for identical keys that need to be merged.
 		for k := range ms.denies.NarrowerKeys(newKey) {
-			deletes = append(deletes, k)
-		}
-		for _, key := range deletes {
-			ms.deleteKeyWithChanges(key, nil, changes)
+			ms.deleteKeyWithChanges(k, nil, changes)
 		}
 
-		// Add L3/4 deny entries for more specific allow keys with the wildcard
-		// identity as the more specific allow would otherwise take precedence in
-		// the datapath.
+		// Add L3/4 deny entry for each more specific allow key with the wildcard identity
+		// as the more specific allow would otherwise take precedence in the datapath over
+		// the less specific 'newKey' with a specific identity.
 		//
-		// Only (partially) wildcarded port can have narrower keys.
+		// Skip when 'newKey' has no port wildcarding, as then there can't be any narrower
+		// keys.
 		if newKey.Identity != 0 && newKey.HasPortWildcard() {
-			var updates []keyValue
 			for k := range ms.allows.NarrowerKeysWithWildcardID(newKey) {
-				updates = append(updates, keyValue{
-					key:   k.WithIdentity(newKey.Identity),
-					value: newMapStateEntry(newKey, newEntry.derivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled),
-				})
+				ms.insertDependentOfNewKey(newKey, &newEntry, k, changes)
 			}
-			ms.insertUpdates(newKey, &newEntry, updates, changes)
+		}
+	} else {
+		// newEntry is an allow entry.
+		// NOTE: We do not delete redundant allow entries.
+
+		// Avoid allocs in this block if there are no deny enties
+		if !ms.denies.Empty() {
+			// Add L3/4 deny entries for broader deny keys with a specific identity as
+			// the narrower L4-only allow would otherwise take precedence in the
+			// datapath.
+			if newKey.Identity == 0 && newKey.Nexthdr != 0 { // L4-only newKey
+				for k, v := range ms.denies.BroaderKeysWithSpecificID(newKey) {
+					ms.insertDependentOfKey(k, v, newKey, changes)
+				}
+			}
 		}
 
-		ms.addKeyWithChanges(newKey, newEntry, changes)
-		return
-	} // else newEntry is an allow entry
-
-	// NOTE: We do not delete redundant allow entries.
-
-	// Avoid allocs in this block if there are no deny enties
-	if !ms.denies.Empty() {
-		// Add L3/4 deny entries for broader deny keys with a specific identity as the
-		// narrower L4-only allow would otherwise take precedence in the datapath.
-		if newKey.Identity == 0 && newKey.Nexthdr != 0 { // L4-only newKey
-			var updates []keyValue
-			for k, v := range ms.denies.BroaderKeysWithSpecificID(newKey) {
-				updates = append(updates, keyValue{
-					key:   newKey.WithIdentity(k.Identity),
-					value: newMapStateEntry(k, v.derivedFromRules, 0, "", 0, true, DefaultAuthType, AuthTypeDisabled),
-				})
-			}
-			ms.insertUpdates(newKey, &newEntry, updates, changes)
+		// Checking for auth feature here is faster than calling 'authPreferredInsert' and
+		// checking for it there.
+		if features.contains(authRules) {
+			ms.authPreferredInsert(newKey, newEntry, changes)
+			return
 		}
 	}
 
-	// Checking for auth feature here is faster than calling 'authPreferredInsert' and checking
-	// for it there.
-	if !features.contains(authRules) {
-		ms.addKeyWithChanges(newKey, newEntry, changes)
-		return
-	}
-	ms.authPreferredInsert(newKey, newEntry, changes)
+	ms.addKeyWithChanges(newKey, newEntry, changes)
 }
 
 // overrideAuthType sets the AuthType of 'v' to that of 'newKey', saving the old entry in 'changes'.
@@ -1132,18 +1192,11 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, chan
 		// and there is a key with broader port/proto for a specific identity that
 		// has an explicit auth type.
 		if newKey.Identity == 0 && newKey.Nexthdr != 0 { // L4-only newKey
-			var updates []keyValue
 			for k, v := range ms.allows.BroaderKeysWithSpecificID(newKey) {
 				if v.hasAuthType == ExplicitAuthType {
-					update := keyValue{
-						key:   newKey.WithIdentity(k.Identity),
-						value: newMapStateEntry(k, v.derivedFromRules, newEntry.ProxyPort, newEntry.Listener, newEntry.priority, false, DefaultAuthType, v.AuthType),
-					}
-					update.value.derivedFromRules.MergeSorted(newEntry.derivedFromRules)
-					updates = append(updates, update)
+					ms.insertAuthOverrideFromKey(k, v, newKey, newEntry, changes)
 				}
 			}
-			ms.insertUpdates(newKey, &newEntry, updates, changes)
 		}
 	} else { // New entry has an explicit auth type
 		// Check if the new key is the most specific covering key of any other key
@@ -1205,18 +1258,11 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, chan
 			//
 			// Only (partially) wildcarded port can have narrower keys.
 			if newKey.HasPortWildcard() {
-				var updates []keyValue
 				for k, v := range ms.allows.NarrowerKeysWithWildcardID(newKey) {
 					if v.hasAuthType == DefaultAuthType {
-						update := keyValue{
-							key:   k.WithIdentity(newKey.Identity),
-							value: newMapStateEntry(newKey, newEntry.derivedFromRules, v.ProxyPort, v.Listener, v.priority, false, DefaultAuthType, newEntry.AuthType),
-						}
-						update.value.derivedFromRules.MergeSorted(v.derivedFromRules)
-						updates = append(updates, update)
+						ms.insertAuthOverrideFromNewKey(newKey, &newEntry, k, v, changes)
 					}
 				}
-				ms.insertUpdates(newKey, &newEntry, updates, changes)
 			}
 		}
 	}
