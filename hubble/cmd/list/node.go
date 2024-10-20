@@ -33,11 +33,11 @@ func newNodeCommand(vp *viper.Viper) *cobra.Command {
 		Short:   "List Hubble nodes",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			hubbleConn, err := conn.New(ctx, vp.GetString(config.KeyServer), vp.GetDuration(config.KeyTimeout))
+			hubbleConn, cleanup, err := conn.NewWithFlags(ctx, vp)
 			if err != nil {
 				return err
 			}
-			defer hubbleConn.Close()
+			defer cleanup()
 
 			return runListNodes(ctx, cmd, hubbleConn)
 		},

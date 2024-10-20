@@ -141,11 +141,16 @@ Flow Format Flags:
       --numeric          Display all information in numeric form
 
 Server Flags:
+      --auto-port-forward             Automatically forward the relay port to the local machine. Analoguous to running: 'cilium hubble port-forward'.
       --basic-auth-password string    Specify a password for basic auth
       --basic-auth-username string    Specify a username for basic auth
+      --k8s-context string            Kubernetes configuration context. This option is only considered when --auto-port-forward is set.
+      --k8s-kubeconfig string         Path to the kubeconfig file. This option is only considered when --auto-port-forward is set.
+      --k8s-namespace string          Namespace Cilium is running in. This option is only considered when --auto-port-forward is set. (default "kube-system")
+      --port-forward uint16           Local port to forward to. This option is only considered when --auto-port-forward is set. (default 4245)
       --request-timeout duration      Unary Request timeout. Only applies to non-streaming RPCs (ServerStatus, ListNodes, ListNamespaces). (default 12s)
-      --server string                 Address of a Hubble server. Ignored when --input-file is provided. (default "localhost:4245")
-      --timeout duration              Hubble server dialing timeout (default 5s)
+      --server string                 Address of a Hubble server. Ignored when --input-file or --auto-port-forward is provided. (default "localhost:4245")
+      --timeout duration              Hubble server and port-forward dialing timeout (default 5s)
       --tls                           Specify that TLS must be used when establishing a connection to a Hubble server.
                                       By default, TLS is only enabled if the server address starts with 'tls://'.
       --tls-allow-insecure            Allows the client to skip verifying the server's certificate chain and host name.
