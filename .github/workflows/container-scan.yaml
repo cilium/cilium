@@ -24,7 +24,7 @@ jobs:
         branch: [v1.11, v1.12, v1.13]
     steps:
       - name: Checkout
-        uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
+        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
         ref: ${{ matrix.branch }}
       - name: Set environment variables
         uses: ./.github/actions/set-env-variables
@@ -41,7 +41,7 @@ jobs:
           build-args: |
             OPERATOR_VARIANT=${{ matrix.image.name }}
       - name: Scan image
-        uses: anchore/scan-action@64a33b277ea7a1215a3c142735a1091341939ff5 # v4.1.2
+        uses: anchore/scan-action@49e50b215b647c5ec97abb66f69af73c46a4ca08 # v5.0.1
         with:
           image: ${{ matrix.image.name }}:${{ matrix.branch }}
           output-format: table
