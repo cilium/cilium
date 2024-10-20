@@ -702,12 +702,13 @@ func (ms *mapState) AddDependent(owner Key, dependent Key, changes ChangeState) 
 	}
 }
 
-// addDependentOnEntry adds 'dependent' to the set of dependent keys of 'e'.
+// addDependentOnEntry adds 'dependent' to the set of dependent keys of 'e', where 'e' already
+// exists in 'ms'.
 func (ms *mapState) addDependentOnEntry(owner Key, e mapStateEntry, dependent Key, changes ChangeState) {
 	if _, exists := e.dependents[dependent]; !exists {
 		changes.insertOldIfNotExists(owner, e)
 		e.AddDependent(dependent)
-		ms.insert(owner, e)
+		ms.updateExisting(owner, e)
 	}
 }
 
@@ -887,7 +888,7 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes Chan
 		// place!
 		datapathEqual = oldEntry.Equal(&entry.MapStateEntry)
 		oldEntry.merge(&entry)
-		ms.insert(key, oldEntry)
+		ms.updateExisting(key, oldEntry)
 	} else if !exists || entry.IsDeny {
 		// Insert a new entry if one did not exist or a deny entry is overwriting an allow
 		// entry.
