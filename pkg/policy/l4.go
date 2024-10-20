@@ -1147,8 +1147,8 @@ type L4PolicyMap interface {
 	IngressCoversContext(ctx *SearchContext) api.Decision
 	EgressCoversContext(ctx *SearchContext) api.Decision
 	ForEach(func(l4 *L4Filter) bool)
-	Equals(bMap L4PolicyMap) bool
-	Diff(expectedMap L4PolicyMap) string
+	TestingOnlyEquals(bMap L4PolicyMap) bool
+	TestingOnlyDiff(expectedMap L4PolicyMap) string
 	Len() int
 }
 
@@ -1339,7 +1339,7 @@ func (l4M *l4PolicyMap) ForEach(fn func(l4 *L4Filter) bool) {
 }
 
 // Equals returns true if both L4PolicyMaps are equal.
-func (l4M *l4PolicyMap) Equals(bMap L4PolicyMap) bool {
+func (l4M *l4PolicyMap) TestingOnlyEquals(bMap L4PolicyMap) bool {
 	if l4M.Len() != bMap.Len() {
 		return false
 	}
@@ -1357,7 +1357,7 @@ func (l4M *l4PolicyMap) Equals(bMap L4PolicyMap) bool {
 }
 
 // Diff returns the difference between to L4PolicyMaps.
-func (l4M *l4PolicyMap) Diff(expected L4PolicyMap) (res string) {
+func (l4M *l4PolicyMap) TestingOnlyDiff(expected L4PolicyMap) (res string) {
 	res += "Missing (-), Unexpected (+):\n"
 	expected.ForEach(func(eV *L4Filter) bool {
 		port := eV.PortName

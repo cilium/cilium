@@ -940,7 +940,7 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 		},
 	}})
 
-	require.True(t, res.Equals(expected), res.Diff(expected))
+	require.True(t, res.TestingOnlyEquals(expected), res.TestingOnlyDiff(expected))
 	l4Filter := res.ExactLookup("443", 0, "TCP")
 	require.NotNil(t, l4Filter)
 	require.Equal(t, ParserTypeHTTP, l4Filter.L7Parser)
@@ -1052,7 +1052,7 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 	}})
 
 	require.EqualValues(t, expected, res)
-	require.True(t, res.Equals(expected), res.Diff(expected))
+	require.True(t, res.TestingOnlyEquals(expected), res.TestingOnlyDiff(expected))
 
 	l4Filter := res.ExactLookup("443", 0, "TCP")
 	require.NotNil(t, l4Filter)
