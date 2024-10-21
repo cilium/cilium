@@ -118,6 +118,7 @@ func registerReconciler(params ingressParams) error {
 		false,
 		false, // hostNameSuffixMatch
 		params.OperatorConfig.ProxyIdleTimeoutSeconds,
+		params.OperatorConfig.ProxyStreamIdleTimeoutSeconds,
 		params.IngressConfig.IngressHostnetworkEnabled,
 		translation.ParseNodeLabelSelector(params.IngressConfig.IngressHostnetworkNodelabelselector),
 		params.AgentConfig.EnableIPv4,

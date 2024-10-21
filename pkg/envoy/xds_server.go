@@ -214,6 +214,7 @@ type xdsServerConfig struct {
 	httpRetryCount                int
 	httpRetryTimeout              int
 	httpNormalizePath             bool
+	httpStreamIdleTimeout         int
 	useFullTLSContext             bool
 	proxyXffNumTrustedHopsIngress uint32
 	proxyXffNumTrustedHopsEgress  uint32
@@ -368,9 +369,10 @@ func GetUpstreamCodecFilter() *envoy_config_http.HttpFilter {
 
 func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool, isIngress bool) *envoy_config_listener.FilterChain {
 
-	requestTimeout := int64(s.config.httpRequestTimeout) // seconds
-	idleTimeout := int64(s.config.httpIdleTimeout)       // seconds
-	maxGRPCTimeout := int64(s.config.httpMaxGRPCTimeout) // seconds
+	requestTimeout := int64(s.config.httpRequestTimeout)       // seconds
+	idleTimeout := int64(s.config.httpIdleTimeout)             // seconds
+	maxGRPCTimeout := int64(s.config.httpMaxGRPCTimeout)       // seconds
+	streamIdleTimeout := int64(s.config.httpStreamIdleTimeout) // seconds
 	numRetries := uint32(s.config.httpRetryCount)
 	retryTimeout := int64(s.config.httpRetryTimeout) // seconds
 	xffNumTrustedHops := s.config.proxyXffNumTrustedHopsEgress
@@ -392,7 +394,7 @@ func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool, isIngr
 				},
 			},
 		},
-		StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
+		StreamIdleTimeout: &durationpb.Duration{Seconds: streamIdleTimeout}, // 0 == disabled
 		RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
 			RouteConfig: &envoy_config_route.RouteConfiguration{
 				VirtualHosts: []*envoy_config_route.VirtualHost{{
