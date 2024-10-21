@@ -301,7 +301,7 @@ func (s *ServiceCache) GetEndpointsOfService(svcID ServiceID) *Endpoints {
 // Services are iterated in random order.
 // The ServiceCache is read-locked during this function call. The passed in
 // Service and Endpoints references are read-only.
-func (s *ServiceCache) ForEachService(yield func(svcID ServiceID, svc *Service, eps *Endpoints) bool) {
+func (s *ServiceCache) ForEachService(yield func(svcID ServiceID, svc *Service, eps *EndpointSlices) bool) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -310,8 +310,7 @@ func (s *ServiceCache) ForEachService(yield func(svcID ServiceID, svc *Service, 
 		if !ok {
 			continue
 		}
-		eps := ep.GetEndpoints()
-		if !yield(svcID, svc, eps) {
+		if !yield(svcID, svc, ep) {
 			return
 		}
 	}
@@ -454,7 +453,7 @@ func (s *ServiceCache) UpdateEndpoints(newEndpoints *Endpoints, swg *lock.Stoppa
 			return esID.ServiceID, newEndpoints
 		}
 	} else {
-		eps = newEndpointsSlices()
+		eps = NewEndpointsSlices()
 		s.endpoints[esID.ServiceID] = eps
 	}
 
