@@ -54,6 +54,9 @@ type clusterMeshParams struct {
 
 	// ServiceResolver, if not nil, is used to create a custom dialer for service resolution.
 	ServiceResolver *dial.ServiceResolver
+
+	// ClustermeshResolver, if not nil, is used to create a custom dialer for clustermesh address resolution.
+	ClustermeshResolver *dial.ClustermeshResolver
 }
 
 // ClusterMeshConfig contains the configuration for ClusterMesh inside the operator.
