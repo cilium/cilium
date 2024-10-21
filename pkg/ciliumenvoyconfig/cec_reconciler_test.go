@@ -20,6 +20,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 )
@@ -789,6 +790,6 @@ func (r *fakeCECManager) updateCiliumEnvoyConfig(oldCECObjectMeta metav1.ObjectM
 	return nil
 }
 
-func (r *fakeCECManager) syncCiliumEnvoyConfigService(name string, namespace string, cecSpec *ciliumv2.CiliumEnvoyConfigSpec) error {
+func (r *fakeCECManager) syncHeadlessService(_ string, _ string, _ loadbalancer.ServiceName, _ []string) error {
 	return nil
 }
