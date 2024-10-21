@@ -7,28 +7,16 @@ import (
 	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/cilium/cilium/cilium-cli/internal/utils"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 )
 
-func (p *Parameters) RelayPortForwardCommand(ctx context.Context, client k8sHubbleImplementation) error {
-	relaySvc, err := client.GetService(ctx, p.Namespace, "hubble-relay", metav1.GetOptions{})
+func (p *Parameters) RelayPortForwardCommand(ctx context.Context, k8sClient *k8s.Client) error {
+	// default to first port configured on the service when svcPort is set to 0
+	res, err := k8sClient.PortForwardService(ctx, p.Namespace, "hubble-relay", int32(p.PortForward), 0)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to port forward: %w", err)
 	}
-
-	args := []string{
-		"port-forward",
-		"-n", p.Namespace,
-		"svc/hubble-relay",
-		"--address", "127.0.0.1",
-		fmt.Sprintf("%d:%d", p.PortForward, relaySvc.Spec.Ports[0].Port)}
-
-	if p.Context != "" {
-		args = append([]string{"--context", p.Context}, args...)
-	}
-
-	_, err = utils.Exec(p, "kubectl", args...)
-	return err
+	p.Log("ℹ️  Hubble Relay is available at 127.0.0.1:%d", res.ForwardedPort.Local)
+	<-ctx.Done()
+	return nil
 }

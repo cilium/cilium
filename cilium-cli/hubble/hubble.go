@@ -9,17 +9,11 @@ import (
 	"io"
 
 	"helm.sh/helm/v3/pkg/cli/values"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 )
-
-type k8sHubbleImplementation interface {
-	GetService(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Service, error)
-}
 
 type Parameters struct {
 	Namespace     string
@@ -28,7 +22,6 @@ type Parameters struct {
 	UI            bool
 	UIPortForward int
 	Writer        io.Writer
-	Context       string // Only for 'kubectl' pass-through commands
 
 	// UIOpenBrowser will automatically open browser if true
 	UIOpenBrowser bool
