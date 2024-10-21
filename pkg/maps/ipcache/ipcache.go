@@ -155,7 +155,7 @@ type RemoteEndpointInfo struct {
 }
 
 func (v *RemoteEndpointInfo) String() string {
-	return fmt.Sprintf("identity=%d encryptkey=%d tunnelendpoint=%s, flags=%s",
+	return fmt.Sprintf("identity=%d encryptkey=%d tunnelendpoint=%s flags=%s",
 		v.SecurityIdentity, v.Key, v.TunnelEndpoint, v.Flags)
 }
 
