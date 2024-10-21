@@ -38,5 +38,8 @@ type EndpointUpdater interface {
 	// 'rules' is a fresh copy of the DNS rules passed to the callee.
 	OnDNSPolicyUpdateLocked(rules restore.DNSRules)
 
+	// GetPolicyVersionHandle returns the selector cache version handle held for Endpoint's
+	// desired policy, if any.
+	// Must be called with Endpoint's read lock taken.
 	GetPolicyVersionHandle() *versioned.VersionHandle
 }

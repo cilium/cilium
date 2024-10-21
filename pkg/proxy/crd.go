@@ -15,6 +15,5 @@ func (r *CRDRedirect) UpdateRules(wg *completion.WaitGroup) (revert.RevertFunc, 
 	return func() error { return nil }, nil
 }
 
-func (r *CRDRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
-	return nil, func() error { return nil }
+func (r *CRDRedirect) Close() {
 }

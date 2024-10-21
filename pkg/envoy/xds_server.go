@@ -1806,8 +1806,6 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *pol
 		return fmt.Errorf("error validating generated NetworkPolicy for Endpoint %d: %w", ep.GetID(), err), nil
 	}
 
-	nodeIDs := getNodeIDs(ep, policy)
-
 	// If there are no listeners configured, the local node's Envoy proxy won't
 	// query for network policies and therefore will never ACK them, and we'd
 	// wait forever.
@@ -1826,6 +1824,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *pol
 		}
 	}
 	epID := ep.GetID()
+	nodeIDs := getNodeIDs(ep, policy)
 	resourceName := strconv.FormatUint(epID, 10)
 	revertFunc := s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, callback)
 	revertUpdatedNetworkPolicyEndpoints := make(map[string]endpoint.EndpointUpdater, len(ips))
