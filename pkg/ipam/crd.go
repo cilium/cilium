@@ -337,7 +337,6 @@ func (n *nodeStore) deleteLocalNodeResource() {
 // on the custom resource passed into the function.
 func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 	n.mutex.Lock()
-	defer n.mutex.Unlock()
 
 	if n.conf.IPAMMode() == ipamOption.IPAMENI {
 		if err := configureENIDevices(n.ownNode, node, n.mtuConfig); err != nil {
@@ -345,6 +344,7 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 		}
 	}
 
+	var ipsMarkedToRelease = make(map[string]*crdAllocator)
 	n.ownNode = node
 	n.allocationPoolSize[IPv4] = 0
 	n.allocationPoolSize[IPv6] = 0
@@ -408,7 +408,6 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 			continue
 		}
 		// Retrieve the appropriate allocator
-		var allocator *crdAllocator
 		var ipFamily Family
 		if ipAddr := net.ParseIP(ip); ipAddr != nil {
 			ipFamily = DeriveFamily(ipAddr)
@@ -418,29 +417,34 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 		}
 		for _, a := range n.allocators {
 			if a.family == ipFamily {
-				allocator = a
+				ipsMarkedToRelease[ip] = a
 			}
 		}
-		if allocator == nil {
+		if _, ok := ipsMarkedToRelease[ip]; !ok {
 			continue
 		}
+		releaseUpstreamSyncNeeded = true
+	}
+	// Some functions like crdAllocator.Allocate() acquire lock on allocator first and then on nodeStore.
+	// So release nodestore lock before acquiring allocator lock to avoid potential deadlocks from inconsistent
+	// lock ordering.
+	n.mutex.Unlock()
 
-		// Some functions like crdAllocator.Allocate() acquire lock on allocator first and then on nodeStore.
-		// So release nodestore lock before acquiring allocator lock to avoid potential deadlocks from inconsistent
-		// lock ordering.
-		n.mutex.Unlock()
-		allocator.mutex.Lock()
-		_, ok := allocator.allocated[ip]
-		allocator.mutex.Unlock()
+	for ip, allocator := range ipsMarkedToRelease {
+		allocator.mutex.RLock()
 		n.mutex.Lock()
 
-		if ok {
+		if _, ok := allocator.allocated[ip]; ok {
 			// IP still in use, update the operator to stop releasing the IP.
 			n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMDoNotRelease
 		} else {
 			n.ownNode.Status.IPAM.ReleaseIPs[ip] = ipamOption.IPAMReadyForRelease
 		}
-		releaseUpstreamSyncNeeded = true
+
+		// unlock node mutex before the allocator mutex to avoid IP addresses being allocated to newly
+		// created pods during the unlocked period
+		n.mutex.Unlock()
+		allocator.mutex.RUnlock()
 	}
 
 	if releaseUpstreamSyncNeeded {
