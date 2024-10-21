@@ -122,6 +122,8 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		// tc
 		"tc qdisc show",
 		"tc -d -s qdisc show", // Show statistics on queuing disciplines
+		// nft
+		"nft -n list ruleset", // dump all nft rules
 	}
 
 	// LB and CT map for debugging services; using bpftool for a reliable dump
