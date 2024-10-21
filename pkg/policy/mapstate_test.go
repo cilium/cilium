@@ -55,14 +55,14 @@ func (e MapStateEntry) WithOwners(owners ...MapStateOwner) mapStateEntry {
 
 // WithAuthType sets auth type field as indicated.
 func (e mapStateEntry) WithAuthType(authType AuthType) mapStateEntry {
-	e.hasAuthType = ExplicitAuthType
+	e.HasAuthType = ExplicitAuthType
 	e.AuthType = authType
 	return e
 }
 
 // WithDefaultAuthType sets inherited auth type field as indicated.
 func (e mapStateEntry) WithDefaultAuthType(authType AuthType) mapStateEntry {
-	e.hasAuthType = DefaultAuthType
+	e.HasAuthType = DefaultAuthType
 	e.AuthType = authType
 	return e
 }
@@ -124,8 +124,8 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 		return newMapState().withState(initMap)
 	}
 
-	allowEntry := MapStateEntry{}.toMapStateEntry(0, DefaultAuthType, nil, nil)
-	denyEntry := MapStateEntry{IsDeny: true}.toMapStateEntry(0, DefaultAuthType, nil, nil)
+	allowEntry := MapStateEntry{}.toMapStateEntry(0, nil, nil)
+	denyEntry := MapStateEntry{IsDeny: true}.toMapStateEntry(0, nil, nil)
 
 	type args struct {
 		key      Key
@@ -816,7 +816,7 @@ func TestMapState_denyPreferredInsertWithChanges(t *testing.T) {
 			return true
 		})
 
-		entry := tt.args.entry.toMapStateEntry(tt.args.priority, DefaultAuthType, nil, nil)
+		entry := tt.args.entry.toMapStateEntry(tt.args.priority, nil, nil)
 		ms.insertWithChanges(tt.args.key, entry, denyRules, changes)
 		ms.validatePortProto(t)
 		require.Truef(t, ms.deepEquals(tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.diff(tt.want))
@@ -1864,7 +1864,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			}
 			aKeys = append(aKeys, IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort))
 		}
-		aEntry := MapStateEntry{IsDeny: tt.aIsDeny}.toMapStateEntry(0, DefaultAuthType, nil, nil)
+		aEntry := MapStateEntry{IsDeny: tt.aIsDeny}.toMapStateEntry(0, nil, nil)
 		var bKeys []Key
 		for _, idB := range tt.bIdentities {
 			if tt.outcome&worldIPl3only > 0 && idB == worldIPIdentity &&
@@ -1885,7 +1885,7 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 			}
 			bKeys = append(bKeys, IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort))
 		}
-		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}.toMapStateEntry(0, DefaultAuthType, nil, nil)
+		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}.toMapStateEntry(0, nil, nil)
 		expectedKeys := newMapState()
 		if tt.outcome&insertAllowAll > 0 {
 			expectedKeys.insert(anyIngressKey, allowEntry)

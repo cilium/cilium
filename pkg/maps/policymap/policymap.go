@@ -57,6 +57,9 @@ type policyEntryFlags uint8
 
 const (
 	policyFlagDeny policyEntryFlags = 1 << iota
+	policyFlagReserved1
+	policyFlagReserved2
+	policyFlagHasExplicitAuthType
 )
 
 func (pef policyEntryFlags) is(pf policyEntryFlags) bool {
@@ -71,6 +74,9 @@ func (pef policyEntryFlags) String() string {
 		str = append(str, "Deny")
 	} else {
 		str = append(str, "Allow")
+	}
+	if pef.is(policyFlagHasExplicitAuthType) {
+		str = append(str, "ExplicitAuthType")
 	}
 
 	return strings.Join(str, ", ")
@@ -172,7 +178,8 @@ func (pe *PolicyEntry) GetProxyPort() uint16 {
 }
 
 type policyEntryFlagParams struct {
-	IsDeny bool
+	IsDeny              bool
+	HasExplicitAuthType bool
 }
 
 // getPolicyEntryFlags returns a policyEntryFlags from the policyEntryFlagParams.
@@ -181,6 +188,9 @@ func getPolicyEntryFlags(p policyEntryFlagParams) policyEntryFlags {
 
 	if p.IsDeny {
 		flags |= policyFlagDeny
+	}
+	if p.HasExplicitAuthType {
+		flags |= policyFlagHasExplicitAuthType
 	}
 
 	return flags
@@ -333,9 +343,12 @@ func newEntry(authType uint8, proxyPort uint16, prefixLen uint8, flags policyEnt
 // newAllowEntry returns an allow PolicyEntry for the specified parameters in
 // network byte-order.
 // This is separated out to be used in unit testing.
-func newAllowEntry(key PolicyKey, authType uint8, proxyPort uint16) PolicyEntry {
+func newAllowEntry(key PolicyKey, hasExplicitAuthType bool, authType uint8, proxyPort uint16) PolicyEntry {
+	pef := getPolicyEntryFlags(policyEntryFlagParams{
+		HasExplicitAuthType: hasExplicitAuthType,
+	})
 	prefixLen := uint8(key.Prefixlen - StaticPrefixBits)
-	return newEntry(authType, proxyPort, prefixLen, 0)
+	return newEntry(authType, proxyPort, prefixLen, pef)
 }
 
 // newDenyEntry returns a deny PolicyEntry for the specified parameters in
@@ -351,17 +364,17 @@ func newDenyEntry(key PolicyKey) PolicyEntry {
 
 // AllowKey pushes an entry into the PolicyMap for the given PolicyKey k.
 // Returns an error if the update of the PolicyMap fails.
-func (pm *PolicyMap) AllowKey(key PolicyKey, authType uint8, proxyPort uint16) error {
-	entry := newAllowEntry(key, authType, proxyPort)
+func (pm *PolicyMap) AllowKey(key PolicyKey, hasExplicitAuthType bool, authType uint8, proxyPort uint16) error {
+	entry := newAllowEntry(key, hasExplicitAuthType, authType, proxyPort)
 	return pm.Update(&key, &entry)
 }
 
 // Allow pushes an entry into the PolicyMap to allow traffic in the given
 // `trafficDirection` for identity `id` with destination port `dport` over
 // protocol `proto`. It is assumed that `dport` and `proxyPort` are in host byte-order.
-func (pm *PolicyMap) Allow(trafficDirection trafficdirection.TrafficDirection, id identity.NumericIdentity, proto u8proto.U8proto, dport uint16, portPrefixLen uint8, authType uint8, proxyPort uint16) error {
+func (pm *PolicyMap) Allow(trafficDirection trafficdirection.TrafficDirection, id identity.NumericIdentity, proto u8proto.U8proto, dport uint16, portPrefixLen uint8, hasExplicitAuthType bool, authType uint8, proxyPort uint16) error {
 	key := NewKey(trafficDirection, id, proto, dport, portPrefixLen)
-	return pm.AllowKey(key, authType, proxyPort)
+	return pm.AllowKey(key, hasExplicitAuthType, authType, proxyPort)
 }
 
 // DenyKey pushes an entry into the PolicyMap for the given PolicyKey k.

@@ -15,8 +15,8 @@ __account_and_check(struct __ctx_buff *ctx __maybe_unused, struct policy_entry *
 		    const struct policy_entry *policy2, __s8 *ext_err, __u16 *proxy_port)
 {
 	/* auth_type is derived from the matched policy entry, except if both L3/L4 and L4-only
-	 * match, and the chosen policy has no auth type: in this case the auth type is derived from
-	 * the less specific policy entry.
+	 * match, and the chosen policy has no explicit auth type: in this case the auth type is
+	 * derived from the less specific policy entry, if it has an explicit auth type.
 	 */
 	__u8 auth_type;
 
@@ -32,9 +32,15 @@ __account_and_check(struct __ctx_buff *ctx __maybe_unused, struct policy_entry *
 	*proxy_port = policy->proxy_port;
 
 	auth_type = policy->auth_type;
-	if (auth_type == 0 && policy2) {
-		/* Both L4-only and L3/4 policy matched, and the chose more specific one does not
-		 * have an auth type: Propagate the auth type from the more general policy.
+	if (unlikely(!policy->has_explicit_auth_type &&
+		     policy2 && policy2->has_explicit_auth_type &&
+		     policy2->auth_type > auth_type)) {
+		/* Both L4-only and L3/4 policy matched, and the chosen more specific one does not
+		 * have an explicit auth type: Propagate the auth type from the more general policy
+		 * if it is has an explicit auth type and its auth_type is greater than the
+		 * auth_type of the chosen policy (policy entry may have an auth_type propagated
+		 * from another entry with en explicit auth type. Numerically greater value has
+		 * precedence in that case).
 		 */
 		auth_type = policy2->auth_type;
 	}

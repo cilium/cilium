@@ -338,6 +338,10 @@ type MapStateEntry struct {
 	// IsDeny is true when the policy should be denied.
 	IsDeny bool
 
+	// HasAuthType is 'DefaultAuthType' when policy has no explicit AuthType set. In this case
+	// the value of AuthType is derived from more generic entries covering this entry.
+	HasAuthType HasAuthType
+
 	// AuthType is non-zero when authentication is required for the traffic to be allowed.
 	AuthType AuthType
 }
@@ -351,10 +355,6 @@ type mapStateEntry struct {
 	// to a policy map entry. Lower numbers indicate higher priority. If left out, the proxy
 	// port number (10000-20000) is used.
 	priority uint16
-
-	// hasAuthType is 'DefaultAuthType' when policy has no explicit AuthType set. In this case
-	// the value of AuthType is derived from more generic entries covering this entry.
-	hasAuthType HasAuthType
 
 	// derivedFromRules tracks the policy rules this entry derives from.
 	// In sorted order.
@@ -380,19 +380,19 @@ func newMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, proxy
 	}
 	return mapStateEntry{
 		MapStateEntry: MapStateEntry{
-			Listener:  listener,
-			ProxyPort: proxyPort,
-			IsDeny:    deny,
-			AuthType:  authType,
+			Listener:    listener,
+			ProxyPort:   proxyPort,
+			IsDeny:      deny,
+			HasAuthType: hasAuth,
+			AuthType:    authType,
 		},
 		priority:         priority,
-		hasAuthType:      hasAuth,
 		derivedFromRules: derivedFrom,
 		owners:           set.NewSet(cs),
 	}
 }
 
-func (e MapStateEntry) toMapStateEntry(priority uint16, hasAuth HasAuthType, cs MapStateOwner, derivedFrom labels.LabelArrayList) mapStateEntry {
+func (e MapStateEntry) toMapStateEntry(priority uint16, cs MapStateOwner, derivedFrom labels.LabelArrayList) mapStateEntry {
 	if e.ProxyPort == 0 {
 		e.Listener = ""
 		priority = 0
@@ -402,7 +402,6 @@ func (e MapStateEntry) toMapStateEntry(priority uint16, hasAuth HasAuthType, cs 
 	return mapStateEntry{
 		MapStateEntry:    e,
 		priority:         priority,
-		hasAuthType:      hasAuth,
 		derivedFromRules: derivedFrom,
 		owners:           set.NewSet(cs),
 	}
@@ -626,17 +625,17 @@ func (e *mapStateEntry) merge(entry *mapStateEntry) {
 		}
 
 		// Explicit auth takes precedence over defaulted one.
-		if entry.hasAuthType == ExplicitAuthType {
-			if e.hasAuthType == ExplicitAuthType {
+		if entry.HasAuthType == ExplicitAuthType {
+			if e.HasAuthType == ExplicitAuthType {
 				// Numerically higher AuthType takes precedence when both are explicitly defined
 				if entry.AuthType > e.AuthType {
 					e.AuthType = entry.AuthType
 				}
 			} else {
-				e.hasAuthType = ExplicitAuthType
+				e.HasAuthType = ExplicitAuthType
 				e.AuthType = entry.AuthType
 			}
-		} else if e.hasAuthType == DefaultAuthType {
+		} else if e.HasAuthType == DefaultAuthType {
 			e.AuthType = entry.AuthType // new default takes precedence
 		}
 	}
@@ -910,19 +909,16 @@ func (ms *mapState) overrideAuthType(newEntry mapStateEntry, k Key, v mapStateEn
 // explicitly specified.
 //
 // This function is expected to be called for a map insertion after deny
-// entry evaluation. If there is a map entry that is a superset of 'newKey'
+// entry evaluation. If there is a covering map key for 'newKey'
 // which denies traffic matching 'newKey', then this function should not be called.
-//
-// TODO: Make datapath honor an explicit no-auth even if the more generic math has an explicit auth
-// type.
 func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, changes ChangeState) {
-	if newEntry.hasAuthType == DefaultAuthType {
+	if newEntry.HasAuthType == DefaultAuthType {
 		// New entry has a default auth type.
 
 		// Fill in the AuthType from the most specific covering key with the same ID and an
 		// explicit auth type
 		for _, v := range ms.allows.CoveringKeysWithSameID(newKey) {
-			if v.hasAuthType == ExplicitAuthType {
+			if v.HasAuthType == ExplicitAuthType {
 				// AuthType from the most specific covering key is applied to
 				// 'newEntry'
 				newEntry.AuthType = v.AuthType
@@ -934,7 +930,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, chan
 		// with the same ID and default auth type, and propagate the auth type from the new
 		// entry to such entries.
 		for k, v := range ms.allows.SubsetKeysWithSameID(newKey) {
-			if v.hasAuthType == ExplicitAuthType {
+			if v.HasAuthType == ExplicitAuthType {
 				// Stop if a subset entry has an explicit auth type, as that is the
 				// more specific covering key for all remaining subset keys
 				break
