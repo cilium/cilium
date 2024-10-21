@@ -309,30 +309,32 @@ func probeKubeProxyReplacementOptions(sysctl sysctl.Sysctl) error {
 				log.Warn("Disabling socket-LB tracing as it requires kernel 5.7 or newer")
 			}
 		}
+
+		if option.Config.EnableSessionAffinity {
+			if probes.HaveProgramHelper(ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
+				probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
+				log.Warn("Session affinity for host reachable services needs kernel 5.7.0 or newer " +
+					"to work properly when accessed from inside cluster: the same service endpoint " +
+					"will be selected from all network namespaces on the host.")
+			}
+		}
+
+		if option.Config.BPFSocketLBHostnsOnly {
+			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
+				option.Config.BPFSocketLBHostnsOnly = false
+				log.Warn("Without network namespace cookie lookup functionality, BPF datapath " +
+					"cannot distinguish root and non-root namespace, skipping socket-level " +
+					"loadbalancing will not work. Istio routing chains will be missed. " +
+					"Needs kernel version >= 5.7")
+			}
+		}
 	} else {
 		option.Config.EnableSocketLBTracing = false
 		option.Config.EnableSocketLBPodConnectionTermination = false
-	}
 
-	if option.Config.EnableSessionAffinity && option.Config.EnableSocketLB {
-		if probes.HaveProgramHelper(ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
-			probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
-			log.Warn("Session affinity for host reachable services needs kernel 5.7.0 or newer " +
-				"to work properly when accessed from inside cluster: the same service endpoint " +
-				"will be selected from all network namespaces on the host.")
-		}
-	}
-
-	if option.Config.BPFSocketLBHostnsOnly {
-		if !option.Config.EnableSocketLB {
+		if option.Config.BPFSocketLBHostnsOnly {
 			option.Config.BPFSocketLBHostnsOnly = false
 			log.Warnf("%s only takes effect when %s is true", option.BPFSocketLBHostnsOnly, option.EnableSocketLB)
-		} else if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
-			option.Config.BPFSocketLBHostnsOnly = false
-			log.Warn("Without network namespace cookie lookup functionality, BPF datapath " +
-				"cannot distinguish root and non-root namespace, skipping socket-level " +
-				"loadbalancing will not work. Istio routing chains will be missed. " +
-				"Needs kernel version >= 5.7")
 		}
 	}
 
