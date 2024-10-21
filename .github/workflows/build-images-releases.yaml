@@ -218,7 +218,6 @@ jobs:
         with:
           name: image-digest-output.txt-${{ steps.tag.outputs.tag }}
           path: image-digest-output.txt
-          retention-days: 10
 
       # Upload artifact digests
       - name: Upload artifact digests
@@ -226,4 +225,3 @@ jobs:
         with:
           name: Makefile.digests-${{ steps.tag.outputs.tag }}
           path: Makefile.digests
-          retention-days: 10
