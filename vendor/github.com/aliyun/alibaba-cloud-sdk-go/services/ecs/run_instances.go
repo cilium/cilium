@@ -136,6 +136,7 @@ type RunInstancesRequest struct {
 	VSwitchId                                string                            `position:"Query" name:"VSwitchId"`
 	InstanceName                             string                            `position:"Query" name:"InstanceName"`
 	ZoneId                                   string                            `position:"Query" name:"ZoneId"`
+	CpuOptionsAccelerators                   *[]string                         `position:"Query" name:"CpuOptions.Accelerators"  type:"Repeated"`
 	Ipv6Address                              *[]string                         `position:"Query" name:"Ipv6Address"  type:"Repeated"`
 	SecurityOptionsConfidentialComputingMode string                            `position:"Query" name:"SecurityOptions.ConfidentialComputingMode"`
 	ClientToken                              string                            `position:"Query" name:"ClientToken"`

@@ -64,6 +64,9 @@ type LaunchTemplateData struct {
 	AutoRenew                      bool                                              `json:"AutoRenew" xml:"AutoRenew"`
 	AutoRenewPeriod                int                                               `json:"AutoRenewPeriod" xml:"AutoRenewPeriod"`
 	PeriodUnit                     string                                            `json:"PeriodUnit" xml:"PeriodUnit"`
+	HttpEndpoint                   string                                            `json:"HttpEndpoint" xml:"HttpEndpoint"`
+	HttpTokens                     string                                            `json:"HttpTokens" xml:"HttpTokens"`
+	HttpPutResponseHopLimit        int                                               `json:"HttpPutResponseHopLimit" xml:"HttpPutResponseHopLimit"`
 	SecurityGroupIds               SecurityGroupIdsInDescribeLaunchTemplateVersions  `json:"SecurityGroupIds" xml:"SecurityGroupIds"`
 	DataDisks                      DataDisks                                         `json:"DataDisks" xml:"DataDisks"`
 	NetworkInterfaces              NetworkInterfacesInDescribeLaunchTemplateVersions `json:"NetworkInterfaces" xml:"NetworkInterfaces"`

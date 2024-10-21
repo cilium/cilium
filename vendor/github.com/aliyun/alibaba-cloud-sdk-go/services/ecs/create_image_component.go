@@ -75,6 +75,7 @@ type CreateImageComponentRequest struct {
 	ClientToken          string                     `position:"Query" name:"ClientToken"`
 	Description          string                     `position:"Query" name:"Description"`
 	SystemType           string                     `position:"Query" name:"SystemType"`
+	ComponentVersion     string                     `position:"Query" name:"ComponentVersion"`
 	Content              string                     `position:"Query" name:"Content"`
 	ResourceGroupId      string                     `position:"Query" name:"ResourceGroupId"`
 	Tag                  *[]CreateImageComponentTag `position:"Query" name:"Tag"  type:"Repeated"`

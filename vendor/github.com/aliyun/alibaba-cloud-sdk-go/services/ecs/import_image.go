@@ -76,6 +76,7 @@ type ImportImageRequest struct {
 	Description          string                          `position:"Query" name:"Description"`
 	Platform             string                          `position:"Query" name:"Platform"`
 	ResourceGroupId      string                          `position:"Query" name:"ResourceGroupId"`
+	Features             ImportImageFeatures             `position:"Query" name:"Features"  type:"Struct"`
 	BootMode             string                          `position:"Query" name:"BootMode"`
 	ImageName            string                          `position:"Query" name:"ImageName"`
 	StorageLocationArn   string                          `position:"Query" name:"StorageLocationArn"`
@@ -83,6 +84,7 @@ type ImportImageRequest struct {
 	Architecture         string                          `position:"Query" name:"Architecture"`
 	LicenseType          string                          `position:"Query" name:"LicenseType"`
 	DetectionStrategy    string                          `position:"Query" name:"DetectionStrategy"`
+	DryRun               requests.Boolean                `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount string                          `position:"Query" name:"ResourceOwnerAccount"`
 	RoleName             string                          `position:"Query" name:"RoleName"`
 	OSType               string                          `position:"Query" name:"OSType"`
@@ -97,6 +99,11 @@ type ImportImageDiskDeviceMapping struct {
 	Device        string `name:"Device"`
 	OSSObject     string `name:"OSSObject"`
 	DiskImageSize string `name:"DiskImageSize"`
+}
+
+// ImportImageFeatures is a repeated param struct in ImportImageRequest
+type ImportImageFeatures struct {
+	NvmeSupport string `name:"NvmeSupport"`
 }
 
 // ImportImageTag is a repeated param struct in ImportImageRequest
