@@ -105,7 +105,7 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	/* Add an IPCache entry for pod 1 */
 	ipcache_v4_add_entry(v4_pod_one, 0, 112233, 0, 0);
 
-	endpoint_v4_add_entry(v4_pod_one, 0, 0, 0, 0, NULL, NULL);
+	endpoint_v4_add_entry(v4_pod_one, 0, 0, 0, 0, 0, NULL, NULL);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, 0);

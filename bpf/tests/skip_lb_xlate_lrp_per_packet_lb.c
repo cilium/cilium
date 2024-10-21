@@ -86,7 +86,7 @@ int v4_local_backend_to_service_setup(struct __ctx_buff *ctx)
 
 	/* Add an IPCache entry for the backend pod */
 	ipcache_v4_add_entry(V4_BACKEND_IP, 0, 112233, 0, 0);
-	endpoint_v4_add_entry(V4_BACKEND_IP, 0, 0, 0, 0, NULL, NULL);
+	endpoint_v4_add_entry(V4_BACKEND_IP, 0, 0, 0, 0, 0, NULL, NULL);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
