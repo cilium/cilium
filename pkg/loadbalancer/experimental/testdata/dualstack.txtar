@@ -1,0 +1,306 @@
+#! --enable-experimental-lb --lb-test-fault-probability=0.0
+# NOTE: Fault injection disabled as it leads to non-deterministic id allocation with multiple
+# frontends from single service.
+
+# Add some node addresses
+db insert node-addresses addrv4.yaml addrv6.yaml
+db cmp node-addresses nodeaddrs.table
+
+# Start the test application
+hive start
+
+# Wait for tables to initialize (e.g. reflector to start) before adding more objects.
+db initialized
+
+# For determinism, add the IPv4 endpoints first and wait for reconciliation (for ID alloc)
+# and then do IPv6.
+k8s add service.yaml endpointslice-ipv4.yaml
+db cmp frontends frontends-ipv4.table
+k8s add endpointslice-ipv6.yaml
+db cmp services services.table
+db cmp frontends frontends.table
+db cmp backends backends.table 
+
+lb-maps cmp lbmaps.dump
+
+# Cleanup
+k8s delete service.yaml endpointslice-ipv4.yaml endpointslice-ipv6.yaml
+db cmp services services_empty.table
+db cmp frontends frontends_empty.table
+db cmp backends backends_empty.table
+
+#####
+
+-- addrv4.yaml --
+addr: 1.1.1.1
+nodeport: true
+primary: true
+devicename: test
+
+-- addrv6.yaml --
+addr: 2001::1
+nodeport: true
+primary: true
+devicename: test
+
+-- nodeaddrs.table --
+Address NodePort Primary DeviceName
+1.1.1.1 true     true    test
+2001::1 true     true    test
+
+-- services.table --
+Name                     Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   L7ProxyPort   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+default/echo-dualstack   k8s                  Cluster            Cluster                              0             0                     false              
+
+-- frontends-ipv4.table --
+Address                     Type        ServiceName              PortName   Backends                                                                       Status
+[::]:30181/TCP              NodePort    default/echo-dualstack   http                                                                                      Done
+[::]:32757/UDP              NodePort    default/echo-dualstack   tftp                                                                                      Done
+0.0.0.0:30181/TCP           NodePort    default/echo-dualstack   http       10.244.1.54:80/TCP (active), 10.244.2.9:80/TCP (active)                        Done
+0.0.0.0:32757/UDP           NodePort    default/echo-dualstack   tftp       10.244.1.54:69/UDP (active), 10.244.2.9:69/UDP (active)                        Done
+10.96.207.99:69/UDP         ClusterIP   default/echo-dualstack   tftp       10.244.1.54:69/UDP (active), 10.244.2.9:69/UDP (active)                        Done
+10.96.207.99:80/TCP         ClusterIP   default/echo-dualstack   http       10.244.1.54:80/TCP (active), 10.244.2.9:80/TCP (active)                        Done
+[fd00:10:96::b050]:69/UDP   ClusterIP   default/echo-dualstack   tftp                                                                                      Done
+[fd00:10:96::b050]:80/TCP   ClusterIP   default/echo-dualstack   http                                                                                      Done
+
+-- frontends.table --
+Address                     Type        ServiceName              PortName   Backends                                                                       Status
+[::]:30181/TCP              NodePort    default/echo-dualstack   http       [fd00:10:244:1::247e]:80/TCP (active), [fd00:10:244:2::a314]:80/TCP (active)   Done
+[::]:32757/UDP              NodePort    default/echo-dualstack   tftp       [fd00:10:244:1::247e]:69/UDP (active), [fd00:10:244:2::a314]:69/UDP (active)   Done
+0.0.0.0:30181/TCP           NodePort    default/echo-dualstack   http       10.244.1.54:80/TCP (active), 10.244.2.9:80/TCP (active)                        Done
+0.0.0.0:32757/UDP           NodePort    default/echo-dualstack   tftp       10.244.1.54:69/UDP (active), 10.244.2.9:69/UDP (active)                        Done
+10.96.207.99:69/UDP         ClusterIP   default/echo-dualstack   tftp       10.244.1.54:69/UDP (active), 10.244.2.9:69/UDP (active)                        Done
+10.96.207.99:80/TCP         ClusterIP   default/echo-dualstack   http       10.244.1.54:80/TCP (active), 10.244.2.9:80/TCP (active)                        Done
+[fd00:10:96::b050]:69/UDP   ClusterIP   default/echo-dualstack   tftp       [fd00:10:244:1::247e]:69/UDP (active), [fd00:10:244:2::a314]:69/UDP (active)   Done
+[fd00:10:96::b050]:80/TCP   ClusterIP   default/echo-dualstack   http       [fd00:10:244:1::247e]:80/TCP (active), [fd00:10:244:2::a314]:80/TCP (active)   Done
+
+-- backends.table --
+Address                        State    Instances                       NodeName             ZoneID
+10.244.1.54:69/UDP             active   default/echo-dualstack (tftp)   dual-stack-worker    0
+10.244.1.54:80/TCP             active   default/echo-dualstack (http)   dual-stack-worker    0
+10.244.2.9:69/UDP              active   default/echo-dualstack (tftp)   dual-stack-worker2   0
+10.244.2.9:80/TCP              active   default/echo-dualstack (http)   dual-stack-worker2   0
+[fd00:10:244:1::247e]:69/UDP   active   default/echo-dualstack (tftp)   dual-stack-worker    0
+[fd00:10:244:1::247e]:80/TCP   active   default/echo-dualstack (http)   dual-stack-worker    0
+[fd00:10:244:2::a314]:69/UDP   active   default/echo-dualstack (tftp)   dual-stack-worker2   0
+[fd00:10:244:2::a314]:80/TCP   active   default/echo-dualstack (http)   dual-stack-worker2   0
+
+-- services_empty.table --
+Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   L7ProxyPort   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+
+-- frontends_empty.table --
+Address               Type        ServiceName   PortName   Status  Backends
+
+-- backends_empty.table --
+Address             State    Instances            NodeName           ZoneID
+
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-12T22:10:09Z"
+  name: echo-dualstack
+  namespace: default
+  resourceVersion: "729"
+  uid: c553a001-13a3-4f61-896c-ff40ddfd0e85
+spec:
+  clusterIP: 10.96.207.99
+  clusterIPs:
+  - 10.96.207.99
+  - fd00:10:96::b050
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  - IPv6
+  ipFamilyPolicy: RequireDualStack
+  ports:
+  - name: http
+    nodePort: 30181
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: tftp
+    nodePort: 32757
+    port: 69
+    protocol: UDP
+    targetPort: 69
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: NodePort
+status:
+  loadBalancer: {}
+
+-- endpointslice-ipv6.yaml --
+addressType: IPv6
+apiVersion: discovery.k8s.io/v1
+endpoints:
+- addresses:
+  - fd00:10:244:2::a314
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: dual-stack-worker2
+  targetRef:
+    kind: Pod
+    name: echo-bc5cf6ffb-d8f2v
+    namespace: default
+    uid: 232e759a-ea90-47bb-861c-f8219b94d336
+- addresses:
+  - fd00:10:244:1::247e
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: dual-stack-worker
+  targetRef:
+    kind: Pod
+    name: echo-bc5cf6ffb-xwqcn
+    namespace: default
+    uid: 12e35b98-cb02-4207-8efc-f1390443759f
+kind: EndpointSlice
+metadata:
+  annotations:
+    endpoints.kubernetes.io/last-change-trigger-time: "2022-09-12T22:10:24Z"
+  creationTimestamp: "2022-09-12T22:10:09Z"
+  generateName: echo-dualstack-
+  generation: 5
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo-dualstack
+  name: echo-dualstack-mchrt
+  namespace: default
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Service
+    name: echo-dualstack
+    uid: c553a001-13a3-4f61-896c-ff40ddfd0e85
+  resourceVersion: "798"
+  uid: 0a1e19ff-848a-40f2-af03-0624513d6ca4
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+- name: tftp
+  port: 69
+  protocol: UDP
+
+-- endpointslice-ipv4.yaml --
+addressType: IPv4
+apiVersion: discovery.k8s.io/v1
+endpoints:
+- addresses:
+  - 10.244.2.9
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: dual-stack-worker2
+  targetRef:
+    kind: Pod
+    name: echo-bc5cf6ffb-d8f2v
+    namespace: default
+    uid: 232e759a-ea90-47bb-861c-f8219b94d336
+- addresses:
+  - 10.244.1.54
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: dual-stack-worker
+  targetRef:
+    kind: Pod
+    name: echo-bc5cf6ffb-xwqcn
+    namespace: default
+    uid: 12e35b98-cb02-4207-8efc-f1390443759f
+kind: EndpointSlice
+metadata:
+  annotations:
+    endpoints.kubernetes.io/last-change-trigger-time: "2022-09-12T22:10:24Z"
+  creationTimestamp: "2022-09-12T22:10:09Z"
+  generateName: echo-dualstack-
+  generation: 5
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo-dualstack
+  name: echo-dualstack-bhgnn
+  namespace: default
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Service
+    name: echo-dualstack
+    uid: c553a001-13a3-4f61-896c-ff40ddfd0e85
+  resourceVersion: "796"
+  uid: 2b61d540-6676-4a24-b1eb-7827a63fb641
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+- name: tftp
+  port: 69
+  protocol: UDP
+
+-- lbmaps.dump --
+BE: ID=1 ADDR=10.244.1.54:80 STATE=active
+BE: ID=2 ADDR=10.244.2.9:80 STATE=active
+BE: ID=3 ADDR=10.244.1.54:69 STATE=active
+BE: ID=4 ADDR=10.244.2.9:69 STATE=active
+BE: ID=5 ADDR=[fd00:10:244:1::247e]:69 STATE=active
+BE: ID=6 ADDR=[fd00:10:244:2::a314]:69 STATE=active
+BE: ID=7 ADDR=[fd00:10:244:1::247e]:80 STATE=active
+BE: ID=8 ADDR=[fd00:10:244:2::a314]:80 STATE=active
+REV: ID=1 ADDR=10.96.207.99:80
+REV: ID=10 ADDR=[2001::1]:30181
+REV: ID=11 ADDR=<zero>
+REV: ID=12 ADDR=[2001::1]:32757
+REV: ID=2 ADDR=10.96.207.99:69
+REV: ID=3 ADDR=[fd00:10:96::b050]:80
+REV: ID=4 ADDR=[fd00:10:96::b050]:69
+REV: ID=5 ADDR=<zero>
+REV: ID=6 ADDR=1.1.1.1:30181
+REV: ID=7 ADDR=<zero>
+REV: ID=8 ADDR=1.1.1.1:32757
+REV: ID=9 ADDR=<zero>
+SVC: ID=1 ADDR=10.96.207.99:80 SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.207.99:80 SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.207.99:80 SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=10 ADDR=[2001::1]:30181 SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=10 ADDR=[2001::1]:30181 SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=10 ADDR=[2001::1]:30181 SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=11 ADDR=<zero> SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=11 ADDR=<zero> SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=11 ADDR=<zero> SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=12 ADDR=[2001::1]:32757 SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=12 ADDR=[2001::1]:32757 SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=12 ADDR=[2001::1]:32757 SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=2 ADDR=10.96.207.99:69 SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.207.99:69 SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=2 ADDR=10.96.207.99:69 SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=[fd00:10:96::b050]:80 SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=[fd00:10:96::b050]:80 SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=[fd00:10:96::b050]:80 SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=[fd00:10:96::b050]:69 SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=[fd00:10:96::b050]:69 SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=[fd00:10:96::b050]:69 SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=5 ADDR=<zero> SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=5 ADDR=<zero> SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=5 ADDR=<zero> SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=6 ADDR=1.1.1.1:30181 SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=6 ADDR=1.1.1.1:30181 SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=6 ADDR=1.1.1.1:30181 SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=7 ADDR=<zero> SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=7 ADDR=<zero> SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=7 ADDR=<zero> SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=8 ADDR=1.1.1.1:32757 SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=8 ADDR=1.1.1.1:32757 SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=8 ADDR=1.1.1.1:32757 SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=9 ADDR=<zero> SLOT=0 BEID=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=9 ADDR=<zero> SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=9 ADDR=<zero> SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
