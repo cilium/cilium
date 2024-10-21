@@ -5,29 +5,15 @@ package testutils
 import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 func CreateManagerEndpoint(name string, identity int64) capi_v2a1.CoreCiliumEndpoint {
 	return capi_v2a1.CoreCiliumEndpoint{
 		Name:       name,
 		IdentityID: identity,
-	}
-}
-
-func CreateStoreEndpoint(name string, namespace string, identity int64) *v2.CiliumEndpoint {
-	return &v2.CiliumEndpoint{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Status: v2.EndpointStatus{
-			Identity: &v2.EndpointIdentity{
-				ID: identity,
-			},
-			Networking: &v2.EndpointNetworking{},
-		},
 	}
 }
 
@@ -38,6 +24,18 @@ func CreateStoreEndpointSlice(name string, namespace string, endpoints []capi_v2
 		},
 		Namespace: namespace,
 		Endpoints: endpoints,
+	}
+}
+
+func CreateStorePod(name string, namespace string, identity int64) *slim_corev1.Pod {
+	return &slim_corev1.Pod{
+		TypeMeta: slim_metav1.TypeMeta{},
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec:   slim_corev1.PodSpec{},
+		Status: slim_corev1.PodStatus{},
 	}
 }
 
