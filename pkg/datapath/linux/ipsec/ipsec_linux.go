@@ -42,13 +42,12 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-type IPSecDir string
+type IPSecDir uint32
 
 const (
-	IPSecDirIn      IPSecDir = "IPSEC_IN"
-	IPSecDirOut     IPSecDir = "IPSEC_OUT"
-	IPSecDirFwd     IPSecDir = "IPSEC_FWD"
-	IPSecDirOutNode IPSecDir = "IPSEC_OUT_NODE"
+	IPSecDirIn IPSecDir = 1 << iota
+	IPSecDirOut
+	IPSecDirFwd
 
 	// Constants used to decode the IPsec secret in both formats:
 	// 1. [spi] aead-algo aead-key icv-len
@@ -769,11 +768,7 @@ func ipSecReplacePolicyOut(params *IPSecParameters) error {
 	key.ReqID = params.ReqID
 
 	policy := ipSecNewPolicy()
-	if params.Dir == IPSecDirOutNode {
-		policy.Src = wildcardCIDRv4
-	} else {
-		policy.Src = params.SourceSubnet
-	}
+	policy.Src = params.SourceSubnet
 	policy.Dst = params.DestSubnet
 	policy.Dir = netlink.XFRM_DIR_OUT
 	policy.Mark = generateEncryptMark(key.Spi, params.RemoteNodeID)
@@ -950,7 +945,7 @@ func UpsertIPsecEndpoint(log *slog.Logger, params *IPSecParameters) (uint8, erro
 	 * state would need to be cached in the ipcache.
 	 */
 	if !params.SourceTunnelIP.Equal(*params.DestTunnelIP) {
-		if params.Dir == IPSecDirIn {
+		if params.Dir&IPSecDirIn != 0 {
 			if spi, err = ipSecReplaceStateIn(log, params); err != nil {
 				return 0, fmt.Errorf("unable to replace local state: %w", err)
 			}
@@ -961,7 +956,7 @@ func UpsertIPsecEndpoint(log *slog.Logger, params *IPSecParameters) (uint8, erro
 			}
 		}
 
-		if params.Dir == IPSecDirFwd {
+		if params.Dir&IPSecDirFwd != 0 {
 			if err = IpSecReplacePolicyFwd(params); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy fwd: %w", err)
@@ -969,7 +964,7 @@ func UpsertIPsecEndpoint(log *slog.Logger, params *IPSecParameters) (uint8, erro
 			}
 		}
 
-		if params.Dir == IPSecDirOut || params.Dir == IPSecDirOutNode {
+		if params.Dir&IPSecDirOut != 0 {
 			if spi, err = ipSecReplaceStateOut(log, params); err != nil {
 				return 0, fmt.Errorf("unable to replace remote state: %w", err)
 			}
