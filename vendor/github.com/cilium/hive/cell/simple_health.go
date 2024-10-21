@@ -1,7 +1,15 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
 package cell
 
 import (
+	"fmt"
+	"regexp"
 	"sync"
+	"time"
+
+	"github.com/cilium/hive/script"
 )
 
 type simpleHealthRoot struct {
@@ -85,6 +93,57 @@ func NewSimpleHealth() (Health, *SimpleHealth) {
 		},
 	}
 	return h, h
+}
+
+// SimpleHealthCmd for showing or checking the simple module health state.
+// Not provided as hive.ScriptCmdOut due to cyclic import issues. To include
+// provide with: hive.ScriptCmdOut("health", SimpleHealthCmd(simpleHealth)))
+//
+// Example:
+//
+//	# show health
+//	health
+//
+//	# grep health
+//	health 'my-module: level=OK'
+func SimpleHealthCmd(h *SimpleHealth) script.Cmd {
+	return script.Command(
+		script.CmdUsage{
+			Summary: "Show or grep simple health",
+			Args:    "(pattern)",
+		},
+		func(s *script.State, args ...string) (script.WaitFunc, error) {
+			var re *regexp.Regexp
+			if len(args) == 1 {
+				re = regexp.MustCompile(args[0])
+			}
+			for s.Context().Err() == nil {
+				h.Lock()
+				for name, h := range h.all {
+					var errStr string
+					if h.Error != nil {
+						errStr = h.Error.Error()
+					}
+					line := fmt.Sprintf("%s: level=%s message=%s error=%s", name, h.Level, h.Status, errStr)
+					if re != nil {
+						if re.Match([]byte(line)) {
+							h.Unlock()
+							s.Logf("matched: %s\n", line)
+							return nil, nil
+						}
+					} else {
+						fmt.Fprintln(s.LogWriter(), line)
+					}
+				}
+				h.Unlock()
+				if re == nil {
+					return nil, nil
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+			return nil, fmt.Errorf("no match for %s", re)
+		},
+	)
 }
 
 var _ Health = &SimpleHealth{}

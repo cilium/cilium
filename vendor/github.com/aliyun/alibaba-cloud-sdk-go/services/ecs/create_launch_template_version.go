@@ -73,6 +73,7 @@ type CreateLaunchTemplateVersionRequest struct {
 	*requests.RpcRequest
 	LaunchTemplateName             string                                         `position:"Query" name:"LaunchTemplateName"`
 	ResourceOwnerId                requests.Integer                               `position:"Query" name:"ResourceOwnerId"`
+	HttpPutResponseHopLimit        requests.Integer                               `position:"Query" name:"HttpPutResponseHopLimit"`
 	SecurityEnhancementStrategy    string                                         `position:"Query" name:"SecurityEnhancementStrategy"`
 	NetworkType                    string                                         `position:"Query" name:"NetworkType"`
 	KeyPairName                    string                                         `position:"Query" name:"KeyPairName"`
@@ -110,6 +111,7 @@ type CreateLaunchTemplateVersionRequest struct {
 	SystemDiskPerformanceLevel     string                                         `position:"Query" name:"SystemDisk.PerformanceLevel"`
 	UserData                       string                                         `position:"Query" name:"UserData"`
 	PasswordInherit                requests.Boolean                               `position:"Query" name:"PasswordInherit"`
+	HttpEndpoint                   string                                         `position:"Query" name:"HttpEndpoint"`
 	InstanceType                   string                                         `position:"Query" name:"InstanceType"`
 	InstanceChargeType             string                                         `position:"Query" name:"InstanceChargeType"`
 	EnableVmOsConfig               requests.Boolean                               `position:"Query" name:"EnableVmOsConfig"`
@@ -127,6 +129,7 @@ type CreateLaunchTemplateVersionRequest struct {
 	SystemDiskProvisionedIops      requests.Integer                               `position:"Query" name:"SystemDisk.ProvisionedIops"`
 	SystemDiskSize                 requests.Integer                               `position:"Query" name:"SystemDisk.Size"`
 	VpcId                          string                                         `position:"Query" name:"VpcId"`
+	HttpTokens                     string                                         `position:"Query" name:"HttpTokens"`
 	SystemDiskDescription          string                                         `position:"Query" name:"SystemDisk.Description"`
 	SystemDiskEncrypted            string                                         `position:"Query" name:"SystemDisk.Encrypted"`
 }

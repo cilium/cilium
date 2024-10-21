@@ -12,6 +12,10 @@ func String(s string) Key {
 	return []byte(s)
 }
 
+func FromString(s string) (Key, error) {
+	return String(s), nil
+}
+
 func Stringer[T fmt.Stringer](s T) Key {
 	return String(s.String())
 }

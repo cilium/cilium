@@ -19,6 +19,8 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
+	"github.com/cilium/statedb/internal"
+	"gopkg.in/yaml.v3"
 )
 
 type Reconciler[Obj any] interface {
@@ -142,36 +144,48 @@ type Status struct {
 	id uint64
 }
 
+// statusJSON defines the JSON/YAML format for [Status]. Separate to
+// [Status] to allow custom unmarshalling that fills in [id].
+type statusJSON struct {
+	Kind      string    `json:"kind" yaml:"kind"`
+	UpdatedAt time.Time `json:"updated-at" yaml:"updated-at"`
+	Error     string    `json:"error,omitempty" yaml:"error,omitempty"`
+}
+
+func (sj *statusJSON) fill(s *Status) {
+	s.Kind = StatusKind(sj.Kind)
+	s.UpdatedAt = sj.UpdatedAt
+	s.Error = sj.Error
+	s.id = nextID()
+}
+
+func (s *Status) UnmarshalYAML(value *yaml.Node) error {
+	var sj statusJSON
+	if err := value.Decode(&sj); err != nil {
+		return err
+	}
+	sj.fill(s)
+	return nil
+}
+
+func (s *Status) UnmarshalJSON(data []byte) error {
+	var sj statusJSON
+	if err := json.Unmarshal(data, &sj); err != nil {
+		return err
+	}
+	sj.fill(s)
+	return nil
+}
+
 func (s Status) IsPendingOrRefreshing() bool {
 	return s.Kind == StatusKindPending || s.Kind == StatusKindRefreshing
 }
 
 func (s Status) String() string {
 	if s.Kind == StatusKindError {
-		return fmt.Sprintf("Error: %s (%s ago)", s.Error, prettySince(s.UpdatedAt))
+		return fmt.Sprintf("Error: %s (%s ago)", s.Error, internal.PrettySince(s.UpdatedAt))
 	}
-	return fmt.Sprintf("%s (%s ago)", s.Kind, prettySince(s.UpdatedAt))
-}
-
-func prettySince(t time.Time) string {
-	ago := float64(time.Now().Sub(t)) / float64(time.Millisecond)
-	// millis
-	if ago < 1000.0 {
-		return fmt.Sprintf("%.1fms", ago)
-	}
-	// secs
-	ago /= 1000.0
-	if ago < 60.0 {
-		return fmt.Sprintf("%.1fs", ago)
-	}
-	// mins
-	ago /= 60.0
-	if ago < 60.0 {
-		return fmt.Sprintf("%.1fm", ago)
-	}
-	// hours
-	ago /= 60.0
-	return fmt.Sprintf("%.1fh", ago)
+	return fmt.Sprintf("%s (%s ago)", s.Kind, internal.PrettySince(s.UpdatedAt))
 }
 
 var idGen atomic.Uint64
@@ -206,6 +220,7 @@ func StatusRefreshing() Status {
 		Kind:      StatusKindRefreshing,
 		UpdatedAt: time.Now(),
 		Error:     "",
+		id:        nextID(),
 	}
 }
 
@@ -216,6 +231,7 @@ func StatusDone() Status {
 		Kind:      StatusKindDone,
 		UpdatedAt: time.Now(),
 		Error:     "",
+		id:        nextID(),
 	}
 }
 
@@ -226,6 +242,7 @@ func StatusError(err error) Status {
 		Kind:      StatusKindError,
 		UpdatedAt: time.Now(),
 		Error:     err.Error(),
+		id:        nextID(),
 	}
 }
 
@@ -314,7 +331,7 @@ func (s StatusSet) String() string {
 		b.WriteString(strings.Join(done, " "))
 	}
 	b.WriteString(" (")
-	b.WriteString(prettySince(updatedAt))
+	b.WriteString(internal.PrettySince(updatedAt))
 	b.WriteString(" ago)")
 	return b.String()
 }
