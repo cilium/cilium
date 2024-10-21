@@ -72,6 +72,7 @@ func (client *Client) ModifyElasticityAssuranceWithCallback(request *ModifyElast
 type ModifyElasticityAssuranceRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId        requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	ClientToken            string           `position:"Query" name:"ClientToken"`
 	Description            string           `position:"Query" name:"Description"`
 	PrivatePoolOptionsId   string           `position:"Query" name:"PrivatePoolOptions.Id"`
 	ResourceOwnerAccount   string           `position:"Query" name:"ResourceOwnerAccount"`
@@ -79,6 +80,7 @@ type ModifyElasticityAssuranceRequest struct {
 	OwnerAccount           string           `position:"Query" name:"OwnerAccount"`
 	OwnerId                requests.Integer `position:"Query" name:"OwnerId"`
 	PackageType            string           `position:"Query" name:"PackageType"`
+	InstanceAmount         requests.Integer `position:"Query" name:"InstanceAmount"`
 }
 
 // ModifyElasticityAssuranceResponse is the response struct for api ModifyElasticityAssurance

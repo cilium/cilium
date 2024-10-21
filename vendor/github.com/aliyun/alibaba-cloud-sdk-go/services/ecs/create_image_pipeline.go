@@ -84,13 +84,16 @@ type CreateImagePipelineRequest struct {
 	Tag                     *[]CreateImagePipelineTag `position:"Query" name:"Tag"  type:"Repeated"`
 	ResourceOwnerAccount    string                    `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount            string                    `position:"Query" name:"OwnerAccount"`
+	RepairMode              string                    `position:"Query" name:"RepairMode"`
 	OwnerId                 requests.Integer          `position:"Query" name:"OwnerId"`
 	BaseImage               string                    `position:"Query" name:"BaseImage"`
 	VSwitchId               string                    `position:"Query" name:"VSwitchId"`
 	AddAccount              *[]string                 `position:"Query" name:"AddAccount"  type:"Repeated"`
 	DeleteInstanceOnFailure requests.Boolean          `position:"Query" name:"DeleteInstanceOnFailure"`
 	Name                    string                    `position:"Query" name:"Name"`
+	ImageFamily             string                    `position:"Query" name:"ImageFamily"`
 	BuildContent            string                    `position:"Query" name:"BuildContent"`
+	TestContent             string                    `position:"Query" name:"TestContent"`
 }
 
 // CreateImagePipelineTag is a repeated param struct in CreateImagePipelineRequest

@@ -208,9 +208,20 @@ func (db *DB) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
 	lockAt := time.Now()
 	smus.Lock()
 	acquiredAt := time.Now()
-
 	root := *db.root.Load()
 	tableEntries := make([]*tableEntry, len(root))
+
+	txn := &txn{
+		db:         db,
+		root:       root,
+		handle:     db.handleName,
+		acquiredAt: time.Now(),
+		writeTxn: writeTxn{
+			modifiedTables: tableEntries,
+			smus:           smus,
+		},
+	}
+
 	var tableNames []string
 	for _, table := range allTables {
 		tableEntry := root[table.tablePos()]
@@ -223,10 +234,12 @@ func (db *DB) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
 			table.Name(),
 			table.sortableMutex().AcquireDuration(),
 		)
+		table.acquired(txn)
 	}
 
 	// Sort the table names so they always appear ordered in metrics.
 	sort.Strings(tableNames)
+	txn.tableNames = tableNames
 
 	db.metrics.WriteTxnTotalAcquisition(
 		db.handleName,
@@ -234,17 +247,27 @@ func (db *DB) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
 		acquiredAt.Sub(lockAt),
 	)
 
-	txn := &txn{
-		db:             db,
-		root:           root,
-		modifiedTables: tableEntries,
-		smus:           smus,
-		acquiredAt:     acquiredAt,
-		tableNames:     tableNames,
-		handle:         db.handleName,
-	}
 	runtime.SetFinalizer(txn, txnFinalizer)
 	return txn
+}
+
+func (db *DB) GetTables(txn ReadTxn) (tbls []TableMeta) {
+	root := txn.getTxn().root
+	tbls = make([]TableMeta, 0, len(root))
+	for _, table := range root {
+		tbls = append(tbls, table.meta)
+	}
+	return
+}
+
+func (db *DB) GetTable(txn ReadTxn, name string) TableMeta {
+	root := txn.getTxn().root
+	for _, table := range root {
+		if table.meta.Name() == name {
+			return table.meta
+		}
+	}
+	return nil
 }
 
 // Start the background workers for the database.

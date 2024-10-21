@@ -20,8 +20,24 @@ func NetIPAddr(addr netip.Addr) Key {
 	return buf[:]
 }
 
+func NetIPAddrString(s string) (Key, error) {
+	addr, err := netip.ParseAddr(s)
+	if err != nil {
+		return Key{}, err
+	}
+	return NetIPAddr(addr), nil
+}
+
 func NetIPPrefix(prefix netip.Prefix) Key {
 	// Use the 16-byte form plus bits to have a constant-size key.
 	addrBytes := prefix.Addr().As16()
 	return append(addrBytes[:], uint8(prefix.Bits()))
+}
+
+func NetIPPrefixString(s string) (Key, error) {
+	prefix, err := netip.ParsePrefix(s)
+	if err != nil {
+		return Key{}, err
+	}
+	return NetIPPrefix(prefix), nil
 }

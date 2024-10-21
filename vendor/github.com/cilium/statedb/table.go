@@ -9,11 +9,14 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/cilium/statedb/internal"
 	"github.com/cilium/statedb/part"
+	"gopkg.in/yaml.v3"
 
 	"github.com/cilium/statedb/index"
 )
@@ -45,7 +48,8 @@ func NewTable[Obj any](
 			fromObject: func(iobj object) index.KeySet {
 				return idx.fromObject(iobj.data.(Obj))
 			},
-			unique: idx.isUnique(),
+			fromString: idx.fromString,
+			unique:     idx.isUnique(),
 		}
 	}
 
@@ -128,6 +132,15 @@ type genTable[Obj any] struct {
 	primaryAnyIndexer    anyIndexer
 	secondaryAnyIndexers map[string]anyIndexer
 	indexPositions       map[string]int
+	lastWriteTxn         atomic.Pointer[txn]
+}
+
+func (t *genTable[Obj]) acquired(txn *txn) {
+	t.lastWriteTxn.Store(txn)
+}
+
+func (t *genTable[Obj]) getAcquiredInfo() string {
+	return t.lastWriteTxn.Load().acquiredInfo()
 }
 
 func (t *genTable[Obj]) tableEntry() tableEntry {
@@ -168,6 +181,16 @@ func (t *genTable[Obj]) indexPos(name string) int {
 	return t.indexPositions[name]
 }
 
+func (t *genTable[Obj]) getIndexer(name string) *anyIndexer {
+	if name == "" || t.primaryAnyIndexer.name == name {
+		return &t.primaryAnyIndexer
+	}
+	if indexer, ok := t.secondaryAnyIndexers[name]; ok {
+		return &indexer
+	}
+	return nil
+}
+
 func (t *genTable[Obj]) PrimaryIndexer() Indexer[Obj] {
 	return t.primaryIndexer
 }
@@ -182,6 +205,16 @@ func (t *genTable[Obj]) secondary() map[string]anyIndexer {
 
 func (t *genTable[Obj]) Name() string {
 	return t.table
+}
+
+func (t *genTable[Obj]) Indexes() []string {
+	idxs := make([]string, 0, 1+len(t.secondaryAnyIndexers))
+	idxs = append(idxs, t.primaryAnyIndexer.name)
+	for k := range t.secondaryAnyIndexers {
+		idxs = append(idxs, k)
+	}
+	sort.Strings(idxs)
+	return idxs
 }
 
 func (t *genTable[Obj]) ToTable() Table[Obj] {
@@ -231,6 +264,11 @@ func (t *genTable[Obj]) Revision(txn ReadTxn) Revision {
 func (t *genTable[Obj]) NumObjects(txn ReadTxn) int {
 	table := txn.getTxn().getTableEntry(t)
 	return table.numObjects()
+}
+
+func (t *genTable[Obj]) numDeletedObjects(txn ReadTxn) int {
+	table := txn.getTxn().getTableEntry(t)
+	return table.numDeletedObjects()
 }
 
 func (t *genTable[Obj]) Get(txn ReadTxn, q Query[Obj]) (obj Obj, revision uint64, ok bool) {
@@ -283,7 +321,7 @@ func (t *genTable[Obj]) GetWatch(txn ReadTxn, q Query[Obj]) (obj Obj, revision u
 		}
 
 		// Check that we have a full match on the key
-		_, secondary := decodeNonUniqueKey(key)
+		secondary, _ := decodeNonUniqueKey(key)
 		if len(secondary) == len(q.key) {
 			break
 		}
@@ -308,7 +346,10 @@ func (t *genTable[Obj]) LowerBoundWatch(txn ReadTxn, q Query[Obj]) (iter.Seq2[Ob
 	// we watch the whole table for changes.
 	watch := indexTxn.RootWatch()
 	iter := indexTxn.LowerBound(q.key)
-	return partSeq[Obj](iter), watch
+	if indexTxn.unique {
+		return partSeq[Obj](iter), watch
+	}
+	return nonUniqueLowerBoundSeq[Obj](iter, q.key), watch
 }
 
 func (t *genTable[Obj]) Prefix(txn ReadTxn, q Query[Obj]) iter.Seq2[Obj, Revision] {
@@ -319,7 +360,10 @@ func (t *genTable[Obj]) Prefix(txn ReadTxn, q Query[Obj]) iter.Seq2[Obj, Revisio
 func (t *genTable[Obj]) PrefixWatch(txn ReadTxn, q Query[Obj]) (iter.Seq2[Obj, Revision], <-chan struct{}) {
 	indexTxn := txn.getTxn().mustIndexReadTxn(t, t.indexPos(q.index))
 	iter, watch := indexTxn.Prefix(q.key)
-	return partSeq[Obj](iter), watch
+	if indexTxn.unique {
+		return partSeq[Obj](iter), watch
+	}
+	return nonUniqueSeq[Obj](iter, true, q.key), watch
 }
 
 func (t *genTable[Obj]) All(txn ReadTxn) iter.Seq2[Obj, Revision] {
@@ -356,7 +400,7 @@ func (t *genTable[Obj]) ListWatch(txn ReadTxn, q Query[Obj]) (iter.Seq2[Obj, Rev
 	// iteration will continue until key length mismatches, e.g. we hit a
 	// longer key sharing the same prefix.
 	iter, watch := indexTxn.Prefix(q.key)
-	return nonUniqueSeq[Obj](iter, q.key), watch
+	return nonUniqueSeq[Obj](iter, false, q.key), watch
 }
 
 func (t *genTable[Obj]) Insert(txn WriteTxn, obj Obj) (oldObj Obj, hadOld bool, err error) {
@@ -466,6 +510,19 @@ func (t *genTable[Obj]) anyChanges(txn WriteTxn) (anyChangeIterator, error) {
 
 func (t *genTable[Obj]) sortableMutex() internal.SortableMutex {
 	return t.smu
+}
+
+func (t *genTable[Obj]) proto() any {
+	var zero Obj
+	return zero
+}
+
+func (t *genTable[Obj]) unmarshalYAML(data []byte) (any, error) {
+	var obj Obj
+	if err := yaml.Unmarshal(data, &obj); err != nil {
+		return nil, err
+	}
+	return obj, nil
 }
 
 var _ Table[bool] = &genTable[bool]{}

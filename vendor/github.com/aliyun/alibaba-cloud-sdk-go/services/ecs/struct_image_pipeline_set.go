@@ -31,6 +31,9 @@ type ImagePipelineSet struct {
 	BaseImageType           string                       `json:"BaseImageType" xml:"BaseImageType"`
 	Name                    string                       `json:"Name" xml:"Name"`
 	BuildContent            string                       `json:"BuildContent" xml:"BuildContent"`
+	RepairMode              string                       `json:"RepairMode" xml:"RepairMode"`
+	TestContent             string                       `json:"TestContent" xml:"TestContent"`
+	ImageFamily             string                       `json:"ImageFamily" xml:"ImageFamily"`
 	ToRegionIds             ToRegionIds                  `json:"ToRegionIds" xml:"ToRegionIds"`
 	AddAccounts             AddAccounts                  `json:"AddAccounts" xml:"AddAccounts"`
 	Tags                    TagsInDescribeImagePipelines `json:"Tags" xml:"Tags"`

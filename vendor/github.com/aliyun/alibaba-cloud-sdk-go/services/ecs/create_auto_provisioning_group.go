@@ -111,6 +111,7 @@ type CreateAutoProvisioningGroupRequest struct {
 	LaunchConfigurationInstanceName                string                                                            `position:"Query" name:"LaunchConfiguration.InstanceName"`
 	LaunchConfigurationInstanceDescription         string                                                            `position:"Query" name:"LaunchConfiguration.InstanceDescription"`
 	SpotAllocationStrategy                         string                                                            `position:"Query" name:"SpotAllocationStrategy"`
+	ResourcePoolOptions                            CreateAutoProvisioningGroupResourcePoolOptions                    `position:"Query" name:"ResourcePoolOptions"  type:"Struct"`
 	TerminateInstances                             requests.Boolean                                                  `position:"Query" name:"TerminateInstances"`
 	LaunchConfigurationSystemDiskName              string                                                            `position:"Query" name:"LaunchConfiguration.SystemDiskName"`
 	LaunchConfigurationSystemDiskDescription       string                                                            `position:"Query" name:"LaunchConfiguration.SystemDiskDescription"`
@@ -185,6 +186,12 @@ type CreateAutoProvisioningGroupLaunchConfigurationSystemDisk struct {
 	EncryptAlgorithm string `name:"EncryptAlgorithm"`
 	ProvisionedIops  string `name:"ProvisionedIops"`
 	BurstingEnabled  string `name:"BurstingEnabled"`
+}
+
+// CreateAutoProvisioningGroupResourcePoolOptions is a repeated param struct in CreateAutoProvisioningGroupRequest
+type CreateAutoProvisioningGroupResourcePoolOptions struct {
+	Strategy       string    `name:"Strategy"`
+	PrivatePoolIds *[]string `name:"PrivatePoolIds" type:"Repeated"`
 }
 
 // CreateAutoProvisioningGroupLaunchTemplateConfig is a repeated param struct in CreateAutoProvisioningGroupRequest

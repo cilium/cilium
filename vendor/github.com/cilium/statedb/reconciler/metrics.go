@@ -24,6 +24,8 @@ const (
 )
 
 type ExpVarMetrics struct {
+	root *expvar.Map
+
 	ReconciliationCountVar         *expvar.Map
 	ReconciliationDurationVar      *expvar.Map
 	ReconciliationTotalErrorsVar   *expvar.Map
@@ -73,14 +75,22 @@ func NewUnpublishedExpVarMetrics() *ExpVarMetrics {
 	return newExpVarMetrics(false)
 }
 
+func (m *ExpVarMetrics) Map() *expvar.Map {
+	return m.root
+}
+
 func newExpVarMetrics(publish bool) *ExpVarMetrics {
+	root := new(expvar.Map).Init()
 	newMap := func(name string) *expvar.Map {
 		if publish {
 			return expvar.NewMap(name)
 		}
-		return new(expvar.Map).Init()
+		m := new(expvar.Map).Init()
+		root.Set(name, m)
+		return m
 	}
 	return &ExpVarMetrics{
+		root:                           root,
 		ReconciliationCountVar:         newMap("reconciliation_count"),
 		ReconciliationDurationVar:      newMap("reconciliation_duration"),
 		ReconciliationTotalErrorsVar:   newMap("reconciliation_total_errors"),
