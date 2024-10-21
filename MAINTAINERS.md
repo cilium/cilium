@@ -55,8 +55,6 @@ to learn how to level up through the project.
  * [Tobias Klauser] (Isovalent)
  * [Tom Hadlaw] (Isovalent)
  * [Vlad Ungureanu] (Palantir)
- * [Weilong Cui] (Google)
- * [Yongkun Gui] (Google)
  * [Yutaro Hayakawa] (Isovalent)
 
 ## Cilium & Hubble Emeritus Committers
@@ -67,6 +65,8 @@ We would like to acknowledge previous committers and their huge contributions to
  * [Ilya Dmitrichenko] (Docker)
  * [Ray Bejjani]
  * [Tom Payne]
+ * [Weilong Cui] (Google)
+ * [Yongkun Gui] (Google)
  * [Zang Li] (Google)
 
 
