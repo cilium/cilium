@@ -1,4 +1,0 @@
-This test case creates:
-
-- two NodePort services: echo and echo2
-- two endpoint slices, one for echo and one for echo2. Each one references 10 backends.
