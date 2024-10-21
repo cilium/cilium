@@ -16,8 +16,9 @@ import (
 // EndpointProxy defines any L7 proxy with which an Endpoint must interact.
 type EndpointProxy interface {
 	CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, localEndpoint endpoint.EndpointUpdater, wg *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc)
-	RemoveRedirect(id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
+	RemoveRedirect(id string)
 	UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error)
+	UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup)
 	RemoveNetworkPolicy(ep endpoint.EndpointInfoSource)
 }
 
@@ -48,8 +49,11 @@ func (f *FakeEndpointProxy) CreateOrUpdateRedirect(ctx context.Context, l4 polic
 }
 
 // RemoveRedirect does nothing.
-func (f *FakeEndpointProxy) RemoveRedirect(id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
-	return nil, nil, nil
+func (f *FakeEndpointProxy) RemoveRedirect(id string) {
+}
+
+// UseCurrentNetworkPolicy does nothing.
+func (f *FakeEndpointProxy) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
 }
 
 // UpdateNetworkPolicy does nothing.

@@ -138,11 +138,13 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	}()
 
 	stats := new(regenerationStatistics)
+	datapathRegenCtxt := new(datapathRegenerationContext)
 	// Continuously compute policy for the pod and ensure we never missed an incremental update.
 	for {
 		t.Log("Calculating policy...")
-		res, err := ep.regeneratePolicy(stats)
+		res, err := ep.regeneratePolicy(stats, datapathRegenCtxt)
 		assert.NoError(t, err)
+		res.endpointPolicy = res.selectorPolicy.Consume(&ep, nil)
 
 		// Sleep a random amount, so we accumulate some changes
 		// This does not slow down the test, since we always generate testFactor identities.
