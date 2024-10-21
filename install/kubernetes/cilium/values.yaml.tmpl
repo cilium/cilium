@@ -5,7 +5,6 @@
 # -- namespaceOverride allows to override the destination namespace for Cilium resources.
 # This property allows to use Cilium as part of an Umbrella Chart with different targets.
 namespaceOverride: ""
-
 # @schema
 # type: [null, string]
 # @schema
@@ -36,7 +35,6 @@ debug:
 rbac:
   # -- Enable creation of Resource-Based Access Control configuration.
   create: true
-
 # -- Configure image pull secrets for pulling container images
 imagePullSecrets: []
 # - name: "image-pull-secret"
@@ -95,7 +93,6 @@ k8sClientRateLimit:
     # The rate limiter will allow short bursts with a higher rate.
     # @default -- 200
     burst:
-
 cluster:
   # -- Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
   # It must respect the following constraints:
@@ -761,10 +758,8 @@ daemon:
 #
 # This option has been deprecated and is a no-op.
 enableRuntimeDeviceDetection: true
-
 # -- Forces the auto-detection of devices, even if specific devices are explicitly listed
 forceDeviceDetection: false
-
 # -- Chains to ignore when installing feeder rules.
 # disableIptablesFeederRules: ""
 
@@ -779,7 +774,6 @@ forceDeviceDetection: false
 
 # -- Enable CiliumEndpointSlice feature (deprecated, please use `ciliumEndpointSlice.enabled` instead).
 enableCiliumEndpointSlice: false
-
 ciliumEndpointSlice:
   # -- Enable Cilium EndpointSlice feature.
   enabled: false
@@ -789,13 +783,12 @@ ciliumEndpointSlice:
   # limit: The sustained request rate in requests per second. The maximum rate that can be configured is 50.
   # burst: The burst request rate in requests per second. The maximum burst that can be configured is 100.
   rateLimits:
-  - nodes: 0
-    limit: 10
-    burst: 20
-  - nodes: 100
-    limit: 50
-    burst: 100
-
+    - nodes: 0
+      limit: 10
+      burst: 20
+    - nodes: 100
+      limit: 50
+      burst: 100
   # @schema
   # enum: ["identity", "fcfs"]
   # @schema
@@ -803,7 +796,6 @@ ciliumEndpointSlice:
   # identity groups together CiliumEndpoints that share the same identity.
   # fcfs groups together CiliumEndpoints in a first-come-first-serve basis, filling in the largest non-full slice first.
   sliceMode: identity
-
 envoyConfig:
   # -- Enable CiliumEnvoyConfig CRD
   # CiliumEnvoyConfig CRD can also be implicitly enabled by other options.
@@ -926,13 +918,11 @@ gatewayAPI:
   # Note that this value will be ignored when `hostNetwork.enabled == true`.
   # ref: https://kubernetes.io/docs/reference/networking/virtual-ips/#external-traffic-policy
   externalTrafficPolicy: Cluster
-
   gatewayClass:
     # -- Enable creation of GatewayClass resource
     # The default value is 'auto' which decides according to presence of gateway.networking.k8s.io/v1/GatewayClass in the cluster.
     # Other possible values are 'true' and 'false', which will either always or never create the GatewayClass, respectively.
     create: auto
-
   # -- SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
   secretsNamespace:
     # -- Create secrets namespace for Gateway API.
@@ -954,7 +944,6 @@ gatewayAPI:
       #   kubernetes.io/os: linux
       #   kubernetes.io/hostname: kind-worker
       matchLabels: {}
-
 # -- Enables the fallback compatibility solution for when the xt_socket kernel
 # module is missing and it is needed for the datapath L7 redirection to work
 # properly. See documentation for details on when this can be disabled:
@@ -1824,7 +1813,6 @@ hubble:
             #     - destination_pod: ["frontend/nginx-975996d4c-7hhgt"]
             #     excludeFilters: []
             #     end: "2023-10-09T23:59:59-07:00"
-
   # -- Emit v1.Events related to pods on detection of packet drops.
   #    This feature is alpha, please provide feedback at https://github.com/cilium/cilium/issues/33975.
   dropEventEmitter:
@@ -1836,7 +1824,6 @@ hubble:
     reasons:
       - auth_required
       - policy_denied
-
 # -- Method to use for identity allocation (`crd`, `kvstore` or `doublewrite-readkvstore` / `doublewrite-readcrd` for migrating between identity backends).
 identityAllocationMode: "crd"
 # -- (string) Time to wait before using new identity on endpoint identity change.
@@ -2002,13 +1989,11 @@ enableMasqueradeRouteSource: false
 enableIPv4BIGTCP: false
 # -- Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
 enableIPv6BIGTCP: false
-
 nat:
   # -- Number of the top-k SNAT map connections to track in Cilium statedb.
   mapStatsEntries: 32
   # -- Interval between how often SNAT map is counted for stats.
   mapStatsInterval: 30s
-
 egressGateway:
   # -- Enables egress gateway to redirect and SNAT the traffic that leaves the
   # cluster.
@@ -2086,7 +2071,6 @@ loadBalancer:
   # -- experimental enables support for the experimental load-balancing 
   # control-plane.
   experimental: false
-
   # -- L7 LoadBalancer
   l7:
     # -- Enable L7 service load balancing via envoy proxy.
@@ -2125,7 +2109,6 @@ nodePort:
   #   addresses: ["192.168.1.0/24", "2001::/64"]
   #
   addresses: ~
-
   # -- Set to true to prevent applications binding to service ports.
   bindProtection: true
   # -- Append NodePort range to ip_local_reserved_ports if clash with ephemeral
@@ -2241,12 +2224,12 @@ envoy:
     # -- The JSON logging format to use for Envoy. This setting is mutually exclusive with envoy.log.format.
     # ref: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/bootstrap/v3/bootstrap.proto#envoy-v3-api-field-config-bootstrap-v3-bootstrap-applicationlogconfig-logformat-json-format
     format_json: null
-      # date: "%Y-%m-%dT%T.%e"
-      # thread_id: "%t"
-      # source_line: "%s:%#"
-      # level: "%l"
-      # logger: "%n"
-      # message: "%j"
+    # date: "%Y-%m-%dT%T.%e"
+    # thread_id: "%t"
+    # source_line: "%s:%#"
+    # level: "%l"
+    # logger: "%n"
+    # message: "%j"
     # -- Path to a separate Envoy log file, if any. Defaults to /dev/stdout.
     path: ""
     # @schema
@@ -2398,18 +2381,18 @@ envoy:
               k8s-app: cilium-envoy
     podAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
-      - topologyKey: kubernetes.io/hostname
-        labelSelector:
-          matchLabels:
-            k8s-app: cilium
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              k8s-app: cilium
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
           - matchExpressions:
-            - key: cilium.io/no-schedule
-              operator: NotIn
-              values:
-              - "true"
+              - key: cilium.io/no-schedule
+                operator: NotIn
+                values:
+                  - "true"
   # -- Node selector for cilium-envoy.
   nodeSelector:
     kubernetes.io/os: linux
@@ -2475,10 +2458,8 @@ envoy:
       metricRelabelings: ~
     # -- Serve prometheus metrics for cilium-envoy on the configured port
     port: "9964"
-
 # -- Enable/Disable use of node label based identity
 nodeSelectorLabels: false
-
 # -- Enable resource quotas for priority classes used in the cluster.
 resourceQuotas:
   enabled: false
@@ -2991,7 +2972,6 @@ clustermesh:
   enableEndpointSliceSynchronization: false
   # -- Enable Multi-Cluster Services API support
   enableMCSAPISupport: false
-
   # -- Annotations to be added to all top-level clustermesh objects (resources under templates/clustermesh-apiserver and templates/clustermesh-config)
   annotations: {}
   # -- Clustermesh explicit configuration.
@@ -3036,12 +3016,10 @@ clustermesh:
       digest: ${CLUSTERMESH_APISERVER_DIGEST}
       useDigest: ${USE_DIGESTS}
       pullPolicy: "${PULL_POLICY}"
-
     # -- TCP port for the clustermesh-apiserver health API.
     healthPort: 9880
     # -- Configuration for the clustermesh-apiserver readiness probe.
     readinessProbe: {}
-
     etcd:
       # The etcd binary is included in the clustermesh API server image, so the same image from above is reused.
       # Independent override isn't supported, because clustermesh-apiserver is tested against the etcd version it is
@@ -3078,7 +3056,6 @@ clustermesh:
         extraArgs: []
         # -- Additional environment variables to `clustermesh-apiserver etcdinit`.
         extraEnv: []
-
       # @schema
       # enum: [Disk, Memory]
       # @schema
@@ -3088,17 +3065,14 @@ clustermesh:
       # performance at the cost of additional memory usage, which counts against
       # the memory limits of the container.
       storageMedium: Disk
-
     kvstoremesh:
       # -- Enable KVStoreMesh. KVStoreMesh caches the information retrieved
       # from the remote clusters in the local etcd instance.
       enabled: true
-
       # -- TCP port for the KVStoreMesh health API.
       healthPort: 9881
       # -- Configuration for the KVStoreMesh readiness probe.
       readinessProbe: {}
-
       # -- Additional KVStoreMesh arguments.
       extraArgs: []
       # -- Additional KVStoreMesh environment variables.
