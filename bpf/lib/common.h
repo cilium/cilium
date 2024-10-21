@@ -563,10 +563,10 @@ enum {
 	.source		= EVENT_SOURCE,	\
 	.hash		= get_hash_recalc(ctx)
 
-#define __notify_pktcap_hdr(o, c)	\
+#define __notify_pktcap_hdr(o, c, v)	\
 	.len_orig	= (o),		\
 	.len_cap	= (c),		\
-	.version	= NOTIFY_CAPTURE_VER
+	.version	= (v)
 
 /* Capture notifications version. Must be incremented when format changes. */
 #define NOTIFY_CAPTURE_VER 1
