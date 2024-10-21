@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	stdlog "log"
 	"maps"
 	"net/netip"
@@ -19,7 +20,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -1894,26 +1894,35 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 	}
 }
 
-func mapStateAllowsKey(ms *mapState, key Key) bool {
-	var ok bool
-	ms.denies.trie.Ancestors(key.PrefixLength(), key,
-		func(_ uint, _ bitlpm.Key[types.LPMKey], is IDSet) bool {
-			if _, exists := is[key.Identity]; exists {
-				ok = true
+// LPMAncestors iterates over broader or equal port/proto entries in the trie in LPM order,
+// with most specific match with the same ID as in 'key' being returned first.
+func (msm *mapStateMap) LPMAncestors(key Key) iter.Seq2[Key, mapStateEntry] {
+	return func(yield func(Key, mapStateEntry) bool) {
+		iter := msm.trie.AncestorLongestPrefixFirstIterator(key.PrefixLength(), key)
+		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
+			k := Key{LPMKey: lpmKey.Value()}
+
+			// Visit key with the same identity, if port/proto is different.
+			if !msm.forID(k.WithIdentity(key.Identity), idSet, yield) {
+				return
 			}
-			return true
-		})
-	if ok {
+			// Then visit key with zero identity if not already done above and one
+			// exists
+			if key.Identity != 0 && !msm.forID(k.WithIdentity(0), idSet, yield) {
+				return
+			}
+		}
+	}
+}
+
+func (ms *mapState) allowsKey(key Key) bool {
+	for range ms.denies.LPMAncestors(key) {
 		return false
 	}
-	ms.allows.trie.Ancestors(key.PrefixLength(), key,
-		func(_ uint, _ bitlpm.Key[types.LPMKey], is IDSet) bool {
-			if _, exists := is[key.Identity]; exists {
-				ok = true
-			}
-			return true
-		})
-	return ok
+	for range ms.allows.LPMAncestors(key) {
+		return true
+	}
+	return false
 }
 
 func TestEgressPortRangePrecedence(t *testing.T) {
@@ -2058,12 +2067,11 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 					if rt.isAllow {
 						// IngressCoversContext just checks the "From" labels of the search context.
 						require.Equalf(t, api.Allowed.String(), res.IngressCoversContext(&ctxFromA).String(), "Requesting port %d", i)
-
-						require.Truef(t, mapStateAllowsKey(mapstate, key), "key (%v) not allowed", key)
+						require.Truef(t, mapstate.allowsKey(key), "key (%v) not allowed", key)
 					} else {
 						// IngressCoversContext just checks the "From" labels of the search context.
 						require.Equalf(t, api.Denied.String(), res.IngressCoversContext(&ctxFromA).String(), "Requesting port %d", i)
-						require.Falsef(t, mapStateAllowsKey(mapstate, key), "key (%v) allowed", key)
+						require.Falsef(t, mapstate.allowsKey(key), "key (%v) allowed", key)
 
 					}
 				}
