@@ -394,7 +394,9 @@ struct policy_key {
 struct policy_entry {
 	__be16		proxy_port;
 	__u8		deny:1,
-			pad:7;
+			reserved:2, /* bits used in Cilium 1.16, keep unused for Cilium 1.17 */
+			has_explicit_auth_type:1,
+			pad:4;
 	__u8		auth_type;
 	__u8		lpm_prefix_length; /* map key protocol and dport prefix length */
 	__u8		pad1;

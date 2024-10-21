@@ -379,9 +379,9 @@ type Endpoint struct {
 	// To write, both ep.mutex and ep.buildMutex must be held.
 	desiredPolicy *policy.EndpointPolicy
 
-	// realizedPolicy is the policy that has most recently been applied.
+	// realizedPolicy is the bare policy map that has most recently been applied.
 	// ep.mutex must be held.
-	realizedPolicy *policy.EndpointPolicy
+	realizedPolicy realizedPolicy
 
 	eventQueue *eventqueue.EventQueue
 
@@ -589,7 +589,7 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 	ep.aliveCancel = cancel
 	ep.aliveCtx = ctx
 
-	ep.realizedPolicy = ep.desiredPolicy
+	ep.realizePolicy()
 
 	ep.SetDefaultOpts(option.Config.Opts)
 
@@ -788,7 +788,7 @@ func (e *Endpoint) Allows(id identity.NumericIdentity) bool {
 
 	keyToLookup := policy.IngressKey().WithIdentity(id)
 
-	v, ok := e.desiredPolicy.GetPolicyMap().Get(keyToLookup)
+	v, ok := e.desiredPolicy.Get(keyToLookup)
 	return ok && !v.IsDeny
 }
 
@@ -918,7 +918,7 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 	// Initialize fields to values which are non-nil that are not serialized.
 	ep.hasBPFProgram = make(chan struct{})
 	ep.desiredPolicy = policy.NewEndpointPolicy(policyGetter.GetPolicyRepository())
-	ep.realizedPolicy = ep.desiredPolicy
+	ep.realizePolicy()
 	ep.controllers = controller.NewManager()
 	ep.regenFailedChan = make(chan struct{}, 1)
 
@@ -1199,7 +1199,9 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 
 	// Remove policy references from shared policy structures
 	e.desiredPolicy.Detach()
-	e.realizedPolicy.Detach()
+	if e.realizedPolicy.basis != e.desiredPolicy {
+		e.realizedPolicy.basis.Detach()
+	}
 
 	// Remove restored rules of cleaned endpoint
 	e.owner.RemoveRestoredDNSRules(e.ID)
