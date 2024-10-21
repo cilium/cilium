@@ -28,20 +28,19 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1.ParentRefe
 	allListenerHostNames := GetAllListenerHostNames(gw.Spec.Listeners)
 	hasNamespaceRestriction := false
 	for _, listener := range gw.Spec.Listeners {
+		if parentRef.SectionName != nil && listener.Name != *parentRef.SectionName {
+			continue
+		}
+
+		if listener.Hostname != nil && len(computeHostsForListener(&listener, input.GetHostnames(), allListenerHostNames)) == 0 {
+			continue
+		}
 
 		if listener.AllowedRoutes == nil {
 			continue
 		}
 
 		if listener.AllowedRoutes.Namespaces == nil {
-			continue
-		}
-
-		if parentRef.SectionName != nil && listener.Name != *parentRef.SectionName {
-			continue
-		}
-
-		if listener.Hostname != nil && (len(computeHostsForListener(&listener, input.GetHostnames(), allListenerHostNames)) > 0) {
 			continue
 		}
 
@@ -61,6 +60,7 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1.ParentRefe
 			for _, ns := range nsList.Items {
 				if ns.Name == input.GetNamespace() {
 					allowed = true
+					break
 				}
 			}
 			if !allowed {
