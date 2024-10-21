@@ -4,9 +4,11 @@ include:
   - version: "1.28"
     location: westus2
     index: 1
+    default: true
   - version: "1.29"
     location: eastus2
     index: 2
+    default: true
   - version: "1.30"
     location: eastus
     index: 3

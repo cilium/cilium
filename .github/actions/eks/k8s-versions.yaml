@@ -3,9 +3,11 @@
 include:
   - version: "1.28"
     region: us-west-1
+    default: true
   - version: "1.29"
     region: us-east-2
     ipsec: true
+    default: true
   - version: "1.30"
     region: ca-central-1
     default: true
@@ -14,3 +16,4 @@ include:
   - version: "1.31"
     region: us-east-1
     ipsec: true
+    default: true
