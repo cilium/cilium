@@ -6,13 +6,13 @@
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	apicorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	versioned "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	internalinterfaces "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/listers/core/v1"
+	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/listers/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -23,7 +23,7 @@ import (
 // Pods.
 type PodInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.PodLister
+	Lister() corev1.PodLister
 }
 
 type podInformer struct {
@@ -58,7 +58,7 @@ func NewFilteredPodInformer(client versioned.Interface, namespace string, resync
 				return client.CoreV1().Pods(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&corev1.Pod{},
+		&apicorev1.Pod{},
 		resyncPeriod,
 		indexers,
 	)
@@ -69,9 +69,9 @@ func (f *podInformer) defaultInformer(client versioned.Interface, resyncPeriod t
 }
 
 func (f *podInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&corev1.Pod{}, f.defaultInformer)
+	return f.factory.InformerFor(&apicorev1.Pod{}, f.defaultInformer)
 }
 
-func (f *podInformer) Lister() v1.PodLister {
-	return v1.NewPodLister(f.Informer().GetIndexer())
+func (f *podInformer) Lister() corev1.PodLister {
+	return corev1.NewPodLister(f.Informer().GetIndexer())
 }

@@ -6,10 +6,10 @@
 package v2
 
 import (
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // CiliumIdentityLister helps list CiliumIdentities.
@@ -17,19 +17,19 @@ import (
 type CiliumIdentityLister interface {
 	// List lists all CiliumIdentities in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v2.CiliumIdentity, err error)
+	List(selector labels.Selector) (ret []*ciliumiov2.CiliumIdentity, err error)
 	// Get retrieves the CiliumIdentity from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v2.CiliumIdentity, error)
+	Get(name string) (*ciliumiov2.CiliumIdentity, error)
 	CiliumIdentityListerExpansion
 }
 
 // ciliumIdentityLister implements the CiliumIdentityLister interface.
 type ciliumIdentityLister struct {
-	listers.ResourceIndexer[*v2.CiliumIdentity]
+	listers.ResourceIndexer[*ciliumiov2.CiliumIdentity]
 }
 
 // NewCiliumIdentityLister returns a new CiliumIdentityLister.
 func NewCiliumIdentityLister(indexer cache.Indexer) CiliumIdentityLister {
-	return &ciliumIdentityLister{listers.New[*v2.CiliumIdentity](indexer, v2.Resource("ciliumidentity"))}
+	return &ciliumIdentityLister{listers.New[*ciliumiov2.CiliumIdentity](indexer, ciliumiov2.Resource("ciliumidentity"))}
 }

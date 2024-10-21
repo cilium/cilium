@@ -19,6 +19,7 @@ package rest
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -450,11 +451,9 @@ func (r *Request) Body(obj interface{}) *Request {
 			r.err = err
 			return r
 		}
-		glogBody("Request Body", data)
 		r.body = nil
 		r.bodyBytes = data
 	case []byte:
-		glogBody("Request Body", t)
 		r.body = nil
 		r.bodyBytes = t
 	case io.Reader:
@@ -475,7 +474,6 @@ func (r *Request) Body(obj interface{}) *Request {
 			r.err = err
 			return r
 		}
-		glogBody("Request Body", data)
 		r.body = nil
 		r.bodyBytes = data
 		r.SetHeader("Content-Type", r.c.content.ContentType)
@@ -704,10 +702,19 @@ func (b *throttledLogger) Infof(message string, args ...interface{}) {
 // Watch attempts to begin watching the requested location.
 // Returns a watch.Interface, or an error.
 func (r *Request) Watch(ctx context.Context) (watch.Interface, error) {
+	w, _, e := r.watchInternal(ctx)
+	return w, e
+}
+
+func (r *Request) watchInternal(ctx context.Context) (watch.Interface, runtime.Decoder, error) {
+	if r.body == nil {
+		logBody(ctx, 2, "Request Body", r.bodyBytes)
+	}
+
 	// We specifically don't want to rate limit watches, so we
 	// don't use r.rateLimiter here.
 	if r.err != nil {
-		return nil, r.err
+		return nil, nil, r.err
 	}
 
 	client := r.c.Client
@@ -727,12 +734,12 @@ func (r *Request) Watch(ctx context.Context) (watch.Interface, error) {
 	url := r.URL().String()
 	for {
 		if err := retry.Before(ctx, r); err != nil {
-			return nil, retry.WrapPreviousError(err)
+			return nil, nil, retry.WrapPreviousError(err)
 		}
 
 		req, err := r.newHTTPRequest(ctx)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		resp, err := client.Do(req)
@@ -752,21 +759,22 @@ func (r *Request) Watch(ctx context.Context) (watch.Interface, error) {
 				// the server must have sent us an error in 'err'
 				return true, nil
 			}
-			if result := r.transformResponse(resp, req); result.err != nil {
-				return true, result.err
+			result := r.transformResponse(ctx, resp, req)
+			if err := result.Error(); err != nil {
+				return true, err
 			}
 			return true, fmt.Errorf("for request %s, got status: %v", url, resp.StatusCode)
 		}()
 		if done {
 			if isErrRetryableFunc(req, err) {
-				return watch.NewEmptyWatch(), nil
+				return watch.NewEmptyWatch(), nil, nil
 			}
 			if err == nil {
 				// if the server sent us an HTTP Response object,
 				// we need to return the error object from that.
 				err = transformErr
 			}
-			return nil, retry.WrapPreviousError(err)
+			return nil, nil, retry.WrapPreviousError(err)
 		}
 	}
 }
@@ -784,27 +792,50 @@ type WatchListResult struct {
 	// the end of the stream.
 	initialEventsEndBookmarkRV string
 
-	// gv represents the API version
-	// it is used to construct the final list response
-	// normally this information is filled by the server
-	gv schema.GroupVersion
+	// negotiatedObjectDecoder knows how to decode
+	// the initialEventsListBlueprint
+	negotiatedObjectDecoder runtime.Decoder
+
+	// base64EncodedInitialEventsListBlueprint contains an empty,
+	// versioned list encoded in the requested format
+	// (e.g., protobuf, JSON, CBOR) and stored as a base64-encoded string
+	base64EncodedInitialEventsListBlueprint string
 }
 
+// Into stores the result into obj. The passed obj parameter must be a pointer to a list type.
+//
+// Note:
+//
+// Special attention should be given to the type *unstructured.Unstructured,
+// which represents a list type but does not have an "Items" field.
+// Users who directly use RESTClient may store the response in such an object.
+// This particular case is not handled by the current implementation of this function,
+// but may be considered for future updates.
 func (r WatchListResult) Into(obj runtime.Object) error {
 	if r.err != nil {
 		return r.err
 	}
 
-	listPtr, err := meta.GetItemsPtr(obj)
+	listItemsPtr, err := meta.GetItemsPtr(obj)
 	if err != nil {
 		return err
 	}
-	listVal, err := conversion.EnforcePtr(listPtr)
+	listVal, err := conversion.EnforcePtr(listItemsPtr)
 	if err != nil {
 		return err
 	}
 	if listVal.Kind() != reflect.Slice {
 		return fmt.Errorf("need a pointer to slice, got %v", listVal.Kind())
+	}
+
+	encodedInitialEventsListBlueprint, err := base64.StdEncoding.DecodeString(r.base64EncodedInitialEventsListBlueprint)
+	if err != nil {
+		return fmt.Errorf("failed to decode the received blueprint list, err %w", err)
+	}
+
+	err = runtime.DecodeInto(r.negotiatedObjectDecoder, encodedInitialEventsListBlueprint, obj)
+	if err != nil {
+		return err
 	}
 
 	if len(r.items) == 0 {
@@ -824,15 +855,6 @@ func (r WatchListResult) Into(obj runtime.Object) error {
 		return err
 	}
 	listMeta.SetResourceVersion(r.initialEventsEndBookmarkRV)
-
-	typeMeta, err := meta.TypeAccessor(obj)
-	if err != nil {
-		return err
-	}
-	version := r.gv.String()
-	typeMeta.SetAPIVersion(version)
-	typeMeta.SetKind(reflect.TypeOf(obj).Elem().Name())
-
 	return nil
 }
 
@@ -844,6 +866,10 @@ func (r WatchListResult) Into(obj runtime.Object) error {
 // Check the documentation https://kubernetes.io/docs/reference/using-api/api-concepts/#streaming-lists
 // to see what parameters are currently required.
 func (r *Request) WatchList(ctx context.Context) WatchListResult {
+	if r.body == nil {
+		logBody(ctx, 2, "Request Body", r.bodyBytes)
+	}
+
 	if !clientfeatures.FeatureGates().Enabled(clientfeatures.WatchListClient) {
 		return WatchListResult{err: fmt.Errorf("%q feature gate is not enabled", clientfeatures.WatchListClient)}
 	}
@@ -851,16 +877,16 @@ func (r *Request) WatchList(ctx context.Context) WatchListResult {
 	//  Most users use the generated client, which handles the proper setting of parameters.
 	//  We don't have validation for other methods (e.g., the Watch)
 	//  thus, for symmetry, we haven't added additional checks for the WatchList method.
-	w, err := r.Watch(ctx)
+	w, d, err := r.watchInternal(ctx)
 	if err != nil {
 		return WatchListResult{err: err}
 	}
-	return r.handleWatchList(ctx, w)
+	return r.handleWatchList(ctx, w, d)
 }
 
 // handleWatchList holds the actual logic for easier unit testing.
 // Note that this function will close the passed watch.
-func (r *Request) handleWatchList(ctx context.Context, w watch.Interface) WatchListResult {
+func (r *Request) handleWatchList(ctx context.Context, w watch.Interface, negotiatedObjectDecoder runtime.Decoder) WatchListResult {
 	defer w.Stop()
 	var lastKey string
 	var items []runtime.Object
@@ -894,10 +920,15 @@ func (r *Request) handleWatchList(ctx context.Context, w watch.Interface) WatchL
 				lastKey = key
 			case watch.Bookmark:
 				if meta.GetAnnotations()[metav1.InitialEventsAnnotationKey] == "true" {
+					base64EncodedInitialEventsListBlueprint := meta.GetAnnotations()[metav1.InitialEventsListBlueprintAnnotationKey]
+					if len(base64EncodedInitialEventsListBlueprint) == 0 {
+						return WatchListResult{err: fmt.Errorf("%q annotation is missing content", metav1.InitialEventsListBlueprintAnnotationKey)}
+					}
 					return WatchListResult{
-						items:                      items,
-						initialEventsEndBookmarkRV: meta.GetResourceVersion(),
-						gv:                         r.c.content.GroupVersion,
+						items:                                   items,
+						initialEventsEndBookmarkRV:              meta.GetResourceVersion(),
+						negotiatedObjectDecoder:                 negotiatedObjectDecoder,
+						base64EncodedInitialEventsListBlueprint: base64EncodedInitialEventsListBlueprint,
 					}
 				}
 			default:
@@ -907,7 +938,7 @@ func (r *Request) handleWatchList(ctx context.Context, w watch.Interface) WatchL
 	}
 }
 
-func (r *Request) newStreamWatcher(resp *http.Response) (watch.Interface, error) {
+func (r *Request) newStreamWatcher(resp *http.Response) (watch.Interface, runtime.Decoder, error) {
 	contentType := resp.Header.Get("Content-Type")
 	mediaType, params, err := mime.ParseMediaType(contentType)
 	if err != nil {
@@ -915,7 +946,7 @@ func (r *Request) newStreamWatcher(resp *http.Response) (watch.Interface, error)
 	}
 	objectDecoder, streamingSerializer, framer, err := r.c.content.Negotiator.StreamDecoder(mediaType, params)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	handleWarnings(resp.Header, r.warningHandler)
@@ -928,7 +959,7 @@ func (r *Request) newStreamWatcher(resp *http.Response) (watch.Interface, error)
 		// use 500 to indicate that the cause of the error is unknown - other error codes
 		// are more specific to HTTP interactions, and set a reason
 		errors.NewClientErrorReporter(http.StatusInternalServerError, r.verb, "ClientWatchDecoding"),
-	), nil
+	), objectDecoder, nil
 }
 
 // updateRequestResultMetric increments the RequestResult metric counter,
@@ -968,6 +999,10 @@ func sanitize(req *Request, resp *http.Response, err error) (string, string) {
 // Any non-2xx http status code causes an error.  If we get a non-2xx code, we try to convert the body into an APIStatus object.
 // If we can, we return that as an error.  Otherwise, we create an error that lists the http status and the content of the response.
 func (r *Request) Stream(ctx context.Context) (io.ReadCloser, error) {
+	if r.body == nil {
+		logBody(ctx, 2, "Request Body", r.bodyBytes)
+	}
+
 	if r.err != nil {
 		return nil, r.err
 	}
@@ -1011,7 +1046,7 @@ func (r *Request) Stream(ctx context.Context) (io.ReadCloser, error) {
 				if retry.IsNextRetry(ctx, r, req, resp, err, neverRetryError) {
 					return false, nil
 				}
-				result := r.transformResponse(resp, req)
+				result := r.transformResponse(ctx, resp, req)
 				if err := result.Error(); err != nil {
 					return true, err
 				}
@@ -1143,7 +1178,7 @@ func (r *Request) request(ctx context.Context, fn func(*http.Request, *http.Resp
 			return false
 		}
 		// For connection errors and apiserver shutdown errors retry.
-		if net.IsConnectionReset(err) || net.IsProbableEOF(err) {
+		if net.IsConnectionReset(err) || net.IsProbableEOF(err) || net.IsHTTP2ConnectionLost(err) {
 			return true
 		}
 		return false
@@ -1198,9 +1233,13 @@ func (r *Request) request(ctx context.Context, fn func(*http.Request, *http.Resp
 //   - If the server responds with a status: *errors.StatusError or *errors.UnexpectedObjectError
 //   - http.Client.Do errors are returned directly.
 func (r *Request) Do(ctx context.Context) Result {
+	if r.body == nil {
+		logBody(ctx, 2, "Request Body", r.bodyBytes)
+	}
+
 	var result Result
 	err := r.request(ctx, func(req *http.Request, resp *http.Response) {
-		result = r.transformResponse(resp, req)
+		result = r.transformResponse(ctx, resp, req)
 	})
 	if err != nil {
 		return Result{err: err}
@@ -1213,10 +1252,14 @@ func (r *Request) Do(ctx context.Context) Result {
 
 // DoRaw executes the request but does not process the response body.
 func (r *Request) DoRaw(ctx context.Context) ([]byte, error) {
+	if r.body == nil {
+		logBody(ctx, 2, "Request Body", r.bodyBytes)
+	}
+
 	var result Result
 	err := r.request(ctx, func(req *http.Request, resp *http.Response) {
 		result.body, result.err = io.ReadAll(resp.Body)
-		glogBody("Response Body", result.body)
+		logBody(ctx, 2, "Response Body", result.body)
 		if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusPartialContent {
 			result.err = r.transformUnstructuredResponseError(resp, req, result.body)
 		}
@@ -1231,7 +1274,7 @@ func (r *Request) DoRaw(ctx context.Context) ([]byte, error) {
 }
 
 // transformResponse converts an API response into a structured API object
-func (r *Request) transformResponse(resp *http.Response, req *http.Request) Result {
+func (r *Request) transformResponse(ctx context.Context, resp *http.Response, req *http.Request) Result {
 	var body []byte
 	if resp.Body != nil {
 		data, err := io.ReadAll(resp.Body)
@@ -1260,7 +1303,8 @@ func (r *Request) transformResponse(resp *http.Response, req *http.Request) Resu
 		}
 	}
 
-	glogBody("Response Body", body)
+	// Call depth is tricky. This one is okay for Do and DoRaw.
+	logBody(ctx, 7, "Response Body", body)
 
 	// verify the content type is accurate
 	var decoder runtime.Decoder
@@ -1320,14 +1364,14 @@ func (r *Request) transformResponse(resp *http.Response, req *http.Request) Resu
 }
 
 // truncateBody decides if the body should be truncated, based on the glog Verbosity.
-func truncateBody(body string) string {
+func truncateBody(logger klog.Logger, body string) string {
 	max := 0
 	switch {
-	case bool(klog.V(10).Enabled()):
+	case bool(logger.V(10).Enabled()):
 		return body
-	case bool(klog.V(9).Enabled()):
+	case bool(logger.V(9).Enabled()):
 		max = 10240
-	case bool(klog.V(8).Enabled()):
+	case bool(logger.V(8).Enabled()):
 		max = 1024
 	}
 
@@ -1338,17 +1382,21 @@ func truncateBody(body string) string {
 	return body[:max] + fmt.Sprintf(" [truncated %d chars]", len(body)-max)
 }
 
-// glogBody logs a body output that could be either JSON or protobuf. It explicitly guards against
+// logBody logs a body output that could be either JSON or protobuf. It explicitly guards against
 // allocating a new string for the body output unless necessary. Uses a simple heuristic to determine
 // whether the body is printable.
-func glogBody(prefix string, body []byte) {
-	if klogV := klog.V(8); klogV.Enabled() {
+//
+// It needs to be called by all functions which send or receive the data.
+func logBody(ctx context.Context, callDepth int, prefix string, body []byte) {
+	logger := klog.FromContext(ctx)
+	if loggerV := logger.V(8); loggerV.Enabled() {
+		loggerV := loggerV.WithCallDepth(callDepth)
 		if bytes.IndexFunc(body, func(r rune) bool {
 			return r < 0x0a
 		}) != -1 {
-			klogV.Infof("%s:\n%s", prefix, truncateBody(hex.Dump(body)))
+			loggerV.Info(prefix, "body", truncateBody(logger, hex.Dump(body)))
 		} else {
-			klogV.Infof("%s: %s", prefix, truncateBody(string(body)))
+			loggerV.Info(prefix, "body", truncateBody(logger, string(body)))
 		}
 	}
 }
