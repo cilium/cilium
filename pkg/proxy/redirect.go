@@ -27,7 +27,7 @@ type RedirectImplementation interface {
 	// implementation. The implementation should .Add to the WaitGroup if the
 	// update is asynchronous and the update should not return until it is
 	// complete.
-	Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc)
+	Close()
 }
 
 type Redirect struct {
