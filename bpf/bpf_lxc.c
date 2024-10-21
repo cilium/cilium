@@ -1260,13 +1260,10 @@ skip_vtep:
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, ip4->saddr,
 					     ip4->daddr, encrypt_key, &key,
 					     SECLABEL_IPV4, *dst_sec_identity, &trace);
-		if (ret == DROP_NO_TUNNEL_ENDPOINT)
-			goto pass_to_stack;
-		/* If not redirected noteably due to IPSEC then pass up to stack
-		 * for further processing.
-		 */
-		else if (ret == CTX_ACT_OK)
+		if (ret == CTX_ACT_OK)
 			goto encrypt_to_stack;
+		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
+			return ret;
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 		/* When we redirect, put cluster_id into mark */
 		else if (ret == CTX_ACT_REDIRECT) {
