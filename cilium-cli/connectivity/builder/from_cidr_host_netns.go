@@ -12,7 +12,7 @@ import (
 type fromCidrHostNetns struct{}
 
 func (t fromCidrHostNetns) build(ct *check.ConnectivityTest, templates map[string]string) {
-	newTest("from-cidr-host-netns", ct).
+	newTest("seq-from-cidr-host-netns", ct).
 		WithCondition(func() bool { return ct.Params().IncludeUnsafeTests }).
 		WithFeatureRequirements(features.RequireEnabled(features.NodeWithoutCilium)).
 		WithCiliumPolicy(templates["echoIngressFromCIDRYAML"]).
