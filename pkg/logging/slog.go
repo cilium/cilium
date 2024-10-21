@@ -26,7 +26,7 @@ func (n nopHandler) WithGroup(string) slog.Handler           { return n }
 var slogHandlerOpts = &slog.HandlerOptions{
 	AddSource:   false,
 	Level:       slog.LevelInfo,
-	ReplaceAttr: replaceLevelAndDropTime,
+	ReplaceAttr: replaceAttrFnWithoutTimestamp,
 }
 
 // Default slog logger. Will be overwritten once initializeSlog is called.
@@ -59,9 +59,9 @@ func initializeSlog(logOpts LogOptions, useStdout bool) {
 	logFormat := logOpts.GetLogFormat()
 	switch logFormat {
 	case LogFormatJSON, LogFormatText:
-		opts.ReplaceAttr = replaceLevelAndDropTime
+		opts.ReplaceAttr = replaceAttrFnWithoutTimestamp
 	case LogFormatJSONTimestamp, LogFormatTextTimestamp:
-		opts.ReplaceAttr = replaceLevel
+		opts.ReplaceAttr = replaceAttrFn
 	}
 
 	writer := os.Stderr
@@ -83,7 +83,7 @@ func initializeSlog(logOpts LogOptions, useStdout bool) {
 	}
 }
 
-func replaceLevel(groups []string, a slog.Attr) slog.Attr {
+func replaceAttrFn(groups []string, a slog.Attr) slog.Attr {
 	switch a.Key {
 	case slog.TimeKey:
 		// Adjust to timestamp format that logrus uses; except that we can't
@@ -99,17 +99,12 @@ func replaceLevel(groups []string, a slog.Attr) slog.Attr {
 	return a
 }
 
-func replaceLevelAndDropTime(groups []string, a slog.Attr) slog.Attr {
+func replaceAttrFnWithoutTimestamp(groups []string, a slog.Attr) slog.Attr {
 	switch a.Key {
 	case slog.TimeKey:
 		// Drop timestamps
 		return slog.Attr{}
-	case slog.LevelKey:
-		// Lower-case the log level
-		return slog.Attr{
-			Key:   a.Key,
-			Value: slog.StringValue(strings.ToLower(a.Value.String())),
-		}
+	default:
+		return replaceAttrFn(groups, a)
 	}
-	return a
 }
