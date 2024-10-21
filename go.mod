@@ -129,6 +129,7 @@ require (
 	k8s.io/component-base v0.31.2
 	k8s.io/endpointslice v0.31.1
 	k8s.io/klog/v2 v2.130.1
+	k8s.io/kubectl v0.31.1
 	k8s.io/utils v0.0.0-20240921022957-49e7df575cb6
 	sigs.k8s.io/controller-runtime v0.19.0
 	sigs.k8s.io/controller-tools v0.16.3
@@ -320,7 +321,6 @@ require (
 	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
 	k8s.io/gengo/v2 v2.0.0-20240228010128-51d4e06bde70 // indirect
 	k8s.io/kube-openapi v0.0.0-20240423202451-8948a665c108 // indirect
-	k8s.io/kubectl v0.31.1 // indirect
 	oras.land/oras-go v1.2.5 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.17.2 // indirect
