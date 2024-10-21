@@ -820,7 +820,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar2: {labelsL7}},
 		},
 	})
-	require.True(t, policy.Equals(t, expectedPolicy), policy.Diff(t, expectedPolicy))
+	require.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy))
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -978,7 +978,7 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 			},
 		},
 	})
-	require.True(t, policy.Equals(t, expectedPolicy), policy.Diff(t, expectedPolicy))
+	require.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy))
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -1142,7 +1142,7 @@ func TestL3DependentL4EgressFromRequires(t *testing.T) {
 			},
 		},
 	})
-	if !assert.True(t, policy.Equals(t, expectedPolicy), policy.Diff(t, expectedPolicy)) {
+	if !assert.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy)) {
 		t.Errorf("Policy doesn't match expected:\n%s", logBuffer.String())
 	}
 	policy.Detach(repo.GetSelectorCache())
@@ -1346,7 +1346,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 			RuleOrigin: map[CachedSelector]labels.LabelArrayList{td.cachedSelectorBar1: {labelsL4}},
 		},
 	})
-	if !assert.True(t, policy.Equals(t, expectedPolicy), policy.Diff(t, expectedPolicy)) {
+	if !assert.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy)) {
 		t.Logf("%s", logBuffer.String())
 		t.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
@@ -1510,7 +1510,7 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 			},
 		},
 	})
-	if !assert.True(t, policy.Equals(t, expectedPolicy), policy.Diff(t, expectedPolicy)) {
+	if !assert.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy)) {
 		t.Logf("%s", logBuffer.String())
 		t.Error("Resolved policy did not match expected")
 	}
@@ -1627,7 +1627,7 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 			RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectors[0]: {labelsL3}},
 		},
 	})
-	if !assert.True(t, policy.Equals(t, expectedPolicy), policy.Diff(t, expectedPolicy)) {
+	if !assert.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy)) {
 		t.Logf("%s", logBuffer.String())
 		t.Error("Resolved policy did not match expected")
 	}
@@ -1782,7 +1782,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 		},
 	})
 
-	require.True(t, policy.Equals(t, expectedPolicy), policy.Diff(t, expectedPolicy))
+	require.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy))
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -1934,7 +1934,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 		},
 	})
 
-	require.True(t, policy.Equals(t, expectedPolicy), policy.Diff(t, expectedPolicy))
+	require.True(t, policy.TestingOnlyEquals(expectedPolicy), policy.TestingOnlyDiff(expectedPolicy))
 	policy.Detach(repo.GetSelectorCache())
 }
 
