@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -935,6 +936,84 @@ func TestErrorResolver(t *testing.T) {
 
 				assert.Fail(c, "Expected controller status not found")
 			}, timeout, tick)
+		})
+	}
+}
+
+func TestBatchIterator(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	runTest := func(size, mapSize int, t *testing.T, opts ...BatchIteratorOpt[TestKey, TestValue]) {
+		m := NewMap("cilium_test",
+			ebpf.Hash,
+			&TestKey{},
+			&TestValue{},
+			mapSize,
+			BPF_F_NO_PREALLOC,
+		)
+		assert.NoError(t, m.OpenOrCreate())
+		defer assert.NoError(t, m.UnpinIfExists())
+		for i := range size {
+			mapKey := &TestKey{Key: uint32(i)}
+			mapValue := &TestValue{Value: uint32(i)}
+			err := m.Update(mapKey, mapValue)
+			assert.NoError(t, err)
+		}
+		ks := sets.New[int]()
+		vs := sets.New[int]()
+
+		iter := BatchIterator[TestKey, TestValue]{
+			m: m,
+		}
+		count := 0
+		for k, v := range iter.IterateAll(context.TODO(), opts...) {
+			count++
+			ks.Insert(int(k.Key))
+			vs.Insert(int(v.Value))
+		}
+		assert.NoError(t, iter.Err())
+
+		for i := range int(size) {
+			assert.Contains(t, ks, i)
+			assert.Contains(t, vs, i)
+		}
+		assert.Len(t, ks, int(size))
+		assert.Len(t, vs, int(size))
+		assert.Equal(t, size, count)
+	}
+
+	for _, test := range []struct {
+		mapSize int
+		size    int
+		opts    []BatchIteratorOpt[TestKey, TestValue]
+	}{
+		{10, 10, nil},
+		{1024, 1024, nil},
+		// Setup iteration that starts with batch size of 1, this is bound to fail at some point
+		// so this will test if the chunk size growth retry loop works correctly.
+		{
+			size:    1 << 12,
+			mapSize: 1 << 13,
+			opts: []BatchIteratorOpt[TestKey, TestValue]{
+				WithMaxRetries[TestKey, TestValue](13), WithStartingChunkSize[TestKey, TestValue](1)},
+		},
+		{
+			size:    1,
+			mapSize: 1 << 12,
+		},
+		{
+			size:    1 << 8,
+			mapSize: 1 << 8,
+		},
+		{
+			size:    1 << 12,
+			mapSize: 1 << 12,
+			opts: []BatchIteratorOpt[TestKey, TestValue]{
+				WithMaxRetries[TestKey, TestValue](1), WithStartingChunkSize[TestKey, TestValue](1 << 13)},
+		},
+	} {
+		t.Run(fmt.Sprintf("size=%d mapSize=%d", test.size, test.mapSize), func(t *testing.T) {
+			runTest(test.size, test.mapSize, t, test.opts...)
 		})
 	}
 }

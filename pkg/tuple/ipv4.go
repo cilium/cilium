@@ -46,6 +46,26 @@ func (k *TupleKey4) GetFlags() uint8 {
 	return k.Flags
 }
 
+func (k *TupleKey4) GetDestAddr() types.IPv4 {
+	return k.DestAddr
+}
+
+func (k *TupleKey4) GetSourceAddr() types.IPv4 {
+	return k.SourceAddr
+}
+
+func (k *TupleKey4) GetSourcePort() uint16 {
+	return k.SourcePort
+}
+
+func (k *TupleKey4) GetDestPort() uint16 {
+	return k.DestPort
+}
+
+func (k *TupleKey4) GetNextHeader() u8proto.U8proto {
+	return k.NextHeader
+}
+
 // String returns the tuple's string representation, doh.
 func (k *TupleKey4) String() string {
 	return fmt.Sprintf("%s:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)

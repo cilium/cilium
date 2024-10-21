@@ -25,6 +25,26 @@ type TupleKey6 struct {
 	Flags      uint8           `align:"flags"`
 }
 
+func (k *TupleKey6) GetDestAddr() types.IPv6 {
+	return k.DestAddr
+}
+
+func (k *TupleKey6) GetSourceAddr() types.IPv6 {
+	return k.SourceAddr
+}
+
+func (k *TupleKey6) GetSourcePort() uint16 {
+	return k.SourcePort
+}
+
+func (k *TupleKey6) GetDestPort() uint16 {
+	return k.DestPort
+}
+
+func (k *TupleKey6) GetNextHeader() u8proto.U8proto {
+	return k.NextHeader
+}
+
 // ToNetwork converts TupleKey6 ports to network byte order.
 func (k *TupleKey6) ToNetwork() TupleKey {
 	n := *k
