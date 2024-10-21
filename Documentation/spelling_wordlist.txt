@@ -280,9 +280,9 @@ decrypt
 decrypted
 deduplicate
 deepcopy
+defaultLBServiceIPAM
 deletetopic
 demux
-defaultLBServiceIPAM
 denylist
 dereference
 deserialization
@@ -792,6 +792,7 @@ unwinded
 upgradeCompatibility
 uplink
 uprobes
+upstreamed
 uptime
 uretprobes
 url
