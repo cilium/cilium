@@ -1515,7 +1515,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		deletes: Keys{},
 	}, {
 		continued: false,
-		name:      "test-5a - auth type propagation from the most specific superset",
+		name:      "test-5a - auth type propagation from the most specific covering key",
 		args: []args{
 			{cs: csFoo, adds: []int{43}, hasAuth: ExplicitAuthType, authType: AuthTypeAlwaysFail},
 			{cs: csFoo, adds: []int{0}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
@@ -1524,7 +1524,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		state: testMapState(map[Key]mapStateEntry{
 			egressKey(43, 0, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeAlwaysFail),
 			egressKey(0, 6, 0, 0):   allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
-			egressKey(43, 6, 80, 0): allowEntry(1, csBar).WithDefaultAuthType(AuthTypeSpire),
+			egressKey(43, 6, 80, 0): allowEntry(1, csBar).WithDefaultAuthType(AuthTypeAlwaysFail),
 		}),
 		adds: Keys{
 			egressKey(43, 0, 0, 0):  {},
@@ -1534,7 +1534,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		deletes: Keys{},
 	}, {
 		continued: false,
-		name:      "test-5b - auth type propagation from the most specific superset - reverse",
+		name:      "test-5b - auth type propagation from the most specific covering key - reverse",
 		args: []args{
 			{cs: csBar, adds: []int{43}, port: 80, proto: 6, redirect: true},
 			{cs: csFoo, adds: []int{0}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
@@ -1543,7 +1543,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		state: testMapState(map[Key]mapStateEntry{
 			egressKey(43, 0, 0, 0):  allowEntry(0, csFoo).WithAuthType(AuthTypeAlwaysFail),
 			egressKey(0, 6, 0, 0):   allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
-			egressKey(43, 6, 80, 0): allowEntry(1, csBar).WithDefaultAuthType(AuthTypeSpire),
+			egressKey(43, 6, 80, 0): allowEntry(1, csBar).WithDefaultAuthType(AuthTypeAlwaysFail),
 		}),
 		adds: Keys{
 			egressKey(43, 0, 0, 0):  {},

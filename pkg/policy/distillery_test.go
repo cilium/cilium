@@ -547,7 +547,7 @@ func Test_MergeL3(t *testing.T) {
 			api.Rules{rule____AllowAllAuth, ruleL3__AllowBar},
 			testMapState(map[Key]mapStateEntry{
 				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeSpire, lbls____AllowAll),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeSpire, lblsL3__AllowBar),
+				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeDisabled, lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeSpire: struct{}{}},
@@ -572,7 +572,7 @@ func Test_MergeL3(t *testing.T) {
 			testMapState(map[Key]mapStateEntry{
 				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeSpire, lbls____AllowAll),
 				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeSpire, lbls__L4__Allow),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeSpire, lblsL3__AllowBar),
+				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeDisabled, lblsL3__AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeSpire: struct{}{}},

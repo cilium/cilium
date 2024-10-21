@@ -288,55 +288,33 @@ func (msm *mapStateMap) NarrowerOrEqualKeys(key Key) iter.Seq2[Key, mapStateEntr
 	}
 }
 
-// CoveringKeys iterates over broader port/proto entries in the trie in LPM order,
-// with most specific match being returned first.
-func (msm *mapStateMap) CoveringKeys(key Key) iter.Seq2[Key, mapStateEntry] {
+// CoveringKeysWithSameID iterates over broader port/proto entries in the trie in LPM order,
+// with most specific match with the same ID as in 'key' being returned first.
+func (msm *mapStateMap) CoveringKeysWithSameID(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := msm.trie.AncestorLongestPrefixFirstIterator(key.PrefixLength(), key)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
 			k := Key{LPMKey: lpmKey.Value()}
 
 			// Visit key with the same identity, if port/proto is different.
-			// ANY identity is visited below.
-			if key.Identity != 0 && !k.PortProtoIsEqual(key) {
-				if !msm.forID(k.WithIdentity(key.Identity), idSet, yield) {
-					return
-				}
-			}
-
-			// ANY identity covers all non-ANY identities, visit them second.
-			// Keys with ANY identity visit ANY keys only if port/proto is different.
-			if key.Identity != 0 || !k.PortProtoIsEqual(key) {
-				if !msm.forID(k.WithIdentity(0), idSet, yield) {
-					return
-				}
+			if !k.PortProtoIsEqual(key) && !msm.forID(k.WithIdentity(key.Identity), idSet, yield) {
+				return
 			}
 		}
 	}
 }
 
-// SubsetKeys iterates over narrower or equal port/proto entries in the trie in an LPM order
-// (least specific match first).
-func (msm *mapStateMap) SubsetKeys(key Key) iter.Seq2[Key, mapStateEntry] {
+// SubsetKeysWithSameID iterates over narrower or equal port/proto entries in the trie in an LPM
+// order (least specific match first).
+func (msm *mapStateMap) SubsetKeysWithSameID(key Key) iter.Seq2[Key, mapStateEntry] {
 	return func(yield func(Key, mapStateEntry) bool) {
 		iter := msm.trie.DescendantShortestPrefixFirstIterator(key.PrefixLength(), key)
 		for ok, lpmKey, idSet := iter.Next(); ok; ok, lpmKey, idSet = iter.Next() {
 			k := Key{LPMKey: lpmKey.Value()}
 
-			// For an ANY key, visit all different keys
-			if key.Identity == 0 {
-				if !msm.forDifferentKeys(key, k, idSet, yield) {
-					return
-				}
-			} else { // key has a specific ID
-				// Visit only keys with the ANY or the same ID, if they exist
-				if !msm.forID(k.WithIdentity(0), idSet, yield) {
-					return
-				}
-				// Else visit the different key with the same identity
-				if !k.PortProtoIsEqual(key) && !msm.forID(k.WithIdentity(key.Identity), idSet, yield) {
-					return
-				}
+			// Visit key with the same identity, if port/proto is different.
+			if !k.PortProtoIsEqual(key) && !msm.forID(k.WithIdentity(key.Identity), idSet, yield) {
+				return
 			}
 		}
 	}
@@ -937,14 +915,13 @@ func (ms *mapState) overrideAuthType(newEntry mapStateEntry, k Key, v mapStateEn
 //
 // TODO: Make datapath honor an explicit no-auth even if the more generic math has an explicit auth
 // type.
-// TODO: Remove overrides from L4-only keys to L3/L4 keys, as datapath now takes care of them.
 func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, changes ChangeState) {
 	if newEntry.hasAuthType == DefaultAuthType {
 		// New entry has a default auth type.
 
-		// Fill in the AuthType from the most specific covering key with an explicit
-		// auth type
-		for _, v := range ms.allows.CoveringKeys(newKey) {
+		// Fill in the AuthType from the most specific covering key with the same ID and an
+		// explicit auth type
+		for _, v := range ms.allows.CoveringKeysWithSameID(newKey) {
 			if v.hasAuthType == ExplicitAuthType {
 				// AuthType from the most specific covering key is applied to
 				// 'newEntry'
@@ -954,55 +931,15 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, chan
 		}
 	} else { // New entry has an explicit auth type
 		// Check if the new key is the most specific covering key of any other key
-		// with the default auth type, and propagate the auth type from the new
+		// with the same ID and default auth type, and propagate the auth type from the new
 		// entry to such entries.
-		if newKey.Identity == 0 {
-			// A key with a wildcard ID can be the most specific covering key
-			// for keys with any ID. Hence we need to iterate narrower keys with
-			// all IDs and:
-			// - change all iterated keys with a default auth type
-			//   to the auth type of the newKey.
-			// - stop iteration for any given ID at first key with that ID that
-			//   has an explicit auth type, as that is the most specific covering
-			//   key for the remaining subset keys with that specific ID.
-			seenIDs := make(IDSet)
-			for k, v := range ms.allows.SubsetKeys(newKey) {
-				// Skip if a subset entry has an explicit auth type
-				if v.hasAuthType == ExplicitAuthType {
-					// Keep track of IDs for which an explicit auth type
-					// has been encountered.
-					seenIDs[k.Identity] = struct{}{}
-					continue
-				}
-				// Override entries for which an explicit auth type has not been
-				// seen yet.
-				if _, exists := seenIDs[k.Identity]; !exists {
-					ms.overrideAuthType(newEntry, k, v, changes)
-				}
+		for k, v := range ms.allows.SubsetKeysWithSameID(newKey) {
+			if v.hasAuthType == ExplicitAuthType {
+				// Stop if a subset entry has an explicit auth type, as that is the
+				// more specific covering key for all remaining subset keys
+				break
 			}
-		} else {
-			// A key with a specific ID can be the most specific covering key
-			// only for keys with the same ID. However, a wildcard ID key can also be
-			// the most specific covering key for those keys, if it has a more
-			// specific proto/port than the newKey. Hence we need to iterate
-			// narrower keys with the same or ANY ID and:
-			// - change all iterated keys with the same ID and a default auth
-			//   type to the auth type of the newKey
-			// - stop iteration at first key with an explicit auth, as that is
-			//   the most specific covering key for the remaining subset keys with
-			//   the same ID.
-			for k, v := range ms.allows.SubsetKeys(newKey) {
-				// Stop if a subset entry has an explicit auth type, as that is more
-				// specific for all remaining subset keys
-				if v.hasAuthType == ExplicitAuthType {
-					break
-				}
-				// auth only propagates from a key with specific ID
-				// to keys with the same ID.
-				if k.Identity != 0 {
-					ms.overrideAuthType(newEntry, k, v, changes)
-				}
-			}
+			ms.overrideAuthType(newEntry, k, v, changes)
 		}
 	}
 
