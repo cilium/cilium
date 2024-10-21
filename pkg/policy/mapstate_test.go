@@ -74,29 +74,6 @@ func (e mapStateEntry) WithoutOwners() mapStateEntry {
 	return e
 }
 
-// WithDependents 'e' adds 'keys' to 'e.dependents'.
-func (e mapStateEntry) WithDependents(keys ...Key) mapStateEntry {
-	if e.dependents == nil {
-		e.dependents = make(map[Key]struct{})
-	}
-	for _, key := range keys {
-		e.AddDependent(key)
-	}
-	return e
-}
-
-// WithDependents 'e' adds 'keys' to 'e.dependents'.
-func (e MapStateEntry) WithDependents(keys ...Key) mapStateEntry {
-	m := mapStateEntry{
-		MapStateEntry: e,
-		dependents:    make(map[Key]struct{}),
-	}
-	for _, key := range keys {
-		m.AddDependent(key)
-	}
-	return m
-}
-
 func TestPolicyKeyTrafficDirection(t *testing.T) {
 	k := IngressKey()
 	require.True(t, k.IsIngress())
@@ -943,13 +920,11 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		},
 		state: testMapState(map[Key]mapStateEntry{
 			AnyIngressKey():      allowEntry(0),
-			ingressL3OnlyKey(41): denyEntry(0, csFoo).WithDependents(HttpIngressKey(41)),
+			ingressL3OnlyKey(41): denyEntry(0, csFoo),
 			HttpIngressKey(0):    allowEntry(1, csFoo),
-			HttpIngressKey(41):   denyEntry(0).WithOwners(ingressL3OnlyKey(41)),
 		}),
 		adds: Keys{
-			HttpIngressKey(0):  {},
-			HttpIngressKey(41): {},
+			HttpIngressKey(0): {},
 		},
 		deletes: Keys{},
 	}, {
@@ -963,13 +938,11 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		},
 		state: testMapState(map[Key]mapStateEntry{
 			AnyIngressKey():      allowEntry(0),
-			ingressL3OnlyKey(41): denyEntry(0, csFoo).WithDependents(HttpIngressKey(41)),
+			ingressL3OnlyKey(41): denyEntry(0, csFoo),
 			HttpIngressKey(0):    allowEntry(12345, nil),
-			HttpIngressKey(41):   denyEntry(0).WithOwners(ingressL3OnlyKey(41)),
 		}),
 		adds: Keys{
 			ingressL3OnlyKey(41): {},
-			HttpIngressKey(41):   {},
 		},
 		deletes: Keys{},
 	}, {
@@ -980,15 +953,12 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		},
 		state: testMapState(map[Key]mapStateEntry{
 			AnyIngressKey():      allowEntry(0),
-			ingressL3OnlyKey(41): denyEntry(0, csFoo).WithDependents(HttpIngressKey(41)),
-			ingressL3OnlyKey(42): denyEntry(0, csFoo).WithDependents(HttpIngressKey(42)),
+			ingressL3OnlyKey(41): denyEntry(0, csFoo),
+			ingressL3OnlyKey(42): denyEntry(0, csFoo),
 			HttpIngressKey(0):    allowEntry(12345, nil),
-			HttpIngressKey(41):   denyEntry(0).WithOwners(ingressL3OnlyKey(41)),
-			HttpIngressKey(42):   denyEntry(0).WithOwners(ingressL3OnlyKey(42)),
 		}),
 		adds: Keys{
 			ingressL3OnlyKey(42): {},
-			HttpIngressKey(42):   {},
 		},
 		deletes: Keys{},
 	}, {
@@ -999,14 +969,12 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		},
 		state: testMapState(map[Key]mapStateEntry{
 			AnyIngressKey():      allowEntry(0),
-			ingressL3OnlyKey(41): denyEntry(0, csFoo).WithDependents(HttpIngressKey(41)),
+			ingressL3OnlyKey(41): denyEntry(0, csFoo),
 			HttpIngressKey(0):    allowEntry(12345, nil),
-			HttpIngressKey(41):   denyEntry(0).WithOwners(ingressL3OnlyKey(41)),
 		}),
 		adds: Keys{},
 		deletes: Keys{
 			ingressL3OnlyKey(42): {},
-			HttpIngressKey(42):   {},
 		},
 	}, {
 		name: "test-2a - Adding 2 identities, and deleting a nonexisting key on an empty state",
@@ -1194,7 +1162,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		},
 		deletes: Keys{},
 	}, {
-		name: "test-6 - Multiple dependent entries",
+		name: "test-6 - Multiple entries",
 		setup: testMapState(map[Key]mapStateEntry{
 			AnyEgressKey():     allowEntry(0),
 			HttpEgressKey(0):   allowEntry(12345, nil),
@@ -1205,16 +1173,12 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 		},
 		state: testMapState(map[Key]mapStateEntry{
 			AnyEgressKey():         allowEntry(0),
-			egressKey(41, 0, 0, 0): denyEntry(0, csFoo).WithDependents(HttpEgressKey(41), DNSUDPEgressKey(41)),
+			egressKey(41, 0, 0, 0): denyEntry(0, csFoo),
 			HttpEgressKey(0):       allowEntry(12345, nil),
-			HttpEgressKey(41):      denyEntry(0).WithOwners(egressKey(41, 0, 0, 0)),
 			DNSUDPEgressKey(0):     allowEntry(12346, nil),
-			DNSUDPEgressKey(41):    denyEntry(0).WithOwners(egressKey(41, 0, 0, 0)),
 		}),
 		adds: Keys{
 			egressKey(41, 0, 0, 0): {},
-			HttpEgressKey(41):      {},
-			DNSUDPEgressKey(41):    {},
 		},
 		deletes: Keys{},
 	}, {
@@ -1589,74 +1553,66 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		deletes: Keys{},
 	}, {
 		continued: false,
-		name:      "test-6a - added L3/L4 entry due to L3-only explicit auth type and L4-only without",
+		name:      "test-6a - L3-only explicit auth type and L4-only without",
 		args: []args{
 			{cs: csFoo, adds: []int{43}, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
 			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: true},
 		},
 		state: testMapState(map[Key]mapStateEntry{
-			egressKey(43, 0, 0, 0):  allowEntry(0, csFoo).WithDependents(egressKey(43, 6, 80, 0)).WithAuthType(AuthTypeSpire),
-			egressKey(43, 6, 80, 0): allowEntry(1, csFoo).WithOwners(egressKey(43, 0, 0, 0)).WithDefaultAuthType(AuthTypeSpire),
-			egressKey(0, 6, 80, 0):  allowEntry(1, csWildcard),
+			egressKey(43, 0, 0, 0): allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
+			egressKey(0, 6, 80, 0): allowEntry(1, csWildcard),
 		}),
 		adds: Keys{
-			egressKey(43, 0, 0, 0):  {},
-			egressKey(0, 6, 80, 0):  {},
-			egressKey(43, 6, 80, 0): {},
+			egressKey(43, 0, 0, 0): {},
+			egressKey(0, 6, 80, 0): {},
 		},
 		deletes: Keys{},
 	}, {
 		continued: false,
-		name:      "test-6b - added L3/L4 entry due to L3-only explicit auth type and L4-only without - reverse",
+		name:      "test-6b - L3-only explicit auth type and L4-only without - reverse",
 		args: []args{
 			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: true},
 			{cs: csFoo, adds: []int{43}, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
 		},
 		state: testMapState(map[Key]mapStateEntry{
-			egressKey(43, 0, 0, 0):  allowEntry(0, csFoo).WithDependents(egressKey(43, 6, 80, 0)).WithAuthType(AuthTypeSpire),
-			egressKey(43, 6, 80, 0): allowEntry(1, csFoo).WithOwners(egressKey(43, 0, 0, 0)).WithDefaultAuthType(AuthTypeSpire),
-			egressKey(0, 6, 80, 0):  allowEntry(1, csWildcard),
+			egressKey(43, 0, 0, 0): allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
+			egressKey(0, 6, 80, 0): allowEntry(1, csWildcard),
 		}),
 		adds: Keys{
-			egressKey(43, 0, 0, 0):  {},
-			egressKey(0, 6, 80, 0):  {},
-			egressKey(43, 6, 80, 0): {},
+			egressKey(43, 0, 0, 0): {},
+			egressKey(0, 6, 80, 0): {},
 		},
 		deletes: Keys{},
 	}, {
 		continued: false,
-		name:      "test-7a - added L3/L4 entry due to L3/proto explicit auth type and L4-only without",
+		name:      "test-7a - L3/proto explicit auth type and L4-only without",
 		args: []args{
 			{cs: csFoo, adds: []int{43}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
 			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: true},
 		},
 		state: testMapState(map[Key]mapStateEntry{
-			egressKey(43, 6, 0, 0):  allowEntry(0, csFoo).WithDependents(egressKey(43, 6, 80, 0)).WithAuthType(AuthTypeSpire),
-			egressKey(43, 6, 80, 0): allowEntry(1, csFoo).WithOwners(egressKey(43, 6, 0, 0)).WithDefaultAuthType(AuthTypeSpire),
-			egressKey(0, 6, 80, 0):  allowEntry(1, csWildcard),
+			egressKey(43, 6, 0, 0): allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
+			egressKey(0, 6, 80, 0): allowEntry(1, csWildcard),
 		}),
 		adds: Keys{
-			egressKey(43, 6, 0, 0):  {},
-			egressKey(0, 6, 80, 0):  {},
-			egressKey(43, 6, 80, 0): {},
+			egressKey(43, 6, 0, 0): {},
+			egressKey(0, 6, 80, 0): {},
 		},
 		deletes: Keys{},
 	}, {
 		continued: false,
-		name:      "test-7b - added L3/L4 entry due to L3/proto explicit auth type and L4-only without - reverse",
+		name:      "test-7b - L3/proto explicit auth type and L4-only without - reverse",
 		args: []args{
 			{cs: csWildcard, adds: []int{0}, port: 80, proto: 6, redirect: true},
 			{cs: csFoo, adds: []int{43}, proto: 6, hasAuth: ExplicitAuthType, authType: AuthTypeSpire},
 		},
 		state: testMapState(map[Key]mapStateEntry{
-			egressKey(43, 6, 0, 0):  allowEntry(0, csFoo).WithDependents(egressKey(43, 6, 80, 0)).WithAuthType(AuthTypeSpire),
-			egressKey(43, 6, 80, 0): allowEntry(1, csFoo).WithOwners(egressKey(43, 6, 0, 0)).WithDefaultAuthType(AuthTypeSpire),
-			egressKey(0, 6, 80, 0):  allowEntry(1, csWildcard),
+			egressKey(43, 6, 0, 0): allowEntry(0, csFoo).WithAuthType(AuthTypeSpire),
+			egressKey(0, 6, 80, 0): allowEntry(1, csWildcard),
 		}),
 		adds: Keys{
-			egressKey(43, 6, 0, 0):  {},
-			egressKey(0, 6, 80, 0):  {},
-			egressKey(43, 6, 80, 0): {},
+			egressKey(43, 6, 0, 0): {},
+			egressKey(0, 6, 80, 0): {},
 		},
 		deletes: Keys{},
 	}, {

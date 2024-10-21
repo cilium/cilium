@@ -599,7 +599,6 @@ func Test_MergeL3(t *testing.T) {
 				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeDisabled, lbls____AllowAll),
 				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeDisabled, lbls__L4__Allow),
 				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
-				mapKeyAllowBarL4: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar, lbls__L4__Allow),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}},
@@ -613,7 +612,7 @@ func Test_MergeL3(t *testing.T) {
 				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeDisabled, lbls____AllowAll),
 				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeDisabled, lbls__L4__Allow),
 				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
-				mapKeyAllowBarL4: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar, lblsL3L4AllowBar, lbls__L4__Allow),
+				mapKeyAllowBarL4: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3L4AllowBar),
 			}),
 			authResult{
 				identityBar: AuthTypes{AuthTypeAlwaysFail: struct{}{}},
@@ -788,13 +787,6 @@ func testCaseToMapState(t generatedBPFKey) *mapState {
 		}
 	}
 
-	// Add dependency deny-L3->deny-L3L4 if allow-L4 exists
-	denyL3, denyL3exists := m.denies.Lookup(mapKeyDeny_Foo__)
-	denyL3L4, denyL3L4exists := m.denies.Lookup(mapKeyDeny_FooL4)
-	allowL4, allowL4exists := m.allows.Lookup(mapKeyAllow___L4)
-	if allowL4exists && !allowL4.IsDeny && denyL3exists && denyL3.IsDeny && denyL3L4exists && denyL3L4.IsDeny {
-		m.AddDependent(mapKeyDeny_Foo__, mapKeyDeny_FooL4, ChangeState{})
-	}
 	return m
 }
 
