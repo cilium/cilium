@@ -1401,7 +1401,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Namespace:  Namespace,
 			Subsystem:  SubsystemDatapath,
 			Name:       "nat_delete_mapping_ipv4_events_total",
-			Help:       "Number of NAT delete mapping for ipv4 events received",
+			Help:       "Number of garbage collected IPv4 NAT mappings",
 		}),
 
 		NatDeleteMappingv6Events: metric.NewCounter(metric.CounterOpts{
