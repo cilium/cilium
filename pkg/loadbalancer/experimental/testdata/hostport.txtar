@@ -1,0 +1,112 @@
+#! --enable-experimental-lb
+
+db insert node-addresses addrv4.yaml
+db cmp node-addresses nodeaddrs.table
+
+# Start the test application
+hive start
+
+# Wait for tables to initialize (e.g. reflector to start) before adding more objects.
+db initialized
+
+k8s add pod.yaml 
+db cmp services services.table
+db cmp frontends frontends.table
+db cmp backends backends.table 
+
+lb-maps cmp lbmaps.dump
+
+# Cleanup
+k8s delete pod.yaml
+db cmp services services_empty.table
+db cmp frontends frontends_empty.table
+db cmp backends backends_empty.table
+
+#####
+
+-- addrv4.yaml --
+addr: 1.1.1.1
+nodeport: true
+primary: true
+devicename: test
+
+-- nodeaddrs.table --
+Address NodePort Primary DeviceName
+1.1.1.1 true     true    test
+
+-- services.table --
+Name                                           Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   L7ProxyPort   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+default/my-app-85f46c4bd9-nnk25/host-port/4444 k8s                  Cluster            Cluster                              0             0                     false
+
+-- frontends.table --
+Address           Type        ServiceName                                     PortName   Backends                      Status
+0.0.0.0:4444/TCP  HostPort    default/my-app-85f46c4bd9-nnk25/host-port/4444             10.244.1.113:80/TCP (active)  Done
+
+-- backends.table --
+Address                        State    Instances                                       NodeName             ZoneID
+10.244.1.113:80/TCP            active   default/my-app-85f46c4bd9-nnk25/host-port/4444                       0
+
+-- services_empty.table --
+Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   L7ProxyPort   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+
+-- frontends_empty.table --
+Address               Type        ServiceName   PortName   Status  Backends
+
+-- backends_empty.table --
+Address             State    Instances            NodeName           ZoneID
+
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2024-07-10T16:20:42Z"
+  generateName: my-app-85f46c4bd9-
+  labels:
+    pod-template-hash: 85f46c4bd9
+    run: my-app
+  name: my-app-85f46c4bd9-nnk25
+  namespace: default
+  resourceVersion: "100491"
+  uid: 1e75ff92-2e9b-4c61-8454-ae81344876d8
+spec:
+  containers:
+  - image: nginx
+    imagePullPolicy: Always
+    name: my-app
+    ports:
+    - containerPort: 80
+      hostPort: 4444
+      protocol: TCP
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  nodeName: kind-worker
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.1.113
+  podIPs:
+  - ip: 10.244.1.113
+  qosClass: BestEffort
+  startTime: "2024-07-10T16:20:42Z"
+
+-- lbmaps.dump --
+BE: ID=1 ADDR=10.244.1.113:80 STATE=active
+REV: ID=1 ADDR=<zero>
+REV: ID=2 ADDR=1.1.1.1:4444
+SVC: ID=1 ADDR=<zero> SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=1 ADDR=<zero> SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=HostPort+non-routable
+SVC: ID=2 ADDR=1.1.1.1:4444 SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=HostPort
+SVC: ID=2 ADDR=1.1.1.1:4444 SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=HostPort
