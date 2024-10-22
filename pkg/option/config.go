@@ -1001,6 +1001,9 @@ const (
 	// LBAffinityMapMaxEntries configures max entries of bpf map for session affinity.
 	LBAffinityMapMaxEntries = "bpf-lb-affinity-map-max"
 
+	// LBSourceRangeAllTypes configures service source ranges for all service types.
+	LBSourceRangeAllTypes = "bpf-lb-source-range-all-types"
+
 	// LBSourceRangeMapMaxEntries configures max entries of bpf map for service source ranges.
 	LBSourceRangeMapMaxEntries = "bpf-lb-source-range-map-max"
 
@@ -2056,6 +2059,10 @@ type DaemonConfig struct {
 	// LBAffinityMapEntries is the maximum number of entries allowed in BPF lbmap for session affinities.
 	LBAffinityMapEntries int
 
+	// LBSourceRangeAllTypes enables propagation of loadbalancerSourceRanges to all Kubernetes
+	// service types which were created from the LoadBalancer service.
+	LBSourceRangeAllTypes bool
+
 	// LBSourceRangeMapEntries is the maximum number of entries allowed in BPF lbmap for source ranges.
 	LBSourceRangeMapEntries int
 
@@ -2922,6 +2929,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BPFEventsTraceEnabled = vp.GetBool(BPFEventsTraceEnabled)
 	c.BPFConntrackAccounting = vp.GetBool(BPFConntrackAccounting)
 	c.EnableIPSecEncryptedOverlay = vp.GetBool(EnableIPSecEncryptedOverlay)
+	c.LBSourceRangeAllTypes = vp.GetBool(LBSourceRangeAllTypes)
 
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {
