@@ -190,10 +190,10 @@ func filterXFRMs(policies []netlink.XfrmPolicy, states []netlink.XfrmState,
 
 func filterStaleXFRMs(logger *slog.Logger, policies []netlink.XfrmPolicy, states []netlink.XfrmState) ([]netlink.XfrmPolicy, []netlink.XfrmState) {
 	bpfNodeIDs := map[uint16]bool{}
-	parse := func(key *nodemap.NodeKey, val *nodemap.NodeValue) {
+	parse := func(key *nodemap.NodeKey, val *nodemap.NodeValueV2) {
 		bpfNodeIDs[val.NodeID] = true
 	}
-	nodeMap, err := nodemap.LoadNodeMap(logger)
+	nodeMap, err := nodemap.LoadNodeMapV2(logger)
 	if err != nil {
 		Fatalf("Cannot load node bpf map: %s", err)
 	}
