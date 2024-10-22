@@ -54,6 +54,7 @@ cilium-agent [flags]
       --bpf-lb-rss-ipv6-src-cidr string                           BPF load balancing RSS outer source IPv6 CIDR prefix for IPIP
       --bpf-lb-sock                                               Enable socket-based LB for E/W traffic
       --bpf-lb-sock-hostns-only                                   Skip socket LB for services when inside a pod namespace, in favor of service LB at the pod interface. Socket LB is still used when in the host namespace. Required by service mesh (e.g., Istio, Linkerd).
+      --bpf-lb-source-range-all-types                             Propagate loadbalancerSourceRanges to all corresponding service types
       --bpf-map-dynamic-size-ratio float                          Ratio (0.0-1.0] of total system memory to use for dynamic sizing of CT, NAT and policy BPF maps (default 0.0025)
       --bpf-nat-global-max int                                    Maximum number of entries for the global BPF NAT table (default 524288)
       --bpf-neigh-global-max int                                  Maximum number of entries for the global BPF neighbor table (default 524288)
