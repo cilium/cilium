@@ -390,6 +390,12 @@ Users (Alphabetically)
       L: https://kilo.squat.ai/
       Q: @squat, @arpagon
 
+    * N: Koyeb
+      D: Koyeb hosts microVMs on its own servers and uses Cilium to power a mesh in between those
+      U: Networking, policies inside a non-Kubernetes environment
+      L: https://www.koyeb.com/blog/70-faster-deployments-and-high-performance-private-network
+      Q: @koyeb on Twitter / https://community.koyeb.com/
+
     * N: kOps
       D: kOps is using Cilium as one of the supported CNIs
       U: Networking, Hubble, Encryption, kube-proxy replacement
