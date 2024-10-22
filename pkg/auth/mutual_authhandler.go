@@ -9,11 +9,12 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
+	"os"
 	"strconv"
 
 	"github.com/cilium/hive/cell"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -38,13 +39,14 @@ type mutualAuthParams struct {
 	EndpointManager endpointmanager.EndpointManager
 }
 
-func newMutualAuthHandler(logger logrus.FieldLogger, lc cell.Lifecycle, cfg MutualAuthConfig, params mutualAuthParams) authHandlerResult {
+func newMutualAuthHandler(logger *slog.Logger, lc cell.Lifecycle, cfg MutualAuthConfig, params mutualAuthParams) authHandlerResult {
 	if cfg.MutualAuthListenerPort == 0 {
 		logger.Info("Mutual authentication handler is disabled as no port is configured")
 		return authHandlerResult{}
 	}
 	if params.CertificateProvider == nil {
-		logger.Fatal("No certificate provider configured, but one is required. Please check if the spire flags are configured.")
+		logger.Error("No certificate provider configured, but one is required. Please check if the spire flags are configured.")
+		os.Exit(1)
 	}
 
 	mAuthHandler := &mutualAuthHandler{
@@ -77,7 +79,7 @@ type mutualAuthHandler struct {
 	cell.In
 
 	cfg MutualAuthConfig
-	log logrus.FieldLogger
+	log *slog.Logger
 
 	cert certs.CertificateProvider
 
@@ -170,20 +172,21 @@ func (m *mutualAuthHandler) listenForConnections(upstreamCtx context.Context, re
 	var lc net.ListenConfig
 	l, err := lc.Listen(ctx, "tcp", fmt.Sprintf(":%d", m.cfg.MutualAuthListenerPort))
 	if err != nil {
-		m.log.WithError(err).Fatal("Failed to start mutual auth listener")
+		m.log.Error("Failed to start mutual auth listener", logfields.Error, err)
+		os.Exit(1)
 	}
 	go func() { // shutdown socket goroutine
 		<-ctx.Done()
 		l.Close()
 	}()
 
-	m.log.WithField(logfields.Port, m.cfg.MutualAuthListenerPort).Info("Started mutual auth listener")
+	m.log.Info("Started mutual auth listener", logfields.Port, m.cfg.MutualAuthListenerPort)
 	ready <- struct{}{} // signal to hive that we are ready to accept connections
 
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			m.log.WithError(err).Error("Failed to accept connection")
+			m.log.Error("Failed to accept connection", logfields.Error, err)
 			if errors.Is(err, net.ErrClosed) {
 				m.log.Info("Mutual auth listener socket got closed")
 				return
@@ -199,7 +202,7 @@ func (m *mutualAuthHandler) handleConnection(ctx context.Context, conn net.Conn)
 
 	caBundle, err := m.cert.GetTrustBundle()
 	if err != nil {
-		m.log.WithError(err).Error("failed to get CA bundle")
+		m.log.Error("failed to get CA bundle", logfields.Error, err)
 		return
 	}
 
@@ -212,12 +215,12 @@ func (m *mutualAuthHandler) handleConnection(ctx context.Context, conn net.Conn)
 	defer tlsConn.Close()
 
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
-		m.log.WithError(err).Error("failed to perform TLS handshake")
+		m.log.Error("failed to perform TLS handshake", logfields.Error, err)
 	}
 }
 
 func (m *mutualAuthHandler) GetCertificateForIncomingConnection(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	m.log.WithField("SNI", info.ServerName).Debug("Got new TLS connection")
+	m.log.Debug("Got new TLS connection", "SNI", info.ServerName)
 	id, err := m.cert.SNIToNumericIdentity(info.ServerName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get identity for SNI %s: %w", info.ServerName, err)
@@ -291,7 +294,7 @@ func (m *mutualAuthHandler) verifyPeerCertificate(id *identity.NumericIdentity, 
 		}
 
 		if id != nil { // this will be empty in the peer connection
-			m.log.WithField("SNI ID", id.String()).Debug("Validating Server SNI")
+			m.log.Debug("Validating Server SNI", "SNI_ID", id.String())
 			if valid, err := m.cert.ValidateIdentity(*id, leaf); err != nil {
 				return nil, fmt.Errorf("failed to validate SAN: %w", err)
 			} else if !valid {
@@ -301,7 +304,7 @@ func (m *mutualAuthHandler) verifyPeerCertificate(id *identity.NumericIdentity, 
 
 		expirationTime = &leaf.NotAfter
 
-		m.log.WithField("uri-san", leaf.URIs).Debug("Validated certificate")
+		m.log.Debug("Validated certificate", "uri-san", leaf.URIs)
 	}
 
 	return expirationTime, nil
