@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -33,7 +33,7 @@ func Test_authMapGarbageCollector_cleanupIdentities(t *testing.T) {
 			{localIdentity: 11, remoteIdentity: 12, remoteNodeID: 0, authType: policy.AuthTypeAlwaysFail}: {expiration: time.Now().Add(5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, nil, nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil, nil)
 
 	assert.Len(t, authMap.entries, 5)
 	assert.Empty(t, gc.ciliumIdentitiesDiscovered)
@@ -107,7 +107,7 @@ func Test_authMapGarbageCollector_cleanupNodes(t *testing.T) {
 			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 4, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, newFakeNodeIDHandler(map[uint16]string{
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]string{
 		1: "172.18.0.1",
 		2: "172.18.0.2",
 		3: "172.18.0.3",
@@ -185,7 +185,7 @@ func Test_authMapGarbageCollector_cleanupPolicies(t *testing.T) {
 			{localIdentity: 1, remoteIdentity: 4, remoteNodeID: 0, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, nil,
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil,
 		&fakePolicyRepository{
 			needsAuth: map[identity.NumericIdentity]map[identity.NumericIdentity]policy.AuthTypes{
 				1: {
@@ -217,7 +217,7 @@ func Test_authMapGarbageCollector_cleanupExpired(t *testing.T) {
 			{localIdentity: 1, remoteIdentity: 3, remoteNodeID: 0, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(-5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, nil, nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil, nil)
 
 	assert.Len(t, authMap.entries, 2)
 
@@ -242,7 +242,7 @@ func Test_authMapGarbageCollector_cleanup(t *testing.T) {
 		},
 	}
 
-	gc := newAuthMapGC(logrus.New(), authMap,
+	gc := newAuthMapGC(hivetest.Logger(t), authMap,
 		newFakeNodeIDHandler(map[uint16]string{
 			1: "172.18.0.1",
 			2: "172.18.0.2",
@@ -300,7 +300,7 @@ func Test_authMapGarbageCollector_cleanupEndpoints(t *testing.T) {
 			{localIdentity: 3, remoteIdentity: 1, remoteNodeID: 100, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, nil, nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil, nil)
 	gc.endpointsCache = map[uint16]*endpoint.Endpoint{
 		1: {
 			SecurityIdentity: &identity.Identity{
@@ -340,7 +340,7 @@ func Test_authMapGarbageCollector_cleanupEndpointsNoopCase(t *testing.T) {
 			{localIdentity: 3, remoteIdentity: 1, remoteNodeID: 100, authType: policy.AuthTypeSpire}: {expiration: time.Now().Add(5 * time.Minute)},
 		},
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, nil, nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, nil, nil)
 	gc.endpointsCache = map[uint16]*endpoint.Endpoint{
 		1: {
 			SecurityIdentity: &identity.Identity{
@@ -384,7 +384,7 @@ func Test_authMapGarbageCollector_HandleNodeEventError(t *testing.T) {
 		entries:    map[authKey]authInfo{},
 		failDelete: true,
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, newFakeNodeIDHandler(map[uint16]string{10: "172.18.0.3"}), nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]string{10: "172.18.0.3"}), nil)
 
 	event := ciliumNodeEvent("172.18.0.3")
 	err := gc.NodeAdd(event)
@@ -403,7 +403,7 @@ func Test_authMapGarbageCollector_HandleIdentityEventError(t *testing.T) {
 		entries:    map[authKey]authInfo{},
 		failDelete: true,
 	}
-	gc := newAuthMapGC(logrus.New(), authMap, newFakeNodeIDHandler(map[uint16]string{}), nil)
+	gc := newAuthMapGC(hivetest.Logger(t), authMap, newFakeNodeIDHandler(map[uint16]string{}), nil)
 
 	event := ciliumIdentityEvent(cache.IdentityChangeDelete, 4)
 	err := gc.handleIdentityChange(context.Background(), event)

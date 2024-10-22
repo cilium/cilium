@@ -5,11 +5,11 @@ package auth
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/stream"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/auth/spire"
@@ -70,7 +70,7 @@ func (r config) Flags(flags *pflag.FlagSet) {
 type authManagerParams struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
+	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 	JobGroup  job.Group
 	Health    cell.Health
