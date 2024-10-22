@@ -4,10 +4,11 @@
 package nodemap
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"net"
+	"os"
+	"path/filepath"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -15,18 +16,18 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 // compile time check of MapV2 interface
 var _ MapV2 = (*nodeMapV2)(nil)
 
 const (
-	MapNameV2 = "cilium_node_map_v2"
+	MapNameV2         = "cilium_node_map_v2"
+	DefaultMaxEntries = 16384
 )
 
 // MapV2 provides access to the eBPF map node.
-//
-// MapV2 will mirror all writes into MapV1.
 type MapV2 interface {
 	// Update inserts or updates the node map object associated with the provided
 	// IP, node id, and SPI.
@@ -50,21 +51,12 @@ type nodeMapV2 struct {
 	logger *slog.Logger
 	conf   Config
 	bpfMap *ebpf.Map
-	v1Map  *nodeMap
 }
 
-func newMapV2(logger *slog.Logger, mapName string, v1MapName string, conf Config) *nodeMapV2 {
-	v1Map := newMap(logger, v1MapName, conf)
-
-	if err := v1Map.init(); err != nil {
-		logger.Error("failed to init v1 node map", logfields.Error, err)
-		return nil
-	}
-
+func newMapV2(logger *slog.Logger, mapName string, conf Config) *nodeMapV2 {
 	return &nodeMapV2{
 		logger: logger,
 		conf:   conf,
-		v1Map:  v1Map,
 		bpfMap: ebpf.NewMap(logger, &ebpf.MapSpec{
 			Name:       mapName,
 			Type:       ebpf.Hash,
@@ -75,6 +67,36 @@ func newMapV2(logger *slog.Logger, mapName string, v1MapName string, conf Config
 			Pinning:    ebpf.PinByName,
 		}),
 	}
+}
+
+type NodeKey struct {
+	Pad1   uint16 `align:"pad1"`
+	Pad2   uint8  `align:"pad2"`
+	Family uint8  `align:"family"`
+	// represents both IPv6 and IPv4 (in the lowest four bytes)
+	IP types.IPv6 `align:"$union0"`
+}
+
+func (k *NodeKey) String() string {
+	switch k.Family {
+	case bpf.EndpointKeyIPv4:
+		return net.IP(k.IP[:net.IPv4len]).String()
+	case bpf.EndpointKeyIPv6:
+		return k.IP.String()
+	}
+	return "<unknown>"
+}
+
+func newNodeKey(ip net.IP) NodeKey {
+	result := NodeKey{}
+	if ip4 := ip.To4(); ip4 != nil {
+		result.Family = bpf.EndpointKeyIPv4
+		copy(result.IP[:], ip4)
+	} else {
+		result.Family = bpf.EndpointKeyIPv6
+		copy(result.IP[:], ip)
+	}
+	return result
 }
 
 type NodeValueV2 struct {
@@ -90,11 +112,6 @@ func (m *nodeMapV2) Update(ip net.IP, nodeID uint16, SPI uint8) error {
 		return fmt.Errorf("failed to update node map: %w", err)
 	}
 
-	// mirror write
-	if err := m.v1Map.Update(ip, nodeID); err != nil {
-		return fmt.Errorf("failed to mirror write to v1 node map: %w", err)
-	}
-
 	return nil
 }
 
@@ -106,11 +123,6 @@ func (m *nodeMapV2) Delete(ip net.IP) error {
 	key := newNodeKey(ip)
 	if err := m.bpfMap.Delete(key); err != nil {
 		return fmt.Errorf("failed to delete node map: %w", err)
-	}
-
-	// mirror write
-	if err := m.v1Map.Delete(ip); err != nil {
-		return fmt.Errorf("failed to mirror delete to v1 node map: %w", err)
 	}
 
 	return nil
@@ -157,75 +169,9 @@ func LoadNodeMapV2(logger *slog.Logger) (MapV2, error) {
 	return &nodeMapV2{bpfMap: bpfMap}, nil
 }
 
-// migrateV1 will migrate the v1 NodeMap to this NodeMapv2
-//
-// Ensure this always occurs BEFORE we begin handling K8s Node events or else
-// both this migration and the node events will be writing to the map.
-//
-// This migration will leave the v1 NodeMap preset on the filesystem.
-// This is due to some unfortunately versioning requirements which forced this
-// migration to occur within a patch release.
-//
-// When Cilium reaches v1.17 the v1 NodeMap will no longer be required and we
-// can unpin the map after migration.
-func (m *nodeMapV2) migrateV1(NodeMapName string, EncryptMapName string) error {
-	m.logger.Debug("Detecting V1 to V2 migration")
-
-	// load v1 node map
-	nodeMapPath := bpf.MapPath(m.logger, NodeMapName)
-	v1, err := ebpf.LoadPinnedMap(m.logger, nodeMapPath)
-	if errors.Is(err, unix.ENOENT) {
-		m.logger.Debug("No v1 node map found, skipping migration")
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	nodeMap := nodeMap{
-		bpfMap: v1,
-	}
-
-	// load encrypt map to get current SPI
-	encryptMapPath := bpf.MapPath(m.logger, EncryptMapName)
-	en, err := ebpf.LoadPinnedMap(m.logger, encryptMapPath)
-	if errors.Is(err, unix.ENOENT) {
-		m.logger.Debug("No encrypt map found, skipping migration")
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	defer en.Close()
-
-	var SPI uint8
-	if err = en.Lookup(uint32(0), &SPI); err != nil {
-		return err
-	}
-
-	// reads v1 map entries and writes them to V2 with the latest SPI found
-	// from EncryptMap
-	count := 0
-	parse := func(k *NodeKey, v *NodeValue) {
-		v2 := NodeValueV2{
-			NodeID: v.NodeID,
-			SPI:    SPI,
-		}
-		count++
-		m.bpfMap.Put(k, &v2)
-	}
-
-	m.logger.Debug(
-		"Migrated V1 node map entries to V2",
-		logfields.SPI, SPI,
-		logfields.Entries, count,
-	)
-
-	err = nodeMap.IterateWithCallback(parse)
-	if err != nil {
-		return fmt.Errorf("failed to iterate v1 node map %w", err)
-	}
-
-	return nil
+// Clean up the v1 map. TODO remove this in v1.19.
+func (m *nodeMapV2) migrateV1(NodeMapName string) {
+	os.Remove(filepath.Join(bpf.TCGlobalsPath(), NodeMapName))
 }
 
 func (m *nodeMapV2) init() error {
