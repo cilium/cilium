@@ -1,8 +1,0 @@
-BE: ID=<non-zero> ADDR=10.244.1.1:443 STATE=active
-BE: ID=<non-zero> ADDR=10.244.1.1:80 STATE=active
-REV: ID=<non-zero> ADDR=10.96.50.104:443
-REV: ID=<non-zero> ADDR=10.96.50.104:80
-SVC: ID=<non-zero> ADDR=10.96.50.104:443 SLOT=0 BEID=<zero> COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=<non-zero> ADDR=10.96.50.104:443 SLOT=1 BEID=<non-zero> COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=<non-zero> ADDR=10.96.50.104:80 SLOT=0 BEID=<zero> COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
-SVC: ID=<non-zero> ADDR=10.96.50.104:80 SLOT=1 BEID=<non-zero> COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
