@@ -1,0 +1,180 @@
+#! --enable-experimental-lb
+
+# Start the test application
+hive start
+
+# Wait for tables to initialize (e.g. reflector to start) before adding more objects.
+db initialized
+
+k8s add service.yaml endpointslice.yaml
+db cmp services services.table
+db cmp frontends frontends.table
+db cmp backends backends.table
+
+lb-maps cmp lbmaps-active.dump
+
+# Set the backend as terminating
+k8s update endpointslice-terminating.yaml
+db cmp frontends frontends-terminating.table
+db cmp backends backends-terminating.table
+
+lb-maps cmp lbmaps-terminating.dump
+
+# Cleanup
+k8s delete service.yaml endpointslice.yaml 
+db cmp services services_empty.table
+db cmp frontends frontends_empty.table
+db cmp backends backends_empty.table
+
+#####
+
+-- services.table --
+Name                     Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   L7ProxyPort   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+test/graceful-term-svc   k8s                  Cluster            Cluster                              0             0                     false              
+
+-- frontends.table --
+Address                 Type        ServiceName              Backends                              Status
+10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   10.244.0.112:8081/TCP (active)        Done
+
+-- frontends-terminating.table --
+Address                 Type        ServiceName              Backends                              Status
+10.96.116.33:8081/TCP   ClusterIP   test/graceful-term-svc   10.244.0.112:8081/TCP (terminating)   Done
+
+-- backends.table --
+Address                 State   Instances                NodeName                      ZoneID
+10.244.0.112:8081/TCP   active  test/graceful-term-svc   graceful-term-control-plane   0
+
+-- backends-terminating.table --
+Address                 State         Instances                NodeName                      ZoneID
+10.244.0.112:8081/TCP   terminating   test/graceful-term-svc   graceful-term-control-plane   0
+
+-- services_empty.table --
+Name         Source   NatPolicy   ExtTrafficPolicy   IntTrafficPolicy   SessionAffinity   L7ProxyPort   HealthCheckNodePort   LoopbackHostPort   SourceRanges
+
+-- frontends_empty.table --
+Address               Type        ServiceName   PortName   Status  Backends
+
+-- backends_empty.table --
+Address             State    Instances            NodeName           ZoneID
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"graceful-term-svc","namespace":"test"},"spec":{"ports":[{"port":8081}],"selector":{"app":"graceful-term-server"}}}
+  creationTimestamp: "2023-02-02T01:21:10Z"
+  name: graceful-term-svc
+  namespace: test
+  resourceVersion: "663"
+  uid: be7e85d4-6d27-400b-aff2-bd7284837fc9
+spec:
+  clusterIP: 10.96.116.33
+  clusterIPs:
+  - 10.96.116.33
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 8081
+    protocol: TCP
+    targetPort: 8081
+  selector:
+    app: graceful-term-server
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+-- endpointslice.yaml --
+addressType: IPv4
+apiVersion: discovery.k8s.io/v1
+endpoints:
+- addresses:
+  - 10.244.0.112
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: graceful-term-control-plane
+  targetRef:
+    kind: Pod
+    name: graceful-term-server
+    namespace: test
+    uid: 82f690d0-e3ed-4981-af97-30133d1b457e
+kind: EndpointSlice
+metadata:
+  creationTimestamp: "2023-02-02T01:21:10Z"
+  generateName: graceful-term-svc-
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: graceful-term-svc
+  name: graceful-term-svc-pg7nd
+  namespace: test
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Service
+    name: graceful-term-svc
+    uid: be7e85d4-6d27-400b-aff2-bd7284837fc9
+  resourceVersion: "729"
+  uid: ed13283f-c92e-4531-ae1b-f6d6aa4463b7
+ports:
+- name: ""
+  port: 8081
+  protocol: TCP
+
+-- endpointslice-terminating.yaml --
+addressType: IPv4
+apiVersion: discovery.k8s.io/v1
+endpoints:
+- addresses:
+  - 10.244.0.112
+  conditions:
+    ready: false
+    serving: true
+    terminating: true
+  nodeName: graceful-term-control-plane
+  targetRef:
+    kind: Pod
+    name: graceful-term-server
+    namespace: test
+    uid: 82f690d0-e3ed-4981-af97-30133d1b457e
+kind: EndpointSlice
+metadata:
+  creationTimestamp: "2023-02-02T01:21:10Z"
+  generateName: graceful-term-svc-
+  generation: 4
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: graceful-term-svc
+  name: graceful-term-svc-pg7nd
+  namespace: test
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Service
+    name: graceful-term-svc
+    uid: be7e85d4-6d27-400b-aff2-bd7284837fc9
+  resourceVersion: "730"
+  uid: ed13283f-c92e-4531-ae1b-f6d6aa4463b7
+ports:
+- name: ""
+  port: 8081
+  protocol: TCP
+
+-- lbmaps-active.dump --
+BE: ID=1 ADDR=10.244.0.112:8081 STATE=active
+REV: ID=1 ADDR=10.96.116.33:8081
+SVC: ID=1 ADDR=10.96.116.33:8081 SLOT=0 BEID=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.116.33:8081 SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lbmaps-terminating.dump --
+BE: ID=1 ADDR=10.244.0.112:8081 STATE=terminating
+REV: ID=1 ADDR=10.96.116.33:8081
+SVC: ID=1 ADDR=10.96.116.33:8081 SLOT=0 BEID=0 COUNT=0 QCOUNT=1 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.116.33:8081 SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
