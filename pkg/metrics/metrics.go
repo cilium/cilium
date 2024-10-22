@@ -1409,7 +1409,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Namespace:  Namespace,
 			Subsystem:  SubsystemDatapath,
 			Name:       "nat_delete_mapping_ipv6_events_total",
-			Help:       "Number of NAT delete mapping for ipv6 events received",
+			Help:       "Number of garbage collected IPv6 NAT mappings",
 		}),
 	}
 
