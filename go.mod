@@ -27,7 +27,7 @@ require (
 	github.com/cilium/linters v0.0.0-20241008062613-dfa317e9f337
 	github.com/cilium/lumberjack/v2 v2.3.0
 	github.com/cilium/proxy v0.0.0-20240909042906-ae435a5bef38
-	github.com/cilium/statedb v0.3.1
+	github.com/cilium/statedb v0.3.2
 	github.com/cilium/stream v0.0.0-20240816054136-71321e385273
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.5

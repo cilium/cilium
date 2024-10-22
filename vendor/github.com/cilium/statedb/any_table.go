@@ -128,6 +128,10 @@ func (t AnyTable) queryIndex(txn ReadTxn, index string, key string) (indexReadTx
 	return itxn, rawKey, err
 }
 
+func (t AnyTable) Changes(txn WriteTxn) (anyChangeIterator, error) {
+	return t.Meta.anyChanges(txn)
+}
+
 func (t AnyTable) TableHeader() []string {
 	zero := t.Meta.proto()
 	if tw, ok := zero.(TableWritable); ok {
