@@ -623,7 +623,7 @@ func getCiliumNetIPv6() (net.IP, error) {
 // - revertFunc to cancel the changes.
 // Called with 'localEndpoint' locked for reading!
 func (p *Proxy) CreateOrUpdateRedirect(
-	ctx context.Context, l4 policy.ProxyPolicy, id string, localEndpoint endpoint.EndpointUpdater, wg *completion.WaitGroup,
+	ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup,
 ) (
 	uint16, error, revert.FinalizeFunc, revert.RevertFunc,
 ) {
@@ -672,7 +672,7 @@ func (p *Proxy) CreateOrUpdateRedirect(
 	}
 
 	// Create a new redirect
-	port, err, newRedirectFinalizeFunc, newRedirectRevertFunc := p.createNewRedirect(ctx, l4, id, localEndpoint, wg)
+	port, err, newRedirectFinalizeFunc, newRedirectRevertFunc := p.createNewRedirect(ctx, l4, id, epID, wg)
 	if err != nil {
 		p.revertStackUnlocked(revertStack)
 		return 0, fmt.Errorf("failed to create new redirect: %w", err), nil, nil
@@ -685,7 +685,7 @@ func (p *Proxy) CreateOrUpdateRedirect(
 }
 
 func (p *Proxy) createNewRedirect(
-	ctx context.Context, l4 policy.ProxyPolicy, id string, localEndpoint endpoint.EndpointUpdater, wg *completion.WaitGroup,
+	ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup,
 ) (
 	uint16, error, revert.FinalizeFunc, revert.RevertFunc,
 ) {
@@ -699,7 +699,7 @@ func (p *Proxy) createNewRedirect(
 		return 0, proxyTypeNotFoundError(types.ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress()), nil, nil
 	}
 
-	redirect := newRedirect(localEndpoint, ppName, pp, l4.GetPort(), l4.GetProtocol())
+	redirect := newRedirect(epID, ppName, pp, l4.GetPort(), l4.GetProtocol())
 	_ = redirect.updateRules(l4) // revertFunc not used because revert will remove whole redirect
 	// Rely on create*Redirect to update rules, unlike the update case above.
 
