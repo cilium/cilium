@@ -40,7 +40,7 @@ type SharedConfig struct {
 	// K8sHeartbeatTimeout configures the timeout for apiserver heartbeat
 	K8sHeartbeatTimeout time.Duration
 
-	// K8sEnableAPIDiscovery enables Kubernetes API discovery
+	// EnableAPIDiscovery enables Kubernetes API discovery
 	EnableK8sAPIDiscovery bool
 }
 
