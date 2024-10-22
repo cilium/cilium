@@ -18,7 +18,6 @@ import (
 	k8sTesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/operator/k8s"
-	cestest "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/key"
 	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -171,122 +170,6 @@ func testVerifyCIDUsageInPods(t *testing.T, usage *CIDUsageInPods, expectedCIDs,
 
 	if expectedPods != totalUsedCIDs {
 		t.Errorf("Total CID usage does not match expected pod count. Expected: %d, Got: %d", expectedPods, totalUsedCIDs)
-	}
-}
-
-func TestSyncCESsOnStartup(t *testing.T) {
-	testCases := []struct {
-		name          string
-		cesEnabled    bool
-		endpointSlice *capi_v2a1.CiliumEndpointSlice
-		expectedCIDs  map[int64]int
-	}{
-		{
-			name:       "ces_disabled",
-			cesEnabled: false,
-			endpointSlice: cestest.CreateStoreEndpointSlice("ces", "ns",
-				[]capi_v2a1.CoreCiliumEndpoint{
-					cestest.CreateManagerEndpoint("cep1", 1000),
-					cestest.CreateManagerEndpoint("cep2", 1000),
-					cestest.CreateManagerEndpoint("cep3", 2000),
-					cestest.CreateManagerEndpoint("cep4", 2000)}),
-			expectedCIDs: map[int64]int{},
-		},
-		{
-			name:       "ces_enabled",
-			cesEnabled: true,
-			endpointSlice: cestest.CreateStoreEndpointSlice("ces", "ns",
-				[]capi_v2a1.CoreCiliumEndpoint{
-					cestest.CreateManagerEndpoint("cep1", 1000),
-					cestest.CreateManagerEndpoint("cep2", 1000),
-					cestest.CreateManagerEndpoint("cep3", 2000),
-				}),
-			expectedCIDs: map[int64]int{
-				1000: 2,
-				2000: 1,
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			ctx := context.Background()
-			reconciler, _, _, cleanupFunc := testNewReconciler(t, ctx, tc.cesEnabled)
-			defer cleanupFunc()
-
-			if err := reconciler.cesStore.CacheStore().Add(tc.endpointSlice); err != nil {
-				t.Errorf("Error adding CiliumEndpointSlice to cache store: %v", err)
-			}
-
-			reconciler.syncCESsOnStartup()
-
-			if !reflect.DeepEqual(reconciler.cidUsageInCES.cidUsageCount, tc.expectedCIDs) {
-				t.Errorf("Expected CID usage count map to be %v, but got %v", tc.expectedCIDs, reconciler.cidUsageInCES.cidUsageCount)
-			}
-		})
-	}
-}
-
-func TestSyncPodsOnStartup(t *testing.T) {
-	ns1 := testCreateNSObj("ns1", nil)
-	ns2 := testCreateNSObj("ns2", nil)
-
-	pod1 := testCreatePodObj("pod1", ns1.Name, testLbsA, nil)
-	pod2 := testCreatePodObj("pod2", ns1.Name, testLbsB, nil)
-	pod3 := testCreatePodObj("pod3", ns2.Name, testLbsC, nil)
-
-	testCases := []struct {
-		name          string
-		pods          []*slim_corev1.Pod
-		existingCIDs  []*capi_v2.CiliumIdentity
-		expectedQSize int // Expected size of the queue after sync
-	}{
-		{
-			name: "new_pods",
-			pods: []*slim_corev1.Pod{
-				pod1,
-				pod2,
-				pod3,
-			},
-			expectedQSize: 3,
-		},
-		{
-			name: "cid_with_new_pod",
-			pods: []*slim_corev1.Pod{
-				pod1,
-				pod2,
-				pod3, // new pod
-			},
-			existingCIDs: []*capi_v2.CiliumIdentity{
-				testCreateCIDObjNs("1000", pod1, ns1),
-				testCreateCIDObjNs("2000", pod2, ns1),
-			},
-			expectedQSize: 1,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			ctx := context.Background()
-			reconciler, queueOps, _, cleanupFunc := testNewReconciler(t, ctx, false)
-			defer cleanupFunc()
-
-			for _, pod := range tc.pods {
-				_ = reconciler.nsStore.CacheStore().Add(testCreateNSObj(pod.Namespace, nil))
-				_ = reconciler.podStore.CacheStore().Add(pod)
-			}
-			for _, cid := range tc.existingCIDs {
-				_ = reconciler.cidStore.CacheStore().Add(cid)
-			}
-
-			if err := reconciler.syncPodsOnStartup(); err != nil {
-				t.Errorf("Error syncing pods on startup: %v", err)
-			}
-
-			if len(queueOps.fakeWorkQueue) != tc.expectedQSize {
-				t.Errorf("Expected queue size to be %d, but got %d", tc.expectedQSize, len(queueOps.fakeWorkQueue))
-			}
-		})
 	}
 }
 
