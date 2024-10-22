@@ -23,6 +23,7 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -988,4 +989,19 @@ func (e *Endpoint) GetRealizedPolicyRuleLabelsForKey(key policyTypes.Key) (
 	var err error
 	derivedFrom, err = e.realizedPolicy.GetRuleLabels(key)
 	return derivedFrom, e.policyRevision, err == nil
+}
+
+// setDNSRulesLocked is called when the Endpoint's DNS policy has been updated.
+// endpoint lock must be held.
+func (e *Endpoint) setDNSRulesLocked(rules restore.DNSRules) {
+	e.DNSRulesV2 = rules
+	// Keep V1 in tact in case of a downgrade.
+	e.DNSRules = make(restore.DNSRules)
+	for pp, rules := range rules {
+		proto := pp.Protocol()
+		// Filter out non-UDP/TCP protocol
+		if proto == uint8(u8proto.TCP) || proto == uint8(u8proto.UDP) {
+			e.DNSRules[pp.ToV1()] = rules
+		}
+	}
 }
