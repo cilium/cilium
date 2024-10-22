@@ -404,7 +404,7 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 
 // distillPolicy distills the policy repository into a set of bpf map state
 // entries for an endpoint with the specified labels.
-func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.LabelArray, identity *identity.Identity) (MapState, error) {
+func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.LabelArray, identity *identity.Identity) (*mapState, error) {
 	sp := d.Repository.GetPolicyCache().insert(identity)
 	d.Repository.GetPolicyCache().UpdatePolicy(identity)
 	epp := sp.Consume(DummyOwner{}, testRedirects)
@@ -470,15 +470,15 @@ func Test_MergeL3(t *testing.T) {
 	}
 	selectorCache := testNewSelectorCache(identityCache)
 
-	testMapState := func(initMap MapStateMap) MapState {
-		return newMapState().WithState(initMap)
+	testMapState := func(initMap MapStateMap) *mapState {
+		return newMapState().withState(initMap)
 	}
 
 	type authResult map[identity.NumericIdentity]AuthTypes
 	tests := []struct {
 		test   int
 		rules  api.Rules
-		result MapState
+		result *mapState
 		auths  authResult
 	}{
 		{
@@ -642,7 +642,7 @@ func Test_MergeL3(t *testing.T) {
 				if err != nil {
 					t.Errorf("Policy resolution failure: %s", err)
 				}
-				if equal := assert.True(t, mapstate.Equals(tt.result), mapstate.Diff(tt.result)); !equal {
+				if equal := assert.True(t, mapstate.equalsWithLabels(tt.result), mapstate.diff(tt.result)); !equal {
 					t.Logf("Rules:\n%s\n\n", api.Rules(rules).String())
 					t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 					t.Errorf("Policy obtained didn't match expected for endpoint %s:\nObtained: %v\nExpected: %v", labelsFoo, mapstate, tt.result)
@@ -741,7 +741,7 @@ func parseTable(test string) generatedBPFKey {
 // function and non unit-test code should be seen as coincidental.
 // The algorithm represented in this function should be the source of truth
 // of our expectations when enforcing multiple types of policies.
-func testCaseToMapState(t generatedBPFKey) MapState {
+func testCaseToMapState(t generatedBPFKey) *mapState {
 	m := newMapState()
 
 	if t.L3Key.L3 != nil {
@@ -798,7 +798,7 @@ func testCaseToMapState(t generatedBPFKey) MapState {
 	return m
 }
 
-func generateMapStates() []MapState {
+func generateMapStates() []*mapState {
 	rawTestTable := []string{
 		"X	X	X	X	X	X	X	X	X	X	X	X", // 0
 		"X	X	X	X	X	X	X	X	1	0	0	0",
@@ -1064,7 +1064,7 @@ func generateMapStates() []MapState {
 		"X	X	X	X	1	1	0	1	1	0	0	1",
 		"X	X	X	X	1	1	0	1	1	0	0	1",
 	}
-	mapStates := make([]MapState, 0, len(rawTestTable))
+	mapStates := make([]*mapState, 0, len(rawTestTable))
 	for _, rawTest := range rawTestTable {
 		testCase := parseTable(rawTest)
 		mapState := testCaseToMapState(testCase)
@@ -1115,14 +1115,14 @@ func Test_MergeRules(t *testing.T) {
 	selectorCache := testNewSelectorCache(identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
-	testMapState := func(initMap MapStateMap) MapState {
-		return newMapState().WithState(initMap)
+	testMapState := func(initMap MapStateMap) *mapState {
+		return newMapState().withState(initMap)
 	}
 
 	tests := []struct {
 		test     int
 		rules    api.Rules
-		expected MapState
+		expected *mapState
 	}{
 		// The following table is derived from the Google Doc here:
 		// https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw/edit?usp=sharing
@@ -1170,7 +1170,7 @@ func Test_MergeRules(t *testing.T) {
 			struct {
 				test     int
 				rules    api.Rules
-				expected MapState
+				expected *mapState
 			}{
 				test:     i,
 				rules:    generateRule(i),
@@ -1197,7 +1197,7 @@ func Test_MergeRules(t *testing.T) {
 			// Ignore generated rules as they lap LabelArrayList which would
 			// make the tests fail.
 			if i < generatedIdx {
-				if equal := assert.True(t, mapstate.Equals(tt.expected), mapstate.Diff(tt.expected)); !equal {
+				if equal := assert.True(t, mapstate.equalsWithLabels(tt.expected), mapstate.diff(tt.expected)); !equal {
 					require.EqualExportedValuesf(t, tt.expected, mapstate, "Policy obtained didn't match expected for endpoint %s", labelsFoo)
 					t.Logf("Rules:\n%s\n\n", tt.rules.String())
 					t.Logf("Policy Trace: \n%s\n", logBuffer.String())
@@ -1209,10 +1209,10 @@ func Test_MergeRules(t *testing.T) {
 			// ignore it and test only for the MapState that we are expecting
 			// to be plumbed into the datapath.
 			mapstate.ForEach(func(k Key, v MapStateEntry) bool {
-				if len(v.DerivedFromRules) == 0 {
+				if len(v.derivedFromRules) == 0 {
 					return true
 				}
-				v.DerivedFromRules = labels.LabelArrayList(nil).Sort()
+				v.derivedFromRules = labels.LabelArrayList(nil).Sort()
 				mapstate.insert(k, v)
 				return true
 			})
@@ -1244,14 +1244,14 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 	selectorCache := testNewSelectorCache(identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
-	testMapState := func(initMap MapStateMap) MapState {
-		return newMapState().WithState(initMap)
+	testMapState := func(initMap MapStateMap) *mapState {
+		return newMapState().withState(initMap)
 	}
 
 	tests := []struct {
 		test     int
 		rules    api.Rules
-		expected MapState
+		expected *mapState
 	}{
 		// The following table is derived from the Google Doc here:
 		// https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw/edit?usp=sharing
@@ -1305,8 +1305,8 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			require.Truef(t, mapstate.Equals(tt.expected),
-				"Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, mapstate.Diff(tt.expected))
+			require.Truef(t, mapstate.equalsWithLabels(tt.expected),
+				"Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, mapstate.diff(tt.expected))
 		})
 	}
 }
@@ -1326,15 +1326,15 @@ func Test_AllowAll(t *testing.T) {
 	selectorCache := testNewSelectorCache(identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
-	testMapState := func(initMap MapStateMap) MapState {
-		return newMapState().WithState(initMap)
+	testMapState := func(initMap MapStateMap) *mapState {
+		return newMapState().withState(initMap)
 	}
 
 	tests := []struct {
 		test     int
 		selector api.EndpointSelector
 		rules    api.Rules
-		expected MapState
+		expected *mapState
 	}{
 		{0, api.EndpointSelectorNone, api.Rules{rule____AllowAll}, testMapState(MapStateMap{mapKeyAllowAll__: mapEntryL7None_(lblsAllowAllIngress)})},
 		{1, api.WildcardEndpointSelector, api.Rules{rule____AllowAll}, testMapState(MapStateMap{mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll)})},
@@ -1355,7 +1355,7 @@ func Test_AllowAll(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			if equal := assert.True(t, mapstate.Equals(tt.expected), mapstate.Diff(tt.expected)); !equal {
+			if equal := assert.True(t, mapstate.equalsWithLabels(tt.expected), mapstate.diff(tt.expected)); !equal {
 				t.Logf("Rules:\n%s\n\n", tt.rules.String())
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 				t.Errorf("Policy obtained didn't match expected for endpoint %s", labelsFoo)
@@ -1393,17 +1393,17 @@ var (
 	mapKeyL3WorldEgressIPv6   = EgressKey().WithIdentity(worldReservedIDIPv6)
 	mapEntryDeny              = MapStateEntry{
 		ProxyPort:        0,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		derivedFromRules: labels.LabelArrayList{nil},
 		IsDeny:           true,
 	}
 	mapEntryAllow = MapStateEntry{
 		ProxyPort:        0,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		derivedFromRules: labels.LabelArrayList{nil},
 	}
 	worldLabelArrayList         = labels.LabelArrayList{labels.LabelWorld.LabelArray()}
 	mapEntryWorldDenyWithLabels = MapStateEntry{
 		ProxyPort:        0,
-		DerivedFromRules: worldLabelArrayList,
+		derivedFromRules: worldLabelArrayList,
 		IsDeny:           true,
 	}
 
@@ -1661,14 +1661,14 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 	selectorCache := testNewSelectorCache(identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
-	testMapState := func(initMap MapStateMap) MapState {
-		return newMapState().WithState(initMap)
+	testMapState := func(initMap MapStateMap) *mapState {
+		return newMapState().withState(initMap)
 	}
 
 	tests := []struct {
 		test     string
 		rules    api.Rules
-		expected MapState
+		expected *mapState
 	}{
 		{"deny_world_no_labels", api.Rules{ruleAllowAllIngress, ruleL3DenyWorld, ruleL3AllowWorldIP}, testMapState(MapStateMap{
 			mapKeyAnyIngress:             mapEntryAllow,
@@ -1789,7 +1789,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			if equal := assert.True(t, mapstate.Equals(tt.expected), mapstate.Diff(tt.expected)); !equal {
+			if equal := assert.True(t, mapstate.equalsWithLabels(tt.expected), mapstate.diff(tt.expected)); !equal {
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 				t.Errorf("Policy test, %q, obtained didn't match expected for endpoint %s", tt.test, labelsFoo)
 			}
@@ -1838,7 +1838,7 @@ func Test_Allowception(t *testing.T) {
 		one3Z8Identity:                        lblOne3Z8,  // 16331 (0x3fcb): ["1.0.0.0/8"]
 		one0Z32Identity:                       lblOne0Z32, // 16332 (0x3fcc): ["1.1.1.1/32"]
 	}
-	computedMapStateForAllowCeption := NewMapState()
+	computedMapStateForAllowCeption := newMapState()
 	selectorCache := testNewSelectorCache(identityCache)
 
 	computedMapStateForAllowCeption.insert(ingressKey(0, 0, 0, 0), mapEntryL7None_(lblsAllowAllIngress))
@@ -1872,7 +1872,7 @@ func Test_Allowception(t *testing.T) {
 	if err != nil {
 		t.Errorf("Policy resolution failure: %s", err)
 	}
-	if equal := assert.True(t, mapstate.Equals(computedMapStateForAllowCeption), mapstate.Diff(computedMapStateForAllowCeption)); !equal {
+	if equal := assert.True(t, mapstate.equalsWithLabels(computedMapStateForAllowCeption), mapstate.diff(computedMapStateForAllowCeption)); !equal {
 		t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 		t.Errorf("Policy obtained didn't match expected for endpoint %s", labelsFoo)
 	}
@@ -1896,14 +1896,14 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 	selectorCache := testNewSelectorCache(identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
-	testMapState := func(initMap MapStateMap) MapState {
-		return newMapState().WithState(initMap)
+	testMapState := func(initMap MapStateMap) *mapState {
+		return newMapState().withState(initMap)
 	}
 
 	tests := []struct {
 		test     string
 		rules    api.Rules
-		expected MapState
+		expected *mapState
 	}{
 		{"host_cidr_select", api.Rules{ruleL3AllowHostEgress}, testMapState(MapStateMap{
 			mapKeyL3UnknownIngress: mapEntryL3UnknownIngress,
@@ -1925,7 +1925,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			if equal := assert.True(t, mapstate.Equals(tt.expected), mapstate.Diff(tt.expected)); !equal {
+			if equal := assert.True(t, mapstate.equalsWithLabels(tt.expected), mapstate.diff(tt.expected)); !equal {
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 				t.Errorf("Policy test, %q, obtained didn't match expected for endpoint %s", tt.test, labelsFoo)
 			}
@@ -2090,8 +2090,6 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 
 			require.NoError(t, err)
 			require.NotNil(t, ms)
-			mapStateP, ok := ms.(*mapState)
-			require.True(t, ok, "failed type coercion")
 
 			for _, rt := range tt.rangeTests {
 				for i := rt.startPort; i <= rt.endPort; i++ {
@@ -2101,11 +2099,11 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 						// IngressCoversContext just checks the "From" labels of the search context.
 						require.Equalf(t, api.Allowed.String(), res.IngressCoversContext(&ctxFromA).String(), "Requesting port %d", i)
 
-						require.Truef(t, mapStateAllowsKey(mapStateP, key), "key (%v) not allowed", key)
+						require.Truef(t, mapStateAllowsKey(ms, key), "key (%v) not allowed", key)
 					} else {
 						// IngressCoversContext just checks the "From" labels of the search context.
 						require.Equalf(t, api.Denied.String(), res.IngressCoversContext(&ctxFromA).String(), "Requesting port %d", i)
-						require.Falsef(t, mapStateAllowsKey(mapStateP, key), "key (%v) allowed", key)
+						require.Falsef(t, mapStateAllowsKey(ms, key), "key (%v) allowed", key)
 
 					}
 				}
