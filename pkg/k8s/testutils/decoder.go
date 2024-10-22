@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -61,6 +62,11 @@ func init() {
 func DecodeObject(bytes []byte) (runtime.Object, error) {
 	obj, _, err := Decoder().Decode(bytes, nil, nil)
 	return obj, err
+}
+
+func DecodeObjectGVK(bytes []byte) (runtime.Object, *schema.GroupVersionKind, error) {
+	obj, gvk, err := Decoder().Decode(bytes, nil, nil)
+	return obj, gvk, err
 }
 
 func DecodeFile(path string) (runtime.Object, error) {
