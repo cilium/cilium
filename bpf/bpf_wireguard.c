@@ -13,6 +13,7 @@
 #include "lib/trace.h"
 #include "lib/drop.h"
 #include "lib/nodeport.h"
+#include "lib/nodeport_egress.h"
 
 /* to-wireguard is attached as a tc egress filter to the cilium_wg0 device.
  */

@@ -33,6 +33,7 @@ var files = map[uint8]string{
 	112: "encap.h",
 	113: "encrypt.h",
 	114: "host_firewall.h",
+	115: "nodeport_egress.h",
 
 	// @@ source files list end
 }
