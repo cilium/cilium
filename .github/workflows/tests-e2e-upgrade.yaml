@@ -569,12 +569,12 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-      - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
-        shell: bash
+      - name: Setup Cilium CLI flags
+        id: cli-flags
         run: |
           EXTRA=()
           if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA+=("--secondary-network-iface=eth1")
+            EXTRA+=("\"--secondary-network-iface=eth1\"")
           fi
 
           # it's fine to ignore the "No egress gateway found" drop reason as this may be caused by the kind=echo pods
@@ -582,38 +582,48 @@ jobs:
           #
           # The actual connectivity test will ensure that the map is in sync with the policy and that egressgw traffic
           # always go through the correct gateway
-          EXTRA+=("--expected-drop-reasons=+No egress gateway found")
+          EXTRA+=("\"--expected-drop-reasons=+No egress gateway found\"")
 
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-            --include-conn-disrupt-test \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
+          echo flags="--include-unsafe-tests \
+            --collect-sysdump-on-failure \
             --flush-ct \
+            --sysdump-hubble-flows-count=1000000 \
+            --sysdump-hubble-flows-timeout=5m \
+            --sysdump-output-filename \"cilium-sysdump-${{ matrix.name }}-<ts>\" \
+            --junit-file \"cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml\" \
+            --junit-property github_job_step=\"Run tests upgrade 2 (${{ matrix.name }})\" \
+            ${EXTRA[@]}" >> $GITHUB_OUTPUT
+
+      - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after upgrade' }}
+        shell: bash
+        run: |
+          cilium connectivity test \
+            --include-conn-disrupt-test \
+            --test "no-interrupted-connections" \
+            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
+            ${{ steps.cli-flags.outputs.flags }}
+
+      - name: Run sequential Cilium tests
+        shell: bash
+        run: |
+          cilium connectivity test \
             --test "seq-.*" \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
-            --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
-            "${EXTRA[@]}"
+            ${{ steps.cli-flags.outputs.flags }}
 
-          # --flush-ct interrupts the flows, so we need to set up again.
-          cilium connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --conn-disrupt-dispatch-interval 0ms
-
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-            --include-conn-disrupt-test \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --flush-ct \
+      - name: Run concurrent Cilium tests
+        shell: bash
+        run: |
+          cilium connectivity test \
             --test-concurrency=${{ env.test_concurrency }} \
             --test "!seq-.*" \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
-            --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
-            "${EXTRA[@]}"
+            ${{ steps.cli-flags.outputs.flags }}
 
-          # --flush-ct interrupts the flows, so we need to set up again.
-          cilium connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
+      - name: Setup conn dirstupt tests after a flush-ct Cilium tests
+        shell: bash
+        run: |
+          cilium connectivity test \
+            --include-conn-disrupt-test \
+            --conn-disrupt-test-setup \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
             --conn-disrupt-dispatch-interval 0ms
 
@@ -632,45 +642,28 @@ jobs:
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
-          EXTRA=()
-          if [ "${{ matrix.secondary-network }}" = "true" ]; then
-            EXTRA+=("--secondary-network-iface=eth1")
-          fi
-
-          # it's fine to ignore the "No egress gateway found" drop reason as this may be caused by the kind=echo pods
-          # sending traffic while the egressgw policy map is still being populated.
-          #
-          # The actual connectivity test will ensure that the map is in sync with the policy and that egressgw traffic
-          # always go through the correct gateway
-          EXTRA+=("--expected-drop-reasons=+No egress gateway found")
-
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+          cilium connectivity test \
             --include-conn-disrupt-test \
+            --test "no-interrupted-connections" \
             --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --flush-ct \
+            ${{ steps.cli-flags.outputs.flags }}
+
+      - name: Run sequential Cilium tests
+        if: ${{ matrix.skip-upgrade != 'true' }}
+        shell: bash
+        run: |
+          cilium connectivity test \
             --test "seq-.*" \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
-            --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
-            "${EXTRA[@]}"
+            ${{ steps.cli-flags.outputs.flags }}
 
-          # --flush-ct interrupts the flows, so we need to set up again.
-          cilium connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --conn-disrupt-dispatch-interval 0ms
-
-          cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
-            --include-conn-disrupt-test \
-            --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
-            --flush-ct \
-            --test "!seq-.*" \
+      - name: Run concurrent Cilium tests
+        if: ${{ matrix.skip-upgrade != 'true' }}
+        shell: bash
+        run: |
+          cilium connectivity test \
             --test-concurrency=${{ env.test_concurrency }} \
-            --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
-            --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-            --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
-            --junit-property github_job_step="Run tests upgrade 2 (${{ matrix.name }})" \
-            "${EXTRA[@]}"
+            --test "!seq-.*" \
+            ${{ steps.cli-flags.outputs.flags }}
 
       - name: Fetch artifacts
         if: ${{ !success() }}
