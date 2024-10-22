@@ -1,7 +1,0 @@
-BE: ID=<non-zero> ADDR=10.244.1.113:80 STATE=active
-REV: ID=<non-zero> ADDR=<nodePort>
-REV: ID=<non-zero> ADDR=<zero>
-SVC: ID=<non-zero> ADDR=<nodePort> SLOT=0 BEID=<zero> COUNT=1 QCOUNT=0 FLAGS=HostPort
-SVC: ID=<non-zero> ADDR=<nodePort> SLOT=1 BEID=<non-zero> COUNT=0 QCOUNT=0 FLAGS=HostPort
-SVC: ID=<non-zero> ADDR=<zero> SLOT=0 BEID=<zero> COUNT=1 QCOUNT=0 FLAGS=HostPort+non-routable
-SVC: ID=<non-zero> ADDR=<zero> SLOT=1 BEID=<non-zero> COUNT=0 QCOUNT=0 FLAGS=HostPort+non-routable
