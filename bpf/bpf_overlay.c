@@ -31,6 +31,7 @@
 #include "lib/drop.h"
 #include "lib/identity.h"
 #include "lib/nodeport.h"
+#include "lib/nodeport_egress.h"
 #include "lib/clustermesh.h"
 #include "lib/egress_gateway.h"
 
