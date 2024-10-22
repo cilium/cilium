@@ -6,6 +6,7 @@ package benchmark
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -16,8 +17,13 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
+	"github.com/cilium/stream"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -87,7 +93,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		db     *statedb.DB
 		bo     *experimental.BPFOps
 	)
-	h := experimental.TestHive(maps, services, pods, endpoints, 0.0, &writer, &db, &bo)
+	h := testHive(maps, services, pods, endpoints, &writer, &db, &bo)
 
 	if err := h.Start(log, context.TODO()); err != nil {
 		panic(err)
@@ -112,11 +118,11 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		//
 		fmt.Printf("Iteration %d: upsert ", i)
 		for _, svc := range svcs {
-			services <- experimental.UpsertEvent(svc)
+			services <- upsertEvent(svc)
 		}
 
 		for _, slice := range epSlices {
-			endpoints <- experimental.UpsertEvent(slice)
+			endpoints <- upsertEvent(slice)
 		}
 
 		fmt.Print("wait ")
@@ -133,7 +139,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		}
 
 		if validate {
-			if err := experimental.CheckTables(db, writer, svcs, epSlices); err != nil {
+			if err := checkTables(db, writer, svcs, epSlices); err != nil {
 				fmt.Printf("checking tables failed with error: %v", err)
 				panic("")
 			} else {
@@ -153,18 +159,18 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		// Feed in deletions of all objects.
 		//
 		for _, svc := range svcs {
-			services <- experimental.DeleteEvent(svc)
+			services <- deleteEvent(svc)
 		}
 
 		for _, slice := range epSlices {
-			endpoints <- experimental.DeleteEvent(slice)
+			endpoints <- deleteEvent(slice)
 		}
 
 		fmt.Printf("wait ")
 		// Tables and maps should now be empty.
 		cleanedUp := false
 		for waitStart := time.Now(); time.Now().Sub(waitStart) < 10*time.Second; time.Sleep(10 * time.Millisecond) {
-			cleanedUp = experimental.FastCheckEmptyTables(db, writer, bo)
+			cleanedUp = experimental.FastCheckEmptyTablesAndState(db, writer, bo)
 			cleanedUp = cleanedUp && bo.LBMaps.IsEmpty()
 			if cleanedUp {
 				break
@@ -345,4 +351,244 @@ func ServicesAndSlices(testSize int) (svcs []*slim_corev1.Service, epSlices []*k
 		epSlices = append(epSlices, k8s.ParseEndpointSliceV1(&tmpSlice))
 	}
 	return
+}
+
+func upsertEvent[Obj k8sRuntime.Object](obj Obj) resource.Event[Obj] {
+	return resource.Event[Obj]{
+		Object: obj,
+		Key:    resource.NewKey(obj),
+		Kind:   resource.Upsert,
+		Done:   func(error) {},
+	}
+}
+
+func deleteEvent[Obj k8sRuntime.Object](obj Obj) resource.Event[Obj] {
+	return resource.Event[Obj]{
+		Object: obj,
+		Key:    resource.NewKey(obj),
+		Kind:   resource.Delete,
+		Done:   func(error) {},
+	}
+}
+
+func checkTables(db *statedb.DB, writer *experimental.Writer, svcs []*slim_corev1.Service, epSlices []*k8s.Endpoints) error {
+	txn := db.ReadTxn()
+	var err error
+
+	{
+		if servicesNo := writer.Services().NumObjects(txn); servicesNo != len(svcs) {
+			err = errors.Join(err, fmt.Errorf("Incorrect number of services, got %d, want %d", servicesNo, len(svcs)))
+		} else {
+			i := 0
+			for svc := range writer.Services().All(txn) {
+				want := svcs[i]
+				if svc.Name.Namespace != want.Namespace {
+					err = errors.Join(err, fmt.Errorf("Incorrect namespace for service #%06d, got %q, want %q", i, svc.Name.Namespace, want.Namespace))
+				}
+				if svc.Name.Name != want.Name {
+					err = errors.Join(err, fmt.Errorf("Incorrect name for service #%06d, got %q, want %q", i, svc.Name.Name, want.Name))
+				}
+				if svc.Source != "k8s" {
+					err = errors.Join(err, fmt.Errorf("Incorrect source for service #%06d, got %q, want %q", i, svc.Source, "k8s"))
+				}
+				if svc.ExtTrafficPolicy != loadbalancer.SVCTrafficPolicyCluster {
+					err = errors.Join(err, fmt.Errorf("Incorrect external traffic policy for service #%06d, got %q, want %q", i, svc.ExtTrafficPolicy, loadbalancer.SVCTrafficPolicyCluster))
+				}
+				if svc.IntTrafficPolicy != loadbalancer.SVCTrafficPolicyCluster {
+					err = errors.Join(err, fmt.Errorf("Incorrect internal traffic policy for service #%06d, got %q, want %q", i, svc.IntTrafficPolicy, loadbalancer.SVCTrafficPolicyCluster))
+				}
+
+				i++
+			}
+		}
+	}
+
+	{
+		if frontendsNo := writer.Frontends().NumObjects(txn); frontendsNo != len(svcs) {
+			err = errors.Join(err, fmt.Errorf("Incorrect number of frontends, got %d, want %d", frontendsNo, len(svcs)))
+		} else {
+			i := 0
+			for fe := range writer.Frontends().All(txn) {
+				want := svcs[i]
+				if fe.ServiceName.Namespace != want.Namespace {
+					err = errors.Join(err, fmt.Errorf("Incorrect namespace for frontend #%06d, got %q, want %q", i, fe.ServiceName.Namespace, want.Namespace))
+				}
+				if fe.ServiceName.Name != want.Name {
+					err = errors.Join(err, fmt.Errorf("Incorrect name for frontend #%06d, got %q, want %q", i, fe.ServiceName.Name, want.Name))
+				}
+				wantIP, _ := netip.ParseAddr(want.Spec.ClusterIP)
+				if fe.Address.AddrCluster.Addr() != wantIP {
+					err = errors.Join(err, fmt.Errorf("Incorrect address for frontend #%06d, got %v, want %v", i, fe.Address.AddrCluster.Addr(), wantIP))
+				}
+				if fe.Type != loadbalancer.SVCType(want.Spec.Type) {
+					err = errors.Join(err, fmt.Errorf("Incorrect service type for frontend #%06d, got %v, want %v", i, fe.Type, loadbalancer.SVCType(want.Spec.Type)))
+				}
+				if fe.PortName != loadbalancer.FEPortName(want.Spec.Ports[0].Name) {
+					err = errors.Join(err, fmt.Errorf("Incorrect port name for frontend #%06d, got %v, want %v", i, fe.PortName, loadbalancer.FEPortName(want.Spec.Ports[0].Name)))
+				}
+				if fe.Status.Kind != "Done" {
+					err = errors.Join(err, fmt.Errorf("Incorrect status for frontend #%06d, got %v, want %v", i, fe.Status.Kind, "Done"))
+				}
+				for wantAddr := range epSlices[i].Backends { // There is only one element in this map.
+					if fe.Backends[0].AddrCluster != wantAddr {
+						err = errors.Join(err, fmt.Errorf("Incorrect backend address for frontend #%06d, got %v, want %v", i, fe.Backends[0].AddrCluster, wantAddr))
+					}
+				}
+
+				i++
+			}
+		}
+	}
+
+	{
+		if backendsNo := writer.Backends().NumObjects(txn); backendsNo != len(epSlices) {
+			err = errors.Join(err, fmt.Errorf("Incorrect number of backends, got %d, want %d", backendsNo, len(epSlices)))
+		} else {
+			i := 0
+			for be := range writer.Backends().All(txn) {
+				want := epSlices[i]
+				for wantAddr, wantBe := range want.Backends { // There is only one element in this map.
+					if be.AddrCluster != wantAddr {
+						err = errors.Join(err, fmt.Errorf("Incorrect address for backend #%06d, got %v, want %v", i, be.AddrCluster, wantAddr))
+					}
+					for _, wantPort := range wantBe.Ports { // There is only one element in this map.
+						if be.Port != wantPort.Port {
+							err = errors.Join(err, fmt.Errorf("Incorrect port for backend #%06d, got %v, want %v", i, be.Port, wantPort.Port))
+						}
+						if be.Protocol != wantPort.Protocol {
+							err = errors.Join(err, fmt.Errorf("Incorrect protocol for backend #%06d, got %v, want %v", i, be.Protocol, wantPort.Protocol))
+						}
+					}
+					if be.NodeName != wantBe.NodeName {
+						err = errors.Join(err, fmt.Errorf("Incorrect node name for backend #%06d, got %v, want %v", i, be.NodeName, wantBe.NodeName))
+					}
+				}
+				if be.Instances.Len() != 1 {
+					err = errors.Join(err, fmt.Errorf("Incorrect instances count for backend #%06d, got %v, want %v", i, be.Instances.Len(), 1))
+				} else {
+					for svcName, instance := range be.Instances.All() { // There should
+						if svcName.Name != svcs[i].Name {
+							err = errors.Join(err, fmt.Errorf("Incorrect service name for backend #%06d, got %v, want %v", i, svcName.Name, svcs[i].Name))
+						}
+						if state, tmpErr := instance.State.String(); tmpErr != nil || state != "active" {
+							err = errors.Join(err, fmt.Errorf("Incorrect state for backend #%06d, got %q, want %q", i, state, "active"))
+						}
+						if instance.PortName != svcs[i].Spec.Ports[0].Name {
+							err = errors.Join(err, fmt.Errorf("Incorrect instance port name for backend #%06d, got %q, want %q", i, instance.PortName, svcs[i].Spec.Ports[0].Name))
+						}
+					}
+				}
+
+				i++
+			}
+		}
+	}
+
+	return err
+}
+
+var (
+	nodePortAddrs = []netip.Addr{
+		netip.MustParseAddr("10.0.0.3"),
+		netip.MustParseAddr("2002::1"),
+	}
+)
+
+func testHive(maps experimental.LBMaps,
+	services chan resource.Event[*slim_corev1.Service],
+	pods chan resource.Event[*slim_corev1.Pod],
+	endpoints chan resource.Event[*k8s.Endpoints],
+	writer **experimental.Writer,
+	db **statedb.DB,
+	bo **experimental.BPFOps,
+) *hive.Hive {
+	extConfig := experimental.ExternalConfig{
+		ExternalClusterIP:     false,
+		EnableSessionAffinity: true,
+		NodePortMin:           option.NodePortMinDefault,
+		NodePortMax:           option.NodePortMaxDefault,
+	}
+
+	return hive.New(
+		cell.Module(
+			"loadbalancer-test",
+			"Test module",
+
+			cell.Provide(
+				func() experimental.Config {
+					return experimental.Config{
+						EnableExperimentalLB: true,
+						RetryBackoffMin:      time.Millisecond,
+						RetryBackoffMax:      time.Millisecond,
+					}
+				},
+				func() experimental.ExternalConfig { return extConfig },
+			),
+
+			cell.Provide(func() experimental.StreamsOut {
+				return experimental.StreamsOut{
+					ServicesStream:  stream.FromChannel(services),
+					EndpointsStream: stream.FromChannel(endpoints),
+					PodsStream:      stream.FromChannel(pods),
+				}
+			}),
+
+			cell.Provide(
+				func(lc cell.Lifecycle) experimental.LBMaps {
+					if rm, ok := maps.(*experimental.BPFLBMaps); ok {
+						lc.Append(rm)
+					}
+					return maps
+				},
+			),
+
+			cell.Invoke(func(db_ *statedb.DB, w *experimental.Writer, bo_ *experimental.BPFOps) {
+				*db = db_
+				*writer = w
+				*bo = bo_
+			}),
+
+			// Provides [Writer] API and the load-balancing tables.
+			experimental.TablesCell,
+
+			// Reflects Kubernetes services and endpoints to the load-balancing tables
+			// using the [Writer].
+			experimental.ReflectorCell,
+
+			// Reconcile tables to BPF maps
+			experimental.ReconcilerCell,
+
+			cell.Provide(
+				tables.NewNodeAddressTable,
+				statedb.RWTable[tables.NodeAddress].ToTable,
+			),
+			cell.Invoke(func(db *statedb.DB, nodeAddrs statedb.RWTable[tables.NodeAddress]) {
+				db.RegisterTable(nodeAddrs)
+				txn := db.WriteTxn(nodeAddrs)
+
+				for _, addr := range nodePortAddrs {
+					nodeAddrs.Insert(
+						txn,
+						tables.NodeAddress{
+							Addr:       addr,
+							NodePort:   true,
+							Primary:    true,
+							DeviceName: "eth0",
+						},
+					)
+					nodeAddrs.Insert(
+						txn,
+						tables.NodeAddress{
+							Addr:       addr,
+							NodePort:   true,
+							Primary:    true,
+							DeviceName: "eth0",
+						},
+					)
+				}
+				txn.Commit()
+
+			}),
+		),
+	)
 }
