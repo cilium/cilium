@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/policy"
-	endpointtest "github.com/cilium/cilium/pkg/proxy/endpoint/test"
 	"github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -226,18 +225,12 @@ func TestCreateOrUpdateRedirectMissingListener(t *testing.T) {
 	p, cleaner := proxyForTest()
 	defer cleaner()
 
-	ep := &endpointtest.ProxyUpdaterMock{
-		Id:   1000,
-		Ipv4: "10.0.0.1",
-		Ipv6: "f00d::1",
-	}
-
 	l4 := &fakeProxyPolicy{}
 
 	ctx := context.TODO()
 	wg := completion.NewWaitGroup(ctx)
 
-	proxyPort, err, finalizeFunc, revertFunc := p.CreateOrUpdateRedirect(ctx, l4, "dummy-proxy-id", ep, wg)
+	proxyPort, err, finalizeFunc, revertFunc := p.CreateOrUpdateRedirect(ctx, l4, "dummy-proxy-id", 1000, wg)
 	require.Equal(t, uint16(0), proxyPort)
 	require.Error(t, err)
 	require.Nil(t, finalizeFunc)
