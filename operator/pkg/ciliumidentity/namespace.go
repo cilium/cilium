@@ -5,6 +5,7 @@ package ciliumidentity
 
 import (
 	"context"
+	"sync"
 
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -19,9 +20,11 @@ func nsResourceKey(namespace string) resource.Key {
 	return resource.Key{Name: namespace}
 }
 
-func (c *Controller) processNamespaceEvents(ctx context.Context) error {
+func (c *Controller) processNamespaceEvents(ctx context.Context, wg *sync.WaitGroup) error {
 	for event := range c.namespace.Events(ctx) {
 		switch event.Kind {
+		case resource.Sync:
+			wg.Done()
 		case resource.Upsert:
 			c.logger.Debug("Got Upsert Namespace event", logfields.K8sNamespace, event.Key.String())
 
