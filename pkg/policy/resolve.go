@@ -62,7 +62,7 @@ type EndpointPolicy struct {
 	// Proxy port 0 indicates no proxy redirection.
 	// All fields within the Key and the proxy port must be in host byte-order.
 	// Must only be accessed with PolicyOwner (aka Endpoint) lock taken.
-	policyMapState MapState
+	policyMapState *mapState
 
 	// policyMapChanges collects pending changes to the PolicyMapState
 	policyMapChanges MapChanges
@@ -149,7 +149,7 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, redirects map[st
 		calculatedPolicy = &EndpointPolicy{
 			selectorPolicy: p,
 			VersionHandle:  version,
-			policyMapState: NewMapState(),
+			policyMapState: newMapState(),
 			policyMapChanges: MapChanges{
 				firstVersion: version.Version(),
 			},
@@ -196,11 +196,12 @@ func (p *EndpointPolicy) GetPolicyMap() MapState {
 // MapState. If the main argument is nil, then this method
 // will initialize a new MapState object for the caller.
 func (p *EndpointPolicy) SetPolicyMap(ms MapState) {
-	if ms == nil {
-		p.policyMapState = NewMapState()
+	m, ok := ms.(*mapState)
+	if !ok || m == nil {
+		p.policyMapState = newMapState()
 		return
 	}
-	p.policyMapState = ms
+	p.policyMapState = m
 }
 
 // Detach removes EndpointPolicy references from selectorPolicy
@@ -223,7 +224,7 @@ func (p *EndpointPolicy) Detach() {
 // it. We keep general insert functions private so that the caller can only insert to this specific
 // map.
 func NewMapStateWithInsert() (MapState, func(k Key, e MapStateEntry)) {
-	currentMap := NewMapState()
+	currentMap := newMapState()
 
 	return currentMap, func(k Key, e MapStateEntry) {
 		currentMap.insert(k, e)
@@ -335,6 +336,6 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 func NewEndpointPolicy(repo PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
 		selectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
-		policyMapState: NewMapState(),
+		policyMapState: newMapState(),
 	}
 }

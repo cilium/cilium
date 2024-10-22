@@ -343,8 +343,8 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	policy.policyMapChanges.firstVersion = 0
 	// policyMapState cannot be compared via DeepEqual
-	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
-		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
+	require.Truef(t, policy.policyMapState.equalsWithLabels(expectedEndpointPolicy.policyMapState),
+		policy.policyMapState.diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
 	require.Equal(t, &expectedEndpointPolicy, policy)
@@ -455,8 +455,8 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	policy.policyMapChanges.firstVersion = 0
 	// policyMapState cannot be compared via DeepEqual
-	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
-		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
+	require.Truef(t, policy.policyMapState.equalsWithLabels(expectedEndpointPolicy.policyMapState),
+		policy.policyMapState.diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
 	require.Equal(t, &expectedEndpointPolicy, policy)
@@ -563,8 +563,8 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	policy.policyMapChanges.firstVersion = 0
 	// policyMapState cannot be compared via DeepEqual
-	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
-		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
+	require.Truef(t, policy.policyMapState.equalsWithLabels(expectedEndpointPolicy.policyMapState),
+		policy.policyMapState.diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
 	require.Equal(t, &expectedEndpointPolicy, policy)
@@ -750,8 +750,8 @@ func TestMapStateWithIngress(t *testing.T) {
 	policy.policyMapChanges.mutex = lock.Mutex{}
 	policy.policyMapChanges.firstVersion = 0
 	// policyMapState cannot be compared via DeepEqual
-	require.Truef(t, policy.policyMapState.Equals(expectedEndpointPolicy.policyMapState),
-		policy.policyMapState.Diff(expectedEndpointPolicy.policyMapState))
+	require.Truef(t, policy.policyMapState.equalsWithLabels(expectedEndpointPolicy.policyMapState),
+		policy.policyMapState.diff(expectedEndpointPolicy.policyMapState))
 	policy.policyMapState = nil
 	expectedEndpointPolicy.policyMapState = nil
 	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
