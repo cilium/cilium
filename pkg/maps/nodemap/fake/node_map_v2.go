@@ -14,8 +14,6 @@ type fakeNodeMapV2 struct {
 	ids map[string]nodemap.NodeValueV2
 }
 
-var _ nodemap.Map = &fakeNodeMap{}
-
 func NewFakeNodeMapV2() *fakeNodeMapV2 {
 	return &fakeNodeMapV2{
 		ids: map[string]nodemap.NodeValueV2{},
