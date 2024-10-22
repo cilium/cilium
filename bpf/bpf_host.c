@@ -45,6 +45,7 @@
 #include "lib/nat.h"
 #include "lib/lb.h"
 #include "lib/nodeport.h"
+#include "lib/nodeport_egress.h"
 #include "lib/eps.h"
 #include "lib/host_firewall.h"
 #include "lib/egress_gateway.h"
