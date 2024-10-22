@@ -22,7 +22,7 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium \
     make GOARCH=${TARGETARCH} DESTDIR=/out/${TARGETOS}/${TARGETARCH} ${MODIFIERS} \
     -C cilium-cli install
 
-FROM docker.io/library/ubuntu:24.04@sha256:ab64a8382e935382638764d8719362bb50ee418d944c1f3d26e0c99fae49a345 AS release
+FROM docker.io/library/ubuntu:24.04@sha256:99c35190e22d294cdace2783ac55effc69d32896daaa265f0bbedbcde4fbe3e5 AS release
 # TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
