@@ -1,0 +1,10 @@
+[{
+  "labels": [{"key": "name", "value": "from-init"}],
+  "endpointSelector": {"matchLabels":{"app":"myService"}},
+  "ingress": [{
+    "fromEntities": ["init"],
+    "toPorts": [
+      {"ports":[ {"port": "53", "protocol": "UDP"}]}
+    ]
+  }]
+}]

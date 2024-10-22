@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+syntax = "proto3";
+option go_package = ".;bpftests";
+
+// TRF (Test Result Format)
+message SuiteResult {
+    message TestResult {
+        enum TestStatus {
+            // Unable to execute test, not indicative of the test itself, usually an unexpected error in the framework
+            // like out of memory conditions.
+            ERROR = 0;
+            PASS = 1;
+            FAIL = 2;
+            // The test was skipped, for example because the feature under test is disabled or unavailable with the
+            // current settings or on this platform.
+            SKIP = 3;
+        }
+
+        string name = 1;
+        TestStatus status = 2;
+        repeated Log test_log = 3;
+    }
+
+    repeated TestResult results = 1;
+    repeated Log suite_log = 2;
+}
+
+// bpf_trace_printk style logging
+message Log {
+    string fmt = 1;
+    repeated fixed64 args = 2;
+}

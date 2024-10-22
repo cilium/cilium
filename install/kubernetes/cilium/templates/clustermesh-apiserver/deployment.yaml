@@ -1,0 +1,465 @@
+{{- if (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) }}
+{{- if not (list "legacy" "migration" "cluster" | has .Values.clustermesh.apiserver.tls.authMode) -}}
+{{- fail ".Values.clustermesh.apiserver.tls.authMode must be one of legacy, migration, cluster" -}}
+{{- end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clustermesh-apiserver
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.clustermesh.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    k8s-app: clustermesh-apiserver
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: clustermesh-apiserver
+spec:
+  replicas: {{ .Values.clustermesh.apiserver.replicas }}
+  selector:
+    matchLabels:
+      k8s-app: clustermesh-apiserver
+  {{- with .Values.clustermesh.apiserver.updateStrategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.clustermesh.apiserver.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        app.kubernetes.io/part-of: cilium
+        app.kubernetes.io/name: clustermesh-apiserver
+        k8s-app: clustermesh-apiserver
+        {{- with .Values.clustermesh.apiserver.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.clustermesh.apiserver.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+      - name: etcd-init
+        image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
+        imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
+        command:
+        - /usr/bin/clustermesh-apiserver
+        args:
+        - etcdinit
+        {{- if .Values.debug.enabled }}
+        - --debug
+        {{- end }}
+        # These need to match the equivalent arguments to etcd in the main container.
+        - --etcd-cluster-name=clustermesh-apiserver
+        - --etcd-initial-cluster-token=$(INITIAL_CLUSTER_TOKEN)
+        - --etcd-data-dir=/var/run/etcd
+        {{- with .Values.clustermesh.apiserver.etcd.init.extraArgs }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        env:
+          # The Cilium cluster name (specified via the `CILIUM_CLUSTER_NAME` environment variable) and the etcd cluster
+          # name (specified via the `--etcd-cluster-name` argument) are very different concepts. The Cilium cluster name
+          # is the name of the overall Cilium cluster, and is used to set the admin account username. The etcd cluster
+          # name is a concept that's only relevant for etcd itself. The etcd cluster name must be the same for both this
+          # command and the actual invocation of etcd in the main containers of this Pod, but it's otherwise not
+          # relevant to Cilium.
+        - name: CILIUM_CLUSTER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: cilium-config
+              key: cluster-name
+        - name: INITIAL_CLUSTER_TOKEN
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        {{- with .Values.clustermesh.apiserver.etcd.init.extraEnv }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        {{- with .Values.clustermesh.apiserver.etcd.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: etcd-data-dir
+          mountPath: /var/run/etcd
+        {{- with .Values.clustermesh.apiserver.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        terminationMessagePolicy: FallbackToLogsOnError
+        {{- with .Values.clustermesh.apiserver.etcd.init.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      containers:
+      - name: etcd
+        # The clustermesh-apiserver container image includes an etcd binary.
+        image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
+        imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
+        command:
+        - /usr/bin/etcd
+        args:
+        - --data-dir=/var/run/etcd
+        - --name=clustermesh-apiserver
+        - --client-cert-auth
+        - --trusted-ca-file=/var/lib/etcd-secrets/ca.crt
+        - --cert-file=/var/lib/etcd-secrets/tls.crt
+        - --key-file=/var/lib/etcd-secrets/tls.key
+        # Surrounding the IPv4 address with brackets works in this case, since etcd
+        # uses net.SplitHostPort() internally and it accepts the that format.
+        - --listen-client-urls=https://127.0.0.1:2379,https://[$(HOSTNAME_IP)]:2379
+        - --advertise-client-urls=https://[$(HOSTNAME_IP)]:2379
+        - --initial-cluster-token=$(INITIAL_CLUSTER_TOKEN)
+        - --auto-compaction-retention=1
+        {{- if .Values.clustermesh.apiserver.metrics.etcd.enabled }}
+        - --listen-metrics-urls=http://[$(HOSTNAME_IP)]:{{ .Values.clustermesh.apiserver.metrics.etcd.port }}
+        - --metrics={{ .Values.clustermesh.apiserver.metrics.etcd.mode }}
+        {{- end }}
+        env:
+        - name: ETCDCTL_API
+          value: "3"
+        - name: HOSTNAME_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: INITIAL_CLUSTER_TOKEN
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        ports:
+        - name: etcd
+          containerPort: 2379
+          protocol: TCP
+        {{- if .Values.clustermesh.apiserver.metrics.etcd.enabled }}
+        - name: etcd-metrics
+          containerPort: {{ .Values.clustermesh.apiserver.metrics.etcd.port }}
+          protocol: TCP
+        {{- end }}
+        volumeMounts:
+        - name: etcd-server-secrets
+          mountPath: /var/lib/etcd-secrets
+          readOnly: true
+        - name: etcd-data-dir
+          mountPath: /var/run/etcd
+        {{- with .Values.clustermesh.apiserver.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        terminationMessagePolicy: FallbackToLogsOnError
+        {{- with .Values.clustermesh.apiserver.etcd.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.clustermesh.apiserver.etcd.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.clustermesh.apiserver.etcd.lifecycle }}
+        lifecycle:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      - name: apiserver
+        image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
+        imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
+        command:
+        - /usr/bin/clustermesh-apiserver
+        args:
+        - clustermesh
+        {{- if .Values.debug.enabled }}
+        - --debug
+        {{- end }}
+        - --cluster-name=$(CLUSTER_NAME)
+        - --cluster-id=$(CLUSTER_ID)
+        - --kvstore-opt=etcd.config=/var/lib/cilium/etcd-config.yaml
+        - --kvstore-opt=etcd.qps=20
+        - --kvstore-opt=etcd.bootstrapQps=10000
+        {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
+        - --max-connected-clusters={{ .Values.clustermesh.maxConnectedClusters }}
+        {{- end }}
+        - --health-port={{ .Values.clustermesh.apiserver.healthPort }}
+        {{- if ne .Values.clustermesh.apiserver.tls.authMode "legacy" }}
+        - --cluster-users-enabled
+        - --cluster-users-config-path=/var/lib/cilium/etcd-config/users.yaml
+        {{- end }}
+        - --enable-external-workloads={{ .Values.externalWorkloads.enabled }}
+        {{- if .Values.clustermesh.apiserver.metrics.enabled }}
+        - --prometheus-serve-addr=:{{ .Values.clustermesh.apiserver.metrics.port }}
+        - --controller-group-metrics=all
+        {{- end }}
+        {{- if .Values.clustermesh.enableMCSAPISupport }}
+        - --clustermesh-enable-mcs-api
+        {{- end }}
+        {{- with .Values.clustermesh.apiserver.extraArgs }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        env:
+        - name: CLUSTER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: cilium-config
+              key: cluster-name
+        - name: CLUSTER_ID
+          valueFrom:
+            configMapKeyRef:
+              name: cilium-config
+              key: cluster-id
+              optional: true
+        - name: ENABLE_K8S_ENDPOINT_SLICE
+          valueFrom:
+            configMapKeyRef:
+              name: cilium-config
+              key: enable-k8s-endpoint-slice
+              optional: true
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: apiserv-health
+          {{- with .Values.clustermesh.apiserver.readinessProbe }}
+          {{- toYaml . | trim | nindent 10 }}
+          {{- end }}
+        {{- with .Values.clustermesh.apiserver.extraEnv }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        ports:
+        - name: apiserv-health
+          containerPort: {{ .Values.clustermesh.apiserver.healthPort }}
+          protocol: TCP
+        {{- if .Values.clustermesh.apiserver.metrics.enabled }}
+        - name: apiserv-metrics
+          containerPort: {{ .Values.clustermesh.apiserver.metrics.port }}
+          protocol: TCP
+        {{- end }}
+        {{- with .Values.clustermesh.apiserver.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: etcd-admin-client
+          mountPath: /var/lib/cilium/etcd-secrets
+          readOnly: true
+        {{- if ne .Values.clustermesh.apiserver.tls.authMode "legacy" }}
+        - name: etcd-users-config
+          mountPath: /var/lib/cilium/etcd-config
+          readOnly: true
+        {{- end }}
+        {{- with .Values.clustermesh.apiserver.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        terminationMessagePolicy: FallbackToLogsOnError
+        {{- with .Values.clustermesh.apiserver.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.clustermesh.apiserver.lifecycle }}
+        lifecycle:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- if .Values.clustermesh.apiserver.kvstoremesh.enabled }}
+      - name: kvstoremesh
+        image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
+        imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
+        command:
+        - /usr/bin/clustermesh-apiserver
+        args:
+        - kvstoremesh
+        {{- if .Values.debug.enabled }}
+        - --debug
+        {{- end }}
+        - --cluster-name=$(CLUSTER_NAME)
+        - --cluster-id=$(CLUSTER_ID)
+        - --kvstore-opt=etcd.config=/var/lib/cilium/etcd-config.yaml
+        - --kvstore-opt=etcd.qps=100
+        - --kvstore-opt=etcd.bootstrapQps=10000
+        - --kvstore-opt=etcd.maxInflight=10
+        - --clustermesh-config=/var/lib/cilium/clustermesh
+        {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
+        - --max-connected-clusters={{ .Values.clustermesh.maxConnectedClusters }}
+        {{- end }}
+        - --health-port={{ .Values.clustermesh.apiserver.kvstoremesh.healthPort }}
+        {{- if .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled }}
+        - --prometheus-serve-addr=:{{ .Values.clustermesh.apiserver.metrics.kvstoremesh.port }}
+        - --controller-group-metrics=all
+        {{- end }}
+        {{- with .Values.clustermesh.apiserver.kvstoremesh.extraArgs }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: kvmesh-health
+          {{- with .Values.clustermesh.apiserver.kvstoremesh.readinessProbe }}
+          {{- toYaml . | trim | nindent 10 }}
+          {{- end }}
+        env:
+        - name: CLUSTER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: cilium-config
+              key: cluster-name
+        - name: CLUSTER_ID
+          valueFrom:
+            configMapKeyRef:
+              name: cilium-config
+              key: cluster-id
+        {{- with .Values.clustermesh.apiserver.kvstoremesh.extraEnv }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        ports:
+        - name: kvmesh-health
+          containerPort: {{ .Values.clustermesh.apiserver.kvstoremesh.healthPort }}
+          protocol: TCP
+        {{- if .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled }}
+        - name: kvmesh-metrics
+          containerPort: {{ .Values.clustermesh.apiserver.metrics.kvstoremesh.port }}
+          protocol: TCP
+        {{- end }}
+        {{- with .Values.clustermesh.apiserver.kvstoremesh.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: etcd-admin-client
+          mountPath: /var/lib/cilium/etcd-secrets
+          readOnly: true
+        - name: kvstoremesh-secrets
+          mountPath: /var/lib/cilium/clustermesh
+          readOnly: true
+        {{- with .Values.clustermesh.apiserver.kvstoremesh.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        terminationMessagePolicy: FallbackToLogsOnError
+        {{- with .Values.clustermesh.apiserver.kvstoremesh.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.clustermesh.apiserver.kvstoremesh.lifecycle }}
+        lifecycle:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- end }}
+      volumes:
+      - name: etcd-server-secrets
+        projected:
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+          sources:
+          - secret:
+              name: clustermesh-apiserver-server-cert
+              items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+          {{- if not .Values.tls.caBundle.enabled }}
+              - key: ca.crt
+                path: ca.crt
+          {{- else }}
+          - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
+              name: {{ .Values.tls.caBundle.name }}
+              items:
+              - key: {{ .Values.tls.caBundle.key }}
+                path: ca.crt
+          {{- end }}
+      - name: etcd-admin-client
+        projected:
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+          sources:
+          - secret:
+              name: clustermesh-apiserver-admin-cert
+              items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+          {{- if not .Values.tls.caBundle.enabled }}
+              - key: ca.crt
+                path: ca.crt
+          {{- else }}
+          - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
+              name: {{ .Values.tls.caBundle.name }}
+              items:
+              - key: {{ .Values.tls.caBundle.key }}
+                path: ca.crt
+          {{- end }}
+      {{- if ne .Values.clustermesh.apiserver.tls.authMode "legacy" }}
+      - name: etcd-users-config
+        configMap:
+          name: clustermesh-remote-users
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+      {{- end }}
+      - name: etcd-data-dir
+        emptyDir:
+          medium: {{ ternary "Memory" "" (eq .Values.clustermesh.apiserver.etcd.storageMedium "Memory") | quote }}
+      {{- if .Values.clustermesh.apiserver.kvstoremesh.enabled }}
+      - name: kvstoremesh-secrets
+        projected:
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+          sources:
+          - secret:
+              name: cilium-kvstoremesh
+              optional: true
+              # note: items are not explicitly listed here, since the entries of this secret
+              # depend on the peers configured, and that would cause a restart of this pod
+              # at every addition/removal. Leaving the field empty makes each secret entry
+              # to be automatically projected into the volume as a file whose name is the key.
+          - secret:
+              name: clustermesh-apiserver-remote-cert
+              optional: true
+              items:
+              - key: tls.key
+                path: common-etcd-client.key
+              - key: tls.crt
+                path: common-etcd-client.crt
+              - key: ca.crt
+                path: common-etcd-client-ca.crt
+      {{- end }}
+      {{- with .Values.clustermesh.apiserver.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      restartPolicy: Always
+      priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.clustermesh.apiserver.priorityClassName "system-cluster-critical") }}
+      serviceAccountName: {{ .Values.serviceAccounts.clustermeshApiserver.name | quote }}
+      terminationGracePeriodSeconds: {{ .Values.clustermesh.apiserver.terminationGracePeriodSeconds }}
+      automountServiceAccountToken: {{ .Values.serviceAccounts.clustermeshApiserver.automount }}
+      {{- with .Values.clustermesh.apiserver.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.clustermesh.apiserver.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- range $constraint := . }}
+      - {{ toYaml $constraint | nindent 8 | trim }}
+          {{- if not $constraint.labelSelector }}
+        labelSelector:
+          matchLabels:
+            k8s-app: clustermesh-apiserver
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.clustermesh.apiserver.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.clustermesh.apiserver.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if and .Values.clustermesh.config.enabled .Values.clustermesh.apiserver.kvstoremesh.enabled }}
+      hostAliases:
+      {{- range $cluster := .Values.clustermesh.config.clusters }}
+      {{- range $ip := $cluster.ips }}
+      - ip: {{ $ip }}
+        hostnames: [ "{{ $cluster.name }}.{{ $.Values.clustermesh.config.domain }}" ]
+      {{- end }}
+      {{- end }}
+      {{- end }}
+{{- end }}

@@ -1,0 +1,133 @@
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: spire-server
+  namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
+  {{- if or .Values.authentication.mutual.spire.install.server.annotations .Values.authentication.mutual.spire.annotations }}
+  annotations:
+    {{- with .Values.authentication.mutual.spire.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.authentication.mutual.spire.install.server.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+  labels:
+    app: spire-server
+  {{- with .Values.authentication.mutual.spire.install.server.labels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spire-server
+  serviceName: spire-server
+  template:
+    metadata:
+      labels:
+        app: spire-server
+        {{- with .Values.authentication.mutual.spire.install.server.labels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}
+      shareProcessNamespace: true
+      {{- with .Values.authentication.mutual.spire.install.server.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if gt (len .Values.authentication.mutual.spire.install.server.initContainers) 0 }}
+      initContainers:
+        {{- toYaml .Values.authentication.mutual.spire.install.server.initContainers | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: cilium-init
+        image: {{ include "cilium.image" .Values.authentication.mutual.spire.install.initImage | quote }}
+        imagePullPolicy: {{ .Values.authentication.mutual.spire.install.initImage.pullPolicy }}
+        command:
+          - /bin/sh
+          - -c
+          - |
+            {{- tpl (.Files.Get "files/spire/init.bash") . | nindent 12 }}
+      - name: spire-server
+        {{- if eq (typeOf .Values.authentication.mutual.spire.install.server.image) "string" }}
+        image: {{ .Values.authentication.mutual.spire.install.server.image }}
+        {{- else }}
+        image: {{ include "cilium.image" .Values.authentication.mutual.spire.install.server.image | quote }}
+        imagePullPolicy: {{ .Values.authentication.mutual.spire.install.server.image.pullPolicy }}
+        {{- end }}
+        args:
+        - -config
+        - /run/spire/config/server.conf
+        ports:
+        - name: grpc
+          containerPort: 8081
+        volumeMounts:
+        - name: spire-config
+          mountPath: /run/spire/config
+          readOnly: true
+        {{- if .Values.authentication.mutual.spire.install.server.dataStorage.enabled }}
+        - name: spire-data
+          mountPath: /run/spire/data
+          readOnly: false
+        {{- end }}
+        - name: spire-server-socket
+          mountPath: /tmp/spire-server/private
+          readOnly: false
+        livenessProbe:
+          httpGet:
+            path: /live
+            port: 8080
+          failureThreshold: 2
+          initialDelaySeconds: 15
+          periodSeconds: 60
+          timeoutSeconds: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        {{- with .Values.authentication.mutual.spire.install.server.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- with .Values.authentication.mutual.spire.install.server.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.authentication.mutual.spire.install.server.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.authentication.mutual.spire.install.server.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: spire-config
+        configMap:
+          name: spire-server
+      - name: spire-server-socket
+        hostPath:
+          path: /var/run/spire-server/sockets
+          type: DirectoryOrCreate
+  {{- if .Values.authentication.mutual.spire.install.server.dataStorage.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: spire-data
+    spec:
+      accessModes:
+      - {{ .Values.authentication.mutual.spire.install.server.dataStorage.accessMode | default "ReadWriteOnce" }}
+      resources:
+        requests:
+          storage: {{ .Values.authentication.mutual.spire.install.server.dataStorage.size }}
+      storageClassName: {{ .Values.authentication.mutual.spire.install.server.dataStorage.storageClass }}
+  {{- end }}
+{{- end }}

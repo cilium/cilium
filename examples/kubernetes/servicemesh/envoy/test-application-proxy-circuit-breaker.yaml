@@ -1,0 +1,168 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortio
+  labels:
+    app: fortio
+    service: fortio
+spec:
+  ports:
+  - port: 8080
+    name: http
+  selector:
+    app: fortio
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fortio-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fortio
+  template:
+    metadata:
+      annotations:
+        # This annotation causes Envoy to serve cluster.outbound statistics via 15000/stats
+        # in addition to the stats normally served by Istio. The Circuit Breaking example task
+        # gives an example of inspecting Envoy stats via proxy config.
+        proxy.istio.io/config: |-
+          proxyStatsMatcher:
+            inclusionPrefixes:
+            - "cluster.outbound"
+            - "cluster_manager"
+            - "listener_manager"
+            - "server"
+            - "cluster.xds-grpc"
+      labels:
+        app: fortio
+    spec:
+      containers:
+      - name: fortio
+        image: fortio/fortio:latest_release
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http-fortio
+        - containerPort: 8079
+          name: grpc-ping
+---
+apiVersion: v1
+data:
+  Corefile: |-
+    . {
+        local
+        ready
+        log
+    }
+kind: ConfigMap
+metadata:
+  name: coredns-configmap
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    kind: echo
+    name: echo-service
+  name: echo-service
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      kind: echo
+      name: echo-service
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        kind: echo
+        name: echo-service
+        other: echo
+      name: echo-service
+    spec:
+      containers:
+        - env:
+            - name: PORT
+              value: "8080"
+          image: quay.io/cilium/json-mock:v1.3.2@sha256:bc6c46c74efadb135bc996c2467cece6989302371ef4e3f068361460abaf39be
+          imagePullPolicy: IfNotPresent
+          name: echo-service
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 1
+            successThreshold: 1
+            timeoutSeconds: 2
+          resources: {}
+          securityContext:
+            capabilities:
+              add:
+                - NET_RAW
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        - args:
+            - -conf
+            - /etc/coredns/Corefile
+          image: coredns/coredns:1.9.3@sha256:8e352a029d304ca7431c6507b56800636c321cb52289686a581ab70aaa8a2e2a
+          imagePullPolicy: IfNotPresent
+          name: dns-test-server
+          ports:
+            - containerPort: 53
+              protocol: TCP
+            - containerPort: 53
+              protocol: UDP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ready
+              port: 8181
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 1
+            successThreshold: 1
+            timeoutSeconds: 2
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /etc/coredns
+              name: coredns-config-volume
+              readOnly: true
+      volumes:
+        - configMap:
+            defaultMode: 420
+            items:
+              - key: Corefile
+                path: Corefile
+            name: coredns-configmap
+          name: coredns-config-volume
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    kind: echo
+  name: echo-service
+spec:
+  ports:
+    - name: http
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    name: echo-service

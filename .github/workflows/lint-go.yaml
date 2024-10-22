@@ -1,0 +1,143 @@
+name: Go Related Checks
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request: {}
+  push:
+    branches:
+      - main
+      - ft/main/**
+  # Add this workflow to be triggered by merge queue events
+  merge_group:
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || github.event.merge_group && github.run_id }}
+  cancel-in-progress: ${{ !github.event.merge_group }}
+
+jobs:
+  go-mod:
+    name: Check Go Modules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.23.1
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+      - name: Check module vendoring
+        run: |
+          go mod tidy
+          go mod vendor
+          test -z "$(git status --porcelain)" || (echo "please run 'go mod tidy && go mod vendor', and submit your changes"; exit 1)
+
+  license-check:
+    name: Check third party dependencies licenses
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.23.1
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+      - name: Check for unauthorized dependencies
+        run: go run ./tools/licensecheck ./... 2>/dev/null
+
+  golangci:
+    name: Lint Source Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Install Go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.23.1
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@aaa42aa0628b4ae2578232a66b541047968fac86 # v6.1.0
+        with:
+          # renovate: datasource=docker depName=golangci/golangci-lint
+          version: v1.61.0
+          skip-cache: true
+          args: "--out-${NO_FUTURE}format colored-line-number --verbose --modules-download-mode=vendor"
+
+  precheck:
+    runs-on: ubuntu-latest
+    name: Precheck
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.23.1
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+          # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
+          path: src/github.com/cilium/cilium
+      - name: Go code prechecks
+        run: |
+          cd src/github.com/cilium/cilium
+          make precheck
+
+  generate-api:
+    runs-on: ubuntu-latest
+    name: Generate API
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.23.1
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+          # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
+          path: src/github.com/cilium/cilium
+      - name: Check api generated files
+        run: |
+          cd src/github.com/cilium/cilium
+          contrib/scripts/check-api-code-gen.sh
+
+  generate-k8s-api:
+    runs-on: ubuntu-latest
+    name: Generate k8s API
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.23.1
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+          # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
+          path: src/github.com/cilium/cilium
+      - name: Check k8s generated files
+        run: |
+          # Set GOBIN to ensure 'go install' binaries end up in the same directory
+          # as the one actions/setup-go adds to PATH, regardless of GOPATH.
+          export GOBIN="$HOME/go/bin"
+
+          cd src/github.com/cilium/cilium
+          contrib/scripts/check-k8s-code-gen.sh

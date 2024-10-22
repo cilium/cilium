@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo
+spec:
+  selector:
+    matchLabels:
+      name: echo
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        name: echo
+    spec:
+      containers:
+      - name: echo-container
+        image: quay.io/cilium/json-mock:v1.3.3@sha256:f26044a2b8085fcaa8146b6b8bb73556134d7ec3d5782c6a04a058c945924ca0
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - -o
+            - /dev/null
+            - localhost
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - -o
+            - /dev/null
+            - localhost
+      - name: echo-container-udp
+        image: quay.io/cilium/echoserver-udp:v2020.01.30

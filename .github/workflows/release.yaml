@@ -1,0 +1,93 @@
+name: Release Tool
+
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: 'Which step do you want to (re-)run?'
+        required: true
+        type: choice
+        options:
+          - 2-prepare-release
+          - 4-post-release
+      version:
+        description: 'Which version are you releasing? (e.g. vX.Y.Z[-(pre|rc).W])'
+        required: true
+        type: string
+        default: vX.Y.Z
+
+permissions:
+  # To be able to access the repository with `actions/checkout`
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.inputs.version }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Release
+    environment: release-tool
+    timeout-minutes: 40
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install Go
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.23.1
+
+      - name: Get token
+        id: get_token
+        uses: cilium/actions-app-token@61a6271ce92ba02f49bf81c755685d59fb25a59a # v0.21.1
+        with:
+          APP_PEM: ${{ secrets.CILIUM_RELEASE_BOT_PEM }}
+          APP_ID: ${{ secrets.CILIUM_RELEASE_BOT_APP_ID }}
+
+      - name: Authenticate with GH CLI
+        run: |
+          gh auth login --with-token <<< "${{ steps.get_token.outputs.app_token }}"
+
+      - name: Checkout release tool
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+          repository: cilium/release
+          path: "./release"
+
+      - name: Move release source code to upper directory
+        run: mv release ../
+
+      - name: Checkout cilium source code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Build release tool
+        shell: bash
+        run: |
+          cd ../release
+          make
+
+      - name: Set-up git
+        run: |
+          git config user.name "Cilium Release Bot"
+          git config user.email "noreply@cilium.io"
+          git remote set-url origin https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ github.repository }}.git
+
+      - name: Run release tool
+        shell: bash
+        env:
+          GITHUB_TOKEN: "${{ steps.get_token.outputs.app_token }}"
+          ORG: "${{ github.repository_owner }}"
+        run: |
+          cd ../release
+          ./release start \
+            --force \
+            --release-tool-dir "$(pwd)" \
+            --repo-dir "$(pwd)/../cilium" \
+            --repo ${{ github.repository }} \
+            --target-version ${{ github.event.inputs.version }} \
+            --steps ${{ github.event.inputs.step }}

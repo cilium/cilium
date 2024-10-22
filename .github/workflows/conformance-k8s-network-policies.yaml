@@ -1,0 +1,156 @@
+name: Cyclonus Network Policy Test
+
+on:
+  push:
+    branches:
+      - main
+      - ft/main/**
+    paths-ignore:
+      - 'Documentation/**'
+
+permissions: read-all
+
+env:
+  cilium_cli_ci_version:
+  KIND_CONFIG: .github/kind-config.yaml
+  CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
+  TIMEOUT: 2m
+  LOG_TIME: 30m
+
+jobs:
+  preflight-clusterrole:
+    name: Preflight Clusterrole Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+      - name: Check pre-flight clusterrole
+        run: |
+          cd install/kubernetes/cilium/templates
+          echo "Checking for differences between preflight and agent clusterrole"
+          diff \
+             -I '^[ ]\{2\}name: cilium.*' \
+             -I '^Keep file in sync with.*' \
+             -I '^  {{- with .Values.annotations }}$' \
+             -I '^  {{- with .Values.preflight.annotations }}$' \
+             -I '{{- if.*' \
+             cilium-agent/clusterrole.yaml \
+             cilium-preflight/clusterrole.yaml
+
+  cyclonus-test:
+    name: Cyclonus Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout target branch to access local actions
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ github.base_ref || github.ref }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+
+      - name: Precheck generated connectivity manifest files
+        run: |
+          make -C examples/kubernetes/connectivity-check fmt
+          make -C examples/kubernetes/connectivity-check all
+          test -z "$(git status --porcelain)" || (echo "please run 'make -C examples/kubernetes/connectivity-check fmt all' and submit your changes"; exit 1)
+
+      - name: Set image tag
+        id: vars
+        run: |
+          if [ "${{ github.event.pull_request.head.sha }}" != "" ]; then
+            echo tag=${{ github.event.pull_request.head.sha }} >> $GITHUB_OUTPUT
+          else
+            echo tag=${{ github.sha }} >> $GITHUB_OUTPUT
+          fi
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
+          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-generic-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
+
+      - name: Create kind cluster
+        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
+          config: ${{ env.KIND_CONFIG }}
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Install cilium chart
+        id: install-cilium
+        run: |
+          helm install cilium ./install/kubernetes/cilium \
+             --wait \
+             --namespace kube-system \
+             --set nodeinit.enabled=true \
+             --set kubeProxyReplacement=false \
+             --set socketLB.enabled=false \
+             --set externalIPs.enabled=true \
+             --set nodePort.enabled=true \
+             --set hostPort.enabled=true \
+             --set bpf.masquerade=false \
+             --set ipam.mode=kubernetes \
+             --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+             --set image.tag=${{ steps.vars.outputs.tag }} \
+             --set image.pullPolicy=IfNotPresent \
+             --set image.useDigest=false \
+             --set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+             --set operator.image.suffix=-ci \
+             --set operator.image.tag=${{ steps.vars.outputs.tag }} \
+             --set operator.image.pullPolicy=IfNotPresent \
+             --set operator.image.useDigest=false \
+             --set prometheus.enabled=true \
+             --set operator.prometheus.enabled=true \
+             --set hubble.enabled=true \
+             --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
+
+          kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=5m
+          kubectl rollout -n kube-system status deploy/coredns --timeout=5m
+
+          # To make sure that cilium CRD is available (default timeout is 5m)
+          # https://github.com/cilium/cilium/blob/main/operator/crd.go#L34
+          kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
+
+      - name: Run cyclonus network policy test
+        working-directory: test/k8s/manifests/netpol-cyclonus
+        run: ./test-cyclonus.sh
+
+      - name: Install Cilium CLI
+        if: ${{ failure() }}
+        uses: cilium/cilium-cli@fff38e882846c03f1720dad476e459323275ab9c # v0.16.17
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.vars.outputs.tag }}
+
+      - name: Report cluster failure status and capture cilium-sysdump
+        if: ${{ failure() && steps.install-cilium.outcome != 'skipped' }}
+        run: |
+          echo "=== Retrieve cluster state ==="
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-out
+
+      - name: Upload cilium-sysdump
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        if: ${{ failure() }}
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip

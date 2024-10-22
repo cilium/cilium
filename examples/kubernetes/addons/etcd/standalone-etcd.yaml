@@ -1,0 +1,89 @@
+###############################################################################
+#
+# This is a standalone etcd deployment for PoC or testing purposes. It runs a
+# single replica etcd using host networking. Data is stored in /var/etcd on the
+# host's disk. A scheduling toleration allows it to be scheduled before the
+# cluster is ready. A scheduling anti affinity ensures that never more than one
+# instance is running per node. A NodePort service makes etcd avaiable on a
+# stable address on all nodes without requiring DNS resolution to work
+#
+# etcd address:
+#   http://127.0.0.1:31079
+#
+###############################################################################
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: "etcd-cilium"
+  annotations:
+    # Create endpoints also if the related pod isn't ready
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+spec:
+  ports:
+  - port: 32379
+    name: client
+    nodePort: 31079
+  - port: 32380
+    name: peer
+    nodePort: 31080
+  type: NodePort
+  selector:
+    component: "cilium-etcd"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: "etcd-cilium"
+  labels:
+    component: "cilium-etcd"
+spec:
+  selector:
+    matchLabels:
+      component: "cilium-etcd"
+  serviceName: "cilium-etcd"
+  template:
+    metadata:
+      name: "etcd"
+      labels:
+        component: "cilium-etcd"
+    spec:
+      tolerations:
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+      hostNetwork: true
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "component"
+                    operator: In
+                    values:
+                    - cilium-etcd
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: "etcd"
+        image: "quay.io/coreos/etcd:v3.3.25"
+        env:
+        - name: HOSTNAME_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        volumeMounts:
+        - name: local-vol
+          mountPath: /var/etcd
+        command:
+          - "/usr/local/bin/etcd"
+        args:
+          - --name=cilium-etcd-$(HOSTNAME_IP)
+          - --listen-client-urls=http://0.0.0.0:32379
+          - --listen-peer-urls=http://0.0.0.0:32380
+          - --advertise-client-urls=http://$(HOSTNAME_IP):32379
+          - --initial-cluster-token=cilium-etcd-cluster-1
+          - --initial-cluster-state=new
+          - --data-dir=/var/etcd/cilium-etcd/default.etcd
+      volumes:
+        - name: local-vol
+          hostPath:
+            path: /var/etcd

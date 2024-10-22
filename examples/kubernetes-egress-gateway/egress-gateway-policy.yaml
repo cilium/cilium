@@ -1,0 +1,36 @@
+apiVersion: cilium.io/v2
+kind: CiliumEgressGatewayPolicy
+metadata:
+  name: egress-sample
+spec:
+  selectors:
+  - podSelector:
+      matchLabels:
+        org: empire
+        class: mediabot
+        # The following label selects default namespace
+        io.kubernetes.pod.namespace: default
+    # Or use namespace label selector to select multiple namespaces
+    # namespaceSelector:
+    #  matchLabels:
+    #    ns: default
+  destinationCIDRs:
+  - 192.168.60.13/32
+  egressGateway:
+    nodeSelector:
+      matchLabels:
+        # The following label selects which node will act as egress gateway for
+        # this policy
+        egress-node: true
+    # IP used to masquerade traffic leaving the cluster
+    egressIP: "192.168.60.100"
+    # Alternatively it is possible to:
+    #
+    # a) specify which interface should be used to masquerade traffic.
+    # In this case the first IPv4 assigned to said interface will be used as
+    # egressIP
+    # interface: eth1
+    #
+    # b) omit both egressIP and interface.
+    # In this case the first IPv4 assigned to the interface with the default
+    # route will be used as egressIP

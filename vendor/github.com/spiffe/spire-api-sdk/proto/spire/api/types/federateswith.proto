@@ -1,0 +1,68 @@
+syntax = "proto3";
+package spire.api.types;
+option go_package = "github.com/spiffe/spire-api-sdk/proto/spire/api/types";
+
+message FederatesWithMatch {
+    enum MatchBehavior {
+        // Indicates that the federated trust domains in this match are
+        // equal to the candidate trust domains, independent of ordering.
+        // Example:
+        //   Given:
+        //     - e1 { FederatesWith: ["spiffe://td1", "spiffe://td2", "spiffe://td3"]}
+        //     - e2 { FederatesWith: ["spiffe://td1", "spiffe://td2"]}
+        //     - e3 { FederatesWith: ["spiffe://td1"]}
+        //   Operation:
+        //     - MATCH_EXACT ["spiffe://td1", "spiffe://td2"]
+        //   Entries that match:
+        //     - 'e2'
+        MATCH_EXACT = 0;
+
+        // Indicates that all candidates which have a non-empty subset
+        // of the provided set of trust domains will match.
+        // Example:
+        //   Given:
+        //     - e1 { FederatesWith: ["spiffe://td1", "spiffe://td2", "spiffe://td3"]}
+        //     - e2 { FederatesWith: ["spiffe://td1", "spiffe://td2"]}
+        //     - e3 { FederatesWith: ["spiffe://td1"]}
+        //   Operation:
+        //     - MATCH_SUBSET ["spiffe://td1"]
+        //   Entries that match:
+        //     - 'e1'
+        MATCH_SUBSET = 1;
+
+        // Indicate that all candidates which are a superset
+        // of the provided set of trust domains will match.
+        // Example:
+        //   Given:
+        //     - e1 { FederatesWith: ["spiffe://td1", "spiffe://td2", "spiffe://td3"]}
+        //     - e2 { FederatesWith: ["spiffe://td1", "spiffe://td2"]}
+        //     - e3 { FederatesWith: ["spiffe://td1"]}
+        //   Operation:
+        //     - MATCH_SUPERSET ["spiffe://td1", "spiffe://td2"]
+        //   Entries that match:
+        //     - 'e1'
+        //     - 'e2'
+        MATCH_SUPERSET = 2;
+
+        // Indicates that all candidates which have at least one
+        // of the provided set of trust domains will match.
+        // Example:
+        //   Given:
+        //     - e1 { FederatesWith: ["spiffe://td1", "spiffe://td2", "spiffe://td3"]}
+        //     - e2 { FederatesWith: ["spiffe://td1", "spiffe://td2"]}
+        //     - e3 { FederatesWith: ["spiffe://td1"]}
+        //   Operation:
+        //     - MATCH_ANY ["spiffe://td1"]
+        //   Entries that match:
+        //     - 'e1'
+        //     - 'e2'
+        //     - 'e3'
+        MATCH_ANY = 3;
+    }
+
+    // The set of trust domain names to match on (e.g., "example.org").
+    repeated string trust_domains = 1;
+
+    // How to match the trust domains.
+    MatchBehavior match = 2;
+}

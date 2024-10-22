@@ -1,0 +1,98 @@
+# Copyright Authors of Cilium
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+
+FLAGS := -I$(ROOT_DIR)/bpf/include -I$(ROOT_DIR)/bpf -D__NR_CPUS__=$(shell nproc --all) -O2 -g
+
+CLANG_FLAGS := ${FLAGS} --target=bpf -std=gnu89 -nostdinc
+# eBPF verifier enforces unaligned access checks where necessary, so don't
+# let clang complain too early.
+CLANG_FLAGS += -Wall -Wextra -Werror -Wshadow
+CLANG_FLAGS += -Wno-address-of-packed-member
+CLANG_FLAGS += -Wno-unknown-warning-option
+CLANG_FLAGS += -Wno-gnu-variable-sized-type-not-at-end
+CLANG_FLAGS += -Wdeclaration-after-statement
+CLANG_FLAGS += -Wimplicit-int-conversion -Wenum-conversion
+CLANG_FLAGS += -Wimplicit-fallthrough
+# Mimics the mcpu values set by cilium-agent. See GetBPFCPU().
+ifneq ($(KERNEL),54)
+CLANG_FLAGS += -mcpu=v3
+else
+CLANG_FLAGS += -mcpu=v2
+endif
+
+LIB := $(shell find $(ROOT_DIR)/bpf -name '*.h')
+BPF_C := $(patsubst %.o,%.c,$(BPF))
+BPF_ASM := $(patsubst %.o,%.s,$(BPF))
+
+CLANG      ?= clang
+HOST_CC    ?= gcc
+HOST_STRIP ?= strip
+
+ifeq ($(CROSS_ARCH),arm64)
+  HOST_CC = aarch64-linux-gnu-gcc
+  HOST_STRIP = aarch64-linux-gnu-strip
+else ifeq ($(CROSS_ARCH),amd64)
+  HOST_CC = x86_64-linux-gnu-gcc
+  HOST_STRIP = x86_64-linux-gnu-strip
+endif
+
+# Define all at the top here so that Makefiles which include this one will hit
+# the 'all' target first (which we expect to be overridden by the includer).
+all:
+
+force:
+
+%.ll: %.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} -emit-llvm -c $< -o $@
+
+%.o: %.c $(LIB)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $@
+
+#
+# TODO: revert addition of ignore MACRO_ARG_REUSE below once cilium-checkpatch
+# image is updated to ignore it.
+#
+CHECKPATCH_IMAGE := quay.io/cilium/cilium-checkpatch:40ae57b72ea430ab77b45fbed9a1cd4295838ef6@sha256:ccd20b54c779c4645e72dbb48bfcdacb9929cae5d334b0fa6d1ef996af64348f
+ifneq ($(CHECKPATCH_DEBUG),)
+  # Run script with "bash -x"
+  CHECKPATCH_IMAGE_AND_ENTRY := \
+	--entrypoint /bin/bash $(CHECKPATCH_IMAGE) -x /checkpatch/checkpatch.sh -- --ignore MACRO_ARG_REUSE
+else
+  # Use default entrypoint
+  CHECKPATCH_IMAGE_AND_ENTRY := \
+	--entrypoint /bin/bash $(CHECKPATCH_IMAGE) /checkpatch/checkpatch.sh -- --ignore MACRO_ARG_REUSE
+endif
+checkpatch:
+	@$(ECHO_CHECK) "(checkpatch)"
+	$(QUIET) $(CONTAINER_ENGINE) container run --rm \
+		--workdir /workspace \
+		--volume $(CURDIR)/..:/workspace \
+		--user "$(shell id -u):$(shell id -g)" \
+		-e GITHUB_REF=$(GITHUB_REF) -e GITHUB_REPOSITORY=$(GITHUB_REPOSITORY) \
+		$(CHECKPATCH_IMAGE_AND_ENTRY) $(CHECKPATCH_ARGS)
+
+coccicheck:
+	$(QUIET) $(foreach TARGET,$(shell find $(ROOT_DIR)/contrib/coccinelle/ -name '*.cocci'), \
+		spatch --no-show-diff --sp-file ${TARGET} --include-headers --very-quiet --dir . ; )
+
+check: coccicheck checkpatch
+	@$(ECHO_CHECK)/*.c
+	$(QUIET) sparse -Wsparse-all ${FLAGS} $(ROOT_DIR)/$(RELATIVE_DIR)/*.c
+	$(QUIET) $(CLANG) ${CLANG_FLAGS} --analyze $(ROOT_DIR)/$(RELATIVE_DIR)/*.c
+	$(QUIET) $(foreach SUBDIR,$(SUBDIRS), \
+		$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR) $@ &&) true
+
+preprocess: $(LIB)
+	$(QUIET) $(foreach TARGET,$(shell find $(ROOT_DIR)/$(RELATIVE_DIR)/ -name 'bpf_*.c'), \
+		echo "  GEN   $(patsubst %.c,%.i,${TARGET})"; \
+		${CLANG} $(FLAGS) -E --target=bpf -c ${TARGET} -o $(patsubst %.c,%.i,${TARGET}); )
+	$(QUIET) $(foreach SUBDIR,$(SUBDIRS), \
+		$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR) $@ &&) true
+
+assembly: $(BPF_C) $(LIB) $(BPF_ASM)
+	$(QUIET) $(foreach SUBDIR,$(SUBDIRS), \
+		$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR) $@ &&) true
+
+.PHONY: all force checkpatch coccicheck check preprocess assembly

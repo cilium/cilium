@@ -1,0 +1,32 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-node-local-dns
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+    - toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+          rules:
+            dns:
+              - matchPattern: "*"
+      toEndpoints:
+        - matchLabels:
+            k8s-app: node-local-dns
+            io.kubernetes.pod.namespace: kube-system
+    - toFQDNs:
+      - matchName: "echo-external-node.{{.TestNamespace}}.svc.cluster.local"
+      toPorts:
+      - ports:
+        - port: "{{.ExternalDeploymentPort}}"
+          protocol: TCP
+        rules:
+          http:
+          - method: "GET"
+            path: "/client-ip"

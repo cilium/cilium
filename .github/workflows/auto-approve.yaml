@@ -1,0 +1,53 @@
+name: Approve Renovate PR
+
+on:
+  pull_request:
+    types:
+    - review_requested
+
+jobs:
+  pre-approve:
+    # Avoid running the 'auto-approve' environment if we don't need to.
+    name: Pre-Approve
+    runs-on: ubuntu-latest
+    if: ${{
+         github.event.pull_request.user.login == 'cilium-renovate[bot]' &&
+         github.triggering_actor == 'cilium-renovate[bot]' &&
+         github.event.requested_reviewer.login == 'ciliumbot'
+        }}
+    steps:
+    - name: Debug
+      run: |
+        echo ${{ github.event.pull_request.user.login }}
+        echo ${{ github.triggering_actor }}
+        echo ${{ github.event.requested_reviewer.login }}
+
+  approve:
+    name: Approve
+    needs: pre-approve
+    environment: auto-approve
+    runs-on: ubuntu-latest
+    steps:
+    - name: Debug
+      run: |
+        echo ${{ github.event.pull_request.user.login }}
+        echo ${{ github.triggering_actor }}
+        echo ${{ github.event.requested_reviewer.login }}
+
+    - name: Approve PR
+      # Approve the PR if all the following conditions are true:
+      # - the PR review was requested by renovate bot and
+      # - the PR was also created by renovate bot
+      # - the requested reviewer was the trusted 'ciliumbot'
+      if: ${{
+           github.event.pull_request.user.login == 'cilium-renovate[bot]' &&
+           github.triggering_actor == 'cilium-renovate[bot]' &&
+           github.event.requested_reviewer.login == 'ciliumbot'
+          }}
+      env:
+        TOKEN: ${{ secrets.AUTO_APPROVE_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        echo ${TOKEN} | gh auth login --with-token
+        gh -R ${GITHUB_REPOSITORY} pr review ${PULL_REQUEST_NUMBER} --approve

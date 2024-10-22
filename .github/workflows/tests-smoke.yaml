@@ -1,0 +1,206 @@
+name: Smoke Test
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request: {}
+  push:
+    branches:
+      - main
+      - ft/main/**
+  merge_group:
+    types: [checks_requested]
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || github.event.merge_group && github.run_id }}
+  cancel-in-progress: ${{ !github.event.merge_group }}
+
+env:
+  cilium_cli_ci_version:
+  KIND_CONFIG: .github/kind-config.yaml
+  CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
+  TIMEOUT: 2m
+  LOG_TIME: 30m
+  PROM_VERSION: 2.34.0
+
+jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    runs-on: ubuntu-22.04
+    outputs:
+      tested: ${{ steps.tested-tree.outputs.src }}
+    steps:
+      - name: Checkout code
+        if: ${{ !github.event.pull_request }}
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Check code changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: tested-tree
+        with:
+          # For `push` events, compare against the `ref` base branch
+          # For `pull_request` events, this is ignored and will compare against the pull request base branch
+          base: ${{ github.ref }}
+          filters: |
+            src:
+              - '!(test|Documentation)/**'
+
+  preflight-clusterrole:
+    runs-on: ubuntu-latest
+    name: Preflight Clusterrole Check
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+
+      - name: Check pre-flight clusterrole
+        run: make check-k8s-clusterrole
+
+  helm-charts:
+    runs-on: ubuntu-latest
+    name: Helm Charts Check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+
+      - name: Run helm-charts
+        run: |
+          make -C install/kubernetes
+          test -z "$(git status --porcelain)" || (echo "please run 'make -C install/kubernetes' and submit your changes"; exit 1)
+
+  conformance-test:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.tested == 'true' && github.event_name != 'merge_group' }}
+    runs-on: ubuntu-latest
+    name: Installation and Conformance Test
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Checkout target branch to access local actions
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ github.base_ref || github.ref }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set image tag
+        id: sha
+        run: |
+          echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
+
+      - name: Precheck generated connectivity manifest files
+        run: |
+          make -C examples/kubernetes/connectivity-check fmt
+          make -C examples/kubernetes/connectivity-check all
+          test -z "$(git status --porcelain)" || (echo "please run 'make -C examples/kubernetes/connectivity-check fmt all' and submit your changes"; exit 1)
+
+      - name: Create kind cluster
+        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          node_image: ${{ env.KIND_K8S_IMAGE }}
+          kubectl_version: ${{ env.KIND_K8S_VERSION }}
+          config: ${{ env.KIND_CONFIG }}
+          wait: 0 # The control-plane never becomes ready, since no CNI is present
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.sha.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Set up install variables
+        id: vars
+        run: |
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
+             --helm-set nodeinit.enabled=true \
+             --helm-set kubeProxyReplacement=true \
+             --helm-set ipam.mode=kubernetes \
+             --helm-set hubble.relay.enabled=true \
+             --helm-set prometheus.enabled=true \
+             --helm-set operator.prometheus.enabled=true \
+             --helm-set hubble.enabled=true \
+             --helm-set=hubble.metrics.enabled=\"{dns,drop,tcp,flow,port-distribution,icmp,http}\" \
+             --helm-set ingressController.enabled=true"
+
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@fff38e882846c03f1720dad476e459323275ab9c # v0.16.17
+        with:
+          skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
+          image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
+          image-tag: ${{ steps.sha.outputs.sha }}
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+          kubectl -n kube-system get pods
+
+      - name: Run conformance test (e.g. connectivity check)
+        run: |
+          kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
+          kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
+
+      - name: Check prometheus metrics
+        if: ${{ success() }}
+        run: |
+          cd $HOME
+          cilium_pod=$(kubectl -n kube-system get po -o name --field-selector=status.phase==Running -l 'k8s-app=cilium' -o jsonpath='{.items[0].metadata.name}' )
+          kubectl -n kube-system exec $cilium_pod -- sh -c "apt update && apt install curl -y"
+          kubectl -n kube-system exec $cilium_pod -- curl http://localhost:9962/metrics > metrics.prom
+          # Install promtool binary release. `go install` doesn't work due to
+          # https://github.com/prometheus/prometheus/issues/8852 and related issues.
+          curl -sSL --remote-name-all https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/{prometheus-${PROM_VERSION}.linux-amd64.tar.gz,sha256sums.txt}
+          sha256sum --check --ignore-missing sha256sums.txt
+          tar xzvf prometheus-${PROM_VERSION}.linux-amd64.tar.gz prometheus-${PROM_VERSION}.linux-amd64/promtool
+          rm -f prometheus-${PROM_VERSION}.linux-amd64.tar.gz
+          sudo mv prometheus-${PROM_VERSION}.linux-amd64/promtool /usr/bin
+          cat metrics.prom | promtool check metrics
+
+      - name: Report cluster failure status and capture cilium-sysdump
+        if: ${{ failure() && steps.install-cilium.outcome != 'skipped' }}
+        # The following is needed to prevent hubble from receiving an empty
+        # file (EOF) on stdin and displaying no flows.
+        shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'
+        run: |
+          echo "=== Retrieve cluster state ==="
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-out
+
+      - name: Upload cilium-sysdump
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        if: ${{ failure() }}
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip

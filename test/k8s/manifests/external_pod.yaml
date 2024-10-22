@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: toservices
+  labels:
+    zgroup: external
+    test: toservices
+spec:
+  containers:
+  - name: app-reach-services
+    image: quay.io/cilium/demo-client:1.0
+    imagePullPolicy: IfNotPresent
+    command: [ "bash", "-c", "while true; do sleep 5; done" ]

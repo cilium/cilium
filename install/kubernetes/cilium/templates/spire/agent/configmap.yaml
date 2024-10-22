@@ -1,0 +1,53 @@
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-agent
+  namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
+  {{- with .Values.authentication.mutual.spire.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  agent.conf: |
+    agent {
+      data_dir = "/run/spire"
+      log_level = "ERROR"
+      server_address = "spire-server"
+      server_port = "8081"
+      socket_path = {{ .Values.authentication.mutual.spire.agentSocketPath | quote }}
+      admin_socket_path = {{ .Values.authentication.mutual.spire.adminSocketPath | quote }}
+      trust_bundle_path = "/run/spire/bundle/bundle.crt"
+      trust_domain = {{ .Values.authentication.mutual.spire.trustDomain | quote }}
+      authorized_delegates = [
+        "spiffe://{{ .Values.authentication.mutual.spire.trustDomain }}/cilium-agent",
+      ]
+    }
+
+    plugins {
+      NodeAttestor "k8s_psat" {
+        plugin_data {
+          cluster = {{ .Values.cluster.name | quote }}
+        }
+      }
+
+      KeyManager "memory" {
+        plugin_data {
+        }
+      }
+
+      WorkloadAttestor "k8s" {
+        plugin_data {
+          skip_kubelet_verification = {{ .Values.authentication.mutual.spire.install.agent.skipKubeletVerification }}
+        }
+      }
+    }
+
+    health_checks {
+      listener_enabled = true
+      bind_address = "0.0.0.0"
+      bind_port = "4251"
+      live_path = "/live"
+      ready_path = "/ready"
+    }
+{{- end }}

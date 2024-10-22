@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package endpoint
+
+import (
+	"context"
+	"sync"
+
+	"github.com/cilium/hive/cell"
+	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/clustermesh"
+	"github.com/cilium/cilium/pkg/clustermesh/wait"
+	"github.com/cilium/cilium/pkg/time"
+)
+
+var (
+	RegeneratorCell = cell.Module(
+		"endpoint-regeneration",
+		"Endpoints regeneration",
+
+		cell.Provide(newRegenerator),
+	)
+)
+
+// Regenerator wraps additional functionalities for endpoint regeneration.
+type Regenerator struct {
+	cmWaitFn      wait.Fn
+	cmWaitTimeout time.Duration
+
+	logger        logrus.FieldLogger
+	cmSyncLogOnce sync.Once
+}
+
+func newRegenerator(in struct {
+	cell.In
+
+	Logger logrus.FieldLogger
+
+	Config      wait.TimeoutConfig
+	ClusterMesh *clustermesh.ClusterMesh
+}) *Regenerator {
+	waitFn := func(context.Context) error { return nil }
+	if in.ClusterMesh != nil {
+		waitFn = in.ClusterMesh.IPIdentitiesSynced
+	}
+
+	return &Regenerator{
+		logger:        in.Logger,
+		cmWaitFn:      waitFn,
+		cmWaitTimeout: in.Config.ClusterMeshSyncTimeout,
+	}
+}
+
+func (r *Regenerator) WaitForClusterMeshIPIdentitiesSync(ctx context.Context) error {
+	wctx, cancel := context.WithTimeout(ctx, r.cmWaitTimeout)
+	defer cancel()
+	err := r.cmWaitFn(wctx)
+
+	switch {
+	case ctx.Err() != nil:
+		// The context associated with the endpoint has been canceled.
+		return ErrNotAlive
+	case err != nil:
+		// We don't return an error in case the wait operation timed out, as we can
+		// continue with the endpoint regeneration, although at the cost of possible
+		// connectivity drops for cross-cluster connections. We additionally print
+		// the warning message only once, to avoid repeating it for every endpoint.
+		r.cmSyncLogOnce.Do(func() {
+			r.logger.Warning("Failed waiting for clustermesh IPs and identities synchronization before regenerating endpoints, expect possible disruption of cross-cluster connections")
+		})
+	}
+
+	return nil
+}

@@ -1,0 +1,6 @@
+*
+!go.mod
+!go.sum
+!*.go
+!sql-migrate/*.go
+!sqlparse/*.go

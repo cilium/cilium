@@ -1,0 +1,37 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "secure-empire-cassandra"
+specs:
+  - description: Allow only permitted requests to empire Cassandra server
+    endpointSelector:
+      matchLabels:
+        app: cass-server
+    ingress:
+    - fromEndpoints:
+      - matchLabels:
+          app: empire-outpost
+      toPorts:
+      - ports:
+        - port: "9042"
+          protocol: TCP
+        rules:
+          l7proto: cassandra
+          l7:
+          - query_action: "select"
+            query_table: "system\\..*"
+          - query_action: "select"
+            query_table: "system_schema\\..*"
+          - query_action: "insert"
+            query_table: "attendance.daily_records"
+    - fromEndpoints:
+      - matchLabels:
+          app: empire-hq
+      toPorts:
+      - ports:
+        - port: "9042"
+          protocol: TCP
+        rules:
+          l7proto: cassandra
+          l7:
+          - {}

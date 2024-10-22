@@ -1,0 +1,54 @@
+extraVolumes:
+- name: cilium-dbg-binary
+  hostPath:
+    path: /cilium-binaries/cilium-dbg
+    type: File
+- name: cilium-agent-binary
+  hostPath:
+    path: /cilium-binaries/cilium-agent
+    type: File
+- name: cilium-c-files
+  hostPath:
+    path: /cilium-binaries/var/lib/cilium/bpf
+    type: Directory
+extraVolumeMounts:
+- name: cilium-dbg-binary
+  mountPath: /usr/bin/cilium-dbg
+  readOnly: true
+- name: cilium-agent-binary
+  mountPath: /usr/bin/cilium-agent
+  readOnly: true
+- name: cilium-c-files
+  mountPath: /var/lib/cilium/bpf
+operator:
+  extraVolumeMounts:
+  - mountPath: /usr/bin/cilium-operator-generic
+    name: cilium-operator-binary
+    readOnly: true
+  extraVolumes:
+  - hostPath:
+      path: /cilium-binaries/cilium-operator-generic
+      type: File
+    name: cilium-operator-binary
+  image:
+    pullPolicy: IfNotPresent
+clustermesh:
+  apiserver:
+    extraVolumeMounts:
+    - mountPath: /usr/bin/clustermesh-apiserver
+      name: clustermesh-apiserver-binary
+      readOnly: true
+    kvstoremesh:
+      extraVolumeMounts:
+      - mountPath: /usr/bin/clustermesh-apiserver
+        name: clustermesh-apiserver-binary
+        readOnly: true
+    extraVolumes:
+    - hostPath:
+        path: /cilium-binaries/clustermesh-apiserver
+        type: File
+      name: clustermesh-apiserver-binary
+    image:
+      pullPolicy: IfNotPresent
+image:
+  pullPolicy: IfNotPresent

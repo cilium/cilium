@@ -1,0 +1,11 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "dev-to-host"
+spec:
+  endpointSelector:
+    matchLabels:
+      env: dev
+  egress:
+    - toEntities:
+      - host

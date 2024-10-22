@@ -1,0 +1,14 @@
+[Unit]
+Description=cilium operator
+Documentation=http://docs.cilium.io
+Requires=cilium.service
+
+[Service]
+Type=simple
+LimitCORE=infinity
+EnvironmentFile=-/etc/sysconfig/cilium
+ExecStart=/usr/bin/cilium-operator $CILIUM_OPERATOR_OPTS
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

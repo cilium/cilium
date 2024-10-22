@@ -1,0 +1,62 @@
+---
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: "ip-pool-blue"
+  labels:
+    bgp: blue
+spec:
+  blocks:
+    - cidr: "20.0.10.0/24"
+    - cidr: "2004::0/64"
+  serviceSelector:
+    matchExpressions:
+      - {key: bgp, operator: In, values: [blue]}
+
+---
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: "ip-pool-red"
+  labels:
+    bgp: red
+spec:
+  blocks:
+    - cidr: "20.1.10.0/24"
+    - cidr: "2004:1::0/64"
+  serviceSelector:
+    matchExpressions:
+      - {key: bgp, operator: In, values: [red]}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lb-service-blue
+  namespace: tenant-blue
+  labels:
+    bgp: blue
+spec:
+  type: LoadBalancer
+  ipFamilyPolicy: PreferDualStack
+  selector:
+    app: curl-blue
+  ports:
+    - port: 1234
+  externalTrafficPolicy: Local
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lb-service-red
+  namespace: tenant-red
+  labels:
+    bgp: red
+spec:
+  type: LoadBalancer
+  ipFamilyPolicy: PreferDualStack
+  selector:
+    app: curl-red
+  ports:
+    - port: 1236

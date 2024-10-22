@@ -1,0 +1,17 @@
+{{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
+{{- if and $envoyDS (not .Values.preflight.enabled) }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-envoy-config
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.envoy.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+{{- (tpl (.Files.Glob "files/cilium-envoy/configmap/bootstrap-config.json").AsConfig .) | nindent 2 }}
+
+{{- end }}

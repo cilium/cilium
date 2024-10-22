@@ -1,0 +1,177 @@
+name: Build Commits
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request: {}
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build_commits:
+    name: Check if build works for every commit
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+        with:
+          comment_on_pr: false
+
+      - name: Configure git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions@users.noreply.github.com"
+
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Install Go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          cache: false
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.23.1
+
+      # Load Golang cache build from GitHub
+      - name: Load Golang cache build from GitHub
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        id: go-cache
+        with:
+          path: /tmp/.cache/go
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      # Load CCache build from GitHub
+      - name: Load ccache cache build from GitHub
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        id: ccache-cache
+        with:
+          path: /tmp/.cache/ccache
+          key: ${{ runner.os }}-ccache-${{ hashFiles('bpf/**') }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: Create cache directories if they don't exist
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/.cache/go/.cache/go-build
+          mkdir -p /tmp/.cache/go/pkg
+          mkdir -p /tmp/.cache/ccache/.ccache
+
+      - name: Check if build works for every commit
+        env:
+          CLANG: "ccache clang"
+          BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
+          BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
+          BUILDER_CCACHE_DIR: "/tmp/.cache/ccache/.ccache"
+        run: |
+          set -eu -o pipefail
+          COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          for commit in $COMMITS ; do
+            git checkout $commit || exit 1
+            contrib/scripts/builder.sh make CLANG="${CLANG}" build -j $(nproc) || exit 1
+          done
+
+      - name: Check bpf code changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: bpf-tree
+        with:
+          # If these filters are modified, also modify the step below where we
+          # do a git diff
+          filters: |
+            src:
+              - 'bpf/**'
+
+      # Runs only if code under bpf/ is changed.
+      - name: Check if datapath build works for every commit
+        if: steps.bpf-tree.outputs.src == 'true'
+        env:
+          CLANG: "ccache clang"
+          BUILDER_GOCACHE_DIR: "/tmp/.cache/go/.cache/go-build"
+          BUILDER_GOMODCACHE_DIR: "/tmp/.cache/go/pkg"
+          BUILDER_CCACHE_DIR: "/tmp/.cache/ccache/.ccache"
+        run: |
+          set -eu -o pipefail
+          COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          for commit in $COMMITS ; do
+            git checkout $commit || exit 1
+            # Do not run make if there aren't any files modified in these
+            # directories from the previous commit to the current commit.
+            # If these filters are modified, also modify the step above where we
+            # run dorny/paths-filter.
+            if ! git diff --quiet HEAD^ bpf/ ; then
+              contrib/scripts/builder.sh make CLANG="${CLANG}" -C bpf build_all -j $(nproc) || exit 1
+            fi
+          done
+
+      - name: Reset cache ownership to GitHub runners user
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' || steps.ccache-cache.outputs.cache-hit != 'true' }}
+        shell: bash
+        run: |
+          sudo du -sh /tmp/.cache/
+          sudo chown $USER:$USER -R /tmp/.cache
+
+      - name: Check test code changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: test-tree
+        with:
+          # If these filters are modified, also modify the step below where we
+          # do a git diff
+          filters: |
+            src:
+              - 'pkg/**'
+              - 'test/**'
+
+      - name: Set clang directory
+        if: steps.test-tree.outputs.src == 'true'
+        id: set_clang_dir
+        run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
+
+      - name: Install LLVM and Clang prerequisites
+        if: steps.test-tree.outputs.src == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libtinfo5
+
+      - name: Install LLVM and Clang
+        if: steps.test-tree.outputs.src == 'true'
+        uses: KyleMayes/install-llvm-action@e0a8dc9cb8a22e8a7696e8a91a4e9581bec13181 # v2.0.5
+        with:
+          version: "17.0.6"
+          directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
+
+      - name: Install ginkgo
+        if: steps.test-tree.outputs.src == 'true'
+        run: |
+          go install github.com/onsi/ginkgo/ginkgo@cc0216944b25a88d3259699a029d4e601fb8a222 # v1.12.1
+
+      # Runs only if code under test/ is changed.
+      - name: Check if ginkgo test suite build works for every commit
+        if: steps.test-tree.outputs.src == 'true'
+        run: |
+          set -eu -o pipefail
+          COMMITS=$(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+          for commit in $COMMITS ; do
+            git checkout $commit || exit 1
+            # Do not run make if there aren't any files modified in these
+            # directories from the previous commit to the current commit.
+            # If these filters are modified, also modify the step above where we
+            # run dorny/paths-filter.
+            if ! git diff --quiet HEAD^ pkg/ test/ ; then
+              (make -C test build -j $(nproc) && make -C test build-darwin -j $(nproc)) || exit 1
+            fi
+          done
+
+      - name: Failed commit during the build
+        if: ${{ failure() }}
+        run: git --no-pager log --format=%B -n 1

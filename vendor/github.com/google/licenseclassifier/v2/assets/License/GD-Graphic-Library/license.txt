@@ -1,0 +1,24 @@
+GD Graphic Library
+
+(extracted from COPYING)
+
+Permission has been granted to copy, distribute and modify gd in
+any context without fee, including a commercial application,
+provided that this notice is present in user-accessible supporting
+documentation.
+
+This does not affect your ownership of the derived work itself, and
+the intent is to assure proper credit for the authors of gd, not to
+interfere with your productive use of gd. If you have questions,
+ask. "Derived works" includes all programs that utilize the
+library. Credit must be given in user-accessible documentation.
+
+This software is provided "AS IS." The copyright holders disclaim
+all warranties, either express or implied, including but not
+limited to implied warranties of merchantability and fitness for a
+particular purpose, with respect to this code and accompanying
+documentation.
+
+Although their code does not appear in gd, the authors wish to thank
+David Koblas, David Rowley, and Hutchison Avenue Software Corporation
+for their prior contributions.

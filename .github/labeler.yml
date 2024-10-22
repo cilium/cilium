@@ -1,0 +1,30 @@
+# Add 'cilium-cli' label to any file changes in 'cilium-cli/'
+cilium-cli:
+- changed-files:
+  - any-glob-to-any-file:
+    - cilium-cli/**
+# Add 'cilium-cli-exclusive' label if the changed files are only in 'cilium-cli'
+cilium-cli-exclusive:
+- changed-files:
+  - all-globs-to-all-files:
+    - cilium-cli/**
+# Add 'hubble-cli' label to any file changes in 'hubble/'
+hubble-cli:
+- changed-files:
+  - any-glob-to-any-file:
+    - hubble/**
+# Add 'hubble-cli-exclusive' label if the changed files are only in 'hubble'
+hubble-cli-exclusive:
+- changed-files:
+  - all-globs-to-all-files:
+    - hubble/**
+sig/policy:
+- changed-files:
+  - any-glob-to-any-file:
+    - daemon/cmd/policy*
+    - daemon/cmd/fqdn*
+    - pkg/fqdn/**
+    - pkg/policy/**
+    - pkg/identity/**
+    - pkg/proxy/dns.go
+    - test/**/net_policies.go

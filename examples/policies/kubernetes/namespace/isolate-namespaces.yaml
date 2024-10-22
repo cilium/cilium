@@ -1,0 +1,27 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "isolate-ns1"
+  namespace: ns1
+spec:
+  endpointSelector:
+    matchLabels:
+      {}
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        {}
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "isolate-ns1"
+  namespace: ns2
+spec:
+  endpointSelector:
+    matchLabels:
+      {}
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        {}

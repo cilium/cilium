@@ -1,0 +1,22 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "hairpin-validation-policy"
+spec:
+  endpointSelector:
+    matchLabels:
+      name: echo
+  # L3 egress policy validates that policy enforcement is skipped for hairpin
+  # traffic that's SNAT'd. Ingress hairpin traffic can match on L3, but still
+  # fail on L4 policy, hence define an L4 policy on ingress for validation.
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": default
+  ingress:
+    - toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+            - port: "69"
+              protocol: UDP

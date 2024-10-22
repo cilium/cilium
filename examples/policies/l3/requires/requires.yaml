@@ -1,0 +1,13 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "requires-rule"
+specs:
+  - description: "For endpoints with env=prod, only allow if source also has label env=prod"
+    endpointSelector:
+      matchLabels:
+        env: prod
+    ingress:
+    - fromRequires:
+      - matchLabels:
+          env: prod

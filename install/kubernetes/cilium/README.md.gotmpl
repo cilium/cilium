@@ -1,0 +1,54 @@
+{{ template "chart.header" . }}
+
+{{ template "chart.deprecationWarning" . }}
+
+{{ template "chart.versionBadge" . }}{{ template "chart.typeBadge" . }}{{ template "chart.appVersionBadge" . }}
+
+Cilium is open source software for providing and transparently securing
+network connectivity and loadbalancing between application workloads such as
+application containers or processes. Cilium operates at Layer 3/4 to provide
+traditional networking and security services as well as Layer 7 to protect and
+secure use of modern application protocols such as HTTP, gRPC and Kafka.
+
+A new Linux kernel technology called eBPF is at the foundation of Cilium.
+It supports dynamic insertion of eBPF bytecode into the Linux kernel at various
+integration points such as: network IO, application sockets, and tracepoints
+to implement security, networking and visibility logic. eBPF is highly
+efficient and flexible.
+
+![Cilium feature overview](https://raw.githubusercontent.com/cilium/cilium/main/Documentation/images/cilium_overview.png)
+
+## Prerequisites
+
+* Kubernetes: `{{ template "chart.kubeVersion" . }}`
+* Helm: `>= 3.0`
+
+## Getting Started
+
+Try Cilium on any Kubernetes distribution in under 15 minutes:
+
+| Minikube | Self-Managed K8s | Amazon EKS | Google GKE | Microsoft AKS |
+|:-:|:-:|:-:|:-:|:-:|
+| [![Minikube](https://raw.githubusercontent.com/cilium/charts/master/images/minikube.svg)](https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default/) | [![Self-Managed Kubernetes](https://raw.githubusercontent.com/cilium/charts/master/images/k8s.png)](https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default/) | [![Amazon EKS](https://raw.githubusercontent.com/cilium/charts/master/images/aws.svg)](https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default/) | [![Google GKE](https://raw.githubusercontent.com/cilium/charts/master/images/google-cloud.svg)](https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default/) | [![Microsoft AKS](https://raw.githubusercontent.com/cilium/charts/master/images/azure.svg)](https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default/) |
+
+Or, for a quick install with the default configuration:
+
+```
+$ helm repo add cilium https://helm.cilium.io/
+$ helm install cilium cilium/cilium --namespace=kube-system
+```
+
+After Cilium is installed, you can explore the features that Cilium has to
+offer from the [Getting Started Guides page](https://docs.cilium.io/en/stable/gettingstarted/).
+
+{{ template "chart.maintainersSection" . }}
+
+{{ template "chart.sourcesSection" . }}
+
+## Getting Help
+
+The best way to get help if you get stuck is to ask a question on the
+[Cilium Slack channel](https://slack.cilium.io). With Cilium
+contributors across the globe, there is almost always someone available to help.
+
+{{ template "chart.valuesSection" . }}

@@ -1,0 +1,14 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "l3-egress-rule"
+spec:
+  endpointSelector:
+    matchLabels:
+      run: ssh-client
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        run: sshd
+    auth:
+      type: "null"

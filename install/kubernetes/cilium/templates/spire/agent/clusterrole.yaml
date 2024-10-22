@@ -1,0 +1,15 @@
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled .Values.authentication.mutual.spire.install.agent.serviceAccount.create .Values.rbac.create -}}
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Values.authentication.mutual.spire.install.agent.serviceAccount.name }}
+  {{- with .Values.authentication.mutual.spire.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+# Required cluster role to allow spire-agent to query k8s API server
+- apiGroups: [ "" ]
+  resources: [ "pods","nodes","nodes/proxy" ]
+  verbs: [ "get" ]
+{{- end }}

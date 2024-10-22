@@ -1,0 +1,57 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"graceful-term-svc","namespace":"test"},"spec":{"ports":[{"port":8081}],"selector":{"app":"graceful-term-server"}}}
+    creationTimestamp: "2023-02-02T01:21:10Z"
+    name: graceful-term-svc
+    namespace: test
+    resourceVersion: "663"
+    uid: be7e85d4-6d27-400b-aff2-bd7284837fc9
+  spec:
+    clusterIP: 10.96.116.33
+    clusterIPs:
+    - 10.96.116.33
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - port: 8081
+      protocol: TCP
+      targetPort: 8081
+    selector:
+      app: graceful-term-server
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1
+  endpoints: null
+  kind: EndpointSlice
+  metadata:
+    creationTimestamp: "2023-02-02T01:21:10Z"
+    generateName: graceful-term-svc-
+    generation: 5
+    labels:
+      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+      kubernetes.io/service-name: graceful-term-svc
+    name: graceful-term-svc-pg7nd
+    namespace: test
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: graceful-term-svc
+      uid: be7e85d4-6d27-400b-aff2-bd7284837fc9
+    resourceVersion: "743"
+    uid: ed13283f-c92e-4531-ae1b-f6d6aa4463b7
+  ports: null
+kind: List
+metadata:
+  resourceVersion: ""

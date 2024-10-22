@@ -1,0 +1,26 @@
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled .Values.authentication.mutual.spire.install.server.serviceAccount.create .Values.rbac.create -}}
+
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}
+  {{- with .Values.authentication.mutual.spire.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+# ClusterRole to allow spire-server node attestor to query Token Review API
+- apiGroups: [ "authentication.k8s.io" ]
+  resources: [ "tokenreviews" ]
+  verbs: [ "create" ]
+# Required cluster role to allow spire-server to query k8s API server
+# for pods for psat attestation
+- apiGroups: [ "" ]
+  resources: [ "pods" ]
+  verbs: [ "get" ]
+# Required cluster role to allow spire-server to query k8s API server
+# for nodes for psat attestation
+- apiGroups: [ "" ]
+  resources: [ "nodes","nodes/proxy" ]
+  verbs: [ "get" ]
+{{- end }}

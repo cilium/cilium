@@ -1,0 +1,96 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memcached-server
+spec:
+  selector:
+    matchLabels:
+      app: memcd-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: memcd-server
+    spec:
+      containers:
+      - name: memcached
+        image: memcached
+        ports:
+        - containerPort: 11211
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: memcached-server
+  labels:
+    app: memcd-server
+spec:
+  ports:
+  - port: 11211
+    name: memcached-port
+    targetPort: 11211
+    protocol: TCP
+  selector:
+    app: memcd-server
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: a-wing
+spec:
+  selector:
+    matchLabels:
+      app: a-wing
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: a-wing
+    spec:
+      containers:
+      - name: starfighter
+        image: docker.io/cilium/python-bmemcached:v0.0.2
+        command: ["sleep"]
+        args: ["30000"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: x-wing
+spec:
+  selector:
+    matchLabels:
+      app: x-wing
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: x-wing
+    spec:
+      containers:
+      - name: starfigher
+        image: docker.io/library/alpine:3.12.7@sha256:36553b10a4947067b9fbb7d532951066293a68eae893beba1d9235f7d11a20ad
+        command: ["sleep"]
+        args: ["30000"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alliance-tracker
+spec:
+  selector:
+    matchLabels:
+      name: fleet-tracker
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: fleet-tracker
+    spec:
+      containers:
+      - name: starfigher
+        image: docker.io/cilium/python-bmemcached:v0.0.2
+        command: ["sleep"]
+        args: ["30000"]

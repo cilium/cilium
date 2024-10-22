@@ -1,0 +1,19 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: echo-ingress-mutual-authentication
+spec:
+  description: "Allow other client to contact echo after mutual authentication"
+  endpointSelector:
+    matchLabels:
+      kind: echo
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        kind: client
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+    authentication:
+      mode: required

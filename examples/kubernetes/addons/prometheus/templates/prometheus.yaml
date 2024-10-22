@@ -1,0 +1,118 @@
+kind: ConfigMap
+metadata:
+  name: prometheus
+  namespace: cilium-monitoring
+apiVersion: v1
+data:
+{{ (.Files.Glob "files/prometheus/*").AsConfig | indent 2 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: prometheus
+  name: prometheus
+  namespace: cilium-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+      name: prometheus-main
+    spec:
+      containers:
+      - args:
+        - --config.file=/etc/prometheus/prometheus.yaml
+        - --storage.tsdb.path=/prometheus/
+        - --log.level=info
+        - --enable-feature=exemplar-storage
+        image: "prom/prometheus:{{ .Values.image.prometheus.version }}"
+        imagePullPolicy: IfNotPresent
+        name: prometheus
+        ports:
+        - containerPort: 9090
+          name: webui
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /etc/prometheus
+          name: config-volume
+          readOnly: true
+        - mountPath: /prometheus/
+          name: storage
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      serviceAccount: prometheus-k8s
+      volumes:
+      - configMap:
+          name: prometheus
+        name: config-volume
+      - emptyDir: {}
+        name: storage
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+- kind: ServiceAccount
+  name: prometheus-k8s
+  namespace: cilium-monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - nodes/proxy
+  - services
+  - endpoints
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-k8s
+  namespace: cilium-monitoring
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: prometheus
+  name: prometheus
+  namespace: cilium-monitoring
+spec:
+  ports:
+  - name: webui
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    app: prometheus
+  type: ClusterIP

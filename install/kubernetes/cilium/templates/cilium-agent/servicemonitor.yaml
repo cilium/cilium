@@ -1,0 +1,66 @@
+{{- if and .Values.agent (not .Values.preflight.enabled) .Values.prometheus.enabled .Values.prometheus.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cilium-agent
+  namespace: {{ .Values.prometheus.serviceMonitor.namespace | default (include "cilium.namespace" .) }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.prometheus.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- if or .Values.prometheus.serviceMonitor.annotations .Values.annotations }}
+  annotations:
+    {{- with .Values.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.prometheus.serviceMonitor.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cilium-agent
+  namespaceSelector:
+    matchNames:
+    - {{ include "cilium.namespace" . }}
+  endpoints:
+  - port: metrics
+    interval: {{ .Values.prometheus.serviceMonitor.interval | quote }}
+    honorLabels: true
+    path: /metrics
+    {{- with .Values.prometheus.serviceMonitor.relabelings }}
+    relabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.prometheus.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  # If envoy DaemonSet is enabled, we'll create a separate service for it
+  # If it is not enabled, that means envoy runs inside cilium-agent and we'll monitor using same service
+  {{- $envoyDS := eq (include "envoyDaemonSetEnabled" .) "true" -}}
+  {{- if and (not $envoyDS) (not .Values.preflight.enabled) .Values.envoy.prometheus.enabled .Values.envoy.prometheus.serviceMonitor.enabled }}
+  {{- if .Values.envoy.prometheus.serviceMonitor.enabled }}
+  - port: envoy-metrics
+    interval: {{ .Values.envoy.prometheus.serviceMonitor.interval | quote }}
+    honorLabels: true
+    path: /metrics
+    {{- with .Values.envoy.prometheus.serviceMonitor.relabelings }}
+    relabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.envoy.prometheus.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- end }}
+  targetLabels:
+  - k8s-app
+{{- if .Values.prometheus.serviceMonitor.jobLabel }}
+  jobLabel: {{ .Values.prometheus.serviceMonitor.jobLabel | quote }}
+{{- end }}
+{{- end }}

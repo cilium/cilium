@@ -1,0 +1,20 @@
+[
+  {
+    "endpointSelector": {},
+    "ingressDeny": [
+      {
+        "fromEntities": [
+          "world"
+        ]
+      }
+    ],
+    "ingress": [
+      {
+        "fromEntities": [
+          "all"
+        ]
+      }
+    ],
+    "labels": [{"key": "name", "value": "external-lockdown"}]
+  }
+]

@@ -1,0 +1,13 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "l3-rule"
+specs:
+  - description: "For endpoints with env=prod, allow if source also has label role=frontend"
+    endpointSelector:
+      matchLabels:
+        env: prod
+    ingress:
+    - fromEndpoints:
+      - matchLabels:
+          role: frontend

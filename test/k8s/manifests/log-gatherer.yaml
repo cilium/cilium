@@ -1,0 +1,59 @@
+# ServiceAccount=cilium, which log-gatherer depends on, is created by
+# ciliumInstallHelm(). However, ciliumInstallHelm() depends on log-gatherer to
+# dynamically determine private / public ifaces. So, create it here as well.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cilium-log-gatherer
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: log-gatherer
+  labels:
+    k8s-app: cilium-test-logs
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cilium-test-logs
+      kubernetes.io/cluster-service: "true"
+  template:
+    metadata:
+      labels:
+        k8s-app: cilium-test-logs
+        kubernetes.io/cluster-service: "true"
+    spec:
+      containers:
+      - args:
+        - "10000"
+        command:
+        - sleep
+        image: quay.io/cilium/log-gatherer:v1.2
+        imagePullPolicy: IfNotPresent
+        name: log-gatherer
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /sys/fs/bpf
+          name: bpf-maps
+        - mountPath: /var/log/journal
+          name: journald
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      hostPID: true
+      priorityClassName: system-node-critical
+      restartPolicy: Always
+      serviceAccount: cilium-log-gatherer
+      serviceAccountName: cilium-log-gatherer
+      terminationGracePeriodSeconds: 1
+      tolerations:
+      - operator: Exists
+      volumes:
+      - hostPath:
+          path: /sys/fs/bpf
+          type: DirectoryOrCreate
+        name: bpf-maps
+      - hostPath:
+          path: /var/log/journal
+          type: DirectoryOrCreate
+        name: journald

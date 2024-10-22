@@ -1,0 +1,133 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Node
+  metadata:
+    annotations:
+      kubeadm.alpha.kubernetes.io/cri-socket: unix:///run/containerd/containerd.sock
+      node.alpha.kubernetes.io/ttl: "0"
+      volumes.kubernetes.io/controller-managed-attach-detach: "true"
+    creationTimestamp: "2023-06-27T01:19:35Z"
+    labels:
+      beta.kubernetes.io/arch: amd64
+      beta.kubernetes.io/os: linux
+      kubernetes.io/arch: amd64
+      kubernetes.io/hostname: hostport-control-plane
+      kubernetes.io/os: linux
+      node-role.kubernetes.io/control-plane: ""
+      node.kubernetes.io/exclude-from-external-load-balancers: ""
+    name: hostport-control-plane
+    resourceVersion: "579"
+    uid: ad25b4e3-55c1-4e94-8455-83df8f4dde2b
+  spec:
+    podCIDR: 10.244.0.0/24
+    podCIDRs:
+    - 10.244.0.0/24
+    providerID: kind://docker/hostport/hostport-control-plane
+  status:
+    addresses:
+    - address: 172.21.0.2
+      type: InternalIP
+    - address: hostport-control-plane
+      type: Hostname
+    allocatable:
+      cpu: "48"
+      ephemeral-storage: 4220680920Ki
+      hugepages-1Gi: "0"
+      hugepages-2Mi: "0"
+      memory: 198050708Ki
+      pods: "110"
+    capacity:
+      cpu: "48"
+      ephemeral-storage: 4220680920Ki
+      hugepages-1Gi: "0"
+      hugepages-2Mi: "0"
+      memory: 198050708Ki
+      pods: "110"
+    conditions:
+    - lastHeartbeatTime: "2023-06-27T01:20:25Z"
+      lastTransitionTime: "2023-06-27T01:20:25Z"
+      message: Cilium is running on this node
+      reason: CiliumIsUp
+      status: "False"
+      type: NetworkUnavailable
+    - lastHeartbeatTime: "2023-06-27T01:20:09Z"
+      lastTransitionTime: "2023-06-27T01:19:32Z"
+      message: kubelet has sufficient memory available
+      reason: KubeletHasSufficientMemory
+      status: "False"
+      type: MemoryPressure
+    - lastHeartbeatTime: "2023-06-27T01:20:09Z"
+      lastTransitionTime: "2023-06-27T01:19:32Z"
+      message: kubelet has no disk pressure
+      reason: KubeletHasNoDiskPressure
+      status: "False"
+      type: DiskPressure
+    - lastHeartbeatTime: "2023-06-27T01:20:09Z"
+      lastTransitionTime: "2023-06-27T01:19:32Z"
+      message: kubelet has sufficient PID available
+      reason: KubeletHasSufficientPID
+      status: "False"
+      type: PIDPressure
+    - lastHeartbeatTime: "2023-06-27T01:20:09Z"
+      lastTransitionTime: "2023-06-27T01:19:54Z"
+      message: kubelet is posting ready status
+      reason: KubeletReady
+      status: "True"
+      type: Ready
+    daemonEndpoints:
+      kubeletEndpoint:
+        Port: 10250
+    images:
+    - names:
+      - docker.io/library/import-2023-06-27@sha256:f2ec92eb01ce4dfd3881613dd2ccad94d9817d62538dbe1b1d8b0794dbd73c10
+      - quay.io/cilium/cilium:v1.13.4
+      sizeBytes: 486760788
+    - names:
+      - registry.k8s.io/etcd:3.5.6-0
+      sizeBytes: 102542580
+    - names:
+      - docker.io/library/import-2022-12-09@sha256:5aee6a20d994735899cc63b2c92cbb06f2dbfb3cdcb82cdd5439d793d783db70
+      - registry.k8s.io/kube-apiserver:v1.26.0
+      sizeBytes: 80267758
+    - names:
+      - docker.io/library/import-2022-12-09@sha256:a90c8a03079da91ce95b4034b0be2e93473cf5e15aa196f9221a992ce2fcd3dd
+      - registry.k8s.io/kube-controller-manager:v1.26.0
+      sizeBytes: 68868220
+    - names:
+      - docker.io/library/import-2022-12-09@sha256:a47d4668117a259564749aed491e84fb5e2afed768fb4bc14331c54c0d73ab5a
+      - registry.k8s.io/kube-proxy:v1.26.0
+      sizeBytes: 67205116
+    - names:
+      - docker.io/library/import-2022-12-09@sha256:56b3b8bc5e87f67a7f24c0b1d797f2f1367378271db42a9aa3755cebd4e176ea
+      - registry.k8s.io/kube-scheduler:v1.26.0
+      sizeBytes: 57657468
+    - names:
+      - docker.io/kindest/kindnetd:v20221004-44d545d1
+      sizeBytes: 25830582
+    - names:
+      - docker.io/kindest/local-path-provisioner:v0.0.22-kind.0
+      sizeBytes: 17375346
+    - names:
+      - registry.k8s.io/coredns/coredns:v1.9.3
+      sizeBytes: 14837849
+    - names:
+      - docker.io/kindest/local-path-helper:v20220607-9a4d8d2a
+      sizeBytes: 2859509
+    - names:
+      - registry.k8s.io/pause:3.7
+      sizeBytes: 311278
+    nodeInfo:
+      architecture: amd64
+      bootID: 3c6c37b2-e6df-4c35-8d90-dd86e6090329
+      containerRuntimeVersion: containerd://1.6.9
+      kernelVersion: 6.1.25-1rodete1-amd64
+      kubeProxyVersion: v1.26.0
+      kubeletVersion: v1.26.0
+      machineID: b15f1954230247fcbad2ba60870d395c
+      operatingSystem: linux
+      osImage: Ubuntu 22.04.1 LTS
+      systemUUID: b73275d5-26a3-4b26-9c6b-ccef3b5a8b92
+kind: List
+metadata:
+  resourceVersion: ""

@@ -1,0 +1,52 @@
+{{- if and .Values.hubble.enabled .Values.hubble.metrics.enabled .Values.hubble.metrics.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hubble
+  namespace: {{ .Values.prometheus.serviceMonitor.namespace | default (include "cilium.namespace" .) }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.hubble.metrics.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- if or .Values.hubble.metrics.serviceMonitor.annotations .Values.hubble.annotations }}
+  annotations:
+    {{- with .Values.hubble.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.hubble.metrics.serviceMonitor.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      k8s-app: hubble
+  namespaceSelector:
+    matchNames:
+    - {{ include "cilium.namespace" . }}
+  endpoints:
+  - port: hubble-metrics
+    interval: {{ .Values.hubble.metrics.serviceMonitor.interval | quote }}
+    honorLabels: true
+    path: /metrics
+    {{- if .Values.hubble.metrics.tls.enabled }}
+    {{- $cn := list (.Values.cluster.name | replace "." "-") "hubble-metrics.cilium.io" | join "." }}
+    {{- $tlsConfig := merge .Values.hubble.metrics.serviceMonitor.tlsConfig (dict "serverName" $cn) }}
+    tlsConfig: {{ $tlsConfig | toYaml | nindent 6 }}
+    scheme: https
+    {{- else }}
+    scheme: http
+    {{- end }}
+    {{- with .Values.hubble.metrics.serviceMonitor.relabelings }}
+    relabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.hubble.metrics.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- if .Values.hubble.metrics.serviceMonitor.jobLabel }}
+  jobLabel: {{ .Values.hubble.metrics.serviceMonitor.jobLabel | quote }}
+{{- end }}
+{{- end }}

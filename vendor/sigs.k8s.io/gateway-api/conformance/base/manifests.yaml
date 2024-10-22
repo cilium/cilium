@@ -1,0 +1,732 @@
+# This file contains the base resources that most conformance tests will rely
+# on. This includes 3 namespaces along with Gateways, Services and Deployments
+# that can be used as backends for routing traffic. The most important
+# resources included are the Gateways (all in the gateway-conformance-infra
+# namespace):
+# - same-namespace (only supports route in same ns)
+# - all-namespaces (supports routes in all ns)
+# - backend-namespaces (supports routes in ns with backend label)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-conformance-infra
+  labels:
+    gateway-conformance: infra
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: same-namespace
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: same-namespace-with-https-listener
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: https
+    port: 443
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: Same
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: tls-validity-checks-certificate
+        namespace: gateway-conformance-infra
+  - name: https-with-hostname
+    port: 443
+    hostname: second-example.org
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: Same
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: tls-validity-checks-certificate
+        namespace: gateway-conformance-infra
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: all-namespaces
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: backend-namespaces
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            gateway-conformance: backend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: infra-backend-v1
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: infra-backend-v1
+  ports:
+  - name: first-port
+    protocol: TCP
+    port: 8080
+    targetPort: 3000
+  - name: second-port
+    protocol: TCP
+    appProtocol: kubernetes.io/h2c
+    port: 8081
+    targetPort: 3001
+  - name: third-port
+    protocol: TCP
+    appProtocol: kubernetes.io/ws
+    port: 8082
+    targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infra-backend-v1
+  namespace: gateway-conformance-infra
+  labels:
+    app: infra-backend-v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: infra-backend-v1
+  template:
+    metadata:
+      labels:
+        app: infra-backend-v1
+    spec:
+      containers:
+      - name: infra-backend-v1
+        # From https://github.com/kubernetes-sigs/ingress-controller-conformance/tree/master/images/echoserver
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: infra-backend-v2
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: infra-backend-v2
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infra-backend-v2
+  namespace: gateway-conformance-infra
+  labels:
+    app: infra-backend-v2
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: infra-backend-v2
+  template:
+    metadata:
+      labels:
+        app: infra-backend-v2
+    spec:
+      containers:
+      - name: infra-backend-v2
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: infra-backend-v3
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: infra-backend-v3
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infra-backend-v3
+  namespace: gateway-conformance-infra
+  labels:
+    app: infra-backend-v3
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: infra-backend-v3
+  template:
+    metadata:
+      labels:
+        app: infra-backend-v3
+    spec:
+      containers:
+      - name: infra-backend-v3
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tls-backend
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: tls-backend
+  ports:
+  - protocol: TCP
+    port: 443
+    targetPort: 8443
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tls-backend
+  namespace: gateway-conformance-infra
+  labels:
+    app: tls-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tls-backend
+  template:
+    metadata:
+      labels:
+        app: tls-backend
+    spec:
+      containers:
+      - name: tls-backend
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        volumeMounts:
+        - name: secret-volume
+          mountPath: /etc/secret-volume
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: TLS_SERVER_CERT
+          value: /etc/secret-volume/crt
+        - name: TLS_SERVER_PRIVKEY
+          value: /etc/secret-volume/key
+        resources:
+          requests:
+            cpu: 10m
+      volumes:
+      - name: secret-volume
+        secret:
+          secretName: tls-passthrough-checks-certificate
+          items:
+          - key: tls.crt
+            path: crt
+          - key: tls.key
+            path: key
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-conformance-app-backend
+  labels:
+    gateway-conformance: backend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tls-backend
+  namespace: gateway-conformance-app-backend
+spec:
+  selector:
+    app: tls-backend
+  ports:
+  - protocol: TCP
+    port: 443
+    targetPort: 8443
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tls-backend
+  namespace: gateway-conformance-app-backend
+  labels:
+    app: tls-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tls-backend
+  template:
+    metadata:
+      labels:
+        app: tls-backend
+    spec:
+      containers:
+      - name: tls-backend
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        volumeMounts:
+        - name: secret-volume
+          mountPath: /etc/secret-volume
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: TLS_SERVER_CERT
+          value: /etc/secret-volume/crt
+        - name: TLS_SERVER_PRIVKEY
+          value: /etc/secret-volume/key
+        resources:
+          requests:
+            cpu: 10m
+      volumes:
+      - name: secret-volume
+        secret:
+          secretName: tls-passthrough-checks-certificate
+          items:
+          - key: tls.crt
+            path: crt
+          - key: tls.key
+            path: key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-backend-v1
+  namespace: gateway-conformance-app-backend
+spec:
+  selector:
+    app: app-backend-v1
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-backend-v1
+  namespace: gateway-conformance-app-backend
+  labels:
+    app: app-backend-v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: app-backend-v1
+  template:
+    metadata:
+      labels:
+        app: app-backend-v1
+    spec:
+      containers:
+      - name: app-backend-v1
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-backend-v2
+  namespace: gateway-conformance-app-backend
+spec:
+  selector:
+    app: app-backend-v2
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-backend-v2
+  namespace: gateway-conformance-app-backend
+  labels:
+    app: app-backend-v2
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: app-backend-v2
+  template:
+    metadata:
+      labels:
+        app: app-backend-v2
+    spec:
+      containers:
+      - name: app-backend-v2
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-conformance-web-backend
+  labels:
+    gateway-conformance: backend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-backend
+  namespace: gateway-conformance-web-backend
+spec:
+  selector:
+    app: web-backend
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-backend
+  namespace: gateway-conformance-web-backend
+  labels:
+    app: web-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-backend
+  template:
+    metadata:
+      labels:
+        app: web-backend
+    spec:
+      containers:
+      - name: web-backend
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grpc-infra-backend-v1
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: grpc-infra-backend-v1
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
+    appProtocol: kubernetes.io/h2c
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grpc-infra-backend-v1
+  namespace: gateway-conformance-infra
+  labels:
+    app: grpc-infra-backend-v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: grpc-infra-backend-v1
+  template:
+    metadata:
+      labels:
+        app: grpc-infra-backend-v1
+    spec:
+      containers:
+      - name: grpc-infra-backend-v1
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: GRPC_ECHO_SERVER
+          value: "1"
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grpc-infra-backend-v2
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: grpc-infra-backend-v2
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
+    appProtocol: kubernetes.io/h2c
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grpc-infra-backend-v2
+  namespace: gateway-conformance-infra
+  labels:
+    app: grpc-infra-backend-v2
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: grpc-infra-backend-v2
+  template:
+    metadata:
+      labels:
+        app: grpc-infra-backend-v2
+    spec:
+      containers:
+      - name: grpc-infra-backend-v2
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: GRPC_ECHO_SERVER
+          value: "1"
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grpc-infra-backend-v3
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: grpc-infra-backend-v3
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
+    appProtocol: kubernetes.io/h2c
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grpc-infra-backend-v3
+  namespace: gateway-conformance-infra
+  labels:
+    app: grpc-infra-backend-v3
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: grpc-infra-backend-v3
+  template:
+    metadata:
+      labels:
+        app: grpc-infra-backend-v3
+    spec:
+      containers:
+      - name: grpc-infra-backend-v3
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: GRPC_ECHO_SERVER
+          value: "1"
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coredns
+  namespace: gateway-conformance-infra
+  labels:
+    app: udp
+spec:
+  ports:
+  - name: udp-dns
+    port: 53
+    protocol: UDP
+    targetPort: 53
+  selector:
+    app: udp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coredns
+  namespace: gateway-conformance-infra
+  labels:
+    app: udp
+spec:
+  selector:
+    matchLabels:
+      app: udp
+  template:
+    metadata:
+      labels:
+        app: udp
+    spec:
+      containers:
+      - args:
+        - -conf
+        - /root/Corefile
+        image: coredns/coredns
+        name: coredns
+        volumeMounts:
+        - mountPath: /root
+          name: conf
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: coredns
+        name: conf
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: gateway-conformance-infra
+data:
+  Corefile: |
+    .:53 {
+        forward . 8.8.8.8 9.9.9.9
+        log
+        errors
+    }
+    foo.bar.com:53 {
+      whoami
+    }

@@ -1,0 +1,229 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Node
+  metadata:
+    annotations:
+      kubeadm.alpha.kubernetes.io/cri-socket: unix:///run/containerd/containerd.sock
+      node.alpha.kubernetes.io/ttl: "0"
+      volumes.kubernetes.io/controller-managed-attach-detach: "true"
+    creationTimestamp: "2023-02-02T01:20:05Z"
+    labels:
+      beta.kubernetes.io/arch: amd64
+      beta.kubernetes.io/os: linux
+      kubernetes.io/arch: amd64
+      kubernetes.io/hostname: graceful-term-control-plane
+      kubernetes.io/os: linux
+      node-role.kubernetes.io/control-plane: ""
+      node.kubernetes.io/exclude-from-external-load-balancers: ""
+    name: graceful-term-control-plane
+    resourceVersion: "630"
+    uid: a46c19ea-cca2-40e5-b75f-f8a4d3da17b8
+  spec:
+    podCIDR: 10.244.0.0/24
+    podCIDRs:
+    - 10.244.0.0/24
+    providerID: kind://docker/graceful-term/graceful-term-control-plane
+  status:
+    addresses:
+    - address: 172.18.0.2
+      type: InternalIP
+    - address: graceful-term-control-plane
+      type: Hostname
+    allocatable:
+      cpu: "20"
+      ephemeral-storage: 487105Mi
+      hugepages-1Gi: "0"
+      hugepages-2Mi: "0"
+      memory: 65512136Ki
+      pods: "110"
+    capacity:
+      cpu: "20"
+      ephemeral-storage: 487105Mi
+      hugepages-1Gi: "0"
+      hugepages-2Mi: "0"
+      memory: 65512136Ki
+      pods: "110"
+    conditions:
+    - lastHeartbeatTime: "2023-02-02T01:21:06Z"
+      lastTransitionTime: "2023-02-02T01:21:06Z"
+      message: Cilium is running on this node
+      reason: CiliumIsUp
+      status: "False"
+      type: NetworkUnavailable
+    - lastHeartbeatTime: "2023-02-02T01:21:10Z"
+      lastTransitionTime: "2023-02-02T01:20:04Z"
+      message: kubelet has sufficient memory available
+      reason: KubeletHasSufficientMemory
+      status: "False"
+      type: MemoryPressure
+    - lastHeartbeatTime: "2023-02-02T01:21:10Z"
+      lastTransitionTime: "2023-02-02T01:20:04Z"
+      message: kubelet has no disk pressure
+      reason: KubeletHasNoDiskPressure
+      status: "False"
+      type: DiskPressure
+    - lastHeartbeatTime: "2023-02-02T01:21:10Z"
+      lastTransitionTime: "2023-02-02T01:20:04Z"
+      message: kubelet has sufficient PID available
+      reason: KubeletHasSufficientPID
+      status: "False"
+      type: PIDPressure
+    - lastHeartbeatTime: "2023-02-02T01:21:10Z"
+      lastTransitionTime: "2023-02-02T01:20:23Z"
+      message: kubelet is posting ready status
+      reason: KubeletReady
+      status: "True"
+      type: Ready
+    daemonEndpoints:
+      kubeletEndpoint:
+        Port: 10250
+    images:
+    - names:
+      - docker.io/library/import-2023-02-02@sha256:d8a30793d0e13e0c6ce2d29d09b86914a0ea9b71355fc07a634dec54cf5a3db3
+      - quay.io/cilium/cilium:v1.12.6
+      sizeBytes: 461634767
+    - names:
+      - quay.io/cilium/cilium@sha256:06ce2b0a0a472e73334a7504ee5c5d8b2e2d7b72ef728ad94e564740dd505be5
+      sizeBytes: 166719855
+    - names:
+      - registry.k8s.io/etcd:3.5.6-0
+      sizeBytes: 102542580
+    - names:
+      - docker.io/library/import-2022-12-09@sha256:5aee6a20d994735899cc63b2c92cbb06f2dbfb3cdcb82cdd5439d793d783db70
+      - registry.k8s.io/kube-apiserver:v1.26.0
+      sizeBytes: 80267758
+    - names:
+      - docker.io/library/import-2022-12-09@sha256:a90c8a03079da91ce95b4034b0be2e93473cf5e15aa196f9221a992ce2fcd3dd
+      - registry.k8s.io/kube-controller-manager:v1.26.0
+      sizeBytes: 68868220
+    - names:
+      - docker.io/library/import-2022-12-09@sha256:a47d4668117a259564749aed491e84fb5e2afed768fb4bc14331c54c0d73ab5a
+      - registry.k8s.io/kube-proxy:v1.26.0
+      sizeBytes: 67205116
+    - names:
+      - docker.io/library/import-2023-02-02@sha256:742a7f3f10d859216d1da80ecb146b6a57accaf189883742ccb902cc28b463e7
+      - quay.io/cilium/operator-generic:v1.12.6
+      sizeBytes: 63111140
+    - names:
+      - docker.io/library/import-2022-12-09@sha256:56b3b8bc5e87f67a7f24c0b1d797f2f1367378271db42a9aa3755cebd4e176ea
+      - registry.k8s.io/kube-scheduler:v1.26.0
+      sizeBytes: 57657468
+    - names:
+      - docker.io/kindest/kindnetd:v20221004-44d545d1
+      sizeBytes: 25830582
+    - names:
+      - quay.io/cilium/operator-generic@sha256:b296eb7f0f7656a5cc19724f40a8a7121b7fd725278b7d61dc91fe0b7ffd7c0e
+      sizeBytes: 18897442
+    - names:
+      - docker.io/kindest/local-path-provisioner:v0.0.22-kind.0
+      sizeBytes: 17375346
+    - names:
+      - registry.k8s.io/coredns/coredns:v1.9.3
+      sizeBytes: 14837849
+    - names:
+      - docker.io/kindest/local-path-helper:v20220607-9a4d8d2a
+      sizeBytes: 2859509
+    - names:
+      - registry.k8s.io/pause:3.7
+      sizeBytes: 311278
+    nodeInfo:
+      architecture: amd64
+      bootID: 491dd08f-f648-4dcb-8da4-6a1c9fd723fc
+      containerRuntimeVersion: containerd://1.6.9
+      kernelVersion: 6.1.7-200.fc37.x86_64
+      kubeProxyVersion: v1.26.0
+      kubeletVersion: v1.26.0
+      machineID: 2475884d334645cdb22595ea70aba795
+      operatingSystem: linux
+      osImage: Ubuntu 22.04.1 LTS
+      systemUUID: fb726b39-17c6-4467-9dd4-6f3967ef6bd7
+- apiVersion: cilium.io/v2
+  kind: CiliumNode
+  metadata:
+    creationTimestamp: "2023-02-02T01:21:03Z"
+    generation: 1
+    labels:
+      beta.kubernetes.io/arch: amd64
+      beta.kubernetes.io/os: linux
+      kubernetes.io/arch: amd64
+      kubernetes.io/hostname: graceful-term-control-plane
+      kubernetes.io/os: linux
+      node-role.kubernetes.io/control-plane: ""
+      node.kubernetes.io/exclude-from-external-load-balancers: ""
+    name: graceful-term-control-plane
+    ownerReferences:
+    - apiVersion: v1
+      kind: Node
+      name: graceful-term-control-plane
+      uid: a46c19ea-cca2-40e5-b75f-f8a4d3da17b8
+    resourceVersion: "594"
+    uid: 57e57315-c41a-40cf-952c-35bd92734639
+  spec:
+    addresses:
+    - ip: 172.18.0.2
+      type: InternalIP
+    - ip: 10.244.0.178
+      type: CiliumInternalIP
+    alibaba-cloud: {}
+    azure: {}
+    encryption: {}
+    eni: {}
+    health:
+      ipv4: 10.244.0.220
+    ingress: {}
+    ipam:
+      podCIDRs:
+      - 10.244.0.0/24
+- apiVersion: v1
+  kind: Service
+  metadata:
+    creationTimestamp: "2023-02-02T01:20:07Z"
+    labels:
+      component: apiserver
+      provider: kubernetes
+    name: kubernetes
+    namespace: default
+    resourceVersion: "196"
+    uid: 6a3ab954-6d81-4f14-80ec-853cc08552a2
+  spec:
+    clusterIP: 10.96.0.1
+    clusterIPs:
+    - 10.96.0.1
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 6443
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1
+  endpoints:
+  - addresses:
+    - 172.18.0.2
+    conditions:
+      ready: true
+  kind: EndpointSlice
+  metadata:
+    creationTimestamp: "2023-02-02T01:20:07Z"
+    generation: 1
+    labels:
+      kubernetes.io/service-name: kubernetes
+    name: kubernetes
+    namespace: default
+    resourceVersion: "199"
+    uid: 9945e197-cc65-48a7-86e4-3fd956226b37
+  ports:
+  - name: https
+    port: 6443
+    protocol: TCP
+kind: List
+metadata:
+  resourceVersion: ""

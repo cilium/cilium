@@ -1,0 +1,24 @@
+{{- if and
+  (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer)
+  (ne .Values.clustermesh.apiserver.tls.authMode "legacy")
+}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clustermesh-remote-users
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.clustermesh.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+data:
+  users.yaml: |
+    users:
+    {{- range .Values.clustermesh.config.clusters }}
+    - name: remote-{{ .name }}
+      role: remote
+    {{- end }}
+{{- end }}
