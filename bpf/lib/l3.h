@@ -81,7 +81,6 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
  * policy (the cil_to_container BPF program) is bypassed.
  */
 #if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
-    !defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE) && \
     !defined(ENABLE_HOST_ROUTING)
 	set_identity_mark(ctx, seclabel, magic);
 
