@@ -607,7 +607,7 @@ BGP Control Plane
 ====================== ============================================= ======== ===================================================================
 Name                   Labels                                        Default  Description
 ====================== ============================================= ======== ===================================================================
-``session_state``      ``vrouter``, ``neighbor``                     Enabled  Current state of the BGP session with the peer, Up = 1 or Down = 0
+``session_state``      ``vrouter``, ``neighbor``, ``neighbor_asn``   Enabled  Current state of the BGP session with the peer, Up = 1 or Down = 0
 ``advertised_routes``  ``vrouter``, ``neighbor``, ``afi``, ``safi``  Enabled  Number of routes advertised to the peer
 ``received_routes``    ``vrouter``, ``neighbor``, ``afi``, ``safi``  Enabled  Number of routes received from the peer
 ====================== ============================================= ======== ===================================================================

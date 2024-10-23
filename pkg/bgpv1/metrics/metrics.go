@@ -20,10 +20,11 @@ import (
 )
 
 const (
-	LabelVRouter  = "vrouter"
-	LabelNeighbor = "neighbor"
-	LabelAfi      = "afi"
-	LabelSafi     = "safi"
+	LabelVRouter     = "vrouter"
+	LabelNeighbor    = "neighbor"
+	LabelNeighborAsn = "neighbor_asn"
+	LabelAfi         = "afi"
+	LabelSafi        = "safi"
 
 	metricsSubsystem = "bgp_control_plane"
 )
@@ -62,7 +63,7 @@ func RegisterCollector(in collectorIn) {
 		SessionState: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, metricsSubsystem, "session_state"),
 			"Current state of the BGP session with the peer, Up = 1 or Down = 0",
-			[]string{LabelVRouter, LabelNeighbor}, nil,
+			[]string{LabelVRouter, LabelNeighbor, LabelNeighborAsn}, nil,
 		),
 		TotalAdvertisedRoutes: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, metricsSubsystem, "advertised_routes"),
@@ -111,6 +112,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 		}
 
 		neighborLabel := netip.AddrPortFrom(addr, uint16(peer.PeerPort)).String()
+		neighborAsnLabel := strconv.FormatInt(peer.PeerAsn, 10)
 
 		// Collect session state metrics
 		var up float64
@@ -125,6 +127,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 			up,
 			vrouterLabel,
 			neighborLabel,
+			neighborAsnLabel,
 		)
 
 		// Collect route metrics per address family
