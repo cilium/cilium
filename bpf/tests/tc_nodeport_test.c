@@ -15,9 +15,8 @@
 /* Enable code paths under test*/
 #define ENABLE_IPV4
 
-/* Skip ingress policy checks, not needed to validate hairpin flow */
+/* Skip ingress policy checks */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
-#undef FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
 
 #define ctx_redirect_peer mock_ctx_redirect_peer
 static __always_inline __maybe_unused int

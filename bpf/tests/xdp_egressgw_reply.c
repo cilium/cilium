@@ -19,7 +19,7 @@
 
 #define DISABLE_LOOPBACK_LB
 
-/* Skip ingress policy checks, not needed to validate hairpin flow */
+/* Skip ingress policy checks */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 
 #define IPV4_DIRECT_ROUTING	v4_node_one /* gateway node */
