@@ -360,8 +360,38 @@ depending on the external and internal traffic policies:
 | Local    | Local    | Node-local only         | Node-local only       |
 +----------+----------+-------------------------+-----------------------+
 
-Selective Service Exposure
-**************************
+Selective Service Type Exposure
+*******************************
+
+By default, for a ``LoadBalancer`` service Cilium exposes corresponding
+``NodePort`` and ``ClusterIP`` services. Likewise, for a new ``NodePort``
+service, Cilium exposes the corresponding ``ClusterIP`` service.
+
+If this behavior is not desired, then the ``service.cilium.io/type``
+annotation can be used to pin the service creation only to a specific
+service type:
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/type: LoadBalancer
+  spec:
+    ports:
+      - port: 80
+        targetPort: 80
+    type: LoadBalancer
+
+In the above example only the ``LoadBalancer`` service is created without
+corresponding ``NodePort`` and ``ClusterIP`` services. If the annotation
+would be set to e.g. ``service.cilium.io/type: NodePort``, then only the
+``NodePort`` service would be installed.
+
+Selective Service Node Exposure
+*******************************
 
 By default, Cilium exposes Kubernetes services on all nodes in the cluster. To expose a
 service only on a subset of the nodes instead, use the ``service.cilium.io/node`` label for
