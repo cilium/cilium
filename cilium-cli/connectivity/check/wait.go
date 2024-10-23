@@ -166,7 +166,7 @@ func WaitForServiceRetrieval(ctx context.Context, log Logger, client *k8s.Client
 func WaitForService(ctx context.Context, log Logger, client Pod, service Service) error {
 	log.Logf("⌛ [%s] Waiting for Service %s to become ready...", client.K8sClient.ClusterName(), service.Name())
 
-	ctx, cancel := context.WithTimeout(ctx, ShortTimeout)
+	ctx, cancel := context.WithTimeout(ctx, 2*ShortTimeout)
 	defer cancel()
 
 	if service.Service.Spec.ClusterIP == corev1.ClusterIPNone {
