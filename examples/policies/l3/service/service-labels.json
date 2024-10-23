@@ -12,7 +12,7 @@
                     "k8sServiceSelector": {
                         "selector": {
                             "matchLabels": {
-                                "external": "yes"
+                                "serviceName": "myservice"
                             }
                         }
                     }
