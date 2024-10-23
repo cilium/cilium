@@ -683,6 +683,9 @@ const (
 	// SRv6EncapModeName is the name of the option to specify the SRv6 encapsulation mode
 	SRv6EncapModeName = "srv6-encap-mode"
 
+	// SRv6FlowLabelMode is the name of the option to specify the SRv6 flow label calculation mode
+	SRv6FlowLabelMode = "srv6-flowlabel-mode"
+
 	// EnableSCTPName is the name of the option to enable SCTP support
 	EnableSCTPName = "enable-sctp"
 

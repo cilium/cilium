@@ -288,6 +288,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.SRv6EncapMode != "reduced" {
 			cDefinesMap["ENABLE_SRV6_SRH_ENCAP"] = "1"
 		}
+		if option.Config.SRv6FlowLabelMode == "port" {
+			cDefinesMap["ENABLE_SRV6_FLOW_LABEL_PORT"] = "1"
+		}
 	}
 
 	if option.Config.EnableSCTP {

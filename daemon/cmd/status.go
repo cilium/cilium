@@ -144,8 +144,9 @@ func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
 
 func (d *Daemon) getSRv6Status() *models.Srv6 {
 	return &models.Srv6{
-		Enabled:       option.Config.EnableSRv6,
-		Srv6EncapMode: option.Config.SRv6EncapMode,
+		Enabled:           option.Config.EnableSRv6,
+		Srv6EncapMode:     option.Config.SRv6EncapMode,
+		Srv6FlowLabelMode: option.Config.SRv6FlowLabelMode,
 	}
 }
 

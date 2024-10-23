@@ -298,6 +298,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.SRv6EncapModeName)
 	option.BindEnv(vp, option.SRv6EncapModeName)
 
+	flags.String(option.SRv6FlowLabelModeName, defaults.SRv6FlowLabelMode, "Flow Label calculation mode for SRv6 (\"none\" or \"port\")")
+	flags.MarkHidden(option.SRv6FlowLabelModeName)
+	option.BindEnv(vp, option.SRv6FlowLabelModeName)
+
 	flags.Bool(option.EnableSCTPName, defaults.EnableSCTP, "Enable SCTP support (beta)")
 	option.BindEnv(vp, option.EnableSCTPName)
 
